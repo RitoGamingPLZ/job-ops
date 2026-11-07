@@ -9,7 +9,7 @@ const source: WatchlistSelectedSource = {
   label: "My filtered search",
   sourceType: "apple",
   careersUrl:
-    "https://jobs.apple.com/en-us/search?search=engineer&location=united-states-USA&page=9&sort=relevance",
+    "https://jobs.apple.com/en-us/search?search=engineer&location=united-states-USA&page=9&sort=relevance&team=SFTWR-CLD+HRDWR-ESFD",
   cxsJobsUrl: null,
   isCustom: false,
   sortOrder: 0,
@@ -73,10 +73,21 @@ describe("appleWatchlistAdapter", () => {
         label: "Apple",
         sourceType: "apple",
         cxsJobsUrl: null,
-        careersUrl: "https://jobs.apple.com/en-us/search?page=1&sort=newest",
+        careersUrl:
+          "https://jobs.apple.com/en-us/search?page=1&sort=newest&team=HRDWR-ACT+HRDWR-ADD+HRDWR-ARCH+HRDWR-BE+HRDWR-CAM+HRDWR-CWSC+HRDWR-DISP+HRDWR-ESFD+HRDWR-EPM+HRDWR-HT+HRDWR-ICP+HRDWR-MCHLN+HRDWR-MAE+HRDWR-ME+HRDWR-PS+HRDWR-PPT+HRDWR-PACE+HRDWR-PDE+HRDWR-REL+HRDWR-SENT+HRDWR-SILT+HRDWR-SQATV+HRDWR-SPC+HRDWR-SDE+HRDWR-VMAT+SFTWR-AF+SFTWR-CP+SFTWR-CLD+SFTWR-DSR+SFTWR-EPM+SFTWR-GPUG+SFTWR-ISTECH+SFTWR-MCHLN+SFTWR-COS+SFTWR-PD+SFTWR-SEC+SFTWR-SQAT+SFTWR-SC+SFTWR-TS+SFTWR-UEE+SFTWR-VMAT+SFTWR-WSFT",
       },
     ]);
     expect(adapter.catalogSchema.safeParse(entries[0]).success).toBe(true);
+    const catalogUrl = new URL(
+      adapter.parseCatalogSources(entries)[0].careersUrl,
+    );
+    expect(catalogUrl.toString().length).toBeLessThanOrEqual(2000);
+    const teams = catalogUrl.searchParams.get("team")?.split(" ") ?? [];
+    expect(teams).toHaveLength(42);
+    expect(teams.every((team) => /^(SFTWR|HRDWR)-[A-Z]+$/.test(team))).toBe(
+      true,
+    );
+    expect(teams).toEqual(expect.arrayContaining(["SFTWR-CLD", "HRDWR-ESFD"]));
   });
 
   it("keeps search filters and canonicalizes pagination, sort, labels and fragments", () => {
@@ -88,7 +99,7 @@ describe("appleWatchlistAdapter", () => {
     ).toEqual({
       label: "Engineering",
       careersUrl:
-        "https://jobs.apple.com/en-us/search?location=united-states-USA&page=1&search=engineer&sort=newest",
+        "https://jobs.apple.com/en-us/search?location=united-states-USA&page=1&search=engineer&sort=newest&team=SFTWR-CLD+HRDWR-ESFD",
     });
     expect(
       adapter.normalizeCustomSelection({
@@ -152,7 +163,8 @@ describe("appleWatchlistAdapter", () => {
         (url) =>
           url.includes("search=engineer") &&
           url.includes("sort=newest") &&
-          url.includes("location=united-states-USA"),
+          url.includes("location=united-states-USA") &&
+          new URL(url).searchParams.get("team") === "SFTWR-CLD HRDWR-ESFD",
       ),
     ).toBe(true);
   });
