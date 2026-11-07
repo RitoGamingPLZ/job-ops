@@ -1,4 +1,5 @@
 import { setTimeout as delay } from "node:timers/promises";
+import { logger } from "@infra/logger";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
@@ -20,6 +21,7 @@ const boards = {
   },
 } as const;
 const MAX_JOBS = 40;
+const LIST_RATE_LIMIT_BACKOFF_MS = [1000, 3000, 8000] as const;
 const catalogSchema = z.object({
   label: z.string().trim().min(1).max(200),
   careersUrl: z.string().trim().url().max(2000),
@@ -74,7 +76,30 @@ function callSignal(signal?: AbortSignal) {
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
-async function fetchJson(url: URL, signal: AbortSignal): Promise<unknown> {
+async function responsePrefix(response: Response): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+  const decoder = new TextDecoder();
+  let prefix = "";
+  try {
+    while (prefix.length < 200) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      prefix += decoder.decode(value, { stream: true });
+    }
+    return prefix.slice(0, 200);
+  } catch {
+    return "[unavailable]";
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+}
+
+async function fetchJson(
+  url: URL,
+  signal: AbortSignal,
+  kind: "list" | "detail",
+): Promise<unknown> {
   for (let attempt = 0; ; attempt++) {
     signal.throwIfAborted();
     const response = await fetch(url.toString(), {
@@ -82,23 +107,55 @@ async function fetchJson(url: URL, signal: AbortSignal): Promise<unknown> {
       redirect: "error",
       headers: { accept: "application/json" },
     });
-    if (response.status === 429 && attempt < 2) {
+    if (response.status === 429) {
+      logger.warn("Eightfold request rate limited", {
+        host: url.hostname,
+        start: url.searchParams.get("start"),
+        attempt: attempt + 1,
+        status: response.status,
+        headers: {
+          server: response.headers.get("server"),
+          "x-azure-ref": response.headers.get("x-azure-ref"),
+          "x-cache": response.headers.get("x-cache"),
+          // Cookie values may contain session identifiers; retain names only.
+          responseStateNames: response.headers
+            .getSetCookie()
+            .map((cookie) => cookie.split("=", 1)[0].trim()),
+        },
+        bodyPrefix: await responsePrefix(response),
+      });
+    }
+    if (
+      response.status === 429 &&
+      attempt <
+        (kind === "detail"
+          ? 1
+          : response.headers.has("retry-after")
+            ? 2
+            : LIST_RATE_LIMIT_BACKOFF_MS.length)
+    ) {
       const retryAfter = response.headers.get("retry-after");
       const seconds = retryAfter === null ? Number.NaN : Number(retryAfter);
       const requestedDelay = Number.isFinite(seconds)
         ? seconds * 1000
         : Date.parse(retryAfter ?? "") - Date.now();
-      await response.body?.cancel();
+      if (!response.bodyUsed) await response.body?.cancel();
       await delay(
-        Math.min(2000, Math.max(250 * 2 ** attempt, requestedDelay || 0)),
+        kind === "detail"
+          ? 1000
+          : retryAfter === null
+            ? LIST_RATE_LIMIT_BACKOFF_MS[attempt]
+            : Math.min(2000, Math.max(250 * 2 ** attempt, requestedDelay || 0)),
         undefined,
         { signal },
       );
       continue;
     }
     if (!response.ok) {
-      await response.body?.cancel();
-      throw new Error(`Eightfold request failed with HTTP ${response.status}.`);
+      if (!response.bodyUsed) await response.body?.cancel();
+      throw new Error(
+        `Eightfold request failed with HTTP ${response.status} (host=${url.hostname}, start=${url.searchParams.get("start") ?? "n/a"}, attempt=${attempt + 1}).`,
+      );
     }
     try {
       return await response.json();
@@ -175,7 +232,7 @@ async function loadDetails(input: {
   );
   url.searchParams.set("domain", context.board.domain);
   if (context.board.api === "pcsx") url.searchParams.set("position_id", id);
-  const payload = await fetchJson(url, callSignal(input.signal));
+  const payload = await fetchJson(url, callSignal(input.signal), "detail");
   const position = parsePayload(
     positionSchema,
     context.board.api === "pcsx" ? unwrapPcsx(payload) : payload,
@@ -300,7 +357,7 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       if (context.board.api === "apply") {
         url.searchParams.set("num", String(MAX_JOBS));
       }
-      const payload = await fetchJson(url, signal);
+      const payload = await fetchJson(url, signal, "list");
       const response = parsePayload(
         searchSchema,
         context.board.api === "pcsx" ? unwrapPcsx(payload) : payload,
