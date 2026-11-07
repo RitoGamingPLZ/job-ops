@@ -26,7 +26,7 @@ type AmazonJob = z.infer<typeof jobSchema>;
 const responseSchema = z.object({
   error: z.unknown().optional(),
   hits: z.number().nonnegative(),
-  jobs: z.array(jobSchema),
+  jobs: z.array(z.unknown()),
 });
 
 function normalizeSearch(value: string): URL {
@@ -92,12 +92,25 @@ function jobUrl(job: AmazonJob): string {
   return url.href;
 }
 
+function validJobs(entries: unknown[]): AmazonJob[] {
+  return entries.flatMap((entry) => {
+    const parsed = jobSchema.safeParse(entry);
+    if (!parsed.success) return [];
+    try {
+      jobUrl(parsed.data);
+      return [parsed.data];
+    } catch {
+      return [];
+    }
+  });
+}
+
 async function getJob(jobRef: string, signal?: AbortSignal) {
   if (!/^\d+$/.test(jobRef)) throw new Error("Invalid Amazon job reference.");
   const url = searchEndpoint(`${ORIGIN}/en/search`);
   url.searchParams.set("base_query", jobRef);
   const result = await search(url, signal);
-  const job = result.jobs.find((entry) => entry.id_icims === jobRef);
+  const job = validJobs(result.jobs).find((entry) => entry.id_icims === jobRef);
   if (!job) throw new Error("Amazon job was not found.");
   return job;
 }
@@ -115,7 +128,7 @@ function descriptionHtml(job: AmazonJob): string {
 }
 
 function postedAt(job: AmazonJob): string | null {
-  const timestamp = Date.parse(job.posted_date ?? "");
+  const timestamp = Date.parse(`${job.posted_date} UTC`);
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
 }
 
@@ -171,7 +184,7 @@ export const amazonWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       searchEndpoint(input.source.careersUrl),
       input.signal,
     );
-    const jobs = result.jobs
+    const jobs = validJobs(result.jobs)
       .map((job) => ({
         jobRef: job.id_icims,
         source: "amazon",
@@ -189,7 +202,6 @@ export const amazonWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     return { total: result.hits, fetched: jobs.length, jobs };
   },
   async fetchJobDetails(input) {
-    normalizeSearch(input.source.careersUrl);
     const job = await getJob(input.jobRef, input.signal);
     return {
       jobRef: input.jobRef,
@@ -198,7 +210,6 @@ export const amazonWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     };
   },
   async prepareImportDraft(input) {
-    normalizeSearch(input.source.careersUrl);
     const job = await getJob(input.jobRef, input.signal);
     return {
       source: "amazon",

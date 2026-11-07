@@ -28,11 +28,12 @@ const job = {
   basic_qualifications: "<p>TypeScript</p>",
   preferred_qualifications: "<p>Cloud experience</p>",
 };
-function response(jobs = [job], hits = jobs.length) {
+function response(jobs: unknown[] = [job], hits = jobs.length) {
   return new Response(JSON.stringify({ error: null, hits, jobs }));
 }
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.useRealTimers();
 });
 
@@ -91,7 +92,15 @@ describe("amazonWatchlistAdapter", () => {
       ...job,
       id_icims: String(i + 1),
       job_path: `/en/jobs/${i + 1}/role`,
-      posted_date: new Date(Date.UTC(2026, 0, i + 1)).toISOString(),
+      posted_date: new Date(Date.UTC(2026, 0, i + 1)).toLocaleDateString(
+        "en-US",
+        {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          timeZone: "UTC",
+        },
+      ),
     }));
     const fetchMock = vi.fn().mockResolvedValue(response(jobs, 1000));
     vi.stubGlobal("fetch", fetchMock);
@@ -117,6 +126,49 @@ describe("amazonWatchlistAdapter", () => {
       result_limit: "40",
       sort: "recent",
     });
+  });
+  it.each([
+    "America/Los_Angeles",
+    "Asia/Tokyo",
+  ])("parses posted dates as UTC in %s", async (timezone) => {
+    vi.stubEnv("TZ", timezone);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response()));
+    const result = await adapter.fetchJobs({ source });
+    expect(result.jobs[0].postedAt).toBe("2026-11-06T00:00:00.000Z");
+  });
+  it("skips malformed entries in search and exact-ID re-queries", async () => {
+    const entries = [
+      null,
+      { ...job, title: null },
+      { ...job, job_path: "https://evil.test/en/jobs/123/role" },
+      job,
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() => Promise.resolve(response(entries))),
+    );
+    const result = await adapter.fetchJobs({ source });
+    expect(result).toMatchObject({
+      total: 4,
+      fetched: 1,
+      jobs: [{ sourceJobId: "123" }],
+    });
+    await expect(
+      adapter.fetchJobDetails({ source, jobRef: "123" }),
+    ).resolves.toMatchObject({
+      jobRef: "123",
+      jobUrl: "https://www.amazon.jobs/en/jobs/123/software-engineer",
+    });
+    await expect(
+      adapter.prepareImportDraft({ source, jobRef: "123" }),
+    ).resolves.toMatchObject({ draft: { sourceJobId: "123" } });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(response(entries.slice(0, 3))),
+    );
+    await expect(
+      adapter.prepareImportDraft({ source, jobRef: "123" }),
+    ).rejects.toThrow("not found");
   });
   it("re-queries the exact ID independently of source filters for details and import", async () => {
     const fetchMock = vi
@@ -146,7 +198,7 @@ describe("amazonWatchlistAdapter", () => {
       expect(url.searchParams.has("loc_query")).toBe(false);
     }
   });
-  it("rejects missing exact IDs and unsafe upstream job URLs", async () => {
+  it("rejects missing exact IDs and drops unsafe upstream job URLs", async () => {
     vi.stubGlobal(
       "fetch",
       vi
@@ -161,9 +213,11 @@ describe("amazonWatchlistAdapter", () => {
     await expect(
       adapter.prepareImportDraft({ source, jobRef: "999" }),
     ).rejects.toThrow("not found");
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      "Invalid Amazon job URL",
-    );
+    await expect(adapter.fetchJobs({ source })).resolves.toMatchObject({
+      total: 1,
+      fetched: 0,
+      jobs: [],
+    });
     await expect(
       adapter.fetchJobDetails({ source, jobRef: "https://evil.test" }),
     ).rejects.toThrow("reference");
@@ -178,11 +232,14 @@ describe("amazonWatchlistAdapter", () => {
         ),
       );
     vi.stubGlobal("fetch", fetchMock);
-    const pending = expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      "HTTP 429",
-    );
+    const pending = adapter
+      .fetchJobs({ source })
+      .catch((error: unknown) => error);
     await vi.runAllTimersAsync();
-    await pending;
+    const error = await pending;
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain("HTTP 429");
+    expect((error as Error).message).not.toContain("sensitive upstream body");
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
   it("retries a transient 429 and respects cancellation", async () => {
