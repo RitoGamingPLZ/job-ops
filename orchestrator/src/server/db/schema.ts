@@ -585,6 +585,21 @@ export const settings = sqliteTable(
   }),
 );
 
+// Explicitly global: recipes contain only public site extraction instructions.
+export const siteRecipes = sqliteTable("site_recipes", {
+  id: text("id").primaryKey(),
+  host: text("host").notNull().unique(),
+  tier: integer("tier").notNull(),
+  recipe: text("recipe"),
+  version: integer("version").notNull().default(1),
+  learnedAt: text("learned_at").notNull(),
+  lastSuccessAt: text("last_success_at"),
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+  blockedReason: text("blocked_reason"),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+});
+
 export const watchlistJobStates = sqliteTable(
   "watchlist_job_states",
   {
@@ -1176,3 +1191,5 @@ export type TracerLinkRow = typeof tracerLinks.$inferSelect;
 export type NewTracerLinkRow = typeof tracerLinks.$inferInsert;
 export type TracerClickEventRow = typeof tracerClickEvents.$inferSelect;
 export type NewTracerClickEventRow = typeof tracerClickEvents.$inferInsert;
+export type SiteRecipeRow = typeof siteRecipes.$inferSelect;
+export type NewSiteRecipeRow = typeof siteRecipes.$inferInsert;
