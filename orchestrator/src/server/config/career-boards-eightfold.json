@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "label": "Microsoft",
+    "careersUrl": "https://apply.careers.microsoft.com/careers?query=software"
+  },
+  {
+    "label": "Netflix",
+    "careersUrl": "https://explore.jobs.netflix.net/careers?query=software"
+  }
+]
