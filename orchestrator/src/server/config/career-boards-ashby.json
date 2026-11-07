@@ -1,1 +1,30 @@
-[]
+[
+  {
+    "label": "OpenAI",
+    "ashbyUrl": "https://jobs.ashbyhq.com/openai"
+  },
+  {
+    "label": "Snowflake",
+    "ashbyUrl": "https://jobs.ashbyhq.com/snowflake"
+  },
+  {
+    "label": "Ramp",
+    "ashbyUrl": "https://jobs.ashbyhq.com/ramp"
+  },
+  {
+    "label": "Notion",
+    "ashbyUrl": "https://jobs.ashbyhq.com/notion"
+  },
+  {
+    "label": "Plaid",
+    "ashbyUrl": "https://jobs.ashbyhq.com/plaid"
+  },
+  {
+    "label": "Supabase",
+    "ashbyUrl": "https://jobs.ashbyhq.com/supabase"
+  },
+  {
+    "label": "Linear",
+    "ashbyUrl": "https://jobs.ashbyhq.com/linear"
+  }
+]
