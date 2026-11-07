@@ -6,5 +6,133 @@
   {
     "label": "Riot Games",
     "greenhouseUrl": "https://job-boards.greenhouse.io/riotgames"
+  },
+  {
+    "label": "Stripe",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/stripe"
+  },
+  {
+    "label": "Airbnb",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/airbnb"
+  },
+  {
+    "label": "Databricks",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/databricks"
+  },
+  {
+    "label": "Datadog",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/datadog"
+  },
+  {
+    "label": "Cloudflare",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/cloudflare"
+  },
+  {
+    "label": "Anthropic",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/anthropic"
+  },
+  {
+    "label": "Pinterest",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/pinterest"
+  },
+  {
+    "label": "Dropbox",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/dropbox"
+  },
+  {
+    "label": "Reddit",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/reddit"
+  },
+  {
+    "label": "Figma",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/figma"
+  },
+  {
+    "label": "Discord",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/discord"
+  },
+  {
+    "label": "DoorDash",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/doordashusa"
+  },
+  {
+    "label": "Lyft",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/lyft"
+  },
+  {
+    "label": "Coinbase",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/coinbase"
+  },
+  {
+    "label": "Roblox",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/roblox"
+  },
+  {
+    "label": "GitLab",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/gitlab"
+  },
+  {
+    "label": "HubSpot",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/hubspotjobs"
+  },
+  {
+    "label": "Block",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/block"
+  },
+  {
+    "label": "Elastic",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/elastic"
+  },
+  {
+    "label": "MongoDB",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/mongodb"
+  },
+  {
+    "label": "Okta",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/okta"
+  },
+  {
+    "label": "Samsara",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/samsara"
+  },
+  {
+    "label": "Brex",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/brex"
+  },
+  {
+    "label": "Robinhood",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/robinhood"
+  },
+  {
+    "label": "Twilio",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/twilio"
+  },
+  {
+    "label": "Asana",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/asana"
+  },
+  {
+    "label": "Instacart",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/instacart"
+  },
+  {
+    "label": "Vercel",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/vercel"
+  },
+  {
+    "label": "Duolingo",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/duolingo"
+  },
+  {
+    "label": "Twitch",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/twitch"
+  },
+  {
+    "label": "Squarespace",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/squarespace"
+  },
+  {
+    "label": "Grafana Labs",
+    "greenhouseUrl": "https://job-boards.greenhouse.io/grafanalabs"
   }
 ]
