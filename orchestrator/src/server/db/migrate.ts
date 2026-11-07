@@ -421,6 +421,20 @@ const migrations = [
     UNIQUE(tenant_id, user_id, careers_url)
   )`,
 
+  `CREATE TABLE IF NOT EXISTS site_recipes (
+    id TEXT PRIMARY KEY,
+    host TEXT NOT NULL UNIQUE,
+    tier INTEGER NOT NULL,
+    recipe TEXT,
+    version INTEGER NOT NULL DEFAULT 1,
+    learned_at TEXT NOT NULL,
+    last_success_at TEXT,
+    consecutive_failures INTEGER NOT NULL DEFAULT 0,
+    blocked_reason TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+
   `CREATE TABLE IF NOT EXISTS analytics_install_state (
     id TEXT PRIMARY KEY,
     distinct_id TEXT NOT NULL,

@@ -59,7 +59,7 @@ export type Recipe = z.infer<typeof recipeSchema>;
 /** One row of the site_recipes table, as the repository returns it. */
 export interface SiteRecipeRecord {
   host: string; // lowercased hostname, e.g. "www.okta.com"
-  recipe: Recipe;
+  recipe: Recipe | null; // null when the host was marked blocked before any recipe was learned
   learnedAt: string; // ISO
   lastSuccessAt: string | null;
   consecutiveFailures: number;
