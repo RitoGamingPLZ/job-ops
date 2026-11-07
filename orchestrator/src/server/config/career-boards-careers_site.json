@@ -1,1 +1,54 @@
-[]
+[
+  {
+    "label": "Okta",
+    "careersUrl": "https://www.okta.com/company/careers/"
+  },
+  {
+    "label": "Plaid",
+    "careersUrl": "https://plaid.com/careers/"
+  },
+  {
+    "label": "Intuit",
+    "careersUrl": "https://jobs.intuit.com/"
+  },
+  {
+    "label": "Instacart",
+    "careersUrl": "https://www.instacart.careers/"
+  },
+  {
+    "label": "Snowflake",
+    "careersUrl": "https://careers.snowflake.com/us/en"
+  },
+  {
+    "label": "Stripe",
+    "careersUrl": "https://stripe.com/jobs"
+  },
+  {
+    "label": "Airbnb",
+    "careersUrl": "https://careers.airbnb.com/"
+  },
+  {
+    "label": "Databricks",
+    "careersUrl": "https://www.databricks.com/company/careers"
+  },
+  {
+    "label": "Atlassian",
+    "careersUrl": "https://www.atlassian.com/company/careers"
+  },
+  {
+    "label": "Shopify",
+    "careersUrl": "https://www.shopify.com/careers"
+  },
+  {
+    "label": "Vercel",
+    "careersUrl": "https://vercel.com/careers"
+  },
+  {
+    "label": "Linear",
+    "careersUrl": "https://linear.app/careers"
+  },
+  {
+    "label": "Brex",
+    "careersUrl": "https://www.brex.com/careers"
+  }
+]
