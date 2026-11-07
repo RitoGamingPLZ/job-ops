@@ -1,0 +1,492 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { isAllowedByRobots, loadPage } from "./fetch";
+import { extractJob, runRecipe } from "./run-recipe";
+import { type Recipe, SiteBlockedError } from "./types";
+
+vi.mock("./fetch", () => ({
+  loadPage: vi.fn(),
+  isAllowedByRobots: vi.fn(),
+}));
+const base = "https://careers.example.com";
+const recipe: Recipe = {
+  version: 1,
+  jobUrlPattern: "/jobs/\\d+$",
+  jobIdPattern: "/jobs/(\\d+)$",
+  listing: { kind: "sitemap", url: `${base}/sitemap.xml` },
+  detail: { kind: "jsonld" },
+};
+const posting = (title = "Engineer") =>
+  `<script type="application/ld+json">${JSON.stringify({
+    "@type": "JobPosting",
+    title,
+    description: "<p>Build useful things.</p>",
+    hiringOrganization: { name: "Example" },
+    datePosted: "2026-11-07",
+    jobLocation: [
+      {
+        address: {
+          addressLocality: "Toronto",
+          addressRegion: "ON",
+          addressCountry: "CA",
+        },
+      },
+      { name: "Remote" },
+    ],
+  })}</script>`;
+const sitemap = (entries: [string, string?][]) =>
+  `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries.map(([url, date]) => `<url><loc>${url.replaceAll("&", "&amp;")}</loc>${date ? `<lastmod>${date}</lastmod>` : ""}</url>`).join("")}</urlset>`;
+const index = (...urls: string[]) =>
+  `<sitemapindex>${urls.map((url) => `<sitemap><loc>${url}</loc></sitemap>`).join("")}</sitemapindex>`;
+
+function pages(values: Record<string, string | Error>) {
+  vi.mocked(loadPage).mockImplementation(async (url) => {
+    const value = values[url];
+    if (value instanceof Error) throw value;
+    if (value === undefined) throw new Error("Missing fixture");
+    return { url, status: 200, html: value };
+  });
+}
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(isAllowedByRobots).mockResolvedValue(true);
+});
+
+describe("extractJob", () => {
+  it("maps public structured data and URL ids", () => {
+    expect(extractJob(posting(), `${base}/jobs/42`, recipe)).toEqual({
+      id: "42",
+      url: `${base}/jobs/42`,
+      title: "Engineer",
+      employer: "Example",
+      location: "Toronto, ON, CA; Remote",
+      postedAt: "2026-11-07T00:00:00.000Z",
+      descriptionHtml: "<p>Build useful things.</p>",
+    });
+  });
+  it("reads plain address strings used by current Okta JobPostings", () => {
+    const html = `<script type="application/ld+json">${JSON.stringify({
+      "@type": "JobPosting",
+      title: "Engineer",
+      description: "Details",
+      jobLocation: [{ "@type": "Place", address: "Manila, Philippines" }],
+    })}</script>`;
+    expect(extractJob(html, `${base}/jobs/42`, recipe)?.location).toBe(
+      "Manila, Philippines",
+    );
+  });
+  it("finds JSON-LD arrays and graphs after malformed scripts without executing scripts", () => {
+    const html = `<script>throw new Error('never execute')</script><script type="application/ld+json">invalid</script><script type="application/ld+json">${JSON.stringify(
+      [
+        { "@type": "Organization" },
+        {
+          "@graph": [
+            {
+              "@type": ["Thing", "JobPosting"],
+              title: "Role",
+              description: "Details",
+              datePosted: "bad",
+            },
+          ],
+        },
+      ],
+    )}</script>`;
+    expect(
+      extractJob(html, `${base}/jobs/1`, {
+        ...recipe,
+        jobIdPattern: undefined,
+      }),
+    ).toMatchObject({
+      id: `${base}/jobs/1`,
+      title: "Role",
+      employer: null,
+      location: null,
+      postedAt: null,
+    });
+  });
+  it("reads nested microdata, content attributes, HTML descriptions and repeated locations", () => {
+    const html = `<article itemscope itemtype="http://schema.org/JobPosting">
+      <h1 itemprop="title"> Developer </h1><section itemprop="description"><p>Hello <b>world</b></p></section>
+      <div itemprop="hiringOrganization" itemscope><span itemprop="name">Company</span></div>
+      <time itemprop="datePosted" datetime="2026-01-02">Jan 2</time>
+      <div itemprop="jobLocation" itemscope><div itemprop="address" itemscope>
+      <meta itemprop="addressLocality" content="London"><span itemprop="addressCountry">UK</span></div></div>
+      <div itemprop="jobLocation" itemscope><span itemprop="name">Remote</span></div></article>`;
+    expect(extractJob(html, `${base}/jobs/2`, recipe)).toMatchObject({
+      title: "Developer",
+      employer: "Company",
+      location: "London, UK; Remote",
+      postedAt: "2026-01-02T00:00:00.000Z",
+      descriptionHtml: "<p>Hello <b>world</b></p>",
+    });
+  });
+  it("reads selectors' first match and preserves description markup", () => {
+    const selectors: Recipe = {
+      ...recipe,
+      detail: {
+        kind: "selectors",
+        render: true,
+        title: "h1",
+        description: ".body",
+        location: ".location",
+        postedAt: "time",
+      },
+    };
+    expect(
+      extractJob(
+        '<h1>First</h1><h1>Second</h1><div class="body"><p>Work</p></div><span class="location">Remote</span><time datetime="2026-11-01">Sunday</time>',
+        `${base}/jobs/3`,
+        selectors,
+      ),
+    ).toMatchObject({
+      title: "First",
+      descriptionHtml: "<p>Work</p>",
+      location: "Remote",
+      postedAt: "2026-11-01T00:00:00.000Z",
+    });
+    expect(
+      extractJob("<h1>No body</h1>", `${base}/jobs/3`, selectors),
+    ).toBeNull();
+  });
+  it("returns null for invalid selectors", () => {
+    expect(
+      extractJob("<h1>Role</h1><main>Details</main>", `${base}/jobs/1`, {
+        ...recipe,
+        detail: {
+          kind: "selectors",
+          render: false,
+          title: "[",
+          description: "main",
+        },
+      }),
+    ).toBeNull();
+  });
+  it("skips overlong detail URLs before matching the ID pattern", () => {
+    const url = `${base}/jobs/${"1".repeat(2048)}`;
+    const exec = vi.spyOn(RegExp.prototype, "exec");
+    try {
+      expect(extractJob(posting(), url, recipe)).toBeNull();
+      expect(exec.mock.calls.some(([value]) => value === url)).toBe(false);
+    } finally {
+      exec.mockRestore();
+    }
+  });
+  it("rejects missing postings and incomplete structured data", () => {
+    expect(
+      extractJob(
+        '<script type="application/ld+json">{"@type":"JobPosting","title":"Incomplete"}</script>',
+        base,
+        recipe,
+      ),
+    ).toBeNull();
+    expect(extractJob("<h1>Not a job</h1>", base, recipe)).toBeNull();
+  });
+});
+
+describe("runRecipe", () => {
+  it("follows indexes to depth two, deduplicates, orders by lastmod and caps details", async () => {
+    pages({
+      [`${base}/sitemap.xml`]: index(
+        `${base}/nested.xml`,
+        `${base}/missing.xml`,
+        "https://other.example/sitemap.xml",
+      ),
+      [`${base}/nested.xml`]: index(`${base}/jobs.xml`, `${base}/too-deep.xml`),
+      [`${base}/jobs.xml`]: sitemap([
+        [`${base}/jobs/1`, "2025-01-01"],
+        [`${base}/jobs/2`, "2026-11-01"],
+        [`${base}/jobs/1`, "2026-11-03"],
+        [`${base}/jobs/3`],
+        [`${base}/about`],
+        ["https://other.example/jobs/4"],
+      ]),
+      [`${base}/too-deep.xml`]: index(`${base}/never.xml`),
+      [`${base}/jobs/1`]: posting("Newest"),
+      [`${base}/jobs/2`]: posting("Older"),
+    });
+    expect(
+      (await runRecipe(recipe, { limit: 2 })).map((job) => job.title),
+    ).toEqual(["Newest", "Older"]);
+    expect(vi.mocked(loadPage).mock.calls.map(([url]) => url)).not.toContain(
+      `${base}/never.xml`,
+    );
+    expect(vi.mocked(loadPage).mock.calls.map(([url]) => url)).not.toContain(
+      `${base}/jobs/3`,
+    );
+    expect(isAllowedByRobots).toHaveBeenCalledTimes(
+      vi.mocked(loadPage).mock.calls.length,
+    );
+  });
+  it.each([
+    ["/jobs/42", "/jobs/99", "42"],
+    ["/jobs/42", "/roles/engineer", "42"],
+    ["/roles/listed", "/jobs/99", "99"],
+    ["/roles/listed", "/roles/final", `${base}/roles/listed`],
+  ])("uses listing ID then final ID then listing URL for %s redirecting to %s", async (listed, final, id) => {
+    vi.mocked(loadPage).mockImplementation(async (url) => ({
+      url: url.endsWith(".xml") ? url : `${base}${final}`,
+      status: 200,
+      html: url.endsWith(".xml") ? sitemap([[`${base}${listed}`]]) : posting(),
+    }));
+    expect(
+      await runRecipe(
+        { ...recipe, jobUrlPattern: "/(jobs|roles)/" },
+        { limit: 1 },
+      ),
+    ).toMatchObject([{ id, url: `${base}${final}` }]);
+  });
+  it("skips duplicate IDs captured from different listing URLs", async () => {
+    pages({
+      [`${base}/sitemap.xml`]: sitemap([
+        [`${base}/jobs/42`],
+        [`${base}/jobs/42?locale=en`],
+      ]),
+      [`${base}/jobs/42`]: posting(),
+      [`${base}/jobs/42?locale=en`]: posting(),
+    });
+    expect(
+      await runRecipe(
+        { ...recipe, jobUrlPattern: "/jobs/", jobIdPattern: "/jobs/(\\d+)" },
+        { limit: 2 },
+      ),
+    ).toHaveLength(1);
+  });
+  it.each([
+    "sitemap",
+    "page",
+  ] as const)("skips overlong %s links before regex matching", async (kind) => {
+    const longUrl = `${base}/jobs/${"1".repeat(2048)}`;
+    const boundedRecipe: Recipe =
+      kind === "sitemap"
+        ? recipe
+        : {
+            ...recipe,
+            listing: {
+              kind: "page",
+              url: `${base}/openings`,
+              render: false,
+              pagination: { kind: "none" },
+              maxPages: 1,
+            },
+          };
+    pages({
+      [boundedRecipe.listing.url]:
+        kind === "sitemap"
+          ? sitemap([[longUrl], [`${base}/jobs/1`]])
+          : `<a href="${longUrl}">Long</a><a href="/jobs/1">Role</a>`,
+      [`${base}/jobs/1`]: posting(),
+    });
+    const test = vi.spyOn(RegExp.prototype, "test");
+    try {
+      expect(
+        (await runRecipe(boundedRecipe, { limit: 2 })).map((job) => job.id),
+      ).toEqual(["1"]);
+      expect(test.mock.calls.some(([value]) => value === longUrl)).toBe(false);
+      expect(loadPage).not.toHaveBeenCalledWith(longUrl, expect.anything());
+    } finally {
+      test.mockRestore();
+    }
+  });
+  it("stops listing pagination once enough candidates have been collected", async () => {
+    const pagedRecipe: Recipe = {
+      ...recipe,
+      listing: {
+        kind: "page",
+        url: `${base}/openings`,
+        render: false,
+        pagination: { kind: "query", param: "page", start: 1, step: 1 },
+        maxPages: 5,
+      },
+    };
+    pages({
+      [`${base}/openings?page=1`]:
+        '<a href="/jobs/1">One</a><a href="/jobs/2">Two</a>',
+      [`${base}/jobs/1`]: posting(),
+      [`${base}/jobs/2`]: posting(),
+    });
+    expect(await runRecipe(pagedRecipe, { limit: 2 })).toHaveLength(2);
+    expect(loadPage).toHaveBeenCalledTimes(3);
+    expect(loadPage).not.toHaveBeenCalledWith(
+      `${base}/openings?page=2`,
+      expect.anything(),
+    );
+  });
+  it("supports namespaced sitemaps, missing/invalid lastmod, and escaped query strings", async () => {
+    const url = `${base}/jobs/4?a=1&b=2`;
+    pages({
+      [`${base}/sitemap.xml`]: `<s:urlset xmlns:s="http://www.sitemaps.org/schemas/sitemap/0.9"><s:url><s:loc>${url.replaceAll("&", "&amp;")}</s:loc><s:lastmod>invalid</s:lastmod></s:url></s:urlset>`,
+      [url]: posting(),
+    });
+    expect(
+      await runRecipe({ ...recipe, jobUrlPattern: "/jobs/" }, { limit: 1 }),
+    ).toHaveLength(1);
+  });
+  it("loads rendered paginated listings, resolves relative links and ignores foreign or unsafe links", async () => {
+    const pageRecipe: Recipe = {
+      ...recipe,
+      listing: {
+        kind: "page",
+        url: `${base}/openings`,
+        render: true,
+        waitFor: ".jobs",
+        pagination: { kind: "query", param: "page", start: 0, step: 2 },
+        maxPages: 3,
+      },
+      detail: {
+        kind: "selectors",
+        render: true,
+        title: "h1",
+        description: "main",
+      },
+    };
+    pages({
+      [`${base}/openings?page=0`]:
+        '<a href="/jobs/1#apply">One</a><a href="http://careers.example.com/jobs/2">HTTP</a><a href="https://other.example/jobs/3">Other</a><a href="https://user@careers.example.com/jobs/5">Credentials</a><a href="/jobs/1">Again</a>',
+      [`${base}/openings?page=2`]: new Error("Temporary failure"),
+      [`${base}/openings?page=4`]: '<a href="/jobs/4">Four</a>',
+      [`${base}/jobs/1`]: "<h1>One</h1><main>Details</main>",
+      [`${base}/jobs/4`]: "<h1>Four</h1><main>Details</main>",
+    });
+    const signal = new AbortController().signal;
+    expect(
+      (await runRecipe(pageRecipe, { limit: 3, signal })).map((job) => job.id),
+    ).toEqual(["1", "4"]);
+    expect(loadPage).toHaveBeenCalledWith(`${base}/openings?page=0`, {
+      render: true,
+      waitFor: ".jobs",
+      signal,
+    });
+    expect(loadPage).toHaveBeenCalledWith(`${base}/jobs/1`, {
+      render: true,
+      waitFor: undefined,
+      signal,
+    });
+    expect(loadPage).toHaveBeenCalledTimes(5);
+    for (const [url] of vi.mocked(loadPage).mock.calls)
+      expect(isAllowedByRobots).toHaveBeenCalledWith(url, { signal });
+  });
+  it("limits detail concurrency to two and preserves listing order despite completion order", async () => {
+    let active = 0;
+    let peak = 0;
+    vi.mocked(loadPage).mockImplementation(async (url) => {
+      if (url.endsWith(".xml"))
+        return {
+          url,
+          status: 200,
+          html: sitemap([1, 2, 3, 4].map((id) => [`${base}/jobs/${id}`])),
+        };
+      active++;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) =>
+        setTimeout(resolve, url.endsWith("1") ? 15 : 1),
+      );
+      active--;
+      return { url, status: 200, html: posting(url) };
+    });
+    expect(
+      (await runRecipe(recipe, { limit: 4 })).map((job) => job.id),
+    ).toEqual(["1", "2", "3", "4"]);
+    expect(peak).toBe(2);
+  });
+  it("skips broken or empty detail pages but throws a sanitized error if all fail", async () => {
+    pages({
+      [`${base}/sitemap.xml`]: sitemap([
+        [`${base}/jobs/1`],
+        [`${base}/jobs/2`],
+        [`${base}/jobs/3`],
+      ]),
+      [`${base}/jobs/1`]: new Error("secret upstream body"),
+      [`${base}/jobs/2`]: "<h1>Removed</h1>",
+      [`${base}/jobs/3`]: posting(),
+    });
+    expect(
+      (await runRecipe(recipe, { limit: 3 })).map((job) => job.id),
+    ).toEqual(["3"]);
+    await expect(runRecipe(recipe, { limit: 2 })).rejects.toThrow(
+      "All selected careers job pages failed",
+    );
+  });
+  it("treats robots denials and upstream blocks as fatal even with successful details", async () => {
+    pages({
+      [`${base}/sitemap.xml`]: sitemap([
+        [`${base}/jobs/1`],
+        [`${base}/jobs/2`],
+      ]),
+      [`${base}/jobs/1`]: posting(),
+      [`${base}/jobs/2`]: new SiteBlockedError(
+        "careers.example.com",
+        "HTTP 403",
+      ),
+    });
+    await expect(runRecipe(recipe, { limit: 2 })).rejects.toBeInstanceOf(
+      SiteBlockedError,
+    );
+    vi.mocked(isAllowedByRobots).mockImplementation(
+      async (url) => !url.endsWith("/jobs/2"),
+    );
+    vi.mocked(loadPage).mockClear();
+    await expect(runRecipe(recipe, { limit: 2 })).rejects.toThrow("robots.txt");
+    expect(loadPage).not.toHaveBeenCalledWith(
+      `${base}/jobs/2`,
+      expect.anything(),
+    );
+    vi.mocked(isAllowedByRobots).mockResolvedValue(false);
+    vi.mocked(loadPage).mockClear();
+    await expect(runRecipe(recipe, { limit: 2 })).rejects.toBeInstanceOf(
+      SiteBlockedError,
+    );
+    expect(loadPage).not.toHaveBeenCalled();
+  });
+  it("honors abort signals rather than returning partial results", async () => {
+    const controller = new AbortController();
+    pages({ [`${base}/sitemap.xml`]: sitemap([[`${base}/jobs/1`]]) });
+    vi.mocked(loadPage).mockImplementationOnce(async (url) => {
+      controller.abort(new Error("Cancelled"));
+      return { url, status: 200, html: sitemap([[`${base}/jobs/1`]]) };
+    });
+    await expect(
+      runRecipe(recipe, { limit: 1, signal: controller.signal }),
+    ).rejects.toThrow("Cancelled");
+  });
+  it("returns empty for a valid empty sitemap or zero limit and rejects invalid or failed listings", async () => {
+    expect(await runRecipe(recipe, { limit: 0 })).toEqual([]);
+    expect(loadPage).not.toHaveBeenCalled();
+    pages({ [`${base}/sitemap.xml`]: sitemap([]) });
+    expect(await runRecipe(recipe, { limit: 3 })).toEqual([]);
+    pages({ [`${base}/sitemap.xml`]: "<html>Oops</html>" });
+    await expect(runRecipe(recipe, { limit: 3 })).rejects.toThrow(
+      "Invalid careers sitemap",
+    );
+    const pageRecipe: Recipe = {
+      ...recipe,
+      listing: {
+        kind: "page",
+        url: base,
+        render: false,
+        pagination: { kind: "none" },
+        maxPages: 5,
+      },
+    };
+    pages({ [base]: new Error("private response") });
+    await expect(runRecipe(pageRecipe, { limit: 1 })).rejects.toThrow(
+      "No careers listing pages",
+    );
+  });
+  it("rejects foreign final URLs and unsuccessful HTTP statuses", async () => {
+    vi.mocked(loadPage).mockResolvedValue({
+      url: "https://foreign.example/sitemap.xml",
+      status: 200,
+      html: sitemap([]),
+    });
+    await expect(runRecipe(recipe, { limit: 1 })).rejects.toThrow(
+      "could not be loaded",
+    );
+    vi.mocked(loadPage).mockResolvedValue({
+      url: `${base}/sitemap.xml`,
+      status: 403,
+      html: "blocked",
+    });
+    await expect(runRecipe(recipe, { limit: 1 })).rejects.toBeInstanceOf(
+      SiteBlockedError,
+    );
+  });
+});
