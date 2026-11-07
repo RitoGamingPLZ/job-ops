@@ -1,7 +1,43 @@
+import { logger } from "@infra/logger";
 import catalog from "@server/config/career-boards-eightfold.json";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { eightfoldWatchlistAdapter as adapter } from "./eightfold";
+
+// The jsdom fake clock does not replace node:timers/promises. Keep its
+// abortable delay contract, using the clock-controlled global timer in tests.
+vi.mock("node:timers/promises", () => {
+  const delay = (
+    milliseconds: number,
+    value: unknown,
+    options: { signal: AbortSignal },
+  ) =>
+    new Promise((resolve, reject) => {
+      const { signal } = options;
+      const abortError = () =>
+        Object.assign(
+          new Error("The operation was aborted", { cause: signal.reason }),
+          {
+            name: "AbortError",
+            code: "ABORT_ERR",
+          },
+        );
+      if (signal.aborted) {
+        reject(abortError());
+        return;
+      }
+      const abort = () => {
+        clearTimeout(timer);
+        reject(abortError());
+      };
+      const timer = setTimeout(() => {
+        signal.removeEventListener("abort", abort);
+        resolve(value);
+      }, milliseconds);
+      signal.addEventListener("abort", abort, { once: true });
+    });
+  return { default: { setTimeout: delay }, setTimeout: delay };
+});
 
 const microsoft = "https://apply.careers.microsoft.com";
 const netflix = "https://explore.jobs.netflix.net";
@@ -40,6 +76,7 @@ function pcsx(value: unknown) {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -312,6 +349,8 @@ describe("eightfoldWatchlistAdapter", () => {
   });
 
   it("retries 429 responses and succeeds", async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -322,23 +361,94 @@ describe("eightfoldWatchlistAdapter", () => {
       )
       .mockResolvedValueOnce(pcsx({ count: 0, positions: [] }));
     vi.stubGlobal("fetch", fetchMock);
-    await expect(
-      adapter.fetchJobs({ source: source() }),
-    ).resolves.toMatchObject({ total: 0, fetched: 0 });
+    const pending = adapter.fetchJobs({ source: source() });
+    await vi.advanceTimersByTimeAsync(249);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(pending).resolves.toMatchObject({ total: 0, fetched: 0 });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      "Eightfold request rate limited",
+      expect.objectContaining({
+        host: "apply.careers.microsoft.com",
+        start: "0",
+        attempt: 1,
+        status: 429,
+        bodyPrefix: "sensitive upstream body",
+      }),
+    );
   });
 
   it("bounds retries and never exposes upstream bodies", async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
     const fetchMock = vi
       .fn()
       .mockImplementation(
         async () => new Response("secret token", { status: 429 }),
       );
     vi.stubGlobal("fetch", fetchMock);
-    await expect(adapter.fetchJobs({ source: source() })).rejects.toThrow(
-      /^Eightfold request failed with HTTP 429\.$/,
+    const pending = expect(
+      adapter.fetchJobs({ source: source() }),
+    ).rejects.toThrow(
+      "Eightfold request failed with HTTP 429 (host=apply.careers.microsoft.com, start=0, attempt=4).",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    for (const [index, milliseconds] of [1000, 3000, 8000].entries()) {
+      await vi.advanceTimersByTimeAsync(milliseconds - 1);
+      expect(fetchMock).toHaveBeenCalledTimes(index + 1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(fetchMock).toHaveBeenCalledTimes(index + 2);
+    }
+    await pending;
+    expect(warn.mock.calls.map(([, meta]) => meta)).toEqual(
+      [1, 2, 3, 4].map((attempt) =>
+        expect.objectContaining({
+          host: "apply.careers.microsoft.com",
+          start: "0",
+          attempt,
+          status: 429,
+        }),
+      ),
+    );
+  });
+
+  it("logs bounded 429 diagnostics for the failed page without cookie values", async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const headers = new Headers({
+      server: "Azure",
+      "x-azure-ref": "trace-ref",
+      "x-cache": "CONFIG_NOCACHE",
+      authorization: "secret-header",
+    });
+    headers.append("set-cookie", "session=secret-value; Path=/; HttpOnly");
+    headers.append("set-cookie", "route=secret-route; Path=/");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(pcsx({ count: 100, positions: [position()] }))
+      .mockImplementation(
+        async () => new Response("x".repeat(300), { status: 429, headers }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = expect(
+      adapter.fetchJobs({ source: source() }),
+    ).rejects.toThrow("host=apply.careers.microsoft.com, start=1, attempt=4");
+    await vi.advanceTimersByTimeAsync(12000);
+    await pending;
+    expect(warn).toHaveBeenLastCalledWith("Eightfold request rate limited", {
+      host: "apply.careers.microsoft.com",
+      start: "1",
+      attempt: 4,
+      status: 429,
+      headers: {
+        server: "Azure",
+        "x-azure-ref": "trace-ref",
+        "x-cache": "CONFIG_NOCACHE",
+        responseStateNames: ["session", "route"],
+      },
+      bodyPrefix: "x".repeat(200),
+    });
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("secret");
   });
 
   it("honors caller cancellation before fetching", async () => {
@@ -350,6 +460,155 @@ describe("eightfoldWatchlistAdapter", () => {
       adapter.fetchJobs({ source: source(), signal: controller.signal }),
     ).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "seconds",
+    "date",
+  ])("keeps Retry-After %s capped at two seconds and three attempts", async (format) => {
+    vi.useFakeTimers();
+    vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const retryAfter =
+      format === "seconds" ? "60" : new Date(Date.now() + 60_000).toUTCString();
+    const fetchMock = vi.fn().mockImplementation(
+      async () =>
+        new Response("", {
+          status: 429,
+          headers: { "retry-after": retryAfter },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = adapter
+      .fetchJobs({ source: source() })
+      .catch((error: unknown) => error);
+    for (const attempt of [1, 2]) {
+      await vi.advanceTimersByTimeAsync(1999);
+      expect(fetchMock).toHaveBeenCalledTimes(attempt);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(fetchMock).toHaveBeenCalledTimes(attempt + 1);
+    }
+    expect(await pending).toMatchObject({
+      message: expect.stringContaining("attempt=3"),
+    });
+  });
+
+  it("aborts during missing-header backoff without another request", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => new Response("", { status: 429 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    const pending = adapter
+      .fetchJobs({ source: source(), signal: controller.signal })
+      .catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(500);
+    controller.abort();
+    expect(await pending).toMatchObject({ name: "AbortError" });
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { origin: microsoft, retryAfter: null },
+    { origin: netflix, retryAfter: null },
+    { origin: microsoft, retryAfter: "60" },
+    { origin: netflix, retryAfter: "60" },
+  ])("limits $origin detail 429s to one retry after one second (Retry-After: $retryAfter)", async ({
+    origin,
+    retryAfter,
+  }) => {
+    vi.useFakeTimers();
+    vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const fetchMock = vi.fn().mockImplementation(
+      async () =>
+        new Response("upstream body", {
+          status: 429,
+          headers: retryAfter === null ? {} : { "retry-after": retryAfter },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = adapter
+      .prepareImportDraft({
+        source: source(origin),
+        jobRef: `${origin}/careers/job/123`,
+      })
+      .catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    const error = await pending;
+    expect(error).toMatchObject({
+      message: `Eightfold request failed with HTTP 429 (host=${new URL(origin).hostname}, start=n/a, attempt=2).`,
+    });
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe(
+      origin === microsoft
+        ? "/api/pcsx/position_details"
+        : "/api/apply/v2/jobs/123",
+    );
+  });
+
+  it("recovers a detail request on its one allowed retry", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("", { status: 429 }))
+      .mockResolvedValueOnce(pcsx(position()));
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = adapter.fetchJobDetails({
+      source: source(),
+      jobRef: `${microsoft}/careers/job/123`,
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    await expect(pending).resolves.toMatchObject({
+      jobRef: `${microsoft}/careers/job/123`,
+      descriptionHtml: position().jobDescription,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares the 25-second operation budget across page retries", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const controller = new AbortController();
+    // Node's AbortSignal.timeout uses an internal timer, so drive its signal
+    // with the fake clock while retaining the operation's real abort handling.
+    const timeout = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockImplementation((milliseconds) => {
+        setTimeout(
+          () =>
+            controller.abort(
+              new DOMException("Operation timed out", "TimeoutError"),
+            ),
+          milliseconds,
+        );
+        return controller.signal;
+      });
+    const fetchMock = vi.fn().mockImplementation(async () =>
+      fetchMock.mock.calls.length % 4 === 0
+        ? pcsx({
+            count: 100,
+            positions: [position(fetchMock.mock.calls.length)],
+          })
+        : new Response("", { status: 429 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = adapter
+      .fetchJobs({ source: source() })
+      .catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(24_999);
+    expect(fetchMock).toHaveBeenCalledTimes(9);
+    expect(controller.signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await pending).toMatchObject({ name: "AbortError" });
+    expect(controller.signal.reason).toMatchObject({ name: "TimeoutError" });
+    expect(fetchMock).toHaveBeenCalledTimes(9);
+    expect(timeout).toHaveBeenCalledExactlyOnceWith(25_000);
   });
 
   it.each([
