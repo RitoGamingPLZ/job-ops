@@ -3,6 +3,7 @@ import { amazonWatchlistAdapter } from "./amazon";
 import { appleWatchlistAdapter } from "./apple";
 import { bamboohrWatchlistAdapter } from "./bamboohr";
 import { eightfoldWatchlistAdapter } from "./eightfold";
+import { googleWatchlistAdapter } from "./google";
 import { greenhouseWatchlistAdapter } from "./greenhouse";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 import { workdayWatchlistAdapter } from "./workday";
@@ -14,6 +15,7 @@ const adapters = [
   amazonWatchlistAdapter,
   eightfoldWatchlistAdapter,
   appleWatchlistAdapter,
+  googleWatchlistAdapter,
 ] as const;
 
 const adaptersByType = new Map<
