@@ -248,6 +248,31 @@ describe("SettingsPage", () => {
     expect(api.getBillingStatus).not.toHaveBeenCalled();
   });
 
+  it("saves the daily search switch and local hour", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+    vi.mocked(api.updateSettings).mockResolvedValue(baseSettings);
+    renderPage();
+    await openNavGroup(/^backups$/i);
+    await clickLastButtonByName(/^backups$/i);
+    fireEvent.click(
+      await screen.findByRole("switch", { name: "Run job search daily" }),
+    );
+    fireEvent.change(
+      screen.getByLabelText("Daily search hour (server local time)"),
+      { target: { value: "9" } },
+    );
+    await waitFor(() => expect(getSaveButton()).toBeEnabled());
+    fireEvent.click(getSaveButton());
+    await waitFor(() =>
+      expect(api.updateSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pipelineScheduleEnabled: true,
+          pipelineScheduleHour: 9,
+        }),
+      ),
+    );
+  });
+
   it("does not request system backups for non-admin users", async () => {
     vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
     renderPage();

@@ -10,6 +10,7 @@ import {
 import { asyncRoute, fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { getRequestId, isSystemAdmin } from "@infra/request-context";
+import { sanitizeUnknown } from "@infra/sanitize";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { isDemoMode, sendDemoBlocked } from "@server/config/demo";
 import { getSetting } from "@server/repositories/settings";
@@ -27,6 +28,7 @@ import {
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
 import { LlmService } from "@server/services/llm/service";
+import { refreshPipelineScheduler } from "@server/services/pipeline-scheduler";
 import { clearProfileCache } from "@server/services/profile";
 import {
   clearRxResumeResumeCache,
@@ -74,6 +76,8 @@ const CLI_PROVIDERS = new Set(["codex", "gemini_cli", "claude_cli"]);
 // settings repository for extractor compatibility, but are not server-level
 // maintenance settings and must remain editable by authenticated non-admins.
 const NON_ADMIN_SEARCH_SETTING_KEYS = new Set<keyof UpdateSettingsInput>([
+  "pipelineScheduleEnabled",
+  "pipelineScheduleHour",
   "searchTerms",
   "workplaceTypes",
   "locationSearchScope",
@@ -495,6 +499,25 @@ settingsRouter.patch(
         hour: data.backupHour.value,
         maxCount: data.backupMaxCount.value,
       });
+    }
+    if (
+      plan.updatedSettingKeys.some(
+        (key) =>
+          key === "pipelineScheduleEnabled" || key === "pipelineScheduleHour",
+      )
+    ) {
+      try {
+        await refreshPipelineScheduler();
+      } catch (error) {
+        logger.warn(
+          "Failed to refresh pipeline scheduler after settings save",
+          {
+            requestId: getRequestId() ?? null,
+            route: "PATCH /api/settings",
+            error: sanitizeUnknown(error),
+          },
+        );
+      }
     }
     ok(res, data);
 

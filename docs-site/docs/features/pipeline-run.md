@@ -42,6 +42,16 @@ The search description and configuration form use the same page width.
 
 If AI setup is unavailable, the review clearly says that the existing criteria were kept. Edit them yourself or return to the description and try again.
 
+### Daily searches
+
+1. Start a search manually with the sources, Watchlist selection, search terms, location and run limits you want to reuse.
+2. Open **Settings > Backup** and enable **Run job search daily**.
+3. Select an hour and save. The default is 07:00 in the server's local time zone; scheduling is disabled by default.
+
+The server must stay running. The next scheduled time appears on the overview. Each daily search reuses the last request accepted by **Run search**, including its Watchlist selection, through the same validation and launch path. Later manual searches replace those saved defaults. Each tenant (and each user in hosted mode) has a separate schedule and saved request. Runs already in progress are skipped until the next day. Missed runs while the server was stopped are not replayed. Changing the hour or disabling scheduling takes effect immediately.
+
+If no manual search has been started since this feature was installed, the scheduler skips the run: start a search once to save its defaults. For other setup issues, see [Settings](/docs/features/settings).
+
 ### Search settings
 
 #### Presets

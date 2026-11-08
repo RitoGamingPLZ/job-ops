@@ -830,6 +830,25 @@ export const settingsRegistry = {
       value: ChatStyleManualLanguage | null | undefined,
     ): string | null => value ?? null,
   },
+  pipelineScheduleEnabled: {
+    kind: "typed" as const,
+    schema: z.boolean(),
+    default: (): boolean => false,
+    parse: parseBitBoolOrNull,
+    serialize: serializeBitBool,
+  },
+  pipelineScheduleHour: {
+    kind: "typed" as const,
+    schema: z.number().int().min(0).max(23),
+    default: (): number => 7,
+    parse: (raw: string | undefined): number | null => {
+      const parsed = raw ? Number(raw) : NaN;
+      return Number.isInteger(parsed) && parsed >= 0 && parsed <= 23
+        ? parsed
+        : null;
+    },
+    serialize: serializeNullableNumber,
+  },
   backupEnabled: {
     kind: "typed" as const,
     schema: z.boolean(),

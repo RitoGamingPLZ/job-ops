@@ -8,14 +8,9 @@ import {
 } from "@infra/errors";
 import { fail, ok, okWithMeta } from "@infra/http";
 import { logger } from "@infra/logger";
-import { runWithRequestContext } from "@infra/request-context";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { setupSse, startSseHeartbeat, writeSseData } from "@infra/sse";
 import { isDemoMode } from "@server/config/demo";
-import {
-  type ExtractorRegistry,
-  getExtractorRegistry,
-} from "@server/extractors/registry";
 import {
   beginPipelineChallengeSolve,
   getPendingChallenges,
@@ -24,7 +19,6 @@ import {
   requestPipelineCancel,
   resolvePipelineChallenge,
   resumePipelineScoring,
-  runPipeline,
   skipPipelineChallengeSearch,
   subscribeToProgress,
 } from "@server/pipeline/index";
@@ -44,9 +38,13 @@ import {
   readHiringCafeBrowserPage,
   waitForHiringCafeBrowserChallenge,
 } from "@server/services/hiring-cafe-browser";
-import { reserveHostedUsage } from "@server/services/hosted-usage";
+import { getNextScheduledPipelineRun } from "@server/services/pipeline-scheduler";
+import {
+  runPipelineSchema,
+  startRequestedPipeline,
+  validateRequestedPipeline,
+} from "@server/services/pipeline-scheduler/run-request";
 import { planPipelineSearch } from "@server/services/pipeline-search-plan";
-import { ensurePipelineSearchTerms } from "@server/services/pipeline-search-terms";
 import {
   resolveCountryAtPoint,
   resolveNearbyPlaceNames,
@@ -56,10 +54,6 @@ import {
   getPrivateDataScope,
 } from "@server/tenancy/private-scope";
 import { PIPELINE_EXTRACTOR_SOURCE_IDS } from "@shared/extractors";
-import {
-  createLocationIntent,
-  planLocationSources,
-} from "@shared/location-intelligence.js";
 import {
   LOCATION_INPUT_MODE_VALUES,
   LOCATION_MATCH_STRICTNESS_VALUES,
@@ -146,7 +140,7 @@ pipelineRouter.get("/status", async (_req: Request, res: Response) => {
     const data: PipelineStatusResponse = {
       isRunning,
       lastRun,
-      nextScheduledRun: null,
+      nextScheduledRun: await getNextScheduledPipelineRun(),
     };
     ok(res, data);
   } catch (error) {
@@ -506,145 +500,18 @@ pipelineRouter.get(
 /**
  * POST /api/pipeline/run - Trigger the pipeline manually
  */
-const runPipelineSchema = z.object({
-  topN: z.number().min(1).max(50).optional(),
-  minSuitabilityScore: z.number().min(0).max(100).optional(),
-  sources: z.array(pipelineSourceSchema).min(1).optional(),
-  runBudget: pipelineRunBudgetSchema.optional(),
-  searchTerms: z.array(z.string().trim().min(1)).optional(),
-  scoringInstructions: z.string().trim().max(4000).optional(),
-  country: z.string().trim().optional(),
-  cityLocations: z.array(z.string().trim().min(1)).optional(),
-  proximity: z
-    .object({
-      latitude: z.number().finite().min(-90).max(90),
-      longitude: z.number().finite().min(-180).max(180),
-      radiusMiles: z.number().int().min(1).max(200),
-    })
-    .nullable()
-    .optional(),
-  workplaceTypes: z
-    .array(z.enum(WORKPLACE_TYPE_VALUES))
-    .min(1)
-    .max(3)
-    .optional(),
-  searchScope: z.enum(LOCATION_SEARCH_SCOPE_VALUES).optional(),
-  matchStrictness: z.enum(LOCATION_MATCH_STRICTNESS_VALUES).optional(),
-  // Per-#621: optional client-supplied per-run Watchlist source filter.
-  // Omitted preserves the legacy "include every saved Watchlist source"
-  // behavior; [] disables Watchlist entirely; non-empty restricts to a
-  // subset. Cross-tenant safety is enforced by re-resolving IDs against
-  // the user's saved Watchlist sources inside discoverJobsStep.
-  watchlistSelectedSourceIds: z.array(z.string().min(1).max(128)).optional(),
-});
 
 pipelineRouter.post("/run", async (req: Request, res: Response) => {
   try {
     const config = runPipelineSchema.parse(req.body);
-    const locationIntent = createLocationIntent({
-      selectedCountry: config.country,
-      cityLocations: config.cityLocations,
-      proximity: config.proximity,
-      workplaceTypes: config.workplaceTypes,
-      geoScope: config.searchScope,
-      matchStrictness: config.matchStrictness,
-    });
-    if (config.sources && config.sources.length > 0) {
-      let registry: ExtractorRegistry;
-      try {
-        registry = await getExtractorRegistry();
-      } catch (error) {
-        logger.error(
-          "Extractor registry unavailable during source validation",
-          {
-            route: "/api/pipeline/run",
-            error,
-          },
-        );
-        return fail(
-          res,
-          serviceUnavailable(
-            "Extractor registry is unavailable. Try again after fixing startup errors.",
-          ),
-        );
-      }
-      const unavailableSources = config.sources.filter(
-        (source) => !registry.manifestBySource.has(source),
-      );
-      if (unavailableSources.length > 0) {
-        return fail(
-          res,
-          badRequest(
-            `Requested sources are not available at runtime: ${unavailableSources.join(", ")}`,
-            { unavailableSources },
-          ),
-        );
-      }
-
-      const sourcePlans = planLocationSources({
-        intent: locationIntent,
-        sources: config.sources,
-        capabilitiesBySource: registry.locationCapabilitiesBySource ?? {},
-      });
-      if (sourcePlans.incompatibleSources.length > 0) {
-        const incompatible = sourcePlans.plans
-          .filter((plan) => !plan.isCompatible)
-          .map((plan) => ({
-            source: plan.source,
-            reasons: plan.reasons,
-          }));
-
-        return fail(
-          res,
-          badRequest(
-            "Requested sources are incompatible with the selected location setup",
-            { incompatibleSources: incompatible },
-          ),
-        );
-      }
-    }
-
     if (isDemoMode()) {
       const simulated = await simulatePipelineRun({
-        topN: config.topN,
-        minSuitabilityScore: config.minSuitabilityScore,
-        sources: config.sources,
-        scoringInstructions: config.scoringInstructions,
-        locationIntent,
+        ...config,
+        locationIntent: await validateRequestedPipeline(config),
       });
       return okWithMeta(res, simulated, { simulated: true });
     }
-
-    if (getPipelineStatus().isRunning) {
-      return fail(res, conflict("Pipeline is already running"));
-    }
-
-    const searchTermsState = await ensurePipelineSearchTerms({
-      requestedSearchTerms: config.searchTerms,
-    });
-    const pipelineUsage = await reserveHostedUsage({
-      action: "pipeline_run",
-    });
-
-    // Start pipeline in background
-    runWithRequestContext({}, () => {
-      runPipeline(
-        {
-          topN: config.topN,
-          minSuitabilityScore: config.minSuitabilityScore,
-          sources: config.sources,
-          scoringInstructions: config.scoringInstructions,
-          runBudget: config.runBudget,
-          locationIntent,
-          watchlistSelectedSourceIds: config.watchlistSelectedSourceIds,
-        },
-        {
-          hostedUsageReservationId: pipelineUsage.reservation?.id ?? null,
-        },
-      ).catch((error) => {
-        logger.error("Background pipeline run failed", error);
-      });
-    });
+    const searchTermsState = await startRequestedPipeline(config);
     void trackCanonicalActivationEvent(
       "jobs_pipeline_run_started",
       {
