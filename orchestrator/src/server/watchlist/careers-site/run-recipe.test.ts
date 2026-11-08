@@ -52,6 +52,69 @@ beforeEach(() => {
 });
 
 describe("extractJob", () => {
+  it.each([
+    "jsonld",
+    "microdata",
+  ])("decodes entities in %s title, employer and location", (kind) => {
+    const encoded = "Risk &amp; Compliance &#x2013; &#169;";
+    const html =
+      kind === "jsonld"
+        ? `<script type="application/ld+json">${JSON.stringify({
+            "@type": "JobPosting",
+            title: encoded,
+            description: "Details",
+            hiringOrganization: { name: encoded },
+            jobLocation: { name: encoded },
+          })}</script>`
+        : `<div itemscope itemtype="https://schema.org/JobPosting">
+      <meta itemprop="title" content="Risk &amp; Compliance &#x2013; &#169;">
+      <meta itemprop="description" content="Details">
+      <meta itemprop="hiringOrganization" content="Risk &amp; Compliance &#x2013; &#169;">
+      <meta itemprop="jobLocation" content="Risk &amp; Compliance &#x2013; &#169;">
+    </div>`;
+    expect(extractJob(html, `${base}/jobs/42`, recipe)).toMatchObject({
+      title: "Risk & Compliance – ©",
+      employer: "Risk & Compliance – ©",
+      location: "Risk & Compliance – ©",
+    });
+  });
+  it.each([
+    "microdata",
+    "selectors",
+  ])("preserves literal entity text already parsed from %s", (kind) => {
+    const html =
+      kind === "microdata"
+        ? '<div itemscope itemtype="https://schema.org/JobPosting"><meta itemprop="title" content="AT&amp;amp;T &amp;lt;b&amp;gt;"><meta itemprop="description" content="Details"><meta itemprop="hiringOrganization" content="AT&amp;amp;T"><meta itemprop="jobLocation" content="&amp;lt;b&amp;gt;"></div>'
+        : "<h1>AT&amp;amp;T &amp;lt;b&amp;gt;</h1><article>Details</article><aside>&amp;lt;b&amp;gt;</aside>";
+    const selected: Recipe =
+      kind === "selectors"
+        ? {
+            ...recipe,
+            detail: {
+              kind: "selectors",
+              render: false,
+              title: "h1",
+              description: "article",
+              location: "aside",
+            },
+          }
+        : recipe;
+    expect(extractJob(html, `${base}/jobs/42`, selected)).toMatchObject({
+      title: "AT&amp;T &lt;b&gt;",
+      location: "&lt;b&gt;",
+      ...(kind === "microdata" ? { employer: "AT&amp;T" } : {}),
+    });
+  });
+
+  it("accepts 500 character URLs and rejects 501 before recipe regexes", () => {
+    const url = `${base}/jobs/${"x".repeat(500 - base.length - 6)}`;
+    expect(url).toHaveLength(500);
+    expect(extractJob(posting(), url, recipe)).not.toBeNull();
+    expect(
+      extractJob(posting(), `${url}x`, { ...recipe, jobIdPattern: "[" }),
+    ).toBeNull();
+  });
+
   it("maps public structured data and URL ids", () => {
     expect(extractJob(posting(), `${base}/jobs/42`, recipe)).toEqual({
       id: "42",
@@ -183,6 +246,16 @@ describe("extractJob", () => {
 });
 
 describe("runRecipe", () => {
+  it("skips listing URLs over 500 chars before matching recipes", async () => {
+    const longUrl = `${base}/jobs/${"1".repeat(501)}`;
+    pages({
+      [`${base}/sitemap.xml`]: sitemap([[longUrl], [`${base}/jobs/42`]]),
+      [`${base}/jobs/42`]: posting(),
+    });
+    expect(await runRecipe(recipe, { limit: 40 })).toHaveLength(1);
+    expect(loadPage).not.toHaveBeenCalledWith(longUrl, expect.anything());
+  });
+
   it("follows indexes to depth two, deduplicates, orders by lastmod and caps details", async () => {
     pages({
       [`${base}/sitemap.xml`]: index(

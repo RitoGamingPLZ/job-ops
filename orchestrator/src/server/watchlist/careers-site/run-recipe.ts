@@ -2,7 +2,7 @@ import { JSDOM } from "jsdom";
 import { isAllowedByRobots, loadPage } from "./fetch";
 import { type CrawledJob, type Recipe, SiteBlockedError } from "./types";
 
-const MAX_URL_LENGTH = 2048;
+const MAX_URL_LENGTH = 500;
 
 function jobId(url: string, recipe: Recipe): string | undefined {
   return url.length <= MAX_URL_LENGTH && recipe.jobIdPattern
@@ -115,6 +115,7 @@ export function extractJob(
   try {
     const document = dom.window.document;
     let data: Record<string, unknown> | null = null;
+    let fromJsonLd = false;
     if (recipe.detail.kind === "selectors") {
       const detail = recipe.detail;
       data = {
@@ -143,7 +144,10 @@ export function extractJob(
         } catch {
           // Malformed unrelated structured data must not hide another posting.
         }
-        if (data) break;
+        if (data) {
+          fromJsonLd = true;
+          break;
+        }
       }
       if (!data) {
         for (const scope of document.querySelectorAll(
@@ -167,14 +171,22 @@ export function extractJob(
       }
     }
     if (!data || !text(data.title) || !text(data.description)) return null;
+    const decode = (value: string | null): string | null => {
+      if (value === null || !fromJsonLd) return value;
+      const node = document.createElement("textarea");
+      // Escape literal markup while leaving character references for HTML decoding.
+      node.innerHTML = value.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+      return node.value;
+    };
     return {
       id: jobId(url, recipe) || url,
       url,
-      title: text(data.title) as string,
-      employer:
+      title: decode(text(data.title)) as string,
+      employer: decode(
         text(record(data.hiringOrganization).name) ??
-        text(data.hiringOrganization),
-      location: location(data.jobLocation),
+          text(data.hiringOrganization),
+      ),
+      location: decode(location(data.jobLocation)),
       postedAt: date(data.datePosted),
       descriptionHtml: text(data.description),
     };

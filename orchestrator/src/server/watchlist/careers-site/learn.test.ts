@@ -32,7 +32,7 @@ const learned: Recipe = {
   },
   detail: {
     kind: "selectors",
-    render: true,
+    render: false,
     title: "h1",
     description: "article.description",
   },
@@ -65,6 +65,185 @@ beforeEach(() => {
 });
 
 describe("learnRecipe", () => {
+  it.each([
+    1, 2, 20,
+  ])("reuses sitemap evidence only when coverage is clearly larger: %i jobs", async (count) => {
+    const urls = Array.from(
+      { length: count },
+      (_, i) => `${root}/jobs/engineer-${123 + i}`,
+    );
+    pages[`${root}/sitemap.xml`] = `<urlset>${[
+      ...urls,
+      ...urls,
+      "https://foreign.example/jobs/engineer-999",
+      `${root}/jobs/${"x".repeat(500)}`,
+    ]
+      .map((url) => `<url><loc>${url}</loc></url>`)
+      .join("")}</urlset>`;
+    const result = await learnRecipe(careers, {});
+    expect(result.listing).toEqual(
+      count >= 2
+        ? { kind: "sitemap", url: `${root}/sitemap.xml` }
+        : learned.listing,
+    );
+    expect(result.detail).toEqual(learned.detail);
+    expect(callJson).toHaveBeenCalledTimes(1);
+    expect(
+      vi
+        .mocked(loadPage)
+        .mock.calls.filter(([url]) => url === `${root}/sitemap.xml`),
+    ).toHaveLength(1);
+    expect(runRecipe).toHaveBeenLastCalledWith(result, {
+      limit: 3,
+      signal: expect.any(AbortSignal),
+    });
+  });
+
+  it.each([
+    0, 1, 2,
+  ])("requires majority listing overlap before promoting a sitemap: %i matches", async (overlap) => {
+    const current = [
+      jobUrl,
+      `${root}/jobs/current-456`,
+      `${root}/jobs/current-789`,
+    ];
+    pages[careers] =
+      `${current.map((url) => `<a href="${url}">Job</a>`).join("")}<a href="/about">About</a>`;
+    const urls = [
+      ...current.slice(0, overlap),
+      ...Array.from({ length: 40 }, (_, i) => `${root}/jobs/archive-${i}`),
+    ];
+    pages[`${root}/sitemap.xml`] =
+      `<urlset>${urls.map((url) => `<url><loc>${url}</loc></url>`).join("")}</urlset>`;
+    const result = await learnRecipe(careers, {});
+    expect(result.listing).toEqual(
+      overlap >= 2
+        ? { kind: "sitemap", url: `${root}/sitemap.xml` }
+        : learned.listing,
+    );
+    expect(callJson).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores overlong links when rejecting a pattern that matches every listing link", async () => {
+    pages[careers] = [
+      jobUrl,
+      `${root}/jobs/current-456`,
+      `${root}/jobs/current-789`,
+      `${root}/${"x".repeat(501)}`,
+    ]
+      .map((url) => `<a href="${url}">Job</a>`)
+      .join("");
+    callJson.mockResolvedValue({
+      success: true,
+      data: { ...learned, jobUrlPattern: "/jobs/" },
+    });
+    await expect(learnRecipe(careers, {})).rejects.toThrow(
+      "does not distinguish job URLs",
+    );
+    expect(runRecipe).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "page",
+    "offset",
+    "skip",
+  ])("preserves %s pagination evidence beyond the job-link limit and verifies new jobs", async (param) => {
+    pages[careers] +=
+      Array.from(
+        { length: 120 },
+        (_, i) => `<a href="/jobs/role-${i + 1000}">Role</a>`,
+      ).join("") +
+      `<a href="?filter=eng&${param}=2">Next</a><a href="?filter=other&${param}=3">Other filter</a>`;
+    const base = `${careers}?filter=eng`;
+    pages[base] = pages[careers];
+    pages[`${base}&${param}=1`] = pages[careers];
+    pages[`${base}&${param}=2`] = '<a href="/jobs/new-999">New</a>';
+    const recipe: Recipe = {
+      ...learned,
+      listing: {
+        kind: "page",
+        url: base,
+        render: false,
+        pagination: { kind: "query", param, start: 1, step: 1 },
+        maxPages: 5,
+      },
+    };
+    callJson.mockResolvedValue({ success: true, data: recipe });
+    expect((await learnRecipe(base, {})).listing).toEqual(recipe.listing);
+    const evidence = JSON.parse(callJson.mock.calls[0][0].messages[1].content);
+    expect(evidence.paginationLinks).toEqual([
+      { url: `${base}&${param}=2`, text: "Next" },
+    ]);
+    expect(callJson).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "duplicate",
+    "missing",
+    "disallowed",
+  ])("falls back without an LLM retry for %s page two", async (mode) => {
+    pages[`${careers}?page=1`] = pages[careers];
+    if (mode === "duplicate") pages[`${careers}?page=2`] = pages[careers];
+    if (mode === "disallowed")
+      vi.mocked(isAllowedByRobots).mockImplementation(
+        async (url) => !url.endsWith("?page=2"),
+      );
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        ...learned,
+        listing: {
+          kind: "page",
+          url: careers,
+          render: false,
+          pagination: { kind: "query", param: "page", start: 1, step: 1 },
+          maxPages: 5,
+        },
+      },
+    });
+    expect((await learnRecipe(careers, {})).listing).toMatchObject({
+      pagination: { kind: "none" },
+      maxPages: 1,
+    });
+    expect(callJson).toHaveBeenCalledTimes(1);
+    if (mode === "disallowed")
+      expect(loadPage).not.toHaveBeenCalledWith(
+        `${careers}?page=2`,
+        expect.anything(),
+      );
+  });
+
+  it.each([
+    true,
+    false,
+  ])("overrides detail rendering only when both static selectors contain text: %s", async (complete) => {
+    pages[jobUrl] = complete
+      ? jobHtml
+      : "<main><h1>Engineer</h1><article class=description></article></main>";
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        ...learned,
+        detail: {
+          ...learned.detail,
+          render: true,
+        },
+      },
+    });
+    expect((await learnRecipe(careers, {})).detail).toMatchObject({
+      render: !complete,
+    });
+  });
+
+  it("rejects verified URLs over 500 chars before executing the learned regex", async () => {
+    vi.mocked(runRecipe).mockResolvedValue([
+      { ...job, url: `${root}/jobs/${"x".repeat(500)}` },
+    ]);
+    await expect(learnRecipe(careers, {})).rejects.toThrow(
+      "outside its job pattern",
+    );
+  });
+
   it.each([
     "engineer-123",
     "senior-software-engineer",
@@ -275,7 +454,10 @@ describe("learnRecipe", () => {
     pages[jobUrl] = jsonld;
     pages[other] = jsonld;
     vi.mocked(runRecipe).mockResolvedValueOnce([]);
-    await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
+    await expect(learnRecipe(careers, {})).resolves.toEqual({
+      ...learned,
+      listing: { kind: "sitemap", url: `${root}/sitemap.xml` },
+    });
     expect(runRecipe).toHaveBeenCalledTimes(2);
     expect(callJson).toHaveBeenCalledTimes(1);
     expect(vi.mocked(loadPage).mock.calls.some(([url]) => url === other)).toBe(
@@ -422,7 +604,7 @@ describe("learnRecipe", () => {
     expect(evidence.detailRendered).toBe(true);
   });
 
-  it("reserves four reads for SPA evidence after a busy tier-0 index", async () => {
+  it("reserves page two after a full tier-0 budget and rendered listing/detail evidence", async () => {
     const children = Array.from(
       { length: 8 },
       (_, i) => `${root}/map-${i}.xml`,
@@ -438,7 +620,29 @@ describe("learnRecipe", () => {
           ? "<div id=app></div>"
           : pages[url] || "missing",
     }));
-    await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
+    pages[careers] += '<a href="?page=2">Next</a>';
+    pages[`${careers}?page=2`] = '<a href="/jobs/new-999">New</a>';
+    const paginated: Recipe = {
+      ...learned,
+      listing: {
+        kind: "page",
+        url: careers,
+        render: true,
+        pagination: { kind: "query", param: "page", start: 1, step: 1 },
+        maxPages: 5,
+      },
+    };
+    callJson.mockResolvedValue({ success: true, data: paginated });
+    await expect(learnRecipe(careers, {})).resolves.toEqual(paginated);
+    expect(loadPage).not.toHaveBeenCalledWith(
+      `${careers}?page=1`,
+      expect.anything(),
+    );
+    expect(loadPage).toHaveBeenCalledWith(
+      `${careers}?page=2`,
+      expect.objectContaining({ render: true }),
+    );
+    expect(callJson).toHaveBeenCalledTimes(1);
     expect(loadPage).toHaveBeenCalledTimes(12);
     expect(loadPage).toHaveBeenCalledWith(
       jobUrl,
@@ -471,7 +675,7 @@ describe("learnRecipe", () => {
           : pages[url] || "missing",
     }));
     await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
-    expect(loadPage).toHaveBeenCalledTimes(12);
+    expect(loadPage).toHaveBeenCalledTimes(11);
     expect(loadPage).not.toHaveBeenCalledWith(
       `${root}/jobs/design/456`,
       expect.anything(),

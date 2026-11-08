@@ -331,6 +331,43 @@ describe("careersSiteWatchlistAdapter", () => {
     await expect(adapter.fetchJobs({ source })).rejects.toThrow("Learning");
     await vi.waitFor(() => expect(mocks.warn).toHaveBeenCalledTimes(2));
   });
+  it("prunes expired failed learns before inserting another host and retains active cooldowns", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+    const deleted = vi.spyOn(Map.prototype, "delete");
+    const inserted = vi.spyOn(Map.prototype, "set");
+    mocks.get.mockResolvedValue(null);
+    mocks.learn.mockRejectedValue(new Error("no jobs"));
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow("Learning");
+    await vi.waitFor(() => expect(mocks.warn).toHaveBeenCalledTimes(1));
+    const cooldowns = inserted.mock.contexts[
+      inserted.mock.calls.findIndex(
+        ([host, value]) => host === "example.com" && value === 1_000_000,
+      )
+    ] as Map<string, number>;
+    expect(cooldowns).toBeDefined();
+    deleted.mockClear();
+    now.mockReturnValue(1_000_000 + 30 * 60_000 - 1);
+    const other = { ...source, careersUrl: "https://other.example/careers" };
+    await expect(adapter.fetchJobs({ source: other })).rejects.toThrow(
+      "Learning",
+    );
+    await vi.waitFor(() => expect(mocks.warn).toHaveBeenCalledTimes(2));
+    expect(cooldowns?.has("example.com")).toBe(true);
+    now.mockReturnValue(1_000_000 + 30 * 60_000);
+    await expect(
+      adapter.fetchJobs({
+        source: { ...source, careersUrl: "https://third.example/careers" },
+      }),
+    ).rejects.toThrow("Learning");
+    await vi.waitFor(() => expect(mocks.warn).toHaveBeenCalledTimes(3));
+    expect(deleted).toHaveBeenCalledWith("example.com");
+    expect(cooldowns?.has("example.com")).toBe(false);
+    expect(cooldowns?.has("other.example")).toBe(true);
+    await expect(adapter.fetchJobs({ source: other })).rejects.toThrow(
+      "Could not learn",
+    );
+    expect(mocks.learn).toHaveBeenCalledTimes(3);
+  });
   it("logs the learner's bounded rejection message", async () => {
     const { RecipeLearningError } = await import(
       "@server/watchlist/careers-site/learn"
