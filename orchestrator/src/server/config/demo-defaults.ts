@@ -272,10 +272,11 @@ const DEMO_GENERATED_STAGE_EVENTS: DemoDefaultStageEvent[] =
         applicationId: job.id,
         fromStage: "recruiter_screen",
         toStage: "closed",
-        title: "Closed without offer",
+        title: "Application rejected",
+        outcome: "rejected",
         occurredOffsetMinutes: Math.max(appliedOffset - 2 * 24 * 60, 15),
         metadata: {
-          eventLabel: "Closed",
+          eventLabel: "Reject",
           actor: "user",
           reasonCode: "rejected",
         },

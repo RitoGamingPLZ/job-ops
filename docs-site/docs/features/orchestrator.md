@@ -1,20 +1,21 @@
 ---
 id: orchestrator
 title: Orchestrator
-description: Job states, ready flow, and PDF generation/regeneration behavior.
+description: Search Jobs, targeting opportunities, manual tailoring, and PDF generation.
 sidebar_position: 1
 ---
 
 ## What it is
 
-The Orchestrator is the primary jobs workspace in JobOps.
+Search Jobs (the Orchestrator workspace) is where you discover and target opportunities in JobOps.
 
 ![Orchestrator jobs workspace](/img/features/orchestrator-jobs.png)
 
 It controls:
 
 - job lifecycle states
-- manual and automatic ready flow
+- shortlisting with the Target button
+- manual resume tailoring from the board or job page
 - PDF generation and regeneration
 - job-level titled markdown notes on the dedicated job page
 - handoff to post-application tracking
@@ -39,7 +40,7 @@ It exists to ensure:
 - predictable regeneration behavior when job data changes
 - a place to keep application-specific answers, interview contacts, and general reminders close to the job
 - visibility when a reposted role looks like a job you already applied to, even if the URL changed
-- faster external research from the Ready tab with prebuilt search links for LinkedIn, GitHub, and broader web results
+- deliberate shortlisting before spending time on tailoring
 - one place to filter and sort jobs across every orchestrator tab
 
 ## How to use it
@@ -51,17 +52,17 @@ It exists to ensure:
 
 See [Find jobs](/docs/next/features/pipeline-run) for the search review flow.
 
-### Intended ready flow
+### Target, tailor, and apply
 
-1. Manual flow:
-   1. Job starts in `discovered`.
-   2. Open the job and choose Tailor.
-   3. Edit JD/tailored fields/project picks.
-   4. Click **Finalize & Move to Ready**.
-2. Auto flow:
-   1. Pipeline scores discovered jobs.
-   2. Top jobs above threshold are auto-processed.
-   3. Jobs move directly to `ready` with generated PDFs.
+1. Select a discovered job and click **Target**, the single primary job action in Search Jobs.
+2. Open **In Progress Board** to see it in **Targeted**. Targeting does not call the LLM, generate a PDF, or submit an application.
+3. Choose **Tailor resume** on the board or job page, review the tailored content, and generate the PDF manually. The job stays in Targeted until you mark it Applied.
+4. Apply on the employer's site, then mark the job **Applied** from the board or job page.
+5. Track **Recruiter Screen → Technical Interview → Behaviour Question → Team Match → Offer**. Rejections and withdrawals share **Reject**, with a withdrawn note for withdrawals.
+
+Click the targeted job's **Untarget** control to remove it from the shortlist. You cannot untarget while tailoring is processing. You can still **View JD**, **Edit details**, and **Copy info** in Search Jobs. Tailoring is available for targeted jobs; PDF, apply, skip, recalculate, and Ghostwriter actions are no longer part of the Search Jobs action menu.
+
+The pipeline discovers and scores jobs; it does not automatically tailor them. A targeted job can remain internally `discovered` until you start tailoring. Its targeting date is retained after PDF generation.
 
 When you select a job, the detail panel shows the available title, employer,
 status, and listing information immediately. A loading skeleton fills the
@@ -86,13 +87,12 @@ Job rows and the detail header can also show a `Previously Applied` warning when
 
 Date filters work on every jobs tab:
 
-- `Ready`
 - `Discovered`
 - `All Jobs`
 
 Available date dimensions:
 
-- `Ready`
+- `Ready` (the targeting date)
 - `Applied`
 - `Closed`
 - `Discovered`
@@ -115,18 +115,12 @@ Use it with:
 
 Date sorting follows the active date-filter context. If multiple date dimensions are enabled, JobOps uses this priority:
 
-1. `Ready`
+1. `Ready` (the targeting date)
 2. `Applied`
 3. `Closed`
 4. `Discovered`
 
 If a job does not have the first selected timestamp, JobOps falls back to the next available date in that order.
-
-### Ghostwriter availability
-
-Ghostwriter is available in `discovered` and `ready` job views.
-
-For details, see [Ghostwriter](/docs/next/features/ghostwriter).
 
 ### Job notes
 
@@ -150,18 +144,6 @@ To use it:
 
 The saved view renders markdown by default, so links, lists, headings, and emphasis stay readable without leaving the job page.
 
-### Ready tab search links
-
-In the `ready` view, JobOps can show prebuilt search links based on the current job's employer, title, and skills.
-
-This enables you to:
-
-- quickly open Google searches for likely LinkedIn profiles tied to the company and target skills
-- search GitHub for matching public profiles or repositories without rewriting the query yourself
-- run a broader web search to gather context before applying
-
-Open the **search links** row in the Ready summary to reveal the generated links.
-
 ### Opening documentation from the sidebar
 
 1. Open the sidebar menu.
@@ -178,7 +160,9 @@ PDF generation uses:
 
 Common paths:
 
-- Discovered to finalization: `POST /api/jobs/actions` with `{ "action": "move_to_ready", "jobIds": ["<jobId>"] }`
+- Target without tailoring: `POST /api/jobs/:id/target`
+- Untarget: `DELETE /api/jobs/:id/target`
+- Manually tailor a discovered job: `POST /api/jobs/:id/process`
 - Ready regeneration: `POST /api/jobs/:id/generate-pdf`
 
 ### Regenerating PDFs after edits (copy-pasteable examples)

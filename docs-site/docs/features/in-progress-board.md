@@ -1,53 +1,51 @@
 ---
 id: in-progress-board
 title: In Progress Board
-description: Post-application kanban board for tracking fewer, higher-attention jobs through interview and offer stages.
+description: Kanban board for targeted opportunities, manual tailoring, applications, interviews, and outcomes.
 sidebar_position: 3
 ---
 
 ## What it is
 
-The In Progress Board is a kanban view for jobs that have moved beyond initial application.
+The In Progress Board tracks shortlisted opportunities from Targeted through applications, interviews, and outcomes.
 
 ![In Progress Board kanban lanes](/img/features/in-progress-board.png)
 
 It groups jobs into lanes:
 
+- Targeted
 - Applied
 - Recruiter Screen
-- Assessment
-- Team Match
 - Technical Interview
-- Final Round
+- Behaviour Question
+- Team Match
 - Offer
-- Closed
+- Reject
 
 The **Applied** lane can be collapsed to a thin strip so it doesn't take up horizontal space, letting you focus on jobs that are actively moving through later stages. Your collapsed/expanded preference is remembered across visits.
 
 ## Why it exists
 
-JobOps uses two operational modes:
-
-- **Pre-application tracking** (`Jobs` page): large volume, pipeline and readiness focused.
-- **Post-application tracking** (`In Progress Board`): smaller volume, higher attention per job.
-
-Once a job enters the post-application phase, each opportunity usually needs tighter follow-up, interview prep, and deliberate stage management. A kanban board is better for that than a large list.
+Search Jobs helps you review many opportunities. Target the ones you want to pursue, then use the board for manual tailoring, follow-up, and interview preparation.
 
 ## How to use it
 
-1. Open **In Progress Board**.
-2. Review jobs by lane to see current stage distribution.
-3. Drag a card to a new lane to log a stage transition.
-4. Open a card to view full job details and timeline.
-5. Use sorting (Recent / Title / Company) to prioritize review.
+1. Open **Search Jobs**, select a job, and click **Target**.
+2. Open **In Progress Board**. The job appears in **Targeted** without generating a resume.
+3. Click **Tailor resume** on the card or job page. Review the tailoring and generate the PDF manually. The job stays in Targeted and shows its tailored state.
+4. Apply through the employer's application link, then mark the job **Applied**. Dragging a Targeted card to Applied records that transition; it does not submit an application.
+5. Log events or move cards as the process progresses: **Recruiter Screen → Technical Interview → Behaviour Question → Team Match → Offer**. Use the stages that match the employer's process.
+6. Log **Reject** for a rejection. A withdrawal also appears in Reject, with a **withdrawn** note.
+
+Technical Interview is one column. Each `technical_interview` event counts as another round, so log another technical interview to record round 2 or later. Older Assessment and Final Round events appear in this same column, but do not increase the technical round count.
 
 :::tip Celebration Effect
 When you successfully move a job listing to the **Offer** stage (either by dragging a card to the **Offer** column or by logging an **Offer** stage event), a congratulatory celebration with confetti and floating balloons will trigger on the screen to celebrate your achievement!
 :::
 
-### Moving jobs into post-application
+### Recording progress
 
-Marking a job **Applied** puts it directly on the board in the Applied lane — there's no separate "move to in progress" step. From there, drag a card (or use the card menu's **Log event**) to record what actually happened: Recruiter Screen, Rejected, Withdrawn, or any other stage/outcome.
+Marking a job **Applied** puts it directly on the board in the Applied lane — there's no separate "move to in progress" step. From there, drag a card (or use the card menu's **Log event**) to record what actually happened: Recruiter Screen, Behaviour Question, Reject, or a withdrawal outcome.
 
 Later stage changes can also happen via:
 
@@ -57,13 +55,13 @@ Later stage changes can also happen via:
 ### API examples
 
 ```bash
-# List in-progress jobs
-curl "http://localhost:3001/api/jobs?status=in_progress&view=list"
+# List jobs that can include untailored targets
+curl "http://localhost:3001/api/jobs?status=discovered&view=list"
 ```
 
 ```bash
 # Move a job to technical interview
-curl -X POST "http://localhost:3001/api/jobs/<jobId>/stage-events" \
+curl -X POST "http://localhost:3001/api/jobs/<jobId>/stages" \
   -H "content-type: application/json" \
   -d '{
     "toStage": "technical_interview",
@@ -79,12 +77,13 @@ curl -X POST "http://localhost:3001/api/jobs/<jobId>/stage-events" \
 
 ### Board is empty
 
-- Confirm jobs have status `applied` or `in_progress`.
+- Target a job from Search Jobs first, or confirm you have applied jobs. Untargeted discovered jobs do not appear.
 - Check whether the Applied lane is collapsed — expand it from the chevron in its header.
 
 ### A card appears in an unexpected lane
 
-- The board uses the latest stage event as source of truth.
+- Before application, targeted jobs stay in Targeted even after tailoring.
+- After application, the board uses the latest stage event as source of truth.
 - Check timeline events for out-of-order or mistaken transitions.
 
 ### Drag-and-drop move failed

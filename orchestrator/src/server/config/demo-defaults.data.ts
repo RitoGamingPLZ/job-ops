@@ -1,13 +1,14 @@
 import type { SettingKey } from "@server/repositories/settings";
 import type {
   ApplicationStage,
+  JobOutcome,
   JobSource,
   JobStatus,
   ResumeProjectCatalogItem,
   StageEventMetadata,
 } from "@shared/types";
 
-export const DEMO_BASELINE_VERSION = "2026.02.05.v3";
+export const DEMO_BASELINE_VERSION = "2026.11.08.v4";
 export const DEMO_BASELINE_NAME = "Public Demo Baseline";
 
 export type DemoDefaultSettings = Partial<Record<SettingKey, string>>;
@@ -289,6 +290,7 @@ export interface DemoDefaultJob {
   selectedProjectIds?: string;
   pdfPath?: string;
   appliedOffsetMinutes?: number;
+  readyOffsetMinutes?: number;
 }
 
 export const DEMO_BASE_JOBS: DemoDefaultJob[] = [
@@ -378,6 +380,7 @@ export const DEMO_BASE_JOBS: DemoDefaultJob[] = [
       "Own backend APIs and data pipelines supporting analytics products. Work across schema evolution, endpoint performance, and production support rotations.",
     status: "discovered",
     discoveredOffsetMinutes: 640,
+    readyOffsetMinutes: 500,
     suitabilityScore: 72,
     suitabilityReason:
       "Balanced fit for backend API ownership and data-heavy workloads. Meets core technical baseline; impact would improve with more recent analytics product depth.",
@@ -414,6 +417,7 @@ export const DEMO_BASE_JOBS: DemoDefaultJob[] = [
       "Drive production reliability for customer-facing APIs. Build SLO dashboards, incident playbooks, and reliability automation to reduce mean time to recovery.",
     status: "discovered",
     discoveredOffsetMinutes: 300,
+    readyOffsetMinutes: 240,
     suitabilityScore: 81,
     suitabilityReason:
       "Very strong reliability and observability alignment with clear evidence of incident response rigor and production hardening ownership.",
@@ -609,6 +613,7 @@ export interface DemoDefaultStageEvent {
   title: string;
   occurredOffsetMinutes: number;
   metadata: StageEventMetadata | null;
+  outcome?: JobOutcome;
 }
 
 export const DEMO_BASE_STAGE_EVENTS: DemoDefaultStageEvent[] = [
@@ -618,7 +623,7 @@ export const DEMO_BASE_STAGE_EVENTS: DemoDefaultStageEvent[] = [
     fromStage: null,
     toStage: "applied",
     title: "Applied (seeded demo)",
-    occurredOffsetMinutes: 180,
+    occurredOffsetMinutes: 4800,
     metadata: { eventLabel: "Applied (seeded demo)", actor: "system" },
   },
   {
@@ -640,6 +645,15 @@ export const DEMO_BASE_STAGE_EVENTS: DemoDefaultStageEvent[] = [
     metadata: { eventLabel: "Technical Interview", actor: "user" },
   },
   {
+    id: "demo-event-tech-round-2-1",
+    applicationId: "demo-job-applied-1",
+    fromStage: "technical_interview",
+    toStage: "technical_interview",
+    title: "Technical interview round 2: system design",
+    occurredOffsetMinutes: 3900,
+    metadata: { eventLabel: "Technical Interview", actor: "user" },
+  },
+  {
     id: "demo-event-applied-2",
     applicationId: "demo-job-applied-2",
     fromStage: null,
@@ -656,6 +670,15 @@ export const DEMO_BASE_STAGE_EVENTS: DemoDefaultStageEvent[] = [
     title: "Take-home assessment sent",
     occurredOffsetMinutes: 3500,
     metadata: { eventLabel: "Assessment", actor: "user" },
+  },
+  {
+    id: "demo-event-behavioural-2",
+    applicationId: "demo-job-applied-2",
+    fromStage: "assessment",
+    toStage: "behavioural",
+    title: "Behaviour question: collaboration and ownership",
+    occurredOffsetMinutes: 3200,
+    metadata: { eventLabel: "Behaviour Question", actor: "user" },
   },
   {
     id: "demo-event-applied-3",
@@ -725,12 +748,13 @@ export const DEMO_BASE_STAGE_EVENTS: DemoDefaultStageEvent[] = [
     applicationId: "demo-job-applied-5",
     fromStage: "recruiter_screen",
     toStage: "closed",
-    title: "Position closed",
+    title: "Application withdrawn",
+    outcome: "withdrawn",
     occurredOffsetMinutes: 640,
     metadata: {
-      eventLabel: "Closed",
+      eventLabel: "Reject",
       actor: "user",
-      reasonCode: "rejected",
+      reasonCode: "withdrawn",
     },
   },
 ];

@@ -5,27 +5,35 @@ description: Track post-application progress manually, or configure automatic Gm
 sidebar_position: 2
 ---
 
-## Goal
+## What it is
 
-After a job is marked `applied`, use this workflow to track what happens next.
+Follow **Targeted → Tailor → Applied → Recruiter Screen → Technical Interview → Behaviour Question → Team Match → Offer**, using the stages relevant to each employer. Rejections and withdrawals appear in **Reject**, with withdrawals labelled **withdrawn**.
+
+Target a job with the single **Target** button in Search Jobs. Targeting shortlists it without running tailoring or creating a PDF. Tailor manually from the board or job page, apply externally, then mark it Applied.
 
 You have two valid paths:
 
 - **Manual tracking**: update stages/events yourself.
 - **Automatic Gmail sync**: let email ingestion route events into inbox/review flow.
 
-## Option A: Manual event tracking
+## Why it exists
+
+Keep interview progress and outcomes alongside each application, with manual control or email-assisted updates.
+
+## How to use it
+
+### Option A: Manual event tracking
 
 Use this when you want explicit, hands-on control for each job.
 
-### Manual flow
+#### Manual flow
 
 1. Open an `applied` or `in_progress` job.
-2. Record stage progress as events (screening, interview, offer, closed, etc.).
+2. Record stage progress as events (Recruiter Screen, Technical Interview, Behaviour Question, Team Match, Offer, or Reject). Log each technical interview round separately; the board counts these events as Round 1, Round 2, and so on.
 3. Keep notes/outcomes current as conversations progress.
 4. Use In Progress Board for high-attention jobs in later stages.
 
-### API example (manual stage transition)
+#### API example (manual stage transition)
 
 ```bash
 curl -X POST "http://localhost:3001/api/jobs/<jobId>/stages" \
@@ -40,11 +48,11 @@ curl -X POST "http://localhost:3001/api/jobs/<jobId>/stages" \
   }'
 ```
 
-## Option B: Automatic Gmail syncing
+### Option B: Automatic Gmail syncing
 
 Use this when you want JobOps to ingest recruitment emails and suggest/apply updates.
 
-### High-level flow
+#### High-level flow
 
 1. Connect Gmail provider.
 2. Run sync (or scheduled sync, depending on setup).
@@ -52,7 +60,7 @@ Use this when you want JobOps to ingest recruitment emails and suggest/apply upd
 4. High confidence updates are auto-linked.
 5. Mid/low confidence items go to inbox for review.
 
-### Configure Gmail sync
+#### Configure Gmail sync
 
 Set OAuth variables:
 
@@ -73,7 +81,7 @@ Then in app:
 3. Complete consent.
 4. Trigger sync and review inbox items.
 
-### API examples (Gmail path)
+#### API examples (Gmail path)
 
 ```bash
 # Start OAuth
@@ -113,7 +121,7 @@ curl -X POST "http://localhost:3001/api/post-application/inbox/<messageId>/deny"
   -d '{"provider":"gmail","accountKey":"default"}'
 ```
 
-## Which option should you use?
+### Which option should you use?
 
 - Choose **manual** if your volume is low and you want direct control.
 - Choose **automatic Gmail sync** if your volume is higher and you want less repetitive triage.
@@ -139,7 +147,7 @@ curl -X POST "http://localhost:3001/api/post-application/inbox/<messageId>/deny"
 
 ## Related pages
 
-- [Find Jobs and Apply Workflow](./find-jobs-and-apply-workflow)
-- [Post-Application Tracking](../features/post-application-tracking)
-- [In Progress Board](../features/in-progress-board)
-- [Overview](../features/overview)
+- [Find Jobs and Apply Workflow](/docs/next/workflows/find-jobs-and-apply-workflow)
+- [Post-Application Tracking](/docs/next/features/post-application-tracking)
+- [In Progress Board](/docs/next/features/in-progress-board)
+- [Overview](/docs/next/features/overview)

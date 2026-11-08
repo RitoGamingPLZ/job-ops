@@ -4,6 +4,7 @@ import {
   DEMO_DEFAULT_SETTINGS,
   DEMO_DEFAULT_STAGE_EVENTS,
   type DemoDefaultSettings,
+  type DemoDefaultStageEvent,
 } from "@server/config/demo-defaults";
 import { db, schema } from "@server/db/index";
 import * as jobsRepo from "@server/repositories/jobs";
@@ -40,6 +41,17 @@ function makeDemoLink(
 
 export function buildDemoBaseline(now: Date): BuiltDemoBaseline {
   const resetAt = now.toISOString();
+  const latestEvents = new Map<string, DemoDefaultStageEvent>();
+  for (const event of DEMO_DEFAULT_STAGE_EVENTS) {
+    const latest = latestEvents.get(event.applicationId);
+    // Smaller offsets are newer; on a tie, the later fixture entry wins.
+    if (
+      !latest ||
+      event.occurredOffsetMinutes <= latest.occurredOffsetMinutes
+    ) {
+      latestEvents.set(event.applicationId, event);
+    }
+  }
 
   return {
     resetAt,
@@ -65,6 +77,17 @@ export function buildDemoBaseline(now: Date): BuiltDemoBaseline {
       deadline: job.deadline,
       jobDescription: job.jobDescription,
       status: job.status,
+      outcome: latestEvents.get(job.id)?.outcome ?? null,
+      closedAt:
+        latestEvents.get(job.id)?.toStage === "closed"
+          ? Math.floor(
+              (now.getTime() -
+                (latestEvents.get(job.id)?.occurredOffsetMinutes ?? 0) *
+                  60 *
+                  1000) /
+                1000,
+            )
+          : null,
       suitabilityScore: job.suitabilityScore,
       suitabilityReason: job.suitabilityReason,
       tailoredSummary: job.tailoredSummary ?? null,
@@ -75,6 +98,12 @@ export function buildDemoBaseline(now: Date): BuiltDemoBaseline {
       selectedProjectIds: job.selectedProjectIds ?? null,
       pdfPath: null,
       discoveredAt: toIsoFromOffset(now, job.discoveredOffsetMinutes),
+      readyAt:
+        typeof job.readyOffsetMinutes === "number"
+          ? toIsoFromOffset(now, job.readyOffsetMinutes)
+          : job.status === "ready" || job.status === "applied"
+            ? toIsoFromOffset(now, job.discoveredOffsetMinutes)
+            : null,
       appliedAt:
         job.status === "applied" && typeof job.appliedOffsetMinutes === "number"
           ? toIsoFromOffset(now, job.appliedOffsetMinutes)
@@ -92,7 +121,7 @@ export function buildDemoBaseline(now: Date): BuiltDemoBaseline {
         (now.getTime() - event.occurredOffsetMinutes * 60 * 1000) / 1000,
       ),
       metadata: event.metadata,
-      outcome: null,
+      outcome: event.outcome ?? null,
       groupId: null,
     })),
   };
