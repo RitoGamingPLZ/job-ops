@@ -62,6 +62,7 @@ const RESPONSE_STAGES = new Set([
   "assessment",
   "hiring_manager_screen",
   "technical_interview",
+  "behavioural",
   "onsite",
   "offer",
 ]);

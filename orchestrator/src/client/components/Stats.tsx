@@ -25,7 +25,7 @@ const statConfig: Array<{
 }> = [
   { key: "discovered", label: "Discovered", Icon: Search },
   { key: "processing", label: "Processing", Icon: Loader2 },
-  { key: "ready", label: "Ready", Icon: Sparkles },
+  { key: "ready", label: "Targeted", Icon: Sparkles },
   { key: "applied", label: "Applied", Icon: CheckCircle2 },
   { key: "in_progress", label: "In Progress", Icon: CheckCircle2 },
   { key: "skipped", label: "Skipped", Icon: XCircle },

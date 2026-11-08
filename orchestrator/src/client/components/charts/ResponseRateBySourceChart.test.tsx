@@ -3,7 +3,7 @@ import {
   createStageEvent,
 } from "@shared/testing/factories.js";
 import type { Job, StageEvent } from "@shared/types.js";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ResponseRateBySourceChart } from "./ResponseRateBySourceChart";
@@ -92,6 +92,53 @@ const stageEvent = (
   });
 
 describe("ResponseRateBySourceChart", () => {
+  it("includes behavioural responses in source buckets without counting repeated rounds twice", () => {
+    render(
+      <ResponseRateBySourceChart
+        jobs={[
+          createJob("job-1", [
+            stageEvent("job-1", "behavioural", 1),
+            stageEvent("job-1", "behavioural", 2),
+          ]),
+          createJob("job-2", [stageEvent("job-2", "applied", 1)]),
+        ]}
+        error={null}
+      />,
+    );
+
+    expect(screen.getByText("50.0%")).toBeInTheDocument();
+    expect(screen.getByText(/1 of 2 applications/)).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Include small samples" }),
+    );
+    const data = JSON.parse(
+      screen.getByTestId("bar-chart-data").textContent ?? "[]",
+    );
+    expect(data).toEqual([
+      expect.objectContaining({ applied: 2, responded: 1, rate: 50 }),
+    ]);
+  });
+
+  it("excludes behavioural responses retracted by moving back to Applied", () => {
+    render(
+      <ResponseRateBySourceChart
+        jobs={[
+          createJob("job-1", [
+            stageEvent("job-1", "behavioural", 1),
+            stageEvent("job-1", "applied", 2, {
+              fromStage: "behavioural",
+              metadata: { actor: "user", eventType: "status_update" },
+            }),
+          ]),
+        ]}
+        error={null}
+      />,
+    );
+
+    expect(screen.getByText("0.0%")).toBeInTheDocument();
+    expect(screen.getByText(/0 of 1 applications/)).toBeInTheDocument();
+  });
+
   it("counts an application as responded once it reaches a response stage", () => {
     const jobs = [
       createJob("job-1", [
