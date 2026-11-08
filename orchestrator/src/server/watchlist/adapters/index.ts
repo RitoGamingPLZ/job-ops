@@ -9,6 +9,7 @@ import { googleWatchlistAdapter } from "./google";
 import { greenhouseWatchlistAdapter } from "./greenhouse";
 import { leverWatchlistAdapter } from "./lever";
 import { metaWatchlistAdapter } from "./meta";
+import { oracleWatchlistAdapter } from "./oracle";
 import { smartrecruitersWatchlistAdapter } from "./smartrecruiters";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 import { workdayWatchlistAdapter } from "./workday";
@@ -26,6 +27,7 @@ const adapters = [
   ashbyWatchlistAdapter,
   smartrecruitersWatchlistAdapter,
   careersSiteWatchlistAdapter,
+  oracleWatchlistAdapter,
 ] as const;
 
 const adaptersByType = new Map<

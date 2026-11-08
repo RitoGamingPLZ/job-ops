@@ -111,9 +111,9 @@ afterEach(() => {
 });
 
 describe("careersSiteWatchlistAdapter", () => {
-  it("parses all 14 catalog URLs and safely skips invalid entries", () => {
+  it("parses all 13 catalog URLs and safely skips invalid entries", () => {
     const parsed = adapter.parseCatalogSources(catalog);
-    expect(parsed).toHaveLength(14);
+    expect(parsed).toHaveLength(13);
     expect(parsed.map((s) => s.careersUrl)).toEqual(
       catalog.map((s) => s.careersUrl),
     );
