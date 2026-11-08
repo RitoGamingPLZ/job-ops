@@ -48,6 +48,17 @@ const searchSchema = z.object({
   positions: z.array(positionSchema),
 });
 
+// Discovery is unavailable during URL parsing. Preserve bounded capitalized
+// facet names (including spaces) and legacy/PCSX filter_* keys. Transport keys
+// such as domain/start/num stay server-controlled; URLs always use board.origin.
+export function isEightfoldFacetKey(key: string): boolean {
+  return (
+    key.length <= 60 &&
+    (/^[A-Z][A-Za-z0-9]*(?: [A-Za-z0-9]+)*$/.test(key) ||
+      /^filter_\w+$/.test(key))
+  );
+}
+
 function parseSource(value: string) {
   const url = new URL(value);
   if (
@@ -63,7 +74,7 @@ function parseSource(value: string) {
   const board = boards[url.hostname as keyof typeof boards];
   const canonical = new URL("/careers", url.origin);
   for (const [key, value] of url.searchParams) {
-    if (key === "query" || key === "location" || /^filter_\w+$/.test(key)) {
+    if (key === "query" || key === "location" || isEightfoldFacetKey(key)) {
       canonical.searchParams.append(key, value);
     }
   }
@@ -285,7 +296,7 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourcePlaceholder:
       "https://apply.careers.microsoft.com/careers?query=engineer",
     customSourceHelpText:
-      "Paste a Microsoft or Netflix careers search URL. Query, location and filter_ parameters are preserved. Up to 60 newest jobs are fetched.",
+      "Paste a Microsoft or Netflix careers search URL. Query, location, capitalized facet names (Teams, Work Type, Region), and filter_ parameters are preserved. Up to 60 newest jobs are fetched.",
     emptyCatalogText: "No Eightfold companies found.",
     fetchingLabel: "Fetching from Eightfold...",
     invalidUrlMessage: "Use a Microsoft or Netflix careers search URL.",
