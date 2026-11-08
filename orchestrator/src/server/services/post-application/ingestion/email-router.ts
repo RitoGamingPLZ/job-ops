@@ -174,6 +174,7 @@ async function classifyWithSmartRouterImpl(args: {
 - Choose bestMatchIndex only from listed job numbers (1-based), or null.
 - confidence is 0..100.
 - stageTarget must be one of: ${POST_APPLICATION_ROUTER_STAGE_TARGETS.join("|")}.
+- Use behavioural for behavioural/behavioral questions, competency interviews, or past-experience discussions; use technical_interview for coding, system design, or other technical interviews. Keep technical_interview coarse; do not infer a round number.
 - isRelevant should be true for recruitment/application lifecycle emails.
 - stageEventPayload should be minimal structured data or null.
 

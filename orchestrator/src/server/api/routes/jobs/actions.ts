@@ -3,6 +3,7 @@ import { fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { setupSse, startSseHeartbeat, writeSseData } from "@infra/sse";
 import { resolveRequestOrigin } from "@server/infra/request-origin";
+import { setJobTargeted } from "@server/repositories/jobs";
 import {
   buildJobActionExecutionOptions,
   executeJobActionForJob,
@@ -18,6 +19,8 @@ import {
   hydrateJobPdfFreshnessWithContext,
   JOB_ACTION_CONCURRENCY,
   jobActionRequestSchema,
+  requireJob,
+  toJobsRouteError,
 } from "./shared";
 
 export const jobsActionsRouter = Router();
@@ -314,3 +317,29 @@ jobsActionsRouter.post("/:id/rescore", async (req: Request, res: Response) => {
   if (!result.ok) return fail(res, mapJobActionFailure(result));
   ok(res, await hydrateJobPdfFreshness(result.job));
 });
+
+async function updateTarget(req: Request, res: Response, targeted: boolean) {
+  try {
+    const job = await requireJob(req.params.id);
+    const updated = await setJobTargeted(job.id, targeted);
+    if (!updated)
+      return fail(
+        res,
+        badRequest(
+          targeted
+            ? "Only discovered, processing, or ready jobs can be targeted"
+            : "Only discovered or ready jobs can be untargeted",
+        ),
+      );
+    ok(res, await hydrateJobPdfFreshness(updated));
+  } catch (error) {
+    fail(res, toJobsRouteError(error));
+  }
+}
+
+jobsActionsRouter.post("/:id/target", (req: Request, res: Response) =>
+  updateTarget(req, res, true),
+);
+jobsActionsRouter.delete("/:id/target", (req: Request, res: Response) =>
+  updateTarget(req, res, false),
+);

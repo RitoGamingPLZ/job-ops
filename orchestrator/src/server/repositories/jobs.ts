@@ -816,9 +816,43 @@ export async function getUnscoredDiscoveredJobs(
 export async function deleteJobsByStatus(status: JobStatus): Promise<number> {
   const result = await db
     .delete(jobs)
-    .where(and(jobsScopeFilter(), eq(jobs.status, status)))
+    .where(
+      and(
+        jobsScopeFilter(),
+        eq(jobs.status, status),
+        status === "discovered" ? isNull(jobs.readyAt) : undefined,
+      ),
+    )
     .run();
   return result.changes;
+}
+
+/** Set targeting without changing pipeline status; guard the write atomically. */
+export async function setJobTargeted(
+  id: string,
+  targeted: boolean,
+): Promise<Job | null> {
+  const now = new Date().toISOString();
+  const rows = await db
+    .update(jobs)
+    .set({
+      readyAt: targeted ? sql`coalesce(${jobs.readyAt}, ${now})` : null,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        jobsScopeFilter(),
+        eq(jobs.id, id),
+        inArray(
+          jobs.status,
+          targeted
+            ? ["discovered", "processing", "ready"]
+            : ["discovered", "ready"],
+        ),
+      ),
+    )
+    .returning();
+  return rows[0] ? mapRowToJob(rows[0]) : null;
 }
 
 export async function deleteJob(

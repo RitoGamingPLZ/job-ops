@@ -26,6 +26,7 @@ export function messageTypeFromStageTarget(
     target === "assessment" ||
     target === "hiring_manager_screen" ||
     target === "technical_interview" ||
+    target === "behavioural" ||
     target === "onsite"
   ) {
     return "interview";

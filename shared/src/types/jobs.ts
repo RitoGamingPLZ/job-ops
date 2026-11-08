@@ -20,6 +20,7 @@ export const APPLICATION_STAGES = [
   "assessment",
   "hiring_manager_screen",
   "technical_interview",
+  "behavioural",
   "onsite",
   "offer",
   "closed",
@@ -35,8 +36,53 @@ export const STAGE_LABELS: Record<ApplicationStage, string> = {
   technical_interview: "Technical Interview",
   onsite: "Final Round",
   offer: "Offer",
-  closed: "Closed",
+  behavioural: "Behaviour Question",
+  closed: "Reject",
 };
+
+export const BOARD_COLUMNS = [
+  "targeted",
+  "applied",
+  "recruiter_screen",
+  "technical_interview",
+  "behavioural",
+  "hiring_manager_screen",
+  "offer",
+  "closed",
+] as const;
+
+export type BoardColumn = (typeof BOARD_COLUMNS)[number];
+
+export const BOARD_COLUMN_LABELS: Record<BoardColumn, string> = {
+  targeted: "Targeted",
+  applied: STAGE_LABELS.applied,
+  recruiter_screen: STAGE_LABELS.recruiter_screen,
+  technical_interview: STAGE_LABELS.technical_interview,
+  behavioural: STAGE_LABELS.behavioural,
+  hiring_manager_screen: STAGE_LABELS.hiring_manager_screen,
+  offer: STAGE_LABELS.offer,
+  closed: STAGE_LABELS.closed,
+};
+
+export function boardColumnForStage(s: ApplicationStage): BoardColumn {
+  return s === "assessment" || s === "onsite" ? "technical_interview" : s;
+}
+
+export function technicalRound(events: Pick<StageEvent, "toStage">[]): number {
+  return events.filter((event) => event.toStage === "technical_interview")
+    .length;
+}
+
+export function isTargeted(
+  j: Pick<JobListItem, "status" | "readyAt">,
+): boolean {
+  return (
+    j.readyAt != null &&
+    (j.status === "discovered" ||
+      j.status === "processing" ||
+      j.status === "ready")
+  );
+}
 
 export type StageTransitionTarget = ApplicationStage | "no_change";
 
@@ -575,7 +621,7 @@ export interface UpdateJobInput {
   pdfFingerprint?: string | null;
   pdfGeneratedAt?: string | null;
   tracerLinksEnabled?: boolean;
-  readyAt?: string;
+  readyAt?: string | null;
   appliedAt?: string;
   sponsorMatchScore?: number;
   sponsorMatchNames?: string;

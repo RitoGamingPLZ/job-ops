@@ -27,6 +27,30 @@ describe.sequential("product analytics repository", () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
+  it("counts behavioural as a positive response and interview in historical analytics", async () => {
+    const { db, schema } = await import("@server/db");
+    const { createJob } = await import("./jobs");
+    const repo = await import("./product-analytics");
+    const job = await createJob({
+      source: "manual",
+      title: "Behaviour",
+      employer: "Acme",
+      jobUrl: "https://example.com/behaviour",
+    });
+    await db.insert(schema.stageEvents).values({
+      id: "behavioural-event",
+      applicationId: job.id,
+      title: "Behaviour Question",
+      toStage: "behavioural",
+      occurredAt: 1_704_153_600,
+    });
+    const candidates = await repo.getHistoricalActivationMilestoneCandidates();
+    expect(candidates.activation_first_positive_response).toBe(
+      1_704_153_600_000,
+    );
+    expect(candidates.activation_first_interview).toBe(1_704_153_600_000);
+  });
+
   it("creates a stable install identity once and reuses it", async () => {
     const repo = await import("./product-analytics");
 
