@@ -196,6 +196,25 @@ describe("careersSiteWatchlistAdapter", () => {
     expect(mocks.run).toHaveBeenCalledTimes(1);
     expect(fetch).not.toHaveBeenCalled();
   });
+  it("records partial jobs returned after the 20 s soft deadline as a success", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    mocks.run.mockImplementation(async (_recipe, { stopAt, signal, limit }) => {
+      expect(stopAt).toBe(21_000);
+      expect(limit).toBe(40);
+      now.mockReturnValue(22_000);
+      expect(signal.aborted).toBe(false);
+      return [job()];
+    });
+    const result = await adapter.fetchJobs({ source });
+    expect(result).toMatchObject({ total: 1, fetched: 1 });
+    expect(mocks.record).toHaveBeenCalledExactlyOnceWith("example.com", true);
+    expect(mocks.learn).not.toHaveBeenCalled();
+    expect(timeout).toHaveBeenCalledWith(25_000);
+    expect(
+      await adapter.fetchJobDetails({ source, jobRef: job().url }),
+    ).toMatchObject({ descriptionHtml: job().descriptionHtml });
+  });
   it.each([
     "http://example.com/jobs/1",
     "https://example.com:8443/jobs/1",
@@ -223,6 +242,7 @@ describe("careersSiteWatchlistAdapter", () => {
     expect(mocks.run).toHaveBeenCalledWith(recipe, {
       limit: 40,
       signal: expect.any(AbortSignal),
+      stopAt: expect.any(Number),
     });
     mocks.run.mockResolvedValue([]);
     expect(await adapter.fetchJobs({ source })).toMatchObject({ fetched: 0 });
@@ -262,6 +282,7 @@ describe("careersSiteWatchlistAdapter", () => {
     expect(mocks.run).toHaveBeenCalledWith(rendered, {
       limit,
       signal: expect.any(AbortSignal),
+      stopAt: expect.any(Number),
     });
   });
   it("uses 40 for selectors without rendering", async () => {

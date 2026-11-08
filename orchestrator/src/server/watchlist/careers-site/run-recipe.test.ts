@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isAllowedByRobots, loadPage } from "./fetch";
 import { extractJob, runRecipe } from "./run-recipe";
 import { type Recipe, SiteBlockedError } from "./types";
@@ -49,6 +49,11 @@ function pages(values: Record<string, string | Error>) {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(isAllowedByRobots).mockResolvedValue(true);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("extractJob", () => {
@@ -509,7 +514,7 @@ describe("runRecipe", () => {
     for (const [url] of vi.mocked(loadPage).mock.calls)
       expect(isAllowedByRobots).toHaveBeenCalledWith(url, { signal });
   });
-  it("limits detail concurrency to two and preserves sorted order despite completion order", async () => {
+  it("limits detail concurrency to three and preserves sorted order despite completion order", async () => {
     let active = 0;
     let peak = 0;
     vi.mocked(loadPage).mockImplementation(async (url) => {
@@ -530,7 +535,155 @@ describe("runRecipe", () => {
     expect(
       (await runRecipe(recipe, { limit: 4 })).map((job) => job.id),
     ).toEqual(["4", "3", "2", "1"]);
-    expect(peak).toBe(2);
+    expect(peak).toBe(3);
+  });
+  it.each([
+    "load",
+    "robots",
+  ] as const)("soft-aborts a stalled detail %s and returns earlier jobs before the hard abort", async (phase) => {
+    vi.useFakeTimers();
+    // Native AbortSignal.timeout uses real timers; route it through fake timers.
+    vi.spyOn(AbortSignal, "timeout").mockImplementation((delay) => {
+      const controller = new AbortController();
+      setTimeout(
+        () => controller.abort(new DOMException("Timed out", "TimeoutError")),
+        delay,
+      );
+      return controller.signal;
+    });
+    const stalled = (signal?: AbortSignal) =>
+      new Promise<never>((_resolve, reject) => {
+        if (!signal) throw new Error("Expected a page signal");
+        signal.throwIfAborted();
+        signal.addEventListener("abort", () => reject(signal.reason), {
+          once: true,
+        });
+      });
+    vi.mocked(isAllowedByRobots).mockImplementation(async (url, options) => {
+      if (phase === "robots" && url.endsWith("/1"))
+        return stalled(options?.signal);
+      return true;
+    });
+    vi.mocked(loadPage).mockImplementation(async (url, options) => {
+      if (url.endsWith(".xml"))
+        return {
+          url,
+          status: 200,
+          html: sitemap([1, 2, 3].map((id) => [`${base}/jobs/${id}`])),
+        };
+      if (url.endsWith("/1")) return stalled(options?.signal);
+      return { url, status: 200, html: posting() };
+    });
+    const start = Date.now();
+    const hardSignal = AbortSignal.timeout(25_000);
+    const resolved = vi.fn();
+    const result = runRecipe(recipe, {
+      limit: 3,
+      signal: hardSignal,
+      stopAt: start + 10_000,
+    }).then((jobs) => {
+      resolved();
+      return jobs;
+    });
+    await vi.advanceTimersByTimeAsync(12_999);
+    expect(resolved).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect((await result).map((job) => job.id)).toEqual(["3", "2"]);
+    expect(Date.now() - start).toBe(13_000);
+    expect(hardSignal.aborted).toBe(false);
+  });
+  it("returns completed and in-flight jobs past stopAt without starting more details", async () => {
+    vi.useFakeTimers();
+    const start = Date.now();
+    vi.mocked(loadPage).mockImplementation(async (url) => {
+      if (url.endsWith(".xml"))
+        return {
+          url,
+          status: 200,
+          html: sitemap([1, 2, 3, 4, 5].map((id) => [`${base}/jobs/${id}`])),
+        };
+      await new Promise((resolve) =>
+        setTimeout(resolve, url.endsWith("5") ? 5 : 15),
+      );
+      return { url, status: 200, html: posting() };
+    });
+    const result = runRecipe(recipe, { limit: 5, stopAt: start + 10 });
+    await vi.advanceTimersByTimeAsync(20);
+    expect((await result).map((job) => job.id)).toEqual(["5", "4", "3", "2"]);
+    expect(loadPage).not.toHaveBeenCalledWith(
+      `${base}/jobs/1`,
+      expect.anything(),
+    );
+  });
+  it.each([
+    "sitemap",
+    "page",
+  ] as const)("stops %s traversal at stopAt with discovered candidates retained", async (kind) => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(0);
+    const listing: Recipe["listing"] =
+      kind === "sitemap"
+        ? recipe.listing
+        : {
+            kind: "page",
+            url: `${base}/openings`,
+            render: false,
+            pagination: { kind: "query", param: "page", start: 1, step: 1 },
+            maxPages: 3,
+          };
+    vi.mocked(loadPage).mockImplementation(async (url) => {
+      if (url === recipe.listing.url)
+        return {
+          url,
+          status: 200,
+          html: index(`${base}/first.xml`, `${base}/second.xml`),
+        };
+      now.mockReturnValue(10);
+      return {
+        url,
+        status: 200,
+        html:
+          kind === "sitemap"
+            ? sitemap([[`${base}/jobs/1`]])
+            : '<a href="/jobs/1">Role</a>',
+      };
+    });
+    // Finding a candidate still follows the existing all-details-empty failure path.
+    await expect(
+      runRecipe({ ...recipe, listing }, { limit: 5, stopAt: 10 }),
+    ).rejects.toThrow("All selected careers job pages failed");
+    expect(loadPage).toHaveBeenCalledTimes(kind === "sitemap" ? 2 : 1);
+  });
+  it("does not start a detail load when the deadline passes during robots checking", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(0);
+    pages({ [recipe.listing.url]: sitemap([[`${base}/jobs/1`]]) });
+    vi.mocked(isAllowedByRobots).mockImplementation(async (url) => {
+      if (url.includes("/jobs/")) now.mockReturnValue(10);
+      return true;
+    });
+    await expect(runRecipe(recipe, { limit: 1, stopAt: 10 })).rejects.toThrow(
+      "All selected careers job pages failed",
+    );
+    expect(loadPage).toHaveBeenCalledTimes(1);
+  });
+  it("still throws on abort after collecting jobs before the soft deadline", async () => {
+    const controller = new AbortController();
+    vi.mocked(loadPage).mockImplementation(async (url) => {
+      if (url.endsWith(".xml"))
+        return {
+          url,
+          status: 200,
+          html: sitemap([1, 2, 3, 4].map((id) => [`${base}/jobs/${id}`])),
+        };
+      if (url.endsWith("1")) controller.abort(new Error("Cancelled details"));
+      return { url, status: 200, html: posting() };
+    });
+    await expect(
+      runRecipe(recipe, {
+        limit: 4,
+        signal: controller.signal,
+        stopAt: Date.now() + 20_000,
+      }),
+    ).rejects.toThrow("Cancelled details");
   });
   it("skips broken or empty detail pages but throws a sanitized error if all fail", async () => {
     pages({

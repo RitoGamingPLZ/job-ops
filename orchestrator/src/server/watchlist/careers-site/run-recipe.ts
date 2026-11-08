@@ -197,28 +197,40 @@ export function extractJob(
   }
 }
 
-/** Collect job links from recipe.listing, newest first where known, at most `limit`, then read each job page per recipe.detail. */
+/** Collect at most `limit` jobs, newest first where known. `stopAt` stops new loads; signal aborts still throw. */
 export async function runRecipe(
   recipe: Recipe,
-  options: { limit: number; signal?: AbortSignal },
+  options: { limit: number; signal?: AbortSignal; stopAt?: number },
 ): Promise<CrawledJob[]> {
-  const { signal } = options;
+  const { signal, stopAt } = options;
+  const stopped = () => stopAt !== undefined && Date.now() >= stopAt;
   signal?.throwIfAborted();
   const limit = Math.max(0, Math.floor(options.limit));
   if (!Number.isFinite(limit) || !limit) return [];
+  // Let in-flight pages finish briefly, then preserve jobs before the hard abort.
+  const loadSignal =
+    stopAt === undefined
+      ? signal
+      : AbortSignal.any([
+          ...(signal ? [signal] : []),
+          AbortSignal.timeout(Math.max(0, stopAt - Date.now()) + 3_000),
+        ]);
   const pattern = new RegExp(recipe.jobUrlPattern);
   const base = recipe.listing.url;
   const candidates = new Map<string, number>();
   async function read(url: string, render = false, waitFor?: string) {
     signal?.throwIfAborted();
+    if (stopped()) return null;
     if (!sameSite(url, base))
       throw new Error("Recipe URL must use the same HTTPS host.");
-    if (!(await isAllowedByRobots(url, { signal })))
+    if (!(await isAllowedByRobots(url, { signal: loadSignal })))
       throw new SiteBlockedError(
         new URL(url).hostname,
         "robots.txt disallows this URL",
       );
-    const page = await loadPage(url, { render, waitFor, signal });
+    signal?.throwIfAborted();
+    if (stopped()) return null;
+    const page = await loadPage(url, { render, waitFor, signal: loadSignal });
     signal?.throwIfAborted();
     if (page.status === 403 || page.status === 406)
       throw new SiteBlockedError(new URL(url).hostname, `HTTP ${page.status}`);
@@ -244,9 +256,10 @@ export async function runRecipe(
   if (recipe.listing.kind === "sitemap") {
     const visited = new Set<string>();
     async function sitemap(url: string, depth: number): Promise<void> {
-      if (visited.has(url) || visited.size >= 50) return;
+      if (stopped() || visited.has(url) || visited.size >= 50) return;
       visited.add(url);
       const page = await read(url);
+      if (!page) return;
       const dom = new JSDOM(page.html, { contentType: "text/xml" });
       try {
         const root = dom.window.document.documentElement;
@@ -254,6 +267,7 @@ export async function runRecipe(
           if (depth >= 2) return;
           let successes = 0;
           for (const entry of Array.from(root.children)) {
+            if (stopped()) break;
             const loc = Array.from(entry.children).find(
               (child) => child.localName === "loc",
             )?.textContent;
@@ -266,7 +280,8 @@ export async function runRecipe(
               rethrowFatal(error);
             }
           }
-          if (!successes) throw new Error("No careers sitemaps could be read.");
+          if (!successes && !stopped())
+            throw new Error("No careers sitemaps could be read.");
         } else if (root.localName === "urlset") {
           for (const entry of Array.from(root.children)) {
             const children = Array.from(entry.children);
@@ -289,6 +304,7 @@ export async function runRecipe(
     const listing = recipe.listing;
     let successes = 0;
     for (let pageIndex = 0; pageIndex < listing.maxPages; pageIndex++) {
+      if (stopped()) break;
       const url = new URL(base);
       if (listing.pagination.kind === "query")
         url.searchParams.set(
@@ -300,6 +316,7 @@ export async function runRecipe(
       else if (pageIndex) break;
       try {
         const page = await read(url.href, listing.render, listing.waitFor);
+        if (!page) break;
         const dom = new JSDOM(page.html);
         try {
           for (const link of dom.window.document.querySelectorAll("a[href]"))
@@ -338,13 +355,14 @@ export async function runRecipe(
   let index = 0;
   let fatal: unknown;
   async function worker() {
-    while (index < selected.length && !fatal) {
+    while (index < selected.length && !fatal && !stopped()) {
       const [url] = selected[index++];
       try {
         const page = await read(
           url,
           recipe.detail.kind === "selectors" && recipe.detail.render,
         );
+        if (!page) break;
         const job = extractJob(page.html, page.url, recipe);
         if (job) {
           job.id = jobId(url, recipe) || jobId(page.url, recipe) || url;
@@ -361,7 +379,7 @@ export async function runRecipe(
       }
     }
   }
-  await Promise.all([worker(), worker()]);
+  await Promise.all([worker(), worker(), worker()]);
   if (fatal) throw fatal;
   signal?.throwIfAborted();
   if (selected.length && !jobs.size)
