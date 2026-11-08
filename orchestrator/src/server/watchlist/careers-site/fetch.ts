@@ -4,13 +4,14 @@ import { request } from "node:https";
 import { isIP } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { type Browser, chromium } from "playwright";
+import { type Browser, type BrowserContext, chromium } from "playwright";
 import { type LoadedPage, SiteBlockedError } from "./types";
 
 const USER_AGENT =
   "job-ops-crawler/1.0 (+https://github.com/DaKheera47/job-ops)";
 const MAX_BYTES = 5 * 1024 * 1024;
 const PAGE_TIMEOUT = 20_000;
+const CONTEXT_CLOSE_TIMEOUT = 5_000;
 const IDLE_TIMEOUT = 5 * 60_000;
 const ROBOTS_TTL = 60 * 60_000;
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
@@ -417,6 +418,21 @@ async function getBrowser(): Promise<Browser> {
   return sharedBrowser;
 }
 
+// Cleanup must not hold a page result or its original error indefinitely.
+async function closeContext(context: BrowserContext): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      context.close().catch(() => {}),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(resolve, CONTEXT_CLOSE_TIMEOUT);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /** Load a page: plain fetch, or rendered with the shared Playwright Chromium when render is true. Applies the same safety checks. */
 export async function loadPage(
   value: string,
@@ -436,11 +452,18 @@ export async function loadPage(
   let onAbort: (() => void) | undefined;
   try {
     const browser = await withAbort(getBrowser(), signal);
-    context = await browser.newContext({
-      userAgent: USER_AGENT,
-      serviceWorkers: "block",
-      acceptDownloads: false,
-    });
+    const pendingContext = browser
+      .newContext({
+        userAgent: USER_AGENT,
+        serviceWorkers: "block",
+        acceptDownloads: false,
+      })
+      .then((created) => {
+        // Creation can finish after the abort race has already returned.
+        if (signal.aborted) void closeContext(created);
+        return created;
+      });
+    context = await withAbort(pendingContext, signal);
     onAbort = () => {
       void context?.close().catch(() => {});
     };
@@ -518,7 +541,7 @@ export async function loadPage(
   } finally {
     if (onAbort) signal.removeEventListener("abort", onAbort);
     activePages--;
-    await context?.close().catch(() => {});
     scheduleBrowserClose();
+    if (context) await closeContext(context);
   }
 }

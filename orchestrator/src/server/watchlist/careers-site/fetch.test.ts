@@ -477,6 +477,71 @@ describe("loadPage", () => {
     await vi.advanceTimersByTimeAsync(5 * 60_000);
     expect(browser.close).toHaveBeenCalledTimes(1);
   });
+  it("aborts stalled context creation and cleans up a context that arrives late", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    const controller = new AbortController();
+    let finishCreation!: (value: typeof context) => void;
+    let creationStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      creationStarted = resolve;
+    });
+    browser.newContext.mockImplementationOnce(() => {
+      creationStarted();
+      return new Promise((resolve) => {
+        finishCreation = resolve;
+      });
+    });
+    const pending = (await api()).loadPage("https://careers.example/jobs", {
+      render: true,
+      signal: controller.signal,
+    });
+    const rejected = expect(pending).rejects.toThrow("stop creation");
+    await started;
+    controller.abort(new Error("stop creation"));
+    await rejected;
+    expect(page.goto).not.toHaveBeenCalled();
+    finishCreation(context);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(context.close).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect(browser.close).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    false,
+    true,
+  ])("bounds stalled context cleanup while preserving the load outcome (error: %s)", async (fails) => {
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    let closing!: () => void;
+    const closeStarted = new Promise<void>((resolve) => {
+      closing = resolve;
+    });
+    context.close.mockImplementationOnce(() => {
+      closing();
+      return new Promise(() => {});
+    });
+    if (fails) page.goto.mockRejectedValue(new Error("navigation failed"));
+    let finished = false;
+    const pending = (await api())
+      .loadPage("https://careers.example/jobs", {
+        render: true,
+      })
+      .finally(() => {
+        finished = true;
+      });
+    const outcome = fails
+      ? expect(pending).rejects.toThrow("navigation failed")
+      : expect(pending).resolves.toMatchObject({ status: 200 });
+    await closeStarted;
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(finished).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await outcome;
+    expect(finished).toBe(true);
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect(browser.close).toHaveBeenCalledTimes(1);
+  });
+
   it("honors the executable override and retries a failed launch", async () => {
     vi.stubEnv("CRAWLER_CHROMIUM_PATH", "/configured/chromium");
     mocks.launch

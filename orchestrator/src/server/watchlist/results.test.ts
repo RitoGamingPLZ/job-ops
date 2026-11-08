@@ -2,10 +2,12 @@ import * as jobsRepo from "@server/repositories/jobs";
 import * as watchlistRepo from "@server/repositories/watchlist";
 import { getWatchlistSourceAdapter } from "@server/watchlist/adapters";
 import type { WatchlistSelectedSource } from "@shared/types";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getWatchlistResultsForSources,
   hydrateWatchlistSelectedSources,
+  WATCHLIST_SOURCE_TIMEOUT_MS,
+  withWatchlistSourceTimeout,
 } from "./results";
 
 vi.mock("@server/repositories/watchlist", () => ({
@@ -50,6 +52,7 @@ const bamboohrSource: WatchlistSelectedSource = {
 };
 
 describe("watchlist results service", () => {
+  afterEach(() => vi.useRealTimers());
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(watchlistRepo.recordWatchlistCheck).mockResolvedValue({
@@ -203,6 +206,64 @@ describe("watchlist results service", () => {
       id: "workspace-job",
       status: "discovered",
     });
+  });
+
+  it("returns a timeout for a non-settling adapter while keeping other source results", async () => {
+    vi.useFakeTimers();
+    const workingAdapter = getWatchlistSourceAdapter("bamboohr");
+    let stalledSignal: AbortSignal | undefined;
+    vi.mocked(getWatchlistSourceAdapter).mockImplementation((sourceType) =>
+      sourceType === "workday"
+        ? ({
+            fetchJobs: ({ signal }: { signal: AbortSignal }) => {
+              stalledSignal = signal;
+              return new Promise(() => {});
+            },
+          } as any)
+        : workingAdapter,
+    );
+    let finished = false;
+    const pending = getWatchlistResultsForSources([
+      workdaySource,
+      bamboohrSource,
+    ]).then((result) => {
+      finished = true;
+      return result;
+    });
+
+    await vi.advanceTimersByTimeAsync(WATCHLIST_SOURCE_TIMEOUT_MS - 1);
+    expect(finished).toBe(false);
+    expect(stalledSignal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    const result = await pending;
+    expect(stalledSignal?.aborted).toBe(true);
+    expect(result.sources[0]).toMatchObject({
+      status: "error",
+      source: workdaySource,
+      error: "Watchlist source timed out after 30s",
+    });
+    expect(result.sources[1]).toMatchObject({
+      status: "success",
+      source: bamboohrSource,
+      fetched: 1,
+    });
+    expect(watchlistRepo.recordWatchlistCheck).toHaveBeenCalledWith({
+      checks: [{ source: "bamboohr:beta", sourceJobIds: ["imported-job"] }],
+    });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("clears the source timer after success or an adapter error", async () => {
+    vi.useFakeTimers();
+    await expect(withWatchlistSourceTimeout(async () => "done")).resolves.toBe(
+      "done",
+    );
+    await expect(
+      withWatchlistSourceTimeout(async () => {
+        throw new Error("adapter failed");
+      }),
+    ).rejects.toThrow("adapter failed");
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("fetches at most five sources concurrently", async () => {
