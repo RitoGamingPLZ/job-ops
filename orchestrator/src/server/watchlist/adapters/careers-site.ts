@@ -187,6 +187,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async fetchJobs(input) {
     const url = careersUrl(input.source.careersUrl);
     const host = url.hostname;
+    const stopAt = Date.now() + 20_000;
     const timeout = AbortSignal.timeout(25_000);
     const signal = input.signal
       ? AbortSignal.any([input.signal, timeout])
@@ -205,9 +206,9 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     )
       startLearning(host, url.href);
     const recipe = stored.recipe;
-    // ponytail: rendered details take 2–20 s/page at concurrency 2. Limit to
-    // 4 allows two detail rounds within the 25 s budget; listing-only rendering
-    // gets 10, while plain/JSON-LD recipes get 40.
+    // Rendered details take 2–20 s/page. Keep their cap at 4 within the
+    // 25 s hard budget; listing-only rendering gets 10, while plain/JSON-LD
+    // recipes get 40.
     const limit =
       recipe.detail.kind === "selectors" && recipe.detail.render
         ? 4
@@ -217,7 +218,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     cache.delete(host);
     let collected: CrawledJob[];
     try {
-      collected = await runRecipe(recipe, { limit, signal });
+      collected = await runRecipe(recipe, { limit, signal, stopAt });
       signal.throwIfAborted();
     } catch (error) {
       if (error instanceof SiteBlockedError) {
