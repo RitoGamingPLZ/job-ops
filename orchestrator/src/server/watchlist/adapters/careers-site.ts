@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { badRequest, serviceUnavailable, upstreamError } from "@infra/errors";
 import { logger } from "@infra/logger";
 import {
@@ -25,8 +26,9 @@ const sourceSchema = z.object({
   careersUrl: z.string().trim().url().max(2000),
 });
 const LEARNING = "Learning this careers site, check again in a minute";
-// Explicitly global: only public recipes and postings, keyed by host. No tenant
-// settings, credentials, selections or import state are retained here.
+// Explicitly global: public recipes/learning use host keys; public posting
+// caches include the normalized source query. No tenant settings, credentials,
+// selections or import state are retained here.
 const learning = new Map<string, Promise<void>>();
 const failedLearns = new Map<string, number>();
 const FAILED_LEARN_COOLDOWN_MS = 30 * 60_000;
@@ -51,10 +53,35 @@ function careersUrl(value: string): URL {
   )
     throw badRequest("Use an HTTPS careers URL without credentials or a port.");
   url.hash = "";
+  for (const name of [...url.searchParams.keys()]) {
+    if (
+      /^(?:utm_.*|gclid|dclid|fbclid|msclkid|gbraid|wbraid|mc_cid|mc_eid|_ga|_gl)$/i.test(
+        name,
+      )
+    )
+      url.searchParams.delete(name);
+  }
+  url.searchParams.sort();
+  // Plain source ids retain the established host format and must fit state APIs.
+  if (!url.search && `careers_site:${url.hostname}`.length > 120)
+    throw badRequest("Use a careers hostname of at most 107 characters.");
   return url;
 }
-function key(host: string) {
-  return `careers_site:${host}`;
+function digest(value: string) {
+  return createHash("sha256").update(value).digest("hex").slice(0, 24);
+}
+function key(host: string, query = "") {
+  if (!query) return `careers_site:${host}`;
+  const shortHost = host.length <= 82 ? host : `~${digest(host)}`;
+  return `careers_site:${shortHost}?${digest(query)}`;
+}
+function clearHostCache(host: string) {
+  const plain = key(host);
+  const filteredPrefix = key(host, "?").split("?")[0];
+  for (const sourceKey of cache.keys()) {
+    if (sourceKey === plain || sourceKey.startsWith(`${filteredPrefix}?`))
+      cache.delete(sourceKey);
+  }
 }
 function blocked(host: string) {
   return upstreamError(
@@ -62,7 +89,10 @@ function blocked(host: string) {
   );
 }
 function startLearning(host: string, url: string): never {
-  cache.delete(host);
+  const plainUrl = new URL(url);
+  plainUrl.search = "";
+  plainUrl.hash = "";
+  clearHostCache(host);
   const failedAt = failedLearns.get(host);
   if (
     failedAt !== undefined &&
@@ -74,7 +104,7 @@ function startLearning(host: string, url: string): never {
   if (!learning.has(host)) {
     const p = (async () => {
       try {
-        const recipe = await learnRecipe(url, {
+        const recipe = await learnRecipe(plainUrl.href, {
           signal: AbortSignal.timeout(180_000),
         });
         await saveSiteRecipe(host, recipe);
@@ -117,9 +147,11 @@ function cachedJob(input: {
   signal?: AbortSignal;
 }) {
   input.signal?.throwIfAborted();
-  const host = careersUrl(input.source.careersUrl).hostname;
-  const entry = cache.get(host);
-  if (entry && entry.expires <= Date.now()) cache.delete(host);
+  const url = careersUrl(input.source.careersUrl);
+  const host = url.hostname;
+  const sourceKey = key(host, url.search);
+  const entry = cache.get(sourceKey);
+  if (entry && entry.expires <= Date.now()) cache.delete(sourceKey);
   const job =
     entry && entry.expires > Date.now()
       ? entry.jobs.get(input.jobRef)
@@ -128,7 +160,7 @@ function cachedJob(input: {
     throw badRequest(
       "Refresh this careers site before importing or opening this posting.",
     );
-  return { host, job };
+  return { host, sourceKey, job };
 }
 
 export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
@@ -142,7 +174,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourceInputLabel: "Company careers URL",
     customSourcePlaceholder: "https://www.okta.com/company/careers/",
     customSourceHelpText:
-      "Paste an HTTPS careers URL. First visits learn the site in the background; check again in a minute. Fetches up to 40 postings, 10 when only the listing renders, or 4 when details render.",
+      "Paste an HTTPS careers URL. First visits learn the site in the background; check again in a minute. Fetches up to 60 postings, 10 when only the listing renders, or 4 when details render.",
     emptyCatalogText: "No careers site sources found.",
     fetchingLabel: "Fetching from careers site...",
     invalidUrlMessage:
@@ -159,7 +191,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
         const url = careersUrl(parsed.data.careersUrl);
         return [
           {
-            id: key(url.hostname),
+            id: key(url.hostname, url.search),
             label: parsed.data.label,
             sourceType: "careers_site",
             careersUrl: url.href,
@@ -187,6 +219,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async fetchJobs(input) {
     const url = careersUrl(input.source.careersUrl);
     const host = url.hostname;
+    const sourceKey = key(host, url.search);
     const stopAt = Date.now() + 20_000;
     const timeout = AbortSignal.timeout(25_000);
     const signal = input.signal
@@ -196,7 +229,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     const stored = await getSiteRecipe(host);
     signal.throwIfAborted();
     if (stored?.blockedReason) {
-      cache.delete(host);
+      clearHostCache(host);
       throw blocked(host);
     }
     if (
@@ -208,17 +241,22 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     const recipe = stored.recipe;
     // Rendered details take 2–20 s/page. Keep their cap at 4 within the
     // 25 s hard budget; listing-only rendering gets 10, while plain/JSON-LD
-    // recipes get 40.
+    // recipes get 60.
     const limit =
       recipe.detail.kind === "selectors" && recipe.detail.render
         ? 4
         : recipe.listing.kind === "page" && recipe.listing.render
           ? 10
-          : 40;
-    cache.delete(host);
+          : 60;
+    cache.delete(sourceKey);
     let collected: CrawledJob[];
     try {
-      collected = await runRecipe(recipe, { limit, signal, stopAt });
+      collected = await runRecipe(recipe, {
+        limit,
+        signal,
+        stopAt,
+        ...(url.search ? { sourceUrl: url.href } : {}),
+      });
       signal.throwIfAborted();
     } catch (error) {
       if (error instanceof SiteBlockedError) {
@@ -232,10 +270,13 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
         "Could not read jobs from this careers site. Try again later.",
       );
     }
-    const failures = await recordSiteRecipeRun(host, collected.length > 0);
-    if (failures >= 3) startLearning(host, url.href);
+    // An empty filtered listing says nothing about the shared host recipe.
+    if (collected.length > 0 || !url.search) {
+      const failures = await recordSiteRecipeRun(host, collected.length > 0);
+      if (failures >= 3) startLearning(host, url.href);
+    }
     const jobs = collected.slice(0, limit);
-    cache.set(host, {
+    cache.set(sourceKey, {
       expires: Date.now() + 15 * 60_000,
       jobs: new Map(jobs.map((job) => [job.url, job])),
     });
@@ -248,7 +289,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       fetched: jobs.length,
       jobs: jobs.map((job) => ({
         jobRef: job.url,
-        source: key(host),
+        source: sourceKey,
         sourceJobId: job.id,
         sourceType: "careers_site",
         title: job.title,
@@ -269,12 +310,12 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     };
   },
   async prepareImportDraft(input) {
-    const { host, job } = cachedJob(input);
+    const { host, sourceKey, job } = cachedJob(input);
     return {
-      source: key(host),
+      source: sourceKey,
       sourceHost: host,
       draft: {
-        source: key(host),
+        source: sourceKey,
         sourceJobId: job.id,
         title: job.title,
         employer: job.employer || input.source.label,

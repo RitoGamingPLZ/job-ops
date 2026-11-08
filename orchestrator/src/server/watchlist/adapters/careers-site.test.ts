@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import catalog from "@server/config/career-boards-careers_site.json";
 import type {
   CrawledJob,
@@ -196,12 +197,177 @@ describe("careersSiteWatchlistAdapter", () => {
     expect(mocks.run).toHaveBeenCalledTimes(1);
     expect(fetch).not.toHaveBeenCalled();
   });
+  it("uses normalized queries in catalog and job source ids, preserving filtered URLs", async () => {
+    const filtered = {
+      ...source,
+      careersUrl: "https://example.com/careers?z=remote&a=engineering",
+    };
+    const parsed = adapter.parseCatalogSources([
+      { label: "Plain", careersUrl: source.careersUrl },
+      { label: "Filtered", careersUrl: filtered.careersUrl },
+      {
+        label: "Equivalent",
+        careersUrl: "https://example.com/careers?a=engineering&z=remote",
+      },
+    ]);
+    const queryHash = createHash("sha256")
+      .update("?a=engineering&z=remote")
+      .digest("hex")
+      .slice(0, 24);
+    expect(parsed.map((item) => item.id)).toEqual([
+      "careers_site:example.com",
+      `careers_site:example.com?${queryHash}`,
+      `careers_site:example.com?${queryHash}`,
+    ]);
+    expect(await adapter.normalizeCustomSelection(filtered)).toMatchObject({
+      careersUrl: "https://example.com/careers?a=engineering&z=remote",
+    });
+    const result = await adapter.fetchJobs({ source: filtered });
+    expect(mocks.get).toHaveBeenCalledWith("example.com");
+    expect(mocks.run).toHaveBeenCalledWith(
+      recipe,
+      expect.objectContaining({
+        sourceUrl: "https://example.com/careers?a=engineering&z=remote",
+        limit: 60,
+      }),
+    );
+    expect(result.jobs[0].source).toBe(parsed[1].id);
+    expect(
+      await adapter.prepareImportDraft({ source: filtered, jobRef: job().url }),
+    ).toMatchObject({
+      source: parsed[1].id,
+      draft: { source: parsed[1].id },
+    });
+    // A refresh of another selection must not replace this selection's cached postings.
+    mocks.run.mockResolvedValue([job("2")]);
+    await adapter.fetchJobs({ source });
+    expect(
+      await adapter.fetchJobDetails({ source: filtered, jobRef: job().url }),
+    ).toMatchObject({ jobUrl: job().url });
+    await expect(
+      adapter.fetchJobDetails({ source, jobRef: job().url }),
+    ).rejects.toThrow("Refresh");
+  });
+  it("bounds ids for accepted URLs including long queries and hostnames", async () => {
+    const longHost = `${"a".repeat(63)}.${"b".repeat(63)}.example.com`;
+    const urls = [
+      source.careersUrl,
+      `${source.careersUrl}?q=${"x".repeat(1900)}`,
+      `https://${longHost}/careers?q=eng`,
+      `https://${"a".repeat(60)}.${"b".repeat(42)}.com/`,
+    ];
+    for (const careersUrl of urls) {
+      const normalized = await adapter.normalizeCustomSelection({
+        label: null,
+        careersUrl,
+      });
+      const [parsed] = adapter.parseCatalogSources([
+        { ...normalized, label: "Test" },
+      ]);
+      expect(parsed.id.length).toBeLessThanOrEqual(120);
+      expect(
+        adapter.parseCatalogSources([{ ...normalized, label: "Test" }])[0].id,
+      ).toBe(parsed.id);
+    }
+    await expect(async () =>
+      adapter.normalizeCustomSelection({
+        label: null,
+        careersUrl: `https://${longHost}/careers`,
+      }),
+    ).rejects.toThrow("107");
+  });
+  it("strips tracking parameters before selecting the crawl path or source id", async () => {
+    const tracking =
+      "utm_source=x&UTM_campaign=y&gclid=z&fbclid=z&msclkid=z&dclid=z&gbraid=z&wbraid=z&mc_cid=z&mc_eid=z&_ga=z&_gl=z";
+    const tracked = {
+      ...source,
+      careersUrl: `${source.careersUrl}?${tracking}`,
+    };
+    expect(await adapter.normalizeCustomSelection(tracked)).toMatchObject({
+      careersUrl: source.careersUrl,
+    });
+    expect((await adapter.fetchJobs({ source: tracked })).jobs[0].source).toBe(
+      "careers_site:example.com",
+    );
+    expect(mocks.run.mock.calls[0][1]).not.toHaveProperty("sourceUrl");
+    expect(
+      await adapter.normalizeCustomSelection({
+        ...tracked,
+        careersUrl: `${tracked.careersUrl}&department=engineering`,
+      }),
+    ).toMatchObject({
+      careersUrl: `${source.careersUrl}?department=engineering`,
+    });
+  });
+  it("does not count successful empty filters as shared host failures", async () => {
+    mocks.run.mockResolvedValue([]);
+    mocks.record.mockResolvedValue(3);
+    for (let i = 0; i < 4; i++)
+      expect(
+        await adapter.fetchJobs({
+          source: {
+            ...source,
+            careersUrl: `${source.careersUrl}?department=empty`,
+          },
+        }),
+      ).toMatchObject({ fetched: 0 });
+    expect(mocks.record).not.toHaveBeenCalled();
+    expect(mocks.learn).not.toHaveBeenCalled();
+  });
+  it.each([
+    "missing",
+    "failed",
+  ])("learns a plain URL from a filtered source (%s)", async (stage) => {
+    if (stage === "missing") mocks.get.mockResolvedValue(null);
+    else {
+      mocks.run.mockRejectedValue(new Error("broken recipe"));
+      mocks.record.mockResolvedValue(3);
+    }
+    mocks.learn.mockImplementation(async (url: string) => ({
+      ...recipe,
+      listing: { kind: "page", url, pagination: { kind: "none" }, maxPages: 1 },
+    }));
+    await expect(
+      adapter.fetchJobs({
+        source: {
+          ...source,
+          careersUrl: `${source.careersUrl}?department=engineering`,
+        },
+      }),
+    ).rejects.toThrow("Learning");
+    expect(mocks.learn).toHaveBeenCalledWith(
+      source.careersUrl,
+      expect.anything(),
+    );
+    await vi.waitFor(() =>
+      expect(mocks.save).toHaveBeenCalledWith(
+        "example.com",
+        expect.objectContaining({
+          listing: expect.objectContaining({ url: source.careersUrl }),
+        }),
+      ),
+    );
+  });
+  it("clears all query variants of cached postings when a host becomes blocked", async () => {
+    const filtered = {
+      ...source,
+      careersUrl: `${source.careersUrl}?department=engineering`,
+    };
+    await adapter.fetchJobs({ source: filtered });
+    mocks.get.mockResolvedValue(record({ blockedReason: "HTTP 403" }));
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
+      "blocks automated access",
+    );
+    await expect(
+      adapter.fetchJobDetails({ source: filtered, jobRef: job().url }),
+    ).rejects.toThrow("Refresh");
+  });
   it("records partial jobs returned after the 20 s soft deadline as a success", async () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
     const timeout = vi.spyOn(AbortSignal, "timeout");
     mocks.run.mockImplementation(async (_recipe, { stopAt, signal, limit }) => {
       expect(stopAt).toBe(21_000);
-      expect(limit).toBe(40);
+      expect(limit).toBe(60);
       now.mockReturnValue(22_000);
       expect(signal.aborted).toBe(false);
       return [job()];
@@ -234,13 +400,13 @@ describe("careersSiteWatchlistAdapter", () => {
     expect(mocks.run).toHaveBeenCalledTimes(1);
     expect(fetch).not.toHaveBeenCalled();
   });
-  it("caps plain recipes at 40 and records empty results as failures", async () => {
+  it("caps plain recipes at 60 and records empty results as failures", async () => {
     mocks.run.mockResolvedValue(
-      Array.from({ length: 45 }, (_, i) => job(String(i))),
+      Array.from({ length: 65 }, (_, i) => job(String(i))),
     );
-    expect((await adapter.fetchJobs({ source })).jobs).toHaveLength(40);
+    expect((await adapter.fetchJobs({ source })).jobs).toHaveLength(60);
     expect(mocks.run).toHaveBeenCalledWith(recipe, {
-      limit: 40,
+      limit: 60,
       signal: expect.any(AbortSignal),
       stopAt: expect.any(Number),
     });
@@ -285,7 +451,7 @@ describe("careersSiteWatchlistAdapter", () => {
       stopAt: expect.any(Number),
     });
   });
-  it("uses 40 for selectors without rendering", async () => {
+  it("uses 60 for selectors without rendering", async () => {
     mocks.get.mockResolvedValue(
       record({
         recipe: {
@@ -300,7 +466,7 @@ describe("careersSiteWatchlistAdapter", () => {
       }),
     );
     await adapter.fetchJobs({ source });
-    expect(mocks.run.mock.calls[0][1].limit).toBe(40);
+    expect(mocks.run.mock.calls[0][1].limit).toBe(60);
   });
   it.each([
     null,

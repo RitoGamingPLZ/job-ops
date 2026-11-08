@@ -28,6 +28,102 @@ function sameSite(value: string, base: string): string | null {
   }
 }
 
+// Bound scanning before parsing: page content is untrusted and may contain many
+// incomplete assignments. Only inspect the first assignment, once.
+function facetConfig(html: string | undefined): string | null {
+  if (!html) return null;
+  const marker = html.indexOf("FWP_JSON");
+  if (marker < 0) return null;
+  const assignment = html.slice(marker + 8, marker + 8 + 100_000);
+  const start = /^\s*=\s*\{/.exec(assignment);
+  if (!start) return null;
+  const offset = start[0].length - 1;
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let i = offset; i < assignment.length; i++) {
+    const char = assignment[i];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') quoted = false;
+    } else if (char === '"') quoted = true;
+    else if (char === "{") depth++;
+    else if (char === "}" && --depth === 0)
+      return assignment.slice(offset, i + 1);
+  }
+  return null;
+}
+
+/** Infer query pagination from same-path links or public FacetWP pager metadata. */
+export function detectQueryPagination(
+  values: string[],
+  base: string,
+  html?: string,
+) {
+  const first = new URL(base);
+  // FacetWP server-renders jobs but serializes its pager as JSON, without hrefs.
+  // Read the public configuration as data; never execute page scripts.
+  const config = facetConfig(html);
+  if (config) {
+    try {
+      const data = record(JSON.parse(config));
+      const pager = record(record(record(data.preload_data).settings).pager);
+      if (
+        typeof data.prefix === "string" &&
+        /^[_a-z-]{0,20}$/i.test(data.prefix) &&
+        Number.isSafeInteger(pager.page) &&
+        Number(pager.page) >= 1 &&
+        Number.isSafeInteger(pager.total_pages) &&
+        Number(pager.total_pages) > Number(pager.page)
+      ) {
+        return {
+          kind: "query" as const,
+          param: `${data.prefix}paged`,
+          start: Number(pager.page),
+          step: 1,
+        };
+      }
+    } catch {
+      // Malformed pagination metadata does not hide ordinary pagination links.
+    }
+  }
+  const detected: {
+    kind: "query";
+    param: string;
+    start: number;
+    step: number;
+  }[] = [];
+  for (const value of values) {
+    const href = sameSite(value, base);
+    if (!href) continue;
+    const next = new URL(href);
+    if (next.pathname !== first.pathname) continue;
+    const keys = new Set([
+      ...first.searchParams.keys(),
+      ...next.searchParams.keys(),
+    ]);
+    const changed = [...keys].filter(
+      (key) =>
+        first.searchParams.getAll(key).join() !==
+        next.searchParams.getAll(key).join(),
+    );
+    if (changed.length !== 1 || !/^(?:_?paged?|offset|skip)$/i.test(changed[0]))
+      continue;
+    const param = changed[0];
+    const raw = next.searchParams.get(param);
+    if (!raw || !/^\d+$/.test(raw)) continue;
+    const start = Number(
+      first.searchParams.get(param) ??
+        (/^(?:offset|skip)$/i.test(param) ? 0 : 1),
+    );
+    const end = Number(raw);
+    if (Number.isSafeInteger(start) && Number.isSafeInteger(end) && end > start)
+      detected.push({ kind: "query", param, start, step: end - start });
+  }
+  return detected.sort((a, b) => a.step - b.step)[0] ?? null;
+}
+
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
@@ -200,7 +296,13 @@ export function extractJob(
 /** Collect at most `limit` jobs, newest first where known. `stopAt` stops new loads; signal aborts still throw. */
 export async function runRecipe(
   recipe: Recipe,
-  options: { limit: number; signal?: AbortSignal; stopAt?: number },
+  options: {
+    limit: number;
+    signal?: AbortSignal;
+    stopAt?: number;
+    /** Filtered sources override the host recipe listing for this run only. */
+    sourceUrl?: string;
+  },
 ): Promise<CrawledJob[]> {
   const { signal, stopAt } = options;
   const stopped = () => stopAt !== undefined && Date.now() >= stopAt;
@@ -216,7 +318,13 @@ export async function runRecipe(
           AbortSignal.timeout(Math.max(0, stopAt - Date.now()) + 3_000),
         ]);
   const pattern = new RegExp(recipe.jobUrlPattern);
-  const base = recipe.listing.url;
+  const filtered =
+    options.sourceUrl && new URL(options.sourceUrl).search
+      ? sameSite(options.sourceUrl, recipe.listing.url)
+      : null;
+  if (options.sourceUrl && new URL(options.sourceUrl).search && !filtered)
+    throw new Error("Recipe URL must use the same HTTPS host.");
+  const base = filtered || recipe.listing.url;
   const candidates = new Map<string, number>();
   async function read(url: string, render = false, waitFor?: string) {
     signal?.throwIfAborted();
@@ -253,7 +361,7 @@ export async function runRecipe(
     signal?.throwIfAborted();
     if (error instanceof SiteBlockedError) throw error;
   }
-  if (recipe.listing.kind === "sitemap") {
+  if (!filtered && recipe.listing.kind === "sitemap") {
     const visited = new Set<string>();
     async function sitemap(url: string, depth: number): Promise<void> {
       if (stopped() || visited.has(url) || visited.size >= 50) return;
@@ -302,30 +410,53 @@ export async function runRecipe(
     await sitemap(base, 0);
   } else {
     const listing = recipe.listing;
+    const render = listing.kind === "page" && listing.render;
+    const waitFor = listing.kind === "page" ? listing.waitFor : undefined;
+    let pagination =
+      listing.kind === "page" ? listing.pagination : { kind: "none" as const };
+    const maxPages = filtered
+      ? 10
+      : listing.kind === "page"
+        ? Math.min(10, listing.maxPages)
+        : 1;
+    const candidateIds = new Set<string>();
     let successes = 0;
-    for (let pageIndex = 0; pageIndex < listing.maxPages; pageIndex++) {
+    for (let pageIndex = 0; pageIndex < maxPages; pageIndex++) {
       if (stopped()) break;
       const url = new URL(base);
-      if (listing.pagination.kind === "query")
+      // The filtered source itself is page one; preserve all of its query params.
+      if (pagination.kind === "query" && (!filtered || pageIndex))
         url.searchParams.set(
-          listing.pagination.param,
-          String(
-            listing.pagination.start + pageIndex * listing.pagination.step,
-          ),
+          pagination.param,
+          String(pagination.start + pageIndex * pagination.step),
         );
       else if (pageIndex) break;
       try {
-        const page = await read(url.href, listing.render, listing.waitFor);
+        const page = await read(url.href, render, waitFor);
         if (!page) break;
+        const before = candidateIds.size;
         const dom = new JSDOM(page.html);
         try {
-          for (const link of dom.window.document.querySelectorAll("a[href]"))
-            add(link.getAttribute("href") ?? "", 0, page.url);
+          const links = Array.from(
+            dom.window.document.querySelectorAll("a[href]"),
+            (link) => link.getAttribute("href") ?? "",
+          );
+          for (const link of links) add(link, 0, page.url);
+          for (const candidate of candidates.keys())
+            candidateIds.add(jobId(candidate, recipe) || candidate);
+          if (filtered && !pageIndex)
+            pagination = detectQueryPagination(links, page.url, page.html) ?? {
+              kind: "none",
+            };
         } finally {
           dom.window.close();
         }
         successes++;
-        if (candidates.size >= limit) break;
+        if (
+          (filtered ? candidateIds.size : candidates.size) >= limit ||
+          (filtered && candidateIds.size === before)
+        )
+          break;
       } catch (error) {
         rethrowFatal(error);
       }
@@ -338,11 +469,20 @@ export async function runRecipe(
       : new URL(url).pathname.match(/\d{5,}/g)?.at(-1);
     return id && /^\d+$/.test(id) ? BigInt(id) : null;
   }
+  if (filtered) {
+    const ids = new Set<string>();
+    for (const url of candidates.keys()) {
+      const id = jobId(url, recipe) || url;
+      if (ids.has(id)) candidates.delete(url);
+      else ids.add(id);
+    }
+  }
   const selected = [...candidates]
     .map(([url, modified]) => ({
       url,
       day: modified ? Math.floor(modified / 86_400_000) : null,
-      id: recipe.listing.kind === "sitemap" ? numericId(url) : null,
+      id:
+        !filtered && recipe.listing.kind === "sitemap" ? numericId(url) : null,
     }))
     .sort((a, b) => {
       if (a.day !== b.day) {

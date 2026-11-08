@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isAllowedByRobots, loadPage } from "./fetch";
-import { extractJob, runRecipe } from "./run-recipe";
+import { detectQueryPagination, extractJob, runRecipe } from "./run-recipe";
 import { type Recipe, SiteBlockedError } from "./types";
 
 vi.mock("./fetch", () => ({
@@ -490,6 +490,161 @@ describe("runRecipe", () => {
       test.mockRestore();
     }
   });
+  it("follows a filtered listing and _paged links instead of the host sitemap", async () => {
+    const sourceUrl = `${base}/openings?department=engineering&workplace=remote`;
+    const second = `${sourceUrl}&_paged=2`;
+    const third = `${sourceUrl}&_paged=3`;
+    pages({
+      [sourceUrl]: `<a href="${second.replaceAll("&", "&amp;")}">Next</a><a href="/jobs/1">One</a>`,
+      [second]: '<a href="/jobs/2">Two</a><a href="/jobs/1">One</a>',
+      [third]: '<a href="/jobs/2">Two again</a>',
+      [`${base}/jobs/1`]: posting(),
+      [`${base}/jobs/2`]: posting(),
+    });
+    expect(
+      (await runRecipe(recipe, { sourceUrl, limit: 60 })).map((job) => job.id),
+    ).toEqual(["1", "2"]);
+    expect(loadPage).toHaveBeenCalledTimes(5);
+    expect(loadPage).not.toHaveBeenCalledWith(
+      recipe.listing.url,
+      expect.anything(),
+    );
+    expect(loadPage).not.toHaveBeenCalledWith(
+      `${sourceUrl}&_paged=4`,
+      expect.anything(),
+    );
+  });
+  it("reads FacetWP pagination JSON without executing page scripts", async () => {
+    const sourceUrl = `${base}/openings?_departments=engineering`;
+    const config = {
+      prefix: "_",
+      preload_data: {
+        settings: { pager: { page: 1, total_pages: 6, total_rows: 51 } },
+      },
+    };
+    pages({
+      [sourceUrl]: `<script>window.FWP_JSON = ${JSON.stringify(config)};</script><a href="/jobs/1">Job</a>`,
+      [`${sourceUrl}&_paged=2`]: '<a href="/jobs/2">Job</a>',
+      [`${sourceUrl}&_paged=3`]: '<a href="/jobs/2">Duplicate</a>',
+      [`${base}/jobs/1`]: posting(),
+      [`${base}/jobs/2`]: posting(),
+    });
+    expect(
+      (await runRecipe(recipe, { sourceUrl, limit: 60 })).map((job) => job.id),
+    ).toEqual(["1", "2"]);
+    expect(loadPage).toHaveBeenCalledTimes(5);
+  });
+  it("stops filtered pagination on duplicate ids even when job URLs differ", async () => {
+    const sourceUrl = `${base}/openings?department=engineering`;
+    pages({
+      [sourceUrl]: `<a href="${sourceUrl}&_paged=2">Next</a><a href="/jobs/1">Job</a>`,
+      [`${sourceUrl}&_paged=2`]: '<a href="/jobs/1?tracking=next">Same job</a>',
+      [`${base}/jobs/1`]: posting(),
+    });
+    expect(
+      await runRecipe(
+        { ...recipe, jobUrlPattern: "/jobs/", jobIdPattern: "/jobs/(\\d+)" },
+        { sourceUrl, limit: 60 },
+      ),
+    ).toHaveLength(1);
+    expect(loadPage).toHaveBeenCalledTimes(3);
+  });
+  it("stops filtered pagination at ten pages and preserves list order before the cap", async () => {
+    const sourceUrl = `${base}/openings?department=engineering`;
+    vi.mocked(loadPage).mockImplementation(async (url) => {
+      const page = new URL(url);
+      const id = Number(page.searchParams.get("_paged") ?? 1);
+      return {
+        url,
+        status: 200,
+        html:
+          page.pathname === "/openings"
+            ? `<a href="${sourceUrl}&_paged=2">Next</a><a href="/jobs/${id}">Job</a>`
+            : posting(),
+      };
+    });
+    expect(
+      (await runRecipe(recipe, { sourceUrl, limit: 60 })).map((job) => job.id),
+    ).toEqual(Array.from({ length: 10 }, (_, i) => String(i + 1)));
+    expect(loadPage).toHaveBeenCalledTimes(20);
+    vi.mocked(loadPage).mockClear();
+    expect(await runRecipe(recipe, { sourceUrl, limit: 3 })).toHaveLength(3);
+    expect(loadPage).toHaveBeenCalledTimes(6);
+  });
+  it("collects all 51 filtered jobs across six pages below the 60-job cap", async () => {
+    const sourceUrl = `${base}/openings?_departments=engineering&_workplace_type=remote`;
+    vi.mocked(loadPage).mockImplementation(async (url) => {
+      const parsed = new URL(url);
+      if (parsed.pathname !== "/openings")
+        return { url, status: 200, html: posting() };
+      expect(parsed.searchParams.get("_departments")).toBe("engineering");
+      expect(parsed.searchParams.get("_workplace_type")).toBe("remote");
+      const page = Number(parsed.searchParams.get("_paged") ?? 1);
+      const ids = Array.from(
+        { length: Math.max(0, Math.min(10, 51 - (page - 1) * 10)) },
+        (_, i) => (page - 1) * 10 + i + 1,
+      );
+      return {
+        url,
+        status: 200,
+        html: `<a href="${sourceUrl}&_paged=2">Next</a>${ids.map((id) => `<a href="/jobs/${id}">Job</a>`).join("")}`,
+      };
+    });
+    const jobs = await runRecipe(recipe, { sourceUrl, limit: 60 });
+    expect(jobs.map((job) => job.id)).toEqual(
+      Array.from({ length: 51 }, (_, i) => String(i + 1)),
+    );
+    expect(loadPage).toHaveBeenCalledTimes(58);
+    expect(recipe.listing.kind).toBe("sitemap");
+    expect(loadPage).not.toHaveBeenCalledWith(
+      recipe.listing.url,
+      expect.anything(),
+    );
+  });
+  it("counts filtered listing loads against the soft deadline", async () => {
+    const sourceUrl = `${base}/openings?department=engineering`;
+    const now = vi.spyOn(Date, "now").mockReturnValue(0);
+    vi.mocked(loadPage).mockImplementation(async (url) => {
+      now.mockReturnValue(10);
+      return {
+        url,
+        status: 200,
+        html: `<a href="${sourceUrl}&_paged=2">Next</a><a href="/jobs/1">Job</a>`,
+      };
+    });
+    await expect(
+      runRecipe(recipe, { sourceUrl, limit: 60, stopAt: 10 }),
+    ).rejects.toThrow("All selected careers job pages failed");
+    expect(loadPage).toHaveBeenCalledTimes(1);
+  });
+  it("never falls back to sitemap when filtered listing fails or is empty", async () => {
+    const sourceUrl = `${base}/openings?department=engineering`;
+    pages({ [sourceUrl]: "<p>No jobs</p>" });
+    expect(await runRecipe(recipe, { sourceUrl, limit: 60 })).toEqual([]);
+    pages({ [sourceUrl]: new Error("Unavailable") });
+    await expect(runRecipe(recipe, { sourceUrl, limit: 60 })).rejects.toThrow(
+      "No careers listing",
+    );
+    expect(loadPage).not.toHaveBeenCalledWith(
+      recipe.listing.url,
+      expect.anything(),
+    );
+    await expect(
+      runRecipe(recipe, {
+        sourceUrl: "https://foreign.example/?filter=eng",
+        limit: 60,
+      }),
+    ).rejects.toThrow("same HTTPS host");
+  });
+  it("ignores foreign and filter-changing pagination links", async () => {
+    const sourceUrl = `${base}/openings?department=engineering`;
+    pages({
+      [sourceUrl]: `<a href="https://foreign.example/openings?department=engineering&_paged=2">Foreign</a><a href="/openings?department=sales&_paged=2">Different filter</a><a href="/jobs/1">Job</a>`,
+      [`${base}/jobs/1`]: posting(),
+    });
+    expect(await runRecipe(recipe, { sourceUrl, limit: 60 })).toHaveLength(1);
+    expect(loadPage).toHaveBeenCalledTimes(2);
+  });
   it("stops listing pagination once enough candidates have been collected", async () => {
     const pagedRecipe: Recipe = {
       ...recipe,
@@ -840,5 +995,37 @@ describe("runRecipe", () => {
     await expect(runRecipe(recipe, { limit: 1 })).rejects.toBeInstanceOf(
       SiteBlockedError,
     );
+  });
+});
+
+describe("bounded FacetWP metadata parsing", () => {
+  const config = {
+    prefix: "_",
+    ignored: 'brace } and escaped quote " and slash \\',
+    preload_data: { settings: { pager: { page: 1, total_pages: 6 } } },
+  };
+  it("handles nested JSON, quoted braces, and following minified assignments", () => {
+    expect(
+      detectQueryPagination(
+        [],
+        base,
+        `window.FWP_JSON = ${JSON.stringify(config)};other={};`,
+      ),
+    ).toEqual({ kind: "query", param: "_paged", start: 1, step: 1 });
+  });
+  it("bounds processing of a hostile 1 MB page", () => {
+    const html = "FWP_JSON={x}".repeat(Math.ceil(1_048_576 / 12));
+    const start = performance.now();
+    expect(detectQueryPagination([], base, html)).toBeNull();
+    expect(performance.now() - start).toBeLessThan(250);
+  });
+  it("does not scan beyond the metadata size bound and still detects ordinary links", () => {
+    const html = `FWP_JSON={"padding":"${"x".repeat(100_000)}",${JSON.stringify(config).slice(1)};`;
+    expect(detectQueryPagination([`${base}?page=2`], base, html)).toEqual({
+      kind: "query",
+      param: "page",
+      start: 1,
+      step: 1,
+    });
   });
 });
