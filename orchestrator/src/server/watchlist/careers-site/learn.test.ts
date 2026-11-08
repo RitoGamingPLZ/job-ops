@@ -7,7 +7,10 @@ import { type Recipe, SiteBlockedError } from "./types";
 
 const { callJson } = vi.hoisted(() => ({ callJson: vi.fn() }));
 vi.mock("./fetch", () => ({ loadPage: vi.fn(), isAllowedByRobots: vi.fn() }));
-vi.mock("./run-recipe", () => ({ runRecipe: vi.fn() }));
+vi.mock("./run-recipe", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./run-recipe")>()),
+  runRecipe: vi.fn(),
+}));
 vi.mock("@server/services/modelSelection", () => ({
   createConfiguredLlmService: vi.fn(async () => ({ callJson })),
   resolveLlmModel: vi.fn(async () => "test-model"),
@@ -145,6 +148,7 @@ describe("learnRecipe", () => {
 
   it.each([
     "page",
+    "_paged",
     "offset",
     "skip",
   ])("preserves %s pagination evidence beyond the job-link limit and verifies new jobs", async (param) => {
@@ -153,11 +157,11 @@ describe("learnRecipe", () => {
         { length: 120 },
         (_, i) => `<a href="/jobs/role-${i + 1000}">Role</a>`,
       ).join("") +
-      `<a href="?filter=eng&${param}=2">Next</a><a href="?filter=other&${param}=3">Other filter</a>`;
-    const base = `${careers}?filter=eng`;
+      `<a href="?${param}=2">Next</a><a href="?filter=other&${param}=3">Other filter</a>`;
+    const base = careers;
     pages[base] = pages[careers];
-    pages[`${base}&${param}=1`] = pages[careers];
-    pages[`${base}&${param}=2`] = '<a href="/jobs/new-999">New</a>';
+    pages[`${base}?${param}=1`] = pages[careers];
+    pages[`${base}?${param}=2`] = '<a href="/jobs/new-999">New</a>';
     const recipe: Recipe = {
       ...learned,
       listing: {
@@ -172,7 +176,7 @@ describe("learnRecipe", () => {
     expect((await learnRecipe(base, {})).listing).toEqual(recipe.listing);
     const evidence = JSON.parse(callJson.mock.calls[0][0].messages[1].content);
     expect(evidence.paginationLinks).toEqual([
-      { url: `${base}&${param}=2`, text: "Next" },
+      { url: `${base}?${param}=2`, text: "Next" },
     ]);
     expect(callJson).toHaveBeenCalledTimes(1);
   });
@@ -959,4 +963,17 @@ describe("learnRecipe", () => {
     );
     expect(loadPage).not.toHaveBeenCalled();
   });
+});
+
+it("learns host recipes from a query-stripped listing even when first requested with filters", async () => {
+  const result = await learnRecipe(
+    `${careers}?department=engineering&utm_source=test`,
+    {},
+  );
+  expect(result.listing.url).toBe(careers);
+  expect(
+    vi.mocked(loadPage).mock.calls.every(([url]) => !new URL(url).search),
+  ).toBe(true);
+  const evidence = JSON.parse(callJson.mock.calls[0][0].messages[1].content);
+  expect(evidence.pageUrl).toBe(careers);
 });
