@@ -149,6 +149,49 @@ describe("eightfoldWatchlistAdapter", () => {
     ).toThrow();
   });
 
+  it.each([
+    microsoft,
+    netflix,
+  ])("preserves repeated bare facet names through normalization and API fetch for %s", async (origin) => {
+    const normalized = await adapter.normalizeCustomSelection({
+      label: null,
+      careersUrl: `${origin}/careers?Teams=Engineering&Teams=Games&Work+Type=remote&Region=ucan&filter_profession=software&domain=evil.test&host=evil.test&redirect=https://evil.test&start=90&num=900`,
+    });
+    const url = new URL(normalized.careersUrl);
+    expect(url.origin).toBe(origin);
+    expect(url.searchParams.getAll("Teams")).toEqual(["Engineering", "Games"]);
+    expect(url.searchParams.get("Work Type")).toBe("remote");
+    expect(url.searchParams.get("Region")).toBe("ucan");
+    expect(url.searchParams.get("filter_profession")).toBe("software");
+    for (const key of ["domain", "host", "redirect", "start", "num"])
+      expect(url.searchParams.has(key)).toBe(false);
+    const other = await adapter.normalizeCustomSelection({
+      label: null,
+      careersUrl: `${origin}/careers?Teams=Finance`,
+    });
+    expect(other.careersUrl).not.toBe(normalized.careersUrl);
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(
+        origin === microsoft
+          ? pcsx({ count: 0, positions: [] })
+          : json({ count: 0, positions: [] }),
+      );
+    vi.stubGlobal("fetch", fetch);
+    await adapter.fetchJobs({
+      source: { ...source(origin), careersUrl: normalized.careersUrl },
+    });
+    const api = new URL(fetch.mock.calls[0][0]);
+    expect(api.origin).toBe(origin);
+    expect(api.searchParams.getAll("Teams")).toEqual(["Engineering", "Games"]);
+    expect(api.searchParams.get("Work Type")).toBe("remote");
+    expect(api.searchParams.get("Region")).toBe("ucan");
+    expect(api.searchParams.get("filter_profession")).toBe("software");
+    expect(api.searchParams.get("domain")).toBe(
+      origin === microsoft ? "microsoft.com" : "netflix.com",
+    );
+  });
+
   it("maps, sorts and caps Microsoft jobs while forwarding search parameters", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       pcsx({
