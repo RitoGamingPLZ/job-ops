@@ -12,7 +12,7 @@ import type { ManualJobDraft, WatchlistSelectedSource } from "@shared/types";
 import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
-const GREENHOUSE_WATCHLIST_MAX_JOBS = 40;
+const GREENHOUSE_WATCHLIST_MAX_JOBS = 60;
 
 const greenhouseSourceSchema = z.object({
   label: z.string().trim().min(1).max(200),
@@ -33,7 +33,8 @@ export const greenhouseWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       "Paste the company's careers page and we'll find its Greenhouse board " +
       "automatically. If that fails, paste the board directly: go to " +
       "job-boards.greenhouse.io/ + the company name (e.g. 'riotgames'), or " +
-      "open a job posting, click Apply, and copy the greenhouse.io link.",
+      "open a job posting, click Apply, and copy the greenhouse.io link. " +
+      "Supports departments, offices, workplace and location URL filters; fetches up to 60 jobs, newest first.",
     emptyCatalogText: "No Greenhouse companies found.",
     fetchingLabel: "Fetching from Greenhouse...",
     invalidUrlMessage:
@@ -50,7 +51,7 @@ export const greenhouseWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       .map((entry) => {
         const parsed = parseGreenhouseUrl(entry.greenhouseUrl);
         return {
-          id: buildSourceId(parsed.token),
+          id: buildSourceId(parsed.token, parsed.canonicalCareersUrl),
           label: entry.label,
           sourceType: "greenhouse",
           careersUrl: parsed.canonicalCareersUrl,
@@ -127,8 +128,8 @@ export const greenhouseWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
 };
 
-function buildSourceId(token: string): string {
-  return `greenhouse:${token}`;
+function buildSourceId(token: string, careersUrl: string): string {
+  return `greenhouse:${token}${new URL(careersUrl).search}`;
 }
 
 function getHydratedGreenhouseLabel(

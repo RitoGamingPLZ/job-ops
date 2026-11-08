@@ -34,7 +34,7 @@ type Job = z.infer<typeof jobSchema>;
 
 // Explicitly global public ATS data only. No tenant selections, labels or private
 // state are cached. Board + posting ID prevent collisions across companies/regions.
-// Each board is replaced on its list fetch and bounded to 40 public postings.
+// Each board is replaced on its list fetch and bounded to 60 public postings per normalized selection.
 const listedJobs = new Map<string, Map<string, Job>>();
 // Public host-level crawl pacing, independent of tenants and company selections.
 // At most two keys: the pinned global and EU API hosts.
@@ -64,9 +64,31 @@ function board(value: string) {
     throw badRequest("Use an HTTPS jobs.lever.co company or posting URL.");
   }
   const company = match[1];
+  const filters = new URLSearchParams();
+  for (const key of [
+    "commitment",
+    "department",
+    "location",
+    "team",
+    "workplaceType",
+  ]) {
+    for (const value of [
+      ...new Set(
+        url.searchParams
+          .getAll(key)
+          .map((value) => value.trim())
+          .filter(Boolean),
+      ),
+    ].sort())
+      filters.append(key, value);
+  }
+  const query = filters.size ? `?${filters}` : "";
+  const baseUrl = `https://${url.hostname}/${company}`;
   return {
     company,
-    careersUrl: `https://${url.hostname}/${company}`,
+    baseUrl,
+    query,
+    careersUrl: `${baseUrl}${query}`,
     apiUrl: `https://${url.hostname === "jobs.eu.lever.co" ? "api.eu.lever.co" : "api.lever.co"}/v0/postings/${company}`,
     host: url.hostname,
     postingId: match[2],
@@ -117,12 +139,12 @@ async function request(url: string, signal: AbortSignal): Promise<unknown> {
   throw upstreamError("Lever retry limit exceeded.");
 }
 function postingUrl(b: Board, job: Job, apply = false): string {
-  const fallback = `${b.careersUrl}/${job.id}${apply ? "/apply" : ""}`;
+  const fallback = `${b.baseUrl}/${job.id}${apply ? "/apply" : ""}`;
   const value = apply ? job.applyUrl : job.hostedUrl;
   if (!value) return fallback;
   try {
     const parsed = board(value);
-    if (parsed.careersUrl === b.careersUrl && parsed.postingId === job.id)
+    if (parsed.baseUrl === b.baseUrl && parsed.postingId === job.id)
       return value;
   } catch {
     /* Fall back to the pinned company posting URL. */
@@ -169,7 +191,7 @@ async function details(
 ) {
   const b = board(careersUrl);
   const ref = board(jobRef);
-  if (ref.careersUrl !== b.careersUrl || !ref.postingId)
+  if (ref.baseUrl !== b.baseUrl || !ref.postingId)
     throw badRequest("Lever posting must belong to the selected company.");
   signal?.throwIfAborted();
   let job = listedJobs.get(b.careersUrl)?.get(ref.postingId);
@@ -195,7 +217,7 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourceInputLabel: "Lever company careers URL",
     customSourcePlaceholder: "https://jobs.lever.co/spotify",
     customSourceHelpText:
-      "Paste a Lever company board or posting URL. Fetches up to 40 jobs, newest first.",
+      "Paste a Lever company board or posting URL. Supports location, team, department, commitment and workplaceType filters (repeat a filter for OR). Fetches up to 60 jobs, newest first.",
     emptyCatalogText: "No Lever companies found.",
     fetchingLabel: "Fetching from Lever...",
     invalidUrlMessage: "That is not a supported Lever careers URL.",
@@ -211,7 +233,7 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
         const b = board(parsed.data.careersUrl);
         return [
           {
-            id: `lever:${b.company}`,
+            id: `lever:${b.company}${b.query}`,
             label: parsed.data.label,
             careersUrl: b.careersUrl,
             sourceType: "lever",
@@ -236,7 +258,12 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     const b = board(input.careersUrl);
     const parsed = z
       .array(jobSchema)
-      .safeParse(await request(`${b.apiUrl}?mode=json&limit=1`, budget()));
+      .safeParse(
+        await request(
+          `${b.apiUrl}?mode=json&${b.query.slice(1)}${b.query ? "&" : ""}limit=1`,
+          budget(),
+        ),
+      );
     if (!parsed.success)
       throw upstreamError("Lever returned invalid board data.");
     return {
@@ -253,16 +280,21 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     // public board once, then sort by creation time before applying the cap.
     const parsed = z
       .array(jobSchema)
-      .safeParse(await request(`${b.apiUrl}?mode=json`, budget(input.signal)));
+      .safeParse(
+        await request(
+          `${b.apiUrl}?mode=json${b.query ? `&${b.query.slice(1)}` : ""}`,
+          budget(input.signal),
+        ),
+      );
     if (!parsed.success)
       throw upstreamError("Lever returned invalid board data.");
     const all = [...new Map(parsed.data.map((job) => [job.id, job])).values()];
     const selected = all
       .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
-      .slice(0, 40);
+      .slice(0, 60);
     listedJobs.set(b.careersUrl, new Map(selected.map((job) => [job.id, job])));
     const jobs = selected.map((job) => ({
-      jobRef: `${b.careersUrl}/${job.id}`,
+      jobRef: `${b.baseUrl}/${job.id}`,
       source: `lever:${b.company}`,
       sourceJobId: job.id,
       sourceType: "lever",

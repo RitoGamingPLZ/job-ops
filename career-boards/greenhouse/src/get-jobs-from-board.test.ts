@@ -112,3 +112,32 @@ describe("getJobsFromBoard", () => {
     ).rejects.toThrow(/HTTP 404/);
   });
 });
+
+it("resolves office membership when the plain list omits offices without content=true", async () => {
+  const urls: string[] = [];
+  const result = await getJobsFromBoard({
+    careersUrl: "https://job-boards.greenhouse.io/airbnb?offices=London,Paris",
+    fetchImpl: async (url) => {
+      urls.push(String(url));
+      return new Response(
+        JSON.stringify(
+          String(url).endsWith("/offices")
+            ? {
+                offices: [
+                  { name: "London", departments: [{ jobs: [{ id: 1 }] }] },
+                  { name: "Paris", departments: [{ jobs: [{ id: 2 }] }] },
+                  { name: "New York", departments: [{ jobs: [{ id: 3 }] }] },
+                ],
+              }
+            : { jobs: [1, 2, 3].map((id) => ({ id, title: `Job ${id}` })) },
+        ),
+      );
+    },
+  });
+  expect(result.jobs.map((job) => job.externalId)).toEqual(["1", "2"]);
+  expect(result.total).toBe(2);
+  expect(urls).toEqual([
+    "https://boards-api.greenhouse.io/v1/boards/airbnb/jobs",
+    "https://boards-api.greenhouse.io/v1/boards/airbnb/offices",
+  ]);
+});

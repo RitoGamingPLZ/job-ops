@@ -92,7 +92,20 @@ export function parseGreenhouseUrl(input: string): GreenhouseSourceConfig {
     );
   }
 
-  return buildSourceConfig(input, token);
+  const source = buildSourceConfig(input, token);
+  const filters = new URLSearchParams();
+  for (const key of ["departments", "location", "offices", "workplace"]) {
+    const values = url.searchParams
+      .getAll(key)
+      .flatMap((value) =>
+        key === "departments" || key === "offices" ? value.split(",") : [value],
+      )
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (values.length) filters.set(key, [...new Set(values)].sort().join(","));
+  }
+  if (filters.size) source.canonicalCareersUrl += `?${filters}`;
+  return source;
 }
 
 export function buildGreenhouseSourceConfig(
