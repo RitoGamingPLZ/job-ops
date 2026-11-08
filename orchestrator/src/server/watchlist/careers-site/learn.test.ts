@@ -1,3 +1,4 @@
+import { logger } from "@infra/logger";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isAllowedByRobots, loadPage } from "./fetch";
 import { learnRecipe } from "./learn";
@@ -220,13 +221,19 @@ describe("learnRecipe", () => {
     "(?:engineer-\\d+)",
     "",
   ])("requires a capture group in a supplied jobIdPattern: %s", async (jobIdPattern) => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
     callJson.mockResolvedValue({
       success: true,
       data: { ...learned, jobIdPattern },
     });
     await expect(learnRecipe(careers, {})).rejects.toThrow(
-      "invalid regular expression",
+      "Missing job ID capture group",
     );
+    expect(warn).toHaveBeenCalledWith(
+      "Careers recipe rejected",
+      expect.objectContaining({ reason: "Missing job ID capture group" }),
+    );
+    warn.mockRestore();
     expect(runRecipe).not.toHaveBeenCalled();
   });
 
@@ -354,6 +361,222 @@ describe("learnRecipe", () => {
     ).toBe(true);
   });
 
+  it.each([
+    "/jp/sitemap.xml",
+    "/de/sitemap.xml",
+  ])("tries the root sitemap before a localized advertised one: %s", async (localized) => {
+    pages[`${root}/robots.txt`] = `Sitemap: ${root}${localized}`;
+    pages[`${root}${localized}`] =
+      `<urlset><url><loc>${root}/jp/careers/engineer-123</loc></url></urlset>`;
+    pages[`${root}/sitemap.xml`] =
+      `<urlset><url><loc>${jobUrl}</loc></url></urlset>`;
+    pages[jobUrl] = jsonld;
+    const recipe = await learnRecipe(careers, {});
+    expect(recipe.listing.url).toBe(`${root}/sitemap.xml`);
+    expect(loadPage).not.toHaveBeenCalledWith(
+      `${root}${localized}`,
+      expect.anything(),
+    );
+    expect(callJson).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "/jobs.xml",
+    "/en/jobs.xml",
+  ])("prefers a global or English job sitemap in an index: %s", async (preferred) => {
+    pages[`${root}/robots.txt`] = `Sitemap: ${root}/index.xml`;
+    pages[`${root}/index.xml`] =
+      `<sitemapindex>${["/jp/jobs.xml", "/de/jobs.xml", preferred].map((path) => `<sitemap><loc>${root}${path}</loc></sitemap>`).join("")}</sitemapindex>`;
+    pages[`${root}${preferred}`] =
+      `<urlset><url><loc>${jobUrl}</loc></url></urlset>`;
+    pages[jobUrl] = jsonld;
+    const recipe = await learnRecipe(careers, {});
+    expect(recipe.listing.url).toBe(`${root}${preferred}`);
+    expect(callJson).not.toHaveBeenCalled();
+  });
+
+  it("does not spend tier-0 samples on customer slugs containing job", async () => {
+    const customer = `${root}/customers/jobber-customer-story`;
+    pages[`${root}/sitemap.xml`] =
+      `<urlset><url><loc>${customer}</loc></url><url><loc>${careers}</loc></url></urlset>`;
+    await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
+    expect(loadPage).not.toHaveBeenCalledWith(customer, expect.anything());
+    expect(
+      vi
+        .mocked(loadPage)
+        .mock.calls.filter(
+          ([url, options]) => url === careers && !options.render,
+        ),
+    ).toHaveLength(1);
+  });
+
+  it("renders dynamic evidence when static listing and detail are shells", async () => {
+    vi.mocked(loadPage).mockImplementation(async (url, options) => ({
+      url,
+      status: url in pages ? 200 : 404,
+      html: options.render ? pages[url] || "missing" : "<div id=app></div>",
+    }));
+    await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
+    const evidence = JSON.parse(callJson.mock.calls[0][0].messages[1].content);
+    expect(evidence.listingRendered).toBe(true);
+    expect(evidence.detailRendered).toBe(true);
+  });
+
+  it("reserves four reads for SPA evidence after a busy tier-0 index", async () => {
+    const children = Array.from(
+      { length: 8 },
+      (_, i) => `${root}/map-${i}.xml`,
+    );
+    pages[`${root}/sitemap.xml`] =
+      `<sitemapindex>${children.map((url) => `<sitemap><loc>${url}</loc></sitemap>`).join("")}</sitemapindex>`;
+    for (const url of children) pages[url] = "<urlset/>";
+    vi.mocked(loadPage).mockImplementation(async (url, options) => ({
+      url,
+      status: url in pages ? 200 : 404,
+      html:
+        (url === careers || url === jobUrl) && !options.render
+          ? "<div id=app></div>"
+          : pages[url] || "missing",
+    }));
+    await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
+    expect(loadPage).toHaveBeenCalledTimes(12);
+    expect(loadPage).toHaveBeenCalledWith(
+      jobUrl,
+      expect.objectContaining({ render: true }),
+    );
+    expect(
+      JSON.parse(callJson.mock.calls[0][0].messages[1].content),
+    ).toMatchObject({
+      listingRendered: true,
+      detailRendered: true,
+    });
+  });
+
+  it("stops tier-0 detail reads before spending the render headroom", async () => {
+    const children = Array.from(
+      { length: 8 },
+      (_, i) => `${root}/map-${i}.xml`,
+    );
+    pages[`${root}/sitemap.xml`] =
+      `<sitemapindex>${children.map((url) => `<sitemap><loc>${url}</loc></sitemap>`).join("")}</sitemapindex>`;
+    for (const url of children) pages[url] = "<urlset/>";
+    pages[children[5]] =
+      `<urlset><url><loc>${root}/jobs/design/456</loc></url><url><loc>${root}/jobs/development/789</loc></url></urlset>`;
+    vi.mocked(loadPage).mockImplementation(async (url, options) => ({
+      url,
+      status: url in pages ? 200 : 404,
+      html:
+        (url === careers || url === jobUrl) && !options.render
+          ? "<div id=app></div>"
+          : pages[url] || "missing",
+    }));
+    await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
+    expect(loadPage).toHaveBeenCalledTimes(12);
+    expect(loadPage).not.toHaveBeenCalledWith(
+      `${root}/jobs/design/456`,
+      expect.anything(),
+    );
+    expect(loadPage).not.toHaveBeenCalledWith(
+      `${root}/jobs/development/789`,
+      expect.anything(),
+    );
+  });
+
+  it("keeps static listing HTML when its render fails", async () => {
+    pages[careers] =
+      '<a href="/opportunity">Engineer</a><a href="/about">About</a>';
+    pages[`${root}/opportunity`] = jobHtml;
+    vi.mocked(loadPage).mockImplementation(async (url, options) => {
+      if (url === careers && options.render) throw new Error("render failed");
+      return {
+        url,
+        status: url in pages ? 200 : 404,
+        html: pages[url] || "missing",
+      };
+    });
+    await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
+    expect(
+      JSON.parse(callJson.mock.calls[0][0].messages[1].content).jobPageUrl,
+    ).toBe(`${root}/opportunity`);
+  });
+
+  it("keeps static detail HTML when its render fails", async () => {
+    pages[jobUrl] = "<h1>Engineer</h1><p>Build things</p>";
+    vi.mocked(loadPage).mockImplementation(async (url, options) => {
+      if (url === jobUrl && options.render)
+        return { url, status: 503, html: "unavailable" };
+      return {
+        url,
+        status: url in pages ? 200 : 404,
+        html: pages[url] || "missing",
+      };
+    });
+    await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
+    expect(callJson.mock.calls[0][0].messages[1].content).toContain(
+      "Build things",
+    );
+  });
+
+  it("uses a listing job instead of a sitemap culture page without JobPosting", async () => {
+    const culture = `${root}/careers/life-at-acme-engineering`;
+    pages[`${root}/sitemap.xml`] =
+      `<urlset><url><loc>${culture}</loc></url></urlset>`;
+    pages[culture] = "<main><h1>Life at Acme</h1><p>Our culture</p></main>";
+    await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
+    expect(
+      JSON.parse(callJson.mock.calls[0][0].messages[1].content).jobPageUrl,
+    ).toBe(jobUrl);
+  });
+
+  it("sorts sitemap children by job path segments despite a careers hostname", async () => {
+    const preferred = `${root}/jobs/sitemap.xml`;
+    pages[`${root}/sitemap.xml`] =
+      `<sitemapindex>${[...Array.from({ length: 8 }, (_, i) => `${root}/misc-${i}.xml`), preferred].map((url) => `<sitemap><loc>${url}</loc></sitemap>`).join("")}</sitemapindex>`;
+    pages[preferred] = `<urlset><url><loc>${jobUrl}</loc></url></urlset>`;
+    pages[jobUrl] = jsonld;
+    const recipe = await learnRecipe(careers, {});
+    expect(recipe.listing.url).toBe(preferred);
+    expect(callJson).not.toHaveBeenCalled();
+  });
+
+  it("sorts listing links by job path segments despite a careers hostname", async () => {
+    pages[careers] = '<a href="/about">About</a><a href="/jobs">Jobs</a>';
+    pages[`${root}/about`] = "<main><h1>About us</h1></main>";
+    pages[`${root}/jobs`] = jobHtml;
+    await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
+    expect(
+      JSON.parse(callJson.mock.calls[0][0].messages[1].content).jobPageUrl,
+    ).toBe(`${root}/jobs`);
+  });
+
+  it("uses a Gemini-compatible version schema while enforcing version 1 locally", async () => {
+    await learnRecipe(careers, {});
+    expect(
+      callJson.mock.calls[0][0].jsonSchema.schema.properties.version,
+    ).toEqual({ type: "integer" });
+    callJson.mockResolvedValue({
+      success: true,
+      data: { ...learned, version: 2 },
+    });
+    await expect(learnRecipe(careers, {})).rejects.toThrow(
+      "schema validation (version)",
+    );
+  });
+
+  it("logs fixed rejection reasons without reflecting provider messages or invalid values", async () => {
+    callJson.mockResolvedValue({
+      success: false,
+      error: "LLM API error: 400 - secret-token page body",
+    });
+    await expect(learnRecipe(careers, {})).rejects.toThrow(
+      "LLM request failed (HTTP 400)",
+    );
+    expect(callJson.mock.calls[1][0].messages[1].content).toContain("HTTP 400");
+    expect(callJson.mock.calls[1][0].messages[1].content).not.toContain(
+      "secret-token",
+    );
+  });
+
   it("recognizes microdata in a default sitemap", async () => {
     pages[`${root}/sitemap.xml`] =
       `<urlset><url><loc>${jobUrl}</loc></url></urlset>`;
@@ -363,10 +586,10 @@ describe("learnRecipe", () => {
     expect(callJson).not.toHaveBeenCalled();
   });
 
-  it("renders evidence, requests a schema, and verifies a learned recipe", async () => {
+  it("uses static evidence, requests a schema, and verifies a learned recipe", async () => {
     await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
     expect(loadPage).toHaveBeenCalledWith(careers, {
-      render: true,
+      render: false,
       signal: expect.any(AbortSignal),
     });
     const request = callJson.mock.calls[0][0];
@@ -428,7 +651,7 @@ describe("learnRecipe", () => {
       new Error("secret-token upstream body"),
     );
     await expect(learnRecipe(careers, {})).rejects.toThrow(
-      "schema validation or execution",
+      "verification failed during execution",
     );
     expect(callJson.mock.calls[1][0].messages[1].content).not.toContain(
       "secret-token",

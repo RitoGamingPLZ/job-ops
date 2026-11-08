@@ -23,7 +23,10 @@ vi.mock("@server/repositories/site-recipes", () => ({
   recordSiteRecipeRun: mocks.record,
   markSiteBlocked: mocks.block,
 }));
-vi.mock("@server/watchlist/careers-site/learn", () => ({
+vi.mock("@server/watchlist/careers-site/learn", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@server/watchlist/careers-site/learn")
+  >()),
   learnRecipe: mocks.learn,
 }));
 vi.mock("@server/watchlist/careers-site/run-recipe", () => ({
@@ -327,6 +330,22 @@ describe("careersSiteWatchlistAdapter", () => {
     now.mockReturnValue(1_000_000 + 30 * 60_000);
     await expect(adapter.fetchJobs({ source })).rejects.toThrow("Learning");
     await vi.waitFor(() => expect(mocks.warn).toHaveBeenCalledTimes(2));
+  });
+  it("logs the learner's bounded rejection message", async () => {
+    const { RecipeLearningError } = await import(
+      "@server/watchlist/careers-site/learn"
+    );
+    mocks.get.mockResolvedValue(null);
+    const reason =
+      "Could not learn a verified careers recipe: LLM request failed (HTTP 400)";
+    mocks.learn.mockRejectedValue(new RecipeLearningError(reason));
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow("Learning");
+    await vi.waitFor(() =>
+      expect(mocks.warn).toHaveBeenCalledWith(
+        "Careers site learning failed",
+        expect.objectContaining({ host: "example.com", reason }),
+      ),
+    );
   });
   it("keeps failed-learn cooldowns separate by host", async () => {
     mocks.get.mockResolvedValue(null);
