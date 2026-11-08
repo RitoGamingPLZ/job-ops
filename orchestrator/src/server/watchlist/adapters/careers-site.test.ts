@@ -555,6 +555,27 @@ describe("careersSiteWatchlistAdapter", () => {
     );
     expect(mocks.learn).toHaveBeenCalledTimes(3);
   });
+  it("logs the real blocked reason when learning hits a blocked site", async () => {
+    const { SiteBlockedError } = await import(
+      "@server/watchlist/careers-site/types"
+    );
+    mocks.get.mockResolvedValue(null);
+    mocks.learn.mockRejectedValue(
+      new SiteBlockedError("example.com", "Cloudflare challenge"),
+    );
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow("Learning");
+    await vi.waitFor(() =>
+      expect(mocks.warn).toHaveBeenCalledWith("Careers site learning failed", {
+        host: "example.com",
+        sourceType: "careers_site",
+        reason: "Cloudflare challenge",
+      }),
+    );
+    expect(mocks.block).toHaveBeenCalledWith(
+      "example.com",
+      "Cloudflare challenge",
+    );
+  });
   it("logs the learner's bounded rejection message", async () => {
     const { RecipeLearningError } = await import(
       "@server/watchlist/careers-site/learn"

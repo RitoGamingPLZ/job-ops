@@ -99,6 +99,7 @@ describe("learnRecipe", () => {
     expect(runRecipe).toHaveBeenLastCalledWith(result, {
       limit: 3,
       signal: expect.any(AbortSignal),
+      bypassCache: true,
     });
   });
 
@@ -535,6 +536,7 @@ describe("learnRecipe", () => {
     expect(runRecipe).toHaveBeenCalledWith(recipe, {
       limit: 3,
       signal: expect.any(AbortSignal),
+      bypassCache: true,
     });
     expect(callJson).not.toHaveBeenCalled();
     expect(
@@ -809,6 +811,7 @@ describe("learnRecipe", () => {
     expect(runRecipe).toHaveBeenCalledWith(learned, {
       limit: 3,
       signal: expect.any(AbortSignal),
+      bypassCache: true,
     });
   });
 

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isAllowedByRobots, loadPage } from "./fetch";
-import { detectQueryPagination, extractJob, runRecipe } from "./run-recipe";
-import { type Recipe, SiteBlockedError } from "./types";
+import { detectQueryPagination, extractJob } from "./run-recipe";
+import type { Recipe } from "./types";
 
 vi.mock("./fetch", () => ({
   loadPage: vi.fn(),
@@ -46,7 +46,12 @@ function pages(values: Record<string, string | Error>) {
     return { url, status: 200, html: value };
   });
 }
-beforeEach(() => {
+let runRecipe: typeof import("./run-recipe").runRecipe;
+let SiteBlockedError: typeof import("./types").SiteBlockedError;
+beforeEach(async () => {
+  vi.resetModules();
+  runRecipe = (await import("./run-recipe")).runRecipe;
+  SiteBlockedError = (await import("./types")).SiteBlockedError;
   vi.resetAllMocks();
   vi.mocked(isAllowedByRobots).mockResolvedValue(true);
 });
@@ -569,7 +574,7 @@ describe("runRecipe", () => {
     expect(loadPage).toHaveBeenCalledTimes(20);
     vi.mocked(loadPage).mockClear();
     expect(await runRecipe(recipe, { sourceUrl, limit: 3 })).toHaveLength(3);
-    expect(loadPage).toHaveBeenCalledTimes(6);
+    expect(loadPage).toHaveBeenCalledTimes(3);
   });
   it("collects all 51 filtered jobs across six pages below the 60-job cap", async () => {
     const sourceUrl = `${base}/openings?_departments=engineering&_workplace_type=remote`;
@@ -1027,5 +1032,193 @@ describe("bounded FacetWP metadata parsing", () => {
       start: 1,
       step: 1,
     });
+  });
+});
+
+describe("public detail cache", () => {
+  it("fetches warm details freshly when validating a learned recipe", async () => {
+    const values = {
+      [recipe.listing.url]: sitemap([[`${base}/jobs/1`]]),
+      [`${base}/jobs/1`]: posting(),
+    };
+    pages(values);
+    await runRecipe(recipe, { limit: 1 });
+    values[`${base}/jobs/1`] = "<p>Broken extraction</p>";
+    await expect(
+      runRecipe(recipe, { limit: 3, bypassCache: true }),
+    ).rejects.toThrow("All selected");
+    expect(loadPage).toHaveBeenCalledTimes(4);
+  });
+
+  it("throws when every completed fresh extraction fails despite cached jobs", async () => {
+    pages({
+      [recipe.listing.url]: sitemap([[`${base}/jobs/1`]]),
+      [`${base}/jobs/1`]: posting(),
+    });
+    await runRecipe(recipe, { limit: 1 });
+    pages({
+      [recipe.listing.url]: sitemap([[`${base}/jobs/1`], [`${base}/jobs/2`]]),
+      [`${base}/jobs/2`]: "<p>No longer a JobPosting</p>",
+    });
+    await expect(runRecipe(recipe, { limit: 2 })).rejects.toThrow(
+      "All selected careers job pages failed or contained no job.",
+    );
+    expect(loadPage).toHaveBeenCalledTimes(4);
+  });
+
+  it("returns cached jobs when fresh misses are cut off during robots checking", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    pages({
+      [recipe.listing.url]: sitemap([[`${base}/jobs/1`]]),
+      [`${base}/jobs/1`]: posting(),
+    });
+    await runRecipe(recipe, { limit: 1 });
+    vi.mocked(loadPage).mockClear();
+    pages({
+      [recipe.listing.url]: sitemap([[`${base}/jobs/1`], [`${base}/jobs/2`]]),
+    });
+    vi.mocked(isAllowedByRobots).mockImplementation(async (url) => {
+      if (url === `${base}/jobs/2`) vi.setSystemTime(10);
+      return true;
+    });
+    expect(
+      (await runRecipe(recipe, { limit: 2, stopAt: 10 })).map((job) => job.id),
+    ).toEqual(["1"]);
+    expect(loadPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("reaches more filtered jobs on a second run under the same deadline", async () => {
+    vi.useFakeTimers();
+    const sourceUrl = `${base}/openings?department=engineering`;
+    vi.mocked(loadPage).mockImplementation(async (url) => {
+      if (url === sourceUrl)
+        return {
+          url,
+          status: 200,
+          html: Array.from(
+            { length: 6 },
+            (_, i) => `<a href="/jobs/${i + 1}">Job</a>`,
+          ).join(""),
+        };
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return { url, status: 200, html: posting() };
+    });
+    const first = runRecipe(recipe, {
+      sourceUrl,
+      limit: 6,
+      stopAt: Date.now() + 5,
+    });
+    await vi.advanceTimersByTimeAsync(10);
+    expect((await first).map((job) => job.id)).toEqual(["1", "2", "3"]);
+    vi.mocked(loadPage).mockClear();
+    const second = runRecipe(recipe, {
+      sourceUrl,
+      limit: 6,
+      stopAt: Date.now() + 5,
+    });
+    await vi.advanceTimersByTimeAsync(10);
+    expect((await second).map((job) => job.id)).toEqual([
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+    ]);
+    expect(loadPage).toHaveBeenCalledTimes(4);
+    for (const id of [1, 2, 3])
+      expect(loadPage).not.toHaveBeenCalledWith(
+        `${base}/jobs/${id}`,
+        expect.anything(),
+      );
+    // Listing membership is refreshed even when details are cached.
+    pages({ [sourceUrl]: '<a href="/jobs/2">Remaining</a>' });
+    expect(
+      (await runRecipe(recipe, { sourceUrl, limit: 6 })).map((job) => job.id),
+    ).toEqual(["2"]);
+  });
+  it("expires details at 24 hours without extending TTL on reads", async () => {
+    vi.useFakeTimers();
+    pages({
+      [recipe.listing.url]: sitemap([[`${base}/jobs/1`]]),
+      [`${base}/jobs/1`]: posting(),
+    });
+    await runRecipe(recipe, { limit: 1 });
+    vi.mocked(loadPage).mockClear();
+    vi.setSystemTime(Date.now() + 24 * 60 * 60_000 - 1);
+    await runRecipe(recipe, { limit: 1 });
+    expect(loadPage).toHaveBeenCalledTimes(1);
+    vi.mocked(loadPage).mockClear();
+    vi.setSystemTime(Date.now() + 1);
+    await runRecipe(recipe, { limit: 1 });
+    expect(loadPage).toHaveBeenCalledTimes(2);
+  });
+  it.each([
+    "empty",
+    "failed",
+  ])("does not cache %s extractions", async (kind) => {
+    pages({
+      [recipe.listing.url]: sitemap([[`${base}/jobs/1`]]),
+      [`${base}/jobs/1`]:
+        kind === "empty" ? "<p>Missing job</p>" : new Error("Unavailable"),
+    });
+    await expect(runRecipe(recipe, { limit: 1 })).rejects.toThrow(
+      "All selected",
+    );
+    pages({
+      [recipe.listing.url]: sitemap([[`${base}/jobs/1`]]),
+      [`${base}/jobs/1`]: posting(),
+    });
+    expect(await runRecipe(recipe, { limit: 1 })).toHaveLength(1);
+    expect(loadPage).toHaveBeenCalledTimes(4);
+  });
+  it("evicts the earliest insertion beyond 2000 entries", async () => {
+    let ids = Array.from({ length: 2000 }, (_, i) => i + 1);
+    vi.mocked(loadPage).mockImplementation(async (url) => ({
+      url,
+      status: 200,
+      html:
+        url === recipe.listing.url
+          ? sitemap(ids.map((id) => [`${base}/jobs/${id}`]))
+          : posting(),
+    }));
+    await runRecipe(recipe, { limit: 2000 });
+    // Sitemap details load newest first, so 2000 is the oldest insertion.
+    ids = [2001];
+    await runRecipe(recipe, { limit: 1 });
+    vi.mocked(loadPage).mockClear();
+    ids = [2000, 1999, 2001];
+    expect(await runRecipe(recipe, { limit: 3 })).toHaveLength(3);
+    expect(loadPage).toHaveBeenCalledTimes(2);
+    expect(loadPage).toHaveBeenCalledWith(
+      `${base}/jobs/2000`,
+      expect.anything(),
+    );
+  });
+  it("re-extracts details when a learned extraction recipe changes", async () => {
+    pages({
+      [recipe.listing.url]: sitemap([[`${base}/jobs/1`]]),
+      [`${base}/jobs/1`]: posting(),
+    });
+    await runRecipe(recipe, { limit: 1 });
+    pages({
+      [recipe.listing.url]: sitemap([[`${base}/jobs/1`]]),
+      [`${base}/jobs/1`]: "<h1>Updated</h1><main>Description</main>",
+    });
+    const jobs = await runRecipe(
+      {
+        ...recipe,
+        detail: {
+          kind: "selectors",
+          render: false,
+          title: "h1",
+          description: "main",
+        },
+      },
+      { limit: 1 },
+    );
+    expect(jobs[0].title).toBe("Updated");
+    expect(loadPage).toHaveBeenCalledTimes(4);
   });
 });
