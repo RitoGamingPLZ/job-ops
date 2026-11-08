@@ -25,6 +25,44 @@ const createWrapper = (initialEntry: string) => {
 };
 
 describe("useOrchestratorFilters", () => {
+  it("round-trips multiple company params without splitting punctuation and resets with source", () => {
+    const { Wrapper, getLocation } = createWrapper(
+      "/all?company=+GOOGLE+&company=google&company=Google+LLC&source=linkedin&keep=yes",
+    );
+    const { result } = renderHook(() => useOrchestratorFilters(), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.companyFilter).toEqual(["google", "google llc"]);
+    expect(result.current.sourceFilter).toBe("linkedin");
+    act(() =>
+      result.current.setCompanyFilter([
+        "Acme, Inc.",
+        " A & B ",
+        "acme, inc.",
+        "  ",
+      ]),
+    );
+    const params = new URLSearchParams(getLocation().split("?")[1]);
+    expect(params.getAll("company")).toEqual(["acme, inc.", "a & b"]);
+    expect(params.get("source")).toBe("linkedin");
+    expect(result.current.companyFilter).toEqual(["acme, inc.", "a & b"]);
+    const restored = createWrapper(getLocation());
+    const { result: restoredResult } = renderHook(
+      () => useOrchestratorFilters(),
+      { wrapper: restored.Wrapper },
+    );
+    expect(restoredResult.current.companyFilter).toEqual(
+      result.current.companyFilter,
+    );
+    act(() => result.current.setCompanyFilter([]));
+    expect(getLocation()).not.toContain("company=");
+    act(() => result.current.setCompanyFilter(["Google"]));
+    act(() => result.current.resetFilters());
+    expect(result.current.companyFilter).toEqual([]);
+    expect(result.current.sourceFilter).toBe("all");
+    expect(getLocation()).toBe("/all?keep=yes");
+  });
+
   it("parses a valid sort query param", () => {
     const { Wrapper } = createWrapper("/ready?sort=datePosted-asc");
     const { result } = renderHook(() => useOrchestratorFilters(), {

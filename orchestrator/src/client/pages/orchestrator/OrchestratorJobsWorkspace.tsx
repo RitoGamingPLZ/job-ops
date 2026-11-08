@@ -1,6 +1,7 @@
 import type { VirtualListHandle } from "@client/lib/virtual-list";
 import type { Job, JobListItem, JobSource, JobStatus } from "@shared/types.js";
 import type React from "react";
+import type { CompanyOption } from "./companyFilter";
 import type {
   EmploymentType,
   FilterTab,
@@ -39,6 +40,9 @@ interface OrchestratorJobsWorkspaceProps {
   isCommandBarOpen: boolean;
   commandBarEnabled: boolean;
   sourceFilter: JobSource | "all";
+  companyFilter: string[];
+  companiesWithJobs: CompanyOption[];
+  onCompanyFilterChange: (values: string[]) => void;
   sponsorFilter: SponsorFilter;
   salaryFilter: SalaryFilter;
   scoreFilter: ScoreFilter;
@@ -95,6 +99,9 @@ export const OrchestratorJobsWorkspace: React.FC<
   isLoading,
   isCommandBarOpen,
   commandBarEnabled,
+  companyFilter,
+  companiesWithJobs,
+  onCompanyFilterChange,
   sourceFilter,
   sponsorFilter,
   salaryFilter,
@@ -151,6 +158,9 @@ export const OrchestratorJobsWorkspace: React.FC<
         onOpenCommandBar={() => onCommandBarOpenChange(true)}
         isFiltersOpen={isFiltersOpen}
         onFiltersOpenChange={onFiltersOpenChange}
+        companyFilter={companyFilter}
+        companiesWithJobs={companiesWithJobs}
+        onCompanyFilterChange={onCompanyFilterChange}
         sourceFilter={sourceFilter}
         onSourceFilterChange={onSourceFilterChange}
         sponsorFilter={sponsorFilter}

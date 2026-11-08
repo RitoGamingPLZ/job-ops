@@ -1,5 +1,6 @@
 import type { JobSource } from "@shared/types.js";
 import type React from "react";
+import type { CompanyOption } from "../companyFilter";
 import type {
   EmploymentType,
   FilterTab,
@@ -16,6 +17,9 @@ export interface OrchestratorFiltersProps {
   counts: Record<FilterTab, number>;
   onOpenCommandBar: () => void;
   sourceFilter: JobSource | "all";
+  companyFilter: string[];
+  onCompanyFilterChange: (values: string[]) => void;
+  companiesWithJobs: CompanyOption[];
   onSourceFilterChange: (value: JobSource | "all") => void;
   sponsorFilter: SponsorFilter;
   onSponsorFilterChange: (value: SponsorFilter) => void;
@@ -109,3 +113,8 @@ export type OrchestratorTabRowProps = Pick<
 export type OrchestratorFilterBarProps = {
   children: React.ReactNode;
 };
+
+export type CompanyFilterPillProps = Pick<
+  OrchestratorFiltersProps,
+  "companyFilter" | "onCompanyFilterChange" | "companiesWithJobs"
+>;
