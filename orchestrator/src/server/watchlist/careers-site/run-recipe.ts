@@ -38,7 +38,7 @@ function sameSite(value: string, base: string): string | null {
 
 // Bound scanning before parsing: page content is untrusted and may contain many
 // incomplete assignments. Only inspect the first assignment, once.
-function facetConfig(html: string | undefined): string | null {
+export function facetConfig(html: string | undefined): string | null {
   if (!html) return null;
   const marker = html.indexOf("FWP_JSON");
   if (marker < 0) return null;
