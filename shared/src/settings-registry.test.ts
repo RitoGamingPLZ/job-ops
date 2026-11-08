@@ -478,3 +478,20 @@ describe("settingsRegistry helpers", () => {
     });
   });
 });
+
+describe("pipeline schedule settings", () => {
+  it("defaults to disabled at 07:00 and accepts only local hours", () => {
+    expect(settingsRegistry.pipelineScheduleEnabled.default()).toBe(false);
+    expect(settingsRegistry.pipelineScheduleHour.default()).toBe(7);
+    for (const hour of [0, 7, 23])
+      expect(
+        settingsRegistry.pipelineScheduleHour.schema.safeParse(hour).success,
+      ).toBe(true);
+    for (const hour of [-1, 24, 7.5])
+      expect(
+        settingsRegistry.pipelineScheduleHour.schema.safeParse(hour).success,
+      ).toBe(false);
+    expect(settingsRegistry.pipelineScheduleEnabled.serialize(true)).toBe("1");
+    expect(settingsRegistry.pipelineScheduleHour.parse("24")).toBeNull();
+  });
+});

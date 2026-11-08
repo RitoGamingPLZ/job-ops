@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 
 type BackupSettingsSectionProps = {
   values: BackupValues;
@@ -66,6 +67,56 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
   return (
     <SettingsSectionFrame mode={layoutMode} title="Backup" value="backup">
       <div className="space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Controller
+              name="pipelineScheduleEnabled"
+              control={control}
+              render={({ field }) => (
+                <Switch
+                  id="pipelineScheduleEnabled"
+                  checked={field.value ?? false}
+                  onCheckedChange={field.onChange}
+                  disabled={isLoading || isSaving}
+                />
+              )}
+            />
+            <label
+              htmlFor="pipelineScheduleEnabled"
+              className="text-sm font-medium"
+            >
+              Run job search daily
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Uses your last manually started search, including selected sources.
+            The server must be running. Searches already in progress are
+            skipped.
+          </p>
+          <label htmlFor="pipelineScheduleHour" className="text-sm">
+            Daily search hour (server local time)
+          </label>
+          <Controller
+            name="pipelineScheduleHour"
+            control={control}
+            render={({ field }) => (
+              <select
+                id="pipelineScheduleHour"
+                className="ml-3 rounded-md border bg-background p-2 text-sm"
+                value={field.value ?? 7}
+                onChange={(event) => field.onChange(Number(event.target.value))}
+                disabled={isLoading || isSaving}
+              >
+                {Array.from({ length: 24 }, (_, hour) => hour).map((hour) => (
+                  <option key={hour} value={hour}>
+                    {String(hour).padStart(2, "0")}:00
+                  </option>
+                ))}
+              </select>
+            )}
+          />
+        </div>
+        <Separator />
         <div className="flex items-start space-x-3">
           <Controller
             name="backupEnabled"

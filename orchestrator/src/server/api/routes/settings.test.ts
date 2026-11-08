@@ -334,6 +334,53 @@ describe.sequential("Settings API routes", () => {
     );
   });
 
+  it("returns saved settings when refreshing the pipeline scheduler fails", async () => {
+    const scheduler = await import("@server/services/pipeline-scheduler");
+    const { logger } = await import("@infra/logger");
+    const refresh = vi
+      .spyOn(scheduler, "refreshPipelineScheduler")
+      .mockRejectedValueOnce(new Error("database is locked"));
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+
+    try {
+      const res = await fetch(`${baseUrl}/api/settings`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-request-id": "scheduler-refresh-failure",
+        },
+        body: JSON.stringify({
+          pipelineScheduleEnabled: true,
+          pipelineScheduleHour: 9,
+        }),
+      });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(body.meta.requestId).toBe("scheduler-refresh-failure");
+      expect(body.data.pipelineScheduleEnabled.value).toBe(true);
+      expect(body.data.pipelineScheduleHour.value).toBe(9);
+      expect(refresh).toHaveBeenCalledOnce();
+      expect(warn).toHaveBeenCalledWith(
+        "Failed to refresh pipeline scheduler after settings save",
+        expect.objectContaining({
+          requestId: "scheduler-refresh-failure",
+          route: "PATCH /api/settings",
+          error: expect.objectContaining({ message: "database is locked" }),
+        }),
+      );
+
+      const saved = await fetch(`${baseUrl}/api/settings`);
+      const savedBody = await saved.json();
+      expect(savedBody.data.pipelineScheduleEnabled.value).toBe(true);
+      expect(savedBody.data.pipelineScheduleHour.value).toBe(9);
+    } finally {
+      refresh.mockRestore();
+      warn.mockRestore();
+    }
+  });
+
   it("ignores malformed stored purpose API keys when listing models", async () => {
     const { setSetting } = await import("@server/repositories/settings");
     await setSetting("llmPurposeApiKeys", JSON.stringify({ tailoring: 123 }));

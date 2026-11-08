@@ -300,6 +300,8 @@ export interface AppSettings {
   chatStyleManualLanguage: Resolved<ChatStyleManualLanguage>;
   chatStyleSummaryMaxWords: Resolved<number | null>;
   chatStyleMaxKeywordsPerSkill: Resolved<number | null>;
+  pipelineScheduleEnabled: Resolved<boolean>;
+  pipelineScheduleHour: Resolved<number>;
   backupEnabled: Resolved<boolean>;
   backupHour: Resolved<number>;
   backupMaxCount: Resolved<number>;

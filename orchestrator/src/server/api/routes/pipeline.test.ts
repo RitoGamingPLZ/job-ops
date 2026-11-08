@@ -50,6 +50,67 @@ describe.sequential("Pipeline API routes", () => {
     expect(body.data.lastRun).toBeNull();
   });
 
+  it("returns nextScheduledRun after schedule settings change", async () => {
+    const update = await fetch(`${baseUrl}/api/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pipelineScheduleEnabled: true,
+        pipelineScheduleHour: 7,
+      }),
+    });
+    expect(update.status).toBe(200);
+    const body = await (await fetch(`${baseUrl}/api/pipeline/status`)).json();
+    const expected = new Date();
+    expected.setHours(7, 0, 0, 0);
+    if (expected <= new Date()) expected.setDate(expected.getDate() + 1);
+    expect(body.data.nextScheduledRun).toBe(expected.toISOString());
+    await fetch(`${baseUrl}/api/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pipelineScheduleEnabled: false }),
+    });
+    const disabled = await (
+      await fetch(`${baseUrl}/api/pipeline/status`)
+    ).json();
+    expect(disabled.data.nextScheduledRun).toBeNull();
+  });
+
+  it("reuses the accepted manual request for a scheduled run", async () => {
+    const request = {
+      topN: 5,
+      minSuitabilityScore: 65,
+      runBudget: 300,
+      sources: ["gradcracker"],
+      searchTerms: ["backend developer"],
+      scoringInstructions: "Prefer API roles",
+      country: "united kingdom",
+      cityLocations: ["London"],
+      workplaceTypes: ["hybrid"],
+      searchScope: "selected_only",
+      matchStrictness: "flexible",
+      watchlistSelectedSourceIds: [],
+    };
+    const response = await fetch(`${baseUrl}/api/pipeline/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+    expect(response.status).toBe(200);
+    const { loadRunRequest } = await import(
+      "@server/services/pipeline-scheduler/storage"
+    );
+    expect(await loadRunRequest()).toEqual(request);
+    const { runPipeline } = await import("@server/pipeline/index");
+    const firstCall = vi.mocked(runPipeline).mock.calls.at(-1);
+    const { runScheduledPipeline } = await import(
+      "@server/services/pipeline-scheduler"
+    );
+    await runScheduledPipeline();
+    expect(vi.mocked(runPipeline).mock.calls.at(-1)).toEqual(firstCall);
+    expect(runPipeline).toHaveBeenCalledTimes(2);
+  });
+
   it("detects the country at a selected map point", async () => {
     const res = await fetch(`${baseUrl}/api/pipeline/location-country`, {
       method: "POST",
