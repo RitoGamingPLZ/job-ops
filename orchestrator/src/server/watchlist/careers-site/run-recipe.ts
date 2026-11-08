@@ -339,17 +339,24 @@ export async function runRecipe(
     return id && /^\d+$/.test(id) ? BigInt(id) : null;
   }
   const selected = [...candidates]
-    .sort(([a, aModified], [b, bModified]) => {
-      if (aModified || bModified) return bModified - aModified;
-      if (recipe.listing.kind !== "sitemap") return 0;
-      const aId = numericId(a);
-      const bId = numericId(b);
-      if (aId === bId) return 0;
-      if (aId === null) return 1;
-      if (bId === null) return -1;
-      return aId > bId ? -1 : 1;
+    .map(([url, modified]) => ({
+      url,
+      day: modified ? Math.floor(modified / 86_400_000) : null,
+      id: recipe.listing.kind === "sitemap" ? numericId(url) : null,
+    }))
+    .sort((a, b) => {
+      if (a.day !== b.day) {
+        if (a.day === null) return 1;
+        if (b.day === null) return -1;
+        return b.day - a.day;
+      }
+      if (a.id === b.id) return 0;
+      if (a.id === null) return 1;
+      if (b.id === null) return -1;
+      return a.id > b.id ? -1 : 1;
     })
-    .slice(0, limit);
+    .slice(0, limit)
+    .map(({ url }) => [url] as const);
   const jobs = new Map<string, CrawledJob>();
   const seenIds = new Set<string>();
   let index = 0;

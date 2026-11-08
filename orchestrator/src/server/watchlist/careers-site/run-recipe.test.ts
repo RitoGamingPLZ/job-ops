@@ -251,6 +251,60 @@ describe("extractJob", () => {
 });
 
 describe("runRecipe", () => {
+  it("orders same UTC-day lastmods by numeric ID despite timestamp noise", async () => {
+    const entries: [string, string?][] = [
+      [`${base}/jobs/9`, "2026-11-08T04:54:24Z"],
+      [`${base}/jobs/100`, "2026-11-08T04:53:15Z"],
+      [`${base}/jobs/20`, "2026-11-07T23:53:30-05:00"],
+    ];
+    pages({
+      [recipe.listing.url]: sitemap(entries),
+      ...Object.fromEntries(entries.map(([url]) => [url, posting()])),
+    });
+    expect(
+      (await runRecipe(recipe, { limit: 2 })).map((job) => job.id),
+    ).toEqual(["100", "20"]);
+    expect(loadPage).not.toHaveBeenCalledWith(entries[0][0], expect.anything());
+  });
+
+  it("orders different UTC days before numeric IDs and undated entries", async () => {
+    const entries: [string, string?][] = [
+      [`${base}/jobs/999`, "2026-11-08T23:59:59Z"],
+      [`${base}/jobs/1`, "2026-11-08T20:00:00-05:00"],
+      [`${base}/jobs/9999`],
+    ];
+    pages({
+      [recipe.listing.url]: sitemap(entries),
+      ...Object.fromEntries(entries.map(([url]) => [url, posting()])),
+    });
+    expect(
+      (await runRecipe(recipe, { limit: 40 })).map((job) => job.id),
+    ).toEqual(["1", "999", "9999"]);
+  });
+
+  it("preserves file order for same-day entries without numeric IDs", async () => {
+    const entries: [string, string?][] = [
+      [`${base}/jobs/zebra`, "2026-11-08T04:53:15Z"],
+      [`${base}/jobs/alpha`, "2026-11-08T04:54:24Z"],
+    ];
+    pages({
+      [recipe.listing.url]: sitemap(entries),
+      ...Object.fromEntries(entries.map(([url]) => [url, posting()])),
+    });
+    expect(
+      (
+        await runRecipe(
+          {
+            ...recipe,
+            jobUrlPattern: "/jobs/",
+            jobIdPattern: "/jobs/([^/]+)$",
+          },
+          { limit: 40 },
+        )
+      ).map((job) => job.id),
+    ).toEqual(["zebra", "alpha"]);
+  });
+
   it("caps an alphabetical sitemap without lastmod at the highest numeric IDs", async () => {
     const urls = ["accountant/9", "engineer/100", "writer/20"].map(
       (path) => `${base}/jobs/${path}`,
