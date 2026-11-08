@@ -3,6 +3,14 @@ import { isAllowedByRobots, loadPage } from "./fetch";
 import { type CrawledJob, type Recipe, SiteBlockedError } from "./types";
 
 const MAX_URL_LENGTH = 500;
+const DETAIL_CACHE_TTL_MS = 24 * 60 * 60_000;
+const DETAIL_CACHE_MAX_ENTRIES = 2_000;
+// Explicitly global: only public job details, keyed by their full URL (including
+// query), never tenant settings or credentials. ponytail: In-memory, lost on restart.
+const detailCache = new Map<
+  string,
+  { job: CrawledJob; expires: number; extraction: string }
+>();
 
 function jobId(url: string, recipe: Recipe): string | undefined {
   return url.length <= MAX_URL_LENGTH && recipe.jobIdPattern
@@ -302,6 +310,8 @@ export async function runRecipe(
     stopAt?: number;
     /** Filtered sources override the host recipe listing for this run only. */
     sourceUrl?: string;
+    /** Validate learned recipes against fresh pages instead of cached details. */
+    bypassCache?: boolean;
   },
 ): Promise<CrawledJob[]> {
   const { signal, stopAt } = options;
@@ -499,23 +509,52 @@ export async function runRecipe(
     .map(({ url }) => [url] as const);
   const jobs = new Map<string, CrawledJob>();
   const seenIds = new Set<string>();
+  const extraction = JSON.stringify([recipe.detail, recipe.jobIdPattern]);
+  function collect(url: string, job: CrawledJob) {
+    if (seenIds.has(job.id)) return;
+    seenIds.add(job.id);
+    jobs.set(url, { ...job });
+  }
+  // Collect all cached candidates before spending the remaining budget on misses.
+  for (const [url] of selected) {
+    const entry = options.bypassCache ? undefined : detailCache.get(url);
+    if (!entry) continue;
+    if (entry.expires <= Date.now() || entry.extraction !== extraction) {
+      detailCache.delete(url);
+      continue;
+    }
+    collect(url, entry.job);
+  }
   let index = 0;
+  let completed = 0;
+  let fresh = 0;
   let fatal: unknown;
   async function worker() {
     while (index < selected.length && !fatal && !stopped()) {
       const [url] = selected[index++];
+      if (jobs.has(url)) continue;
       try {
         const page = await read(
           url,
           recipe.detail.kind === "selectors" && recipe.detail.render,
         );
         if (!page) break;
+        completed++;
         const job = extractJob(page.html, page.url, recipe);
         if (job) {
+          fresh++;
           job.id = jobId(url, recipe) || jobId(page.url, recipe) || url;
-          if (seenIds.has(job.id)) continue;
-          seenIds.add(job.id);
-          jobs.set(url, job);
+          detailCache.delete(url);
+          detailCache.set(url, {
+            job: { ...job },
+            expires: Date.now() + DETAIL_CACHE_TTL_MS,
+            extraction,
+          });
+          while (detailCache.size > DETAIL_CACHE_MAX_ENTRIES) {
+            const oldest = detailCache.keys().next().value;
+            if (oldest !== undefined) detailCache.delete(oldest);
+          }
+          collect(url, job);
         }
       } catch (error) {
         try {
@@ -529,7 +568,7 @@ export async function runRecipe(
   await Promise.all([worker(), worker(), worker()]);
   if (fatal) throw fatal;
   signal?.throwIfAborted();
-  if (selected.length && !jobs.size)
+  if ((selected.length && !jobs.size) || (completed > 0 && fresh === 0))
     throw new Error(
       "All selected careers job pages failed or contained no job.",
     );

@@ -133,9 +133,11 @@ function startLearning(host: string, url: string): never {
         host,
         sourceType: "careers_site",
         reason:
-          error instanceof RecipeLearningError
-            ? error.message
-            : "Careers learning failed outside recipe validation",
+          error instanceof SiteBlockedError
+            ? error.reason
+            : error instanceof RecipeLearningError
+              ? error.message
+              : "Careers learning failed outside recipe validation",
       });
     });
   }

@@ -330,7 +330,11 @@ export async function learnRecipe(
       });
       const re = new RegExp(recipe.jobUrlPattern);
       try {
-        const jobs = await runRecipe(recipe, { limit: 3, signal });
+        const jobs = await runRecipe(recipe, {
+          limit: 3,
+          signal,
+          bypassCache: true,
+        });
         if (jobs.length && jobs.every((job) => matchesUrl(re, job.url)))
           return recipe;
       } catch (error) {
@@ -657,15 +661,17 @@ export async function learnRecipe(
           }
         }
       }
-      const jobs = await runRecipe(recipe, { limit: 3, signal }).catch(
-        (error: unknown) => {
-          signal.throwIfAborted();
-          if (error instanceof SiteBlockedError) throw error;
-          throw new RecipeLearningError(
-            "Recipe verification failed during execution",
-          );
-        },
-      );
+      const jobs = await runRecipe(recipe, {
+        limit: 3,
+        signal,
+        bypassCache: true,
+      }).catch((error: unknown) => {
+        signal.throwIfAborted();
+        if (error instanceof SiteBlockedError) throw error;
+        throw new RecipeLearningError(
+          "Recipe verification failed during execution",
+        );
+      });
       if (jobs.length === 0)
         throw new RecipeLearningError("Recipe found no jobs");
       if (jobs.some((job) => !matchesUrl(re, job.url)))
