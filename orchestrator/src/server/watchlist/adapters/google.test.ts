@@ -183,31 +183,93 @@ describe("googleWatchlistAdapter", () => {
       signal: expect.any(AbortSignal),
     });
   });
-  it("fetches one filtered results URL without page=, preserves order and caps at 20", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(
-      list(
-        Array.from({ length: 25 }, (_, i) => job(i + 1)),
-        100,
-      ),
-    );
+  it("pages until the total is reached, strips saved paging and preserves filters and order", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        list(
+          Array.from({ length: 20 }, (_, i) => job(i + 1)),
+          40,
+        ),
+      )
+      .mockResolvedValueOnce(
+        list(
+          Array.from({ length: 20 }, (_, i) => job(i + 21)),
+          40,
+        ),
+      );
     vi.stubGlobal("fetch", fetchMock);
     const result = await adapter.fetchJobs({
       source: { ...source, careersUrl: `${source.careersUrl}&page=9&page=2` },
     });
-    expect(result).toMatchObject({ total: 100, fetched: 20 });
+    expect(result).toMatchObject({ total: 40, fetched: 40 });
     expect(result.jobs.map((row) => row.sourceJobId)).toEqual(
-      Array.from({ length: 20 }, (_, i) => String(i + 1)),
+      Array.from({ length: 40 }, (_, i) => String(i + 1)),
     );
     expect(result.jobs[0].jobUrl).toBe(`${base}1-software-engineer-aiml-1`);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    for (const [url] of fetchMock.mock.calls) {
-      expect(url).not.toContain("page=");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [index, [url, options]] of fetchMock.mock.calls.entries()) {
       const parsed = new URL(url);
-      expect(parsed.searchParams.has("page")).toBe(false);
+      expect(parsed.searchParams.getAll("page")).toEqual([String(index + 1)]);
       expect(parsed.searchParams.get("q")).toBe("software engineer");
       expect(parsed.searchParams.get("location")).toBe("London");
       expect(parsed.searchParams.get("sort_by")).toBe("date");
+      expect(options.signal).toBe(fetchMock.mock.calls[0][1].signal);
     }
+  });
+  it("stops at three pages and 60 jobs", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url) => {
+      const page = Number(new URL(url).searchParams.get("page"));
+      return list(
+        Array.from({ length: 20 }, (_, i) => job((page - 1) * 20 + i + 1)),
+        100,
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await adapter.fetchJobs({ source });
+    expect(result).toMatchObject({ total: 100, fetched: 60 });
+    expect(result.jobs.map((row) => row.sourceJobId)).toEqual(
+      Array.from({ length: 60 }, (_, i) => String(i + 1)),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+  it.each([
+    0, 5,
+  ])("stops on a short subsequent page of %s jobs", async (length) => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        list(
+          Array.from({ length: 20 }, (_, i) => job(i + 1)),
+          100,
+        ),
+      )
+      .mockResolvedValueOnce(
+        list(
+          Array.from({ length }, (_, i) => job(i + 21)),
+          100,
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await adapter.fetchJobs({ source })).toMatchObject({
+      total: 100,
+      fetched: 20 + length,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it("does not exceed three pages when pages repeat jobs", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () =>
+      list(
+        Array.from({ length: 20 }, (_, i) => job(i + 1)),
+        100,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await adapter.fetchJobs({ source })).toMatchObject({
+      total: 100,
+      fetched: 20,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
   it("deduplicates the first results page", async () => {
     vi.stubGlobal(
@@ -375,22 +437,34 @@ describe("googleWatchlistAdapter", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[2][0]).toBe(`${base}${realJob[0]}`);
   });
-  it("keeps at most the 20 returned rows in the public posting cache", async () => {
+  it("keeps at most the 60 returned rows in the public posting cache", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
         list(
-          Array.from({ length: 25 }, (_, i) => job(i + 1)),
+          Array.from({ length: 20 }, (_, i) => job(i + 1)),
           100,
         ),
       )
-      .mockResolvedValueOnce(detail(job(21)));
+      .mockResolvedValueOnce(
+        list(
+          Array.from({ length: 20 }, (_, i) => job(i + 21)),
+          100,
+        ),
+      )
+      .mockResolvedValueOnce(
+        list(
+          Array.from({ length: 20 }, (_, i) => job(i + 41)),
+          100,
+        ),
+      )
+      .mockResolvedValueOnce(detail(job(61)));
     vi.stubGlobal("fetch", fetchMock);
     await adapter.fetchJobs({ source });
-    await adapter.prepareImportDraft({ source, jobRef: `${base}20` });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    await adapter.prepareImportDraft({ source, jobRef: `${base}21` });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await adapter.prepareImportDraft({ source, jobRef: `${base}60` });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    await adapter.prepareImportDraft({ source, jobRef: `${base}61` });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
   it("rejects ds:1 related-job envelopes on a detail cache miss", async () => {
     vi.stubGlobal(
