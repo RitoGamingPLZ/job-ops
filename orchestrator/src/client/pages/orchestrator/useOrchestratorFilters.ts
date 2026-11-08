@@ -1,6 +1,7 @@
 import type { JobSource } from "@shared/types.js";
 import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { normalizeCompanies } from "./companyFilter";
 import type {
   DateFilterDimension,
   DateFilterPreset,
@@ -105,6 +106,26 @@ export const useOrchestratorFilters = () => {
         (prev) => {
           if (source !== "all") prev.set("source", source);
           else prev.delete("source");
+          return prev;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const companyFilter = useMemo(
+    () => normalizeCompanies(searchParams.getAll("company")),
+    [searchParams],
+  );
+  const setCompanyFilter = useCallback(
+    (values: string[]) => {
+      setSearchParams(
+        (prev) => {
+          prev.delete("company");
+          for (const value of normalizeCompanies(values)) {
+            prev.append("company", value);
+          }
           return prev;
         },
         { replace: true },
@@ -362,6 +383,7 @@ export const useOrchestratorFilters = () => {
     setSearchParams(
       (prev) => {
         prev.delete("source");
+        prev.delete("company");
         prev.delete("sponsor");
         prev.delete("salaryMode");
         prev.delete("salaryMin");
@@ -388,6 +410,8 @@ export const useOrchestratorFilters = () => {
     searchParams,
     sourceFilter,
     setSourceFilter,
+    companyFilter,
+    setCompanyFilter,
     sponsorFilter,
     setSponsorFilter,
     salaryFilter,

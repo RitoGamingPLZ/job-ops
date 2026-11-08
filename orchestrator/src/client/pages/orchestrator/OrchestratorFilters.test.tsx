@@ -55,6 +55,9 @@ const renderFilters = (
     },
     onOpenCommandBar: vi.fn(),
     sourceFilter: "all" as const,
+    companyFilter: [],
+    companiesWithJobs: [],
+    onCompanyFilterChange: vi.fn(),
     onSourceFilterChange: vi.fn(),
     sponsorFilter: "all" as SponsorFilter,
     onSponsorFilterChange: vi.fn(),
@@ -100,6 +103,18 @@ const renderFilters = (
 };
 
 describe("OrchestratorFilters", () => {
+  it("counts company selections as one active filter and clears through Reset", () => {
+    const { props } = renderFilters({
+      companyFilter: ["google", "google llc"],
+      isFiltersOpen: true,
+    });
+    expect(screen.getByRole("button", { name: /^filters/i })).toHaveTextContent(
+      "1",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(props.onResetFilters).toHaveBeenCalled();
+  });
+
   it("hides the filter bar by default", () => {
     renderFilters({ isFiltersOpen: false });
 

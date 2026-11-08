@@ -20,6 +20,7 @@ import {
 
 interface UseFilterBarDerivedStateArgs {
   sourceFilter: JobSource | "all";
+  companyFilter: string[];
   sponsorFilter: SponsorFilter;
   dateFilter: JobDateFilter;
   postedWithinDays: number | null;
@@ -34,6 +35,7 @@ interface UseFilterBarDerivedStateArgs {
 
 export const useFilterBarDerivedState = ({
   sourceFilter,
+  companyFilter,
   sponsorFilter,
   dateFilter,
   postedWithinDays,
@@ -55,6 +57,7 @@ export const useFilterBarDerivedState = ({
   const activeFilterCount = useMemo(
     () =>
       Number(sourceFilter !== "all") +
+      Number(companyFilter.length > 0) +
       Number(sponsorFilter !== "all") +
       Number(dateFilter.dimensions.length > 0) +
       Number(postedWithinDays != null) +
@@ -64,6 +67,7 @@ export const useFilterBarDerivedState = ({
       Number(scoreActive),
     [
       sourceFilter,
+      companyFilter.length,
       sponsorFilter,
       dateFilter.dimensions.length,
       postedWithinDays,

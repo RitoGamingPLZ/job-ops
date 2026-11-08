@@ -1,6 +1,7 @@
 import type React from "react";
 import { Tabs } from "@/components/ui/tabs";
 import type { FilterTab } from "./constants";
+import { CompanyFilterPill } from "./filters/CompanyFilterPill";
 import { DateFilterPill } from "./filters/DateFilterPill";
 import { EmploymentTypeFilterPill } from "./filters/EmploymentTypeFilterPill";
 import { LocationFilterInput } from "./filters/LocationFilterInput";
@@ -22,6 +23,9 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
   onTabChange,
   counts,
   onOpenCommandBar,
+  companyFilter,
+  onCompanyFilterChange,
+  companiesWithJobs,
   sourceFilter,
   onSourceFilterChange,
   sponsorFilter,
@@ -59,6 +63,7 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
     scoreSummary,
   } = useFilterBarDerivedState({
     sourceFilter,
+    companyFilter,
     sponsorFilter,
     dateFilter,
     postedWithinDays,
@@ -97,6 +102,12 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
               sourceFilter={sourceFilter}
               onSourceFilterChange={onSourceFilterChange}
               sourcesWithJobs={sourcesWithJobs}
+            />
+
+            <CompanyFilterPill
+              companyFilter={companyFilter}
+              onCompanyFilterChange={onCompanyFilterChange}
+              companiesWithJobs={companiesWithJobs}
             />
 
             <PostedWithinFilterPill

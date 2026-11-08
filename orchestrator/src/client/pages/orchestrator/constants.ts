@@ -170,6 +170,7 @@ export interface JobFilters {
   activeTab: FilterTab;
   dateFilter: JobDateFilter;
   sourceFilter: JobSource | "all";
+  companyFilter: string[];
   sponsorFilter: SponsorFilter;
   salaryFilter: SalaryFilter;
   scoreFilter: ScoreFilter;

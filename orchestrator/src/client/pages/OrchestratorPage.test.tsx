@@ -256,6 +256,7 @@ vi.mock("./orchestrator/OrchestratorFilters", () => ({
     onTabChange,
     onOpenCommandBar,
     onSourceFilterChange,
+    onCompanyFilterChange,
     onSponsorFilterChange,
     onSalaryFilterChange,
     onDateFilterChange,
@@ -267,6 +268,7 @@ vi.mock("./orchestrator/OrchestratorFilters", () => ({
     onTabChange: (t: FilterTab) => void;
     onOpenCommandBar: () => void;
     onSourceFilterChange: (source: string) => void;
+    onCompanyFilterChange: (values: string[]) => void;
     onSponsorFilterChange: (value: string) => void;
     onSalaryFilterChange: (value: {
       mode: "at_least" | "at_most" | "between";
@@ -298,6 +300,9 @@ vi.mock("./orchestrator/OrchestratorFilters", () => ({
         onClick={() => onSortChange({ key: "title", direction: "asc" })}
       >
         Set Sort
+      </button>
+      <button type="button" onClick={() => onCompanyFilterChange(["acme"])}>
+        Set Company
       </button>
       <button type="button" onClick={() => onSourceFilterChange("linkedin")}>
         Set Source
@@ -372,6 +377,12 @@ vi.mock("./orchestrator/JobListPanel", () => ({
           <div data-job-id="job-1" />
           <div data-job-id="job-2" />
           <div data-job-id="job-3" />
+          <div data-testid="visible-job-ids">
+            {activeJobs
+              .map((job) => job.id)
+              .sort()
+              .join(",")}
+          </div>
           <div data-testid="selected-job">{selectedJobId ?? "none"}</div>
           <div data-testid="duplicate-count">
             {activeJobs.filter((job) => job.appliedDuplicateMatch).length}
@@ -554,6 +565,49 @@ describe("OrchestratorPage", () => {
       configurable: true,
       value: originalScrollIntoView,
     });
+  });
+
+  it("filters loaded jobs by company and source, preserves company across tabs, and resets", () => {
+    window.matchMedia = createMatchMedia(
+      true,
+    ) as unknown as typeof window.matchMedia;
+    mockJobs = [
+      jobFixture,
+      job2,
+      { ...processingJob, employer: "Other" },
+      { ...jobFixture, id: "manual", employer: " ACME ", source: "manual" },
+    ];
+    render(
+      <MemoryRouter initialEntries={["/jobs/all"]}>
+        <LocationWatcher />
+        <Routes>
+          <Route path="/jobs/:tab" element={<OrchestratorPage />} />
+          <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByText("Set Company"));
+    expect(screen.getByTestId("visible-job-ids")).toHaveTextContent(
+      "job-1,job-2,manual",
+    );
+    expect(screen.getByTestId("filtered-count")).toHaveTextContent("3");
+    expect(screen.getByTestId("location")).toHaveTextContent("company=acme");
+    fireEvent.click(screen.getByText("Set Source"));
+    expect(screen.getByTestId("visible-job-ids")).toHaveTextContent(
+      "job-1,job-2",
+    );
+    expect(screen.getByTestId("filtered-count")).toHaveTextContent("2");
+    fireEvent.click(screen.getByText("To Discovered"));
+    expect(screen.getByTestId("visible-job-ids").textContent).toBe("job-2");
+    expect(screen.getByTestId("location")).toHaveTextContent("company=acme");
+    fireEvent.click(screen.getByText("Reset Filters"));
+    expect(screen.getByTestId("visible-job-ids").textContent).toBe(
+      "job-2,job-3",
+    );
+    expect(screen.getByTestId("location").textContent).not.toContain(
+      "company=",
+    );
+    expect(screen.getByTestId("location").textContent).not.toContain("source=");
   });
 
   it("syncs tab selection to the URL", () => {
@@ -776,7 +830,7 @@ describe("OrchestratorPage", () => {
     render(
       <MemoryRouter
         initialEntries={[
-          "/jobs/ready?source=linkedin&sponsor=confirmed&salaryMode=between&salaryMin=60000&salaryMax=90000&q=backend&sort=title-asc",
+          "/jobs/ready?source=linkedin&company=google&company=stripe&sponsor=confirmed&salaryMode=between&salaryMin=60000&salaryMax=90000&q=backend&sort=title-asc",
         ]}
       >
         <LocationWatcher />
@@ -794,6 +848,7 @@ describe("OrchestratorPage", () => {
       expect(locationText).toContain("/discovered/job-2");
       expect(locationText).toContain("sort=title-asc");
       expect(locationText).not.toContain("source=");
+      expect(locationText).not.toContain("company=");
       expect(locationText).not.toContain("sponsor=");
       expect(locationText).not.toContain("salaryMode=");
       expect(locationText).not.toContain("salaryMin=");

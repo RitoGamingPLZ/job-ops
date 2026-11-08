@@ -26,6 +26,7 @@ const baseFilters: JobFilters = {
   activeTab: "ready",
   dateFilter: defaultDateFilter,
   sourceFilter: "all",
+  companyFilter: [],
   sponsorFilter: "all",
   salaryFilter: { mode: "at_least", min: null, max: null },
   scoreFilter: { mode: "any", min: null, max: null },
@@ -41,6 +42,47 @@ const makeFilters = (overrides: Partial<JobFilters>): JobFilters => ({
 });
 
 describe("useFilteredJobs", () => {
+  it("matches exact normalized companies, combines with source and tabs, and clears", () => {
+    const jobs = [
+      { ...baseJob, id: "google", employer: " Google  " },
+      {
+        ...baseJob,
+        id: "google-manual",
+        employer: "GOOGLE",
+        source: "manual" as const,
+      },
+      { ...baseJob, id: "google-llc", employer: "Google LLC" },
+      { ...baseJob, id: "other", employer: "Other" },
+      {
+        ...baseJob,
+        id: "discovered",
+        employer: "Google",
+        status: "discovered" as const,
+      },
+    ];
+    const { result, rerender } = renderHook(
+      (filters: JobFilters) => useFilteredJobs(jobs, filters),
+      { initialProps: makeFilters({ companyFilter: [" google "] }) },
+    );
+    expect(result.current.map((job) => job.id).sort()).toEqual([
+      "google",
+      "google-manual",
+    ]);
+    rerender(
+      makeFilters({ companyFilter: ["google"], sourceFilter: "linkedin" }),
+    );
+    expect(result.current.map((job) => job.id)).toEqual(["google"]);
+    rerender(
+      makeFilters({
+        companyFilter: ["google", "google llc"],
+        activeTab: "discovered",
+      }),
+    );
+    expect(result.current.map((job) => job.id)).toEqual(["discovered"]);
+    rerender(makeFilters({}));
+    expect(result.current).toHaveLength(4);
+  });
+
   it("keeps ready and processing jobs in the ready tab", () => {
     const jobs: Job[] = [
       { ...baseJob, id: "ready", status: "ready" },

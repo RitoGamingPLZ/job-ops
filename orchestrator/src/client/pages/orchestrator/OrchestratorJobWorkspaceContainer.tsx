@@ -4,6 +4,7 @@ import type { Job, JobListItem, JobStatus } from "@shared/types.js";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { VirtualListHandle } from "@/client/lib/virtual-list";
+import { getCompaniesWithJobs } from "./companyFilter";
 import type { FilterTab } from "./constants";
 import { tabs } from "./constants";
 import { FloatingJobActionsBar } from "./FloatingJobActionsBar";
@@ -59,6 +60,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     activeTab: navigation.activeTab,
     dateFilter: filters.dateFilter,
     sourceFilter: filters.sourceFilter,
+    companyFilter: filters.companyFilter,
     sponsorFilter: filters.sponsorFilter,
     salaryFilter: filters.salaryFilter,
     scoreFilter: filters.scoreFilter,
@@ -68,6 +70,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     sort: filters.sort,
   });
   const counts = useMemo(() => getJobCounts(jobs), [jobs]);
+  const companiesWithJobs = useMemo(() => getCompaniesWithJobs(jobs), [jobs]);
   const sourcesWithJobs = useMemo(() => getSourcesWithJobs(jobs), [jobs]);
   const handleTabChange = useCallback(
     (newTab: FilterTab) => navigation.setActiveTab(newTab, jobs),
@@ -236,6 +239,9 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           isLoading={isLoading}
           isCommandBarOpen={ui.isCommandBarOpen}
           commandBarEnabled={!ui.isAnyModalOpenExcludingCommandBar}
+          companyFilter={filters.companyFilter}
+          companiesWithJobs={companiesWithJobs}
+          onCompanyFilterChange={filters.setCompanyFilter}
           sourceFilter={filters.sourceFilter}
           sponsorFilter={filters.sponsorFilter}
           salaryFilter={filters.salaryFilter}

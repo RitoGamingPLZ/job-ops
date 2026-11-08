@@ -1,5 +1,6 @@
 import type { JobListItem } from "@shared/types";
 import { useMemo } from "react";
+import { normalizeCompany } from "./companyFilter";
 import type {
   DateFilterDimension,
   JobDateFilter,
@@ -27,6 +28,7 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
     activeTab,
     dateFilter,
     sourceFilter,
+    companyFilter,
     sponsorFilter,
     salaryFilter,
     scoreFilter,
@@ -64,6 +66,13 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
 
     if (sourceFilter !== "all") {
       filtered = filtered.filter((job) => job.source === sourceFilter);
+    }
+
+    if (companyFilter.length > 0) {
+      const companies = new Set(companyFilter.map(normalizeCompany));
+      filtered = filtered.filter((job) =>
+        companies.has(normalizeCompany(job.employer ?? "")),
+      );
     }
 
     if (postedWithinDays != null) {
@@ -148,6 +157,7 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
     activeTab,
     dateFilter,
     sourceFilter,
+    companyFilter,
     sponsorFilter,
     salaryFilter,
     scoreFilter,
