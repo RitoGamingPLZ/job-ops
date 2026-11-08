@@ -1,3 +1,4 @@
+import type { Suggestion } from "@server/watchlist/autofilter/types";
 import type {
   UpdateWatchlistSelectionsInput,
   WatchlistCheckInput,
@@ -100,4 +101,15 @@ export async function unignoreWatchlistJob(input: {
     watchlistStatePath(input.source, input.sourceJobId),
     { method: "DELETE" },
   );
+}
+
+export async function suggestWatchlistFilters(input: {
+  sourceType: string;
+  careersUrl: string;
+  label?: string | null;
+}): Promise<Suggestion> {
+  return fetchApi<Suggestion>("/watchlist/suggest-filters", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
