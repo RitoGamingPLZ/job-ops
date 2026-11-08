@@ -66,6 +66,25 @@ function mockPages(count = 1) {
 }
 
 describe("metaWatchlistAdapter", () => {
+  it("returns completed details and starts no more at the soft deadline", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(0);
+    const fetchMock = vi.fn().mockImplementation(async (value: string) => {
+      if (value.endsWith("sitemap.xml")) return new Response(sitemap(65));
+      now.mockReturnValue(20_000);
+      return new Response(detail());
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      expect(await adapter.fetchJobs({ source })).toMatchObject({
+        total: 65,
+        fetched: 1,
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
   it("parses the real catalog without throwing and skips invalid entries", () => {
     expect(adapter.parseCatalogSources(catalog)).toEqual([
       {
@@ -156,11 +175,11 @@ describe("metaWatchlistAdapter", () => {
         signal: expect.any(AbortSignal),
       });
   });
-  it("caps at 40, sorts lastmod descending and runs at most two requests", async () => {
+  it("caps at 60, sorts lastmod descending and runs at most two requests", async () => {
     let active = 0;
     let peak = 0;
     const mock = vi.fn().mockImplementation(async (value: string) => {
-      if (value.endsWith("sitemap.xml")) return new Response(sitemap(45));
+      if (value.endsWith("sitemap.xml")) return new Response(sitemap(65));
       active++;
       peak = Math.max(peak, active);
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -170,10 +189,10 @@ describe("metaWatchlistAdapter", () => {
     vi.stubGlobal("fetch", mock);
     const pending = adapter.fetchJobs({ source });
     const result = await pending;
-    expect(result.fetched).toBe(40);
-    expect(result.jobs[0].sourceJobId).toBe("45");
-    expect(result.jobs[39].sourceJobId).toBe("6");
-    expect(mock).toHaveBeenCalledTimes(41);
+    expect(result.fetched).toBe(60);
+    expect(result.jobs[0].sourceJobId).toBe("65");
+    expect(result.jobs[59].sourceJobId).toBe("6");
+    expect(mock).toHaveBeenCalledTimes(61);
     expect(peak).toBeLessThanOrEqual(2);
   });
   it("skips failed details but fails loudly when all fail", async () => {

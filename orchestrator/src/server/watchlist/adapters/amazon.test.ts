@@ -38,6 +38,28 @@ afterEach(() => {
 });
 
 describe("amazonWatchlistAdapter", () => {
+  it("follows server page offsets until 60 jobs with filters intact", async () => {
+    const mock = vi.fn().mockImplementation(async (value: URL) => {
+      const offset = Number(value.searchParams.get("offset"));
+      expect(value.searchParams.get("base_query")).toBe("software");
+      expect(value.searchParams.get("loc_query")).toBe("Seattle");
+      return response(
+        Array.from({ length: 20 }, (_, i) => ({
+          ...job,
+          id_icims: String(offset + i + 1),
+          job_path: `/en/jobs/${offset + i + 1}/engineer`,
+        })),
+        100,
+      );
+    });
+    vi.stubGlobal("fetch", mock);
+    expect(await adapter.fetchJobs({ source })).toMatchObject({
+      total: 100,
+      fetched: 60,
+    });
+    expect(mock).toHaveBeenCalledTimes(3);
+  });
+
   it("parses the shipped catalog", () => {
     expect(adapter.parseCatalogSources(catalog)).toEqual([
       {
@@ -87,8 +109,8 @@ describe("amazonWatchlistAdapter", () => {
       adapter.normalizeCustomSelection({ label: null, careersUrl }),
     ).toThrow();
   });
-  it("maps identities and dates, sorts newest first, and caps at 40", async () => {
-    const jobs = Array.from({ length: 45 }, (_, i) => ({
+  it("maps identities and dates, sorts newest first, and caps at 60", async () => {
+    const jobs = Array.from({ length: 65 }, (_, i) => ({
       ...job,
       id_icims: String(i + 1),
       job_path: `/en/jobs/${i + 1}/role`,
@@ -105,11 +127,11 @@ describe("amazonWatchlistAdapter", () => {
     const fetchMock = vi.fn().mockResolvedValue(response(jobs, 1000));
     vi.stubGlobal("fetch", fetchMock);
     const result = await adapter.fetchJobs({ source });
-    expect(result).toMatchObject({ total: 1000, fetched: 40 });
+    expect(result).toMatchObject({ total: 1000, fetched: 60 });
     expect(result.jobs[0]).toMatchObject({
-      jobRef: "45",
+      jobRef: "65",
       source: "amazon",
-      sourceJobId: "45",
+      sourceJobId: "65",
       sourceType: "amazon",
       title: job.title,
       employer: job.company_name,
@@ -123,7 +145,7 @@ describe("amazonWatchlistAdapter", () => {
       loc_query: "Seattle",
       "category[]": "software-development",
       offset: "0",
-      result_limit: "40",
+      result_limit: "60",
       sort: "recent",
     });
   });

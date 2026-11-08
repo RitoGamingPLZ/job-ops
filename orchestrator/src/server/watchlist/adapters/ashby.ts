@@ -5,6 +5,7 @@ import { convert } from "html-to-text";
 import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
+const MAX_JOBS = 60;
 const ORIGIN = "https://jobs.ashbyhq.com";
 const sourceSchema = z.object({
   label: z.string().trim().min(1).max(200),
@@ -232,7 +233,7 @@ export const ashbyWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourceInputLabel: "Ashby company or posting URL",
     customSourcePlaceholder: `${ORIGIN}/linear`,
     customSourceHelpText:
-      "Paste an Ashby company board or job posting URL. Fetches up to 40 jobs, newest first.",
+      "Paste an Ashby company board or job posting URL. Fetches up to 60 jobs, newest first.",
     emptyCatalogText: "No Ashby companies found.",
     fetchingLabel: "Fetching from Ashby...",
     invalidUrlMessage: "That is not a supported Ashby careers URL.",
@@ -292,7 +293,7 @@ export const ashbyWatchlistAdapter: WatchlistCatalogSourceAdapter = {
           (Date.parse(b.publishedAt ?? "") || 0) -
           (Date.parse(a.publishedAt ?? "") || 0),
       )
-      .slice(0, 40);
+      .slice(0, MAX_JOBS);
     listedJobs.set(company, new Map(jobs.map((job) => [job.id, job])));
     return {
       total: all.length,

@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
 const ORIGIN = "https://www.metacareers.com";
-const LIMIT = 40;
+const LIMIT = 60;
 const sourceSchema = z.object({
   label: z.string().trim().min(1).max(200),
   careersUrl: z.string().trim().url().max(2000),
@@ -200,7 +200,7 @@ export const metaWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourceInputLabel: "Meta careers URL",
     customSourcePlaceholder: `${ORIGIN}/jobs`,
     customSourceHelpText:
-      "Fetches up to 40 recently updated public postings within 24 seconds. Search terms are filtered afterwards.",
+      "Fetches up to 60 recently updated public postings within 20 seconds (partial results on slow responses). Search terms are filtered afterwards.",
     emptyCatalogText: "No Meta sources found.",
     fetchingLabel: "Fetching from Meta...",
     invalidUrlMessage: "That is not a supported Meta careers URL.",
@@ -244,7 +244,11 @@ export const metaWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async fetchJobs(input) {
     listedJobs = new Map();
     searchUrl(input.source.careersUrl);
-    const signal = operationSignal(input.signal);
+    const stopAt = Date.now() + 20_000;
+    const signal = AbortSignal.any([
+      operationSignal(input.signal),
+      AbortSignal.timeout(20_000),
+    ]);
     const entries = parseSitemap(
       await pageHtml(`${ORIGIN}/jobsearch/sitemap.xml`, signal),
     );
@@ -252,12 +256,18 @@ export const metaWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     const collected = new Map<string, Job>();
     let index = 0;
     async function worker() {
-      while (index < selected.length && !signal.aborted) {
+      while (
+        index < selected.length &&
+        !signal.aborted &&
+        Date.now() < stopAt
+      ) {
         const entry = selected[index++];
         try {
           const requestSignal = AbortSignal.any([
             signal,
-            AbortSignal.timeout(5_000),
+            AbortSignal.timeout(
+              Math.max(1, Math.min(5_000, stopAt - Date.now())),
+            ),
           ]);
           const job = parseDetail(
             await pageHtml(jobUrl(entry.id), requestSignal),

@@ -5,6 +5,7 @@ import { convert } from "html-to-text";
 import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
+const MAX_JOBS = 60;
 const ORIGIN = "https://jobs.smartrecruiters.com";
 const API = "https://api.smartrecruiters.com/v1/companies";
 const sourceSchema = z.object({
@@ -212,7 +213,7 @@ export const smartrecruitersWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourceInputLabel: "SmartRecruiters company or posting URL",
     customSourcePlaceholder: `${ORIGIN}/ServiceNow`,
     customSourceHelpText:
-      "Paste a SmartRecruiters company, job or apply link. Fetches the newest 40 postings.",
+      "Paste a SmartRecruiters company, job or apply link. Fetches the newest 60 postings.",
     emptyCatalogText: "No SmartRecruiters companies found.",
     fetchingLabel: "Fetching from SmartRecruiters...",
     invalidUrlMessage: "That is not a supported SmartRecruiters company URL.",
@@ -273,7 +274,7 @@ export const smartrecruitersWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     let offset = 0;
     let total = 0;
     let pages = 0;
-    // ponytail: newest 40 of the first 500; bound sequential list requests.
+    // ponytail: newest 60 of the first 500; bound sequential list requests.
     do {
       const page = parseList(
         await request(
@@ -295,7 +296,7 @@ export const smartrecruitersWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       .sort((a, b) =>
         (b.releasedDate || "").localeCompare(a.releasedDate || ""),
       )
-      .slice(0, 40);
+      .slice(0, MAX_JOBS);
     const jobs = selected.map((job) => ({
       jobRef: jobUrl(company, job),
       source: key(company),

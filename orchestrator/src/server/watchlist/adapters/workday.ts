@@ -12,6 +12,7 @@ import type { ManualJobDraft, WatchlistSelectedSource } from "@shared/types";
 import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
+const MAX_JOBS = 60;
 const workdaySourceSchema = z.object({
   id: z.string().trim().min(1).max(120),
   label: z.string().trim().min(1).max(200),
@@ -80,7 +81,7 @@ export const workdayWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       cxsJobsUrl,
       careersUrl: input.source.careersUrl,
       company: input.source.label,
-      maxJobs: 40,
+      maxJobs: MAX_JOBS,
       signal: input.signal,
     });
     const source = workdayUrlToSourceKey(cxsJobsUrl);

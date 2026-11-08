@@ -188,16 +188,16 @@ describe("ashbyWatchlistAdapter", () => {
     });
     expect(mock).toHaveBeenCalledTimes(1);
   });
-  it("sorts newest first, excludes unlisted jobs, deduplicates and caps at 40", async () => {
-    const jobs = Array.from({ length: 45 }, (_, i) => ({
+  it("sorts newest first, excludes unlisted jobs, deduplicates and caps at 60", async () => {
+    const jobs = Array.from({ length: 65 }, (_, i) => ({
       ...job(`id-${i}`),
       publishedAt: new Date(Date.UTC(2026, 0, i + 1)).toISOString(),
     }));
     stub(list([...jobs, jobs[0], { ...job("hidden"), isListed: false }]));
     const result = await adapter.fetchJobs({ source });
-    expect(result.fetched).toBe(40);
-    expect(result.jobs[0].sourceJobId).toBe("id-44");
-    expect(result.jobs[39].sourceJobId).toBe("id-5");
+    expect(result.fetched).toBe(60);
+    expect(result.jobs[0].sourceJobId).toBe("id-64");
+    expect(result.jobs[59].sourceJobId).toBe("id-5");
   });
   it("accepts empty boards and rejects malformed responses without exposing bodies", async () => {
     stub(

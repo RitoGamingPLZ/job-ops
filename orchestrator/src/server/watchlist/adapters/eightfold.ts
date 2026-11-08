@@ -20,7 +20,7 @@ const boards = {
     api: "apply",
   },
 } as const;
-const MAX_JOBS = 40;
+const MAX_JOBS = 60;
 const LIST_RATE_LIMIT_BACKOFF_MS = [1000, 3000, 8000] as const;
 const catalogSchema = z.object({
   label: z.string().trim().min(1).max(200),
@@ -285,7 +285,7 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourcePlaceholder:
       "https://apply.careers.microsoft.com/careers?query=engineer",
     customSourceHelpText:
-      "Paste a Microsoft or Netflix careers search URL. Query, location and filter_ parameters are preserved. Up to 40 newest jobs are fetched.",
+      "Paste a Microsoft or Netflix careers search URL. Query, location and filter_ parameters are preserved. Up to 60 newest jobs are fetched.",
     emptyCatalogText: "No Eightfold companies found.",
     fetchingLabel: "Fetching from Eightfold...",
     invalidUrlMessage: "Use a Microsoft or Netflix careers search URL.",
@@ -338,12 +338,20 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   async fetchJobs(input) {
     const context = parseSource(input.source.careersUrl);
-    const signal = callSignal(input.signal);
+    const stopAt = Date.now() + 20_000;
+    const signal = AbortSignal.any([
+      callSignal(input.signal),
+      AbortSignal.timeout(20_000),
+    ]);
     const positions = new Map<string, Position>();
     let start = 0;
     let total = 0;
     // PCSX returns 10 rows/page; cap page requests as well as returned jobs.
-    for (let page = 0; page < 4; page++) {
+    for (
+      let page = 0;
+      page < Math.ceil(MAX_JOBS / 10) && Date.now() < stopAt;
+      page++
+    ) {
       const url = new URL(
         context.board.api === "pcsx"
           ? "/api/pcsx/search"
@@ -357,11 +365,28 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       if (context.board.api === "apply") {
         url.searchParams.set("num", String(MAX_JOBS));
       }
-      const payload = await fetchJson(url, signal, "list");
-      const response = parsePayload(
-        searchSchema,
-        context.board.api === "pcsx" ? unwrapPcsx(payload) : payload,
-      );
+      let response: z.infer<typeof searchSchema>;
+      try {
+        const payload = await fetchJson(url, signal, "list");
+        response = parsePayload(
+          searchSchema,
+          context.board.api === "pcsx" ? unwrapPcsx(payload) : payload,
+        );
+      } catch (error) {
+        input.signal?.throwIfAborted();
+        if (positions.size) {
+          logger.warn(
+            "Eightfold returning partial results after list failure",
+            {
+              host: url.hostname,
+              start,
+              fetched: positions.size,
+            },
+          );
+          break;
+        }
+        throw error;
+      }
       total = response.count;
       const previousSize = positions.size;
       for (const position of response.positions)
@@ -374,6 +399,7 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       )
         break;
     }
+    input.signal?.throwIfAborted();
     const jobs = [...positions.values()]
       .map((position) => normalizeJob(context, position))
       .sort(
