@@ -65,7 +65,7 @@ export async function getJobsFromBoard(
 
   const source = parseGreenhouseUrl(options.careersUrl);
   const response = await fetchGreenhouseJson<GreenhouseListResponse>(fetchFn, {
-    url: source.boardJobsUrl,
+    url: `${source.boardJobsUrl}${new URL(source.canonicalCareersUrl).searchParams.has("departments") ? "?content=true" : ""}`,
     signal: options.signal,
     headers: {
       accept: "application/json",
@@ -76,9 +76,75 @@ export async function getJobsFromBoard(
   });
 
   const rows = Array.isArray(response.jobs) ? response.jobs : [];
-  const jobs = rows.map((job) => normalizeGreenhouseListJob(job, source));
+  const filters = new URL(source.canonicalCareersUrl).searchParams;
+  // The plain jobs endpoint omits offices. Resolve membership from the public
+  // office/department listing without requesting full job descriptions.
+  let officeJobIds: Set<string> | undefined;
+  const officeNames = filters.get("offices")?.split(",");
+  if (officeNames && rows.some((job) => !Array.isArray(job.offices))) {
+    const listing = await fetchGreenhouseJson<{
+      offices?: {
+        name?: string;
+        departments?: { jobs?: { id?: number | string }[] }[];
+      }[];
+    }>(fetchFn, {
+      url: `${source.boardApiUrl}/offices`,
+      signal: options.signal,
+      headers: {
+        accept: "application/json",
+        "user-agent": options.userAgent ?? GREENHOUSE_DEFAULT_USER_AGENT,
+        ...options.headers,
+      },
+    });
+    officeJobIds = new Set(
+      (listing.offices ?? [])
+        .filter((office) => officeNames.includes(office.name ?? ""))
+        .flatMap((office) =>
+          (office.departments ?? []).flatMap((department) =>
+            (department.jobs ?? []).map((job) => String(job.id)),
+          ),
+        ),
+    );
+  }
+  const jobs = rows
+    .filter((job) => {
+      for (const [key, field] of [
+        ["departments", "departments"],
+        ["offices", "offices"],
+      ]) {
+        if (key === "offices" && officeJobIds) {
+          if (!officeJobIds.has(String(job.id))) return false;
+          continue;
+        }
+        const names = filters.get(key)?.split(",");
+        const entries = job[field];
+        if (
+          names &&
+          (!Array.isArray(entries) ||
+            !entries.some((entry) => names.includes(entry?.name)))
+        )
+          return false;
+      }
+      const workplace = filters.get("workplace");
+      if (
+        workplace &&
+        (!Array.isArray(job.metadata) ||
+          !job.metadata.some(
+            (entry) =>
+              entry?.name === "Workplace Type" && entry.value === workplace,
+          ))
+      )
+        return false;
+      const location = filters.get("location");
+      return (
+        !location ||
+        !!job.location?.name?.toLowerCase().includes(location.toLowerCase())
+      );
+    })
+    .sort((a, b) => publishedTime(b) - publishedTime(a))
+    .map((job) => normalizeGreenhouseListJob(job, source));
   const total =
-    typeof response.meta?.total === "number"
+    !filters.size && typeof response.meta?.total === "number"
       ? response.meta.total
       : jobs.length;
 
@@ -169,4 +235,9 @@ function requiredString(
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function publishedTime(job: GreenhouseListJob): number {
+  const time = Date.parse(job.first_published ?? "");
+  return Number.isFinite(time) ? time : 0;
 }

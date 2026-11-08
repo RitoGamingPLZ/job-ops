@@ -85,9 +85,13 @@ export async function resolveGreenhouseSource(
 
   // Layer 1: already a Greenhouse URL.
   if (isGreenhouseUrlSafe(input)) {
-    const token = parseGreenhouseUrl(input).token;
+    const { token, canonicalCareersUrl } = parseGreenhouseUrl(input);
     const info = await getBoardInfo(token, fetchFn, options.signal, userAgent);
-    if (info) return resolved(token, info, "greenhouse_url");
+    if (info)
+      return {
+        ...resolved(token, info, "greenhouse_url"),
+        canonicalCareersUrl,
+      };
     throw notFound(input);
   }
 

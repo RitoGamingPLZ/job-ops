@@ -158,26 +158,26 @@ describe("leverWatchlistAdapter", () => {
     ).rejects.toThrow("Lever returned HTTP 404.");
   });
   it("sorts newest first before capping, deduplicates and maps identity consistently", async () => {
-    const rows = Array.from({ length: 45 }, (_, i) =>
+    const rows = Array.from({ length: 65 }, (_, i) =>
       job(`job-${i}`, 1700000000000 + i),
     );
     const mock = vi.fn().mockResolvedValue(json([...rows, rows[0]]));
     vi.stubGlobal("fetch", mock);
     const result = await adapter.fetchJobs({ source });
-    expect(result).toMatchObject({ total: 45, fetched: 40 });
+    expect(result).toMatchObject({ total: 65, fetched: 60 });
     expect(result.jobs[0]).toEqual({
-      jobRef: `${base}/job-44`,
+      jobRef: `${base}/job-64`,
       source: "lever:spotify",
-      sourceJobId: "job-44",
+      sourceJobId: "job-64",
       sourceType: "lever",
-      title: "Engineer job-44",
+      title: "Engineer job-64",
       employer: "Spotify",
-      jobUrl: `${base}/job-44`,
-      applicationLink: `${base}/job-44/apply`,
+      jobUrl: `${base}/job-64`,
+      applicationLink: `${base}/job-64/apply`,
       location: "London; New York",
-      postedAt: new Date(1700000000044).toISOString(),
+      postedAt: new Date(1700000000064).toISOString(),
     });
-    expect(result.jobs[39].sourceJobId).toBe("job-5");
+    expect(result.jobs[59].sourceJobId).toBe("job-5");
     const detail = await adapter.fetchJobDetails({
       source,
       jobRef: result.jobs[0].jobRef,
@@ -192,10 +192,10 @@ describe("leverWatchlistAdapter", () => {
       sourceHost: "jobs.lever.co",
       draft: {
         source: "lever:spotify",
-        sourceJobId: "job-44",
-        title: "Engineer job-44",
+        sourceJobId: "job-64",
+        title: "Engineer job-64",
         employer: "Spotify",
-        applicationLink: `${base}/job-44/apply`,
+        applicationLink: `${base}/job-64/apply`,
         jobType: "Full-time",
       },
     });
@@ -463,4 +463,48 @@ describe("leverWatchlistAdapter", () => {
     expect(starts).toHaveLength(2);
     expect(starts[1] - starts[0]).toBeGreaterThanOrEqual(990);
   });
+});
+
+it("normalizes repeated URL filters, drops unknowns, and preserves posting links/imports", async () => {
+  const careersUrl = `${base}?team=Z&location=New%20York&location=London&location=London&department=Engineering&team=A&unknown=drop`;
+  const canonical = `${base}?department=Engineering&location=London&location=New+York&team=A&team=Z`;
+  const mock = vi
+    .fn()
+    .mockImplementation(async () =>
+      json(Array.from({ length: 105 }, (_, i) => job(`filter-${i}`, i))),
+    );
+  vi.stubGlobal("fetch", mock);
+  expect(
+    await adapter.normalizeCustomSelection({ careersUrl, label: null }),
+  ).toMatchObject({
+    careersUrl: canonical,
+  });
+  expect(mock.mock.calls[0][0]).toBe(
+    "https://api.lever.co/v0/postings/spotify?mode=json&department=Engineering&location=London&location=New+York&team=A&team=Z&limit=1",
+  );
+  const catalog = adapter.parseCatalogSources([
+    { label: "Spotify", careersUrl },
+  ]);
+  expect(catalog[0].id).toBe(`lever:spotify${new URL(canonical).search}`);
+  expect(
+    adapter.parseCatalogSources([
+      { label: "Spotify", careersUrl: canonical },
+    ])[0].id,
+  ).toBe(catalog[0].id);
+  const filtered = { ...source, careersUrl: canonical };
+  const result = await adapter.fetchJobs({ source: filtered });
+  expect(result).toMatchObject({ total: 105, fetched: 60 });
+  expect(mock.mock.calls[1][0]).toBe(
+    "https://api.lever.co/v0/postings/spotify?mode=json&department=Engineering&location=London&location=New+York&team=A&team=Z",
+  );
+  expect(result.jobs[0].jobRef).toBe(`${base}/filter-104`);
+  expect(
+    (
+      await adapter.prepareImportDraft({
+        source: filtered,
+        jobRef: result.jobs[0].jobRef,
+      })
+    ).draft.jobUrl,
+  ).toBe(`${base}/filter-104`);
+  expect(mock).toHaveBeenCalledTimes(2);
 });

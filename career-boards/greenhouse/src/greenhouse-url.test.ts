@@ -121,3 +121,18 @@ describe("greenhouseTokenToLabel", () => {
     expect(greenhouseTokenToLabel("acme-corp")).toBe("Acme Corp");
   });
 });
+
+it("normalizes allow-listed filters without changing the API board URL", () => {
+  const parsed = parseGreenhouseUrl(
+    "https://boards.greenhouse.io/airbnb?workplace=Remote&departments=TPM,Engineering,TPM&offices=Paris,London&location=london&unknown=drop",
+  );
+  expect(parsed.canonicalCareersUrl).toBe(
+    "https://job-boards.greenhouse.io/airbnb?departments=Engineering%2CTPM&location=london&offices=London%2CParis&workplace=Remote",
+  );
+  expect(parsed.boardJobsUrl).toBe(
+    "https://boards-api.greenhouse.io/v1/boards/airbnb/jobs",
+  );
+  expect(
+    parseGreenhouseUrl(parsed.canonicalCareersUrl).canonicalCareersUrl,
+  ).toBe(parsed.canonicalCareersUrl);
+});
