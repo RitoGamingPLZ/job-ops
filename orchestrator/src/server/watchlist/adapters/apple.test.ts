@@ -65,6 +65,62 @@ afterEach(() => {
 });
 
 describe("appleWatchlistAdapter", () => {
+  it("returns completed pages and starts no more at the soft deadline", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(0);
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      now.mockReturnValue(20_000);
+      return search(
+        Array.from({ length: 20 }, (_, i) => job(i + 1)),
+        100,
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      expect(await adapter.fetchJobs({ source })).toMatchObject({
+        total: 100,
+        fetched: 20,
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it("returns completed pages when an in-flight page reaches the soft deadline", async () => {
+    const realTimeout = AbortSignal.timeout.bind(AbortSignal);
+    const timeout = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockImplementation((ms) => realTimeout(ms === 20_000 ? 50 : ms));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        search(
+          Array.from({ length: 20 }, (_, i) => job(i + 1)),
+          100,
+        ),
+      )
+      .mockImplementation(
+        async (_url, options) =>
+          new Promise((_, reject) => {
+            options.signal.throwIfAborted();
+            options.signal.addEventListener(
+              "abort",
+              () => reject(options.signal.reason),
+              { once: true },
+            );
+          }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      expect(await adapter.fetchJobs({ source })).toMatchObject({
+        fetched: 20,
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      timeout.mockRestore();
+    }
+  });
+
   it("parses its real catalog with stable ids", () => {
     const entries = appleCatalog;
     expect(adapter.parseCatalogSources(entries)).toEqual([
@@ -127,7 +183,7 @@ describe("appleWatchlistAdapter", () => {
     ).toThrow();
   });
 
-  it("fetches two filtered pages, maps stable ids, sorts newest and caps at 40", async () => {
+  it("fetches three filtered pages, maps stable ids, sorts newest and caps at 60", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -138,23 +194,29 @@ describe("appleWatchlistAdapter", () => {
       )
       .mockResolvedValueOnce(
         search(
-          Array.from({ length: 25 }, (_, i) => job(i + 21)),
+          Array.from({ length: 20 }, (_, i) => job(i + 21)),
           100,
         ),
       );
+    fetchMock.mockResolvedValueOnce(
+      search(
+        Array.from({ length: 25 }, (_, i) => job(i + 41)),
+        100,
+      ),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const result = await adapter.fetchJobs({ source });
-    expect(result).toMatchObject({ total: 100, fetched: 40 });
+    expect(result).toMatchObject({ total: 100, fetched: 60 });
     expect(result.jobs[0]).toMatchObject({
       source: "apple",
       sourceType: "apple",
-      sourceJobId: "200123456-45",
-      title: 'Engineer "special" 45',
+      sourceJobId: "200123456-65",
+      title: 'Engineer "special" 65',
       employer: "Apple",
       location: "Cupertino, California, United States",
-      jobRef: "https://jobs.apple.com/en-us/details/200123456-45/engineer-45",
+      jobRef: "https://jobs.apple.com/en-us/details/200123456-65/engineer-65",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     const urls = fetchMock.mock.calls.map(([url]) => String(url));
     expect(new URL(urls[0]).searchParams.get("page")).toBe("1");
     expect(new URL(urls[1]).searchParams.get("page")).toBe("2");

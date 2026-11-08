@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
 const ORIGIN = "https://www.amazon.jobs";
-const MAX_JOBS = 40;
+const MAX_JOBS = 60;
 const catalogSchema = z.object({
   key: z.string().regex(/^[a-z0-9-]+$/),
   label: z.string().trim().min(1).max(200),
@@ -143,7 +143,7 @@ export const amazonWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourceInputLabel: "Amazon careers search URL",
     customSourcePlaceholder: `${ORIGIN}/en/search?base_query=software&loc_query=Seattle`,
     customSourceHelpText:
-      "Paste an Amazon search URL with your keyword and location filters. Fetches up to 40 jobs, newest first.",
+      "Paste an Amazon search URL with your keyword and location filters. Fetches up to 60 jobs, newest first.",
     emptyCatalogText: "No Amazon sources found.",
     fetchingLabel: "Fetching from Amazon...",
     invalidUrlMessage: "That is not a supported Amazon careers search URL.",
@@ -180,11 +180,40 @@ export const amazonWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     };
   },
   async fetchJobs(input) {
-    const result = await search(
-      searchEndpoint(input.source.careersUrl),
-      input.signal,
-    );
-    const jobs = validJobs(result.jobs)
+    const stopAt = Date.now() + 20_000;
+    const signal = input.signal
+      ? AbortSignal.any([input.signal, AbortSignal.timeout(20_000)])
+      : AbortSignal.timeout(20_000);
+    const url = searchEndpoint(input.source.careersUrl);
+    const collected = new Map<string, AmazonJob>();
+    let total = 0;
+    let offset = 0;
+    // Some searches return fewer rows than result_limit. Follow their offsets,
+    // with a request bound and a shared deadline across all pages and retries.
+    for (let page = 0; page < MAX_JOBS && Date.now() < stopAt; page++) {
+      url.searchParams.set("offset", String(offset));
+      let result: Awaited<ReturnType<typeof search>>;
+      try {
+        result = await search(url, signal);
+      } catch (error) {
+        input.signal?.throwIfAborted();
+        if (signal.aborted && collected.size) break;
+        throw error;
+      }
+      total = result.hits;
+      const previousSize = collected.size;
+      for (const job of validJobs(result.jobs))
+        collected.set(job.id_icims, job);
+      offset += result.jobs.length;
+      if (
+        collected.size >= MAX_JOBS ||
+        offset >= total ||
+        collected.size === previousSize
+      )
+        break;
+    }
+    input.signal?.throwIfAborted();
+    const jobs = [...collected.values()]
       .map((job) => ({
         jobRef: job.id_icims,
         source: "amazon",
@@ -199,7 +228,7 @@ export const amazonWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       }))
       .sort((a, b) => (b.postedAt ?? "").localeCompare(a.postedAt ?? ""))
       .slice(0, MAX_JOBS);
-    return { total: result.hits, fetched: jobs.length, jobs };
+    return { total, fetched: jobs.length, jobs };
   },
   async fetchJobDetails(input) {
     const job = await getJob(input.jobRef, input.signal);

@@ -150,7 +150,7 @@ describe("smartrecruitersWatchlistAdapter", () => {
     ).rejects.toThrow();
     expect(mock).not.toHaveBeenCalled();
   });
-  it("paginates, deduplicates, sorts newest first and caps 40 without details", async () => {
+  it("paginates, deduplicates, sorts newest first and caps 60 without details", async () => {
     const mock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -162,7 +162,7 @@ describe("smartrecruitersWatchlistAdapter", () => {
       .mockResolvedValueOnce(list([job(99), job(101)], 102, 100));
     vi.stubGlobal("fetch", mock);
     const result = await adapter.fetchJobs({ source });
-    expect(result).toMatchObject({ total: 102, fetched: 40 });
+    expect(result).toMatchObject({ total: 102, fetched: 60 });
     expect(result.jobs[0]).toEqual({
       jobRef: `${base}/101`,
       source: "smartrecruiters:servicenow",
@@ -175,7 +175,7 @@ describe("smartrecruitersWatchlistAdapter", () => {
       location: "London, UK; Remote",
       postedAt: job(101).releasedDate,
     });
-    expect(result.jobs[39].sourceJobId).toBe("61");
+    expect(result.jobs[59].sourceJobId).toBe("41");
     expect(mock).toHaveBeenCalledTimes(2);
     expect(mock.mock.calls[1][0]).toContain("limit=100&offset=100");
   });
@@ -190,9 +190,9 @@ describe("smartrecruitersWatchlistAdapter", () => {
     });
     vi.stubGlobal("fetch", mock);
     const result = await adapter.fetchJobs({ source });
-    expect(result).toMatchObject({ total: 1200, fetched: 40 });
+    expect(result).toMatchObject({ total: 1200, fetched: 60 });
     expect(result.jobs.map((entry) => entry.sourceJobId)).toEqual(
-      Array.from({ length: 40 }, (_, i) => String(499 - i)),
+      Array.from({ length: 60 }, (_, i) => String(499 - i)),
     );
     expect(mock.mock.calls.map(([url]) => url)).toEqual(
       [0, 100, 200, 300, 400].map(

@@ -4,6 +4,7 @@ import { convert } from "html-to-text";
 import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
+const MAX_JOBS = 60;
 const ORIGIN = "https://jobs.apple.com";
 const sourceSchema = z.object({
   label: z.string().trim().min(1).max(200),
@@ -191,7 +192,7 @@ export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourcePlaceholder:
       "https://jobs.apple.com/en-us/search?search=engineer",
     customSourceHelpText:
-      "Paste a filtered Apple search URL. Location filters use Apple's location slugs. Fetches up to 40 newest jobs.",
+      "Paste a filtered Apple search URL. Location filters use Apple's location slugs. Fetches up to 60 newest jobs.",
     emptyCatalogText: "No Apple sources found.",
     fetchingLabel: "Fetching from Apple...",
     invalidUrlMessage: "That is not a supported Apple careers search URL.",
@@ -233,12 +234,27 @@ export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   async fetchJobs(input) {
     const url = searchUrl(input.source.careersUrl);
-    const signal = callSignal(input.signal);
+    const stopAt = Date.now() + 20_000;
+    const signal = AbortSignal.any([
+      callSignal(input.signal),
+      AbortSignal.timeout(20_000),
+    ]);
     const collected: z.infer<typeof jobSchema>[] = [];
     let total = 0;
-    for (let page = 1; page <= 2; page += 1) {
+    for (
+      let page = 1;
+      page <= Math.ceil(MAX_JOBS / 20) && Date.now() < stopAt;
+      page += 1
+    ) {
       url.searchParams.set("page", String(page));
-      const data = await hydration(url, signal);
+      let data: Awaited<ReturnType<typeof hydration>>;
+      try {
+        data = await hydration(url, signal);
+      } catch (error) {
+        input.signal?.throwIfAborted();
+        if (signal.aborted && collected.length) break;
+        throw error;
+      }
       const parsed = searchSchema.safeParse(data.search);
       if (
         !parsed.success ||
@@ -249,10 +265,12 @@ export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
         );
       }
       total = parsed.data.totalRecords;
+      const previousSize = new Set(collected.map((job) => job.positionId)).size;
       collected.push(...parsed.data.searchResults);
       if (
-        collected.length >= Math.min(total, 40) ||
-        parsed.data.searchResults.length < 20
+        collected.length >= Math.min(total, MAX_JOBS) ||
+        parsed.data.searchResults.length < 20 ||
+        new Set(collected.map((job) => job.positionId)).size === previousSize
       )
         break;
     }
@@ -264,7 +282,8 @@ export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
         (Date.parse(b.postDateInGMT ?? "") || 0) -
         (Date.parse(a.postDateInGMT ?? "") || 0),
     );
-    const jobs = unique.slice(0, 40).map((job) => ({
+    input.signal?.throwIfAborted();
+    const jobs = unique.slice(0, MAX_JOBS).map((job) => ({
       jobRef: jobUrl(job),
       source: "apple",
       sourceJobId: job.positionId,

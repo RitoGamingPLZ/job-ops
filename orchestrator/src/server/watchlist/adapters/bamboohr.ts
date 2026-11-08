@@ -12,7 +12,7 @@ import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
 const BAMBOOHR_LOGO_MAX_BYTES = 1_000_000;
-const BAMBOOHR_WATCHLIST_MAX_JOBS = 40;
+const BAMBOOHR_WATCHLIST_MAX_JOBS = 60;
 
 const bamboohrSourceSchema = z.object({
   label: z.string().trim().min(1).max(200),

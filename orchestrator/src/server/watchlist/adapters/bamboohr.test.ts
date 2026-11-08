@@ -168,8 +168,8 @@ describe("bamboohrWatchlistAdapter", () => {
     });
   });
 
-  it("sorts fetched jobs by latest posted date and keeps only 40", async () => {
-    const listJobs = Array.from({ length: 41 }, (_, index) => ({
+  it("sorts fetched jobs by latest posted date and keeps only 60", async () => {
+    const listJobs = Array.from({ length: 61 }, (_, index) => ({
       id: String(index + 1),
       jobOpeningName: `Role ${index + 1}`,
     }));
@@ -229,12 +229,12 @@ describe("bamboohrWatchlistAdapter", () => {
       },
     });
 
-    expect(result.total).toBe(41);
-    expect(result.fetched).toBe(40);
-    expect(result.jobs).toHaveLength(40);
+    expect(result.total).toBe(61);
+    expect(result.fetched).toBe(60);
+    expect(result.jobs).toHaveLength(60);
     expect(result.jobs[0]).toMatchObject({
-      sourceJobId: "41",
-      postedAt: "2025-04-10",
+      sourceJobId: "61",
+      postedAt: "2025-04-30",
     });
     expect(result.jobs.at(-1)).toMatchObject({
       sourceJobId: "2",

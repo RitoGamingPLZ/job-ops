@@ -153,7 +153,7 @@ describe("eightfoldWatchlistAdapter", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       pcsx({
         count: 99,
-        positions: Array.from({ length: 45 }, (_, index) =>
+        positions: Array.from({ length: 65 }, (_, index) =>
           position(index + 1, 1794000000 + index),
         ),
       }),
@@ -161,16 +161,16 @@ describe("eightfoldWatchlistAdapter", () => {
     vi.stubGlobal("fetch", fetchMock);
     const result = await adapter.fetchJobs({ source: source() });
     expect(result.total).toBe(99);
-    expect(result.fetched).toBe(40);
+    expect(result.fetched).toBe(60);
     expect(result.jobs[0]).toMatchObject({
       source: "eightfold:microsoft",
-      sourceJobId: "45",
+      sourceJobId: "65",
       employer: "Microsoft",
-      jobRef: `${microsoft}/careers/job/45`,
-      jobUrl: `${microsoft}/careers/job/45`,
-      applicationLink: `${microsoft}/careers/job/45`,
+      jobRef: `${microsoft}/careers/job/65`,
+      jobUrl: `${microsoft}/careers/job/65`,
+      applicationLink: `${microsoft}/careers/job/65`,
       location: "London, GB",
-      postedAt: new Date(1794000044 * 1000).toISOString(),
+      postedAt: new Date(1794000064 * 1000).toISOString(),
     });
     expect(result.jobs.at(-1)?.sourceJobId).toBe("6");
     const url = new URL(fetchMock.mock.calls[0][0]);
@@ -190,7 +190,7 @@ describe("eightfoldWatchlistAdapter", () => {
     });
   });
 
-  it("paginates PCSX with start offsets to collect 40 jobs", async () => {
+  it("paginates PCSX with start offsets to collect 60 jobs", async () => {
     const fetchMock = vi.fn().mockImplementation(async (value: string) => {
       const start = Number(new URL(value).searchParams.get("start"));
       return pcsx({
@@ -202,12 +202,12 @@ describe("eightfoldWatchlistAdapter", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const result = await adapter.fetchJobs({ source: source() });
-    expect(result.fetched).toBe(40);
+    expect(result.fetched).toBe(60);
     expect(
       fetchMock.mock.calls.map(([value]) =>
         new URL(value).searchParams.get("start"),
       ),
-    ).toEqual(["0", "10", "20", "30"]);
+    ).toEqual(["0", "10", "20", "30", "40", "50"]);
   });
 
   it("stops on empty or repeated pages", async () => {
@@ -261,7 +261,7 @@ describe("eightfoldWatchlistAdapter", () => {
       "/api/apply/v2/jobs",
     );
     expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("num")).toBe(
-      "40",
+      "60",
     );
     expect(new URL(fetchMock.mock.calls[1][0]).pathname).toBe(
       "/api/apply/v2/jobs/456",
@@ -432,10 +432,10 @@ describe("eightfoldWatchlistAdapter", () => {
     vi.stubGlobal("fetch", fetchMock);
     const pending = expect(
       adapter.fetchJobs({ source: source() }),
-    ).rejects.toThrow("host=apply.careers.microsoft.com, start=1, attempt=4");
+    ).resolves.toMatchObject({ total: 100, fetched: 1 });
     await vi.advanceTimersByTimeAsync(12000);
     await pending;
-    expect(warn).toHaveBeenLastCalledWith("Eightfold request rate limited", {
+    expect(warn).toHaveBeenNthCalledWith(4, "Eightfold request rate limited", {
       host: "apply.careers.microsoft.com",
       start: "1",
       attempt: 4,
@@ -571,7 +571,78 @@ describe("eightfoldWatchlistAdapter", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("shares the 25-second operation budget across page retries", async () => {
+  it("keeps four collected pages when a later page exhausts its 429 retries", async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const start = Number(new URL(url).searchParams.get("start"));
+      return start < 40
+        ? pcsx({
+            count: 100,
+            positions: Array.from({ length: 10 }, (_, i) =>
+              position(start + i + 1),
+            ),
+          })
+        : new Response("", { status: 429 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = adapter.fetchJobs({ source: source() });
+    await vi.advanceTimersByTimeAsync(12_000);
+    const result = await pending;
+    expect(result).toMatchObject({ total: 100, fetched: 40 });
+    expect(result.jobs.map((job) => job.sourceJobId)).toEqual(
+      Array.from({ length: 40 }, (_, i) => String(i + 1)),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+    expect(warn).toHaveBeenLastCalledWith(
+      "Eightfold returning partial results after list failure",
+      { host: "apply.careers.microsoft.com", start: 40, fetched: 40 },
+    );
+  });
+
+  it.each([
+    "http",
+    "network",
+    "json",
+    "schema",
+  ])("keeps collected jobs on a later %s failure but throws on the first page", async (failure) => {
+    vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const fail = async () => {
+      if (failure === "network") throw new Error("Network unavailable");
+      if (failure === "http") return new Response("", { status: 503 });
+      if (failure === "json") return new Response("invalid JSON");
+      return pcsx({ count: 100 });
+    };
+    const fetchMock = vi.fn().mockImplementation(fail);
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(adapter.fetchJobs({ source: source() })).rejects.toThrow();
+    fetchMock.mockResolvedValueOnce(
+      pcsx({ count: 100, positions: [position()] }),
+    );
+    const result = await adapter.fetchJobs({ source: source() });
+    expect(result).toMatchObject({ total: 100, fetched: 1 });
+    expect(result.jobs[0].sourceJobId).toBe("123");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("propagates caller cancellation even after collecting a page", async () => {
+    const controller = new AbortController();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(pcsx({ count: 100, positions: [position()] }))
+        .mockImplementationOnce(async () => {
+          controller.abort(new Error("Caller cancelled"));
+          controller.signal.throwIfAborted();
+        }),
+    );
+    await expect(
+      adapter.fetchJobs({ source: source(), signal: controller.signal }),
+    ).rejects.toThrow("Caller cancelled");
+  });
+
+  it("returns partial results at the shared soft deadline during page retries", async () => {
     vi.useFakeTimers();
     vi.spyOn(logger, "warn").mockImplementation(() => {});
     const controller = new AbortController();
@@ -601,14 +672,15 @@ describe("eightfoldWatchlistAdapter", () => {
     const pending = adapter
       .fetchJobs({ source: source() })
       .catch((error: unknown) => error);
-    await vi.advanceTimersByTimeAsync(24_999);
-    expect(fetchMock).toHaveBeenCalledTimes(9);
+    await vi.advanceTimersByTimeAsync(19_999);
+    expect(fetchMock).toHaveBeenCalledTimes(7);
     expect(controller.signal.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
-    expect(await pending).toMatchObject({ name: "AbortError" });
+    expect(await pending).toMatchObject({ fetched: 1 });
     expect(controller.signal.reason).toMatchObject({ name: "TimeoutError" });
-    expect(fetchMock).toHaveBeenCalledTimes(9);
-    expect(timeout).toHaveBeenCalledExactlyOnceWith(25_000);
+    expect(fetchMock).toHaveBeenCalledTimes(7);
+    expect(timeout).toHaveBeenCalledWith(25_000);
+    expect(timeout).toHaveBeenCalledWith(20_000);
   });
 
   it.each([
