@@ -6,7 +6,10 @@ import {
   recordSiteRecipeRun,
   saveSiteRecipe,
 } from "@server/repositories/site-recipes";
-import { learnRecipe } from "@server/watchlist/careers-site/learn";
+import {
+  learnRecipe,
+  RecipeLearningError,
+} from "@server/watchlist/careers-site/learn";
 import { runRecipe } from "@server/watchlist/careers-site/run-recipe";
 import {
   type CrawledJob,
@@ -87,11 +90,15 @@ function startLearning(host: string, url: string): never {
     });
     learning.set(host, p);
     // The shared logger sanitizes metadata and keeps the initiating ALS context.
-    // Avoid logging upstream errors, which can contain page bodies or URLs.
-    void p.catch(() => {
+    // Only the learner's own bounded errors are safe to include.
+    void p.catch((error: unknown) => {
       logger.warn("Careers site learning failed", {
         host,
         sourceType: "careers_site",
+        reason:
+          error instanceof RecipeLearningError
+            ? error.message
+            : "Careers learning failed outside recipe validation",
       });
     });
   }
