@@ -97,7 +97,7 @@ describe("googleWatchlistAdapter", () => {
         label: "Google - Software Engineering",
         sourceType: "google",
         cxsJobsUrl: null,
-        careersUrl: `${base}?page=1&q=software+engineer&sort_by=date`,
+        careersUrl: `${base}?q=software+engineer&sort_by=date`,
       },
     ]);
     expect(adapter.catalogSchema.safeParse(catalog[0]).success).toBe(true);
@@ -109,7 +109,7 @@ describe("googleWatchlistAdapter", () => {
       ]),
     ).toEqual([]);
   });
-  it("keeps all supported repeated filters and enforces newest-first pagination", () => {
+  it("keeps supported repeated filters, removes paging and enforces newest first", () => {
     expect(
       adapter.normalizeCustomSelection({
         label: " Engineering ",
@@ -117,7 +117,7 @@ describe("googleWatchlistAdapter", () => {
       }),
     ).toEqual({
       label: "Engineering",
-      careersUrl: `${base}?degree=BACHELORS&employment_type=FULL_TIME&location=London&page=1&q=engineer&sort_by=date&target_level=MID&target_level=ADVANCED`,
+      careersUrl: `${base}?degree=BACHELORS&employment_type=FULL_TIME&location=London&q=engineer&sort_by=date&target_level=MID&target_level=ADVANCED`,
     });
     expect(
       adapter.normalizeCustomSelection({
@@ -126,8 +126,16 @@ describe("googleWatchlistAdapter", () => {
       }),
     ).toMatchObject({ label: "Google" });
     expect(
-      adapter.hydrateSelectedSource({ ...source, label: " " }),
-    ).toMatchObject({ label: "Google", cxsJobsUrl: null });
+      adapter.hydrateSelectedSource({
+        ...source,
+        label: " ",
+        careersUrl: `${source.careersUrl}&page=2`,
+      }),
+    ).toMatchObject({
+      label: "Google",
+      cxsJobsUrl: null,
+      careersUrl: `${base}?location=London&q=software+engineer&sort_by=date`,
+    });
     expect(adapter.descriptor.supportsCustomSource).toBe(true);
   });
   it.each([
@@ -175,43 +183,40 @@ describe("googleWatchlistAdapter", () => {
       signal: expect.any(AbortSignal),
     });
   });
-  it("requests at most two filtered pages, preserves server order and caps at 40", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        list(
-          Array.from({ length: 20 }, (_, i) => job(i + 1)),
-          100,
-        ),
-      )
-      .mockResolvedValueOnce(
-        list(
-          Array.from({ length: 25 }, (_, i) => job(i + 21)),
-          100,
-        ),
-      );
+  it("fetches one filtered results URL without page=, preserves order and caps at 20", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      list(
+        Array.from({ length: 25 }, (_, i) => job(i + 1)),
+        100,
+      ),
+    );
     vi.stubGlobal("fetch", fetchMock);
-    const result = await adapter.fetchJobs({ source });
-    expect(result).toMatchObject({ total: 100, fetched: 40 });
-    expect(result.jobs[0].sourceJobId).toBe("1");
-    expect(result.jobs[39].sourceJobId).toBe("40");
+    const result = await adapter.fetchJobs({
+      source: { ...source, careersUrl: `${source.careersUrl}&page=9&page=2` },
+    });
+    expect(result).toMatchObject({ total: 100, fetched: 20 });
+    expect(result.jobs.map((row) => row.sourceJobId)).toEqual(
+      Array.from({ length: 20 }, (_, i) => String(i + 1)),
+    );
     expect(result.jobs[0].jobUrl).toBe(`${base}1-software-engineer-aiml-1`);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    for (const [i, [url]] of fetchMock.mock.calls.entries()) {
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    for (const [url] of fetchMock.mock.calls) {
+      expect(url).not.toContain("page=");
       const parsed = new URL(url);
-      expect(parsed.searchParams.get("page")).toBe(String(i + 1));
+      expect(parsed.searchParams.has("page")).toBe(false);
       expect(parsed.searchParams.get("q")).toBe("software engineer");
       expect(parsed.searchParams.get("location")).toBe("London");
       expect(parsed.searchParams.get("sort_by")).toBe("date");
     }
   });
-  it("deduplicates overlapping pages", async () => {
-    const jobs = Array.from({ length: 20 }, (_, i) => job(i));
+  it("deduplicates the first results page", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockImplementation(async () => list(jobs, 50)),
+      vi.fn().mockResolvedValueOnce(list([job(1), job(1), job(2)], 3)),
     );
-    expect((await adapter.fetchJobs({ source })).fetched).toBe(20);
+    expect(
+      (await adapter.fetchJobs({ source })).jobs.map((row) => row.sourceJobId),
+    ).toEqual(["1", "2"]);
   });
   it.each([null, []])("accepts a genuine empty list (%s)", async (jobs) => {
     const fetchMock = vi.fn().mockResolvedValue(list(jobs, 0));
@@ -370,28 +375,22 @@ describe("googleWatchlistAdapter", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[2][0]).toBe(`${base}${realJob[0]}`);
   });
-  it("keeps at most the 40 returned rows in the public posting cache", async () => {
+  it("keeps at most the 20 returned rows in the public posting cache", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
         list(
-          Array.from({ length: 20 }, (_, i) => job(i + 1)),
+          Array.from({ length: 25 }, (_, i) => job(i + 1)),
           100,
         ),
       )
-      .mockResolvedValueOnce(
-        list(
-          Array.from({ length: 25 }, (_, i) => job(i + 21)),
-          100,
-        ),
-      )
-      .mockResolvedValueOnce(detail(job(41)));
+      .mockResolvedValueOnce(detail(job(21)));
     vi.stubGlobal("fetch", fetchMock);
     await adapter.fetchJobs({ source });
-    await adapter.prepareImportDraft({ source, jobRef: `${base}40` });
+    await adapter.prepareImportDraft({ source, jobRef: `${base}20` });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await adapter.prepareImportDraft({ source, jobRef: `${base}21` });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    await adapter.prepareImportDraft({ source, jobRef: `${base}41` });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
   it("rejects ds:1 related-job envelopes on a detail cache miss", async () => {
     vi.stubGlobal(

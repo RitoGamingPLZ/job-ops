@@ -30,7 +30,7 @@ type Job = z.infer<typeof jobSchema>;
 
 // Explicitly global: these are public Google postings keyed by Google's stable ID,
 // never tenant selections, filters, profile data, or import/workspace state.
-// Replaced per search and bounded to the same 40 rows returned to the caller.
+// Replaced per search and bounded to the same 20 rows returned to the caller.
 let listedJobs = new Map<string, Job>();
 
 function hasDescription(job: Job): boolean {
@@ -78,7 +78,6 @@ function searchUrl(value: string): URL {
       url.searchParams.append(key, value);
   }
   url.searchParams.set("sort_by", "date");
-  url.searchParams.set("page", "1");
   url.searchParams.sort();
   return url;
 }
@@ -203,7 +202,7 @@ export const googleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourceInputLabel: "Google careers search URL",
     customSourcePlaceholder: `${ORIGIN}${PATH}?q=software+engineer`,
     customSourceHelpText:
-      "Paste a filtered Google careers search URL. Fetches up to 40 jobs, sorted newest first.",
+      "Paste a filtered Google careers search URL. Fetches up to 20 jobs, sorted newest first.",
     emptyCatalogText: "No Google sources found.",
     fetchingLabel: "Fetching from Google...",
     invalidUrlMessage: "That is not a supported Google careers search URL.",
@@ -251,33 +250,27 @@ export const googleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     listedJobs = new Map();
     const url = searchUrl(input.source.careersUrl);
     const signal = callSignal(input.signal);
-    const collected: Job[] = [];
-    let total = 0;
-    for (let page = 1; page <= 2; page += 1) {
-      url.searchParams.set("page", String(page));
-      const data = callbackData(await pageHtml(url, signal), "ds:1");
-      const parsed = z
-        .tuple([
-          z.array(jobSchema).nullable(),
-          z.unknown(),
-          z.number().int().nonnegative(),
-        ])
-        .rest(z.unknown())
-        .safeParse(data);
-      if (
-        !parsed.success ||
-        (parsed.data[2] > 0 && !parsed.data[0]?.length) ||
-        (parsed.data[2] === 0 && parsed.data[0]?.length)
-      )
-        throw structureError("ds:1 search");
-      total = parsed.data[2];
-      const jobs = parsed.data[0] ?? [];
-      collected.push(...jobs);
-      if (collected.length >= Math.min(total, 40) || jobs.length < 20) break;
-    }
+    // Google robots.txt disallows results URLs containing page=.
+    // Keep the filtered first page only; narrower source URLs reduce cap loss.
+    const data = callbackData(await pageHtml(url, signal), "ds:1");
+    const parsed = z
+      .tuple([
+        z.array(jobSchema).nullable(),
+        z.unknown(),
+        z.number().int().nonnegative(),
+      ])
+      .rest(z.unknown())
+      .safeParse(data);
+    if (
+      !parsed.success ||
+      (parsed.data[2] > 0 && !parsed.data[0]?.length) ||
+      (parsed.data[2] === 0 && parsed.data[0]?.length)
+    )
+      throw structureError("ds:1 search");
+    const total = parsed.data[2];
     const selected = [
-      ...new Map(collected.map((job) => [job[0], job])).values(),
-    ].slice(0, 40);
+      ...new Map((parsed.data[0] ?? []).map((job) => [job[0], job])).values(),
+    ].slice(0, 20);
     listedJobs = new Map(selected.map((job) => [job[0], job]));
     const jobs = selected.map((job) => ({
       jobRef: jobUrl(job),
