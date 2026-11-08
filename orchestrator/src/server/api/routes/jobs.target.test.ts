@@ -86,6 +86,30 @@ describe.sequential("target ownership", () => {
       headers: headers(alice),
     });
     expect((await read.json()).data.readyAt).toBe(targetedAt);
+    const aliceLowScoreJob = await create(alice, "alice-low-score");
+    const { db, schema } = await import("@server/db");
+    const { inArray } = await import("drizzle-orm");
+    await db
+      .update(schema.jobs)
+      .set({ suitabilityScore: 40 })
+      .where(inArray(schema.jobs.id, [aliceJob, aliceLowScoreJob, bobJob]));
+    const scoreCleanup = await fetch(`${baseUrl}/api/jobs/score/50`, {
+      method: "DELETE",
+      headers: headers(alice),
+    });
+    expect(scoreCleanup.status).toBe(200);
+    expect((await scoreCleanup.json()).data.count).toBe(1);
+    expect(
+      (
+        await fetch(`${baseUrl}/api/jobs/${aliceJob}`, {
+          headers: headers(alice),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (await fetch(`${baseUrl}/api/jobs/${bobJob}`, { headers: headers(bob) }))
+        .status,
+    ).toBe(200);
     const cleanup = await fetch(`${baseUrl}/api/jobs/status/discovered`, {
       method: "DELETE",
       headers: headers(alice),

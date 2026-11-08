@@ -32,6 +32,8 @@ import {
   lt,
   ne,
   notExists,
+  notInArray,
+  or,
   sql,
 } from "drizzle-orm";
 import { db, schema } from "../db/index";
@@ -44,6 +46,13 @@ const { jobNotes, jobs } = schema;
 
 function jobsScopeFilter() {
   return privateDataScopeFilter(jobs);
+}
+
+function untargetedJobsFilter() {
+  return or(
+    isNull(jobs.readyAt),
+    notInArray(jobs.status, ["discovered", "processing", "ready"]),
+  );
 }
 
 function jobNotesScopeFilter() {
@@ -817,11 +826,7 @@ export async function deleteJobsByStatus(status: JobStatus): Promise<number> {
   const result = await db
     .delete(jobs)
     .where(
-      and(
-        jobsScopeFilter(),
-        eq(jobs.status, status),
-        status === "discovered" ? isNull(jobs.readyAt) : undefined,
-      ),
+      and(jobsScopeFilter(), eq(jobs.status, status), untargetedJobsFilter()),
     )
     .run();
   return result.changes;
@@ -886,7 +891,7 @@ export async function deleteJob(
 }
 
 /**
- * Delete jobs with suitability score below threshold (excluding applied and in_progress jobs).
+ * Delete jobs below the score threshold, preserving targeted, applied and in_progress jobs.
  */
 export async function deleteJobsBelowScore(threshold: number): Promise<number> {
   const result = await db
@@ -895,6 +900,7 @@ export async function deleteJobsBelowScore(threshold: number): Promise<number> {
       and(
         lt(jobs.suitabilityScore, threshold),
         jobsScopeFilter(),
+        untargetedJobsFilter(),
         ne(jobs.status, "applied"),
         ne(jobs.status, "in_progress"),
       ),
