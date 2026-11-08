@@ -18,6 +18,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import { cn } from "@/lib/utils";
+import { SuggestFiltersPanel } from "./SuggestFiltersPanel";
 import type { WatchlistSourceDraftCardProps } from "./types";
 import {
   CUSTOM_SOURCE_VALUE,
@@ -290,9 +291,7 @@ export function WatchlistSourcesCard({
                     key={draft.id}
                     className={cn(
                       "group relative min-w-0 w-full rounded-2xl border border-border/70 bg-card p-4 h-full",
-                      showEditor
-                        ? "flex flex-col items-stretch gap-4"
-                        : "flex items-center gap-4",
+                      "flex flex-col items-stretch gap-4",
                     )}
                   >
                     <div
@@ -444,6 +443,32 @@ export function WatchlistSourcesCard({
                         ) : null}
                       </div>
                     )}
+                    <SuggestFiltersPanel
+                      sourceType={
+                        draft.isCustom
+                          ? draft.sourceType
+                          : (selectedSource?.sourceType ?? draft.sourceType)
+                      }
+                      careersUrl={careersUrl}
+                      label={label}
+                      onUse={(suggestedUrl) => {
+                        const sourceType = draft.isCustom
+                          ? draft.sourceType
+                          : (selectedSource?.sourceType ?? draft.sourceType);
+                        onSourceMethodSelected({
+                          method: "custom_url",
+                          sourceType,
+                          careersUrl: suggestedUrl,
+                        });
+                        onUpdateDraft(index, (current) => ({
+                          ...current,
+                          isCustom: true,
+                          sourceType,
+                          catalogSourceId: null,
+                          customUrl: suggestedUrl,
+                        }));
+                      }}
+                    />
                   </article>
                 );
               })}
