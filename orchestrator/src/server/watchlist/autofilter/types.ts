@@ -7,6 +7,11 @@ export interface FilterIntent {
 
 export interface Facets {
   unfilteredTotal: number;
+  /** Count the built filtered listing using the same method as unfilteredTotal. */
+  countFiltered?: (input: {
+    careersUrl: string;
+    signal?: AbortSignal;
+  }) => Promise<number>;
   params: Array<{
     key: string;
     multi: boolean;

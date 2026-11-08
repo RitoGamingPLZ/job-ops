@@ -189,20 +189,31 @@ export async function suggestFilters(input: {
           : timeoutSignal,
       }),
     );
-    if (result.total >= 1 && result.total < facets.unfilteredTotal)
+    const countFiltered = facets.countFiltered;
+    const filteredTotal = countFiltered
+      ? await withWatchlistSourceTimeout((timeoutSignal) =>
+          countFiltered({
+            careersUrl: normalized.careersUrl,
+            signal: input.signal
+              ? AbortSignal.any([input.signal, timeoutSignal])
+              : timeoutSignal,
+          }),
+        )
+      : result.total;
+    if (filteredTotal >= 1 && filteredTotal < facets.unfilteredTotal)
       return {
         suggestedUrl: normalized.careersUrl,
         params,
         rationale: parsed.data.rationale,
-        totals: { filtered: result.total, unfiltered: facets.unfilteredTotal },
+        totals: { filtered: filteredTotal, unfiltered: facets.unfilteredTotal },
         sampleTitles: result.jobs.slice(0, 5).map((job) => job.title),
       };
-    if (result.total !== 0 || attempt === 1 || params.length === 1)
+    if (filteredTotal !== 0 || attempt === 1 || params.length === 1)
       throw unprocessableEntity(
         "Suggested filters did not narrow the jobs to a nonempty result",
         {
           totals: {
-            filtered: result.total,
+            filtered: filteredTotal,
             unfiltered: facets.unfilteredTotal,
           },
         },

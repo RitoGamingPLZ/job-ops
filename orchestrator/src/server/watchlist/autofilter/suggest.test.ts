@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => ({
   callJson: vi.fn(),
   settings: vi.fn(),
 }));
-vi.mock("./facets", () => ({ facetDiscoverers: { lever: mocks.discover } }));
+vi.mock("./facets", () => ({
+  facetDiscoverers: { lever: mocks.discover, careers_site: mocks.discover },
+}));
 vi.mock("@server/watchlist/adapters", () => ({
   getWatchlistSourceAdapter: () => ({
     fetchJobs: mocks.fetchJobs,
@@ -284,4 +286,36 @@ it.each([
     message,
   });
   expect(mocks.fetchJobs).not.toHaveBeenCalled();
+});
+
+it.each([
+  60, 10, 4,
+])("rejects ignored careers filters despite capped crawler total %i", async (total) => {
+  const facets = await mocks.discover();
+  const countFiltered = vi.fn().mockResolvedValue(100);
+  mocks.discover.mockResolvedValue({ ...facets, countFiltered });
+  mocks.fetchJobs.mockResolvedValue({ total, jobs: [] });
+  await expect(
+    suggestFilters({ ...input, sourceType: "careers_site" }),
+  ).rejects.toMatchObject({
+    status: 422,
+    details: { totals: { filtered: 100, unfiltered: 100 } },
+  });
+  expect(countFiltered).toHaveBeenCalledWith({
+    careersUrl: "https://jobs.lever.co/test?team=Engineering",
+    signal: expect.any(AbortSignal),
+  });
+});
+it.each([
+  0, 4, 10, 60,
+])("uses listing count even when crawler total is %i", async (total) => {
+  const facets = await mocks.discover();
+  mocks.discover.mockResolvedValue({
+    ...facets,
+    countFiltered: vi.fn().mockResolvedValue(25),
+  });
+  mocks.fetchJobs.mockResolvedValue({ total, jobs: [] });
+  const result = await suggestFilters({ ...input, sourceType: "careers_site" });
+  expect(result.totals).toEqual({ filtered: 25, unfiltered: 100 });
+  expect(result.sampleTitles).toEqual([]);
 });
