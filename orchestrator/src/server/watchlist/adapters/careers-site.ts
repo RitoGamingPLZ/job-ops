@@ -82,7 +82,14 @@ function startLearning(host: string, url: string): never {
       } catch (error) {
         if (error instanceof SiteBlockedError)
           await markSiteBlocked(host, error.reason);
-        else failedLearns.set(host, Date.now());
+        else {
+          const now = Date.now();
+          for (const [failedHost, failedAt] of failedLearns) {
+            if (now - failedAt >= FAILED_LEARN_COOLDOWN_MS)
+              failedLearns.delete(failedHost);
+          }
+          failedLearns.set(host, now);
+        }
         throw error;
       }
     })().finally(() => {
