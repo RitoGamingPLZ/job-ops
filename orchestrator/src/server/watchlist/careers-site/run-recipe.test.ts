@@ -246,6 +246,78 @@ describe("extractJob", () => {
 });
 
 describe("runRecipe", () => {
+  it("caps an alphabetical sitemap without lastmod at the highest numeric IDs", async () => {
+    const urls = ["accountant/9", "engineer/100", "writer/20"].map(
+      (path) => `${base}/jobs/${path}`,
+    );
+    pages({
+      [recipe.listing.url]: sitemap(urls.map((url) => [url])),
+      ...Object.fromEntries(urls.map((url) => [url, posting()])),
+    });
+    expect(
+      (
+        await runRecipe(
+          { ...recipe, jobUrlPattern: "/jobs/", jobIdPattern: "(\\d+)$" },
+          { limit: 2 },
+        )
+      ).map((job) => job.id),
+    ).toEqual(["100", "20"]);
+    expect(loadPage).not.toHaveBeenCalledWith(urls[0], expect.anything());
+  });
+
+  it("orders lastmod first, numeric IDs next, and other IDs in file order", async () => {
+    const entries: [string, string?][] = [
+      [`${base}/jobs/zebra`],
+      [`${base}/jobs/99999`],
+      [`${base}/jobs/1`, "2025-01-01"],
+      [`${base}/jobs/alpha`],
+      [`${base}/jobs/20`],
+      [`${base}/jobs/2`, "2026-01-01"],
+    ];
+    pages({
+      [recipe.listing.url]: sitemap(entries),
+      ...Object.fromEntries(entries.map(([url]) => [url, posting()])),
+    });
+    expect(
+      (
+        await runRecipe(
+          {
+            ...recipe,
+            jobUrlPattern: "/jobs/",
+            jobIdPattern: "/jobs/([^/]+)$",
+          },
+          { limit: 40 },
+        )
+      ).map((job) => job.id),
+    ).toEqual(["2", "1", "99999", "20", "zebra", "alpha"]);
+  });
+
+  it("uses the last run of at least five path digits only without an ID pattern", async () => {
+    const urls = [
+      `${base}/jobs/99999/alpha-10000-42?ref=999999`,
+      `${base}/jobs/beta-30000`,
+      `${base}/jobs/zebra-1234?ref=888888`,
+      `${base}/jobs/alpha-4321`,
+      `${base}/jobs/gamma-20000`,
+    ];
+    pages({
+      [recipe.listing.url]: sitemap(urls.map((url) => [url])),
+      ...Object.fromEntries(urls.map((url) => [url, posting()])),
+    });
+    for (const jobIdPattern of [undefined, "/jobs/([^/]+)"]) {
+      expect(
+        (
+          await runRecipe(
+            { ...recipe, jobUrlPattern: "/jobs/", jobIdPattern },
+            { limit: 40 },
+          )
+        ).map((job) => job.url),
+      ).toEqual(
+        jobIdPattern ? urls : [urls[1], urls[4], urls[0], urls[2], urls[3]],
+      );
+    }
+  });
+
   it("skips listing URLs over 500 chars before matching recipes", async () => {
     const longUrl = `${base}/jobs/${"1".repeat(501)}`;
     pages({
@@ -437,7 +509,7 @@ describe("runRecipe", () => {
     for (const [url] of vi.mocked(loadPage).mock.calls)
       expect(isAllowedByRobots).toHaveBeenCalledWith(url, { signal });
   });
-  it("limits detail concurrency to two and preserves listing order despite completion order", async () => {
+  it("limits detail concurrency to two and preserves sorted order despite completion order", async () => {
     let active = 0;
     let peak = 0;
     vi.mocked(loadPage).mockImplementation(async (url) => {
@@ -450,21 +522,21 @@ describe("runRecipe", () => {
       active++;
       peak = Math.max(peak, active);
       await new Promise((resolve) =>
-        setTimeout(resolve, url.endsWith("1") ? 15 : 1),
+        setTimeout(resolve, url.endsWith("4") ? 15 : 1),
       );
       active--;
       return { url, status: 200, html: posting(url) };
     });
     expect(
       (await runRecipe(recipe, { limit: 4 })).map((job) => job.id),
-    ).toEqual(["1", "2", "3", "4"]);
+    ).toEqual(["4", "3", "2", "1"]);
     expect(peak).toBe(2);
   });
   it("skips broken or empty detail pages but throws a sanitized error if all fail", async () => {
     pages({
       [`${base}/sitemap.xml`]: sitemap([
-        [`${base}/jobs/1`],
-        [`${base}/jobs/2`],
+        [`${base}/jobs/1`, "2026-11-02"],
+        [`${base}/jobs/2`, "2026-11-01"],
         [`${base}/jobs/3`],
       ]),
       [`${base}/jobs/1`]: new Error("secret upstream body"),

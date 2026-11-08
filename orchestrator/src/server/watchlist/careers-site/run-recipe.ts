@@ -315,7 +315,24 @@ export async function runRecipe(
     }
     if (!successes) throw new Error("No careers listing pages could be read.");
   }
-  const selected = [...candidates].sort((a, b) => b[1] - a[1]).slice(0, limit);
+  function numericId(url: string): bigint | null {
+    const id = recipe.jobIdPattern
+      ? jobId(url, recipe)
+      : new URL(url).pathname.match(/\d{5,}/g)?.at(-1);
+    return id && /^\d+$/.test(id) ? BigInt(id) : null;
+  }
+  const selected = [...candidates]
+    .sort(([a, aModified], [b, bModified]) => {
+      if (aModified || bModified) return bModified - aModified;
+      if (recipe.listing.kind !== "sitemap") return 0;
+      const aId = numericId(a);
+      const bId = numericId(b);
+      if (aId === bId) return 0;
+      if (aId === null) return 1;
+      if (bId === null) return -1;
+      return aId > bId ? -1 : 1;
+    })
+    .slice(0, limit);
   const jobs = new Map<string, CrawledJob>();
   const seenIds = new Set<string>();
   let index = 0;
