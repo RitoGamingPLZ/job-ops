@@ -7,4 +7,5 @@ export const facetDiscoverers: Partial<Record<string, FacetDiscovery>> = {
   lever: discoverLeverFacets,
   eightfold: async (input) =>
     (await import("./eightfold")).discoverEightfoldFacets(input),
+  google: async (x) => (await import("./google")).discoverGoogleFacets(x),
 };

@@ -131,10 +131,28 @@ it.each([
 it.each([
   "https://evil.com/test?team=Engineering",
   "https://jobs.lever.co/test",
+  "https://jobs.lever.co/test?team=Other",
 ])("rejects normalization mismatch %s", async (careersUrl) => {
   mocks.normalize.mockResolvedValue({ label: "Test", careersUrl });
   await expect(suggestFilters(input)).rejects.toMatchObject({ status: 422 });
   expect(mocks.fetchJobs).not.toHaveBeenCalled();
+});
+it("allows Google-like normalization to add sort_by while preserving picked filters", async () => {
+  mocks.normalize.mockImplementation(async (value) => {
+    const url = new URL(value.careersUrl);
+    url.searchParams.set("sort_by", "date");
+    return { ...value, careersUrl: url.href };
+  });
+  const result = await suggestFilters(input);
+  expect(result.suggestedUrl).toBe(
+    "https://jobs.lever.co/test?team=Engineering&sort_by=date",
+  );
+  expect(result.params).toEqual([{ key: "team", values: ["Engineering"] }]);
+  expect(mocks.fetchJobs).toHaveBeenCalledWith(
+    expect.objectContaining({
+      source: expect.objectContaining({ careersUrl: result.suggestedUrl }),
+    }),
+  );
 });
 it("reads each tenant's current intent without caching or sending unrelated settings", async () => {
   mocks.settings.mockImplementation(async () => ({

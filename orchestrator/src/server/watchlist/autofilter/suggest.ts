@@ -155,17 +155,13 @@ export async function suggestFilters(input: {
       careersUrl: url.href,
     });
     const normalizedUrl = new URL(normalized.careersUrl);
-    const sameParams =
-      [...url.searchParams.keys()].every((key) => {
-        const expected = url.searchParams.getAll(key).sort();
-        return (
-          JSON.stringify(expected) ===
-          JSON.stringify(normalizedUrl.searchParams.getAll(key).sort())
-        );
-      }) &&
-      [...normalizedUrl.searchParams.keys()].every((key) =>
-        url.searchParams.has(key),
+    const sameParams = [...url.searchParams.keys()].every((key) => {
+      const expected = url.searchParams.getAll(key).sort();
+      return (
+        JSON.stringify(expected) ===
+        JSON.stringify(normalizedUrl.searchParams.getAll(key).sort())
       );
+    });
     if (normalizedUrl.origin !== base.origin || !sameParams) {
       logger.error(
         "Autofilter adapter normalization disagrees with discovered facets",

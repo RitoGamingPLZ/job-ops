@@ -61,7 +61,7 @@ function trustedUrl(value: string): URL {
   return url;
 }
 
-function searchUrl(value: string): URL {
+export function searchUrl(value: string): URL {
   const input = trustedUrl(value);
   if (input.pathname !== PATH && input.pathname !== PATH.slice(0, -1)) {
     throw badRequest("Use a Google careers jobs/results/ search URL.");
@@ -119,7 +119,7 @@ function structureError(key: string): Error {
 
 // The observed array literal is valid JSON. Scan balanced brackets while respecting
 // JSON strings/escapes; never execute JavaScript or repair untrusted expressions.
-function callbackData(html: string, key: "ds:0" | "ds:1"): unknown {
+export function callbackData(html: string, key: "ds:0" | "ds:1"): unknown {
   for (const script of html.matchAll(
     /<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi,
   )) {
