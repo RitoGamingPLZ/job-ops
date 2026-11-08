@@ -212,13 +212,19 @@ export async function withWatchlistSourceTimeout<T>(
   callback: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    WATCHLIST_SOURCE_TIMEOUT_MS,
-  );
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      const error = new Error(
+        `Watchlist source timed out after ${WATCHLIST_SOURCE_TIMEOUT_MS / 1000}s`,
+      );
+      reject(error);
+      controller.abort(error);
+    }, WATCHLIST_SOURCE_TIMEOUT_MS);
+  });
 
   try {
-    return await callback(controller.signal);
+    return await Promise.race([callback(controller.signal), timedOut]);
   } finally {
     clearTimeout(timeout);
   }
