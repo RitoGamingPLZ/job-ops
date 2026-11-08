@@ -8,6 +8,13 @@ export const GREENHOUSE_BOARDS_API_ORIGIN = "https://boards-api.greenhouse.io";
 export const GREENHOUSE_CANONICAL_BOARD_ORIGIN =
   "https://job-boards.greenhouse.io";
 
+export const GREENHOUSE_FILTER_KEYS = [
+  "departments",
+  "location",
+  "offices",
+  "workplace",
+] as const;
+
 export const GREENHOUSE_DEFAULT_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
@@ -94,7 +101,7 @@ export function parseGreenhouseUrl(input: string): GreenhouseSourceConfig {
 
   const source = buildSourceConfig(input, token);
   const filters = new URLSearchParams();
-  for (const key of ["departments", "location", "offices", "workplace"]) {
+  for (const key of GREENHOUSE_FILTER_KEYS) {
     const values = url.searchParams
       .getAll(key)
       .flatMap((value) =>
