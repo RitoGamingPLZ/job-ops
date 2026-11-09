@@ -8,6 +8,7 @@ import { authRouter } from "./routes/auth";
 import { authSsoRouter } from "./routes/auth-sso";
 import { backupRouter } from "./routes/backup";
 import { billingRouter } from "./routes/billing";
+import { coworkRouter } from "./routes/cowork";
 import { databaseRouter } from "./routes/database";
 import { demoRouter } from "./routes/demo";
 import { designResumeRouter } from "./routes/design-resume";
@@ -56,3 +57,5 @@ apiRouter.use("/workday", workdayRouter);
 apiRouter.use("/watchlist", watchlistRouter);
 apiRouter.use("/watchlist", watchlistAutofilterRouter);
 apiRouter.use("/", extractorHealthRouter);
+
+apiRouter.use(coworkRouter);

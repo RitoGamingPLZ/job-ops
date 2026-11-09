@@ -59,6 +59,77 @@ async function importManualJob(baseUrl: string, token: string, title: string) {
   return body.data as { id: string; title: string };
 }
 
+async function assertCoworkIsolation(
+  baseUrl: string,
+  ownerToken: string,
+  otherToken: string,
+) {
+  const job = await importManualJob(
+    baseUrl,
+    ownerToken,
+    "Private co-work role",
+  );
+  const { buildDefaultReactiveResumeDocument } = await import(
+    "@server/services/rxresume/document"
+  );
+  const document = buildDefaultReactiveResumeDocument();
+  const call = (path: string, token: string, method = "GET", body?: unknown) =>
+    fetch(`${baseUrl}/api${path}`, {
+      method,
+      headers: authHeaders(token),
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  const created = await call("/experience-bullets", ownerToken, "POST", {
+    text: "Private duty",
+  });
+  expect(created.status).toBe(201);
+  const bullet = (await created.json()).data.bullet;
+  expect(
+    (await (await call("/experience-bullets", otherToken)).json()).data.bullets,
+  ).toEqual([]);
+  expect(
+    (
+      await call(`/experience-bullets/${bullet.id}`, otherToken, "PATCH", {
+        text: "stolen",
+      })
+    ).status,
+  ).toBe(404);
+  expect(
+    (await call(`/experience-bullets/${bullet.id}`, otherToken, "DELETE"))
+      .status,
+  ).toBe(404);
+  const saved = await call(`/jobs/${job.id}/resume`, ownerToken, "PUT", {
+    baseRevision: 0,
+    document,
+  });
+  expect(saved.status).toBe(200);
+  for (const method of ["GET", "PUT", "DELETE"]) {
+    expect(
+      (
+        await call(
+          `/jobs/${job.id}/resume`,
+          otherToken,
+          method,
+          method === "PUT" ? { baseRevision: 1, document } : undefined,
+        )
+      ).status,
+    ).toBe(404);
+  }
+  expect(
+    (await (await call("/resumes", otherToken)).json()).data.resumes,
+  ).toEqual([]);
+  expect(
+    (await (await call("/resumes", ownerToken)).json()).data.resumes,
+  ).toEqual([expect.objectContaining({ jobId: job.id })]);
+  expect(
+    (await (await call(`/jobs/${job.id}/resume`, ownerToken)).json()).data
+      .revision,
+  ).toBe(1);
+  expect(
+    (await (await call("/experience-bullets", ownerToken)).json()).data.bullets,
+  ).toEqual([expect.objectContaining({ id: bullet.id, text: "Private duty" })]);
+}
+
 describe.sequential("Tenant isolation", () => {
   let server: Server;
   let baseUrl: string;
@@ -73,6 +144,25 @@ describe.sequential("Tenant isolation", () => {
 
   afterEach(async () => {
     await stopServer({ server, closeDb, tempDir });
+  });
+
+  it("isolates experience bullets and job resumes between private workspaces", async () => {
+    const adminToken = await login(baseUrl, "admin", "secret");
+    const created = await fetch(`${baseUrl}/api/workspaces/users`, {
+      method: "POST",
+      headers: authHeaders(adminToken),
+      body: JSON.stringify({
+        username: "adam",
+        displayName: "Adam",
+        password: "adam-secret",
+      }),
+    });
+    expect(created.status).toBe(201);
+    await assertCoworkIsolation(
+      baseUrl,
+      adminToken,
+      await login(baseUrl, "adam", "adam-secret"),
+    );
   });
 
   it("isolates jobs and PDFs between private workspaces", async () => {
@@ -256,6 +346,14 @@ describe.sequential("Hosted current-user isolation", () => {
 
   afterEach(async () => {
     await stopServer({ server, closeDb, tempDir });
+  });
+
+  it("isolates experience bullets and job resumes between hosted users sharing a tenant", async () => {
+    await assertCoworkIsolation(
+      baseUrl,
+      await signup(baseUrl, "alice", "alice-secret"),
+      await signup(baseUrl, "bob", "bob-secret"),
+    );
   });
 
   it("authorizes deletion for only the job owner within a shared hosted tenant", async () => {

@@ -6,6 +6,7 @@ import {
   APPLICATION_OUTCOMES,
   APPLICATION_STAGES,
   APPLICATION_TASK_TYPES,
+  type ExperienceBulletSource,
   HOSTED_USAGE_ACTIONS,
   INTERVIEW_OUTCOMES,
   INTERVIEW_TYPES,
@@ -18,6 +19,8 @@ import {
   POST_APPLICATION_PROVIDERS,
   POST_APPLICATION_RELEVANCE_DECISIONS,
   POST_APPLICATION_SYNC_RUN_STATUSES,
+  type ReactiveResumeV5Document,
+  type ResumeSuggestion,
   SSO_PROVIDERS,
 } from "@shared/types";
 import { sql } from "drizzle-orm";
@@ -512,6 +515,9 @@ export const jobChatMessages = sqliteTable(
     parentMessageId: text("parent_message_id"),
     activeChildId: text("active_child_id"),
     attachments: text("attachments").notNull().default("[]"),
+    suggestions: text("suggestions", { mode: "json" }).$type<
+      ResumeSuggestion[]
+    >(),
     createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
     updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
   },
@@ -1193,3 +1199,65 @@ export type TracerClickEventRow = typeof tracerClickEvents.$inferSelect;
 export type NewTracerClickEventRow = typeof tracerClickEvents.$inferInsert;
 export type SiteRecipeRow = typeof siteRecipes.$inferSelect;
 export type NewSiteRecipeRow = typeof siteRecipes.$inferInsert;
+
+export const experienceBullets = sqliteTable(
+  "experience_bullets",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .default("tenant_default")
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    company: text("company"),
+    role: text("role"),
+    startDate: text("start_date"),
+    endDate: text("end_date"),
+    tags: text("tags", { mode: "json" })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    source: text("source")
+      .$type<ExperienceBulletSource>()
+      .notNull()
+      .default("manual"),
+    sourceExperienceId: text("source_experience_id"),
+    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => ({
+    scopeIndex: index("idx_experience_bullets_scope").on(
+      table.tenantId,
+      table.userId,
+    ),
+  }),
+);
+
+export const jobResumes = sqliteTable(
+  "job_resumes",
+  {
+    jobId: text("job_id")
+      .primaryKey()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    tenantId: text("tenant_id")
+      .notNull()
+      .default("tenant_default")
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+    document: text("document", { mode: "json" })
+      .$type<ReactiveResumeV5Document>()
+      .notNull(),
+    revision: integer("revision").notNull().default(1),
+    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => ({
+    scopeIndex: index("idx_job_resumes_scope").on(table.tenantId, table.userId),
+  }),
+);
+
+export type ExperienceBulletRow = typeof experienceBullets.$inferSelect;
+export type NewExperienceBulletRow = typeof experienceBullets.$inferInsert;
+export type JobResumeRow = typeof jobResumes.$inferSelect;
+export type NewJobResumeRow = typeof jobResumes.$inferInsert;

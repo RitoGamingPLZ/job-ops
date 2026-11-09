@@ -8,6 +8,7 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import { AppError, type AppErrorCode, notFound } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
+import { getJobResume } from "@server/repositories/job-resumes";
 import { getSetting } from "@server/repositories/settings";
 import { getJobOpsPublicAvailability } from "@server/services/tracer-links";
 import { safePdfFileName } from "@shared/filename-sanitizer";
@@ -41,6 +42,10 @@ import {
 } from "./rxresume/document";
 import { applyPdfPaperSizeToResumeData } from "./rxresume/paper-size";
 import { parseV5ResumeData } from "./rxresume/schema/v5";
+import {
+  resolveTracerPublicBaseUrl,
+  rewriteResumeLinksWithTracer,
+} from "./tracer-links";
 import { getWritingStyle } from "./writing-style";
 
 export interface PdfResult {
@@ -294,7 +299,7 @@ async function resolveDesignResumeForRenderer(args: {
   }
 }
 
-async function loadBaseResumeSource(args: {
+export async function loadBaseResumeSource(args: {
   renderer: PdfRenderer;
   requestOrigin?: string | null;
 }): Promise<{
@@ -365,27 +370,59 @@ export async function generatePdf(
     // Ensure output directory exists
     await ensureOutputDir();
 
-    const baseResume = await loadBaseResumeSource({
-      renderer,
-      requestOrigin: options?.requestOrigin ?? null,
-    });
+    const savedResume = await getJobResume(jobId);
+    const baseResume = savedResume
+      ? null
+      : await loadBaseResumeSource({
+          renderer,
+          requestOrigin: options?.requestOrigin ?? null,
+        });
 
     let preparedResume: Awaited<
       ReturnType<typeof prepareTailoredResumeForPdf>
     > | null = null;
     try {
-      preparedResume = await prepareTailoredResumeForPdf({
-        resumeData: baseResume.data,
-        tailoredContent,
-        jobDescription,
-        selectedProjectIds,
-        jobId,
-        tracerLinks: {
-          enabled: Boolean(options?.tracerLinksEnabled),
-          requestOrigin: options?.requestOrigin ?? null,
-          companyName: options?.tracerCompanyName ?? null,
-        },
-      });
+      if (savedResume) {
+        // The saved document is authoritative, including project visibility and
+        // edits to summary/headline/skills. Only tracer links are overlaid.
+        const data = parseV5ResumeData(
+          structuredClone(savedResume.document),
+        ) as Record<string, unknown>;
+        if (options?.tracerLinksEnabled) {
+          const publicBaseUrl = resolveTracerPublicBaseUrl({
+            requestOrigin: options.requestOrigin,
+          });
+          if (!publicBaseUrl)
+            throw new Error(
+              "Tracer links are enabled but no public base URL is available. Set JOBOPS_PUBLIC_BASE_URL.",
+            );
+          await rewriteResumeLinksWithTracer({
+            jobId,
+            resumeData: data,
+            publicBaseUrl,
+            companyName: options.tracerCompanyName,
+          });
+        }
+        preparedResume = {
+          mode: "v5",
+          data,
+          projectCatalog: [],
+          selectedProjectIds: [],
+        };
+      } else {
+        preparedResume = await prepareTailoredResumeForPdf({
+          resumeData: baseResume?.data,
+          tailoredContent,
+          jobDescription,
+          selectedProjectIds,
+          jobId,
+          tracerLinks: {
+            enabled: Boolean(options?.tracerLinksEnabled),
+            requestOrigin: options?.requestOrigin ?? null,
+            companyName: options?.tracerCompanyName ?? null,
+          },
+        });
+      }
     } catch (err) {
       logger.warn("Resume tailoring step failed during PDF generation", {
         jobId,

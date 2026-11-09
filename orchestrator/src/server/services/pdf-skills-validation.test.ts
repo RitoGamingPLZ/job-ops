@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generatePdf } from "./pdf";
 import { getProfile } from "./profile";
 
+vi.mock("@server/repositories/job-resumes", () => ({
+  getJobResume: vi.fn().mockResolvedValue(null),
+}));
+
 process.env.DATA_DIR = "/tmp";
 
 // Define mock data in hoisted block

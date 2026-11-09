@@ -1,6 +1,12 @@
+import { getJobResume } from "@server/repositories/job-resumes";
+import type { ReactiveResumeV5Document } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateDesignResumePdf, generatePdf } from "./pdf";
 import * as projectSelection from "./projectSelection";
+
+vi.mock("@server/repositories/job-resumes", () => ({
+  getJobResume: vi.fn().mockResolvedValue(null),
+}));
 
 // Define mock data in hoisted block
 const {
@@ -433,8 +439,52 @@ vi.mock("./rxresume", async () => {
 });
 
 describe("PDF Service Tailoring Logic", () => {
+  it("renders the saved co-work document without applying legacy tailoring or project selection", async () => {
+    const document = structuredClone(mockProfile);
+    document.basics.headline = "User edited headline";
+    document.summary.content = "User edited summary";
+    document.sections.projects.items[0].hidden = true;
+    document.sections.projects.items[1].hidden = false;
+    vi.mocked(getJobResume).mockResolvedValue({
+      document: document as ReactiveResumeV5Document,
+      revision: 2,
+      exists: true,
+      updatedAt: "now",
+    });
+    const result = await generatePdf(
+      "saved-job",
+      { summary: "Old summary", headline: "Old headline" },
+      "JD",
+      undefined,
+      "p1",
+      { tracerLinksEnabled: true, requestOrigin: "https://jobops.example" },
+    );
+    expect(result.success).toBe(true);
+    expect(mockResumeRenderer.getLastResumeJson()).toMatchObject({
+      basics: { headline: "User edited headline" },
+      summary: { content: "User edited summary" },
+      sections: {
+        projects: {
+          items: [
+            expect.objectContaining({ hidden: true }),
+            expect.objectContaining({ hidden: false }),
+          ],
+        },
+      },
+    });
+    expect(mockTracerLinks.rewriteResumeLinksWithTracer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobId: "saved-job",
+        resumeData: expect.objectContaining({
+          basics: expect.objectContaining({ headline: "User edited headline" }),
+        }),
+      }),
+    );
+    expect(document.basics.headline).toBe("User edited headline");
+  });
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getJobResume).mockResolvedValue(null);
     currentPdfRenderer.value = "latex";
     currentPdfPaperSize.value = null;
     currentLanguageSettings.mode = "manual";

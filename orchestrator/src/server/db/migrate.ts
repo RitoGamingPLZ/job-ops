@@ -571,6 +571,24 @@ const migrations = [
   `CREATE INDEX IF NOT EXISTS idx_design_resume_assets_document_id
     ON design_resume_assets(document_id)`,
 
+  `CREATE TABLE IF NOT EXISTS experience_bullets (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant_default' REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    text TEXT NOT NULL, company TEXT, role TEXT, start_date TEXT, end_date TEXT,
+    tags TEXT NOT NULL DEFAULT '[]', source TEXT NOT NULL DEFAULT 'manual', source_experience_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_experience_bullets_scope ON experience_bullets(tenant_id, user_id)`,
+  `CREATE TABLE IF NOT EXISTS job_resumes (
+    job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+    tenant_id TEXT NOT NULL DEFAULT 'tenant_default' REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    document TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_job_resumes_scope ON job_resumes(tenant_id, user_id)`,
+
   `CREATE TABLE IF NOT EXISTS job_documents (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL DEFAULT 'tenant_default',
@@ -1200,6 +1218,7 @@ const migrations = [
      )`,
 
   // Branching conversations: add parent_message_id and active_child_id to job_chat_messages
+  `ALTER TABLE job_chat_messages ADD COLUMN suggestions TEXT`,
   `ALTER TABLE job_chat_messages ADD COLUMN parent_message_id TEXT`,
   `ALTER TABLE job_chat_messages ADD COLUMN active_child_id TEXT`,
   `ALTER TABLE job_chat_messages ADD COLUMN attachments TEXT NOT NULL DEFAULT '[]'`,
@@ -1348,6 +1367,8 @@ function ensureTenantColumns(): void {
     "design_resume_documents",
     "design_resume_assets",
     "job_documents",
+    "experience_bullets",
+    "job_resumes",
     "post_application_integrations",
     "post_application_sync_runs",
     "post_application_messages",
@@ -1381,6 +1402,8 @@ function ensurePrivateUserColumns(): void {
     "design_resume_documents",
     "design_resume_assets",
     "job_documents",
+    "experience_bullets",
+    "job_resumes",
     "post_application_integrations",
     "post_application_sync_runs",
     "post_application_messages",
@@ -1395,6 +1418,7 @@ function ensurePrivateUserColumns(): void {
     "pipeline_runs",
     "settings",
     "design_resume_documents",
+    "experience_bullets",
     "post_application_integrations",
     "post_application_sync_runs",
   ]) {
@@ -1416,7 +1440,7 @@ function ensurePrivateUserColumns(): void {
     backfillUserFromTenantOwner(tableName);
   }
 
-  for (const tableName of ["job_documents", "tracer_links"]) {
+  for (const tableName of ["job_documents", "job_resumes", "tracer_links"]) {
     backfillUserFromParent({
       tableName,
       parentTableName: "jobs",
