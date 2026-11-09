@@ -12,6 +12,10 @@ export interface LatexResumeContactItem {
 
 export interface LatexResumeEntry {
   title: string;
+  /** Plain description text outside list items, for themes with intro paragraphs. */
+  intro?: string | null;
+  position?: string | null;
+  location?: string | null;
   subtitle?: string | null;
   secondaryTitle?: string | null;
   secondarySubtitle?: string | null;
@@ -116,6 +120,8 @@ export interface LatexResumeDocument {
   volunteer: LatexResumeEntry[];
   references: LatexResumeEntry[];
   sectionOrder?: LatexResumeOrderedSectionKey[];
+  /** The normalized order was synthesized rather than supplied by the layout. */
+  defaultSectionOrder?: boolean;
   sectionTitles?: LatexResumeSectionTitles;
 }
 

@@ -171,6 +171,17 @@ function stripHtml(value: string): string {
     .trim();
 }
 
+function extractIntro(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  return (
+    stripHtml(
+      value
+        .replace(/<(ul|ol)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+        .replace(/<li\b[^>]*>[\s\S]*?<\/li>/gi, ""),
+    ) || null
+  );
+}
+
 function extractBullets(value: unknown): string[] {
   if (typeof value !== "string" || !value.trim()) return [];
 
@@ -343,6 +354,9 @@ function buildExperienceEntries(resumeJson: RecordLike): LatexResumeEntry[] {
   return getVisibleSectionItems(resumeJson, "experience").map(
     (item, index) => ({
       title: toText(item.company, `Experience ${index + 1}`),
+      intro: extractIntro(item.description),
+      position: toText(item.position) || null,
+      location: toText(item.location) || null,
       subtitle:
         joinNonEmpty([toText(item.position), toText(item.location)], " / ") ||
         null,
@@ -505,6 +519,11 @@ export function normalizeResumeJsonToLatexDocument(
     volunteer: buildVolunteerEntries(record),
     references: buildReferenceEntries(record),
     sectionOrder: getOrderedSectionKeys(record),
+    defaultSectionOrder:
+      asArray(
+        asRecord(asArray(asRecord(asRecord(record.metadata)?.layout)?.pages)[0])
+          ?.main,
+      ).length === 0,
     sectionTitles: {
       profiles: getSectionTitle(record, "profiles", titles),
       summary: getSectionTitle(record, "summary", titles),

@@ -699,6 +699,7 @@ export function convertDocFieldsToTypst(
 
   const convertEntry = (entry: LatexResumeEntry): LatexResumeEntry => ({
     ...entry,
+    ...(entry.intro ? { intro: escapeTypstText(entry.intro) } : {}),
     bullets: convertBullets(entry.bullets),
   });
 
