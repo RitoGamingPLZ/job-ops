@@ -1,5 +1,5 @@
 import type { JobSource } from "@shared/types.js";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { normalizeCompanies } from "./companyFilter";
 import type {
@@ -84,34 +84,117 @@ const parseEmploymentTypes = (value: string | null): EmploymentType[] => {
   return employmentTypeValues.filter((type) => seen.has(type));
 };
 
+// Only list filters belong in storage; navigation and selected jobs stay in the URL.
+const filterStorageKey = "job-ops:jobs-list-filters:v1";
+const filterParamNames = [
+  "source",
+  "company",
+  "sponsor",
+  "salaryMode",
+  "salaryMin",
+  "salaryMax",
+  "minSalary",
+  "scoreMode",
+  "scoreMin",
+  "scoreMax",
+  "postedWithin",
+  "employment",
+  "location",
+  "sort",
+  "date",
+  "appliedStart",
+  "appliedEnd",
+  "appliedRange",
+];
+
+const selectFilterParams = (params: URLSearchParams): URLSearchParams => {
+  const filters = new URLSearchParams();
+  for (const name of filterParamNames) {
+    for (const value of params.getAll(name)) filters.append(name, value);
+  }
+  return filters;
+};
+
 export const useOrchestratorFilters = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const lastObservedQuery = useRef<string | null>(null);
+  const pendingClearQuery = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!searchParams.has("q")) return;
-    setSearchParams(
-      (prev) => {
-        prev.delete("q");
-        return prev;
-      },
-      { replace: true },
-    );
+    const query = searchParams.toString();
+    // A child effect can clear filters before this effect observes the old URL.
+    // Wait for that navigation before saving or restoring anything.
+    if (pendingClearQuery.current !== null) {
+      if (query === pendingClearQuery.current) {
+        pendingClearQuery.current = null;
+        lastObservedQuery.current = query;
+      }
+      return;
+    }
+    // Avoid repeated restores in StrictMode and after explicit filter clearing.
+    if (lastObservedQuery.current === query) return;
+    lastObservedQuery.current = query;
+
+    const nextParams = new URLSearchParams(searchParams);
+    // Search is no longer a URL filter; retain the existing legacy cleanup.
+    nextParams.delete("q");
+    let filters = selectFilterParams(nextParams);
+    try {
+      if (filters.size === 0) {
+        filters = selectFilterParams(
+          new URLSearchParams(localStorage.getItem(filterStorageKey) ?? ""),
+        );
+        for (const [name, value] of filters) nextParams.append(name, value);
+      }
+      if (filters.size > 0) {
+        localStorage.setItem(filterStorageKey, filters.toString());
+      }
+    } catch {
+      // Browser privacy settings and storage quotas must not break filtering.
+    }
+
+    if (nextParams.toString() !== query) {
+      setSearchParams(nextParams, { replace: true });
+    }
   }, [searchParams, setSearchParams]);
 
-  const sourceFilter =
-    (searchParams.get("source") as JobSource | "all") || "all";
-  const setSourceFilter = useCallback(
-    (source: JobSource | "all") => {
+  const updateFilterParams = useCallback(
+    (update: (prev: URLSearchParams) => URLSearchParams) => {
       setSearchParams(
         (prev) => {
-          if (source !== "all") prev.set("source", source);
-          else prev.delete("source");
-          return prev;
+          const next = update(new URLSearchParams(prev));
+          if (selectFilterParams(next).size === 0) {
+            // An explicit clear must not restore the previous saved selection,
+            // including when the browser refuses to remove it from storage.
+            if (next.toString() !== prev.toString()) {
+              pendingClearQuery.current = next.toString();
+            }
+            lastObservedQuery.current = next.toString();
+            try {
+              localStorage.removeItem(filterStorageKey);
+            } catch {
+              // Clearing still works when browser storage is unavailable.
+            }
+          }
+          return next;
         },
         { replace: true },
       );
     },
     [setSearchParams],
+  );
+
+  const sourceFilter =
+    (searchParams.get("source") as JobSource | "all") || "all";
+  const setSourceFilter = useCallback(
+    (source: JobSource | "all") => {
+      updateFilterParams((prev) => {
+        if (source !== "all") prev.set("source", source);
+        else prev.delete("source");
+        return prev;
+      });
+    },
+    [updateFilterParams],
   );
 
   const companyFilter = useMemo(
@@ -120,18 +203,15 @@ export const useOrchestratorFilters = () => {
   );
   const setCompanyFilter = useCallback(
     (values: string[]) => {
-      setSearchParams(
-        (prev) => {
-          prev.delete("company");
-          for (const value of normalizeCompanies(values)) {
-            prev.append("company", value);
-          }
-          return prev;
-        },
-        { replace: true },
-      );
+      updateFilterParams((prev) => {
+        prev.delete("company");
+        for (const value of normalizeCompanies(values)) {
+          prev.append("company", value);
+        }
+        return prev;
+      });
     },
-    [setSearchParams],
+    [updateFilterParams],
   );
 
   const sponsorFilter = useMemo((): SponsorFilter => {
@@ -143,16 +223,13 @@ export const useOrchestratorFilters = () => {
 
   const setSponsorFilter = useCallback(
     (value: SponsorFilter) => {
-      setSearchParams(
-        (prev) => {
-          if (value === "all") prev.delete("sponsor");
-          else prev.set("sponsor", value);
-          return prev;
-        },
-        { replace: true },
-      );
+      updateFilterParams((prev) => {
+        if (value === "all") prev.delete("sponsor");
+        else prev.set("sponsor", value);
+        return prev;
+      });
     },
-    [setSearchParams],
+    [updateFilterParams],
   );
 
   const salaryFilter = useMemo((): SalaryFilter => {
@@ -175,24 +252,21 @@ export const useOrchestratorFilters = () => {
 
   const setSalaryFilter = useCallback(
     (value: SalaryFilter) => {
-      setSearchParams(
-        (prev) => {
-          if (value.mode === "at_least") prev.delete("salaryMode");
-          else prev.set("salaryMode", value.mode);
+      updateFilterParams((prev) => {
+        if (value.mode === "at_least") prev.delete("salaryMode");
+        else prev.set("salaryMode", value.mode);
 
-          if (value.min == null || value.min <= 0) prev.delete("salaryMin");
-          else prev.set("salaryMin", String(value.min));
+        if (value.min == null || value.min <= 0) prev.delete("salaryMin");
+        else prev.set("salaryMin", String(value.min));
 
-          if (value.max == null || value.max <= 0) prev.delete("salaryMax");
-          else prev.set("salaryMax", String(value.max));
+        if (value.max == null || value.max <= 0) prev.delete("salaryMax");
+        else prev.set("salaryMax", String(value.max));
 
-          prev.delete("minSalary");
-          return prev;
-        },
-        { replace: true },
-      );
+        prev.delete("minSalary");
+        return prev;
+      });
     },
-    [setSearchParams],
+    [updateFilterParams],
   );
 
   const scoreFilter = useMemo((): ScoreFilter => {
@@ -214,23 +288,20 @@ export const useOrchestratorFilters = () => {
 
   const setScoreFilter = useCallback(
     (value: ScoreFilter) => {
-      setSearchParams(
-        (prev) => {
-          if (value.mode === "any") prev.delete("scoreMode");
-          else prev.set("scoreMode", value.mode);
+      updateFilterParams((prev) => {
+        if (value.mode === "any") prev.delete("scoreMode");
+        else prev.set("scoreMode", value.mode);
 
-          if (value.min == null) prev.delete("scoreMin");
-          else prev.set("scoreMin", String(clampScoreValue(value.min)));
+        if (value.min == null) prev.delete("scoreMin");
+        else prev.set("scoreMin", String(clampScoreValue(value.min)));
 
-          if (value.max == null) prev.delete("scoreMax");
-          else prev.set("scoreMax", String(clampScoreValue(value.max)));
+        if (value.max == null) prev.delete("scoreMax");
+        else prev.set("scoreMax", String(clampScoreValue(value.max)));
 
-          return prev;
-        },
-        { replace: true },
-      );
+        return prev;
+      });
     },
-    [setSearchParams],
+    [updateFilterParams],
   );
 
   const postedWithinDays = useMemo((): number | null => {
@@ -242,16 +313,13 @@ export const useOrchestratorFilters = () => {
 
   const setPostedWithinDays = useCallback(
     (value: number | null) => {
-      setSearchParams(
-        (prev) => {
-          if (value == null) prev.delete("postedWithin");
-          else prev.set("postedWithin", String(value));
-          return prev;
-        },
-        { replace: true },
-      );
+      updateFilterParams((prev) => {
+        if (value == null) prev.delete("postedWithin");
+        else prev.set("postedWithin", String(value));
+        return prev;
+      });
     },
-    [setSearchParams],
+    [updateFilterParams],
   );
 
   const employmentTypes = useMemo(
@@ -265,33 +333,27 @@ export const useOrchestratorFilters = () => {
       const normalized = employmentTypeValues.filter((type) =>
         values.includes(type),
       );
-      setSearchParams(
-        (prev) => {
-          if (normalized.length === 0) prev.delete("employment");
-          else prev.set("employment", normalized.join(","));
-          return prev;
-        },
-        { replace: true },
-      );
+      updateFilterParams((prev) => {
+        if (normalized.length === 0) prev.delete("employment");
+        else prev.set("employment", normalized.join(","));
+        return prev;
+      });
     },
-    [setSearchParams],
+    [updateFilterParams],
   );
 
   const location = searchParams.get("location") ?? "";
   const setLocation = useCallback(
     (value: string) => {
-      setSearchParams(
-        (prev) => {
-          // Keep the raw value (incl. spaces) so multi-word locations like
-          // "new york" remain typeable; only drop the param when it is blank.
-          if (!value.trim()) prev.delete("location");
-          else prev.set("location", value);
-          return prev;
-        },
-        { replace: true },
-      );
+      updateFilterParams((prev) => {
+        // Keep the raw value (incl. spaces) so multi-word locations like
+        // "new york" remain typeable; only drop the param when it is blank.
+        if (!value.trim()) prev.delete("location");
+        else prev.set("location", value);
+        return prev;
+      });
     },
-    [setSearchParams],
+    [updateFilterParams],
   );
 
   const sort = useMemo((): JobSort => {
@@ -337,70 +399,57 @@ export const useOrchestratorFilters = () => {
 
   const setSort = useCallback(
     (newSort: JobSort) => {
-      setSearchParams(
-        (prev) => {
-          if (
-            newSort.key === DEFAULT_SORT.key &&
-            newSort.direction === DEFAULT_SORT.direction
-          ) {
-            prev.delete("sort");
-          } else {
-            prev.set("sort", `${newSort.key}-${newSort.direction}`);
-          }
-          return prev;
-        },
-        { replace: true },
-      );
+      updateFilterParams((prev) => {
+        if (
+          newSort.key === DEFAULT_SORT.key &&
+          newSort.direction === DEFAULT_SORT.direction
+        ) {
+          prev.delete("sort");
+        } else {
+          prev.set("sort", `${newSort.key}-${newSort.direction}`);
+        }
+        return prev;
+      });
     },
-    [setSearchParams],
+    [updateFilterParams],
   );
 
   const setDateFilter = useCallback(
     (value: JobDateFilter) => {
-      setSearchParams(
-        (prev) => {
-          if (value.dimensions.length === 0) prev.delete("date");
-          else prev.set("date", value.dimensions.join(","));
+      updateFilterParams((prev) => {
+        if (value.dimensions.length === 0) prev.delete("date");
+        else prev.set("date", value.dimensions.join(","));
 
-          if (value.startDate == null) prev.delete("appliedStart");
-          else prev.set("appliedStart", value.startDate);
+        if (value.startDate == null) prev.delete("appliedStart");
+        else prev.set("appliedStart", value.startDate);
 
-          if (value.endDate == null) prev.delete("appliedEnd");
-          else prev.set("appliedEnd", value.endDate);
+        if (value.endDate == null) prev.delete("appliedEnd");
+        else prev.set("appliedEnd", value.endDate);
 
-          if (value.preset == null) prev.delete("appliedRange");
-          else prev.set("appliedRange", value.preset);
+        if (value.preset == null) prev.delete("appliedRange");
+        else prev.set("appliedRange", value.preset);
 
-          return prev;
-        },
-        { replace: true },
-      );
+        return prev;
+      });
     },
-    [setSearchParams],
+    [updateFilterParams],
   );
 
   const resetFilters = useCallback(() => {
+    try {
+      localStorage.removeItem(filterStorageKey);
+    } catch {
+      // Reset still works when browser storage is unavailable.
+    }
     setSearchParams(
       (prev) => {
-        prev.delete("source");
-        prev.delete("company");
-        prev.delete("sponsor");
-        prev.delete("salaryMode");
-        prev.delete("salaryMin");
-        prev.delete("salaryMax");
-        prev.delete("minSalary");
-        prev.delete("scoreMode");
-        prev.delete("scoreMin");
-        prev.delete("scoreMax");
-        prev.delete("postedWithin");
-        prev.delete("employment");
-        prev.delete("location");
-        prev.delete("sort");
-        prev.delete("date");
-        prev.delete("appliedStart");
-        prev.delete("appliedEnd");
-        prev.delete("appliedRange");
-        return prev;
+        const next = new URLSearchParams(prev);
+        for (const name of filterParamNames) next.delete(name);
+        if (next.toString() !== prev.toString()) {
+          pendingClearQuery.current = next.toString();
+        }
+        lastObservedQuery.current = next.toString();
+        return next;
       },
       { replace: true },
     );
