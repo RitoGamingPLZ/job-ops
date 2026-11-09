@@ -15,7 +15,7 @@ interface StatusBadgeProps {
 const statusLabels: Record<JobStatus, string> = {
   discovered: "Discovered",
   processing: "Processing",
-  ready: "Ready",
+  ready: "Targeted",
   applied: "Applied",
   in_progress: "In Progress",
   skipped: "Skipped",

@@ -63,7 +63,7 @@ const FUNNEL_STAGES = [
   { key: "screening", label: "Screening", color: "#8b5cf6" },
   { key: "interview", label: "Interview", color: "#f59e0b" },
   { key: "offer", label: "Offer", color: "#10b981" },
-  { key: "rejected", label: "Rejected", color: "#ef4444" },
+  { key: "rejected", label: "Reject", color: "#ef4444" },
 ] as const;
 
 // Stages that count as "screening"
@@ -73,6 +73,7 @@ const SCREENING_STAGES = new Set(["recruiter_screen", "assessment"]);
 const INTERVIEW_STAGES = new Set([
   "hiring_manager_screen",
   "technical_interview",
+  "behavioural",
   "onsite",
 ]);
 
@@ -82,6 +83,7 @@ const CONVERSION_STAGES = new Set([
   "assessment",
   "hiring_manager_screen",
   "technical_interview",
+  "behavioural",
   "onsite",
   "offer",
 ]);
@@ -151,7 +153,7 @@ const buildFunnelData = (jobsWithEvents: JobWithEvents[]): FunnelStage[] => {
     { name: "Screening", value: screening, fill: FUNNEL_STAGES[1].color },
     { name: "Interview", value: interview, fill: FUNNEL_STAGES[2].color },
     { name: "Offer", value: offer, fill: FUNNEL_STAGES[3].color },
-    { name: "Rejected", value: rejected, fill: FUNNEL_STAGES[4].color },
+    { name: "Reject", value: rejected, fill: FUNNEL_STAGES[4].color },
   ];
 };
 
@@ -317,7 +319,7 @@ export function ConversionAnalytics({
             {/* Funnel Chart */}
             <div>
               <h4 className="mb-3 text-sm font-medium text-muted-foreground">
-                Funnel: Applied → Screening → Interview → Offer → Rejected
+                Funnel: Applied → Screening → Interview → Offer → Reject
               </h4>
               <ChartContainer
                 config={chartConfig}

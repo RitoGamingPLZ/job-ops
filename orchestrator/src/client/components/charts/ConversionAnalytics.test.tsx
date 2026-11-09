@@ -55,8 +55,17 @@ vi.mock("recharts", () => ({
   Bar: () => <div data-testid="bar">Bar</div>,
   Cell: () => <div data-testid="cell">Cell</div>,
   LabelList: () => <div data-testid="label-list">LabelList</div>,
-  LineChart: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="line-chart">{children}</div>
+  LineChart: ({
+    children,
+    data,
+  }: {
+    children: React.ReactNode;
+    data?: unknown;
+  }) => (
+    <div data-testid="line-chart">
+      {children}
+      <div data-testid="line-chart-data">{JSON.stringify(data)}</div>
+    </div>
   ),
   Line: () => <div data-testid="line">Line</div>,
   CartesianGrid: () => <div data-testid="cartesian-grid">Grid</div>,
@@ -254,6 +263,41 @@ describe("ConversionAnalytics - Edge Cases", () => {
     });
   });
 
+  it("counts behavioural events once per application in interview and conversion metrics", () => {
+    render(
+      <ConversionAnalytics
+        jobsWithEvents={[
+          createJob("job-1", mockDate.toISOString(), [
+            createEvent("behavioural", 1704844800000),
+            createEvent("behavioural", 1704931200000),
+          ]),
+          createJob("job-2", mockDate.toISOString(), []),
+        ]}
+        error={null}
+        daysToShow={7}
+      />,
+    );
+
+    expect(screen.getByText("50.0%")).toBeInTheDocument();
+    expect(screen.getByText(/1 of 2 applications/)).toBeInTheDocument();
+    const funnel = JSON.parse(
+      screen.getByTestId("bar-chart-data").textContent ?? "[]",
+    );
+    expect(funnel).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "Interview", value: 1 }),
+      ]),
+    );
+    const timeSeries = JSON.parse(
+      screen.getByTestId("line-chart-data").textContent ?? "[]",
+    );
+    expect(timeSeries.at(-1)).toMatchObject({
+      appliedCount: 2,
+      convertedCount: 1,
+      conversionRate: 50,
+    });
+  });
+
   describe("Funnel Data Edge Cases", () => {
     it("shows all zeros in funnel when no jobs are applied", () => {
       const jobs = [createJob("job-1", null, []), createJob("job-2", null, [])];
@@ -380,7 +424,7 @@ describe("ConversionAnalytics - Edge Cases", () => {
 
       expect(
         screen.getByText(
-          "Funnel: Applied → Screening → Interview → Offer → Rejected",
+          "Funnel: Applied → Screening → Interview → Offer → Reject",
         ),
       ).toBeInTheDocument();
 
@@ -392,11 +436,11 @@ describe("ConversionAnalytics - Edge Cases", () => {
         value: number;
       }>;
       const rejectedDataPoint = chartData.find(
-        (point) => point.name === "Rejected",
+        (point) => point.name === "Reject",
       );
 
       expect(rejectedDataPoint).toEqual(
-        expect.objectContaining({ name: "Rejected", value: 2 }),
+        expect.objectContaining({ name: "Reject", value: 2 }),
       );
     });
   });
