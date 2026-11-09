@@ -532,6 +532,12 @@ describe.sequential("Hosted current-user isolation", () => {
       },
     );
     expect(scorePatch.status).toBe(200);
+    // Manual imports land Targeted; score cleanup keeps targeted jobs.
+    const untarget = await fetch(
+      `${baseUrl}/api/jobs/${aliceLowScoreJob.id}/target`,
+      { method: "DELETE", headers: authHeaders(aliceToken) },
+    );
+    expect(untarget.status).toBe(200);
 
     const scoreDelete = await fetch(`${baseUrl}/api/jobs/score/50`, {
       method: "DELETE",

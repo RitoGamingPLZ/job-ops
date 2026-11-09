@@ -820,13 +820,18 @@ export async function getUnscoredDiscoveredJobs(
 }
 
 /**
- * Delete jobs by status.
+ * Delete jobs by status. "Clear discovered" keeps targeted jobs; an explicit
+ * delete of any other status (e.g. ready) removes them.
  */
 export async function deleteJobsByStatus(status: JobStatus): Promise<number> {
   const result = await db
     .delete(jobs)
     .where(
-      and(jobsScopeFilter(), eq(jobs.status, status), untargetedJobsFilter()),
+      and(
+        jobsScopeFilter(),
+        eq(jobs.status, status),
+        status === "discovered" ? untargetedJobsFilter() : undefined,
+      ),
     )
     .run();
   return result.changes;

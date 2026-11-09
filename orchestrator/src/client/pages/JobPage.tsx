@@ -591,7 +591,7 @@ export const JobPage: React.FC = () => {
                 }
                 onClick={() =>
                   job.status === "discovered"
-                    ? navigate(`/jobs/discovered/${job.id}`)
+                    ? navigate(`/jobs/all/${job.id}?inspector=tailoring`)
                     : void handleRegeneratePdf()
                 }
               >
@@ -955,10 +955,14 @@ export const JobPage: React.FC = () => {
               pdfRegeneratingReason={pdfRegeneratingReason}
               pdfViewLabel={pdfLabels.view}
               pdfDownloadLabel={pdfLabels.download}
-              onStartTailoring={() => navigate(`/jobs/discovered/${job.id}`)}
+              onStartTailoring={() =>
+                navigate(`/jobs/all/${job.id}?inspector=tailoring`)
+              }
               onMarkApplied={() => void handleMarkApplied()}
               onOpenLogEvent={() => setIsLogModalOpen(true)}
-              onEditTailoring={() => navigate(`/jobs/ready/${job.id}`)}
+              onEditTailoring={() =>
+                navigate(`/jobs/all/${job.id}?inspector=tailoring`)
+              }
               onViewPdf={() => {
                 if (pdfActionsDisabled) return;
                 void openJobPdf(job.id).catch((error) => {

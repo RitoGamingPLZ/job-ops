@@ -770,7 +770,7 @@ it.each([
   );
   await waitFor(() =>
     expect(screen.getByTestId("location-probe")).toHaveTextContent(
-      "/jobs/discovered/job-1",
+      "/jobs/all/job-1",
     ),
   );
   expect(api.processJob).not.toHaveBeenCalled();
@@ -784,7 +784,7 @@ it("opens the editor from a targeted job page's Tailor resume button", async () 
   fireEvent.click(await screen.findByRole("button", { name: "Tailor resume" }));
   await waitFor(() =>
     expect(screen.getByTestId("location-probe")).toHaveTextContent(
-      "/jobs/discovered/job-1",
+      "/jobs/all/job-1",
     ),
   );
   expect(api.processJob).not.toHaveBeenCalled();

@@ -126,9 +126,26 @@ describe.sequential("Jobs API routes", () => {
   });
 
   it.each([
-    "discovered",
     "processing",
     "ready",
+  ] as const)("explicit %s status cleanup deletes targeted jobs too", async (status) => {
+    const { createJob, updateJob } = await import("@server/repositories/jobs");
+    const job = await createJob({
+      source: "manual",
+      title: "Targeted",
+      employer: "Acme",
+      jobUrl: `https://example.com/cleanup/explicit-${status}`,
+    });
+    await updateJob(job.id, { status, readyAt: "2026-11-08T00:00:00Z" });
+
+    const res = await fetch(`${baseUrl}/api/jobs/status/${status}`, {
+      method: "DELETE",
+    });
+    expect((await res.json()).data.count).toBe(1);
+  });
+
+  it.each([
+    "discovered",
   ] as const)("preserves targeted %s jobs during bulk status cleanup", async (status) => {
     const { createJob, updateJob, getJobById } = await import(
       "@server/repositories/jobs"
