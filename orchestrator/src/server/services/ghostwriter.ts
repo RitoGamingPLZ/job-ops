@@ -7,6 +7,7 @@ import {
 } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { getRequestId } from "@infra/request-context";
+import { listExperienceBullets } from "@server/repositories/experience-bullets";
 import {
   GHOSTWRITER_DOCUMENT_CONTEXT_MAX_SELECTED,
   normalizeGhostwriterSelectedDocumentIds,
@@ -21,6 +22,7 @@ import {
 } from "@shared/ghostwriter-note-context.js";
 import type {
   BranchInfo,
+  CoworkChatContext,
   JobChatImageAttachment,
   JobChatMessage,
   JobChatRun,
@@ -28,6 +30,11 @@ import type {
 import * as jobChatRepo from "../repositories/ghostwriter";
 import * as jobDocumentsRepo from "../repositories/job-documents";
 import * as jobsRepo from "../repositories/jobs";
+import {
+  buildCoworkPrompt,
+  COWORK_RESPONSE_SCHEMA,
+  filterCoworkSuggestions,
+} from "./cowork-ai";
 import {
   buildJobChatPromptContext,
   canUseJobDocumentForGhostwriterContext,
@@ -137,6 +144,7 @@ async function buildConversationMessages(
 }
 
 type GenerateReplyOptions = {
+  cowork?: CoworkChatContext;
   jobId: string;
   threadId: string;
   prompt: string;
@@ -775,12 +783,25 @@ async function runAssistantReply(
       allowCliProviders: llmConfig.allowCliProviders,
     });
 
-    const llmResult = await llm.callJson<{ response: string }>({
+    const library = options.cowork ? await listExperienceBullets() : [];
+    const coworkJob = options.cowork
+      ? await jobsRepo.getJobById(options.jobId)
+      : null;
+    const llmResult = await llm.callJson<{
+      response: string;
+      suggestions?: unknown;
+    }>({
       model: llmConfig.model,
       messages: [
         {
           role: "system",
-          content: context.systemPrompt,
+          content: options.cowork
+            ? buildCoworkPrompt(
+                options.cowork,
+                coworkJob?.jobDescription ?? "",
+                library,
+              )
+            : context.systemPrompt,
         },
         {
           role: "system",
@@ -788,7 +809,9 @@ async function runAssistantReply(
         },
         {
           role: "system",
-          content: `Profile Context:\n${context.profileSnapshot || "No profile context available."}`,
+          content: options.cowork
+            ? "Use the supplied resume document as the resume context."
+            : `Profile Context:\n${context.profileSnapshot || "No profile context available."}`,
         },
         ...(context.selectedNotesSnapshot
           ? [
@@ -820,7 +843,9 @@ async function runAssistantReply(
           content: buildUserPromptContent(options.prompt, options.attachments),
         },
       ],
-      jsonSchema: CHAT_RESPONSE_SCHEMA,
+      jsonSchema: options.cowork
+        ? COWORK_RESPONSE_SCHEMA
+        : CHAT_RESPONSE_SCHEMA,
       maxRetries: 1,
       retryDelayMs: 300,
       jobId: options.jobId,
@@ -883,6 +908,13 @@ async function runAssistantReply(
       {
         content: accumulated,
         status: "complete",
+        suggestions: options.cowork
+          ? filterCoworkSuggestions(
+              llmResult.data.suggestions,
+              options.cowork,
+              library,
+            )
+          : null,
         tokensIn: estimateTokenCount(options.prompt),
         tokensOut: estimateTokenCount(accumulated),
       },
@@ -972,6 +1004,7 @@ export async function sendMessage(input: {
   selectedNoteIds?: readonly string[];
   selectedEmailIds?: readonly string[];
   selectedDocumentIds?: readonly string[];
+  cowork?: CoworkChatContext;
   stream?: GenerateReplyOptions["stream"];
 }) {
   const content = input.content.trim();
@@ -1036,6 +1069,7 @@ export async function sendMessage(input: {
       llmConfig,
       usageReservation,
       parentMessageId: userMessage.id,
+      cowork: input.cowork,
       stream: input.stream,
     });
 
@@ -1061,6 +1095,7 @@ export async function sendMessageForJob(input: {
   selectedNoteIds?: readonly string[];
   selectedEmailIds?: readonly string[];
   selectedDocumentIds?: readonly string[];
+  cowork?: CoworkChatContext;
   stream?: GenerateReplyOptions["stream"];
 }) {
   const thread = await ensureJobThread(input.jobId);
@@ -1072,6 +1107,7 @@ export async function sendMessageForJob(input: {
     selectedNoteIds: input.selectedNoteIds,
     selectedEmailIds: input.selectedEmailIds,
     selectedDocumentIds: input.selectedDocumentIds,
+    cowork: input.cowork,
     stream: input.stream,
   });
 }
@@ -1083,6 +1119,7 @@ export async function regenerateMessage(input: {
   selectedNoteIds?: readonly string[];
   selectedEmailIds?: readonly string[];
   selectedDocumentIds?: readonly string[];
+  cowork?: CoworkChatContext;
   stream?: GenerateReplyOptions["stream"];
 }) {
   const thread = await jobChatRepo.getThreadForJob(input.jobId, input.threadId);
@@ -1160,6 +1197,7 @@ export async function regenerateMessage(input: {
       version: (target.version || 1) + 1,
       parentMessageId: parentUserMessage.id,
       usageReservation,
+      cowork: input.cowork,
       stream: input.stream,
     });
 
@@ -1184,6 +1222,7 @@ export async function regenerateMessageForJob(input: {
   selectedNoteIds?: readonly string[];
   selectedEmailIds?: readonly string[];
   selectedDocumentIds?: readonly string[];
+  cowork?: CoworkChatContext;
   stream?: GenerateReplyOptions["stream"];
 }) {
   const thread = await ensureJobThread(input.jobId);
@@ -1194,6 +1233,7 @@ export async function regenerateMessageForJob(input: {
     selectedNoteIds: input.selectedNoteIds,
     selectedEmailIds: input.selectedEmailIds,
     selectedDocumentIds: input.selectedDocumentIds,
+    cowork: input.cowork,
     stream: input.stream,
   });
 }
@@ -1207,6 +1247,7 @@ export async function editMessage(input: {
   selectedNoteIds?: readonly string[];
   selectedEmailIds?: readonly string[];
   selectedDocumentIds?: readonly string[];
+  cowork?: CoworkChatContext;
   stream?: GenerateReplyOptions["stream"];
 }) {
   const content = input.content.trim();
@@ -1284,6 +1325,7 @@ export async function editMessage(input: {
       llmConfig,
       usageReservation,
       parentMessageId: newUserMessage.id,
+      cowork: input.cowork,
       stream: input.stream,
     });
 
@@ -1310,6 +1352,7 @@ export async function editMessageForJob(input: {
   selectedNoteIds?: readonly string[];
   selectedEmailIds?: readonly string[];
   selectedDocumentIds?: readonly string[];
+  cowork?: CoworkChatContext;
   stream?: GenerateReplyOptions["stream"];
 }) {
   const thread = await ensureJobThread(input.jobId);
@@ -1322,6 +1365,7 @@ export async function editMessageForJob(input: {
     selectedNoteIds: input.selectedNoteIds,
     selectedEmailIds: input.selectedEmailIds,
     selectedDocumentIds: input.selectedDocumentIds,
+    cowork: input.cowork,
     stream: input.stream,
   });
 }

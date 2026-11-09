@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
+import { db, schema } from "@server/db";
 import * as settingsRepo from "@server/repositories/settings";
+import { privateDataScopeFilter } from "@server/tenancy/private-scope";
 import { settingsRegistry } from "@shared/settings-registry";
 import type {
   Job,
@@ -13,7 +15,7 @@ import { getCurrentDesignResumeOrNullOnLegacy } from "./design-resume";
 import { getConfiguredRxResumeBaseResumeId } from "./rxresume/baseResumeId";
 
 const PDF_FINGERPRINT_VERSION = "v1";
-type JobPdfFingerprintInput = Pick<
+type JobPdfFingerprintInput = { id?: string } & Pick<
   Job,
   | "tailoredSummary"
   | "tailoredHeadline"
@@ -29,6 +31,7 @@ type JobPdfFreshnessInput = JobPdfFingerprintInput &
 
 export interface PdfFingerprintContext {
   version: typeof PDF_FINGERPRINT_VERSION;
+  jobResumeHashes?: Record<string, string>;
   designResumeDocumentId: string | null;
   designResumeRevision: number | null;
   designResumeUpdatedAt: string | null;
@@ -64,6 +67,22 @@ export async function resolvePdfFingerprintContext(): Promise<PdfFingerprintCont
   );
 
   return {
+    jobResumeHashes: Object.fromEntries(
+      db
+        .select({
+          jobId: schema.jobResumes.jobId,
+          document: schema.jobResumes.document,
+        })
+        .from(schema.jobResumes)
+        .where(privateDataScopeFilter(schema.jobResumes))
+        .all()
+        .map((row) => [
+          row.jobId,
+          createHash("sha256")
+            .update(JSON.stringify(row.document))
+            .digest("hex"),
+        ]),
+    ),
     version: PDF_FINGERPRINT_VERSION,
     designResumeDocumentId: designResume?.id ?? null,
     designResumeRevision: designResume?.revision ?? null,
@@ -86,6 +105,9 @@ export function createJobPdfFingerprint(
 ): string {
   const payload = {
     version: context.version,
+    ...(job.id && context.jobResumeHashes?.[job.id]
+      ? { jobResumeHash: context.jobResumeHashes[job.id] }
+      : {}),
     renderer: context.pdfRenderer,
     ...(context.pdfRenderer === "typst"
       ? { typstTheme: context.typstTheme }

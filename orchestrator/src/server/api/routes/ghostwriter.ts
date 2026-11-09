@@ -2,6 +2,7 @@ import { asyncRoute, fail, ok } from "@infra/http";
 import { runWithRequestContext } from "@infra/request-context";
 import { setupSse, writeSseData } from "@infra/sse";
 import { badRequest, toAppError } from "@server/infra/errors";
+import { coworkChatContextSchema } from "@server/services/cowork-ai";
 import * as ghostwriterService from "@server/services/ghostwriter";
 import { type Request, Router } from "express";
 import { z } from "zod";
@@ -71,18 +72,21 @@ const imageAttachmentsSchema = z
 const sendMessageSchema = z.object({
   content: z.string().trim().min(1).max(20000),
   ...selectedContextSchema,
+  cowork: coworkChatContextSchema.optional(),
   attachments: imageAttachmentsSchema.optional(),
   stream: z.boolean().optional(),
 });
 
 const regenerateSchema = z.object({
   ...selectedContextSchema,
+  cowork: coworkChatContextSchema.optional(),
   stream: z.boolean().optional(),
 });
 
 const editMessageSchema = z.object({
   content: z.string().trim().min(1).max(20000),
   ...selectedContextSchema,
+  cowork: coworkChatContextSchema.optional(),
   attachments: imageAttachmentsSchema.optional(),
   stream: z.boolean().optional(),
 });
@@ -176,6 +180,7 @@ ghostwriterRouter.post(
             selectedNoteIds: parsed.data.selectedNoteIds,
             selectedEmailIds: parsed.data.selectedEmailIds,
             selectedDocumentIds: parsed.data.selectedDocumentIds,
+            cowork: parsed.data.cowork,
             stream: {
               onReady: ({ runId, threadId, messageId, requestId }) =>
                 writeSseData(res, {
@@ -236,6 +241,7 @@ ghostwriterRouter.post(
         selectedNoteIds: parsed.data.selectedNoteIds,
         selectedEmailIds: parsed.data.selectedEmailIds,
         selectedDocumentIds: parsed.data.selectedDocumentIds,
+        cowork: parsed.data.cowork,
       });
 
       ok(res, {
@@ -298,6 +304,7 @@ ghostwriterRouter.post(
             selectedNoteIds: parsed.data.selectedNoteIds,
             selectedEmailIds: parsed.data.selectedEmailIds,
             selectedDocumentIds: parsed.data.selectedDocumentIds,
+            cowork: parsed.data.cowork,
             stream: {
               onReady: ({ runId, threadId, messageId, requestId }) =>
                 writeSseData(res, {
@@ -357,6 +364,7 @@ ghostwriterRouter.post(
         selectedNoteIds: parsed.data.selectedNoteIds,
         selectedEmailIds: parsed.data.selectedEmailIds,
         selectedDocumentIds: parsed.data.selectedDocumentIds,
+        cowork: parsed.data.cowork,
       });
 
       ok(res, result);
@@ -365,7 +373,7 @@ ghostwriterRouter.post(
 );
 
 ghostwriterRouter.post(
-  "/messages/:messageId/edit",
+  ["/messages/:messageId/edit", "/threads/:threadId/messages/:messageId/edit"],
   asyncRoute(async (req, res) => {
     const jobId = getJobId(req);
     const messageId = req.params.messageId;
@@ -381,6 +389,15 @@ ghostwriterRouter.post(
       );
     }
 
+    const edit = (
+      input: Parameters<typeof ghostwriterService.editMessageForJob>[0],
+    ) =>
+      req.params.threadId
+        ? ghostwriterService.editMessage({
+            ...input,
+            threadId: req.params.threadId,
+          })
+        : ghostwriterService.editMessageForJob(input);
     await runWithRequestContext({ jobId }, async () => {
       if (parsed.data.stream) {
         setupSse(res, {
@@ -389,7 +406,7 @@ ghostwriterRouter.post(
         });
 
         try {
-          await ghostwriterService.editMessageForJob({
+          await edit({
             jobId,
             messageId,
             content: parsed.data.content,
@@ -397,6 +414,7 @@ ghostwriterRouter.post(
             selectedNoteIds: parsed.data.selectedNoteIds,
             selectedEmailIds: parsed.data.selectedEmailIds,
             selectedDocumentIds: parsed.data.selectedDocumentIds,
+            cowork: parsed.data.cowork,
             stream: {
               onReady: ({ runId, threadId, messageId, requestId }) =>
                 writeSseData(res, {
@@ -450,7 +468,7 @@ ghostwriterRouter.post(
         return;
       }
 
-      const result = await ghostwriterService.editMessageForJob({
+      const result = await edit({
         jobId,
         messageId,
         content: parsed.data.content,
@@ -458,6 +476,7 @@ ghostwriterRouter.post(
         selectedNoteIds: parsed.data.selectedNoteIds,
         selectedEmailIds: parsed.data.selectedEmailIds,
         selectedDocumentIds: parsed.data.selectedDocumentIds,
+        cowork: parsed.data.cowork,
       });
 
       ok(res, {
@@ -600,6 +619,7 @@ ghostwriterRouter.post(
             selectedNoteIds: parsed.data.selectedNoteIds,
             selectedEmailIds: parsed.data.selectedEmailIds,
             selectedDocumentIds: parsed.data.selectedDocumentIds,
+            cowork: parsed.data.cowork,
             stream: {
               onReady: ({ runId, messageId, requestId }) =>
                 writeSseData(res, {
@@ -661,6 +681,7 @@ ghostwriterRouter.post(
         selectedNoteIds: parsed.data.selectedNoteIds,
         selectedEmailIds: parsed.data.selectedEmailIds,
         selectedDocumentIds: parsed.data.selectedDocumentIds,
+        cowork: parsed.data.cowork,
       });
 
       ok(res, {
@@ -729,6 +750,7 @@ ghostwriterRouter.post(
             selectedNoteIds: parsed.data.selectedNoteIds,
             selectedEmailIds: parsed.data.selectedEmailIds,
             selectedDocumentIds: parsed.data.selectedDocumentIds,
+            cowork: parsed.data.cowork,
             stream: {
               onReady: ({ runId, messageId, requestId }) =>
                 writeSseData(res, {
@@ -789,6 +811,7 @@ ghostwriterRouter.post(
         selectedNoteIds: parsed.data.selectedNoteIds,
         selectedEmailIds: parsed.data.selectedEmailIds,
         selectedDocumentIds: parsed.data.selectedDocumentIds,
+        cowork: parsed.data.cowork,
       });
 
       ok(res, result);

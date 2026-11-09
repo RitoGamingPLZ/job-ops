@@ -20,6 +20,35 @@ const context: PdfFingerprintContext = {
 };
 
 describe("PDF freshness", () => {
+  it("marks co-work document changes and reset stale, isolated by job", () => {
+    const job = createJob({
+      id: "own",
+      pdfPath: "generated.pdf",
+      pdfSource: "generated",
+    });
+    const original = {
+      ...context,
+      jobResumeHashes: { own: "doc-a", other: "other-a" },
+    };
+    const saved = {
+      ...job,
+      pdfFingerprint: createJobPdfFingerprint(job, original),
+    };
+    expect(getJobPdfFreshness(saved, original)).toBe("current");
+    expect(
+      getJobPdfFreshness(saved, {
+        ...context,
+        jobResumeHashes: { own: "doc-b" },
+      }),
+    ).toBe("stale");
+    expect(getJobPdfFreshness(saved, context)).toBe("stale");
+    expect(
+      getJobPdfFreshness(saved, {
+        ...context,
+        jobResumeHashes: { own: "doc-a", other: "other-b" },
+      }),
+    ).toBe("current");
+  });
   it("maps missing PDFs to missing", () => {
     expect(getJobPdfFreshness(createJob(), context)).toBe("missing");
   });

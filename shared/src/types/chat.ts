@@ -1,3 +1,4 @@
+import type { ResumeSuggestion } from "./cowork";
 export const JOB_CHAT_MESSAGE_ROLES = [
   "system",
   "user",
@@ -49,6 +50,7 @@ export interface JobChatMessage {
   parentMessageId: string | null;
   activeChildId: string | null;
   attachments: JobChatImageAttachment[];
+  suggestions: ResumeSuggestion[] | null;
   createdAt: string;
   updatedAt: string;
 }
