@@ -38,6 +38,7 @@ const STAGE_TO_STATUS: Record<ApplicationStage, JobStatus> = {
   assessment: "in_progress",
   hiring_manager_screen: "in_progress",
   technical_interview: "in_progress",
+  behavioural: "in_progress",
   onsite: "in_progress",
   offer: "in_progress",
   closed: "in_progress",
@@ -48,6 +49,7 @@ const POSITIVE_RESPONSE_STAGES = new Set<ApplicationStage>([
   "assessment",
   "hiring_manager_screen",
   "technical_interview",
+  "behavioural",
   "onsite",
   "offer",
 ]);
@@ -55,6 +57,7 @@ const POSITIVE_RESPONSE_STAGES = new Set<ApplicationStage>([
 const INTERVIEW_STAGES = new Set<ApplicationStage>([
   "hiring_manager_screen",
   "technical_interview",
+  "behavioural",
   "onsite",
 ]);
 

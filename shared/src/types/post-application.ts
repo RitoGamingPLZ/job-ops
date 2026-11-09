@@ -53,6 +53,7 @@ export const POST_APPLICATION_ROUTER_STAGE_TARGETS = [
   "assessment",
   "hiring_manager_screen",
   "technical_interview",
+  "behavioural",
   "onsite",
   "offer",
   "rejected",

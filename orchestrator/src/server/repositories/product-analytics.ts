@@ -43,6 +43,7 @@ const POSITIVE_RESPONSE_STAGES = [
   "assessment",
   "hiring_manager_screen",
   "technical_interview",
+  "behavioural",
   "onsite",
   "offer",
 ] as const;
@@ -50,6 +51,7 @@ const POSITIVE_RESPONSE_STAGES = [
 const INTERVIEW_STAGES = [
   "hiring_manager_screen",
   "technical_interview",
+  "behavioural",
   "onsite",
 ] as const;
 

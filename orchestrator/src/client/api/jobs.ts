@@ -97,6 +97,18 @@ export async function updateJob(
   });
 }
 
+export async function targetJob(id: string): Promise<Job> {
+  return fetchApi<Job>(`/jobs/${encodeURIComponent(id)}/target`, {
+    method: "POST",
+  });
+}
+
+export async function untargetJob(id: string): Promise<Job> {
+  return fetchApi<Job>(`/jobs/${encodeURIComponent(id)}/target`, {
+    method: "DELETE",
+  });
+}
+
 export async function deleteJob(id: string): Promise<void> {
   await fetchApi<void>(`/jobs/${encodeURIComponent(id)}`, {
     method: "DELETE",

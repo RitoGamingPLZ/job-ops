@@ -294,7 +294,7 @@ export const jobs = sqliteTable(
       .notNull()
       .default(sql`(datetime('now'))`),
     processedAt: text("processed_at"),
-    readyAt: text("ready_at"),
+    readyAt: text("ready_at"), // Also records when the job was targeted.
     appliedAt: text("applied_at"),
     createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
     updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),

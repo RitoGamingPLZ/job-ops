@@ -32,6 +32,8 @@ import {
   lt,
   ne,
   notExists,
+  notInArray,
+  or,
   sql,
 } from "drizzle-orm";
 import { db, schema } from "../db/index";
@@ -44,6 +46,13 @@ const { jobNotes, jobs } = schema;
 
 function jobsScopeFilter() {
   return privateDataScopeFilter(jobs);
+}
+
+function untargetedJobsFilter() {
+  return or(
+    isNull(jobs.readyAt),
+    notInArray(jobs.status, ["discovered", "processing", "ready"]),
+  );
 }
 
 function jobNotesScopeFilter() {
@@ -816,9 +825,39 @@ export async function getUnscoredDiscoveredJobs(
 export async function deleteJobsByStatus(status: JobStatus): Promise<number> {
   const result = await db
     .delete(jobs)
-    .where(and(jobsScopeFilter(), eq(jobs.status, status)))
+    .where(
+      and(jobsScopeFilter(), eq(jobs.status, status), untargetedJobsFilter()),
+    )
     .run();
   return result.changes;
+}
+
+/** Set targeting without changing pipeline status; guard the write atomically. */
+export async function setJobTargeted(
+  id: string,
+  targeted: boolean,
+): Promise<Job | null> {
+  const now = new Date().toISOString();
+  const rows = await db
+    .update(jobs)
+    .set({
+      readyAt: targeted ? sql`coalesce(${jobs.readyAt}, ${now})` : null,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        jobsScopeFilter(),
+        eq(jobs.id, id),
+        inArray(
+          jobs.status,
+          targeted
+            ? ["discovered", "processing", "ready"]
+            : ["discovered", "ready"],
+        ),
+      ),
+    )
+    .returning();
+  return rows[0] ? mapRowToJob(rows[0]) : null;
 }
 
 export async function deleteJob(
@@ -852,7 +891,7 @@ export async function deleteJob(
 }
 
 /**
- * Delete jobs with suitability score below threshold (excluding applied and in_progress jobs).
+ * Delete jobs below the score threshold, preserving targeted, applied and in_progress jobs.
  */
 export async function deleteJobsBelowScore(threshold: number): Promise<number> {
   const result = await db
@@ -861,6 +900,7 @@ export async function deleteJobsBelowScore(threshold: number): Promise<number> {
       and(
         lt(jobs.suitabilityScore, threshold),
         jobsScopeFilter(),
+        untargetedJobsFilter(),
         ne(jobs.status, "applied"),
         ne(jobs.status, "in_progress"),
       ),

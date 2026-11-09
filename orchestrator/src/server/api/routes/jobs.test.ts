@@ -19,6 +19,234 @@ describe.sequential("Jobs API routes", () => {
     await stopServer({ server, closeDb, tempDir });
   });
 
+  it.each([
+    "discovered",
+    "processing",
+    "ready",
+    "applied",
+    "in_progress",
+    "skipped",
+    "expired",
+  ] as const)("guards target and untarget for %s", async (status) => {
+    const { createJob, updateJob, getJobById } = await import(
+      "@server/repositories/jobs"
+    );
+    const job = await createJob({
+      source: "manual",
+      title: "Target",
+      employer: "Acme",
+      jobUrl: `https://example.com/target/${status}`,
+    });
+    await updateJob(job.id, { status, readyAt: null });
+    const eligible = ["discovered", "processing", "ready"].includes(status);
+    const res = await fetch(`${baseUrl}/api/jobs/${job.id}/target`, {
+      method: "POST",
+      headers: { "x-request-id": "target-request" },
+    });
+    const body = await res.json();
+    expect(res.status).toBe(eligible ? 200 : 400);
+    expect(body.meta.requestId).toBe("target-request");
+    expect(res.headers.get("x-request-id")).toBe("target-request");
+    if (eligible) {
+      expect(body.data.status).toBe(status);
+      expect(body.data.readyAt).toBeTruthy();
+      const again = await fetch(`${baseUrl}/api/jobs/${job.id}/target`, {
+        method: "POST",
+      });
+      expect((await again.json()).data.readyAt).toBe(body.data.readyAt);
+    } else expect(body.error.code).toBe("INVALID_REQUEST");
+    const unres = await fetch(`${baseUrl}/api/jobs/${job.id}/target`, {
+      method: "DELETE",
+    });
+    const unbody = await unres.json();
+    expect(unres.status).toBe(
+      ["discovered", "ready"].includes(status) ? 200 : 400,
+    );
+    if (unres.ok) expect(unbody.data.readyAt).toBeNull();
+    else expect(unbody.error.code).toBe("INVALID_REQUEST");
+    expect((await getJobById(job.id))?.status).toBe(status);
+  });
+
+  it("scopes target writes and discovered cleanup to the active tenant", async () => {
+    const {
+      createJob,
+      updateJob,
+      getJobById,
+      setJobTargeted,
+      deleteJobsByStatus,
+      deleteJobsBelowScore,
+    } = await import("@server/repositories/jobs");
+    const { runWithRequestContext } = await import("@infra/request-context");
+    const job = await createJob({
+      source: "manual",
+      title: "Tenant-owned",
+      employer: "Acme",
+      jobUrl: "https://example.com/tenant-target",
+    });
+    await updateJob(job.id, { suitabilityScore: 40 });
+    await runWithRequestContext({ tenantId: "other-tenant" }, async () => {
+      expect(await getJobById(job.id)).toBeNull();
+      expect(await setJobTargeted(job.id, true)).toBeNull();
+      expect(await setJobTargeted(job.id, false)).toBeNull();
+      expect(await deleteJobsByStatus("discovered")).toBe(0);
+      expect(await deleteJobsBelowScore(50)).toBe(0);
+    });
+    expect((await getJobById(job.id))?.readyAt).toBeNull();
+  });
+
+  it("returns not found for missing target jobs", async () => {
+    for (const method of ["POST", "DELETE"]) {
+      const res = await fetch(`${baseUrl}/api/jobs/missing/target`, { method });
+      expect(res.status).toBe(404);
+      expect((await res.json()).error.code).toBe("NOT_FOUND");
+    }
+  });
+
+  it("clears discovered jobs while retaining targeted discovered jobs", async () => {
+    const { createJob, updateJob, getJobById } = await import(
+      "@server/repositories/jobs"
+    );
+    const input = { source: "manual", title: "Target", employer: "Acme" };
+    const kept = await createJob({
+      ...input,
+      jobUrl: "https://example.com/target/keep",
+    });
+    const removed = await createJob({
+      ...input,
+      jobUrl: "https://example.com/target/remove",
+    });
+    await updateJob(kept.id, { readyAt: "2026-11-08T00:00:00Z" });
+    const res = await fetch(`${baseUrl}/api/jobs/status/discovered`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.count).toBe(1);
+    expect(await getJobById(kept.id)).not.toBeNull();
+    expect(await getJobById(removed.id)).toBeNull();
+  });
+
+  it.each([
+    "discovered",
+    "processing",
+    "ready",
+  ] as const)("preserves targeted %s jobs during bulk status cleanup", async (status) => {
+    const { createJob, updateJob, getJobById } = await import(
+      "@server/repositories/jobs"
+    );
+    const targetedAt = "2026-11-08T00:00:00Z";
+    const kept = await createJob({
+      source: "manual",
+      title: "Targeted",
+      employer: "Acme",
+      jobUrl: "https://example.com/cleanup/targeted",
+    });
+    const removed = await createJob({
+      source: "manual",
+      title: "Untargeted",
+      employer: "Acme",
+      jobUrl: "https://example.com/cleanup/untargeted",
+    });
+    await updateJob(kept.id, { status, readyAt: targetedAt });
+    await updateJob(removed.id, { status, readyAt: null });
+
+    const res = await fetch(`${baseUrl}/api/jobs/status/${status}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.count).toBe(1);
+    expect(await getJobById(kept.id)).toMatchObject({
+      status,
+      readyAt: targetedAt,
+    });
+    expect(await getJobById(removed.id)).toBeNull();
+  });
+
+  it("preserves every targeted status during score cleanup and deletes only eligible low scores", async () => {
+    const { createJob, updateJob, getJobById } = await import(
+      "@server/repositories/jobs"
+    );
+    const cases = [
+      ["discovered", true, 40, false],
+      ["processing", true, 40, false],
+      ["ready", true, 40, false],
+      ["discovered", false, 40, true],
+      ["processing", false, 40, true],
+      ["ready", false, 40, true],
+      ["discovered", false, 50, false],
+      ["discovered", false, null, false],
+      ["applied", true, 40, false],
+      ["in_progress", true, 40, false],
+      ["skipped", true, 40, true],
+      ["expired", true, 40, true],
+    ] as const;
+    const fixtures = [];
+    for (const [index, [status, targeted, score, deleted]] of cases.entries()) {
+      const job = await createJob({
+        source: "manual",
+        title: "Score cleanup",
+        employer: "Acme",
+        jobUrl: `https://example.com/score-cleanup/${index}`,
+      });
+      const readyAt = targeted ? "2026-11-08T00:00:00Z" : null;
+      await updateJob(job.id, {
+        status,
+        readyAt,
+        suitabilityScore: score,
+      });
+      fixtures.push({ id: job.id, status, readyAt, deleted });
+    }
+
+    const res = await fetch(`${baseUrl}/api/jobs/score/50`, {
+      method: "DELETE",
+      headers: { "x-request-id": "targeted-score-cleanup" },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-request-id")).toBe("targeted-score-cleanup");
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      data: { count: 5, threshold: 50 },
+      meta: { requestId: "targeted-score-cleanup" },
+    });
+    for (const { id, status, readyAt, deleted } of fixtures) {
+      const job = await getJobById(id);
+      if (deleted) expect(job).toBeNull();
+      else expect(job).toMatchObject({ status, readyAt });
+    }
+  });
+
+  it("accepts behavioural stage end to end as an interview and positive response", async () => {
+    const { createJob, getJobById } = await import("@server/repositories/jobs");
+    const { trackCanonicalActivationEvent } = await import(
+      "@server/services/activation-funnel"
+    );
+    const job = await createJob({
+      source: "manual",
+      title: "Behaviour",
+      employer: "Acme",
+      jobUrl: "https://example.com/behaviour",
+    });
+    const res = await fetch(`${baseUrl}/api/jobs/${job.id}/stages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toStage: "behavioural" }),
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.toStage).toBe("behavioural");
+    expect((await getJobById(job.id))?.status).toBe("in_progress");
+    const events = await fetch(`${baseUrl}/api/jobs/${job.id}/events`);
+    expect((await events.json()).data[0].toStage).toBe("behavioural");
+    expect(trackCanonicalActivationEvent).toHaveBeenCalledWith(
+      "application_positive_response_detected",
+      expect.objectContaining({ stage: "behavioural" }),
+      expect.anything(),
+    );
+    expect(trackCanonicalActivationEvent).toHaveBeenCalledWith(
+      "application_interview_stage_reached",
+      expect.objectContaining({ stage: "behavioural" }),
+      expect.anything(),
+    );
+  });
+
   it("lists jobs and supports status filtering", async () => {
     const { createJob } = await import("@server/repositories/jobs");
     const job = await createJob({
