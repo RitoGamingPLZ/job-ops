@@ -129,4 +129,33 @@ describe("resume editor review regressions", () => {
     fireEvent.blur(input);
     expect(input).toHaveValue("Machine Learning, TypeScript");
   });
+  it("commits the current skill keyword draft on Enter without blur", () => {
+    const onChange = vi.fn();
+    render(
+      <ResumeEditor
+        document={fixture()}
+        onChange={onChange}
+        suggestions={[]}
+        onDismiss={vi.fn()}
+      />,
+    );
+    const input = screen.getByLabelText("Skill 1 keywords");
+    fireEvent.change(input, {
+      target: { value: "Machine Learning, TypeScript, ," },
+    });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sections: expect.objectContaining({
+          skills: expect.objectContaining({
+            items: [
+              expect.objectContaining({
+                keywords: ["Machine Learning", "TypeScript"],
+              }),
+            ],
+          }),
+        }),
+      }),
+    );
+  });
 });

@@ -41,6 +41,30 @@ beforeEach(() => {
   mocks.remove.mockResolvedValue(undefined);
 });
 describe("duty library review regressions", () => {
+  it("saves the current tag draft when Enter submits without blur", async () => {
+    render(
+      <MemoryRouter>
+        <DutyLibrary />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Built tools");
+    fireEvent.click(screen.getByText("Add duty"));
+    fireEvent.change(screen.getByLabelText("Duty"), {
+      target: { value: "New duty" },
+    });
+    const tags = screen.getByLabelText("Tags (comma separated)");
+    fireEvent.change(tags, { target: { value: "Machine Learning" } });
+    fireEvent.keyDown(tags, { key: "Enter", code: "Enter" });
+    // jsdom does not perform the browser's implicit form submission on Enter.
+    const form = tags.closest("form");
+    if (!form) throw new Error("Tags must be inside the duty form");
+    fireEvent.submit(form);
+    await waitFor(() =>
+      expect(mocks.create).toHaveBeenCalledWith(
+        expect.objectContaining({ tags: ["Machine Learning"] }),
+      ),
+    );
+  });
   it("preserves multi-word tags until blur, omitting empty tags", async () => {
     render(
       <MemoryRouter>
