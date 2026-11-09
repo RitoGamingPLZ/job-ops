@@ -26,6 +26,7 @@ import { stripHtmlTags } from "@shared/utils/string";
 import * as jobDocumentsRepo from "../repositories/job-documents";
 import * as jobsRepo from "../repositories/jobs";
 import * as settingsRepo from "../repositories/settings";
+import { buildCandidateExperienceContext } from "./candidate-experience";
 import { extractDocxText, extractPdfText } from "./document-text-extraction";
 import {
   getWritingLanguageLabel,
@@ -123,7 +124,10 @@ function buildJobSnapshot(job: Job): string {
   return JSON.stringify(snapshot);
 }
 
-function buildProfileSnapshot(profile: ResumeProfile): string {
+function buildProfileSnapshot(
+  profile: ResumeProfile,
+  candidateExperience: string | null,
+): string {
   const summary =
     truncate(profile?.sections?.summary?.content, MAX_PROFILE_SUMMARY) ||
     truncate(profile?.basics?.summary, MAX_PROFILE_SUMMARY);
@@ -157,7 +161,11 @@ function buildProfileSnapshot(profile: ResumeProfile): string {
     summary ? `Summary:\n${summary}` : null,
     skills.length > 0 ? `Skills:\n- ${skills.join("\n- ")}` : null,
     projects.length > 0 ? `Projects:\n- ${projects.join("\n- ")}` : null,
-    experience.length > 0 ? `Experience:\n- ${experience.join("\n- ")}` : null,
+    candidateExperience !== null
+      ? `Experience:\n${candidateExperience}`
+      : experience.length > 0
+        ? `Experience:\n- ${experience.join("\n- ")}`
+        : null,
   ]);
 }
 
@@ -401,7 +409,10 @@ export async function buildJobChatPromptContext(
     });
   }
 
-  const profileSnapshot = buildProfileSnapshot(profile);
+  const profileSnapshot = buildProfileSnapshot(
+    profile,
+    await buildCandidateExperienceContext(),
+  );
   const [
     baseSystemPrompt,
     stopSlopEnabled,

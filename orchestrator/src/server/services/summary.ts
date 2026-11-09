@@ -5,6 +5,7 @@
 import { logger } from "@infra/logger";
 import type { ResumeProfile } from "@shared/types";
 import { stripHtmlTags } from "@shared/utils/string";
+import { buildCandidateExperienceContext } from "./candidate-experience";
 import type { JsonSchemaDefinition } from "./llm/types";
 import { createConfiguredLlmService, resolveLlmModel } from "./modelSelection";
 import {
@@ -182,11 +183,13 @@ async function buildTailoringPrompt(
       description: p.description,
       keywords: p.keywords,
     })),
-    experience: profile.sections?.experience?.items?.map((e) => ({
-      company: e.company,
-      position: e.position,
-      summary: e.summary,
-    })),
+    experience:
+      (await buildCandidateExperienceContext()) ??
+      profile.sections?.experience?.items?.map((e) => ({
+        company: e.company,
+        position: e.position,
+        summary: e.summary,
+      })),
   };
 
   const template = await getEffectivePromptTemplate("tailoringPromptTemplate");

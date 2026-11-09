@@ -1,0 +1,136 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`preserves byte-identical pre-library prompts when the library is empty 1`] = `
+{
+  "ghostwriter": "Name: Candidate
+Headline: Engineer
+Summary:
+Summary
+Experience:
+- Dev @ LegacyEmployer (2020): LEGACY_DUTY",
+  "projects": [
+    {
+      "content": "You are selecting which projects to include on a resume for a specific job.
+
+Rules:
+- Rank the best 1 project IDs.
+- Only choose IDs from the provided list.
+- Prefer projects that strongly match the job description keywords/tech stack.
+- Prefer projects that signal impact and real-world engineering.
+- Do NOT invent projects or skills.
+
+Job description:
+Build APIs
+
+Candidate projects (pick from these IDs only):
+[{"id":"p1","name":"API","description":"API project","date":"2025","summary":"Built APIs"}]
+
+Respond with JSON only, in this exact shape:
+{
+  "selectedProjectIds": ["id1", "id2"]
+}",
+      "role": "user",
+    },
+  ],
+  "scoring": [
+    {
+      "content": "You are evaluating a job listing for a candidate. Score how suitable this job is for the candidate on a scale of 0-100.
+
+SCORING CRITERIA:
+- Skills match (technologies, frameworks, languages): 0-30 points
+- Experience level match: 0-25 points
+- Location/remote work alignment: 0-15 points
+- Industry/domain fit: 0-15 points
+- Career growth potential: 0-15 points
+
+CANDIDATE PROFILE:
+{"basics":{"label":"Engineer","summary":"Summary"},"skills":[],"experience":[{"company":"LegacyEmployer","position":"Dev","date":"2020","summary":"LEGACY_DUTY"}],"projects":[],"education":[],"languages":[],"awards":[],"certifications":[],"publications":[],"volunteer":[],"interests":[]}
+
+SCORING INSTRUCTIONS:
+No additional custom scoring instructions.
+
+JOB DATA (JSON):
+{"source":"linkedin","sourceJobId":null,"jobUrlDirect":null,"datePosted":null,"title":"Engineer","employer":"HiringCo","employerUrl":null,"jobUrl":"https://example.com/job-1","applicationLink":"https://example.com/apply","disciplines":null,"deadline":null,"salary":null,"location":"California","locationEvidence":null,"degreeRequired":null,"starting":null,"jobDescription":"Build APIs","jobType":null,"salarySource":null,"salaryInterval":null,"salaryMinAmount":null,"salaryMaxAmount":null,"salaryCurrency":null,"isRemote":null,"jobLevel":null,"jobFunction":null,"listingType":null,"emails":null,"companyIndustry":null,"companyLogo":null,"companyUrlDirect":null,"companyAddresses":null,"companyNumEmployees":null,"companyRevenue":null,"companyDescription":null,"skills":null,"experienceRange":null,"companyRating":null,"companyReviewsCount":null,"vacancyCount":null,"workFromHomeType":null}
+
+Perform these tasks in one response:
+1. JOB FACT REVIEW (candidate-independent): compare JOB DATA with the original listing. Use only those sources, never the candidate profile. Propose a patch only for a missing or clearly incorrect whitelisted field with an exact supporting listing excerpt. Do not guess, infer from general knowledge, estimate, annualise compensation, or paraphrase/invent evidence. Use high confidence for clear corrections; medium may only fill missing values; omit ambiguous corrections. Candidate evaluation must use the proposed corrected facts.
+2. JOB BRIEF: use only stated job information, remain neutral, remove employer fluff, never judge candidate fit, and use "Not stated" for missing practical details. Write specifics (Highlights) as concise phrases of at most 4 words each. Preserve negations, numbers, and essential qualifiers; omit a highlight if it cannot be shortened accurately.
+3. CANDIDATE EVALUATION: score the candidate against the listing, corrected facts, and scoring instructions.
+
+Patchable fields: salary, salaryMinAmount, salaryMaxAmount, salaryCurrency, salaryInterval, location, isRemote, workFromHomeType, jobType, jobLevel, jobFunction, disciplines, degreeRequired, skills, experienceRange, companyIndustry, deadline, starting, vacancyCount.
+Value conventions: salaryInterval is hourly|daily|weekly|monthly|yearly; salary amounts and vacancyCount are numbers without annualisation; salaryCurrency is a 3-letter code; isRemote is boolean; workFromHomeType is remote|hybrid|onsite; all other patch values are strings. Return only changed fields. Put unsupported distinctions or explicit contradictions that cannot be represented safely in jobWarnings.
+
+Respond with ONLY valid JSON in this exact shape:
+{
+  "score": <integer 0-100>,
+  "reason": "<1-2 sentence explanation>",
+  "jobBrief": {
+    "role_summary": "<one sentence describing what the person would do>",
+    "they_want": ["<up to 6 stated requirements>"],
+    "specifics": ["<up to 18 concrete tools, responsibilities, domain or working-pattern details; at most 4 words per item>"],
+    "company_offers": ["<up to 5 concrete offerings>"],
+    "practical_details": ["<up to 8 key-value details such as Salary: Not stated>"],
+    "missing_or_unclear": ["<up to 5 important missing details>"],
+    "repeated_signals": ["<up to 5 repeated themes>"]
+  },
+  "jobPatches": [{"field":"<whitelisted field>","value":<string|number|boolean>,"confidence":"high|medium|low","evidence":"<exact listing excerpt>"}],
+  "jobWarnings": ["<unrepresentable or contradictory stated fact>"]
+}
+No markdown, code fences, or text outside the JSON.",
+      "role": "user",
+    },
+  ],
+  "tailoring": [
+    {
+      "content": "You are an expert resume writer tailoring a profile for a specific job application.
+You must return a JSON object with three fields: "headline", "summary", and "skills".
+
+JOB DESCRIPTION (JD):
+Build APIs
+
+MY PROFILE:
+{"basics":{"name":"Candidate","label":"Engineer","summary":"Summary"},"experience":[{"company":"LegacyEmployer","position":"Dev","summary":"LEGACY_DUTY"}]}
+
+INSTRUCTIONS:
+
+1. "headline" (String):
+   - CRITICAL: This is the #1 ATS factor.
+   - It must match the Job Title from the JD exactly (e.g., if JD says "Senior React Dev", use "Senior React Dev").
+   - Do NOT translate, localize, or paraphrase the headline, even if the rest of the output is in English.
+
+2. "summary" (String):
+   - The Hook. This needs to mirror the company's "About You" / "What we're looking for" section.
+   - Keep it concise, warm, and confident.
+   - Do NOT invent experience.
+   - Use the profile to add context.
+   - Write the summary in English.
+
+3. "skills" (Array of Objects):
+   - Review my existing skills section structure.
+   - Keyword Stuffing: Swap synonyms to match the JD exactly (e.g. "TDD" -> "Unit Testing", "ReactJS" -> "React").
+   - Keep my original skill levels and categories, just rename/reorder keywords to prioritize JD terms.
+   - Return the full "items" array for the skills section, preserving the structure: { "name": "Frontend", "keywords": [...] }.
+   - Write user-visible skill text in English when natural, but keep exact JD terms, acronyms, and technology names when that helps ATS matching.
+
+WRITING STYLE PREFERENCES:
+- Tone: professional
+- Formality: medium
+- Output language for summary and skills: English
+
+
+
+ATS SAFETY:
+- Keep "headline" in the exact original job-title wording from the JD.
+- Do not translate the headline, even when summary and skills are written in English.
+
+OUTPUT FORMAT (JSON):
+{
+  "headline": "...",
+  "summary": "...",
+  "skills": [ ... ]
+}",
+      "role": "user",
+    },
+  ],
+}
+`;

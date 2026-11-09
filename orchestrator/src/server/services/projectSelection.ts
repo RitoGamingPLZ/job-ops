@@ -3,6 +3,7 @@
  */
 
 import { stripHtmlTags } from "@shared/utils/string";
+import { buildCandidateExperienceContext } from "./candidate-experience";
 import type { JsonSchemaDefinition } from "./llm/types";
 import { createConfiguredLlmService, resolveLlmModel } from "./modelSelection";
 import type { ResumeProjectSelectionItem } from "./resumeProjects";
@@ -46,12 +47,14 @@ export async function pickProjectIdsForJob(args: {
       resolveLlmModel("projectSelection"),
       createConfiguredLlmService("projectSelection"),
     ]);
+    const candidateExperience = await buildCandidateExperienceContext();
     const result = await llm.callJson<{ selectedProjectIds: string[] }>({
       model,
       messages: [
         {
           role: "user",
           content: buildProjectSelectionPrompt({
+            candidateExperience,
             jobDescription,
             projects: args.eligibleProjects,
             desiredCount,
@@ -98,6 +101,7 @@ export async function pickProjectIdsForJob(args: {
 }
 
 function buildProjectSelectionPrompt(args: {
+  candidateExperience: string | null;
   jobDescription: string;
   projects: ResumeProjectSelectionItem[];
   desiredCount: number;
@@ -124,7 +128,7 @@ Job description:
 ${args.jobDescription}
 
 Candidate projects (pick from these IDs only):
-${JSON.stringify(projects)}
+${JSON.stringify(projects)}${args.candidateExperience === null ? "" : `\n\nCandidate experience:\n${args.candidateExperience}`}
 
 Respond with JSON only, in this exact shape:
 {

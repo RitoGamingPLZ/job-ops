@@ -6,6 +6,7 @@ import { logger } from "@infra/logger";
 import { getDefaultPromptTemplate } from "@shared/prompt-template-definitions.js";
 import type { Job, JobBrief, UpdateJobInput } from "@shared/types";
 import { stripHtmlTags } from "@shared/utils/string";
+import { buildCandidateExperienceContext } from "./candidate-experience";
 import { withHostedUsageReservation } from "./hosted-usage";
 import {
   type JobFactPatch,
@@ -287,7 +288,10 @@ export async function scoreJobSuitability(
     ? (options.scoringInstructions ?? "")
     : (settings.scoringInstructions?.value ?? "");
 
-  const prompt = buildScoringPrompt(job, sanitizeProfileForPrompt(aiProfile), {
+  const promptProfile = sanitizeProfileForPrompt(aiProfile);
+  const experience = await buildCandidateExperienceContext();
+  if (experience !== null) promptProfile.experience = experience;
+  const prompt = buildScoringPrompt(job, promptProfile, {
     instructions: scoringInstructions,
     promptTemplate:
       settings.scoringPromptTemplate?.value ??

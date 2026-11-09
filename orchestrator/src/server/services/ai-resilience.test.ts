@@ -1,3 +1,7 @@
+vi.mock("./candidate-experience", () => ({
+  buildCandidateExperienceContext: vi.fn(async () => null),
+}));
+
 import { createJob } from "@shared/testing/factories";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as settingsRepo from "../repositories/settings";

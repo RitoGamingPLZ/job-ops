@@ -4,6 +4,11 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
+const { callJson } = vi.hoisted(() => ({ callJson: vi.fn() }));
+vi.mock("@server/services/modelSelection", () => ({
+  createConfiguredLlmService: vi.fn(async () => ({ callJson })),
+  resolveLlmModel: vi.fn(async () => "mock-model"),
+}));
 let server: Server, baseUrl: string, closeDb: () => void, tempDir: string;
 let token: string, jobId: string, document: ReactiveResumeV5Document;
 async function request(
@@ -23,6 +28,7 @@ async function request(
   });
 }
 beforeEach(async () => {
+  callJson.mockResolvedValue({ success: true, data: { labels: [] } });
   ({ server, baseUrl, closeDb, tempDir } = await startServer({
     env: {
       BASIC_AUTH_USER: "admin",
@@ -380,4 +386,43 @@ describe("co-work routes", () => {
       });
     }
   });
+});
+
+it("labels explicit IDs, returns labeled imports, validates payloads, and preserves imports on failure", async () => {
+  callJson.mockImplementation(async (input) => ({
+    success: true,
+    data: {
+      labels: JSON.parse(input.messages[1].content).bullets.map(
+        (b: { id: string }) => ({ bulletId: b.id, tags: ["APIs"] }),
+      ),
+    },
+  }));
+  const imported = (
+    await (await request("/experience-bullets/import-resume", "POST")).json()
+  ).data;
+  expect(imported.labeled).toBe(2);
+  expect(
+    imported.bullets.every((b: { tags: string[] }) => b.tags.includes("APIs")),
+  ).toBe(true);
+  const response = await request("/experience-bullets/label", "POST", {
+    ids: [imported.bullets[0].id, "foreign"],
+  });
+  expect(response.status).toBe(200);
+  expect((await response.json()).data.labeled).toBe(1);
+  expect(
+    (await request("/experience-bullets/label", "POST", { ids: "bad" })).status,
+  ).toBe(400);
+  expect(
+    (await request("/experience-bullets/label", "POST", {}, false)).status,
+  ).toBe(401);
+  for (const b of imported.bullets)
+    await request(`/experience-bullets/${b.id}`, "DELETE");
+  callJson.mockRejectedValue(new Error("upstream unavailable"));
+  const failed = (
+    await (await request("/experience-bullets/import-resume", "POST")).json()
+  ).data;
+  expect(failed).toMatchObject({ created: 2, labeled: 0 });
+  expect(
+    failed.bullets.every((b: { tags: string[] }) => b.tags.length === 0),
+  ).toBe(true);
 });
