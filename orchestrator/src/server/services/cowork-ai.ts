@@ -12,6 +12,7 @@ import type {
 } from "@shared/types";
 import { stripHtmlTags } from "@shared/utils/string";
 import { z } from "zod";
+import { withHostedUsageReservation } from "./hosted-usage";
 import type { JsonSchemaDefinition } from "./llm/types";
 import { createConfiguredLlmService, resolveLlmModel } from "./modelSelection";
 
@@ -92,7 +93,15 @@ function schema(
     },
   };
 }
+// Strict providers require all properties, including optional nullable values.
 const string = { type: "string" };
+const nullableString = { type: ["string", "null"] };
+function omitNullProperties(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).filter(([, item]) => item !== null),
+  );
+}
 export const COWORK_RESPONSE_SCHEMA = schema(
   "cowork_response",
   {
@@ -103,12 +112,12 @@ export const COWORK_RESPONSE_SCHEMA = schema(
         type: "object",
         properties: {
           op: { type: "string", enum: suggestionSchema.shape.op.options },
-          experienceId: string,
-          bulletIndex: { type: "integer" },
-          previousText: string,
-          text: string,
+          experienceId: nullableString,
+          bulletIndex: { type: ["integer", "null"] },
+          previousText: nullableString,
+          text: nullableString,
           skills: {
-            type: "array",
+            type: ["array", "null"],
             items: {
               type: "object",
               properties: {
@@ -116,12 +125,23 @@ export const COWORK_RESPONSE_SCHEMA = schema(
                 keywords: { type: "array", items: string },
               },
               required: ["name", "keywords"],
+              additionalProperties: false,
             },
           },
-          sourceBulletIds: { type: "array", items: string },
+          sourceBulletIds: { type: ["array", "null"], items: string },
           reason: string,
         },
-        required: ["op", "reason"],
+        required: [
+          "op",
+          "experienceId",
+          "bulletIndex",
+          "previousText",
+          "text",
+          "skills",
+          "sourceBulletIds",
+          "reason",
+        ],
+        additionalProperties: false,
       },
     },
   },
@@ -129,6 +149,15 @@ export const COWORK_RESPONSE_SCHEMA = schema(
 );
 
 export async function extractExperienceBullets(
+  text: string,
+): Promise<ExperienceBulletInput[]> {
+  return withHostedUsageReservation({ action: "tailoring" }, async () => ({
+    result: await extractExperienceBulletsImpl(text),
+    usedUnits: 1,
+  }));
+}
+
+async function extractExperienceBulletsImpl(
   text: string,
 ): Promise<ExperienceBulletInput[]> {
   const [llm, model] = await Promise.all([
@@ -154,13 +183,21 @@ export async function extractExperienceBullets(
             type: "object",
             properties: {
               text: string,
-              company: string,
-              role: string,
-              startDate: string,
-              endDate: string,
-              tags: { type: "array", items: string },
+              company: nullableString,
+              role: nullableString,
+              startDate: nullableString,
+              endDate: nullableString,
+              tags: { type: ["array", "null"], items: string },
             },
-            required: ["text"],
+            required: [
+              "text",
+              "company",
+              "role",
+              "startDate",
+              "endDate",
+              "tags",
+            ],
+            additionalProperties: false,
           },
         },
       },
@@ -168,14 +205,16 @@ export async function extractExperienceBullets(
     ),
   });
   const parsed = z
-    .object({ drafts: z.array(draftSchema).max(200) })
+    .object({ drafts: z.array(z.unknown()) })
     .safeParse(result.success ? result.data : undefined);
   if (!result.success || !parsed.success)
     throw upstreamError("Unable to extract experience bullets");
-  return parsed.data.drafts.map((draft) => ({
-    ...draft,
-    source: "ai_extract",
-  }));
+  return parsed.data.drafts.slice(0, 200).flatMap((value) => {
+    const draft = draftSchema.safeParse(omitNullProperties(value));
+    return draft.success
+      ? [{ ...draft.data, source: "ai_extract" as const }]
+      : [];
+  });
 }
 
 export async function rankExperienceBullets(
@@ -183,6 +222,20 @@ export async function rankExperienceBullets(
 ): Promise<RankedBullet[]> {
   const bullets = await listExperienceBullets();
   if (!bullets.length) return [];
+  const description = jobDescription.slice(0, 20000);
+  return withHostedUsageReservation({ action: "tailoring" }, async () => ({
+    result: await rankExperienceBulletsImpl(
+      description,
+      selectLibraryBullets(bullets, description, 200),
+    ),
+    usedUnits: 1,
+  }));
+}
+
+async function rankExperienceBulletsImpl(
+  jobDescription: string,
+  bullets: ExperienceBullet[],
+): Promise<RankedBullet[]> {
   const [llm, model] = await Promise.all([
     createConfiguredLlmService("tailoring"),
     resolveLlmModel("tailoring"),
@@ -222,6 +275,7 @@ export async function rankExperienceBullets(
               reason: string,
             },
             required: ["bulletId", "score", "reason"],
+            additionalProperties: false,
           },
         },
       },
@@ -256,11 +310,11 @@ export async function rankExperienceBullets(
     .sort((a, b) => b.score - a.score);
 }
 
-export function buildCoworkPrompt(
-  context: CoworkChatContext,
-  jobDescription: string,
+function selectLibraryBullets(
   library: ExperienceBullet[],
-): string {
+  jobDescription: string,
+  limit: number,
+): ExperienceBullet[] {
   const terms = new Set(
     jobDescription.toLowerCase().match(/[a-z0-9+#]+/g) ?? [],
   );
@@ -270,10 +324,17 @@ export function buildCoworkPrompt(
         .toLowerCase()
         .match(/[a-z0-9+#]+/g) ?? []
     ).filter((term) => terms.has(term)).length;
-  const selected =
-    library.length <= 80
-      ? library
-      : [...library].sort((a, b) => overlap(b) - overlap(a)).slice(0, 80);
+  return library.length <= limit
+    ? library
+    : [...library].sort((a, b) => overlap(b) - overlap(a)).slice(0, limit);
+}
+
+export function buildCoworkPrompt(
+  context: CoworkChatContext,
+  jobDescription: string,
+  library: ExperienceBullet[],
+): string {
+  const selected = selectLibraryBullets(library, jobDescription, 80);
   const minimal = ({ id, text, company, role, tags }: ExperienceBullet) => ({
     id,
     text,
@@ -299,23 +360,27 @@ export function filterCoworkSuggestions(
   );
   const ids = new Set(library.map((b) => b.id));
   return value.slice(0, 100).flatMap((raw) => {
-    const parsed = suggestionSchema.safeParse(raw);
+    const parsed = suggestionSchema.safeParse(omitNullProperties(raw));
     if (!parsed.success) return [];
     const s = parsed.data;
     if (s.experienceId !== undefined && !experiences.has(s.experienceId))
       return [];
     if (s.op.endsWith("_bullet")) {
       const bullets = experiences.get(s.experienceId ?? "");
-      if (
-        !bullets ||
-        s.bulletIndex === undefined ||
-        s.bulletIndex > bullets.length
-      )
-        return [];
-      if (
-        s.op !== "insert_bullet" &&
-        (s.bulletIndex >= bullets.length || !s.previousText)
-      )
+      if (!bullets) return [];
+      if (s.op !== "insert_bullet") {
+        const normalize = (text: string) =>
+          text.trim().replace(/\s+/g, " ").toLowerCase();
+        const matchedIndex = s.previousText
+          ? bullets.findIndex(
+              (text) => normalize(text) === normalize(s.previousText ?? ""),
+            )
+          : -1;
+        if (matchedIndex >= 0) s.bulletIndex = matchedIndex;
+        if (s.bulletIndex === undefined || s.bulletIndex >= bullets.length)
+          return [];
+        s.previousText = bullets[s.bulletIndex];
+      } else if (s.bulletIndex === undefined || s.bulletIndex > bullets.length)
         return [];
       if (s.op !== "delete_bullet" && !s.text) return [];
     } else if (s.op === "set_skills" ? !s.skills : !s.text) return [];

@@ -2,10 +2,12 @@ import type { CoworkChatContext, ExperienceBullet } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
 
-const { callJson, list } = vi.hoisted(() => ({
+const { callJson, list, reserve } = vi.hoisted(() => ({
   callJson: vi.fn(),
   list: vi.fn(),
+  reserve: vi.fn(),
 }));
+vi.mock("./hosted-usage", () => ({ withHostedUsageReservation: reserve }));
 vi.mock("./modelSelection", () => ({
   createConfiguredLlmService: vi.fn(async () => ({ callJson })),
   resolveLlmModel: vi.fn(async () => "mock-model"),
@@ -16,6 +18,7 @@ vi.mock("@server/repositories/experience-bullets", () => ({
 
 import {
   buildCoworkPrompt,
+  COWORK_RESPONSE_SCHEMA,
   coworkChatContextSchema,
   extractExperienceBullets,
   filterCoworkSuggestions,
@@ -55,6 +58,7 @@ const bullet = (id: string, text = "Built tools"): ExperienceBullet => ({
 });
 beforeEach(() => {
   vi.clearAllMocks();
+  reserve.mockImplementation(async (_args, work) => (await work()).result);
   list.mockResolvedValue([bullet("own")]);
 });
 describe("cowork AI", () => {
@@ -77,9 +81,7 @@ describe("cowork AI", () => {
       success: true,
       data: { drafts: [{ text: "" }] },
     });
-    await expect(extractExperienceBullets("input")).rejects.toThrow(
-      "Unable to extract",
-    );
+    expect(await extractExperienceBullets("input")).toEqual([]);
   });
   it("ranks only scoped IDs, removes duplicates and invalid scores", async () => {
     list.mockResolvedValue([bullet("own"), bullet("second")]);
@@ -103,6 +105,7 @@ describe("cowork AI", () => {
     list.mockResolvedValue([]);
     expect(await rankExperienceBullets("job")).toEqual([]);
     expect(callJson).not.toHaveBeenCalled();
+    expect(reserve).not.toHaveBeenCalled();
   });
   it("indexes HTML bullets and caps library by overlap while retaining references", () => {
     const library = [
@@ -135,8 +138,7 @@ describe("cowork AI", () => {
         valid,
         { ...valid, experienceId: "foreign" },
         { ...valid, text: undefined },
-        { ...valid, previousText: undefined },
-        { ...valid, bulletIndex: 4 },
+        { ...valid, bulletIndex: 4, previousText: "Not in document" },
         { op: "set_skills", reason: "missing" },
         { op: "replace_summary", reason: "missing" },
       ],
@@ -180,6 +182,165 @@ describe("cowork AI", () => {
       previousText: "Engineer",
       text: "Senior Engineer",
     });
+  });
+  it("reserves tailoring usage for extract/rank and propagates quota rejection", async () => {
+    callJson.mockResolvedValue({
+      success: true,
+      data: { drafts: [], ranked: [] },
+    });
+    await extractExperienceBullets("text");
+    await rankExperienceBullets("job");
+    expect(reserve).toHaveBeenCalledTimes(2);
+    expect(reserve).toHaveBeenNthCalledWith(
+      1,
+      { action: "tailoring" },
+      expect.any(Function),
+    );
+    expect(reserve).toHaveBeenNthCalledWith(
+      2,
+      { action: "tailoring" },
+      expect.any(Function),
+    );
+    callJson.mockClear();
+    reserve.mockRejectedValueOnce(new Error("quota exceeded"));
+    await expect(extractExperienceBullets("text")).rejects.toThrow(
+      "quota exceeded",
+    );
+    reserve.mockRejectedValueOnce(new Error("quota exceeded"));
+    await expect(rankExperienceBullets("job")).rejects.toThrow(
+      "quota exceeded",
+    );
+    expect(callJson).not.toHaveBeenCalled();
+  });
+  it("uses strict schemas throughout and accepts nullable optional fields", async () => {
+    const assertStrict = (node: any) => {
+      if (node.type === "object") {
+        expect(node.additionalProperties).toBe(false);
+        expect([...node.required].sort()).toEqual(
+          Object.keys(node.properties).sort(),
+        );
+      }
+      for (const child of Object.values(node.properties ?? {}))
+        assertStrict(child);
+      if (node.items) assertStrict(node.items);
+    };
+    assertStrict(COWORK_RESPONSE_SCHEMA.schema);
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        drafts: [
+          {
+            text: "Valid",
+            company: null,
+            role: null,
+            startDate: null,
+            endDate: null,
+            tags: null,
+          },
+        ],
+        ranked: [],
+      },
+    });
+    expect(await extractExperienceBullets("text")).toEqual([
+      { text: "Valid", source: "ai_extract" },
+    ]);
+    await rankExperienceBullets("job");
+    for (const [input] of callJson.mock.calls)
+      assertStrict(input.jsonSchema.schema);
+    expect(
+      filterCoworkSuggestions(
+        [
+          {
+            op: "replace_summary",
+            text: "Better",
+            experienceId: null,
+            bulletIndex: null,
+            previousText: null,
+            skills: null,
+            sourceBulletIds: null,
+            reason: "Clarity",
+          },
+        ],
+        context(),
+        [],
+      ),
+    ).toHaveLength(1);
+  });
+  it("anchors replace/delete by normalized text first, then valid index", () => {
+    const cowork = context();
+    cowork.document.sections.experience.items[0].description =
+      "<ul><li>Built APIs</li><li>Built CI</li></ul>";
+    const base = {
+      op: "replace_bullet",
+      experienceId: "exp",
+      bulletIndex: 1,
+      text: "Better",
+      reason: "Clarity",
+    };
+    const result = filterCoworkSuggestions(
+      [
+        { ...base, previousText: "  BUILT   APIs " },
+        { ...base, previousText: "Hallucination" },
+        { ...base, op: "delete_bullet", previousText: null },
+        { ...base, bulletIndex: 5, previousText: "missing" },
+        { ...base, bulletIndex: 5, previousText: "Built APIs" },
+      ],
+      cowork,
+      [],
+    );
+    expect(
+      result.map(({ bulletIndex, previousText }) => ({
+        bulletIndex,
+        previousText,
+      })),
+    ).toEqual([
+      { bulletIndex: 0, previousText: "Built APIs" },
+      { bulletIndex: 1, previousText: "Built CI" },
+      { bulletIndex: 1, previousText: "Built CI" },
+      { bulletIndex: 0, previousText: "Built APIs" },
+    ]);
+  });
+  it("prefilters rank to the top 200 by keyword overlap and caps the JD", async () => {
+    list.mockResolvedValue([
+      ...Array.from({ length: 205 }, (_, i) => bullet(`b${i}`, "unrelated")),
+      bullet("match", "Python"),
+    ]);
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        ranked: [{ bulletId: "b204", score: 100, reason: "not supplied" }],
+      },
+    });
+    expect(await rankExperienceBullets(`Python ${"x".repeat(21000)}`)).toEqual(
+      [],
+    );
+    const data = JSON.parse(callJson.mock.calls[0][0].messages[1].content);
+    expect(data.jobDescription).toHaveLength(20000);
+    expect(data.bullets).toHaveLength(200);
+    expect(data.bullets[0].id).toBe("match");
+    expect(data.bullets.some((item: any) => item.id === "b204")).toBe(false);
+  });
+  it("keeps valid extraction items, validates each cap and limits input drafts to 200", async () => {
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        drafts: [
+          { text: "Good" },
+          { text: "x".repeat(10001) },
+          { text: "Bad tag", tags: ["x".repeat(101)] },
+          ...Array.from({ length: 197 }, () => ({ text: "Valid" })),
+          { text: "Beyond cap" },
+        ],
+      },
+    });
+    const drafts = await extractExperienceBullets("text");
+    expect(drafts).toHaveLength(198);
+    expect(drafts[0].text).toBe("Good");
+    expect(drafts.some((item) => item.text === "Beyond cap")).toBe(false);
+    callJson.mockResolvedValue({ success: true, data: { drafts: "invalid" } });
+    await expect(extractExperienceBullets("text")).rejects.toThrow(
+      "Unable to extract",
+    );
   });
   it("validates document shape, reference count and byte cap", () => {
     expect(coworkChatContextSchema.safeParse(context()).success).toBe(true);

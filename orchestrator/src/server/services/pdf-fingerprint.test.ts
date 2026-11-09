@@ -1,7 +1,22 @@
+import { db, schema } from "@server/db";
 import { createJob } from "@shared/testing/factories";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { PdfFingerprintContext } from "./pdf-fingerprint";
-import { createJobPdfFingerprint, getJobPdfFreshness } from "./pdf-fingerprint";
+import {
+  createJobPdfFingerprint,
+  getJobPdfFreshness,
+  resolvePdfFingerprintContext,
+} from "./pdf-fingerprint";
+
+vi.mock("./design-resume", () => ({
+  getCurrentDesignResumeOrNullOnLegacy: vi.fn(async () => null),
+}));
+vi.mock("@server/repositories/settings", () => ({
+  getSetting: vi.fn(async () => null),
+}));
+vi.mock("./rxresume/baseResumeId", () => ({
+  getConfiguredRxResumeBaseResumeId: vi.fn(async () => ({ resumeId: null })),
+}));
 
 const context: PdfFingerprintContext = {
   version: "v1",
@@ -48,6 +63,32 @@ describe("PDF freshness", () => {
         jobResumeHashes: { own: "doc-a", other: "other-b" },
       }),
     ).toBe("current");
+  });
+  it("selects only scoped job resume metadata and hashes revision plus update time", async () => {
+    let rows = [{ jobId: "own", revision: 1, updatedAt: "first" }];
+    const where = vi.fn(() => ({ all: () => rows }));
+    const from = vi.fn(() => ({ where }));
+    const select = vi.spyOn(db, "select").mockReturnValue({ from } as never);
+    try {
+      const first = await resolvePdfFingerprintContext();
+      expect(select).toHaveBeenCalledWith({
+        jobId: schema.jobResumes.jobId,
+        revision: schema.jobResumes.revision,
+        updatedAt: schema.jobResumes.updatedAt,
+      });
+      expect(from).toHaveBeenCalledWith(schema.jobResumes);
+      expect(where).toHaveBeenCalledWith(expect.anything());
+      rows = [{ jobId: "own", revision: 2, updatedAt: "first" }];
+      const revised = await resolvePdfFingerprintContext();
+      expect(revised.jobResumeHashes?.own).not.toBe(first.jobResumeHashes?.own);
+      rows = [{ jobId: "own", revision: 1, updatedAt: "recreated" }];
+      const recreated = await resolvePdfFingerprintContext();
+      expect(recreated.jobResumeHashes?.own).not.toBe(
+        first.jobResumeHashes?.own,
+      );
+    } finally {
+      select.mockRestore();
+    }
   });
   it("maps missing PDFs to missing", () => {
     expect(getJobPdfFreshness(createJob(), context)).toBe("missing");
