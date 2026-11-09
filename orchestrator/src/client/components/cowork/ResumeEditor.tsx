@@ -40,12 +40,38 @@ export function ResumeEditor({
   const page = useRef<HTMLFieldSetElement>(null);
   const [geometry, setGeometry] = useState({ scale: 1, height: 1123 });
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const [libraryDrag, setLibraryDrag] = useState(false);
+  useEffect(() => {
+    const ownerDocument = canvas.current?.ownerDocument;
+    if (!ownerDocument) return;
+    const start = (event: DragEvent) => {
+      setLibraryDrag(
+        event.dataTransfer?.types.includes(BULLET_TRANSFER_TYPE) ?? false,
+      );
+    };
+    const end = () => {
+      setLibraryDrag(false);
+      setDragOver(null);
+    };
+    // Bubble after the library's dragstart handler has populated dataTransfer.
+    ownerDocument.addEventListener("dragstart", start);
+    ownerDocument.addEventListener("dragend", end, true);
+    ownerDocument.addEventListener("drop", end, true);
+    return () => {
+      ownerDocument.removeEventListener("dragstart", start);
+      ownerDocument.removeEventListener("dragend", end, true);
+      ownerDocument.removeEventListener("drop", end, true);
+    };
+  }, []);
   useEffect(() => {
     if (typeof ResizeObserver === "undefined") return;
     const measure = () => {
       if (!canvas.current || !page.current) return;
       setGeometry({
-        scale: Math.min(1, canvas.current.clientWidth / ((210 * 96) / 25.4)),
+        scale: Math.max(
+          0.6,
+          Math.min(1, canvas.current.clientWidth / ((210 * 96) / 25.4)),
+        ),
         height: page.current.offsetHeight,
       });
     };
@@ -57,8 +83,11 @@ export function ResumeEditor({
   }, []);
   function dragHandle(type: string, value: unknown, label: string) {
     return (
-      <button
-        type="button"
+      // biome-ignore lint/a11y/useSemanticElements: Firefox cannot reliably start native drags from buttons; adjacent buttons provide keyboard reordering.
+      <span
+        role="button"
+        tabIndex={-1}
+        aria-disabled={disabled}
         className="resume-drag"
         draggable={!disabled}
         aria-label={label}
@@ -70,7 +99,7 @@ export function ResumeEditor({
         onDragEnd={() => setDragOver(null)}
       >
         ⠿
-      </button>
+      </span>
     );
   }
   function reorderZone(kind: "experience" | "skills", gap: number) {
@@ -276,7 +305,11 @@ export function ResumeEditor({
     };
   }
   return (
-    <div className="resume-canvas" ref={canvas}>
+    <div
+      className="resume-canvas"
+      ref={canvas}
+      data-library-drag={libraryDrag && !disabled}
+    >
       <div
         className="resume-paper-frame"
         style={{
@@ -580,6 +613,7 @@ export function ResumeEditor({
                     <div
                       {...dropZone(experience.id, bullets.length, "insert")}
                       className="resume-gap resume-append"
+                      data-empty={bullets.length === 0}
                     >
                       <span>Drop to append a duty</span>
                     </div>
