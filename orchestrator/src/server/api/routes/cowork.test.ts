@@ -1,7 +1,7 @@
 import type { Server } from "node:http";
 import type { ReactiveResumeV5Document } from "@shared/types";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
 let server: Server, baseUrl: string, closeDb: () => void, tempDir: string;
@@ -87,9 +87,80 @@ beforeEach(async () => {
     })
     .run();
 });
-afterEach(async () => stopServer({ server, closeDb, tempDir }));
+afterEach(async () => {
+  vi.restoreAllMocks();
+  await stopServer({ server, closeDb, tempDir });
+});
 
 describe("co-work routes", () => {
+  it.each([
+    ["GET", "job resume"],
+    ["POST", "resume import"],
+  ])("returns 409 for %s %s without a base resume", async (method) => {
+    const { db, schema } = await import("@server/db");
+    db.delete(schema.designResumeDocuments)
+      .where(eq(schema.designResumeDocuments.id, "base-resume"))
+      .run();
+    const response = await request(
+      method === "GET"
+        ? `/jobs/${jobId}/resume`
+        : "/experience-bullets/import-resume",
+      method,
+    );
+    expect(response.status).toBe(409);
+    expect(response.headers.get("x-request-id")).toBe("cowork-test");
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: {
+        code: "CONFLICT",
+        message: "Import or create a resume first",
+      },
+      meta: { requestId: "cowork-test" },
+    });
+  });
+  it.each([
+    "rxresume",
+    "typst",
+  ] as const)("uses the configured %s renderer for unsaved resumes and imports", async (renderer) => {
+    const { db, schema } = await import("@server/db");
+    db.update(schema.designResumeDocuments)
+      .set({ sourceResumeId: "upstream-resume", sourceMode: "v5" })
+      .where(eq(schema.designResumeDocuments.id, "base-resume"))
+      .run();
+    expect(
+      (await request("/settings", "PATCH", { pdfRenderer: renderer })).status,
+    ).toBe(200);
+    const upstream = structuredClone(document);
+    upstream.metadata.template = "rhyhorn";
+    upstream.basics.headline = "Upstream headline";
+    const rxresume = await import("@server/services/rxresume");
+    const getResume = vi.spyOn(rxresume, "getResume").mockResolvedValue({
+      id: "upstream-resume",
+      name: "Upstream",
+      data: upstream,
+    });
+    const response = await request(`/jobs/${jobId}/resume`);
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.document).toMatchObject({
+      basics: { headline: "Base headline" },
+      metadata: {
+        template:
+          renderer === "rxresume"
+            ? upstream.metadata.template
+            : document.metadata.template,
+      },
+    });
+    expect(
+      (await request("/experience-bullets/import-resume", "POST")).status,
+    ).toBe(200);
+    if (renderer === "rxresume") {
+      expect(document.metadata.template).not.toBe(upstream.metadata.template);
+      expect(getResume).toHaveBeenCalledTimes(2);
+      expect(getResume).toHaveBeenCalledWith("upstream-resume");
+    } else {
+      expect(getResume).not.toHaveBeenCalled();
+    }
+  });
   it("enforces authentication and returns request IDs on validation errors", async () => {
     for (const path of [
       "/experience-bullets",

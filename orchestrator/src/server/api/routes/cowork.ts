@@ -1,9 +1,10 @@
 import { AppError, badRequest, notFound } from "@infra/errors";
 import { asyncRoute, ok } from "@infra/http";
+import { resolveRequestOrigin } from "@infra/request-origin";
 import * as bulletsRepo from "@server/repositories/experience-bullets";
 import * as resumesRepo from "@server/repositories/job-resumes";
 import { getJobById } from "@server/repositories/jobs";
-import { loadBaseResumeSource } from "@server/services/pdf";
+import { loadBaseResumeSource, resolvePdfRenderer } from "@server/services/pdf";
 import { prepareTailoredResumeForPdf } from "@server/services/rxresume";
 import { safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
 import { bulletsFromHtml } from "@shared/resume-bullets";
@@ -39,8 +40,11 @@ async function requireJob(id: string) {
   if (!job) throw notFound("Job not found");
   return job;
 }
-async function baseDocument() {
-  const { data } = await loadBaseResumeSource({ renderer: "typst" });
+async function baseDocument(requestOrigin: string | null) {
+  const { data } = await loadBaseResumeSource({
+    renderer: await resolvePdfRenderer(),
+    requestOrigin,
+  });
   return data as ReactiveResumeV5Document;
 }
 function splitPeriod(period: string): [string | null, string | null] {
@@ -72,8 +76,8 @@ coworkRouter.post(
 );
 coworkRouter.post(
   "/experience-bullets/import-resume",
-  asyncRoute(async (_req, res) => {
-    const document = await baseDocument();
+  asyncRoute(async (req, res) => {
+    const document = await baseDocument(resolveRequestOrigin(req));
     const inputs: ExperienceBulletInput[] =
       document.sections.experience.items.flatMap((item) => {
         const [startDate, endDate] = splitPeriod(item.period);
@@ -134,7 +138,7 @@ coworkRouter.get(
     const saved = await resumesRepo.getJobResume(job.id);
     if (saved) return ok(res, saved);
     const prepared = await prepareTailoredResumeForPdf({
-      resumeData: await baseDocument(),
+      resumeData: await baseDocument(resolveRequestOrigin(req)),
       tailoredContent: {
         summary: job.tailoredSummary,
         headline: job.tailoredHeadline,

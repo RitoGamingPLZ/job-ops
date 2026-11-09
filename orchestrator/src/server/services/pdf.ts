@@ -5,7 +5,7 @@
 
 import { existsSync } from "node:fs";
 import { access, mkdir, writeFile } from "node:fs/promises";
-import { AppError, type AppErrorCode, notFound } from "@infra/errors";
+import { AppError, type AppErrorCode, conflict, notFound } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { getJobResume } from "@server/repositories/job-resumes";
@@ -74,7 +74,7 @@ async function ensureOutputDir(): Promise<void> {
   }
 }
 
-async function resolvePdfRenderer(): Promise<PdfRenderer> {
+export async function resolvePdfRenderer(): Promise<PdfRenderer> {
   const storedValue = await getSetting("pdfRenderer");
   return (
     settingsRegistry.pdfRenderer.parse(storedValue ?? undefined) ??
@@ -329,9 +329,7 @@ export async function loadBaseResumeSource(args: {
 
   const { resumeId: baseResumeId } = await getConfiguredRxResumeBaseResumeId();
   if (!baseResumeId) {
-    throw new Error(
-      "No Resume Studio document found, and no Reactive Resume base resume is configured. Import a resume into Resume Studio or select a base resume in Settings.",
-    );
+    throw conflict("Import or create a resume first");
   }
 
   const baseResume = await getRxResume(baseResumeId);
