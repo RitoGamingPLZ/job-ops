@@ -1,8 +1,8 @@
 import { isAwaitingAiScore } from "@client/components";
 import type { JobListItem } from "@shared/types.js";
+import { isTargeted } from "@shared/types.js";
 import { Loader2, XCircle } from "lucide-react";
 import { Tip } from "@/client/components/Tip";
-import { isPdfRegenerating, isPdfStale } from "@/client/lib/pdf-freshness";
 import { cn } from "@/lib/utils";
 import { defaultStatusToken, statusTokens } from "./constants";
 
@@ -33,8 +33,6 @@ export const JobRowContent = ({
   const isAwaitingAi = isAwaitingAiScore(job);
   const statusToken = statusTokens[job.status] ?? defaultStatusToken;
   const suitabilityTone = getSuitabilityScoreTone(job.suitabilityScore ?? 0);
-  const showStalePdf = isPdfStale(job);
-  const showRegeneratingPdf = isPdfRegenerating(job);
 
   return (
     <div className={cn("flex min-w-0 flex-1 items-center gap-3", className)}>
@@ -64,22 +62,16 @@ export const JobRowContent = ({
             <span className="before:content-['_in_']">{job.location}</span>
           )}
         </div>
-        {(job.salary?.trim() || showRegeneratingPdf || showStalePdf) && (
+        {(job.salary?.trim() || isTargeted(job)) && (
           <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+            {isTargeted(job) && (
+              <span className="inline-flex shrink-0 rounded-sm border border-emerald-400/25 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-200">
+                Targeted
+              </span>
+            )}
             {job.salary?.trim() && (
               <span className="truncate text-xs text-muted-foreground">
                 {job.salary}
-              </span>
-            )}
-            {showRegeneratingPdf && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-blue-200/70 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium leading-none text-blue-700 dark:border-blue-400/25 dark:bg-blue-400/10 dark:text-blue-200">
-                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                Generating PDF
-              </span>
-            )}
-            {showStalePdf && (
-              <span className="inline-flex shrink-0 rounded-sm border border-amber-200/70 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium leading-none text-amber-700 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-200">
-                Regenerate PDF
               </span>
             )}
           </div>

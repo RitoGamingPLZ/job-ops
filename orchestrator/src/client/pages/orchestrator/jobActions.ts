@@ -22,3 +22,13 @@ export function getFailedJobIds(response: JobActionResponse): Set<string> {
     .map((result) => result.jobId);
   return new Set(failedIds);
 }
+
+// Target is deliberately independent of tailoring/PDF availability.
+export function canTarget(jobs: JobListItem[]): boolean {
+  return (
+    jobs.length > 0 &&
+    jobs.every((job) =>
+      ["discovered", "processing", "ready"].includes(job.status),
+    )
+  );
+}

@@ -1,6 +1,7 @@
 import { KeyboardShortcutBar } from "@client/components/KeyboardShortcutBar";
 import { KeyboardShortcutDialog } from "@client/components/KeyboardShortcutDialog";
 import type { Job, JobListItem, JobStatus } from "@shared/types.js";
+import { isTargeted } from "@shared/types.js";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { VirtualListHandle } from "@/client/lib/virtual-list";
@@ -56,7 +57,14 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
   onFindJobs,
 }) => {
   const jobListHandleRef = useRef<VirtualListHandle | null>(null);
-  const activeJobs = useFilteredJobs(jobs, {
+  const searchableJobs = useMemo(
+    () =>
+      navigation.activeTab === "discovered"
+        ? jobs.filter((job) => job.status === "discovered" && !isTargeted(job))
+        : jobs,
+    [jobs, navigation.activeTab],
+  );
+  const activeJobs = useFilteredJobs(searchableJobs, {
     activeTab: navigation.activeTab,
     dateFilter: filters.dateFilter,
     sourceFilter: filters.sourceFilter,
@@ -69,7 +77,15 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     location: filters.location,
     sort: filters.sort,
   });
-  const counts = useMemo(() => getJobCounts(jobs), [jobs]);
+  const counts = useMemo(
+    () => ({
+      ...getJobCounts(jobs),
+      discovered: jobs.filter(
+        (job) => job.status === "discovered" && !isTargeted(job),
+      ).length,
+    }),
+    [jobs],
+  );
   const companiesWithJobs = useMemo(() => getCompaniesWithJobs(jobs), [jobs]);
   const sourcesWithJobs = useMemo(() => getSourcesWithJobs(jobs), [jobs]);
   const handleTabChange = useCallback(
@@ -77,14 +93,37 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     [jobs, navigation],
   );
 
+  const selectedTarget = selectedJob ?? selectedJobListItem;
+  const redirectTargetedSelection =
+    navigation.activeTab === "discovered" &&
+    selectedTarget?.id === navigation.selectedJobId &&
+    isTargeted(selectedTarget);
+
+  useEffect(() => {
+    if (redirectTargetedSelection && selectedTarget) {
+      navigation.navigateWithContext("all", selectedTarget.id, true);
+    }
+  }, [navigation, redirectTargetedSelection, selectedTarget]);
+
   const visibleSelectedJob = useMemo(() => {
     if (!selectedJob) return null;
+    if (
+      navigation.activeTab === "discovered" &&
+      (selectedJob.status !== "discovered" || isTargeted(selectedJob))
+    )
+      return null;
     const tabDef = tabs.find((tab) => tab.id === navigation.activeTab);
     if (!tabDef || tabDef.statuses.length === 0) return selectedJob;
     return tabDef.statuses.includes(selectedJob.status) ? selectedJob : null;
   }, [navigation.activeTab, selectedJob]);
   const visibleSelectedJobListItem = useMemo(() => {
     if (!selectedJobListItem) return null;
+    if (
+      navigation.activeTab === "discovered" &&
+      (selectedJobListItem.status !== "discovered" ||
+        isTargeted(selectedJobListItem))
+    )
+      return null;
     const tabDef = tabs.find((tab) => tab.id === navigation.activeTab);
     if (!tabDef || tabDef.statuses.length === 0) return selectedJobListItem;
     return tabDef.statuses.includes(selectedJobListItem.status)
@@ -94,14 +133,12 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
 
   const {
     selectedJobIds,
-    canSkipSelected,
-    canMoveSelected,
-    canRescoreSelected,
+    canTargetSelected,
+    targetSelectedJobs,
     jobActionInFlight,
     toggleSelectJob,
     toggleSelectAll,
     clearSelection,
-    runJobAction,
   } = useJobSelectionActions({
     activeJobs,
     activeTab: navigation.activeTab,
@@ -150,21 +187,25 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     setIsHelpDialogOpen: ui.setIsHelpDialogOpen,
     clearSelection,
     toggleSelectJob,
-    runJobAction,
+    targetSelectedJobs,
     loadJobs,
   });
 
   const handleCommandSelectJob = useCallback(
     (targetTab: FilterTab, id: string) => {
       requestScrollToJob(id, { ensureSelected: true });
-      navigation.navigateToCommandJob(targetTab, id);
+      const job = jobs.find((item) => item.id === id);
+      navigation.navigateToCommandJob(
+        job && isTargeted(job) ? "all" : targetTab,
+        id,
+      );
       ui.openDetailDrawerForMobile();
     },
-    [navigation, requestScrollToJob, ui],
+    [jobs, navigation, requestScrollToJob, ui],
   );
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || redirectTargetedSelection) return;
     if (activeJobs.length === 0) {
       if (navigation.selectedJobId) navigation.handleSelectJobId(null);
       return;
@@ -176,39 +217,21 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
         true,
       );
     }
-  }, [activeJobs, isLoading, navigation, ui.isDesktop]);
+  }, [
+    activeJobs,
+    isLoading,
+    navigation,
+    redirectTargetedSelection,
+    ui.isDesktop,
+  ]);
 
-  const primaryEmptyStateAction = useMemo(() => {
-    if (navigation.activeTab === "ready" && counts.discovered > 0) {
-      return {
-        label: "Tailor discovered jobs",
-        onClick: () => handleTabChange("discovered"),
-      };
-    }
-
-    if (
-      navigation.activeTab === "discovered" ||
-      navigation.activeTab === "all"
-    ) {
-      return {
-        label: "Find jobs",
-        onClick: onFindJobs,
-      };
-    }
-
-    return undefined;
-  }, [counts.discovered, handleTabChange, navigation.activeTab, onFindJobs]);
-
-  const secondaryEmptyStateAction = useMemo(() => {
-    if (navigation.activeTab === "ready") {
-      return {
-        label: "Find jobs",
-        onClick: onFindJobs,
-      };
-    }
-
-    return undefined;
-  }, [navigation.activeTab, onFindJobs]);
+  const primaryEmptyStateAction = useMemo(
+    () => ({
+      label: "Find jobs",
+      onClick: onFindJobs,
+    }),
+    [onFindJobs],
+  );
 
   const emptyStateMessage = useMemo(() => {
     if (filters.dateFilter.dimensions.length === 0) {
@@ -256,7 +279,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           isFiltersOpen={ui.isFiltersOpen}
           jobListHandleRef={jobListHandleRef}
           primaryEmptyStateAction={primaryEmptyStateAction}
-          secondaryEmptyStateAction={secondaryEmptyStateAction}
+          secondaryEmptyStateAction={undefined}
           emptyStateMessage={emptyStateMessage}
           onCommandBarOpenChange={ui.setIsCommandBarOpen}
           onCommandSelectJob={handleCommandSelectJob}
@@ -284,13 +307,9 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
 
       <FloatingJobActionsBar
         selectedCount={selectedJobIds.size}
-        canMoveSelected={canMoveSelected}
-        canSkipSelected={canSkipSelected}
-        canRescoreSelected={canRescoreSelected}
+        canTargetSelected={canTargetSelected}
         jobActionInFlight={jobActionInFlight !== null}
-        onMoveToReady={() => void runJobAction("move_to_ready")}
-        onSkipSelected={() => void runJobAction("skip")}
-        onRescoreSelected={() => void runJobAction("rescore")}
+        onTargetSelected={() => void targetSelectedJobs()}
         onClear={clearSelection}
       />
 

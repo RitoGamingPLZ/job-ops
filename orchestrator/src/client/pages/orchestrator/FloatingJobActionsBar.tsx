@@ -4,25 +4,17 @@ import { Button } from "@/components/ui/button";
 
 interface FloatingJobActionsBarProps {
   selectedCount: number;
-  canMoveSelected: boolean;
-  canSkipSelected: boolean;
-  canRescoreSelected: boolean;
+  canTargetSelected: boolean;
   jobActionInFlight: boolean;
-  onMoveToReady: () => void;
-  onSkipSelected: () => void;
-  onRescoreSelected: () => void;
+  onTargetSelected: () => void;
   onClear: () => void;
 }
 
 export const FloatingJobActionsBar: React.FC<FloatingJobActionsBarProps> = ({
   selectedCount,
-  canMoveSelected,
-  canSkipSelected,
-  canRescoreSelected,
+  canTargetSelected,
   jobActionInFlight,
-  onMoveToReady,
-  onSkipSelected,
-  onRescoreSelected,
+  onTargetSelected,
   onClear,
 }) => {
   return (
@@ -40,40 +32,16 @@ export const FloatingJobActionsBar: React.FC<FloatingJobActionsBarProps> = ({
               {selectedCount} selected
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-              {canMoveSelected && (
+              {canTargetSelected && (
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   className="w-full sm:w-auto"
                   disabled={jobActionInFlight}
-                  onClick={onMoveToReady}
+                  onClick={onTargetSelected}
                 >
-                  Move to Ready
-                </Button>
-              )}
-              {canSkipSelected && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  disabled={jobActionInFlight}
-                  onClick={onSkipSelected}
-                >
-                  Skip selected
-                </Button>
-              )}
-              {canRescoreSelected && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  disabled={jobActionInFlight}
-                  onClick={onRescoreSelected}
-                >
-                  Recalculate match
+                  Target
                 </Button>
               )}
               <Button

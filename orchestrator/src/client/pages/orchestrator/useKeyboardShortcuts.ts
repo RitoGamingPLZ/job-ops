@@ -1,19 +1,11 @@
 import * as api from "@client/api";
-import {
-  useMarkAsAppliedMutation,
-  useSkipJobMutation,
-} from "@client/hooks/queries/useJobMutations";
 import { useHotkeys } from "@client/hooks/useHotkeys";
-import { useProfile } from "@client/hooks/useProfile";
-import { useSettings } from "@client/hooks/useSettings";
-import { resolveFilenameLanguage } from "@client/lib/pdf-filename";
-import { downloadJobPdf, openJobPdf } from "@client/lib/private-pdf";
 import { SHORTCUTS } from "@client/lib/shortcut-map";
-import type { JobAction, JobListItem } from "@shared/types.js";
+import type { JobListItem } from "@shared/types.js";
+import { isTargeted } from "@shared/types.js";
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
-import { safeFilenamePart } from "@/lib/utils";
 import type { FilterTab } from "./constants";
 import { tabs } from "./constants";
 
@@ -35,7 +27,7 @@ type UseKeyboardShortcutsArgs = {
   setIsHelpDialogOpen: (updater: (prev: boolean) => boolean) => void;
   clearSelection: () => void;
   toggleSelectJob: (id: string) => void;
-  runJobAction: (action: JobAction) => Promise<void>;
+  targetSelectedJobs: () => Promise<void>;
   loadJobs: () => Promise<void>;
 };
 
@@ -58,17 +50,11 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
     setIsHelpDialogOpen,
     clearSelection,
     toggleSelectJob,
-    runJobAction,
+    targetSelectedJobs,
     loadJobs,
   } = args;
 
   const shortcutActionInFlight = useRef(false);
-  const markAsAppliedMutation = useMarkAsAppliedMutation();
-  const skipJobMutation = useSkipJobMutation();
-  const { settings } = useSettings();
-  const { personName, profile } = useProfile();
-  const filenameLanguage = resolveFilenameLanguage({ settings, profile });
-
   const navigateJobList = useCallback(
     (direction: 1 | -1) => {
       if (activeJobs.length === 0) return;
@@ -127,7 +113,6 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
       },
 
       // ── Tab switching ───────────────────────────────────────────────────
-      [SHORTCUTS.tabReady.key]: () => setActiveTab("ready"),
       [SHORTCUTS.tabDiscovered.key]: () => setActiveTab("discovered"),
       [SHORTCUTS.tabAll.key]: () => setActiveTab("all"),
       [SHORTCUTS.prevTabArrow.key]: (e) => {
@@ -140,117 +125,34 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
       },
 
       // ── Context actions ─────────────────────────────────────────────────
-      [SHORTCUTS.skip.key]: () => {
-        if (!["discovered", "ready"].includes(activeTab)) return;
-        if (shortcutActionInFlight.current) return;
-
-        if (selectedJobIds.size > 0) {
-          void runJobAction("skip");
-          return;
-        }
-
-        if (!selectedJob) return;
-        shortcutActionInFlight.current = true;
-        const jobId = selectedJob.id;
-        skipJobMutation
-          .mutateAsync(jobId)
-          .then(async () => {
-            toast.message("Job skipped");
-            selectNextAfterAction(jobId);
-            await loadJobs();
-          })
-          .catch((err: unknown) => {
-            const msg =
-              err instanceof Error ? err.message : "Failed to skip job";
-            toast.error(msg);
-          })
-          .finally(() => {
-            shortcutActionInFlight.current = false;
-          });
-      },
-
-      [SHORTCUTS.markApplied.key]: () => {
-        if (!selectedJob) return;
-        if (activeTab !== "ready") return;
-        if (shortcutActionInFlight.current) return;
-        shortcutActionInFlight.current = true;
-        const jobId = selectedJob.id;
-        markAsAppliedMutation
-          .mutateAsync(jobId)
-          .then(async () => {
-            toast.success("Marked as applied", {
-              description: `${selectedJob.title} at ${selectedJob.employer}`,
-            });
-            selectNextAfterAction(jobId);
-            await loadJobs();
-          })
-          .catch((err: unknown) => {
-            const msg =
-              err instanceof Error ? err.message : "Failed to mark as applied";
-            toast.error(msg);
-          })
-          .finally(() => {
-            shortcutActionInFlight.current = false;
-          });
-      },
-
       [SHORTCUTS.moveToReady.key]: () => {
-        if (activeTab !== "discovered") return;
         if (shortcutActionInFlight.current) return;
-
         if (selectedJobIds.size > 0) {
-          void runJobAction("move_to_ready");
+          void targetSelectedJobs();
           return;
         }
-
-        if (!selectedJob) return;
-
+        if (
+          !selectedJob ||
+          !["discovered", "processing", "ready"].includes(selectedJob.status)
+        )
+          return;
+        const targeted = isTargeted(selectedJob);
+        if (targeted && selectedJob.status === "processing") return;
         shortcutActionInFlight.current = true;
         const jobId = selectedJob.id;
-        toast.message("Moving job to Ready...");
-
-        api
-          .processJob(jobId)
+        void (targeted ? api.untargetJob(jobId) : api.targetJob(jobId))
           .then(async () => {
-            toast.success("Job moved to Ready", {
-              description: "Your tailored PDF has been generated.",
-            });
-            selectNextAfterAction(jobId);
+            toast.success(targeted ? "Job untargeted" : "Job targeted");
+            if (activeTab === "discovered" && !targeted)
+              selectNextAfterAction(jobId);
             await loadJobs();
           })
-          .catch((err: unknown) => {
-            const msg =
-              err instanceof Error
-                ? err.message
-                : "Failed to move job to ready";
-            toast.error(msg);
-          })
+          .catch((error: unknown) =>
+            showErrorToast(error, "Failed to update target"),
+          )
           .finally(() => {
             shortcutActionInFlight.current = false;
           });
-      },
-
-      [SHORTCUTS.viewPdf.key]: () => {
-        if (!selectedJob) return;
-        if (activeTab !== "ready") return;
-        void openJobPdf(selectedJob.id).catch((error) => {
-          showErrorToast(error, "Could not open PDF");
-        });
-      },
-
-      [SHORTCUTS.downloadPdf.key]: () => {
-        if (!selectedJob) return;
-        if (activeTab !== "ready") return;
-        void downloadJobPdf(
-          selectedJob.id,
-          `${safeFilenamePart(personName || "Unknown", {
-            language: filenameLanguage,
-          })}_${safeFilenamePart(selectedJob.employer, {
-            language: filenameLanguage,
-          })}.pdf`,
-        ).catch((error) => {
-          showErrorToast(error, "Could not download PDF");
-        });
       },
 
       [SHORTCUTS.openListing.key]: () => {

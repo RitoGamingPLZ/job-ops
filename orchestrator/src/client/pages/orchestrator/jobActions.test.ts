@@ -5,10 +5,25 @@ import {
   canMoveToReady,
   canRescore,
   canSkip,
+  canTarget,
   getFailedJobIds,
 } from "./jobActions";
 
 describe("jobActions", () => {
+  it("targets only nonempty selections of pre-application jobs", () => {
+    expect(canTarget([])).toBe(false);
+    expect(
+      canTarget(
+        ["discovered", "processing", "ready"].map((status) =>
+          createJob({
+            status: status as "discovered" | "processing" | "ready",
+          }),
+        ),
+      ),
+    ).toBe(true);
+    expect(canTarget([createJob({ status: "applied" })])).toBe(false);
+  });
+
   it("computes eligibility for skip, move-to-ready, and rescore", () => {
     expect(
       canSkip([

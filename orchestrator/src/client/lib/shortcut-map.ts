@@ -49,20 +49,20 @@ export const SHORTCUTS = {
 
   // Tabs
   tabReady: {
-    key: "1",
-    displayKey: "1",
+    key: "3",
+    displayKey: "3",
     label: "Ready tab",
     group: "tabs",
   },
   tabDiscovered: {
-    key: "2",
-    displayKey: "2",
+    key: "1",
+    displayKey: "1",
     label: "Discovered tab",
     group: "tabs",
   },
   tabAll: {
-    key: "3",
-    displayKey: "3",
+    key: "2",
+    displayKey: "2",
     label: "All Jobs tab",
     group: "tabs",
   },
@@ -90,9 +90,9 @@ export const SHORTCUTS = {
   moveToReady: {
     key: "r",
     displayKey: "r",
-    label: "Move to Ready",
+    label: "Target / Untarget job",
     group: "actions",
-    scope: ["discovered"],
+    scope: ["discovered", "all"],
   },
   markApplied: {
     key: "a",
@@ -165,7 +165,15 @@ export type ShortcutId = keyof typeof SHORTCUTS;
  */
 export function getShortcutsForTab(tab: FilterTab): ShortcutDef[] {
   return (Object.values(SHORTCUTS) as ShortcutDef[]).filter(
-    (s) => !s.scope || s.scope.includes(tab),
+    (s) =>
+      ![
+        SHORTCUTS.tabReady,
+        SHORTCUTS.skip,
+        SHORTCUTS.markApplied,
+        SHORTCUTS.viewPdf,
+        SHORTCUTS.downloadPdf,
+      ].some((hidden) => hidden === s) &&
+      (!s.scope || s.scope.includes(tab)),
   );
 }
 

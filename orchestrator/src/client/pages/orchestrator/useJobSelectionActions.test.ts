@@ -8,6 +8,7 @@ import { useJobSelectionActions } from "./useJobSelectionActions";
 
 vi.mock("@client/api", () => ({
   streamJobAction: vi.fn(),
+  targetJob: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -101,6 +102,49 @@ describe("useJobSelectionActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(toast.loading).mockReturnValue("job-progress-toast");
+  });
+
+  it("targets selected jobs and retains failed jobs for retry", async () => {
+    const activeJobs = [
+      createJob({ id: "one", status: "discovered", readyAt: null }),
+      createJob({ id: "two", status: "ready" }),
+      createJob({ id: "three", status: "processing" }),
+    ];
+    vi.mocked(api.targetJob).mockImplementation(async (id) => {
+      if (id === "two") throw new Error("unavailable");
+      return createJob({ id });
+    });
+    const loadJobs = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useJobSelectionActions({
+        activeJobs,
+        activeTab: "all",
+        loadJobs,
+      }),
+    );
+    act(() => result.current.toggleSelectAll(true));
+    expect(result.current.canTargetSelected).toBe(true);
+    await act(async () => result.current.targetSelectedJobs());
+    expect(api.targetJob).toHaveBeenCalledTimes(3);
+    expect(api.streamJobAction).not.toHaveBeenCalled();
+    expect(Array.from(result.current.selectedJobIds)).toEqual(["two"]);
+    expect(toast.error).toHaveBeenCalledWith("2 targeted, 1 failed.");
+    expect(loadJobs).toHaveBeenCalledOnce();
+  });
+
+  it("does not target an ineligible mixed selection", async () => {
+    const activeJobs = [createJob({ status: "applied" })];
+    const { result } = renderHook(() =>
+      useJobSelectionActions({
+        activeJobs,
+        activeTab: "all",
+        loadJobs: vi.fn(),
+      }),
+    );
+    act(() => result.current.toggleSelectAll(true));
+    expect(result.current.canTargetSelected).toBe(false);
+    await act(async () => result.current.targetSelectedJobs());
+    expect(api.targetJob).not.toHaveBeenCalled();
   });
 
   it("caps select-all to the API max", () => {
