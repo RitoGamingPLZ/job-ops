@@ -28,6 +28,8 @@ import { JobPage } from "./pages/JobPage";
 import { OfflinePage } from "./pages/OfflinePage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { OrchestratorPage } from "./pages/OrchestratorPage";
+import { ResumeCoworkPage } from "./pages/ResumeCoworkPage";
+import { ResumeLibraryPage, ResumesPage } from "./pages/ResumesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SignInPage } from "./pages/SignInPage";
 import { SsoCallbackPage } from "./pages/SsoCallbackPage";
@@ -188,6 +190,12 @@ export const App: React.FC = () => {
                   path="/applications/in-progress"
                   element={<InProgressBoardPage />}
                 />
+                <Route path="/resumes" element={<ResumesPage />} />
+                <Route
+                  path="/resumes/library"
+                  element={<ResumeLibraryPage />}
+                />
+                <Route path="/resumes/:jobId" element={<ResumeCoworkPage />} />
                 <Route path="/design-resume" element={<DesignResumePage />} />
                 <Route
                   path="/design-resume/:section"

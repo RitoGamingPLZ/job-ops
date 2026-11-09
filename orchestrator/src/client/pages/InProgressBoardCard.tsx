@@ -147,6 +147,9 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
       </Link>
       {stage === "targeted" && (
         <div className="mt-3 flex flex-wrap gap-2" data-board-card-menu="">
+          <Button size="sm" variant="outline" asChild>
+            <Link to={`/resumes/${job.id}`}>Co-work</Link>
+          </Button>
           {pdfPath && <Badge variant="outline">Resume ready</Badge>}
           {pdfPath && (
             <Button

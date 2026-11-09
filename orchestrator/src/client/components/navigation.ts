@@ -42,6 +42,12 @@ export const NAV_LINKS: NavLink[] = [
     icon: FilePenLine,
     activePaths: ["/design-resume"],
   },
+  {
+    to: "/resumes",
+    label: "Resumes",
+    icon: FilePenLine,
+    activePaths: ["/resumes"],
+  },
   { to: "/tracking-inbox", label: "Tracking Inbox", icon: Inbox },
   {
     to: "/tracer-links",

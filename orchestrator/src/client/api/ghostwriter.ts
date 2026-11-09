@@ -1,5 +1,6 @@
 import type {
   BranchInfo,
+  CoworkChatContext,
   JobChatImageAttachment,
   JobChatMessage,
   JobChatStreamEvent,
@@ -21,6 +22,7 @@ type GhostwriterContextSelectionResult = {
 
 type GhostwriterMessageContextInput = GhostwriterContextSelectionInput & {
   content: string;
+  cowork?: CoworkChatContext;
   attachments?: JobChatImageAttachment[];
 };
 
@@ -146,6 +148,7 @@ export async function streamJobGhostwriterMessage(
   return streamSseEvents<JobChatStreamEvent>(
     `/jobs/${jobId}/chat/messages`,
     {
+      ...{ cowork: input.cowork },
       content: input.content,
       selectedNoteIds: input.selectedNoteIds,
       selectedEmailIds: input.selectedEmailIds,
