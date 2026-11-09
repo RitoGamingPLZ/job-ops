@@ -71,7 +71,8 @@ export async function resolvePdfFingerprintContext(): Promise<PdfFingerprintCont
       db
         .select({
           jobId: schema.jobResumes.jobId,
-          document: schema.jobResumes.document,
+          revision: schema.jobResumes.revision,
+          updatedAt: schema.jobResumes.updatedAt,
         })
         .from(schema.jobResumes)
         .where(privateDataScopeFilter(schema.jobResumes))
@@ -79,7 +80,7 @@ export async function resolvePdfFingerprintContext(): Promise<PdfFingerprintCont
         .map((row) => [
           row.jobId,
           createHash("sha256")
-            .update(JSON.stringify(row.document))
+            .update(JSON.stringify([row.revision, row.updatedAt]))
             .digest("hex"),
         ]),
     ),

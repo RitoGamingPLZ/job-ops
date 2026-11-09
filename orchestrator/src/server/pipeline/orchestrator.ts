@@ -969,6 +969,8 @@ export async function generateFinalPdf(
       }
       pdfRegeneratingMarked = true;
 
+      // Capture freshness before rendering so an autosave during rendering stays stale.
+      const fingerprintContext = await resolvePdfFingerprintContext();
       const pdfResult = await generatePdf(
         job.id,
         {
@@ -1009,7 +1011,6 @@ export async function generateFinalPdf(
         throw new Error("PDF generation succeeded without an output path.");
       }
 
-      const fingerprintContext = await resolvePdfFingerprintContext();
       const pdfFingerprint = createJobPdfFingerprint(job, fingerprintContext);
       const expectedStatusAtCommit: JobStatus =
         job.status === "ready" ? "ready" : "processing";
