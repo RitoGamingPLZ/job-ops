@@ -52,3 +52,12 @@ describe("getDeleteEventDescription", () => {
     );
   });
 });
+
+it("uses the simplified label when rolling back a legacy stage", () => {
+  expect(
+    getDeleteEventDescription(
+      [makeEvent("old", "onsite"), makeEvent("new", "behavioural")],
+      "new",
+    ),
+  ).toContain("Technical Interview");
+});

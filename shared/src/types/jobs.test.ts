@@ -32,7 +32,7 @@ describe("board stage contract", () => {
     expect(BOARD_COLUMN_LABELS.closed).toBe("Reject");
   });
 
-  it("counts technical interview events only, including repeated rounds", () => {
+  it("counts technical and legacy interview transitions, including repeated rounds", () => {
     expect(technicalRound([])).toBe(0);
     expect(
       technicalRound(
@@ -46,6 +46,24 @@ describe("board stage contract", () => {
           typeof technicalRound
         >[0],
       ),
+    ).toBe(4);
+  });
+
+  it("excludes note-only events across technical and legacy stages", () => {
+    expect(
+      technicalRound([
+        {
+          toStage: "technical_interview",
+          metadata: { eventType: "status_update" },
+        },
+        { toStage: "technical_interview", metadata: { eventType: "note" } },
+        { toStage: "assessment", metadata: { eventType: "note" } },
+        { toStage: "onsite", metadata: { eventType: "note" } },
+        {
+          toStage: "technical_interview",
+          metadata: { eventType: "status_update" },
+        },
+      ]),
     ).toBe(2);
   });
 

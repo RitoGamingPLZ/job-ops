@@ -1,8 +1,10 @@
 import { CollapsibleSection } from "@client/components/discovered-panel/CollapsibleSection";
 import {
   type ApplicationStage,
-  STAGE_LABELS,
+  BOARD_COLUMN_LABELS,
+  boardColumnForStage,
   type StageEvent,
+  technicalRound,
 } from "@shared/types.js";
 import {
   CheckCircle2,
@@ -22,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn, formatTimestamp, formatTimestampWithTime } from "@/lib/utils";
 
 const stageIcons: Record<ApplicationStage, React.ReactNode> = {
+  behavioural: <UserRound className="h-4 w-4" />,
   applied: <CheckCircle2 className="h-4 w-4" />,
   recruiter_screen: <PhoneCall className="h-4 w-4" />,
   assessment: <FileText className="h-4 w-4" />,
@@ -68,6 +71,24 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({
   const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(
     {},
   );
+  const chronologicalEvents = React.useMemo(
+    () => [...events].sort((a, b) => a.occurredAt - b.occurredAt),
+    [events],
+  );
+  const eventLabel = (event: StageEvent) => {
+    const label = BOARD_COLUMN_LABELS[boardColumnForStage(event.toStage)];
+    const round =
+      boardColumnForStage(event.toStage) === "technical_interview" &&
+      event.metadata?.eventType !== "note"
+        ? technicalRound(
+            chronologicalEvents.slice(
+              0,
+              chronologicalEvents.indexOf(event) + 1,
+            ),
+          )
+        : 0;
+    return `${event.title || label}${round ? ` · Round ${round}` : ""}${event.outcome === "withdrawn" ? " · withdrawn" : ""}`;
+  };
   const lastEvent = events.at(-1);
   const currentStage = lastEvent?.toStage ?? null;
 
@@ -147,7 +168,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({
         }
 
         if (entry.kind === "event") {
-          const title = entry.event.title || STAGE_LABELS[entry.event.toStage];
+          const title = eventLabel(entry.event);
           const note = entry.event.metadata?.note;
           const reason = entry.event.metadata?.reasonCode;
           const isCurrent =
@@ -224,7 +245,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({
                     <TimelineRow
                       key={event.id}
                       date={formatTimestampWithTime(event.occurredAt)}
-                      title={event.title || STAGE_LABELS[event.toStage]}
+                      title={eventLabel(event)}
                       icon={stageIcons[event.toStage]}
                       isCompact
                       isLast={false}

@@ -1,12 +1,14 @@
 import { resolveResumeProjectSelection } from "@shared/resume-projects";
 import {
-  type ApplicationStage,
   type ApplicationTask,
+  BOARD_COLUMN_LABELS,
+  boardColumnForStage,
+  isTargeted,
   type Job,
   type JobNote,
   type ResumeProjectCatalogItem,
-  STAGE_LABELS,
   type StageEvent,
+  technicalRound,
 } from "@shared/types.js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -306,7 +308,7 @@ export const JobPage: React.FC = () => {
     eventId?: string,
   ) => {
     if (!job) return;
-    if (job.status !== "in_progress") {
+    if (job.status !== "in_progress" && job.status !== "applied") {
       toast.error("Move this job to In Progress to track stages.");
       return;
     }
@@ -518,6 +520,11 @@ export const JobPage: React.FC = () => {
         ? "applied"
         : null))
     : null;
+  const stageLabel = currentStage
+    ? `${BOARD_COLUMN_LABELS[boardColumnForStage(currentStage)]}${boardColumnForStage(currentStage) === "technical_interview" ? ` · Round ${Math.max(technicalRound(events), 1)}` : ""}${currentStage === "closed" && job?.outcome === "withdrawn" ? " · withdrawn" : ""}`
+    : job && isTargeted(job)
+      ? "Targeted"
+      : job?.status;
   const isClosedStage = currentStage === "closed";
   const isInProgress = job?.status === "in_progress";
   const isApplied = job?.status === "applied";
@@ -573,10 +580,28 @@ export const JobPage: React.FC = () => {
               variant="outline"
               className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
             >
-              {currentStage
-                ? STAGE_LABELS[currentStage as ApplicationStage] || currentStage
-                : job.status}
+              {stageLabel}
             </Badge>
+            {isTargeted(job) && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={
+                  isBusy || job.status === "processing" || isRegeneratingPdf
+                }
+                onClick={() =>
+                  job.status === "discovered"
+                    ? navigate(`/jobs/discovered/${job.id}`)
+                    : void handleRegeneratePdf()
+                }
+              >
+                {job.status === "processing" || isRegeneratingPdf
+                  ? "Tailoring…"
+                  : job.pdfPath
+                    ? "Regenerate resume"
+                    : "Tailor resume"}
+              </Button>
+            )}
             <Button
               variant="destructive"
               size="sm"
@@ -733,8 +758,7 @@ export const JobPage: React.FC = () => {
                       </div>
                       {currentStage && (
                         <Badge variant="secondary" className="text-[10px]">
-                          {STAGE_LABELS[currentStage as ApplicationStage] ||
-                            currentStage}
+                          {stageLabel}
                         </Badge>
                       )}
                     </div>
@@ -856,10 +880,7 @@ export const JobPage: React.FC = () => {
                         </Badge>
                       )}
                       {currentStage && (
-                        <Badge variant="secondary">
-                          {STAGE_LABELS[currentStage as ApplicationStage] ||
-                            currentStage}
-                        </Badge>
+                        <Badge variant="secondary">{stageLabel}</Badge>
                       )}
                       {canLogEvents && (
                         <Button

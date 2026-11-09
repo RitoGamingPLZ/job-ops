@@ -1,4 +1,9 @@
-import type { JobListItem, StageEvent } from "@shared/types";
+import {
+  BOARD_COLUMN_LABELS,
+  BOARD_COLUMNS,
+  type JobListItem,
+  type StageEvent,
+} from "@shared/types";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
@@ -56,6 +61,11 @@ const getBoardCardRoot = (cardTitle: HTMLElement): HTMLElement => {
 
 vi.mock("../api", () => ({
   getJobs: vi.fn(),
+  getJob: vi.fn(),
+  processJob: vi.fn(),
+  generateJobPdf: vi.fn(),
+  untargetJob: vi.fn(),
+  markAsApplied: vi.fn(),
   getJobStageEvents: vi.fn(),
   transitionJobStage: vi.fn(),
   updateJobStageEvent: vi.fn(),
@@ -191,7 +201,13 @@ describe("InProgressBoardPage", () => {
 
     await waitFor(() => {
       expect(api.getJobs).toHaveBeenCalledWith({
-        statuses: ["applied", "in_progress"],
+        statuses: [
+          "discovered",
+          "processing",
+          "ready",
+          "applied",
+          "in_progress",
+        ],
         view: "list",
       });
     });
@@ -429,5 +445,198 @@ describe("InProgressBoardPage", () => {
 
     expect(toast.success).toHaveBeenCalledWith("Event logged");
     expect(celebrateOffer).toHaveBeenCalled();
+  });
+});
+
+describe("Targeted board workflow", () => {
+  const showTargeted = (
+    status: JobListItem["status"] = "discovered",
+    pdfPath: string | null = null,
+  ) => {
+    vi.mocked(api.getJobs).mockResolvedValue({
+      jobs: [
+        makeJob({ status, readyAt: "2026-06-01T00:00:00Z" }),
+        makeJob({
+          id: "untargeted",
+          title: "Unselected job",
+          status: "discovered",
+        }),
+      ],
+    } as Awaited<ReturnType<typeof api.getJobs>>);
+    vi.mocked(api.getJob).mockResolvedValue({ pdfPath } as Awaited<
+      ReturnType<typeof api.getJob>
+    >);
+    vi.mocked(api.getJobStageEvents).mockResolvedValue([]);
+    render(
+      <MemoryRouter>
+        <InProgressBoardPage />
+      </MemoryRouter>,
+    );
+  };
+
+  it("renders eight ordered lanes with horizontal scrolling and excludes untargeted discoveries", async () => {
+    showTargeted();
+    const lane = await screen.findByRole("region", { name: "Targeted lane" });
+    expect(within(lane).getByText("Backend Engineer")).toBeInTheDocument();
+    expect(screen.queryByText("Unselected job")).not.toBeInTheDocument();
+    const lanes = screen.getAllByRole("region");
+    expect(lanes.map((lane) => lane.getAttribute("aria-label"))).toEqual(
+      BOARD_COLUMNS.map((column) => `${BOARD_COLUMN_LABELS[column]} lane`),
+    );
+    expect(lane.parentElement?.parentElement).toHaveClass("overflow-x-auto");
+    expect(lanes.every((lane) => lane.classList.contains("w-[320px]"))).toBe(
+      true,
+    );
+  });
+
+  it("tailors discovered targets manually", async () => {
+    showTargeted();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Tailor resume" }),
+    );
+    await waitFor(() => expect(api.processJob).toHaveBeenCalledWith("job-1"));
+    expect(api.generateJobPdf).not.toHaveBeenCalled();
+  });
+
+  it("shows a ready resume and regenerates ready targets", async () => {
+    showTargeted("ready", "resume.pdf");
+    expect(await screen.findByText("Resume ready")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open resume" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate resume" }));
+    await waitFor(() =>
+      expect(api.generateJobPdf).toHaveBeenCalledWith("job-1"),
+    );
+  });
+
+  it("untargets without changing the stage", async () => {
+    showTargeted();
+    fireEvent.click(await screen.findByRole("button", { name: "Untarget" }));
+    await waitFor(() => expect(api.untargetJob).toHaveBeenCalledWith("job-1"));
+    expect(api.transitionJobStage).not.toHaveBeenCalled();
+  });
+
+  it("marks a target applied when dragged to Applied", async () => {
+    showTargeted();
+    const card = await screen.findByText("Backend Engineer");
+    fireEvent.dragStart(card, { dataTransfer: { effectAllowed: "move" } });
+    fireEvent.drop(screen.getByRole("region", { name: "Applied lane" }));
+    await waitFor(() =>
+      expect(api.markAsApplied).toHaveBeenCalledWith("job-1"),
+    );
+    expect(api.transitionJobStage).not.toHaveBeenCalled();
+  });
+
+  it("groups legacy stages into Technical Interview and counts technical rounds", async () => {
+    vi.mocked(api.getJobStageEvents).mockResolvedValue([
+      makeEvent({ id: "tech-1", toStage: "technical_interview" }),
+      makeEvent({ id: "tech-2", toStage: "technical_interview" }),
+      makeEvent({ id: "legacy", toStage: "onsite" }),
+    ]);
+    render(
+      <MemoryRouter>
+        <InProgressBoardPage />
+      </MemoryRouter>,
+    );
+    const lane = await screen.findByRole("region", {
+      name: "Technical Interview lane",
+    });
+    expect(within(lane).getByText("Backend Engineer")).toBeInTheDocument();
+    expect(within(lane).getByText("Round 3")).toBeInTheDocument();
+  });
+
+  it.each([
+    "assessment",
+    "onsite",
+  ] as const)("keeps a no-change note on legacy %s and leaves the round unchanged", async (toStage) => {
+    vi.mocked(api.getJobStageEvents).mockResolvedValue([
+      makeEvent({ toStage }),
+      makeEvent({ id: "note", toStage, metadata: { eventType: "note" } }),
+    ]);
+    render(
+      <MemoryRouter>
+        <InProgressBoardPage />
+      </MemoryRouter>,
+    );
+    const card = getBoardCardRoot(await screen.findByText("Backend Engineer"));
+    expect(within(card).getByText("Round 1")).toBeInTheDocument();
+    fireEvent.click(within(card).getByRole("menuitem", { name: /log event/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^log event$/i }));
+    await waitFor(() =>
+      expect(api.transitionJobStage).toHaveBeenCalledWith(
+        "job-1",
+        expect.objectContaining({
+          toStage,
+          metadata: expect.objectContaining({ eventType: "note" }),
+        }),
+      ),
+    );
+  });
+
+  it.each([
+    "Targeted lane",
+    "Recruiter Screen lane",
+  ])("refuses dragging a target into %s", async (laneName) => {
+    showTargeted();
+    const card = await screen.findByText("Backend Engineer");
+    fireEvent.dragStart(card, { dataTransfer: { effectAllowed: "move" } });
+    const lane = screen.getByRole("region", { name: laneName });
+    fireEvent.dragOver(lane);
+    fireEvent.drop(lane);
+    expect(api.markAsApplied).not.toHaveBeenCalled();
+    expect(api.transitionJobStage).not.toHaveBeenCalled();
+    expect(
+      within(screen.getByRole("region", { name: "Targeted lane" })).getByText(
+        "Backend Engineer",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("refuses dragging an application-stage card into Targeted", async () => {
+    render(
+      <MemoryRouter>
+        <InProgressBoardPage />
+      </MemoryRouter>,
+    );
+    const card = await screen.findByText("Backend Engineer");
+    fireEvent.dragStart(card, { dataTransfer: { effectAllowed: "move" } });
+    const lane = screen.getByRole("region", { name: "Targeted lane" });
+    fireEvent.dragOver(lane);
+    fireEvent.drop(lane);
+    expect(api.markAsApplied).not.toHaveBeenCalled();
+    expect(api.transitionJobStage).not.toHaveBeenCalled();
+  });
+
+  it("shows at least Round 1 during an optimistic technical interview drop", async () => {
+    vi.mocked(api.transitionJobStage).mockReturnValue(new Promise(() => {}));
+    render(
+      <MemoryRouter>
+        <InProgressBoardPage />
+      </MemoryRouter>,
+    );
+    const card = await screen.findByText("Backend Engineer");
+    fireEvent.dragStart(card, { dataTransfer: { effectAllowed: "move" } });
+    fireEvent.drop(
+      screen.getByRole("region", { name: "Technical Interview lane" }),
+    );
+    expect(await screen.findByText("Round 1")).toBeInTheDocument();
+    expect(screen.queryByText("Round 0")).not.toBeInTheDocument();
+  });
+
+  it("shows withdrawn jobs in Reject", async () => {
+    vi.mocked(api.getJobs).mockResolvedValue({
+      jobs: [makeJob({ outcome: "withdrawn" })],
+    } as Awaited<ReturnType<typeof api.getJobs>>);
+    vi.mocked(api.getJobStageEvents).mockResolvedValue([
+      makeEvent({ toStage: "closed", outcome: "withdrawn" }),
+    ]);
+    render(
+      <MemoryRouter>
+        <InProgressBoardPage />
+      </MemoryRouter>,
+    );
+    const lane = await screen.findByRole("region", { name: "Reject lane" });
+    expect(within(lane).getByText("withdrawn")).toBeInTheDocument();
   });
 });
