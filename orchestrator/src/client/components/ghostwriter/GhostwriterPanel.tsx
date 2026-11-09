@@ -1,6 +1,8 @@
 import * as api from "@client/api";
+import { ApiClientError } from "@client/api/core";
 import type {
   BranchInfo,
+  CoworkChatContext,
   Job,
   JobChatImageAttachment,
   JobChatMessage,
@@ -8,6 +10,7 @@ import type {
   JobDocument,
   JobNote,
   PostApplicationJobEmailItem,
+  ResumeSuggestion,
 } from "@shared/types";
 import { Settings2 } from "lucide-react";
 import type React from "react";
@@ -37,12 +40,18 @@ type GhostwriterPanelProps = {
   job: Job;
   initialPrompt?: string | null;
   onInitialPromptConsumed?: () => void;
+  cowork?: () => CoworkChatContext;
+  onSuggestions?: (suggestions: ResumeSuggestion[] | null) => void;
+  referenceChips?: React.ReactNode;
 };
 
 export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
   job,
   initialPrompt,
   onInitialPromptConsumed,
+  cowork,
+  onSuggestions,
+  referenceChips,
 }) => {
   const [messages, setMessages] = useState<JobChatMessage[]>([]);
   const [branches, setBranches] = useState<BranchInfo[]>([]);
@@ -194,6 +203,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
               parentMessageId: null,
               activeChildId: null,
               attachments: [],
+              suggestions: null,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             },
@@ -220,6 +230,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
 
       if (event.type === "completed" || event.type === "cancelled") {
         if (event.type === "completed") {
+          onSuggestions?.(event.message.suggestions ?? null);
           trackProductEvent("ghostwriter_response_completed", {
             trigger: runTriggerRef.current,
             message_length_bucket: bucketQueryLength(event.message.content),
@@ -246,7 +257,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
         setIsStreaming(false);
       }
     },
-    [job.id],
+    [job.id, onSuggestions],
   );
 
   const sendMessage = useCallback(
@@ -267,6 +278,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
         parentMessageId: null,
         activeChildId: null,
         attachments,
+        suggestions: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -283,6 +295,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
           job.id,
           {
             content,
+            cowork: cowork?.(),
             selectedNoteIds,
             selectedEmailIds,
             selectedDocumentIds,
@@ -298,7 +311,9 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
           return;
         }
 
-        showErrorToast(error, "Failed to send message");
+        if (cowork && error instanceof ApiClientError && error.status === 501)
+          toast.message("not available yet");
+        else showErrorToast(error, "Failed to send message");
       } finally {
         streamAbortRef.current = null;
         setIsStreaming(false);
@@ -309,6 +324,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
       job.id,
       loadMessages,
       messages,
+      cowork,
       onStreamEvent,
       selectedEmailIds,
       selectedDocumentIds,
@@ -354,6 +370,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
           job.id,
           assistantMessageId,
           {
+            cowork: cowork?.(),
             selectedNoteIds,
             selectedEmailIds,
             selectedDocumentIds,
@@ -366,7 +383,9 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
         if (error instanceof Error && error.name === "AbortError") {
           return;
         }
-        showErrorToast(error, "Failed to regenerate response");
+        if (cowork && error instanceof ApiClientError && error.status === 501)
+          toast.message("not available yet");
+        else showErrorToast(error, "Failed to regenerate response");
       } finally {
         streamAbortRef.current = null;
         setIsStreaming(false);
@@ -376,6 +395,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
       isStreaming,
       job.id,
       loadMessages,
+      cowork,
       onStreamEvent,
       selectedEmailIds,
       selectedDocumentIds,
@@ -413,6 +433,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
             parentMessageId: null,
             activeChildId: null,
             attachments,
+            suggestions: null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -430,6 +451,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
           messageId,
           {
             content,
+            cowork: cowork?.(),
             selectedNoteIds,
             selectedEmailIds,
             selectedDocumentIds,
@@ -443,7 +465,9 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
         if (error instanceof Error && error.name === "AbortError") {
           return;
         }
-        showErrorToast(error, "Failed to edit message");
+        if (cowork && error instanceof ApiClientError && error.status === 501)
+          toast.message("not available yet");
+        else showErrorToast(error, "Failed to edit message");
       } finally {
         streamAbortRef.current = null;
         setIsStreaming(false);
@@ -453,6 +477,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
       isStreaming,
       job.id,
       loadMessages,
+      cowork,
       onStreamEvent,
       selectedEmailIds,
       selectedDocumentIds,
@@ -619,6 +644,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
       </div>
 
       <div className="mt-4">
+        {referenceChips}
         <Composer
           disabled={isLoading || isStreaming}
           isStreaming={isStreaming}

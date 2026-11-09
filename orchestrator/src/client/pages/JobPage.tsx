@@ -582,6 +582,13 @@ export const JobPage: React.FC = () => {
             >
               {stageLabel}
             </Badge>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate(`/resumes/${job.id}`)}
+            >
+              Co-work
+            </Button>
             {isTargeted(job) && (
               <Button
                 size="sm"

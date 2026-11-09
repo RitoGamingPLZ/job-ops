@@ -1,4 +1,5 @@
 import type { ResumeSuggestion } from "./cowork";
+
 export const JOB_CHAT_MESSAGE_ROLES = [
   "system",
   "user",

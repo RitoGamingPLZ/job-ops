@@ -35,6 +35,7 @@ describe("MessageList", () => {
         replacesMessageId: null,
         parentMessageId: null,
         activeChildId: null,
+        suggestions: null,
         attachments: [],
         createdAt: "2026-03-23T10:00:00.000Z",
         updatedAt: "2026-03-23T10:00:00.000Z",
@@ -80,6 +81,7 @@ describe("MessageList", () => {
         replacesMessageId: null,
         parentMessageId: null,
         activeChildId: null,
+        suggestions: null,
         attachments: [],
         createdAt: "2026-03-23T10:00:00.000Z",
         updatedAt: "2026-03-23T10:00:00.000Z",
@@ -122,6 +124,7 @@ describe("MessageList", () => {
         replacesMessageId: null,
         parentMessageId: null,
         activeChildId: null,
+        suggestions: null,
         attachments: [],
         createdAt: "2026-03-23T10:00:00.000Z",
         updatedAt: "2026-03-23T10:00:00.000Z",
@@ -162,6 +165,7 @@ describe("MessageList", () => {
         replacesMessageId: null,
         parentMessageId: null,
         activeChildId: null,
+        suggestions: null,
         attachments: [
           {
             id: "screen-1",
