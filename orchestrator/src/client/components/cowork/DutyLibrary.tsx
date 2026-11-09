@@ -71,6 +71,9 @@ export function groupBulletsByJob(bullets: ExperienceBullet[]) {
       company: string;
       role: string;
       dates: string;
+      startDate: string;
+      endDate: string;
+      other: boolean;
       bullets: ExperienceBullet[];
     }
   >();
@@ -86,16 +89,36 @@ export function groupBulletsByJob(bullets: ExperienceBullet[]) {
     if (!group) {
       group = {
         key,
-        company: fields[0] ?? "Independent",
-        role: fields[1] ?? "General",
+        company: fields[0] ?? "Other",
+        role: fields[1] ?? "Other",
         dates: fields.slice(2).filter(Boolean).join(" – "),
+        startDate: fields[2] ?? "",
+        endDate:
+          !fields[3] || fields[3].toLowerCase() === "present"
+            ? "\uffff"
+            : fields[3],
+        other: !fields[0] || !fields[1],
         bullets: [],
       };
       groups.set(key, group);
     }
     group.bullets.push(bullet);
   }
-  return [...groups.values()];
+  for (const group of groups.values()) {
+    group.bullets.sort(
+      (a, b) =>
+        a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+    );
+  }
+  return [...groups.values()].sort(
+    (a, b) =>
+      Number(a.other) - Number(b.other) ||
+      b.endDate.localeCompare(a.endDate) ||
+      b.startDate.localeCompare(a.startDate) ||
+      a.company.localeCompare(b.company) ||
+      a.role.localeCompare(b.role) ||
+      a.key.localeCompare(b.key),
+  );
 }
 
 function InlineTags({
@@ -108,12 +131,14 @@ function InlineTags({
   onSave: (tags: string[]) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1">
-        {bullet.tags.map((tag) => (
+        {(showAll ? bullet.tags : bullet.tags.slice(0, 8)).map((tag, index) => (
           <button
-            key={tag}
+            key={`${index}-${tag}`}
             type="button"
             disabled={busy}
             className="rounded border px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
@@ -123,40 +148,67 @@ function InlineTags({
             {tag} <span aria-hidden="true">×</span>
           </button>
         ))}
+        {bullet.tags.length > 8 && (
+          <button
+            type="button"
+            className="text-xs text-muted-foreground"
+            onClick={() => setShowAll(!showAll)}
+          >
+            {showAll ? "Show less" : `+${bullet.tags.length - 8}`}
+          </button>
+        )}
+        {!adding && (
+          <button
+            type="button"
+            disabled={busy}
+            className="text-xs text-muted-foreground"
+            onClick={() => setAdding(true)}
+          >
+            + tag
+          </button>
+        )}
       </div>
-      <form
-        className="flex gap-1"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const tag = draft.trim();
-          if (!tag) return;
-          if (
-            !bullet.tags.some(
-              (value) => value.toLowerCase() === tag.toLowerCase(),
-            )
-          )
-            onSave([...bullet.tags, tag]);
-          setDraft("");
-        }}
-      >
-        <Input
-          className="h-7 min-w-0 text-xs"
-          placeholder="Add skill…"
-          aria-label={`Add skill to ${bullet.text}`}
-          value={draft}
-          disabled={busy}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <Button
-          type="submit"
-          size="sm"
-          variant="ghost"
-          className="h-7"
-          disabled={busy || !draft.trim()}
+      {adding && (
+        <form
+          className="flex gap-1"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const seen = new Set(
+              bullet.tags.map((value) => value.trim().toLowerCase()),
+            );
+            const added = draft
+              .split(",")
+              .map((value) => value.trim())
+              .filter((value) => {
+                const key = value.toLowerCase();
+                if (!key || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              });
+            if (added.length) onSave([...bullet.tags, ...added]);
+            setDraft("");
+            setAdding(false);
+          }}
         >
-          Add
-        </Button>
-      </form>
+          <Input
+            className="h-7 min-w-0 text-xs"
+            placeholder="Add skill…"
+            aria-label={`Add skill to ${bullet.text}`}
+            value={draft}
+            disabled={busy}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            variant="ghost"
+            className="h-7"
+            disabled={busy || !draft.trim()}
+          >
+            Add
+          </Button>
+        </form>
+      )}
     </div>
   );
 }
@@ -222,28 +274,31 @@ export function DutyLibrary({
     }
   }
   const scores = new Map(ranked.map((item) => [item.bulletId, item]));
-  const filtered = bullets
-    .filter(
-      (b) =>
-        (!company || b.company === company) &&
-        (!tag ||
-          b.tags.some(
-            (value) => value.trim().toLowerCase() === tag.toLowerCase(),
-          )) &&
-        `${b.text} ${b.company ?? ""} ${b.role ?? ""} ${b.tags.join(" ")}`
-          .toLowerCase()
-          .includes(search.toLowerCase()),
-    )
-    .sort((a, b) =>
-      ranked.length
-        ? (scores.get(b.id)?.score ?? -1) - (scores.get(a.id)?.score ?? -1)
-        : `${a.company}${a.role}`.localeCompare(`${b.company}${b.role}`),
-    );
+  const filtered = bullets.filter(
+    (b) =>
+      (!company || b.company === company) &&
+      (!tag ||
+        b.tags.some(
+          (value) => value.trim().toLowerCase() === tag.toLowerCase(),
+        )) &&
+      `${b.text} ${b.company ?? ""} ${b.role ?? ""} ${b.tags.join(" ")}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+  );
   const groups = groupBulletsByJob(filtered);
+  if (ranked.length) {
+    for (const group of groups) {
+      group.bullets.sort(
+        (a, b) =>
+          (scores.get(b.id)?.score ?? -1) - (scores.get(a.id)?.score ?? -1),
+      );
+    }
+  }
   const allGroups = new Map(
     groupBulletsByJob(bullets).map((group) => [group.key, group]),
   );
   const skills = summarizeSkills(bullets);
+  const [showAllSkills, setShowAllSkills] = useState(false);
   const unlabeled = bullets.filter((bullet) => bullet.tags.length === 0).length;
   const companies = [
     ...new Set(
@@ -333,7 +388,11 @@ export function DutyLibrary({
                     current.map((bullet) => updated.get(bullet.id) ?? bullet),
                   );
                   setRanked([]);
-                  toast.success(`Labeled ${result.labeled} duties`);
+                  if (result.labeled === 0) toast.message("Nothing to label");
+                  else
+                    toast.success(
+                      `Labeled ${result.labeled} ${result.labeled === 1 ? "duty" : "duties"}`,
+                    );
                 } catch (error) {
                   if (
                     error instanceof ApiClientError &&
@@ -349,7 +408,7 @@ export function DutyLibrary({
           </Button>
         </div>
         <div className="flex flex-wrap gap-1">
-          {skills.map((skill) => (
+          {(showAllSkills ? skills : skills.slice(0, 8)).map((skill) => (
             <button
               key={skill.tag}
               type="button"
@@ -366,6 +425,15 @@ export function DutyLibrary({
               {skill.tag} <span className="tabular-nums">({skill.count})</span>
             </button>
           ))}
+          {skills.length > 8 && (
+            <button
+              type="button"
+              className="text-xs text-muted-foreground"
+              onClick={() => setShowAllSkills(!showAllSkills)}
+            >
+              {showAllSkills ? "Show less" : `+${skills.length - 8}`}
+            </button>
+          )}
           {!skills.length && (
             <p className="text-xs text-muted-foreground">
               Add skills or label duties with AI.
@@ -426,24 +494,27 @@ export function DutyLibrary({
           </p>
         )
       )}
-      {groups.map((group) => (
-        <details key={group.key} open className="group border-t pt-2">
-          <summary className="cursor-pointer text-sm font-medium">
-            <span>
-              {group.company} → {group.role}
-            </span>
-            {group.dates && (
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                {group.dates}
+      {groups.map((group) => {
+        const groupSkills = summarizeSkills(
+          allGroups.get(group.key)?.bullets ?? group.bullets,
+        );
+        return (
+          <details key={group.key} open className="group border-t pt-2">
+            <summary className="cursor-pointer text-sm font-medium">
+              <span>
+                {group.company} → {group.role}
               </span>
-            )}
-            <span className="ml-2 text-xs text-muted-foreground">
-              ({group.bullets.length})
-            </span>
-            <span className="mt-1 flex flex-wrap gap-1 pl-4">
-              {summarizeSkills(
-                allGroups.get(group.key)?.bullets ?? group.bullets,
-              ).map((skill) => (
+              {group.dates && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {group.dates}
+                </span>
+              )}
+              <span className="ml-2 text-xs text-muted-foreground">
+                ({group.bullets.length})
+              </span>
+            </summary>
+            <div className="mt-1 flex flex-wrap gap-1 pl-4">
+              {groupSkills.slice(0, 8).map((skill) => (
                 <span
                   key={skill.tag}
                   className="rounded bg-muted px-2 py-1 text-xs font-normal text-muted-foreground"
@@ -451,105 +522,119 @@ export function DutyLibrary({
                   {skill.tag} ({skill.count})
                 </span>
               ))}
-            </span>
-          </summary>
-          <div className="mt-2 space-y-2">
-            {group.bullets.map((bullet) => (
-              <article
-                key={bullet.id}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData(
-                    BULLET_TRANSFER_TYPE,
-                    JSON.stringify({ id: bullet.id, text: bullet.text }),
-                  );
-                  e.dataTransfer.effectAllowed = "copy";
-                }}
-                className="rounded-md border p-3 text-sm space-y-2"
-              >
-                <p>{bullet.text}</p>
-                <InlineTags
-                  bullet={bullet}
-                  busy={busy}
-                  onSave={(tags) =>
-                    void run(async () => {
-                      const result = await api.updateExperienceBullet(
-                        bullet.id,
-                        { tags },
-                      );
-                      setBullets((current) =>
-                        current.map((item) =>
-                          item.id === result.bullet.id ? result.bullet : item,
-                        ),
-                      );
-                      setRanked([]);
-                    })
-                  }
-                />
-                {scores.has(bullet.id) && (
-                  <p className="text-xs">
-                    <strong>{scores.get(bullet.id)?.score}/100</strong> ·{" "}
-                    {scores.get(bullet.id)?.reason}
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-1">
-                  {onInsert && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="ghost">
-                          Insert into…
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        {targets.map((t) => (
-                          <DropdownMenuItem
-                            key={t.id}
-                            onSelect={() => onInsert(bullet, t.id)}
-                          >
-                            {t.label}
-                          </DropdownMenuItem>
-                        ))}
-                        {onReference && (
-                          <DropdownMenuItem
-                            onSelect={() => onReference(bullet)}
-                          >
-                            Chat reference
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {groupSkills.length > 8 && (
+                <span className="text-xs text-muted-foreground">
+                  +{groupSkills.length - 8}
+                </span>
+              )}
+            </div>
+            <div className="mt-2 space-y-2">
+              {group.bullets.map((bullet) => (
+                <article
+                  key={bullet.id}
+                  className="rounded-md border p-3 text-sm space-y-2"
+                >
+                  <div className="flex items-start gap-2">
+                    <button
+                      type="button"
+                      aria-label={`Drag duty: ${bullet.text}`}
+                      className="cursor-grab text-muted-foreground"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData(
+                          BULLET_TRANSFER_TYPE,
+                          JSON.stringify({ id: bullet.id, text: bullet.text }),
+                        );
+                        e.dataTransfer.effectAllowed = "copy";
+                      }}
+                    >
+                      ⋮⋮
+                    </button>
+                    <p>{bullet.text}</p>
+                  </div>
+                  <InlineTags
+                    bullet={bullet}
+                    busy={busy}
+                    onSave={(tags) =>
+                      void run(async () => {
+                        const result = await api.updateExperienceBullet(
+                          bullet.id,
+                          { tags },
+                        );
+                        setBullets((current) =>
+                          current.map((item) =>
+                            item.id === result.bullet.id ? result.bullet : item,
+                          ),
+                        );
+                        setRanked([]);
+                      })
+                    }
+                  />
+                  {scores.has(bullet.id) && (
+                    <p className="text-xs">
+                      <strong>{scores.get(bullet.id)?.score}/100</strong> ·{" "}
+                      {scores.get(bullet.id)?.reason}
+                    </p>
                   )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setEditId(bullet.id);
-                      setEdit({
-                        text: bullet.text,
-                        company: bullet.company,
-                        role: bullet.role,
-                        startDate: bullet.startDate,
-                        endDate: bullet.endDate,
-                        tags: bullet.tags,
-                      });
-                    }}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() => setDeleteId(bullet.id)}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </details>
-      ))}
+                  <div className="flex flex-wrap gap-1">
+                    {onInsert && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="ghost">
+                            Insert into…
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          {targets.map((t) => (
+                            <DropdownMenuItem
+                              key={t.id}
+                              onSelect={() => onInsert(bullet, t.id)}
+                            >
+                              {t.label}
+                            </DropdownMenuItem>
+                          ))}
+                          {onReference && (
+                            <DropdownMenuItem
+                              onSelect={() => onReference(bullet)}
+                            >
+                              Chat reference
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setEditId(bullet.id);
+                        setEdit({
+                          text: bullet.text,
+                          company: bullet.company,
+                          role: bullet.role,
+                          startDate: bullet.startDate,
+                          endDate: bullet.endDate,
+                          tags: bullet.tags,
+                        });
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => setDeleteId(bullet.id)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </details>
+        );
+      })}
       <AlertDialog
         open={deleteId !== null}
         onOpenChange={(open) => {

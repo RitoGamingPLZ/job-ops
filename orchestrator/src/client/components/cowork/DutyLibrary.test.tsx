@@ -136,14 +136,50 @@ describe("job grouping and skill summary", () => {
     ];
     const groups = groupBulletsByJob(rows);
     expect(groups).toHaveLength(6);
-    expect(groups[0].bullets.map((b) => b.id)).toEqual(["one", "two"]);
-    expect(groups[2].dates).toBe("2020 – 2022");
+    expect(
+      groups
+        .find(
+          (group) =>
+            group.company === "Company" &&
+            group.role === "Engineer" &&
+            !group.dates,
+        )
+        ?.bullets.map((b) => b.id),
+    ).toEqual(["one", "two"]);
+    expect(groups.find((group) => group.dates)?.dates).toBe("2020 – 2022");
     expect(groups[5]).toMatchObject({
-      company: "Independent",
-      role: "General",
+      company: "Other",
+      role: "Other",
       dates: "",
     });
     expect(groupBulletsByJob([])).toEqual([]);
+  });
+  it("orders recent stints first, missing company/role last, and duties by creation across refresh", () => {
+    const rows = [
+      { ...bullet, id: "old", startDate: "2018", endDate: "2019" },
+      { ...bullet, id: "present", startDate: "2021", endDate: "Present" },
+      { ...bullet, id: "current", startDate: "2023", endDate: null },
+      { ...bullet, id: "ended", startDate: "2020", endDate: "2024-03" },
+      { ...bullet, id: "unknown", company: null, startDate: "2026" },
+      { ...bullet, id: "unknown-role", role: null, startDate: "2027" },
+      { ...bullet, id: "earlier", startDate: "2023", createdAt: "2020-01-01" },
+    ];
+    const groups = groupBulletsByJob(rows);
+    expect(groups.map((group) => group.bullets.map((item) => item.id))).toEqual(
+      [
+        ["earlier", "current"],
+        ["present"],
+        ["ended"],
+        ["old"],
+        ["unknown-role"],
+        ["unknown"],
+      ],
+    );
+    expect(
+      groupBulletsByJob(
+        [...rows].reverse().map((item) => ({ ...item, updatedAt: "2030" })),
+      ).map((group) => group.bullets.map((item) => item.id)),
+    ).toEqual(groups.map((group) => group.bullets.map((item) => item.id)));
   });
   it("counts each tag once per duty, trims and folds case, sorts by count then name", () => {
     expect(
@@ -199,7 +235,7 @@ describe("library skills", () => {
       labeled: 1,
     });
     await waitFor(() =>
-      expect(mocks.success).toHaveBeenCalledWith("Labeled 1 duties"),
+      expect(mocks.success).toHaveBeenCalledWith("Labeled 1 duty"),
     );
     expect(screen.getByText("Built tools")).toBeVisible();
     expect(screen.getByText("Built services")).toBeVisible();
@@ -212,6 +248,46 @@ describe("library skills", () => {
         { name: "Services (1)" },
       ),
     ).toBeVisible();
+  });
+  it("reports zero labeled duties as information", async () => {
+    mocks.list.mockResolvedValue({ bullets: [{ ...bullet, tags: [] }] });
+    mocks.label.mockResolvedValue({ bullets: [], labeled: 0 });
+    renderLibrary();
+    const button = await screen.findByRole("button", {
+      name: "Label with AI (1 unlabeled)",
+    });
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(mocks.toast).toHaveBeenCalledWith("Nothing to label"),
+    );
+    expect(mocks.success).not.toHaveBeenCalled();
+    expect(button).toBeEnabled();
+  });
+  it("caps chips at eight and keeps skills out of the job summary", async () => {
+    const tags = Array.from({ length: 12 }, (_, index) => `Skill ${index}`);
+    mocks.list.mockResolvedValue({ bullets: [{ ...bullet, tags }] });
+    renderLibrary();
+    const text = await screen.findByText("Built tools");
+    const skills = screen.getByRole("region", { name: "Skills" });
+    expect(
+      within(skills).getAllByRole("button", { pressed: false }),
+    ).toHaveLength(8);
+    fireEvent.click(within(skills).getByRole("button", { name: "+4" }));
+    expect(
+      within(skills).getAllByRole("button", { pressed: false }),
+    ).toHaveLength(12);
+    const details = text.closest("details") as HTMLElement;
+    const summary = details.querySelector("summary") as HTMLElement;
+    expect(summary).not.toHaveTextContent("Skill");
+    expect(details.querySelector("summary + div")?.children).toHaveLength(9);
+    const article = text.closest("article") as HTMLElement;
+    expect(
+      within(article).getAllByRole("button", { name: /^Remove / }),
+    ).toHaveLength(8);
+    fireEvent.click(within(article).getByRole("button", { name: "+4" }));
+    expect(
+      within(article).getAllByRole("button", { name: /^Remove / }),
+    ).toHaveLength(12);
   });
   it.each([
     404, 501,
@@ -257,14 +333,20 @@ describe("library skills", () => {
     }));
     renderLibrary();
     await screen.findByText("Built tools");
+    expect(
+      screen.queryByRole("textbox", { name: "Add skill to Built tools" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "+ tag" }));
     const input = screen.getByRole("textbox", {
       name: "Add skill to Built tools",
     });
-    fireEvent.change(input, { target: { value: "TypeScript" } });
+    fireEvent.change(input, {
+      target: { value: "TypeScript, React, tools, typescript, ," },
+    });
     fireEvent.submit(input.closest("form") as HTMLFormElement);
     await waitFor(() =>
       expect(mocks.update).toHaveBeenCalledWith("one", {
-        tags: ["Tools", "TypeScript"],
+        tags: ["Tools", "TypeScript", "React"],
       }),
     );
     const remove = await screen.findByRole("button", {
@@ -274,7 +356,7 @@ describe("library skills", () => {
     fireEvent.click(remove);
     await waitFor(() =>
       expect(mocks.update).toHaveBeenLastCalledWith("one", {
-        tags: ["TypeScript"],
+        tags: ["TypeScript", "React"],
       }),
     );
   });
@@ -327,9 +409,20 @@ describe("library skills", () => {
     renderLibrary();
     const text = await screen.findByText("Built tools");
     const setData = vi.fn();
-    fireEvent.dragStart(text.closest("article") as HTMLElement, {
-      dataTransfer: { setData },
+    const handle = screen.getByRole("button", {
+      name: "Drag duty: Built tools",
     });
+    expect(handle).toHaveAttribute("draggable", "true");
+    expect(text.closest("article")).not.toHaveAttribute("draggable");
+    fireEvent.click(screen.getByRole("button", { name: "+ tag" }));
+    expect(
+      screen
+        .getByRole("textbox", { name: "Add skill to Built tools" })
+        .closest("[draggable=true]"),
+    ).toBeNull();
+    const dataTransfer = { setData, effectAllowed: "none" };
+    fireEvent.dragStart(handle, { dataTransfer });
+    expect(dataTransfer.effectAllowed).toBe("copy");
     expect(setData).toHaveBeenCalledWith(
       "application/x-jobops-bullet",
       JSON.stringify({ id: "one", text: "Built tools" }),
