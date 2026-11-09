@@ -81,6 +81,10 @@ export const createJob = (overrides: Partial<Job> = {}): Job => ({
   ...overrides,
 });
 
+/** A shortlisted job before manual tailoring; targeting does not create a PDF. */
+export const createTargetedJob = (overrides: Partial<Job> = {}): Job =>
+  createJob({ status: "discovered", ...overrides });
+
 export const createStageEvent = (
   overrides: Partial<StageEvent> = {},
 ): StageEvent => ({

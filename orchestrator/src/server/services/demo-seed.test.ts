@@ -14,6 +14,8 @@ import {
   DEMO_DEFAULT_SETTINGS,
   DEMO_DEFAULT_STAGE_EVENTS,
 } from "@server/config/demo-defaults";
+import { createTargetedJob } from "@shared/testing/factories";
+import { isTargeted, technicalRound } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const originalEnv = { ...process.env };
@@ -85,6 +87,71 @@ describe.sequential("demo seed baseline", () => {
 
     const seededJobIds = baseline.jobs.map((job) => job.id).sort();
     expect(seededJobIds).toEqual(DEMO_DEFAULT_JOBS.map((job) => job.id).sort());
+  });
+
+  it("gives every seeded closed job an outcome and closedAt, including tied events", async () => {
+    const { buildDemoBaseline } = await import("./demo-seed");
+    const baseline = buildDemoBaseline(new Date("2026-02-05T12:00:00.000Z"));
+    const closedEvents = baseline.stageEvents.filter(
+      (event) => event.toStage === "closed",
+    );
+
+    expect(closedEvents.length).toBeGreaterThan(0);
+    expect(closedEvents.map((event) => event.applicationId)).toContain(
+      "demo-job-applied-auto-84",
+    );
+    for (const event of closedEvents) {
+      expect(event.outcome).toEqual(expect.any(String));
+      expect(
+        baseline.jobs.find((job) => job.id === event.applicationId),
+      ).toMatchObject({
+        outcome: event.outcome,
+        closedAt: event.occurredAt,
+      });
+    }
+  });
+
+  it("seeds untailored targets, repeated technical rounds, behavioural and withdrawn stages", async () => {
+    const { resetDemoData } = await import("./demo-mode");
+    const { getAllJobs } = await import("../repositories/jobs");
+    const { getStageEvents } = await import("./applicationTracking");
+
+    await resetDemoData();
+    const jobs = await getAllJobs();
+    const targets = jobs.filter(
+      (job) => job.status === "discovered" && isTargeted(job),
+    );
+    expect(targets.length).toBeGreaterThanOrEqual(2);
+    for (const job of targets) {
+      expect(job.pdfPath).toBeNull();
+      expect(job.tailoredSummary).toBeNull();
+      expect(Date.parse(job.readyAt ?? "")).toBeGreaterThanOrEqual(
+        Date.parse(job.discoveredAt),
+      );
+    }
+    expect(
+      jobs.some((job) => job.status === "discovered" && !isTargeted(job)),
+    ).toBe(true);
+    expect(technicalRound(await getStageEvents("demo-job-applied-1"))).toBe(2);
+    expect(await getStageEvents("demo-job-applied-2")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ toStage: "behavioural" }),
+      ]),
+    );
+    expect(await getStageEvents("demo-job-applied-5")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ toStage: "closed", outcome: "withdrawn" }),
+      ]),
+    );
+    expect(jobs.find((job) => job.id === "demo-job-applied-5")).toMatchObject({
+      outcome: "withdrawn",
+      closedAt: expect.any(Number),
+    });
+    expect(isTargeted(createTargetedJob())).toBe(true);
+    expect(createTargetedJob()).toMatchObject({
+      status: "discovered",
+      pdfPath: null,
+    });
   });
 
   it("resetDemoData restores defaults without deleting another tenant", async () => {
