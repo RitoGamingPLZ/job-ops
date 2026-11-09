@@ -43,6 +43,124 @@ export function coworkError(error: unknown) {
   else showErrorToast(error, "Could not complete resume action");
 }
 
+/** Count each skill once per bullet, preserving the first spelling for display. */
+export function summarizeSkills(bullets: ExperienceBullet[]) {
+  const skills = new Map<string, { tag: string; count: number }>();
+  for (const bullet of bullets) {
+    const seen = new Set<string>();
+    for (const raw of bullet.tags) {
+      const tag = raw.trim();
+      const key = tag.toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const skill = skills.get(key);
+      if (skill) skill.count += 1;
+      else skills.set(key, { tag, count: 1 });
+    }
+  }
+  return [...skills.values()].sort(
+    (a, b) => b.count - a.count || a.tag.localeCompare(b.tag),
+  );
+}
+
+export function groupBulletsByJob(bullets: ExperienceBullet[]) {
+  const groups = new Map<
+    string,
+    {
+      key: string;
+      company: string;
+      role: string;
+      dates: string;
+      bullets: ExperienceBullet[];
+    }
+  >();
+  for (const bullet of bullets) {
+    const fields = [
+      bullet.company,
+      bullet.role,
+      bullet.startDate,
+      bullet.endDate,
+    ].map((value) => value?.trim() || null);
+    const key = JSON.stringify(fields);
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        key,
+        company: fields[0] ?? "Independent",
+        role: fields[1] ?? "General",
+        dates: fields.slice(2).filter(Boolean).join(" – "),
+        bullets: [],
+      };
+      groups.set(key, group);
+    }
+    group.bullets.push(bullet);
+  }
+  return [...groups.values()];
+}
+
+function InlineTags({
+  bullet,
+  busy,
+  onSave,
+}: {
+  bullet: ExperienceBullet;
+  busy: boolean;
+  onSave: (tags: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1">
+        {bullet.tags.map((tag) => (
+          <button
+            key={tag}
+            type="button"
+            disabled={busy}
+            className="rounded border px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+            aria-label={`Remove ${tag} from ${bullet.text}`}
+            onClick={() => onSave(bullet.tags.filter((value) => value !== tag))}
+          >
+            {tag} <span aria-hidden="true">×</span>
+          </button>
+        ))}
+      </div>
+      <form
+        className="flex gap-1"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const tag = draft.trim();
+          if (!tag) return;
+          if (
+            !bullet.tags.some(
+              (value) => value.toLowerCase() === tag.toLowerCase(),
+            )
+          )
+            onSave([...bullet.tags, tag]);
+          setDraft("");
+        }}
+      >
+        <Input
+          className="h-7 min-w-0 text-xs"
+          placeholder="Add skill…"
+          aria-label={`Add skill to ${bullet.text}`}
+          value={draft}
+          disabled={busy}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <Button
+          type="submit"
+          size="sm"
+          variant="ghost"
+          className="h-7"
+          disabled={busy || !draft.trim()}
+        >
+          Add
+        </Button>
+      </form>
+    </div>
+  );
+}
+
 type Props = {
   jobId?: string;
   targets?: { id: string; label: string }[];
@@ -108,7 +226,10 @@ export function DutyLibrary({
     .filter(
       (b) =>
         (!company || b.company === company) &&
-        (!tag || b.tags.includes(tag)) &&
+        (!tag ||
+          b.tags.some(
+            (value) => value.trim().toLowerCase() === tag.toLowerCase(),
+          )) &&
         `${b.text} ${b.company ?? ""} ${b.role ?? ""} ${b.tags.join(" ")}`
           .toLowerCase()
           .includes(search.toLowerCase()),
@@ -118,17 +239,18 @@ export function DutyLibrary({
         ? (scores.get(b.id)?.score ?? -1) - (scores.get(a.id)?.score ?? -1)
         : `${a.company}${a.role}`.localeCompare(`${b.company}${b.role}`),
     );
-  const groups = new Map<string, ExperienceBullet[]>();
-  for (const bullet of filtered) {
-    const key = `${bullet.company ?? "Independent"} / ${bullet.role ?? "General"}`;
-    groups.set(key, [...(groups.get(key) ?? []), bullet]);
-  }
+  const groups = groupBulletsByJob(filtered);
+  const allGroups = new Map(
+    groupBulletsByJob(bullets).map((group) => [group.key, group]),
+  );
+  const skills = summarizeSkills(bullets);
+  const unlabeled = bullets.filter((bullet) => bullet.tags.length === 0).length;
   const companies = [
     ...new Set(
       bullets.map((b) => b.company).filter((c): c is string => Boolean(c)),
     ),
   ].sort();
-  const tags = [...new Set(bullets.flatMap((b) => b.tags))].sort();
+  const tags = skills.map((skill) => skill.tag).sort();
   return (
     <div className="space-y-4">
       {needsResume && (
@@ -158,7 +280,7 @@ export function DutyLibrary({
               const result = await api.importExperienceBulletsFromResume();
               await refresh();
               toast.success(
-                `Imported ${result.created}; skipped ${result.skipped}`,
+                `Imported ${result.created}; skipped ${result.skipped}${result.labeled === undefined ? "" : `; labeled ${result.labeled}`}`,
               );
             })
           }
@@ -190,6 +312,67 @@ export function DutyLibrary({
           </Button>
         )}
       </div>
+      <p className="text-xs text-muted-foreground">
+        Used by AI scoring, tailoring and chat
+      </p>
+      <section aria-label="Skills" className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-xs font-semibold">Skills</h3>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy || loading || !unlabeled}
+            onClick={() =>
+              void run(async () => {
+                try {
+                  const result = await api.labelExperienceBullets();
+                  const updated = new Map(
+                    result.bullets.map((bullet) => [bullet.id, bullet]),
+                  );
+                  setBullets((current) =>
+                    current.map((bullet) => updated.get(bullet.id) ?? bullet),
+                  );
+                  setRanked([]);
+                  toast.success(`Labeled ${result.labeled} duties`);
+                } catch (error) {
+                  if (
+                    error instanceof ApiClientError &&
+                    (error.status === 404 || error.status === 501)
+                  )
+                    toast.message("AI labeling is not available yet");
+                  else throw error;
+                }
+              })
+            }
+          >
+            Label with AI ({unlabeled} unlabeled)
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {skills.map((skill) => (
+            <button
+              key={skill.tag}
+              type="button"
+              aria-pressed={tag.toLowerCase() === skill.tag.toLowerCase()}
+              className="rounded border px-2 py-1 text-xs text-muted-foreground hover:text-foreground aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+              onClick={() =>
+                setTag(
+                  tag.toLowerCase() === skill.tag.toLowerCase()
+                    ? ""
+                    : skill.tag,
+                )
+              }
+            >
+              {skill.tag} <span className="tabular-nums">({skill.count})</span>
+            </button>
+          ))}
+          {!skills.length && (
+            <p className="text-xs text-muted-foreground">
+              Add skills or label duties with AI.
+            </p>
+          )}
+        </div>
+      </section>
       <Input
         aria-label="Search duties"
         placeholder="Search duties…"
@@ -237,93 +420,135 @@ export function DutyLibrary({
       ) : (
         !filtered.length && (
           <p className="text-sm text-muted-foreground">
-            Import your resume or add a duty to build your library.
+            {bullets.length
+              ? "No duties match these filters."
+              : "Import your resume or add a duty to build your library."}
           </p>
         )
       )}
-      {[...groups].map(([group, items]) => (
-        <section key={group} className="space-y-2">
-          <h3 className="text-xs font-semibold text-muted-foreground">
-            {group}
-          </h3>
-          {items.map((bullet) => (
-            <article
-              key={bullet.id}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData(
-                  BULLET_TRANSFER_TYPE,
-                  JSON.stringify({ id: bullet.id, text: bullet.text }),
-                );
-                e.dataTransfer.effectAllowed = "copy";
-              }}
-              className="rounded-md border p-3 text-sm space-y-2"
-            >
-              <p>{bullet.text}</p>
-              <p className="text-xs text-muted-foreground">
-                {[bullet.startDate, bullet.endDate].filter(Boolean).join(" – ")}{" "}
-                {bullet.tags.join(" · ")}
-              </p>
-              {scores.has(bullet.id) && (
-                <p className="text-xs">
-                  <strong>{scores.get(bullet.id)?.score}/100</strong> ·{" "}
-                  {scores.get(bullet.id)?.reason}
-                </p>
-              )}
-              <div className="flex flex-wrap gap-1">
-                {onInsert && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="ghost">
-                        Insert into…
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      {targets.map((t) => (
-                        <DropdownMenuItem
-                          key={t.id}
-                          onSelect={() => onInsert(bullet, t.id)}
-                        >
-                          {t.label}
-                        </DropdownMenuItem>
-                      ))}
-                      {onReference && (
-                        <DropdownMenuItem onSelect={() => onReference(bullet)}>
-                          Chat reference
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+      {groups.map((group) => (
+        <details key={group.key} open className="group border-t pt-2">
+          <summary className="cursor-pointer text-sm font-medium">
+            <span>
+              {group.company} → {group.role}
+            </span>
+            {group.dates && (
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                {group.dates}
+              </span>
+            )}
+            <span className="ml-2 text-xs text-muted-foreground">
+              ({group.bullets.length})
+            </span>
+            <span className="mt-1 flex flex-wrap gap-1 pl-4">
+              {summarizeSkills(
+                allGroups.get(group.key)?.bullets ?? group.bullets,
+              ).map((skill) => (
+                <span
+                  key={skill.tag}
+                  className="rounded bg-muted px-2 py-1 text-xs font-normal text-muted-foreground"
+                >
+                  {skill.tag} ({skill.count})
+                </span>
+              ))}
+            </span>
+          </summary>
+          <div className="mt-2 space-y-2">
+            {group.bullets.map((bullet) => (
+              <article
+                key={bullet.id}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(
+                    BULLET_TRANSFER_TYPE,
+                    JSON.stringify({ id: bullet.id, text: bullet.text }),
+                  );
+                  e.dataTransfer.effectAllowed = "copy";
+                }}
+                className="rounded-md border p-3 text-sm space-y-2"
+              >
+                <p>{bullet.text}</p>
+                <InlineTags
+                  bullet={bullet}
+                  busy={busy}
+                  onSave={(tags) =>
+                    void run(async () => {
+                      const result = await api.updateExperienceBullet(
+                        bullet.id,
+                        { tags },
+                      );
+                      setBullets((current) =>
+                        current.map((item) =>
+                          item.id === result.bullet.id ? result.bullet : item,
+                        ),
+                      );
+                      setRanked([]);
+                    })
+                  }
+                />
+                {scores.has(bullet.id) && (
+                  <p className="text-xs">
+                    <strong>{scores.get(bullet.id)?.score}/100</strong> ·{" "}
+                    {scores.get(bullet.id)?.reason}
+                  </p>
                 )}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setEditId(bullet.id);
-                    setEdit({
-                      text: bullet.text,
-                      company: bullet.company,
-                      role: bullet.role,
-                      startDate: bullet.startDate,
-                      endDate: bullet.endDate,
-                      tags: bullet.tags,
-                    });
-                  }}
-                >
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={() => setDeleteId(bullet.id)}
-                >
-                  Delete
-                </Button>
-              </div>
-            </article>
-          ))}
-        </section>
+                <div className="flex flex-wrap gap-1">
+                  {onInsert && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="ghost">
+                          Insert into…
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {targets.map((t) => (
+                          <DropdownMenuItem
+                            key={t.id}
+                            onSelect={() => onInsert(bullet, t.id)}
+                          >
+                            {t.label}
+                          </DropdownMenuItem>
+                        ))}
+                        {onReference && (
+                          <DropdownMenuItem
+                            onSelect={() => onReference(bullet)}
+                          >
+                            Chat reference
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setEditId(bullet.id);
+                      setEdit({
+                        text: bullet.text,
+                        company: bullet.company,
+                        role: bullet.role,
+                        startDate: bullet.startDate,
+                        endDate: bullet.endDate,
+                        tags: bullet.tags,
+                      });
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => setDeleteId(bullet.id)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </details>
       ))}
       <AlertDialog
         open={deleteId !== null}

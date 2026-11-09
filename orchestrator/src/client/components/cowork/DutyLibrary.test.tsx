@@ -1,3 +1,4 @@
+import { ApiClientError } from "@client/api/core";
 import type { ExperienceBullet } from "@shared/types";
 import {
   cleanup,
@@ -5,20 +6,32 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DutyLibrary } from "./DutyLibrary";
+import { DutyLibrary, groupBulletsByJob, summarizeSkills } from "./DutyLibrary";
 
 const mocks = vi.hoisted(() => ({
   list: vi.fn(),
   create: vi.fn(),
   remove: vi.fn(),
+  label: vi.fn(),
+  update: vi.fn(),
+  importResume: vi.fn(),
+  toast: vi.fn(),
+  success: vi.fn(),
 }));
 vi.mock("@client/api/cowork", () => ({
   listExperienceBullets: mocks.list,
   createExperienceBullet: mocks.create,
   deleteExperienceBullet: mocks.remove,
+  labelExperienceBullets: mocks.label,
+  updateExperienceBullet: mocks.update,
+  importExperienceBulletsFromResume: mocks.importResume,
+}));
+vi.mock("sonner", () => ({
+  toast: { message: mocks.toast, success: mocks.success },
 }));
 const bullet: ExperienceBullet = {
   id: "one",
@@ -107,5 +120,223 @@ describe("duty library review regressions", () => {
     fireEvent.click(screen.getByText("Delete"));
     fireEvent.click(screen.getByText("Delete duty"));
     await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith("one"));
+  });
+});
+
+describe("job grouping and skill summary", () => {
+  it("groups matching jobs, separating roles, dates and ambiguous delimiters", () => {
+    const rows = [
+      bullet,
+      { ...bullet, id: "two" },
+      { ...bullet, id: "role", role: "Lead" },
+      { ...bullet, id: "dates", startDate: "2020", endDate: "2022" },
+      { ...bullet, id: "slash1", company: "A / B", role: "C" },
+      { ...bullet, id: "slash2", company: "A", role: "B / C" },
+      { ...bullet, id: "missing", company: null, role: null },
+    ];
+    const groups = groupBulletsByJob(rows);
+    expect(groups).toHaveLength(6);
+    expect(groups[0].bullets.map((b) => b.id)).toEqual(["one", "two"]);
+    expect(groups[2].dates).toBe("2020 – 2022");
+    expect(groups[5]).toMatchObject({
+      company: "Independent",
+      role: "General",
+      dates: "",
+    });
+    expect(groupBulletsByJob([])).toEqual([]);
+  });
+  it("counts each tag once per duty, trims and folds case, sorts by count then name", () => {
+    expect(
+      summarizeSkills([
+        { ...bullet, tags: [" TypeScript ", "typescript", "", "Tools"] },
+        { ...bullet, tags: ["TYPESCRIPT", "Architecture"] },
+      ]),
+    ).toEqual([
+      { tag: "TypeScript", count: 2 },
+      { tag: "Architecture", count: 1 },
+      { tag: "Tools", count: 1 },
+    ]);
+    expect(summarizeSkills([])).toEqual([]);
+  });
+});
+
+function renderLibrary() {
+  return render(
+    <MemoryRouter>
+      <DutyLibrary />
+    </MemoryRouter>,
+  );
+}
+describe("library skills", () => {
+  it("labels unlabeled duties and merges the response without losing other duties", async () => {
+    mocks.list.mockResolvedValue({
+      bullets: [
+        bullet,
+        { ...bullet, id: "two", text: "Built services", tags: [] },
+      ],
+    });
+    let resolveLabel!: (value: {
+      bullets: ExperienceBullet[];
+      labeled: number;
+    }) => void;
+    mocks.label.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveLabel = resolve;
+        }),
+    );
+    renderLibrary();
+    const button = await screen.findByRole("button", {
+      name: "Label with AI (1 unlabeled)",
+    });
+    fireEvent.click(button);
+    expect(mocks.label).toHaveBeenCalledWith();
+    expect(button).toBeDisabled();
+    resolveLabel({
+      bullets: [
+        { ...bullet, id: "two", text: "Built services", tags: ["Services"] },
+      ],
+      labeled: 1,
+    });
+    await waitFor(() =>
+      expect(mocks.success).toHaveBeenCalledWith("Labeled 1 duties"),
+    );
+    expect(screen.getByText("Built tools")).toBeVisible();
+    expect(screen.getByText("Built services")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Label with AI (0 unlabeled)" }),
+    ).toBeDisabled();
+    expect(
+      within(screen.getByRole("region", { name: "Skills" })).getByRole(
+        "button",
+        { name: "Services (1)" },
+      ),
+    ).toBeVisible();
+  });
+  it.each([
+    404, 501,
+  ])("shows an unavailable toast for HTTP %s and allows retry", async (status) => {
+    mocks.list.mockResolvedValue({ bullets: [{ ...bullet, tags: [] }] });
+    mocks.label.mockRejectedValue(
+      new ApiClientError("Unavailable", { status }),
+    );
+    renderLibrary();
+    const button = await screen.findByRole("button", {
+      name: "Label with AI (1 unlabeled)",
+    });
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(mocks.toast).toHaveBeenCalledWith(
+        "AI labeling is not available yet",
+      ),
+    );
+    expect(button).toBeEnabled();
+    expect(screen.getByText("Built tools")).toBeVisible();
+  });
+  it("filters by a summary skill and toggles it off", async () => {
+    mocks.list.mockResolvedValue({
+      bullets: [
+        bullet,
+        { ...bullet, id: "two", text: "Led teams", tags: ["Leadership"] },
+      ],
+    });
+    renderLibrary();
+    await screen.findByText("Led teams");
+    const skill = within(
+      screen.getByRole("region", { name: "Skills" }),
+    ).getByRole("button", { name: "Tools (1)" });
+    fireEvent.click(skill);
+    expect(screen.queryByText("Led teams")).not.toBeInTheDocument();
+    expect(skill).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(skill);
+    expect(screen.getByText("Led teams")).toBeVisible();
+  });
+  it("adds and removes tags inline through PATCH", async () => {
+    mocks.update.mockImplementation(async (_id, input) => ({
+      bullet: { ...bullet, ...input },
+    }));
+    renderLibrary();
+    await screen.findByText("Built tools");
+    const input = screen.getByRole("textbox", {
+      name: "Add skill to Built tools",
+    });
+    fireEvent.change(input, { target: { value: "TypeScript" } });
+    fireEvent.submit(input.closest("form") as HTMLFormElement);
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenCalledWith("one", {
+        tags: ["Tools", "TypeScript"],
+      }),
+    );
+    const remove = await screen.findByRole("button", {
+      name: "Remove Tools from Built tools",
+    });
+    await waitFor(() => expect(remove).toBeEnabled());
+    fireEvent.click(remove);
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenLastCalledWith("one", {
+        tags: ["TypeScript"],
+      }),
+    );
+  });
+  it.each([
+    undefined,
+    0,
+    2,
+  ])("includes import labeled count only when present (%s)", async (labeled) => {
+    mocks.importResume.mockResolvedValue({
+      created: 2,
+      skipped: 1,
+      labeled,
+      bullets: [],
+    });
+    renderLibrary();
+    await screen.findByText("Built tools");
+    fireEvent.click(screen.getByRole("button", { name: "Import from resume" }));
+    await waitFor(() =>
+      expect(mocks.success).toHaveBeenCalledWith(
+        `Imported 2; skipped 1${labeled === undefined ? "" : `; labeled ${labeled}`}`,
+      ),
+    );
+  });
+  it("inserts into an experience and references a duty through the menu", async () => {
+    const onInsert = vi.fn();
+    const onReference = vi.fn();
+    render(
+      <MemoryRouter>
+        <DutyLibrary
+          targets={[{ id: "experience", label: "Current role" }]}
+          onInsert={onInsert}
+          onReference={onReference}
+        />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Built tools");
+    const trigger = screen.getByRole("button", { name: "Insert into…" });
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Current role" }),
+    );
+    expect(onInsert).toHaveBeenCalledWith(bullet, "experience");
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Chat reference" }),
+    );
+    expect(onReference).toHaveBeenCalledWith(bullet);
+  });
+  it("preserves native drag payloads and collapsible job headers", async () => {
+    renderLibrary();
+    const text = await screen.findByText("Built tools");
+    const setData = vi.fn();
+    fireEvent.dragStart(text.closest("article") as HTMLElement, {
+      dataTransfer: { setData },
+    });
+    expect(setData).toHaveBeenCalledWith(
+      "application/x-jobops-bullet",
+      JSON.stringify({ id: "one", text: "Built tools" }),
+    );
+    expect(text.closest("details")).toHaveAttribute("open");
+    expect(
+      screen.getByText("Company → Engineer").closest("summary"),
+    ).toBeInTheDocument();
   });
 });
