@@ -34,6 +34,7 @@ import type {
   JobListItem,
   ResumeProjectCatalogItem,
 } from "@shared/types.js";
+import { isTargeted } from "@shared/types.js";
 import {
   AlertTriangle,
   ArrowRight,
@@ -56,7 +57,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { parseJobBrief } from "@/client/components/JobBriefPane";
 import { showErrorToast } from "@/client/lib/error-toast";
@@ -128,36 +129,41 @@ const tabCopy: Record<
 const InspectorTabsList: React.FC<{
   inspectorTab: InspectorTab;
   disabled?: boolean;
-}> = ({ inspectorTab, disabled = false }) => (
-  <TabsList className="mb-4 grid h-auto grid-cols-3 gap-1 rounded-lg bg-muted/90 text-sm">
-    {Object.entries(tabCopy).map(([value, copy]) => {
-      const isSelected = inspectorTab === value;
-      const trigger = (
-        <TabsTrigger
-          key={value}
-          value={value}
-          disabled={disabled}
-          className={cn(
-            "flex flex-1 items-center gap-1.5 lg:flex-none",
-            isSelected && copy.selectedClassName,
-          )}
-        >
-          <span className={cn("size-1.5 rounded-full", copy.dotClassName)} />
-          <span className="text-sm">{copy.label}</span>
-        </TabsTrigger>
-      );
+  targeted?: boolean;
+}> = ({ inspectorTab, disabled = false, targeted = false }) => (
+  <TabsList className="mb-4 grid h-auto grid-cols-2 gap-1 rounded-lg bg-muted/90 text-sm">
+    {Object.entries(tabCopy)
+      .filter(
+        ([value]) => value === "brief" || (value === "tailoring" && targeted),
+      )
+      .map(([value, copy]) => {
+        const isSelected = inspectorTab === value;
+        const trigger = (
+          <TabsTrigger
+            key={value}
+            value={value}
+            disabled={disabled}
+            className={cn(
+              "flex flex-1 items-center gap-1.5 lg:flex-none",
+              isSelected && copy.selectedClassName,
+            )}
+          >
+            <span className={cn("size-1.5 rounded-full", copy.dotClassName)} />
+            <span className="text-sm">{copy.label}</span>
+          </TabsTrigger>
+        );
 
-      return (
-        <Tip
-          key={value}
-          asChild
-          content={<p>{copy.description}</p>}
-          contentClassName="max-w-xs text-center"
-        >
-          {trigger}
-        </Tip>
-      );
-    })}
+        return (
+          <Tip
+            key={value}
+            asChild
+            content={<p>{copy.description}</p>}
+            contentClassName="max-w-xs text-center"
+          >
+            {trigger}
+          </Tip>
+        );
+      })}
   </TabsList>
 );
 
@@ -209,25 +215,13 @@ const statusTone: Record<
   },
 };
 
-const getPrimaryAction = (job: Job): string => {
-  if (job.status === "processing") return "Processing";
-  if (job.status === "ready") return "Mark Applied";
-  if (job.status === "discovered") return "Start Tailoring";
-  if (job.status === "applied") return "View in Progress Board";
-  if (job.status === "in_progress") return "In Progress";
-  if (job.status === "skipped") return "Skipped";
-  if (job.status === "expired") return "Expired";
-  return "Review Job";
-};
+const getPrimaryAction = (job: Job): string =>
+  isTargeted(job) ? "Targeted ✓" : "Target";
 
-const getDefaultInspectorTab = (
-  job: Pick<Job, "status"> | null,
-  activeTab: FilterTab,
-): InspectorTab => {
-  if (!job) return "brief";
-  if (activeTab === "ready" || job.status === "ready") return "apply";
-  return "brief";
-};
+const getDefaultInspectorTab = (): InspectorTab => "brief";
+
+// Retain the application-kit controls for other workflows; Search Jobs exposes Target.
+const showApplicationActions = false;
 
 const Stat: React.FC<{
   label: string;
@@ -291,7 +285,11 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   onPauseRefreshChange,
   onRetrySelectedJob,
 }) => {
+  const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tailoringRequestRef = useRef<string | null>(null);
+  const [isTargeting, setIsTargeting] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("brief");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
@@ -372,7 +370,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     const currentSelectionKey = `${activeTab}:${currentJobId ?? ""}`;
     if (previousSelectionKeyRef.current === currentSelectionKey) return;
     previousSelectionKeyRef.current = currentSelectionKey;
-    setInspectorTab(getDefaultInspectorTab(selection, activeTab));
+    setInspectorTab(getDefaultInspectorTab());
     setIsEditDetailsOpen(false);
     onPauseRefreshChange?.(false);
   }, [activeTab, selectedJob, selectedJobListItem, onPauseRefreshChange]);
@@ -380,6 +378,46 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   useEffect(() => {
     return () => onPauseRefreshChange?.(false);
   }, [onPauseRefreshChange]);
+
+  useEffect(() => {
+    if (searchParams.get("inspector") !== "tailoring") {
+      tailoringRequestRef.current = null;
+      return;
+    }
+    if (!selectedJob || !location.pathname.endsWith(`/${selectedJob.id}`))
+      return;
+    if (isTargeted(selectedJob)) {
+      if (activeTab !== "all") {
+        navigate(`/jobs/all/${selectedJob.id}?${searchParams}`, {
+          replace: true,
+        });
+        return;
+      }
+      setInspectorTab("tailoring");
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("inspector");
+      setSearchParams(nextParams, { replace: true });
+      return;
+    }
+    if (tailoringRequestRef.current === selectedJob.id) return;
+    tailoringRequestRef.current = selectedJob.id;
+    setIsTargeting(true);
+    void api
+      .targetJob(selectedJob.id)
+      .then((updated) => onJobUpdated(updated))
+      .catch((error) =>
+        showErrorToast(error, "Failed to target job for tailoring"),
+      )
+      .finally(() => setIsTargeting(false));
+  }, [
+    activeTab,
+    location.pathname,
+    navigate,
+    onJobUpdated,
+    searchParams,
+    selectedJob,
+    setSearchParams,
+  ]);
 
   const handleJobMoved = useCallback(
     (jobId: string) => {
@@ -472,27 +510,24 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   }, [handleJobMoved, markAsAppliedMutation, onJobUpdated, selectedJob]);
 
   const handlePrimaryAction = useCallback(async () => {
-    if (!selectedJob) return;
-    if (selectedJob.status === "discovered") {
-      setInspectorTab("tailoring");
-      return;
+    if (!selectedJob || isTargeting) return;
+    try {
+      setIsTargeting(true);
+      const targeted = isTargeted(selectedJob);
+      const updated = await (targeted
+        ? api.untargetJob(selectedJob.id)
+        : api.targetJob(selectedJob.id));
+      toast.success(targeted ? "Job untargeted" : "Job targeted");
+      if (activeTab === "discovered" && !targeted)
+        handleJobMoved(selectedJob.id);
+      if (targeted) setInspectorTab("brief");
+      await onJobUpdated(updated);
+    } catch (error) {
+      showErrorToast(error, "Failed to update target");
+    } finally {
+      setIsTargeting(false);
     }
-    if (selectedJob.status === "ready") {
-      await handleMarkApplied();
-      return;
-    }
-    if (selectedJob.status === "applied") {
-      trackProductEvent("jobs_job_action_completed", {
-        action: "view_in_progress_board",
-        result: "success",
-        from_status: selectedJob.status,
-        to_status: selectedJob.status,
-      });
-      navigate("/applications/in-progress");
-      return;
-    }
-    setInspectorTab("brief");
-  }, [handleMarkApplied, navigate, selectedJob]);
+  }, [activeTab, handleJobMoved, isTargeting, onJobUpdated, selectedJob]);
 
   const handleJobListingOpened = useCallback(() => {
     if (!selectedJob) return;
@@ -674,8 +709,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     );
   }
 
-  const primaryBusy =
-    isProcessing || isApplying || selectedJob.status === "processing";
+  const primaryBusy = isTargeting || isProcessing || isApplying;
   const canGenerate = ["discovered", "ready"].includes(selectedJob.status);
   const canSkip = ["discovered", "ready"].includes(selectedJob.status);
   const isRegeneratingPdf = isPdfRegenerating(selectedJob);
@@ -698,7 +732,10 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
       onValueChange={(value) => setInspectorTab(value as InspectorTab)}
       className="flex min-h-0 min-w-0 flex-1 flex-col lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto p-1"
     >
-      <InspectorTabsList inspectorTab={inspectorTab} />
+      <InspectorTabsList
+        inspectorTab={inspectorTab}
+        targeted={isTargeted(selectedJob)}
+      />
       <JobHeader
         job={selectedJob}
         onCheckSponsor={async () => {
@@ -707,16 +744,24 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
         }}
         jobCTA={
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:shrink-0">
-            <GhostwriterDrawer
-              job={selectedJob}
-              triggerLabel="Ask Ghostwriter"
-              triggerVariant="ghost"
-              triggerClassName="w-full min-w-0 justify-start overflow-hidden sm:w-auto"
-            />
+            {showApplicationActions && (
+              <GhostwriterDrawer
+                job={selectedJob}
+                triggerLabel="Ask Ghostwriter"
+                triggerVariant="ghost"
+                triggerClassName="w-full min-w-0 justify-start overflow-hidden sm:w-auto"
+              />
+            )}
             <Button
               size="sm"
               onClick={() => void handlePrimaryAction()}
-              disabled={primaryBusy || selectedJob.status === "processing"}
+              disabled={
+                primaryBusy ||
+                !["discovered", "processing", "ready"].includes(
+                  selectedJob.status,
+                ) ||
+                (selectedJob.status === "processing" && isTargeted(selectedJob))
+              }
               className={cn(
                 "col-start-1 row-start-2 w-full min-w-0 justify-start sm:w-auto sm:justify-center",
                 tone.button,
@@ -730,9 +775,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 <CheckCircle2 className="h-3.5 w-3.5" />
               )}
               {getPrimaryAction(selectedJob)}
-              {selectedJob.status === "ready" ? (
-                <KbdHint shortcut="a" className="ml-1" />
-              ) : null}
             </Button>
 
             <DropdownMenu>
@@ -763,74 +805,78 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                   <Copy className="mr-2 h-4 w-4" />
                   Copy job info
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => rescoreJob(selectedJob.id)}
-                  disabled={isRescoring}
-                >
-                  <RefreshCcw
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      isRescoring && "animate-spin",
-                    )}
-                  />
-                  {isRescoring ? "Recalculating..." : "Recalculate match"}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {canGenerate && (
-                  <DropdownMenuItem
-                    onSelect={() => void handleProcess()}
-                    disabled={isProcessing}
-                  >
-                    <RefreshCcw
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        isProcessing && "animate-spin",
-                      )}
-                    />
-                    {selectedJob.status === "ready"
-                      ? "Regenerate PDF"
-                      : "Generate PDF"}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  onSelect={() => uploadPdfInputRef.current?.click()}
-                  disabled={isUploadingPdf}
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  {isUploadingPdf
-                    ? "Uploading PDF..."
-                    : selectedJob.pdfPath
-                      ? "Replace PDF"
-                      : "Upload PDF"}
-                </DropdownMenuItem>
-                {selectedJob.pdfPath && (
+                {showApplicationActions && (
                   <>
                     <DropdownMenuItem
-                      onSelect={handleOpenPdf}
-                      disabled={pdfActionDisabled}
+                      onSelect={() => rescoreJob(selectedJob.id)}
+                      disabled={isRescoring}
                     >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      {pdfLabels.view}
+                      <RefreshCcw
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          isRescoring && "animate-spin",
+                        )}
+                      />
+                      {isRescoring ? "Recalculating..." : "Recalculate match"}
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={handleDownloadPdf}
-                      disabled={pdfActionDisabled}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      {pdfLabels.download}
-                    </DropdownMenuItem>
-                  </>
-                )}
-                {canSkip && (
-                  <>
                     <DropdownMenuSeparator />
+                    {canGenerate && (
+                      <DropdownMenuItem
+                        onSelect={() => void handleProcess()}
+                        disabled={isProcessing}
+                      >
+                        <RefreshCcw
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            isProcessing && "animate-spin",
+                          )}
+                        />
+                        {selectedJob.status === "ready"
+                          ? "Regenerate PDF"
+                          : "Generate PDF"}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
-                      onSelect={() => void handleSkip()}
-                      className="text-destructive focus:text-destructive"
+                      onSelect={() => uploadPdfInputRef.current?.click()}
+                      disabled={isUploadingPdf}
                     >
-                      <XCircle className="mr-2 h-4 w-4" />
-                      Skip job
+                      <Upload className="mr-2 h-4 w-4" />
+                      {isUploadingPdf
+                        ? "Uploading PDF..."
+                        : selectedJob.pdfPath
+                          ? "Replace PDF"
+                          : "Upload PDF"}
                     </DropdownMenuItem>
+                    {selectedJob.pdfPath && (
+                      <>
+                        <DropdownMenuItem
+                          onSelect={handleOpenPdf}
+                          disabled={pdfActionDisabled}
+                        >
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          {pdfLabels.view}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={handleDownloadPdf}
+                          disabled={pdfActionDisabled}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          {pdfLabels.download}
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {canSkip && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={() => void handleSkip()}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Skip job
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </>
                 )}
               </DropdownMenuContent>
@@ -860,176 +906,184 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
           />
         </TabsContent>
 
-        <TabsContent value="tailoring">
-          <TailoringWorkspace
-            mode="editor"
-            job={selectedJob}
-            onUpdate={onJobUpdated}
-            onDirtyChange={onPauseRefreshChange}
-          />
-        </TabsContent>
+        {isTargeted(selectedJob) && (
+          <TabsContent value="tailoring">
+            <TailoringWorkspace
+              mode="editor"
+              job={selectedJob}
+              onUpdate={onJobUpdated}
+              onDirtyChange={onPauseRefreshChange}
+            />
+          </TabsContent>
+        )}
 
-        <TabsContent value="apply">
-          <div className="space-y-5">
-            {isStalePdf && (
-              <div className="flex items-start gap-2 rounded-md border border-amber-200/70 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>{STALE_PDF_MESSAGE}</span>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div
-                className={cn(
-                  "flex min-h-16 flex-col gap-3 rounded-md border px-3 py-3 sm:flex-row sm:items-center sm:justify-between",
-                  applicationKitReady
-                    ? "border-emerald-500/20 bg-emerald-500/[0.04]"
-                    : "border-amber-500/20 bg-amber-500/[0.04]",
-                )}
-              >
-                <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 gap-3">
-                    <span
-                      className={cn(
-                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
-                        applicationKitReady
-                          ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300"
-                          : "border-amber-500/45 bg-amber-500/10 text-amber-300",
-                      )}
-                    >
-                      {applicationKitReady ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : (
-                        <CircleAlert className="h-4 w-4" />
-                      )}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground/90">
-                        {applicationKitReady
-                          ? "Application materials ready"
-                          : "Application materials need review"}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground/75">
-                        {applicationKitReady
-                          ? "Tailored summary, skills, and PDF are ready for this role."
-                          : "Check the application kit before submitting this role."}
-                      </p>
-                    </div>
-                  </div>
-
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="w-full justify-center sm:w-auto sm:shrink-0"
-                  >
-                    <a href={`/job/${selectedJob.id}`}>
-                      Open Job Page
-                      <ArrowRight />
-                    </a>
-                  </Button>
+        {showApplicationActions && (
+          <TabsContent value="apply">
+            <div className="space-y-5">
+              {isStalePdf && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-200/70 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>{STALE_PDF_MESSAGE}</span>
                 </div>
-              </div>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <TooltipWhenDisabled
-                reason={pdfRegeneratingReason}
-                className="w-full"
-              >
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleDownloadPdf}
-                  disabled={pdfActionDisabled}
-                >
-                  <Download className="size-3.5" />
-                  {pdfLabels.download}
-                  <KbdHint shortcut="d" className="ml-auto" />
-                </Button>
-              </TooltipWhenDisabled>
-              <OpenJobListingButton
-                href={jobLink}
-                size="sm"
-                className={cn(openListingIsPrimary && activeApplyCtaClassName)}
-                shortcut="o"
-                disabled={!hasJobListing}
-                onClick={handleJobListingOpened}
-              />
-              <Button
-                variant={markAppliedIsPrimary ? "default" : "outline"}
-                className={cn(markAppliedIsPrimary && activeApplyCtaClassName)}
-                size="sm"
-                onClick={() => void handleMarkApplied()}
-                disabled={selectedJob.status !== "ready" || primaryBusy}
-              >
-                {isApplying ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="size-3.5" />
-                )}
-                Mark Applied
-                <KbdHint shortcut="a" className="ml-auto" />
-              </Button>
-            </div>
-
-            <div>
-              <div className="mb-2 text-lg font-semibold tracking-normal text-foreground/90">
-                Application kit
-              </div>
-              <div className="overflow-hidden rounded-md border border-border/45 bg-muted/5">
-                <KitStatus
-                  icon={<FileText className="h-4 w-4" />}
-                  label="Tailored summary"
-                  ready={hasTailoredSummary}
-                />
-                <KitStatus
-                  icon={<Star className="h-4 w-4" />}
-                  label="Tailored skills"
-                  ready={hasTailoredSkills}
-                />
-                <KitStatus
-                  icon={<FileText className="h-4 w-4" />}
-                  label="Resume PDF"
-                  ready={hasResumePdf}
-                />
-                <KitStatus
-                  icon={<FolderKanban className="h-4 w-4" />}
-                  label="Selected projects"
-                  ready={effectiveSelectedProjectIds.length > 0}
-                  readyLabel={`${effectiveSelectedProjectIds.length} included`}
-                />
-                <KitStatus
-                  icon={<Link2 className="h-4 w-4" />}
-                  label="Supporting links"
-                  ready={false}
-                  optional
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="mb-2 text-lg font-semibold tracking-normal text-foreground/90">
-                Selected projects
-              </div>
-              {selectedProjects.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {selectedProjects.map((project) => (
-                    <span
-                      key={project}
-                      className="rounded-md border border-border/35 bg-background/40 px-3 py-1.5 text-xs text-muted-foreground"
-                    >
-                      {project}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground/70">
-                  No projects selected yet. Use Tailoring to choose the evidence
-                  for this role.
-                </p>
               )}
+
+              <div className="space-y-4">
+                <div
+                  className={cn(
+                    "flex min-h-16 flex-col gap-3 rounded-md border px-3 py-3 sm:flex-row sm:items-center sm:justify-between",
+                    applicationKitReady
+                      ? "border-emerald-500/20 bg-emerald-500/[0.04]"
+                      : "border-amber-500/20 bg-amber-500/[0.04]",
+                  )}
+                >
+                  <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 gap-3">
+                      <span
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+                          applicationKitReady
+                            ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300"
+                            : "border-amber-500/45 bg-amber-500/10 text-amber-300",
+                        )}
+                      >
+                        {applicationKitReady ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <CircleAlert className="h-4 w-4" />
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground/90">
+                          {applicationKitReady
+                            ? "Application materials ready"
+                            : "Application materials need review"}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground/75">
+                          {applicationKitReady
+                            ? "Tailored summary, skills, and PDF are ready for this role."
+                            : "Check the application kit before submitting this role."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="w-full justify-center sm:w-auto sm:shrink-0"
+                    >
+                      <a href={`/job/${selectedJob.id}`}>
+                        Open Job Page
+                        <ArrowRight />
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <TooltipWhenDisabled
+                  reason={pdfRegeneratingReason}
+                  className="w-full"
+                >
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDownloadPdf}
+                    disabled={pdfActionDisabled}
+                  >
+                    <Download className="size-3.5" />
+                    {pdfLabels.download}
+                    <KbdHint shortcut="d" className="ml-auto" />
+                  </Button>
+                </TooltipWhenDisabled>
+                <OpenJobListingButton
+                  href={jobLink}
+                  size="sm"
+                  className={cn(
+                    openListingIsPrimary && activeApplyCtaClassName,
+                  )}
+                  shortcut="o"
+                  disabled={!hasJobListing}
+                  onClick={handleJobListingOpened}
+                />
+                <Button
+                  variant={markAppliedIsPrimary ? "default" : "outline"}
+                  className={cn(
+                    markAppliedIsPrimary && activeApplyCtaClassName,
+                  )}
+                  size="sm"
+                  onClick={() => void handleMarkApplied()}
+                  disabled={selectedJob.status !== "ready" || primaryBusy}
+                >
+                  {isApplying ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="size-3.5" />
+                  )}
+                  Mark Applied
+                  <KbdHint shortcut="a" className="ml-auto" />
+                </Button>
+              </div>
+
+              <div>
+                <div className="mb-2 text-lg font-semibold tracking-normal text-foreground/90">
+                  Application kit
+                </div>
+                <div className="overflow-hidden rounded-md border border-border/45 bg-muted/5">
+                  <KitStatus
+                    icon={<FileText className="h-4 w-4" />}
+                    label="Tailored summary"
+                    ready={hasTailoredSummary}
+                  />
+                  <KitStatus
+                    icon={<Star className="h-4 w-4" />}
+                    label="Tailored skills"
+                    ready={hasTailoredSkills}
+                  />
+                  <KitStatus
+                    icon={<FileText className="h-4 w-4" />}
+                    label="Resume PDF"
+                    ready={hasResumePdf}
+                  />
+                  <KitStatus
+                    icon={<FolderKanban className="h-4 w-4" />}
+                    label="Selected projects"
+                    ready={effectiveSelectedProjectIds.length > 0}
+                    readyLabel={`${effectiveSelectedProjectIds.length} included`}
+                  />
+                  <KitStatus
+                    icon={<Link2 className="h-4 w-4" />}
+                    label="Supporting links"
+                    ready={false}
+                    optional
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 text-lg font-semibold tracking-normal text-foreground/90">
+                  Selected projects
+                </div>
+                {selectedProjects.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProjects.map((project) => (
+                      <span
+                        key={project}
+                        className="rounded-md border border-border/35 bg-background/40 px-3 py-1.5 text-xs text-muted-foreground"
+                      >
+                        {project}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground/70">
+                    No projects selected yet. Use Tailoring to choose the
+                    evidence for this role.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
 
         <JobDetailsEditDrawer
           open={isEditDetailsOpen}

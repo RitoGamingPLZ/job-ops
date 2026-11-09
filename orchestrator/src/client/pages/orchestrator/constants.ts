@@ -43,7 +43,7 @@ export const statusTokens: Record<
     dot: "bg-amber-400",
   },
   ready: {
-    label: "Ready",
+    label: "Targeted",
     badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
     dot: "bg-emerald-400",
   },
@@ -211,23 +211,22 @@ export const tabs: Array<{
   label: string;
   statuses: JobStatus[];
 }> = [
-  { id: "ready", label: "Ready", statuses: ["ready", "processing"] },
   {
     id: "discovered",
     label: "Discovered",
-    statuses: ["discovered", "processing"],
+    statuses: ["discovered"],
   },
   { id: "all", label: "All Jobs", statuses: [] },
 ];
 
 export const emptyStateCopy: Record<FilterTab, string> = {
   ready: "Run a search to discover and process new jobs.",
-  discovered: "All discovered jobs have been processed.",
+  discovered: "All discovered jobs have been targeted.",
   all: "No jobs in the system yet. Run a search to get started.",
 };
 
 export const dateFilterDimensionLabels: Record<DateFilterDimension, string> = {
-  ready: "Ready",
+  ready: "Targeted",
   applied: "Applied",
   closed: "Closed",
   discovered: "Discovered",

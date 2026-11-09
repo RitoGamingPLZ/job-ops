@@ -252,7 +252,7 @@ describe("OrchestratorFilters", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^dates/i }));
 
-    fireEvent.click(await screen.findByRole("button", { name: "Ready" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Targeted" }));
     expect(props.onDateFilterChange).toHaveBeenCalledWith({
       dimensions: ["ready", "applied"],
       startDate: "2026-04-01",

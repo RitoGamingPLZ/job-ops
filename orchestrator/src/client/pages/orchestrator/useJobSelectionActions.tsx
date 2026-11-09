@@ -14,6 +14,7 @@ import {
   canMoveToReady,
   canRescore,
   canSkip,
+  canTarget,
   getFailedJobIds,
 } from "./jobActions";
 import { clampNumber } from "./utils";
@@ -49,6 +50,8 @@ export function useJobSelectionActions({
   const [jobActionInFlight, setJobActionInFlight] = useState<null | JobAction>(
     null,
   );
+  const targetInFlight = useRef(false);
+  const [isTargeting, setIsTargeting] = useState(false);
   const previousActiveTabRef = useRef<FilterTab>(activeTab);
 
   const selectedJobs = useMemo(
@@ -277,12 +280,63 @@ export function useJobSelectionActions({
     [activeTab, selectedJobIds, loadJobs],
   );
 
+  const targetSelectedJobs = useCallback(async () => {
+    if (targetInFlight.current || jobActionInFlight) return;
+    if (!canTarget(selectedJobs)) return;
+    if (selectedJobIds.size > MAX_JOB_ACTION_JOB_IDS) {
+      toast.error(
+        `You can run job actions on up to ${MAX_JOB_ACTION_JOB_IDS} jobs at a time.`,
+      );
+      return;
+    }
+    const ids = selectedJobs.map((job) => job.id);
+    const started = new Set(ids);
+    const failed = new Set<string>();
+    targetInFlight.current = true;
+    setIsTargeting(true);
+    try {
+      // Bound concurrency and keep failed jobs selected for retry.
+      for (let offset = 0; offset < ids.length; offset += 5) {
+        await Promise.all(
+          ids.slice(offset, offset + 5).map(async (id) => {
+            try {
+              await api.targetJob(id);
+            } catch {
+              failed.add(id);
+            }
+          }),
+        );
+      }
+      if (failed.size)
+        toast.error(
+          `${ids.length - failed.size} targeted, ${failed.size} failed.`,
+        );
+      else toast.success(`${ids.length} jobs targeted`);
+      await loadJobs();
+      setSelectedJobIds(
+        (current) =>
+          new Set(
+            Array.from(current).filter(
+              (id) => !started.has(id) || failed.has(id),
+            ),
+          ),
+      );
+    } catch (error) {
+      showErrorToast(error, "Failed to refresh targeted jobs");
+    } finally {
+      targetInFlight.current = false;
+      setIsTargeting(false);
+    }
+  }, [jobActionInFlight, loadJobs, selectedJobIds, selectedJobs]);
+
   return {
     selectedJobIds,
     canSkipSelected,
     canMoveSelected,
     canRescoreSelected,
-    jobActionInFlight,
+    jobActionInFlight: isTargeting ? "target" : jobActionInFlight,
+    canTargetSelected: canTarget(selectedJobs),
+    targetSelectedJobs,
     toggleSelectJob,
     toggleSelectAll,
     clearSelection,

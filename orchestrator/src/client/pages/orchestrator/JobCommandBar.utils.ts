@@ -1,4 +1,5 @@
 import type { JobListItem, JobStatus } from "@shared/types.js";
+import { isTargeted } from "@shared/types.js";
 import type { FilterTab } from "./constants";
 
 export type CommandGroupId = "ready" | "discovered" | "applied" | "other";
@@ -33,14 +34,14 @@ export type CommandBarRow =
 
 export const commandGroupMeta: Array<{ id: CommandGroupId; heading: string }> =
   [
-    { id: "ready", heading: "Ready" },
+    { id: "ready", heading: "Targeted" },
     { id: "discovered", heading: "Discovered" },
     { id: "applied", heading: "Applied" },
     { id: "other", heading: "Other" },
   ];
 
 const lockAliases: Record<StatusLock, string[]> = {
-  ready: ["ready", "rdy"],
+  ready: ["targeted", "target", "ready", "rdy"],
   discovered: ["discovered", "discover", "disc"],
   applied: ["applied", "apply", "app"],
   in_progress: ["in-progress", "inprogress", "progress", "prog"],
@@ -49,7 +50,7 @@ const lockAliases: Record<StatusLock, string[]> = {
 };
 
 export const lockLabel: Record<StatusLock, string> = {
-  ready: "ready",
+  ready: "targeted",
   discovered: "discovered",
   applied: "applied",
   in_progress: "in-progress",
@@ -104,8 +105,7 @@ export const getCommandGroup = (status: JobStatus): CommandGroupId => {
 };
 
 export const getFilterTab = (status: JobStatus): FilterTab => {
-  if (status === "ready") return "ready";
-  if (status === "discovered" || status === "processing") return "discovered";
+  if (status === "discovered") return "discovered";
   return "all";
 };
 
@@ -144,8 +144,9 @@ export const resolveLockFromAliasPrefix = (
 };
 
 export const jobMatchesLock = (job: JobListItem, lock: StatusLock) => {
-  if (lock === "ready") return job.status === "ready";
-  if (lock === "discovered") return job.status === "discovered";
+  if (lock === "ready") return isTargeted(job);
+  if (lock === "discovered")
+    return job.status === "discovered" && !isTargeted(job);
   if (lock === "applied") return job.status === "applied";
   if (lock === "in_progress") return job.status === "in_progress";
   if (lock === "skipped") return job.status === "skipped";
@@ -206,7 +207,7 @@ export const groupJobsForCommandBar = (
   });
 
   for (const { job } of sorted) {
-    groups[getCommandGroup(job.status)].push(job);
+    groups[isTargeted(job) ? "ready" : getCommandGroup(job.status)].push(job);
   }
   return groups;
 };

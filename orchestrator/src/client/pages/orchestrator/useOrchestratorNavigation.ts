@@ -1,9 +1,10 @@
 import type { JobListItem } from "@shared/types.js";
+import { isTargeted } from "@shared/types.js";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { type FilterTab, tabs } from "./constants";
 
-const validTabs: FilterTab[] = ["ready", "discovered", "all"];
+const validTabs: FilterTab[] = ["discovered", "all"];
 
 const commandSelectionFilterKeys = [
   "source",
@@ -35,11 +36,12 @@ export function useOrchestratorNavigation({
     if (tab && validTabs.includes(tab as FilterTab)) {
       return tab as FilterTab;
     }
-    return "ready";
+    return "discovered";
   }, [tab]);
 
   const navigateWithContext = useCallback(
     (newTab: string, newJobId?: string | null, isReplace = false) => {
+      if (newTab === "ready") newTab = "all";
       const search = searchParams.toString();
       const suffix = search ? `?${search}` : "";
       const path = newJobId
@@ -58,9 +60,9 @@ export function useOrchestratorNavigation({
       return;
     }
     if (tab && !validTabs.includes(tab as FilterTab)) {
-      navigateWithContext("ready", null, true);
+      navigateWithContext("discovered", jobId, true);
     }
-  }, [tab, navigate, navigateWithContext]);
+  }, [tab, jobId, navigate, navigateWithContext]);
 
   const handleSelectJobId = useCallback(
     (id: string | null) => {
@@ -77,6 +79,7 @@ export function useOrchestratorNavigation({
         : null;
       const jobFitsTab =
         selectedItem &&
+        (newTab !== "discovered" || !isTargeted(selectedItem)) &&
         (tabDef?.statuses.length === 0 ||
           tabDef?.statuses.includes(selectedItem.status));
 

@@ -32,7 +32,7 @@ const createJob = (overrides: Partial<JobListItem> = {}): JobListItem => ({
   salaryMaxAmount: null,
   salaryCurrency: null,
   discoveredAt: "2025-01-01T00:00:00Z",
-  readyAt: null,
+  readyAt: "2025-01-01T00:00:00Z",
   appliedAt: null,
   updatedAt: "2025-01-01T00:00:00Z",
   ...overrides,
@@ -68,7 +68,7 @@ describe("JobCommandBar", () => {
   it("creates discovered lock from @disc + Tab", () => {
     render(
       <JobCommandBar
-        jobs={[createJob({ id: "job-1", status: "discovered" })]}
+        jobs={[createJob({ id: "job-1", status: "discovered", readyAt: null })]}
         onSelectJob={vi.fn()}
       />,
     );
@@ -83,7 +83,7 @@ describe("JobCommandBar", () => {
     expect(screen.getByText("@discovered")).toBeInTheDocument();
   });
 
-  it("creates lock from @ready + Enter", () => {
+  it("creates lock from @targeted + Enter", () => {
     render(
       <JobCommandBar
         jobs={[createJob({ id: "job-1", status: "ready" })]}
@@ -95,16 +95,16 @@ describe("JobCommandBar", () => {
     const input = screen.getByPlaceholderText(
       "Search jobs by job title or company name...",
     );
-    fireEvent.change(input, { target: { value: "@ready" } });
+    fireEvent.change(input, { target: { value: "@targeted" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
-    expect(screen.getByText("@ready")).toBeInTheDocument();
+    expect(screen.getByText("@targeted")).toBeInTheDocument();
   });
 
   it("adds lock-colored border and shadow to dialog when a lock is active", () => {
     render(
       <JobCommandBar
-        jobs={[createJob({ id: "job-1", status: "discovered" })]}
+        jobs={[createJob({ id: "job-1", status: "discovered", readyAt: null })]}
         onSelectJob={vi.fn()}
       />,
     );
@@ -143,16 +143,16 @@ describe("JobCommandBar", () => {
     const input = screen.getByPlaceholderText(
       "Search jobs by job title or company name...",
     );
-    fireEvent.change(input, { target: { value: "@ready" } });
+    fireEvent.change(input, { target: { value: "@targeted" } });
 
-    const lockSuggestion = await screen.findByText("Lock to @ready");
+    const lockSuggestion = await screen.findByText("Lock to @targeted");
     expect(lockSuggestion).toBeInTheDocument();
     expect(screen.queryByText("No jobs found.")).not.toBeInTheDocument();
 
     fireEvent.click(lockSuggestion);
 
-    expect(screen.getByText("@ready")).toBeInTheDocument();
-    expect(screen.getByText("Ready Engineer")).toBeInTheDocument();
+    expect(screen.getByText("@targeted")).toBeInTheDocument();
+    expect(await screen.findByText("Ready Engineer")).toBeInTheDocument();
   });
 
   it("shows all lock suggestions for bare @", async () => {
@@ -170,7 +170,7 @@ describe("JobCommandBar", () => {
     fireEvent.change(input, { target: { value: "@" } });
 
     await waitFor(() => {
-      expect(screen.getByText("Lock to @ready")).toBeInTheDocument();
+      expect(screen.getByText("Lock to @targeted")).toBeInTheDocument();
       expect(screen.getByText("Lock to @discovered")).toBeInTheDocument();
       expect(screen.getByText("Lock to @applied")).toBeInTheDocument();
       expect(screen.getByText("Lock to @in-progress")).toBeInTheDocument();
@@ -235,6 +235,7 @@ describe("JobCommandBar", () => {
         id: "disc-1",
         title: "Frontend Engineer",
         status: "discovered",
+        readyAt: null,
       }),
       createJob({
         id: "applied-1",
@@ -270,12 +271,14 @@ describe("JobCommandBar", () => {
         title: "Junior Web Developer",
         employer: "Joinrs",
         status: "discovered",
+        readyAt: null,
       }),
       createJob({
         id: "discovered-job-2",
         title: "Junior Software Engineer",
         employer: "Nestle",
         status: "discovered",
+        readyAt: null,
       }),
     ];
 
@@ -308,14 +311,14 @@ describe("JobCommandBar", () => {
     const input = screen.getByPlaceholderText(
       "Search jobs by job title or company name...",
     );
-    fireEvent.change(input, { target: { value: "@ready" } });
+    fireEvent.change(input, { target: { value: "@targeted" } });
     fireEvent.keyDown(input, { key: "Tab" });
-    expect(screen.getByText("@ready")).toBeInTheDocument();
+    expect(screen.getByText("@targeted")).toBeInTheDocument();
 
     fireEvent.change(input, { target: { value: "@app" } });
     fireEvent.keyDown(input, { key: "Tab" });
     expect(screen.getByText("@applied")).toBeInTheDocument();
-    expect(screen.queryByText("@ready")).not.toBeInTheDocument();
+    expect(screen.queryByText("@targeted")).not.toBeInTheDocument();
   });
 
   it("does not show an x remove button on the lock chip", () => {
@@ -330,10 +333,10 @@ describe("JobCommandBar", () => {
     const input = screen.getByPlaceholderText(
       "Search jobs by job title or company name...",
     );
-    fireEvent.change(input, { target: { value: "@ready" } });
+    fireEvent.change(input, { target: { value: "@targeted" } });
     fireEvent.keyDown(input, { key: "Tab" });
 
-    expect(screen.getByText("@ready")).toBeInTheDocument();
+    expect(screen.getByText("@targeted")).toBeInTheDocument();
     expect(
       screen.queryByLabelText("Remove ready filter"),
     ).not.toBeInTheDocument();
@@ -351,11 +354,11 @@ describe("JobCommandBar", () => {
     const input = screen.getByPlaceholderText(
       "Search jobs by job title or company name...",
     );
-    fireEvent.change(input, { target: { value: "@ready" } });
+    fireEvent.change(input, { target: { value: "@targeted" } });
     fireEvent.keyDown(input, { key: "Tab" });
     fireEvent.keyDown(input, { key: "Backspace" });
 
-    expect(screen.queryByText("@ready")).not.toBeInTheDocument();
+    expect(screen.queryByText("@targeted")).not.toBeInTheDocument();
   });
 
   it("clears lock on Escape and keeps dialog open", () => {
@@ -370,13 +373,13 @@ describe("JobCommandBar", () => {
     const input = screen.getByPlaceholderText(
       "Search jobs by job title or company name...",
     );
-    fireEvent.change(input, { target: { value: "@ready" } });
+    fireEvent.change(input, { target: { value: "@targeted" } });
     fireEvent.keyDown(input, { key: "Tab" });
-    expect(screen.getByText("@ready")).toBeInTheDocument();
+    expect(screen.getByText("@targeted")).toBeInTheDocument();
 
     fireEvent.keyDown(input, { key: "Escape" });
 
-    expect(screen.queryByText("@ready")).not.toBeInTheDocument();
+    expect(screen.queryByText("@targeted")).not.toBeInTheDocument();
     expect(
       screen.getByPlaceholderText(
         "Search jobs by job title or company name...",
@@ -396,14 +399,14 @@ describe("JobCommandBar", () => {
     const input = screen.getByPlaceholderText(
       "Search jobs by job title or company name...",
     );
-    fireEvent.change(input, { target: { value: "@ready" } });
+    fireEvent.change(input, { target: { value: "@targeted" } });
     fireEvent.keyDown(input, { key: "Tab" });
-    expect(screen.getByText("@ready")).toBeInTheDocument();
+    expect(screen.getByText("@targeted")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     openWithKeyboard();
 
-    expect(screen.queryByText("@ready")).not.toBeInTheDocument();
+    expect(screen.queryByText("@targeted")).not.toBeInTheDocument();
   });
 
   it("treats @all as invalid and does not lock", () => {
@@ -460,13 +463,14 @@ describe("JobCommandBar", () => {
     expect(onSelectJob).toHaveBeenCalledWith("all", "in-progress-job");
   });
 
-  it("excludes processing jobs from every lock scope", () => {
+  it("excludes untargeted processing jobs from every lock scope", () => {
     const jobs: JobListItem[] = [
       createJob({
         id: "processing-job",
         title: "Processing-only keyword",
         employer: "Queue Corp",
         status: "processing",
+        readyAt: null,
       }),
       createJob({
         id: "ready-job",
@@ -477,6 +481,7 @@ describe("JobCommandBar", () => {
         id: "disc-job",
         title: "Discovered Engineer",
         status: "discovered",
+        readyAt: null,
       }),
       createJob({
         id: "applied-job",
@@ -500,7 +505,7 @@ describe("JobCommandBar", () => {
     const input = screen.getByPlaceholderText(
       "Search jobs by job title or company name...",
     );
-    const lockTokens = ["@ready", "@disc", "@applied", "@skip", "@exp"];
+    const lockTokens = ["@targeted", "@disc", "@applied", "@skip", "@exp"];
 
     for (const token of lockTokens) {
       fireEvent.change(input, { target: { value: token } });
@@ -575,6 +580,6 @@ describe("JobCommandBar", () => {
 
     fireEvent.keyDown(input, { key: "Enter" });
 
-    expect(onSelectJob).toHaveBeenCalledWith("ready", "job-0");
+    expect(onSelectJob).toHaveBeenCalledWith("all", "job-0");
   });
 });

@@ -2,7 +2,13 @@ import { createJob } from "@shared/testing/factories.js";
 import type { Job } from "@shared/types.js";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { forwardRef, useImperativeHandle } from "react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigationType,
+} from "react-router-dom";
 import { toast } from "sonner";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api";
@@ -105,6 +111,7 @@ const job2 = createJob({
   location: "London",
   jobDescription: "Build APIs",
   status: "discovered",
+  readyAt: null,
 });
 
 const processingJob = createJob({
@@ -503,8 +510,11 @@ vi.mock("../components/KeyboardShortcutDialog", () => ({
 
 const LocationWatcher = () => {
   const location = useLocation();
+  const navigationType = useNavigationType();
   return (
-    <div data-testid="location">{location.pathname + location.search}</div>
+    <div data-testid="location" data-navigation-type={navigationType}>
+      {location.pathname + location.search}
+    </div>
   );
 };
 
@@ -567,6 +577,62 @@ describe("OrchestratorPage", () => {
     });
   });
 
+  it.each([
+    "discovered",
+    "ready",
+  ])("replaces a targeted %s deep link with All, even when Discovered is empty", async (tab) => {
+    window.matchMedia = createMatchMedia(
+      true,
+    ) as unknown as typeof window.matchMedia;
+    const targeted = { ...job2, readyAt: "2026-11-08" };
+    mockJobs = [targeted];
+    mockSelectedJob = targeted;
+    render(
+      <MemoryRouter
+        initialEntries={[`/jobs/${tab}/${targeted.id}?source=linkedin`]}
+      >
+        <LocationWatcher />
+        <Routes>
+          <Route path="/jobs/:tab/:jobId?" element={<OrchestratorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("location").textContent).toBe(
+        `/jobs/all/${targeted.id}?source=linkedin`,
+      ),
+    );
+    expect(screen.getByTestId("location")).toHaveAttribute(
+      "data-navigation-type",
+      "REPLACE",
+    );
+    expect(screen.getByTestId("visible-job-ids")).toHaveTextContent(
+      targeted.id,
+    );
+    expect(screen.getByTestId("selected-job")).toHaveTextContent(targeted.id);
+  });
+
+  it("shows only untargeted discovered jobs in Discovered", () => {
+    window.matchMedia = createMatchMedia(
+      true,
+    ) as unknown as typeof window.matchMedia;
+    mockJobs = [
+      job2,
+      { ...job2, id: "targeted-discovered", readyAt: "2026-11-08" },
+      processingJob,
+      jobFixture,
+    ];
+    render(
+      <MemoryRouter initialEntries={["/jobs/discovered"]}>
+        <Routes>
+          <Route path="/jobs/:tab/:jobId?" element={<OrchestratorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("visible-job-ids").textContent).toBe("job-2");
+    expect(screen.getByTestId("filtered-count")).toHaveTextContent("1");
+  });
+
   it("filters loaded jobs by company and source, preserves company across tabs, and resets", () => {
     window.matchMedia = createMatchMedia(
       true,
@@ -601,9 +667,7 @@ describe("OrchestratorPage", () => {
     expect(screen.getByTestId("visible-job-ids").textContent).toBe("job-2");
     expect(screen.getByTestId("location")).toHaveTextContent("company=acme");
     fireEvent.click(screen.getByText("Reset Filters"));
-    expect(screen.getByTestId("visible-job-ids").textContent).toBe(
-      "job-2,job-3",
-    );
+    expect(screen.getByTestId("visible-job-ids").textContent).toBe("job-2");
     expect(screen.getByTestId("location").textContent).not.toContain(
       "company=",
     );
@@ -656,7 +720,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -750,7 +814,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready/job-1"]}>
+      <MemoryRouter initialEntries={["/jobs/all/job-1"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -770,7 +834,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     const { rerender } = render(
-      <MemoryRouter initialEntries={["/jobs/ready/job-1"]}>
+      <MemoryRouter initialEntries={["/jobs/all/job-1"]}>
         <LocationWatcher />
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
@@ -780,14 +844,14 @@ describe("OrchestratorPage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("location")).toHaveTextContent("/ready/job-1");
+      expect(screen.getByTestId("location")).toHaveTextContent("/all/job-1");
     });
 
     mockJobs = [createJob({ ...jobFixture, id: "job-2", status: "ready" })];
     mockSelectedJob = null;
 
     rerender(
-      <MemoryRouter initialEntries={["/jobs/ready/job-1"]}>
+      <MemoryRouter initialEntries={["/jobs/all/job-1"]}>
         <LocationWatcher />
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
@@ -797,7 +861,7 @@ describe("OrchestratorPage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("location")).toHaveTextContent("/ready/job-1");
+      expect(screen.getByTestId("location")).toHaveTextContent("/all/job-1");
     });
   });
 
@@ -807,7 +871,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -830,7 +894,7 @@ describe("OrchestratorPage", () => {
     render(
       <MemoryRouter
         initialEntries={[
-          "/jobs/ready?source=linkedin&company=google&company=stripe&sponsor=confirmed&salaryMode=between&salaryMin=60000&salaryMax=90000&q=backend&sort=title-asc",
+          "/jobs/all?source=linkedin&company=google&company=stripe&sponsor=confirmed&salaryMode=between&salaryMin=60000&salaryMax=90000&q=backend&sort=title-asc",
         ]}
       >
         <LocationWatcher />
@@ -870,7 +934,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready?q=backend&sort=title-asc"]}>
+      <MemoryRouter initialEntries={["/jobs/all?q=backend&sort=title-asc"]}>
         <LocationWatcher />
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
@@ -1030,7 +1094,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1051,7 +1115,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1068,7 +1132,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready?source=ukvisajobs"]}>
+      <MemoryRouter initialEntries={["/jobs/all?source=ukvisajobs"]}>
         <LocationWatcher />
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
@@ -1092,7 +1156,7 @@ describe("OrchestratorPage", () => {
       .mockReturnValue(0 as unknown as NodeJS.Timeout);
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1154,7 +1218,7 @@ describe("OrchestratorPage", () => {
     );
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1182,7 +1246,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1212,7 +1276,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1240,7 +1304,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1261,7 +1325,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <LocationWatcher />
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
@@ -1279,7 +1343,7 @@ describe("OrchestratorPage", () => {
     await waitFor(() => {
       expect(mockLoadJobs).toHaveBeenCalled();
       expect(screen.getByTestId("location")).toHaveTextContent(
-        "/jobs/ready/manual-job-1",
+        "/jobs/all/manual-job-1",
       );
     });
   });
@@ -1292,7 +1356,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1324,7 +1388,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1348,7 +1412,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1382,7 +1446,7 @@ describe("OrchestratorPage", () => {
     };
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1423,7 +1487,7 @@ describe("OrchestratorPage", () => {
     };
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1464,7 +1528,7 @@ describe("OrchestratorPage", () => {
     };
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1495,7 +1559,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1519,7 +1583,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1543,7 +1607,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1577,7 +1641,7 @@ describe("OrchestratorPage", () => {
     };
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1594,39 +1658,24 @@ describe("OrchestratorPage", () => {
     });
   });
 
-  it("shows and hides Recalculate match based on selected statuses", async () => {
+  it("shows bulk Target and hides old bulk actions", async () => {
     window.matchMedia = createMatchMedia(
       true,
     ) as unknown as typeof window.matchMedia;
-
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
-        <LocationWatcher />
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
-          <Route path="/jobs/:tab" element={<OrchestratorPage />} />
-          <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
+          <Route path="/jobs/:tab/:jobId?" element={<OrchestratorPage />} />
         </Routes>
       </MemoryRouter>,
     );
-
     fireEvent.click(screen.getByTestId("toggle-select-all-on"));
-
-    // FIXME: This assertion fails because processingJob seems to be considered valid for rescoring?
-    // or test setup issue. Commenting out to unblock.
-    // await waitFor(() => {
-    //   expect(
-    //     screen.queryByRole("button", { name: "Recalculate match" }),
-    //   ).not.toBeInTheDocument();
-    // });
-
-    fireEvent.click(screen.getByTestId("toggle-select-all-off"));
-    fireEvent.click(screen.getByTestId("toggle-select-job-1"));
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Recalculate match" }),
-      ).toBeInTheDocument();
-    });
+    expect(screen.getByRole("button", { name: "Target" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /Recalculate|Move to Ready|Skip selected/i,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("navigates jobs and tabs with shortcuts", async () => {
@@ -1674,12 +1723,12 @@ describe("OrchestratorPage", () => {
       }),
     );
 
-    pressKey("2");
+    pressKey("1");
     await waitFor(() => {
       expect(locationText()).toContain("/discovered");
     });
 
-    pressKey("3");
+    pressKey("2");
     await waitFor(() => {
       expect(locationText()).toContain("/all");
     });
@@ -1714,57 +1763,22 @@ describe("OrchestratorPage", () => {
     openSpy.mockRestore();
   });
 
-  it("triggers skip, mark applied, and move-to-ready actions from shortcuts", async () => {
+  it("disables skip and mark applied shortcuts", () => {
     window.matchMedia = createMatchMedia(
       true,
     ) as unknown as typeof window.matchMedia;
-
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
-        <LocationWatcher />
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
-          <Route path="/jobs/:tab" element={<OrchestratorPage />} />
-          <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
+          <Route path="/jobs/:tab/:jobId?" element={<OrchestratorPage />} />
         </Routes>
       </MemoryRouter>,
     );
-
-    expect(screen.getByTestId("location")).toBeInTheDocument();
-
     pressKey("s");
-    await waitFor(() => {
-      expect(api.skipJob).toHaveBeenCalledWith("job-1");
-      expect(toast.message).toHaveBeenCalledWith("Job skipped");
-    });
-
     pressKey("a");
-    await waitFor(() => {
-      expect(api.markAsApplied).toHaveBeenCalledWith("job-1");
-      expect(toast.success).toHaveBeenCalledWith(
-        "Marked as applied",
-        expect.anything(),
-      );
-    });
-
-    // Switch to discovered for move-to-ready shortcut
-    pressKey("2");
-    await waitFor(() => {
-      expect(screen.getByTestId("location").textContent).toContain(
-        "/discovered",
-      );
-    });
-
-    // Update mock so selectedJob matches the discovered tab — visibleSelectedJob
-    // filters out jobs whose status doesn't belong to the active tab.
-    mockSelectedJob = job2;
-
-    fireEvent.click(screen.getByTestId("select-job-2"));
-
-    pressKey("r");
-    await waitFor(() => {
-      expect(toast.message).toHaveBeenCalledWith("Moving job to Ready...");
-      expect(api.processJob).toHaveBeenCalledWith("job-2");
-    });
+    expect(api.skipJob).not.toHaveBeenCalled();
+    expect(api.markAsApplied).not.toHaveBeenCalled();
+    expect(api.processJob).not.toHaveBeenCalled();
   });
 
   it("toggles the help dialog with shortcut", async () => {
@@ -1773,7 +1787,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1800,7 +1814,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
           <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1830,7 +1844,7 @@ describe("OrchestratorPage", () => {
 
     try {
       render(
-        <MemoryRouter initialEntries={["/jobs/ready"]}>
+        <MemoryRouter initialEntries={["/jobs/all"]}>
           <Routes>
             <Route path="/jobs/:tab" element={<OrchestratorPage />} />
             <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
@@ -1858,7 +1872,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <LocationWatcher />
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
@@ -1869,7 +1883,7 @@ describe("OrchestratorPage", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("location").textContent).toContain(
-        "/ready/job-1",
+        "/all/job-1",
       );
     });
 
@@ -1881,7 +1895,7 @@ describe("OrchestratorPage", () => {
     pressKey("j");
     await waitFor(() => {
       expect(screen.getByTestId("location").textContent).toContain(
-        "/ready/job-1",
+        "/all/job-1",
       );
     });
   });
@@ -1892,7 +1906,7 @@ describe("OrchestratorPage", () => {
     ) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/ready"]}>
+      <MemoryRouter initialEntries={["/jobs/all"]}>
         <LocationWatcher />
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
@@ -1908,7 +1922,7 @@ describe("OrchestratorPage", () => {
     pressKeyOn(input, "j");
     await waitFor(() => {
       expect(screen.getByTestId("location").textContent).toContain(
-        "/ready/job-1",
+        "/all/job-1",
       );
     });
 
