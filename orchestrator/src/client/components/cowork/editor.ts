@@ -1,5 +1,6 @@
 import { bulletsFromHtml, bulletsToHtml } from "@shared/resume-bullets";
 import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
+import { normalizeWhitespace } from "@shared/utils/string";
 
 export const BULLET_TRANSFER_TYPE = "application/x-jobops-bullet";
 export type BulletReference = { id: string; text: string };
@@ -39,11 +40,14 @@ export function suggestionTarget(
       suggestion.previousText !== document.basics.headline
       ? null
       : { old: document.basics.headline };
-  if (suggestion.op === "replace_summary")
+  if (suggestion.op === "replace_summary") {
+    const plainText = bulletsFromHtml(document.summary.content).join("\n");
     return suggestion.previousText !== undefined &&
-      suggestion.previousText !== document.summary.content
+      normalizeWhitespace(suggestion.previousText) !==
+        normalizeWhitespace(plainText)
       ? null
-      : { old: document.summary.content };
+      : { old: plainText };
+  }
   if (suggestion.op === "set_skills")
     return {
       old: document.sections.skills.items
@@ -76,6 +80,14 @@ export function applySuggestion(
 ): ReactiveResumeV5Document | null {
   const target = suggestionTarget(document, suggestion);
   if (!target) return null;
+  return applyResolvedSuggestion(document, suggestion, target);
+}
+
+function applyResolvedSuggestion(
+  document: ReactiveResumeV5Document,
+  suggestion: ResumeSuggestion,
+  target: { old: string; index?: number },
+): ReactiveResumeV5Document | null {
   const next = structuredClone(document);
   if (suggestion.op === "replace_headline")
     next.basics.headline = suggestion.text ?? "";
@@ -109,4 +121,47 @@ export function applySuggestion(
     experience.description = bulletsToHtml(bullets);
   }
   return next;
+}
+
+/** Resolve against one snapshot, then edit from the end so original indices hold. */
+export function applySuggestions(
+  document: ReactiveResumeV5Document,
+  suggestions: ResumeSuggestion[],
+): { document: ReactiveResumeV5Document; applied: string[] } {
+  const resolved = suggestions.flatMap((suggestion, order) => {
+    const target = suggestionTarget(document, suggestion);
+    return target ? [{ suggestion, target, order }] : [];
+  });
+  resolved.sort((a, b) => {
+    const group = (a.suggestion.experienceId ?? "").localeCompare(
+      b.suggestion.experienceId ?? "",
+    );
+    if (group) return group;
+    const index = (b.target.index ?? -1) - (a.target.index ?? -1);
+    if (index) return index;
+    // At one position replace/delete the original before inserting before it.
+    const inserts =
+      Number(a.suggestion.op === "insert_bullet") -
+      Number(b.suggestion.op === "insert_bullet");
+    if (inserts) return inserts;
+    return a.suggestion.op === "insert_bullet"
+      ? b.order - a.order
+      : a.order - b.order;
+  });
+  let next = document;
+  const applied: string[] = [];
+  const edited = new Set<string>();
+  for (const { suggestion, target } of resolved) {
+    const key = `${suggestion.experienceId}:${target.index}`;
+    const editsBullet =
+      target.index !== undefined && suggestion.op !== "insert_bullet";
+    if (editsBullet && edited.has(key)) continue;
+    const result = applyResolvedSuggestion(next, suggestion, target);
+    if (result) {
+      next = result;
+      applied.push(suggestion.id);
+      if (editsBullet) edited.add(key);
+    }
+  }
+  return { document: next, applied };
 }

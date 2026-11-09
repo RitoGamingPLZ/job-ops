@@ -28,6 +28,7 @@ type GhostwriterMessageContextInput = GhostwriterContextSelectionInput & {
 
 type GhostwriterStreamSignalInput = GhostwriterContextSelectionInput & {
   signal?: AbortSignal;
+  cowork?: CoworkChatContext;
 };
 
 export async function listJobChatThreads(jobId: string): Promise<{
@@ -145,17 +146,18 @@ export async function streamJobGhostwriterMessage(
     onEvent: (event: JobChatStreamEvent) => void;
   },
 ): Promise<void> {
+  const payload = {
+    cowork: input.cowork,
+    content: input.content,
+    selectedNoteIds: input.selectedNoteIds,
+    selectedEmailIds: input.selectedEmailIds,
+    selectedDocumentIds: input.selectedDocumentIds,
+    attachments: input.attachments,
+    stream: true as const,
+  };
   return streamSseEvents<JobChatStreamEvent>(
     `/jobs/${jobId}/chat/messages`,
-    {
-      ...{ cowork: input.cowork },
-      content: input.content,
-      selectedNoteIds: input.selectedNoteIds,
-      selectedEmailIds: input.selectedEmailIds,
-      selectedDocumentIds: input.selectedDocumentIds,
-      attachments: input.attachments,
-      stream: true,
-    },
+    payload,
     {
       onEvent: handlers.onEvent,
       signal: input.signal,
@@ -245,14 +247,16 @@ export async function streamRegenerateJobGhostwriterMessage(
     onEvent: (event: JobChatStreamEvent) => void;
   },
 ): Promise<void> {
+  const payload = {
+    cowork: input.cowork,
+    selectedNoteIds: input.selectedNoteIds,
+    selectedEmailIds: input.selectedEmailIds,
+    selectedDocumentIds: input.selectedDocumentIds,
+    stream: true as const,
+  };
   return streamSseEvents<JobChatStreamEvent>(
     `/jobs/${jobId}/chat/messages/${encodeURIComponent(assistantMessageId)}/regenerate`,
-    {
-      selectedNoteIds: input.selectedNoteIds,
-      selectedEmailIds: input.selectedEmailIds,
-      selectedDocumentIds: input.selectedDocumentIds,
-      stream: true,
-    },
+    payload,
     {
       onEvent: handlers.onEvent,
       signal: input.signal,
@@ -271,16 +275,18 @@ export async function editJobGhostwriterMessage(
     onEvent: (event: JobChatStreamEvent) => void;
   },
 ): Promise<void> {
+  const payload = {
+    content: input.content,
+    cowork: input.cowork,
+    selectedNoteIds: input.selectedNoteIds,
+    selectedEmailIds: input.selectedEmailIds,
+    selectedDocumentIds: input.selectedDocumentIds,
+    attachments: input.attachments,
+    stream: true as const,
+  };
   return streamSseEvents<JobChatStreamEvent>(
     `/jobs/${jobId}/chat/messages/${encodeURIComponent(messageId)}/edit`,
-    {
-      content: input.content,
-      selectedNoteIds: input.selectedNoteIds,
-      selectedEmailIds: input.selectedEmailIds,
-      selectedDocumentIds: input.selectedDocumentIds,
-      attachments: input.attachments,
-      stream: true,
-    },
+    payload,
     {
       onEvent: handlers.onEvent,
       signal: input.signal,

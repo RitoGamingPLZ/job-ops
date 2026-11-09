@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   pdf: vi.fn(),
   openPdf: vi.fn(),
   toast: vi.fn(),
+  coworkError: vi.fn(),
 }));
 vi.mock("@client/api/cowork", () => ({
   getJobResume: mocks.getResume,
@@ -38,7 +39,7 @@ vi.mock("@/client/components/ghostwriter/GhostwriterPanel", () => ({
 }));
 vi.mock("@/client/components/cowork/DutyLibrary", () => ({
   DutyLibrary: () => <div>Library</div>,
-  coworkError: vi.fn(),
+  coworkError: mocks.coworkError,
 }));
 vi.mock("@/client/components/cowork/ResumeEditor", () => ({
   ResumeEditor: ({
@@ -208,6 +209,61 @@ describe("resume co-work saving", () => {
       baseRevision: 0,
       document: { basics: { headline: "Last edit before leaving" } },
     });
+  });
+  it("prompts before unload while dirty or saving, then allows unload after saving", async () => {
+    let resolveSave!: (value: JobResumeState) => void;
+    mocks.save.mockImplementationOnce(
+      () =>
+        new Promise<JobResumeState>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+    mount();
+    await screen.findByLabelText("Headline");
+    const unload = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(unload()).toBe(false);
+    fireEvent.change(screen.getByLabelText("Headline"), {
+      target: { value: "Unsaved" },
+    });
+    expect(unload()).toBe(true);
+    fireEvent.click(screen.getByText("Save now"));
+    expect(unload()).toBe(true);
+    await act(async () => resolveSave(state("Unsaved", 1)));
+    expect(unload()).toBe(false);
+  });
+  it.each([
+    new Error("Offline"),
+    new ApiClientError("Conflict", { status: 409 }),
+  ])("reports an unmount-flush failure: %s", async (failure) => {
+    mocks.save.mockRejectedValueOnce(failure);
+    const view = mount();
+    await screen.findByLabelText("Headline");
+    fireEvent.change(screen.getByLabelText("Headline"), {
+      target: { value: "Last edit" },
+    });
+    view.unmount();
+    await waitFor(() =>
+      expect(
+        failure instanceof ApiClientError ? mocks.toast : mocks.coworkError,
+      ).toHaveBeenCalled(),
+    );
+  });
+  it("requires confirmation before resetting and supports cancel", async () => {
+    mocks.reset.mockResolvedValue(undefined);
+    mount();
+    await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByText("Reset to base"));
+    expect(screen.getByRole("alertdialog")).toBeVisible();
+    expect(mocks.reset).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(mocks.reset).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Reset to base"));
+    fireEvent.click(screen.getByText("Reset resume"));
+    await waitFor(() => expect(mocks.reset).toHaveBeenCalledWith("job"));
   });
   it("offers Resume Studio when no base resume exists", async () => {
     mocks.getResume.mockRejectedValueOnce(

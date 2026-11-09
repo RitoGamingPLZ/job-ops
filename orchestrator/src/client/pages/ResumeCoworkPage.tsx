@@ -23,6 +23,16 @@ import {
 import { ResumeEditor } from "@/client/components/cowork/ResumeEditor";
 import { GhostwriterPanel } from "@/client/components/ghostwriter/GhostwriterPanel";
 import { openJobPdf } from "@/client/lib/private-pdf";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
 export function ResumeCoworkPage() {
@@ -37,6 +47,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
   const [references, setReferences] = useState<BulletReference[]>([]);
   const [tab, setTab] = useState("editor");
   const [status, setStatus] = useState("Loading…");
+  const [resetOpen, setResetOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const latest = useRef<JobResumeState | null>(null);
   const dirty = useRef(false);
@@ -94,8 +105,13 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
         if (mounted.current) setStatus(changed ? "Unsaved changes" : "Saved");
         return true;
       } catch (failure) {
-        if (!mounted.current) return false;
         if (failure instanceof ApiClientError && failure.status === 409) {
+          if (!mounted.current) {
+            toast.message(
+              "Resume changed elsewhere. Your last edits could not be saved; reopen the resume to review the latest copy.",
+            );
+            return false;
+          }
           dirty.current = false;
           try {
             publish(await api.getJobResume(jobId));
@@ -107,8 +123,9 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
             setError(reloadError);
           }
         } else {
-          setStatus("Save failed · retry to keep your changes");
           coworkError(failure);
+          if (mounted.current)
+            setStatus("Save failed · retry to keep your changes");
         }
         return false;
       } finally {
@@ -118,6 +135,16 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     saving.current = operation;
     return operation;
   }, [jobId, publish]);
+  useEffect(() => {
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (dirty.current || saving.current) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, []);
   // Flush the last debounced edit when leaving this job, including edits queued
   // behind an in-flight save. References still advance after unmount.
   useEffect(
@@ -151,6 +178,22 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
       if (!(await save())) return false;
     }
     return true;
+  }
+  async function resetToBase() {
+    setBusy(true);
+    if (timer.current) clearTimeout(timer.current);
+    dirty.current = false;
+    try {
+      if (saving.current) await saving.current;
+      await api.deleteJobResume(jobId);
+      dirty.current = false;
+      setSuggestions([]);
+      await load();
+    } catch (failure) {
+      coworkError(failure);
+    } finally {
+      setBusy(false);
+    }
   }
   function reference(bullet: BulletReference) {
     setReferences((current) =>
@@ -205,22 +248,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           size="sm"
           variant="outline"
           disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            if (timer.current) clearTimeout(timer.current);
-            dirty.current = false;
-            try {
-              if (saving.current) await saving.current;
-              await api.deleteJobResume(jobId);
-              dirty.current = false;
-              setSuggestions([]);
-              await load();
-            } catch (failure) {
-              coworkError(failure);
-            } finally {
-              setBusy(false);
-            }
-          }}
+          onClick={() => setResetOpen(true)}
         >
           Reset to base
         </Button>
@@ -257,6 +285,8 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
         {["chat", "editor", "library"].map((name) => (
           <Button
             key={name}
+            id={`cowork-tab-${name}`}
+            aria-controls={`cowork-panel-${name}`}
             role="tab"
             aria-selected={tab === name}
             variant={tab === name ? "secondary" : "ghost"}
@@ -268,6 +298,9 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
       </div>
       <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(260px,3fr)_minmax(360px,5fr)_minmax(260px,3fr)]">
         <section
+          id="cowork-panel-chat"
+          role="tabpanel"
+          aria-labelledby="cowork-tab-chat"
           aria-label="Chat"
           className={`${tab === "chat" ? "flex" : "hidden"} xl:flex min-h-0 flex-col border rounded-md p-3`}
           onDragOver={(e) => {
@@ -275,6 +308,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
               e.preventDefault();
           }}
           onDrop={(e) => {
+            if (!e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE)) return;
             e.preventDefault();
             const bullet = readBulletTransfer(
               e.dataTransfer.getData(BULLET_TRANSFER_TYPE),
@@ -299,6 +333,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
                     variant="secondary"
                     className="max-w-full"
                     title={b.text}
+                    aria-label={`Remove reference: ${b.text}`}
                     onClick={() =>
                       setReferences((current) =>
                         current.filter((item) => item.id !== b.id),
@@ -314,6 +349,9 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           />
         </section>
         <section
+          id="cowork-panel-editor"
+          role="tabpanel"
+          aria-labelledby="cowork-tab-editor"
           aria-label="Resume editor"
           className={`${tab === "editor" ? "block" : "hidden"} xl:block min-h-0 overflow-auto border rounded-md p-4`}
         >
@@ -330,6 +368,9 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           />
         </section>
         <section
+          id="cowork-panel-library"
+          role="tabpanel"
+          aria-labelledby="cowork-tab-library"
           aria-label="Duty library"
           className={`${tab === "library" ? "block" : "hidden"} xl:block min-h-0 overflow-auto border rounded-md p-3`}
         >
@@ -361,6 +402,23 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           />
         </section>
       </div>
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset to base?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes this job’s co-work copy and its edits.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void resetToBase()}>
+              Reset resume
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

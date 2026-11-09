@@ -9,6 +9,16 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { CommaListInput } from "./CommaListInput";
 import { BULLET_TRANSFER_TYPE, type BulletReference } from "./editor";
 
 export function coworkError(error: unknown) {
@@ -53,6 +64,7 @@ export function DutyLibrary({
   const [loading, setLoading] = useState(true);
   const [needsResume, setNeedsResume] = useState(false);
   const [edit, setEdit] = useState<ExperienceBulletInput | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
   const [paste, setPaste] = useState("");
@@ -304,12 +316,7 @@ export function DutyLibrary({
                   size="sm"
                   variant="ghost"
                   disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      await api.deleteExperienceBullet(bullet.id);
-                      await refresh();
-                    })
-                  }
+                  onClick={() => setDeleteId(bullet.id)}
                 >
                   Delete
                 </Button>
@@ -318,6 +325,37 @@ export function DutyLibrary({
           ))}
         </section>
       ))}
+      <AlertDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete duty?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the duty from your library. This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const id = deleteId;
+                if (id)
+                  void run(async () => {
+                    await api.deleteExperienceBullet(id);
+                    await refresh();
+                  });
+              }}
+            >
+              Delete duty
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Dialog
         open={edit !== null}
         onOpenChange={(open) => {
@@ -377,13 +415,13 @@ export function DutyLibrary({
               )}
               <label htmlFor="duty-tags" className="block text-sm">
                 Tags (comma separated)
-                <Input
+                <CommaListInput
                   id="duty-tags"
-                  value={edit.tags?.join(", ") ?? ""}
-                  onChange={(e) =>
+                  value={edit.tags ?? []}
+                  onCommit={(tags) =>
                     setEdit({
                       ...edit,
-                      tags: e.target.value.split(",").map((t) => t.trim()),
+                      tags,
                     })
                   }
                 />

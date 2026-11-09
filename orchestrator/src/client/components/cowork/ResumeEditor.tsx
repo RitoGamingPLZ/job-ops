@@ -1,11 +1,13 @@
 import { bulletsFromHtml, bulletsToHtml } from "@shared/resume-bullets";
 import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
+import { useRef } from "react";
 import { RichTextEditor } from "@/client/components/design-resume/RichTextEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BulletText } from "./BulletText";
+import { CommaListInput } from "./CommaListInput";
 import {
-  applySuggestion,
+  applySuggestions,
   BULLET_TRANSFER_TYPE,
   dropBullet,
   readBulletTransfer,
@@ -42,33 +44,56 @@ export function ResumeEditor({
         );
     });
   }
-  function accept(items: ResumeSuggestion[]) {
-    let next = document;
-    const applied: string[] = [];
-    for (const item of items) {
-      const result = applySuggestion(next, item);
-      if (result) {
-        next = result;
-        applied.push(item.id);
+  // Index-only targets belong to the experience snapshot in which they arrived.
+  const snapshots = useRef(
+    new WeakMap<
+      ResumeSuggestion,
+      { description: string | undefined; stale: boolean }
+    >(),
+  );
+  function target(suggestion: ResumeSuggestion) {
+    if (
+      suggestion.experienceId &&
+      (suggestion.op === "insert_bullet" ||
+        suggestion.previousText === undefined)
+    ) {
+      const description = document.sections.experience.items.find(
+        (e) => e.id === suggestion.experienceId,
+      )?.description;
+      const snapshot = snapshots.current.get(suggestion);
+      if (!snapshot)
+        snapshots.current.set(suggestion, { description, stale: false });
+      else {
+        snapshot.stale ||= snapshot.description !== description;
+        if (snapshot.stale) return null;
       }
     }
-    if (applied.length) {
-      onChange(next);
-      onDismiss(applied);
+    return suggestionTarget(document, suggestion);
+  }
+  // Capture even suggestions whose target currently has no visible bullet row.
+  for (const suggestion of suggestions) target(suggestion);
+  function accept(items: ResumeSuggestion[]) {
+    const result = applySuggestions(
+      document,
+      items.filter((item) => target(item) !== null),
+    );
+    if (result.applied.length) {
+      onChange(result.document);
+      onDismiss(result.applied);
     }
   }
   function suggestionList(items: ResumeSuggestion[]) {
     return items.map((s) => {
-      const target = suggestionTarget(document, s);
+      const resolved = target(s);
       return (
         <article
           key={s.id}
           className="border rounded-md p-3 space-y-2 text-sm bg-muted/30"
         >
           <p className="font-medium">{s.op.replaceAll("_", " ")}</p>
-          {target ? (
+          {resolved ? (
             <>
-              <del className="block text-muted-foreground">{target.old}</del>
+              <del className="block text-muted-foreground">{resolved.old}</del>
               <mark className="block bg-emerald-500/10 text-foreground">
                 {s.op === "delete_bullet"
                   ? "Remove bullet"
@@ -91,7 +116,7 @@ export function ResumeEditor({
           <div className="flex gap-2">
             <Button
               size="sm"
-              disabled={disabled || !target}
+              disabled={disabled || !resolved}
               onClick={() => accept([s])}
             >
               Accept
@@ -158,14 +183,20 @@ export function ResumeEditor({
       </section>
       <section className="space-y-2">
         <h2 className="text-sm font-semibold">Summary</h2>
-        <RichTextEditor
-          value={document.summary.content}
-          onChange={(value) =>
-            change((next) => {
-              next.summary.content = value;
-            })
-          }
-        />
+        <div
+          ref={(element) => {
+            element?.toggleAttribute("inert", Boolean(disabled));
+          }}
+        >
+          <RichTextEditor
+            value={document.summary.content}
+            onChange={(value) =>
+              change((next) => {
+                next.summary.content = value;
+              })
+            }
+          />
+        </div>
         {suggestionList(suggestions.filter((s) => s.op === "replace_summary"))}
       </section>
       <section className="space-y-4">
@@ -246,6 +277,7 @@ export function ResumeEditor({
                         <Button
                           size="sm"
                           variant="ghost"
+                          aria-label={`Delete bullet ${index + 1}`}
                           onClick={() =>
                             updateBullets(experience.id, (current) =>
                               current.filter((_, i) => i !== index),
@@ -260,7 +292,7 @@ export function ResumeEditor({
                       suggestions.filter(
                         (s) =>
                           s.experienceId === experience.id &&
-                          suggestionTarget(document, s)?.index === index,
+                          target(s)?.index === index,
                       ),
                     )}
                   </div>
@@ -287,9 +319,7 @@ export function ResumeEditor({
                   suggestions.filter(
                     (s) =>
                       s.experienceId === experience.id &&
-                      (!suggestionTarget(document, s) ||
-                        suggestionTarget(document, s)?.index ===
-                          bullets.length),
+                      (!target(s) || target(s)?.index === bullets.length),
                   ),
                 )}
               </section>
@@ -320,20 +350,19 @@ export function ResumeEditor({
                 })
               }
             />
-            <Input
+            <CommaListInput
               aria-label={`Skill ${index + 1} keywords`}
-              value={skill.keywords.join(", ")}
-              onChange={(e) =>
+              value={skill.keywords}
+              onCommit={(keywords) =>
                 change((next) => {
-                  next.sections.skills.items[index].keywords = e.target.value
-                    .split(",")
-                    .map((k) => k.trim());
+                  next.sections.skills.items[index].keywords = keywords;
                 })
               }
             />
             <Button
               size="sm"
               variant="ghost"
+              aria-label={`Delete skill ${skill.name}`}
               onClick={() =>
                 change((next) => {
                   next.sections.skills.items.splice(index, 1);

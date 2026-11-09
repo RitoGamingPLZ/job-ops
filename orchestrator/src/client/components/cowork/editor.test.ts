@@ -2,6 +2,7 @@ import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
 import { describe, expect, it } from "vitest";
 import {
   applySuggestion,
+  applySuggestions,
   dropBullet,
   readBulletTransfer,
   suggestionTarget,
@@ -91,6 +92,63 @@ describe("resume suggestion application", () => {
       applySuggestion(
         fixture(),
         suggestion({ op: "insert_bullet", bulletIndex: 99 }),
+      ),
+    ).toBeNull();
+  });
+  it("resolves [A,B,C] insert@0 and delete@2 against the original document", () => {
+    const document = fixture();
+    document.sections.experience.items[0].description =
+      "<ul><li>A</li><li>B</li><li>C</li></ul>";
+    const insert = suggestion({
+      id: "insert",
+      op: "insert_bullet",
+      bulletIndex: 0,
+      previousText: undefined,
+      text: "X",
+    });
+    const remove = suggestion({
+      id: "delete",
+      op: "delete_bullet",
+      bulletIndex: 2,
+      previousText: undefined,
+    });
+    for (const items of [
+      [insert, remove],
+      [remove, insert],
+    ]) {
+      const result = applySuggestions(document, items);
+      expect(result.document.sections.experience.items[0].description).toBe(
+        "<ul><li>X</li><li>A</li><li>B</li></ul>",
+      );
+      expect(result.applied).toHaveLength(2);
+    }
+  });
+  it("keeps multiple insertions at their original positions and preserves equal-index order", () => {
+    const result = applySuggestions(fixture(), [
+      suggestion({ id: "a", op: "insert_bullet", bulletIndex: 0, text: "A" }),
+      suggestion({ id: "b", op: "insert_bullet", bulletIndex: 1, text: "B" }),
+      suggestion({ id: "c", op: "insert_bullet", bulletIndex: 0, text: "C" }),
+    ]);
+    expect(result.document.sections.experience.items[0].description).toBe(
+      "<ul><li>A</li><li>C</li><li>First</li><li>B</li><li>Second</li></ul>",
+    );
+  });
+  it("compares and displays formatted summaries as plain text without index fallback", () => {
+    const document = fixture();
+    document.summary.content = "<p>Built <strong>tools</strong> &amp; APIs</p>";
+    expect(
+      suggestionTarget(
+        document,
+        suggestion({
+          op: "replace_summary",
+          previousText: "Built tools & APIs",
+        }),
+      ),
+    ).toEqual({ old: "Built tools & APIs" });
+    expect(
+      suggestionTarget(
+        document,
+        suggestion({ op: "replace_summary", previousText: "Old summary" }),
       ),
     ).toBeNull();
   });
