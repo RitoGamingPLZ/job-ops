@@ -84,6 +84,22 @@ async function assertCoworkIsolation(
   });
   expect(created.status).toBe(201);
   const bullet = (await created.json()).data.bullet;
+  const { runWithRequestContext } = await import("@infra/request-context");
+  const { buildCandidateExperienceContext } = await import(
+    "@server/services/candidate-experience"
+  );
+  const candidateContext = (token: string) => {
+    const claims = JSON.parse(
+      Buffer.from(token.split(".")[1], "base64url").toString(),
+    ) as { tenantId: string; userId: string };
+    return runWithRequestContext(
+      { tenantId: claims.tenantId, userId: claims.userId },
+      buildCandidateExperienceContext,
+    );
+  };
+  expect(await candidateContext(ownerToken)).toContain("Private duty");
+  expect(await candidateContext(otherToken)).toBeNull();
+
   expect(
     (await (await call("/experience-bullets", otherToken)).json()).data.bullets,
   ).toEqual([]);
@@ -98,6 +114,16 @@ async function assertCoworkIsolation(
     (await call(`/experience-bullets/${bullet.id}`, otherToken, "DELETE"))
       .status,
   ).toBe(404);
+  for (const body of [{ ids: [bullet.id] }, {}]) {
+    const labeled = await call(
+      "/experience-bullets/label",
+      otherToken,
+      "POST",
+      body,
+    );
+    expect(labeled.status).toBe(200);
+    expect((await labeled.json()).data).toEqual({ bullets: [], labeled: 0 });
+  }
   const saved = await call(`/jobs/${job.id}/resume`, ownerToken, "PUT", {
     baseRevision: 0,
     document,

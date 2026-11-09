@@ -2,10 +2,11 @@ import type { CoworkChatContext, ExperienceBullet } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
 
-const { callJson, list, reserve } = vi.hoisted(() => ({
+const { callJson, list, reserve, update } = vi.hoisted(() => ({
   callJson: vi.fn(),
   list: vi.fn(),
   reserve: vi.fn(),
+  update: vi.fn(),
 }));
 vi.mock("./hosted-usage", () => ({ withHostedUsageReservation: reserve }));
 vi.mock("./modelSelection", () => ({
@@ -14,6 +15,7 @@ vi.mock("./modelSelection", () => ({
 }));
 vi.mock("@server/repositories/experience-bullets", () => ({
   listExperienceBullets: list,
+  updateExperienceBullet: update,
 }));
 
 import {
@@ -22,6 +24,7 @@ import {
   coworkChatContextSchema,
   extractExperienceBullets,
   filterCoworkSuggestions,
+  labelExperienceBullets,
   rankExperienceBullets,
 } from "./cowork-ai";
 
@@ -353,5 +356,89 @@ describe("cowork AI", () => {
     const huge = context();
     huge.document.basics.headline = "x".repeat(250001);
     expect(coworkChatContextSchema.safeParse(huge).success).toBe(false);
+  });
+});
+
+describe("experience labeling", () => {
+  it("filters to scoped IDs, merges existing tags, trims, dedupes and caps tags", async () => {
+    const own = { ...bullet("own"), tags: [" TypeScript ", "React"] };
+    list.mockResolvedValue([own]);
+    update.mockImplementation(async (_id, input) => ({ ...own, ...input }));
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        labels: [
+          { bulletId: "foreign", tags: ["Secret"] },
+          {
+            bulletId: "own",
+            tags: [
+              "typescript",
+              " React  ",
+              "",
+              ...Array.from({ length: 20 }, (_, i) => `Skill${i}`),
+            ],
+          },
+          { bulletId: "own", tags: ["Duplicate"] },
+        ],
+      },
+    });
+    const result = await labelExperienceBullets(["own", "foreign"]);
+    expect(result.labeled).toBe(1);
+    expect(result.bullets[0].tags).toHaveLength(12);
+    expect(result.bullets[0].tags.slice(0, 3)).toEqual([
+      "TypeScript",
+      "React",
+      "Skill0",
+    ]);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0][0]).toBe("own");
+    expect(callJson.mock.calls[0][0].messages[1].content).not.toContain(
+      "foreign",
+    );
+    const root = callJson.mock.calls[0][0].jsonSchema.schema;
+    expect(root.required).toEqual(["labels"]);
+    expect(root.additionalProperties).toBe(false);
+    expect(root.properties.labels.items.required).toEqual(["bulletId", "tags"]);
+    expect(root.properties.labels.items.additionalProperties).toBe(false);
+  });
+  it("defaults to untagged only and skips explicit empty/foreign IDs without usage", async () => {
+    list.mockResolvedValue([{ ...bullet("tagged"), tags: ["Existing"] }]);
+    expect(await labelExperienceBullets()).toEqual({ bullets: [], labeled: 0 });
+    expect(await labelExperienceBullets([])).toEqual({
+      bullets: [],
+      labeled: 0,
+    });
+    expect(await labelExperienceBullets(["foreign"])).toEqual({
+      bullets: [],
+      labeled: 0,
+    });
+    expect(reserve).not.toHaveBeenCalled();
+  });
+  it("batches at 40 with bounded text and reserves each call", async () => {
+    list.mockResolvedValue(
+      Array.from({ length: 81 }, (_, i) => bullet(`b${i}`, "x".repeat(10000))),
+    );
+    callJson.mockResolvedValue({ success: true, data: { labels: [] } });
+    await labelExperienceBullets();
+    expect(reserve).toHaveBeenCalledTimes(3);
+    expect(
+      callJson.mock.calls.map(
+        ([input]) => JSON.parse(input.messages[1].content).bullets.length,
+      ),
+    ).toEqual([40, 40, 1]);
+    expect(callJson.mock.calls[0][0].messages[1].content.length).toBeLessThan(
+      55000,
+    );
+  });
+  it("rejects invalid upstream output and propagates quota failures", async () => {
+    callJson.mockResolvedValue({
+      success: false,
+      error: "raw upstream secret",
+    });
+    await expect(labelExperienceBullets()).rejects.toThrow(
+      "Unable to label experience bullets",
+    );
+    reserve.mockRejectedValueOnce(new Error("quota exceeded"));
+    await expect(labelExperienceBullets()).rejects.toThrow("quota exceeded");
   });
 });

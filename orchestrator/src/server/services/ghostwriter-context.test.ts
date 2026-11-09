@@ -1,3 +1,7 @@
+vi.mock("./candidate-experience", () => ({
+  buildCandidateExperienceContext: vi.fn(async () => null),
+}));
+
 import type { AppError } from "@infra/errors";
 import { createJob } from "@shared/testing/factories";
 import JSZip from "jszip";

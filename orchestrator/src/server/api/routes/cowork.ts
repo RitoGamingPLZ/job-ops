@@ -1,11 +1,13 @@
 import { badRequest, notFound } from "@infra/errors";
 import { asyncRoute, ok } from "@infra/http";
+import { logger } from "@infra/logger";
 import { resolveRequestOrigin } from "@infra/request-origin";
 import * as bulletsRepo from "@server/repositories/experience-bullets";
 import * as resumesRepo from "@server/repositories/job-resumes";
 import { getJobById } from "@server/repositories/jobs";
 import {
   extractExperienceBullets,
+  labelExperienceBullets,
   rankExperienceBullets,
 } from "@server/services/cowork-ai";
 import { loadBaseResumeSource, resolvePdfRenderer } from "@server/services/pdf";
@@ -95,7 +97,43 @@ coworkRouter.post(
           sourceExperienceId: item.id,
         }));
       });
-    ok(res, await bulletsRepo.importExperienceBullets(inputs));
+    const imported = await bulletsRepo.importExperienceBullets(inputs);
+    let labeled = 0;
+    try {
+      labeled = (
+        await labelExperienceBullets(
+          imported.bullets.map((bullet) => bullet.id),
+        )
+      ).labeled;
+    } catch {
+      logger.warn("Resume import auto-label failed", {
+        requestId: res.getHeader("x-request-id"),
+        created: imported.created,
+      });
+    }
+    const ids = new Set(imported.bullets.map((bullet) => bullet.id));
+    const bullets = (await bulletsRepo.listExperienceBullets()).filter(
+      (bullet) => ids.has(bullet.id),
+    );
+    labeled = Math.max(
+      labeled,
+      bullets.filter((bullet) => bullet.tags.length > 0).length,
+    );
+    ok(res, { ...imported, bullets, labeled });
+  }),
+);
+coworkRouter.post(
+  "/experience-bullets/label",
+  asyncRoute(async (req, res) => {
+    const { ids } = parse(
+      z
+        .object({
+          ids: z.array(z.string().trim().min(1).max(200)).max(10000).optional(),
+        })
+        .strict(),
+      req.body ?? {},
+    );
+    ok(res, await labelExperienceBullets(ids));
   }),
 );
 coworkRouter.post(

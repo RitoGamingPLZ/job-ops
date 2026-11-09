@@ -1,3 +1,7 @@
+vi.mock("./candidate-experience", () => ({
+  buildCandidateExperienceContext: vi.fn(async () => null),
+}));
+
 /**
  * Tests for scorer.ts - focusing on robust JSON parsing from AI responses
  */

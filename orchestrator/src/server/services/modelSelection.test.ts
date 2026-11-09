@@ -1,3 +1,9 @@
+import { buildCandidateExperienceContext } from "./candidate-experience";
+
+vi.mock("./candidate-experience", () => ({
+  buildCandidateExperienceContext: vi.fn(),
+}));
+
 // src/server/services/modelSelection.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as settingsRepo from "../repositories/settings";
@@ -28,6 +34,7 @@ describe("Model Selection Logic", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.mocked(buildCandidateExperienceContext).mockResolvedValue(null);
     // Set environment variables to ensure we don't hit early exits
     process.env = {
       ...originalEnv,
