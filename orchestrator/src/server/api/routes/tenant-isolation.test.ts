@@ -122,7 +122,11 @@ async function assertCoworkIsolation(
       body,
     );
     expect(labeled.status).toBe(200);
-    expect((await labeled.json()).data).toEqual({ bullets: [], labeled: 0 });
+    expect((await labeled.json()).data).toEqual({
+      bullets: [],
+      labeled: 0,
+      remaining: 0,
+    });
   }
   const saved = await call(`/jobs/${job.id}/resume`, ownerToken, "PUT", {
     baseRevision: 0,

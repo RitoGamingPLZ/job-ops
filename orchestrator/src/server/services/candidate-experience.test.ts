@@ -72,3 +72,71 @@ it("never caches across calls/private scopes", async () => {
   expect(second).toContain("Duty bob");
   expect(second).not.toContain("alice");
 });
+
+it("respects smaller budgets including a giant group and its skill summary", async () => {
+  list.mockResolvedValue([bullet("giant", { text: "z".repeat(13000) })]);
+  const result = await buildCandidateExperienceContext(4000);
+  expect(result).toHaveLength(4000);
+  expect(result).toContain("Skills: TypeScript (1)");
+  expect(await buildCandidateExperienceContext()).toHaveLength(12000);
+});
+it("orders mixed date formats by year and month, current first and undated last", async () => {
+  const dates = [
+    "Mar 2019",
+    "Jan 2024",
+    "Dec 2023",
+    "2024-06",
+    "December 2024",
+    "Present",
+    "Current",
+    null,
+  ];
+  list.mockResolvedValue(
+    dates.map((endDate, i) =>
+      bullet(String(i), {
+        company: `Company${i}`,
+        startDate: null,
+        endDate,
+        createdAt: endDate ? "2020-01-01" : "2099-01-01",
+      }),
+    ),
+  );
+  const result = await buildCandidateExperienceContext();
+  expect(result?.match(/Company\d/g)).toEqual([
+    "Company5",
+    "Company6",
+    "Company4",
+    "Company3",
+    "Company1",
+    "Company2",
+    "Company0",
+    "Company7",
+  ]);
+});
+it("drops undated imports and older mixed-format groups before recent work", async () => {
+  list.mockResolvedValue([
+    bullet("undated", {
+      company: "Undated",
+      startDate: null,
+      endDate: null,
+      createdAt: "2099-01-01",
+      text: "u".repeat(2000),
+    }),
+    bullet("old", {
+      company: "Old",
+      startDate: null,
+      endDate: "Dec 2023",
+      text: "o".repeat(2000),
+    }),
+    bullet("recent", {
+      company: "Recent",
+      startDate: "2024-06",
+      endDate: null,
+      text: "r".repeat(2000),
+    }),
+  ]);
+  const result = await buildCandidateExperienceContext(4000);
+  expect(result).toContain("Recent");
+  expect(result).not.toContain("Undated");
+  expect(result).not.toContain("Old");
+});

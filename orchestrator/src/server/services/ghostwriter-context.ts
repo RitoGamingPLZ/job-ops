@@ -411,7 +411,7 @@ export async function buildJobChatPromptContext(
 
   const profileSnapshot = buildProfileSnapshot(
     profile,
-    await buildCandidateExperienceContext(),
+    await buildCandidateExperienceContext(4000),
   );
   const [
     baseSystemPrompt,

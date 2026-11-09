@@ -408,7 +408,26 @@ it("labels explicit IDs, returns labeled imports, validates payloads, and preser
     ids: [imported.bullets[0].id, "foreign"],
   });
   expect(response.status).toBe(200);
-  expect((await response.json()).data.labeled).toBe(1);
+  expect((await response.json()).data).toMatchObject({
+    labeled: 1,
+    remaining: 0,
+  });
+  const callsBefore = callJson.mock.calls.length;
+  expect(
+    (
+      await request("/experience-bullets/label", "POST", {
+        ids: Array.from({ length: 201 }, () => imported.bullets[0].id),
+      })
+    ).status,
+  ).toBe(400);
+  expect(callJson).toHaveBeenCalledTimes(callsBefore);
+  expect(
+    (
+      await request("/experience-bullets/label", "POST", {
+        ids: Array.from({ length: 200 }, () => imported.bullets[0].id),
+      })
+    ).status,
+  ).toBe(200);
   expect(
     (await request("/experience-bullets/label", "POST", { ids: "bad" })).status,
   ).toBe(400);

@@ -6,6 +6,7 @@ import type { AppError } from "@infra/errors";
 import { createJob } from "@shared/testing/factories";
 import JSZip from "jszip";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { buildCandidateExperienceContext } from "./candidate-experience";
 import { buildJobChatPromptContext } from "./ghostwriter-context";
 
 const mocks = vi.hoisted(() => ({
@@ -198,6 +199,19 @@ describe("buildJobChatPromptContext", () => {
     expect(context.jobSnapshot.length).toBeLessThan(6000);
     expect(context.profileSnapshot).toContain("Name: Test User");
     expect(context.profileSnapshot).toContain("Skills:");
+  });
+
+  it("requests a 4000-character library context for chat", async () => {
+    vi.mocked(getJobById).mockResolvedValue(
+      createJob({ id: "library-budget" }),
+    );
+    vi.mocked(getProfile).mockResolvedValue({});
+    vi.mocked(buildCandidateExperienceContext).mockResolvedValueOnce(
+      "Library duty",
+    );
+    const context = await buildJobChatPromptContext("library-budget");
+    expect(buildCandidateExperienceContext).toHaveBeenCalledWith(4000);
+    expect(context.profileSnapshot).toContain("Experience:\nLibrary duty");
   });
 
   it("omits globally excluded projects from Ghostwriter context", async () => {

@@ -412,15 +412,17 @@ export function filterCoworkSuggestions(
 }
 
 /** Label only bullets visible in the current private scope. Each batch has its own usage reservation. */
-export async function labelExperienceBullets(
-  ids?: string[],
-): Promise<{ bullets: ExperienceBullet[]; labeled: number }> {
+export async function labelExperienceBullets(ids?: string[]): Promise<{
+  bullets: ExperienceBullet[];
+  labeled: number;
+  remaining: number;
+}> {
   const requested = ids === undefined ? null : new Set(ids);
   const selected = (await listExperienceBullets()).filter((bullet) =>
     requested ? requested.has(bullet.id) : bullet.tags.length === 0,
   );
   const updated: ExperienceBullet[] = [];
-  for (let offset = 0; offset < selected.length; offset += 40) {
+  for (let offset = 0; offset < Math.min(selected.length, 200); offset += 40) {
     const batch = selected.slice(offset, offset + 40);
     const labels = await withHostedUsageReservation(
       { action: "tailoring" },
@@ -470,19 +472,34 @@ export async function labelExperienceBullets(
         });
         const parsed = z
           .object({
-            labels: z
-              .array(
-                z.object({
-                  bulletId: z.string(),
-                  tags: z.array(z.string().max(100)).max(100),
-                }),
-              )
-              .max(40),
+            labels: z.array(z.unknown()),
           })
           .safeParse(result.success ? result.data : undefined);
         if (!parsed.success)
           throw upstreamError("Unable to label experience bullets");
-        return { result: parsed.data.labels, usedUnits: 1 };
+        const labels = parsed.data.labels.slice(0, 40).flatMap((value) => {
+          const label = z
+            .object({
+              bulletId: z.string(),
+              tags: z.array(z.unknown()),
+            })
+            .safeParse(value);
+          if (!label.success) return [];
+          return [
+            {
+              bulletId: label.data.bulletId,
+              tags: label.data.tags
+                .filter(
+                  (tag): tag is string =>
+                    typeof tag === "string" &&
+                    tag.length <= 100 &&
+                    tag.trim().length > 0,
+                )
+                .slice(0, 12),
+            },
+          ];
+        });
+        return { result: labels, usedUnits: 1 };
       },
     );
     const seen = new Set<string>();
@@ -507,5 +524,11 @@ export async function labelExperienceBullets(
       if (bullet) updated.push(bullet);
     }
   }
-  return { bullets: updated, labeled: updated.length };
+  const updatedIds = new Set(updated.map((bullet) => bullet.id));
+  const remaining = (await listExperienceBullets()).filter((bullet) =>
+    requested
+      ? requested.has(bullet.id) && !updatedIds.has(bullet.id)
+      : bullet.tags.length === 0,
+  ).length;
+  return { bullets: updated, labeled: updated.length, remaining };
 }
