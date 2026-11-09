@@ -1,0 +1,381 @@
+.resume-canvas {
+  width: 100%;
+  min-width: 0;
+  color-scheme: light;
+}
+.resume-paper-frame {
+  position: relative;
+  margin: 12px auto 24px;
+  overflow: hidden;
+  box-shadow: 0 2px 14px #00000024;
+}
+.resume-paper {
+  position: relative;
+  transform-origin: top left;
+  box-sizing: border-box;
+  width: 210mm;
+  min-width: 210mm;
+  min-height: 297mm;
+  margin: 0;
+  padding: 19mm;
+  border: 0;
+  background: #fff;
+  color: #202124;
+  box-shadow: 0 2px 14px #00000024;
+  font:
+    11pt / 1.4 Calibri,
+    "Carlito",
+    "Liberation Sans",
+    sans-serif;
+  overflow-wrap: anywhere;
+}
+.resume-paper > section {
+  margin-top: 18px;
+}
+.resume-paper h2 {
+  margin: 0 0 8px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #8e9399;
+  font-size: 12pt;
+  font-weight: 700;
+  color: #202124;
+}
+.resume-paper h3 {
+  font-size: inherit;
+  font-weight: 700;
+}
+.resume-paper input:not([type="checkbox"]),
+.resume-paper textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  padding: 1px 2px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: #202124;
+  box-shadow: none;
+  font: inherit;
+  line-height: inherit;
+  outline: none;
+  resize: none;
+}
+.resume-paper input:not([type="checkbox"]):hover,
+.resume-paper textarea:hover {
+  border-color: #d7dce1;
+}
+.resume-paper input:not([type="checkbox"]):focus,
+.resume-paper textarea:focus {
+  border-color: #a3bdd6;
+  outline: 1px solid #dce8f3;
+  box-shadow: none;
+}
+.resume-paper input::placeholder,
+.resume-paper textarea::placeholder {
+  color: #777;
+}
+.resume-paper .resume-name {
+  font-size: 24pt;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.resume-paper .resume-headline {
+  font-size: 12pt;
+}
+.resume-contact {
+  margin: 6px 2px 16px;
+  font-size: 9pt;
+  color: #4b5056;
+}
+.resume-paper .resume-richtext {
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  position: relative;
+}
+.resume-richtext > div:first-child {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  z-index: 5;
+  width: max-content;
+  max-width: 100%;
+  border: 1px solid #d7dce1;
+  border-radius: 3px;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+.resume-richtext:focus-within > div:first-child,
+.resume-richtext:hover > div:first-child {
+  opacity: 1;
+  pointer-events: auto;
+}
+.resume-paper .resume-richtext .tiptap {
+  min-height: 35px;
+  padding: 1px 2px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: #fff;
+  color: #202124;
+  font: inherit;
+}
+.resume-paper .resume-richtext:hover .tiptap {
+  border-color: #d7dce1;
+}
+.resume-paper .resume-richtext .tiptap:focus {
+  border-color: #a3bdd6;
+}
+.resume-paper .resume-richtext .tiptap p {
+  margin: 0 0 4px;
+}
+.resume-row {
+  position: relative;
+}
+.resume-experience {
+  margin-top: 12px;
+}
+.resume-experience-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+}
+.resume-experience-heading > span {
+  flex-shrink: 0;
+  font-size: 10pt;
+}
+.resume-location {
+  font-size: 10pt;
+  color: #4b5056;
+  margin: 0 0 4px;
+}
+.resume-bullets {
+  list-style: disc;
+  padding-left: 17px;
+  margin: 4px 0;
+}
+.resume-bullet {
+  padding-left: 1px;
+}
+.resume-margin {
+  position: absolute;
+  right: calc(100% + 22px);
+  top: 1px;
+  display: flex;
+  gap: 1px;
+  width: 48px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  opacity: 0;
+  pointer-events: none;
+}
+.resume-bullet-controls {
+  right: calc(100% + 20px);
+}
+.resume-entry-controls {
+  right: calc(100% + 5px);
+}
+.resume-paper button {
+  color: #3e5266;
+  background: #fff;
+  border-color: #d5dce3;
+  box-shadow: none;
+  font-family: inherit;
+}
+.resume-margin button,
+.resume-review button {
+  height: 22px;
+  min-width: 20px;
+  padding: 0 3px;
+  border-radius: 3px;
+  font-size: 9px;
+}
+.resume-paper button:focus-visible {
+  outline: 2px solid #719bc3;
+  outline-offset: 1px;
+}
+.resume-paper button:hover {
+  background: #edf3f8;
+}
+.resume-paper button:disabled {
+  opacity: 0.35;
+}
+.resume-drag {
+  cursor: grab;
+  border: 0;
+}
+.resume-row:hover > .resume-margin,
+.resume-row:focus-within > .resume-margin,
+.resume-bullet:hover > div > .resume-margin,
+.resume-bullet:focus-within > div > .resume-margin {
+  opacity: 1;
+  pointer-events: auto;
+}
+.resume-gap {
+  padding: 0;
+  min-width: 0;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  height: 8px;
+  margin-top: -4px;
+  margin-bottom: -4px;
+  position: relative;
+  z-index: 2;
+  border-top: 2px solid transparent;
+}
+.resume-gap[data-active="true"] {
+  border-color: #3977af;
+  background: #dbeafa;
+}
+.resume-bullet > .resume-gap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+.resume-bullet > div[data-active="true"] {
+  outline: 1px solid #3977af;
+}
+.resume-append {
+  margin-top: 0;
+}
+.resume-append span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 8pt;
+  color: #4b637a;
+  opacity: 0;
+}
+.resume-append:hover span,
+.resume-append[data-active="true"] span {
+  opacity: 1;
+}
+.resume-paper .resume-add {
+  height: 22px;
+  padding: 0 4px;
+  margin-left: -60px;
+  border: 0;
+  font-size: 8pt;
+  opacity: 0;
+}
+.resume-paper section:hover > .resume-add,
+.resume-paper section:focus-within > .resume-add,
+.resume-paper .resume-add:focus {
+  opacity: 1;
+}
+.resume-skill {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  margin: 2px 0;
+}
+.resume-skill > .resume-gap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+.resume-paper .resume-skill > input:first-of-type {
+  flex: 0 0 30%;
+  font-weight: 700;
+}
+.resume-paper .resume-skill > input {
+  flex: 1;
+}
+.resume-skill-delete {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 0;
+  opacity: 0;
+  font-size: 8pt;
+  height: 22px;
+  padding: 0 3px;
+}
+.resume-skill:hover .resume-skill-delete,
+.resume-skill:focus-within .resume-skill-delete {
+  opacity: 1;
+}
+.resume-project {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11pt;
+}
+.resume-project input {
+  accent-color: #4b637a;
+}
+.resume-suggestion {
+  position: relative;
+  margin: 6px 0;
+  padding: 4px 7px;
+  border-left: 2px solid #5b8bab;
+  font-size: 10pt;
+  background: #f8fbfd;
+}
+.resume-suggestion > p:first-child {
+  display: none;
+}
+.resume-deletion {
+  display: block;
+  color: #ad2929;
+  text-decoration: line-through;
+}
+.resume-insertion {
+  display: block;
+  background: transparent;
+  color: #196b39;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.resume-suggestion .text-muted-foreground {
+  color: #575f68;
+}
+.resume-review {
+  position: absolute;
+  left: calc(100% + 6px);
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.resume-page-guide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed #b7bdc4;
+  pointer-events: none;
+  z-index: 3;
+}
+.resume-page-guide span {
+  position: absolute;
+  right: 8px;
+  top: 3px;
+  font:
+    8pt / 1.2 Calibri,
+    sans-serif;
+  color: #737b84;
+  background: #fff;
+}
+@media (hover: none) {
+  .resume-row:focus-within .resume-margin,
+  .resume-paper section:focus-within > .resume-add {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+.resume-paper .resume-richtext .tiptap blockquote {
+  color: #4b5056;
+  border-color: #ccd2d8;
+}
+.resume-paper .resume-richtext .tiptap pre,
+.resume-paper .resume-richtext .tiptap code {
+  color: #202124;
+  background: #f1f3f5;
+}
+.resume-paper .resume-richtext .pointer-events-none {
+  color: #737b84;
+}

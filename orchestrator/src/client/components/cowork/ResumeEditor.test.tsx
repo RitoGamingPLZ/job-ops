@@ -159,3 +159,90 @@ describe("resume editor review regressions", () => {
     );
   });
 });
+
+describe("document drag interactions", () => {
+  const transfer = (type: string, value: unknown) => ({
+    types: [type],
+    getData: (requested: string) =>
+      requested === type ? JSON.stringify(value) : "",
+    dropEffect: "none",
+  });
+  function Editor() {
+    const [document, setDocument] = useState(() => {
+      const next = fixture();
+      next.sections.experience.items.push({
+        ...next.sections.experience.items[0],
+        id: "two",
+        company: "Other",
+        description: "<ul><li>D</li></ul>",
+      });
+      next.sections.skills.items.push({
+        ...next.sections.skills.items[0],
+        id: "second-skill",
+        name: "Other skills",
+        keywords: ["React"],
+      });
+      return next;
+    });
+    return (
+      <ResumeEditor
+        document={document}
+        onChange={setDocument}
+        suggestions={[]}
+        onDismiss={vi.fn()}
+      />
+    );
+  }
+  it("moves a resume bullet into a gap in another experience", () => {
+    render(<Editor />);
+    const dataTransfer = transfer("application/x-jobops-resume-bullet", {
+      experienceId: "one",
+      index: 1,
+    });
+    const gap = screen.getAllByTitle("Insert before bullet 1")[0];
+    // There are two first-bullet gaps; choose the second experience.
+    const destination = screen.getAllByTitle("Insert before bullet 1")[1];
+    fireEvent.dragOver(destination, { dataTransfer });
+    expect(destination).toHaveAttribute("data-active", "true");
+    fireEvent.drop(destination, { dataTransfer });
+    expect(screen.getByLabelText("Company bullet 2")).toHaveValue("C");
+    expect(screen.getByLabelText("Other bullet 1")).toHaveValue("B");
+    expect(gap).toHaveAttribute("data-active", "false");
+  });
+  it("keeps library replacement and insertion separate from resume moves", () => {
+    render(<Editor />);
+    const dataTransfer = transfer("application/x-jobops-bullet", {
+      id: "library",
+      text: "Library duty",
+    });
+    fireEvent.drop(screen.getByLabelText("Company bullet 1"), {
+      dataTransfer,
+    });
+    expect(screen.getByLabelText("Company bullet 1")).toHaveValue(
+      "Library duty",
+    );
+    fireEvent.drop(screen.getAllByTitle("Insert before bullet 1")[1], {
+      dataTransfer,
+    });
+    expect(screen.getByLabelText("Other bullet 1")).toHaveValue("Library duty");
+    expect(screen.getByLabelText("Other bullet 2")).toHaveValue("D");
+  });
+  it("reorders experience entries and skill lines using their own drag types", () => {
+    render(<Editor />);
+    fireEvent.drop(screen.getByLabelText("Move experience to position 1"), {
+      dataTransfer: transfer("application/x-jobops-resume-experience", "two"),
+    });
+    expect(screen.getAllByRole("heading", { level: 3 })[0]).toHaveTextContent(
+      "Other",
+    );
+    fireEvent.drop(screen.getByLabelText("Move skills to position 1"), {
+      dataTransfer: transfer(
+        "application/x-jobops-resume-skill",
+        "second-skill",
+      ),
+    });
+    expect(screen.getByLabelText("Skill 1 name")).toHaveValue("Other skills");
+    fireEvent.click(screen.getByLabelText("Move skill 1 down"));
+    expect(screen.getByLabelText("Skill 1 name")).toHaveValue("Skills");
+  });
+});

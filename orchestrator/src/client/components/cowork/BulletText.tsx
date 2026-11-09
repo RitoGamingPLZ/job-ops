@@ -21,6 +21,14 @@ export function BulletText({
   }, [value]);
   return (
     <Textarea
+      rows={1}
+      style={{ height: "auto" }}
+      ref={(element) => {
+        if (element) {
+          element.style.height = "auto";
+          element.style.height = `${element.scrollHeight}px`;
+        }
+      }}
       aria-label={label}
       value={draft}
       onChange={(event) => {
