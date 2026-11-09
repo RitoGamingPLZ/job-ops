@@ -1,10 +1,12 @@
-import type { JobChatMessage } from "@shared/types";
+import type { JobChatMessage, ReactiveResumeV5Document } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
 
 const mocks = vi.hoisted(() => ({
   getRequestId: vi.fn(),
   buildJobChatPromptContext: vi.fn(),
   llmCallJson: vi.fn(),
+  listExperienceBullets: vi.fn(),
   repo: {
     getOrCreateThreadForJob: vi.fn(),
     getThreadForJob: vi.fn(),
@@ -45,6 +47,10 @@ const mocks = vi.hoisted(() => ({
     settleHostedUsageReservation: vi.fn(),
     refundHostedUsageReservation: vi.fn(),
   },
+}));
+
+vi.mock("@server/repositories/experience-bullets", () => ({
+  listExperienceBullets: mocks.listExperienceBullets,
 }));
 
 vi.mock("@infra/logger", () => ({
@@ -124,6 +130,7 @@ vi.mock("./llm/service", () => ({
 import {
   cancelRun,
   cancelRunForJob,
+  editMessage,
   regenerateMessage,
   sendMessage,
   sendMessageForJob,
@@ -156,6 +163,7 @@ const baseUserMessage: JobChatMessage = {
   parentMessageId: null,
   activeChildId: "assistant-1",
   attachments: [],
+  suggestions: null,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -174,6 +182,7 @@ const baseAssistantMessage: JobChatMessage = {
   parentMessageId: "user-1",
   activeChildId: null,
   attachments: [],
+  suggestions: null,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -182,6 +191,7 @@ describe("ghostwriter service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    mocks.listExperienceBullets.mockResolvedValue([]);
     mocks.getRequestId.mockReturnValue("req-123");
     mocks.settings.getAllSettings.mockResolvedValue({});
     mocks.resolveLlmRuntimeSettings.mockResolvedValue({
@@ -291,6 +301,110 @@ describe("ghostwriter service", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("persists filtered cowork suggestions and includes them in SSE completion", async () => {
+    const document =
+      buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+    const cowork = { document, referencedBulletIds: [] };
+    mocks.repo.createMessage.mockResolvedValue(baseAssistantMessage);
+    mocks.repo.updateMessage.mockImplementation(async (_id, update) => ({
+      ...baseAssistantMessage,
+      ...update,
+    }));
+    mocks.llmCallJson.mockResolvedValue({
+      success: true,
+      data: {
+        response: "Suggested headline",
+        suggestions: [
+          { op: "replace_headline", text: "Engineer", reason: "Focus" },
+          {
+            op: "replace_bullet",
+            experienceId: "unknown",
+            text: "invented",
+            reason: "bad",
+          },
+        ],
+      },
+    });
+    const onCompleted = vi.fn();
+    await sendMessageForJob({
+      jobId: "job-1",
+      content: "Improve my resume",
+      cowork,
+      stream: {
+        onReady: vi.fn(),
+        onDelta: vi.fn(),
+        onCompleted,
+        onCancelled: vi.fn(),
+        onError: vi.fn(),
+      },
+    });
+    expect(mocks.llmCallJson.mock.calls[0][0].jsonSchema.name).toBe(
+      "cowork_response",
+    );
+    expect(mocks.repo.updateMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        suggestions: [
+          expect.objectContaining({
+            id: expect.any(String),
+            op: "replace_headline",
+            text: "Engineer",
+          }),
+        ],
+      }),
+    );
+    expect(onCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.objectContaining({
+          suggestions: [expect.objectContaining({ op: "replace_headline" })],
+        }),
+      }),
+    );
+  });
+
+  it("regenerates with supplied cowork context", async () => {
+    mocks.repo.getMessageById.mockImplementation(async (id) =>
+      id === "user-1" ? baseUserMessage : baseAssistantMessage,
+    );
+    mocks.repo.createMessage.mockResolvedValue(baseAssistantMessage);
+    await regenerateMessage({
+      jobId: "job-1",
+      threadId: "thread-1",
+      assistantMessageId: "assistant-1",
+      cowork: {
+        document:
+          buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document,
+        referencedBulletIds: [],
+      },
+    });
+    expect(mocks.llmCallJson.mock.calls[0][0].jsonSchema.name).toBe(
+      "cowork_response",
+    );
+    expect(mocks.repo.updateMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ suggestions: [] }),
+    );
+  });
+
+  it("uses cowork mode when editing a user message", async () => {
+    mocks.repo.getMessageById.mockResolvedValue(baseUserMessage);
+    mocks.repo.createMessage.mockResolvedValue(baseAssistantMessage);
+    await editMessage({
+      jobId: "job-1",
+      threadId: "thread-1",
+      messageId: "user-1",
+      content: "Revised",
+      cowork: {
+        document:
+          buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document,
+        referencedBulletIds: [],
+      },
+    });
+    expect(mocks.llmCallJson.mock.calls[0][0].jsonSchema.name).toBe(
+      "cowork_response",
+    );
   });
 
   it("sends message, runs LLM, and returns user + assistant messages", async () => {

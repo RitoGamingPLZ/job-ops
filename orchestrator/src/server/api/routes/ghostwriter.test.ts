@@ -1,5 +1,14 @@
 import type { Server } from "node:http";
-import { updateContextForJob } from "@server/services/ghostwriter";
+import {
+  editMessage,
+  editMessageForJob,
+  regenerateMessage,
+  regenerateMessageForJob,
+  sendMessage,
+  sendMessageForJob,
+  updateContextForJob,
+} from "@server/services/ghostwriter";
+import { buildDefaultReactiveResumeDocument } from "@server/services/rxresume/document";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
@@ -13,6 +22,7 @@ const baseMsgFields = {
   parentMessageId: null,
   activeChildId: null,
   attachments: [],
+  suggestions: null,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -124,6 +134,15 @@ vi.mock("@server/services/ghostwriter", () => ({
     },
     runId: "run-1",
   })),
+  regenerateMessageForJob: vi.fn(async () => ({
+    runId: "run-regen",
+    assistantMessage: null,
+  })),
+  editMessage: vi.fn(async () => ({
+    runId: "run-edit",
+    userMessage: null,
+    assistantMessage: null,
+  })),
   cancelRun: vi.fn(async () => ({ cancelled: true, alreadyFinished: false })),
   regenerateMessage: vi.fn(async () => ({
     runId: "run-2",
@@ -200,6 +219,59 @@ describe.sequential("Ghostwriter API", () => {
     expect(body.data.messages.length).toBe(1);
     expect(body.data.branches).toEqual([]);
     expect(body.meta.requestId).toBe("chat-req-1");
+  });
+
+  it("validates and forwards cowork context on both message routes", async () => {
+    const cowork = {
+      document: buildDefaultReactiveResumeDocument(),
+      referencedBulletIds: [],
+    };
+    for (const [path, service] of [
+      ["messages", sendMessageForJob],
+      ["threads/thread-1/messages", sendMessage],
+    ] as const) {
+      const response = await fetch(`${baseUrl}/api/jobs/job-1/chat/${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "Improve", cowork }),
+      });
+      expect(response.status).toBe(200);
+      expect(service).toHaveBeenCalledWith(expect.objectContaining({ cowork }));
+      const invalid = await fetch(`${baseUrl}/api/jobs/job-1/chat/${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: "Improve",
+          cowork: { document: {}, referencedBulletIds: [] },
+        }),
+      });
+      expect(invalid.status).toBe(400);
+    }
+  });
+
+  it("forwards cowork on thread and per-job regenerate/edit endpoints", async () => {
+    const cowork = {
+      document: buildDefaultReactiveResumeDocument(),
+      referencedBulletIds: [],
+    };
+    const cases = [
+      ["messages/assistant-1/regenerate", regenerateMessageForJob],
+      ["threads/thread-1/messages/assistant-1/regenerate", regenerateMessage],
+      ["messages/user-1/edit", editMessageForJob],
+      ["threads/thread-1/messages/user-1/edit", editMessage],
+    ] as const;
+    for (const [path, service] of cases) {
+      const response = await fetch(`${baseUrl}/api/jobs/job-1/chat/${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "Revised", cowork }),
+      });
+      expect(response.status).toBe(200);
+      expect(service).toHaveBeenCalledWith(expect.objectContaining({ cowork }));
+    }
+    expect(editMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ threadId: "thread-1" }),
+    );
   });
 
   it("sends a message in the per-job conversation", async () => {

@@ -10,6 +10,7 @@ import type {
   JobChatRun,
   JobChatRunStatus,
   JobChatThread,
+  ResumeSuggestion,
 } from "@shared/types";
 import { and, desc, eq } from "drizzle-orm";
 import { db, schema } from "../db";
@@ -130,6 +131,7 @@ function mapMessage(row: typeof jobChatMessages.$inferSelect): JobChatMessage {
     parentMessageId: row.parentMessageId,
     activeChildId: row.activeChildId,
     attachments: parseImageAttachments(row.attachments),
+    suggestions: row.suggestions ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -399,6 +401,7 @@ export async function createMessage(input: {
 export async function updateMessage(
   messageId: string,
   input: {
+    suggestions?: ResumeSuggestion[] | null;
     content?: string;
     status?: JobChatMessageStatus;
     tokensIn?: number | null;
@@ -410,6 +413,9 @@ export async function updateMessage(
   await db
     .update(jobChatMessages)
     .set({
+      ...(input.suggestions !== undefined
+        ? { suggestions: input.suggestions }
+        : {}),
       ...(input.content !== undefined ? { content: input.content } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.tokensIn !== undefined ? { tokensIn: input.tokensIn } : {}),

@@ -1,5 +1,6 @@
 import type {
   BranchInfo,
+  CoworkChatContext,
   JobChatImageAttachment,
   JobChatMessage,
   JobChatStreamEvent,
@@ -20,11 +21,13 @@ type GhostwriterContextSelectionResult = {
 };
 
 type GhostwriterMessageContextInput = GhostwriterContextSelectionInput & {
+  cowork?: CoworkChatContext;
   content: string;
   attachments?: JobChatImageAttachment[];
 };
 
 type GhostwriterStreamSignalInput = GhostwriterContextSelectionInput & {
+  cowork?: CoworkChatContext;
   signal?: AbortSignal;
 };
 
@@ -150,6 +153,7 @@ export async function streamJobGhostwriterMessage(
       selectedNoteIds: input.selectedNoteIds,
       selectedEmailIds: input.selectedEmailIds,
       selectedDocumentIds: input.selectedDocumentIds,
+      ...{ cowork: input.cowork },
       attachments: input.attachments,
       stream: true,
     },
@@ -200,12 +204,13 @@ export async function regenerateJobChatMessage(
   jobId: string,
   threadId: string,
   assistantMessageId: string,
+  input?: { cowork?: CoworkChatContext },
 ): Promise<{ runId: string; assistantMessage: JobChatMessage | null }> {
   return fetchApi(
     `/jobs/${jobId}/chat/threads/${encodeURIComponent(threadId)}/messages/${encodeURIComponent(assistantMessageId)}/regenerate`,
     {
       method: "POST",
-      body: JSON.stringify({}),
+      body: JSON.stringify(input ?? {}),
     },
   );
 }
@@ -225,6 +230,7 @@ export async function streamRegenerateJobChatMessage(
       selectedNoteIds: input.selectedNoteIds,
       selectedEmailIds: input.selectedEmailIds,
       selectedDocumentIds: input.selectedDocumentIds,
+      ...{ cowork: input.cowork },
       stream: true,
     },
     {
@@ -248,6 +254,7 @@ export async function streamRegenerateJobGhostwriterMessage(
       selectedNoteIds: input.selectedNoteIds,
       selectedEmailIds: input.selectedEmailIds,
       selectedDocumentIds: input.selectedDocumentIds,
+      ...{ cowork: input.cowork },
       stream: true,
     },
     {
@@ -275,6 +282,7 @@ export async function editJobGhostwriterMessage(
       selectedNoteIds: input.selectedNoteIds,
       selectedEmailIds: input.selectedEmailIds,
       selectedDocumentIds: input.selectedDocumentIds,
+      ...{ cowork: input.cowork },
       attachments: input.attachments,
       stream: true,
     },

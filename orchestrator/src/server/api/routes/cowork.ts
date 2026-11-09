@@ -1,9 +1,13 @@
-import { AppError, badRequest, notFound } from "@infra/errors";
+import { badRequest, notFound } from "@infra/errors";
 import { asyncRoute, ok } from "@infra/http";
 import { resolveRequestOrigin } from "@infra/request-origin";
 import * as bulletsRepo from "@server/repositories/experience-bullets";
 import * as resumesRepo from "@server/repositories/job-resumes";
 import { getJobById } from "@server/repositories/jobs";
+import {
+  extractExperienceBullets,
+  rankExperienceBullets,
+} from "@server/services/cowork-ai";
 import { loadBaseResumeSource, resolvePdfRenderer } from "@server/services/pdf";
 import { prepareTailoredResumeForPdf } from "@server/services/rxresume";
 import { safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
@@ -94,18 +98,27 @@ coworkRouter.post(
     ok(res, await bulletsRepo.importExperienceBullets(inputs));
   }),
 );
-for (const action of ["extract", "rank"]) {
-  coworkRouter.post(
-    `/experience-bullets/${action}`,
-    asyncRoute(async () => {
-      throw new AppError({
-        status: 501,
-        code: "SERVICE_UNAVAILABLE",
-        message: "Co-work AI is not implemented yet",
-      });
-    }),
-  );
-}
+coworkRouter.post(
+  "/experience-bullets/extract",
+  asyncRoute(async (req, res) => {
+    const { text } = parse(
+      z.object({ text: z.string().trim().min(1).max(50000) }).strict(),
+      req.body,
+    );
+    ok(res, { drafts: await extractExperienceBullets(text) });
+  }),
+);
+coworkRouter.post(
+  "/experience-bullets/rank",
+  asyncRoute(async (req, res) => {
+    const { jobId } = parse(
+      z.object({ jobId: z.string().trim().min(1).max(200) }).strict(),
+      req.body,
+    );
+    const job = await requireJob(jobId);
+    ok(res, { ranked: await rankExperienceBullets(job.jobDescription ?? "") });
+  }),
+);
 coworkRouter.patch(
   "/experience-bullets/:id",
   asyncRoute(async (req, res) => {

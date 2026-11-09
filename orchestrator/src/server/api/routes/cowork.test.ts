@@ -348,14 +348,32 @@ describe("co-work routes", () => {
     await request(`/jobs/${jobId}/resume`, "DELETE");
     expect((await (await request("/resumes")).json()).data.resumes).toEqual([]);
   });
-  it("returns 501 for the AI routes until step 53", async () => {
+  it("ranks an empty library without an LLM and checks job ownership", async () => {
+    const response = await request("/experience-bullets/rank", "POST", {
+      jobId,
+    });
+    expect(response.status).toBe(200);
+    expect((await response.json()).data).toEqual({ ranked: [] });
+    expect(
+      (await request("/experience-bullets/rank", "POST", { jobId: "missing" }))
+        .status,
+    ).toBe(404);
+    expect(
+      (
+        await request("/experience-bullets/extract", "POST", {
+          text: "x".repeat(50001),
+        })
+      ).status,
+    ).toBe(400);
+  });
+  it("validates AI route inputs before calling the LLM", async () => {
     for (const action of ["rank", "extract"]) {
       const response = await request(
         `/experience-bullets/${action}`,
         "POST",
         {},
       );
-      expect(response.status).toBe(501);
+      expect(response.status).toBe(400);
       expect(await response.json()).toMatchObject({
         ok: false,
         meta: { requestId: "cowork-test" },
