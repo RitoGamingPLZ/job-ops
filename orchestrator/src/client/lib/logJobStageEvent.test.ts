@@ -122,3 +122,40 @@ describe("logJobStageEvent", () => {
     expect(api.transitionJobStage).not.toHaveBeenCalled();
   });
 });
+
+describe("simplified stages", () => {
+  it("logs another technical interview as a new event for the next round", async () => {
+    await logJobStageEvent({
+      jobId: "job-1",
+      currentStage: "technical_interview",
+      values: { ...baseValues, stage: "technical_interview" },
+    });
+    expect(api.transitionJobStage).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({ toStage: "technical_interview" }),
+    );
+    expect(api.updateJobStageEvent).not.toHaveBeenCalled();
+  });
+  it("logs Behaviour Question", async () => {
+    await logJobStageEvent({
+      jobId: "job-1",
+      currentStage: "technical_interview",
+      values: { ...baseValues, stage: "behavioural" },
+    });
+    expect(api.transitionJobStage).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({ toStage: "behavioural" }),
+    );
+  });
+  it("folds withdrawn into Reject", async () => {
+    await logJobStageEvent({
+      jobId: "job-1",
+      currentStage: "offer",
+      values: { ...baseValues, stage: "withdrawn" },
+    });
+    expect(api.transitionJobStage).toHaveBeenCalledWith(
+      "job-1",
+      expect.objectContaining({ toStage: "closed", outcome: "withdrawn" }),
+    );
+  });
+});

@@ -1,7 +1,9 @@
-import type { ApplicationStage, JobListItem } from "@shared/types.js";
+import type { BoardColumn, JobListItem } from "@shared/types.js";
 import { ExternalLink, MoreVertical, PlusCircle } from "lucide-react";
 import type React from "react";
 import { Link } from "react-router-dom";
+import { showErrorToast } from "@/client/lib/error-toast";
+import { openJobPdf } from "@/client/lib/private-pdf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +16,11 @@ import { cn, formatTimestamp } from "@/lib/utils";
 
 export type InProgressBoardCardProps = {
   job: JobListItem;
-  stage: ApplicationStage;
+  stage: BoardColumn;
+  round?: number;
+  pdfPath?: string | null;
+  onTailor?: () => void;
+  onUntarget?: () => void;
   latestEventAt: number | null;
   jobPageLinkState: { jobPageBackTo: string };
   isMoving: boolean;
@@ -27,6 +33,10 @@ export type InProgressBoardCardProps = {
 export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
   job,
   stage,
+  round = 0,
+  pdfPath,
+  onTailor,
+  onUntarget,
   latestEventAt,
   jobPageLinkState,
   isMoving,
@@ -35,7 +45,7 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
   onDragEnd,
   onLogEvent,
 }) => {
-  const canLogEvents = stage !== "closed";
+  const canLogEvents = stage !== "closed" && stage !== "targeted";
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: full-card drag target for kanban lanes
@@ -109,13 +119,18 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
         className="block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="text-xs text-muted-foreground/90">{job.employer}</div>
+        {stage === "technical_interview" && (
+          <Badge variant="outline" className="mt-2">
+            Round {Math.max(round, 1)}
+          </Badge>
+        )}
         {stage === "closed" && (
           <div className="mt-2 flex items-center gap-2">
             <Badge
               variant="outline"
               className="border-border/60 bg-muted/30 text-foreground/80"
             >
-              Closed
+              Reject
             </Badge>
             {job.outcome ? (
               <Badge variant="outline" className="capitalize">
@@ -130,6 +145,47 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
             : "No stage events yet"}
         </div>
       </Link>
+      {stage === "targeted" && (
+        <div className="mt-3 flex flex-wrap gap-2" data-board-card-menu="">
+          {pdfPath && <Badge variant="outline">Resume ready</Badge>}
+          {pdfPath && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isMoving || job.pdfRegenerating}
+              onClick={() =>
+                void openJobPdf(job.id).catch((error) =>
+                  showErrorToast(error, "Could not open PDF"),
+                )
+              }
+            >
+              Open resume
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onTailor}
+            disabled={
+              isMoving || job.status === "processing" || job.pdfRegenerating
+            }
+          >
+            {job.status === "processing" || job.pdfRegenerating
+              ? "Tailoring…"
+              : pdfPath
+                ? "Regenerate resume"
+                : "Tailor resume"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onUntarget}
+            disabled={isMoving || job.status === "processing"}
+          >
+            Untarget
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

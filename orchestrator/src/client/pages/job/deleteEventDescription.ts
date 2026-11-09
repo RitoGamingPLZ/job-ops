@@ -1,4 +1,8 @@
-import { STAGE_LABELS, type StageEvent } from "@shared/types.js";
+import {
+  BOARD_COLUMN_LABELS,
+  boardColumnForStage,
+  type StageEvent,
+} from "@shared/types.js";
 
 const DEFAULT_DESCRIPTION =
   "This action cannot be undone. This will permanently delete this event from the timeline.";
@@ -26,6 +30,7 @@ export function getDeleteEventDescription(
     return "This is the only event on this job. Deleting it will reset the job to its initial discovered state.";
   }
 
-  const previousLabel = STAGE_LABELS[previousEvent.toStage];
+  const previousLabel =
+    BOARD_COLUMN_LABELS[boardColumnForStage(previousEvent.toStage)];
   return `Deleting this event will roll the job's stage back to "${previousLabel}".`;
 }

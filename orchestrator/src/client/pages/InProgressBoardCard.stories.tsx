@@ -1,5 +1,5 @@
 import type { Story } from "@ladle/react";
-import type { ApplicationStage, JobListItem } from "@shared/types.js";
+import type { BoardColumn, JobListItem } from "@shared/types.js";
 import React from "react";
 import {
   InProgressBoardCard,
@@ -44,13 +44,10 @@ const makeJob = (overrides: Partial<JobListItem> = {}): JobListItem => ({
   ...overrides,
 });
 
-/** Mirrors `getCardLeftAccentClass` in InProgressBoardPage (kept here to avoid touching that file). */
-const cardAccentClass = (stage: ApplicationStage) => {
+/** Mirrors `getCardLeftAccentClass` in InProgressBoardPage. */
+const cardAccentClass = (stage: BoardColumn) => {
   if (stage === "technical_interview") {
     return "border-l-2 border-l-amber-400/45";
-  }
-  if (stage === "onsite") {
-    return "border-l-2 border-l-amber-400/65";
   }
   if (stage === "offer") {
     return "border-2 border-amber-300/50 shadow-[0_4px_12px_-4px_rgba(251,191,36,0.7)]";
@@ -123,6 +120,7 @@ export const TechnicalInterview: Story = () => (
     <InteractiveBoardCard
       {...baseCardProps}
       stage="technical_interview"
+      round={2}
       cardClassName={cardAccentClass("technical_interview")}
     />
   </BoardCardFrame>
@@ -130,11 +128,12 @@ export const TechnicalInterview: Story = () => (
 TechnicalInterview.storyName = "Technical interview";
 
 export const FinalRound: Story = () => (
-  <BoardCardFrame label="Final round accent">
+  <BoardCardFrame label="Technical Interview · Round 3">
     <InteractiveBoardCard
       {...baseCardProps}
-      stage="onsite"
-      cardClassName={cardAccentClass("onsite")}
+      stage="technical_interview"
+      round={3}
+      cardClassName={cardAccentClass("technical_interview")}
     />
   </BoardCardFrame>
 );
@@ -153,7 +152,7 @@ export const Offer: Story = () => (
 Offer.storyName = "Offer";
 
 export const ClosedRejected: Story = () => (
-  <BoardCardFrame label="Closed · rejected (log event disabled)">
+  <BoardCardFrame label="Reject · rejected (log event disabled)">
     <InteractiveBoardCard
       {...baseCardProps}
       stage="closed"
@@ -161,10 +160,10 @@ export const ClosedRejected: Story = () => (
     />
   </BoardCardFrame>
 );
-ClosedRejected.storyName = "Closed · rejected";
+ClosedRejected.storyName = "Reject · rejected";
 
 export const ClosedWithdrawn: Story = () => (
-  <BoardCardFrame label="Closed · withdrawn (log event disabled)">
+  <BoardCardFrame label="Reject · withdrawn (log event disabled)">
     <InteractiveBoardCard
       {...baseCardProps}
       stage="closed"
@@ -176,7 +175,7 @@ export const ClosedWithdrawn: Story = () => (
     />
   </BoardCardFrame>
 );
-ClosedWithdrawn.storyName = "Closed · withdrawn";
+ClosedWithdrawn.storyName = "Reject · withdrawn";
 
 export const Moving: Story = () => (
   <BoardCardFrame label="Moving (drag in progress)">
@@ -211,6 +210,7 @@ export const AllStates: Story = () => (
       <InteractiveBoardCard
         {...baseCardProps}
         stage="technical_interview"
+        round={2}
         cardClassName={cardAccentClass("technical_interview")}
       />
     </BoardCardFrame>
@@ -221,7 +221,7 @@ export const AllStates: Story = () => (
         cardClassName={cardAccentClass("offer")}
       />
     </BoardCardFrame>
-    <BoardCardFrame label="Closed">
+    <BoardCardFrame label="Reject">
       <InteractiveBoardCard
         {...baseCardProps}
         stage="closed"
@@ -234,3 +234,28 @@ export const AllStates: Story = () => (
   </div>
 );
 AllStates.storyName = "All states";
+
+export const Targeted: Story = () => (
+  <BoardCardFrame label="Targeted · manual tailoring">
+    <InteractiveBoardCard
+      {...baseCardProps}
+      stage="targeted"
+      job={makeJob({ status: "discovered", readyAt: "2026-05-20T00:00:00Z" })}
+      onTailor={() => {}}
+      onUntarget={() => {}}
+    />
+  </BoardCardFrame>
+);
+
+export const ResumeReady: Story = () => (
+  <BoardCardFrame label="Targeted · resume ready">
+    <InteractiveBoardCard
+      {...baseCardProps}
+      stage="targeted"
+      pdfPath="resume.pdf"
+      job={makeJob({ status: "ready", readyAt: "2026-05-20T00:00:00Z" })}
+      onTailor={() => {}}
+      onUntarget={() => {}}
+    />
+  </BoardCardFrame>
+);

@@ -95,6 +95,7 @@ vi.mock("../api", () => ({
   skipJob: vi.fn(),
   rescoreJob: vi.fn(),
   generateJobPdf: vi.fn(),
+  processJob: vi.fn(),
   checkSponsor: vi.fn(),
 }));
 
@@ -145,7 +146,21 @@ vi.mock("../components/LogEventModal", () => ({
 }));
 
 vi.mock("./job-page/JobPageRightSidebar", () => ({
-  JobPageRightSidebar: () => <div data-testid="job-right-sidebar" />,
+  JobPageRightSidebar: ({
+    isDiscovered,
+    onStartTailoring,
+  }: {
+    isDiscovered: boolean;
+    onStartTailoring: () => void;
+  }) => (
+    <div data-testid="job-right-sidebar">
+      {isDiscovered && (
+        <button type="button" onClick={onStartTailoring}>
+          Start Tailoring
+        </button>
+      )}
+    </div>
+  ),
 }));
 
 vi.mock("../components/ConfirmDelete", () => ({
@@ -740,4 +755,58 @@ describe("JobPage back navigation", () => {
       expect(celebrateOffer).toHaveBeenCalled();
     });
   });
+});
+
+it.each([
+  null,
+  "2026-06-01T00:00:00Z",
+])("opens the tailoring editor for discovered jobs with readyAt=%s", async (readyAt) => {
+  vi.mocked(api.getJob).mockResolvedValue(
+    createJob({ status: "discovered", readyAt }) as Job,
+  );
+  renderJobPage("/job/job-1");
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Start Tailoring" }),
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId("location-probe")).toHaveTextContent(
+      "/jobs/discovered/job-1",
+    ),
+  );
+  expect(api.processJob).not.toHaveBeenCalled();
+});
+
+it("opens the editor from a targeted job page's Tailor resume button", async () => {
+  vi.mocked(api.getJob).mockResolvedValue(
+    createJob({ status: "discovered", readyAt: "2026-06-01T00:00:00Z" }) as Job,
+  );
+  renderJobPage("/job/job-1");
+  fireEvent.click(await screen.findByRole("button", { name: "Tailor resume" }));
+  await waitFor(() =>
+    expect(screen.getByTestId("location-probe")).toHaveTextContent(
+      "/jobs/discovered/job-1",
+    ),
+  );
+  expect(api.processJob).not.toHaveBeenCalled();
+});
+
+it("regenerates a targeted ready job from its job page", async () => {
+  vi.mocked(api.getJob).mockResolvedValue(
+    createJob({
+      status: "ready",
+      readyAt: "2026-06-01T00:00:00Z",
+      pdfPath: "resume.pdf",
+    }) as Job,
+  );
+  render(
+    <MemoryRouter initialEntries={["/job/job-1"]}>
+      <Routes>
+        <Route path="/job/:id" element={<JobPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Regenerate resume" }),
+  );
+  await waitFor(() => expect(api.generateJobPdf).toHaveBeenCalledWith("job-1"));
 });

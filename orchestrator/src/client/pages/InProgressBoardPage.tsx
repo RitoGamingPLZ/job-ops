@@ -4,11 +4,16 @@ import {
 } from "@client/components/LogEventModal";
 import { PageHeader, PageMain } from "@client/components/layout";
 import {
-  APPLICATION_STAGES,
   type ApplicationStage,
+  BOARD_COLUMN_LABELS,
+  BOARD_COLUMNS,
+  type BoardColumn,
+  boardColumnForStage,
+  isTargeted,
   type JobListItem,
   STAGE_LABELS,
   type StageEvent,
+  technicalRound,
 } from "@shared/types.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -43,7 +48,10 @@ import { IN_PROGRESS_BOARD_APPLIED_COLLAPSED_STORAGE_KEY } from "./orchestrator/
 
 type BoardCard = {
   job: JobListItem;
-  stage: ApplicationStage;
+  stage: BoardColumn;
+  currentStage: ApplicationStage;
+  round: number;
+  pdfPath: string | null;
   latestEventAt: number | null;
 };
 
@@ -62,7 +70,7 @@ const sortByTitle = (a: BoardCard, b: BoardCard) =>
 const sortByCompany = (a: BoardCard, b: BoardCard) =>
   a.job.employer.localeCompare(b.job.employer);
 
-const BOARD_STAGES = APPLICATION_STAGES;
+const BOARD_STAGES = BOARD_COLUMNS;
 
 const getAppliedCollapsedStorageKey = () =>
   api.getAuthScopedStorageKey(IN_PROGRESS_BOARD_APPLIED_COLLAPSED_STORAGE_KEY);
@@ -70,12 +78,9 @@ const getAppliedCollapsedStorageKey = () =>
 const readAppliedCollapsed = () =>
   localStorage.getItem(getAppliedCollapsedStorageKey()) === "1";
 
-const getCardLeftAccentClass = (stage: ApplicationStage) => {
+const getCardLeftAccentClass = (stage: BoardColumn) => {
   if (stage === "technical_interview") {
     return "border-l-2 border-l-amber-400/45";
-  }
-  if (stage === "onsite") {
-    return "border-l-2 border-l-amber-400/65";
   }
   if (stage === "offer") {
     return "border-2 border-amber-300/50 shadow-[0_4px_12px_-4px_rgba(251,191,36,0.7)]";
@@ -93,6 +98,12 @@ const resolveCurrentStage = (
   return { stage: "applied", latestEventAt: null };
 };
 
+const canDrop = (
+  from: BoardColumn,
+  to: BoardColumn,
+): to is Exclude<BoardColumn, "targeted"> =>
+  from !== to && to !== "targeted" && (from !== "targeted" || to === "applied");
+
 export const InProgressBoardPage: React.FC = () => {
   const queryClient = useQueryClient();
   const location = useLocation();
@@ -104,10 +115,10 @@ export const InProgressBoardPage: React.FC = () => {
 
   const [dragging, setDragging] = React.useState<{
     jobId: string;
-    fromStage: ApplicationStage;
+    fromStage: BoardColumn;
   } | null>(null);
   const [dropTargetStage, setDropTargetStage] =
-    React.useState<ApplicationStage | null>(null);
+    React.useState<BoardColumn | null>(null);
   const [movingJobId, setMovingJobId] = React.useState<string | null>(null);
   const [sortMode, setSortMode] = React.useState<
     "updated" | "title" | "company"
@@ -130,25 +141,50 @@ export const InProgressBoardPage: React.FC = () => {
     queryKey: queryKeys.jobs.inProgressBoard(),
     queryFn: async () => {
       const response = await api.getJobs({
-        statuses: ["applied", "in_progress"],
+        statuses: [
+          "discovered",
+          "processing",
+          "ready",
+          "applied",
+          "in_progress",
+        ],
         view: "list",
       });
 
-      const jobs = response.jobs;
+      // ponytail: add a server targeted=1 filter if the discovered list grows.
+      const jobs = response.jobs.filter(
+        (job) =>
+          isTargeted(job) ||
+          job.status === "applied" ||
+          job.status === "in_progress",
+      );
       const eventResults = await Promise.allSettled(
-        jobs.map((job) => api.getJobStageEvents(job.id)),
+        jobs.map(async (job) => {
+          const [events, detail] = await Promise.all([
+            api.getJobStageEvents(job.id),
+            isTargeted(job) ? api.getJob(job.id) : Promise.resolve(null),
+          ]);
+          return { events, pdfPath: detail?.pdfPath ?? null };
+        }),
       );
 
       return jobs.map((job, index) => {
         const result = eventResults[index];
         const events =
           result?.status === "fulfilled"
-            ? [...result.value].sort((a, b) => a.occurredAt - b.occurredAt)
+            ? [...result.value.events].sort(
+                (a, b) => a.occurredAt - b.occurredAt,
+              )
             : null;
         const resolved = resolveCurrentStage(events);
         return {
           job,
-          stage: resolved.stage,
+          stage: isTargeted(job)
+            ? ("targeted" as const)
+            : boardColumnForStage(resolved.stage),
+          currentStage: resolved.stage,
+          round: technicalRound(events ?? []),
+          pdfPath: result?.status === "fulfilled" ? result.value.pdfPath : null,
           latestEventAt: resolved.latestEventAt,
         };
       });
@@ -187,16 +223,9 @@ export const InProgressBoardPage: React.FC = () => {
           ? sortByCompany
           : sortByRecent;
 
-    const grouped: Record<ApplicationStage, BoardCard[]> = {
-      applied: [],
-      recruiter_screen: [],
-      assessment: [],
-      hiring_manager_screen: [],
-      technical_interview: [],
-      onsite: [],
-      offer: [],
-      closed: [],
-    };
+    const grouped = Object.fromEntries(
+      BOARD_COLUMNS.map((column) => [column, []]),
+    ) as unknown as Record<BoardColumn, BoardCard[]>;
 
     for (const card of cards) {
       grouped[card.stage].push(card);
@@ -210,8 +239,8 @@ export const InProgressBoardPage: React.FC = () => {
   }, [cards, sortMode]);
 
   const handleDropToStage = React.useCallback(
-    async (toStage: ApplicationStage) => {
-      if (!dragging || dragging.fromStage === toStage) {
+    async (toStage: BoardColumn) => {
+      if (!dragging || !canDrop(dragging.fromStage, toStage)) {
         setDropTargetStage(null);
         return;
       }
@@ -235,11 +264,13 @@ export const InProgressBoardPage: React.FC = () => {
       );
 
       try {
-        await transitionMutation.mutateAsync({ jobId, toStage });
-        toast.success(`Moved to ${STAGE_LABELS[toStage]}`);
-        await queryClient.invalidateQueries({
-          queryKey: queryKeys.jobs.inProgressBoard(),
-        });
+        if (dragging.fromStage === "targeted") {
+          await api.markAsApplied(jobId);
+        } else {
+          await transitionMutation.mutateAsync({ jobId, toStage });
+        }
+        toast.success(`Moved to ${BOARD_COLUMN_LABELS[toStage]}`);
+        await invalidateJobData(queryClient, jobId);
         if (toStage === "offer") {
           celebrateOffer();
         }
@@ -257,6 +288,29 @@ export const InProgressBoardPage: React.FC = () => {
     },
     [dragging, queryClient, transitionMutation],
   );
+
+  const handleTargetAction = async (
+    job: JobListItem,
+    action: "tailor" | "untarget",
+  ) => {
+    setMovingJobId(job.id);
+    try {
+      if (action === "untarget") await api.untargetJob(job.id);
+      else if (job.status === "discovered") await api.processJob(job.id);
+      else await api.generateJobPdf(job.id);
+      await invalidateJobData(queryClient, job.id);
+      toast.success(action === "untarget" ? "Job untargeted" : "Resume ready");
+    } catch (error) {
+      showErrorToast(
+        error,
+        action === "untarget"
+          ? "Failed to untarget job"
+          : "Failed to tailor resume",
+      );
+    } finally {
+      setMovingJobId(null);
+    }
+  };
 
   const handleBoardLogEvent = React.useCallback(
     async (values: LogEventFormValues) => {
@@ -313,7 +367,7 @@ export const InProgressBoardPage: React.FC = () => {
             <Button
               size="sm"
               className="h-8 gap-1.5 text-xs"
-              onClick={() => navigate("/jobs/ready")}
+              onClick={() => navigate("/jobs/discovered")}
             >
               <Plus className="h-3.5 w-3.5" />
               Add
@@ -336,10 +390,11 @@ export const InProgressBoardPage: React.FC = () => {
                 return (
                   <section
                     key={stage}
-                    aria-label={`${STAGE_LABELS[stage]} lane`}
+                    aria-label={`${BOARD_COLUMN_LABELS[stage]} lane`}
                     onDragOver={(event) => {
                       event.preventDefault();
-                      if (!dragging || dragging.fromStage === stage) return;
+                      if (!dragging || !canDrop(dragging.fromStage, stage))
+                        return;
                       setDropTargetStage(stage);
                     }}
                     onDrop={(event) => {
@@ -394,7 +449,7 @@ export const InProgressBoardPage: React.FC = () => {
                           isCollapsedApplied && "[writing-mode:vertical-rl]",
                         )}
                       >
-                        {STAGE_LABELS[stage]}
+                        {BOARD_COLUMN_LABELS[stage]}
                       </h2>
                       <Badge
                         variant="outline"
@@ -416,39 +471,60 @@ export const InProgressBoardPage: React.FC = () => {
                             Drop a card here or log a stage.
                           </div>
                         ) : (
-                          laneCards.map(({ job, latestEventAt, stage }) => (
-                            <InProgressBoardCard
-                              key={job.id}
-                              job={job}
-                              stage={stage}
-                              latestEventAt={latestEventAt}
-                              jobPageLinkState={jobPageLinkState}
-                              isMoving={movingJobId === job.id}
-                              cardClassName={getCardLeftAccentClass(stage)}
-                              onDragStart={(event) => {
-                                if (
-                                  (event.target as HTMLElement).closest(
-                                    "[data-board-card-menu]",
-                                  )
-                                ) {
-                                  event.preventDefault();
-                                  return;
+                          laneCards.map(
+                            ({
+                              job,
+                              latestEventAt,
+                              stage,
+                              currentStage,
+                              round,
+                              pdfPath,
+                            }) => (
+                              <InProgressBoardCard
+                                key={job.id}
+                                job={job}
+                                stage={stage}
+                                round={round}
+                                pdfPath={pdfPath}
+                                onTailor={() =>
+                                  void handleTargetAction(job, "tailor")
                                 }
-                                setDragging({
-                                  jobId: job.id,
-                                  fromStage: stage,
-                                });
-                                event.dataTransfer.effectAllowed = "move";
-                              }}
-                              onDragEnd={() => {
-                                setDragging(null);
-                                setDropTargetStage(null);
-                              }}
-                              onLogEvent={() =>
-                                setLogEventTarget({ job, stage })
-                              }
-                            />
-                          ))
+                                onUntarget={() =>
+                                  void handleTargetAction(job, "untarget")
+                                }
+                                latestEventAt={latestEventAt}
+                                jobPageLinkState={jobPageLinkState}
+                                isMoving={movingJobId === job.id}
+                                cardClassName={getCardLeftAccentClass(stage)}
+                                onDragStart={(event) => {
+                                  if (
+                                    (event.target as HTMLElement).closest(
+                                      "[data-board-card-menu]",
+                                    )
+                                  ) {
+                                    event.preventDefault();
+                                    return;
+                                  }
+                                  setDragging({
+                                    jobId: job.id,
+                                    fromStage: stage,
+                                  });
+                                  event.dataTransfer.effectAllowed = "move";
+                                }}
+                                onDragEnd={() => {
+                                  setDragging(null);
+                                  setDropTargetStage(null);
+                                }}
+                                onLogEvent={() =>
+                                  stage !== "targeted" &&
+                                  setLogEventTarget({
+                                    job,
+                                    stage: currentStage,
+                                  })
+                                }
+                              />
+                            ),
+                          )
                         )}
                       </div>
                     )}

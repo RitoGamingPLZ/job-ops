@@ -68,9 +68,15 @@ export function boardColumnForStage(s: ApplicationStage): BoardColumn {
   return s === "assessment" || s === "onsite" ? "technical_interview" : s;
 }
 
-export function technicalRound(events: Pick<StageEvent, "toStage">[]): number {
-  return events.filter((event) => event.toStage === "technical_interview")
-    .length;
+export function technicalRound(
+  events: (Pick<StageEvent, "toStage"> &
+    Partial<Pick<StageEvent, "metadata">>)[],
+): number {
+  return events.filter(
+    (event) =>
+      boardColumnForStage(event.toStage) === "technical_interview" &&
+      event.metadata?.eventType !== "note",
+  ).length;
 }
 
 export function isTargeted(

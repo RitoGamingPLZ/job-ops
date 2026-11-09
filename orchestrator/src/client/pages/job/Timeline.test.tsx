@@ -68,7 +68,7 @@ describe("JobTimeline", () => {
     );
 
     expectTextBefore("Applied", "Discovered");
-    expectTextBefore("Discovered", "Interview");
+    expectTextBefore("Discovered", "Interview · Round 1");
   });
 
   it("keeps the empty state when discoveredAt is missing or invalid", () => {
@@ -125,4 +125,82 @@ describe("JobTimeline", () => {
     expect(screen.queryByTitle("Edit event")).not.toBeInTheDocument();
     expect(screen.queryByTitle("Delete event")).not.toBeInTheDocument();
   });
+});
+
+it("labels chronological technical rounds, behavioural events and withdrawn rejections", () => {
+  render(
+    <JobTimeline
+      events={[
+        makeEvent({
+          id: "second",
+          title: "",
+          toStage: "technical_interview",
+          occurredAt: 2,
+        }),
+        makeEvent({
+          id: "first",
+          title: "",
+          toStage: "technical_interview",
+          occurredAt: 1,
+        }),
+        makeEvent({
+          id: "behaviour",
+          title: "",
+          toStage: "behavioural",
+          occurredAt: 3,
+        }),
+        makeEvent({
+          id: "withdrawn",
+          title: "",
+          toStage: "closed",
+          outcome: "withdrawn",
+          occurredAt: 4,
+        }),
+      ]}
+    />,
+  );
+  expectTextBefore(
+    "Technical Interview · Round 1",
+    "Technical Interview · Round 2",
+  );
+  expect(screen.getByText("Behaviour Question")).toBeInTheDocument();
+  expect(screen.getByText("Reject · withdrawn")).toBeInTheDocument();
+});
+
+it("counts legacy rounds and leaves note-only events unnumbered", () => {
+  render(
+    <JobTimeline
+      events={[
+        makeEvent({
+          id: "legacy",
+          title: "",
+          toStage: "assessment",
+          occurredAt: 1,
+        }),
+        makeEvent({
+          id: "note",
+          title: "Follow up",
+          toStage: "technical_interview",
+          occurredAt: 2,
+          metadata: { eventType: "note" },
+        }),
+        makeEvent({
+          id: "round-2",
+          title: "",
+          toStage: "onsite",
+          occurredAt: 3,
+        }),
+        makeEvent({
+          id: "round-3",
+          title: "",
+          toStage: "technical_interview",
+          occurredAt: 4,
+        }),
+      ]}
+    />,
+  );
+  expect(screen.getByText("Technical Interview · Round 1")).toBeInTheDocument();
+  expect(screen.getByText("Follow up")).toBeInTheDocument();
+  expect(screen.getByText("Technical Interview · Round 2")).toBeInTheDocument();
+  expect(screen.getByText("Technical Interview · Round 3")).toBeInTheDocument();
 });

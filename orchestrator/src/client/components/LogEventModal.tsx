@@ -49,14 +49,12 @@ const STAGE_OPTIONS = [
   { label: "No Stage Change (Keep current status)", value: "no_change" },
   { label: STAGE_LABELS.applied, value: "applied" },
   { label: STAGE_LABELS.recruiter_screen, value: "recruiter_screen" },
-  { label: STAGE_LABELS.assessment, value: "assessment" },
-  { label: STAGE_LABELS.hiring_manager_screen, value: "hiring_manager_screen" },
   { label: STAGE_LABELS.technical_interview, value: "technical_interview" },
-  { label: STAGE_LABELS.onsite, value: "onsite" },
+  { label: STAGE_LABELS.behavioural, value: "behavioural" },
+  { label: STAGE_LABELS.hiring_manager_screen, value: "hiring_manager_screen" },
   { label: STAGE_LABELS.offer, value: "offer" },
-  { label: "Rejected", value: "rejected" },
+  { label: STAGE_LABELS.closed, value: "rejected" },
   { label: "Withdrawn", value: "withdrawn" },
-  { label: STAGE_LABELS.closed, value: "closed" },
 ];
 
 const REASON_CODES = ["Skills", "Visa", "Timing", "Culture", "Unknown"];
@@ -100,7 +98,14 @@ export const LogEventModal: React.FC<LogEventModalProps> = ({
     if (isOpen) {
       if (editingEvent) {
         reset({
-          stage: editingEvent.toStage,
+          stage:
+            editingEvent.metadata?.eventType === "note"
+              ? "no_change"
+              : editingEvent.toStage === "closed"
+                ? editingEvent.outcome === "withdrawn"
+                  ? "withdrawn"
+                  : "rejected"
+                : editingEvent.toStage,
           title: editingEvent.metadata?.eventLabel || "",
           date: toDateTimeLocal(new Date(editingEvent.occurredAt * 1000)),
           notes: editingEvent.metadata?.note || "",
@@ -172,6 +177,13 @@ export const LogEventModal: React.FC<LogEventModalProps> = ({
                     <SelectValue placeholder="Select stage" />
                   </SelectTrigger>
                   <SelectContent>
+                    {editingEvent &&
+                      (editingEvent.toStage === "assessment" ||
+                        editingEvent.toStage === "onsite") && (
+                        <SelectItem value={editingEvent.toStage}>
+                          {STAGE_LABELS.technical_interview} (existing stage)
+                        </SelectItem>
+                      )}
                     {STAGE_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}

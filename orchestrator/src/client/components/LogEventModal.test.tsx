@@ -1,3 +1,4 @@
+import { createStageEvent } from "@shared/testing/factories.js";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -120,4 +121,81 @@ describe("LogEventModal", () => {
       "overflow-y-auto",
     );
   });
+});
+
+it("offers simplified stages and hides assessment and onsite", () => {
+  render(<LogEventModal isOpen onClose={vi.fn()} onLog={vi.fn()} />);
+  expect(
+    screen.getByRole("option", { name: "Behaviour Question" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "Reject" })).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "Withdrawn" })).toBeInTheDocument();
+  expect(
+    screen.queryByRole("option", { name: "Assessment" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("option", { name: "Onsite" }),
+  ).not.toBeInTheDocument();
+});
+
+it.each([
+  "assessment",
+  "onsite",
+] as const)("preserves an edited %s event until the user selects another stage", async (toStage) => {
+  const onLog = vi.fn().mockResolvedValue(undefined);
+  render(
+    <LogEventModal
+      isOpen
+      onClose={vi.fn()}
+      onLog={onLog}
+      editingEvent={createStageEvent({
+        id: "legacy",
+        toStage,
+        metadata: { eventLabel: "Interview", eventType: "status_update" },
+      })}
+    />,
+  );
+  fireEvent.change(screen.getByPlaceholderText("Add details..."), {
+    target: { value: "Updated notes" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+  await waitFor(() =>
+    expect(onLog).toHaveBeenCalledWith(
+      expect.objectContaining({ stage: toStage, notes: "Updated notes" }),
+      "legacy",
+    ),
+  );
+  fireEvent.change(screen.getAllByTestId("select")[0], {
+    target: { value: "technical_interview" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+  await waitFor(() =>
+    expect(onLog).toHaveBeenLastCalledWith(
+      expect.objectContaining({ stage: "technical_interview" }),
+      "legacy",
+    ),
+  );
+});
+
+it("preserves no-stage-change semantics when editing a technical note", async () => {
+  const onLog = vi.fn().mockResolvedValue(undefined);
+  render(
+    <LogEventModal
+      isOpen
+      onClose={vi.fn()}
+      onLog={onLog}
+      editingEvent={createStageEvent({
+        id: "note",
+        toStage: "technical_interview",
+        metadata: { eventLabel: "Follow up", eventType: "note" },
+      })}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+  await waitFor(() =>
+    expect(onLog).toHaveBeenCalledWith(
+      expect.objectContaining({ stage: "no_change" }),
+      "note",
+    ),
+  );
 });
