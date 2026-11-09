@@ -353,7 +353,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           role="tabpanel"
           aria-labelledby="cowork-tab-editor"
           aria-label="Resume editor"
-          className={`${tab === "editor" ? "block" : "hidden"} xl:block min-h-0 min-w-0 overflow-auto border rounded-md bg-[#e4e5e7] p-3`}
+          className={`${tab === "editor" ? "block" : "hidden"} xl:block min-h-0 min-w-0 overflow-auto [scrollbar-gutter:stable] border rounded-md bg-[#e4e5e7] p-3`}
         >
           <ResumeEditor
             disabled={busy}

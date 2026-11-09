@@ -22,11 +22,13 @@ export function BulletText({
   return (
     <Textarea
       rows={1}
-      style={{ height: "auto" }}
+      style={{ height: "auto", overflow: "hidden" }}
       ref={(element) => {
         if (element) {
           element.style.height = "auto";
-          element.style.height = `${element.scrollHeight}px`;
+          // scrollHeight includes padding, but border-box height needs borders too.
+          const borders = element.offsetHeight - element.clientHeight;
+          element.style.height = `${element.scrollHeight + borders}px`;
         }
       }}
       aria-label={label}
