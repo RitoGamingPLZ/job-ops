@@ -1,7 +1,7 @@
 import { DEMO_PROJECT_CATALOG } from "@server/config/demo-defaults";
 import * as jobsRepo from "@server/repositories/jobs";
 import { replaceCurrentDesignResumeDocument } from "@server/services/design-resume";
-import { generatePdf, type TailoredPdfContent } from "@server/services/pdf";
+import { generatePdf } from "@server/services/pdf";
 import {
   createJobPdfFingerprint,
   type PdfFingerprintContext,
@@ -124,44 +124,6 @@ function buildDemoDesignResume(): DesignResumeJson {
   return document;
 }
 
-function parseTailoredSkills(
-  raw: string | null,
-): Array<{ name: string; keywords: string[] }> {
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    if (
-      parsed.every(
-        (item) =>
-          item &&
-          typeof item === "object" &&
-          typeof (item as { name?: unknown }).name === "string" &&
-          Array.isArray((item as { keywords?: unknown }).keywords),
-      )
-    ) {
-      return parsed as Array<{ name: string; keywords: string[] }>;
-    }
-
-    const keywords = parsed.filter(
-      (item): item is string =>
-        typeof item === "string" && item.trim().length > 0,
-    );
-    return keywords.length > 0 ? [{ name: "Core Skills", keywords }] : [];
-  } catch {
-    return [];
-  }
-}
-
-function buildTailoredPdfContent(job: Job): TailoredPdfContent {
-  return {
-    summary: job.tailoredSummary ?? "",
-    headline: job.tailoredHeadline ?? "",
-    skills: parseTailoredSkills(job.tailoredSkills),
-  };
-}
-
 function resolveDemoPdfStatus(status: JobStatus): JobStatus {
   if (status === "discovered" || status === "processing") return "ready";
   return status;
@@ -186,18 +148,11 @@ export async function persistDemoGeneratedPdf(
     await seedDemoDesignResume();
   }
 
-  const result = await generatePdf(
-    job.id,
-    buildTailoredPdfContent(job),
-    job.jobDescription ?? "",
-    undefined,
-    job.selectedProjectIds,
-    {
-      tracerLinksEnabled: job.tracerLinksEnabled,
-      tracerCompanyName: job.employer ?? null,
-      requestOrigin: null,
-    },
-  );
+  const result = await generatePdf(job.id, job.jobDescription ?? "", {
+    tracerLinksEnabled: job.tracerLinksEnabled,
+    tracerCompanyName: job.employer ?? null,
+    requestOrigin: null,
+  });
 
   if (!result.success || !result.pdfPath) {
     throw new Error(result.error ?? "Failed to generate demo PDF");

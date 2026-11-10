@@ -431,8 +431,20 @@ export async function buildJobChatPromptContext(
     ? `${baseSystemPrompt}\n\n${STOP_SLOP_GHOSTWRITER_PROMPT}`
     : baseSystemPrompt;
   const resume = await getJobResume(job.id);
+  // The editor document is the job's resume; job-row tailoring is only its seed.
   const jobSnapshot = buildJobSnapshot(
-    resume ? { ...job, tailoredSummary: resume.document.summary.content } : job,
+    resume
+      ? {
+          ...job,
+          tailoredSummary: stripHtmlTags(resume.document.summary.content),
+          tailoredHeadline: resume.document.basics.headline,
+          tailoredSkills: JSON.stringify(
+            resume.document.sections.skills.items
+              .filter((item) => !item.hidden)
+              .map(({ name, keywords }) => ({ name, keywords })),
+          ),
+        }
+      : job,
   );
 
   if (!jobSnapshot.trim()) {

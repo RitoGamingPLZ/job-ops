@@ -58,7 +58,6 @@ const STATUS_BY_APP_ERROR_CODE: Record<AppErrorCode, number> = {
 
 export type JobActionExecutionOptions = {
   getProfileForRescore?: () => Promise<Record<string, unknown>>;
-  forceMoveToReady?: boolean;
   requestOrigin?: string | null;
   analyticsOrigin?:
     | "move_to_ready"
@@ -92,17 +91,11 @@ export function createSharedRescoreProfileLoader(): () => Promise<
 
 export function buildJobActionExecutionOptions(
   action: JobAction,
-  options?: {
-    forceMoveToReady?: boolean;
-    requestOrigin?: string | null;
-  },
+  options?: { requestOrigin?: string | null },
 ): JobActionExecutionOptions {
   return {
     ...(action === "rescore" && !isDemoMode()
       ? { getProfileForRescore: createSharedRescoreProfileLoader() }
-      : {}),
-    ...(action === "move_to_ready" && options?.forceMoveToReady !== undefined
-      ? { forceMoveToReady: options.forceMoveToReady }
       : {}),
     ...(action === "move_to_ready"
       ? { requestOrigin: options?.requestOrigin ?? null }
@@ -130,31 +123,41 @@ export async function targetJobInBackground(
       "Only discovered, processing, or ready jobs can be targeted",
     );
   const key = `${getPrivateDataScope().scopeKey}:${jobId}`;
-  if (job.status !== "processing" && !pendingTargets.has(key)) {
-    pendingTargets.add(key);
-    setImmediate(() => {
-      void (
-        isDemoMode()
-          ? simulateProcessJob(jobId)
-          : processJob(jobId, {
-              requestOrigin: options?.requestOrigin ?? null,
-              analyticsOrigin: options?.analyticsOrigin ?? "move_to_ready",
-            })
-      )
-        .then((result) => {
-          if (!result.success)
-            logger.warn("Targeted job generation failed", {
-              jobId,
-              error: result.error,
-            });
-        })
-        .catch((error) =>
-          logger.error("Targeted job generation failed", { jobId, error }),
-        )
-        .finally(() => pendingTargets.delete(key));
-    });
+  // In-memory only, so a job left in "processing" by a restart is retryable.
+  if (pendingTargets.has(key)) return updated;
+  pendingTargets.add(key);
+  let response = updated;
+  try {
+    // Show "processing" in this response and the next list fetch; ready jobs stay visible.
+    if (updated.status === "discovered")
+      response =
+        (await jobsRepo.updateJob(jobId, { status: "processing" })) ?? updated;
+  } catch (error) {
+    pendingTargets.delete(key);
+    throw error;
   }
-  return updated;
+  setImmediate(() => {
+    void (
+      isDemoMode()
+        ? simulateProcessJob(jobId)
+        : processJob(jobId, {
+            requestOrigin: options?.requestOrigin ?? null,
+            analyticsOrigin: options?.analyticsOrigin ?? "move_to_ready",
+          })
+    )
+      .then((result) => {
+        if (!result.success)
+          logger.warn("Targeted job generation failed", {
+            jobId,
+            error: result.error,
+          });
+      })
+      .catch((error) =>
+        logger.error("Targeted job generation failed", { jobId, error }),
+      )
+      .finally(() => pendingTargets.delete(key));
+  });
+  return response;
 }
 
 export async function executeJobActionForJob(

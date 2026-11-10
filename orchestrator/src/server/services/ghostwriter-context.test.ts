@@ -691,7 +691,12 @@ describe("buildJobChatPromptContext", () => {
     );
     const document =
       buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
-    document.summary.content = "Editor summary";
+    document.summary.content = "<p>Editor <strong>summary</strong></p>";
+    document.basics.headline = "Editor headline";
+    document.sections.skills.items = [
+      { name: "Go", keywords: ["gRPC"], hidden: false },
+      { name: "Hidden", keywords: [], hidden: true },
+    ] as typeof document.sections.skills.items;
     vi.mocked(getJobById).mockResolvedValue(
       createJob({ id: "editor-summary", tailoredSummary: "Legacy summary" }),
     );
@@ -702,9 +707,12 @@ describe("buildJobChatPromptContext", () => {
       updatedAt: "now",
     });
     const context = await buildJobChatPromptContext("editor-summary");
-    expect(JSON.parse(context.jobSnapshot).job.tailoredSummary).toBe(
-      "Editor summary",
-    );
+    const { job } = JSON.parse(context.jobSnapshot);
+    expect(job.tailoredSummary).toBe("Editor summary");
+    expect(job.tailoredHeadline).toBe("Editor headline");
+    expect(JSON.parse(job.tailoredSkills)).toEqual([
+      { name: "Go", keywords: ["gRPC"] },
+    ]);
   });
 
   it("throws not found for unknown job", async () => {

@@ -48,12 +48,16 @@ describe.sequential("Jobs API routes", () => {
     expect(body.meta.requestId).toBe("target-request");
     expect(res.headers.get("x-request-id")).toBe("target-request");
     if (eligible) {
-      expect(body.data.status).toBe(status);
+      expect(body.data.status).toBe(
+        status === "discovered" ? "processing" : status,
+      );
       expect(body.data.readyAt).toBeTruthy();
       const again = await fetch(`${baseUrl}/api/jobs/${job.id}/target`, {
         method: "POST",
       });
       expect((await again.json()).data.readyAt).toBe(body.data.readyAt);
+      // The mocked background generation never finishes; emulate it ending.
+      await updateJob(job.id, { status });
     } else expect(body.error.code).toBe("INVALID_REQUEST");
     const unres = await fetch(`${baseUrl}/api/jobs/${job.id}/target`, {
       method: "DELETE",

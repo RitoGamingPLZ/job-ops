@@ -9,6 +9,7 @@ vi.mock("@server/pipeline/index", () => ({ processJob: vi.fn() }));
 vi.mock("@server/repositories/jobs", () => ({
   getJobById: vi.fn(),
   setJobTargeted: vi.fn(),
+  updateJob: vi.fn(),
 }));
 const job = createJob({ id: "target-job" });
 beforeEach(() => {
@@ -19,6 +20,11 @@ beforeEach(() => {
     readyAt: "now",
   });
   vi.mocked(processJob).mockResolvedValue({ success: true });
+  vi.mocked(jobsRepo.updateJob).mockImplementation(async (_id, input) => ({
+    ...job,
+    readyAt: "now",
+    ...input,
+  }));
 });
 describe("target generation dispatch", () => {
   it("returns before generation finishes and collapses duplicate targets", async () => {
@@ -63,5 +69,27 @@ describe("target generation dispatch", () => {
     await vi.waitFor(() =>
       expect(tenants.sort()).toEqual(["tenant-a", "tenant-b"]),
     );
+  });
+  it("shows a discovered job as processing in the response, before generation runs", async () => {
+    vi.mocked(jobsRepo.setJobTargeted).mockResolvedValue({
+      ...job,
+      status: "discovered",
+    });
+    const result = await targetJobInBackground(job.id);
+    expect(result.status).toBe("processing");
+    expect(jobsRepo.updateJob).toHaveBeenCalledWith(job.id, {
+      status: "processing",
+    });
+    expect(processJob).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(processJob).toHaveBeenCalledOnce());
+  });
+  it("retries a job left in processing and keeps ready jobs ready", async () => {
+    for (const status of ["processing", "ready"] as const) {
+      vi.clearAllMocks();
+      vi.mocked(jobsRepo.setJobTargeted).mockResolvedValue({ ...job, status });
+      expect((await targetJobInBackground(job.id)).status).toBe(status);
+      expect(jobsRepo.updateJob).not.toHaveBeenCalled();
+      await vi.waitFor(() => expect(processJob).toHaveBeenCalledOnce());
+    }
   });
 });

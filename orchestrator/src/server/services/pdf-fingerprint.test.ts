@@ -94,6 +94,15 @@ describe("PDF freshness", () => {
       createJobPdfFingerprint(job, { ...editorContext, pdfRenderer: "typst" }),
     ).not.toBe(original);
     expect(
+      createJobPdfFingerprint(
+        { ...job, tracerLinksEnabled: !job.tracerLinksEnabled },
+        editorContext,
+      ),
+    ).not.toBe(original);
+    expect(
+      createJobPdfFingerprint({ ...job, employer: "Renamed" }, editorContext),
+    ).not.toBe(original);
+    expect(
       createJobPdfFingerprint(job, { ...editorContext, pdfPaperSize: "a4" }),
     ).not.toBe(original);
   });

@@ -107,9 +107,7 @@ export function createJobPdfFingerprint(
   const jobResumeHash = job.id ? context.jobResumeHashes?.[job.id] : undefined;
   const payload = {
     version: context.version,
-    ...(job.id && context.jobResumeHashes?.[job.id]
-      ? { jobResumeHash: context.jobResumeHashes[job.id] }
-      : {}),
+    ...(jobResumeHash ? { jobResumeHash } : {}),
     renderer: context.pdfRenderer,
     ...(context.pdfRenderer === "typst"
       ? { typstTheme: context.typstTheme }
@@ -119,7 +117,13 @@ export function createJobPdfFingerprint(
       ? { paperSize: context.pdfPaperSize }
       : {}),
     ...(jobResumeHash
-      ? {}
+      ? {
+          // Tracer links are overlaid from the job row at render time.
+          job: {
+            tracerLinksEnabled: Boolean(job.tracerLinksEnabled),
+            employer: job.employer ?? null,
+          },
+        }
       : {
           rxresumeBaseResumeId: context.rxresumeBaseResumeId,
           resumeProjects: context.resumeProjects,

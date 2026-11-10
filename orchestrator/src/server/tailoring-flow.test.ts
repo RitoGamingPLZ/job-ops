@@ -134,10 +134,7 @@ describe("Tailoring Flow", () => {
     expect(pdfService.generatePdf).toHaveBeenCalledTimes(1);
     expect(pdfService.generatePdf).toHaveBeenCalledWith(
       "job-tailored-123",
-      {},
       "Senior TypeScript Developer", // Original JD
-      undefined, // Deprecated profile path
-      "project-a,project-c", // The manually selected projects
       expect.objectContaining({
         requestOrigin: null,
         tracerLinksEnabled: undefined,
@@ -182,10 +179,7 @@ describe("Tailoring Flow", () => {
 
     expect(pdfService.generatePdf).toHaveBeenCalledWith(
       "job-raw-456",
-      {},
       "Junior Java Developer",
-      undefined, // Deprecated profile path
-      undefined, // No projects selected
       expect.objectContaining({
         requestOrigin: null,
         tracerLinksEnabled: undefined,

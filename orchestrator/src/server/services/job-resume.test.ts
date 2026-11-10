@@ -90,4 +90,38 @@ describe("ensureJobResume", () => {
     expect(results).toEqual([row, row]);
     expect(saved).toEqual(row);
   });
+  it("lets a plain call join an in-flight tailoring instead of freezing the base", async () => {
+    const untailored = createJob({ id: "job" });
+    const tailored = createJob({
+      id: "job",
+      tailoredSummary: "Tailored summary",
+      tailoredHeadline: "Tailored headline",
+      tailoredSkills: "[]",
+    });
+    let jobRow = untailored;
+    vi.mocked(getJobById).mockImplementation(async () => jobRow);
+    let finishTailoring!: () => void;
+    vi.mocked(summarizeJob).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishTailoring = () => {
+            jobRow = tailored;
+            resolve({ success: true });
+          };
+        }),
+    );
+    vi.mocked(saveJobResume).mockImplementation(async (_id, _rev, doc) => ({
+      ...row,
+      document: doc,
+    }));
+    const target = ensureJobResume("job", { tailor: true });
+    await vi.waitFor(() => expect(summarizeJob).toHaveBeenCalledOnce());
+    const editorOpen = ensureJobResume("job");
+    finishTailoring();
+    const [fromTarget, fromEditor] = await Promise.all([target, editorOpen]);
+    expect(fromEditor).toBe(fromTarget);
+    expect(fromEditor.document.summary.content).toBe("Tailored summary");
+    expect(saveJobResume).toHaveBeenCalledOnce();
+    expect(summarizeJob).toHaveBeenCalledOnce();
+  });
 });

@@ -103,7 +103,7 @@ describe.sequential("Manual jobs API routes", () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.data.source).toBe("manual");
-    expect(body.data.status).toBe("discovered");
+    expect(body.data.status).toBe("processing");
     expect(body.data.readyAt).toBeTruthy();
     expect(body.data.jobUrl).toBe("https://example.com/jobs/backend-engineer");
     expect(vi.mocked(processJob)).toHaveBeenCalledWith(body.data.id, {
@@ -322,7 +322,7 @@ describe.sequential("Manual jobs API routes", () => {
     });
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(body.data.status).toBe("discovered");
+    expect(body.data.status).toBe("processing");
     expect(body.data.readyAt).toBeTruthy();
     expect(vi.mocked(processJob)).toHaveBeenCalledWith(body.data.id, {
       analyticsOrigin: "manual_job_create",

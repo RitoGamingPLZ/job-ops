@@ -61,7 +61,6 @@ vi.mock("./steps", () => ({
   importJobsStep: vi.fn(),
   loadProfileStep: vi.fn(),
   notifyPipelineWebhookStep: vi.fn(),
-  processJobsStep: vi.fn(),
   scoreJobsStep: vi.fn(),
   selectJobsStep: vi.fn(),
 }));

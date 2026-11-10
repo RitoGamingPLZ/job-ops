@@ -54,12 +54,6 @@ export interface PdfResult {
   errorCode?: AppErrorCode;
 }
 
-export interface TailoredPdfContent {
-  summary?: string | null;
-  headline?: string | null;
-  skills?: Array<{ name: string; keywords: string[] }> | null;
-}
-
 export interface GeneratePdfOptions {
   tracerLinksEnabled?: boolean;
   requestOrigin?: string | null;
@@ -352,10 +346,7 @@ export async function loadBaseResumeSource(args: {
  */
 export async function generatePdf(
   jobId: string,
-  _tailoredContent: TailoredPdfContent,
   jobDescription: string,
-  _baseResumePath?: string, // Deprecated: now always uses Design Resume or the configured Reactive Resume base resume
-  _selectedProjectIds?: string | null,
   options?: GeneratePdfOptions,
 ): Promise<PdfResult> {
   let renderer: PdfRenderer | null = null;
@@ -367,7 +358,9 @@ export async function generatePdf(
     // Ensure output directory exists
     await ensureOutputDir();
 
-    const savedResume = await ensureJobResume(jobId);
+    const savedResume = await ensureJobResume(jobId, {
+      requestOrigin: options?.requestOrigin ?? null,
+    });
     const data = parseV5ResumeData(
       structuredClone(savedResume.document),
     ) as Record<string, unknown>;

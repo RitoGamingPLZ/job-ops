@@ -22,7 +22,6 @@ import { type Request, type Response, Router } from "express";
 import {
   appErrorFromPipelineFailure,
   hydrateJobPdfFreshness,
-  queueTailoringAutoPdfRegenerationIfNeeded,
   requireJob,
   toJobsRouteError,
   uploadJobDocumentSchema,
@@ -440,7 +439,7 @@ jobsDocumentsRouter.post(
         });
       }
 
-      const previousJob = await requireJob(req.params.id);
+      await requireJob(req.params.id);
       const result = await summarizeJob(req.params.id, { force, fields });
 
       if (!result.success) {
@@ -452,12 +451,6 @@ jobsDocumentsRouter.post(
 
       const job = await requireJob(req.params.id);
       ok(res, await hydrateJobPdfFreshness(job));
-
-      queueTailoringAutoPdfRegenerationIfNeeded(
-        previousJob,
-        job,
-        "POST /api/jobs/:id/summarize",
-      );
     } catch (error) {
       fail(res, toJobsRouteError(error));
     }

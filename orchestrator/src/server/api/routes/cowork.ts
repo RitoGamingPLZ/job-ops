@@ -190,7 +190,12 @@ coworkRouter.get(
   "/jobs/:id/resume",
   asyncRoute(async (req, res) => {
     const job = await requireJob(String(req.params.id));
-    ok(res, await ensureJobResume(job.id));
+    ok(
+      res,
+      await ensureJobResume(job.id, {
+        requestOrigin: resolveRequestOrigin(req),
+      }),
+    );
   }),
 );
 coworkRouter.put(

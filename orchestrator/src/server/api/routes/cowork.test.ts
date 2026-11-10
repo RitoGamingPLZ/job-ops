@@ -353,13 +353,9 @@ describe("co-work routes", () => {
       },
       async () => {
         expect(await getJobResume(jobId)).toBeNull();
-        expect(
-          await generatePdf(
-            jobId,
-            { headline: "Ignored legacy argument" },
-            "Build tools",
-          ),
-        ).toMatchObject({ success: true });
+        expect(await generatePdf(jobId, "Build tools")).toMatchObject({
+          success: true,
+        });
         const row = await getJobResume(jobId);
         expect(row).toMatchObject({
           revision: 1,

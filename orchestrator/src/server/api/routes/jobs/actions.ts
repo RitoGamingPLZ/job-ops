@@ -30,10 +30,7 @@ jobsActionsRouter.post("/actions", async (req: Request, res: Response) => {
   try {
     const parsed = jobActionRequestSchema.parse(req.body);
     const dedupedJobIds = Array.from(new Set(parsed.jobIds));
-    const forceMoveToReady =
-      parsed.action === "move_to_ready" ? parsed.options?.force : undefined;
     const executionOptions = buildJobActionExecutionOptions(parsed.action, {
-      forceMoveToReady,
       requestOrigin: resolveRequestOrigin(req),
     });
 
@@ -115,10 +112,7 @@ jobsActionsRouter.post(
     const dedupedJobIds = Array.from(new Set(parsed.data.jobIds));
     const requestId = String(res.getHeader("x-request-id") || "unknown");
     const action = parsed.data.action;
-    const forceMoveToReady =
-      action === "move_to_ready" ? parsed.data.options?.force : undefined;
     const executionOptions = buildJobActionExecutionOptions(action, {
-      forceMoveToReady,
       requestOrigin: resolveRequestOrigin(req),
     });
     const requested = dedupedJobIds.length;
@@ -293,10 +287,7 @@ jobsActionsRouter.post(
 );
 
 jobsActionsRouter.post("/:id/process", async (req: Request, res: Response) => {
-  const forceRaw = req.query.force as string | undefined;
-  const force = forceRaw === "1" || forceRaw === "true";
   const result = await executeJobActionForJob("move_to_ready", req.params.id, {
-    forceMoveToReady: force,
     requestOrigin: resolveRequestOrigin(req),
   });
   if (!result.ok) return fail(res, mapJobActionFailure(result));

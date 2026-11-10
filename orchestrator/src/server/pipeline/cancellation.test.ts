@@ -62,7 +62,6 @@ vi.mock("./steps", () => ({
   })),
   scoreJobsStep: vi.fn(async () => ({ unprocessedJobs: [], scoredJobs: [] })),
   selectJobsStep: vi.fn(() => []),
-  processJobsStep: vi.fn(async () => ({ processedCount: 0 })),
   notifyPipelineWebhookStep: vi.fn(async () => undefined),
 }));
 
@@ -134,7 +133,6 @@ describe.sequential("pipeline cancellation", () => {
     expect(result.success).toBe(true);
     expect(result.jobsProcessed).toBe(0);
     expect(steps.selectJobsStep).toHaveBeenCalled();
-    expect(steps.processJobsStep).not.toHaveBeenCalled();
     expect(targeted).not.toHaveBeenCalled();
     expect(pipelineRepo.updatePipelineRun).toHaveBeenCalledWith(
       "run-cancel-1",
