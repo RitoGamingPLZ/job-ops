@@ -12,6 +12,12 @@ export interface LatexResumeContactItem {
 
 export interface LatexResumeEntry {
   title: string;
+  /** Description prose before a list, or all prose when no list items exist. */
+  intro?: string | null;
+  /** Actual list items, separate from legacy prose-as-bullets rendering. */
+  listBullets?: string[];
+  position?: string | null;
+  location?: string | null;
   subtitle?: string | null;
   secondaryTitle?: string | null;
   secondarySubtitle?: string | null;
@@ -116,6 +122,8 @@ export interface LatexResumeDocument {
   volunteer: LatexResumeEntry[];
   references: LatexResumeEntry[];
   sectionOrder?: LatexResumeOrderedSectionKey[];
+  /** The normalized order was synthesized rather than supplied by the layout. */
+  defaultSectionOrder?: boolean;
   sectionTitles?: LatexResumeSectionTitles;
 }
 

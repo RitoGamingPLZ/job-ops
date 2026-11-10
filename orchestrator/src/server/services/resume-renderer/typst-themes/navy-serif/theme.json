@@ -1,0 +1,7 @@
+{
+  "id": "navy-serif",
+  "label": "Navy Serif",
+  "description": "A compact serif resume with navy rules, linked contacts and two-column certifications. Uses bundled offline fonts.",
+  "kind": "adapted",
+  "entrypoint": "main.typ"
+}
