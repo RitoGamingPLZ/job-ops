@@ -12,13 +12,12 @@ import {
   rankExperienceBullets,
 } from "@server/services/cowork-ai";
 import { screenResume } from "@server/services/cowork-screening";
+import { ensureJobResume } from "@server/services/job-resume";
 import { loadBaseResumeSource, resolvePdfRenderer } from "@server/services/pdf";
-import { prepareTailoredResumeForPdf } from "@server/services/rxresume";
 import { safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
 import { bulletsFromHtml } from "@shared/resume-bullets";
 import type {
   ExperienceBulletInput,
-  JobResumeState,
   ReactiveResumeV5Document,
 } from "@shared/types";
 import { Router } from "express";
@@ -191,25 +190,12 @@ coworkRouter.get(
   "/jobs/:id/resume",
   asyncRoute(async (req, res) => {
     const job = await requireJob(String(req.params.id));
-    const saved = await resumesRepo.getJobResume(job.id);
-    if (saved) return ok(res, saved);
-    const prepared = await prepareTailoredResumeForPdf({
-      resumeData: await baseDocument(resolveRequestOrigin(req)),
-      tailoredContent: {
-        summary: job.tailoredSummary,
-        headline: job.tailoredHeadline,
-        skills: job.tailoredSkills,
-      },
-      jobDescription: job.jobDescription ?? "",
-      selectedProjectIds: job.selectedProjectIds,
-    });
-    const state: JobResumeState = {
-      document: prepared.data as ReactiveResumeV5Document,
-      revision: 0,
-      exists: false,
-      updatedAt: null,
-    };
-    ok(res, state);
+    ok(
+      res,
+      await ensureJobResume(job.id, {
+        requestOrigin: resolveRequestOrigin(req),
+      }),
+    );
   }),
 );
 coworkRouter.put(

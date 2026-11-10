@@ -1,7 +1,7 @@
 ---
 id: orchestrator
 title: Orchestrator
-description: Search Jobs, targeting opportunities, manual tailoring, and PDF generation.
+description: Search Jobs, targeting opportunities, resume preparation, and PDF preview.
 sidebar_position: 1
 ---
 
@@ -15,16 +15,16 @@ It controls:
 
 - job lifecycle states
 - shortlisting with the Target button
-- manual resume tailoring from the board or job page
+- resume preparation on Target, and editing in the resume editor (**Open resume**)
 - PDF generation and regeneration
 - job-level titled markdown notes on the dedicated job page
 - handoff to post-application tracking
 
 Job states:
 
-- `discovered`: found by crawler/import, not tailored yet
-- `processing`: tailoring and/or PDF generation in progress
-- `ready`: tailored PDF generated and ready to apply
+- `discovered`: found by crawler/import; resume not prepared yet
+- `processing`: resume being prepared (shown as **Preparing resume…**)
+- `ready`: resume prepared and ready to apply
 - `applied`: marked as applied
 - `skipped`: explicitly excluded from active queue
 - `expired`: deadline passed
@@ -52,17 +52,17 @@ It exists to ensure:
 
 See [Find jobs](/docs/next/features/pipeline-run) for the search review flow.
 
-### Target, tailor, and apply
+### Target and apply
 
 1. Select a discovered job and click **Target**, the single primary job action in Search Jobs.
-2. Open **In Progress Board** to see it in **Targeted**. Targeting does not call the LLM, generate a PDF, or submit an application.
-3. Choose **Tailor resume** on the board or job page, review the tailored content, and generate the PDF manually. The job stays in Targeted until you mark it Applied.
+2. Targeting prepares the job's resume in the background; the job shows **Preparing resume…** until it is ready. Targeting never submits an application.
+3. Click **Open resume** on the board or job page to edit the resume in the editor, or **Preview PDF** to render the editor resume. If preparation failed, click **Prepare resume** to retry. The job stays in Targeted until you mark it Applied.
 4. Apply on the employer's site, then mark the job **Applied** from the board or job page.
 5. Track **Recruiter Screen → Technical Interview → Behaviour Question → Team Match → Offer**. Rejections and withdrawals share **Reject**, with a withdrawn note for withdrawals.
 
-Click the targeted job's **Untarget** control to remove it from the shortlist. You cannot untarget while tailoring is processing. You can still **View JD**, **Edit details**, and **Copy info** in Search Jobs. Tailoring is available for targeted jobs; PDF, apply, skip, recalculate, and Ghostwriter actions are no longer part of the Search Jobs action menu.
+Click the targeted job's **Untarget** control to remove it from the shortlist. You cannot untarget while the resume is being prepared. You can still **Edit details** and **Copy info** in Search Jobs. Targeted jobs also offer **Open resume** and **Preview PDF**; apply, skip, recalculate, and Ghostwriter actions are no longer part of the Search Jobs action menu.
 
-The pipeline discovers and scores jobs; it does not automatically tailor them. A targeted job can remain internally `discovered` until you start tailoring. Its targeting date is retained after PDF generation.
+The pipeline discovers and scores jobs; it does not prepare resumes for them. Resume preparation starts when you click **Target**. If it fails, the job returns to `discovered` but stays targeted. Its targeting date is retained after PDF generation.
 
 When you select a job, the detail panel shows the available title, employer,
 status, and listing information immediately. A loading skeleton fills the
@@ -160,14 +160,14 @@ PDF generation uses:
 
 Common paths:
 
-- Target without tailoring: `POST /api/jobs/:id/target`
+- Target a job and prepare its resume in the background: `POST /api/jobs/:id/target`
 - Untarget: `DELETE /api/jobs/:id/target`
-- Manually tailor a discovered job: `POST /api/jobs/:id/process`
-- Ready regeneration: `POST /api/jobs/:id/generate-pdf`
+- Prepare (or retry) a targeted job's resume: `POST /api/jobs/:id/process`
+- Render the editor resume as a PDF: `POST /api/jobs/:id/generate-pdf`
 
-### Regenerating PDFs after edits (copy-pasteable examples)
+### Rendering the PDF after edits (copy-pasteable examples)
 
-If JD or tailoring changes, regenerate PDF to keep output in sync.
+Preview PDF and Download PDF render the editor resume again when the stored PDF is out of date. To do the same from the API:
 
 ```bash
 curl -X PATCH "http://localhost:3001/api/jobs/<jobId>" \
@@ -182,7 +182,6 @@ curl -X PATCH "http://localhost:3001/api/jobs/<jobId>" \
 ```
 
 ```bash
-curl -X POST "http://localhost:3001/api/jobs/<jobId>/summarize?force=true"
 curl -X POST "http://localhost:3001/api/jobs/<jobId>/generate-pdf"
 ```
 
@@ -202,8 +201,8 @@ curl -X POST "http://localhost:3001/api/jobs/<jobId>/generate-pdf"
 
 ### PDF does not reflect recent edits
 
-- Run summarize with `force=true` after changing the JD/tailoring.
-- Regenerate PDF after summarize completes.
+- Edit the resume with **Open resume**; the editor resume is the source of the PDF.
+- Click **Preview PDF**; it renders a fresh PDF when the stored one is out of date.
 
 ### Notes do not appear as expected
 

@@ -48,12 +48,16 @@ describe.sequential("Jobs API routes", () => {
     expect(body.meta.requestId).toBe("target-request");
     expect(res.headers.get("x-request-id")).toBe("target-request");
     if (eligible) {
-      expect(body.data.status).toBe(status);
+      expect(body.data.status).toBe(
+        status === "discovered" ? "processing" : status,
+      );
       expect(body.data.readyAt).toBeTruthy();
       const again = await fetch(`${baseUrl}/api/jobs/${job.id}/target`, {
         method: "POST",
       });
       expect((await again.json()).data.readyAt).toBe(body.data.readyAt);
+      // The mocked background generation never finishes; emulate it ending.
+      await updateJob(job.id, { status });
     } else expect(body.error.code).toBe("INVALID_REQUEST");
     const unres = await fetch(`${baseUrl}/api/jobs/${job.id}/target`, {
       method: "DELETE",
@@ -1625,6 +1629,54 @@ describe.sequential("Jobs API routes", () => {
     expect(typeof body.meta.requestId).toBe("string");
   });
 
+  it("refuses generate-pdf while the job's resume is being prepared", async () => {
+    const { createJob, updateJob } = await import("@server/repositories/jobs");
+    const { generateFinalPdf } = await import("@server/pipeline/index");
+    const job = await createJob({
+      source: "manual",
+      title: "Preparing",
+      employer: "Example Co",
+      jobUrl: "https://example.com/job/preparing",
+    });
+    await updateJob(job.id, { status: "processing" });
+    const res = await fetch(`${baseUrl}/api/jobs/${job.id}/generate-pdf`, {
+      method: "POST",
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe("CONFLICT");
+    expect(generateFinalPdf).not.toHaveBeenCalled();
+  });
+
+  it("releases jobs a dead run left processing or regenerating at startup", async () => {
+    const { createJob, updateJob, getJobById, resetInterruptedJobs } =
+      await import("@server/repositories/jobs");
+    const make = (slug: string) =>
+      createJob({
+        source: "manual",
+        title: slug,
+        employer: "Acme",
+        jobUrl: `https://example.com/job/${slug}`,
+      });
+    const stuck = await make("stuck");
+    const rendering = await make("rendering");
+    await updateJob(stuck.id, {
+      status: "processing",
+      readyAt: "2026-01-01T00:00:00Z",
+      pdfRegenerating: true,
+    });
+    await updateJob(rendering.id, { status: "ready", pdfRegenerating: true });
+    expect(await resetInterruptedJobs()).toBe(1);
+    expect(await getJobById(stuck.id)).toMatchObject({
+      status: "discovered",
+      readyAt: "2026-01-01T00:00:00Z",
+      pdfRegenerating: false,
+    });
+    expect(await getJobById(rendering.id)).toMatchObject({
+      status: "ready",
+      pdfRegenerating: false,
+    });
+  });
+
   it("returns 409 when patching to a duplicate job URL", async () => {
     const { createJob } = await import("@server/repositories/jobs");
     const first = await createJob({
@@ -1808,7 +1860,7 @@ describe.sequential("Jobs API routes", () => {
       jobUrl: "https://example.com/job/action-ready-2",
       jobDescription: "Test description",
     });
-    await updateJob(ready.id, { status: "ready" });
+    await updateJob(ready.id, { status: "applied" });
     const { processJob } = await import("@server/pipeline/index");
     const previousBaseUrl = process.env.JOBOPS_PUBLIC_BASE_URL;
     process.env.JOBOPS_PUBLIC_BASE_URL = "https://canonical.jobops.example";
@@ -1829,7 +1881,6 @@ describe.sequential("Jobs API routes", () => {
       expect(body.data.failed).toBe(1);
       expect(vi.mocked(processJob)).toHaveBeenCalledWith(discovered.id, {
         analyticsOrigin: "move_to_ready",
-        force: false,
         requestOrigin: "https://canonical.jobops.example",
       });
       expect(
@@ -1867,7 +1918,6 @@ describe.sequential("Jobs API routes", () => {
       expect(body.ok).toBe(true);
       expect(vi.mocked(processJob)).toHaveBeenCalledWith(job.id, {
         analyticsOrigin: "move_to_ready",
-        force: false,
         requestOrigin: "https://canonical.jobops.example",
       });
     } finally {

@@ -129,7 +129,7 @@ async function drainQueue(): Promise<void> {
 function shouldTopUpReadyPdfRegeneration(
   reason: AutoPdfRegenerationReason,
 ): boolean {
-  return reason === "design_resume_updated" || reason === "settings_changed";
+  return reason === "settings_changed";
 }
 
 async function getStaleReadyGeneratedPdfJobs(limit: number): Promise<Job[]> {
@@ -292,7 +292,8 @@ export async function enqueueAutoPdfRegenerationForSettingsChanges(input: {
   });
 }
 
-export function shouldEnqueueTailoringAutoPdfRegeneration(
+/** The editor document owns content; only render-time job-row overlays trigger a re-render. */
+export function shouldEnqueueTracerAutoPdfRegeneration(
   previousJob: Job,
   nextJob: Job,
 ): boolean {
@@ -300,11 +301,6 @@ export function shouldEnqueueTailoringAutoPdfRegeneration(
   if (nextJob.pdfSource !== "generated") return false;
 
   return (
-    previousJob.tailoredSummary !== nextJob.tailoredSummary ||
-    previousJob.tailoredHeadline !== nextJob.tailoredHeadline ||
-    previousJob.tailoredSkills !== nextJob.tailoredSkills ||
-    previousJob.selectedProjectIds !== nextJob.selectedProjectIds ||
-    previousJob.jobDescription !== nextJob.jobDescription ||
     previousJob.tracerLinksEnabled !== nextJob.tracerLinksEnabled ||
     previousJob.employer !== nextJob.employer
   );

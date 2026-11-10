@@ -1,6 +1,7 @@
 import { createJob } from "@shared/testing/factories.js";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { JobPageRightSidebar } from "./JobPageRightSidebar";
 
@@ -39,42 +40,51 @@ function renderRightSidebar(overrides: Parameters<typeof createJob>[0] = {}) {
   });
 
   return render(
-    <JobPageRightSidebar
-      job={job}
-      tasks={[]}
-      jobLink={job.jobUrl}
-      isDiscovered={job.status === "discovered"}
-      isReady={job.status === "ready"}
-      isApplied={job.status === "applied"}
-      isInProgress={job.status === "in_progress"}
-      canLogEvents={false}
-      isBusy={false}
-      isUploadingPdf={false}
-      pdfActionsDisabled={false}
-      pdfRegeneratingReason={null}
-      pdfViewLabel="View old PDF"
-      pdfDownloadLabel="Download old PDF"
-      onStartTailoring={noop}
-      onMarkApplied={noop}
-      onOpenLogEvent={noop}
-      onEditTailoring={noop}
-      onViewPdf={noop}
-      onDownloadPdf={noop}
-      onUploadPdf={noop}
-      onRegeneratePdf={noop}
-      onSkip={noop}
-      onOpenEditDetails={noop}
-      onViewJobDescription={noop}
-      onCopyJobInfo={noop}
-      onRescore={noop}
-      onCheckSponsor={noop}
-    />,
+    <MemoryRouter>
+      <JobPageRightSidebar
+        job={job}
+        tasks={[]}
+        jobLink={job.jobUrl}
+        isDiscovered={job.status === "discovered"}
+        isReady={job.status === "ready"}
+        isApplied={job.status === "applied"}
+        isInProgress={job.status === "in_progress"}
+        canLogEvents={false}
+        isBusy={false}
+        isUploadingPdf={false}
+        pdfActionsDisabled={false}
+        pdfRegeneratingReason={null}
+        pdfViewLabel="Preview PDF"
+        pdfDownloadLabel="Download PDF"
+        onTarget={noop}
+        onPrepareResume={noop}
+        onMarkApplied={noop}
+        onOpenLogEvent={noop}
+        onViewPdf={noop}
+        onDownloadPdf={noop}
+        onUploadPdf={noop}
+        onSkip={noop}
+        onOpenEditDetails={noop}
+        onViewJobDescription={noop}
+        onCopyJobInfo={noop}
+        onRescore={noop}
+        onCheckSponsor={noop}
+      />
+    </MemoryRouter>,
   );
 }
 
 describe("JobPageRightSidebar actions", () => {
   it("includes the orchestrator detail menu actions on the job page", () => {
     renderRightSidebar();
+    expect(screen.getAllByRole("link", { name: "Open resume" })).toHaveLength(
+      1,
+    );
+    expect(screen.getByRole("link", { name: "Open resume" })).toHaveAttribute(
+      "href",
+      "/resumes/job-1",
+    );
+    expect(screen.queryByText(/tailoring/i)).toBeNull();
 
     expect(
       screen.getByRole("button", { name: /edit details/i }),
@@ -92,11 +102,30 @@ describe("JobPageRightSidebar actions", () => {
       screen.getAllByRole("button", { name: /replace pdf/i }).length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByRole("button", { name: /view old pdf/i }).length,
+      screen.getAllByRole("button", { name: /preview pdf/i }).length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getByRole("button", { name: /download old pdf/i }),
+      screen.getByRole("button", { name: /download pdf/i }),
     ).toBeInTheDocument();
+  });
+
+  it.each([
+    ["processing", "2026-06-01", "Preparing resume…"],
+    ["discovered", null, "Target"],
+    ["discovered", "2026-06-01", "Prepare resume"],
+  ] as const)("offers only %s/%s -> %s before the resume is available", (status, readyAt, label) => {
+    renderRightSidebar({
+      status,
+      readyAt,
+      pdfPath: null,
+      pdfFreshness: "missing",
+    });
+    expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
+    // only the (disabled-by-parent) dropdown item remains
+    expect(
+      screen.getAllByRole("button", { name: /preview pdf/i }),
+    ).toHaveLength(1);
   });
 
   it("uses upload wording when the job has no resume PDF", () => {
@@ -105,6 +134,5 @@ describe("JobPageRightSidebar actions", () => {
     expect(
       screen.getAllByRole("button", { name: /upload pdf/i }).length,
     ).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: /download pdf/i })).toBeNull();
   });
 });

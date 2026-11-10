@@ -38,6 +38,7 @@ import {
   useCheckSponsorMutation,
   useGenerateJobPdfMutation,
   useMarkAsAppliedMutation,
+  usePrepareResumeMutation,
   useRescoreJobMutation,
   useSkipJobMutation,
   useUpdateJobMutation,
@@ -52,11 +53,11 @@ import { getRenderableJobDescription } from "@/client/lib/jobDescription";
 import { logJobStageEvent } from "@/client/lib/logJobStageEvent";
 import { resolveFilenameLanguage } from "@/client/lib/pdf-filename";
 import {
-  getPdfActionLabels,
+  getResumeState,
   isPdfRegenerating,
   isPdfStale,
+  needsRender,
   PDF_REGENERATING_MESSAGE,
-  STALE_PDF_MESSAGE,
 } from "@/client/lib/pdf-freshness";
 import { downloadJobPdf, openJobPdf } from "@/client/lib/private-pdf";
 import { queryKeys } from "@/client/lib/queryKeys";
@@ -168,6 +169,11 @@ export const JobPage: React.FC = () => {
     queryKey: ["jobs", "detail", id ?? null] as const,
     queryFn: () => (id ? api.getJob(id) : Promise.resolve(null)),
     enabled: Boolean(id) && activeAction !== "delete-job",
+    refetchInterval: (query) =>
+      query.state.data?.status === "processing" ||
+      query.state.data?.pdfRegenerating
+        ? 2000
+        : false,
   });
   const eventsQuery = useQuery<StageEvent[]>({
     queryKey: ["jobs", "stage-events", id ?? null] as const,
@@ -203,6 +209,7 @@ export const JobPage: React.FC = () => {
   const skipJobMutation = useSkipJobMutation();
   const rescoreJobMutation = useRescoreJobMutation();
   const generatePdfMutation = useGenerateJobPdfMutation();
+  const prepareResumeMutation = usePrepareResumeMutation();
   const checkSponsorMutation = useCheckSponsorMutation();
 
   const job = jobQuery.data ?? null;
@@ -432,13 +439,25 @@ export const JobPage: React.FC = () => {
     });
   };
 
-  const handleRegeneratePdf = async () => {
-    await runAction("regenerate-pdf", async () => {
-      if (!job) return;
-      await generatePdfMutation.mutateAsync(job.id);
-      toast.success("Resume PDF generated");
-    });
+  const handlePreviewPdf = () => {
+    if (!job || pdfActionsDisabled) return;
+    void openJobPdf(job.id, async () => {
+      if (needsRender(job)) await generatePdfMutation.mutateAsync(job.id);
+    }).catch((error) => showErrorToast(error, "Could not preview PDF"));
   };
+
+  const handleTarget = () =>
+    void runAction("target", async () => {
+      if (!job) return;
+      await api.targetJob(job.id);
+      await invalidateJobData(queryClient, job.id);
+    });
+
+  const handlePrepareResume = () =>
+    void runAction("prepare-resume", async () => {
+      if (!job) return;
+      await prepareResumeMutation.mutateAsync(job.id);
+    });
 
   const handleCheckSponsor = async () => {
     await runAction("check-sponsor", async () => {
@@ -493,13 +512,16 @@ export const JobPage: React.FC = () => {
   };
 
   const handleDownloadPdf = async () => {
-    if (!job || !job.pdfPath || pdfActionsDisabled) return;
+    if (!job || pdfActionsDisabled) return;
     const filename = `${safeFilenamePart(job.employer, {
       language: filenameLanguage,
     })}-${safeFilenamePart(job.title, {
       language: filenameLanguage,
     })}-resume.pdf`;
-    await downloadJobPdf(job.id, filename).catch((error) => {
+    await (async () => {
+      if (needsRender(job)) await generatePdfMutation.mutateAsync(job.id);
+      await downloadJobPdf(job.id, filename);
+    })().catch((error) => {
       showErrorToast(error, "Could not download PDF");
     });
   };
@@ -533,11 +555,15 @@ export const JobPage: React.FC = () => {
   const isBusy = activeAction !== null;
   const isRegeneratingPdf = isPdfRegenerating(job);
   const isStalePdf = isPdfStale(job);
-  const pdfLabels = getPdfActionLabels(job);
+  const pdfLabels = { view: "Preview PDF", download: "Download PDF" };
   const pdfRegeneratingReason = isRegeneratingPdf
     ? PDF_REGENERATING_MESSAGE
     : null;
-  const pdfActionsDisabled = !job?.pdfPath || isRegeneratingPdf;
+  const resumeState = job ? getResumeState(job) : null;
+  const pdfActionsDisabled =
+    resumeState !== "available" ||
+    isRegeneratingPdf ||
+    generatePdfMutation.isPending;
   const isDiscovered = job?.status === "discovered";
   const isReady = job?.status === "ready";
   const baseJobPath = id ? `/job/${id}` : "";
@@ -582,31 +608,45 @@ export const JobPage: React.FC = () => {
             >
               {stageLabel}
             </Badge>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => navigate(`/resumes/${job.id}`)}
-            >
-              Co-work
-            </Button>
-            {isTargeted(job) && (
+            {resumeState === "available" && (
+              <>
+                <Button size="sm" variant="outline" asChild>
+                  <Link to={`/resumes/${job.id}`}>Open resume</Link>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pdfActionsDisabled}
+                  onClick={handlePreviewPdf}
+                >
+                  Preview PDF
+                </Button>
+              </>
+            )}
+            {resumeState === "preparing" && (
+              <Button size="sm" variant="outline" disabled>
+                Preparing resume…
+              </Button>
+            )}
+            {resumeState === "unprepared" && (
               <Button
                 size="sm"
                 variant="outline"
-                disabled={
-                  isBusy || job.status === "processing" || isRegeneratingPdf
-                }
-                onClick={() =>
-                  job.status === "discovered"
-                    ? navigate(`/jobs/all/${job.id}?inspector=tailoring`)
-                    : void handleRegeneratePdf()
-                }
+                disabled={isBusy}
+                title="Resume not prepared yet"
+                onClick={handlePrepareResume}
               >
-                {job.status === "processing" || isRegeneratingPdf
-                  ? "Tailoring…"
-                  : job.pdfPath
-                    ? "Regenerate resume"
-                    : "Tailor resume"}
+                Prepare resume
+              </Button>
+            )}
+            {resumeState === "untargeted" && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isBusy}
+                onClick={handleTarget}
+              >
+                Target
               </Button>
             )}
             <Button
@@ -714,14 +754,21 @@ export const JobPage: React.FC = () => {
                         <FileText className="h-4 w-4 text-primary" />
                         Documents
                       </div>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {job.pdfPath ? "Resume ready" : "No resume PDF"}
-                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pdfActionsDisabled}
+                        onClick={handlePreviewPdf}
+                      >
+                        Preview PDF
+                      </Button>
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <div className="rounded-lg border border-border/50 bg-background/25 p-3">
                         <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                          Resume PDF
+                          {job.pdfSource === "uploaded"
+                            ? "Uploaded PDF (not from the editor)"
+                            : "Resume PDF"}
                         </div>
                         <div className="mt-2 text-sm font-medium">
                           {job.pdfPath ? "Stored for this job" : "Missing"}
@@ -840,20 +887,10 @@ export const JobPage: React.FC = () => {
                   pdfRegeneratingReason={pdfRegeneratingReason}
                   pdfViewLabel={pdfLabels.view}
                   pdfDownloadLabel={pdfLabels.download}
-                  stalePdfMessage={STALE_PDF_MESSAGE}
                   onUploadPdf={() => uploadPdfInputRef.current?.click()}
-                  onViewPdf={() => {
-                    if (pdfActionsDisabled) return;
-                    void openJobPdf(job.id).catch((error) => {
-                      toast.error(
-                        error instanceof Error
-                          ? error.message
-                          : "Could not open PDF",
-                      );
-                    });
-                  }}
+                  onPrepareResume={handlePrepareResume}
+                  onViewPdf={handlePreviewPdf}
                   onDownloadPdf={() => void handleDownloadPdf()}
-                  onRegeneratePdf={() => void handleRegeneratePdf()}
                 />
 
                 <JobBriefPane job={job} />
@@ -962,27 +999,13 @@ export const JobPage: React.FC = () => {
               pdfRegeneratingReason={pdfRegeneratingReason}
               pdfViewLabel={pdfLabels.view}
               pdfDownloadLabel={pdfLabels.download}
-              onStartTailoring={() =>
-                navigate(`/jobs/all/${job.id}?inspector=tailoring`)
-              }
+              onTarget={handleTarget}
+              onPrepareResume={handlePrepareResume}
               onMarkApplied={() => void handleMarkApplied()}
               onOpenLogEvent={() => setIsLogModalOpen(true)}
-              onEditTailoring={() =>
-                navigate(`/jobs/all/${job.id}?inspector=tailoring`)
-              }
-              onViewPdf={() => {
-                if (pdfActionsDisabled) return;
-                void openJobPdf(job.id).catch((error) => {
-                  toast.error(
-                    error instanceof Error
-                      ? error.message
-                      : "Could not open PDF",
-                  );
-                });
-              }}
+              onViewPdf={handlePreviewPdf}
               onDownloadPdf={() => void handleDownloadPdf()}
               onUploadPdf={() => uploadPdfInputRef.current?.click()}
-              onRegeneratePdf={() => void handleRegeneratePdf()}
               onSkip={() => void handleSkip()}
               onOpenEditDetails={openEditDetails}
               onViewJobDescription={handleViewJobDescription}

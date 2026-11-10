@@ -624,8 +624,8 @@ export const ManualImportFlow: React.FC<ManualImportFlowProps> = ({
       });
       toast.success("Job imported", {
         description: skipTailoring
-          ? "Saved to Discovered without tailoring. You can tailor it anytime from the job detail view."
-          : "The job was tailored and moved to the ready column.",
+          ? "Saved to Discovered. Target it anytime to prepare its resume."
+          : "The job is targeted and its resume is being prepared.",
       });
       await onImported({
         jobId: created.id,
@@ -1033,11 +1033,11 @@ export const ManualImportFlow: React.FC<ManualImportFlowProps> = ({
                   htmlFor="tailor-after-import"
                   className="cursor-pointer text-sm font-medium leading-none"
                 >
-                  Tailor automatically after import
+                  Target and prepare resume after import
                 </label>
                 <p className="text-xs text-muted-foreground">
                   Off saves LLM tokens — the job lands in Discovered and you can
-                  tailor it later from the job detail view. Default comes from
+                  Target it later to prepare its resume. Default comes from
                   Settings → Display.
                 </p>
               </div>
@@ -1066,8 +1066,8 @@ export const ManualImportFlow: React.FC<ManualImportFlowProps> = ({
                 {isImporting
                   ? "Importing..."
                   : tailorAfterImport
-                    ? "Import & tailor"
-                    : "Import without tailoring"}
+                    ? "Import & target"
+                    : "Import without targeting"}
               </Button>
             </div>
           </div>
@@ -1137,7 +1137,7 @@ export const ManualImportFlow: React.FC<ManualImportFlowProps> = ({
                   htmlFor="bulk-tailor-after-import"
                   className="cursor-pointer text-sm font-medium leading-none"
                 >
-                  Tailor automatically after import
+                  Target and prepare resume after import
                 </label>
                 <p className="text-xs text-muted-foreground">
                   Turn this off to save LLM tokens and leave jobs in Discovered.

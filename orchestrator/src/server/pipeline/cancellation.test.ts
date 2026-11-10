@@ -62,7 +62,6 @@ vi.mock("./steps", () => ({
   })),
   scoreJobsStep: vi.fn(async () => ({ unprocessedJobs: [], scoredJobs: [] })),
   selectJobsStep: vi.fn(() => []),
-  processJobsStep: vi.fn(async () => ({ processedCount: 0 })),
   notifyPipelineWebhookStep: vi.fn(async () => undefined),
 }));
 
@@ -117,5 +116,28 @@ describe.sequential("pipeline cancellation", () => {
     );
     expect(pipeline.getPipelineStatus().isRunning).toBe(false);
     expect(pipeline.isPipelineCancelRequested()).toBe(false);
+  });
+  it("scores and selects without generating resumes, PDFs, or targeting jobs", async () => {
+    const pipeline = await import("./orchestrator");
+    const pipelineRepo = await import("../repositories/pipeline");
+    const steps = await import("./steps");
+    const jobsRepo = await import("../repositories/jobs");
+    const targeted = vi.spyOn(jobsRepo, "setJobTargeted");
+    vi.mocked(steps.selectJobsStep).mockReturnValue([
+      { id: "selected-job" },
+    ] as never);
+    const run = pipeline.runPipeline({ sources: [] });
+    await vi.waitFor(() => expect(steps.discoverJobsStep).toHaveBeenCalled());
+    stepState.resolveDiscover();
+    const result = await run;
+    expect(result.success).toBe(true);
+    expect(result.jobsProcessed).toBe(0);
+    expect(steps.selectJobsStep).toHaveBeenCalled();
+    expect(targeted).not.toHaveBeenCalled();
+    expect(pipelineRepo.updatePipelineRun).toHaveBeenCalledWith(
+      "run-cancel-1",
+      expect.objectContaining({ status: "completed", jobsProcessed: 0 }),
+    );
+    targeted.mockRestore();
   });
 });

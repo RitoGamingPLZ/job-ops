@@ -708,14 +708,20 @@ export async function finalizeGeneratedPdfIfCurrent(input: {
   const result = await db
     .update(jobs)
     .set({
-      status: "ready",
+      // processing -> ready (ready stays ready); any other status is left as it is.
+      ...(input.expectedStatus === "processing" ||
+      input.expectedStatus === "ready"
+        ? {
+            status: "ready" as const,
+            readyAt: sql`coalesce(${jobs.readyAt}, ${now})`,
+          }
+        : {}),
       pdfPath: input.pdfPath,
       pdfSource: "generated",
       pdfRegenerating: false,
       pdfFingerprint: input.pdfFingerprint,
       pdfGeneratedAt: input.pdfGeneratedAt,
       updatedAt: now,
-      readyAt: sql`coalesce(${jobs.readyAt}, ${now})`,
     })
     .where(and(...conditions))
     .run();
@@ -835,6 +841,22 @@ export async function deleteJobsByStatus(status: JobStatus): Promise<number> {
     )
     .run();
   return result.changes;
+}
+
+/** Boot only, all tenants: no run survives a restart, so release jobs a dead run left claimed. */
+export async function resetInterruptedJobs(): Promise<number> {
+  const now = new Date().toISOString();
+  const released = await db
+    .update(jobs)
+    .set({ status: "discovered", updatedAt: now })
+    .where(eq(jobs.status, "processing"))
+    .run();
+  await db
+    .update(jobs)
+    .set({ pdfRegenerating: false, updatedAt: now })
+    .where(eq(jobs.pdfRegenerating, true))
+    .run();
+  return released.changes;
 }
 
 /** Set targeting without changing pipeline status; guard the write atomically. */

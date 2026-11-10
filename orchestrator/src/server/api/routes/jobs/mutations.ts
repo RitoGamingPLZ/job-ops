@@ -13,7 +13,7 @@ import { type Request, type Response, Router } from "express";
 import {
   hydrateJobPdfFreshness,
   isJobUrlConflictError,
-  queueTailoringAutoPdfRegenerationIfNeeded,
+  queueTracerAutoPdfRegenerationIfNeeded,
   toJobsRouteError,
   updateJobSchema,
 } from "./shared";
@@ -150,7 +150,7 @@ jobsMutationsRouter.patch("/:id", async (req: Request, res: Response) => {
       source: "jobs_patch_route",
     });
     ok(res, await hydrateJobPdfFreshness(job));
-    queueTailoringAutoPdfRegenerationIfNeeded(
+    queueTracerAutoPdfRegenerationIfNeeded(
       currentJob,
       job,
       "PATCH /api/jobs/:id",

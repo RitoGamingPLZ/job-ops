@@ -1,15 +1,10 @@
-import {
-  AppError,
-  conflict,
-  notFound,
-  requestTimeout,
-  toAppError,
-} from "@infra/errors";
+import { AppError, conflict, requestTimeout, toAppError } from "@infra/errors";
 import { fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
-import { processJob } from "@server/pipeline/index";
+import { resolveRequestOrigin } from "@infra/request-origin";
 import * as jobsRepo from "@server/repositories/jobs";
 import { getSetting } from "@server/repositories/settings";
+import { targetJobInBackground } from "@server/services/jobs/actions";
 import { inferManualJobDetails } from "@server/services/manualJob";
 import { getProfile } from "@server/services/profile";
 import { scoreJobSuitability } from "@server/services/scorer";
@@ -321,40 +316,11 @@ manualJobsRouter.post("/import", async (req: Request, res: Response) => {
       return;
     }
 
-    const processResult = await processJob(createdJob.id, {
+    const processedJob = await targetJobInBackground(createdJob.id, {
       analyticsOrigin: "manual_job_create",
+      requestOrigin: resolveRequestOrigin(req),
     });
-    if (!processResult.success) {
-      logger.warn("Manual job auto-processing failed", {
-        jobId: createdJob.id,
-        error: processResult.error ?? "Unknown error",
-      });
-      return fail(
-        res,
-        new AppError({
-          status: 502,
-          code: "UPSTREAM_ERROR",
-          message:
-            processResult.error ||
-            "Imported job but failed to move it to ready automatically",
-          details: { jobId: createdJob.id },
-        }),
-      );
-    }
-
-    const processedJob = await jobsRepo.getJobById(createdJob.id);
-    if (!processedJob) {
-      return fail(res, notFound("Job not found"));
-    }
-
-    const scoringJob = await jobsRepo.updateJob(processedJob.id, {
-      status: "processing",
-    });
-    if (!scoringJob) {
-      return fail(res, notFound("Job not found"));
-    }
-
-    ok(res, scoringJob);
+    ok(res, processedJob);
 
     // Score asynchronously so the import returns immediately with a processing state.
     void (async () => {
@@ -376,7 +342,6 @@ manualJobsRouter.post("/import", async (req: Request, res: Response) => {
         } = await scoreJobSuitability(processedJob, profile);
         await jobsRepo.updateJob(processedJob.id, {
           ...jobUpdates,
-          status: "ready",
           suitabilityScore: score,
           suitabilityReason: reason,
           jobBrief,
@@ -386,7 +351,6 @@ manualJobsRouter.post("/import", async (req: Request, res: Response) => {
           jobId: processedJob.id,
           error,
         });
-        await jobsRepo.updateJob(processedJob.id, { status: "ready" });
       }
     })().catch((error) => {
       logger.warn("Manual job scoring task failed to start", {

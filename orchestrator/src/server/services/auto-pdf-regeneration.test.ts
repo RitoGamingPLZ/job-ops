@@ -60,7 +60,7 @@ vi.mock("./pdf-fingerprint", () => ({
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import {
   enqueueAutoPdfRegenerationForSettingsChanges,
-  shouldEnqueueTailoringAutoPdfRegeneration,
+  shouldEnqueueTracerAutoPdfRegeneration,
 } from "./auto-pdf-regeneration";
 import { resolvePdfFingerprintContext } from "./pdf-fingerprint";
 
@@ -322,19 +322,22 @@ describe("auto PDF regeneration", () => {
     );
   });
 
-  it("marks ready generated jobs stale when tailoring fields change", () => {
+  it("re-renders ready generated jobs on tracer/employer changes only", () => {
     const previous = createJob({
       status: "ready",
       pdfSource: "generated",
       tailoredSummary: "before",
+      tracerLinksEnabled: false,
     });
-    const next = createJob({
-      status: "ready",
-      pdfSource: "generated",
-      tailoredSummary: "after",
-    });
+    const retailored = { ...previous, tailoredSummary: "after" };
+    const traced = { ...previous, tracerLinksEnabled: true };
+    const renamed = { ...previous, employer: "Renamed Co" };
 
-    expect(shouldEnqueueTailoringAutoPdfRegeneration(previous, next)).toBe(
+    expect(shouldEnqueueTracerAutoPdfRegeneration(previous, retailored)).toBe(
+      false,
+    );
+    expect(shouldEnqueueTracerAutoPdfRegeneration(previous, traced)).toBe(true);
+    expect(shouldEnqueueTracerAutoPdfRegeneration(previous, renamed)).toBe(
       true,
     );
   });
@@ -343,16 +346,14 @@ describe("auto PDF regeneration", () => {
     const previous = createJob({
       status: "ready",
       pdfSource: "uploaded",
-      tailoredSummary: "before",
+      tracerLinksEnabled: false,
     });
     const next = createJob({
       status: "ready",
       pdfSource: "uploaded",
-      tailoredSummary: "after",
+      tracerLinksEnabled: true,
     });
 
-    expect(shouldEnqueueTailoringAutoPdfRegeneration(previous, next)).toBe(
-      false,
-    );
+    expect(shouldEnqueueTracerAutoPdfRegeneration(previous, next)).toBe(false);
   });
 });

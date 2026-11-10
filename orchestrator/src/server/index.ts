@@ -8,6 +8,7 @@ import { sanitizeUnknown } from "@infra/sanitize";
 import { createApp } from "./app";
 import { initializeExtractorRegistry } from "./extractors/registry";
 import { deleteExpiredOrRevokedAuthSessions } from "./repositories/auth-sessions";
+import { resetInterruptedJobs } from "./repositories/jobs";
 import * as settingsRepo from "./repositories/settings";
 import { initializeActivationAnalyticsSafely } from "./services/activation-funnel";
 import {
@@ -57,6 +58,12 @@ async function startServer() {
     );
     return;
   }
+
+  const releasedJobs = await resetInterruptedJobs();
+  if (releasedJobs > 0)
+    logger.warn("Released jobs left processing by a previous run", {
+      count: releasedJobs,
+    });
 
   const app = createApp();
   const PORT = process.env.PORT || 3001;

@@ -116,7 +116,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
       setJob(nextJob);
       publish(next);
       dirty.current = false;
-      setStatus(next.exists ? "Saved" : "Base resume · edit to save a copy");
+      setStatus("Saved");
     } catch (failure) {
       if (mounted.current) setError(failure);
     }
@@ -477,11 +477,6 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           Download PDF
         </Button>
       </header>
-      {state.exists && (
-        <p className="text-xs text-muted-foreground">
-          This job uses its co-work copy; Reset to base to re-tailor
-        </p>
-      )}
       <div
         className="flex gap-2 xl:hidden"
         role="tablist"
@@ -731,8 +726,8 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset to base?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes this job’s co-work copy and its edits.
-              This action cannot be undone.
+              This discards your edits to this job’s resume and rebuilds it from
+              your base resume and this job’s tailoring. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -2,10 +2,13 @@ import { listResumes } from "@client/api/cowork";
 import type { ResumeListItem } from "@shared/types";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import * as api from "@/client/api";
 import {
   coworkError,
   DutyLibrary,
 } from "@/client/components/cowork/DutyLibrary";
+import { useGenerateJobPdfMutation } from "@/client/hooks/queries/useJobMutations";
+import { getResumeState, needsRender } from "@/client/lib/pdf-freshness";
 import { openJobPdf } from "@/client/lib/private-pdf";
 import { Button } from "@/components/ui/button";
 
@@ -14,6 +17,7 @@ export function ResumesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const generatePdf = useGenerateJobPdfMutation();
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt explicitly triggers a retry.
   useEffect(() => {
     setLoading(true);
@@ -45,7 +49,7 @@ export function ResumesPage() {
         </Button>
       </div>
       <p className="text-sm text-muted-foreground">
-        Open a job’s resume to co-work on its content.
+        Open a job’s resume to edit it in the editor, or preview its PDF.
       </p>
       {loading ? (
         <output>Loading resumes…</output>
@@ -75,12 +79,16 @@ export function ResumesPage() {
               {items.map((item) => (
                 <tr key={item.jobId} className="border-b">
                   <td className="p-3">
-                    <Link
-                      className="underline underline-offset-4"
-                      to={`/resumes/${item.jobId}`}
-                    >
-                      {item.title}
-                    </Link>
+                    {getResumeState(item) === "available" ? (
+                      <Link
+                        className="underline underline-offset-4"
+                        to={`/resumes/${item.jobId}`}
+                      >
+                        {item.title}
+                      </Link>
+                    ) : (
+                      item.title
+                    )}
                   </td>
                   <td className="p-3">{item.employer}</td>
                   <td className="p-3">{item.stage ?? "—"}</td>
@@ -88,20 +96,27 @@ export function ResumesPage() {
                     {new Date(item.updatedAt).toLocaleString()}
                   </td>
                   <td className="p-3">
-                    {item.hasPdf ? (
-                      <a
-                        href={`/api/jobs/${encodeURIComponent(item.jobId)}/pdf`}
-                        className="underline"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          void openJobPdf(item.jobId).catch(coworkError);
-                        }}
-                      >
-                        PDF: Ready
-                      </a>
-                    ) : (
-                      "—"
-                    )}
+                    <Button
+                      variant="link"
+                      className="h-auto p-0"
+                      disabled={
+                        generatePdf.isPending &&
+                        generatePdf.variables === item.jobId
+                      }
+                      onClick={() =>
+                        void openJobPdf(item.jobId, async () => {
+                          const job = await api.getJob(item.jobId);
+                          if (getResumeState(job) === "preparing")
+                            throw new Error(
+                              "Preparing resume… Preview it when it is ready.",
+                            );
+                          if (needsRender(job))
+                            await generatePdf.mutateAsync(item.jobId);
+                        }).catch(coworkError)
+                      }
+                    >
+                      Preview PDF
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -110,7 +125,7 @@ export function ResumesPage() {
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          No job resumes yet. Open a Targeted job and choose Co-work.
+          No resumes yet. Target a job to create its resume.
         </p>
       )}
     </main>

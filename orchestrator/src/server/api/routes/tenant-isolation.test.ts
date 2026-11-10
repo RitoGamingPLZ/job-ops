@@ -56,6 +56,14 @@ async function importManualJob(baseUrl: string, token: string, title: string) {
   const body = await res.json();
   expect(res.status).toBe(200);
   expect(body.ok).toBe(true);
+  expect(body.data.status).toBe("processing");
+  // The mocked background generation never finishes; emulate it ending.
+  const settled = await fetch(`${baseUrl}/api/jobs/${body.data.id}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ status: "discovered" }),
+  });
+  expect(settled.status).toBe(200);
   return body.data as { id: string; title: string };
 }
 

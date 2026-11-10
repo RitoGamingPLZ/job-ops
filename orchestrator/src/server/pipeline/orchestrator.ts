@@ -12,11 +12,14 @@ import type { AppErrorCode } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { trackServerProductEvent } from "@infra/product-analytics";
 import { runWithRequestContext } from "@infra/request-context";
+import { getJobResume } from "@server/repositories/job-resumes";
+import { ensureJobResume } from "@server/services/job-resume";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import { createLocationIntentFromLegacyInputs } from "@shared/location-domain.js";
 import { resolveResumeProjectSelection } from "@shared/resume-projects";
 import type {
   CreateJobInput,
+  Job,
   JobStatus,
   PipelineConfig,
   PipelineRunSavedDetails,
@@ -59,7 +62,6 @@ import {
   importJobsStep,
   loadProfileStep,
   notifyPipelineWebhookStep,
-  processJobsStep,
   scoreJobsStep,
   selectJobsStep,
 } from "./steps";
@@ -610,12 +612,7 @@ export async function runPipeline(
         jobsScored: scoredJobs.length,
         jobsSelected: jobsToProcess.length,
       });
-      const { processedCount } = await processJobsStep({
-        jobsToProcess,
-        processJob,
-        shouldCancel: () =>
-          getPipelineState(scopeKey).cancelRequestedAt !== null,
-      });
+      const processedCount = 0;
       jobsProcessed = processedCount;
 
       resultSummary = updatePipelineRunResultSummary(resultSummary, {
@@ -958,9 +955,12 @@ export async function generateFinalPdf(
       jobStatusToRestore = job.status;
       await reservePdfUsage();
 
-      // Ready jobs already have a usable PDF; keep them visible while regenerating.
+      // Only an unprepared job moves through processing -> ready. Every other
+      // status (ready, applied, in_progress, ...) keeps its status while rendering.
+      const movesToReady =
+        job.status === "discovered" || job.status === "processing";
       const claimedJob = await jobsRepo.updateJob(job.id, {
-        ...(job.status !== "ready" ? { status: "processing" } : {}),
+        ...(movesToReady ? { status: "processing" } : {}),
         pdfRegenerating: true,
       });
       if (!claimedJob) {
@@ -970,23 +970,15 @@ export async function generateFinalPdf(
       pdfRegeneratingMarked = true;
 
       // Capture freshness before rendering so an autosave during rendering stays stale.
+      await ensureJobResume(job.id, {
+        requestOrigin: options?.requestOrigin ?? null,
+      });
       const fingerprintContext = await resolvePdfFingerprintContext();
-      const pdfResult = await generatePdf(
-        job.id,
-        {
-          summary: job.tailoredSummary || "",
-          headline: job.tailoredHeadline || "",
-          skills: job.tailoredSkills ? JSON.parse(job.tailoredSkills) : [],
-        },
-        job.jobDescription || "",
-        undefined, // deprecated baseResumePath parameter
-        job.selectedProjectIds,
-        {
-          tracerLinksEnabled: job.tracerLinksEnabled,
-          requestOrigin: options?.requestOrigin ?? null,
-          tracerCompanyName: job.employer ?? null,
-        },
-      );
+      const pdfResult = await generatePdf(job.id, job.jobDescription || "", {
+        tracerLinksEnabled: job.tracerLinksEnabled,
+        requestOrigin: options?.requestOrigin ?? null,
+        tracerCompanyName: job.employer ?? null,
+      });
 
       if (!pdfResult.success) {
         await jobsRepo.updateJob(job.id, {
@@ -996,7 +988,7 @@ export async function generateFinalPdf(
         pdfRegeneratingMarked = false;
         await settlePdfUsage(0);
         const preservedPdfMessage =
-          job.status === "ready" && job.pdfPath
+          !movesToReady && job.pdfPath
             ? " Your previous resume PDF is still available."
             : "";
         return {
@@ -1012,13 +1004,14 @@ export async function generateFinalPdf(
       }
 
       const pdfFingerprint = createJobPdfFingerprint(job, fingerprintContext);
-      const expectedStatusAtCommit: JobStatus =
-        job.status === "ready" ? "ready" : "processing";
+      const expectedStatusAtCommit: JobStatus = movesToReady
+        ? "processing"
+        : job.status;
 
       const updatedJob = await jobsRepo.finalizeGeneratedPdfIfCurrent({
         id: job.id,
         expectedStatus: expectedStatusAtCommit,
-        requireGeneratedSource: job.status === "ready",
+        requireGeneratedSource: !movesToReady,
         pdfPath: pdfResult.pdfPath,
         pdfFingerprint,
         pdfGeneratedAt: new Date().toISOString(),
@@ -1035,7 +1028,7 @@ export async function generateFinalPdf(
         if (
           latestJob?.pdfRegenerating &&
           (latestJob.status !== expectedStatusAtCommit ||
-            (job.status === "ready" && latestJob.pdfSource !== "generated"))
+            (!movesToReady && latestJob.pdfSource !== "generated"))
         ) {
           await jobsRepo.updateJob(job.id, { pdfRegenerating: false });
         }
@@ -1050,7 +1043,7 @@ export async function generateFinalPdf(
       pdfRegeneratingMarked = false;
 
       const analyticsOrigin = options?.analyticsOrigin ?? "move_to_ready";
-      const generationKind = job.status === "ready" ? "regenerate" : "initial";
+      const generationKind = movesToReady ? "initial" : "regenerate";
       void trackServerProductEvent(
         "resume_generated",
         {
@@ -1071,7 +1064,7 @@ export async function generateFinalPdf(
         },
       );
 
-      if (job.status !== "ready") {
+      if (movesToReady) {
         void trackServerProductEvent(
           "job_moved_to_ready",
           {
@@ -1119,18 +1112,69 @@ export async function processJob(
   success: boolean;
   error?: string;
 }> {
-  try {
-    // Step 1: Summarize & Select Projects
-    const sumResult = await summarizeJob(jobId, options);
-    if (!sumResult.success) return sumResult;
-
-    // Step 2: Generate PDF
-    const pdfResult = await generateFinalPdf(jobId, options);
-    return pdfResult;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return { success: false, error: message };
-  }
+  return runWithRequestContext({ jobId }, async () => {
+    let job: Job | null = null;
+    const restore = async () => {
+      // A throw before the first read leaves the job unknown; read it again.
+      const before = job ?? (await jobsRepo.getJobById(jobId));
+      if (!before || before.status === "ready") return null;
+      // "processing" means the target route already claimed it, or a run died mid-flight.
+      return jobsRepo.updateJob(jobId, {
+        status: before.status === "processing" ? "discovered" : before.status,
+      });
+    };
+    try {
+      job = await jobsRepo.getJobById(jobId);
+      if (!job) return { success: false, error: "Job not found" };
+      await jobsRepo.setJobTargeted(jobId, true);
+      const status = job.status;
+      // Resume + usable PDF already exist: a targeted job belongs in Ready.
+      const markReady = () =>
+        status === "ready"
+          ? Promise.resolve(null)
+          : jobsRepo.updateJob(jobId, { status: "ready" });
+      const resume = await getJobResume(jobId);
+      if (
+        resume &&
+        job.pdfPath &&
+        (job.pdfSource === "uploaded" ||
+          createJobPdfFingerprint(job, await resolvePdfFingerprintContext()) ===
+            job.pdfFingerprint)
+      ) {
+        await markReady();
+        return { success: true };
+      }
+      // A ready job stays in Ready while its PDF re-renders.
+      if (job.status !== "ready")
+        await jobsRepo.updateJob(jobId, { status: "processing" });
+      await ensureJobResume(jobId, {
+        tailor: true,
+        requestOrigin: options?.requestOrigin ?? null,
+      });
+      if (job.pdfSource === "uploaded" && job.pdfPath) {
+        await markReady();
+        return { success: true };
+      }
+      const result = await generateFinalPdf(jobId, options);
+      if (!result.success) {
+        logger.warn("Targeted job generation failed", {
+          jobId,
+          error: result.error,
+        });
+        await restore();
+      }
+      return result;
+    } catch (error) {
+      await restore().catch((restoreError) =>
+        logger.warn("Failed to restore job status after generation error", {
+          jobId,
+          error: restoreError,
+        }),
+      );
+      logger.error("Targeted job generation failed", { jobId, error });
+      return { success: false, error: "Resume generation failed" };
+    }
+  });
 }
 
 /**

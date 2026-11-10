@@ -57,3 +57,42 @@ it("closes the empty tab when loading fails", async () => {
   await expect(openJobPdf("job")).rejects.toThrow("Offline");
   expect(tab.close).toHaveBeenCalledOnce();
 });
+
+it("reserves a tab before generation and fetches only after generation succeeds", async () => {
+  let finish!: () => void;
+  const generate = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const tab = {
+    opener: {},
+    location: { href: "about:blank" },
+    closed: false,
+    close: vi.fn(),
+  };
+  const open = vi
+    .spyOn(window, "open")
+    .mockReturnValue(tab as unknown as Window);
+  mocks.blob.mockResolvedValue(new Blob(["generated"]));
+  const operation = openJobPdf("job", generate);
+  expect(open).toHaveBeenCalledOnce();
+  expect(generate).toHaveBeenCalledOnce();
+  expect(mocks.blob).not.toHaveBeenCalled();
+  finish();
+  await operation;
+  expect(mocks.blob).toHaveBeenCalledWith("job");
+  expect(tab.location.href).toBe("blob:pdf");
+});
+it("closes the reserved tab and skips fetching when generation fails", async () => {
+  const tab = { opener: null, close: vi.fn() };
+  vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
+  await expect(
+    openJobPdf("job", async () => {
+      throw new Error("Render failed");
+    }),
+  ).rejects.toThrow("Render failed");
+  expect(tab.close).toHaveBeenCalledOnce();
+  expect(mocks.blob).not.toHaveBeenCalled();
+});

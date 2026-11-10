@@ -76,8 +76,16 @@ describe.sequential("target ownership", () => {
       headers: headers(alice),
     });
     expect(target.status).toBe(200);
-    const targetedAt = (await target.json()).data.readyAt;
+    const targetBody = (await target.json()).data;
+    expect(targetBody.status).toBe("processing");
+    const targetedAt = targetBody.readyAt;
     expect(targetedAt).toBeTruthy();
+    // The mocked background generation never finishes; emulate it ending.
+    await fetch(`${baseUrl}/api/jobs/${aliceJob}`, {
+      method: "PATCH",
+      headers: headers(alice),
+      body: JSON.stringify({ status: "discovered" }),
+    });
     await fetch(`${baseUrl}/api/jobs/${aliceJob}/target`, {
       method: "DELETE",
       headers: headers(bob),

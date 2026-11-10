@@ -32,7 +32,6 @@ vi.mock("./steps", () => ({
   })),
   scoreJobsStep,
   selectJobsStep: vi.fn(() => []),
-  processJobsStep: vi.fn(async () => ({ processedCount: 0 })),
   notifyPipelineWebhookStep: vi.fn(async () => undefined),
 }));
 

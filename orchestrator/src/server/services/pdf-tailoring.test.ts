@@ -1,11 +1,11 @@
-import { getJobResume } from "@server/repositories/job-resumes";
 import type { ReactiveResumeV5Document } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureJobResume } from "./job-resume";
 import { generateDesignResumePdf, generatePdf } from "./pdf";
 import * as projectSelection from "./projectSelection";
 
-vi.mock("@server/repositories/job-resumes", () => ({
-  getJobResume: vi.fn().mockResolvedValue(null),
+vi.mock("./job-resume", () => ({
+  ensureJobResume: vi.fn().mockResolvedValue(null),
 }));
 
 // Define mock data in hoisted block
@@ -445,20 +445,16 @@ describe("PDF Service Tailoring Logic", () => {
     document.summary.content = "User edited summary";
     document.sections.projects.items[0].hidden = true;
     document.sections.projects.items[1].hidden = false;
-    vi.mocked(getJobResume).mockResolvedValue({
+    vi.mocked(ensureJobResume).mockResolvedValue({
       document: document as ReactiveResumeV5Document,
       revision: 2,
       exists: true,
       updatedAt: "now",
     });
-    const result = await generatePdf(
-      "saved-job",
-      { summary: "Old summary", headline: "Old headline" },
-      "JD",
-      undefined,
-      "p1",
-      { tracerLinksEnabled: true, requestOrigin: "https://jobops.example" },
-    );
+    const result = await generatePdf("saved-job", "JD", {
+      tracerLinksEnabled: true,
+      requestOrigin: "https://jobops.example",
+    });
     expect(result.success).toBe(true);
     expect(mockResumeRenderer.getLastResumeJson()).toMatchObject({
       basics: { headline: "User edited headline" },
@@ -484,7 +480,12 @@ describe("PDF Service Tailoring Logic", () => {
   });
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getJobResume).mockResolvedValue(null);
+    vi.mocked(ensureJobResume).mockImplementation(async () => ({
+      document: structuredClone(mockProfile) as ReactiveResumeV5Document,
+      revision: 1,
+      exists: true,
+      updatedAt: "now",
+    }));
     currentPdfRenderer.value = "latex";
     currentPdfPaperSize.value = null;
     currentLanguageSettings.mode = "manual";
@@ -520,14 +521,8 @@ describe("PDF Service Tailoring Logic", () => {
     });
   });
 
-  it("should use provided selectedProjectIds and BYPASS AI selection", async () => {
-    const tailoredContent = {
-      summary: "New Sum",
-      headline: "New Head",
-      skills: [],
-    };
-
-    await generatePdf("job-1", tailoredContent, "Job Desc", "base.json", "p2");
+  it("renders the editor document and ignores legacy summary and selectedProjectIds", async () => {
+    await generatePdf("job-1", "Job Desc");
 
     // 1. pickProjectIdsForJob should NOT be called
     expect(projectSelection.pickProjectIdsForJob).not.toHaveBeenCalled();
@@ -545,11 +540,11 @@ describe("PDF Service Tailoring Logic", () => {
 
     // 3. Verify Summary Update
     const summary = savedResumeJson.summary.content;
-    expect(summary).toBe("New Sum");
+    expect(summary).toBe("Original Summary");
   });
 
   it("should handle comma-separated project IDs correctly", async () => {
-    await generatePdf("job-2", {}, "desc", "base.json", "p1, p2 ");
+    await generatePdf("job-2", "desc");
 
     expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalled();
     const savedResumeJson = mockResumeRenderer.getLastResumeJson();
@@ -560,19 +555,19 @@ describe("PDF Service Tailoring Logic", () => {
   });
 
   it("keeps projects section visible when selected project list is explicitly empty", async () => {
-    await generatePdf("job-empty-projects", {}, "desc", "base.json", "");
+    await generatePdf("job-empty-projects", "desc");
 
     expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalled();
     const savedResumeJson = mockResumeRenderer.getLastResumeJson();
     const projects = savedResumeJson.sections.projects.items;
 
     expect(projects.find((p: any) => p.id === "p1").hidden).toBe(false);
-    expect(projects.find((p: any) => p.id === "p2").hidden).toBe(true);
+    expect(projects.find((p: any) => p.id === "p2").hidden).toBe(false);
     expect(savedResumeJson.sections.projects.hidden).toBe(false);
   });
 
-  it("resolves must-include projects without AI when selection is absent", async () => {
-    await generatePdf("job-3", {}, "desc", "base.json", undefined);
+  it("preserves editor project visibility when legacy selection is absent", async () => {
+    await generatePdf("job-3", "desc");
 
     expect(projectSelection.pickProjectIdsForJob).not.toHaveBeenCalled();
 
@@ -587,16 +582,16 @@ describe("PDF Service Tailoring Logic", () => {
     );
 
     expect(p1.hidden).toBe(false);
-    expect(p2.hidden).toBe(true);
+    expect(p2.hidden).toBe(false);
 
     const visibleCount = savedResumeJson.sections.projects.items.filter(
       (p: any) => !p.hidden,
     ).length;
-    expect(visibleCount).toBe(1);
+    expect(visibleCount).toBe(2);
   });
 
   it("does not rewrite links when tracer links are disabled", async () => {
-    await generatePdf("job-no-tracer", {}, "desc", undefined, undefined, {
+    await generatePdf("job-no-tracer", "desc", {
       tracerLinksEnabled: false,
     });
 
@@ -605,7 +600,7 @@ describe("PDF Service Tailoring Logic", () => {
   });
 
   it("rewrites links when tracer links are enabled", async () => {
-    await generatePdf("job-with-tracer", {}, "desc", undefined, undefined, {
+    await generatePdf("job-with-tracer", "desc", {
       tracerLinksEnabled: true,
       requestOrigin: "https://jobops.example",
     });
@@ -622,7 +617,7 @@ describe("PDF Service Tailoring Logic", () => {
     currentLanguageSettings.mode = "manual";
     currentLanguageSettings.manual = "spanish";
 
-    await generatePdf("job-spanish-latex", {}, "desc");
+    await generatePdf("job-spanish-latex", "desc");
 
     expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -639,7 +634,7 @@ describe("PDF Service Tailoring Logic", () => {
     mockProfile.sections.projects.items[0].description =
       "Responsable des APIs et du développement pour les équipes produit.";
 
-    await generatePdf("job-french-latex", {}, "desc");
+    await generatePdf("job-french-latex", "desc");
 
     expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -654,7 +649,6 @@ describe("PDF Service Tailoring Logic", () => {
 
     await generatePdf(
       "job-german-jd-latex",
-      {},
       "Wir suchen Erfahrung mit Entwicklung und Verantwortung für APIs.",
     );
 
@@ -690,7 +684,7 @@ describe("PDF Service Tailoring Logic", () => {
   it("uses the local Typst renderer with the default theme", async () => {
     currentPdfRenderer.value = "typst";
 
-    await generatePdf("job-typst", {}, "desc");
+    await generatePdf("job-typst", "desc");
 
     expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -702,7 +696,7 @@ describe("PDF Service Tailoring Logic", () => {
   });
 
   it("leaves the paper size to the local renderer when none is configured", async () => {
-    await generatePdf("job-default-paper", {}, "desc");
+    await generatePdf("job-default-paper", "desc");
 
     expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -719,7 +713,7 @@ describe("PDF Service Tailoring Logic", () => {
     currentPdfRenderer.value = renderer;
     currentPdfPaperSize.value = "letter";
 
-    await generatePdf("job-letter-paper", {}, "desc");
+    await generatePdf("job-letter-paper", "desc");
 
     expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -766,7 +760,7 @@ describe("PDF Service Tailoring Logic", () => {
     const rxresume = await import("./rxresume");
 
     try {
-      await generatePdf("job-rxresume-letter", {}, "desc");
+      await generatePdf("job-rxresume-letter", "desc");
 
       expect(rxresume.importResume).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -795,7 +789,7 @@ describe("PDF Service Tailoring Logic", () => {
     const rxresume = await import("./rxresume");
 
     try {
-      await generatePdf("job-rxresume-default", {}, "desc");
+      await generatePdf("job-rxresume-default", "desc");
 
       expect(rxresume.importResume).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -823,7 +817,7 @@ describe("PDF Service Tailoring Logic", () => {
     const rxresume = await import("./rxresume");
 
     try {
-      await generatePdf("job-rxresume", {}, "desc");
+      await generatePdf("job-rxresume", "desc");
 
       expect(mockResumeRenderer.renderResumePdf).not.toHaveBeenCalled();
       expect(rxresume.importResume).toHaveBeenCalledWith({

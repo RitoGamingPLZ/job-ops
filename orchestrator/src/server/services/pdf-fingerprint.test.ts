@@ -64,6 +64,48 @@ describe("PDF freshness", () => {
       }),
     ).toBe("current");
   });
+  it("ignores base resume and legacy tailoring changes once an editor document exists", () => {
+    const job = createJob({ id: "own" });
+    const editorContext = {
+      ...context,
+      jobResumeHashes: { own: "revision-1" },
+    };
+    const original = createJobPdfFingerprint(job, editorContext);
+    expect(
+      createJobPdfFingerprint(
+        {
+          ...job,
+          tailoredSummary: "Changed",
+          tailoredHeadline: "Changed",
+          tailoredSkills: "[]",
+          selectedProjectIds: "other",
+        },
+        {
+          ...editorContext,
+          designResumeRevision: 99,
+          designResumeUpdatedAt: "new",
+          designResumeDocumentId: "other",
+          rxresumeBaseResumeId: "other",
+          resumeProjects: { ...context.resumeProjects, maxProjects: 20 },
+        },
+      ),
+    ).toBe(original);
+    expect(
+      createJobPdfFingerprint(job, { ...editorContext, pdfRenderer: "typst" }),
+    ).not.toBe(original);
+    expect(
+      createJobPdfFingerprint(
+        { ...job, tracerLinksEnabled: !job.tracerLinksEnabled },
+        editorContext,
+      ),
+    ).not.toBe(original);
+    expect(
+      createJobPdfFingerprint({ ...job, employer: "Renamed" }, editorContext),
+    ).not.toBe(original);
+    expect(
+      createJobPdfFingerprint(job, { ...editorContext, pdfPaperSize: "a4" }),
+    ).not.toBe(original);
+  });
   it("selects only scoped job resume metadata and hashes revision plus update time", async () => {
     let rows = [{ jobId: "own", revision: 1, updatedAt: "first" }];
     const where = vi.fn(() => ({ all: () => rows }));

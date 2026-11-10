@@ -71,7 +71,7 @@ describe("ManualImportSheet", () => {
     expect(api.inferManualJob).toHaveBeenCalledWith({
       jobDescription: "Reviewed Backend Engineer at Acme Labs",
     });
-    fireEvent.click(screen.getByRole("button", { name: /import & tailor/i }));
+    fireEvent.click(screen.getByRole("button", { name: /import & target/i }));
     await waitFor(() =>
       expect(imported).toHaveBeenCalledWith(
         expect.objectContaining({ jobId: "pdf-job" }),
@@ -179,7 +179,7 @@ describe("ManualImportSheet", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: /^(import & tailor|import without tailoring)$/i,
+        name: /^(import & target|import without targeting)$/i,
       }),
     );
 
@@ -291,7 +291,7 @@ describe("ManualImportSheet", () => {
     await screen.findByText("AI inference failed. Fill details manually.");
 
     const importButton = screen.getByRole("button", {
-      name: /^(import & tailor|import without tailoring)$/i,
+      name: /^(import & target|import without targeting)$/i,
     });
     expect(importButton).toBeDisabled();
 
@@ -376,7 +376,7 @@ describe("ManualImportSheet", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: /^(import & tailor|import without tailoring)$/i,
+        name: /^(import & target|import without targeting)$/i,
       }),
     );
 
@@ -386,12 +386,12 @@ describe("ManualImportSheet", () => {
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(
       screen.getByRole("button", {
-        name: /^(import & tailor|import without tailoring)$/i,
+        name: /^(import & target|import without targeting)$/i,
       }),
     ).toBeEnabled();
   });
 
-  it("sends skipTailoring: true when the user unchecks 'Tailor automatically after import'", async () => {
+  it("sends skipTailoring: true when the user unchecks 'Target and prepare resume after import'", async () => {
     vi.mocked(api.inferManualJob).mockResolvedValue({
       job: {
         title: "Backend Engineer",
@@ -417,12 +417,12 @@ describe("ManualImportSheet", () => {
     await screen.findByPlaceholderText("e.g. Junior Backend Engineer");
 
     const tailorCheckbox = screen.getByLabelText(
-      /tailor automatically after import/i,
+      /target and prepare resume after import/i,
     );
     fireEvent.click(tailorCheckbox);
 
     fireEvent.click(
-      screen.getByRole("button", { name: /import without tailoring/i }),
+      screen.getByRole("button", { name: /import without targeting/i }),
     );
 
     await waitFor(() => expect(api.importManualJob).toHaveBeenCalled());
@@ -465,11 +465,11 @@ describe("ManualImportSheet", () => {
     await screen.findByPlaceholderText("e.g. Junior Backend Engineer");
 
     expect(
-      screen.getByLabelText(/tailor automatically after import/i),
+      screen.getByLabelText(/target and prepare resume after import/i),
     ).not.toBeChecked();
 
     fireEvent.click(
-      screen.getByRole("button", { name: /import without tailoring/i }),
+      screen.getByRole("button", { name: /import without targeting/i }),
     );
 
     await waitFor(() =>
@@ -608,7 +608,7 @@ describe("ManualImportSheet", () => {
       await screen.findByPlaceholderText("e.g. Junior Backend Engineer");
       fireEvent.click(
         screen.getByRole("button", {
-          name: /^(import & tailor|import without tailoring)$/i,
+          name: /^(import & target|import without targeting)$/i,
         }),
       );
 
@@ -661,7 +661,7 @@ describe("ManualImportSheet", () => {
       await screen.findByPlaceholderText("e.g. Junior Backend Engineer");
       fireEvent.click(
         screen.getByRole("button", {
-          name: /^(import & tailor|import without tailoring)$/i,
+          name: /^(import & target|import without targeting)$/i,
         }),
       );
 

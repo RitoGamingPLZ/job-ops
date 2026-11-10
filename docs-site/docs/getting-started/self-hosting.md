@@ -280,7 +280,7 @@ Behavior in demo mode:
 
 - Anonymous read-only access to the seeded demo workspace
 - Works locally: browsing/filtering/viewing timelines
-- Simulated: pipeline run/summarize/process/rescore/pdf/apply
+- Simulated: pipeline run/process/rescore/pdf/apply
 - Blocked: settings writes, DB clear, backups
 - Disabled: first-run account setup
 - Auto-reset: every 6 hours

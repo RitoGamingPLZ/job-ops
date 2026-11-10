@@ -114,7 +114,7 @@ export async function simulatePipelineRun(
   };
 }
 
-export async function simulateSummarizeJob(
+async function simulateSummarizeJob(
   jobId: string,
   options?: ProcessOptions,
 ): Promise<{ success: boolean; error?: string }> {

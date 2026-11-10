@@ -11,7 +11,7 @@ import * as jobsRepo from "@server/repositories/jobs";
 import { stageEventMetadataSchema } from "@server/services/applicationTracking";
 import {
   enqueueAutoPdfRegenerationForJob,
-  shouldEnqueueTailoringAutoPdfRegeneration,
+  shouldEnqueueTracerAutoPdfRegeneration,
 } from "@server/services/auto-pdf-regeneration";
 import {
   applyJobPdfFreshness,
@@ -89,14 +89,12 @@ export function toJobListItem(
   };
 }
 
-export function queueTailoringAutoPdfRegenerationIfNeeded(
+export function queueTracerAutoPdfRegenerationIfNeeded(
   previousJob: Job,
   nextJob: Job,
   route: string,
 ): void {
-  if (!shouldEnqueueTailoringAutoPdfRegeneration(previousJob, nextJob)) {
-    return;
-  }
+  if (!shouldEnqueueTracerAutoPdfRegeneration(previousJob, nextJob)) return;
 
   queueMicrotask(() => {
     void enqueueAutoPdfRegenerationForJob({

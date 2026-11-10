@@ -4,7 +4,6 @@ import { createJob } from "@shared/testing/factories.js";
 import type { AppSettings, Job } from "@shared/types.js";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import type React from "react";
-import { useState } from "react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { JobDetailPanel } from "./JobDetailPanel";
@@ -83,23 +82,6 @@ vi.mock("@client/components", async (importOriginal) => {
 
 vi.mock("@client/hooks/useSettings", () => ({
   useSettings: () => mockSettings,
-}));
-
-vi.mock("@client/components/tailoring/TailoringWorkspace", () => ({
-  TailoringWorkspace: ({
-    onDirtyChange,
-  }: {
-    onDirtyChange?: (isDirty: boolean) => void;
-  }) => (
-    <div data-testid="tailoring-workspace">
-      <button type="button" onClick={() => onDirtyChange?.(true)}>
-        Mark tailoring dirty
-      </button>
-      <button type="button" onClick={() => onDirtyChange?.(false)}>
-        Mark tailoring clean
-      </button>
-    </div>
-  ),
 }));
 
 vi.mock("@client/components/JobDetailsEditDrawer", () => ({
@@ -199,103 +181,23 @@ describe("JobDetailPanel", () => {
     vi.mocked(api.getResumeProjectsCatalog).mockResolvedValue([]);
   });
 
-  it.each([
-    false,
-    true,
-  ])("opens a tailoring deep link (already targeted: %s)", async (targeted) => {
-    const job = createJob({
-      status: "discovered",
-      readyAt: targeted ? "2026-11-08" : null,
+  it("offers one editor link and no tailoring tab for a targeted job", async () => {
+    await renderJobDetailPanel({
+      activeTab: "all",
+      activeJobs: [],
+      selectedJob: createJob({ status: "ready", readyAt: "2026-11-08" }),
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn(),
     });
-    let resolveTarget!: (job: Job) => void;
-    vi.mocked(api.targetJob).mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveTarget = resolve;
-        }),
+    expect(screen.getAllByRole("link", { name: "Open resume" })).toHaveLength(
+      1,
     );
-    function Harness() {
-      const [selectedJob, setSelectedJob] = useState(job);
-      const location = useLocation();
-      return (
-        <JobDetailPanel
-          activeTab={location.pathname.includes("/all/") ? "all" : "discovered"}
-          activeJobs={[selectedJob]}
-          selectedJob={selectedJob}
-          selectedJobListItem={selectedJob}
-          selectedJobLoadState="idle"
-          onRetrySelectedJob={vi.fn()}
-          onSelectJobId={vi.fn()}
-          onJobUpdated={async (updated) => {
-            if (updated) setSelectedJob(updated);
-          }}
-        />
-      );
-    }
-    renderWithQueryClient(
-      <MemoryRouter
-        initialEntries={[
-          `/jobs/discovered/${job.id}?inspector=tailoring&source=google`,
-        ]}
-      >
-        <LocationWatcher />
-        <Harness />
-      </MemoryRouter>,
+    expect(screen.getByRole("link", { name: "Open resume" })).toHaveAttribute(
+      "href",
+      "/resumes/job-1",
     );
-    if (!targeted) {
-      await waitFor(() => expect(api.targetJob).toHaveBeenCalledWith(job.id));
-      expect(
-        screen.queryByTestId("tailoring-workspace"),
-      ).not.toBeInTheDocument();
-      await act(async () => resolveTarget({ ...job, readyAt: "2026-11-08" }));
-      expect(api.targetJob).toHaveBeenCalledTimes(1);
-    } else {
-      expect(api.targetJob).not.toHaveBeenCalled();
-    }
-    expect(
-      await screen.findByTestId("tailoring-workspace"),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /tailoring/i })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(screen.getByTestId("location").textContent).toBe(
-      `/jobs/all/${job.id}?source=google`,
-    );
-    expect(api.processJob).not.toHaveBeenCalled();
-  });
-
-  it("keeps Brief open when targeting for a tailoring link fails", async () => {
-    vi.mocked(api.targetJob).mockRejectedValue(new Error("Target failed"));
-    const job = createJob({ status: "discovered", readyAt: null });
-    const onJobUpdated = vi.fn();
-    renderWithQueryClient(
-      <MemoryRouter
-        initialEntries={[`/jobs/discovered/${job.id}?inspector=tailoring`]}
-      >
-        <JobDetailPanel
-          activeTab="discovered"
-          activeJobs={[job]}
-          selectedJob={job}
-          selectedJobListItem={job}
-          selectedJobLoadState="idle"
-          onRetrySelectedJob={vi.fn()}
-          onSelectJobId={vi.fn()}
-          onJobUpdated={onJobUpdated}
-        />
-      </MemoryRouter>,
-    );
-    await waitFor(() => expect(api.targetJob).toHaveBeenCalledWith(job.id));
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Target" })).toBeEnabled(),
-    );
-    expect(onJobUpdated).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("tailoring-workspace")).not.toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /brief/i })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(api.processJob).not.toHaveBeenCalled();
+    expect(screen.queryByRole("tab", { name: /tailoring/i })).toBeNull();
+    expect(document.querySelector('a[href*="inspector=tailoring"]')).toBeNull();
   });
 
   it("shows the selected job summary and safe links while full details load", async () => {
@@ -324,7 +226,7 @@ describe("JobDetailPanel", () => {
     expect(
       screen.getByRole("link", { name: /open job listing/i }),
     ).toHaveAttribute("href", "https://example.com/apply/job-2");
-    expect(screen.getByRole("tab", { name: /brief/i })).toBeDisabled();
+    expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByText("Start Tailoring")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /more actions/i }),
@@ -441,7 +343,9 @@ describe("JobDetailPanel", () => {
       onSelectJobId: vi.fn(),
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
-    expect(screen.getByRole("button", { name: "Targeted ✓" })).toBeDisabled();
+    expect(
+      screen.getAllByRole("button", { name: "Preparing resume…" })[0],
+    ).toBeDisabled();
   });
 
   it("keeps only the information actions and hides the application workflow", async () => {
@@ -465,7 +369,44 @@ describe("JobDetailPanel", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual(["Edit details", "View job description", "Copy job info"]);
+    ).toEqual(["Edit details", "Copy job info"]);
+  });
+
+  it.each([
+    ["processing", "2026-11-08", "Preparing resume…"],
+    ["discovered", null, "Target"],
+    ["discovered", "2026-11-08", "Prepare resume"],
+  ] as const)("offers no editor or preview for a %s job (readyAt %s)", async (status, readyAt, label) => {
+    vi.mocked(api.processJob).mockResolvedValue(createJob());
+    const job = createJob({ status, readyAt });
+    await renderJobDetailPanel({
+      activeTab: "all",
+      activeJobs: [job],
+      selectedJob: job,
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+    expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Preview PDF" })).toBeNull();
+    if (label === "Prepare resume") {
+      fireEvent.click(screen.getByRole("button", { name: label }));
+      await waitFor(() => expect(api.processJob).toHaveBeenCalledWith(job.id));
+    }
+  });
+
+  it("offers Open resume and Preview PDF for an applied job", async () => {
+    await renderJobDetailPanel({
+      activeTab: "all",
+      activeJobs: [],
+      selectedJob: createJob({ status: "applied", readyAt: null }),
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+    expect(
+      screen.getByRole("link", { name: "Open resume" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview PDF" })).toBeEnabled();
   });
 
   it("shows an empty state when no job is selected", async () => {
@@ -616,28 +557,5 @@ describe("JobDetailPanel", () => {
     expect(
       screen.queryByTestId("job-details-edit-drawer"),
     ).not.toBeInTheDocument();
-  });
-
-  it("forwards tailoring dirty state to refresh pause callback", async () => {
-    const onPauseRefreshChange = vi.fn();
-
-    await renderJobDetailPanel({
-      activeTab: "all",
-      activeJobs: [],
-      selectedJob: createJob({
-        status: "ready",
-        readyAt: "2026-11-08T12:00:00Z",
-      }),
-      onSelectJobId: vi.fn(),
-      onJobUpdated: vi.fn().mockResolvedValue(undefined),
-      onPauseRefreshChange,
-    });
-
-    fireEvent.mouseDown(screen.getByRole("tab", { name: /tailoring/i }));
-    fireEvent.click(await screen.findByText("Mark tailoring dirty"));
-    fireEvent.click(screen.getByText("Mark tailoring clean"));
-
-    expect(onPauseRefreshChange).toHaveBeenCalledWith(true);
-    expect(onPauseRefreshChange).toHaveBeenCalledWith(false);
   });
 });
