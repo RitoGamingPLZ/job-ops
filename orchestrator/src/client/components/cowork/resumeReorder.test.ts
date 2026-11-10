@@ -1,7 +1,12 @@
 import { bulletsFromHtml } from "@shared/resume-bullets";
 import type { ReactiveResumeV5Document } from "@shared/types";
 import { describe, expect, it } from "vitest";
-import { moveItem, moveResumeBullet } from "./resumeReorder";
+import {
+  moveItem,
+  moveResumeBullet,
+  moveSection,
+  sectionOrder,
+} from "./resumeReorder";
 
 const fixture = () =>
   ({
@@ -67,5 +72,52 @@ describe("resume drag reordering", () => {
       moveResumeBullet(original, { experienceId: "a", index: 0 }, "b", 0),
     ).toBe(original);
     expect(moveItem([1], Number.NaN, 0)).toEqual([1]);
+  });
+});
+
+describe("section order", () => {
+  const doc = (pages: { main: string[]; sidebar: string[] }[]) =>
+    ({
+      metadata: { layout: { sidebarWidth: 30, pages } },
+    }) as unknown as ReactiveResumeV5Document;
+  it("flattens main then sidebar, summary first, keeping unknown keys", () => {
+    expect(sectionOrder(undefined)[0]).toBe("summary");
+    expect(
+      sectionOrder(
+        doc([{ main: ["profiles", "experience"], sidebar: ["skills"] }])
+          .metadata.layout,
+      ).slice(0, 5),
+    ).toEqual([
+      "summary",
+      "profiles",
+      "experience",
+      "skills",
+      "certifications",
+    ]);
+  });
+  it("writes the whole order to pages[0].main and clears the sidebar", () => {
+    const start = doc([
+      { main: ["profiles", "experience", "education"], sidebar: ["skills"] },
+    ]);
+    const moved = moveSection(start, "skills", "experience");
+    expect(moved.metadata.layout.pages[0].main.slice(0, 4)).toEqual([
+      "summary",
+      "profiles",
+      "skills",
+      "experience",
+    ]);
+    expect(moved.metadata.layout.pages[0].sidebar).toEqual([]);
+    expect(
+      moveSection(start, "profiles", null).metadata.layout.pages[0].main.at(-1),
+    ).toBe("profiles");
+    expect(start.metadata.layout.pages[0].sidebar).toEqual(["skills"]);
+  });
+  it("creates a layout when the document has none", () => {
+    const moved = moveSection(
+      {} as ReactiveResumeV5Document,
+      "awards",
+      "summary",
+    );
+    expect(moved.metadata.layout.pages[0].main[0]).toBe("awards");
   });
 });

@@ -81,3 +81,63 @@ export function moveResumeBullet(
   }
   return next;
 }
+
+export const SECTION_TRANSFER_TYPE = "application/x-jobops-resume-section";
+export const DEFAULT_SECTION_ORDER = [
+  "summary",
+  "skills",
+  "certifications",
+  "experience",
+  "projects",
+  "education",
+  "awards",
+];
+
+/**
+ * One-column reading order: main then sidebar, then any unconfigured defaults.
+ * Keeps configured keys the editor does not render (e.g. profiles).
+ */
+export function sectionOrder(
+  layout: ReactiveResumeV5Document["metadata"]["layout"] | undefined,
+): string[] {
+  const pages = layout?.pages ?? [];
+  const configured = [
+    ...pages.flatMap((page) => page.main ?? []),
+    ...pages.flatMap((page) => page.sidebar ?? []),
+  ];
+  return [
+    ...new Set([
+      ...(configured.includes("summary") ? [] : ["summary"]),
+      ...configured,
+      ...DEFAULT_SECTION_ORDER,
+    ]),
+  ];
+}
+
+/** Move a section before `before` (or to the end); writes the whole order to pages[0].main. */
+export function moveSection(
+  document: ReactiveResumeV5Document,
+  key: string,
+  before: string | null,
+): ReactiveResumeV5Document {
+  if (key === before) return document;
+  const order = sectionOrder(document.metadata?.layout).filter(
+    (k) => k !== key,
+  );
+  const at = before === null ? -1 : order.indexOf(before);
+  order.splice(at < 0 ? order.length : at, 0, key);
+  const next = structuredClone(document);
+  next.metadata ??= {} as ReactiveResumeV5Document["metadata"];
+  next.metadata.layout ??= { sidebarWidth: 30, pages: [] };
+  const [first, ...rest] = next.metadata.layout.pages;
+  const placed = new Set(order);
+  next.metadata.layout.pages = [
+    { ...(first ?? { fullWidth: false }), main: order, sidebar: [] },
+    ...rest.map((page) => ({
+      ...page,
+      main: page.main.filter((k) => !placed.has(k)),
+      sidebar: page.sidebar.filter((k) => !placed.has(k)),
+    })),
+  ];
+  return next;
+}

@@ -5,7 +5,14 @@ import {
   splitDescription,
 } from "@shared/resume-bullets";
 import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
-import { Fragment, useEffect, useRef, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import "./ResumeEditor.css";
 import { RichTextEditor } from "@/client/components/design-resume/RichTextEditor";
 import { Button } from "@/components/ui/button";
@@ -23,9 +30,85 @@ import {
   EXPERIENCE_TRANSFER_TYPE,
   moveItem,
   moveResumeBullet,
+  moveSection,
   RESUME_BULLET_TRANSFER_TYPE,
+  SECTION_TRANSFER_TYPE,
   SKILL_TRANSFER_TYPE,
+  sectionOrder,
 } from "./resumeReorder";
+
+const MM = 96 / 25.4;
+const SHEET = 297 * MM;
+const SHEET_GAP = 16;
+const MARGIN_Y = 12 * MM;
+/** Blocks that must not straddle a page break, in document order. */
+const PAGE_BLOCKS = [
+  ".resume-paper h2",
+  ".resume-position",
+  ".resume-experience-heading",
+  ".resume-experience > textarea",
+  ".resume-bullets > li",
+  ".resume-project > p",
+  ".resume-skill",
+  ".resume-education .resume-simple-item",
+  ".resume-awards .resume-simple-item",
+  ".resume-certifications .resume-simple-items",
+  ".resume-richtext",
+].join(",");
+/** Headings also need room for the line that follows them. */
+const KEEP_WITH_NEXT = "h2, .resume-position, .resume-experience-heading";
+
+/**
+ * Push blocks that would cross a sheet's bottom margin to the next sheet's top
+ * margin, Word-style. Returns how many sheets the content needs.
+ */
+function paginate(paper: HTMLElement, scale: number) {
+  for (const element of paper.querySelectorAll<HTMLElement>(
+    "[data-page-push]",
+  )) {
+    element.style.marginTop = "";
+    element.removeAttribute("data-page-push");
+  }
+  const origin = () => paper.getBoundingClientRect().top;
+  const pitch = SHEET + SHEET_GAP;
+  for (const block of paper.querySelectorAll<HTMLElement>(PAGE_BLOCKS)) {
+    // Retry once: a pushed margin can collapse into a parent's margin.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const rect = block.getBoundingClientRect();
+      const top = (rect.top - origin()) / scale;
+      const height =
+        rect.height / scale + (block.matches(KEEP_WITH_NEXT) ? 16 : 0);
+      const sheet = Math.floor(top / pitch);
+      const end = sheet * pitch + SHEET - MARGIN_Y;
+      if (height <= 0 || top + height <= end || height > SHEET - 2 * MARGIN_Y)
+        break;
+      const push = (sheet + 1) * pitch + MARGIN_Y - top;
+      block.style.marginTop = `${Number.parseFloat(getComputedStyle(block).marginTop) + push}px`;
+      block.setAttribute("data-page-push", "");
+    }
+  }
+  let bottom = 0;
+  for (const child of paper.children)
+    if (!child.classList.contains("resume-sheet"))
+      bottom = Math.max(
+        bottom,
+        (child.getBoundingClientRect().bottom - origin()) / scale,
+      );
+  return Math.max(1, Math.ceil((bottom + MARGIN_Y - SHEET) / pitch) + 1);
+}
+
+/** "<degree> in <area>": show the area unless empty or already in the degree. */
+function showArea(degree: unknown, area: unknown) {
+  const text = String(area ?? "")
+    .trim()
+    .toLowerCase();
+  return (
+    Boolean(text) &&
+    !String(degree ?? "")
+      .toLowerCase()
+      .includes(text)
+  );
+}
 
 function safeUrl(url: string | undefined) {
   return url && /^https?:\/\//i.test(url) ? url : undefined;
@@ -53,9 +136,18 @@ export function ResumeEditor({
   );
   const canvas = useRef<HTMLDivElement>(null);
   const page = useRef<HTMLFieldSetElement>(null);
-  const [geometry, setGeometry] = useState({ scale: 1, height: 1123 });
+  const [scale, setScale] = useState(1);
+  const [sheets, setSheets] = useState(1);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [libraryDrag, setLibraryDrag] = useState(false);
+  // Typing in local-draft inputs and :focus-within reveals change layout
+  // without a React render; bump this so pagination re-runs.
+  const [, repaginate] = useReducer((n: number) => n + 1, 0);
+  // Section Move buttons: React may move the focused node (losing focus) or
+  // disable it at the ends, so refocus after the reorder renders.
+  const focusAfterMove = useRef<{ label: string; fallback: string } | null>(
+    null,
+  );
   useEffect(() => {
     const ownerDocument = canvas.current?.ownerDocument;
     if (!ownerDocument) return;
@@ -81,20 +173,33 @@ export function ResumeEditor({
   useEffect(() => {
     if (typeof ResizeObserver === "undefined") return;
     const measure = () => {
-      if (!canvas.current || !page.current) return;
-      setGeometry({
-        scale: Math.max(
-          0.6,
-          Math.min(1, canvas.current.clientWidth / ((210 * 96) / 25.4)),
-        ),
-        height: page.current.offsetHeight,
-      });
+      if (!canvas.current) return;
+      setScale(
+        Math.max(0.6, Math.min(1, canvas.current.clientWidth / (210 * MM))),
+      );
     };
     const observer = new ResizeObserver(measure);
     if (canvas.current) observer.observe(canvas.current);
-    if (page.current) observer.observe(page.current);
     measure();
     return () => observer.disconnect();
+  }, []);
+  // Runs after every render; paginate only touches its own margins and the
+  // sheet count settles after one extra render, so this cannot loop.
+  useLayoutEffect(() => {
+    if (!page.current) return;
+    setSheets(paginate(page.current, scale));
+    const pending = focusAfterMove.current;
+    if (!pending) return;
+    focusAfterMove.current = null;
+    const buttons = [...page.current.querySelectorAll("button")];
+    const find = (label: string) =>
+      buttons.find((b) => b.getAttribute("aria-label") === label);
+    const target = find(pending.label);
+    (target && !target.disabled ? target : find(pending.fallback))?.focus();
+  });
+  const [, setFontsReady] = useState(false);
+  useEffect(() => {
+    globalThis.document?.fonts?.ready.then(() => setFontsReady(true));
   }, []);
   function dragHandle(type: string, value: unknown, label: string) {
     return (
@@ -338,6 +443,44 @@ export function ResumeEditor({
         : kind === "certifications"
           ? ["title", "date", "issuer", "website"]
           : ["title", "description", "awarder", "date"];
+    function fieldInput(
+      item: (typeof section.items)[number],
+      index: number,
+      field: string,
+    ) {
+      return field === "description" ? (
+        <BulletText
+          label={`${simpleNames[kind]} ${index + 1} ${field}`}
+          value={bulletsFromHtml(String(item[field] ?? "")).join("\n")}
+          onChange={(value) =>
+            change((next) => {
+              next.sections[kind].items[index][field] = introTextToHtml(value);
+            })
+          }
+        />
+      ) : (
+        <Input
+          aria-label={`${simpleNames[kind]} ${index + 1} ${field}`}
+          className={`resume-field-${field}`}
+          value={
+            field === "website"
+              ? (item.website?.url ?? "")
+              : String(item[field] ?? "")
+          }
+          placeholder={field}
+          onChange={(event) =>
+            change((next) => {
+              if (field === "website")
+                next.sections[kind].items[index].website = {
+                  ...item.website,
+                  url: event.target.value,
+                };
+              else next.sections[kind].items[index][field] = event.target.value;
+            })
+          }
+        />
+      );
+    }
     return (
       <section
         className={`resume-section resume-${kind}`}
@@ -350,45 +493,23 @@ export function ResumeEditor({
           {section?.items.map(
             (item, index) =>
               !item.hidden && (
-                <div className="resume-row resume-simple-item" key={item.id}>
+                <div
+                  className="resume-row resume-simple-item"
+                  key={item.id}
+                  data-area-shown={
+                    kind === "education" && showArea(item.degree, item.area)
+                  }
+                >
                   {fields.map((field) => {
-                    const input =
-                      field === "description" ? (
-                        <BulletText
-                          label={`${simpleNames[kind]} ${index + 1} ${field}`}
-                          value={bulletsFromHtml(
-                            String(item[field] ?? ""),
-                          ).join("\n")}
-                          onChange={(value) =>
-                            change((next) => {
-                              next.sections[kind].items[index][field] =
-                                introTextToHtml(value);
-                            })
-                          }
-                        />
-                      ) : (
-                        <Input
-                          aria-label={`${simpleNames[kind]} ${index + 1} ${field}`}
-                          className={`resume-field-${field}`}
-                          value={
-                            field === "website"
-                              ? (item.website?.url ?? "")
-                              : String(item[field] ?? "")
-                          }
-                          placeholder={field}
-                          onChange={(event) =>
-                            change((next) => {
-                              if (field === "website")
-                                next.sections[kind].items[index].website = {
-                                  ...item.website,
-                                  url: event.target.value,
-                                };
-                              else
-                                next.sections[kind].items[index][field] =
-                                  event.target.value;
-                            })
-                          }
-                        />
+                    const input = fieldInput(item, index, field);
+                    if (field === "area") return null;
+                    if (field === "degree")
+                      return (
+                        <span key={field} className="resume-education-degree">
+                          {input}
+                          <span className="resume-education-in">in</span>
+                          {fieldInput(item, index, "area")}
+                        </span>
                       );
                     return (
                       <Fragment key={field}>
@@ -494,6 +615,48 @@ export function ResumeEditor({
     );
   }
   const sections = {
+    summary:
+      !document.summary.hidden &&
+      (addingSummary ||
+        bulletsFromHtml(document.summary.content).length > 0) ? (
+        <section className="resume-section" aria-label="Summary">
+          <h2 className="text-sm font-semibold">Summary</h2>
+          <div
+            ref={(element) => {
+              element?.toggleAttribute("inert", Boolean(disabled));
+            }}
+          >
+            <RichTextEditor
+              className="resume-richtext"
+              formatLabel={null}
+              value={document.summary.content}
+              onChange={(value) => {
+                setAddingSummary(true);
+                change((next) => {
+                  next.summary.content = value;
+                });
+              }}
+            />
+          </div>
+          {suggestionList(
+            suggestions.filter((s) => s.op === "replace_summary"),
+          )}
+        </section>
+      ) : document.summary.hidden ? null : (
+        <section className="resume-section resume-empty-summary">
+          <Button
+            className="resume-add"
+            size="sm"
+            variant="ghost"
+            onClick={() => setAddingSummary(true)}
+          >
+            + Summary
+          </Button>
+          {suggestionList(
+            suggestions.filter((s) => s.op === "replace_summary"),
+          )}
+        </section>
+      ),
     skills: document.sections.skills
       .hidden ? null : document.sections.skills.items.some((s) => !s.hidden) ||
       suggestions.some((s) => s.op === "set_skills") ? (
@@ -549,6 +712,7 @@ export function ResumeEditor({
                 </div>
                 <Input
                   aria-label={`Skill ${index + 1} name`}
+                  className="resume-skill-name"
                   value={skill.name}
                   onChange={(e) =>
                     change((next) => {
@@ -556,8 +720,9 @@ export function ResumeEditor({
                     })
                   }
                 />
-                <span aria-hidden="true">:</span>
                 <CommaListInput
+                  multiline
+                  className="resume-skill-keywords"
                   aria-label={`Skill ${index + 1} keywords`}
                   value={skill.keywords}
                   onCommit={(keywords) =>
@@ -936,22 +1101,113 @@ export function ResumeEditor({
     education: simpleSection("education"),
     awards: simpleSection("awards"),
   };
-  const defaults = [
-    "skills",
-    "certifications",
-    "experience",
-    "projects",
-    "education",
-    "awards",
-  ] as const;
-  const configured =
-    document.metadata?.layout?.pages?.flatMap((p) => [
-      ...p.main,
-      ...p.sidebar,
-    ]) ?? [];
-  const sectionOrder = [...new Set([...configured, ...defaults])].filter(
-    (key): key is keyof typeof sections => key in sections,
+  type SectionKey = keyof typeof sections;
+  const sectionNames: Record<SectionKey, string> = {
+    summary: "Summary",
+    skills: "Skills",
+    certifications: "Certifications",
+    experience: "Experiences",
+    projects: "Projects",
+    education: "Education",
+    awards: "Awards",
+  };
+  const order = sectionOrder(document.metadata?.layout).filter(
+    (key): key is SectionKey =>
+      key in sections && sections[key as SectionKey] !== null,
   );
+  function moveTo(key: string, before: string | null) {
+    onChange(moveSection(document, key, before));
+  }
+  function sectionGap(before: string | null) {
+    const key = `section-${before}`;
+    return (
+      <fieldset
+        className="resume-gap resume-section-gap"
+        data-active={dragOver === key}
+        aria-label={`Move section ${before ? `before ${sectionNames[before as SectionKey]}` : "to the end"}`}
+        onDragOver={(event) => {
+          if (
+            !disabled &&
+            event.dataTransfer.types.includes(SECTION_TRANSFER_TYPE)
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.dataTransfer.dropEffect = "move";
+            setDragOver(key);
+          }
+        }}
+        onDragLeave={() => setDragOver(null)}
+        onDrop={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setDragOver(null);
+          if (disabled) return;
+          try {
+            const moved = JSON.parse(
+              event.dataTransfer.getData(SECTION_TRANSFER_TYPE),
+            );
+            if (typeof moved === "string" && moved in sections)
+              moveTo(moved, before);
+          } catch {
+            /* Ignore unrelated or malformed external drags. */
+          }
+        }}
+      />
+    );
+  }
+  function sectionList() {
+    const keys = order;
+    return (
+      <>
+        {keys.map((key, i) => (
+          <Fragment key={key}>
+            {sectionGap(key)}
+            <div className="resume-row resume-section-slot">
+              <div className="resume-margin resume-section-controls">
+                {dragHandle(
+                  SECTION_TRANSFER_TYPE,
+                  key,
+                  `Drag section ${sectionNames[key]}`,
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`Move section ${sectionNames[key]} up`}
+                  disabled={i === 0}
+                  onClick={() => {
+                    focusAfterMove.current = {
+                      label: `Move section ${sectionNames[key]} up`,
+                      fallback: `Move section ${sectionNames[key]} down`,
+                    };
+                    moveTo(key, keys[i - 1]);
+                  }}
+                >
+                  ↑
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`Move section ${sectionNames[key]} down`}
+                  disabled={i === keys.length - 1}
+                  onClick={() => {
+                    focusAfterMove.current = {
+                      label: `Move section ${sectionNames[key]} down`,
+                      fallback: `Move section ${sectionNames[key]} up`,
+                    };
+                    moveTo(key, keys[i + 2] ?? null);
+                  }}
+                >
+                  ↓
+                </Button>
+              </div>
+              {sections[key]}
+            </div>
+          </Fragment>
+        ))}
+        {sectionGap(null)}
+      </>
+    );
+  }
   return (
     <div
       className="resume-canvas"
@@ -961,34 +1217,30 @@ export function ResumeEditor({
       <div
         className="resume-paper-frame"
         style={{
-          width: `${((210 * 96) / 25.4) * geometry.scale}px`,
-          height: `${geometry.height * geometry.scale}px`,
+          width: `${210 * MM * scale}px`,
+          height: `${(sheets * (SHEET + SHEET_GAP) - SHEET_GAP) * scale}px`,
         }}
       >
         <fieldset
           ref={page}
           disabled={disabled}
           className="resume-paper"
-          style={{ transform: `scale(${geometry.scale})` }}
+          onInput={repaginate}
+          onFocus={repaginate}
+          onBlur={repaginate}
+          style={{
+            transform: `scale(${scale})`,
+            minHeight: `${sheets * (SHEET + SHEET_GAP) - SHEET_GAP}px`,
+          }}
         >
-          {Array.from(
-            {
-              length: Math.max(
-                0,
-                Math.ceil((geometry.height - 1) / ((297 * 96) / 25.4)) - 1,
-              ),
-            },
-            (_, index) => (
-              <div
-                key={`page-${index + 2}`}
-                className="resume-page-guide"
-                style={{ top: `${(index + 1) * 297}mm` }}
-                aria-hidden="true"
-              >
-                <span>Page {index + 2}</span>
-              </div>
-            ),
-          )}
+          {Array.from({ length: sheets }, (_, index) => (
+            <div
+              key={`sheet-${index + 1}`}
+              className="resume-sheet"
+              style={{ top: `${index * (SHEET + SHEET_GAP)}px` }}
+              aria-hidden="true"
+            />
+          ))}
           {suggestions.length > 0 && (
             <div className="flex items-center gap-2 text-sm">
               <span className="mr-auto">{suggestions.length} suggestions</span>
@@ -1077,50 +1329,7 @@ export function ResumeEditor({
               suggestions.filter((s) => s.op === "replace_headline"),
             )}
           </header>
-          {!document.summary.hidden &&
-          (addingSummary ||
-            bulletsFromHtml(document.summary.content).length > 0) ? (
-            <section className="resume-section" aria-label="Summary">
-              <h2 className="text-sm font-semibold">Summary</h2>
-              <div
-                ref={(element) => {
-                  element?.toggleAttribute("inert", Boolean(disabled));
-                }}
-              >
-                <RichTextEditor
-                  className="resume-richtext"
-                  formatLabel={null}
-                  value={document.summary.content}
-                  onChange={(value) => {
-                    setAddingSummary(true);
-                    change((next) => {
-                      next.summary.content = value;
-                    });
-                  }}
-                />
-              </div>
-              {suggestionList(
-                suggestions.filter((s) => s.op === "replace_summary"),
-              )}
-            </section>
-          ) : document.summary.hidden ? null : (
-            <section className="resume-section resume-empty-summary">
-              <Button
-                className="resume-add"
-                size="sm"
-                variant="ghost"
-                onClick={() => setAddingSummary(true)}
-              >
-                + Summary
-              </Button>
-              {suggestionList(
-                suggestions.filter((s) => s.op === "replace_summary"),
-              )}
-            </section>
-          )}
-          {sectionOrder.map((key) => (
-            <Fragment key={key}>{sections[key]}</Fragment>
-          ))}
+          {sectionList()}
           {suggestionList(
             suggestions.filter(
               (s) =>
