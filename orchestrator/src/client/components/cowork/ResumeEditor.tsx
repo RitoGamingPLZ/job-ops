@@ -1,4 +1,9 @@
-import { bulletsFromHtml, bulletsToHtml } from "@shared/resume-bullets";
+import {
+  bulletsFromHtml,
+  introTextToHtml,
+  joinDescription,
+  splitDescription,
+} from "@shared/resume-bullets";
 import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
 import { Fragment, useEffect, useRef, useState } from "react";
 import "./ResumeEditor.css";
@@ -22,49 +27,6 @@ import {
   SKILL_TRANSFER_TYPE,
 } from "./resumeReorder";
 
-// Keep the bullet-only shared helpers unchanged; descriptions also carry prose.
-function descriptionParts(html: string) {
-  const parsed = new DOMParser().parseFromString(html, "text/html");
-  const hasList = Boolean(parsed.querySelector("li"));
-  const bullets = hasList ? bulletsFromHtml(html) : [];
-  for (const list of parsed.querySelectorAll("ul, ol")) list.remove();
-  return { intro: bulletsFromHtml(parsed.body.innerHTML).join("\n"), bullets };
-}
-function descriptionHtml(intro: string, bullets: string[]) {
-  const escaped = intro.replace(
-    /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
-      ] ?? c,
-  );
-  return `${intro ? `<p>${escaped}</p>` : ""}${bulletsToHtml(bullets)}`;
-}
-function bulletDocument(document: ReactiveResumeV5Document) {
-  const next = structuredClone(document);
-  for (const item of next.sections.experience.items)
-    item.description = bulletsToHtml(
-      descriptionParts(item.description).bullets,
-    );
-  return next;
-}
-function restoreDescriptions(
-  original: ReactiveResumeV5Document,
-  edited: ReactiveResumeV5Document,
-) {
-  for (const item of edited.sections.experience.items) {
-    const previous = original.sections.experience.items.find(
-      (e) => e.id === item.id,
-    );
-    if (!previous) continue;
-    const { intro, bullets } = descriptionParts(previous.description);
-    item.description =
-      item.description === bulletsToHtml(bullets)
-        ? previous.description
-        : descriptionHtml(intro, bulletsFromHtml(item.description));
-  }
-  return edited;
-}
 function safeUrl(url: string | undefined) {
   return url && /^https?:\/\//i.test(url) ? url : undefined;
 }
@@ -83,7 +45,12 @@ export function ResumeEditor({
   onDismiss,
   disabled,
 }: Props) {
-  const [addingSummary, setAddingSummary] = useState(false);
+  const [addingSummary, setAddingSummary] = useState(
+    Boolean(bulletsFromHtml(document.summary.content).length),
+  );
+  const [addingHeadline, setAddingHeadline] = useState(
+    Boolean(document.basics.headline),
+  );
   const canvas = useRef<HTMLDivElement>(null);
   const page = useRef<HTMLFieldSetElement>(null);
   const [geometry, setGeometry] = useState({ scale: 1, height: 1123 });
@@ -209,8 +176,12 @@ export function ResumeEditor({
         (e) => e.id === id,
       );
       if (experience) {
-        const { intro, bullets } = descriptionParts(experience.description);
-        experience.description = descriptionHtml(intro, edit(bullets));
+        const { introHtml, bullets } = splitDescription(experience.description);
+        experience.description = joinDescription(
+          introHtml,
+          edit(bullets),
+          experience.description,
+        );
       }
     });
   }
@@ -238,17 +209,17 @@ export function ResumeEditor({
         if (snapshot.stale) return null;
       }
     }
-    return suggestionTarget(bulletDocument(document), suggestion);
+    return suggestionTarget(document, suggestion);
   }
   // Capture even suggestions whose target currently has no visible bullet row.
   for (const suggestion of suggestions) target(suggestion);
   function accept(items: ResumeSuggestion[]) {
     const result = applySuggestions(
-      bulletDocument(document),
+      document,
       items.filter((item) => target(item) !== null),
     );
     if (result.applied.length) {
-      onChange(restoreDescriptions(document, result.document));
+      onChange(result.document);
       onDismiss(result.applied);
     }
   }
@@ -336,12 +307,7 @@ export function ResumeEditor({
               typeof source.experienceId === "string" &&
               Number.isInteger(source.index)
             )
-              onChange(
-                restoreDescriptions(
-                  document,
-                  moveResumeBullet(bulletDocument(document), source, id, index),
-                ),
-              );
+              onChange(moveResumeBullet(document, source, id, index));
           } catch {
             /* Ignore malformed external drags. */
           }
@@ -396,7 +362,7 @@ export function ResumeEditor({
                           onChange={(value) =>
                             change((next) => {
                               next.sections[kind].items[index][field] =
-                                descriptionHtml(value, []);
+                                introTextToHtml(value);
                             })
                           }
                         />
@@ -672,7 +638,7 @@ export function ResumeEditor({
           {document.sections.experience.items
             .filter((e) => !e.hidden)
             .map((experience) => {
-              const { intro, bullets } = descriptionParts(
+              const { introHtml, bullets } = splitDescription(
                 experience.description,
               );
               return (
@@ -750,17 +716,20 @@ export function ResumeEditor({
                     </h3>
                     <span>{experience.period}</span>
                   </div>
-                  {intro && (
+                  {bulletsFromHtml(introHtml).length > 0 && (
                     <BulletText
                       label={`${experience.company} intro`}
-                      value={intro}
+                      value={bulletsFromHtml(introHtml).join("\n")}
                       onChange={(value) =>
                         change((next) => {
                           const item = next.sections.experience.items.find(
                             (e) => e.id === experience.id,
                           );
                           if (item)
-                            item.description = descriptionHtml(value, bullets);
+                            item.description = joinDescription(
+                              introTextToHtml(value),
+                              bullets,
+                            );
                         })
                       }
                     />
@@ -931,6 +900,9 @@ export function ResumeEditor({
                   }
                 />
               </label>
+              {project.hidden && (
+                <p className="text-muted-foreground">{project.name}</p>
+              )}
               {!project.hidden && (
                 <>
                   <div className="resume-experience-heading">
@@ -939,11 +911,17 @@ export function ResumeEditor({
                     </h3>
                     <span>{project.period}</span>
                   </div>
-                  {descriptionParts(project.description ?? "").intro && (
-                    <p>{descriptionParts(project.description).intro}</p>
+                  {bulletsFromHtml(
+                    splitDescription(project.description ?? "").introHtml,
+                  ).join("\n") && (
+                    <p>
+                      {bulletsFromHtml(
+                        splitDescription(project.description).introHtml,
+                      ).join("\n")}
+                    </p>
                   )}
                   <ul className="resume-bullets">
-                    {descriptionParts(project.description ?? "").bullets.map(
+                    {splitDescription(project.description ?? "").bullets.map(
                       (text, i) => (
                         <li key={`${project.id}-${i}`}>{text}</li>
                       ),
@@ -1073,17 +1051,27 @@ export function ResumeEditor({
                     </span>
                   ))}
             </div>
-            {document.basics.headline?.trim() && (
+            {addingHeadline || document.basics.headline ? (
               <Input
                 aria-label="Headline"
                 className="resume-headline"
                 value={document.basics.headline}
                 onChange={(e) =>
                   change((next) => {
+                    setAddingHeadline(true);
                     next.basics.headline = e.target.value;
                   })
                 }
               />
+            ) : (
+              <Button
+                className="resume-add"
+                size="sm"
+                variant="ghost"
+                onClick={() => setAddingHeadline(true)}
+              >
+                + Headline
+              </Button>
             )}
             {suggestionList(
               suggestions.filter((s) => s.op === "replace_headline"),
@@ -1104,7 +1092,7 @@ export function ResumeEditor({
                   formatLabel={null}
                   value={document.summary.content}
                   onChange={(value) => {
-                    if (bulletsFromHtml(value).length) setAddingSummary(false);
+                    setAddingSummary(true);
                     change((next) => {
                       next.summary.content = value;
                     });
@@ -1136,12 +1124,15 @@ export function ResumeEditor({
           {suggestionList(
             suggestions.filter(
               (s) =>
-                ["replace_bullet", "insert_bullet", "delete_bullet"].includes(
+                (s.op === "replace_summary" && document.summary.hidden) ||
+                (s.op === "set_skills" && document.sections.skills.hidden) ||
+                (["replace_bullet", "insert_bullet", "delete_bullet"].includes(
                   s.op,
                 ) &&
-                !document.sections.experience.items.some(
-                  (e) => e.id === s.experienceId && !e.hidden,
-                ),
+                  (document.sections.experience.hidden ||
+                    !document.sections.experience.items.some(
+                      (e) => e.id === s.experienceId && !e.hidden,
+                    ))),
             ),
           )}
         </fieldset>

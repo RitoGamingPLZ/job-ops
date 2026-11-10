@@ -5,7 +5,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ResumeEditor } from "./ResumeEditor";
 
 vi.mock("@/client/components/design-resume/RichTextEditor", () => ({
-  RichTextEditor: () => <div>Summary editor</div>,
+  RichTextEditor: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+  }) => (
+    <textarea
+      aria-label="Summary content"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  ),
 }));
 afterEach(cleanup);
 const fixture = () =>
@@ -303,7 +315,7 @@ describe("navy serif document content", () => {
       ],
     };
     next.sections.experience.items[0].description =
-      '<p class="original">Led a team &amp; shipped.</p>\n<ul><li>A</li><li>B</li><li>C</li></ul>';
+      '<p class="original">Led a team &amp; shipped.</p>\n<p>See <a href="https://example.com">work</a>.</p>\n<ul><li>A</li><li>B</li><li>C</li></ul>';
     return next;
   }
   function mount(initial = fullFixture(), items: ResumeSuggestion[] = []) {
@@ -338,7 +350,7 @@ describe("navy serif document content", () => {
       "Awards",
     ]);
     expect(screen.getByLabelText("Company intro")).toHaveValue(
-      "Led a team & shipped.",
+      "Led a team & shipped.\nSee work .",
     );
     expect(screen.getByLabelText("Company bullet 1")).toHaveValue("A");
   });
@@ -378,7 +390,7 @@ describe("navy serif document content", () => {
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].description,
     ).toBe(
-      "<p>Led a team &amp; shipped.</p><ul><li>A &amp; improved</li><li>B</li><li>C</li></ul>",
+      '<p class="original">Led a team &amp; shipped.</p>\n<p>See <a href="https://example.com">work</a>.</p>\n<ul><li>A &amp; improved</li><li>B</li><li>C</li></ul>',
     );
   });
   it("preserves intro paragraphs for accepted suggestions and cross-experience moves", () => {
@@ -402,7 +414,7 @@ describe("navy serif document content", () => {
     fireEvent.click(screen.getByRole("button", { name: "Accept" }));
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].description,
-    ).toContain("<p>Led a team &amp; shipped.</p>");
+    ).toContain('<p class="original">Led a team &amp; shipped.</p>');
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[1].description,
     ).toBe(original.sections.experience.items[1].description);
@@ -417,7 +429,7 @@ describe("navy serif document content", () => {
         (e: { description: string }) => e.description,
       );
     expect(descriptions).toEqual([
-      "<p>Led a team &amp; shipped.</p><ul><li>Improved</li><li>C</li></ul>",
+      '<p class="original">Led a team &amp; shipped.</p>\n<p>See <a href="https://example.com">work</a>.</p>\n<ul><li>Improved</li><li>C</li></ul>',
       "<p>Other intro.</p><ul><li>B</li><li>D</li></ul>",
     ]);
   });
@@ -485,14 +497,127 @@ describe("navy serif document content", () => {
       expect(onChange.mock.lastCall?.[0].sections[key].items).toHaveLength(1);
     }
   });
-  it("omits empty summary and headline and offers a Summary margin control", () => {
+  it("offers controls for empty summary and headline", () => {
     const original = fullFixture();
     original.summary.content = "<p> </p>";
     original.basics.headline = "";
     mount(original);
     expect(screen.queryByRole("heading", { name: "Summary" })).toBeNull();
     expect(screen.queryByLabelText("Headline")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "+ Headline" }));
+    const headline = screen.getByLabelText("Headline");
+    fireEvent.change(headline, { target: { value: "Engineer" } });
+    fireEvent.change(headline, { target: { value: "" } });
+    expect(screen.getByLabelText("Headline")).toBe(headline);
     fireEvent.click(screen.getByRole("button", { name: "+ Summary" }));
     expect(screen.getByRole("heading", { name: "Summary" })).toBeVisible();
+    const summary = screen.getByLabelText("Summary content");
+    fireEvent.change(summary, { target: { value: "New summary" } });
+    fireEvent.change(summary, { target: { value: "" } });
+    expect(screen.getByLabelText("Summary content")).toBe(summary);
+  });
+  it.each([
+    "replace",
+    "insert",
+    "move",
+  ])("keeps original intro HTML on library drop or reorder: %s", (mode) => {
+    const original = fullFixture();
+    const onChange = mount(original);
+    const intro =
+      original.sections.experience.items[0].description.split("<ul>")[0];
+    const dataTransfer =
+      mode === "move"
+        ? {
+            types: ["application/x-jobops-resume-bullet"],
+            getData: () => JSON.stringify({ experienceId: "one", index: 2 }),
+          }
+        : {
+            types: ["application/x-jobops-bullet"],
+            getData: () =>
+              JSON.stringify({ id: "library", text: "Library duty" }),
+          };
+    fireEvent.drop(
+      mode === "replace"
+        ? screen.getByLabelText("Company bullet 1")
+        : screen.getByTitle("Insert before bullet 1"),
+      { dataTransfer },
+    );
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0].description.split(
+        "<ul>",
+      )[0],
+    ).toBe(intro);
+  });
+  it("shows hidden-target suggestions so Accept all has no unseen edits", () => {
+    const original = fullFixture();
+    original.summary.hidden = true;
+    original.sections.skills.hidden = true;
+    original.sections.experience.hidden = true;
+    const onChange = mount(original, [
+      {
+        id: "summary",
+        op: "replace_summary",
+        text: "Updated summary",
+        reason: "Summary reason",
+      },
+      {
+        id: "skills",
+        op: "set_skills",
+        skills: [{ name: "Updated skills", keywords: [] }],
+        reason: "Skills reason",
+      },
+      {
+        id: "bullet",
+        op: "replace_bullet",
+        experienceId: "one",
+        bulletIndex: 0,
+        text: "Updated duty",
+        reason: "Duty reason",
+      },
+    ]);
+    expect(screen.getAllByRole("button", { name: "Accept" })).toHaveLength(3);
+    expect(screen.getByText("3 suggestions")).toBeVisible();
+    for (const reason of ["Summary reason", "Skills reason", "Duty reason"])
+      expect(screen.getByText(reason)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
+    expect(onChange.mock.lastCall?.[0].summary.content).toBe("Updated summary");
+    expect(onChange.mock.lastCall?.[0].sections.skills.items[0].name).toBe(
+      "Updated skills",
+    );
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0].description,
+    ).toContain("Updated duty");
+  });
+  it("labels hidden projects so they can be re-included", () => {
+    const original = fullFixture();
+    original.sections.projects.items = [
+      { id: "project", hidden: true, name: "Named project" },
+    ] as ReactiveResumeV5Document["sections"]["projects"]["items"];
+    mount(original);
+    expect(screen.getByText("Named project")).toBeVisible();
+    expect(
+      screen.getByLabelText("Include project Named project"),
+    ).not.toBeChecked();
+    fireEvent.click(screen.getByLabelText("Include project Named project"));
+    expect(
+      screen.getByRole("heading", { name: "Named project" }),
+    ).toBeVisible();
+  });
+  it("keeps trailing prose after the list during a manual bullet edit", () => {
+    const original = fullFixture();
+    original.sections.experience.items[0].description +=
+      '<p>After <a href="https://example.com">list</a></p>';
+    const onChange = mount(original);
+    fireEvent.change(screen.getByLabelText("Company bullet 1"), {
+      target: { value: "Edited" },
+    });
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0].description,
+    ).toBe(
+      original.sections.experience.items[0].description.replace(
+        "<li>A</li>",
+        "<li>Edited</li>",
+      ),
+    );
   });
 });

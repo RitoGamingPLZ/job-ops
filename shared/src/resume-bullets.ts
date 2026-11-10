@@ -1,3 +1,17 @@
+function escapeHtml(text: string): string {
+  return text.replace(
+    /[&<>"']/g,
+    (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char] ?? char,
+  );
+}
+
 /** Plain-text bullets shared by the library and structured resume editor. */
 function stripHtml(html: string): string {
   return html
@@ -40,17 +54,56 @@ export function bulletsFromHtml(html: string): string[] {
 
 export function bulletsToHtml(bullets: string[]): string {
   if (!bullets.length) return "";
-  const escapeHtml = (text: string) =>
-    text.replace(
-      /[&<>"']/g,
-      (char) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        })[char] ?? char,
-    );
   return `<ul>${bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}</ul>`;
+}
+
+/** Description prose is original HTML; only explicit list items are bullets.
+ * Keep this HTML as data: consumers must sanitize it before rendering as HTML.
+ */
+export function splitDescription(html: string): {
+  introHtml: string;
+  bullets: string[];
+} {
+  const lists = [...html.matchAll(/<(ul|ol)\b[^>]*>[\s\S]*?<\/\1\s*>/gi)];
+  return {
+    introHtml: html.replace(/<(ul|ol)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ""),
+    bullets: lists.flatMap(([list]) =>
+      /<li\b/i.test(list) ? bulletsFromHtml(list) : [],
+    ),
+  };
+}
+
+/** Reuse the original list position when editing bullets, so trailing prose stays put. */
+export function joinDescription(
+  introHtml: string,
+  bullets: string[],
+  originalHtml?: string,
+): string {
+  const listHtml = bulletsToHtml(bullets);
+  if (
+    originalHtml !== undefined &&
+    splitDescription(originalHtml).introHtml === introHtml
+  ) {
+    let replaced = false;
+    const next = originalHtml.replace(
+      /<(ul|ol)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
+      () => {
+        const replacement = replaced ? "" : listHtml;
+        replaced = true;
+        return replacement;
+      },
+    );
+    if (replaced) return next;
+  }
+  return introHtml + listHtml;
+}
+
+/** Plain-text intro edits intentionally replace its markup with paragraphs. */
+export function introTextToHtml(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => {
+      return `<p>${escapeHtml(line)}</p>`;
+    })
+    .join("");
 }

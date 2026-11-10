@@ -1,4 +1,8 @@
-import { bulletsFromHtml, bulletsToHtml } from "@shared/resume-bullets";
+import {
+  bulletsFromHtml,
+  joinDescription,
+  splitDescription,
+} from "@shared/resume-bullets";
 import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
 import { normalizeWhitespace } from "@shared/utils/string";
 
@@ -58,7 +62,7 @@ export function suggestionTarget(
     (e) => e.id === suggestion.experienceId && !e.hidden,
   );
   if (!experience) return null;
-  const bullets = bulletsFromHtml(experience.description);
+  const { bullets } = splitDescription(experience.description);
   if (suggestion.op === "insert_bullet") {
     const index = suggestion.bulletIndex ?? bullets.length;
     return Number.isInteger(index) && index >= 0 && index <= bullets.length
@@ -110,7 +114,7 @@ function applyResolvedSuggestion(
       (e) => e.id === suggestion.experienceId,
     );
     if (!experience || target.index === undefined) return null;
-    const bullets = bulletsFromHtml(experience.description);
+    const { introHtml, bullets } = splitDescription(experience.description);
     if (suggestion.op === "delete_bullet") bullets.splice(target.index, 1);
     else
       bullets.splice(
@@ -118,7 +122,11 @@ function applyResolvedSuggestion(
         suggestion.op === "replace_bullet" ? 1 : 0,
         suggestion.text ?? "",
       );
-    experience.description = bulletsToHtml(bullets);
+    experience.description = joinDescription(
+      introHtml,
+      bullets,
+      experience.description,
+    );
   }
   return next;
 }
