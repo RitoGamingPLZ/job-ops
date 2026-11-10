@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export function CommaListInput({
   value,
   onCommit,
+  multiline,
   ...props
 }: Omit<React.ComponentProps<typeof Input>, "value" | "onChange" | "onBlur"> & {
   value: string[];
   onCommit: (value: string[]) => void;
+  /** Wrap long lists onto more lines, like the printed resume. */
+  multiline?: boolean;
 }) {
   const text = value.join(", ");
   const [draft, setDraft] = useState(text);
@@ -20,22 +24,46 @@ export function CommaListInput({
     setDraft(values.join(", "));
     onCommit(values);
   };
+  const onKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement & HTMLTextAreaElement>,
+  ) => {
+    props.onKeyDown?.(event);
+    if (
+      event.key === "Enter" &&
+      !event.defaultPrevented &&
+      !event.nativeEvent.isComposing
+    ) {
+      if (multiline) event.preventDefault();
+      commit();
+    }
+  };
+  if (multiline)
+    return (
+      <Textarea
+        rows={1}
+        aria-label={props["aria-label"]}
+        className={props.className}
+        style={{ height: "auto", overflow: "hidden" }}
+        ref={(element) => {
+          if (element) {
+            element.style.height = "auto";
+            const borders = element.offsetHeight - element.clientHeight;
+            element.style.height = `${element.scrollHeight + borders}px`;
+          }
+        }}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={onKeyDown}
+      />
+    );
   return (
     <Input
       {...props}
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
-      onKeyDown={(event) => {
-        props.onKeyDown?.(event);
-        if (
-          event.key === "Enter" &&
-          !event.defaultPrevented &&
-          !event.nativeEvent.isComposing
-        ) {
-          commit();
-        }
-      }}
+      onKeyDown={onKeyDown}
     />
   );
 }

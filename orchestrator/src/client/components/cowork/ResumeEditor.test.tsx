@@ -375,6 +375,84 @@ describe("navy serif document content", () => {
     expect(screen.queryByLabelText("Certifications 1 title")).toBeNull();
     expect(screen.queryByLabelText("Skill 1 name")).toBeNull();
   });
+  it("shows one column (main then sidebar) and reorders sections into pages[0].main", () => {
+    const next = fullFixture();
+    next.metadata = {
+      layout: {
+        sidebarWidth: 30,
+        pages: [
+          {
+            fullWidth: false,
+            main: ["profiles", "experience", "education", "awards"],
+            sidebar: ["skills", "certifications"],
+          },
+        ],
+      },
+    } as unknown as ReactiveResumeV5Document["metadata"];
+    const onChange = mount(next);
+    expect(window.document.querySelector(".resume-sidebar")).toBeNull();
+    expect(screen.queryByLabelText(/to sidebar|to main/)).toBeNull();
+    expect(
+      screen.getAllByRole("heading", { level: 2 }).map((e) => e.textContent),
+    ).toEqual([
+      "Summary",
+      "Experiences",
+      "Education",
+      "Awards",
+      "Skills",
+      "Certifications",
+    ]);
+    fireEvent.click(screen.getByLabelText("Move section Certifications up"));
+    let page = onChange.mock.lastCall?.[0].metadata.layout.pages[0];
+    expect(page.sidebar).toEqual([]);
+    expect(page.main.indexOf("certifications")).toBe(
+      page.main.indexOf("skills") - 1,
+    );
+    expect(page.main).toContain("profiles");
+    fireEvent.drop(screen.getByLabelText("Move section before Experiences"), {
+      dataTransfer: {
+        types: ["application/x-jobops-resume-section"],
+        getData: (type: string) =>
+          type === "application/x-jobops-resume-section"
+            ? JSON.stringify("skills")
+            : "",
+      },
+    });
+    page = onChange.mock.lastCall?.[0].metadata.layout.pages[0];
+    expect(page.main.indexOf("skills")).toBe(
+      page.main.indexOf("experience") - 1,
+    );
+    expect(
+      screen.getAllByRole("heading", { level: 2 }).map((e) => e.textContent),
+    ).toEqual([
+      "Summary",
+      "Skills",
+      "Experiences",
+      "Education",
+      "Awards",
+      "Certifications",
+    ]);
+  });
+  it("shows education as one degree-in-area phrase with separate fields", () => {
+    const next = fullFixture();
+    const onChange = mount(next);
+    const item = screen
+      .getByLabelText("Education 1 area")
+      .closest(".resume-simple-item");
+    expect(item).toHaveAttribute("data-area-shown", "true");
+    expect(item).toHaveTextContent("in");
+    fireEvent.change(screen.getByLabelText("Education 1 degree"), {
+      target: { value: "BSc Computing" },
+    });
+    expect(item).toHaveAttribute("data-area-shown", "false");
+    fireEvent.change(screen.getByLabelText("Education 1 area"), {
+      target: { value: "Maths" },
+    });
+    expect(
+      onChange.mock.lastCall?.[0].sections.education.items[0],
+    ).toMatchObject({ degree: "BSc Computing", area: "Maths" });
+    expect(item).toHaveAttribute("data-area-shown", "true");
+  });
   it("keeps unrelated HTML byte-identical and preserves prose when editing a bullet", () => {
     const original = fullFixture();
     const onChange = mount(original);

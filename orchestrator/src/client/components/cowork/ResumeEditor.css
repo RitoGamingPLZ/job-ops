@@ -2,12 +2,13 @@
   width: 100%;
   min-width: 0;
   color-scheme: light;
+  background: #e6e8eb;
+  padding: 1px 0;
 }
 .resume-paper-frame {
   position: relative;
   margin: 12px auto 24px;
   overflow: hidden;
-  box-shadow: 0 2px 14px #00000024;
 }
 .resume-paper {
   position: relative;
@@ -18,9 +19,20 @@
   min-height: 297mm;
   margin: 0;
   border: 0;
-  background: #fff;
-  box-shadow: 0 2px 14px #00000024;
+  background: transparent;
+  isolation: isolate;
   overflow-wrap: anywhere;
+}
+/* Word-style white A4 sheets behind the flowing content; see paginate(). */
+.resume-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 297mm;
+  z-index: -1;
+  background: #fff;
+  box-shadow: 0 1px 6px #0000002e;
+  pointer-events: none;
 }
 .resume-paper h3 {
   font-size: inherit;
@@ -288,26 +300,6 @@
   flex-direction: column;
   gap: 3px;
 }
-.resume-page-guide {
-  position: absolute;
-  left: 0;
-  right: 0;
-  border-top: 1px dashed #b7bdc4;
-  pointer-events: none;
-  z-index: 3;
-}
-.resume-page-guide span {
-  position: absolute;
-  right: 8px;
-  top: 3px;
-  font:
-    8pt / 1.2 "Times New Roman",
-    "Liberation Serif",
-    Tinos,
-    serif;
-  color: #737b84;
-  background: #fff;
-}
 @media (hover: none) {
   .resume-row:focus-within .resume-margin,
   .resume-paper section:focus-within > .resume-add {
@@ -330,7 +322,7 @@
 
 /* The document uses the same navy serif hierarchy as the exported resume. */
 .resume-paper {
-  padding: 10mm 12mm;
+  padding: 12mm;
   color: #000;
   font:
     10.5pt / 1.2 "Times New Roman",
@@ -338,11 +330,12 @@
     Tinos,
     serif;
 }
-.resume-paper > .resume-section {
+.resume-section-slot > .resume-section {
   position: relative;
   margin-top: 10pt;
 }
-.resume-paper > .resume-section:not(:has(h2)):not(:has(.resume-suggestion)) {
+.resume-section-slot
+  > .resume-section:not(:has(h2)):not(:has(.resume-suggestion)) {
   margin: 0;
   min-height: 0;
 }
@@ -423,35 +416,30 @@
   color: #1f3a6e;
   text-decoration: underline;
 }
+/* Tight hanging indent: marker 2mm, text 7.5mm from the text edge. */
 .resume-bullets {
-  padding-left: 6mm;
+  padding-left: 7.5mm;
   margin: 2pt 0 0;
-  list-style: disc outside;
+  list-style: none;
 }
-.resume-bullet {
+.resume-bullets > li {
+  position: relative;
   padding: 0;
 }
-.resume-skill {
-  margin: 0 0 1pt 6mm;
-  gap: 0;
-}
-.resume-skill::before,
-.resume-certifications .resume-simple-item::before,
-.resume-awards .resume-simple-item::before {
+.resume-bullets > li::before,
+.resume-certifications .resume-simple-item::before {
   position: absolute;
-  right: calc(100% + 3mm);
+  left: -5.5mm;
   content: "●";
   font-size: 7pt;
   top: 2pt;
   color: #000;
 }
-.resume-paper .resume-skill > input:first-of-type {
-  flex: 0 1 auto;
-  color: #1f3a6e;
-  font-weight: bold;
+.resume-skill {
+  display: block;
+  margin: 0 0 4pt;
 }
-.resume-skill > span {
-  margin-right: 3pt;
+.resume-paper .resume-skill-name {
   color: #1f3a6e;
   font-weight: bold;
 }
@@ -525,15 +513,11 @@
   flex-basis: 25%;
   text-align: right;
 }
-.resume-paper .resume-simple-item .resume-field-degree,
-.resume-paper .resume-simple-item .resume-field-area {
-  flex-basis: 45%;
-}
 .resume-certifications .resume-simple-items {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 8mm;
-  padding-left: 6mm;
+  padding-left: 7.5mm;
 }
 .resume-paper .resume-certifications .resume-field-title {
   flex-basis: 70%;
@@ -553,15 +537,38 @@
 .resume-paper .resume-simple-item:focus-within .resume-field-date {
   display: block;
 }
-.resume-awards .resume-simple-items {
-  padding-left: 6mm;
-}
 .resume-awards .resume-simple-item {
   flex-wrap: nowrap;
+  column-gap: 0;
+}
+.resume-awards .resume-simple-item > span {
+  margin-right: 3pt;
+}
+/* Size inline fields to their text so the line reads as one phrase. */
+.resume-paper .resume-awards .resume-field-title,
+.resume-paper .resume-education-degree input {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 100%;
+  field-sizing: content;
 }
 .resume-paper .resume-awards .resume-field-title {
-  flex: 0 1 25%;
+  max-width: 50%;
   font-weight: bold;
+}
+.resume-education-degree {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: baseline;
+  gap: 3pt;
+  min-width: 0;
+}
+.resume-simple-item:not([data-area-shown="true"]):not(:focus-within)
+  .resume-education-in,
+.resume-paper
+  .resume-simple-item:not([data-area-shown="true"]):not(:focus-within)
+  .resume-field-area {
+  display: none;
 }
 .resume-awards .resume-simple-item textarea {
   flex: 1;
@@ -598,4 +605,12 @@
 .resume-experience > .resume-add {
   top: auto;
   bottom: 0;
+}
+
+.resume-section-controls {
+  top: 10pt;
+  z-index: 4;
+}
+.resume-paper .resume-section-gap {
+  height: 8px;
 }
