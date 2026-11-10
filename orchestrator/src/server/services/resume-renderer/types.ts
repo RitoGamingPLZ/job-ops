@@ -12,8 +12,10 @@ export interface LatexResumeContactItem {
 
 export interface LatexResumeEntry {
   title: string;
-  /** Plain description text outside list items, for themes with intro paragraphs. */
+  /** Description prose before a list, or all prose when no list items exist. */
   intro?: string | null;
+  /** Actual list items, separate from legacy prose-as-bullets rendering. */
+  listBullets?: string[];
   position?: string | null;
   location?: string | null;
   subtitle?: string | null;

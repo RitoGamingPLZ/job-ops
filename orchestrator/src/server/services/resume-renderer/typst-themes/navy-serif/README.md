@@ -33,13 +33,19 @@ Experience descriptions can contain an intro followed by a list:
 <ul><li>Reduced deployment time.</li></ul>
 ```
 
+Descriptions without list items render as prose with paragraph and line breaks.
+With list items, only text before the list becomes the intro; list items render
+once as bullets. Links allow HTTP, HTTPS, and mailto URLs; other schemes retain
+the visible text without a link.
+
 The renderer preserves the intro separately. Editors must retain the paragraph when
 updating the list. Other themes retain their existing description rendering.
 
 ## Common problems
 
 - Missing Times New Roman: Typst tries Liberation Serif and TeX Gyre Termes, then
-  falls back to its bundled Libertinus Serif. No font or package download is needed.
+  falls back to its bundled Libertinus Serif. The production Docker image includes
+  Liberation Serif. No font or package download is needed.
   Typst can emit warnings for unavailable preferred fonts while rendering successfully.
 - Unexpected section order: the document's saved layout takes priority over the
   theme's default order.

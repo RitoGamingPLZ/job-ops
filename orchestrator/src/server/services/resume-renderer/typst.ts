@@ -699,7 +699,19 @@ export function convertDocFieldsToTypst(
 
   const convertEntry = (entry: LatexResumeEntry): LatexResumeEntry => ({
     ...entry,
-    ...(entry.intro ? { intro: escapeTypstText(entry.intro) } : {}),
+    ...(entry.intro
+      ? {
+          intro: entry.intro
+            .split("\n\n")
+            .map((paragraph) =>
+              paragraph.split("\n").map(escapeTypstText).join("#linebreak()"),
+            )
+            .join("\n\n"),
+        }
+      : {}),
+    ...(entry.listBullets
+      ? { listBullets: convertBullets(entry.listBullets) }
+      : {}),
     bullets: convertBullets(entry.bullets),
   });
 

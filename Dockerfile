@@ -19,6 +19,7 @@ ARG CLAUDE_CLI_VERSION=2.1.211
 # Install runtime dependencies shared by build and production stages.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    fonts-liberation \
     python3 python3-minimal libpython3.11-minimal \
     python3-pip \
     libgtk-3-0 libgtk-3-common \

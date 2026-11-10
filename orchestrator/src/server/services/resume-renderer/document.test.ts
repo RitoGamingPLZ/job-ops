@@ -2,6 +2,78 @@ import { describe, expect, it } from "vitest";
 import { normalizeResumeJsonToLatexDocument } from "./document";
 
 describe("normalizeResumeJsonToLatexDocument", () => {
+  it.each([
+    "javascript:alert(1)",
+    "file:///tmp/private",
+    "data:text/html,hi",
+    "tel:123",
+    "/relative",
+    "https://",
+    "java\nscript:alert(1)",
+    "https://example.com",
+    "http://example.com",
+    "mailto:hello@example.com",
+  ])("filters link URLs in every section: %s", (url) => {
+    const allowed = /^(https?:\/\/example\.com|mailto:)/.test(url);
+    const keys = [
+      "experience",
+      "education",
+      "projects",
+      "awards",
+      "certifications",
+      "publications",
+      "volunteer",
+      "references",
+    ] as const;
+    const doc = normalizeResumeJsonToLatexDocument({
+      basics: {
+        website: { url, label: "Visible website" },
+        customFields: [{ text: "Visible custom", link: url }],
+        email: "hello@example.com",
+      },
+      sections: {
+        profiles: { items: [{ network: "Visible profile", website: { url } }] },
+        ...Object.fromEntries(
+          keys.map((key) => [
+            key,
+            {
+              items: [
+                {
+                  company: "Visible experience",
+                  school: "Visible education",
+                  name: "Visible name",
+                  title: "Visible title",
+                  organization: "Visible organization",
+                  website: { url },
+                },
+              ],
+            },
+          ]),
+        ),
+      },
+    });
+    expect(doc.contactItems.find((item) => item.kind === "website")).toEqual({
+      text: "Visible website",
+      url: allowed ? url : null,
+      kind: "website",
+    });
+    expect(doc.contactItems.find((item) => item.kind === "email")?.url).toBe(
+      "mailto:hello@example.com",
+    );
+    expect(doc.profileItems[0]).toMatchObject({
+      network: "Visible profile",
+      url: allowed ? url : null,
+    });
+    expect(doc.customFieldItems[0]).toMatchObject({
+      text: "Visible custom",
+      url: allowed ? url : null,
+    });
+    for (const key of keys) {
+      expect(doc[key][0]?.url).toBe(allowed ? url : undefined);
+      expect(doc[key][0]?.title).toBeTruthy();
+    }
+  });
+
   it("keeps every editable Resume Studio section in the renderer model", () => {
     const document = normalizeResumeJsonToLatexDocument({
       picture: {

@@ -32,7 +32,7 @@
 // Bullets/summary are escaped by convertDocFieldsToTypst; other fields are plain strings.
 #let markup(s) = eval(s, mode: "markup")
 #let bullets(entry) = {
-  let b = entry.at("bullets", default: ())
+  let b = entry.at("listBullets", default: entry.at("bullets", default: ()))
   if b.len() > 0 { list(..b.map(markup)) }
 }
 #let row(left, right) = grid(columns: (1fr, auto), column-gutter: 1em, left, right)
@@ -75,8 +75,10 @@
           ]
           #let intro = str-of(entry, "intro")
           #if key == "experience" and intro != "" { [#markup(intro) #parbreak()] }
-          // With no list HTML, the legacy bullets duplicate the intro; omit them here.
-          #if intro == "" or entry.bullets.join("\n") != intro { bullets(entry) }
+          #if key == "experience" { bullets(entry) } else {
+            let b = entry.at("bullets", default: ())
+            if b.len() > 0 { list(..b.map(markup)) }
+          }
         ]
       }
     ])

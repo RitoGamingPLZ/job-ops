@@ -109,11 +109,132 @@ describe("Navy Serif", () => {
     expect(edited.experience[0]?.bullets).toEqual(["Edited bullet."]);
   });
 
-  it("leaves every existing theme's rendered input byte-identical", async () => {
+  const descriptions = [
+    {
+      description: "<p>Paragraph one.</p><p>Paragraph two.</p>",
+      intro: "Paragraph one.\n\nParagraph two.",
+      markup: "Paragraph one.\n\nParagraph two.",
+      bullets: [],
+    },
+    {
+      description: "Line one.<br>Line two.",
+      intro: "Line one.\nLine two.",
+      markup: "Line one.#linebreak()Line two.",
+      bullets: [],
+    },
+    {
+      description:
+        "<p>Intro text.</p><ul><li>List item.</li></ul><p>Trailing text.</p>",
+      intro: "Intro text.",
+      markup: "Intro text.",
+      bullets: ["List item."],
+    },
+    {
+      description: "<ul><li>List item.</li></ul>",
+      intro: null,
+      markup: null,
+      bullets: ["List item."],
+    },
+  ];
+
+  it.each(descriptions)("separates prose and list items: $description", ({
+    description,
+    intro,
+    markup,
+    bullets,
+  }) => {
+    const doc = normalizeResumeJsonToLatexDocument({
+      sections: { experience: { items: [{ company: "Sample", description }] } },
+    });
+    expect(doc.experience[0]?.intro).toBe(intro);
+    expect(doc.experience[0]?.listBullets).toEqual(bullets);
+    expect(convertDocFieldsToTypst(doc).experience[0]?.intro).toBe(markup);
+  });
+
+  it.skipIf(!available).each(descriptions)(
+    "renders description exactly once: $description",
+    async ({ description, bullets }) => {
+      const dir = await mkdtemp(join(tmpdir(), "navy-prose-test-"));
+      try {
+        const doc = normalizeResumeJsonToLatexDocument({
+          basics: { name: "Example" },
+          sections: {
+            experience: { items: [{ company: "Sample", description }] },
+          },
+        });
+        const path = join(dir, "resume.pdf");
+        await renderTypstPdf({
+          document: doc,
+          typstTheme: "navy-serif",
+          outputPath: path,
+          jobId: "prose-test",
+        });
+        const pdf = await getDocument({
+          data: new Uint8Array(await readFile(path)),
+          useSystemFonts: true,
+        }).promise;
+        try {
+          const page = await pdf.getPage(1);
+          const content = await page.getTextContent();
+          const lines = content.items.filter((item) => "str" in item);
+          const text = lines.map((item) => item.str).join(" ");
+          for (const phrase of [
+            "Paragraph one.",
+            "Paragraph two.",
+            "Line one.",
+            "Line two.",
+            "Intro text.",
+            "List item.",
+          ]) {
+            expect(text.split(phrase).length - 1).toBe(
+              description.includes(phrase) ? 1 : 0,
+            );
+          }
+          expect(lines.filter((item) => item.str === "●")).toHaveLength(
+            bullets.length,
+          );
+          expect(text).not.toContain("Trailing text.");
+          for (const [first, second] of [
+            ["Paragraph one.", "Paragraph two."],
+            ["Line one.", "Line two."],
+          ]) {
+            if (!description.includes(first)) continue;
+            const a = lines.find((item) => item.str.includes(first));
+            const b = lines.find((item) => item.str.includes(second));
+            expect(a?.transform[5]).toBeGreaterThan(b?.transform[5] ?? 0);
+          }
+        } finally {
+          await pdf.destroy();
+        }
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.each([
+    document,
+    ...descriptions.map(({ description }) =>
+      normalizeResumeJsonToLatexDocument({
+        ...input,
+        sections: {
+          ...input.sections,
+          experience: {
+            items: [{ ...input.sections.experience.items[0], description }],
+          },
+        },
+      }),
+    ),
+  ])("leaves every existing theme's rendered input byte-identical", async (document) => {
     const { defaultSectionOrder: _, ...legacy } = document;
     legacy.experience = document.experience.map(
-      ({ intro: _intro, position: _position, location: _location, ...entry }) =>
-        entry,
+      ({
+        intro: _intro,
+        listBullets: _list,
+        position: _position,
+        location: _location,
+        ...entry
+      }) => entry,
     );
     for (const id of ["classic", "compact", "clean-print-cv"] as const) {
       const theme = await readTypstTheme(id);
@@ -131,6 +252,7 @@ describe("Navy Serif", () => {
           experience: rendered.experience.map(
             ({
               intro: _intro,
+              listBullets: _list,
               position: _position,
               location: _location,
               ...entry
@@ -138,7 +260,7 @@ describe("Navy Serif", () => {
           ),
         }).toEqual(before);
         expect(theme.template).not.toMatch(
-          /\.intro|\.position|\.location|defaultSectionOrder/,
+          /\.intro|\.listBullets|\.position|\.location|defaultSectionOrder/,
         );
       }
     }
