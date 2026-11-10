@@ -49,7 +49,8 @@ export type ResumeSuggestionOp =
   | "delete_bullet"
   | "replace_summary"
   | "replace_headline"
-  | "set_skills";
+  | "set_skills"
+  | "replace_field";
 export interface ResumeSuggestion {
   id: string;
   op: ResumeSuggestionOp;
@@ -59,9 +60,25 @@ export interface ResumeSuggestion {
   text?: string; // new bullet / summary / headline (plain text)
   skills?: { name: string; keywords: string[] }[];
   sourceBulletIds?: string[]; // library bullets it drew on
+  field?: { section: string; itemId: string; name: string }; // replace_field: name = a plain-string v5 field of that item
   reason: string;
 }
 export interface CoworkChatContext {
   document: ReactiveResumeV5Document;
   referencedBulletIds: string[];
+  focus?: ResumeFocusRef[]; // max 20
+}
+export type ResumeFocusKind =
+  | "section"
+  | "item"
+  | "bullet"
+  | "skill"
+  | "summary"
+  | "headline";
+export interface ResumeFocusRef {
+  kind: ResumeFocusKind;
+  section?: string; // v5 section key, e.g. "experience","education","awards","certifications","projects","skills"
+  itemId?: string; // v5 item id (item/bullet/skill)
+  bulletIndex?: number; // bullet: index in that item's <li> bullets (splitDescription semantics)
+  label: string; // chip text, e.g. "Experience › Citi — Senior Programmer"
 }

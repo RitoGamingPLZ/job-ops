@@ -46,6 +46,25 @@ function context(): CoworkChatContext {
   ];
   return { document, referencedBulletIds: ["own"] };
 }
+function withSections(): CoworkChatContext {
+  const cowork = context();
+  const sections = cowork.document.sections;
+  const website = { url: "", label: "" };
+  sections.education.items = [
+    { id: "ed", hidden: false, school: "MIT", degree: "BSc", area: "CS", grade: "", location: "", period: "2010", website, description: "" },
+  ];
+  sections.awards.items = [
+    { id: "aw", hidden: false, title: "Prize", awarder: "IEEE", date: "2020", website, description: "<p>Won <b>it</b></p>" },
+  ];
+  sections.certifications.items = [
+    { id: "ce", hidden: false, title: "AWS", issuer: "Amazon", date: "", website, description: "" },
+  ];
+  sections.projects.items = [
+    { id: "pr", hidden: false, name: "Tool", period: "", website, description: "" },
+    { id: "hiddenpr", hidden: true, name: "Secret", period: "", website, description: "" },
+  ];
+  return cowork;
+}
 const bullet = (id: string, text = "Built tools"): ExperienceBullet => ({
   id,
   text,
@@ -356,6 +375,117 @@ describe("cowork AI", () => {
     const huge = context();
     huge.document.basics.headline = "x".repeat(250001);
     expect(coworkChatContextSchema.safeParse(huge).success).toBe(false);
+  });
+  it("validates focus refs (strict, max 20)", () => {
+    const ref = { kind: "item", section: "experience", itemId: "exp", label: "Acme" };
+    expect(
+      coworkChatContextSchema.safeParse({ ...context(), focus: [ref] }).success,
+    ).toBe(true);
+    for (const focus of [
+      Array(21).fill(ref),
+      [{ ...ref, kind: "page" }],
+      [{ ...ref, label: "" }],
+      [{ ...ref, extra: 1 }],
+      [{ ...ref, bulletIndex: -1 }],
+    ])
+      expect(
+        coworkChatContextSchema.safeParse({ ...context(), focus }).success,
+      ).toBe(false);
+  });
+  it("sends visible sections with ids and a FOCUS block with current text", () => {
+    const cowork = withSections();
+    cowork.document.sections.certifications.hidden = true;
+    cowork.focus = [
+      { kind: "bullet", section: "experience", itemId: "exp", bulletIndex: 0, label: "b" },
+      { kind: "item", section: "awards", itemId: "aw", label: "a" },
+      { kind: "section", section: "projects", label: "p" },
+      { kind: "summary", label: "s" },
+      { kind: "item", section: "awards", itemId: "missing", label: "x" },
+    ];
+    const prompt = buildCoworkPrompt(cowork, "Job", []);
+    expect(prompt).toContain("FOCUS is non-empty");
+    const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
+    expect(data.resume.education).toEqual([
+      { id: "ed", school: "MIT", degree: "BSc", area: "CS", grade: "", period: "2010" },
+    ]);
+    expect(data.resume.awards).toEqual([
+      { id: "aw", title: "Prize", awarder: "IEEE", date: "2020", description: "Won it" },
+    ]);
+    expect(data.resume.projects.map((p: { id: string }) => p.id)).toEqual(["pr"]);
+    expect(data.resume.certifications).toBeUndefined();
+    expect(data.FOCUS.map((f: { current: unknown }) => f.current)).toEqual([
+      "Built APIs",
+      data.resume.awards[0],
+      ["pr", "hiddenpr"],
+      "",
+      null,
+    ]);
+    expect(data.FOCUS[0]).toMatchObject({ kind: "bullet", label: "b" });
+  });
+  it("anchors replace_field to the document and drops unknown section/item/name", () => {
+    const cowork = withSections();
+    const field = (section: string, itemId: string, name: string) => ({
+      op: "replace_field",
+      field: { section, itemId, name },
+      previousText: "stale",
+      text: "<b>New</b> text",
+      experienceId: null,
+      bulletIndex: null,
+      skills: null,
+      sourceBulletIds: null,
+      reason: "r",
+    });
+    const out = filterCoworkSuggestions(
+      [
+        field("awards", "aw", "description"),
+        field("experience", "exp", "company"),
+        field("awards", "aw", "website"),
+        field("awards", "nope", "title"),
+        field("volunteer", "aw", "title"),
+        field("__proto__", "aw", "title"),
+        { ...field("awards", "aw", "title"), field: null },
+        { ...field("awards", "aw", "title"), text: "<p></p>" },
+      ],
+      cowork,
+      [],
+    );
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({
+      op: "replace_field",
+      field: { section: "awards", itemId: "aw", name: "description" },
+      previousText: "Won it",
+      text: "New text",
+    });
+    expect(out[0]).not.toHaveProperty("experienceId");
+    expect(out[1]).toMatchObject({ previousText: "Acme", text: "New text" });
+    // field on other ops is dropped
+    const [bulletOp] = filterCoworkSuggestions(
+      [
+        {
+          op: "replace_bullet",
+          experienceId: "exp",
+          bulletIndex: 0,
+          text: "x",
+          field: { section: "awards", itemId: "aw", name: "title" },
+          reason: "r",
+        },
+      ],
+      cowork,
+      [],
+    );
+    expect(bulletOp).not.toHaveProperty("field");
+  });
+  it("strict schema includes nullable field object", () => {
+    const item = COWORK_RESPONSE_SCHEMA.schema.properties as Record<string, any>;
+    const props = item.suggestions.items;
+    expect(props.required).toContain("field");
+    expect(props.properties.op.enum).toContain("replace_field");
+    expect(props.properties.field).toMatchObject({
+      type: ["object", "null"],
+      required: ["section", "itemId", "name"],
+      additionalProperties: false,
+    });
+    expect(Object.keys(props.properties).sort()).toEqual([...props.required].sort());
   });
 });
 
