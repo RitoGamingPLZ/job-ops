@@ -1,0 +1,33 @@
+# Local long-term hosting: build from this checkout and keep it running.
+#   docker compose -f docker-compose.local.yml up -d --build
+# App: http://localhost:3005
+services:
+  job-ops:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: job-ops:local
+    container_name: job-ops-local
+    restart: unless-stopped
+    ports:
+      - "3005:3001"
+    volumes:
+      # Same database, PDFs and login secret as the dev server (stop the dev server first).
+      - ./orchestrator/data:/app/data
+      - codex-home:/app/codex-home
+      - tectonic-cache:/root/.cache/Tectonic
+      # Extra fonts (e.g. Times New Roman copied from Windows) for the Navy Serif PDF theme.
+      - ${HOME}/.local/share/fonts:/usr/local/share/fonts/host:ro
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATA_DIR=/app/data
+      - PYTHON_PATH=/usr/bin/python3
+      - CODEX_HOME=/app/codex-home
+    env_file:
+      - path: ./.env
+        required: false
+
+volumes:
+  codex-home:
+  tectonic-cache:
