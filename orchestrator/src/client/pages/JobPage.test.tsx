@@ -148,15 +148,15 @@ vi.mock("../components/LogEventModal", () => ({
 vi.mock("./job-page/JobPageRightSidebar", () => ({
   JobPageRightSidebar: ({
     isDiscovered,
-    onStartTailoring,
+    onTarget,
   }: {
     isDiscovered: boolean;
-    onStartTailoring: () => void;
+    onTarget: () => void;
   }) => (
     <div data-testid="job-right-sidebar">
       {isDiscovered && (
-        <button type="button" onClick={onStartTailoring}>
-          Start Tailoring
+        <button type="button" onClick={onTarget}>
+          Target
         </button>
       )}
     </div>
@@ -757,56 +757,72 @@ describe("JobPage back navigation", () => {
   });
 });
 
-it.each([
-  null,
-  "2026-06-01T00:00:00Z",
-])("opens the tailoring editor for discovered jobs with readyAt=%s", async (readyAt) => {
-  vi.mocked(api.getJob).mockResolvedValue(
-    createJob({ status: "discovered", readyAt }) as Job,
-  );
-  renderJobPage("/job/job-1");
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Start Tailoring" }),
-  );
-  await waitFor(() =>
-    expect(screen.getByTestId("location-probe")).toHaveTextContent(
-      "/jobs/all/job-1",
-    ),
-  );
-  expect(api.processJob).not.toHaveBeenCalled();
-});
-
-it("opens the editor from a targeted job page's Tailor resume button", async () => {
+it("offers editor links and no tailoring actions for a targeted job", async () => {
   vi.mocked(api.getJob).mockResolvedValue(
     createJob({ status: "discovered", readyAt: "2026-06-01T00:00:00Z" }) as Job,
   );
   renderJobPage("/job/job-1");
-  fireEvent.click(await screen.findByRole("button", { name: "Tailor resume" }));
-  await waitFor(() =>
-    expect(screen.getByTestId("location-probe")).toHaveTextContent(
-      "/jobs/all/job-1",
-    ),
-  );
-  expect(api.processJob).not.toHaveBeenCalled();
+  const links = await screen.findAllByRole("link", { name: "Open resume" });
+  // Sidebar has a separate focused test; this page uses its mock.
+  expect(links).toHaveLength(1);
+  for (const link of links)
+    expect(link).toHaveAttribute("href", "/resumes/job-1");
+  expect(document.querySelector('a[href*="inspector=tailoring"]')).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: /tailor|regenerate resume/i }),
+  ).toBeNull();
 });
 
-it("regenerates a targeted ready job from its job page", async () => {
+it.each([
+  "missing",
+  "stale",
+  "current",
+  "uploaded",
+])("previews a %s PDF with generation only when necessary", async (pdfFreshness) => {
   vi.mocked(api.getJob).mockResolvedValue(
     createJob({
       status: "ready",
-      readyAt: "2026-06-01T00:00:00Z",
-      pdfPath: "resume.pdf",
-    }) as Job,
+      readyAt: "2026-06-01",
+      pdfPath: pdfFreshness === "missing" ? null : "resume.pdf",
+      pdfFreshness: pdfFreshness as Job["pdfFreshness"],
+    }),
   );
-  render(
-    <MemoryRouter initialEntries={["/job/job-1"]}>
-      <Routes>
-        <Route path="/job/:id" element={<JobPage />} />
-      </Routes>
-    </MemoryRouter>,
+  vi.mocked(privatePdf.openJobPdf).mockImplementation(
+    async (_id, beforeFetch) => {
+      await beforeFetch?.();
+    },
   );
+  renderJobPage("/job/job-1/documents");
   fireEvent.click(
-    await screen.findByRole("button", { name: "Regenerate resume" }),
+    (await screen.findAllByRole("button", { name: "Preview PDF" }))[0],
   );
-  await waitFor(() => expect(api.generateJobPdf).toHaveBeenCalledWith("job-1"));
+  await waitFor(() =>
+    expect(privatePdf.openJobPdf).toHaveBeenCalledWith(
+      "job-1",
+      expect.any(Function),
+    ),
+  );
+  if (["missing", "stale"].includes(pdfFreshness))
+    await waitFor(() =>
+      expect(api.generateJobPdf).toHaveBeenCalledWith("job-1"),
+    );
+  else expect(api.generateJobPdf).not.toHaveBeenCalled();
+});
+it("renders a stale PDF before downloading it", async () => {
+  vi.mocked(api.getJob).mockResolvedValue(
+    createJob({
+      status: "ready",
+      pdfPath: "resume.pdf",
+      pdfFreshness: "stale",
+    }),
+  );
+  renderJobPage("/job/job-1/documents");
+  fireEvent.click(await screen.findByRole("button", { name: "Download PDF" }));
+  await waitFor(() => expect(privatePdf.downloadJobPdf).toHaveBeenCalled());
+  expect(api.generateJobPdf).toHaveBeenCalledWith("job-1");
+  expect(
+    vi.mocked(api.generateJobPdf).mock.invocationCallOrder[0],
+  ).toBeLessThan(
+    vi.mocked(privatePdf.downloadJobPdf).mock.invocationCallOrder[0],
+  );
 });

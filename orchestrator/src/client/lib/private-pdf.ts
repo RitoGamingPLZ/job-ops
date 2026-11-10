@@ -23,10 +23,14 @@ async function createObjectUrlFromBlob(
   return URL.createObjectURL(await loadBlob());
 }
 
-export async function openJobPdf(jobId: string): Promise<void> {
+export async function openJobPdf(
+  jobId: string,
+  beforeFetch?: () => Promise<unknown>,
+): Promise<void> {
   const tab = window.open("about:blank", "_blank");
   if (tab) tab.opener = null;
   try {
+    if (beforeFetch) await beforeFetch();
     const blob = await api.getJobPdfBlob(jobId);
     if (tab && !tab.closed) {
       const url = URL.createObjectURL(blob);

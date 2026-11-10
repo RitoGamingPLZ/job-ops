@@ -139,6 +139,12 @@ export const InProgressBoardPage: React.FC = () => {
 
   const boardQuery = useQuery({
     queryKey: queryKeys.jobs.inProgressBoard(),
+    refetchInterval: (query) =>
+      query.state.data?.some(
+        ({ job }) => job.status === "processing" || job.pdfRegenerating,
+      )
+        ? 2000
+        : false,
     queryFn: async () => {
       const response = await api.getJobs({
         statuses: [
@@ -289,24 +295,14 @@ export const InProgressBoardPage: React.FC = () => {
     [dragging, queryClient, transitionMutation],
   );
 
-  const handleTargetAction = async (
-    job: JobListItem,
-    action: "tailor" | "untarget",
-  ) => {
+  const handleTargetAction = async (job: JobListItem) => {
     setMovingJobId(job.id);
     try {
-      if (action === "untarget") await api.untargetJob(job.id);
-      else if (job.status === "discovered") await api.processJob(job.id);
-      else await api.generateJobPdf(job.id);
+      await api.untargetJob(job.id);
       await invalidateJobData(queryClient, job.id);
-      toast.success(action === "untarget" ? "Job untargeted" : "Resume ready");
+      toast.success("Job untargeted");
     } catch (error) {
-      showErrorToast(
-        error,
-        action === "untarget"
-          ? "Failed to untarget job"
-          : "Failed to tailor resume",
-      );
+      showErrorToast(error, "Failed to untarget job");
     } finally {
       setMovingJobId(null);
     }
@@ -486,12 +482,7 @@ export const InProgressBoardPage: React.FC = () => {
                                 stage={stage}
                                 round={round}
                                 pdfPath={pdfPath}
-                                onTailor={() =>
-                                  void handleTargetAction(job, "tailor")
-                                }
-                                onUntarget={() =>
-                                  void handleTargetAction(job, "untarget")
-                                }
+                                onUntarget={() => void handleTargetAction(job)}
                                 latestEventAt={latestEventAt}
                                 jobPageLinkState={jobPageLinkState}
                                 isMoving={movingJobId === job.id}

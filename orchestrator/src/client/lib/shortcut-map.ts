@@ -104,7 +104,7 @@ export const SHORTCUTS = {
   viewPdf: {
     key: "p",
     displayKey: "p",
-    label: "View PDF",
+    label: "Preview PDF",
     group: "actions",
     scope: ["ready"],
   },

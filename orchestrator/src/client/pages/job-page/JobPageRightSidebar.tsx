@@ -1,4 +1,5 @@
 import type { ApplicationTask, Job } from "@shared/types.js";
+import { isTargeted } from "@shared/types.js";
 import {
   CalendarClock,
   CheckCircle2,
@@ -15,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type React from "react";
+import { Link } from "react-router-dom";
 import { TooltipWhenDisabled } from "@/client/components/TooltipWhenDisabled";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,14 +44,12 @@ type JobPageRightSidebarProps = {
   pdfRegeneratingReason: string | null;
   pdfViewLabel: string;
   pdfDownloadLabel: string;
-  onStartTailoring: () => void;
+  onTarget: () => void;
   onMarkApplied: () => void;
   onOpenLogEvent: () => void;
-  onEditTailoring: () => void;
   onViewPdf: () => void;
   onDownloadPdf: () => void;
   onUploadPdf: () => void;
-  onRegeneratePdf: () => void;
   onSkip: () => void;
   onOpenEditDetails: () => void;
   onViewJobDescription: () => void;
@@ -73,14 +73,12 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
   pdfRegeneratingReason,
   pdfViewLabel,
   pdfDownloadLabel,
-  onStartTailoring,
+  onTarget,
   onMarkApplied,
   onOpenLogEvent,
-  onEditTailoring,
   onViewPdf,
   onDownloadPdf,
   onUploadPdf,
-  onRegeneratePdf,
   onSkip,
   onOpenEditDetails,
   onViewJobDescription,
@@ -108,18 +106,19 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
           </Button>
         )}
 
-        {isDiscovered && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-full justify-start"
-            onClick={onStartTailoring}
-            disabled={isBusy}
-          >
-            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-            Start Tailoring
-          </Button>
-        )}
+        {!isTargeted(job) &&
+          ["discovered", "processing", "ready"].includes(job.status) && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full justify-start"
+              onClick={onTarget}
+              disabled={isBusy || job.status === "processing"}
+            >
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              {job.status === "processing" ? "Preparing resume…" : "Target"}
+            </Button>
+          )}
 
         {isReady && (
           <Button
@@ -147,36 +146,31 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
           </Button>
         )}
 
-        {isReady && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full justify-start"
+          asChild
+        >
+          <Link to={`/resumes/${job.id}`}>Open resume</Link>
+        </Button>
+        {job.pdfSource === "uploaded" && (
+          <p className="text-xs text-muted-foreground">
+            Uploaded PDF (not from the editor)
+          </p>
+        )}
+        <TooltipWhenDisabled reason={pdfRegeneratingReason} className="w-full">
           <Button
             size="sm"
             variant="outline"
             className="h-9 w-full justify-start"
-            onClick={onEditTailoring}
-            disabled={isBusy}
+            onClick={onViewPdf}
+            disabled={pdfActionsDisabled}
           >
-            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-            Edit Tailoring
+            <FileText className="mr-1.5 h-3.5 w-3.5" />
+            {pdfViewLabel}
           </Button>
-        )}
-
-        {job.pdfPath && (
-          <TooltipWhenDisabled
-            reason={pdfRegeneratingReason}
-            className="w-full"
-          >
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-9 w-full justify-start"
-              onClick={onViewPdf}
-              disabled={pdfActionsDisabled}
-            >
-              <FileText className="mr-1.5 h-3.5 w-3.5" />
-              {pdfViewLabel}
-            </Button>
-          </TooltipWhenDisabled>
-        )}
+        </TooltipWhenDisabled>
 
         <Button
           size="sm"
@@ -192,19 +186,6 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
               ? "Replace PDF"
               : "Upload PDF"}
         </Button>
-
-        {isReady && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-9 w-full justify-start"
-            onClick={onRegeneratePdf}
-            disabled={isBusy || Boolean(pdfRegeneratingReason)}
-          >
-            <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
-            Regenerate PDF
-          </Button>
-        )}
 
         {(isReady || isDiscovered) && (
           <Button
@@ -258,25 +239,21 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
                   ? "Replace PDF"
                   : "Upload PDF"}
             </DropdownMenuItem>
-            {job.pdfPath && (
-              <>
-                <DropdownMenuItem
-                  onSelect={onViewPdf}
-                  disabled={pdfActionsDisabled}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  {pdfViewLabel}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={onDownloadPdf}
-                  disabled={pdfActionsDisabled}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {pdfDownloadLabel}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
+            <DropdownMenuItem
+              onSelect={onViewPdf}
+              disabled={pdfActionsDisabled}
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              {pdfViewLabel}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={onDownloadPdf}
+              disabled={pdfActionsDisabled}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {pdfDownloadLabel}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={onCheckSponsor}>
               Check sponsorship status
             </DropdownMenuItem>
