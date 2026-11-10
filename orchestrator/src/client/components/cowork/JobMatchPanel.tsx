@@ -21,7 +21,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { coworkError } from "./DutyLibrary";
 import { BULLET_TRANSFER_TYPE, type BulletReference } from "./editor";
 
-type Checked = { report: ScreeningReport; checkedAt: Date };
+type Checked = {
+  report: ScreeningReport;
+  checkedAt: Date;
+  // JSON of the document that was checked, so a remount can tell if it changed.
+  document: string;
+};
 // Last report per job, kept for the session only (the server does not persist it).
 const reports = new Map<string, Checked>();
 // Jobs already checked once this session (success or not).
@@ -113,8 +118,10 @@ export function JobMatchPanel({
     autoChecked.add(job.id);
     setLoading(true);
     try {
-      const report = await api.getScreeningReport(job.id, getDocument());
-      const next = { report, checkedAt: new Date() };
+      const document = getDocument();
+      const fingerprint = JSON.stringify(document);
+      const report = await api.getScreeningReport(job.id, document);
+      const next = { report, checkedAt: new Date(), document: fingerprint };
       reports.set(job.id, next);
       setChecked(next);
     } catch (error) {
@@ -122,7 +129,7 @@ export function JobMatchPanel({
         error instanceof ApiClientError &&
         (error.status === 404 || error.status === 501)
       )
-        toast.message("Job match is not available yet");
+        toast.message("Job match is not available yet.");
       else coworkError(error);
     } finally {
       setLoading(false);
@@ -201,6 +208,7 @@ export function JobMatchPanel({
             >
               <button
                 type="button"
+                tabIndex={-1}
                 aria-label={`Drag duty: ${bullet.text}`}
                 className="cursor-grab text-muted-foreground"
                 draggable
@@ -284,6 +292,11 @@ export function JobMatchPanel({
             {report ? "Check again" : "Check match"}
           </Button>
         </div>
+        {checked && checked.document !== JSON.stringify(getDocument()) && (
+          <p className="text-xs text-muted-foreground">
+            Resume changed since this check
+          </p>
+        )}
         {report && <p className="text-sm">{report.summary}</p>}
         {checked && (
           <p className="text-xs text-muted-foreground">

@@ -110,6 +110,33 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("JobMatchPanel", () => {
+  it("marks edits after a check as stale and checks the current document again", async () => {
+    let current = doc;
+    const props = {
+      job,
+      active: true,
+      getDocument: () => current,
+      targets: [],
+      onInsert: vi.fn(),
+      onAskAi: vi.fn(),
+      onFocusRef: vi.fn(),
+    };
+    const view = render(<JobMatchPanel {...props} />);
+    await screen.findByText(report.summary);
+    expect(
+      screen.queryByText("Resume changed since this check"),
+    ).not.toBeInTheDocument();
+    current = { ...doc, basics: { ...doc.basics, headline: "Updated" } };
+    view.rerender(<JobMatchPanel {...props} />);
+    expect(screen.getByText("Resume changed since this check")).toBeVisible();
+    fireEvent.click(screen.getByText("Check again"));
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Resume changed since this check"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(mocks.screening).toHaveBeenLastCalledWith("job", current);
+  });
   it("fetches on open, groups requirements and wires actions", async () => {
     const props = mount();
     expect(screen.getByTestId("job-match-loading")).toBeInTheDocument();
@@ -174,7 +201,7 @@ describe("JobMatchPanel", () => {
     mount();
     await waitFor(() =>
       expect(mocks.toast).toHaveBeenCalledWith(
-        "Job match is not available yet",
+        "Job match is not available yet.",
       ),
     );
     expect(mocks.screening).toHaveBeenCalledTimes(1);

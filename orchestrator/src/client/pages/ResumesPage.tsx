@@ -6,25 +6,36 @@ import {
   coworkError,
   DutyLibrary,
 } from "@/client/components/cowork/DutyLibrary";
+import { openJobPdf } from "@/client/lib/private-pdf";
 import { Button } from "@/components/ui/button";
 
 export function ResumesPage() {
   const [items, setItems] = useState<ResumeListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt explicitly triggers a retry.
   useEffect(() => {
+    setLoading(true);
+    setError(false);
     let active = true;
     listResumes()
       .then((result) => {
         if (active) setItems(result.resumes);
       })
-      .catch(coworkError)
+      .catch((failure) => {
+        if (active) {
+          setError(true);
+          coworkError(failure);
+        }
+      })
       .finally(() => {
         if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [attempt]);
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -38,6 +49,16 @@ export function ResumesPage() {
       </p>
       {loading ? (
         <output>Loading resumes…</output>
+      ) : error ? (
+        <div role="alert">
+          <p>Could not load resumes</p>
+          <Button
+            variant="outline"
+            onClick={() => setAttempt((value) => value + 1)}
+          >
+            Retry
+          </Button>
+        </div>
       ) : items.length ? (
         <div className="overflow-auto">
           <table className="w-full text-sm text-left">
@@ -66,7 +87,22 @@ export function ResumesPage() {
                   <td className="p-3">
                     {new Date(item.updatedAt).toLocaleString()}
                   </td>
-                  <td className="p-3">{item.hasPdf ? "Ready" : "—"}</td>
+                  <td className="p-3">
+                    {item.hasPdf ? (
+                      <a
+                        href={`/api/jobs/${encodeURIComponent(item.jobId)}/pdf`}
+                        className="underline"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          void openJobPdf(item.jobId).catch(coworkError);
+                        }}
+                      >
+                        PDF: Ready
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

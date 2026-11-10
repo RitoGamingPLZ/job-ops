@@ -24,7 +24,7 @@
 #set par(leading: 0pt, spacing: 0pt)
 #set block(spacing: 0pt)
 // The marker sits markerIndent from the text edge and the text starts at textIndent.
-#set list(marker: box(width: st.textIndent - st.markerIndent, text(size: st.marker)[●]), indent: st.markerIndent, body-indent: 0pt, tight: false, spacing: st.bulletGap)
+#set list(marker: box(width: st.textIndent - st.markerIndent, text(size: st.marker)[•]), indent: st.markerIndent, body-indent: 0pt, tight: false, spacing: st.bulletGap)
 #show link: it => text(fill: st.link, underline(it))
 #let linked(label, url) = if url == "" { label } else { link(url, label) }
 // Profile URLs are printed as text, since many ATS ignore link targets.
@@ -51,6 +51,7 @@
 #let row(left, date) = block(if date == "" { left } else { [#left#accent(" | " + date)] })
 #align(center)[
   #text(fill: navy, weight: st.strongWeight, size: st.name, upper(source.name))
+  #if str-of(source, "headline") != "" { [\ #text(size: st.headline, source.headline)] }
   #v(st.nameToContact)
   #text(size: st.contact)[
     #let contacts = source.contactItems.map(c => {
@@ -61,9 +62,8 @@
     #for p in source.profileItems { let url = str-of(p, "url"); contacts.push(linked(if url == "" { p.network } else { bare-url(url) }, url)) }
     #contacts.join([ | ])
   ]
-  #if str-of(source, "headline") != "" { [\ #text(size: st.headline, source.headline)] }
 ]
-#let render-sections(keys, sidebar: false) = for key in keys {
+#let render-sections(keys) = for key in keys {
   if key == "summary" and str-of(source, "summary") != "" {
     section("summary", "Summary", markup(source.summary))
   } else if key == "skills" and items("skillGroups").len() > 0 {
@@ -74,7 +74,10 @@
     }])
   } else if key == "certifications" and items(key).len() > 0 {
     // One column: side-by-side cells are read as one merged line by ATS parsers.
-    section(key, "Certifications", list(spacing: st.lineItemGap, ..items(key).map(c => [#linked(c.title, str-of(c, "url"))#if str-of(c, "date") != "" { [#(" - " + c.date)] }])))
+    section(key, "Certifications", list(spacing: st.lineItemGap, ..items(key).map(c => {
+      let parts = (c.title, str-of(c, "subtitle"), str-of(c, "date")).filter(p => p != "")
+      linked(parts.join(" - "), str-of(c, "url"))
+    })))
   } else if key in ("experience", "education", "projects", "volunteer", "publications", "references") and items(key).len() > 0 {
     section(key, upper(key.slice(0, 1)) + key.slice(1), [
       #for entry in items(key) {
@@ -110,7 +113,9 @@
     ])
   } else if key == "awards" and items(key).len() > 0 {
     section(key, "Awards", [#for a in items(key) {
-      block(above: 0pt, below: st.lineItemGap)[#text(weight: st.strongWeight, a.title + if a.bullets.len() > 0 { ":" } else { "" })#if a.bullets.len() > 0 { [ #a.bullets.map(markup).join(" ")] }]
+      let heading = (a.title, str-of(a, "subtitle")).filter(p => p != "").join(" - ")
+      let label = (heading, str-of(a, "date")).filter(p => p != "").join(", ")
+      block(above: 0pt, below: st.lineItemGap)[#text(weight: st.strongWeight, label + if a.bullets.len() > 0 and label != "" { ":" } else { "" })#if a.bullets.len() > 0 { [ #a.bullets.map(markup).join(" ")] }]
     }])
   } else if key == "customFields" and source.customFieldItems.len() > 0 {
     section(key, "Custom Fields", list(..source.customFieldItems.map(i => linked(i.text, str-of(i, "url")))))
@@ -119,19 +124,10 @@
   }
 }
 #let layout = value(source, "navyLayout")
-#if layout != none and layout.sidebar.len() > 0 {
-  let main = layout.main
-  // Append populated sections not explicitly placed, without duplicating either column.
-  for key in ("summary",) + order + ("customFields",) {
-    if key not in main and key not in layout.sidebar { main.push(key) }
-  }
-  let width = calc.clamp(layout.sidebarWidth, 25, 35)
-  v(8pt)
-  grid(columns: (width * 1fr, (100 - width) * 1fr), column-gutter: 6mm,
-    [#set list(indent: 0pt)
-     #render-sections(layout.sidebar, sidebar: true)],
-    [#render-sections(main)],
-  )
-} else {
-  render-sections(("summary",) + order + ("customFields",))
+// Match the editor: all main sections, all sidebar sections, then defaults.
+#let configured = if layout == none { order } else { layout.main + layout.sidebar }
+#let reading-order = if "summary" in configured { configured } else { ("summary",) + configured }
+#for key in default-order + order + ("customFields",) {
+  if key not in reading-order { reading-order.push(key) }
 }
+#render-sections(reading-order)

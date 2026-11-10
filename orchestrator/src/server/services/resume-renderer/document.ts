@@ -445,26 +445,35 @@ function buildInterestItems(resumeJson: RecordLike): LatexResumeInterestItem[] {
   }));
 }
 
+// The editor's new, still-empty item must not print a bare bullet.
+function hasContent(entry: LatexResumeEntry): boolean {
+  return Boolean(
+    entry.title.trim() || entry.subtitle || entry.date || entry.bullets.length,
+  );
+}
+
 function buildAwardsEntries(resumeJson: RecordLike): LatexResumeEntry[] {
-  return getVisibleSectionItems(resumeJson, "awards").map((item, index) => ({
-    title: toText(item.title, `Award ${index + 1}`),
-    subtitle: toText(item.awarder).trim() || null,
-    date: toText(item.date) || null,
-    bullets: extractBullets(item.description),
-    url: safeUrl(toText(getByPath(item, "website.url"))) || undefined,
-  }));
+  return getVisibleSectionItems(resumeJson, "awards")
+    .map((item, index) => ({
+      title: toText(item.title, `Award ${index + 1}`),
+      subtitle: toText(item.awarder).trim() || null,
+      date: toText(item.date).trim() || null,
+      bullets: extractBullets(item.description),
+      url: safeUrl(toText(getByPath(item, "website.url"))) || undefined,
+    }))
+    .filter(hasContent);
 }
 
 function buildCertificationEntries(resumeJson: RecordLike): LatexResumeEntry[] {
-  return getVisibleSectionItems(resumeJson, "certifications").map(
-    (item, index) => ({
+  return getVisibleSectionItems(resumeJson, "certifications")
+    .map((item, index) => ({
       title: toText(item.title, `Certification ${index + 1}`),
       subtitle: toText(item.issuer).trim() || null,
-      date: toText(item.date) || null,
+      date: toText(item.date).trim() || null,
       bullets: extractBullets(item.description),
       url: safeUrl(toText(getByPath(item, "website.url"))) || undefined,
-    }),
-  );
+    }))
+    .filter(hasContent);
 }
 
 function buildPublicationEntries(resumeJson: RecordLike): LatexResumeEntry[] {
@@ -518,7 +527,7 @@ export function normalizeResumeJsonToLatexDocument(
   const titles = getLatexResumeSectionTitles(options.language);
 
   const layout = asRecord(asRecord(record.metadata)?.layout);
-  const firstPage = asRecord(asArray(layout?.pages)[0]);
+  const pages = asArray(layout?.pages).map(asRecord);
   const sectionKeys = new Set<string>([
     ...ORDERABLE_SECTION_KEYS,
     "summary",
@@ -531,14 +540,17 @@ export function normalizeResumeJsonToLatexDocument(
       ),
     ),
   ];
-  const sidebar = keys(firstPage?.sidebar);
+  const main = keys(pages.flatMap((page) => asArray(page?.main)));
+  const sidebar = keys(pages.flatMap((page) => asArray(page?.sidebar))).filter(
+    (key) => !main.includes(key),
+  );
 
   return {
-    ...(sidebar.length
+    ...(main.length || sidebar.length
       ? {
           navyLayout: {
             sidebar,
-            main: keys(firstPage?.main).filter((key) => !sidebar.includes(key)),
+            main,
             sidebarWidth: Math.min(
               35,
               Math.max(25, toNumber(layout?.sidebarWidth, 30)),

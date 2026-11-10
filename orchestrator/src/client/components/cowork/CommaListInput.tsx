@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { fitTextarea } from "./BulletText";
@@ -16,13 +16,35 @@ export function CommaListInput({
 }) {
   const text = value.join(", ");
   const [draft, setDraft] = useState(text);
-  useEffect(() => setDraft(text), [text]);
+  const dirty = useRef(false);
+  useEffect(() => {
+    setDraft(text);
+    dirty.current = false;
+  }, [text]);
+  const pending = useRef({ draft, text, onCommit });
+  pending.current = { draft, text, onCommit };
+  useEffect(
+    () => () => {
+      const latest = pending.current;
+      if (dirty.current)
+        latest.onCommit(
+          latest.draft
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean),
+        );
+    },
+    [],
+  );
   const commit = () => {
+    dirty.current = false;
     const values = draft
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
-    setDraft(values.join(", "));
+    const normalized = values.join(", ");
+    pending.current = { draft: normalized, text: normalized, onCommit };
+    setDraft(normalized);
     onCommit(values);
   };
   const onKeyDown = (
@@ -49,7 +71,10 @@ export function CommaListInput({
           if (element) fitTextarea(element);
         }}
         value={draft}
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={(event) => {
+          dirty.current = true;
+          setDraft(event.target.value);
+        }}
         onBlur={commit}
         onKeyDown={onKeyDown}
       />
@@ -58,7 +83,10 @@ export function CommaListInput({
     <Input
       {...props}
       value={draft}
-      onChange={(event) => setDraft(event.target.value)}
+      onChange={(event) => {
+        dirty.current = true;
+        setDraft(event.target.value);
+      }}
       onBlur={commit}
       onKeyDown={onKeyDown}
     />

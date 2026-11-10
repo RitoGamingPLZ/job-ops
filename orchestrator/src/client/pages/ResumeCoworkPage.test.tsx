@@ -4,6 +4,7 @@ import type {
   JobResumeState,
   ReactiveResumeV5Document,
   ResumeFocusRef,
+  ResumeSuggestion,
 } from "@shared/types";
 import {
   act,
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   getJob: vi.fn(),
   pdf: vi.fn(),
   openPdf: vi.fn(),
+  downloadPdf: vi.fn(),
   toast: vi.fn(),
   coworkError: vi.fn(),
 }));
@@ -35,7 +37,10 @@ vi.mock("@client/api/jobs", () => ({
   getJob: mocks.getJob,
   generateJobPdf: mocks.pdf,
 }));
-vi.mock("@/client/lib/private-pdf", () => ({ openJobPdf: mocks.openPdf }));
+vi.mock("@/client/lib/private-pdf", () => ({
+  createJobPdfObjectUrl: mocks.openPdf,
+  downloadJobPdf: mocks.downloadPdf,
+}));
 vi.mock("sonner", () => ({
   toast: { message: mocks.toast, success: vi.fn() },
 }));
@@ -44,12 +49,26 @@ vi.mock("@/client/components/ghostwriter/GhostwriterPanel", () => ({
     cowork,
     referenceChips,
     initialPrompt,
+    onSuggestions,
   }: {
     cowork: () => CoworkChatContext;
     referenceChips: React.ReactNode;
     initialPrompt?: string | null;
+    onSuggestions: (items: ResumeSuggestion[]) => void;
   }) => (
     <div>
+      <button
+        type="button"
+        onClick={() =>
+          onSuggestions([
+            { id: "one" },
+            { id: "two" },
+            { id: "three" },
+          ] as ResumeSuggestion[])
+        }
+      >
+        Suggest edits
+      </button>
       Chat {initialPrompt}
       {referenceChips}
       <output data-testid="focus">
@@ -155,7 +174,9 @@ beforeEach(() => {
     ) => ({ ...state("", input.baseRevision + 1), document: input.document }),
   );
   mocks.pdf.mockResolvedValue({});
-  mocks.openPdf.mockResolvedValue(undefined);
+  mocks.openPdf.mockResolvedValue("blob:fake");
+  mocks.downloadPdf.mockResolvedValue(undefined);
+  vi.spyOn(window, "open").mockReturnValue(null);
 });
 afterEach(() => {
   cleanup();
@@ -222,7 +243,7 @@ describe("resume co-work saving", () => {
       document: { basics: { headline: "Second edit" } },
     });
   });
-  it("reloads on revision conflict and stops PDF rendering", async () => {
+  it("keeps local edits on revision conflict and can load latest with undo", async () => {
     mocks.save.mockRejectedValueOnce(
       new ApiClientError("Conflict", { status: 409 }),
     );
@@ -235,11 +256,93 @@ describe("resume co-work saving", () => {
       target: { value: "Local edit" },
     });
     fireEvent.click(screen.getByText("Render PDF"));
-    await waitFor(() =>
-      expect(screen.getByLabelText("Headline")).toHaveValue("Remote edit"),
-    );
-    expect(mocks.toast).toHaveBeenCalled();
+    await screen.findByText("Keep mine");
+    expect(screen.getByLabelText("Headline")).toHaveValue("Local edit");
+    fireEvent.click(screen.getByText("Use latest"));
+    expect(screen.getByLabelText("Headline")).toHaveValue("Remote edit");
+    fireEvent.click(screen.getByText("Undo"));
+    expect(screen.getByLabelText("Headline")).toHaveValue("Local edit");
     expect(mocks.pdf).not.toHaveBeenCalled();
+  });
+  it("ignores Ctrl+Z behind the conflict dialog and reports dropped edits on leave", async () => {
+    mocks.save.mockRejectedValueOnce(
+      new ApiClientError("Conflict", { status: 409 }),
+    );
+    mocks.getResume
+      .mockResolvedValueOnce(state())
+      .mockResolvedValueOnce(state("Remote", 4));
+    const view = mount();
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Mine" },
+    });
+    fireEvent.click(screen.getByText("Save now"));
+    await screen.findByText("Keep mine");
+    fireEvent.keyDown(screen.getByText("Keep mine"), {
+      key: "z",
+      ctrlKey: true,
+    });
+    expect(screen.getByLabelText("Headline")).toHaveValue("Mine");
+    view.unmount();
+    await waitFor(() =>
+      expect(mocks.toast).toHaveBeenCalledWith(
+        expect.stringContaining("unsaved edits were not saved"),
+      ),
+    );
+  });
+  it("re-saves local edits against the latest revision when choosing Keep mine", async () => {
+    mocks.save.mockRejectedValueOnce(
+      new ApiClientError("Conflict", { status: 409 }),
+    );
+    mocks.getResume
+      .mockResolvedValueOnce(state())
+      .mockResolvedValueOnce(state("Remote", 4));
+    mount();
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Mine" },
+    });
+    fireEvent.click(screen.getByText("Save now"));
+    fireEvent.click(await screen.findByText("Keep mine"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(2));
+    expect(mocks.save.mock.calls[1][1]).toMatchObject({
+      baseRevision: 4,
+      document: { basics: { headline: "Mine" } },
+    });
+    expect(screen.getByLabelText("Headline")).toHaveValue("Mine");
+  });
+  it("coalesces typing, ignores keyboard undo in fields, and autosaves page undo", async () => {
+    mount();
+    const field = await screen.findByLabelText("Headline");
+    field.focus();
+    fireEvent.change(field, { target: { value: "One" } });
+    fireEvent.change(field, { target: { value: "Two" } });
+    fireEvent.keyDown(field, { key: "z", ctrlKey: true });
+    expect(field).toHaveValue("Two");
+    field.blur();
+    fireEvent.keyDown(window, { key: "z", metaKey: true });
+    expect(field).toHaveValue("Base");
+    expect(screen.getByText("Undo")).toBeDisabled();
+    fireEvent.click(screen.getByText("Save now"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalled());
+    expect(mocks.save.mock.calls[0][1].document.basics.headline).toBe("Base");
+  });
+  it("caps page undo at the last 50 document changes", async () => {
+    mount();
+    const field = await screen.findByLabelText("Headline");
+    for (let index = 1; index <= 55; index++)
+      fireEvent.change(field, { target: { value: String(index) } });
+    for (let index = 0; index < 50; index++)
+      fireEvent.click(screen.getByText("Undo"));
+    expect(field).toHaveValue("5");
+    expect(screen.getByText("Undo")).toBeDisabled();
+  });
+  it("announces suggestions and displays their count on the Editor tab", async () => {
+    mount();
+    await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByText("Suggest edits"));
+    expect(screen.getByRole("tab", { name: "Editor (3)" })).toBeInTheDocument();
+    expect(mocks.toast).toHaveBeenCalledWith(
+      "3 suggestions - review in Editor",
+    );
   });
   it("flushes pending edits before rendering and opening the PDF", async () => {
     mount();
@@ -248,7 +351,9 @@ describe("resume co-work saving", () => {
       target: { value: "Final edit" },
     });
     fireEvent.click(screen.getByText("Render PDF"));
-    await waitFor(() => expect(mocks.openPdf).toHaveBeenCalledWith("job"));
+    await waitFor(() =>
+      expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"),
+    );
     expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.pdf.mock.invocationCallOrder[0],
     );
@@ -355,6 +460,9 @@ describe("duty library insert", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Insert library duty" }),
     );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Insert library duty" }),
+    );
     fireEvent.click(screen.getByText("Save now"));
     await waitFor(() => expect(mocks.save).toHaveBeenCalled());
     expect(
@@ -378,7 +486,7 @@ describe("duty library insert", () => {
     expect(
       screen.getByRole("button", { name: "Job match idle" }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Library" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Match & duties" }));
     fireEvent.click(screen.getByRole("button", { name: "Job match active" }));
     expect(screen.getByText("Chat Close the Java gap")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Duties" }));

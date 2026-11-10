@@ -128,8 +128,8 @@
   gap: 1px;
   flex-wrap: wrap;
   justify-content: flex-end;
-  opacity: 0;
-  pointer-events: none;
+  opacity: 0.5;
+  pointer-events: auto;
 }
 .resume-paper button {
   color: #3e5266;
@@ -141,11 +141,11 @@
 .resume-margin button,
 .resume-margin .resume-drag,
 .resume-review button {
-  height: 22px;
-  min-width: 20px;
+  height: var(--resume-control-size);
+  min-width: var(--resume-control-size);
   padding: 0 3px;
   border-radius: 3px;
-  font-size: 9px;
+  font-size: calc(var(--resume-control-size) / 2);
 }
 .resume-paper button:focus-visible {
   outline: 2px solid #719bc3;
@@ -252,19 +252,6 @@
   right: 0;
   top: 0;
 }
-.resume-skill-delete {
-  position: absolute;
-  left: calc(100% + 8px);
-  top: 0;
-  opacity: 0;
-  font-size: 8pt;
-  height: 22px;
-  padding: 0 3px;
-}
-.resume-skill:hover .resume-skill-delete,
-.resume-skill:focus-within .resume-skill-delete {
-  opacity: 1;
-}
 .resume-project input {
   accent-color: #4b637a;
 }
@@ -277,7 +264,7 @@
   background: #f8fbfd;
 }
 .resume-suggestion > p:first-child {
-  display: none;
+  display: block;
 }
 .resume-deletion {
   display: block;
@@ -500,7 +487,7 @@
 }
 .resume-margin {
   right: calc(100% + 2px);
-  width: 40px;
+  width: var(--resume-control-size);
 }
 .resume-entry-controls,
 .resume-bullet-controls {
@@ -683,4 +670,52 @@
   to {
     background: transparent;
   }
+}
+
+.resume-editor-hint {
+  margin: 8px 12px;
+  color: #3e5266;
+  font-size: 12px;
+}
+.resume-readonly,
+.resume-readonly a {
+  cursor: help;
+}
+.resume-paper input.resume-position {
+  color: var(--rs-color-accent);
+  font-size: var(--rs-position);
+  font-weight: var(--rs-entry-weight);
+  font-style: var(--rs-entry-style);
+}
+.resume-paper .resume-experience-heading input {
+  width: auto;
+  field-sizing: content;
+  color: inherit;
+}
+.resume-experience .resume-experience-heading > span::before {
+  content: none;
+}
+.resume-paper .resume-experience-heading input:not(:focus):hover,
+.resume-paper input.resume-position:not(:focus):hover {
+  outline: none;
+}
+.resume-paper .resume-add-experience {
+  margin-top: 8px;
+  font-size: 10pt;
+}
+
+/* Keep a visible handle at rest. Expand the toolbar over neighbouring controls
+   while its row is hovered or keyboard focused, without changing paper flow. */
+.resume-margin {
+  max-height: var(--resume-control-size);
+  overflow: hidden;
+}
+.resume-row:hover > .resume-margin,
+.resume-row:focus-within > .resume-margin,
+.resume-bullet:hover > div > .resume-margin,
+.resume-bullet:focus-within > div > .resume-margin {
+  max-height: none;
+  overflow: visible;
+  z-index: 6;
+  background: #fff;
 }

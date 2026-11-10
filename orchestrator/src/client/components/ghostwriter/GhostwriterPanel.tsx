@@ -312,7 +312,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
         }
 
         if (cowork && error instanceof ApiClientError && error.status === 501)
-          toast.message("not available yet");
+          toast.message("Co-work is not available yet.");
         else showErrorToast(error, "Failed to send message");
       } finally {
         streamAbortRef.current = null;
@@ -384,7 +384,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
           return;
         }
         if (cowork && error instanceof ApiClientError && error.status === 501)
-          toast.message("not available yet");
+          toast.message("Co-work is not available yet.");
         else showErrorToast(error, "Failed to regenerate response");
       } finally {
         streamAbortRef.current = null;
@@ -466,7 +466,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
           return;
         }
         if (cowork && error instanceof ApiClientError && error.status === 501)
-          toast.message("not available yet");
+          toast.message("Co-work is not available yet.");
         else showErrorToast(error, "Failed to edit message");
       } finally {
         streamAbortRef.current = null;
@@ -614,23 +614,25 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
               {job.title} at {job.employer}
             </h4>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Ghostwriter already has this job description, your resume and your
-              writing style preferences. Ask for tailored response drafts, or
-              concise role-fit talking points.
+              {cowork
+                ? "Ask for edits - suggestions appear in the resume for you to accept or reject. Drag a section or a duty here, or press ✦ on a line."
+                : "Ghostwriter already has this job description, your resume and your writing style preferences. Ask for tailored response drafts, or concise role-fit talking points."}
             </p>
-            <div className="mt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 w-fit"
-                asChild
-              >
-                <Link to="/settings#chat">
-                  <Settings2 className="h-4 w-4" />
-                  Alter personality
-                </Link>
-              </Button>
-            </div>
+            {!cowork && (
+              <div className="mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 w-fit"
+                  asChild
+                >
+                  <Link to="/settings#chat">
+                    <Settings2 className="h-4 w-4" />
+                    Alter personality
+                  </Link>
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <MessageList
