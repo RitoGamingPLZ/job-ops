@@ -303,7 +303,7 @@ describe("library skills", () => {
     fireEvent.click(button);
     await waitFor(() =>
       expect(mocks.toast).toHaveBeenCalledWith(
-        "AI labeling is not available yet",
+        "AI labeling is not available yet.",
       ),
     );
     expect(button).toBeEnabled();

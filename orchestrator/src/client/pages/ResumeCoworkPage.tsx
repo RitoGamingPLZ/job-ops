@@ -32,7 +32,10 @@ import {
 } from "@/client/components/cowork/JobMatchPanel";
 import { ResumeEditor } from "@/client/components/cowork/ResumeEditor";
 import { GhostwriterPanel } from "@/client/components/ghostwriter/GhostwriterPanel";
-import { openJobPdf } from "@/client/lib/private-pdf";
+import {
+  createJobPdfObjectUrl,
+  downloadJobPdf,
+} from "@/client/lib/private-pdf";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,6 +78,15 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
   const chat = useRef<HTMLElement>(null);
   const [tab, setTab] = useState("editor");
   const [status, setStatus] = useState("Loading…");
+  const [undoStack, setUndoStack] = useState<ReactiveResumeV5Document[]>([]);
+  const history = useRef<ReactiveResumeV5Document[]>([]);
+  const lastTyping = useRef<{ element: Element; time: number } | null>(null);
+  const conflict = useRef<JobResumeState | null>(null);
+  const [conflictOpen, setConflictOpen] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const lastInsert = useRef<{ key: string; time: number } | null>(null);
+  const [pdfReady, setPdfReady] = useState(false);
+  const [rendering, setRendering] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [rightTab, setRightTab] = useState<"match" | "duties">("match");
@@ -116,6 +128,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     };
   }, [load]);
   const save = useCallback(async (): Promise<boolean> => {
+    if (conflict.current) return false;
     if (saving.current) return saving.current;
     if (!dirty.current || !latest.current) return true;
     const snapshot = latest.current;
@@ -144,15 +157,13 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
             );
             return false;
           }
-          dirty.current = false;
           try {
-            publish(await api.getJobResume(jobId));
-            setStatus("Reloaded latest copy");
-            toast.message(
-              "Resume changed elsewhere. Reloaded the latest copy; review before editing again.",
-            );
+            conflict.current = await api.getJobResume(jobId);
+            setConflictOpen(true);
+            setStatus("Save conflict · choose which copy to keep");
           } catch (reloadError) {
-            setError(reloadError);
+            coworkError(reloadError);
+            setStatus("Could not load the latest copy · retry saving");
           }
         } else {
           coworkError(failure);
@@ -191,18 +202,84 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
   );
   // Schedule again when a save returns with newer local edits still pending.
   useEffect(() => {
-    if (!state || !dirty.current || busy) return;
+    if (!state || !dirty.current || busy || conflict.current) return;
     timer.current = setTimeout(() => void save(), 700);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
   }, [state, busy, save]);
-  function edit(document: ReactiveResumeV5Document) {
-    if (!latest.current) return;
+  function pushUndo(document: ReactiveResumeV5Document) {
+    history.current = [...history.current.slice(-49), document];
+    setUndoStack(history.current);
+  }
+  function edit(document: ReactiveResumeV5Document, typing = false) {
+    if (!latest.current || document === latest.current.document) return;
+    const element = window.document.activeElement;
+    const now = Date.now();
+    const field =
+      typing &&
+      element?.closest(
+        "input, textarea, [contenteditable]:not([contenteditable=false])",
+      );
+    if (
+      !field ||
+      lastTyping.current?.element !== element ||
+      now - lastTyping.current.time > 1000
+    )
+      pushUndo(latest.current.document);
+    lastTyping.current = field && element ? { element, time: now } : null;
     version.current++;
     dirty.current = true;
     publish({ ...latest.current, document });
     setStatus("Unsaved changes");
+  }
+  const undo = useCallback(() => {
+    const previous = history.current.pop();
+    if (!previous || !latest.current) return;
+    setUndoStack([...history.current]);
+    lastTyping.current = null;
+    version.current++;
+    dirty.current = true;
+    publish({ ...latest.current, document: previous });
+    setStatus("Unsaved changes");
+  }, [publish]);
+  useEffect(() => {
+    const keydown = (event: KeyboardEvent) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest(
+          "input, textarea, [contenteditable]:not([contenteditable=false])",
+        )
+      )
+        return;
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "z" &&
+        !busy &&
+        history.current.length
+      ) {
+        event.preventDefault();
+        undo();
+      }
+    };
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, [undo, busy]);
+  async function resolveConflict(keepMine: boolean) {
+    const remote = conflict.current;
+    if (!remote || !latest.current) return;
+    if (!keepMine) pushUndo(latest.current.document);
+    version.current++;
+    publish(
+      keepMine ? { ...remote, document: latest.current.document } : remote,
+    );
+    dirty.current = keepMine;
+    conflict.current = null;
+    lastTyping.current = null;
+    setConflictOpen(false);
+    setStatus(keepMine ? "Unsaved changes" : "Saved");
+    if (keepMine) await save();
   }
   async function flush() {
     if (timer.current) clearTimeout(timer.current);
@@ -220,6 +297,9 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
       await api.deleteJobResume(jobId);
       dirty.current = false;
       setSuggestions([]);
+      history.current = [];
+      setUndoStack([]);
+      lastTyping.current = null;
       await load();
     } catch (failure) {
       coworkError(failure);
@@ -239,6 +319,11 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
   }
   function insertDuty(bullet: BulletReference, id: string) {
     if (busy || !latest.current) return;
+    const key = `${id}:${bullet.id}:${bullet.text}`;
+    const now = Date.now();
+    if (lastInsert.current?.key === key && now - lastInsert.current.time < 500)
+      return;
+    lastInsert.current = { key, time: now };
     const next = structuredClone(latest.current.document);
     const experience = next.sections.experience.items.find((e) => e.id === id);
     if (experience) {
@@ -256,13 +341,18 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     () => latest.current?.document as ReactiveResumeV5Document,
     [],
   );
-  const receiveSuggestions = useCallback((items: ResumeSuggestion[] | null) => {
-    if (items)
-      setSuggestions((current) => [
-        ...current.filter((s) => !items.some((next) => next.id === s.id)),
-        ...items,
-      ]);
-  }, []);
+  const receiveSuggestions = useCallback(
+    (items: ResumeSuggestion[] | null) => {
+      if (items?.length && !wide)
+        toast.message(`${items.length} suggestions - review in Editor`);
+      if (items)
+        setSuggestions((current) => [
+          ...current.filter((s) => !items.some((next) => next.id === s.id)),
+          ...items,
+        ]);
+    },
+    [wide],
+  );
   if (error)
     return (
       <main className="p-6 space-y-4">
@@ -294,7 +384,17 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
         <h1 className="font-semibold mr-auto">
           {job.title} · {job.employer}
         </h1>
-        <output className="text-xs text-muted-foreground">{status}</output>
+        <output className="text-xs text-muted-foreground">
+          {rendering ? "Rendering PDF…" : status}
+        </output>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy || !undoStack.length}
+          onClick={undo}
+        >
+          Undo
+        </Button>
         <Button
           size="sm"
           variant="outline"
@@ -315,20 +415,40 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           size="sm"
           disabled={busy}
           onClick={async () => {
+            const pdfTab = window.open("about:blank", "_blank");
+            if (pdfTab) pdfTab.opener = null;
             setBusy(true);
+            setRendering(true);
             try {
               if (await flush()) {
                 await generateJobPdf(jobId);
-                await openJobPdf(jobId);
-              }
+                setPdfReady(true);
+                if (pdfTab && !pdfTab.closed) {
+                  const url = await createJobPdfObjectUrl(jobId);
+                  pdfTab.location.href = url;
+                  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                } else await downloadJobPdf(jobId, "resume.pdf");
+              } else pdfTab?.close();
             } catch (failure) {
+              pdfTab?.close();
               coworkError(failure);
             } finally {
+              setRendering(false);
               setBusy(false);
             }
           }}
         >
           Render PDF
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy || (!job.pdfPath && !pdfReady)}
+          onClick={() =>
+            void downloadJobPdf(jobId, "resume.pdf").catch(coworkError)
+          }
+        >
+          Download PDF
         </Button>
       </header>
       {state.exists && (
@@ -351,7 +471,11 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
             variant={tab === name ? "secondary" : "ghost"}
             onClick={() => setTab(name)}
           >
-            {name[0].toUpperCase() + name.slice(1)}
+            {name === "library"
+              ? "Match & duties"
+              : name === "editor" && suggestions.length
+                ? `Editor (${suggestions.length})`
+                : name[0].toUpperCase() + name.slice(1)}
           </Button>
         ))}
       </div>
@@ -361,16 +485,24 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           role="tabpanel"
           aria-labelledby="cowork-tab-chat"
           aria-label="Chat"
-          className={`${tab === "chat" ? "flex" : "hidden"} xl:flex min-h-0 flex-col border rounded-md p-3`}
+          className={`${tab === "chat" ? "flex" : "hidden"} ${dragOver ? "ring-2 ring-primary" : ""} xl:flex min-h-0 flex-col border rounded-md p-3`}
           ref={chat}
+          data-drag={dragOver || undefined}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+              setDragOver(false);
+          }}
           onDragOver={(e) => {
             if (
               e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE) ||
               e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)
-            )
+            ) {
               e.preventDefault();
+              setDragOver(true);
+            }
           }}
           onDrop={(e) => {
+            setDragOver(false);
             if (e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)) {
               e.preventDefault();
               const ref = readFocusTransfer(
@@ -453,7 +585,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           <ResumeEditor
             disabled={busy}
             document={document}
-            onChange={edit}
+            onChange={(next) => edit(next, true)}
             onAskAi={(ref) => {
               addFocusRef(ref);
               setTab("chat");
@@ -531,6 +663,29 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           </div>
         </section>
       </div>
+      <AlertDialog open={conflictOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resume changed elsewhere</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your edits are still here. Keep mine saves them against the latest
+              revision. Use latest loads the server copy; Undo restores your
+              edits.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => void resolveConflict(false)}
+            >
+              Use latest
+            </Button>
+            <Button onClick={() => void resolveConflict(true)}>
+              Keep mine
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

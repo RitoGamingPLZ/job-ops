@@ -105,6 +105,7 @@ export function JobMatchPanel({
   const [checked, setChecked] = useState<Checked | null>(
     () => reports.get(job.id) ?? null,
   );
+  const [checkedDocument, setCheckedDocument] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [gapsOnly, setGapsOnly] = useState(false);
   const [library, setLibrary] = useState<Map<string, string> | null>(null);
@@ -113,7 +114,10 @@ export function JobMatchPanel({
     autoChecked.add(job.id);
     setLoading(true);
     try {
-      const report = await api.getScreeningReport(job.id, getDocument());
+      const document = getDocument();
+      const fingerprint = JSON.stringify(document);
+      const report = await api.getScreeningReport(job.id, document);
+      setCheckedDocument(fingerprint);
       const next = { report, checkedAt: new Date() };
       reports.set(job.id, next);
       setChecked(next);
@@ -122,7 +126,7 @@ export function JobMatchPanel({
         error instanceof ApiClientError &&
         (error.status === 404 || error.status === 501)
       )
-        toast.message("Job match is not available yet");
+        toast.message("Job match is not available yet.");
       else coworkError(error);
     } finally {
       setLoading(false);
@@ -201,6 +205,7 @@ export function JobMatchPanel({
             >
               <button
                 type="button"
+                tabIndex={-1}
                 aria-label={`Drag duty: ${bullet.text}`}
                 className="cursor-grab text-muted-foreground"
                 draggable
@@ -284,6 +289,11 @@ export function JobMatchPanel({
             {report ? "Check again" : "Check match"}
           </Button>
         </div>
+        {checked && checkedDocument !== JSON.stringify(getDocument()) && (
+          <p className="text-xs text-muted-foreground">
+            Resume changed since this check
+          </p>
+        )}
         {report && <p className="text-sm">{report.summary}</p>}
         {checked && (
           <p className="text-xs text-muted-foreground">

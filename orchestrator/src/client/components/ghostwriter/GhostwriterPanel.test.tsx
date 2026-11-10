@@ -136,7 +136,7 @@ describe("co-work chat context", () => {
     await screen.findByText("Regenerate");
     fireEvent.click(screen.getByText(action));
     await waitFor(() =>
-      expect(mocks.toast).toHaveBeenCalledWith("not available yet"),
+      expect(mocks.toast).toHaveBeenCalledWith("Co-work is not available yet."),
     );
   });
 });
