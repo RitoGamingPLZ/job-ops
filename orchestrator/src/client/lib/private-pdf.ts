@@ -24,7 +24,19 @@ async function createObjectUrlFromBlob(
 }
 
 export async function openJobPdf(jobId: string): Promise<void> {
-  openBlob(await api.getJobPdfBlob(jobId));
+  const tab = window.open("about:blank", "_blank");
+  if (tab) tab.opener = null;
+  try {
+    const blob = await api.getJobPdfBlob(jobId);
+    if (tab && !tab.closed) {
+      const url = URL.createObjectURL(blob);
+      tab.location.href = url;
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } else openBlob(blob, "resume.pdf");
+  } catch (error) {
+    tab?.close();
+    throw error;
+  }
 }
 
 export async function downloadJobPdf(

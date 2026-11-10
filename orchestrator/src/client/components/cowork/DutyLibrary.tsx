@@ -39,7 +39,7 @@ import { BULLET_TRANSFER_TYPE, type BulletReference } from "./editor";
 
 export function coworkError(error: unknown) {
   if (error instanceof ApiClientError && error.status === 501)
-    toast.message("not available yet");
+    toast.message("Co-work is not available yet.");
   else showErrorToast(error, "Could not complete resume action");
 }
 
@@ -398,7 +398,7 @@ export function DutyLibrary({
                     error instanceof ApiClientError &&
                     (error.status === 404 || error.status === 501)
                   )
-                    toast.message("AI labeling is not available yet");
+                    toast.message("AI labeling is not available yet.");
                   else throw error;
                 }
               })
@@ -537,6 +537,7 @@ export function DutyLibrary({
                   <div className="flex items-start gap-2">
                     <button
                       type="button"
+                      tabIndex={-1}
                       aria-label={`Drag duty: ${bullet.text}`}
                       className="cursor-grab text-muted-foreground"
                       draggable
