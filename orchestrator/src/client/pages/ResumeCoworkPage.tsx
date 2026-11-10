@@ -6,6 +6,7 @@ import type {
   Job,
   JobResumeState,
   ReactiveResumeV5Document,
+  ResumeFocusRef,
   ResumeSuggestion,
 } from "@shared/types";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -16,9 +17,14 @@ import {
   DutyLibrary,
 } from "@/client/components/cowork/DutyLibrary";
 import {
+  addFocus,
   BULLET_TRANSFER_TYPE,
   type BulletReference,
+  FOCUS_TRANSFER_TYPE,
+  focusKey,
+  MAX_FOCUS,
   readBulletTransfer,
+  readFocusTransfer,
 } from "@/client/components/cowork/editor";
 import { ResumeEditor } from "@/client/components/cowork/ResumeEditor";
 import { GhostwriterPanel } from "@/client/components/ghostwriter/GhostwriterPanel";
@@ -45,6 +51,8 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
   const [error, setError] = useState<unknown>(null);
   const [suggestions, setSuggestions] = useState<ResumeSuggestion[]>([]);
   const [references, setReferences] = useState<BulletReference[]>([]);
+  const [focus, setFocus] = useState<ResumeFocusRef[]>([]);
+  const chat = useRef<HTMLElement>(null);
   const [tab, setTab] = useState("editor");
   const [status, setStatus] = useState("Loading…");
   const [resetOpen, setResetOpen] = useState(false);
@@ -200,6 +208,11 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
       current.some((b) => b.id === bullet.id) ? current : [...current, bullet],
     );
   }
+  function addFocusRef(ref: ResumeFocusRef) {
+    if (focus.length >= MAX_FOCUS)
+      toast.message(`At most ${MAX_FOCUS} resume parts can be in focus`);
+    setFocus((current) => addFocus(current, ref));
+  }
   const receiveSuggestions = useCallback((items: ResumeSuggestion[] | null) => {
     if (items)
       setSuggestions((current) => [
@@ -303,11 +316,23 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           aria-labelledby="cowork-tab-chat"
           aria-label="Chat"
           className={`${tab === "chat" ? "flex" : "hidden"} xl:flex min-h-0 flex-col border rounded-md p-3`}
+          ref={chat}
           onDragOver={(e) => {
-            if (e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE))
+            if (
+              e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE) ||
+              e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)
+            )
               e.preventDefault();
           }}
           onDrop={(e) => {
+            if (e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)) {
+              e.preventDefault();
+              const ref = readFocusTransfer(
+                e.dataTransfer.getData(FOCUS_TRANSFER_TYPE),
+              );
+              if (ref) addFocusRef(ref);
+              return;
+            }
             if (!e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE)) return;
             e.preventDefault();
             const bullet = readBulletTransfer(
@@ -322,10 +347,31 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
             cowork={() => ({
               document: latest.current?.document ?? document,
               referencedBulletIds: references.map((b) => b.id),
+              focus,
             })}
             onSuggestions={receiveSuggestions}
             referenceChips={
               <div className="flex flex-wrap gap-1 mb-2">
+                {focus.map((ref) => (
+                  <Button
+                    key={focusKey(ref)}
+                    size="sm"
+                    variant="outline"
+                    className="max-w-full"
+                    title={ref.label}
+                    aria-label={`Remove focus: ${ref.label}`}
+                    onClick={() =>
+                      setFocus((current) =>
+                        current.filter(
+                          (item) => focusKey(item) !== focusKey(ref),
+                        ),
+                      )
+                    }
+                  >
+                    <span className="truncate">{ref.label}</span>
+                    <span aria-hidden="true"> ×</span>
+                  </Button>
+                ))}
                 {references.map((b) => (
                   <Button
                     key={b.id}
@@ -359,6 +405,14 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
             disabled={busy}
             document={document}
             onChange={edit}
+            onAskAi={(ref) => {
+              addFocusRef(ref);
+              setTab("chat");
+              // The chat panel may only become visible after this render.
+              setTimeout(() =>
+                chat.current?.querySelector<HTMLElement>("textarea")?.focus(),
+              );
+            }}
             suggestions={suggestions}
             onDismiss={(ids) =>
               setSuggestions((current) =>

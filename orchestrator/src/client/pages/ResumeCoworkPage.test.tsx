@@ -1,5 +1,10 @@
 import { ApiClientError } from "@client/api/core";
-import type { JobResumeState, ReactiveResumeV5Document } from "@shared/types";
+import type {
+  CoworkChatContext,
+  JobResumeState,
+  ReactiveResumeV5Document,
+  ResumeFocusRef,
+} from "@shared/types";
 import {
   act,
   cleanup,
@@ -35,7 +40,21 @@ vi.mock("sonner", () => ({
   toast: { message: mocks.toast, success: vi.fn() },
 }));
 vi.mock("@/client/components/ghostwriter/GhostwriterPanel", () => ({
-  GhostwriterPanel: () => <div>Chat</div>,
+  GhostwriterPanel: ({
+    cowork,
+    referenceChips,
+  }: {
+    cowork: () => CoworkChatContext;
+    referenceChips: React.ReactNode;
+  }) => (
+    <div>
+      Chat
+      {referenceChips}
+      <output data-testid="focus">
+        {JSON.stringify(cowork().focus?.map((f) => f.label))}
+      </output>
+    </div>
+  ),
 }));
 vi.mock("@/client/components/cowork/DutyLibrary", () => ({
   DutyLibrary: ({
@@ -56,20 +75,30 @@ vi.mock("@/client/components/cowork/ResumeEditor", () => ({
   ResumeEditor: ({
     document,
     onChange,
+    onAskAi,
   }: {
     document: ReactiveResumeV5Document;
     onChange: (document: ReactiveResumeV5Document) => void;
+    onAskAi: (ref: ResumeFocusRef) => void;
   }) => (
-    <input
-      aria-label="Headline"
-      value={document.basics.headline}
-      onChange={(e) =>
-        onChange({
-          ...document,
-          basics: { ...document.basics, headline: e.target.value },
-        })
-      }
-    />
+    <>
+      <button
+        type="button"
+        onClick={() => onAskAi({ kind: "headline", label: "Headline" })}
+      >
+        Ask AI
+      </button>
+      <input
+        aria-label="Headline"
+        value={document.basics.headline}
+        onChange={(e) =>
+          onChange({
+            ...document,
+            basics: { ...document.basics, headline: e.target.value },
+          })
+        }
+      />
+    </>
   ),
 }));
 
@@ -319,6 +348,38 @@ describe("duty library insert", () => {
         (list
           ? "<ul><li>Existing</li><li>Library duty</li></ul>"
           : "<ul><li>Library duty</li></ul>"),
+    );
+  });
+});
+
+describe("resume co-work focus chips", () => {
+  it("adds focus from Ask AI and chat drops, dedupes, sends and removes", async () => {
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "Ask AI" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask AI" }));
+    const ref = {
+      kind: "item",
+      section: "experience",
+      itemId: "e",
+      label: "Experience › Citi",
+    };
+    const types = ["application/x-jobops-resume-focus"];
+    const dataTransfer = { types, getData: () => JSON.stringify(ref) };
+    fireEvent.drop(screen.getByRole("tabpanel", { name: "Chat" }), {
+      dataTransfer,
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("focus").textContent).toBe(
+        '["Headline","Experience › Citi"]',
+      ),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove focus: Headline" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("focus").textContent).toBe(
+        '["Experience › Citi"]',
+      ),
     );
   });
 });

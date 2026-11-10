@@ -1,5 +1,11 @@
 import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ResumeEditor } from "./ResumeEditor";
@@ -439,11 +445,15 @@ describe("navy serif document content", () => {
       .getAllByRole("heading", { level: 2 })
       .map((e) => e.textContent);
     fireEvent.click(screen.getByLabelText(`Move section ${names[0]} down`));
-    expect(screen.getByLabelText(`Move section ${names[0]} down`)).toHaveFocus();
+    expect(
+      screen.getByLabelText(`Move section ${names[0]} down`),
+    ).toHaveFocus();
     // Moving to the top disables Up, so focus falls to the same section's Down.
     fireEvent.click(screen.getByLabelText(`Move section ${names[0]} up`));
     expect(screen.getByLabelText(`Move section ${names[0]} up`)).toBeDisabled();
-    expect(screen.getByLabelText(`Move section ${names[0]} down`)).toHaveFocus();
+    expect(
+      screen.getByLabelText(`Move section ${names[0]} down`),
+    ).toHaveFocus();
   });
   it("re-runs pagination while typing in local-draft inputs and on focus", () => {
     mount();
@@ -455,6 +465,59 @@ describe("navy serif document content", () => {
     fireEvent.focus(input);
     expect(rects).toHaveBeenCalled();
     rects.mockRestore();
+  });
+  it("offers Ask AI focus refs and applies replace_field inline", () => {
+    const onAskAi = vi.fn();
+    const onChange = vi.fn();
+    const suggestion: ResumeSuggestion = {
+      id: "field",
+      op: "replace_field",
+      field: { section: "education", itemId: "school", name: "school" },
+      previousText: "Example University",
+      text: "Better University",
+      reason: "Focus",
+    };
+    render(
+      <ResumeEditor
+        document={fullFixture()}
+        onChange={onChange}
+        suggestions={[suggestion]}
+        onDismiss={vi.fn()}
+        onAskAi={onAskAi}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Ask AI about Company › bullet 2" }),
+    );
+    fireEvent.keyDown(
+      screen.getByRole("button", {
+        name: "Ask AI about Education › Example University",
+      }),
+      { key: "Enter" },
+    );
+    expect(onAskAi.mock.calls.map(([ref]) => ref)).toEqual([
+      {
+        kind: "bullet",
+        section: "experience",
+        itemId: "one",
+        bulletIndex: 1,
+        label: "Company › bullet 2",
+      },
+      {
+        kind: "item",
+        section: "education",
+        itemId: "school",
+        label: "Education › Example University",
+      },
+    ]);
+    const row = screen
+      .getByLabelText("Education 1 school")
+      .closest(".resume-simple-item") as HTMLElement;
+    expect(row).toHaveTextContent("Better University");
+    fireEvent.click(within(row).getByRole("button", { name: "Accept" }));
+    expect(onChange.mock.lastCall?.[0].sections.education.items[0].school).toBe(
+      "Better University",
+    );
   });
   it("shows education as one degree-in-area phrase with separate fields", () => {
     const next = fullFixture();
