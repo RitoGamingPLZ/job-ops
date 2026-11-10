@@ -105,7 +105,7 @@ export async function listResumes(): Promise<ResumeListItem[]> {
     .where(
       and(
         privateDataScopeFilter(jobs),
-        or(isNotNull(table.jobId), isNotNull(jobs.tailoredSummary)),
+        or(isNotNull(table.jobId), isNotNull(jobs.readyAt)),
       ),
     )
     .orderBy(desc(updated), desc(jobs.id))

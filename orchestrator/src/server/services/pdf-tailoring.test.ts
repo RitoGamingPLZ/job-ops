@@ -1,11 +1,11 @@
-import { getJobResume } from "@server/repositories/job-resumes";
 import type { ReactiveResumeV5Document } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureJobResume } from "./job-resume";
 import { generateDesignResumePdf, generatePdf } from "./pdf";
 import * as projectSelection from "./projectSelection";
 
-vi.mock("@server/repositories/job-resumes", () => ({
-  getJobResume: vi.fn().mockResolvedValue(null),
+vi.mock("./job-resume", () => ({
+  ensureJobResume: vi.fn().mockResolvedValue(null),
 }));
 
 // Define mock data in hoisted block
@@ -445,7 +445,7 @@ describe("PDF Service Tailoring Logic", () => {
     document.summary.content = "User edited summary";
     document.sections.projects.items[0].hidden = true;
     document.sections.projects.items[1].hidden = false;
-    vi.mocked(getJobResume).mockResolvedValue({
+    vi.mocked(ensureJobResume).mockResolvedValue({
       document: document as ReactiveResumeV5Document,
       revision: 2,
       exists: true,
@@ -484,7 +484,12 @@ describe("PDF Service Tailoring Logic", () => {
   });
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getJobResume).mockResolvedValue(null);
+    vi.mocked(ensureJobResume).mockImplementation(async () => ({
+      document: structuredClone(mockProfile) as ReactiveResumeV5Document,
+      revision: 1,
+      exists: true,
+      updatedAt: "now",
+    }));
     currentPdfRenderer.value = "latex";
     currentPdfPaperSize.value = null;
     currentLanguageSettings.mode = "manual";
@@ -520,7 +525,7 @@ describe("PDF Service Tailoring Logic", () => {
     });
   });
 
-  it("should use provided selectedProjectIds and BYPASS AI selection", async () => {
+  it("renders the editor document and ignores legacy summary and selectedProjectIds", async () => {
     const tailoredContent = {
       summary: "New Sum",
       headline: "New Head",
@@ -545,7 +550,7 @@ describe("PDF Service Tailoring Logic", () => {
 
     // 3. Verify Summary Update
     const summary = savedResumeJson.summary.content;
-    expect(summary).toBe("New Sum");
+    expect(summary).toBe("Original Summary");
   });
 
   it("should handle comma-separated project IDs correctly", async () => {
@@ -567,11 +572,11 @@ describe("PDF Service Tailoring Logic", () => {
     const projects = savedResumeJson.sections.projects.items;
 
     expect(projects.find((p: any) => p.id === "p1").hidden).toBe(false);
-    expect(projects.find((p: any) => p.id === "p2").hidden).toBe(true);
+    expect(projects.find((p: any) => p.id === "p2").hidden).toBe(false);
     expect(savedResumeJson.sections.projects.hidden).toBe(false);
   });
 
-  it("resolves must-include projects without AI when selection is absent", async () => {
+  it("preserves editor project visibility when legacy selection is absent", async () => {
     await generatePdf("job-3", {}, "desc", "base.json", undefined);
 
     expect(projectSelection.pickProjectIdsForJob).not.toHaveBeenCalled();
@@ -587,12 +592,12 @@ describe("PDF Service Tailoring Logic", () => {
     );
 
     expect(p1.hidden).toBe(false);
-    expect(p2.hidden).toBe(true);
+    expect(p2.hidden).toBe(false);
 
     const visibleCount = savedResumeJson.sections.projects.items.filter(
       (p: any) => !p.hidden,
     ).length;
-    expect(visibleCount).toBe(1);
+    expect(visibleCount).toBe(2);
   });
 
   it("does not rewrite links when tracer links are disabled", async () => {

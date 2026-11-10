@@ -1,3 +1,9 @@
+import { getJobResume } from "@server/repositories/job-resumes";
+import type { ReactiveResumeV5Document } from "@shared/types";
+
+vi.mock("@server/repositories/job-resumes", () => ({
+  getJobResume: vi.fn(async () => null),
+}));
 vi.mock("./candidate-experience", () => ({
   buildCandidateExperienceContext: vi.fn(async () => null),
 }));
@@ -677,6 +683,28 @@ describe("buildJobChatPromptContext", () => {
       0,
     );
     expect(close).toHaveBeenCalled();
+  });
+
+  it("uses the editor summary instead of legacy job-row tailoring", async () => {
+    const { buildDefaultReactiveResumeDocument } = await import(
+      "./rxresume/document"
+    );
+    const document =
+      buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+    document.summary.content = "Editor summary";
+    vi.mocked(getJobById).mockResolvedValue(
+      createJob({ id: "editor-summary", tailoredSummary: "Legacy summary" }),
+    );
+    vi.mocked(getJobResume).mockResolvedValue({
+      document,
+      revision: 3,
+      exists: true,
+      updatedAt: "now",
+    });
+    const context = await buildJobChatPromptContext("editor-summary");
+    expect(JSON.parse(context.jobSnapshot).job.tailoredSummary).toBe(
+      "Editor summary",
+    );
   });
 
   it("throws not found for unknown job", async () => {

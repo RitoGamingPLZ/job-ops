@@ -8,6 +8,7 @@ import {
   buildJobActionExecutionOptions,
   executeJobActionForJob,
   mapJobActionFailure,
+  targetJobInBackground,
 } from "@server/services/jobs/actions";
 import { resolvePdfFingerprintContext } from "@server/services/pdf-fingerprint";
 import { asyncPool } from "@server/utils/async-pool";
@@ -321,7 +322,11 @@ jobsActionsRouter.post("/:id/rescore", async (req: Request, res: Response) => {
 async function updateTarget(req: Request, res: Response, targeted: boolean) {
   try {
     const job = await requireJob(req.params.id);
-    const updated = await setJobTargeted(job.id, targeted);
+    const updated = targeted
+      ? await targetJobInBackground(job.id, {
+          requestOrigin: resolveRequestOrigin(req),
+        })
+      : await setJobTargeted(job.id, false);
     if (!updated)
       return fail(
         res,

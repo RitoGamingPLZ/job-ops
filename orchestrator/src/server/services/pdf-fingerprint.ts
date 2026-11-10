@@ -104,6 +104,7 @@ export function createJobPdfFingerprint(
   job: JobPdfFingerprintInput,
   context: PdfFingerprintContext,
 ): string {
+  const jobResumeHash = job.id ? context.jobResumeHashes?.[job.id] : undefined;
   const payload = {
     version: context.version,
     ...(job.id && context.jobResumeHashes?.[job.id]
@@ -117,20 +118,24 @@ export function createJobPdfFingerprint(
     ...(context.pdfPaperSize !== "auto"
       ? { paperSize: context.pdfPaperSize }
       : {}),
-    rxresumeBaseResumeId: context.rxresumeBaseResumeId,
-    resumeProjects: context.resumeProjects,
-    designResumeDocumentId: context.designResumeDocumentId,
-    designResumeRevision: context.designResumeRevision,
-    designResumeUpdatedAt: context.designResumeUpdatedAt,
-    job: {
-      tailoredSummary: job.tailoredSummary ?? null,
-      tailoredHeadline: job.tailoredHeadline ?? null,
-      tailoredSkills: job.tailoredSkills ?? null,
-      selectedProjectIds: job.selectedProjectIds ?? null,
-      jobDescription: job.jobDescription ?? null,
-      tracerLinksEnabled: Boolean(job.tracerLinksEnabled),
-      employer: job.employer ?? null,
-    },
+    ...(jobResumeHash
+      ? {}
+      : {
+          rxresumeBaseResumeId: context.rxresumeBaseResumeId,
+          resumeProjects: context.resumeProjects,
+          designResumeDocumentId: context.designResumeDocumentId,
+          designResumeRevision: context.designResumeRevision,
+          designResumeUpdatedAt: context.designResumeUpdatedAt,
+          job: {
+            tailoredSummary: job.tailoredSummary ?? null,
+            tailoredHeadline: job.tailoredHeadline ?? null,
+            tailoredSkills: job.tailoredSkills ?? null,
+            selectedProjectIds: job.selectedProjectIds ?? null,
+            jobDescription: job.jobDescription ?? null,
+            tracerLinksEnabled: Boolean(job.tracerLinksEnabled),
+            employer: job.employer ?? null,
+          },
+        }),
   };
 
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
