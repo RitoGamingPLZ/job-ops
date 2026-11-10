@@ -9,12 +9,12 @@ import {
   FileText,
   ImageIcon,
   Loader2,
-  RefreshCcw,
   Trash2,
   Upload,
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { ConfirmDelete } from "@/client/components/ConfirmDelete";
 import { TooltipWhenDisabled } from "@/client/components/TooltipWhenDisabled";
@@ -58,7 +58,6 @@ type JobDocumentsPanelProps = {
   onUploadPdf: () => void;
   onViewPdf: () => void;
   onDownloadPdf: () => void;
-  onRegeneratePdf: () => void;
 };
 
 function DocumentIcon({
@@ -209,7 +208,6 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
   onUploadPdf,
   onViewPdf,
   onDownloadPdf,
-  onRegeneratePdf,
 }) => {
   const queryClient = useQueryClient();
   const uploadDocumentInputRef = useRef<HTMLInputElement | null>(null);
@@ -308,88 +306,84 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
             defaultValue={defaultAccordionValues}
             className="space-y-3"
           >
-            {job.pdfPath ? (
-              <AccordionItem
-                value="resume-pdf"
-                className="overflow-hidden rounded-lg border border-border/45 bg-muted/25"
-              >
-                <div className="relative">
-                  <AccordionTrigger className="flex items-center justify-between gap-2 border-b border-border/35 bg-muted/5 px-3 py-2.5 pr-4 text-left hover:bg-muted/40 hover:no-underline">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground/90">
-                        <FileText className="h-3.5 w-3.5 text-sky-400/80" />
-                        Resume PDF
-                        <Badge variant="secondary" className="text-[10px]">
-                          {job.pdfFreshness}
-                        </Badge>
-                      </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground/65">
-                        Generated or uploaded application material for this job.
-                      </p>
+            <AccordionItem
+              value="resume-pdf"
+              className="overflow-hidden rounded-lg border border-border/45 bg-muted/25"
+            >
+              <div className="relative">
+                <AccordionTrigger className="flex items-center justify-between gap-2 border-b border-border/35 bg-muted/5 px-3 py-2.5 pr-4 text-left hover:bg-muted/40 hover:no-underline">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground/90">
+                      <FileText className="h-3.5 w-3.5 text-sky-400/80" />
+                      {job.pdfSource === "uploaded"
+                        ? "Uploaded PDF (not from the editor)"
+                        : "Resume"}
+                      <Badge variant="secondary" className="text-[10px]">
+                        {job.pdfFreshness}
+                      </Badge>
                     </div>
-                  </AccordionTrigger>
-                  <div className="flex flex-wrap justify-end gap-1 border-b border-border/35 bg-muted/5 px-3 pb-2 sm:absolute sm:right-8 sm:top-1/2 sm:border-b-0 sm:bg-transparent sm:p-0 sm:-translate-y-1/2">
-                    <TooltipWhenDisabled
-                      reason={pdfRegeneratingReason}
-                      className="w-auto"
-                    >
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={onViewPdf}
-                        disabled={pdfActionsDisabled}
-                      >
-                        <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                        {pdfViewLabel}
-                      </Button>
-                    </TooltipWhenDisabled>
-                    <TooltipWhenDisabled
-                      reason={pdfRegeneratingReason}
-                      className="w-auto"
-                    >
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={onDownloadPdf}
-                        disabled={pdfActionsDisabled}
-                      >
-                        <Download className="mr-1.5 h-3.5 w-3.5" />
-                        {pdfDownloadLabel}
-                      </Button>
-                    </TooltipWhenDisabled>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={onUploadPdf}
-                      disabled={isUploadingPdf}
-                    >
-                      <Upload className="mr-1.5 h-3.5 w-3.5" />
-                      Replace PDF
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={onRegeneratePdf}
-                      disabled={Boolean(pdfRegeneratingReason)}
-                    >
-                      <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
-                      Regenerate
-                    </Button>
+                    <p className="mt-0.5 text-xs text-muted-foreground/65">
+                      Edit the resume or preview its PDF.
+                    </p>
                   </div>
+                </AccordionTrigger>
+                <div className="flex flex-wrap justify-end gap-1 border-b border-border/35 bg-muted/5 px-3 pb-2 sm:absolute sm:right-8 sm:top-1/2 sm:border-b-0 sm:bg-transparent sm:p-0 sm:-translate-y-1/2">
+                  <Button size="sm" variant="ghost" asChild>
+                    <Link to={`/resumes/${job.id}`}>Open resume</Link>
+                  </Button>
+                  <TooltipWhenDisabled
+                    reason={pdfRegeneratingReason}
+                    className="w-auto"
+                  >
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={onViewPdf}
+                      disabled={pdfActionsDisabled}
+                    >
+                      <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                      {pdfViewLabel}
+                    </Button>
+                  </TooltipWhenDisabled>
+                  <TooltipWhenDisabled
+                    reason={pdfRegeneratingReason}
+                    className="w-auto"
+                  >
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={onDownloadPdf}
+                      disabled={pdfActionsDisabled}
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      {pdfDownloadLabel}
+                    </Button>
+                  </TooltipWhenDisabled>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={onUploadPdf}
+                    disabled={isUploadingPdf}
+                  >
+                    <Upload className="mr-1.5 h-3.5 w-3.5" />
+                    Replace PDF
+                  </Button>
                 </div>
-                <AccordionContent className="p-0">
-                  <div className="space-y-3 bg-background/20 p-4">
-                    {isStalePdf ? (
-                      <div className="flex items-start gap-2 rounded-md border border-amber-200/70 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">
-                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                        <span>{stalePdfMessage}</span>
-                      </div>
-                    ) : null}
+              </div>
+              <AccordionContent className="p-0">
+                <div className="space-y-3 bg-background/20 p-4">
+                  {isStalePdf ? (
+                    <div className="flex items-start gap-2 rounded-md border border-amber-200/70 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>{stalePdfMessage}</span>
+                    </div>
+                  ) : null}
+                  {job.pdfPath && !isStalePdf && (
                     <ResumePdfPreview jobId={job.id} />
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ) : null}
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
 
             {documentsQuery.data?.map((document) => (
               <AccordionItem
@@ -471,7 +465,7 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
 
           {!job.pdfPath && documentsQuery.data?.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border/60 bg-background/25 p-6 text-sm text-muted-foreground">
-              No documents attached yet.
+              No other documents attached yet.
             </div>
           ) : null}
         </div>

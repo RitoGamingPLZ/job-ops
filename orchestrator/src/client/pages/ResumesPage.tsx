@@ -2,10 +2,12 @@ import { listResumes } from "@client/api/cowork";
 import type { ResumeListItem } from "@shared/types";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import * as api from "@/client/api";
 import {
   coworkError,
   DutyLibrary,
 } from "@/client/components/cowork/DutyLibrary";
+import { getPdfFreshness } from "@/client/lib/pdf-freshness";
 import { openJobPdf } from "@/client/lib/private-pdf";
 import { Button } from "@/components/ui/button";
 
@@ -88,20 +90,23 @@ export function ResumesPage() {
                     {new Date(item.updatedAt).toLocaleString()}
                   </td>
                   <td className="p-3">
-                    {item.hasPdf ? (
-                      <a
-                        href={`/api/jobs/${encodeURIComponent(item.jobId)}/pdf`}
-                        className="underline"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          void openJobPdf(item.jobId).catch(coworkError);
-                        }}
-                      >
-                        PDF: Ready
-                      </a>
-                    ) : (
-                      "—"
-                    )}
+                    <a
+                      href={`/api/jobs/${encodeURIComponent(item.jobId)}/pdf`}
+                      className="underline"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void openJobPdf(item.jobId, async () => {
+                          const job = await api.getJob(item.jobId);
+                          if (
+                            !job.pdfPath ||
+                            ["missing", "stale"].includes(getPdfFreshness(job))
+                          )
+                            await api.generateJobPdf(item.jobId);
+                        }).catch(coworkError);
+                      }}
+                    >
+                      Preview PDF
+                    </a>
                   </td>
                 </tr>
               ))}
@@ -110,7 +115,7 @@ export function ResumesPage() {
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          No job resumes yet. Open a Targeted job and choose Co-work.
+          No resumes yet. Target a job to create its resume.
         </p>
       )}
     </main>

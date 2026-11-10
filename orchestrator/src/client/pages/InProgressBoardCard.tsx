@@ -2,7 +2,9 @@ import type { BoardColumn, JobListItem } from "@shared/types.js";
 import { ExternalLink, MoreVertical, PlusCircle } from "lucide-react";
 import type React from "react";
 import { Link } from "react-router-dom";
+import * as api from "@/client/api";
 import { showErrorToast } from "@/client/lib/error-toast";
+import { getPdfFreshness } from "@/client/lib/pdf-freshness";
 import { openJobPdf } from "@/client/lib/private-pdf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +37,6 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
   stage,
   round = 0,
   pdfPath,
-  onTailor,
   onUntarget,
   latestEventAt,
   jobPageLinkState,
@@ -148,36 +149,27 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
       {stage === "targeted" && (
         <div className="mt-3 flex flex-wrap gap-2" data-board-card-menu="">
           <Button size="sm" variant="outline" asChild>
-            <Link to={`/resumes/${job.id}`}>Co-work</Link>
+            <Link to={`/resumes/${job.id}`}>Open resume</Link>
           </Button>
-          {pdfPath && <Badge variant="outline">Resume ready</Badge>}
-          {pdfPath && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isMoving || job.pdfRegenerating}
-              onClick={() =>
-                void openJobPdf(job.id).catch((error) =>
-                  showErrorToast(error, "Could not open PDF"),
-                )
-              }
-            >
-              Open resume
-            </Button>
-          )}
           <Button
             size="sm"
             variant="outline"
-            onClick={onTailor}
             disabled={
               isMoving || job.status === "processing" || job.pdfRegenerating
             }
+            onClick={() =>
+              void openJobPdf(job.id, async () => {
+                if (
+                  !pdfPath ||
+                  ["missing", "stale"].includes(getPdfFreshness(job))
+                )
+                  await api.generateJobPdf(job.id);
+              }).catch((error) =>
+                showErrorToast(error, "Could not preview PDF"),
+              )
+            }
           >
-            {job.status === "processing" || job.pdfRegenerating
-              ? "Tailoring…"
-              : pdfPath
-                ? "Regenerate resume"
-                : "Tailor resume"}
+            {job.status === "processing" ? "Preparing resume…" : "Preview PDF"}
           </Button>
           <Button
             size="sm"

@@ -10,7 +10,6 @@ import { KbdHint } from "@client/components/KbdHint";
 import { OpenJobListingButton } from "@client/components/OpenJobListingButton";
 import { Tip } from "@client/components/Tip";
 import { TooltipWhenDisabled } from "@client/components/TooltipWhenDisabled";
-import { TailoringWorkspace } from "@client/components/tailoring/TailoringWorkspace";
 import {
   useMarkAsAppliedMutation,
   useSkipJobMutation,
@@ -21,11 +20,10 @@ import { useSettings } from "@client/hooks/useSettings";
 import { uploadJobPdfFromFile } from "@client/lib/job-pdf-upload";
 import { resolveFilenameLanguage } from "@client/lib/pdf-filename";
 import {
-  getPdfActionLabels,
+  getPdfFreshness,
   isPdfRegenerating,
   isPdfStale,
   PDF_REGENERATING_MESSAGE,
-  STALE_PDF_MESSAGE,
 } from "@client/lib/pdf-freshness";
 import { downloadJobPdf, openJobPdf } from "@client/lib/private-pdf";
 import { resolveResumeProjectSelection } from "@shared/resume-projects";
@@ -57,7 +55,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { parseJobBrief } from "@/client/components/JobBriefPane";
 import { showErrorToast } from "@/client/lib/error-toast";
@@ -94,7 +92,7 @@ interface JobDetailPanelProps {
   onRetrySelectedJob: () => void;
 }
 
-type InspectorTab = "brief" | "tailoring" | "apply";
+type InspectorTab = "brief" | "apply";
 
 const tabCopy: Record<
   InspectorTab,
@@ -111,12 +109,6 @@ const tabCopy: Record<
     dotClassName: "bg-sky-500/70",
     selectedClassName: "!border-sky-400/65 !bg-sky-500/20 !text-sky-100",
   },
-  tailoring: {
-    label: "Tailoring",
-    description: "Shape the resume material for this job.",
-    dotClassName: "bg-amber-500/70",
-    selectedClassName: "!border-amber-400/65 !bg-amber-500/20 !text-amber-100",
-  },
   apply: {
     label: "Apply",
     description: "Use the generated kit, Ghostwriter, and final actions.",
@@ -129,13 +121,10 @@ const tabCopy: Record<
 const InspectorTabsList: React.FC<{
   inspectorTab: InspectorTab;
   disabled?: boolean;
-  targeted?: boolean;
-}> = ({ inspectorTab, disabled = false, targeted = false }) => (
+}> = ({ inspectorTab, disabled = false }) => (
   <TabsList className="mb-4 grid h-auto grid-cols-2 gap-1 rounded-lg bg-muted/90 text-sm">
     {Object.entries(tabCopy)
-      .filter(
-        ([value]) => value === "brief" || (value === "tailoring" && targeted),
-      )
+      .filter(([value]) => value === "brief")
       .map(([value, copy]) => {
         const isSelected = inspectorTab === value;
         const trigger = (
@@ -216,7 +205,11 @@ const statusTone: Record<
 };
 
 const getPrimaryAction = (job: Job): string =>
-  isTargeted(job) ? "Targeted ✓" : "Target";
+  job.status === "processing" && isTargeted(job)
+    ? "Preparing resume…"
+    : isTargeted(job)
+      ? "Targeted ✓"
+      : "Target";
 
 const getDefaultInspectorTab = (): InspectorTab => "brief";
 
@@ -285,10 +278,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   onPauseRefreshChange,
   onRetrySelectedJob,
 }) => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tailoringRequestRef = useRef<string | null>(null);
   const [isTargeting, setIsTargeting] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("brief");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -378,46 +367,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   useEffect(() => {
     return () => onPauseRefreshChange?.(false);
   }, [onPauseRefreshChange]);
-
-  useEffect(() => {
-    if (searchParams.get("inspector") !== "tailoring") {
-      tailoringRequestRef.current = null;
-      return;
-    }
-    if (!selectedJob || !location.pathname.endsWith(`/${selectedJob.id}`))
-      return;
-    if (isTargeted(selectedJob)) {
-      if (activeTab !== "all") {
-        navigate(`/jobs/all/${selectedJob.id}?${searchParams}`, {
-          replace: true,
-        });
-        return;
-      }
-      setInspectorTab("tailoring");
-      const nextParams = new URLSearchParams(searchParams);
-      nextParams.delete("inspector");
-      setSearchParams(nextParams, { replace: true });
-      return;
-    }
-    if (tailoringRequestRef.current === selectedJob.id) return;
-    tailoringRequestRef.current = selectedJob.id;
-    setIsTargeting(true);
-    void api
-      .targetJob(selectedJob.id)
-      .then((updated) => onJobUpdated(updated))
-      .catch((error) =>
-        showErrorToast(error, "Failed to target job for tailoring"),
-      )
-      .finally(() => setIsTargeting(false));
-  }, [
-    activeTab,
-    location.pathname,
-    navigate,
-    onJobUpdated,
-    searchParams,
-    selectedJob,
-    setSearchParams,
-  ]);
 
   const handleJobMoved = useCallback(
     (jobId: string) => {
@@ -557,17 +506,38 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   }, [handleJobMoved, onJobUpdated, selectedJob, skipJobMutation]);
 
   const handleOpenPdf = useCallback(() => {
-    if (!selectedJob || !selectedJob.pdfPath || isPdfRegenerating(selectedJob))
+    if (
+      !selectedJob ||
+      selectedJob.status === "processing" ||
+      isPdfRegenerating(selectedJob)
+    )
       return;
-    void openJobPdf(selectedJob.id).catch((error) => {
+    void openJobPdf(selectedJob.id, async () => {
+      if (
+        !selectedJob.pdfPath ||
+        ["missing", "stale"].includes(getPdfFreshness(selectedJob))
+      )
+        await api.generateJobPdf(selectedJob.id);
+    }).catch((error) => {
       showErrorToast(error, "Could not open PDF");
     });
   }, [selectedJob]);
 
   const handleDownloadPdf = useCallback(() => {
-    if (!selectedJob || !selectedJob.pdfPath || isPdfRegenerating(selectedJob))
+    if (
+      !selectedJob ||
+      selectedJob.status === "processing" ||
+      isPdfRegenerating(selectedJob)
+    )
       return;
-    void downloadJobPdf(selectedJob.id, selectedPdfFilename).catch((error) => {
+    void (async () => {
+      if (
+        !selectedJob.pdfPath ||
+        ["missing", "stale"].includes(getPdfFreshness(selectedJob))
+      )
+        await api.generateJobPdf(selectedJob.id);
+      await downloadJobPdf(selectedJob.id, selectedPdfFilename);
+    })().catch((error) => {
       showErrorToast(error, "Could not download PDF");
     });
   }, [selectedJob, selectedPdfFilename]);
@@ -600,7 +570,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
       const summaryPdfMessage = isPdfRegenerating(selectedJobListItem)
         ? PDF_REGENERATING_MESSAGE
         : isPdfStale(selectedJobListItem)
-          ? STALE_PDF_MESSAGE
+          ? "PDF is out of date. Preview or download to render the editor resume."
           : null;
 
       return (
@@ -702,7 +672,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
             No job selected
           </div>
           <p className="max-w-[220px] text-xs text-muted-foreground/70">
-            Select a job to see the brief, tailoring, and application kit.
+            Select a job to see its brief and resume.
           </p>
         </div>
       </div>
@@ -714,11 +684,12 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const canSkip = ["discovered", "ready"].includes(selectedJob.status);
   const isRegeneratingPdf = isPdfRegenerating(selectedJob);
   const isStalePdf = isPdfStale(selectedJob);
-  const pdfLabels = getPdfActionLabels(selectedJob);
+  const pdfLabels = { view: "Preview PDF", download: "Download PDF" };
   const pdfRegeneratingReason = isRegeneratingPdf
     ? PDF_REGENERATING_MESSAGE
     : null;
-  const pdfActionDisabled = !selectedJob.pdfPath || isRegeneratingPdf;
+  const pdfActionDisabled =
+    selectedJob.status === "processing" || isRegeneratingPdf;
   const tone = statusTone[selectedJob.status];
   const openListingIsPrimary =
     selectedJob.status === "ready" && hasJobListing && !hasOpenedJobListing;
@@ -732,10 +703,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
       onValueChange={(value) => setInspectorTab(value as InspectorTab)}
       className="flex min-h-0 min-w-0 flex-1 flex-col lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto p-1"
     >
-      <InspectorTabsList
-        inspectorTab={inspectorTab}
-        targeted={isTargeted(selectedJob)}
-      />
+      <InspectorTabsList inspectorTab={inspectorTab} />
       <JobHeader
         job={selectedJob}
         onCheckSponsor={async () => {
@@ -777,6 +745,23 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
               {getPrimaryAction(selectedJob)}
             </Button>
 
+            {isTargeted(selectedJob) && (
+              <>
+                <Button size="sm" variant="outline" asChild>
+                  <Link to={`/resumes/${selectedJob.id}`}>Open resume</Link>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pdfActionDisabled}
+                  onClick={handleOpenPdf}
+                >
+                  {selectedJob.status === "processing"
+                    ? "Preparing resume…"
+                    : "Preview PDF"}
+                </Button>
+              </>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -906,24 +891,17 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
           />
         </TabsContent>
 
-        {isTargeted(selectedJob) && (
-          <TabsContent value="tailoring">
-            <TailoringWorkspace
-              mode="editor"
-              job={selectedJob}
-              onUpdate={onJobUpdated}
-              onDirtyChange={onPauseRefreshChange}
-            />
-          </TabsContent>
-        )}
-
         {showApplicationActions && (
           <TabsContent value="apply">
             <div className="space-y-5">
               {isStalePdf && (
                 <div className="flex items-start gap-2 rounded-md border border-amber-200/70 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>{STALE_PDF_MESSAGE}</span>
+                  <span>
+                    {
+                      "PDF is out of date. Preview or download to render the editor resume."
+                    }
+                  </span>
                 </div>
               )}
 
@@ -1076,7 +1054,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground/70">
-                    No projects selected yet. Use Tailoring to choose the
+                    No projects selected yet. Open the resume to choose the
                     evidence for this role.
                   </p>
                 )}

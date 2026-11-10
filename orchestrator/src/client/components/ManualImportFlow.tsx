@@ -1033,7 +1033,7 @@ export const ManualImportFlow: React.FC<ManualImportFlowProps> = ({
                   htmlFor="tailor-after-import"
                   className="cursor-pointer text-sm font-medium leading-none"
                 >
-                  Tailor automatically after import
+                  Target and prepare resume after import
                 </label>
                 <p className="text-xs text-muted-foreground">
                   Off saves LLM tokens — the job lands in Discovered and you can
@@ -1137,7 +1137,7 @@ export const ManualImportFlow: React.FC<ManualImportFlowProps> = ({
                   htmlFor="bulk-tailor-after-import"
                   className="cursor-pointer text-sm font-medium leading-none"
                 >
-                  Tailor automatically after import
+                  Target and prepare resume after import
                 </label>
                 <p className="text-xs text-muted-foreground">
                   Turn this off to save LLM tokens and leave jobs in Discovered.

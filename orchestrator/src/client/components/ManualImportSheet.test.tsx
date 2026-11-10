@@ -391,7 +391,7 @@ describe("ManualImportSheet", () => {
     ).toBeEnabled();
   });
 
-  it("sends skipTailoring: true when the user unchecks 'Tailor automatically after import'", async () => {
+  it("sends skipTailoring: true when the user unchecks 'Target and prepare resume after import'", async () => {
     vi.mocked(api.inferManualJob).mockResolvedValue({
       job: {
         title: "Backend Engineer",
@@ -417,7 +417,7 @@ describe("ManualImportSheet", () => {
     await screen.findByPlaceholderText("e.g. Junior Backend Engineer");
 
     const tailorCheckbox = screen.getByLabelText(
-      /tailor automatically after import/i,
+      /target and prepare resume after import/i,
     );
     fireEvent.click(tailorCheckbox);
 
@@ -465,7 +465,7 @@ describe("ManualImportSheet", () => {
     await screen.findByPlaceholderText("e.g. Junior Backend Engineer");
 
     expect(
-      screen.getByLabelText(/tailor automatically after import/i),
+      screen.getByLabelText(/target and prepare resume after import/i),
     ).not.toBeChecked();
 
     fireEvent.click(
