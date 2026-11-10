@@ -13,6 +13,7 @@ import {
   readTypstTheme,
   renderTypstPdf,
 } from "./typst";
+import wrapSample from "./typst-themes/navy-serif/wrap-sample.json";
 
 const input = {
   basics: {
@@ -80,6 +81,66 @@ const available =
   spawnSync(getTypstBinary(), ["--version"], { stdio: "ignore" }).status === 0;
 
 describe("Navy Serif", () => {
+  it.skipIf(!available)(
+    "keeps wrapped lines compact with 1.5pt extra between items",
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), "navy-wrap-test-"));
+      try {
+        const path = join(dir, "wrap.pdf");
+        await renderTypstPdf({
+          document: normalizeResumeJsonToLatexDocument(wrapSample),
+          typstTheme: "navy-serif",
+          outputPath: path,
+          jobId: "fake-wrap-test",
+        });
+        const pdf = await getDocument({
+          data: new Uint8Array(await readFile(path)),
+          useSystemFonts: true,
+        }).promise;
+        try {
+          expect(pdf.numPages).toBe(1);
+          const page = await pdf.getPage(1);
+          const content = await page.getTextContent();
+          const items = content.items.filter((item) => "str" in item);
+          const markers = items.filter((item) => item.str === "●");
+          expect(markers).toHaveLength(7);
+          // Each section starts with a long item followed by a short one.
+          for (const index of [0, 2, 5]) {
+            const start = markers[index].transform[5];
+            const next = markers[index + 1].transform[5];
+            const baselines = [
+              ...new Set(
+                items
+                  .filter(
+                    (item) =>
+                      item.str.trim() &&
+                      item.transform[5] <= start + 0.01 &&
+                      item.transform[5] > next + 0.01,
+                  )
+                  .map((item) => item.transform[5]),
+              ),
+            ].sort((a, b) => b - a);
+            expect(baselines.length).toBeGreaterThan(1);
+            const leading = baselines[0] - baselines[1];
+            expect(leading).toBeGreaterThan(11);
+            expect(leading).toBeLessThan(13.5);
+            for (let i = 1; i < baselines.length; i++) {
+              expect(baselines[i - 1] - baselines[i]).toBeCloseTo(leading, 1);
+            }
+            expect(baselines[baselines.length - 1] - next).toBeCloseTo(
+              leading + 1.5,
+              1,
+            );
+          }
+        } finally {
+          await pdf.destroy();
+        }
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("registers a selectable offline theme and preserves experience intros separately", () => {
     expect(TYPST_THEME_VALUES).toContain("navy-serif");
     expect(TYPST_THEME_LABELS["navy-serif"]).toBe("Navy Serif");

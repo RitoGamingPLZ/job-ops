@@ -15,8 +15,11 @@
 }
 #set page(paper: __PAGE_PAPER__, margin: (x: 12mm, y: 10mm))
 #set text(font: ("Times New Roman", "Liberation Serif", "TeX Gyre Termes", "Libertinus Serif"), size: 10.5pt, lang: "en", top-edge: "ascender", bottom-edge: "descender")
-#set par(leading: 0.6em, spacing: 3pt)
-#set list(marker: [●], indent: 3pt, body-indent: 12pt, tight: false, spacing: 1.5pt)
+// Leading is added to the font's ascender/descender height, not the font size.
+#let body-leading = 0.3em
+#set par(leading: body-leading, spacing: 3pt)
+// List spacing replaces leading: retain it, then add the gap between items.
+#set list(marker: [●], indent: 3pt, body-indent: 12pt, tight: false, spacing: body-leading + 1.5pt)
 #show link: it => text(fill: rgb("#1155cc"), underline(it))
 #let linked(label, url) = if url == "" { label } else { link(url, label) }
 #let accent(body) = text(fill: navy, weight: "bold", style: "italic", size: 11pt, body)

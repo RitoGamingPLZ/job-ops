@@ -34,6 +34,9 @@ Experience descriptions can contain an intro followed by a list:
 ```
 
 Descriptions without list items render as prose with paragraph and line breaks.
+Wrapped bullets, skills, and awards use normal body leading (about 1.2 line height),
+with an additional 1.5pt between list items. `wrap-sample.json` contains fictional
+long items for checking this spacing.
 With list items, only text before the list becomes the intro; list items render
 once as bullets. Links allow HTTP, HTTPS, and mailto URLs; other schemes retain
 the visible text without a link.
