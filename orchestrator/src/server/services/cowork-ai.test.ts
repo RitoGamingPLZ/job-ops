@@ -403,14 +403,20 @@ describe("experience labeling", () => {
   });
   it("defaults to untagged only and skips explicit empty/foreign IDs without usage", async () => {
     list.mockResolvedValue([{ ...bullet("tagged"), tags: ["Existing"] }]);
-    expect(await labelExperienceBullets()).toEqual({ bullets: [], labeled: 0 });
+    expect(await labelExperienceBullets()).toEqual({
+      bullets: [],
+      labeled: 0,
+      remaining: 0,
+    });
     expect(await labelExperienceBullets([])).toEqual({
       bullets: [],
       labeled: 0,
+      remaining: 0,
     });
     expect(await labelExperienceBullets(["foreign"])).toEqual({
       bullets: [],
       labeled: 0,
+      remaining: 0,
     });
     expect(reserve).not.toHaveBeenCalled();
   });
@@ -429,6 +435,85 @@ describe("experience labeling", () => {
     expect(callJson.mock.calls[0][0].messages[1].content.length).toBeLessThan(
       55000,
     );
+  });
+  it.each([
+    false,
+    true,
+  ])("caps calls at five batches and reports remaining (explicit=%s)", async (explicit) => {
+    const library = Array.from({ length: 205 }, (_, i) => bullet(`b${i}`));
+    list.mockResolvedValue(library);
+    update.mockImplementation(async (id, input) => {
+      const current = library.find((item) => item.id === id);
+      if (!current) throw new Error("Unexpected bullet ID");
+      Object.assign(current, input);
+      return current;
+    });
+    callJson.mockImplementation(async (input) => ({
+      success: true,
+      data: {
+        labels: JSON.parse(input.messages[1].content).bullets.map(
+          (item: { id: string }) => ({ bulletId: item.id, tags: ["APIs"] }),
+        ),
+      },
+    }));
+    const result = await labelExperienceBullets(
+      explicit ? library.map((item) => item.id) : undefined,
+    );
+    expect(callJson).toHaveBeenCalledTimes(5);
+    expect(reserve).toHaveBeenCalledTimes(5);
+    expect(result).toMatchObject({ labeled: 200, remaining: 5 });
+    expect(result.bullets).toHaveLength(200);
+  });
+  it("sanitizes oversized model output without discarding valid labels", async () => {
+    list.mockResolvedValue([bullet("own"), bullet("second")]);
+    update.mockImplementation(async (id, input) => ({
+      ...bullet(id),
+      ...input,
+    }));
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        labels: [
+          {
+            bulletId: "own",
+            tags: [
+              "x".repeat(101),
+              ...Array.from({ length: 110 }, (_, i) => `Skill${i}`),
+            ],
+          },
+          { bulletId: "second", tags: ["Valid"] },
+          ...Array.from({ length: 39 }, () => ({
+            bulletId: "own",
+            tags: ["Ignored"],
+          })),
+        ],
+      },
+    });
+    const result = await labelExperienceBullets(["own", "second"]);
+    expect(result).toMatchObject({ labeled: 2, remaining: 0 });
+    expect(result.bullets[0].tags).toEqual(
+      Array.from({ length: 12 }, (_, i) => `Skill${i}`),
+    );
+    expect(result.bullets[1].tags).toEqual(["Valid"]);
+  });
+  it("counts unlabeled omissions and empty tags as remaining", async () => {
+    list.mockResolvedValue([bullet("own"), bullet("second")]);
+    update.mockImplementation(async (id, input) => ({
+      ...bullet(id),
+      ...input,
+    }));
+    callJson.mockResolvedValue({
+      success: true,
+      data: { labels: [{ bulletId: "own", tags: [] }] },
+    });
+    expect(await labelExperienceBullets()).toMatchObject({
+      labeled: 1,
+      remaining: 2,
+    });
+    expect(await labelExperienceBullets(["own", "second"])).toMatchObject({
+      labeled: 1,
+      remaining: 1,
+    });
   });
   it("rejects invalid upstream output and propagates quota failures", async () => {
     callJson.mockResolvedValue({

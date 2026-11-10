@@ -128,7 +128,7 @@ coworkRouter.post(
     const { ids } = parse(
       z
         .object({
-          ids: z.array(z.string().trim().min(1).max(200)).max(10000).optional(),
+          ids: z.array(z.string().trim().min(1).max(200)).max(200).optional(),
         })
         .strict(),
       req.body ?? {},
