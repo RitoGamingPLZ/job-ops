@@ -5,7 +5,7 @@ import {
   updateExperienceBullet,
 } from "@server/repositories/experience-bullets";
 import { safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
-import { splitDescription } from "@shared/resume-bullets";
+import { htmlToPlainText, splitDescription } from "@shared/resume-bullets";
 import type {
   CoworkChatContext,
   ExperienceBullet,
@@ -14,7 +14,6 @@ import type {
   ResumeFocusRef,
   ResumeSuggestion,
 } from "@shared/types";
-import { stripHtmlTags } from "@shared/utils/string";
 import { z } from "zod";
 import { withHostedUsageReservation } from "./hosted-usage";
 import type { JsonSchemaDefinition } from "./llm/types";
@@ -66,6 +65,18 @@ export const coworkChatContextSchema = z
           .strict(),
       )
       .max(20)
+      .transform((refs) =>
+        refs.filter(
+          (ref, index) =>
+            refs.findIndex(
+              (other) =>
+                other.kind === ref.kind &&
+                other.section === ref.section &&
+                other.itemId === ref.itemId &&
+                other.bulletIndex === ref.bulletIndex,
+            ) === index,
+        ),
+      )
       .optional(),
   })
   .strict();
@@ -79,6 +90,7 @@ const REPLACE_FIELDS: Record<string, readonly string[]> = {
   projects: ["name", "period", "description"],
   skills: ["name"],
 };
+const FOCUS_CHAR_BUDGET = 20_000;
 type LooseItem = Record<string, unknown> & { id: string; hidden?: boolean };
 function sectionItems(
   context: CoworkChatContext,
@@ -95,7 +107,7 @@ function sectionItems(
 }
 function fieldText(item: LooseItem, name: string): string {
   const value = typeof item[name] === "string" ? (item[name] as string) : "";
-  return name === "description" ? stripHtmlTags(value) : value;
+  return name === "description" ? htmlToPlainText(value) : value;
 }
 function promptItem(section: string, item: LooseItem) {
   const fields = Object.fromEntries(
@@ -113,15 +125,15 @@ function promptItem(section: string, item: LooseItem) {
   return {
     id: item.id,
     ...fields,
-    intro: stripHtmlTags(introHtml),
+    intro: htmlToPlainText(introHtml),
     bullets: bullets.map((text, index) => ({ index, text })),
   };
 }
 function focusCurrent(context: CoworkChatContext, ref: ResumeFocusRef) {
   if (ref.kind === "summary")
-    return stripHtmlTags(context.document.summary.content);
+    return htmlToPlainText(context.document.summary.content);
   if (ref.kind === "headline")
-    return stripHtmlTags(context.document.basics.headline);
+    return htmlToPlainText(context.document.basics.headline);
   const section = ref.section ?? (ref.kind === "skill" ? "skills" : "");
   const items = sectionItems(context, section);
   if (ref.kind === "section") return items.map((item) => item.id);
@@ -457,8 +469,8 @@ export function buildCoworkPrompt(
       .filter((item) => !item.hidden)
       .map((item) => promptItem(section, item));
   const resume: Record<string, unknown> = {
-    headline: stripHtmlTags(context.document.basics.headline),
-    summary: stripHtmlTags(context.document.summary.content),
+    headline: htmlToPlainText(context.document.basics.headline),
+    summary: htmlToPlainText(context.document.summary.content),
     skills: context.document.sections.skills.items,
     experience: sectionItems(context, "experience").map((item) =>
       promptItem("experience", item),
@@ -466,10 +478,15 @@ export function buildCoworkPrompt(
   };
   for (const section of ["education", "awards", "certifications", "projects"])
     if (!sections[section]?.hidden) resume[section] = visible(section);
-  const focus = (context.focus ?? []).map((ref) => ({
-    ...ref,
-    current: focusCurrent(context, ref),
-  }));
+  // ponytail: one shared budget; refs past it are sent without their content.
+  let focusBudget = FOCUS_CHAR_BUDGET;
+  const focus = (context.focus ?? []).map((ref) => {
+    const current = focusCurrent(context, ref);
+    focusBudget -= JSON.stringify(current ?? null).length;
+    return focusBudget >= 0
+      ? { ...ref, current }
+      : { ...ref, current: null, truncated: true };
+  });
   const fieldNames = Object.entries(REPLACE_FIELDS)
     .map(([section, names]) => `${section}{${names.join(",")}}`)
     .join(", ");
@@ -499,12 +516,15 @@ export function filterCoworkSuggestions(
         sectionItems(context, field.section).find(
           (candidate) => candidate.id === field.itemId,
         );
-      const text = stripHtmlTags(s.text ?? "");
+      const text = htmlToPlainText(s.text ?? "");
       if (
         !field ||
         !item ||
         !REPLACE_FIELDS[field.section]?.includes(field.name) ||
-        !text
+        !text ||
+        // A plain-text replace would flatten the list into one paragraph.
+        (field.name === "description" &&
+          /<(ul|ol|li)\b/i.test(String(item.description ?? "")))
       )
         return [];
       return [
@@ -542,7 +562,7 @@ export function filterCoworkSuggestions(
     } else if (s.op === "set_skills" ? !s.skills : !s.text) return [];
     const plainReplacement =
       s.op === "replace_summary" || s.op === "replace_headline";
-    const text = plainReplacement ? stripHtmlTags(s.text ?? "") : s.text;
+    const text = plainReplacement ? htmlToPlainText(s.text ?? "") : s.text;
     if (plainReplacement && !text) return [];
     return [
       {
@@ -550,7 +570,7 @@ export function filterCoworkSuggestions(
         ...(plainReplacement
           ? {
               text,
-              previousText: stripHtmlTags(
+              previousText: htmlToPlainText(
                 s.op === "replace_summary"
                   ? context.document.summary.content
                   : context.document.basics.headline,

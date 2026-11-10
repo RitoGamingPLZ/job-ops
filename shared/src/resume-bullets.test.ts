@@ -2,12 +2,22 @@ import { describe, expect, it } from "vitest";
 import {
   bulletsFromHtml,
   bulletsToHtml,
+  htmlToPlainText,
   introTextToHtml,
   joinDescription,
   splitDescription,
 } from "./resume-bullets";
 
 describe("resume bullets", () => {
+  it("htmlToPlainText strips tags, decodes entities and keeps line breaks", () => {
+    expect(
+      htmlToPlainText(
+        "<p>R&amp;D&nbsp;prize &lt;2020&gt; &#39;x&#x27;</p><p>Second<br>line</p>  ",
+      ),
+    ).toBe("R&D prize <2020> 'x'\nSecond\nline");
+    expect(htmlToPlainText("<b>a</b>   <i>b</i>")).toBe("a b");
+    expect(htmlToPlainText("")).toBe("");
+  });
   it("extracts list items, strips formatting, and decodes entities", () => {
     expect(
       bulletsFromHtml(

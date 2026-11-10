@@ -1,6 +1,17 @@
 import type { JobChatMessage, ReactiveResumeV5Document } from "@shared/types";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { rmSync } from "node:fs";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
+
+// Own sqlite file: sharing the default DATA_DIR with parallel test files causes "database is locked".
+const dataDir = await vi.hoisted(async () => {
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = mkdtempSync(join(tmpdir(), "job-ops-ghostwriter-"));
+  process.env.DATA_DIR = dir;
+  return dir;
+});
 
 const mocks = vi.hoisted(() => ({
   getRequestId: vi.fn(),
@@ -186,6 +197,8 @@ const baseAssistantMessage: JobChatMessage = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
+
+afterAll(() => rmSync(dataDir, { recursive: true, force: true }));
 
 describe("ghostwriter service", () => {
   beforeEach(() => {

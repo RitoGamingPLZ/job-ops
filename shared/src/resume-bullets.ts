@@ -12,8 +12,8 @@ function escapeHtml(text: string): string {
   );
 }
 
-/** Plain-text bullets shared by the library and structured resume editor. */
-function stripHtml(html: string): string {
+/** HTML to plain text: tags stripped, br/paragraph breaks become newlines, entities decoded, whitespace collapsed. Server and client share it so text comparisons match. */
+export function htmlToPlainText(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>\s*<p[^>]*>/gi, "\n")
@@ -43,10 +43,10 @@ function stripHtml(html: string): string {
 
 export function bulletsFromHtml(html: string): string[] {
   const items = [...html.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)]
-    .map((match) => stripHtml(match[1] ?? ""))
+    .map((match) => htmlToPlainText(match[1] ?? ""))
     .filter(Boolean);
   if (items.length) return items;
-  return stripHtml(html)
+  return htmlToPlainText(html)
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean);

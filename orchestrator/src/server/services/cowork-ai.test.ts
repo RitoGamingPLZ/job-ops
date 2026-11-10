@@ -475,6 +475,52 @@ describe("cowork AI", () => {
     );
     expect(bulletOp).not.toHaveProperty("field");
   });
+  it("decodes entities, skips list descriptions, dedupes and caps FOCUS", () => {
+    const cowork = withSections();
+    cowork.document.sections.awards.items[0].description =
+      "<p>R&amp;D prize &lt;2020&gt;</p>";
+    cowork.document.sections.projects.items[0].description =
+      "<ul><li>Shipped</li></ul>";
+    cowork.document.summary.content = "<p>Ops &amp; dev</p>";
+    const suggestion = (section: string, itemId: string) => ({
+      op: "replace_field",
+      field: { section, itemId, name: "description" },
+      text: "Q&amp;A win",
+      reason: "r",
+    });
+    const out = filterCoworkSuggestions(
+      [
+        suggestion("awards", "aw"),
+        suggestion("projects", "pr"),
+        { op: "replace_summary", text: "A &amp; B", reason: "r" },
+      ],
+      cowork,
+      [],
+    );
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({
+      previousText: "R&D prize <2020>",
+      text: "Q&A win",
+    });
+    expect(out[1]).toMatchObject({ previousText: "Ops & dev", text: "A & B" });
+
+    const ref = { kind: "item", section: "awards", itemId: "aw", label: "a" } as const;
+    const parsed = coworkChatContextSchema.parse({
+      ...cowork,
+      focus: [ref, ref, { ...ref, label: "other label" }],
+    });
+    expect(parsed.focus).toHaveLength(1);
+
+    cowork.document.sections.awards.items[0].description = "x".repeat(15_000);
+    cowork.focus = [ref, { ...ref, label: "b" }, { kind: "summary", label: "s" }];
+    const data = JSON.parse(
+      buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"),
+    );
+    expect(data.resume.summary).toBe("Ops & dev");
+    expect(data.FOCUS[0].current.description).toHaveLength(15_000);
+    expect(data.FOCUS[1]).toMatchObject({ current: null, truncated: true });
+    expect(data.FOCUS[2]).toMatchObject({ current: null, truncated: true });
+  });
   it("strict schema includes nullable field object", () => {
     const item = COWORK_RESPONSE_SCHEMA.schema.properties as Record<string, any>;
     const props = item.suggestions.items;
@@ -666,7 +712,7 @@ describe("description bullet indexing", () => {
     const prompt = buildCoworkPrompt(cowork, "Job", []);
     const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
     expect(data.resume.experience[0].bullets).toEqual([]);
-    expect(data.resume.experience[0].intro).toBe("Intro link Second paragraph");
+    expect(data.resume.experience[0].intro).toBe("Intro link\nSecond paragraph");
     const base = {
       experienceId: "exp",
       bulletIndex: 0,
