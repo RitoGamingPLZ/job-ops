@@ -127,7 +127,10 @@ export function suggestionTarget(
     if (!item || !suggestion.field) return null;
     const current = String(item[suggestion.field.name] ?? "");
     // Lists stay with the bullet ops; the server drops these too.
-    if (suggestion.field.name === "description" && /<(ul|ol|li)\b/i.test(current))
+    if (
+      suggestion.field.name === "description" &&
+      /<(ul|ol|li)\b/i.test(current)
+    )
       return null;
     return sameText(suggestion.previousText, current)
       ? { old: htmlToPlainText(current) }
@@ -186,8 +189,7 @@ function applyResolvedSuggestion(
       suggestion.field.name === "description"
         ? `<p>${escapeHtml(text)}</p>`
         : text;
-  }
-  else if (suggestion.op === "set_skills")
+  } else if (suggestion.op === "set_skills")
     next.sections.skills.items = (suggestion.skills ?? []).map((s, index) => ({
       ...s,
       id: `cowork-skill-${suggestion.id}-${index}`,

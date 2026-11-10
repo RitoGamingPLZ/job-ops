@@ -741,7 +741,11 @@ export function ResumeEditor({
       <section className="resume-section" aria-label="Skills">
         <h2
           className="text-sm font-semibold"
-          {...focusDrag({ kind: "section", section: "skills", label: "Skills" })}
+          {...focusDrag({
+            kind: "section",
+            section: "skills",
+            label: "Skills",
+          })}
         >
           Skills
         </h2>
@@ -1311,7 +1315,11 @@ export function ResumeEditor({
                 {askAi(
                   key === "summary"
                     ? { kind: "summary", label: "Summary" }
-                    : { kind: "section", section: key, label: sectionNames[key] },
+                    : {
+                        kind: "section",
+                        section: key,
+                        label: sectionNames[key],
+                      },
                 )}
                 <Button
                   size="sm"
@@ -1453,16 +1461,16 @@ export function ResumeEditor({
                   {askAi({ kind: "headline", label: "Headline" })}
                 </div>
                 <Input
-                aria-label="Headline"
-                className="resume-headline"
-                value={document.basics.headline}
-                onChange={(e) =>
-                  change((next) => {
-                    setAddingHeadline(true);
-                    next.basics.headline = e.target.value;
-                  })
-                }
-              />
+                  aria-label="Headline"
+                  className="resume-headline"
+                  value={document.basics.headline}
+                  onChange={(e) =>
+                    change((next) => {
+                      setAddingHeadline(true);
+                      next.basics.headline = e.target.value;
+                    })
+                  }
+                />
               </div>
             ) : (
               <Button

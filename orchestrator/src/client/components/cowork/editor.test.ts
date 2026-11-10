@@ -287,7 +287,12 @@ describe("replace_field", () => {
         awards: {
           hidden: false,
           items: [
-            { id: "aw", hidden: false, title: "Prize", description: "<p>Old</p>" },
+            {
+              id: "aw",
+              hidden: false,
+              title: "Prize",
+              description: "<p>Old</p>",
+            },
           ],
         },
       },
@@ -319,9 +324,9 @@ describe("replace_field", () => {
       text: "A <b> & c",
     });
     expect(suggestionTarget(doc(), s)).toEqual({ old: "Old" });
-    expect(applySuggestion(doc(), s)?.sections.awards.items[0].description).toBe(
-      "<p>A &lt;b&gt; &amp; c</p>",
-    );
+    expect(
+      applySuggestion(doc(), s)?.sections.awards.items[0].description,
+    ).toBe("<p>A &lt;b&gt; &amp; c</p>");
   });
 
   it("compares HTML fields as decoded plain text and skips lists", () => {
@@ -361,7 +366,11 @@ describe("replace_field", () => {
 });
 
 describe("focus refs", () => {
-  const ref = (itemId: string) => ({ kind: "item" as const, itemId, label: itemId });
+  const ref = (itemId: string) => ({
+    kind: "item" as const,
+    itemId,
+    label: itemId,
+  });
   it("dedupes and caps at MAX_FOCUS", () => {
     expect(addFocus([ref("a")], ref("a"))).toHaveLength(1);
     let list: ResumeFocusRef[] = [ref("a")];

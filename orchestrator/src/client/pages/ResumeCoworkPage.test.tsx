@@ -89,15 +89,15 @@ vi.mock("@/client/components/cowork/ResumeEditor", () => ({
         Ask AI
       </button>
       <input
-      aria-label="Headline"
-      value={document.basics.headline}
-      onChange={(e) =>
-        onChange({
-          ...document,
-          basics: { ...document.basics, headline: e.target.value },
-        })
-      }
-    />
+        aria-label="Headline"
+        value={document.basics.headline}
+        onChange={(e) =>
+          onChange({
+            ...document,
+            basics: { ...document.basics, headline: e.target.value },
+          })
+        }
+      />
     </>
   ),
 }));
@@ -357,7 +357,12 @@ describe("resume co-work focus chips", () => {
     mount();
     fireEvent.click(await screen.findByRole("button", { name: "Ask AI" }));
     fireEvent.click(screen.getByRole("button", { name: "Ask AI" }));
-    const ref = { kind: "item", section: "experience", itemId: "e", label: "Experience › Citi" };
+    const ref = {
+      kind: "item",
+      section: "experience",
+      itemId: "e",
+      label: "Experience › Citi",
+    };
     const types = ["application/x-jobops-resume-focus"];
     const dataTransfer = { types, getData: () => JSON.stringify(ref) };
     fireEvent.drop(screen.getByRole("tabpanel", { name: "Chat" }), {
@@ -368,7 +373,9 @@ describe("resume co-work focus chips", () => {
         '["Headline","Experience › Citi"]',
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Remove focus: Headline" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove focus: Headline" }),
+    );
     await waitFor(() =>
       expect(screen.getByTestId("focus").textContent).toBe(
         '["Experience › Citi"]',

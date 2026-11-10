@@ -445,11 +445,15 @@ describe("navy serif document content", () => {
       .getAllByRole("heading", { level: 2 })
       .map((e) => e.textContent);
     fireEvent.click(screen.getByLabelText(`Move section ${names[0]} down`));
-    expect(screen.getByLabelText(`Move section ${names[0]} down`)).toHaveFocus();
+    expect(
+      screen.getByLabelText(`Move section ${names[0]} down`),
+    ).toHaveFocus();
     // Moving to the top disables Up, so focus falls to the same section's Down.
     fireEvent.click(screen.getByLabelText(`Move section ${names[0]} up`));
     expect(screen.getByLabelText(`Move section ${names[0]} up`)).toBeDisabled();
-    expect(screen.getByLabelText(`Move section ${names[0]} down`)).toHaveFocus();
+    expect(
+      screen.getByLabelText(`Move section ${names[0]} down`),
+    ).toHaveFocus();
   });
   it("re-runs pagination while typing in local-draft inputs and on focus", () => {
     mount();
@@ -511,9 +515,9 @@ describe("navy serif document content", () => {
       .closest(".resume-simple-item") as HTMLElement;
     expect(row).toHaveTextContent("Better University");
     fireEvent.click(within(row).getByRole("button", { name: "Accept" }));
-    expect(
-      onChange.mock.lastCall?.[0].sections.education.items[0].school,
-    ).toBe("Better University");
+    expect(onChange.mock.lastCall?.[0].sections.education.items[0].school).toBe(
+      "Better University",
+    );
   });
   it("shows education as one degree-in-area phrase with separate fields", () => {
     const next = fullFixture();
