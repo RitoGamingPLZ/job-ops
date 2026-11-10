@@ -496,6 +496,7 @@ export function ResumeEditor({
                 <div
                   className="resume-row resume-simple-item"
                   key={item.id}
+                  data-focus-item={item.id}
                   data-area-shown={
                     kind === "education" && showArea(item.degree, item.area)
                   }
@@ -665,7 +666,11 @@ export function ResumeEditor({
         {document.sections.skills.items.map(
           (skill, index) =>
             !skill.hidden && (
-              <div key={skill.id} className="resume-row resume-skill">
+              <div
+                key={skill.id}
+                data-focus-item={skill.id}
+                className="resume-row resume-skill"
+              >
                 {reorderZone("skills", index)}
                 <div className="resume-margin resume-skill-controls">
                   {dragHandle(
@@ -809,6 +814,7 @@ export function ResumeEditor({
               return (
                 <section
                   key={experience.id}
+                  data-focus-item={experience.id}
                   className="resume-experience resume-row"
                 >
                   {reorderZone(
@@ -903,6 +909,7 @@ export function ResumeEditor({
                     {bullets.map((bullet, index) => (
                       <li
                         key={`${experience.id}-${index}`}
+                        data-focus-bullet={index}
                         className="resume-row resume-bullet"
                       >
                         <div
@@ -1051,7 +1058,11 @@ export function ResumeEditor({
             <h2>Projects</h2>
           )}
           {document.sections.projects.items.map((project, index) => (
-            <div key={project.id} className="resume-project resume-row">
+            <div
+              key={project.id}
+              data-focus-item={project.id}
+              className="resume-project resume-row"
+            >
               <label className="resume-margin">
                 <input
                   type="checkbox"
@@ -1162,7 +1173,10 @@ export function ResumeEditor({
         {keys.map((key, i) => (
           <Fragment key={key}>
             {sectionGap(key)}
-            <div className="resume-row resume-section-slot">
+            <div
+              className="resume-row resume-section-slot"
+              data-focus-section={key}
+            >
               <div className="resume-margin resume-section-controls">
                 {dragHandle(
                   SECTION_TRANSFER_TYPE,

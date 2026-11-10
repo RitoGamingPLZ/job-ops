@@ -5,6 +5,7 @@ import type {
   RankedBullet,
   ReactiveResumeV5Document,
   ResumeListItem,
+  ScreeningReport,
 } from "@shared/types";
 import { fetchApi } from "./core";
 
@@ -78,4 +79,13 @@ export function deleteJobResume(jobId: string) {
 }
 export function listResumes() {
   return fetchApi<{ resumes: ResumeListItem[] }>("/resumes");
+}
+export function getScreeningReport(
+  jobId: string,
+  document: ReactiveResumeV5Document,
+) {
+  return fetchApi<ScreeningReport>(`${resumePath(jobId)}/screening`, {
+    method: "POST",
+    body: JSON.stringify({ document }),
+  });
 }

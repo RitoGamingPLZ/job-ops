@@ -65,3 +65,11 @@ export interface CoworkChatContext {
   document: ReactiveResumeV5Document;
   referencedBulletIds: string[];
 }
+export type ResumeFocusKind = "section" | "item" | "bullet" | "skill" | "summary" | "headline";
+export interface ResumeFocusRef {
+  kind: ResumeFocusKind;
+  section?: string;      // v5 section key, e.g. "experience","education","awards","certifications","projects","skills"
+  itemId?: string;       // v5 item id (item/bullet/skill)
+  bulletIndex?: number;  // bullet: index in that item's <li> bullets (splitDescription semantics)
+  label: string;         // chip text, e.g. "Experience › Citi — Senior Programmer"
+}
