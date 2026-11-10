@@ -453,6 +453,12 @@ describe("navy serif document content", () => {
       screen.getByLabelText(`Move section ${names[0]} down`),
     ).toHaveFocus();
   });
+  it("keeps focus on a bullet's Move button after moving it down", () => {
+    mount();
+    fireEvent.click(screen.getByLabelText("Move bullet 1 down"));
+    expect(screen.getByLabelText("Move bullet 2 down")).toHaveFocus();
+    expect(screen.getByLabelText("Company bullet 2")).toHaveValue("A");
+  });
   it("re-runs pagination while typing in local-draft inputs and on focus", () => {
     mount();
     const rects = vi.spyOn(Element.prototype, "getBoundingClientRect");
@@ -484,6 +490,9 @@ describe("navy serif document content", () => {
         onAskAi={onAskAi}
       />,
     );
+    // Ask AI stays in the Tab order (heading drag sources use tabIndex -1).
+    for (const ask of screen.getAllByRole("button", { name: /^Ask AI about/ }))
+      expect(ask).toHaveAttribute("tabindex", "0");
     fireEvent.click(
       screen.getByRole("button", { name: "Ask AI about Company › bullet 2" }),
     );
@@ -988,15 +997,45 @@ describe("navy serif document content", () => {
     );
     expect(size * scale).toBeGreaterThanOrEqual(24);
     for (const control of window.document.querySelectorAll<HTMLElement>(
-      ".resume-margin button, .resume-margin [role=button]",
+      ".resume-tools button, .resume-tools [role=button]",
     )) {
       expect(control).toHaveAttribute("title");
       expect(control).toHaveAttribute("aria-label");
     }
     expect(
       screen.getByText(
-        "Hover a line to move, delete or ask AI. Drag ⠿ to reorder.",
+        "Click a line to show its tools. Drag ⠿ to reorder or drop it into the chat.",
       ),
     ).toBeVisible();
+  });
+  it("renders each line's tools in flow directly below that line", () => {
+    mount();
+    const follows = (line: Element, tools: Element | null | undefined) =>
+      Boolean(
+        tools &&
+          line.compareDocumentPosition(tools) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+    const bullet = screen.getByLabelText("Company bullet 1");
+    const bulletTools = bullet
+      .closest(".resume-bullet")
+      ?.querySelector(".resume-tools");
+    expect(follows(bullet, bulletTools)).toBe(true);
+    const heading = screen.getByRole("heading", { name: "Experience" });
+    expect(heading.nextElementSibling).toHaveClass("resume-tools");
+    const entry = window.document.querySelector(".resume-experience");
+    const entryTools = entry?.querySelector(":scope > .resume-tools");
+    expect(entryTools?.previousElementSibling).toHaveClass(
+      "resume-experience-heading",
+    );
+    expect(
+      within(entryTools as HTMLElement).getByRole("button", {
+        name: "Add bullet",
+      }),
+    ).toBeInTheDocument();
+    // Dates are right-aligned by CSS, not joined with a " | " separator.
+    expect(
+      entry?.querySelector(".resume-experience-heading")?.textContent,
+    ).not.toContain("|");
   });
 });

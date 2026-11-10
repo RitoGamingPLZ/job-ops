@@ -84,6 +84,8 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
   const conflict = useRef<JobResumeState | null>(null);
   const [conflictOpen, setConflictOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  // Enter/leave fire for every child crossed; count them so the highlight holds.
+  const dragDepth = useRef(0);
   const lastInsert = useRef<{ key: string; time: number } | null>(null);
   const [pdfReady, setPdfReady] = useState(false);
   const [rendering, setRendering] = useState(false);
@@ -178,6 +180,19 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     saving.current = operation;
     return operation;
   }, [jobId, publish]);
+  // A child unmounting mid-drag never fires dragleave; reset when any drag ends.
+  useEffect(() => {
+    const reset = () => {
+      dragDepth.current = 0;
+      setDragOver(false);
+    };
+    window.addEventListener("dragend", reset);
+    window.addEventListener("drop", reset);
+    return () => {
+      window.removeEventListener("dragend", reset);
+      window.removeEventListener("drop", reset);
+    };
+  }, []);
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (dirty.current || saving.current) {
@@ -391,7 +406,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
         <Link to="/resumes" className="text-sm underline">
           Resumes
         </Link>
-        <h1 className="font-semibold mr-auto">
+        <h1 className="font-semibold mr-auto min-w-0 break-words">
           {job.title} · {job.employer}
         </h1>
         <output className="text-xs text-muted-foreground">
@@ -454,11 +469,12 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           size="sm"
           variant="outline"
           disabled={busy || (!job.pdfPath && !pdfReady)}
+          title="Download the last rendered PDF"
           onClick={() =>
             void downloadJobPdf(jobId, "resume.pdf").catch(coworkError)
           }
         >
-          Download last rendered PDF
+          Download PDF
         </Button>
       </header>
       {state.exists && (
@@ -495,23 +511,37 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           role="tabpanel"
           aria-labelledby="cowork-tab-chat"
           aria-label="Chat"
-          className={`${tab === "chat" ? "flex" : "hidden"} ${dragOver ? "ring-2 ring-primary" : ""} xl:flex min-h-0 flex-col border rounded-md p-3`}
+          className={`${tab === "chat" ? "flex" : "hidden"} ${dragOver ? "ring-2 ring-primary" : ""} xl:flex min-h-0 min-w-0 flex-col border rounded-md p-3`}
           ref={chat}
           data-drag={dragOver || undefined}
+          onDragEnter={(e) => {
+            if (
+              e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE) ||
+              e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)
+            ) {
+              dragDepth.current++;
+              setDragOver(true);
+            }
+          }}
           onDragLeave={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+            if (
+              (e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE) ||
+                e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)) &&
+              --dragDepth.current <= 0
+            ) {
+              dragDepth.current = 0;
               setDragOver(false);
+            }
           }}
           onDragOver={(e) => {
             if (
               e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE) ||
               e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)
-            ) {
+            )
               e.preventDefault();
-              setDragOver(true);
-            }
           }}
           onDrop={(e) => {
+            dragDepth.current = 0;
             setDragOver(false);
             if (e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)) {
               e.preventDefault();
@@ -617,7 +647,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           role="tabpanel"
           aria-labelledby="cowork-tab-library"
           aria-label="Duty library"
-          className={`${tab === "library" ? "block" : "hidden"} xl:block min-h-0 overflow-auto border rounded-md p-3`}
+          className={`${tab === "library" ? "block" : "hidden"} xl:block min-h-0 min-w-0 overflow-auto border rounded-md p-3`}
         >
           <div
             className="flex gap-1 mb-3"

@@ -13,6 +13,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -541,5 +542,38 @@ describe("resume co-work focus chips", () => {
         '["Experience › Citi"]',
       ),
     );
+  });
+});
+
+describe("resume co-work chat drop zone", () => {
+  it("keeps the highlight while crossing children and adds the dropped duty", async () => {
+    mount();
+    const chat = await screen.findByRole("tabpanel", { name: "Chat" });
+    const child = within(chat).getByText(/^Chat/);
+    const duty = { id: "duty", text: "Led the migration" };
+    const dataTransfer = {
+      types: ["application/x-jobops-bullet"],
+      getData: () => JSON.stringify(duty),
+    };
+    fireEvent.dragEnter(chat, { dataTransfer });
+    fireEvent.dragEnter(child, { dataTransfer });
+    // Leaving the pane for its child must not drop the highlight.
+    fireEvent.dragLeave(chat, { dataTransfer });
+    expect(chat).toHaveAttribute("data-drag", "true");
+    fireEvent.dragLeave(child, { dataTransfer });
+    expect(chat).not.toHaveAttribute("data-drag");
+    fireEvent.dragEnter(chat, { dataTransfer });
+    fireEvent.drop(chat, { dataTransfer });
+    expect(chat).not.toHaveAttribute("data-drag");
+    expect(
+      screen.getByRole("button", {
+        name: "Remove reference: Led the migration",
+      }),
+    ).toBeInTheDocument();
+    // A child unmounting mid-drag skips its dragleave; dragend still clears it.
+    fireEvent.dragEnter(chat, { dataTransfer });
+    fireEvent.dragEnter(child, { dataTransfer });
+    fireEvent.dragEnd(window);
+    expect(chat).not.toHaveAttribute("data-drag");
   });
 });

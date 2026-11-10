@@ -39,6 +39,9 @@ Experience descriptions can contain an intro followed by a list:
 ```
 
 Descriptions without list items render as prose with paragraph and line breaks.
+Entry dates sit flush right on the company, school, or project line. The gap is
+filled with space characters, so text extractors keep each date on its entry's line;
+`dates-sample.json` contains fictional entries, including a wrapping one, for checking this.
 Pages have 15mm padding on every side and 10.5pt body text. The headline appears
 directly below the name, above the contact line. Skills show each navy category beside its
 comma-separated tools, without bullets. Certifications show Title - Issuer - Date. Awards use compact
