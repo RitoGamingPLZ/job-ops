@@ -1,10 +1,17 @@
-import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
+import type {
+  ReactiveResumeV5Document,
+  ResumeFocusRef,
+  ResumeSuggestion,
+} from "@shared/types";
 import { describe, expect, it } from "vitest";
 import {
+  addFocus,
   applySuggestion,
   applySuggestions,
   dropBullet,
+  MAX_FOCUS,
   readBulletTransfer,
+  readFocusTransfer,
   suggestionTarget,
 } from "./editor";
 
@@ -264,5 +271,106 @@ describe("description-aware suggestions", () => {
     expect(result.document.sections.experience.items[0].description).toBe(
       `${intro}<ul><li>Improved</li></ul>`,
     );
+  });
+});
+
+describe("replace_field", () => {
+  const doc = () =>
+    ({
+      ...fixture(),
+      sections: {
+        ...fixture().sections,
+        education: {
+          hidden: false,
+          items: [{ id: "edu", hidden: false, school: "MIT", degree: "BSc" }],
+        },
+        awards: {
+          hidden: false,
+          items: [
+            { id: "aw", hidden: false, title: "Prize", description: "<p>Old</p>" },
+          ],
+        },
+      },
+    }) as unknown as ReactiveResumeV5Document;
+  const field = (overrides: Partial<ResumeSuggestion> = {}) =>
+    suggestion({
+      op: "replace_field",
+      experienceId: undefined,
+      bulletIndex: undefined,
+      field: { section: "education", itemId: "edu", name: "school" },
+      previousText: "MIT",
+      text: "Harvard",
+      ...overrides,
+    });
+
+  it("replaces a plain field", () => {
+    expect(suggestionTarget(doc(), field())).toEqual({ old: "MIT" });
+    const next = applySuggestion(doc(), field());
+    expect(
+      (next?.sections.education.items[0] as unknown as { school: string })
+        .school,
+    ).toBe("Harvard");
+  });
+
+  it("writes HTML fields as escaped paragraphs", () => {
+    const s = field({
+      field: { section: "awards", itemId: "aw", name: "description" },
+      previousText: "Old",
+      text: "A <b> & c",
+    });
+    expect(suggestionTarget(doc(), s)).toEqual({ old: "Old" });
+    expect(applySuggestion(doc(), s)?.sections.awards.items[0].description).toBe(
+      "<p>A &lt;b&gt; &amp; c</p>",
+    );
+  });
+
+  it("compares HTML fields as decoded plain text and skips lists", () => {
+    const d = doc();
+    d.sections.awards.items[0].description = "<p>R&amp;D   <b>lead</b></p>";
+    const s = field({
+      field: { section: "awards", itemId: "aw", name: "description" },
+      previousText: "R&D lead",
+      text: "New",
+    });
+    expect(suggestionTarget(d, s)).toEqual({ old: "R&D lead" });
+    d.sections.awards.items[0].description = "<ul><li>R&amp;D lead</li></ul>";
+    expect(suggestionTarget(d, s)).toBeNull();
+  });
+
+  it("is stale when previousText differs", () => {
+    expect(suggestionTarget(doc(), field({ previousText: "Yale" }))).toBeNull();
+    expect(applySuggestion(doc(), field({ previousText: "Yale" }))).toBeNull();
+  });
+
+  it("rejects unknown sections, items and field names", () => {
+    for (const f of [
+      { section: "nope", itemId: "edu", name: "school" },
+      { section: "education", itemId: "missing", name: "school" },
+      { section: "education", itemId: "edu", name: "id" },
+    ])
+      expect(suggestionTarget(doc(), field({ field: f }))).toBeNull();
+  });
+
+  it("applies alongside bullet edits", () => {
+    const result = applySuggestions(doc(), [
+      field(),
+      suggestion({ id: "b", text: "New first" }),
+    ]);
+    expect(result.applied).toEqual(["s", "b"]);
+  });
+});
+
+describe("focus refs", () => {
+  const ref = (itemId: string) => ({ kind: "item" as const, itemId, label: itemId });
+  it("dedupes and caps at MAX_FOCUS", () => {
+    expect(addFocus([ref("a")], ref("a"))).toHaveLength(1);
+    let list: ResumeFocusRef[] = [ref("a")];
+    for (let i = 0; i < 30; i++) list = addFocus(list, ref(String(i)));
+    expect(list).toHaveLength(MAX_FOCUS);
+  });
+  it("reads transfers and ignores junk", () => {
+    expect(readFocusTransfer(JSON.stringify(ref("a")))).toEqual(ref("a"));
+    expect(readFocusTransfer("{")).toBeNull();
+    expect(readFocusTransfer('{"kind":"item"}')).toBeNull();
   });
 });

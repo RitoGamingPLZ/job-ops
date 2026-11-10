@@ -4,7 +4,11 @@ import {
   joinDescription,
   splitDescription,
 } from "@shared/resume-bullets";
-import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
+import type {
+  ReactiveResumeV5Document,
+  ResumeFocusRef,
+  ResumeSuggestion,
+} from "@shared/types";
 import {
   Fragment,
   useEffect,
@@ -23,6 +27,8 @@ import {
   applySuggestions,
   BULLET_TRANSFER_TYPE,
   dropBullet,
+  FOCUS_TRANSFER_TYPE,
+  fieldVisible,
   readBulletTransfer,
   suggestionTarget,
 } from "./editor";
@@ -120,6 +126,8 @@ type Props = {
   suggestions: ResumeSuggestion[];
   onDismiss: (ids: string[]) => void;
   disabled?: boolean;
+  /** Margin "Ask AI" button: add this part of the resume to the chat focus. */
+  onAskAi?: (ref: ResumeFocusRef) => void;
 };
 export function ResumeEditor({
   document,
@@ -127,6 +135,7 @@ export function ResumeEditor({
   suggestions,
   onDismiss,
   disabled,
+  onAskAi,
 }: Props) {
   const [addingSummary, setAddingSummary] = useState(
     Boolean(bulletsFromHtml(document.summary.content).length),
@@ -220,6 +229,51 @@ export function ResumeEditor({
       >
         ⠿
       </span>
+    );
+  }
+  /** Drag source for the chat: a different MIME type from in-editor reorders. */
+  function focusDrag(ref: ResumeFocusRef) {
+    if (!onAskAi) return {};
+    return {
+      draggable: true,
+      onDragStart: (event: React.DragEvent) => {
+        event.stopPropagation();
+        event.dataTransfer.setData(FOCUS_TRANSFER_TYPE, JSON.stringify(ref));
+        event.dataTransfer.effectAllowed = "copy";
+      },
+    };
+  }
+  function askAi(ref: ResumeFocusRef) {
+    if (!onAskAi) return null;
+    return (
+      // biome-ignore lint/a11y/useSemanticElements: Firefox cannot reliably start native drags from buttons.
+      <span
+        role="button"
+        tabIndex={0}
+        className="resume-drag resume-ask"
+        aria-label={`Ask AI about ${ref.label}`}
+        title="Ask AI (or drag into the chat)"
+        {...focusDrag(ref)}
+        onClick={() => onAskAi(ref)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onAskAi(ref);
+          }
+        }}
+      >
+        ✦
+      </span>
+    );
+  }
+  function fieldSuggestions(section: string, itemId: string) {
+    return suggestionList(
+      suggestions.filter(
+        (s) =>
+          s.op === "replace_field" &&
+          s.field?.section === section &&
+          s.field.itemId === itemId,
+      ),
     );
   }
   function reorderZone(kind: "experience" | "skills", gap: number) {
@@ -333,7 +387,11 @@ export function ResumeEditor({
       const resolved = target(s);
       return (
         <article key={s.id} className="resume-suggestion">
-          <p className="font-medium">{s.op.replaceAll("_", " ")}</p>
+          <p className="font-medium">
+            {s.op === "replace_field"
+              ? `replace ${s.field?.name ?? "field"}`
+              : s.op.replaceAll("_", " ")}
+          </p>
           {resolved ? (
             <>
               <del className="resume-deletion">{resolved.old}</del>
@@ -487,7 +545,15 @@ export function ResumeEditor({
         aria-label={simpleNames[kind]}
       >
         {section?.items.some((item) => !item.hidden) && (
-          <h2>{simpleNames[kind]}</h2>
+          <h2
+            {...focusDrag({
+              kind: "section",
+              section: kind,
+              label: simpleNames[kind],
+            })}
+          >
+            {simpleNames[kind]}
+          </h2>
         )}
         <div className="resume-simple-items">
           {section?.items.map(
@@ -535,6 +601,12 @@ export function ResumeEditor({
                     );
                   })}
                   <div className="resume-margin">
+                    {askAi({
+                      kind: "item",
+                      section: kind,
+                      itemId: item.id,
+                      label: `${simpleNames[kind]} › ${String(item.school || item.title || index + 1)}`,
+                    })}
                     {kind === "certifications" &&
                       safeUrl(item.website?.url) && (
                         <Button
@@ -566,6 +638,7 @@ export function ResumeEditor({
                       ×
                     </Button>
                   </div>
+                  {fieldSuggestions(kind, item.id)}
                 </div>
               ),
           )}
@@ -620,7 +693,12 @@ export function ResumeEditor({
       (addingSummary ||
         bulletsFromHtml(document.summary.content).length > 0) ? (
         <section className="resume-section" aria-label="Summary">
-          <h2 className="text-sm font-semibold">Summary</h2>
+          <h2
+            className="text-sm font-semibold"
+            {...focusDrag({ kind: "summary", label: "Summary" })}
+          >
+            Summary
+          </h2>
           <div
             ref={(element) => {
               element?.toggleAttribute("inert", Boolean(disabled));
@@ -661,7 +739,12 @@ export function ResumeEditor({
       .hidden ? null : document.sections.skills.items.some((s) => !s.hidden) ||
       suggestions.some((s) => s.op === "set_skills") ? (
       <section className="resume-section" aria-label="Skills">
-        <h2 className="text-sm font-semibold">Skills</h2>
+        <h2
+          className="text-sm font-semibold"
+          {...focusDrag({ kind: "section", section: "skills", label: "Skills" })}
+        >
+          Skills
+        </h2>
         {document.sections.skills.items.map(
           (skill, index) =>
             !skill.hidden && (
@@ -673,6 +756,12 @@ export function ResumeEditor({
                     skill.id,
                     `Drag skill ${index + 1}`,
                   )}
+                  {askAi({
+                    kind: "skill",
+                    section: "skills",
+                    itemId: skill.id,
+                    label: `Skills › ${skill.name || index + 1}`,
+                  })}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -744,6 +833,7 @@ export function ResumeEditor({
                 >
                   Delete
                 </Button>
+                {fieldSuggestions("skills", skill.id)}
               </div>
             ),
         )}
@@ -799,13 +889,28 @@ export function ResumeEditor({
       !document.sections.experience.hidden &&
       document.sections.experience.items.some((e) => !e.hidden) ? (
         <section className="resume-section" aria-label="Experiences">
-          <h2 className="text-sm font-semibold">Experiences</h2>
+          <h2
+            className="text-sm font-semibold"
+            {...focusDrag({
+              kind: "section",
+              section: "experience",
+              label: "Experiences",
+            })}
+          >
+            Experiences
+          </h2>
           {document.sections.experience.items
             .filter((e) => !e.hidden)
             .map((experience) => {
               const { introHtml, bullets } = splitDescription(
                 experience.description,
               );
+              const itemRef: ResumeFocusRef = {
+                kind: "item",
+                section: "experience",
+                itemId: experience.id,
+                label: `Experience › ${experience.company}${experience.position ? ` — ${experience.position}` : ""}`,
+              };
               return (
                 <section
                   key={experience.id}
@@ -821,6 +926,7 @@ export function ResumeEditor({
                       experience.id,
                       `Drag experience ${experience.company}`,
                     )}
+                    {askAi(itemRef)}
                     <Button
                       size="sm"
                       variant="ghost"
@@ -875,12 +981,13 @@ export function ResumeEditor({
                     <p className="resume-position">{experience.position}</p>
                   )}
                   <div className="resume-experience-heading">
-                    <h3>
+                    <h3 {...focusDrag(itemRef)}>
                       {experience.company}
                       {experience.location ? ` - ${experience.location}` : ""}
                     </h3>
                     <span>{experience.period}</span>
                   </div>
+                  {fieldSuggestions("experience", experience.id)}
                   {bulletsFromHtml(introHtml).length > 0 && (
                     <BulletText
                       label={`${experience.company} intro`}
@@ -933,6 +1040,13 @@ export function ResumeEditor({
                               { experienceId: experience.id, index },
                               `Drag bullet ${index + 1}`,
                             )}
+                            {askAi({
+                              kind: "bullet",
+                              section: "experience",
+                              itemId: experience.id,
+                              bulletIndex: index,
+                              label: `${experience.company} › bullet ${index + 1}`,
+                            })}
                             <Button
                               size="sm"
                               variant="ghost"
@@ -1048,30 +1162,54 @@ export function ResumeEditor({
       document.sections.projects.items.length ? (
         <section className="resume-section" aria-label="Projects">
           {document.sections.projects.items.some((p) => !p.hidden) && (
-            <h2>Projects</h2>
+            <h2
+              {...focusDrag({
+                kind: "section",
+                section: "projects",
+                label: "Projects",
+              })}
+            >
+              Projects
+            </h2>
           )}
           {document.sections.projects.items.map((project, index) => (
             <div key={project.id} className="resume-project resume-row">
-              <label className="resume-margin">
-                <input
-                  type="checkbox"
-                  aria-label={`Include project ${project.name}`}
-                  checked={!project.hidden}
-                  onChange={(e) =>
-                    change((next) => {
-                      next.sections.projects.items[index].hidden =
-                        !e.target.checked;
-                    })
-                  }
-                />
-              </label>
+              <div className="resume-margin">
+                {!project.hidden &&
+                  askAi({
+                    kind: "item",
+                    section: "projects",
+                    itemId: project.id,
+                    label: `Projects › ${project.name}`,
+                  })}
+                <label>
+                  <input
+                    type="checkbox"
+                    aria-label={`Include project ${project.name}`}
+                    checked={!project.hidden}
+                    onChange={(e) =>
+                      change((next) => {
+                        next.sections.projects.items[index].hidden =
+                          !e.target.checked;
+                      })
+                    }
+                  />
+                </label>
+              </div>
               {project.hidden && (
                 <p className="text-muted-foreground">{project.name}</p>
               )}
               {!project.hidden && (
                 <>
                   <div className="resume-experience-heading">
-                    <h3>
+                    <h3
+                      {...focusDrag({
+                        kind: "item",
+                        section: "projects",
+                        itemId: project.id,
+                        label: `Projects › ${project.name}`,
+                      })}
+                    >
                       <a href={safeUrl(project.website?.url)}>{project.name}</a>
                     </h3>
                     <span>{project.period}</span>
@@ -1092,6 +1230,7 @@ export function ResumeEditor({
                       ),
                     )}
                   </ul>
+                  {fieldSuggestions("projects", project.id)}
                 </>
               )}
             </div>
@@ -1168,6 +1307,11 @@ export function ResumeEditor({
                   SECTION_TRANSFER_TYPE,
                   key,
                   `Drag section ${sectionNames[key]}`,
+                )}
+                {askAi(
+                  key === "summary"
+                    ? { kind: "summary", label: "Summary" }
+                    : { kind: "section", section: key, label: sectionNames[key] },
                 )}
                 <Button
                   size="sm"
@@ -1304,7 +1448,11 @@ export function ResumeEditor({
                   ))}
             </div>
             {addingHeadline || document.basics.headline ? (
-              <Input
+              <div className="resume-row">
+                <div className="resume-margin">
+                  {askAi({ kind: "headline", label: "Headline" })}
+                </div>
+                <Input
                 aria-label="Headline"
                 className="resume-headline"
                 value={document.basics.headline}
@@ -1315,6 +1463,7 @@ export function ResumeEditor({
                   })
                 }
               />
+              </div>
             ) : (
               <Button
                 className="resume-add"
@@ -1335,6 +1484,7 @@ export function ResumeEditor({
               (s) =>
                 (s.op === "replace_summary" && document.summary.hidden) ||
                 (s.op === "set_skills" && document.sections.skills.hidden) ||
+                (s.op === "replace_field" && !fieldVisible(document, s)) ||
                 (["replace_bullet", "insert_bullet", "delete_bullet"].includes(
                   s.op,
                 ) &&

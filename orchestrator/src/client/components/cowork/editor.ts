@@ -3,8 +3,19 @@ import {
   joinDescription,
   splitDescription,
 } from "@shared/resume-bullets";
-import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
+import type {
+  ReactiveResumeV5Document,
+  ResumeFocusRef,
+  ResumeSuggestion,
+} from "@shared/types";
 import { normalizeWhitespace } from "@shared/utils/string";
+// TODO(lead-merge): import { htmlToPlainText } from "@shared/resume-bullets".
+import { htmlToPlainText } from "./plainText";
+
+/** previousText arrives as decoded plain text; compare against the field's plain text. */
+const sameText = (previousText: string | undefined, current: string) =>
+  previousText === undefined ||
+  normalizeWhitespace(previousText) === htmlToPlainText(current);
 
 export const BULLET_TRANSFER_TYPE = "application/x-jobops-bullet";
 export type BulletReference = { id: string; text: string };
@@ -18,6 +29,69 @@ export function readBulletTransfer(value: string): BulletReference | null {
     return null;
   }
 }
+export const FOCUS_TRANSFER_TYPE = "application/x-jobops-resume-focus";
+export const MAX_FOCUS = 20;
+export function readFocusTransfer(value: string): ResumeFocusRef | null {
+  try {
+    const data = JSON.parse(value);
+    return data &&
+      typeof data.kind === "string" &&
+      typeof data.label === "string"
+      ? data
+      : null;
+  } catch {
+    return null;
+  }
+}
+export function focusKey(ref: ResumeFocusRef) {
+  return [ref.kind, ref.section, ref.itemId, ref.bulletIndex].join(":");
+}
+/** Add a ref unless it is already there or the list is full. */
+export function addFocus(list: ResumeFocusRef[], ref: ResumeFocusRef) {
+  return list.length >= MAX_FOCUS ||
+    list.some((item) => focusKey(item) === focusKey(ref))
+    ? list
+    : [...list, ref];
+}
+
+/** Plain-string v5 fields replace_field may write; `description` holds HTML. */
+const FIELD_NAMES: Record<string, string[]> = {
+  experience: ["company", "position", "location", "period"],
+  education: ["school", "degree", "area", "grade", "period"],
+  awards: ["title", "awarder", "date", "description"],
+  certifications: ["title", "issuer", "date", "description"],
+  projects: ["name", "period", "description"],
+  skills: ["name"],
+};
+function fieldItem(
+  document: ReactiveResumeV5Document,
+  field: ResumeSuggestion["field"],
+): Record<string, unknown> | null {
+  if (!field || !FIELD_NAMES[field.section]?.includes(field.name)) return null;
+  const section = (
+    document.sections as Record<
+      string,
+      { hidden?: boolean; items: { id: string; hidden?: boolean }[] }
+    >
+  )[field.section];
+  const item = section?.items.find((i) => i.id === field.itemId);
+  return section && !section.hidden && item && !item.hidden
+    ? (item as Record<string, unknown>)
+    : null;
+}
+/** True when a replace_field suggestion's item is rendered (visible) in the editor. */
+export function fieldVisible(
+  document: ReactiveResumeV5Document,
+  suggestion: ResumeSuggestion,
+) {
+  return fieldItem(document, suggestion.field) !== null;
+}
+const escapeHtml = (text: string) =>
+  text.replace(
+    /[&<>]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c,
+  );
+
 export function dropBullet(
   bullets: string[],
   index: number,
@@ -40,17 +114,24 @@ export function suggestionTarget(
   suggestion: ResumeSuggestion,
 ): { old: string; index?: number } | null {
   if (suggestion.op === "replace_headline")
-    return suggestion.previousText !== undefined &&
-      suggestion.previousText !== document.basics.headline
-      ? null
-      : { old: document.basics.headline };
+    return sameText(suggestion.previousText, document.basics.headline)
+      ? { old: document.basics.headline }
+      : null;
   if (suggestion.op === "replace_summary") {
-    const plainText = bulletsFromHtml(document.summary.content).join("\n");
-    return suggestion.previousText !== undefined &&
-      normalizeWhitespace(suggestion.previousText) !==
-        normalizeWhitespace(plainText)
-      ? null
-      : { old: plainText };
+    return sameText(suggestion.previousText, document.summary.content)
+      ? { old: bulletsFromHtml(document.summary.content).join("\n") }
+      : null;
+  }
+  if (suggestion.op === "replace_field") {
+    const item = fieldItem(document, suggestion.field);
+    if (!item || !suggestion.field) return null;
+    const current = String(item[suggestion.field.name] ?? "");
+    // Lists stay with the bullet ops; the server drops these too.
+    if (suggestion.field.name === "description" && /<(ul|ol|li)\b/i.test(current))
+      return null;
+    return sameText(suggestion.previousText, current)
+      ? { old: htmlToPlainText(current) }
+      : null;
   }
   if (suggestion.op === "set_skills")
     return {
@@ -96,10 +177,16 @@ function applyResolvedSuggestion(
   if (suggestion.op === "replace_headline")
     next.basics.headline = suggestion.text ?? "";
   else if (suggestion.op === "replace_summary")
-    next.summary.content = (suggestion.text ?? "").replace(
-      /[&<>]/g,
-      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c,
-    );
+    next.summary.content = escapeHtml(suggestion.text ?? "");
+  else if (suggestion.op === "replace_field") {
+    const item = fieldItem(next, suggestion.field);
+    if (!item || !suggestion.field) return null;
+    const text = suggestion.text ?? "";
+    item[suggestion.field.name] =
+      suggestion.field.name === "description"
+        ? `<p>${escapeHtml(text)}</p>`
+        : text;
+  }
   else if (suggestion.op === "set_skills")
     next.sections.skills.items = (suggestion.skills ?? []).map((s, index) => ({
       ...s,
