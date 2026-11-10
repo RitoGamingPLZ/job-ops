@@ -22,7 +22,7 @@ and explicit section order.
 3. Generate or preview the PDF.
 
 A4 is the default; an explicit US Letter setting is respected. Without a document
-layout order, sections appear as Skills, Certifications, Experiences, Projects,
+layout order, sections appear as Skills, Certifications, Experience, Projects,
 Education, Awards, followed by other populated sections. A nonempty summary appears
 first in single-column mode. Hidden or empty sections are omitted; profiles appear in the contact line.
 

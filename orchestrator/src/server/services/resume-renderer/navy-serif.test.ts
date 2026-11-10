@@ -392,7 +392,9 @@ describe("Navy Serif", () => {
           "example.com/code",
           "Backend: Java, Node.js",
           "Platform Engineer",
-          "Example Systems - Remote",
+          // Dates share the company line, so layout-based ATS parsers keep them together.
+          "Example Systems - Remote | 2023 – Present",
+          "Example Project | 2025",
           "Built reliable systems & APIs.",
           "Reduced latency.",
           "Example Award: Delivery excellence.",
@@ -401,7 +403,7 @@ describe("Navy Serif", () => {
         const headings = [
           "Skills",
           "Certifications",
-          "Experiences",
+          "Experience",
           "Projects",
           "Education",
           "Awards",
@@ -467,9 +469,9 @@ describe("Navy Serif", () => {
         });
         const custom = await render(reordered, "custom");
         expect(custom.text.indexOf("Education")).toBeLessThan(
-          custom.text.indexOf("Experiences"),
+          custom.text.indexOf("Experience"),
         );
-        expect(custom.text.indexOf("Experiences")).toBeLessThan(
+        expect(custom.text.indexOf("Experience")).toBeLessThan(
           custom.text.indexOf("Skills"),
         );
         expect(custom.text).not.toContain("Example Project");

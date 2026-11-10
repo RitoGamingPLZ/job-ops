@@ -351,7 +351,7 @@ describe("navy serif document content", () => {
       "Summary",
       "Skills",
       "Certifications",
-      "Experiences",
+      "Experience",
       "Education",
       "Awards",
     ]);
@@ -377,7 +377,7 @@ describe("navy serif document content", () => {
     mount(next);
     expect(
       screen.getAllByRole("heading", { level: 2 }).map((e) => e.textContent),
-    ).toEqual(["Summary", "Education", "Awards", "Experiences"]);
+    ).toEqual(["Summary", "Education", "Awards", "Experience"]);
     expect(screen.queryByLabelText("Certifications 1 title")).toBeNull();
     expect(screen.queryByLabelText("Skill 1 name")).toBeNull();
   });
@@ -402,7 +402,7 @@ describe("navy serif document content", () => {
       screen.getAllByRole("heading", { level: 2 }).map((e) => e.textContent),
     ).toEqual([
       "Summary",
-      "Experiences",
+      "Experience",
       "Education",
       "Awards",
       "Skills",
@@ -415,7 +415,7 @@ describe("navy serif document content", () => {
       page.main.indexOf("skills") - 1,
     );
     expect(page.main).toContain("profiles");
-    fireEvent.drop(screen.getByLabelText("Move section before Experiences"), {
+    fireEvent.drop(screen.getByLabelText("Move section before Experience"), {
       dataTransfer: {
         types: ["application/x-jobops-resume-section"],
         getData: (type: string) =>
@@ -433,7 +433,7 @@ describe("navy serif document content", () => {
     ).toEqual([
       "Summary",
       "Skills",
-      "Experiences",
+      "Experience",
       "Education",
       "Awards",
       "Certifications",
