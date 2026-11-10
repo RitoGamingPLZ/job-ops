@@ -1,0 +1,40 @@
+{
+  "basics": { "name": "Morgan Example", "email": "morgan@example.com" },
+  "sections": {
+    "experience": {
+      "items": [
+        {
+          "company": "Example Systems",
+          "position": "Platform Engineer",
+          "location": "Remote",
+          "period": "2023 – Present",
+          "description": "<ul><li>Improved uptime.</li></ul>"
+        },
+        {
+          "company": "Example International Holdings Consolidated Research and Development Laboratories",
+          "position": "Software Engineer",
+          "location": "Example City, Example Region, Example Country",
+          "period": "2019 – 2023",
+          "description": "<ul><li>Built example services.</li></ul>"
+        },
+        {
+          "company": "Example Startup",
+          "position": "Junior Developer",
+          "location": "Example Town",
+          "period": "2017 – 2019",
+          "description": "<ul><li>Shipped example features.</li></ul>"
+        }
+      ]
+    },
+    "education": {
+      "items": [
+        {
+          "school": "Example University",
+          "degree": "BSc",
+          "area": "Computing",
+          "period": "2013 – 2017"
+        }
+      ]
+    }
+  }
+}

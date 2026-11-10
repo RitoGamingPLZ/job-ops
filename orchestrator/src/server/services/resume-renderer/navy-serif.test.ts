@@ -18,6 +18,7 @@ import {
   readTypstTheme,
   renderTypstPdf,
 } from "./typst";
+import datesSample from "./typst-themes/navy-serif/dates-sample.json";
 import sidebarSample from "./typst-themes/navy-serif/sidebar-sample.json";
 import wrapSample from "./typst-themes/navy-serif/wrap-sample.json";
 
@@ -107,7 +108,11 @@ describe("Navy Serif", () => {
       entry: 11,
     });
     const theme = await readTypstTheme("navy-serif");
-    expect(theme.template).not.toMatch(/\bgrid\s*\(/);
+    // Entry dates must stay on the company's text line: no grid/table/place/columns.
+    expect(theme.template).not.toMatch(
+      /\b(grid|table|place|columns)\s*\(|h\(1fr\)/,
+    );
+    expect(theme.template).toContain('box(width: 1fr, repeat(" "))');
   });
 
   it("retains all main pages before all sidebar pages, deduplicating like the editor", () => {
@@ -411,6 +416,49 @@ describe("Navy Serif", () => {
   });
 
   it.skipIf(!available)(
+    "right-aligns dates on the company's text line, even when it wraps",
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), "navy-dates-test-"));
+      try {
+        const path = join(dir, "dates.pdf");
+        await renderTypstPdf({
+          document: normalizeResumeJsonToLatexDocument(datesSample),
+          typstTheme: "navy-serif",
+          outputPath: path,
+          jobId: "fake-dates-test",
+        });
+        const pdf = await getDocument({
+          data: new Uint8Array(await readFile(path)),
+          useSystemFonts: true,
+        }).promise;
+        try {
+          const page = await pdf.getPage(1);
+          const items = (await page.getTextContent()).items.filter(
+            (item) => "str" in item,
+          );
+          const find = (s: string) => items.find((i) => i.str.includes(s));
+          for (const [left, date] of [
+            ["Example Systems - Remote", "2023 – Present"],
+            ["Example Region, Example Country", "2019 – 2023"],
+            ["Example Startup - Example Town", "2017 – 2019"],
+            ["Example University", "2013 – 2017"],
+          ]) {
+            expect(find(date)?.transform[5]).toBeCloseTo(
+              find(left)?.transform[5] ?? 0,
+              0,
+            );
+            expect(find(date)?.transform[4]).toBeGreaterThan(400);
+          }
+        } finally {
+          await pdf.destroy();
+        }
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.skipIf(!available)(
     "renders intro, links, section ordering, and ATS-readable lines offline",
     async () => {
       const dir = await mkdtemp(join(tmpdir(), "navy-serif-test-"));
@@ -453,13 +501,20 @@ describe("Navy Serif", () => {
           "Backend: Java, Node.js",
           "Platform Engineer",
           // Dates share the company line, so layout-based ATS parsers keep them together.
-          "Example Systems - Remote | 2023 – Present",
-          "Example Project | 2025",
+          "Example Systems - Remote 2023 – Present",
+          "Example Project 2025",
           "Built reliable systems & APIs.",
           "Reduced latency.",
           "Example Award - Example Committee, 2024: Delivery excellence.",
         ])
           expect(result.text).toContain(text);
+        const company = result.items.find((i) =>
+          i.str.includes("Example Systems - Remote"),
+        );
+        const date = result.items.find((i) => i.str.includes("2023 – Present"));
+        // Dates are right-aligned yet on the company's baseline.
+        expect(date?.transform[5]).toBeCloseTo(company?.transform[5] ?? 0, 0);
+        expect(date?.transform[4]).toBeGreaterThan(300);
         const headings = [
           "Skills",
           "Certifications",
