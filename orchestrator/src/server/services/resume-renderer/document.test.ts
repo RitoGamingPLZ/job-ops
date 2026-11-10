@@ -368,4 +368,23 @@ describe("normalizeResumeJsonToLatexDocument", () => {
       "Worked with <b>bold text</b> and <i>italic text</i>. Strip this div",
     ]);
   });
+
+  it("drops empty certification and award items and trims dates", () => {
+    const document = normalizeResumeJsonToLatexDocument({
+      basics: { name: "Example" },
+      sections: {
+        certifications: {
+          items: [
+            { title: "", issuer: "", date: " ", description: "" },
+            { title: "Example Cert", issuer: "", date: " 2024 " },
+          ],
+        },
+        awards: { items: [{ title: "", awarder: "", date: "" }] },
+      },
+    });
+    expect(document.certifications).toEqual([
+      expect.objectContaining({ title: "Example Cert", date: "2024" }),
+    ]);
+    expect(document.awards).toEqual([]);
+  });
 });

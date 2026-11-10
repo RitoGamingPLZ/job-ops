@@ -264,6 +264,31 @@ describe("resume co-work saving", () => {
     expect(screen.getByLabelText("Headline")).toHaveValue("Local edit");
     expect(mocks.pdf).not.toHaveBeenCalled();
   });
+  it("ignores Ctrl+Z behind the conflict dialog and reports dropped edits on leave", async () => {
+    mocks.save.mockRejectedValueOnce(
+      new ApiClientError("Conflict", { status: 409 }),
+    );
+    mocks.getResume
+      .mockResolvedValueOnce(state())
+      .mockResolvedValueOnce(state("Remote", 4));
+    const view = mount();
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Mine" },
+    });
+    fireEvent.click(screen.getByText("Save now"));
+    await screen.findByText("Keep mine");
+    fireEvent.keyDown(screen.getByText("Keep mine"), {
+      key: "z",
+      ctrlKey: true,
+    });
+    expect(screen.getByLabelText("Headline")).toHaveValue("Mine");
+    view.unmount();
+    await waitFor(() =>
+      expect(mocks.toast).toHaveBeenCalledWith(
+        expect.stringContaining("unsaved edits were not saved"),
+      ),
+    );
+  });
   it("re-saves local edits against the latest revision when choosing Keep mine", async () => {
     mocks.save.mockRejectedValueOnce(
       new ApiClientError("Conflict", { status: 409 }),

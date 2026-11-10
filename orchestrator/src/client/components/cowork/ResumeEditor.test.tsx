@@ -819,7 +819,7 @@ describe("navy serif document content", () => {
       description: "",
     });
     fireEvent.click(
-      screen.getByRole("button", { name: /^Delete experience$/ }),
+      screen.getByRole("button", { name: "Delete experience new experience" }),
     );
     expect(onChange.mock.lastCall?.[0].sections.experience.items).toHaveLength(
       1,
@@ -859,6 +859,27 @@ describe("navy serif document content", () => {
     });
     fireEvent.blur(screen.getByLabelText("Company bullet 2"));
     expect(screen.getByLabelText("Company bullet 2")).toHaveValue("B");
+  });
+  it("removing an empty bullet on blur does not redirect the next click to another bullet", () => {
+    const description = () =>
+      onChange.mock.lastCall?.[0].sections.experience.items[0].description;
+    const onChange = mount();
+    // Empty inserted row before A; the mousedown on B's × blurs it first.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Insert before bullet 1" }),
+    );
+    const deleteB = screen.getByRole("button", { name: "Delete bullet 3" });
+    fireEvent.blur(screen.getByLabelText("Company bullet 1"));
+    fireEvent.click(deleteB);
+    expect(description()).toContain("<ul><li>A</li><li>C</li></ul>");
+    // A cleared existing bullet is removed on blur before C's × is clicked.
+    fireEvent.change(screen.getByLabelText("Company bullet 1"), {
+      target: { value: "" },
+    });
+    const deleteC = screen.getByRole("button", { name: "Delete bullet 2" });
+    fireEvent.blur(screen.getByLabelText("Company bullet 1"));
+    fireEvent.click(deleteC);
+    expect(description()).not.toContain("<li>");
   });
   it("describes suggestions and gives review buttons contextual accessible names", () => {
     mount(fullFixture(), [

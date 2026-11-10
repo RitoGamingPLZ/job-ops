@@ -194,7 +194,13 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     () => () => {
       void (async () => {
         while (dirty.current || saving.current) {
-          if (!(await save())) break;
+          if (await save()) continue;
+          // Leaving with the conflict dialog open: say the local copy was dropped.
+          if (conflict.current)
+            toast.message(
+              "Resume changed elsewhere. Your unsaved edits were not saved; reopen the resume to review the latest copy.",
+            );
+          break;
         }
       })();
     },
@@ -257,6 +263,8 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
         !event.shiftKey &&
         event.key.toLowerCase() === "z" &&
         !busy &&
+        !conflictOpen &&
+        !resetOpen &&
         history.current.length
       ) {
         event.preventDefault();
@@ -265,7 +273,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [undo, busy]);
+  }, [undo, busy, conflictOpen, resetOpen]);
   async function resolveConflict(keepMine: boolean) {
     const remote = conflict.current;
     if (!remote || !latest.current) return;
@@ -344,7 +352,9 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
   const receiveSuggestions = useCallback(
     (items: ResumeSuggestion[] | null) => {
       if (items?.length && !wide)
-        toast.message(`${items.length} suggestions - review in Editor`);
+        toast.message(
+          `${items.length} suggestion${items.length === 1 ? "" : "s"} - review in Editor`,
+        );
       if (items)
         setSuggestions((current) => [
           ...current.filter((s) => !items.some((next) => next.id === s.id)),
@@ -448,7 +458,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
             void downloadJobPdf(jobId, "resume.pdf").catch(coworkError)
           }
         >
-          Download PDF
+          Download last rendered PDF
         </Button>
       </header>
       {state.exists && (

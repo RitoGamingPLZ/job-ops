@@ -21,7 +21,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { coworkError } from "./DutyLibrary";
 import { BULLET_TRANSFER_TYPE, type BulletReference } from "./editor";
 
-type Checked = { report: ScreeningReport; checkedAt: Date };
+type Checked = {
+  report: ScreeningReport;
+  checkedAt: Date;
+  // JSON of the document that was checked, so a remount can tell if it changed.
+  document: string;
+};
 // Last report per job, kept for the session only (the server does not persist it).
 const reports = new Map<string, Checked>();
 // Jobs already checked once this session (success or not).
@@ -105,7 +110,6 @@ export function JobMatchPanel({
   const [checked, setChecked] = useState<Checked | null>(
     () => reports.get(job.id) ?? null,
   );
-  const [checkedDocument, setCheckedDocument] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [gapsOnly, setGapsOnly] = useState(false);
   const [library, setLibrary] = useState<Map<string, string> | null>(null);
@@ -117,8 +121,7 @@ export function JobMatchPanel({
       const document = getDocument();
       const fingerprint = JSON.stringify(document);
       const report = await api.getScreeningReport(job.id, document);
-      setCheckedDocument(fingerprint);
-      const next = { report, checkedAt: new Date() };
+      const next = { report, checkedAt: new Date(), document: fingerprint };
       reports.set(job.id, next);
       setChecked(next);
     } catch (error) {
@@ -289,7 +292,7 @@ export function JobMatchPanel({
             {report ? "Check again" : "Check match"}
           </Button>
         </div>
-        {checked && checkedDocument !== JSON.stringify(getDocument()) && (
+        {checked && checked.document !== JSON.stringify(getDocument()) && (
           <p className="text-xs text-muted-foreground">
             Resume changed since this check
           </p>

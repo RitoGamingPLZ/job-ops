@@ -23,6 +23,7 @@ import {
   useState,
 } from "react";
 import "./ResumeEditor.css";
+import { ITEM_DEFINITIONS } from "@/client/components/design-resume/definitions";
 import { RichTextEditor } from "@/client/components/design-resume/RichTextEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -170,6 +171,26 @@ export function ResumeEditor({
     index: number;
   } | null>(null);
   const focusField = useRef<{ id: string; field: string } | null>(null);
+  // Stable row keys: removing an empty bullet on blur (mousedown) must not let
+  // the following click land on a row that now shows a different bullet.
+  const bulletKeys = useRef(new Map<string, { text: string; key: number }[]>());
+  const nextBulletKey = useRef(0);
+  function keyBullets(id: string, bullets: string[]) {
+    const previous = [...(bulletKeys.current.get(id) ?? [])];
+    const matched = bullets.map((text) => {
+      const at = previous.findIndex((entry) => entry.text === text);
+      return at < 0 ? undefined : previous.splice(at, 1)[0].key;
+    });
+    // An edited bullet keeps the key of the unmatched row it replaced.
+    const keys = matched.map(
+      (key) => key ?? previous.shift()?.key ?? nextBulletKey.current++,
+    );
+    bulletKeys.current.set(
+      id,
+      bullets.map((text, i) => ({ text, key: keys[i] })),
+    );
+    return keys;
+  }
   // Unmount commits can run after a row was removed; always edit the latest document.
   const currentDocument = useRef(document);
   currentDocument.current = document;
@@ -1050,11 +1071,13 @@ export function ResumeEditor({
             );
             if (newBullet?.id === experience.id)
               bullets.splice(newBullet.index, 0, "");
+            const bulletKeyList = keyBullets(experience.id, bullets);
+            const name = experience.company || "new experience";
             const itemRef: ResumeFocusRef = {
               kind: "item",
               section: "experience",
               itemId: experience.id,
-              label: `Experience › ${experience.company}${experience.position ? ` — ${experience.position}` : ""}`,
+              label: `Experience › ${name}${experience.position ? ` — ${experience.position}` : ""}`,
             };
             return (
               <section
@@ -1070,14 +1093,14 @@ export function ResumeEditor({
                   {dragHandle(
                     EXPERIENCE_TRANSFER_TYPE,
                     experience.id,
-                    `Drag experience ${experience.company}`,
+                    `Drag experience ${name}`,
                   )}
                   {askAi(itemRef)}
                   <Button
                     size="sm"
                     variant="ghost"
-                    title={`Delete experience ${experience.company}`}
-                    aria-label={`Delete experience ${experience.company}`}
+                    title={`Delete experience ${name}`}
+                    aria-label={`Delete experience ${name}`}
                     onClick={() =>
                       change((next) => {
                         next.sections.experience.items =
@@ -1092,8 +1115,8 @@ export function ResumeEditor({
                   <Button
                     size="sm"
                     variant="ghost"
-                    title={`Move experience ${experience.company} up`}
-                    aria-label={`Move experience ${experience.company} up`}
+                    title={`Move experience ${name} up`}
+                    aria-label={`Move experience ${name} up`}
                     disabled={
                       document.sections.experience.items.indexOf(experience) ===
                       0
@@ -1116,8 +1139,8 @@ export function ResumeEditor({
                   <Button
                     size="sm"
                     variant="ghost"
-                    title={`Move experience ${experience.company} down`}
-                    aria-label={`Move experience ${experience.company} down`}
+                    title={`Move experience ${name} down`}
+                    aria-label={`Move experience ${name} down`}
                     disabled={
                       document.sections.experience.items.indexOf(experience) ===
                       document.sections.experience.items.length - 1
@@ -1140,8 +1163,8 @@ export function ResumeEditor({
                 </div>
                 <Input
                   className="resume-position"
-                  title={`${experience.company} position`}
-                  aria-label={`${experience.company} position`}
+                  title={`${name} position`}
+                  aria-label={`${name} position`}
                   data-experience-position
                   value={experience.position ?? ""}
                   placeholder="Position"
@@ -1155,40 +1178,47 @@ export function ResumeEditor({
                   }
                 />
                 <div className="resume-experience-heading">
-                  {(["company", "location", "period"] as const).map((field) => (
-                    <Fragment key={field}>
-                      {field !== "company" && (
-                        <span aria-hidden="true">
-                          {field === "location" ? "-" : "|"}
-                        </span>
-                      )}
-                      <Input
-                        title={`${experience.company} ${field === "period" ? "dates" : field}`}
-                        aria-label={`${experience.company} ${field === "period" ? "dates" : field}`}
-                        value={experience[field] ?? ""}
-                        placeholder={
-                          field === "period"
-                            ? "Jan 2023 – Present"
-                            : field === "company"
-                              ? "Company"
-                              : "Location"
-                        }
-                        onChange={(event) =>
-                          change((next) => {
-                            const item = next.sections.experience.items.find(
-                              (entry) => entry.id === experience.id,
-                            );
-                            if (item) item[field] = event.target.value;
-                          })
-                        }
-                      />
-                    </Fragment>
-                  ))}
+                  {(["company", "location", "period"] as const).map((field) => {
+                    const placeholder =
+                      field === "period"
+                        ? "Jan 2023 – Present"
+                        : field === "company"
+                          ? "Company"
+                          : "Location";
+                    return (
+                      <Fragment key={field}>
+                        {field !== "company" && (
+                          <span aria-hidden="true">
+                            {field === "location" ? "-" : "|"}
+                          </span>
+                        )}
+                        <Input
+                          title={`${name} ${field === "period" ? "dates" : field}`}
+                          aria-label={`${name} ${field === "period" ? "dates" : field}`}
+                          value={experience[field] ?? ""}
+                          placeholder={placeholder}
+                          // Width fallback where CSS field-sizing is unsupported (Firefox, Safari).
+                          size={Math.max(
+                            (experience[field] || placeholder).length,
+                            1,
+                          )}
+                          onChange={(event) =>
+                            change((next) => {
+                              const item = next.sections.experience.items.find(
+                                (entry) => entry.id === experience.id,
+                              );
+                              if (item) item[field] = event.target.value;
+                            })
+                          }
+                        />
+                      </Fragment>
+                    );
+                  })}
                 </div>
                 {fieldSuggestions("experience", experience.id)}
                 {bulletsFromHtml(introHtml).length > 0 && (
                   <BulletText
-                    label={`${experience.company} intro`}
+                    label={`${name} intro`}
                     value={bulletsFromHtml(introHtml).join("\n")}
                     onChange={(value) =>
                       change((next) => {
@@ -1207,7 +1237,7 @@ export function ResumeEditor({
                 <ul className="resume-bullets">
                   {bullets.map((bullet, index) => (
                     <li
-                      key={`${experience.id}-${index}`}
+                      key={bulletKeyList[index]}
                       data-focus-bullet={index}
                       className="resume-row resume-bullet"
                     >
@@ -1223,7 +1253,7 @@ export function ResumeEditor({
                         className="space-y-1"
                       >
                         <BulletText
-                          label={`${experience.company} bullet ${index + 1}`}
+                          label={`${name} bullet ${index + 1}`}
                           value={bullet}
                           onChange={(value) => {
                             if (newBullet?.id === experience.id) {
@@ -1262,7 +1292,7 @@ export function ResumeEditor({
                             section: "experience",
                             itemId: experience.id,
                             bulletIndex: index,
-                            label: `${experience.company} › bullet ${index + 1}`,
+                            label: `${name} › bullet ${index + 1}`,
                           })}
                           <Button
                             size="sm"
@@ -1379,21 +1409,14 @@ export function ResumeEditor({
           size="sm"
           variant="ghost"
           onClick={() => {
-            const id = crypto.randomUUID();
-            focusField.current = { id, field: "[data-experience-position]" };
-            change((next) =>
-              next.sections.experience.items.push({
-                id,
-                hidden: false,
-                company: "",
-                position: "",
-                location: "",
-                period: "",
-                description: "",
-                roles: [],
-                website: { url: "", label: "" },
-              }),
-            );
+            const item = ITEM_DEFINITIONS.find(
+              (definition) => definition.key === "experience",
+            )?.createItem() as ReactiveResumeV5Document["sections"]["experience"]["items"][number];
+            focusField.current = {
+              id: item.id,
+              field: "[data-experience-position]",
+            };
+            change((next) => next.sections.experience.items.push(item));
           }}
         >
           Add experience
