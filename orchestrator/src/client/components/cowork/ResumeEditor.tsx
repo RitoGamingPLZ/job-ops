@@ -201,11 +201,25 @@ export function ResumeEditor({
   // Typing in local-draft inputs and :focus-within reveals change layout
   // without a React render; bump this so pagination re-runs.
   const [, repaginate] = useReducer((n: number) => n + 1, 0);
-  // Section Move buttons: React may move the focused node (losing focus) or
-  // disable it at the ends, so refocus after the reorder renders.
-  const focusAfterMove = useRef<{ label: string; fallback: string } | null>(
-    null,
-  );
+  // Move buttons: React may move the focused node (losing focus) or disable
+  // it at the ends, so refocus after the reorder renders.
+  const focusAfterMove = useRef<{
+    label: string;
+    fallback: string;
+    scope?: string;
+  } | null>(null);
+  /** Refocus the moved row's Move button; `scope` is a data-focus-item id. */
+  function keepMoveFocus(
+    label: (direction: "up" | "down") => string,
+    direction: "up" | "down",
+    scope?: string,
+  ) {
+    focusAfterMove.current = {
+      label: label(direction),
+      fallback: label(direction === "up" ? "down" : "up"),
+      scope,
+    };
+  }
   useEffect(() => {
     const ownerDocument = canvas.current?.ownerDocument;
     if (!ownerDocument) return;
@@ -258,7 +272,12 @@ export function ResumeEditor({
     const pending = focusAfterMove.current;
     if (!pending) return;
     focusAfterMove.current = null;
-    const buttons = [...page.current.querySelectorAll("button")];
+    const root = pending.scope
+      ? [
+          ...page.current.querySelectorAll<HTMLElement>("[data-focus-item]"),
+        ].find((element) => element.dataset.focusItem === pending.scope)
+      : page.current;
+    const buttons = [...(root?.querySelectorAll("button") ?? [])];
     const find = (label: string) =>
       buttons.find((b) => b.getAttribute("aria-label") === label);
     const target = find(pending.label);
@@ -310,11 +329,11 @@ export function ResumeEditor({
       // biome-ignore lint/a11y/useSemanticElements: Firefox cannot reliably start native drags from buttons.
       <span
         role="button"
-        tabIndex={0}
         className="resume-drag resume-ask"
         aria-label={`Ask AI about ${ref.label}`}
         title="Ask AI (or drag into the chat)"
         {...focusDrag(ref)}
+        tabIndex={0}
         onClick={() => onAskAi(ref)}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -742,17 +761,22 @@ export function ResumeEditor({
                             ? index === 0
                             : index === section.items.length - 1
                         }
-                        onClick={() =>
+                        onClick={() => {
+                          const target =
+                            direction === "up" ? index - 1 : index + 1;
+                          keepMoveFocus(
+                            (d) =>
+                              `Move ${simpleNames[kind]} ${target + 1} ${d}`,
+                            direction,
+                          );
                           change((next) => {
                             const items = next.sections[kind].items;
-                            const target =
-                              direction === "up" ? index - 1 : index + 1;
                             [items[index], items[target]] = [
                               items[target],
                               items[index],
                             ];
-                          })
-                        }
+                          });
+                        }}
                       >
                         {direction === "up" ? "↑" : "↓"}
                       </Button>
@@ -955,15 +979,19 @@ export function ResumeEditor({
                           title={`Move skill ${index + 1} up`}
                           aria-label={`Move skill ${index + 1} up`}
                           disabled={index === 0}
-                          onClick={() =>
+                          onClick={() => {
+                            keepMoveFocus(
+                              (d) => `Move skill ${index} ${d}`,
+                              "up",
+                            );
                             change((next) => {
                               next.sections.skills.items = moveItem(
                                 next.sections.skills.items,
                                 index,
                                 index - 1,
                               );
-                            })
-                          }
+                            });
+                          }}
                         >
                           ↑
                         </Button>
@@ -975,15 +1003,19 @@ export function ResumeEditor({
                           disabled={
                             index === document.sections.skills.items.length - 1
                           }
-                          onClick={() =>
+                          onClick={() => {
+                            keepMoveFocus(
+                              (d) => `Move skill ${index + 2} ${d}`,
+                              "down",
+                            );
                             change((next) => {
                               next.sections.skills.items = moveItem(
                                 next.sections.skills.items,
                                 index,
                                 index + 2,
                               );
-                            })
-                          }
+                            });
+                          }}
                         >
                           ↓
                         </Button>
@@ -1182,7 +1214,12 @@ export function ResumeEditor({
                             experience,
                           ) === 0
                         }
-                        onClick={() =>
+                        onClick={() => {
+                          keepMoveFocus(
+                            (d) => `Move experience ${name} ${d}`,
+                            "up",
+                            experience.id,
+                          );
                           change((next) => {
                             const i = next.sections.experience.items.findIndex(
                               (e) => e.id === experience.id,
@@ -1192,8 +1229,8 @@ export function ResumeEditor({
                               i,
                               i - 1,
                             );
-                          })
-                        }
+                          });
+                        }}
                       >
                         ↑
                       </Button>
@@ -1208,7 +1245,12 @@ export function ResumeEditor({
                           ) ===
                           document.sections.experience.items.length - 1
                         }
-                        onClick={() =>
+                        onClick={() => {
+                          keepMoveFocus(
+                            (d) => `Move experience ${name} ${d}`,
+                            "down",
+                            experience.id,
+                          );
                           change((next) => {
                             const i = next.sections.experience.items.findIndex(
                               (e) => e.id === experience.id,
@@ -1218,8 +1260,8 @@ export function ResumeEditor({
                               i,
                               i + 2,
                             );
-                          })
-                        }
+                          });
+                        }}
                       >
                         ↓
                       </Button>
@@ -1343,15 +1385,20 @@ export function ResumeEditor({
                                 disabled={index === 0}
                                 title={`Move bullet ${index + 1} up`}
                                 aria-label={`Move bullet ${index + 1} up`}
-                                onClick={() =>
+                                onClick={() => {
+                                  keepMoveFocus(
+                                    (d) => `Move bullet ${index} ${d}`,
+                                    "up",
+                                    experience.id,
+                                  );
                                   updateBullets(experience.id, (current) => {
                                     [current[index - 1], current[index]] = [
                                       current[index],
                                       current[index - 1],
                                     ];
                                     return current;
-                                  })
-                                }
+                                  });
+                                }}
                               >
                                 ↑
                               </Button>
@@ -1362,15 +1409,20 @@ export function ResumeEditor({
                                 disabled={index === bullets.length - 1}
                                 title={`Move bullet ${index + 1} down`}
                                 aria-label={`Move bullet ${index + 1} down`}
-                                onClick={() =>
+                                onClick={() => {
+                                  keepMoveFocus(
+                                    (d) => `Move bullet ${index + 2} ${d}`,
+                                    "down",
+                                    experience.id,
+                                  );
                                   updateBullets(experience.id, (current) => {
                                     [current[index + 1], current[index]] = [
                                       current[index],
                                       current[index + 1],
                                     ];
                                     return current;
-                                  })
-                                }
+                                  });
+                                }}
                               >
                                 ↓
                               </Button>
@@ -1470,18 +1522,6 @@ export function ResumeEditor({
                       className="text-muted-foreground resume-readonly"
                       title="Edit in Resume Studio"
                     >
-                      {project.name}
-                    </p>
-                  )}
-                  {project.hidden && (
-                    <div className="resume-tools">
-                      {!project.hidden &&
-                        askAi({
-                          kind: "item",
-                          section: "projects",
-                          itemId: project.id,
-                          label: `Projects › ${project.name}`,
-                        })}
                       <label>
                         <input
                           type="checkbox"
@@ -1495,8 +1535,9 @@ export function ResumeEditor({
                             })
                           }
                         />
-                      </label>
-                    </div>
+                      </label>{" "}
+                      {project.name}
+                    </p>
                   )}
                   {!project.hidden && (
                     <>
@@ -1519,13 +1560,12 @@ export function ResumeEditor({
                         <span>{project.period}</span>
                       </div>
                       <div className="resume-tools">
-                        {!project.hidden &&
-                          askAi({
-                            kind: "item",
-                            section: "projects",
-                            itemId: project.id,
-                            label: `Projects › ${project.name}`,
-                          })}
+                        {askAi({
+                          kind: "item",
+                          section: "projects",
+                          itemId: project.id,
+                          label: `Projects › ${project.name}`,
+                        })}
                         <label>
                           <input
                             type="checkbox"
@@ -1657,10 +1697,10 @@ export function ResumeEditor({
           aria-label={`Move section ${sectionNames[key]} up`}
           disabled={i === 0}
           onClick={() => {
-            focusAfterMove.current = {
-              label: `Move section ${sectionNames[key]} up`,
-              fallback: `Move section ${sectionNames[key]} down`,
-            };
+            keepMoveFocus(
+              (d) => `Move section ${sectionNames[key]} ${d}`,
+              "up",
+            );
             moveTo(key, order[i - 1]);
           }}
         >
@@ -1673,10 +1713,10 @@ export function ResumeEditor({
           aria-label={`Move section ${sectionNames[key]} down`}
           disabled={i === order.length - 1}
           onClick={() => {
-            focusAfterMove.current = {
-              label: `Move section ${sectionNames[key]} down`,
-              fallback: `Move section ${sectionNames[key]} up`,
-            };
+            keepMoveFocus(
+              (d) => `Move section ${sectionNames[key]} ${d}`,
+              "down",
+            );
             moveTo(key, order[i + 2] ?? null);
           }}
         >
@@ -1728,6 +1768,13 @@ export function ResumeEditor({
           onInput={repaginate}
           onFocus={repaginate}
           onBlur={repaginate}
+          // Keep focus in the line while a toolbar button is clicked: Safari
+          // and Firefox on macOS do not focus buttons, so the toolbar would
+          // hide before the click lands. Drag handles and Ask AI are spans.
+          onMouseDown={(event) => {
+            if ((event.target as Element).closest(".resume-tools button"))
+              event.preventDefault();
+          }}
           style={{
             ...(NAVY_SERIF_CSS_VARS as CSSProperties),
             ...({

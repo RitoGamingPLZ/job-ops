@@ -453,6 +453,12 @@ describe("navy serif document content", () => {
       screen.getByLabelText(`Move section ${names[0]} down`),
     ).toHaveFocus();
   });
+  it("keeps focus on a bullet's Move button after moving it down", () => {
+    mount();
+    fireEvent.click(screen.getByLabelText("Move bullet 1 down"));
+    expect(screen.getByLabelText("Move bullet 2 down")).toHaveFocus();
+    expect(screen.getByLabelText("Company bullet 2")).toHaveValue("A");
+  });
   it("re-runs pagination while typing in local-draft inputs and on focus", () => {
     mount();
     const rects = vi.spyOn(Element.prototype, "getBoundingClientRect");
@@ -484,6 +490,9 @@ describe("navy serif document content", () => {
         onAskAi={onAskAi}
       />,
     );
+    // Ask AI stays in the Tab order (heading drag sources use tabIndex -1).
+    for (const ask of screen.getAllByRole("button", { name: /^Ask AI about/ }))
+      expect(ask).toHaveAttribute("tabindex", "0");
     fireEvent.click(
       screen.getByRole("button", { name: "Ask AI about Company › bullet 2" }),
     );

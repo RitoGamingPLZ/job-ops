@@ -180,6 +180,19 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     saving.current = operation;
     return operation;
   }, [jobId, publish]);
+  // A child unmounting mid-drag never fires dragleave; reset when any drag ends.
+  useEffect(() => {
+    const reset = () => {
+      dragDepth.current = 0;
+      setDragOver(false);
+    };
+    window.addEventListener("dragend", reset);
+    window.addEventListener("drop", reset);
+    return () => {
+      window.removeEventListener("dragend", reset);
+      window.removeEventListener("drop", reset);
+    };
+  }, []);
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (dirty.current || saving.current) {

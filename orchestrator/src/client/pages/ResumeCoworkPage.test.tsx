@@ -570,5 +570,10 @@ describe("resume co-work chat drop zone", () => {
         name: "Remove reference: Led the migration",
       }),
     ).toBeInTheDocument();
+    // A child unmounting mid-drag skips its dragleave; dragend still clears it.
+    fireEvent.dragEnter(chat, { dataTransfer });
+    fireEvent.dragEnter(child, { dataTransfer });
+    fireEvent.dragEnd(window);
+    expect(chat).not.toHaveAttribute("data-drag");
   });
 });

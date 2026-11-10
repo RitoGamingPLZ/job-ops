@@ -506,7 +506,6 @@
   display: block;
 }
 .resume-awards .resume-simple-item {
-  flex-wrap: nowrap;
   column-gap: 0;
 }
 .resume-awards .resume-simple-item > span {
@@ -543,8 +542,10 @@
   .resume-field-area {
   display: none;
 }
+/* min-width 0 keeps the award on one line; only the toolbar wraps below. */
 .resume-awards .resume-simple-item textarea {
   flex: 1;
+  min-width: 0;
 }
 
 .resume-certification-name {
@@ -635,7 +636,9 @@
 }
 
 /* Line tools: one compact toolbar in flow under the focused line only (the
-   innermost focused row). Hidden ones stay tabbable; tabbing in shows them. */
+   innermost focused row). Hidden ones stay tabbable; tabbing in shows them.
+   Section and entry tools sit between a heading and its text, so they show
+   only for focus on the heading, never pushing down text being clicked. */
 .resume-tools,
 .resume-paper .resume-add {
   position: absolute;
@@ -647,10 +650,15 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.resume-row:focus-within:not(:has(.resume-row:focus-within)) > .resume-tools,
+.resume-row:focus-within:not(:has(.resume-row:focus-within))
+  > .resume-tools:not(.resume-entry-controls),
 .resume-row:focus-within:not(:has(.resume-row:focus-within))
   > :not(.resume-row)
-  > .resume-tools {
+  > .resume-tools:not(.resume-section-controls),
+.resume-position:focus ~ .resume-entry-controls,
+.resume-experience-heading:focus-within ~ .resume-entry-controls,
+h2:focus-within + .resume-section-controls,
+.resume-tools:focus-within {
   position: static;
   display: flex;
   flex-wrap: wrap;
@@ -699,9 +707,6 @@
 }
 .resume-simple-item > .resume-suggestion {
   flex-basis: 100%;
-}
-.resume-awards .resume-simple-item {
-  flex-wrap: wrap;
 }
 .resume-paper [tabindex="-1"]:focus {
   outline: none;
