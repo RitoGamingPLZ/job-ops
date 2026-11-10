@@ -8,7 +8,7 @@ import type {
   ScreeningReport,
   ScreeningRequirement,
 } from "@shared/types";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,8 +24,11 @@ import { BULLET_TRANSFER_TYPE, type BulletReference } from "./editor";
 type Checked = { report: ScreeningReport; checkedAt: Date };
 // Last report per job, kept for the session only (the server does not persist it).
 const reports = new Map<string, Checked>();
+// Jobs already checked once this session (success or not).
+const autoChecked = new Set<string>();
 export function clearScreeningCache() {
   reports.clear();
+  autoChecked.clear();
 }
 
 const STATUS: Record<RequirementStatus, { label: string; tone: string }> = {
@@ -105,10 +108,9 @@ export function JobMatchPanel({
   const [loading, setLoading] = useState(false);
   const [gapsOnly, setGapsOnly] = useState(false);
   const [library, setLibrary] = useState<Map<string, string> | null>(null);
-  const tried = useRef(false);
 
   const check = useCallback(async () => {
-    tried.current = true;
+    autoChecked.add(job.id);
     setLoading(true);
     try {
       const report = await api.getScreeningReport(job.id, getDocument());
@@ -128,8 +130,9 @@ export function JobMatchPanel({
   }, [job.id, getDocument]);
 
   useEffect(() => {
-    if (active && !checked && !tried.current) void check();
-  }, [active, checked, check]);
+    // Auto-run at most once per job per page session; then wait for a click.
+    if (active && !checked && !autoChecked.has(job.id)) void check();
+  }, [active, checked, check, job.id]);
 
   const needsLibrary = Boolean(
     checked?.report.requirements.some((r) => r.libraryBulletIds.length),

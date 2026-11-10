@@ -8,6 +8,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GhostwriterPanel } from "./GhostwriterPanel";
@@ -137,5 +138,33 @@ describe("co-work chat context", () => {
     await waitFor(() =>
       expect(mocks.toast).toHaveBeenCalledWith("not available yet"),
     );
+  });
+});
+
+describe("initial prompt", () => {
+  function Host() {
+    const [prompt, setPrompt] = useState<string | null>(null);
+    return (
+      <MemoryRouter>
+        <button type="button" onClick={() => setPrompt("Close the gap")}>
+          Ask
+        </button>
+        <GhostwriterPanel
+          job={createJob()}
+          initialPrompt={prompt}
+          onInitialPromptConsumed={() => setPrompt(null)}
+        />
+      </MemoryRouter>
+    );
+  }
+  it("sends the same prompt again after it was consumed", async () => {
+    render(<Host />);
+    await screen.findByText("Regenerate");
+    fireEvent.click(screen.getByText("Ask"));
+    await waitFor(() => expect(mocks.send).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByText("Send")).toBeEnabled());
+    fireEvent.click(screen.getByText("Ask"));
+    await waitFor(() => expect(mocks.send).toHaveBeenCalledTimes(2));
+    expect(mocks.send.mock.calls[1][1].content).toBe("Close the gap");
   });
 });

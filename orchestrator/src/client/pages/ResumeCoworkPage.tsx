@@ -45,6 +45,22 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
+// Matches Tailwind's xl breakpoint, where all three panes show side by side.
+const WIDE_QUERY = "(min-width: 1280px)";
+function useWideLayout() {
+  const [wide, setWide] = useState(
+    () => window.matchMedia?.(WIDE_QUERY).matches ?? false,
+  );
+  useEffect(() => {
+    const query = window.matchMedia?.(WIDE_QUERY);
+    if (!query) return;
+    const update = () => setWide(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return wide;
+}
+
 export function ResumeCoworkPage() {
   const { jobId } = useParams();
   return jobId ? <CoworkWorkspace key={jobId} jobId={jobId} /> : null;
@@ -63,6 +79,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
   const [busy, setBusy] = useState(false);
   const [rightTab, setRightTab] = useState<"match" | "duties">("match");
   const [chatPrompt, setChatPrompt] = useState<string | null>(null);
+  const wide = useWideLayout();
   const editorPane = useRef<HTMLElement>(null);
   const latest = useRef<JobResumeState | null>(null);
   const dirty = useRef(false);
@@ -486,7 +503,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           <div hidden={rightTab !== "match"}>
             <JobMatchPanel
               job={job}
-              active={rightTab === "match"}
+              active={rightTab === "match" && (wide || tab === "library")}
               getDocument={getDocument}
               targets={targets}
               onInsert={insertDuty}

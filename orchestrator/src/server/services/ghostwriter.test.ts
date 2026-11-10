@@ -1,6 +1,14 @@
-import type { JobChatMessage, ReactiveResumeV5Document } from "@shared/types";
 import { rmSync } from "node:fs";
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { JobChatMessage, ReactiveResumeV5Document } from "@shared/types";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
 
 // Own sqlite file: sharing the default DATA_DIR with parallel test files causes "database is locked".

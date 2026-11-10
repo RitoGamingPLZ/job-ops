@@ -148,6 +148,20 @@ describe("JobMatchPanel", () => {
     await waitFor(() => expect(mocks.screening).toHaveBeenCalledTimes(2));
   });
 
+  it("auto-runs once per job per session, even after a failure", async () => {
+    mocks.screening.mockRejectedValueOnce(
+      new ApiClientError("x", { status: 500 }),
+    );
+    mount();
+    await waitFor(() => expect(mocks.screening).toHaveBeenCalledTimes(1));
+    cleanup();
+    mount();
+    expect(
+      await screen.findByRole("button", { name: "Check match" }),
+    ).toBeInTheDocument();
+    expect(mocks.screening).toHaveBeenCalledTimes(1);
+  });
+
   it("waits until the tab is active", () => {
     mount({ active: false });
     expect(mocks.screening).not.toHaveBeenCalled();

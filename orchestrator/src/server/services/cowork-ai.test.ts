@@ -51,17 +51,58 @@ function withSections(): CoworkChatContext {
   const sections = cowork.document.sections;
   const website = { url: "", label: "" };
   sections.education.items = [
-    { id: "ed", hidden: false, school: "MIT", degree: "BSc", area: "CS", grade: "", location: "", period: "2010", website, description: "" },
+    {
+      id: "ed",
+      hidden: false,
+      school: "MIT",
+      degree: "BSc",
+      area: "CS",
+      grade: "",
+      location: "",
+      period: "2010",
+      website,
+      description: "",
+    },
   ];
   sections.awards.items = [
-    { id: "aw", hidden: false, title: "Prize", awarder: "IEEE", date: "2020", website, description: "<p>Won <b>it</b></p>" },
+    {
+      id: "aw",
+      hidden: false,
+      title: "Prize",
+      awarder: "IEEE",
+      date: "2020",
+      website,
+      description: "<p>Won <b>it</b></p>",
+    },
   ];
   sections.certifications.items = [
-    { id: "ce", hidden: false, title: "AWS", issuer: "Amazon", date: "", website, description: "" },
+    {
+      id: "ce",
+      hidden: false,
+      title: "AWS",
+      issuer: "Amazon",
+      date: "",
+      website,
+      description: "",
+    },
   ];
   sections.projects.items = [
-    { id: "pr", hidden: false, name: "Tool", period: "", website, description: "" },
-    { id: "hiddenpr", hidden: true, name: "Secret", period: "", website, description: "" },
+    {
+      id: "pr",
+      hidden: false,
+      name: "Tool",
+      period: "",
+      website,
+      description: "",
+    },
+    {
+      id: "hiddenpr",
+      hidden: true,
+      name: "Secret",
+      period: "",
+      website,
+      description: "",
+    },
   ];
   return cowork;
 }
@@ -377,7 +418,12 @@ describe("cowork AI", () => {
     expect(coworkChatContextSchema.safeParse(huge).success).toBe(false);
   });
   it("validates focus refs (strict, max 20)", () => {
-    const ref = { kind: "item", section: "experience", itemId: "exp", label: "Acme" };
+    const ref = {
+      kind: "item",
+      section: "experience",
+      itemId: "exp",
+      label: "Acme",
+    };
     expect(
       coworkChatContextSchema.safeParse({ ...context(), focus: [ref] }).success,
     ).toBe(true);
@@ -396,7 +442,13 @@ describe("cowork AI", () => {
     const cowork = withSections();
     cowork.document.sections.certifications.hidden = true;
     cowork.focus = [
-      { kind: "bullet", section: "experience", itemId: "exp", bulletIndex: 0, label: "b" },
+      {
+        kind: "bullet",
+        section: "experience",
+        itemId: "exp",
+        bulletIndex: 0,
+        label: "b",
+      },
       { kind: "item", section: "awards", itemId: "aw", label: "a" },
       { kind: "section", section: "projects", label: "p" },
       { kind: "summary", label: "s" },
@@ -406,12 +458,27 @@ describe("cowork AI", () => {
     expect(prompt).toContain("FOCUS is non-empty");
     const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
     expect(data.resume.education).toEqual([
-      { id: "ed", school: "MIT", degree: "BSc", area: "CS", grade: "", period: "2010" },
+      {
+        id: "ed",
+        school: "MIT",
+        degree: "BSc",
+        area: "CS",
+        grade: "",
+        period: "2010",
+      },
     ]);
     expect(data.resume.awards).toEqual([
-      { id: "aw", title: "Prize", awarder: "IEEE", date: "2020", description: "Won it" },
+      {
+        id: "aw",
+        title: "Prize",
+        awarder: "IEEE",
+        date: "2020",
+        description: "Won it",
+      },
     ]);
-    expect(data.resume.projects.map((p: { id: string }) => p.id)).toEqual(["pr"]);
+    expect(data.resume.projects.map((p: { id: string }) => p.id)).toEqual([
+      "pr",
+    ]);
     expect(data.resume.certifications).toBeUndefined();
     expect(data.FOCUS.map((f: { current: unknown }) => f.current)).toEqual([
       "Built APIs",
@@ -504,7 +571,12 @@ describe("cowork AI", () => {
     });
     expect(out[1]).toMatchObject({ previousText: "Ops & dev", text: "A & B" });
 
-    const ref = { kind: "item", section: "awards", itemId: "aw", label: "a" } as const;
+    const ref = {
+      kind: "item",
+      section: "awards",
+      itemId: "aw",
+      label: "a",
+    } as const;
     const parsed = coworkChatContextSchema.parse({
       ...cowork,
       focus: [ref, ref, { ...ref, label: "other label" }],
@@ -512,7 +584,11 @@ describe("cowork AI", () => {
     expect(parsed.focus).toHaveLength(1);
 
     cowork.document.sections.awards.items[0].description = "x".repeat(15_000);
-    cowork.focus = [ref, { ...ref, label: "b" }, { kind: "summary", label: "s" }];
+    cowork.focus = [
+      ref,
+      { ...ref, label: "b" },
+      { kind: "summary", label: "s" },
+    ];
     const data = JSON.parse(
       buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"),
     );
@@ -522,7 +598,10 @@ describe("cowork AI", () => {
     expect(data.FOCUS[2]).toMatchObject({ current: null, truncated: true });
   });
   it("strict schema includes nullable field object", () => {
-    const item = COWORK_RESPONSE_SCHEMA.schema.properties as Record<string, any>;
+    const item = COWORK_RESPONSE_SCHEMA.schema.properties as Record<
+      string,
+      any
+    >;
     const props = item.suggestions.items;
     expect(props.required).toContain("field");
     expect(props.properties.op.enum).toContain("replace_field");
@@ -531,7 +610,9 @@ describe("cowork AI", () => {
       required: ["section", "itemId", "name"],
       additionalProperties: false,
     });
-    expect(Object.keys(props.properties).sort()).toEqual([...props.required].sort());
+    expect(Object.keys(props.properties).sort()).toEqual(
+      [...props.required].sort(),
+    );
   });
 });
 
@@ -712,7 +793,9 @@ describe("description bullet indexing", () => {
     const prompt = buildCoworkPrompt(cowork, "Job", []);
     const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
     expect(data.resume.experience[0].bullets).toEqual([]);
-    expect(data.resume.experience[0].intro).toBe("Intro link\nSecond paragraph");
+    expect(data.resume.experience[0].intro).toBe(
+      "Intro link\nSecond paragraph",
+    );
     const base = {
       experienceId: "exp",
       bulletIndex: 0,

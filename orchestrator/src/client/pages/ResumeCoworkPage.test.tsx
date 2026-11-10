@@ -374,12 +374,33 @@ describe("duty library insert", () => {
       "aria-selected",
       "true",
     );
+    // Narrow screen: the pane is hidden until its outer tab is shown.
+    expect(
+      screen.getByRole("button", { name: "Job match idle" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Library" }));
     fireEvent.click(screen.getByRole("button", { name: "Job match active" }));
     expect(screen.getByText("Chat Close the Java gap")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Duties" }));
     expect(
       screen.queryByRole("button", { name: "Job match active" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("resume co-work wide layout", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("activates Job match when all panes are visible", async () => {
+    vi.stubGlobal("matchMedia", () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    mount();
+    await screen.findByLabelText("Headline");
+    expect(
+      screen.getByRole("button", { name: "Job match active" }),
+    ).toBeInTheDocument();
   });
 });
 

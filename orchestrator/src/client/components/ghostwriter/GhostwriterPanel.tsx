@@ -575,6 +575,8 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
 
   useEffect(() => {
     const content = initialPrompt?.trim();
+    // Once the caller clears the prompt, the same text can be sent again.
+    if (!content) consumedInitialPromptRef.current = null;
     if (!content || isLoading || isStreaming) return;
     if (consumedInitialPromptRef.current === content) return;
 
