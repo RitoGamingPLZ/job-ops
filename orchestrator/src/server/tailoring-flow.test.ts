@@ -1,7 +1,10 @@
+vi.mock("./services/job-resume", () => ({ ensureJobResume: vi.fn() }));
+
 import { trackServerProductEvent } from "@infra/product-analytics";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateFinalPdf } from "./pipeline/orchestrator";
 import * as jobsRepo from "./repositories/jobs";
+import { ensureJobResume } from "./services/job-resume";
 import * as pdfService from "./services/pdf";
 import * as pdfFingerprint from "./services/pdf-fingerprint";
 import { removeStoredJobPdf } from "./services/pdf-storage";
@@ -95,7 +98,7 @@ describe("Tailoring Flow", () => {
     expect(removeStoredJobPdf).toHaveBeenCalledWith("deleted-during-pdf");
   });
 
-  it("should use manual overrides (tailoring) when generating PDF", async () => {
+  it("materializes the editor document before rendering", async () => {
     // 1. Setup: A job exists with manual tailoring applied (e.g. via the UI)
     // This simulates a job where the user has edited the summary and projects
     const tailoredJob = {
@@ -131,11 +134,7 @@ describe("Tailoring Flow", () => {
     expect(pdfService.generatePdf).toHaveBeenCalledTimes(1);
     expect(pdfService.generatePdf).toHaveBeenCalledWith(
       "job-tailored-123",
-      expect.objectContaining({
-        summary: "This is a manually edited summary specifically for this job.",
-        headline: "Manually Edited Headline",
-        skills: ["React", "TypeScript", "Vitest"],
-      }),
+      {},
       "Senior TypeScript Developer", // Original JD
       undefined, // Deprecated profile path
       "project-a,project-c", // The manually selected projects
@@ -164,7 +163,7 @@ describe("Tailoring Flow", () => {
     );
   });
 
-  it("should fall back to defaults if no tailoring is present", async () => {
+  it("renders without legacy tailoring arguments", async () => {
     // Setup: A job with no overrides
     const rawJob = {
       id: "job-raw-456",
@@ -183,11 +182,7 @@ describe("Tailoring Flow", () => {
 
     expect(pdfService.generatePdf).toHaveBeenCalledWith(
       "job-raw-456",
-      expect.objectContaining({
-        summary: "", // Empty if not tailored
-        headline: "",
-        skills: [],
-      }),
+      {},
       "Junior Java Developer",
       undefined, // Deprecated profile path
       undefined, // No projects selected
@@ -302,6 +297,9 @@ describe("Tailoring Flow", () => {
 
     vi.mocked(jobsRepo.getJobById).mockResolvedValue(discoveredJob as any);
 
+    vi.mocked(ensureJobResume).mockRejectedValueOnce(
+      new Error("Invalid stored resume"),
+    );
     const result = await generateFinalPdf("job-discovered-bad-skills");
 
     expect(result.success).toBe(false);

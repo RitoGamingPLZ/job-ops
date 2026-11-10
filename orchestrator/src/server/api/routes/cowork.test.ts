@@ -48,6 +48,7 @@ beforeEach(async () => {
     ).json()
   ).data.token;
   const imported = await request("/manual-jobs/import", "POST", {
+    skipTailoring: true,
     job: {
       title: "Engineer",
       employer: "Acme",
@@ -248,7 +249,7 @@ describe("co-work routes", () => {
       ).data,
     ).toMatchObject({ created: 0, skipped: 3 });
   });
-  it("returns an unsaved tailored copy, atomically checks revisions and resets", async () => {
+  it("materializes a tailored copy, atomically checks revisions and resets", async () => {
     const patched = await request(`/jobs/${jobId}`, "PATCH", {
       tailoredSummary: "Tailored summary",
       tailoredHeadline: "Tailored headline",
@@ -259,9 +260,9 @@ describe("co-work routes", () => {
     expect(initial.status).toBe(200);
     const state = (await initial.json()).data;
     expect(state).toMatchObject({
-      exists: false,
-      revision: 0,
-      updatedAt: null,
+      exists: true,
+      revision: 1,
+      updatedAt: expect.any(String),
       document: {
         basics: { headline: "Tailored headline" },
         summary: { content: "Tailored summary" },
@@ -277,7 +278,7 @@ describe("co-work routes", () => {
     const responses = await Promise.all(
       [1, 2].map(() =>
         request(`/jobs/${jobId}/resume`, "PUT", {
-          baseRevision: 0,
+          baseRevision: 1,
           document: edited,
         }),
       ),
@@ -287,25 +288,9 @@ describe("co-work routes", () => {
       (await (await request(`/jobs/${jobId}/resume`)).json()).data,
     ).toMatchObject({
       exists: true,
-      revision: 1,
+      revision: 2,
       document: { basics: { headline: "Co-work headline" } },
     });
-    expect(
-      (
-        await request(`/jobs/${jobId}/resume`, "PUT", {
-          baseRevision: 0,
-          document: edited,
-        })
-      ).status,
-    ).toBe(409);
-    expect(
-      (
-        await request(`/jobs/${jobId}/resume`, "PUT", {
-          baseRevision: 1,
-          document: edited,
-        })
-      ).status,
-    ).toBe(200);
     expect(
       (
         await request(`/jobs/${jobId}/resume`, "PUT", {
@@ -318,6 +303,22 @@ describe("co-work routes", () => {
       (
         await request(`/jobs/${jobId}/resume`, "PUT", {
           baseRevision: 2,
+          document: edited,
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await request(`/jobs/${jobId}/resume`, "PUT", {
+          baseRevision: 2,
+          document: edited,
+        })
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await request(`/jobs/${jobId}/resume`, "PUT", {
+          baseRevision: 3,
           document: {},
         })
       ).status,
@@ -325,8 +326,66 @@ describe("co-work routes", () => {
     expect((await request(`/jobs/${jobId}/resume`, "DELETE")).status).toBe(200);
     expect(
       (await (await request(`/jobs/${jobId}/resume`)).json()).data.exists,
-    ).toBe(false);
+    ).toBe(true);
     expect(document.basics.headline).toBe("Base headline");
+  });
+  it("generatePdf materializes the editor document before rendering", async () => {
+    await request("/settings", "PATCH", { pdfRenderer: "typst" });
+    const { db, schema } = await import("@server/db");
+    const owner = db
+      .select()
+      .from(schema.jobs)
+      .where(eq(schema.jobs.id, jobId))
+      .get();
+    if (!owner) throw new Error("Missing job");
+    const renderer = await import("@server/services/resume-renderer");
+    const render = vi
+      .spyOn(renderer, "renderResumePdf")
+      .mockResolvedValue(undefined);
+    const { generatePdf } = await import("@server/services/pdf");
+    const { getJobResume } = await import("@server/repositories/job-resumes");
+    const { runWithRequestContext } = await import("@infra/request-context");
+    await runWithRequestContext(
+      {
+        tenantId: "tenant_default",
+        userId: owner.userId ?? undefined,
+        requestId: "pdf-create",
+      },
+      async () => {
+        expect(await getJobResume(jobId)).toBeNull();
+        expect(
+          await generatePdf(
+            jobId,
+            { headline: "Ignored legacy argument" },
+            "Build tools",
+          ),
+        ).toMatchObject({ success: true });
+        const row = await getJobResume(jobId);
+        expect(row).toMatchObject({
+          revision: 1,
+          exists: true,
+          document: { basics: { headline: "Base headline" } },
+        });
+        expect(render).toHaveBeenCalledWith(
+          expect.objectContaining({ resumeJson: row?.document }),
+        );
+      },
+    );
+  });
+  it("lists targeted jobs without copies but excludes legacy tailoring alone", async () => {
+    const { db, schema } = await import("@server/db");
+    db.update(schema.jobs)
+      .set({ tailoredSummary: "Legacy summary" })
+      .where(eq(schema.jobs.id, jobId))
+      .run();
+    expect((await (await request("/resumes")).json()).data.resumes).toEqual([]);
+    db.update(schema.jobs)
+      .set({ readyAt: new Date().toISOString() })
+      .where(eq(schema.jobs.id, jobId))
+      .run();
+    expect((await (await request("/resumes")).json()).data.resumes).toEqual([
+      expect.objectContaining({ jobId }),
+    ]);
   });
   it("lists saved copies without tailoring and rejects missing jobs", async () => {
     expect((await (await request("/resumes")).json()).data.resumes).toEqual([]);

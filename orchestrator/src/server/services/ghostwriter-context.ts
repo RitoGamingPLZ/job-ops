@@ -2,6 +2,7 @@ import { open } from "node:fs/promises";
 import { badRequest, notFound } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
+import { getJobResume } from "@server/repositories/job-resumes";
 import {
   buildGhostwriterDocumentContextItems,
   normalizeGhostwriterSelectedDocumentIds,
@@ -429,7 +430,10 @@ export async function buildJobChatPromptContext(
   const systemPrompt = stopSlopEnabled
     ? `${baseSystemPrompt}\n\n${STOP_SLOP_GHOSTWRITER_PROMPT}`
     : baseSystemPrompt;
-  const jobSnapshot = buildJobSnapshot(job);
+  const resume = await getJobResume(job.id);
+  const jobSnapshot = buildJobSnapshot(
+    resume ? { ...job, tailoredSummary: resume.document.summary.content } : job,
+  );
 
   if (!jobSnapshot.trim()) {
     throw badRequest("Unable to build job context");

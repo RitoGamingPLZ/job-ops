@@ -8,7 +8,6 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import { AppError, type AppErrorCode, conflict, notFound } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
-import { getJobResume } from "@server/repositories/job-resumes";
 import { getSetting } from "@server/repositories/settings";
 import { getJobOpsPublicAvailability } from "@server/services/tracer-links";
 import { safePdfFileName } from "@shared/filename-sanitizer";
@@ -19,6 +18,7 @@ import type {
   PdfRenderer,
 } from "@shared/types";
 import { getCurrentDesignResume } from "./design-resume";
+import { ensureJobResume } from "./job-resume";
 import { resolveWritingOutputLanguageForResumeJson } from "./output-language";
 import {
   getLegacyJobPdfPath,
@@ -33,7 +33,6 @@ import {
   getResume as getRxResume,
   importResume as importRxResume,
   type PreparedRxResumePdfPayload,
-  prepareTailoredResumeForPdf,
 } from "./rxresume";
 import { getConfiguredRxResumeBaseResumeId } from "./rxresume/baseResumeId";
 import {
@@ -353,10 +352,10 @@ export async function loadBaseResumeSource(args: {
  */
 export async function generatePdf(
   jobId: string,
-  tailoredContent: TailoredPdfContent,
+  _tailoredContent: TailoredPdfContent,
   jobDescription: string,
   _baseResumePath?: string, // Deprecated: now always uses Design Resume or the configured Reactive Resume base resume
-  selectedProjectIds?: string | null,
+  _selectedProjectIds?: string | null,
   options?: GeneratePdfOptions,
 ): Promise<PdfResult> {
   let renderer: PdfRenderer | null = null;
@@ -368,66 +367,31 @@ export async function generatePdf(
     // Ensure output directory exists
     await ensureOutputDir();
 
-    const savedResume = await getJobResume(jobId);
-    const baseResume = savedResume
-      ? null
-      : await loadBaseResumeSource({
-          renderer,
-          requestOrigin: options?.requestOrigin ?? null,
-        });
-
-    let preparedResume: Awaited<
-      ReturnType<typeof prepareTailoredResumeForPdf>
-    > | null = null;
-    try {
-      if (savedResume) {
-        // The saved document is authoritative, including project visibility and
-        // edits to summary/headline/skills. Only tracer links are overlaid.
-        const data = parseV5ResumeData(
-          structuredClone(savedResume.document),
-        ) as Record<string, unknown>;
-        if (options?.tracerLinksEnabled) {
-          const publicBaseUrl = resolveTracerPublicBaseUrl({
-            requestOrigin: options.requestOrigin,
-          });
-          if (!publicBaseUrl)
-            throw new Error(
-              "Tracer links are enabled but no public base URL is available. Set JOBOPS_PUBLIC_BASE_URL.",
-            );
-          await rewriteResumeLinksWithTracer({
-            jobId,
-            resumeData: data,
-            publicBaseUrl,
-            companyName: options.tracerCompanyName,
-          });
-        }
-        preparedResume = {
-          mode: "v5",
-          data,
-          projectCatalog: [],
-          selectedProjectIds: [],
-        };
-      } else {
-        preparedResume = await prepareTailoredResumeForPdf({
-          resumeData: baseResume?.data,
-          tailoredContent,
-          jobDescription,
-          selectedProjectIds,
-          jobId,
-          tracerLinks: {
-            enabled: Boolean(options?.tracerLinksEnabled),
-            requestOrigin: options?.requestOrigin ?? null,
-            companyName: options?.tracerCompanyName ?? null,
-          },
-        });
-      }
-    } catch (err) {
-      logger.warn("Resume tailoring step failed during PDF generation", {
-        jobId,
-        error: err,
+    const savedResume = await ensureJobResume(jobId);
+    const data = parseV5ResumeData(
+      structuredClone(savedResume.document),
+    ) as Record<string, unknown>;
+    if (options?.tracerLinksEnabled) {
+      const publicBaseUrl = resolveTracerPublicBaseUrl({
+        requestOrigin: options.requestOrigin,
       });
-      throw err;
+      if (!publicBaseUrl)
+        throw new Error(
+          "Tracer links are enabled but no public base URL is available. Set JOBOPS_PUBLIC_BASE_URL.",
+        );
+      await rewriteResumeLinksWithTracer({
+        jobId,
+        resumeData: data,
+        publicBaseUrl,
+        companyName: options.tracerCompanyName,
+      });
     }
+    const preparedResume = {
+      mode: "v5" as const,
+      data,
+      projectCatalog: [],
+      selectedProjectIds: [],
+    };
 
     const outputPath = getTenantJobPdfPath(jobId);
     const paperSize = await resolvePdfPaperSize();

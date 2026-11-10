@@ -3,7 +3,6 @@ import { asyncRoute, fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { getRequestId } from "@server/infra/request-context";
-import { enqueueAutoPdfRegenerationForReadyJobs } from "@server/services/auto-pdf-regeneration";
 import {
   deleteDesignResumePicture,
   exportDesignResume,
@@ -237,24 +236,6 @@ function parseDesignResumeJson(value: unknown): DesignResumeJson {
   return parseV5ResumeData(value) as DesignResumeJson;
 }
 
-function queueDesignResumeAutoPdfRegeneration(route: string): void {
-  queueMicrotask(() => {
-    void enqueueAutoPdfRegenerationForReadyJobs({
-      reason: "design_resume_updated",
-      requestedBy: "user",
-    }).catch((error) => {
-      logger.warn(
-        "Failed to queue auto PDF regeneration for design resume update",
-        {
-          route,
-          reason: "design_resume_updated",
-          error,
-        },
-      );
-    });
-  });
-}
-
 designResumeRouter.get(
   "/",
   asyncRoute(async (_req: Request, res: Response) => {
@@ -280,9 +261,6 @@ designResumeRouter.post(
     const document = await importDesignResumeFromReactiveResume();
     clearProfileCache();
     ok(res, document, 201);
-    queueDesignResumeAutoPdfRegeneration(
-      "POST /api/design-resume/import/rxresume",
-    );
   }),
 );
 
@@ -321,14 +299,6 @@ designResumeRouter.post(
       documentId: document.id,
       durationMs: elapsedMs(startedAt),
     });
-    queueDesignResumeAutoPdfRegeneration("POST /api/design-resume/import/file");
-    logger.info("Design resume file import auto-PDF regeneration queued", {
-      requestId: requestId ?? null,
-      fileName: input.fileName,
-      mediaType: input.mediaType ?? null,
-      documentId: document.id,
-      durationMs: elapsedMs(startedAt),
-    });
   }),
 );
 
@@ -357,7 +327,6 @@ designResumeRouter.patch(
     const document = await updateCurrentDesignResume(input);
     clearProfileCache();
     ok(res, document);
-    queueDesignResumeAutoPdfRegeneration("PATCH /api/design-resume");
   }),
 );
 
@@ -379,7 +348,6 @@ designResumeRouter.post(
       });
       clearProfileCache();
       ok(res, document, 201);
-      queueDesignResumeAutoPdfRegeneration("POST /api/design-resume/assets");
       return;
     }
 
@@ -392,7 +360,6 @@ designResumeRouter.post(
     });
     clearProfileCache();
     ok(res, document, 201);
-    queueDesignResumeAutoPdfRegeneration("POST /api/design-resume/assets");
   }),
 );
 
@@ -406,9 +373,6 @@ designResumeRouter.delete(
     });
     clearProfileCache();
     ok(res, document);
-    queueDesignResumeAutoPdfRegeneration(
-      "DELETE /api/design-resume/assets/picture",
-    );
   }),
 );
 

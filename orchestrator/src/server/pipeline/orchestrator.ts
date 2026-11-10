@@ -1,3 +1,4 @@
+import { ensureJobResume } from "@server/services/job-resume";
 /**
  * Main pipeline logic - orchestrates the daily job processing flow.
  *
@@ -59,7 +60,6 @@ import {
   importJobsStep,
   loadProfileStep,
   notifyPipelineWebhookStep,
-  processJobsStep,
   scoreJobsStep,
   selectJobsStep,
 } from "./steps";
@@ -610,12 +610,7 @@ export async function runPipeline(
         jobsScored: scoredJobs.length,
         jobsSelected: jobsToProcess.length,
       });
-      const { processedCount } = await processJobsStep({
-        jobsToProcess,
-        processJob,
-        shouldCancel: () =>
-          getPipelineState(scopeKey).cancelRequestedAt !== null,
-      });
+      const processedCount = 0;
       jobsProcessed = processedCount;
 
       resultSummary = updatePipelineRunResultSummary(resultSummary, {
@@ -970,14 +965,11 @@ export async function generateFinalPdf(
       pdfRegeneratingMarked = true;
 
       // Capture freshness before rendering so an autosave during rendering stays stale.
+      await ensureJobResume(job.id);
       const fingerprintContext = await resolvePdfFingerprintContext();
       const pdfResult = await generatePdf(
         job.id,
-        {
-          summary: job.tailoredSummary || "",
-          headline: job.tailoredHeadline || "",
-          skills: job.tailoredSkills ? JSON.parse(job.tailoredSkills) : [],
-        },
+        {},
         job.jobDescription || "",
         undefined, // deprecated baseResumePath parameter
         job.selectedProjectIds,
@@ -1119,18 +1111,43 @@ export async function processJob(
   success: boolean;
   error?: string;
 }> {
-  try {
-    // Step 1: Summarize & Select Projects
-    const sumResult = await summarizeJob(jobId, options);
-    if (!sumResult.success) return sumResult;
-
-    // Step 2: Generate PDF
-    const pdfResult = await generateFinalPdf(jobId, options);
-    return pdfResult;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return { success: false, error: message };
-  }
+  return runWithRequestContext({ jobId }, async () => {
+    const job = await jobsRepo.getJobById(jobId);
+    if (!job) return { success: false, error: "Job not found" };
+    await jobsRepo.setJobTargeted(jobId, true);
+    const resume = await import("@server/repositories/job-resumes").then(
+      (repo) => repo.getJobResume(jobId),
+    );
+    if (
+      resume &&
+      job.pdfPath &&
+      (job.pdfSource === "uploaded" ||
+        createJobPdfFingerprint(job, await resolvePdfFingerprintContext()) ===
+          job.pdfFingerprint)
+    )
+      return { success: true };
+    try {
+      await jobsRepo.updateJob(jobId, { status: "processing" });
+      await ensureJobResume(jobId, { tailor: true });
+      if (job.pdfSource === "uploaded" && job.pdfPath) {
+        await jobsRepo.updateJob(jobId, { status: job.status });
+        return { success: true };
+      }
+      const result = await generateFinalPdf(jobId, options);
+      if (!result.success) {
+        await jobsRepo.updateJob(jobId, { status: job.status });
+        logger.warn("Targeted job generation failed", {
+          jobId,
+          error: result.error,
+        });
+      }
+      return result;
+    } catch (error) {
+      await jobsRepo.updateJob(jobId, { status: job.status });
+      logger.error("Targeted job generation failed", { jobId, error });
+      return { success: false, error: "Resume generation failed" };
+    }
+  });
 }
 
 /**

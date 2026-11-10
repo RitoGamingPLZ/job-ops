@@ -1,4 +1,5 @@
 import { AppError, type AppErrorCode, badRequest } from "@infra/errors";
+import { logger } from "@infra/logger";
 import { isDemoMode } from "@server/config/demo";
 import { processJob } from "@server/pipeline/index";
 import * as jobsRepo from "@server/repositories/jobs";
@@ -8,6 +9,7 @@ import {
 } from "@server/services/demo-simulator";
 import { getProfile } from "@server/services/profile";
 import { scoreJobSuitability } from "@server/services/scorer";
+import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import type { JobAction, JobActionResult, JobStatus } from "@shared/types";
 
 const SKIPPABLE_STATUSES: ReadonlySet<JobStatus> = new Set([
@@ -108,6 +110,53 @@ export function buildJobActionExecutionOptions(
   };
 }
 
+const pendingTargets = new Set<string>();
+
+/** Start in the caller's async tenant/request context; never hold the HTTP response for rendering. */
+export async function targetJobInBackground(
+  jobId: string,
+  options?: JobActionExecutionOptions,
+) {
+  const job = await jobsRepo.getJobById(jobId);
+  if (!job)
+    throw new AppError({
+      status: 404,
+      code: "NOT_FOUND",
+      message: "Job not found",
+    });
+  const updated = await jobsRepo.setJobTargeted(jobId, true);
+  if (!updated)
+    throw badRequest(
+      "Only discovered, processing, or ready jobs can be targeted",
+    );
+  const key = `${getPrivateDataScope().scopeKey}:${jobId}`;
+  if (job.status !== "processing" && !pendingTargets.has(key)) {
+    pendingTargets.add(key);
+    setImmediate(() => {
+      void (
+        isDemoMode()
+          ? simulateProcessJob(jobId)
+          : processJob(jobId, {
+              requestOrigin: options?.requestOrigin ?? null,
+              analyticsOrigin: options?.analyticsOrigin ?? "move_to_ready",
+            })
+      )
+        .then((result) => {
+          if (!result.success)
+            logger.warn("Targeted job generation failed", {
+              jobId,
+              error: result.error,
+            });
+        })
+        .catch((error) =>
+          logger.error("Targeted job generation failed", { jobId, error }),
+        )
+        .finally(() => pendingTargets.delete(key));
+    });
+  }
+  return updated;
+}
+
 export async function executeJobActionForJob(
   action: JobAction,
   jobId: string,
@@ -145,52 +194,7 @@ export async function executeJobActionForJob(
     }
 
     if (action === "move_to_ready") {
-      if (job.status !== "discovered") {
-        throw badRequest(
-          `Job is not movable to Ready from status "${job.status}"`,
-          {
-            jobId,
-            status: job.status,
-            requiredStatus: "discovered",
-          },
-        );
-      }
-
-      if (isDemoMode()) {
-        const simulated = await simulateProcessJob(jobId, {
-          force: options?.forceMoveToReady ?? false,
-        });
-        if (!simulated.success) {
-          throw new AppError({
-            status: 500,
-            code: "INTERNAL_ERROR",
-            message: simulated.error || "Failed to process job",
-          });
-        }
-      } else {
-        const processed = await processJob(jobId, {
-          force: options?.forceMoveToReady ?? false,
-          requestOrigin: options?.requestOrigin ?? null,
-          analyticsOrigin: options?.analyticsOrigin ?? "move_to_ready",
-        });
-        if (!processed.success) {
-          throw new AppError({
-            status: 500,
-            code: "INTERNAL_ERROR",
-            message: processed.error || "Failed to process job",
-          });
-        }
-      }
-
-      const updated = await jobsRepo.getJobById(jobId);
-      if (!updated) {
-        throw new AppError({
-          status: 404,
-          code: "NOT_FOUND",
-          message: "Job not found after processing",
-        });
-      }
-
+      const updated = await targetJobInBackground(jobId, options);
       return { jobId, ok: true, job: updated };
     }
 

@@ -1,3 +1,7 @@
+vi.mock("../repositories/job-resumes", () => ({
+  getJobResume: vi.fn(async () => null),
+}));
+
 import { createJob } from "@shared/testing/factories";
 import type { ResumeProfile } from "@shared/types";
 import { beforeEach, expect, it, vi } from "vitest";

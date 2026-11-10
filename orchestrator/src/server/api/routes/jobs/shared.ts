@@ -6,13 +6,9 @@ import {
   notFound,
   toAppError,
 } from "@infra/errors";
-import { logger } from "@infra/logger";
 import * as jobsRepo from "@server/repositories/jobs";
 import { stageEventMetadataSchema } from "@server/services/applicationTracking";
-import {
-  enqueueAutoPdfRegenerationForJob,
-  shouldEnqueueTailoringAutoPdfRegeneration,
-} from "@server/services/auto-pdf-regeneration";
+
 import {
   applyJobPdfFreshness,
   type PdfFingerprintContext,
@@ -89,30 +85,12 @@ export function toJobListItem(
   };
 }
 
+// Kept for existing route callers: job-row tailoring no longer changes the editor document.
 export function queueTailoringAutoPdfRegenerationIfNeeded(
-  previousJob: Job,
-  nextJob: Job,
-  route: string,
-): void {
-  if (!shouldEnqueueTailoringAutoPdfRegeneration(previousJob, nextJob)) {
-    return;
-  }
-
-  queueMicrotask(() => {
-    void enqueueAutoPdfRegenerationForJob({
-      jobId: nextJob.id,
-      reason: "tailoring_updated",
-      requestedBy: "user",
-    }).catch((error) => {
-      logger.warn("Failed to queue auto PDF regeneration after job update", {
-        route,
-        jobId: nextJob.id,
-        reason: "tailoring_updated",
-        error,
-      });
-    });
-  });
-}
+  _previousJob: Job,
+  _nextJob: Job,
+  _route: string,
+): void {}
 
 export const updateJobSchema = z.object({
   title: z.string().trim().min(1).max(500).optional(),

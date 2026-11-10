@@ -1808,7 +1808,7 @@ describe.sequential("Jobs API routes", () => {
       jobUrl: "https://example.com/job/action-ready-2",
       jobDescription: "Test description",
     });
-    await updateJob(ready.id, { status: "ready" });
+    await updateJob(ready.id, { status: "applied" });
     const { processJob } = await import("@server/pipeline/index");
     const previousBaseUrl = process.env.JOBOPS_PUBLIC_BASE_URL;
     process.env.JOBOPS_PUBLIC_BASE_URL = "https://canonical.jobops.example";
@@ -1829,7 +1829,6 @@ describe.sequential("Jobs API routes", () => {
       expect(body.data.failed).toBe(1);
       expect(vi.mocked(processJob)).toHaveBeenCalledWith(discovered.id, {
         analyticsOrigin: "move_to_ready",
-        force: false,
         requestOrigin: "https://canonical.jobops.example",
       });
       expect(
@@ -1867,7 +1866,6 @@ describe.sequential("Jobs API routes", () => {
       expect(body.ok).toBe(true);
       expect(vi.mocked(processJob)).toHaveBeenCalledWith(job.id, {
         analyticsOrigin: "move_to_ready",
-        force: false,
         requestOrigin: "https://canonical.jobops.example",
       });
     } finally {
