@@ -165,6 +165,14 @@ export function ResumeEditor({
   const [addingHeadline, setAddingHeadline] = useState(
     Boolean(document.basics.headline),
   );
+  const [newBullet, setNewBullet] = useState<{
+    id: string;
+    index: number;
+  } | null>(null);
+  const focusField = useRef<{ id: string; field: string } | null>(null);
+  // Unmount commits can run after a row was removed; always edit the latest document.
+  const currentDocument = useRef(document);
+  currentDocument.current = document;
   const canvas = useRef<HTMLDivElement>(null);
   const page = useRef<HTMLFieldSetElement>(null);
   const [scale, setScale] = useState(1);
@@ -219,6 +227,15 @@ export function ResumeEditor({
   useLayoutEffect(() => {
     if (!page.current) return;
     setSheets(paginate(page.current, scale));
+    // Use stable data-focus-item refs rather than labels, which change as users type.
+    const field = focusField.current;
+    if (field) {
+      const item = [
+        ...page.current.querySelectorAll<HTMLElement>("[data-focus-item]"),
+      ].find((element) => element.dataset.focusItem === field.id);
+      item?.querySelector<HTMLElement>(field.field)?.focus();
+      focusField.current = null;
+    }
     const pending = focusAfterMove.current;
     if (!pending) return;
     focusAfterMove.current = null;
@@ -242,6 +259,7 @@ export function ResumeEditor({
         className="resume-drag"
         draggable={!disabled}
         aria-label={label}
+        title={label}
         onDragStart={(event) => {
           event.stopPropagation();
           event.dataTransfer.setData(type, JSON.stringify(value));
@@ -306,6 +324,7 @@ export function ResumeEditor({
       <fieldset
         className="resume-gap"
         data-active={dragOver === key}
+        title={`Move ${kind} to position ${gap + 1}`}
         aria-label={`Move ${kind} to position ${gap + 1}`}
         onDragOver={(event) => {
           if (!disabled && event.dataTransfer.types.includes(type)) {
@@ -347,8 +366,9 @@ export function ResumeEditor({
     );
   }
   function change(edit: (next: ReactiveResumeV5Document) => void) {
-    const next = structuredClone(document);
+    const next = structuredClone(currentDocument.current);
     edit(next);
+    currentDocument.current = next;
     onChange(next);
   }
   function updateBullets(id: string, edit: (bullets: string[]) => string[]) {
@@ -407,13 +427,20 @@ export function ResumeEditor({
   function suggestionList(items: ResumeSuggestion[]) {
     return items.map((s) => {
       const resolved = target(s);
+      const label =
+        s.op === "replace_field"
+          ? `Change ${s.field?.name ?? "field"}`
+          : {
+              replace_bullet: "Rewrite bullet",
+              insert_bullet: "Add bullet",
+              delete_bullet: "Remove bullet",
+              replace_summary: "Change summary",
+              replace_headline: "Change headline",
+              set_skills: "Update skills",
+            }[s.op];
       return (
         <article key={s.id} className="resume-suggestion">
-          <p className="font-medium">
-            {s.op === "replace_field"
-              ? `replace ${s.field?.name ?? "field"}`
-              : s.op.replaceAll("_", " ")}
-          </p>
+          <p className="font-medium">{label}</p>
           {resolved ? (
             <>
               <del className="resume-deletion">{resolved.old}</del>
@@ -440,11 +467,19 @@ export function ResumeEditor({
             <Button
               size="sm"
               disabled={disabled || !resolved}
+              title={`Accept: ${label}`}
+              aria-label={`Accept: ${label}`}
               onClick={() => accept([s])}
             >
               Accept
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => onDismiss([s.id])}>
+            <Button
+              size="sm"
+              variant="ghost"
+              title={`Reject: ${label}`}
+              aria-label={`Reject: ${label}`}
+              onClick={() => onDismiss([s.id])}
+            >
               Reject
             </Button>
           </div>
@@ -549,6 +584,7 @@ export function ResumeEditor({
         />
       ) : (
         <Input
+          title={`${simpleNames[kind]} ${index + 1} ${field}`}
           aria-label={`${simpleNames[kind]} ${index + 1} ${field}`}
           className={`resume-field-${field}`}
           value={
@@ -556,7 +592,21 @@ export function ResumeEditor({
               ? (item.website?.url ?? "")
               : String(item[field] ?? "")
           }
-          placeholder={field}
+          placeholder={
+            (
+              {
+                school: "School",
+                period: "2020 – 2024",
+                degree: "Degree",
+                area: "Field of study",
+                title: kind === "awards" ? "Award" : "Certification",
+                date: "2024",
+                issuer: "Issuing organization",
+                website: "https://example.com",
+                awarder: "Awarding organization",
+              } as Record<string, string>
+            )[field]
+          }
           onChange={(event) =>
             change((next) => {
               if (field === "website")
@@ -649,6 +699,7 @@ export function ResumeEditor({
                         <Button
                           size="sm"
                           variant="ghost"
+                          title={`Edit Certifications ${index + 1} title`}
                           aria-label={`Edit Certifications ${index + 1} title`}
                           onClick={(event) =>
                             event.currentTarget
@@ -662,9 +713,37 @@ export function ResumeEditor({
                           ✎
                         </Button>
                       )}
+                    {(["up", "down"] as const).map((direction) => (
+                      <Button
+                        key={direction}
+                        size="sm"
+                        variant="ghost"
+                        title={`Move ${simpleNames[kind]} ${index + 1} ${direction}`}
+                        aria-label={`Move ${simpleNames[kind]} ${index + 1} ${direction}`}
+                        disabled={
+                          direction === "up"
+                            ? index === 0
+                            : index === section.items.length - 1
+                        }
+                        onClick={() =>
+                          change((next) => {
+                            const items = next.sections[kind].items;
+                            const target =
+                              direction === "up" ? index - 1 : index + 1;
+                            [items[index], items[target]] = [
+                              items[target],
+                              items[index],
+                            ];
+                          })
+                        }
+                      >
+                        {direction === "up" ? "↑" : "↓"}
+                      </Button>
+                    ))}
                     <Button
                       size="sm"
                       variant="ghost"
+                      title={`Delete ${simpleNames[kind]} ${index + 1}`}
                       aria-label={`Delete ${simpleNames[kind]} ${index + 1}`}
                       onClick={() =>
                         change((next) => {
@@ -811,6 +890,7 @@ export function ResumeEditor({
                   <Button
                     size="sm"
                     variant="ghost"
+                    title={`Move skill ${index + 1} up`}
                     aria-label={`Move skill ${index + 1} up`}
                     disabled={index === 0}
                     onClick={() =>
@@ -828,6 +908,7 @@ export function ResumeEditor({
                   <Button
                     size="sm"
                     variant="ghost"
+                    title={`Move skill ${index + 1} down`}
                     aria-label={`Move skill ${index + 1} down`}
                     disabled={
                       index === document.sections.skills.items.length - 1
@@ -844,11 +925,25 @@ export function ResumeEditor({
                   >
                     ↓
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title={`Delete skill ${skill.name}`}
+                    aria-label={`Delete skill ${skill.name}`}
+                    onClick={() =>
+                      change((next) => {
+                        next.sections.skills.items.splice(index, 1);
+                      })
+                    }
+                  >
+                    ×
+                  </Button>
                 </div>
                 <span className="resume-skill-label">
                   <span className="resume-skill-name-box">
                     <span aria-hidden="true">{skill.name}</span>
                     <Input
+                      title={`Skill ${index + 1} name`}
                       aria-label={`Skill ${index + 1} name`}
                       className="resume-skill-name"
                       value={skill.name}
@@ -865,27 +960,24 @@ export function ResumeEditor({
                 <CommaListInput
                   multiline
                   className="resume-skill-keywords"
+                  title={`Skill ${index + 1} keywords`}
                   aria-label={`Skill ${index + 1} keywords`}
                   value={skill.keywords}
-                  onCommit={(keywords) =>
+                  onCommit={(keywords) => {
+                    if (
+                      !currentDocument.current.sections.skills.items.some(
+                        (item) => item.id === skill.id,
+                      )
+                    )
+                      return;
                     change((next) => {
-                      next.sections.skills.items[index].keywords = keywords;
-                    })
-                  }
+                      const item = next.sections.skills.items.find(
+                        (item) => item.id === skill.id,
+                      );
+                      if (item) item.keywords = keywords;
+                    });
+                  }}
                 />
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="resume-skill-delete"
-                  aria-label={`Delete skill ${skill.name}`}
-                  onClick={() =>
-                    change((next) => {
-                      next.sections.skills.items.splice(index, 1);
-                    })
-                  }
-                >
-                  Delete
-                </Button>
                 {fieldSuggestions("skills", skill.id)}
               </div>
             ),
@@ -938,280 +1030,376 @@ export function ResumeEditor({
       </section>
     ),
     certifications: simpleSection("certifications"),
-    experience:
-      !document.sections.experience.hidden &&
-      document.sections.experience.items.some((e) => !e.hidden) ? (
-        <section className="resume-section" aria-label="Experience">
-          <h2
-            className="text-sm font-semibold"
-            {...focusDrag({
-              kind: "section",
+    experience: !document.sections.experience.hidden ? (
+      <section className="resume-section" aria-label="Experience">
+        <h2
+          className="text-sm font-semibold"
+          {...focusDrag({
+            kind: "section",
+            section: "experience",
+            label: "Experience",
+          })}
+        >
+          {heading("experience", "Experience")}
+        </h2>
+        {document.sections.experience.items
+          .filter((e) => !e.hidden)
+          .map((experience) => {
+            const { introHtml, bullets } = splitDescription(
+              experience.description,
+            );
+            if (newBullet?.id === experience.id)
+              bullets.splice(newBullet.index, 0, "");
+            const itemRef: ResumeFocusRef = {
+              kind: "item",
               section: "experience",
-              label: "Experience",
-            })}
-          >
-            {heading("experience", "Experience")}
-          </h2>
-          {document.sections.experience.items
-            .filter((e) => !e.hidden)
-            .map((experience) => {
-              const { introHtml, bullets } = splitDescription(
-                experience.description,
-              );
-              const itemRef: ResumeFocusRef = {
-                kind: "item",
-                section: "experience",
-                itemId: experience.id,
-                label: `Experience › ${experience.company}${experience.position ? ` — ${experience.position}` : ""}`,
-              };
-              return (
-                <section
-                  key={experience.id}
-                  data-focus-item={experience.id}
-                  className="resume-experience resume-row"
-                >
-                  {reorderZone(
-                    "experience",
-                    document.sections.experience.items.indexOf(experience),
+              itemId: experience.id,
+              label: `Experience › ${experience.company}${experience.position ? ` — ${experience.position}` : ""}`,
+            };
+            return (
+              <section
+                key={experience.id}
+                data-focus-item={experience.id}
+                className="resume-experience resume-row"
+              >
+                {reorderZone(
+                  "experience",
+                  document.sections.experience.items.indexOf(experience),
+                )}
+                <div className="resume-margin resume-entry-controls">
+                  {dragHandle(
+                    EXPERIENCE_TRANSFER_TYPE,
+                    experience.id,
+                    `Drag experience ${experience.company}`,
                   )}
-                  <div className="resume-margin resume-entry-controls">
-                    {dragHandle(
-                      EXPERIENCE_TRANSFER_TYPE,
-                      experience.id,
-                      `Drag experience ${experience.company}`,
-                    )}
-                    {askAi(itemRef)}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Move experience ${experience.company} up`}
-                      disabled={
-                        document.sections.experience.items.indexOf(
-                          experience,
-                        ) === 0
-                      }
-                      onClick={() =>
-                        change((next) => {
-                          const i = next.sections.experience.items.findIndex(
-                            (e) => e.id === experience.id,
-                          );
-                          next.sections.experience.items = moveItem(
-                            next.sections.experience.items,
-                            i,
-                            i - 1,
-                          );
-                        })
-                      }
-                    >
-                      ↑
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Move experience ${experience.company} down`}
-                      disabled={
-                        document.sections.experience.items.indexOf(
-                          experience,
-                        ) ===
-                        document.sections.experience.items.length - 1
-                      }
-                      onClick={() =>
-                        change((next) => {
-                          const i = next.sections.experience.items.findIndex(
-                            (e) => e.id === experience.id,
-                          );
-                          next.sections.experience.items = moveItem(
-                            next.sections.experience.items,
-                            i,
-                            i + 2,
-                          );
-                        })
-                      }
-                    >
-                      ↓
-                    </Button>
-                  </div>
-                  {experience.position && (
-                    <p className="resume-position">{experience.position}</p>
-                  )}
-                  <div className="resume-experience-heading">
-                    <h3 {...focusDrag(itemRef)}>
-                      {experience.company}
-                      {experience.location ? ` - ${experience.location}` : ""}
-                    </h3>
-                    <span>{experience.period}</span>
-                  </div>
-                  {fieldSuggestions("experience", experience.id)}
-                  {bulletsFromHtml(introHtml).length > 0 && (
-                    <BulletText
-                      label={`${experience.company} intro`}
-                      value={bulletsFromHtml(introHtml).join("\n")}
-                      onChange={(value) =>
-                        change((next) => {
-                          const item = next.sections.experience.items.find(
-                            (e) => e.id === experience.id,
-                          );
-                          if (item)
-                            item.description = joinDescription(
-                              introTextToHtml(value),
-                              bullets,
-                            );
-                        })
-                      }
-                    />
-                  )}
-                  <ul className="resume-bullets">
-                    {bullets.map((bullet, index) => (
-                      <li
-                        key={`${experience.id}-${index}`}
-                        data-focus-bullet={index}
-                        className="resume-row resume-bullet"
-                      >
-                        <div
-                          {...dropZone(experience.id, index, "insert")}
-                          className="resume-gap"
-                          title={`Insert before bullet ${index + 1}`}
-                        >
-                          <span className="sr-only">Drop to insert</span>
-                        </div>
-                        <div
-                          {...dropZone(experience.id, index, "replace")}
-                          className="space-y-1"
-                        >
-                          <BulletText
-                            label={`${experience.company} bullet ${index + 1}`}
-                            value={bullet}
-                            onChange={(value) =>
-                              updateBullets(experience.id, (current) =>
-                                current.map((text, i) =>
-                                  i === index ? value : text,
-                                ),
-                              )
-                            }
-                          />
-                          <div className="resume-margin resume-bullet-controls">
-                            {dragHandle(
-                              RESUME_BULLET_TRANSFER_TYPE,
-                              { experienceId: experience.id, index },
-                              `Drag bullet ${index + 1}`,
-                            )}
-                            {askAi({
-                              kind: "bullet",
-                              section: "experience",
-                              itemId: experience.id,
-                              bulletIndex: index,
-                              label: `${experience.company} › bullet ${index + 1}`,
-                            })}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              aria-label={`Insert before bullet ${index + 1}`}
-                              onClick={() =>
-                                updateBullets(experience.id, (current) =>
-                                  dropBullet(
-                                    current,
-                                    index,
-                                    "New bullet",
-                                    "insert",
-                                  ),
-                                )
-                              }
-                            >
-                              +
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              disabled={index === 0}
-                              aria-label={`Move bullet ${index + 1} up`}
-                              onClick={() =>
-                                updateBullets(experience.id, (current) => {
-                                  [current[index - 1], current[index]] = [
-                                    current[index],
-                                    current[index - 1],
-                                  ];
-                                  return current;
-                                })
-                              }
-                            >
-                              ↑
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              disabled={index === bullets.length - 1}
-                              aria-label={`Move bullet ${index + 1} down`}
-                              onClick={() =>
-                                updateBullets(experience.id, (current) => {
-                                  [current[index + 1], current[index]] = [
-                                    current[index],
-                                    current[index + 1],
-                                  ];
-                                  return current;
-                                })
-                              }
-                            >
-                              ↓
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              aria-label={`Delete bullet ${index + 1}`}
-                              onClick={() =>
-                                updateBullets(experience.id, (current) =>
-                                  current.filter((_, i) => i !== index),
-                                )
-                              }
-                            >
-                              ×
-                            </Button>
-                          </div>
-                        </div>
-                        {suggestionList(
-                          suggestions.filter(
-                            (s) =>
-                              s.experienceId === experience.id &&
-                              target(s)?.index === index,
-                          ),
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                  <div
-                    {...dropZone(experience.id, bullets.length, "insert")}
-                    className="resume-gap resume-append"
-                    data-empty={bullets.length === 0}
-                  >
-                    <span>Drop to append a duty</span>
-                  </div>
+                  {askAi(itemRef)}
                   <Button
                     size="sm"
-                    variant="outline"
-                    className="resume-add"
+                    variant="ghost"
+                    title={`Delete experience ${experience.company}`}
+                    aria-label={`Delete experience ${experience.company}`}
                     onClick={() =>
-                      updateBullets(experience.id, (current) => [
-                        ...current,
-                        "New bullet",
-                      ])
+                      change((next) => {
+                        next.sections.experience.items =
+                          next.sections.experience.items.filter(
+                            (item) => item.id !== experience.id,
+                          );
+                      })
                     }
                   >
-                    Add bullet
+                    ×
                   </Button>
-                  {suggestionList(
-                    suggestions.filter(
-                      (s) =>
-                        s.experienceId === experience.id &&
-                        (!target(s) || target(s)?.index === bullets.length),
-                    ),
-                  )}
-                </section>
-              );
-            })}
-          {reorderZone("experience", document.sections.experience.items.length)}
-        </section>
-      ) : null,
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title={`Move experience ${experience.company} up`}
+                    aria-label={`Move experience ${experience.company} up`}
+                    disabled={
+                      document.sections.experience.items.indexOf(experience) ===
+                      0
+                    }
+                    onClick={() =>
+                      change((next) => {
+                        const i = next.sections.experience.items.findIndex(
+                          (e) => e.id === experience.id,
+                        );
+                        next.sections.experience.items = moveItem(
+                          next.sections.experience.items,
+                          i,
+                          i - 1,
+                        );
+                      })
+                    }
+                  >
+                    ↑
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title={`Move experience ${experience.company} down`}
+                    aria-label={`Move experience ${experience.company} down`}
+                    disabled={
+                      document.sections.experience.items.indexOf(experience) ===
+                      document.sections.experience.items.length - 1
+                    }
+                    onClick={() =>
+                      change((next) => {
+                        const i = next.sections.experience.items.findIndex(
+                          (e) => e.id === experience.id,
+                        );
+                        next.sections.experience.items = moveItem(
+                          next.sections.experience.items,
+                          i,
+                          i + 2,
+                        );
+                      })
+                    }
+                  >
+                    ↓
+                  </Button>
+                </div>
+                <Input
+                  className="resume-position"
+                  title={`${experience.company} position`}
+                  aria-label={`${experience.company} position`}
+                  data-experience-position
+                  value={experience.position ?? ""}
+                  placeholder="Position"
+                  onChange={(event) =>
+                    change((next) => {
+                      const item = next.sections.experience.items.find(
+                        (entry) => entry.id === experience.id,
+                      );
+                      if (item) item.position = event.target.value;
+                    })
+                  }
+                />
+                <div className="resume-experience-heading">
+                  {(["company", "location", "period"] as const).map((field) => (
+                    <Fragment key={field}>
+                      {field !== "company" && (
+                        <span aria-hidden="true">
+                          {field === "location" ? "-" : "|"}
+                        </span>
+                      )}
+                      <Input
+                        title={`${experience.company} ${field === "period" ? "dates" : field}`}
+                        aria-label={`${experience.company} ${field === "period" ? "dates" : field}`}
+                        value={experience[field] ?? ""}
+                        placeholder={
+                          field === "period"
+                            ? "Jan 2023 – Present"
+                            : field === "company"
+                              ? "Company"
+                              : "Location"
+                        }
+                        onChange={(event) =>
+                          change((next) => {
+                            const item = next.sections.experience.items.find(
+                              (entry) => entry.id === experience.id,
+                            );
+                            if (item) item[field] = event.target.value;
+                          })
+                        }
+                      />
+                    </Fragment>
+                  ))}
+                </div>
+                {fieldSuggestions("experience", experience.id)}
+                {bulletsFromHtml(introHtml).length > 0 && (
+                  <BulletText
+                    label={`${experience.company} intro`}
+                    value={bulletsFromHtml(introHtml).join("\n")}
+                    onChange={(value) =>
+                      change((next) => {
+                        const item = next.sections.experience.items.find(
+                          (e) => e.id === experience.id,
+                        );
+                        if (item)
+                          item.description = joinDescription(
+                            introTextToHtml(value),
+                            bullets,
+                          );
+                      })
+                    }
+                  />
+                )}
+                <ul className="resume-bullets">
+                  {bullets.map((bullet, index) => (
+                    <li
+                      key={`${experience.id}-${index}`}
+                      data-focus-bullet={index}
+                      className="resume-row resume-bullet"
+                    >
+                      <div
+                        {...dropZone(experience.id, index, "insert")}
+                        className="resume-gap"
+                        title={`Insert before bullet ${index + 1}`}
+                      >
+                        <span className="sr-only">Drop to insert</span>
+                      </div>
+                      <div
+                        {...dropZone(experience.id, index, "replace")}
+                        className="space-y-1"
+                      >
+                        <BulletText
+                          label={`${experience.company} bullet ${index + 1}`}
+                          value={bullet}
+                          onChange={(value) => {
+                            if (newBullet?.id === experience.id) {
+                              if (!value.trim()) {
+                                setNewBullet(null);
+                                return;
+                              }
+                              const gap = newBullet.index;
+                              setNewBullet(null);
+                              updateBullets(experience.id, (current) => {
+                                current.splice(gap, 0, "");
+                                return current
+                                  .map((text, i) =>
+                                    i === index ? value : text,
+                                  )
+                                  .filter((text) => text.trim());
+                              });
+                            } else
+                              updateBullets(experience.id, (current) =>
+                                current
+                                  .map((text, i) =>
+                                    i === index ? value : text,
+                                  )
+                                  .filter((text) => text.trim()),
+                              );
+                          }}
+                        />
+                        <div className="resume-margin resume-bullet-controls">
+                          {dragHandle(
+                            RESUME_BULLET_TRANSFER_TYPE,
+                            { experienceId: experience.id, index },
+                            `Drag bullet ${index + 1}`,
+                          )}
+                          {askAi({
+                            kind: "bullet",
+                            section: "experience",
+                            itemId: experience.id,
+                            bulletIndex: index,
+                            label: `${experience.company} › bullet ${index + 1}`,
+                          })}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title={`Insert new bullet before bullet ${index + 1}`}
+                            aria-label={`Insert before bullet ${index + 1}`}
+                            onClick={() => {
+                              setNewBullet({ id: experience.id, index });
+                              focusField.current = {
+                                id: experience.id,
+                                field: `[data-focus-bullet="${index}"] textarea`,
+                              };
+                            }}
+                          >
+                            +
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={index === 0}
+                            title={`Move bullet ${index + 1} up`}
+                            aria-label={`Move bullet ${index + 1} up`}
+                            onClick={() =>
+                              updateBullets(experience.id, (current) => {
+                                [current[index - 1], current[index]] = [
+                                  current[index],
+                                  current[index - 1],
+                                ];
+                                return current;
+                              })
+                            }
+                          >
+                            ↑
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={index === bullets.length - 1}
+                            title={`Move bullet ${index + 1} down`}
+                            aria-label={`Move bullet ${index + 1} down`}
+                            onClick={() =>
+                              updateBullets(experience.id, (current) => {
+                                [current[index + 1], current[index]] = [
+                                  current[index],
+                                  current[index + 1],
+                                ];
+                                return current;
+                              })
+                            }
+                          >
+                            ↓
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title={`Delete bullet ${index + 1}`}
+                            aria-label={`Delete bullet ${index + 1}`}
+                            onClick={() =>
+                              updateBullets(experience.id, (current) =>
+                                current.filter((_, i) => i !== index),
+                              )
+                            }
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      </div>
+                      {suggestionList(
+                        suggestions.filter(
+                          (s) =>
+                            s.experienceId === experience.id &&
+                            target(s)?.index === index,
+                        ),
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <div
+                  {...dropZone(experience.id, bullets.length, "insert")}
+                  className="resume-gap resume-append"
+                  data-empty={bullets.length === 0}
+                >
+                  <span>Drop to append a duty</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="resume-add"
+                  onClick={() => {
+                    setNewBullet({ id: experience.id, index: bullets.length });
+                    focusField.current = {
+                      id: experience.id,
+                      field: `[data-focus-bullet="${bullets.length}"] textarea`,
+                    };
+                  }}
+                >
+                  Add bullet
+                </Button>
+                {suggestionList(
+                  suggestions.filter(
+                    (s) =>
+                      s.experienceId === experience.id &&
+                      (!target(s) || target(s)?.index === bullets.length),
+                  ),
+                )}
+              </section>
+            );
+          })}
+        {reorderZone("experience", document.sections.experience.items.length)}
+        <Button
+          className="resume-add-experience"
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            const id = crypto.randomUUID();
+            focusField.current = { id, field: "[data-experience-position]" };
+            change((next) =>
+              next.sections.experience.items.push({
+                id,
+                hidden: false,
+                company: "",
+                position: "",
+                location: "",
+                period: "",
+                description: "",
+                roles: [],
+                website: { url: "", label: "" },
+              }),
+            );
+          }}
+        >
+          Add experience
+        </Button>
+      </section>
+    ) : null,
     projects:
       !document.sections.projects.hidden &&
       document.sections.projects.items.length ? (
@@ -1244,6 +1432,7 @@ export function ResumeEditor({
                 <label>
                   <input
                     type="checkbox"
+                    title={`Include project ${project.name}`}
                     aria-label={`Include project ${project.name}`}
                     checked={!project.hidden}
                     onChange={(e) =>
@@ -1256,11 +1445,19 @@ export function ResumeEditor({
                 </label>
               </div>
               {project.hidden && (
-                <p className="text-muted-foreground">{project.name}</p>
+                <p
+                  className="text-muted-foreground resume-readonly"
+                  title="Edit in Resume Studio"
+                >
+                  {project.name}
+                </p>
               )}
               {!project.hidden && (
                 <>
-                  <div className="resume-experience-heading">
+                  <div
+                    className="resume-experience-heading resume-readonly"
+                    title="Edit in Resume Studio"
+                  >
                     <h3
                       {...focusDrag({
                         kind: "item",
@@ -1276,7 +1473,10 @@ export function ResumeEditor({
                   {bulletsFromHtml(
                     splitDescription(project.description ?? "").introHtml,
                   ).join("\n") && (
-                    <p>
+                    <p
+                      className="resume-readonly"
+                      title="Edit in Resume Studio"
+                    >
                       {bulletsFromHtml(
                         splitDescription(project.description).introHtml,
                       ).join("\n")}
@@ -1285,7 +1485,13 @@ export function ResumeEditor({
                   <ul className="resume-bullets">
                     {splitDescription(project.description ?? "").bullets.map(
                       (text, i) => (
-                        <li key={`${project.id}-${i}`}>{text}</li>
+                        <li
+                          key={`${project.id}-${i}`}
+                          className="resume-readonly"
+                          title="Edit in Resume Studio"
+                        >
+                          {text}
+                        </li>
                       ),
                     )}
                   </ul>
@@ -1382,6 +1588,7 @@ export function ResumeEditor({
                 <Button
                   size="sm"
                   variant="ghost"
+                  title={`Move section ${sectionNames[key]} up`}
                   aria-label={`Move section ${sectionNames[key]} up`}
                   disabled={i === 0}
                   onClick={() => {
@@ -1397,6 +1604,7 @@ export function ResumeEditor({
                 <Button
                   size="sm"
                   variant="ghost"
+                  title={`Move section ${sectionNames[key]} down`}
                   aria-label={`Move section ${sectionNames[key]} down`}
                   disabled={i === keys.length - 1}
                   onClick={() => {
@@ -1424,6 +1632,9 @@ export function ResumeEditor({
       ref={canvas}
       data-library-drag={libraryDrag && !disabled}
     >
+      <p className="resume-editor-hint">
+        Hover a line to move, delete or ask AI. Drag ⠿ to reorder.
+      </p>
       <div
         className="resume-paper-frame"
         style={{
@@ -1440,6 +1651,9 @@ export function ResumeEditor({
           onBlur={repaginate}
           style={{
             ...(NAVY_SERIF_CSS_VARS as CSSProperties),
+            ...({
+              "--resume-control-size": `${24 / scale}px`,
+            } as CSSProperties),
             transform: `scale(${scale})`,
             minHeight: `${sheets * (SHEET + SHEET_GAP) - SHEET_GAP}px`,
           }}
@@ -1479,7 +1693,10 @@ export function ResumeEditor({
                 })
               }
             />
-            <div className="resume-contact">
+            <div
+              className="resume-contact resume-readonly"
+              title="Edit in Resume Studio"
+            >
               {document.basics.phone && (
                 <span>Tel: {document.basics.phone}</span>
               )}
