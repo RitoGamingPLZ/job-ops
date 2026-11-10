@@ -89,9 +89,9 @@ describe("resume editor review regressions", () => {
   });
   it("marks an index-only suggestion stale after a sequential accept", () => {
     render(<Workspace />);
-    fireEvent.click(screen.getAllByRole("button", { name: "Accept" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Accept:/ })[0]);
     expect(screen.getByText(/Not applicable/)).toBeVisible();
-    expect(screen.getByRole("button", { name: "Accept" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Accept:/ })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
     expect(screen.getByLabelText("Company bullet 4")).toHaveValue("C");
   });
@@ -132,7 +132,7 @@ describe("resume editor review regressions", () => {
     expect(screen.getAllByText(/Not applicable/)).toHaveLength(2);
     expect(
       screen
-        .getAllByRole("button", { name: "Accept" })
+        .getAllByRole("button", { name: /^Accept:/ })
         .filter((button) => !button.hasAttribute("disabled")),
     ).toHaveLength(1);
   });
@@ -250,9 +250,7 @@ describe("document drag interactions", () => {
     fireEvent.drop(screen.getByLabelText("Move experience to position 1"), {
       dataTransfer: transfer("application/x-jobops-resume-experience", "two"),
     });
-    expect(screen.getAllByRole("heading", { level: 3 })[0]).toHaveTextContent(
-      "Other",
-    );
+    expect(screen.getAllByPlaceholderText("Company")[0]).toHaveValue("Other");
     fireEvent.drop(screen.getByLabelText("Move skills to position 1"), {
       dataTransfer: transfer(
         "application/x-jobops-resume-skill",
@@ -514,7 +512,7 @@ describe("navy serif document content", () => {
       .getByLabelText("Education 1 school")
       .closest(".resume-simple-item") as HTMLElement;
     expect(row).toHaveTextContent("Better University");
-    fireEvent.click(within(row).getByRole("button", { name: "Accept" }));
+    fireEvent.click(within(row).getByRole("button", { name: /^Accept:/ }));
     expect(onChange.mock.lastCall?.[0].sections.education.items[0].school).toBe(
       "Better University",
     );
@@ -575,7 +573,7 @@ describe("navy serif document content", () => {
         reason: "Useful detail",
       },
     ]);
-    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Accept:/ }));
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].description,
     ).toContain('<p class="original">Led a team &amp; shipped.</p>');
@@ -637,9 +635,14 @@ describe("navy serif document content", () => {
     const onChange = mount(original);
     expect(screen.queryByLabelText("Company bullet 1")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Add bullet" }));
+    const bullet = screen.getByLabelText("Company bullet 1");
+    expect(bullet).toHaveValue("");
+    expect(bullet).toHaveFocus();
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(bullet, { target: { value: "Useful duty" } });
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].description,
-    ).toBe("<p>Intro without bullets.</p><ul><li>New bullet</li></ul>");
+    ).toBe("<p>Intro without bullets.</p><ul><li>Useful duty</li></ul>");
   });
   it("adds, edits and deletes education, certifications and awards", () => {
     const onChange = mount();
@@ -739,7 +742,7 @@ describe("navy serif document content", () => {
         reason: "Duty reason",
       },
     ]);
-    expect(screen.getAllByRole("button", { name: "Accept" })).toHaveLength(3);
+    expect(screen.getAllByRole("button", { name: /^Accept:/ })).toHaveLength(3);
     expect(screen.getByText("3 suggestions")).toBeVisible();
     for (const reason of ["Summary reason", "Skills reason", "Duty reason"])
       expect(screen.getByText(reason)).toBeVisible();
@@ -783,5 +786,196 @@ describe("navy serif document content", () => {
         "<li>Edited</li>",
       ),
     );
+  });
+  it("edits experience headers, adds a focused empty experience and deletes it", () => {
+    const onChange = mount();
+    for (const [label, field, value] of [
+      ["position", "position", "Senior Engineer"],
+      ["location", "location", "Remote"],
+      ["dates", "period", "Jan 2023 – Present"],
+      ["company", "company", "Example Systems"],
+    ]) {
+      fireEvent.change(screen.getByLabelText(`Company ${label}`), {
+        target: { value },
+      });
+      expect(
+        onChange.mock.lastCall?.[0].sections.experience.items[0][field],
+      ).toBe(value);
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Add experience" }));
+    expect(window.document.activeElement).toHaveAttribute(
+      "data-experience-position",
+    );
+    expect(window.document.activeElement).toHaveValue("");
+    expect(screen.getAllByPlaceholderText("Jan 2023 – Present")).toHaveLength(
+      2,
+    );
+    const added = onChange.mock.lastCall?.[0].sections.experience.items[1];
+    expect(added).toMatchObject({
+      position: "",
+      company: "",
+      location: "",
+      period: "",
+      description: "",
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /^Delete experience$/ }),
+    );
+    expect(onChange.mock.lastCall?.[0].sections.experience.items).toHaveLength(
+      1,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete experience Example Systems" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add experience" }));
+    expect(onChange.mock.lastCall?.[0].sections.experience.items).toHaveLength(
+      1,
+    );
+  });
+  it("starts inserted bullets empty and focused, removes empty drafts on blur", () => {
+    const onChange = mount();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Insert before bullet 2" }),
+    );
+    const draft = screen.getByLabelText("Company bullet 2");
+    expect(draft).toHaveValue("");
+    expect(draft).toHaveFocus();
+    fireEvent.blur(draft);
+    expect(screen.getByLabelText("Company bullet 2")).toHaveValue("B");
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Insert before bullet 2" }),
+    );
+    fireEvent.change(screen.getByLabelText("Company bullet 2"), {
+      target: { value: "New achievement" },
+    });
+    expect(screen.getByLabelText("Company bullet 2")).toHaveFocus();
+    expect(screen.getByLabelText("Company bullet 3")).toHaveValue("B");
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0].description,
+    ).toContain("<li>A</li><li>New achievement</li><li>B</li>");
+    fireEvent.change(screen.getByLabelText("Company bullet 2"), {
+      target: { value: " " },
+    });
+    fireEvent.blur(screen.getByLabelText("Company bullet 2"));
+    expect(screen.getByLabelText("Company bullet 2")).toHaveValue("B");
+  });
+  it("describes suggestions and gives review buttons contextual accessible names", () => {
+    mount(fullFixture(), [
+      {
+        id: "rewrite",
+        op: "replace_bullet",
+        experienceId: "one",
+        bulletIndex: 0,
+        text: "Improved",
+        reason: "Detail",
+      },
+      {
+        id: "add",
+        op: "insert_bullet",
+        experienceId: "one",
+        bulletIndex: 1,
+        text: "Added",
+        reason: "Detail",
+      },
+      {
+        id: "remove",
+        op: "delete_bullet",
+        experienceId: "one",
+        bulletIndex: 2,
+        reason: "Detail",
+      },
+      {
+        id: "summary",
+        op: "replace_summary",
+        text: "New summary",
+        reason: "Detail",
+      },
+      {
+        id: "headline",
+        op: "replace_headline",
+        text: "New headline",
+        reason: "Detail",
+      },
+      { id: "skills", op: "set_skills", skills: [], reason: "Detail" },
+      {
+        id: "field",
+        op: "replace_field",
+        field: { section: "education", itemId: "school", name: "school" },
+        text: "New school",
+        reason: "Detail",
+      },
+    ]);
+    for (const label of [
+      "Rewrite bullet",
+      "Add bullet",
+      "Remove bullet",
+      "Change summary",
+      "Change headline",
+      "Update skills",
+      "Change school",
+    ]) {
+      expect(
+        screen.getByRole("button", { name: `Accept: ${label}` }),
+      ).toBeVisible();
+      expect(
+        screen.getByRole("button", { name: `Reject: ${label}` }),
+      ).toBeVisible();
+    }
+  });
+  it("reorders simple items and uses human placeholders", () => {
+    const onChange = mount();
+    for (const [label, kind, field, placeholder] of [
+      ["Education", "education", "school", "School"],
+      ["Certifications", "certifications", "title", "Certification"],
+      ["Awards", "awards", "title", "Award"],
+    ]) {
+      expect(screen.getByLabelText(`${label} 1 ${field}`)).toHaveAttribute(
+        "placeholder",
+        placeholder,
+      );
+      fireEvent.click(screen.getByRole("button", { name: `+ ${label}` }));
+      const id = onChange.mock.lastCall?.[0].sections[kind].items[1].id;
+      fireEvent.click(
+        screen.getByRole("button", { name: `Move ${label} 2 up` }),
+      );
+      expect(onChange.mock.lastCall?.[0].sections[kind].items[0].id).toBe(id);
+      fireEvent.click(
+        screen.getByRole("button", { name: `Move ${label} 1 down` }),
+      );
+      expect(onChange.mock.lastCall?.[0].sections[kind].items[1].id).toBe(id);
+    }
+  });
+  it("does not restore a deleted skill when its pending keywords commit on unmount", () => {
+    const onChange = mount();
+    fireEvent.change(screen.getByLabelText("Skill 1 keywords"), {
+      target: { value: "Pending keywords" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete skill Skills" }),
+    );
+    expect(onChange.mock.lastCall?.[0].sections.skills.items).toHaveLength(0);
+    expect(screen.queryByLabelText("Skill 1 keywords")).toBeNull();
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+  it("labels icon controls and retains a 24px target after paper scaling", () => {
+    mount();
+    const paper = window.document.querySelector<HTMLElement>(".resume-paper");
+    const scale = Number(paper?.style.transform.match(/[\d.]+/)?.[0]);
+    const size = Number.parseFloat(
+      paper?.style.getPropertyValue("--resume-control-size") ?? "0",
+    );
+    expect(size * scale).toBeGreaterThanOrEqual(24);
+    for (const control of window.document.querySelectorAll<HTMLElement>(
+      ".resume-margin button, .resume-margin [role=button]",
+    )) {
+      expect(control).toHaveAttribute("title");
+      expect(control).toHaveAttribute("aria-label");
+    }
+    expect(
+      screen.getByText(
+        "Hover a line to move, delete or ask AI. Drag ⠿ to reorder.",
+      ),
+    ).toBeVisible();
   });
 });
