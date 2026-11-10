@@ -518,7 +518,7 @@ export function normalizeResumeJsonToLatexDocument(
   const titles = getLatexResumeSectionTitles(options.language);
 
   const layout = asRecord(asRecord(record.metadata)?.layout);
-  const firstPage = asRecord(asArray(layout?.pages)[0]);
+  const pages = asArray(layout?.pages).map(asRecord);
   const sectionKeys = new Set<string>([
     ...ORDERABLE_SECTION_KEYS,
     "summary",
@@ -531,14 +531,17 @@ export function normalizeResumeJsonToLatexDocument(
       ),
     ),
   ];
-  const sidebar = keys(firstPage?.sidebar);
+  const main = keys(pages.flatMap((page) => asArray(page?.main)));
+  const sidebar = keys(pages.flatMap((page) => asArray(page?.sidebar))).filter(
+    (key) => !main.includes(key),
+  );
 
   return {
-    ...(sidebar.length
+    ...(main.length || sidebar.length
       ? {
           navyLayout: {
             sidebar,
-            main: keys(firstPage?.main).filter((key) => !sidebar.includes(key)),
+            main,
             sidebarWidth: Math.min(
               35,
               Math.max(25, toNumber(layout?.sidebarWidth, 30)),

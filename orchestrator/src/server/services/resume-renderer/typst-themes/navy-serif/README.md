@@ -8,7 +8,7 @@ sidebar_position: 1
 ## What it is
 
 Navy Serif is a self-contained Typst theme with centered contacts and profile links,
-navy section rules, experience intros and bullets, and two-column certifications.
+navy section rules, experience intros and bullets, and single-column certifications.
 
 ## Why it exists
 
@@ -24,21 +24,12 @@ and explicit section order.
 A4 is the default; an explicit US Letter setting is respected. Without a document
 layout order, sections appear as Skills, Certifications, Experience, Projects,
 Education, Awards, followed by other populated sections. A nonempty summary appears
-first in single-column mode. Hidden or empty sections are omitted; profiles appear in the contact line.
+first unless explicitly placed elsewhere. Hidden or empty sections are omitted; profiles appear in the contact line.
 
-To put skills and certifications in a left sidebar, save this document metadata:
-
-```json
-{"layout":{"sidebarWidth":30,"pages":[{"sidebar":["skills","certifications"],"main":["summary","experience","projects","education","awards"]}]}}
-```
-
-`sidebarWidth` is a percentage, defaults to 30 and is clamped to 25–35. The gutter
-is 6mm. The header spans both columns with an 8pt gap before the body; headings
-span their own column. Sidebar list markers start at the column edge with an 8pt
-text indent. Each column
-follows its saved order. Unplaced sections follow the main sections. An empty sidebar
-keeps single-column rendering. Certifications use one column inside the sidebar
-and two otherwise. `sidebar-sample.json` provides fictional data for this layout.
+Navy Serif always prints one column, including imported resumes with a saved sidebar.
+Section order matches the co-work editor: all pages' main sections, then all pages'
+sidebar sections, with unconfigured defaults appended. `sidebar-sample.json` contains
+fictional data for checking this compatibility behavior.
 
 Experience descriptions can contain an intro followed by a list:
 
@@ -48,8 +39,10 @@ Experience descriptions can contain an intro followed by a list:
 ```
 
 Descriptions without list items render as prose with paragraph and line breaks.
-Pages have 12mm padding on every side. Skills show each navy category above its
-comma-separated tools, without bullets. Awards use compact **Title**: summary lines.
+Pages have 15mm padding on every side and 10.5pt body text. The headline appears
+directly below the name, above the contact line. Skills show each navy category beside its
+comma-separated tools, without bullets. Certifications show Title - Issuer - Date. Awards use compact
+**Title - Awarder, Date**: description lines; missing fields omit their separators.
 Education joins degree and area with “in”, omitting an area already in the degree.
 Experience bullets use normal body leading with an additional 1.5pt between items. `wrap-sample.json` contains fictional
 long items for checking this spacing.

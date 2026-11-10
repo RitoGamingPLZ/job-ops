@@ -21,7 +21,7 @@ export const NAVY_SERIF_STYLE = {
     section: 14,
     position: 12,
     entry: 11,
-    body: 10,
+    body: 10.5,
     marker: 10,
   },
   /** Name, section heading, skill category and award title. */
@@ -42,7 +42,7 @@ export const NAVY_SERIF_STYLE = {
     lineItemGap: 2,
   },
   indent: { marker: 2, text: 7.5 },
-  margin: { x: 12, y: 12 },
+  margin: { x: 15, y: 15 },
 } as const;
 
 const s = NAVY_SERIF_STYLE;
