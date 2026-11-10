@@ -115,21 +115,8 @@
   display: flex;
   align-items: baseline;
 }
-.resume-experience-heading > span:not(:empty)::before {
-  content: "| ";
-}
 .resume-experience-heading > span {
   flex-shrink: 0;
-}
-.resume-margin {
-  position: absolute;
-  top: 1px;
-  display: flex;
-  gap: 1px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  opacity: 0.5;
-  pointer-events: auto;
 }
 .resume-paper button {
   color: #3e5266;
@@ -138,8 +125,8 @@
   box-shadow: none;
   font-family: inherit;
 }
-.resume-margin button,
-.resume-margin .resume-drag,
+.resume-tools button,
+.resume-tools .resume-drag,
 .resume-review button {
   height: var(--resume-control-size);
   min-width: var(--resume-control-size);
@@ -165,13 +152,6 @@
   background: #fff;
   cursor: grab;
   border: 0;
-}
-.resume-row:hover > .resume-margin,
-.resume-row:focus-within > .resume-margin,
-.resume-bullet:hover > div > .resume-margin,
-.resume-bullet:focus-within > div > .resume-margin {
-  opacity: 1;
-  pointer-events: auto;
 }
 /* Drop zones take no layout space (so they never add to the resume's gaps);
    the hit area and indicator straddle the boundary they sit on. */
@@ -230,16 +210,6 @@
   border-color: #8ca6bf;
   background: #f3f7fb;
 }
-.resume-paper .resume-add {
-  border: 0;
-  font-size: 8pt;
-  opacity: 0;
-}
-.resume-paper section:hover > .resume-add,
-.resume-paper section:focus-within > .resume-add,
-.resume-paper .resume-add:focus {
-  opacity: 1;
-}
 .resume-skill {
   display: flex;
   align-items: baseline;
@@ -282,19 +252,9 @@
   color: #575f68;
 }
 .resume-review {
-  position: absolute;
-  left: calc(100% + 6px);
-  top: 0;
   display: flex;
-  flex-direction: column;
   gap: 3px;
-}
-@media (hover: none) {
-  .resume-row:focus-within .resume-margin,
-  .resume-paper section:focus-within > .resume-add {
-    opacity: 1;
-    pointer-events: auto;
-  }
+  margin-top: 3px;
 }
 .resume-paper .resume-richtext .tiptap blockquote {
   color: #4b5056;
@@ -485,43 +445,6 @@
   padding: 0;
   text-indent: calc(var(--skill-label-w, 0px) + 0.25em);
 }
-.resume-margin {
-  right: calc(100% + 2px);
-  width: var(--resume-control-size);
-}
-.resume-entry-controls,
-.resume-bullet-controls {
-  right: calc(100% + 2px);
-}
-.resume-paper .resume-add {
-  position: absolute;
-  right: calc(100% + 2px);
-  top: 0;
-  width: 42px;
-  height: auto;
-  min-height: 20px;
-  margin: 0;
-  white-space: normal;
-  line-height: 1.1;
-}
-.resume-section:not(:has(h2)) > .resume-add {
-  top: 0;
-}
-.resume-paper:hover .resume-section:not(:has(h2)) > .resume-add {
-  opacity: 1;
-}
-.resume-paper .resume-empty-summary > .resume-add {
-  top: -18px;
-}
-.resume-paper .resume-awards:not(:has(h2)) > .resume-add {
-  top: 24px;
-}
-.resume-paper .resume-education:not(:has(h2)) > .resume-add {
-  top: 48px;
-}
-.resume-paper .resume-empty-summary > .resume-add {
-  opacity: 1;
-}
 .resume-append {
   height: 0;
   min-height: 0;
@@ -651,15 +574,6 @@
   outline: 1px solid #a3bdd6;
 }
 
-.resume-experience > .resume-add {
-  top: auto;
-  bottom: 0;
-}
-
-.resume-section-controls {
-  top: 10pt;
-  z-index: 4;
-}
 .resume-focus-flash {
   animation: resume-focus-flash 1.6s ease-out;
 }
@@ -692,9 +606,6 @@
   field-sizing: content;
   color: inherit;
 }
-.resume-experience .resume-experience-heading > span::before {
-  content: none;
-}
 .resume-paper .resume-experience-heading input:not(:focus):hover,
 .resume-paper input.resume-position:not(:focus):hover {
   outline: none;
@@ -704,18 +615,94 @@
   font-size: 10pt;
 }
 
-/* Keep a visible handle at rest. Expand the toolbar over neighbouring controls
-   while its row is hovered or keyboard focused, without changing paper flow. */
-.resume-margin {
-  max-height: var(--resume-control-size);
-  overflow: hidden;
+/* Dates sit at the right edge of the heading line; long names shrink, not push. */
+.resume-experience-heading > :last-child {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 0.5em;
 }
-.resume-row:hover > .resume-margin,
-.resume-row:focus-within > .resume-margin,
-.resume-bullet:hover > div > .resume-margin,
-.resume-bullet:focus-within > div > .resume-margin {
-  max-height: none;
+.resume-paper .resume-experience-heading input {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.resume-paper .resume-education .resume-field-school {
+  min-width: 0;
+}
+.resume-paper .resume-education .resume-field-period {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 0.5em;
+}
+
+/* Line tools: one compact toolbar in flow under the focused line only (the
+   innermost focused row). Hidden ones stay tabbable; tabbing in shows them. */
+.resume-tools,
+.resume-paper .resume-add {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.resume-row:focus-within:not(:has(.resume-row:focus-within)) > .resume-tools,
+.resume-row:focus-within:not(:has(.resume-row:focus-within))
+  > :not(.resume-row)
+  > .resume-tools {
+  position: static;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  width: max-content;
+  max-width: 100%;
+  height: auto;
+  margin: 2px 0;
+  padding: 1px;
   overflow: visible;
-  z-index: 6;
+  clip-path: none;
+  border: 1px solid #000;
+  border-radius: 3px;
   background: #fff;
+  font: 10pt / 1 var(--rs-font);
+  text-indent: 0;
+  text-align: left;
+}
+.resume-tools button {
+  border: 0;
+}
+/* Add buttons: always shown for empty sections, else while the section has focus. */
+.resume-paper .resume-section:not(:has(h2)) > .resume-add,
+.resume-paper .resume-section:focus-within > .resume-add,
+.resume-paper .resume-header:focus-within > .resume-add {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 2px 0;
+  padding: 0 4px;
+  overflow: visible;
+  clip-path: none;
+  border: 1px dashed #8ca6bf;
+  font-size: 8pt;
+}
+/* Simple items are flex rows: break before the toolbar and suggestions. */
+.resume-simple-item::after {
+  content: "";
+  flex-basis: 100%;
+  order: 1;
+}
+.resume-simple-item > .resume-tools,
+.resume-simple-item > .resume-suggestion {
+  order: 2;
+}
+.resume-simple-item > .resume-suggestion {
+  flex-basis: 100%;
+}
+.resume-awards .resume-simple-item {
+  flex-wrap: wrap;
+}
+.resume-paper [tabindex="-1"]:focus {
+  outline: none;
 }

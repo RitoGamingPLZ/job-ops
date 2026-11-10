@@ -133,13 +133,11 @@ function bareUrl(url: string) {
 
 /** Indent the keywords' first line past the "Label:" that sits over it. */
 function fitSkillRow(row: HTMLDivElement | null) {
-  const label = row?.querySelector(".resume-skill-label");
+  const label = row?.querySelector<HTMLElement>(".resume-skill-label");
   const keywords = row?.querySelector("textarea");
   if (!row || !label || !keywords) return;
-  row.style.setProperty(
-    "--skill-label-w",
-    `${label.getBoundingClientRect().width}px`,
-  );
+  // offsetWidth is the unscaled layout width; the paper is CSS-transformed.
+  row.style.setProperty("--skill-label-w", `${label.offsetWidth}px`);
   fitTextarea(keywords);
 }
 
@@ -297,6 +295,8 @@ export function ResumeEditor({
     if (!onAskAi) return {};
     return {
       draggable: true,
+      // Clicking the heading focuses it, which shows its line's tools.
+      tabIndex: -1,
       onDragStart: (event: React.DragEvent) => {
         event.stopPropagation();
         event.dataTransfer.setData(FOCUS_TRANSFER_TYPE, JSON.stringify(ref));
@@ -641,7 +641,7 @@ export function ResumeEditor({
         />
       );
     }
-    return (
+    return () => (
       <section
         className={`resume-section resume-${kind}`}
         aria-label={simpleNames[kind]}
@@ -657,6 +657,7 @@ export function ResumeEditor({
             {heading(kind, simpleNames[kind])}
           </h2>
         )}
+        {sectionTools(kind)}
         <div className="resume-simple-items">
           {section?.items.map(
             (item, index) =>
@@ -685,11 +686,6 @@ export function ResumeEditor({
                         {kind === "certifications" && field === "date" && (
                           <span aria-hidden="true">-</span>
                         )}
-                        {kind === "education" &&
-                          field === "period" &&
-                          Boolean(item.period) && (
-                            <span aria-hidden="true">|</span>
-                          )}
                         {kind === "certifications" &&
                         field === "title" &&
                         safeUrl(item.website?.url) ? (
@@ -708,7 +704,7 @@ export function ResumeEditor({
                       </Fragment>
                     );
                   })}
-                  <div className="resume-margin">
+                  <div className="resume-tools">
                     {askAi({
                       kind: "item",
                       section: kind,
@@ -825,706 +821,759 @@ export function ResumeEditor({
     );
   }
   const sections = {
-    summary:
-      !document.summary.hidden &&
-      (addingSummary ||
-        bulletsFromHtml(document.summary.content).length > 0) ? (
-        <section className="resume-section" aria-label="Summary">
-          <h2
-            className="text-sm font-semibold"
-            {...focusDrag({ kind: "summary", label: "Summary" })}
-          >
-            {heading("summary", "Summary")}
-          </h2>
-          <div
-            ref={(element) => {
-              element?.toggleAttribute("inert", Boolean(disabled));
-            }}
-          >
-            <RichTextEditor
-              className="resume-richtext"
-              formatLabel={null}
-              value={document.summary.content}
-              onChange={(value) => {
-                setAddingSummary(true);
-                change((next) => {
-                  next.summary.content = value;
-                });
-              }}
-            />
-          </div>
-          {suggestionList(
-            suggestions.filter((s) => s.op === "replace_summary"),
-          )}
-        </section>
-      ) : document.summary.hidden ? null : (
-        <section className="resume-section resume-empty-summary">
-          <Button
-            className="resume-add"
-            size="sm"
-            variant="ghost"
-            onClick={() => setAddingSummary(true)}
-          >
-            + Summary
-          </Button>
-          {suggestionList(
-            suggestions.filter((s) => s.op === "replace_summary"),
-          )}
-        </section>
-      ),
-    skills: document.sections.skills
-      .hidden ? null : document.sections.skills.items.some((s) => !s.hidden) ||
-      suggestions.some((s) => s.op === "set_skills") ? (
-      <section className="resume-section" aria-label="Skills">
-        <h2
-          className="text-sm font-semibold"
-          {...focusDrag({
-            kind: "section",
-            section: "skills",
-            label: "Skills",
-          })}
-        >
-          {heading("skills", "Skills")}
-        </h2>
-        {document.sections.skills.items.map(
-          (skill, index) =>
-            !skill.hidden && (
-              <div
-                key={skill.id}
-                data-focus-item={skill.id}
-                className="resume-row resume-skill"
-                ref={(row) => fitSkillRow(row)}
+    summary: document.summary.hidden
+      ? null
+      : () =>
+          addingSummary ||
+          bulletsFromHtml(document.summary.content).length > 0 ? (
+            <section className="resume-section" aria-label="Summary">
+              <h2
+                className="text-sm font-semibold"
+                {...focusDrag({ kind: "summary", label: "Summary" })}
               >
-                {reorderZone("skills", index)}
-                <div className="resume-margin resume-skill-controls">
-                  {dragHandle(
-                    SKILL_TRANSFER_TYPE,
-                    skill.id,
-                    `Drag skill ${index + 1}`,
-                  )}
-                  {askAi({
-                    kind: "skill",
-                    section: "skills",
-                    itemId: skill.id,
-                    label: `Skills › ${skill.name || index + 1}`,
-                  })}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    title={`Move skill ${index + 1} up`}
-                    aria-label={`Move skill ${index + 1} up`}
-                    disabled={index === 0}
-                    onClick={() =>
-                      change((next) => {
-                        next.sections.skills.items = moveItem(
-                          next.sections.skills.items,
-                          index,
-                          index - 1,
-                        );
-                      })
-                    }
-                  >
-                    ↑
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    title={`Move skill ${index + 1} down`}
-                    aria-label={`Move skill ${index + 1} down`}
-                    disabled={
-                      index === document.sections.skills.items.length - 1
-                    }
-                    onClick={() =>
-                      change((next) => {
-                        next.sections.skills.items = moveItem(
-                          next.sections.skills.items,
-                          index,
-                          index + 2,
-                        );
-                      })
-                    }
-                  >
-                    ↓
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    title={`Delete skill ${skill.name}`}
-                    aria-label={`Delete skill ${skill.name}`}
-                    onClick={() =>
-                      change((next) => {
-                        next.sections.skills.items.splice(index, 1);
-                      })
-                    }
-                  >
-                    ×
-                  </Button>
-                </div>
-                <span className="resume-skill-label">
-                  <span className="resume-skill-name-box">
-                    <span aria-hidden="true">{skill.name}</span>
-                    <Input
-                      title={`Skill ${index + 1} name`}
-                      aria-label={`Skill ${index + 1} name`}
-                      className="resume-skill-name"
-                      value={skill.name}
-                      onChange={(e) =>
-                        change((next) => {
-                          next.sections.skills.items[index].name =
-                            e.target.value;
-                        })
-                      }
-                    />
-                  </span>
-                  :
-                </span>
-                <CommaListInput
-                  multiline
-                  className="resume-skill-keywords"
-                  title={`Skill ${index + 1} keywords`}
-                  aria-label={`Skill ${index + 1} keywords`}
-                  value={skill.keywords}
-                  onCommit={(keywords) => {
-                    if (
-                      !currentDocument.current.sections.skills.items.some(
-                        (item) => item.id === skill.id,
-                      )
-                    )
-                      return;
+                {heading("summary", "Summary")}
+              </h2>
+              {sectionTools("summary")}
+              <div
+                ref={(element) => {
+                  element?.toggleAttribute("inert", Boolean(disabled));
+                }}
+              >
+                <RichTextEditor
+                  className="resume-richtext"
+                  formatLabel={null}
+                  value={document.summary.content}
+                  onChange={(value) => {
+                    setAddingSummary(true);
                     change((next) => {
-                      const item = next.sections.skills.items.find(
-                        (item) => item.id === skill.id,
-                      );
-                      if (item) item.keywords = keywords;
+                      next.summary.content = value;
                     });
                   }}
                 />
-                {fieldSuggestions("skills", skill.id)}
               </div>
-            ),
-        )}
-        {reorderZone("skills", document.sections.skills.items.length)}
-        <Button
-          className="resume-add"
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            change((next) => {
-              next.sections.skills.items.push({
-                id: crypto.randomUUID(),
-                hidden: false,
-                icon: "",
-                name: "",
-                keywords: [],
-                level: 0,
-                proficiency: "",
-              });
-            })
-          }
-        >
-          Add skill
-        </Button>
-        {suggestionList(suggestions.filter((s) => s.op === "set_skills"))}
-      </section>
-    ) : (
-      <section className="resume-section">
-        <Button
-          className="resume-add"
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            change((next) => {
-              next.sections.skills.items.push({
-                id: crypto.randomUUID(),
-                hidden: false,
-                icon: "",
-                name: "",
-                keywords: [],
-                level: 0,
-                proficiency: "",
-              });
-            })
-          }
-        >
-          Add skill
-        </Button>
-      </section>
-    ),
-    certifications: simpleSection("certifications"),
-    experience: !document.sections.experience.hidden ? (
-      <section className="resume-section" aria-label="Experience">
-        <h2
-          className="text-sm font-semibold"
-          {...focusDrag({
-            kind: "section",
-            section: "experience",
-            label: "Experience",
-          })}
-        >
-          {heading("experience", "Experience")}
-        </h2>
-        {document.sections.experience.items
-          .filter((e) => !e.hidden)
-          .map((experience) => {
-            const { introHtml, bullets } = splitDescription(
-              experience.description,
-            );
-            if (newBullet?.id === experience.id)
-              bullets.splice(newBullet.index, 0, "");
-            const bulletKeyList = keyBullets(experience.id, bullets);
-            const name = experience.company || "new experience";
-            const itemRef: ResumeFocusRef = {
-              kind: "item",
-              section: "experience",
-              itemId: experience.id,
-              label: `Experience › ${name}${experience.position ? ` — ${experience.position}` : ""}`,
-            };
-            return (
-              <section
-                key={experience.id}
-                data-focus-item={experience.id}
-                className="resume-experience resume-row"
+              {suggestionList(
+                suggestions.filter((s) => s.op === "replace_summary"),
+              )}
+            </section>
+          ) : (
+            <section className="resume-section resume-empty-summary">
+              {sectionTools("summary")}
+              <Button
+                className="resume-add"
+                size="sm"
+                variant="ghost"
+                onClick={() => setAddingSummary(true)}
               >
-                {reorderZone(
-                  "experience",
-                  document.sections.experience.items.indexOf(experience),
-                )}
-                <div className="resume-margin resume-entry-controls">
-                  {dragHandle(
-                    EXPERIENCE_TRANSFER_TYPE,
-                    experience.id,
-                    `Drag experience ${name}`,
-                  )}
-                  {askAi(itemRef)}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    title={`Delete experience ${name}`}
-                    aria-label={`Delete experience ${name}`}
-                    onClick={() =>
-                      change((next) => {
-                        next.sections.experience.items =
-                          next.sections.experience.items.filter(
-                            (item) => item.id !== experience.id,
-                          );
-                      })
-                    }
-                  >
-                    ×
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    title={`Move experience ${name} up`}
-                    aria-label={`Move experience ${name} up`}
-                    disabled={
-                      document.sections.experience.items.indexOf(experience) ===
-                      0
-                    }
-                    onClick={() =>
-                      change((next) => {
-                        const i = next.sections.experience.items.findIndex(
-                          (e) => e.id === experience.id,
-                        );
-                        next.sections.experience.items = moveItem(
-                          next.sections.experience.items,
-                          i,
-                          i - 1,
-                        );
-                      })
-                    }
-                  >
-                    ↑
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    title={`Move experience ${name} down`}
-                    aria-label={`Move experience ${name} down`}
-                    disabled={
-                      document.sections.experience.items.indexOf(experience) ===
-                      document.sections.experience.items.length - 1
-                    }
-                    onClick={() =>
-                      change((next) => {
-                        const i = next.sections.experience.items.findIndex(
-                          (e) => e.id === experience.id,
-                        );
-                        next.sections.experience.items = moveItem(
-                          next.sections.experience.items,
-                          i,
-                          i + 2,
-                        );
-                      })
-                    }
-                  >
-                    ↓
-                  </Button>
-                </div>
-                <Input
-                  className="resume-position"
-                  title={`${name} position`}
-                  aria-label={`${name} position`}
-                  data-experience-position
-                  value={experience.position ?? ""}
-                  placeholder="Position"
-                  onChange={(event) =>
-                    change((next) => {
-                      const item = next.sections.experience.items.find(
-                        (entry) => entry.id === experience.id,
-                      );
-                      if (item) item.position = event.target.value;
-                    })
-                  }
-                />
-                <div className="resume-experience-heading">
-                  {(["company", "location", "period"] as const).map((field) => {
-                    const placeholder =
-                      field === "period"
-                        ? "Jan 2023 – Present"
-                        : field === "company"
-                          ? "Company"
-                          : "Location";
-                    return (
-                      <Fragment key={field}>
-                        {field !== "company" && (
-                          <span aria-hidden="true">
-                            {field === "location" ? "-" : "|"}
-                          </span>
+                + Summary
+              </Button>
+              {suggestionList(
+                suggestions.filter((s) => s.op === "replace_summary"),
+              )}
+            </section>
+          ),
+    skills: document.sections.skills.hidden
+      ? null
+      : () =>
+          document.sections.skills.items.some((s) => !s.hidden) ||
+          suggestions.some((s) => s.op === "set_skills") ? (
+            <section className="resume-section" aria-label="Skills">
+              <h2
+                className="text-sm font-semibold"
+                {...focusDrag({
+                  kind: "section",
+                  section: "skills",
+                  label: "Skills",
+                })}
+              >
+                {heading("skills", "Skills")}
+              </h2>
+              {sectionTools("skills")}
+              {document.sections.skills.items.map(
+                (skill, index) =>
+                  !skill.hidden && (
+                    <div
+                      key={skill.id}
+                      data-focus-item={skill.id}
+                      className="resume-row resume-skill"
+                      ref={(row) => fitSkillRow(row)}
+                    >
+                      {reorderZone("skills", index)}
+                      <span className="resume-skill-label">
+                        <span className="resume-skill-name-box">
+                          <span aria-hidden="true">{skill.name}</span>
+                          <Input
+                            title={`Skill ${index + 1} name`}
+                            aria-label={`Skill ${index + 1} name`}
+                            className="resume-skill-name"
+                            value={skill.name}
+                            onChange={(e) =>
+                              change((next) => {
+                                next.sections.skills.items[index].name =
+                                  e.target.value;
+                              })
+                            }
+                          />
+                        </span>
+                        :
+                      </span>
+                      <CommaListInput
+                        multiline
+                        className="resume-skill-keywords"
+                        title={`Skill ${index + 1} keywords`}
+                        aria-label={`Skill ${index + 1} keywords`}
+                        value={skill.keywords}
+                        onCommit={(keywords) => {
+                          if (
+                            !currentDocument.current.sections.skills.items.some(
+                              (item) => item.id === skill.id,
+                            )
+                          )
+                            return;
+                          change((next) => {
+                            const item = next.sections.skills.items.find(
+                              (item) => item.id === skill.id,
+                            );
+                            if (item) item.keywords = keywords;
+                          });
+                        }}
+                      />
+                      <div className="resume-tools resume-skill-controls">
+                        {dragHandle(
+                          SKILL_TRANSFER_TYPE,
+                          skill.id,
+                          `Drag skill ${index + 1}`,
                         )}
-                        <Input
-                          title={`${name} ${field === "period" ? "dates" : field}`}
-                          aria-label={`${name} ${field === "period" ? "dates" : field}`}
-                          value={experience[field] ?? ""}
-                          placeholder={placeholder}
-                          // Width fallback where CSS field-sizing is unsupported (Firefox, Safari).
-                          size={Math.max(
-                            (experience[field] || placeholder).length,
-                            1,
-                          )}
-                          onChange={(event) =>
+                        {askAi({
+                          kind: "skill",
+                          section: "skills",
+                          itemId: skill.id,
+                          label: `Skills › ${skill.name || index + 1}`,
+                        })}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title={`Move skill ${index + 1} up`}
+                          aria-label={`Move skill ${index + 1} up`}
+                          disabled={index === 0}
+                          onClick={() =>
                             change((next) => {
-                              const item = next.sections.experience.items.find(
-                                (entry) => entry.id === experience.id,
+                              next.sections.skills.items = moveItem(
+                                next.sections.skills.items,
+                                index,
+                                index - 1,
                               );
-                              if (item) item[field] = event.target.value;
+                            })
+                          }
+                        >
+                          ↑
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title={`Move skill ${index + 1} down`}
+                          aria-label={`Move skill ${index + 1} down`}
+                          disabled={
+                            index === document.sections.skills.items.length - 1
+                          }
+                          onClick={() =>
+                            change((next) => {
+                              next.sections.skills.items = moveItem(
+                                next.sections.skills.items,
+                                index,
+                                index + 2,
+                              );
+                            })
+                          }
+                        >
+                          ↓
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title={`Delete skill ${skill.name}`}
+                          aria-label={`Delete skill ${skill.name}`}
+                          onClick={() =>
+                            change((next) => {
+                              next.sections.skills.items.splice(index, 1);
+                            })
+                          }
+                        >
+                          ×
+                        </Button>
+                      </div>
+                      {fieldSuggestions("skills", skill.id)}
+                    </div>
+                  ),
+              )}
+              {reorderZone("skills", document.sections.skills.items.length)}
+              <Button
+                className="resume-add"
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  change((next) => {
+                    next.sections.skills.items.push({
+                      id: crypto.randomUUID(),
+                      hidden: false,
+                      icon: "",
+                      name: "",
+                      keywords: [],
+                      level: 0,
+                      proficiency: "",
+                    });
+                  })
+                }
+              >
+                Add skill
+              </Button>
+              {suggestionList(suggestions.filter((s) => s.op === "set_skills"))}
+            </section>
+          ) : (
+            <section className="resume-section">
+              {sectionTools("skills")}
+              <Button
+                className="resume-add"
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  change((next) => {
+                    next.sections.skills.items.push({
+                      id: crypto.randomUUID(),
+                      hidden: false,
+                      icon: "",
+                      name: "",
+                      keywords: [],
+                      level: 0,
+                      proficiency: "",
+                    });
+                  })
+                }
+              >
+                Add skill
+              </Button>
+            </section>
+          ),
+    certifications: simpleSection("certifications"),
+    experience: !document.sections.experience.hidden
+      ? () => (
+          <section className="resume-section" aria-label="Experience">
+            <h2
+              className="text-sm font-semibold"
+              {...focusDrag({
+                kind: "section",
+                section: "experience",
+                label: "Experience",
+              })}
+            >
+              {heading("experience", "Experience")}
+            </h2>
+            {sectionTools("experience")}
+            {document.sections.experience.items
+              .filter((e) => !e.hidden)
+              .map((experience) => {
+                const { introHtml, bullets } = splitDescription(
+                  experience.description,
+                );
+                if (newBullet?.id === experience.id)
+                  bullets.splice(newBullet.index, 0, "");
+                const bulletKeyList = keyBullets(experience.id, bullets);
+                const name = experience.company || "new experience";
+                const itemRef: ResumeFocusRef = {
+                  kind: "item",
+                  section: "experience",
+                  itemId: experience.id,
+                  label: `Experience › ${name}${experience.position ? ` — ${experience.position}` : ""}`,
+                };
+                return (
+                  <section
+                    key={experience.id}
+                    data-focus-item={experience.id}
+                    className="resume-experience resume-row"
+                  >
+                    {reorderZone(
+                      "experience",
+                      document.sections.experience.items.indexOf(experience),
+                    )}
+                    <Input
+                      className="resume-position"
+                      title={`${name} position`}
+                      aria-label={`${name} position`}
+                      data-experience-position
+                      value={experience.position ?? ""}
+                      placeholder="Position"
+                      onChange={(event) =>
+                        change((next) => {
+                          const item = next.sections.experience.items.find(
+                            (entry) => entry.id === experience.id,
+                          );
+                          if (item) item.position = event.target.value;
+                        })
+                      }
+                    />
+                    <div className="resume-experience-heading">
+                      {(["company", "location", "period"] as const).map(
+                        (field) => {
+                          const placeholder =
+                            field === "period"
+                              ? "Jan 2023 – Present"
+                              : field === "company"
+                                ? "Company"
+                                : "Location";
+                          return (
+                            <Fragment key={field}>
+                              {field === "location" && (
+                                <span aria-hidden="true">-</span>
+                              )}
+                              <Input
+                                title={`${name} ${field === "period" ? "dates" : field}`}
+                                aria-label={`${name} ${field === "period" ? "dates" : field}`}
+                                value={experience[field] ?? ""}
+                                placeholder={placeholder}
+                                // Width fallback where CSS field-sizing is unsupported (Firefox, Safari).
+                                size={Math.max(
+                                  (experience[field] || placeholder).length,
+                                  1,
+                                )}
+                                onChange={(event) =>
+                                  change((next) => {
+                                    const item =
+                                      next.sections.experience.items.find(
+                                        (entry) => entry.id === experience.id,
+                                      );
+                                    if (item) item[field] = event.target.value;
+                                  })
+                                }
+                              />
+                            </Fragment>
+                          );
+                        },
+                      )}
+                    </div>
+                    <div className="resume-tools resume-entry-controls">
+                      {dragHandle(
+                        EXPERIENCE_TRANSFER_TYPE,
+                        experience.id,
+                        `Drag experience ${name}`,
+                      )}
+                      {askAi(itemRef)}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title={`Delete experience ${name}`}
+                        aria-label={`Delete experience ${name}`}
+                        onClick={() =>
+                          change((next) => {
+                            next.sections.experience.items =
+                              next.sections.experience.items.filter(
+                                (item) => item.id !== experience.id,
+                              );
+                          })
+                        }
+                      >
+                        ×
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title={`Move experience ${name} up`}
+                        aria-label={`Move experience ${name} up`}
+                        disabled={
+                          document.sections.experience.items.indexOf(
+                            experience,
+                          ) === 0
+                        }
+                        onClick={() =>
+                          change((next) => {
+                            const i = next.sections.experience.items.findIndex(
+                              (e) => e.id === experience.id,
+                            );
+                            next.sections.experience.items = moveItem(
+                              next.sections.experience.items,
+                              i,
+                              i - 1,
+                            );
+                          })
+                        }
+                      >
+                        ↑
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title={`Move experience ${name} down`}
+                        aria-label={`Move experience ${name} down`}
+                        disabled={
+                          document.sections.experience.items.indexOf(
+                            experience,
+                          ) ===
+                          document.sections.experience.items.length - 1
+                        }
+                        onClick={() =>
+                          change((next) => {
+                            const i = next.sections.experience.items.findIndex(
+                              (e) => e.id === experience.id,
+                            );
+                            next.sections.experience.items = moveItem(
+                              next.sections.experience.items,
+                              i,
+                              i + 2,
+                            );
+                          })
+                        }
+                      >
+                        ↓
+                      </Button>
+                      <Button
+                        title={`Add bullet to ${name}`}
+                        aria-label="Add bullet"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setNewBullet({
+                            id: experience.id,
+                            index: bullets.length,
+                          });
+                          focusField.current = {
+                            id: experience.id,
+                            field: `[data-focus-bullet="${bullets.length}"] textarea`,
+                          };
+                        }}
+                      >
+                        Add bullet
+                      </Button>
+                    </div>
+                    {fieldSuggestions("experience", experience.id)}
+                    {bulletsFromHtml(introHtml).length > 0 && (
+                      <BulletText
+                        label={`${name} intro`}
+                        value={bulletsFromHtml(introHtml).join("\n")}
+                        onChange={(value) =>
+                          change((next) => {
+                            const item = next.sections.experience.items.find(
+                              (e) => e.id === experience.id,
+                            );
+                            if (item)
+                              item.description = joinDescription(
+                                introTextToHtml(value),
+                                bullets,
+                              );
+                          })
+                        }
+                      />
+                    )}
+                    <ul className="resume-bullets">
+                      {bullets.map((bullet, index) => (
+                        <li
+                          key={bulletKeyList[index]}
+                          data-focus-bullet={index}
+                          className="resume-row resume-bullet"
+                        >
+                          <div
+                            {...dropZone(experience.id, index, "insert")}
+                            className="resume-gap"
+                            title={`Insert before bullet ${index + 1}`}
+                          >
+                            <span className="sr-only">Drop to insert</span>
+                          </div>
+                          <div
+                            {...dropZone(experience.id, index, "replace")}
+                            className="space-y-1"
+                          >
+                            <BulletText
+                              label={`${name} bullet ${index + 1}`}
+                              value={bullet}
+                              onChange={(value) => {
+                                if (newBullet?.id === experience.id) {
+                                  if (!value.trim()) {
+                                    setNewBullet(null);
+                                    return;
+                                  }
+                                  const gap = newBullet.index;
+                                  setNewBullet(null);
+                                  updateBullets(experience.id, (current) => {
+                                    current.splice(gap, 0, "");
+                                    return current
+                                      .map((text, i) =>
+                                        i === index ? value : text,
+                                      )
+                                      .filter((text) => text.trim());
+                                  });
+                                } else
+                                  updateBullets(experience.id, (current) =>
+                                    current
+                                      .map((text, i) =>
+                                        i === index ? value : text,
+                                      )
+                                      .filter((text) => text.trim()),
+                                  );
+                              }}
+                            />
+                            <div className="resume-tools resume-bullet-controls">
+                              {dragHandle(
+                                RESUME_BULLET_TRANSFER_TYPE,
+                                { experienceId: experience.id, index },
+                                `Drag bullet ${index + 1}`,
+                              )}
+                              {askAi({
+                                kind: "bullet",
+                                section: "experience",
+                                itemId: experience.id,
+                                bulletIndex: index,
+                                label: `${name} › bullet ${index + 1}`,
+                              })}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                title={`Insert new bullet before bullet ${index + 1}`}
+                                aria-label={`Insert before bullet ${index + 1}`}
+                                onClick={() => {
+                                  setNewBullet({ id: experience.id, index });
+                                  focusField.current = {
+                                    id: experience.id,
+                                    field: `[data-focus-bullet="${index}"] textarea`,
+                                  };
+                                }}
+                              >
+                                +
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                disabled={index === 0}
+                                title={`Move bullet ${index + 1} up`}
+                                aria-label={`Move bullet ${index + 1} up`}
+                                onClick={() =>
+                                  updateBullets(experience.id, (current) => {
+                                    [current[index - 1], current[index]] = [
+                                      current[index],
+                                      current[index - 1],
+                                    ];
+                                    return current;
+                                  })
+                                }
+                              >
+                                ↑
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                disabled={index === bullets.length - 1}
+                                title={`Move bullet ${index + 1} down`}
+                                aria-label={`Move bullet ${index + 1} down`}
+                                onClick={() =>
+                                  updateBullets(experience.id, (current) => {
+                                    [current[index + 1], current[index]] = [
+                                      current[index],
+                                      current[index + 1],
+                                    ];
+                                    return current;
+                                  })
+                                }
+                              >
+                                ↓
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                title={`Delete bullet ${index + 1}`}
+                                aria-label={`Delete bullet ${index + 1}`}
+                                onClick={() =>
+                                  updateBullets(experience.id, (current) =>
+                                    current.filter((_, i) => i !== index),
+                                  )
+                                }
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          </div>
+                          {suggestionList(
+                            suggestions.filter(
+                              (s) =>
+                                s.experienceId === experience.id &&
+                                target(s)?.index === index,
+                            ),
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    <div
+                      {...dropZone(experience.id, bullets.length, "insert")}
+                      className="resume-gap resume-append"
+                      data-empty={bullets.length === 0}
+                    >
+                      <span>Drop to append a duty</span>
+                    </div>
+                    {suggestionList(
+                      suggestions.filter(
+                        (s) =>
+                          s.experienceId === experience.id &&
+                          (!target(s) || target(s)?.index === bullets.length),
+                      ),
+                    )}
+                  </section>
+                );
+              })}
+            {reorderZone(
+              "experience",
+              document.sections.experience.items.length,
+            )}
+            <Button
+              className="resume-add-experience"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                const item = ITEM_DEFINITIONS.find(
+                  (definition) => definition.key === "experience",
+                )?.createItem() as ReactiveResumeV5Document["sections"]["experience"]["items"][number];
+                focusField.current = {
+                  id: item.id,
+                  field: "[data-experience-position]",
+                };
+                change((next) => next.sections.experience.items.push(item));
+              }}
+            >
+              Add experience
+            </Button>
+          </section>
+        )
+      : null,
+    projects:
+      !document.sections.projects.hidden &&
+      document.sections.projects.items.length
+        ? () => (
+            <section className="resume-section" aria-label="Projects">
+              {document.sections.projects.items.some((p) => !p.hidden) && (
+                <h2
+                  {...focusDrag({
+                    kind: "section",
+                    section: "projects",
+                    label: "Projects",
+                  })}
+                >
+                  {heading("projects", "Projects")}
+                </h2>
+              )}
+              {sectionTools("projects")}
+              {document.sections.projects.items.map((project, index) => (
+                <div
+                  key={project.id}
+                  data-focus-item={project.id}
+                  className="resume-project resume-row"
+                  // Readonly text: focusable so a click shows the line's tools.
+                  tabIndex={-1}
+                >
+                  {project.hidden && (
+                    <p
+                      className="text-muted-foreground resume-readonly"
+                      title="Edit in Resume Studio"
+                    >
+                      {project.name}
+                    </p>
+                  )}
+                  {project.hidden && (
+                    <div className="resume-tools">
+                      {!project.hidden &&
+                        askAi({
+                          kind: "item",
+                          section: "projects",
+                          itemId: project.id,
+                          label: `Projects › ${project.name}`,
+                        })}
+                      <label>
+                        <input
+                          type="checkbox"
+                          title={`Include project ${project.name}`}
+                          aria-label={`Include project ${project.name}`}
+                          checked={!project.hidden}
+                          onChange={(e) =>
+                            change((next) => {
+                              next.sections.projects.items[index].hidden =
+                                !e.target.checked;
                             })
                           }
                         />
-                      </Fragment>
-                    );
-                  })}
-                </div>
-                {fieldSuggestions("experience", experience.id)}
-                {bulletsFromHtml(introHtml).length > 0 && (
-                  <BulletText
-                    label={`${name} intro`}
-                    value={bulletsFromHtml(introHtml).join("\n")}
-                    onChange={(value) =>
-                      change((next) => {
-                        const item = next.sections.experience.items.find(
-                          (e) => e.id === experience.id,
-                        );
-                        if (item)
-                          item.description = joinDescription(
-                            introTextToHtml(value),
-                            bullets,
-                          );
-                      })
-                    }
-                  />
-                )}
-                <ul className="resume-bullets">
-                  {bullets.map((bullet, index) => (
-                    <li
-                      key={bulletKeyList[index]}
-                      data-focus-bullet={index}
-                      className="resume-row resume-bullet"
-                    >
-                      <div
-                        {...dropZone(experience.id, index, "insert")}
-                        className="resume-gap"
-                        title={`Insert before bullet ${index + 1}`}
-                      >
-                        <span className="sr-only">Drop to insert</span>
-                      </div>
-                      <div
-                        {...dropZone(experience.id, index, "replace")}
-                        className="space-y-1"
-                      >
-                        <BulletText
-                          label={`${name} bullet ${index + 1}`}
-                          value={bullet}
-                          onChange={(value) => {
-                            if (newBullet?.id === experience.id) {
-                              if (!value.trim()) {
-                                setNewBullet(null);
-                                return;
-                              }
-                              const gap = newBullet.index;
-                              setNewBullet(null);
-                              updateBullets(experience.id, (current) => {
-                                current.splice(gap, 0, "");
-                                return current
-                                  .map((text, i) =>
-                                    i === index ? value : text,
-                                  )
-                                  .filter((text) => text.trim());
-                              });
-                            } else
-                              updateBullets(experience.id, (current) =>
-                                current
-                                  .map((text, i) =>
-                                    i === index ? value : text,
-                                  )
-                                  .filter((text) => text.trim()),
-                              );
-                          }}
-                        />
-                        <div className="resume-margin resume-bullet-controls">
-                          {dragHandle(
-                            RESUME_BULLET_TRANSFER_TYPE,
-                            { experienceId: experience.id, index },
-                            `Drag bullet ${index + 1}`,
-                          )}
-                          {askAi({
-                            kind: "bullet",
-                            section: "experience",
-                            itemId: experience.id,
-                            bulletIndex: index,
-                            label: `${name} › bullet ${index + 1}`,
-                          })}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title={`Insert new bullet before bullet ${index + 1}`}
-                            aria-label={`Insert before bullet ${index + 1}`}
-                            onClick={() => {
-                              setNewBullet({ id: experience.id, index });
-                              focusField.current = {
-                                id: experience.id,
-                                field: `[data-focus-bullet="${index}"] textarea`,
-                              };
-                            }}
-                          >
-                            +
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            disabled={index === 0}
-                            title={`Move bullet ${index + 1} up`}
-                            aria-label={`Move bullet ${index + 1} up`}
-                            onClick={() =>
-                              updateBullets(experience.id, (current) => {
-                                [current[index - 1], current[index]] = [
-                                  current[index],
-                                  current[index - 1],
-                                ];
-                                return current;
-                              })
-                            }
-                          >
-                            ↑
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            disabled={index === bullets.length - 1}
-                            title={`Move bullet ${index + 1} down`}
-                            aria-label={`Move bullet ${index + 1} down`}
-                            onClick={() =>
-                              updateBullets(experience.id, (current) => {
-                                [current[index + 1], current[index]] = [
-                                  current[index],
-                                  current[index + 1],
-                                ];
-                                return current;
-                              })
-                            }
-                          >
-                            ↓
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title={`Delete bullet ${index + 1}`}
-                            aria-label={`Delete bullet ${index + 1}`}
-                            onClick={() =>
-                              updateBullets(experience.id, (current) =>
-                                current.filter((_, i) => i !== index),
-                              )
-                            }
-                          >
-                            ×
-                          </Button>
-                        </div>
-                      </div>
-                      {suggestionList(
-                        suggestions.filter(
-                          (s) =>
-                            s.experienceId === experience.id &&
-                            target(s)?.index === index,
-                        ),
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                <div
-                  {...dropZone(experience.id, bullets.length, "insert")}
-                  className="resume-gap resume-append"
-                  data-empty={bullets.length === 0}
-                >
-                  <span>Drop to append a duty</span>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="resume-add"
-                  onClick={() => {
-                    setNewBullet({ id: experience.id, index: bullets.length });
-                    focusField.current = {
-                      id: experience.id,
-                      field: `[data-focus-bullet="${bullets.length}"] textarea`,
-                    };
-                  }}
-                >
-                  Add bullet
-                </Button>
-                {suggestionList(
-                  suggestions.filter(
-                    (s) =>
-                      s.experienceId === experience.id &&
-                      (!target(s) || target(s)?.index === bullets.length),
-                  ),
-                )}
-              </section>
-            );
-          })}
-        {reorderZone("experience", document.sections.experience.items.length)}
-        <Button
-          className="resume-add-experience"
-          size="sm"
-          variant="ghost"
-          onClick={() => {
-            const item = ITEM_DEFINITIONS.find(
-              (definition) => definition.key === "experience",
-            )?.createItem() as ReactiveResumeV5Document["sections"]["experience"]["items"][number];
-            focusField.current = {
-              id: item.id,
-              field: "[data-experience-position]",
-            };
-            change((next) => next.sections.experience.items.push(item));
-          }}
-        >
-          Add experience
-        </Button>
-      </section>
-    ) : null,
-    projects:
-      !document.sections.projects.hidden &&
-      document.sections.projects.items.length ? (
-        <section className="resume-section" aria-label="Projects">
-          {document.sections.projects.items.some((p) => !p.hidden) && (
-            <h2
-              {...focusDrag({
-                kind: "section",
-                section: "projects",
-                label: "Projects",
-              })}
-            >
-              {heading("projects", "Projects")}
-            </h2>
-          )}
-          {document.sections.projects.items.map((project, index) => (
-            <div
-              key={project.id}
-              data-focus-item={project.id}
-              className="resume-project resume-row"
-            >
-              <div className="resume-margin">
-                {!project.hidden &&
-                  askAi({
-                    kind: "item",
-                    section: "projects",
-                    itemId: project.id,
-                    label: `Projects › ${project.name}`,
-                  })}
-                <label>
-                  <input
-                    type="checkbox"
-                    title={`Include project ${project.name}`}
-                    aria-label={`Include project ${project.name}`}
-                    checked={!project.hidden}
-                    onChange={(e) =>
-                      change((next) => {
-                        next.sections.projects.items[index].hidden =
-                          !e.target.checked;
-                      })
-                    }
-                  />
-                </label>
-              </div>
-              {project.hidden && (
-                <p
-                  className="text-muted-foreground resume-readonly"
-                  title="Edit in Resume Studio"
-                >
-                  {project.name}
-                </p>
-              )}
-              {!project.hidden && (
-                <>
-                  <div
-                    className="resume-experience-heading resume-readonly"
-                    title="Edit in Resume Studio"
-                  >
-                    <h3
-                      {...focusDrag({
-                        kind: "item",
-                        section: "projects",
-                        itemId: project.id,
-                        label: `Projects › ${project.name}`,
-                      })}
-                    >
-                      <a href={safeUrl(project.website?.url)}>{project.name}</a>
-                    </h3>
-                    <span>{project.period}</span>
-                  </div>
-                  {bulletsFromHtml(
-                    splitDescription(project.description ?? "").introHtml,
-                  ).join("\n") && (
-                    <p
-                      className="resume-readonly"
-                      title="Edit in Resume Studio"
-                    >
-                      {bulletsFromHtml(
-                        splitDescription(project.description).introHtml,
-                      ).join("\n")}
-                    </p>
+                      </label>
+                    </div>
                   )}
-                  <ul className="resume-bullets">
-                    {splitDescription(project.description ?? "").bullets.map(
-                      (text, i) => (
-                        <li
-                          key={`${project.id}-${i}`}
+                  {!project.hidden && (
+                    <>
+                      <div
+                        className="resume-experience-heading resume-readonly"
+                        title="Edit in Resume Studio"
+                      >
+                        <h3
+                          {...focusDrag({
+                            kind: "item",
+                            section: "projects",
+                            itemId: project.id,
+                            label: `Projects › ${project.name}`,
+                          })}
+                        >
+                          <a href={safeUrl(project.website?.url)}>
+                            {project.name}
+                          </a>
+                        </h3>
+                        <span>{project.period}</span>
+                      </div>
+                      <div className="resume-tools">
+                        {!project.hidden &&
+                          askAi({
+                            kind: "item",
+                            section: "projects",
+                            itemId: project.id,
+                            label: `Projects › ${project.name}`,
+                          })}
+                        <label>
+                          <input
+                            type="checkbox"
+                            title={`Include project ${project.name}`}
+                            aria-label={`Include project ${project.name}`}
+                            checked={!project.hidden}
+                            onChange={(e) =>
+                              change((next) => {
+                                next.sections.projects.items[index].hidden =
+                                  !e.target.checked;
+                              })
+                            }
+                          />
+                        </label>
+                      </div>
+                      {bulletsFromHtml(
+                        splitDescription(project.description ?? "").introHtml,
+                      ).join("\n") && (
+                        <p
                           className="resume-readonly"
                           title="Edit in Resume Studio"
                         >
-                          {text}
-                        </li>
-                      ),
-                    )}
-                  </ul>
-                  {fieldSuggestions("projects", project.id)}
-                </>
-              )}
-            </div>
-          ))}
-        </section>
-      ) : null,
+                          {bulletsFromHtml(
+                            splitDescription(project.description).introHtml,
+                          ).join("\n")}
+                        </p>
+                      )}
+                      <ul className="resume-bullets">
+                        {splitDescription(
+                          project.description ?? "",
+                        ).bullets.map((text, i) => (
+                          <li
+                            key={`${project.id}-${i}`}
+                            className="resume-readonly"
+                            title="Edit in Resume Studio"
+                          >
+                            {text}
+                          </li>
+                        ))}
+                      </ul>
+                      {fieldSuggestions("projects", project.id)}
+                    </>
+                  )}
+                </div>
+              ))}
+            </section>
+          )
+        : null,
     education: simpleSection("education"),
     awards: simpleSection("awards"),
   };
@@ -1582,66 +1631,72 @@ export function ResumeEditor({
       />
     );
   }
+  /** A section's line tools, rendered below its heading. */
+  function sectionTools(key: SectionKey) {
+    const i = order.indexOf(key);
+    return (
+      <div className="resume-tools resume-section-controls">
+        {dragHandle(
+          SECTION_TRANSFER_TYPE,
+          key,
+          `Drag section ${sectionNames[key]}`,
+        )}
+        {askAi(
+          key === "summary"
+            ? { kind: "summary", label: "Summary" }
+            : {
+                kind: "section",
+                section: key,
+                label: sectionNames[key],
+              },
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          title={`Move section ${sectionNames[key]} up`}
+          aria-label={`Move section ${sectionNames[key]} up`}
+          disabled={i === 0}
+          onClick={() => {
+            focusAfterMove.current = {
+              label: `Move section ${sectionNames[key]} up`,
+              fallback: `Move section ${sectionNames[key]} down`,
+            };
+            moveTo(key, order[i - 1]);
+          }}
+        >
+          ↑
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          title={`Move section ${sectionNames[key]} down`}
+          aria-label={`Move section ${sectionNames[key]} down`}
+          disabled={i === order.length - 1}
+          onClick={() => {
+            focusAfterMove.current = {
+              label: `Move section ${sectionNames[key]} down`,
+              fallback: `Move section ${sectionNames[key]} up`,
+            };
+            moveTo(key, order[i + 2] ?? null);
+          }}
+        >
+          ↓
+        </Button>
+      </div>
+    );
+  }
   function sectionList() {
     const keys = order;
     return (
       <>
-        {keys.map((key, i) => (
+        {keys.map((key) => (
           <Fragment key={key}>
             {sectionGap(key)}
             <div
               className="resume-row resume-section-slot"
               data-focus-section={key}
             >
-              <div className="resume-margin resume-section-controls">
-                {dragHandle(
-                  SECTION_TRANSFER_TYPE,
-                  key,
-                  `Drag section ${sectionNames[key]}`,
-                )}
-                {askAi(
-                  key === "summary"
-                    ? { kind: "summary", label: "Summary" }
-                    : {
-                        kind: "section",
-                        section: key,
-                        label: sectionNames[key],
-                      },
-                )}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  title={`Move section ${sectionNames[key]} up`}
-                  aria-label={`Move section ${sectionNames[key]} up`}
-                  disabled={i === 0}
-                  onClick={() => {
-                    focusAfterMove.current = {
-                      label: `Move section ${sectionNames[key]} up`,
-                      fallback: `Move section ${sectionNames[key]} down`,
-                    };
-                    moveTo(key, keys[i - 1]);
-                  }}
-                >
-                  ↑
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  title={`Move section ${sectionNames[key]} down`}
-                  aria-label={`Move section ${sectionNames[key]} down`}
-                  disabled={i === keys.length - 1}
-                  onClick={() => {
-                    focusAfterMove.current = {
-                      label: `Move section ${sectionNames[key]} down`,
-                      fallback: `Move section ${sectionNames[key]} up`,
-                    };
-                    moveTo(key, keys[i + 2] ?? null);
-                  }}
-                >
-                  ↓
-                </Button>
-              </div>
-              {sections[key]}
+              {sections[key]?.()}
             </div>
           </Fragment>
         ))}
@@ -1656,7 +1711,8 @@ export function ResumeEditor({
       data-library-drag={libraryDrag && !disabled}
     >
       <p className="resume-editor-hint">
-        Hover a line to move, delete or ask AI. Drag ⠿ to reorder.
+        Click a line to show its tools. Drag ⠿ to reorder or drop it into the
+        chat.
       </p>
       <div
         className="resume-paper-frame"
@@ -1754,9 +1810,6 @@ export function ResumeEditor({
             </div>
             {addingHeadline || document.basics.headline ? (
               <div className="resume-row">
-                <div className="resume-margin">
-                  {askAi({ kind: "headline", label: "Headline" })}
-                </div>
                 <Input
                   aria-label="Headline"
                   className="resume-headline"
@@ -1768,6 +1821,9 @@ export function ResumeEditor({
                     })
                   }
                 />
+                <div className="resume-tools">
+                  {askAi({ kind: "headline", label: "Headline" })}
+                </div>
               </div>
             ) : (
               <Button
