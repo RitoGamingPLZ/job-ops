@@ -2,6 +2,11 @@ import { spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { sectionOrder } from "@client/components/cowork/resumeReorder";
+import {
+  NAVY_SERIF_CSS_VARS,
+  NAVY_SERIF_STYLE,
+} from "@shared/resume-style/navy-serif";
 import { TYPST_THEME_LABELS, TYPST_THEME_VALUES } from "@shared/types";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { describe, expect, it } from "vitest";
@@ -19,6 +24,7 @@ import wrapSample from "./typst-themes/navy-serif/wrap-sample.json";
 const input = {
   basics: {
     name: "Morgan Example",
+    headline: "Senior Platform Engineer",
     email: "morgan@example.com",
     location: "Example City",
   },
@@ -33,6 +39,7 @@ const input = {
       items: [
         {
           title: "Example Certificate A",
+          issuer: "Example Org",
           date: "2025",
           website: { url: "https://example.com/cert" },
         },
@@ -72,7 +79,14 @@ const input = {
       ],
     },
     awards: {
-      items: [{ title: "Example Award", description: "Delivery excellence." }],
+      items: [
+        {
+          title: "Example Award",
+          awarder: "Example Committee",
+          date: "2024",
+          description: "Delivery excellence.",
+        },
+      ],
     },
   },
 };
@@ -82,6 +96,46 @@ const available =
   spawnSync(getTypstBinary(), ["--version"], { stdio: "ignore" }).status === 0;
 
 describe("Navy Serif", () => {
+  it("shares readable body and margin tokens while keeping heading sizes", async () => {
+    expect(NAVY_SERIF_STYLE.margin).toEqual({ x: 15, y: 15 });
+    expect(NAVY_SERIF_CSS_VARS["--rs-body"]).toBe("10.5pt");
+    expect(NAVY_SERIF_CSS_VARS["--rs-margin-x"]).toBe("15mm");
+    expect(NAVY_SERIF_STYLE.size).toMatchObject({
+      body: 10.5,
+      section: 14,
+      position: 12,
+      entry: 11,
+    });
+    const theme = await readTypstTheme("navy-serif");
+    expect(theme.template).not.toMatch(/\bgrid\s*\(/);
+  });
+
+  it("retains all main pages before all sidebar pages, deduplicating like the editor", () => {
+    const layout = {
+      sidebarWidth: 30,
+      pages: [
+        {
+          fullWidth: false,
+          main: ["experience"],
+          sidebar: ["skills", "experience"],
+        },
+        {
+          fullWidth: false,
+          main: ["education", "summary", "projects"],
+          sidebar: ["certifications", "awards"],
+        },
+      ],
+    };
+    const doc = normalizeResumeJsonToLatexDocument({
+      ...input,
+      metadata: { layout },
+    });
+    expect([
+      ...(doc.navyLayout?.main ?? []),
+      ...(doc.navyLayout?.sidebar ?? []),
+    ]).toEqual(sectionOrder(layout));
+  });
+
   it.skipIf(!available)(
     "keeps wrapped lines compact with 1.5pt extra between items",
     async () => {
@@ -103,18 +157,24 @@ describe("Navy Serif", () => {
           const page = await pdf.getPage(1);
           const content = await page.getTextContent();
           const items = content.items.filter((item) => "str" in item);
-          const markers = items.filter((item) => item.str === "●");
+          const markers = items.filter((item) => item.str === "•");
           expect(markers).toHaveLength(3);
           // Experience retains hanging bullets; skills and awards have no markers.
           for (const index of [0]) {
-            const start = markers[index].transform[5];
-            const next = markers[index + 1].transform[5];
+            const bodyBaseline = (marker: (typeof items)[number]) =>
+              items
+                .slice(items.indexOf(marker) + 1)
+                .find((item) => item.str.trim() && item.str !== "•")
+                ?.transform[5] ?? Number.NaN;
+            const start = bodyBaseline(markers[index]);
+            const next = bodyBaseline(markers[index + 1]);
             const baselines = [
               ...new Set(
                 items
                   .filter(
                     (item) =>
                       item.str.trim() &&
+                      item.str !== "•" &&
                       item.transform[5] <= start + 0.01 &&
                       item.transform[5] > next + 0.01,
                   )
@@ -266,7 +326,7 @@ describe("Navy Serif", () => {
               description.includes(phrase) ? 1 : 0,
             );
           }
-          expect(lines.filter((item) => item.str === "●")).toHaveLength(
+          expect(lines.filter((item) => item.str === "•")).toHaveLength(
             bullets.length,
           );
           expect(text).not.toContain("Trailing text.");
@@ -397,7 +457,7 @@ describe("Navy Serif", () => {
           "Example Project | 2025",
           "Built reliable systems & APIs.",
           "Reduced latency.",
-          "Example Award: Delivery excellence.",
+          "Example Award - Example Committee, 2024: Delivery excellence.",
         ])
           expect(result.text).toContain(text);
         const headings = [
@@ -422,7 +482,9 @@ describe("Navy Serif", () => {
         // One certificate per line, so ATS parsers don't merge them.
         expect(b?.transform[5]).toBeLessThan((a?.transform[5] ?? 0) - 5);
         expect(b?.transform[4]).toBeCloseTo(a?.transform[4] ?? 0, 0);
-        expect(result.text).toContain("Example Certificate A - 2025");
+        expect(result.text).toContain(
+          "Example Certificate A - Example Org - 2025",
+        );
         expect(result.text).toContain("BSc in Computing");
         const sidebarDoc = normalizeResumeJsonToLatexDocument(sidebarSample);
         expect(sidebarDoc.navyLayout).toEqual({
@@ -431,23 +493,52 @@ describe("Navy Serif", () => {
           sidebarWidth: 30,
         });
         const sidebar = await render(sidebarDoc, "sidebar");
-        const skill = sidebar.items.find((i) => i.str.startsWith("Platform"));
+        const skill = sidebar.items.find((i) => i.str.startsWith("Platform:"));
         const tools = sidebar.items.find((i) => i.str.includes("TypeScript"));
         const summary = sidebar.items.find((i) => i.str === "Summary");
-        expect(skill?.transform[4]).toBeCloseTo((12 * 72) / 25.4, 0);
+        expect(skill?.transform[4]).toBeCloseTo((15 * 72) / 25.4, 0);
         // "Platform: TypeScript, …" starts on one line.
         expect(tools?.transform[5]).toBeCloseTo(skill?.transform[5] ?? 0, 0);
-        expect(summary?.transform[4]).toBeGreaterThan(
-          (skill?.transform[4] ?? 0) + 150,
-        );
+        expect(summary?.transform[4]).toBeCloseTo(skill?.transform[4] ?? 0, 0);
         expect(sidebar.text).toContain(
           "Bachelor of Engineering in Computer Engineering",
         );
-        expect(sidebar.items.filter((i) => i.str === "●")).toHaveLength(4);
+        expect(sidebar.items.filter((i) => i.str === "•")).toHaveLength(4);
         const sidebarHeading = sidebar.items.find((i) => i.str === "Skills");
-        expect(sidebarHeading?.transform[5]).toBeCloseTo(
+        expect(sidebarHeading?.transform[5]).toBeLessThan(
           summary?.transform[5] ?? 0,
-          0,
+        );
+        const expectedHeadings = sectionOrder({
+          ...sidebarSample.metadata.layout,
+          pages: sidebarSample.metadata.layout.pages.map((page) => ({
+            ...page,
+            fullWidth: false,
+          })),
+        })
+          .filter((key) =>
+            [
+              "summary",
+              "experience",
+              "education",
+              "awards",
+              "skills",
+              "certifications",
+            ].includes(key),
+          )
+          .map((key) => key[0].toUpperCase() + key.slice(1));
+        expect(
+          sidebar.items
+            .filter((item) => expectedHeadings.includes(item.str))
+            .map((item) => item.str),
+        ).toEqual(expectedHeadings);
+        const name = result.items.find((i) => i.str === "MORGAN EXAMPLE");
+        const headline = result.items.find(
+          (i) => i.str === "Senior Platform Engineer",
+        );
+        const contact = result.items.find((i) => i.str.includes("Email:"));
+        expect(name?.transform[5]).toBeGreaterThan(headline?.transform[5] ?? 0);
+        expect(headline?.transform[5]).toBeGreaterThan(
+          contact?.transform[5] ?? 0,
         );
         expect(result.annotations.map((a) => a.url)).toContain(
           "https://example.com/code",
@@ -475,6 +566,44 @@ describe("Navy Serif", () => {
           custom.text.indexOf("Skills"),
         );
         expect(custom.text).not.toContain("Example Project");
+        const sparse = await render(
+          {
+            ...document,
+            certifications: [
+              { title: "Title only", bullets: [] },
+              { title: "Issuer only", subtitle: "Example Org", bullets: [] },
+              { title: "Date only", date: "2025", bullets: [] },
+            ],
+            awards: [
+              { title: "Bare award", bullets: [] },
+              {
+                title: "Awarder only",
+                subtitle: "Example Committee",
+                bullets: [],
+              },
+              { title: "Dated award", date: "2024", bullets: [] },
+              { title: "Described award", bullets: ["Great delivery."] },
+            ],
+          },
+          "sparse",
+        );
+        for (const line of [
+          "Title only",
+          "Issuer only - Example Org",
+          "Date only - 2025",
+          "Bare award",
+          "Awarder only - Example Committee",
+          "Dated award, 2024",
+          "Described award: Great delivery.",
+        ]) {
+          expect(
+            sparse.items.some((item) => item.str === line) ||
+              sparse.text.includes(line),
+          ).toBe(true);
+        }
+        expect(sparse.text).not.toMatch(
+          /Title only -|Bare award[:,-]| - ,|, :/,
+        );
       } finally {
         await rm(dir, { recursive: true, force: true });
       }
