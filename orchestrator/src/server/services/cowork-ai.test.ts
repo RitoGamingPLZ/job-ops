@@ -527,3 +527,43 @@ describe("experience labeling", () => {
     await expect(labelExperienceBullets()).rejects.toThrow("quota exceeded");
   });
 });
+
+describe("description bullet indexing", () => {
+  it("treats prose-only descriptions as intro with zero bullet targets", () => {
+    const cowork = context();
+    cowork.document.sections.experience.items[0].description =
+      '<p>Intro <a href="https://example.com">link</a></p><p>Second paragraph</p>';
+    const prompt = buildCoworkPrompt(cowork, "Job", []);
+    const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
+    expect(data.resume.experience[0].bullets).toEqual([]);
+    expect(data.resume.experience[0].intro).toBe("Intro link Second paragraph");
+    const base = {
+      experienceId: "exp",
+      bulletIndex: 0,
+      text: "New duty",
+      reason: "Clarity",
+    };
+    const result = filterCoworkSuggestions(
+      [
+        { ...base, op: "replace_bullet" },
+        { ...base, op: "delete_bullet" },
+        { ...base, op: "insert_bullet", bulletIndex: 1 },
+        { ...base, op: "insert_bullet" },
+      ],
+      cowork,
+      [],
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ op: "insert_bullet", bulletIndex: 0 });
+  });
+  it("indexes list bullets independently of multi-paragraph intro", () => {
+    const cowork = context();
+    cowork.document.sections.experience.items[0].description =
+      "<p>Intro</p><p>More intro</p><ul><li>Built APIs</li></ul>";
+    const prompt = buildCoworkPrompt(cowork, "Job", []);
+    const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
+    expect(data.resume.experience[0].bullets).toEqual([
+      { index: 0, text: "Built APIs" },
+    ]);
+  });
+});

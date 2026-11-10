@@ -17,28 +17,10 @@
   min-width: 210mm;
   min-height: 297mm;
   margin: 0;
-  padding: 19mm;
   border: 0;
   background: #fff;
-  color: #202124;
   box-shadow: 0 2px 14px #00000024;
-  font:
-    11pt / 1.4 Calibri,
-    "Carlito",
-    "Liberation Sans",
-    sans-serif;
   overflow-wrap: anywhere;
-}
-.resume-paper > section {
-  margin-top: 18px;
-}
-.resume-paper h2 {
-  margin: 0 0 8px;
-  padding-bottom: 3px;
-  border-bottom: 1px solid #8e9399;
-  font-size: 12pt;
-  font-weight: 700;
-  color: #202124;
 }
 .resume-paper h3 {
   font-size: inherit;
@@ -50,11 +32,8 @@
   min-width: 0;
   min-height: 0;
   height: auto;
-  padding: 1px 2px;
   border: 1px solid transparent;
-  border-radius: 2px;
   background: transparent;
-  color: #202124;
   box-shadow: none;
   font: inherit;
   line-height: inherit;
@@ -75,18 +54,9 @@
 .resume-paper textarea::placeholder {
   color: #777;
 }
-.resume-paper .resume-name {
-  font-size: 24pt;
+.resume-paper input.resume-name {
   font-weight: 700;
   line-height: 1.15;
-}
-.resume-paper .resume-headline {
-  font-size: 12pt;
-}
-.resume-contact {
-  margin: 6px 2px 16px;
-  font-size: 9pt;
-  color: #4b5056;
 }
 .resume-paper .resume-richtext {
   border: 0;
@@ -133,49 +103,23 @@
 .resume-row {
   position: relative;
 }
-.resume-experience {
-  margin-top: 12px;
-}
 .resume-experience-heading {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
   align-items: baseline;
 }
 .resume-experience-heading > span {
   flex-shrink: 0;
-  font-size: 10pt;
-}
-.resume-location {
-  font-size: 10pt;
-  color: #4b5056;
-  margin: 0 0 4px;
-}
-.resume-bullets {
-  list-style: disc;
-  padding-left: 17px;
-  margin: 4px 0;
-}
-.resume-bullet {
-  padding-left: 1px;
 }
 .resume-margin {
   position: absolute;
-  right: calc(100% + 22px);
   top: 1px;
   display: flex;
   gap: 1px;
-  width: 48px;
   flex-wrap: wrap;
   justify-content: flex-end;
   opacity: 0;
   pointer-events: none;
-}
-.resume-bullet-controls {
-  right: calc(100% + 20px);
-}
-.resume-entry-controls {
-  right: calc(100% + 5px);
 }
 .resume-paper button {
   color: #3e5266;
@@ -270,9 +214,6 @@
   background: #f3f7fb;
 }
 .resume-paper .resume-add {
-  height: 22px;
-  padding: 0 4px;
-  margin-left: -60px;
   border: 0;
   font-size: 8pt;
   opacity: 0;
@@ -294,10 +235,6 @@
   right: 0;
   top: 0;
 }
-.resume-paper .resume-skill > input:first-of-type {
-  flex: 0 0 30%;
-  font-weight: 700;
-}
 .resume-paper .resume-skill > input {
   flex: 1;
 }
@@ -313,12 +250,6 @@
 .resume-skill:hover .resume-skill-delete,
 .resume-skill:focus-within .resume-skill-delete {
   opacity: 1;
-}
-.resume-project {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-size: 11pt;
 }
 .resume-project input {
   accent-color: #4b637a;
@@ -370,8 +301,10 @@
   right: 8px;
   top: 3px;
   font:
-    8pt / 1.2 Calibri,
-    sans-serif;
+    8pt / 1.2 "Times New Roman",
+    "Liberation Serif",
+    Tinos,
+    serif;
   color: #737b84;
   background: #fff;
 }
@@ -393,4 +326,276 @@
 }
 .resume-paper .resume-richtext .pointer-events-none {
   color: #737b84;
+}
+
+/* The document uses the same navy serif hierarchy as the exported resume. */
+.resume-paper {
+  padding: 10mm 12mm;
+  color: #000;
+  font:
+    10.5pt / 1.2 "Times New Roman",
+    "Liberation Serif",
+    Tinos,
+    serif;
+}
+.resume-paper > .resume-section {
+  position: relative;
+  margin-top: 10pt;
+}
+.resume-paper > .resume-section:not(:has(h2)):not(:has(.resume-suggestion)) {
+  margin: 0;
+  min-height: 0;
+}
+.resume-paper h2 {
+  margin: 0 0 4pt;
+  padding-bottom: 2pt;
+  border-bottom: 1.2pt solid #1f3a6e;
+  color: #1f3a6e;
+  font:
+    bold 15pt / 1.2 "Times New Roman",
+    "Liberation Serif",
+    Tinos,
+    serif;
+}
+.resume-paper input:not([type="checkbox"]),
+.resume-paper textarea,
+.resume-paper .resume-richtext .tiptap {
+  color: #000;
+  padding: 0;
+  border-radius: 0;
+}
+.resume-header {
+  text-align: center;
+}
+.resume-paper input.resume-name {
+  color: #1f3a6e;
+  font-size: 20pt;
+  text-align: center;
+  text-transform: uppercase;
+}
+.resume-paper input.resume-headline {
+  font-size: 10pt;
+  text-align: center;
+}
+.resume-contact {
+  margin: 2pt 0;
+  font-size: 10pt;
+  color: #000;
+}
+.resume-contact > span + span::before {
+  content: " | ";
+  white-space: pre;
+}
+.resume-paper a {
+  color: #1155cc;
+  text-decoration: underline;
+}
+.resume-experience,
+.resume-project {
+  display: block;
+  margin-top: 10pt;
+  font-size: inherit;
+}
+.resume-position,
+.resume-experience-heading,
+.resume-paper input.resume-field-school,
+.resume-paper input.resume-field-period {
+  color: #1f3a6e;
+  font-weight: bold;
+  font-style: italic;
+}
+.resume-position {
+  margin: 0 0 1pt;
+}
+.resume-experience-heading {
+  gap: 8pt;
+}
+.resume-experience-heading > span {
+  font-size: inherit;
+  text-align: right;
+}
+.resume-experience-heading h3 {
+  margin: 0;
+  color: inherit;
+}
+.resume-project h3,
+.resume-paper .resume-project h3 a {
+  color: #1f3a6e;
+  text-decoration: underline;
+}
+.resume-bullets {
+  padding-left: 6mm;
+  margin: 2pt 0 0;
+  list-style: disc outside;
+}
+.resume-bullet {
+  padding: 0;
+}
+.resume-skill {
+  margin: 0 0 1pt 6mm;
+  gap: 0;
+}
+.resume-skill::before,
+.resume-certifications .resume-simple-item::before,
+.resume-awards .resume-simple-item::before {
+  position: absolute;
+  right: calc(100% + 3mm);
+  content: "●";
+  font-size: 7pt;
+  top: 2pt;
+  color: #000;
+}
+.resume-paper .resume-skill > input:first-of-type {
+  flex: 0 1 auto;
+  color: #1f3a6e;
+  font-weight: bold;
+}
+.resume-skill > span {
+  margin-right: 3pt;
+  color: #1f3a6e;
+  font-weight: bold;
+}
+.resume-margin {
+  right: calc(100% + 2px);
+  width: 40px;
+}
+.resume-entry-controls,
+.resume-bullet-controls {
+  right: calc(100% + 2px);
+}
+.resume-paper .resume-add {
+  position: absolute;
+  right: calc(100% + 2px);
+  top: 0;
+  width: 42px;
+  height: auto;
+  min-height: 20px;
+  margin: 0;
+  white-space: normal;
+  line-height: 1.1;
+}
+.resume-section:not(:has(h2)) > .resume-add {
+  top: 0;
+}
+.resume-paper:hover .resume-section:not(:has(h2)) > .resume-add {
+  opacity: 1;
+}
+.resume-paper .resume-empty-summary > .resume-add {
+  top: -18px;
+}
+.resume-paper .resume-awards:not(:has(h2)) > .resume-add {
+  top: 24px;
+}
+.resume-paper .resume-education:not(:has(h2)) > .resume-add {
+  top: 48px;
+}
+.resume-paper .resume-empty-summary > .resume-add {
+  opacity: 1;
+}
+.resume-append {
+  height: 8px;
+  min-height: 0;
+  margin: 0;
+}
+.resume-append span {
+  position: absolute;
+  top: 0;
+  padding: 1px 4px;
+  background: #fff;
+}
+.resume-canvas[data-library-drag="true"] .resume-append,
+.resume-append[data-empty="true"] {
+  min-height: 24px;
+}
+.resume-simple-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 3pt;
+  margin-bottom: 2pt;
+}
+.resume-paper .resume-simple-item input {
+  flex: 1;
+  width: 0;
+}
+.resume-paper .resume-simple-item .resume-field-school {
+  flex-basis: 65%;
+}
+.resume-paper .resume-simple-item .resume-field-period {
+  flex-basis: 25%;
+  text-align: right;
+}
+.resume-paper .resume-simple-item .resume-field-degree,
+.resume-paper .resume-simple-item .resume-field-area {
+  flex-basis: 45%;
+}
+.resume-certifications .resume-simple-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 8mm;
+  padding-left: 6mm;
+}
+.resume-paper .resume-certifications .resume-field-title {
+  flex-basis: 70%;
+}
+.resume-paper .resume-certifications .resume-field-date {
+  flex-basis: 20%;
+}
+.resume-paper .resume-certifications .resume-field-issuer,
+.resume-paper .resume-certifications .resume-field-website,
+.resume-paper .resume-awards .resume-field-awarder,
+.resume-paper .resume-awards .resume-field-date {
+  display: none;
+}
+.resume-paper .resume-simple-item:focus-within .resume-field-issuer,
+.resume-paper .resume-simple-item:focus-within .resume-field-website,
+.resume-paper .resume-simple-item:focus-within .resume-field-awarder,
+.resume-paper .resume-simple-item:focus-within .resume-field-date {
+  display: block;
+}
+.resume-awards .resume-simple-items {
+  padding-left: 6mm;
+}
+.resume-awards .resume-simple-item {
+  flex-wrap: nowrap;
+}
+.resume-paper .resume-awards .resume-field-title {
+  flex: 0 1 25%;
+  font-weight: bold;
+}
+.resume-awards .resume-simple-item textarea {
+  flex: 1;
+}
+
+.resume-certification-name {
+  position: relative;
+  flex: 1 1 65%;
+  min-width: 0;
+}
+.resume-certification-name > a {
+  display: block;
+  padding: 1px;
+}
+.resume-paper .resume-certification-name > input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  pointer-events: none;
+}
+.resume-paper .resume-certification-name:focus-within > input {
+  opacity: 1;
+  pointer-events: auto;
+  background: #fff;
+}
+.resume-certification-name:focus-within > a {
+  visibility: hidden;
+}
+.resume-certification-name > input:focus-visible {
+  outline: 1px solid #a3bdd6;
+}
+
+.resume-experience > .resume-add {
+  top: auto;
+  bottom: 0;
 }

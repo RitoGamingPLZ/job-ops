@@ -38,7 +38,18 @@ vi.mock("@/client/components/ghostwriter/GhostwriterPanel", () => ({
   GhostwriterPanel: () => <div>Chat</div>,
 }));
 vi.mock("@/client/components/cowork/DutyLibrary", () => ({
-  DutyLibrary: () => <div>Library</div>,
+  DutyLibrary: ({
+    onInsert,
+  }: {
+    onInsert: (bullet: { text: string }, id: string) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onInsert({ text: "Library duty" }, "exp")}
+    >
+      Insert library duty
+    </button>
+  ),
   coworkError: mocks.coworkError,
 }));
 vi.mock("@/client/components/cowork/ResumeEditor", () => ({
@@ -278,5 +289,36 @@ describe("resume co-work saving", () => {
       "/design-resume",
     );
     expect(mocks.save).not.toHaveBeenCalled();
+  });
+});
+
+describe("duty library insert", () => {
+  it.each([
+    "",
+    "<ul><li>Existing</li></ul>",
+  ])("preserves raw intro HTML with existing bullets %s", async (list) => {
+    const initial = state();
+    const intro =
+      '<p class="intro">First <a href="https://example.com">link</a></p>\n<p>Second paragraph</p>';
+    initial.document.sections.experience.items = [
+      { id: "exp", description: intro + list },
+    ] as ReactiveResumeV5Document["sections"]["experience"]["items"];
+    mocks.getResume.mockResolvedValue(initial);
+    mount();
+    await screen.findByLabelText("Headline");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Insert library duty" }),
+    );
+    fireEvent.click(screen.getByText("Save now"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalled());
+    expect(
+      mocks.save.mock.calls[0][1].document.sections.experience.items[0]
+        .description,
+    ).toBe(
+      intro +
+        (list
+          ? "<ul><li>Existing</li><li>Library duty</li></ul>"
+          : "<ul><li>Library duty</li></ul>"),
+    );
   });
 });

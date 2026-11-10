@@ -220,3 +220,49 @@ describe("library bullet drops", () => {
     });
   });
 });
+
+describe("description-aware suggestions", () => {
+  const intro =
+    '<p class="kept">First <a href="https://example.com">link</a></p>\n<p><b>Second</b> paragraph.</p>';
+  it.each([
+    "replace_bullet",
+    "insert_bullet",
+    "delete_bullet",
+  ] as const)("preserves original intro for %s", (op) => {
+    const original = fixture();
+    original.sections.experience.items[0].description = `${intro}<ul><li>First</li><li>Second</li></ul>`;
+    const result = applySuggestion(original, suggestion({ op }));
+    expect(
+      result?.sections.experience.items[0].description.startsWith(intro),
+    ).toBe(true);
+  });
+  it("treats prose-only descriptions as zero bullets in targeting and batch apply", () => {
+    const original = fixture();
+    original.sections.experience.items[0].description = intro;
+    expect(
+      suggestionTarget(original, suggestion({ previousText: undefined })),
+    ).toBeNull();
+    expect(
+      suggestionTarget(
+        original,
+        suggestion({ op: "delete_bullet", previousText: "First" }),
+      ),
+    ).toBeNull();
+    expect(
+      suggestionTarget(
+        original,
+        suggestion({ op: "insert_bullet", bulletIndex: 1 }),
+      ),
+    ).toBeNull();
+    const result = applySuggestions(original, [
+      suggestion({
+        op: "insert_bullet",
+        bulletIndex: 0,
+        previousText: undefined,
+      }),
+    ]);
+    expect(result.document.sections.experience.items[0].description).toBe(
+      `${intro}<ul><li>Improved</li></ul>`,
+    );
+  });
+});

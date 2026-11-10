@@ -1,7 +1,7 @@
 import { ApiClientError } from "@client/api/core";
 import * as api from "@client/api/cowork";
 import { generateJobPdf, getJob } from "@client/api/jobs";
-import { bulletsFromHtml, bulletsToHtml } from "@shared/resume-bullets";
+import { joinDescription, splitDescription } from "@shared/resume-bullets";
 import type {
   Job,
   JobResumeState,
@@ -391,10 +391,14 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
                 (e) => e.id === id,
               );
               if (experience) {
-                experience.description = bulletsToHtml([
-                  ...bulletsFromHtml(experience.description),
-                  bullet.text,
-                ]);
+                const { introHtml, bullets } = splitDescription(
+                  experience.description,
+                );
+                experience.description = joinDescription(
+                  introHtml,
+                  [...bullets, bullet.text],
+                  experience.description,
+                );
                 edit(next);
                 toast.success("Duty inserted");
               }

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { bulletsFromHtml, bulletsToHtml } from "./resume-bullets";
+import {
+  bulletsFromHtml,
+  bulletsToHtml,
+  introTextToHtml,
+  joinDescription,
+  splitDescription,
+} from "./resume-bullets";
 
 describe("resume bullets", () => {
   it("extracts list items, strips formatting, and decodes entities", () => {
@@ -24,5 +30,42 @@ describe("resume bullets", () => {
     expect(html).not.toContain("<script>");
     expect(bulletsFromHtml(html)).toEqual(bullets);
     expect(bulletsToHtml([])).toBe("");
+  });
+});
+
+describe("description prose and bullets", () => {
+  const intro =
+    '<p class="original">First &amp; <a href="https://example.com">linked</a></p>\n<p><strong>Second</strong> paragraph</p>';
+  it("preserves original intro HTML byte-for-byte on a bullet edit", () => {
+    const parts = splitDescription(`${intro}<ul><li>Duty</li></ul>`);
+    expect(parts).toEqual({ introHtml: intro, bullets: ["Duty"] });
+    expect(joinDescription(parts.introHtml, ["Edited & escaped"])).toBe(
+      `${intro}<ul><li>Edited &amp; escaped</li></ul>`,
+    );
+  });
+  it("keeps prose-only descriptions entirely in introHtml", () => {
+    expect(splitDescription(intro)).toEqual({ introHtml: intro, bullets: [] });
+    expect(joinDescription(intro, [])).toBe(intro);
+    expect(splitDescription("")).toEqual({ introHtml: "", bullets: [] });
+  });
+  it("extracts ordered lists and multiple lists without treating other prose as duties", () => {
+    expect(
+      splitDescription("<p>Intro</p><ol><li>A</li></ol><ul><li>B</li></ul>"),
+    ).toEqual({ introHtml: "<p>Intro</p>", bullets: ["A", "B"] });
+  });
+  it("escapes manual intro edits and preserves paragraph boundaries", () => {
+    expect(introTextToHtml("First <script>\nSecond & text")).toBe(
+      "<p>First &lt;script&gt;</p><p>Second &amp; text</p>",
+    );
+  });
+  it("keeps prose after the list in its original position during a bullet edit", () => {
+    const original = `${intro}<ul><li>Duty</li></ul>\n<p>After <b>list</b></p>`;
+    const { introHtml } = splitDescription(original);
+    expect(joinDescription(introHtml, ["Edited"], original)).toBe(
+      `${intro}<ul><li>Edited</li></ul>\n<p>After <b>list</b></p>`,
+    );
+    expect(joinDescription(introHtml, [], original)).toBe(
+      `${intro}\n<p>After <b>list</b></p>`,
+    );
   });
 });
