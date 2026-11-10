@@ -13,6 +13,7 @@ import {
   readTypstTheme,
   renderTypstPdf,
 } from "./typst";
+import sidebarSample from "./typst-themes/navy-serif/sidebar-sample.json";
 import wrapSample from "./typst-themes/navy-serif/wrap-sample.json";
 
 const input = {
@@ -103,9 +104,9 @@ describe("Navy Serif", () => {
           const content = await page.getTextContent();
           const items = content.items.filter((item) => "str" in item);
           const markers = items.filter((item) => item.str === "●");
-          expect(markers).toHaveLength(7);
-          // Each section starts with a long item followed by a short one.
-          for (const index of [0, 2, 5]) {
+          expect(markers).toHaveLength(3);
+          // Experience retains hanging bullets; skills and awards have no markers.
+          for (const index of [0]) {
             const start = markers[index].transform[5];
             const next = markers[index + 1].transform[5];
             const baselines = [
@@ -140,6 +141,20 @@ describe("Navy Serif", () => {
       }
     },
   );
+
+  it.each([
+    [10, 25],
+    [90, 35],
+    [undefined, 30],
+  ])("clamps sidebar width %s to %s", (width, expected) => {
+    const doc = normalizeResumeJsonToLatexDocument({
+      ...sidebarSample,
+      metadata: {
+        layout: { ...sidebarSample.metadata.layout, sidebarWidth: width },
+      },
+    });
+    expect(doc.navyLayout?.sidebarWidth).toBe(expected);
+  });
 
   it("registers a selectable offline theme and preserves experience intros separately", () => {
     expect(TYPST_THEME_VALUES).toContain("navy-serif");
@@ -275,6 +290,7 @@ describe("Navy Serif", () => {
 
   it.each([
     document,
+    normalizeResumeJsonToLatexDocument(sidebarSample),
     ...descriptions.map(({ description }) =>
       normalizeResumeJsonToLatexDocument({
         ...input,
@@ -287,7 +303,10 @@ describe("Navy Serif", () => {
       }),
     ),
   ])("leaves every existing theme's rendered input byte-identical", async (document) => {
-    const { defaultSectionOrder: _, ...legacy } = document;
+    const { defaultSectionOrder: _, navyLayout: _layout, ...legacy } = document;
+    legacy.education = document.education.map(
+      ({ degree: _degree, area: _area, ...entry }) => entry,
+    );
     legacy.experience = document.experience.map(
       ({
         intro: _intro,
@@ -310,6 +329,10 @@ describe("Navy Serif", () => {
         expect({
           ...rendered,
           defaultSectionOrder: undefined,
+          navyLayout: undefined,
+          education: rendered.education.map(
+            ({ degree: _degree, area: _area, ...entry }) => entry,
+          ),
           experience: rendered.experience.map(
             ({
               intro: _intro,
@@ -396,6 +419,31 @@ describe("Navy Serif", () => {
         expect(a?.transform[5]).toBeCloseTo(b?.transform[5] ?? 0, 0);
         expect(b?.transform[4]).toBeGreaterThan((a?.transform[4] ?? 0) + 100);
         expect(result.text).toContain("Example Certificate A - 2025");
+        expect(result.text).toContain("BSc in Computing");
+        const sidebarDoc = normalizeResumeJsonToLatexDocument(sidebarSample);
+        expect(sidebarDoc.navyLayout).toEqual({
+          sidebar: ["skills", "certifications"],
+          main: ["summary", "experience", "projects", "education", "awards"],
+          sidebarWidth: 30,
+        });
+        const sidebar = await render(sidebarDoc, "sidebar");
+        const skill = sidebar.items.find((i) => i.str === "Platform");
+        const tools = sidebar.items.find((i) => i.str.includes("TypeScript"));
+        const summary = sidebar.items.find((i) => i.str === "Summary");
+        expect(skill?.transform[4]).toBeCloseTo((12 * 72) / 25.4, 0);
+        expect(tools?.transform[5]).toBeLessThan(skill?.transform[5] ?? 0);
+        expect(summary?.transform[4]).toBeGreaterThan(
+          (skill?.transform[4] ?? 0) + 150,
+        );
+        expect(sidebar.text).toContain(
+          "Bachelor of Engineering in Computer Engineering",
+        );
+        expect(sidebar.items.filter((i) => i.str === "●")).toHaveLength(4);
+        const sidebarHeading = sidebar.items.find((i) => i.str === "Skills");
+        expect(sidebarHeading?.transform[5]).toBeCloseTo(
+          summary?.transform[5] ?? 0,
+          0,
+        );
         expect(result.annotations.map((a) => a.url)).toContain(
           "https://example.com/code",
         );

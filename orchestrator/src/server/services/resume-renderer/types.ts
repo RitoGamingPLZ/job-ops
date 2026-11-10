@@ -19,6 +19,8 @@ export interface LatexResumeEntry {
   position?: string | null;
   location?: string | null;
   subtitle?: string | null;
+  degree?: string | null;
+  area?: string | null;
   secondaryTitle?: string | null;
   secondarySubtitle?: string | null;
   date?: string | null;
@@ -121,6 +123,7 @@ export interface LatexResumeDocument {
   publications: LatexResumeEntry[];
   volunteer: LatexResumeEntry[];
   references: LatexResumeEntry[];
+  navyLayout?: { main: string[]; sidebar: string[]; sidebarWidth: number };
   sectionOrder?: LatexResumeOrderedSectionKey[];
   /** The normalized order was synthesized rather than supplied by the layout. */
   defaultSectionOrder?: boolean;

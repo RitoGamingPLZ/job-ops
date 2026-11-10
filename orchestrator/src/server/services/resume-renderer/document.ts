@@ -390,6 +390,8 @@ function buildExperienceEntries(resumeJson: RecordLike): LatexResumeEntry[] {
 function buildEducationEntries(resumeJson: RecordLike): LatexResumeEntry[] {
   return getVisibleSectionItems(resumeJson, "education").map((item, index) => ({
     title: toText(item.school, `Education ${index + 1}`),
+    degree: toText(item.degree).trim() || null,
+    area: toText(item.area).trim() || null,
     subtitle:
       joinNonEmpty([toText(item.degree), toText(item.area)], ", ") || null,
     secondarySubtitle:
@@ -515,7 +517,35 @@ export function normalizeResumeJsonToLatexDocument(
   const summary = (asRecord(record.summary) ?? {}) as RecordLike;
   const titles = getLatexResumeSectionTitles(options.language);
 
+  const layout = asRecord(asRecord(record.metadata)?.layout);
+  const firstPage = asRecord(asArray(layout?.pages)[0]);
+  const sectionKeys = new Set<string>([
+    ...ORDERABLE_SECTION_KEYS,
+    "summary",
+    "customFields",
+  ]);
+  const keys = (value: unknown) => [
+    ...new Set(
+      asArray(value).filter(
+        (key): key is string => typeof key === "string" && sectionKeys.has(key),
+      ),
+    ),
+  ];
+  const sidebar = keys(firstPage?.sidebar);
+
   return {
+    ...(sidebar.length
+      ? {
+          navyLayout: {
+            sidebar,
+            main: keys(firstPage?.main).filter((key) => !sidebar.includes(key)),
+            sidebarWidth: Math.min(
+              35,
+              Math.max(25, toNumber(layout?.sidebarWidth, 30)),
+            ),
+          },
+        }
+      : {}),
     name: toText(basics.name, "Your Name"),
     headline: toText(basics.headline).trim() || null,
     location: toText(basics.location).trim() || null,

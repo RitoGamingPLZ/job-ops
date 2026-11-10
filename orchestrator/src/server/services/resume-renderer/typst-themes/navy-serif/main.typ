@@ -13,13 +13,13 @@
   else if key == "skills" and t == "Technical Skills" { "Skills" }
   else { t }
 }
-#set page(paper: __PAGE_PAPER__, margin: (x: 12mm, y: 10mm))
+#set page(paper: __PAGE_PAPER__, margin: (x: 12mm, y: 12mm))
 #set text(font: ("Times New Roman", "Liberation Serif", "TeX Gyre Termes", "Libertinus Serif"), size: 10.5pt, lang: "en", top-edge: "ascender", bottom-edge: "descender")
 // Leading is added to the font's ascender/descender height, not the font size.
 #let body-leading = 0.3em
 #set par(leading: body-leading, spacing: 3pt)
 // List spacing replaces leading: retain it, then add the gap between items.
-#set list(marker: [●], indent: 3pt, body-indent: 12pt, tight: false, spacing: body-leading + 1.5pt)
+#set list(marker: [●], indent: 2mm, body-indent: 5.5mm, tight: false, spacing: body-leading + 1.5pt)
 #show link: it => text(fill: rgb("#1155cc"), underline(it))
 #let linked(label, url) = if url == "" { label } else { link(url, label) }
 #let accent(body) = text(fill: navy, weight: "bold", style: "italic", size: 11pt, body)
@@ -53,12 +53,18 @@
   ]
   #if str-of(source, "headline") != "" { [\ #text(size: 10pt, source.headline)] }
 ]
-#if str-of(source, "summary") != "" { section("summary", "Summary", markup(source.summary)) }
-#for key in order {
-  if key == "skills" and items("skillGroups").len() > 0 {
-    section(key, "Skills", list(..items("skillGroups").map(g => [#text(fill: navy, weight: "bold")[#g.name:] #g.keywords.join(", ")])))
+#let render-sections(keys, sidebar: false) = for key in keys {
+  if key == "summary" and str-of(source, "summary") != "" {
+    section("summary", "Summary", markup(source.summary))
+  } else if key == "skills" and items("skillGroups").len() > 0 {
+    section(key, "Skills", [#for g in items("skillGroups") {
+      block(above: 0pt, below: 4pt)[
+        #text(fill: navy, weight: "bold", g.name) #linebreak()
+        #g.keywords.join(", ")
+      ]
+    }])
   } else if key == "certifications" and items(key).len() > 0 {
-    section(key, "Certifications", grid(columns: (1fr, 1fr), column-gutter: 12pt, row-gutter: 5pt, ..items(key).map(c => list([#linked(c.title, str-of(c, "url"))#if str-of(c, "date") != "" { [#(" - " + c.date)] }]))))
+    section(key, "Certifications", grid(columns: if sidebar { (1fr,) } else { (1fr, 1fr) }, column-gutter: 12pt, row-gutter: 5pt, ..items(key).map(c => list([#linked(c.title, str-of(c, "url"))#if str-of(c, "date") != "" { [#(" - " + c.date)] }]))))
   } else if key in ("experience", "education", "projects", "volunteer", "publications", "references") and items(key).len() > 0 {
     section(key, upper(key.slice(0, 1)) + key.slice(1), [
       #for entry in items(key) {
@@ -73,7 +79,13 @@
             } else {
               let label = if key == "projects" { underline(linked(entry.title, str-of(entry, "url"))) } else { entry.title }
               row(accent(label), accent(str-of(entry, "date")))
-              if str-of(entry, "subtitle") != "" { [#entry.subtitle] }
+              if key == "education" {
+                let degree = str-of(entry, "degree")
+                let area = str-of(entry, "area")
+                if degree == "" { area }
+                else if area == "" or lower(degree).contains(lower(area)) { degree }
+                else { degree + " in " + area }
+              } else if str-of(entry, "subtitle") != "" { [#entry.subtitle] }
             }
           ]
           #let intro = str-of(entry, "intro")
@@ -86,9 +98,29 @@
       }
     ])
   } else if key == "awards" and items(key).len() > 0 {
-    section(key, "Awards", list(..items(key).map(a => [#a.title#if a.bullets.len() > 0 { [: #a.bullets.map(markup).join(" ")] }])))
+    section(key, "Awards", [#for a in items(key) {
+      block(above: 0pt, below: 2pt)[#strong(a.title + if a.bullets.len() > 0 { ":" } else { "" })#if a.bullets.len() > 0 { [ #a.bullets.map(markup).join(" ")] }]
+    }])
+  } else if key == "customFields" and source.customFieldItems.len() > 0 {
+    section(key, "Custom Fields", list(..source.customFieldItems.map(i => linked(i.text, str-of(i, "url")))))
   } else if key in ("languages", "interests") and items(key).len() > 0 {
     section(key, upper(key.slice(0, 1)) + key.slice(1), list(..items(key).map(i => if key == "languages" { [#i.language #str-of(i, "fluency")] } else { [#i.name: #i.keywords.join(", ")] })))
   }
 }
-#if source.customFieldItems.len() > 0 { section("customFields", "Custom Fields", list(..source.customFieldItems.map(i => linked(i.text, str-of(i, "url"))))) }
+#let layout = value(source, "navyLayout")
+#if layout != none and layout.sidebar.len() > 0 {
+  let main = layout.main
+  // Append populated sections not explicitly placed, without duplicating either column.
+  for key in ("summary",) + order + ("customFields",) {
+    if key not in main and key not in layout.sidebar { main.push(key) }
+  }
+  let width = calc.clamp(layout.sidebarWidth, 25, 35)
+  v(8pt)
+  grid(columns: (width * 1fr, (100 - width) * 1fr), column-gutter: 6mm,
+    [#set list(indent: 0pt, body-indent: 8pt)
+     #render-sections(layout.sidebar, sidebar: true)],
+    [#render-sections(main)],
+  )
+} else {
+  render-sections(("summary",) + order + ("customFields",))
+}

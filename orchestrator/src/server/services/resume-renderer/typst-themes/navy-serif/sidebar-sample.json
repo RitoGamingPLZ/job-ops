@@ -1,0 +1,85 @@
+{
+  "basics": {
+    "name": "Morgan Example",
+    "email": "morgan@example.com"
+  },
+  "sections": {
+    "skills": {
+      "items": [
+        {
+          "name": "Platform",
+          "keywords": [
+            "TypeScript",
+            "Java",
+            "PostgreSQL",
+            "distributed tracing",
+            "automated deployment pipelines",
+            "service reliability engineering",
+            "capacity planning",
+            "incident response",
+            "performance profiling",
+            "accessibility testing"
+          ]
+        },
+        {
+          "name": "Tools",
+          "keywords": ["Git", "Linux"]
+        }
+      ]
+    },
+    "experience": {
+      "items": [
+        {
+          "company": "Example Systems",
+          "position": "Platform Engineer",
+          "period": "2023 \u2013 Present",
+          "description": "<ul><li>Designed reliable services for a fictional reporting platform, working with product teams to improve deployment automation, document operational procedures, and reduce recovery time during simulated incidents across multiple regions.</li><li>Improved uptime.</li><li>Created practical training materials for fictional support teams, covering service ownership, monitoring dashboards, release verification, and troubleshooting workflows that helped new engineers investigate complex integration failures independently.</li></ul>"
+        }
+      ]
+    },
+    "awards": {
+      "items": [
+        {
+          "title": "Example Delivery Award",
+          "description": "Recognized for coordinating a fictional cross-team reliability initiative that improved deployment confidence, clarified operational ownership, and provided reusable training materials for engineers supporting critical reporting services."
+        },
+        {
+          "title": "Example Mentoring Award",
+          "description": "Team support."
+        }
+      ]
+    },
+    "education": {
+      "items": [
+        {
+          "school": "Example Institute",
+          "degree": "Bachelor of Engineering",
+          "area": "Computer Engineering",
+          "period": "2018 \u2013 2022"
+        }
+      ]
+    },
+    "certifications": {
+      "items": [
+        {
+          "title": "Example Cloud Certificate",
+          "date": "2025"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "layout": {
+      "sidebarWidth": 30,
+      "pages": [
+        {
+          "sidebar": ["skills", "certifications"],
+          "main": ["summary", "experience", "projects", "education", "awards"]
+        }
+      ]
+    }
+  },
+  "summary": {
+    "content": "Platform engineer building reliable services and practical developer tools."
+  }
+}
