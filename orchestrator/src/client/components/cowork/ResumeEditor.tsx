@@ -509,6 +509,15 @@ export function ResumeEditor({
     };
   }
   type SimpleSection = "education" | "certifications" | "awards";
+  // A custom section title from the document wins; otherwise the standard ATS heading.
+  const heading = (
+    key: "summary" | "skills" | "experience" | "projects" | SimpleSection,
+    name: string,
+  ) =>
+    (key === "summary"
+      ? document.summary.title
+      : document.sections[key].title
+    )?.trim() || name;
   const simpleNames = {
     education: "Education",
     certifications: "Certifications",
@@ -574,7 +583,7 @@ export function ResumeEditor({
               label: simpleNames[kind],
             })}
           >
-            {simpleNames[kind]}
+            {heading(kind, simpleNames[kind])}
           </h2>
         )}
         <div className="resume-simple-items">
@@ -605,6 +614,11 @@ export function ResumeEditor({
                         {kind === "certifications" && field === "date" && (
                           <span aria-hidden="true">-</span>
                         )}
+                        {kind === "education" &&
+                          field === "period" &&
+                          Boolean(item.period) && (
+                            <span aria-hidden="true">|</span>
+                          )}
                         {kind === "certifications" &&
                         field === "title" &&
                         safeUrl(item.website?.url) ? (
@@ -720,7 +734,7 @@ export function ResumeEditor({
             className="text-sm font-semibold"
             {...focusDrag({ kind: "summary", label: "Summary" })}
           >
-            Summary
+            {heading("summary", "Summary")}
           </h2>
           <div
             ref={(element) => {
@@ -770,7 +784,7 @@ export function ResumeEditor({
             label: "Skills",
           })}
         >
-          Skills
+          {heading("skills", "Skills")}
         </h2>
         {document.sections.skills.items.map(
           (skill, index) =>
@@ -927,16 +941,16 @@ export function ResumeEditor({
     experience:
       !document.sections.experience.hidden &&
       document.sections.experience.items.some((e) => !e.hidden) ? (
-        <section className="resume-section" aria-label="Experiences">
+        <section className="resume-section" aria-label="Experience">
           <h2
             className="text-sm font-semibold"
             {...focusDrag({
               kind: "section",
               section: "experience",
-              label: "Experiences",
+              label: "Experience",
             })}
           >
-            Experiences
+            {heading("experience", "Experience")}
           </h2>
           {document.sections.experience.items
             .filter((e) => !e.hidden)
@@ -1210,7 +1224,7 @@ export function ResumeEditor({
                 label: "Projects",
               })}
             >
-              Projects
+              {heading("projects", "Projects")}
             </h2>
           )}
           {document.sections.projects.items.map((project, index) => (
@@ -1290,7 +1304,7 @@ export function ResumeEditor({
     summary: "Summary",
     skills: "Skills",
     certifications: "Certifications",
-    experience: "Experiences",
+    experience: "Experience",
     projects: "Projects",
     education: "Education",
     awards: "Awards",

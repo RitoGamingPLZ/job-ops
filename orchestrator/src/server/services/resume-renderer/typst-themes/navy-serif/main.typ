@@ -11,8 +11,7 @@
 #let titles = source.at("sectionTitles", default: (:))
 #let title(key, fallback) = {
   let t = titles.at(key, default: fallback)
-  if key == "experience" and t == "Experience" { "Experiences" }
-  else if key == "skills" and t == "Technical Skills" { "Skills" }
+  if key == "skills" and t == "Technical Skills" { "Skills" }
   else { t }
 }
 // Title and author metadata help ATS and PDF indexers identify the file.
@@ -47,7 +46,9 @@
   let b = entry.at("listBullets", default: entry.at("bullets", default: ()))
   if b.len() > 0 { list(..b.map(markup)) }
 }
-#let row(left, right) = grid(columns: (1fr, auto), column-gutter: 1em, left, right)
+// Dates follow the heading in the same line of text: right-aligned dates are a
+// separate text box that layout-based ATS parsers detach and move elsewhere.
+#let row(left, date) = block(if date == "" { left } else { [#left#accent(" | " + date)] })
 #align(center)[
   #text(fill: navy, weight: st.strongWeight, size: st.name, upper(source.name))
   #v(st.nameToContact)
@@ -84,11 +85,11 @@
               accent(if position != "" { position } else { str-of(entry, "subtitle") }, size: st.position)
               linebreak()
               let location = str-of(entry, "location")
-              row(accent(entry.title + if location != "" { " - " + location } else { "" }), accent(str-of(entry, "date")))
+              row(accent(entry.title + if location != "" { " - " + location } else { "" }), str-of(entry, "date"))
             } else {
               // The project name stays navy when linked: its own fill overrides the link colour.
               let label = if key == "projects" { let url = str-of(entry, "url"); if url == "" { underline(accent(entry.title)) } else { link(url, accent(entry.title)) } } else { accent(entry.title) }
-              row(label, accent(str-of(entry, "date")))
+              row(label, str-of(entry, "date"))
               if key == "education" {
                 let degree = str-of(entry, "degree")
                 let area = str-of(entry, "area")

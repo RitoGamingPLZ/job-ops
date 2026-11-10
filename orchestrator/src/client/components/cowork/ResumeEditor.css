@@ -110,10 +110,13 @@
 .resume-row {
   position: relative;
 }
+/* Dates follow the heading inline, as in the PDF, so ATS parsers keep them together. */
 .resume-experience-heading {
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
+}
+.resume-experience-heading > span:not(:empty)::before {
+  content: "| ";
 }
 .resume-experience-heading > span {
   flex-shrink: 0;
@@ -408,11 +411,10 @@
   font-size: var(--rs-position);
 }
 .resume-experience-heading {
-  gap: 8pt;
+  gap: 0.25em;
 }
 .resume-experience-heading > span {
   font-size: inherit;
-  text-align: right;
 }
 .resume-experience-heading h3 {
   margin: 0;
@@ -564,12 +566,11 @@
   flex: 1;
   width: 0;
 }
-.resume-paper .resume-simple-item .resume-field-school {
-  flex-basis: 65%;
-}
-.resume-paper .resume-simple-item .resume-field-period {
-  flex-basis: 25%;
-  text-align: right;
+.resume-education .resume-simple-item > span[aria-hidden] {
+  color: var(--rs-color-accent);
+  font-size: var(--rs-entry);
+  font-weight: var(--rs-entry-weight);
+  font-style: var(--rs-entry-style);
 }
 /* One column: side-by-side items are read as one merged line by ATS parsers. */
 .resume-certifications .resume-simple-item ~ .resume-simple-item {
@@ -606,6 +607,8 @@
 .resume-paper .resume-awards .resume-field-title,
 .resume-paper .resume-certifications .resume-field-title,
 .resume-paper .resume-certifications .resume-field-date,
+.resume-paper .resume-education .resume-field-school,
+.resume-paper .resume-education .resume-field-period,
 .resume-paper .resume-education-degree input {
   flex: 0 1 auto;
   width: auto;
