@@ -1,4 +1,3 @@
-// TODO(lead-merge): import { htmlToPlainText } from "@shared/resume-bullets".
 import {
   bulletsFromHtml,
   htmlToPlainText,
