@@ -433,6 +433,29 @@ describe("navy serif document content", () => {
       "Certifications",
     ]);
   });
+  it("keeps keyboard focus on section Move buttons after reordering", () => {
+    mount();
+    const names = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((e) => e.textContent);
+    fireEvent.click(screen.getByLabelText(`Move section ${names[0]} down`));
+    expect(screen.getByLabelText(`Move section ${names[0]} down`)).toHaveFocus();
+    // Moving to the top disables Up, so focus falls to the same section's Down.
+    fireEvent.click(screen.getByLabelText(`Move section ${names[0]} up`));
+    expect(screen.getByLabelText(`Move section ${names[0]} up`)).toBeDisabled();
+    expect(screen.getByLabelText(`Move section ${names[0]} down`)).toHaveFocus();
+  });
+  it("re-runs pagination while typing in local-draft inputs and on focus", () => {
+    mount();
+    const rects = vi.spyOn(Element.prototype, "getBoundingClientRect");
+    const input = screen.getByLabelText("Skill 1 keywords");
+    fireEvent.input(input, { target: { value: "Longer keyword text" } });
+    expect(rects).toHaveBeenCalled();
+    rects.mockClear();
+    fireEvent.focus(input);
+    expect(rects).toHaveBeenCalled();
+    rects.mockRestore();
+  });
   it("shows education as one degree-in-area phrase with separate fields", () => {
     const next = fullFixture();
     const onChange = mount(next);

@@ -5,7 +5,14 @@ import {
   splitDescription,
 } from "@shared/resume-bullets";
 import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import "./ResumeEditor.css";
 import { RichTextEditor } from "@/client/components/design-resume/RichTextEditor";
 import { Button } from "@/components/ui/button";
@@ -133,6 +140,14 @@ export function ResumeEditor({
   const [sheets, setSheets] = useState(1);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [libraryDrag, setLibraryDrag] = useState(false);
+  // Typing in local-draft inputs and :focus-within reveals change layout
+  // without a React render; bump this so pagination re-runs.
+  const [, repaginate] = useReducer((n: number) => n + 1, 0);
+  // Section Move buttons: React may move the focused node (losing focus) or
+  // disable it at the ends, so refocus after the reorder renders.
+  const focusAfterMove = useRef<{ label: string; fallback: string } | null>(
+    null,
+  );
   useEffect(() => {
     const ownerDocument = canvas.current?.ownerDocument;
     if (!ownerDocument) return;
@@ -171,7 +186,16 @@ export function ResumeEditor({
   // Runs after every render; paginate only touches its own margins and the
   // sheet count settles after one extra render, so this cannot loop.
   useLayoutEffect(() => {
-    if (page.current) setSheets(paginate(page.current, scale));
+    if (!page.current) return;
+    setSheets(paginate(page.current, scale));
+    const pending = focusAfterMove.current;
+    if (!pending) return;
+    focusAfterMove.current = null;
+    const buttons = [...page.current.querySelectorAll("button")];
+    const find = (label: string) =>
+      buttons.find((b) => b.getAttribute("aria-label") === label);
+    const target = find(pending.label);
+    (target && !target.disabled ? target : find(pending.fallback))?.focus();
   });
   const [, setFontsReady] = useState(false);
   useEffect(() => {
@@ -1150,7 +1174,13 @@ export function ResumeEditor({
                   variant="ghost"
                   aria-label={`Move section ${sectionNames[key]} up`}
                   disabled={i === 0}
-                  onClick={() => moveTo(key, keys[i - 1])}
+                  onClick={() => {
+                    focusAfterMove.current = {
+                      label: `Move section ${sectionNames[key]} up`,
+                      fallback: `Move section ${sectionNames[key]} down`,
+                    };
+                    moveTo(key, keys[i - 1]);
+                  }}
                 >
                   ↑
                 </Button>
@@ -1159,7 +1189,13 @@ export function ResumeEditor({
                   variant="ghost"
                   aria-label={`Move section ${sectionNames[key]} down`}
                   disabled={i === keys.length - 1}
-                  onClick={() => moveTo(key, keys[i + 2] ?? null)}
+                  onClick={() => {
+                    focusAfterMove.current = {
+                      label: `Move section ${sectionNames[key]} down`,
+                      fallback: `Move section ${sectionNames[key]} up`,
+                    };
+                    moveTo(key, keys[i + 2] ?? null);
+                  }}
                 >
                   ↓
                 </Button>
@@ -1189,6 +1225,9 @@ export function ResumeEditor({
           ref={page}
           disabled={disabled}
           className="resume-paper"
+          onInput={repaginate}
+          onFocus={repaginate}
+          onBlur={repaginate}
           style={{
             transform: `scale(${scale})`,
             minHeight: `${sheets * (SHEET + SHEET_GAP) - SHEET_GAP}px`,
