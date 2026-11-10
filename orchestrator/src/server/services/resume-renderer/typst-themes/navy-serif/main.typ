@@ -46,9 +46,10 @@
   let b = entry.at("listBullets", default: entry.at("bullets", default: ()))
   if b.len() > 0 { list(..b.map(markup)) }
 }
-// Dates follow the heading in the same line of text: right-aligned dates are a
-// separate text box that layout-based ATS parsers detach and move elsewhere.
-#let row(left, date) = block(if date == "" { left } else { [#left#accent(" | " + date)] })
+// Dates sit flush right on the heading's own text line. The gap is filled with real
+// space glyphs: an empty gap (1fr spacing, grids, placed boxes) lets pdfminer-style ATS parsers
+// split the date into a separate box and move it away from its entry.
+#let row(left, date) = block(if date == "" { left } else { [#left#box(width: 1fr, repeat(" "))#accent(date)] })
 #align(center)[
   #text(fill: navy, weight: st.strongWeight, size: st.name, upper(source.name))
   #if str-of(source, "headline") != "" { [\ #text(size: st.headline, source.headline)] }
