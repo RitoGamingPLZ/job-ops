@@ -955,9 +955,12 @@ export async function generateFinalPdf(
       jobStatusToRestore = job.status;
       await reservePdfUsage();
 
-      // Ready jobs already have a usable PDF; keep them visible while regenerating.
+      // Only an unprepared job moves through processing -> ready. Every other
+      // status (ready, applied, in_progress, ...) keeps its status while rendering.
+      const movesToReady =
+        job.status === "discovered" || job.status === "processing";
       const claimedJob = await jobsRepo.updateJob(job.id, {
-        ...(job.status !== "ready" ? { status: "processing" } : {}),
+        ...(movesToReady ? { status: "processing" } : {}),
         pdfRegenerating: true,
       });
       if (!claimedJob) {
@@ -985,7 +988,7 @@ export async function generateFinalPdf(
         pdfRegeneratingMarked = false;
         await settlePdfUsage(0);
         const preservedPdfMessage =
-          job.status === "ready" && job.pdfPath
+          !movesToReady && job.pdfPath
             ? " Your previous resume PDF is still available."
             : "";
         return {
@@ -1001,13 +1004,14 @@ export async function generateFinalPdf(
       }
 
       const pdfFingerprint = createJobPdfFingerprint(job, fingerprintContext);
-      const expectedStatusAtCommit: JobStatus =
-        job.status === "ready" ? "ready" : "processing";
+      const expectedStatusAtCommit: JobStatus = movesToReady
+        ? "processing"
+        : job.status;
 
       const updatedJob = await jobsRepo.finalizeGeneratedPdfIfCurrent({
         id: job.id,
         expectedStatus: expectedStatusAtCommit,
-        requireGeneratedSource: job.status === "ready",
+        requireGeneratedSource: !movesToReady,
         pdfPath: pdfResult.pdfPath,
         pdfFingerprint,
         pdfGeneratedAt: new Date().toISOString(),
@@ -1024,7 +1028,7 @@ export async function generateFinalPdf(
         if (
           latestJob?.pdfRegenerating &&
           (latestJob.status !== expectedStatusAtCommit ||
-            (job.status === "ready" && latestJob.pdfSource !== "generated"))
+            (!movesToReady && latestJob.pdfSource !== "generated"))
         ) {
           await jobsRepo.updateJob(job.id, { pdfRegenerating: false });
         }
@@ -1039,7 +1043,7 @@ export async function generateFinalPdf(
       pdfRegeneratingMarked = false;
 
       const analyticsOrigin = options?.analyticsOrigin ?? "move_to_ready";
-      const generationKind = job.status === "ready" ? "regenerate" : "initial";
+      const generationKind = movesToReady ? "initial" : "regenerate";
       void trackServerProductEvent(
         "resume_generated",
         {
@@ -1060,7 +1064,7 @@ export async function generateFinalPdf(
         },
       );
 
-      if (job.status !== "ready") {
+      if (movesToReady) {
         void trackServerProductEvent(
           "job_moved_to_ready",
           {
@@ -1153,11 +1157,11 @@ export async function processJob(
       }
       const result = await generateFinalPdf(jobId, options);
       if (!result.success) {
-        await restore();
         logger.warn("Targeted job generation failed", {
           jobId,
           error: result.error,
         });
+        await restore();
       }
       return result;
     } catch (error) {

@@ -279,6 +279,44 @@ describe("Tailoring Flow", () => {
     });
   });
 
+  it.each([
+    "applied",
+    "in_progress",
+  ] as const)("keeps an %s job's status while its PDF renders", async (status) => {
+    const job = { id: "job-1", jobDescription: "JD", status };
+    vi.mocked(jobsRepo.getJobById).mockResolvedValue(job as any);
+    vi.mocked(pdfService.generatePdf).mockResolvedValue({
+      success: true,
+      pdfPath: "new.pdf",
+    });
+
+    expect((await generateFinalPdf("job-1")).success).toBe(true);
+    expect(jobsRepo.updateJob).toHaveBeenCalledWith("job-1", {
+      pdfRegenerating: true,
+    });
+    expect(jobsRepo.finalizeGeneratedPdfIfCurrent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedStatus: status,
+        requireGeneratedSource: true,
+        pdfPath: "new.pdf",
+      }),
+    );
+
+    vi.mocked(jobsRepo.updateJob).mockClear();
+    vi.mocked(pdfService.generatePdf).mockResolvedValue({
+      success: false,
+      error: "boom",
+    });
+    expect((await generateFinalPdf("job-1")).success).toBe(false);
+    expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(1, "job-1", {
+      pdfRegenerating: true,
+    });
+    expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(2, "job-1", {
+      status,
+      pdfRegenerating: false,
+    });
+  });
+
   it("restores the previous status when generation throws before rendering", async () => {
     const discoveredJob = {
       id: "job-discovered-bad-skills",

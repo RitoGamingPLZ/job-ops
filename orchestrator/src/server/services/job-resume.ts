@@ -33,7 +33,18 @@ export async function ensureJobResume(
     // A plain run may not tailor: let it finish, then tailor its row unless it was edited.
     const plain = await running.run.catch(() => null);
     if (!plain) return ensureJobResume(jobId, opts);
-    return plain.revision === 1 ? materializeJobResume(jobId, opts, 1) : plain;
+    if (plain.revision !== 1) return plain;
+    // A targeted job's plain run already tailored; saving it again is a no-op revision bump.
+    const job = await getJobById(jobId);
+    if (
+      job &&
+      isTargeted(job) &&
+      job.tailoredSummary &&
+      job.tailoredHeadline &&
+      job.tailoredSkills
+    )
+      return plain;
+    return materializeJobResume(jobId, opts, 1);
   }
   const run = materializeJobResume(jobId, opts).finally(() =>
     inFlight.delete(key),

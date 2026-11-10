@@ -708,14 +708,20 @@ export async function finalizeGeneratedPdfIfCurrent(input: {
   const result = await db
     .update(jobs)
     .set({
-      status: "ready",
+      // processing -> ready (ready stays ready); any other status is left as it is.
+      ...(input.expectedStatus === "processing" ||
+      input.expectedStatus === "ready"
+        ? {
+            status: "ready" as const,
+            readyAt: sql`coalesce(${jobs.readyAt}, ${now})`,
+          }
+        : {}),
       pdfPath: input.pdfPath,
       pdfSource: "generated",
       pdfRegenerating: false,
       pdfFingerprint: input.pdfFingerprint,
       pdfGeneratedAt: input.pdfGeneratedAt,
       updatedAt: now,
-      readyAt: sql`coalesce(${jobs.readyAt}, ${now})`,
     })
     .where(and(...conditions))
     .run();

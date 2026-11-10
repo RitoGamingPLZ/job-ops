@@ -169,4 +169,37 @@ describe("ensureJobResume", () => {
       0, 1,
     ]);
   });
+  it("does not re-save a targeted job's plain row that already tailored", async () => {
+    let jobRow = createJob({
+      id: "job",
+      status: "discovered",
+      readyAt: "2026-01-01",
+    });
+    vi.mocked(getJobById).mockImplementation(async () => jobRow);
+    vi.mocked(summarizeJob).mockImplementation(async () => {
+      jobRow = {
+        ...jobRow,
+        tailoredSummary: "S",
+        tailoredHeadline: "H",
+        tailoredSkills: "[]",
+      };
+      return { success: true };
+    });
+    let finishBase!: () => void;
+    vi.mocked(loadBaseResumeSource).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishBase = () => resolve({ data: document, mode: "v5" });
+        }),
+    );
+    const editorOpen = ensureJobResume("job");
+    await vi.waitFor(() => expect(loadBaseResumeSource).toHaveBeenCalled());
+    const target = ensureJobResume("job", { tailor: true });
+    finishBase();
+    const [fromEditor, fromTarget] = await Promise.all([editorOpen, target]);
+    expect(fromTarget).toBe(fromEditor);
+    expect(fromTarget.revision).toBe(1);
+    expect(summarizeJob).toHaveBeenCalledOnce();
+    expect(saveJobResume).toHaveBeenCalledOnce();
+  });
 });
