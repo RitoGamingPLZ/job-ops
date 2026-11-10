@@ -6,10 +6,12 @@ import * as bulletsRepo from "@server/repositories/experience-bullets";
 import * as resumesRepo from "@server/repositories/job-resumes";
 import { getJobById } from "@server/repositories/jobs";
 import {
+  coworkChatContextSchema,
   extractExperienceBullets,
   labelExperienceBullets,
   rankExperienceBullets,
 } from "@server/services/cowork-ai";
+import { screenResume } from "@server/services/cowork-screening";
 import { loadBaseResumeSource, resolvePdfRenderer } from "@server/services/pdf";
 import { prepareTailoredResumeForPdf } from "@server/services/rxresume";
 import { safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
@@ -35,7 +37,10 @@ export const experienceBulletInputSchema = z
     sourceExperienceId: z.string().max(200).nullable().optional(),
   })
   .strict();
-function parse<T>(schema: z.ZodType<T>, input: unknown): T {
+function parse<T>(
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  input: unknown,
+): T {
   const parsed = schema.safeParse(input);
   if (!parsed.success)
     throw badRequest("Invalid co-work payload", parsed.error.flatten());
@@ -243,6 +248,17 @@ coworkRouter.delete(
     const job = await requireJob(String(req.params.id));
     await resumesRepo.deleteJobResume(job.id);
     ok(res, { deleted: true });
+  }),
+);
+coworkRouter.post(
+  "/jobs/:id/resume/screening",
+  asyncRoute(async (req, res) => {
+    const job = await requireJob(String(req.params.id));
+    const { document } = parse(
+      z.object({ document: coworkChatContextSchema.shape.document }).strict(),
+      req.body,
+    );
+    ok(res, await screenResume(job, document));
   }),
 );
 coworkRouter.get(

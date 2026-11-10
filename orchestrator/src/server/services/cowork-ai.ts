@@ -427,7 +427,7 @@ async function rankExperienceBulletsImpl(
     .sort((a, b) => b.score - a.score);
 }
 
-function selectLibraryBullets(
+export function selectLibraryBullets(
   library: ExperienceBullet[],
   jobDescription: string,
   limit: number,

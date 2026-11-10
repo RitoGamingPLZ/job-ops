@@ -388,6 +388,89 @@ describe("co-work routes", () => {
   });
 });
 
+it("screens a posted resume against the job with validated refs and scoped bullets", async () => {
+  const own = (
+    await (
+      await request("/experience-bullets", "POST", { text: "Built tools" })
+    ).json()
+  ).data.bullet;
+  callJson.mockResolvedValue({
+    success: true,
+    data: {
+      score: 55,
+      summary: "Close.",
+      requirements: [
+        {
+          text: "APIs",
+          importance: "must",
+          category: "skill",
+          status: "in_library",
+          evidence: [
+            {
+              text: "Built APIs",
+              focus: {
+                kind: "bullet",
+                section: "experience",
+                itemId: "experience-1",
+                bulletIndex: 0,
+              },
+            },
+            {
+              text: "ghost",
+              focus: {
+                kind: "item",
+                section: "experience",
+                itemId: "ghost",
+                bulletIndex: null,
+              },
+            },
+          ],
+          libraryBulletIds: [own.id, "foreign"],
+          tip: "Add the duty",
+        },
+      ],
+    },
+  });
+  const path = `/jobs/${jobId}/resume/screening`;
+  const response = await request(path, "POST", { document });
+  expect(response.status).toBe(200);
+  const report = (await response.json()).data;
+  expect(report).toMatchObject({
+    score: 55,
+    jobTitle: "Engineer",
+    employer: "Acme",
+    requirements: [
+      {
+        status: "in_library",
+        libraryBulletIds: [own.id],
+        evidence: [
+          {
+            focus: {
+              kind: "bullet",
+              itemId: "experience-1",
+              label: "Experience › Acme — Engineer › Built APIs",
+            },
+          },
+          { focus: null },
+        ],
+      },
+    ],
+  });
+  const prompt = JSON.parse(callJson.mock.lastCall?.[0].messages[1].content);
+  expect(prompt.job.jobDescription).toBe("Build tools");
+  expect(prompt.library.map((b: { id: string }) => b.id)).toEqual([own.id]);
+
+  const calls = callJson.mock.calls.length;
+  for (const body of [{}, { document: { nope: true } }, { document, x: 1 }])
+    expect((await request(path, "POST", body)).status).toBe(400);
+  expect(
+    (await request("/jobs/missing/resume/screening", "POST", { document }))
+      .status,
+  ).toBe(404);
+  expect((await request(path, "POST", { document }, false)).status).toBe(401);
+  expect(callJson.mock.calls.length).toBe(calls);
+});
+
 it("labels explicit IDs, returns labeled imports, validates payloads, and preserves imports on failure", async () => {
   callJson.mockImplementation(async (input) => ({
     success: true,

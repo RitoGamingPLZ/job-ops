@@ -133,6 +133,13 @@ async function assertCoworkIsolation(
     document,
   });
   expect(saved.status).toBe(200);
+  expect(
+    (
+      await call(`/jobs/${job.id}/resume/screening`, otherToken, "POST", {
+        document,
+      })
+    ).status,
+  ).toBe(404);
   for (const method of ["GET", "PUT", "DELETE"]) {
     expect(
       (
