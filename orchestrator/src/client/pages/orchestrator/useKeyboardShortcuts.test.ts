@@ -75,15 +75,14 @@ describe("Search Jobs shortcuts", () => {
 
   it("does not bind or advertise removed actions", () => {
     setup();
-    for (const id of [
-      "skip",
-      "markApplied",
-      "viewPdf",
-      "downloadPdf",
-    ] as const) {
+    for (const id of ["skip", "markApplied"] as const) {
       expect(bindings[SHORTCUTS[id].key]).toBeUndefined();
       expect(getShortcutsForTab("all")).not.toContain(SHORTCUTS[id]);
     }
+    expect(bindings.p).toBeUndefined();
+    expect(bindings.d).toBeUndefined();
+    expect("viewPdf" in SHORTCUTS).toBe(false);
+    expect("downloadPdf" in SHORTCUTS).toBe(false);
     expect(getShortcutsForTab("all")).toContain(SHORTCUTS.moveToReady);
   });
 

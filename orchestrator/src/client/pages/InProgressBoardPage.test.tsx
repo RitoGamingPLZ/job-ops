@@ -457,10 +457,7 @@ describe("InProgressBoardPage", () => {
 });
 
 describe("Targeted board workflow", () => {
-  const showTargeted = (
-    status: JobListItem["status"] = "discovered",
-    pdfPath: string | null = null,
-  ) => {
+  const showTargeted = (status: JobListItem["status"] = "ready") => {
     vi.mocked(api.getJobs).mockResolvedValue({
       jobs: [
         makeJob({ status, readyAt: "2026-06-01T00:00:00Z" }),
@@ -471,9 +468,6 @@ describe("Targeted board workflow", () => {
         }),
       ],
     } as Awaited<ReturnType<typeof api.getJobs>>);
-    vi.mocked(api.getJob).mockResolvedValue({ pdfPath } as Awaited<
-      ReturnType<typeof api.getJob>
-    >);
     vi.mocked(api.getJobStageEvents).mockResolvedValue([]);
     render(
       <MemoryRouter>
@@ -498,7 +492,7 @@ describe("Targeted board workflow", () => {
   });
 
   it("opens one editor link and previews a missing PDF by rendering first", async () => {
-    showTargeted();
+    showTargeted("ready");
     const link = await screen.findByRole("link", { name: "Open resume" });
     expect(screen.getAllByRole("link", { name: "Open resume" })).toHaveLength(
       1,
@@ -513,6 +507,27 @@ describe("Targeted board workflow", () => {
       expect(api.generateJobPdf).toHaveBeenCalledWith("job-1"),
     );
     expect(api.processJob).not.toHaveBeenCalled();
+  });
+
+  it("shows Preparing resume… without editor or preview while processing", async () => {
+    showTargeted("processing");
+    expect(
+      await screen.findByRole("button", { name: "Preparing resume…" }),
+    ).toBeDisabled();
+    expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Preview PDF" })).toBeNull();
+  });
+
+  it("offers Prepare resume when a targeted job has no prepared resume", async () => {
+    vi.mocked(api.processJob).mockResolvedValue({} as never);
+    showTargeted("discovered");
+    expect(
+      await screen.findByText("Resume not prepared yet"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Preview PDF" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Prepare resume" }));
+    await waitFor(() => expect(api.processJob).toHaveBeenCalledWith("job-1"));
   });
 
   it("untargets without changing the stage", async () => {

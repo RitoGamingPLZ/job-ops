@@ -322,22 +322,6 @@ export async function rescoreJob(
   return getSingleJobFromActionResult(result, idOrIds);
 }
 
-export async function summarizeJob(
-  id: string,
-  options?: {
-    force?: boolean;
-    fields?: Array<"summary" | "headline" | "skills" | "projects">;
-  },
-): Promise<Job> {
-  const params = new URLSearchParams();
-  if (options?.force) params.set("force", "1");
-  if (options?.fields?.length) params.set("fields", options.fields.join(","));
-  const query = params.toString() ? `?${params.toString()}` : "";
-  return fetchApi<Job>(`/jobs/${id}/summarize${query}`, {
-    method: "POST",
-  });
-}
-
 export async function generateJobPdf(id: string): Promise<Job> {
   return fetchApi<Job>(`/jobs/${id}/generate-pdf`, {
     method: "POST",

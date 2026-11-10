@@ -226,7 +226,7 @@ describe("JobDetailPanel", () => {
     expect(
       screen.getByRole("link", { name: /open job listing/i }),
     ).toHaveAttribute("href", "https://example.com/apply/job-2");
-    expect(screen.getByRole("tab", { name: /brief/i })).toBeDisabled();
+    expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByText("Start Tailoring")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /more actions/i }),
@@ -369,7 +369,44 @@ describe("JobDetailPanel", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual(["Edit details", "View job description", "Copy job info"]);
+    ).toEqual(["Edit details", "Copy job info"]);
+  });
+
+  it.each([
+    ["processing", "2026-11-08", "Preparing resume…"],
+    ["discovered", null, "Target"],
+    ["discovered", "2026-11-08", "Prepare resume"],
+  ] as const)("offers no editor or preview for a %s job (readyAt %s)", async (status, readyAt, label) => {
+    vi.mocked(api.processJob).mockResolvedValue(createJob());
+    const job = createJob({ status, readyAt });
+    await renderJobDetailPanel({
+      activeTab: "all",
+      activeJobs: [job],
+      selectedJob: job,
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+    expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Preview PDF" })).toBeNull();
+    if (label === "Prepare resume") {
+      fireEvent.click(screen.getByRole("button", { name: label }));
+      await waitFor(() => expect(api.processJob).toHaveBeenCalledWith(job.id));
+    }
+  });
+
+  it("offers Open resume and Preview PDF for an applied job", async () => {
+    await renderJobDetailPanel({
+      activeTab: "all",
+      activeJobs: [],
+      selectedJob: createJob({ status: "applied", readyAt: null }),
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn().mockResolvedValue(undefined),
+    });
+    expect(
+      screen.getByRole("link", { name: "Open resume" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview PDF" })).toBeEnabled();
   });
 
   it("shows an empty state when no job is selected", async () => {

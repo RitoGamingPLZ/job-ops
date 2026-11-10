@@ -27,10 +27,16 @@ import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { invalidateJobData } from "@/client/hooks/queries/invalidate";
+import {
+  useGenerateJobPdfMutation,
+  usePrepareResumeMutation,
+} from "@/client/hooks/queries/useJobMutations";
 import { useQueryErrorToast } from "@/client/hooks/useQueryErrorToast";
 import { celebrateOffer } from "@/client/lib/celebrate";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { logJobStageEvent } from "@/client/lib/logJobStageEvent";
+import { needsRender } from "@/client/lib/pdf-freshness";
+import { openJobPdf } from "@/client/lib/private-pdf";
 import { queryKeys } from "@/client/lib/queryKeys";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,7 +57,6 @@ type BoardCard = {
   stage: BoardColumn;
   currentStage: ApplicationStage;
   round: number;
-  pdfPath: string | null;
   latestEventAt: number | null;
 };
 
@@ -166,11 +171,7 @@ export const InProgressBoardPage: React.FC = () => {
       );
       const eventResults = await Promise.allSettled(
         jobs.map(async (job) => {
-          const [events, detail] = await Promise.all([
-            api.getJobStageEvents(job.id),
-            isTargeted(job) ? api.getJob(job.id) : Promise.resolve(null),
-          ]);
-          return { events, pdfPath: detail?.pdfPath ?? null };
+          return { events: await api.getJobStageEvents(job.id) };
         }),
       );
 
@@ -190,7 +191,6 @@ export const InProgressBoardPage: React.FC = () => {
             : boardColumnForStage(resolved.stage),
           currentStage: resolved.stage,
           round: technicalRound(events ?? []),
-          pdfPath: result?.status === "fulfilled" ? result.value.pdfPath : null,
           latestEventAt: resolved.latestEventAt,
         };
       });
@@ -294,6 +294,24 @@ export const InProgressBoardPage: React.FC = () => {
     },
     [dragging, queryClient, transitionMutation],
   );
+
+  const generatePdfMutation = useGenerateJobPdfMutation();
+  const prepareResumeMutation = usePrepareResumeMutation();
+  const isResumeBusy = (jobId: string) =>
+    (generatePdfMutation.isPending &&
+      generatePdfMutation.variables === jobId) ||
+    (prepareResumeMutation.isPending &&
+      prepareResumeMutation.variables === jobId);
+
+  const handlePreviewPdf = (job: JobListItem) =>
+    void openJobPdf(job.id, async () => {
+      if (needsRender(job)) await generatePdfMutation.mutateAsync(job.id);
+    }).catch((error) => showErrorToast(error, "Could not preview PDF"));
+
+  const handlePrepareResume = (job: JobListItem) =>
+    prepareResumeMutation.mutate(job.id, {
+      onError: (error) => showErrorToast(error, "Failed to prepare resume"),
+    });
 
   const handleTargetAction = async (job: JobListItem) => {
     setMovingJobId(job.id);
@@ -474,15 +492,16 @@ export const InProgressBoardPage: React.FC = () => {
                               stage,
                               currentStage,
                               round,
-                              pdfPath,
                             }) => (
                               <InProgressBoardCard
                                 key={job.id}
                                 job={job}
                                 stage={stage}
                                 round={round}
-                                pdfPath={pdfPath}
                                 onUntarget={() => void handleTargetAction(job)}
+                                onPreviewPdf={() => handlePreviewPdf(job)}
+                                onPrepareResume={() => handlePrepareResume(job)}
+                                isResumeBusy={isResumeBusy(job.id)}
                                 latestEventAt={latestEventAt}
                                 jobPageLinkState={jobPageLinkState}
                                 isMoving={movingJobId === job.id}

@@ -105,6 +105,17 @@ export function useGenerateJobPdfMutation() {
   });
 }
 
+/** Retries resume preparation for a targeted job; the server returns at once. */
+export function usePrepareResumeMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.processJob(id),
+    onSuccess: async (_data, id) => {
+      await invalidateJobData(queryClient, id);
+    },
+  });
+}
+
 export function useCheckSponsorMutation() {
   const queryClient = useQueryClient();
   return useMutation({

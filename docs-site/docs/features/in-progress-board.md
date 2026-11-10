@@ -1,7 +1,7 @@
 ---
 id: in-progress-board
 title: In Progress Board
-description: Kanban board for targeted opportunities, manual tailoring, applications, interviews, and outcomes.
+description: Kanban board for targeted opportunities, resumes, applications, interviews, and outcomes.
 sidebar_position: 3
 ---
 
@@ -26,13 +26,13 @@ The **Applied** lane can be collapsed to a thin strip so it doesn't take up hori
 
 ## Why it exists
 
-Search Jobs helps you review many opportunities. Target the ones you want to pursue, then use the board for manual tailoring, follow-up, and interview preparation.
+Search Jobs helps you review many opportunities. Target the ones you want to pursue, then use the board to follow up and prepare for interviews.
 
 ## How to use it
 
 1. Open **Search Jobs**, select a job, and click **Target**.
-2. Open **In Progress Board**. The job appears in **Targeted** without generating a resume.
-3. Click **Tailor resume** on the card or job page. Review the tailoring and generate the PDF manually. The job stays in Targeted and shows its tailored state.
+2. Open **In Progress Board**. The job appears in **Targeted** and shows **Preparing resume…** while its resume is prepared in the background.
+3. When it is ready, click **Open resume** on the card or job page to edit the resume in the editor, or **Preview PDF** to render the editor resume as a PDF. If preparation failed, the card says **Resume not prepared yet**; click **Prepare resume** to try again. The job stays in Targeted until you mark it Applied.
 4. Apply through the employer's application link, then mark the job **Applied**. Dragging a Targeted card to Applied records that transition; it does not submit an application.
 5. Log events or move cards as the process progresses: **Recruiter Screen → Technical Interview → Behaviour Question → Team Match → Offer**. Use the stages that match the employer's process.
 6. Log **Reject** for a rejection. A withdrawal also appears in Reject, with a **withdrawn** note.

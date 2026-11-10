@@ -28,6 +28,7 @@ import {
   isJobDocumentSafeInlineImage,
   isJobDocumentTextLike,
 } from "@/client/lib/job-documents";
+import { getResumeState, STALE_PDF_MESSAGE } from "@/client/lib/pdf-freshness";
 import {
   createJobDocumentObjectUrl,
   createJobPdfObjectUrl,
@@ -54,8 +55,8 @@ type JobDocumentsPanelProps = {
   pdfRegeneratingReason: string | null;
   pdfViewLabel: string;
   pdfDownloadLabel: string;
-  stalePdfMessage: string;
   onUploadPdf: () => void;
+  onPrepareResume: () => void;
   onViewPdf: () => void;
   onDownloadPdf: () => void;
 };
@@ -204,12 +205,13 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
   pdfRegeneratingReason,
   pdfViewLabel,
   pdfDownloadLabel,
-  stalePdfMessage,
   onUploadPdf,
+  onPrepareResume,
   onViewPdf,
   onDownloadPdf,
 }) => {
   const queryClient = useQueryClient();
+  const resumeState = getResumeState(job);
   const uploadDocumentInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<JobDocument | null>(
@@ -323,14 +325,28 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
                       </Badge>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground/65">
-                      Edit the resume or preview its PDF.
+                      {
+                        {
+                          available: "Edit the resume or preview its PDF.",
+                          preparing: "Preparing resume…",
+                          unprepared: "Resume not prepared yet",
+                          untargeted: "Target this job to prepare its resume.",
+                        }[resumeState]
+                      }
                     </p>
                   </div>
                 </AccordionTrigger>
                 <div className="flex flex-wrap justify-end gap-1 border-b border-border/35 bg-muted/5 px-3 pb-2 sm:absolute sm:right-8 sm:top-1/2 sm:border-b-0 sm:bg-transparent sm:p-0 sm:-translate-y-1/2">
-                  <Button size="sm" variant="ghost" asChild>
-                    <Link to={`/resumes/${job.id}`}>Open resume</Link>
-                  </Button>
+                  {resumeState === "available" && (
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link to={`/resumes/${job.id}`}>Open resume</Link>
+                    </Button>
+                  )}
+                  {resumeState === "unprepared" && (
+                    <Button size="sm" variant="ghost" onClick={onPrepareResume}>
+                      Prepare resume
+                    </Button>
+                  )}
                   <TooltipWhenDisabled
                     reason={pdfRegeneratingReason}
                     className="w-auto"
@@ -375,7 +391,7 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
                   {isStalePdf ? (
                     <div className="flex items-start gap-2 rounded-md border border-amber-200/70 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      <span>{stalePdfMessage}</span>
+                      <span>{STALE_PDF_MESSAGE}</span>
                     </div>
                   ) : null}
                   {job.pdfPath && !isStalePdf && (

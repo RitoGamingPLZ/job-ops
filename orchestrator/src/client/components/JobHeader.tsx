@@ -182,9 +182,11 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
   const postingAge = formatPostingAgeLabel(job.datePosted);
   const jobStatusTooltip =
     job.status === "discovered" ? (
-      <p className="text-xs">Found by the pipeline. Not tailored yet.</p>
+      <p className="text-xs">
+        Found by the pipeline. Target it to prepare its resume.
+      </p>
     ) : job.status === "ready" ? (
-      <p className="text-xs">Tailored and ready to apply.</p>
+      <p className="text-xs">Resume prepared and ready to apply.</p>
     ) : undefined;
   const tracerStatusTooltip =
     fullJob && !fullJob.tracerLinksEnabled ? (

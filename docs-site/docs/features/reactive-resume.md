@@ -82,7 +82,7 @@ At generation time:
 2. A job's valid AI-selectable choices fill the remaining slots up to the target.
 3. Excluded, deleted, stale, and duplicate IDs are removed.
 
-Automatic selection fills every available slot. Manual selection may use fewer slots, but cannot exceed the target. PDF generation never makes a hidden project-selection AI call; it resolves the saved job choices against the current global policy, so the PDF matches the Tailoring editor.
+Automatic selection fills every available slot. Manual selection may use fewer slots, but cannot exceed the target. PDF generation never makes a hidden project-selection AI call; it resolves the saved job choices against the current global policy, so the PDF matches the resume editor.
 
 ## Setup and configuration
 
@@ -276,7 +276,7 @@ curl "http://localhost:3001/api/settings/rx-resumes/<resumeId>/projects"
 ```
 
 ```bash
-# Regenerate PDF for a job after changing settings or resume data
+# Render the editor resume as a PDF after changing settings or resume data
 curl -X POST "http://localhost:3001/api/jobs/<jobId>/generate-pdf"
 ```
 
@@ -309,7 +309,7 @@ curl -X POST "http://localhost:3001/api/jobs/<jobId>/generate-pdf"
 ### Changes did not affect an already generated PDF
 
 - Settings changes apply to new generation runs.
-- Regenerate PDFs for already-ready jobs.
+- Use **Preview PDF** on already-ready jobs to render a fresh PDF from the editor resume.
 
 ### PDF generation fails because the renderer is unavailable
 
@@ -324,7 +324,7 @@ curl -X POST "http://localhost:3001/api/jobs/<jobId>/generate-pdf"
 - Keep base resume projects complete and up to date in RxResume.
 - Use **Must Include** sparingly for cornerstone projects.
 - Keep AI-selectable pool broad enough for job-specific relevance.
-- After major resume edits, regenerate PDFs for active high-priority jobs.
+- After major resume edits, preview the PDFs of active high-priority jobs to render them again.
 
 ### Add “context projects” even if they are usually hidden
 

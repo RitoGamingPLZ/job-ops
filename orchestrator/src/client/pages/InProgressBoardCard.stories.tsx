@@ -236,26 +236,24 @@ export const AllStates: Story = () => (
 AllStates.storyName = "All states";
 
 export const Targeted: Story = () => (
-  <BoardCardFrame label="Targeted · manual tailoring">
-    <InteractiveBoardCard
-      {...baseCardProps}
-      stage="targeted"
-      job={makeJob({ status: "discovered", readyAt: "2026-05-20T00:00:00Z" })}
-      onTailor={() => {}}
-      onUntarget={() => {}}
-    />
-  </BoardCardFrame>
-);
-
-export const ResumeReady: Story = () => (
-  <BoardCardFrame label="Targeted · resume ready">
-    <InteractiveBoardCard
-      {...baseCardProps}
-      stage="targeted"
-      pdfPath="resume.pdf"
-      job={makeJob({ status: "ready", readyAt: "2026-05-20T00:00:00Z" })}
-      onTailor={() => {}}
-      onUntarget={() => {}}
-    />
-  </BoardCardFrame>
+  <div className="grid gap-4">
+    {(
+      [
+        ["Targeted · preparing resume", "processing"],
+        ["Targeted · resume not prepared", "discovered"],
+        ["Targeted · resume available", "ready"],
+      ] as const
+    ).map(([label, status]) => (
+      <BoardCardFrame key={status} label={label}>
+        <InteractiveBoardCard
+          {...baseCardProps}
+          stage="targeted"
+          job={makeJob({ status, readyAt: "2026-05-20T00:00:00Z" })}
+          onUntarget={() => {}}
+          onPreviewPdf={() => {}}
+          onPrepareResume={() => {}}
+        />
+      </BoardCardFrame>
+    ))}
+  </div>
 );

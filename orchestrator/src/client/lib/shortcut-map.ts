@@ -101,20 +101,6 @@ export const SHORTCUTS = {
     group: "actions",
     scope: ["ready"],
   },
-  viewPdf: {
-    key: "p",
-    displayKey: "p",
-    label: "Preview PDF",
-    group: "actions",
-    scope: ["ready"],
-  },
-  downloadPdf: {
-    key: "d",
-    displayKey: "d",
-    label: "Download PDF",
-    group: "actions",
-    scope: ["ready"],
-  },
   openListing: {
     key: "o",
     displayKey: "o",
@@ -166,13 +152,9 @@ export type ShortcutId = keyof typeof SHORTCUTS;
 export function getShortcutsForTab(tab: FilterTab): ShortcutDef[] {
   return (Object.values(SHORTCUTS) as ShortcutDef[]).filter(
     (s) =>
-      ![
-        SHORTCUTS.tabReady,
-        SHORTCUTS.skip,
-        SHORTCUTS.markApplied,
-        SHORTCUTS.viewPdf,
-        SHORTCUTS.downloadPdf,
-      ].some((hidden) => hidden === s) &&
+      ![SHORTCUTS.tabReady, SHORTCUTS.skip, SHORTCUTS.markApplied].some(
+        (hidden) => hidden === s,
+      ) &&
       (!s.scope || s.scope.includes(tab)),
   );
 }

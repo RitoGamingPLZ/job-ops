@@ -178,7 +178,9 @@ describe("JobHeader", () => {
     renderWithRouter(<JobHeader job={jobWithTooltips} />);
 
     expect(
-      screen.getByText("Found by the pipeline. Not tailored yet."),
+      screen.getByText(
+        "Found by the pipeline. Target it to prepare its resume.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -227,7 +229,7 @@ describe("JobHeader", () => {
     renderWithRouter(<JobHeader job={readyJob} />);
 
     expect(
-      screen.getByText("Tailored and ready to apply."),
+      screen.getByText("Resume prepared and ready to apply."),
     ).toBeInTheDocument();
   });
 

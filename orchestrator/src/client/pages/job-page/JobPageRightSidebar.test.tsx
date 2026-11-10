@@ -57,6 +57,7 @@ function renderRightSidebar(overrides: Parameters<typeof createJob>[0] = {}) {
         pdfViewLabel="Preview PDF"
         pdfDownloadLabel="Download PDF"
         onTarget={noop}
+        onPrepareResume={noop}
         onMarkApplied={noop}
         onOpenLogEvent={noop}
         onViewPdf={noop}
@@ -106,6 +107,25 @@ describe("JobPageRightSidebar actions", () => {
     expect(
       screen.getByRole("button", { name: /download pdf/i }),
     ).toBeInTheDocument();
+  });
+
+  it.each([
+    ["processing", "2026-06-01", "Preparing resume…"],
+    ["discovered", null, "Target"],
+    ["discovered", "2026-06-01", "Prepare resume"],
+  ] as const)("offers only %s/%s -> %s before the resume is available", (status, readyAt, label) => {
+    renderRightSidebar({
+      status,
+      readyAt,
+      pdfPath: null,
+      pdfFreshness: "missing",
+    });
+    expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
+    // only the (disabled-by-parent) dropdown item remains
+    expect(
+      screen.getAllByRole("button", { name: /preview pdf/i }),
+    ).toHaveLength(1);
   });
 
   it("uses upload wording when the job has no resume PDF", () => {

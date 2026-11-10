@@ -27,8 +27,8 @@ it.each([
         pdfRegeneratingReason={null}
         pdfViewLabel="Preview PDF"
         pdfDownloadLabel="Download PDF"
-        stalePdfMessage=""
         onUploadPdf={vi.fn()}
+        onPrepareResume={vi.fn()}
         onViewPdf={preview}
         onDownloadPdf={vi.fn()}
       />
@@ -46,4 +46,44 @@ it.each([
     expect(
       screen.getByText("Uploaded PDF (not from the editor)"),
     ).toBeVisible();
+});
+
+it.each([
+  ["processing", "2026-06-01", "Preparing resume…"],
+  ["discovered", null, "Target this job to prepare its resume."],
+  ["discovered", "2026-06-01", "Resume not prepared yet"],
+] as const)("hides the editor link for a %s job (readyAt %s)", (status, readyAt, hint) => {
+  const prepare = vi.fn();
+  renderWithQueryClient(
+    <MemoryRouter>
+      <JobDocumentsPanel
+        job={createJob({
+          status,
+          readyAt,
+          pdfPath: null,
+          pdfFreshness: "missing",
+        })}
+        isStalePdf={false}
+        isUploadingPdf={false}
+        pdfActionsDisabled
+        pdfRegeneratingReason={null}
+        pdfViewLabel="Preview PDF"
+        pdfDownloadLabel="Download PDF"
+        onUploadPdf={vi.fn()}
+        onPrepareResume={prepare}
+        onViewPdf={vi.fn()}
+        onDownloadPdf={vi.fn()}
+      />
+    </MemoryRouter>,
+  );
+  expect(screen.getByText(hint)).toBeVisible();
+  expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Preview PDF" })).toBeDisabled();
+  const prepareButton = screen.queryByRole("button", {
+    name: "Prepare resume",
+  });
+  if (hint === "Resume not prepared yet") {
+    fireEvent.click(prepareButton as HTMLElement);
+    expect(prepare).toHaveBeenCalledOnce();
+  } else expect(prepareButton).toBeNull();
 });

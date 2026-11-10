@@ -2,10 +2,7 @@ import type { BoardColumn, JobListItem } from "@shared/types.js";
 import { ExternalLink, MoreVertical, PlusCircle } from "lucide-react";
 import type React from "react";
 import { Link } from "react-router-dom";
-import * as api from "@/client/api";
-import { showErrorToast } from "@/client/lib/error-toast";
-import { getPdfFreshness } from "@/client/lib/pdf-freshness";
-import { openJobPdf } from "@/client/lib/private-pdf";
+import { getResumeState } from "@/client/lib/pdf-freshness";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,9 +17,11 @@ export type InProgressBoardCardProps = {
   job: JobListItem;
   stage: BoardColumn;
   round?: number;
-  pdfPath?: string | null;
-  onTailor?: () => void;
   onUntarget?: () => void;
+  onPreviewPdf?: () => void;
+  onPrepareResume?: () => void;
+  /** A preview render or prepare request for this card is in flight. */
+  isResumeBusy?: boolean;
   latestEventAt: number | null;
   jobPageLinkState: { jobPageBackTo: string };
   isMoving: boolean;
@@ -36,8 +35,10 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
   job,
   stage,
   round = 0,
-  pdfPath,
   onUntarget,
+  onPreviewPdf,
+  onPrepareResume,
+  isResumeBusy = false,
   latestEventAt,
   jobPageLinkState,
   isMoving,
@@ -47,6 +48,7 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
   onLogEvent,
 }) => {
   const canLogEvents = stage !== "closed" && stage !== "targeted";
+  const resumeState = getResumeState(job);
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: full-card drag target for kanban lanes
@@ -148,29 +150,41 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
       </Link>
       {stage === "targeted" && (
         <div className="mt-3 flex flex-wrap gap-2" data-board-card-menu="">
-          <Button size="sm" variant="outline" asChild>
-            <Link to={`/resumes/${job.id}`}>Open resume</Link>
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={
-              isMoving || job.status === "processing" || job.pdfRegenerating
-            }
-            onClick={() =>
-              void openJobPdf(job.id, async () => {
-                if (
-                  !pdfPath ||
-                  ["missing", "stale"].includes(getPdfFreshness(job))
-                )
-                  await api.generateJobPdf(job.id);
-              }).catch((error) =>
-                showErrorToast(error, "Could not preview PDF"),
-              )
-            }
-          >
-            {job.status === "processing" ? "Preparing resume…" : "Preview PDF"}
-          </Button>
+          {resumeState === "available" && (
+            <>
+              <Button size="sm" variant="outline" asChild>
+                <Link to={`/resumes/${job.id}`}>Open resume</Link>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isMoving || isResumeBusy || job.pdfRegenerating}
+                onClick={onPreviewPdf}
+              >
+                Preview PDF
+              </Button>
+            </>
+          )}
+          {resumeState === "preparing" && (
+            <Button size="sm" variant="outline" disabled>
+              Preparing resume…
+            </Button>
+          )}
+          {resumeState === "unprepared" && (
+            <>
+              <span className="w-full text-[11px] text-muted-foreground">
+                Resume not prepared yet
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isMoving || isResumeBusy}
+                onClick={onPrepareResume}
+              >
+                Prepare resume
+              </Button>
+            </>
+          )}
           <Button
             size="sm"
             variant="ghost"

@@ -757,9 +757,9 @@ describe("JobPage back navigation", () => {
   });
 });
 
-it("offers editor links and no tailoring actions for a targeted job", async () => {
+it("offers editor links and no tailoring actions for a prepared job", async () => {
   vi.mocked(api.getJob).mockResolvedValue(
-    createJob({ status: "discovered", readyAt: "2026-06-01T00:00:00Z" }) as Job,
+    createJob({ status: "ready", readyAt: "2026-06-01T00:00:00Z" }) as Job,
   );
   renderJobPage("/job/job-1");
   const links = await screen.findAllByRole("link", { name: "Open resume" });
@@ -771,6 +771,37 @@ it("offers editor links and no tailoring actions for a targeted job", async () =
   expect(
     screen.queryByRole("button", { name: /tailor|regenerate resume/i }),
   ).toBeNull();
+});
+
+it.each([
+  ["processing", "2026-06-01", "Preparing resume…"],
+  ["discovered", null, "Target"],
+  ["discovered", "2026-06-01", "Prepare resume"],
+] as const)("header for a %s job (readyAt %s) offers only %s", async (status, readyAt, label) => {
+  vi.mocked(api.getJob).mockResolvedValue(
+    createJob({ status, readyAt }) as Job,
+  );
+  renderJobPage("/job/job-1");
+  expect(
+    (await screen.findAllByRole("button", { name: label })).length,
+  ).toBeGreaterThan(0);
+  expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
+  for (const preview of screen.queryAllByRole("button", {
+    name: "Preview PDF",
+  }))
+    expect(preview).toBeDisabled();
+});
+
+it("Prepare resume retries preparation for a targeted job", async () => {
+  vi.mocked(api.getJob).mockResolvedValue(
+    createJob({ status: "discovered", readyAt: "2026-06-01" }) as Job,
+  );
+  vi.mocked(api.processJob).mockResolvedValue({} as Job);
+  renderJobPage("/job/job-1");
+  fireEvent.click(
+    (await screen.findAllByRole("button", { name: "Prepare resume" }))[0],
+  );
+  await waitFor(() => expect(api.processJob).toHaveBeenCalledWith("job-1"));
 });
 
 it.each([

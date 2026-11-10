@@ -38,6 +38,7 @@ import {
   useCheckSponsorMutation,
   useGenerateJobPdfMutation,
   useMarkAsAppliedMutation,
+  usePrepareResumeMutation,
   useRescoreJobMutation,
   useSkipJobMutation,
   useUpdateJobMutation,
@@ -52,9 +53,10 @@ import { getRenderableJobDescription } from "@/client/lib/jobDescription";
 import { logJobStageEvent } from "@/client/lib/logJobStageEvent";
 import { resolveFilenameLanguage } from "@/client/lib/pdf-filename";
 import {
-  getPdfFreshness,
+  getResumeState,
   isPdfRegenerating,
   isPdfStale,
+  needsRender,
   PDF_REGENERATING_MESSAGE,
 } from "@/client/lib/pdf-freshness";
 import { downloadJobPdf, openJobPdf } from "@/client/lib/private-pdf";
@@ -207,6 +209,7 @@ export const JobPage: React.FC = () => {
   const skipJobMutation = useSkipJobMutation();
   const rescoreJobMutation = useRescoreJobMutation();
   const generatePdfMutation = useGenerateJobPdfMutation();
+  const prepareResumeMutation = usePrepareResumeMutation();
   const checkSponsorMutation = useCheckSponsorMutation();
 
   const job = jobQuery.data ?? null;
@@ -437,12 +440,24 @@ export const JobPage: React.FC = () => {
   };
 
   const handlePreviewPdf = () => {
-    if (!job || job.status === "processing" || isPdfRegenerating(job)) return;
+    if (!job || pdfActionsDisabled) return;
     void openJobPdf(job.id, async () => {
-      if (!job.pdfPath || ["missing", "stale"].includes(getPdfFreshness(job)))
-        await generatePdfMutation.mutateAsync(job.id);
+      if (needsRender(job)) await generatePdfMutation.mutateAsync(job.id);
     }).catch((error) => showErrorToast(error, "Could not preview PDF"));
   };
+
+  const handleTarget = () =>
+    void runAction("target", async () => {
+      if (!job) return;
+      await api.targetJob(job.id);
+      await invalidateJobData(queryClient, job.id);
+    });
+
+  const handlePrepareResume = () =>
+    void runAction("prepare-resume", async () => {
+      if (!job) return;
+      await prepareResumeMutation.mutateAsync(job.id);
+    });
 
   const handleCheckSponsor = async () => {
     await runAction("check-sponsor", async () => {
@@ -504,8 +519,7 @@ export const JobPage: React.FC = () => {
       language: filenameLanguage,
     })}-resume.pdf`;
     await (async () => {
-      if (!job.pdfPath || ["missing", "stale"].includes(getPdfFreshness(job)))
-        await generatePdfMutation.mutateAsync(job.id);
+      if (needsRender(job)) await generatePdfMutation.mutateAsync(job.id);
       await downloadJobPdf(job.id, filename);
     })().catch((error) => {
       showErrorToast(error, "Could not download PDF");
@@ -545,8 +559,9 @@ export const JobPage: React.FC = () => {
   const pdfRegeneratingReason = isRegeneratingPdf
     ? PDF_REGENERATING_MESSAGE
     : null;
+  const resumeState = job ? getResumeState(job) : null;
   const pdfActionsDisabled =
-    job?.status === "processing" ||
+    resumeState !== "available" ||
     isRegeneratingPdf ||
     generatePdfMutation.isPending;
   const isDiscovered = job?.status === "discovered";
@@ -593,32 +608,43 @@ export const JobPage: React.FC = () => {
             >
               {stageLabel}
             </Badge>
-            <Button size="sm" variant="outline" asChild>
-              <Link to={`/resumes/${job.id}`}>Open resume</Link>
-            </Button>
-            {isTargeted(job) ||
-            !["discovered", "processing", "ready"].includes(job.status) ? (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pdfActionsDisabled}
-                onClick={handlePreviewPdf}
-              >
-                {job.status === "processing"
-                  ? "Preparing resume…"
-                  : "Preview PDF"}
+            {resumeState === "available" && (
+              <>
+                <Button size="sm" variant="outline" asChild>
+                  <Link to={`/resumes/${job.id}`}>Open resume</Link>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pdfActionsDisabled}
+                  onClick={handlePreviewPdf}
+                >
+                  Preview PDF
+                </Button>
+              </>
+            )}
+            {resumeState === "preparing" && (
+              <Button size="sm" variant="outline" disabled>
+                Preparing resume…
               </Button>
-            ) : (
+            )}
+            {resumeState === "unprepared" && (
               <Button
                 size="sm"
                 variant="outline"
                 disabled={isBusy}
-                onClick={() =>
-                  void runAction("target", async () => {
-                    await api.targetJob(job.id);
-                    await invalidateJobData(queryClient, job.id);
-                  })
-                }
+                title="Resume not prepared yet"
+                onClick={handlePrepareResume}
+              >
+                Prepare resume
+              </Button>
+            )}
+            {resumeState === "untargeted" && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isBusy}
+                onClick={handleTarget}
               >
                 Target
               </Button>
@@ -861,8 +887,8 @@ export const JobPage: React.FC = () => {
                   pdfRegeneratingReason={pdfRegeneratingReason}
                   pdfViewLabel={pdfLabels.view}
                   pdfDownloadLabel={pdfLabels.download}
-                  stalePdfMessage="PDF is out of date. Preview or download to render the editor resume."
                   onUploadPdf={() => uploadPdfInputRef.current?.click()}
+                  onPrepareResume={handlePrepareResume}
                   onViewPdf={handlePreviewPdf}
                   onDownloadPdf={() => void handleDownloadPdf()}
                 />
@@ -973,12 +999,8 @@ export const JobPage: React.FC = () => {
               pdfRegeneratingReason={pdfRegeneratingReason}
               pdfViewLabel={pdfLabels.view}
               pdfDownloadLabel={pdfLabels.download}
-              onTarget={() =>
-                void runAction("target", async () => {
-                  await api.targetJob(job.id);
-                  await invalidateJobData(queryClient, job.id);
-                })
-              }
+              onTarget={handleTarget}
+              onPrepareResume={handlePrepareResume}
               onMarkApplied={() => void handleMarkApplied()}
               onOpenLogEvent={() => setIsLogModalOpen(true)}
               onViewPdf={handlePreviewPdf}
