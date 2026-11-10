@@ -1,17 +1,14 @@
 import { rm } from "node:fs/promises";
-import { AppError, badRequest } from "@infra/errors";
+import { AppError, badRequest, conflict } from "@infra/errors";
 import { fail, ok, okWithMeta } from "@infra/http";
 import { logger } from "@infra/logger";
 import { trackServerProductEvent } from "@infra/product-analytics";
 import { isDemoMode } from "@server/config/demo";
 import { resolveRequestOrigin } from "@server/infra/request-origin";
-import { generateFinalPdf, summarizeJob } from "@server/pipeline/index";
+import { generateFinalPdf } from "@server/pipeline/index";
 import * as jobDocumentsRepo from "@server/repositories/job-documents";
 import * as jobsRepo from "@server/repositories/jobs";
-import {
-  simulateGeneratePdf,
-  simulateSummarizeJob,
-} from "@server/services/demo-simulator";
+import { simulateGeneratePdf } from "@server/services/demo-simulator";
 import {
   removeStoredJobDocument,
   storeJobDocument,
@@ -29,14 +26,6 @@ import {
 } from "./shared";
 
 export const jobsDocumentsRouter = Router();
-
-const tailoringGenerateFields = [
-  "summary",
-  "headline",
-  "skills",
-  "projects",
-] as const;
-type TailoringGenerateField = (typeof tailoringGenerateFields)[number];
 
 function encodeContentDispositionFileName(value: string): string {
   return encodeURIComponent(value).replace(
@@ -86,28 +75,6 @@ function setJobDocumentContentHeaders(
   }
   res.type(safeInlineMediaType);
 }
-
-const parseTailoringGenerateFields = (
-  raw: string | undefined,
-): TailoringGenerateField[] | undefined => {
-  if (!raw) return undefined;
-  const fields = raw
-    .split(",")
-    .map((field) => field.trim())
-    .filter(Boolean);
-  const invalidFields = fields.filter(
-    (field): field is string =>
-      !tailoringGenerateFields.includes(field as TailoringGenerateField),
-  );
-  if (invalidFields.length > 0) {
-    throw badRequest("Invalid tailoring generation field", {
-      fields,
-      invalidFields,
-      allowedFields: [...tailoringGenerateFields],
-    });
-  }
-  return [...new Set(fields)] as TailoringGenerateField[];
-};
 
 jobsDocumentsRouter.post("/:id/pdf", async (req: Request, res: Response) => {
   let uploadedPath: string | null = null;
@@ -413,51 +380,6 @@ jobsDocumentsRouter.delete(
 );
 
 jobsDocumentsRouter.post(
-  "/:id/summarize",
-  async (req: Request, res: Response) => {
-    try {
-      const forceRaw = req.query.force as string | undefined;
-      const force = forceRaw === "1" || forceRaw === "true";
-      const fields = parseTailoringGenerateFields(
-        req.query.fields as string | undefined,
-      );
-
-      if (isDemoMode()) {
-        const result = await simulateSummarizeJob(req.params.id, {
-          force,
-          fields,
-        });
-        if (!result.success) {
-          return fail(
-            res,
-            badRequest(result.error ?? "Failed to summarize the job"),
-          );
-        }
-        const job = await requireJob(req.params.id);
-        return okWithMeta(res, await hydrateJobPdfFreshness(job), {
-          simulated: true,
-        });
-      }
-
-      await requireJob(req.params.id);
-      const result = await summarizeJob(req.params.id, { force, fields });
-
-      if (!result.success) {
-        return fail(
-          res,
-          badRequest(result.error ?? "Failed to summarize the job"),
-        );
-      }
-
-      const job = await requireJob(req.params.id);
-      ok(res, await hydrateJobPdfFreshness(job));
-    } catch (error) {
-      fail(res, toJobsRouteError(error));
-    }
-  },
-);
-
-jobsDocumentsRouter.post(
   "/:id/generate-pdf",
   async (req: Request, res: Response) => {
     try {
@@ -475,6 +397,12 @@ jobsDocumentsRouter.post(
         });
       }
 
+      // Preparation owns the render; a second render would race its finalize.
+      if ((await requireJob(req.params.id)).status === "processing")
+        return fail(
+          res,
+          conflict("This job's resume is still being prepared."),
+        );
       const result = await generateFinalPdf(req.params.id, {
         requestOrigin: resolveRequestOrigin(req),
         analyticsOrigin: "generate_pdf",

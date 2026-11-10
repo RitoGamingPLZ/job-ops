@@ -73,9 +73,6 @@ function describeAction(endpoint: string, method?: string): string {
   if (verb === "POST" && normalized.endsWith("/process")) {
     return "Job processing used demo simulation.";
   }
-  if (verb === "POST" && normalized.endsWith("/summarize")) {
-    return "Summary generation used demo simulation.";
-  }
   if (verb === "POST" && normalized.endsWith("/generate-pdf")) {
     return "PDF generation used demo simulation.";
   }

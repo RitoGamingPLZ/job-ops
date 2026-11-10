@@ -1,4 +1,5 @@
 import type { ReactiveResumeV5Document } from "./design-resume";
+import type { JobStatus } from "./jobs";
 
 export type ExperienceBulletSource = "resume" | "manual" | "ai_extract";
 export interface ExperienceBullet {
@@ -42,6 +43,8 @@ export interface ResumeListItem {
   stage: string | null;
   updatedAt: string;
   hasPdf: boolean;
+  status: JobStatus;
+  readyAt: string | null;
 }
 export type ResumeSuggestionOp =
   | "replace_bullet"

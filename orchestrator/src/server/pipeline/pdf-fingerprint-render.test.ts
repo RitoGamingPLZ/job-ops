@@ -205,6 +205,27 @@ describe("PDF render freshness snapshot", () => {
       status: "discovered",
     });
   });
+  it("restores a claimed job when a read before rendering throws", async () => {
+    vi.clearAllMocks();
+    const job = createJob({ id: "claimed", status: "processing" });
+    vi.mocked(jobsRepo.getJobById).mockResolvedValue(job);
+    vi.mocked(getJobResume).mockRejectedValueOnce(new Error("db busy"));
+    expect(await processJob(job.id)).toMatchObject({ success: false });
+    expect(jobsRepo.updateJob).toHaveBeenCalledExactlyOnceWith(job.id, {
+      status: "discovered",
+    });
+  });
+  it("restores a claimed job when the job itself cannot be read", async () => {
+    vi.clearAllMocks();
+    const job = createJob({ id: "claimed", status: "processing" });
+    vi.mocked(jobsRepo.getJobById)
+      .mockRejectedValueOnce(new Error("db busy"))
+      .mockResolvedValue(job);
+    expect(await processJob(job.id)).toMatchObject({ success: false });
+    expect(jobsRepo.updateJob).toHaveBeenCalledExactlyOnceWith(job.id, {
+      status: "discovered",
+    });
+  });
   it("keeps a ready job in ready while its stale PDF re-renders", async () => {
     vi.clearAllMocks();
     const job = createJob({

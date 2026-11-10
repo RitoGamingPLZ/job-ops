@@ -79,12 +79,16 @@ export function ResumesPage() {
               {items.map((item) => (
                 <tr key={item.jobId} className="border-b">
                   <td className="p-3">
-                    <Link
-                      className="underline underline-offset-4"
-                      to={`/resumes/${item.jobId}`}
-                    >
-                      {item.title}
-                    </Link>
+                    {getResumeState(item) === "available" ? (
+                      <Link
+                        className="underline underline-offset-4"
+                        to={`/resumes/${item.jobId}`}
+                      >
+                        {item.title}
+                      </Link>
+                    ) : (
+                      item.title
+                    )}
                   </td>
                   <td className="p-3">{item.employer}</td>
                   <td className="p-3">{item.stage ?? "—"}</td>

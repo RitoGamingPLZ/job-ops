@@ -96,6 +96,8 @@ export async function listResumes(): Promise<ResumeListItem[]> {
       >`(select to_stage from stage_events where application_id = ${jobs.id} and tenant_id = ${jobs.tenantId} and user_id is ${jobs.userId} order by occurred_at desc, id desc limit 1)`,
       updatedAt: updated,
       pdfPath: jobs.pdfPath,
+      status: jobs.status,
+      readyAt: jobs.readyAt,
     })
     .from(jobs)
     .leftJoin(

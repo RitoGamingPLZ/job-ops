@@ -124,4 +124,49 @@ describe("ensureJobResume", () => {
     expect(saveJobResume).toHaveBeenCalledOnce();
     expect(summarizeJob).toHaveBeenCalledOnce();
   });
+  it("tailors a targeted job even for a plain caller", async () => {
+    vi.mocked(getJobById).mockResolvedValueOnce(
+      createJob({ id: "job", status: "discovered", readyAt: "2026-01-01" }),
+    );
+    await ensureJobResume("job");
+    expect(summarizeJob).toHaveBeenCalledWith("job");
+  });
+  it("gives a joiner the failed tailoring instead of saving a plain row", async () => {
+    vi.mocked(getJobById).mockResolvedValue(createJob({ id: "job" }));
+    let failTailoring!: () => void;
+    vi.mocked(summarizeJob).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          failTailoring = () => resolve({ success: false, error: "LLM down" });
+        }),
+    );
+    const target = ensureJobResume("job", { tailor: true });
+    await vi.waitFor(() => expect(summarizeJob).toHaveBeenCalledOnce());
+    const editorOpen = ensureJobResume("job");
+    failTailoring();
+    await expect(target).rejects.toThrow("LLM down");
+    await expect(editorOpen).rejects.toThrow("LLM down");
+    expect(saveJobResume).not.toHaveBeenCalled();
+  });
+  it("tailors in place a plain row a tailoring caller waited for", async () => {
+    vi.mocked(getJobById).mockResolvedValue(
+      createJob({ id: "job", status: "discovered", readyAt: null }),
+    );
+    let finishBase!: () => void;
+    vi.mocked(loadBaseResumeSource).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishBase = () => resolve({ data: document, mode: "v5" });
+        }),
+    );
+    const editorOpen = ensureJobResume("job");
+    await vi.waitFor(() => expect(loadBaseResumeSource).toHaveBeenCalled());
+    const target = ensureJobResume("job", { tailor: true });
+    finishBase();
+    await Promise.all([editorOpen, target]);
+    expect(summarizeJob).toHaveBeenCalledOnce();
+    expect(vi.mocked(saveJobResume).mock.calls.map((c) => c[1])).toEqual([
+      0, 1,
+    ]);
+  });
 });

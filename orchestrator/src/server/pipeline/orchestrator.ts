@@ -19,6 +19,7 @@ import { createLocationIntentFromLegacyInputs } from "@shared/location-domain.js
 import { resolveResumeProjectSelection } from "@shared/resume-projects";
 import type {
   CreateJobInput,
+  Job,
   JobStatus,
   PipelineConfig,
   PipelineRunSavedDetails,
@@ -1108,33 +1109,37 @@ export async function processJob(
   error?: string;
 }> {
   return runWithRequestContext({ jobId }, async () => {
-    const job = await jobsRepo.getJobById(jobId);
-    if (!job) return { success: false, error: "Job not found" };
-    await jobsRepo.setJobTargeted(jobId, true);
-    // "processing" here means the target route already claimed it, or a run died mid-flight.
-    const previousStatus =
-      job.status === "processing" ? "discovered" : job.status;
-    const restore = () =>
-      job.status === "ready"
-        ? Promise.resolve(null)
-        : jobsRepo.updateJob(jobId, { status: previousStatus });
-    // Resume + usable PDF already exist: a targeted job belongs in Ready.
-    const markReady = () =>
-      job.status === "ready"
-        ? Promise.resolve(null)
-        : jobsRepo.updateJob(jobId, { status: "ready" });
-    const resume = await getJobResume(jobId);
-    if (
-      resume &&
-      job.pdfPath &&
-      (job.pdfSource === "uploaded" ||
-        createJobPdfFingerprint(job, await resolvePdfFingerprintContext()) ===
-          job.pdfFingerprint)
-    ) {
-      await markReady();
-      return { success: true };
-    }
+    let job: Job | null = null;
+    const restore = async () => {
+      // A throw before the first read leaves the job unknown; read it again.
+      const before = job ?? (await jobsRepo.getJobById(jobId));
+      if (!before || before.status === "ready") return null;
+      // "processing" means the target route already claimed it, or a run died mid-flight.
+      return jobsRepo.updateJob(jobId, {
+        status: before.status === "processing" ? "discovered" : before.status,
+      });
+    };
     try {
+      job = await jobsRepo.getJobById(jobId);
+      if (!job) return { success: false, error: "Job not found" };
+      await jobsRepo.setJobTargeted(jobId, true);
+      const status = job.status;
+      // Resume + usable PDF already exist: a targeted job belongs in Ready.
+      const markReady = () =>
+        status === "ready"
+          ? Promise.resolve(null)
+          : jobsRepo.updateJob(jobId, { status: "ready" });
+      const resume = await getJobResume(jobId);
+      if (
+        resume &&
+        job.pdfPath &&
+        (job.pdfSource === "uploaded" ||
+          createJobPdfFingerprint(job, await resolvePdfFingerprintContext()) ===
+            job.pdfFingerprint)
+      ) {
+        await markReady();
+        return { success: true };
+      }
       // A ready job stays in Ready while its PDF re-renders.
       if (job.status !== "ready")
         await jobsRepo.updateJob(jobId, { status: "processing" });

@@ -182,7 +182,6 @@ curl -X PATCH "http://localhost:3001/api/jobs/<jobId>" \
 ```
 
 ```bash
-curl -X POST "http://localhost:3001/api/jobs/<jobId>/summarize?force=true"
 curl -X POST "http://localhost:3001/api/jobs/<jobId>/generate-pdf"
 ```
 

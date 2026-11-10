@@ -837,6 +837,22 @@ export async function deleteJobsByStatus(status: JobStatus): Promise<number> {
   return result.changes;
 }
 
+/** Boot only, all tenants: no run survives a restart, so release jobs a dead run left claimed. */
+export async function resetInterruptedJobs(): Promise<number> {
+  const now = new Date().toISOString();
+  const released = await db
+    .update(jobs)
+    .set({ status: "discovered", updatedAt: now })
+    .where(eq(jobs.status, "processing"))
+    .run();
+  await db
+    .update(jobs)
+    .set({ pdfRegenerating: false, updatedAt: now })
+    .where(eq(jobs.pdfRegenerating, true))
+    .run();
+  return released.changes;
+}
+
 /** Set targeting without changing pipeline status; guard the write atomically. */
 export async function setJobTargeted(
   id: string,

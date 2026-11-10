@@ -50,6 +50,8 @@ it("opens a ready PDF from its link", async () => {
         employer: "Example",
         updatedAt: "2026-01-01",
         hasPdf: true,
+        status: "ready",
+        readyAt: "2026-01-01",
       },
     ],
   });
@@ -80,6 +82,8 @@ it.each([
         employer: "Example",
         updatedAt: "2026-01-01",
         hasPdf: pdfFreshness !== "missing",
+        status: "ready",
+        readyAt: "2026-01-01",
       },
     ],
   });
@@ -109,6 +113,8 @@ it("refuses to preview a resume that is still being prepared", async () => {
         employer: "Example",
         updatedAt: "2026-01-01",
         hasPdf: false,
+        status: "processing",
+        readyAt: "2026-01-01",
       },
     ],
   });
@@ -121,4 +127,26 @@ it("refuses to preview a resume that is still being prepared", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Preview PDF" }));
   await waitFor(() => expect(mocks.error).toHaveBeenCalled());
   expect(mocks.generate).not.toHaveBeenCalled();
+});
+
+it.each([
+  "processing",
+  "discovered",
+])("does not link a %s resume to the editor", async (status) => {
+  mocks.list.mockResolvedValue({
+    resumes: [
+      {
+        jobId: "job",
+        title: "Engineer",
+        employer: "Example",
+        updatedAt: "2026-01-01",
+        hasPdf: false,
+        status,
+        readyAt: "2026-01-01",
+      },
+    ],
+  });
+  mount();
+  expect(await screen.findByText("Engineer")).toBeVisible();
+  expect(screen.queryByRole("link", { name: "Engineer" })).toBeNull();
 });
