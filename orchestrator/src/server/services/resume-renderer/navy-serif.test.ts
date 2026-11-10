@@ -351,7 +351,7 @@ describe("Navy Serif", () => {
   });
 
   it.skipIf(!available)(
-    "renders intro, links, section ordering, and two-column certificates offline",
+    "renders intro, links, section ordering, and ATS-readable lines offline",
     async () => {
       const dir = await mkdtemp(join(tmpdir(), "navy-serif-test-"));
       try {
@@ -389,7 +389,8 @@ describe("Navy Serif", () => {
         for (const text of [
           "MORGAN EXAMPLE",
           "Email:",
-          "Github",
+          "example.com/code",
+          "Backend: Java, Node.js",
           "Platform Engineer",
           "Example Systems - Remote",
           "Built reliable systems & APIs.",
@@ -416,8 +417,9 @@ describe("Navy Serif", () => {
         );
         expect(a).toBeDefined();
         expect(b).toBeDefined();
-        expect(a?.transform[5]).toBeCloseTo(b?.transform[5] ?? 0, 0);
-        expect(b?.transform[4]).toBeGreaterThan((a?.transform[4] ?? 0) + 100);
+        // One certificate per line, so ATS parsers don't merge them.
+        expect(b?.transform[5]).toBeLessThan((a?.transform[5] ?? 0) - 5);
+        expect(b?.transform[4]).toBeCloseTo(a?.transform[4] ?? 0, 0);
         expect(result.text).toContain("Example Certificate A - 2025");
         expect(result.text).toContain("BSc in Computing");
         const sidebarDoc = normalizeResumeJsonToLatexDocument(sidebarSample);
@@ -427,11 +429,12 @@ describe("Navy Serif", () => {
           sidebarWidth: 30,
         });
         const sidebar = await render(sidebarDoc, "sidebar");
-        const skill = sidebar.items.find((i) => i.str === "Platform");
+        const skill = sidebar.items.find((i) => i.str.startsWith("Platform"));
         const tools = sidebar.items.find((i) => i.str.includes("TypeScript"));
         const summary = sidebar.items.find((i) => i.str === "Summary");
         expect(skill?.transform[4]).toBeCloseTo((12 * 72) / 25.4, 0);
-        expect(tools?.transform[5]).toBeLessThan(skill?.transform[5] ?? 0);
+        // "Platform: TypeScript, …" starts on one line.
+        expect(tools?.transform[5]).toBeCloseTo(skill?.transform[5] ?? 0, 0);
         expect(summary?.transform[4]).toBeGreaterThan(
           (skill?.transform[4] ?? 0) + 150,
         );

@@ -4,12 +4,17 @@ import {
   joinDescription,
   splitDescription,
 } from "@shared/resume-bullets";
+import {
+  NAVY_SERIF_CSS_VARS,
+  NAVY_SERIF_STYLE,
+} from "@shared/resume-style/navy-serif";
 import type {
   ReactiveResumeV5Document,
   ResumeFocusRef,
   ResumeSuggestion,
 } from "@shared/types";
 import {
+  type CSSProperties,
   Fragment,
   useEffect,
   useLayoutEffect,
@@ -21,7 +26,7 @@ import "./ResumeEditor.css";
 import { RichTextEditor } from "@/client/components/design-resume/RichTextEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BulletText } from "./BulletText";
+import { BulletText, fitTextarea } from "./BulletText";
 import { CommaListInput } from "./CommaListInput";
 import {
   applySuggestions,
@@ -46,7 +51,7 @@ import {
 const MM = 96 / 25.4;
 const SHEET = 297 * MM;
 const SHEET_GAP = 16;
-const MARGIN_Y = 12 * MM;
+const MARGIN_Y = NAVY_SERIF_STYLE.margin.y * MM;
 /** Blocks that must not straddle a page break, in document order. */
 const PAGE_BLOCKS = [
   ".resume-paper h2",
@@ -118,6 +123,23 @@ function showArea(degree: unknown, area: unknown) {
 
 function safeUrl(url: string | undefined) {
   return url && /^https?:\/\//i.test(url) ? url : undefined;
+}
+
+/** Profile URLs are shown as text (as in the PDF) so ATS parsers can read them. */
+function bareUrl(url: string) {
+  return url.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, "");
+}
+
+/** Indent the keywords' first line past the "Label:" that sits over it. */
+function fitSkillRow(row: HTMLDivElement | null) {
+  const label = row?.querySelector(".resume-skill-label");
+  const keywords = row?.querySelector("textarea");
+  if (!row || !label || !keywords) return;
+  row.style.setProperty(
+    "--skill-label-w",
+    `${label.getBoundingClientRect().width}px`,
+  );
+  fitTextarea(keywords);
 }
 
 type Props = {
@@ -752,7 +774,11 @@ export function ResumeEditor({
         {document.sections.skills.items.map(
           (skill, index) =>
             !skill.hidden && (
-              <div key={skill.id} className="resume-row resume-skill">
+              <div
+                key={skill.id}
+                className="resume-row resume-skill"
+                ref={(row) => fitSkillRow(row)}
+              >
                 {reorderZone("skills", index)}
                 <div className="resume-margin resume-skill-controls">
                   {dragHandle(
@@ -803,16 +829,23 @@ export function ResumeEditor({
                     ↓
                   </Button>
                 </div>
-                <Input
-                  aria-label={`Skill ${index + 1} name`}
-                  className="resume-skill-name"
-                  value={skill.name}
-                  onChange={(e) =>
-                    change((next) => {
-                      next.sections.skills.items[index].name = e.target.value;
-                    })
-                  }
-                />
+                <span className="resume-skill-label">
+                  <span className="resume-skill-name-box">
+                    <span aria-hidden="true">{skill.name}</span>
+                    <Input
+                      aria-label={`Skill ${index + 1} name`}
+                      className="resume-skill-name"
+                      value={skill.name}
+                      onChange={(e) =>
+                        change((next) => {
+                          next.sections.skills.items[index].name =
+                            e.target.value;
+                        })
+                      }
+                    />
+                  </span>
+                  :
+                </span>
                 <CommaListInput
                   multiline
                   className="resume-skill-keywords"
@@ -1381,6 +1414,7 @@ export function ResumeEditor({
           onFocus={repaginate}
           onBlur={repaginate}
           style={{
+            ...(NAVY_SERIF_CSS_VARS as CSSProperties),
             transform: `scale(${scale})`,
             minHeight: `${sheets * (SHEET + SHEET_GAP) - SHEET_GAP}px`,
           }}
@@ -1448,9 +1482,7 @@ export function ResumeEditor({
                   .map((profile) => (
                     <span key={profile.id}>
                       <a href={safeUrl(profile.website.url)}>
-                        {profile.network ||
-                          profile.website.label ||
-                          profile.username}
+                        {bareUrl(profile.website.url)}
                       </a>
                     </span>
                   ))}

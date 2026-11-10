@@ -1,6 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 
+/** Grow a textarea to its text: a whole number of lines, so stacked fields stay
+ * on the same line grid as the PDF (scrollHeight is rounded to whole pixels). */
+export function fitTextarea(element: HTMLTextAreaElement) {
+  element.style.height = "auto";
+  const style = getComputedStyle(element);
+  const padding =
+    Number.parseFloat(style.paddingTop) +
+    Number.parseFloat(style.paddingBottom);
+  const lineHeight = Number.parseFloat(style.lineHeight);
+  let content = element.scrollHeight - (padding || 0);
+  if (lineHeight > 0) content = Math.round(content / lineHeight) * lineHeight;
+  // scrollHeight includes padding, but border-box height needs borders too.
+  const borders = element.offsetHeight - element.clientHeight;
+  element.style.height = `${content + (padding || 0) + borders}px`;
+}
+
 /** Keep typing whitespace locally while the HTML parser normalizes saved bullets. */
 export function BulletText({
   value,
@@ -24,12 +40,7 @@ export function BulletText({
       rows={1}
       style={{ height: "auto", overflow: "hidden" }}
       ref={(element) => {
-        if (element) {
-          element.style.height = "auto";
-          // scrollHeight includes padding, but border-box height needs borders too.
-          const borders = element.offsetHeight - element.clientHeight;
-          element.style.height = `${element.scrollHeight + borders}px`;
-        }
+        if (element) fitTextarea(element);
       }}
       aria-label={label}
       value={draft}

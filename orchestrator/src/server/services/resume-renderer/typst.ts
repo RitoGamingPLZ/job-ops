@@ -6,6 +6,7 @@ import { join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
+import { NAVY_SERIF_STYLE } from "@shared/resume-style/navy-serif";
 import {
   type PdfPaperSize,
   TYPST_THEME_VALUES,
@@ -561,11 +562,34 @@ function replaceSharedTypstPlaceholders(
     .replaceAll("__PAGE_PAPER__", JSON.stringify(TYPST_PAPER_NAMES[paperSize]));
 }
 
+// Navy Serif reads its typography from the same tokens as the co-work editor.
+const NAVY_STYLE_TYPST = (() => {
+  const s = NAVY_SERIF_STYLE;
+  return `(${[
+    `font: (${s.fontFamily.map((f) => JSON.stringify(f)).join(", ")})`,
+    `lineHeight: ${s.lineHeight}`,
+    ...Object.entries(s.color).map(([k, v]) => `${k}: rgb("${v}")`),
+    ...Object.entries({ ...s.size, ...s.space }).map(
+      ([k, v]) => `${k}: ${v}pt`,
+    ),
+    `strongWeight: ${s.strongWeight}`,
+    `entryWeight: ${s.entryWeight}`,
+    `entryStyle: "${s.entryStyle}"`,
+    `markerIndent: ${s.indent.marker}mm`,
+    `textIndent: ${s.indent.text}mm`,
+    `marginX: ${s.margin.x}mm`,
+    `marginY: ${s.margin.y}mm`,
+  ].join(", ")})`;
+})();
+
 function buildAdaptedTypstDocument(
   template: string,
   paperSize: PdfPaperSize,
 ): string {
-  return replaceSharedTypstPlaceholders(template, paperSize);
+  return replaceSharedTypstPlaceholders(template, paperSize).replaceAll(
+    "__NAVY_STYLE__",
+    NAVY_STYLE_TYPST,
+  );
 }
 
 export function buildTypstDocument(

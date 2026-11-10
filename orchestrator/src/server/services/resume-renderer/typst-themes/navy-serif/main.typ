@@ -3,7 +3,9 @@
 #let value(item, key) = item.at(key, default: none)
 #let str-of(item, key) = { let v = value(item, key); if v == none { "" } else { v } }
 #let items(key) = source.at(key, default: ())
-#let navy = rgb("#1f3a6e")
+// Typography tokens shared with the co-work editor (shared/src/resume-style/navy-serif.ts).
+#let st = __NAVY_STYLE__
+#let navy = st.accent
 #let default-order = ("skills", "certifications", "experience", "projects", "education", "awards", "languages", "interests", "publications", "volunteer", "references")
 #let order = if source.at("defaultSectionOrder", default: false) or value(source, "sectionOrder") == none { default-order } else { source.sectionOrder }
 #let titles = source.at("sectionTitles", default: (:))
@@ -13,22 +15,29 @@
   else if key == "skills" and t == "Technical Skills" { "Skills" }
   else { t }
 }
-#set page(paper: __PAGE_PAPER__, margin: (x: 12mm, y: 12mm))
-#set text(font: ("Times New Roman", "Liberation Serif", "TeX Gyre Termes", "Libertinus Serif"), size: 10.5pt, lang: "en", top-edge: "ascender", bottom-edge: "descender")
-// Leading is added to the font's ascender/descender height, not the font size.
-#let body-leading = 0.3em
-#set par(leading: body-leading, spacing: 3pt)
-// List spacing replaces leading: retain it, then add the gap between items.
-#set list(marker: [●], indent: 2mm, body-indent: 5.5mm, tight: false, spacing: body-leading + 1.5pt)
-#show link: it => text(fill: rgb("#1155cc"), underline(it))
+// Title and author metadata help ATS and PDF indexers identify the file.
+#set document(title: source.name + " - Resume", author: source.name)
+#set page(paper: __PAGE_PAPER__, margin: (x: st.marginX, y: st.marginY))
+// CSS-style line boxes: each line is lineHeight x size tall with the glyphs placed
+// as a browser does (half-leading around the Times ascent 0.891 / descent 0.216),
+// so every spacing token means the same gap here and in the editor.
+#set text(font: st.font, size: st.body, fill: st.text, lang: "en", top-edge: (st.lineHeight + 0.675) / 2 * 1em, bottom-edge: -(st.lineHeight - 0.675) / 2 * 1em)
+#set par(leading: 0pt, spacing: 0pt)
+#set block(spacing: 0pt)
+// The marker sits markerIndent from the text edge and the text starts at textIndent.
+#set list(marker: box(width: st.textIndent - st.markerIndent, text(size: st.marker)[●]), indent: st.markerIndent, body-indent: 0pt, tight: false, spacing: st.bulletGap)
+#show link: it => text(fill: st.link, underline(it))
 #let linked(label, url) = if url == "" { label } else { link(url, label) }
-#let accent(body) = text(fill: navy, weight: "bold", style: "italic", size: 11pt, body)
+// Profile URLs are printed as text, since many ATS ignore link targets.
+#let bare-url(url) = url.replace(regex("^https?://(www\\.)?"), "").trim("/", at: end)
+#let accent(body, size: st.entry) = text(fill: navy, weight: st.entryWeight, style: st.entryStyle, size: size, body)
 #let section(key, fallback, body) = if body != [] {
-  block(above: 10pt, below: 0pt, sticky: true)[
-    #text(fill: navy, weight: "bold", size: 14pt)[#strong[#title(key, fallback)]]
-    #v(3pt)
-    #line(length: 100%, stroke: (paint: navy, thickness: 1.2pt))
-    #v(4pt)
+  block(above: st.sectionAbove, below: 0pt, sticky: true)[
+    #text(fill: navy, weight: st.strongWeight, size: st.section, title(key, fallback))
+    // A line has no height; its stroke is centred on it.
+    #v(st.headingToRule + st.rule / 2)
+    #line(length: 100%, stroke: (paint: navy, thickness: st.rule))
+    #v(st.ruleToBody + st.rule / 2)
   ]
   body
 }
@@ -40,45 +49,46 @@
 }
 #let row(left, right) = grid(columns: (1fr, auto), column-gutter: 1em, left, right)
 #align(center)[
-  #text(fill: navy, weight: "bold", size: 20pt, upper(source.name))
-  #v(2pt)
-  #text(size: 10pt)[
+  #text(fill: navy, weight: st.strongWeight, size: st.name, upper(source.name))
+  #v(st.nameToContact)
+  #text(size: st.contact)[
     #let contacts = source.contactItems.map(c => {
       let prefix = if str-of(c, "kind") == "phone" { "Tel: " } else if str-of(c, "kind") == "email" { "Email: " } else { "" }
       [#prefix#linked(c.text, str-of(c, "url"))]
     })
     #if str-of(source, "location") != "" { contacts.push(source.location) }
-    #for p in source.profileItems { contacts.push(linked(p.network, str-of(p, "url"))) }
+    #for p in source.profileItems { let url = str-of(p, "url"); contacts.push(linked(if url == "" { p.network } else { bare-url(url) }, url)) }
     #contacts.join([ | ])
   ]
-  #if str-of(source, "headline") != "" { [\ #text(size: 10pt, source.headline)] }
+  #if str-of(source, "headline") != "" { [\ #text(size: st.headline, source.headline)] }
 ]
 #let render-sections(keys, sidebar: false) = for key in keys {
   if key == "summary" and str-of(source, "summary") != "" {
     section("summary", "Summary", markup(source.summary))
   } else if key == "skills" and items("skillGroups").len() > 0 {
     section(key, "Skills", [#for g in items("skillGroups") {
-      block(above: 0pt, below: 4pt)[
-        #text(fill: navy, weight: "bold", g.name) #linebreak()
-        #g.keywords.join(", ")
+      block(above: 0pt, below: st.skillGap)[
+        #if g.name != "" [#text(fill: navy, weight: st.strongWeight, g.name + ":") ]#g.keywords.join(", ")
       ]
     }])
   } else if key == "certifications" and items(key).len() > 0 {
-    section(key, "Certifications", grid(columns: if sidebar { (1fr,) } else { (1fr, 1fr) }, column-gutter: 12pt, row-gutter: 5pt, ..items(key).map(c => list([#linked(c.title, str-of(c, "url"))#if str-of(c, "date") != "" { [#(" - " + c.date)] }]))))
+    // One column: side-by-side cells are read as one merged line by ATS parsers.
+    section(key, "Certifications", list(spacing: st.lineItemGap, ..items(key).map(c => [#linked(c.title, str-of(c, "url"))#if str-of(c, "date") != "" { [#(" - " + c.date)] }])))
   } else if key in ("experience", "education", "projects", "volunteer", "publications", "references") and items(key).len() > 0 {
     section(key, upper(key.slice(0, 1)) + key.slice(1), [
       #for entry in items(key) {
-        block(above: 0pt, below: 9pt)[
-          #block(sticky: true, below: 2pt)[
+        block(above: 0pt, below: st.itemGap)[
+          #block(sticky: true, below: st.entryToBody)[
             #if key == "experience" {
               let position = str-of(entry, "position")
-              accent(if position != "" { position } else { str-of(entry, "subtitle") })
+              accent(if position != "" { position } else { str-of(entry, "subtitle") }, size: st.position)
               linebreak()
               let location = str-of(entry, "location")
               row(accent(entry.title + if location != "" { " - " + location } else { "" }), accent(str-of(entry, "date")))
             } else {
-              let label = if key == "projects" { underline(linked(entry.title, str-of(entry, "url"))) } else { entry.title }
-              row(accent(label), accent(str-of(entry, "date")))
+              // The project name stays navy when linked: its own fill overrides the link colour.
+              let label = if key == "projects" { let url = str-of(entry, "url"); if url == "" { underline(accent(entry.title)) } else { link(url, accent(entry.title)) } } else { accent(entry.title) }
+              row(label, accent(str-of(entry, "date")))
               if key == "education" {
                 let degree = str-of(entry, "degree")
                 let area = str-of(entry, "area")
@@ -89,7 +99,7 @@
             }
           ]
           #let intro = str-of(entry, "intro")
-          #if key == "experience" and intro != "" { [#markup(intro) #parbreak()] }
+          #if key == "experience" and intro != "" { block(below: st.bulletGap, markup(intro)) }
           #if key == "experience" { bullets(entry) } else {
             let b = entry.at("bullets", default: ())
             if b.len() > 0 { list(..b.map(markup)) }
@@ -99,7 +109,7 @@
     ])
   } else if key == "awards" and items(key).len() > 0 {
     section(key, "Awards", [#for a in items(key) {
-      block(above: 0pt, below: 2pt)[#strong(a.title + if a.bullets.len() > 0 { ":" } else { "" })#if a.bullets.len() > 0 { [ #a.bullets.map(markup).join(" ")] }]
+      block(above: 0pt, below: st.lineItemGap)[#text(weight: st.strongWeight, a.title + if a.bullets.len() > 0 { ":" } else { "" })#if a.bullets.len() > 0 { [ #a.bullets.map(markup).join(" ")] }]
     }])
   } else if key == "customFields" and source.customFieldItems.len() > 0 {
     section(key, "Custom Fields", list(..source.customFieldItems.map(i => linked(i.text, str-of(i, "url")))))
@@ -117,7 +127,7 @@
   let width = calc.clamp(layout.sidebarWidth, 25, 35)
   v(8pt)
   grid(columns: (width * 1fr, (100 - width) * 1fr), column-gutter: 6mm,
-    [#set list(indent: 0pt, body-indent: 8pt)
+    [#set list(indent: 0pt)
      #render-sections(layout.sidebar, sidebar: true)],
     [#render-sections(main)],
   )

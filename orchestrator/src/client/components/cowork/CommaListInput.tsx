@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { fitTextarea } from "./BulletText";
 
 export function CommaListInput({
   value,
@@ -45,11 +46,7 @@ export function CommaListInput({
         className={props.className}
         style={{ height: "auto", overflow: "hidden" }}
         ref={(element) => {
-          if (element) {
-            element.style.height = "auto";
-            const borders = element.offsetHeight - element.clientHeight;
-            element.style.height = `${element.scrollHeight + borders}px`;
-          }
+          if (element) fitTextarea(element);
         }}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}

@@ -44,7 +44,7 @@
   min-width: 0;
   min-height: 0;
   height: auto;
-  border: 1px solid transparent;
+  border: 0;
   background: transparent;
   box-shadow: none;
   font: inherit;
@@ -54,21 +54,16 @@
 }
 .resume-paper input:not([type="checkbox"]):hover,
 .resume-paper textarea:hover {
-  border-color: #d7dce1;
+  outline: 1px solid #d7dce1;
 }
 .resume-paper input:not([type="checkbox"]):focus,
 .resume-paper textarea:focus {
-  border-color: #a3bdd6;
-  outline: 1px solid #dce8f3;
+  outline: 1px solid #a3bdd6;
   box-shadow: none;
 }
 .resume-paper input::placeholder,
 .resume-paper textarea::placeholder {
   color: #777;
-}
-.resume-paper input.resume-name {
-  font-weight: 700;
-  line-height: 1.15;
 }
 .resume-paper .resume-richtext {
   border: 0;
@@ -97,17 +92,17 @@
 .resume-paper .resume-richtext .tiptap {
   min-height: 35px;
   padding: 1px 2px;
-  border: 1px solid transparent;
+  border: 0;
   border-radius: 2px;
   background: #fff;
   color: #202124;
   font: inherit;
 }
 .resume-paper .resume-richtext:hover .tiptap {
-  border-color: #d7dce1;
+  outline: 1px solid #d7dce1;
 }
 .resume-paper .resume-richtext .tiptap:focus {
-  border-color: #a3bdd6;
+  outline: 1px solid #a3bdd6;
 }
 .resume-paper .resume-richtext .tiptap p {
   margin: 0 0 4px;
@@ -175,20 +170,27 @@
   opacity: 1;
   pointer-events: auto;
 }
+/* Drop zones take no layout space (so they never add to the resume's gaps);
+   the hit area and indicator straddle the boundary they sit on. */
 .resume-gap {
   padding: 0;
   min-width: 0;
-  border-left: 0;
-  border-right: 0;
-  border-bottom: 0;
-  height: 8px;
-  margin-top: -4px;
-  margin-bottom: -4px;
+  border: 0;
+  height: 0;
+  margin: 0;
   position: relative;
   z-index: 2;
+}
+.resume-gap::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  height: 8px;
   border-top: 2px solid transparent;
 }
-.resume-gap[data-active="true"] {
+.resume-gap[data-active="true"]::before {
   border-color: #3977af;
   background: #dbeafa;
 }
@@ -246,9 +248,6 @@
   left: 0;
   right: 0;
   top: 0;
-}
-.resume-paper .resume-skill > input {
-  flex: 1;
 }
 .resume-skill-delete {
   position: absolute;
@@ -320,19 +319,17 @@
   color: #737b84;
 }
 
-/* The document uses the same navy serif hierarchy as the exported resume. */
+/* Typography comes from shared/src/resume-style/navy-serif.ts (the --rs-*
+   properties on .resume-paper), the same tokens the Navy Serif PDF uses. Gaps
+   are margin-top only, so they never stack with the zero-height drop zones. */
 .resume-paper {
-  padding: 12mm;
-  color: #000;
-  font:
-    10.5pt / 1.2 "Times New Roman",
-    "Liberation Serif",
-    Tinos,
-    serif;
+  padding: var(--rs-margin-y) var(--rs-margin-x);
+  color: var(--rs-color-text);
+  font: var(--rs-body) / var(--rs-line-height) var(--rs-font);
 }
 .resume-section-slot > .resume-section {
   position: relative;
-  margin-top: 10pt;
+  margin-top: var(--rs-section-above);
 }
 .resume-section-slot
   > .resume-section:not(:has(h2)):not(:has(.resume-suggestion)) {
@@ -340,20 +337,24 @@
   min-height: 0;
 }
 .resume-paper h2 {
-  margin: 0 0 4pt;
-  padding-bottom: 2pt;
-  border-bottom: 1.2pt solid #1f3a6e;
-  color: #1f3a6e;
+  margin: 0 0 var(--rs-rule-to-body);
+  /* A background rule keeps its exact thickness; borders snap to whole pixels. */
+  padding-bottom: calc(var(--rs-heading-to-rule) + var(--rs-rule));
+  background:
+    linear-gradient(var(--rs-color-accent), var(--rs-color-accent)) bottom /
+    100% var(--rs-rule) no-repeat;
+  color: var(--rs-color-accent);
   font:
-    bold 15pt / 1.2 "Times New Roman",
-    "Liberation Serif",
-    Tinos,
-    serif;
+    var(--rs-strong-weight) var(--rs-section) / var(--rs-line-height)
+    var(--rs-font);
+}
+.resume-paper textarea {
+  display: block;
 }
 .resume-paper input:not([type="checkbox"]),
 .resume-paper textarea,
 .resume-paper .resume-richtext .tiptap {
-  color: #000;
+  color: var(--rs-color-text);
   padding: 0;
   border-radius: 0;
 }
@@ -361,44 +362,50 @@
   text-align: center;
 }
 .resume-paper input.resume-name {
-  color: #1f3a6e;
-  font-size: 20pt;
+  color: var(--rs-color-accent);
+  font-size: var(--rs-name);
+  font-weight: var(--rs-strong-weight);
   text-align: center;
   text-transform: uppercase;
 }
 .resume-paper input.resume-headline {
-  font-size: 10pt;
+  font-size: var(--rs-headline);
   text-align: center;
 }
 .resume-contact {
-  margin: 2pt 0;
-  font-size: 10pt;
-  color: #000;
+  margin-top: var(--rs-name-to-contact);
+  font-size: var(--rs-contact);
 }
 .resume-contact > span + span::before {
   content: " | ";
   white-space: pre;
 }
 .resume-paper a {
-  color: #1155cc;
+  color: var(--rs-color-link);
   text-decoration: underline;
 }
 .resume-experience,
 .resume-project {
   display: block;
-  margin-top: 10pt;
   font-size: inherit;
+}
+.resume-experience ~ .resume-experience,
+.resume-project ~ .resume-project,
+.resume-education .resume-simple-item ~ .resume-simple-item {
+  margin-top: var(--rs-item-gap);
 }
 .resume-position,
 .resume-experience-heading,
 .resume-paper input.resume-field-school,
 .resume-paper input.resume-field-period {
-  color: #1f3a6e;
-  font-weight: bold;
-  font-style: italic;
+  color: var(--rs-color-accent);
+  font-size: var(--rs-entry);
+  font-weight: var(--rs-entry-weight);
+  font-style: var(--rs-entry-style);
 }
 .resume-position {
-  margin: 0 0 1pt;
+  margin: 0;
+  font-size: var(--rs-position);
 }
 .resume-experience-heading {
   gap: 8pt;
@@ -410,38 +417,84 @@
 .resume-experience-heading h3 {
   margin: 0;
   color: inherit;
+  font-weight: inherit;
 }
 .resume-project h3,
 .resume-paper .resume-project h3 a {
-  color: #1f3a6e;
+  color: var(--rs-color-accent);
   text-decoration: underline;
 }
-/* Tight hanging indent: marker 2mm, text 7.5mm from the text edge. */
+.resume-experience > textarea {
+  margin-top: var(--rs-entry-to-body);
+}
 .resume-bullets {
-  padding-left: 7.5mm;
-  margin: 2pt 0 0;
+  padding-left: var(--rs-text-indent);
+  margin: var(--rs-entry-to-body) 0 0;
   list-style: none;
+}
+.resume-experience > textarea + .resume-bullets {
+  margin-top: var(--rs-bullet-gap);
 }
 .resume-bullets > li {
   position: relative;
   padding: 0;
 }
+/* The wrapper's space-y-1 would add a gap under every bullet's text. */
+.resume-bullets textarea {
+  margin: 0;
+}
+.resume-bullets > li ~ li {
+  margin-top: var(--rs-bullet-gap);
+}
 .resume-bullets > li::before,
 .resume-certifications .resume-simple-item::before {
   position: absolute;
-  left: -5.5mm;
+  top: 0;
+  left: calc(var(--rs-marker-indent) - var(--rs-text-indent));
   content: "●";
-  font-size: 7pt;
-  top: 2pt;
-  color: #000;
+  font-size: var(--rs-marker);
+  color: var(--rs-color-text);
 }
 .resume-skill {
   display: block;
-  margin: 0 0 4pt;
+  margin: 0;
 }
-.resume-paper .resume-skill-name {
-  color: #1f3a6e;
-  font-weight: bold;
+.resume-skill ~ .resume-skill {
+  margin-top: var(--rs-skill-gap);
+}
+/* "Label:" sits over the start of the keywords' first line, as in the PDF's
+   single "Label: a, b, c" line; ResumeEditor sets --skill-label-w. */
+.resume-skill-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: inline-flex;
+  color: var(--rs-color-accent);
+  font-weight: var(--rs-strong-weight);
+  white-space: pre;
+}
+.resume-skill-name-box {
+  display: inline-grid;
+  min-width: 2em;
+}
+.resume-skill-name-box > * {
+  grid-area: 1 / 1;
+}
+.resume-skill-name-box > span {
+  visibility: hidden;
+}
+/* Width 0 so the hidden copy of the text sets the column width. */
+.resume-paper input.resume-skill-name {
+  width: 0;
+  min-width: 100%;
+  padding: 0;
+  color: inherit;
+  font-weight: inherit;
+}
+.resume-paper textarea.resume-skill-keywords {
+  padding: 0;
+  text-indent: calc(var(--skill-label-w, 0px) + 0.25em);
 }
 .resume-margin {
   right: calc(100% + 2px);
@@ -481,9 +534,10 @@
   opacity: 1;
 }
 .resume-append {
-  height: 8px;
+  height: 0;
   min-height: 0;
   margin: 0;
+  border-width: 0;
 }
 .resume-append span {
   position: absolute;
@@ -493,14 +547,18 @@
 }
 .resume-canvas[data-library-drag="true"] .resume-append,
 .resume-append[data-empty="true"] {
+  height: auto;
   min-height: 24px;
+  border-width: 1px;
 }
 .resume-simple-item {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   column-gap: 3pt;
-  margin-bottom: 2pt;
+}
+.resume-awards .resume-simple-item ~ .resume-simple-item {
+  margin-top: var(--rs-line-item-gap);
 }
 .resume-paper .resume-simple-item input {
   flex: 1;
@@ -513,17 +571,16 @@
   flex-basis: 25%;
   text-align: right;
 }
-.resume-certifications .resume-simple-items {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 8mm;
-  padding-left: 7.5mm;
+/* One column: side-by-side items are read as one merged line by ATS parsers. */
+.resume-certifications .resume-simple-item ~ .resume-simple-item {
+  margin-top: var(--rs-line-item-gap);
 }
-.resume-paper .resume-certifications .resume-field-title {
-  flex-basis: 70%;
+.resume-certifications .resume-simple-item {
+  position: relative;
+  padding-left: var(--rs-text-indent);
 }
-.resume-paper .resume-certifications .resume-field-date {
-  flex-basis: 20%;
+.resume-certifications .resume-simple-item::before {
+  left: var(--rs-marker-indent);
 }
 .resume-paper .resume-certifications .resume-field-issuer,
 .resume-paper .resume-certifications .resume-field-website,
@@ -542,10 +599,13 @@
   column-gap: 0;
 }
 .resume-awards .resume-simple-item > span {
-  margin-right: 3pt;
+  margin-right: 0.25em;
+  font-weight: var(--rs-strong-weight);
 }
 /* Size inline fields to their text so the line reads as one phrase. */
 .resume-paper .resume-awards .resume-field-title,
+.resume-paper .resume-certifications .resume-field-title,
+.resume-paper .resume-certifications .resume-field-date,
 .resume-paper .resume-education-degree input {
   flex: 0 1 auto;
   width: auto;
@@ -554,7 +614,7 @@
 }
 .resume-paper .resume-awards .resume-field-title {
   max-width: 50%;
-  font-weight: bold;
+  font-weight: var(--rs-strong-weight);
 }
 .resume-education-degree {
   display: flex;
@@ -576,12 +636,11 @@
 
 .resume-certification-name {
   position: relative;
-  flex: 1 1 65%;
+  flex: 0 1 auto;
   min-width: 0;
 }
 .resume-certification-name > a {
   display: block;
-  padding: 1px;
 }
 .resume-paper .resume-certification-name > input {
   position: absolute;
@@ -610,7 +669,4 @@
 .resume-section-controls {
   top: 10pt;
   z-index: 4;
-}
-.resume-paper .resume-section-gap {
-  height: 8px;
 }
