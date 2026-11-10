@@ -26,6 +26,10 @@ import {
   readBulletTransfer,
   readFocusTransfer,
 } from "@/client/components/cowork/editor";
+import {
+  focusResumePart,
+  JobMatchPanel,
+} from "@/client/components/cowork/JobMatchPanel";
 import { ResumeEditor } from "@/client/components/cowork/ResumeEditor";
 import { GhostwriterPanel } from "@/client/components/ghostwriter/GhostwriterPanel";
 import { openJobPdf } from "@/client/lib/private-pdf";
@@ -57,6 +61,9 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
   const [status, setStatus] = useState("Loading…");
   const [resetOpen, setResetOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [rightTab, setRightTab] = useState<"match" | "duties">("match");
+  const [chatPrompt, setChatPrompt] = useState<string | null>(null);
+  const editorPane = useRef<HTMLElement>(null);
   const latest = useRef<JobResumeState | null>(null);
   const dirty = useRef(false);
   const version = useRef(0);
@@ -213,6 +220,25 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
       toast.message(`At most ${MAX_FOCUS} resume parts can be in focus`);
     setFocus((current) => addFocus(current, ref));
   }
+  function insertDuty(bullet: BulletReference, id: string) {
+    if (busy || !latest.current) return;
+    const next = structuredClone(latest.current.document);
+    const experience = next.sections.experience.items.find((e) => e.id === id);
+    if (experience) {
+      const { introHtml, bullets } = splitDescription(experience.description);
+      experience.description = joinDescription(
+        introHtml,
+        [...bullets, bullet.text],
+        experience.description,
+      );
+      edit(next);
+      toast.success("Duty inserted");
+    }
+  }
+  const getDocument = useCallback(
+    () => latest.current?.document as ReactiveResumeV5Document,
+    [],
+  );
   const receiveSuggestions = useCallback((items: ResumeSuggestion[] | null) => {
     if (items)
       setSuggestions((current) => [
@@ -239,6 +265,9 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     );
   if (!job || !state) return <output className="p-6">Loading resume…</output>;
   const document = state.document;
+  const targets = document.sections.experience.items
+    .filter((e) => !e.hidden)
+    .map((e) => ({ id: e.id, label: `${e.company} · ${e.position}` }));
   return (
     <main className="flex min-h-0 flex-col h-[calc(100dvh-5rem)] p-4 gap-4">
       <header className="flex flex-wrap items-center gap-2">
@@ -344,6 +373,8 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           <h2 className="text-sm font-semibold mb-3">Co-work chat</h2>
           <GhostwriterPanel
             job={job}
+            initialPrompt={chatPrompt}
+            onInitialPromptConsumed={() => setChatPrompt(null)}
             cowork={() => ({
               document: latest.current?.document ?? document,
               referencedBulletIds: references.map((b) => b.id),
@@ -395,6 +426,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           />
         </section>
         <section
+          ref={editorPane}
           id="cowork-panel-editor"
           role="tabpanel"
           aria-labelledby="cowork-tab-editor"
@@ -428,36 +460,58 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           aria-label="Duty library"
           className={`${tab === "library" ? "block" : "hidden"} xl:block min-h-0 overflow-auto border rounded-md p-3`}
         >
-          <h2 className="text-sm font-semibold mb-3">Duty library</h2>
-          <DutyLibrary
-            jobId={jobId}
-            targets={document.sections.experience.items
-              .filter((e) => !e.hidden)
-              .map((e) => ({
-                id: e.id,
-                label: `${e.company} · ${e.position}`,
-              }))}
-            onReference={reference}
-            onInsert={(bullet, id) => {
-              if (busy) return;
-              const next = structuredClone(document);
-              const experience = next.sections.experience.items.find(
-                (e) => e.id === id,
-              );
-              if (experience) {
-                const { introHtml, bullets } = splitDescription(
-                  experience.description,
-                );
-                experience.description = joinDescription(
-                  introHtml,
-                  [...bullets, bullet.text],
-                  experience.description,
-                );
-                edit(next);
-                toast.success("Duty inserted");
-              }
-            }}
-          />
+          <div
+            className="flex gap-1 mb-3"
+            role="tablist"
+            aria-label="Job match and duties"
+          >
+            {(
+              [
+                ["match", "Job match"],
+                ["duties", "Duties"],
+              ] as const
+            ).map(([name, label]) => (
+              <Button
+                key={name}
+                size="sm"
+                role="tab"
+                aria-selected={rightTab === name}
+                variant={rightTab === name ? "secondary" : "ghost"}
+                onClick={() => setRightTab(name)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          <div hidden={rightTab !== "match"}>
+            <JobMatchPanel
+              job={job}
+              active={rightTab === "match"}
+              getDocument={getDocument}
+              targets={targets}
+              onInsert={insertDuty}
+              onAskAi={(prompt) => {
+                setChatPrompt(prompt);
+                setTab("chat");
+              }}
+              onFocusRef={(ref) => {
+                setTab("editor");
+                // After the editor tab is shown on narrow screens.
+                setTimeout(() => {
+                  if (editorPane.current)
+                    focusResumePart(editorPane.current, ref);
+                });
+              }}
+            />
+          </div>
+          <div hidden={rightTab !== "duties"}>
+            <DutyLibrary
+              jobId={jobId}
+              targets={targets}
+              onReference={reference}
+              onInsert={insertDuty}
+            />
+          </div>
         </section>
       </div>
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>

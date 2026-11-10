@@ -43,17 +43,33 @@ vi.mock("@/client/components/ghostwriter/GhostwriterPanel", () => ({
   GhostwriterPanel: ({
     cowork,
     referenceChips,
+    initialPrompt,
   }: {
     cowork: () => CoworkChatContext;
     referenceChips: React.ReactNode;
+    initialPrompt?: string | null;
   }) => (
     <div>
-      Chat
+      Chat {initialPrompt}
       {referenceChips}
       <output data-testid="focus">
         {JSON.stringify(cowork().focus?.map((f) => f.label))}
       </output>
     </div>
+  ),
+}));
+vi.mock("@/client/components/cowork/JobMatchPanel", () => ({
+  focusResumePart: vi.fn(),
+  JobMatchPanel: ({
+    active,
+    onAskAi,
+  }: {
+    active: boolean;
+    onAskAi: (prompt: string) => void;
+  }) => (
+    <button type="button" onClick={() => onAskAi("Close the Java gap")}>
+      Job match {active ? "active" : "idle"}
+    </button>
   ),
 }));
 vi.mock("@/client/components/cowork/DutyLibrary", () => ({
@@ -335,6 +351,7 @@ describe("duty library insert", () => {
     mocks.getResume.mockResolvedValue(initial);
     mount();
     await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByRole("tab", { name: "Duties" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Insert library duty" }),
     );
@@ -349,6 +366,20 @@ describe("duty library insert", () => {
           ? "<ul><li>Existing</li><li>Library duty</li></ul>"
           : "<ul><li>Library duty</li></ul>"),
     );
+  });
+  it("opens Job match by default and sends Ask AI prompts to the chat", async () => {
+    mount();
+    await screen.findByLabelText("Headline");
+    expect(screen.getByRole("tab", { name: "Job match" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Job match active" }));
+    expect(screen.getByText("Chat Close the Java gap")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Duties" }));
+    expect(
+      screen.queryByRole("button", { name: "Job match active" }),
+    ).not.toBeInTheDocument();
   });
 });
 
