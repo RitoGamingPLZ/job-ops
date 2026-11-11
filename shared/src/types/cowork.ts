@@ -17,6 +17,8 @@ export type ExperienceBulletSource =
  * - education:     text = degree (the one line); data = { school, location, period }
  * - award:         text = title (the one line); data = { date }
  * - certification: text = description (the one line); data = { issuer, website, date }
+ * Website in role/project/certification data is the v5 { url, label } object;
+ * readers also accept a plain URL string from legacy rows.
  */
 export type CandidateItemKind =
   | "role"

@@ -400,11 +400,13 @@ export function CandidateLibrary({
                     data: {
                       ...current.input.data,
                       [field]:
-                        field === "website" &&
-                        current.input.data?.website &&
-                        typeof current.input.data.website === "object"
+                        field === "website"
                           ? {
-                              ...current.input.data.website,
+                              label: "",
+                              ...(current.input.data?.website &&
+                              typeof current.input.data.website === "object"
+                                ? current.input.data.website
+                                : {}),
                               url: event.target.value,
                             }
                           : event.target.value,

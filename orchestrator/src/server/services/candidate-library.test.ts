@@ -547,6 +547,64 @@ it("appends siblings, rejects kind changes and refreshes duty columns on reparen
     ).toMatchObject({ company: null, role: null });
   });
 });
+it.each([
+  "role",
+  "project",
+  "certification",
+] as const)("keeps a synced %s website when ticking it onto a resume and editing another field with real helpers", async (kind) => {
+  database.closeDb();
+  vi.doUnmock("@shared/resume-links");
+  vi.resetModules();
+  database = await import("../db");
+  ({ runWithRequestContext: run } = await import("@infra/request-context"));
+  api = await import("./candidate-library");
+  const { addToResume, KIND_SECTION } = await import("@shared/resume-links");
+  const website = { url: "https://example.com", label: "Site" };
+  const section = KIND_SECTION[kind] as
+    | "experience"
+    | "projects"
+    | "certifications";
+  const source = {
+    role: { ...experience(), website },
+    project: {
+      id: "project",
+      hidden: false,
+      name: "Project",
+      period: "2024",
+      description: "",
+      website,
+    },
+    certification: {
+      id: "cert",
+      hidden: false,
+      title: "Certificate",
+      issuer: "Institute",
+      date: "2024",
+      description: "",
+      website,
+    },
+  }[kind];
+  (document.sections[section].items as unknown[]) = [source];
+  await scope("tenant-a", async () => {
+    api.syncCandidateLibrary(document);
+    const repo = await import("../repositories/experience-bullets");
+    const library = await repo.listExperienceBullets(true);
+    const item = library.find((entry) => entry.kind === kind);
+    if (!item) throw new Error("Expected synced item");
+    expect(item.data?.website).toEqual(website);
+    const empty = structuredClone(document);
+    empty.sections[section].items = [];
+    const ticked = addToResume(empty, item.id, library);
+    expect(ticked.sections[section].items[0].website).toEqual(website);
+    job("ticked", "ready", "tenant-a", ticked);
+    api.updateLibraryItem(item.id, { text: "Edited name" });
+    const updated = rows().find((entry) => entry.jobId === "ticked");
+    expect(updated?.document.sections[section].items[0].website).toEqual(
+      website,
+    );
+    expect(updated?.revision).toBe(4);
+  });
+});
 it("syncs, stamps, propagates and deletes with the real shared links, preserving reworded and frozen resumes", async () => {
   // Re-import the service with no shared-link mock at all.
   database.closeDb();

@@ -547,6 +547,53 @@ describe("review regressions", () => {
     });
     expect(entries(updated, "role")[0].website).toEqual(item.website);
   });
+  it.each([
+    role,
+    project,
+    certification,
+  ])("builds and updates $kind websites from v5 objects, including label edits", (original) => {
+    const website = { url: "https://example.com", label: "Site" };
+    const before = { ...original, data: { ...original.data, website } };
+    const doc = addToResume(document(), before.id, [before]);
+    expect(entries(doc, before.kind)[0].website).toEqual(website);
+    const updated = applyLibraryUpdate(doc, before, {
+      ...before,
+      text: "Edited another field",
+    });
+    expect(entries(updated, before.kind)[0].website).toEqual(website);
+    const changed = applyLibraryUpdate(updated, before, {
+      ...before,
+      data: { ...before.data, website: { ...website, label: "New label" } },
+    });
+    expect(entries(changed, before.kind)[0].website).toEqual({
+      ...website,
+      label: "New label",
+    });
+  });
+  it.each([
+    role,
+    project,
+    certification,
+  ])("retains existing $kind website fields absent from legacy data and permits explicit clearing", (original) => {
+    const website = { url: "https://example.com", label: "Site" };
+    const doc = addToResume(document(), original.id, [original]);
+    entries(doc, original.kind)[0].website = website;
+    const missing = { ...original, data: {} };
+    expect(
+      entries(applyLibraryUpdate(doc, original, missing), original.kind)[0]
+        .website,
+    ).toEqual(website);
+    const legacy = { ...original, data: { website: "https://new.example" } };
+    expect(
+      entries(applyLibraryUpdate(doc, original, legacy), original.kind)[0]
+        .website,
+    ).toEqual({ url: "https://new.example", label: "Site" });
+    const cleared = { ...original, data: { website: { url: "", label: "" } } };
+    expect(
+      entries(applyLibraryUpdate(doc, original, cleared), original.kind)[0]
+        .website,
+    ).toEqual({ url: "", label: "" });
+  });
 });
 
 describe("round one lead decisions", () => {

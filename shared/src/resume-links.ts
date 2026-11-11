@@ -146,9 +146,26 @@ function string(value: unknown): string {
 function equal(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
-function fields(item: ExperienceBullet): ResumeItem {
+function websiteValue(value: unknown, existing?: unknown) {
+  const fallback =
+    existing && typeof existing === "object"
+      ? (existing as Record<string, unknown>)
+      : {};
+  const website =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : { url: value };
+  return {
+    url: typeof website.url === "string" ? website.url : string(fallback.url),
+    label:
+      typeof website.label === "string"
+        ? website.label
+        : string(fallback.label),
+  };
+}
+function fields(item: ExperienceBullet, existingWebsite?: unknown): ResumeItem {
   const data = item.data ?? {};
-  const website = { url: string(data.website), label: "" };
+  const website = websiteValue(data.website, existingWebsite);
   switch (item.kind) {
     case "role":
       return {
@@ -387,14 +404,8 @@ export function applyLibraryUpdate(
   return mapItems(doc, (item) => {
     let next = item;
     if (item.libraryId === before.id) {
-      const derived = fields(after);
-      // A website label has no library field; retain the resume's label.
-      if (derived.website && item.website && typeof item.website === "object") {
-        derived.website = {
-          ...(derived.website as Record<string, unknown>),
-          label: string((item.website as Record<string, unknown>).label),
-        };
-      }
+      // Legacy URL-only rows have no label; missing fields retain resume values.
+      const derived = fields(after, item.website);
       if (
         Object.entries(derived).some(([key, value]) => !equal(item[key], value))
       )

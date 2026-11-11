@@ -591,11 +591,21 @@ describe("candidate library workspace integration", () => {
       ]);
     }
   });
-  it.each([
-    "role",
-    "project",
-    "certification",
-  ] as const)("displays and edits object website URLs for %s without losing the label", async (kind) => {
+  it.each(
+    (["role", "project", "certification"] as const).flatMap((kind) =>
+      [
+        {
+          website: { url: "https://example.test", label: "Site" },
+          label: "Site",
+        },
+        { website: "https://example.test", label: "" },
+      ].map((value) => ({ kind, ...value })),
+    ),
+  )("displays and edits $kind website URLs with label '$label'", async ({
+    kind,
+    website,
+    label,
+  }) => {
     const entry = {
       ...role,
       id: "entry",
@@ -603,7 +613,7 @@ describe("candidate library workspace integration", () => {
       text: "Entry",
       data: {
         ...role.data,
-        website: { url: "https://example.test", label: "Site" },
+        website,
       },
     };
     mocks.update.mockImplementation(async (id, input) => ({
@@ -632,7 +642,7 @@ describe("candidate library workspace integration", () => {
         "entry",
         expect.objectContaining({
           data: expect.objectContaining({
-            website: { url: "https://changed.test", label: "Site" },
+            website: { url: "https://changed.test", label },
           }),
         }),
         undefined,
