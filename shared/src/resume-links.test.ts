@@ -548,3 +548,99 @@ describe("review regressions", () => {
     expect(entries(updated, "role")[0].website).toEqual(item.website);
   });
 });
+
+describe("round one lead decisions", () => {
+  it.each([
+    "role",
+    "duty",
+  ])("inserts a %s after the last normalized company match", (selection) => {
+    const first = { ...role, id: "first" };
+    const beta = {
+      ...role,
+      id: "beta",
+      data: { ...role.data, company: "Beta" },
+    };
+    const last = {
+      ...role,
+      id: "last",
+      data: { ...role.data, company: "  Acme\n " },
+    };
+    const gamma = {
+      ...role,
+      id: "gamma",
+      data: { ...role.data, company: "Gamma" },
+    };
+    let doc = document();
+    for (const item of [first, beta, last, gamma])
+      doc = addToResume(doc, item.id, [item]);
+    // The middle editor may have separated roles; insertion follows the last match.
+    doc.sections.experience.items = [first, beta, last, gamma].map((item) =>
+      entries(doc, "role").find((entry) => entry.libraryId === item.id),
+    ) as ResumeDoc["sections"]["experience"]["items"];
+    const next = addToResume(
+      freeze(doc),
+      selection === "role" ? role.id : duty.id,
+      library,
+    );
+    expect(entries(next, "role").map((entry) => entry.libraryId)).toEqual([
+      first.id,
+      beta.id,
+      last.id,
+      role.id,
+      gamma.id,
+    ]);
+    expect(
+      getItemLines(entries(next, "role")[3]).map((line) => line.ref),
+    ).toEqual(selection === "role" ? [duty.id, otherDuty.id] : [duty.id]);
+  });
+
+  it.each([
+    [role, duty],
+    [project, point],
+  ])("never stamps another $0.kind's child", (parent, child) => {
+    const doc = addToResume(document(), parent.id, [parent]);
+    const entry = entries(doc, parent.kind)[0];
+    entry.libraryId = undefined;
+    entry.description = `<ul><li>${child.text.replace(/&/g, "&amp;")}</li></ul>`;
+    const result = stampLibraryRefs(freeze(doc), [
+      parent,
+      { ...child, parentId: "elsewhere" },
+    ]);
+    expect(result.linked).toBe(1);
+    const stamped = entries(result.doc, parent.kind)[0];
+    expect(stamped.libraryId).toBe(parent.id);
+    expect(getItemLines(stamped)).toEqual([{ text: child.text, ref: null }]);
+    expect(stamped.description).toBe(entry.description);
+  });
+
+  it.each([
+    [role, duty],
+    [project, point],
+  ])("does not link $0.kind lines without a matched parent", (parent, child) => {
+    for (const libraryId of [undefined, "deleted-parent"]) {
+      const doc = addToResume(document(), parent.id, [parent]);
+      const entry = entries(doc, parent.kind)[0];
+      entry.libraryId = libraryId;
+      entry.description = `<ul><li>${child.text.replace(/&/g, "&amp;")}</li></ul>`;
+      // Include an orphan child whose parent id equals the dangling ref.
+      const result = stampLibraryRefs(freeze(doc), [
+        { ...child, parentId: libraryId ?? parent.id },
+      ]);
+      expect(result).toEqual({ doc, linked: 0 });
+      expect(result.doc).toBe(doc);
+    }
+  });
+
+  it("leaves missing item and line refs untouched and resetting them is a no-op", () => {
+    const entry = {
+      ...libraryItemToResumeItem(role),
+      libraryId: "deleted-parent",
+      description: "<ul><li>Built APIs &amp; tools</li></ul>",
+      bulletRefs: ["deleted-duty"],
+    };
+    const doc = freeze(withEntry(document(), entry));
+    expect(stampLibraryRefs(doc, library)).toEqual({ doc, linked: 0 });
+    expect(stampLibraryRefs(doc, library).doc).toBe(doc);
+    expect(resetLine(doc, String(entry.id), 0, library)).toBe(doc);
+  });
+});

@@ -284,11 +284,20 @@ function appendItem(
   const key = KIND_SECTION[kind];
   if (!key) return doc;
   const section = doc.sections[key] as { items: ResumeItem[] };
+  let insertionIndex = section.items.length;
+  if (kind === "role") {
+    section.items.forEach((entry, index) => {
+      if (sameLineText(string(entry.company), string(item.company)))
+        insertionIndex = index + 1;
+    });
+  }
+  const items = [...section.items];
+  items.splice(insertionIndex, 0, item);
   return {
     ...doc,
     sections: {
       ...doc.sections,
-      [key]: { ...section, items: [...section.items, item] },
+      [key]: { ...section, items },
     },
   };
 }
@@ -497,18 +506,21 @@ export function stampLibraryRefs(
         linked++;
       }
     }
-    if (kind === "role" || kind === "project") {
+    if (
+      (kind === "role" || kind === "project") &&
+      library.some(
+        (value) => value.id === next.libraryId && value.kind === kind,
+      )
+    ) {
       let changed = false;
       const lines = getItemLines(next).map((line) => {
         if (line.ref) return line;
-        const matches = library.filter(
+        const match = library.find(
           (value) =>
             value.kind === (kind === "role" ? "bullet" : "project_point") &&
+            value.parentId === next.libraryId &&
             sameLineText(value.text, line.text),
         );
-        const match =
-          matches.find((value) => value.parentId === next.libraryId) ??
-          matches[0];
         if (!match) return line;
         changed = true;
         linked++;
