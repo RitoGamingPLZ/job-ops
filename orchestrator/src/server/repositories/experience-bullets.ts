@@ -13,7 +13,8 @@ function publicBullet({
   userId: _user,
   ...bullet
 }: typeof table.$inferSelect): ExperienceBullet {
-  return bullet;
+  // ponytail: placeholder until the library columns land (PLAN step B).
+  return { ...bullet, kind: "bullet", data: null, parentId: null, position: 0 };
 }
 export async function listExperienceBullets(): Promise<ExperienceBullet[]> {
   return db

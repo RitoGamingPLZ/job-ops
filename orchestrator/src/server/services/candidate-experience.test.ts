@@ -13,6 +13,10 @@ const bullet = (
   extra: Partial<ExperienceBullet> = {},
 ): ExperienceBullet => ({
   id,
+  kind: "bullet" as const,
+  data: null,
+  parentId: null,
+  position: 0,
   text: `Duty ${id}`,
   company: "Acme",
   role: "Engineer",

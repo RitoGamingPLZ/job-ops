@@ -1,9 +1,54 @@
 import type { ReactiveResumeV5Document } from "./design-resume";
 import type { JobStatus } from "./jobs";
 
-export type ExperienceBulletSource = "resume" | "manual" | "ai_extract";
+export type ExperienceBulletSource =
+  | "resume"
+  | "manual"
+  | "ai_extract"
+  | "job_resume";
+
+/**
+ * Candidate library item kinds (PRD docs/prd/resume-editor-candidate-library.md §6).
+ * - role:          text = position; data = { company, location, website, period }
+ * - bullet:        text = duty; parentId = role id
+ * - project:       text = name; data = { period, website }
+ * - project_point: text = point; parentId = project id
+ * - skill:         text = label; data = { keywords: string[] }
+ * - education:     text = degree (the one line); data = { school, location, period }
+ * - award:         text = title (the one line); data = { date }
+ * - certification: text = description (the one line); data = { issuer, website, date }
+ */
+export type CandidateItemKind =
+  | "role"
+  | "bullet"
+  | "project"
+  | "project_point"
+  | "skill"
+  | "education"
+  | "award"
+  | "certification";
+
+export const CANDIDATE_ITEM_KINDS: readonly CandidateItemKind[] = [
+  "role",
+  "bullet",
+  "project",
+  "project_point",
+  "skill",
+  "education",
+  "award",
+  "certification",
+];
+
 export interface ExperienceBullet {
   id: string;
+  /** Defaults to "bullet" for rows created before the candidate library. */
+  kind: CandidateItemKind;
+  /** Kind-specific fields, see CandidateItemKind. null for bullet/project_point. */
+  data: Record<string, unknown> | null;
+  /** bullet → role id, project_point → project id; null otherwise. */
+  parentId: string | null;
+  /** Library order within its parent (or within its kind). */
+  position: number;
   text: string; // plain text, one achievement/duty
   company: string | null;
   role: string | null;
@@ -24,6 +69,26 @@ export interface ExperienceBulletInput {
   tags?: string[];
   source?: ExperienceBulletSource;
   sourceExperienceId?: string | null;
+  kind?: CandidateItemKind;
+  data?: Record<string, unknown> | null;
+  parentId?: string | null;
+  position?: number;
+}
+
+/** GET /cowork/library/:id/usage — which job resumes reference an item. */
+export interface LibraryItemUsage {
+  /** Unapplied jobs: library edits flow into their linked lines (R6). */
+  jobIds: string[];
+  /** Applied-or-later jobs: frozen, never changed by library edits. */
+  frozenJobIds: string[];
+}
+
+/** POST /cowork/library/sync */
+export interface LibrarySyncResult {
+  created: number;
+  skipped: number;
+  /** Resume lines/items that got a library link stamped on them. */
+  linked: number;
 }
 export interface RankedBullet {
   bulletId: string;

@@ -51,6 +51,10 @@ function doc(): ReactiveResumeV5Document {
 }
 const bullet = (id: string, text = "Built Java tools"): ExperienceBullet => ({
   id,
+  kind: "bullet" as const,
+  data: null,
+  parentId: null,
+  position: 0,
   text,
   tags: [],
   company: null,

@@ -35,6 +35,10 @@ vi.mock("sonner", () => ({
 }));
 const bullet: ExperienceBullet = {
   id: "one",
+  kind: "bullet" as const,
+  data: null,
+  parentId: null,
+  position: 0,
   text: "Built tools",
   company: "Company",
   role: "Engineer",

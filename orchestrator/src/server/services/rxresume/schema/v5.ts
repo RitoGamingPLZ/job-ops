@@ -79,6 +79,10 @@ export const baseItemSchema = z.object({
   id: z.string(),
   hidden: z.boolean(),
   options: itemOptionsSchema.optional(),
+  /** job-ops candidate library: the library item this resume item came from. */
+  libraryId: z.string().optional(),
+  /** job-ops candidate library: library id per bullet line (null = unlinked). */
+  bulletRefs: z.array(z.string().nullable()).optional(),
 });
 
 export const summaryItemSchema = baseItemSchema.extend({
