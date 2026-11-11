@@ -316,4 +316,4 @@ When using local renderers:
 - For non-Docker local runs, install `tectonic` yourself and optionally set `TECTONIC_BIN` if it is not on your `PATH`.
 - For non-Docker local runs with Typst, install `typst` yourself and optionally set `TYPST_BIN` if it is not on your `PATH`.
 
-RxResume remains the source of truth for base resume data, project visibility, and tailoring inputs when importing from Reactive Resume. Local renderers use the structured Design Resume data at render time.
+Reactive Resume is an optional import source. After import, JobOps stores the base resume locally; edit it at `/resumes/base` in the [co-work resume editor](/docs/next/features/design-resume). Local renderers use the stored resume document at render time.
