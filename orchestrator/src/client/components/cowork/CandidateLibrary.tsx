@@ -246,7 +246,7 @@ export function CandidateLibrary({
     return (
       <label
         htmlFor={`${tickId}-${group.map((item) => item.id).join("-")}`}
-        className="inline-flex shrink-0 cursor-pointer items-center p-1 -m-1"
+        className="-mx-1 inline-flex h-5 shrink-0 cursor-pointer items-center px-1"
       >
         <Checkbox
           id={`${tickId}-${group.map((item) => item.id).join("-")}`}
@@ -739,23 +739,25 @@ export function CandidateLibrary({
       edit.input.parentId === (parentId ?? null) &&
       edit.addCompany ===
         (companyData ? String(companyData.company ?? "") : undefined);
+    const name = parentId
+      ? `Add ${label} to ${items.find((item) => item.id === parentId)?.text ?? "item"}`
+      : companyData
+        ? `Add ${label} at ${String(companyData.company ?? "")}`
+        : `Add ${label}`;
+    const iconOnly = Boolean(parentId || companyData);
     return (
       <>
         <Button
           size="sm"
           variant="ghost"
           disabled={busy}
-          aria-label={
-            parentId
-              ? `Add ${label} to ${items.find((item) => item.id === parentId)?.text ?? "item"}`
-              : companyData
-                ? `Add ${label} at ${String(companyData.company ?? "")}`
-                : `Add ${label}`
-          }
-          className="h-7 px-2 text-xs"
+          aria-label={name}
+          title={iconOnly ? name : undefined}
+          className={iconOnly ? "h-6 w-6 p-0" : "h-7 px-2 text-xs"}
           onClick={() => startAdd(kind, parentId, companyData)}
         >
-          <Plus className="h-3 w-3" aria-hidden="true" /> Add {label}
+          <Plus className="h-3 w-3" aria-hidden="true" />
+          {!iconOnly && ` Add ${label}`}
         </Button>
         {showForm && adding && editForm(edit)}
       </>
