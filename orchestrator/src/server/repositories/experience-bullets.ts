@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ExperienceBullet, ExperienceBulletInput } from "@shared/types";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db, schema } from "../db";
 import {
   getPrivateDataScope,
@@ -15,12 +15,19 @@ function publicBullet({
 }: typeof table.$inferSelect): ExperienceBullet {
   return bullet;
 }
-export async function listExperienceBullets(): Promise<ExperienceBullet[]> {
+export async function listExperienceBullets(
+  allKinds = false,
+): Promise<ExperienceBullet[]> {
   return db
     .select()
     .from(table)
-    .where(privateDataScopeFilter(table))
-    .orderBy(desc(table.updatedAt), desc(table.id))
+    .where(
+      and(
+        privateDataScopeFilter(table),
+        allKinds ? undefined : eq(table.kind, "bullet"),
+      ),
+    )
+    .orderBy(asc(table.position), asc(table.createdAt), asc(table.id))
     .all()
     .map(publicBullet);
 }
@@ -35,6 +42,10 @@ export async function createExperienceBullet(
       .values({
         id: randomUUID(),
         ...scope,
+        kind: input.kind ?? "bullet",
+        data: input.data ?? null,
+        parentId: input.parentId ?? null,
+        position: input.position ?? 0,
         text: input.text,
         company: input.company ?? null,
         role: input.role ?? null,
@@ -84,7 +95,7 @@ export async function importExperienceBullets(inputs: ExperienceBulletInput[]) {
     const existing = tx
       .select()
       .from(table)
-      .where(privateDataScopeFilter(table))
+      .where(and(privateDataScopeFilter(table), eq(table.kind, "bullet")))
       .all();
     const seen = new Set(existing.map((row) => normalizeBulletText(row.text)));
     const bullets: ExperienceBullet[] = [];

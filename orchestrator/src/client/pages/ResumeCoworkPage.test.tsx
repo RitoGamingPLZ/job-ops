@@ -20,6 +20,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getResume: vi.fn(),
+  library: vi.fn(),
+  sync: vi.fn(),
+  updateBullet: vi.fn(),
+  libraryProps: vi.fn(),
+  editorProps: vi.fn(),
   save: vi.fn(),
   reset: vi.fn(),
   getJob: vi.fn(),
@@ -31,6 +36,9 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@client/api/cowork", () => ({
   getJobResume: mocks.getResume,
+  listCandidateLibrary: mocks.library,
+  syncCandidateLibrary: mocks.sync,
+  updateExperienceBullet: mocks.updateBullet,
   saveJobResume: mocks.save,
   deleteJobResume: mocks.reset,
 }));
@@ -83,59 +91,115 @@ vi.mock("@/client/components/cowork/JobMatchPanel", () => ({
   JobMatchPanel: ({
     active,
     onAskAi,
+    onInsert,
   }: {
+    onInsert: (bullet: { id: string; text: string }, id: string) => void;
     active: boolean;
     onAskAi: (prompt: string) => void;
   }) => (
-    <button type="button" onClick={() => onAskAi("Close the Java gap")}>
-      Job match {active ? "active" : "idle"}
-    </button>
+    <>
+      <button type="button" onClick={() => onAskAi("Close the Java gap")}>
+        Job match {active ? "active" : "idle"}
+      </button>
+      <button
+        type="button"
+        onClick={() => onInsert({ id: "duty", text: "Library duty" }, "exp")}
+      >
+        Insert library duty
+      </button>
+    </>
   ),
 }));
 vi.mock("@/client/components/cowork/DutyLibrary", () => ({
-  DutyLibrary: ({
-    onInsert,
-  }: {
-    onInsert: (bullet: { text: string }, id: string) => void;
-  }) => (
-    <button
-      type="button"
-      onClick={() => onInsert({ text: "Library duty" }, "exp")}
-    >
-      Insert library duty
-    </button>
-  ),
   coworkError: mocks.coworkError,
+}));
+vi.mock("@/client/components/cowork/CandidateLibrary", () => ({
+  CandidateLibrary: (props: {
+    items?: unknown[];
+    onItemsChange?: (items: unknown[]) => void;
+    onDocumentChange?: (
+      update: (doc: ReactiveResumeV5Document) => ReactiveResumeV5Document,
+    ) => void;
+    onSync?: () => Promise<unknown>;
+  }) => {
+    mocks.libraryProps(props);
+    return (
+      <div>
+        Candidate checklist
+        <button
+          type="button"
+          onClick={() => void props.onSync?.().catch(() => {})}
+        >
+          Sync library
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            props.onItemsChange?.([
+              { id: "changed", kind: "bullet", text: "Changed from checklist" },
+            ])
+          }
+        >
+          Change library items
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            props.onDocumentChange?.((doc) => ({
+              ...doc,
+              basics: { ...doc.basics, headline: "Checklist edit" },
+            }))
+          }
+        >
+          Tick library item
+        </button>
+      </div>
+    );
+  },
 }));
 vi.mock("@/client/components/cowork/ResumeEditor", () => ({
   ResumeEditor: ({
     document,
     onChange,
     onAskAi,
+    ...extra
   }: {
+    library?: unknown;
+    onSaveLineToLibrary?: (id: string, text: string) => void;
     document: ReactiveResumeV5Document;
     onChange: (document: ReactiveResumeV5Document) => void;
     onAskAi: (ref: ResumeFocusRef) => void;
-  }) => (
-    <>
-      <button
-        type="button"
-        onClick={() => onAskAi({ kind: "headline", label: "Headline" })}
-      >
-        Ask AI
-      </button>
-      <input
-        aria-label="Headline"
-        value={document.basics.headline}
-        onChange={(e) =>
-          onChange({
-            ...document,
-            basics: { ...document.basics, headline: e.target.value },
-          })
-        }
-      />
-    </>
-  ),
+  }) => {
+    mocks.editorProps(extra);
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() =>
+            extra.onSaveLineToLibrary?.("duty", "New library text")
+          }
+        >
+          Save line to library
+        </button>
+        <button
+          type="button"
+          onClick={() => onAskAi({ kind: "headline", label: "Headline" })}
+        >
+          Ask AI
+        </button>
+        <input
+          aria-label="Headline"
+          value={document.basics.headline}
+          onChange={(e) =>
+            onChange({
+              ...document,
+              basics: { ...document.basics, headline: e.target.value },
+            })
+          }
+        />
+      </>
+    );
+  },
 }));
 
 import { ResumeCoworkPage } from "./ResumeCoworkPage";
@@ -144,6 +208,7 @@ function state(headline = "Base", revision = 0): JobResumeState {
   return {
     document: {
       basics: { headline },
+      customSections: [],
       sections: { experience: { items: [] } },
     } as unknown as ReactiveResumeV5Document,
     revision,
@@ -162,6 +227,10 @@ function mount() {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
+  mocks.library.mockResolvedValue({
+    items: [{ id: "duty", kind: "bullet", text: "Library duty" }],
+  });
   mocks.getJob.mockResolvedValue({
     id: "job",
     title: "Engineer",
@@ -457,7 +526,7 @@ describe("duty library insert", () => {
     mocks.getResume.mockResolvedValue(initial);
     mount();
     await screen.findByLabelText("Headline");
-    fireEvent.click(screen.getByRole("tab", { name: "Duties" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Job match" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Insert library duty" }),
     );
@@ -475,22 +544,24 @@ describe("duty library insert", () => {
           ? "<ul><li>Existing</li><li>Library duty</li></ul>"
           : "<ul><li>Library duty</li></ul>"),
     );
+    expect(
+      mocks.save.mock.calls[0][1].document.sections.experience.items[0]
+        .bulletRefs,
+    ).toEqual(list ? [null, "duty"] : ["duty"]);
   });
-  it("opens Job match by default and sends Ask AI prompts to the chat", async () => {
+  it("opens Library by default and sends Job match Ask AI prompts to the chat", async () => {
     mount();
     await screen.findByLabelText("Headline");
-    expect(screen.getByRole("tab", { name: "Job match" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Library" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
-    // Narrow screen: the pane is hidden until its outer tab is shown.
-    expect(
-      screen.getByRole("button", { name: "Job match idle" }),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Match & duties" }));
+    expect(screen.getByText("Candidate checklist")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Library & match" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Job match" }));
     fireEvent.click(screen.getByRole("button", { name: "Job match active" }));
     expect(screen.getByText("Chat Close the Java gap")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Duties" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Library" }));
     expect(
       screen.queryByRole("button", { name: "Job match active" }),
     ).not.toBeInTheDocument();
@@ -507,6 +578,7 @@ describe("resume co-work wide layout", () => {
     }));
     mount();
     await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByRole("tab", { name: "Job match" }));
     expect(
       screen.getByRole("button", { name: "Job match active" }),
     ).toBeInTheDocument();
@@ -575,5 +647,229 @@ describe("resume co-work chat drop zone", () => {
     fireEvent.dragEnter(child, { dataTransfer });
     fireEvent.dragEnd(window);
     expect(chat).not.toHaveAttribute("data-drag");
+  });
+});
+
+describe("candidate library page wiring", () => {
+  it("loads the library before reading a potentially restamped resume", async () => {
+    let resolveLibrary!: (value: { items: [] }) => void;
+    mocks.library.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveLibrary = resolve;
+        }),
+    );
+    mount();
+    expect(mocks.getResume).not.toHaveBeenCalled();
+    await act(async () => resolveLibrary({ items: [] }));
+    await screen.findByLabelText("Headline");
+    expect(mocks.library).toHaveBeenCalledOnce();
+    expect(mocks.library.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.getResume.mock.invocationCallOrder[0],
+    );
+    expect(mocks.editorProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({ library: [] }),
+    );
+  });
+  it.each([
+    "applied",
+    "in_progress",
+    "ready",
+  ])("passes the frozen flag for %s jobs", async (status) => {
+    mocks.getJob.mockResolvedValue({
+      id: "job",
+      title: "Engineer",
+      employer: "Acme",
+      status,
+    });
+    mount();
+    await screen.findByLabelText("Headline");
+    expect(mocks.libraryProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        jobId: "job",
+        frozen: status !== "ready",
+        document: expect.any(Object),
+        onDocumentChange: expect.any(Function),
+        onReferenceBullet: expect.any(Function),
+      }),
+    );
+  });
+  it("saves a rewording to the library with the open job excluded and refreshes editor data", async () => {
+    mocks.updateBullet.mockResolvedValue({
+      bullet: { id: "duty", kind: "bullet", text: "New library text" },
+    });
+    mocks.library
+      .mockResolvedValueOnce({
+        items: [{ id: "duty", kind: "bullet", text: "Library duty" }],
+      })
+      .mockResolvedValue({
+        items: [{ id: "duty", kind: "bullet", text: "New library text" }],
+      });
+    const initial = state();
+    initial.document.sections.experience.items = [
+      {
+        id: "exp",
+        company: "Acme",
+        roles: [],
+        position: "Engineer",
+        location: "",
+        period: "",
+        website: { url: "", label: "" },
+        hidden: false,
+        icon: "",
+        description: "<ul><li>Library duty</li><li>My wording</li></ul>",
+        bulletRefs: ["duty", "duty"],
+      },
+    ] as typeof initial.document.sections.experience.items;
+    mocks.getResume.mockResolvedValue(initial);
+    mount();
+    fireEvent.click(await screen.findByText("Save line to library"));
+    await waitFor(() =>
+      expect(mocks.editorProps).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          library: [expect.objectContaining({ text: "New library text" })],
+        }),
+      ),
+    );
+    expect(mocks.updateBullet).toHaveBeenCalledWith(
+      "duty",
+      { text: "New library text" },
+      "job",
+    );
+    fireEvent.click(screen.getByText("Save now"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalled());
+    expect(
+      mocks.save.mock.calls[0][1].document.sections.experience.items[0]
+        .description,
+    ).toBe("<ul><li>New library text</li><li>My wording</li></ul>");
+  });
+  it("flushes edits before inline PDF rendering and remembers Preview", async () => {
+    mount();
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Preview edit" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Preview" }));
+    const iframe = await screen.findByTitle("Resume PDF preview");
+    expect(iframe).toHaveAttribute("src", "blob:fake");
+    expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.pdf.mock.invocationCallOrder[0],
+    );
+    expect(localStorage.getItem("resume-cowork-preview")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Edit" }));
+    expect(screen.getByLabelText("Headline")).toHaveValue("Preview edit");
+    expect(localStorage.getItem("resume-cowork-preview")).toBe("false");
+  });
+  it("opens and renders the remembered Preview mode", async () => {
+    localStorage.setItem("resume-cowork-preview", "true");
+    mount();
+    expect(await screen.findByTitle("Resume PDF preview")).toHaveAttribute(
+      "src",
+      "blob:fake",
+    );
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(mocks.pdf).toHaveBeenCalledOnce();
+  });
+});
+
+describe("workspace library coordination", () => {
+  it("shares checklist changes with the editor without another request", async () => {
+    mount();
+    await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByText("Change library items"));
+    expect(mocks.editorProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        library: [
+          { id: "changed", kind: "bullet", text: "Changed from checklist" },
+        ],
+      }),
+    );
+    expect(mocks.library).toHaveBeenCalledOnce();
+  });
+  it("flushes before Sync and blocks edits until the stamped revision has reloaded", async () => {
+    let finishSync!: (result: {
+      created: number;
+      skipped: number;
+      linked: number;
+    }) => void;
+    let finishReload!: (result: JobResumeState) => void;
+    mocks.sync.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSync = resolve;
+        }),
+    );
+    mocks.getResume.mockResolvedValueOnce(state()).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishReload = resolve;
+        }),
+    );
+    mount();
+    const headline = await screen.findByLabelText("Headline");
+    fireEvent.change(headline, { target: { value: "Before sync" } });
+    fireEvent.click(screen.getByText("Sync library"));
+    await waitFor(() => expect(mocks.sync).toHaveBeenCalledOnce());
+    expect(mocks.save).toHaveBeenCalledOnce();
+    expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.sync.mock.invocationCallOrder[0],
+    );
+    fireEvent.change(headline, { target: { value: "During sync" } });
+    expect(headline).toHaveValue("Before sync");
+    await act(async () => finishSync({ created: 1, skipped: 0, linked: 2 }));
+    await waitFor(() => expect(mocks.getResume).toHaveBeenCalledTimes(2));
+    fireEvent.change(headline, { target: { value: "During reload" } });
+    expect(headline).toHaveValue("Before sync");
+    expect(screen.getByText("Save now")).toBeDisabled();
+    await act(async () => finishReload(state("Stamped", 9)));
+    expect(headline).toHaveValue("Stamped");
+    expect(screen.getByText("Undo")).toBeDisabled();
+    fireEvent.change(headline, { target: { value: "After sync" } });
+    fireEvent.click(screen.getByText("Save now"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(2));
+    expect(mocks.save.mock.calls[1][1]).toMatchObject({
+      baseRevision: 9,
+      document: { basics: { headline: "After sync" } },
+    });
+  });
+  it("leaves an unstamped resume in place when Sync linked nothing", async () => {
+    mocks.sync.mockResolvedValueOnce({ created: 0, skipped: 2, linked: 0 });
+    mount();
+    await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByText("Sync library"));
+    await waitFor(() => expect(screen.getByText("Save now")).toBeEnabled());
+    expect(mocks.getResume).toHaveBeenCalledOnce();
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+  it("requires a successful reload after Sync failure before allowing another save", async () => {
+    mocks.sync.mockResolvedValueOnce({ created: 1, skipped: 0, linked: 2 });
+    mocks.getResume
+      .mockResolvedValueOnce(state())
+      .mockRejectedValueOnce(new Error("Reload unavailable"))
+      .mockResolvedValueOnce(state("Reloaded", 12));
+    mount();
+    await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByText("Sync library"));
+    expect(
+      await screen.findByText("Could not load this job’s resume."),
+    ).toBeVisible();
+    expect(mocks.save).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Retry"));
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Safe edit" },
+    });
+    fireEvent.click(screen.getByText("Save now"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
+    expect(mocks.save.mock.calls[0][1].baseRevision).toBe(12);
+  });
+  it("does not Sync if pending edits cannot be saved", async () => {
+    mocks.save.mockRejectedValueOnce(new Error("Offline"));
+    mount();
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Keep my edit" },
+    });
+    fireEvent.click(screen.getByText("Sync library"));
+    await waitFor(() => expect(mocks.coworkError).toHaveBeenCalled());
+    expect(mocks.sync).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Headline")).toHaveValue("Keep my edit");
   });
 });

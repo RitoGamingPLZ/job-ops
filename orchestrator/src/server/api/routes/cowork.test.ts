@@ -5,6 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
 const { callJson } = vi.hoisted(() => ({ callJson: vi.fn() }));
+vi.mock("@shared/resume-links", () => ({
+  applyLibraryUpdate: vi.fn((doc) => doc),
+  removeFromResume: vi.fn((doc) => doc),
+  stampLibraryRefs: vi.fn((doc) => ({ doc, linked: 0 })),
+  isOnResume: vi.fn(() => false),
+}));
 vi.mock("@server/services/modelSelection", () => ({
   createConfiguredLlmService: vi.fn(async () => ({ callJson })),
   resolveLlmModel: vi.fn(async () => "mock-model"),
@@ -100,20 +106,12 @@ afterEach(async () => {
 });
 
 describe("co-work routes", () => {
-  it.each([
-    ["GET", "job resume"],
-    ["POST", "resume import"],
-  ])("returns 409 for %s %s without a base resume", async (method) => {
+  it("returns 409 for a job resume without a base resume", async () => {
     const { db, schema } = await import("@server/db");
     db.delete(schema.designResumeDocuments)
       .where(eq(schema.designResumeDocuments.id, "base-resume"))
       .run();
-    const response = await request(
-      method === "GET"
-        ? `/jobs/${jobId}/resume`
-        : "/experience-bullets/import-resume",
-      method,
-    );
+    const response = await request(`/jobs/${jobId}/resume`, "GET");
     expect(response.status).toBe(409);
     expect(response.headers.get("x-request-id")).toBe("cowork-test");
     expect(await response.json()).toEqual({
@@ -157,9 +155,7 @@ describe("co-work routes", () => {
             : document.metadata.template,
       },
     });
-    expect(
-      (await request("/experience-bullets/import-resume", "POST")).status,
-    ).toBe(200);
+    expect((await request("/library/sync", "POST")).status).toBe(200);
     if (renderer === "rxresume") {
       expect(document.metadata.template).not.toBe(upstream.metadata.template);
       expect(getResume).toHaveBeenCalledTimes(2);
@@ -223,31 +219,91 @@ describe("co-work routes", () => {
       (await request(`/experience-bullets/${bullet.id}`, "DELETE")).status,
     ).toBe(404);
   });
-  it("imports experience with period labels and deduplicates normalized text", async () => {
-    const first = await request("/experience-bullets/import-resume", "POST");
+  it("syncs all library kinds without calling the LLM and keeps the default bullet filter", async () => {
+    const first = await request("/library/sync", "POST");
     expect(first.status).toBe(200);
     expect((await first.json()).data).toMatchObject({
-      created: 2,
+      created: 3,
       skipped: 1,
-      bullets: [
-        expect.objectContaining({
-          company: "Acme",
-          role: "Engineer",
-          startDate: "2021-03",
-          endDate: "Present",
-          sourceExperienceId: "experience-1",
-          source: "resume",
-        }),
-        expect.any(Object),
-      ],
+      linked: 0,
+    });
+    const items = (await (await request("/library")).json()).data.items;
+    expect(items).toHaveLength(3);
+    const role = items.find((item: { kind: string }) => item.kind === "role");
+    expect(role).toMatchObject({
+      text: "Engineer",
+      data: { company: "Acme", period: "2021-03 – Present" },
+    });
+    const bullets = (await (await request("/experience-bullets")).json()).data
+      .bullets;
+    expect(bullets).toHaveLength(2);
+    expect(bullets[0]).toMatchObject({
+      parentId: role.id,
+      company: "Acme",
+      role: "Engineer",
+      startDate: "2021-03",
+      endDate: "Present",
     });
     expect(
+      (await (await request("/library/sync", "POST")).json()).data,
+    ).toMatchObject({ created: 0, skipped: 0 });
+    expect(callJson).not.toHaveBeenCalled();
+    expect(
+      (await request("/experience-bullets/import-resume", "POST")).status,
+    ).toBe(404);
+  });
+  it("validates kinds, parent relationships and structured data", async () => {
+    const role = (
+      await (
+        await request("/experience-bullets", "POST", {
+          text: "Engineer",
+          kind: "role",
+          data: { company: "Acme" },
+        })
+      ).json()
+    ).data.bullet;
+    for (const input of [
+      { text: "x", kind: "unknown" },
+      { text: "x", data: [] },
+      { text: "x", data: "bad" },
+      { text: "x", parentId: "missing" },
+      { text: "x", kind: "project_point", parentId: role.id },
+      { text: "x", kind: "skill", parentId: role.id },
+    ])
+      expect((await request("/experience-bullets", "POST", input)).status).toBe(
+        400,
+      );
+    const child = await request("/experience-bullets", "POST", {
+      text: "Duty",
+      parentId: role.id,
+    });
+    expect(child.status).toBe(201);
+    expect(
       (
-        await (
-          await request("/experience-bullets/import-resume", "POST")
-        ).json()
-      ).data,
-    ).toMatchObject({ created: 0, skipped: 3 });
+        await request(`/experience-bullets/${role.id}`, "PATCH", {
+          kind: "skill",
+        })
+      ).status,
+    ).toBe(400);
+    expect((await request(`/library/${role.id}/usage`)).status).toBe(200);
+    expect(
+      (await (await request(`/library/${role.id}/usage`)).json()).data,
+    ).toEqual({ jobIds: [], frozenJobIds: [] });
+  });
+  it("automatically syncs once even when a manual role already exists", async () => {
+    await request("/experience-bullets", "POST", {
+      kind: "role",
+      text: "Manual role",
+    });
+    const pdf = await import("@server/services/pdf");
+    const load = vi.spyOn(pdf, "loadBaseResumeSource");
+    expect((await (await request("/library")).json()).data.items).toHaveLength(
+      4,
+    );
+    expect((await (await request("/library")).json()).data.items).toHaveLength(
+      4,
+    );
+    expect(load).toHaveBeenCalledOnce();
   });
   it("materializes a tailored copy, atomically checks revisions and resets", async () => {
     const patched = await request(`/jobs/${jobId}`, "PATCH", {
@@ -526,7 +582,7 @@ it("screens a posted resume against the job with validated refs and scoped bulle
   expect(callJson.mock.calls.length).toBe(calls);
 });
 
-it("labels explicit IDs, returns labeled imports, validates payloads, and preserves imports on failure", async () => {
+it("labels explicit IDs, validates payloads, and sync never calls the LLM", async () => {
   callJson.mockImplementation(async (input) => ({
     success: true,
     data: {
@@ -535,13 +591,9 @@ it("labels explicit IDs, returns labeled imports, validates payloads, and preser
       ),
     },
   }));
-  const imported = (
-    await (await request("/experience-bullets/import-resume", "POST")).json()
-  ).data;
-  expect(imported.labeled).toBe(2);
-  expect(
-    imported.bullets.every((b: { tags: string[] }) => b.tags.includes("APIs")),
-  ).toBe(true);
+  await request("/library/sync", "POST");
+  expect(callJson).not.toHaveBeenCalled();
+  const imported = (await (await request("/experience-bullets")).json()).data;
   const response = await request("/experience-bullets/label", "POST", {
     ids: [imported.bullets[0].id, "foreign"],
   });
@@ -575,11 +627,42 @@ it("labels explicit IDs, returns labeled imports, validates payloads, and preser
   for (const b of imported.bullets)
     await request(`/experience-bullets/${b.id}`, "DELETE");
   callJson.mockRejectedValue(new Error("upstream unavailable"));
-  const failed = (
-    await (await request("/experience-bullets/import-resume", "POST")).json()
-  ).data;
-  expect(failed).toMatchObject({ created: 2, labeled: 0 });
+  const failed = (await (await request("/library/sync", "POST")).json()).data;
+  expect(failed).toMatchObject({ created: 0 });
   expect(
-    failed.bullets.every((b: { tags: string[] }) => b.tags.length === 0),
+    (await (await request("/experience-bullets")).json()).data.bullets.every(
+      (b: { tags: string[] }) => b.tags.length === 0,
+    ),
   ).toBe(true);
+});
+
+it("opens the library without a base resume, logs its failure once, and keeps the first-build marker after deletion", async () => {
+  const { db, schema } = await import("@server/db");
+  db.delete(schema.designResumeDocuments)
+    .where(eq(schema.designResumeDocuments.id, "base-resume"))
+    .run();
+  const pdf = await import("@server/services/pdf");
+  const load = vi.spyOn(pdf, "loadBaseResumeSource");
+  const { logger } = await import("@infra/logger");
+  const warn = vi.spyOn(logger, "warn");
+  const manual = (
+    await (
+      await request("/experience-bullets", "POST", { text: "Manual duty" })
+    ).json()
+  ).data.bullet;
+  const first = await request("/library");
+  expect(first.status).toBe(200);
+  const items = (await first.json()).data.items;
+  expect(items).toHaveLength(2);
+  const role = items.find((item: { kind: string }) => item.kind === "role");
+  expect(
+    items.find((item: { id: string }) => item.id === manual.id).parentId,
+  ).toBe(role.id);
+  expect(warn).toHaveBeenCalledOnce();
+  await request(`/experience-bullets/${role.id}`, "DELETE");
+  expect((await (await request("/library")).json()).data.items).toEqual([]);
+  expect(
+    (await (await request("/library/sync", "POST")).json()).data.created,
+  ).toBe(0);
+  expect(load).toHaveBeenCalledOnce();
 });

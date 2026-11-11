@@ -1,9 +1,9 @@
 import {
   bulletsFromHtml,
   htmlToPlainText,
-  joinDescription,
   splitDescription,
 } from "@shared/resume-bullets";
+import { getItemLines, setItemLines } from "@shared/resume-links";
 import type {
   ReactiveResumeV5Document,
   ResumeFocusRef,
@@ -124,6 +124,7 @@ export function suggestionTarget(
   if (suggestion.op === "replace_field") {
     const item = fieldItem(document, suggestion.field);
     if (!item || !suggestion.field) return null;
+    if (item.libraryId) return null;
     const current = String(item[suggestion.field.name] ?? "");
     // Lists stay with the bullet ops; the server drops these too.
     if (
@@ -152,6 +153,8 @@ export function suggestionTarget(
       ? { old: "", index }
       : null;
   }
+  if (suggestion.op === "replace_bullet" && !suggestion.text?.trim())
+    return null;
   // An explicit previous text is a guard against applying an edit to changed content.
   const index =
     suggestion.previousText !== undefined
@@ -202,19 +205,21 @@ function applyResolvedSuggestion(
       (e) => e.id === suggestion.experienceId,
     );
     if (!experience || target.index === undefined) return null;
-    const { introHtml, bullets } = splitDescription(experience.description);
-    if (suggestion.op === "delete_bullet") bullets.splice(target.index, 1);
+    const lines = getItemLines(experience);
+    if (suggestion.op === "delete_bullet") lines.splice(target.index, 1);
     else
-      bullets.splice(
-        target.index,
-        suggestion.op === "replace_bullet" ? 1 : 0,
-        suggestion.text ?? "",
-      );
-    experience.description = joinDescription(
-      introHtml,
-      bullets,
-      experience.description,
-    );
+      lines.splice(target.index, suggestion.op === "replace_bullet" ? 1 : 0, {
+        text: suggestion.text ?? "",
+        ref:
+          suggestion.op === "replace_bullet"
+            ? (lines[target.index]?.ref ?? null)
+            : null,
+      });
+    const index = next.sections.experience.items.indexOf(experience);
+    next.sections.experience.items[index] = setItemLines(
+      experience,
+      lines,
+    ) as typeof experience;
   }
   return next;
 }

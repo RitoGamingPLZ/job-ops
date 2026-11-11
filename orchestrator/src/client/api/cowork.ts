@@ -2,6 +2,8 @@ import type {
   ExperienceBullet,
   ExperienceBulletInput,
   JobResumeState,
+  LibraryItemUsage,
+  LibrarySyncResult,
   RankedBullet,
   ReactiveResumeV5Document,
   ResumeListItem,
@@ -25,22 +27,31 @@ export function createExperienceBullet(input: ExperienceBulletInput) {
 export function updateExperienceBullet(
   id: string,
   input: Partial<ExperienceBulletInput>,
+  skipJobId?: string,
 ) {
-  return fetchApi<{ bullet: ExperienceBullet }>(bulletPath(id), {
-    method: "PATCH",
-    body: JSON.stringify(input),
+  return fetchApi<{ bullet: ExperienceBullet }>(
+    bulletPath(id) + skipQuery(skipJobId),
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
+}
+export function deleteExperienceBullet(id: string, skipJobId?: string) {
+  return fetchApi<{ deleted: true }>(bulletPath(id) + skipQuery(skipJobId), {
+    method: "DELETE",
   });
 }
-export function deleteExperienceBullet(id: string) {
-  return fetchApi<{ deleted: true }>(bulletPath(id), { method: "DELETE" });
+const skipQuery = (jobId?: string) =>
+  jobId ? `?skipJobId=${encodeURIComponent(jobId)}` : "";
+export function listCandidateLibrary() {
+  return fetchApi<{ items: ExperienceBullet[] }>("/library");
 }
-export function importExperienceBulletsFromResume() {
-  return fetchApi<{
-    created: number;
-    skipped: number;
-    labeled?: number;
-    bullets: ExperienceBullet[];
-  }>("/experience-bullets/import-resume", { method: "POST" });
+export function getLibraryItemUsage(id: string) {
+  return fetchApi<LibraryItemUsage>(`/library/${encodeURIComponent(id)}/usage`);
+}
+export function syncCandidateLibrary() {
+  return fetchApi<LibrarySyncResult>("/library/sync", { method: "POST" });
 }
 export function labelExperienceBullets(
   ids?: string[],

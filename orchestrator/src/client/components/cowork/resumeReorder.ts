@@ -1,4 +1,4 @@
-import { joinDescription, splitDescription } from "@shared/resume-bullets";
+import { getItemLines, setItemLines } from "@shared/resume-links";
 import type { ReactiveResumeV5Document } from "@shared/types";
 
 export const RESUME_BULLET_TRANSFER_TYPE = "application/x-jobops-resume-bullet";
@@ -36,12 +36,8 @@ export function moveResumeBullet(
     (e) => e.id === destinationId && !e.hidden,
   );
   if (!origin || !destination) return document;
-  const { introHtml: sourceIntro, bullets: from } = splitDescription(
-    origin.description,
-  );
-  const { introHtml: targetIntro, bullets: to } = splitDescription(
-    destination.description,
-  );
+  const from = getItemLines(origin);
+  const to = getItemLines(destination);
   if (
     !Number.isInteger(source.index) ||
     source.index < 0 ||
@@ -59,25 +55,19 @@ export function moveResumeBullet(
     (e) => e.id === destinationId,
   );
   if (!sourceItem || !targetItem) return document;
+  const items = next.sections.experience.items;
+  const sourceIndex = items.indexOf(sourceItem);
+  const targetIndex = items.indexOf(targetItem);
   if (origin.id === destination.id)
-    sourceItem.description = joinDescription(
-      sourceIntro,
+    items[sourceIndex] = setItemLines(
+      sourceItem,
       moveItem(from, source.index, gap),
-      sourceItem.description,
-    );
+    ) as typeof sourceItem;
   else {
     const [bullet] = from.splice(source.index, 1);
     to.splice(gap, 0, bullet);
-    sourceItem.description = joinDescription(
-      sourceIntro,
-      from,
-      sourceItem.description,
-    );
-    targetItem.description = joinDescription(
-      targetIntro,
-      to,
-      targetItem.description,
-    );
+    items[sourceIndex] = setItemLines(sourceItem, from) as typeof sourceItem;
+    items[targetIndex] = setItemLines(targetItem, to) as typeof targetItem;
   }
   return next;
 }

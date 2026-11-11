@@ -1,13 +1,16 @@
 import { AppError, notFound } from "@infra/errors";
+import { listExperienceBullets } from "@server/repositories/experience-bullets";
 import { getJobResume, saveJobResume } from "@server/repositories/job-resumes";
-import { getJobById } from "@server/repositories/jobs";
+import { getJobById, updateJob } from "@server/repositories/jobs";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import {
   isTargeted,
   type JobResumeState,
   type ReactiveResumeV5Document,
 } from "@shared/types";
+import { syncCandidateLibrary } from "./candidate-library";
 import { loadBaseResumeSource, resolvePdfRenderer } from "./pdf";
+import { generateResumeFromLibrary } from "./resume-from-library";
 import { prepareTailoredResumeForPdf } from "./rxresume";
 
 export type JobResume = JobResumeState;
@@ -58,39 +61,47 @@ async function materializeJobResume(
   opts?: { tailor?: boolean; requestOrigin?: string | null },
   baseRevision = 0,
 ): Promise<JobResume> {
-  let job = await getJobById(jobId);
+  const job = await getJobById(jobId);
   if (!job) throw notFound("Job not found");
-  // A targeted job is always tailored, whoever asks first.
-  if (
-    (opts?.tailor || isTargeted(job)) &&
-    !(job.tailoredSummary && job.tailoredHeadline && job.tailoredSkills)
-  ) {
-    const { summarizeJob } = await import("@server/pipeline/orchestrator");
-    const result = await summarizeJob(jobId);
-    if (!result.success) throw new Error(result.error || "Tailoring failed");
-    job = await getJobById(jobId);
-    if (!job) throw notFound("Job not found");
-  }
   const base = await loadBaseResumeSource({
     renderer: await resolvePdfRenderer(),
     requestOrigin: opts?.requestOrigin ?? null,
   });
-  const prepared = await prepareTailoredResumeForPdf({
-    resumeData: base.data,
-    tailoredContent: {
-      summary: job.tailoredSummary,
-      headline: job.tailoredHeadline,
-      skills: job.tailoredSkills,
-    },
-    jobDescription: job.jobDescription ?? "",
-    selectedProjectIds: job.selectedProjectIds,
-  });
-  try {
-    return await saveJobResume(
-      jobId,
-      baseRevision,
-      prepared.data as ReactiveResumeV5Document,
+  let document: ReactiveResumeV5Document;
+  if (opts?.tailor || isTargeted(job)) {
+    // B's sync imports the base only on the scope's first build. Subsequent
+    // syncs add unlinked job facts without resurrecting deleted library facts.
+    syncCandidateLibrary(base.data as ReactiveResumeV5Document);
+    document = await generateResumeFromLibrary(
+      base.data as ReactiveResumeV5Document,
+      job,
+      await listExperienceBullets(true),
     );
+    await updateJob(jobId, {
+      tailoredHeadline: document.basics.headline,
+      tailoredSummary: document.summary.content,
+      tailoredSkills: JSON.stringify(
+        document.sections.skills.items.map((item) => ({
+          name: item.name,
+          keywords: item.keywords,
+        })),
+      ),
+    });
+  } else {
+    const prepared = await prepareTailoredResumeForPdf({
+      resumeData: base.data,
+      tailoredContent: {
+        summary: job.tailoredSummary,
+        headline: job.tailoredHeadline,
+        skills: job.tailoredSkills,
+      },
+      jobDescription: job.jobDescription ?? "",
+      selectedProjectIds: job.selectedProjectIds,
+    });
+    document = prepared.data as ReactiveResumeV5Document;
+  }
+  try {
+    return await saveJobResume(jobId, baseRevision, document);
   } catch (error) {
     if (error instanceof AppError && error.code === "CONFLICT") {
       const winner = await getJobResume(jobId);

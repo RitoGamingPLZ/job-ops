@@ -22,7 +22,11 @@ export function BulletText({
   value,
   label,
   onChange,
+  linked = false,
+  readOnly = false,
 }: {
+  linked?: boolean;
+  readOnly?: boolean;
   value: string;
   label: string;
   onChange: (value: string) => void;
@@ -38,6 +42,7 @@ export function BulletText({
   return (
     <Textarea
       rows={1}
+      readOnly={readOnly}
       style={{ height: "auto", overflow: "hidden" }}
       ref={(element) => {
         if (element) fitTextarea(element);
@@ -53,7 +58,12 @@ export function BulletText({
         }
       }}
       onBlur={() => {
-        if (!draft.trim()) onChange("");
+        if (!draft.trim()) {
+          if (linked) {
+            setDraft(value);
+            emitted.current = value;
+          } else onChange("");
+        }
       }}
     />
   );

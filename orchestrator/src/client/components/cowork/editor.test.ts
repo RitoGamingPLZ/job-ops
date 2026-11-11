@@ -1,9 +1,10 @@
+import { setItemLines } from "@shared/resume-links";
 import type {
   ReactiveResumeV5Document,
   ResumeFocusRef,
   ResumeSuggestion,
 } from "@shared/types";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   addFocus,
   applySuggestion,
@@ -382,4 +383,85 @@ describe("focus refs", () => {
     expect(readFocusTransfer("{")).toBeNull();
     expect(readFocusTransfer('{"kind":"item"}')).toBeNull();
   });
+});
+
+// Use the merged shared helpers; spies also cover omitted optional refs.
+vi.mock("@shared/resume-links", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@shared/resume-links")>();
+  return {
+    ...actual,
+    getItemLines: vi.fn(actual.getItemLines),
+    setItemLines: vi.fn(actual.setItemLines),
+  };
+});
+
+describe("linked suggestion lines", () => {
+  it("keeps a replaced line's ref and aligns refs after insert/delete", () => {
+    const original = fixture();
+    original.sections.experience.items[0].bulletRefs = ["first", "second"];
+    const replaced = applySuggestion(original, suggestion());
+    if (!replaced) throw new Error("Expected replacement to apply");
+    expect(replaced.sections.experience.items[0].bulletRefs).toEqual([
+      "first",
+      "second",
+    ]);
+    const inserted = applySuggestion(
+      replaced,
+      suggestion({
+        op: "insert_bullet",
+        previousText: undefined,
+        bulletIndex: 0,
+        text: "New",
+      }),
+    );
+    if (!inserted) throw new Error("Expected insertion to apply");
+    expect(inserted.sections.experience.items[0].bulletRefs).toEqual([
+      null,
+      "first",
+      "second",
+    ]);
+    const deleted = applySuggestion(
+      inserted,
+      suggestion({ op: "delete_bullet", previousText: "First" }),
+    );
+    if (!deleted) throw new Error("Expected deletion to apply");
+    expect(deleted.sections.experience.items[0].bulletRefs).toEqual([
+      null,
+      "second",
+    ]);
+    expect(original.sections.experience.items[0].bulletRefs).toEqual([
+      "first",
+      "second",
+    ]);
+  });
+  it("rejects blank rewording and entry field edits on linked entries", () => {
+    const original = fixture();
+    original.sections.experience.items[0].libraryId = "role";
+    original.sections.experience.items[0].bulletRefs = ["first", "second"];
+    expect(applySuggestion(original, suggestion({ text: " " }))).toBeNull();
+    expect(
+      applySuggestion(
+        original,
+        suggestion({
+          op: "replace_field",
+          field: { section: "experience", itemId: "one", name: "company" },
+          previousText: undefined,
+        }),
+      ),
+    ).toBeNull();
+  });
+});
+
+it("replaces items when setItemLines omits refs", () => {
+  const original = fixture();
+  original.sections.experience.items[0].bulletRefs = ["first", null];
+  vi.mocked(setItemLines).mockImplementationOnce((item) => {
+    const { bulletRefs: _refs, ...rest } = item;
+    return { ...rest, description: "<ul><li>Second</li></ul>" };
+  });
+  const next = applySuggestion(
+    original,
+    suggestion({ op: "delete_bullet", previousText: "First" }),
+  );
+  expect(next?.sections.experience.items[0]).not.toHaveProperty("bulletRefs");
 });
