@@ -451,6 +451,12 @@ export function CandidateLibrary({
     );
   }
   function row(item: Item) {
+    const hasTags =
+      item.kind === "bullet" ||
+      item.kind === "project" ||
+      item.kind === "education" ||
+      item.kind === "award" ||
+      item.kind === "certification";
     const isLine = item.kind === "bullet" || item.kind === "project_point";
     const lineSection =
       item.kind === "bullet" ? KIND_SECTION.role : KIND_SECTION.project;
@@ -469,7 +475,7 @@ export function CandidateLibrary({
     return (
       <div key={item.id} className="space-y-0.5 py-0.5">
         <div
-          className={`group flex ${item.kind === "bullet" ? "items-center" : "items-start"} gap-1 rounded-sm text-xs ${reworded ? REWORDED_TINT_CLASS : ""}`}
+          className={`group flex ${hasTags ? "items-center" : "items-start"} gap-1 rounded-sm text-xs ${reworded ? REWORDED_TINT_CLASS : ""}`}
           title={rewordedLine?.text}
         >
           {tick([item], item.text)}
@@ -492,12 +498,8 @@ export function CandidateLibrary({
           )}
           <button
             type="button"
-            className={`min-w-0 flex-1 py-0.5 text-left hover:underline ${item.kind === "bullet" ? "truncate" : ""}`}
-            title={
-              item.kind === "bullet"
-                ? (rewordedLine?.text ?? item.text)
-                : undefined
-            }
+            className={`min-w-0 flex-1 py-0.5 text-left hover:underline ${hasTags ? "truncate" : ""}`}
+            title={hasTags ? (rewordedLine?.text ?? item.text) : undefined}
             disabled={busy}
             onClick={() => startEdit(item)}
           >
@@ -531,7 +533,7 @@ export function CandidateLibrary({
           )}
         </div>
         {editing && editForm(edit)}
-        {item.kind === "bullet" && (
+        {hasTags && (
           <div className="flex min-w-0 items-start gap-1">
             <InlineTags
               bullet={item}
