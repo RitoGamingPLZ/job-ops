@@ -1420,3 +1420,140 @@ describe("candidate library links", () => {
     ).toEqual([]);
   });
 });
+
+describe("contact editing", () => {
+  function ContactEditor({
+    initial = fixture(),
+    onChange,
+    disabled,
+  }: {
+    initial?: ReactiveResumeV5Document;
+    onChange: (document: ReactiveResumeV5Document) => void;
+    disabled?: boolean;
+  }) {
+    const [document, setDocument] = useState(initial);
+    return (
+      <ResumeEditor
+        document={document}
+        onChange={(next) => {
+          setDocument(next);
+          onChange(next);
+        }}
+        suggestions={[]}
+        onDismiss={vi.fn()}
+        disabled={disabled}
+      />
+    );
+  }
+
+  it("edits contact basics through onChange without mutating the original", () => {
+    const initial = fixture();
+    initial.basics.website = { url: "https://old.example", label: "Portfolio" };
+    const onChange = vi.fn();
+    render(<ContactEditor initial={initial} onChange={onChange} />);
+    for (const [label, value] of [
+      ["Email", "alan@example.com"],
+      ["Phone", "+1 555 0100"],
+      ["Location", "New York"],
+      ["Website URL", "https://example.com"],
+      ["Website label", "My work"],
+    ]) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    }
+    expect(onChange).toHaveBeenCalledTimes(5);
+    expect(onChange.mock.lastCall?.[0].basics).toMatchObject({
+      email: "alan@example.com",
+      phone: "+1 555 0100",
+      location: "New York",
+      website: { url: "https://example.com", label: "My work" },
+    });
+    expect(initial.basics.website.url).toBe("https://old.example");
+    expect(screen.queryByTitle("Edit in Resume Studio")).toBeNull();
+  });
+
+  it("adds, focuses, edits and removes a profile through onChange", () => {
+    const onChange = vi.fn();
+    render(<ContactEditor onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "+ Profile" }));
+    expect(screen.getByLabelText("Profile 1 URL")).toHaveFocus();
+    for (const [field, value] of [
+      ["URL", "https://github.com/alan"],
+      ["network", "GitHub"],
+      ["username", "alan"],
+      ["label", "Code"],
+    ]) {
+      fireEvent.change(screen.getByLabelText(`Profile 1 ${field}`), {
+        target: { value },
+      });
+    }
+    const profile = onChange.mock.lastCall?.[0].sections.profiles.items[0];
+    expect(profile).toMatchObject({
+      id: expect.any(String),
+      hidden: false,
+      network: "GitHub",
+      username: "alan",
+      website: { url: "https://github.com/alan", label: "Code" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Delete profile 1" }));
+    expect(onChange.mock.lastCall?.[0].sections.profiles.items).toEqual([]);
+    expect(screen.queryByLabelText("Profile 1 URL")).toBeNull();
+  });
+
+  it("edits existing profiles by id and preserves hidden profiles and URL options", () => {
+    const initial = fixture();
+    initial.sections.profiles = {
+      title: "Profiles",
+      columns: 1,
+      hidden: false,
+      items: [
+        {
+          id: "hidden",
+          hidden: true,
+          icon: "",
+          network: "Hidden",
+          username: "secret",
+          website: { url: "https://hidden.example", label: "" },
+        },
+        {
+          id: "visible",
+          hidden: false,
+          icon: "github",
+          network: "GitHub",
+          username: "alan",
+          website: {
+            url: "https://github.com/old",
+            label: "Code",
+            inlineLink: true,
+          },
+        },
+      ],
+    };
+    const onChange = vi.fn();
+    render(<ContactEditor initial={initial} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("Profile 1 URL"), {
+      target: { value: "https://github.com/new" },
+    });
+    expect(
+      onChange.mock.lastCall?.[0].sections.profiles.items[1],
+    ).toMatchObject({
+      id: "visible",
+      icon: "github",
+      website: {
+        url: "https://github.com/new",
+        label: "Code",
+        inlineLink: true,
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Delete profile 1" }));
+    expect(onChange.mock.lastCall?.[0].sections.profiles.items).toEqual([
+      initial.sections.profiles.items[0],
+    ]);
+  });
+
+  it("disables contact controls with the rest of the paper", () => {
+    render(<ContactEditor onChange={vi.fn()} disabled />);
+    expect(screen.getByLabelText("Email")).toBeDisabled();
+    expect(screen.getByLabelText("Website URL")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "+ Profile" })).toBeDisabled();
+  });
+});
