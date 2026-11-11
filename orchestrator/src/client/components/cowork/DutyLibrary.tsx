@@ -5,7 +5,7 @@ import type {
   ExperienceBulletInput,
   RankedBullet,
 } from "@shared/types";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -36,36 +41,116 @@ export function InlineTags({
 }) {
   const [draft, setDraft] = useState("");
   const [adding, setAdding] = useState(false);
-  const [showAll, setShowAll] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(8);
+  const tagsRow = useRef<HTMLDivElement>(null);
+  const tagButtons = useRef<(HTMLButtonElement | null)[]>([]);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const overflowMeasure = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const row = tagsRow.current;
+    if (!row) return;
+    function measure() {
+      if (!row || !row.clientWidth) return;
+      const gap = 4;
+      const available =
+        row.clientWidth -
+        (adding ? 0 : (addButton.current?.offsetWidth ?? 0)) -
+        gap;
+      const widths = bullet.tags.map(
+        (_, index) => tagButtons.current[index]?.offsetWidth ?? 0,
+      );
+      const allWidth = widths.reduce((sum, width) => sum + width + gap, 0);
+      const limit =
+        allWidth <= available && bullet.tags.length <= 8
+          ? available
+          : available - (overflowMeasure.current?.offsetWidth ?? 0) - gap;
+      let used = 0;
+      let count = 0;
+      for (const width of widths.slice(0, 8)) {
+        if (used + width + gap > limit) break;
+        used += width + gap;
+        count++;
+      }
+      setVisibleCount(count);
+    }
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [bullet.tags, adding]);
+  const tagClass =
+    "shrink-0 whitespace-nowrap rounded border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50";
+  function removeTag(tag: string) {
+    onSave(bullet.tags.filter((value) => value !== tag));
+  }
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-1">
-        {(showAll ? bullet.tags : bullet.tags.slice(0, 8)).map((tag, index) => (
+    <div className="min-w-0 flex-1 space-y-2">
+      <div
+        ref={tagsRow}
+        className="relative flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap"
+      >
+        {bullet.tags.map((tag, index) => (
           <button
             key={`${index}-${tag}`}
+            ref={(node) => {
+              tagButtons.current[index] = node;
+            }}
             type="button"
             disabled={busy}
-            className="rounded border px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+            className={`${tagClass} ${index >= visibleCount ? "invisible absolute pointer-events-none" : ""}`}
+            aria-hidden={index >= visibleCount ? true : undefined}
+            tabIndex={index >= visibleCount ? -1 : undefined}
             aria-label={`Remove ${tag} from ${bullet.text}`}
-            onClick={() => onSave(bullet.tags.filter((value) => value !== tag))}
+            onClick={() => removeTag(tag)}
           >
             {tag} <span aria-hidden="true">×</span>
           </button>
         ))}
-        {bullet.tags.length > 8 && (
-          <button
-            type="button"
-            className="text-xs text-muted-foreground"
-            onClick={() => setShowAll(!showAll)}
-          >
-            {showAll ? "Show less" : `+${bullet.tags.length - 8}`}
-          </button>
+        <span
+          ref={overflowMeasure}
+          aria-hidden="true"
+          className="invisible absolute text-xs"
+        >
+          +{bullet.tags.length}
+        </span>
+        {bullet.tags.length > visibleCount && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="shrink-0 text-xs text-muted-foreground"
+                aria-label={`Show ${bullet.tags.length - visibleCount} more tags`}
+              >
+                +{bullet.tags.length - visibleCount}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              className="flex max-h-60 flex-wrap gap-1 overflow-auto p-2"
+            >
+              {bullet.tags.slice(visibleCount).map((tag, index) => (
+                <button
+                  key={`${index}-${tag}`}
+                  type="button"
+                  disabled={busy}
+                  className={`${tagClass} max-w-full truncate`}
+                  title={tag}
+                  aria-label={`Remove ${tag} from ${bullet.text}`}
+                  onClick={() => removeTag(tag)}
+                >
+                  {tag} <span aria-hidden="true">×</span>
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
         )}
         {!adding && (
           <button
+            ref={addButton}
             type="button"
             disabled={busy}
-            className="text-xs text-muted-foreground"
+            className="shrink-0 text-xs text-muted-foreground"
             onClick={() => setAdding(true)}
           >
             + tag

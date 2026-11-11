@@ -279,6 +279,10 @@ describe("candidate library", () => {
     for (const className of REWORDED_TINT_CLASS.split(" "))
       expect(row).toHaveClass(className);
     expect(row).toHaveAttribute("title", "Reworded tools");
+    expect(screen.getByRole("button", { name: "Built tools" })).toHaveAttribute(
+      "title",
+      "Reworded tools",
+    );
   });
   it("keeps tags, drag payload, chat references and rank results", async () => {
     const reference = vi.fn();
@@ -298,13 +302,52 @@ describe("candidate library", () => {
       "application/x-jobops-bullet",
       JSON.stringify({ id: duty.id, text: duty.text }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Chat reference" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Chat reference: Built tools" }),
+    );
     expect(reference).toHaveBeenCalledWith(duty);
     fireEvent.click(screen.getByRole("button", { name: "Rank for this job" }));
     expect(await screen.findByText("88/100")).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Paste & extract" }),
     ).toBeVisible();
+  });
+  it("keeps duty actions on the first line and tags and score on the second", async () => {
+    mocks.rank.mockResolvedValue({
+      ranked: [{ bulletId: duty.id, score: 88, reason: "Relevant tools" }],
+    });
+    await mount({ jobId: "job", document: doc, onReferenceBullet: vi.fn() });
+    const description = screen.getByRole("button", { name: duty.text });
+    expect(description).toHaveClass("truncate");
+    expect(description).toHaveAttribute("title", duty.text);
+    const firstLine = description.parentElement as HTMLElement;
+    const chat = within(firstLine).getByRole("button", {
+      name: "Chat reference: Built tools",
+    });
+    expect(chat.textContent).toBe("");
+    expect(chat.querySelector("svg")).not.toBeNull();
+    const trash = within(firstLine).getByRole("button", {
+      name: `Delete ${duty.text}`,
+    });
+    expect(trash).not.toHaveClass("opacity-0");
+    fireEvent.click(screen.getByRole("button", { name: "Rank for this job" }));
+    const score = await screen.findByText("88/100");
+    expect(score).toHaveAttribute("title", "Relevant tools");
+    expect(score).toHaveAttribute("tabindex", "0");
+    expect(score).toHaveAccessibleName("88/100: Relevant tools");
+    score.focus();
+    expect(score).toHaveFocus();
+    expect(screen.queryByText("Relevant tools")).toBeNull();
+    expect(score.parentElement).toBe(firstLine.nextElementSibling);
+    expect(
+      within(score.parentElement as HTMLElement).getByRole("button", {
+        name: "Remove Tools from Built tools",
+      }),
+    ).toBeVisible();
+    fireEvent.click(description);
+    expect(screen.getByRole("textbox", { name: "Text" })).toHaveValue(
+      duty.text,
+    );
   });
   it("syncs and reloads the library", async () => {
     mocks.sync.mockResolvedValue({ created: 3, skipped: 4, linked: 5 });

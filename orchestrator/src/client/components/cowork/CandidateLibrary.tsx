@@ -17,7 +17,7 @@ import type {
   RankedBullet,
   ReactiveResumeV5Document,
 } from "@shared/types";
-import { Trash2 } from "lucide-react";
+import { MessageSquare, Trash2 } from "lucide-react";
 import {
   type SetStateAction,
   useCallback,
@@ -329,7 +329,11 @@ export function CandidateLibrary({
         variant="ghost"
         aria-label={`Delete ${label}`}
         disabled={busy}
-        className="ml-auto opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
+        className={
+          group[0]?.kind === "bullet"
+            ? "h-7 w-7 shrink-0 p-0"
+            : "ml-auto opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
+        }
         onClick={() => void run(() => requestDelete(group))}
       >
         <Trash2 className="h-3 w-3" aria-hidden="true" />
@@ -459,7 +463,7 @@ export function CandidateLibrary({
     return (
       <div key={item.id} className="space-y-1 py-1">
         <div
-          className={`group flex items-start gap-2 rounded-sm text-sm ${reworded ? REWORDED_TINT_CLASS : ""}`}
+          className={`group flex ${item.kind === "bullet" ? "items-center" : "items-start"} gap-2 rounded-sm text-sm ${reworded ? REWORDED_TINT_CLASS : ""}`}
           title={rewordedLine?.text}
         >
           {tick([item], item.text)}
@@ -467,7 +471,7 @@ export function CandidateLibrary({
             <button
               type="button"
               aria-label={`Drag duty: ${item.text}`}
-              className="cursor-grab text-muted-foreground"
+              className="shrink-0 cursor-grab text-muted-foreground"
               draggable
               onDragStart={(event) => {
                 event.dataTransfer.setData(
@@ -482,7 +486,12 @@ export function CandidateLibrary({
           )}
           <button
             type="button"
-            className="min-w-0 flex-1 py-1 text-left hover:underline"
+            className={`min-w-0 flex-1 py-1 text-left hover:underline ${item.kind === "bullet" ? "truncate" : ""}`}
+            title={
+              item.kind === "bullet"
+                ? (rewordedLine?.text ?? item.text)
+                : undefined
+            }
             disabled={busy}
             onClick={() => startEdit(item)}
           >
@@ -495,11 +504,29 @@ export function CandidateLibrary({
                 .join("")}
             </span>
           </button>
-          {trash([item], item.text)}
+          {item.kind === "bullet" ? (
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              {onReferenceBullet && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 p-0"
+                  aria-label={`Chat reference: ${item.text}`}
+                  title="Chat reference"
+                  onClick={() => onReferenceBullet(item)}
+                >
+                  <MessageSquare className="h-3 w-3" aria-hidden="true" />
+                </Button>
+              )}
+              {trash([item], item.text)}
+            </div>
+          ) : (
+            trash([item], item.text)
+          )}
         </div>
         {editing && editForm(edit)}
         {item.kind === "bullet" && (
-          <div className="pl-6 space-y-1">
+          <div className="flex min-w-0 items-start gap-2 pl-6">
             <InlineTags
               bullet={item}
               busy={busy}
@@ -510,18 +537,16 @@ export function CandidateLibrary({
               }
             />
             {score && (
-              <p className="text-xs">
-                <strong>{score.score}/100</strong> · {score.reason}
-              </p>
-            )}
-            {onReferenceBullet && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => onReferenceBullet(item)}
+              <span
+                className="shrink-0 rounded border px-1.5 py-0.5 text-xs font-medium"
+                title={score.reason}
+                role="note"
+                // biome-ignore lint/a11y/noNoninteractiveTabindex: Keyboard users need to focus the score to read its rank reason.
+                tabIndex={0}
+                aria-label={`${score.score}/100: ${score.reason}`}
               >
-                Chat reference
-              </Button>
+                {score.score}/100
+              </span>
             )}
           </div>
         )}
