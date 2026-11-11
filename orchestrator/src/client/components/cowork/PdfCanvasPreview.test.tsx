@@ -96,10 +96,10 @@ describe("PdfCanvasPreview", () => {
   });
 
   it("offers a download if loading fails", async () => {
-    mocks.getDocument.mockReturnValue({
+    mocks.getDocument.mockImplementation(() => ({
       promise: Promise.reject(new Error("Bad PDF")),
       destroy,
-    });
+    }));
     render(<PdfCanvasPreview url="blob:broken" />);
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not render the PDF preview.",
@@ -173,9 +173,18 @@ describe("PdfCanvasPreview", () => {
     const pending = deferred<{ numPages: number; getPage: typeof getPage }>();
     mocks.getDocument.mockReturnValue({ promise: pending.promise, destroy });
     const view = render(<PdfCanvasPreview url="blob:resume" />);
+    await waitFor(() => expect(mocks.getDocument).toHaveBeenCalledOnce());
     view.unmount();
     await act(async () => pending.resolve({ numPages: 2, getPage }));
     expect(destroy).toHaveBeenCalledOnce();
     expect(getPage).not.toHaveBeenCalled();
+  });
+
+  it("does not start loading after unmount during the lazy import", async () => {
+    const view = render(<PdfCanvasPreview url="blob:resume" />);
+    view.unmount();
+    await act(async () => {});
+    expect(mocks.getDocument).not.toHaveBeenCalled();
+    expect(destroy).not.toHaveBeenCalled();
   });
 });

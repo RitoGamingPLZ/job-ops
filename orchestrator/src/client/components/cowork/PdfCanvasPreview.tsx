@@ -1,15 +1,9 @@
-import {
-  GlobalWorkerOptions,
-  getDocument,
-  type PDFDocumentProxy,
-  type RenderTask,
+import type {
+  PDFDocumentLoadingTask,
+  PDFDocumentProxy,
+  RenderTask,
 } from "pdfjs-dist";
 import { useEffect, useRef, useState } from "react";
-
-GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.mjs",
-  import.meta.url,
-).toString();
 
 export function PdfCanvasPreview({ url }: { url: string }) {
   return <PdfCanvasDocument key={url} url={url} />;
@@ -25,19 +19,26 @@ function PdfCanvasDocument({ url }: { url: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    const task = getDocument(url);
-    void task.promise.then(
-      (pdf) => {
+    let task: PDFDocumentLoadingTask | undefined;
+    void (async () => {
+      try {
+        const { GlobalWorkerOptions, getDocument } = await import("pdfjs-dist");
+        if (cancelled) return;
+        GlobalWorkerOptions.workerSrc = new URL(
+          "pdfjs-dist/build/pdf.worker.mjs",
+          import.meta.url,
+        ).toString();
+        task = getDocument(url);
+        const pdf = await task.promise;
         if (!cancelled) setDocument(pdf);
-      },
-      () => {
+      } catch {
         if (!cancelled) setFailed(true);
-      },
-    );
+      }
+    })();
     return () => {
       cancelled = true;
       // Destroying the loading task also destroys its document and worker.
-      void task.destroy().catch(() => {});
+      void task?.destroy().catch(() => {});
     };
   }, [url]);
 
