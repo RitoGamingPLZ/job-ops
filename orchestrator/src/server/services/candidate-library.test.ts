@@ -4,34 +4,42 @@ import { join } from "node:path";
 import type { ReactiveResumeV5Document } from "@shared/types";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-vi.mock("@shared/resume-links", () => ({
-  applyLibraryUpdate: vi.fn((doc) => ({
-    ...doc,
-    summary: { ...doc.summary, content: "updated" },
-  })),
-  removeFromResume: vi.fn((doc) => ({
-    ...doc,
-    summary: { ...doc.summary, content: "removed" },
-  })),
-  isOnResume: vi.fn((doc, id) =>
-    Object.values(doc.sections).some((section: unknown) => {
-      const items = (
-        section as { items?: { libraryId?: string; bulletRefs?: string[] }[] }
-      ).items;
-      return items?.some(
-        (item) => item.libraryId === id || item.bulletRefs?.includes(id),
-      );
-    }),
-  ),
-  stampLibraryRefs: vi.fn((doc) =>
-    doc.basics.headline === "stamped"
-      ? { doc, linked: 0 }
-      : {
-          doc: { ...doc, basics: { ...doc.basics, headline: "stamped" } },
-          linked: 1,
-        },
-  ),
-}));
+vi.mock("@shared/resume-links", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@shared/resume-links")>();
+  return {
+    ...real,
+    applyLibraryUpdate: vi.fn((doc, before, after) =>
+      before.kind === "contact"
+        ? real.applyLibraryUpdate(doc, before, after)
+        : {
+            ...doc,
+            summary: { ...doc.summary, content: "updated" },
+          },
+    ),
+    removeFromResume: vi.fn((doc) => ({
+      ...doc,
+      summary: { ...doc.summary, content: "removed" },
+    })),
+    isOnResume: vi.fn((doc, id) =>
+      Object.values(doc.sections).some((section: unknown) => {
+        const items = (
+          section as { items?: { libraryId?: string; bulletRefs?: string[] }[] }
+        ).items;
+        return items?.some(
+          (item) => item.libraryId === id || item.bulletRefs?.includes(id),
+        );
+      }),
+    ),
+    stampLibraryRefs: vi.fn((doc) =>
+      doc.basics.headline === "stamped"
+        ? { doc, linked: 0 }
+        : {
+            doc: { ...doc, basics: { ...doc.basics, headline: "stamped" } },
+            linked: 1,
+          },
+    ),
+  };
+});
 let dir: string;
 let api: typeof import("./candidate-library");
 let database: typeof import("../db");
@@ -684,5 +692,155 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
     });
     expect(api.syncCandidateLibrary(document).created).toBe(0);
     expect(await repo.listExperienceBullets(true)).toEqual([]);
+  });
+});
+
+it("validates contact data and imports missing base contacts per tenant without duplicates", async () => {
+  document.basics.email = "me@example.com";
+  document.basics.phone = "123";
+  document.basics.location = "London";
+  document.basics.website = { url: "https://example.com", label: "Portfolio" };
+  const profile = {
+    id: "p1",
+    hidden: false,
+    icon: "",
+    network: "GitHub",
+    username: "me",
+    website: { url: "https://github.com/me", label: "Code" },
+  };
+  document.sections.profiles.items = [profile, { ...profile, id: "p2" }];
+  await scope("tenant-a", async () => {
+    expect(() =>
+      api.createLibraryItem({
+        kind: "contact",
+        text: "bad",
+        data: { type: "fax", value: "123" },
+      }),
+    ).toThrow("Invalid contact data");
+    expect(() =>
+      api.createLibraryItem({
+        kind: "contact",
+        text: "bad",
+        data: { type: "email", value: "" },
+      }),
+    ).toThrow("Invalid contact data");
+    api.createLibraryItem({
+      kind: "contact",
+      text: "Personal",
+      data: { type: "email", value: "me@example.com" },
+      tags: ["Personal"],
+    });
+    expect(api.syncCandidateLibrary(document).created).toBe(4);
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+    const repo = await import("../repositories/experience-bullets");
+    expect(
+      (await repo.listExperienceBullets(true)).filter(
+        (item) => item.kind === "contact",
+      ),
+    ).toHaveLength(5);
+  });
+  await scope("tenant-b", async () => {
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(true);
+    expect(api.syncCandidateLibrary(document).created).toBe(5);
+    const repo = await import("../repositories/experience-bullets");
+    expect(
+      (await repo.listExperienceBullets(true)).filter(
+        (item) => item.kind === "contact",
+      ),
+    ).toHaveLength(5);
+  });
+});
+
+it("scopes contact usage, propagation and deletion by tenant and preserves frozen resumes", async () => {
+  document.basics.email = "me@example.com";
+  job("ready-a");
+  job("frozen-a", "applied");
+  job("ready-b", "ready", "tenant-b");
+  await scope("tenant-a", async () => {
+    const item = api.createLibraryItem({
+      kind: "contact",
+      text: "Email",
+      data: { type: "email", value: "me@example.com" },
+    });
+    expect(api.libraryItemUsage(item.id)).toEqual({
+      jobIds: ["ready-a"],
+      frozenJobIds: ["frozen-a"],
+    });
+    api.updateLibraryItem(item.id, {
+      data: { type: "email", value: "new@example.com" },
+    });
+    expect(
+      rows().find((row) => row.jobId === "ready-a")?.document.basics.email,
+    ).toBe("new@example.com");
+    expect(
+      rows().find((row) => row.jobId === "frozen-a")?.document.basics.email,
+    ).toBe("me@example.com");
+    expect(
+      rows().find((row) => row.jobId === "ready-b")?.document.basics.email,
+    ).toBe("me@example.com");
+    api.deleteLibraryItem(item.id);
+    expect(
+      rows().find((row) => row.jobId === "ready-a")?.document.basics.email,
+    ).toBe("");
+    expect(
+      rows().find((row) => row.jobId === "frozen-a")?.document.basics.email,
+    ).toBe("me@example.com");
+    expect(
+      rows().find((row) => row.jobId === "ready-b")?.document.basics.email,
+    ).toBe("me@example.com");
+  });
+});
+
+it("sync imports missing base contacts into existing libraries without editing or removing contacts", async () => {
+  await scope("tenant-a", async () => {
+    api.syncCandidateLibrary(document);
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(false);
+    const existing = api.createLibraryItem({
+      kind: "contact",
+      text: "Display",
+      tags: ["Personal"],
+      data: { type: "email", value: "  me@example.com  " },
+    });
+    expect(existing).toMatchObject({
+      text: "me@example.com",
+      data: { value: "me@example.com" },
+    });
+    document.basics.email = " ME@example.com ";
+    document.basics.phone = " 123 ";
+    expect(api.syncCandidateLibrary(document).created).toBe(1);
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+    const repo = await import("../repositories/experience-bullets");
+    const contacts = (await repo.listExperienceBullets(true)).filter(
+      (item) => item.kind === "contact",
+    );
+    expect(contacts).toHaveLength(2);
+    expect(contacts.find((item) => item.id === existing.id)).toEqual(existing);
+    expect(contacts.find((item) => item.data?.type === "phone")).toMatchObject({
+      text: "123",
+      data: { value: "123" },
+    });
+    const updated = api.updateLibraryItem(existing.id, {
+      data: { type: "email", value: " new@example.com " },
+    });
+    expect(updated).toMatchObject({
+      text: "new@example.com",
+      data: { value: "new@example.com" },
+    });
+    document.basics.email = "";
+    document.basics.phone = "";
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+    expect(
+      (await repo.listExperienceBullets(true)).filter(
+        (item) => item.kind === "contact",
+      ),
+    ).toHaveLength(2);
+  });
+  await scope("tenant-b", async () => {
+    const repo = await import("../repositories/experience-bullets");
+    expect(
+      (await repo.listExperienceBullets(true)).filter(
+        (item) => item.kind === "contact",
+      ),
+    ).toHaveLength(0);
   });
 });

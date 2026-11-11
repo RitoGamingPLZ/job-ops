@@ -9,6 +9,7 @@ export type ExperienceBulletSource =
 
 /**
  * Candidate library item kinds (PRD docs/prd/resume-editor-candidate-library.md §6).
+ * - contact:       data = { type, value, label?, network?, username?, url? }; parentId null
  * - role:          text = position; data = { company, location, website, period }
  * - bullet:        text = duty; parentId = role id
  * - project:       text = name; data = { period, website }
@@ -21,6 +22,7 @@ export type ExperienceBulletSource =
  * readers also accept a plain URL string from legacy rows.
  */
 export type CandidateItemKind =
+  | "contact"
   | "role"
   | "bullet"
   | "project"
@@ -31,6 +33,7 @@ export type CandidateItemKind =
   | "certification";
 
 export const CANDIDATE_ITEM_KINDS: readonly CandidateItemKind[] = [
+  "contact",
   "role",
   "bullet",
   "project",

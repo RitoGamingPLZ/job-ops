@@ -120,7 +120,7 @@ export function InlineTags({
               <button
                 type="button"
                 className="shrink-0 text-xs text-muted-foreground"
-                aria-label={`Show ${bullet.tags.length - visibleCount} more tags`}
+                aria-label={`Show ${bullet.tags.length - visibleCount} more tags for ${bullet.text}`}
               >
                 +{bullet.tags.length - visibleCount}
               </button>
@@ -148,6 +148,7 @@ export function InlineTags({
         {!adding && (
           <button
             ref={addButton}
+            aria-label={`Add tag to ${bullet.text}`}
             type="button"
             disabled={busy}
             className="shrink-0 text-xs text-muted-foreground"
@@ -185,6 +186,20 @@ export function InlineTags({
             aria-label={`Add skill to ${bullet.text}`}
             value={draft}
             disabled={busy}
+            autoFocus
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setDraft("");
+                setAdding(false);
+              }
+            }}
+            onBlur={() => {
+              if (!draft.trim()) {
+                setDraft("");
+                setAdding(false);
+              }
+            }}
             onChange={(event) => setDraft(event.target.value)}
           />
           <Button
@@ -195,6 +210,20 @@ export function InlineTags({
             disabled={busy || !draft.trim()}
           >
             Add
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0"
+            disabled={busy}
+            aria-label={`Cancel adding tag to ${bullet.text}`}
+            onClick={() => {
+              setDraft("");
+              setAdding(false);
+            }}
+          >
+            ×
           </Button>
         </form>
       )}

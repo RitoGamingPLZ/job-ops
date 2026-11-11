@@ -3,10 +3,12 @@ import {
   addToResume,
   applyLibraryUpdate,
   getItemLines,
+  isContactOnResume,
   isOnResume,
   KIND_SECTION,
   removeFromResume,
   sameLineText,
+  setContactOnResume,
 } from "@shared/resume-links";
 import type {
   CandidateItemKind,
@@ -17,11 +19,12 @@ import type {
   RankedBullet,
   ReactiveResumeV5Document,
 } from "@shared/types";
-import { MessageSquare, Trash2 } from "lucide-react";
+import { MessageSquare, Plus, Trash2 } from "lucide-react";
 import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -47,10 +50,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { coworkError, DutyLibraryTools, InlineTags } from "./DutyLibrary";
-import { BULLET_TRANSFER_TYPE } from "./editor";
 import { REWORDED_TINT_CLASS } from "./rewordTint";
 
 const sections = [
+  ["contact", "Contact"],
   ["role", "Experience"],
   ["project", "Projects"],
   ["skill", "Skills"],
@@ -59,6 +62,7 @@ const sections = [
   ["certification", "Certifications"],
 ] as const;
 const names: Record<CandidateItemKind, string> = {
+  contact: "contact",
   role: "role",
   bullet: "duty",
   project: "project",
@@ -69,6 +73,7 @@ const names: Record<CandidateItemKind, string> = {
   certification: "certification",
 };
 const fields: Partial<Record<CandidateItemKind, string[]>> = {
+  contact: ["value", "label", "network", "username"],
   role: ["period"],
   project: ["period", "website"],
   education: ["school", "location", "period"],
@@ -76,6 +81,11 @@ const fields: Partial<Record<CandidateItemKind, string[]>> = {
   certification: ["issuer", "website", "date"],
 };
 const fieldNames: Record<string, string> = {
+  value: "Value",
+  label: "Label",
+  network: "Network",
+  username: "Username",
+  url: "URL",
   company: "Company",
   location: "Location",
   website: "Website",
@@ -138,6 +148,7 @@ export function CandidateLibrary({
   onDocumentChange?: (update: (doc: Doc) => Doc) => void;
   onReferenceBullet?: (bullet: ExperienceBullet) => void;
 }) {
+  const tickId = useId();
   const [localItems, setLocalItems] = useState<Item[]>([]);
   const items = providedItems ?? localItems;
   const currentItems = useRef(items);
@@ -214,9 +225,11 @@ export function CandidateLibrary({
     onDocumentChange?.((doc) =>
       group.reduce(
         (next, item) =>
-          checked
-            ? addToResume(next, item.id, items)
-            : removeFromResume(next, item.id),
+          item.kind === "contact"
+            ? setContactOnResume(next, item, checked)
+            : checked
+              ? addToResume(next, item.id, items)
+              : removeFromResume(next, item.id),
         doc,
       ),
     );
@@ -224,17 +237,28 @@ export function CandidateLibrary({
   function tick(group: Item[], label: string) {
     if (!jobId) return null;
     const count = group.filter(
-      (item) => document && isOnResume(document, item.id),
+      (item) =>
+        document &&
+        (item.kind === "contact"
+          ? isContactOnResume(document, item)
+          : isOnResume(document, item.id)),
     ).length;
     return (
-      <Checkbox
-        aria-label={`Include ${label}`}
-        disabled={busy || !document || !onDocumentChange}
-        checked={
-          count === group.length ? true : count ? "indeterminate" : false
-        }
-        onCheckedChange={(checked) => toggle(group, checked === true)}
-      />
+      <label
+        htmlFor={`${tickId}-${group.map((item) => item.id).join("-")}`}
+        className="inline-flex shrink-0 cursor-pointer items-center p-1 -m-1"
+      >
+        <Checkbox
+          id={`${tickId}-${group.map((item) => item.id).join("-")}`}
+          className="h-3 w-3 [&_svg]:h-2.5 [&_svg]:w-2.5"
+          aria-label={`Include ${label}`}
+          disabled={busy || !document || !onDocumentChange}
+          checked={
+            count === group.length ? true : count ? "indeterminate" : false
+          }
+          onCheckedChange={(checked) => toggle(group, checked === true)}
+        />
+      </label>
     );
   }
   function startEdit(item: Item) {
@@ -263,7 +287,9 @@ export function CandidateLibrary({
         data:
           kind === "bullet" || kind === "project_point"
             ? null
-            : { ...companyData },
+            : kind === "contact"
+              ? { type: "email", value: "" }
+              : { ...companyData },
         source: "manual",
         position: items.length,
       },
@@ -307,7 +333,13 @@ export function CandidateLibrary({
       ];
       if (!frozen)
         onDocumentChange?.((doc) =>
-          removedIds.reduce((next, id) => removeFromResume(next, id), doc),
+          removedIds.reduce(
+            (next, id) =>
+              item.kind === "contact"
+                ? setContactOnResume(next, item, false)
+                : removeFromResume(next, id),
+            doc,
+          ),
         );
       setItems((current) =>
         current.filter((row) => !removedIds.includes(row.id)),
@@ -361,7 +393,7 @@ export function CandidateLibrary({
   function editForm(current: Edit) {
     return (
       <form
-        className="space-y-1 py-1"
+        className="space-y-0.5 py-0.5 text-xs"
         aria-label="Edit library item"
         onSubmit={(event) => {
           event.preventDefault();
@@ -374,62 +406,132 @@ export function CandidateLibrary({
           }
         }}
       >
-        {!current.companyOnly && (
-          <Input
-            autoFocus
-            aria-label={current.input.kind === "role" ? "Position" : "Text"}
-            required
+        {current.input.kind === "contact" && (
+          <select
+            aria-label="Contact type"
+            className="h-7 rounded border bg-background px-1 text-xs"
             disabled={busy}
-            value={current.input.text}
+            value={String(current.input.data?.type ?? "email")}
             onChange={(event) =>
               setEdit({
                 ...current,
-                input: { ...current.input, text: event.target.value },
+                input: {
+                  ...current.input,
+                  data: { ...current.input.data, type: event.target.value },
+                },
               })
             }
-          />
-        )}
-        {current.fields.map((field, index) => (
-          <label
-            key={field}
-            htmlFor={`library-${field}`}
-            className="block text-xs text-muted-foreground"
           >
-            {fieldLabel(current, field)}
-            <Input
-              id={`library-${field}`}
-              autoFocus={current.companyOnly && index === 0}
-              aria-label={fieldLabel(current, field)}
+            {["email", "phone", "location", "website", "profile"].map(
+              (type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ),
+            )}
+          </select>
+        )}
+        {!current.companyOnly &&
+          current.input.kind !== "contact" &&
+          (current.input.kind === "bullet" ||
+          current.input.kind === "project_point" ? (
+            <textarea
+              aria-label="Text"
+              rows={2}
+              required
               disabled={busy}
-              value={fieldValue(field, current.input.data?.[field])}
+              className="block min-h-0 w-full resize-none rounded-md border border-input bg-transparent px-1.5 py-0.5 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={current.input.text}
+              ref={(node) => {
+                if (node) {
+                  node.style.height = "auto";
+                  node.style.height = `${node.scrollHeight}px`;
+                }
+              }}
               onChange={(event) =>
                 setEdit({
                   ...current,
-                  input: {
-                    ...current.input,
-                    data: {
-                      ...current.input.data,
-                      [field]:
-                        field === "website"
-                          ? {
-                              label: "",
-                              ...(current.input.data?.website &&
-                              typeof current.input.data.website === "object"
-                                ? current.input.data.website
-                                : {}),
-                              url: event.target.value,
-                            }
-                          : event.target.value,
-                    },
-                  },
+                  input: { ...current.input, text: event.target.value },
                 })
               }
             />
-          </label>
-        ))}
-        <div className="flex gap-2">
+          ) : (
+            <Input
+              className="h-7 px-1.5 py-0.5 text-xs md:text-xs"
+              autoFocus
+              aria-label={current.input.kind === "role" ? "Position" : "Text"}
+              required
+              disabled={busy}
+              value={current.input.text}
+              onChange={(event) =>
+                setEdit({
+                  ...current,
+                  input: { ...current.input, text: event.target.value },
+                })
+              }
+            />
+          ))}
+        {current.fields
+          .filter(
+            (field) =>
+              current.input.kind !== "contact" ||
+              field === "value" ||
+              (field === "label" && current.input.data?.type === "website") ||
+              current.input.data?.type === "profile",
+          )
+          .map((field, index) => (
+            <label
+              key={field}
+              htmlFor={`library-${field}`}
+              className="block text-xs text-muted-foreground"
+            >
+              {fieldLabel(current, field)}
+              <Input
+                className="h-7 px-1.5 py-0.5 text-xs md:text-xs"
+                required={current.input.kind === "contact" && field === "value"}
+                id={`library-${field}`}
+                autoFocus={current.companyOnly && index === 0}
+                aria-label={fieldLabel(current, field)}
+                disabled={busy}
+                value={fieldValue(field, current.input.data?.[field])}
+                onChange={(event) =>
+                  setEdit({
+                    ...current,
+                    input: {
+                      ...current.input,
+                      ...(current.input.kind === "contact" && field === "value"
+                        ? { text: event.target.value }
+                        : {}),
+                      data: {
+                        ...current.input.data,
+                        ...(current.input.kind === "contact" &&
+                        current.input.data?.type === "profile" &&
+                        field === "value" &&
+                        current.input.data?.url
+                          ? { url: event.target.value }
+                          : {}),
+                        [field]:
+                          field === "website"
+                            ? {
+                                label: "",
+                                ...(current.input.data?.website &&
+                                typeof current.input.data.website === "object"
+                                  ? current.input.data.website
+                                  : {}),
+                                url: event.target.value,
+                              }
+                            : event.target.value,
+                      },
+                    },
+                  })
+                }
+              />
+            </label>
+          ))}
+        <div className="flex gap-1">
           <Button
             size="sm"
+            className="h-6 px-2 text-xs"
             type="submit"
             disabled={
               busy || !current.input.text.trim() || companyMissing(current)
@@ -440,6 +542,7 @@ export function CandidateLibrary({
           <Button
             size="sm"
             variant="ghost"
+            className="h-6 px-2 text-xs"
             type="button"
             disabled={busy}
             onClick={() => setEdit(null)}
@@ -451,13 +554,16 @@ export function CandidateLibrary({
     );
   }
   function row(item: Item) {
-    const detailSuffix = (fields[item.kind] ?? [])
+    const detailSuffix = (
+      item.kind === "contact" ? ["type"] : (fields[item.kind] ?? [])
+    )
       .map((field) => fieldValue(field, item.data?.[field]))
       .filter(Boolean)
       .map((value) => ` · ${String(value)}`)
       .join("");
     const displayText = item.text + detailSuffix;
     const hasTags =
+      item.kind === "contact" ||
       item.kind === "bullet" ||
       item.kind === "project" ||
       item.kind === "education" ||
@@ -485,23 +591,6 @@ export function CandidateLibrary({
           title={rewordedLine?.text}
         >
           {tick([item], item.text)}
-          {item.kind === "bullet" && (
-            <button
-              type="button"
-              aria-label={`Drag duty: ${item.text}`}
-              className="shrink-0 cursor-grab text-muted-foreground"
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.setData(
-                  BULLET_TRANSFER_TYPE,
-                  JSON.stringify({ id: item.id, text: item.text }),
-                );
-                event.dataTransfer.effectAllowed = "copy";
-              }}
-            >
-              ⋮⋮
-            </button>
-          )}
           <button
             type="button"
             className={`min-w-0 flex-1 py-0.5 text-left hover:underline ${hasTags ? "truncate" : ""}`}
@@ -641,6 +730,7 @@ export function CandidateLibrary({
     parentId?: string,
     companyData?: Record<string, unknown>,
     label = names[kind],
+    showForm = true,
   ) {
     const adding =
       edit &&
@@ -655,12 +745,19 @@ export function CandidateLibrary({
           size="sm"
           variant="ghost"
           disabled={busy}
+          aria-label={
+            parentId
+              ? `Add ${label} to ${items.find((item) => item.id === parentId)?.text ?? "item"}`
+              : companyData
+                ? `Add ${label} at ${String(companyData.company ?? "")}`
+                : `Add ${label}`
+          }
           className="h-7 px-2 text-xs"
           onClick={() => startAdd(kind, parentId, companyData)}
         >
-          + Add {label}
+          <Plus className="h-3 w-3" aria-hidden="true" /> Add {label}
         </Button>
-        {adding && editForm(edit)}
+        {showForm && adding && editForm(edit)}
       </>
     );
   }
@@ -728,6 +825,15 @@ export function CandidateLibrary({
         <>
           {section === "role" && (
             <>
+              <div className="flex items-center justify-between gap-1 text-xs font-medium">
+                Experience
+                {addButton("role", undefined, undefined, "job", false)}
+              </div>
+              {edit &&
+                !edit.items.length &&
+                edit.input.kind === "role" &&
+                edit.addCompany === undefined &&
+                editForm(edit)}
               <DutyLibraryTools
                 jobId={jobId}
                 roles={roles}
@@ -782,10 +888,28 @@ export function CandidateLibrary({
                           ? ` · ${String(group[0].data.location)}`
                           : ""}
                       </button>
-                      {trash(group, company)}
+                      <div className="ml-auto flex shrink-0 items-center gap-1">
+                        {addButton(
+                          "role",
+                          undefined,
+                          {
+                            company,
+                            location: group[0].data?.location ?? "",
+                            website: group[0].data?.website ?? "",
+                          },
+                          "role",
+                          false,
+                        )}
+                        {trash(group, company)}
+                      </div>
                     </div>
                     {edit?.companyOnly &&
                       edit.items[0]?.id === group[0].id &&
+                      editForm(edit)}
+                    {edit &&
+                      !edit.items.length &&
+                      edit.input.kind === "role" &&
+                      edit.addCompany === company &&
                       editForm(edit)}
                     {group.map((role) => {
                       const duties = items.filter(
@@ -808,29 +932,32 @@ export function CandidateLibrary({
                                 {`${selected}/${duties.length} duties`}
                               </span>
                             )}
+                            {addButton(
+                              "bullet",
+                              role.id,
+                              undefined,
+                              "duty",
+                              false,
+                            )}
                             <AccordionTrigger
                               aria-label={`Show duties for ${role.text}`}
                               className="h-6 w-6 flex-none justify-center p-0"
                             />
                           </div>
+                          {edit &&
+                            !edit.items.length &&
+                            edit.input.kind === "bullet" &&
+                            edit.input.parentId === role.id &&
+                            editForm(edit)}
                           <AccordionContent className="pb-0.5 text-xs">
                             {duties.map(row)}
-                            {addButton("bullet", role.id)}
                           </AccordionContent>
                         </AccordionItem>
                       );
                     })}
-                    <div className="space-y-0.5">
-                      {addButton("role", undefined, {
-                        company,
-                        location: group[0].data?.location ?? "",
-                        website: group[0].data?.website ?? "",
-                      })}
-                    </div>
                   </div>
                 ))}
               </Accordion>
-              {addButton("role", undefined, undefined, "job")}
             </>
           )}
           {section !== "role" && (
@@ -859,7 +986,9 @@ export function CandidateLibrary({
           )}
           {!items.some((item) => item.kind === section) && (
             <p className="text-xs text-muted-foreground">
-              Add an item or sync from resumes to build your library.
+              {section === "contact"
+                ? "Add a contact or sync to import missing contacts from your base resume."
+                : "Add an item or sync from resumes to build your library."}
             </p>
           )}
         </>
