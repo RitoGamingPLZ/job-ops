@@ -195,7 +195,7 @@ it("propagates updates except frozen, skipped and other tenant resumes", async (
       .map((row) => row.jobId),
   ).toEqual(["ready"]);
 });
-it("counts children in usage, deletes children, detaches frozen refs and preserves text", async () => {
+it("counts children in usage, deletes children, leaves frozen resumes and their refs untouched", async () => {
   const { role, child } = scope("tenant-a", () => {
     const role = api.createLibraryItem({
       kind: "role",
@@ -239,11 +239,10 @@ it("counts children in usage, deletes children, detaches frozen refs and preserv
   const frozen = rows().find((row) => row.jobId === "frozen");
   expect(frozen?.document.sections.experience.items[0]).toMatchObject({
     description: document.sections.experience.items[0].description,
-    bulletRefs: [null],
+    bulletRefs: [child.id],
   });
-  expect(frozen?.document.sections.experience.items[0]).not.toHaveProperty(
-    "libraryId",
-  );
+  expect(frozen?.revision).toBe(3);
+  expect(frozen?.document.sections.experience.items[0].libraryId).toBe(role.id);
   expect(rows().find((row) => row.jobId === "skip")?.revision).toBe(3);
   expect(rows().find((row) => row.jobId === "other")?.revision).toBe(3);
 });
@@ -357,10 +356,16 @@ it("isolates library and resume state by user in hosted workspaces", async () =>
     .run();
   const asUser = <T>(userId: string, fn: () => T) =>
     run({ tenantId: "tenant-a", userId, requestId: "hosted-library" }, fn);
-  const item = asUser("alice", () =>
-    api.createLibraryItem({ kind: "role", text: "Alice role" }),
-  );
+  const item = asUser("alice", () => {
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(true);
+    api.syncCandidateLibrary(document);
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(false);
+    return api.createLibraryItem({ kind: "role", text: "Alice role" });
+  });
   await asUser("bob", async () => {
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(true);
+    api.syncCandidateLibrary(document);
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(false);
     expect(
       await (
         await import("../repositories/experience-bullets")
@@ -378,14 +383,20 @@ it("isolates library and resume state by user in hosted workspaces", async () =>
     expect(() => api.deleteLibraryItem(item.id)).toThrow("Bullet not found");
   });
 });
-it("dedupes legacy role identity and restores missing metadata from resumes", async () => {
+it.each([
+  "2020 – Present",
+  "2020 - Present",
+  "2020-Present",
+  "2020—Present",
+  "2020‑Present",
+])("dedupes legacy role identity without source ids (%s) and restores missing metadata", async (period) => {
   document.sections.experience.items = [
     {
       id: "e",
       hidden: false,
       company: "Acme",
       position: "Engineer",
-      period: "2020 – Present",
+      period,
       location: "Toronto",
       website: { url: "https://example.com", label: "Acme" },
       description: "<ul><li>Built</li></ul>",
@@ -446,5 +457,174 @@ it("preserves blank role titles and duties alongside nested roles during sync", 
         .map((item) => item.text)
         .sort(),
     ).toEqual(["Inner duty", "Outer duty"]);
+  });
+});
+
+const experience = (period = "2020 - Present") => ({
+  id: "base-exp",
+  hidden: false,
+  company: "Acme",
+  position: "Engineer",
+  period,
+  location: "Toronto",
+  website: { url: "", label: "" },
+  description: "<ul><li>Built APIs</li></ul>",
+  roles: [],
+});
+it.each([
+  "2020-Present",
+  "2020—Present",
+  "2020 – Present",
+])("normalises legacy periods (%s) and attaches by source id before text dedupe", async (period) => {
+  document.sections.experience.items = [experience(period)];
+  await scope("tenant-a", async () => {
+    const legacy = api.createLibraryItem({
+      text: "Built APIs",
+      company: "Old company",
+      role: "Old title",
+      startDate: "2020",
+      endDate: "Present",
+      sourceExperienceId: "base-exp",
+    });
+    api.syncCandidateLibrary(document);
+    const all = await (
+      await import("../repositories/experience-bullets")
+    ).listExperienceBullets(true);
+    expect(all).toHaveLength(2);
+    expect(all.find((item) => item.id === legacy.id)?.parentId).toBe(
+      all.find((item) => item.kind === "role")?.id,
+    );
+  });
+});
+it("uses a per-scope first-build marker even after the last role is deleted", async () => {
+  document.sections.experience.items = [experience()];
+  await scope("tenant-a", async () => {
+    api.syncCandidateLibrary(document);
+    const all = await (
+      await import("../repositories/experience-bullets")
+    ).listExperienceBullets(true);
+    const role = all.find((item) => item.kind === "role");
+    if (!role) throw new Error("Expected role");
+    api.deleteLibraryItem(role.id);
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+  });
+  expect(
+    scope("tenant-b", () => api.syncCandidateLibrary(document).created),
+  ).toBe(2);
+});
+it("appends siblings, rejects kind changes and refreshes duty columns on reparent", async () => {
+  scope("tenant-a", () => {
+    const a = api.createLibraryItem({
+      kind: "role",
+      text: "A",
+      data: { company: "Alpha", period: "2020–2021" },
+    });
+    const b = api.createLibraryItem({
+      kind: "role",
+      text: "B",
+      data: { company: "Beta", period: "2022–Now" },
+    });
+    expect(b.position).toBe(a.position + 1);
+    expect(() => api.updateLibraryItem(a.id, { kind: "skill" })).toThrow();
+    const first = api.createLibraryItem({ text: "First", parentId: a.id });
+    const second = api.createLibraryItem({ text: "Second", parentId: a.id });
+    expect(second.position).toBe(first.position + 1);
+    expect(api.updateLibraryItem(first.id, { parentId: b.id })).toMatchObject({
+      company: "Beta",
+      role: "B",
+      startDate: "2022",
+      endDate: "Now",
+    });
+    const project = api.createLibraryItem({ kind: "project", text: "Tool" });
+    const point = api.createLibraryItem({
+      kind: "project_point",
+      text: "Point",
+      parentId: project.id,
+    });
+    expect(point).toMatchObject({ company: null, role: null });
+    expect(
+      api.updateLibraryItem(point.id, { company: "Wrong", role: "Wrong" }),
+    ).toMatchObject({ company: null, role: null });
+  });
+});
+it("syncs, stamps, propagates and deletes with the real shared links, preserving reworded and frozen resumes", async () => {
+  // Re-import the service with no shared-link mock at all.
+  database.closeDb();
+  vi.doUnmock("@shared/resume-links");
+  vi.resetModules();
+  database = await import("../db");
+  ({ runWithRequestContext: run } = await import("@infra/request-context"));
+  api = await import("./candidate-library");
+  document.sections.experience.items = [experience()];
+  job("ready");
+  job("frozen", "applied");
+  job("skip");
+  job("linked");
+  job("untouched", "ready", "tenant-a", {
+    ...document,
+    sections: {
+      ...document.sections,
+      experience: { ...document.sections.experience, items: [] },
+    },
+  });
+  await scope("tenant-a", async () => {
+    expect(api.syncCandidateLibrary(document).linked).toBe(8);
+    const repo = await import("../repositories/experience-bullets");
+    const all = await repo.listExperienceBullets(true);
+    const duty = all.find((item) => item.kind === "bullet");
+    const parent = all.find((item) => item.kind === "role");
+    const ready = rows().find((row) => row.jobId === "ready");
+    if (!duty || !parent || !ready) throw new Error("Expected linked fixture");
+    const frozenBefore = rows().find((row) => row.jobId === "frozen");
+    const reworded = structuredClone(ready.document);
+    reworded.sections.experience.items[0].description =
+      "<ul><li>My wording</li></ul>";
+    const { eq } = await import("drizzle-orm");
+    database.db
+      .update(database.schema.jobResumes)
+      .set({ document: reworded })
+      .where(eq(database.schema.jobResumes.jobId, "ready"))
+      .run();
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+    api.updateLibraryItem(duty.id, { text: "Built cloud APIs" }, "skip");
+    expect(rows().find((row) => row.jobId === "ready")?.revision).toBe(4);
+    expect(rows().find((row) => row.jobId === "frozen")?.revision).toBe(4);
+    expect(rows().find((row) => row.jobId === "skip")?.revision).toBe(4);
+    expect(rows().find((row) => row.jobId === "untouched")?.revision).toBe(3);
+    expect(
+      rows().find((row) => row.jobId === "linked")?.document.sections.experience
+        .items[0].description,
+    ).toContain("Built cloud APIs");
+    expect(rows().find((row) => row.jobId === "linked")?.revision).toBe(5);
+    api.updateLibraryItem(parent.id, {
+      text: "Senior Engineer",
+      data: { company: "New Acme", period: "2024" },
+    });
+    expect(
+      rows().find((row) => row.jobId === "ready")?.document.sections.experience
+        .items[0],
+    ).toMatchObject({
+      company: "New Acme",
+      position: "Senior Engineer",
+      period: "2024",
+      description: "<ul><li>My wording</li></ul>",
+    });
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+    api.deleteLibraryItem(parent.id);
+    expect(
+      rows().find((row) => row.jobId === "ready")?.document.sections.experience
+        .items,
+    ).toEqual([]);
+    expect(rows().find((row) => row.jobId === "frozen")).toEqual(frozenBefore);
+    expect(
+      rows().find((row) => row.jobId === "frozen")?.document.sections.experience
+        .items[0],
+    ).toMatchObject({
+      libraryId: parent.id,
+      bulletRefs: [duty.id],
+      description: experience().description,
+    });
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+    expect(await repo.listExperienceBullets(true)).toEqual([]);
   });
 });

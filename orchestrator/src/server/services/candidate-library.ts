@@ -28,7 +28,7 @@ function library(): ExperienceBullet[] {
     .select()
     .from(table)
     .where(privateDataScopeFilter(table))
-    .orderBy(asc(table.position), asc(table.id))
+    .orderBy(asc(table.position), asc(table.createdAt), asc(table.id))
     .all()
     .map(({ tenantId: _t, userId: _u, ...item }) => item);
 }
@@ -92,11 +92,19 @@ function validate(
   )
     throw badRequest("Item kind is incompatible with its children");
 }
+function parentFields(parent: ExperienceBullet | undefined) {
+  const period = String(parent?.data?.period ?? "").split(
+    /\s+[–—−-]\s+|\s*[–—−]\s*|(?<=\d{4})\s*-\s*(?=[A-Za-z]|\d{4}(?:$|\D))/,
+  );
+  return {
+    company: parent ? String(parent.data?.company ?? "") : null,
+    role: parent?.text ?? null,
+    startDate: parent ? period[0] || null : null,
+    endDate: parent ? period.slice(1).join(" – ") || null : null,
+  };
+}
 function insert(input: ExperienceBulletInput, all: ExperienceBullet[]) {
   const parent = all.find((item) => item.id === input.parentId);
-  const period = String(parent?.data?.period ?? "").split(
-    /\s+[–—−-]\s+|\s*[–—−]\s*/,
-  );
   const { tenantId, userId } = getPrivateDataScope();
   const {
     tenantId: _t,
@@ -109,10 +117,23 @@ function insert(input: ExperienceBulletInput, all: ExperienceBullet[]) {
       tenantId,
       userId,
       id: randomUUID(),
-      company: parent ? String(parent.data?.company ?? "") : input.company,
-      role: parent?.text ?? input.role,
-      startDate: parent ? period[0] || null : input.startDate,
-      endDate: parent ? period.slice(1).join(" – ") || null : input.endDate,
+      ...(input.kind === "bullet" || input.kind === undefined
+        ? parent
+          ? parentFields(parent)
+          : {
+              company: input.company,
+              role: input.role,
+              startDate: input.startDate,
+              endDate: input.endDate,
+            }
+        : { company: null, role: null, startDate: null, endDate: null }),
+      position:
+        input.position ??
+        all.filter(
+          (item) =>
+            item.kind === (input.kind ?? "bullet") &&
+            item.parentId === (input.parentId ?? null),
+        ).length,
       updatedAt: new Date().toISOString(),
     })
     .returning()
@@ -135,7 +156,23 @@ export function updateLibraryItem(
     const all = library();
     const before = all.find((item) => item.id === id);
     if (!before) throw notFound("Bullet not found");
+    if (input.kind && input.kind !== before.kind)
+      throw badRequest("Library item kind cannot change");
     validate({ ...before, ...input }, all, id);
+    if (before.kind !== "bullet") {
+      input = {
+        ...input,
+        company: null,
+        role: null,
+        startDate: null,
+        endDate: null,
+      };
+    } else if (input.parentId !== undefined) {
+      input = {
+        ...input,
+        ...parentFields(all.find((item) => item.id === input.parentId)),
+      };
+    }
     const {
       tenantId: _t,
       userId: _u,
@@ -147,16 +184,8 @@ export function updateLibraryItem(
       .returning()
       .get();
     if (after.kind === "role") {
-      const period = String(after.data?.period ?? "").split(
-        /\s+[–—−-]\s+|\s*[–—−]\s*/,
-      );
       db.update(table)
-        .set({
-          company: String(after.data?.company ?? ""),
-          role: after.text,
-          startDate: period[0] || null,
-          endDate: period.slice(1).join(" – ") || null,
-        })
+        .set(parentFields(after))
         .where(and(privateDataScopeFilter(table), eq(table.parentId, id)))
         .run();
     }
@@ -183,45 +212,15 @@ export function libraryItemUsage(id: string): LibraryItemUsage {
       result[frozen(status) ? "frozenJobIds" : "jobIds"].push(resume.jobId);
   return result;
 }
-/** Frozen resumes retain every field and line; only references are detached. */
-function stripRefs(document: ReactiveResumeV5Document, ids: Set<string>) {
-  const doc = structuredClone(document);
-  let changed = false;
-  for (const section of Object.values(doc.sections)) {
-    if (
-      !section ||
-      typeof section !== "object" ||
-      !("items" in section) ||
-      !Array.isArray(section.items)
-    )
-      continue;
-    for (const item of section.items as Record<string, unknown>[]) {
-      if (typeof item.libraryId === "string" && ids.has(item.libraryId)) {
-        delete item.libraryId;
-        changed = true;
-      }
-      if (Array.isArray(item.bulletRefs))
-        item.bulletRefs = item.bulletRefs.map((ref) => {
-          if (ids.has(ref)) {
-            changed = true;
-            return null;
-          }
-          return ref;
-        });
-    }
-  }
-  return changed ? doc : document;
-}
 export function deleteLibraryItem(id: string, skipJobId?: string) {
   return db.transaction(() => {
     const all = library();
     if (!all.some((item) => item.id === id)) throw notFound("Bullet not found");
     const ids = relatedIds(id, all);
     for (const { resume, status } of resumes()) {
-      if (!frozen(status) && resume.jobId === skipJobId) continue;
+      if (frozen(status) || resume.jobId === skipJobId) continue;
       let document = resume.document;
-      if (frozen(status)) document = stripRefs(document, ids);
-      else for (const ref of ids) document = removeFromResume(document, ref);
+      for (const ref of ids) document = removeFromResume(document, ref);
       save(resume, document);
     }
     for (const ref of ids)
@@ -241,19 +240,22 @@ function normal(value: unknown): string {
     );
   return String(value ?? "");
 }
+function normalPeriod(value: unknown) {
+  return String(value ?? "").replace(/\s*[\p{Dash_Punctuation}−]\s*/gu, " – ");
+}
 function key(input: ExperienceBulletInput) {
   // A role is identified by employer/title/dates, even when old duty rows
   // lack its location or website. Skill keywords are merged by label.
   const data = input.data ?? {};
   const identity =
     input.kind === "role"
-      ? [data.company, data.period]
+      ? [data.company, normalPeriod(data.period)]
       : input.kind === "skill"
         ? null
         : input.kind === "project"
-          ? [data.period]
+          ? [normalPeriod(data.period)]
           : input.kind === "education"
-            ? [data.school, data.period]
+            ? [data.school, normalPeriod(data.period)]
             : input.kind === "award"
               ? [data.date]
               : input.kind === "certification"
@@ -272,10 +274,24 @@ const plain = (value: unknown) =>
     .trim();
 const fold = (...parts: unknown[]) =>
   parts.map(plain).filter(Boolean).join(" · ");
+const FIRST_BUILD_KEY = "candidateLibraryFirstBuild";
+export function candidateLibraryNeedsFirstBuild(): boolean {
+  return !db
+    .select({ key: schema.settings.key })
+    .from(schema.settings)
+    .where(
+      and(
+        privateDataScopeFilter(schema.settings),
+        eq(schema.settings.key, FIRST_BUILD_KEY),
+      ),
+    )
+    .get();
+}
 export function syncCandidateLibrary(
-  base: ReactiveResumeV5Document,
+  base?: ReactiveResumeV5Document,
 ): LibrarySyncResult {
   return db.transaction(() => {
+    const firstBuild = candidateLibraryNeedsFirstBuild();
     const all = library();
     const result: LibrarySyncResult = { created: 0, skipped: 0, linked: 0 };
     function add(input: ExperienceBulletInput): ExperienceBullet {
@@ -349,36 +365,92 @@ export function syncCandidateLibrary(
       result.created++;
       return item;
     }
+    const baseParents = new Map<string, ExperienceBullet>();
+    if (firstBuild && base) {
+      for (const item of base.sections.experience.items) {
+        for (const role of [item, ...(item.roles ?? [])]) {
+          if (
+            role === item &&
+            item.roles?.length &&
+            !item.position &&
+            !splitDescription(item.description).bullets.length
+          )
+            continue;
+          baseParents.set(
+            role.id,
+            add({
+              kind: "role",
+              text: role.position,
+              data: {
+                company: item.company,
+                location: item.location,
+                website: item.website,
+                period: role.period,
+              },
+              source: "resume",
+              sourceExperienceId: role.id,
+            }),
+          );
+        }
+      }
+    }
     for (const item of all.slice())
       if (item.kind === "bullet" && !item.parentId) {
-        const period = [item.startDate, item.endDate]
-          .filter(Boolean)
-          .join(" – ");
-        const role = add({
-          kind: "role",
-          text: item.role ?? "",
-          data: {
-            company: item.company || "",
-            location: "",
-            website: { url: "", label: "" },
-            period,
-          },
-          source: "resume",
-        });
+        const role =
+          (item.sourceExperienceId
+            ? baseParents.get(item.sourceExperienceId)
+            : undefined) ??
+          add({
+            kind: "role",
+            text: item.role ?? "",
+            data: {
+              company: item.company || "",
+              location: "",
+              website: { url: "", label: "" },
+              period: [item.startDate, item.endDate]
+                .filter(Boolean)
+                .join(" – "),
+            },
+            source: "resume",
+          });
         item.parentId = role.id;
+        item.position = all.filter(
+          (child) =>
+            child.id !== item.id &&
+            child.kind === "bullet" &&
+            child.parentId === role.id,
+        ).length;
+        Object.assign(item, parentFields(role));
         db.update(table)
-          .set({ parentId: role.id })
+          .set({
+            parentId: role.id,
+            position: item.position,
+            ...parentFields(role),
+          })
           .where(and(privateDataScopeFilter(table), eq(table.id, item.id)))
           .run();
       }
     const saved = resumes();
-    for (const { document, source } of [
-      { document: base, source: "resume" as const },
+    const documents = [
+      ...(firstBuild && base
+        ? [{ document: base, source: "resume" as const }]
+        : []),
       ...saved.map(({ resume }) => ({
         document: resume.document,
         source: "job_resume" as const,
       })),
-    ]) {
+    ];
+    // Any explicit ref, including a dangling ref left by deletion, prevents
+    // importing that same fact again. Still collect unlinked children.
+    function parentFor(
+      item: Record<string, unknown>,
+      input: ExperienceBulletInput,
+    ) {
+      if (typeof item.libraryId === "string" && item.libraryId)
+        return all.find((row) => row.id === item.libraryId);
+      return add(input);
+    }
+    for (const { document, source } of documents) {
       for (const item of document.sections.experience.items) {
         const roles = [
           ...(!item.roles?.length ||
@@ -389,19 +461,29 @@ export function syncCandidateLibrary(
           ...(item.roles ?? []),
         ];
         for (const role of roles) {
-          const parent = add({
-            kind: "role",
-            text: role.position,
-            data: {
-              company: item.company,
-              location: item.location,
-              website: item.website,
-              period: role.period,
-            },
-            source,
-            sourceExperienceId: role.id,
-          });
-          for (const text of splitDescription(role.description).bullets)
+          const parent =
+            (source === "resume" ? baseParents.get(role.id) : undefined) ??
+            parentFor(role, {
+              kind: "role",
+              text: role.position,
+              data: {
+                company: item.company,
+                location: item.location,
+                website: item.website,
+                period: role.period,
+              },
+              source,
+              sourceExperienceId: role.id,
+            });
+          if (!parent) continue;
+          const refs =
+            "bulletRefs" in role && Array.isArray(role.bulletRefs)
+              ? role.bulletRefs
+              : [];
+          for (const [index, text] of splitDescription(
+            role.description,
+          ).bullets.entries()) {
+            if (refs[index]) continue;
             add({
               kind: "bullet",
               text,
@@ -409,55 +491,76 @@ export function syncCandidateLibrary(
               source,
               sourceExperienceId: role.id,
             });
+          }
         }
       }
       for (const item of document.sections.projects.items) {
-        const parent = add({
+        const parent = parentFor(item, {
           kind: "project",
           text: item.name,
           data: { period: item.period, website: item.website },
           source,
         });
-        for (const text of splitDescription(item.description).bullets)
+        if (!parent) continue;
+        for (const [index, text] of splitDescription(
+          item.description,
+        ).bullets.entries()) {
+          if (Array.isArray(item.bulletRefs) && item.bulletRefs[index])
+            continue;
           add({ kind: "project_point", text, parentId: parent.id, source });
+        }
       }
       for (const item of document.sections.skills.items)
-        add({
-          kind: "skill",
-          text: item.name,
-          data: { keywords: item.keywords },
-          source,
-        });
+        if (!item.libraryId)
+          add({
+            kind: "skill",
+            text: item.name,
+            data: { keywords: item.keywords },
+            source,
+          });
       for (const item of document.sections.education.items)
-        add({
-          kind: "education",
-          text: fold(item.degree, item.area, item.grade, item.description),
-          data: {
-            school: item.school,
-            location: item.location,
-            period: item.period,
-          },
-          source,
-        });
+        if (!item.libraryId)
+          add({
+            kind: "education",
+            text: fold(item.degree, item.area, item.grade, item.description),
+            data: {
+              school: item.school,
+              location: item.location,
+              period: item.period,
+            },
+            source,
+          });
       for (const item of document.sections.awards.items)
-        add({
-          kind: "award",
-          text: fold(item.title, item.awarder, item.description),
-          data: { date: item.date },
-          source,
-        });
+        if (!item.libraryId)
+          add({
+            kind: "award",
+            text: fold(item.title, item.awarder, item.description),
+            data: { date: item.date },
+            source,
+          });
       for (const item of document.sections.certifications.items)
-        add({
-          kind: "certification",
-          text: fold(item.title, item.description),
-          data: { issuer: item.issuer, website: item.website, date: item.date },
-          source,
-        });
+        if (!item.libraryId)
+          add({
+            kind: "certification",
+            text: fold(item.title, item.description),
+            data: {
+              issuer: item.issuer,
+              website: item.website,
+              date: item.date,
+            },
+            source,
+          });
     }
     for (const { resume } of saved) {
       const stamped = stampLibraryRefs(resume.document, all);
       result.linked += stamped.linked;
       save(resume, stamped.doc);
+    }
+    if (firstBuild) {
+      const { tenantId, userId } = getPrivateDataScope();
+      db.insert(schema.settings)
+        .values({ tenantId, userId, key: FIRST_BUILD_KEY, value: "1" })
+        .run();
     }
     return result;
   });

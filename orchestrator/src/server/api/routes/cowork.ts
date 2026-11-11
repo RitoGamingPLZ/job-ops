@@ -1,5 +1,6 @@
 import { badRequest, notFound } from "@infra/errors";
 import { asyncRoute, ok } from "@infra/http";
+import { logger } from "@infra/logger";
 import { resolveRequestOrigin } from "@infra/request-origin";
 import * as bulletsRepo from "@server/repositories/experience-bullets";
 import * as resumesRepo from "@server/repositories/job-resumes";
@@ -65,6 +66,22 @@ async function baseDocument(requestOrigin: string | null) {
   });
   return data as ReactiveResumeV5Document;
 }
+// The base resume participates once per private scope. Missing/unavailable
+// sources must not prevent opening a library backed by job resumes or old rows.
+async function syncLibrary(requestOrigin: string | null) {
+  let base: ReactiveResumeV5Document | undefined;
+  if (libraryService.candidateLibraryNeedsFirstBuild()) {
+    try {
+      base = await baseDocument(requestOrigin);
+    } catch (error) {
+      logger.warn("Candidate library base resume unavailable", {
+        route: "/library",
+        error,
+      });
+    }
+  }
+  return libraryService.syncCandidateLibrary(base);
+}
 coworkRouter.get(
   "/experience-bullets",
   asyncRoute(async (_req, res) => {
@@ -89,10 +106,8 @@ coworkRouter.get(
   "/library",
   asyncRoute(async (req, res) => {
     let items = await bulletsRepo.listExperienceBullets(true);
-    if (!items.some((item) => item.kind === "role")) {
-      libraryService.syncCandidateLibrary(
-        await baseDocument(resolveRequestOrigin(req)),
-      );
+    if (libraryService.candidateLibraryNeedsFirstBuild()) {
+      await syncLibrary(resolveRequestOrigin(req));
       items = await bulletsRepo.listExperienceBullets(true);
     }
     ok(res, { items });
@@ -107,12 +122,7 @@ coworkRouter.get(
 coworkRouter.post(
   "/library/sync",
   asyncRoute(async (req, res) => {
-    ok(
-      res,
-      libraryService.syncCandidateLibrary(
-        await baseDocument(resolveRequestOrigin(req)),
-      ),
-    );
+    ok(res, await syncLibrary(resolveRequestOrigin(req)));
   }),
 );
 coworkRouter.post(
