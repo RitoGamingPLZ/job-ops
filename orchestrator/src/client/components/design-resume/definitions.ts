@@ -1,5 +1,25 @@
 import { createId } from "@paralleldrive/cuid2";
-import type { ItemFieldConfig } from "./ItemDialog";
+export type ItemFieldType =
+  | "text"
+  | "number"
+  | "textarea"
+  | "richtext"
+  | "tags"
+  | "toggle"
+  | "icon";
+
+export type ItemFieldConfig = {
+  key: string;
+  label: string;
+  type: ItemFieldType;
+  placeholder?: string;
+  required?: boolean;
+  min?: number;
+  step?: number;
+  /** When true on an icon field, render it inline to the left of the next field with no separate label */
+  groupWithNext?: boolean;
+  aiAssist?: boolean;
+};
 
 export type ItemDefinition = {
   key: string;

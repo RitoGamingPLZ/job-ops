@@ -47,9 +47,14 @@ export function ResumesPage() {
         title="Resumes"
         subtitle="Open a job’s resume to edit it in the editor, or preview its PDF."
         actions={
-          <Button variant="outline" asChild>
-            <Link to="/resumes/library">Candidate Library</Link>
-          </Button>
+          <>
+            <Button variant="outline" asChild>
+              <Link to="/resumes/base">Base resume</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/resumes/library">Candidate Library</Link>
+            </Button>
+          </>
         }
       />
       <PageMain>

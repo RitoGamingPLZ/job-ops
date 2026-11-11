@@ -5,7 +5,6 @@ import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { getRequestId } from "@server/infra/request-context";
 import {
   deleteDesignResumePicture,
-  exportDesignResume,
   getCurrentDesignResume,
   getDesignResumeStatus,
   importDesignResumeFromReactiveResume,
@@ -14,12 +13,10 @@ import {
   uploadDesignResumePicture,
   uploadDesignResumePictureFile,
 } from "@server/services/design-resume";
-import { generateDesignResumeFieldSuggestion } from "@server/services/design-resume/ai-field-suggestion";
 import { importDesignResumeFromFile } from "@server/services/design-resume/import-file";
 import { generateDesignResumePdf } from "@server/services/pdf";
 import { getTenantDesignResumePdfPath } from "@server/services/pdf-storage";
 import { clearProfileCache } from "@server/services/profile";
-import { parseV5ResumeData } from "@server/services/rxresume/schema/v5";
 import { getJobOpsPublicAvailability } from "@server/services/tracer-links";
 import type { DesignResumeJson, DesignResumePatchRequest } from "@shared/types";
 import { type Request, type Response, Router } from "express";
@@ -76,7 +73,7 @@ async function assertPictureSupportEnabled(req: Request): Promise<void> {
 
   throw conflict(
     availability.reason ??
-      "Resume Studio pictures require JobOps to be reachable at a public URL.",
+      "Base resume pictures require JobOps to be reachable at a public URL.",
   );
 }
 
@@ -210,30 +207,10 @@ const importFileSchema = z.object({
   dataBase64: z.string().trim().min(1),
 });
 
-export const designResumeAiFieldSuggestionSchema = z.object({
-  document: z.unknown(),
-  field: z.object({
-    path: z.string().trim().min(1).max(500),
-    label: z.string().trim().min(1).max(120),
-    value: z.union([
-      z.string().max(20000),
-      z.array(z.string().max(500)).max(100),
-    ]),
-    valueType: z.enum(["plain_text", "html", "string_list"]),
-    section: z.string().trim().max(120).nullable().optional(),
-    itemLabel: z.string().trim().max(240).nullable().optional(),
-  }),
-  prompt: z.string().trim().min(1).max(3000),
-});
-
 function asDesignResumeJson(value: unknown): DesignResumeJson | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as DesignResumeJson)
     : undefined;
-}
-
-function parseDesignResumeJson(value: unknown): DesignResumeJson {
-  return parseV5ResumeData(value) as DesignResumeJson;
 }
 
 designResumeRouter.get(
@@ -241,7 +218,7 @@ designResumeRouter.get(
   asyncRoute(async (_req: Request, res: Response) => {
     const document = await getCurrentDesignResume();
     if (!document) {
-      fail(res, notFound("Resume Studio has not been imported yet."));
+      fail(res, notFound("Base resume has not been imported yet."));
       return;
     }
     ok(res, document);
@@ -299,22 +276,6 @@ designResumeRouter.post(
       documentId: document.id,
       durationMs: elapsedMs(startedAt),
     });
-  }),
-);
-
-designResumeRouter.post(
-  "/ai/field-suggestion",
-  asyncRoute(async (req: Request, res: Response) => {
-    const input = designResumeAiFieldSuggestionSchema.parse(req.body);
-    const document = parseDesignResumeJson(input.document);
-    ok(
-      res,
-      await generateDesignResumeFieldSuggestion({
-        document,
-        field: input.field,
-        prompt: input.prompt,
-      }),
-    );
   }),
 );
 
@@ -394,13 +355,6 @@ designResumeRouter.get(
   }),
 );
 
-designResumeRouter.get(
-  "/export",
-  asyncRoute(async (_req: Request, res: Response) => {
-    ok(res, await exportDesignResume());
-  }),
-);
-
 designResumeRouter.post(
   "/generate-pdf",
   asyncRoute(async (req: Request, res: Response) => {
@@ -420,7 +374,7 @@ designResumeRouter.get(
     res.setHeader("Cache-Control", "no-store");
     res.sendFile(pdfPath, (error) => {
       if (error) {
-        fail(res, notFound("Resume Studio PDF not found"));
+        fail(res, notFound("Base resume PDF not found"));
       }
     });
   }),

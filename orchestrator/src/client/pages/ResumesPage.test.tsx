@@ -202,3 +202,13 @@ it("navigates from the library to resumes through the navigation menu", async ()
   fireEvent.click(screen.getByRole("button", { name: "Resumes" }));
   expect(await screen.findByText(/No resumes yet/)).toBeVisible();
 });
+
+it("links to the base editor from the page header", async () => {
+  mocks.list.mockResolvedValue({ resumes: [] });
+  mount();
+  expect(screen.getByRole("link", { name: "Base resume" })).toHaveAttribute(
+    "href",
+    "/resumes/base",
+  );
+  await screen.findByText(/No resumes yet/);
+});

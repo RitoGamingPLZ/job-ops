@@ -22,7 +22,6 @@ import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import type {
   DesignResumeAsset,
   DesignResumeDocument,
-  DesignResumeExportResponse,
   DesignResumeJson,
   DesignResumePatchRequest,
   DesignResumeStatusResponse,
@@ -36,9 +35,9 @@ const IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_PICTURE_FETCH_REDIRECTS = 3;
 const LEGACY_REIMPORT_MESSAGE =
-  "Stored Resume Studio document is no longer compatible. Re-import from Reactive Resume v5 to continue.";
+  "Stored base resume document is no longer compatible. Re-import from Reactive Resume v5 to continue.";
 const INVALID_V5_PREFIX =
-  "Resume Studio must be a valid Reactive Resume v5 document.";
+  "Base resume must be a valid Reactive Resume v5 document.";
 
 function getDesignResumeAssetDir(): string {
   const scope = getPrivateDataScope();
@@ -154,7 +153,7 @@ export function isLegacyDesignResumeError(error: unknown): boolean {
 function buildDocumentTitle(document: DesignResumeJson): string {
   const basics = asRecord(document.basics);
   const name = toText(basics?.name).trim();
-  return name ? `${name} Resume` : "Resume Studio";
+  return name ? `${name} Resume` : "Base resume";
 }
 
 function contentUrlForAsset(assetId: string): string {
@@ -281,18 +280,18 @@ function parsePublicPictureUrl(value: string): URL {
   try {
     parsed = new URL(value);
   } catch {
-    throw badRequest("Resume Studio pictures must use a valid absolute URL.");
+    throw badRequest("Base resume pictures must use a valid absolute URL.");
   }
 
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw badRequest("Resume Studio pictures must use HTTP or HTTPS URLs.");
+    throw badRequest("Base resume pictures must use HTTP or HTTPS URLs.");
   }
   if (parsed.username || parsed.password) {
-    throw badRequest("Resume Studio picture URLs cannot include credentials.");
+    throw badRequest("Base resume picture URLs cannot include credentials.");
   }
   if (isLocalOrPrivateHostname(parsed.hostname)) {
     throw badRequest(
-      "Resume Studio picture URLs must point to a publicly reachable host.",
+      "Base resume picture URLs must point to a publicly reachable host.",
     );
   }
 
@@ -442,7 +441,7 @@ async function persistMissingProjectIdRepair(
     updatedAt,
   });
 
-  logger.info("Repaired missing Resume Studio project IDs", {
+  logger.info("Repaired missing base resume project IDs", {
     documentId: row.id,
     previousRevision: row.revision,
     nextRevision,
@@ -759,7 +758,7 @@ export async function getCurrentDesignResumeOrNullOnLegacy(): Promise<DesignResu
 export async function requireCurrentDesignResume(): Promise<DesignResumeDocument> {
   const document = await getCurrentDesignResume();
   if (!document) {
-    throw notFound("Resume Studio has not been imported yet.");
+    throw notFound("Base resume has not been imported yet.");
   }
   return document;
 }
@@ -867,7 +866,7 @@ export async function updateCurrentDesignResume(
 ): Promise<DesignResumeDocument> {
   const current = await requireCurrentDesignResume();
   if (current.revision !== input.baseRevision) {
-    throw conflict("Resume Studio has changed. Refresh and try again.");
+    throw conflict("Base resume has changed. Refresh and try again.");
   }
 
   let nextDocument: DesignResumeJson;
@@ -886,7 +885,7 @@ export async function updateCurrentDesignResume(
     nextDocument = validatePatchedDocument(nextDocumentRecord);
   } else {
     throw badRequest(
-      "Resume Studio update requires a document or patch operations.",
+      "Base resume update requires a document or patch operations.",
     );
   }
 
@@ -1092,27 +1091,13 @@ export async function readDesignResumeAssetContent(
     ? await designResumeRepo.getDesignResumeAssetByIdAnyTenant(assetId)
     : await designResumeRepo.getDesignResumeAssetById(assetId);
   if (!row) {
-    throw notFound("Resume Studio asset not found.");
+    throw notFound("Base resume asset not found.");
   }
 
   const content = await readFile(row.storagePath);
   return {
     asset: toDesignResumeAsset(row),
     content,
-  };
-}
-
-export async function exportDesignResume(): Promise<DesignResumeExportResponse> {
-  const current = await requireCurrentDesignResume();
-  const fileStem =
-    buildDocumentTitle(current.resumeJson)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "design-resume";
-
-  return {
-    fileName: `${fileStem}.json`,
-    document: current.resumeJson,
   };
 }
 
@@ -1223,7 +1208,7 @@ export async function getDesignResumeProjectProfile(): Promise<ResumeProfile | n
 
 export async function statDesignResumeAssetFile(assetId: string) {
   const asset = await designResumeRepo.getDesignResumeAssetById(assetId);
-  if (!asset) throw notFound("Resume Studio asset not found.");
+  if (!asset) throw notFound("Base resume asset not found.");
   const info = await stat(asset.storagePath);
   return { asset: toDesignResumeAsset(asset), info };
 }

@@ -391,8 +391,8 @@ describe("OnboardingPage", () => {
     await renderPage();
 
     expect(
-      screen.getByRole("link", { name: /edit in resume studio/i }),
-    ).toHaveAttribute("href", "/design-resume");
+      screen.getByRole("link", { name: /edit base resume/i }),
+    ).toHaveAttribute("href", "/resumes/base");
     expect(await screen.findByText("Sam")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /use this resume/i }));
 

@@ -19,6 +19,13 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  getBase: vi.fn(),
+  saveBase: vi.fn(),
+  importFile: vi.fn(),
+  importRx: vi.fn(),
+  basePdf: vi.fn(),
+  baseUrl: vi.fn(),
+  baseDownload: vi.fn(),
   getResume: vi.fn(),
   listResumes: vi.fn(),
   navigate: vi.fn(),
@@ -49,11 +56,20 @@ vi.mock("@client/api/cowork", () => ({
   saveJobResume: mocks.save,
   deleteJobResume: mocks.reset,
 }));
+vi.mock("@client/api/settings-profile", () => ({
+  getDesignResume: mocks.getBase,
+  updateDesignResume: mocks.saveBase,
+  importDesignResumeFromFile: mocks.importFile,
+  importDesignResumeFromRxResume: mocks.importRx,
+  generateDesignResumePdf: mocks.basePdf,
+}));
 vi.mock("@client/api/jobs", () => ({
   getJob: mocks.getJob,
   generateJobPdf: mocks.pdf,
 }));
 vi.mock("@/client/lib/private-pdf", () => ({
+  createDesignResumePdfObjectUrl: mocks.baseUrl,
+  downloadDesignResumePdf: mocks.baseDownload,
   createJobPdfObjectUrl: mocks.openPdf,
   downloadJobPdf: mocks.downloadPdf,
 }));
@@ -228,10 +244,11 @@ function state(headline = "Base", revision = 0): JobResumeState {
     updatedAt: null,
   };
 }
-function mount() {
+function mount(base = false) {
   return render(
-    <MemoryRouter initialEntries={["/resumes/job"]}>
+    <MemoryRouter initialEntries={[base ? "/resumes/base" : "/resumes/job"]}>
       <Routes>
+        <Route path="/resumes/base" element={<ResumeCoworkPage base />} />
         <Route path="/resumes/:jobId" element={<ResumeCoworkPage />} />
       </Routes>
     </MemoryRouter>,
@@ -239,6 +256,21 @@ function mount() {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.getBase.mockResolvedValue({
+    resumeJson: state().document,
+    revision: 3,
+    updatedAt: null,
+  });
+  mocks.saveBase.mockImplementation(async (input) => ({
+    resumeJson: input.document,
+    revision: input.baseRevision + 1,
+    updatedAt: null,
+  }));
+  mocks.importRx.mockResolvedValue({});
+  mocks.importFile.mockResolvedValue({});
+  mocks.basePdf.mockResolvedValue({});
+  mocks.baseUrl.mockResolvedValue("blob:base");
+  mocks.baseDownload.mockResolvedValue(undefined);
   localStorage.clear();
   window.history.replaceState({ idx: 0 }, "");
   mocks.listResumes.mockResolvedValue({
@@ -307,7 +339,7 @@ describe("resume navigation", () => {
     );
     fireEvent.keyDown(search, { key: "ArrowDown" });
     expect(search.getAttribute("aria-activedescendant")).toContain(
-      "-option-job",
+      "-option-base",
     );
     fireEvent.change(search, { target: { value: "Designer" } });
     expect(await screen.findByText("No results found.")).toBeVisible();
@@ -685,7 +717,7 @@ describe("resume co-work saving", () => {
     fireEvent.click(screen.getByText("Reset resume"));
     await waitFor(() => expect(mocks.reset).toHaveBeenCalledWith("job"));
   });
-  it("offers Resume Studio when no base resume exists", async () => {
+  it("offers the base editor when no base resume exists", async () => {
     mocks.getResume.mockRejectedValueOnce(
       new ApiClientError("Import or create a resume first", { status: 409 }),
     );
@@ -693,9 +725,9 @@ describe("resume co-work saving", () => {
     expect(
       await screen.findByText("Import or create a resume first."),
     ).toBeVisible();
-    expect(screen.getByText("Open Resume Studio")).toHaveAttribute(
+    expect(screen.getByText("Open base resume")).toHaveAttribute(
       "href",
-      "/design-resume",
+      "/resumes/base",
     );
     expect(mocks.save).not.toHaveBeenCalled();
   });
@@ -1064,4 +1096,137 @@ describe("workspace library coordination", () => {
     expect(mocks.sync).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Headline")).toHaveValue("Keep my edit");
   });
+});
+
+describe("base resume mode", () => {
+  it("loads and saves the base with its revision and omits job tools", async () => {
+    mount(true);
+    expect(
+      await screen.findByRole("heading", { name: "Base resume" }),
+    ).toBeInTheDocument();
+    expect(mocks.getJob).not.toHaveBeenCalled();
+    expect(mocks.getResume).not.toHaveBeenCalled();
+    expect(screen.queryByText("Co-work chat")).not.toBeInTheDocument();
+    expect(screen.queryByText("Job match idle")).not.toBeInTheDocument();
+    expect(screen.queryByText("Reset to base")).not.toBeInTheDocument();
+    expect(mocks.libraryProps.mock.lastCall?.[0].jobId).toBeUndefined();
+    fireEvent.change(screen.getByLabelText("Headline"), {
+      target: { value: "Updated base" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save now" }));
+    await waitFor(() =>
+      expect(mocks.saveBase).toHaveBeenCalledWith({
+        baseRevision: 3,
+        document: expect.objectContaining({
+          basics: { headline: "Updated base" },
+        }),
+      }),
+    );
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+  it("offers Base resume in the job title switcher", async () => {
+    mount();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Switch resume/ }),
+    );
+    fireEvent.change(screen.getByRole("combobox"), {
+      target: { value: "Base resume" },
+    });
+    const search = screen.getByRole("combobox");
+    await waitFor(() =>
+      expect(search.getAttribute("aria-activedescendant")).toContain(
+        "-option-base",
+      ),
+    );
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(mocks.navigate).toHaveBeenCalledWith("/resumes/base");
+  });
+  it("confirms RxResume import and reloads the editor", async () => {
+    mount(true);
+    fireEvent.click(await screen.findByRole("button", { name: "Import" }));
+    expect(mocks.importRx).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(mocks.importRx).not.toHaveBeenCalled();
+    mocks.getBase.mockResolvedValue({
+      resumeJson: state("Imported", 5).document,
+      revision: 5,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Import from RxResume" }),
+    );
+    expect(await screen.findByDisplayValue("Imported")).toBeInTheDocument();
+    expect(mocks.importRx).toHaveBeenCalledOnce();
+    expect(mocks.getBase).toHaveBeenCalledTimes(2);
+  });
+  it("imports a chosen file only after confirmation", async () => {
+    mount(true);
+    fireEvent.click(await screen.findByRole("button", { name: "Import" }));
+    fireEvent.change(screen.getByLabelText("Import resume file"), {
+      target: {
+        files: [
+          new File(["resume"], "resume.json", { type: "application/json" }),
+        ],
+      },
+    });
+    expect(mocks.importFile).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Import file" }));
+    await waitFor(() =>
+      expect(mocks.importFile).toHaveBeenCalledWith({
+        fileName: "resume.json",
+        mediaType: "application/json",
+        dataBase64: "cmVzdW1l",
+      }),
+    );
+    await waitFor(() => expect(mocks.getBase).toHaveBeenCalledTimes(2));
+  });
+  it("uses the base PDF APIs for render and download", async () => {
+    mount(true);
+    fireEvent.click(await screen.findByRole("button", { name: "Render PDF" }));
+    expect(await screen.findByTestId("pdf-canvas-preview")).toHaveAttribute(
+      "data-url",
+      "blob:base",
+    );
+    expect(mocks.basePdf).toHaveBeenCalledOnce();
+    expect(mocks.pdf).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+    expect(mocks.baseDownload).toHaveBeenCalledWith("resume.pdf");
+  });
+  it("uses the same conflict dialog and latest base revision", async () => {
+    mount(true);
+    await screen.findByLabelText("Headline");
+    mocks.saveBase.mockRejectedValueOnce(
+      new ApiClientError("Conflict", { status: 409, code: "CONFLICT" }),
+    );
+    mocks.getBase.mockResolvedValue({
+      resumeJson: state("Remote").document,
+      revision: 8,
+    });
+    fireEvent.change(screen.getByLabelText("Headline"), {
+      target: { value: "Mine" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save now" }));
+    await screen.findByRole("heading", { name: "Resume changed elsewhere" });
+    fireEvent.click(screen.getByRole("button", { name: "Keep mine" }));
+    await waitFor(() =>
+      expect(mocks.saveBase).toHaveBeenLastCalledWith({
+        baseRevision: 8,
+        document: expect.objectContaining({ basics: { headline: "Mine" } }),
+      }),
+    );
+  });
+});
+
+it("can import a base resume when none exists yet", async () => {
+  mocks.getBase.mockRejectedValueOnce(
+    new ApiClientError("Missing", { status: 404 }),
+  );
+  mount(true);
+  fireEvent.click(await screen.findByRole("button", { name: "Import" }));
+  expect(mocks.importRx).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Import from RxResume" }));
+  expect(
+    await screen.findByRole("heading", { name: "Base resume" }),
+  ).toBeInTheDocument();
+  expect(mocks.importRx).toHaveBeenCalledOnce();
 });

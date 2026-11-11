@@ -265,8 +265,8 @@ export function useOnboardingFlow({ allowSelfHosted = true } = {}) {
         toast.success("Resume uploaded", {
           description:
             settings?.pdfRenderer?.value === "typst"
-              ? "Your local Resume Studio document is ready."
-              : "Your local Resume Studio document is ready and PDF rendering was switched to Typst.",
+              ? "Your local base resume document is ready."
+              : "Your local base resume document is ready and PDF rendering was switched to Typst.",
         });
       } catch (error) {
         trackProductEvent("onboarding_resume_upload_completed", {
