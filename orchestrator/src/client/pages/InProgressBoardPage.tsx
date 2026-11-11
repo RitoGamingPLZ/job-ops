@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { invalidateJobData } from "@/client/hooks/queries/invalidate";
 import {
   useGenerateJobPdfMutation,
+  useGenerateMissingResumesMutation,
   usePrepareResumeMutation,
 } from "@/client/hooks/queries/useJobMutations";
 import { useQueryErrorToast } from "@/client/hooks/useQueryErrorToast";
@@ -142,14 +143,36 @@ export const InProgressBoardPage: React.FC = () => {
     );
   }, [isAppliedCollapsed]);
 
+  const activeBatch = React.useRef<{
+    jobIds: Set<string>;
+    expiresAt: number;
+  } | null>(null);
+
   const boardQuery = useQuery({
     queryKey: queryKeys.jobs.inProgressBoard(),
-    refetchInterval: (query) =>
-      query.state.data?.some(
-        ({ job }) => job.status === "processing" || job.pdfRegenerating,
-      )
+    refetchInterval: (query) => {
+      const cards = query.state.data ?? [];
+      const batch = activeBatch.current;
+      if (
+        batch &&
+        (Date.now() >= batch.expiresAt ||
+          !cards.some(
+            ({ job }) =>
+              batch.jobIds.has(job.id) &&
+              (job.status === "processing" ||
+                job.pdfRegenerating ||
+                needsRender(job)),
+          ))
+      ) {
+        activeBatch.current = null;
+      }
+      return activeBatch.current ||
+        cards.some(
+          ({ job }) => job.status === "processing" || job.pdfRegenerating,
+        )
         ? 2000
-        : false,
+        : false;
+    },
     queryFn: async () => {
       const response = await api.getJobs({
         statuses: [
@@ -295,6 +318,36 @@ export const InProgressBoardPage: React.FC = () => {
     [dragging, queryClient, transitionMutation],
   );
 
+  const generateMissingMutation = useGenerateMissingResumesMutation();
+  // The server may also select current PDFs without a saved resume document.
+  const missingResumeCount = lanes.targeted.filter(
+    ({ job }) =>
+      job.status !== "processing" && !job.pdfRegenerating && needsRender(job),
+  ).length;
+  const handleGenerateMissing = () =>
+    generateMissingMutation.mutate(undefined, {
+      onSuccess: ({ jobIds, alreadyRunning }) => {
+        if (alreadyRunning) {
+          toast.success("Already running");
+          return;
+        }
+        if (jobIds.length === 0) {
+          toast.info("No resumes need generating");
+          return;
+        }
+        activeBatch.current = {
+          jobIds: new Set(jobIds),
+          expiresAt: Date.now() + jobIds.length * 5 * 60_000,
+        };
+        // Re-evaluate polling even if invalidation landed before work started.
+        void boardQuery.refetch();
+        toast.success(
+          `Generating ${jobIds.length} resume${jobIds.length === 1 ? "" : "s"} one at a time`,
+        );
+      },
+      onError: (error) => showErrorToast(error, "Failed to generate resumes"),
+    });
+
   const generatePdfMutation = useGenerateJobPdfMutation();
   const prepareResumeMutation = usePrepareResumeMutation();
   const isResumeBusy = (jobId: string) =>
@@ -432,7 +485,7 @@ export const InProgressBoardPage: React.FC = () => {
                         "flex items-center border-b border-border/60 px-3 py-2.5",
                         isCollapsedApplied
                           ? "flex-col gap-2"
-                          : "justify-between",
+                          : "flex-wrap justify-between gap-2",
                       )}
                     >
                       {stage === "applied" && (
@@ -471,6 +524,20 @@ export const InProgressBoardPage: React.FC = () => {
                       >
                         {laneCards.length}
                       </Badge>
+                      {stage === "targeted" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 w-full text-xs"
+                          disabled={
+                            missingResumeCount === 0 ||
+                            generateMissingMutation.isPending
+                          }
+                          onClick={handleGenerateMissing}
+                        >
+                          Generate missing resumes ({missingResumeCount})
+                        </Button>
+                      )}
                     </header>
 
                     {isCollapsedApplied ? null : (

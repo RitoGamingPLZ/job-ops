@@ -26,16 +26,39 @@ Keep reusable candidate facts in one library, choose what belongs on each job re
 
 Library edits update linked, unreworded content in unapplied job resumes. Jobs marked **Applied** or **In progress** keep their saved content when the library changes. You can still edit those resumes directly or change their ticks. Deleting a library item used by resumes asks for confirmation; frozen resumes keep their text.
 
+### Generate or replace a job resume
+
+Targeting a job prepares a resume from your candidate library. To fill gaps across targeted jobs, open **In Progress Board** and click **Generate missing resumes** in the Targeted lane header. That batch preserves saved documents and hand edits, rendering a fresh PDF when needed; uploaded PDFs are skipped.
+
+To select library facts again for one targeted job with a prepared resume, click **Regenerate resume** on its job page or detail panel and confirm. This replaces the saved co-work document, including hand edits, and replaces any uploaded PDF with a generated PDF. Review your library first, then review the new resume when generation finishes. Merely previewing a PDF renders your saved document without re-tailoring it.
+
+Library-based generation recognizes both top-level experience roles and roles nested under an employer. Base-resume roles are retained even when the model omits them. Skills are selected by library identity, so groups with the same label keep their own keywords.
+
+### Candidate library data sent to the LLM
+
+For library-based resume preparation and **Regenerate resume**, JobOps sends the configured tailoring LLM:
+
+- Job title, employer, and the plain-text job description, capped at 25,000 characters.
+- Writing style preferences, resolved output language, and project rules (required and AI-selectable project IDs, plus the target count).
+- Non-contact library items, including their IDs, kinds, text, parent relationships, and tags. Extra data is limited to company, location, period, school, issuer, date, and skill keywords.
+- Up to 150 duty bullets. Selection reserves up to three highest-overlap duties per role, giving each role one before allocating a second or third, then fills remaining slots by job-description overlap. More than 150 roles with duties can exceed this coverage budget.
+
+Contact library items are excluded from these prompts. Photos, URL fields, and arbitrary library data fields are also excluded. Other item text and tags are sent as written, so review them for personal information before generation. These limits describe library-based resume tailoring; other AI tools, such as editor chat, have their own context.
+
+The model writes a headline and summary and selects existing duty IDs, skill keywords, projects, certifications, and awards. Duty text is copied from the library rather than reworded. The combined generation prompt is limited to 100,000 bytes; oversized libraries fail before the LLM call.
+
 ## Common problems
 
 - **Import fails:** check the file format, or verify your Reactive Resume URL, API key, and selected base resume in **Settings**.
 - **An item is missing from the library:** use **Sync from resumes** after importing or adding resume content.
 - **A library edit did not change a job resume:** check whether the line was reworded or the job is Applied or In progress.
 - **The PDF shows older content:** click **Preview** again after editing. If rendering fails, check the configured PDF renderer in **Settings**.
-- **Save conflict:** choose which copy to keep in the conflict dialog before continuing.
+- **Save conflict:** choose which copy to keep in the conflict dialog before continuing. If another action regenerated this resume and **Resume changed elsewhere** appears, choose **Use latest** to keep the regenerated resume. **Keep mine** overwrites it with your editor's content.
 
 ## Related pages
 
+- [Orchestrator: resume generation](/docs/next/features/orchestrator#generating-pdfs)
+- [In Progress Board](/docs/next/features/in-progress-board)
 - [Reactive Resume](/docs/next/features/reactive-resume)
 - [Settings](/docs/next/features/settings)
 - [Ghostwriter](/docs/next/features/ghostwriter)

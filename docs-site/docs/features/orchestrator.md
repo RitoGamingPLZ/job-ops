@@ -151,43 +151,57 @@ The saved view renders markdown by default, so links, lists, headings, and empha
 
 ### Generating PDFs
 
-PDF generation uses:
+Resume preparation tailors a new job resume from your candidate library and local base resume. The saved co-work document then supplies the content for PDF rendering. The configured renderer can use Reactive Resume export, local LaTeX via `tectonic`, or local Typst via `typst`.
 
-- base resume selected from RxResume
-- job description
-- tailored summary/headline/skills/projects
-- the configured PDF renderer (`rxresume` export or local LaTeX via `tectonic`)
+Choose the action that matches your goal:
 
-Common paths:
+| Goal | Action | Effect on saved edits |
+| --- | --- | --- |
+| Fill missing resumes or refresh stale PDFs across targets | **Generate missing resumes** in the Targeted lane header | Preserves existing documents and hand edits; skips uploaded PDFs |
+| Render the current saved resume | **Preview PDF** or **Download PDF** | Keeps the saved resume content |
+| Tailor again using the current candidate library | **Regenerate resume** on the job page or detail panel | Replaces the saved resume, including hand edits and any uploaded PDF |
 
-- Target a job and prepare its resume in the background: `POST /api/jobs/:id/target`
-- Untarget: `DELETE /api/jobs/:id/target`
-- Prepare (or retry) a targeted job's resume: `POST /api/jobs/:id/process`
-- Render the editor resume as a PDF: `POST /api/jobs/:id/generate-pdf`
+See [In Progress Board](/docs/next/features/in-progress-board#generate-missing-resumes-in-a-batch) for batch selection and progress.
 
-### Rendering the PDF after edits (copy-pasteable examples)
+### Regenerate a job's resume
 
-Preview PDF and Download PDF render the editor resume again when the stored PDF is out of date. To do the same from the API:
+1. Open a targeted job's dedicated page or job detail panel.
+2. Click **Regenerate resume**.
+3. Read the confirmation: this re-tailors from your candidate library and replaces this job's resume, including your edits. An uploaded PDF will also be replaced by a generated PDF.
+4. Confirm **Regenerate resume**, or choose **Cancel** to keep the current resume.
+5. Wait for background preparation and rendering, then review with **Open resume** and **Preview PDF**.
 
-```bash
-curl -X PATCH "http://localhost:3001/api/jobs/<jobId>" \
-  -H "content-type: application/json" \
-  -d '{
-    "jobDescription": "<new JD>",
-    "tailoredSummary": "<optional>",
-    "tailoredHeadline": "<optional>",
-    "tailoredSkills": [{"name":"Backend","keywords":["TypeScript","Node.js"]}],
-    "selectedProjectIds": "p1,p2"
-  }'
-```
+This action is available for targeted jobs with a prepared resume and is disabled while preparation or PDF rendering is running. Targeted jobs without a prepared resume show **Prepare resume** instead. It saves the replacement document only after tailoring succeeds. If tailoring fails, the previous saved document remains. If PDF rendering fails after the new document is saved, use **Preview PDF** to retry rendering it.
+
+If that resume is already open in the co-work editor, regeneration changes its saved revision. If **Resume changed elsewhere** appears, choose **Use latest** to keep the regenerated resume. **Keep mine** overwrites it with your editor's content.
+
+### API examples
 
 ```bash
+# Target a job and prepare its resume in the background
+curl -X POST "http://localhost:3001/api/jobs/<jobId>/target"
+
+# Remove a job from your targets
+curl -X DELETE "http://localhost:3001/api/jobs/<jobId>/target"
+
+# Prepare a job's resume or retry preparation
+curl -X POST "http://localhost:3001/api/jobs/<jobId>/process"
+
+# Render the saved editor resume without re-tailoring it
 curl -X POST "http://localhost:3001/api/jobs/<jobId>/generate-pdf"
+
+# Start the missing/stale resume batch (no request body)
+curl -X POST "http://localhost:3001/api/jobs/actions/generate-missing-resumes"
+
+# Replace a targeted job's saved resume and PDF, including hand edits
+curl -X POST "http://localhost:3001/api/jobs/<jobId>/regenerate-resume"
 ```
+
+Both batch generation and per-job regeneration return before background work finishes. The batch response contains `{ ok: true, data: { jobIds, alreadyRunning } }`. Per-job regeneration returns the job with status `processing`. It returns `404` if the job does not exist. For an existing job, it first rejects preparation or rendering already in progress with `409`, then rejects an untargeted job with `400`.
 
 ### External payload and sanitization defaults
 
-- LLM prompts send minimized profile/job fields.
+- Library-based resume tailoring sends job details, writing preferences, project-selection rules, and whitelisted candidate facts. Contact library items are excluded. See [Candidate library data sent to the LLM](/docs/next/features/design-resume#candidate-library-data-sent-to-the-llm) for fields and limits.
 - Webhooks are sanitized and whitelisted by default.
 - Logs and error details are redacted/truncated by default.
 - Correlation fields include `requestId`, and when available `pipelineRunId` and `jobId`.
@@ -224,5 +238,7 @@ curl -X POST "http://localhost:3001/api/jobs/<jobId>/generate-pdf"
 - [Job Search Bar](/docs/next/features/job-search-bar)
 - [Pipeline Run](/docs/next/features/pipeline-run)
 - [Ghostwriter](/docs/next/features/ghostwriter)
+- [Co-work resume editor and candidate library](/docs/next/features/design-resume)
+- [In Progress Board](/docs/next/features/in-progress-board)
 - [Reactive Resume](/docs/next/features/reactive-resume)
 - [Post-Application Tracking](/docs/next/features/post-application-tracking)

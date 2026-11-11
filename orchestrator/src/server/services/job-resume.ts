@@ -56,10 +56,25 @@ export async function ensureJobResume(
   return run;
 }
 
+/** Explicitly re-tailor, retaining the saved document until generation succeeds. */
+export async function regenerateJobResume(
+  jobId: string,
+  opts?: { requestOrigin?: string | null },
+): Promise<JobResume> {
+  const existing = await getJobResume(jobId);
+  return materializeJobResume(
+    jobId,
+    { ...opts, tailor: true },
+    existing?.revision ?? 0,
+    false,
+  );
+}
+
 async function materializeJobResume(
   jobId: string,
   opts?: { tailor?: boolean; requestOrigin?: string | null },
   baseRevision = 0,
+  acceptConcurrentWinner = true,
 ): Promise<JobResume> {
   const job = await getJobById(jobId);
   if (!job) throw notFound("Job not found");
@@ -77,16 +92,6 @@ async function materializeJobResume(
       job,
       await listExperienceBullets(true),
     );
-    await updateJob(jobId, {
-      tailoredHeadline: document.basics.headline,
-      tailoredSummary: document.summary.content,
-      tailoredSkills: JSON.stringify(
-        document.sections.skills.items.map((item) => ({
-          name: item.name,
-          keywords: item.keywords,
-        })),
-      ),
-    });
   } else {
     const prepared = await prepareTailoredResumeForPdf({
       resumeData: base.data,
@@ -100,13 +105,31 @@ async function materializeJobResume(
     });
     document = prepared.data as ReactiveResumeV5Document;
   }
+  let saved: JobResume;
   try {
-    return await saveJobResume(jobId, baseRevision, document);
+    saved = await saveJobResume(jobId, baseRevision, document);
   } catch (error) {
-    if (error instanceof AppError && error.code === "CONFLICT") {
+    if (
+      acceptConcurrentWinner &&
+      error instanceof AppError &&
+      error.code === "CONFLICT"
+    ) {
       const winner = await getJobResume(jobId);
       if (winner) return winner;
     }
     throw error;
   }
+  if (opts?.tailor || isTargeted(job)) {
+    await updateJob(jobId, {
+      tailoredHeadline: document.basics.headline,
+      tailoredSummary: document.summary.content,
+      tailoredSkills: JSON.stringify(
+        document.sections.skills.items.map((item) => ({
+          name: item.name,
+          keywords: item.keywords,
+        })),
+      ),
+    });
+  }
+  return saved;
 }
