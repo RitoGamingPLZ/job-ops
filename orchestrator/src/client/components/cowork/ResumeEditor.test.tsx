@@ -1039,3 +1039,243 @@ describe("navy serif document content", () => {
     ).not.toContain("|");
   });
 });
+
+// Step A implements these pure helpers in parallel. Exercise the editor against
+// their fixed contract without depending on its placeholder bodies.
+vi.mock("@shared/resume-links", async () => {
+  const { splitDescription, joinDescription } = await import(
+    "@shared/resume-bullets"
+  );
+  const getItemLines = (item: Record<string, unknown>) =>
+    splitDescription(String(item.description ?? "")).bullets.map(
+      (text, index) => ({
+        text,
+        ref:
+          (item.bulletRefs as (string | null)[] | undefined)?.[index] ?? null,
+      }),
+    );
+  const setItemLines = (
+    item: Record<string, unknown>,
+    lines: { text: string; ref: string | null }[],
+  ) => ({
+    ...item,
+    description: joinDescription(
+      splitDescription(String(item.description ?? "")).introHtml,
+      lines.map((line) => line.text),
+      String(item.description ?? ""),
+    ),
+    bulletRefs: lines.map((line) => line.ref),
+  });
+  return {
+    getItemLines,
+    setItemLines,
+    sameLineText: (a: string, b: string) =>
+      a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " "),
+    removeFromResume: vi.fn((doc: ReactiveResumeV5Document, id: string) => {
+      const next = structuredClone(doc);
+      for (const section of Object.values(
+        next.sections as unknown as Record<
+          string,
+          { items: Record<string, unknown>[] }
+        >,
+      )) {
+        section.items = section.items.filter((item) => item.libraryId !== id);
+        for (const item of section.items) {
+          if (Array.isArray(item.bulletRefs) && item.bulletRefs.includes(id))
+            Object.assign(
+              item,
+              setItemLines(
+                item,
+                getItemLines(item).filter((line) => line.ref !== id),
+              ),
+            );
+        }
+      }
+      return next;
+    }),
+    resetLine: vi.fn(
+      (
+        doc: ReactiveResumeV5Document,
+        id: string,
+        index: number,
+        library: { id: string; text: string }[],
+      ) => {
+        const next = structuredClone(doc);
+        for (const section of Object.values(
+          next.sections as unknown as Record<
+            string,
+            { items: Record<string, unknown>[] }
+          >,
+        )) {
+          const item = section.items.find((item) => item.id === id);
+          if (!item) continue;
+          const lines = getItemLines(item);
+          const original = library.find(
+            (entry) => entry.id === lines[index]?.ref,
+          );
+          if (original) {
+            lines[index].text = original.text;
+            Object.assign(item, setItemLines(item, lines));
+          }
+        }
+        return next;
+      },
+    ),
+  };
+});
+
+describe("candidate library links", () => {
+  const library = [
+    { id: "duty-a", text: "Original duty", kind: "bullet" },
+    { id: "duty-b", text: "B", kind: "bullet" },
+  ] as import("@shared/types").ExperienceBullet[];
+  function LinkedEditor({ onChange = vi.fn(), save = vi.fn() }) {
+    const [document, setDocument] = useState(() => {
+      const doc = fixture();
+      Object.assign(doc.sections.experience.items[0], {
+        libraryId: "role",
+        position: "Engineer",
+        bulletRefs: ["duty-a", "duty-b", null],
+        description:
+          "<p>Intro</p><ul><li>Reworded duty</li><li>B</li><li>C</li></ul>",
+      });
+      return doc;
+    });
+    return (
+      <ResumeEditor
+        document={document}
+        library={library}
+        onSaveLineToLibrary={save}
+        suggestions={[]}
+        onDismiss={vi.fn()}
+        onChange={(next) => {
+          setDocument(next);
+          onChange(next);
+        }}
+      />
+    );
+  }
+
+  it("tints reworded lines, shows the original text, resets and saves explicitly", () => {
+    const save = vi.fn();
+    render(<LinkedEditor save={save} />);
+    const line = screen.getByLabelText("Company bullet 1").closest("li");
+    expect(line).toHaveClass("bg-amber-100/70", "dark:bg-amber-500/15");
+    expect(line).toHaveAttribute("title", "Original duty");
+    expect(
+      screen.getByLabelText("Company bullet 2").closest("li"),
+    ).not.toHaveClass("bg-amber-100/70");
+    fireEvent.click(screen.getByRole("button", { name: "Save to library" }));
+    expect(save).toHaveBeenCalledWith("duty-a", "Reworded duty");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reset to library text" }),
+    );
+    expect(screen.getByLabelText("Company bullet 1")).toHaveValue(
+      "Original duty",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Reset to library text" }),
+    ).toBeNull();
+  });
+
+  it("keeps linked entry fields read-only and cancels blank rewording", () => {
+    const onChange = vi.fn();
+    render(<LinkedEditor onChange={onChange} />);
+    for (const field of ["position", "company", "location", "dates"])
+      expect(screen.getByLabelText(`Company ${field}`)).toHaveAttribute(
+        "readonly",
+      );
+    fireEvent.change(screen.getByLabelText("Company bullet 1"), {
+      target: { value: "" },
+    });
+    fireEvent.blur(screen.getByLabelText("Company bullet 1"));
+    expect(screen.getByLabelText("Company bullet 1")).toHaveValue(
+      "Reworded duty",
+    );
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("aligns refs after manual edits, add, move, drop and linked removal", async () => {
+    const { removeFromResume } = await import("@shared/resume-links");
+    const onChange = vi.fn();
+    render(<LinkedEditor onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("Company bullet 1"), {
+      target: { value: "Manual reword" },
+    });
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
+    ).toEqual(["duty-a", "duty-b", null]);
+    fireEvent.click(screen.getByRole("button", { name: "Move bullet 1 down" }));
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
+    ).toEqual(["duty-b", "duty-a", null]);
+    fireEvent.click(screen.getByRole("button", { name: "Add bullet" }));
+    fireEvent.change(screen.getByLabelText("Company bullet 4"), {
+      target: { value: "New duty" },
+    });
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
+    ).toEqual(["duty-b", "duty-a", null, null]);
+    const dataTransfer = {
+      types: ["application/x-jobops-bullet"],
+      getData: () =>
+        JSON.stringify({ id: "dropped", text: "Dropped library duty" }),
+    };
+    fireEvent.drop(screen.getByLabelText("Company bullet 3"), { dataTransfer });
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
+    ).toEqual(["duty-b", "duty-a", "dropped", null]);
+    fireEvent.click(screen.getByRole("button", { name: "Delete bullet 2" }));
+    expect(removeFromResume).toHaveBeenCalledWith(expect.anything(), "duty-a");
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
+    ).toEqual(["duty-b", "dropped", null]);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete experience Company" }),
+    );
+    expect(removeFromResume).toHaveBeenCalledWith(expect.anything(), "role");
+    expect(onChange.mock.lastCall?.[0].sections.experience.items).toEqual([]);
+  });
+
+  it("edits, resets and unticks linked project points", () => {
+    const document = fixture();
+    document.sections.projects.items = [
+      {
+        id: "project",
+        name: "Demo",
+        period: "",
+        website: { url: "", label: "" },
+        hidden: false,
+        libraryId: "library-project",
+        description: "<ul><li>Reworded duty</li></ul>",
+        bulletRefs: ["duty-a"],
+      },
+    ] as ReactiveResumeV5Document["sections"]["projects"]["items"];
+    const onChange = vi.fn();
+    render(
+      <ResumeEditor
+        document={document}
+        onChange={onChange}
+        library={library}
+        suggestions={[]}
+        onDismiss={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Demo point 1").closest("li")).toHaveAttribute(
+      "title",
+      "Original duty",
+    );
+    fireEvent.change(screen.getByLabelText("Demo point 1"), {
+      target: { value: "Project reword" },
+    });
+    expect(
+      onChange.mock.lastCall?.[0].sections.projects.items[0].bulletRefs,
+    ).toEqual(["duty-a"]);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete project point 1" }),
+    );
+    expect(
+      onChange.mock.lastCall?.[0].sections.projects.items[0].bulletRefs,
+    ).toEqual([]);
+  });
+});
