@@ -23,7 +23,7 @@ The lead reviews, merges, and does the page wiring (step W).
 - Frozen job (R6) = status `applied` or `in_progress`. Library edits never
   change a frozen job's resume.
 
-### HTTP API (step B implements, step D calls; all under `/api/cowork`)
+### HTTP API (step B implements, step D calls; co-work router is mounted at `/api` root)
 Keep the existing response envelope and shapes of today's routes.
 | Method | Path | Behaviour |
 |---|---|---|
@@ -71,7 +71,7 @@ linked lines so the new resume is fully linked (R3).
 ### D — right column: Library tab
 Owns: new `client/components/cowork/CandidateLibrary.tsx` (+ test),
 `client/components/cowork/DutyLibrary.tsx` (+ test) only to extract or reuse
-the duty extras, `client/components/ui/searchable-multi-select.tsx` (+ test),
+the duty extras, `orchestrator/src/components/ui/searchable-multi-select.tsx` (+ test),
 `client/api/cowork.ts`, `client/pages/ResumesPage.tsx` (library page uses the
 new panel without ticks).
 Export:
