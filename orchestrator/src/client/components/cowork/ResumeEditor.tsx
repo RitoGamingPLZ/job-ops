@@ -5,10 +5,19 @@ import {
   splitDescription,
 } from "@shared/resume-bullets";
 import {
+  getItemLines,
+  type ResumeLine,
+  removeFromResume,
+  resetLine,
+  sameLineText,
+  setItemLines,
+} from "@shared/resume-links";
+import {
   NAVY_SERIF_CSS_VARS,
   NAVY_SERIF_STYLE,
 } from "@shared/resume-style/navy-serif";
 import type {
+  ExperienceBullet,
   ReactiveResumeV5Document,
   ResumeFocusRef,
   ResumeSuggestion,
@@ -22,6 +31,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { REWORDED_TINT_CLASS } from "./rewordTint";
 import "./ResumeEditor.css";
 import { ITEM_DEFINITIONS } from "@/client/components/design-resume/definitions";
 import { RichTextEditor } from "@/client/components/design-resume/RichTextEditor";
@@ -32,7 +42,6 @@ import { CommaListInput } from "./CommaListInput";
 import {
   applySuggestions,
   BULLET_TRANSFER_TYPE,
-  dropBullet,
   FOCUS_TRANSFER_TYPE,
   fieldVisible,
   readBulletTransfer,
@@ -142,6 +151,8 @@ function fitSkillRow(row: HTMLDivElement | null) {
 }
 
 type Props = {
+  library?: ExperienceBullet[];
+  onSaveLineToLibrary?: (libraryId: string, text: string) => void;
   document: ReactiveResumeV5Document;
   onChange: (document: ReactiveResumeV5Document) => void;
   suggestions: ResumeSuggestion[];
@@ -157,6 +168,8 @@ export function ResumeEditor({
   onDismiss,
   disabled,
   onAskAi,
+  library = [],
+  onSaveLineToLibrary,
 }: Props) {
   const [addingSummary, setAddingSummary] = useState(
     Boolean(bulletsFromHtml(document.summary.content).length),
@@ -411,20 +424,67 @@ export function ResumeEditor({
     currentDocument.current = next;
     onChange(next);
   }
-  function updateBullets(id: string, edit: (bullets: string[]) => string[]) {
+  function updateBullets(
+    id: string,
+    edit: (lines: ResumeLine[]) => ResumeLine[],
+  ) {
     change((next) => {
-      const experience = next.sections.experience.items.find(
-        (e) => e.id === id,
-      );
-      if (experience) {
-        const { introHtml, bullets } = splitDescription(experience.description);
-        experience.description = joinDescription(
-          introHtml,
-          edit(bullets),
-          experience.description,
-        );
-      }
+      const item = [
+        ...next.sections.experience.items,
+        ...(next.sections.projects?.items ?? []),
+      ].find((e) => e.id === id);
+      if (item)
+        Object.assign(item, setItemLines(item, edit(getItemLines(item))));
     });
+  }
+  function removeLinked(id: unknown) {
+    if (typeof id !== "string") return;
+    const next = removeFromResume(currentDocument.current, id);
+    currentDocument.current = next;
+    onChange(next);
+  }
+  function lineTools(itemId: string, index: number, line: ResumeLine) {
+    const original = library.find((item) => item.id === line.ref);
+    if (!original || sameLineText(line.text, original.text)) return null;
+    return (
+      <>
+        <Button
+          size="sm"
+          variant="ghost"
+          title="Reset to library text"
+          aria-label="Reset to library text"
+          onClick={() => {
+            const next = resetLine(
+              currentDocument.current,
+              itemId,
+              index,
+              library,
+            );
+            currentDocument.current = next;
+            onChange(next);
+          }}
+        >
+          Reset to library text
+        </Button>
+        {onSaveLineToLibrary && (
+          <Button
+            size="sm"
+            variant="ghost"
+            title="Save to library"
+            aria-label="Save to library"
+            onClick={() => onSaveLineToLibrary(original.id, line.text)}
+          >
+            Save to library
+          </Button>
+        )}
+      </>
+    );
+  }
+  function lineAppearance(line: ResumeLine) {
+    const original = library.find((item) => item.id === line.ref);
+    return original && !sameLineText(line.text, original.text)
+      ? { className: REWORDED_TINT_CLASS, title: original.text }
+      : {};
   }
   // Index-only targets belong to the experience snapshot in which they arrived.
   const snapshots = useRef(
@@ -566,8 +626,16 @@ export function ResumeEditor({
               source &&
               typeof source.experienceId === "string" &&
               Number.isInteger(source.index)
-            )
-              onChange(moveResumeBullet(document, source, id, index));
+            ) {
+              const next = moveResumeBullet(
+                currentDocument.current,
+                source,
+                id,
+                index,
+              );
+              currentDocument.current = next;
+              onChange(next);
+            }
           } catch {
             /* Ignore malformed external drags. */
           }
@@ -577,9 +645,11 @@ export function ResumeEditor({
           event.dataTransfer.getData(BULLET_TRANSFER_TYPE),
         );
         if (bullet)
-          updateBullets(id, (current) =>
-            dropBullet(current, index, bullet.text, mode),
-          );
+          updateBullets(id, (current) => [
+            ...current.slice(0, index),
+            { text: bullet.text, ref: bullet.id },
+            ...current.slice(index + (mode === "replace" ? 1 : 0)),
+          ]);
       },
     };
   }
@@ -615,6 +685,7 @@ export function ResumeEditor({
       return field === "description" ? (
         <BulletText
           label={`${simpleNames[kind]} ${index + 1} ${field}`}
+          readOnly={Boolean(item.libraryId)}
           value={bulletsFromHtml(String(item[field] ?? "")).join("\n")}
           onChange={(value) =>
             change((next) => {
@@ -626,6 +697,7 @@ export function ResumeEditor({
         <Input
           title={`${simpleNames[kind]} ${index + 1} ${field}`}
           aria-label={`${simpleNames[kind]} ${index + 1} ${field}`}
+          readOnly={Boolean(item.libraryId)}
           className={`resume-field-${field}`}
           value={
             field === "website"
@@ -787,9 +859,11 @@ export function ResumeEditor({
                       title={`Delete ${simpleNames[kind]} ${index + 1}`}
                       aria-label={`Delete ${simpleNames[kind]} ${index + 1}`}
                       onClick={() =>
-                        change((next) => {
-                          next.sections[kind].items.splice(index, 1);
-                        })
+                        item.libraryId
+                          ? removeLinked(item.libraryId)
+                          : change((next) => {
+                              next.sections[kind].items.splice(index, 1);
+                            })
                       }
                     >
                       ×
@@ -928,6 +1002,7 @@ export function ResumeEditor({
                           <Input
                             title={`Skill ${index + 1} name`}
                             aria-label={`Skill ${index + 1} name`}
+                            readOnly={Boolean(skill.libraryId)}
                             className="resume-skill-name"
                             value={skill.name}
                             onChange={(e) =>
@@ -1025,9 +1100,11 @@ export function ResumeEditor({
                           title={`Delete skill ${skill.name}`}
                           aria-label={`Delete skill ${skill.name}`}
                           onClick={() =>
-                            change((next) => {
-                              next.sections.skills.items.splice(index, 1);
-                            })
+                            skill.libraryId
+                              ? removeLinked(skill.libraryId)
+                              : change((next) => {
+                                  next.sections.skills.items.splice(index, 1);
+                                })
                           }
                         >
                           ×
@@ -1106,8 +1183,11 @@ export function ResumeEditor({
                 const { introHtml, bullets } = splitDescription(
                   experience.description,
                 );
-                if (newBullet?.id === experience.id)
+                const lines = getItemLines(experience);
+                if (newBullet?.id === experience.id) {
                   bullets.splice(newBullet.index, 0, "");
+                  lines.splice(newBullet.index, 0, { text: "", ref: null });
+                }
                 const bulletKeyList = keyBullets(experience.id, bullets);
                 const name = experience.company || "new experience";
                 const itemRef: ResumeFocusRef = {
@@ -1131,6 +1211,7 @@ export function ResumeEditor({
                       title={`${name} position`}
                       aria-label={`${name} position`}
                       data-experience-position
+                      readOnly={Boolean(experience.libraryId)}
                       value={experience.position ?? ""}
                       placeholder="Position"
                       onChange={(event) =>
@@ -1159,6 +1240,7 @@ export function ResumeEditor({
                               <Input
                                 title={`${name} ${field === "period" ? "dates" : field}`}
                                 aria-label={`${name} ${field === "period" ? "dates" : field}`}
+                                readOnly={Boolean(experience.libraryId)}
                                 value={experience[field] ?? ""}
                                 placeholder={placeholder}
                                 // Width fallback where CSS field-sizing is unsupported (Firefox, Safari).
@@ -1194,12 +1276,14 @@ export function ResumeEditor({
                         title={`Delete experience ${name}`}
                         aria-label={`Delete experience ${name}`}
                         onClick={() =>
-                          change((next) => {
-                            next.sections.experience.items =
-                              next.sections.experience.items.filter(
-                                (item) => item.id !== experience.id,
-                              );
-                          })
+                          experience.libraryId
+                            ? removeLinked(experience.libraryId)
+                            : change((next) => {
+                                next.sections.experience.items =
+                                  next.sections.experience.items.filter(
+                                    (item) => item.id !== experience.id,
+                                  );
+                              })
                         }
                       >
                         ×
@@ -1297,7 +1381,7 @@ export function ResumeEditor({
                             if (item)
                               item.description = joinDescription(
                                 introTextToHtml(value),
-                                bullets,
+                                getItemLines(item).map((line) => line.text),
                               );
                           })
                         }
@@ -1308,7 +1392,8 @@ export function ResumeEditor({
                         <li
                           key={bulletKeyList[index]}
                           data-focus-bullet={index}
-                          className="resume-row resume-bullet"
+                          className={`resume-row resume-bullet ${lineAppearance(lines[index]).className ?? ""}`}
+                          title={lineAppearance(lines[index]).title}
                         >
                           <div
                             {...dropZone(experience.id, index, "insert")}
@@ -1324,7 +1409,9 @@ export function ResumeEditor({
                             <BulletText
                               label={`${name} bullet ${index + 1}`}
                               value={bullet}
+                              linked={Boolean(lines[index]?.ref)}
                               onChange={(value) => {
+                                if (!value.trim() && lines[index]?.ref) return;
                                 if (newBullet?.id === experience.id) {
                                   if (!value.trim()) {
                                     setNewBullet(null);
@@ -1333,24 +1420,32 @@ export function ResumeEditor({
                                   const gap = newBullet.index;
                                   setNewBullet(null);
                                   updateBullets(experience.id, (current) => {
-                                    current.splice(gap, 0, "");
+                                    current.splice(gap, 0, {
+                                      text: "",
+                                      ref: null,
+                                    });
                                     return current
                                       .map((text, i) =>
-                                        i === index ? value : text,
+                                        i === index
+                                          ? { ...text, text: value }
+                                          : text,
                                       )
-                                      .filter((text) => text.trim());
+                                      .filter((line) => line.text.trim());
                                   });
                                 } else
                                   updateBullets(experience.id, (current) =>
                                     current
                                       .map((text, i) =>
-                                        i === index ? value : text,
+                                        i === index
+                                          ? { ...text, text: value }
+                                          : text,
                                       )
-                                      .filter((text) => text.trim()),
+                                      .filter((line) => line.text.trim()),
                                   );
                               }}
                             />
                             <div className="resume-tools resume-bullet-controls">
+                              {lineTools(experience.id, index, lines[index])}
                               {dragHandle(
                                 RESUME_BULLET_TRANSFER_TYPE,
                                 { experienceId: experience.id, index },
@@ -1432,9 +1527,11 @@ export function ResumeEditor({
                                 title={`Delete bullet ${index + 1}`}
                                 aria-label={`Delete bullet ${index + 1}`}
                                 onClick={() =>
-                                  updateBullets(experience.id, (current) =>
-                                    current.filter((_, i) => i !== index),
-                                  )
+                                  lines[index]?.ref
+                                    ? removeLinked(lines[index].ref)
+                                    : updateBullets(experience.id, (current) =>
+                                        current.filter((_, i) => i !== index),
+                                      )
                                 }
                               >
                                 ×
@@ -1573,10 +1670,12 @@ export function ResumeEditor({
                             aria-label={`Include project ${project.name}`}
                             checked={!project.hidden}
                             onChange={(e) =>
-                              change((next) => {
-                                next.sections.projects.items[index].hidden =
-                                  !e.target.checked;
-                              })
+                              project.libraryId && !e.target.checked
+                                ? removeLinked(project.libraryId)
+                                : change((next) => {
+                                    next.sections.projects.items[index].hidden =
+                                      !e.target.checked;
+                                  })
                             }
                           />
                         </label>
@@ -1594,15 +1693,45 @@ export function ResumeEditor({
                         </p>
                       )}
                       <ul className="resume-bullets">
-                        {splitDescription(
-                          project.description ?? "",
-                        ).bullets.map((text, i) => (
+                        {getItemLines(project).map((line, i) => (
                           <li
                             key={`${project.id}-${i}`}
-                            className="resume-readonly"
-                            title="Edit in Resume Studio"
+                            className={`resume-row resume-bullet ${lineAppearance(line).className ?? ""}`}
+                            title={lineAppearance(line).title}
                           >
-                            {text}
+                            <BulletText
+                              label={`${project.name} point ${i + 1}`}
+                              value={line.text}
+                              linked={Boolean(line.ref)}
+                              onChange={(text) => {
+                                if (!text.trim() && line.ref) return;
+                                updateBullets(project.id, (lines) =>
+                                  lines
+                                    .map((old, at) =>
+                                      at === i ? { ...old, text } : old,
+                                    )
+                                    .filter((old) => old.text.trim()),
+                                );
+                              }}
+                            />
+                            <div className="resume-tools">
+                              {lineTools(project.id, i, line)}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                title={`Delete project point ${i + 1}`}
+                                aria-label={`Delete project point ${i + 1}`}
+                                onClick={() =>
+                                  line.ref
+                                    ? removeLinked(line.ref)
+                                    : updateBullets(project.id, (lines) =>
+                                        lines.filter((_, at) => at !== i),
+                                      )
+                                }
+                              >
+                                ×
+                              </Button>
+                            </div>
                           </li>
                         ))}
                       </ul>

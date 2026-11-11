@@ -1,6 +1,6 @@
 import { bulletsFromHtml } from "@shared/resume-bullets";
 import type { ReactiveResumeV5Document } from "@shared/types";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   moveItem,
   moveResumeBullet,
@@ -120,4 +120,78 @@ describe("section order", () => {
     );
     expect(moved.metadata.layout.pages[0].main[0]).toBe("awards");
   });
+});
+
+// Step A implements these pure helpers in parallel. Exercise the editor against
+// their fixed contract without depending on its placeholder bodies.
+vi.mock("@shared/resume-links", async () => {
+  const { splitDescription, joinDescription } = await import(
+    "@shared/resume-bullets"
+  );
+  const getItemLines = (item: Record<string, unknown>) =>
+    splitDescription(String(item.description ?? "")).bullets.map(
+      (text, index) => ({
+        text,
+        ref:
+          (item.bulletRefs as (string | null)[] | undefined)?.[index] ?? null,
+      }),
+    );
+  const setItemLines = (
+    item: Record<string, unknown>,
+    lines: { text: string; ref: string | null }[],
+  ) => ({
+    ...item,
+    description: joinDescription(
+      splitDescription(String(item.description ?? "")).introHtml,
+      lines.map((line) => line.text),
+      String(item.description ?? ""),
+    ),
+    bulletRefs: lines.map((line) => line.ref),
+  });
+  return {
+    getItemLines,
+    setItemLines,
+    sameLineText: (a: string, b: string) =>
+      a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " "),
+  };
+});
+
+it("moves refs with their text within and between entries, preserving intro prose", () => {
+  const original = fixture();
+  original.sections.experience.items[0].bulletRefs = ["first", null, "third"];
+  original.sections.experience.items[0].description = `<p>Intro</p>${original.sections.experience.items[0].description}`;
+  original.sections.experience.items[1].bulletRefs = ["fourth"];
+  const reordered = moveResumeBullet(
+    original,
+    { experienceId: "a", index: 0 },
+    "a",
+    3,
+  );
+  expect(reordered.sections.experience.items[0].bulletRefs).toEqual([
+    null,
+    "third",
+    "first",
+  ]);
+  const moved = moveResumeBullet(
+    reordered,
+    { experienceId: "a", index: 2 },
+    "b",
+    0,
+  );
+  expect(moved.sections.experience.items[0].bulletRefs).toEqual([
+    null,
+    "third",
+  ]);
+  expect(moved.sections.experience.items[1].bulletRefs).toEqual([
+    "first",
+    "fourth",
+  ]);
+  expect(moved.sections.experience.items[0].description).toBe(
+    "<p>Intro</p><ul><li>B</li><li>C</li></ul>",
+  );
+  expect(original.sections.experience.items[0].bulletRefs).toEqual([
+    "first",
+    null,
+    "third",
+  ]);
 });

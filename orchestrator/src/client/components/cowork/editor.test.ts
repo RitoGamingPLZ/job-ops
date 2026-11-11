@@ -3,7 +3,7 @@ import type {
   ResumeFocusRef,
   ResumeSuggestion,
 } from "@shared/types";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   addFocus,
   applySuggestion,
@@ -381,5 +381,96 @@ describe("focus refs", () => {
     expect(readFocusTransfer(JSON.stringify(ref("a")))).toEqual(ref("a"));
     expect(readFocusTransfer("{")).toBeNull();
     expect(readFocusTransfer('{"kind":"item"}')).toBeNull();
+  });
+});
+
+// Step A implements these pure helpers in parallel. Exercise the editor against
+// their fixed contract without depending on its placeholder bodies.
+vi.mock("@shared/resume-links", async () => {
+  const { splitDescription, joinDescription } = await import(
+    "@shared/resume-bullets"
+  );
+  const getItemLines = (item: Record<string, unknown>) =>
+    splitDescription(String(item.description ?? "")).bullets.map(
+      (text, index) => ({
+        text,
+        ref:
+          (item.bulletRefs as (string | null)[] | undefined)?.[index] ?? null,
+      }),
+    );
+  const setItemLines = (
+    item: Record<string, unknown>,
+    lines: { text: string; ref: string | null }[],
+  ) => ({
+    ...item,
+    description: joinDescription(
+      splitDescription(String(item.description ?? "")).introHtml,
+      lines.map((line) => line.text),
+      String(item.description ?? ""),
+    ),
+    bulletRefs: lines.map((line) => line.ref),
+  });
+  return {
+    getItemLines,
+    setItemLines,
+    sameLineText: (a: string, b: string) =>
+      a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " "),
+  };
+});
+
+describe("linked suggestion lines", () => {
+  it("keeps a replaced line's ref and aligns refs after insert/delete", () => {
+    const original = fixture();
+    original.sections.experience.items[0].bulletRefs = ["first", "second"];
+    const replaced = applySuggestion(original, suggestion());
+    if (!replaced) throw new Error("Expected replacement to apply");
+    expect(replaced.sections.experience.items[0].bulletRefs).toEqual([
+      "first",
+      "second",
+    ]);
+    const inserted = applySuggestion(
+      replaced,
+      suggestion({
+        op: "insert_bullet",
+        previousText: undefined,
+        bulletIndex: 0,
+        text: "New",
+      }),
+    );
+    if (!inserted) throw new Error("Expected insertion to apply");
+    expect(inserted.sections.experience.items[0].bulletRefs).toEqual([
+      null,
+      "first",
+      "second",
+    ]);
+    const deleted = applySuggestion(
+      inserted,
+      suggestion({ op: "delete_bullet", previousText: "First" }),
+    );
+    if (!deleted) throw new Error("Expected deletion to apply");
+    expect(deleted.sections.experience.items[0].bulletRefs).toEqual([
+      null,
+      "second",
+    ]);
+    expect(original.sections.experience.items[0].bulletRefs).toEqual([
+      "first",
+      "second",
+    ]);
+  });
+  it("rejects blank rewording and entry field edits on linked entries", () => {
+    const original = fixture();
+    original.sections.experience.items[0].libraryId = "role";
+    original.sections.experience.items[0].bulletRefs = ["first", "second"];
+    expect(applySuggestion(original, suggestion({ text: " " }))).toBeNull();
+    expect(
+      applySuggestion(
+        original,
+        suggestion({
+          op: "replace_field",
+          field: { section: "experience", itemId: "one", name: "company" },
+          previousText: undefined,
+        }),
+      ),
+    ).toBeNull();
   });
 });
