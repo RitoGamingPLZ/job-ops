@@ -494,3 +494,57 @@ describe("stamping existing resumes", () => {
     );
   });
 });
+
+describe("review regressions", () => {
+  it("preserves untouched rich bullet HTML through updates, removal, addition and reset", () => {
+    const rich = '<li class="kept"><strong>Grew</strong> revenue<br>20%</li>';
+    const item = {
+      ...libraryItemToResumeItem(role),
+      description: `<p>Intro</p><ul>${rich}<li>Built APIs &amp; tools</li></ul><p>After</p>`,
+      bulletRefs: [null, duty.id],
+    };
+    const doc = freeze(withEntry(document(), item));
+    const updated = applyLibraryUpdate(doc, duty, {
+      ...duty,
+      text: "New text",
+    });
+    const removed = removeFromResume(doc, duty.id);
+    const added = addToResume(doc, otherDuty.id, library);
+    const reset = resetLine(updated, String(item.id), 1, library);
+    for (const next of [updated, removed, added, reset]) {
+      expect(entries(next, "role")[0].description).toContain(rich);
+      expect(entries(next, "role")[0].description).toContain("<p>After</p>");
+    }
+  });
+  it("renders new multiline bullet text with HTML breaks", () => {
+    const item = setItemLines(libraryItemToResumeItem(role), [
+      { text: "First\nSecond <&>", ref: null },
+    ]);
+    expect(item.description).toBe(
+      "<ul><li>First<br>Second &lt;&amp;&gt;</li></ul>",
+    );
+    expect(getItemLines(item)[0].text).toBe("First\nSecond <&>");
+  });
+  it.each([
+    role,
+    education,
+  ])("keeps $kind schema-valid when required data is missing or cleared", (original) => {
+    const missing = { ...original, data: { period: "2024" } };
+    const doc = addToResume(document(), missing.id, [missing]);
+    expect(() => parseV5ResumeData(doc)).not.toThrow();
+    const populated = addToResume(document(), original.id, library);
+    const cleared = applyLibraryUpdate(populated, original, missing);
+    expect(() => parseV5ResumeData(cleared)).not.toThrow();
+  });
+  it("preserves resume website labels on library field updates", () => {
+    const item = {
+      ...libraryItemToResumeItem(role),
+      website: { url: "https://example.com", label: "Company site" },
+    };
+    const updated = applyLibraryUpdate(withEntry(document(), item), role, {
+      ...role,
+      data: { ...role.data, location: "New place" },
+    });
+    expect(entries(updated, "role")[0].website).toEqual(item.website);
+  });
+});
