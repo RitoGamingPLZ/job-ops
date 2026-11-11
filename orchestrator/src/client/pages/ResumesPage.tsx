@@ -3,10 +3,8 @@ import type { ResumeListItem } from "@shared/types";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import * as api from "@/client/api";
-import {
-  coworkError,
-  DutyLibrary,
-} from "@/client/components/cowork/DutyLibrary";
+import { CandidateLibrary } from "@/client/components/cowork/CandidateLibrary";
+import { coworkError } from "@/client/components/cowork/DutyLibrary";
 import { useGenerateJobPdfMutation } from "@/client/hooks/queries/useJobMutations";
 import { getResumeState, needsRender } from "@/client/lib/pdf-freshness";
 import { openJobPdf } from "@/client/lib/private-pdf";
@@ -45,7 +43,7 @@ export function ResumesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Resumes</h1>
         <Button variant="outline" asChild>
-          <Link to="/resumes/library">Duty library</Link>
+          <Link to="/resumes/library">Candidate Library</Link>
         </Button>
       </div>
       <p className="text-sm text-muted-foreground">
@@ -137,11 +135,12 @@ export function ResumeLibraryPage() {
       <Link to="/resumes" className="text-sm underline">
         ← Resumes
       </Link>
-      <h1 className="text-2xl font-semibold">Duty library</h1>
+      <h1 className="text-2xl font-semibold">Candidate Library</h1>
       <p className="text-sm text-muted-foreground">
-        Reusable achievements and duties for your job resumes.
+        Manage your experience, projects, skills, education, awards and
+        certifications.
       </p>
-      <DutyLibrary />
+      <CandidateLibrary />
     </main>
   );
 }

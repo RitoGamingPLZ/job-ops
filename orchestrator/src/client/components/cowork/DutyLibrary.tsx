@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import { Textarea } from "@/components/ui/textarea";
 import { CommaListInput } from "./CommaListInput";
 import { BULLET_TRANSFER_TYPE, type BulletReference } from "./editor";
@@ -121,7 +122,7 @@ export function groupBulletsByJob(bullets: ExperienceBullet[]) {
   );
 }
 
-function InlineTags({
+export function InlineTags({
   bullet,
   busy,
   onSave,
@@ -332,15 +333,15 @@ export function DutyLibrary({
           disabled={busy}
           onClick={() =>
             void run(async () => {
-              const result = await api.importExperienceBulletsFromResume();
+              const result = await api.syncCandidateLibrary();
               await refresh();
               toast.success(
-                `Imported ${result.created}; skipped ${result.skipped}${result.labeled === undefined ? "" : `; labeled ${result.labeled}`}`,
+                `Synced ${result.created}; skipped ${result.skipped}; linked ${result.linked}`,
               );
             })
           }
         >
-          Import from resume
+          Sync from resumes
         </Button>
         <Button
           size="sm"
@@ -817,5 +818,162 @@ export function DutyLibrary({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** Duty-specific tools shared with the candidate library checklist. */
+export function DutyLibraryTools({
+  jobId,
+  roles,
+  onRefresh,
+  onRanked,
+}: {
+  jobId?: string;
+  roles: ExperienceBullet[];
+  onRefresh: () => Promise<void>;
+  onRanked: (ranked: RankedBullet[]) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [drafts, setDrafts] = useState<
+    { input: ExperienceBulletInput; selected: boolean }[]
+  >([]);
+  const [parentId, setParentId] = useState("");
+  async function run(action: () => Promise<void>) {
+    setBusy(true);
+    try {
+      await action();
+    } catch (error) {
+      coworkError(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => {
+            setParentId(roles[0]?.id ?? "");
+            setDrafts([]);
+            setOpen(true);
+          }}
+        >
+          Paste & extract
+        </Button>
+        {jobId && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() =>
+              void run(async () => {
+                onRanked((await api.rankExperienceBullets(jobId)).ranked);
+              })
+            }
+          >
+            Rank for this job
+          </Button>
+        )}
+      </div>
+      <Dialog
+        open={open}
+        onOpenChange={(value) => {
+          if (!busy) setOpen(value);
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Paste & extract duties</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            aria-label="Text to extract"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <Button
+            disabled={busy || !text.trim()}
+            onClick={() =>
+              void run(async () => {
+                setDrafts(
+                  (await api.extractExperienceBullets(text)).drafts.map(
+                    (input) => ({ input, selected: true }),
+                  ),
+                );
+              })
+            }
+          >
+            Extract drafts
+          </Button>
+          {drafts.map((draft, index) => (
+            <label
+              key={`${index}-${draft.input.text}`}
+              className="flex gap-2 text-sm"
+            >
+              <input
+                type="checkbox"
+                checked={draft.selected}
+                onChange={(e) =>
+                  setDrafts((current) =>
+                    current.map((d, i) =>
+                      i === index ? { ...d, selected: e.target.checked } : d,
+                    ),
+                  )
+                }
+              />
+              {draft.input.text}
+            </label>
+          ))}
+          {drafts.length > 0 && (
+            <>
+              <SearchableDropdown
+                ariaLabel="Add to role"
+                placeholder="Choose a role"
+                value={parentId}
+                onValueChange={setParentId}
+                disabled={busy}
+                allowCustomValue={false}
+                options={roles.map((role) => ({
+                  value: role.id,
+                  label: `${String(role.data?.company ?? "")} · ${role.text}`,
+                }))}
+              />
+              {!roles.length && (
+                <p className="text-sm">
+                  Add a job and role before adding extracted duties.
+                </p>
+              )}
+              <Button
+                disabled={busy || !parentId || !drafts.some((d) => d.selected)}
+                onClick={() =>
+                  void run(async () => {
+                    for (const draft of drafts.filter((d) => d.selected)) {
+                      await api.createExperienceBullet({
+                        ...draft.input,
+                        kind: "bullet",
+                        parentId,
+                        source: "ai_extract",
+                      });
+                      setDrafts((current) =>
+                        current.filter((d) => d !== draft),
+                      );
+                    }
+                    await onRefresh();
+                    setOpen(false);
+                    toast.success("Duties added");
+                  })
+                }
+              >
+                Create selected duties
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
