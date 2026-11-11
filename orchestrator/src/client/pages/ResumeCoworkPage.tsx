@@ -13,10 +13,12 @@ import type {
   JobResumeState,
   ReactiveResumeV5Document,
   ResumeFocusRef,
+  ResumeListItem,
   ResumeSuggestion,
 } from "@shared/types";
+import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CandidateLibrary } from "@/client/components/cowork/CandidateLibrary";
 import { coworkError } from "@/client/components/cowork/DutyLibrary";
@@ -51,6 +53,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 
 // Matches Tailwind's xl breakpoint, where all three panes show side by side.
 const PREVIEW_KEY = "resume-cowork-preview";
@@ -74,6 +77,10 @@ export function ResumeCoworkPage() {
   return jobId ? <CoworkWorkspace key={jobId} jobId={jobId} /> : null;
 }
 function CoworkWorkspace({ jobId }: { jobId: string }) {
+  const navigate = useNavigate();
+  const [resumes, setResumes] = useState<ResumeListItem[]>([]);
+  const [switchTarget, setSwitchTarget] = useState<string | null>(null);
+  const switching = useRef(false);
   const [library, setLibrary] = useState<ExperienceBullet[]>([]);
   const [preview, setPreview] = useState(() => {
     try {
@@ -151,6 +158,20 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
       if (timer.current) clearTimeout(timer.current);
     };
   }, [load]);
+  useEffect(() => {
+    let active = true;
+    void api
+      .listResumes()
+      .then((result) => {
+        if (active) setResumes(result.resumes);
+      })
+      .catch((failure) => {
+        if (active) coworkError(failure);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   useEffect(
     () => () => {
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
@@ -346,6 +367,25 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     }
     return true;
   }
+  function switchResume(nextJobId: string) {
+    if (nextJobId === jobId || switching.current) return;
+    if (dirty.current || saving.current) setSwitchTarget(nextJobId);
+    else navigate(`/resumes/${nextJobId}`);
+  }
+  async function saveAndSwitch() {
+    if (!switchTarget || switching.current) return;
+    switching.current = true;
+    setBusy(true);
+    try {
+      if (await flush()) navigate(`/resumes/${switchTarget}`);
+    } finally {
+      switching.current = false;
+      if (mounted.current) {
+        setSwitchTarget(null);
+        setBusy(false);
+      }
+    }
+  }
   async function syncLibrary() {
     if (syncing.current || busy)
       throw new Error("A resume action is already running.");
@@ -480,14 +520,22 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
       }
     }
   }
-  function togglePreview() {
-    const next = !preview;
+  function setPreviewMode(next: boolean) {
     setPreview(next);
     try {
       localStorage.setItem(PREVIEW_KEY, String(next));
     } catch {
       /* Storage may be disabled. */
     }
+  }
+  function renderPreview() {
+    setPreviewMode(true);
+    previewRequested.current = true;
+    void showPreview();
+  }
+  function togglePreview() {
+    const next = !preview;
+    setPreviewMode(next);
     if (next) {
       previewRequested.current = true;
       void showPreview();
@@ -543,12 +591,36 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
   return (
     <main className="flex min-h-0 flex-col h-[calc(100dvh-5rem)] p-4 gap-4">
       <header className="flex flex-wrap items-center gap-2">
-        <Link to="/resumes" className="text-sm underline">
-          Resumes
-        </Link>
-        <h1 className="font-semibold mr-auto min-w-0 break-words">
-          {job.title} · {job.employer}
-        </h1>
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-label="Back"
+          onClick={() => {
+            if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+            else navigate("/resumes");
+          }}
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <SearchableDropdown
+          value={jobId}
+          options={[
+            { value: jobId, label: `${job.title} · ${job.employer}` },
+            ...resumes
+              .filter((resume) => resume.jobId !== jobId)
+              .map((resume) => ({
+                value: resume.jobId,
+                label: `${resume.title} · ${resume.employer}`,
+              })),
+          ]}
+          onValueChange={switchResume}
+          allowCustomValue={false}
+          ariaLabel="Switch resume"
+          placeholder="Select a resume"
+          searchPlaceholder="Search resumes…"
+          triggerClassName="mr-auto min-w-0 max-w-full font-semibold"
+          disabled={busy}
+        />
         <output className="text-xs text-muted-foreground">
           {rendering ? "Rendering PDF…" : status}
         </output>
@@ -575,35 +647,6 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           onClick={() => setResetOpen(true)}
         >
           Reset to base
-        </Button>
-        <Button
-          size="sm"
-          disabled={busy}
-          onClick={async () => {
-            const pdfTab = window.open("about:blank", "_blank");
-            if (pdfTab) pdfTab.opener = null;
-            setBusy(true);
-            setRendering(true);
-            try {
-              if (await flush()) {
-                await generateJobPdf(jobId);
-                setPdfReady(true);
-                if (pdfTab && !pdfTab.closed) {
-                  const url = await createJobPdfObjectUrl(jobId);
-                  pdfTab.location.href = url;
-                  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-                } else await downloadJobPdf(jobId, "resume.pdf");
-              } else pdfTab?.close();
-            } catch (failure) {
-              pdfTab?.close();
-              coworkError(failure);
-            } finally {
-              setRendering(false);
-              setBusy(false);
-            }
-          }}
-        >
-          Render PDF
         </Button>
         <Button
           size="sm"
@@ -767,6 +810,9 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
             >
               {preview ? "Edit" : "Preview"}
             </Button>
+            <Button size="sm" disabled={busy} onClick={renderPreview}>
+              Render PDF
+            </Button>
           </div>
           {preview ? (
             pdfUrl ? (
@@ -884,6 +930,27 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           </fieldset>
         </section>
       </div>
+      <AlertDialog
+        open={switchTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !switching.current) setSwitchTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              Save your changes before switching to another resume.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <Button disabled={busy} onClick={() => void saveAndSwitch()}>
+              Save and switch
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={conflictOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
