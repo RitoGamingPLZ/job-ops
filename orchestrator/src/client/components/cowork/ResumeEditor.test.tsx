@@ -217,9 +217,9 @@ describe("document drag interactions", () => {
       experienceId: "one",
       index: 1,
     });
-    const gap = screen.getAllByTitle("Insert before bullet 1")[0];
+    const gap = screen.getAllByTitle("Move before bullet 1")[0];
     // There are two first-bullet gaps; choose the second experience.
-    const destination = screen.getAllByTitle("Insert before bullet 1")[1];
+    const destination = screen.getAllByTitle("Move before bullet 1")[1];
     fireEvent.dragOver(destination, { dataTransfer });
     expect(destination).toHaveAttribute("data-active", "true");
     fireEvent.drop(destination, { dataTransfer });
@@ -227,7 +227,7 @@ describe("document drag interactions", () => {
     expect(screen.getByLabelText("Other bullet 1")).toHaveValue("B");
     expect(gap).toHaveAttribute("data-active", "false");
   });
-  it("keeps library replacement and insertion separate from resume moves", () => {
+  it("allows library replacement but rejects library insertion into reorder gaps", () => {
     render(<Editor />);
     const dataTransfer = transfer("application/x-jobops-bullet", {
       id: "library",
@@ -239,11 +239,30 @@ describe("document drag interactions", () => {
     expect(screen.getByLabelText("Company bullet 1")).toHaveValue(
       "Library duty",
     );
-    fireEvent.drop(screen.getAllByTitle("Insert before bullet 1")[1], {
+    fireEvent.drop(screen.getAllByTitle("Move before bullet 1")[1], {
       dataTransfer,
     });
-    expect(screen.getByLabelText("Other bullet 1")).toHaveValue("Library duty");
-    expect(screen.getByLabelText("Other bullet 2")).toHaveValue("D");
+    expect(screen.getByLabelText("Other bullet 1")).toHaveValue("D");
+    expect(screen.queryByLabelText("Other bullet 2")).toBeNull();
+  });
+  it("keeps the end gap for resume moves and rejects library additions", () => {
+    render(<Editor />);
+    const end = screen.getByTitle("Move to end of Other");
+    const library = transfer("application/x-jobops-bullet", {
+      id: "library",
+      text: "Library duty",
+    });
+    expect(fireEvent.dragOver(end, { dataTransfer: library })).toBe(true);
+    fireEvent.drop(end, { dataTransfer: library });
+    expect(screen.queryByLabelText("Other bullet 2")).toBeNull();
+    fireEvent.drop(end, {
+      dataTransfer: transfer("application/x-jobops-resume-bullet", {
+        experienceId: "one",
+        index: 0,
+      }),
+    });
+    expect(screen.getByLabelText("Other bullet 2")).toHaveValue("A");
+    expect(screen.getByLabelText("Company bullet 1")).toHaveValue("B");
   });
   it("reorders experience entries and skill lines using their own drag types", () => {
     render(<Editor />);
@@ -376,7 +395,9 @@ describe("navy serif document content", () => {
     expect(
       screen.getAllByRole("heading", { level: 2 }).map((e) => e.textContent),
     ).toEqual(["Summary", "Education", "Awards", "Experience"]);
-    expect(screen.queryByLabelText("Certifications 1 title")).toBeNull();
+    expect(
+      screen.queryByLabelText("Certifications 1 certification title"),
+    ).toBeNull();
     expect(screen.queryByLabelText("Skill 1 name")).toBeNull();
   });
   it("shows one column (main then sidebar) and reorders sections into pages[0].main", () => {
@@ -526,11 +547,107 @@ describe("navy serif document content", () => {
       "Better University",
     );
   });
+  it.each([
+    {
+      section: "education" as const,
+      name: "Education",
+      fields: [
+        ["school", "school", "Example University", "School"],
+        ["period", "period (dates attended)", "2018 – 2022", "Dates attended"],
+        ["degree", "degree", "BSc", "Degree"],
+        ["area", "field of study", "Computing", "Field of study"],
+      ],
+    },
+    {
+      section: "awards" as const,
+      name: "Awards",
+      fields: [
+        ["title", "award title", "Example Prize", "Award"],
+        ["description", "description", "For useful work", null],
+        [
+          "awarder",
+          "awarding organization",
+          "Example Group",
+          "Awarding organization",
+        ],
+        ["date", "award date", "2023", "Award date"],
+      ],
+    },
+    {
+      section: "certifications" as const,
+      name: "Certifications",
+      fields: [
+        [
+          "title",
+          "certification title",
+          "Example Certificate",
+          "Certification",
+        ],
+        ["date", "certification date", "2024", "Certification date"],
+        [
+          "issuer",
+          "issuing organization",
+          "Example Institute",
+          "Issuing organization",
+        ],
+        [
+          "website",
+          "website URL",
+          "https://example.com/cert",
+          "https://example.com",
+        ],
+      ],
+    },
+  ])("labels each $section field according to the value it edits", ({
+    section,
+    name,
+    fields,
+  }) => {
+    const initial = fullFixture();
+    // Non-rendered education properties must not be mistaken for nearby inputs.
+    initial.sections.education.items[0].location = "London";
+    initial.sections.education.items[0].grade = "First";
+    const onChange = mount(initial);
+    const row = screen
+      .getByRole("region", { name })
+      .querySelector(".resume-simple-item");
+    expect(row).not.toBeNull();
+    const controls = row?.querySelectorAll("input, textarea");
+    expect(controls).toHaveLength(fields.length);
+    let expected = { ...initial.sections[section].items[0] };
+    for (const [
+      index,
+      [field, fieldName, value, placeholder],
+    ] of fields.entries()) {
+      const label = `${name} 1 ${fieldName}`;
+      const input = screen.getByLabelText(label);
+      expect(controls?.[index]).toBe(input);
+      expect(input).toHaveValue(value);
+      if (placeholder !== null) {
+        expect(input).toHaveAttribute("title", label);
+        expect(input).toHaveAttribute("placeholder", placeholder);
+      }
+      const updated = `Updated ${field}`;
+      fireEvent.change(input, { target: { value: updated } });
+      expected = {
+        ...expected,
+        [field as string]:
+          field === "website"
+            ? { ...expected.website, url: updated }
+            : field === "description"
+              ? `<p>${updated}</p>`
+              : updated,
+      };
+      expect(onChange.mock.lastCall?.[0].sections[section].items[0]).toEqual(
+        expected,
+      );
+    }
+  });
   it("shows education as one degree-in-area phrase with separate fields", () => {
     const next = fullFixture();
     const onChange = mount(next);
     const item = screen
-      .getByLabelText("Education 1 area")
+      .getByLabelText("Education 1 field of study")
       .closest(".resume-simple-item");
     expect(item).toHaveAttribute("data-area-shown", "true");
     expect(item).toHaveTextContent("in");
@@ -538,7 +655,7 @@ describe("navy serif document content", () => {
       target: { value: "BSc Computing" },
     });
     expect(item).toHaveAttribute("data-area-shown", "false");
-    fireEvent.change(screen.getByLabelText("Education 1 area"), {
+    fireEvent.change(screen.getByLabelText("Education 1 field of study"), {
       target: { value: "Maths" },
     });
     expect(
@@ -589,7 +706,7 @@ describe("navy serif document content", () => {
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[1].description,
     ).toBe(original.sections.experience.items[1].description);
-    fireEvent.drop(screen.getAllByTitle("Insert before bullet 1")[1], {
+    fireEvent.drop(screen.getAllByTitle("Move before bullet 1")[1], {
       dataTransfer: {
         types: ["application/x-jobops-resume-bullet"],
         getData: () => JSON.stringify({ experienceId: "one", index: 1 }),
@@ -627,51 +744,70 @@ describe("navy serif document content", () => {
       screen.getByRole("link", { name: "Example Certificate" }),
     ).toHaveAttribute("href", "https://example.com/cert");
     fireEvent.click(
-      screen.getByRole("button", { name: "Edit Certifications 1 title" }),
+      screen.getByRole("button", {
+        name: "Edit Certifications 1 certification title",
+      }),
     );
-    expect(screen.getByLabelText("Certifications 1 title")).toHaveFocus();
-    fireEvent.change(screen.getByLabelText("Certifications 1 title"), {
-      target: { value: "Updated certificate" },
-    });
+    expect(
+      screen.getByLabelText("Certifications 1 certification title"),
+    ).toHaveFocus();
+    fireEvent.change(
+      screen.getByLabelText("Certifications 1 certification title"),
+      {
+        target: { value: "Updated certificate" },
+      },
+    );
     expect(
       onChange.mock.lastCall?.[0].sections.certifications.items[0].title,
     ).toBe("Updated certificate");
   });
-  it("treats prose-only descriptions as intros and keeps them after adding a duty", () => {
-    const original = fullFixture();
-    original.sections.experience.items[0].description =
-      "<p>Intro without bullets.</p>";
-    const onChange = mount(original);
-    expect(screen.queryByLabelText("Company bullet 1")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Add bullet" }));
-    const bullet = screen.getByLabelText("Company bullet 1");
-    expect(bullet).toHaveValue("");
-    expect(bullet).toHaveFocus();
-    expect(onChange).not.toHaveBeenCalled();
-    fireEvent.change(bullet, { target: { value: "Useful duty" } });
-    expect(
-      onChange.mock.lastCall?.[0].sections.experience.items[0].description,
-    ).toBe("<p>Intro without bullets.</p><ul><li>Useful duty</li></ul>");
-  });
-  it("adds, edits and deletes education, certifications and awards", () => {
+
+  it("edits and deletes education, certifications and awards", () => {
     const onChange = mount();
     for (const [label, key, field] of [
       ["Education", "education", "school"],
-      ["Certifications", "certifications", "title"],
-      ["Awards", "awards", "title"],
+      ["Certifications", "certifications", "certification title"],
+      ["Awards", "awards", "award title"],
     ]) {
-      fireEvent.click(screen.getByRole("button", { name: `+ ${label}` }));
-      fireEvent.change(screen.getByLabelText(`${label} 2 ${field}`), {
+      fireEvent.change(screen.getByLabelText(`${label} 1 ${field}`), {
         target: { value: "New example" },
       });
-      expect(onChange.mock.lastCall?.[0].sections[key].items[1][field]).toBe(
-        "New example",
-      );
+      expect(
+        onChange.mock.lastCall?.[0].sections[key].items[0][
+          key === "education" ? "school" : "title"
+        ],
+      ).toBe("New example");
       fireEvent.click(
-        screen.getByRole("button", { name: `Delete ${label} 2` }),
+        screen.getByRole("button", { name: `Delete ${label} 1` }),
       );
-      expect(onChange.mock.lastCall?.[0].sections[key].items).toHaveLength(1);
+      expect(onChange.mock.lastCall?.[0].sections[key].items).toHaveLength(0);
     }
+  });
+  it.each([
+    false,
+    true,
+  ])("has no library item add affordances (empty: %s)", (empty) => {
+    const initial = fullFixture();
+    if (empty) {
+      initial.sections.experience.items = [];
+      initial.sections.education.items = [];
+      initial.sections.awards.items = [];
+      initial.sections.certifications.items = [];
+      initial.sections.skills.items = [];
+      initial.summary.content = "";
+      initial.basics.headline = "";
+    }
+    mount(initial);
+    const addButtons = screen.queryAllByRole("button", {
+      name: /^(?:add\b|insert\b|\+)/i,
+    });
+    expect(addButtons.map((button) => button.textContent?.trim())).toEqual(
+      empty ? ["+ Headline", "+ Summary"] : [],
+    );
+    expect(
+      window.document.querySelector(".resume-add-experience, .resume-append"),
+    ).toBeNull();
+    expect(screen.queryByText("Drop to append a duty")).toBeNull();
   });
   it("offers controls for empty summary and headline", () => {
     const original = fullFixture();
@@ -694,7 +830,6 @@ describe("navy serif document content", () => {
   });
   it.each([
     "replace",
-    "insert",
     "move",
   ])("keeps original intro HTML on library drop or reorder: %s", (mode) => {
     const original = fullFixture();
@@ -715,7 +850,7 @@ describe("navy serif document content", () => {
     fireEvent.drop(
       mode === "replace"
         ? screen.getByLabelText("Company bullet 1")
-        : screen.getByTitle("Insert before bullet 1"),
+        : screen.getByTitle("Move before bullet 1"),
       { dataTransfer },
     );
     expect(
@@ -764,20 +899,31 @@ describe("navy serif document content", () => {
       onChange.mock.lastCall?.[0].sections.experience.items[0].description,
     ).toContain("Updated duty");
   });
-  it("labels hidden projects so they can be re-included", () => {
+  it("omits hidden projects and provides removal without an include control", () => {
     const original = fullFixture();
     original.sections.projects.items = [
-      { id: "project", hidden: true, name: "Named project" },
+      { id: "hidden-project", hidden: true, name: "Hidden project" },
+      {
+        id: "project",
+        hidden: false,
+        name: "Named project",
+        period: "2024",
+        description: "<p>Project intro</p>",
+      },
     ] as ReactiveResumeV5Document["sections"]["projects"]["items"];
-    mount(original);
-    expect(screen.getByText("Named project")).toBeVisible();
-    expect(
-      screen.getByLabelText("Include project Named project"),
-    ).not.toBeChecked();
-    fireEvent.click(screen.getByLabelText("Include project Named project"));
-    expect(
-      screen.getByRole("heading", { name: "Named project" }),
-    ).toBeVisible();
+    const onChange = mount(original);
+    expect(screen.queryByText("Hidden project")).toBeNull();
+    expect(screen.queryByLabelText(/Include project/)).toBeNull();
+    expect(screen.queryByTitle("Edit in Resume Studio")).toBeNull();
+    expect(screen.getAllByTitle("Edit in the right panel")).toHaveLength(2);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete project Named project" }),
+    );
+    expect(onChange.mock.lastCall?.[0].sections.projects.items[1].hidden).toBe(
+      true,
+    );
+    expect(screen.queryByText("Named project")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Projects" })).toBeNull();
   });
   it("keeps trailing prose after the list during a manual bullet edit", () => {
     const original = fullFixture();
@@ -796,7 +942,7 @@ describe("navy serif document content", () => {
       ),
     );
   });
-  it("edits experience headers, adds a focused empty experience and deletes it", () => {
+  it("edits experience headers and deletes the entry", () => {
     const onChange = mount();
     for (const [label, field, value] of [
       ["position", "position", "Senior Engineer"],
@@ -811,84 +957,23 @@ describe("navy serif document content", () => {
         onChange.mock.lastCall?.[0].sections.experience.items[0][field],
       ).toBe(value);
     }
-    fireEvent.click(screen.getByRole("button", { name: "Add experience" }));
-    expect(window.document.activeElement).toHaveAttribute(
-      "data-experience-position",
-    );
-    expect(window.document.activeElement).toHaveValue("");
-    expect(screen.getAllByPlaceholderText("Jan 2023 – Present")).toHaveLength(
-      2,
-    );
-    const added = onChange.mock.lastCall?.[0].sections.experience.items[1];
-    expect(added).toMatchObject({
-      position: "",
-      company: "",
-      location: "",
-      period: "",
-      description: "",
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Delete experience new experience" }),
-    );
-    expect(onChange.mock.lastCall?.[0].sections.experience.items).toHaveLength(
-      1,
-    );
     fireEvent.click(
       screen.getByRole("button", { name: "Delete experience Example Systems" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Add experience" }));
-    expect(onChange.mock.lastCall?.[0].sections.experience.items).toHaveLength(
-      1,
-    );
-  });
-  it("starts inserted bullets empty and focused, removes empty drafts on blur", () => {
-    const onChange = mount();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Insert before bullet 2" }),
-    );
-    const draft = screen.getByLabelText("Company bullet 2");
-    expect(draft).toHaveValue("");
-    expect(draft).toHaveFocus();
-    fireEvent.blur(draft);
-    expect(screen.getByLabelText("Company bullet 2")).toHaveValue("B");
-    expect(onChange).not.toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Insert before bullet 2" }),
-    );
-    fireEvent.change(screen.getByLabelText("Company bullet 2"), {
-      target: { value: "New achievement" },
-    });
-    expect(screen.getByLabelText("Company bullet 2")).toHaveFocus();
-    expect(screen.getByLabelText("Company bullet 3")).toHaveValue("B");
-    expect(
-      onChange.mock.lastCall?.[0].sections.experience.items[0].description,
-    ).toContain("<li>A</li><li>New achievement</li><li>B</li>");
-    fireEvent.change(screen.getByLabelText("Company bullet 2"), {
-      target: { value: " " },
-    });
-    fireEvent.blur(screen.getByLabelText("Company bullet 2"));
-    expect(screen.getByLabelText("Company bullet 2")).toHaveValue("B");
+    expect(onChange.mock.lastCall?.[0].sections.experience.items).toEqual([]);
   });
   it("removing an empty bullet on blur does not redirect the next click to another bullet", () => {
     const description = () =>
       onChange.mock.lastCall?.[0].sections.experience.items[0].description;
     const onChange = mount();
-    // Empty inserted row before A; the mousedown on B's × blurs it first.
-    fireEvent.click(
-      screen.getByRole("button", { name: "Insert before bullet 1" }),
-    );
-    const deleteB = screen.getByRole("button", { name: "Delete bullet 3" });
-    fireEvent.blur(screen.getByLabelText("Company bullet 1"));
-    fireEvent.click(deleteB);
-    expect(description()).toContain("<ul><li>A</li><li>C</li></ul>");
     // A cleared existing bullet is removed on blur before C's × is clicked.
     fireEvent.change(screen.getByLabelText("Company bullet 1"), {
       target: { value: "" },
     });
-    const deleteC = screen.getByRole("button", { name: "Delete bullet 2" });
+    const deleteC = screen.getByRole("button", { name: "Delete bullet 3" });
     fireEvent.blur(screen.getByLabelText("Company bullet 1"));
     fireEvent.click(deleteC);
-    expect(description()).not.toContain("<li>");
+    expect(description()).toContain("<ul><li>B</li></ul>");
   });
   it("describes suggestions and gives review buttons contextual accessible names", () => {
     mount(fullFixture(), [
@@ -954,18 +1039,29 @@ describe("navy serif document content", () => {
     }
   });
   it("reorders simple items and uses human placeholders", () => {
-    const onChange = mount();
+    const initial = fullFixture();
+    for (const kind of ["education", "certifications", "awards"] as const) {
+      initial.sections[kind].items.push({
+        ...initial.sections[kind].items[0],
+        id: `second-${kind}`,
+      } as never);
+    }
+    const onChange = mount(initial);
     for (const [label, kind, field, placeholder] of [
       ["Education", "education", "school", "School"],
-      ["Certifications", "certifications", "title", "Certification"],
-      ["Awards", "awards", "title", "Award"],
+      [
+        "Certifications",
+        "certifications",
+        "certification title",
+        "Certification",
+      ],
+      ["Awards", "awards", "award title", "Award"],
     ]) {
       expect(screen.getByLabelText(`${label} 1 ${field}`)).toHaveAttribute(
         "placeholder",
         placeholder,
       );
-      fireEvent.click(screen.getByRole("button", { name: `+ ${label}` }));
-      const id = onChange.mock.lastCall?.[0].sections[kind].items[1].id;
+      const id = `second-${kind}`;
       fireEvent.click(
         screen.getByRole("button", { name: `Move ${label} 2 up` }),
       );
@@ -1030,7 +1126,7 @@ describe("navy serif document content", () => {
     );
     expect(
       within(entryTools as HTMLElement).getByRole("button", {
-        name: "Add bullet",
+        name: "Delete experience Company",
       }),
     ).toBeInTheDocument();
     // Dates are right-aligned by CSS, not joined with a " | " separator.
@@ -1302,7 +1398,7 @@ describe("candidate library links", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("aligns refs after manual edits, add, move, drop and linked removal", async () => {
+  it("aligns refs after manual edits, move, drop and linked removal", async () => {
     const { removeFromResume } = await import("@shared/resume-links");
     const onChange = vi.fn();
     render(<LinkedEditor onChange={onChange} />);
@@ -1316,13 +1412,6 @@ describe("candidate library links", () => {
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
     ).toEqual(["duty-b", "duty-a", null]);
-    fireEvent.click(screen.getByRole("button", { name: "Add bullet" }));
-    fireEvent.change(screen.getByLabelText("Company bullet 4"), {
-      target: { value: "New duty" },
-    });
-    expect(
-      onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
-    ).toEqual(["duty-b", "duty-a", null, null]);
     const dataTransfer = {
       types: ["application/x-jobops-bullet"],
       getData: () =>
@@ -1331,12 +1420,12 @@ describe("candidate library links", () => {
     fireEvent.drop(screen.getByLabelText("Company bullet 3"), { dataTransfer });
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
-    ).toEqual(["duty-b", "duty-a", "dropped", null]);
+    ).toEqual(["duty-b", "duty-a", "dropped"]);
     fireEvent.click(screen.getByRole("button", { name: "Delete bullet 2" }));
     expect(removeFromResume).toHaveBeenCalledWith(expect.anything(), "duty-a");
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
-    ).toEqual(["duty-b", "dropped", null]);
+    ).toEqual(["duty-b", "dropped"]);
     fireEvent.click(
       screen.getByRole("button", { name: "Delete experience Company" }),
     );
@@ -1422,6 +1511,26 @@ describe("candidate library links", () => {
 });
 
 describe("contact editing", () => {
+  function profileFixture() {
+    const initial = fixture();
+    initial.sections.profiles = {
+      title: "Profiles",
+      columns: 1,
+      hidden: false,
+      items: [
+        {
+          id: "profile",
+          hidden: false,
+          icon: "",
+          network: "",
+          username: "",
+          website: { url: "", label: "" },
+        },
+      ],
+    };
+    return initial;
+  }
+
   function ContactEditor({
     initial = fixture(),
     onChange,
@@ -1471,11 +1580,9 @@ describe("contact editing", () => {
     expect(screen.queryByTitle("Edit in Resume Studio")).toBeNull();
   });
 
-  it("adds, focuses, edits and removes a profile through onChange", () => {
+  it("edits and removes an existing profile through onChange", () => {
     const onChange = vi.fn();
-    render(<ContactEditor onChange={onChange} />);
-    fireEvent.click(screen.getByRole("button", { name: "+ Profile" }));
-    expect(screen.getByLabelText("Profile 1 URL")).toHaveFocus();
+    render(<ContactEditor initial={profileFixture()} onChange={onChange} />);
     for (const [field, value] of [
       ["URL", "https://github.com/alan"],
       ["network", "GitHub"],
@@ -1500,8 +1607,7 @@ describe("contact editing", () => {
 
   it("removes an empty profile when focus leaves its row", () => {
     const onChange = vi.fn();
-    render(<ContactEditor onChange={onChange} />);
-    fireEvent.click(screen.getByRole("button", { name: "+ Profile" }));
+    render(<ContactEditor initial={profileFixture()} onChange={onChange} />);
     const url = screen.getByLabelText("Profile 1 URL");
     const row = url.closest(".resume-contact-item");
     expect(row).toHaveAttribute("data-empty", "true");
@@ -1527,8 +1633,7 @@ describe("contact editing", () => {
     "network",
   ])("keeps a profile with only a %s and prints its value", (field) => {
     const onChange = vi.fn();
-    render(<ContactEditor onChange={onChange} />);
-    fireEvent.click(screen.getByRole("button", { name: "+ Profile" }));
+    render(<ContactEditor initial={profileFixture()} onChange={onChange} />);
     const input = screen.getByLabelText(`Profile 1 ${field}`);
     fireEvent.change(input, { target: { value: "alan" } });
     fireEvent.blur(input, { relatedTarget: screen.getByLabelText("Email") });
@@ -1597,6 +1702,6 @@ describe("contact editing", () => {
     render(<ContactEditor onChange={vi.fn()} disabled />);
     expect(screen.getByLabelText("Email")).toBeDisabled();
     expect(screen.getByLabelText("Website URL")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "+ Profile" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "+ Profile" })).toBeNull();
   });
 });
