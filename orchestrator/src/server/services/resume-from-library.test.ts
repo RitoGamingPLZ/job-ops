@@ -34,13 +34,6 @@ vi.mock("./hosted-usage", () => ({
 vi.mock("./writing-style", () => ({
   getWritingStyle: async () => ({ tone: "Direct", summaryMaxWords: 50 }),
 }));
-vi.mock("./cowork-ai", () => ({
-  selectLibraryBullets: (
-    items: ExperienceBullet[],
-    _description: string,
-    limit: number,
-  ) => items.slice(0, limit),
-}));
 const item = (
   id: string,
   kind: ExperienceBullet["kind"],
@@ -87,7 +80,7 @@ let selection: {
   headline: string;
   summary: string;
   bullets: Record<string, string[]>;
-  skills: { name: string; keywords: string[] }[];
+  skills: { id: string; keywords: string[] }[];
   projectIds: string[];
   awardIds: string[];
   certificationIds: string[];
@@ -116,7 +109,7 @@ beforeEach(() => {
     headline: "Engineer",
     summary: "Builds software",
     bullets: { role: ["duty"] },
-    skills: [{ name: "Languages", keywords: ["typescript", "Invented"] }],
+    skills: [{ id: "skill", keywords: ["typescript", "Invented"] }],
     projectIds: ["project"],
     awardIds: ["award"],
     certificationIds: ["cert"],
@@ -169,6 +162,163 @@ describe("generateResumeFromLibrary", () => {
     expect(prompt).not.toContain("private@example.com");
     expect(prompt).toContain("Direct");
     expect(base.basics.headline).not.toBe("Engineer");
+  });
+  it("excludes library contacts entirely from the prompt", async () => {
+    await generateResumeFromLibrary(base, createJob(), [
+      ...library,
+      item("email-contact", "contact", "library-private@example.com", {
+        data: { type: "email", value: "library-private@example.com" },
+        tags: ["private-contact-tag"],
+      }),
+      item("phone-contact", "contact", "+44-private-phone"),
+    ]);
+    const prompt = mocks.callJson.mock.calls[0][0].messages[1].content;
+    expect(JSON.parse(prompt).library).toEqual(
+      expect.not.arrayContaining([
+        expect.objectContaining({ kind: "contact" }),
+      ]),
+    );
+    expect(prompt).not.toContain("library-private@example.com");
+    expect(prompt).not.toContain("+44-private-phone");
+    expect(prompt).not.toContain("private-contact-tag");
+  });
+  it.each([
+    true,
+    false,
+  ])("keeps omitted nested base roles and their intros (source identity: %s)", async (sourceIdentity) => {
+    base.sections.experience.items = [
+      {
+        id: "company",
+        hidden: false,
+        company: "Acme",
+        position: "",
+        location: "London",
+        period: "2020 – 2025",
+        website: { url: "", label: "" },
+        description: "",
+        roles: [
+          {
+            id: "nested-engineer",
+            position: "Engineer",
+            period: "2020 – 2025",
+            description: "<p>Nested intro.</p><ul><li>Built software</li></ul>",
+          },
+        ],
+      },
+    ];
+    selection.bullets = {};
+    const result = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      library
+        .map((entry) =>
+          entry.id === "role" && sourceIdentity
+            ? {
+                ...entry,
+                text: "Updated engineer title",
+                sourceExperienceId: "nested-engineer",
+              }
+            : entry,
+        )
+        .concat(
+          item("extra", "bullet", "Extra library duty", { parentId: "role" }),
+        ),
+    );
+    expect(result.sections.experience.items).toHaveLength(1);
+    expect(result.sections.experience.items[0]).toMatchObject({
+      libraryId: "role",
+      company: "Acme",
+      position: sourceIdentity ? "Updated engineer title" : "Engineer",
+    });
+    expect(
+      splitDescription(result.sections.experience.items[0].description)
+        .introHtml,
+    ).toBe("<p>Nested intro.</p>");
+    expect(getItemLines(result.sections.experience.items[0])).toEqual([
+      { text: "Built software", ref: "duty" },
+    ]);
+  });
+  it("selects duplicate-label skill groups by library id and validates their own keywords", async () => {
+    selection.skills = [
+      { id: "rust-skill", keywords: ["rust", "Python"] },
+      { id: "skill", keywords: ["python", "Rust"] },
+      { id: "rust-skill", keywords: ["Rust"] },
+      { id: "role", keywords: ["Engineer"] },
+      { id: "missing", keywords: ["Invented"] },
+    ];
+    const result = await generateResumeFromLibrary(base, createJob(), [
+      ...library,
+      item("rust-skill", "skill", "Languages", {
+        data: { keywords: ["Rust"] },
+      }),
+    ]);
+    expect(result.sections.skills.items).toMatchObject([
+      { libraryId: "rust-skill", name: "Languages", keywords: ["Rust"] },
+      { libraryId: "skill", name: "Languages", keywords: ["Python"] },
+    ]);
+    expect(result.sections.skills.items).toHaveLength(2);
+    const schema =
+      mocks.callJson.mock.calls[0][0].jsonSchema.schema.properties.skills.items;
+    expect(schema.required).toEqual(["id", "keywords"]);
+  });
+  it("reserves up to three duties per role before filling the budget by overlap", async () => {
+    const crowded = [
+      ...library.filter((entry) => entry.kind !== "bullet"),
+      ...Array.from({ length: 160 }, (_, index) =>
+        item(
+          `crowded-${index}`,
+          "bullet",
+          index < 4 ? "Unrelated work" : "TypeScript platform",
+          { parentId: "role" },
+        ),
+      ),
+      ...Array.from({ length: 4 }, (_, index) =>
+        item(`starved-${index}`, "bullet", "Led a team", { parentId: "role2" }),
+      ),
+    ];
+    await generateResumeFromLibrary(
+      base,
+      createJob({ jobDescription: "TypeScript platform" }),
+      crowded,
+    );
+    const prompt = JSON.parse(
+      mocks.callJson.mock.calls[0][0].messages[1].content,
+    );
+    const duties = prompt.library.filter(
+      (entry: ExperienceBullet) => entry.kind === "bullet",
+    );
+    expect(duties).toHaveLength(150);
+    expect(
+      duties.filter((entry: ExperienceBullet) => entry.parentId === "role2"),
+    ).toHaveLength(3);
+    expect(
+      duties
+        .filter((entry: ExperienceBullet) => entry.parentId === "role")
+        .every(
+          (entry: ExperienceBullet) => entry.text === "TypeScript platform",
+        ),
+    ).toBe(true);
+  });
+  it("gives each role one duty before reserving extra duties near the budget", async () => {
+    const crowded = Array.from({ length: 80 }, (_, index) => [
+      item(`role-${index}`, "role", "Engineer", { data: { company: "Acme" } }),
+      ...Array.from({ length: 4 }, (_, duty) =>
+        item(`duty-${index}-${duty}`, "bullet", "Built software", {
+          parentId: `role-${index}`,
+        }),
+      ),
+    ]).flat();
+    await generateResumeFromLibrary(base, createJob(), crowded);
+    const prompt = JSON.parse(
+      mocks.callJson.mock.calls[0][0].messages[1].content,
+    );
+    const duties = prompt.library.filter(
+      (entry: ExperienceBullet) => entry.kind === "bullet",
+    );
+    expect(duties).toHaveLength(150);
+    expect(
+      new Set(duties.map((entry: ExperienceBullet) => entry.parentId)).size,
+    ).toBe(80);
   });
   it("drops unknown and cross-parent ids, deduplicates picks and falls back for an empty role", async () => {
     selection.bullets = {
