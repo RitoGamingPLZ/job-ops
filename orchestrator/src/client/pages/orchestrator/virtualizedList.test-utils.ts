@@ -1,8 +1,3 @@
-type VirtualElementSize = {
-  height?: number;
-  width?: number;
-};
-
 const DEFAULT_RECT = {
   height: 0,
   width: 0,
@@ -14,19 +9,6 @@ const readRectSize = (element: Element) => {
     Number(htmlElement.dataset.virtualHeight) || DEFAULT_RECT.height;
   const width = Number(htmlElement.dataset.virtualWidth) || DEFAULT_RECT.width;
   return { height, width };
-};
-
-export const setVirtualElementSize = (
-  element: HTMLElement,
-  size: VirtualElementSize,
-) => {
-  if (size.height != null) {
-    element.dataset.virtualHeight = String(size.height);
-  }
-
-  if (size.width != null) {
-    element.dataset.virtualWidth = String(size.width);
-  }
 };
 
 export const installVirtualizerSizeMock = () => {

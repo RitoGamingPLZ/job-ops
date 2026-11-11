@@ -176,18 +176,6 @@ export async function getRecentPipelineRuns(
   return rows.map(mapRowToPipelineRun);
 }
 
-export async function getPipelineRunById(
-  id: string,
-): Promise<PipelineRun | null> {
-  const [row] = await db
-    .select()
-    .from(pipelineRuns)
-    .where(and(pipelineRunsScopeFilter(), eq(pipelineRuns.id, id)))
-    .limit(1);
-
-  return row ? mapRowToPipelineRun(row) : null;
-}
-
 export async function getPipelineRunInsights(
   id: string,
 ): Promise<PipelineRunInsights | null> {

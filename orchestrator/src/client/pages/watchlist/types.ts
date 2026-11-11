@@ -59,12 +59,6 @@ export interface WatchlistImportState {
   careersUrl: string | null;
 }
 
-export interface WatchlistCheckState {
-  checkedAt: string | null;
-  previousLastCheckedAt: string | null;
-  newJobKeys: Set<string>;
-}
-
 export interface WatchlistSourceDraftCardProps {
   sourceDrafts: SourceSelectionDraft[];
   sourceStatusByDraftId: Record<string, "watching" | "unsaved">;

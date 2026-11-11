@@ -603,8 +603,6 @@ export const DEMO_BASE_JOBS: DemoDefaultJob[] = [
   },
 ];
 
-export const DEMO_GENERATED_APPLIED_JOB_COUNT = 48;
-
 export interface DemoDefaultStageEvent {
   id: string;
   applicationId: string;

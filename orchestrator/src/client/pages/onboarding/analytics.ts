@@ -39,13 +39,6 @@ export function getEndpointMode(
   return value.trim() ? "custom" : "blank";
 }
 
-export function getModelSource(
-  value: string | null | undefined,
-): "default" | "custom" | "blank" {
-  if (value === undefined || value === null) return "default";
-  return value.trim() ? "custom" : "blank";
-}
-
 export function getHttpStatusBucket(error: unknown): string | undefined {
   const status =
     typeof error === "object" && error !== null && "status" in error

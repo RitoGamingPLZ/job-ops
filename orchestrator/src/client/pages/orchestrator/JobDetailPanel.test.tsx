@@ -76,7 +76,6 @@ vi.mock("@client/components", async (importOriginal) => {
       </div>
     ),
     JobBriefPane: () => <div data-testid="job-brief-pane" />,
-    TailoredSummary: () => <div data-testid="tailored-summary" />,
   };
 });
 

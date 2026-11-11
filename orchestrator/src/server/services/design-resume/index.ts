@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { AppError, badRequest, conflict, notFound } from "@infra/errors";
@@ -1200,15 +1200,4 @@ export async function designResumeToProfile(
 function profilesSection(source: DesignResumeJson) {
   const sections = asRecord(source.sections) ?? {};
   return asRecord(sections.profiles) ?? {};
-}
-
-export async function getDesignResumeProjectProfile(): Promise<ResumeProfile | null> {
-  return designResumeToProfile();
-}
-
-export async function statDesignResumeAssetFile(assetId: string) {
-  const asset = await designResumeRepo.getDesignResumeAssetById(assetId);
-  if (!asset) throw notFound("Base resume asset not found.");
-  const info = await stat(asset.storagePath);
-  return { asset: toDesignResumeAsset(asset), info };
 }

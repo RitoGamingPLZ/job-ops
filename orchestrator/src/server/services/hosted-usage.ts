@@ -17,8 +17,6 @@ import {
 
 const { hostedUsageCounters, hostedUsageReservations } = schema;
 
-export const DEFAULT_HOSTED_MONTHLY_LIMITS = FREE_HOSTED_MONTHLY_LIMITS;
-
 type UsageScope = {
   tenantId: string;
   userId: string;

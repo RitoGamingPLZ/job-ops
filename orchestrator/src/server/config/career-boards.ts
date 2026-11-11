@@ -44,10 +44,3 @@ export async function listCareerBoardSources(): Promise<WatchlistSource[]> {
     .flat()
     .sort((left, right) => left.label.localeCompare(right.label));
 }
-
-export async function getCareerBoardSourceById(
-  id: string,
-): Promise<WatchlistSource | null> {
-  const sources = await listCareerBoardSources();
-  return sources.find((source) => source.id === id) ?? null;
-}

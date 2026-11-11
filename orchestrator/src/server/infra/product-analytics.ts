@@ -1,3 +1,4 @@
+import { isHttpUrl } from "@infra/url";
 import { getOrCreateAnalyticsInstallState } from "@server/repositories/product-analytics";
 import umamiModule from "@umami/node";
 import { withAnalyticsMetadata } from "@/lib/analytics-metadata";
@@ -69,15 +70,6 @@ function getUmamiClient(): UmamiClient {
   }
 
   throw new TypeError("Invalid @umami/node client export");
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 function normalizeBaseUrl(value: string | null | undefined): string | null {

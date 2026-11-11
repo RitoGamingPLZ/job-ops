@@ -760,26 +760,6 @@ export async function getJobStats(): Promise<Record<JobStatus, number>> {
   return stats;
 }
 
-/**
- * Get jobs ready for processing (discovered with description).
- */
-export async function getJobsForProcessing(limit: number = 10): Promise<Job[]> {
-  const rows = await db
-    .select()
-    .from(jobs)
-    .where(
-      and(
-        eq(jobs.status, "discovered"),
-        jobsScopeFilter(),
-        sql`${jobs.jobDescription} IS NOT NULL`,
-      ),
-    )
-    .orderBy(desc(jobs.discoveredAt))
-    .limit(limit);
-
-  return rows.map(mapRowToJob);
-}
-
 export async function getReadyJobsWithGeneratedPdfs(
   limit: number,
   offset = 0,

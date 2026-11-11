@@ -31,7 +31,6 @@ import {
 } from "./providers/registry";
 
 export type { VisaSponsor, VisaSponsorSearchResult };
-export type VisaSponsorStatus = VisaSponsorStatusResponse;
 
 // ============================================================================
 // Per-provider in-memory state
@@ -541,15 +540,6 @@ export async function getOrganizationDetails(
   return providerData
     .flatMap(({ sponsors }) => sponsors)
     .filter((s) => s.organisationName === organisationName);
-}
-
-/**
- * Load sponsors from the latest CSV file (kept for backwards compatibility).
- * Returns all sponsors across all providers.
- */
-export async function loadSponsors(): Promise<VisaSponsor[]> {
-  const providerData = await loadAllSponsors();
-  return providerData.flatMap(({ sponsors }) => sponsors);
 }
 
 // ============================================================================

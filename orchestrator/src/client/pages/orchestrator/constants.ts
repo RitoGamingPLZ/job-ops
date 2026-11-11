@@ -181,12 +181,6 @@ export interface JobFilters {
 }
 
 export const DEFAULT_SORT: JobSort = { key: "score", direction: "desc" };
-export const DEFAULT_DATE_FILTER: JobDateFilter = {
-  dimensions: [],
-  startDate: null,
-  endDate: null,
-  preset: null,
-};
 
 export const sortLabels: Record<JobSort["key"], string> = {
   datePosted: "Posted",

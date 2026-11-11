@@ -6,7 +6,6 @@ import type {
   DesignResumePdfResponse,
   DesignResumeStatusResponse,
   OnboardingStatusResponse,
-  ProfileStatusResponse,
   ResumeProfile,
   ResumeProjectCatalogItem,
   SearchTermsSuggestionResponse,
@@ -90,10 +89,6 @@ export async function getDesignResumePdfBlob(pdfUrl?: string): Promise<Blob> {
     pdfUrl ? normalizeApiPath(pdfUrl) : "/design-resume/pdf",
     { cache: "no-store" },
   );
-}
-
-export async function getProfileStatus(): Promise<ProfileStatusResponse> {
-  return fetchApi<ProfileStatusResponse>("/profile/status");
 }
 
 export async function refreshProfile(): Promise<ResumeProfile> {

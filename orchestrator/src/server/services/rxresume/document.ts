@@ -1,3 +1,4 @@
+import { escapeHtmlText } from "@infra/html";
 import { createId } from "@paralleldrive/cuid2";
 import { resolveTracerPublicBaseUrl } from "@server/services/tracer-links";
 import {
@@ -271,15 +272,6 @@ function absolutizeSectionWebsites(
       };
     }),
   };
-}
-
-function escapeHtmlText(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 function looksLikeHtml(value: string): boolean {

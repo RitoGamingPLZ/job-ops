@@ -131,22 +131,6 @@ export async function generateTailoring(
   };
 }
 
-/**
- * Backwards compatibility wrapper if needed, or alias.
- */
-export async function generateSummary(
-  jobDescription: string,
-  profile: ResumeProfile,
-): Promise<{ success: boolean; summary?: string; error?: string }> {
-  // If we just need summary, we can discard the rest (or cache it? but here we just return summary)
-  const result = await generateTailoring(jobDescription, profile);
-  return {
-    success: result.success,
-    summary: result.data?.summary,
-    error: result.error,
-  };
-}
-
 async function buildTailoringPrompt(
   profile: ResumeProfile,
   jd: string,

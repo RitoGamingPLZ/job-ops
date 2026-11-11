@@ -143,14 +143,6 @@ export async function getProfile(forceRefresh = false): Promise<ResumeProfile> {
 }
 
 /**
- * Get the person's name from the profile.
- */
-export async function getPersonName(): Promise<string> {
-  const profile = await getProfile();
-  return profile?.basics?.name || "Resume";
-}
-
-/**
  * Clear the profile cache.
  */
 export function clearProfileCache(): void {

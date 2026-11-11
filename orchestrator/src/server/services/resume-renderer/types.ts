@@ -145,11 +145,6 @@ export interface ResumeRenderer {
 export interface NormalizeResumeJsonToLatexDocumentOptions {
   language?: ChatStyleManualLanguage;
 }
-
-export type ResumeRenderContactItem = LatexResumeContactItem;
-export type ResumeRenderEntry = LatexResumeEntry;
-export type ResumeRenderSkillGroup = LatexResumeSkillGroup;
-export type ResumeRenderSectionTitles = LatexResumeSectionTitles;
 export type ResumeRenderDocument = LatexResumeDocument;
 export type NormalizeResumeJsonOptions =
   NormalizeResumeJsonToLatexDocumentOptions;

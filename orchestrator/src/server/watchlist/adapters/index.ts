@@ -44,13 +44,3 @@ export function getWatchlistSourceAdapter(
 ): WatchlistCatalogSourceAdapter | null {
   return adaptersByType.get(sourceType) ?? null;
 }
-
-export function requireWatchlistSourceAdapter(
-  sourceType: WatchedSourceType,
-): WatchlistCatalogSourceAdapter {
-  const adapter = getWatchlistSourceAdapter(sourceType);
-  if (!adapter) {
-    throw new Error(`Unsupported watchlist source type: ${sourceType}`);
-  }
-  return adapter;
-}

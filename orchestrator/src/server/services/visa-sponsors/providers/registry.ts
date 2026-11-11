@@ -20,11 +20,6 @@ export interface VisaSponsorProviderRegistry {
 let registry: VisaSponsorProviderRegistry | null = null;
 let initPromise: Promise<VisaSponsorProviderRegistry> | null = null;
 
-export function __resetVisaSponsorRegistryForTests(): void {
-  registry = null;
-  initPromise = null;
-}
-
 async function createRegistry(): Promise<VisaSponsorProviderRegistry> {
   const manifestPaths = await discoverProviderManifestPaths();
   const manifests = new Map<

@@ -253,10 +253,6 @@ export function summarizeLocationPreferences(
   });
 }
 
-export function stringifySearchTerms(terms: string[]): string {
-  return terms.join("\n");
-}
-
 export function loadAutomaticRunMemory(): AutomaticRunMemory | null {
   try {
     const raw = readRunMemoryStorage();

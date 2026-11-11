@@ -680,36 +680,3 @@ function isVisibleCvItem(item: ProfileRecord): boolean {
 function isRecord(value: unknown): value is ProfileRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
-
-/**
- * Score multiple jobs and return sorted by score (descending).
- */
-export async function scoreAndRankJobs(
-  jobs: Job[],
-  profile: Record<string, unknown>,
-): Promise<
-  Array<Job & { suitabilityScore: number | null; suitabilityReason: string }>
-> {
-  const scoredJobs = await Promise.all(
-    jobs.map(async (job) => {
-      const {
-        score,
-        reason,
-        jobUpdates = {},
-      } = await scoreJobSuitability(job, profile);
-      return {
-        ...job,
-        ...jobUpdates,
-        suitabilityScore: score,
-        suitabilityReason: reason,
-      };
-    }),
-  );
-
-  return scoredJobs.sort((a, b) => {
-    if (a.suitabilityScore == null && b.suitabilityScore == null) return 0;
-    if (a.suitabilityScore == null) return 1;
-    if (b.suitabilityScore == null) return -1;
-    return b.suitabilityScore - a.suitabilityScore;
-  });
-}

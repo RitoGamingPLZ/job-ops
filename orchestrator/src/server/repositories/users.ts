@@ -4,7 +4,7 @@ import {
   DEFAULT_TENANT_ID,
   DEFAULT_TENANT_NAME,
 } from "@server/tenancy/constants";
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 
 const { tenantMemberships, tenants, users } = schema;
@@ -468,21 +468,4 @@ export async function updateUserPassword(input: {
       updatedAt: new Date().toISOString(),
     })
     .where(eq(users.id, input.id));
-}
-
-export async function userBelongsToTenant(input: {
-  userId: string;
-  tenantId: string;
-}): Promise<boolean> {
-  const [row] = await db
-    .select({ id: tenantMemberships.id })
-    .from(tenantMemberships)
-    .where(
-      and(
-        eq(tenantMemberships.userId, input.userId),
-        eq(tenantMemberships.tenantId, input.tenantId),
-      ),
-    )
-    .limit(1);
-  return Boolean(row);
 }

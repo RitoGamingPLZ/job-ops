@@ -140,42 +140,6 @@ export const triggerElementResize = (
   }
 };
 
-export const mockWindowRect = ({
-  width,
-  height,
-}: {
-  width: number;
-  height: number;
-}) => {
-  Object.defineProperty(window, "innerWidth", {
-    configurable: true,
-    value: width,
-  });
-  Object.defineProperty(window, "innerHeight", {
-    configurable: true,
-    value: height,
-  });
-  window.dispatchEvent(new Event("resize"));
-};
-
-export const mockWindowScroll = ({
-  x = 0,
-  y = 0,
-}: {
-  x?: number;
-  y?: number;
-}) => {
-  Object.defineProperty(window, "scrollX", {
-    configurable: true,
-    value: x,
-  });
-  Object.defineProperty(window, "scrollY", {
-    configurable: true,
-    value: y,
-  });
-  window.dispatchEvent(new Event("scroll"));
-};
-
 export const installDomMeasurementMocks = () => {
   Object.defineProperty(globalThis, "ResizeObserver", {
     configurable: true,
