@@ -59,9 +59,13 @@ function formatPostedDate(value: string | null): string {
   if (!value) return "—";
 
   try {
+    // Adapters can supply a calendar date without a time or UTC offset.
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+      ? new Date(`${value}T00:00:00`)
+      : new Date(value);
     return new Intl.DateTimeFormat(undefined, {
       dateStyle: "medium",
-    }).format(new Date(value));
+    }).format(date);
   } catch {
     return value;
   }
