@@ -33,6 +33,7 @@ const sidebars: SidebarsConfig = {
         "features/multi-select-and-bulk-actions",
         "features/orchestrator",
         "features/settings",
+        "features/design-resume",
         "features/reactive-resume",
         "features/in-progress-board",
         "features/ghostwriter",
