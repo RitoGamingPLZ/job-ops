@@ -285,7 +285,7 @@ describe("candidate library", () => {
     const change = vi.fn();
     await mount({ jobId: "job/id", document: doc, onDocumentChange: change });
     fireEvent.click(screen.getByRole("button", { name: "Built tools" }));
-    const input = screen.getByRole("textbox", { name: "Text" });
+    const input = screen.getByRole("textbox", { name: "Duty" });
     fireEvent.change(input, { target: { value: "Built better tools" } });
     fireEvent.submit(input.closest("form") as HTMLFormElement);
     await waitFor(() =>
@@ -306,12 +306,12 @@ describe("candidate library", () => {
   it("cancels edits on Escape and refuses blank text", async () => {
     await mount();
     fireEvent.click(screen.getByRole("button", { name: "Built tools" }));
-    const input = screen.getByRole("textbox", { name: "Text" });
+    const input = screen.getByRole("textbox", { name: "Duty" });
     fireEvent.change(input, { target: { value: "   " } });
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     fireEvent.keyDown(input, { key: "Escape" });
     await waitFor(() =>
-      expect(screen.queryByRole("textbox", { name: "Text" })).toBeNull(),
+      expect(screen.queryByRole("textbox", { name: "Duty" })).toBeNull(),
     );
     expect(mocks.update).not.toHaveBeenCalled();
   });
@@ -320,7 +320,7 @@ describe("candidate library", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Add duty to Engineer" }),
     );
-    fireEvent.change(screen.getByRole("textbox", { name: "Text" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Duty" }), {
       target: { value: "Mentored engineers" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -428,7 +428,7 @@ describe("candidate library", () => {
       within(score.parentElement as HTMLElement).getByText("Tools"),
     ).toBeVisible();
     fireEvent.click(description);
-    expect(screen.getByRole("textbox", { name: "Text" })).toHaveValue(
+    expect(screen.getByRole("textbox", { name: "Duty" })).toHaveValue(
       duty.text,
     );
   });
@@ -502,7 +502,9 @@ describe("candidate library", () => {
     const change = vi.fn();
     await mount({ jobId: "job", document: doc, onDocumentChange: change });
     fireEvent.click(screen.getByRole("button", { name: "Skills" }));
-    fireEvent.click(screen.getByRole("button", { name: "Untick Rust" }));
+    const rust = screen.getByRole("button", { name: "Rust" });
+    expect(rust).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(rust);
     const next = change.mock.calls[0][0](doc);
     expect(mocks.subtract).toHaveBeenCalledWith(doc, "skill");
     expect(next).toBe(doc);
@@ -513,23 +515,23 @@ describe("candidate library", () => {
     const change = vi.fn();
     await mount({ jobId: "job", document: doc, onDocumentChange: change });
     fireEvent.click(screen.getByRole("button", { name: "Skills" }));
-    fireEvent.change(
-      screen.getByRole("textbox", {
-        name: "Search or create Languages keywords",
-      }),
-      { target: { value: "Go" } },
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Create 'Go'" }));
+    fireEvent.click(screen.getByRole("button", { name: "Languages" }));
+    const input = screen.getByRole("textbox", { name: "Add skill" });
+    fireEvent.change(input, { target: { value: "Go" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(mocks.update).toHaveBeenCalledWith(
         "skill",
-        { data: { keywords: ["TypeScript", "Rust", "Go"] } },
+        expect.objectContaining({
+          data: { keywords: ["TypeScript", "Rust", "Go"] },
+        }),
         "job",
       ),
     );
-    await waitFor(() => expect(change).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(change).toHaveBeenCalled());
     expect(
-      change.mock.calls[1][0](doc).sections.skills.items[0].keywords,
+      change.mock.lastCall?.[0](doc).sections.skills.items[0].keywords,
     ).toEqual(["Rust", "Go"]);
   });
   it("scans only experience and project lines for rewording", async () => {
@@ -549,7 +551,7 @@ describe("candidate library", () => {
       onDocumentChange: change,
     });
     fireEvent.click(screen.getByRole("button", { name: "Built tools" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Text" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Duty" }), {
       target: { value: "Updated" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -565,7 +567,8 @@ describe("candidate library", () => {
   it("places add controls beside their headers and requires a job company", async () => {
     await mount();
     const add = screen.getByRole("button", { name: "Add duty to Engineer" });
-    expect(add.parentElement).toContainElement(
+    // A single role sits in its job's header, beside the add-duty button.
+    expect(add.parentElement?.parentElement).toContainElement(
       screen.getByRole("button", { name: "Engineer · 2020–2024" }),
     );
     fireEvent.click(add);
@@ -620,25 +623,16 @@ describe("candidate library", () => {
       onDocumentChange: change,
     });
     fireEvent.click(screen.getByRole("button", { name: "Skills" }));
-    fireEvent.change(
-      screen.getByRole("textbox", {
-        name: "Search or create Languages keywords",
-      }),
-      { target: { value: "Go" } },
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Create 'Go'" }));
-    await screen.findByRole("button", { name: "Delete keyword Go" });
+    fireEvent.click(screen.getByRole("button", { name: "Languages" }));
+    const input = screen.getByRole("textbox", { name: "Add skill" });
+    fireEvent.change(input, { target: { value: "Go" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "Remove skill Rust" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByRole("button", { name: "Go" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Rust" })).toBeNull();
     expect(change).not.toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Delete keyword Rust" }),
-    );
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: "Delete keyword Rust" }),
-      ).toBeNull(),
-    );
-    expect(change).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Untick Rust" }));
+    fireEvent.click(screen.getByRole("button", { name: "TypeScript" }));
     expect(change).toHaveBeenCalledTimes(1);
   });
   it("labels certification website editing as Link", async () => {
@@ -685,7 +679,7 @@ describe("candidate library workspace integration", () => {
     expect(screen.getByText("Built tools")).toBeVisible();
     expect(mocks.list).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Built tools" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Text" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Duty" }), {
       target: { value: "Updated duty" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -758,7 +752,7 @@ describe("candidate library workspace integration", () => {
       frozen,
       onDocumentChange: change,
     });
-    fireEvent.click(screen.getByRole("button", { name: "Delete Engineer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Acme" }));
     await waitFor(() => expect(screen.queryByText("Built tools")).toBeNull());
     expect(mocks.remove).toHaveBeenCalledWith(role.id, "job");
     if (frozen) {

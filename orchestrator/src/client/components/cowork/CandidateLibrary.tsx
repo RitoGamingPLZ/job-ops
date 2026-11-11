@@ -55,7 +55,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   coworkError,
   DutyLibraryTools,
@@ -169,6 +169,7 @@ export function CandidateLibrary({
   onReferenceBullet?: (bullet: ExperienceBullet) => void;
 }) {
   const tickId = useId();
+  const formId = useId();
   const [localItems, setLocalItems] = useState<Item[]>([]);
   const items = providedItems ?? localItems;
   const currentItems = useRef(items);
@@ -332,7 +333,7 @@ export function CandidateLibrary({
     if (!edit || !edit.input.text.trim() || companyMissing(edit)) return;
     if (edit.items.length) {
       for (const item of edit.items) {
-        await update(
+        const after = await update(
           item,
           edit.companyOnly
             ? { data: { ...item.data, ...edit.input.data } }
@@ -342,6 +343,23 @@ export function CandidateLibrary({
                 ...(edit.input.tags ? { tags: edit.input.tags } : {}),
               },
         );
+        if (item.kind === "skill" && !edit.companyOnly && !frozen && jobId) {
+          // New skills are ticked on the open resume; removed ones are dropped.
+          const before = keywords(item);
+          const kept = keywords(after);
+          const selected = selectedKeywords(item);
+          const added = kept.filter((word) => !before.includes(word));
+          const next = [
+            ...selected.filter((word) => kept.includes(word)),
+            ...added,
+          ];
+          if (added.length || next.length !== selected.length)
+            selectKeywords(
+              item,
+              next,
+              items.map((row) => (row.id === item.id ? after : row)),
+            );
+        }
       }
     } else {
       await api.createExperienceBullet({
@@ -421,84 +439,89 @@ export function CandidateLibrary({
       : fieldNames[field];
   }
   function editForm(current: Edit) {
+    const kind = current.input.kind ?? "bullet";
+    const setInput = (input: ExperienceBulletInput) =>
+      setEdit({ ...current, input });
+    const textLabel =
+      kind === "role"
+        ? "Position"
+        : kind === "bullet"
+          ? "Duty"
+          : kind === "project_point"
+            ? "Point"
+            : kind === "skill"
+              ? "Group name"
+              : "Name";
+    const fieldClass = "grid gap-1.5 text-sm font-medium";
     return (
       <form
-        className="space-y-0.5 py-0.5 text-xs"
+        className="space-y-3"
         aria-label="Edit library item"
         onSubmit={(event) => {
           event.preventDefault();
           void run(saveEdit);
         }}
       >
-        {current.input.kind === "contact" && (
-          <select
-            aria-label="Contact type"
-            className="h-7 rounded border bg-background px-1 text-xs"
-            disabled={busy}
-            value={String(current.input.data?.type ?? "email")}
-            onChange={(event) =>
-              setEdit({
-                ...current,
-                input: {
+        {kind === "contact" && (
+          <label htmlFor={`${formId}-type`} className={fieldClass}>
+            Contact type
+            <select
+              id={`${formId}-type`}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm font-normal"
+              disabled={busy}
+              value={String(current.input.data?.type ?? "email")}
+              onChange={(event) =>
+                setInput({
                   ...current.input,
                   data: { ...current.input.data, type: event.target.value },
-                },
-              })
-            }
-          >
-            {["email", "phone", "location", "website", "profile"].map(
-              (type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ),
-            )}
-          </select>
+                })
+              }
+            >
+              {["email", "phone", "location", "website", "profile"].map(
+                (type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
         )}
-        {!current.companyOnly &&
-          current.input.kind !== "contact" &&
-          (current.input.kind === "bullet" ||
-          current.input.kind === "project_point" ? (
-            <textarea
-              aria-label="Text"
-              rows={2}
-              required
-              disabled={busy}
-              className="block min-h-0 w-full resize-none rounded-md border border-input bg-transparent px-1.5 py-0.5 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              value={current.input.text}
-              ref={(node) => {
-                if (node) {
-                  node.style.height = "auto";
-                  node.style.height = `${node.scrollHeight}px`;
+        {!current.companyOnly && kind !== "contact" && (
+          <label htmlFor={`${formId}-text`} className={fieldClass}>
+            {textLabel}
+            {kind === "bullet" || kind === "project_point" ? (
+              <Textarea
+                id={`${formId}-text`}
+                rows={4}
+                required
+                autoFocus
+                disabled={busy}
+                className="font-normal"
+                value={current.input.text}
+                onChange={(event) =>
+                  setInput({ ...current.input, text: event.target.value })
                 }
-              }}
-              onChange={(event) =>
-                setEdit({
-                  ...current,
-                  input: { ...current.input, text: event.target.value },
-                })
-              }
-            />
-          ) : (
-            <Input
-              className="h-7 px-1.5 py-0.5 text-xs md:text-xs"
-              autoFocus
-              aria-label={current.input.kind === "role" ? "Position" : "Text"}
-              required
-              disabled={busy}
-              value={current.input.text}
-              onChange={(event) =>
-                setEdit({
-                  ...current,
-                  input: { ...current.input, text: event.target.value },
-                })
-              }
-            />
-          ))}
+              />
+            ) : (
+              <Input
+                id={`${formId}-text`}
+                autoFocus
+                required
+                disabled={busy}
+                className="font-normal"
+                value={current.input.text}
+                onChange={(event) =>
+                  setInput({ ...current.input, text: event.target.value })
+                }
+              />
+            )}
+          </label>
+        )}
         {current.fields
           .filter(
             (field) =>
-              current.input.kind !== "contact" ||
+              kind !== "contact" ||
               field === "value" ||
               (field === "label" && current.input.data?.type === "website") ||
               current.input.data?.type === "profile",
@@ -506,82 +529,92 @@ export function CandidateLibrary({
           .map((field, index) => (
             <label
               key={field}
-              htmlFor={`library-${field}`}
-              className="block text-xs text-muted-foreground"
+              htmlFor={`${formId}-${field}`}
+              className={fieldClass}
             >
               {fieldLabel(current, field)}
               <Input
-                className="h-7 px-1.5 py-0.5 text-xs md:text-xs"
-                required={current.input.kind === "contact" && field === "value"}
-                id={`library-${field}`}
-                autoFocus={current.companyOnly && index === 0}
-                aria-label={fieldLabel(current, field)}
+                id={`${formId}-${field}`}
+                className="font-normal"
+                required={kind === "contact" && field === "value"}
+                autoFocus={
+                  (current.companyOnly || kind === "contact") && index === 0
+                }
                 disabled={busy}
                 value={fieldValue(field, current.input.data?.[field])}
                 onChange={(event) =>
-                  setEdit({
-                    ...current,
-                    input: {
-                      ...current.input,
-                      ...(current.input.kind === "contact" && field === "value"
-                        ? { text: event.target.value }
+                  setInput({
+                    ...current.input,
+                    ...(kind === "contact" && field === "value"
+                      ? { text: event.target.value }
+                      : {}),
+                    data: {
+                      ...current.input.data,
+                      ...(kind === "contact" &&
+                      current.input.data?.type === "profile" &&
+                      field === "value" &&
+                      current.input.data?.url
+                        ? { url: event.target.value }
                         : {}),
-                      data: {
-                        ...current.input.data,
-                        ...(current.input.kind === "contact" &&
-                        current.input.data?.type === "profile" &&
-                        field === "value" &&
-                        current.input.data?.url
-                          ? { url: event.target.value }
-                          : {}),
-                        [field]:
-                          field === "website"
-                            ? {
-                                label: "",
-                                ...(current.input.data?.website &&
-                                typeof current.input.data.website === "object"
-                                  ? current.input.data.website
-                                  : {}),
-                                url: event.target.value,
-                              }
-                            : event.target.value,
-                      },
+                      [field]:
+                        field === "website"
+                          ? {
+                              label: "",
+                              ...(current.input.data?.website &&
+                              typeof current.input.data.website === "object"
+                                ? current.input.data.website
+                                : {}),
+                              url: event.target.value,
+                            }
+                          : event.target.value,
                     },
                   })
                 }
               />
             </label>
           ))}
-        {!current.companyOnly &&
-          TAG_KINDS.has(current.input.kind ?? "bullet") && (
-            <TagEditor
-              tags={current.input.tags ?? []}
-              disabled={busy}
-              onChange={(tags) =>
-                setEdit({ ...current, input: { ...current.input, tags } })
-              }
-            />
-          )}
-        <div className="flex gap-1">
+        {!current.companyOnly && kind === "skill" && (
+          <TagEditor
+            noun="skill"
+            tags={
+              Array.isArray(current.input.data?.keywords)
+                ? current.input.data.keywords.filter(
+                    (value): value is string => typeof value === "string",
+                  )
+                : []
+            }
+            disabled={busy}
+            onChange={(keywords) =>
+              setInput({
+                ...current.input,
+                data: { ...current.input.data, keywords },
+              })
+            }
+          />
+        )}
+        {!current.companyOnly && TAG_KINDS.has(kind) && (
+          <TagEditor
+            tags={current.input.tags ?? []}
+            disabled={busy}
+            onChange={(tags) => setInput({ ...current.input, tags })}
+          />
+        )}
+        <div className="flex justify-end gap-2 pt-1">
           <Button
-            size="sm"
-            className="h-6 px-2 text-xs"
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => setEdit(null)}
+          >
+            Cancel
+          </Button>
+          <Button
             type="submit"
             disabled={
               busy || !current.input.text.trim() || companyMissing(current)
             }
           >
             Save
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 px-2 text-xs"
-            type="button"
-            disabled={busy}
-            onClick={() => setEdit(null)}
-          >
-            Cancel
           </Button>
         </div>
       </form>
@@ -667,81 +700,82 @@ export function CandidateLibrary({
             )}
           </div>
         )}
-        {item.kind === "skill" && skillPicker(item)}
+        {item.kind === "skill" && skillKeywords(item)}
       </div>
     );
   }
-  function skillPicker(item: Item) {
+  function selectedKeywords(item: Item) {
     const linked = resumeItems(document).find(
       (entry) => entry.libraryId === item.id,
     );
-    const selected = jobId
-      ? Array.isArray(linked?.keywords)
-        ? linked.keywords.filter(
-            (value): value is string => typeof value === "string",
-          )
-        : []
-      : keywords(item);
-    function select(next: string[], library = items) {
-      if (!jobId) return;
-      onDocumentChange?.((doc) => {
-        if (!next.length) return removeFromResume(doc, item.id);
-        const added = addToResume(doc, item.id, library);
-        const sections = added.sections as Record<
-          string,
-          { items?: Record<string, unknown>[] }
-        >;
-        const skills = sections.skills;
-        if (!skills?.items) return added;
-        return {
-          ...added,
-          sections: {
-            ...added.sections,
-            skills: {
-              ...skills,
-              items: skills.items.map((entry) =>
-                entry.libraryId === item.id
-                  ? { ...entry, keywords: next }
-                  : entry,
-              ),
-            },
+    return Array.isArray(linked?.keywords)
+      ? linked.keywords.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [];
+  }
+  function selectKeywords(item: Item, next: string[], library = items) {
+    if (!jobId) return;
+    onDocumentChange?.((doc) => {
+      if (!next.length) return removeFromResume(doc, item.id);
+      const added = addToResume(doc, item.id, library);
+      const sections = added.sections as Record<
+        string,
+        { items?: Record<string, unknown>[] }
+      >;
+      const skills = sections.skills;
+      if (!skills?.items) return added;
+      return {
+        ...added,
+        sections: {
+          ...added.sections,
+          skills: {
+            ...skills,
+            items: skills.items.map((entry) =>
+              entry.libraryId === item.id
+                ? { ...entry, keywords: next }
+                : entry,
+            ),
           },
-        } as Doc;
-      });
-    }
+        },
+      } as Doc;
+    });
+  }
+  function skillKeywords(item: Item) {
+    const options = keywords(item);
+    if (!options.length) return null;
+    const selected = selectedKeywords(item);
     return (
-      <div className="text-xs">
-        <SearchableMultiSelect
-          options={keywords(item)}
-          value={selected}
-          ariaLabel={`${item.text} keywords`}
-          disabled={busy || Boolean(jobId && (!document || !onDocumentChange))}
-          onValueChange={select}
-          onCreate={(keyword) =>
-            void run(async () => {
-              const after = await update(item, {
-                data: { ...item.data, keywords: [...keywords(item), keyword] },
-              });
-              if (!frozen)
-                select(
-                  [...selected, keyword],
-                  items.map((row) => (row.id === item.id ? after : row)),
-                );
-            })
-          }
-          onDelete={(keyword) =>
-            void run(async () => {
-              await update(item, {
-                data: {
-                  ...item.data,
-                  keywords: keywords(item).filter((word) => word !== keyword),
-                },
-              });
-              if (!frozen) select(selected.filter((word) => word !== keyword));
-            })
-          }
-          selectionEnabled={Boolean(jobId)}
-        />
+      <div className={`flex flex-wrap gap-1 ${jobId ? "pl-4" : ""}`}>
+        {options.map((keyword) => {
+          const on = selected.includes(keyword);
+          return jobId ? (
+            <button
+              key={keyword}
+              type="button"
+              aria-pressed={on}
+              disabled={busy || !document || !onDocumentChange}
+              className={`rounded border px-1 py-0.5 text-xs disabled:opacity-50 ${on ? "border-primary bg-primary/15 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              onClick={() =>
+                selectKeywords(
+                  item,
+                  on
+                    ? selected.filter((word) => word !== keyword)
+                    : [...selected, keyword],
+                )
+              }
+            >
+              {keyword}
+            </button>
+          ) : (
+            <span
+              key={keyword}
+              className="rounded border px-1 py-0.5 text-xs text-muted-foreground"
+            >
+              {keyword}
+            </span>
+          );
+        })}
       </div>
     );
   }
@@ -773,6 +807,23 @@ export function CandidateLibrary({
     );
   }
   const roles = items.filter((item) => item.kind === "role");
+  function dutiesOf(role: Item) {
+    return items.filter(
+      (item) => item.parentId === role.id && item.kind === "bullet",
+    );
+  }
+  function dutyCount(role: Item) {
+    if (!jobId) return null;
+    const duties = dutiesOf(role);
+    const selected = duties.filter(
+      (item) => document && isOnResume(document, item.id),
+    ).length;
+    return (
+      <span className="shrink-0 py-1 text-xs text-muted-foreground">
+        {`${selected}/${duties.length} duties`}
+      </span>
+    );
+  }
   const companies = new Map<string, Item[]>();
   for (const role of roles) {
     const key = String(role.data?.company ?? role.company ?? "Other");
@@ -865,91 +916,110 @@ export function CandidateLibrary({
                     : [...companies.keys()].slice(0, 1)
                 }
               >
-                {[...companies].map(([company, group]) => (
-                  <AccordionItem
-                    key={company}
-                    value={company}
-                    className="border-0 border-t pt-1"
-                  >
-                    <div className="group flex items-center gap-1 text-xs font-medium">
-                      {tick(group, company)}
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className="min-w-0 truncate text-left hover:underline"
-                        onClick={() =>
-                          setEdit({
-                            items: group,
-                            input: {
-                              text: company,
-                              data: {
-                                company,
-                                location: group[0].data?.location ?? "",
-                                website: group[0].data?.website ?? "",
+                {[...companies].map(([company, group]) => {
+                  const single = group.length === 1 ? group[0] : null;
+                  return (
+                    <AccordionItem
+                      key={company}
+                      value={company}
+                      className="border-0 border-t pt-1"
+                    >
+                      <div className="group flex items-center gap-1 text-xs font-medium">
+                        {tick(group, company)}
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="min-w-0 truncate text-left hover:underline"
+                          onClick={() =>
+                            setEdit({
+                              items: group,
+                              input: {
+                                text: company,
+                                data: {
+                                  company,
+                                  location: group[0].data?.location ?? "",
+                                  website: group[0].data?.website ?? "",
+                                },
                               },
-                            },
-                            fields: ["company", "location", "website"],
-                            companyOnly: true,
-                          })
-                        }
-                      >
-                        {company}
-                        {group[0].data?.location
-                          ? ` · ${String(group[0].data.location)}`
-                          : ""}
-                      </button>
-                      <div className="ml-auto flex shrink-0 items-center gap-1">
-                        {addButton(
-                          "role",
-                          undefined,
-                          {
-                            company,
-                            location: group[0].data?.location ?? "",
-                            website: group[0].data?.website ?? "",
-                          },
-                          "role",
+                              fields: ["company", "location", "website"],
+                              companyOnly: true,
+                            })
+                          }
+                        >
+                          {company}
+                          {group[0].data?.location
+                            ? ` · ${String(group[0].data.location)}`
+                            : ""}
+                        </button>
+                        {single && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className="min-w-0 truncate text-left font-normal text-muted-foreground hover:underline"
+                            onClick={() => startEdit(single)}
+                          >
+                            {single.text}
+                            {single.data?.period
+                              ? ` · ${String(single.data.period)}`
+                              : ""}
+                          </button>
                         )}
-                        {trash(group, company)}
-                        <AccordionTrigger
-                          aria-label={`Show roles for ${company}`}
-                          className="h-6 w-6 flex-none justify-center p-0"
-                        />
+                        <div className="ml-auto flex shrink-0 items-center gap-1 font-normal">
+                          {single && dutyCount(single)}
+                          {single &&
+                            addButton("bullet", single.id, undefined, "duty")}
+                          {addButton(
+                            "role",
+                            undefined,
+                            {
+                              company,
+                              location: group[0].data?.location ?? "",
+                              website: group[0].data?.website ?? "",
+                            },
+                            "role",
+                          )}
+                          {trash(group, company)}
+                          <AccordionTrigger
+                            aria-label={`Show roles for ${company}`}
+                            className="h-6 w-6 flex-none justify-center p-0"
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <AccordionContent className="ml-1.5 space-y-0.5 border-l pb-0.5 pl-2 text-xs">
-                      {group.map((role) => {
-                        const duties = items.filter(
-                          (item) =>
-                            item.parentId === role.id && item.kind === "bullet",
-                        );
-                        const selected = duties.filter(
-                          (item) => document && isOnResume(document, item.id),
-                        ).length;
-                        return (
-                          <div key={role.id}>
-                            <div className="flex items-start gap-1">
-                              <div className="min-w-0 flex-1">{row(role)}</div>
-                              {jobId && (
-                                <span className="shrink-0 py-1 text-xs text-muted-foreground">
-                                  {`${selected}/${duties.length} duties`}
-                                </span>
-                              )}
-                              {addButton("bullet", role.id, undefined, "duty")}
-                            </div>
-                            <div className="ml-1.5 border-l pl-2">
-                              {duties.map(row)}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
+                      <AccordionContent className="ml-1.5 space-y-0.5 border-l pb-0.5 pl-2 text-xs">
+                        {single
+                          ? dutiesOf(single).map(row)
+                          : group.map((role) => (
+                              <div key={role.id}>
+                                <div className="flex items-start gap-1">
+                                  <div className="min-w-0 flex-1">
+                                    {row(role)}
+                                  </div>
+                                  {dutyCount(role)}
+                                  {addButton(
+                                    "bullet",
+                                    role.id,
+                                    undefined,
+                                    "duty",
+                                  )}
+                                </div>
+                                <div className="ml-1.5 border-l pl-2">
+                                  {dutiesOf(role).map(row)}
+                                </div>
+                              </div>
+                            ))}
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
               </Accordion>
             </>
           )}
           {section !== "role" && (
             <>
+              <div className="flex items-center justify-between gap-1 text-xs font-medium">
+                {sections.find(([kind]) => kind === section)?.[1]}
+                {addButton(section)}
+              </div>
               {items
                 .filter((item) => item.kind === section)
                 .map((item) => (
@@ -969,7 +1039,6 @@ export function CandidateLibrary({
                     )}
                   </div>
                 ))}
-              {addButton(section)}
             </>
           )}
           {!items.some((item) => item.kind === section) && (
@@ -987,7 +1056,7 @@ export function CandidateLibrary({
           if (!open && !busy) setEdit(null);
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {edit?.companyOnly

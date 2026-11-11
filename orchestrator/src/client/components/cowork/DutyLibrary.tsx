@@ -125,7 +125,7 @@ export function InlineTags({ bullet }: { bullet: ExperienceBullet }) {
 }
 
 /** Adds comma-separated tags, skipping blanks and case-insensitive repeats. */
-export function addTags(tags: string[], draft: string): string[] {
+function addTags(tags: string[], draft: string): string[] {
   const seen = new Set(tags.map((value) => value.trim().toLowerCase()));
   const added = draft
     .split(",")
@@ -144,7 +144,9 @@ export function TagEditor({
   tags,
   disabled,
   onChange,
+  noun = "tag",
 }: {
+  noun?: string;
   tags: string[];
   disabled: boolean;
   onChange: (tags: string[]) => void;
@@ -157,7 +159,7 @@ export function TagEditor({
   }
   return (
     <div className="space-y-1">
-      <span className="block text-xs text-muted-foreground">Tags</span>
+      <span className="block text-sm font-medium capitalize">{`${noun}s`}</span>
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {tags.map((tag, index) => (
@@ -166,7 +168,7 @@ export function TagEditor({
               type="button"
               disabled={disabled}
               className={`${tagClass} hover:text-foreground disabled:opacity-50`}
-              aria-label={`Remove tag ${tag}`}
+              aria-label={`Remove ${noun} ${tag}`}
               onClick={() => onChange(tags.filter((value) => value !== tag))}
             >
               {tag} <span aria-hidden="true">×</span>
@@ -175,9 +177,8 @@ export function TagEditor({
         </div>
       )}
       <Input
-        className="h-7 px-1.5 py-0.5 text-xs md:text-xs"
-        placeholder="Add tag, press Enter"
-        aria-label="Add tag"
+        placeholder={`Add ${noun}, press Enter`}
+        aria-label={`Add ${noun}`}
         value={draft}
         disabled={disabled}
         onChange={(event) => setDraft(event.target.value)}
