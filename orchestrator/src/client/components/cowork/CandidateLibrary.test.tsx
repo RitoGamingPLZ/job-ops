@@ -155,9 +155,107 @@ beforeEach(() => {
 });
 async function mount(props: Parameters<typeof CandidateLibrary>[0] = {}) {
   render(<CandidateLibrary {...props} />);
+  const header = await screen.findByRole("button", {
+    name: "Show duties for Engineer",
+  });
+  if (header.getAttribute("aria-expanded") === "false") fireEvent.click(header);
   await screen.findByText("Built tools");
 }
 describe("candidate library", () => {
+  it("expands only groups with selected duties for a job and toggles their headers", () => {
+    const otherRole = { ...role, id: "other-role", text: "Designer" };
+    const otherDuty = {
+      ...duty,
+      id: "other-duty",
+      parentId: otherRole.id,
+      text: "Designed tools",
+    };
+    mocks.onResume.mockImplementation((_doc, id) => id === duty.id);
+    const props = {
+      items: [role, duty, otherRole, otherDuty],
+      jobId: "job",
+      document: doc,
+      onDocumentChange: vi.fn(),
+    };
+    const view = render(<CandidateLibrary {...props} />);
+    const selected = screen.getByRole("button", {
+      name: "Show duties for Engineer",
+    });
+    const unselected = screen.getByRole("button", {
+      name: "Show duties for Designer",
+    });
+    expect(selected).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Built tools")).toBeVisible();
+    expect(unselected).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Designed tools")).toBeNull();
+    selected.focus();
+    fireEvent.keyDown(selected, { key: "ArrowDown" });
+    expect(unselected).toHaveFocus();
+    fireEvent.click(unselected);
+    expect(unselected).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Designed tools")).toBeVisible();
+    fireEvent.click(selected);
+    expect(selected).toHaveAttribute("aria-expanded", "false");
+    // Resume updates change counts without reopening a manually collapsed group.
+    view.rerender(<CandidateLibrary {...props} document={{ ...doc }} />);
+    expect(selected).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Built tools")).toBeNull();
+  });
+  it("resets expanded roles to the selected duties when switching jobs", () => {
+    const otherRole = { ...role, id: "other-role", text: "Designer" };
+    const otherDuty = {
+      ...duty,
+      id: "other-duty",
+      parentId: otherRole.id,
+      text: "Designed tools",
+    };
+    const otherDoc = { ...doc };
+    mocks.onResume.mockImplementation((document, id) =>
+      document === doc ? id === duty.id : id === otherDuty.id,
+    );
+    const props = {
+      items: [role, duty, otherRole, otherDuty],
+      onDocumentChange: vi.fn(),
+    };
+    const view = render(
+      <CandidateLibrary {...props} jobId="first-job" document={doc} />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Show duties for Engineer" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("button", { name: "Show duties for Designer" }),
+    ).toHaveAttribute("aria-expanded", "false");
+
+    view.rerender(
+      <CandidateLibrary {...props} jobId="second-job" document={otherDoc} />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Show duties for Engineer" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Built tools")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Show duties for Designer" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Designed tools")).toBeVisible();
+    expect(
+      screen.getByRole("checkbox", { name: "Include Engineer" }),
+    ).toBeVisible();
+    expect(screen.getByText("0/1 duties")).toBeVisible();
+    expect(screen.getByText("1/1 duties")).toBeVisible();
+  });
+  it("opens only the first experience group in standalone mode after loading", async () => {
+    mocks.list.mockResolvedValue({
+      items: [role, duty, { ...role, id: "second", text: "Designer" }],
+    });
+    render(<CandidateLibrary />);
+    expect(
+      await screen.findByRole("button", { name: "Show duties for Engineer" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("button", { name: "Show duties for Designer" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
   it("shows every section and no ticks in library-only mode", async () => {
     await mount();
     expect(screen.queryByRole("checkbox")).toBeNull();

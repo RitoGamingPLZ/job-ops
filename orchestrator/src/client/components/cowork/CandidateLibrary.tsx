@@ -27,6 +27,12 @@ import {
 } from "react";
 import { toast } from "sonner";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -332,7 +338,7 @@ export function CandidateLibrary({
         className={
           group[0]?.kind === "bullet"
             ? "h-7 w-7 shrink-0 p-0"
-            : "ml-auto opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
+            : "ml-auto h-6 w-6 shrink-0 p-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
         }
         onClick={() => void run(() => requestDelete(group))}
       >
@@ -355,7 +361,7 @@ export function CandidateLibrary({
   function editForm(current: Edit) {
     return (
       <form
-        className="space-y-2 border-l pl-3 py-2"
+        className="space-y-1 py-1"
         aria-label="Edit library item"
         onSubmit={(event) => {
           event.preventDefault();
@@ -461,9 +467,9 @@ export function CandidateLibrary({
     const score = ranked.find((rank) => rank.bulletId === item.id);
     const editing = edit?.items[0]?.id === item.id && !edit.companyOnly;
     return (
-      <div key={item.id} className="space-y-1 py-1">
+      <div key={item.id} className="space-y-0.5 py-0.5">
         <div
-          className={`group flex ${item.kind === "bullet" ? "items-center" : "items-start"} gap-2 rounded-sm text-sm ${reworded ? REWORDED_TINT_CLASS : ""}`}
+          className={`group flex ${item.kind === "bullet" ? "items-center" : "items-start"} gap-1 rounded-sm text-xs ${reworded ? REWORDED_TINT_CLASS : ""}`}
           title={rewordedLine?.text}
         >
           {tick([item], item.text)}
@@ -486,7 +492,7 @@ export function CandidateLibrary({
           )}
           <button
             type="button"
-            className={`min-w-0 flex-1 py-1 text-left hover:underline ${item.kind === "bullet" ? "truncate" : ""}`}
+            className={`min-w-0 flex-1 py-0.5 text-left hover:underline ${item.kind === "bullet" ? "truncate" : ""}`}
             title={
               item.kind === "bullet"
                 ? (rewordedLine?.text ?? item.text)
@@ -526,7 +532,7 @@ export function CandidateLibrary({
         </div>
         {editing && editForm(edit)}
         {item.kind === "bullet" && (
-          <div className="flex min-w-0 items-start gap-2 pl-6">
+          <div className="flex min-w-0 items-start gap-1">
             <InlineTags
               bullet={item}
               busy={busy}
@@ -593,7 +599,7 @@ export function CandidateLibrary({
       });
     }
     return (
-      <div className="pl-6">
+      <div className="text-xs">
         <SearchableMultiSelect
           options={keywords(item)}
           value={selected}
@@ -647,6 +653,7 @@ export function CandidateLibrary({
           size="sm"
           variant="ghost"
           disabled={busy}
+          className="h-7 px-2 text-xs"
           onClick={() => startAdd(kind, parentId, companyData)}
         >
           + Add {label}
@@ -662,7 +669,7 @@ export function CandidateLibrary({
     companies.set(key, [...(companies.get(key) ?? []), role]);
   }
   return (
-    <div className="space-y-3">
+    <div className="space-y-1.5">
       <section
         className="flex flex-wrap items-center gap-1"
         aria-label="Library sections"
@@ -673,7 +680,7 @@ export function CandidateLibrary({
             size="sm"
             variant="ghost"
             aria-pressed={section === kind}
-            className="aria-pressed:bg-accent"
+            className="h-7 px-2 text-xs aria-pressed:bg-accent"
             onClick={() => {
               setSection(kind);
               setEdit(null);
@@ -685,6 +692,7 @@ export function CandidateLibrary({
         <Button
           size="sm"
           variant="outline"
+          className="h-7 px-2 text-xs"
           disabled={busy || loading}
           onClick={() =>
             void run(async () => {
@@ -724,64 +732,102 @@ export function CandidateLibrary({
                 onRefresh={refresh}
                 onRanked={setRanked}
               />
-              {[...companies].map(([company, group]) => (
-                <div key={company} className="border-t pt-2 space-y-1">
-                  <div className="group flex items-center gap-2 text-sm font-medium">
-                    {tick(group, company)}
-                    <button
-                      type="button"
-                      disabled={busy}
-                      className="text-left hover:underline"
-                      onClick={() =>
-                        setEdit({
-                          items: group,
-                          input: {
-                            text: company,
-                            data: {
-                              company,
-                              location: group[0].data?.location ?? "",
-                              website: group[0].data?.website ?? "",
-                            },
-                          },
-                          fields: ["company", "location", "website"],
-                          companyOnly: true,
-                        })
-                      }
-                    >
-                      {company}
-                      {group[0].data?.location
-                        ? ` · ${String(group[0].data.location)}`
-                        : ""}
-                    </button>
-                    {trash(group, company)}
-                  </div>
-                  {edit?.companyOnly &&
-                    edit.items[0]?.id === group[0].id &&
-                    editForm(edit)}
-                  {group.map((role) => (
-                    <div key={role.id} className="pl-4">
-                      {row(role)}
-                      <div className="pl-4">
-                        {items
-                          .filter(
+              <Accordion
+                key={jobId}
+                type="multiple"
+                defaultValue={
+                  jobId
+                    ? roles
+                        .filter((role) =>
+                          items.some(
                             (item) =>
+                              item.kind === "bullet" &&
                               item.parentId === role.id &&
-                              item.kind === "bullet",
-                          )
-                          .map(row)}
-                        {addButton("bullet", role.id)}
-                      </div>
+                              document &&
+                              isOnResume(document, item.id),
+                          ),
+                        )
+                        .map((role) => role.id)
+                    : roles.slice(0, 1).map((role) => role.id)
+                }
+              >
+                {[...companies].map(([company, group]) => (
+                  <div key={company} className="border-t pt-1 space-y-0.5">
+                    <div className="group flex items-center gap-1 text-xs font-medium">
+                      {tick(group, company)}
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="text-left hover:underline"
+                        onClick={() =>
+                          setEdit({
+                            items: group,
+                            input: {
+                              text: company,
+                              data: {
+                                company,
+                                location: group[0].data?.location ?? "",
+                                website: group[0].data?.website ?? "",
+                              },
+                            },
+                            fields: ["company", "location", "website"],
+                            companyOnly: true,
+                          })
+                        }
+                      >
+                        {company}
+                        {group[0].data?.location
+                          ? ` · ${String(group[0].data.location)}`
+                          : ""}
+                      </button>
+                      {trash(group, company)}
                     </div>
-                  ))}
-                  <div className="pl-4">
-                    {addButton("role", undefined, {
-                      company,
-                      location: group[0].data?.location ?? "",
-                      website: group[0].data?.website ?? "",
+                    {edit?.companyOnly &&
+                      edit.items[0]?.id === group[0].id &&
+                      editForm(edit)}
+                    {group.map((role) => {
+                      const duties = items.filter(
+                        (item) =>
+                          item.parentId === role.id && item.kind === "bullet",
+                      );
+                      const selected = duties.filter(
+                        (item) => document && isOnResume(document, item.id),
+                      ).length;
+                      return (
+                        <AccordionItem
+                          key={role.id}
+                          value={role.id}
+                          className="border-0"
+                        >
+                          <div className="flex items-start gap-1">
+                            <div className="min-w-0 flex-1">{row(role)}</div>
+                            {jobId && (
+                              <span className="shrink-0 py-1 text-xs text-muted-foreground">
+                                {`${selected}/${duties.length} duties`}
+                              </span>
+                            )}
+                            <AccordionTrigger
+                              aria-label={`Show duties for ${role.text}`}
+                              className="h-6 w-6 flex-none justify-center p-0"
+                            />
+                          </div>
+                          <AccordionContent className="pb-0.5 text-xs">
+                            {duties.map(row)}
+                            {addButton("bullet", role.id)}
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
                     })}
+                    <div className="space-y-0.5">
+                      {addButton("role", undefined, {
+                        company,
+                        location: group[0].data?.location ?? "",
+                        website: group[0].data?.website ?? "",
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </Accordion>
               {addButton("role", undefined, undefined, "job")}
             </>
           )}
@@ -790,10 +836,10 @@ export function CandidateLibrary({
               {items
                 .filter((item) => item.kind === section)
                 .map((item) => (
-                  <div key={item.id} className="border-t pt-2">
+                  <div key={item.id} className="border-t pt-1">
                     {row(item)}
                     {section === "project" && (
-                      <div className="pl-4">
+                      <div className="space-y-0.5">
                         {items
                           .filter(
                             (child) =>
@@ -810,7 +856,7 @@ export function CandidateLibrary({
             </>
           )}
           {!items.some((item) => item.kind === section) && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Add an item or sync from resumes to build your library.
             </p>
           )}
