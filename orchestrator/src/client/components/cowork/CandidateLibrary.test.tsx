@@ -447,6 +447,69 @@ describe("candidate library", () => {
       duty.text,
     );
   });
+  it.each([
+    ["project", "Projects", "Compiler"],
+    ["education", "Education", "BSc"],
+    ["award", "Awards", "Prize"],
+    ["certification", "Certifications", "Certificate"],
+  ])("renders, adds and removes tags on a %s", async (id, section, text) => {
+    mocks.list.mockResolvedValue({
+      items: library.map((item) =>
+        item.id === id ? { ...item, tags: ["Existing"] } : item,
+      ),
+    });
+    await mount({ jobId: "job", document: doc });
+    fireEvent.click(screen.getByRole("button", { name: section }));
+    const description = screen.getByRole("button", {
+      name: new RegExp(`^${text} ·`),
+    });
+    expect(description).toHaveClass("truncate");
+    expect(description).toHaveAttribute("title", description.textContent);
+    const firstLine = description.parentElement as HTMLElement;
+    expect(
+      within(firstLine).getByRole("button", { name: `Delete ${text}` }),
+    ).toBeVisible();
+    const tagsLine = firstLine.nextElementSibling as HTMLElement;
+    expect(
+      within(tagsLine).getByRole("button", {
+        name: `Remove Existing from ${text}`,
+      }),
+    ).toBeVisible();
+    fireEvent.click(within(tagsLine).getByRole("button", { name: "+ tag" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: `Add skill to ${text}` }),
+      {
+        target: { value: "New tag" },
+      },
+    );
+    fireEvent.click(within(tagsLine).getByRole("button", { name: "Add" }));
+    expect(
+      await screen.findByRole("button", {
+        name: `Remove New tag from ${text}`,
+      }),
+    ).toBeVisible();
+    expect(mocks.update).toHaveBeenLastCalledWith(
+      id,
+      { tags: ["Existing", "New tag"] },
+      "job",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: `Remove Existing from ${text}` }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: `Remove Existing from ${text}` }),
+      ).toBeNull(),
+    );
+    expect(mocks.update).toHaveBeenLastCalledWith(
+      id,
+      { tags: ["New tag"] },
+      "job",
+    );
+    expect(
+      screen.getByRole("button", { name: `Remove New tag from ${text}` }),
+    ).toBeVisible();
+  });
   it("syncs and reloads the library", async () => {
     mocks.sync.mockResolvedValue({ created: 3, skipped: 4, linked: 5 });
     await mount();
