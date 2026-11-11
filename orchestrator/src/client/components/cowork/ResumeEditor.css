@@ -326,7 +326,10 @@
   margin-top: var(--rs-name-to-contact);
   font-size: var(--rs-contact);
 }
-.resume-contact > span + span::before {
+.resume-header:not(:focus-within)
+  .resume-contact-item:not([data-empty="true"])
+  ~ .resume-contact-item:not([data-empty="true"])::before,
+.resume-header:focus-within .resume-contact > span + span::before {
   content: " | ";
   white-space: pre;
 }
@@ -592,10 +595,6 @@
   color: #3e5266;
   font-size: 12px;
 }
-.resume-readonly,
-.resume-readonly a {
-  cursor: help;
-}
 .resume-paper input.resume-position {
   color: var(--rs-color-accent);
   font-size: var(--rs-position);
@@ -713,4 +712,60 @@ h2:focus-within + .resume-section-controls,
 }
 .resume-paper [tabindex="-1"]:focus {
   outline: none;
+}
+
+/* Contact fields keep their printed width; URLs show their printed text until focus. */
+.resume-contact-item {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+.resume-paper .resume-contact input {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  field-sizing: content;
+}
+.resume-paper .resume-contact input:not(:focus):hover {
+  outline: none;
+}
+.resume-contact-link,
+.resume-paper input.resume-contact-link {
+  color: var(--rs-color-link);
+  text-decoration: underline;
+}
+.resume-contact-url {
+  position: relative;
+  display: inline-grid;
+  max-width: 100%;
+  min-width: 3em;
+  text-align: left;
+}
+.resume-contact-url > * {
+  grid-area: 1 / 1;
+}
+.resume-paper .resume-contact-url > input {
+  width: 0;
+  min-width: 100%;
+  opacity: 0;
+}
+.resume-contact-url:focus-within > span {
+  visibility: hidden;
+}
+.resume-paper .resume-contact-url:focus-within > input {
+  width: auto;
+  opacity: 1;
+  background: #fff;
+}
+.resume-paper .resume-contact .resume-tools input {
+  min-width: 6em;
+  max-width: 12em;
+}
+
+.resume-header:not(:focus-within) .resume-contact-item[data-empty="true"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }

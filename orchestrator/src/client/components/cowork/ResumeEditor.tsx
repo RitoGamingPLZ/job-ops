@@ -1975,42 +1975,212 @@ export function ResumeEditor({
                 })
               }
             />
-            <div
-              className="resume-contact resume-readonly"
-              title="Edit in Resume Studio"
-            >
-              {document.basics.phone && (
-                <span>Tel: {document.basics.phone}</span>
-              )}
-              {document.basics.email && (
-                <span>
-                  Email:{" "}
-                  <a href={`mailto:${document.basics.email}`}>
-                    {document.basics.email}
-                  </a>
+            <div className="resume-contact">
+              {(["phone", "email", "location"] as const).map((field) => (
+                <span
+                  className="resume-contact-item"
+                  key={field}
+                  data-empty={!document.basics[field]}
+                >
+                  {field === "phone"
+                    ? "Tel: "
+                    : field === "email"
+                      ? "Email: "
+                      : ""}
+                  <Input
+                    aria-label={
+                      field === "phone"
+                        ? "Phone"
+                        : field === "email"
+                          ? "Email"
+                          : "Location"
+                    }
+                    type={
+                      field === "phone"
+                        ? "tel"
+                        : field === "email"
+                          ? "email"
+                          : "text"
+                    }
+                    className={
+                      field === "email" ? "resume-contact-link" : undefined
+                    }
+                    value={document.basics[field] ?? ""}
+                    placeholder={field === "location" ? "Location" : undefined}
+                    onChange={(event) =>
+                      change((next) => {
+                        next.basics[field] = event.target.value;
+                      })
+                    }
+                  />
                 </span>
-              )}
-              {document.basics.location && (
-                <span>{document.basics.location}</span>
-              )}
-              {safeUrl(document.basics.website?.url) && (
-                <span>
-                  <a href={safeUrl(document.basics.website.url)}>
-                    {document.basics.website.label || "Website"}
-                  </a>
+              ))}
+              <span
+                className="resume-contact-item resume-row"
+                data-empty={!document.basics.website?.url}
+              >
+                <span className="resume-contact-url">
+                  <span aria-hidden="true" className="resume-contact-link">
+                    {document.basics.website?.label || "Website"}
+                  </span>
+                  <Input
+                    aria-label="Website URL"
+                    value={document.basics.website?.url ?? ""}
+                    placeholder="https://…"
+                    onChange={(event) =>
+                      change((next) => {
+                        next.basics.website = {
+                          ...next.basics.website,
+                          url: event.target.value,
+                          label: next.basics.website?.label ?? "",
+                        };
+                      })
+                    }
+                  />
                 </span>
-              )}
+                <span className="resume-tools">
+                  <Input
+                    aria-label="Website label"
+                    placeholder="Website label"
+                    value={document.basics.website?.label ?? ""}
+                    onChange={(event) =>
+                      change((next) => {
+                        next.basics.website = {
+                          ...next.basics.website,
+                          label: event.target.value,
+                          url: next.basics.website?.url ?? "",
+                        };
+                      })
+                    }
+                  />
+                </span>
+              </span>
               {!document.sections.profiles?.hidden &&
                 document.sections.profiles?.items
-                  .filter((p) => !p.hidden && safeUrl(p.website?.url))
-                  .map((profile) => (
-                    <span key={profile.id}>
-                      <a href={safeUrl(profile.website.url)}>
-                        {bareUrl(profile.website.url)}
-                      </a>
+                  .filter((profile) => !profile.hidden)
+                  .map((profile, index) => (
+                    // biome-ignore lint/a11y/noStaticElementInteractions: Handles bubbling blur from the row's editable inputs.
+                    <span
+                      className="resume-contact-item resume-row"
+                      key={profile.id}
+                      data-focus-item={profile.id}
+                      data-empty={
+                        !profile.website?.url?.trim() &&
+                        !profile.network?.trim() &&
+                        !profile.username?.trim()
+                      }
+                      onBlur={(event) => {
+                        if (event.currentTarget.contains(event.relatedTarget))
+                          return;
+                        if (
+                          profile.website?.url?.trim() ||
+                          profile.network?.trim() ||
+                          profile.username?.trim()
+                        )
+                          return;
+                        change((next) => {
+                          next.sections.profiles.items =
+                            next.sections.profiles.items.filter(
+                              (item) => item.id !== profile.id,
+                            );
+                        });
+                      }}
+                    >
+                      <span className="resume-contact-url">
+                        <span
+                          aria-hidden="true"
+                          className="resume-contact-link"
+                        >
+                          {bareUrl(profile.website?.url ?? "") ||
+                            profile.username ||
+                            profile.network}
+                        </span>
+                        <Input
+                          aria-label={`Profile ${index + 1} URL`}
+                          data-profile-url=""
+                          value={profile.website?.url ?? ""}
+                          placeholder="https://…"
+                          onChange={(event) =>
+                            change((next) => {
+                              const item = next.sections.profiles.items.find(
+                                (item) => item.id === profile.id,
+                              );
+                              if (item)
+                                item.website = {
+                                  ...item.website,
+                                  url: event.target.value,
+                                  label: item.website?.label ?? "",
+                                };
+                            })
+                          }
+                        />
+                      </span>
+                      <span className="resume-tools">
+                        {(["network", "username"] as const).map((field) => (
+                          <Input
+                            key={field}
+                            aria-label={`Profile ${index + 1} ${field}`}
+                            placeholder={
+                              field === "network" ? "Network" : "Username"
+                            }
+                            value={profile[field] ?? ""}
+                            onChange={(event) =>
+                              change((next) => {
+                                const item = next.sections.profiles.items.find(
+                                  (item) => item.id === profile.id,
+                                );
+                                if (!item) return;
+                                item[field] = event.target.value;
+                              })
+                            }
+                          />
+                        ))}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title={`Delete profile ${index + 1}`}
+                          aria-label={`Delete profile ${index + 1}`}
+                          onClick={() =>
+                            change((next) => {
+                              next.sections.profiles.items =
+                                next.sections.profiles.items.filter(
+                                  (item) => item.id !== profile.id,
+                                );
+                            })
+                          }
+                        >
+                          ×
+                        </Button>
+                      </span>
                     </span>
                   ))}
             </div>
+            <Button
+              className="resume-add"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                const item = ITEM_DEFINITIONS.find(
+                  (definition) => definition.key === "profiles",
+                )?.createItem() as ReactiveResumeV5Document["sections"]["profiles"]["items"][number];
+                focusField.current = {
+                  id: item.id,
+                  field: "[data-profile-url]",
+                };
+                change((next) => {
+                  next.sections.profiles ??= {
+                    title: "Profiles",
+                    columns: 1,
+                    hidden: false,
+                    items: [],
+                  };
+                  next.sections.profiles.hidden = false;
+                  next.sections.profiles.items.push(item);
+                });
+              }}
+            >
+              + Profile
+            </Button>
             {addingHeadline || document.basics.headline ? (
               <div className="resume-row">
                 <Input
