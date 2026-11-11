@@ -268,7 +268,7 @@ afterEach(() => {
 });
 
 async function selectOtherResume() {
-  fireEvent.click(screen.getByRole("button", { name: "Switch resume" }));
+  fireEvent.click(screen.getByRole("button", { name: /Switch resume/ }));
   fireEvent.change(screen.getByRole("combobox"), {
     target: { value: "Designer" },
   });
@@ -282,6 +282,33 @@ async function selectOtherResume() {
 }
 
 describe("resume navigation", () => {
+  it("identifies the current resume and quietly falls back when listing fails", async () => {
+    mocks.listResumes.mockRejectedValueOnce(new Error("Offline"));
+    mount();
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Engineer · Company",
+      }),
+    ).toBeInTheDocument();
+    const switcher = screen.getByRole("button", { name: /Switch resume/ });
+    expect(switcher).toHaveAccessibleName("Switch resume: Engineer · Company");
+    fireEvent.click(switcher);
+    const search = screen.getByRole("combobox");
+    await waitFor(() =>
+      expect(search.getAttribute("aria-activedescendant")).toContain(
+        "-option-job",
+      ),
+    );
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    expect(search.getAttribute("aria-activedescendant")).toContain(
+      "-option-job",
+    );
+    fireEvent.change(search, { target: { value: "Designer" } });
+    expect(await screen.findByText("No results found.")).toBeVisible();
+    expect(mocks.coworkError).not.toHaveBeenCalled();
+    expect(mocks.toast).not.toHaveBeenCalled();
+  });
   it.each([
     [1, -1],
     [0, "/resumes"],
@@ -562,6 +589,28 @@ describe("resume co-work saving", () => {
     expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.pdf.mock.invocationCallOrder[0],
     );
+  });
+  it("replaces the displayed PDF and revokes its old URL when rendering again", async () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL");
+    mocks.openPdf
+      .mockResolvedValueOnce("blob:first")
+      .mockResolvedValueOnce("blob:second");
+    mount();
+    await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByRole("button", { name: "Render PDF" }));
+    expect(await screen.findByTitle("Resume PDF preview")).toHaveAttribute(
+      "src",
+      "blob:first",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Render PDF" }));
+    await waitFor(() =>
+      expect(screen.getByTitle("Resume PDF preview")).toHaveAttribute(
+        "src",
+        "blob:second",
+      ),
+    );
+    expect(mocks.pdf).toHaveBeenCalledTimes(2);
+    expect(revoke).toHaveBeenCalledWith("blob:first");
   });
   it("flushes a pending debounced edit when leaving the job", async () => {
     const view = mount();

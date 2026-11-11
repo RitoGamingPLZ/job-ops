@@ -165,8 +165,8 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
       .then((result) => {
         if (active) setResumes(result.resumes);
       })
-      .catch((failure) => {
-        if (active) coworkError(failure);
+      .catch(() => {
+        // The current resume remains available when the switcher list fails.
       });
     return () => {
       active = false;
@@ -368,7 +368,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     return true;
   }
   function switchResume(nextJobId: string) {
-    if (nextJobId === jobId || switching.current) return;
+    if (nextJobId === jobId) return;
     if (dirty.current || saving.current) setSwitchTarget(nextJobId);
     else navigate(`/resumes/${nextJobId}`);
   }
@@ -602,6 +602,9 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
+        <h1 className="sr-only">
+          {job.title} · {job.employer}
+        </h1>
         <SearchableDropdown
           value={jobId}
           options={[
@@ -615,7 +618,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           ]}
           onValueChange={switchResume}
           allowCustomValue={false}
-          ariaLabel="Switch resume"
+          ariaLabel={`Switch resume: ${job.title} · ${job.employer}`}
           placeholder="Select a resume"
           searchPlaceholder="Search resumes…"
           triggerClassName="mr-auto min-w-0 max-w-full font-semibold"
@@ -822,15 +825,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
                 className="h-full min-h-[600px] w-full"
               />
             ) : (
-              <output>
-                {rendering ? (
-                  "Rendering PDF…"
-                ) : (
-                  <Button onClick={() => void showPreview()}>
-                    Render preview
-                  </Button>
-                )}
-              </output>
+              <output>{rendering ? "Rendering PDF…" : null}</output>
             )
           ) : (
             <ResumeEditor
