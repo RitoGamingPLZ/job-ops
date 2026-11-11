@@ -6,6 +6,7 @@ import {
   APPLICATION_OUTCOMES,
   APPLICATION_STAGES,
   APPLICATION_TASK_TYPES,
+  type CandidateItemKind,
   type ExperienceBulletSource,
   HOSTED_USAGE_ACTIONS,
   INTERVIEW_OUTCOMES,
@@ -1209,6 +1210,13 @@ export const experienceBullets = sqliteTable(
       .default("tenant_default")
       .references(() => tenants.id, { onDelete: "cascade" }),
     userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<CandidateItemKind>().notNull().default("bullet"),
+    data: text("data", { mode: "json" }).$type<Record<
+      string,
+      unknown
+    > | null>(),
+    parentId: text("parent_id"),
+    position: integer("position").notNull().default(0),
     text: text("text").notNull(),
     company: text("company"),
     role: text("role"),

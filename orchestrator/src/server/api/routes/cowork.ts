@@ -1,10 +1,10 @@
 import { badRequest, notFound } from "@infra/errors";
 import { asyncRoute, ok } from "@infra/http";
-import { logger } from "@infra/logger";
 import { resolveRequestOrigin } from "@infra/request-origin";
 import * as bulletsRepo from "@server/repositories/experience-bullets";
 import * as resumesRepo from "@server/repositories/job-resumes";
 import { getJobById } from "@server/repositories/jobs";
+import * as libraryService from "@server/services/candidate-library";
 import {
   coworkChatContextSchema,
   extractExperienceBullets,
@@ -15,24 +15,32 @@ import { screenResume } from "@server/services/cowork-screening";
 import { ensureJobResume } from "@server/services/job-resume";
 import { loadBaseResumeSource, resolvePdfRenderer } from "@server/services/pdf";
 import { safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
-import { bulletsFromHtml } from "@shared/resume-bullets";
-import type {
-  ExperienceBulletInput,
-  ReactiveResumeV5Document,
-} from "@shared/types";
+import type { ReactiveResumeV5Document } from "@shared/types";
+import { CANDIDATE_ITEM_KINDS } from "@shared/types";
 import { Router } from "express";
 import { z } from "zod";
 
 export const coworkRouter = Router();
 export const experienceBulletInputSchema = z
   .object({
+    kind: z
+      .enum(
+        CANDIDATE_ITEM_KINDS as [
+          (typeof CANDIDATE_ITEM_KINDS)[number],
+          ...(typeof CANDIDATE_ITEM_KINDS)[number][],
+        ],
+      )
+      .optional(),
+    data: z.record(z.unknown()).nullable().optional(),
+    parentId: z.string().trim().min(1).max(200).nullable().optional(),
+    position: z.number().int().min(0).optional(),
     text: z.string().trim().min(1).max(10000),
     company: z.string().trim().max(500).nullable().optional(),
     role: z.string().trim().max(500).nullable().optional(),
     startDate: z.string().trim().max(200).nullable().optional(),
     endDate: z.string().trim().max(200).nullable().optional(),
     tags: z.array(z.string().trim().min(1).max(100)).max(100).optional(),
-    source: z.enum(["resume", "manual", "ai_extract"]).optional(),
+    source: z.enum(["resume", "manual", "ai_extract", "job_resume"]).optional(),
     sourceExperienceId: z.string().max(200).nullable().optional(),
   })
   .strict();
@@ -57,13 +65,6 @@ async function baseDocument(requestOrigin: string | null) {
   });
   return data as ReactiveResumeV5Document;
 }
-function splitPeriod(period: string): [string | null, string | null] {
-  const parts = period.trim().split(/\s+[–—−-]\s+|\s*[–—−]\s*/);
-  return [
-    parts[0]?.trim() || null,
-    parts.length > 1 ? parts.slice(1).join(" – ").trim() || null : null,
-  ];
-}
 coworkRouter.get(
   "/experience-bullets",
   asyncRoute(async (_req, res) => {
@@ -76,7 +77,7 @@ coworkRouter.post(
     ok(
       res,
       {
-        bullet: await bulletsRepo.createExperienceBullet(
+        bullet: libraryService.createLibraryItem(
           parse(experienceBulletInputSchema, req.body),
         ),
       },
@@ -84,46 +85,34 @@ coworkRouter.post(
     );
   }),
 );
-coworkRouter.post(
-  "/experience-bullets/import-resume",
+coworkRouter.get(
+  "/library",
   asyncRoute(async (req, res) => {
-    const document = await baseDocument(resolveRequestOrigin(req));
-    const inputs: ExperienceBulletInput[] =
-      document.sections.experience.items.flatMap((item) => {
-        const [startDate, endDate] = splitPeriod(item.period);
-        return bulletsFromHtml(item.description).map((text) => ({
-          text,
-          company: item.company || null,
-          role: item.position || null,
-          startDate,
-          endDate,
-          source: "resume",
-          sourceExperienceId: item.id,
-        }));
-      });
-    const imported = await bulletsRepo.importExperienceBullets(inputs);
-    let labeled = 0;
-    try {
-      labeled = (
-        await labelExperienceBullets(
-          imported.bullets.map((bullet) => bullet.id),
-        )
-      ).labeled;
-    } catch {
-      logger.warn("Resume import auto-label failed", {
-        requestId: res.getHeader("x-request-id"),
-        created: imported.created,
-      });
+    let items = await bulletsRepo.listExperienceBullets(true);
+    if (!items.some((item) => item.kind === "role")) {
+      libraryService.syncCandidateLibrary(
+        await baseDocument(resolveRequestOrigin(req)),
+      );
+      items = await bulletsRepo.listExperienceBullets(true);
     }
-    const ids = new Set(imported.bullets.map((bullet) => bullet.id));
-    const bullets = (await bulletsRepo.listExperienceBullets()).filter(
-      (bullet) => ids.has(bullet.id),
+    ok(res, { items });
+  }),
+);
+coworkRouter.get(
+  "/library/:id/usage",
+  asyncRoute(async (req, res) => {
+    ok(res, libraryService.libraryItemUsage(String(req.params.id)));
+  }),
+);
+coworkRouter.post(
+  "/library/sync",
+  asyncRoute(async (req, res) => {
+    ok(
+      res,
+      libraryService.syncCandidateLibrary(
+        await baseDocument(resolveRequestOrigin(req)),
+      ),
     );
-    labeled = Math.max(
-      labeled,
-      bullets.filter((bullet) => bullet.tags.length > 0).length,
-    );
-    ok(res, { ...imported, bullets, labeled });
   }),
 );
 coworkRouter.post(
@@ -170,9 +159,10 @@ coworkRouter.patch(
         .refine((value) => Object.keys(value).length > 0),
       req.body,
     );
-    const bullet = await bulletsRepo.updateExperienceBullet(
+    const bullet = libraryService.updateLibraryItem(
       String(req.params.id),
       input,
+      parse(z.string().trim().min(1).max(200).optional(), req.query.skipJobId),
     );
     if (!bullet) throw notFound("Bullet not found");
     ok(res, { bullet });
@@ -181,8 +171,10 @@ coworkRouter.patch(
 coworkRouter.delete(
   "/experience-bullets/:id",
   asyncRoute(async (req, res) => {
-    if (!(await bulletsRepo.deleteExperienceBullet(String(req.params.id))))
-      throw notFound("Bullet not found");
+    libraryService.deleteLibraryItem(
+      String(req.params.id),
+      parse(z.string().trim().min(1).max(200).optional(), req.query.skipJobId),
+    );
     ok(res, { deleted: true });
   }),
 );
