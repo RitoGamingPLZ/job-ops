@@ -57,11 +57,6 @@ export type RxResumeCredentialPrecheckFailure = ReturnType<
   typeof getRxResumeCredentialPrecheckFailure
 >;
 
-export const getRxResumeMissingCredentialLabels = (input: {
-  stored: RxResumeStoredCredentialAvailability;
-  draft: RxResumeCredentialDrafts;
-}) => (input.stored.apiKey || input.draft.apiKey ? [] : ["RxResume API key"]);
-
 export const toRxResumeValidationPayload = (
   draft: RxResumeCredentialDrafts,
   options?: {

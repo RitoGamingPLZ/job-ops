@@ -1,5 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { badRequest, upstreamError } from "@infra/errors";
+import { escapeHtml } from "@infra/html";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { convert } from "html-to-text";
 import { z } from "zod";
@@ -146,13 +147,6 @@ function checkCompany(job: Job, company: string) {
     throw upstreamError(
       "SmartRecruiters returned a different company than requested.",
     );
-}
-function escapeHtml(text: string) {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 async function details(input: {
   source: WatchlistSelectedSource;

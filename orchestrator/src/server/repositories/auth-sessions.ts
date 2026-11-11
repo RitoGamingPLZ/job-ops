@@ -76,7 +76,3 @@ export async function deleteExpiredOrRevokedAuthSessions(): Promise<void> {
       or(lte(authSessions.expiresAt, now), lte(authSessions.revokedAt, now)),
     );
 }
-
-export async function deleteAllAuthSessions(): Promise<void> {
-  await db.delete(authSessions);
-}

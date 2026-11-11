@@ -17,26 +17,26 @@ const templateNames = [
   "rhyhorn",
 ] as const;
 
-export const templateSchema = z.enum(templateNames);
+const templateSchema = z.enum(templateNames);
 
-export const iconSchema = z.string();
+const iconSchema = z.string();
 
-export const itemOptionsSchema = z
+const itemOptionsSchema = z
   .object({
     showLinkInTitle: z.boolean().catch(false),
   })
   .catch({ showLinkInTitle: false });
 
-export const urlSchema = z.object({
+const urlSchema = z.object({
   url: z.string(),
   label: z.string(),
 });
 
-export const itemUrlSchema = urlSchema.extend({
+const itemUrlSchema = urlSchema.extend({
   inlineLink: z.boolean().optional(),
 });
 
-export const pictureSchema = z.object({
+const pictureSchema = z.object({
   hidden: z.boolean(),
   url: z.string(),
   size: z.number().min(32).max(512),
@@ -49,7 +49,7 @@ export const pictureSchema = z.object({
   shadowWidth: z.number().min(0),
 });
 
-export const customFieldSchema = z.object({
+const customFieldSchema = z.object({
   id: z.string(),
   title: z.string().optional(),
   icon: iconSchema,
@@ -57,7 +57,7 @@ export const customFieldSchema = z.object({
   link: z.string().catch(""),
 });
 
-export const basicsSchema = z.object({
+const basicsSchema = z.object({
   name: z.string(),
   headline: z.string(),
   email: z.string(),
@@ -68,14 +68,14 @@ export const basicsSchema = z.object({
   customFields: z.array(customFieldSchema),
 });
 
-export const summarySchema = z.object({
+const summarySchema = z.object({
   title: z.string(),
   columns: z.number(),
   hidden: z.boolean(),
   content: z.string(),
 });
 
-export const baseItemSchema = z.object({
+const baseItemSchema = z.object({
   id: z.string(),
   hidden: z.boolean(),
   options: itemOptionsSchema.optional(),
@@ -85,13 +85,11 @@ export const baseItemSchema = z.object({
   bulletRefs: z.array(z.string().nullable()).optional(),
 });
 
-export const summaryItemSchema = baseItemSchema.extend({
+const summaryItemSchema = baseItemSchema.extend({
   content: z.string(),
 });
 
-export type SummaryItem = z.infer<typeof summaryItemSchema>;
-
-export const awardItemSchema = baseItemSchema.extend({
+const awardItemSchema = baseItemSchema.extend({
   title: z.string().min(1),
   awarder: z.string(),
   date: z.string(),
@@ -99,7 +97,7 @@ export const awardItemSchema = baseItemSchema.extend({
   description: z.string(),
 });
 
-export const certificationItemSchema = baseItemSchema.extend({
+const certificationItemSchema = baseItemSchema.extend({
   title: z.string().min(1),
   issuer: z.string(),
   date: z.string(),
@@ -107,7 +105,7 @@ export const certificationItemSchema = baseItemSchema.extend({
   description: z.string(),
 });
 
-export const educationItemSchema = baseItemSchema.extend({
+const educationItemSchema = baseItemSchema.extend({
   school: z.string().min(1),
   degree: z.string(),
   area: z.string(),
@@ -118,16 +116,14 @@ export const educationItemSchema = baseItemSchema.extend({
   description: z.string(),
 });
 
-export const roleItemSchema = z.object({
+const roleItemSchema = z.object({
   id: z.string(),
   position: z.string(),
   period: z.string(),
   description: z.string(),
 });
 
-export type RoleItem = z.infer<typeof roleItemSchema>;
-
-export const experienceItemSchema = baseItemSchema.extend({
+const experienceItemSchema = baseItemSchema.extend({
   company: z.string().min(1),
   position: z.string(),
   location: z.string(),
@@ -137,33 +133,33 @@ export const experienceItemSchema = baseItemSchema.extend({
   roles: z.array(roleItemSchema).catch([]),
 });
 
-export const interestItemSchema = baseItemSchema.extend({
+const interestItemSchema = baseItemSchema.extend({
   icon: iconSchema,
   name: z.string().min(1),
   keywords: z.array(z.string()).catch([]),
 });
 
-export const languageItemSchema = baseItemSchema.extend({
+const languageItemSchema = baseItemSchema.extend({
   language: z.string().min(1),
   fluency: z.string(),
   level: z.number().min(0).max(5).catch(0),
 });
 
-export const profileItemSchema = baseItemSchema.extend({
+const profileItemSchema = baseItemSchema.extend({
   icon: iconSchema,
   network: z.string().min(1),
   username: z.string(),
   website: itemUrlSchema,
 });
 
-export const projectItemSchema = baseItemSchema.extend({
+const projectItemSchema = baseItemSchema.extend({
   name: z.string().min(1),
   period: z.string(),
   website: itemUrlSchema,
   description: z.string(),
 });
 
-export const publicationItemSchema = baseItemSchema.extend({
+const publicationItemSchema = baseItemSchema.extend({
   title: z.string().min(1),
   publisher: z.string(),
   date: z.string(),
@@ -171,7 +167,7 @@ export const publicationItemSchema = baseItemSchema.extend({
   description: z.string(),
 });
 
-export const referenceItemSchema = baseItemSchema.extend({
+const referenceItemSchema = baseItemSchema.extend({
   name: z.string().min(1),
   position: z.string(),
   website: itemUrlSchema,
@@ -179,7 +175,7 @@ export const referenceItemSchema = baseItemSchema.extend({
   description: z.string(),
 });
 
-export const skillItemSchema = baseItemSchema.extend({
+const skillItemSchema = baseItemSchema.extend({
   icon: iconSchema,
   name: z.string().trim().min(1),
   proficiency: z.string(),
@@ -187,7 +183,7 @@ export const skillItemSchema = baseItemSchema.extend({
   keywords: z.array(z.string()).catch([]),
 });
 
-export const volunteerItemSchema = baseItemSchema.extend({
+const volunteerItemSchema = baseItemSchema.extend({
   organization: z.string().min(1),
   location: z.string(),
   period: z.string(),
@@ -195,64 +191,62 @@ export const volunteerItemSchema = baseItemSchema.extend({
   description: z.string(),
 });
 
-export const coverLetterItemSchema = baseItemSchema.extend({
+const coverLetterItemSchema = baseItemSchema.extend({
   recipient: z.string(),
   content: z.string(),
 });
 
-export type CoverLetterItem = z.infer<typeof coverLetterItemSchema>;
-
-export const baseSectionSchema = z.object({
+const baseSectionSchema = z.object({
   title: z.string(),
   columns: z.number(),
   hidden: z.boolean(),
 });
 
-export const awardsSectionSchema = baseSectionSchema.extend({
+const awardsSectionSchema = baseSectionSchema.extend({
   items: z.array(awardItemSchema),
 });
 
-export const certificationsSectionSchema = baseSectionSchema.extend({
+const certificationsSectionSchema = baseSectionSchema.extend({
   items: z.array(certificationItemSchema),
 });
 
-export const educationSectionSchema = baseSectionSchema.extend({
+const educationSectionSchema = baseSectionSchema.extend({
   items: z.array(educationItemSchema),
 });
 
-export const experienceSectionSchema = baseSectionSchema.extend({
+const experienceSectionSchema = baseSectionSchema.extend({
   items: z.array(experienceItemSchema),
 });
 
-export const interestsSectionSchema = baseSectionSchema.extend({
+const interestsSectionSchema = baseSectionSchema.extend({
   items: z.array(interestItemSchema),
 });
 
-export const languagesSectionSchema = baseSectionSchema.extend({
+const languagesSectionSchema = baseSectionSchema.extend({
   items: z.array(languageItemSchema),
 });
 
-export const profilesSectionSchema = baseSectionSchema.extend({
+const profilesSectionSchema = baseSectionSchema.extend({
   items: z.array(profileItemSchema),
 });
 
-export const projectsSectionSchema = baseSectionSchema.extend({
+const projectsSectionSchema = baseSectionSchema.extend({
   items: z.array(projectItemSchema),
 });
 
-export const publicationsSectionSchema = baseSectionSchema.extend({
+const publicationsSectionSchema = baseSectionSchema.extend({
   items: z.array(publicationItemSchema),
 });
 
-export const referencesSectionSchema = baseSectionSchema.extend({
+const referencesSectionSchema = baseSectionSchema.extend({
   items: z.array(referenceItemSchema),
 });
 
-export const skillsSectionSchema = baseSectionSchema.extend({
+const skillsSectionSchema = baseSectionSchema.extend({
   items: z.array(skillItemSchema),
 });
 
-export const volunteerSectionSchema = baseSectionSchema.extend({
+const volunteerSectionSchema = baseSectionSchema.extend({
   items: z.array(volunteerItemSchema),
 });
 
@@ -272,13 +266,8 @@ export const sectionsSchema = z.object({
 });
 
 export type SectionType = keyof z.infer<typeof sectionsSchema>;
-export type SectionData<T extends SectionType = SectionType> = z.infer<
-  typeof sectionsSchema
->[T];
-export type SectionItem<T extends SectionType = SectionType> =
-  SectionData<T>["items"][number];
 
-export const sectionTypeSchema = z.enum([
+const sectionTypeSchema = z.enum([
   "summary",
   "profiles",
   "experience",
@@ -295,9 +284,7 @@ export const sectionTypeSchema = z.enum([
   "cover-letter",
 ]);
 
-export type CustomSectionType = z.infer<typeof sectionTypeSchema>;
-
-export const customSectionItemSchema = z.union([
+const customSectionItemSchema = z.union([
   coverLetterItemSchema,
   summaryItemSchema,
   profileItemSchema,
@@ -314,19 +301,15 @@ export const customSectionItemSchema = z.union([
   referenceItemSchema,
 ]);
 
-export type CustomSectionItem = z.infer<typeof customSectionItemSchema>;
-
-export const customSectionSchema = baseSectionSchema.extend({
+const customSectionSchema = baseSectionSchema.extend({
   id: z.string(),
   type: sectionTypeSchema,
   items: z.array(customSectionItemSchema),
 });
 
-export type CustomSection = z.infer<typeof customSectionSchema>;
+const customSectionsSchema = z.array(customSectionSchema);
 
-export const customSectionsSchema = z.array(customSectionSchema);
-
-export const fontWeightSchema = z.enum([
+const fontWeightSchema = z.enum([
   "100",
   "200",
   "300",
@@ -338,25 +321,25 @@ export const fontWeightSchema = z.enum([
   "900",
 ]);
 
-export const typographyItemSchema = z.object({
+const typographyItemSchema = z.object({
   fontFamily: z.string(),
   fontWeights: z.array(fontWeightSchema).catch(["400"]),
   fontSize: z.number().min(6).max(24).catch(11),
   lineHeight: z.number().min(0.5).max(4).catch(1.5),
 });
 
-export const pageLayoutSchema = z.object({
+const pageLayoutSchema = z.object({
   fullWidth: z.boolean(),
   main: z.array(z.string()),
   sidebar: z.array(z.string()),
 });
 
-export const layoutSchema = z.object({
+const layoutSchema = z.object({
   sidebarWidth: z.number().min(10).max(50).catch(35),
   pages: z.array(pageLayoutSchema),
 });
 
-export const cssSchema = z.object({
+const cssSchema = z.object({
   enabled: z.boolean(),
   value: z.string(),
 });
@@ -452,7 +435,7 @@ const styleRuleSchema = z
 
 const defaultCss = { enabled: false, value: "" };
 
-export const pageSchema = z.object({
+const pageSchema = z.object({
   gapX: z.number().min(0),
   gapY: z.number().min(0),
   marginX: z.number().min(0),
@@ -462,7 +445,7 @@ export const pageSchema = z.object({
   hideIcons: z.boolean().catch(false),
 });
 
-export const levelDesignSchema = z.object({
+const levelDesignSchema = z.object({
   icon: iconSchema,
   type: z.enum([
     "hidden",
@@ -475,18 +458,18 @@ export const levelDesignSchema = z.object({
   ]),
 });
 
-export const colorDesignSchema = z.object({
+const colorDesignSchema = z.object({
   primary: z.string(),
   text: z.string(),
   background: z.string(),
 });
 
-export const designSchema = z.object({
+const designSchema = z.object({
   level: levelDesignSchema,
   colors: colorDesignSchema,
 });
 
-export const typographySchema = z.object({
+const typographySchema = z.object({
   body: typographyItemSchema,
   heading: typographyItemSchema,
 });

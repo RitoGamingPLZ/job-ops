@@ -5,14 +5,7 @@ import type {
   PipelinePendingChallenge,
   PipelineProgressCurrentJob,
   PipelineProgressState,
-  PipelineProgressStep,
 } from "@shared/types";
-
-/**
- * Pipeline progress tracking with Server-Sent Events.
- */
-
-export type PipelineStep = PipelineProgressStep;
 
 export type PendingChallenge = PipelinePendingChallenge;
 

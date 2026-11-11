@@ -1,11 +1,7 @@
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { unauthorized } from "@infra/errors";
-import {
-  getRequestContext,
-  getUserId,
-  requireTenantId,
-} from "@infra/request-context";
+import { getUserId } from "@infra/request-context";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { getDataDir } from "@server/config/dataDir";
 import { and, eq, type SQL } from "drizzle-orm";
@@ -51,14 +47,6 @@ export function getPrivateCloudflareCookieStorageDir(): string {
     .update(getPrivateDataScope().scopeKey)
     .digest("hex");
   return join(getDataDir(), "cloudflare-cookies", scopeHash);
-}
-
-export function requirePrivateTenantId(): string {
-  return requireTenantId();
-}
-
-export function getPrivateDataOwnerId(): string | null {
-  return getRequestContext()?.userId ?? null;
 }
 
 export function privateDataScopeFilter(table: UserScopedTable): SQL {

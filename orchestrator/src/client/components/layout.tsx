@@ -476,34 +476,6 @@ export const ScoreMeter: React.FC<ScoreMeterProps> = ({
 };
 
 // ============================================================================
-// Full Height Split Layout (for pages like VisaSponsors that use full viewport)
-// ============================================================================
-
-interface FullHeightSplitProps {
-  sidebar: React.ReactNode;
-  sidebarWidth?: string;
-  children: React.ReactNode;
-}
-
-export const FullHeightSplit: React.FC<FullHeightSplitProps> = ({
-  sidebar,
-  sidebarWidth = "lg:w-[420px]",
-  children,
-}) => (
-  <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
-    <div
-      className={cn(
-        "flex w-full flex-col border-b lg:border-b-0 lg:border-r",
-        sidebarWidth,
-      )}
-    >
-      {sidebar}
-    </div>
-    <div className="flex-1 overflow-y-auto">{children}</div>
-  </div>
-);
-
-// ============================================================================
 // Section Card (for forms, stats, etc.)
 // ============================================================================
 

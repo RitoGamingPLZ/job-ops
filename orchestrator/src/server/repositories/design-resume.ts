@@ -152,12 +152,6 @@ export async function deleteDesignResumeAssetsForDocument(documentId: string) {
     );
 }
 
-export async function deleteDesignResumeDocument(id: string) {
-  await db
-    .delete(designResumeDocuments)
-    .where(and(documentsScopeFilter(), eq(designResumeDocuments.id, id)));
-}
-
 export async function findDesignResumeAssetForDocument(args: {
   documentId: string;
   kind: "picture";

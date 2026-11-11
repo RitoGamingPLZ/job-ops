@@ -3,7 +3,6 @@ import type {
   DesignResumeStatusResponse,
 } from "@shared/types";
 import { useQuery } from "@tanstack/react-query";
-import { queryClient as appQueryClient } from "@/client/lib/queryClient";
 import { queryKeys } from "@/client/lib/queryKeys";
 import * as api from "../api";
 
@@ -28,8 +27,4 @@ export function useDesignResume() {
       await Promise.all([documentQuery.refetch(), statusQuery.refetch()]);
     },
   };
-}
-
-export function _resetDesignResumeCache() {
-  appQueryClient.removeQueries({ queryKey: queryKeys.designResume.all });
 }

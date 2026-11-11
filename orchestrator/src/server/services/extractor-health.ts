@@ -459,12 +459,3 @@ export function __resetExtractorHealthCacheForTests(): void {
 export function __getExtractorHealthCacheTtlMsForTests(): number {
   return HEALTH_CACHE_TTL_MS;
 }
-
-export function __getExtractorHealthProbeConfigForTests(
-  source: ExtractorSourceId,
-): HealthProbeConfig {
-  return {
-    ...HEALTH_PROBE_CONFIG_BY_SOURCE[source],
-    settings: { ...HEALTH_PROBE_CONFIG_BY_SOURCE[source].settings },
-  };
-}

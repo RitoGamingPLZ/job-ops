@@ -1,5 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { badRequest, upstreamError } from "@infra/errors";
+import { escapeHtml } from "@infra/html";
 import { convert } from "html-to-text";
 import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
@@ -161,13 +162,6 @@ function location(job: Job) {
       ),
     ].join("; ") || null
   );
-}
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 function description(job: Job) {
   return [

@@ -1,5 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { badRequest, upstreamError } from "@infra/errors";
+import { escapeHtmlText } from "@infra/html";
 import { convert } from "html-to-text";
 import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
@@ -165,19 +166,10 @@ async function details(jobRef: string, signal?: AbortSignal) {
     .filter(([, text]) => text?.trim())
     .map(
       ([title, text]) =>
-        `<h3>${escapeHtml(title ?? "")}</h3><p>${escapeHtml(text ?? "").replace(/\r?\n/g, "<br>")}</p>`,
+        `<h3>${escapeHtmlText(title ?? "")}</h3><p>${escapeHtmlText(text ?? "").replace(/\r?\n/g, "<br>")}</p>`,
     )
     .join("\n");
   return { job, jobUrl: url.toString(), descriptionHtml };
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {

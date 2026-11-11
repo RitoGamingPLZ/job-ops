@@ -1,7 +1,6 @@
 import type { OnboardingStatusResponse } from "@shared/types";
 import { useQuery } from "@tanstack/react-query";
 import * as api from "@/client/api";
-import { queryClient as appQueryClient } from "@/client/lib/queryClient";
 import { queryKeys } from "@/client/lib/queryKeys";
 
 export function useOnboardingStatus() {
@@ -20,8 +19,4 @@ export function useOnboardingStatus() {
     error: query.error ?? null,
     refetch: query.refetch,
   };
-}
-
-export function _resetOnboardingStatusCache() {
-  appQueryClient.removeQueries({ queryKey: queryKeys.onboarding.all });
 }

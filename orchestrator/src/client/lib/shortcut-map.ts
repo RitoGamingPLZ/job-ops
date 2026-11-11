@@ -141,8 +141,6 @@ export const SHORTCUTS = {
   },
 } as const satisfies Record<string, ShortcutDef>;
 
-export type ShortcutId = keyof typeof SHORTCUTS;
-
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
 /**

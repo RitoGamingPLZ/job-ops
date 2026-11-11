@@ -152,24 +152,6 @@ export const getJobDateValue = (
   }
 };
 
-export const jobMatchesQuery = (job: JobListItem, query: string) => {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return true;
-  const haystack = [
-    job.title,
-    job.employer,
-    job.location,
-    job.source,
-    job.status,
-    job.jobType,
-    job.jobFunction,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(normalized);
-};
-
 /**
  * Lowercase a string and collapse anything that is not alphanumeric into a
  * single space, so messy free-text values (e.g. "London, UK") tokenize

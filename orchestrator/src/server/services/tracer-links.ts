@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { logger } from "@infra/logger";
 import { trackServerProductEvent } from "@infra/product-analytics";
+import { isHttpUrl } from "@infra/url";
 import type {
   JobOpsPublicAvailabilityResponse,
   JobTracerLinksResponse,
@@ -41,15 +42,6 @@ function hashText(value: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 function sanitizeLettersOnly(

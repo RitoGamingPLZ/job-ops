@@ -437,13 +437,3 @@ export async function deleteJobStageEvent(
     method: "DELETE",
   });
 }
-
-export async function updateJobOutcome(
-  id: string,
-  input: { outcome: JobOutcome | null; closedAt?: number | null },
-): Promise<Job> {
-  return fetchApi<Job>(`/jobs/${id}/outcome`, {
-    method: "PATCH",
-    body: JSON.stringify(input),
-  });
-}
