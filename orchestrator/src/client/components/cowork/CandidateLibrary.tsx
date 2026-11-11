@@ -13,11 +13,18 @@ import type {
   ExperienceBullet,
   ExperienceBulletInput,
   LibraryItemUsage,
+  LibrarySyncResult,
   RankedBullet,
   ReactiveResumeV5Document,
 } from "@shared/types";
 import { Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -84,6 +91,13 @@ const keywords = (item: Item): string[] =>
   Array.isArray(item.data?.keywords)
     ? item.data.keywords.filter((v): v is string => typeof v === "string")
     : [];
+function fieldValue(field: string, value: unknown): string {
+  if (field === "website" && value && typeof value === "object") {
+    const url = (value as { url?: unknown }).url;
+    return typeof url === "string" ? url : "";
+  }
+  return typeof value === "string" ? value : "";
+}
 function resumeItems(
   document?: Doc,
   sectionName?: string,
@@ -103,14 +117,34 @@ export function CandidateLibrary({
   document,
   onDocumentChange,
   onReferenceBullet,
+  items: providedItems,
+  onItemsChange,
+  onSync,
 }: {
+  /** Supplying items lets the workspace share one library load with its editor. */
+  items?: ExperienceBullet[];
+  onItemsChange?: (items: ExperienceBullet[]) => void;
+  /** Workspace callback coordinates saving and revision reloads around Sync. */
+  onSync?: () => Promise<LibrarySyncResult>;
   jobId?: string;
   frozen?: boolean;
   document?: Doc;
   onDocumentChange?: (update: (doc: Doc) => Doc) => void;
   onReferenceBullet?: (bullet: ExperienceBullet) => void;
 }) {
-  const [items, setItems] = useState<Item[]>([]);
+  const [localItems, setLocalItems] = useState<Item[]>([]);
+  const items = providedItems ?? localItems;
+  const currentItems = useRef(items);
+  currentItems.current = items;
+  const controls = useRef({ providedItems, onItemsChange });
+  controls.current = { providedItems, onItemsChange };
+  const setItems = useCallback((update: SetStateAction<Item[]>) => {
+    const next =
+      typeof update === "function" ? update(currentItems.current) : update;
+    currentItems.current = next;
+    if (controls.current.providedItems === undefined) setLocalItems(next);
+    controls.current.onItemsChange?.(next);
+  }, []);
   const [section, setSection] = useState<CandidateItemKind>("role");
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -124,8 +158,12 @@ export function CandidateLibrary({
   const refresh = useCallback(async () => {
     setItems((await api.listCandidateLibrary()).items);
     setFailed(false);
-  }, []);
+  }, [setItems]);
   useEffect(() => {
+    if (providedItems !== undefined) {
+      setLoading(false);
+      return;
+    }
     let active = true;
     api
       .listCandidateLibrary()
@@ -144,7 +182,7 @@ export function CandidateLibrary({
     return () => {
       active = false;
     };
-  }, []);
+  }, [providedItems, setItems]);
   async function run(action: () => Promise<void>) {
     setBusy(true);
     try {
@@ -255,9 +293,18 @@ export function CandidateLibrary({
   async function remove(group: Item[]) {
     for (const item of group) {
       await api.deleteExperienceBullet(item.id, jobId);
-      if (!frozen) onDocumentChange?.((doc) => removeFromResume(doc, item.id));
+      const removedIds = [
+        item.id,
+        ...currentItems.current
+          .filter((row) => row.parentId === item.id)
+          .map((row) => row.id),
+      ];
+      if (!frozen)
+        onDocumentChange?.((doc) =>
+          removedIds.reduce((next, id) => removeFromResume(next, id), doc),
+        );
       setItems((current) =>
-        current.filter((row) => row.id !== item.id && row.parentId !== item.id),
+        current.filter((row) => !removedIds.includes(row.id)),
       );
     }
     setDeletion(null);
@@ -344,7 +391,7 @@ export function CandidateLibrary({
               autoFocus={current.companyOnly && index === 0}
               aria-label={fieldLabel(current, field)}
               disabled={busy}
-              value={String(current.input.data?.[field] ?? "")}
+              value={fieldValue(field, current.input.data?.[field])}
               onChange={(event) =>
                 setEdit({
                   ...current,
@@ -352,7 +399,15 @@ export function CandidateLibrary({
                     ...current.input,
                     data: {
                       ...current.input.data,
-                      [field]: event.target.value,
+                      [field]:
+                        field === "website" &&
+                        current.input.data?.website &&
+                        typeof current.input.data.website === "object"
+                          ? {
+                              ...current.input.data.website,
+                              url: event.target.value,
+                            }
+                          : event.target.value,
                     },
                   },
                 })
@@ -432,7 +487,7 @@ export function CandidateLibrary({
             {item.text}
             <span className="text-muted-foreground">
               {(fields[item.kind] ?? [])
-                .map((field) => item.data?.[field])
+                .map((field) => fieldValue(field, item.data?.[field]))
                 .filter(Boolean)
                 .map((value) => ` · ${String(value)}`)
                 .join("")}
@@ -606,7 +661,9 @@ export function CandidateLibrary({
           disabled={busy || loading}
           onClick={() =>
             void run(async () => {
-              const result = await api.syncCandidateLibrary();
+              const result = await (onSync
+                ? onSync()
+                : api.syncCandidateLibrary());
               await refresh();
               toast.success(
                 `Synced ${result.created}; skipped ${result.skipped}; linked ${result.linked}`,

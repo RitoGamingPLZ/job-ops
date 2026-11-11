@@ -495,3 +495,148 @@ describe("candidate library", () => {
     );
   });
 });
+
+describe("candidate library workspace integration", () => {
+  it("uses supplied items without another load and reports edits to the workspace", async () => {
+    const onItemsChange = vi.fn();
+    const view = render(
+      <CandidateLibrary items={library} onItemsChange={onItemsChange} />,
+    );
+    expect(screen.getByText("Built tools")).toBeVisible();
+    expect(mocks.list).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Built tools" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Text" }), {
+      target: { value: "Updated duty" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(onItemsChange).toHaveBeenCalledWith(
+        library.map((item) =>
+          item.id === duty.id ? { ...duty, text: "Updated duty" } : item,
+        ),
+      ),
+    );
+    const updated = onItemsChange.mock.calls.at(-1)?.[0];
+    view.rerender(
+      <CandidateLibrary items={updated} onItemsChange={onItemsChange} />,
+    );
+    expect(
+      await screen.findByRole("button", { name: "Updated duty" }),
+    ).toBeVisible();
+    expect(mocks.list).not.toHaveBeenCalled();
+  });
+  it("delegates Sync to the workspace, then refreshes and reports the library", async () => {
+    const onSync = vi
+      .fn()
+      .mockResolvedValue({ created: 1, skipped: 2, linked: 3 });
+    const onItemsChange = vi.fn();
+    await mount({ items: library, onItemsChange, onSync });
+    fireEvent.click(screen.getByText("Sync from resumes"));
+    await waitFor(() =>
+      expect(mocks.success).toHaveBeenCalledWith(
+        "Synced 1; skipped 2; linked 3",
+      ),
+    );
+    expect(onSync).toHaveBeenCalledOnce();
+    expect(mocks.sync).not.toHaveBeenCalled();
+    expect(mocks.list).toHaveBeenCalledOnce();
+    expect(onItemsChange).toHaveBeenCalledWith(library);
+  });
+  it.each([
+    false,
+    true,
+  ])("deletes moved child lines along with their parent; frozen=%s", async (frozen) => {
+    const links = await vi.importActual<typeof import("@shared/resume-links")>(
+      "@shared/resume-links",
+    );
+    mocks.subtract.mockImplementation(links.removeFromResume);
+    const initial = {
+      ...doc,
+      customSections: [],
+      sections: {
+        ...doc.sections,
+        experience: {
+          items: [
+            { id: "original", libraryId: role.id, description: "" },
+            {
+              id: "other",
+              libraryId: "other-role",
+              description: "<ul><li>Built tools</li><li>Keep me</li></ul>",
+              bulletRefs: [duty.id, null],
+            },
+          ],
+        },
+      },
+    } as unknown as ReactiveResumeV5Document;
+    let current = initial;
+    const change = vi.fn((update) => {
+      current = update(current);
+    });
+    await mount({
+      jobId: "job",
+      document: initial,
+      frozen,
+      onDocumentChange: change,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Delete Engineer" }));
+    await waitFor(() => expect(screen.queryByText("Built tools")).toBeNull());
+    expect(mocks.remove).toHaveBeenCalledWith(role.id, "job");
+    if (frozen) {
+      expect(change).not.toHaveBeenCalled();
+      expect(current).toBe(initial);
+    } else {
+      expect(current.sections.experience.items).toHaveLength(1);
+      expect(links.getItemLines(current.sections.experience.items[0])).toEqual([
+        { text: "Keep me", ref: null },
+      ]);
+    }
+  });
+  it.each([
+    "role",
+    "project",
+    "certification",
+  ] as const)("displays and edits object website URLs for %s without losing the label", async (kind) => {
+    const entry = {
+      ...role,
+      id: "entry",
+      kind,
+      text: "Entry",
+      data: {
+        ...role.data,
+        website: { url: "https://example.test", label: "Site" },
+      },
+    };
+    mocks.update.mockImplementation(async (id, input) => ({
+      bullet: { ...entry, id, ...input },
+    }));
+    render(<CandidateLibrary items={[entry]} />);
+    if (kind === "role")
+      fireEvent.click(screen.getByRole("button", { name: "Acme · London" }));
+    else {
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: kind === "project" ? "Projects" : "Certifications",
+        }),
+      );
+      expect(screen.queryByText(/\[object Object\]/)).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /Entry ·/ }));
+    }
+    const url = screen.getByRole("textbox", {
+      name: kind === "certification" ? "Link" : "Website",
+    });
+    expect(url).toHaveValue("https://example.test");
+    fireEvent.change(url, { target: { value: "https://changed.test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenCalledWith(
+        "entry",
+        expect.objectContaining({
+          data: expect.objectContaining({
+            website: { url: "https://changed.test", label: "Site" },
+          }),
+        }),
+        undefined,
+      ),
+    );
+  });
+});

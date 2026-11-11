@@ -1,8 +1,14 @@
 import { ApiClientError } from "@client/api/core";
 import * as api from "@client/api/cowork";
 import { generateJobPdf, getJob } from "@client/api/jobs";
-import { joinDescription, splitDescription } from "@shared/resume-bullets";
+import {
+  applyLibraryUpdate,
+  getItemLines,
+  isOnResume,
+  setItemLines,
+} from "@shared/resume-links";
 import type {
+  ExperienceBullet,
   Job,
   JobResumeState,
   ReactiveResumeV5Document,
@@ -12,10 +18,8 @@ import type {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  coworkError,
-  DutyLibrary,
-} from "@/client/components/cowork/DutyLibrary";
+import { CandidateLibrary } from "@/client/components/cowork/CandidateLibrary";
+import { coworkError } from "@/client/components/cowork/DutyLibrary";
 import {
   addFocus,
   BULLET_TRANSFER_TYPE,
@@ -49,6 +53,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 // Matches Tailwind's xl breakpoint, where all three panes show side by side.
+const PREVIEW_KEY = "resume-cowork-preview";
 const WIDE_QUERY = "(min-width: 1280px)";
 function useWideLayout() {
   const [wide, setWide] = useState(
@@ -69,6 +74,15 @@ export function ResumeCoworkPage() {
   return jobId ? <CoworkWorkspace key={jobId} jobId={jobId} /> : null;
 }
 function CoworkWorkspace({ jobId }: { jobId: string }) {
+  const [library, setLibrary] = useState<ExperienceBullet[]>([]);
+  const [preview, setPreview] = useState(() => {
+    try {
+      return localStorage.getItem(PREVIEW_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [state, setState] = useState<JobResumeState | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -91,12 +105,14 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
   const [rendering, setRendering] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [rightTab, setRightTab] = useState<"match" | "duties">("match");
+  const [rightTab, setRightTab] = useState<"library" | "match">("library");
   const [chatPrompt, setChatPrompt] = useState<string | null>(null);
   const wide = useWideLayout();
   const editorPane = useRef<HTMLElement>(null);
   const latest = useRef<JobResumeState | null>(null);
   const dirty = useRef(false);
+  const syncing = useRef(false);
+  const resumeReloadRequired = useRef(false);
   const version = useRef(0);
   const mounted = useRef(true);
   const saving = useRef<Promise<boolean> | null>(null);
@@ -108,6 +124,11 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
   const load = useCallback(async () => {
     setError(null);
     try {
+      // GET /library can stamp refs and advance the resume revision on first build.
+      // Read the resume only after that build has finished.
+      const result = await api.listCandidateLibrary();
+      if (!mounted.current) return;
+      setLibrary(result.items);
       const [nextJob, next] = await Promise.all([
         getJob(jobId),
         api.getJobResume(jobId),
@@ -116,6 +137,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
       setJob(nextJob);
       publish(next);
       dirty.current = false;
+      resumeReloadRequired.current = false;
       setStatus("Saved");
     } catch (failure) {
       if (mounted.current) setError(failure);
@@ -129,8 +151,14 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
       if (timer.current) clearTimeout(timer.current);
     };
   }, [load]);
+  useEffect(
+    () => () => {
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    },
+    [pdfUrl],
+  );
   const save = useCallback(async (): Promise<boolean> => {
-    if (conflict.current) return false;
+    if (conflict.current || resumeReloadRequired.current) return false;
     if (saving.current) return saving.current;
     if (!dirty.current || !latest.current) return true;
     const snapshot = latest.current;
@@ -234,7 +262,13 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     setUndoStack(history.current);
   }
   function edit(document: ReactiveResumeV5Document, typing = false) {
-    if (!latest.current || document === latest.current.document) return;
+    if (
+      syncing.current ||
+      resumeReloadRequired.current ||
+      !latest.current ||
+      document === latest.current.document
+    )
+      return;
     const element = window.document.activeElement;
     const now = Date.now();
     const field =
@@ -255,6 +289,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     setStatus("Unsaved changes");
   }
   const undo = useCallback(() => {
+    if (syncing.current || resumeReloadRequired.current) return;
     const previous = history.current.pop();
     if (!previous || !latest.current) return;
     setUndoStack([...history.current]);
@@ -311,6 +346,43 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     }
     return true;
   }
+  async function syncLibrary() {
+    if (syncing.current || busy)
+      throw new Error("A resume action is already running.");
+    syncing.current = true;
+    setBusy(true);
+    if (timer.current) clearTimeout(timer.current);
+    try {
+      if (!(await flush()))
+        throw new Error("Save your resume before syncing the library.");
+      // Sync can stamp refs and increment the server revision. Block every save
+      // until we know that no reload is needed or have read that new revision.
+      resumeReloadRequired.current = true;
+      const result = await api.syncCandidateLibrary();
+      if (result.linked > 0) {
+        const next = await api.getJobResume(jobId);
+        publish(next);
+        dirty.current = false;
+        version.current++;
+        history.current = [];
+        lastTyping.current = null;
+        if (mounted.current) {
+          setUndoStack([]);
+          setSuggestions([]);
+          setStatus("Saved");
+        }
+      }
+      resumeReloadRequired.current = false;
+      return result;
+    } catch (failure) {
+      // An uncertain revision must be reloaded through Retry before editing.
+      if (resumeReloadRequired.current && mounted.current) setError(failure);
+      throw failure;
+    } finally {
+      syncing.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
   async function resetToBase() {
     setBusy(true);
     if (timer.current) clearTimeout(timer.current);
@@ -341,25 +413,87 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     setFocus((current) => addFocus(current, ref));
   }
   function insertDuty(bullet: BulletReference, id: string) {
-    if (busy || !latest.current) return;
+    if (busy || syncing.current || !latest.current) return;
     const key = `${id}:${bullet.id}:${bullet.text}`;
     const now = Date.now();
     if (lastInsert.current?.key === key && now - lastInsert.current.time < 500)
       return;
     lastInsert.current = { key, time: now };
+    const original = library.find((item) => item.id === bullet.id);
+    const ref = original?.kind === "bullet" ? original.id : null;
+    if (ref && isOnResume(latest.current.document, ref)) return;
     const next = structuredClone(latest.current.document);
-    const experience = next.sections.experience.items.find((e) => e.id === id);
-    if (experience) {
-      const { introHtml, bullets } = splitDescription(experience.description);
-      experience.description = joinDescription(
-        introHtml,
-        [...bullets, bullet.text],
-        experience.description,
-      );
+    const index = next.sections.experience.items.findIndex((e) => e.id === id);
+    if (index >= 0) {
+      const experience = next.sections.experience.items[index];
+      next.sections.experience.items[index] = setItemLines(experience, [
+        ...getItemLines(experience),
+        { text: bullet.text, ref },
+      ]) as typeof experience;
       edit(next);
       toast.success("Duty inserted");
     }
   }
+  async function saveLineToLibrary(id: string, text: string) {
+    const before = library.find((item) => item.id === id);
+    if (!before || busy) return;
+    setBusy(true);
+    try {
+      const { bullet: after } = await api.updateExperienceBullet(
+        id,
+        { text },
+        jobId,
+      );
+      if (!mounted.current) return;
+      if (
+        job?.status !== "applied" &&
+        job?.status !== "in_progress" &&
+        latest.current
+      )
+        edit(applyLibraryUpdate(latest.current.document, before, after));
+      setLibrary((await api.listCandidateLibrary()).items);
+    } catch (failure) {
+      coworkError(failure);
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  }
+  async function showPreview() {
+    setBusy(true);
+    setRendering(true);
+    try {
+      if (!(await flush())) return;
+      await generateJobPdf(jobId);
+      const url = await createJobPdfObjectUrl(jobId);
+      if (!mounted.current) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+      setPdfUrl(url);
+      setPdfReady(true);
+    } catch (failure) {
+      coworkError(failure);
+    } finally {
+      if (mounted.current) {
+        setBusy(false);
+        setRendering(false);
+      }
+    }
+  }
+  function togglePreview() {
+    const next = !preview;
+    setPreview(next);
+    try {
+      localStorage.setItem(PREVIEW_KEY, String(next));
+    } catch {
+      /* Storage may be disabled. */
+    }
+    if (next) {
+      previewRequested.current = true;
+      void showPreview();
+    }
+  }
+
   const getDocument = useCallback(
     () => latest.current?.document as ReactiveResumeV5Document,
     [],
@@ -378,6 +512,12 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     },
     [wide],
   );
+  const previewRequested = useRef(false);
+  useEffect(() => {
+    if (!state || !preview || previewRequested.current) return;
+    previewRequested.current = true;
+    void showPreview();
+  });
   if (error)
     return (
       <main className="p-6 space-y-4">
@@ -493,7 +633,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
             onClick={() => setTab(name)}
           >
             {name === "library"
-              ? "Match & duties"
+              ? "Library & match"
               : name === "editor" && suggestions.length
                 ? `Editor (${suggestions.length})`
                 : name[0].toUpperCase() + name.slice(1)}
@@ -617,42 +757,77 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           aria-label="Resume editor"
           className={`${tab === "editor" ? "block" : "hidden"} xl:block min-h-0 min-w-0 overflow-auto [scrollbar-gutter:stable] border rounded-md bg-[#e4e5e7] p-3`}
         >
-          <ResumeEditor
-            disabled={busy}
-            document={document}
-            onChange={(next) => edit(next, true)}
-            onAskAi={(ref) => {
-              addFocusRef(ref);
-              setTab("chat");
-              // The chat panel may only become visible after this render.
-              setTimeout(() =>
-                chat.current?.querySelector<HTMLElement>("textarea")?.focus(),
-              );
-            }}
-            suggestions={suggestions}
-            onDismiss={(ids) =>
-              setSuggestions((current) =>
-                current.filter((s) => !ids.includes(s.id)),
-              )
-            }
-          />
+          <div className="mb-3 flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={togglePreview}
+              aria-label={preview ? "Switch to Edit" : "Switch to Preview"}
+            >
+              {preview ? "Edit" : "Preview"}
+            </Button>
+          </div>
+          {preview ? (
+            pdfUrl ? (
+              <iframe
+                title="Resume PDF preview"
+                src={pdfUrl}
+                className="h-full min-h-[600px] w-full"
+              />
+            ) : (
+              <output>
+                {rendering ? (
+                  "Rendering PDF…"
+                ) : (
+                  <Button onClick={() => void showPreview()}>
+                    Render preview
+                  </Button>
+                )}
+              </output>
+            )
+          ) : (
+            <ResumeEditor
+              library={library}
+              onSaveLineToLibrary={(id, text) =>
+                void saveLineToLibrary(id, text)
+              }
+              disabled={busy}
+              document={document}
+              onChange={(next) => edit(next, true)}
+              onAskAi={(ref) => {
+                addFocusRef(ref);
+                setTab("chat");
+                // The chat panel may only become visible after this render.
+                setTimeout(() =>
+                  chat.current?.querySelector<HTMLElement>("textarea")?.focus(),
+                );
+              }}
+              suggestions={suggestions}
+              onDismiss={(ids) =>
+                setSuggestions((current) =>
+                  current.filter((s) => !ids.includes(s.id)),
+                )
+              }
+            />
+          )}
         </section>
         <section
           id="cowork-panel-library"
           role="tabpanel"
           aria-labelledby="cowork-tab-library"
-          aria-label="Duty library"
+          aria-label="Candidate library"
           className={`${tab === "library" ? "block" : "hidden"} xl:block min-h-0 min-w-0 overflow-auto border rounded-md p-3`}
         >
           <div
             className="flex gap-1 mb-3"
             role="tablist"
-            aria-label="Job match and duties"
+            aria-label="Library and job match"
           >
             {(
               [
+                ["library", "Library"],
                 ["match", "Job match"],
-                ["duties", "Duties"],
               ] as const
             ).map(([name, label]) => (
               <Button
@@ -688,14 +863,25 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
               }}
             />
           </div>
-          <div hidden={rightTab !== "duties"}>
-            <DutyLibrary
+          <fieldset
+            disabled={busy}
+            hidden={rightTab !== "library"}
+            className="min-w-0"
+          >
+            <CandidateLibrary
               jobId={jobId}
-              targets={targets}
-              onReference={reference}
-              onInsert={insertDuty}
+              items={library}
+              onItemsChange={setLibrary}
+              onSync={syncLibrary}
+              frozen={job.status === "applied" || job.status === "in_progress"}
+              document={document}
+              onDocumentChange={(update) => {
+                if (!busy && latest.current)
+                  edit(update(latest.current.document));
+              }}
+              onReferenceBullet={reference}
             />
-          </div>
+          </fieldset>
         </section>
       </div>
       <AlertDialog open={conflictOpen}>
