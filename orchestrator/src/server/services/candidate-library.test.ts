@@ -695,7 +695,7 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
   });
 });
 
-it("validates contact data and imports base contacts once per tenant without duplicates", async () => {
+it("validates contact data and imports missing base contacts per tenant without duplicates", async () => {
   document.basics.email = "me@example.com";
   document.basics.phone = "123";
   document.basics.location = "London";
@@ -788,5 +788,59 @@ it("scopes contact usage, propagation and deletion by tenant and preserves froze
     expect(
       rows().find((row) => row.jobId === "ready-b")?.document.basics.email,
     ).toBe("me@example.com");
+  });
+});
+
+it("sync imports missing base contacts into existing libraries without editing or removing contacts", async () => {
+  await scope("tenant-a", async () => {
+    api.syncCandidateLibrary(document);
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(false);
+    const existing = api.createLibraryItem({
+      kind: "contact",
+      text: "Display",
+      tags: ["Personal"],
+      data: { type: "email", value: "  me@example.com  " },
+    });
+    expect(existing).toMatchObject({
+      text: "me@example.com",
+      data: { value: "me@example.com" },
+    });
+    document.basics.email = " ME@example.com ";
+    document.basics.phone = " 123 ";
+    expect(api.syncCandidateLibrary(document).created).toBe(1);
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+    const repo = await import("../repositories/experience-bullets");
+    const contacts = (await repo.listExperienceBullets(true)).filter(
+      (item) => item.kind === "contact",
+    );
+    expect(contacts).toHaveLength(2);
+    expect(contacts.find((item) => item.id === existing.id)).toEqual(existing);
+    expect(contacts.find((item) => item.data?.type === "phone")).toMatchObject({
+      text: "123",
+      data: { value: "123" },
+    });
+    const updated = api.updateLibraryItem(existing.id, {
+      data: { type: "email", value: " new@example.com " },
+    });
+    expect(updated).toMatchObject({
+      text: "new@example.com",
+      data: { value: "new@example.com" },
+    });
+    document.basics.email = "";
+    document.basics.phone = "";
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+    expect(
+      (await repo.listExperienceBullets(true)).filter(
+        (item) => item.kind === "contact",
+      ),
+    ).toHaveLength(2);
+  });
+  await scope("tenant-b", async () => {
+    const repo = await import("../repositories/experience-bullets");
+    expect(
+      (await repo.listExperienceBullets(true)).filter(
+        (item) => item.kind === "contact",
+      ),
+    ).toHaveLength(0);
   });
 });

@@ -120,6 +120,16 @@ function parentFields(parent: ExperienceBullet | undefined) {
     endDate: parent ? period.slice(1).join(" – ") || null : null,
   };
 }
+function normalizeContact(input: ExperienceBulletInput): ExperienceBulletInput {
+  if (input.kind !== "contact") return input;
+  const data = Object.fromEntries(
+    Object.entries(input.data ?? {}).map(([key, value]) => [
+      key,
+      typeof value === "string" ? value.trim() : value,
+    ]),
+  );
+  return { ...input, text: String(data.value ?? ""), data };
+}
 function insert(input: ExperienceBulletInput, all: ExperienceBullet[]) {
   const parent = all.find((item) => item.id === input.parentId);
   const { tenantId, userId } = getPrivateDataScope();
@@ -161,7 +171,7 @@ export function createLibraryItem(input: ExperienceBulletInput) {
   return db.transaction(() => {
     const all = library();
     validate(input, all);
-    return insert(input, all);
+    return insert(normalizeContact(input), all);
   });
 }
 export function updateLibraryItem(
@@ -176,6 +186,8 @@ export function updateLibraryItem(
     if (input.kind && input.kind !== before.kind)
       throw badRequest("Library item kind cannot change");
     validate({ ...before, ...input }, all, id);
+    if (before.kind === "contact")
+      input = normalizeContact({ ...before, ...input });
     if (before.kind !== "bullet") {
       input = {
         ...input,
@@ -278,11 +290,7 @@ function key(input: ExperienceBulletInput) {
   // lack its location or website. Skill keywords are merged by label.
   const data = input.data ?? {};
   if (input.kind === "contact")
-    return JSON.stringify([
-      "contact",
-      data.type,
-      String(data.value ?? "").trim(),
-    ]);
+    return JSON.stringify(["contact", data.type, normal(data.value)]);
   const identity =
     input.kind === "role"
       ? [data.company, normalPeriod(data.period)]
@@ -388,7 +396,7 @@ export function syncCandidateLibrary(
       }
       const item = insert(
         {
-          ...input,
+          ...normalizeContact(input),
           position: all.filter(
             (item) =>
               item.kind === input.kind &&
@@ -401,7 +409,7 @@ export function syncCandidateLibrary(
       result.created++;
       return item;
     }
-    if (firstBuild && base) {
+    if (base) {
       for (const type of ["email", "phone", "location", "website"] as const) {
         const value =
           type === "website" ? base.basics.website.url : base.basics[type];

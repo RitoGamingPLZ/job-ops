@@ -120,7 +120,7 @@ export function InlineTags({
               <button
                 type="button"
                 className="shrink-0 text-xs text-muted-foreground"
-                aria-label={`Show ${bullet.tags.length - visibleCount} more tags`}
+                aria-label={`Show ${bullet.tags.length - visibleCount} more tags for ${bullet.text}`}
               >
                 +{bullet.tags.length - visibleCount}
               </button>
@@ -148,6 +148,7 @@ export function InlineTags({
         {!adding && (
           <button
             ref={addButton}
+            aria-label={`Add tag to ${bullet.text}`}
             type="button"
             disabled={busy}
             className="shrink-0 text-xs text-muted-foreground"

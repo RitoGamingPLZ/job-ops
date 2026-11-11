@@ -156,9 +156,11 @@ describe("candidate library duty tools", () => {
         1,
       );
       expect(
-        screen.getByRole("button", { name: "Show 9 more tags" }),
+        screen.getByRole("button", { name: "Show 9 more tags for Engineer" }),
       ).toHaveTextContent("+9");
-      fireEvent.click(screen.getByRole("button", { name: "+ tag" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Add tag to Engineer" }),
+      );
       width = 240;
       act(() => resize());
       expect(screen.getAllByRole("button", { name: /^Remove/ })).toHaveLength(
@@ -171,7 +173,9 @@ describe("candidate library duty tools", () => {
       fireEvent.change(input, { target: { value: "Tag 0" } });
       fireEvent.submit(input.closest("form") as HTMLFormElement);
       expect(onSave).not.toHaveBeenCalled();
-      expect(screen.getByRole("button", { name: "+ tag" })).toBeVisible();
+      expect(
+        screen.getByRole("button", { name: "Add tag to Engineer" }),
+      ).toBeVisible();
       expect(screen.getAllByRole("button", { name: /^Remove/ })).toHaveLength(
         3,
       );
@@ -180,7 +184,9 @@ describe("candidate library duty tools", () => {
       expect(screen.getAllByRole("button", { name: /^Remove/ })).toHaveLength(
         4,
       );
-      fireEvent.click(screen.getByRole("button", { name: "Show 6 more tags" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Show 6 more tags for Engineer" }),
+      );
       fireEvent.click(
         screen.getByRole("button", { name: "Remove Tag 9 from Engineer" }),
       );

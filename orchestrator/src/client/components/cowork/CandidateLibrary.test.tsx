@@ -322,7 +322,9 @@ describe("candidate library", () => {
   });
   it("creates a duty under its role", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: "+ Add duty" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add duty to Engineer" }),
+    );
     fireEvent.change(screen.getByRole("textbox", { name: "Text" }), {
       target: { value: "Mentored engineers" },
     });
@@ -383,7 +385,7 @@ describe("candidate library", () => {
       "Reworded tools",
     );
   });
-  it("keeps tags, drag payload, chat references and rank results", async () => {
+  it("keeps tags, chat references and rank results", async () => {
     const reference = vi.fn();
     mocks.rank.mockResolvedValue({
       ranked: [{ bulletId: "duty", score: 88, reason: "Relevant tools" }],
@@ -392,15 +394,6 @@ describe("candidate library", () => {
     expect(
       screen.getByRole("button", { name: "Remove Tools from Built tools" }),
     ).toBeVisible();
-    const setData = vi.fn();
-    fireEvent.dragStart(
-      screen.getByRole("button", { name: "Drag duty: Built tools" }),
-      { dataTransfer: { setData } },
-    );
-    expect(setData).toHaveBeenCalledWith(
-      "application/x-jobops-bullet",
-      JSON.stringify({ id: duty.id, text: duty.text }),
-    );
     fireEvent.click(
       screen.getByRole("button", { name: "Chat reference: Built tools" }),
     );
@@ -476,7 +469,9 @@ describe("candidate library", () => {
         name: `Remove Existing from ${text}`,
       }),
     ).toBeVisible();
-    fireEvent.click(within(tagsLine).getByRole("button", { name: "+ tag" }));
+    fireEvent.click(
+      within(tagsLine).getByRole("button", { name: `Add tag to ${text}` }),
+    );
     fireEvent.change(
       screen.getByRole("textbox", { name: `Add skill to ${text}` }),
       {
@@ -597,7 +592,7 @@ describe("candidate library", () => {
   });
   it("places add controls beside their headers and requires a job company", async () => {
     await mount();
-    const add = screen.getByRole("button", { name: "+ Add duty" });
+    const add = screen.getByRole("button", { name: "Add duty to Engineer" });
     fireEvent.click(add);
     expect(add.parentElement).toContainElement(
       screen.getByRole("button", { name: "Show duties for Engineer" }),
@@ -605,11 +600,11 @@ describe("candidate library", () => {
     expect(
       screen.getByRole("form", { name: "Edit library item" }),
     ).toBeVisible();
-    const addRole = screen.getByRole("button", { name: "+ Add role" });
+    const addRole = screen.getByRole("button", { name: "Add role at Acme" });
     expect(addRole.parentElement?.parentElement).toContainElement(
       screen.getByRole("button", { name: "Acme · London" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "+ Add job" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add job" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Position" }), {
       target: { value: "Engineer" },
     });
@@ -622,13 +617,6 @@ describe("candidate library", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Save" })).toBeEnabled(),
     );
-  });
-  it("does not offer experience drag sources for project points", async () => {
-    await mount();
-    fireEvent.click(screen.getByRole("button", { name: "Projects" }));
-    expect(
-      screen.queryByRole("button", { name: "Drag duty: Parsed code" }),
-    ).toBeNull();
   });
   it("keeps rank scores after a tag edit", async () => {
     mocks.rank.mockResolvedValue({
@@ -881,6 +869,8 @@ it("renders Contact first, edits contact data, and hides standalone ticks", asyn
   fireEvent.click(
     screen.getByRole("button", { name: "a@example.com · email" }),
   );
+  expect(screen.queryByLabelText("Text")).toBeNull();
+  expect(screen.queryByLabelText("Label")).toBeNull();
   fireEvent.change(screen.getByLabelText("Value"), {
     target: { value: "b@example.com" },
   });
@@ -889,6 +879,7 @@ it("renders Contact first, edits contact data, and hides standalone ticks", asyn
     expect(mocks.update).toHaveBeenCalledWith(
       "email",
       expect.objectContaining({
+        text: "b@example.com",
         data: { type: "email", value: "b@example.com" },
       }),
       undefined,
@@ -921,4 +912,54 @@ it("derives email ticks from the document and replaces the selected value", () =
   expect(tick).not.toBeChecked();
   fireEvent.click(tick);
   expect(change.mock.calls[0][0](document).basics.email).toBe("b@example.com");
+});
+
+it("names repeated add controls after their role, company, and item", () => {
+  render(
+    <CandidateLibrary
+      items={[
+        role,
+        { ...role, id: "manager", text: "Manager" },
+        {
+          ...role,
+          id: "designer",
+          text: "Designer",
+          data: { company: "Beta" },
+        },
+      ]}
+    />,
+  );
+  for (const name of ["Engineer", "Manager", "Designer"])
+    expect(
+      screen.getByRole("button", { name: `Add duty to ${name}` }),
+    ).toBeVisible();
+  for (const name of ["Acme", "Beta"])
+    expect(
+      screen.getByRole("button", { name: `Add role at ${name}` }),
+    ).toBeVisible();
+});
+
+it("explains contact sync and creates contacts from Value alone", async () => {
+  render(<CandidateLibrary items={[]} />);
+  fireEvent.click(screen.getByRole("button", { name: "Contact" }));
+  expect(
+    screen.getByText(
+      "Add a contact or sync to import missing contacts from your base resume.",
+    ),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Add contact" }));
+  expect(screen.queryByLabelText("Text")).toBeNull();
+  expect(screen.queryByLabelText("Label")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Value"), {
+    target: { value: "a@example.com" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() =>
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "a@example.com",
+        data: { type: "email", value: "a@example.com" },
+      }),
+    ),
+  );
 });

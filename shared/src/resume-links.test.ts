@@ -750,3 +750,39 @@ describe("contact selections", () => {
     expect(parseV5ResumeData(next)).toBeTruthy();
   });
 });
+
+it.each([
+  "username",
+  "value",
+])("keeps profile ticks stable after editing %s", (field) => {
+  const doc = document();
+  doc.sections.profiles.items = [
+    {
+      id: "original-profile",
+      hidden: false,
+      icon: "github",
+      network: "GitHub",
+      username: "jdoe",
+      website: { url: "", label: "" },
+    },
+  ];
+  const before = row("library-profile", "contact", "jdoe", {
+    data: { type: "profile", value: "jdoe", username: "jdoe", url: "" },
+  });
+  const after = { ...before, data: { ...before.data, [field]: "jdoe2" } };
+  const edited = applyLibraryUpdate(doc, before, after);
+  expect(edited.sections.profiles.items[0]).toMatchObject({
+    id: "original-profile",
+    libraryId: before.id,
+    icon: "github",
+  });
+  expect(isContactOnResume(edited, after)).toBe(true);
+  const once = setContactOnResume(edited, after, true);
+  expect(setContactOnResume(once, after, true)).toBe(edited);
+  expect(once.sections.profiles.items).toHaveLength(1);
+  const cleared = setContactOnResume(edited, after, false);
+  expect(cleared.sections.profiles.items).toEqual([]);
+  const restored = setContactOnResume(cleared, after, true);
+  expect(setContactOnResume(restored, after, true)).toBe(restored);
+  expect(restored.sections.profiles.items).toHaveLength(1);
+});

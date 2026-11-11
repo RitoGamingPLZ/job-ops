@@ -126,6 +126,16 @@ function descriptionWithLines(
   ).replace(/<li\b[^>]*>[\s\S]*?<\/li>/gi, () => rendered[index++]);
 }
 
+function matchesContactProfile(
+  profile: ResumeDoc["sections"]["profiles"]["items"][number],
+  item: ExperienceBullet,
+): boolean {
+  return (
+    profile.libraryId === item.id ||
+    (profile.website.url || profile.username) === string(item.data?.value)
+  );
+}
+
 /** Contact selection follows document values, including contacts without library links. */
 export function isContactOnResume(
   doc: ResumeDoc,
@@ -142,8 +152,8 @@ export function isContactOnResume(
     case "website":
       return doc.basics.website.url === value;
     case "profile":
-      return doc.sections.profiles.items.some(
-        (profile) => (profile.website.url || profile.username) === value,
+      return doc.sections.profiles.items.some((profile) =>
+        matchesContactProfile(profile, item),
       );
     default:
       return false;
@@ -198,7 +208,7 @@ export function setContactOnResume(
             },
           ]
         : section.items.filter(
-            (profile) => (profile.website.url || profile.username) !== value,
+            (profile) => !matchesContactProfile(profile, item),
           );
       return {
         ...doc,
@@ -499,9 +509,10 @@ export function applyLibraryUpdate(
           profiles: {
             ...section,
             items: section.items.map((profile) =>
-              (profile.website.url || profile.username) === before.data?.value
+              matchesContactProfile(profile, before)
                 ? {
                     ...profile,
+                    libraryId: after.id,
                     network: string(data.network),
                     username: string(data.username),
                     website: {

@@ -50,7 +50,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { coworkError, DutyLibraryTools, InlineTags } from "./DutyLibrary";
-import { BULLET_TRANSFER_TYPE } from "./editor";
 import { REWORDED_TINT_CLASS } from "./rewordTint";
 
 const sections = [
@@ -433,6 +432,7 @@ export function CandidateLibrary({
           </select>
         )}
         {!current.companyOnly &&
+          current.input.kind !== "contact" &&
           (current.input.kind === "bullet" ||
           current.input.kind === "project_point" ? (
             <textarea
@@ -476,7 +476,7 @@ export function CandidateLibrary({
             (field) =>
               current.input.kind !== "contact" ||
               field === "value" ||
-              field === "label" ||
+              (field === "label" && current.input.data?.type === "website") ||
               current.input.data?.type === "profile",
           )
           .map((field, index) => (
@@ -499,6 +499,9 @@ export function CandidateLibrary({
                     ...current,
                     input: {
                       ...current.input,
+                      ...(current.input.kind === "contact" && field === "value"
+                        ? { text: event.target.value }
+                        : {}),
                       data: {
                         ...current.input.data,
                         ...(current.input.kind === "contact" &&
@@ -588,23 +591,6 @@ export function CandidateLibrary({
           title={rewordedLine?.text}
         >
           {tick([item], item.text)}
-          {item.kind === "bullet" && (
-            <button
-              type="button"
-              aria-label={`Drag duty: ${item.text}`}
-              className="shrink-0 cursor-grab text-muted-foreground"
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.setData(
-                  BULLET_TRANSFER_TYPE,
-                  JSON.stringify({ id: item.id, text: item.text }),
-                );
-                event.dataTransfer.effectAllowed = "copy";
-              }}
-            >
-              ⋮⋮
-            </button>
-          )}
           <button
             type="button"
             className={`min-w-0 flex-1 py-0.5 text-left hover:underline ${hasTags ? "truncate" : ""}`}
@@ -759,7 +745,13 @@ export function CandidateLibrary({
           size="sm"
           variant="ghost"
           disabled={busy}
-          aria-label={`+ Add ${label}`}
+          aria-label={
+            parentId
+              ? `Add ${label} to ${items.find((item) => item.id === parentId)?.text ?? "item"}`
+              : companyData
+                ? `Add ${label} at ${String(companyData.company ?? "")}`
+                : `Add ${label}`
+          }
           className="h-7 px-2 text-xs"
           onClick={() => startAdd(kind, parentId, companyData)}
         >
@@ -994,7 +986,9 @@ export function CandidateLibrary({
           )}
           {!items.some((item) => item.kind === section) && (
             <p className="text-xs text-muted-foreground">
-              Add an item or sync from resumes to build your library.
+              {section === "contact"
+                ? "Add a contact or sync to import missing contacts from your base resume."
+                : "Add an item or sync from resumes to build your library."}
             </p>
           )}
         </>
