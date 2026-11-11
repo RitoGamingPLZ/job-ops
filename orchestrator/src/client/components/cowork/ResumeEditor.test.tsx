@@ -1008,7 +1008,7 @@ describe("navy serif document content", () => {
       ),
     ).toBeVisible();
   });
-  it("renders each line's tools in flow directly below that line", () => {
+  it("keeps floating line tools after their line in keyboard order", () => {
     mount();
     const follows = (line: Element, tools: Element | null | undefined) =>
       Boolean(
@@ -1021,6 +1021,7 @@ describe("navy serif document content", () => {
       .closest(".resume-bullet")
       ?.querySelector(".resume-tools");
     expect(follows(bullet, bulletTools)).toBe(true);
+    expect(bulletTools?.querySelector("button")?.tabIndex).toBe(0);
     const heading = screen.getByRole("heading", { name: "Experience" });
     expect(heading.nextElementSibling).toHaveClass("resume-tools");
     const entry = window.document.querySelector(".resume-experience");
