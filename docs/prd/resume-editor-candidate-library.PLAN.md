@@ -31,7 +31,7 @@ Keep the existing response envelope and shapes of today's routes.
 | GET | `/experience-bullets` | unchanged: kind `bullet` only |
 | POST | `/experience-bullets` | accepts kind/data/parentId/position (validate kind; data plain object or null; parent must exist and be the right kind) |
 | PATCH | `/experience-bullets/:id?skipJobId=` | update; then `applyLibraryUpdate` on every non-frozen job resume except `skipJobId` (save with revision+1) |
-| DELETE | `/experience-bullets/:id?skipJobId=` | delete item + children; non-frozen resumes except `skipJobId`: `removeFromResume`; frozen: strip its refs, keep text |
+| DELETE | `/experience-bullets/:id?skipJobId=` | delete item + children; non-frozen resumes except `skipJobId`: `removeFromResume`; frozen: untouched (its refs now point at a missing id = unlinked) |
 | GET | `/library/:id/usage` | `LibraryItemUsage` (children count toward their parent) |
 | POST | `/library/sync` | `LibrarySyncResult`: union of base resume + every job resume into the library (PRD §7, Phase 12 dedupe rules + one-line folding), legacy parentless bullets attached to roles built from company/role/dates, then `stampLibraryRefs` on every job resume. Replaces `POST /experience-bullets/import-resume` (delete it). No LLM. |
 
@@ -79,6 +79,8 @@ Export:
 export function CandidateLibrary(props: {
   /** Omit for library-only mode (/resumes/library): no ticks. */
   jobId?: string;
+  /** Job is applied/in progress (R6): edits and deletes never touch `document`; ticks still do. */
+  frozen?: boolean;
   document?: ReactiveResumeV5Document;
   onDocumentChange?: (update: (doc: ReactiveResumeV5Document) => ReactiveResumeV5Document) => void;
   /** Insert-to-chat / drag sources keep working as today. */

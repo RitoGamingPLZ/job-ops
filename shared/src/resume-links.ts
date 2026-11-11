@@ -295,8 +295,10 @@ function appendItem(
 
 /**
  * Ticks a library item on (PRD R2):
- * - top-level kind: append its resume item to the end of its section; for
- *   role/project also append ALL its library children as linked lines.
+ * - top-level kind: append its resume item to the end of its section, except
+ *   a role goes right after the last experience entry with the same company
+ *   (end of its job) when there is one; for role/project also append ALL its
+ *   library children as linked lines.
  * - bullet/project_point: append as a linked line to its parent's resume
  *   item, adding the parent first (without other children) if missing.
  * No-op when already on the resume. `library` = all library items.
@@ -460,8 +462,11 @@ function entryText(item: ResumeItem, kind: CandidateItemKind): string {
 
 /**
  * Migration / sync: for items and lines without links, find the library item
- * by kind + normalised text (lines: within the item's matched parent first)
- * and stamp libraryId / bulletRefs. Never changes any text.
+ * by kind + normalised text (lines: only children of the item's matched
+ * parent; an item with no matched parent gets no line links) and stamp
+ * libraryId / bulletRefs. Never changes any text. Refs to ids missing from
+ * the library (deleted items on frozen resumes) count as unlinked
+ * everywhere and are left as they are.
  */
 export function stampLibraryRefs(
   doc: ResumeDoc,
