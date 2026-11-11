@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type React from "react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { AppModeContext } from "./components/layout";
@@ -55,6 +55,11 @@ vi.mock("./pages/ResumeCoworkPage", () => ({
   ResumeCoworkPage: ({ base }: { base?: boolean }) => (
     <div>{base ? "base-resume-editor" : "job-resume-editor"}</div>
   ),
+}));
+
+vi.mock("./pages/ResumesPage", () => ({
+  ResumesPage: () => null,
+  ResumeLibraryPage: () => <div>candidate-library</div>,
 }));
 
 vi.mock("./pages/SignInPage", () => ({
@@ -198,4 +203,26 @@ describe("App demo banner", () => {
 
     expect(screen.getByText("overview")).toBeInTheDocument();
   });
+});
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output aria-label="Current path">{location.pathname}</output>;
+}
+
+it.each([
+  "/library",
+  "/resumes/library",
+])("opens the Candidate Library at /library from %s", (path) => {
+  vi.mocked(useDemoInfo).mockReturnValue(null);
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <App />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
+  expect(screen.getByText("candidate-library")).toBeInTheDocument();
+  expect(screen.getByLabelText("Current path")).toHaveTextContent(
+    /^\/library$/,
+  );
 });
