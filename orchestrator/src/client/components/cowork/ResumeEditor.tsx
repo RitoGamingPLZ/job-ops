@@ -2059,10 +2059,32 @@ export function ResumeEditor({
                 document.sections.profiles?.items
                   .filter((profile) => !profile.hidden)
                   .map((profile, index) => (
+                    // biome-ignore lint/a11y/noStaticElementInteractions: Handles bubbling blur from the row's editable inputs.
                     <span
                       className="resume-contact-item resume-row"
                       key={profile.id}
                       data-focus-item={profile.id}
+                      data-empty={
+                        !profile.website?.url?.trim() &&
+                        !profile.network?.trim() &&
+                        !profile.username?.trim()
+                      }
+                      onBlur={(event) => {
+                        if (event.currentTarget.contains(event.relatedTarget))
+                          return;
+                        if (
+                          profile.website?.url?.trim() ||
+                          profile.network?.trim() ||
+                          profile.username?.trim()
+                        )
+                          return;
+                        change((next) => {
+                          next.sections.profiles.items =
+                            next.sections.profiles.items.filter(
+                              (item) => item.id !== profile.id,
+                            );
+                        });
+                      }}
                     >
                       <span className="resume-contact-url">
                         <span
@@ -2070,8 +2092,8 @@ export function ResumeEditor({
                           className="resume-contact-link"
                         >
                           {bareUrl(profile.website?.url ?? "") ||
-                            profile.network ||
-                            "Profile"}
+                            profile.username ||
+                            profile.network}
                         </span>
                         <Input
                           aria-label={`Profile ${index + 1} URL`}
@@ -2094,42 +2116,25 @@ export function ResumeEditor({
                         />
                       </span>
                       <span className="resume-tools">
-                        {(["network", "username", "label"] as const).map(
-                          (field) => (
-                            <Input
-                              key={field}
-                              aria-label={`Profile ${index + 1} ${field}`}
-                              placeholder={
-                                field === "network"
-                                  ? "Network"
-                                  : field === "username"
-                                    ? "Username"
-                                    : "Link label"
-                              }
-                              value={
-                                field === "label"
-                                  ? (profile.website?.label ?? "")
-                                  : profile[field]
-                              }
-                              onChange={(event) =>
-                                change((next) => {
-                                  const item =
-                                    next.sections.profiles.items.find(
-                                      (item) => item.id === profile.id,
-                                    );
-                                  if (!item) return;
-                                  if (field === "label")
-                                    item.website = {
-                                      ...item.website,
-                                      label: event.target.value,
-                                      url: item.website?.url ?? "",
-                                    };
-                                  else item[field] = event.target.value;
-                                })
-                              }
-                            />
-                          ),
-                        )}
+                        {(["network", "username"] as const).map((field) => (
+                          <Input
+                            key={field}
+                            aria-label={`Profile ${index + 1} ${field}`}
+                            placeholder={
+                              field === "network" ? "Network" : "Username"
+                            }
+                            value={profile[field] ?? ""}
+                            onChange={(event) =>
+                              change((next) => {
+                                const item = next.sections.profiles.items.find(
+                                  (item) => item.id === profile.id,
+                                );
+                                if (!item) return;
+                                item[field] = event.target.value;
+                              })
+                            }
+                          />
+                        ))}
                         <Button
                           size="sm"
                           variant="ghost"

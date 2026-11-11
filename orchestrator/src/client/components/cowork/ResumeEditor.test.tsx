@@ -1480,7 +1480,6 @@ describe("contact editing", () => {
       ["URL", "https://github.com/alan"],
       ["network", "GitHub"],
       ["username", "alan"],
-      ["label", "Code"],
     ]) {
       fireEvent.change(screen.getByLabelText(`Profile 1 ${field}`), {
         target: { value },
@@ -1492,11 +1491,55 @@ describe("contact editing", () => {
       hidden: false,
       network: "GitHub",
       username: "alan",
-      website: { url: "https://github.com/alan", label: "Code" },
+      website: { url: "https://github.com/alan", label: "" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Delete profile 1" }));
     expect(onChange.mock.lastCall?.[0].sections.profiles.items).toEqual([]);
     expect(screen.queryByLabelText("Profile 1 URL")).toBeNull();
+  });
+
+  it("removes an empty profile when focus leaves its row", () => {
+    const onChange = vi.fn();
+    render(<ContactEditor onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "+ Profile" }));
+    const url = screen.getByLabelText("Profile 1 URL");
+    const row = url.closest(".resume-contact-item");
+    expect(row).toHaveAttribute("data-empty", "true");
+    expect(row?.querySelector(".resume-contact-link")).toHaveTextContent(/^$/);
+    expect(screen.queryByLabelText("Profile 1 label")).toBeNull();
+
+    fireEvent.blur(url, {
+      relatedTarget: screen.getByLabelText("Profile 1 network"),
+    });
+    expect(screen.getByLabelText("Profile 1 URL")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Profile 1 network"), {
+      target: { value: "  " },
+    });
+    fireEvent.blur(screen.getByLabelText("Profile 1 network"), {
+      relatedTarget: screen.getByLabelText("Email"),
+    });
+    expect(onChange.mock.lastCall?.[0].sections.profiles.items).toEqual([]);
+    expect(screen.queryByLabelText("Profile 1 URL")).toBeNull();
+  });
+
+  it.each([
+    "username",
+    "network",
+  ])("keeps a profile with only a %s and prints its value", (field) => {
+    const onChange = vi.fn();
+    render(<ContactEditor onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "+ Profile" }));
+    const input = screen.getByLabelText(`Profile 1 ${field}`);
+    fireEvent.change(input, { target: { value: "alan" } });
+    fireEvent.blur(input, { relatedTarget: screen.getByLabelText("Email") });
+    const row = screen
+      .getByLabelText("Profile 1 URL")
+      .closest(".resume-contact-item");
+    expect(row).toHaveAttribute("data-empty", "false");
+    expect(row?.querySelector(".resume-contact-link")).toHaveTextContent(
+      "alan",
+    );
+    expect(onChange.mock.lastCall?.[0].sections.profiles.items).toHaveLength(1);
   });
 
   it("edits existing profiles by id and preserves hidden profiles and URL options", () => {
