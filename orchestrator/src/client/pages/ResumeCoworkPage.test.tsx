@@ -615,7 +615,7 @@ describe("resume co-work saving", () => {
     fireEvent.change(screen.getByLabelText("Headline"), {
       target: { value: "Final edit" },
     });
-    const renderButton = screen.getByRole("button", { name: "Render PDF" });
+    const renderButton = screen.getByRole("button", { name: "Preview" });
     expect(renderButton.closest("header")).toBeNull();
     expect(screen.getByRole("tabpanel", { name: "Editor" })).toContainElement(
       renderButton,
@@ -638,12 +638,12 @@ describe("resume co-work saving", () => {
       .mockResolvedValueOnce("blob:second");
     mount();
     await screen.findByLabelText("Headline");
-    fireEvent.click(screen.getByRole("button", { name: "Render PDF" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     expect(await screen.findByTestId("pdf-canvas-preview")).toHaveAttribute(
       "data-url",
       "blob:first",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Render PDF" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     await waitFor(() =>
       expect(screen.getByTestId("pdf-canvas-preview")).toHaveAttribute(
         "data-url",
@@ -973,7 +973,7 @@ describe("candidate library page wiring", () => {
     fireEvent.change(await screen.findByLabelText("Headline"), {
       target: { value: "Preview edit" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Switch to Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     const preview = await screen.findByTestId("pdf-canvas-preview");
     expect(preview).toHaveAttribute("data-url", "blob:fake");
     expect(
@@ -983,7 +983,7 @@ describe("candidate library page wiring", () => {
       mocks.pdf.mock.invocationCallOrder[0],
     );
     expect(localStorage.getItem("resume-cowork-preview")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "Switch to Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     expect(screen.getByLabelText("Headline")).toHaveValue("Preview edit");
     expect(localStorage.getItem("resume-cowork-preview")).toBe("false");
   });
@@ -1293,7 +1293,7 @@ describe("base resume mode", () => {
   });
   it("uses the base PDF APIs for render and download", async () => {
     mount(true);
-    fireEvent.click(await screen.findByRole("button", { name: "Render PDF" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Preview" }));
     expect(await screen.findByTestId("pdf-canvas-preview")).toHaveAttribute(
       "data-url",
       "blob:base",

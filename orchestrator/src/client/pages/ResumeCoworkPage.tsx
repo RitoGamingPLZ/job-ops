@@ -621,14 +621,6 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
     previewRequested.current = true;
     void showPreview();
   }
-  function togglePreview() {
-    const next = !preview;
-    setPreviewMode(next);
-    if (next) {
-      previewRequested.current = true;
-      void showPreview();
-    }
-  }
 
   const getDocument = useCallback(
     () => latest.current?.document as ReactiveResumeV5Document,
@@ -968,18 +960,32 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
           className={`${tab === "editor" ? "block" : "hidden"} xl:block min-h-0 min-w-0 overflow-auto [scrollbar-gutter:stable] border rounded-md bg-[#e4e5e7] p-3`}
         >
           <div className="mb-3 flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy}
-              onClick={togglePreview}
-              aria-label={preview ? "Switch to Edit" : "Switch to Preview"}
+            <fieldset
+              aria-label="Editor mode"
+              className="inline-flex rounded-md border bg-background p-0.5"
             >
-              {preview ? "Edit" : "Preview"}
-            </Button>
-            <Button size="sm" disabled={busy} onClick={renderPreview}>
-              Render PDF
-            </Button>
+              <Button
+                size="sm"
+                className="h-7"
+                variant={preview ? "ghost" : "default"}
+                aria-pressed={!preview}
+                disabled={busy}
+                onClick={() => setPreviewMode(false)}
+              >
+                Edit
+              </Button>
+              <Button
+                size="sm"
+                className="h-7"
+                variant={preview ? "default" : "ghost"}
+                aria-pressed={preview}
+                disabled={busy}
+                onClick={renderPreview}
+                title="Render the PDF (click again to refresh)"
+              >
+                Preview
+              </Button>
+            </fieldset>
           </div>
           {preview ? (
             pdfUrl ? (

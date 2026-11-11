@@ -144,7 +144,7 @@ In **Settings → Reactive Resume**:
 
 ### During PDF generation
 
-Open the job resume at `/resumes/<jobId>` and click **Render PDF**. JobOps saves pending edits and renders the stored job resume using the configured renderer. Use **Preview** to view the PDF inline and **Edit** to return to editing.
+Open the job resume at `/resumes/<jobId>` and switch the toggle to **Preview**. JobOps saves pending edits, renders the stored job resume using the configured renderer, and shows it inline. Click **Preview** again to re-render, or **Edit** to return to editing.
 
 The configured renderer can use Reactive Resume export, local LaTeX with `tectonic`, or local Typst with `typst`. Eligible outbound links can be rewritten to tracer links when enabled for the job.
 
@@ -298,7 +298,7 @@ curl -X POST "http://localhost:3001/api/jobs/<jobId>/generate-pdf"
 ### Changes did not affect an already generated PDF
 
 - Settings changes apply to new generation runs.
-- Open the job resume and use **Render PDF** to render a fresh PDF from the editor resume.
+- Open the job resume and click **Preview** to render a fresh PDF from the editor resume.
 
 ### PDF generation fails because the renderer is unavailable
 

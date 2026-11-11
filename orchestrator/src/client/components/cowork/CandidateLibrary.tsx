@@ -911,50 +911,52 @@ export function CandidateLibrary({
                       edit.input.kind === "role" &&
                       edit.addCompany === company &&
                       editForm(edit)}
-                    {group.map((role) => {
-                      const duties = items.filter(
-                        (item) =>
-                          item.parentId === role.id && item.kind === "bullet",
-                      );
-                      const selected = duties.filter(
-                        (item) => document && isOnResume(document, item.id),
-                      ).length;
-                      return (
-                        <AccordionItem
-                          key={role.id}
-                          value={role.id}
-                          className="border-0"
-                        >
-                          <div className="flex items-start gap-1">
-                            <div className="min-w-0 flex-1">{row(role)}</div>
-                            {jobId && (
-                              <span className="shrink-0 py-1 text-xs text-muted-foreground">
-                                {`${selected}/${duties.length} duties`}
-                              </span>
-                            )}
-                            {addButton(
-                              "bullet",
-                              role.id,
-                              undefined,
-                              "duty",
-                              false,
-                            )}
-                            <AccordionTrigger
-                              aria-label={`Show duties for ${role.text}`}
-                              className="h-6 w-6 flex-none justify-center p-0"
-                            />
-                          </div>
-                          {edit &&
-                            !edit.items.length &&
-                            edit.input.kind === "bullet" &&
-                            edit.input.parentId === role.id &&
-                            editForm(edit)}
-                          <AccordionContent className="pb-0.5 text-xs">
-                            {duties.map(row)}
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
+                    <div className="ml-1.5 space-y-0.5 border-l pl-2">
+                      {group.map((role) => {
+                        const duties = items.filter(
+                          (item) =>
+                            item.parentId === role.id && item.kind === "bullet",
+                        );
+                        const selected = duties.filter(
+                          (item) => document && isOnResume(document, item.id),
+                        ).length;
+                        return (
+                          <AccordionItem
+                            key={role.id}
+                            value={role.id}
+                            className="border-0"
+                          >
+                            <div className="flex items-start gap-1">
+                              <div className="min-w-0 flex-1">{row(role)}</div>
+                              {jobId && (
+                                <span className="shrink-0 py-1 text-xs text-muted-foreground">
+                                  {`${selected}/${duties.length} duties`}
+                                </span>
+                              )}
+                              {addButton(
+                                "bullet",
+                                role.id,
+                                undefined,
+                                "duty",
+                                false,
+                              )}
+                              <AccordionTrigger
+                                aria-label={`Show duties for ${role.text}`}
+                                className="h-6 w-6 flex-none justify-center p-0"
+                              />
+                            </div>
+                            {edit &&
+                              !edit.items.length &&
+                              edit.input.kind === "bullet" &&
+                              edit.input.parentId === role.id &&
+                              editForm(edit)}
+                            <AccordionContent className="ml-1.5 border-l pb-0.5 pl-2 text-xs">
+                              {duties.map(row)}
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      })}
+                    </div>
                   </div>
                 ))}
               </Accordion>
