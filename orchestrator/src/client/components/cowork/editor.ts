@@ -215,7 +215,11 @@ function applyResolvedSuggestion(
             ? (lines[target.index]?.ref ?? null)
             : null,
       });
-    Object.assign(experience, setItemLines(experience, lines));
+    const index = next.sections.experience.items.indexOf(experience);
+    next.sections.experience.items[index] = setItemLines(
+      experience,
+      lines,
+    ) as typeof experience;
   }
   return next;
 }

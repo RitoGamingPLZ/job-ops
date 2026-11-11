@@ -1067,8 +1067,23 @@ vi.mock("@shared/resume-links", async () => {
     bulletRefs: lines.map((line) => line.ref),
   });
   return {
-    getItemLines,
-    setItemLines,
+    getItemLines: vi.fn(getItemLines),
+    setItemLines: vi.fn(setItemLines),
+    isOnResume: (doc: ReactiveResumeV5Document, id: string) =>
+      Object.values(
+        doc.sections as unknown as Record<
+          string,
+          { items: Record<string, unknown>[] }
+        >,
+      ).some(
+        (section) =>
+          "items" in section &&
+          section.items.some(
+            (item) =>
+              item.libraryId === id ||
+              getItemLines(item).some((line) => line.ref === id),
+          ),
+      ),
     sameLineText: (a: string, b: string) =>
       a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " "),
     removeFromResume: vi.fn((doc: ReactiveResumeV5Document, id: string) => {
@@ -1126,6 +1141,8 @@ vi.mock("@shared/resume-links", async () => {
 
 describe("candidate library links", () => {
   const library = [
+    { id: "role", text: "Engineer", kind: "role" },
+    { id: "dropped", text: "Dropped library duty", kind: "bullet" },
     { id: "duty-a", text: "Original duty", kind: "bullet" },
     { id: "duty-b", text: "B", kind: "bullet" },
   ] as import("@shared/types").ExperienceBullet[];
@@ -1155,6 +1172,96 @@ describe("candidate library links", () => {
       />
     );
   }
+
+  it("ignores duplicate library drops and leaves wrong-kind drops unlinked", () => {
+    const onChange = vi.fn();
+    render(<LinkedEditor onChange={onChange} />);
+    const drop = (id: string) =>
+      fireEvent.drop(screen.getByLabelText("Company bullet 3"), {
+        dataTransfer: {
+          types: ["application/x-jobops-bullet"],
+          getData: () => JSON.stringify({ id, text: "Dropped text" }),
+        },
+      });
+    drop("duty-a");
+    expect(onChange).not.toHaveBeenCalled();
+    drop("role");
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
+    ).toEqual(["duty-a", "duty-b", null]);
+    drop("missing");
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
+    ).toEqual(["duty-a", "duty-b", null]);
+  });
+
+  it("treats dangling item and line refs as unlinked for editing and deletion", async () => {
+    const { removeFromResume } = await import("@shared/resume-links");
+    vi.mocked(removeFromResume).mockClear();
+    const document = fixture();
+    document.sections.experience.items[0].libraryId = "deleted-role";
+    document.sections.experience.items[0].bulletRefs = [
+      "deleted-duty",
+      "deleted-duty",
+      null,
+    ];
+    const onChange = vi.fn();
+    render(
+      <ResumeEditor
+        document={document}
+        library={library}
+        onChange={onChange}
+        suggestions={[]}
+        onDismiss={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Company company")).not.toHaveAttribute(
+      "readonly",
+    );
+    expect(
+      screen.getByLabelText("Company bullet 1").closest("li"),
+    ).not.toHaveClass("bg-amber-100/70");
+    expect(
+      screen.queryByRole("button", { name: "Reset to library text" }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Delete bullet 1" }));
+    expect(removeFromResume).not.toHaveBeenCalled();
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
+    ).toEqual(["deleted-duty", null]);
+  });
+
+  it("renders experience rows exclusively from getItemLines", async () => {
+    const { getItemLines } = await import("@shared/resume-links");
+    const implementation = vi.mocked(getItemLines).getMockImplementation();
+    vi.mocked(getItemLines).mockReturnValue([{ text: "Only line", ref: null }]);
+    try {
+      render(<LinkedEditor />);
+      expect(screen.getByLabelText("Company bullet 1")).toHaveValue(
+        "Only line",
+      );
+      expect(screen.queryByLabelText("Company bullet 2")).toBeNull();
+    } finally {
+      if (implementation)
+        vi.mocked(getItemLines).mockImplementation(implementation);
+    }
+  });
+
+  it("replaces the edited item when setItemLines omits refs", async () => {
+    const { setItemLines } = await import("@shared/resume-links");
+    const onChange = vi.fn();
+    render(<LinkedEditor onChange={onChange} />);
+    vi.mocked(setItemLines).mockImplementationOnce((item) => {
+      const { bulletRefs: _refs, ...rest } = item;
+      return { ...rest, description: "" };
+    });
+    fireEvent.change(screen.getByLabelText("Company bullet 1"), {
+      target: { value: "Edit" },
+    });
+    expect(
+      onChange.mock.lastCall?.[0].sections.experience.items[0],
+    ).not.toHaveProperty("bulletRefs");
+  });
 
   it("tints reworded lines, shows the original text, resets and saves explicitly", () => {
     const save = vi.fn();
@@ -1235,6 +1342,40 @@ describe("candidate library links", () => {
     );
     expect(removeFromResume).toHaveBeenCalledWith(expect.anything(), "role");
     expect(onChange.mock.lastCall?.[0].sections.experience.items).toEqual([]);
+  });
+
+  it("keeps surviving project point nodes when a preceding point is deleted", () => {
+    function ProjectEditor() {
+      const [document, setDocument] = useState(() => {
+        const doc = fixture();
+        doc.sections.projects.items = [
+          {
+            id: "project",
+            name: "Demo",
+            period: "",
+            hidden: false,
+            website: { url: "", label: "" },
+            description: "<ul><li>First point</li><li>Second point</li></ul>",
+          },
+        ];
+        return doc;
+      });
+      return (
+        <ResumeEditor
+          document={document}
+          onChange={setDocument}
+          suggestions={[]}
+          onDismiss={vi.fn()}
+        />
+      );
+    }
+    render(<ProjectEditor />);
+    const second = screen.getByLabelText("Demo point 2");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete project point 1" }),
+    );
+    expect(screen.getByLabelText("Demo point 1")).toBe(second);
+    expect(second).toHaveValue("Second point");
   });
 
   it("edits, resets and unticks linked project points", () => {

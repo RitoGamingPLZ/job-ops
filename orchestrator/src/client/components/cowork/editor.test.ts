@@ -1,3 +1,4 @@
+import { setItemLines } from "@shared/resume-links";
 import type {
   ReactiveResumeV5Document,
   ResumeFocusRef,
@@ -384,37 +385,13 @@ describe("focus refs", () => {
   });
 });
 
-// Step A implements these pure helpers in parallel. Exercise the editor against
-// their fixed contract without depending on its placeholder bodies.
-vi.mock("@shared/resume-links", async () => {
-  const { splitDescription, joinDescription } = await import(
-    "@shared/resume-bullets"
-  );
-  const getItemLines = (item: Record<string, unknown>) =>
-    splitDescription(String(item.description ?? "")).bullets.map(
-      (text, index) => ({
-        text,
-        ref:
-          (item.bulletRefs as (string | null)[] | undefined)?.[index] ?? null,
-      }),
-    );
-  const setItemLines = (
-    item: Record<string, unknown>,
-    lines: { text: string; ref: string | null }[],
-  ) => ({
-    ...item,
-    description: joinDescription(
-      splitDescription(String(item.description ?? "")).introHtml,
-      lines.map((line) => line.text),
-      String(item.description ?? ""),
-    ),
-    bulletRefs: lines.map((line) => line.ref),
-  });
+// Use the merged shared helpers; spies also cover omitted optional refs.
+vi.mock("@shared/resume-links", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@shared/resume-links")>();
   return {
-    getItemLines,
-    setItemLines,
-    sameLineText: (a: string, b: string) =>
-      a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " "),
+    ...actual,
+    getItemLines: vi.fn(actual.getItemLines),
+    setItemLines: vi.fn(actual.setItemLines),
   };
 });
 
@@ -473,4 +450,18 @@ describe("linked suggestion lines", () => {
       ),
     ).toBeNull();
   });
+});
+
+it("replaces items when setItemLines omits refs", () => {
+  const original = fixture();
+  original.sections.experience.items[0].bulletRefs = ["first", null];
+  vi.mocked(setItemLines).mockImplementationOnce((item) => {
+    const { bulletRefs: _refs, ...rest } = item;
+    return { ...rest, description: "<ul><li>Second</li></ul>" };
+  });
+  const next = applySuggestion(
+    original,
+    suggestion({ op: "delete_bullet", previousText: "First" }),
+  );
+  expect(next?.sections.experience.items[0]).not.toHaveProperty("bulletRefs");
 });
