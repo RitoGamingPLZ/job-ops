@@ -19,6 +19,7 @@
  */
 
 import {
+  bulletsToHtml,
   htmlToPlainText,
   joinDescription,
   splitDescription,
@@ -89,13 +90,40 @@ export function setItemLines(
       lines.map((line) => line.text),
     )
       ? original
-      : joinDescription(
-          splitDescription(original).introHtml,
-          lines.map((line) => line.text),
-          original,
-        ),
+      : descriptionWithLines(original, current, lines),
     bulletRefs: refs,
   };
+}
+
+// Keep original markup for unchanged lines, including when lines move or a
+// sibling is removed. Match refs as well as text so duplicate lines stay distinct.
+function descriptionWithLines(
+  original: string,
+  current: ResumeLine[],
+  lines: ResumeLine[],
+): string {
+  const markup = [...original.matchAll(/<(ul|ol)\b[^>]*>[\s\S]*?<\/\1\s*>/gi)]
+    .flatMap(([list]) => [...list.matchAll(/<li\b[^>]*>[\s\S]*?<\/li>/gi)])
+    .map(([html]) => html)
+    .filter((html) => htmlToPlainText(html));
+  const used = new Set<number>();
+  const rendered = lines.map((line) => {
+    const index = current.findIndex(
+      (value, index) =>
+        !used.has(index) && value.ref === line.ref && value.text === line.text,
+    );
+    if (index >= 0 && markup[index]) {
+      used.add(index);
+      return markup[index];
+    }
+    return bulletsToHtml([line.text]).slice(4, -5).replace(/\r?\n/g, "<br>");
+  });
+  let index = 0;
+  return joinDescription(
+    splitDescription(original).introHtml,
+    lines.map((line) => line.text),
+    original,
+  ).replace(/<li\b[^>]*>[\s\S]*?<\/li>/gi, () => rendered[index++]);
 }
 
 /** true when the library item (any kind) is on this resume. */
@@ -124,7 +152,7 @@ function fields(item: ExperienceBullet): ResumeItem {
   switch (item.kind) {
     case "role":
       return {
-        company: string(data.company),
+        company: string(data.company).trim() ? string(data.company) : "—",
         position: item.text,
         location: string(data.location),
         period: string(data.period),
@@ -137,7 +165,7 @@ function fields(item: ExperienceBullet): ResumeItem {
     case "education":
       return {
         degree: item.text,
-        school: string(data.school),
+        school: string(data.school).trim() ? string(data.school) : "—",
         location: string(data.location),
         period: string(data.period),
         area: "",
@@ -349,6 +377,13 @@ export function applyLibraryUpdate(
     let next = item;
     if (item.libraryId === before.id) {
       const derived = fields(after);
+      // A website label has no library field; retain the resume's label.
+      if (derived.website && item.website && typeof item.website === "object") {
+        derived.website = {
+          ...(derived.website as Record<string, unknown>),
+          label: string((item.website as Record<string, unknown>).label),
+        };
+      }
       if (
         Object.entries(derived).some(([key, value]) => !equal(item[key], value))
       )
