@@ -542,7 +542,7 @@
   .resume-field-area {
   display: none;
 }
-/* min-width 0 keeps the award on one line; only the toolbar wraps below. */
+/* min-width 0 lets the award text shrink within the available line width. */
 .resume-awards .resume-simple-item textarea {
   flex: 1;
   min-width: 0;
@@ -660,7 +660,8 @@ h2:focus-within + .resume-section-controls,
 .resume-tools:focus-within {
   position: absolute;
   top: var(--resume-tools-top, 100%);
-  left: var(--resume-tools-left, 0);
+  right: var(--resume-tools-right, 0);
+  left: auto;
   z-index: 6;
   display: flex;
   flex-wrap: wrap;
@@ -685,9 +686,9 @@ h2:focus-within + .resume-section-controls,
    deliberately preserve their static position just after it, over the body. */
 .resume-entry-controls,
 .resume-section-controls,
-.resume-project > div > .resume-tools {
+.resume-project > .resume-tools {
   --resume-tools-top: auto;
-  --resume-tools-left: auto;
+  --resume-tools-right: auto;
 }
 .resume-tools button {
   border: 0;

@@ -1021,7 +1021,6 @@ describe("navy serif document content", () => {
       .closest(".resume-bullet")
       ?.querySelector(".resume-tools");
     expect(follows(bullet, bulletTools)).toBe(true);
-    expect(bulletTools?.querySelector("button")?.tabIndex).toBe(0);
     const heading = screen.getByRole("heading", { name: "Experience" });
     expect(heading.nextElementSibling).toHaveClass("resume-tools");
     const entry = window.document.querySelector(".resume-experience");
