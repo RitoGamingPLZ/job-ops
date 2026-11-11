@@ -77,7 +77,7 @@ new panel without ticks).
 Export:
 ```ts
 export function CandidateLibrary(props: {
-  /** Omit for library-only mode (/resumes/library): no ticks. */
+  /** Omit for library-only mode (/library): no ticks. */
   jobId?: string;
   /** Job is applied/in progress (R6): edits and deletes never touch `document`; ticks still do. */
   frozen?: boolean;

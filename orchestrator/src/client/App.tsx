@@ -190,9 +190,10 @@ export const App: React.FC = () => {
                   element={<InProgressBoardPage />}
                 />
                 <Route path="/resumes" element={<ResumesPage />} />
+                <Route path="/library" element={<ResumeLibraryPage />} />
                 <Route
                   path="/resumes/library"
-                  element={<ResumeLibraryPage />}
+                  element={<Navigate to="/library" replace />}
                 />
                 <Route
                   path="/resumes/base"

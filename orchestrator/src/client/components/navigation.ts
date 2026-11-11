@@ -5,6 +5,7 @@ import {
   Home,
   Inbox,
   LayoutDashboard,
+  Library,
   Link2,
   Settings,
   Shield,
@@ -41,6 +42,12 @@ export const NAV_LINKS: NavLink[] = [
     label: "Resumes",
     icon: Files,
     activePaths: ["/resumes"],
+  },
+  {
+    to: "/library",
+    label: "Candidate Library",
+    icon: Library,
+    activePaths: ["/library"],
   },
   { to: "/tracking-inbox", label: "Tracking Inbox", icon: Inbox },
   {

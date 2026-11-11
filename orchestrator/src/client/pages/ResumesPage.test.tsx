@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { isNavActive, NAV_LINKS } from "../components/navigation";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { ResumeLibraryPage, ResumesPage } from "./ResumesPage";
 
@@ -160,7 +161,7 @@ it.each([
   expect(screen.queryByRole("link", { name: "Engineer" })).toBeNull();
 });
 
-it("renders the resumes header with navigation and library action", async () => {
+it("renders the resumes header with navigation and the base resume action", async () => {
   mocks.list.mockResolvedValue({ resumes: [] });
   mount();
   expect(within(screen.getByRole("banner")).getByText("Resumes")).toBeVisible();
@@ -168,14 +169,16 @@ it("renders the resumes header with navigation and library action", async () => 
     screen.getByRole("button", { name: "Open navigation menu" }),
   ).toBeVisible();
   expect(
-    screen.getByRole("link", { name: "Candidate Library" }),
-  ).toHaveAttribute("href", "/resumes/library");
+    within(screen.getByRole("banner")).queryByRole("link", {
+      name: "Candidate Library",
+    }),
+  ).toBeNull();
   expect(await screen.findByText(/No resumes yet/)).toBeVisible();
 });
 
 it("renders the library with the standard header and navigation", () => {
   renderWithQueryClient(
-    <MemoryRouter initialEntries={["/resumes/library"]}>
+    <MemoryRouter initialEntries={["/library"]}>
       <ResumeLibraryPage />
     </MemoryRouter>,
   );
@@ -191,9 +194,9 @@ it("renders the library with the standard header and navigation", () => {
 it("navigates from the library to resumes through the navigation menu", async () => {
   mocks.list.mockResolvedValue({ resumes: [] });
   renderWithQueryClient(
-    <MemoryRouter initialEntries={["/resumes/library"]}>
+    <MemoryRouter initialEntries={["/library"]}>
       <Routes>
-        <Route path="/resumes/library" element={<ResumeLibraryPage />} />
+        <Route path="/library" element={<ResumeLibraryPage />} />
         <Route path="/resumes" element={<ResumesPage />} />
       </Routes>
     </MemoryRouter>,
@@ -211,4 +214,21 @@ it("links to the base editor from the page header", async () => {
     "/resumes/base",
   );
   await screen.findByText(/No resumes yet/);
+});
+
+it.each([
+  ["/library", "Candidate Library"],
+  ["/resumes", "Resumes"],
+])("activates only the matching navigation item on %s", (path, label) => {
+  expect(
+    NAV_LINKS.filter(({ to, activePaths }) =>
+      isNavActive(path, to, activePaths),
+    ).map((link) => link.label),
+  ).toEqual([label]);
+  const resumesIndex = NAV_LINKS.findIndex(({ to }) => to === "/resumes");
+  expect(NAV_LINKS[resumesIndex + 1]).toMatchObject({
+    to: "/library",
+    label: "Candidate Library",
+    activePaths: ["/library"],
+  });
 });
