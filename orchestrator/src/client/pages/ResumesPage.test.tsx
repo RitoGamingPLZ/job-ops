@@ -5,7 +5,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { ResumeLibraryPage, ResumesPage } from "./ResumesPage";
@@ -186,5 +186,19 @@ it("renders the library with the standard header and navigation", () => {
     screen.getByRole("button", { name: "Open navigation menu" }),
   ).toBeVisible();
   expect(screen.getByRole("main")).toHaveTextContent("Library content");
-  expect(screen.queryByRole("link", { name: "← Resumes" })).toBeNull();
+});
+
+it("navigates from the library to resumes through the navigation menu", async () => {
+  mocks.list.mockResolvedValue({ resumes: [] });
+  renderWithQueryClient(
+    <MemoryRouter initialEntries={["/resumes/library"]}>
+      <Routes>
+        <Route path="/resumes/library" element={<ResumeLibraryPage />} />
+        <Route path="/resumes" element={<ResumesPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
+  fireEvent.click(screen.getByRole("button", { name: "Resumes" }));
+  expect(await screen.findByText(/No resumes yet/)).toBeVisible();
 });

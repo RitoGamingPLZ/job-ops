@@ -1,6 +1,6 @@
 import { listResumes } from "@client/api/cowork";
 import type { ResumeListItem } from "@shared/types";
-import { Files } from "lucide-react";
+import { Files, Library } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import * as api from "@/client/api";
@@ -138,7 +138,7 @@ export function ResumeLibraryPage() {
   return (
     <>
       <PageHeader
-        icon={Files}
+        icon={Library}
         title="Candidate Library"
         subtitle="Manage your experience, projects, skills, education, awards and certifications."
       />
