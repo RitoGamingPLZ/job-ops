@@ -19,9 +19,7 @@ it("unticks chips without deleting library options, filters, creates and deletes
   fireEvent.click(screen.getByRole("button", { name: "Untick Rust" }));
   expect(change).toHaveBeenCalledWith([]);
   expect(remove).not.toHaveBeenCalled();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Create / delete keywords" }),
-  );
+  expect(screen.getAllByRole("textbox")).toHaveLength(1);
   const input = screen.getByRole("textbox", {
     name: "Search or create Keywords",
   });
@@ -53,9 +51,6 @@ it("allows library keyword management without resume selection", () => {
     />,
   );
   expect(screen.queryByRole("button", { name: "Untick Rust" })).toBeNull();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Create / delete keywords" }),
-  );
   expect(screen.queryByRole("checkbox")).toBeNull();
   expect(
     screen.getByRole("button", { name: "Delete keyword Rust" }),

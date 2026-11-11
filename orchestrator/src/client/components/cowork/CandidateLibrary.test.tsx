@@ -39,6 +39,7 @@ vi.mock("@client/api/cowork", () => ({
   extractExperienceBullets: mocks.extract,
 }));
 vi.mock("@shared/resume-links", () => ({
+  KIND_SECTION: { role: "experience", project: "projects", skill: "skills" },
   addToResume: mocks.add,
   removeFromResume: mocks.subtract,
   applyLibraryUpdate: mocks.apply,
@@ -269,7 +270,7 @@ describe("candidate library", () => {
     expect(mocks.remove).toHaveBeenCalledWith("project", undefined);
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
-  it("tints reworded linked duties with the shared class and original text title", async () => {
+  it("tints reworded linked duties with the shared class and resume wording title", async () => {
     mocks.lines.mockReturnValue([{ ref: "duty", text: "Reworded tools" }]);
     await mount({ jobId: "job", document: doc });
     const row = screen.getByRole("button", {
@@ -277,7 +278,7 @@ describe("candidate library", () => {
     }).parentElement;
     for (const className of REWORDED_TINT_CLASS.split(" "))
       expect(row).toHaveClass(className);
-    expect(row).toHaveAttribute("title", duty.text);
+    expect(row).toHaveAttribute("title", "Reworded tools");
   });
   it("keeps tags, drag payload, chat references and rank results", async () => {
     const reference = vi.fn();
@@ -331,7 +332,8 @@ describe("candidate library", () => {
     fireEvent.click(screen.getByRole("button", { name: "Skills" }));
     fireEvent.click(screen.getByRole("button", { name: "Untick Rust" }));
     const next = change.mock.calls[0][0](doc);
-    expect(next.sections.skills.items[0].keywords).toEqual([]);
+    expect(mocks.subtract).toHaveBeenCalledWith(doc, "skill");
+    expect(next).toBe(doc);
     expect(doc.sections.skills.items[0].keywords).toEqual(["Rust"]);
     expect(mocks.update).not.toHaveBeenCalled();
   });
@@ -339,9 +341,6 @@ describe("candidate library", () => {
     const change = vi.fn();
     await mount({ jobId: "job", document: doc, onDocumentChange: change });
     fireEvent.click(screen.getByRole("button", { name: "Skills" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create / delete keywords" }),
-    );
     fireEvent.change(
       screen.getByRole("textbox", {
         name: "Search or create Languages keywords",
@@ -360,6 +359,116 @@ describe("candidate library", () => {
     expect(
       change.mock.calls[1][0](doc).sections.skills.items[0].keywords,
     ).toEqual(["Rust", "Go"]);
+  });
+  it("scans only experience and project lines for rewording", async () => {
+    mocks.lines.mockImplementation((entry) => {
+      expect(entry.id).toBe("entry");
+      return [];
+    });
+    await mount({ jobId: "job", document: doc });
+    expect(mocks.lines).toHaveBeenCalled();
+  });
+  it("preserves frozen documents on edits and deletes while allowing ticks", async () => {
+    const change = vi.fn();
+    await mount({
+      jobId: "job",
+      frozen: true,
+      document: doc,
+      onDocumentChange: change,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Built tools" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Text" }), {
+      target: { value: "Updated" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByRole("button", { name: "Updated" });
+    expect(change).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Include Updated" }));
+    expect(change).toHaveBeenCalledTimes(1);
+    change.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Delete Updated" }));
+    await waitFor(() => expect(screen.queryByText("Updated")).toBeNull());
+    expect(change).not.toHaveBeenCalled();
+  });
+  it("places new forms under their add button and requires a job company", async () => {
+    await mount();
+    const add = screen.getByRole("button", { name: "+ Add duty" });
+    fireEvent.click(add);
+    expect(add.nextElementSibling).toBe(
+      screen.getByRole("form", { name: "Edit library item" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "+ Add job" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Position" }), {
+      target: { value: "Engineer" },
+    });
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.submit(screen.getByRole("form", { name: "Edit library item" }));
+    expect(mocks.create).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("textbox", { name: "Company" }), {
+      target: { value: "New company" },
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Save" })).toBeEnabled(),
+    );
+  });
+  it("does not offer experience drag sources for project points", async () => {
+    await mount();
+    fireEvent.click(screen.getByRole("button", { name: "Projects" }));
+    expect(
+      screen.queryByRole("button", { name: "Drag duty: Parsed code" }),
+    ).toBeNull();
+  });
+  it("keeps rank scores after a tag edit", async () => {
+    mocks.rank.mockResolvedValue({
+      ranked: [{ bulletId: "duty", score: 88, reason: "Relevant" }],
+    });
+    await mount({ jobId: "job", document: doc });
+    fireEvent.click(screen.getByRole("button", { name: "Rank for this job" }));
+    await screen.findByText("88/100");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Tools from Built tools" }),
+    );
+    await waitFor(() => expect(mocks.update).toHaveBeenCalled());
+    expect(screen.getByText("88/100")).toBeVisible();
+  });
+  it("keeps frozen resume keywords unchanged on library create and delete", async () => {
+    const change = vi.fn();
+    await mount({
+      jobId: "job",
+      frozen: true,
+      document: doc,
+      onDocumentChange: change,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Skills" }));
+    fireEvent.change(
+      screen.getByRole("textbox", {
+        name: "Search or create Languages keywords",
+      }),
+      { target: { value: "Go" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Create 'Go'" }));
+    await screen.findByRole("button", { name: "Delete keyword Go" });
+    expect(change).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete keyword Rust" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Delete keyword Rust" }),
+      ).toBeNull(),
+    );
+    expect(change).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Untick Rust" }));
+    expect(change).toHaveBeenCalledTimes(1);
+  });
+  it("labels certification website editing as Link", async () => {
+    await mount();
+    fireEvent.click(screen.getByRole("button", { name: "Certifications" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Certificate · Institute/ }),
+    );
+    expect(screen.getByRole("textbox", { name: "Link" })).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: "Website" })).toBeNull();
   });
   it("extracts duties into an explicitly chosen library role", async () => {
     mocks.extract.mockResolvedValue({
