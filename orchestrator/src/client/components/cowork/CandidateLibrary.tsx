@@ -623,7 +623,9 @@ export function CandidateLibrary({
         </div>
         {editing && editForm(edit)}
         {hasTags && (
-          <div className="flex min-w-0 items-start gap-1">
+          <div
+            className={`flex min-w-0 items-start gap-1 ${jobId ? "pl-4" : ""}`}
+          >
             <InlineTags
               bullet={item}
               busy={busy}
