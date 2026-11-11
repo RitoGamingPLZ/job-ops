@@ -487,7 +487,11 @@ export function CandidateLibrary({
           <button
             type="button"
             className={`min-w-0 flex-1 py-1 text-left hover:underline ${item.kind === "bullet" ? "truncate" : ""}`}
-            title={item.kind === "bullet" ? item.text : undefined}
+            title={
+              item.kind === "bullet"
+                ? (rewordedLine?.text ?? item.text)
+                : undefined
+            }
             disabled={busy}
             onClick={() => startEdit(item)}
           >
@@ -507,7 +511,7 @@ export function CandidateLibrary({
                   size="sm"
                   variant="ghost"
                   className="h-7 w-7 p-0"
-                  aria-label="Chat reference"
+                  aria-label={`Chat reference: ${item.text}`}
                   title="Chat reference"
                   onClick={() => onReferenceBullet(item)}
                 >
@@ -536,6 +540,10 @@ export function CandidateLibrary({
               <span
                 className="shrink-0 rounded border px-1.5 py-0.5 text-xs font-medium"
                 title={score.reason}
+                role="note"
+                // biome-ignore lint/a11y/noNoninteractiveTabindex: Keyboard users need to focus the score to read its rank reason.
+                tabIndex={0}
+                aria-label={`${score.score}/100: ${score.reason}`}
               >
                 {score.score}/100
               </span>

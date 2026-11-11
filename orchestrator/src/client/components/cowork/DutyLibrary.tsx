@@ -53,7 +53,9 @@ export function InlineTags({
       if (!row || !row.clientWidth) return;
       const gap = 4;
       const available =
-        row.clientWidth - (addButton.current?.offsetWidth ?? 0) - gap;
+        row.clientWidth -
+        (adding ? 0 : (addButton.current?.offsetWidth ?? 0)) -
+        gap;
       const widths = bullet.tags.map(
         (_, index) => tagButtons.current[index]?.offsetWidth ?? 0,
       );
@@ -76,7 +78,7 @@ export function InlineTags({
     const observer = new ResizeObserver(measure);
     observer.observe(row);
     return () => observer.disconnect();
-  }, [bullet.tags]);
+  }, [bullet.tags, adding]);
   const tagClass =
     "shrink-0 whitespace-nowrap rounded border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50";
   function removeTag(tag: string) {
