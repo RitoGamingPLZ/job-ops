@@ -370,7 +370,7 @@ function renderProfilesSection(document: LatexResumeDocument): string {
   const lines = document.profileItems.map((item) => {
     const label = escapeTypstText(item.network);
     const value = renderLink(
-      item.username || item.url || item.network,
+      item.label || item.username || item.url || item.network,
       item.url,
     );
     return `*${label}:* ${value}`;

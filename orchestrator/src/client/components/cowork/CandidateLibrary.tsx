@@ -636,6 +636,9 @@ export function CandidateLibrary({
       .map((value) => ` · ${String(value)}`)
       .join("");
     const displayText = item.text + detailSuffix;
+    // A labelled contact link shows its label; the tooltip keeps the URL.
+    const label =
+      item.kind === "contact" ? String(item.data?.label ?? "").trim() : "";
     const hasTags = TAG_KINDS.has(item.kind);
     const isLine = item.kind === "bullet" || item.kind === "project_point";
     const lineSection =
@@ -665,7 +668,7 @@ export function CandidateLibrary({
             disabled={busy}
             onClick={() => startEdit(item)}
           >
-            {item.text}
+            {label || item.text}
             <span className="text-muted-foreground">{detailSuffix}</span>
           </button>
           {item.kind === "bullet" ? (

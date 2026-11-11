@@ -36,6 +36,8 @@ export interface LatexResumeSkillGroup {
 
 export interface LatexResumeProfileItem {
   network: string;
+  /** Link text chosen by the user, e.g. "Portfolio". */
+  label?: string | null;
   username?: string | null;
   url?: string | null;
 }

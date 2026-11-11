@@ -1582,7 +1582,7 @@ describe("contact editing", () => {
     const row = url.closest(".resume-contact-item");
     expect(row).toHaveAttribute("data-empty", "true");
     expect(row?.querySelector(".resume-contact-link")).toHaveTextContent(/^$/);
-    expect(screen.queryByLabelText("Profile 1 label")).toBeNull();
+    expect(screen.getByLabelText("Profile 1 label")).toHaveValue("");
 
     fireEvent.blur(url, {
       relatedTarget: screen.getByLabelText("Profile 1 network"),

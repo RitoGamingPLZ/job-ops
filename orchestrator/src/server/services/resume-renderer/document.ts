@@ -343,6 +343,7 @@ function buildProfileItems(resumeJson: RecordLike): LatexResumeProfileItem[] {
         toText(item.username).trim() ||
         url ||
         "Profile",
+      label: toText(getByPath(item, "website.label")).trim() || null,
       username: toText(item.username).trim() || null,
       url: safeUrl(url),
     };

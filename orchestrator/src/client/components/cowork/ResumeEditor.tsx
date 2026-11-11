@@ -1861,9 +1861,10 @@ export function ResumeEditor({
                           aria-hidden="true"
                           className="resume-contact-link"
                         >
-                          {bareUrl(profile.website?.url ?? "") ||
-                            profile.username ||
-                            profile.network}
+                          {profile.website?.label ||
+                            profile.network ||
+                            bareUrl(profile.website?.url ?? "") ||
+                            profile.username}
                         </span>
                         <Input
                           aria-label={`Profile ${index + 1} URL`}
@@ -1885,6 +1886,24 @@ export function ResumeEditor({
                         />
                       </span>
                       <span className="resume-tools">
+                        <Input
+                          aria-label={`Profile ${index + 1} label`}
+                          placeholder="Label"
+                          value={profile.website?.label ?? ""}
+                          onChange={(event) =>
+                            change((next) => {
+                              const item = next.sections.profiles.items.find(
+                                (item) => item.id === profile.id,
+                              );
+                              if (item)
+                                item.website = {
+                                  ...item.website,
+                                  url: item.website?.url ?? "",
+                                  label: event.target.value,
+                                };
+                            })
+                          }
+                        />
                         {(["network", "username"] as const).map((field) => (
                           <Input
                             key={field}
