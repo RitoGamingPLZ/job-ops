@@ -43,6 +43,18 @@ Technical Interview is one column. Each `technical_interview` event counts as an
 When you successfully move a job listing to the **Offer** stage (either by dragging a card to the **Offer** column or by logging an **Offer** stage event), a congratulatory celebration with confetti and floating balloons will trigger on the screen to celebrate your achievement!
 :::
 
+### Generate missing resumes in a batch
+
+1. In the **Targeted** lane header, click **Generate missing resumes (N)**. The count shows jobs with a missing or out-of-date generated PDF that are available for work.
+2. JobOps starts background work and shows **Generating N resumes one at a time**. Each job finishes before the next starts.
+3. Review the results with **Open resume** or **Preview PDF** before applying.
+
+The batch selects targeted jobs with no saved resume, no PDF, or a stale generated PDF. It skips uploaded PDFs and jobs already preparing a resume or rendering a PDF. If a saved resume exists, the batch renders that document and preserves your hand edits. Otherwise, it tailors a new resume from your candidate library and generates its PDF. A failed job is skipped so the remaining jobs can continue.
+
+The button is disabled when its count is zero or its start request is pending. Only one batch can run in your workspace at a time; another click while it runs shows **Already running**. The server also checks for missing saved documents, so the number started can differ from the button's PDF-based count.
+
+To re-tailor an existing resume, open the job page or job detail panel and use **Regenerate resume**. Confirming this replaces saved edits and any uploaded PDF; see [Orchestrator](/docs/next/features/orchestrator#regenerate-a-jobs-resume).
+
 ### Recording progress
 
 Marking a job **Applied** puts it directly on the board in the Applied lane — there's no separate "move to in progress" step. From there, drag a card (or use the card menu's **Log event**) to record what actually happened: Recruiter Screen, Behaviour Question, Reject, or a withdrawal outcome.
@@ -86,6 +98,12 @@ curl -X POST "http://localhost:3001/api/jobs/<jobId>/stages" \
 - After application, the board uses the latest stage event as source of truth.
 - Check timeline events for out-of-order or mistaken transitions.
 
+### A resume is still missing after a batch
+
+- Wait for the current batch to finish. Jobs are processed one at a time.
+- Uploaded PDFs are skipped deliberately. Use **Regenerate resume** only if you want to replace one.
+- For a failed job, use **Prepare resume** to retry missing content or **Preview PDF** to retry rendering a saved resume. Check the candidate library and PDF renderer settings if it keeps failing.
+
 ### Drag-and-drop move failed
 
 - Network/API error can roll back optimistic UI movement.
@@ -95,4 +113,5 @@ curl -X POST "http://localhost:3001/api/jobs/<jobId>/stages" \
 
 - [Overview](/docs/next/features/overview)
 - [Orchestrator](/docs/next/features/orchestrator)
+- [Co-work resume editor and candidate library](/docs/next/features/design-resume)
 - [Post-Application Tracking](/docs/next/features/post-application-tracking)

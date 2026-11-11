@@ -173,12 +173,11 @@ Important:
 
 ### What JobOps changes with AI
 
-Current AI-driven edits are intentionally scoped:
+Library-based resume generation writes a headline and summary and selects existing experience duties, skill keywords, projects, certifications, and awards. It preserves base-resume roles, including roles nested under an employer, and copies selected duty text from the candidate library.
 
-- `summary`
-- `headline/title`
-- `skills` and keywords
-- project **visibility** (enable/disable per project)
+Contact library items are excluded from the tailoring prompt. See [Candidate library data sent to the LLM](/docs/next/features/design-resume#candidate-library-data-sent-to-the-llm) for the full field list and limits.
+
+Rendering a saved co-work document does not re-tailor its content. To tailor again from the current library, use **Regenerate resume** on the targeted job's page or detail panel and confirm replacement of its saved edits and any uploaded PDF. See [Orchestrator](/docs/next/features/orchestrator#regenerate-a-jobs-resume).
 
 ### Local renderer dependency
 
