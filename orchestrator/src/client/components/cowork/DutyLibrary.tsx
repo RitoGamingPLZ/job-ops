@@ -80,12 +80,12 @@ export function InlineTags({
     return () => observer.disconnect();
   }, [bullet.tags, adding]);
   const tagClass =
-    "shrink-0 whitespace-nowrap rounded border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50";
+    "shrink-0 whitespace-nowrap rounded border px-1 py-0.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50";
   function removeTag(tag: string) {
     onSave(bullet.tags.filter((value) => value !== tag));
   }
   return (
-    <div className="min-w-0 flex-1 space-y-2">
+    <div className="min-w-0 flex-1 space-y-1">
       <div
         ref={tagsRow}
         className="relative flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap"
