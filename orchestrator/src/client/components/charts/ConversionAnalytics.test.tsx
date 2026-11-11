@@ -10,7 +10,15 @@ import {
 import type { ApplicationStage, Job, StageEvent } from "@shared/types.js";
 import { render, screen } from "@testing-library/react";
 import type React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { ConversionAnalytics } from "./ConversionAnalytics";
 
 // Mock UI components
@@ -152,13 +160,33 @@ describe("ConversionAnalytics - Edge Cases", () => {
       occurredAt,
     });
 
-  it("labels ticks and tooltips with the bucket's own local calendar date", () => {
-    render(
-      <ConversionAnalytics jobsWithEvents={[]} error={null} daysToShow={7} />,
-    );
+  describe("Local calendar date labels", () => {
+    const previousTimezone = process.env.TZ;
 
-    expect(screen.getAllByTestId("x-axis").at(-1)).toHaveTextContent(/^1 Jan$/);
-    expect(screen.getByTestId("chart-tooltip")).toHaveTextContent("1 Jan 2025");
+    beforeAll(() => {
+      process.env.TZ = "America/Toronto";
+    });
+
+    afterAll(() => {
+      if (previousTimezone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTimezone;
+      }
+    });
+
+    it("labels ticks and tooltips with the bucket's own local calendar date", () => {
+      render(
+        <ConversionAnalytics jobsWithEvents={[]} error={null} daysToShow={7} />,
+      );
+
+      expect(screen.getAllByTestId("x-axis").at(-1)).toHaveTextContent(
+        /^1 Jan$/,
+      );
+      expect(screen.getByTestId("chart-tooltip")).toHaveTextContent(
+        "1 Jan 2025",
+      );
+    });
   });
 
   describe("Empty and Null Data", () => {
