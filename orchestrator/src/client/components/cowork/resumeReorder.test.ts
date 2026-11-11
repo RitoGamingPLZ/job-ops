@@ -1,4 +1,5 @@
 import { bulletsFromHtml } from "@shared/resume-bullets";
+import { setItemLines } from "@shared/resume-links";
 import type { ReactiveResumeV5Document } from "@shared/types";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -122,37 +123,13 @@ describe("section order", () => {
   });
 });
 
-// Step A implements these pure helpers in parallel. Exercise the editor against
-// their fixed contract without depending on its placeholder bodies.
-vi.mock("@shared/resume-links", async () => {
-  const { splitDescription, joinDescription } = await import(
-    "@shared/resume-bullets"
-  );
-  const getItemLines = (item: Record<string, unknown>) =>
-    splitDescription(String(item.description ?? "")).bullets.map(
-      (text, index) => ({
-        text,
-        ref:
-          (item.bulletRefs as (string | null)[] | undefined)?.[index] ?? null,
-      }),
-    );
-  const setItemLines = (
-    item: Record<string, unknown>,
-    lines: { text: string; ref: string | null }[],
-  ) => ({
-    ...item,
-    description: joinDescription(
-      splitDescription(String(item.description ?? "")).introHtml,
-      lines.map((line) => line.text),
-      String(item.description ?? ""),
-    ),
-    bulletRefs: lines.map((line) => line.ref),
-  });
+// Use the merged shared helpers; spies also cover omitted optional refs.
+vi.mock("@shared/resume-links", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@shared/resume-links")>();
   return {
-    getItemLines,
-    setItemLines,
-    sameLineText: (a: string, b: string) =>
-      a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " "),
+    ...actual,
+    getItemLines: vi.fn(actual.getItemLines),
+    setItemLines: vi.fn(actual.setItemLines),
   };
 });
 
@@ -194,4 +171,22 @@ it("moves refs with their text within and between entries, preserving intro pros
     null,
     "third",
   ]);
+});
+
+it("replaces items when setItemLines omits refs", () => {
+  const original = fixture();
+  original.sections.experience.items[0].description = "<ul><li>A</li></ul>";
+  original.sections.experience.items[0].bulletRefs = ["first"];
+  vi.mocked(setItemLines).mockImplementationOnce((item) => {
+    const { bulletRefs: _refs, ...rest } = item;
+    return { ...rest, description: "" };
+  });
+  const next = moveResumeBullet(
+    original,
+    { experienceId: "a", index: 0 },
+    "b",
+    0,
+  );
+  expect(next.sections.experience.items[0]).not.toHaveProperty("bulletRefs");
+  expect(next.sections.experience.items[1].bulletRefs).toEqual(["first", null]);
 });

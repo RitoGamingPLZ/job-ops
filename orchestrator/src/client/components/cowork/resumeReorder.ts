@@ -55,16 +55,19 @@ export function moveResumeBullet(
     (e) => e.id === destinationId,
   );
   if (!sourceItem || !targetItem) return document;
+  const items = next.sections.experience.items;
+  const sourceIndex = items.indexOf(sourceItem);
+  const targetIndex = items.indexOf(targetItem);
   if (origin.id === destination.id)
-    Object.assign(
+    items[sourceIndex] = setItemLines(
       sourceItem,
-      setItemLines(sourceItem, moveItem(from, source.index, gap)),
-    );
+      moveItem(from, source.index, gap),
+    ) as typeof sourceItem;
   else {
     const [bullet] = from.splice(source.index, 1);
     to.splice(gap, 0, bullet);
-    Object.assign(sourceItem, setItemLines(sourceItem, from));
-    Object.assign(targetItem, setItemLines(targetItem, to));
+    items[sourceIndex] = setItemLines(sourceItem, from) as typeof sourceItem;
+    items[targetIndex] = setItemLines(targetItem, to) as typeof targetItem;
   }
   return next;
 }
