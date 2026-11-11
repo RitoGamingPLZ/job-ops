@@ -20,6 +20,157 @@ describe.sequential("Jobs API routes", () => {
   });
 
   it.each([
+    { status: "ready", readyAt: null, pdfRegenerating: false, expected: 400 },
+    {
+      status: "processing",
+      readyAt: "now",
+      pdfRegenerating: false,
+      expected: 409,
+    },
+    { status: "ready", readyAt: "now", pdfRegenerating: true, expected: 409 },
+  ] as const)("guards resume regeneration: %j", async ({
+    expected,
+    ...state
+  }) => {
+    const { createJob, updateJob } = await import("@server/repositories/jobs");
+    const job = await createJob({
+      source: "manual",
+      title: "Regenerate",
+      employer: "Acme",
+      jobUrl: "https://example.com/regenerate",
+    });
+    await updateJob(job.id, state);
+    const res = await fetch(`${baseUrl}/api/jobs/${job.id}/regenerate-resume`, {
+      method: "POST",
+      headers: { "x-request-id": "regenerate-request" },
+    });
+    expect(res.status).toBe(expected);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.error.code).toBe(
+      expected === 400 ? "INVALID_REQUEST" : "CONFLICT",
+    );
+    expect(body.meta.requestId).toBe("regenerate-request");
+    expect(res.headers.get("x-request-id")).toBe("regenerate-request");
+  });
+
+  it("returns processing and hydrated PDF freshness before regeneration finishes", async () => {
+    const { createJob, updateJob } = await import("@server/repositories/jobs");
+    const resumeService = await import("@server/services/job-resume");
+    const { generateFinalPdf } = await import("@server/pipeline/index");
+    vi.mocked(generateFinalPdf).mockResolvedValueOnce({ success: true });
+    let release!: () => void;
+    const spy = vi
+      .spyOn(resumeService, "regenerateJobResume")
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = () =>
+              resolve({
+                exists: true,
+                revision: 2,
+                updatedAt: "now",
+                document: {} as never,
+              });
+          }),
+      );
+    try {
+      const job = await createJob({
+        source: "manual",
+        title: "Regenerate",
+        employer: "Acme",
+        jobUrl: "https://example.com/regenerate",
+      });
+      await updateJob(job.id, { readyAt: "now", status: "ready" });
+      const res = await fetch(
+        `${baseUrl}/api/jobs/${job.id}/regenerate-resume`,
+        { method: "POST" },
+      );
+      expect(res.status).toBe(200);
+      expect((await res.json()).data).toMatchObject({
+        id: job.id,
+        status: "processing",
+        pdfFreshness: "missing",
+      });
+      expect(generateFinalPdf).not.toHaveBeenCalled();
+      const again = await fetch(
+        `${baseUrl}/api/jobs/${job.id}/regenerate-resume`,
+        { method: "POST" },
+      );
+      expect(again.status).toBe(409);
+      release();
+      await vi.waitFor(() => expect(generateFinalPdf).toHaveBeenCalledOnce());
+    } finally {
+      // Finish the immediate mock and drain the background finally/lock cleanup
+      // before stopServer closes the database, including on assertion failure.
+      release?.();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      spy.mockRestore();
+    }
+  });
+
+  it("accepts a no-body resume batch and only selects the current tenant's jobs", async () => {
+    const { createJob, updateJob } = await import("@server/repositories/jobs");
+    const { runWithRequestContext } = await import("@infra/request-context");
+    const job = await createJob({
+      source: "manual",
+      title: "Batch",
+      employer: "Acme",
+      jobUrl: "https://example.com/batch",
+    });
+    await updateJob(job.id, { readyAt: "now" });
+    const { db, schema } = await import("@server/db");
+    await db
+      .insert(schema.tenants)
+      .values({ id: "other-tenant", name: "Other", slug: "other-tenant" });
+    await runWithRequestContext({ tenantId: "other-tenant" }, async () => {
+      const other = await createJob({
+        source: "manual",
+        title: "Other",
+        employer: "Acme",
+        jobUrl: "https://example.com/other-batch",
+      });
+      await updateJob(other.id, { readyAt: "now" });
+    });
+    const res = await fetch(
+      `${baseUrl}/api/jobs/actions/generate-missing-resumes`,
+      { method: "POST", headers: { "x-request-id": "batch-request" } },
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      data: { jobIds: [job.id], alreadyRunning: false },
+      meta: { requestId: "batch-request" },
+    });
+  });
+
+  it("returns not found for regeneration outside the active tenant", async () => {
+    const { createJob } = await import("@server/repositories/jobs");
+    const { runWithRequestContext } = await import("@infra/request-context");
+    const { db, schema } = await import("@server/db");
+    await db
+      .insert(schema.tenants)
+      .values({ id: "other-tenant", name: "Other", slug: "other-tenant" });
+    const other = await runWithRequestContext(
+      { tenantId: "other-tenant" },
+      () =>
+        createJob({
+          source: "manual",
+          title: "Private",
+          employer: "Acme",
+          jobUrl: "https://example.com/private-resume",
+        }),
+    );
+    for (const id of ["missing", other.id]) {
+      const res = await fetch(`${baseUrl}/api/jobs/${id}/regenerate-resume`, {
+        method: "POST",
+      });
+      expect(res.status).toBe(404);
+      expect((await res.json()).error.code).toBe("NOT_FOUND");
+    }
+  });
+
+  it.each([
     "discovered",
     "processing",
     "ready",
