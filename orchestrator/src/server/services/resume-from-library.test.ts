@@ -1,0 +1,228 @@
+import { getItemLines } from "@shared/resume-links";
+import { createJob } from "@shared/testing/factories";
+import type { ExperienceBullet, ReactiveResumeV5Document } from "@shared/types";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  generateResumeFromLibrary,
+  LIBRARY_PROMPT_MAX_BYTES,
+} from "./resume-from-library";
+import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
+
+const mocks = vi.hoisted(() => ({ callJson: vi.fn(), usage: vi.fn() }));
+vi.mock("./modelSelection", () => ({
+  createConfiguredLlmService: async () => ({ callJson: mocks.callJson }),
+  resolveLlmModel: async () => "test",
+}));
+vi.mock("./hosted-usage", () => ({
+  withHostedUsageReservation: async (
+    args: unknown,
+    work: () => Promise<{ result: unknown }>,
+  ) => {
+    mocks.usage(args);
+    return (await work()).result;
+  },
+}));
+vi.mock("./writing-style", () => ({
+  getWritingStyle: async () => ({ tone: "Direct", summaryMaxWords: 50 }),
+}));
+vi.mock("./cowork-ai", () => ({
+  selectLibraryBullets: (
+    items: ExperienceBullet[],
+    _description: string,
+    limit: number,
+  ) => items.slice(0, limit),
+}));
+const item = (
+  id: string,
+  kind: ExperienceBullet["kind"],
+  text: string,
+  extra: Partial<ExperienceBullet> = {},
+): ExperienceBullet => ({
+  id,
+  kind,
+  text,
+  data: null,
+  parentId: null,
+  position: 0,
+  company: null,
+  role: null,
+  startDate: null,
+  endDate: null,
+  tags: [],
+  source: "manual",
+  sourceExperienceId: null,
+  createdAt: "now",
+  updatedAt: "now",
+  ...extra,
+});
+const library = [
+  item("role", "role", "Engineer", {
+    data: { company: "Acme", period: "2020 – 2025", location: "London" },
+  }),
+  item("duty", "bullet", "Built software", { parentId: "role" }),
+  item("role2", "role", "Lead", { data: { company: "Other" } }),
+  item("other", "bullet", "Led a team", { parentId: "role2" }),
+  item("skill", "skill", "Languages", {
+    data: { keywords: ["TypeScript", "Python"] },
+  }),
+  item("project", "project", "Portfolio", { data: { period: "2025" } }),
+  item("point", "project_point", "Built a site", { parentId: "project" }),
+  item("school", "education", "BSc", {
+    data: { school: "University", period: "2016 – 2020" },
+  }),
+  item("award", "award", "Prize"),
+  item("cert", "certification", "Certificate", { data: { issuer: "Issuer" } }),
+];
+let base: ReactiveResumeV5Document;
+let selection: {
+  headline: string;
+  summary: string;
+  bullets: Record<string, string[]>;
+  skills: { name: string; keywords: string[] }[];
+  projectIds: string[];
+  awardIds: string[];
+  certificationIds: string[];
+};
+beforeEach(() => {
+  vi.clearAllMocks();
+  base = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+  base.picture.url = "data:image/png;base64,PRIVATE";
+  base.basics.email = "private@example.com";
+  base.sections.education.items = [
+    {
+      id: "base-school",
+      hidden: false,
+      school: "University",
+      degree: "BSc",
+      area: "",
+      grade: "",
+      description: "",
+      period: "2016 – 2020",
+      website: { url: "", label: "" },
+      location: "",
+    },
+  ];
+  selection = {
+    headline: "Engineer",
+    summary: "Builds software",
+    bullets: { role: ["duty"] },
+    skills: [{ name: "Languages", keywords: ["typescript", "Invented"] }],
+    projectIds: ["project"],
+    awardIds: ["award"],
+    certificationIds: ["cert"],
+  };
+  mocks.callJson.mockImplementation(async () => ({
+    success: true,
+    data: selection,
+  }));
+});
+describe("generateResumeFromLibrary", () => {
+  it("builds linked facts and lines with one reserved LLM call, preserving the skeleton", async () => {
+    const result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(result.basics.email).toBe(base.basics.email);
+    expect(result.metadata).toEqual(base.metadata);
+    expect(result.sections.experience.items[0]).toMatchObject({
+      libraryId: "role",
+      company: "Acme",
+      position: "Engineer",
+      period: "2020 – 2025",
+    });
+    expect(getItemLines(result.sections.experience.items[0])).toEqual([
+      { text: "Built software", ref: "duty" },
+    ]);
+    expect(result.sections.skills.items[0]).toMatchObject({
+      libraryId: "skill",
+      name: "Languages",
+      keywords: ["TypeScript"],
+    });
+    expect(getItemLines(result.sections.projects.items[0])).toEqual([
+      { text: "Built a site", ref: "point" },
+    ]);
+    expect(result.sections.education.items[0]).toMatchObject({
+      libraryId: "school",
+      school: "University",
+    });
+    expect(result.sections.awards.items[0].libraryId).toBe("award");
+    expect(result.sections.certifications.items[0].libraryId).toBe("cert");
+    expect(mocks.callJson).toHaveBeenCalledOnce();
+    expect(mocks.usage).toHaveBeenCalledExactlyOnceWith({
+      action: "tailoring",
+    });
+    const prompt = mocks.callJson.mock.calls[0][0].messages[1].content;
+    const totalPromptBytes = mocks.callJson.mock.calls[0][0].messages.reduce(
+      (total: number, message: { content: string }) =>
+        total + Buffer.byteLength(message.content),
+      0,
+    );
+    expect(totalPromptBytes).toBeLessThan(LIBRARY_PROMPT_MAX_BYTES);
+    expect(prompt).not.toContain("PRIVATE");
+    expect(prompt).not.toContain("private@example.com");
+    expect(prompt).toContain("Direct");
+    expect(base.basics.headline).not.toBe("Engineer");
+  });
+  it("drops unknown and cross-parent ids, deduplicates picks and falls back for an empty role", async () => {
+    selection.bullets = {
+      role: ["missing", "other", "duty", "duty"],
+      role2: ["duty"],
+    };
+    selection.projectIds = ["missing", "award", "project", "project"];
+    const result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(
+      result.sections.experience.items.map((item) => item.bulletRefs),
+    ).toEqual([["duty"], ["other"]]);
+    expect(result.sections.projects.items).toHaveLength(1);
+  });
+  it("keeps the base duty subset when a role receives no valid picks", async () => {
+    base.sections.experience.items = [
+      {
+        id: "base-role",
+        hidden: false,
+        company: "Acme",
+        position: "Engineer",
+        location: "London",
+        period: "2020 – 2025",
+        website: { url: "", label: "" },
+        description: "<ul><li>Built software</li></ul>",
+        roles: [],
+      },
+    ];
+    selection.bullets = { role: ["missing"] };
+    const result = await generateResumeFromLibrary(base, createJob(), [
+      ...library,
+      item("extra", "bullet", "Extra library duty", { parentId: "role" }),
+    ]);
+    expect(getItemLines(result.sections.experience.items[0])).toEqual([
+      { text: "Built software", ref: "duty" },
+    ]);
+  });
+  it("omits deleted kinds instead of resurrecting unlinked base facts", async () => {
+    const result = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      library.filter(
+        (item) => !["project", "award", "certification"].includes(item.kind),
+      ),
+    );
+    expect(result.sections.projects.items).toEqual([]);
+    expect(result.sections.awards.items).toEqual([]);
+    expect(result.sections.certifications.items).toEqual([]);
+  });
+  it.each([
+    { success: false, error: "private upstream body" },
+    { success: true, data: {} },
+  ])("throws on failed or malformed output", async (response) => {
+    mocks.callJson.mockResolvedValue(response);
+    await expect(
+      generateResumeFromLibrary(base, createJob(), library),
+    ).rejects.toThrow(/selection/);
+  });
+  it("rejects excessive input before reserving or calling the LLM", async () => {
+    await expect(
+      generateResumeFromLibrary(base, createJob(), [
+        item("huge", "role", "x".repeat(LIBRARY_PROMPT_MAX_BYTES)),
+      ]),
+    ).rejects.toThrow("prompt limit");
+    expect(mocks.callJson).not.toHaveBeenCalled();
+    expect(mocks.usage).not.toHaveBeenCalled();
+  });
+});
