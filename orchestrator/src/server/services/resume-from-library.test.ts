@@ -1,3 +1,9 @@
+import {
+  getRequestContext,
+  runWithRequestContext,
+} from "@infra/request-context";
+import { getSetting } from "@server/repositories/settings";
+import { splitDescription } from "@shared/resume-bullets";
 import { getItemLines } from "@shared/resume-links";
 import { createJob } from "@shared/testing/factories";
 import type { ExperienceBullet, ReactiveResumeV5Document } from "@shared/types";
@@ -9,6 +15,9 @@ import {
 import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
 
 const mocks = vi.hoisted(() => ({ callJson: vi.fn(), usage: vi.fn() }));
+vi.mock("@server/repositories/settings", () => ({
+  getSetting: vi.fn(async () => null),
+}));
 vi.mock("./modelSelection", () => ({
   createConfiguredLlmService: async () => ({ callJson: mocks.callJson }),
   resolveLlmModel: async () => "test",
@@ -85,6 +94,7 @@ let selection: {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(getSetting).mockResolvedValue(null);
   base = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
   base.picture.url = "data:image/png;base64,PRIVATE";
   base.basics.email = "private@example.com";
@@ -194,6 +204,200 @@ describe("generateResumeFromLibrary", () => {
     expect(getItemLines(result.sections.experience.items[0])).toEqual([
       { text: "Built software", ref: "duty" },
     ]);
+  });
+  it.each([
+    1, 2,
+  ])("enforces locked, excluded and capped projects (max %i) using base identities", async (maxProjects) => {
+    base.sections.projects.items = [
+      {
+        id: "base-locked",
+        hidden: true,
+        libraryId: "project",
+        name: "Old title",
+        period: "old",
+        description: "",
+        website: { url: "", label: "" },
+      },
+      {
+        id: "base-excluded",
+        hidden: true,
+        name: "Excluded",
+        period: "2024",
+        description: "",
+        website: { url: "", label: "" },
+      },
+      {
+        id: "base-eligible",
+        hidden: true,
+        name: "Eligible",
+        period: "2023",
+        description: "",
+        website: { url: "", label: "" },
+      },
+    ];
+    vi.mocked(getSetting).mockResolvedValue(
+      JSON.stringify({
+        maxProjects,
+        lockedProjectIds: ["base-locked"],
+        aiSelectableProjectIds: ["base-eligible"],
+      }),
+    );
+    selection.projectIds = ["excluded", "eligible", "project", "eligible"];
+    const result = await generateResumeFromLibrary(base, createJob(), [
+      ...library,
+      item("excluded", "project", "Excluded", { data: { period: "2024" } }),
+      item("eligible", "project", "Eligible", { data: { period: "2023" } }),
+    ]);
+    expect(
+      result.sections.projects.items.map((entry) => entry.libraryId),
+    ).toEqual(maxProjects === 1 ? ["project"] : ["project", "eligible"]);
+    const prompt = JSON.parse(
+      mocks.callJson.mock.calls[0][0].messages[1].content,
+    );
+    expect(prompt.projectSelection).toEqual({
+      lockedProjectIds: ["project"],
+      aiSelectableProjectIds: ["eligible"],
+      maxProjects,
+    });
+    expect(getSetting).toHaveBeenCalledWith("resumeProjects");
+    expect(mocks.callJson).toHaveBeenCalledOnce();
+  });
+  it("reads project policy separately in each tenant scope during concurrent generation", async () => {
+    vi.mocked(getSetting).mockImplementation(async () =>
+      JSON.stringify({
+        maxProjects: 1,
+        lockedProjectIds:
+          getRequestContext()?.tenantId === "tenant-a" ? ["project"] : [],
+        aiSelectableProjectIds: [],
+      }),
+    );
+    const [a, b] = await Promise.all([
+      runWithRequestContext({ tenantId: "tenant-a", userId: "user-a" }, () =>
+        generateResumeFromLibrary(base, createJob(), library),
+      ),
+      runWithRequestContext({ tenantId: "tenant-b", userId: "user-b" }, () =>
+        generateResumeFromLibrary(base, createJob(), library),
+      ),
+    ]);
+    expect(a.sections.projects.items.map((entry) => entry.libraryId)).toEqual([
+      "project",
+    ]);
+    expect(b.sections.projects.items).toEqual([]);
+    expect(getSetting).toHaveBeenCalledTimes(2);
+    expect(mocks.callJson).toHaveBeenCalledTimes(2);
+  });
+  it("honors a zero project cap without overriding it with LLM picks", async () => {
+    vi.mocked(getSetting).mockResolvedValue(
+      JSON.stringify({
+        maxProjects: 0,
+        lockedProjectIds: [],
+        aiSelectableProjectIds: ["project"],
+      }),
+    );
+    const result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(result.sections.projects.items).toEqual([]);
+  });
+  it("includes visible base projects by default even when the LLM omits them", async () => {
+    base.sections.projects.items = [
+      {
+        id: "base-project",
+        hidden: false,
+        name: "Portfolio",
+        period: "2025",
+        description: "",
+        website: { url: "", label: "" },
+      },
+    ];
+    selection.projectIds = [];
+    const result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(
+      result.sections.projects.items.map((entry) => entry.libraryId),
+    ).toEqual(["project"]);
+  });
+  it.each([
+    true,
+    false,
+  ])("uses current library education in library order (linked base: %s)", async (linked) => {
+    if (linked) base.sections.education.items[0].libraryId = "school";
+    const result = await generateResumeFromLibrary(base, createJob(), [
+      item("new-school", "education", "MSc", {
+        data: { school: "New University", location: "Paris", period: "2025" },
+      }),
+      ...library.map((entry) =>
+        entry.id === "school"
+          ? {
+              ...entry,
+              text: "BSc (updated)",
+              data: {
+                school: "Updated University",
+                location: "Toronto",
+                period: "2017 – 2021",
+              },
+            }
+          : entry,
+      ),
+    ]);
+    expect(result.sections.education.items).toMatchObject([
+      {
+        libraryId: "new-school",
+        degree: "MSc",
+        school: "New University",
+        location: "Paris",
+        period: "2025",
+      },
+      {
+        libraryId: "school",
+        degree: "BSc (updated)",
+        school: "Updated University",
+        location: "Toronto",
+        period: "2017 – 2021",
+      },
+    ]);
+    expect(result.sections.education.items).toHaveLength(2);
+  });
+  it.each([
+    true,
+    false,
+  ])("preserves matching base intros with linked lines (with lists: %s)", async (withLists) => {
+    base.sections.experience.items = [
+      {
+        id: "base-role",
+        hidden: false,
+        company: "Acme",
+        position: "Engineer",
+        period: "2020 – 2025",
+        location: "",
+        website: { url: "", label: "" },
+        roles: [],
+        description: `<p>Role intro.</p>${withLists ? "<ul><li>Old duty</li></ul>" : ""}`,
+      },
+    ];
+    base.sections.projects.items = [
+      {
+        id: "base-project",
+        hidden: true,
+        libraryId: "project",
+        name: "Old project name",
+        period: "old",
+        website: { url: "", label: "" },
+        description: `<p>A scheduling service for clinics.</p>${withLists ? "<ul><li>Old point</li></ul>" : ""}`,
+      },
+    ];
+    const result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(
+      splitDescription(result.sections.experience.items[0].description)
+        .introHtml,
+    ).toBe("<p>Role intro.</p>");
+    expect(
+      splitDescription(result.sections.projects.items[0].description).introHtml,
+    ).toBe("<p>A scheduling service for clinics.</p>");
+    expect(getItemLines(result.sections.experience.items[0])).toEqual([
+      { text: "Built software", ref: "duty" },
+    ]);
+    expect(getItemLines(result.sections.projects.items[0])).toEqual([
+      { text: "Built a site", ref: "point" },
+    ]);
+    expect(result.sections.projects.items[0].name).toBe("Portfolio");
   });
   it("omits deleted kinds instead of resurrecting unlinked base facts", async () => {
     const result = await generateResumeFromLibrary(
