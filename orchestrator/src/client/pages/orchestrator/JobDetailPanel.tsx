@@ -36,6 +36,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { parseJobBrief } from "@/client/components/JobBriefPane";
+import { RegenerateResumeButton } from "@/client/components/RegenerateResumeButton";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -412,6 +413,16 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                   Preview PDF
                 </Button>
               </>
+            )}
+            {isTargeted(selectedJob) && resumeState === "available" && (
+              <RegenerateResumeButton
+                job={selectedJob}
+                disabled={
+                  primaryBusy ||
+                  generatePdfMutation.isPending ||
+                  prepareResumeMutation.isPending
+                }
+              />
             )}
             {resumeState === "unprepared" && (
               <Button

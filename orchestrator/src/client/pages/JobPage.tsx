@@ -33,6 +33,7 @@ import {
 import { toast } from "sonner";
 import { JobBriefPane } from "@/client/components/JobBriefPane";
 import { JobDescriptionPanel } from "@/client/components/JobDescriptionPanel";
+import { RegenerateResumeButton } from "@/client/components/RegenerateResumeButton";
 import { invalidateJobData } from "@/client/hooks/queries/invalidate";
 import {
   useCheckSponsorMutation,
@@ -627,6 +628,12 @@ export const JobPage: React.FC = () => {
               <Button size="sm" variant="outline" disabled>
                 Preparing resume…
               </Button>
+            )}
+            {isTargeted(job) && resumeState === "available" && (
+              <RegenerateResumeButton
+                job={job}
+                disabled={isBusy || isUploadingPdf || isRegeneratingPdf}
+              />
             )}
             {resumeState === "unprepared" && (
               <Button

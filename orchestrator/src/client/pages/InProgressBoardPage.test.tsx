@@ -4,11 +4,17 @@ import {
   type JobListItem,
   type StageEvent,
 } from "@shared/types";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { toast } from "sonner";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { celebrateOffer } from "@/client/lib/celebrate";
 import * as api from "../api";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
@@ -64,6 +70,7 @@ vi.mock("../api", () => ({
   getJob: vi.fn(),
   processJob: vi.fn(),
   generateJobPdf: vi.fn(),
+  generateMissingResumes: vi.fn(),
   untargetJob: vi.fn(),
   markAsApplied: vi.fn(),
   getJobStageEvents: vi.fn(),
@@ -88,6 +95,7 @@ vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
+    info: vi.fn(),
   },
 }));
 
@@ -659,4 +667,174 @@ describe("Targeted board workflow", () => {
     const lane = await screen.findByRole("region", { name: "Reject lane" });
     expect(within(lane).getByText("withdrawn")).toBeInTheDocument();
   });
+});
+
+describe("Generate missing resumes", () => {
+  const renderBatchBoard = (jobs: JobListItem[]) => {
+    vi.mocked(api.getJobs).mockResolvedValue({ jobs } as Awaited<
+      ReturnType<typeof api.getJobs>
+    >);
+    return render(
+      <MemoryRouter>
+        <InProgressBoardPage />
+      </MemoryRouter>,
+    );
+  };
+
+  it("counts only eligible targeted jobs and disables during the request", async () => {
+    const targeted = { status: "ready" as const, readyAt: "2026-11-08" };
+    let complete!: (result: {
+      jobIds: string[];
+      alreadyRunning: boolean;
+    }) => void;
+    vi.mocked(api.generateMissingResumes).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const { queryClient } = renderBatchBoard([
+      makeJob({ ...targeted, id: "missing" }),
+      makeJob({
+        ...targeted,
+        id: "stale",
+        pdfFreshness: "stale",
+      }),
+      makeJob({
+        ...targeted,
+        id: "current",
+        pdfFreshness: "current",
+      }),
+      makeJob({ ...targeted, id: "uploaded", pdfFreshness: "uploaded" }),
+      makeJob({ ...targeted, id: "processing", status: "processing" }),
+      makeJob({ ...targeted, id: "regenerating", pdfRegenerating: true }),
+      makeJob({ ...targeted, id: "untargeted", readyAt: null }),
+      makeJob({ id: "applied", status: "applied" }),
+    ]);
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const button = await screen.findByRole("button", {
+      name: "Generate missing resumes (2)",
+    });
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(api.generateMissingResumes).toHaveBeenCalledTimes(1),
+    );
+    expect(button).toBeDisabled();
+    complete({ jobIds: ["missing", "stale"], alreadyRunning: false });
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        "Generating 2 resumes one at a time",
+      ),
+    );
+    expect(invalidate).toHaveBeenCalled();
+  });
+
+  it("disables the button when no targeted jobs need a resume", async () => {
+    renderBatchBoard([]);
+    expect(
+      await screen.findByRole("button", {
+        name: "Generate missing resumes (0)",
+      }),
+    ).toBeDisabled();
+    expect(api.generateMissingResumes).not.toHaveBeenCalled();
+  });
+
+  it("reports an already running batch", async () => {
+    vi.mocked(api.generateMissingResumes).mockResolvedValue({
+      jobIds: [],
+      alreadyRunning: true,
+    });
+    renderBatchBoard([makeJob({ status: "ready", readyAt: "2026-11-08" })]);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Generate missing resumes (1)",
+      }),
+    );
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith("Already running"),
+    );
+  });
+});
+
+describe("Batch progress polling", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it.each([
+    "completion",
+    "timeout",
+  ] as const)("polls through idle gaps until %s", async (stop) => {
+    vi.useFakeTimers();
+    const job = makeJob({
+      status: "ready",
+      readyAt: "2026-11-08",
+      pdfFreshness: "stale",
+    });
+    let currentJob = job;
+    vi.mocked(api.getJobs).mockImplementation(
+      async () =>
+        ({ jobs: [currentJob] }) as Awaited<ReturnType<typeof api.getJobs>>,
+    );
+    vi.mocked(api.generateMissingResumes).mockResolvedValue({
+      jobIds: [job.id],
+      alreadyRunning: false,
+    });
+    render(
+      <MemoryRouter>
+        <InProgressBoardPage />
+      </MemoryRouter>,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Generate missing resumes (1)" }),
+      );
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(toast.success).toHaveBeenCalledWith(
+      "Generating 1 resume one at a time",
+    );
+    const afterStart = vi.mocked(api.getJobs).mock.calls.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(api.getJobs).toHaveBeenCalledTimes(afterStart + 1);
+    // There are still no processing flags between jobs; the batch keeps polling.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(api.getJobs).toHaveBeenCalledTimes(afterStart + 2);
+    if (stop === "completion") currentJob = { ...job, pdfFreshness: "current" };
+    else vi.setSystemTime(Date.now() + 5 * 60_000);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    const afterStop = vi.mocked(api.getJobs).mock.calls.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+    expect(api.getJobs).toHaveBeenCalledTimes(afterStop);
+  });
+});
+
+it("reports when the server no longer has missing resumes", async () => {
+  vi.mocked(api.getJobs).mockResolvedValue({
+    jobs: [makeJob({ status: "ready", readyAt: "2026-11-08" })],
+  } as Awaited<ReturnType<typeof api.getJobs>>);
+  vi.mocked(api.generateMissingResumes).mockResolvedValue({
+    jobIds: [],
+    alreadyRunning: false,
+  });
+  render(
+    <MemoryRouter>
+      <InProgressBoardPage />
+    </MemoryRouter>,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Generate missing resumes (1)" }),
+  );
+  await waitFor(() =>
+    expect(toast.info).toHaveBeenCalledWith("No resumes need generating"),
+  );
 });

@@ -103,6 +103,19 @@ export async function targetJob(id: string): Promise<Job> {
   });
 }
 
+export async function regenerateJobResume(id: string): Promise<Job> {
+  return fetchApi<Job>(`/jobs/${encodeURIComponent(id)}/regenerate-resume`, {
+    method: "POST",
+  });
+}
+
+export async function generateMissingResumes(): Promise<{
+  jobIds: string[];
+  alreadyRunning: boolean;
+}> {
+  return fetchApi("/jobs/actions/generate-missing-resumes", { method: "POST" });
+}
+
 export async function untargetJob(id: string): Promise<Job> {
   return fetchApi<Job>(`/jobs/${encodeURIComponent(id)}/target`, {
     method: "DELETE",

@@ -2,7 +2,13 @@ import * as api from "@client/api";
 import { renderWithQueryClient } from "@client/test/renderWithQueryClient";
 import { createJob } from "@shared/testing/factories.js";
 import type { AppSettings, Job } from "@shared/types.js";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type React from "react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -123,6 +129,7 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 vi.mock("@client/api", () => ({
   updateJob: vi.fn(),
   processJob: vi.fn(),
+  regenerateJobResume: vi.fn(),
   generateJobPdf: vi.fn(),
   markAsApplied: vi.fn(),
   skipJob: vi.fn(),
@@ -557,4 +564,89 @@ describe("JobDetailPanel", () => {
       screen.queryByTestId("job-details-edit-drawer"),
     ).not.toBeInTheDocument();
   });
+});
+
+it("confirms before regenerating from the detail CTA", async () => {
+  const job = createJob({ status: "ready", readyAt: "2026-11-08" });
+  vi.mocked(api.regenerateJobResume).mockResolvedValue({
+    ...job,
+    status: "processing",
+  });
+  await renderJobDetailPanel({
+    activeTab: "all",
+    activeJobs: [job],
+    selectedJob: job,
+    onSelectJobId: vi.fn(),
+    onJobUpdated: vi.fn(),
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Regenerate resume" }));
+  expect(api.regenerateJobResume).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(api.regenerateJobResume).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Regenerate resume" }));
+  fireEvent.click(
+    within(screen.getByRole("alertdialog")).getByRole("button", {
+      name: "Regenerate resume",
+    }),
+  );
+  await waitFor(() =>
+    expect(api.regenerateJobResume).toHaveBeenCalledWith(job.id),
+  );
+});
+
+it.each([
+  { status: "ready" as const, pdfRegenerating: true },
+])("disables regeneration during resume work: %o", async (overrides) => {
+  const job = createJob({ readyAt: "2026-11-08", ...overrides });
+  await renderJobDetailPanel({
+    activeTab: "all",
+    activeJobs: [job],
+    selectedJob: job,
+    onSelectJobId: vi.fn(),
+    onJobUpdated: vi.fn(),
+  });
+  expect(
+    screen.getByRole("button", { name: "Regenerate resume" }),
+  ).toBeDisabled();
+});
+
+it.each([
+  "discovered",
+  "processing",
+] as const)("hides regeneration for a targeted %s job", async (status) => {
+  const job = createJob({ status, readyAt: "2026-11-08" });
+  await renderJobDetailPanel({
+    activeTab: "all",
+    activeJobs: [job],
+    selectedJob: job,
+    onSelectJobId: vi.fn(),
+    onJobUpdated: vi.fn(),
+  });
+  expect(
+    screen.queryByRole("button", { name: "Regenerate resume" }),
+  ).toBeNull();
+});
+
+it.each([
+  { pdfFreshness: "uploaded" as const },
+  { pdfSource: "uploaded" as const },
+])("warns that regenerating replaces an uploaded PDF: %o", async (overrides) => {
+  vi.mocked(api.regenerateJobResume).mockClear();
+  const job = createJob({
+    status: "ready",
+    readyAt: "2026-11-08",
+    ...overrides,
+  });
+  await renderJobDetailPanel({
+    activeTab: "all",
+    activeJobs: [job],
+    selectedJob: job,
+    onSelectJobId: vi.fn(),
+    onJobUpdated: vi.fn(),
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Regenerate resume" }));
+  expect(screen.getByRole("alertdialog")).toHaveTextContent(
+    "The uploaded PDF will be replaced by a generated one.",
+  );
+  expect(api.regenerateJobResume).not.toHaveBeenCalled();
 });
