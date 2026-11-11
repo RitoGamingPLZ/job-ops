@@ -233,7 +233,7 @@ async function resolveDesignResumeForRenderer(args: {
 }> {
   const designResume = await getCurrentDesignResume();
   if (!designResume?.resumeJson) {
-    throw notFound("Resume Studio has not been imported yet.");
+    throw notFound("The base resume has not been imported yet.");
   }
 
   const localDocument = parseV5ResumeData(

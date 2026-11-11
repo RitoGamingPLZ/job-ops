@@ -135,7 +135,7 @@ describe("OnboardingGate", () => {
     expect(screen.queryByText("onboarding")).not.toBeInTheDocument();
   });
 
-  it("allows Resume Studio only while the resume step is next", async () => {
+  it("allows base resume only while the resume step is next", async () => {
     vi.mocked(useOnboardingStatus).mockReturnValue({
       checking: false,
       complete: false,
@@ -143,10 +143,10 @@ describe("OnboardingGate", () => {
     } as any);
 
     render(
-      <MemoryRouter initialEntries={["/design-resume"]}>
+      <MemoryRouter initialEntries={["/resumes/base"]}>
         <OnboardingGate />
         <Routes>
-          <Route path="/design-resume" element={<div>resume studio</div>} />
+          <Route path="/resumes/base" element={<div>base resume</div>} />
           <Route path="/onboarding" element={<div>onboarding</div>} />
         </Routes>
       </MemoryRouter>,
@@ -154,7 +154,35 @@ describe("OnboardingGate", () => {
     );
 
     await waitFor(() => expect(useOnboardingStatus).toHaveBeenCalled());
-    expect(screen.getByText("resume studio")).toBeInTheDocument();
+    expect(screen.getByText("base resume")).toBeInTheDocument();
+    expect(screen.queryByText("onboarding")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    "/design-resume",
+    "/design-resume/experience",
+  ])("allows the retired route %s through during resume onboarding", async (path) => {
+    vi.mocked(useOnboardingStatus).mockReturnValue({
+      checking: false,
+      complete: false,
+      nextRequirementId: "resume",
+    } as any);
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <OnboardingGate />
+        <Routes>
+          <Route
+            path="/design-resume/*"
+            element={<div>retired resume route</div>}
+          />
+          <Route path="/resumes/base" element={<div>base resume</div>} />
+          <Route path="/onboarding" element={<div>onboarding</div>} />
+        </Routes>
+      </MemoryRouter>,
+      { wrapper: createWrapper() },
+    );
+    await waitFor(() => expect(useOnboardingStatus).toHaveBeenCalled());
+    expect(screen.getByText("retired resume route")).toBeInTheDocument();
     expect(screen.queryByText("onboarding")).not.toBeInTheDocument();
   });
 

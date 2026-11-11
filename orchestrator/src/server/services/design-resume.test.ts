@@ -775,7 +775,7 @@ describe("design resume service", () => {
     );
 
     await expect(getCurrentDesignResume()).rejects.toThrow(
-      "Stored Resume Studio document is no longer compatible. Re-import from Reactive Resume v5 to continue.",
+      "Stored base resume document is no longer compatible. Re-import from Reactive Resume v5 to continue.",
     );
   });
 
@@ -1006,7 +1006,7 @@ describe("design resume service", () => {
         baseRevision: 1,
         document: resumeJson,
       }),
-    ).rejects.toThrow("Resume Studio has changed. Refresh and try again.");
+    ).rejects.toThrow("Base resume has changed. Refresh and try again.");
 
     expect(repo.deleteDesignResumeAsset).not.toHaveBeenCalled();
     expect(fsMocks.unlink).not.toHaveBeenCalledWith(

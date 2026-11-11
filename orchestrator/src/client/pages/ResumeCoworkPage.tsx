@@ -2,12 +2,20 @@ import { ApiClientError } from "@client/api/core";
 import * as api from "@client/api/cowork";
 import { generateJobPdf, getJob } from "@client/api/jobs";
 import {
+  generateDesignResumePdf,
+  getDesignResume,
+  importDesignResumeFromFile,
+  importDesignResumeFromRxResume,
+  updateDesignResume,
+} from "@client/api/settings-profile";
+import {
   applyLibraryUpdate,
   getItemLines,
   isOnResume,
   setItemLines,
 } from "@shared/resume-links";
 import type {
+  DesignResumeDocument,
   ExperienceBullet,
   Job,
   JobResumeState,
@@ -16,6 +24,7 @@ import type {
   ResumeListItem,
   ResumeSuggestion,
 } from "@shared/types";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -39,10 +48,14 @@ import {
 import { PdfCanvasPreview } from "@/client/components/cowork/PdfCanvasPreview";
 import { ResumeEditor } from "@/client/components/cowork/ResumeEditor";
 import { GhostwriterPanel } from "@/client/components/ghostwriter/GhostwriterPanel";
+import { fileToUploadPayload } from "@/client/lib/file-upload-payload";
 import {
+  createDesignResumePdfObjectUrl,
   createJobPdfObjectUrl,
+  downloadDesignResumePdf,
   downloadJobPdf,
 } from "@/client/lib/private-pdf";
+import { queryKeys } from "@/client/lib/queryKeys";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,11 +86,35 @@ function useWideLayout() {
   return wide;
 }
 
-export function ResumeCoworkPage() {
-  const { jobId } = useParams();
-  return jobId ? <CoworkWorkspace key={jobId} jobId={jobId} /> : null;
+function baseState(base: DesignResumeDocument): JobResumeState {
+  return {
+    document: base.resumeJson,
+    revision: base.revision,
+    exists: true,
+    updatedAt: base.updatedAt,
+  };
 }
-function CoworkWorkspace({ jobId }: { jobId: string }) {
+
+export function ResumeCoworkPage({ base = false }: { base?: boolean }) {
+  const { jobId } = useParams();
+  return base || jobId ? (
+    <CoworkWorkspace
+      key={base ? "base" : jobId}
+      jobId={jobId ?? "base"}
+      base={base}
+    />
+  ) : null;
+}
+function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
+  const queryClient = useQueryClient();
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const readResume = useCallback(
+    async () =>
+      base ? baseState(await getDesignResume()) : api.getJobResume(jobId),
+    [base, jobId],
+  );
   const navigate = useNavigate();
   const [resumes, setResumes] = useState<ResumeListItem[]>([]);
   const [switchTarget, setSwitchTarget] = useState<string | null>(null);
@@ -138,8 +175,8 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
       if (!mounted.current) return;
       setLibrary(result.items);
       const [nextJob, next] = await Promise.all([
-        getJob(jobId),
-        api.getJobResume(jobId),
+        base ? Promise.resolve(null) : getJob(jobId),
+        readResume(),
       ]);
       if (!mounted.current) return;
       setJob(nextJob);
@@ -150,7 +187,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     } catch (failure) {
       if (mounted.current) setError(failure);
     }
-  }, [jobId, publish]);
+  }, [base, jobId, publish, readResume]);
   useEffect(() => {
     mounted.current = true;
     void load();
@@ -188,10 +225,17 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     if (mounted.current) setStatus("Saving…");
     const operation = (async () => {
       try {
-        const saved = await api.saveJobResume(jobId, {
+        const input = {
           baseRevision: snapshot.revision,
           document: snapshot.document,
-        });
+        };
+        const saved = base
+          ? baseState(await updateDesignResume(input))
+          : await api.saveJobResume(jobId, input);
+        if (base)
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.designResume.all,
+          });
         const changed = version.current !== editVersion;
         publish(
           changed && latest.current
@@ -210,7 +254,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
             return false;
           }
           try {
-            conflict.current = await api.getJobResume(jobId);
+            conflict.current = await readResume();
             setConflictOpen(true);
             setStatus("Save conflict · choose which copy to keep");
           } catch (reloadError) {
@@ -229,7 +273,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     })();
     saving.current = operation;
     return operation;
-  }, [jobId, publish]);
+  }, [base, jobId, publish, queryClient, readResume]);
   // A child unmounting mid-drag never fires dragleave; reset when any drag ends.
   useEffect(() => {
     const reset = () => {
@@ -504,8 +548,11 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     setRendering(true);
     try {
       if (!(await flush())) return;
-      await generateJobPdf(jobId);
-      const url = await createJobPdfObjectUrl(jobId);
+      if (base) await generateDesignResumePdf();
+      else await generateJobPdf(jobId);
+      const url = base
+        ? await createDesignResumePdfObjectUrl()
+        : await createJobPdfObjectUrl(jobId);
       if (!mounted.current) {
         URL.revokeObjectURL(url);
         return;
@@ -519,6 +566,46 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
         setBusy(false);
         setRendering(false);
       }
+    }
+  }
+  async function importBase() {
+    setBusy(true);
+    if (timer.current) clearTimeout(timer.current);
+    try {
+      if (!(await flush())) {
+        setImportOpen(false);
+        return;
+      }
+      if (importFile) {
+        const payload = await fileToUploadPayload(
+          importFile,
+          "Could not read this resume file.",
+        );
+        await importDesignResumeFromFile({
+          ...payload,
+          mediaType: payload.mediaType ?? undefined,
+        });
+      } else await importDesignResumeFromRxResume();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.designResume.all }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.onboarding.status(),
+        }),
+      ]);
+      history.current = [];
+      setUndoStack([]);
+      lastTyping.current = null;
+      version.current++;
+      setPdfReady(false);
+      setPdfUrl(null);
+      setPreview(false);
+      await load();
+      setImportOpen(false);
+      setImportFile(null);
+    } catch (failure) {
+      coworkError(failure);
+    } finally {
+      if (mounted.current) setBusy(false);
     }
   }
   function setPreviewMode(next: boolean) {
@@ -567,6 +654,61 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
     previewRequested.current = true;
     void showPreview();
   });
+  const importControls = base && (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={busy}
+        onClick={() => {
+          setImportFile(null);
+          setImportOpen(true);
+        }}
+      >
+        Import
+      </Button>
+      <input
+        ref={fileInput}
+        aria-label="Import resume file"
+        type="file"
+        accept=".pdf,.docx,.json"
+        className="hidden"
+        onChange={(event) => {
+          setImportFile(event.target.files?.[0] ?? null);
+          event.target.value = "";
+        }}
+      />
+      <AlertDialog
+        open={importOpen}
+        onOpenChange={(open) => {
+          if (!busy) setImportOpen(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Import base resume?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This replaces your base resume. Existing job resumes keep their
+              current content. Choose a file or import your configured RxResume.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={() => fileInput.current?.click()}
+          >
+            {importFile ? importFile.name : "Choose file"}
+          </Button>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <Button disabled={busy} onClick={() => void importBase()}>
+              {importFile ? "Import file" : "Import from RxResume"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
   if (error)
     return (
       <main className="p-6 space-y-4">
@@ -574,17 +716,24 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
         <p>
           {error instanceof ApiClientError && error.status === 409
             ? "Import or create a resume first."
-            : "Could not load this job’s resume."}
+            : base
+              ? "Could not load your base resume. Import a resume to get started."
+              : "Could not load this job’s resume."}
         </p>
-        <Button asChild>
-          <Link to="/design-resume">Open Resume Studio</Link>
-        </Button>
+        {!base && (
+          <Button asChild>
+            <Link to="/resumes/base">Open base resume</Link>
+          </Button>
+        )}
+        {importControls}
         <Button variant="outline" onClick={() => void load()}>
           Retry
         </Button>
       </main>
     );
-  if (!job || !state) return <output className="p-6">Loading resume…</output>;
+  if ((!base && !job) || !state)
+    return <output className="p-6">Loading resume…</output>;
+  const title = base ? "Base resume" : `${job?.title} · ${job?.employer}`;
   const document = state.document;
   const targets = document.sections.experience.items
     .filter((e) => !e.hidden)
@@ -603,13 +752,12 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
-        <h1 className="sr-only">
-          {job.title} · {job.employer}
-        </h1>
+        <h1 className="sr-only">{title}</h1>
         <SearchableDropdown
           value={jobId}
           options={[
-            { value: jobId, label: `${job.title} · ${job.employer}` },
+            ...(!base ? [{ value: jobId, label: title }] : []),
+            { value: "base", label: "Base resume" },
             ...resumes
               .filter((resume) => resume.jobId !== jobId)
               .map((resume) => ({
@@ -619,7 +767,7 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           ]}
           onValueChange={switchResume}
           allowCustomValue={false}
-          ariaLabel={`Switch resume: ${job.title} · ${job.employer}`}
+          ariaLabel={`Switch resume: ${title}`}
           placeholder="Select a resume"
           searchPlaceholder="Search resumes…"
           triggerClassName="mr-auto min-w-0 max-w-full font-semibold"
@@ -644,21 +792,28 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
         >
           Save now
         </Button>
+        {!base && job && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => setResetOpen(true)}
+          >
+            Reset to base
+          </Button>
+        )}
+        {importControls}
         <Button
           size="sm"
           variant="outline"
-          disabled={busy}
-          onClick={() => setResetOpen(true)}
-        >
-          Reset to base
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy || (!job.pdfPath && !pdfReady)}
+          disabled={busy || (!base && !job?.pdfPath && !pdfReady)}
           title="Download the last rendered PDF"
           onClick={() =>
-            void downloadJobPdf(jobId, "resume.pdf").catch(coworkError)
+            void (
+              base
+                ? downloadDesignResumePdf("resume.pdf")
+                : downloadJobPdf(jobId, "resume.pdf")
+            ).catch(coworkError)
           }
         >
           Download PDF
@@ -669,133 +824,141 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
         role="tablist"
         aria-label="Resume workspace"
       >
-        {["chat", "editor", "library"].map((name) => (
-          <Button
-            key={name}
-            id={`cowork-tab-${name}`}
-            aria-controls={`cowork-panel-${name}`}
-            role="tab"
-            aria-selected={tab === name}
-            variant={tab === name ? "secondary" : "ghost"}
-            onClick={() => setTab(name)}
-          >
-            {name === "library"
-              ? "Library & match"
-              : name === "editor" && suggestions.length
-                ? `Editor (${suggestions.length})`
-                : name[0].toUpperCase() + name.slice(1)}
-          </Button>
-        ))}
+        {(base ? ["editor", "library"] : ["chat", "editor", "library"]).map(
+          (name) => (
+            <Button
+              key={name}
+              id={`cowork-tab-${name}`}
+              aria-controls={`cowork-panel-${name}`}
+              role="tab"
+              aria-selected={tab === name}
+              variant={tab === name ? "secondary" : "ghost"}
+              onClick={() => setTab(name)}
+            >
+              {name === "library"
+                ? base
+                  ? "Library"
+                  : "Library & match"
+                : name === "editor" && suggestions.length
+                  ? `Editor (${suggestions.length})`
+                  : name[0].toUpperCase() + name.slice(1)}
+            </Button>
+          ),
+        )}
       </div>
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(260px,3fr)_minmax(360px,5fr)_minmax(260px,3fr)]">
-        <section
-          id="cowork-panel-chat"
-          role="tabpanel"
-          aria-labelledby="cowork-tab-chat"
-          aria-label="Chat"
-          className={`${tab === "chat" ? "flex" : "hidden"} ${dragOver ? "ring-2 ring-primary" : ""} xl:flex min-h-0 min-w-0 flex-col border rounded-md p-3`}
-          ref={chat}
-          data-drag={dragOver || undefined}
-          onDragEnter={(e) => {
-            if (
-              e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE) ||
-              e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)
-            ) {
-              dragDepth.current++;
-              setDragOver(true);
-            }
-          }}
-          onDragLeave={(e) => {
-            if (
-              (e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE) ||
-                e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)) &&
-              --dragDepth.current <= 0
-            ) {
+      <div
+        className={`grid min-h-0 flex-1 gap-4 ${base ? "xl:grid-cols-[minmax(360px,5fr)_minmax(260px,3fr)]" : "xl:grid-cols-[minmax(260px,3fr)_minmax(360px,5fr)_minmax(260px,3fr)]"}`}
+      >
+        {!base && job && (
+          <section
+            id="cowork-panel-chat"
+            role="tabpanel"
+            aria-labelledby="cowork-tab-chat"
+            aria-label="Chat"
+            className={`${tab === "chat" ? "flex" : "hidden"} ${dragOver ? "ring-2 ring-primary" : ""} xl:flex min-h-0 min-w-0 flex-col border rounded-md p-3`}
+            ref={chat}
+            data-drag={dragOver || undefined}
+            onDragEnter={(e) => {
+              if (
+                e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE) ||
+                e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)
+              ) {
+                dragDepth.current++;
+                setDragOver(true);
+              }
+            }}
+            onDragLeave={(e) => {
+              if (
+                (e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE) ||
+                  e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)) &&
+                --dragDepth.current <= 0
+              ) {
+                dragDepth.current = 0;
+                setDragOver(false);
+              }
+            }}
+            onDragOver={(e) => {
+              if (
+                e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE) ||
+                e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)
+              )
+                e.preventDefault();
+            }}
+            onDrop={(e) => {
               dragDepth.current = 0;
               setDragOver(false);
-            }
-          }}
-          onDragOver={(e) => {
-            if (
-              e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE) ||
-              e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)
-            )
+              if (e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)) {
+                e.preventDefault();
+                const ref = readFocusTransfer(
+                  e.dataTransfer.getData(FOCUS_TRANSFER_TYPE),
+                );
+                if (ref) addFocusRef(ref);
+                return;
+              }
+              if (!e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE)) return;
               e.preventDefault();
-          }}
-          onDrop={(e) => {
-            dragDepth.current = 0;
-            setDragOver(false);
-            if (e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)) {
-              e.preventDefault();
-              const ref = readFocusTransfer(
-                e.dataTransfer.getData(FOCUS_TRANSFER_TYPE),
+              const bullet = readBulletTransfer(
+                e.dataTransfer.getData(BULLET_TRANSFER_TYPE),
               );
-              if (ref) addFocusRef(ref);
-              return;
-            }
-            if (!e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE)) return;
-            e.preventDefault();
-            const bullet = readBulletTransfer(
-              e.dataTransfer.getData(BULLET_TRANSFER_TYPE),
-            );
-            if (bullet) reference(bullet);
-          }}
-        >
-          <h2 className="text-sm font-semibold mb-3">Co-work chat</h2>
-          <GhostwriterPanel
-            job={job}
-            initialPrompt={chatPrompt}
-            onInitialPromptConsumed={() => setChatPrompt(null)}
-            cowork={() => ({
-              document: latest.current?.document ?? document,
-              referencedBulletIds: references.map((b) => b.id),
-              focus,
-            })}
-            onSuggestions={receiveSuggestions}
-            referenceChips={
-              <div className="flex flex-wrap gap-1 mb-2">
-                {focus.map((ref) => (
-                  <Button
-                    key={focusKey(ref)}
-                    size="sm"
-                    variant="outline"
-                    className="max-w-full"
-                    title={ref.label}
-                    aria-label={`Remove focus: ${ref.label}`}
-                    onClick={() =>
-                      setFocus((current) =>
-                        current.filter(
-                          (item) => focusKey(item) !== focusKey(ref),
-                        ),
-                      )
-                    }
-                  >
-                    <span className="truncate">{ref.label}</span>
-                    <span aria-hidden="true"> ×</span>
-                  </Button>
-                ))}
-                {references.map((b) => (
-                  <Button
-                    key={b.id}
-                    size="sm"
-                    variant="secondary"
-                    className="max-w-full"
-                    title={b.text}
-                    aria-label={`Remove reference: ${b.text}`}
-                    onClick={() =>
-                      setReferences((current) =>
-                        current.filter((item) => item.id !== b.id),
-                      )
-                    }
-                  >
-                    <span className="truncate">{b.text}</span>
-                    <span aria-hidden="true"> ×</span>
-                  </Button>
-                ))}
-              </div>
-            }
-          />
-        </section>
+              if (bullet) reference(bullet);
+            }}
+          >
+            <h2 className="text-sm font-semibold mb-3">Co-work chat</h2>
+            <GhostwriterPanel
+              job={job}
+              initialPrompt={chatPrompt}
+              onInitialPromptConsumed={() => setChatPrompt(null)}
+              cowork={() => ({
+                document: latest.current?.document ?? document,
+                referencedBulletIds: references.map((b) => b.id),
+                focus,
+              })}
+              onSuggestions={receiveSuggestions}
+              referenceChips={
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {focus.map((ref) => (
+                    <Button
+                      key={focusKey(ref)}
+                      size="sm"
+                      variant="outline"
+                      className="max-w-full"
+                      title={ref.label}
+                      aria-label={`Remove focus: ${ref.label}`}
+                      onClick={() =>
+                        setFocus((current) =>
+                          current.filter(
+                            (item) => focusKey(item) !== focusKey(ref),
+                          ),
+                        )
+                      }
+                    >
+                      <span className="truncate">{ref.label}</span>
+                      <span aria-hidden="true"> ×</span>
+                    </Button>
+                  ))}
+                  {references.map((b) => (
+                    <Button
+                      key={b.id}
+                      size="sm"
+                      variant="secondary"
+                      className="max-w-full"
+                      title={b.text}
+                      aria-label={`Remove reference: ${b.text}`}
+                      onClick={() =>
+                        setReferences((current) =>
+                          current.filter((item) => item.id !== b.id),
+                        )
+                      }
+                    >
+                      <span className="truncate">{b.text}</span>
+                      <span aria-hidden="true"> ×</span>
+                    </Button>
+                  ))}
+                </div>
+              }
+            />
+          </section>
+        )}
         <section
           ref={editorPane}
           id="cowork-panel-editor"
@@ -829,20 +992,28 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           ) : (
             <ResumeEditor
               library={library}
-              onSaveLineToLibrary={(id, text) =>
-                void saveLineToLibrary(id, text)
+              onSaveLineToLibrary={
+                base
+                  ? undefined
+                  : (id, text) => void saveLineToLibrary(id, text)
               }
               disabled={busy}
               document={document}
               onChange={(next) => edit(next, true)}
-              onAskAi={(ref) => {
-                addFocusRef(ref);
-                setTab("chat");
-                // The chat panel may only become visible after this render.
-                setTimeout(() =>
-                  chat.current?.querySelector<HTMLElement>("textarea")?.focus(),
-                );
-              }}
+              onAskAi={
+                base
+                  ? undefined
+                  : (ref) => {
+                      addFocusRef(ref);
+                      setTab("chat");
+                      // The chat panel may only become visible after this render.
+                      setTimeout(() =>
+                        chat.current
+                          ?.querySelector<HTMLElement>("textarea")
+                          ?.focus(),
+                      );
+                    }
+              }
               suggestions={suggestions}
               onDismiss={(ids) =>
                 setSuggestions((current) =>
@@ -859,67 +1030,77 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           aria-label="Candidate library"
           className={`${tab === "library" ? "block" : "hidden"} xl:block min-h-0 min-w-0 overflow-auto border rounded-md p-3`}
         >
-          <div
-            className="flex gap-1 mb-3"
-            role="tablist"
-            aria-label="Library and job match"
-          >
-            {(
-              [
-                ["library", "Library"],
-                ["match", "Job match"],
-              ] as const
-            ).map(([name, label]) => (
-              <Button
-                key={name}
-                size="sm"
-                role="tab"
-                aria-selected={rightTab === name}
-                variant={rightTab === name ? "secondary" : "ghost"}
-                onClick={() => setRightTab(name)}
+          {!base && job && (
+            <>
+              <div
+                className="flex gap-1 mb-3"
+                role="tablist"
+                aria-label="Library and job match"
               >
-                {label}
-              </Button>
-            ))}
-          </div>
-          <div hidden={rightTab !== "match"}>
-            <JobMatchPanel
-              job={job}
-              active={rightTab === "match" && (wide || tab === "library")}
-              getDocument={getDocument}
-              targets={targets}
-              onInsert={insertDuty}
-              onAskAi={(prompt) => {
-                setChatPrompt(prompt);
-                setTab("chat");
-              }}
-              onFocusRef={(ref) => {
-                setTab("editor");
-                // After the editor tab is shown on narrow screens.
-                setTimeout(() => {
-                  if (editorPane.current)
-                    focusResumePart(editorPane.current, ref);
-                });
-              }}
-            />
-          </div>
+                {(
+                  [
+                    ["library", "Library"],
+                    ["match", "Job match"],
+                  ] as const
+                ).map(([name, label]) => (
+                  <Button
+                    key={name}
+                    size="sm"
+                    role="tab"
+                    aria-selected={rightTab === name}
+                    variant={rightTab === name ? "secondary" : "ghost"}
+                    onClick={() => setRightTab(name)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              <div hidden={rightTab !== "match"}>
+                <JobMatchPanel
+                  job={job}
+                  active={rightTab === "match" && (wide || tab === "library")}
+                  getDocument={getDocument}
+                  targets={targets}
+                  onInsert={insertDuty}
+                  onAskAi={(prompt) => {
+                    setChatPrompt(prompt);
+                    setTab("chat");
+                  }}
+                  onFocusRef={(ref) => {
+                    setTab("editor");
+                    // After the editor tab is shown on narrow screens.
+                    setTimeout(() => {
+                      if (editorPane.current)
+                        focusResumePart(editorPane.current, ref);
+                    });
+                  }}
+                />
+              </div>
+            </>
+          )}
           <fieldset
             disabled={busy}
             hidden={rightTab !== "library"}
             className="min-w-0"
           >
             <CandidateLibrary
-              jobId={jobId}
+              jobId={base ? undefined : jobId}
               items={library}
               onItemsChange={setLibrary}
-              onSync={syncLibrary}
-              frozen={job.status === "applied" || job.status === "in_progress"}
-              document={document}
-              onDocumentChange={(update) => {
-                if (!busy && latest.current)
-                  edit(update(latest.current.document));
-              }}
-              onReferenceBullet={reference}
+              onSync={base ? undefined : syncLibrary}
+              frozen={
+                job?.status === "applied" || job?.status === "in_progress"
+              }
+              document={base ? undefined : document}
+              onDocumentChange={
+                base
+                  ? undefined
+                  : (update) => {
+                      if (!busy && latest.current)
+                        edit(update(latest.current.document));
+                    }
+              }
+              onReferenceBullet={base ? undefined : reference}
             />
           </fieldset>
         </section>

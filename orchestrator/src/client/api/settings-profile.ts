@@ -1,11 +1,7 @@
 import type { UpdateSettingsInput } from "@shared/settings-schema";
 import type {
   AppSettings,
-  DesignResumeAiFieldSuggestionRequest,
-  DesignResumeAiFieldSuggestionResponse,
   DesignResumeDocument,
-  DesignResumeExportResponse,
-  DesignResumeJson,
   DesignResumePatchRequest,
   DesignResumePdfResponse,
   DesignResumeStatusResponse,
@@ -83,73 +79,10 @@ export async function updateDesignResume(
   });
 }
 
-export async function uploadDesignResumePicture(input: {
-  fileName: string;
-  dataUrl: string;
-  baseRevision?: number;
-  document?: DesignResumeJson;
-}): Promise<DesignResumeDocument> {
-  return fetchApi<DesignResumeDocument>("/design-resume/assets", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-}
-
-export async function uploadDesignResumePictureFile(input: {
-  file: File;
-  baseRevision?: number;
-}): Promise<DesignResumeDocument> {
-  return fetchApi<DesignResumeDocument>("/design-resume/assets", {
-    method: "POST",
-    headers: {
-      "Content-Type": input.file.type || "application/octet-stream",
-      "x-file-name": encodeURIComponent(input.file.name || "picture"),
-      ...(input.baseRevision
-        ? { "x-base-revision": String(input.baseRevision) }
-        : {}),
-    },
-    body: await input.file.arrayBuffer(),
-  });
-}
-
-export async function deleteDesignResumePicture(input?: {
-  baseRevision?: number;
-  document?: DesignResumeJson;
-}): Promise<DesignResumeDocument> {
-  return fetchApi<DesignResumeDocument>("/design-resume/assets/picture", {
-    method: "DELETE",
-    body: JSON.stringify(input ?? {}),
-  });
-}
-
-export async function getDesignResumeAssetContentBlob(
-  assetUrl: string,
-): Promise<Blob> {
-  return fetchBlobApi(normalizeApiPath(assetUrl), { cache: "no-store" });
-}
-
-export async function exportDesignResume(): Promise<DesignResumeExportResponse> {
-  return fetchApi<DesignResumeExportResponse>("/design-resume/export");
-}
-
 export async function generateDesignResumePdf(): Promise<DesignResumePdfResponse> {
   return fetchApi<DesignResumePdfResponse>("/design-resume/generate-pdf", {
     method: "POST",
   });
-}
-
-export async function generateDesignResumeFieldSuggestion(
-  input: DesignResumeAiFieldSuggestionRequest & { signal?: AbortSignal },
-): Promise<DesignResumeAiFieldSuggestionResponse> {
-  const { signal, ...body } = input;
-  return fetchApi<DesignResumeAiFieldSuggestionResponse>(
-    "/design-resume/ai/field-suggestion",
-    {
-      method: "POST",
-      body: JSON.stringify(body),
-      signal,
-    },
-  );
 }
 
 export async function getDesignResumePdfBlob(pdfUrl?: string): Promise<Blob> {

@@ -51,8 +51,10 @@ vi.mock("./pages/SettingsPage", () => ({
   SettingsPage: () => null,
 }));
 
-vi.mock("./pages/DesignResumePage", () => ({
-  DesignResumePage: () => <div>design-resume-page</div>,
+vi.mock("./pages/ResumeCoworkPage", () => ({
+  ResumeCoworkPage: ({ base }: { base?: boolean }) => (
+    <div>{base ? "base-resume-editor" : "job-resume-editor"}</div>
+  ),
 }));
 
 vi.mock("./pages/SignInPage", () => ({
@@ -154,7 +156,10 @@ describe("App demo banner", () => {
     );
   });
 
-  it("renders the neutral Resume Studio route", () => {
+  it.each([
+    "/design-resume",
+    "/design-resume/experience",
+  ])("redirects %s to the base editor", (path) => {
     vi.mocked(useDemoInfo).mockReturnValue({
       demoMode: false,
       resetCadenceHours: 6,
@@ -165,12 +170,12 @@ describe("App demo banner", () => {
     });
 
     render(
-      <MemoryRouter initialEntries={["/design-resume"]}>
+      <MemoryRouter initialEntries={[path]}>
         <App />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("design-resume-page")).toBeInTheDocument();
+    expect(screen.getByText("base-resume-editor")).toBeInTheDocument();
   });
 
   it("redirects hosted users away from Tracking Inbox", () => {

@@ -20,7 +20,6 @@ import { OnboardingGate } from "./components/OnboardingGate";
 import { useAnalyticsIdentity } from "./hooks/useAnalyticsIdentity";
 import { useDemoInfo } from "./hooks/useDemoInfo";
 import { setAuthNavigator } from "./lib/auth-navigation";
-import { DesignResumePage } from "./pages/DesignResumePage";
 import { GmailOauthCallbackPage } from "./pages/GmailOauthCallbackPage";
 import { HomePage } from "./pages/HomePage";
 import { InProgressBoardPage } from "./pages/InProgressBoardPage";
@@ -195,11 +194,18 @@ export const App: React.FC = () => {
                   path="/resumes/library"
                   element={<ResumeLibraryPage />}
                 />
+                <Route
+                  path="/resumes/base"
+                  element={<ResumeCoworkPage base />}
+                />
                 <Route path="/resumes/:jobId" element={<ResumeCoworkPage />} />
-                <Route path="/design-resume" element={<DesignResumePage />} />
+                <Route
+                  path="/design-resume"
+                  element={<Navigate to="/resumes/base" replace />}
+                />
                 <Route
                   path="/design-resume/:section"
-                  element={<DesignResumePage />}
+                  element={<Navigate to="/resumes/base" replace />}
                 />
                 <Route path="/onboarding" element={<OnboardingPage />} />
                 <Route path="/offline" element={<OfflinePage />} />

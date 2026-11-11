@@ -87,7 +87,7 @@ const OnboardingRedirect: React.FC<{ pathname: string }> = ({ pathname }) => {
 
   if (
     nextRequirementId === "resume" &&
-    (pathname === "/design-resume" || pathname.startsWith("/design-resume/"))
+    (pathname === "/resumes/base" || pathname.startsWith("/design-resume"))
   ) {
     return null;
   }

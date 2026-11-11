@@ -17,7 +17,7 @@ const RESUME_IMPORT_STEPS = [
   "Reading file",
   "Preparing import",
   "Extracting resume text",
-  "Building Resume Studio document",
+  "Building base resume document",
   "Saving baseline",
   "Finalizing setup",
 ] as const;

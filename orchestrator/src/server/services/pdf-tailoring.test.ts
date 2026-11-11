@@ -660,6 +660,14 @@ describe("PDF Service Tailoring Logic", () => {
     );
   });
 
+  it("asks for a base resume import before rendering a missing base PDF", async () => {
+    const designResume = await import("./design-resume");
+    vi.mocked(designResume.getCurrentDesignResume).mockResolvedValueOnce(null);
+    await expect(generateDesignResumePdf()).rejects.toThrow(
+      "The base resume has not been imported yet.",
+    );
+  });
+
   it("returns language-aware filenames for generated Design Resume PDFs", async () => {
     currentLanguageSettings.mode = "manual";
     currentLanguageSettings.manual = "german";

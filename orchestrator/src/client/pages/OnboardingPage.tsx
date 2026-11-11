@@ -880,7 +880,7 @@ function ResumeStep({
             ))}
             {experience.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No experience entries were detected. Open Resume Studio to
+                No experience entries were detected. Open your base resume to
                 correct the document before confirming.
               </p>
             ) : null}
@@ -896,9 +896,9 @@ function ResumeStep({
             </div>
           </div>
           <Button type="button" variant="outline" className="w-full" asChild>
-            <a href="/design-resume">
+            <a href="/resumes/base">
               <BriefcaseBusiness className="h-4 w-4" />
-              Edit in Resume Studio
+              Edit base resume
             </a>
           </Button>
         </div>
