@@ -1,8 +1,14 @@
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
-import { ResumesPage } from "./ResumesPage";
+import { ResumeLibraryPage, ResumesPage } from "./ResumesPage";
 
 const mocks = vi.hoisted(() => ({
   list: vi.fn(),
@@ -20,6 +26,9 @@ vi.mock("@/client/lib/private-pdf", () => ({ openJobPdf: mocks.open }));
 vi.mock("@/client/components/cowork/DutyLibrary", () => ({
   coworkError: mocks.error,
   DutyLibrary: () => null,
+}));
+vi.mock("@/client/components/cowork/CandidateLibrary", () => ({
+  CandidateLibrary: () => <div>Library content</div>,
 }));
 beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
@@ -149,4 +158,33 @@ it.each([
   mount();
   expect(await screen.findByText("Engineer")).toBeVisible();
   expect(screen.queryByRole("link", { name: "Engineer" })).toBeNull();
+});
+
+it("renders the resumes header with navigation and library action", async () => {
+  mocks.list.mockResolvedValue({ resumes: [] });
+  mount();
+  expect(within(screen.getByRole("banner")).getByText("Resumes")).toBeVisible();
+  expect(
+    screen.getByRole("button", { name: "Open navigation menu" }),
+  ).toBeVisible();
+  expect(
+    screen.getByRole("link", { name: "Candidate Library" }),
+  ).toHaveAttribute("href", "/resumes/library");
+  expect(await screen.findByText(/No resumes yet/)).toBeVisible();
+});
+
+it("renders the library with the standard header and navigation", () => {
+  renderWithQueryClient(
+    <MemoryRouter initialEntries={["/resumes/library"]}>
+      <ResumeLibraryPage />
+    </MemoryRouter>,
+  );
+  expect(
+    within(screen.getByRole("banner")).getByText("Candidate Library"),
+  ).toBeVisible();
+  expect(
+    screen.getByRole("button", { name: "Open navigation menu" }),
+  ).toBeVisible();
+  expect(screen.getByRole("main")).toHaveTextContent("Library content");
+  expect(screen.queryByRole("link", { name: "← Resumes" })).toBeNull();
 });
