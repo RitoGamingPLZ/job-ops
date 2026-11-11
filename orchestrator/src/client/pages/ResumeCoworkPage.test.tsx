@@ -57,6 +57,11 @@ vi.mock("@/client/lib/private-pdf", () => ({
   createJobPdfObjectUrl: mocks.openPdf,
   downloadJobPdf: mocks.downloadPdf,
 }));
+vi.mock("@/client/components/cowork/PdfCanvasPreview", () => ({
+  PdfCanvasPreview: ({ url }: { url: string }) => (
+    <div data-testid="pdf-canvas-preview" data-url={url} />
+  ),
+}));
 vi.mock("sonner", () => ({
   toast: { message: mocks.toast, success: vi.fn() },
 }));
@@ -580,8 +585,8 @@ describe("resume co-work saving", () => {
       renderButton,
     );
     fireEvent.click(renderButton);
-    expect(await screen.findByTitle("Resume PDF preview")).toHaveAttribute(
-      "src",
+    expect(await screen.findByTestId("pdf-canvas-preview")).toHaveAttribute(
+      "data-url",
       "blob:fake",
     );
     expect(localStorage.getItem("resume-cowork-preview")).toBe("true");
@@ -598,14 +603,14 @@ describe("resume co-work saving", () => {
     mount();
     await screen.findByLabelText("Headline");
     fireEvent.click(screen.getByRole("button", { name: "Render PDF" }));
-    expect(await screen.findByTitle("Resume PDF preview")).toHaveAttribute(
-      "src",
+    expect(await screen.findByTestId("pdf-canvas-preview")).toHaveAttribute(
+      "data-url",
       "blob:first",
     );
     fireEvent.click(screen.getByRole("button", { name: "Render PDF" }));
     await waitFor(() =>
-      expect(screen.getByTitle("Resume PDF preview")).toHaveAttribute(
-        "src",
+      expect(screen.getByTestId("pdf-canvas-preview")).toHaveAttribute(
+        "data-url",
         "blob:second",
       ),
     );
@@ -933,8 +938,11 @@ describe("candidate library page wiring", () => {
       target: { value: "Preview edit" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Switch to Preview" }));
-    const iframe = await screen.findByTitle("Resume PDF preview");
-    expect(iframe).toHaveAttribute("src", "blob:fake");
+    const preview = await screen.findByTestId("pdf-canvas-preview");
+    expect(preview).toHaveAttribute("data-url", "blob:fake");
+    expect(
+      screen.getByRole("document", { name: "Resume PDF preview" }),
+    ).toContainElement(preview);
     expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.pdf.mock.invocationCallOrder[0],
     );
@@ -946,8 +954,8 @@ describe("candidate library page wiring", () => {
   it("opens and renders the remembered Preview mode", async () => {
     localStorage.setItem("resume-cowork-preview", "true");
     mount();
-    expect(await screen.findByTitle("Resume PDF preview")).toHaveAttribute(
-      "src",
+    expect(await screen.findByTestId("pdf-canvas-preview")).toHaveAttribute(
+      "data-url",
       "blob:fake",
     );
     expect(mocks.save).not.toHaveBeenCalled();
