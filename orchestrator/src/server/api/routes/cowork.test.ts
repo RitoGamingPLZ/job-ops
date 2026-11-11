@@ -106,18 +106,12 @@ afterEach(async () => {
 });
 
 describe("co-work routes", () => {
-  it.each([
-    ["GET", "job resume"],
-    ["POST", "resume import"],
-  ])("returns 409 for %s %s without a base resume", async (method) => {
+  it("returns 409 for a job resume without a base resume", async () => {
     const { db, schema } = await import("@server/db");
     db.delete(schema.designResumeDocuments)
       .where(eq(schema.designResumeDocuments.id, "base-resume"))
       .run();
-    const response = await request(
-      method === "GET" ? `/jobs/${jobId}/resume` : "/library/sync",
-      method,
-    );
+    const response = await request(`/jobs/${jobId}/resume`, "GET");
     expect(response.status).toBe(409);
     expect(response.headers.get("x-request-id")).toBe("cowork-test");
     expect(await response.json()).toEqual({
@@ -252,7 +246,7 @@ describe("co-work routes", () => {
     });
     expect(
       (await (await request("/library/sync", "POST")).json()).data,
-    ).toMatchObject({ created: 0, skipped: 4 });
+    ).toMatchObject({ created: 0, skipped: 0 });
     expect(callJson).not.toHaveBeenCalled();
     expect(
       (await request("/experience-bullets/import-resume", "POST")).status,
@@ -296,13 +290,20 @@ describe("co-work routes", () => {
       (await (await request(`/library/${role.id}/usage`)).json()).data,
     ).toEqual({ jobIds: [], frozenJobIds: [] });
   });
-  it("automatically syncs on first library open", async () => {
+  it("automatically syncs once even when a manual role already exists", async () => {
+    await request("/experience-bullets", "POST", {
+      kind: "role",
+      text: "Manual role",
+    });
+    const pdf = await import("@server/services/pdf");
+    const load = vi.spyOn(pdf, "loadBaseResumeSource");
     expect((await (await request("/library")).json()).data.items).toHaveLength(
-      3,
+      4,
     );
     expect((await (await request("/library")).json()).data.items).toHaveLength(
-      3,
+      4,
     );
+    expect(load).toHaveBeenCalledOnce();
   });
   it("materializes a tailored copy, atomically checks revisions and resets", async () => {
     const patched = await request(`/jobs/${jobId}`, "PATCH", {
@@ -627,10 +628,41 @@ it("labels explicit IDs, validates payloads, and sync never calls the LLM", asyn
     await request(`/experience-bullets/${b.id}`, "DELETE");
   callJson.mockRejectedValue(new Error("upstream unavailable"));
   const failed = (await (await request("/library/sync", "POST")).json()).data;
-  expect(failed).toMatchObject({ created: 2 });
+  expect(failed).toMatchObject({ created: 0 });
   expect(
     (await (await request("/experience-bullets")).json()).data.bullets.every(
       (b: { tags: string[] }) => b.tags.length === 0,
     ),
   ).toBe(true);
+});
+
+it("opens the library without a base resume, logs its failure once, and keeps the first-build marker after deletion", async () => {
+  const { db, schema } = await import("@server/db");
+  db.delete(schema.designResumeDocuments)
+    .where(eq(schema.designResumeDocuments.id, "base-resume"))
+    .run();
+  const pdf = await import("@server/services/pdf");
+  const load = vi.spyOn(pdf, "loadBaseResumeSource");
+  const { logger } = await import("@infra/logger");
+  const warn = vi.spyOn(logger, "warn");
+  const manual = (
+    await (
+      await request("/experience-bullets", "POST", { text: "Manual duty" })
+    ).json()
+  ).data.bullet;
+  const first = await request("/library");
+  expect(first.status).toBe(200);
+  const items = (await first.json()).data.items;
+  expect(items).toHaveLength(2);
+  const role = items.find((item: { kind: string }) => item.kind === "role");
+  expect(
+    items.find((item: { id: string }) => item.id === manual.id).parentId,
+  ).toBe(role.id);
+  expect(warn).toHaveBeenCalledOnce();
+  await request(`/experience-bullets/${role.id}`, "DELETE");
+  expect((await (await request("/library")).json()).data.items).toEqual([]);
+  expect(
+    (await (await request("/library/sync", "POST")).json()).data.created,
+  ).toBe(0);
+  expect(load).toHaveBeenCalledOnce();
 });

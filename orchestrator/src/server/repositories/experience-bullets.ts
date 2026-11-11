@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ExperienceBullet, ExperienceBulletInput } from "@shared/types";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db, schema } from "../db";
 import {
   getPrivateDataScope,
@@ -27,7 +27,7 @@ export async function listExperienceBullets(
         allKinds ? undefined : eq(table.kind, "bullet"),
       ),
     )
-    .orderBy(asc(table.position), desc(table.updatedAt), asc(table.id))
+    .orderBy(asc(table.position), asc(table.createdAt), asc(table.id))
     .all()
     .map(publicBullet);
 }
