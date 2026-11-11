@@ -185,6 +185,7 @@ export function CandidateLibrary({
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState<Edit | null>(null);
   const [ranked, setRanked] = useState<RankedBullet[]>([]);
+  const [dutyQuery, setDutyQuery] = useState("");
   const [deletion, setDeletion] = useState<{
     items: Item[];
     usage: LibraryItemUsage;
@@ -813,14 +814,24 @@ export function CandidateLibrary({
     );
   }
   const roles = items.filter((item) => item.kind === "role");
-  function dutiesOf(role: Item) {
+  const query = dutyQuery.trim().toLowerCase();
+  function allDuties(role: Item) {
     return items.filter(
       (item) => item.parentId === role.id && item.kind === "bullet",
     );
   }
+  /** Duties under a role that match the search by text or tag. */
+  function dutiesOf(role: Item) {
+    return allDuties(role).filter(
+      (duty) =>
+        !query ||
+        duty.text.toLowerCase().includes(query) ||
+        duty.tags.some((tag) => tag.toLowerCase().includes(query)),
+    );
+  }
   function dutyCount(role: Item) {
     if (!jobId) return null;
-    const duties = dutiesOf(role);
+    const duties = allDuties(role);
     const selected = duties.filter(
       (item) => document && isOnResume(document, item.id),
     ).length;
@@ -835,6 +846,9 @@ export function CandidateLibrary({
     const key = String(role.data?.company ?? role.company ?? "Other");
     companies.set(key, [...(companies.get(key) ?? []), role]);
   }
+  const shownCompanies = [...companies].filter(
+    ([, group]) => !query || group.some((role) => dutiesOf(role).length),
+  );
   return (
     <div className="space-y-1.5">
       <section
@@ -903,26 +917,44 @@ export function CandidateLibrary({
                 />
                 {addButton("role", undefined, undefined, "job")}
               </div>
+              <Input
+                type="search"
+                aria-label="Search duties"
+                placeholder="Search duties by keyword or tag"
+                className="h-7 px-2 text-xs md:text-xs"
+                value={dutyQuery}
+                onChange={(event) => setDutyQuery(event.target.value)}
+              />
+              {query && !shownCompanies.length && (
+                <p className="text-xs text-muted-foreground">
+                  No duties match “{dutyQuery.trim()}”.
+                </p>
+              )}
               <Accordion
-                key={jobId}
+                // Each search re-opens every matching job.
+                key={`${jobId}:${query}`}
                 type="multiple"
                 defaultValue={
-                  jobId
-                    ? [...companies]
-                        .filter(([, group]) =>
-                          items.some(
-                            (item) =>
-                              item.kind === "bullet" &&
-                              group.some((role) => role.id === item.parentId) &&
-                              document &&
-                              isOnResume(document, item.id),
-                          ),
-                        )
-                        .map(([company]) => company)
-                    : [...companies.keys()].slice(0, 1)
+                  query
+                    ? shownCompanies.map(([company]) => company)
+                    : jobId
+                      ? [...companies]
+                          .filter(([, group]) =>
+                            items.some(
+                              (item) =>
+                                item.kind === "bullet" &&
+                                group.some(
+                                  (role) => role.id === item.parentId,
+                                ) &&
+                                document &&
+                                isOnResume(document, item.id),
+                            ),
+                          )
+                          .map(([company]) => company)
+                      : [...companies.keys()].slice(0, 1)
                 }
               >
-                {[...companies].map(([company, group]) => {
+                {shownCompanies.map(([company, group]) => {
                   const single = group.length === 1 ? group[0] : null;
                   return (
                     <AccordionItem
@@ -994,25 +1026,27 @@ export function CandidateLibrary({
                       <AccordionContent className="ml-1.5 space-y-0.5 border-l pb-0.5 pl-2 text-xs">
                         {single
                           ? dutiesOf(single).map(row)
-                          : group.map((role) => (
-                              <div key={role.id}>
-                                <div className="flex items-start gap-1">
-                                  <div className="min-w-0 flex-1">
-                                    {row(role)}
+                          : group
+                              .filter((role) => !query || dutiesOf(role).length)
+                              .map((role) => (
+                                <div key={role.id}>
+                                  <div className="flex items-start gap-1">
+                                    <div className="min-w-0 flex-1">
+                                      {row(role)}
+                                    </div>
+                                    {dutyCount(role)}
+                                    {addButton(
+                                      "bullet",
+                                      role.id,
+                                      undefined,
+                                      "duty",
+                                    )}
                                   </div>
-                                  {dutyCount(role)}
-                                  {addButton(
-                                    "bullet",
-                                    role.id,
-                                    undefined,
-                                    "duty",
-                                  )}
+                                  <div className="ml-1.5 border-l pl-2">
+                                    {dutiesOf(role).map(row)}
+                                  </div>
                                 </div>
-                                <div className="ml-1.5 border-l pl-2">
-                                  {dutiesOf(role).map(row)}
-                                </div>
-                              </div>
-                            ))}
+                              ))}
                       </AccordionContent>
                     </AccordionItem>
                   );

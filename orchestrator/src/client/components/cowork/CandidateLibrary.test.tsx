@@ -240,6 +240,30 @@ describe("candidate library", () => {
     ).toBeVisible();
     expect(screen.getByText("1/1 duties")).toBeVisible();
   });
+  it("searches duties by text or tag and opens the matching jobs", () => {
+    render(
+      <CandidateLibrary
+        items={[
+          role,
+          duty,
+          { ...duty, id: "d2", text: "Led migrations", tags: ["Postgres"] },
+          otherRole,
+          otherDuty,
+        ]}
+      />,
+    );
+    const search = screen.getByRole("searchbox", { name: "Search duties" });
+    fireEvent.change(search, { target: { value: "postgres" } });
+    expect(screen.getByText("Led migrations")).toBeVisible();
+    expect(screen.queryByText("Built tools")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Show roles for Globex" }),
+    ).toBeNull();
+    fireEvent.change(search, { target: { value: "designed" } });
+    expect(screen.getByText("Designed tools")).toBeVisible();
+    fireEvent.change(search, { target: { value: "nothing" } });
+    expect(screen.getByText("No duties match “nothing”.")).toBeVisible();
+  });
   it("opens only the first job in standalone mode after loading", async () => {
     mocks.list.mockResolvedValue({ items: [role, duty, otherRole] });
     render(<CandidateLibrary />);
