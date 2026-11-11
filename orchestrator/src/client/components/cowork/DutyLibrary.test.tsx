@@ -28,7 +28,7 @@ vi.mock("@client/api/cowork", () => ({
   deleteExperienceBullet: mocks.remove,
   labelExperienceBullets: mocks.label,
   updateExperienceBullet: mocks.update,
-  importExperienceBulletsFromResume: mocks.importResume,
+  syncCandidateLibrary: mocks.importResume,
 }));
 vi.mock("sonner", () => ({
   toast: { message: mocks.toast, success: mocks.success },
@@ -364,23 +364,14 @@ describe("library skills", () => {
       }),
     );
   });
-  it.each([
-    undefined,
-    0,
-    2,
-  ])("includes import labeled count only when present (%s)", async (labeled) => {
-    mocks.importResume.mockResolvedValue({
-      created: 2,
-      skipped: 1,
-      labeled,
-      bullets: [],
-    });
+  it("syncs resumes and reports created, skipped and linked counts", async () => {
+    mocks.importResume.mockResolvedValue({ created: 2, skipped: 1, linked: 3 });
     renderLibrary();
     await screen.findByText("Built tools");
-    fireEvent.click(screen.getByRole("button", { name: "Import from resume" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sync from resumes" }));
     await waitFor(() =>
       expect(mocks.success).toHaveBeenCalledWith(
-        `Imported 2; skipped 1${labeled === undefined ? "" : `; labeled ${labeled}`}`,
+        "Synced 2; skipped 1; linked 3",
       ),
     );
   });
