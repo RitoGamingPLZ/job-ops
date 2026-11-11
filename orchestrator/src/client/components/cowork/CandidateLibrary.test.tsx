@@ -464,7 +464,7 @@ describe("candidate library", () => {
       name: new RegExp(`^${text} ·`),
     });
     expect(description).toHaveClass("truncate");
-    expect(description).toHaveAttribute("title", text);
+    expect(description).toHaveAttribute("title", description.textContent);
     const firstLine = description.parentElement as HTMLElement;
     expect(
       within(firstLine).getByRole("button", { name: `Delete ${text}` }),

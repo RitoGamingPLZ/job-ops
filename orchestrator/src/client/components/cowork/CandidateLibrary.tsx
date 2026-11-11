@@ -451,6 +451,12 @@ export function CandidateLibrary({
     );
   }
   function row(item: Item) {
+    const detailSuffix = (fields[item.kind] ?? [])
+      .map((field) => fieldValue(field, item.data?.[field]))
+      .filter(Boolean)
+      .map((value) => ` · ${String(value)}`)
+      .join("");
+    const displayText = item.text + detailSuffix;
     const hasTags =
       item.kind === "bullet" ||
       item.kind === "project" ||
@@ -499,18 +505,12 @@ export function CandidateLibrary({
           <button
             type="button"
             className={`min-w-0 flex-1 py-0.5 text-left hover:underline ${hasTags ? "truncate" : ""}`}
-            title={hasTags ? (rewordedLine?.text ?? item.text) : undefined}
+            title={hasTags ? (rewordedLine?.text ?? displayText) : undefined}
             disabled={busy}
             onClick={() => startEdit(item)}
           >
             {item.text}
-            <span className="text-muted-foreground">
-              {(fields[item.kind] ?? [])
-                .map((field) => fieldValue(field, item.data?.[field]))
-                .filter(Boolean)
-                .map((value) => ` · ${String(value)}`)
-                .join("")}
-            </span>
+            <span className="text-muted-foreground">{detailSuffix}</span>
           </button>
           {item.kind === "bullet" ? (
             <div className="ml-auto flex shrink-0 items-center gap-1">
