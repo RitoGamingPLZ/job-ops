@@ -1,6 +1,7 @@
 import { ApiClientError } from "@client/api/core";
 import type { ExperienceBullet } from "@shared/types";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -121,6 +122,57 @@ describe("candidate library duty tools", () => {
     expect(onSave).toHaveBeenCalledWith(["Tools", "React"]);
     fireEvent.click(screen.getByLabelText("Remove Tools from Built tools"));
     expect(onSave).toHaveBeenLastCalledWith([]);
+  });
+  it("collapses tags to the available width and exposes overflow in a popover", () => {
+    let width = 140;
+    let resize = () => {};
+    const clientWidth = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockImplementation(() => width);
+    const offsetWidth = vi
+      .spyOn(HTMLElement.prototype, "offsetWidth", "get")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.textContent === "+ tag") return 30;
+        if (this.tagName === "SPAN") return 20;
+        return 40;
+      });
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          resize = callback;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    const onSave = vi.fn();
+    const tags = Array.from({ length: 10 }, (_, index) => `Tag ${index}`);
+    try {
+      render(
+        <InlineTags bullet={{ ...role, tags }} busy={false} onSave={onSave} />,
+      );
+      expect(screen.getAllByRole("button", { name: /^Remove/ })).toHaveLength(
+        1,
+      );
+      expect(
+        screen.getByRole("button", { name: "Show 9 more tags" }),
+      ).toHaveTextContent("+9");
+      width = 240;
+      act(() => resize());
+      expect(screen.getAllByRole("button", { name: /^Remove/ })).toHaveLength(
+        4,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Show 6 more tags" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove Tag 9 from Engineer" }),
+      );
+      expect(onSave).toHaveBeenCalledWith(tags.slice(0, 9));
+    } finally {
+      clientWidth.mockRestore();
+      offsetWidth.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
   it("reports unavailable and other failures through shared error helpers", () => {
     coworkError(new ApiClientError("Unavailable", { status: 501 }));
