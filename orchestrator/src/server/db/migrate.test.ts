@@ -14,6 +14,31 @@ describe.sequential("database migrations", () => {
     }
   });
 
+  it("adds candidate library columns to old bullets without losing rows", async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "job-ops-migrate-"));
+    const script = `
+      import { join } from "node:path";
+      import { pathToFileURL } from "node:url";
+      import Database from "better-sqlite3";
+      const path = join(process.env.DATA_DIR, "jobs.db");
+      const old = new Database(path);
+      old.exec("CREATE TABLE experience_bullets (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL DEFAULT 'tenant_default', user_id TEXT, text TEXT NOT NULL, company TEXT, role TEXT, start_date TEXT, end_date TEXT, tags TEXT NOT NULL DEFAULT '[]', source TEXT NOT NULL DEFAULT 'manual', source_experience_id TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now'))); INSERT INTO experience_bullets(id,text) VALUES ('old','Built tools')");
+      old.close();
+      const url = pathToFileURL(join(process.cwd(), "src/server/db/migrate.ts")).href;
+      await import(url + "?first");
+      await import(url + "?second");
+      const migrated = new Database(path);
+      const row = migrated.prepare("SELECT * FROM experience_bullets WHERE id = 'old'").get();
+      if (row.text !== "Built tools" || row.kind !== "bullet" || row.data !== null || row.parent_id !== null || row.position !== 0) throw new Error("Legacy bullet defaults were not preserved");
+      migrated.close();
+    `;
+    execFileSync(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "-e", script],
+      { env: { ...process.env, DATA_DIR: tempDir }, stdio: "pipe" },
+    );
+  });
+
   it("boots when an older pipeline_runs table lacks config_snapshot", async () => {
     tempDir = await mkdtemp(join(tmpdir(), "job-ops-migrate-"));
     const script = `

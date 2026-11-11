@@ -575,6 +575,7 @@ const migrations = [
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL DEFAULT 'tenant_default' REFERENCES tenants(id) ON DELETE CASCADE,
     user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL DEFAULT 'bullet', data TEXT, parent_id TEXT, position INTEGER NOT NULL DEFAULT 0,
     text TEXT NOT NULL, company TEXT, role TEXT, start_date TEXT, end_date TEXT,
     tags TEXT NOT NULL DEFAULT '[]', source TEXT NOT NULL DEFAULT 'manual', source_experience_id TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -848,6 +849,11 @@ const migrations = [
      'jobspyIsRemote',
      'openrouterApiKey'
    )`,
+
+  `ALTER TABLE experience_bullets ADD COLUMN kind TEXT NOT NULL DEFAULT 'bullet'`,
+  `ALTER TABLE experience_bullets ADD COLUMN data TEXT`,
+  `ALTER TABLE experience_bullets ADD COLUMN parent_id TEXT`,
+  `ALTER TABLE experience_bullets ADD COLUMN position INTEGER NOT NULL DEFAULT 0`,
 
   // Add source column for existing databases (safe to skip if already present)
   `ALTER TABLE jobs ADD COLUMN source TEXT NOT NULL DEFAULT 'gradcracker'`,
@@ -1302,7 +1308,10 @@ for (const migration of migrations) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const isDuplicateColumn =
-      (migration.toLowerCase().includes("alter table jobs add column") ||
+      (migration
+        .toLowerCase()
+        .includes("alter table experience_bullets add column") ||
+        migration.toLowerCase().includes("alter table jobs add column") ||
         migration
           .toLowerCase()
           .includes("alter table pipeline_runs add column") ||
