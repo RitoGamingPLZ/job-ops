@@ -107,7 +107,7 @@ function PdfCanvasDocument({ url }: { url: string }) {
               (_, index) => index + 1,
             ).map((pageNumber) => (
               <canvas
-                key={`${width}:${pageNumber}`}
+                key={pageNumber}
                 ref={(canvas) => {
                   if (canvas) canvases.current.set(pageNumber, canvas);
                   else canvases.current.delete(pageNumber);
