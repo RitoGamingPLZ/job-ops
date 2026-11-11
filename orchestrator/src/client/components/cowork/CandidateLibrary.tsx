@@ -733,6 +733,7 @@ export function CandidateLibrary({
                 onRanked={setRanked}
               />
               <Accordion
+                key={jobId}
                 type="multiple"
                 defaultValue={
                   jobId
@@ -798,18 +799,19 @@ export function CandidateLibrary({
                           value={role.id}
                           className="border-0"
                         >
-                          <AccordionTrigger className="gap-1 py-1 text-left text-xs">
-                            <span className="min-w-0 truncate">
-                              {company} · {role.text}
-                              {jobId && (
-                                <span className="font-normal text-muted-foreground">
-                                  {` · ${selected}/${duties.length} duties`}
-                                </span>
-                              )}
-                            </span>
-                          </AccordionTrigger>
+                          <div className="flex items-start gap-1">
+                            <div className="min-w-0 flex-1">{row(role)}</div>
+                            {jobId && (
+                              <span className="shrink-0 py-1 text-xs text-muted-foreground">
+                                {`${selected}/${duties.length} duties`}
+                              </span>
+                            )}
+                            <AccordionTrigger
+                              aria-label={`Show duties for ${role.text}`}
+                              className="h-6 w-6 flex-none justify-center p-0"
+                            />
+                          </div>
                           <AccordionContent className="pb-0.5 text-xs">
-                            {row(role)}
                             {duties.map(row)}
                             {addButton("bullet", role.id)}
                           </AccordionContent>
