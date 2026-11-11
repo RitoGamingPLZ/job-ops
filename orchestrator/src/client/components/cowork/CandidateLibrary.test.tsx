@@ -291,7 +291,7 @@ describe("candidate library", () => {
     await waitFor(() =>
       expect(mocks.update).toHaveBeenCalledWith(
         "duty",
-        { text: "Built better tools", data: null },
+        { text: "Built better tools", data: null, tags: ["Tools"] },
         "job/id",
       ),
     );
@@ -386,9 +386,7 @@ describe("candidate library", () => {
       ranked: [{ bulletId: "duty", score: 88, reason: "Relevant tools" }],
     });
     await mount({ jobId: "job", document: doc, onReferenceBullet: reference });
-    expect(
-      screen.getByRole("button", { name: "Remove Tools from Built tools" }),
-    ).toBeVisible();
+    expect(screen.getByText("Tools")).toBeVisible();
     fireEvent.click(
       screen.getByRole("button", { name: "Chat reference: Built tools" }),
     );
@@ -427,9 +425,7 @@ describe("candidate library", () => {
     expect(screen.queryByText("Relevant tools")).toBeNull();
     expect(score.parentElement).toBe(firstLine.nextElementSibling);
     expect(
-      within(score.parentElement as HTMLElement).getByRole("button", {
-        name: "Remove Tools from Built tools",
-      }),
+      within(score.parentElement as HTMLElement).getByText("Tools"),
     ).toBeVisible();
     fireEvent.click(description);
     expect(screen.getByRole("textbox", { name: "Text" })).toHaveValue(
@@ -459,47 +455,28 @@ describe("candidate library", () => {
       within(firstLine).getByRole("button", { name: `Delete ${text}` }),
     ).toBeVisible();
     const tagsLine = firstLine.nextElementSibling as HTMLElement;
-    expect(
-      within(tagsLine).getByRole("button", {
-        name: `Remove Existing from ${text}`,
-      }),
-    ).toBeVisible();
+    expect(within(tagsLine).getByText("Existing")).toBeVisible();
+    expect(within(tagsLine).queryByRole("button")).toBeNull();
+    fireEvent.click(description);
+    const dialog = screen.getByRole("dialog");
+    const input = within(dialog).getByRole("textbox", { name: "Add tag" });
+    fireEvent.change(input, { target: { value: "New tag" } });
+    fireEvent.keyDown(input, { key: "Enter" });
     fireEvent.click(
-      within(tagsLine).getByRole("button", { name: `Add tag to ${text}` }),
+      within(dialog).getByRole("button", { name: "Remove tag Existing" }),
     );
-    fireEvent.change(
-      screen.getByRole("textbox", { name: `Add skill to ${text}` }),
-      {
-        target: { value: "New tag" },
-      },
-    );
-    fireEvent.click(within(tagsLine).getByRole("button", { name: "Add" }));
     expect(
-      await screen.findByRole("button", {
-        name: `Remove New tag from ${text}`,
-      }),
+      within(dialog).getByRole("button", { name: "Remove tag New tag" }),
     ).toBeVisible();
-    expect(mocks.update).toHaveBeenLastCalledWith(
-      id,
-      { tags: ["Existing", "New tag"] },
-      "job",
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: `Remove Existing from ${text}` }),
-    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: `Remove Existing from ${text}` }),
-      ).toBeNull(),
+      expect(mocks.update).toHaveBeenLastCalledWith(
+        id,
+        expect.objectContaining({ tags: ["New tag"] }),
+        "job",
+      ),
     );
-    expect(mocks.update).toHaveBeenLastCalledWith(
-      id,
-      { tags: ["New tag"] },
-      "job",
-    );
-    expect(
-      screen.getByRole("button", { name: `Remove New tag from ${text}` }),
-    ).toBeVisible();
+    expect(await within(tagsLine).findByText("New tag")).toBeVisible();
   });
   it("syncs and reloads the library", async () => {
     mocks.sync.mockResolvedValue({ created: 3, skipped: 4, linked: 5 });
@@ -627,10 +604,11 @@ describe("candidate library", () => {
     await mount({ jobId: "job", document: doc });
     fireEvent.click(screen.getByRole("button", { name: "Rank for this job" }));
     await screen.findByText("88/100");
-    fireEvent.click(
-      screen.getByRole("button", { name: "Remove Tools from Built tools" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Built tools" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove tag Tools" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(mocks.update).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByText("88/100")).toBeVisible();
   });
   it("keeps frozen resume keywords unchanged on library create and delete", async () => {

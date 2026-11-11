@@ -30,21 +30,14 @@ export function coworkError(error: unknown) {
   else showErrorToast(error, "Could not complete resume action");
 }
 
-export function InlineTags({
-  bullet,
-  busy,
-  onSave,
-}: {
-  bullet: ExperienceBullet;
-  busy: boolean;
-  onSave: (tags: string[]) => void;
-}) {
-  const [draft, setDraft] = useState("");
-  const [adding, setAdding] = useState(false);
+const tagClass =
+  "shrink-0 whitespace-nowrap rounded border px-1 py-0.5 text-xs text-muted-foreground";
+
+/** Read-only tag chips that collapse to the available width. */
+export function InlineTags({ bullet }: { bullet: ExperienceBullet }) {
   const [visibleCount, setVisibleCount] = useState(8);
   const tagsRow = useRef<HTMLDivElement>(null);
-  const tagButtons = useRef<(HTMLButtonElement | null)[]>([]);
-  const addButton = useRef<HTMLButtonElement>(null);
+  const tagChips = useRef<(HTMLSpanElement | null)[]>([]);
   const overflowMeasure = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     const row = tagsRow.current;
@@ -52,12 +45,9 @@ export function InlineTags({
     function measure() {
       if (!row || !row.clientWidth) return;
       const gap = 4;
-      const available =
-        row.clientWidth -
-        (adding ? 0 : (addButton.current?.offsetWidth ?? 0)) -
-        gap;
+      const available = row.clientWidth;
       const widths = bullet.tags.map(
-        (_, index) => tagButtons.current[index]?.offsetWidth ?? 0,
+        (_, index) => tagChips.current[index]?.offsetWidth ?? 0,
       );
       const allWidth = widths.reduce((sum, width) => sum + width + gap, 0);
       const limit =
@@ -78,155 +68,127 @@ export function InlineTags({
     const observer = new ResizeObserver(measure);
     observer.observe(row);
     return () => observer.disconnect();
-  }, [bullet.tags, adding]);
-  const tagClass =
-    "shrink-0 whitespace-nowrap rounded border px-1 py-0.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50";
-  function removeTag(tag: string) {
-    onSave(bullet.tags.filter((value) => value !== tag));
+  }, [bullet.tags]);
+  return (
+    <div
+      ref={tagsRow}
+      className="relative flex min-w-0 flex-1 items-center gap-1 overflow-hidden whitespace-nowrap"
+    >
+      {bullet.tags.map((tag, index) => (
+        <span
+          key={`${index}-${tag}`}
+          ref={(node) => {
+            tagChips.current[index] = node;
+          }}
+          className={`${tagClass} ${index >= visibleCount ? "invisible absolute" : ""}`}
+          aria-hidden={index >= visibleCount ? true : undefined}
+        >
+          {tag}
+        </span>
+      ))}
+      <span
+        ref={overflowMeasure}
+        aria-hidden="true"
+        className="invisible absolute text-xs"
+      >
+        +{bullet.tags.length}
+      </span>
+      {bullet.tags.length > visibleCount && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="shrink-0 text-xs text-muted-foreground"
+              aria-label={`Show ${bullet.tags.length - visibleCount} more tags for ${bullet.text}`}
+            >
+              +{bullet.tags.length - visibleCount}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="flex max-h-60 flex-wrap gap-1 overflow-auto p-2"
+          >
+            {bullet.tags.slice(visibleCount).map((tag, index) => (
+              <span
+                key={`${index}-${tag}`}
+                className={`${tagClass} max-w-full truncate`}
+                title={tag}
+              >
+                {tag}
+              </span>
+            ))}
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  );
+}
+
+/** Adds comma-separated tags, skipping blanks and case-insensitive repeats. */
+export function addTags(tags: string[], draft: string): string[] {
+  const seen = new Set(tags.map((value) => value.trim().toLowerCase()));
+  const added = draft
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => {
+      const key = value.toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  return added.length ? [...tags, ...added] : tags;
+}
+
+/** Tag editor for the library item modal: × removes, Enter or comma adds. */
+export function TagEditor({
+  tags,
+  disabled,
+  onChange,
+}: {
+  tags: string[];
+  disabled: boolean;
+  onChange: (tags: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  function commit() {
+    const next = addTags(tags, draft);
+    if (next !== tags) onChange(next);
+    setDraft("");
   }
   return (
-    <div className="min-w-0 flex-1 space-y-1">
-      <div
-        ref={tagsRow}
-        className="relative flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap"
-      >
-        {bullet.tags.map((tag, index) => (
-          <button
-            key={`${index}-${tag}`}
-            ref={(node) => {
-              tagButtons.current[index] = node;
-            }}
-            type="button"
-            disabled={busy}
-            className={`${tagClass} ${index >= visibleCount ? "invisible absolute pointer-events-none" : ""}`}
-            aria-hidden={index >= visibleCount ? true : undefined}
-            tabIndex={index >= visibleCount ? -1 : undefined}
-            aria-label={`Remove ${tag} from ${bullet.text}`}
-            onClick={() => removeTag(tag)}
-          >
-            {tag} <span aria-hidden="true">×</span>
-          </button>
-        ))}
-        <span
-          ref={overflowMeasure}
-          aria-hidden="true"
-          className="invisible absolute text-xs"
-        >
-          +{bullet.tags.length}
-        </span>
-        {bullet.tags.length > visibleCount && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="shrink-0 text-xs text-muted-foreground"
-                aria-label={`Show ${bullet.tags.length - visibleCount} more tags for ${bullet.text}`}
-              >
-                +{bullet.tags.length - visibleCount}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="start"
-              className="flex max-h-60 flex-wrap gap-1 overflow-auto p-2"
+    <div className="space-y-1">
+      <span className="block text-xs text-muted-foreground">Tags</span>
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {tags.map((tag, index) => (
+            <button
+              key={`${index}-${tag}`}
+              type="button"
+              disabled={disabled}
+              className={`${tagClass} hover:text-foreground disabled:opacity-50`}
+              aria-label={`Remove tag ${tag}`}
+              onClick={() => onChange(tags.filter((value) => value !== tag))}
             >
-              {bullet.tags.slice(visibleCount).map((tag, index) => (
-                <button
-                  key={`${index}-${tag}`}
-                  type="button"
-                  disabled={busy}
-                  className={`${tagClass} max-w-full truncate`}
-                  title={tag}
-                  aria-label={`Remove ${tag} from ${bullet.text}`}
-                  onClick={() => removeTag(tag)}
-                >
-                  {tag} <span aria-hidden="true">×</span>
-                </button>
-              ))}
-            </PopoverContent>
-          </Popover>
-        )}
-        {!adding && (
-          <button
-            ref={addButton}
-            aria-label={`Add tag to ${bullet.text}`}
-            type="button"
-            disabled={busy}
-            className="shrink-0 text-xs text-muted-foreground"
-            onClick={() => setAdding(true)}
-          >
-            + tag
-          </button>
-        )}
-      </div>
-      {adding && (
-        <form
-          className="flex gap-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const seen = new Set(
-              bullet.tags.map((value) => value.trim().toLowerCase()),
-            );
-            const added = draft
-              .split(",")
-              .map((value) => value.trim())
-              .filter((value) => {
-                const key = value.toLowerCase();
-                if (!key || seen.has(key)) return false;
-                seen.add(key);
-                return true;
-              });
-            if (added.length) onSave([...bullet.tags, ...added]);
-            setDraft("");
-            setAdding(false);
-          }}
-        >
-          <Input
-            className="h-7 min-w-0 text-xs"
-            placeholder="Add skill…"
-            aria-label={`Add skill to ${bullet.text}`}
-            value={draft}
-            disabled={busy}
-            autoFocus
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                setDraft("");
-                setAdding(false);
-              }
-            }}
-            onBlur={() => {
-              if (!draft.trim()) {
-                setDraft("");
-                setAdding(false);
-              }
-            }}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <Button
-            type="submit"
-            size="sm"
-            variant="ghost"
-            className="h-7"
-            disabled={busy || !draft.trim()}
-          >
-            Add
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-7 w-7 p-0"
-            disabled={busy}
-            aria-label={`Cancel adding tag to ${bullet.text}`}
-            onClick={() => {
-              setDraft("");
-              setAdding(false);
-            }}
-          >
-            ×
-          </Button>
-        </form>
+              {tag} <span aria-hidden="true">×</span>
+            </button>
+          ))}
+        </div>
       )}
+      <Input
+        className="h-7 px-1.5 py-0.5 text-xs md:text-xs"
+        placeholder="Add tag, press Enter"
+        aria-label="Add tag"
+        value={draft}
+        disabled={disabled}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === ",") {
+            event.preventDefault();
+            commit();
+          }
+        }}
+      />
     </div>
   );
 }

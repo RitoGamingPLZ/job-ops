@@ -9,7 +9,12 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { coworkError, DutyLibraryTools, InlineTags } from "./DutyLibrary";
+import {
+  coworkError,
+  DutyLibraryTools,
+  InlineTags,
+  TagEditor,
+} from "./DutyLibrary";
 
 const mocks = vi.hoisted(() => ({
   extract: vi.fn(),
@@ -106,22 +111,18 @@ describe("candidate library duty tools", () => {
     fireEvent.click(screen.getByText("Extract drafts"));
     expect(await screen.findByText("Create selected duties")).toBeDisabled();
   });
-  it("adds deduplicated tags and removes existing tags", () => {
-    const onSave = vi.fn();
-    render(
-      <InlineTags
-        bullet={{ ...role, text: "Built tools", tags: ["Tools"] }}
-        busy={false}
-        onSave={onSave}
-      />,
-    );
-    fireEvent.click(screen.getByText("+ tag"));
-    const input = screen.getByLabelText("Add skill to Built tools");
+  it("adds deduplicated tags and removes existing tags in the editor", () => {
+    const onChange = vi.fn();
+    render(<TagEditor tags={["Tools"]} disabled={false} onChange={onChange} />);
+    const input = screen.getByLabelText("Add tag");
     fireEvent.change(input, { target: { value: "React, tools, react" } });
-    fireEvent.submit(input.closest("form") as HTMLFormElement);
-    expect(onSave).toHaveBeenCalledWith(["Tools", "React"]);
-    fireEvent.click(screen.getByLabelText("Remove Tools from Built tools"));
-    expect(onSave).toHaveBeenLastCalledWith([]);
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledWith(["Tools", "React"]);
+    expect(input).toHaveValue("");
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Remove tag Tools" }));
+    expect(onChange).toHaveBeenLastCalledWith([]);
   });
   it("collapses tags to the available width and exposes overflow in a popover", () => {
     let width = 140;
@@ -132,9 +133,7 @@ describe("candidate library duty tools", () => {
     const offsetWidth = vi
       .spyOn(HTMLElement.prototype, "offsetWidth", "get")
       .mockImplementation(function (this: HTMLElement) {
-        if (this.textContent === "+ tag") return 30;
-        if (this.tagName === "SPAN") return 20;
-        return 40;
+        return this.textContent?.startsWith("Tag") ? 40 : 20;
       });
     vi.stubGlobal(
       "ResizeObserver",
@@ -146,51 +145,25 @@ describe("candidate library duty tools", () => {
         disconnect() {}
       },
     );
-    const onSave = vi.fn();
     const tags = Array.from({ length: 10 }, (_, index) => `Tag ${index}`);
+    const visible = () =>
+      screen
+        .getAllByText(/^Tag \d$/)
+        .filter((chip) => !chip.hasAttribute("aria-hidden"));
     try {
-      render(
-        <InlineTags bullet={{ ...role, tags }} busy={false} onSave={onSave} />,
-      );
-      expect(screen.getAllByRole("button", { name: /^Remove/ })).toHaveLength(
-        1,
-      );
+      render(<InlineTags bullet={{ ...role, tags }} />);
+      expect(visible()).toHaveLength(2);
       expect(
-        screen.getByRole("button", { name: "Show 9 more tags for Engineer" }),
-      ).toHaveTextContent("+9");
-      fireEvent.click(
-        screen.getByRole("button", { name: "Add tag to Engineer" }),
-      );
+        screen.getByRole("button", { name: "Show 8 more tags for Engineer" }),
+      ).toHaveTextContent("+8");
       width = 240;
       act(() => resize());
-      expect(screen.getAllByRole("button", { name: /^Remove/ })).toHaveLength(
-        4,
-      );
-      // Resize while the add button is unmounted, then close without changing tags.
-      width = 220;
-      act(() => resize());
-      const input = screen.getByLabelText("Add skill to Engineer");
-      fireEvent.change(input, { target: { value: "Tag 0" } });
-      fireEvent.submit(input.closest("form") as HTMLFormElement);
-      expect(onSave).not.toHaveBeenCalled();
-      expect(
-        screen.getByRole("button", { name: "Add tag to Engineer" }),
-      ).toBeVisible();
-      expect(screen.getAllByRole("button", { name: /^Remove/ })).toHaveLength(
-        3,
-      );
-      width = 240;
-      act(() => resize());
-      expect(screen.getAllByRole("button", { name: /^Remove/ })).toHaveLength(
-        4,
-      );
+      expect(visible()).toHaveLength(4);
       fireEvent.click(
         screen.getByRole("button", { name: "Show 6 more tags for Engineer" }),
       );
-      fireEvent.click(
-        screen.getByRole("button", { name: "Remove Tag 9 from Engineer" }),
-      );
-      expect(onSave).toHaveBeenCalledWith(tags.slice(0, 9));
+      expect(screen.getByTitle("Tag 9")).toBeVisible();
+      expect(screen.queryByRole("button", { name: /^Remove/ })).toBeNull();
     } finally {
       clientWidth.mockRestore();
       offsetWidth.mockRestore();
@@ -207,27 +180,4 @@ describe("candidate library duty tools", () => {
       "Could not complete resume action",
     );
   });
-});
-
-it("cancels tag creation with Escape, empty blur, or the cancel button", () => {
-  const onSave = vi.fn();
-  render(<InlineTags bullet={role} busy={false} onSave={onSave} />);
-  fireEvent.click(screen.getByText("+ tag"));
-  fireEvent.change(screen.getByLabelText("Add skill to Engineer"), {
-    target: { value: "discard" },
-  });
-  fireEvent.keyDown(screen.getByLabelText("Add skill to Engineer"), {
-    key: "Escape",
-  });
-  expect(screen.queryByLabelText("Add skill to Engineer")).toBeNull();
-  fireEvent.click(screen.getByText("+ tag"));
-  fireEvent.blur(screen.getByLabelText("Add skill to Engineer"));
-  expect(screen.queryByLabelText("Add skill to Engineer")).toBeNull();
-  fireEvent.click(screen.getByText("+ tag"));
-  fireEvent.change(screen.getByLabelText("Add skill to Engineer"), {
-    target: { value: "discard" },
-  });
-  fireEvent.click(screen.getByLabelText("Cancel adding tag to Engineer"));
-  expect(screen.queryByLabelText("Add skill to Engineer")).toBeNull();
-  expect(onSave).not.toHaveBeenCalled();
 });

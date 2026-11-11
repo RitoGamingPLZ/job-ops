@@ -56,7 +56,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
-import { coworkError, DutyLibraryTools, InlineTags } from "./DutyLibrary";
+import {
+  coworkError,
+  DutyLibraryTools,
+  InlineTags,
+  TagEditor,
+} from "./DutyLibrary";
 import { REWORDED_TINT_CLASS } from "./rewordTint";
 
 const sections = [
@@ -68,6 +73,14 @@ const sections = [
   ["award", "Awards"],
   ["certification", "Certifications"],
 ] as const;
+const TAG_KINDS = new Set<CandidateItemKind>([
+  "contact",
+  "bullet",
+  "project",
+  "education",
+  "award",
+  "certification",
+]);
 const names: Record<CandidateItemKind, string> = {
   contact: "contact",
   role: "role",
@@ -223,7 +236,12 @@ export function CandidateLibrary({
     setItems((current) =>
       current.map((item) => (item.id === after.id ? after : item)),
     );
-    if (input.text !== undefined || input.data !== undefined) setRanked([]);
+    if (
+      (input.text !== undefined && input.text !== before.text) ||
+      (input.data !== undefined &&
+        JSON.stringify(input.data) !== JSON.stringify(before.data))
+    )
+      setRanked([]);
     if (!frozen)
       onDocumentChange?.((doc) => applyLibraryUpdate(doc, before, after));
     return after;
@@ -275,6 +293,7 @@ export function CandidateLibrary({
         text: item.text,
         kind: item.kind,
         data: item.data ? { ...item.data } : null,
+        ...(TAG_KINDS.has(item.kind) ? { tags: item.tags } : {}),
       },
       fields: fields[item.kind] ?? [],
     });
@@ -317,7 +336,11 @@ export function CandidateLibrary({
           item,
           edit.companyOnly
             ? { data: { ...item.data, ...edit.input.data } }
-            : { text: edit.input.text.trim(), data: edit.input.data },
+            : {
+                text: edit.input.text.trim(),
+                data: edit.input.data,
+                ...(edit.input.tags ? { tags: edit.input.tags } : {}),
+              },
         );
       }
     } else {
@@ -529,6 +552,16 @@ export function CandidateLibrary({
               />
             </label>
           ))}
+        {!current.companyOnly &&
+          TAG_KINDS.has(current.input.kind ?? "bullet") && (
+            <TagEditor
+              tags={current.input.tags ?? []}
+              disabled={busy}
+              onChange={(tags) =>
+                setEdit({ ...current, input: { ...current.input, tags } })
+              }
+            />
+          )}
         <div className="flex gap-1">
           <Button
             size="sm"
@@ -563,13 +596,7 @@ export function CandidateLibrary({
       .map((value) => ` · ${String(value)}`)
       .join("");
     const displayText = item.text + detailSuffix;
-    const hasTags =
-      item.kind === "contact" ||
-      item.kind === "bullet" ||
-      item.kind === "project" ||
-      item.kind === "education" ||
-      item.kind === "award" ||
-      item.kind === "certification";
+    const hasTags = TAG_KINDS.has(item.kind);
     const isLine = item.kind === "bullet" || item.kind === "project_point";
     const lineSection =
       item.kind === "bullet" ? KIND_SECTION.role : KIND_SECTION.project;
@@ -625,15 +652,7 @@ export function CandidateLibrary({
           <div
             className={`flex min-w-0 items-start gap-1 ${jobId ? "pl-4" : ""}`}
           >
-            <InlineTags
-              bullet={item}
-              busy={busy}
-              onSave={(tags) =>
-                void run(async () => {
-                  await update(item, { tags });
-                })
-              }
-            />
+            <InlineTags bullet={item} />
             {score && (
               <span
                 className="shrink-0 rounded border px-1.5 py-0.5 text-xs font-medium"
