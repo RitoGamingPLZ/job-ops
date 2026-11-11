@@ -24,6 +24,7 @@ import type {
   ResumeListItem,
   ResumeSuggestion,
 } from "@shared/types";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -54,6 +55,7 @@ import {
   downloadDesignResumePdf,
   downloadJobPdf,
 } from "@/client/lib/private-pdf";
+import { queryKeys } from "@/client/lib/queryKeys";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,6 +106,7 @@ export function ResumeCoworkPage({ base = false }: { base?: boolean }) {
   ) : null;
 }
 function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
+  const queryClient = useQueryClient();
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -229,6 +232,10 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
         const saved = base
           ? baseState(await updateDesignResume(input))
           : await api.saveJobResume(jobId, input);
+        if (base)
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.designResume.all,
+          });
         const changed = version.current !== editVersion;
         publish(
           changed && latest.current
@@ -266,7 +273,7 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
     })();
     saving.current = operation;
     return operation;
-  }, [base, jobId, publish, readResume]);
+  }, [base, jobId, publish, queryClient, readResume]);
   // A child unmounting mid-drag never fires dragleave; reset when any drag ends.
   useEffect(() => {
     const reset = () => {
@@ -565,7 +572,10 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
     setBusy(true);
     if (timer.current) clearTimeout(timer.current);
     try {
-      if (!(await flush())) return;
+      if (!(await flush())) {
+        setImportOpen(false);
+        return;
+      }
       if (importFile) {
         const payload = await fileToUploadPayload(
           importFile,
@@ -576,13 +586,19 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
           mediaType: payload.mediaType ?? undefined,
         });
       } else await importDesignResumeFromRxResume();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.designResume.all }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.onboarding.status(),
+        }),
+      ]);
       history.current = [];
       setUndoStack([]);
       lastTyping.current = null;
       version.current++;
       setPdfReady(false);
       setPdfUrl(null);
-      setPreviewMode(false);
+      setPreview(false);
       await load();
       setImportOpen(false);
       setImportFile(null);
@@ -704,9 +720,11 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
               ? "Could not load your base resume. Import a resume to get started."
               : "Could not load this job’s resume."}
         </p>
-        <Button asChild>
-          <Link to="/resumes/base">Open base resume</Link>
-        </Button>
+        {!base && (
+          <Button asChild>
+            <Link to="/resumes/base">Open base resume</Link>
+          </Button>
+        )}
         {importControls}
         <Button variant="outline" onClick={() => void load()}>
           Retry
@@ -788,7 +806,7 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
         <Button
           size="sm"
           variant="outline"
-          disabled={busy || (!job?.pdfPath && !pdfReady)}
+          disabled={busy || (!base && !job?.pdfPath && !pdfReady)}
           title="Download the last rendered PDF"
           onClick={() =>
             void (

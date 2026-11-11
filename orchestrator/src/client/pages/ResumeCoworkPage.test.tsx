@@ -6,6 +6,7 @@ import type {
   ResumeFocusRef,
   ResumeSuggestion,
 } from "@shared/types";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   act,
   cleanup,
@@ -17,6 +18,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { queryKeys } from "@/client/lib/queryKeys";
 
 const mocks = vi.hoisted(() => ({
   getBase: vi.fn(),
@@ -244,14 +246,16 @@ function state(headline = "Base", revision = 0): JobResumeState {
     updatedAt: null,
   };
 }
-function mount(base = false) {
+function mount(base = false, queryClient = new QueryClient()) {
   return render(
-    <MemoryRouter initialEntries={[base ? "/resumes/base" : "/resumes/job"]}>
-      <Routes>
-        <Route path="/resumes/base" element={<ResumeCoworkPage base />} />
-        <Route path="/resumes/:jobId" element={<ResumeCoworkPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[base ? "/resumes/base" : "/resumes/job"]}>
+        <Routes>
+          <Route path="/resumes/base" element={<ResumeCoworkPage base />} />
+          <Route path="/resumes/:jobId" element={<ResumeCoworkPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 beforeEach(() => {
@@ -1124,6 +1128,113 @@ describe("base resume mode", () => {
     );
     expect(mocks.save).not.toHaveBeenCalled();
   });
+  it("invalidates cached base document and status after saving", async () => {
+    const queryClient = new QueryClient();
+    const keys = [
+      queryKeys.designResume.current(),
+      queryKeys.designResume.status(),
+    ];
+    for (const key of keys) queryClient.setQueryData(key, null);
+    mount(true, queryClient);
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Saved base" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save now" }));
+    await waitFor(() => {
+      for (const key of keys)
+        expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+    });
+  });
+  it.each([
+    "RxResume",
+    "file",
+  ])("invalidates base and onboarding caches after %s import", async (source) => {
+    const queryClient = new QueryClient();
+    const keys = [
+      queryKeys.designResume.current(),
+      queryKeys.designResume.status(),
+      queryKeys.onboarding.status(),
+    ];
+    for (const key of keys) queryClient.setQueryData(key, null);
+    mount(true, queryClient);
+    fireEvent.click(await screen.findByRole("button", { name: "Import" }));
+    if (source === "file")
+      fireEvent.change(screen.getByLabelText("Import resume file"), {
+        target: {
+          files: [
+            new File(["resume"], "resume.json", { type: "application/json" }),
+          ],
+        },
+      });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: source === "file" ? "Import file" : "Import from RxResume",
+      }),
+    );
+    await waitFor(() => {
+      for (const key of keys)
+        expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+    });
+  });
+  it("downloads an existing base PDF without rendering in this session", async () => {
+    mount(true);
+    const download = await screen.findByRole("button", {
+      name: "Download PDF",
+    });
+    expect(download).toBeEnabled();
+    fireEvent.click(download);
+    expect(mocks.baseDownload).toHaveBeenCalledWith("resume.pdf");
+    expect(mocks.basePdf).not.toHaveBeenCalled();
+  });
+  it("surfaces missing base PDF download errors", async () => {
+    const failure = new ApiClientError("Missing PDF", { status: 404 });
+    mocks.baseDownload.mockRejectedValueOnce(failure);
+    mount(true);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Download PDF" }),
+    );
+    await waitFor(() =>
+      expect(mocks.coworkError).toHaveBeenCalledWith(failure),
+    );
+  });
+  it("closes import when flushing edits encounters a conflict", async () => {
+    mount(true);
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Mine" },
+    });
+    mocks.saveBase.mockRejectedValueOnce(
+      new ApiClientError("Conflict", { status: 409 }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Import from RxResume" }),
+    );
+    await screen.findByRole("heading", { name: "Resume changed elsewhere" });
+    expect(
+      screen.queryByRole("heading", {
+        name: "Import base resume?",
+        hidden: true,
+      }),
+    ).not.toBeInTheDocument();
+    expect(mocks.importRx).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Use latest" }));
+  });
+  it("resets imported preview locally while preserving the shared preference", async () => {
+    localStorage.setItem("resume-cowork-preview", "true");
+    mount(true);
+    await screen.findByTestId("pdf-canvas-preview");
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Import from RxResume" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("heading", { name: "Import base resume?" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText("Headline")).toBeInTheDocument();
+    expect(localStorage.getItem("resume-cowork-preview")).toBe("true");
+  });
   it("offers Base resume in the job title switcher", async () => {
     mount();
     fireEvent.click(
@@ -1223,6 +1334,7 @@ it("can import a base resume when none exists yet", async () => {
   );
   mount(true);
   fireEvent.click(await screen.findByRole("button", { name: "Import" }));
+  expect(screen.queryByText("Open base resume")).not.toBeInTheDocument();
   expect(mocks.importRx).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Import from RxResume" }));
   expect(
