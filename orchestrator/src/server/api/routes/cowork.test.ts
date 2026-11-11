@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
 const { callJson } = vi.hoisted(() => ({ callJson: vi.fn() }));
-vi.mock("@shared/resume-links", () => ({
+vi.mock("@shared/resume-links", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@shared/resume-links")>()),
   applyLibraryUpdate: vi.fn((doc) => doc),
   removeFromResume: vi.fn((doc) => doc),
   stampLibraryRefs: vi.fn((doc) => ({ doc, linked: 0 })),
@@ -665,4 +666,36 @@ it("opens the library without a base resume, logs its failure once, and keeps th
     (await (await request("/library/sync", "POST")).json()).data.created,
   ).toBe(0);
   expect(load).toHaveBeenCalledOnce();
+});
+
+it("accepts valid contact items and rejects invalid contact data on create and patch", async () => {
+  const response = await request("/experience-bullets", "POST", {
+    kind: "contact",
+    text: "Personal email",
+    data: { type: "email", value: "me@example.com" },
+    tags: ["Personal"],
+  });
+  expect(response.status).toBe(201);
+  const {
+    data: { bullet },
+  } = await response.json();
+  expect(bullet).toMatchObject({
+    kind: "contact",
+    parentId: null,
+    data: { type: "email", value: "me@example.com" },
+  });
+  const invalid = await request(`/experience-bullets/${bullet.id}`, "PATCH", {
+    data: { type: "fax", value: "123" },
+  });
+  expect(invalid.status).toBe(400);
+  expect((await invalid.json()).error.code).toBe("INVALID_REQUEST");
+  expect(
+    (
+      await request("/experience-bullets", "POST", {
+        kind: "contact",
+        text: "Empty",
+        data: { type: "email", value: "" },
+      })
+    ).status,
+  ).toBe(400);
 });

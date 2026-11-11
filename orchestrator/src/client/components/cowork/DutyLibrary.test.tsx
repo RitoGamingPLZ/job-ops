@@ -202,3 +202,26 @@ describe("candidate library duty tools", () => {
     );
   });
 });
+
+it("cancels tag creation with Escape, empty blur, or the cancel button", () => {
+  const onSave = vi.fn();
+  render(<InlineTags bullet={role} busy={false} onSave={onSave} />);
+  fireEvent.click(screen.getByText("+ tag"));
+  fireEvent.change(screen.getByLabelText("Add skill to Engineer"), {
+    target: { value: "discard" },
+  });
+  fireEvent.keyDown(screen.getByLabelText("Add skill to Engineer"), {
+    key: "Escape",
+  });
+  expect(screen.queryByLabelText("Add skill to Engineer")).toBeNull();
+  fireEvent.click(screen.getByText("+ tag"));
+  fireEvent.blur(screen.getByLabelText("Add skill to Engineer"));
+  expect(screen.queryByLabelText("Add skill to Engineer")).toBeNull();
+  fireEvent.click(screen.getByText("+ tag"));
+  fireEvent.change(screen.getByLabelText("Add skill to Engineer"), {
+    target: { value: "discard" },
+  });
+  fireEvent.click(screen.getByLabelText("Cancel adding tag to Engineer"));
+  expect(screen.queryByLabelText("Add skill to Engineer")).toBeNull();
+  expect(onSave).not.toHaveBeenCalled();
+});

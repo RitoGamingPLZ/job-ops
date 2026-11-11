@@ -3,8 +3,10 @@ import { badRequest, notFound } from "@infra/errors";
 import { htmlToPlainText, splitDescription } from "@shared/resume-bullets";
 import {
   applyLibraryUpdate,
+  isContactOnResume,
   isOnResume,
   removeFromResume,
+  setContactOnResume,
   stampLibraryRefs,
 } from "@shared/resume-links";
 import type {
@@ -74,6 +76,21 @@ function validate(
   id?: string,
 ) {
   const kind = input.kind ?? "bullet";
+  if (kind === "contact") {
+    const data = input.data;
+    if (
+      !data ||
+      !["email", "phone", "location", "website", "profile"].includes(
+        String(data.type),
+      ) ||
+      typeof data.value !== "string" ||
+      !data.value.trim() ||
+      ["label", "network", "username", "url"].some(
+        (field) => data[field] !== undefined && typeof data[field] !== "string",
+      )
+    )
+      throw badRequest("Invalid contact data");
+  }
   const parentKind =
     kind === "bullet" ? "role" : kind === "project_point" ? "project" : null;
   if (input.parentId) {
@@ -208,7 +225,14 @@ export function libraryItemUsage(id: string): LibraryItemUsage {
   const ids = relatedIds(id, all);
   const result: LibraryItemUsage = { jobIds: [], frozenJobIds: [] };
   for (const { resume, status } of resumes())
-    if ([...ids].some((ref) => isOnResume(resume.document, ref)))
+    if (
+      [...ids].some((ref) => {
+        const item = all.find((item) => item.id === ref);
+        return item?.kind === "contact"
+          ? isContactOnResume(resume.document, item)
+          : isOnResume(resume.document, ref);
+      })
+    )
       result[frozen(status) ? "frozenJobIds" : "jobIds"].push(resume.jobId);
   return result;
 }
@@ -220,7 +244,13 @@ export function deleteLibraryItem(id: string, skipJobId?: string) {
     for (const { resume, status } of resumes()) {
       if (frozen(status) || resume.jobId === skipJobId) continue;
       let document = resume.document;
-      for (const ref of ids) document = removeFromResume(document, ref);
+      for (const ref of ids) {
+        const item = all.find((item) => item.id === ref);
+        document =
+          item?.kind === "contact"
+            ? setContactOnResume(document, item, false)
+            : removeFromResume(document, ref);
+      }
       save(resume, document);
     }
     for (const ref of ids)
@@ -247,6 +277,12 @@ function key(input: ExperienceBulletInput) {
   // A role is identified by employer/title/dates, even when old duty rows
   // lack its location or website. Skill keywords are merged by label.
   const data = input.data ?? {};
+  if (input.kind === "contact")
+    return JSON.stringify([
+      "contact",
+      data.type,
+      String(data.value ?? "").trim(),
+    ]);
   const identity =
     input.kind === "role"
       ? [data.company, normalPeriod(data.period)]
@@ -364,6 +400,42 @@ export function syncCandidateLibrary(
       all.push(item);
       result.created++;
       return item;
+    }
+    if (firstBuild && base) {
+      for (const type of ["email", "phone", "location", "website"] as const) {
+        const value =
+          type === "website" ? base.basics.website.url : base.basics[type];
+        if (value.trim())
+          add({
+            kind: "contact",
+            text: value,
+            source: "resume",
+            data: {
+              type,
+              value,
+              ...(type === "website"
+                ? { label: base.basics.website.label }
+                : {}),
+            },
+          });
+      }
+      for (const profile of base.sections.profiles.items) {
+        const value = profile.website.url || profile.username;
+        if (value.trim())
+          add({
+            kind: "contact",
+            text: value,
+            source: "resume",
+            data: {
+              type: "profile",
+              value,
+              network: profile.network,
+              username: profile.username,
+              url: profile.website.url,
+              label: profile.website.label,
+            },
+          });
+      }
     }
     const baseParents = new Map<string, ExperienceBullet>();
     if (firstBuild && base) {

@@ -38,7 +38,8 @@ vi.mock("@client/api/cowork", () => ({
   rankExperienceBullets: mocks.rank,
   extractExperienceBullets: mocks.extract,
 }));
-vi.mock("@shared/resume-links", () => ({
+vi.mock("@shared/resume-links", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@shared/resume-links")>()),
   KIND_SECTION: { role: "experience", project: "projects", skill: "skills" },
   addToResume: mocks.add,
   removeFromResume: mocks.subtract,
@@ -594,12 +595,19 @@ describe("candidate library", () => {
     await waitFor(() => expect(screen.queryByText("Updated")).toBeNull());
     expect(change).not.toHaveBeenCalled();
   });
-  it("places new forms under their add button and requires a job company", async () => {
+  it("places add controls beside their headers and requires a job company", async () => {
     await mount();
     const add = screen.getByRole("button", { name: "+ Add duty" });
     fireEvent.click(add);
-    expect(add.nextElementSibling).toBe(
+    expect(add.parentElement).toContainElement(
+      screen.getByRole("button", { name: "Show duties for Engineer" }),
+    );
+    expect(
       screen.getByRole("form", { name: "Edit library item" }),
+    ).toBeVisible();
+    const addRole = screen.getByRole("button", { name: "+ Add role" });
+    expect(addRole.parentElement?.parentElement).toContainElement(
+      screen.getByRole("button", { name: "Acme · London" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "+ Add job" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Position" }), {
@@ -853,4 +861,64 @@ describe("candidate library workspace integration", () => {
       ),
     );
   });
+});
+
+it("renders Contact first, edits contact data, and hides standalone ticks", async () => {
+  const contact = {
+    ...role,
+    id: "email",
+    kind: "contact" as const,
+    text: "a@example.com",
+    data: { type: "email", value: "a@example.com" },
+  };
+  render(<CandidateLibrary items={[contact]} />);
+  const sections = screen.getByRole("region", { name: "Library sections" });
+  expect(within(sections).getAllByRole("button")[0]).toHaveTextContent(
+    "Contact",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Contact" }));
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "a@example.com · email" }),
+  );
+  fireEvent.change(screen.getByLabelText("Value"), {
+    target: { value: "b@example.com" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() =>
+    expect(mocks.update).toHaveBeenCalledWith(
+      "email",
+      expect.objectContaining({
+        data: { type: "email", value: "b@example.com" },
+      }),
+      undefined,
+    ),
+  );
+});
+it("derives email ticks from the document and replaces the selected value", () => {
+  const contact = {
+    ...role,
+    id: "email",
+    kind: "contact" as const,
+    text: "b@example.com",
+    data: { type: "email", value: "b@example.com" },
+  };
+  const document = {
+    ...doc,
+    basics: { email: "a@example.com" },
+  } as ReactiveResumeV5Document;
+  const change = vi.fn();
+  render(
+    <CandidateLibrary
+      items={[contact]}
+      jobId="job"
+      document={document}
+      onDocumentChange={change}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Contact" }));
+  const tick = screen.getByRole("checkbox", { name: "Include b@example.com" });
+  expect(tick).not.toBeChecked();
+  fireEvent.click(tick);
+  expect(change.mock.calls[0][0](document).basics.email).toBe("b@example.com");
 });

@@ -7,6 +7,7 @@ import {
   addToResume,
   applyLibraryUpdate,
   getItemLines,
+  isContactOnResume,
   isOnResume,
   KIND_SECTION,
   libraryItemToResumeItem,
@@ -15,6 +16,7 @@ import {
   removeFromResume,
   resetLine,
   sameLineText,
+  setContactOnResume,
   setItemLines,
   stampLibraryRefs,
 } from "./resume-links";
@@ -689,5 +691,62 @@ describe("round one lead decisions", () => {
     expect(stampLibraryRefs(doc, library)).toEqual({ doc, linked: 0 });
     expect(stampLibraryRefs(doc, library).doc).toBe(doc);
     expect(resetLine(doc, String(entry.id), 0, library)).toBe(doc);
+  });
+});
+
+describe("contact selections", () => {
+  it("replaces and clears single values without mutating the original", () => {
+    const doc = document();
+    doc.basics.email = "old@example.com";
+    const email = row("email", "contact", "new@example.com", {
+      data: { type: "email", value: "new@example.com" },
+    });
+    const next = addToResume(doc, email.id, [email]);
+    expect(next.basics.email).toBe("new@example.com");
+    expect(doc.basics.email).toBe("old@example.com");
+    expect(isContactOnResume(next, email)).toBe(true);
+    expect(setContactOnResume(next, email, false).basics.email).toBe("");
+    expect(setContactOnResume(doc, email, false)).toBe(doc);
+    expect(parseV5ResumeData(next)).toBeTruthy();
+  });
+  it("adds profiles once, derives ticks from unlinked values, and removes just that profile", () => {
+    const doc = document();
+    const profile = row("profile", "contact", "GitHub", {
+      data: {
+        type: "profile",
+        value: "https://github.com/user",
+        url: "https://github.com/user",
+        network: "GitHub",
+        username: "user",
+        label: "Code",
+      },
+    });
+    const next = setContactOnResume(doc, profile, true);
+    expect(next.sections.profiles.items).toHaveLength(1);
+    expect(next.sections.profiles.items[0]).toMatchObject({
+      network: "GitHub",
+      username: "user",
+      website: { url: "https://github.com/user", label: "Code" },
+    });
+    expect(setContactOnResume(next, profile, true)).toBe(next);
+    expect(
+      applyLibraryUpdate(next, profile, { ...profile, tags: ["Code"] }),
+    ).toBe(next);
+    next.sections.profiles.items[0].icon = "github";
+    const edited = applyLibraryUpdate(next, profile, {
+      ...profile,
+      data: { ...profile.data, network: "GitHub profile" },
+    });
+    expect(edited.sections.profiles.items[0]).toMatchObject({
+      id: next.sections.profiles.items[0].id,
+      icon: "github",
+      network: "GitHub profile",
+    });
+    delete next.sections.profiles.items[0].libraryId;
+    expect(isContactOnResume(next, profile)).toBe(true);
+    expect(
+      setContactOnResume(next, profile, false).sections.profiles.items,
+    ).toEqual([]);
+    expect(parseV5ResumeData(next)).toBeTruthy();
   });
 });

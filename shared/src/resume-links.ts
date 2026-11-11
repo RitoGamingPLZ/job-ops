@@ -126,6 +126,90 @@ function descriptionWithLines(
   ).replace(/<li\b[^>]*>[\s\S]*?<\/li>/gi, () => rendered[index++]);
 }
 
+/** Contact selection follows document values, including contacts without library links. */
+export function isContactOnResume(
+  doc: ResumeDoc,
+  item: ExperienceBullet,
+): boolean {
+  const data = item.data ?? {};
+  const value = string(data.value);
+  if (!value) return false;
+  switch (data.type) {
+    case "email":
+    case "phone":
+    case "location":
+      return doc.basics[data.type] === value;
+    case "website":
+      return doc.basics.website.url === value;
+    case "profile":
+      return doc.sections.profiles.items.some(
+        (profile) => (profile.website.url || profile.username) === value,
+      );
+    default:
+      return false;
+  }
+}
+
+/** Set one basic contact (radio semantics) or add/remove one profile. Pure. */
+export function setContactOnResume(
+  doc: ResumeDoc,
+  item: ExperienceBullet,
+  checked: boolean,
+): ResumeDoc {
+  if (isContactOnResume(doc, item) === checked) return doc;
+  const data = item.data ?? {};
+  const value = string(data.value);
+  switch (data.type) {
+    case "email":
+    case "phone":
+    case "location":
+      return {
+        ...doc,
+        basics: { ...doc.basics, [data.type]: checked ? value : "" },
+      };
+    case "website":
+      return {
+        ...doc,
+        basics: {
+          ...doc.basics,
+          website: {
+            ...doc.basics.website,
+            url: checked ? value : "",
+            label: checked ? string(data.label) : "",
+          },
+        },
+      };
+    case "profile": {
+      const section = doc.sections.profiles;
+      const items = checked
+        ? [
+            ...section.items,
+            {
+              id: globalThis.crypto.randomUUID(),
+              hidden: false,
+              icon: "",
+              libraryId: item.id,
+              network: string(data.network),
+              username: string(data.username),
+              website: {
+                url: typeof data.url === "string" ? data.url : value,
+                label: string(data.label),
+              },
+            },
+          ]
+        : section.items.filter(
+            (profile) => (profile.website.url || profile.username) !== value,
+          );
+      return {
+        ...doc,
+        sections: { ...doc.sections, profiles: { ...section, items } },
+      };
+    }
+    default:
+      return doc;
+  }
+}
+
 /** true when the library item (any kind) is on this resume. */
 export function isOnResume(doc: ResumeDoc, libraryId: string): boolean {
   let found = false;
@@ -337,6 +421,7 @@ export function addToResume(
   if (isOnResume(doc, libraryId)) return doc;
   const item = library.find((value) => value.id === libraryId);
   if (!item) return doc;
+  if (item.kind === "contact") return setContactOnResume(doc, item, true);
   if (LINE_KINDS.includes(item.kind)) {
     const parent = library.find(
       (value) =>
@@ -401,6 +486,45 @@ export function applyLibraryUpdate(
   before: ExperienceBullet,
   after: ExperienceBullet,
 ): ResumeDoc {
+  if (before.kind === "contact") {
+    if (equal(before.data, after.data) || !isContactOnResume(doc, before))
+      return doc;
+    if (before.data?.type === "profile" && after.data?.type === "profile") {
+      const section = doc.sections.profiles;
+      const data = after.data;
+      return {
+        ...doc,
+        sections: {
+          ...doc.sections,
+          profiles: {
+            ...section,
+            items: section.items.map((profile) =>
+              (profile.website.url || profile.username) === before.data?.value
+                ? {
+                    ...profile,
+                    network: string(data.network),
+                    username: string(data.username),
+                    website: {
+                      ...profile.website,
+                      url:
+                        typeof data.url === "string"
+                          ? data.url
+                          : string(data.value),
+                      label: string(data.label),
+                    },
+                  }
+                : profile,
+            ),
+          },
+        },
+      };
+    }
+    return setContactOnResume(
+      setContactOnResume(doc, before, false),
+      after,
+      true,
+    );
+  }
   return mapItems(doc, (item) => {
     let next = item;
     if (item.libraryId === before.id) {
