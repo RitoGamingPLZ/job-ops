@@ -10,7 +10,7 @@ import { createJob } from "@shared/testing/factories";
 import type { ReactiveResumeV5Document } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { syncCandidateLibrary } from "./candidate-library";
-import { ensureJobResume } from "./job-resume";
+import { ensureJobResume, regenerateJobResume } from "./job-resume";
 import { loadBaseResumeSource } from "./pdf";
 import { generateResumeFromLibrary } from "./resume-from-library";
 import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
@@ -278,5 +278,42 @@ describe("ensureJobResume", () => {
     expect(fromTarget.revision).toBe(1);
     expect(generateResumeFromLibrary).toHaveBeenCalledOnce();
     expect(saveJobResume).toHaveBeenCalledOnce();
+  });
+});
+
+describe("regenerateJobResume", () => {
+  it("replaces the saved document at its current revision only after tailoring succeeds", async () => {
+    vi.mocked(getJobResume).mockResolvedValue({ ...row, revision: 7 });
+    let finish!: (value: ReactiveResumeV5Document) => void;
+    vi.mocked(generateResumeFromLibrary).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const pending = regenerateJobResume("job");
+    await vi.waitFor(() =>
+      expect(generateResumeFromLibrary).toHaveBeenCalledOnce(),
+    );
+    expect(saveJobResume).not.toHaveBeenCalled();
+    finish(document);
+    await pending;
+    expect(saveJobResume).toHaveBeenCalledWith("job", 7, document);
+  });
+  it("keeps the old document and revision on generation failure", async () => {
+    vi.mocked(getJobResume).mockResolvedValue({ ...row, revision: 7 });
+    vi.mocked(generateResumeFromLibrary).mockRejectedValueOnce(
+      new Error("LLM down"),
+    );
+    await expect(regenerateJobResume("job")).rejects.toThrow("LLM down");
+    expect(saveJobResume).not.toHaveBeenCalled();
+    expect(updateJob).not.toHaveBeenCalled();
+  });
+  it("does not hide an editor save conflict during regeneration", async () => {
+    vi.mocked(getJobResume).mockResolvedValue(row);
+    vi.mocked(saveJobResume).mockRejectedValueOnce(conflict("Resume changed"));
+    await expect(regenerateJobResume("job")).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
   });
 });

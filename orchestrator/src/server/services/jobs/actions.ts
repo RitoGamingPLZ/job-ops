@@ -1,16 +1,34 @@
-import { AppError, type AppErrorCode, badRequest } from "@infra/errors";
+import {
+  AppError,
+  type AppErrorCode,
+  badRequest,
+  conflict,
+  notFound,
+} from "@infra/errors";
 import { logger } from "@infra/logger";
+import { runWithRequestContext } from "@infra/request-context";
 import { isDemoMode } from "@server/config/demo";
-import { processJob } from "@server/pipeline/index";
+import { generateFinalPdf, processJob } from "@server/pipeline/index";
+import { getJobResume } from "@server/repositories/job-resumes";
 import * as jobsRepo from "@server/repositories/jobs";
 import {
   simulateProcessJob,
   simulateRescoreJob,
 } from "@server/services/demo-simulator";
+import { regenerateJobResume } from "@server/services/job-resume";
+import {
+  getJobPdfFreshness,
+  resolvePdfFingerprintContext,
+} from "@server/services/pdf-fingerprint";
 import { getProfile } from "@server/services/profile";
 import { scoreJobSuitability } from "@server/services/scorer";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
-import type { JobAction, JobActionResult, JobStatus } from "@shared/types";
+import {
+  isTargeted,
+  type JobAction,
+  type JobActionResult,
+  type JobStatus,
+} from "@shared/types";
 
 const SKIPPABLE_STATUSES: ReadonlySet<JobStatus> = new Set([
   "discovered",
@@ -158,6 +176,129 @@ export async function targetJobInBackground(
       .finally(() => pendingTargets.delete(key));
   });
   return response;
+}
+
+// Per-process locks, scoped exactly like the private repositories.
+const pendingRegenerations = new Set<string>();
+const pendingResumeBatches = new Set<string>();
+
+export async function regenerateJobResumeInBackground(
+  jobId: string,
+  options?: JobActionExecutionOptions,
+) {
+  const key = `${getPrivateDataScope().scopeKey}:${jobId}`;
+  const job = await jobsRepo.getJobById(jobId);
+  if (!job) throw notFound("Job not found");
+  if (
+    job.status === "processing" ||
+    job.pdfRegenerating ||
+    pendingRegenerations.has(key)
+  )
+    throw conflict("Resume generation is already running");
+  if (!isTargeted(job))
+    throw badRequest("Only targeted jobs can regenerate resumes");
+  pendingRegenerations.add(key);
+  let response = job;
+  try {
+    const updated = await jobsRepo.updateJob(jobId, { status: "processing" });
+    if (!updated) throw notFound("Job not found");
+    response = updated;
+  } catch (error) {
+    pendingRegenerations.delete(key);
+    throw error;
+  }
+  setImmediate(() => {
+    void runWithRequestContext({ jobId }, async () => {
+      try {
+        await regenerateJobResume(jobId, {
+          requestOrigin: options?.requestOrigin ?? null,
+        });
+        const result = await generateFinalPdf(jobId, options);
+        if (!result.success) throw new Error("Resume PDF generation failed");
+      } catch (error) {
+        logger.error("Resume regeneration failed", { jobId, error });
+        const current = await jobsRepo.getJobById(jobId);
+        if (current?.status === "processing")
+          await jobsRepo.updateJob(jobId, { status: job.status });
+      } finally {
+        pendingRegenerations.delete(key);
+      }
+    }).catch((error) =>
+      logger.error("Failed to restore regenerated job", { jobId, error }),
+    );
+  });
+  return response;
+}
+
+export async function generateMissingResumesInBackground(
+  options?: JobActionExecutionOptions,
+): Promise<{ jobIds: string[]; alreadyRunning: boolean }> {
+  const key = getPrivateDataScope().scopeKey;
+  if (pendingResumeBatches.has(key))
+    return { jobIds: [], alreadyRunning: true };
+  // Claim before any asynchronous selection so simultaneous requests cannot race.
+  pendingResumeBatches.add(key);
+  let jobIds: string[];
+  try {
+    const context = await resolvePdfFingerprintContext();
+    const jobs = await jobsRepo.getAllJobs([
+      "discovered",
+      "processing",
+      "ready",
+    ]);
+    jobIds = [];
+    for (const job of jobs) {
+      if (
+        !isTargeted(job) ||
+        job.status === "processing" ||
+        job.pdfRegenerating ||
+        job.pdfSource === "uploaded"
+      )
+        continue;
+      if (
+        !job.pdfPath ||
+        getJobPdfFreshness(job, context) === "stale" ||
+        !(await getJobResume(job.id))
+      )
+        jobIds.push(job.id);
+    }
+  } catch (error) {
+    pendingResumeBatches.delete(key);
+    throw error;
+  }
+  setImmediate(() => {
+    void (async () => {
+      try {
+        for (const jobId of jobIds) {
+          await runWithRequestContext({ jobId }, async () => {
+            try {
+              // Recheck jobs that changed while waiting for earlier renders.
+              const job = await jobsRepo.getJobById(jobId);
+              if (
+                !job ||
+                !isTargeted(job) ||
+                job.status === "processing" ||
+                job.pdfRegenerating ||
+                job.pdfSource === "uploaded"
+              )
+                return;
+              const result = await processJob(jobId, options);
+              if (!result.success)
+                logger.warn("Batch resume generation failed", {
+                  jobId,
+                  error: result.error,
+                });
+            } catch (error) {
+              logger.error("Batch resume generation failed", { jobId, error });
+            }
+          });
+        }
+      } finally {
+        pendingResumeBatches.delete(key);
+      }
+    })().catch((error) => logger.error("Resume batch failed", { error }));
+  });
+  return { jobIds, alreadyRunning: false };
 }
 
 export async function executeJobActionForJob(

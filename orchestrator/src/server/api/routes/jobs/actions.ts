@@ -7,7 +7,9 @@ import { setJobTargeted } from "@server/repositories/jobs";
 import {
   buildJobActionExecutionOptions,
   executeJobActionForJob,
+  generateMissingResumesInBackground,
   mapJobActionFailure,
+  regenerateJobResumeInBackground,
   targetJobInBackground,
 } from "@server/services/jobs/actions";
 import { resolvePdfFingerprintContext } from "@server/services/pdf-fingerprint";
@@ -25,6 +27,36 @@ import {
 } from "./shared";
 
 export const jobsActionsRouter = Router();
+
+jobsActionsRouter.post(
+  "/actions/generate-missing-resumes",
+  async (req: Request, res: Response) => {
+    try {
+      ok(
+        res,
+        await generateMissingResumesInBackground({
+          requestOrigin: resolveRequestOrigin(req),
+        }),
+      );
+    } catch (error) {
+      fail(res, toJobsRouteError(error));
+    }
+  },
+);
+
+jobsActionsRouter.post(
+  "/:id/regenerate-resume",
+  async (req: Request, res: Response) => {
+    try {
+      const job = await regenerateJobResumeInBackground(req.params.id, {
+        requestOrigin: resolveRequestOrigin(req),
+      });
+      ok(res, await hydrateJobPdfFreshness(job));
+    } catch (error) {
+      fail(res, toJobsRouteError(error));
+    }
+  },
+);
 
 jobsActionsRouter.post("/actions", async (req: Request, res: Response) => {
   try {
