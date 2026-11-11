@@ -1008,7 +1008,7 @@ describe("navy serif document content", () => {
       ),
     ).toBeVisible();
   });
-  it("renders each line's tools in flow directly below that line", () => {
+  it("keeps floating line tools after their line in keyboard order", () => {
     mount();
     const follows = (line: Element, tools: Element | null | undefined) =>
       Boolean(

@@ -8,7 +8,7 @@
 .resume-paper-frame {
   position: relative;
   margin: 12px auto 24px;
-  overflow: hidden;
+  overflow: visible;
 }
 .resume-paper {
   position: relative;
@@ -542,7 +542,7 @@
   .resume-field-area {
   display: none;
 }
-/* min-width 0 keeps the award on one line; only the toolbar wraps below. */
+/* min-width 0 lets the award text shrink within the available line width. */
 .resume-awards .resume-simple-item textarea {
   flex: 1;
   min-width: 0;
@@ -635,10 +635,9 @@
   padding-left: 0.5em;
 }
 
-/* Line tools: one compact toolbar in flow under the focused line only (the
-   innermost focused row). Hidden ones stay tabbable; tabbing in shows them.
-   Section and entry tools sit between a heading and its text, so they show
-   only for focus on the heading, never pushing down text being clicked. */
+/* Line tools float below the innermost focused line without moving its text.
+   Hidden ones stay tabbable; tabbing in shows them. Section and entry tools
+   show only for focus on their heading or on the tools themselves. */
 .resume-tools,
 .resume-paper .resume-add {
   position: absolute;
@@ -659,7 +658,11 @@
 .resume-experience-heading:focus-within ~ .resume-entry-controls,
 h2:focus-within + .resume-section-controls,
 .resume-tools:focus-within {
-  position: static;
+  position: absolute;
+  top: var(--resume-tools-top, 100%);
+  right: var(--resume-tools-right, 0);
+  left: auto;
+  z-index: 6;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -667,16 +670,25 @@ h2:focus-within + .resume-section-controls,
   width: max-content;
   max-width: 100%;
   height: auto;
-  margin: 2px 0;
+  margin: 0;
   padding: 1px;
   overflow: visible;
   clip-path: none;
   border: 1px solid #000;
   border-radius: 3px;
   background: #fff;
+  box-shadow: 0 2px 6px #0000002e;
   font: 10pt / 1 var(--rs-font);
   text-indent: 0;
   text-align: left;
+}
+/* Heading tools are siblings of the heading, not its children. Auto offsets
+   deliberately preserve their static position just after it, over the body. */
+.resume-entry-controls,
+.resume-section-controls,
+.resume-project > .resume-tools {
+  --resume-tools-top: auto;
+  --resume-tools-right: auto;
 }
 .resume-tools button {
   border: 0;
@@ -695,16 +707,7 @@ h2:focus-within + .resume-section-controls,
   border: 1px dashed #8ca6bf;
   font-size: 8pt;
 }
-/* Simple items are flex rows: break before the toolbar and suggestions. */
-.resume-simple-item::after {
-  content: "";
-  flex-basis: 100%;
-  order: 1;
-}
-.resume-simple-item > .resume-tools,
-.resume-simple-item > .resume-suggestion {
-  order: 2;
-}
+/* Suggestions remain on their own line below simple items. */
 .resume-simple-item > .resume-suggestion {
   flex-basis: 100%;
 }
