@@ -81,7 +81,7 @@ Very straightforward:
 - **Awards**: one line — title, optional date.
 - **Certifications**: one line — description, issuer (text), link, date.
 - One-line items: checkbox + inline fields, no points.
-- Tags, "Rank for this job", "Paste & extract" and drag-to-chat stay on duties but move into a small "⋯" menu per duty / per section so the list stays plain.
+- Tags, "Rank for this job", "Paste & extract" and drag-to-chat stay visible on duties as they are today (N5).
 - "Sync from resumes" (from Phase 12) sits next to the section switch.
 
 ## 5. Behaviour rules
@@ -148,10 +148,10 @@ Changed: Q12 (several roles under one job) — each ticked role is its own entry
 
 ## 11. Open questions
 
-| # | Question | Proposed answer |
+| # | Question | Answer |
 |---|---|---|
-| N1 | Keep **Job match** as a second tab in the right column? | Yes, Library first. |
-| N2 | R6: freeze resumes from "applied" onward? | Yes. |
-| N3 | Untargeted jobs: still no editor (current rule)? | Unchanged in v1. |
-| N4 | Resume Studio (base resume editor) stays as is for basics/summary/section defaults? | Yes; library replaces it for the six sections later. |
-| N5 | Tags / Rank / Paste & extract move into a "⋯" menu to keep the list plain? | Yes. |
+| N1 | Keep **Job match** as a second tab in the right column? | **Decided:** yes, Library first. |
+| N2 | R6: freeze resumes from "applied" onward? | **Decided:** yes, library fixes reach unapplied jobs only. |
+| N3 | Untargeted jobs: still no editor (current rule)? | Proposed: unchanged in v1. |
+| N4 | Resume Studio (base resume editor) stays as is for basics/summary/section defaults? | Proposed: yes; library replaces it for the six sections later. |
+| N5 | Tags / Rank / Paste & extract — hide in a menu? | **Decided:** keep them visible as today. |
