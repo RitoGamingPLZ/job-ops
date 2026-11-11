@@ -459,7 +459,7 @@ describe("candidate library", () => {
     expect(within(tagsLine).queryByRole("button")).toBeNull();
     fireEvent.click(description);
     const dialog = screen.getByRole("dialog");
-    const input = within(dialog).getByRole("textbox", { name: "Add tag" });
+    const input = within(dialog).getByLabelText("Add tag");
     fireEvent.change(input, { target: { value: "New tag" } });
     fireEvent.keyDown(input, { key: "Enter" });
     fireEvent.click(
@@ -516,7 +516,7 @@ describe("candidate library", () => {
     await mount({ jobId: "job", document: doc, onDocumentChange: change });
     fireEvent.click(screen.getByRole("button", { name: "Skills" }));
     fireEvent.click(screen.getByRole("button", { name: "Languages" }));
-    const input = screen.getByRole("textbox", { name: "Add skill" });
+    const input = screen.getByLabelText("Add skill");
     fireEvent.change(input, { target: { value: "Go" } });
     fireEvent.keyDown(input, { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -624,7 +624,7 @@ describe("candidate library", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Skills" }));
     fireEvent.click(screen.getByRole("button", { name: "Languages" }));
-    const input = screen.getByRole("textbox", { name: "Add skill" });
+    const input = screen.getByLabelText("Add skill");
     fireEvent.change(input, { target: { value: "Go" } });
     fireEvent.keyDown(input, { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Remove skill Rust" }));

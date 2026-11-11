@@ -9,12 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  coworkError,
-  DutyLibraryTools,
-  InlineTags,
-  TagEditor,
-} from "./DutyLibrary";
+import { coworkError, DutyLibraryTools, InlineTags } from "./DutyLibrary";
 
 const mocks = vi.hoisted(() => ({
   extract: vi.fn(),
@@ -110,19 +105,6 @@ describe("candidate library duty tools", () => {
     });
     fireEvent.click(screen.getByText("Extract drafts"));
     expect(await screen.findByText("Create selected duties")).toBeDisabled();
-  });
-  it("adds deduplicated tags and removes existing tags in the editor", () => {
-    const onChange = vi.fn();
-    render(<TagEditor tags={["Tools"]} disabled={false} onChange={onChange} />);
-    const input = screen.getByLabelText("Add tag");
-    fireEvent.change(input, { target: { value: "React, tools, react" } });
-    fireEvent.keyDown(input, { key: "Enter" });
-    expect(onChange).toHaveBeenCalledWith(["Tools", "React"]);
-    expect(input).toHaveValue("");
-    fireEvent.blur(input);
-    expect(onChange).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "Remove tag Tools" }));
-    expect(onChange).toHaveBeenLastCalledWith([]);
   });
   it("collapses tags to the available width and exposes overflow in a popover", () => {
     let width = 140;

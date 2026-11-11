@@ -55,13 +55,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { TagInput } from "@/components/ui/tag-input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  coworkError,
-  DutyLibraryTools,
-  InlineTags,
-  TagEditor,
-} from "./DutyLibrary";
+import { coworkError, DutyLibraryTools, InlineTags } from "./DutyLibrary";
 import { REWORDED_TINT_CLASS } from "./rewordTint";
 
 const sections = [
@@ -123,7 +119,7 @@ type Edit = {
   companyOnly?: boolean;
   addCompany?: string;
 };
-const keywords = (item: Item): string[] =>
+const keywords = (item: { data?: Record<string, unknown> | null }): string[] =>
   Array.isArray(item.data?.keywords)
     ? item.data.keywords.filter((v): v is string => typeof v === "string")
     : [];
@@ -574,30 +570,40 @@ export function CandidateLibrary({
             </label>
           ))}
         {!current.companyOnly && kind === "skill" && (
-          <TagEditor
-            noun="skill"
-            tags={
-              Array.isArray(current.input.data?.keywords)
-                ? current.input.data.keywords.filter(
-                    (value): value is string => typeof value === "string",
-                  )
-                : []
-            }
-            disabled={busy}
-            onChange={(keywords) =>
-              setInput({
-                ...current.input,
-                data: { ...current.input.data, keywords },
-              })
-            }
-          />
+          <label htmlFor={`${formId}-skills`} className={fieldClass}>
+            Skills
+            <TagInput
+              id={`${formId}-skills`}
+              noun="skill"
+              value={keywords(current.input)}
+              options={[
+                ...new Set(
+                  items
+                    .filter((item) => item.kind === "skill")
+                    .flatMap(keywords),
+                ),
+              ]}
+              disabled={busy}
+              onChange={(keywords) =>
+                setInput({
+                  ...current.input,
+                  data: { ...current.input.data, keywords },
+                })
+              }
+            />
+          </label>
         )}
         {!current.companyOnly && TAG_KINDS.has(kind) && (
-          <TagEditor
-            tags={current.input.tags ?? []}
-            disabled={busy}
-            onChange={(tags) => setInput({ ...current.input, tags })}
-          />
+          <label htmlFor={`${formId}-tags`} className={fieldClass}>
+            Tags
+            <TagInput
+              id={`${formId}-tags`}
+              value={current.input.tags ?? []}
+              options={[...new Set(items.flatMap((item) => item.tags))]}
+              disabled={busy}
+              onChange={(tags) => setInput({ ...current.input, tags })}
+            />
+          </label>
         )}
         <div className="flex justify-end gap-2 pt-1">
           <Button
