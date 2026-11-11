@@ -47,6 +47,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { coworkError, DutyLibraryTools, InlineTags } from "./DutyLibrary";
@@ -399,12 +406,6 @@ export function CandidateLibrary({
           event.preventDefault();
           void run(saveEdit);
         }}
-        onKeyDown={(event) => {
-          if (event.key === "Escape" && !busy) {
-            event.preventDefault();
-            setEdit(null);
-          }
-        }}
       >
         {current.input.kind === "contact" && (
           <select
@@ -583,7 +584,6 @@ export function CandidateLibrary({
         : undefined;
     const reworded = Boolean(rewordedLine);
     const score = ranked.find((rank) => rank.bulletId === item.id);
-    const editing = edit?.items[0]?.id === item.id && !edit.companyOnly;
     return (
       <div key={item.id} className="space-y-0.5 py-0.5">
         <div
@@ -621,7 +621,6 @@ export function CandidateLibrary({
             trash([item], item.text)
           )}
         </div>
-        {editing && editForm(edit)}
         {hasTags && (
           <div
             className={`flex min-w-0 items-start gap-1 ${jobId ? "pl-4" : ""}`}
@@ -732,15 +731,7 @@ export function CandidateLibrary({
     parentId?: string,
     companyData?: Record<string, unknown>,
     label = names[kind],
-    showForm = true,
   ) {
-    const adding =
-      edit &&
-      !edit.items.length &&
-      edit.input.kind === kind &&
-      edit.input.parentId === (parentId ?? null) &&
-      edit.addCompany ===
-        (companyData ? String(companyData.company ?? "") : undefined);
     const name = parentId
       ? `Add ${label} to ${items.find((item) => item.id === parentId)?.text ?? "item"}`
       : companyData
@@ -748,21 +739,18 @@ export function CandidateLibrary({
         : `Add ${label}`;
     const iconOnly = Boolean(parentId || companyData);
     return (
-      <>
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={busy}
-          aria-label={name}
-          title={iconOnly ? name : undefined}
-          className={iconOnly ? "h-6 w-6 p-0" : "h-7 px-2 text-xs"}
-          onClick={() => startAdd(kind, parentId, companyData)}
-        >
-          <Plus className="h-3 w-3" aria-hidden="true" />
-          {!iconOnly && ` Add ${label}`}
-        </Button>
-        {showForm && adding && editForm(edit)}
-      </>
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={busy}
+        aria-label={name}
+        title={iconOnly ? name : undefined}
+        className={iconOnly ? "h-6 w-6 p-0" : "h-7 px-2 text-xs"}
+        onClick={() => startAdd(kind, parentId, companyData)}
+      >
+        <Plus className="h-3 w-3" aria-hidden="true" />
+        {!iconOnly && ` Add ${label}`}
+      </Button>
     );
   }
   const roles = items.filter((item) => item.kind === "role");
@@ -829,48 +817,47 @@ export function CandidateLibrary({
         <>
           {section === "role" && (
             <>
-              <div className="flex items-center justify-between gap-1 text-xs font-medium">
-                Experience
-                {addButton("role", undefined, undefined, "job", false)}
+              <div className="flex flex-wrap items-center gap-1 text-xs font-medium">
+                <span className="mr-auto">Experience</span>
+                <DutyLibraryTools
+                  jobId={jobId}
+                  roles={roles}
+                  onRefresh={refresh}
+                  onRanked={setRanked}
+                />
+                {addButton("role", undefined, undefined, "job")}
               </div>
-              {edit &&
-                !edit.items.length &&
-                edit.input.kind === "role" &&
-                edit.addCompany === undefined &&
-                editForm(edit)}
-              <DutyLibraryTools
-                jobId={jobId}
-                roles={roles}
-                onRefresh={refresh}
-                onRanked={setRanked}
-              />
               <Accordion
                 key={jobId}
                 type="multiple"
                 defaultValue={
                   jobId
-                    ? roles
-                        .filter((role) =>
+                    ? [...companies]
+                        .filter(([, group]) =>
                           items.some(
                             (item) =>
                               item.kind === "bullet" &&
-                              item.parentId === role.id &&
+                              group.some((role) => role.id === item.parentId) &&
                               document &&
                               isOnResume(document, item.id),
                           ),
                         )
-                        .map((role) => role.id)
-                    : roles.slice(0, 1).map((role) => role.id)
+                        .map(([company]) => company)
+                    : [...companies.keys()].slice(0, 1)
                 }
               >
                 {[...companies].map(([company, group]) => (
-                  <div key={company} className="border-t pt-1 space-y-0.5">
+                  <AccordionItem
+                    key={company}
+                    value={company}
+                    className="border-0 border-t pt-1"
+                  >
                     <div className="group flex items-center gap-1 text-xs font-medium">
                       {tick(group, company)}
                       <button
                         type="button"
                         disabled={busy}
-                        className="text-left hover:underline"
+                        className="min-w-0 truncate text-left hover:underline"
                         onClick={() =>
                           setEdit({
                             items: group,
@@ -902,20 +889,15 @@ export function CandidateLibrary({
                             website: group[0].data?.website ?? "",
                           },
                           "role",
-                          false,
                         )}
                         {trash(group, company)}
+                        <AccordionTrigger
+                          aria-label={`Show roles for ${company}`}
+                          className="h-6 w-6 flex-none justify-center p-0"
+                        />
                       </div>
                     </div>
-                    {edit?.companyOnly &&
-                      edit.items[0]?.id === group[0].id &&
-                      editForm(edit)}
-                    {edit &&
-                      !edit.items.length &&
-                      edit.input.kind === "role" &&
-                      edit.addCompany === company &&
-                      editForm(edit)}
-                    <div className="ml-1.5 space-y-0.5 border-l pl-2">
+                    <AccordionContent className="ml-1.5 space-y-0.5 border-l pb-0.5 pl-2 text-xs">
                       {group.map((role) => {
                         const duties = items.filter(
                           (item) =>
@@ -925,11 +907,7 @@ export function CandidateLibrary({
                           (item) => document && isOnResume(document, item.id),
                         ).length;
                         return (
-                          <AccordionItem
-                            key={role.id}
-                            value={role.id}
-                            className="border-0"
-                          >
+                          <div key={role.id}>
                             <div className="flex items-start gap-1">
                               <div className="min-w-0 flex-1">{row(role)}</div>
                               {jobId && (
@@ -937,31 +915,16 @@ export function CandidateLibrary({
                                   {`${selected}/${duties.length} duties`}
                                 </span>
                               )}
-                              {addButton(
-                                "bullet",
-                                role.id,
-                                undefined,
-                                "duty",
-                                false,
-                              )}
-                              <AccordionTrigger
-                                aria-label={`Show duties for ${role.text}`}
-                                className="h-6 w-6 flex-none justify-center p-0"
-                              />
+                              {addButton("bullet", role.id, undefined, "duty")}
                             </div>
-                            {edit &&
-                              !edit.items.length &&
-                              edit.input.kind === "bullet" &&
-                              edit.input.parentId === role.id &&
-                              editForm(edit)}
-                            <AccordionContent className="ml-1.5 border-l pb-0.5 pl-2 text-xs">
+                            <div className="ml-1.5 border-l pl-2">
                               {duties.map(row)}
-                            </AccordionContent>
-                          </AccordionItem>
+                            </div>
+                          </div>
                         );
                       })}
-                    </div>
-                  </div>
+                    </AccordionContent>
+                  </AccordionItem>
                 ))}
               </Accordion>
             </>
@@ -974,7 +937,7 @@ export function CandidateLibrary({
                   <div key={item.id} className="border-t pt-1">
                     {row(item)}
                     {section === "project" && (
-                      <div className="space-y-0.5">
+                      <div className="ml-1.5 space-y-0.5 border-l pl-2">
                         {items
                           .filter(
                             (child) =>
@@ -999,6 +962,26 @@ export function CandidateLibrary({
           )}
         </>
       )}
+      <Dialog
+        open={Boolean(edit)}
+        onOpenChange={(open) => {
+          if (!open && !busy) setEdit(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {edit?.companyOnly
+                ? "Edit company"
+                : `${edit?.items.length ? "Edit" : "Add"} ${edit?.input.kind ? names[edit.input.kind] : "item"}`}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Update this candidate library item.
+            </DialogDescription>
+          </DialogHeader>
+          {edit && editForm(edit)}
+        </DialogContent>
+      </Dialog>
       <AlertDialog
         open={deletion !== null}
         onOpenChange={(open) => {

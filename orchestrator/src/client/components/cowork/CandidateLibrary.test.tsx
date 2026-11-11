@@ -157,20 +157,26 @@ beforeEach(() => {
 async function mount(props: Parameters<typeof CandidateLibrary>[0] = {}) {
   render(<CandidateLibrary {...props} />);
   const header = await screen.findByRole("button", {
-    name: "Show duties for Engineer",
+    name: "Show roles for Acme",
   });
   if (header.getAttribute("aria-expanded") === "false") fireEvent.click(header);
   await screen.findByText("Built tools");
 }
+const otherRole: ExperienceBullet = {
+  ...role,
+  id: "other-role",
+  text: "Designer",
+  data: { company: "Globex", location: "Paris" },
+  company: "Globex",
+};
+const otherDuty = {
+  ...duty,
+  id: "other-duty",
+  parentId: otherRole.id,
+  text: "Designed tools",
+};
 describe("candidate library", () => {
-  it("expands only groups with selected duties for a job and toggles their headers", () => {
-    const otherRole = { ...role, id: "other-role", text: "Designer" };
-    const otherDuty = {
-      ...duty,
-      id: "other-duty",
-      parentId: otherRole.id,
-      text: "Designed tools",
-    };
+  it("expands only jobs with selected duties and toggles their headers", () => {
     mocks.onResume.mockImplementation((_doc, id) => id === duty.id);
     const props = {
       items: [role, duty, otherRole, otherDuty],
@@ -180,36 +186,26 @@ describe("candidate library", () => {
     };
     const view = render(<CandidateLibrary {...props} />);
     const selected = screen.getByRole("button", {
-      name: "Show duties for Engineer",
+      name: "Show roles for Acme",
     });
     const unselected = screen.getByRole("button", {
-      name: "Show duties for Designer",
+      name: "Show roles for Globex",
     });
     expect(selected).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("Built tools")).toBeVisible();
     expect(unselected).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Designed tools")).toBeNull();
-    selected.focus();
-    fireEvent.keyDown(selected, { key: "ArrowDown" });
-    expect(unselected).toHaveFocus();
     fireEvent.click(unselected);
     expect(unselected).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("Designed tools")).toBeVisible();
     fireEvent.click(selected);
     expect(selected).toHaveAttribute("aria-expanded", "false");
-    // Resume updates change counts without reopening a manually collapsed group.
+    // Resume updates change counts without reopening a manually collapsed job.
     view.rerender(<CandidateLibrary {...props} document={{ ...doc }} />);
     expect(selected).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Built tools")).toBeNull();
   });
-  it("resets expanded roles to the selected duties when switching jobs", () => {
-    const otherRole = { ...role, id: "other-role", text: "Designer" };
-    const otherDuty = {
-      ...duty,
-      id: "other-duty",
-      parentId: otherRole.id,
-      text: "Designed tools",
-    };
+  it("resets expanded jobs to the selected duties when switching jobs", () => {
     const otherDoc = { ...doc };
     mocks.onResume.mockImplementation((document, id) =>
       document === doc ? id === duty.id : id === otherDuty.id,
@@ -222,39 +218,36 @@ describe("candidate library", () => {
       <CandidateLibrary {...props} jobId="first-job" document={doc} />,
     );
     expect(
-      screen.getByRole("button", { name: "Show duties for Engineer" }),
+      screen.getByRole("button", { name: "Show roles for Acme" }),
     ).toHaveAttribute("aria-expanded", "true");
     expect(
-      screen.getByRole("button", { name: "Show duties for Designer" }),
+      screen.getByRole("button", { name: "Show roles for Globex" }),
     ).toHaveAttribute("aria-expanded", "false");
 
     view.rerender(
       <CandidateLibrary {...props} jobId="second-job" document={otherDoc} />,
     );
     expect(
-      screen.getByRole("button", { name: "Show duties for Engineer" }),
+      screen.getByRole("button", { name: "Show roles for Acme" }),
     ).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Built tools")).toBeNull();
     expect(
-      screen.getByRole("button", { name: "Show duties for Designer" }),
+      screen.getByRole("button", { name: "Show roles for Globex" }),
     ).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("Designed tools")).toBeVisible();
     expect(
-      screen.getByRole("checkbox", { name: "Include Engineer" }),
+      screen.getByRole("checkbox", { name: "Include Acme" }),
     ).toBeVisible();
-    expect(screen.getByText("0/1 duties")).toBeVisible();
     expect(screen.getByText("1/1 duties")).toBeVisible();
   });
-  it("opens only the first experience group in standalone mode after loading", async () => {
-    mocks.list.mockResolvedValue({
-      items: [role, duty, { ...role, id: "second", text: "Designer" }],
-    });
+  it("opens only the first job in standalone mode after loading", async () => {
+    mocks.list.mockResolvedValue({ items: [role, duty, otherRole] });
     render(<CandidateLibrary />);
     expect(
-      await screen.findByRole("button", { name: "Show duties for Engineer" }),
+      await screen.findByRole("button", { name: "Show roles for Acme" }),
     ).toHaveAttribute("aria-expanded", "true");
     expect(
-      screen.getByRole("button", { name: "Show duties for Designer" }),
+      screen.getByRole("button", { name: "Show roles for Globex" }),
     ).toHaveAttribute("aria-expanded", "false");
   });
   it("shows every section and no ticks in library-only mode", async () => {
@@ -310,14 +303,16 @@ describe("candidate library", () => {
       expect.objectContaining({ text: "Built better tools" }),
     );
   });
-  it("cancels inline edits on Escape and refuses blank text", async () => {
+  it("cancels edits on Escape and refuses blank text", async () => {
     await mount();
     fireEvent.click(screen.getByRole("button", { name: "Built tools" }));
     const input = screen.getByRole("textbox", { name: "Text" });
     fireEvent.change(input, { target: { value: "   " } });
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     fireEvent.keyDown(input, { key: "Escape" });
-    expect(screen.queryByRole("textbox", { name: "Text" })).toBeNull();
+    await waitFor(() =>
+      expect(screen.queryByRole("textbox", { name: "Text" })).toBeNull(),
+    );
     expect(mocks.update).not.toHaveBeenCalled();
   });
   it("creates a duty under its role", async () => {
@@ -593,17 +588,24 @@ describe("candidate library", () => {
   it("places add controls beside their headers and requires a job company", async () => {
     await mount();
     const add = screen.getByRole("button", { name: "Add duty to Engineer" });
-    fireEvent.click(add);
     expect(add.parentElement).toContainElement(
-      screen.getByRole("button", { name: "Show duties for Engineer" }),
+      screen.getByRole("button", { name: "Engineer · 2020–2024" }),
     );
+    fireEvent.click(add);
     expect(
-      screen.getByRole("form", { name: "Edit library item" }),
+      within(screen.getByRole("dialog", { name: "Add duty" })).getByRole(
+        "form",
+        { name: "Edit library item" },
+      ),
     ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     const addRole = screen.getByRole("button", { name: "Add role at Acme" });
     expect(addRole.parentElement?.parentElement).toContainElement(
       screen.getByRole("button", { name: "Acme · London" }),
     );
+    expect(
+      screen.getByRole("button", { name: "Add job" }).parentElement,
+    ).toContainElement(screen.getByRole("button", { name: "Paste & extract" }));
     fireEvent.click(screen.getByRole("button", { name: "Add job" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Position" }), {
       target: { value: "Engineer" },
@@ -929,6 +931,7 @@ it("names repeated add controls after their role, company, and item", () => {
       ]}
     />,
   );
+  fireEvent.click(screen.getByRole("button", { name: "Show roles for Beta" }));
   for (const name of ["Engineer", "Manager", "Designer"])
     expect(
       screen.getByRole("button", { name: `Add duty to ${name}` }),

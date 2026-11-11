@@ -262,10 +262,11 @@ export function DutyLibraryTools({
   }
   return (
     <>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1">
         <Button
           size="sm"
           variant="outline"
+          className="h-7 px-2 text-xs"
           disabled={busy}
           onClick={() => {
             setParentId(roles[0]?.id ?? "");
@@ -279,6 +280,7 @@ export function DutyLibraryTools({
           <Button
             size="sm"
             variant="outline"
+            className="h-7 px-2 text-xs"
             disabled={busy}
             onClick={() =>
               void run(async () => {
