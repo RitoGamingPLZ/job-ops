@@ -227,7 +227,7 @@ describe("document drag interactions", () => {
     expect(screen.getByLabelText("Other bullet 1")).toHaveValue("B");
     expect(gap).toHaveAttribute("data-active", "false");
   });
-  it("allows library replacement but rejects library insertion into reorder gaps", () => {
+  it("rejects library drops onto bullets and reorder gaps", () => {
     render(<Editor />);
     const dataTransfer = transfer("application/x-jobops-bullet", {
       id: "library",
@@ -236,9 +236,7 @@ describe("document drag interactions", () => {
     fireEvent.drop(screen.getByLabelText("Company bullet 1"), {
       dataTransfer,
     });
-    expect(screen.getByLabelText("Company bullet 1")).toHaveValue(
-      "Library duty",
-    );
+    expect(screen.getByLabelText("Company bullet 1")).toHaveValue("A");
     fireEvent.drop(screen.getAllByTitle("Move before bullet 1")[1], {
       dataTransfer,
     });
@@ -828,31 +826,17 @@ describe("navy serif document content", () => {
     fireEvent.change(summary, { target: { value: "" } });
     expect(screen.getByLabelText("Summary content")).toBe(summary);
   });
-  it.each([
-    "replace",
-    "move",
-  ])("keeps original intro HTML on library drop or reorder: %s", (mode) => {
+  it("keeps original intro HTML on bullet reorder", () => {
     const original = fullFixture();
     const onChange = mount(original);
     const intro =
       original.sections.experience.items[0].description.split("<ul>")[0];
-    const dataTransfer =
-      mode === "move"
-        ? {
-            types: ["application/x-jobops-resume-bullet"],
-            getData: () => JSON.stringify({ experienceId: "one", index: 2 }),
-          }
-        : {
-            types: ["application/x-jobops-bullet"],
-            getData: () =>
-              JSON.stringify({ id: "library", text: "Library duty" }),
-          };
-    fireEvent.drop(
-      mode === "replace"
-        ? screen.getByLabelText("Company bullet 1")
-        : screen.getByTitle("Move before bullet 1"),
-      { dataTransfer },
-    );
+    fireEvent.drop(screen.getByTitle("Move before bullet 1"), {
+      dataTransfer: {
+        types: ["application/x-jobops-resume-bullet"],
+        getData: () => JSON.stringify({ experienceId: "one", index: 2 }),
+      },
+    });
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].description.split(
         "<ul>",
@@ -919,9 +903,9 @@ describe("navy serif document content", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Delete project Named project" }),
     );
-    expect(onChange.mock.lastCall?.[0].sections.projects.items[1].hidden).toBe(
-      true,
-    );
+    expect(onChange.mock.lastCall?.[0].sections.projects.items).toEqual([
+      original.sections.projects.items[0],
+    ]);
     expect(screen.queryByText("Named project")).toBeNull();
     expect(screen.queryByRole("heading", { name: "Projects" })).toBeNull();
   });
@@ -1238,7 +1222,6 @@ vi.mock("@shared/resume-links", async () => {
 describe("candidate library links", () => {
   const library = [
     { id: "role", text: "Engineer", kind: "role" },
-    { id: "dropped", text: "Dropped library duty", kind: "bullet" },
     { id: "duty-a", text: "Original duty", kind: "bullet" },
     { id: "duty-b", text: "B", kind: "bullet" },
   ] as import("@shared/types").ExperienceBullet[];
@@ -1269,7 +1252,7 @@ describe("candidate library links", () => {
     );
   }
 
-  it("ignores duplicate library drops and leaves wrong-kind drops unlinked", () => {
+  it("ignores all library drops onto existing bullets", () => {
     const onChange = vi.fn();
     render(<LinkedEditor onChange={onChange} />);
     const drop = (id: string) =>
@@ -1282,13 +1265,9 @@ describe("candidate library links", () => {
     drop("duty-a");
     expect(onChange).not.toHaveBeenCalled();
     drop("role");
-    expect(
-      onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
-    ).toEqual(["duty-a", "duty-b", null]);
     drop("missing");
-    expect(
-      onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
-    ).toEqual(["duty-a", "duty-b", null]);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Company bullet 3")).toHaveValue("C");
   });
 
   it("treats dangling item and line refs as unlinked for editing and deletion", async () => {
@@ -1398,7 +1377,7 @@ describe("candidate library links", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("aligns refs after manual edits, move, drop and linked removal", async () => {
+  it("aligns refs after manual edits, move and linked removal", async () => {
     const { removeFromResume } = await import("@shared/resume-links");
     const onChange = vi.fn();
     render(<LinkedEditor onChange={onChange} />);
@@ -1412,20 +1391,11 @@ describe("candidate library links", () => {
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
     ).toEqual(["duty-b", "duty-a", null]);
-    const dataTransfer = {
-      types: ["application/x-jobops-bullet"],
-      getData: () =>
-        JSON.stringify({ id: "dropped", text: "Dropped library duty" }),
-    };
-    fireEvent.drop(screen.getByLabelText("Company bullet 3"), { dataTransfer });
-    expect(
-      onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
-    ).toEqual(["duty-b", "duty-a", "dropped"]);
     fireEvent.click(screen.getByRole("button", { name: "Delete bullet 2" }));
     expect(removeFromResume).toHaveBeenCalledWith(expect.anything(), "duty-a");
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].bulletRefs,
-    ).toEqual(["duty-b", "dropped"]);
+    ).toEqual(["duty-b", null]);
     fireEvent.click(
       screen.getByRole("button", { name: "Delete experience Company" }),
     );

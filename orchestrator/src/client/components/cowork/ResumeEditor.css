@@ -186,7 +186,6 @@
 .resume-bullet > div[data-active="true"] {
   outline: 1px solid #3977af;
 }
-
 .resume-skill {
   display: flex;
   align-items: baseline;
@@ -425,7 +424,6 @@
   padding: 0;
   text-indent: calc(var(--skill-label-w, 0px) + 0.25em);
 }
-
 .resume-simple-item {
   display: flex;
   flex-wrap: wrap;

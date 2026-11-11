@@ -6,7 +6,6 @@ import {
 } from "@shared/resume-bullets";
 import {
   getItemLines,
-  isOnResume,
   type ResumeLine,
   removeFromResume,
   resetLine,
@@ -41,10 +40,8 @@ import { BulletText, fitTextarea } from "./BulletText";
 import { CommaListInput } from "./CommaListInput";
 import {
   applySuggestions,
-  BULLET_TRANSFER_TYPE,
   FOCUS_TRANSFER_TYPE,
   fieldVisible,
-  readBulletTransfer,
   suggestionTarget,
 } from "./editor";
 import {
@@ -571,26 +568,19 @@ export function ResumeEditor({
       );
     });
   }
-  function dropZone(id: string, index: number, mode: "insert" | "replace") {
-    const key = `${id}-${index}-${mode}`;
+  function dropZone(id: string, index: number) {
+    const key = `${id}-${index}`;
     return {
       "data-active": dragOver === key,
       onDragLeave: () => setDragOver(null),
       onDragOver: (event: React.DragEvent) => {
         if (
           !disabled &&
-          ((mode === "replace" &&
-            event.dataTransfer.types.includes(BULLET_TRANSFER_TYPE)) ||
-            (mode === "insert" &&
-              event.dataTransfer.types.includes(RESUME_BULLET_TRANSFER_TYPE)))
+          event.dataTransfer.types.includes(RESUME_BULLET_TRANSFER_TYPE)
         ) {
           event.preventDefault();
           event.stopPropagation();
-          event.dataTransfer.dropEffect = event.dataTransfer.types.includes(
-            RESUME_BULLET_TRANSFER_TYPE,
-          )
-            ? "move"
-            : "copy";
+          event.dataTransfer.dropEffect = "move";
           setDragOver(key);
         }
       },
@@ -599,10 +589,7 @@ export function ResumeEditor({
         event.stopPropagation();
         setDragOver(null);
         if (disabled) return;
-        if (
-          mode === "insert" &&
-          event.dataTransfer.types.includes(RESUME_BULLET_TRANSFER_TYPE)
-        ) {
+        if (event.dataTransfer.types.includes(RESUME_BULLET_TRANSFER_TYPE)) {
           try {
             const source = JSON.parse(
               event.dataTransfer.getData(RESUME_BULLET_TRANSFER_TYPE),
@@ -626,25 +613,6 @@ export function ResumeEditor({
           }
           return;
         }
-        if (mode === "insert") return;
-        const bullet = readBulletTransfer(
-          event.dataTransfer.getData(BULLET_TRANSFER_TYPE),
-        );
-        if (!bullet) return;
-        const original = library.find((item) => item.id === bullet.id);
-        const expectedKind =
-          currentDocument.current.sections.experience.items.some(
-            (item) => item.id === id,
-          )
-            ? "bullet"
-            : "project_point";
-        const ref = original?.kind === expectedKind ? original.id : null;
-        if (ref && isOnResume(currentDocument.current, ref)) return;
-        updateBullets(id, (current) => [
-          ...current.slice(0, index),
-          { text: bullet.text, ref },
-          ...current.slice(index + (mode === "replace" ? 1 : 0)),
-        ]);
       },
     };
   }
@@ -1135,7 +1103,6 @@ export function ResumeEditor({
                       className="resume-position"
                       title={`${name} position`}
                       aria-label={`${name} position`}
-                      data-experience-position
                       readOnly={isLinked(experience.libraryId)}
                       value={experience.position ?? ""}
                       placeholder="Position"
@@ -1303,16 +1270,13 @@ export function ResumeEditor({
                           title={lineAppearance(line).title}
                         >
                           <div
-                            {...dropZone(experience.id, index, "insert")}
+                            {...dropZone(experience.id, index)}
                             className="resume-gap"
                             title={`Move before bullet ${index + 1}`}
                           >
                             <span className="sr-only">Drop to move</span>
                           </div>
-                          <div
-                            {...dropZone(experience.id, index, "replace")}
-                            className="space-y-1"
-                          >
+                          <div className="space-y-1">
                             <BulletText
                               label={`${name} bullet ${index + 1}`}
                               value={line.text}
@@ -1420,7 +1384,7 @@ export function ResumeEditor({
                       ))}
                     </ul>
                     <div
-                      {...dropZone(experience.id, lines.length, "insert")}
+                      {...dropZone(experience.id, lines.length)}
                       className="resume-gap"
                       title={`Move to end of ${name}`}
                     >
@@ -1477,109 +1441,103 @@ export function ResumeEditor({
                     // Readonly text: focusable so a click shows the line's tools.
                     tabIndex={-1}
                   >
-                    {!project.hidden && (
-                      <>
-                        <div
-                          className="resume-experience-heading resume-readonly"
-                          title="Edit in the right panel"
-                        >
-                          <h3
-                            {...focusDrag({
-                              kind: "item",
-                              section: "projects",
-                              itemId: project.id,
-                              label: `Projects › ${project.name}`,
-                            })}
-                          >
-                            <a href={safeUrl(project.website?.url)}>
-                              {project.name}
-                            </a>
-                          </h3>
-                          <span>{project.period}</span>
-                        </div>
-                        <div className="resume-tools">
-                          {askAi({
-                            kind: "item",
-                            section: "projects",
-                            itemId: project.id,
-                            label: `Projects › ${project.name}`,
-                          })}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title={`Delete project ${project.name}`}
-                            aria-label={`Delete project ${project.name}`}
-                            onClick={() =>
-                              isLinked(project.libraryId)
-                                ? removeLinked(project.libraryId)
-                                : change((next) => {
-                                    next.sections.projects.items[index].hidden =
-                                      true;
-                                  })
-                            }
-                          >
-                            ×
-                          </Button>
-                        </div>
+                    <div
+                      className="resume-experience-heading resume-readonly"
+                      title="Edit in the right panel"
+                    >
+                      <h3
+                        {...focusDrag({
+                          kind: "item",
+                          section: "projects",
+                          itemId: project.id,
+                          label: `Projects › ${project.name}`,
+                        })}
+                      >
+                        <a href={safeUrl(project.website?.url)}>
+                          {project.name}
+                        </a>
+                      </h3>
+                      <span>{project.period}</span>
+                    </div>
+                    <div className="resume-tools">
+                      {askAi({
+                        kind: "item",
+                        section: "projects",
+                        itemId: project.id,
+                        label: `Projects › ${project.name}`,
+                      })}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title={`Delete project ${project.name}`}
+                        aria-label={`Delete project ${project.name}`}
+                        onClick={() =>
+                          isLinked(project.libraryId)
+                            ? removeLinked(project.libraryId)
+                            : change((next) => {
+                                next.sections.projects.items.splice(index, 1);
+                              })
+                        }
+                      >
+                        ×
+                      </Button>
+                    </div>
+                    {bulletsFromHtml(
+                      splitDescription(project.description ?? "").introHtml,
+                    ).join("\n") && (
+                      <p
+                        className="resume-readonly"
+                        title="Edit in the right panel"
+                      >
                         {bulletsFromHtml(
-                          splitDescription(project.description ?? "").introHtml,
-                        ).join("\n") && (
-                          <p
-                            className="resume-readonly"
-                            title="Edit in the right panel"
-                          >
-                            {bulletsFromHtml(
-                              splitDescription(project.description).introHtml,
-                            ).join("\n")}
-                          </p>
-                        )}
-                        <ul className="resume-bullets">
-                          {lines.map((line, i) => (
-                            <li
-                              key={pointKeys[i]}
-                              className={`resume-row resume-bullet ${lineAppearance(line).className ?? ""}`}
-                              title={lineAppearance(line).title}
-                            >
-                              <BulletText
-                                label={`${project.name} point ${i + 1}`}
-                                value={line.text}
-                                linked={isLinked(line.ref)}
-                                onChange={(text) => {
-                                  if (!text.trim() && isLinked(line.ref))
-                                    return;
-                                  updateBullets(project.id, (lines) =>
-                                    lines
-                                      .map((old, at) =>
-                                        at === i ? { ...old, text } : old,
-                                      )
-                                      .filter((old) => old.text.trim()),
-                                  );
-                                }}
-                              />
-                              <div className="resume-tools">
-                                {lineTools(project.id, i, line)}
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  title={`Delete project point ${i + 1}`}
-                                  aria-label={`Delete project point ${i + 1}`}
-                                  onClick={() =>
-                                    isLinked(line.ref)
-                                      ? removeLinked(line.ref)
-                                      : updateBullets(project.id, (lines) =>
-                                          lines.filter((_, at) => at !== i),
-                                        )
-                                  }
-                                >
-                                  ×
-                                </Button>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                        {fieldSuggestions("projects", project.id)}
-                      </>
+                          splitDescription(project.description).introHtml,
+                        ).join("\n")}
+                      </p>
                     )}
+                    <ul className="resume-bullets">
+                      {lines.map((line, i) => (
+                        <li
+                          key={pointKeys[i]}
+                          className={`resume-row resume-bullet ${lineAppearance(line).className ?? ""}`}
+                          title={lineAppearance(line).title}
+                        >
+                          <BulletText
+                            label={`${project.name} point ${i + 1}`}
+                            value={line.text}
+                            linked={isLinked(line.ref)}
+                            onChange={(text) => {
+                              if (!text.trim() && isLinked(line.ref)) return;
+                              updateBullets(project.id, (lines) =>
+                                lines
+                                  .map((old, at) =>
+                                    at === i ? { ...old, text } : old,
+                                  )
+                                  .filter((old) => old.text.trim()),
+                              );
+                            }}
+                          />
+                          <div className="resume-tools">
+                            {lineTools(project.id, i, line)}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title={`Delete project point ${i + 1}`}
+                              aria-label={`Delete project point ${i + 1}`}
+                              onClick={() =>
+                                isLinked(line.ref)
+                                  ? removeLinked(line.ref)
+                                  : updateBullets(project.id, (lines) =>
+                                      lines.filter((_, at) => at !== i),
+                                    )
+                              }
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    {fieldSuggestions("projects", project.id)}
                   </div>
                 );
               })}
@@ -1909,7 +1867,6 @@ export function ResumeEditor({
                         </span>
                         <Input
                           aria-label={`Profile ${index + 1} URL`}
-                          data-profile-url=""
                           value={profile.website?.url ?? ""}
                           placeholder="https://…"
                           onChange={(event) =>
