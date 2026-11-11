@@ -186,30 +186,6 @@
 .resume-bullet > div[data-active="true"] {
   outline: 1px solid #3977af;
 }
-.resume-append {
-  min-height: 28px;
-  height: auto;
-  margin: 4px 0;
-  border: 1px dashed transparent;
-}
-.resume-append span {
-  display: block;
-  padding: 4px 6px;
-  font-size: 8pt;
-  color: #4b637a;
-  opacity: 0;
-}
-.resume-append:hover span,
-.resume-canvas[data-library-drag="true"] .resume-append span,
-.resume-append[data-empty="true"] span,
-.resume-append[data-active="true"] span {
-  opacity: 1;
-}
-.resume-canvas[data-library-drag="true"] .resume-append,
-.resume-append[data-empty="true"] {
-  border-color: #8ca6bf;
-  background: #f3f7fb;
-}
 .resume-skill {
   display: flex;
   align-items: baseline;
@@ -448,24 +424,6 @@
   padding: 0;
   text-indent: calc(var(--skill-label-w, 0px) + 0.25em);
 }
-.resume-append {
-  height: 0;
-  min-height: 0;
-  margin: 0;
-  border-width: 0;
-}
-.resume-append span {
-  position: absolute;
-  top: 0;
-  padding: 1px 4px;
-  background: #fff;
-}
-.resume-canvas[data-library-drag="true"] .resume-append,
-.resume-append[data-empty="true"] {
-  height: auto;
-  min-height: 24px;
-  border-width: 1px;
-}
 .resume-simple-item {
   display: flex;
   flex-wrap: wrap;
@@ -609,10 +567,6 @@
 .resume-paper .resume-experience-heading input:not(:focus):hover,
 .resume-paper input.resume-position:not(:focus):hover {
   outline: none;
-}
-.resume-paper .resume-add-experience {
-  margin-top: 8px;
-  font-size: 10pt;
 }
 
 /* Dates sit at the right edge of the heading line; long names shrink, not push. */
