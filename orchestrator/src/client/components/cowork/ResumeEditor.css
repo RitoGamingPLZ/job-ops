@@ -454,18 +454,6 @@
 .resume-certifications .resume-simple-item::before {
   left: var(--rs-marker-indent);
 }
-.resume-paper .resume-certifications .resume-field-issuer,
-.resume-paper .resume-certifications .resume-field-website,
-.resume-paper .resume-awards .resume-field-awarder,
-.resume-paper .resume-awards .resume-field-date {
-  display: none;
-}
-.resume-paper .resume-simple-item:focus-within .resume-field-issuer,
-.resume-paper .resume-simple-item:focus-within .resume-field-website,
-.resume-paper .resume-simple-item:focus-within .resume-field-awarder,
-.resume-paper .resume-simple-item:focus-within .resume-field-date {
-  display: block;
-}
 .resume-awards .resume-simple-item {
   column-gap: 0;
 }
@@ -479,7 +467,11 @@
 .resume-paper .resume-certifications .resume-field-date,
 .resume-paper .resume-education .resume-field-school,
 .resume-paper .resume-education .resume-field-period,
-.resume-paper .resume-education-degree input {
+.resume-paper .resume-education-degree input,
+.resume-paper .resume-certifications .resume-field-issuer,
+.resume-paper .resume-certifications .resume-field-website,
+.resume-paper .resume-awards .resume-field-awarder,
+.resume-paper .resume-awards .resume-field-date {
   flex: 0 1 auto;
   width: auto;
   max-width: 100%;
@@ -496,44 +488,17 @@
   gap: 3pt;
   min-width: 0;
 }
-.resume-simple-item:not([data-area-shown="true"]):not(:focus-within)
-  .resume-education-in,
+/* Shown for editing, muted when the PDF leaves it out (empty or already in the degree). */
+.resume-simple-item:not([data-area-shown="true"]) .resume-education-in,
 .resume-paper
-  .resume-simple-item:not([data-area-shown="true"]):not(:focus-within)
+  .resume-simple-item:not([data-area-shown="true"])
   .resume-field-area {
-  display: none;
+  opacity: 0.45;
 }
 /* min-width 0 lets the award text shrink within the available line width. */
 .resume-awards .resume-simple-item textarea {
   flex: 1;
   min-width: 0;
-}
-
-.resume-certification-name {
-  position: relative;
-  flex: 0 1 auto;
-  min-width: 0;
-}
-.resume-certification-name > a {
-  display: block;
-}
-.resume-paper .resume-certification-name > input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  opacity: 0;
-  pointer-events: none;
-}
-.resume-paper .resume-certification-name:focus-within > input {
-  opacity: 1;
-  pointer-events: auto;
-  background: #fff;
-}
-.resume-certification-name:focus-within > a {
-  visibility: hidden;
-}
-.resume-certification-name > input:focus-visible {
-  outline: 1px solid #a3bdd6;
 }
 
 .resume-focus-flash {

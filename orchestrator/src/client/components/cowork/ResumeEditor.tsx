@@ -754,18 +754,13 @@ export function ResumeEditor({
                         {kind === "certifications" && field === "date" && (
                           <span aria-hidden="true">-</span>
                         )}
-                        {kind === "certifications" &&
-                        field === "title" &&
-                        safeUrl(item.website?.url) ? (
-                          <span className="resume-certification-name">
-                            <a href={safeUrl(item.website.url)}>
-                              {String(item.title)}
-                            </a>
-                            {input}
-                          </span>
-                        ) : (
-                          input
+                        {(field === "issuer" ||
+                          field === "website" ||
+                          field === "awarder" ||
+                          (kind === "awards" && field === "date")) && (
+                          <span aria-hidden="true">·</span>
                         )}
+                        {input}
                         {kind === "awards" && field === "title" && (
                           <span aria-hidden="true">:</span>
                         )}
@@ -779,25 +774,6 @@ export function ResumeEditor({
                       itemId: item.id,
                       label: `${simpleNames[kind]} › ${String(item.school || item.title || index + 1)}`,
                     })}
-                    {kind === "certifications" &&
-                      safeUrl(item.website?.url) && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          title={`Edit Certifications ${index + 1} ${fieldLabels.title}`}
-                          aria-label={`Edit Certifications ${index + 1} ${fieldLabels.title}`}
-                          onClick={(event) =>
-                            event.currentTarget
-                              .closest(".resume-simple-item")
-                              ?.querySelector<HTMLInputElement>(
-                                ".resume-field-title",
-                              )
-                              ?.focus()
-                          }
-                        >
-                          ✎
-                        </Button>
-                      )}
                     {(["up", "down"] as const).map((direction) => (
                       <Button
                         key={direction}

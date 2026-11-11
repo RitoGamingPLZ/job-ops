@@ -736,19 +736,17 @@ describe("navy serif document content", () => {
     ).toBe("<p>Updated &amp; useful</p>");
     expect(screen.queryByLabelText("Company bullet 1")).toBeNull();
   });
-  it("links certification titles and exposes a margin control for inline editing", () => {
+  it("edits certification titles in place, with every field always shown", () => {
     const onChange = mount();
     expect(
-      screen.getByRole("link", { name: "Example Certificate" }),
-    ).toHaveAttribute("href", "https://example.com/cert");
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Edit Certifications 1 certification title",
-      }),
-    );
+      screen.queryByRole("link", { name: "Example Certificate" }),
+    ).toBeNull();
     expect(
       screen.getByLabelText("Certifications 1 certification title"),
-    ).toHaveFocus();
+    ).toHaveValue("Example Certificate");
+    expect(screen.getByLabelText("Certifications 1 website URL")).toHaveValue(
+      "https://example.com/cert",
+    );
     fireEvent.change(
       screen.getByLabelText("Certifications 1 certification title"),
       {
