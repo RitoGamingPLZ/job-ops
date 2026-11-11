@@ -36,6 +36,7 @@ import {
   focusResumePart,
   JobMatchPanel,
 } from "@/client/components/cowork/JobMatchPanel";
+import { PdfCanvasPreview } from "@/client/components/cowork/PdfCanvasPreview";
 import { ResumeEditor } from "@/client/components/cowork/ResumeEditor";
 import { GhostwriterPanel } from "@/client/components/ghostwriter/GhostwriterPanel";
 import {
@@ -819,11 +820,9 @@ function CoworkWorkspace({ jobId }: { jobId: string }) {
           </div>
           {preview ? (
             pdfUrl ? (
-              <iframe
-                title="Resume PDF preview"
-                src={pdfUrl}
-                className="h-full min-h-[600px] w-full"
-              />
+              <div role="document" aria-label="Resume PDF preview">
+                <PdfCanvasPreview url={pdfUrl} />
+              </div>
             ) : (
               <output>{rendering ? "Rendering PDF…" : null}</output>
             )
