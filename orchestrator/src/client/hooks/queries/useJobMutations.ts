@@ -170,3 +170,23 @@ export function useDeleteJobNoteMutation() {
     },
   });
 }
+
+export function useRegenerateJobResumeMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.regenerateJobResume(id),
+    onSuccess: async (_data, id) => {
+      await invalidateJobData(queryClient, id);
+    },
+  });
+}
+
+export function useGenerateMissingResumesMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.generateMissingResumes(),
+    onSuccess: async () => {
+      await invalidateJobData(queryClient);
+    },
+  });
+}

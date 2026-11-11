@@ -96,6 +96,7 @@ vi.mock("../api", () => ({
   rescoreJob: vi.fn(),
   generateJobPdf: vi.fn(),
   processJob: vi.fn(),
+  regenerateJobResume: vi.fn(),
   checkSponsor: vi.fn(),
 }));
 
@@ -757,7 +758,7 @@ describe("JobPage back navigation", () => {
   });
 });
 
-it("offers editor links and no tailoring actions for a prepared job", async () => {
+it("offers editor links and regeneration for a prepared targeted job", async () => {
   vi.mocked(api.getJob).mockResolvedValue(
     createJob({ status: "ready", readyAt: "2026-06-01T00:00:00Z" }) as Job,
   );
@@ -769,8 +770,8 @@ it("offers editor links and no tailoring actions for a prepared job", async () =
     expect(link).toHaveAttribute("href", "/resumes/job-1");
   expect(document.querySelector('a[href*="inspector=tailoring"]')).toBeNull();
   expect(
-    screen.queryByRole("button", { name: /tailor|regenerate resume/i }),
-  ).toBeNull();
+    screen.getByRole("button", { name: "Regenerate resume" }),
+  ).toBeEnabled();
 });
 
 it.each([
@@ -856,4 +857,52 @@ it("renders a stale PDF before downloading it", async () => {
   ).toBeLessThan(
     vi.mocked(privatePdf.downloadJobPdf).mock.invocationCallOrder[0],
   );
+});
+
+it("requires confirmation before regenerating a targeted job resume", async () => {
+  const job = createJob({ status: "ready", readyAt: "2026-11-08" });
+  vi.mocked(api.getJob).mockResolvedValue(job);
+  vi.mocked(api.regenerateJobResume).mockResolvedValue({
+    ...job,
+    status: "processing",
+  });
+  const { queryClient } = renderJobPage("/job/job-1");
+  const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Regenerate resume" }),
+  );
+  expect(api.regenerateJobResume).not.toHaveBeenCalled();
+  expect(screen.getByRole("alertdialog")).toHaveTextContent(
+    "including your edits",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(api.regenerateJobResume).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Regenerate resume" }));
+  fireEvent.click(
+    within(screen.getByRole("alertdialog")).getByRole("button", {
+      name: "Regenerate resume",
+    }),
+  );
+  await waitFor(() =>
+    expect(api.regenerateJobResume).toHaveBeenCalledWith(job.id),
+  );
+  await waitFor(() =>
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: queryKeys.jobs.detail(job.id),
+    }),
+  );
+});
+
+it.each([
+  "discovered",
+  "processing",
+] as const)("hides regeneration for a targeted %s job", async (status) => {
+  vi.mocked(api.getJob).mockResolvedValue(
+    createJob({ status, readyAt: "2026-11-08" }),
+  );
+  renderJobPage("/job/job-1");
+  await screen.findByRole("button", { name: "Delete job" });
+  expect(
+    screen.queryByRole("button", { name: "Regenerate resume" }),
+  ).toBeNull();
 });
