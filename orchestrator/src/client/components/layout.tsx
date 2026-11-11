@@ -127,8 +127,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     }
   }, [navOpen]);
 
-  const handleNavClick = (to: string, activePaths?: string[]) => {
-    if (isNavActive(location.pathname, to, activePaths)) {
+  const handleNavClick = (to: string) => {
+    if (location.pathname === to) {
       setNavOpen(false);
       return;
     }
@@ -167,7 +167,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                   <button
                     key={to}
                     type="button"
-                    onClick={() => handleNavClick(to, activePaths)}
+                    onClick={() => handleNavClick(to)}
                     className={cn(
                       "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground text-left",
                       isNavActive(location.pathname, to, activePaths)
