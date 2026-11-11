@@ -31,9 +31,17 @@ vi.mock("@/components/ui/chart", () => ({
   ChartContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="chart-container">{children}</div>
   ),
-  ChartTooltip: () => <div data-testid="chart-tooltip">Tooltip</div>,
-  ChartTooltipContent: () => (
-    <div data-testid="chart-tooltip-content">TooltipContent</div>
+  ChartTooltip: ({ content }: { content: React.ReactNode }) => (
+    <div data-testid="chart-tooltip">{content}</div>
+  ),
+  ChartTooltipContent: ({
+    labelFormatter,
+  }: {
+    labelFormatter: (value: string) => React.ReactNode;
+  }) => (
+    <div data-testid="chart-tooltip-content">
+      {labelFormatter("2025-01-01")}
+    </div>
   ),
 }));
 
@@ -51,7 +59,9 @@ vi.mock("recharts", () => ({
   ),
   Bar: () => <div data-testid="bar">Bar</div>,
   CartesianGrid: () => <div data-testid="cartesian-grid">Grid</div>,
-  XAxis: () => <div data-testid="x-axis">XAxis</div>,
+  XAxis: ({ tickFormatter }: { tickFormatter: (value: string) => string }) => (
+    <div data-testid="x-axis">{tickFormatter("2025-01-01")}</div>
+  ),
 }));
 
 vi.mock("lucide-react", () => ({
@@ -72,6 +82,22 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("labels ticks and tooltips with the bucket's own local calendar date", () => {
+    render(
+      <ApplicationsPerDayChart
+        appliedAt={[]}
+        isLoading={false}
+        error={null}
+        daysToShow={7}
+      />,
+    );
+
+    expect(screen.getByTestId("x-axis")).toHaveTextContent(/^1 Jan$/);
+    expect(screen.getByTestId("chart-tooltip-content")).toHaveTextContent(
+      /^1 Jan 2025$/,
+    );
   });
 
   describe("Empty and Null Data", () => {

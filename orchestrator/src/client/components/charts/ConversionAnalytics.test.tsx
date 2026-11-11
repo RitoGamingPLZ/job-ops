@@ -36,7 +36,37 @@ vi.mock("@/components/ui/chart", () => ({
   ChartContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="chart-container">{children}</div>
   ),
-  ChartTooltip: () => <div data-testid="chart-tooltip">Tooltip</div>,
+  ChartTooltip: ({
+    content,
+  }: {
+    content: (props: {
+      active: boolean;
+      label: string;
+      payload: Array<{
+        payload: {
+          conversionRate: number;
+          appliedCount: number;
+          convertedCount: number;
+        };
+      }>;
+    }) => React.ReactNode;
+  }) => (
+    <div data-testid="chart-tooltip">
+      {content({
+        active: true,
+        label: "2025-01-01",
+        payload: [
+          {
+            payload: {
+              conversionRate: 12.3,
+              appliedCount: 8,
+              convertedCount: 1,
+            },
+          },
+        ],
+      })}
+    </div>
+  ),
 }));
 
 vi.mock("recharts", () => ({
@@ -69,7 +99,9 @@ vi.mock("recharts", () => ({
   ),
   Line: () => <div data-testid="line">Line</div>,
   CartesianGrid: () => <div data-testid="cartesian-grid">Grid</div>,
-  XAxis: () => <div data-testid="x-axis">XAxis</div>,
+  XAxis: ({ tickFormatter }: { tickFormatter?: (value: string) => string }) => (
+    <div data-testid="x-axis">{tickFormatter?.("2025-01-01") ?? "XAxis"}</div>
+  ),
   YAxis: () => <div data-testid="y-axis">YAxis</div>,
   Tooltip: () => <div data-testid="tooltip">Tooltip</div>,
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
@@ -119,6 +151,15 @@ describe("ConversionAnalytics - Edge Cases", () => {
       toStage,
       occurredAt,
     });
+
+  it("labels ticks and tooltips with the bucket's own local calendar date", () => {
+    render(
+      <ConversionAnalytics jobsWithEvents={[]} error={null} daysToShow={7} />,
+    );
+
+    expect(screen.getAllByTestId("x-axis").at(-1)).toHaveTextContent(/^1 Jan$/);
+    expect(screen.getByTestId("chart-tooltip")).toHaveTextContent("1 Jan 2025");
+  });
 
   describe("Empty and Null Data", () => {
     it("handles empty jobsWithEvents array - shows 0% conversion", () => {

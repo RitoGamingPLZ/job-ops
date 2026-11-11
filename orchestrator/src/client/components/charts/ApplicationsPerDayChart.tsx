@@ -39,6 +39,12 @@ const toDateKey = (value: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+// Bucket keys represent local calendar days, not UTC timestamps.
+const parseDateKey = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+
 const buildApplicationsPerDay = (
   appliedAt: Array<string | null>,
   daysToShow: number,
@@ -172,7 +178,7 @@ export function ApplicationsPerDayChart({
                 tickMargin={8}
                 minTickGap={32}
                 tickFormatter={(value) => {
-                  const date = new Date(value);
+                  const date = parseDateKey(value);
                   return date.toLocaleDateString("en-GB", {
                     month: "short",
                     day: "numeric",
@@ -186,11 +192,14 @@ export function ApplicationsPerDayChart({
                     className="w-[160px]"
                     nameKey="applications"
                     labelFormatter={(value) =>
-                      new Date(value as string).toLocaleDateString("en-GB", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
+                      parseDateKey(value as string).toLocaleDateString(
+                        "en-GB",
+                        {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        },
+                      )
                     }
                   />
                 }

@@ -157,6 +157,12 @@ const buildFunnelData = (jobsWithEvents: JobWithEvents[]): FunnelStage[] => {
   ];
 };
 
+// Bucket keys represent local calendar days, not UTC timestamps.
+const parseDateKey = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+
 // Build conversion rate time-series data
 const buildConversionTimeSeries = (
   jobsWithEvents: JobWithEvents[],
@@ -395,7 +401,7 @@ export function ConversionAnalytics({
                     tickMargin={8}
                     minTickGap={32}
                     tickFormatter={(value) => {
-                      const date = new Date(value);
+                      const date = parseDateKey(value);
                       return date.toLocaleDateString("en-GB", {
                         month: "short",
                         day: "numeric",
@@ -416,7 +422,7 @@ export function ConversionAnalytics({
                       return (
                         <div className="rounded-lg border border-border/60 bg-background px-3 py-2 text-xs shadow-sm">
                           <div className="mb-2 text-[11px] font-medium text-muted-foreground">
-                            {new Date(label as string).toLocaleDateString(
+                            {parseDateKey(label as string).toLocaleDateString(
                               "en-GB",
                               {
                                 month: "short",
