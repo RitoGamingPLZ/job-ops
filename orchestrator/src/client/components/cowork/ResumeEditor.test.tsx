@@ -1,5 +1,6 @@
 import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -856,12 +857,12 @@ describe("navy serif document content", () => {
       expect(screen.getByText(reason)).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
     expect(onChange.mock.lastCall?.[0].summary.content).toBe("Updated summary");
-    expect(onChange.mock.lastCall?.[0].sections.skills.items[0].name).toBe(
-      "Updated skills",
+    expect(onChange.mock.lastCall?.[0].sections.skills).toEqual(
+      original.sections.skills,
     );
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].description,
-    ).toContain("Updated duty");
+    ).toBe(original.sections.experience.items[0].description);
   });
   it("omits hidden projects and provides removal without an include control", () => {
     const original = fullFixture();
@@ -1102,7 +1103,9 @@ describe("navy serif document content", () => {
 
 // Step A implements these pure helpers in parallel. Exercise the editor against
 // their fixed contract without depending on its placeholder bodies.
-vi.mock("@shared/resume-links", async () => {
+vi.mock("@shared/resume-links", async (importOriginal) => {
+  const { linkedFieldPatch } =
+    await importOriginal<typeof import("@shared/resume-links")>();
   const { splitDescription, joinDescription } = await import(
     "@shared/resume-bullets"
   );
@@ -1127,6 +1130,7 @@ vi.mock("@shared/resume-links", async () => {
     bulletRefs: lines.map((line) => line.ref),
   });
   return {
+    linkedFieldPatch,
     getItemLines: vi.fn(getItemLines),
     setItemLines: vi.fn(setItemLines),
     isOnResume: (doc: ReactiveResumeV5Document, id: string) =>
@@ -1666,5 +1670,104 @@ describe("contact editing", () => {
     expect(screen.getByLabelText("Email")).toBeDisabled();
     expect(screen.getByLabelText("Website URL")).toBeDisabled();
     expect(screen.queryByRole("button", { name: "+ Profile" })).toBeNull();
+  });
+});
+
+describe("linked field acceptance", () => {
+  const library = [
+    {
+      id: "role",
+      kind: "role",
+      text: "Engineer",
+      data: { company: "Company" },
+    },
+  ] as unknown as import("@shared/types").ExperienceBullet[];
+  const changes: ResumeSuggestion[] = ["First", "Second"].map(
+    (text, index) => ({
+      id: String(index),
+      op: "replace_field",
+      field: { section: "experience", itemId: "one", name: "company" },
+      previousText: "Company",
+      text,
+      reason: "Improve",
+    }),
+  );
+  function mountLinked(
+    callback: ((suggestion: ResumeSuggestion) => Promise<boolean>) | undefined,
+    frozen = false,
+  ) {
+    const doc = fixture();
+    doc.sections.experience.items[0].libraryId = "role";
+    const dismiss = vi.fn();
+    const change = vi.fn();
+    render(
+      <ResumeEditor
+        document={doc}
+        library={library}
+        suggestions={changes}
+        onChange={change}
+        onDismiss={dismiss}
+        onAcceptLinkedField={callback}
+        frozen={frozen}
+      />,
+    );
+    return { dismiss, change };
+  }
+  it("awaits a single PATCH before dismissing", async () => {
+    let finish!: (success: boolean) => void;
+    const callback = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { dismiss, change } = mountLinked(callback);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Accept: Change company" })[0],
+    );
+    expect(callback).toHaveBeenCalledWith(changes[0]);
+    expect(dismiss).not.toHaveBeenCalled();
+    await act(async () => finish(true));
+    expect(dismiss).toHaveBeenCalledWith(["0"]);
+    expect(change).not.toHaveBeenCalled();
+  });
+  it("sequences batch PATCHes and dismisses only successes", async () => {
+    let finish!: (success: boolean) => void;
+    const callback = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<boolean>((resolve) => {
+            finish = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(false);
+    const { dismiss } = mountLinked(callback);
+    fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
+    expect(callback).toHaveBeenCalledTimes(1);
+    await act(async () => finish(true));
+    expect(callback).toHaveBeenCalledTimes(2);
+    expect(dismiss.mock.calls).toEqual([[["0"]]]);
+  });
+  it("refuses frozen linked edits including Accept all", () => {
+    const callback = vi.fn();
+    mountLinked(callback, true);
+    expect(
+      screen.getAllByRole("button", { name: "Accept: Change company" })[0],
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
+    expect(callback).not.toHaveBeenCalled();
+  });
+  it("explains that base resume linked fields are edited in the library", () => {
+    const { dismiss, change } = mountLinked(undefined);
+    expect(
+      screen.getAllByText("Library-linked fields are edited in the library"),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("button", { name: "Accept: Change company" })[0],
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
+    expect(dismiss).not.toHaveBeenCalled();
+    expect(change).not.toHaveBeenCalled();
   });
 });

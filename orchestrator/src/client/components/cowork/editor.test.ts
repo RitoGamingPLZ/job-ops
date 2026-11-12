@@ -1,4 +1,4 @@
-import { setItemLines } from "@shared/resume-links";
+import { getItemLines, setItemLines } from "@shared/resume-links";
 import type {
   ReactiveResumeV5Document,
   ResumeFocusRef,
@@ -21,6 +21,7 @@ const fixture = () =>
   ({
     basics: { headline: "Engineer" },
     summary: { content: "Summary" },
+    customSections: [],
     sections: {
       experience: {
         items: [
@@ -192,6 +193,7 @@ describe("resume suggestion application", () => {
         fixture(),
         suggestion({
           op: "set_skills",
+          previousText: "",
           skills: [{ name: "Languages", keywords: ["TypeScript"] }],
         }),
       )?.sections.skills.items[0],
@@ -464,4 +466,116 @@ it("replaces items when setItemLines omits refs", () => {
     suggestion({ op: "delete_bullet", previousText: "First" }),
   );
   expect(next?.sections.experience.items[0]).not.toHaveProperty("bulletRefs");
+});
+
+describe("skills acceptance guards", () => {
+  it("rejects stale snapshots and preserves matched metadata and hidden rows", () => {
+    const doc = fixture();
+    const visible = {
+      id: "visible",
+      libraryId: "skill-lib",
+      hidden: false,
+      name: "Languages",
+      keywords: ["JS"],
+      icon: "code",
+      proficiency: "Expert",
+      level: 4,
+    };
+    const hidden = { ...visible, id: "hidden", hidden: true, name: "Private" };
+    doc.sections.skills.items = [visible, hidden];
+    const update = suggestion({
+      op: "set_skills",
+      previousText: "Languages: JS",
+      skills: [
+        { name: "  LANGUAGES ", keywords: ["TS"] },
+        { name: "Tools", keywords: ["Git"] },
+      ],
+    });
+    const next = applySuggestion(doc, update);
+    expect(next?.sections.skills.items[0]).toEqual({
+      ...visible,
+      name: "  LANGUAGES ",
+      keywords: ["TS"],
+    });
+    expect(next?.sections.skills.items[1]).toEqual(hidden);
+    expect(next?.sections.skills.items[2]).toMatchObject({
+      name: "Tools",
+      hidden: false,
+      level: 0,
+    });
+    expect(applySuggestion(doc, { ...update, previousText: "old" })).toBeNull();
+    doc.sections.skills.hidden = true;
+    expect(applySuggestion(doc, update)).toBeNull();
+  });
+  it("refuses dangling and unsupported linked fields", () => {
+    const doc = fixture();
+    doc.sections.experience.items[0].libraryId = "missing";
+    const change = suggestion({
+      op: "replace_field",
+      field: { section: "experience", itemId: "one", name: "company" },
+      previousText: undefined,
+    });
+    expect(suggestionTarget(doc, change)).toBeNull();
+    doc.sections.projects = {
+      items: [{ id: "project", libraryId: "project-lib", description: "Old" }],
+    } as unknown as typeof doc.sections.projects;
+    const library = [
+      { id: "project-lib", kind: "project", text: "Project" },
+    ] as unknown as import("@shared/types").ExperienceBullet[];
+    expect(
+      suggestionTarget(
+        doc,
+        {
+          ...change,
+          field: {
+            section: "projects",
+            itemId: "project",
+            name: "description",
+          },
+        },
+        library,
+      ),
+    ).toBeNull();
+  });
+  it("links inserted lines to the first currently valid cited bullet", () => {
+    const library = [
+      { id: "role", kind: "role" },
+      { id: "bullet", kind: "bullet" },
+      { id: "other", kind: "bullet" },
+    ] as import("@shared/types").ExperienceBullet[];
+    const next = applySuggestion(
+      fixture(),
+      suggestion({
+        op: "insert_bullet",
+        bulletIndex: 0,
+        sourceBulletIds: ["missing", "role", "bullet", "other"],
+      }),
+      library,
+    );
+    expect(next && getItemLines(next.sections.experience.items[0])[0].ref).toBe(
+      "bullet",
+    );
+  });
+  it("skips cited bullets already on the resume and uses null when none remain", () => {
+    const original = fixture();
+    original.sections.experience.items[0].bulletRefs = ["used", null];
+    const library = [
+      { id: "used", kind: "bullet" },
+      { id: "available", kind: "bullet" },
+    ] as import("@shared/types").ExperienceBullet[];
+    const insert = suggestion({
+      op: "insert_bullet",
+      bulletIndex: 0,
+      sourceBulletIds: ["used", "available"],
+    });
+    const next = applySuggestion(original, insert, library);
+    if (!next) throw new Error("Expected insertion to apply");
+    expect(getItemLines(next.sections.experience.items[0])[0].ref).toBe(
+      "available",
+    );
+    const again = applySuggestion(next, insert, library);
+    expect(
+      again && getItemLines(again.sections.experience.items[0])[0].ref,
+    ).toBe(null);
+  });
 });

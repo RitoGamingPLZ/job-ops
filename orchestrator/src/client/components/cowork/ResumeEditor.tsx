@@ -216,6 +216,8 @@ function LinkField({
 
 type Props = {
   library?: ExperienceBullet[];
+  onAcceptLinkedField?: (suggestion: ResumeSuggestion) => Promise<boolean>;
+  frozen?: boolean;
   onSaveLineToLibrary?: (libraryId: string, text: string) => void;
   document: ReactiveResumeV5Document;
   onChange: (document: ReactiveResumeV5Document) => void;
@@ -236,6 +238,8 @@ export function ResumeEditor({
   onAskAi,
   library = [],
   onSaveLineToLibrary,
+  onAcceptLinkedField,
+  frozen = false,
   contactsFromLibrary = false,
 }: Props) {
   const [addingSummary, setAddingSummary] = useState(
@@ -544,6 +548,8 @@ export function ResumeEditor({
       { description: string | undefined; stale: boolean }
     >(),
   );
+  const accepting = useRef(false);
+  const [acceptingSuggestions, setAcceptingSuggestions] = useState(false);
   function target(suggestion: ResumeSuggestion) {
     if (
       suggestion.experienceId &&
@@ -561,18 +567,34 @@ export function ResumeEditor({
         if (snapshot.stale) return null;
       }
     }
-    return suggestionTarget(document, suggestion);
+    const resolved = suggestionTarget(document, suggestion, library);
+    return resolved?.libraryId && (frozen || !onAcceptLinkedField)
+      ? null
+      : resolved;
   }
   // Capture even suggestions whose target currently has no visible bullet row.
   for (const suggestion of suggestions) target(suggestion);
-  function accept(items: ResumeSuggestion[]) {
-    const result = applySuggestions(
-      document,
-      items.filter((item) => target(item) !== null),
-    );
-    if (result.applied.length) {
-      onChange(result.document);
-      onDismiss(result.applied);
+  async function accept(items: ResumeSuggestion[]) {
+    if (disabled || accepting.current) return;
+    accepting.current = true;
+    setAcceptingSuggestions(true);
+    try {
+      const applicable = items.filter((item) => target(item) !== null);
+      const result = applySuggestions(document, applicable, library);
+      if (result.applied.length) {
+        onChange(result.document);
+        onDismiss(result.applied);
+      }
+      for (const item of applicable) {
+        if (
+          suggestionTarget(document, item, library)?.libraryId &&
+          (await onAcceptLinkedField?.(item))
+        )
+          onDismiss([item.id]);
+      }
+    } finally {
+      accepting.current = false;
+      setAcceptingSuggestions(false);
     }
   }
   function suggestionList(items: ResumeSuggestion[]) {
@@ -610,14 +632,26 @@ export function ResumeEditor({
             </>
           ) : (
             <p className="text-muted-foreground">
-              Not applicable — this content has changed.
+              {s.op === "replace_field" &&
+              suggestionTarget(document, s, library)?.libraryId &&
+              frozen
+                ? "Not applicable — this job is frozen."
+                : s.op === "replace_field" &&
+                    suggestionTarget(document, s, library)?.libraryId &&
+                    !onAcceptLinkedField
+                  ? "Library-linked fields are edited in the library"
+                  : s.op === "replace_field" &&
+                      fieldVisible(document, s) &&
+                      !resolved
+                    ? "Not applicable — the field changed, its library item is missing, or this library field cannot be updated."
+                    : "Not applicable — this content has changed."}
             </p>
           )}
           <p className="text-xs text-muted-foreground">{s.reason}</p>
           <div className="resume-review">
             <Button
               size="sm"
-              disabled={disabled || !resolved}
+              disabled={disabled || acceptingSuggestions || !resolved}
               title={`Accept: ${label}`}
               aria-label={`Accept: ${label}`}
               onClick={() => accept([s])}
@@ -1812,7 +1846,11 @@ export function ResumeEditor({
           {suggestions.length > 0 && (
             <div className="flex items-center gap-2 text-sm">
               <span className="mr-auto">{suggestions.length} suggestions</span>
-              <Button size="sm" onClick={() => accept(suggestions)}>
+              <Button
+                size="sm"
+                disabled={disabled || acceptingSuggestions}
+                onClick={() => accept(suggestions)}
+              >
                 Accept all
               </Button>
               <Button
