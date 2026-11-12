@@ -22,13 +22,14 @@ import type {
   ReactiveResumeV5Document,
   ResumeFocusRef,
   ResumeListItem,
-  ResumeSuggestion,
+  ResumeSuggestionV2,
 } from "@shared/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { executeAcceptedSuggestions } from "@/client/components/cowork/acceptSuggestions";
 import { CandidateLibrary } from "@/client/components/cowork/CandidateLibrary";
 import { coworkError } from "@/client/components/cowork/DutyLibrary";
 import {
@@ -131,7 +132,15 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
   const [job, setJob] = useState<Job | null>(null);
   const [state, setState] = useState<JobResumeState | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const [suggestions, setSuggestions] = useState<ResumeSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<ResumeSuggestionV2[]>([]);
+  const [rejectionReasons, setRejectionReasons] = useState<
+    Record<string, string>
+  >({});
+  const accepting = useRef(false);
+  const pendingAcceptedIds = useRef<string[]>([]);
+  const acceptedUndoIds = useRef(
+    new WeakMap<ReactiveResumeV5Document, string[]>(),
+  );
   const [references, setReferences] = useState<BulletReference[]>([]);
   const [focus, setFocus] = useState<ResumeFocusRef[]>([]);
   const chat = useRef<HTMLElement>(null);
@@ -243,6 +252,13 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
             : saved,
         );
         dirty.current = changed;
+        if (!changed && pendingAcceptedIds.current.length) {
+          const ids = pendingAcceptedIds.current;
+          pendingAcceptedIds.current = [];
+          setSuggestions((current) =>
+            current.filter((s) => !ids.includes(s.id)),
+          );
+        }
         if (mounted.current) setStatus(changed ? "Unsaved changes" : "Saved");
         return true;
       } catch (failure) {
@@ -358,6 +374,11 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
     if (syncing.current || resumeReloadRequired.current) return;
     const previous = history.current.pop();
     if (!previous || !latest.current) return;
+    const undoneIds = acceptedUndoIds.current.get(previous) ?? [];
+    pendingAcceptedIds.current = pendingAcceptedIds.current.filter(
+      (id) => !undoneIds.includes(id),
+    );
+    acceptedUndoIds.current.delete(previous);
     setUndoStack([...history.current]);
     lastTyping.current = null;
     version.current++;
@@ -393,7 +414,10 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
   async function resolveConflict(keepMine: boolean) {
     const remote = conflict.current;
     if (!remote || !latest.current) return;
-    if (!keepMine) pushUndo(latest.current.document);
+    if (!keepMine) {
+      pushUndo(latest.current.document);
+      pendingAcceptedIds.current = [];
+    }
     version.current++;
     publish(
       keepMine ? { ...remote, document: latest.current.document } : remote,
@@ -517,6 +541,85 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
       ]) as typeof experience;
       edit(next);
       toast.success("Duty inserted");
+    }
+  }
+  async function acceptSuggestions(items: ResumeSuggestionV2[]) {
+    if (accepting.current || busy || !items.length) return;
+    accepting.current = true;
+    setBusy(true);
+    try {
+      if (!(await flush()) || !latest.current) return;
+      syncing.current = true;
+      const snapshot = latest.current;
+      const result = await executeAcceptedSuggestions(
+        {
+          jobId,
+          document: snapshot.document,
+          baseRevision: snapshot.revision,
+          library,
+        },
+        items,
+        {
+          createItem: api.createExperienceBullet,
+          updateItem: api.updateExperienceBullet,
+        },
+      );
+      if (!mounted.current) return;
+      setLibrary(result.library);
+      const reasons = Object.fromEntries(
+        result.rejected.map(({ id, code }) => [
+          id,
+          code === "INVALID_TARGET" &&
+          items.some((s) => s.id === id && s.op === "create_library_item")
+            ? "Added to library; could not place on resume."
+            : code === "FAILED"
+              ? "Library update failed. Retry accepting this suggestion."
+              : code === "INVALID_TARGET"
+                ? "The linked library item or resume target is no longer available."
+                : "This content has changed. Request a fresh suggestion.",
+        ]),
+      );
+      syncing.current = false;
+      if (result.applied.length) {
+        const beforeEdit = latest.current?.document;
+        edit(result.document);
+        if (beforeEdit && beforeEdit !== result.document) {
+          acceptedUndoIds.current.set(
+            beforeEdit,
+            result.applied.filter((id) =>
+              items.some(
+                (s) =>
+                  s.id === id &&
+                  s.op !== "save_to_library" &&
+                  (s.op !== "create_library_item" || s.includeOnResume),
+              ),
+            ),
+          );
+        }
+        // Even library-only acceptance checks that the reviewed resume revision still holds.
+        dirty.current = true;
+        pendingAcceptedIds.current = [
+          ...new Set([...pendingAcceptedIds.current, ...result.applied]),
+        ];
+        if (!(await save())) {
+          for (const id of result.applied)
+            reasons[id] =
+              "Resume save failed or conflicted. Review the current copy before retrying. Library changes may already be saved.";
+        }
+      }
+      setRejectionReasons((current) => ({ ...current, ...reasons }));
+    } catch (failure) {
+      coworkError(failure);
+      setRejectionReasons((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          items.map((s) => [s.id, "Acceptance failed. Review and retry."]),
+        ),
+      }));
+    } finally {
+      syncing.current = false;
+      accepting.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
   async function saveLineToLibrary(id: string, text: string) {
@@ -646,7 +749,7 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
     [],
   );
   const receiveSuggestions = useCallback(
-    (items: ResumeSuggestion[] | null) => {
+    (items: ResumeSuggestionV2[] | null) => {
       if (items?.length && !wide)
         toast.message(
           `${items.length} suggestion${items.length === 1 ? "" : "s"} - review in Editor`,
@@ -1035,6 +1138,8 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
                     }
               }
               suggestions={suggestions}
+              onAccept={(items) => void acceptSuggestions(items)}
+              rejectionReasons={rejectionReasons}
               onDismiss={(ids) =>
                 setSuggestions((current) =>
                   current.filter((s) => !ids.includes(s.id)),

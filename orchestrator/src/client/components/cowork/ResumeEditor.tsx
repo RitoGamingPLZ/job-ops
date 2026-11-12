@@ -1,5 +1,6 @@
 import {
   bulletsFromHtml,
+  htmlToPlainText,
   introTextToHtml,
   joinDescription,
   splitDescription,
@@ -20,7 +21,7 @@ import type {
   ExperienceBullet,
   ReactiveResumeV5Document,
   ResumeFocusRef,
-  ResumeSuggestion,
+  ResumeSuggestionV2,
 } from "@shared/types";
 import {
   type CSSProperties,
@@ -32,6 +33,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { librarySaveInput } from "./acceptSuggestions";
 import { REWORDED_TINT_CLASS } from "./rewordTint";
 import "./ResumeEditor.css";
 import { RichTextEditor } from "@/client/components/design-resume/RichTextEditor";
@@ -39,12 +41,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BulletText, fitTextarea } from "./BulletText";
 import { CommaListInput } from "./CommaListInput";
-import {
-  applySuggestions,
-  FOCUS_TRANSFER_TYPE,
-  fieldVisible,
-  suggestionTarget,
-} from "./editor";
+import { FOCUS_TRANSFER_TYPE, fieldVisible, suggestionTarget } from "./editor";
 import {
   EXPERIENCE_TRANSFER_TYPE,
   moveItem,
@@ -214,13 +211,30 @@ function LinkField({
   );
 }
 
+const SAVE_FIELD_LABELS: Record<string, string> = {
+  company: "Company",
+  location: "Location",
+  period: "Dates",
+  website: "Website",
+  keywords: "Keywords",
+  school: "School",
+  area: "Field of study",
+  grade: "Grade",
+  description: "Description",
+  date: "Date",
+  awarder: "Awarded by",
+  issuer: "Issued by",
+};
+
 type Props = {
   library?: ExperienceBullet[];
   onSaveLineToLibrary?: (libraryId: string, text: string) => void;
   document: ReactiveResumeV5Document;
   onChange: (document: ReactiveResumeV5Document) => void;
-  suggestions: ResumeSuggestion[];
+  suggestions: ResumeSuggestionV2[];
   onDismiss: (ids: string[]) => void;
+  onAccept: (items: ResumeSuggestionV2[]) => void;
+  rejectionReasons?: Record<string, string>;
   disabled?: boolean;
   /** Margin "Ask AI" button: add this part of the resume to the chat focus. */
   onAskAi?: (ref: ResumeFocusRef) => void;
@@ -232,6 +246,8 @@ export function ResumeEditor({
   onChange,
   suggestions,
   onDismiss,
+  onAccept,
+  rejectionReasons = {},
   disabled,
   onAskAi,
   library = [],
@@ -537,75 +553,127 @@ export function ResumeEditor({
       ? { className: REWORDED_TINT_CLASS, title: original.text }
       : {};
   }
-  // Index-only targets belong to the experience snapshot in which they arrived.
-  const snapshots = useRef(
-    new WeakMap<
-      ResumeSuggestion,
-      { description: string | undefined; stale: boolean }
-    >(),
-  );
-  function target(suggestion: ResumeSuggestion) {
-    if (
-      suggestion.experienceId &&
-      (suggestion.op === "insert_bullet" ||
-        suggestion.previousText === undefined)
-    ) {
-      const description = document.sections.experience.items.find(
-        (e) => e.id === suggestion.experienceId,
-      )?.description;
-      const snapshot = snapshots.current.get(suggestion);
-      if (!snapshot)
-        snapshots.current.set(suggestion, { description, stale: false });
-      else {
-        snapshot.stale ||= snapshot.description !== description;
-        if (snapshot.stale) return null;
-      }
+  // Inserts have no previousText: bind them to the description first reviewed.
+  const snapshots = useRef(new WeakMap<ResumeSuggestionV2, string>());
+  function target(s: ResumeSuggestionV2) {
+    if (s.op === "insert_bullet") {
+      const description =
+        document.sections[s.section].items.find((i) => i.id === s.itemId)
+          ?.description ?? "";
+      const previous = snapshots.current.get(s);
+      if (previous === undefined) snapshots.current.set(s, description);
+      else if (previous !== description) return null;
     }
-    return suggestionTarget(document, suggestion);
+    return suggestionTarget(document, s, library);
   }
-  // Capture even suggestions whose target currently has no visible bullet row.
-  for (const suggestion of suggestions) target(suggestion);
-  function accept(items: ResumeSuggestion[]) {
-    const result = applySuggestions(
-      document,
-      items.filter((item) => target(item) !== null),
+  for (const s of suggestions) target(s);
+  function accept(items: ResumeSuggestionV2[]) {
+    onAccept(
+      items.filter((s) =>
+        s.op === "save_to_library"
+          ? "input" in librarySaveInput(document, s.target, library)
+          : target(s) !== null,
+      ),
     );
-    if (result.applied.length) {
-      onChange(result.document);
-      onDismiss(result.applied);
-    }
   }
-  function suggestionList(items: ResumeSuggestion[]) {
+  const libraryChangeCount = suggestions.filter(
+    (s) => s.op === "create_library_item" || s.op === "save_to_library",
+  ).length;
+  function suggestionList(items: ResumeSuggestionV2[]) {
     return items.map((s) => {
       const resolved = target(s);
       const label =
         s.op === "replace_field"
-          ? `Change ${s.field?.name ?? "field"}`
+          ? `Change ${s.field.name}`
           : {
               replace_bullet: "Rewrite bullet",
               insert_bullet: "Add bullet",
               delete_bullet: "Remove bullet",
               replace_summary: "Change summary",
               replace_headline: "Change headline",
-              set_skills: "Update skills",
+              set_skill_keywords: "Update skill keywords",
+              replace_intro: "Change introduction",
+              reorder_bullets: "Reorder bullets",
+              add_entry: "Add entry",
+              remove_entry: "Remove entry",
+              reorder_entries: "Reorder entries",
+              include_library_item: "Include library item",
+              exclude_library_item: "Exclude library item",
+              create_library_item: "Add to library",
+              save_to_library:
+                "Save to library (updates other resumes using it)",
             }[s.op];
+      const savePreview =
+        s.op === "save_to_library"
+          ? librarySaveInput(document, s.target, library)
+          : null;
+      const applicable =
+        s.op === "save_to_library"
+          ? Boolean(savePreview && "input" in savePreview)
+          : Boolean(resolved);
       return (
         <article key={s.id} className="resume-suggestion">
           <p className="font-medium">{label}</p>
-          {resolved ? (
+          {s.op === "save_to_library" ? (
+            savePreview && "input" in savePreview ? (
+              <div className="text-sm">
+                <p>{savePreview.input.text}</p>
+                <dl>
+                  {Object.entries(savePreview.input.data ?? {})
+                    .filter(([key]) => key !== "schemaVersion")
+                    .map(([key, value]) => (
+                      <div key={key}>
+                        <dt className="font-medium">
+                          {SAVE_FIELD_LABELS[key] ?? key}
+                        </dt>
+                        <dd>
+                          {Array.isArray(value)
+                            ? value.join(", ")
+                            : value && typeof value === "object"
+                              ? [
+                                  (value as { url?: string }).url,
+                                  (value as { label?: string }).label,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")
+                              : htmlToPlainText(String(value ?? ""))}
+                        </dd>
+                      </div>
+                    ))}
+                </dl>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">
+                {savePreview &&
+                "code" in savePreview &&
+                savePreview.code === "STALE"
+                  ? "Not applicable — this content has changed."
+                  : "The linked resume content is no longer available."}
+              </p>
+            )
+          ) : s.op === "exclude_library_item" ? (
+            <del className="resume-deletion">
+              {library.find((row) => row.id === s.libraryId)?.text}
+            </del>
+          ) : resolved ? (
             <>
               <del className="resume-deletion">{resolved.old}</del>
               <mark className="resume-insertion">
-                {s.op === "delete_bullet"
-                  ? "Remove bullet"
-                  : s.op === "set_skills"
-                    ? s.skills
-                        ?.map(
-                          (skill) =>
-                            `${skill.name}: ${skill.keywords.join(", ")}`,
-                        )
-                        .join("; ")
-                    : s.text}
+                {s.op === "set_skill_keywords"
+                  ? s.keywords.join(", ")
+                  : "text" in s
+                    ? s.text
+                    : s.op === "create_library_item"
+                      ? `${s.item.text}${s.includeOnResume ? " · Include on resume" : ""}`
+                      : s.op === "add_entry"
+                        ? Object.values(s.item)
+                            .filter(
+                              (value) => typeof value === "string" && value,
+                            )
+                            .join(" · ")
+                        : "libraryId" in s
+                          ? library.find((row) => row.id === s.libraryId)?.text
+                          : label}
               </mark>
             </>
           ) : (
@@ -613,11 +681,16 @@ export function ResumeEditor({
               Not applicable — this content has changed.
             </p>
           )}
+          {rejectionReasons[s.id] && (
+            <output className="text-muted-foreground">
+              {rejectionReasons[s.id]}
+            </output>
+          )}
           <p className="text-xs text-muted-foreground">{s.reason}</p>
           <div className="resume-review">
             <Button
               size="sm"
-              disabled={disabled || !resolved}
+              disabled={disabled || !applicable}
               title={`Accept: ${label}`}
               aria-label={`Accept: ${label}`}
               onClick={() => accept([s])}
@@ -1000,7 +1073,7 @@ export function ResumeEditor({
       ? null
       : () =>
           document.sections.skills.items.some((s) => !s.hidden) ||
-          suggestions.some((s) => s.op === "set_skills") ? (
+          suggestions.some((s) => s.op === "set_skill_keywords") ? (
             <section className="resume-section" aria-label="Skills">
               <h2
                 className="text-sm font-semibold"
@@ -1142,7 +1215,9 @@ export function ResumeEditor({
                   ),
               )}
               {reorderZone("skills", document.sections.skills.items.length)}
-              {suggestionList(suggestions.filter((s) => s.op === "set_skills"))}
+              {suggestionList(
+                suggestions.filter((s) => s.op === "set_skill_keywords"),
+              )}
             </section>
           ) : (
             <section className="resume-section">
@@ -1467,7 +1542,10 @@ export function ResumeEditor({
                           {suggestionList(
                             suggestions.filter(
                               (s) =>
-                                s.experienceId === experience.id &&
+                                "section" in s &&
+                                s.section === "experience" &&
+                                "itemId" in s &&
+                                s.itemId === experience.id &&
                                 target(s)?.index === index,
                             ),
                           )}
@@ -1486,7 +1564,10 @@ export function ResumeEditor({
                     {suggestionList(
                       suggestions.filter(
                         (s) =>
-                          s.experienceId === experience.id &&
+                          "section" in s &&
+                          s.section === "experience" &&
+                          "itemId" in s &&
+                          s.itemId === experience.id &&
                           (!target(s) || target(s)?.index === lines.length),
                       ),
                     )}
@@ -1812,8 +1893,22 @@ export function ResumeEditor({
           {suggestions.length > 0 && (
             <div className="flex items-center gap-2 text-sm">
               <span className="mr-auto">{suggestions.length} suggestions</span>
-              <Button size="sm" onClick={() => accept(suggestions)}>
+              <Button
+                size="sm"
+                onClick={() =>
+                  accept(
+                    suggestions.filter(
+                      (s) =>
+                        s.op !== "create_library_item" &&
+                        s.op !== "save_to_library",
+                    ),
+                  )
+                }
+              >
                 Accept all
+                {libraryChangeCount > 0
+                  ? ` (${libraryChangeCount} library ${libraryChangeCount === 1 ? "change needs" : "changes need"} separate accept)`
+                  : ""}
               </Button>
               <Button
                 size="sm"
@@ -2047,15 +2142,26 @@ export function ResumeEditor({
           {suggestionList(
             suggestions.filter(
               (s) =>
+                ![
+                  "replace_summary",
+                  "replace_headline",
+                  "set_skill_keywords",
+                  "replace_field",
+                  "replace_bullet",
+                  "insert_bullet",
+                  "delete_bullet",
+                ].includes(s.op) ||
                 (s.op === "replace_summary" && document.summary.hidden) ||
-                (s.op === "set_skills" && document.sections.skills.hidden) ||
+                (s.op === "set_skill_keywords" &&
+                  document.sections.skills.hidden) ||
                 (s.op === "replace_field" && !fieldVisible(document, s)) ||
-                (["replace_bullet", "insert_bullet", "delete_bullet"].includes(
-                  s.op,
-                ) &&
-                  (document.sections.experience.hidden ||
+                ((s.op === "replace_bullet" ||
+                  s.op === "insert_bullet" ||
+                  s.op === "delete_bullet") &&
+                  (s.section === "projects" ||
+                    document.sections.experience.hidden ||
                     !document.sections.experience.items.some(
-                      (e) => e.id === s.experienceId && !e.hidden,
+                      (e) => e.id === s.itemId && !e.hidden,
                     ))),
             ),
           )}

@@ -1,4 +1,7 @@
-import type { ReactiveResumeV5Document, ResumeSuggestion } from "@shared/types";
+import type {
+  ReactiveResumeV5Document,
+  ResumeSuggestionV2,
+} from "@shared/types";
 import {
   cleanup,
   fireEvent,
@@ -6,9 +9,28 @@ import {
   screen,
   within,
 } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ResumeEditor } from "./ResumeEditor";
+import { applySuggestions } from "./editor";
+import { ResumeEditor as ResumeEditorView } from "./ResumeEditor";
+
+function ResumeEditor(
+  props: Omit<ComponentProps<typeof ResumeEditorView>, "onAccept">,
+) {
+  return (
+    <ResumeEditorView
+      {...props}
+      onAccept={(items) => {
+        const result = applySuggestions(props.document, items, props.library);
+        if (result.applied.length) {
+          props.onChange(result.document);
+          props.onDismiss(result.applied);
+        }
+      }}
+    />
+  );
+}
 
 vi.mock("@/client/components/design-resume/RichTextEditor", () => ({
   RichTextEditor: ({
@@ -47,11 +69,12 @@ const fixture = () =>
       projects: { items: [] },
     },
   }) as unknown as ReactiveResumeV5Document;
-const suggestions: ResumeSuggestion[] = [
+const suggestions: ResumeSuggestionV2[] = [
   {
     id: "insert",
     op: "insert_bullet",
-    experienceId: "one",
+    section: "experience",
+    itemId: "one",
     bulletIndex: 0,
     text: "X",
     reason: "Insert",
@@ -59,7 +82,9 @@ const suggestions: ResumeSuggestion[] = [
   {
     id: "delete",
     op: "delete_bullet",
-    experienceId: "one",
+    previousText: "C",
+    section: "experience",
+    itemId: "one",
     bulletIndex: 2,
     reason: "Delete",
   },
@@ -89,21 +114,25 @@ describe("resume editor review regressions", () => {
   });
   it("marks an index-only suggestion stale after a sequential accept", () => {
     render(<Workspace />);
-    fireEvent.click(screen.getAllByRole("button", { name: /^Accept:/ })[0]);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Accept: Remove bullet" }),
+    );
     expect(screen.getByText(/Not applicable/)).toBeVisible();
     expect(screen.getByRole("button", { name: /^Accept:/ })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
-    expect(screen.getByLabelText("Company bullet 4")).toHaveValue("C");
+    expect(screen.getByLabelText("Company bullet 2")).toHaveValue("B");
+    expect(screen.queryByLabelText("Company bullet 3")).toBeNull();
   });
   it("marks index-only targets stale after manual edits but still matches previousText", () => {
     const onChange = vi.fn();
     const document = fixture();
-    const items: ResumeSuggestion[] = [
+    const items: ResumeSuggestionV2[] = [
       ...suggestions,
       {
         id: "text",
         op: "replace_bullet",
-        experienceId: "one",
+        section: "experience",
+        itemId: "one",
         bulletIndex: 2,
         previousText: "C",
         text: "Improved",
@@ -129,12 +158,12 @@ describe("resume editor review regressions", () => {
         onDismiss={vi.fn()}
       />,
     );
-    expect(screen.getAllByText(/Not applicable/)).toHaveLength(2);
+    expect(screen.getAllByText(/Not applicable/)).toHaveLength(1);
     expect(
       screen
         .getAllByRole("button", { name: /^Accept:/ })
         .filter((button) => !button.hasAttribute("disabled")),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
   });
   it("preserves multi-word skill drafts until blur and drops empty keywords", () => {
     render(<Workspace />);
@@ -339,7 +368,7 @@ describe("navy serif document content", () => {
       '<p class="original">Led a team &amp; shipped.</p>\n<p>See <a href="https://example.com">work</a>.</p>\n<ul><li>A</li><li>B</li><li>C</li></ul>';
     return next;
   }
-  function mount(initial = fullFixture(), items: ResumeSuggestion[] = []) {
+  function mount(initial = fullFixture(), items: ResumeSuggestionV2[] = []) {
     const onChange = vi.fn();
     function Editor() {
       const [document, setDocument] = useState(initial);
@@ -492,7 +521,7 @@ describe("navy serif document content", () => {
   it("offers Ask AI focus refs and applies replace_field inline", () => {
     const onAskAi = vi.fn();
     const onChange = vi.fn();
-    const suggestion: ResumeSuggestion = {
+    const suggestion: ResumeSuggestionV2 = {
       id: "field",
       op: "replace_field",
       field: { section: "education", itemId: "school", name: "school" },
@@ -673,7 +702,9 @@ describe("navy serif document content", () => {
       {
         id: "replace",
         op: "replace_bullet",
-        experienceId: "one",
+        previousText: "A",
+        section: "experience",
+        itemId: "one",
         bulletIndex: 0,
         text: "Improved",
         reason: "Useful detail",
@@ -832,19 +863,24 @@ describe("navy serif document content", () => {
       {
         id: "summary",
         op: "replace_summary",
+        previousText: "Summary",
         text: "Updated summary",
         reason: "Summary reason",
       },
       {
         id: "skills",
-        op: "set_skills",
-        skills: [{ name: "Updated skills", keywords: [] }],
+        op: "set_skill_keywords",
+        itemId: "skill",
+        previousKeywords: ["TypeScript"],
+        keywords: ["Updated skills"],
         reason: "Skills reason",
       },
       {
         id: "bullet",
         op: "replace_bullet",
-        experienceId: "one",
+        previousText: "A",
+        section: "experience",
+        itemId: "one",
         bulletIndex: 0,
         text: "Updated duty",
         reason: "Duty reason",
@@ -856,12 +892,12 @@ describe("navy serif document content", () => {
       expect(screen.getByText(reason)).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
     expect(onChange.mock.lastCall?.[0].summary.content).toBe("Updated summary");
-    expect(onChange.mock.lastCall?.[0].sections.skills.items[0].name).toBe(
-      "Updated skills",
-    );
+    expect(
+      onChange.mock.lastCall?.[0].sections.skills.items[0].keywords,
+    ).toEqual(["Updated skills"]);
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].description,
-    ).toContain("Updated duty");
+    ).toBe(original.sections.experience.items[0].description);
   });
   it("omits hidden projects and provides removal without an include control", () => {
     const original = fullFixture();
@@ -944,7 +980,9 @@ describe("navy serif document content", () => {
       {
         id: "rewrite",
         op: "replace_bullet",
-        experienceId: "one",
+        previousText: "A",
+        section: "experience",
+        itemId: "one",
         bulletIndex: 0,
         text: "Improved",
         reason: "Detail",
@@ -952,7 +990,8 @@ describe("navy serif document content", () => {
       {
         id: "add",
         op: "insert_bullet",
-        experienceId: "one",
+        section: "experience",
+        itemId: "one",
         bulletIndex: 1,
         text: "Added",
         reason: "Detail",
@@ -960,27 +999,39 @@ describe("navy serif document content", () => {
       {
         id: "remove",
         op: "delete_bullet",
-        experienceId: "one",
+        previousText: "C",
+        section: "experience",
+        itemId: "one",
         bulletIndex: 2,
         reason: "Detail",
       },
       {
         id: "summary",
         op: "replace_summary",
+        previousText: "Summary",
         text: "New summary",
         reason: "Detail",
       },
       {
         id: "headline",
         op: "replace_headline",
+        previousText: "Engineer",
         text: "New headline",
         reason: "Detail",
       },
-      { id: "skills", op: "set_skills", skills: [], reason: "Detail" },
+      {
+        id: "skills",
+        op: "set_skill_keywords",
+        itemId: "skill",
+        previousKeywords: ["TypeScript"],
+        keywords: [],
+        reason: "Detail",
+      },
       {
         id: "field",
         op: "replace_field",
         field: { section: "education", itemId: "school", name: "school" },
+        previousText: "Example University",
         text: "New school",
         reason: "Detail",
       },
@@ -991,7 +1042,7 @@ describe("navy serif document content", () => {
       "Remove bullet",
       "Change summary",
       "Change headline",
-      "Update skills",
+      "Update skill keywords",
       "Change school",
     ]) {
       expect(
@@ -1102,7 +1153,8 @@ describe("navy serif document content", () => {
 
 // Step A implements these pure helpers in parallel. Exercise the editor against
 // their fixed contract without depending on its placeholder bodies.
-vi.mock("@shared/resume-links", async () => {
+vi.mock("@shared/resume-links", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@shared/resume-links")>();
   const { splitDescription, joinDescription } = await import(
     "@shared/resume-bullets"
   );
@@ -1127,6 +1179,7 @@ vi.mock("@shared/resume-links", async () => {
     bulletRefs: lines.map((line) => line.ref),
   });
   return {
+    ...actual,
     getItemLines: vi.fn(getItemLines),
     setItemLines: vi.fn(setItemLines),
     isOnResume: (doc: ReactiveResumeV5Document, id: string) =>
@@ -1667,4 +1720,171 @@ describe("contact editing", () => {
     expect(screen.getByLabelText("Website URL")).toBeDisabled();
     expect(screen.queryByRole("button", { name: "+ Profile" })).toBeNull();
   });
+});
+
+it("labels structural and library effects before delegating acceptance to the page", () => {
+  const document = fixture();
+  const onAccept = vi.fn();
+  const onDismiss = vi.fn();
+  const onChange = vi.fn();
+  document.sections.skills.items[0].libraryId = "lib";
+  const library = [
+    { id: "lib", kind: "skill", text: "Languages" },
+  ] as import("@shared/types").ExperienceBullet[];
+  const suggestions: ResumeSuggestionV2[] = [
+    {
+      id: "add",
+      reason: "Review",
+      op: "add_entry",
+      section: "skills",
+      index: 1,
+      item: { name: "Tools" },
+    },
+    {
+      id: "remove",
+      reason: "Review",
+      op: "remove_entry",
+      section: "skills",
+      itemId: "skill",
+    },
+    {
+      id: "order",
+      reason: "Review",
+      op: "reorder_entries",
+      section: "skills",
+      itemIds: ["skill"],
+    },
+    {
+      id: "include",
+      reason: "Review",
+      op: "include_library_item",
+      libraryId: "lib",
+    },
+    {
+      id: "exclude",
+      reason: "Review",
+      op: "exclude_library_item",
+      libraryId: "lib",
+    },
+    {
+      id: "create",
+      reason: "Review",
+      op: "create_library_item",
+      item: { kind: "skill", text: "New library skill" },
+      includeOnResume: false,
+    },
+    {
+      id: "save",
+      reason: "Review",
+      op: "save_to_library",
+      target: {
+        kind: "entry",
+        section: "skills",
+        itemId: "skill",
+        libraryId: "lib",
+      },
+    },
+  ];
+  render(
+    <ResumeEditorView
+      document={document}
+      library={library}
+      suggestions={suggestions}
+      onChange={onChange}
+      onDismiss={onDismiss}
+      onAccept={onAccept}
+      rejectionReasons={{
+        create: "Library update failed. Retry accepting this suggestion.",
+      }}
+    />,
+  );
+  for (const label of [
+    "Add entry",
+    "Remove entry",
+    "Reorder entries",
+    "Include library item",
+    "Exclude library item",
+    "Add to library",
+    "Save to library (updates other resumes using it)",
+  ])
+    expect(
+      screen.getByRole("button", { name: `Accept: ${label}` }),
+    ).toBeVisible();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Accept: Add to library" }),
+  );
+  expect(onAccept).toHaveBeenCalledWith([suggestions[5]]);
+  onAccept.mockClear();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Accept all (2 library changes need separate accept)",
+    }),
+  );
+  expect(onAccept).toHaveBeenCalledWith(suggestions.slice(0, 5));
+  const saveCard = screen
+    .getByRole("button", {
+      name: "Accept: Save to library (updates other resumes using it)",
+    })
+    .closest("article");
+  if (!saveCard) throw new Error("Expected save review card");
+  expect(within(saveCard).getByText("Skills")).toBeVisible();
+  expect(within(saveCard).getByText("TypeScript")).toBeVisible();
+  expect(within(saveCard).getByText("Keywords")).toBeVisible();
+  expect(within(saveCard).queryByText("keywords")).toBeNull();
+  expect(saveCard.querySelector("del")).toBeNull();
+  expect(screen.queryByText("Current resume fields")).toBeNull();
+  const excludeCard = screen
+    .getByRole("button", { name: "Accept: Exclude library item" })
+    .closest("article");
+  expect(excludeCard?.querySelector("del")).toHaveTextContent("Languages");
+  expect(excludeCard?.querySelector("mark")).toBeNull();
+  expect(onChange).not.toHaveBeenCalled();
+  expect(onDismiss).not.toHaveBeenCalled();
+  expect(
+    screen.getByText("Library update failed. Retry accepting this suggestion."),
+  ).toBeVisible();
+});
+
+it("shows stale library saves as content changed and disables acceptance", () => {
+  const document = fixture();
+  document.sections.experience.items[0].libraryId = "role";
+  document.sections.experience.items[0].bulletRefs = ["line"];
+  const library = [
+    { id: "line", kind: "bullet", parentId: "role", text: "Canonical" },
+  ] as import("@shared/types").ExperienceBullet[];
+  const onAccept = vi.fn();
+  render(
+    <ResumeEditorView
+      document={document}
+      library={library}
+      onChange={vi.fn()}
+      onDismiss={vi.fn()}
+      onAccept={onAccept}
+      suggestions={[
+        {
+          id: "save",
+          reason: "Review",
+          op: "save_to_library",
+          target: {
+            kind: "line",
+            libraryId: "line",
+            target: {
+              section: "experience",
+              itemId: "one",
+              bulletIndex: 0,
+              previousText: "Old text",
+            },
+          },
+        },
+      ]}
+    />,
+  );
+  expect(
+    screen.getByText("Not applicable — this content has changed."),
+  ).toBeVisible();
+  const button = screen.getByRole("button", {
+    name: "Accept: Save to library (updates other resumes using it)",
+  });
+  expect(button).toBeDisabled();
+  expect(button.closest("article")?.querySelector("dl")).toBeNull();
 });
