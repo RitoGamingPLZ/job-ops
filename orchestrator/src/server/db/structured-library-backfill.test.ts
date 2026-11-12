@@ -123,8 +123,29 @@ it.each([
   expect(JSON.parse(get("valid").data)).toHaveProperty("schemaVersion", 2);
   expect(warn).toHaveBeenCalledWith(
     "Structured library migration skipped invalid row",
-    { libraryItemId: "bad", kind: "award" },
+    expect.objectContaining({
+      libraryItemId: "bad",
+      kind: "award",
+      error: expect.anything(),
+    }),
   );
+  if (malformed === '{"date":2024}') {
+    expect(warn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        error: {
+          name: "ZodError",
+          issues: [
+            expect.objectContaining({
+              path: ["date"],
+              code: "invalid_type",
+              message: expect.any(String),
+            }),
+          ],
+        },
+      }),
+    );
+  }
   expect(
     db.prepare("SELECT count(*) AS n FROM app_data_migrations").get(),
   ).toEqual({ n: 1 });

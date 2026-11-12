@@ -147,6 +147,42 @@ function fieldValue(field: string, value: unknown): string {
   }
   return typeof value === "string" ? value : "";
 }
+function structuredDataSchema(kind: CandidateItemKind | undefined) {
+  return kind === "education"
+    ? educationDataSchema
+    : kind === "award"
+      ? awardDataSchema
+      : kind === "certification"
+        ? certificationDataSchema
+        : null;
+}
+/** Submit only editable schema fields, including the strict website shape. */
+function editableData(input: ExperienceBulletInput) {
+  const schema = structuredDataSchema(input.kind);
+  if (!schema) return input.data;
+  const data = input.data ?? {};
+  const rawWebsite =
+    data.website && typeof data.website === "object"
+      ? (data.website as Record<string, unknown>)
+      : {};
+  return Object.fromEntries(
+    Object.keys(schema.parse({})).map((key) => [
+      key,
+      key === "schemaVersion"
+        ? 2
+        : key === "website"
+          ? {
+              url: fieldValue("website", data.website),
+              label:
+                typeof rawWebsite.label === "string" ? rawWebsite.label : "",
+              ...(typeof rawWebsite.inlineLink === "boolean"
+                ? { inlineLink: rawWebsite.inlineLink }
+                : {}),
+            }
+          : fieldValue(key, data[key]),
+    ]),
+  );
+}
 function resumeItems(
   document?: Doc,
   sectionName?: string,
@@ -302,14 +338,7 @@ export function CandidateLibrary({
     );
   }
   function startEdit(item: Item) {
-    const schema =
-      item.kind === "education"
-        ? educationDataSchema
-        : item.kind === "award"
-          ? awardDataSchema
-          : item.kind === "certification"
-            ? certificationDataSchema
-            : null;
+    const schema = structuredDataSchema(item.kind);
     const parsed = schema?.safeParse(item.data ?? {});
     setEdit({
       items: [item],
@@ -366,7 +395,7 @@ export function CandidateLibrary({
             ? { data: { ...item.data, ...edit.input.data } }
             : {
                 text: edit.input.text.trim(),
-                data: edit.input.data,
+                data: editableData(edit.input),
                 ...(edit.input.tags ? { tags: edit.input.tags } : {}),
               },
         );
@@ -391,6 +420,7 @@ export function CandidateLibrary({
     } else {
       await api.createExperienceBullet({
         ...edit.input,
+        data: editableData(edit.input),
         text: edit.input.text.trim(),
       });
       await refresh();

@@ -1047,3 +1047,39 @@ it.each([
     ).not.toBe(first.id);
   });
 });
+it.each([
+  "education",
+  "award",
+  "certification",
+] as const)("repairs invalid stored %s data with a clean schema PATCH", async (kind) => {
+  const { parseLibraryData } = await import("@shared/candidate-library-schema");
+  const { eq } = await import("drizzle-orm");
+  scope("tenant-a", () => {
+    const clean = parseLibraryData(kind, {
+      description: "<p>Keep rich text</p>",
+      website: {
+        url: "https://example.com",
+        label: "Details",
+        inlineLink: true,
+      },
+    });
+    const item = api.createLibraryItem({ kind, text: "Title", data: clean });
+    database.db
+      .update(database.schema.experienceBullets)
+      .set({
+        data: {
+          ...clean,
+          legacy: "preserved",
+          website: {
+            ...(clean.website as Record<string, unknown>),
+            icon: "invalid nested key",
+          },
+        },
+      })
+      .where(eq(database.schema.experienceBullets.id, item.id))
+      .run();
+    const repaired = api.updateLibraryItem(item.id, { data: clean });
+    expect(repaired.data).toMatchObject({ ...clean, legacy: "preserved" });
+    expect(repaired.data?.website).toEqual(clean.website);
+  });
+});

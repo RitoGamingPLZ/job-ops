@@ -5,6 +5,7 @@ import {
 } from "@shared/candidate-library-schema";
 import type { CandidateItemKind } from "@shared/types/cowork";
 import type Database from "better-sqlite3";
+import type { ZodError } from "zod";
 
 const migrationId = "candidate-library-structured-fields-v2";
 const sections = {
@@ -105,7 +106,12 @@ export function backfillStructuredLibrary(sqlite: Database.Database): void {
     const scopedSources = new Map<string, ReturnType<typeof sourceItems>[]>();
     for (const row of rows) {
       try {
-        const data: unknown = row.data === null ? {} : JSON.parse(row.data);
+        let data: unknown;
+        try {
+          data = row.data === null ? {} : JSON.parse(row.data);
+        } catch {
+          throw new Error("Invalid structured library JSON");
+        }
         if (!data || typeof data !== "object" || Array.isArray(data))
           throw new Error("Invalid structured library migration data");
         const known = data as Record<string, unknown>;
@@ -187,10 +193,25 @@ export function backfillStructuredLibrary(sqlite: Database.Database): void {
         const json = JSON.stringify(next);
         if (text !== row.text || json !== row.data)
           update.run(text, json, row.id, row.tenant_id, row.user_id);
-      } catch {
+      } catch (error) {
+        const validationError = error as ZodError | null;
         logger.warn("Structured library migration skipped invalid row", {
           libraryItemId: row.id,
           kind: row.kind,
+          error:
+            validationError?.name === "ZodError" &&
+            Array.isArray(validationError.issues)
+              ? {
+                  name: validationError.name,
+                  issues: validationError.issues.map(
+                    ({ code, path, message }) => ({
+                      code,
+                      path,
+                      message,
+                    }),
+                  ),
+                }
+              : error,
         });
       }
     }
