@@ -296,6 +296,7 @@
 }
 .resume-paper input.resume-headline {
   font-size: var(--rs-headline);
+  font-weight: var(--rs-strong-weight);
   text-align: center;
 }
 .resume-contact {
@@ -305,7 +306,10 @@
 .resume-header:not(:focus-within)
   .resume-contact-item:not([data-empty="true"])
   ~ .resume-contact-item:not([data-empty="true"])::before,
-.resume-header:focus-within .resume-contact > span + span::before {
+.resume-header:focus-within
+  .resume-contact:not([data-library])
+  > span
+  + span::before {
   content: " | ";
   white-space: pre;
 }
@@ -483,7 +487,7 @@
 }
 .resume-education-degree {
   display: flex;
-  flex: 1 1 100%;
+  flex: 0 1 auto;
   align-items: baseline;
   gap: 3pt;
   min-width: 0;
@@ -496,7 +500,7 @@
   opacity: 0.45;
 }
 /* min-width 0 lets the award text shrink within the available line width. */
-.resume-awards .resume-simple-item textarea {
+.resume-paper .resume-awards .resume-field-description {
   flex: 1;
   min-width: 0;
 }
@@ -653,32 +657,37 @@ h2:focus-within + .resume-section-controls,
   color: var(--rs-color-link);
   text-decoration: underline;
 }
-.resume-contact-url {
+/* A link shows its label; focusing it opens a small Label + Link card below. */
+.resume-paper button.resume-contact-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: text;
+}
+.resume-contact-item.resume-row {
   position: relative;
-  display: inline-grid;
-  max-width: 100%;
-  min-width: 3em;
-  text-align: left;
 }
-.resume-contact-url > * {
-  grid-area: 1 / 1;
+.resume-link-editor {
+  --resume-tools-right: auto;
+  flex-direction: column;
+  align-items: stretch;
 }
-.resume-paper .resume-contact-url > input {
-  width: 0;
-  min-width: 100%;
-  opacity: 0;
+.resume-paper .resume-contact .resume-link-editor input {
+  width: 18em;
+  max-width: none;
+  field-sizing: fixed;
 }
-.resume-contact-url:focus-within > span {
-  visibility: hidden;
+/* Job resumes: contacts come from library ticks, so empty fields stay hidden. */
+.resume-contact[data-library]
+.resume-contact-item[data-empty="true"]:not(:focus-within) {
+  display: none;
 }
-.resume-paper .resume-contact-url:focus-within > input {
-  width: auto;
-  opacity: 1;
-  background: #fff;
-}
-.resume-paper .resume-contact .resume-tools input {
-  min-width: 6em;
-  max-width: 12em;
+.resume-contact[data-library]
+  .resume-contact-item:not([data-empty="true"])
+  ~ .resume-contact-item:not([data-empty="true"])::before {
+  content: " | ";
+  white-space: pre;
 }
 
 .resume-header:not(:focus-within) .resume-contact-item[data-empty="true"] {

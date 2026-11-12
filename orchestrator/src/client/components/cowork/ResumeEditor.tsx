@@ -157,6 +157,8 @@ type Props = {
   disabled?: boolean;
   /** Margin "Ask AI" button: add this part of the resume to the chat focus. */
   onAskAi?: (ref: ResumeFocusRef) => void;
+  /** Job resumes take contacts from library ticks: hide empty contact fields. */
+  contactsFromLibrary?: boolean;
 };
 export function ResumeEditor({
   document,
@@ -167,6 +169,7 @@ export function ResumeEditor({
   onAskAi,
   library = [],
   onSaveLineToLibrary,
+  contactsFromLibrary = false,
 }: Props) {
   const [addingSummary, setAddingSummary] = useState(
     Boolean(bulletsFromHtml(document.summary.content).length),
@@ -636,10 +639,10 @@ export function ResumeEditor({
     if (!section || section.hidden) return null;
     const fields =
       kind === "education"
-        ? ["school", "period", "degree", "area"]
+        ? ["school", "degree", "area", "period"]
         : kind === "certifications"
           ? ["title", "date", "issuer", "website"]
-          : ["title", "description", "awarder", "date"];
+          : ["title", "description"];
     // Key labels by the field being edited, independently of its visual order.
     const fieldLabels: Record<string, string> = {
       school: "school",
@@ -659,27 +662,17 @@ export function ResumeEditor({
       field: string,
     ) {
       const label = `${simpleNames[kind]} ${index + 1} ${fieldLabels[field]}`;
-      return field === "description" ? (
-        <BulletText
-          label={label}
-          readOnly={isLinked(item.libraryId)}
-          value={bulletsFromHtml(String(item[field] ?? "")).join("\n")}
-          onChange={(value) =>
-            change((next) => {
-              next.sections[kind].items[index][field] = introTextToHtml(value);
-            })
-          }
-        />
-      ) : (
+      return (
         <Input
           title={label}
           aria-label={label}
-          readOnly={isLinked(item.libraryId)}
           className={`resume-field-${field}`}
           value={
             field === "website"
               ? (item.website?.url ?? "")
-              : String(item[field] ?? "")
+              : field === "description"
+                ? bulletsFromHtml(String(item.description ?? "")).join(" ")
+                : String(item[field] ?? "")
           }
           placeholder={
             (
@@ -692,7 +685,7 @@ export function ResumeEditor({
                 date: kind === "awards" ? "Award date" : "Certification date",
                 issuer: "Issuing organization",
                 website: "https://example.com",
-                awarder: "Awarding organization",
+                description: "Description",
               } as Record<string, string>
             )[field]
           }
@@ -703,7 +696,11 @@ export function ResumeEditor({
                   ...item.website,
                   url: event.target.value,
                 };
-              else next.sections[kind].items[index][field] = event.target.value;
+              else
+                next.sections[kind].items[index][field] =
+                  field === "description"
+                    ? introTextToHtml(event.target.value)
+                    : event.target.value;
             })
           }
         />
@@ -744,6 +741,7 @@ export function ResumeEditor({
                     if (field === "degree")
                       return (
                         <span key={field} className="resume-education-degree">
+                          <span aria-hidden="true">,</span>
                           {input}
                           <span className="resume-education-in">in</span>
                           {fieldInput(item, index, "area")}
@@ -1721,7 +1719,40 @@ export function ResumeEditor({
                 })
               }
             />
-            <div className="resume-contact">
+            {addingHeadline || document.basics.headline ? (
+              <div className="resume-row">
+                <Input
+                  aria-label="Headline"
+                  className="resume-headline"
+                  value={document.basics.headline}
+                  onChange={(e) =>
+                    change((next) => {
+                      setAddingHeadline(true);
+                      next.basics.headline = e.target.value;
+                    })
+                  }
+                />
+                <div className="resume-tools">
+                  {askAi({ kind: "headline", label: "Headline" })}
+                </div>
+              </div>
+            ) : (
+              <Button
+                className="resume-add"
+                size="sm"
+                variant="ghost"
+                onClick={() => setAddingHeadline(true)}
+              >
+                + Headline
+              </Button>
+            )}
+            {suggestionList(
+              suggestions.filter((s) => s.op === "replace_headline"),
+            )}
+            <div
+              className="resume-contact"
+              data-library={contactsFromLibrary || undefined}
+            >
               {(["phone", "email", "location"] as const).map((field) => (
                 <span
                   className="resume-contact-item"
@@ -1765,29 +1796,20 @@ export function ResumeEditor({
                 className="resume-contact-item resume-row"
                 data-empty={!document.basics.website?.url}
               >
-                <span className="resume-contact-url">
-                  <span aria-hidden="true" className="resume-contact-link">
-                    {document.basics.website?.label || "Website"}
-                  </span>
-                  <Input
-                    aria-label="Website URL"
-                    value={document.basics.website?.url ?? ""}
-                    placeholder="https://…"
-                    onChange={(event) =>
-                      change((next) => {
-                        next.basics.website = {
-                          ...next.basics.website,
-                          url: event.target.value,
-                          label: next.basics.website?.label ?? "",
-                        };
-                      })
-                    }
-                  />
-                </span>
-                <span className="resume-tools">
+                <button
+                  type="button"
+                  className="resume-contact-link"
+                  disabled={disabled}
+                  aria-label="Edit website link"
+                >
+                  {document.basics.website?.label ||
+                    bareUrl(document.basics.website?.url ?? "") ||
+                    "Website"}
+                </button>
+                <span className="resume-tools resume-link-editor">
                   <Input
                     aria-label="Website label"
-                    placeholder="Website label"
+                    placeholder="Label"
                     value={document.basics.website?.label ?? ""}
                     onChange={(event) =>
                       change((next) => {
@@ -1799,156 +1821,112 @@ export function ResumeEditor({
                       })
                     }
                   />
+                  <Input
+                    aria-label="Website URL"
+                    placeholder="https://…"
+                    value={document.basics.website?.url ?? ""}
+                    onChange={(event) =>
+                      change((next) => {
+                        next.basics.website = {
+                          ...next.basics.website,
+                          url: event.target.value,
+                          label: next.basics.website?.label ?? "",
+                        };
+                      })
+                    }
+                  />
                 </span>
               </span>
               {!document.sections.profiles?.hidden &&
                 document.sections.profiles?.items
                   .filter((profile) => !profile.hidden)
-                  .map((profile, index) => (
-                    // biome-ignore lint/a11y/noStaticElementInteractions: Handles bubbling blur from the row's editable inputs.
-                    <span
-                      className="resume-contact-item resume-row"
-                      key={profile.id}
-                      data-focus-item={profile.id}
-                      data-empty={
-                        !profile.website?.url?.trim() &&
-                        !profile.network?.trim() &&
-                        !profile.username?.trim()
-                      }
-                      onBlur={(event) => {
-                        if (event.currentTarget.contains(event.relatedTarget))
-                          return;
-                        if (
-                          profile.website?.url?.trim() ||
-                          profile.network?.trim() ||
-                          profile.username?.trim()
-                        )
-                          return;
-                        change((next) => {
-                          next.sections.profiles.items =
-                            next.sections.profiles.items.filter(
-                              (item) => item.id !== profile.id,
-                            );
-                        });
-                      }}
-                    >
-                      <span className="resume-contact-url">
-                        <span
-                          aria-hidden="true"
+                  .map((profile, index) => {
+                    const empty =
+                      !profile.website?.url?.trim() &&
+                      !profile.website?.label?.trim() &&
+                      !profile.network?.trim() &&
+                      !profile.username?.trim();
+                    const setLink = (key: "url" | "label", value: string) =>
+                      change((next) => {
+                        const item = next.sections.profiles.items.find(
+                          (item) => item.id === profile.id,
+                        );
+                        if (item)
+                          item.website = {
+                            ...item.website,
+                            url: item.website?.url ?? "",
+                            label: item.website?.label ?? "",
+                            [key]: value,
+                          };
+                      });
+                    return (
+                      // biome-ignore lint/a11y/noStaticElementInteractions: Handles bubbling blur from the row's editable inputs.
+                      <span
+                        className="resume-contact-item resume-row"
+                        key={profile.id}
+                        data-focus-item={profile.id}
+                        data-empty={empty}
+                        onBlur={(event) => {
+                          if (event.currentTarget.contains(event.relatedTarget))
+                            return;
+                          if (!empty) return;
+                          change((next) => {
+                            next.sections.profiles.items =
+                              next.sections.profiles.items.filter(
+                                (item) => item.id !== profile.id,
+                              );
+                          });
+                        }}
+                      >
+                        <button
+                          type="button"
                           className="resume-contact-link"
+                          disabled={disabled}
+                          aria-label={`Edit profile ${index + 1} link`}
                         >
                           {profile.website?.label ||
                             profile.network ||
                             bareUrl(profile.website?.url ?? "") ||
                             profile.username}
-                        </span>
-                        <Input
-                          aria-label={`Profile ${index + 1} URL`}
-                          value={profile.website?.url ?? ""}
-                          placeholder="https://…"
-                          onChange={(event) =>
-                            change((next) => {
-                              const item = next.sections.profiles.items.find(
-                                (item) => item.id === profile.id,
-                              );
-                              if (item)
-                                item.website = {
-                                  ...item.website,
-                                  url: event.target.value,
-                                  label: item.website?.label ?? "",
-                                };
-                            })
-                          }
-                        />
-                      </span>
-                      <span className="resume-tools">
-                        <Input
-                          aria-label={`Profile ${index + 1} label`}
-                          placeholder="Label"
-                          value={profile.website?.label ?? ""}
-                          onChange={(event) =>
-                            change((next) => {
-                              const item = next.sections.profiles.items.find(
-                                (item) => item.id === profile.id,
-                              );
-                              if (item)
-                                item.website = {
-                                  ...item.website,
-                                  url: item.website?.url ?? "",
-                                  label: event.target.value,
-                                };
-                            })
-                          }
-                        />
-                        {(["network", "username"] as const).map((field) => (
+                        </button>
+                        <span className="resume-tools resume-link-editor">
                           <Input
-                            key={field}
-                            aria-label={`Profile ${index + 1} ${field}`}
-                            placeholder={
-                              field === "network" ? "Network" : "Username"
-                            }
-                            value={profile[field] ?? ""}
+                            aria-label={`Profile ${index + 1} label`}
+                            placeholder="Label"
+                            value={profile.website?.label ?? ""}
                             onChange={(event) =>
-                              change((next) => {
-                                const item = next.sections.profiles.items.find(
-                                  (item) => item.id === profile.id,
-                                );
-                                if (!item) return;
-                                item[field] = event.target.value;
-                              })
+                              setLink("label", event.target.value)
                             }
                           />
-                        ))}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          title={`Delete profile ${index + 1}`}
-                          aria-label={`Delete profile ${index + 1}`}
-                          onClick={() =>
-                            change((next) => {
-                              next.sections.profiles.items =
-                                next.sections.profiles.items.filter(
-                                  (item) => item.id !== profile.id,
-                                );
-                            })
-                          }
-                        >
-                          ×
-                        </Button>
+                          <Input
+                            aria-label={`Profile ${index + 1} URL`}
+                            placeholder="https://…"
+                            value={profile.website?.url ?? ""}
+                            onChange={(event) =>
+                              setLink("url", event.target.value)
+                            }
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title={`Delete profile ${index + 1}`}
+                            aria-label={`Delete profile ${index + 1}`}
+                            onClick={() =>
+                              change((next) => {
+                                next.sections.profiles.items =
+                                  next.sections.profiles.items.filter(
+                                    (item) => item.id !== profile.id,
+                                  );
+                              })
+                            }
+                          >
+                            ×
+                          </Button>
+                        </span>
                       </span>
-                    </span>
-                  ))}
+                    );
+                  })}
             </div>
-            {addingHeadline || document.basics.headline ? (
-              <div className="resume-row">
-                <Input
-                  aria-label="Headline"
-                  className="resume-headline"
-                  value={document.basics.headline}
-                  onChange={(e) =>
-                    change((next) => {
-                      setAddingHeadline(true);
-                      next.basics.headline = e.target.value;
-                    })
-                  }
-                />
-                <div className="resume-tools">
-                  {askAi({ kind: "headline", label: "Headline" })}
-                </div>
-              </div>
-            ) : (
-              <Button
-                className="resume-add"
-                size="sm"
-                variant="ghost"
-                onClick={() => setAddingHeadline(true)}
-              >
-                + Headline
-              </Button>
-            )}
-            {suggestionList(
-              suggestions.filter((s) => s.op === "replace_headline"),
-            )}
           </header>
           {sectionList()}
           {suggestionList(

@@ -551,9 +551,9 @@ describe("navy serif document content", () => {
       name: "Education",
       fields: [
         ["school", "school", "Example University", "School"],
-        ["period", "period (dates attended)", "2018 – 2022", "Dates attended"],
         ["degree", "degree", "BSc", "Degree"],
         ["area", "field of study", "Computing", "Field of study"],
+        ["period", "period (dates attended)", "2018 – 2022", "Dates attended"],
       ],
     },
     {
@@ -561,14 +561,7 @@ describe("navy serif document content", () => {
       name: "Awards",
       fields: [
         ["title", "award title", "Example Prize", "Award"],
-        ["description", "description", "For useful work", null],
-        [
-          "awarder",
-          "awarding organization",
-          "Example Group",
-          "Awarding organization",
-        ],
-        ["date", "award date", "2023", "Award date"],
+        ["description", "description", "For useful work", "Description"],
       ],
     },
     {
@@ -1553,8 +1546,7 @@ describe("contact editing", () => {
     render(<ContactEditor initial={profileFixture()} onChange={onChange} />);
     for (const [field, value] of [
       ["URL", "https://github.com/alan"],
-      ["network", "GitHub"],
-      ["username", "alan"],
+      ["label", "GitHub"],
     ]) {
       fireEvent.change(screen.getByLabelText(`Profile 1 ${field}`), {
         target: { value },
@@ -1564,10 +1556,11 @@ describe("contact editing", () => {
     expect(profile).toMatchObject({
       id: expect.any(String),
       hidden: false,
-      network: "GitHub",
-      username: "alan",
-      website: { url: "https://github.com/alan", label: "" },
+      website: { url: "https://github.com/alan", label: "GitHub" },
     });
+    expect(
+      screen.getByRole("button", { name: "Edit profile 1 link" }),
+    ).toHaveTextContent("GitHub");
     fireEvent.click(screen.getByRole("button", { name: "Delete profile 1" }));
     expect(onChange.mock.lastCall?.[0].sections.profiles.items).toEqual([]);
     expect(screen.queryByLabelText("Profile 1 URL")).toBeNull();
@@ -1580,39 +1573,52 @@ describe("contact editing", () => {
     const row = url.closest(".resume-contact-item");
     expect(row).toHaveAttribute("data-empty", "true");
     expect(row?.querySelector(".resume-contact-link")).toHaveTextContent(/^$/);
-    expect(screen.getByLabelText("Profile 1 label")).toHaveValue("");
 
     fireEvent.blur(url, {
-      relatedTarget: screen.getByLabelText("Profile 1 network"),
+      relatedTarget: screen.getByLabelText("Profile 1 label"),
     });
     expect(screen.getByLabelText("Profile 1 URL")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Profile 1 network"), {
+    fireEvent.change(screen.getByLabelText("Profile 1 label"), {
       target: { value: "  " },
     });
-    fireEvent.blur(screen.getByLabelText("Profile 1 network"), {
+    fireEvent.blur(screen.getByLabelText("Profile 1 label"), {
       relatedTarget: screen.getByLabelText("Email"),
     });
     expect(onChange.mock.lastCall?.[0].sections.profiles.items).toEqual([]);
     expect(screen.queryByLabelText("Profile 1 URL")).toBeNull();
   });
 
-  it.each([
-    "username",
-    "network",
-  ])("keeps a profile with only a %s and prints its value", (field) => {
+  it("keeps a profile with only a label and prints the label", () => {
     const onChange = vi.fn();
     render(<ContactEditor initial={profileFixture()} onChange={onChange} />);
-    const input = screen.getByLabelText(`Profile 1 ${field}`);
-    fireEvent.change(input, { target: { value: "alan" } });
+    const input = screen.getByLabelText("Profile 1 label");
+    fireEvent.change(input, { target: { value: "Portfolio" } });
     fireEvent.blur(input, { relatedTarget: screen.getByLabelText("Email") });
-    const row = screen
-      .getByLabelText("Profile 1 URL")
-      .closest(".resume-contact-item");
+    const row = input.closest(".resume-contact-item");
     expect(row).toHaveAttribute("data-empty", "false");
     expect(row?.querySelector(".resume-contact-link")).toHaveTextContent(
-      "alan",
+      "Portfolio",
     );
     expect(onChange.mock.lastCall?.[0].sections.profiles.items).toHaveLength(1);
+  });
+
+  it("marks empty contacts so job resumes can hide them", () => {
+    const { container } = render(
+      <ResumeEditor
+        document={fixture()}
+        onChange={vi.fn()}
+        suggestions={[]}
+        onDismiss={vi.fn()}
+        contactsFromLibrary
+      />,
+    );
+    expect(container.querySelector(".resume-contact")).toHaveAttribute(
+      "data-library",
+      "true",
+    );
+    expect(
+      screen.getByLabelText("Phone").closest(".resume-contact-item"),
+    ).toHaveAttribute("data-empty", "true");
   });
 
   it("edits existing profiles by id and preserves hidden profiles and URL options", () => {

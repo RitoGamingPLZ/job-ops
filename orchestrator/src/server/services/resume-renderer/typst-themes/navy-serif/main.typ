@@ -52,7 +52,7 @@
 #let row(left, date) = block(if date == "" { left } else { [#left#box(width: 1fr, repeat(" "))#accent(date)] })
 #align(center)[
   #text(fill: navy, weight: st.strongWeight, size: st.name, upper(source.name))
-  #if str-of(source, "headline") != "" { [\ #text(size: st.headline, source.headline)] }
+  #if str-of(source, "headline") != "" { [\ #text(size: st.headline, weight: st.strongWeight, source.headline)] }
   #v(st.nameToContact)
   #text(size: st.contact)[
     #let contacts = source.contactItems.map(c => {
@@ -60,7 +60,7 @@
       [#prefix#linked(c.text, str-of(c, "url"))]
     })
     #if str-of(source, "location") != "" { contacts.push(source.location) }
-    #for p in source.profileItems { let url = str-of(p, "url"); contacts.push(linked(if url == "" { p.network } else { bare-url(url) }, url)) }
+    #for p in source.profileItems { let url = str-of(p, "url"); let label = str-of(p, "label"); contacts.push(linked(if label != "" { label } else if url == "" { p.network } else { bare-url(url) }, url)) }
     #contacts.join([ | ])
   ]
 ]

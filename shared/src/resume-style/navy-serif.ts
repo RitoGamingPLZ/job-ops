@@ -17,7 +17,7 @@ export const NAVY_SERIF_STYLE = {
   size: {
     name: 16.5,
     contact: 10,
-    headline: 10,
+    headline: 11.5,
     section: 14,
     position: 12,
     entry: 11,

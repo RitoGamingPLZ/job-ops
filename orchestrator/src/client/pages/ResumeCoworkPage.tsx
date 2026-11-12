@@ -998,6 +998,7 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
           ) : (
             <ResumeEditor
               library={library}
+              contactsFromLibrary={!base}
               onSaveLineToLibrary={
                 base
                   ? undefined
