@@ -1348,3 +1348,152 @@ it("can import a base resume when none exists yet", async () => {
   ).toBeInTheDocument();
   expect(mocks.importRx).toHaveBeenCalledOnce();
 });
+
+describe("linked chat field PATCH wiring", () => {
+  const suggestion: ResumeSuggestion = {
+    id: "linked",
+    op: "replace_field",
+    field: { section: "experience", itemId: "exp", name: "company" },
+    previousText: "Acme",
+    text: "New company",
+    reason: "Improve",
+  };
+  async function prepare(status = "ready") {
+    const initial = state();
+    initial.document.sections.experience.items = [
+      {
+        id: "exp",
+        libraryId: "role",
+        company: "Acme",
+        position: "Engineer",
+        location: "",
+        period: "",
+        description: "",
+        hidden: false,
+        website: { url: "", label: "" },
+        roles: [],
+      },
+    ] as typeof initial.document.sections.experience.items;
+    mocks.getResume.mockResolvedValue(initial);
+    mocks.getJob.mockResolvedValue({ id: "job", status });
+    mocks.library.mockResolvedValue({
+      items: [
+        {
+          id: "role",
+          kind: "role",
+          text: "Engineer",
+          data: { company: "Acme", location: "Remote" },
+        },
+      ],
+    });
+    mocks.updateBullet.mockResolvedValue({
+      bullet: {
+        id: "role",
+        kind: "role",
+        text: "Engineer",
+        data: { company: "New company", location: "Remote" },
+      },
+    });
+    mount();
+    await screen.findByLabelText("Headline");
+  }
+  it("flushes pending edits, excludes the open job, and applies the returned library update locally", async () => {
+    await prepare();
+    fireEvent.change(screen.getByLabelText("Headline"), {
+      target: { value: "Pending edit" },
+    });
+    let accepted = false;
+    await act(async () => {
+      accepted =
+        await mocks.editorProps.mock.lastCall?.[0].onAcceptLinkedField(
+          suggestion,
+        );
+    });
+    expect(accepted).toBe(true);
+    expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.updateBullet.mock.invocationCallOrder[0],
+    );
+    expect(mocks.updateBullet).toHaveBeenCalledWith(
+      "role",
+      { data: { company: "New company", location: "Remote" } },
+      "job",
+    );
+    fireEvent.click(screen.getByText("Save now"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(2));
+    expect(
+      mocks.save.mock.lastCall?.[1].document.sections.experience.items[0]
+        .company,
+    ).toBe("New company");
+    expect(mocks.save.mock.lastCall?.[1].document.basics.headline).toBe(
+      "Pending edit",
+    );
+  });
+  it("uses the updated library row for sequential accepts from one render", async () => {
+    await prepare();
+    const accept = mocks.editorProps.mock.lastCall?.[0].onAcceptLinkedField;
+    mocks.updateBullet.mockResolvedValueOnce({
+      bullet: {
+        id: "role",
+        kind: "role",
+        text: "Engineer",
+        data: { company: "New company", location: "Remote" },
+      },
+    });
+    mocks.updateBullet.mockResolvedValueOnce({
+      bullet: {
+        id: "role",
+        kind: "role",
+        text: "Engineer",
+        data: { company: "New company", location: "Office" },
+      },
+    });
+    await act(async () => {
+      expect(await accept(suggestion)).toBe(true);
+      expect(
+        await accept({
+          ...suggestion,
+          id: "location",
+          field: { ...suggestion.field, name: "location" },
+          previousText: "",
+          text: "Office",
+        }),
+      ).toBe(true);
+    });
+    expect(mocks.updateBullet.mock.calls[1]).toEqual([
+      "role",
+      { data: { company: "New company", location: "Office" } },
+      "job",
+    ]);
+  });
+  it("keeps failed PATCHes unaccepted and surfaces the error", async () => {
+    await prepare();
+    mocks.updateBullet.mockRejectedValueOnce(new Error("PATCH failed"));
+    let accepted = true;
+    await act(async () => {
+      accepted =
+        await mocks.editorProps.mock.lastCall?.[0].onAcceptLinkedField(
+          suggestion,
+        );
+    });
+    expect(accepted).toBe(false);
+    expect(mocks.coworkError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "PATCH failed" }),
+    );
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+  it.each([
+    "applied",
+    "in_progress",
+  ])("refuses PATCHes for %s jobs", async (status) => {
+    await prepare(status);
+    let accepted = true;
+    await act(async () => {
+      accepted =
+        await mocks.editorProps.mock.lastCall?.[0].onAcceptLinkedField(
+          suggestion,
+        );
+    });
+    expect(accepted).toBe(false);
+    expect(mocks.updateBullet).not.toHaveBeenCalled();
+  });
+});
