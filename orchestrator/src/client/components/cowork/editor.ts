@@ -5,6 +5,7 @@ import {
 } from "@shared/resume-bullets";
 import {
   getItemLines,
+  isOnResume,
   linkedFieldPatch,
   setItemLines,
 } from "@shared/resume-links";
@@ -255,10 +256,12 @@ function applyResolvedSuggestion(
         ref:
           suggestion.op === "replace_bullet"
             ? (lines[target.index]?.ref ?? null)
-            : (suggestion.sourceBulletIds?.find((id) =>
-                library.some(
-                  (item) => item.id === id && item.kind === "bullet",
-                ),
+            : (suggestion.sourceBulletIds?.find(
+                (id) =>
+                  !isOnResume(next, id) &&
+                  library.some(
+                    (item) => item.id === id && item.kind === "bullet",
+                  ),
               ) ?? null),
       });
     const index = next.sections.experience.items.indexOf(experience);

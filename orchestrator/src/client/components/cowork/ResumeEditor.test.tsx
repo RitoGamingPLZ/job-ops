@@ -1693,7 +1693,7 @@ describe("linked field acceptance", () => {
     }),
   );
   function mountLinked(
-    callback: (suggestion: ResumeSuggestion) => Promise<boolean>,
+    callback: ((suggestion: ResumeSuggestion) => Promise<boolean>) | undefined,
     frozen = false,
   ) {
     const doc = fixture();
@@ -1757,5 +1757,17 @@ describe("linked field acceptance", () => {
     ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
     expect(callback).not.toHaveBeenCalled();
+  });
+  it("explains that base resume linked fields are edited in the library", () => {
+    const { dismiss, change } = mountLinked(undefined);
+    expect(
+      screen.getAllByText("Library-linked fields are edited in the library"),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("button", { name: "Accept: Change company" })[0],
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
+    expect(dismiss).not.toHaveBeenCalled();
+    expect(change).not.toHaveBeenCalled();
   });
 });

@@ -637,10 +637,14 @@ export function ResumeEditor({
               frozen
                 ? "Not applicable — this job is frozen."
                 : s.op === "replace_field" &&
-                    fieldVisible(document, s) &&
-                    !resolved
-                  ? "Not applicable — the field changed, its library item is missing, or this library field cannot be updated."
-                  : "Not applicable — this content has changed."}
+                    suggestionTarget(document, s, library)?.libraryId &&
+                    !onAcceptLinkedField
+                  ? "Library-linked fields are edited in the library"
+                  : s.op === "replace_field" &&
+                      fieldVisible(document, s) &&
+                      !resolved
+                    ? "Not applicable — the field changed, its library item is missing, or this library field cannot be updated."
+                    : "Not applicable — this content has changed."}
             </p>
           )}
           <p className="text-xs text-muted-foreground">{s.reason}</p>

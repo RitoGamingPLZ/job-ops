@@ -21,6 +21,7 @@ const fixture = () =>
   ({
     basics: { headline: "Engineer" },
     summary: { content: "Summary" },
+    customSections: [],
     sections: {
       experience: {
         items: [
@@ -554,5 +555,27 @@ describe("skills acceptance guards", () => {
     expect(next && getItemLines(next.sections.experience.items[0])[0].ref).toBe(
       "bullet",
     );
+  });
+  it("skips cited bullets already on the resume and uses null when none remain", () => {
+    const original = fixture();
+    original.sections.experience.items[0].bulletRefs = ["used", null];
+    const library = [
+      { id: "used", kind: "bullet" },
+      { id: "available", kind: "bullet" },
+    ] as import("@shared/types").ExperienceBullet[];
+    const insert = suggestion({
+      op: "insert_bullet",
+      bulletIndex: 0,
+      sourceBulletIds: ["used", "available"],
+    });
+    const next = applySuggestion(original, insert, library);
+    if (!next) throw new Error("Expected insertion to apply");
+    expect(getItemLines(next.sections.experience.items[0])[0].ref).toBe(
+      "available",
+    );
+    const again = applySuggestion(next, insert, library);
+    expect(
+      again && getItemLines(again.sections.experience.items[0])[0].ref,
+    ).toBe(null);
   });
 });
