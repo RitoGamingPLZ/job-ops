@@ -277,7 +277,15 @@ describe("ensureJobResume", () => {
       summary: { ...document.summary, content: "New tailored summary" },
     };
     vi.mocked(generateResumeFromLibrary).mockImplementation(async () => {
-      if (edit) saved = { ...row, revision: 3 };
+      if (edit)
+        saved = {
+          ...row,
+          revision: 3,
+          document: {
+            ...document,
+            summary: { ...document.summary, content: "Editor summary" },
+          },
+        };
       return tailored;
     });
     vi.mocked(saveJobResume).mockImplementation(async (_id, expected, doc) => {
@@ -290,16 +298,12 @@ describe("ensureJobResume", () => {
     const target = ensureJobResume("job", { tailor: true });
     finishBase();
     await plain;
-    if (edit) {
-      await expect(target).rejects.toMatchObject({
-        status: 409,
-        code: "CONFLICT",
-      });
-    } else {
-      const result = await target;
-      expect(result.document.summary.content).toBe("New tailored summary");
-      expect(result.revision).toBe(3);
-    }
+    const result = await target;
+    expect(result.document.summary.content).toBe(
+      edit ? "Editor summary" : "New tailored summary",
+    );
+    expect(result.revision).toBe(3);
+    if (edit) expect(result).toBe(saved);
     expect(vi.mocked(saveJobResume).mock.calls.map((call) => call[1])).toEqual([
       0, 2,
     ]);

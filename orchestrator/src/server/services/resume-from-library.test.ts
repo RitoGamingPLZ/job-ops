@@ -737,6 +737,24 @@ describe("generateResumeFromLibrary", () => {
     expect(prompt).not.toContain("PRIVATE DATA");
     expect(prompt).not.toContain("<p>");
   });
+  it("preserves URLs and addresses in library line text supplied to the model", async () => {
+    const text =
+      "Launched www.shop.example https://shop.example with shop@example.com";
+    await generateResumeFromLibrary(
+      base,
+      createJob(),
+      library.map((entry) =>
+        entry.id === "duty" ? { ...entry, text } : entry,
+      ),
+    );
+    const prompt = JSON.parse(
+      mocks.callJson.mock.calls[0][0].messages[1].content,
+    );
+    expect(
+      prompt.library.find((entry: ExperienceBullet) => entry.id === "duty")
+        .text,
+    ).toBe(text);
+  });
   it("never uses a duty omitted from the bounded prompt catalog", async () => {
     const crowded = [
       ...library,

@@ -271,7 +271,7 @@ export async function generateResumeFromLibrary(
     library: supplied.map((item) => ({
       id: item.id,
       kind: item.kind,
-      text: promptPlainText(item.text),
+      text: htmlToPlainText(item.text),
       ...(["role", "project"].includes(item.kind)
         ? {
             intro: promptPlainText(
@@ -308,7 +308,14 @@ export async function generateResumeFromLibrary(
             if (key === "keywords" && Array.isArray(value))
               return [[key, value.filter((word) => typeof word === "string")]];
             return typeof value === "string"
-              ? [[key, promptPlainText(value)]]
+              ? [
+                  [
+                    key,
+                    key === "description"
+                      ? promptPlainText(value)
+                      : htmlToPlainText(value),
+                  ],
+                ]
               : [];
           }),
       ),

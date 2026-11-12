@@ -47,7 +47,7 @@ export async function ensureJobResume(
       job.tailoredSkills
     )
       return plain;
-    return materializeJobResume(jobId, opts, 1, false);
+    return materializeJobResume(jobId, opts, 1);
   }
   const run = materializeJobResume(jobId, opts).finally(() =>
     inFlight.delete(key),
