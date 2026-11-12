@@ -49,6 +49,9 @@
 // Dates sit flush right on the heading's own text line. The gap is filled with real
 // space glyphs: an empty gap (1fr spacing, grids, placed boxes) lets pdfminer-style ATS parsers
 // split the date into a separate box and move it away from its entry.
+// Keep an entry on one page when it fits on one; a longer entry still breaks
+// (an unbreakable block taller than the page would be cut off).
+#let keep(body) = layout(size => block(breakable: measure(block(width: size.width, body)).height > size.height, body))
 #let row(left, date) = block(if date == "" { left } else { [#left#box(width: 1fr, repeat(" "))#accent(date)] })
 #align(center)[
   #text(fill: navy, weight: st.strongWeight, size: st.name, upper(source.name))
@@ -82,7 +85,7 @@
   } else if key in ("experience", "education", "projects", "volunteer", "publications", "references") and items(key).len() > 0 {
     section(key, upper(key.slice(0, 1)) + key.slice(1), [
       #for entry in items(key) {
-        block(above: 0pt, below: st.itemGap)[
+        keep[
           #block(sticky: true, below: st.entryToBody)[
             #if key == "experience" {
               let position = str-of(entry, "position")
@@ -110,6 +113,7 @@
             if b.len() > 0 { list(..b.map(markup)) }
           }
         ]
+        v(st.itemGap, weak: true)
       }
     ])
   } else if key == "awards" and items(key).len() > 0 {

@@ -60,8 +60,12 @@ const MM = 96 / 25.4;
 const SHEET = 297 * MM;
 const SHEET_GAP = 16;
 const MARGIN_Y = NAVY_SERIF_STYLE.margin.y * MM;
-/** Blocks that must not straddle a page break, in document order. */
+/** Blocks that must not straddle a page break, in document order. A whole
+ *  role or project moves when it fits on a page; a longer one breaks by line. */
+const ENTRY = ".resume-experience, .resume-project";
 const PAGE_BLOCKS = [
+  ".resume-experience",
+  ".resume-project",
   ".resume-paper h2",
   ".resume-position",
   ".resume-experience-heading",
@@ -95,10 +99,19 @@ function paginate(paper: HTMLElement, scale: number) {
     for (let attempt = 0; attempt < 2; attempt++) {
       const rect = block.getBoundingClientRect();
       const top = (rect.top - origin()) / scale;
-      const height =
-        rect.height / scale + (block.matches(KEEP_WITH_NEXT) ? 16 : 0);
       const sheet = Math.floor(top / pitch);
       const end = sheet * pitch + SHEET - MARGIN_Y;
+      let height =
+        rect.height / scale + (block.matches(KEEP_WITH_NEXT) ? 16 : 0);
+      // A section heading moves with its first role or project when that fits.
+      const first = block.matches("h2")
+        ? block.parentElement?.querySelector<HTMLElement>(ENTRY)
+        : null;
+      if (first) {
+        const withEntry =
+          (first.getBoundingClientRect().bottom - rect.top) / scale;
+        if (withEntry <= SHEET - 2 * MARGIN_Y) height = withEntry;
+      }
       if (height <= 0 || top + height <= end || height > SHEET - 2 * MARGIN_Y)
         break;
       const push = (sheet + 1) * pitch + MARGIN_Y - top;

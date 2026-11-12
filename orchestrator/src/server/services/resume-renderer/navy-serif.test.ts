@@ -459,6 +459,57 @@ describe("Navy Serif", () => {
   );
 
   it.skipIf(!available)(
+    "moves a role that does not fit to the next page instead of splitting it",
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), "navy-keep-test-"));
+      try {
+        const path = join(dir, "keep.pdf");
+        const bullets = (n: number) =>
+          `<ul>${Array.from({ length: 5 }, (_, i) => `<li>Role ${n} duty ${i} with enough words to fill a line.</li>`).join("")}</ul>`;
+        await renderTypstPdf({
+          document: normalizeResumeJsonToLatexDocument({
+            basics: { name: "Morgan Example" },
+            sections: {
+              experience: {
+                items: Array.from({ length: 9 }, (_, n) => ({
+                  company: `Company ${n}`,
+                  position: `Position ${n}`,
+                  date: "2020",
+                  description: bullets(n),
+                })),
+              },
+            },
+          }),
+          typstTheme: "navy-serif",
+          outputPath: path,
+          jobId: "fake-keep-test",
+        });
+        const pdf = await getDocument({
+          data: new Uint8Array(await readFile(path)),
+          useSystemFonts: true,
+        }).promise;
+        try {
+          expect(pdf.numPages).toBeGreaterThan(1);
+          const pageOf = new Map<string, number>();
+          for (let number = 1; number <= pdf.numPages; number++) {
+            const page = await pdf.getPage(number);
+            for (const item of (await page.getTextContent()).items)
+              if ("str" in item) pageOf.set(item.str, number);
+          }
+          const find = (text: string) =>
+            [...pageOf].find(([str]) => str.includes(text))?.[1];
+          for (let n = 0; n < 9; n++)
+            expect(find(`Role ${n} duty 4`)).toBe(find(`Position ${n}`));
+        } finally {
+          await pdf.destroy();
+        }
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.skipIf(!available)(
     "renders intro, links, section ordering, and ATS-readable lines offline",
     async () => {
       const dir = await mkdtemp(join(tmpdir(), "navy-serif-test-"));
