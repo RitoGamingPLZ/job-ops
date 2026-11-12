@@ -29,6 +29,8 @@ describe.sequential("database migrations", () => {
       await import(url + "?second");
       const migrated = new Database(path);
       const row = migrated.prepare("SELECT * FROM experience_bullets WHERE id = 'old'").get();
+      const marker = migrated.prepare("SELECT 1 FROM app_data_migrations WHERE id = 'candidate-library-structured-fields-v2'").get();
+      if (!marker) throw new Error("Structured library migration did not run");
       if (row.text !== "Built tools" || row.kind !== "bullet" || row.data !== null || row.parent_id !== null || row.position !== 0) throw new Error("Legacy bullet defaults were not preserved");
       migrated.close();
     `;

@@ -576,7 +576,7 @@ describe("review regressions", () => {
     role,
     project,
     certification,
-  ])("retains existing $kind website fields absent from legacy data and permits explicit clearing", (original) => {
+  ])("retains local $kind website labels while updating unedited URLs", (original) => {
     const website = { url: "https://example.com", label: "Site" };
     const doc = addToResume(document(), original.id, [original]);
     entries(doc, original.kind)[0].website = website;
@@ -594,7 +594,7 @@ describe("review regressions", () => {
     expect(
       entries(applyLibraryUpdate(doc, original, cleared), original.kind)[0]
         .website,
-    ).toEqual({ url: "", label: "" });
+    ).toEqual({ url: "", label: "Site" });
   });
 });
 
@@ -785,4 +785,100 @@ it.each([
   const restored = setContactOnResume(cleared, after, true);
   expect(setContactOnResume(restored, after, true)).toBe(restored);
   expect(restored.sections.profiles.items).toHaveLength(1);
+});
+
+describe("structured library links", () => {
+  it.each([
+    "education",
+    "award",
+    "certification",
+  ] as const)("derives %s fields and keeps local edits on a library change", (kind) => {
+    const data = {
+      schemaVersion: 2,
+      school: "School",
+      location: "City",
+      period: "2024",
+      area: "Computer Science",
+      grade: "First",
+      issuer: "Institute",
+      awarder: "Guild",
+      date: "2024",
+      description: "<p><strong>Original</strong></p>",
+      website: {
+        url: "https://example.com",
+        label: "Source",
+        inlineLink: true,
+      },
+    };
+    const original = row(`structured-${kind}`, kind, "Title", { data });
+    let doc = addToResume(document(), original.id, [original]);
+    const section = KIND_SECTION[kind] as
+      | "education"
+      | "awards"
+      | "certifications";
+    const entry = doc.sections[section].items[0];
+    expect(entry).toMatchObject({
+      description: data.description,
+      website: data.website,
+    });
+    if (kind === "education")
+      expect(entry).toMatchObject({ area: data.area, grade: data.grade });
+    if (kind === "award")
+      expect(entry).toMatchObject({ awarder: data.awarder });
+    doc = {
+      ...doc,
+      sections: {
+        ...doc.sections,
+        [section]: {
+          ...doc.sections[section],
+          items: [{ ...entry, description: "<p>Local rewrite</p>" }],
+        },
+      },
+    };
+    const next = applyLibraryUpdate(doc, original, {
+      ...original,
+      text: "Updated title",
+      data: {
+        ...data,
+        description: "<p>New canonical</p>",
+        date: "2025",
+        period: "2025",
+      },
+    });
+    expect(next.sections[section].items[0]).toMatchObject({
+      libraryId: original.id,
+      description: "<p>Local rewrite</p>",
+      ...(kind === "education"
+        ? { degree: "Updated title", period: "2025" }
+        : { title: "Updated title", date: "2025" }),
+    });
+  });
+  it("stamps an old folded entry against reconstructed current structured facts", () => {
+    const canonical = row("new-edu", "education", "BSc", {
+      data: {
+        school: "School",
+        period: "2024",
+        area: "CS",
+        grade: "First",
+        description: "<p>Honours</p>",
+      },
+    });
+    const doc = document();
+    doc.sections.education.items = [
+      {
+        ...libraryItemToResumeItem(canonical),
+        libraryId: undefined,
+      } as ResumeDoc["sections"]["education"]["items"][number],
+    ];
+    expect(
+      stampLibraryRefs(doc, [canonical]).doc.sections.education.items[0]
+        .libraryId,
+    ).toBe(canonical.id);
+    const contradictory = {
+      ...canonical,
+      text: "Different degree",
+      data: { ...canonical.data, area: "Other" },
+    };
+    expect(stampLibraryRefs(doc, [contradictory]).linked).toBe(0);
+  });
 });

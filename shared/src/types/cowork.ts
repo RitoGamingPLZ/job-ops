@@ -155,3 +155,10 @@ export interface ResumeFocusRef {
   bulletIndex?: number; // bullet: index in that item's <li> bullets (splitDescription semantics)
   label: string; // chip text, e.g. "Experience › Citi — Senior Programmer"
 }
+
+export type {
+  AwardLibraryData,
+  CertificationLibraryData,
+  EducationLibraryData,
+  LibraryWebsite,
+} from "../candidate-library-schema";

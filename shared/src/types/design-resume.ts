@@ -69,6 +69,8 @@ export interface ReactiveResumeV5BaseItem extends ReactiveResumeV5LooseObject {
   id: string;
   hidden: boolean;
   options?: ReactiveResumeV5Options;
+  libraryId?: string;
+  bulletRefs?: (string | null)[];
 }
 
 export interface ReactiveResumeV5SummaryItem extends ReactiveResumeV5BaseItem {

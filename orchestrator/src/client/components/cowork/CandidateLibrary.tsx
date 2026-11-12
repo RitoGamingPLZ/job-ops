@@ -1,4 +1,5 @@
 import * as api from "@client/api/cowork";
+import { parseLibraryData } from "@shared/candidate-library-schema";
 import {
   addToResume,
   applyLibraryUpdate,
@@ -92,9 +93,17 @@ const fields: Partial<Record<CandidateItemKind, string[]>> = {
   contact: ["value", "label", "network", "username"],
   role: ["period"],
   project: ["period", "website"],
-  education: ["school", "location", "period"],
-  award: ["date"],
-  certification: ["issuer", "website", "date"],
+  education: [
+    "school",
+    "location",
+    "period",
+    "area",
+    "grade",
+    "description",
+    "website",
+  ],
+  award: ["date", "awarder", "description", "website"],
+  certification: ["issuer", "website", "date", "description"],
 };
 const fieldNames: Record<string, string> = {
   value: "Value",
@@ -106,6 +115,10 @@ const fieldNames: Record<string, string> = {
   location: "Location",
   website: "Website",
   period: "Period",
+  area: "Area",
+  grade: "Grade",
+  description: "Description (HTML)",
+  awarder: "Awarder",
   school: "School",
   issuer: "Issuer",
   date: "Date",
@@ -290,7 +303,11 @@ export function CandidateLibrary({
       input: {
         text: item.text,
         kind: item.kind,
-        data: item.data ? { ...item.data } : null,
+        data: ["education", "award", "certification"].includes(item.kind)
+          ? parseLibraryData(item.kind, item.data)
+          : item.data
+            ? { ...item.data }
+            : null,
         ...(TAG_KINDS.has(item.kind) ? { tags: item.tags } : {}),
       },
       fields: fields[item.kind] ?? [],
@@ -448,7 +465,11 @@ export function CandidateLibrary({
             ? "Point"
             : kind === "skill"
               ? "Group name"
-              : "Name";
+              : kind === "education"
+                ? "Degree"
+                : kind === "award" || kind === "certification"
+                  ? "Title"
+                  : "Name";
     const fieldClass = "grid gap-1.5 text-sm font-medium";
     return (
       <form
@@ -523,53 +544,56 @@ export function CandidateLibrary({
               (field === "label" && current.input.data?.type === "website") ||
               current.input.data?.type === "profile",
           )
-          .map((field, index) => (
-            <label
-              key={field}
-              htmlFor={`${formId}-${field}`}
-              className={fieldClass}
-            >
-              {fieldLabel(current, field)}
-              <Input
-                id={`${formId}-${field}`}
-                className="font-normal"
-                required={kind === "contact" && field === "value"}
-                autoFocus={
-                  (current.companyOnly || kind === "contact") && index === 0
-                }
-                disabled={busy}
-                value={fieldValue(field, current.input.data?.[field])}
-                onChange={(event) =>
-                  setInput({
-                    ...current.input,
-                    ...(kind === "contact" && field === "value"
-                      ? { text: event.target.value }
-                      : {}),
-                    data: {
-                      ...current.input.data,
-                      ...(kind === "contact" &&
-                      current.input.data?.type === "profile" &&
-                      field === "value" &&
-                      current.input.data?.url
-                        ? { url: event.target.value }
+          .map((field, index) => {
+            const FieldInput = field === "description" ? Textarea : Input;
+            return (
+              <label
+                key={field}
+                htmlFor={`${formId}-${field}`}
+                className={fieldClass}
+              >
+                {fieldLabel(current, field)}
+                <FieldInput
+                  id={`${formId}-${field}`}
+                  className="font-normal"
+                  required={kind === "contact" && field === "value"}
+                  autoFocus={
+                    (current.companyOnly || kind === "contact") && index === 0
+                  }
+                  disabled={busy}
+                  value={fieldValue(field, current.input.data?.[field])}
+                  onChange={(event) =>
+                    setInput({
+                      ...current.input,
+                      ...(kind === "contact" && field === "value"
+                        ? { text: event.target.value }
                         : {}),
-                      [field]:
-                        field === "website"
-                          ? {
-                              label: "",
-                              ...(current.input.data?.website &&
-                              typeof current.input.data.website === "object"
-                                ? current.input.data.website
-                                : {}),
-                              url: event.target.value,
-                            }
-                          : event.target.value,
-                    },
-                  })
-                }
-              />
-            </label>
-          ))}
+                      data: {
+                        ...current.input.data,
+                        ...(kind === "contact" &&
+                        current.input.data?.type === "profile" &&
+                        field === "value" &&
+                        current.input.data?.url
+                          ? { url: event.target.value }
+                          : {}),
+                        [field]:
+                          field === "website"
+                            ? {
+                                label: "",
+                                ...(current.input.data?.website &&
+                                typeof current.input.data.website === "object"
+                                  ? current.input.data.website
+                                  : {}),
+                                url: event.target.value,
+                              }
+                            : event.target.value,
+                      },
+                    })
+                  }
+                />
+              </label>
+            );
+          })}
         {!current.companyOnly && kind === "skill" && (
           <label htmlFor={`${formId}-skills`} className={fieldClass}>
             Skills
@@ -1086,7 +1110,7 @@ export function CandidateLibrary({
           if (!open && !busy) setEdit(null);
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {edit?.companyOnly

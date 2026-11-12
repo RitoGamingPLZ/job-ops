@@ -7,6 +7,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import Database from "better-sqlite3";
 import { getDataDir } from "../config/dataDir";
+import { backfillStructuredLibrary } from "./structured-library-backfill";
 
 // Database path - can be overridden via env for Docker
 const DB_PATH = join(getDataDir(), "jobs.db");
@@ -1889,6 +1890,7 @@ ensurePrivateUserColumns();
 rebuildPostApplicationPrivateTables();
 rebuildSettingsTable();
 seedLegacyOnboardingMigration();
+backfillStructuredLibrary(sqlite);
 ensureTracerLinksUniqueIndex();
 sqlite.exec("DROP INDEX IF EXISTS idx_settings_tenant_key_unique");
 sqlite.exec("DROP INDEX IF EXISTS idx_settings_tenant_user_key_unique");
