@@ -441,7 +441,11 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 Prepare resume
               </Button>
             )}
-            <Button size="sm" onClick={() => void handleBlacklistEmployer()}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void handleBlacklistEmployer()}
+            >
               <Ban className="h-3.5 w-3.5" />
               Blacklist company
             </Button>
