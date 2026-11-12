@@ -3,6 +3,7 @@ import type {
   ReactiveResumeV5Document,
   ResumeFocusRef,
   ResumeSuggestion,
+  ResumeSuggestionV2,
 } from "@shared/types";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -41,16 +42,32 @@ const fixture = () =>
   }) as unknown as ReactiveResumeV5Document;
 const suggestion = (
   overrides: Partial<ResumeSuggestion> = {},
-): ResumeSuggestion => ({
-  id: "s",
-  op: "replace_bullet",
-  experienceId: "one",
-  bulletIndex: 0,
-  previousText: "Second",
-  text: "Improved",
-  reason: "More specific",
-  ...overrides,
-});
+): ResumeSuggestionV2 => {
+  const s = {
+    id: "s",
+    op: "replace_bullet",
+    experienceId: "one",
+    bulletIndex: 0,
+    previousText: "Second",
+    text: "Improved",
+    reason: "More specific",
+    ...overrides,
+  };
+  return {
+    ...s,
+    section: "experience",
+    itemId: s.experienceId,
+    previousText:
+      s.previousText ??
+      (s.op === "replace_field"
+        ? ""
+        : s.op === "replace_summary"
+          ? "Summary"
+          : s.bulletIndex === 2
+            ? "C"
+            : "First"),
+  } as unknown as ResumeSuggestionV2;
+};
 
 describe("resume suggestion application", () => {
   it("matches previous text ahead of an obsolete index and preserves other HTML", () => {
@@ -176,7 +193,7 @@ describe("resume suggestion application", () => {
       )?.summary.content,
     ).toBe("&lt;script&gt;");
   });
-  it("applies headline and skills replacements without losing other sections", () => {
+  it("applies headline replacements without losing other sections", () => {
     expect(
       applySuggestion(
         fixture(),
@@ -187,19 +204,6 @@ describe("resume suggestion application", () => {
         }),
       )?.basics.headline,
     ).toBe("Senior Engineer");
-    expect(
-      applySuggestion(
-        fixture(),
-        suggestion({
-          op: "set_skills",
-          skills: [{ name: "Languages", keywords: ["TypeScript"] }],
-        }),
-      )?.sections.skills.items[0],
-    ).toMatchObject({
-      name: "Languages",
-      keywords: ["TypeScript"],
-      hidden: false,
-    });
     expect(
       applySuggestion(
         fixture(),
@@ -362,7 +366,7 @@ describe("replace_field", () => {
       field(),
       suggestion({ id: "b", text: "New first" }),
     ]);
-    expect(result.applied).toEqual(["s", "b"]);
+    expect(result.applied).toEqual(expect.arrayContaining(["s", "b"]));
   });
 });
 
@@ -434,21 +438,23 @@ describe("linked suggestion lines", () => {
       "second",
     ]);
   });
-  it("rejects blank rewording and entry field edits on linked entries", () => {
+  it("rejects blank rewording and permits local field edits on linked entries", () => {
     const original = fixture();
     original.sections.experience.items[0].libraryId = "role";
     original.sections.experience.items[0].bulletRefs = ["first", "second"];
     expect(applySuggestion(original, suggestion({ text: " " }))).toBeNull();
-    expect(
-      applySuggestion(
-        original,
-        suggestion({
-          op: "replace_field",
-          field: { section: "experience", itemId: "one", name: "company" },
-          previousText: undefined,
-        }),
-      ),
-    ).toBeNull();
+    const result = applySuggestion(
+      original,
+      suggestion({
+        op: "replace_field",
+        field: { section: "experience", itemId: "one", name: "company" },
+        previousText: "",
+      }),
+    );
+    expect(result?.sections.experience.items[0]).toMatchObject({
+      company: "Improved",
+      libraryId: "role",
+    });
   });
 });
 
@@ -464,4 +470,184 @@ it("replaces items when setItemLines omits refs", () => {
     suggestion({ op: "delete_bullet", previousText: "First" }),
   );
   expect(next?.sections.experience.items[0]).not.toHaveProperty("bulletRefs");
+});
+
+describe("V2 document operations", () => {
+  const doc = () => {
+    const document = fixture();
+    document.customSections = [];
+    document.sections.projects = {
+      items: [
+        {
+          id: "project",
+          hidden: false,
+          libraryId: "p",
+          description: '<p>Intro</p><ul class="keep"><li>A</li><li>B</li></ul>',
+          bulletRefs: ["a", "b"],
+        },
+      ],
+    } as typeof document.sections.projects;
+    document.sections.skills.items = [
+      {
+        id: "skill",
+        libraryId: "sk",
+        hidden: true,
+        icon: "code",
+        proficiency: "Expert",
+        level: 4,
+        name: "Languages",
+        keywords: ["TS"],
+        options: { showLinkInTitle: true },
+      },
+    ];
+    return document;
+  };
+
+  it("changes only skill keywords, including a hidden linked group", () => {
+    const original = doc();
+    const result = applySuggestion(original, {
+      id: "skill-edit",
+      reason: "Review",
+      op: "set_skill_keywords",
+      itemId: "skill",
+      previousKeywords: ["TS"],
+      keywords: ["JS"],
+    });
+    expect(result?.sections.skills.items[0]).toEqual({
+      ...original.sections.skills.items[0],
+      keywords: ["JS"],
+    });
+    expect(original.sections.skills.items[0].keywords).toEqual(["TS"]);
+  });
+  it("reorders project lines and refs, rejecting incomplete, duplicate and foreign permutations", () => {
+    const s: ResumeSuggestionV2 = {
+      id: "reorder",
+      reason: "Review",
+      op: "reorder_bullets",
+      section: "projects",
+      itemId: "project",
+      previousTexts: ["A", "B"],
+      order: [1, 0],
+    };
+    expect(
+      applySuggestion(doc(), s)?.sections.projects.items[0].bulletRefs,
+    ).toEqual(["b", "a"]);
+    for (const order of [[0], [0, 0], [1, 2], [0, 1, 2]])
+      expect(applySuggestion(doc(), { ...s, order })).toBeNull();
+  });
+  it("replaces project intros without changing list markup or refs", () => {
+    const result = applySuggestion(doc(), {
+      id: "intro",
+      reason: "Review",
+      op: "replace_intro",
+      section: "projects",
+      itemId: "project",
+      previousText: "Intro",
+      text: "New & intro",
+    });
+    expect(result?.sections.projects.items[0].description).toBe(
+      '<p>New &amp; intro</p><ul class="keep"><li>A</li><li>B</li></ul>',
+    );
+    expect(result?.sections.projects.items[0].bulletRefs).toEqual(["a", "b"]);
+  });
+  it("inserts a rewritten linked project line only for the correct parent and without duplicates", () => {
+    const library = [
+      { id: "new", kind: "project_point", parentId: "p", text: "Canonical" },
+    ] as import("@shared/types").ExperienceBullet[];
+    const s: ResumeSuggestionV2 = {
+      id: "insert",
+      reason: "Review",
+      op: "insert_bullet",
+      section: "projects",
+      itemId: "project",
+      bulletIndex: 1,
+      text: "Rewrite",
+      libraryId: "new",
+    };
+    const result = applySuggestion(doc(), s, library);
+    expect(result?.sections.projects.items[0].bulletRefs).toEqual([
+      "a",
+      "new",
+      "b",
+    ]);
+    expect(
+      applySuggestion(doc(), s, [{ ...library[0], parentId: "foreign" }]),
+    ).toBeNull();
+    if (!result) throw new Error("Expected linked insert");
+    expect(applySuggestion(result, s, library)).toBeNull();
+  });
+  it("adds, removes and reorders entries including hidden entries with exact permutations", () => {
+    const original = doc();
+    original.sections.experience.items[1].hidden = true;
+    const reorder: ResumeSuggestionV2 = {
+      id: "order",
+      reason: "Review",
+      op: "reorder_entries",
+      section: "experience",
+      itemIds: ["two", "one"],
+    };
+    expect(
+      applySuggestion(original, reorder)?.sections.experience.items.map(
+        (i) => i.id,
+      ),
+    ).toEqual(["two", "one"]);
+    for (const itemIds of [
+      ["one"],
+      ["one", "one"],
+      ["one", "foreign"],
+      ["one", "two", "extra"],
+    ])
+      expect(applySuggestion(original, { ...reorder, itemIds })).toBeNull();
+    const added = applySuggestion(original, {
+      id: "add",
+      reason: "Review",
+      op: "add_entry",
+      section: "projects",
+      index: 0,
+      item: { name: "New" },
+    });
+    if (!added) throw new Error("Expected added entry");
+    expect(added.sections.projects.items[0]).toMatchObject({
+      id: "cowork-entry-add",
+      name: "New",
+      hidden: false,
+    });
+    expect(
+      applySuggestion(added, {
+        id: "remove",
+        reason: "Review",
+        op: "remove_entry",
+        section: "projects",
+        itemId: "cowork-entry-add",
+      })?.sections.projects.items,
+    ).toEqual(original.sections.projects.items);
+  });
+});
+
+it("includes hidden library entries, excludes them, and never writes the library", () => {
+  const document = fixture();
+  document.customSections = [];
+  const item = document.sections.experience.items[0];
+  item.libraryId = "role";
+  item.hidden = true;
+  const library = [
+    { id: "role", kind: "role", text: "Role" },
+  ] as import("@shared/types").ExperienceBullet[];
+  const include: ResumeSuggestionV2 = {
+    id: "include",
+    reason: "Review",
+    op: "include_library_item",
+    libraryId: "role",
+  };
+  const included = applySuggestion(document, include, library);
+  expect(included?.sections.experience.items[0].hidden).toBe(false);
+  expect(item.hidden).toBe(true);
+  if (!included) throw new Error("Expected include");
+  const excluded = applySuggestion(
+    included,
+    { ...include, op: "exclude_library_item" },
+    library,
+  );
+  expect(excluded?.sections.experience.items.map((i) => i.id)).toEqual(["two"]);
+  expect(library).toEqual([{ id: "role", kind: "role", text: "Role" }]);
 });

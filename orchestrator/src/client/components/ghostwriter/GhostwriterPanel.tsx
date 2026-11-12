@@ -1,5 +1,6 @@
 import * as api from "@client/api";
 import { ApiClientError } from "@client/api/core";
+import { decodeStoredSuggestion } from "@shared/resume-suggestion-schema";
 import type {
   BranchInfo,
   CoworkChatContext,
@@ -10,7 +11,7 @@ import type {
   JobDocument,
   JobNote,
   PostApplicationJobEmailItem,
-  ResumeSuggestion,
+  ResumeSuggestionV2,
 } from "@shared/types";
 import { Settings2 } from "lucide-react";
 import type React from "react";
@@ -41,7 +42,7 @@ type GhostwriterPanelProps = {
   initialPrompt?: string | null;
   onInitialPromptConsumed?: () => void;
   cowork?: () => CoworkChatContext;
-  onSuggestions?: (suggestions: ResumeSuggestion[] | null) => void;
+  onSuggestions?: (suggestions: ResumeSuggestionV2[] | null) => void;
   referenceChips?: React.ReactNode;
 };
 
@@ -230,7 +231,12 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
 
       if (event.type === "completed" || event.type === "cancelled") {
         if (event.type === "completed") {
-          onSuggestions?.(event.message.suggestions ?? null);
+          onSuggestions?.(
+            event.message.suggestions?.flatMap((raw) => {
+              const suggestion = decodeStoredSuggestion(raw);
+              return suggestion ? [suggestion] : [];
+            }) ?? null,
+          );
           trackProductEvent("ghostwriter_response_completed", {
             trigger: runTriggerRef.current,
             message_length_bucket: bucketQueryLength(event.message.content),
