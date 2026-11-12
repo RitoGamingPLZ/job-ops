@@ -493,13 +493,6 @@
   gap: 3pt;
   min-width: 0;
 }
-/* Shown for editing, muted when the PDF leaves it out (empty or already in the degree). */
-.resume-simple-item:not([data-area-shown="true"]) .resume-education-in,
-.resume-paper
-  .resume-simple-item:not([data-area-shown="true"])
-  .resume-field-area {
-  opacity: 0.45;
-}
 /* min-width 0 lets the award text shrink within the available line width. */
 .resume-paper .resume-awards .resume-field-description {
   flex: 1;

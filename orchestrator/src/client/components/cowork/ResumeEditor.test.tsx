@@ -634,25 +634,23 @@ describe("navy serif document content", () => {
       );
     }
   });
-  it("shows education as one degree-in-area phrase with separate fields", () => {
-    const next = fullFixture();
-    const onChange = mount(next);
+  it("shows 'in field of study' only when the PDF prints it", () => {
+    const onChange = mount(fullFixture());
     const item = screen
       .getByLabelText("Education 1 field of study")
       .closest(".resume-simple-item");
-    expect(item).toHaveAttribute("data-area-shown", "true");
     expect(item).toHaveTextContent("in");
-    fireEvent.change(screen.getByLabelText("Education 1 degree"), {
-      target: { value: "BSc Computing" },
-    });
-    expect(item).toHaveAttribute("data-area-shown", "false");
     fireEvent.change(screen.getByLabelText("Education 1 field of study"), {
       target: { value: "Maths" },
     });
     expect(
       onChange.mock.lastCall?.[0].sections.education.items[0],
-    ).toMatchObject({ degree: "BSc Computing", area: "Maths" });
-    expect(item).toHaveAttribute("data-area-shown", "true");
+    ).toMatchObject({ area: "Maths" });
+    fireEvent.change(screen.getByLabelText("Education 1 degree"), {
+      target: { value: "BSc Maths" },
+    });
+    expect(screen.queryByLabelText("Education 1 field of study")).toBeNull();
+    expect(item?.querySelector(".resume-education-in")).toBeNull();
   });
   it("keeps unrelated HTML byte-identical and preserves prose when editing a bullet", () => {
     const original = fullFixture();

@@ -750,9 +750,6 @@ export function ResumeEditor({
                   className="resume-row resume-simple-item"
                   key={item.id}
                   data-focus-item={item.id}
-                  data-area-shown={
-                    kind === "education" && showArea(item.degree, item.area)
-                  }
                 >
                   {fields.map((field) => {
                     const input = fieldInput(item, index, field);
@@ -761,8 +758,13 @@ export function ResumeEditor({
                       return (
                         <span key={field} className="resume-education-degree">
                           {input}
-                          <span className="resume-education-in">in</span>
-                          {fieldInput(item, index, "area")}
+                          {/* Only when the PDF prints it: not empty or already in the degree. */}
+                          {showArea(item.degree, item.area) && (
+                            <>
+                              <span className="resume-education-in">in</span>
+                              {fieldInput(item, index, "area")}
+                            </>
+                          )}
                         </span>
                       );
                     return (
