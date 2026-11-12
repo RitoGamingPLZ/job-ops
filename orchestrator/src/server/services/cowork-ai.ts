@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { upstreamError } from "@infra/errors";
+import { AppError, upstreamError } from "@infra/errors";
 import { listExperienceBullets } from "@server/repositories/experience-bullets";
 import { safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
 import { htmlToPlainText, splitDescription } from "@shared/resume-bullets";
@@ -472,13 +472,30 @@ export function buildCoworkPrompt(
   }
   // ponytail: one shared budget; refs past it are sent without their content.
   let focusBudget = FOCUS_CHAR_BUDGET;
-  const focus = (context.focus ?? []).map((ref) => {
-    const current = focusCurrent(context, ref);
-    focusBudget -= JSON.stringify(current ?? null).length;
-    return focusBudget >= 0
-      ? { ...ref, current }
-      : { ...ref, current: null, truncated: true };
-  });
+  const focus = (context.focus ?? [])
+    .filter((ref) => {
+      if (ref.kind === "summary" || ref.kind === "headline") return true;
+      const section = ref.section ?? (ref.kind === "skill" ? "skills" : "");
+      if (ref.kind === "section") {
+        const sections = context.document.sections as unknown as Record<
+          string,
+          { hidden?: boolean } | undefined
+        >;
+        return (
+          Object.hasOwn(REPLACE_FIELDS, section) && !sections[section]?.hidden
+        );
+      }
+      return visibleSectionItems(context, section).some(
+        (item) => item.id === ref.itemId,
+      );
+    })
+    .map((ref) => {
+      const current = focusCurrent(context, ref);
+      focusBudget -= JSON.stringify(current ?? null).length;
+      return focusBudget >= 0
+        ? { ...ref, current }
+        : { ...ref, current: null, truncated: true };
+    });
   const fieldNames = Object.entries(REPLACE_FIELDS)
     .map(([section, names]) => `${section}{${names.join(",")}}`)
     .join(", ");
@@ -531,6 +548,8 @@ export function filterCoworkSuggestions(
         },
       ];
     }
+    if (s.op === "set_skills" && context.document.sections.skills.hidden)
+      return [];
     if (s.experienceId !== undefined && !experiences.has(s.experienceId))
       return [];
     if (s.op.endsWith("_bullet")) {
@@ -690,10 +709,16 @@ export async function labelExperienceBullets(ids?: string[]): Promise<{
         if (tag && !tags.has(tag.toLowerCase()))
           tags.set(tag.toLowerCase(), tag);
       }
-      const bullet = await updateLibraryItem(current.id, {
-        tags: [...tags.values()],
-      });
-      if (bullet) updated.push(bullet);
+      try {
+        const bullet = await updateLibraryItem(current.id, {
+          tags: [...tags.values()].slice(0, 100),
+        });
+        if (bullet) updated.push(bullet);
+      } catch (error) {
+        // A concurrent delete must not prevent labeling the remaining bullets.
+        if (error instanceof AppError && error.code === "NOT_FOUND") continue;
+        throw error;
+      }
     }
   }
   const updatedIds = new Set(updated.map((bullet) => bullet.id));
