@@ -1176,15 +1176,19 @@ describe("base resume mode", () => {
         expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
     });
   });
-  it("downloads an existing base PDF without rendering in this session", async () => {
+  it("renders the saved base resume before downloading, so it matches the preview", async () => {
     mount(true);
     const download = await screen.findByRole("button", {
       name: "Download PDF",
     });
     expect(download).toBeEnabled();
     fireEvent.click(download);
-    expect(mocks.baseDownload).toHaveBeenCalledWith("resume.pdf");
-    expect(mocks.basePdf).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(mocks.baseDownload).toHaveBeenCalledWith("resume.pdf"),
+    );
+    expect(mocks.basePdf.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.baseDownload.mock.invocationCallOrder[0],
+    );
   });
   it("surfaces missing base PDF download errors", async () => {
     const failure = new ApiClientError("Missing PDF", { status: 404 });
@@ -1301,7 +1305,9 @@ describe("base resume mode", () => {
     expect(mocks.basePdf).toHaveBeenCalledOnce();
     expect(mocks.pdf).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
-    expect(mocks.baseDownload).toHaveBeenCalledWith("resume.pdf");
+    await waitFor(() =>
+      expect(mocks.baseDownload).toHaveBeenCalledWith("resume.pdf"),
+    );
   });
   it("uses the same conflict dialog and latest base revision", async () => {
     mount(true);

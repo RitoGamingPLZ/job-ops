@@ -568,6 +568,25 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
       }
     }
   }
+  /** Renders the saved resume first, so the file matches the preview. */
+  async function downloadPdf() {
+    setBusy(true);
+    try {
+      if (!(await flush())) return;
+      if (base) {
+        await generateDesignResumePdf();
+        await downloadDesignResumePdf("resume.pdf");
+      } else {
+        await generateJobPdf(jobId);
+        await downloadJobPdf(jobId, "resume.pdf");
+      }
+      setPdfReady(true);
+    } catch (failure) {
+      coworkError(failure);
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  }
   async function importBase() {
     setBusy(true);
     if (timer.current) clearTimeout(timer.current);
@@ -798,15 +817,9 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
         <Button
           size="sm"
           variant="outline"
-          disabled={busy || (!base && !job?.pdfPath && !pdfReady)}
-          title="Download the last rendered PDF"
-          onClick={() =>
-            void (
-              base
-                ? downloadDesignResumePdf("resume.pdf")
-                : downloadJobPdf(jobId, "resume.pdf")
-            ).catch(coworkError)
-          }
+          disabled={busy}
+          title="Save, render and download the PDF"
+          onClick={() => void downloadPdf()}
         >
           Download PDF
         </Button>
