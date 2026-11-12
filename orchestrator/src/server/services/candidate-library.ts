@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { badRequest, notFound } from "@infra/errors";
-import { htmlToPlainText, splitDescription } from "@shared/resume-bullets";
+import {
+  foldedLibraryText,
+  parseLibraryData,
+} from "@shared/candidate-library-schema";
+import { splitDescription } from "@shared/resume-bullets";
 import {
   applyLibraryUpdate,
   isContactOnResume,
@@ -170,8 +174,16 @@ function insert(input: ExperienceBulletInput, all: ExperienceBullet[]) {
 export function createLibraryItem(input: ExperienceBulletInput) {
   return db.transaction(() => {
     const all = library();
+    input = normalizeStructured(input);
     validate(input, all);
-    return insert(normalizeContact(input), all);
+    const normalized = normalizeContact({
+      ...input,
+      kind: input.kind ?? "bullet",
+    });
+    return (
+      all.find((item) => key(item) === key(normalized)) ??
+      insert(normalized, all)
+    );
   });
 }
 export function updateLibraryItem(
@@ -185,6 +197,12 @@ export function updateLibraryItem(
     if (!before) throw notFound("Bullet not found");
     if (input.kind && input.kind !== before.kind)
       throw badRequest("Library item kind cannot change");
+    if (input.data !== undefined)
+      input = { ...input, data: { ...before.data, ...input.data } };
+    input = {
+      ...input,
+      data: normalizeStructured({ ...before, ...input }).data,
+    };
     validate({ ...before, ...input }, all, id);
     if (before.kind === "contact")
       input = normalizeContact({ ...before, ...input });
@@ -304,20 +322,38 @@ function key(input: ExperienceBulletInput) {
               ? [data.date]
               : input.kind === "certification"
                 ? [data.issuer, data.date]
-                : null;
+                : input.kind === "bullet" && !input.parentId
+                  ? [input.company, input.role, input.startDate, input.endDate]
+                  : null;
   return JSON.stringify([
     input.kind,
-    normal(input.text),
+    normal(
+      ["education", "award", "certification"].includes(input.kind ?? "")
+        ? foldedLibraryText(
+            input.kind ?? "bullet",
+            input.text,
+            input.data ?? null,
+          )
+        : input.text,
+    ),
     input.parentId ?? null,
     normal(identity),
   ]);
 }
-const plain = (value: unknown) =>
-  htmlToPlainText(typeof value === "string" ? value : "")
-    .replace(/\s+/g, " ")
-    .trim();
-const fold = (...parts: unknown[]) =>
-  parts.map(plain).filter(Boolean).join(" · ");
+function normalizeStructured(
+  input: ExperienceBulletInput,
+): ExperienceBulletInput {
+  if (!["education", "award", "certification"].includes(input.kind ?? ""))
+    return input;
+  try {
+    return {
+      ...input,
+      data: parseLibraryData(input.kind ?? "bullet", input.data),
+    };
+  } catch {
+    throw badRequest("Invalid structured library data");
+  }
+}
 const FIRST_BUILD_KEY = "candidateLibraryFirstBuild";
 export function candidateLibraryNeedsFirstBuild(): boolean {
   return !db
@@ -339,6 +375,7 @@ export function syncCandidateLibrary(
     const all = library();
     const result: LibrarySyncResult = { created: 0, skipped: 0, linked: 0 };
     function add(input: ExperienceBulletInput): ExperienceBullet {
+      input = normalizeStructured(input);
       const existing = all.find((item) => key(item) === key(input));
       if (existing) {
         result.skipped++;
@@ -602,8 +639,13 @@ export function syncCandidateLibrary(
         if (!item.libraryId)
           add({
             kind: "education",
-            text: fold(item.degree, item.area, item.grade, item.description),
+            text: item.degree,
             data: {
+              schemaVersion: 2,
+              area: item.area,
+              grade: item.grade,
+              description: item.description,
+              website: item.website,
               school: item.school,
               location: item.location,
               period: item.period,
@@ -614,16 +656,24 @@ export function syncCandidateLibrary(
         if (!item.libraryId)
           add({
             kind: "award",
-            text: fold(item.title, item.awarder, item.description),
-            data: { date: item.date },
+            text: item.title,
+            data: {
+              schemaVersion: 2,
+              date: item.date,
+              awarder: item.awarder,
+              description: item.description,
+              website: item.website,
+            },
             source,
           });
       for (const item of document.sections.certifications.items)
         if (!item.libraryId)
           add({
             kind: "certification",
-            text: fold(item.title, item.description),
+            text: item.title,
             data: {
+              schemaVersion: 2,
+              description: item.description,
               issuer: item.issuer,
               website: item.website,
               date: item.date,

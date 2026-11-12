@@ -18,6 +18,7 @@
  * Every function is pure and never mutates its inputs.
  */
 
+import { foldedLibraryText } from "./candidate-library-schema";
 import {
   bulletsToHtml,
   htmlToPlainText,
@@ -251,6 +252,9 @@ function websiteValue(value: unknown, existing?: unknown) {
       : { url: value };
   return {
     url: typeof website.url === "string" ? website.url : string(fallback.url),
+    ...(typeof website.inlineLink === "boolean"
+      ? { inlineLink: website.inlineLink }
+      : {}),
     label:
       typeof website.label === "string"
         ? website.label
@@ -279,16 +283,18 @@ function fields(item: ExperienceBullet, existingWebsite?: unknown): ResumeItem {
         school: string(data.school).trim() ? string(data.school) : "—",
         location: string(data.location),
         period: string(data.period),
-        area: "",
-        grade: "",
-        description: "",
+        area: string(data.area),
+        grade: string(data.grade),
+        description: string(data.description),
+        website,
       };
     case "award":
       return {
         title: item.text,
         date: string(data.date),
-        awarder: "",
-        description: "",
+        awarder: string(data.awarder),
+        description: string(data.description),
+        website,
       };
     case "certification":
       return {
@@ -296,7 +302,7 @@ function fields(item: ExperienceBullet, existingWebsite?: unknown): ResumeItem {
         issuer: string(data.issuer),
         date: string(data.date),
         website,
-        description: "",
+        description: string(data.description),
       };
     default:
       throw new Error("A library line requires its parent resume item");
@@ -487,8 +493,8 @@ export function removeFromResume(doc: ResumeDoc, libraryId: string): ResumeDoc {
  * - lines with ref === id whose text still equals before.text → after.text
  *   (reworded lines are left alone);
  * - top-level items with libraryId === id get their fields re-derived from
- *   `after` (entry fields are always linked). Skills: the label follows the
- *   library; the resume keeps its own ticked keywords (keywords have no ids).
+ *   `after` only while each field still equals its previous library value.
+ *   Skills: the label follows the library; the resume keeps its own ticked keywords (keywords have no ids).
  * Returns the same object when nothing changed.
  */
 export function applyLibraryUpdate(
@@ -539,12 +545,30 @@ export function applyLibraryUpdate(
   return mapItems(doc, (item) => {
     let next = item;
     if (item.libraryId === before.id) {
-      // Legacy URL-only rows have no label; missing fields retain resume values.
+      const previous = fields(before);
       const derived = fields(after, item.website);
-      if (
-        Object.entries(derived).some(([key, value]) => !equal(item[key], value))
-      )
-        next = { ...item, ...derived };
+      const changes = Object.fromEntries(
+        Object.entries(derived).filter(
+          ([key, value]) =>
+            key !== "website" &&
+            equal(item[key], previous[key]) &&
+            !equal(item[key], value),
+        ),
+      );
+      if (derived.website && item.website && typeof item.website === "object") {
+        const current = item.website as Record<string, unknown>;
+        const oldWebsite = previous.website as Record<string, unknown>;
+        const websiteChanges = Object.fromEntries(
+          Object.entries(derived.website).filter(
+            ([key, value]) =>
+              equal(current[key], oldWebsite[key]) &&
+              !equal(current[key], value),
+          ),
+        );
+        if (Object.keys(websiteChanges).length)
+          changes.website = { ...current, ...websiteChanges };
+      }
+      if (Object.keys(changes).length) next = { ...item, ...changes };
     }
     const lines = getItemLines(next);
     if (
@@ -593,11 +617,6 @@ export function resetLine(
 }
 
 function entryText(item: ResumeItem, kind: CandidateItemKind): string {
-  const fold = (...values: unknown[]) =>
-    values
-      .map((value) => htmlToPlainText(string(value)))
-      .filter(Boolean)
-      .join(" · ");
   switch (kind) {
     case "role":
       return string(item.position);
@@ -605,11 +624,11 @@ function entryText(item: ResumeItem, kind: CandidateItemKind): string {
     case "skill":
       return string(item.name);
     case "education":
-      return fold(item.degree, item.area, item.grade, item.description);
+      return string(item.degree);
     case "award":
-      return fold(item.title, item.awarder, item.description);
+      return string(item.title);
     case "certification":
-      return fold(item.title, item.description);
+      return string(item.title);
     default:
       return "";
   }
@@ -634,7 +653,12 @@ export function stampLibraryRefs(
       const matches = library.filter(
         (value) =>
           value.kind === kind &&
-          sameLineText(value.text, entryText(item, kind)),
+          (["education", "award", "certification"].includes(kind)
+            ? sameLineText(
+                foldedLibraryText(kind, value.text, value.data),
+                foldedLibraryText(kind, entryText(item, kind), item),
+              )
+            : sameLineText(value.text, entryText(item, kind))),
       );
       const match =
         matches.find((value) =>
@@ -642,11 +666,27 @@ export function stampLibraryRefs(
             ? sameLineText(string(value.data?.company), string(item.company)) &&
               sameLineText(string(value.data?.period), string(item.period))
             : kind === "education"
-              ? sameLineText(string(value.data?.school), string(item.school))
-              : kind === "project"
-                ? sameLineText(string(value.data?.period), string(item.period))
-                : true,
-        ) ?? (matches.length === 1 ? matches[0] : undefined);
+              ? sameLineText(string(value.data?.school), string(item.school)) &&
+                sameLineText(string(value.data?.period), string(item.period))
+              : kind === "award"
+                ? sameLineText(string(value.data?.date), string(item.date))
+                : kind === "certification"
+                  ? sameLineText(
+                      string(value.data?.issuer),
+                      string(item.issuer),
+                    ) &&
+                    sameLineText(string(value.data?.date), string(item.date))
+                  : kind === "project"
+                    ? sameLineText(
+                        string(value.data?.period),
+                        string(item.period),
+                      )
+                    : true,
+        ) ??
+        (!["education", "award", "certification"].includes(kind) &&
+        matches.length === 1
+          ? matches[0]
+          : undefined);
       if (match) {
         next = { ...next, libraryId: match.id };
         linked++;

@@ -152,7 +152,7 @@ it("unions base and job resumes, merges keywords, folds extras and is idempotent
       keywords: ["TS", "Go"],
     });
     expect(all.find((item) => item.kind === "education")).toMatchObject({
-      text: "BSc · CS · First · Thesis research",
+      text: "BSc",
       data: { location: "Town", school: "School" },
     });
     expect(await repo.listExperienceBullets()).toHaveLength(2);
@@ -278,7 +278,7 @@ it("isolates reads, mutations, parents, sync and usage across tenants", async ()
   });
 });
 
-it("syncs projects and points, folds awards and certificates without duplicates", async () => {
+it("syncs projects and points, preserves structured awards and certificates without duplicates", async () => {
   const website = { url: "https://example.com", label: "Link" };
   document.sections.projects.items = [
     {
@@ -318,12 +318,15 @@ it("syncs projects and points, folds awards and certificates without duplicates"
     const all = await (
       await import("../repositories/experience-bullets")
     ).listExperienceBullets(true);
-    expect(all.find((item) => item.kind === "award")?.text).toBe(
-      "Prize · Guild · First place",
-    );
+    expect(all.find((item) => item.kind === "award")?.text).toBe("Prize");
     expect(all.find((item) => item.kind === "certification")).toMatchObject({
-      text: "Certified · Advanced",
-      data: { issuer: "Institute", website },
+      text: "Certified",
+      data: {
+        schemaVersion: 2,
+        issuer: "Institute",
+        website,
+        description: "<p>Advanced</p>",
+      },
     });
     const project = all.find((item) => item.kind === "project");
     expect(all.find((item) => item.kind === "project_point")?.parentId).toBe(
@@ -354,6 +357,7 @@ it("rolls back a library edit when propagation fails", async () => {
 });
 it("isolates library and resume state by user in hosted workspaces", async () => {
   vi.stubEnv("JOBOPS_APP_MODE", "hosted");
+  vi.stubEnv("JOBOPS_HOSTED_TENANT_ID", "tenant-a");
   vi.stubEnv("JOBOPS_HOSTED_TENANT_ID", "tenant-a");
   database.db
     .insert(database.schema.users)
@@ -842,5 +846,240 @@ it("sync imports missing base contacts into existing libraries without editing o
         (item) => item.kind === "contact",
       ),
     ).toHaveLength(0);
+  });
+});
+
+it("imports structured education/awards/certifications and derives every field intact", async () => {
+  const website = {
+    url: "https://example.com",
+    label: "Details",
+    inlineLink: true,
+  };
+  const education = {
+    id: "e",
+    hidden: false,
+    degree: "BSc",
+    school: "School",
+    location: "City",
+    period: "2020–2024",
+    area: "CS",
+    grade: "First",
+    description: "<p><strong>Honours</strong></p>",
+    website,
+  };
+  const award = {
+    id: "a",
+    hidden: false,
+    title: "Prize",
+    awarder: "Guild",
+    date: "2024",
+    description: "<p>First place</p>",
+    website,
+  };
+  const certification = {
+    id: "c",
+    hidden: false,
+    title: "Certified",
+    issuer: "Institute",
+    date: "2024",
+    description: "<p>Advanced</p>",
+    website,
+  };
+  document.sections.education.items = [education];
+  document.sections.awards.items = [award];
+  document.sections.certifications.items = [certification];
+  await scope("tenant-a", async () => {
+    expect(api.syncCandidateLibrary(document).created).toBe(3);
+    const all = await (
+      await import("../repositories/experience-bullets")
+    ).listExperienceBullets(true);
+    const { libraryItemToResumeItem } = await vi.importActual<
+      typeof import("@shared/resume-links")
+    >("@shared/resume-links");
+    for (const [kind, source] of [
+      ["education", education],
+      ["award", award],
+      ["certification", certification],
+    ] as const) {
+      const item = all.find((item) => item.kind === kind);
+      if (!item) throw new Error("Missing structured library item");
+      const { id: _id, ...expected } = source;
+      expect(libraryItemToResumeItem(item)).toMatchObject(expected);
+    }
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+    const item = all.find((item) => item.kind === "education");
+    if (!item) throw new Error("Missing education");
+    expect(
+      api.updateLibraryItem(item.id, { data: { grade: "Distinction" } }).data,
+    ).toMatchObject({
+      grade: "Distinction",
+      area: "CS",
+      description: education.description,
+      website,
+    });
+    expect(() =>
+      api.updateLibraryItem(item.id, { data: { area: "x".repeat(501) } }),
+    ).toThrow("Invalid structured library data");
+  });
+});
+it("dedupes create retries within each private scope", () => {
+  const input = {
+    kind: "award" as const,
+    text: "Prize",
+    data: { date: "2024", awarder: "Guild" },
+  };
+  const first = scope("tenant-a", () => api.createLibraryItem(input));
+  expect(
+    scope("tenant-a", () =>
+      api.createLibraryItem({ ...input, text: "  PRIZE  " }),
+    ).id,
+  ).toBe(first.id);
+  expect(scope("tenant-b", () => api.createLibraryItem(input)).id).not.toBe(
+    first.id,
+  );
+  const userScope = (userId: string) =>
+    run({ requestId: "dedupe", tenantId: "tenant-a", userId }, () =>
+      api.createLibraryItem(input),
+    );
+  for (const id of ["user-one", "user-two"])
+    database.db
+      .insert(database.schema.users)
+      .values({ id, username: id, displayName: id })
+      .run();
+  vi.stubEnv("JOBOPS_APP_MODE", "hosted");
+  vi.stubEnv("JOBOPS_HOSTED_TENANT_ID", "tenant-a");
+  const one = userScope("user-one");
+  expect(userScope("user-one").id).toBe(one.id);
+  expect(userScope("user-two").id).not.toBe(one.id);
+});
+it("matches a legacy folded row during import and create without creating duplicates", async () => {
+  const website = { url: "", label: "" };
+  document.sections.education.items = [
+    {
+      id: "education",
+      hidden: false,
+      school: "School",
+      location: "City",
+      period: "2024",
+      degree: "BSc",
+      area: "CS",
+      grade: "First",
+      description: "<p>Honours</p>",
+      website,
+    },
+  ];
+  await scope("tenant-a", async () => {
+    const old = api.createLibraryItem({
+      kind: "education",
+      text: "BSc · CS · First · Honours",
+      data: { school: "School", location: "City", period: "2024" },
+    });
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+    expect(
+      api.createLibraryItem({
+        kind: "education",
+        text: "BSc",
+        data: { ...document.sections.education.items[0] },
+      }).id,
+    ).toBe(old.id);
+    const repo = await import("../repositories/experience-bullets");
+    expect(await repo.listExperienceBullets(true)).toHaveLength(1);
+  });
+});
+it("imports, dedupes and stamps double majors as distinct full facts", async () => {
+  const first = {
+    id: "cs",
+    hidden: false,
+    school: "School",
+    location: "City",
+    period: "2024",
+    degree: "BSc",
+    area: "Computer Science",
+    grade: "",
+    description: "",
+    website: { url: "", label: "" },
+  };
+  const second = { ...first, id: "maths", area: "Mathematics" };
+  document.sections.education.items = [first, second];
+  await scope("tenant-a", async () => {
+    expect(api.syncCandidateLibrary(document).created).toBe(2);
+    const all = await (
+      await import("../repositories/experience-bullets")
+    ).listExperienceBullets(true);
+    expect(all).toHaveLength(2);
+    const ids = [first, second].map(
+      (item) =>
+        api.createLibraryItem({
+          kind: "education",
+          text: item.degree,
+          data: { ...item },
+        }).id,
+    );
+    expect(new Set(ids).size).toBe(2);
+    const { stampLibraryRefs } = await vi.importActual<
+      typeof import("@shared/resume-links")
+    >("@shared/resume-links");
+    const stamped = stampLibraryRefs(document, all);
+    expect(stamped.linked).toBe(2);
+    expect(
+      stamped.doc.sections.education.items.map((item) => item.libraryId),
+    ).toEqual(ids);
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+  });
+});
+it.each([
+  "award",
+  "certification",
+] as const)("keeps distinct %s descriptions separate during create dedupe", (kind) => {
+  scope("tenant-a", () => {
+    const input = {
+      kind,
+      text: "Title",
+      data: { date: "2024", issuer: "Institute", description: "First fact" },
+    };
+    const first = api.createLibraryItem(input);
+    expect(api.createLibraryItem(input).id).toBe(first.id);
+    expect(
+      api.createLibraryItem({
+        ...input,
+        data: { ...input.data, description: "Second fact" },
+      }).id,
+    ).not.toBe(first.id);
+  });
+});
+it.each([
+  "education",
+  "award",
+  "certification",
+] as const)("repairs invalid stored %s data with a clean schema PATCH", async (kind) => {
+  const { parseLibraryData } = await import("@shared/candidate-library-schema");
+  const { eq } = await import("drizzle-orm");
+  scope("tenant-a", () => {
+    const clean = parseLibraryData(kind, {
+      description: "<p>Keep rich text</p>",
+      website: {
+        url: "https://example.com",
+        label: "Details",
+        inlineLink: true,
+      },
+    });
+    const item = api.createLibraryItem({ kind, text: "Title", data: clean });
+    database.db
+      .update(database.schema.experienceBullets)
+      .set({
+        data: {
+          ...clean,
+          legacy: "preserved",
+          website: {
+            ...(clean.website as Record<string, unknown>),
+            icon: "invalid nested key",
+          },
+        },
+      })
+      .where(eq(database.schema.experienceBullets.id, item.id))
+      .run();
+    const repaired = api.updateLibraryItem(item.id, { data: clean });
+    expect(repaired.data).toMatchObject({ ...clean, legacy: "preserved" });
+    expect(repaired.data?.website).toEqual(clean.website);
   });
 });
