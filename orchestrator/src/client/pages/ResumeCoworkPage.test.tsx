@@ -123,7 +123,7 @@ vi.mock("@/client/components/ghostwriter/GhostwriterPanel", () => ({
               op: "create_library_item",
               reason: "New fact",
               item: { kind: "skill", text: "TypeScript" },
-              includeOnResume: false,
+              includeOnResume: true,
             },
           ])
         }
@@ -683,6 +683,57 @@ describe("resume co-work saving", () => {
       ).toContain("Resume save failed or conflicted"),
     );
     expect(mocks.editorProps.mock.lastCall?.[0].suggestions).toHaveLength(3);
+  });
+  it("dismisses applied suggestion ids after Keep mine resolves a CAS conflict", async () => {
+    mocks.save.mockRejectedValueOnce(
+      new ApiClientError("Conflict", { status: 409 }),
+    );
+    mocks.getResume
+      .mockResolvedValueOnce(state())
+      .mockResolvedValueOnce(state("Remote", 4));
+    mount();
+    await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByText("Suggest edits"));
+    await act(async () => {
+      const props = mocks.editorProps.mock.lastCall?.[0];
+      props.onAccept([props.suggestions[0]]);
+    });
+    fireEvent.click(await screen.findByText("Keep mine"));
+    await waitFor(() =>
+      expect(
+        mocks.editorProps.mock.lastCall?.[0].suggestions.map(
+          (s: ResumeSuggestionV2) => s.id,
+        ),
+      ).toEqual(["two", "three"]),
+    );
+    expect(mocks.save.mock.calls[1][1]).toMatchObject({
+      baseRevision: 4,
+      document: { basics: { headline: "Edited one" } },
+    });
+  });
+  it("explains when an item was created but could not be placed on the resume", async () => {
+    mocks.createBullet.mockResolvedValueOnce({
+      bullet: {
+        id: "created",
+        kind: "bullet",
+        parentId: "missing-parent",
+        text: "New fact",
+      },
+    });
+    mount();
+    await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByText("Suggest library item"));
+    await act(async () => {
+      const props = mocks.editorProps.mock.lastCall?.[0];
+      props.onAccept(props.suggestions);
+    });
+    await waitFor(() =>
+      expect(mocks.editorProps.mock.lastCall?.[0].rejectionReasons.create).toBe(
+        "Added to library; could not place on resume.",
+      ),
+    );
+    expect(mocks.editorProps.mock.lastCall?.[0].suggestions).toHaveLength(1);
+    expect(mocks.save).not.toHaveBeenCalled();
   });
   it("flushes pending edits before rendering the PDF inline from the middle toolbar", async () => {
     mount();

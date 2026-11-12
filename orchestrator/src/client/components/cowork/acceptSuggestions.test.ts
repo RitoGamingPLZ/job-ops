@@ -85,7 +85,7 @@ const headline: ResumeSuggestionV2 = {
 };
 
 describe("accept suggestions executor", () => {
-  it("serializes creates before saves, then applies document ops, using dedupe's returned row", async () => {
+  it("serializes creates, applies document ops, then saves using dedupe's returned row", async () => {
     const events: string[] = [];
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
@@ -240,4 +240,138 @@ describe("accept suggestions executor", () => {
     expect(result.applied).toEqual([]);
     expect(result.rejected).toEqual([{ id: "headline", code: "STALE" }]);
   });
+});
+
+it("saves a same-batch rewrite from the post-apply document", async () => {
+  const original = state();
+  const api = {
+    createItem: vi.fn(),
+    updateItem: vi.fn().mockResolvedValue({
+      bullet: row("line", "bullet", {
+        parentId: "role",
+        text: "New wording",
+      }),
+    }),
+  };
+  const rewrite: ResumeSuggestionV2 = {
+    id: "rewrite",
+    reason: "Review",
+    op: "replace_bullet",
+    section: "experience",
+    itemId: "role-entry",
+    bulletIndex: 0,
+    previousText: "Job wording",
+    text: "New wording",
+  };
+  const result = await executeAcceptedSuggestions(
+    original,
+    [save, rewrite],
+    api,
+  );
+  expect(api.updateItem).toHaveBeenCalledWith(
+    "line",
+    { text: "New wording" },
+    "job",
+  );
+  expect(result.applied).toEqual(["rewrite", "save"]);
+  expect(result.rejected).toEqual([]);
+  expect(result.document.sections.experience.items[0].description).toContain(
+    "New wording",
+  );
+});
+
+it("reports successful create with failed placement as INVALID_TARGET and keeps the returned row", async () => {
+  const created = row("created-line", "bullet", { parentId: "missing" });
+  const api = {
+    createItem: vi.fn().mockResolvedValue({ bullet: created }),
+    updateItem: vi.fn(),
+  };
+  const result = await executeAcceptedSuggestions(state(), [create], api);
+  expect(result.applied).toEqual([]);
+  expect(result.rejected).toEqual([{ id: "create", code: "INVALID_TARGET" }]);
+  expect(result.library).toContainEqual(created);
+});
+
+it("reports stale guarded text separately from invalid targets and permutations", async () => {
+  const api = { createItem: vi.fn(), updateItem: vi.fn() };
+  const result = await executeAcceptedSuggestions(
+    state(),
+    [
+      {
+        id: "exclude",
+        reason: "Review",
+        op: "exclude_library_item",
+        libraryId: "line",
+      },
+      {
+        id: "removed-line",
+        reason: "Review",
+        op: "replace_bullet",
+        section: "experience",
+        itemId: "role-entry",
+        bulletIndex: 0,
+        previousText: "Job wording",
+        text: "New",
+      },
+      {
+        id: "missing",
+        reason: "Review",
+        op: "replace_bullet",
+        section: "experience",
+        itemId: "missing",
+        bulletIndex: 0,
+        previousText: "Old",
+        text: "New",
+      },
+      {
+        id: "bad-order",
+        reason: "Review",
+        op: "reorder_bullets",
+        section: "experience",
+        itemId: "role-entry",
+        previousTexts: [],
+        order: [0],
+      },
+    ],
+    api,
+  );
+  expect(result.rejected).toEqual(
+    expect.arrayContaining([
+      { id: "removed-line", code: "STALE" },
+      { id: "missing", code: "INVALID_TARGET" },
+      { id: "bad-order", code: "INVALID_TARGET" },
+    ]),
+  );
+});
+
+it("does not save a derived company placeholder as library data", async () => {
+  const original = state();
+  original.document.sections.experience.items[0].company = "—";
+  original.library[0].data = { company: "" };
+  const api = {
+    createItem: vi.fn(),
+    updateItem: vi.fn().mockResolvedValue({ bullet: original.library[0] }),
+  };
+  await executeAcceptedSuggestions(
+    original,
+    [
+      {
+        id: "role-save",
+        reason: "Review",
+        op: "save_to_library",
+        target: {
+          kind: "entry",
+          section: "experience",
+          itemId: "role-entry",
+          libraryId: "role",
+        },
+      },
+    ],
+    api,
+  );
+  expect(api.updateItem).toHaveBeenCalledWith(
+    "role",
+    expect.objectContaining({ data: expect.objectContaining({ company: "" }) }),
+    "job",
+  );
 });

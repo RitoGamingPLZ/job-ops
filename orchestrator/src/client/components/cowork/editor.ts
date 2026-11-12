@@ -320,8 +320,10 @@ function applyResolvedSuggestion(
         if (
           item.libraryId === s.libraryId ||
           (linked?.parentId && item.libraryId === linked.parentId)
-        )
+        ) {
           item.hidden = false;
+          (section as { hidden?: boolean }).hidden = false;
+        }
     }
     return next;
   }
@@ -391,8 +393,11 @@ function applyResolvedSuggestion(
           return null;
         lines = s.order.map((i) => lines[i]);
       } else {
-        const index = target.index;
-        if (index === undefined || index > lines.length) return null;
+        const currentTarget = suggestionTarget(next, s, library);
+        const index =
+          s.op === "insert_bullet" ? target.index : currentTarget?.index;
+        if (!currentTarget || index === undefined || index > lines.length)
+          return null;
         if (s.op === "delete_bullet") lines.splice(index, 1);
         else
           lines.splice(index, s.op === "replace_bullet" ? 1 : 0, {

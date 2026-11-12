@@ -1153,7 +1153,8 @@ describe("navy serif document content", () => {
 
 // Step A implements these pure helpers in parallel. Exercise the editor against
 // their fixed contract without depending on its placeholder bodies.
-vi.mock("@shared/resume-links", async () => {
+vi.mock("@shared/resume-links", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@shared/resume-links")>();
   const { splitDescription, joinDescription } = await import(
     "@shared/resume-bullets"
   );
@@ -1178,6 +1179,7 @@ vi.mock("@shared/resume-links", async () => {
     bulletRefs: lines.map((line) => line.ref),
   });
   return {
+    ...actual,
     getItemLines: vi.fn(getItemLines),
     setItemLines: vi.fn(setItemLines),
     isOnResume: (doc: ReactiveResumeV5Document, id: string) =>
@@ -1725,6 +1727,7 @@ it("labels structural and library effects before delegating acceptance to the pa
   const onAccept = vi.fn();
   const onDismiss = vi.fn();
   const onChange = vi.fn();
+  document.sections.skills.items[0].libraryId = "lib";
   const library = [
     { id: "lib", kind: "skill", text: "Languages" },
   ] as import("@shared/types").ExperienceBullet[];
@@ -1802,7 +1805,7 @@ it("labels structural and library effects before delegating acceptance to the pa
     "Include library item",
     "Exclude library item",
     "Add to library",
-    "Save to library",
+    "Save to library (updates other resumes using it)",
   ])
     expect(
       screen.getByRole("button", { name: `Accept: ${label}` }),
@@ -1811,6 +1814,28 @@ it("labels structural and library effects before delegating acceptance to the pa
     screen.getByRole("button", { name: "Accept: Add to library" }),
   );
   expect(onAccept).toHaveBeenCalledWith([suggestions[5]]);
+  onAccept.mockClear();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Accept all (2 library changes need separate accept)",
+    }),
+  );
+  expect(onAccept).toHaveBeenCalledWith(suggestions.slice(0, 5));
+  const saveCard = screen
+    .getByRole("button", {
+      name: "Accept: Save to library (updates other resumes using it)",
+    })
+    .closest("article");
+  if (!saveCard) throw new Error("Expected save review card");
+  expect(within(saveCard).getByText("Skills")).toBeVisible();
+  expect(within(saveCard).getByText("TypeScript")).toBeVisible();
+  expect(saveCard.querySelector("del")).toBeNull();
+  expect(screen.queryByText("Current resume fields")).toBeNull();
+  const excludeCard = screen
+    .getByRole("button", { name: "Accept: Exclude library item" })
+    .closest("article");
+  expect(excludeCard?.querySelector("del")).toHaveTextContent("Languages");
+  expect(excludeCard?.querySelector("mark")).toBeNull();
   expect(onChange).not.toHaveBeenCalled();
   expect(onDismiss).not.toHaveBeenCalled();
   expect(

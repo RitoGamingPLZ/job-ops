@@ -651,3 +651,80 @@ it("includes hidden library entries, excludes them, and never writes the library
   expect(excluded?.sections.experience.items.map((i) => i.id)).toEqual(["two"]);
   expect(library).toEqual([{ id: "role", kind: "role", text: "Role" }]);
 });
+
+describe("batch line targeting after library membership changes", () => {
+  it.each([
+    "replace_bullet",
+    "delete_bullet",
+  ] as const)("resolves %s by current text and keeps the correct ref", (op) => {
+    const document = fixture();
+    document.customSections = [];
+    document.sections.experience.items[0] = {
+      ...document.sections.experience.items[0],
+      libraryId: "role",
+      description: "<ul><li>A</li><li>B</li><li>C</li><li>D</li></ul>",
+      bulletRefs: ["a", "b", "c", "d"],
+    };
+    const library = [
+      { id: "b", kind: "bullet", parentId: "role", text: "B" },
+    ] as import("@shared/types").ExperienceBullet[];
+    const result = applySuggestions(
+      document,
+      [
+        {
+          id: "exclude",
+          reason: "Review",
+          op: "exclude_library_item",
+          libraryId: "b",
+        },
+        {
+          id: "edit",
+          reason: "Review",
+          op,
+          section: "experience",
+          itemId: "one",
+          bulletIndex: 2,
+          previousText: "C",
+          ...(op === "replace_bullet" ? { text: "C2" } : {}),
+        } as ResumeSuggestionV2,
+      ],
+      library,
+    );
+    const item = result.document.sections.experience.items[0];
+    expect(item.description).toBe(
+      op === "replace_bullet"
+        ? "<ul><li>A</li><li>C2</li><li>D</li></ul>"
+        : "<ul><li>A</li><li>D</li></ul>",
+    );
+    expect(item.bulletRefs).toEqual(
+      op === "replace_bullet" ? ["a", "c", "d"] : ["a", "d"],
+    );
+    expect(result.applied).toEqual(["exclude", "edit"]);
+  });
+  it("includes a line by unhiding both its existing parent and section", () => {
+    const document = fixture();
+    document.customSections = [];
+    document.sections.experience.hidden = true;
+    document.sections.experience.items[0].hidden = true;
+    document.sections.experience.items[0].libraryId = "role";
+    const library = [
+      { id: "role", kind: "role", text: "Engineer" },
+      { id: "new", kind: "bullet", parentId: "role", text: "New" },
+    ] as import("@shared/types").ExperienceBullet[];
+    const result = applySuggestion(
+      document,
+      {
+        id: "include",
+        reason: "Review",
+        op: "include_library_item",
+        libraryId: "new",
+      },
+      library,
+    );
+    expect(result?.sections.experience.hidden).toBe(false);
+    expect(result?.sections.experience.items[0].hidden).toBe(false);
+    expect(result?.sections.experience.items[0].bulletRefs).toContain("new");
+    expect(document.sections.experience.hidden).toBe(true);
+    expect(document.sections.experience.items[0].hidden).toBe(true);
+  });
+});

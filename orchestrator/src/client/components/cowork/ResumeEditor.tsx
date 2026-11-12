@@ -1,5 +1,6 @@
 import {
   bulletsFromHtml,
+  htmlToPlainText,
   introTextToHtml,
   joinDescription,
   splitDescription,
@@ -32,6 +33,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { librarySaveInput } from "./acceptSuggestions";
 import { REWORDED_TINT_CLASS } from "./rewordTint";
 import "./ResumeEditor.css";
 import { RichTextEditor } from "@/client/components/design-resume/RichTextEditor";
@@ -553,6 +555,9 @@ export function ResumeEditor({
   function accept(items: ResumeSuggestionV2[]) {
     onAccept(items.filter((s) => target(s) !== null));
   }
+  const libraryChangeCount = suggestions.filter(
+    (s) => s.op === "create_library_item" || s.op === "save_to_library",
+  ).length;
   function suggestionList(items: ResumeSuggestionV2[]) {
     return items.map((s) => {
       const resolved = target(s);
@@ -574,12 +579,52 @@ export function ResumeEditor({
               include_library_item: "Include library item",
               exclude_library_item: "Exclude library item",
               create_library_item: "Add to library",
-              save_to_library: "Save to library",
+              save_to_library:
+                "Save to library (updates other resumes using it)",
             }[s.op];
+      const savePreview =
+        s.op === "save_to_library"
+          ? librarySaveInput(document, s.target, library, false)
+          : null;
       return (
         <article key={s.id} className="resume-suggestion">
           <p className="font-medium">{label}</p>
-          {resolved ? (
+          {s.op === "save_to_library" ? (
+            savePreview && "input" in savePreview ? (
+              <div className="text-sm">
+                <p>{savePreview.input.text}</p>
+                <dl>
+                  {Object.entries(savePreview.input.data ?? {})
+                    .filter(([key]) => key !== "schemaVersion")
+                    .map(([key, value]) => (
+                      <div key={key}>
+                        <dt className="font-medium">{key}</dt>
+                        <dd>
+                          {Array.isArray(value)
+                            ? value.join(", ")
+                            : value && typeof value === "object"
+                              ? [
+                                  (value as { url?: string }).url,
+                                  (value as { label?: string }).label,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")
+                              : htmlToPlainText(String(value ?? ""))}
+                        </dd>
+                      </div>
+                    ))}
+                </dl>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">
+                The linked resume content is no longer available.
+              </p>
+            )
+          ) : s.op === "exclude_library_item" ? (
+            <del className="resume-deletion">
+              {library.find((row) => row.id === s.libraryId)?.text}
+            </del>
+          ) : resolved ? (
             <>
               <del className="resume-deletion">{resolved.old}</del>
               <mark className="resume-insertion">
@@ -1817,8 +1862,22 @@ export function ResumeEditor({
           {suggestions.length > 0 && (
             <div className="flex items-center gap-2 text-sm">
               <span className="mr-auto">{suggestions.length} suggestions</span>
-              <Button size="sm" onClick={() => accept(suggestions)}>
+              <Button
+                size="sm"
+                onClick={() =>
+                  accept(
+                    suggestions.filter(
+                      (s) =>
+                        s.op !== "create_library_item" &&
+                        s.op !== "save_to_library",
+                    ),
+                  )
+                }
+              >
                 Accept all
+                {libraryChangeCount > 0
+                  ? ` (${libraryChangeCount} library ${libraryChangeCount === 1 ? "change needs" : "changes need"} separate accept)`
+                  : ""}
               </Button>
               <Button
                 size="sm"

@@ -14,7 +14,6 @@ import {
   isOnResume,
   setItemLines,
 } from "@shared/resume-links";
-import { decodeStoredSuggestion } from "@shared/resume-suggestion-schema";
 import type {
   DesignResumeDocument,
   ExperienceBullet,
@@ -138,6 +137,7 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
     Record<string, string>
   >({});
   const accepting = useRef(false);
+  const pendingAcceptedIds = useRef<string[]>([]);
   const [references, setReferences] = useState<BulletReference[]>([]);
   const [focus, setFocus] = useState<ResumeFocusRef[]>([]);
   const chat = useRef<HTMLElement>(null);
@@ -152,7 +152,7 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
   // Enter/leave fire for every child crossed; count them so the highlight holds.
   const dragDepth = useRef(0);
   const lastInsert = useRef<{ key: string; time: number } | null>(null);
-  const [, setPdfReady] = useState(false);
+  const [pdfReady, setPdfReady] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -249,6 +249,13 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
             : saved,
         );
         dirty.current = changed;
+        if (!changed && pendingAcceptedIds.current.length) {
+          const ids = pendingAcceptedIds.current;
+          pendingAcceptedIds.current = [];
+          setSuggestions((current) =>
+            current.filter((s) => !ids.includes(s.id)),
+          );
+        }
         if (mounted.current) setStatus(changed ? "Unsaved changes" : "Saved");
         return true;
       } catch (failure) {
@@ -399,7 +406,10 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
   async function resolveConflict(keepMine: boolean) {
     const remote = conflict.current;
     if (!remote || !latest.current) return;
-    if (!keepMine) pushUndo(latest.current.document);
+    if (!keepMine) {
+      pushUndo(latest.current.document);
+      pendingAcceptedIds.current = [];
+    }
     version.current++;
     publish(
       keepMine ? { ...remote, document: latest.current.document } : remote,
@@ -551,11 +561,14 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
       const reasons = Object.fromEntries(
         result.rejected.map(({ id, code }) => [
           id,
-          code === "FAILED"
-            ? "Library update failed. Retry accepting this suggestion."
-            : code === "INVALID_TARGET"
-              ? "The linked library item or resume target is no longer available."
-              : "This content has changed. Request a fresh suggestion.",
+          code === "INVALID_TARGET" &&
+          items.some((s) => s.id === id && s.op === "create_library_item")
+            ? "Added to library; could not place on resume."
+            : code === "FAILED"
+              ? "Library update failed. Retry accepting this suggestion."
+              : code === "INVALID_TARGET"
+                ? "The linked library item or resume target is no longer available."
+                : "This content has changed. Request a fresh suggestion.",
         ]),
       );
       syncing.current = false;
@@ -563,11 +576,8 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
         edit(result.document);
         // Even library-only acceptance checks that the reviewed resume revision still holds.
         dirty.current = true;
-        if (await save()) {
-          setSuggestions((current) =>
-            current.filter((s) => !result.applied.includes(s.id)),
-          );
-        } else {
+        pendingAcceptedIds.current = result.applied;
+        if (!(await save())) {
           for (const id of result.applied)
             reasons[id] =
               "Resume save failed or conflicted. Review the current copy before retrying. Library changes may already be saved.";
@@ -715,12 +725,7 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
     [],
   );
   const receiveSuggestions = useCallback(
-    (rawItems: ResumeSuggestionV2[] | null) => {
-      const items =
-        rawItems?.flatMap((raw) => {
-          const decoded = decodeStoredSuggestion(raw);
-          return decoded ? [decoded] : [];
-        }) ?? null;
+    (items: ResumeSuggestionV2[] | null) => {
       if (items?.length && !wide)
         toast.message(
           `${items.length} suggestion${items.length === 1 ? "" : "s"} - review in Editor`,
