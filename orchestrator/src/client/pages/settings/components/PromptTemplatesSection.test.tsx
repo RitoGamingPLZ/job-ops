@@ -60,6 +60,11 @@ describe("PromptTemplatesSection", () => {
     expect(
       screen.getByText("None — job and library data are attached as JSON"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /output format and grounded rewording contract are fixed and appended automatically/i,
+      ),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("{{tone}}").length).toBeGreaterThan(0);
     expect(screen.getAllByText("{{profileJson}}").length).toBeGreaterThan(0);
     expect(

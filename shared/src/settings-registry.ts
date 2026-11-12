@@ -4,7 +4,10 @@ import {
   LOCATION_MATCH_STRICTNESS_VALUES,
   LOCATION_SEARCH_SCOPE_VALUES,
 } from "./location-preferences";
-import { getDefaultPromptTemplate } from "./prompt-template-definitions";
+import {
+  getDefaultPromptTemplate,
+  LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
+} from "./prompt-template-definitions";
 import {
   CHAT_STYLE_LANGUAGE_MODE_VALUES,
   CHAT_STYLE_MANUAL_LANGUAGE_VALUES,
@@ -632,7 +635,10 @@ export const settingsRegistry = {
     schema: z.string().trim().max(12000),
     default: (): string =>
       getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
-    parse: parseNonEmptyStringOrNull,
+    parse: (raw: string | undefined): string | null =>
+      raw === LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE
+        ? null
+        : parseNonEmptyStringOrNull(raw),
     serialize: (value: string | null | undefined): string | null =>
       value ?? null,
   },

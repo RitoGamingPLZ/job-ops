@@ -1,4 +1,7 @@
-import { getDefaultPromptTemplate } from "@shared/prompt-template-definitions.js";
+import {
+  getDefaultPromptTemplate,
+  LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
+} from "@shared/prompt-template-definitions.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@server/repositories/settings", () => ({
@@ -31,6 +34,15 @@ describe("prompt templates", () => {
     ).resolves.toBe(
       getDefaultPromptTemplate("ghostwriterSystemPromptTemplate"),
     );
+  });
+
+  it("uses the new generation policy for a saved legacy default", async () => {
+    vi.mocked(getSetting).mockResolvedValue(
+      LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
+    );
+    await expect(
+      getEffectivePromptTemplate("resumeGenerationPromptTemplate"),
+    ).resolves.toBe(getDefaultPromptTemplate("resumeGenerationPromptTemplate"));
   });
 
   it("returns the stored template override when present", async () => {

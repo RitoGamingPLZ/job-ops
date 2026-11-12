@@ -71,7 +71,10 @@ import {
   getResume,
   validateCredentials,
 } from "@server/services/rxresume";
-import { getDefaultPromptTemplate } from "@shared/prompt-template-definitions.js";
+import {
+  getDefaultPromptTemplate,
+  LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
+} from "@shared/prompt-template-definitions.js";
 import { startServer, stopServer } from "./test-utils";
 
 const AUTH_ENV = {
@@ -145,6 +148,26 @@ describe.sequential("Settings API routes", () => {
     expect(body.data.scoringPromptTemplate.value).toBe(
       getDefaultPromptTemplate("scoringPromptTemplate"),
     );
+  });
+
+  it("exposes the new generation default for a stored legacy default", async () => {
+    const saved = await fetch(`${baseUrl}/api/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        resumeGenerationPromptTemplate:
+          LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
+      }),
+    });
+    expect(saved.status).toBe(200);
+    const read = await fetch(`${baseUrl}/api/settings`);
+    expect(
+      (await read.json()).data.resumeGenerationPromptTemplate,
+    ).toMatchObject({
+      value: getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
+      default: getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
+      override: null,
+    });
   });
 
   it("persists and resets the resume generation prompt override", async () => {

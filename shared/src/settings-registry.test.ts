@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { getDefaultPromptTemplate } from "./prompt-template-definitions";
+import {
+  getDefaultPromptTemplate,
+  LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
+} from "./prompt-template-definitions";
 import {
   getDefaultModelForProvider,
   settingsRegistry,
 } from "./settings-registry";
 
 describe("settingsRegistry helpers", () => {
+  it("treats only the exact legacy generation default as unset", () => {
+    const parse = settingsRegistry.resumeGenerationPromptTemplate.parse;
+    expect(parse(LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE)).toBeNull();
+    const custom = `${LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE} Custom priority.`;
+    expect(parse(custom)).toBe(custom);
+    expect(parse("Focus on leadership")).toBe("Focus on leadership");
+  });
   it("uses a bare API Route default and preserves explicit model choices", () => {
     expect(getDefaultModelForProvider("api_route")).toBe("gpt-6.1-sol");
     expect(getDefaultModelForProvider("api-route", "claude-haiku-4-5")).toBe(

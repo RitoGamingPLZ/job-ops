@@ -6,7 +6,10 @@ import {
 } from "@infra/request-context";
 import { getSetting } from "@server/repositories/settings";
 import { foldedLibraryText } from "@shared/candidate-library-schema";
-import { getDefaultPromptTemplate } from "@shared/prompt-template-definitions.js";
+import {
+  getDefaultPromptTemplate,
+  LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
+} from "@shared/prompt-template-definitions.js";
 import { splitDescription } from "@shared/resume-bullets";
 import { getItemLines } from "@shared/resume-links";
 import { createJob } from "@shared/testing/factories";
@@ -143,6 +146,7 @@ describe("generateResumeFromLibrary", () => {
   it.each([
     null,
     "",
+    LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
   ])("uses the shared generation instructions for unset or blank overrides (%s)", async (override) => {
     vi.mocked(getSetting).mockImplementation(async (key) =>
       key === "resumeGenerationPromptTemplate" ? override : null,
@@ -154,6 +158,13 @@ describe("generateResumeFromLibrary", () => {
         getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
       ),
     });
+    const instructions = mocks.callJson.mock.calls[0][0].messages[0].content;
+    expect(
+      instructions.split("Return headline, summary, experience and projects"),
+    ).toHaveLength(2);
+    expect(instructions).not.toContain("do not reword");
+    expect(instructions).not.toContain("projectIds");
+    expect(instructions).toContain("Use text:null for verbatim library lines");
   });
   it("uses the custom generation template rather than the non-targeted tailoring template", async () => {
     vi.mocked(getSetting).mockImplementation(async (key) => {
