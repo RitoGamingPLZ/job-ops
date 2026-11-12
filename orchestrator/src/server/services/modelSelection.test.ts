@@ -178,6 +178,31 @@ describe("Model Selection Logic", () => {
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
+    it("resolves native Gemini scoring with its default model, native endpoint and scoped BYOK key", async () => {
+      vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
+        llmProvider: "openai",
+        model: "gpt-global-model",
+        llmApiKey: "synthetic-global-key",
+        llmPurposeOverrides: JSON.stringify({
+          scoring: { provider: "gemini" },
+        }),
+        llmPurposeApiKeys: JSON.stringify({
+          scoring: "synthetic-google-ai-studio-key",
+        }),
+      });
+      const envBefore = { ...process.env };
+      await expect(resolveLlmRuntimeSettings("scoring")).resolves.toEqual({
+        provider: "gemini",
+        model: "google/gemini-3-flash-preview",
+        baseUrl: "https://generativelanguage.googleapis.com",
+        apiKey: "synthetic-google-ai-studio-key",
+        allowEnvironmentCredentials: false,
+        allowCliProviders: false,
+      });
+      expect(process.env).toEqual(envBefore);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
     it.each([
       "codex",
       "gemini_cli",

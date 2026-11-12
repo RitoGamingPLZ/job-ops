@@ -1,6 +1,6 @@
 import { getDefaultPromptTemplate } from "@shared/prompt-template-definitions.js";
 import { createAppSettings } from "@shared/testing/factories.js";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -623,7 +623,11 @@ describe("SettingsPage", () => {
         llmPurposeOverrides: {
           value: {
             scoring: { model: "google/gemini-3-flash-preview" },
-            tailoring: { provider: "openai", model: "gpt-5.4-mini" },
+            tailoring: {
+              provider: "openai_compatible",
+              baseUrl: "https://synthetic.example/v1",
+              model: "tailoring-custom-model",
+            },
             projectSelection: {
               baseUrl: "https://generativelanguage.googleapis.com",
               model: "google/gemini-3-flash-preview",
@@ -632,7 +636,11 @@ describe("SettingsPage", () => {
           default: {},
           override: {
             scoring: { model: "google/gemini-3-flash-preview" },
-            tailoring: { provider: "openai", model: "gpt-5.4-mini" },
+            tailoring: {
+              provider: "openai_compatible",
+              baseUrl: "https://synthetic.example/v1",
+              model: "tailoring-custom-model",
+            },
             projectSelection: {
               baseUrl: "https://generativelanguage.googleapis.com",
               model: "google/gemini-3-flash-preview",
@@ -646,8 +654,53 @@ describe("SettingsPage", () => {
     renderPage();
     await openModelSection();
 
+    // Draft secrets must survive clearing inherited-provider purpose fields.
+    fireEvent.change(screen.getByLabelText(/^llm api key$/i), {
+      target: { value: "synthetic-default-key" },
+    });
+    await clickLastButtonByName(/tailoring/i);
+    fireEvent.change(screen.getByLabelText(/^api key$/i), {
+      target: { value: "synthetic-purpose-key" },
+    });
+    await clickLastButtonByName(/tailoring/i);
+
     fireEvent.click(screen.getByRole("combobox", { name: /provider/i }));
     fireEvent.click(await screen.findByText("OpenAI"));
+
+    const preview = within(
+      screen.getByText("Configuration preview").parentElement as HTMLElement,
+    );
+    const previewValue = (label: string) =>
+      preview.getByText(label, { exact: true }).nextElementSibling;
+    expect(previewValue("Scoring provider")).toHaveTextContent("openai");
+    expect(previewValue("Scoring model")).toHaveTextContent("gpt-5.4-mini");
+    expect(previewValue("Project selection")).toHaveTextContent("gpt-5.4-mini");
+    expect(previewValue("Tailoring model")).toHaveTextContent(
+      "tailoring-custom-model",
+    );
+    await clickLastButtonByName(/^scoring/i);
+    const scoringModel = screen.getByLabelText(/^model$/i);
+    expect(
+      within(scoringModel.parentElement as HTMLElement).getByText(/^Current:/),
+    ).toHaveTextContent("gpt-5.4-mini");
+    expect(scoringModel).toHaveValue("");
+    await clickLastButtonByName(/tailoring/i);
+    const tailoringModel = screen.getByLabelText(/^model$/i);
+    expect(
+      within(tailoringModel.parentElement as HTMLElement).getByText(
+        "tailoring-custom-model",
+        { exact: true },
+      ),
+    ).toHaveTextContent("tailoring-custom-model");
+    expect(screen.getByLabelText(/^api key$/i)).toHaveValue(
+      "synthetic-purpose-key",
+    );
+    expect(screen.getByLabelText(/^base url$/i)).toHaveValue(
+      "https://synthetic.example/v1",
+    );
+    expect(screen.getByLabelText(/^llm api key$/i)).toHaveValue(
+      "synthetic-default-key",
+    );
 
     const saveButton = getSaveButton();
     await waitFor(() => expect(saveButton).toBeEnabled());
@@ -658,11 +711,17 @@ describe("SettingsPage", () => {
       expect.objectContaining({
         llmProvider: "openai",
         model: null,
+        llmApiKey: "synthetic-default-key",
+        llmPurposeApiKeys: { tailoring: "synthetic-purpose-key" },
         modelScorer: null,
         modelTailoring: null,
         modelProjectSelection: null,
         llmPurposeOverrides: {
-          tailoring: { provider: "openai", model: "gpt-5.4-mini" },
+          tailoring: {
+            provider: "openai_compatible",
+            baseUrl: "https://synthetic.example/v1",
+            model: "tailoring-custom-model",
+          },
         },
       }),
     );
