@@ -228,6 +228,7 @@ describe("resume background actions", () => {
       expect(processJob).not.toHaveBeenCalled();
       expect(jobsRepo.updateJob).toHaveBeenCalledExactlyOnceWith("job", {
         status: "processing",
+        generationError: null,
       });
     } finally {
       release();
@@ -482,6 +483,7 @@ describe("resume background actions", () => {
     expect(generateFinalPdf).not.toHaveBeenCalled();
     expect(jobsRepo.updateJob).toHaveBeenLastCalledWith("job", {
       status: "ready",
+      generationError: "generation failed",
     });
   });
   it("keeps a newer job status when tailoring fails", async () => {
@@ -494,8 +496,12 @@ describe("resume background actions", () => {
     await regenerateJobResumeInBackground("job");
     await tick();
     expect(generateFinalPdf).not.toHaveBeenCalled();
-    expect(jobsRepo.updateJob).toHaveBeenCalledExactlyOnceWith("job", {
+    expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(1, "job", {
       status: "processing",
+      generationError: null,
+    });
+    expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(2, "job", {
+      generationError: "generation failed",
     });
   });
 });

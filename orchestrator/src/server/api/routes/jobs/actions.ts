@@ -5,6 +5,7 @@ import { setupSse, startSseHeartbeat, writeSseData } from "@infra/sse";
 import { resolveRequestOrigin } from "@server/infra/request-origin";
 import { setJobTargeted } from "@server/repositories/jobs";
 import {
+  blacklistJobEmployer,
   buildJobActionExecutionOptions,
   executeJobActionForJob,
   generateMissingResumesInBackground,
@@ -52,6 +53,17 @@ jobsActionsRouter.post(
         requestOrigin: resolveRequestOrigin(req),
       });
       ok(res, await hydrateJobPdfFreshness(job));
+    } catch (error) {
+      fail(res, toJobsRouteError(error));
+    }
+  },
+);
+
+jobsActionsRouter.post(
+  "/:id/blacklist-employer",
+  async (req: Request, res: Response) => {
+    try {
+      ok(res, await blacklistJobEmployer(req.params.id));
     } catch (error) {
       fail(res, toJobsRouteError(error));
     }

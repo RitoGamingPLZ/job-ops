@@ -22,8 +22,11 @@ import {
 } from "@server/services/pdf-fingerprint";
 import { getProfile } from "@server/services/profile";
 import { scoreJobSuitability } from "@server/services/scorer";
+import { getEffectiveSettings } from "@server/services/settings";
+import { applySettingsUpdates } from "@server/services/settings-update";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import {
+  type AppSettings,
   isTargeted,
   type JobAction,
   type JobActionResult,
@@ -184,6 +187,24 @@ export async function targetJobInBackground(
   return response;
 }
 
+/** Add a job's employer to the blocked-company list so future ingestion skips it. */
+export async function blacklistJobEmployer(jobId: string): Promise<AppSettings> {
+  const job = await jobsRepo.getJobById(jobId);
+  if (!job) throw notFound("Job not found");
+  const employer = job.employer.trim();
+  const settings = await getEffectiveSettings();
+  const current = settings.blockedCompanyKeywords.value;
+  const alreadyBlocked = current.some(
+    (keyword) => keyword.toLowerCase() === employer.toLowerCase(),
+  );
+  if (!alreadyBlocked) {
+    await applySettingsUpdates({
+      blockedCompanyKeywords: [...current, employer],
+    });
+  }
+  return getEffectiveSettings();
+}
+
 // Per-process locks, scoped exactly like the private repositories.
 const pendingRegenerations = new Set<string>();
 const pendingResumeBatches = new Map<string, Set<string>>();
@@ -209,7 +230,10 @@ export async function regenerateJobResumeInBackground(
   pendingRegenerations.add(key);
   let response = job;
   try {
-    const updated = await jobsRepo.updateJob(jobId, { status: "processing" });
+    const updated = await jobsRepo.updateJob(jobId, {
+      status: "processing",
+      generationError: null,
+    });
     if (!updated) throw notFound("Job not found");
     response = updated;
   } catch (error) {
@@ -226,12 +250,21 @@ export async function regenerateJobResumeInBackground(
           });
           return generateFinalPdf(jobId, options);
         })();
-        if (!result.success) throw new Error("Resume PDF generation failed");
+        if (!result.success)
+          throw new Error(result.error ?? "Resume PDF generation failed");
       } catch (error) {
         logger.error("Resume regeneration failed", { jobId, error });
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Resume PDF generation failed";
         const current = await jobsRepo.getJobById(jobId);
         if (current?.status === "processing")
-          await jobsRepo.updateJob(jobId, { status: job.status });
+          await jobsRepo.updateJob(jobId, {
+            status: job.status,
+            generationError: message,
+          });
+        else await jobsRepo.updateJob(jobId, { generationError: message });
       } finally {
         pendingRegenerations.delete(key);
       }

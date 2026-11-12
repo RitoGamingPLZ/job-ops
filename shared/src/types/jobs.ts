@@ -252,6 +252,7 @@ export interface Job {
   status: JobStatus;
   outcome: JobOutcome | null;
   closedAt: number | null;
+  generationError: string | null; // Last resume-generation failure message; cleared on the next successful run
   suitabilityScore: number | null; // 0-100 AI-generated score
   suitabilityReason: string | null; // AI explanation
   jobBrief: string | null; // Generated JD brief (JSON)
@@ -614,6 +615,7 @@ export interface UpdateJobInput {
   closedAt?: number | null;
   jobDescription?: string | null;
   locationEvidence?: JobLocationEvidence | null;
+  generationError?: string | null;
   suitabilityScore?: number | null;
   suitabilityReason?: string;
   jobBrief?: string | null;
