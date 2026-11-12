@@ -10,6 +10,7 @@ export * from "./extractors";
 export * from "./jobs";
 export * from "./pipeline";
 export * from "./post-application";
+export * from "./resume-suggestions";
 export * from "./settings";
 export * from "./usage";
 export * from "./visa-sponsors";
