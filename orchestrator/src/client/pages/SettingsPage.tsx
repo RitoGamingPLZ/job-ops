@@ -112,6 +112,7 @@ const DEFAULT_FORM_VALUES: UpdateSettingsInput = {
   autoSkipScoreThreshold: null,
   blockedCompanyKeywords: [],
   ghostwriterSystemPromptTemplate: "",
+  resumeGenerationPromptTemplate: "",
   tailoringPromptTemplate: "",
   scoringPromptTemplate: "",
 };
@@ -352,6 +353,7 @@ const SECTION_FIELD_MAP: Record<
   ],
   "prompt-templates": [
     "ghostwriterSystemPromptTemplate",
+    "resumeGenerationPromptTemplate",
     "tailoringPromptTemplate",
     "scoringPromptTemplate",
   ],
@@ -489,6 +491,7 @@ const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
   autoSkipScoreThreshold: null,
   blockedCompanyKeywords: null,
   ghostwriterSystemPromptTemplate: null,
+  resumeGenerationPromptTemplate: null,
   tailoringPromptTemplate: null,
   scoringPromptTemplate: null,
 };
@@ -561,6 +564,8 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
   blockedCompanyKeywords: data.blockedCompanyKeywords.override ?? [],
   ghostwriterSystemPromptTemplate:
     data.ghostwriterSystemPromptTemplate.value ?? "",
+  resumeGenerationPromptTemplate:
+    data.resumeGenerationPromptTemplate.value ?? "",
   tailoringPromptTemplate: data.tailoringPromptTemplate.value ?? "",
   scoringPromptTemplate: data.scoringPromptTemplate.value ?? "",
 });
@@ -805,6 +810,10 @@ const getDerivedSettings = (settings: AppSettings | null) => {
       ghostwriterSystemPromptTemplate: {
         effective: settings?.ghostwriterSystemPromptTemplate?.value ?? "",
         default: settings?.ghostwriterSystemPromptTemplate?.default ?? "",
+      },
+      resumeGenerationPromptTemplate: {
+        effective: settings?.resumeGenerationPromptTemplate?.value ?? "",
+        default: settings?.resumeGenerationPromptTemplate?.default ?? "",
       },
       tailoringPromptTemplate: {
         effective: settings?.tailoringPromptTemplate?.value ?? "",
@@ -1340,6 +1349,10 @@ export const SettingsPage: React.FC = () => {
           normalizeString(data.ghostwriterSystemPromptTemplate),
           promptTemplates.ghostwriterSystemPromptTemplate.default,
         ),
+        resumeGenerationPromptTemplate: nullIfSame(
+          normalizeString(data.resumeGenerationPromptTemplate),
+          promptTemplates.resumeGenerationPromptTemplate.default,
+        ),
         tailoringPromptTemplate: nullIfSame(
           normalizeString(data.tailoringPromptTemplate),
           promptTemplates.tailoringPromptTemplate.default,
@@ -1616,6 +1629,8 @@ export const SettingsPage: React.FC = () => {
       case "prompt-templates":
         return promptTemplates.ghostwriterSystemPromptTemplate.effective !==
           promptTemplates.ghostwriterSystemPromptTemplate.default ||
+          promptTemplates.resumeGenerationPromptTemplate.effective !==
+            promptTemplates.resumeGenerationPromptTemplate.default ||
           promptTemplates.tailoringPromptTemplate.effective !==
             promptTemplates.tailoringPromptTemplate.default ||
           promptTemplates.scoringPromptTemplate.effective !==

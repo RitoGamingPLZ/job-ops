@@ -5,6 +5,8 @@ import {
   runWithRequestContext,
 } from "@infra/request-context";
 import { getSetting } from "@server/repositories/settings";
+import { foldedLibraryText } from "@shared/candidate-library-schema";
+import { getDefaultPromptTemplate } from "@shared/prompt-template-definitions.js";
 import { splitDescription } from "@shared/resume-bullets";
 import { getItemLines } from "@shared/resume-links";
 import { createJob } from "@shared/testing/factories";
@@ -138,6 +140,79 @@ beforeEach(() => {
   }));
 });
 describe("generateResumeFromLibrary", () => {
+  it.each([
+    null,
+    "",
+  ])("uses the shared generation instructions for unset or blank overrides (%s)", async (override) => {
+    vi.mocked(getSetting).mockImplementation(async (key) =>
+      key === "resumeGenerationPromptTemplate" ? override : null,
+    );
+    await generateResumeFromLibrary(base, createJob(), library);
+    expect(mocks.callJson.mock.calls[0][0].messages[0]).toEqual({
+      role: "system",
+      content: expect.stringContaining(
+        getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
+      ),
+    });
+  });
+  it("uses the custom generation template rather than the non-targeted tailoring template", async () => {
+    vi.mocked(getSetting).mockImplementation(async (key) => {
+      if (key === "resumeGenerationPromptTemplate")
+        return "Custom library selection instructions";
+      if (key === "tailoringPromptTemplate")
+        return "Non-targeted tailoring instructions";
+      return null;
+    });
+    await generateResumeFromLibrary(base, createJob(), library);
+    expect(mocks.callJson.mock.calls[0][0].messages[0]).toEqual({
+      role: "system",
+      content: expect.stringContaining(
+        "Custom library selection instructions\n\nSelect and reword",
+      ),
+    });
+    expect(getSetting).not.toHaveBeenCalledWith("tailoringPromptTemplate");
+  });
+  it("reads generation templates independently in concurrent private scopes", async () => {
+    vi.mocked(getSetting).mockImplementation(async (key) =>
+      key === "resumeGenerationPromptTemplate"
+        ? `Instructions for ${getRequestContext()?.tenantId}/${getRequestContext()?.userId}`
+        : null,
+    );
+    await Promise.all([
+      runWithRequestContext({ tenantId: "tenant-a", userId: "user-a" }, () =>
+        generateResumeFromLibrary(base, createJob({ id: "job-a" }), library),
+      ),
+      runWithRequestContext({ tenantId: "tenant-b", userId: "user-b" }, () =>
+        generateResumeFromLibrary(base, createJob({ id: "job-b" }), library),
+      ),
+    ]);
+    const systems = Object.fromEntries(
+      mocks.callJson.mock.calls.map(([call]) => [
+        call.jobId,
+        call.messages[0].content,
+      ]),
+    );
+    expect(systems).toEqual({
+      "job-a": expect.stringContaining(
+        "Instructions for tenant-a/user-a\n\nSelect and reword",
+      ),
+      "job-b": expect.stringContaining(
+        "Instructions for tenant-b/user-b\n\nSelect and reword",
+      ),
+    });
+  });
+  it("includes a custom system template in the prompt byte cap", async () => {
+    vi.mocked(getSetting).mockImplementation(async (key) =>
+      key === "resumeGenerationPromptTemplate" ? "x".repeat(12_000) : null,
+    );
+    await expect(
+      generateResumeFromLibrary(base, createJob(), [
+        item("huge", "role", "x".repeat(LIBRARY_PROMPT_MAX_BYTES - 10_000)),
+      ]),
+    ).rejects.toThrow("prompt limit");
+    expect(mocks.usage).not.toHaveBeenCalled();
+    expect(mocks.callJson).not.toHaveBeenCalled();
+  });
   it("builds linked facts and lines with one reserved LLM call, preserving the skeleton", async () => {
     const result = await generateResumeFromLibrary(base, createJob(), library);
     expect(result.basics.email).toBe(base.basics.email);
@@ -199,6 +274,92 @@ describe("generateResumeFromLibrary", () => {
     expect(prompt).not.toContain("library-private@example.com");
     expect(prompt).not.toContain("+44-private-phone");
     expect(prompt).not.toContain("private-contact-tag");
+  });
+  it.each([
+    [
+      "school",
+      "education",
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+      "degree",
+    ],
+    [
+      "award",
+      "awards",
+      { title: "Prize", awarder: "Society", description: "<p>Research</p>" },
+      "title",
+    ],
+    [
+      "cert",
+      "certifications",
+      { title: "Certificate", description: "<p>Exam</p>" },
+      "title",
+    ],
+  ] as const)("generates edited %s text without structured primary data", async (id, section, data, primary) => {
+    const kind = library.find((entry) => entry.id === id)?.kind;
+    if (!kind) throw new Error("Missing library fixture");
+    const foldedText = foldedLibraryText(
+      kind,
+      "degree" in data ? data.degree : data.title,
+      data,
+    );
+    const structuredLibrary = library.map((entry) =>
+      entry.id === id
+        ? {
+            ...entry,
+            text: "degree" in data ? data.degree : data.title,
+            data: { ...entry.data, ...data },
+          }
+        : entry,
+    );
+    const source = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      structuredLibrary,
+    );
+    for (const text of [
+      "degree" in data ? data.degree : data.title,
+      foldedText,
+    ]) {
+      const legacyLibrary = library.map((entry) =>
+        entry.id === id
+          ? {
+              ...entry,
+              text,
+              data: {
+                ...entry.data,
+                ...Object.fromEntries(
+                  Object.entries(data).filter(([key]) => key !== primary),
+                ),
+              },
+            }
+          : entry,
+      );
+      const unchanged = await generateResumeFromLibrary(
+        source,
+        createJob(),
+        legacyLibrary.map((entry) => ({ ...entry, tags: ["reviewed"] })),
+      );
+      expect(unchanged.sections[section].items[0]).toMatchObject({
+        ...data,
+        [primary]: text,
+      });
+      const edited = await generateResumeFromLibrary(
+        source,
+        createJob(),
+        legacyLibrary.map((entry) =>
+          entry.id === id ? { ...entry, text: "Library edit" } : entry,
+        ),
+      );
+      expect(edited.sections[section].items[0]).toMatchObject({
+        ...data,
+        [primary]: "Library edit",
+      });
+    }
   });
   it.each([
     true,
@@ -338,6 +499,35 @@ describe("generateResumeFromLibrary", () => {
       new Set(duties.map((entry: ExperienceBullet) => entry.parentId)).size,
     ).toBe(80);
   });
+  it.each([
+    1, 2, 3,
+  ])("reserves each role's best overlapping duty with %i duties per role", async (count) => {
+    const crowded = Array.from({ length: 100 }, (_, role) => [
+      item(`role-${role}`, "role", "Engineer"),
+      ...Array.from({ length: count }, (_, duty) =>
+        item(`duty-${role}-${duty}`, "bullet", "Unrelated work", {
+          parentId: `role-${role}`,
+          tags: duty === count - 1 ? ["TypeScript", "platform"] : [],
+        }),
+      ),
+    ]).flat();
+    await generateResumeFromLibrary(
+      base,
+      createJob({ jobDescription: "TypeScript platform" }),
+      crowded,
+    );
+    const prompt = JSON.parse(
+      mocks.callJson.mock.calls[0][0].messages[1].content,
+    );
+    const duties = prompt.library.filter(
+      (entry: ExperienceBullet) => entry.kind === "bullet",
+    );
+    expect(duties).toHaveLength(Math.min(150, 100 * count));
+    const ids = new Set(duties.map((entry: ExperienceBullet) => entry.id));
+    for (let role = 0; role < 100; role++) {
+      expect(ids.has(`duty-${role}-${count - 1}`)).toBe(true);
+    }
+  });
   it("drops unknown and cross-parent ids, deduplicates picks and falls back when all submitted lines are invalid", async () => {
     selection.experience = [
       {
@@ -417,12 +607,14 @@ describe("generateResumeFromLibrary", () => {
         website: { url: "", label: "" },
       },
     ];
-    vi.mocked(getSetting).mockResolvedValue(
-      JSON.stringify({
-        maxProjects,
-        lockedProjectIds: ["base-locked"],
-        aiSelectableProjectIds: ["base-eligible"],
-      }),
+    vi.mocked(getSetting).mockImplementation(async (key) =>
+      key === "resumeProjects"
+        ? JSON.stringify({
+            maxProjects,
+            lockedProjectIds: ["base-locked"],
+            aiSelectableProjectIds: ["base-eligible"],
+          })
+        : null,
     );
     selection.projects = ["excluded", "eligible", "project", "eligible"].map(
       (id) => ({ id, intro: null, lines: [] }),
@@ -447,13 +639,15 @@ describe("generateResumeFromLibrary", () => {
     expect(mocks.callJson).toHaveBeenCalledOnce();
   });
   it("reads project policy separately in each tenant scope during concurrent generation", async () => {
-    vi.mocked(getSetting).mockImplementation(async () =>
-      JSON.stringify({
-        maxProjects: 1,
-        lockedProjectIds:
-          getRequestContext()?.tenantId === "tenant-a" ? ["project"] : [],
-        aiSelectableProjectIds: [],
-      }),
+    vi.mocked(getSetting).mockImplementation(async (key) =>
+      key === "resumeProjects"
+        ? JSON.stringify({
+            maxProjects: 1,
+            lockedProjectIds:
+              getRequestContext()?.tenantId === "tenant-a" ? ["project"] : [],
+            aiSelectableProjectIds: [],
+          })
+        : null,
     );
     const [a, b] = await Promise.all([
       runWithRequestContext({ tenantId: "tenant-a", userId: "user-a" }, () =>
@@ -467,16 +661,18 @@ describe("generateResumeFromLibrary", () => {
       "project",
     ]);
     expect(b.sections.projects.items).toEqual([]);
-    expect(getSetting).toHaveBeenCalledTimes(2);
+    expect(getSetting).toHaveBeenCalledTimes(4);
     expect(mocks.callJson).toHaveBeenCalledTimes(2);
   });
   it("honors a zero project cap without overriding it with LLM picks", async () => {
-    vi.mocked(getSetting).mockResolvedValue(
-      JSON.stringify({
-        maxProjects: 0,
-        lockedProjectIds: [],
-        aiSelectableProjectIds: ["project"],
-      }),
+    vi.mocked(getSetting).mockImplementation(async (key) =>
+      key === "resumeProjects"
+        ? JSON.stringify({
+            maxProjects: 0,
+            lockedProjectIds: [],
+            aiSelectableProjectIds: ["project"],
+          })
+        : null,
     );
     const result = await generateResumeFromLibrary(base, createJob(), library);
     expect(result.sections.projects.items).toEqual([]);
@@ -520,6 +716,7 @@ describe("generateResumeFromLibrary", () => {
               ...entry,
               text: "BSc (updated)",
               data: {
+                degree: "BSc (updated)",
                 school: "Updated University",
                 location: "Toronto",
                 period: "2017 – 2021",
@@ -545,6 +742,144 @@ describe("generateResumeFromLibrary", () => {
       },
     ]);
     expect(result.sections.education.items).toHaveLength(2);
+  });
+  it("retains legacy source structure and lets structured library values override it", async () => {
+    const source = base.sections.education.items[0];
+    Object.assign(source, {
+      libraryId: "school",
+      degree: "BSc",
+      area: "CS",
+      grade: "First",
+      description: "<p>Thesis</p>",
+    });
+    base.sections.awards.items = [
+      {
+        id: "a",
+        hidden: false,
+        libraryId: "award",
+        title: "Prize",
+        awarder: "Society",
+        date: "2020",
+        description: "<p>Research</p>",
+        website: { url: "", label: "" },
+      },
+    ];
+    base.sections.certifications.items = [
+      {
+        id: "c",
+        hidden: false,
+        libraryId: "cert",
+        title: "Certificate",
+        issuer: "Issuer",
+        date: "2021",
+        description: "<p>Exam</p>",
+        website: { url: "", label: "" },
+      },
+    ];
+    const result = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      library.map((entry) =>
+        entry.id === "school"
+          ? {
+              ...entry,
+              text: source.degree,
+              data: {
+                ...entry.data,
+                schemaVersion: 2,
+                grade: "",
+                area: "Computing",
+                description: source.description,
+              },
+            }
+          : entry.id === "award"
+            ? {
+                ...entry,
+                text: "Prize",
+                data: {
+                  schemaVersion: 2,
+                  awarder: "Society",
+                  description: "<p>Research</p>",
+                },
+              }
+            : entry.id === "cert"
+              ? {
+                  ...entry,
+                  data: {
+                    ...entry.data,
+                    schemaVersion: 2,
+                    description: "<p>Exam</p>",
+                  },
+                }
+              : entry,
+      ),
+    );
+    expect(result.sections.education.items[0]).toMatchObject({
+      degree: "BSc",
+      area: "Computing",
+      grade: "",
+      description: source.description,
+    });
+    expect(result.sections.awards.items[0]).toMatchObject({
+      title: "Prize",
+      awarder: "Society",
+      description: "<p>Research</p>",
+    });
+    expect(result.sections.certifications.items[0].description).toBe(
+      "<p>Exam</p>",
+    );
+  });
+  it.each([
+    [
+      "school",
+      "education",
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+      "degree",
+    ],
+    [
+      "award",
+      "awards",
+      { title: "Prize", awarder: "Society", description: "<p>Research</p>" },
+      "title",
+    ],
+    [
+      "cert",
+      "certifications",
+      { title: "Certificate", description: "<p>Exam</p>" },
+      "title",
+    ],
+  ] as const)("generates edited library text for %s and keeps other constituents", async (id, section, data, primary) => {
+    const structuredLibrary = library.map((entry) =>
+      entry.id === id
+        ? {
+            ...entry,
+            text: "degree" in data ? data.degree : data.title,
+            data: { ...entry.data, ...data },
+          }
+        : entry,
+    );
+    const original = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      structuredLibrary,
+    );
+    expect(original.sections[section].items[0]).toMatchObject(data);
+    const result = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      structuredLibrary.map((entry) =>
+        entry.id === id ? { ...entry, text: "Library edit" } : entry,
+      ),
+    );
+    expect(result.sections[section].items[0]).toMatchObject({
+      ...data,
+      [primary]: "Library edit",
+    });
   });
   it.each([
     true,

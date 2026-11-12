@@ -1,7 +1,11 @@
-import { buildCandidateExperienceContext } from "./candidate-experience";
+import {
+  buildCandidateExperienceContext,
+  buildCandidateTailoringContext,
+} from "./candidate-experience";
 
 vi.mock("./candidate-experience", () => ({
   buildCandidateExperienceContext: vi.fn(),
+  buildCandidateTailoringContext: vi.fn(),
 }));
 
 // src/server/services/modelSelection.test.ts
@@ -35,6 +39,10 @@ describe("Model Selection Logic", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(buildCandidateExperienceContext).mockResolvedValue(null);
+    vi.mocked(buildCandidateTailoringContext).mockResolvedValue({
+      experience: null,
+      skills: null,
+    });
     // Set environment variables to ensure we don't hit early exits
     process.env = {
       ...originalEnv,

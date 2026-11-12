@@ -195,7 +195,9 @@ export function suggestionTarget(
       const item = document.sections.skills.items.find(
         (i) => i.id === s.itemId,
       );
-      return item && equal(item.keywords, s.previousKeywords)
+      return item &&
+        !document.sections.skills.hidden &&
+        equal(item.keywords, s.previousKeywords)
         ? { old: item.keywords.join(", ") }
         : null;
     }

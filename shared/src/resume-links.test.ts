@@ -3,6 +3,7 @@ import {
   defaultV5ResumeData,
   parseV5ResumeData,
 } from "../../orchestrator/src/server/services/rxresume/schema/v5";
+import { foldedLibraryText } from "./candidate-library-schema";
 import {
   addToResume,
   applyLibraryUpdate,
@@ -282,6 +283,8 @@ describe("library updates and resets", () => {
       ...original,
       text: "Updated",
       data: {
+        degree: "Updated",
+        title: "Updated",
         company: "New Co",
         location: "New place",
         website: "https://new.example",
@@ -880,5 +883,141 @@ describe("structured library links", () => {
       data: { ...canonical.data, area: "Other" },
     };
     expect(stampLibraryRefs(doc, [contradictory]).linked).toBe(0);
+  });
+});
+
+describe("structured library fields", () => {
+  it.each([
+    [
+      education,
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+    ],
+    [award, { title: "Prize", awarder: "Society", description: "<p>Work</p>" }],
+    [certification, { title: "Certified", description: "<p>Exam</p>" }],
+  ] as const)("preserves structured $0.kind through metadata edits and supports explicit clearing", (legacy, structured) => {
+    const current = {
+      ...legacy,
+      text: "degree" in structured ? structured.degree : structured.title,
+      data: { ...legacy.data, ...structured },
+    };
+    const doc = addToResume(document(), current.id, [current]);
+    expect(entries(doc, current.kind)[0]).toMatchObject(structured);
+    expect(
+      applyLibraryUpdate(doc, current, { ...current, tags: ["tag"] }),
+    ).toBe(doc);
+    // Older folded rows keep the source values instead of attempting to split text.
+    expect(applyLibraryUpdate(doc, legacy, { ...legacy, tags: ["tag"] })).toBe(
+      doc,
+    );
+    const cleared = Object.fromEntries(
+      Object.keys(structured).map((key) => [key, ""]),
+    );
+    const next = applyLibraryUpdate(doc, current, {
+      ...current,
+      text: "",
+      data: { ...current.data, ...cleared },
+    });
+    expect(entries(next, current.kind)[0]).toMatchObject(cleared);
+  });
+});
+
+describe("edited structured library text", () => {
+  it.each([
+    [
+      education,
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+      "degree",
+    ],
+    [
+      award,
+      { title: "Prize", awarder: "Society", description: "<p>Work</p>" },
+      "title",
+    ],
+    [
+      certification,
+      { title: "Certified", description: "<p>Exam</p>" },
+      "title",
+    ],
+  ] as const)("propagates $0.kind text edits while retaining constituents", (legacy, data, primary) => {
+    const before = {
+      ...legacy,
+      text: "degree" in data ? data.degree : data.title,
+      data: { ...legacy.data, ...data },
+    };
+    const doc = addToResume(document(), before.id, [before]);
+    const after = { ...before, text: "Library edit" };
+    expect(
+      entries(applyLibraryUpdate(doc, before, after), before.kind)[0],
+    ).toMatchObject({ ...data, [primary]: after.text });
+    expect(libraryItemToResumeItem(after)).toMatchObject({
+      ...data,
+      [primary]: after.text,
+    });
+  });
+  it.each([
+    [
+      education,
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+      "degree",
+    ],
+    [
+      award,
+      { title: "Prize", awarder: "Society", description: "<p>Work</p>" },
+      "title",
+    ],
+    [
+      certification,
+      { title: "Certified", description: "<p>Exam</p>" },
+      "title",
+    ],
+  ] as const)("propagates $0.kind text edits without structured primary data", (item, original, primary) => {
+    for (const text of [
+      "degree" in original ? original.degree : original.title,
+      foldedLibraryText(item.kind, original[primary], original),
+    ]) {
+      const before = { ...item, text };
+      const doc = addToResume(document(), before.id, [before]);
+      Object.assign(entries(doc, item.kind)[0], original);
+      const resumeItem = { ...entries(doc, item.kind)[0] };
+      expect(
+        applyLibraryUpdate(doc, before, { ...before, tags: ["tag"] }),
+      ).toBe(doc);
+      expect(
+        applyLibraryUpdate(doc, before, { ...before, updatedAt: "later" }),
+      ).toBe(doc);
+      const next = applyLibraryUpdate(doc, before, {
+        ...before,
+        text: "Library edit",
+      });
+      expect(entries(next, item.kind)[0]).toEqual({
+        ...resumeItem,
+        [primary]:
+          text === original[primary] ? "Library edit" : original[primary],
+      });
+    }
+  });
+  it("uses the importer fold for whitespace and HTML", () => {
+    expect(
+      foldedLibraryText("education", " BSc ", {
+        area: " CS\n  Science ",
+        grade: "",
+        description: "<p>A &amp; B</p>",
+      }),
+    ).toBe("BSc · CS Science · A & B");
   });
 });

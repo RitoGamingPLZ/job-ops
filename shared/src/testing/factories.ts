@@ -236,6 +236,11 @@ export const createAppSettings = (
     default: false,
     override: null,
   },
+  resumeGenerationPromptTemplate: {
+    value: getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
+    default: getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
+    override: null,
+  },
   tailoringPromptTemplate: {
     value: getDefaultPromptTemplate("tailoringPromptTemplate"),
     default: getDefaultPromptTemplate("tailoringPromptTemplate"),

@@ -192,11 +192,13 @@ describe("updateSettingsSchema", () => {
     expect(
       updateSettingsSchema.parse({
         ghostwriterSystemPromptTemplate: prompt,
+        resumeGenerationPromptTemplate: prompt,
         tailoringPromptTemplate: prompt,
         scoringPromptTemplate: prompt,
       }),
     ).toEqual({
       ghostwriterSystemPromptTemplate: prompt,
+      resumeGenerationPromptTemplate: prompt,
       tailoringPromptTemplate: prompt,
       scoringPromptTemplate: prompt,
     });
@@ -220,9 +222,12 @@ describe("updateSettingsSchema", () => {
     });
   });
 
-  it("rejects prompt template overrides above 12000 characters", () => {
+  it.each([
+    "ghostwriterSystemPromptTemplate",
+    "resumeGenerationPromptTemplate",
+  ] as const)("rejects %s overrides above 12000 characters", (key) => {
     const result = updateSettingsSchema.safeParse({
-      ghostwriterSystemPromptTemplate: "A".repeat(12001),
+      [key]: "A".repeat(12001),
     });
 
     expect(result.success).toBe(false);
@@ -230,8 +235,6 @@ describe("updateSettingsSchema", () => {
       return;
     }
 
-    expect(
-      result.error.flatten().fieldErrors.ghostwriterSystemPromptTemplate,
-    ).toBeDefined();
+    expect(result.error.flatten().fieldErrors[key]).toBeDefined();
   });
 });

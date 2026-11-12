@@ -163,7 +163,9 @@ function buildProfileSnapshot(
     skills.length > 0 ? `Skills:\n- ${skills.join("\n- ")}` : null,
     projects.length > 0 ? `Projects:\n- ${projects.join("\n- ")}` : null,
     candidateExperience !== null
-      ? `Experience:\n${candidateExperience}`
+      ? candidateExperience
+        ? `Experience:\n${candidateExperience}`
+        : null
       : experience.length > 0
         ? `Experience:\n- ${experience.join("\n- ")}`
         : null,

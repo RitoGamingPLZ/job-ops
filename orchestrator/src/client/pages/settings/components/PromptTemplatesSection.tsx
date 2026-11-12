@@ -122,14 +122,20 @@ export const PromptTemplatesSection: React.FC<PromptTemplatesSectionProps> = ({
                   Supported placeholders
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {definition.placeholders.map((placeholder) => (
-                    <span
-                      key={placeholder}
-                      className="rounded bg-muted px-2 py-1 font-mono text-xs text-muted-foreground"
-                    >
-                      {`{{${placeholder}}}`}
+                  {definition.placeholders.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      None — job and library data are attached as JSON
                     </span>
-                  ))}
+                  ) : (
+                    definition.placeholders.map((placeholder) => (
+                      <span
+                        key={placeholder}
+                        className="rounded bg-muted px-2 py-1 font-mono text-xs text-muted-foreground"
+                      >
+                        {`{{${placeholder}}}`}
+                      </span>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

@@ -892,9 +892,9 @@ describe("navy serif document content", () => {
       expect(screen.getByText(reason)).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
     expect(onChange.mock.lastCall?.[0].summary.content).toBe("Updated summary");
-    expect(
-      onChange.mock.lastCall?.[0].sections.skills.items[0].keywords,
-    ).toEqual(["Updated skills"]);
+    expect(onChange.mock.lastCall?.[0].sections.skills).toEqual(
+      original.sections.skills,
+    );
     expect(
       onChange.mock.lastCall?.[0].sections.experience.items[0].description,
     ).toBe(original.sections.experience.items[0].description);

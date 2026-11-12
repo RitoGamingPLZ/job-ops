@@ -1,3 +1,4 @@
+import { notFound } from "@infra/errors";
 import type { CoworkChatContext, ExperienceBullet } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
@@ -15,8 +16,9 @@ vi.mock("./modelSelection", () => ({
 }));
 vi.mock("@server/repositories/experience-bullets", () => ({
   listExperienceBullets: list,
-  updateExperienceBullet: update,
 }));
+
+vi.mock("./candidate-library", () => ({ updateLibraryItem: update }));
 
 import {
   buildCoworkPrompt,
@@ -280,6 +282,378 @@ describe("cowork AI", () => {
         coworkChatContextSchema.safeParse({ ...context(), focus }).success,
       ).toBe(false);
   });
+  it("sends visible sections with ids and a FOCUS block with current text", () => {
+    const cowork = withSections();
+    cowork.document.sections.certifications.hidden = true;
+    cowork.focus = [
+      {
+        kind: "bullet",
+        section: "experience",
+        itemId: "exp",
+        bulletIndex: 0,
+        label: "b",
+      },
+      { kind: "item", section: "awards", itemId: "aw", label: "a" },
+      { kind: "section", section: "projects", label: "p" },
+      { kind: "summary", label: "s" },
+      { kind: "item", section: "awards", itemId: "missing", label: "x" },
+    ];
+    const prompt = buildCoworkPrompt(cowork, "Job", []);
+    expect(prompt).toContain("FOCUS is non-empty");
+    const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
+    expect(data.resume.education).toMatchObject([
+      {
+        id: "ed",
+        school: "MIT",
+        degree: "BSc",
+        area: "CS",
+        grade: "",
+        period: "2010",
+      },
+    ]);
+    expect(data.resume.awards).toMatchObject([
+      {
+        id: "aw",
+        title: "Prize",
+        awarder: "IEEE",
+        date: "2020",
+        description: "Won it",
+      },
+    ]);
+    expect(data.resume.projects.map((p: { id: string }) => p.id)).toEqual([
+      "pr",
+      "hiddenpr",
+    ]);
+    expect(data.resume.certifications).toEqual([
+      { id: "ce", hidden: true, libraryId: null },
+    ]);
+    expect(data.FOCUS.map((f: { current: unknown }) => f.current)).toEqual([
+      "Built APIs",
+      data.resume.awards[0],
+      ["pr"],
+      "",
+    ]);
+    expect(data.FOCUS[0]).toMatchObject({ kind: "bullet", label: "b" });
+  });
+  it("omits hidden prose and focus while retaining V2 identities and stripping skill presentation metadata", () => {
+    const cowork = context();
+    const sections = cowork.document.sections;
+    sections.experience.items.push({
+      ...sections.experience.items[0],
+      id: "hidden-exp",
+      hidden: true,
+      company: "Private company",
+      description: "<ul><li>Private duty</li></ul>",
+    });
+    sections.skills.items = [
+      {
+        id: "skill",
+        name: "Languages",
+        keywords: ["TS"],
+        hidden: false,
+        icon: "private-icon",
+        proficiency: "private-level",
+        level: 4,
+        libraryId: "private-link",
+      },
+      {
+        id: "hidden-skill",
+        name: "Private skill",
+        keywords: ["Private keyword"],
+        hidden: true,
+        icon: "",
+        proficiency: "",
+        level: 0,
+      },
+    ];
+    cowork.focus = [
+      {
+        kind: "item",
+        section: "experience",
+        itemId: "hidden-exp",
+        label: "Private company — hidden focus",
+      },
+      {
+        kind: "bullet",
+        section: "experience",
+        itemId: "hidden-exp",
+        bulletIndex: 0,
+        label: "Private company — hidden focus",
+      },
+      { kind: "skill", itemId: "hidden-skill", label: "Private skill focus" },
+      { kind: "section", section: "skills", label: "skills" },
+      { kind: "skill", itemId: "skill", label: "visible" },
+    ];
+    const prompt = buildCoworkPrompt(cowork, "Job", []);
+    expect(prompt).not.toContain("Private company — hidden focus");
+    expect(prompt).not.toContain("Private skill focus");
+    const data = JSON.parse(prompt.split("\n").slice(1).join("\n"));
+    expect(
+      data.resume.experience.map((item: { id: string }) => item.id),
+    ).toEqual(["exp", "hidden-exp"]);
+    expect(data.resume.skills).toEqual([
+      {
+        id: "skill",
+        name: "Languages",
+        keywords: ["TS"],
+        hidden: false,
+        libraryId: "private-link",
+      },
+      { id: "hidden-skill", hidden: true, libraryId: null },
+    ]);
+    expect(data.FOCUS.map((ref: { current: unknown }) => ref.current)).toEqual([
+      ["skill"],
+      data.resume.skills[0],
+    ]);
+    expect(JSON.stringify(data)).not.toContain("Private");
+    expect(JSON.stringify(data)).not.toContain("private-icon");
+    expect(JSON.stringify(data)).not.toContain("private-level");
+    sections.experience.hidden = true;
+    sections.skills.hidden = true;
+    cowork.focus = [
+      {
+        kind: "item",
+        section: "experience",
+        itemId: "exp",
+        label: "experience",
+      },
+      { kind: "skill", itemId: "skill", label: "skill" },
+      { kind: "section", section: "experience", label: "section" },
+    ];
+    const hidden = JSON.parse(
+      buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"),
+    );
+    expect(hidden.resume.experience).toEqual([
+      { id: "exp", hidden: true, libraryId: null },
+      { id: "hidden-exp", hidden: true, libraryId: null },
+    ]);
+    expect(hidden.resume.skills).toEqual([
+      { id: "skill", hidden: true, libraryId: "private-link" },
+      { id: "hidden-skill", hidden: true, libraryId: null },
+    ]);
+    expect(
+      hidden.FOCUS.map((ref: { current: unknown }) => ref.current),
+    ).toEqual([]);
+  });
+  it("keeps summary, headline and visible empty or out-of-range focus targets", () => {
+    const cowork = context();
+    cowork.document.sections.experience.hidden = true;
+    cowork.focus = [
+      { kind: "summary", label: "Summary" },
+      { kind: "headline", label: "Headline" },
+      { kind: "section", section: "skills", label: "Empty skills" },
+      {
+        kind: "bullet",
+        section: "experience",
+        itemId: "exp",
+        bulletIndex: 99,
+        label: "Hidden",
+      },
+    ];
+    const hidden = JSON.parse(
+      buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"),
+    );
+    expect(hidden.FOCUS.map((ref: { label: string }) => ref.label)).toEqual([
+      "Summary",
+      "Headline",
+      "Empty skills",
+    ]);
+    cowork.document.sections.experience.hidden = false;
+    const visible = JSON.parse(
+      buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"),
+    );
+    expect(visible.FOCUS[3]).toMatchObject({ kind: "bullet", current: null });
+  });
+  it("rejects hidden field and bullet targets while retaining visible linked fields", () => {
+    const cowork = withSections();
+    cowork.document.sections.awards.hidden = true;
+    cowork.document.sections.experience.items[0].libraryId = "linked";
+    const field = (section: string, itemId: string, name: string) => ({
+      op: "replace_field",
+      previousText: "",
+      field: { section, itemId, name },
+      text: "New",
+      reason: "r",
+    });
+    const inputs = [
+      field("awards", "aw", "title"),
+      field("projects", "hiddenpr", "name"),
+      field("experience", "exp", "company"),
+    ];
+    expect(filterCoworkSuggestions(inputs, cowork, [])).toMatchObject([
+      {
+        field: { section: "experience", itemId: "exp", name: "company" },
+        previousText: "Acme",
+      },
+    ]);
+    expect(buildCoworkPrompt(cowork, "Job", [])).toContain(
+      "Linked replace_field edits stay local to this resume",
+    );
+    const bullet = {
+      op: "replace_bullet",
+      previousText: "",
+      section: "experience",
+      itemId: "exp",
+      bulletIndex: 0,
+      text: "New",
+      reason: "r",
+    };
+    for (const hideSection of [false, true]) {
+      cowork.document.sections.experience.hidden = hideSection;
+      cowork.document.sections.experience.items[0].hidden = !hideSection;
+      expect(filterCoworkSuggestions([...inputs, bullet], cowork, [])).toEqual(
+        [],
+      );
+    }
+  });
+  it("stamps V2 keyword edits with the visible item's keywords and rejects hidden or missing targets", () => {
+    const cowork = context();
+    cowork.document.sections.skills.items = [
+      {
+        id: "skill",
+        name: "Languages",
+        keywords: ["TS", "JS"],
+        hidden: false,
+        icon: "",
+        proficiency: "",
+        level: 0,
+      },
+    ];
+    const suggestion = {
+      op: "set_skill_keywords",
+      itemId: "skill",
+      keywords: ["TS"],
+      previousKeywords: ["invented"],
+      reason: "r",
+    };
+    expect(filterCoworkSuggestions([suggestion], cowork, [])[0]).toMatchObject({
+      previousKeywords: ["TS", "JS"],
+    });
+    cowork.document.sections.skills.items[0].hidden = true;
+    expect(filterCoworkSuggestions([suggestion], cowork, [])).toEqual([]);
+    cowork.document.sections.skills.items[0].hidden = false;
+    cowork.document.sections.skills.hidden = true;
+    expect(filterCoworkSuggestions([suggestion], cowork, [])).toEqual([]);
+    cowork.document.sections.skills.hidden = false;
+    cowork.document.sections.skills.items = [];
+    expect(filterCoworkSuggestions([suggestion], cowork, [])).toEqual([]);
+  });
+  it("anchors replace_field to the document and drops unknown section/item/name", () => {
+    const cowork = withSections();
+    const field = (section: string, itemId: string, name: string) => ({
+      op: "replace_field",
+      field: { section, itemId, name },
+      previousText: "stale",
+      text: "<b>New</b> text",
+      experienceId: null,
+      bulletIndex: null,
+      skills: null,
+      sourceBulletIds: null,
+      reason: "r",
+    });
+    const out = filterCoworkSuggestions(
+      [
+        field("awards", "aw", "description"),
+        field("experience", "exp", "company"),
+        field("awards", "aw", "website"),
+        field("awards", "nope", "title"),
+        field("volunteer", "aw", "title"),
+        field("__proto__", "aw", "title"),
+        { ...field("awards", "aw", "title"), field: null },
+        { ...field("awards", "aw", "title"), text: "<p></p>" },
+      ],
+      cowork,
+      [],
+    );
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({
+      op: "replace_field",
+      field: { section: "awards", itemId: "aw", name: "description" },
+      previousText: "Won it",
+      text: "New text",
+    });
+    expect(out[0]).not.toHaveProperty("experienceId");
+    expect(out[1]).toMatchObject({ previousText: "Acme", text: "New text" });
+    // field on other ops is dropped
+    const [bulletOp] = filterCoworkSuggestions(
+      [
+        {
+          op: "replace_bullet",
+          previousText: "",
+          section: "experience",
+          itemId: "exp",
+          bulletIndex: 0,
+          text: "x",
+          field: { section: "awards", itemId: "aw", name: "title" },
+          reason: "r",
+        },
+      ],
+      cowork,
+      [],
+    );
+    expect(bulletOp).not.toHaveProperty("field");
+  });
+  it("decodes entities, skips list descriptions, dedupes and caps FOCUS", () => {
+    const cowork = withSections();
+    cowork.document.sections.awards.items[0].description =
+      "<p>R&amp;D prize &lt;2020&gt;</p>";
+    cowork.document.sections.projects.items[0].description =
+      "<ul><li>Shipped</li></ul>";
+    cowork.document.summary.content = "<p>Ops &amp; dev</p>";
+    const suggestion = (section: string, itemId: string) => ({
+      op: "replace_field",
+      previousText: "",
+      field: { section, itemId, name: "description" },
+      text: "Q&amp;A win",
+      reason: "r",
+    });
+    const out = filterCoworkSuggestions(
+      [
+        suggestion("awards", "aw"),
+        suggestion("projects", "pr"),
+        {
+          op: "replace_summary",
+          previousText: "",
+          text: "A &amp; B",
+          reason: "r",
+        },
+      ],
+      cowork,
+      [],
+    );
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({
+      previousText: "R&D prize <2020>",
+      text: "Q&A win",
+    });
+    expect(out[1]).toMatchObject({ previousText: "Ops & dev", text: "A & B" });
+
+    const ref = {
+      kind: "item",
+      section: "awards",
+      itemId: "aw",
+      label: "a",
+    } as const;
+    const parsed = coworkChatContextSchema.parse({
+      ...cowork,
+      focus: [ref, ref, { ...ref, label: "other label" }],
+    });
+    expect(parsed.focus).toHaveLength(1);
+
+    cowork.document.sections.awards.items[0].description = "x".repeat(15_000);
+    cowork.focus = [
+      ref,
+      { ...ref, label: "b" },
+      { kind: "summary", label: "s" },
+    ];
+    const data = JSON.parse(
+      buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"),
+    );
+    expect(data.resume.summary).toBe("Ops & dev");
+    expect(data.FOCUS[0].current.description).toHaveLength(15_000);
+    expect(data.FOCUS[1]).toMatchObject({ current: null, truncated: true });
+    expect(data.FOCUS[2]).toMatchObject({ current: null, truncated: true });
+  });
 
   it("strict schema includes nullable field object", () => {
     const item = COWORK_RESPONSE_SCHEMA.schema.properties as Record<
@@ -301,7 +675,7 @@ describe("cowork AI", () => {
 });
 
 describe("experience labeling", () => {
-  it("filters to scoped IDs, merges existing tags, trims, dedupes and caps tags", async () => {
+  it("filters to scoped IDs, merges existing tags, trims, dedupes and caps new tags", async () => {
     const own = { ...bullet("own"), tags: [" TypeScript ", "React"] };
     list.mockResolvedValue([own]);
     update.mockImplementation(async (_id, input) => ({ ...own, ...input }));
@@ -341,6 +715,70 @@ describe("experience labeling", () => {
     expect(root.additionalProperties).toBe(false);
     expect(root.properties.labels.items.required).toEqual(["bulletId", "tags"]);
     expect(root.properties.labels.items.additionalProperties).toBe(false);
+  });
+  it("preserves more than twelve manual tags including concurrent edits through the library service", async () => {
+    const manual = Array.from({ length: 15 }, (_, i) => `Manual${i}`);
+    const original = { ...bullet("own"), tags: manual };
+    const current = { ...original, tags: [...manual, "Concurrent edit"] };
+    list.mockResolvedValueOnce([original]).mockResolvedValue([current]);
+    update.mockImplementation(async (_id, input) => ({ ...current, ...input }));
+    callJson.mockResolvedValue({
+      success: true,
+      data: { labels: [{ bulletId: "own", tags: ["manual0", " New  tag "] }] },
+    });
+    const result = await labelExperienceBullets(["own"]);
+    expect(update).toHaveBeenCalledWith("own", {
+      tags: [...manual, "Concurrent edit", "New tag"],
+    });
+    expect(result.bullets[0].tags).toEqual([
+      ...manual,
+      "Concurrent edit",
+      "New tag",
+    ]);
+  });
+  it("caps merged tags at 100 with existing tags first", async () => {
+    const manual = Array.from({ length: 95 }, (_, i) => `Manual${i}`);
+    const own = { ...bullet("own"), tags: manual };
+    list.mockResolvedValue([own]);
+    update.mockImplementation(async (_id, input) => ({ ...own, ...input }));
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        labels: [
+          {
+            bulletId: "own",
+            tags: Array.from({ length: 12 }, (_, i) => `New${i}`),
+          },
+        ],
+      },
+    });
+    const result = await labelExperienceBullets(["own"]);
+    const expected = [...manual, "New0", "New1", "New2", "New3", "New4"];
+    expect(update).toHaveBeenCalledWith("own", { tags: expected });
+    expect(result.bullets[0].tags).toEqual(expected);
+  });
+  it("continues labeling after a concurrent delete but propagates other update errors", async () => {
+    list.mockResolvedValue([bullet("own"), bullet("second")]);
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        labels: [
+          { bulletId: "own", tags: ["APIs"] },
+          { bulletId: "second", tags: ["Tools"] },
+        ],
+      },
+    });
+    update
+      .mockRejectedValueOnce(notFound("Library item not found"))
+      .mockImplementation(async (id, input) => ({ ...bullet(id), ...input }));
+    const result = await labelExperienceBullets(["own", "second"]);
+    expect(result).toMatchObject({ labeled: 1, remaining: 1 });
+    expect(result.bullets[0]).toMatchObject({ id: "second", tags: ["Tools"] });
+    expect(update).toHaveBeenNthCalledWith(2, "second", { tags: ["Tools"] });
+    update.mockRejectedValueOnce(new Error("storage unavailable"));
+    await expect(labelExperienceBullets(["own", "second"])).rejects.toThrow(
+      "storage unavailable",
+    );
   });
   it("defaults to untagged only and skips explicit empty/foreign IDs without usage", async () => {
     list.mockResolvedValue([{ ...bullet("tagged"), tags: ["Existing"] }]);
@@ -713,11 +1151,13 @@ describe("V2 cowork producer", () => {
       }),
     ];
     const out = filterCoworkSuggestions(input, ctx, library);
-    expect(out).toHaveLength(input.length);
+    expect(out).toHaveLength(input.length - 1);
     expect(out[4]).toMatchObject({
       target: { target: { previousText: "Built APIs" } },
     });
-    expect(out[10]).toMatchObject({ previousKeywords: ["TS"] });
+    expect(
+      out.some((suggestion) => suggestion.op === "set_skill_keywords"),
+    ).toBe(false);
     expect(
       filterCoworkSuggestions(
         [
@@ -912,6 +1352,14 @@ describe("V2 cowork producer", () => {
           : ["role", "hidden-project", "linked"],
       );
     }
+    ctx.document.sections.experience.hidden = true;
+    expect(
+      filterCoworkSuggestions(
+        [proposal("include_library_item", { libraryId: "role" })],
+        ctx,
+        library,
+      ),
+    ).toMatchObject([{ op: "include_library_item", libraryId: "role" }]);
   });
   it("filters sourceBulletIds without applying libraryId attachment restrictions", () => {
     const ctx = context();
@@ -1088,5 +1536,233 @@ describe("V2 cowork producer", () => {
       }),
     ];
     expect(filterCoworkSuggestions(invalid, ctx, [])).toEqual([]);
+  });
+});
+
+describe("main regressions adapted to the V2 contract", () => {
+  it("indexes HTML bullets and caps library by overlap while retaining references", () => {
+    const library = [
+      { ...bullet("parent"), kind: "role" as const },
+      { ...bullet("own"), parentId: "parent" },
+      ...Array.from({ length: 80 }, (_, i) => ({
+        ...bullet(`b${i}`, "Python"),
+        parentId: "parent",
+      })),
+    ];
+    const prompt = buildCoworkPrompt(context(), "Python", library);
+    const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
+    expect(data.library).toHaveLength(82);
+    expect(Buffer.byteLength(JSON.stringify(data.library))).toBeLessThanOrEqual(
+      50_000,
+    );
+    expect(
+      data.library.findIndex((entry: ExperienceBullet) => entry.id === "b0"),
+    ).toBeGreaterThan(
+      data.library.findIndex((entry: ExperienceBullet) => entry.id === "own"),
+    );
+    expect(
+      data.library.some((entry: ExperienceBullet) => entry.id === "own"),
+    ).toBe(true);
+    expect(data.resume.experience[0].bullets).toEqual([
+      { index: 0, text: "Built APIs", libraryId: null },
+    ]);
+    expect(data.resume.basics).toBeUndefined();
+  });
+  it("filters invalid operations and assigns fresh IDs", () => {
+    const valid = {
+      id: "injected",
+      op: "replace_bullet",
+      section: "experience",
+      itemId: "exp",
+      bulletIndex: 0,
+      previousText: "Built APIs",
+      text: "Built robust APIs",
+      reason: "clarity",
+    };
+    const suggestions = filterCoworkSuggestions(
+      [
+        valid,
+        { ...valid, itemId: "foreign" },
+        { ...valid, text: undefined },
+        { ...valid, bulletIndex: 4, previousText: "Not in document" },
+        { op: "set_skills", reason: "missing" },
+        { op: "replace_summary", reason: "missing" },
+      ],
+      context(),
+      [bullet("own")],
+    );
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].id).not.toBe("injected");
+    expect(suggestions[0]).toMatchObject({
+      section: "experience",
+      itemId: "exp",
+      previousText: "Built APIs",
+    });
+  });
+  it("uses plain summary/headline context and anchors previousText to the current document", () => {
+    const cowork = context();
+    cowork.document.summary.content = "<p>Built <strong>tools</strong></p>";
+    cowork.document.basics.headline = "<b>Engineer</b>";
+    const prompt = buildCoworkPrompt(cowork, "Job", []);
+    const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
+    expect(data.resume.summary).toBe("Built tools");
+    expect(data.resume.headline).toBe("Engineer");
+    const suggestions = filterCoworkSuggestions(
+      [
+        {
+          op: "replace_summary",
+          text: "<p>Built robust tools</p>",
+          previousText: "<p>wrong</p>",
+          reason: "Clarity",
+        },
+        {
+          op: "replace_headline",
+          previousText: "stale",
+          text: "<b>Senior Engineer</b>",
+          reason: "Focus",
+        },
+      ],
+      cowork,
+      [],
+    );
+    expect(suggestions[0]).toMatchObject({
+      previousText: "Built tools",
+      text: "Built robust tools",
+    });
+    expect(suggestions[1]).toMatchObject({
+      previousText: "Engineer",
+      text: "Senior Engineer",
+    });
+  });
+  it("uses strict schemas throughout and accepts nullable optional fields", async () => {
+    const assertStrict = (node: any) => {
+      if (node.type === "object") {
+        expect(node.additionalProperties).toBe(false);
+        expect([...node.required].sort()).toEqual(
+          Object.keys(node.properties).sort(),
+        );
+      }
+      for (const child of Object.values(node.properties ?? {}))
+        assertStrict(child);
+      if (node.items) assertStrict(node.items);
+    };
+    assertStrict(COWORK_RESPONSE_SCHEMA.schema);
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        drafts: [
+          {
+            text: "Valid",
+            company: null,
+            role: null,
+            startDate: null,
+            endDate: null,
+            tags: null,
+          },
+        ],
+        ranked: [],
+      },
+    });
+    expect(await extractExperienceBullets("text")).toEqual([
+      { text: "Valid", source: "ai_extract" },
+    ]);
+    await rankExperienceBullets("job");
+    for (const [input] of callJson.mock.calls)
+      assertStrict(input.jsonSchema.schema);
+    expect(
+      filterCoworkSuggestions(
+        [
+          {
+            op: "replace_summary",
+            text: "Better",
+            experienceId: null,
+            bulletIndex: null,
+            previousText: "",
+            skills: null,
+            sourceBulletIds: null,
+            reason: "Clarity",
+          },
+        ],
+        context(),
+        [],
+      ),
+    ).toHaveLength(1);
+  });
+  it("anchors replace/delete by normalized text first, then valid index", () => {
+    const cowork = context();
+    cowork.document.sections.experience.items[0].description =
+      "<ul><li>Built APIs</li><li>Built CI</li></ul>";
+    const base = {
+      op: "replace_bullet",
+      section: "experience",
+      itemId: "exp",
+      bulletIndex: 1,
+      text: "Better",
+      reason: "Clarity",
+    };
+    const result = filterCoworkSuggestions(
+      [
+        { ...base, previousText: "  Built   APIs " },
+        { ...base, previousText: "Hallucination" },
+        { ...base, op: "delete_bullet", previousText: "" },
+        { ...base, bulletIndex: 5, previousText: "missing" },
+        { ...base, bulletIndex: 5, previousText: "Built APIs" },
+      ],
+      cowork,
+      [],
+    );
+    expect(
+      result.map((suggestion) => ({
+        bulletIndex:
+          "bulletIndex" in suggestion ? suggestion.bulletIndex : undefined,
+        previousText:
+          "previousText" in suggestion ? suggestion.previousText : undefined,
+      })),
+    ).toEqual([
+      { bulletIndex: 0, previousText: "Built APIs" },
+      { bulletIndex: 1, previousText: "Built CI" },
+      { bulletIndex: 0, previousText: "Built APIs" },
+    ]);
+  });
+  it("treats prose-only descriptions as intro with zero bullet targets", () => {
+    const cowork = context();
+    cowork.document.sections.experience.items[0].description =
+      '<p>Intro <a href="https://example.com">link</a></p><p>Second paragraph</p>';
+    const prompt = buildCoworkPrompt(cowork, "Job", []);
+    const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
+    expect(data.resume.experience[0].bullets).toEqual([]);
+    expect(data.resume.experience[0].intro).toBe(
+      "Intro link\nSecond paragraph",
+    );
+    const base = {
+      section: "experience",
+      itemId: "exp",
+      bulletIndex: 0,
+      previousText: "",
+      text: "New duty",
+      reason: "Clarity",
+    };
+    const result = filterCoworkSuggestions(
+      [
+        { ...base, op: "replace_bullet" },
+        { ...base, op: "delete_bullet" },
+        { ...base, op: "insert_bullet", bulletIndex: 1 },
+        { ...base, op: "insert_bullet" },
+      ],
+      cowork,
+      [],
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ op: "insert_bullet", bulletIndex: 0 });
+  });
+  it("indexes list bullets independently of multi-paragraph intro", () => {
+    const cowork = context();
+    cowork.document.sections.experience.items[0].description =
+      "<p>Intro</p><p>More intro</p><ul><li>Built APIs</li></ul>";
+    const prompt = buildCoworkPrompt(cowork, "Job", []);
+    const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
+    expect(data.resume.experience[0].bullets).toEqual([
+      { index: 0, text: "Built APIs", libraryId: null },
+    ]);
   });
 });

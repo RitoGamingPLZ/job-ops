@@ -16,13 +16,14 @@ import type {
   ReactiveResumeV5Document,
 } from "@shared/types";
 import { z } from "zod";
-import { selectLibraryBullets } from "./cowork-ai";
+import { libraryBulletOverlap, selectLibraryBullets } from "./cowork-ai";
 import { withHostedUsageReservation } from "./hosted-usage";
 import { createConfiguredLlmService, resolveLlmModel } from "./modelSelection";
 import {
   getWritingLanguageLabel,
   resolveWritingOutputLanguageForResumeJson,
 } from "./output-language";
+import { getEffectivePromptTemplate } from "./prompt-templates";
 import { resolveResumeProjectsSettings } from "./resumeProjects";
 import { parseV5ResumeData } from "./rxresume/schema/v5";
 import { extractProjectsFromResume } from "./rxresume/tailoring";
@@ -198,14 +199,15 @@ export async function generateResumeFromLibrary(
   const duties = library.filter((item) => item.kind === "bullet");
   const dutyBudget = 150;
   const description = job.jobDescription ?? "";
+  const overlap = libraryBulletOverlap(description);
   const roleDuties = library
     .filter((item) => item.kind === "role")
     .map((role) =>
-      selectLibraryBullets(
-        duties.filter((duty) => duty.parentId === role.id),
-        description,
-        3,
-      ),
+      duties
+        .filter((duty) => duty.parentId === role.id)
+        // Rank even short lists: near the budget only the first duty may fit.
+        .sort((a, b) => overlap(b) - overlap(a))
+        .slice(0, 3),
     );
   // Round-robin reservations give each role one duty before a second or third.
   // The remaining slots go to the highest-overlap duties across the library.
@@ -322,8 +324,13 @@ export async function generateResumeFromLibrary(
       tags: item.tags,
     })),
   });
+  const template = await getEffectivePromptTemplate(
+    "resumeGenerationPromptTemplate",
+  );
+  // Scraped job descriptions and library facts remain untrusted with any template.
+  const instructions = `${template}\n\n${GENERATION_INSTRUCTIONS}`;
   if (
-    Buffer.byteLength(prompt) + Buffer.byteLength(GENERATION_INSTRUCTIONS) >
+    Buffer.byteLength(prompt) + Buffer.byteLength(instructions) >
     LIBRARY_PROMPT_MAX_BYTES
   )
     throw new Error("Candidate library exceeds generation prompt limit");
@@ -339,7 +346,7 @@ export async function generateResumeFromLibrary(
       messages: [
         {
           role: "system",
-          content: GENERATION_INSTRUCTIONS,
+          content: instructions,
         },
         { role: "user", content: prompt },
       ],

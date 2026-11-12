@@ -628,6 +628,10 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
   document.sections.experience.items = [experience()];
   job("ready");
   job("frozen", "applied");
+  job("in-progress", "in_progress");
+  const frozenAtStart = rows().filter((row) =>
+    ["frozen", "in-progress"].includes(row.jobId),
+  );
   job("skip");
   job("linked");
   job("untouched", "ready", "tenant-a", {
@@ -638,7 +642,10 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
     },
   });
   await scope("tenant-a", async () => {
-    expect(api.syncCandidateLibrary(document).linked).toBe(8);
+    expect(api.syncCandidateLibrary(document).linked).toBe(6);
+    expect(
+      rows().filter((row) => ["frozen", "in-progress"].includes(row.jobId)),
+    ).toEqual(frozenAtStart);
     const repo = await import("../repositories/experience-bullets");
     const all = await repo.listExperienceBullets(true);
     const duty = all.find((item) => item.kind === "bullet");
@@ -658,7 +665,7 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
     expect(api.syncCandidateLibrary(document).created).toBe(0);
     api.updateLibraryItem(duty.id, { text: "Built cloud APIs" }, "skip");
     expect(rows().find((row) => row.jobId === "ready")?.revision).toBe(4);
-    expect(rows().find((row) => row.jobId === "frozen")?.revision).toBe(4);
+    expect(rows().find((row) => row.jobId === "frozen")?.revision).toBe(3);
     expect(rows().find((row) => row.jobId === "skip")?.revision).toBe(4);
     expect(rows().find((row) => row.jobId === "untouched")?.revision).toBe(3);
     expect(
@@ -679,6 +686,7 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
       period: "2024",
       description: "<ul><li>My wording</li></ul>",
     });
+    // Frozen resumes contribute facts only on the first build.
     expect(api.syncCandidateLibrary(document).created).toBe(0);
     api.deleteLibraryItem(parent.id);
     expect(
@@ -690,12 +698,15 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
       rows().find((row) => row.jobId === "frozen")?.document.sections.experience
         .items[0],
     ).toMatchObject({
-      libraryId: parent.id,
-      bulletRefs: [duty.id],
       description: experience().description,
     });
     expect(api.syncCandidateLibrary(document).created).toBe(0);
-    expect(await repo.listExperienceBullets(true)).toEqual([]);
+    // Deletion stays authoritative despite the frozen unlinked source.
+    expect(
+      (await repo.listExperienceBullets(true)).some(
+        (item) => item.kind === "role",
+      ),
+    ).toBe(false);
   });
 });
 
@@ -1097,4 +1108,296 @@ it("reports only this sync's successful scoped job revision transitions", () => 
   const b = new Map<string, { from: number; to: number }>();
   scope("tenant-b", () => api.syncCandidateLibrary(undefined, b));
   expect([...b]).toEqual([["b", { from: 3, to: 4 }]]);
+});
+
+it("leaves first build pending without a base so a later sync imports it", async () => {
+  document.sections.experience.items = [
+    {
+      id: "later-base",
+      hidden: false,
+      company: "Later employer",
+      position: "Engineer",
+      period: "2024 – Present",
+      location: "",
+      website: { url: "", label: "" },
+      description: "<ul><li>Later imported duty</li></ul>",
+      roles: [],
+    },
+  ];
+  await scope("tenant-a", async () => {
+    api.syncCandidateLibrary();
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(true);
+    const { listExperienceBullets } = await import(
+      "../repositories/experience-bullets"
+    );
+    expect(await listExperienceBullets(true)).toEqual([]);
+    api.syncCandidateLibrary(document);
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(false);
+    expect(await listExperienceBullets(true)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "role", text: "Engineer" }),
+        expect.objectContaining({
+          kind: "bullet",
+          text: "Later imported duty",
+        }),
+      ]),
+    );
+  });
+  scope("tenant-b", () =>
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(true),
+  );
+});
+
+it("keeps structured facts through sync, ticking and updates without importing linked local edits", async () => {
+  database.closeDb();
+  vi.doUnmock("@shared/resume-links");
+  vi.resetModules();
+  database = await import("../db");
+  ({ runWithRequestContext: run } = await import("@infra/request-context"));
+  api = await import("./candidate-library");
+  const { addToResume, libraryItemToResumeItem } = await import(
+    "@shared/resume-links"
+  );
+  const { listExperienceBullets } = await import(
+    "../repositories/experience-bullets"
+  );
+  document.sections.education.items = [
+    {
+      id: "edu",
+      hidden: false,
+      degree: "BSc",
+      area: "CS",
+      grade: "First",
+      description: "<p>Thesis · research</p>",
+      school: "School",
+      location: "Town",
+      period: "2020",
+      website: { url: "", label: "" },
+    },
+  ];
+  document.sections.awards.items = [
+    {
+      id: "award",
+      hidden: false,
+      title: "Prize",
+      awarder: "Society",
+      description: "<p>Research</p>",
+      date: "2020",
+      website: { url: "", label: "" },
+    },
+  ];
+  document.sections.certifications.items = [
+    {
+      id: "cert",
+      hidden: false,
+      title: "Certificate",
+      description: "<p>Exam</p>",
+      issuer: "Institute",
+      date: "2021",
+      website: { url: "", label: "" },
+    },
+  ];
+  job("source", "applied");
+  const frozenBefore = rows()[0];
+  await scope("tenant-a", async () => {
+    api.syncCandidateLibrary();
+    const library = await listExperienceBullets(true);
+    let ticked = structuredClone(document);
+    ticked.sections.education.items = [];
+    ticked.sections.awards.items = [];
+    ticked.sections.certifications.items = [];
+    for (const entry of library)
+      ticked = addToResume(ticked, entry.id, library);
+    job("ticked-structured", "ready", "tenant-a", ticked);
+    for (const entry of library)
+      api.updateLibraryItem(entry.id, { tags: ["reviewed"] });
+    expect(
+      rows().find((entry) => entry.jobId === "ticked-structured")?.document,
+    ).toEqual(ticked);
+    expect(rows().find((entry) => entry.jobId === "source")).toEqual(
+      frozenBefore,
+    );
+    const education = library.find((entry) => entry.kind === "education");
+    if (!education) throw new Error("Missing education");
+    expect(libraryItemToResumeItem(education)).toMatchObject({
+      degree: "BSc",
+      area: "CS",
+      grade: "First",
+      description: "<p>Thesis · research</p>",
+    });
+    api.updateLibraryItem(education.id, {
+      text: "BSc",
+      data: { ...education.data, grade: "", area: "Computing" },
+    });
+    expect(
+      rows().find((entry) => entry.jobId === "ticked-structured")?.document
+        .sections.education.items[0],
+    ).toMatchObject({
+      degree: "BSc",
+      area: "Computing",
+      grade: "",
+      description: "<p>Thesis · research</p>",
+    });
+    // Simulate a linked legacy row without rewriting its clean resume degree.
+    api.updateLibraryItem(
+      education.id,
+      { data: { school: "School", area: "", grade: "" } },
+      "ticked-structured",
+    );
+    document.sections.education.items[0].libraryId = education.id;
+    const foreign = structuredClone(document);
+    foreign.sections.education.items[0].degree = "Foreign degree";
+    await scope("tenant-b", async () => {
+      api.syncCandidateLibrary(foreign);
+      expect(await listExperienceBullets(true)).not.toContainEqual(
+        expect.objectContaining({ id: education.id }),
+      );
+    });
+    expect(
+      (await listExperienceBullets(true)).find(
+        (entry) => entry.id === education.id,
+      )?.data?.degree,
+    ).toBeUndefined();
+    api.syncCandidateLibrary(document);
+    expect(
+      (await listExperienceBullets(true)).find(
+        (entry) => entry.id === education.id,
+      )?.data,
+    ).toMatchObject({
+      schemaVersion: 2,
+      description: "<p>Thesis · research</p>",
+      area: "",
+      grade: "",
+    });
+    for (const entry of library) {
+      const primary = entry.kind === "education" ? "degree" : "title";
+      const section =
+        entry.kind === "education"
+          ? "education"
+          : entry.kind === "award"
+            ? "awards"
+            : "certifications";
+      const data = { ...entry.data };
+      delete data[primary];
+      const created = api.createLibraryItem({
+        kind: entry.kind,
+        text: "Created in library",
+        data,
+      });
+      const linked = addToResume(document, created.id, [created]);
+      const jobId = `created-${entry.kind}`;
+      job(jobId, "ready", "tenant-a", linked);
+      const before = rows().find((row) => row.jobId === jobId);
+      api.updateLibraryItem(created.id, { tags: ["reviewed"] });
+      expect(rows().find((row) => row.jobId === jobId)).toEqual(before);
+      api.updateLibraryItem(created.id, { text: "Edited in library" });
+      expect(
+        rows().find((row) => row.jobId === jobId)?.document.sections[section]
+          .items,
+      ).toContainEqual(
+        expect.objectContaining({
+          libraryId: created.id,
+          [primary]: "Edited in library",
+        }),
+      );
+    }
+    for (const entry of library) {
+      api.updateLibraryItem(entry.id, { text: "Library edit" });
+      const section =
+        entry.kind === "education"
+          ? "education"
+          : entry.kind === "award"
+            ? "awards"
+            : "certifications";
+      const primary = entry.kind === "education" ? "degree" : "title";
+      const updated = rows().find((row) => row.jobId === "ticked-structured");
+      expect(updated?.document.sections[section].items[0]).toMatchObject({
+        [primary]: "Library edit",
+        description: entry.data?.description,
+      });
+    }
+  });
+});
+
+it.each([
+  "applied",
+  "in_progress",
+] as const)("does not resurrect a deleted fact from a %s resume after first build", async (status) => {
+  document.sections.experience.items = [experience()];
+  job("frozen-only", status);
+  const original = rows()[0];
+  await scope("tenant-a", async () => {
+    expect(api.syncCandidateLibrary().created).toBe(2);
+    const repo = await import("../repositories/experience-bullets");
+    const parent = (await repo.listExperienceBullets(true)).find(
+      (entry) => entry.kind === "role",
+    );
+    if (!parent) throw new Error("Missing imported role");
+    api.deleteLibraryItem(parent.id);
+    expect(api.syncCandidateLibrary().created).toBe(0);
+    expect(await repo.listExperienceBullets(true)).toEqual([]);
+    expect(rows()[0]).toEqual(original);
+  });
+});
+
+it("imports a late base without resurrecting frozen facts and scopes the frozen import pass", async () => {
+  document.sections.experience.items = [experience()];
+  job("frozen-a", "applied");
+  job("frozen-b", "in_progress", "tenant-b");
+  const originals = rows();
+  const repo = await import("../repositories/experience-bullets");
+  await scope("tenant-a", async () => {
+    expect(api.syncCandidateLibrary().created).toBe(2);
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(true);
+    const role = (await repo.listExperienceBullets(true)).find(
+      (entry) => entry.kind === "role",
+    );
+    if (!role) throw new Error("Missing imported role");
+    api.deleteLibraryItem(role.id);
+    expect(api.syncCandidateLibrary().created).toBe(0);
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(true);
+    const base = structuredClone(document);
+    base.sections.experience.items = [];
+    base.sections.skills.items = [
+      {
+        id: "late-skill",
+        hidden: false,
+        name: "Late base skill",
+        icon: "",
+        keywords: ["TypeScript"],
+        proficiency: "",
+        level: 0,
+      },
+    ];
+    expect(api.syncCandidateLibrary(base).created).toBe(1);
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(false);
+    expect(await repo.listExperienceBullets(true)).toEqual([
+      expect.objectContaining({ kind: "skill", text: "Late base skill" }),
+    ]);
+  });
+  await scope("tenant-b", async () => {
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(true);
+    expect(api.syncCandidateLibrary().created).toBe(2);
+    expect(await repo.listExperienceBullets(true)).toHaveLength(2);
+  });
+  expect(rows()).toEqual(originals);
+});
+
+it("honours a completed first build from before the separate frozen import marker", async () => {
+  document.sections.experience.items = [experience()];
+  job("legacy-frozen", "applied");
+  database.db
+    .insert(database.schema.settings)
+    .values({
+      tenantId: "tenant-a",
+      key: "candidateLibraryFirstBuild",
+      value: "1",
+    })
+    .run();
+  await scope("tenant-a", async () => {
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(false);
+    expect(api.syncCandidateLibrary().created).toBe(0);
+    const repo = await import("../repositories/experience-bullets");
+    expect(await repo.listExperienceBullets(true)).toEqual([]);
+  });
 });

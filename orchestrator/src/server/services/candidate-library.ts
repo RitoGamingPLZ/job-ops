@@ -357,17 +357,21 @@ function normalizeStructured(
   }
 }
 const FIRST_BUILD_KEY = "candidateLibraryFirstBuild";
-export function candidateLibraryNeedsFirstBuild(): boolean {
-  return !db
+const FROZEN_IMPORT_KEY = "candidateLibraryFrozenResumesImported";
+function hasImportMarker(key: string): boolean {
+  return !!db
     .select({ key: schema.settings.key })
     .from(schema.settings)
     .where(
       and(
         privateDataScopeFilter(schema.settings),
-        eq(schema.settings.key, FIRST_BUILD_KEY),
+        eq(schema.settings.key, key),
       ),
     )
     .get();
+}
+export function candidateLibraryNeedsFirstBuild(): boolean {
+  return !hasImportMarker(FIRST_BUILD_KEY);
 }
 export function syncCandidateLibrary(
   base?: ReactiveResumeV5Document,
@@ -375,6 +379,9 @@ export function syncCandidateLibrary(
 ): LibrarySyncResult {
   return db.transaction(() => {
     const firstBuild = candidateLibraryNeedsFirstBuild();
+    // Older completed builds already imported frozen resumes. Keep that
+    // guarantee while allowing a missing base resume to be imported later.
+    const importFrozen = firstBuild && !hasImportMarker(FROZEN_IMPORT_KEY);
     const all = library();
     const result: LibrarySyncResult = { created: 0, skipped: 0, linked: 0 };
     function add(input: ExperienceBulletInput): ExperienceBullet {
@@ -555,10 +562,12 @@ export function syncCandidateLibrary(
       ...(firstBuild && base
         ? [{ document: base, source: "resume" as const }]
         : []),
-      ...saved.map(({ resume }) => ({
-        document: resume.document,
-        source: "job_resume" as const,
-      })),
+      ...saved
+        .filter(({ status }) => importFrozen || !frozen(status))
+        .map(({ resume }) => ({
+          document: resume.document,
+          source: "job_resume" as const,
+        })),
     ];
     // Any explicit ref, including a dangling ref left by deletion, prevents
     // importing that same fact again. Still collect unlinked children.
@@ -684,7 +693,8 @@ export function syncCandidateLibrary(
             source,
           });
     }
-    for (const { resume } of saved) {
+    for (const { resume, status } of saved) {
+      if (frozen(status)) continue;
       const stamped = stampLibraryRefs(resume.document, all);
       result.linked += stamped.linked;
       if (save(resume, stamped.doc))
@@ -693,8 +703,12 @@ export function syncCandidateLibrary(
           to: resume.revision + 1,
         });
     }
-    if (firstBuild) {
-      const { tenantId, userId } = getPrivateDataScope();
+    const { tenantId, userId } = getPrivateDataScope();
+    if (importFrozen)
+      db.insert(schema.settings)
+        .values({ tenantId, userId, key: FROZEN_IMPORT_KEY, value: "1" })
+        .run();
+    if (firstBuild && base) {
       db.insert(schema.settings)
         .values({ tenantId, userId, key: FIRST_BUILD_KEY, value: "1" })
         .run();

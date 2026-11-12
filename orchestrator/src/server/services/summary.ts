@@ -5,7 +5,7 @@
 import { logger } from "@infra/logger";
 import type { ResumeProfile } from "@shared/types";
 import { stripHtmlTags } from "@shared/utils/string";
-import { buildCandidateExperienceContext } from "./candidate-experience";
+import { buildCandidateTailoringContext } from "./candidate-experience";
 import type { JsonSchemaDefinition } from "./llm/types";
 import { createConfiguredLlmService, resolveLlmModel } from "./modelSelection";
 import {
@@ -154,6 +154,9 @@ async function buildTailoringPrompt(
       stripKeywordLimitFromConstraints(effectiveConstraints);
   }
 
+  const { experience: libraryContext, skills: librarySkills } =
+    await buildCandidateTailoringContext();
+
   // Extract only needed parts of profile to save tokens
   const relevantProfile = {
     basics: {
@@ -161,14 +164,14 @@ async function buildTailoringPrompt(
       label: profile.basics?.label, // Original headline
       summary: profile.basics?.summary,
     },
-    skills: profile.sections?.skills,
+    skills: librarySkills ?? profile.sections?.skills,
     projects: profile.sections?.projects?.items?.map((p) => ({
       name: p.name,
       description: p.description,
       keywords: p.keywords,
     })),
     experience:
-      (await buildCandidateExperienceContext()) ??
+      libraryContext ??
       profile.sections?.experience?.items?.map((e) => ({
         company: e.company,
         position: e.position,

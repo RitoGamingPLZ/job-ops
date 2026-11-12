@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { upstreamError } from "@infra/errors";
-import {
-  listExperienceBullets,
-  updateExperienceBullet,
-} from "@server/repositories/experience-bullets";
+import { AppError, upstreamError } from "@infra/errors";
+import { listExperienceBullets } from "@server/repositories/experience-bullets";
 import { safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
 import { htmlToPlainText, splitDescription } from "@shared/resume-bullets";
 import { getItemLines, KIND_SECTION, sameLineText } from "@shared/resume-links";
@@ -20,6 +17,7 @@ import type {
   ResumeSuggestionV2,
 } from "@shared/types";
 import { z } from "zod";
+import { updateLibraryItem } from "./candidate-library";
 import { withHostedUsageReservation } from "./hosted-usage";
 import type { JsonSchemaDefinition } from "./llm/types";
 import { createConfiguredLlmService, resolveLlmModel } from "./modelSelection";
@@ -105,10 +103,25 @@ function sectionItems(
   const value = (
     context.document.sections as unknown as Record<
       string,
-      { items?: LooseItem[] } | undefined
+      { items?: LooseItem[] }
     >
   )[section];
   return value?.items ?? [];
+}
+function visibleSectionItems(
+  context: CoworkChatContext,
+  section: string,
+): LooseItem[] {
+  if (!Object.hasOwn(REPLACE_FIELDS, section)) return [];
+  const value = (
+    context.document.sections as unknown as Record<
+      string,
+      { hidden?: boolean; items?: LooseItem[] } | undefined
+    >
+  )[section];
+  return value?.hidden
+    ? []
+    : (value?.items ?? []).filter((item) => !item.hidden);
 }
 // isOnResume includes hidden items; include suggestions need a visibility-aware scan.
 function linkedLibraryIds(
@@ -124,7 +137,8 @@ function linkedLibraryIds(
       !section ||
       typeof section !== "object" ||
       !("items" in section) ||
-      !Array.isArray(section.items)
+      !Array.isArray(section.items) ||
+      (!includeHidden && "hidden" in section && section.hidden === true)
     )
       continue;
     for (const item of section.items) {
@@ -184,7 +198,7 @@ function focusCurrent(context: CoworkChatContext, ref: ResumeFocusRef) {
   if (ref.kind === "headline")
     return htmlToPlainText(context.document.basics.headline);
   const section = ref.section ?? (ref.kind === "skill" ? "skills" : "");
-  const items = sectionItems(context, section);
+  const items = visibleSectionItems(context, section);
   if (ref.kind === "section") return items.map((item) => item.id);
   const item = items.find((candidate) => candidate.id === ref.itemId);
   if (!item) return null;
@@ -402,20 +416,27 @@ async function rankExperienceBulletsImpl(
     .sort((a, b) => b.score - a.score);
 }
 
-export function selectLibraryBullets(
-  library: ExperienceBullet[],
+/** Score duty text and tags against job-description terms. */
+export function libraryBulletOverlap(
   jobDescription: string,
-  limit: number,
-): ExperienceBullet[] {
+): (bullet: ExperienceBullet) => number {
   const terms = new Set(
     jobDescription.toLowerCase().match(/[a-z0-9+#]+/g) ?? [],
   );
-  const overlap = (bullet: ExperienceBullet) =>
+  return (bullet: ExperienceBullet) =>
     (
       `${bullet.text} ${bullet.tags.join(" ")}`
         .toLowerCase()
         .match(/[a-z0-9+#]+/g) ?? []
     ).filter((term) => terms.has(term)).length;
+}
+
+export function selectLibraryBullets(
+  library: ExperienceBullet[],
+  jobDescription: string,
+  limit: number,
+): ExperienceBullet[] {
+  const overlap = libraryBulletOverlap(jobDescription);
   return [...library].sort((a, b) => overlap(b) - overlap(a)).slice(0, limit);
 }
 
@@ -483,17 +504,38 @@ export function buildCoworkPrompt(
   };
   for (const section of Object.keys(REPLACE_FIELDS))
     resume[section] = sectionItems(context, section).map((item) =>
-      promptItem(section, item),
+      visibleSectionItems(context, section).some(
+        (visible) => visible.id === item.id,
+      )
+        ? promptItem(section, item)
+        : { id: item.id, hidden: true, libraryId: item.libraryId ?? null },
     );
   // Focus entries share one content budget.
   let focusBudget = FOCUS_CHAR_BUDGET;
-  const focus = (context.focus ?? []).map((ref) => {
-    const current = focusCurrent(context, ref);
-    focusBudget -= JSON.stringify(current ?? null).length;
-    return focusBudget >= 0
-      ? { ...ref, current }
-      : { ...ref, current: null, truncated: true };
-  });
+  const focus = (context.focus ?? [])
+    .filter((ref) => {
+      if (ref.kind === "summary" || ref.kind === "headline") return true;
+      const section = ref.section ?? (ref.kind === "skill" ? "skills" : "");
+      if (ref.kind === "section") {
+        const sections = context.document.sections as unknown as Record<
+          string,
+          { hidden?: boolean } | undefined
+        >;
+        return (
+          Object.hasOwn(REPLACE_FIELDS, section) && !sections[section]?.hidden
+        );
+      }
+      return visibleSectionItems(context, section).some(
+        (item) => item.id === ref.itemId,
+      );
+    })
+    .map((ref) => {
+      const current = focusCurrent(context, ref);
+      focusBudget -= JSON.stringify(current ?? null).length;
+      return focusBudget >= 0
+        ? { ...ref, current }
+        : { ...ref, current: null, truncated: true };
+    });
   const fieldNames = Object.entries(REPLACE_FIELDS)
     .map(([section, names]) => `${section}{${names.join(",")}}`)
     .join(", ");
@@ -568,7 +610,7 @@ export function filterCoworkSuggestions(
   const onResume = linkedLibraryIds(context);
   const visibleOnResume = linkedLibraryIds(context, false);
   const find = (section: string, id: string) =>
-    sectionItems(context, section).find((item) => item.id === id);
+    visibleSectionItems(context, section).find((item) => item.id === id);
   const lineTarget = (target: {
     section: "experience" | "projects";
     itemId: string;
@@ -649,7 +691,11 @@ export function filterCoworkSuggestions(
       case "add_entry":
         return s.index <= sectionItems(context, s.section).length ? [s] : [];
       case "remove_entry":
-        return find(s.section, s.itemId) ? [s] : [];
+        return sectionItems(context, s.section).some(
+          (item) => item.id === s.itemId,
+        )
+          ? [s]
+          : [];
       case "reorder_entries": {
         const ids = sectionItems(context, s.section).map((item) => item.id);
         return s.itemIds.length === ids.length &&
@@ -872,10 +918,16 @@ export async function labelExperienceBullets(ids?: string[]): Promise<{
         if (tag && !tags.has(tag.toLowerCase()))
           tags.set(tag.toLowerCase(), tag);
       }
-      const bullet = await updateExperienceBullet(current.id, {
-        tags: [...tags.values()].slice(0, 12),
-      });
-      if (bullet) updated.push(bullet);
+      try {
+        const bullet = await updateLibraryItem(current.id, {
+          tags: [...tags.values()].slice(0, 100),
+        });
+        if (bullet) updated.push(bullet);
+      } catch (error) {
+        // A concurrent delete must not prevent labeling the remaining bullets.
+        if (error instanceof AppError && error.code === "NOT_FOUND") continue;
+        throw error;
+      }
     }
   }
   const updatedIds = new Set(updated.map((bullet) => bullet.id));
