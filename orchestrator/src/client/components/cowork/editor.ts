@@ -3,8 +3,14 @@ import {
   htmlToPlainText,
   splitDescription,
 } from "@shared/resume-bullets";
-import { getItemLines, setItemLines } from "@shared/resume-links";
+import {
+  getItemLines,
+  linkedFieldPatch,
+  setItemLines,
+} from "@shared/resume-links";
+import { skillsSnapshot } from "@shared/skills-snapshot";
 import type {
+  ExperienceBullet,
   ReactiveResumeV5Document,
   ResumeFocusRef,
   ResumeSuggestion,
@@ -111,7 +117,8 @@ export function dropBullet(
 export function suggestionTarget(
   document: ReactiveResumeV5Document,
   suggestion: ResumeSuggestion,
-): { old: string; index?: number } | null {
+  library: ExperienceBullet[] = [],
+): { old: string; index?: number; libraryId?: string } | null {
   if (suggestion.op === "replace_headline")
     return sameText(suggestion.previousText, document.basics.headline)
       ? { old: document.basics.headline }
@@ -124,7 +131,19 @@ export function suggestionTarget(
   if (suggestion.op === "replace_field") {
     const item = fieldItem(document, suggestion.field);
     if (!item || !suggestion.field) return null;
-    if (item.libraryId) return null;
+    if (item.libraryId) {
+      const source = library.find((entry) => entry.id === item.libraryId);
+      if (
+        !source ||
+        !linkedFieldPatch(
+          source,
+          suggestion.field.section,
+          suggestion.field.name,
+          suggestion.text ?? "",
+        )
+      )
+        return null;
+    }
     const current = String(item[suggestion.field.name] ?? "");
     // Lists stay with the bullet ops; the server drops these too.
     if (
@@ -133,15 +152,19 @@ export function suggestionTarget(
     )
       return null;
     return sameText(suggestion.previousText, current)
-      ? { old: htmlToPlainText(current) }
+      ? {
+          old: htmlToPlainText(current),
+          ...(item.libraryId ? { libraryId: String(item.libraryId) } : {}),
+        }
       : null;
   }
-  if (suggestion.op === "set_skills")
-    return {
-      old: document.sections.skills.items
-        .map((s) => [s.name, ...s.keywords].join(": "))
-        .join("; "),
-    };
+  if (suggestion.op === "set_skills") {
+    const old = skillsSnapshot(document.sections.skills.items);
+    return !document.sections.skills.hidden && old === suggestion.previousText
+      ? { old }
+      : null;
+  }
+  if (document.sections.experience.hidden) return null;
   const experience = document.sections.experience.items.find(
     (e) => e.id === suggestion.experienceId && !e.hidden,
   );
@@ -167,16 +190,18 @@ export function suggestionTarget(
 export function applySuggestion(
   document: ReactiveResumeV5Document,
   suggestion: ResumeSuggestion,
+  library: ExperienceBullet[] = [],
 ): ReactiveResumeV5Document | null {
-  const target = suggestionTarget(document, suggestion);
-  if (!target) return null;
-  return applyResolvedSuggestion(document, suggestion, target);
+  const target = suggestionTarget(document, suggestion, library);
+  if (!target || target.libraryId) return null;
+  return applyResolvedSuggestion(document, suggestion, target, library);
 }
 
 function applyResolvedSuggestion(
   document: ReactiveResumeV5Document,
   suggestion: ResumeSuggestion,
   target: { old: string; index?: number },
+  library: ExperienceBullet[],
 ): ReactiveResumeV5Document | null {
   const next = structuredClone(document);
   if (suggestion.op === "replace_headline")
@@ -191,16 +216,33 @@ function applyResolvedSuggestion(
       suggestion.field.name === "description"
         ? `<p>${escapeHtml(text)}</p>`
         : text;
-  } else if (suggestion.op === "set_skills")
-    next.sections.skills.items = (suggestion.skills ?? []).map((s, index) => ({
-      ...s,
-      id: `cowork-skill-${suggestion.id}-${index}`,
-      hidden: false,
-      icon: "",
-      proficiency: "",
-      level: 0,
-    }));
-  else {
+  } else if (suggestion.op === "set_skills") {
+    const normalize = (name: string) => normalizeWhitespace(name).toLowerCase();
+    const visible = next.sections.skills.items.filter((item) => !item.hidden);
+    const replacements = (suggestion.skills ?? []).map((skill, index) => {
+      const at = visible.findIndex(
+        (item) => normalize(item.name) === normalize(skill.name),
+      );
+      const existing = at >= 0 ? visible.splice(at, 1)[0] : undefined;
+      return {
+        ...(existing ?? {
+          id: `cowork-skill-${suggestion.id}-${index}`,
+          hidden: false,
+          icon: "",
+          proficiency: "",
+          level: 0,
+        }),
+        ...skill,
+      };
+    });
+    // Keep hidden rows in their existing slots while replacing visible rows.
+    next.sections.skills.items = next.sections.skills.items.flatMap((item) => {
+      if (item.hidden) return [item];
+      const replacement = replacements.shift();
+      return replacement ? [replacement] : [];
+    });
+    next.sections.skills.items.push(...replacements);
+  } else {
     const experience = next.sections.experience.items.find(
       (e) => e.id === suggestion.experienceId,
     );
@@ -213,7 +255,11 @@ function applyResolvedSuggestion(
         ref:
           suggestion.op === "replace_bullet"
             ? (lines[target.index]?.ref ?? null)
-            : null,
+            : (suggestion.sourceBulletIds?.find((id) =>
+                library.some(
+                  (item) => item.id === id && item.kind === "bullet",
+                ),
+              ) ?? null),
       });
     const index = next.sections.experience.items.indexOf(experience);
     next.sections.experience.items[index] = setItemLines(
@@ -228,10 +274,11 @@ function applyResolvedSuggestion(
 export function applySuggestions(
   document: ReactiveResumeV5Document,
   suggestions: ResumeSuggestion[],
+  library: ExperienceBullet[] = [],
 ): { document: ReactiveResumeV5Document; applied: string[] } {
   const resolved = suggestions.flatMap((suggestion, order) => {
-    const target = suggestionTarget(document, suggestion);
-    return target ? [{ suggestion, target, order }] : [];
+    const target = suggestionTarget(document, suggestion, library);
+    return target && !target.libraryId ? [{ suggestion, target, order }] : [];
   });
   resolved.sort((a, b) => {
     const group = (a.suggestion.experienceId ?? "").localeCompare(
@@ -257,7 +304,7 @@ export function applySuggestions(
     const editsBullet =
       target.index !== undefined && suggestion.op !== "insert_bullet";
     if (editsBullet && edited.has(key)) continue;
-    const result = applyResolvedSuggestion(next, suggestion, target);
+    const result = applyResolvedSuggestion(next, suggestion, target, library);
     if (result) {
       next = result;
       applied.push(suggestion.id);
