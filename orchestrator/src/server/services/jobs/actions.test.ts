@@ -1,15 +1,27 @@
 import { runWithRequestContext } from "@infra/request-context";
 import { processJob } from "@server/pipeline/index";
 import * as jobsRepo from "@server/repositories/jobs";
-import { createJob } from "@shared/testing/factories";
+import { getEffectiveSettings } from "@server/services/settings";
+import { applySettingsUpdates } from "@server/services/settings-update";
+import { createAppSettings, createJob } from "@shared/testing/factories";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { executeJobActionForJob, targetJobInBackground } from "./actions";
+import {
+  blacklistJobEmployer,
+  executeJobActionForJob,
+  targetJobInBackground,
+} from "./actions";
 
 vi.mock("@server/pipeline/index", () => ({ processJob: vi.fn() }));
 vi.mock("@server/repositories/jobs", () => ({
   getJobById: vi.fn(),
   setJobTargeted: vi.fn(),
   updateJob: vi.fn(),
+}));
+vi.mock("@server/services/settings", () => ({
+  getEffectiveSettings: vi.fn(),
+}));
+vi.mock("@server/services/settings-update", () => ({
+  applySettingsUpdates: vi.fn(),
 }));
 const job = createJob({ id: "target-job" });
 beforeEach(() => {
@@ -91,5 +103,66 @@ describe("target generation dispatch", () => {
       expect(jobsRepo.updateJob).not.toHaveBeenCalled();
       await vi.waitFor(() => expect(processJob).toHaveBeenCalledOnce());
     }
+  });
+});
+
+describe("blacklistJobEmployer", () => {
+  beforeEach(() => {
+    vi.mocked(getEffectiveSettings).mockResolvedValue(
+      createAppSettings({
+        blockedCompanyKeywords: { value: [], default: [], override: null },
+      }),
+    );
+    vi.mocked(applySettingsUpdates).mockResolvedValue({
+      shouldRefreshBackupScheduler: false,
+      shouldClearRxResumeCaches: false,
+      updatedSettingKeys: [],
+    });
+  });
+
+  it("adds the employer to the blocklist and hides a skippable job", async () => {
+    vi.mocked(jobsRepo.getJobById).mockResolvedValue({
+      ...job,
+      status: "discovered",
+    });
+    const result = await blacklistJobEmployer(job.id);
+    expect(applySettingsUpdates).toHaveBeenCalledWith({
+      blockedCompanyKeywords: [job.employer],
+    });
+    expect(jobsRepo.updateJob).toHaveBeenCalledWith(job.id, {
+      status: "skipped",
+    });
+    expect(result.job.status).toBe("skipped");
+  });
+
+  it("does not duplicate an employer already on the blocklist (case-insensitive)", async () => {
+    vi.mocked(getEffectiveSettings).mockResolvedValue(
+      createAppSettings({
+        blockedCompanyKeywords: {
+          value: [job.employer.toUpperCase()],
+          default: [],
+          override: [job.employer.toUpperCase()],
+        },
+      }),
+    );
+    vi.mocked(jobsRepo.getJobById).mockResolvedValue({
+      ...job,
+      status: "discovered",
+    });
+    await blacklistJobEmployer(job.id);
+    expect(applySettingsUpdates).not.toHaveBeenCalled();
+  });
+
+  it("blacklists an already-applied job without changing its status", async () => {
+    vi.mocked(jobsRepo.getJobById).mockResolvedValue({
+      ...job,
+      status: "applied",
+    });
+    const result = await blacklistJobEmployer(job.id);
+    expect(applySettingsUpdates).toHaveBeenCalledWith({
+      blockedCompanyKeywords: [job.employer],
+    });
+    expect(jobsRepo.updateJob).not.toHaveBeenCalled();
+    expect(result.job.status).toBe("applied");
   });
 });

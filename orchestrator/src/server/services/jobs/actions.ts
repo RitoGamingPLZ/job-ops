@@ -28,6 +28,7 @@ import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import {
   type AppSettings,
   isTargeted,
+  type Job,
   type JobAction,
   type JobActionResult,
   type JobStatus,
@@ -187,8 +188,13 @@ export async function targetJobInBackground(
   return response;
 }
 
-/** Add a job's employer to the blocked-company list so future ingestion skips it. */
-export async function blacklistJobEmployer(jobId: string): Promise<AppSettings> {
+/**
+ * Add a job's employer to the blocked-company list so future ingestion skips
+ * it, and hide this job post now by skipping it (if it's still skippable).
+ */
+export async function blacklistJobEmployer(
+  jobId: string,
+): Promise<{ job: Job; settings: AppSettings }> {
   const job = await jobsRepo.getJobById(jobId);
   if (!job) throw notFound("Job not found");
   const employer = job.employer.trim();
@@ -202,7 +208,10 @@ export async function blacklistJobEmployer(jobId: string): Promise<AppSettings> 
       blockedCompanyKeywords: [...current, employer],
     });
   }
-  return getEffectiveSettings();
+  const updatedJob = SKIPPABLE_STATUSES.has(job.status)
+    ? ((await jobsRepo.updateJob(jobId, { status: "skipped" })) ?? job)
+    : job;
+  return { job: updatedJob, settings: await getEffectiveSettings() };
 }
 
 // Per-process locks, scoped exactly like the private repositories.

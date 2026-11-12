@@ -406,7 +406,10 @@ describe("JobDetailPanel", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual(["Edit details", "Copy job info", "Blacklist company"]);
+    ).toEqual(["Edit details", "Copy job info"]);
+    expect(
+      screen.getByRole("button", { name: /blacklist company/i }),
+    ).toBeInTheDocument();
   });
 
   it.each([

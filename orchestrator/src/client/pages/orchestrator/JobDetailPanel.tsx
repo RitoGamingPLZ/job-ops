@@ -240,12 +240,14 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const handleBlacklistEmployer = useCallback(async () => {
     if (!selectedJob) return;
     try {
-      await api.blacklistJobEmployer(selectedJob.id);
+      const { job } = await api.blacklistJobEmployer(selectedJob.id);
       toast.success(`Won't ingest jobs from ${selectedJob.employer} anymore`);
+      if (job.status === "skipped") handleJobMoved(selectedJob.id);
+      await onJobUpdated(job);
     } catch (error) {
       showErrorToast(error, "Failed to blacklist company");
     }
-  }, [selectedJob]);
+  }, [handleJobMoved, onJobUpdated, selectedJob]);
 
   if (!selectedJob) {
     if (selectedJobListItem) {
@@ -439,6 +441,14 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 Prepare resume
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void handleBlacklistEmployer()}
+            >
+              <Ban className="h-3.5 w-3.5" />
+              Blacklist company
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -458,12 +468,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 <DropdownMenuItem onSelect={() => void handleCopyInfo()}>
                   <Copy className="mr-2 h-4 w-4" />
                   Copy job info
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => void handleBlacklistEmployer()}
-                >
-                  <Ban className="mr-2 h-4 w-4" />
-                  Blacklist company
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
