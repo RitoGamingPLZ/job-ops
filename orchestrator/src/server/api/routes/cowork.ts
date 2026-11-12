@@ -16,6 +16,7 @@ import { screenResume } from "@server/services/cowork-screening";
 import { ensureJobResume } from "@server/services/job-resume";
 import { loadBaseResumeSource, resolvePdfRenderer } from "@server/services/pdf";
 import { safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
+import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import type { ReactiveResumeV5Document } from "@shared/types";
 import { CANDIDATE_ITEM_KINDS } from "@shared/types";
 import { Router } from "express";
@@ -66,18 +67,23 @@ async function baseDocument(requestOrigin: string | null) {
   });
   return data as ReactiveResumeV5Document;
 }
-// The base resume participates once per private scope. Missing/unavailable
-// sources must not prevent opening a library backed by job resumes or old rows.
+// Retry until the base resume is imported once per private scope. Unavailable
+// sources must not prevent opening the library or spam warnings on every retry.
+const baseResumeFailureLoggedScopes = new Set<string>();
 async function syncLibrary(requestOrigin: string | null) {
   let base: ReactiveResumeV5Document | undefined;
   if (libraryService.candidateLibraryNeedsFirstBuild()) {
     try {
       base = await baseDocument(requestOrigin);
     } catch (error) {
-      logger.warn("Candidate library base resume unavailable", {
-        route: "/library",
-        error,
-      });
+      const { scopeKey } = getPrivateDataScope();
+      if (!baseResumeFailureLoggedScopes.has(scopeKey)) {
+        baseResumeFailureLoggedScopes.add(scopeKey);
+        logger.warn("Candidate library base resume unavailable", {
+          route: "/library",
+          error,
+        });
+      }
     }
   }
   return libraryService.syncCandidateLibrary(base);

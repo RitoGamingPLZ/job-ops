@@ -103,6 +103,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   await stopServer({ server, closeDb, tempDir });
 });
 
@@ -637,7 +638,7 @@ it("labels explicit IDs, validates payloads, and sync never calls the LLM", asyn
   ).toBe(true);
 });
 
-it("opens the library without a base resume, logs its failure once, and keeps the first-build marker after deletion", async () => {
+it("retries the base import without log spam and preserves a successful first build after deletion", async () => {
   const { db, schema } = await import("@server/db");
   db.delete(schema.designResumeDocuments)
     .where(eq(schema.designResumeDocuments.id, "base-resume"))
@@ -665,7 +666,66 @@ it("opens the library without a base resume, logs its failure once, and keeps th
   expect(
     (await (await request("/library/sync", "POST")).json()).data.created,
   ).toBe(0);
-  expect(load).toHaveBeenCalledOnce();
+  expect(load).toHaveBeenCalledTimes(3);
+  expect(warn).toHaveBeenCalledOnce();
+
+  const job = db
+    .select()
+    .from(schema.jobs)
+    .where(eq(schema.jobs.id, jobId))
+    .get();
+  if (!job) throw new Error("Missing test job");
+  db.insert(schema.designResumeDocuments)
+    .values({
+      id: "base-resume",
+      tenantId: job.tenantId,
+      userId: job.userId,
+      title: "Base",
+      resumeJson: document,
+      revision: 1,
+    })
+    .run();
+  const imported = (await (await request("/library")).json()).data.items;
+  expect(
+    imported.some((item: { text: string }) => item.text === "Built APIs"),
+  ).toBe(true);
+  expect(load).toHaveBeenCalledTimes(4);
+  for (const item of imported) {
+    await request(`/experience-bullets/${item.id}`, "DELETE");
+  }
+  expect((await (await request("/library")).json()).data.items).toEqual([]);
+  await request("/library/sync", "POST");
+  expect(load).toHaveBeenCalledTimes(4);
+  expect(warn).toHaveBeenCalledOnce();
+});
+
+it("logs unavailable base imports independently for each private scope", async () => {
+  vi.stubEnv("JOBOPS_APP_MODE", "hosted");
+  vi.stubEnv("JOBOPS_HOSTED_TENANT_ID", "tenant_default");
+  vi.stubEnv("JOBOPS_HOSTED_SIGNUPS_ENABLED", "true");
+  const { db, schema } = await import("@server/db");
+  db.delete(schema.designResumeDocuments).run();
+  const pdf = await import("@server/services/pdf");
+  const load = vi.spyOn(pdf, "loadBaseResumeSource");
+  const { logger } = await import("@infra/logger");
+  const warn = vi.spyOn(logger, "warn");
+  const ownerToken = token;
+  const signup = await request(
+    "/auth/signup",
+    "POST",
+    { username: "other-scope", password: "secret-password" },
+    false,
+  );
+  expect(signup.status).toBe(201);
+  token = (await signup.json()).data.token;
+  await request("/library");
+  await request("/library/sync", "POST");
+  expect(warn).toHaveBeenCalledOnce();
+  token = ownerToken;
+  await request("/library");
+  await request("/library/sync", "POST");
+  expect(load).toHaveBeenCalledTimes(4);
+  expect(warn).toHaveBeenCalledTimes(2);
 });
 
 it("accepts valid contact items and rejects invalid contact data on create and patch", async () => {
