@@ -55,7 +55,12 @@ const idSchema = z.string().trim().min(1).max(200);
 const parentSchema = z
   .object({
     id: idSchema,
-    intro: z.string().trim().max(10_000).nullable(),
+    intro: z
+      .string()
+      .trim()
+      .max(10_000)
+      .nullable()
+      .transform((value) => value || null),
     lines: z
       .array(
         z
@@ -89,7 +94,7 @@ const selectionSchema = z
     awardIds: z.array(idSchema).max(200),
   })
   .strict();
-const idProperty = { type: "string", minLength: 1, maxLength: 200 };
+const idProperty = { type: "string" };
 const idsSchema = { type: "array", items: idProperty, maxItems: 200 };
 const parentProperty = {
   type: "array",
@@ -100,7 +105,7 @@ const parentProperty = {
     required: ["id", "intro", "lines"],
     properties: {
       id: idProperty,
-      intro: { type: ["string", "null"], maxLength: 10_000 },
+      intro: { type: ["string", "null"] },
       lines: {
         type: "array",
         maxItems: 200,
@@ -110,7 +115,7 @@ const parentProperty = {
           required: ["id", "text"],
           properties: {
             id: idProperty,
-            text: { type: ["string", "null"], minLength: 1, maxLength: 10_000 },
+            text: { type: ["string", "null"] },
           },
         },
       },
@@ -118,8 +123,8 @@ const parentProperty = {
   },
 };
 const properties = {
-  headline: { type: "string", minLength: 1, maxLength: 500 },
-  summary: { type: "string", minLength: 1, maxLength: 10_000 },
+  headline: { type: "string" },
+  summary: { type: "string" },
   experience: parentProperty,
   projects: parentProperty,
   skills: {
@@ -138,6 +143,14 @@ const properties = {
 };
 const normalize = (text: string) =>
   text.trim().replace(/\s+/g, " ").toLowerCase();
+
+// Newly supplied prose must not expose embedded contact addresses or URLs.
+const promptPlainText = (html: string) =>
+  htmlToPlainText(html)
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "")
+    .replace(/(?:\b[a-z][a-z0-9+.-]*:\/\/|\bwww\.)[^\s<>]+/gi, "")
+    .replace(/[ \t]+/g, " ")
+    .trim();
 
 /** Select facts once; every generated item and duty retains its library identity. */
 export async function generateResumeFromLibrary(
@@ -258,10 +271,10 @@ export async function generateResumeFromLibrary(
     library: supplied.map((item) => ({
       id: item.id,
       kind: item.kind,
-      text: htmlToPlainText(item.text),
+      text: promptPlainText(item.text),
       ...(["role", "project"].includes(item.kind)
         ? {
-            intro: htmlToPlainText(
+            intro: promptPlainText(
               splitDescription(
                 (item.kind === "role"
                   ? baseRole(item)
@@ -295,7 +308,7 @@ export async function generateResumeFromLibrary(
             if (key === "keywords" && Array.isArray(value))
               return [[key, value.filter((word) => typeof word === "string")]];
             return typeof value === "string"
-              ? [[key, htmlToPlainText(value)]]
+              ? [[key, promptPlainText(value)]]
               : [];
           }),
       ),
@@ -433,21 +446,30 @@ export async function generateResumeFromLibrary(
         text: null,
       }));
     };
+    const selectedLines = (item: ExperienceBullet, parent: SelectedParent) => {
+      const lines = parentLines(
+        parent,
+        item.kind === "role" ? "bullet" : "project_point",
+      );
+      return parent.lines.length && !lines.length ? fallbackLines(item) : lines;
+    };
     const experienceParents = uniqueParents(selection.experience, "role");
-    const experience = experienceParents.map((parent) =>
-      itemWithLines(
-        selected("role", [parent.id])[0],
-        parentLines(parent, "bullet"),
-        parent.intro,
-      ),
-    );
-    // Omitted base roles retain their grounded base subset; explicit [] clears lines.
-    for (const role of supplied.filter(
-      (item) => item.kind === "role" && baseRole(item),
-    )) {
-      if (!experienceParents.some((parent) => parent.id === role.id))
-        experience.push(itemWithLines(role, fallbackLines(role)));
-    }
+    // Keep library chronology, including omitted base roles, regardless of model order.
+    const experience = supplied
+      .filter((item) => item.kind === "role")
+      .flatMap((role) => {
+        const parent = experienceParents.find(
+          (parent) => parent.id === role.id,
+        );
+        if (!parent && !baseRole(role)) return [];
+        return [
+          itemWithLines(
+            role,
+            parent ? selectedLines(role, parent) : fallbackLines(role),
+            parent?.intro ?? null,
+          ),
+        ];
+      });
     const seenSkills = new Set<string>();
     const skills = selection.skills.flatMap((group) => {
       const item = supplied.find(
@@ -504,9 +526,7 @@ export async function generateResumeFromLibrary(
               );
               return itemWithLines(
                 item,
-                parent
-                  ? parentLines(parent, "project_point")
-                  : fallbackLines(item),
+                parent ? selectedLines(item, parent) : fallbackLines(item),
                 parent?.intro ?? null,
               );
             })()

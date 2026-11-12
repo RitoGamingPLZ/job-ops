@@ -338,7 +338,7 @@ describe("generateResumeFromLibrary", () => {
       new Set(duties.map((entry: ExperienceBullet) => entry.parentId)).size,
     ).toBe(80);
   });
-  it("drops unknown and cross-parent ids, deduplicates picks and drops invalid lines without filling an explicit selection", async () => {
+  it("drops unknown and cross-parent ids, deduplicates picks and falls back when all submitted lines are invalid", async () => {
     selection.experience = [
       {
         id: "role",
@@ -359,10 +359,10 @@ describe("generateResumeFromLibrary", () => {
     const result = await generateResumeFromLibrary(base, createJob(), library);
     expect(
       result.sections.experience.items.map((item) => item.bulletRefs),
-    ).toEqual([["duty"], []]);
+    ).toEqual([["duty"], ["other"]]);
     expect(result.sections.projects.items).toHaveLength(1);
   });
-  it("keeps the base duty subset when a base role is omitted", async () => {
+  it("keeps the base duty subset when all submitted lines are invalid", async () => {
     base.sections.experience.items = [
       {
         id: "base-role",
@@ -376,7 +376,9 @@ describe("generateResumeFromLibrary", () => {
         roles: [],
       },
     ];
-    selection.experience = [];
+    selection.experience = [
+      { id: "role", intro: null, lines: [{ id: "missing", text: null }] },
+    ];
     const result = await generateResumeFromLibrary(base, createJob(), [
       ...library,
       item("extra", "bullet", "Extra library duty", { parentId: "role" }),
@@ -632,6 +634,52 @@ describe("generateResumeFromLibrary", () => {
       { text: "Built a site", ref: "point" },
     ]);
   });
+  it.each([
+    "",
+    "   ",
+  ])("keeps base intros for blank rewrites (%j)", async (intro) => {
+    base = await generateResumeFromLibrary(base, createJob(), library);
+    base.sections.experience.items[0].description = "<p>Base role intro</p>";
+    base.sections.projects.items[0].description = "<p>Base project intro</p>";
+    selection.experience[0].intro = intro;
+    selection.projects[0].intro = intro;
+    const result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(
+      splitDescription(result.sections.experience.items[0].description)
+        .introHtml,
+    ).toBe("<p>Base role intro</p>");
+    expect(
+      splitDescription(result.sections.projects.items[0].description).introHtml,
+    ).toBe("<p>Base project intro</p>");
+  });
+  it("retains library chronology for reordered and omitted model roles", async () => {
+    base = await generateResumeFromLibrary(base, createJob(), library);
+    const older = {
+      id: "role2",
+      intro: null,
+      lines: [{ id: "other", text: "Rewritten older duty" }],
+    };
+    selection.experience = [older, ...selection.experience];
+    let result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(
+      result.sections.experience.items.map((item) => item.libraryId),
+    ).toEqual(["role", "role2"]);
+    selection.experience = [older];
+    result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(
+      result.sections.experience.items.map((item) => item.libraryId),
+    ).toEqual(["role", "role2"]);
+    expect(getItemLines(result.sections.experience.items[1])).toEqual([
+      { text: "Rewritten older duty", ref: "other" },
+    ]);
+  });
+  it("falls back for invalid project points without treating an explicit empty array as invalid", async () => {
+    selection.projects[0].lines = [{ id: "duty", text: "Wrong parent" }];
+    const result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(getItemLines(result.sections.projects.items[0])).toEqual([
+      { text: "Built a site", ref: "point" },
+    ]);
+  });
   it("supplies plain-text structured facts and grounded intros without arbitrary data or URLs", async () => {
     base.sections.projects.items = [
       {
@@ -640,7 +688,8 @@ describe("generateResumeFromLibrary", () => {
         hidden: true,
         name: "Portfolio",
         period: "2025",
-        description: "<p>Grounded intro</p><ul><li>Old point</li></ul>",
+        description:
+          "<p>Grounded intro https://intro.example me+test@private.example www.intro.example</p><ul><li>Old point</li></ul>",
         website: { url: "", label: "" },
       },
     ];
@@ -655,7 +704,7 @@ describe("generateResumeFromLibrary", () => {
           grade: "First",
           awarder: "Society",
           description:
-            '<p>Plain <a href="https://private.example">details</a></p>',
+            '<p>Plain <a href="https://private.example">details</a> https://private.example test@private.example www.private.example</p>',
           website: { url: "https://private.example" },
           arbitrary: "PRIVATE DATA",
         },
@@ -683,6 +732,8 @@ describe("generateResumeFromLibrary", () => {
         .issuer,
     ).toBe("Issuer");
     expect(prompt).not.toContain("https://private.example");
+    expect(prompt).not.toContain("intro.example");
+    expect(prompt).not.toContain("private.example");
     expect(prompt).not.toContain("PRIVATE DATA");
     expect(prompt).not.toContain("<p>");
   });
@@ -724,7 +775,20 @@ describe("generateResumeFromLibrary", () => {
       createJob({ jobDescription: "Relevant platform" }),
       crowded,
     );
-    expect(getItemLines(result.sections.experience.items[0])).toEqual([]);
+    const supplied = JSON.parse(
+      mocks.callJson.mock.calls[0][0].messages[1].content,
+    ).library;
+    expect(getItemLines(result.sections.experience.items[0])).toEqual(
+      supplied
+        .filter(
+          (entry: ExperienceBullet) =>
+            entry.kind === "bullet" && entry.parentId === "role",
+        )
+        .map((entry: ExperienceBullet) => ({
+          text: entry.text,
+          ref: entry.id,
+        })),
+    );
   });
   it("imports no rewritten line or duplicate on following library syncs in either tenant", async () => {
     selection.experience[0].lines[0].text = "Job-only duty rewrite";
@@ -780,6 +844,17 @@ describe("generateResumeFromLibrary", () => {
           expect(syncCandidateLibrary().created).toBe(0);
           expect(syncCandidateLibrary().created).toBe(0);
         });
+      }
+      for (const saved of database.db
+        .select()
+        .from(database.schema.jobResumes)
+        .all()) {
+        expect(
+          getItemLines(saved.document.sections.experience.items[0]),
+        ).toEqual([{ text: "Job-only duty rewrite", ref: "duty" }]);
+        expect(getItemLines(saved.document.sections.projects.items[0])).toEqual(
+          [{ text: "Job-only project rewrite", ref: "point" }],
+        );
       }
       const stored = database.db
         .select()

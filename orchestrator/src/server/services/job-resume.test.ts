@@ -86,7 +86,10 @@ describe("ensureJobResume", () => {
   it("selects from the library even when legacy job fields exist", async () => {
     await ensureJobResume("job", { tailor: true });
     expect(generateResumeFromLibrary).toHaveBeenCalledOnce();
-    expect(syncCandidateLibrary).toHaveBeenCalledWith(document);
+    expect(syncCandidateLibrary).toHaveBeenCalledWith(
+      document,
+      expect.any(Map),
+    );
     expect(listExperienceBullets).toHaveBeenCalledWith(true);
     expect(updateJob).toHaveBeenCalledWith(
       "job",
@@ -247,6 +250,60 @@ describe("ensureJobResume", () => {
       0, 1,
     ]);
   });
+  it.each([
+    false,
+    true,
+  ])("tailors a joined plain row after its own sync bump (editor during generation: %s)", async (edit) => {
+    vi.mocked(getJobById).mockResolvedValue(
+      createJob({ id: "job", status: "discovered", readyAt: null }),
+    );
+    let saved: typeof row | null = null;
+    vi.mocked(getJobResume).mockImplementation(async () => saved);
+    let finishBase!: () => void;
+    vi.mocked(loadBaseResumeSource).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishBase = () => resolve({ data: document, mode: "v5" });
+        }),
+    );
+    vi.mocked(syncCandidateLibrary).mockImplementation((_base, revisions) => {
+      expect(saved?.revision).toBe(1);
+      revisions?.set("job", { from: 1, to: 2 });
+      saved = { ...row, revision: 2 };
+      return { created: 0, skipped: 0, linked: 1 };
+    });
+    const tailored = {
+      ...document,
+      summary: { ...document.summary, content: "New tailored summary" },
+    };
+    vi.mocked(generateResumeFromLibrary).mockImplementation(async () => {
+      if (edit) saved = { ...row, revision: 3 };
+      return tailored;
+    });
+    vi.mocked(saveJobResume).mockImplementation(async (_id, expected, doc) => {
+      if (expected !== (saved?.revision ?? 0)) throw conflict("Resume changed");
+      saved = { ...row, document: doc, revision: expected + 1 };
+      return saved;
+    });
+    const plain = ensureJobResume("job");
+    await vi.waitFor(() => expect(loadBaseResumeSource).toHaveBeenCalledOnce());
+    const target = ensureJobResume("job", { tailor: true });
+    finishBase();
+    await plain;
+    if (edit) {
+      await expect(target).rejects.toMatchObject({
+        status: 409,
+        code: "CONFLICT",
+      });
+    } else {
+      const result = await target;
+      expect(result.document.summary.content).toBe("New tailored summary");
+      expect(result.revision).toBe(3);
+    }
+    expect(vi.mocked(saveJobResume).mock.calls.map((call) => call[1])).toEqual([
+      0, 2,
+    ]);
+  });
   it("does not re-save a targeted job's plain row that already tailored", async () => {
     let jobRow = createJob({
       id: "job",
@@ -307,7 +364,8 @@ describe("regenerateJobResume", () => {
       ...row,
       revision,
     }));
-    vi.mocked(syncCandidateLibrary).mockImplementation(() => {
+    vi.mocked(syncCandidateLibrary).mockImplementation((_base, revisions) => {
+      revisions?.set("job", { from: revision, to: revision + 1 });
       revision++;
       return { created: 0, skipped: 0, linked: 1 };
     });
@@ -331,7 +389,8 @@ describe("regenerateJobResume", () => {
       ...row,
       revision,
     }));
-    vi.mocked(syncCandidateLibrary).mockImplementation(() => {
+    vi.mocked(syncCandidateLibrary).mockImplementation((_base, revisions) => {
+      revisions?.set("job", { from: revision, to: revision + 1 });
       revision++;
       return { created: 0, skipped: 0, linked: 1 };
     });
@@ -348,6 +407,44 @@ describe("regenerateJobResume", () => {
       code: "CONFLICT",
     });
     expect(saveJobResume).toHaveBeenCalledWith("job", 8, document);
+    expect(updateJob).not.toHaveBeenCalled();
+  });
+  it.each([
+    false,
+    true,
+  ])("rejects editor saves during deferred base loading (sync also bumps: %s)", async (syncBumps) => {
+    let revision = 7;
+    vi.mocked(getJobResume).mockImplementation(async () => ({
+      ...row,
+      revision,
+    }));
+    let finishBase!: () => void;
+    vi.mocked(loadBaseResumeSource).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishBase = () => resolve({ data: document, mode: "v5" });
+        }),
+    );
+    vi.mocked(syncCandidateLibrary).mockImplementation((_base, revisions) => {
+      if (syncBumps) {
+        revisions?.set("job", { from: revision, to: revision + 1 });
+        revision++;
+      }
+      return { created: 0, skipped: 0, linked: syncBumps ? 1 : 0 };
+    });
+    vi.mocked(saveJobResume).mockImplementation(async (_id, expected) => {
+      if (expected !== revision) throw conflict("Resume changed");
+      return row;
+    });
+    const pending = regenerateJobResume("job");
+    await vi.waitFor(() => expect(loadBaseResumeSource).toHaveBeenCalledOnce());
+    revision++; // Editor commits while loading the base, before this run's sync.
+    finishBase();
+    await expect(pending).rejects.toMatchObject({
+      status: 409,
+      code: "CONFLICT",
+    });
+    expect(saveJobResume).toHaveBeenCalledWith("job", 7, document);
     expect(updateJob).not.toHaveBeenCalled();
   });
   it("keeps the old document and revision on generation failure", async () => {

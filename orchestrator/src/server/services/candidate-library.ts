@@ -58,8 +58,9 @@ function save(
   row: typeof schema.jobResumes.$inferSelect,
   document: ReactiveResumeV5Document,
 ) {
-  if (document === row.document) return;
-  db.update(schema.jobResumes)
+  if (document === row.document) return false;
+  const saved = db
+    .update(schema.jobResumes)
     .set({
       document,
       revision: row.revision + 1,
@@ -73,6 +74,7 @@ function save(
       ),
     )
     .run();
+  return saved.changes > 0;
 }
 function validate(
   input: ExperienceBulletInput,
@@ -369,6 +371,7 @@ export function candidateLibraryNeedsFirstBuild(): boolean {
 }
 export function syncCandidateLibrary(
   base?: ReactiveResumeV5Document,
+  revisions?: Map<string, { from: number; to: number }>,
 ): LibrarySyncResult {
   return db.transaction(() => {
     const firstBuild = candidateLibraryNeedsFirstBuild();
@@ -684,7 +687,11 @@ export function syncCandidateLibrary(
     for (const { resume } of saved) {
       const stamped = stampLibraryRefs(resume.document, all);
       result.linked += stamped.linked;
-      save(resume, stamped.doc);
+      if (save(resume, stamped.doc))
+        revisions?.set(resume.jobId, {
+          from: resume.revision,
+          to: resume.revision + 1,
+        });
     }
     if (firstBuild) {
       const { tenantId, userId } = getPrivateDataScope();
