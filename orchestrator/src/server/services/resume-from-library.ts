@@ -323,9 +323,33 @@ export async function generateResumeFromLibrary(
     >;
     sections.experience.items = experience;
     sections.skills.items = skills;
+    // Legacy folded rows cannot reconstruct their constituents. Use matching
+    // source values only for absent structured data; explicit library edits win.
+    const structuredItem = (item: ExperienceBullet, section: string) => {
+      const original = (
+        stampedBase.sections[section] as { items: Record<string, unknown>[] }
+      ).items.find((entry) => entry.libraryId === item.id);
+      const keys =
+        item.kind === "education"
+          ? ["degree", "area", "grade", "description"]
+          : item.kind === "award"
+            ? ["title", "awarder", "description"]
+            : ["title", "description"];
+      return libraryItemToResumeItem({
+        ...item,
+        data: {
+          ...Object.fromEntries(
+            keys.flatMap((key) =>
+              typeof original?.[key] === "string" ? [[key, original[key]]] : [],
+            ),
+          ),
+          ...item.data,
+        },
+      });
+    };
     sections.education.items = library
       .filter((item) => item.kind === "education")
-      .map(libraryItemToResumeItem);
+      .map((item) => structuredItem(item, "education"));
     const selectedProjectIds = resolveResumeProjectSelection({
       catalog,
       resumeProjects,
@@ -353,7 +377,7 @@ export async function generateResumeFromLibrary(
                   line.kind === "project_point" && line.parentId === item.id,
               ),
             )
-          : libraryItemToResumeItem(item),
+          : structuredItem(item, section),
       );
     }
     return {

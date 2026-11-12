@@ -338,10 +338,52 @@ export function syncCandidateLibrary(
     const firstBuild = candidateLibraryNeedsFirstBuild();
     const all = library();
     const result: LibrarySyncResult = { created: 0, skipped: 0, linked: 0 };
+    function enrichStructured(
+      existing: ExperienceBullet,
+      input: ExperienceBulletInput,
+    ) {
+      const data = { ...existing.data };
+      let changed = false;
+      for (const field of [
+        "degree",
+        "area",
+        "grade",
+        "title",
+        "awarder",
+        "description",
+      ]) {
+        if (
+          data[field] === undefined &&
+          typeof input.data?.[field] === "string"
+        ) {
+          data[field] = input.data[field];
+          changed = true;
+        }
+      }
+      if (changed) {
+        existing.data = data;
+        db.update(table)
+          .set({ data })
+          .where(and(privateDataScopeFilter(table), eq(table.id, existing.id)))
+          .run();
+      }
+    }
+    function importStructured(
+      libraryId: unknown,
+      input: ExperienceBulletInput,
+    ) {
+      if (!libraryId) return add(input);
+      const existing = all.find(
+        (item) => item.id === libraryId && item.kind === input.kind,
+      );
+      if (existing) enrichStructured(existing, input);
+    }
     function add(input: ExperienceBulletInput): ExperienceBullet {
       const existing = all.find((item) => key(item) === key(input));
       if (existing) {
         result.skipped++;
+        if (["education", "award", "certification"].includes(input.kind ?? ""))
+          enrichStructured(existing, input);
         // Legacy duties have no location/website. Enrich their generated role
         // from resume facts, while preserving facts already in the library.
         if (input.kind === "role") {
@@ -599,39 +641,48 @@ export function syncCandidateLibrary(
             source,
           });
       for (const item of document.sections.education.items)
-        if (!item.libraryId)
-          add({
-            kind: "education",
-            text: fold(item.degree, item.area, item.grade, item.description),
-            data: {
-              school: item.school,
-              location: item.location,
-              period: item.period,
-            },
-            source,
-          });
+        importStructured(item.libraryId, {
+          kind: "education",
+          text: fold(item.degree, item.area, item.grade, item.description),
+          data: {
+            degree: item.degree,
+            area: item.area,
+            grade: item.grade,
+            description: item.description,
+            school: item.school,
+            location: item.location,
+            period: item.period,
+          },
+          source,
+        });
       for (const item of document.sections.awards.items)
-        if (!item.libraryId)
-          add({
-            kind: "award",
-            text: fold(item.title, item.awarder, item.description),
-            data: { date: item.date },
-            source,
-          });
+        importStructured(item.libraryId, {
+          kind: "award",
+          text: fold(item.title, item.awarder, item.description),
+          data: {
+            title: item.title,
+            awarder: item.awarder,
+            description: item.description,
+            date: item.date,
+          },
+          source,
+        });
       for (const item of document.sections.certifications.items)
-        if (!item.libraryId)
-          add({
-            kind: "certification",
-            text: fold(item.title, item.description),
-            data: {
-              issuer: item.issuer,
-              website: item.website,
-              date: item.date,
-            },
-            source,
-          });
+        importStructured(item.libraryId, {
+          kind: "certification",
+          text: fold(item.title, item.description),
+          data: {
+            title: item.title,
+            description: item.description,
+            issuer: item.issuer,
+            website: item.website,
+            date: item.date,
+          },
+          source,
+        });
     }
-    for (const { resume } of saved) {
+    for (const { resume, status } of saved) {
+      if (frozen(status)) continue;
       const stamped = stampLibraryRefs(resume.document, all);
       result.linked += stamped.linked;
       save(resume, stamped.doc);

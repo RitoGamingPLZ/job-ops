@@ -11,6 +11,7 @@ import {
   isOnResume,
   KIND_SECTION,
   libraryItemToResumeItem,
+  linkedFieldPatch,
   type ResumeDoc,
   type ResumeItem,
   removeFromResume,
@@ -282,6 +283,8 @@ describe("library updates and resets", () => {
       ...original,
       text: "Updated",
       data: {
+        degree: "Updated",
+        title: "Updated",
         company: "New Co",
         location: "New place",
         website: "https://new.example",
@@ -785,4 +788,115 @@ it.each([
   const restored = setContactOnResume(cleared, after, true);
   expect(setContactOnResume(restored, after, true)).toBe(restored);
   expect(restored.sections.profiles.items).toHaveLength(1);
+});
+
+describe("structured library fields", () => {
+  it.each([
+    [
+      education,
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+    ],
+    [award, { title: "Prize", awarder: "Society", description: "<p>Work</p>" }],
+    [certification, { title: "Certified", description: "<p>Exam</p>" }],
+  ] as const)("preserves structured $0.kind through metadata edits and supports explicit clearing", (legacy, structured) => {
+    const current = { ...legacy, data: { ...legacy.data, ...structured } };
+    const doc = addToResume(document(), current.id, [current]);
+    expect(entries(doc, current.kind)[0]).toMatchObject(structured);
+    expect(
+      applyLibraryUpdate(doc, current, { ...current, tags: ["tag"] }),
+    ).toBe(doc);
+    // Older folded rows keep the source values instead of attempting to split text.
+    expect(applyLibraryUpdate(doc, legacy, { ...legacy, tags: ["tag"] })).toBe(
+      doc,
+    );
+    const cleared = Object.fromEntries(
+      Object.keys(structured).map((key) => [key, ""]),
+    );
+    const next = applyLibraryUpdate(doc, current, {
+      ...current,
+      data: { ...current.data, ...cleared },
+    });
+    expect(entries(next, current.kind)[0]).toMatchObject(cleared);
+  });
+});
+
+describe("linkedFieldPatch", () => {
+  const supported = [
+    [role, "experience", ["position", "company", "location", "period"]],
+    [project, "projects", ["name", "period"]],
+    [skill, "skills", ["name"]],
+    [
+      education,
+      "education",
+      ["degree", "area", "grade", "school", "location", "period"],
+    ],
+    [award, "awards", ["title", "awarder", "date"]],
+    [certification, "certifications", ["title", "issuer", "date"]],
+  ] as const;
+  it.each(
+    supported.flatMap(([item, section, fields]) =>
+      fields.map((field) => ({ item, section, field })),
+    ),
+  )("round-trips $section.$field without changing sibling fields", ({
+    item,
+    section,
+    field,
+  }) => {
+    const before = freeze({
+      ...item,
+      data: { ...item.data, extra: "retained" },
+    });
+    const doc = freeze(addToResume(document(), before.id, [before]));
+    const original = entries(doc, before.kind)[0];
+    const patch = linkedFieldPatch(before, section, field, "New value");
+    expect(patch).not.toBeNull();
+    if (patch?.data) expect(patch.data.extra).toBe("retained");
+    const next = applyLibraryUpdate(doc, before, { ...before, ...patch });
+    expect(entries(next, before.kind)[0]).toEqual({
+      ...original,
+      [field]: "New value",
+    });
+  });
+  it("leaves existing sibling values unchanged even when they differ from library data", () => {
+    const doc = addToResume(document(), role.id, [role]);
+    const original = entries(doc, role.kind)[0];
+    Object.assign(original, {
+      location: "My location",
+      period: "My dates",
+      company: "My company",
+    });
+    const patch = linkedFieldPatch(role, "experience", "position", "Lead");
+    const next = applyLibraryUpdate(doc, role, { ...role, ...patch });
+    expect(entries(next, role.kind)[0]).toEqual({
+      ...original,
+      position: "Lead",
+    });
+  });
+  it("refuses prose, mismatched sections and unsupported fields", () => {
+    for (const item of parents) {
+      expect(
+        linkedFieldPatch(
+          item,
+          KIND_SECTION[item.kind] ?? "",
+          "description",
+          "Text",
+        ),
+      ).toBeNull();
+      expect(linkedFieldPatch(item, "wrong", "title", "Text")).toBeNull();
+      expect(
+        linkedFieldPatch(
+          item,
+          KIND_SECTION[item.kind] ?? "",
+          "website",
+          "Text",
+        ),
+      ).toBeNull();
+    }
+    expect(linkedFieldPatch(duty, "experience", "text", "Text")).toBeNull();
+  });
 });

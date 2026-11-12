@@ -153,7 +153,14 @@ it("unions base and job resumes, merges keywords, folds extras and is idempotent
     });
     expect(all.find((item) => item.kind === "education")).toMatchObject({
       text: "BSc · CS · First · Thesis research",
-      data: { location: "Town", school: "School" },
+      data: {
+        location: "Town",
+        school: "School",
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p><p>research</p>",
+      },
     });
     expect(await repo.listExperienceBullets()).toHaveLength(2);
     expect(api.syncCandidateLibrary(document)).toMatchObject({
@@ -605,7 +612,12 @@ it.each([
     const ticked = addToResume(empty, item.id, library);
     expect(ticked.sections[section].items[0].website).toEqual(website);
     job("ticked", "ready", "tenant-a", ticked);
-    api.updateLibraryItem(item.id, { text: "Edited name" });
+    api.updateLibraryItem(
+      item.id,
+      kind === "certification"
+        ? { data: { ...item.data, title: "Edited name" } }
+        : { text: "Edited name" },
+    );
     const updated = rows().find((entry) => entry.jobId === "ticked");
     expect(updated?.document.sections[section].items[0].website).toEqual(
       website,
@@ -624,6 +636,10 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
   document.sections.experience.items = [experience()];
   job("ready");
   job("frozen", "applied");
+  job("in-progress", "in_progress");
+  const frozenAtStart = rows().filter((row) =>
+    ["frozen", "in-progress"].includes(row.jobId),
+  );
   job("skip");
   job("linked");
   job("untouched", "ready", "tenant-a", {
@@ -634,7 +650,10 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
     },
   });
   await scope("tenant-a", async () => {
-    expect(api.syncCandidateLibrary(document).linked).toBe(8);
+    expect(api.syncCandidateLibrary(document).linked).toBe(6);
+    expect(
+      rows().filter((row) => ["frozen", "in-progress"].includes(row.jobId)),
+    ).toEqual(frozenAtStart);
     const repo = await import("../repositories/experience-bullets");
     const all = await repo.listExperienceBullets(true);
     const duty = all.find((item) => item.kind === "bullet");
@@ -654,7 +673,7 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
     expect(api.syncCandidateLibrary(document).created).toBe(0);
     api.updateLibraryItem(duty.id, { text: "Built cloud APIs" }, "skip");
     expect(rows().find((row) => row.jobId === "ready")?.revision).toBe(4);
-    expect(rows().find((row) => row.jobId === "frozen")?.revision).toBe(4);
+    expect(rows().find((row) => row.jobId === "frozen")?.revision).toBe(3);
     expect(rows().find((row) => row.jobId === "skip")?.revision).toBe(4);
     expect(rows().find((row) => row.jobId === "untouched")?.revision).toBe(3);
     expect(
@@ -675,7 +694,8 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
       period: "2024",
       description: "<ul><li>My wording</li></ul>",
     });
-    expect(api.syncCandidateLibrary(document).created).toBe(0);
+    // Frozen resumes stay unlinked, so their old facts can still be imported.
+    expect(api.syncCandidateLibrary(document).created).toBe(2);
     api.deleteLibraryItem(parent.id);
     expect(
       rows().find((row) => row.jobId === "ready")?.document.sections.experience
@@ -686,12 +706,15 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
       rows().find((row) => row.jobId === "frozen")?.document.sections.experience
         .items[0],
     ).toMatchObject({
-      libraryId: parent.id,
-      bulletRefs: [duty.id],
       description: experience().description,
     });
     expect(api.syncCandidateLibrary(document).created).toBe(0);
-    expect(await repo.listExperienceBullets(true)).toEqual([]);
+    // Frozen unlinked source facts remain eligible for import.
+    expect(
+      (await repo.listExperienceBullets(true)).some(
+        (item) => item.kind === "role",
+      ),
+    ).toBe(true);
   });
 });
 
@@ -842,5 +865,126 @@ it("sync imports missing base contacts into existing libraries without editing o
         (item) => item.kind === "contact",
       ),
     ).toHaveLength(0);
+  });
+});
+
+it("keeps structured facts through sync, ticking and updates, and enriches only scoped missing data", async () => {
+  database.closeDb();
+  vi.doUnmock("@shared/resume-links");
+  vi.resetModules();
+  database = await import("../db");
+  ({ runWithRequestContext: run } = await import("@infra/request-context"));
+  api = await import("./candidate-library");
+  const { addToResume, libraryItemToResumeItem } = await import(
+    "@shared/resume-links"
+  );
+  const { listExperienceBullets } = await import(
+    "../repositories/experience-bullets"
+  );
+  document.sections.education.items = [
+    {
+      id: "edu",
+      hidden: false,
+      degree: "BSc",
+      area: "CS",
+      grade: "First",
+      description: "<p>Thesis · research</p>",
+      school: "School",
+      location: "Town",
+      period: "2020",
+      website: { url: "", label: "" },
+    },
+  ];
+  document.sections.awards.items = [
+    {
+      id: "award",
+      hidden: false,
+      title: "Prize",
+      awarder: "Society",
+      description: "<p>Research</p>",
+      date: "2020",
+      website: { url: "", label: "" },
+    },
+  ];
+  document.sections.certifications.items = [
+    {
+      id: "cert",
+      hidden: false,
+      title: "Certificate",
+      description: "<p>Exam</p>",
+      issuer: "Institute",
+      date: "2021",
+      website: { url: "", label: "" },
+    },
+  ];
+  job("source", "applied");
+  const frozenBefore = rows()[0];
+  await scope("tenant-a", async () => {
+    api.syncCandidateLibrary();
+    const library = await listExperienceBullets(true);
+    let ticked = structuredClone(document);
+    ticked.sections.education.items = [];
+    ticked.sections.awards.items = [];
+    ticked.sections.certifications.items = [];
+    for (const entry of library)
+      ticked = addToResume(ticked, entry.id, library);
+    job("ticked-structured", "ready", "tenant-a", ticked);
+    for (const entry of library)
+      api.updateLibraryItem(entry.id, { tags: ["reviewed"] });
+    expect(
+      rows().find((entry) => entry.jobId === "ticked-structured")?.document,
+    ).toEqual(ticked);
+    expect(rows().find((entry) => entry.jobId === "source")).toEqual(
+      frozenBefore,
+    );
+    const education = library.find((entry) => entry.kind === "education");
+    if (!education) throw new Error("Missing education");
+    expect(libraryItemToResumeItem(education)).toMatchObject({
+      degree: "BSc",
+      area: "CS",
+      grade: "First",
+      description: "<p>Thesis · research</p>",
+    });
+    api.updateLibraryItem(education.id, {
+      data: { ...education.data, grade: "", area: "Computing" },
+    });
+    expect(
+      rows().find((entry) => entry.jobId === "ticked-structured")?.document
+        .sections.education.items[0],
+    ).toMatchObject({
+      degree: "BSc",
+      area: "Computing",
+      grade: "",
+      description: "<p>Thesis · research</p>",
+    });
+    // Simulate a linked legacy row with missing constituents.
+    api.updateLibraryItem(education.id, {
+      data: { school: "School", area: "", grade: "" },
+    });
+    document.sections.education.items[0].libraryId = education.id;
+    const foreign = structuredClone(document);
+    foreign.sections.education.items[0].degree = "Foreign degree";
+    await scope("tenant-b", async () => {
+      api.syncCandidateLibrary(foreign);
+      expect(await listExperienceBullets(true)).not.toContainEqual(
+        expect.objectContaining({ id: education.id }),
+      );
+    });
+    expect(
+      (await listExperienceBullets(true)).find(
+        (entry) => entry.id === education.id,
+      )?.data?.degree,
+    ).toBeUndefined();
+    api.syncCandidateLibrary(document);
+    expect(
+      (await listExperienceBullets(true)).find(
+        (entry) => entry.id === education.id,
+      )?.data,
+    ).toMatchObject({
+      degree: "BSc",
+      description: "<p>Thesis · research</p>",
+      area: "",
+      grade: "",
+    });
   });
 });

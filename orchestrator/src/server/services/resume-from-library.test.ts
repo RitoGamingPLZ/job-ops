@@ -479,6 +479,7 @@ describe("generateResumeFromLibrary", () => {
               ...entry,
               text: "BSc (updated)",
               data: {
+                degree: "BSc (updated)",
                 school: "Updated University",
                 location: "Toronto",
                 period: "2017 – 2021",
@@ -504,6 +505,63 @@ describe("generateResumeFromLibrary", () => {
       },
     ]);
     expect(result.sections.education.items).toHaveLength(2);
+  });
+  it("retains legacy source structure and lets structured library values override it", async () => {
+    const source = base.sections.education.items[0];
+    Object.assign(source, {
+      libraryId: "school",
+      degree: "BSc",
+      area: "CS",
+      grade: "First",
+      description: "<p>Thesis</p>",
+    });
+    base.sections.awards.items = [
+      {
+        id: "a",
+        hidden: false,
+        libraryId: "award",
+        title: "Prize",
+        awarder: "Society",
+        date: "2020",
+        description: "<p>Research</p>",
+        website: { url: "", label: "" },
+      },
+    ];
+    base.sections.certifications.items = [
+      {
+        id: "c",
+        hidden: false,
+        libraryId: "cert",
+        title: "Certificate",
+        issuer: "Issuer",
+        date: "2021",
+        description: "<p>Exam</p>",
+        website: { url: "", label: "" },
+      },
+    ];
+    const result = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      library.map((entry) =>
+        entry.id === "school"
+          ? { ...entry, data: { ...entry.data, grade: "", area: "Computing" } }
+          : entry,
+      ),
+    );
+    expect(result.sections.education.items[0]).toMatchObject({
+      degree: "BSc",
+      area: "Computing",
+      grade: "",
+      description: source.description,
+    });
+    expect(result.sections.awards.items[0]).toMatchObject({
+      title: "Prize",
+      awarder: "Society",
+      description: "<p>Research</p>",
+    });
+    expect(result.sections.certifications.items[0].description).toBe(
+      "<p>Exam</p>",
+    );
   });
   it.each([
     true,
