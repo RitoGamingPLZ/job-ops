@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { normalizeGhostwriterSelectedDocumentIds } from "@shared/ghostwriter-document-context.js";
 import { normalizeGhostwriterSelectedEmailIds } from "@shared/ghostwriter-email-context.js";
 import { normalizeGhostwriterSelectedNoteIds } from "@shared/ghostwriter-note-context.js";
+import { decodeStoredSuggestion } from "@shared/resume-suggestion-schema";
 import type {
   JobChatImageAttachment,
   JobChatMessage,
@@ -10,7 +11,7 @@ import type {
   JobChatRun,
   JobChatRunStatus,
   JobChatThread,
-  ResumeSuggestion,
+  ResumeSuggestionV2,
 } from "@shared/types";
 import { and, desc, eq } from "drizzle-orm";
 import { db, schema } from "../db";
@@ -131,7 +132,12 @@ function mapMessage(row: typeof jobChatMessages.$inferSelect): JobChatMessage {
     parentMessageId: row.parentMessageId,
     activeChildId: row.activeChildId,
     attachments: parseImageAttachments(row.attachments),
-    suggestions: row.suggestions ?? null,
+    suggestions: Array.isArray(row.suggestions)
+      ? row.suggestions.flatMap((raw) => {
+          const suggestion = decodeStoredSuggestion(raw);
+          return suggestion ? [suggestion] : [];
+        })
+      : null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -375,7 +381,7 @@ export async function createMessage(input: {
 export async function updateMessage(
   messageId: string,
   input: {
-    suggestions?: ResumeSuggestion[] | null;
+    suggestions?: ResumeSuggestionV2[] | null;
     content?: string;
     status?: JobChatMessageStatus;
     tokensIn?: number | null;
