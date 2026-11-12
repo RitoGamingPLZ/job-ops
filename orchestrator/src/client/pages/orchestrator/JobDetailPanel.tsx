@@ -18,6 +18,7 @@ import { resumeEditorLocation } from "@client/lib/resume-opening";
 import type { Job, JobListItem } from "@shared/types.js";
 import { isTargeted } from "@shared/types.js";
 import {
+  Ban,
   CheckCircle2,
   CircleAlert,
   Copy,
@@ -236,6 +237,16 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     });
   }, [prepareResumeMutation, selectedJob]);
 
+  const handleBlacklistEmployer = useCallback(async () => {
+    if (!selectedJob) return;
+    try {
+      await api.blacklistJobEmployer(selectedJob.id);
+      toast.success(`Won't ingest jobs from ${selectedJob.employer} anymore`);
+    } catch (error) {
+      showErrorToast(error, "Failed to blacklist company");
+    }
+  }, [selectedJob]);
+
   if (!selectedJob) {
     if (selectedJobListItem) {
       const isLoadingDetails = selectedJobLoadState !== "error";
@@ -448,6 +459,12 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                   <Copy className="mr-2 h-4 w-4" />
                   Copy job info
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => void handleBlacklistEmployer()}
+                >
+                  <Ban className="mr-2 h-4 w-4" />
+                  Blacklist company
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -456,6 +473,14 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
 
       <div className="flex min-w-0 flex-col rounded-lg rounded-t-none border border-t-0 border-border/50 bg-card p-4">
         <div className="space-y-4">
+          {selectedJob.generationError && selectedJob.status !== "processing" && (
+            <Alert variant="destructive">
+              <CircleAlert />
+              <AlertTitle>Resume generation failed</AlertTitle>
+              <AlertDescription>{selectedJob.generationError}</AlertDescription>
+            </Alert>
+          )}
+
           {!brief && (
             <div className="grid gap-2 sm:grid-cols-2">
               <Stat label="Location" value={selectedJob.location} tone="blue" />

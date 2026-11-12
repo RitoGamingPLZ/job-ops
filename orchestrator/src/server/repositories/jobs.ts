@@ -940,6 +940,7 @@ function mapRowToJob(row: typeof jobs.$inferSelect): Job {
     status: row.status as JobStatus,
     outcome: row.outcome ?? null,
     closedAt: row.closedAt ?? null,
+    generationError: row.generationError ?? null,
     suitabilityScore: row.suitabilityScore,
     suitabilityReason: row.suitabilityReason,
     jobBrief: row.jobBrief ?? null,

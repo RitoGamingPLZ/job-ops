@@ -31,6 +31,7 @@ export const createJob = (overrides: Partial<Job> = {}): Job => ({
   status: "ready",
   outcome: null,
   closedAt: null,
+  generationError: null,
   suitabilityScore: 90,
   suitabilityReason: "Strong fit",
   jobBrief: null,

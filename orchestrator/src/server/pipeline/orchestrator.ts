@@ -1114,13 +1114,14 @@ export async function processJob(
 }> {
   return runWithRequestContext({ jobId }, async () => {
     let job: Job | null = null;
-    const restore = async () => {
+    const restore = async (generationError: string | null = null) => {
       // A throw before the first read leaves the job unknown; read it again.
       const before = job ?? (await jobsRepo.getJobById(jobId));
       if (!before || before.status === "ready") return null;
       // "processing" means the target route already claimed it, or a run died mid-flight.
       return jobsRepo.updateJob(jobId, {
         status: before.status === "processing" ? "discovered" : before.status,
+        generationError,
       });
     };
     try {
@@ -1132,7 +1133,10 @@ export async function processJob(
       const markReady = () =>
         status === "ready"
           ? Promise.resolve(null)
-          : jobsRepo.updateJob(jobId, { status: "ready" });
+          : jobsRepo.updateJob(jobId, {
+              status: "ready",
+              generationError: null,
+            });
       const resume = await getJobResume(jobId);
       if (
         resume &&
@@ -1146,7 +1150,10 @@ export async function processJob(
       }
       // A ready job stays in Ready while its PDF re-renders.
       if (job.status !== "ready")
-        await jobsRepo.updateJob(jobId, { status: "processing" });
+        await jobsRepo.updateJob(jobId, {
+          status: "processing",
+          generationError: null,
+        });
       await ensureJobResume(jobId, {
         tailor: true,
         requestOrigin: options?.requestOrigin ?? null,
@@ -1161,18 +1168,20 @@ export async function processJob(
           jobId,
           error: result.error,
         });
-        await restore();
+        await restore(result.error ?? "Resume generation failed");
       }
       return result;
     } catch (error) {
-      await restore().catch((restoreError) =>
+      const message =
+        error instanceof Error ? error.message : "Resume generation failed";
+      await restore(message).catch((restoreError) =>
         logger.warn("Failed to restore job status after generation error", {
           jobId,
           error: restoreError,
         }),
       );
       logger.error("Targeted job generation failed", { jobId, error });
-      return { success: false, error: "Resume generation failed" };
+      return { success: false, error: message };
     }
   });
 }

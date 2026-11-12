@@ -1298,6 +1298,8 @@ const migrations = [
        ORDER BY se.occurred_at DESC, se.id DESC
        LIMIT 1
      ), 'applied') = 'closed'`,
+
+  `ALTER TABLE jobs ADD COLUMN generation_error TEXT`,
 ];
 
 console.log("🔧 Running database migrations...");
