@@ -662,6 +662,32 @@ export function ResumeEditor({
       field: string,
     ) {
       const label = `${simpleNames[kind]} ${index + 1} ${fieldLabels[field]}`;
+      if (field === "description")
+        // One paragraph that wraps and grows with its text.
+        return (
+          <textarea
+            rows={1}
+            title={label}
+            aria-label={label}
+            placeholder="Description"
+            className="resume-field-description"
+            ref={(element) => {
+              if (element) fitTextarea(element);
+            }}
+            value={bulletsFromHtml(String(item.description ?? "")).join(" ")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.preventDefault();
+            }}
+            onChange={(event) => {
+              fitTextarea(event.currentTarget);
+              change((next) => {
+                next.sections[kind].items[index].description = introTextToHtml(
+                  event.target.value,
+                );
+              });
+            }}
+          />
+        );
       return (
         <Input
           title={label}
@@ -670,9 +696,7 @@ export function ResumeEditor({
           value={
             field === "website"
               ? (item.website?.url ?? "")
-              : field === "description"
-                ? bulletsFromHtml(String(item.description ?? "")).join(" ")
-                : String(item[field] ?? "")
+              : String(item[field] ?? "")
           }
           placeholder={
             (
@@ -685,7 +709,6 @@ export function ResumeEditor({
                 date: kind === "awards" ? "Award date" : "Certification date",
                 issuer: "Issuing organization",
                 website: "https://example.com",
-                description: "Description",
               } as Record<string, string>
             )[field]
           }
@@ -696,11 +719,7 @@ export function ResumeEditor({
                   ...item.website,
                   url: event.target.value,
                 };
-              else
-                next.sections[kind].items[index][field] =
-                  field === "description"
-                    ? introTextToHtml(event.target.value)
-                    : event.target.value;
+              else next.sections[kind].items[index][field] = event.target.value;
             })
           }
         />
