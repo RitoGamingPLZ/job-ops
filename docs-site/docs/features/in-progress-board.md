@@ -32,7 +32,7 @@ Search Jobs helps you review many opportunities. Target the ones you want to pur
 
 1. Open **Search Jobs**, select a job, and click **Target**.
 2. Open **In Progress Board**. The job appears in **Targeted** and shows **Preparing resume…** while its resume is prepared in the background.
-3. When it is ready, click **Open resume** on the card or job page to edit the resume in the editor, or **Preview PDF** to render the editor resume as a PDF. If preparation failed, the card says **Resume not prepared yet**; click **Prepare resume** to try again. The job stays in Targeted until you mark it Applied.
+3. When it is ready, click **Open resume** on the card or job page to edit the resume in the editor, or **Preview PDF** to open the same resume workspace in Preview mode. Both actions carry the selected job and override your remembered editor mode. If preparation failed, the card says **Resume not prepared yet**; click **Prepare resume** to try again. The job stays in Targeted until you mark it Applied.
 4. Apply through the employer's application link, then mark the job **Applied**. Dragging a Targeted card to Applied records that transition; it does not submit an application.
 5. Log events or move cards as the process progresses: **Recruiter Screen → Technical Interview → Behaviour Question → Team Match → Offer**. Use the stages that match the employer's process.
 6. Log **Reject** for a rejection. A withdrawal also appears in Reject, with a **withdrawn** note.
@@ -42,6 +42,8 @@ Technical Interview is one column. Each `technical_interview` event counts as an
 :::tip Celebration Effect
 When you successfully move a job listing to the **Offer** stage (either by dragging a card to the **Offer** column or by logging an **Offer** stage event), a congratulatory celebration with confetti and floating balloons will trigger on the screen to celebrate your achievement!
 :::
+
+Preview displays existing current or uploaded PDFs directly. Missing or stale generated PDFs are rendered from the saved resume without re-tailoring it. Uploaded PDFs are preserved when previewed or downloaded; choose **Edit** to load an editable source separately. Wait for preparation or regeneration to finish before opening Preview. If preview fails, use its **Retry** button.
 
 ### Generate missing resumes in a batch
 

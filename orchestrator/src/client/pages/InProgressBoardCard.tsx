@@ -3,6 +3,7 @@ import { ExternalLink, MoreVertical, PlusCircle } from "lucide-react";
 import type React from "react";
 import { Link } from "react-router-dom";
 import { getResumeState } from "@/client/lib/pdf-freshness";
+import { resumeEditorLocation } from "@/client/lib/resume-opening";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -153,7 +154,14 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
           {resumeState === "available" && (
             <>
               <Button size="sm" variant="outline" asChild>
-                <Link to={`/resumes/${job.id}`}>Open resume</Link>
+                <Link
+                  to={resumeEditorLocation(
+                    { kind: "job", jobId: job.id },
+                    "edit",
+                  )}
+                >
+                  Open resume
+                </Link>
               </Button>
               <Button
                 size="sm"

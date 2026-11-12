@@ -552,6 +552,18 @@ describe.sequential("Hosted current-user isolation", () => {
     });
     expect(uploadPdfRes.status).toBe(201);
 
+    const aliceReadsOwnPdf = await fetch(
+      `${baseUrl}/api/jobs/${aliceJob.id}/pdf`,
+      {
+        headers: { Authorization: `Bearer ${aliceToken}` },
+      },
+    );
+    expect(aliceReadsOwnPdf.status).toBe(200);
+    expect(Buffer.from(await aliceReadsOwnPdf.arrayBuffer())).toEqual(
+      Buffer.from(pdfBytes, "base64"),
+    );
+    expect(aliceReadsOwnPdf.headers.get("cache-control")).toContain("no-store");
+
     const bobReadsAlicePdf = await fetch(
       `${baseUrl}/api/jobs/${aliceJob.id}/pdf`,
       { headers: { Authorization: `Bearer ${bobToken}` } },

@@ -28,7 +28,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { invalidateJobData } from "@/client/hooks/queries/invalidate";
 import {
-  useGenerateJobPdfMutation,
   useGenerateMissingResumesMutation,
   usePrepareResumeMutation,
 } from "@/client/hooks/queries/useJobMutations";
@@ -37,8 +36,8 @@ import { celebrateOffer } from "@/client/lib/celebrate";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { logJobStageEvent } from "@/client/lib/logJobStageEvent";
 import { needsRender } from "@/client/lib/pdf-freshness";
-import { openJobPdf } from "@/client/lib/private-pdf";
 import { queryKeys } from "@/client/lib/queryKeys";
+import { resumeEditorLocation } from "@/client/lib/resume-opening";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -348,18 +347,13 @@ export const InProgressBoardPage: React.FC = () => {
       onError: (error) => showErrorToast(error, "Failed to generate resumes"),
     });
 
-  const generatePdfMutation = useGenerateJobPdfMutation();
   const prepareResumeMutation = usePrepareResumeMutation();
   const isResumeBusy = (jobId: string) =>
-    (generatePdfMutation.isPending &&
-      generatePdfMutation.variables === jobId) ||
-    (prepareResumeMutation.isPending &&
-      prepareResumeMutation.variables === jobId);
+    prepareResumeMutation.isPending &&
+    prepareResumeMutation.variables === jobId;
 
   const handlePreviewPdf = (job: JobListItem) =>
-    void openJobPdf(job.id, async () => {
-      if (needsRender(job)) await generatePdfMutation.mutateAsync(job.id);
-    }).catch((error) => showErrorToast(error, "Could not preview PDF"));
+    navigate(resumeEditorLocation({ kind: "job", jobId: job.id }, "preview"));
 
   const handlePrepareResume = (job: JobListItem) =>
     prepareResumeMutation.mutate(job.id, {

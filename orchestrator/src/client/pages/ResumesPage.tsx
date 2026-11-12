@@ -2,14 +2,12 @@ import { listResumes } from "@client/api/cowork";
 import type { ResumeListItem } from "@shared/types";
 import { Files, Library } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import * as api from "@/client/api";
+import { Link, useNavigate } from "react-router-dom";
 import { CandidateLibrary } from "@/client/components/cowork/CandidateLibrary";
 import { coworkError } from "@/client/components/cowork/DutyLibrary";
 import { PageHeader, PageMain } from "@/client/components/layout";
-import { useGenerateJobPdfMutation } from "@/client/hooks/queries/useJobMutations";
-import { getResumeState, needsRender } from "@/client/lib/pdf-freshness";
-import { openJobPdf } from "@/client/lib/private-pdf";
+import { getResumeState } from "@/client/lib/pdf-freshness";
+import { resumeEditorLocation } from "@/client/lib/resume-opening";
 import { Button } from "@/components/ui/button";
 
 export function ResumesPage() {
@@ -17,7 +15,7 @@ export function ResumesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const generatePdf = useGenerateJobPdfMutation();
+  const navigate = useNavigate();
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt explicitly triggers a retry.
   useEffect(() => {
     setLoading(true);
@@ -84,7 +82,10 @@ export function ResumesPage() {
                       {getResumeState(item) === "available" ? (
                         <Link
                           className="underline underline-offset-4"
-                          to={`/resumes/${item.jobId}`}
+                          to={resumeEditorLocation(
+                            { kind: "job", jobId: item.jobId },
+                            "edit",
+                          )}
                         >
                           {item.title}
                         </Link>
@@ -101,20 +102,14 @@ export function ResumesPage() {
                       <Button
                         variant="link"
                         className="h-auto p-0"
-                        disabled={
-                          generatePdf.isPending &&
-                          generatePdf.variables === item.jobId
-                        }
+                        disabled={getResumeState(item) !== "available"}
                         onClick={() =>
-                          void openJobPdf(item.jobId, async () => {
-                            const job = await api.getJob(item.jobId);
-                            if (getResumeState(job) === "preparing")
-                              throw new Error(
-                                "Preparing resume… Preview it when it is ready.",
-                              );
-                            if (needsRender(job))
-                              await generatePdf.mutateAsync(item.jobId);
-                          }).catch(coworkError)
+                          navigate(
+                            resumeEditorLocation(
+                              { kind: "job", jobId: item.jobId },
+                              "preview",
+                            ),
+                          )
                         }
                       >
                         Preview PDF

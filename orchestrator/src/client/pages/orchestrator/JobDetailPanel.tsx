@@ -6,19 +6,15 @@ import {
 } from "@client/components";
 import { JobDetailsEditDrawer } from "@client/components/JobDetailsEditDrawer";
 import { OpenJobListingButton } from "@client/components/OpenJobListingButton";
-import {
-  useGenerateJobPdfMutation,
-  usePrepareResumeMutation,
-} from "@client/hooks/queries/useJobMutations";
+import { usePrepareResumeMutation } from "@client/hooks/queries/useJobMutations";
 import {
   getResumeState,
   isPdfRegenerating,
   isPdfStale,
-  needsRender,
   PDF_REGENERATING_MESSAGE,
   STALE_PDF_MESSAGE,
 } from "@client/lib/pdf-freshness";
-import { openJobPdf } from "@client/lib/private-pdf";
+import { resumeEditorLocation } from "@client/lib/resume-opening";
 import type { Job, JobListItem } from "@shared/types.js";
 import { isTargeted } from "@shared/types.js";
 import {
@@ -33,7 +29,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { parseJobBrief } from "@/client/components/JobBriefPane";
 import { RegenerateResumeButton } from "@/client/components/RegenerateResumeButton";
@@ -156,7 +152,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const [isTargeting, setIsTargeting] = useState(false);
   const [isEditDetailsOpen, setIsEditDetailsOpen] = useState(false);
   const previousSelectionKeyRef = useRef<string | null>(null);
-  const generatePdfMutation = useGenerateJobPdfMutation();
+  const navigate = useNavigate();
   const prepareResumeMutation = usePrepareResumeMutation();
   const brief = parseJobBrief(selectedJob?.jobBrief || null);
 
@@ -228,13 +224,10 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
 
   const handleOpenPdf = useCallback(() => {
     if (!selectedJob) return;
-    void openJobPdf(selectedJob.id, async () => {
-      if (needsRender(selectedJob))
-        await generatePdfMutation.mutateAsync(selectedJob.id);
-    }).catch((error) => {
-      showErrorToast(error, "Could not open PDF");
-    });
-  }, [generatePdfMutation, selectedJob]);
+    navigate(
+      resumeEditorLocation({ kind: "job", jobId: selectedJob.id }, "preview"),
+    );
+  }, [navigate, selectedJob]);
 
   const handlePrepareResume = useCallback(() => {
     if (!selectedJob) return;
@@ -399,15 +392,19 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
             {resumeState === "available" && (
               <>
                 <Button size="sm" variant="outline" asChild>
-                  <Link to={`/resumes/${selectedJob.id}`}>Open resume</Link>
+                  <Link
+                    to={resumeEditorLocation(
+                      { kind: "job", jobId: selectedJob.id },
+                      "edit",
+                    )}
+                  >
+                    Open resume
+                  </Link>
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={
-                    isPdfRegenerating(selectedJob) ||
-                    generatePdfMutation.isPending
-                  }
+                  disabled={isPdfRegenerating(selectedJob)}
                   onClick={handleOpenPdf}
                 >
                   Preview PDF
@@ -417,11 +414,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
             {isTargeted(selectedJob) && resumeState === "available" && (
               <RegenerateResumeButton
                 job={selectedJob}
-                disabled={
-                  primaryBusy ||
-                  generatePdfMutation.isPending ||
-                  prepareResumeMutation.isPending
-                }
+                disabled={primaryBusy || prepareResumeMutation.isPending}
               />
             )}
             {resumeState === "unprepared" && (

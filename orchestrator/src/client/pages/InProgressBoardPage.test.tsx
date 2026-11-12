@@ -12,10 +12,11 @@ import {
   within,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { celebrateOffer } from "@/client/lib/celebrate";
+import { openJobPdf } from "@/client/lib/private-pdf";
 import * as api from "../api";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { InProgressBoardPage } from "./InProgressBoardPage";
@@ -53,6 +54,15 @@ vi.mock("@/components/ui/dropdown-menu", async (importOriginal) => {
     ),
   };
 });
+
+const LocationWatcher = () => {
+  const location = useLocation();
+  return (
+    <output data-testid="location">
+      {location.pathname + location.search}
+    </output>
+  );
+};
 
 const render = (ui: Parameters<typeof renderWithQueryClient>[0]) =>
   renderWithQueryClient(ui);
@@ -479,6 +489,7 @@ describe("Targeted board workflow", () => {
     vi.mocked(api.getJobStageEvents).mockResolvedValue([]);
     render(
       <MemoryRouter>
+        <LocationWatcher />
         <InProgressBoardPage />
       </MemoryRouter>,
     );
@@ -499,22 +510,78 @@ describe("Targeted board workflow", () => {
     );
   });
 
-  it("opens one editor link and previews a missing PDF by rendering first", async () => {
+  it("opens the selected resume in explicit edit or preview mode", async () => {
     showTargeted("ready");
     const link = await screen.findByRole("link", { name: "Open resume" });
     expect(screen.getAllByRole("link", { name: "Open resume" })).toHaveLength(
       1,
     );
-    expect(link).toHaveAttribute("href", "/resumes/job-1");
+    expect(link).toHaveAttribute("href", "/resumes/job-1?mode=edit");
     expect(document.querySelector('a[href*="inspector=tailoring"]')).toBeNull();
     expect(
       screen.queryByRole("button", { name: /tailor|regenerate resume/i }),
     ).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Preview PDF" }));
     await waitFor(() =>
-      expect(api.generateJobPdf).toHaveBeenCalledWith("job-1"),
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/resumes/job-1?mode=preview",
+      ),
     );
+    expect(api.generateJobPdf).not.toHaveBeenCalled();
+    expect(openJobPdf).not.toHaveBeenCalled();
     expect(api.processJob).not.toHaveBeenCalled();
+    fireEvent.click(link);
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/resumes/job-1?mode=edit",
+      ),
+    );
+  });
+
+  it("carries the chosen card among multiple prepared resumes", async () => {
+    vi.mocked(api.getJobs).mockResolvedValue({
+      jobs: [
+        makeJob({
+          id: "first",
+          title: "First",
+          status: "ready",
+          readyAt: "2026-01-01",
+        }),
+        makeJob({
+          id: "selected",
+          title: "Selected",
+          status: "ready",
+          readyAt: "2026-01-01",
+        }),
+      ],
+    } as Awaited<ReturnType<typeof api.getJobs>>);
+    render(
+      <MemoryRouter>
+        <LocationWatcher />
+        <InProgressBoardPage />
+      </MemoryRouter>,
+    );
+    const selected = getBoardCardRoot(
+      await screen.findByRole("link", { name: "Selected" }),
+    );
+    fireEvent.click(
+      within(selected).getByRole("button", { name: "Preview PDF" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/resumes/selected?mode=preview",
+      ),
+    );
+    fireEvent.click(
+      within(selected).getByRole("link", { name: "Open resume" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/resumes/selected?mode=edit",
+      ),
+    );
+    expect(api.generateJobPdf).not.toHaveBeenCalled();
+    expect(openJobPdf).not.toHaveBeenCalled();
   });
 
   it("shows Preparing resume… without editor or preview while processing", async () => {

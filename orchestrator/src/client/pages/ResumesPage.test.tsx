@@ -5,7 +5,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { isNavActive, NAV_LINKS } from "../components/navigation";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
@@ -33,9 +33,18 @@ vi.mock("@/client/components/cowork/CandidateLibrary", () => ({
 }));
 beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
+function LocationWatcher() {
+  const location = useLocation();
+  return (
+    <output data-testid="location">
+      {location.pathname + location.search}
+    </output>
+  );
+}
 function mount() {
   return renderWithQueryClient(
     <MemoryRouter>
+      <LocationWatcher />
       <ResumesPage />
     </MemoryRouter>,
   );
@@ -51,70 +60,42 @@ it("distinguishes a load error from an empty list and retries", async () => {
   expect(await screen.findByText(/No resumes yet/)).toBeVisible();
   expect(mocks.list).toHaveBeenCalledTimes(2);
 });
-it("opens a ready PDF from its link", async () => {
-  mocks.list.mockResolvedValue({
-    resumes: [
-      {
-        jobId: "job",
-        title: "Engineer",
-        employer: "Example",
-        updatedAt: "2026-01-01",
-        hasPdf: true,
-        status: "ready",
-        readyAt: "2026-01-01",
-      },
-    ],
-  });
-  mocks.open.mockResolvedValue(undefined);
-  mount();
-  fireEvent.click(await screen.findByRole("button", { name: "Preview PDF" }));
-  expect(screen.getByRole("link", { name: "Engineer" })).toHaveAttribute(
-    "href",
-    "/resumes/job",
-  );
-  expect(document.querySelector('a[href*="inspector=tailoring"]')).toBeNull();
-  await waitFor(() =>
-    expect(mocks.open).toHaveBeenCalledWith("job", expect.any(Function)),
-  );
-});
-
 it.each([
-  "missing",
-  "stale",
-  "current",
-  "uploaded",
-])("checks %s PDF freshness before previewing", async (pdfFreshness) => {
+  "edit",
+  "preview",
+])("opens the selected resume in %s mode without PDF side effects", async (mode) => {
   mocks.list.mockResolvedValue({
-    resumes: [
-      {
-        jobId: "job",
-        title: "Engineer",
-        employer: "Example",
-        updatedAt: "2026-01-01",
-        hasPdf: pdfFreshness !== "missing",
-        status: "ready",
-        readyAt: "2026-01-01",
-      },
-    ],
-  });
-  mocks.job.mockResolvedValue({
-    status: "ready",
-    pdfPath: pdfFreshness === "missing" ? null : "resume.pdf",
-    pdfFreshness,
-  });
-  mocks.generate.mockResolvedValue(undefined);
-  mocks.open.mockImplementation(async (_id, beforeFetch) => {
-    await beforeFetch();
+    resumes: ["first", "selected"].map((jobId) => ({
+      jobId,
+      title: jobId,
+      employer: "Example",
+      updatedAt: "2026-01-01",
+      hasPdf: true,
+      status: "ready",
+      readyAt: "2026-01-01",
+    })),
   });
   mount();
-  fireEvent.click(await screen.findByRole("button", { name: "Preview PDF" }));
-  await waitFor(() => expect(mocks.job).toHaveBeenCalledWith("job"));
-  if (["missing", "stale"].includes(pdfFreshness))
-    await waitFor(() => expect(mocks.generate).toHaveBeenCalledWith("job"));
-  else expect(mocks.generate).not.toHaveBeenCalled();
+  const link = await screen.findByRole("link", { name: "selected" });
+  expect(link).toHaveAttribute("href", "/resumes/selected?mode=edit");
+  if (mode === "edit") fireEvent.click(link);
+  else
+    fireEvent.click(
+      within(link.closest("tr") as HTMLElement).getByRole("button", {
+        name: "Preview PDF",
+      }),
+    );
+  await waitFor(() =>
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      `/resumes/selected?mode=${mode}`,
+    ),
+  );
+  expect(mocks.open).not.toHaveBeenCalled();
+  expect(mocks.generate).not.toHaveBeenCalled();
+  expect(mocks.job).not.toHaveBeenCalled();
 });
 
-it("refuses to preview a resume that is still being prepared", async () => {
+it("disables preview while preparation is running", async () => {
   mocks.list.mockResolvedValue({
     resumes: [
       {
@@ -122,21 +103,14 @@ it("refuses to preview a resume that is still being prepared", async () => {
         title: "Engineer",
         employer: "Example",
         updatedAt: "2026-01-01",
-        hasPdf: false,
         status: "processing",
-        readyAt: "2026-01-01",
       },
     ],
   });
-  mocks.job.mockResolvedValue({
-    status: "processing",
-    pdfFreshness: "missing",
-  });
-  mocks.open.mockImplementation(async (_id, beforeFetch) => beforeFetch());
   mount();
-  fireEvent.click(await screen.findByRole("button", { name: "Preview PDF" }));
-  await waitFor(() => expect(mocks.error).toHaveBeenCalled());
-  expect(mocks.generate).not.toHaveBeenCalled();
+  expect(
+    await screen.findByRole("button", { name: "Preview PDF" }),
+  ).toBeDisabled();
 });
 
 it.each([

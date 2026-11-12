@@ -16,7 +16,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { queryKeys } from "@/client/lib/queryKeys";
 
@@ -268,10 +268,15 @@ function state(headline = "Base", revision = 0): JobResumeState {
     updatedAt: null,
   };
 }
-function mount(base = false, queryClient = new QueryClient()) {
+function mount(base = false, queryClient = new QueryClient(), search = "") {
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[base ? "/resumes/base" : "/resumes/job"]}>
+      <MemoryRouter
+        initialEntries={[(base ? "/resumes/base" : "/resumes/job") + search]}
+      >
+        <Link to="/resumes/job?mode=edit">Route edit</Link>
+        <Link to="/resumes/job?mode=preview">Route preview</Link>
+        <Link to="/resumes/other?mode=preview">Route other</Link>
         <Routes>
           <Route path="/resumes/base" element={<ResumeCoworkPage base />} />
           <Route path="/resumes/:jobId" element={<ResumeCoworkPage />} />
@@ -1064,6 +1069,7 @@ describe("candidate library page wiring", () => {
     );
     mount();
     expect(mocks.getResume).not.toHaveBeenCalled();
+    await waitFor(() => expect(mocks.library).toHaveBeenCalled());
     await act(async () => resolveLibrary({ items: [] }));
     await screen.findByLabelText("Headline");
     expect(mocks.library).toHaveBeenCalledOnce();
@@ -1525,4 +1531,343 @@ it("can import a base resume when none exists yet", async () => {
     await screen.findByRole("heading", { name: "Base resume" }),
   ).toBeInTheDocument();
   expect(mocks.importRx).toHaveBeenCalledOnce();
+});
+
+describe("explicit resume opening", () => {
+  it.each([
+    "current",
+    "uploaded",
+  ] as const)("previews a %s PDF without materializing editable data", async (pdfFreshness) => {
+    mocks.getJob.mockResolvedValue({
+      id: "job",
+      title: "Selected",
+      employer: "Company",
+      status: "ready",
+      pdfFreshness,
+      pdfSource: pdfFreshness === "uploaded" ? "uploaded" : "generated",
+    });
+    localStorage.setItem("resume-cowork-preview", "false");
+    mount(false, new QueryClient(), "?mode=preview");
+    expect(screen.getByRole("button", { name: "Preview" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      await screen.findByRole("document", { name: "Resume PDF preview" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Selected · Company" }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Back" })).toBeEnabled();
+    expect(mocks.getJob).toHaveBeenCalledWith("job");
+    expect(mocks.library).not.toHaveBeenCalled();
+    expect(mocks.getResume).not.toHaveBeenCalled();
+    expect(mocks.getBase).not.toHaveBeenCalled();
+    expect(mocks.pdf).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+    await waitFor(() =>
+      expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"),
+    );
+    expect(mocks.pdf).not.toHaveBeenCalled();
+  });
+
+  it("loads Edit lazily and exposes its explicit missing-source error", async () => {
+    mocks.getJob.mockResolvedValue({
+      id: "job",
+      title: "Engineer",
+      employer: "Company",
+      status: "ready",
+      pdfFreshness: "uploaded",
+      pdfSource: "uploaded",
+    });
+    mocks.getResume.mockRejectedValueOnce(
+      new ApiClientError("Import or create a resume first", { status: 409 }),
+    );
+    mount(false, new QueryClient(), "?mode=preview");
+    await screen.findByRole("document");
+    expect(mocks.getResume).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(
+      await screen.findByText("Import or create a resume first."),
+    ).toBeVisible();
+    expect(mocks.getResume).toHaveBeenCalledWith("job");
+    expect(mocks.library.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.getResume.mock.invocationCallOrder[0],
+    );
+    expect(mocks.pdf).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "missing",
+    "stale",
+  ])("renders the saved tailored document for a %s PDF after the library load", async (pdfFreshness) => {
+    mocks.getJob.mockResolvedValue({
+      id: "job",
+      title: "Engineer",
+      employer: "Company",
+      status: "ready",
+      pdfFreshness,
+    });
+    mocks.getResume.mockResolvedValue(state("Saved tailored", 7));
+    mount(false, new QueryClient(), "?mode=preview");
+    await screen.findByRole("document");
+    expect(mocks.getResume).toHaveBeenCalledTimes(1);
+    expect(mocks.library.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.getResume.mock.invocationCallOrder[0],
+    );
+    expect(mocks.getResume.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.pdf.mock.invocationCallOrder[0],
+    );
+    expect(mocks.pdf).toHaveBeenCalledWith("job");
+    expect(mocks.pdf.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.openPdf.mock.invocationCallOrder[0],
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByLabelText("Headline")).toHaveValue("Saved tailored");
+    expect(mocks.getBase).not.toHaveBeenCalled();
+    expect(mocks.reset).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "",
+    "?mode=invalid",
+  ])("keeps remembered preview for a compatible bare/invalid entry %s", async (search) => {
+    localStorage.setItem("resume-cowork-preview", "true");
+    mount(false, new QueryClient(), search);
+    await screen.findByRole("document");
+    expect(screen.getByRole("button", { name: "Preview" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("overrides remembered preview with explicit Edit before first display", async () => {
+    localStorage.setItem("resume-cowork-preview", "true");
+    mount(false, new QueryClient(), "?mode=edit");
+    expect(await screen.findByLabelText("Headline")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(mocks.pdf).not.toHaveBeenCalled();
+  });
+
+  it("keeps a dirty document across same-job query changes and waits for its save before rendering", async () => {
+    let completeSave!: (value: JobResumeState) => void;
+    mocks.save.mockImplementationOnce(
+      () =>
+        new Promise<JobResumeState>((resolve) => {
+          completeSave = resolve;
+        }),
+    );
+    mount(false, new QueryClient(), "?mode=edit");
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Keep this edit" },
+    });
+    fireEvent.click(screen.getByRole("link", { name: "Route preview" }));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
+    expect(mocks.pdf).not.toHaveBeenCalled();
+    await act(async () => completeSave(state("Keep this edit", 2)));
+    await screen.findByRole("document");
+    expect(mocks.pdf.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mocks.save.mock.invocationCallOrder[0],
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Route edit" }));
+    expect(await screen.findByLabelText("Headline")).toHaveValue(
+      "Keep this edit",
+    );
+    expect(mocks.getResume).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves uploaded bytes for manual Preview and download even with editable JSON", async () => {
+    mocks.getJob.mockResolvedValue({
+      id: "job",
+      title: "Engineer",
+      employer: "Company",
+      status: "ready",
+      pdfFreshness: "uploaded",
+      pdfSource: "uploaded",
+    });
+    mount(false, new QueryClient(), "?mode=edit");
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Editable JSON" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await screen.findByRole("document");
+    expect(mocks.save).toHaveBeenCalled();
+    expect(mocks.pdf).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+    await waitFor(() =>
+      expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"),
+    );
+    expect(mocks.pdf).not.toHaveBeenCalled();
+  });
+
+  it("shows a failed authenticated fetch and retries the actual operation", async () => {
+    mocks.getJob.mockResolvedValue({
+      id: "job",
+      title: "Engineer",
+      employer: "Company",
+      status: "ready",
+      pdfFreshness: "current",
+    });
+    mocks.openPdf.mockRejectedValueOnce(
+      new ApiClientError("Please sign in again", { status: 401 }),
+    );
+    mount(false, new QueryClient(), "?mode=preview");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Please sign in again",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByRole("document");
+    expect(mocks.openPdf).toHaveBeenCalledTimes(2);
+    expect(mocks.getResume).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { status: "processing", pdfFreshness: "missing" },
+    { status: "discovered", readyAt: "2026-01-01", pdfFreshness: "missing" },
+    { status: "discovered", readyAt: null, pdfFreshness: "missing" },
+    { status: "ready", pdfFreshness: "current", pdfRegenerating: true },
+  ])("guards unavailable or regenerating entry %# and allows retry", async (variant) => {
+    mocks.getJob.mockResolvedValueOnce({
+      id: "job",
+      title: "Engineer",
+      employer: "Company",
+      ...variant,
+    });
+    mount(false, new QueryClient(), "?mode=preview");
+    await screen.findByRole("alert");
+    expect(mocks.library).not.toHaveBeenCalled();
+    expect(mocks.getResume).not.toHaveBeenCalled();
+    expect(mocks.pdf).not.toHaveBeenCalled();
+    expect(mocks.openPdf).not.toHaveBeenCalled();
+    mocks.getJob.mockResolvedValue({
+      id: "job",
+      status: "ready",
+      pdfFreshness: "current",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByRole("document");
+  });
+
+  it("rejects a late PDF response after selecting a different job and revokes its URL", async () => {
+    let resolveFirst!: (url: string) => void;
+    mocks.getJob.mockImplementation(async (id) => ({
+      id,
+      title: id,
+      employer: "Company",
+      status: "ready",
+      pdfFreshness: "current",
+    }));
+    mocks.openPdf
+      .mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockResolvedValueOnce("blob:other");
+    mount(false, new QueryClient(), "?mode=preview");
+    await waitFor(() => expect(mocks.openPdf).toHaveBeenCalledWith("job"));
+    fireEvent.click(screen.getByRole("link", { name: "Route other" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("pdf-canvas-preview")).toHaveAttribute(
+        "data-url",
+        "blob:other",
+      ),
+    );
+    await act(async () => resolveFirst("blob:late"));
+    expect(screen.getByTestId("pdf-canvas-preview")).toHaveAttribute(
+      "data-url",
+      "blob:other",
+    );
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:late");
+    expect(mocks.pdf).not.toHaveBeenCalled();
+  });
+  it("guards an Edit deep link whose job has started preparation", async () => {
+    mocks.getJob.mockResolvedValueOnce({
+      id: "job",
+      title: "Engineer",
+      employer: "Company",
+      status: "processing",
+    });
+    mount(false, new QueryClient(), "?mode=edit");
+    expect(
+      await screen.findByText("Could not load this job’s resume."),
+    ).toBeVisible();
+    expect(mocks.library).not.toHaveBeenCalled();
+    expect(mocks.getResume).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed generated render using the same saved document", async () => {
+    mocks.getJob.mockResolvedValue({
+      id: "job",
+      status: "ready",
+      pdfFreshness: "stale",
+    });
+    mocks.pdf.mockRejectedValueOnce(new Error("Renderer unavailable"));
+    mount(false, new QueryClient(), "?mode=preview");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Renderer unavailable",
+    );
+    expect(mocks.openPdf).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByRole("document");
+    expect(mocks.pdf).toHaveBeenCalledTimes(2);
+    expect(mocks.getResume).toHaveBeenCalledTimes(1);
+  });
+  it("waits for conflict resolution before an explicit same-job Preview renders", async () => {
+    mount(false, new QueryClient(), "?mode=edit");
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Mine" },
+    });
+    mocks.save.mockRejectedValueOnce(
+      new ApiClientError("Conflict", { status: 409 }),
+    );
+    mocks.getResume.mockResolvedValue(state("Remote", 5));
+    fireEvent.click(screen.getByRole("link", { name: "Route preview" }));
+    await screen.findByRole("heading", { name: "Resume changed elsewhere" });
+    expect(mocks.pdf).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Use latest" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "resolve any conflict",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByRole("document");
+    fireEvent.click(screen.getByRole("link", { name: "Route edit" }));
+    expect(await screen.findByLabelText("Headline")).toHaveValue("Remote");
+  });
+
+  it("does not load or render a previously selected job after its late full-job read", async () => {
+    let resolveJob!: (value: unknown) => void;
+    mocks.getJob
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveJob = resolve;
+          }),
+      )
+      .mockImplementation(async (id) => ({
+        id,
+        title: id,
+        employer: "Company",
+        status: "ready",
+        pdfFreshness: "current",
+      }));
+    mount(false, new QueryClient(), "?mode=preview");
+    await waitFor(() => expect(mocks.getJob).toHaveBeenCalledWith("job"));
+    fireEvent.click(screen.getByRole("link", { name: "Route other" }));
+    await screen.findByRole("document");
+    await act(async () =>
+      resolveJob({ id: "job", status: "ready", pdfFreshness: "stale" }),
+    );
+    expect(mocks.library).not.toHaveBeenCalled();
+    expect(mocks.getResume).not.toHaveBeenCalled();
+    expect(mocks.pdf).not.toHaveBeenCalled();
+    expect(mocks.openPdf).toHaveBeenCalledExactlyOnceWith("other");
+    expect(
+      screen.getByRole("heading", { name: "other · Company" }),
+    ).toBeVisible();
+  });
 });

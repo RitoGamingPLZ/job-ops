@@ -1,4 +1,5 @@
 import * as api from "@client/api";
+import { openJobPdf } from "@client/lib/private-pdf";
 import { renderWithQueryClient } from "@client/test/renderWithQueryClient";
 import { createJob } from "@shared/testing/factories.js";
 import type { AppSettings, Job } from "@shared/types.js";
@@ -200,10 +201,40 @@ describe("JobDetailPanel", () => {
     );
     expect(screen.getByRole("link", { name: "Open resume" })).toHaveAttribute(
       "href",
-      "/resumes/job-1",
+      "/resumes/job-1?mode=edit",
     );
     expect(screen.queryByRole("tab", { name: /tailoring/i })).toBeNull();
     expect(document.querySelector('a[href*="inspector=tailoring"]')).toBeNull();
+  });
+
+  it.each([
+    "edit",
+    "preview",
+  ])("opens the selected job among multiple jobs in %s mode", async (mode) => {
+    const selectedJob = createJob({
+      id: "selected",
+      status: "ready",
+      readyAt: "2026-11-08",
+    });
+    await renderJobDetailPanel({
+      activeTab: "all",
+      activeJobs: [createJob(), selectedJob],
+      selectedJob,
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn(),
+    });
+    fireEvent.click(
+      mode === "edit"
+        ? screen.getByRole("link", { name: "Open resume" })
+        : screen.getByRole("button", { name: "Preview PDF" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        `/resumes/selected?mode=${mode}`,
+      ),
+    );
+    expect(api.generateJobPdf).not.toHaveBeenCalled();
+    expect(openJobPdf).not.toHaveBeenCalled();
   });
 
   it("shows the selected job summary and safe links while full details load", async () => {

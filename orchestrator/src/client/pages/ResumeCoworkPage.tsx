@@ -30,7 +30,7 @@ import type {
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   executeAcceptedSuggestions,
@@ -57,12 +57,22 @@ import { ResumeEditor } from "@/client/components/cowork/ResumeEditor";
 import { GhostwriterPanel } from "@/client/components/ghostwriter/GhostwriterPanel";
 import { fileToUploadPayload } from "@/client/lib/file-upload-payload";
 import {
+  getResumeState,
+  isPdfRegenerating,
+  needsRender,
+  PDF_REGENERATING_MESSAGE,
+} from "@/client/lib/pdf-freshness";
+import {
   createDesignResumePdfObjectUrl,
   createJobPdfObjectUrl,
   downloadDesignResumePdf,
   downloadJobPdf,
 } from "@/client/lib/private-pdf";
 import { queryKeys } from "@/client/lib/queryKeys";
+import {
+  type ResumeEditorMode,
+  readResumeEditorMode,
+} from "@/client/lib/resume-opening";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,15 +114,25 @@ function baseState(base: DesignResumeDocument): JobResumeState {
 
 export function ResumeCoworkPage({ base = false }: { base?: boolean }) {
   const { jobId } = useParams();
+  const requestedMode = readResumeEditorMode(useLocation().search);
   return base || jobId ? (
     <CoworkWorkspace
       key={base ? "base" : jobId}
       jobId={jobId ?? "base"}
       base={base}
+      requestedMode={requestedMode}
     />
   ) : null;
 }
-function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
+function CoworkWorkspace({
+  jobId,
+  base,
+  requestedMode,
+}: {
+  jobId: string;
+  base: boolean;
+  requestedMode?: ResumeEditorMode;
+}) {
   const queryClient = useQueryClient();
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -128,12 +148,16 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
   const switching = useRef(false);
   const [library, setLibrary] = useState<ExperienceBullet[]>([]);
   const [preview, setPreview] = useState(() => {
+    if (requestedMode) return requestedMode === "preview";
     try {
       return localStorage.getItem(PREVIEW_KEY) === "true";
     } catch {
       return false;
     }
   });
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const previewRunning = useRef(false);
+  const loadRunning = useRef<Promise<void> | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [state, setState] = useState<JobResumeState | null>(null);
@@ -181,30 +205,51 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
     if (mounted.current) setState(next);
   }, []);
   const load = useCallback(async () => {
-    setError(null);
+    if (loadRunning.current) return loadRunning.current;
+    const operation = (async () => {
+      setError(null);
+      try {
+        const nextJob = base ? null : await getJob(jobId);
+        if (!mounted.current) return;
+        if (nextJob) {
+          setJob(nextJob);
+          if (getResumeState(nextJob) !== "available")
+            throw new Error(
+              "Prepare this resume before opening it. Wait for preparation to finish, then retry.",
+            );
+          if (isPdfRegenerating(nextJob))
+            throw new Error(PDF_REGENERATING_MESSAGE);
+        }
+        // GET /library can stamp refs and advance the resume revision on first build.
+        // Read the resume only after that build has finished.
+        const result = await api.listCandidateLibrary();
+        if (!mounted.current) return;
+        setLibrary(result.items);
+        const next = await readResume();
+        if (!mounted.current) return;
+        setJob(nextJob);
+        publish(next);
+        dirty.current = false;
+        resumeReloadRequired.current = false;
+        setStatus("Saved");
+      } catch (failure) {
+        if (mounted.current) setError(failure);
+      }
+    })();
+    loadRunning.current = operation;
     try {
-      // GET /library can stamp refs and advance the resume revision on first build.
-      // Read the resume only after that build has finished.
-      const result = await api.listCandidateLibrary();
-      if (!mounted.current) return;
-      setLibrary(result.items);
-      const [nextJob, next] = await Promise.all([
-        base ? Promise.resolve(null) : getJob(jobId),
-        readResume(),
-      ]);
-      if (!mounted.current) return;
-      setJob(nextJob);
-      publish(next);
-      dirty.current = false;
-      resumeReloadRequired.current = false;
-      setStatus("Saved");
-    } catch (failure) {
-      if (mounted.current) setError(failure);
+      await operation;
+    } finally {
+      loadRunning.current = null;
     }
   }, [base, jobId, publish, readResume]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: bootstrap once per identity; query changes are handled separately.
   useEffect(() => {
     mounted.current = true;
-    void load();
+    if (!base && requestedMode === "preview") {
+      previewRequested.current = true;
+      void showPreview(true);
+    } else void load();
     return () => {
       mounted.current = false;
       if (timer.current) clearTimeout(timer.current);
@@ -685,13 +730,49 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
       if (mounted.current) setBusy(false);
     }
   }
-  async function showPreview() {
+  async function showPreview(entry = false) {
+    if (previewRunning.current) return;
+    previewRunning.current = true;
     setBusy(true);
     setRendering(true);
+    setPreviewError(null);
     try {
-      if (!(await flush())) return;
-      if (base) await generateDesignResumePdf();
-      else await generateJobPdf(jobId);
+      const selectedJob = base ? null : await getJob(jobId);
+      if (!mounted.current) return;
+      if (selectedJob) {
+        setJob(selectedJob);
+        if (getResumeState(selectedJob) !== "available")
+          throw new Error(
+            "Prepare this resume before opening it. Wait for preparation to finish, then retry.",
+          );
+        if (isPdfRegenerating(selectedJob))
+          throw new Error(PDF_REGENERATING_MESSAGE);
+      }
+      const uploaded =
+        selectedJob?.pdfSource === "uploaded" ||
+        selectedJob?.pdfFreshness === "uploaded";
+      const render =
+        base || (!uploaded && (!entry || needsRender(selectedJob)));
+      if (render) {
+        if (!latest.current) await load();
+        if (!mounted.current) return;
+        if (!latest.current)
+          throw new Error(
+            "Could not load the editable resume. Open Edit to resolve the source error, then retry.",
+          );
+        if (!(await flush()))
+          throw new Error(
+            "Save the resume and resolve any conflict before previewing.",
+          );
+        if (!mounted.current) return;
+        if (base) await generateDesignResumePdf();
+        else await generateJobPdf(jobId);
+      } else if (!(await flush())) {
+        throw new Error(
+          "Save the resume and resolve any conflict before previewing.",
+        );
+      }
+      if (!mounted.current) return;
       const url = base
         ? await createDesignResumePdfObjectUrl()
         : await createJobPdfObjectUrl(jobId);
@@ -701,8 +782,16 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
       }
       setPdfUrl(url);
     } catch (failure) {
-      coworkError(failure);
+      if (mounted.current) {
+        setPreviewError(
+          failure instanceof Error
+            ? failure.message
+            : "Could not preview the PDF.",
+        );
+        coworkError(failure);
+      }
     } finally {
+      previewRunning.current = false;
       if (mounted.current) {
         setBusy(false);
         setRendering(false);
@@ -718,7 +807,24 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
         await generateDesignResumePdf();
         await downloadDesignResumePdf("resume.pdf");
       } else {
-        await generateJobPdf(jobId);
+        const selectedJob = await getJob(jobId);
+        if (!mounted.current) return;
+        if (getResumeState(selectedJob) !== "available")
+          throw new Error("Prepare this resume before downloading it.");
+        if (isPdfRegenerating(selectedJob))
+          throw new Error(PDF_REGENERATING_MESSAGE);
+        if (
+          selectedJob.pdfSource !== "uploaded" &&
+          selectedJob.pdfFreshness !== "uploaded" &&
+          (latest.current || needsRender(selectedJob))
+        ) {
+          if (!latest.current) await load();
+          if (!mounted.current) return;
+          if (!latest.current)
+            throw new Error("Could not load the editable resume.");
+          if (!(await flush()) || !mounted.current) return;
+          await generateJobPdf(jobId);
+        }
         await downloadJobPdf(jobId, "resume.pdf");
       }
     } catch (failure) {
@@ -768,6 +874,7 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
   }
   function setPreviewMode(next: boolean) {
     setPreview(next);
+    if (!next && !latest.current) void load();
     try {
       localStorage.setItem(PREVIEW_KEY, String(next));
     } catch {
@@ -799,6 +906,17 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
     [wide],
   );
   const previewRequested = useRef(false);
+  const previousMode = useRef(requestedMode);
+  useEffect(() => {
+    if (previousMode.current === requestedMode) return;
+    previousMode.current = requestedMode;
+    if (!requestedMode) return;
+    setPreviewMode(requestedMode === "preview");
+    if (requestedMode === "preview") {
+      previewRequested.current = true;
+      void showPreview(!latest.current);
+    }
+  });
   useEffect(() => {
     if (!state || !preview || previewRequested.current) return;
     previewRequested.current = true;
@@ -859,7 +977,7 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
       </AlertDialog>
     </>
   );
-  if (error)
+  if (error && (!preview || base))
     return (
       <main className="p-6 space-y-4">
         <h1 className="text-xl font-semibold">Resume co-work</h1>
@@ -875,10 +993,79 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
             <Link to="/resumes/base">Open base resume</Link>
           </Button>
         )}
+        {pdfUrl && (
+          <Button variant="outline" onClick={() => setPreviewMode(true)}>
+            Preview
+          </Button>
+        )}
         {importControls}
         <Button variant="outline" onClick={() => void load()}>
           Retry
         </Button>
+      </main>
+    );
+  const previewContent = (
+    <>
+      {previewError || (!pdfUrl && error) ? (
+        <div role="alert" className="space-y-2">
+          <p>
+            {previewError ??
+              "Could not load this job’s resume. Open Edit to resolve the source error."}
+          </p>
+          <Button
+            disabled={busy}
+            onClick={() => void showPreview(!latest.current)}
+          >
+            Retry
+          </Button>
+        </div>
+      ) : pdfUrl ? (
+        <div role="document" aria-label="Resume PDF preview">
+          <PdfCanvasPreview url={pdfUrl} />
+        </div>
+      ) : (
+        <output>{rendering ? "Rendering PDF…" : "Loading resume…"}</output>
+      )}
+    </>
+  );
+  if (preview && !state)
+    return (
+      <main className="p-6 space-y-4">
+        <header className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="ghost"
+            aria-label="Back"
+            onClick={() => {
+              if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+              else navigate("/resumes");
+            }}
+          >
+            <ArrowLeft aria-hidden="true" />
+          </Button>
+          <h1 className="mr-auto">
+            {job ? `${job.title} · ${job.employer}` : "Resume preview"}
+          </h1>
+          <fieldset aria-label="Editor mode">
+            <Button
+              disabled={busy}
+              aria-pressed={false}
+              onClick={() => setPreviewMode(false)}
+            >
+              Edit
+            </Button>
+            <Button
+              disabled={busy}
+              aria-pressed={true}
+              onClick={() => void showPreview(true)}
+            >
+              Preview
+            </Button>
+          </fieldset>
+          <Button disabled={busy || !pdfUrl} onClick={() => void downloadPdf()}>
+            Download PDF
+          </Button>
+        </header>
+        {previewContent}
       </main>
     );
   if ((!base && !job) || !state)
@@ -1140,13 +1327,7 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
             </fieldset>
           </div>
           {preview ? (
-            pdfUrl ? (
-              <div role="document" aria-label="Resume PDF preview">
-                <PdfCanvasPreview url={pdfUrl} />
-              </div>
-            ) : (
-              <output>{rendering ? "Rendering PDF…" : null}</output>
-            )
+            previewContent
           ) : (
             <ResumeEditor
               library={library}
