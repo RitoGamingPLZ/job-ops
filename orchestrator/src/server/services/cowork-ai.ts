@@ -110,7 +110,11 @@ function sectionItems(
   )[section];
   return value?.items ?? [];
 }
-function linkedLibraryIds(context: CoworkChatContext): Set<string> {
+// isOnResume includes hidden items; include suggestions need a visibility-aware scan.
+function linkedLibraryIds(
+  context: CoworkChatContext,
+  includeHidden = true,
+): Set<string> {
   const ids = new Set<string>();
   for (const section of [
     ...Object.values(context.document.sections),
@@ -124,7 +128,8 @@ function linkedLibraryIds(context: CoworkChatContext): Set<string> {
     )
       continue;
     for (const item of section.items) {
-      if (!item || typeof item !== "object") continue;
+      if (!item || typeof item !== "object" || (!includeHidden && item.hidden))
+        continue;
       if (typeof item.libraryId === "string") ids.add(item.libraryId);
       for (const line of getItemLines(item)) if (line.ref) ids.add(line.ref);
     }
@@ -561,6 +566,7 @@ export function filterCoworkSuggestions(
       .map((item) => [item.id, item]),
   );
   const onResume = linkedLibraryIds(context);
+  const visibleOnResume = linkedLibraryIds(context, false);
   const find = (section: string, id: string) =>
     sectionItems(context, section).find((item) => item.id === id);
   const lineTarget = (target: {
@@ -572,9 +578,14 @@ export function filterCoworkSuggestions(
     const item = find(target.section, target.itemId);
     if (!item) return null;
     const lines = getItemLines(item);
-    const index = target.previousText.trim()
-      ? lines.findIndex((line) => sameLineText(line.text, target.previousText))
-      : target.bulletIndex;
+    const hinted = lines[target.bulletIndex];
+    const index =
+      !target.previousText.trim() ||
+      (hinted && sameLineText(hinted.text, target.previousText))
+        ? target.bulletIndex
+        : lines.findIndex((line) =>
+            sameLineText(line.text, target.previousText),
+          );
     const line = lines[index];
     return line
       ? { ...target, bulletIndex: index, previousText: line.text }
@@ -587,9 +598,11 @@ export function filterCoworkSuggestions(
       case "include_library_item": {
         const row = catalog.get(s.libraryId);
         return row &&
-          !onResume.has(row.id) &&
+          !visibleOnResume.has(row.id) &&
           ((row.kind !== "bullet" && row.kind !== "project_point") ||
-            (row.parentId && onResume.has(row.parentId)))
+            (row.parentId &&
+              catalog.get(row.parentId)?.kind ===
+                (row.kind === "bullet" ? "role" : "project")))
           ? [s]
           : [];
       }

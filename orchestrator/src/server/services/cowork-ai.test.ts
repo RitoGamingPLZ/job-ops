@@ -828,7 +828,41 @@ describe("V2 cowork producer", () => {
       );
     }
   });
-  it("checks include/exclude against linked entries and lines including hidden items", () => {
+  it("keeps the hinted index for duplicate line text in replace/delete and line saves", () => {
+    const ctx = context();
+    Object.assign(ctx.document.sections.experience.items[0], {
+      libraryId: "role",
+      description: "<ul><li>A</li><li>B</li><li>A</li></ul>",
+      bulletRefs: [null, "x", "y"],
+    });
+    const library = [{ ...bullet("y", "A"), parentId: "role" }];
+    const target = {
+      section: "experience",
+      itemId: "exp",
+      bulletIndex: 2,
+      previousText: "A",
+    };
+    const out = filterCoworkSuggestions(
+      [
+        proposal("replace_bullet", { ...target, text: "Better A" }),
+        proposal("delete_bullet", target),
+        proposal("save_to_library", {
+          target: { kind: "line", libraryId: "y", target },
+        }),
+      ],
+      ctx,
+      library,
+    );
+    expect(out).toMatchObject([
+      { op: "replace_bullet", bulletIndex: 2, previousText: "A" },
+      { op: "delete_bullet", bulletIndex: 2, previousText: "A" },
+      {
+        op: "save_to_library",
+        target: { target: { bulletIndex: 2, previousText: "A" } },
+      },
+    ]);
+  });
+  it("permits hidden entries and valid missing or hidden parents on include", () => {
     const ctx = withSections();
     Object.assign(ctx.document.sections.experience.items[0], {
       libraryId: "role",
@@ -841,9 +875,17 @@ describe("V2 cowork producer", () => {
       { ...bullet("role"), kind: "role" },
       { ...bullet("hidden-project"), kind: "project" },
       { ...bullet("absent-project"), kind: "project" },
+      { ...bullet("absent-role"), kind: "role" },
       { ...bullet("linked"), parentId: "role" },
       { ...bullet("new"), parentId: "role" },
-      { ...bullet("orphan"), parentId: "absent-role" },
+      { ...bullet("orphan"), parentId: "missing-role" },
+      {
+        ...bullet("absent-point"),
+        kind: "project_point",
+        parentId: "absent-project",
+      },
+      { ...bullet("absent-bullet"), parentId: "absent-role" },
+      { ...bullet("wrong-parent"), parentId: "hidden-project" },
       {
         ...bullet("hidden-point"),
         kind: "project_point",
@@ -858,7 +900,15 @@ describe("V2 cowork producer", () => {
       );
       expect(out.map((s) => ("libraryId" in s ? s.libraryId : null))).toEqual(
         op === "include_library_item"
-          ? ["absent-project", "new", "hidden-point"]
+          ? [
+              "hidden-project",
+              "absent-project",
+              "absent-role",
+              "new",
+              "absent-point",
+              "absent-bullet",
+              "hidden-point",
+            ]
           : ["role", "hidden-project", "linked"],
       );
     }
