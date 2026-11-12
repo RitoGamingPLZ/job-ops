@@ -61,13 +61,7 @@ export async function regenerateJobResume(
   jobId: string,
   opts?: { requestOrigin?: string | null },
 ): Promise<JobResume> {
-  const existing = await getJobResume(jobId);
-  return materializeJobResume(
-    jobId,
-    { ...opts, tailor: true },
-    existing?.revision ?? 0,
-    false,
-  );
+  return materializeJobResume(jobId, { ...opts, tailor: true }, 0, false);
 }
 
 async function materializeJobResume(
@@ -87,6 +81,10 @@ async function materializeJobResume(
     // B's sync imports the base only on the scope's first build. Subsequent
     // syncs add unlinked job facts without resurrecting deleted library facts.
     syncCandidateLibrary(base.data as ReactiveResumeV5Document);
+    // Sync can stamp links and bump the saved revision itself. Capture after it,
+    // before generation, so a subsequent editor save still fails the CAS.
+    if (!acceptConcurrentWinner)
+      baseRevision = (await getJobResume(jobId))?.revision ?? 0;
     document = await generateResumeFromLibrary(
       base.data as ReactiveResumeV5Document,
       job,

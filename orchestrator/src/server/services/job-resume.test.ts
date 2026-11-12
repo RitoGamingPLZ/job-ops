@@ -44,6 +44,7 @@ const document =
 const row = { document, revision: 1, exists: true, updatedAt: "now" };
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(syncCandidateLibrary).mockReset();
   vi.mocked(getJobResume).mockResolvedValue(null);
   vi.mocked(getJobById).mockResolvedValue(
     createJob({
@@ -299,6 +300,55 @@ describe("regenerateJobResume", () => {
     finish(document);
     await pending;
     expect(saveJobResume).toHaveBeenCalledWith("job", 7, document);
+  });
+  it("captures the sync-only revision bump before generation without a conflict", async () => {
+    let revision = 7;
+    vi.mocked(getJobResume).mockImplementation(async () => ({
+      ...row,
+      revision,
+    }));
+    vi.mocked(syncCandidateLibrary).mockImplementation(() => {
+      revision++;
+      return { created: 0, skipped: 0, linked: 1 };
+    });
+    vi.mocked(generateResumeFromLibrary).mockImplementation(async () => {
+      expect(getJobResume).toHaveBeenCalledOnce();
+      expect(syncCandidateLibrary).toHaveBeenCalledOnce();
+      return document;
+    });
+    vi.mocked(saveJobResume).mockImplementation(async (_id, expected, doc) => {
+      if (expected !== revision) throw conflict("Resume changed");
+      return { ...row, document: doc, revision: ++revision };
+    });
+    await expect(regenerateJobResume("job")).resolves.toMatchObject({
+      revision: 9,
+    });
+    expect(saveJobResume).toHaveBeenCalledWith("job", 8, document);
+  });
+  it("rejects a real edit during generation even after a sync-only revision bump", async () => {
+    let revision = 7;
+    vi.mocked(getJobResume).mockImplementation(async () => ({
+      ...row,
+      revision,
+    }));
+    vi.mocked(syncCandidateLibrary).mockImplementation(() => {
+      revision++;
+      return { created: 0, skipped: 0, linked: 1 };
+    });
+    vi.mocked(generateResumeFromLibrary).mockImplementation(async () => {
+      revision++; // Editor save while the LLM is running.
+      return document;
+    });
+    vi.mocked(saveJobResume).mockImplementation(async (_id, expected) => {
+      if (expected !== revision) throw conflict("Resume changed");
+      return row;
+    });
+    await expect(regenerateJobResume("job")).rejects.toMatchObject({
+      status: 409,
+      code: "CONFLICT",
+    });
+    expect(saveJobResume).toHaveBeenCalledWith("job", 8, document);
+    expect(updateJob).not.toHaveBeenCalled();
   });
   it("keeps the old document and revision on generation failure", async () => {
     vi.mocked(getJobResume).mockResolvedValue({ ...row, revision: 7 });
