@@ -699,7 +699,7 @@ describe("batch line targeting after library membership changes", () => {
     expect(item.bulletRefs).toEqual(
       op === "replace_bullet" ? ["a", "c", "d"] : ["a", "d"],
     );
-    expect(result.applied).toEqual(["exclude", "edit"]);
+    expect(result.applied).toEqual(["edit", "exclude"]);
   });
   it("includes a line by unhiding both its existing parent and section", () => {
     const document = fixture();
@@ -726,5 +726,174 @@ describe("batch line targeting after library membership changes", () => {
     expect(result?.sections.experience.items[0].bulletRefs).toContain("new");
     expect(document.sections.experience.hidden).toBe(true);
     expect(document.sections.experience.items[0].hidden).toBe(true);
+  });
+});
+
+describe("snapshot positions before library membership changes", () => {
+  const original = () => {
+    const document = fixture();
+    document.customSections = [];
+    document.sections.experience.items[0] = {
+      ...document.sections.experience.items[0],
+      libraryId: "role",
+      description: "<ul><li>A</li><li>B</li><li>C</li><li>D</li></ul>",
+      bulletRefs: ["a", "b", "c", "d"],
+    };
+    return document;
+  };
+  const library = [
+    { id: "b", kind: "bullet", parentId: "role", text: "B" },
+  ] as import("@shared/types").ExperienceBullet[];
+  it.each([
+    3, 4,
+  ])("inserts at snapshot position %i before excluding an earlier line", (bulletIndex) => {
+    const result = applySuggestions(
+      original(),
+      [
+        {
+          id: "exclude",
+          reason: "Review",
+          op: "exclude_library_item",
+          libraryId: "b",
+        },
+        {
+          id: "insert",
+          reason: "Review",
+          op: "insert_bullet",
+          section: "experience",
+          itemId: "one",
+          bulletIndex,
+          text: "New",
+        },
+      ],
+      library,
+    );
+    const item = result.document.sections.experience.items[0];
+    expect(item.description).toBe(
+      bulletIndex === 3
+        ? "<ul><li>A</li><li>C</li><li>New</li><li>D</li></ul>"
+        : "<ul><li>A</li><li>C</li><li>D</li><li>New</li></ul>",
+    );
+    expect(item.bulletRefs).toEqual(
+      bulletIndex === 3 ? ["a", "c", null, "d"] : ["a", "c", "d", null],
+    );
+    expect(result.applied).toEqual(["insert", "exclude"]);
+  });
+  it.each([
+    "replace_bullet",
+    "delete_bullet",
+  ] as const)("targets the second linked duplicate for %s after excluding b", (op) => {
+    const document = original();
+    document.sections.experience.items[0].description =
+      "<ul><li>X</li><li>B</li><li>X</li></ul>";
+    document.sections.experience.items[0].bulletRefs = ["x1", "b", "x2"];
+    const result = applySuggestions(
+      document,
+      [
+        {
+          id: "exclude",
+          reason: "Review",
+          op: "exclude_library_item",
+          libraryId: "b",
+        },
+        {
+          id: "edit",
+          reason: "Review",
+          op,
+          section: "experience",
+          itemId: "one",
+          bulletIndex: 2,
+          previousText: "X",
+          ...(op === "replace_bullet" ? { text: "Y" } : {}),
+        } as ResumeSuggestionV2,
+      ],
+      library,
+    );
+    expect(result.document.sections.experience.items[0]).toMatchObject({
+      description:
+        op === "replace_bullet"
+          ? "<ul><li>X</li><li>Y</li></ul>"
+          : "<ul><li>X</li></ul>",
+      bulletRefs: op === "replace_bullet" ? ["x1", "x2"] : ["x1"],
+    });
+  });
+  it("prefers the snapshot ref over a newly introduced closer text match", () => {
+    const document = original();
+    document.sections.experience.items[0].description =
+      "<ul><li>X</li><li>B</li><li>C</li><li>D</li></ul>";
+    document.sections.experience.items[0].bulletRefs = ["x1", "b", "c", "d"];
+    const result = applySuggestions(document, [
+      {
+        id: "new-match",
+        reason: "Review",
+        op: "replace_bullet",
+        section: "experience",
+        itemId: "one",
+        bulletIndex: 2,
+        previousText: "C",
+        text: "X",
+      },
+      {
+        id: "target",
+        reason: "Review",
+        op: "replace_bullet",
+        section: "experience",
+        itemId: "one",
+        bulletIndex: 3,
+        previousText: "X",
+        text: "Y",
+      },
+    ]);
+    expect(result.document.sections.experience.items[0]).toMatchObject({
+      description: "<ul><li>Y</li><li>B</li><li>X</li><li>D</li></ul>",
+      bulletRefs: ["x1", "b", "c", "d"],
+    });
+  });
+  it("falls back to the closest text match when no snapshot ref is available", () => {
+    const document = original();
+    document.sections.experience.items[0].description =
+      "<ul><li>X</li><li>B</li><li>X</li><li>D</li></ul>";
+    document.sections.experience.items[0].bulletRefs = [];
+    expect(
+      suggestionTarget(document, {
+        id: "near",
+        reason: "Review",
+        op: "replace_bullet",
+        section: "experience",
+        itemId: "one",
+        bulletIndex: 3,
+        previousText: "X",
+        text: "Y",
+      }),
+    ).toEqual({ old: "X", index: 2 });
+  });
+  it("adds entries at the snapshot position before excluding an earlier entry", () => {
+    const document = original();
+    const result = applySuggestions(
+      document,
+      [
+        {
+          id: "exclude",
+          reason: "Review",
+          op: "exclude_library_item",
+          libraryId: "role",
+        },
+        {
+          id: "add",
+          reason: "Review",
+          op: "add_entry",
+          section: "experience",
+          index: 2,
+          item: { company: "New company", position: "New role" },
+        },
+      ],
+      [
+        { id: "role", kind: "role", text: "Role" },
+      ] as import("@shared/types").ExperienceBullet[],
+    );
+    expect(
+      result.document.sections.experience.items.map((item) => item.id),
+    ).toEqual(["two", "cowork-entry-add"]);
+    expect(result.applied).toEqual(["add", "exclude"]);
   });
 });

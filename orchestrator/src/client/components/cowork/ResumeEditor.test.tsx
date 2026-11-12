@@ -1829,6 +1829,8 @@ it("labels structural and library effects before delegating acceptance to the pa
   if (!saveCard) throw new Error("Expected save review card");
   expect(within(saveCard).getByText("Skills")).toBeVisible();
   expect(within(saveCard).getByText("TypeScript")).toBeVisible();
+  expect(within(saveCard).getByText("Keywords")).toBeVisible();
+  expect(within(saveCard).queryByText("keywords")).toBeNull();
   expect(saveCard.querySelector("del")).toBeNull();
   expect(screen.queryByText("Current resume fields")).toBeNull();
   const excludeCard = screen
@@ -1841,4 +1843,48 @@ it("labels structural and library effects before delegating acceptance to the pa
   expect(
     screen.getByText("Library update failed. Retry accepting this suggestion."),
   ).toBeVisible();
+});
+
+it("shows stale library saves as content changed and disables acceptance", () => {
+  const document = fixture();
+  document.sections.experience.items[0].libraryId = "role";
+  document.sections.experience.items[0].bulletRefs = ["line"];
+  const library = [
+    { id: "line", kind: "bullet", parentId: "role", text: "Canonical" },
+  ] as import("@shared/types").ExperienceBullet[];
+  const onAccept = vi.fn();
+  render(
+    <ResumeEditorView
+      document={document}
+      library={library}
+      onChange={vi.fn()}
+      onDismiss={vi.fn()}
+      onAccept={onAccept}
+      suggestions={[
+        {
+          id: "save",
+          reason: "Review",
+          op: "save_to_library",
+          target: {
+            kind: "line",
+            libraryId: "line",
+            target: {
+              section: "experience",
+              itemId: "one",
+              bulletIndex: 0,
+              previousText: "Old text",
+            },
+          },
+        },
+      ]}
+    />,
+  );
+  expect(
+    screen.getByText("Not applicable — this content has changed."),
+  ).toBeVisible();
+  const button = screen.getByRole("button", {
+    name: "Accept: Save to library (updates other resumes using it)",
+  });
+  expect(button).toBeDisabled();
+  expect(button.closest("article")?.querySelector("dl")).toBeNull();
 });

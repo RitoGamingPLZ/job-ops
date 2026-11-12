@@ -711,6 +711,58 @@ describe("resume co-work saving", () => {
       document: { basics: { headline: "Edited one" } },
     });
   });
+  it("retains an accepted suggestion after its unsaved edit is undone", async () => {
+    mocks.save.mockRejectedValueOnce(
+      new ApiClientError("Unavailable", { status: 503 }),
+    );
+    mount();
+    await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByText("Suggest edits"));
+    await act(async () => {
+      const props = mocks.editorProps.mock.lastCall?.[0];
+      props.onAccept([props.suggestions[0]]);
+    });
+    await waitFor(() =>
+      expect(
+        mocks.editorProps.mock.lastCall?.[0].rejectionReasons.one,
+      ).toContain("Resume save failed"),
+    );
+    fireEvent.click(screen.getByText("Undo"));
+    expect(screen.getByLabelText("Headline")).toHaveValue("Base");
+    fireEvent.click(screen.getByText("Save now"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(2));
+    expect(mocks.editorProps.mock.lastCall?.[0].suggestions).toHaveLength(3);
+  });
+  it("keeps pending accepted ids when undo only removes a later manual edit", async () => {
+    mocks.save.mockRejectedValueOnce(
+      new ApiClientError("Unavailable", { status: 503 }),
+    );
+    mount();
+    await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByText("Suggest edits"));
+    await act(async () => {
+      const props = mocks.editorProps.mock.lastCall?.[0];
+      props.onAccept([props.suggestions[0]]);
+    });
+    await waitFor(() =>
+      expect(
+        mocks.editorProps.mock.lastCall?.[0].rejectionReasons.one,
+      ).toContain("Resume save failed"),
+    );
+    fireEvent.change(screen.getByLabelText("Headline"), {
+      target: { value: "Manual edit" },
+    });
+    fireEvent.click(screen.getByText("Undo"));
+    expect(screen.getByLabelText("Headline")).toHaveValue("Edited one");
+    fireEvent.click(screen.getByText("Save now"));
+    await waitFor(() =>
+      expect(
+        mocks.editorProps.mock.lastCall?.[0].suggestions.map(
+          (s: ResumeSuggestionV2) => s.id,
+        ),
+      ).toEqual(["two", "three"]),
+    );
+  });
   it("explains when an item was created but could not be placed on the resume", async () => {
     mocks.createBullet.mockResolvedValueOnce({
       bullet: {

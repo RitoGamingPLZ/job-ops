@@ -211,6 +211,21 @@ function LinkField({
   );
 }
 
+const SAVE_FIELD_LABELS: Record<string, string> = {
+  company: "Company",
+  location: "Location",
+  period: "Dates",
+  website: "Website",
+  keywords: "Keywords",
+  school: "School",
+  area: "Field of study",
+  grade: "Grade",
+  description: "Description",
+  date: "Date",
+  awarder: "Awarded by",
+  issuer: "Issued by",
+};
+
 type Props = {
   library?: ExperienceBullet[];
   onSaveLineToLibrary?: (libraryId: string, text: string) => void;
@@ -553,7 +568,13 @@ export function ResumeEditor({
   }
   for (const s of suggestions) target(s);
   function accept(items: ResumeSuggestionV2[]) {
-    onAccept(items.filter((s) => target(s) !== null));
+    onAccept(
+      items.filter((s) =>
+        s.op === "save_to_library"
+          ? "input" in librarySaveInput(document, s.target, library)
+          : target(s) !== null,
+      ),
+    );
   }
   const libraryChangeCount = suggestions.filter(
     (s) => s.op === "create_library_item" || s.op === "save_to_library",
@@ -584,8 +605,12 @@ export function ResumeEditor({
             }[s.op];
       const savePreview =
         s.op === "save_to_library"
-          ? librarySaveInput(document, s.target, library, false)
+          ? librarySaveInput(document, s.target, library)
           : null;
+      const applicable =
+        s.op === "save_to_library"
+          ? Boolean(savePreview && "input" in savePreview)
+          : Boolean(resolved);
       return (
         <article key={s.id} className="resume-suggestion">
           <p className="font-medium">{label}</p>
@@ -598,7 +623,9 @@ export function ResumeEditor({
                     .filter(([key]) => key !== "schemaVersion")
                     .map(([key, value]) => (
                       <div key={key}>
-                        <dt className="font-medium">{key}</dt>
+                        <dt className="font-medium">
+                          {SAVE_FIELD_LABELS[key] ?? key}
+                        </dt>
                         <dd>
                           {Array.isArray(value)
                             ? value.join(", ")
@@ -617,7 +644,11 @@ export function ResumeEditor({
               </div>
             ) : (
               <p className="text-muted-foreground">
-                The linked resume content is no longer available.
+                {savePreview &&
+                "code" in savePreview &&
+                savePreview.code === "STALE"
+                  ? "Not applicable — this content has changed."
+                  : "The linked resume content is no longer available."}
               </p>
             )
           ) : s.op === "exclude_library_item" ? (
@@ -659,7 +690,7 @@ export function ResumeEditor({
           <div className="resume-review">
             <Button
               size="sm"
-              disabled={disabled || !resolved}
+              disabled={disabled || !applicable}
               title={`Accept: ${label}`}
               aria-label={`Accept: ${label}`}
               onClick={() => accept([s])}

@@ -304,13 +304,13 @@ it("reports stale guarded text separately from invalid targets and permutations"
         libraryId: "line",
       },
       {
-        id: "removed-line",
+        id: "stale-line",
         reason: "Review",
         op: "replace_bullet",
         section: "experience",
         itemId: "role-entry",
         bulletIndex: 0,
-        previousText: "Job wording",
+        previousText: "Old wording",
         text: "New",
       },
       {
@@ -337,7 +337,7 @@ it("reports stale guarded text separately from invalid targets and permutations"
   );
   expect(result.rejected).toEqual(
     expect.arrayContaining([
-      { id: "removed-line", code: "STALE" },
+      { id: "stale-line", code: "STALE" },
       { id: "missing", code: "INVALID_TARGET" },
       { id: "bad-order", code: "INVALID_TARGET" },
     ]),

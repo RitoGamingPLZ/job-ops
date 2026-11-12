@@ -130,6 +130,25 @@ export function dropBullet(
   return next;
 }
 
+function lineTargetIndex(
+  lines: { text: string; ref: string | null }[],
+  previousText: string,
+  bulletIndex: number,
+  snapshotRef?: string | null,
+): number {
+  const matches = lines.flatMap((line, index) =>
+    line.text === previousText ? [index] : [],
+  );
+  const linked = snapshotRef
+    ? matches.filter((index) => lines[index].ref === snapshotRef)
+    : [];
+  return (
+    (linked.length ? linked : matches).sort(
+      (a, b) => Math.abs(a - bulletIndex) - Math.abs(b - bulletIndex),
+    )[0] ?? -1
+  );
+}
+
 export function suggestionTarget(
   document: ReactiveResumeV5Document,
   s: ResumeSuggestionV2,
@@ -247,10 +266,7 @@ export function suggestionTarget(
       }
       if (s.op === "replace_bullet" && !s.text.trim()) return null;
       // Retain the guarded text match when earlier edits moved this line.
-      const index =
-        lines[s.bulletIndex]?.text === s.previousText
-          ? s.bulletIndex
-          : lines.findIndex((l) => l.text === s.previousText);
+      const index = lineTargetIndex(lines, s.previousText, s.bulletIndex);
       return index >= 0 ? { old: lines[index].text, index } : null;
     }
   }
@@ -299,7 +315,7 @@ function newEntry(
 function applyResolvedSuggestion(
   document: ReactiveResumeV5Document,
   s: ResumeSuggestionV2,
-  target: { old: string; index?: number },
+  target: { old: string; index?: number; snapshotRef?: string | null },
   library: ExperienceBullet[],
 ): ReactiveResumeV5Document | null {
   if (s.op === "create_library_item" || s.op === "save_to_library") return null;
@@ -395,8 +411,20 @@ function applyResolvedSuggestion(
       } else {
         const currentTarget = suggestionTarget(next, s, library);
         const index =
-          s.op === "insert_bullet" ? target.index : currentTarget?.index;
-        if (!currentTarget || index === undefined || index > lines.length)
+          s.op === "insert_bullet"
+            ? target.index
+            : lineTargetIndex(
+                lines,
+                s.previousText,
+                s.bulletIndex,
+                target.snapshotRef,
+              );
+        if (
+          !currentTarget ||
+          index === undefined ||
+          index < 0 ||
+          index > lines.length
+        )
           return null;
         if (s.op === "delete_bullet") lines.splice(index, 1);
         else
@@ -437,12 +465,27 @@ export function applySuggestions(
 ): { document: ReactiveResumeV5Document; applied: string[] } {
   const resolved = suggestions.flatMap((suggestion, order) => {
     const target = suggestionTarget(document, suggestion, library);
-    return target ? [{ suggestion, target, order }] : [];
+    const snapshotRef =
+      (suggestion.op === "replace_bullet" ||
+        suggestion.op === "delete_bullet") &&
+      target?.index !== undefined
+        ? getItemLines(
+            document.sections[suggestion.section].items.find(
+              (item) => item.id === suggestion.itemId,
+            ) ?? {},
+          )[target.index]?.ref
+        : undefined;
+    return target
+      ? [{ suggestion, target: { ...target, snapshotRef }, order }]
+      : [];
   });
   const group = (s: ResumeSuggestionV2) =>
     "itemId" in s ? `${"section" in s ? s.section : "skills"}:${s.itemId}` : "";
+  const membership = (s: ResumeSuggestionV2) =>
+    s.op === "include_library_item" || s.op === "exclude_library_item";
   resolved.sort(
     (a, b) =>
+      Number(membership(a.suggestion)) - Number(membership(b.suggestion)) ||
       group(a.suggestion).localeCompare(group(b.suggestion)) ||
       (b.target.index ?? -1) - (a.target.index ?? -1) ||
       Number(a.suggestion.op === "insert_bullet") -

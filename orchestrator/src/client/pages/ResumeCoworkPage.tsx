@@ -138,6 +138,9 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
   >({});
   const accepting = useRef(false);
   const pendingAcceptedIds = useRef<string[]>([]);
+  const acceptedUndoIds = useRef(
+    new WeakMap<ReactiveResumeV5Document, string[]>(),
+  );
   const [references, setReferences] = useState<BulletReference[]>([]);
   const [focus, setFocus] = useState<ResumeFocusRef[]>([]);
   const chat = useRef<HTMLElement>(null);
@@ -371,6 +374,11 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
     if (syncing.current || resumeReloadRequired.current) return;
     const previous = history.current.pop();
     if (!previous || !latest.current) return;
+    const undoneIds = acceptedUndoIds.current.get(previous) ?? [];
+    pendingAcceptedIds.current = pendingAcceptedIds.current.filter(
+      (id) => !undoneIds.includes(id),
+    );
+    acceptedUndoIds.current.delete(previous);
     setUndoStack([...history.current]);
     lastTyping.current = null;
     version.current++;
@@ -573,10 +581,26 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
       );
       syncing.current = false;
       if (result.applied.length) {
+        const beforeEdit = latest.current?.document;
         edit(result.document);
+        if (beforeEdit && beforeEdit !== result.document) {
+          acceptedUndoIds.current.set(
+            beforeEdit,
+            result.applied.filter((id) =>
+              items.some(
+                (s) =>
+                  s.id === id &&
+                  s.op !== "save_to_library" &&
+                  (s.op !== "create_library_item" || s.includeOnResume),
+              ),
+            ),
+          );
+        }
         // Even library-only acceptance checks that the reviewed resume revision still holds.
         dirty.current = true;
-        pendingAcceptedIds.current = result.applied;
+        pendingAcceptedIds.current = [
+          ...new Set([...pendingAcceptedIds.current, ...result.applied]),
+        ];
         if (!(await save())) {
           for (const id of result.applied)
             reasons[id] =
