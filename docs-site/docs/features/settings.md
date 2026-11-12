@@ -83,7 +83,11 @@ Each meter includes completed usage and work currently in progress. Limits reset
 - For GLM, JobOps uses `https://api.z.ai/api/paas/v4` by default. Override the base URL only when using another Z.AI-compatible endpoint such as a coding-plan endpoint.
 - For [API Route](https://www.api-route.com/), create a key in [API Keys](https://www.api-route.com/api-keys), select API Route, and choose a chat model visible to that key. The endpoint is preset. Use exact IDs without adding an upstream-provider prefix. For environment setup, set `LLM_PROVIDER=api_route`, `API_ROUTE_API_KEY` (or `LLM_API_KEY`), and `MODEL` to the chosen ID. See the [API documentation](https://github.com/DennyHo0917/api-route/blob/main/API.md). JobOps sends the same task prompts and necessary profile/job fields as for its other hosted providers; keys remain in the existing secret storage. Screenshot attachments are not enabled by this integration.
 - Changing the provider clears stale model overrides in the form, so inherited fields follow the new provider default unless you explicitly choose a new override
-- The preview under each field and the **Resolved config** block reflect the model currently selected in the form, even before you save
+- The **Configuration preview** block shows the current form's provider/model choices, including the scoring provider and model, before you save. It does not verify credentials or prove that a scoring request will succeed.
+- Scoring uses an LLM. By default it inherits the default provider and model. In the scoring override, an explicit model takes precedence; leaving the model blank inherits the default model when the provider matches, or uses the selected provider's default model when the provider differs.
+- A purpose API key takes precedence over the saved default key. The default key still inherits across provider overrides, so supply a purpose key when the default key is incompatible with the selected provider. Leaving a purpose key field blank preserves its stored secret.
+- In hosted BYOK mode, scoring uses your scoped saved configuration and keys; server environment credentials are never a fallback. Hosted platform-managed AI uses the platform's provider, model, and credentials instead of user overrides.
+- To apply a scoring change: open **Settings → Model**, set the default or scoring override and compatible key, then click **Save**. Existing scores stay unchanged; explicitly rescore existing jobs. If a pipeline is paused for LLM configuration, save the correction and use **Restart scoring** to resume it.
 
 ### Webhooks
 
@@ -309,7 +313,7 @@ curl -X POST "http://localhost:3001/api/backups"
 
 - Some settings apply only to new runs/actions after save.
 - Re-run scoring/tailoring/pipeline to validate effect.
-- In the **Model** section, the field preview and **Resolved config** update immediately when you choose a model, but the change only applies to future actions after you click **Save**.
+- In the **Model** section, the field preview and **Configuration preview** update immediately when you choose a model, but the change only applies to future actions after you click **Save**.
 - Prompt-template changes only affect new Ghostwriter runs, new tailoring generations, and new scoring runs after you save.
 
 ### I do not see workspace user controls

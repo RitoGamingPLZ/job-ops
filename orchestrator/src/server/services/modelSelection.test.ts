@@ -147,9 +147,46 @@ describe("Model Selection Logic", () => {
       });
     });
 
-    it("cannot select a process-authenticated CLI provider for Free", async () => {
+    it.each([
+      ["openai", null, null, "gpt-5.4-mini"],
+      ["openrouter", null, null, "google/gemini-3-flash-preview"],
+      ["openai", "gpt-purpose", "gpt-legacy", "gpt-purpose"],
+      ["openai", null, "gpt-legacy", "gpt-legacy"],
+    ])("resolves hosted scoring provider %s with purpose model %s and legacy model %s", async (provider, purposeModel, legacyModel, expectedModel) => {
       vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
-        llmProvider: "codex",
+        llmProvider: "openrouter",
+        model: "google/gemini-3-flash-preview",
+        llmApiKey: "synthetic-global-key",
+        llmPurposeOverrides: JSON.stringify({
+          scoring: { provider, model: purposeModel },
+        }),
+        llmPurposeApiKeys: JSON.stringify({ scoring: "synthetic-scoring-key" }),
+        ...(legacyModel ? { modelScorer: legacyModel } : {}),
+      });
+      const envBefore = { ...process.env };
+      await expect(resolveLlmRuntimeSettings("scoring")).resolves.toMatchObject(
+        {
+          provider,
+          model: expectedModel,
+          apiKey: "synthetic-scoring-key",
+          allowEnvironmentCredentials: false,
+          allowCliProviders: false,
+        },
+      );
+      await expect(resolveLlmModel("scoring")).resolves.toBe(expectedModel);
+      expect(process.env).toEqual(envBefore);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      "codex",
+      "gemini_cli",
+      "claude_cli",
+      "ollama",
+      "lmstudio",
+    ])("cannot select restricted provider %s for Free", async (llmProvider) => {
+      vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
+        llmProvider,
       });
 
       await expect(resolveLlmRuntimeSettings()).resolves.toMatchObject({
@@ -171,15 +208,21 @@ describe("Model Selection Logic", () => {
         llmProvider: "openrouter",
         model: "user-model",
         llmApiKey: "sk-user",
+        llmPurposeOverrides: JSON.stringify({
+          scoring: { provider: "anthropic", model: "user-scoring-model" },
+        }),
+        llmPurposeApiKeys: JSON.stringify({ scoring: "sk-user-scoring" }),
       });
 
-      await expect(resolveLlmRuntimeSettings()).resolves.toMatchObject({
-        provider: "openai",
-        model: "platform-model",
-        apiKey: "sk-platform",
-        allowEnvironmentCredentials: true,
-        allowCliProviders: true,
-      });
+      await expect(resolveLlmRuntimeSettings("scoring")).resolves.toMatchObject(
+        {
+          provider: "openai",
+          model: "platform-model",
+          apiKey: "sk-platform",
+          allowEnvironmentCredentials: true,
+          allowCliProviders: true,
+        },
+      );
     });
   });
 

@@ -67,6 +67,99 @@ async function importManualJob(baseUrl: string, token: string, title: string) {
   return body.data as { id: string; title: string };
 }
 
+async function assertScoringSettingsIsolation(
+  ownerToken: string,
+  otherToken: string,
+  hosted: boolean,
+) {
+  const { runWithRequestContext } = await import("@infra/request-context");
+  const settingsRepo = await import("@server/repositories/settings");
+  const { getEffectiveSettings } = await import("@server/services/settings");
+  const { resolveLlmRuntimeSettings } = await import(
+    "@server/services/modelSelection"
+  );
+  const claims = (token: string) =>
+    JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()) as {
+      tenantId: string;
+      userId: string;
+    };
+  const owner = claims(ownerToken);
+  const other = claims(otherToken);
+  if (hosted) {
+    expect(owner.tenantId).toBe(other.tenantId);
+    expect(owner.userId).not.toBe(other.userId);
+  } else {
+    expect(owner.tenantId).not.toBe(other.tenantId);
+  }
+  const envBefore = { ...process.env };
+  const http = vi
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("Unexpected HTTP during settings resolution"));
+  try {
+    // These writes and all reads use the real repository and temporary database.
+    for (const [scope, key, provider, model] of [
+      [owner, "synthetic-owner-key", "openai", ""],
+      [other, "synthetic-other-key", "openrouter", "other-scoring-model"],
+    ] as const) {
+      await runWithRequestContext(scope, async () => {
+        await settingsRepo.setSetting("llmProvider", "openrouter");
+        await settingsRepo.setSetting("model", "google/gemini-3-flash-preview");
+        await settingsRepo.setSetting("llmApiKey", `${key}-global`);
+        await settingsRepo.setSetting(
+          "llmPurposeApiKeys",
+          JSON.stringify({ scoring: key }),
+        );
+        await settingsRepo.setSetting(
+          "llmPurposeOverrides",
+          JSON.stringify({ scoring: { provider, model } }),
+        );
+      });
+    }
+    const read = (scope: typeof owner) =>
+      runWithRequestContext(scope, async () => {
+        const saved = await getEffectiveSettings();
+        const runtime = await resolveLlmRuntimeSettings("scoring");
+        expect(runtime.model).toBe(saved.modelScorer.value);
+        return runtime;
+      });
+    const [ownerRuntime, otherRuntime] = await Promise.all([
+      read(owner),
+      read(other),
+    ]);
+    expect(ownerRuntime).toMatchObject({
+      provider: "openai",
+      model: "gpt-5.4-mini",
+      apiKey: "synthetic-owner-key",
+    });
+    expect(otherRuntime).toMatchObject({
+      provider: "openrouter",
+      model: "other-scoring-model",
+      apiKey: "synthetic-other-key",
+    });
+    // Removing one scope's purpose key inherits only that scope's global key.
+    await runWithRequestContext(owner, () =>
+      settingsRepo.setSetting("llmPurposeApiKeys", null),
+    );
+    expect((await read(owner)).apiKey).toBe("synthetic-owner-key-global");
+    expect((await read(other)).apiKey).toBe("synthetic-other-key");
+    if (hosted) {
+      await runWithRequestContext(owner, () =>
+        settingsRepo.setSetting("llmApiKey", null),
+      );
+      expect(await read(owner)).toMatchObject({
+        apiKey: null,
+        allowEnvironmentCredentials: false,
+        allowCliProviders: false,
+      });
+      expect((await read(other)).apiKey).toBe("synthetic-other-key");
+    }
+    expect(process.env).toEqual(envBefore);
+    expect(http).not.toHaveBeenCalled();
+  } finally {
+    http.mockRestore();
+  }
+}
+
 async function assertCoworkIsolation(
   baseUrl: string,
   ownerToken: string,
@@ -189,6 +282,25 @@ describe.sequential("Tenant isolation", () => {
 
   afterEach(async () => {
     await stopServer({ server, closeDb, tempDir });
+  });
+
+  it("isolates saved scoring settings and runtime credentials between private workspaces", async () => {
+    const owner = await login(baseUrl, "admin", "secret");
+    const created = await fetch(`${baseUrl}/api/workspaces/users`, {
+      method: "POST",
+      headers: authHeaders(owner),
+      body: JSON.stringify({
+        username: "adam",
+        displayName: "Adam",
+        password: "adam-secret",
+      }),
+    });
+    expect(created.status).toBe(201);
+    await assertScoringSettingsIsolation(
+      owner,
+      await login(baseUrl, "adam", "adam-secret"),
+      false,
+    );
   });
 
   it("isolates experience bullets and job resumes between private workspaces", async () => {
@@ -384,6 +496,8 @@ describe.sequential("Hosted current-user isolation", () => {
         JOBOPS_TEST_AUTH_BYPASS: "0",
         JOBOPS_APP_MODE: "hosted",
         JOBOPS_HOSTED_SIGNUPS_ENABLED: "true",
+        JOBOPS_HOSTED_PLATFORM_LLM_ENABLED: "false",
+        LLM_API_KEY: "synthetic-platform-key-never-for-byok",
         JOBOPS_HOSTED_TENANT_ID: "tenant_default",
       },
     }));
@@ -391,6 +505,14 @@ describe.sequential("Hosted current-user isolation", () => {
 
   afterEach(async () => {
     await stopServer({ server, closeDb, tempDir });
+  });
+
+  it("isolates saved scoring settings and BYOK credentials between hosted users sharing a tenant", async () => {
+    await assertScoringSettingsIsolation(
+      await signup(baseUrl, "alice", "alice-secret"),
+      await signup(baseUrl, "bob", "bob-secret"),
+      true,
+    );
   });
 
   it("isolates experience bullets and job resumes between hosted users sharing a tenant", async () => {
