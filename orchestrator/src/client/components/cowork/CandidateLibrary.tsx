@@ -823,14 +823,29 @@ export function CandidateLibrary({
       (item) => item.parentId === role.id && item.kind === "bullet",
     );
   }
-  /** Duties under a role that match the search by text or tag. */
-  function dutiesOf(role: Item) {
-    return allDuties(role).filter(
-      (duty) =>
-        !query ||
-        duty.text.toLowerCase().includes(query) ||
-        duty.tags.some((tag) => tag.toLowerCase().includes(query)),
+  const matches = (value: unknown) =>
+    String(value ?? "")
+      .toLowerCase()
+      .includes(query);
+  /** A role matches the search by its title, company or location. */
+  function roleMatches(role: Item) {
+    return (
+      !query ||
+      matches(role.text) ||
+      matches(role.data?.company ?? role.company) ||
+      matches(role.data?.location)
     );
+  }
+  /** All duties of a matching role; otherwise those matching by text or tag. */
+  function dutiesOf(role: Item) {
+    const duties = allDuties(role);
+    if (roleMatches(role)) return duties;
+    return duties.filter(
+      (duty) => matches(duty.text) || duty.tags.some(matches),
+    );
+  }
+  function roleShown(role: Item) {
+    return roleMatches(role) || dutiesOf(role).length > 0;
   }
   function dutyCount(role: Item) {
     if (!jobId) return null;
@@ -849,8 +864,8 @@ export function CandidateLibrary({
     const key = String(role.data?.company ?? role.company ?? "Other");
     companies.set(key, [...(companies.get(key) ?? []), role]);
   }
-  const shownCompanies = [...companies].filter(
-    ([, group]) => !query || group.some((role) => dutiesOf(role).length),
+  const shownCompanies = [...companies].filter(([, group]) =>
+    group.some(roleShown),
   );
   return (
     <div className="space-y-1.5">
@@ -922,15 +937,15 @@ export function CandidateLibrary({
               </div>
               <Input
                 type="search"
-                aria-label="Search duties"
-                placeholder="Search duties by keyword or tag"
+                aria-label="Search experience"
+                placeholder="Search job, company, location, duty or tag"
                 className="h-7 px-2 text-xs md:text-xs"
                 value={dutyQuery}
                 onChange={(event) => setDutyQuery(event.target.value)}
               />
               {query && !shownCompanies.length && (
                 <p className="text-xs text-muted-foreground">
-                  No duties match “{dutyQuery.trim()}”.
+                  Nothing matches “{dutyQuery.trim()}”.
                 </p>
               )}
               <Accordion
@@ -958,7 +973,6 @@ export function CandidateLibrary({
                 }
               >
                 {shownCompanies.map(([company, group]) => {
-                  const single = group.length === 1 ? group[0] : null;
                   return (
                     <AccordionItem
                       key={company}
@@ -992,23 +1006,7 @@ export function CandidateLibrary({
                             ? ` · ${String(group[0].data.location)}`
                             : ""}
                         </button>
-                        {single && (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            className="min-w-0 truncate text-left font-normal text-muted-foreground hover:underline"
-                            onClick={() => startEdit(single)}
-                          >
-                            {single.text}
-                            {single.data?.period
-                              ? ` · ${String(single.data.period)}`
-                              : ""}
-                          </button>
-                        )}
                         <div className="ml-auto flex shrink-0 items-center gap-1 font-normal">
-                          {single && dutyCount(single)}
-                          {single &&
-                            addButton("bullet", single.id, undefined, "duty")}
                           {addButton(
                             "role",
                             undefined,
@@ -1027,29 +1025,18 @@ export function CandidateLibrary({
                         </div>
                       </div>
                       <AccordionContent className="ml-1.5 space-y-0.5 border-l pb-0.5 pl-2 text-xs">
-                        {single
-                          ? dutiesOf(single).map(row)
-                          : group
-                              .filter((role) => !query || dutiesOf(role).length)
-                              .map((role) => (
-                                <div key={role.id}>
-                                  <div className="flex items-start gap-1">
-                                    <div className="min-w-0 flex-1">
-                                      {row(role)}
-                                    </div>
-                                    {dutyCount(role)}
-                                    {addButton(
-                                      "bullet",
-                                      role.id,
-                                      undefined,
-                                      "duty",
-                                    )}
-                                  </div>
-                                  <div className="ml-1.5 border-l pl-2">
-                                    {dutiesOf(role).map(row)}
-                                  </div>
-                                </div>
-                              ))}
+                        {group.filter(roleShown).map((role) => (
+                          <div key={role.id}>
+                            <div className="flex items-start gap-1">
+                              <div className="min-w-0 flex-1">{row(role)}</div>
+                              {dutyCount(role)}
+                              {addButton("bullet", role.id, undefined, "duty")}
+                            </div>
+                            <div className="ml-1.5 border-l pl-2">
+                              {dutiesOf(role).map(row)}
+                            </div>
+                          </div>
+                        ))}
                       </AccordionContent>
                     </AccordionItem>
                   );

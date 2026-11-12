@@ -252,7 +252,7 @@ describe("candidate library", () => {
         ]}
       />,
     );
-    const search = screen.getByRole("searchbox", { name: "Search duties" });
+    const search = screen.getByRole("searchbox", { name: "Search experience" });
     fireEvent.change(search, { target: { value: "postgres" } });
     expect(screen.getByText("Led migrations")).toBeVisible();
     expect(screen.queryByText("Built tools")).toBeNull();
@@ -261,8 +261,14 @@ describe("candidate library", () => {
     ).toBeNull();
     fireEvent.change(search, { target: { value: "designed" } });
     expect(screen.getByText("Designed tools")).toBeVisible();
+    // Company, location and job title match a whole role with all its duties.
+    for (const value of ["globex", "paris", "designer"]) {
+      fireEvent.change(search, { target: { value } });
+      expect(screen.getByText("Designed tools")).toBeVisible();
+      expect(screen.queryByText("Built tools")).toBeNull();
+    }
     fireEvent.change(search, { target: { value: "nothing" } });
-    expect(screen.getByText("No duties match “nothing”.")).toBeVisible();
+    expect(screen.getByText("Nothing matches “nothing”.")).toBeVisible();
   });
   it("opens only the first job in standalone mode after loading", async () => {
     mocks.list.mockResolvedValue({ items: [role, duty, otherRole] });
@@ -591,8 +597,7 @@ describe("candidate library", () => {
   it("places add controls beside their headers and requires a job company", async () => {
     await mount();
     const add = screen.getByRole("button", { name: "Add duty to Engineer" });
-    // A single role sits in its job's header, beside the add-duty button.
-    expect(add.parentElement?.parentElement).toContainElement(
+    expect(add.parentElement).toContainElement(
       screen.getByRole("button", { name: "Engineer · 2020–2024" }),
     );
     fireEvent.click(add);
@@ -776,7 +781,7 @@ describe("candidate library workspace integration", () => {
       frozen,
       onDocumentChange: change,
     });
-    fireEvent.click(screen.getByRole("button", { name: "Delete Acme" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Engineer" }));
     await waitFor(() => expect(screen.queryByText("Built tools")).toBeNull());
     expect(mocks.remove).toHaveBeenCalledWith(role.id, "job");
     if (frozen) {
