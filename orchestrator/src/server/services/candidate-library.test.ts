@@ -612,12 +612,7 @@ it.each([
     const ticked = addToResume(empty, item.id, library);
     expect(ticked.sections[section].items[0].website).toEqual(website);
     job("ticked", "ready", "tenant-a", ticked);
-    api.updateLibraryItem(
-      item.id,
-      kind === "certification"
-        ? { data: { ...item.data, title: "Edited name" } }
-        : { text: "Edited name" },
-    );
+    api.updateLibraryItem(item.id, { text: "Edited name" });
     const updated = rows().find((entry) => entry.jobId === "ticked");
     expect(updated?.document.sections[section].items[0].website).toEqual(
       website,
@@ -694,8 +689,8 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
       period: "2024",
       description: "<ul><li>My wording</li></ul>",
     });
-    // Frozen resumes stay unlinked, so their old facts can still be imported.
-    expect(api.syncCandidateLibrary(document).created).toBe(2);
+    // Frozen resumes contribute facts only on the first build.
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
     api.deleteLibraryItem(parent.id);
     expect(
       rows().find((row) => row.jobId === "ready")?.document.sections.experience
@@ -709,12 +704,12 @@ it("syncs, stamps, propagates and deletes with the real shared links, preserving
       description: experience().description,
     });
     expect(api.syncCandidateLibrary(document).created).toBe(0);
-    // Frozen unlinked source facts remain eligible for import.
+    // Deletion stays authoritative despite the frozen unlinked source.
     expect(
       (await repo.listExperienceBullets(true)).some(
         (item) => item.kind === "role",
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 });
 
@@ -875,9 +870,8 @@ it("keeps structured facts through sync, ticking and updates, and enriches only 
   database = await import("../db");
   ({ runWithRequestContext: run } = await import("@infra/request-context"));
   api = await import("./candidate-library");
-  const { addToResume, libraryItemToResumeItem } = await import(
-    "@shared/resume-links"
-  );
+  const { addToResume, libraryItemToResumeItem, foldResumeParts } =
+    await import("@shared/resume-links");
   const { listExperienceBullets } = await import(
     "../repositories/experience-bullets"
   );
@@ -946,6 +940,12 @@ it("keeps structured facts through sync, ticking and updates, and enriches only 
       description: "<p>Thesis · research</p>",
     });
     api.updateLibraryItem(education.id, {
+      text: foldResumeParts(
+        "BSc",
+        "Computing",
+        "",
+        education.data?.description,
+      ),
       data: { ...education.data, grade: "", area: "Computing" },
     });
     expect(
@@ -986,5 +986,41 @@ it("keeps structured facts through sync, ticking and updates, and enriches only 
       area: "",
       grade: "",
     });
+    for (const entry of library) {
+      api.updateLibraryItem(entry.id, { text: "Library edit" });
+      const section =
+        entry.kind === "education"
+          ? "education"
+          : entry.kind === "award"
+            ? "awards"
+            : "certifications";
+      const primary = entry.kind === "education" ? "degree" : "title";
+      const updated = rows().find((row) => row.jobId === "ticked-structured");
+      expect(updated?.document.sections[section].items[0]).toMatchObject({
+        [primary]: "Library edit",
+        description: entry.data?.description,
+      });
+    }
+  });
+});
+
+it.each([
+  "applied",
+  "in_progress",
+] as const)("does not resurrect a deleted fact from a %s resume after first build", async (status) => {
+  document.sections.experience.items = [experience()];
+  job("frozen-only", status);
+  const original = rows()[0];
+  await scope("tenant-a", async () => {
+    expect(api.syncCandidateLibrary().created).toBe(2);
+    const repo = await import("../repositories/experience-bullets");
+    const parent = (await repo.listExperienceBullets(true)).find(
+      (entry) => entry.kind === "role",
+    );
+    if (!parent) throw new Error("Missing imported role");
+    api.deleteLibraryItem(parent.id);
+    expect(api.syncCandidateLibrary().created).toBe(0);
+    expect(await repo.listExperienceBullets(true)).toEqual([]);
+    expect(rows()[0]).toEqual(original);
   });
 });

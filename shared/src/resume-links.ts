@@ -257,6 +257,20 @@ function websiteValue(value: unknown, existing?: unknown) {
         : string(fallback.label),
   };
 }
+/** Canonical display/identity text for structured library constituents. */
+export function foldResumeParts(...parts: unknown[]): string {
+  return parts
+    .map((value) => htmlToPlainText(string(value)).replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join(" · ");
+}
+
+const FOLDED_FIELDS: Partial<Record<CandidateItemKind, string[]>> = {
+  education: ["degree", "area", "grade", "description"],
+  award: ["title", "awarder", "description"],
+  certification: ["title", "description"],
+};
+
 function fields(item: ExperienceBullet, existing: ResumeItem = {}): ResumeItem {
   const data = item.data ?? {};
   const website = websiteValue(data.website, existing.website);
@@ -266,6 +280,14 @@ function fields(item: ExperienceBullet, existing: ResumeItem = {}): ResumeItem {
       : typeof existing[key] === "string"
         ? existing[key]
         : fallback;
+  const primary = (key: string) =>
+    typeof data[key] === "string" &&
+    item.text !==
+      foldResumeParts(
+        ...(FOLDED_FIELDS[item.kind] ?? []).map((key) => data[key]),
+      )
+      ? item.text
+      : structured(key, item.text);
   switch (item.kind) {
     case "role":
       return {
@@ -283,7 +305,7 @@ function fields(item: ExperienceBullet, existing: ResumeItem = {}): ResumeItem {
       return { name: item.text };
     case "education":
       return {
-        degree: structured("degree", item.text),
+        degree: primary("degree"),
         school: string(structured("school")).trim()
           ? structured("school")
           : "—",
@@ -295,14 +317,14 @@ function fields(item: ExperienceBullet, existing: ResumeItem = {}): ResumeItem {
       };
     case "award":
       return {
-        title: structured("title", item.text),
+        title: primary("title"),
         date: structured("date"),
         awarder: structured("awarder"),
         description: structured("description"),
       };
     case "certification":
       return {
-        title: structured("title", item.text),
+        title: primary("title"),
         issuer: structured("issuer"),
         date: structured("date"),
         website,
@@ -337,9 +359,18 @@ export function linkedFieldPatch(
     award: ["title", "awarder", "date"],
     certification: ["title", "issuer", "date"],
   };
-  return dataFields[item.kind]?.includes(field)
-    ? { data: { ...item.data, [field]: text } }
-    : null;
+  if (!dataFields[item.kind]?.includes(field)) return null;
+  const data = { ...item.data, [field]: text };
+  const foldedFields = FOLDED_FIELDS[item.kind];
+  if (!foldedFields?.includes(field)) return { data };
+  // Preserve the effective primary value when a library text edit superseded
+  // its old constituents, or when this is a legacy row without constituents.
+  const primary = foldedFields[0];
+  if (field !== primary) data[primary] = fields(item)[primary];
+  return {
+    data,
+    text: foldResumeParts(...foldedFields.map((key) => data[key])),
+  };
 }
 
 /**
@@ -638,11 +669,6 @@ export function resetLine(
 }
 
 function entryText(item: ResumeItem, kind: CandidateItemKind): string {
-  const fold = (...values: unknown[]) =>
-    values
-      .map((value) => htmlToPlainText(string(value)))
-      .filter(Boolean)
-      .join(" · ");
   switch (kind) {
     case "role":
       return string(item.position);
@@ -650,11 +676,16 @@ function entryText(item: ResumeItem, kind: CandidateItemKind): string {
     case "skill":
       return string(item.name);
     case "education":
-      return fold(item.degree, item.area, item.grade, item.description);
+      return foldResumeParts(
+        item.degree,
+        item.area,
+        item.grade,
+        item.description,
+      );
     case "award":
-      return fold(item.title, item.awarder, item.description);
+      return foldResumeParts(item.title, item.awarder, item.description);
     case "certification":
-      return fold(item.title, item.description);
+      return foldResumeParts(item.title, item.description);
     default:
       return "";
   }

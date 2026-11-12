@@ -4,7 +4,7 @@ import {
 } from "@infra/request-context";
 import { getSetting } from "@server/repositories/settings";
 import { splitDescription } from "@shared/resume-bullets";
-import { getItemLines } from "@shared/resume-links";
+import { foldResumeParts, getItemLines } from "@shared/resume-links";
 import { createJob } from "@shared/testing/factories";
 import type { ExperienceBullet, ReactiveResumeV5Document } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -562,6 +562,58 @@ describe("generateResumeFromLibrary", () => {
     expect(result.sections.certifications.items[0].description).toBe(
       "<p>Exam</p>",
     );
+  });
+  it.each([
+    [
+      "school",
+      "education",
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+      "degree",
+    ],
+    [
+      "award",
+      "awards",
+      { title: "Prize", awarder: "Society", description: "<p>Research</p>" },
+      "title",
+    ],
+    [
+      "cert",
+      "certifications",
+      { title: "Certificate", description: "<p>Exam</p>" },
+      "title",
+    ],
+  ] as const)("generates edited library text for %s and keeps other constituents", async (id, section, data, primary) => {
+    const structuredLibrary = library.map((entry) =>
+      entry.id === id
+        ? {
+            ...entry,
+            text: foldResumeParts(...Object.values(data)),
+            data: { ...entry.data, ...data },
+          }
+        : entry,
+    );
+    const original = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      structuredLibrary,
+    );
+    expect(original.sections[section].items[0]).toMatchObject(data);
+    const result = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      structuredLibrary.map((entry) =>
+        entry.id === id ? { ...entry, text: "Library edit" } : entry,
+      ),
+    );
+    expect(result.sections[section].items[0]).toMatchObject({
+      ...data,
+      [primary]: "Library edit",
+    });
   });
   it.each([
     true,

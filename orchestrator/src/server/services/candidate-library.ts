@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { badRequest, notFound } from "@infra/errors";
-import { htmlToPlainText, splitDescription } from "@shared/resume-bullets";
+import { splitDescription } from "@shared/resume-bullets";
 import {
   applyLibraryUpdate,
+  foldResumeParts,
   isContactOnResume,
   isOnResume,
   removeFromResume,
@@ -312,12 +313,6 @@ function key(input: ExperienceBulletInput) {
     normal(identity),
   ]);
 }
-const plain = (value: unknown) =>
-  htmlToPlainText(typeof value === "string" ? value : "")
-    .replace(/\s+/g, " ")
-    .trim();
-const fold = (...parts: unknown[]) =>
-  parts.map(plain).filter(Boolean).join(" · ");
 const FIRST_BUILD_KEY = "candidateLibraryFirstBuild";
 export function candidateLibraryNeedsFirstBuild(): boolean {
   return !db
@@ -363,7 +358,7 @@ export function syncCandidateLibrary(
       if (changed) {
         existing.data = data;
         db.update(table)
-          .set({ data })
+          .set({ data, updatedAt: new Date().toISOString() })
           .where(and(privateDataScopeFilter(table), eq(table.id, existing.id)))
           .run();
       }
@@ -557,10 +552,12 @@ export function syncCandidateLibrary(
       ...(firstBuild && base
         ? [{ document: base, source: "resume" as const }]
         : []),
-      ...saved.map(({ resume }) => ({
-        document: resume.document,
-        source: "job_resume" as const,
-      })),
+      ...saved
+        .filter(({ status }) => firstBuild || !frozen(status))
+        .map(({ resume }) => ({
+          document: resume.document,
+          source: "job_resume" as const,
+        })),
     ];
     // Any explicit ref, including a dangling ref left by deletion, prevents
     // importing that same fact again. Still collect unlinked children.
@@ -643,7 +640,12 @@ export function syncCandidateLibrary(
       for (const item of document.sections.education.items)
         importStructured(item.libraryId, {
           kind: "education",
-          text: fold(item.degree, item.area, item.grade, item.description),
+          text: foldResumeParts(
+            item.degree,
+            item.area,
+            item.grade,
+            item.description,
+          ),
           data: {
             degree: item.degree,
             area: item.area,
@@ -658,7 +660,7 @@ export function syncCandidateLibrary(
       for (const item of document.sections.awards.items)
         importStructured(item.libraryId, {
           kind: "award",
-          text: fold(item.title, item.awarder, item.description),
+          text: foldResumeParts(item.title, item.awarder, item.description),
           data: {
             title: item.title,
             awarder: item.awarder,
@@ -670,7 +672,7 @@ export function syncCandidateLibrary(
       for (const item of document.sections.certifications.items)
         importStructured(item.libraryId, {
           kind: "certification",
-          text: fold(item.title, item.description),
+          text: foldResumeParts(item.title, item.description),
           data: {
             title: item.title,
             description: item.description,

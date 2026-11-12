@@ -335,17 +335,17 @@ export async function generateResumeFromLibrary(
           : item.kind === "award"
             ? ["title", "awarder", "description"]
             : ["title", "description"];
-      return libraryItemToResumeItem({
-        ...item,
-        data: {
-          ...Object.fromEntries(
-            keys.flatMap((key) =>
-              typeof original?.[key] === "string" ? [[key, original[key]]] : [],
-            ),
+      return {
+        ...libraryItemToResumeItem(item),
+        ...Object.fromEntries(
+          keys.flatMap((key) =>
+            typeof item.data?.[key] !== "string" &&
+            typeof original?.[key] === "string"
+              ? [[key, original[key]]]
+              : [],
           ),
-          ...item.data,
-        },
-      });
+        ),
+      };
     };
     sections.education.items = library
       .filter((item) => item.kind === "education")
