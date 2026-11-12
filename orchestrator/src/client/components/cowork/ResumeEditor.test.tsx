@@ -571,13 +571,13 @@ describe("navy serif document content", () => {
         // Title and link are edited in the title's link card.
         ["title", "certification title", "Example Certificate", null],
         ["website", "website URL", "https://example.com/cert", null],
-        ["date", "certification date", "2024", "Certification date"],
         [
           "issuer",
           "issuing organization",
           "Example Institute",
           "Issuing organization",
         ],
+        ["date", "certification date", "2024", "Certification date"],
       ],
     },
   ])("labels each $section field according to the value it edits", ({

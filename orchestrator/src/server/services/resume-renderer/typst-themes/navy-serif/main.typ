@@ -58,11 +58,14 @@
   #if str-of(source, "headline") != "" { [\ #text(size: st.headline, weight: st.strongWeight, source.headline)] }
   #v(st.nameToContact)
   #text(size: st.contact)[
-    #let contacts = source.contactItems.map(c => {
+    // Same order as the editor: phone, email, location, website, profiles.
+    #let contact-line(c) = {
       let prefix = if str-of(c, "kind") == "phone" { "Tel: " } else if str-of(c, "kind") == "email" { "Email: " } else { "" }
       [#prefix#linked(c.text, str-of(c, "url"))]
-    })
+    }
+    #let contacts = source.contactItems.filter(c => str-of(c, "kind") != "website").map(contact-line)
     #if str-of(source, "location") != "" { contacts.push(source.location) }
+    #for c in source.contactItems.filter(c => str-of(c, "kind") == "website") { contacts.push(contact-line(c)) }
     #for p in source.profileItems { let url = str-of(p, "url"); let label = str-of(p, "label"); contacts.push(linked(if label != "" { label } else if url == "" { p.network } else { bare-url(url) }, url)) }
     #contacts.join([ | ])
   ]
@@ -79,8 +82,9 @@
   } else if key == "certifications" and items(key).len() > 0 {
     // One column: side-by-side cells are read as one merged line by ATS parsers.
     section(key, "Certifications", list(spacing: st.lineItemGap, ..items(key).map(c => {
-      let parts = (c.title, str-of(c, "subtitle"), str-of(c, "date")).filter(p => p != "")
-      linked(parts.join(" - "), str-of(c, "url"))
+      // Only the title is the link, as in the editor.
+      let rest = (str-of(c, "subtitle"), str-of(c, "date")).filter(p => p != "")
+      [#linked(c.title, str-of(c, "url"))#rest.map(p => " - " + p).join()]
     })))
   } else if key in ("experience", "education", "projects", "volunteer", "publications", "references") and items(key).len() > 0 {
     section(key, upper(key.slice(0, 1)) + key.slice(1), [

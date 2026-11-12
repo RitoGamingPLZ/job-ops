@@ -708,7 +708,7 @@ export function ResumeEditor({
       kind === "education"
         ? ["school", "period", "degree", "area"]
         : kind === "certifications"
-          ? ["title", "date", "issuer"]
+          ? ["title", "issuer", "date"]
           : ["title", "description"];
     // Key labels by the field being edited, independently of its visual order.
     const fieldLabels: Record<string, string> = {
@@ -872,11 +872,8 @@ export function ResumeEditor({
                       );
                     return (
                       <Fragment key={field}>
-                        {kind === "certifications" && field === "date" && (
+                        {kind === "certifications" && field !== "title" && (
                           <span aria-hidden="true">-</span>
-                        )}
-                        {field === "issuer" && (
-                          <span aria-hidden="true">·</span>
                         )}
                         {input}
                         {kind === "awards" && field === "title" && (

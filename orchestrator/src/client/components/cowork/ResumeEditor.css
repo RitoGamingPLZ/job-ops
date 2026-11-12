@@ -90,7 +90,7 @@
   pointer-events: auto;
 }
 .resume-paper .resume-richtext .tiptap {
-  min-height: 35px;
+  min-height: 0;
   padding: 1px 2px;
   border: 0;
   border-radius: 2px;
@@ -106,6 +106,9 @@
 }
 .resume-paper .resume-richtext .tiptap p {
   margin: 0 0 4px;
+}
+.resume-paper .resume-richtext .tiptap > :last-child {
+  margin-bottom: 0;
 }
 .resume-row {
   position: relative;
@@ -383,7 +386,7 @@
   position: absolute;
   top: 0;
   left: calc(var(--rs-marker-indent) - var(--rs-text-indent));
-  content: "●";
+  content: "•";
   font-size: var(--rs-marker);
   color: var(--rs-color-text);
 }
