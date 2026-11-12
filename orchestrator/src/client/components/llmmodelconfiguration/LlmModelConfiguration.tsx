@@ -199,6 +199,18 @@ export function LlmModelConfiguration({
     modelScorer?.onChange("");
     modelTailoring?.onChange("");
     modelProjectSelection?.onChange("");
+    // Save drops overrides that inherit a changed default provider. Reconcile
+    // those draft fields now so the preview and purpose cards show that result.
+    for (const purpose of LLM_PURPOSES) {
+      const override = purposeOverrides?.values[purpose.id];
+      if (!override || override.provider) continue;
+      if (override.model != null) {
+        purposeOverrides?.onChange(purpose.id, "model", null);
+      }
+      if (override.baseUrl != null) {
+        purposeOverrides?.onChange(purpose.id, "baseUrl", null);
+      }
+    }
   };
 
   const formattedKeyHint = formatSecretHint(apiKeyHint ?? null);
