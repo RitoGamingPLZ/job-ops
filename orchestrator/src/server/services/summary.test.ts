@@ -1,5 +1,8 @@
 vi.mock("./candidate-experience", () => ({
-  buildCandidateExperienceContext: vi.fn(async () => null),
+  buildCandidateTailoringContext: vi.fn(async () => ({
+    experience: null,
+    skills: null,
+  })),
 }));
 
 import type { ResumeProfile } from "@shared/types";

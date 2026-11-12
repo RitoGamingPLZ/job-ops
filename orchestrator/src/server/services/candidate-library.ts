@@ -636,7 +636,7 @@ export function syncCandidateLibrary(
       result.linked += stamped.linked;
       save(resume, stamped.doc);
     }
-    if (firstBuild) {
+    if (firstBuild && base) {
       const { tenantId, userId } = getPrivateDataScope();
       db.insert(schema.settings)
         .values({ tenantId, userId, key: FIRST_BUILD_KEY, value: "1" })
