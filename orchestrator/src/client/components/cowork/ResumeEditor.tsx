@@ -25,6 +25,7 @@ import type {
 import {
   type CSSProperties,
   Fragment,
+  type ReactNode,
   useEffect,
   useLayoutEffect,
   useReducer,
@@ -145,6 +146,59 @@ function fitSkillRow(row: HTMLDivElement | null) {
   // offsetWidth is the unscaled layout width; the paper is CSS-transformed.
   row.style.setProperty("--skill-label-w", `${label.offsetWidth}px`);
   fitTextarea(keywords);
+}
+
+type LinkInput = {
+  caption: string;
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+};
+/** Shows a link's text; clicking it opens a small card with its fields. */
+function LinkField({
+  text,
+  label,
+  fields,
+  disabled,
+  linked = true,
+  children,
+}: {
+  text: ReactNode;
+  label: string;
+  fields: LinkInput[];
+  disabled?: boolean;
+  linked?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <span className="resume-link-field">
+      <button
+        type="button"
+        className={linked ? "resume-contact-link" : undefined}
+        disabled={disabled}
+        aria-label={label}
+        title={label}
+      >
+        {text}
+      </button>
+      <span className="resume-link-editor">
+        {fields.map((field) => (
+          <Fragment key={field.label}>
+            <span aria-hidden="true">{field.caption}</span>
+            <Input
+              aria-label={field.label}
+              placeholder={field.placeholder}
+              value={field.value}
+              disabled={disabled}
+              onChange={(event) => field.onChange(event.target.value)}
+            />
+          </Fragment>
+        ))}
+        {children}
+      </span>
+    </span>
+  );
 }
 
 type Props = {
@@ -641,7 +695,7 @@ export function ResumeEditor({
       kind === "education"
         ? ["school", "period", "degree", "area"]
         : kind === "certifications"
-          ? ["title", "date", "issuer", "website"]
+          ? ["title", "date", "issuer"]
           : ["title", "description"];
     // Key labels by the field being edited, independently of its visual order.
     const fieldLabels: Record<string, string> = {
@@ -752,7 +806,43 @@ export function ResumeEditor({
                   data-focus-item={item.id}
                 >
                   {fields.map((field) => {
-                    const input = fieldInput(item, index, field);
+                    const input =
+                      kind === "certifications" && field === "title" ? (
+                        <LinkField
+                          text={String(item.title || "Certification")}
+                          label={`Edit Certifications ${index + 1} ${fieldLabels.title}`}
+                          linked={Boolean(safeUrl(item.website?.url))}
+                          disabled={disabled}
+                          fields={[
+                            {
+                              caption: "Title",
+                              label: `Certifications ${index + 1} ${fieldLabels.title}`,
+                              placeholder: "Certification",
+                              value: String(item.title ?? ""),
+                              onChange: (title) =>
+                                change((next) => {
+                                  next.sections.certifications.items[
+                                    index
+                                  ].title = title;
+                                }),
+                            },
+                            {
+                              caption: "Link",
+                              label: `Certifications ${index + 1} ${fieldLabels.website}`,
+                              placeholder: "https://…",
+                              value: item.website?.url ?? "",
+                              onChange: (url) =>
+                                change((next) => {
+                                  next.sections.certifications.items[
+                                    index
+                                  ].website = { ...item.website, url };
+                                }),
+                            },
+                          ]}
+                        />
+                      ) : (
+                        fieldInput(item, index, field)
+                      );
                     if (field === "area") return null;
                     if (field === "degree")
                       return (
@@ -772,10 +862,7 @@ export function ResumeEditor({
                         {kind === "certifications" && field === "date" && (
                           <span aria-hidden="true">-</span>
                         )}
-                        {(field === "issuer" ||
-                          field === "website" ||
-                          field === "awarder" ||
-                          (kind === "awards" && field === "date")) && (
+                        {field === "issuer" && (
                           <span aria-hidden="true">·</span>
                         )}
                         {input}
@@ -1816,46 +1903,45 @@ export function ResumeEditor({
                 className="resume-contact-item resume-row"
                 data-empty={!document.basics.website?.url}
               >
-                <button
-                  type="button"
-                  className="resume-contact-link"
-                  disabled={disabled}
-                  aria-label="Edit website link"
-                >
-                  {document.basics.website?.label ||
+                <LinkField
+                  text={
+                    document.basics.website?.label ||
                     bareUrl(document.basics.website?.url ?? "") ||
-                    "Website"}
-                </button>
-                <span className="resume-tools resume-link-editor">
-                  <Input
-                    aria-label="Website label"
-                    placeholder="Label"
-                    value={document.basics.website?.label ?? ""}
-                    onChange={(event) =>
-                      change((next) => {
-                        next.basics.website = {
-                          ...next.basics.website,
-                          label: event.target.value,
-                          url: next.basics.website?.url ?? "",
-                        };
-                      })
-                    }
-                  />
-                  <Input
-                    aria-label="Website URL"
-                    placeholder="https://…"
-                    value={document.basics.website?.url ?? ""}
-                    onChange={(event) =>
-                      change((next) => {
-                        next.basics.website = {
-                          ...next.basics.website,
-                          url: event.target.value,
-                          label: next.basics.website?.label ?? "",
-                        };
-                      })
-                    }
-                  />
-                </span>
+                    "Website"
+                  }
+                  label="Edit website link"
+                  disabled={disabled}
+                  fields={[
+                    {
+                      caption: "Label",
+                      label: "Website label",
+                      placeholder: "e.g. Portfolio",
+                      value: document.basics.website?.label ?? "",
+                      onChange: (label) =>
+                        change((next) => {
+                          next.basics.website = {
+                            ...next.basics.website,
+                            label,
+                            url: next.basics.website?.url ?? "",
+                          };
+                        }),
+                    },
+                    {
+                      caption: "Link",
+                      label: "Website URL",
+                      placeholder: "https://…",
+                      value: document.basics.website?.url ?? "",
+                      onChange: (url) =>
+                        change((next) => {
+                          next.basics.website = {
+                            ...next.basics.website,
+                            url,
+                            label: next.basics.website?.label ?? "",
+                          };
+                        }),
+                    },
+                  ]}
+                />
               </span>
               {!document.sections.profiles?.hidden &&
                 document.sections.profiles?.items
@@ -1898,37 +1984,36 @@ export function ResumeEditor({
                           });
                         }}
                       >
-                        <button
-                          type="button"
-                          className="resume-contact-link"
-                          disabled={disabled}
-                          aria-label={`Edit profile ${index + 1} link`}
-                        >
-                          {profile.website?.label ||
+                        <LinkField
+                          text={
+                            profile.website?.label ||
                             profile.network ||
                             bareUrl(profile.website?.url ?? "") ||
-                            profile.username}
-                        </button>
-                        <span className="resume-tools resume-link-editor">
-                          <Input
-                            aria-label={`Profile ${index + 1} label`}
-                            placeholder="Label"
-                            value={profile.website?.label ?? ""}
-                            onChange={(event) =>
-                              setLink("label", event.target.value)
-                            }
-                          />
-                          <Input
-                            aria-label={`Profile ${index + 1} URL`}
-                            placeholder="https://…"
-                            value={profile.website?.url ?? ""}
-                            onChange={(event) =>
-                              setLink("url", event.target.value)
-                            }
-                          />
+                            profile.username
+                          }
+                          label={`Edit profile ${index + 1} link`}
+                          disabled={disabled}
+                          fields={[
+                            {
+                              caption: "Label",
+                              label: `Profile ${index + 1} label`,
+                              placeholder: "e.g. GitHub",
+                              value: profile.website?.label ?? "",
+                              onChange: (value) => setLink("label", value),
+                            },
+                            {
+                              caption: "Link",
+                              label: `Profile ${index + 1} URL`,
+                              placeholder: "https://…",
+                              value: profile.website?.url ?? "",
+                              onChange: (value) => setLink("url", value),
+                            },
+                          ]}
+                        >
                           <Button
                             size="sm"
                             variant="ghost"
+                            className="resume-link-delete"
                             title={`Delete profile ${index + 1}`}
                             aria-label={`Delete profile ${index + 1}`}
                             onClick={() =>
@@ -1940,9 +2025,9 @@ export function ResumeEditor({
                               })
                             }
                           >
-                            ×
+                            Remove
                           </Button>
-                        </span>
+                        </LinkField>
                       </span>
                     );
                   })}

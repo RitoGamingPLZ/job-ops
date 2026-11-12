@@ -568,24 +568,15 @@ describe("navy serif document content", () => {
       section: "certifications" as const,
       name: "Certifications",
       fields: [
-        [
-          "title",
-          "certification title",
-          "Example Certificate",
-          "Certification",
-        ],
+        // Title and link are edited in the title's link card.
+        ["title", "certification title", "Example Certificate", null],
+        ["website", "website URL", "https://example.com/cert", null],
         ["date", "certification date", "2024", "Certification date"],
         [
           "issuer",
           "issuing organization",
           "Example Institute",
           "Issuing organization",
-        ],
-        [
-          "website",
-          "website URL",
-          "https://example.com/cert",
-          "https://example.com",
         ],
       ],
     },
