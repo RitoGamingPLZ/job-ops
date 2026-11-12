@@ -146,7 +146,6 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
   // Enter/leave fire for every child crossed; count them so the highlight holds.
   const dragDepth = useRef(0);
   const lastInsert = useRef<{ key: string; time: number } | null>(null);
-  const [pdfReady, setPdfReady] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -558,7 +557,6 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
         return;
       }
       setPdfUrl(url);
-      setPdfReady(true);
     } catch (failure) {
       coworkError(failure);
     } finally {
@@ -580,7 +578,6 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
         await generateJobPdf(jobId);
         await downloadJobPdf(jobId, "resume.pdf");
       }
-      setPdfReady(true);
     } catch (failure) {
       coworkError(failure);
     } finally {
@@ -615,7 +612,6 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
       setUndoStack([]);
       lastTyping.current = null;
       version.current++;
-      setPdfReady(false);
       setPdfUrl(null);
       setPreview(false);
       await load();
