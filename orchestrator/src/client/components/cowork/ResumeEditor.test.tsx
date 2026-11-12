@@ -551,9 +551,9 @@ describe("navy serif document content", () => {
       name: "Education",
       fields: [
         ["school", "school", "Example University", "School"],
+        ["period", "period (dates attended)", "2018 – 2022", "Dates attended"],
         ["degree", "degree", "BSc", "Degree"],
         ["area", "field of study", "Computing", "Field of study"],
-        ["period", "period (dates attended)", "2018 – 2022", "Dates attended"],
       ],
     },
     {

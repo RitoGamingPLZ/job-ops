@@ -485,9 +485,10 @@
   max-width: 50%;
   font-weight: var(--rs-strong-weight);
 }
+/* Second line: "degree in field of study" under the school. */
 .resume-education-degree {
   display: flex;
-  flex: 0 1 auto;
+  flex: 1 1 100%;
   align-items: baseline;
   gap: 3pt;
   min-width: 0;

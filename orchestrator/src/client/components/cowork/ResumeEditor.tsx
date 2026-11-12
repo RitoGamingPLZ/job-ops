@@ -639,7 +639,7 @@ export function ResumeEditor({
     if (!section || section.hidden) return null;
     const fields =
       kind === "education"
-        ? ["school", "degree", "area", "period"]
+        ? ["school", "period", "degree", "area"]
         : kind === "certifications"
           ? ["title", "date", "issuer", "website"]
           : ["title", "description"];
@@ -741,7 +741,6 @@ export function ResumeEditor({
                     if (field === "degree")
                       return (
                         <span key={field} className="resume-education-degree">
-                          <span aria-hidden="true">,</span>
                           {input}
                           <span className="resume-education-in">in</span>
                           {fieldInput(item, index, "area")}
