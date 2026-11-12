@@ -406,6 +406,7 @@ describe("provider adapters", () => {
             },
             skills: {
               type: "array",
+              maxItems: 100,
               items: {
                 type: "object",
                 properties: {
@@ -441,6 +442,9 @@ describe("provider adapters", () => {
     // repeating, cannot start list"); it wants a single type + `nullable`.
     expect(bestMatchIndex.type).toBe("integer");
     expect(bestMatchIndex.nullable).toBe(true);
+    // Gemini's maxItems/minItems are int64 fields; the JSON mapping for
+    // int64 is a decimal string, not a number.
+    expect(skills.maxItems).toBe("100");
     expect(responseSchema.additionalProperties).toBeUndefined();
     expect(responseSchema.propertyOrdering).toEqual([
       "bestMatchIndex",

@@ -62,6 +62,17 @@ export const geminiStrategy = createProviderStrategy({
   },
 });
 
+// Gemini's Schema proto stores these as int64; the JSON mapping for int64
+// is a decimal string, not a JSON number (e.g. "maxItems": "200").
+const GEMINI_INT64_SCHEMA_KEYS = new Set([
+  "minItems",
+  "maxItems",
+  "minLength",
+  "maxLength",
+  "minProperties",
+  "maxProperties",
+]);
+
 function toGeminiJsonSchema(schema: unknown): unknown {
   if (Array.isArray(schema)) {
     return schema.map((item) => toGeminiJsonSchema(item));
@@ -75,7 +86,10 @@ function toGeminiJsonSchema(schema: unknown): unknown {
     if (key === "additionalProperties") {
       continue;
     }
-    out[key] = toGeminiJsonSchema(value);
+    out[key] =
+      GEMINI_INT64_SCHEMA_KEYS.has(key) && typeof value === "number"
+        ? String(value)
+        : toGeminiJsonSchema(value);
   }
 
   // Gemini's responseSchema is an OpenAPI-style Schema object: `type` is a single

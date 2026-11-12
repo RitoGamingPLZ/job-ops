@@ -63,8 +63,10 @@ jobsActionsRouter.post(
   "/:id/blacklist-employer",
   async (req: Request, res: Response) => {
     try {
-      const { job, settings } = await blacklistJobEmployer(req.params.id);
-      ok(res, { job: await hydrateJobPdfFreshness(job), settings });
+      const { job, settings, hiddenCount } = await blacklistJobEmployer(
+        req.params.id,
+      );
+      ok(res, { job: await hydrateJobPdfFreshness(job), settings, hiddenCount });
     } catch (error) {
       fail(res, toJobsRouteError(error));
     }

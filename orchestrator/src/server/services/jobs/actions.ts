@@ -190,11 +190,14 @@ export async function targetJobInBackground(
 
 /**
  * Add a job's employer to the blocked-company list so future ingestion skips
- * it, and hide this job post now by skipping it (if it's still skippable).
+ * it, and hide every existing job post from that employer now by skipping
+ * every one that's still in a skippable status.
  */
-export async function blacklistJobEmployer(
-  jobId: string,
-): Promise<{ job: Job; settings: AppSettings }> {
+export async function blacklistJobEmployer(jobId: string): Promise<{
+  job: Job;
+  settings: AppSettings;
+  hiddenCount: number;
+}> {
   const job = await jobsRepo.getJobById(jobId);
   if (!job) throw notFound("Job not found");
   const employer = job.employer.trim();
@@ -208,10 +211,16 @@ export async function blacklistJobEmployer(
       blockedCompanyKeywords: [...current, employer],
     });
   }
-  const updatedJob = SKIPPABLE_STATUSES.has(job.status)
-    ? ((await jobsRepo.updateJob(jobId, { status: "skipped" })) ?? job)
-    : job;
-  return { job: updatedJob, settings: await getEffectiveSettings() };
+  const hiddenCount = await jobsRepo.skipJobsByEmployer(
+    employer,
+    Array.from(SKIPPABLE_STATUSES),
+  );
+  const updatedJob = (await jobsRepo.getJobById(jobId)) ?? job;
+  return {
+    job: updatedJob,
+    settings: await getEffectiveSettings(),
+    hiddenCount,
+  };
 }
 
 // Per-process locks, scoped exactly like the private repositories.

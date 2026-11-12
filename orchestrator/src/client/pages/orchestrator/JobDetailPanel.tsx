@@ -240,8 +240,15 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const handleBlacklistEmployer = useCallback(async () => {
     if (!selectedJob) return;
     try {
-      const { job } = await api.blacklistJobEmployer(selectedJob.id);
-      toast.success(`Won't ingest jobs from ${selectedJob.employer} anymore`);
+      const { job, hiddenCount } = await api.blacklistJobEmployer(
+        selectedJob.id,
+      );
+      toast.success(
+        `Won't ingest jobs from ${selectedJob.employer} anymore` +
+          (hiddenCount > 0
+            ? ` — hid ${hiddenCount} existing job post${hiddenCount === 1 ? "" : "s"}`
+            : ""),
+      );
       if (job.status === "skipped") handleJobMoved(selectedJob.id);
       await onJobUpdated(job);
     } catch (error) {

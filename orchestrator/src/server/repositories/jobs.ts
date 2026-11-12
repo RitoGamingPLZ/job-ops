@@ -805,6 +805,25 @@ export async function getUnscoredDiscoveredJobs(
   return rows.map(mapRowToJob);
 }
 
+/** Hide every job from this employer that's still in a skippable status (blacklisting). */
+export async function skipJobsByEmployer(
+  employer: string,
+  skippableStatuses: JobStatus[],
+): Promise<number> {
+  const result = await db
+    .update(jobs)
+    .set({ status: "skipped", updatedAt: new Date().toISOString() })
+    .where(
+      and(
+        jobsScopeFilter(),
+        sql`lower(${jobs.employer}) = lower(${employer})`,
+        inArray(jobs.status, skippableStatuses),
+      ),
+    )
+    .run();
+  return result.changes;
+}
+
 /**
  * Delete jobs by status. "Clear discovered" keeps targeted jobs; an explicit
  * delete of any other status (e.g. ready) removes them.

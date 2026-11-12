@@ -125,8 +125,8 @@ export async function untargetJob(id: string): Promise<Job> {
 
 export async function blacklistJobEmployer(
   id: string,
-): Promise<{ job: Job; settings: AppSettings }> {
-  return fetchApi<{ job: Job; settings: AppSettings }>(
+): Promise<{ job: Job; settings: AppSettings; hiddenCount: number }> {
+  return fetchApi<{ job: Job; settings: AppSettings; hiddenCount: number }>(
     `/jobs/${encodeURIComponent(id)}/blacklist-employer`,
     { method: "POST" },
   );

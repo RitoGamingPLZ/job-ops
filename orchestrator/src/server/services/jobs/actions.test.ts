@@ -16,6 +16,7 @@ vi.mock("@server/repositories/jobs", () => ({
   getJobById: vi.fn(),
   setJobTargeted: vi.fn(),
   updateJob: vi.fn(),
+  skipJobsByEmployer: vi.fn(),
 }));
 vi.mock("@server/services/settings", () => ({
   getEffectiveSettings: vi.fn(),
@@ -120,18 +121,20 @@ describe("blacklistJobEmployer", () => {
     });
   });
 
-  it("adds the employer to the blocklist and hides a skippable job", async () => {
-    vi.mocked(jobsRepo.getJobById).mockResolvedValue({
-      ...job,
-      status: "discovered",
-    });
+  it("adds the employer to the blocklist and hides every skippable job from it", async () => {
+    vi.mocked(jobsRepo.getJobById)
+      .mockResolvedValueOnce({ ...job, status: "discovered" })
+      .mockResolvedValueOnce({ ...job, status: "skipped" });
+    vi.mocked(jobsRepo.skipJobsByEmployer).mockResolvedValue(3);
     const result = await blacklistJobEmployer(job.id);
     expect(applySettingsUpdates).toHaveBeenCalledWith({
       blockedCompanyKeywords: [job.employer],
     });
-    expect(jobsRepo.updateJob).toHaveBeenCalledWith(job.id, {
-      status: "skipped",
-    });
+    expect(jobsRepo.skipJobsByEmployer).toHaveBeenCalledWith(job.employer, [
+      "discovered",
+      "ready",
+    ]);
+    expect(result.hiddenCount).toBe(3);
     expect(result.job.status).toBe("skipped");
   });
 
@@ -149,20 +152,27 @@ describe("blacklistJobEmployer", () => {
       ...job,
       status: "discovered",
     });
+    vi.mocked(jobsRepo.skipJobsByEmployer).mockResolvedValue(0);
     await blacklistJobEmployer(job.id);
     expect(applySettingsUpdates).not.toHaveBeenCalled();
+    // Hiding existing posts isn't gated on the dedup check above.
+    expect(jobsRepo.skipJobsByEmployer).toHaveBeenCalledWith(job.employer, [
+      "discovered",
+      "ready",
+    ]);
   });
 
-  it("blacklists an already-applied job without changing its status", async () => {
+  it("blacklists an already-applied job without changing its own status", async () => {
     vi.mocked(jobsRepo.getJobById).mockResolvedValue({
       ...job,
       status: "applied",
     });
+    vi.mocked(jobsRepo.skipJobsByEmployer).mockResolvedValue(0);
     const result = await blacklistJobEmployer(job.id);
     expect(applySettingsUpdates).toHaveBeenCalledWith({
       blockedCompanyKeywords: [job.employer],
     });
-    expect(jobsRepo.updateJob).not.toHaveBeenCalled();
+    expect(result.hiddenCount).toBe(0);
     expect(result.job.status).toBe("applied");
   });
 });
