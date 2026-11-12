@@ -1,5 +1,6 @@
 import { listExperienceBullets } from "@server/repositories/experience-bullets";
 import type { ExperienceBullet } from "@shared/types";
+import { candidateLibraryNeedsFirstBuild } from "./candidate-library";
 
 const compact = (value: string | null) =>
   (value ?? "").replace(/\s+/g, " ").trim();
@@ -38,83 +39,211 @@ function dateOrder(value: string | null): number {
   return Number(year[0]) * 100 + month;
 }
 
-/** Read through the private-scope repository on every call; never cache user data. */
+const dataText = (item: ExperienceBullet, key: string) =>
+  compact(typeof item.data?.[key] === "string" ? item.data[key] : null);
+
+/** Read through the private-scope repository on every call; never cache user data.
+ * Only a never-initialised, empty library permits callers to use legacy facts.
+ */
 export async function buildCandidateExperienceContext(
   maxChars = 12000,
 ): Promise<string | null> {
-  const bullets = await listExperienceBullets();
-  if (!bullets.length) return null;
-  const companies = new Map<string, Map<string, ExperienceBullet[]>>();
-  for (const bullet of bullets) {
-    const company = compact(bullet.company) || "Unspecified company";
-    const role = `${compact(bullet.role) || "Unspecified role"} (${[bullet.startDate, bullet.endDate].map(compact).filter(Boolean).join(" – ") || "dates unspecified"})`;
-    let roles = companies.get(company);
-    if (!roles) {
-      roles = new Map();
-      companies.set(company, roles);
-    }
-    const group = roles.get(role) ?? [];
-    group.push(bullet);
-    roles.set(role, group);
+  return renderCandidateExperienceContext(
+    await listExperienceBullets(true),
+    maxChars,
+  );
+}
+
+/** Tailoring already supplies skills and AI-filtered projects in separate fields. */
+export async function buildCandidateTailoringContext() {
+  const library = await listExperienceBullets(true);
+  const experience = renderCandidateExperienceContext(library, 12000, false);
+  return {
+    experience,
+    skills:
+      experience === null
+        ? null
+        : {
+            items: library
+              .filter((item) => item.kind === "skill")
+              .map((item) => ({
+                name: item.text,
+                keywords: Array.isArray(item.data?.keywords)
+                  ? item.data.keywords.filter(
+                      (value): value is string => typeof value === "string",
+                    )
+                  : [],
+              })),
+          },
+  };
+}
+
+function renderCandidateExperienceContext(
+  library: ExperienceBullet[],
+  maxChars: number,
+  includeSkillsAndProjects = true,
+): string | null {
+  if (!library.length) return candidateLibraryNeedsFirstBuild() ? null : "";
+  const budget = Math.max(0, Math.floor(maxChars));
+  const duties = library.filter((item) => item.kind === "bullet");
+  const roles = library.filter((item) => item.kind === "role");
+  const roleIds = new Set(roles.map((role) => role.id));
+  // Parent identity is authoritative, even when two roles have identical labels.
+  const groups = roles.map((role) => ({
+    company:
+      dataText(role, "company") ||
+      compact(role.company) ||
+      "Unspecified company",
+    role: compact(role.text) || "Unspecified role",
+    period:
+      dataText(role, "period") ||
+      [role.startDate, role.endDate].map(compact).filter(Boolean).join(" – "),
+    items: duties.filter((duty) => duty.parentId === role.id),
+    createdAt: role.createdAt,
+  }));
+  const legacy = new Map<string, (typeof groups)[number]>();
+  for (const duty of duties) {
+    if (duty.parentId && roleIds.has(duty.parentId)) continue;
+    // Preserve legacy unparented duties; missing parents remain distinct by id.
+    const key =
+      duty.parentId ||
+      duty.sourceExperienceId ||
+      JSON.stringify([duty.company, duty.role, duty.startDate, duty.endDate]);
+    const group: (typeof groups)[number] = legacy.get(key) ?? {
+      company: compact(duty.company) || "Unspecified company",
+      role: compact(duty.role) || "Unspecified role",
+      period: [duty.startDate, duty.endDate]
+        .map(compact)
+        .filter(Boolean)
+        .join(" – "),
+      items: [],
+      createdAt: duty.createdAt,
+    };
+    group.items.push(duty);
+    if (duty.createdAt > group.createdAt) group.createdAt = duty.createdAt;
+    legacy.set(key, group);
   }
-  const groups = [...companies]
-    .flatMap(([company, roles]) =>
-      [...roles].map(([role, items]) => ({
-        company,
-        role,
-        items,
-        newest: Math.max(
-          ...items.map(
-            (item) => dateOrder(item.endDate) || dateOrder(item.startDate),
-          ),
-        ),
-        createdAt: items.reduce(
-          (latest, item) => (item.createdAt > latest ? item.createdAt : latest),
-          "",
-        ),
-      })),
-    )
-    .sort(
-      (a, b) => b.newest - a.newest || b.createdAt.localeCompare(a.createdAt),
+  groups.push(...legacy.values());
+  const newest = (period: string) => {
+    if (/\b(present|current)\b/i.test(period)) return Number.MAX_SAFE_INTEGER;
+    // Periods contain both start and end; order by the most recent endpoint.
+    return Math.max(
+      0,
+      ...period
+        .split(/[–—]|\s+-\s+|(?<=\b\d{4})-(?=\d{4}\b)|\s+to\s+/i)
+        .map(dateOrder),
     );
+  };
+  groups.sort(
+    (a, b) =>
+      newest(b.period) - newest(a.period) ||
+      b.createdAt.localeCompare(a.createdAt),
+  );
+  const sections: string[] = [];
+  for (const [kind, heading, fields] of [
+    ["skill", "Skills", ["keywords"]],
+    ["project", "Projects", ["period"]],
+    ["education", "Education", ["school", "location", "period"]],
+    ["certification", "Certifications", ["issuer", "date"]],
+    ["award", "Awards", ["date"]],
+  ] as const) {
+    if (!includeSkillsAndProjects && (kind === "skill" || kind === "project"))
+      continue;
+    const lines = library
+      .filter((item) => item.kind === kind)
+      .map((item) => {
+        const details = fields
+          .flatMap((key) => {
+            if (key === "keywords") {
+              const values = item.data?.keywords;
+              return Array.isArray(values)
+                ? values
+                    .filter(
+                      (value): value is string => typeof value === "string",
+                    )
+                    .map(compact)
+                : [];
+            }
+            return [dataText(item, key)];
+          })
+          .filter(Boolean)
+          .join(", ");
+        const points =
+          kind === "project"
+            ? library
+                .filter(
+                  (point) =>
+                    point.kind === "project_point" &&
+                    point.parentId === item.id,
+                )
+                .map((point) => `  - ${compact(point.text)}`)
+                .join("\n")
+            : "";
+        return `- ${compact(item.text)}${details ? `: ${details}` : ""}${points ? `\n${points}` : ""}`;
+      });
+    if (lines.length) sections.push(`${heading}:\n${lines.join("\n")}`);
+  }
+  const sectionBudget = Math.floor(budget / 3);
+  const joinSections = () => sections.join("\n\n");
+  while (joinSections().length > sectionBudget && sections.length > 1)
+    sections.pop();
+  if (joinSections().length > sectionBudget)
+    sections[0] = clip(sections[0], sectionBudget);
+  const facts = joinSections();
   const render = () => {
     const counts = new Map<string, { name: string; count: number }>();
-    const sections = new Map<string, string[]>();
-    for (const group of groups) {
-      const lines = group.items.map((item) => {
-        const tags = [...new Set(item.tags.map(compact).filter(Boolean))];
-        for (const key of new Set(tags.map((tag) => tag.toLowerCase()))) {
-          const entry = counts.get(key) ?? {
-            name: tags.find((tag) => tag.toLowerCase() === key) ?? key,
-            count: 0,
-          };
-          entry.count++;
-          counts.set(key, entry);
-        }
-        return `- ${compact(item.text)}${tags.length ? ` [${tags.join(", ")}]` : ""}`;
-      });
-      const roles = sections.get(group.company) ?? [];
-      roles.push(`${group.role}\n${lines.join("\n")}`);
-      sections.set(group.company, roles);
-    }
-    const skills = [...counts.values()]
+    const experience = groups
+      .map((group) => {
+        const lines = group.items.map((item) => {
+          const tags = [...new Set(item.tags.map(compact).filter(Boolean))];
+          for (const key of new Set(tags.map((tag) => tag.toLowerCase()))) {
+            const entry = counts.get(key) ?? {
+              name: tags.find((tag) => tag.toLowerCase() === key) ?? key,
+              count: 0,
+            };
+            entry.count++;
+            counts.set(key, entry);
+          }
+          return `- ${compact(item.text)}${tags.length ? ` [${tags.join(", ")}]` : ""}`;
+        });
+        return `${group.company}\n${group.role} (${group.period || "dates unspecified"})${lines.length ? `\n${lines.join("\n")}` : ""}`;
+      })
+      .join("\n\n");
+    const tags = [...counts.values()]
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
       .map(({ name, count }) => `${name} (${count})`)
       .join(", ");
-    return `${[...sections].map(([company, roles]) => `${company}\n${roles.join("\n")}`).join("\n\n")}\n\nSkills: ${skills}`;
+    const suffixBudget = Math.max(
+      0,
+      sectionBudget - facts.length - (facts ? 2 : 0),
+    );
+    const tagSummary = clip(tags ? `Duty tags: ${tags}` : "", suffixBudget);
+    return {
+      experience,
+      suffix: [facts, tagSummary].filter(Boolean).join("\n\n"),
+    };
   };
-  let context = render();
-  while (context.length > maxChars && groups.length > 1) {
+  let rendered = render();
+  const totalLength = () =>
+    rendered.experience.length +
+    rendered.suffix.length +
+    (rendered.experience && rendered.suffix ? 2 : 0);
+  while (totalLength() > budget && groups.length > 1) {
     groups.pop();
-    context = render();
+    rendered = render();
   }
-  // A single oversized group still needs a hard bound, including its skill summary.
-  if (context.length > maxChars) {
-    const skillsStart = context.lastIndexOf("\n\nSkills:");
-    const skills = context
-      .slice(skillsStart)
-      .slice(0, Math.min(2000, Math.max(0, maxChars - 1)));
-    context = `${context.slice(0, maxChars - skills.length - 1)}…${skills}`;
-  }
-  return context;
+  const experienceBudget = Math.max(
+    0,
+    budget -
+      rendered.suffix.length -
+      (rendered.experience && rendered.suffix ? 2 : 0),
+  );
+  return [clip(rendered.experience, experienceBudget), rendered.suffix]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function clip(value: string, budget: number): string {
+  if (value.length <= budget) return value;
+  return budget > 0 ? `${value.slice(0, budget - 1)}…` : "";
 }

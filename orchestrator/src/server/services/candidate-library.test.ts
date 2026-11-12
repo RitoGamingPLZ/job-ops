@@ -844,3 +844,41 @@ it("sync imports missing base contacts into existing libraries without editing o
     ).toHaveLength(0);
   });
 });
+
+it("leaves first build pending without a base so a later sync imports it", async () => {
+  document.sections.experience.items = [
+    {
+      id: "later-base",
+      hidden: false,
+      company: "Later employer",
+      position: "Engineer",
+      period: "2024 – Present",
+      location: "",
+      website: { url: "", label: "" },
+      description: "<ul><li>Later imported duty</li></ul>",
+      roles: [],
+    },
+  ];
+  await scope("tenant-a", async () => {
+    api.syncCandidateLibrary();
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(true);
+    const { listExperienceBullets } = await import(
+      "../repositories/experience-bullets"
+    );
+    expect(await listExperienceBullets(true)).toEqual([]);
+    api.syncCandidateLibrary(document);
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(false);
+    expect(await listExperienceBullets(true)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "role", text: "Engineer" }),
+        expect.objectContaining({
+          kind: "bullet",
+          text: "Later imported duty",
+        }),
+      ]),
+    );
+  });
+  scope("tenant-b", () =>
+    expect(api.candidateLibraryNeedsFirstBuild()).toBe(true),
+  );
+});

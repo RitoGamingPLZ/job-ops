@@ -10,9 +10,12 @@ const mocks = vi.hoisted(() => ({
   callJson: vi.fn(),
   experience: vi.fn(),
   getJob: vi.fn(),
+  tailoring: vi.fn(),
+  filterProjects: vi.fn(),
 }));
 vi.mock("./candidate-experience", () => ({
   buildCandidateExperienceContext: mocks.experience,
+  buildCandidateTailoringContext: mocks.tailoring,
 }));
 vi.mock("./modelSelection", () => ({
   createConfiguredLlmService: async () => ({ callJson: mocks.callJson }),
@@ -33,7 +36,7 @@ vi.mock("./settings", () => ({
   }),
 }));
 vi.mock("./resumeProjects", () => ({
-  filterProfileProjectsForAi: async (profile: unknown) => profile,
+  filterProfileProjectsForAi: mocks.filterProjects,
 }));
 vi.mock("../repositories/jobs", () => ({ getJobById: mocks.getJob }));
 vi.mock("./writing-style", () => ({
@@ -87,6 +90,13 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-11-09T12:00:00Z"));
   mocks.experience.mockResolvedValue(null);
+  mocks.tailoring.mockImplementation(async () => ({
+    experience: await mocks.experience(),
+    skills: null,
+  }));
+  mocks.filterProjects.mockImplementation(
+    async (profile: ResumeProfile) => profile,
+  );
   mocks.getJob.mockResolvedValue(job);
   mocks.callJson.mockResolvedValue({
     success: true,
@@ -137,5 +147,61 @@ it("replaces experience in existing profile fields and includes it in project se
     expect(text).toContain("LIBRARY_DUTY");
     expect(text).not.toContain("LEGACY_DUTY");
   }
+  vi.useRealTimers();
+});
+
+it("uses library skills once and only AI-filtered profile projects for tailoring", async () => {
+  mocks.tailoring.mockResolvedValue({
+    experience: "LibraryEmployer\nLead\nLIBRARY_DUTY",
+    skills: { items: [{ name: "Languages", keywords: ["Rust"] }] },
+  });
+  mocks.filterProjects.mockImplementation(async (profile: ResumeProfile) => ({
+    ...profile,
+    sections: {
+      ...profile.sections,
+      projects: {
+        items: [{ name: "Allowed project", description: "Included" }],
+      },
+    },
+  }));
+  await generateTailoring("Build APIs", {
+    ...profile,
+    sections: {
+      ...profile.sections,
+      skills: { items: [{ name: "Legacy", keywords: ["Java"] }] },
+      projects: { items: [{ name: "Old project" }] },
+    },
+  } as ResumeProfile);
+  const text = JSON.stringify(mocks.callJson.mock.calls.at(-1)?.[0].messages);
+  for (const fact of ["Rust", "Allowed project", "LIBRARY_DUTY"])
+    expect(text).toContain(fact);
+  for (const fact of ["Java", "Old project", "LEGACY_DUTY"])
+    expect(text).not.toContain(fact);
+  expect(text.match(/Rust/g)).toHaveLength(1);
+  expect(text.match(/Allowed project/g)).toHaveLength(1);
+  expect(mocks.tailoring).toHaveBeenCalledTimes(1);
+  vi.useRealTimers();
+});
+it("does not resurrect cleared skills or experience, retaining filtered profile projects", async () => {
+  mocks.experience.mockResolvedValue("");
+  mocks.tailoring.mockResolvedValue({ experience: "", skills: { items: [] } });
+  const output = await prompts();
+  for (const value of Object.values(output))
+    expect(
+      typeof value === "string" ? value : JSON.stringify(value),
+    ).not.toContain("LEGACY_DUTY");
+  expect(output.ghostwriter).not.toContain("Experience:");
+  await generateTailoring("Build APIs", {
+    ...profile,
+    sections: {
+      ...profile.sections,
+      skills: { items: [{ name: "Languages", keywords: ["Java"] }] },
+      projects: { items: [{ name: "Allowed project" }] },
+    },
+  } as ResumeProfile);
+  const text = JSON.stringify(mocks.callJson.mock.calls.at(-1)?.[0].messages);
+  expect(text).not.toContain("Java");
+  expect(text).not.toContain("LEGACY_DUTY");
+  expect(text).toContain("Allowed project");
   vi.useRealTimers();
 });
