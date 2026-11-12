@@ -1,4 +1,5 @@
 import { rmSync } from "node:fs";
+import { suggestionProviderJsonSchema } from "@shared/resume-suggestion-schema";
 import type { JobChatMessage, ReactiveResumeV5Document } from "@shared/types";
 import {
   afterAll,
@@ -328,6 +329,12 @@ describe("ghostwriter service", () => {
     const document =
       buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
     const cowork = { document, referencedBulletIds: [] };
+    const unusedFields = Object.fromEntries(
+      Object.keys(suggestionProviderJsonSchema.properties).map((key) => [
+        key,
+        null,
+      ]),
+    );
     mocks.repo.createMessage.mockResolvedValue(baseAssistantMessage);
     mocks.repo.updateMessage.mockImplementation(async (_id, update) => ({
       ...baseAssistantMessage,
@@ -338,10 +345,20 @@ describe("ghostwriter service", () => {
       data: {
         response: "Suggested headline",
         suggestions: [
-          { op: "replace_headline", text: "Engineer", reason: "Focus" },
           {
+            ...unusedFields,
+            op: "replace_headline",
+            previousText: document.basics.headline,
+            text: "Engineer",
+            reason: "Focus",
+          },
+          {
+            ...unusedFields,
             op: "replace_bullet",
-            experienceId: "unknown",
+            section: "experience",
+            itemId: "unknown",
+            bulletIndex: 0,
+            previousText: "Existing bullet",
             text: "invented",
             reason: "bad",
           },
@@ -371,6 +388,7 @@ describe("ghostwriter service", () => {
           expect.objectContaining({
             id: expect.any(String),
             op: "replace_headline",
+            previousText: document.basics.headline,
             text: "Engineer",
           }),
         ],

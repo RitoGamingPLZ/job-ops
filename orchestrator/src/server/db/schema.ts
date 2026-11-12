@@ -21,7 +21,7 @@ import {
   POST_APPLICATION_RELEVANCE_DECISIONS,
   POST_APPLICATION_SYNC_RUN_STATUSES,
   type ReactiveResumeV5Document,
-  type ResumeSuggestion,
+  type ResumeSuggestionV2,
   SSO_PROVIDERS,
 } from "@shared/types";
 import { sql } from "drizzle-orm";
@@ -517,7 +517,7 @@ export const jobChatMessages = sqliteTable(
     activeChildId: text("active_child_id"),
     attachments: text("attachments").notNull().default("[]"),
     suggestions: text("suggestions", { mode: "json" }).$type<
-      ResumeSuggestion[]
+      ResumeSuggestionV2[]
     >(),
     createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
     updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),

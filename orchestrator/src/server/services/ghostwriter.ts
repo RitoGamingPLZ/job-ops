@@ -783,7 +783,7 @@ async function runAssistantReply(
       allowCliProviders: llmConfig.allowCliProviders,
     });
 
-    const library = options.cowork ? await listExperienceBullets() : [];
+    const library = options.cowork ? await listExperienceBullets(true) : [];
     const coworkJob = options.cowork
       ? await jobsRepo.getJobById(options.jobId)
       : null;
