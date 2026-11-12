@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { parseLibraryData } from "./candidate-library-schema";
+import { CANDIDATE_ITEM_KINDS, type CandidateItemKind } from "./types/cowork";
 import type { ResumeSuggestionV2 } from "./types/resume-suggestions";
 
 const id = z.string().trim().min(1).max(200);
 const text = z.string().max(10000);
+const newText = z.string().trim().min(1).max(10000);
 const index = z.number().int().nonnegative();
 const sections = [
   "experience",
@@ -23,17 +25,9 @@ const metadata = { id, reason: z.string().trim().min(1).max(2000) };
 const keywords = z.array(z.string().max(200)).max(100);
 const libraryCreate = z
   .object({
-    kind: z.enum([
-      "contact",
-      "role",
-      "bullet",
-      "project",
-      "project_point",
-      "skill",
-      "education",
-      "award",
-      "certification",
-    ]),
+    kind: z.enum(
+      CANDIDATE_ITEM_KINDS as [CandidateItemKind, ...CandidateItemKind[]],
+    ),
     text: z.string().trim().min(1).max(10000),
     parentId: id.nullable().optional(),
     company: z.string().max(500).nullable().optional(),
@@ -44,6 +38,27 @@ const libraryCreate = z
   })
   .strict()
   .superRefine((item, ctx) => {
+    if (item.kind === "contact") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["kind"],
+        message: "Suggestions cannot create contacts",
+      });
+    }
+    const child = item.kind === "bullet" || item.kind === "project_point";
+    if (child && !item.parentId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["parentId"],
+        message: "Child library items require a parent",
+      });
+    } else if (!child && item.parentId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["parentId"],
+        message: "This library kind cannot have a parent",
+      });
+    }
     try {
       parseLibraryData(item.kind, item.data);
     } catch {
@@ -66,15 +81,77 @@ const saveTarget = z.discriminatedUnion("kind", [
     .object({ kind: z.literal("entry"), section, itemId: id, libraryId: id })
     .strict(),
 ]);
+// Arbitrary entry records still have a bounded, identity-free JSON payload.
+const maxEntrySize = 100000; // serialized JSON characters
 const entryItem = z.record(z.unknown()).superRefine((item, ctx) => {
-  for (const key of ["id", "libraryId", "bulletRefs"]) {
-    if (Object.hasOwn(item, key)) {
+  const pending: { value: unknown; depth: number }[] = [
+    { value: item, depth: 0 },
+  ];
+  const seen = new Set<object>();
+  let nodes = 0;
+  while (pending.length) {
+    const next = pending.pop();
+    if (!next) break;
+    const { value, depth } = next;
+    if (++nodes > 2000 || depth > 8) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: [key],
-        message: `Entry must not supply ${key}`,
+        message: "Entry exceeds size or depth limits",
       });
+      return;
     }
+    if (typeof value === "string") {
+      if (value.length > 10000) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Entry strings must not exceed 10000 characters",
+        });
+        return;
+      }
+    } else if (value !== null && typeof value === "object") {
+      if (seen.has(value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Entry must be acyclic JSON",
+        });
+        return;
+      }
+      seen.add(value);
+      const entries = Object.entries(value);
+      if (entries.length > 200) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Entry collections must not exceed 200 values",
+        });
+        return;
+      }
+      for (const [key, child] of entries) {
+        if (["id", "libraryId", "bulletRefs"].includes(key)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Entry must not supply ${key} at any depth`,
+          });
+          return;
+        }
+        pending.push({ value: child, depth: depth + 1 });
+      }
+    } else if (
+      value !== null &&
+      typeof value !== "boolean" &&
+      !(typeof value === "number" && Number.isFinite(value))
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Entry must contain JSON values",
+      });
+      return;
+    }
+  }
+  if (JSON.stringify(item).length > maxEntrySize) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Entry JSON must not exceed 100000 characters",
+    });
   }
 });
 
@@ -134,7 +211,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
       ...metadata,
       op: z.literal("replace_bullet"),
       ...lineTarget,
-      text,
+      text: newText,
     })
     .strict(),
   z
@@ -146,7 +223,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
       op: z.literal("insert_bullet"),
       ...lineParent,
       bulletIndex: index,
-      text,
+      text: newText,
       libraryId: id.optional(),
       sourceBulletIds: z.array(id).max(80).optional(),
     })
@@ -174,7 +251,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
       ...metadata,
       op: z.literal("replace_headline"),
       previousText: text,
-      text,
+      text: newText,
     })
     .strict(),
   z
@@ -182,7 +259,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
       ...metadata,
       op: z.literal("replace_summary"),
       previousText: text,
-      text,
+      text: newText,
     })
     .strict(),
   z
@@ -265,6 +342,16 @@ export function decodeStoredSuggestion(
   }
 }
 
+/** Pick the chosen operation's keys, ignoring unused provider envelope fields. */
+function pickProviderKeys(raw: unknown, keys: string[]): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  return Object.fromEntries(
+    Object.entries(raw).filter(
+      ([key, value]) => keys.includes(key) && value !== null,
+    ),
+  );
+}
+
 /** Lower the provider-only envelope without changing nulls inside item data. */
 export function decodeProviderSuggestion(
   raw: unknown,
@@ -272,29 +359,42 @@ export function decodeProviderSuggestion(
 ): ResumeSuggestionV2 | null {
   try {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-    const envelope = Object.fromEntries(
-      Object.entries(raw).filter(([, value]) => value !== null),
+    const envelope = raw as Record<string, unknown>;
+    const member = resumeSuggestionV2Schema.options.find(
+      (option) => option.shape.op.value === envelope.op,
     );
+    if (!member) return null;
+    const candidate = pickProviderKeys(
+      envelope,
+      Object.keys(member.shape),
+    ) as Record<string, unknown>;
     if (envelope.op === "create_library_item" || envelope.op === "add_entry") {
-      if (typeof envelope.itemJson !== "string" || "item" in envelope)
+      if (typeof envelope.itemJson !== "string") return null;
+      if (
+        envelope.op === "add_entry" &&
+        envelope.itemJson.length > maxEntrySize
+      )
         return null;
-      envelope.item = JSON.parse(envelope.itemJson);
-    } else if ("itemJson" in envelope) {
-      return null;
+      candidate.item = JSON.parse(envelope.itemJson);
     }
-    delete envelope.itemJson;
     if (
-      envelope.op === "save_to_library" &&
-      envelope.target &&
-      typeof envelope.target === "object" &&
-      !Array.isArray(envelope.target)
+      candidate.op === "save_to_library" &&
+      candidate.target &&
+      typeof candidate.target === "object" &&
+      !Array.isArray(candidate.target)
     ) {
-      envelope.target = Object.fromEntries(
-        Object.entries(envelope.target).filter(([, value]) => value !== null),
+      const target = candidate.target as Record<string, unknown>;
+      const targetMember = saveTarget.options.find(
+        (option) => option.shape.kind.value === target.kind,
+      );
+      if (!targetMember) return null;
+      candidate.target = pickProviderKeys(
+        target,
+        Object.keys(targetMember.shape),
       );
     }
     const result = resumeSuggestionV2Schema.safeParse({
-      ...envelope,
+      ...candidate,
       id: suggestionId,
     });
     return result.success ? result.data : null;
@@ -319,11 +419,11 @@ const array = (items: Record<string, unknown>) => ({
 });
 /**
  * Strict provider envelope, embedded as suggestions.items in the chat response.
- * Every key is required; unused keys are null. The server assigns id, drops null
+ * Every key is required; unused keys are null. The server assigns id, ignores unused
  * envelope keys, JSON.parse's itemJson into item (for create_library_item and
  * add_entry), then validates with resumeSuggestionV2Schema. JSON encoding keeps
  * arbitrary entry/data records out of strict providers' closed object schemas.
- * save_to_library uses target.kind to choose and remove its unused null keys.
+ * save_to_library uses target.kind to choose and remove its unused keys.
  */
 export const suggestionProviderJsonSchema = object({
   op: {
@@ -334,7 +434,11 @@ export const suggestionProviderJsonSchema = object({
   },
   reason: string,
   libraryId: nullableString,
-  section: { type: ["string", "null"], enum: [...sections, null] },
+  section: {
+    ...nullableString,
+    description:
+      "Entry section: experience, education, projects, skills, awards, certifications; null when unused.",
+  },
   itemId: nullableString,
   bulletIndex: { type: ["integer", "null"] },
   previousText: nullableString,
@@ -364,7 +468,11 @@ export const suggestionProviderJsonSchema = object({
     {
       kind: { type: "string", enum: ["line", "entry"] },
       libraryId: string,
-      section: { type: ["string", "null"], enum: [...sections, null] },
+      section: {
+        ...nullableString,
+        description:
+          "Entry section: experience, education, projects, skills, awards, certifications; null when unused.",
+      },
       itemId: nullableString,
       target: object(
         {
