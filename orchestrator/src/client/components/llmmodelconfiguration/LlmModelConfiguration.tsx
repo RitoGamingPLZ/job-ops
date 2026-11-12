@@ -214,15 +214,36 @@ export function LlmModelConfiguration({
   const resolvedBaseUrl = baseUrl.value.trim() || savedBaseUrl || "-";
   const selectedDefaultModel = model.value.trim();
   const previewDefaultModel =
-    selectedDefaultModel || effectiveModel || providerDefaultModel || "-";
+    selectedDefaultModel ||
+    (!purposeOverrides ? effectiveModel : null) ||
+    providerDefaultModel ||
+    "-";
   const selectedScoringModel = modelScorer?.value.trim() ?? "";
   const selectedTailoringModel = modelTailoring?.value.trim() ?? "";
   const selectedProjectSelectionModel =
     modelProjectSelection?.value.trim() ?? "";
-  const scoringModel = selectedScoringModel || previewDefaultModel;
-  const tailoringModel = selectedTailoringModel || previewDefaultModel;
-  const projectSelectionModel =
-    selectedProjectSelectionModel || previewDefaultModel;
+  const previewPurpose = (purpose: LlmPurpose, legacyModel: string) => {
+    const value = purposeOverrides?.values[purpose];
+    const purposeProvider = value?.provider?.trim() || selectedProvider;
+    const purposeModel = purposeOverrides ? value?.model?.trim() : legacyModel;
+    return {
+      provider: purposeProvider,
+      model:
+        purposeModel ||
+        (purposeProvider !== selectedProvider
+          ? getDefaultModelForProvider(purposeProvider)
+          : previewDefaultModel),
+    };
+  };
+  const scoring = previewPurpose("scoring", selectedScoringModel);
+  const tailoring = previewPurpose("tailoring", selectedTailoringModel);
+  const projectSelection = previewPurpose(
+    "projectSelection",
+    selectedProjectSelectionModel,
+  );
+  const scoringModel = scoring.model;
+  const tailoringModel = tailoring.model;
+  const projectSelectionModel = projectSelection.model;
   const modelHelper: React.ReactNode = supportsModelSuggestions ? (
     !hasAvailableApiKey ? (
       `Add or save a ${providerConfig.label} API key to load available models.`
@@ -444,7 +465,7 @@ export function LlmModelConfiguration({
                           apiKeyHint={
                             purposeOverrides.apiKeyHints[purpose.id] ?? null
                           }
-                          currentModel={purposeOverrides.models[purpose.id]}
+                          currentModel={previewPurpose(purpose.id, "").model}
                           disabled={disabled}
                           onChange={purposeOverrides.onChange}
                           onApiKeyChange={purposeOverrides.onApiKeyChange}
@@ -497,7 +518,9 @@ export function LlmModelConfiguration({
           </div>
 
           <div className="space-y-3 text-sm">
-            <div className="text-xs text-muted-foreground">Resolved config</div>
+            <div className="text-xs text-muted-foreground">
+              Configuration preview
+            </div>
             <div className="grid gap-x-4 gap-y-2 text-xs sm:grid-cols-[160px_1fr]">
               <div className="text-muted-foreground">Provider</div>
               <div className="font-mono">{selectedProvider || "-"}</div>
@@ -511,19 +534,26 @@ export function LlmModelConfiguration({
               <div className="text-muted-foreground">Default model</div>
               <div className="font-mono">{previewDefaultModel}</div>
 
+              <div className="text-muted-foreground">Scoring provider</div>
+              <div className="font-mono">{scoring.provider || "-"}</div>
+
               <div className="text-muted-foreground">Scoring model</div>
               <div className="font-mono">
-                {selectedScoringModel ? scoringModel : "inherits"}
+                {purposeOverrides || selectedScoringModel
+                  ? scoringModel
+                  : "inherits"}
               </div>
 
               <div className="text-muted-foreground">Tailoring model</div>
               <div className="font-mono">
-                {selectedTailoringModel ? tailoringModel : "inherits"}
+                {purposeOverrides || selectedTailoringModel
+                  ? tailoringModel
+                  : "inherits"}
               </div>
 
               <div className="text-muted-foreground">Project selection</div>
               <div className="font-mono">
-                {selectedProjectSelectionModel
+                {purposeOverrides || selectedProjectSelectionModel
                   ? projectSelectionModel
                   : "inherits"}
               </div>

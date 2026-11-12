@@ -164,17 +164,18 @@ async function resolveHostedLlmRuntimeSettings(
   const purposeOverride = isLlmPurpose(purpose)
     ? purposeOverrides[purpose]
     : undefined;
-  const selectedProvider =
-    purposeOverride?.provider ??
-    settingsRegistry.llmProvider.parse(overrides.llmProvider) ??
-    "openrouter";
+  const defaultProvider =
+    settingsRegistry.llmProvider.parse(overrides.llmProvider) ?? "openrouter";
+  const selectedProvider = purposeOverride?.provider ?? defaultProvider;
   const provider =
     isCliProvider(selectedProvider) || isHostedLocalProvider(selectedProvider)
       ? "openrouter"
       : selectedProvider;
   const defaultModel =
-    settingsRegistry.model.parse(overrides.model) ??
-    getDefaultModelForProvider(provider);
+    provider !== defaultProvider
+      ? getDefaultModelForProvider(provider)
+      : (settingsRegistry.model.parse(overrides.model) ??
+        getDefaultModelForProvider(provider));
   const purposeModelKey = isLlmPurpose(purpose)
     ? MODEL_KEY_BY_PURPOSE[purpose]
     : null;
