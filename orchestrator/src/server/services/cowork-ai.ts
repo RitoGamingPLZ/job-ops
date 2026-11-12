@@ -427,20 +427,27 @@ async function rankExperienceBulletsImpl(
     .sort((a, b) => b.score - a.score);
 }
 
-export function selectLibraryBullets(
-  library: ExperienceBullet[],
+/** Score duty text and tags against job-description terms. */
+export function libraryBulletOverlap(
   jobDescription: string,
-  limit: number,
-): ExperienceBullet[] {
+): (bullet: ExperienceBullet) => number {
   const terms = new Set(
     jobDescription.toLowerCase().match(/[a-z0-9+#]+/g) ?? [],
   );
-  const overlap = (bullet: ExperienceBullet) =>
+  return (bullet: ExperienceBullet) =>
     (
       `${bullet.text} ${bullet.tags.join(" ")}`
         .toLowerCase()
         .match(/[a-z0-9+#]+/g) ?? []
     ).filter((term) => terms.has(term)).length;
+}
+
+export function selectLibraryBullets(
+  library: ExperienceBullet[],
+  jobDescription: string,
+  limit: number,
+): ExperienceBullet[] {
+  const overlap = libraryBulletOverlap(jobDescription);
   return library.length <= limit
     ? library
     : [...library].sort((a, b) => overlap(b) - overlap(a)).slice(0, limit);

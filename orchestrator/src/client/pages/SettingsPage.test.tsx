@@ -1305,6 +1305,49 @@ describe("SettingsPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("saves a custom resume generation template", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+    vi.mocked(api.updateSettings).mockResolvedValue(baseSettings);
+    renderPage();
+    await openPromptTemplatesSection();
+    fireEvent.change(screen.getByLabelText(/resume generation prompt/i), {
+      target: { value: "Custom library selection instructions" },
+    });
+    const saveButton = getSaveButton();
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    fireEvent.click(saveButton);
+    await waitFor(() =>
+      expect(api.updateSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resumeGenerationPromptTemplate:
+            "Custom library selection instructions",
+        }),
+      ),
+    );
+  });
+  it("resets the resume generation template to its default without storing an override", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(
+      createAppSettings({
+        resumeGenerationPromptTemplate: {
+          value: "Custom selection",
+          default: getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
+          override: "Custom selection",
+        },
+      }),
+    );
+    vi.mocked(api.updateSettings).mockResolvedValue(baseSettings);
+    renderPage();
+    await openPromptTemplatesSection();
+    fireEvent.click(screen.getByRole("button", { name: /reset all prompts/i }));
+    const saveButton = getSaveButton();
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    fireEvent.click(saveButton);
+    await waitFor(() =>
+      expect(api.updateSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ resumeGenerationPromptTemplate: null }),
+      ),
+    );
+  });
   it("serializes prompt templates back to null when reset to defaults", async () => {
     vi.mocked(api.getSettings).mockResolvedValue(
       createAppSettings({

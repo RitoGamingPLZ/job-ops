@@ -10,6 +10,7 @@ const PromptTemplatesHarness = () => {
   const methods = useForm<UpdateSettingsInput>({
     defaultValues: {
       ghostwriterSystemPromptTemplate: "Custom Ghostwriter",
+      resumeGenerationPromptTemplate: "Custom Generation",
       tailoringPromptTemplate: "Custom Tailoring",
       scoringPromptTemplate: "Custom Scoring",
     },
@@ -24,6 +25,12 @@ const PromptTemplatesHarness = () => {
               effective: "Custom Ghostwriter",
               default: getDefaultPromptTemplate(
                 "ghostwriterSystemPromptTemplate",
+              ),
+            },
+            resumeGenerationPromptTemplate: {
+              effective: "Custom Generation",
+              default: getDefaultPromptTemplate(
+                "resumeGenerationPromptTemplate",
               ),
             },
             tailoringPromptTemplate: {
@@ -50,6 +57,9 @@ describe("PromptTemplatesSection", () => {
     expect(
       screen.getByText(/changing these templates can degrade/i),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("None — job and library data are attached as JSON"),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("{{tone}}").length).toBeGreaterThan(0);
     expect(screen.getAllByText("{{profileJson}}").length).toBeGreaterThan(0);
     expect(
@@ -74,6 +84,9 @@ describe("PromptTemplatesSection", () => {
 
     expect(screen.getByLabelText(/ghostwriter system prompt/i)).toHaveValue(
       getDefaultPromptTemplate("ghostwriterSystemPromptTemplate"),
+    );
+    expect(screen.getByLabelText(/resume generation prompt/i)).toHaveValue(
+      getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
     );
     expect(screen.getByLabelText(/resume tailoring prompt/i)).toHaveValue(
       getDefaultPromptTemplate("tailoringPromptTemplate"),

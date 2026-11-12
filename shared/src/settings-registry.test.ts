@@ -105,6 +105,9 @@ describe("settingsRegistry helpers", () => {
       expect(settingsRegistry.ghostwriterSystemPromptTemplate.default()).toBe(
         getDefaultPromptTemplate("ghostwriterSystemPromptTemplate"),
       );
+      expect(settingsRegistry.resumeGenerationPromptTemplate.default()).toBe(
+        getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
+      );
       expect(settingsRegistry.tailoringPromptTemplate.default()).toBe(
         getDefaultPromptTemplate("tailoringPromptTemplate"),
       );
