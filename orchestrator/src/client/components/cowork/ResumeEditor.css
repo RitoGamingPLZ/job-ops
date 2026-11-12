@@ -52,6 +52,13 @@
   outline: none;
   resize: none;
 }
+/* A linked field edited away from its library item: same amber as a reworded line (rewordTint.ts). */
+.resume-paper [data-library-changed],
+.resume-paper input[data-library-changed]:not([type="checkbox"]),
+.resume-paper textarea[data-library-changed],
+.resume-paper .resume-link-field > button[data-library-changed] {
+  background: rgb(254 243 199 / 0.7);
+}
 .resume-paper input:not([type="checkbox"]):hover,
 .resume-paper textarea:hover {
   outline: 1px solid #d7dce1;

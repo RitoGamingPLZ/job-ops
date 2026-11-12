@@ -6,6 +6,7 @@ import {
   splitDescription,
 } from "@shared/resume-bullets";
 import {
+  changedLibraryFields,
   getItemLines,
   type ResumeLine,
   removeFromResume,
@@ -172,6 +173,7 @@ function LinkField({
   fields,
   disabled,
   linked = true,
+  changed,
   children,
 }: {
   text: ReactNode;
@@ -179,6 +181,8 @@ function LinkField({
   fields: LinkInput[];
   disabled?: boolean;
   linked?: boolean;
+  /** Attributes from changedProps(): tint a field edited away from the library. */
+  changed?: { title: string };
   children?: ReactNode;
 }) {
   return (
@@ -189,6 +193,7 @@ function LinkField({
         disabled={disabled}
         aria-label={label}
         title={label}
+        {...changed}
       >
         {text}
       </button>
@@ -547,6 +552,21 @@ export function ResumeEditor({
       </>
     );
   }
+  /** Title (plus tint) for a linked entry field edited away from its library item. */
+  function changedProps(
+    item: Record<string, unknown>,
+    fields: string[],
+    label: string,
+  ) {
+    const changed = changedLibraryFields(item, library);
+    const values = fields.filter((field) => field in changed);
+    return values.length
+      ? {
+          title: `${label} — library: ${values.map((field) => changed[field] || "(empty)").join(" · ")}`,
+          "data-library-changed": "",
+        }
+      : { title: label };
+  }
   function lineAppearance(line: ResumeLine) {
     const original = library.find((item) => item.id === line.ref);
     return original && !sameLineText(line.text, original.text)
@@ -807,7 +827,7 @@ export function ResumeEditor({
         return (
           <textarea
             rows={1}
-            title={label}
+            {...changedProps(item, [field], label)}
             aria-label={label}
             placeholder="Description"
             className="resume-field-description"
@@ -830,7 +850,7 @@ export function ResumeEditor({
         );
       return (
         <Input
-          title={label}
+          {...changedProps(item, [field], label)}
           aria-label={label}
           className={`resume-field-${field}`}
           value={
@@ -898,6 +918,11 @@ export function ResumeEditor({
                           text={String(item.title || "Certification")}
                           label={`Edit Certifications ${index + 1} ${fieldLabels.title}`}
                           linked={Boolean(safeUrl(item.website?.url))}
+                          changed={changedProps(
+                            item,
+                            ["title", "website"],
+                            `Edit Certifications ${index + 1} ${fieldLabels.title}`,
+                          )}
                           disabled={disabled}
                           fields={[
                             {
@@ -1100,9 +1125,12 @@ export function ResumeEditor({
                         <span className="resume-skill-name-box">
                           <span aria-hidden="true">{skill.name}</span>
                           <Input
-                            title={`Skill ${index + 1} name`}
+                            {...changedProps(
+                              skill,
+                              ["name"],
+                              `Skill ${index + 1} name`,
+                            )}
                             aria-label={`Skill ${index + 1} name`}
-                            readOnly={isLinked(skill.libraryId)}
                             className="resume-skill-name"
                             value={skill.name}
                             onChange={(e) =>
@@ -1267,9 +1295,12 @@ export function ResumeEditor({
                     )}
                     <Input
                       className="resume-position"
-                      title={`${name} position`}
+                      {...changedProps(
+                        experience,
+                        ["position"],
+                        `${name} position`,
+                      )}
                       aria-label={`${name} position`}
-                      readOnly={isLinked(experience.libraryId)}
                       value={experience.position ?? ""}
                       placeholder="Position"
                       onChange={(event) =>
@@ -1296,9 +1327,12 @@ export function ResumeEditor({
                                 <span aria-hidden="true">-</span>
                               )}
                               <Input
-                                title={`${name} ${field === "period" ? "dates" : field}`}
+                                {...changedProps(
+                                  experience,
+                                  [field],
+                                  `${name} ${field === "period" ? "dates" : field}`,
+                                )}
                                 aria-label={`${name} ${field === "period" ? "dates" : field}`}
-                                readOnly={isLinked(experience.libraryId)}
                                 value={experience[field] ?? ""}
                                 placeholder={placeholder}
                                 // Width fallback where CSS field-sizing is unsupported (Firefox, Safari).
@@ -1625,11 +1659,26 @@ export function ResumeEditor({
                           label: `Projects › ${project.name}`,
                         })}
                       >
-                        <a href={safeUrl(project.website?.url)}>
+                        <a
+                          href={safeUrl(project.website?.url)}
+                          {...changedProps(
+                            project,
+                            ["name", "website"],
+                            String(project.name ?? ""),
+                          )}
+                        >
                           {project.name}
                         </a>
                       </h3>
-                      <span>{project.period}</span>
+                      <span
+                        {...changedProps(
+                          project,
+                          ["period"],
+                          String(project.period ?? ""),
+                        )}
+                      >
+                        {project.period}
+                      </span>
                     </div>
                     <div className="resume-tools">
                       {askAi({

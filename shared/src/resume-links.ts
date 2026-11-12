@@ -355,6 +355,34 @@ export function libraryItemToResumeItem(item: ExperienceBullet): ResumeItem {
   }
 }
 
+/**
+ * Fields of a linked top-level item that differ from its library item, as
+ * field → library value ("website" compares the URL). Like a reworded line,
+ * this is derived, not stored. Skill keywords are a per-resume pick: ignored.
+ */
+export function changedLibraryFields(
+  item: ResumeItem,
+  library: readonly ExperienceBullet[],
+): Record<string, string> {
+  const source = library.find((entry) => entry.id === item.libraryId);
+  if (!source || !KIND_SECTION[source.kind]) return {};
+  const changed: Record<string, string> = {};
+  for (const [field, value] of Object.entries(fields(source))) {
+    const plain = (v: unknown) =>
+      field === "description" ? htmlToPlainText(string(v)) : string(v);
+    const [mine, theirs] =
+      field === "website"
+        ? [
+            (item.website as { url?: unknown } | undefined)?.url,
+            (value as { url: string }).url,
+          ]
+        : [item[field], value];
+    if (!sameLineText(plain(mine), plain(theirs)))
+      changed[field] = plain(theirs);
+  }
+  return changed;
+}
+
 // Copy only changed paths; this also visits linked items in custom sections.
 function mapItems(
   doc: ResumeDoc,

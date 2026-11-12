@@ -7,6 +7,7 @@ import {
 import {
   addToResume,
   applyLibraryUpdate,
+  changedLibraryFields,
   getItemLines,
   isContactOnResume,
   isOnResume,
@@ -719,19 +720,33 @@ export function CandidateLibrary({
                 line.ref === item.id && !sameLineText(line.text, item.text),
             )
         : undefined;
-    const reworded = Boolean(rewordedLine);
+    // A linked entry whose fields differ on this resume, like a reworded line.
+    const entrySection = isLine ? undefined : KIND_SECTION[item.kind];
+    const changedEntry = entrySection
+      ? resumeItems(document, entrySection)
+          .map((entry) =>
+            entry.libraryId === item.id
+              ? changedLibraryFields(entry, items)
+              : {},
+          )
+          .find((changed) => Object.keys(changed).length)
+      : undefined;
+    const changedTitle = changedEntry
+      ? `Changed on this resume: ${Object.keys(changedEntry).join(", ")}`
+      : undefined;
+    const reworded = Boolean(rewordedLine || changedEntry);
     const score = ranked.find((rank) => rank.bulletId === item.id);
     return (
       <div key={item.id} className="space-y-0.5 py-0.5">
         <div
           className={`group flex ${hasTags ? "items-center" : "items-start"} gap-1 rounded-sm text-xs ${reworded ? REWORDED_TINT_CLASS : ""}`}
-          title={rewordedLine?.text}
+          title={rewordedLine?.text ?? changedTitle}
         >
           {tick([item], item.text)}
           <button
             type="button"
             className={`min-w-0 flex-1 py-0.5 text-left hover:underline ${hasTags ? "truncate" : ""}`}
-            title={hasTags ? (rewordedLine?.text ?? displayText) : undefined}
+            title={hasTags ? (rewordedLine?.text ?? displayText) : changedTitle}
             disabled={busy}
             onClick={() => startEdit(item)}
           >

@@ -410,6 +410,34 @@ describe("candidate library", () => {
       "Reworded tools",
     );
   });
+  it("tints a linked entry whose fields were changed on this resume", async () => {
+    const entry = {
+      id: "entry",
+      libraryId: role.id,
+      position: "Engineer",
+      company: "Acme",
+      location: "London",
+      period: "2020–2024",
+      website: { url: "", label: "" },
+    };
+    const docWith = (item: typeof entry) =>
+      ({
+        sections: { experience: { items: [item] } },
+      }) as unknown as ReactiveResumeV5Document;
+    const same = docWith(entry);
+    await mount({ jobId: "job", document: same });
+    const row = () =>
+      screen.getByRole("button", { name: "Engineer · 2020–2024" })
+        .parentElement;
+    expect(row()).not.toHaveClass("bg-amber-100/70");
+    cleanup();
+    await mount({
+      jobId: "job",
+      document: docWith({ ...entry, position: "Lead" }),
+    });
+    expect(row()).toHaveClass("bg-amber-100/70");
+    expect(row()).toHaveAttribute("title", "Changed on this resume: position");
+  });
   it("keeps tags, chat references and rank results", async () => {
     const reference = vi.fn();
     mocks.rank.mockResolvedValue({

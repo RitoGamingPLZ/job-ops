@@ -1393,13 +1393,27 @@ describe("candidate library links", () => {
     ).toBeNull();
   });
 
-  it("keeps linked entry fields read-only and cancels blank rewording", () => {
+  it("tints linked entry fields edited away from the library", () => {
+    render(<LinkedEditor />);
+    const position = screen.getByLabelText("Company position");
+    expect(position).not.toHaveAttribute("readonly");
+    expect(position).not.toHaveAttribute("data-library-changed");
+    // The library role has no company, so the fixture's company differs.
+    expect(screen.getByLabelText("Company company")).toHaveAttribute(
+      "title",
+      "Company company — library: —",
+    );
+    fireEvent.change(position, { target: { value: "Lead Engineer" } });
+    expect(position).toHaveAttribute("data-library-changed");
+    expect(position).toHaveAttribute(
+      "title",
+      "Company position — library: Engineer",
+    );
+  });
+
+  it("cancels blank rewording of a linked line", () => {
     const onChange = vi.fn();
     render(<LinkedEditor onChange={onChange} />);
-    for (const field of ["position", "company", "location", "dates"])
-      expect(screen.getByLabelText(`Company ${field}`)).toHaveAttribute(
-        "readonly",
-      );
     fireEvent.change(screen.getByLabelText("Company bullet 1"), {
       target: { value: "" },
     });

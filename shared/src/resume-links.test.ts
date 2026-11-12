@@ -7,6 +7,7 @@ import { foldedLibraryText } from "./candidate-library-schema";
 import {
   addToResume,
   applyLibraryUpdate,
+  changedLibraryFields,
   getItemLines,
   isContactOnResume,
   isOnResume,
@@ -1019,5 +1020,33 @@ describe("edited structured library text", () => {
         description: "<p>A &amp; B</p>",
       }),
     ).toBe("BSc · CS Science · A & B");
+  });
+});
+
+describe("changedLibraryFields", () => {
+  it("is empty for every freshly linked item and reports local edits", () => {
+    for (const parent of parents)
+      expect(
+        changedLibraryFields(libraryItemToResumeItem(parent), library),
+      ).toEqual({});
+    const edited = {
+      ...libraryItemToResumeItem(certification),
+      title: "Certified  Developer ",
+      issuer: "Academy",
+      website: { url: "https://other.example", label: "" },
+    };
+    expect(changedLibraryFields(edited, library)).toEqual({
+      issuer: "Institute",
+      website: "https://example.com",
+    });
+    expect(
+      changedLibraryFields({ ...edited, libraryId: "deleted" }, library),
+    ).toEqual({});
+    expect(
+      changedLibraryFields(
+        { ...libraryItemToResumeItem(skill), keywords: ["Go"] },
+        library,
+      ),
+    ).toEqual({});
   });
 });
