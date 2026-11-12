@@ -44,6 +44,7 @@ const document =
 const row = { document, revision: 1, exists: true, updatedAt: "now" };
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(syncCandidateLibrary).mockReset();
   vi.mocked(getJobResume).mockResolvedValue(null);
   vi.mocked(getJobById).mockResolvedValue(
     createJob({
@@ -282,6 +283,109 @@ describe("ensureJobResume", () => {
 });
 
 describe("regenerateJobResume", () => {
+  it("keeps regeneration's sync revisions separate across tenants", async () => {
+    const revisions = new Map([
+      ["tenant-a", 7],
+      ["tenant-b", 20],
+    ]);
+    const tenant = () => getRequestContext()?.tenantId ?? "unknown";
+    vi.mocked(getJobResume).mockImplementation(async () => ({
+      ...row,
+      revision: revisions.get(tenant()) ?? 0,
+    }));
+    vi.mocked(syncCandidateLibrary).mockImplementation(() => {
+      revisions.set(tenant(), (revisions.get(tenant()) ?? 0) + 1);
+      return { created: 0, skipped: 0, linked: 1 };
+    });
+    vi.mocked(saveJobResume).mockImplementation(async (_id, revision) => {
+      expect(revision).toBe(revisions.get(tenant()));
+      return { ...row, revision: revision + 1 };
+    });
+    const results = await Promise.all(
+      ["tenant-a", "tenant-b"].map((tenantId) =>
+        runWithRequestContext({ tenantId, userId: tenantId }, () =>
+          regenerateJobResume("job"),
+        ),
+      ),
+    );
+    expect(results.map((result) => result.revision)).toEqual([9, 22]);
+  });
+  it.each([
+    false,
+    true,
+  ])("saves against the revision after sync (sync changed it: %s)", async (syncChangesRevision) => {
+    let current = { ...row, revision: 7 };
+    vi.mocked(getJobResume).mockImplementation(async () => current);
+    vi.mocked(syncCandidateLibrary).mockImplementationOnce(() => {
+      if (syncChangesRevision) current = { ...current, revision: 8 };
+      return { created: 0, skipped: 0, linked: syncChangesRevision ? 1 : 0 };
+    });
+    vi.mocked(saveJobResume).mockImplementationOnce(
+      async (_id, baseRevision, doc) => {
+        if (baseRevision !== current.revision) throw conflict("Resume changed");
+        current = {
+          ...current,
+          document: doc,
+          revision: baseRevision + 1,
+        };
+        return current;
+      },
+    );
+    const result = await regenerateJobResume("job");
+    expect(result.revision).toBe(syncChangesRevision ? 9 : 8);
+    expect(saveJobResume).toHaveBeenCalledWith(
+      "job",
+      syncChangesRevision ? 8 : 7,
+      document,
+    );
+  });
+  it("rejects an edit made while loading the base before sync", async () => {
+    let current = { ...row, revision: 7 };
+    vi.mocked(getJobResume).mockImplementation(async () => current);
+    vi.mocked(loadBaseResumeSource).mockImplementationOnce(async () => {
+      current = { ...current, revision: 8 };
+      return { data: document, mode: "v5" };
+    });
+    await expect(regenerateJobResume("job")).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(generateResumeFromLibrary).not.toHaveBeenCalled();
+    expect(saveJobResume).not.toHaveBeenCalled();
+    expect(updateJob).not.toHaveBeenCalled();
+  });
+  it("still conflicts on an editor save during generation after sync stamps refs", async () => {
+    let current = { ...row, revision: 7 };
+    vi.mocked(getJobResume).mockImplementation(async () => current);
+    vi.mocked(syncCandidateLibrary).mockImplementationOnce(() => {
+      current = { ...current, revision: 8 };
+      return { created: 0, skipped: 0, linked: 1 };
+    });
+    let finish!: (value: ReactiveResumeV5Document) => void;
+    vi.mocked(generateResumeFromLibrary).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    vi.mocked(saveJobResume).mockImplementationOnce(async (_id, revision) => {
+      if (revision !== current.revision) throw conflict("Resume changed");
+      return current;
+    });
+    const pending = regenerateJobResume("job");
+    await vi.waitFor(() =>
+      expect(generateResumeFromLibrary).toHaveBeenCalledOnce(),
+    );
+    const edited = {
+      ...document,
+      summary: { ...document.summary, content: "Editor saved this" },
+    };
+    current = { ...current, revision: 9, document: edited };
+    finish(document);
+    await expect(pending).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(saveJobResume).toHaveBeenCalledWith("job", 8, document);
+    expect(current.document).toBe(edited);
+    expect(updateJob).not.toHaveBeenCalled();
+  });
   it("replaces the saved document at its current revision only after tailoring succeeds", async () => {
     vi.mocked(getJobResume).mockResolvedValue({ ...row, revision: 7 });
     let finish!: (value: ReactiveResumeV5Document) => void;

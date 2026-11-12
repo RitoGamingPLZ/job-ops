@@ -1,4 +1,4 @@
-import { AppError, notFound } from "@infra/errors";
+import { AppError, conflict, notFound } from "@infra/errors";
 import { listExperienceBullets } from "@server/repositories/experience-bullets";
 import { getJobResume, saveJobResume } from "@server/repositories/job-resumes";
 import { getJobById, updateJob } from "@server/repositories/jobs";
@@ -86,7 +86,18 @@ async function materializeJobResume(
   if (opts?.tailor || isTargeted(job)) {
     // B's sync imports the base only on the scope's first build. Subsequent
     // syncs add unlinked job facts without resurrecting deleted library facts.
-    syncCandidateLibrary(base.data as ReactiveResumeV5Document);
+    if (!acceptConcurrentWinner) {
+      // Start both reads without yielding around synchronous sync, so only
+      // this call's stamping can advance the revision we use for generation.
+      const beforeSync = getJobResume(jobId);
+      syncCandidateLibrary(base.data as ReactiveResumeV5Document);
+      const afterSync = getJobResume(jobId);
+      if (((await beforeSync)?.revision ?? 0) !== baseRevision)
+        throw conflict("Resume changed. Reload before saving.");
+      baseRevision = (await afterSync)?.revision ?? 0;
+    } else {
+      syncCandidateLibrary(base.data as ReactiveResumeV5Document);
+    }
     document = await generateResumeFromLibrary(
       base.data as ReactiveResumeV5Document,
       job,
