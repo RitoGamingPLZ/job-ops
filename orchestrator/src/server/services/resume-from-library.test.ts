@@ -5,7 +5,7 @@ import {
 import { getSetting } from "@server/repositories/settings";
 import { getDefaultPromptTemplate } from "@shared/prompt-template-definitions.js";
 import { splitDescription } from "@shared/resume-bullets";
-import { getItemLines } from "@shared/resume-links";
+import { foldResumeParts, getItemLines } from "@shared/resume-links";
 import { createJob } from "@shared/testing/factories";
 import type { ExperienceBullet, ReactiveResumeV5Document } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -250,6 +250,68 @@ describe("generateResumeFromLibrary", () => {
     expect(prompt).not.toContain("library-private@example.com");
     expect(prompt).not.toContain("+44-private-phone");
     expect(prompt).not.toContain("private-contact-tag");
+  });
+  it.each([
+    [
+      "school",
+      "education",
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+      "degree",
+    ],
+    [
+      "award",
+      "awards",
+      { title: "Prize", awarder: "Society", description: "<p>Research</p>" },
+      "title",
+    ],
+    [
+      "cert",
+      "certifications",
+      { title: "Certificate", description: "<p>Exam</p>" },
+      "title",
+    ],
+  ] as const)("generates edited %s text without structured primary data", async (id, section, data, primary) => {
+    const foldedText = foldResumeParts(...Object.values(data));
+    const structuredLibrary = library.map((entry) =>
+      entry.id === id
+        ? { ...entry, text: foldedText, data: { ...entry.data, ...data } }
+        : entry,
+    );
+    const source = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      structuredLibrary,
+    );
+    for (const text of [
+      "degree" in data ? data.degree : data.title,
+      foldedText,
+    ]) {
+      const legacyLibrary = library.map((entry) =>
+        entry.id === id ? { ...entry, text } : entry,
+      );
+      const unchanged = await generateResumeFromLibrary(
+        source,
+        createJob(),
+        legacyLibrary.map((entry) => ({ ...entry, tags: ["reviewed"] })),
+      );
+      expect(unchanged.sections[section].items[0]).toMatchObject(data);
+      const edited = await generateResumeFromLibrary(
+        source,
+        createJob(),
+        legacyLibrary.map((entry) =>
+          entry.id === id ? { ...entry, text: "Library edit" } : entry,
+        ),
+      );
+      expect(edited.sections[section].items[0]).toMatchObject({
+        ...data,
+        [primary]: "Library edit",
+      });
+    }
   });
   it.each([
     true,
@@ -583,6 +645,7 @@ describe("generateResumeFromLibrary", () => {
               ...entry,
               text: "BSc (updated)",
               data: {
+                degree: "BSc (updated)",
                 school: "Updated University",
                 location: "Toronto",
                 period: "2017 – 2021",
@@ -608,6 +671,126 @@ describe("generateResumeFromLibrary", () => {
       },
     ]);
     expect(result.sections.education.items).toHaveLength(2);
+  });
+  it("retains legacy source structure and lets structured library values override it", async () => {
+    const source = base.sections.education.items[0];
+    Object.assign(source, {
+      libraryId: "school",
+      degree: "BSc",
+      area: "CS",
+      grade: "First",
+      description: "<p>Thesis</p>",
+    });
+    base.sections.awards.items = [
+      {
+        id: "a",
+        hidden: false,
+        libraryId: "award",
+        title: "Prize",
+        awarder: "Society",
+        date: "2020",
+        description: "<p>Research</p>",
+        website: { url: "", label: "" },
+      },
+    ];
+    base.sections.certifications.items = [
+      {
+        id: "c",
+        hidden: false,
+        libraryId: "cert",
+        title: "Certificate",
+        issuer: "Issuer",
+        date: "2021",
+        description: "<p>Exam</p>",
+        website: { url: "", label: "" },
+      },
+    ];
+    const result = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      library.map((entry) =>
+        entry.id === "school"
+          ? {
+              ...entry,
+              text: foldResumeParts(
+                source.degree,
+                source.area,
+                source.grade,
+                source.description,
+              ),
+              data: { ...entry.data, grade: "", area: "Computing" },
+            }
+          : entry.id === "award"
+            ? { ...entry, text: "Prize · Society · Research" }
+            : entry,
+      ),
+    );
+    expect(result.sections.education.items[0]).toMatchObject({
+      degree: "BSc",
+      area: "Computing",
+      grade: "",
+      description: source.description,
+    });
+    expect(result.sections.awards.items[0]).toMatchObject({
+      title: "Prize",
+      awarder: "Society",
+      description: "<p>Research</p>",
+    });
+    expect(result.sections.certifications.items[0].description).toBe(
+      "<p>Exam</p>",
+    );
+  });
+  it.each([
+    [
+      "school",
+      "education",
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+      "degree",
+    ],
+    [
+      "award",
+      "awards",
+      { title: "Prize", awarder: "Society", description: "<p>Research</p>" },
+      "title",
+    ],
+    [
+      "cert",
+      "certifications",
+      { title: "Certificate", description: "<p>Exam</p>" },
+      "title",
+    ],
+  ] as const)("generates edited library text for %s and keeps other constituents", async (id, section, data, primary) => {
+    const structuredLibrary = library.map((entry) =>
+      entry.id === id
+        ? {
+            ...entry,
+            text: foldResumeParts(...Object.values(data)),
+            data: { ...entry.data, ...data },
+          }
+        : entry,
+    );
+    const original = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      structuredLibrary,
+    );
+    expect(original.sections[section].items[0]).toMatchObject(data);
+    const result = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      structuredLibrary.map((entry) =>
+        entry.id === id ? { ...entry, text: "Library edit" } : entry,
+      ),
+    );
+    expect(result.sections[section].items[0]).toMatchObject({
+      ...data,
+      [primary]: "Library edit",
+    });
   });
   it.each([
     true,

@@ -12,6 +12,7 @@ import {
   applyLibraryUpdate,
   getItemLines,
   isOnResume,
+  linkedFieldPatch,
   setItemLines,
 } from "@shared/resume-links";
 import type {
@@ -40,6 +41,7 @@ import {
   MAX_FOCUS,
   readBulletTransfer,
   readFocusTransfer,
+  suggestionTarget,
 } from "@/client/components/cowork/editor";
 import {
   focusResumePart,
@@ -120,6 +122,8 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
   const [switchTarget, setSwitchTarget] = useState<string | null>(null);
   const switching = useRef(false);
   const [library, setLibrary] = useState<ExperienceBullet[]>([]);
+  const currentLibrary = useRef(library);
+  currentLibrary.current = library;
   const [preview, setPreview] = useState(() => {
     try {
       return localStorage.getItem(PREVIEW_KEY) === "true";
@@ -146,7 +150,6 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
   // Enter/leave fire for every child crossed; count them so the highlight holds.
   const dragDepth = useRef(0);
   const lastInsert = useRef<{ key: string; time: number } | null>(null);
-  const [pdfReady, setPdfReady] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -543,6 +546,59 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
       if (mounted.current) setBusy(false);
     }
   }
+  async function acceptLinkedField(
+    suggestion: ResumeSuggestion,
+  ): Promise<boolean> {
+    if (
+      busy ||
+      syncing.current ||
+      resumeReloadRequired.current ||
+      !latest.current ||
+      job?.status === "applied" ||
+      job?.status === "in_progress"
+    )
+      return false;
+    const target = suggestionTarget(
+      latest.current.document,
+      suggestion,
+      currentLibrary.current,
+    );
+    const before = currentLibrary.current.find(
+      (item) => item.id === target?.libraryId,
+    );
+    if (!before || !suggestion.field) return false;
+    const patch = linkedFieldPatch(
+      before,
+      suggestion.field.section,
+      suggestion.field.name,
+      suggestion.text ?? "",
+    );
+    if (!patch) return false;
+    syncing.current = true;
+    setBusy(true);
+    try {
+      if (!(await flush())) return false;
+      const { bullet: after } = await api.updateExperienceBullet(
+        before.id,
+        patch,
+        jobId,
+      );
+      if (!mounted.current || !latest.current) return false;
+      syncing.current = false;
+      edit(applyLibraryUpdate(latest.current.document, before, after));
+      currentLibrary.current = currentLibrary.current.map((item) =>
+        item.id === after.id ? after : item,
+      );
+      setLibrary(currentLibrary.current);
+      return true;
+    } catch (failure) {
+      coworkError(failure);
+      return false;
+    } finally {
+      syncing.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
   async function showPreview() {
     setBusy(true);
     setRendering(true);
@@ -558,7 +614,6 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
         return;
       }
       setPdfUrl(url);
-      setPdfReady(true);
     } catch (failure) {
       coworkError(failure);
     } finally {
@@ -580,7 +635,6 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
         await generateJobPdf(jobId);
         await downloadJobPdf(jobId, "resume.pdf");
       }
-      setPdfReady(true);
     } catch (failure) {
       coworkError(failure);
     } finally {
@@ -615,7 +669,6 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
       setUndoStack([]);
       lastTyping.current = null;
       version.current++;
-      setPdfReady(false);
       setPdfUrl(null);
       setPreview(false);
       await load();
@@ -1012,6 +1065,10 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
             <ResumeEditor
               library={library}
               contactsFromLibrary={!base}
+              frozen={
+                job?.status === "applied" || job?.status === "in_progress"
+              }
+              onAcceptLinkedField={base ? undefined : acceptLinkedField}
               onSaveLineToLibrary={
                 base
                   ? undefined

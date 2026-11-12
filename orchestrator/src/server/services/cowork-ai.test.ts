@@ -1,3 +1,4 @@
+import { notFound } from "@infra/errors";
 import type { CoworkChatContext, ExperienceBullet } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
@@ -15,8 +16,9 @@ vi.mock("./modelSelection", () => ({
 }));
 vi.mock("@server/repositories/experience-bullets", () => ({
   listExperienceBullets: list,
-  updateExperienceBullet: update,
 }));
+
+vi.mock("./candidate-library", () => ({ updateLibraryItem: update }));
 
 import {
   buildCoworkPrompt,
@@ -483,15 +485,207 @@ describe("cowork AI", () => {
     expect(data.resume.projects.map((p: { id: string }) => p.id)).toEqual([
       "pr",
     ]);
-    expect(data.resume.certifications).toBeUndefined();
+    expect(data.resume.certifications).toEqual([]);
     expect(data.FOCUS.map((f: { current: unknown }) => f.current)).toEqual([
       "Built APIs",
       data.resume.awards[0],
-      ["pr", "hiddenpr"],
+      ["pr"],
       "",
-      null,
     ]);
     expect(data.FOCUS[0]).toMatchObject({ kind: "bullet", label: "b" });
+  });
+  it("omits hidden experience and skills from resume and focus, and strips skill metadata", () => {
+    const cowork = context();
+    const sections = cowork.document.sections;
+    sections.experience.items.push({
+      ...sections.experience.items[0],
+      id: "hidden-exp",
+      hidden: true,
+      company: "Private company",
+      description: "<ul><li>Private duty</li></ul>",
+    });
+    sections.skills.items = [
+      {
+        id: "skill",
+        name: "Languages",
+        keywords: ["TS"],
+        hidden: false,
+        icon: "private-icon",
+        proficiency: "private-level",
+        level: 4,
+        libraryId: "private-link",
+      },
+      {
+        id: "hidden-skill",
+        name: "Private skill",
+        keywords: ["Private keyword"],
+        hidden: true,
+        icon: "",
+        proficiency: "",
+        level: 0,
+      },
+    ];
+    cowork.focus = [
+      {
+        kind: "item",
+        section: "experience",
+        itemId: "hidden-exp",
+        label: "Private company — hidden focus",
+      },
+      {
+        kind: "bullet",
+        section: "experience",
+        itemId: "hidden-exp",
+        bulletIndex: 0,
+        label: "Private company — hidden focus",
+      },
+      { kind: "skill", itemId: "hidden-skill", label: "Private skill focus" },
+      { kind: "section", section: "skills", label: "skills" },
+      { kind: "skill", itemId: "skill", label: "visible" },
+    ];
+    const prompt = buildCoworkPrompt(cowork, "Job", []);
+    expect(prompt).not.toContain("Private company — hidden focus");
+    expect(prompt).not.toContain("Private skill focus");
+    const data = JSON.parse(prompt.split("\n").slice(1).join("\n"));
+    expect(
+      data.resume.experience.map((item: { id: string }) => item.id),
+    ).toEqual(["exp"]);
+    expect(data.resume.skills).toEqual([
+      { id: "skill", name: "Languages", keywords: ["TS"] },
+    ]);
+    expect(data.FOCUS.map((ref: { current: unknown }) => ref.current)).toEqual([
+      ["skill"],
+      data.resume.skills[0],
+    ]);
+    expect(JSON.stringify(data)).not.toContain("Private");
+    expect(JSON.stringify(data)).not.toContain("private-");
+    sections.experience.hidden = true;
+    sections.skills.hidden = true;
+    cowork.focus = [
+      {
+        kind: "item",
+        section: "experience",
+        itemId: "exp",
+        label: "experience",
+      },
+      { kind: "skill", itemId: "skill", label: "skill" },
+      { kind: "section", section: "experience", label: "section" },
+    ];
+    const hidden = JSON.parse(
+      buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"),
+    );
+    expect(hidden.resume.experience).toEqual([]);
+    expect(hidden.resume.skills).toEqual([]);
+    expect(
+      hidden.FOCUS.map((ref: { current: unknown }) => ref.current),
+    ).toEqual([]);
+  });
+  it("keeps summary, headline and visible empty or out-of-range focus targets", () => {
+    const cowork = context();
+    cowork.document.sections.experience.hidden = true;
+    cowork.focus = [
+      { kind: "summary", label: "Summary" },
+      { kind: "headline", label: "Headline" },
+      { kind: "section", section: "skills", label: "Empty skills" },
+      {
+        kind: "bullet",
+        section: "experience",
+        itemId: "exp",
+        bulletIndex: 99,
+        label: "Hidden",
+      },
+    ];
+    const hidden = JSON.parse(
+      buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"),
+    );
+    expect(hidden.FOCUS.map((ref: { label: string }) => ref.label)).toEqual([
+      "Summary",
+      "Headline",
+      "Empty skills",
+    ]);
+    cowork.document.sections.experience.hidden = false;
+    const visible = JSON.parse(
+      buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"),
+    );
+    expect(visible.FOCUS[3]).toMatchObject({ kind: "bullet", current: null });
+  });
+  it("rejects hidden field and bullet targets while retaining visible linked fields", () => {
+    const cowork = withSections();
+    cowork.document.sections.awards.hidden = true;
+    cowork.document.sections.experience.items[0].libraryId = "linked";
+    const field = (section: string, itemId: string, name: string) => ({
+      op: "replace_field",
+      field: { section, itemId, name },
+      text: "New",
+      reason: "r",
+    });
+    const inputs = [
+      field("awards", "aw", "title"),
+      field("projects", "hiddenpr", "name"),
+      field("experience", "exp", "company"),
+    ];
+    expect(filterCoworkSuggestions(inputs, cowork, [])).toMatchObject([
+      {
+        field: { section: "experience", itemId: "exp", name: "company" },
+        previousText: "Acme",
+      },
+    ]);
+    expect(buildCoworkPrompt(cowork, "Job", [])).toContain(
+      "Descriptions of library-linked items cannot be edited",
+    );
+    const bullet = {
+      op: "replace_bullet",
+      experienceId: "exp",
+      bulletIndex: 0,
+      text: "New",
+      reason: "r",
+    };
+    for (const hideSection of [false, true]) {
+      cowork.document.sections.experience.hidden = hideSection;
+      cowork.document.sections.experience.items[0].hidden = !hideSection;
+      expect(filterCoworkSuggestions([...inputs, bullet], cowork, [])).toEqual(
+        [],
+      );
+    }
+  });
+  it("stamps set_skills with the submitted visible skills snapshot instead of model previousText", () => {
+    const cowork = context();
+    cowork.document.sections.skills.items = [
+      {
+        id: "skill",
+        name: " Languages ",
+        keywords: [" TS ", "", " JS "],
+        hidden: false,
+        icon: "",
+        proficiency: "",
+        level: 0,
+      },
+      {
+        id: "secret",
+        name: "Hidden",
+        keywords: ["Secret"],
+        hidden: true,
+        icon: "",
+        proficiency: "",
+        level: 0,
+      },
+    ];
+    const suggestion = {
+      op: "set_skills",
+      skills: [{ name: "Languages", keywords: ["TS"] }],
+      previousText: "invented",
+      reason: "r",
+    };
+    expect(
+      filterCoworkSuggestions([suggestion], cowork, [])[0].previousText,
+    ).toBe("Languages: TS, JS");
+    cowork.document.sections.skills.hidden = true;
+    expect(filterCoworkSuggestions([suggestion], cowork, [])).toEqual([]);
+    cowork.document.sections.skills.hidden = false;
+    cowork.document.sections.skills.items = [];
+    expect(
+      filterCoworkSuggestions([suggestion], cowork, [])[0].previousText,
+    ).toBe("");
   });
   it("anchors replace_field to the document and drops unknown section/item/name", () => {
     const cowork = withSections();
@@ -621,7 +815,7 @@ describe("cowork AI", () => {
 });
 
 describe("experience labeling", () => {
-  it("filters to scoped IDs, merges existing tags, trims, dedupes and caps tags", async () => {
+  it("filters to scoped IDs, merges existing tags, trims, dedupes and caps new tags", async () => {
     const own = { ...bullet("own"), tags: [" TypeScript ", "React"] };
     list.mockResolvedValue([own]);
     update.mockImplementation(async (_id, input) => ({ ...own, ...input }));
@@ -661,6 +855,70 @@ describe("experience labeling", () => {
     expect(root.additionalProperties).toBe(false);
     expect(root.properties.labels.items.required).toEqual(["bulletId", "tags"]);
     expect(root.properties.labels.items.additionalProperties).toBe(false);
+  });
+  it("preserves more than twelve manual tags including concurrent edits through the library service", async () => {
+    const manual = Array.from({ length: 15 }, (_, i) => `Manual${i}`);
+    const original = { ...bullet("own"), tags: manual };
+    const current = { ...original, tags: [...manual, "Concurrent edit"] };
+    list.mockResolvedValueOnce([original]).mockResolvedValue([current]);
+    update.mockImplementation(async (_id, input) => ({ ...current, ...input }));
+    callJson.mockResolvedValue({
+      success: true,
+      data: { labels: [{ bulletId: "own", tags: ["manual0", " New  tag "] }] },
+    });
+    const result = await labelExperienceBullets(["own"]);
+    expect(update).toHaveBeenCalledWith("own", {
+      tags: [...manual, "Concurrent edit", "New tag"],
+    });
+    expect(result.bullets[0].tags).toEqual([
+      ...manual,
+      "Concurrent edit",
+      "New tag",
+    ]);
+  });
+  it("caps merged tags at 100 with existing tags first", async () => {
+    const manual = Array.from({ length: 95 }, (_, i) => `Manual${i}`);
+    const own = { ...bullet("own"), tags: manual };
+    list.mockResolvedValue([own]);
+    update.mockImplementation(async (_id, input) => ({ ...own, ...input }));
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        labels: [
+          {
+            bulletId: "own",
+            tags: Array.from({ length: 12 }, (_, i) => `New${i}`),
+          },
+        ],
+      },
+    });
+    const result = await labelExperienceBullets(["own"]);
+    const expected = [...manual, "New0", "New1", "New2", "New3", "New4"];
+    expect(update).toHaveBeenCalledWith("own", { tags: expected });
+    expect(result.bullets[0].tags).toEqual(expected);
+  });
+  it("continues labeling after a concurrent delete but propagates other update errors", async () => {
+    list.mockResolvedValue([bullet("own"), bullet("second")]);
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        labels: [
+          { bulletId: "own", tags: ["APIs"] },
+          { bulletId: "second", tags: ["Tools"] },
+        ],
+      },
+    });
+    update
+      .mockRejectedValueOnce(notFound("Library item not found"))
+      .mockImplementation(async (id, input) => ({ ...bullet(id), ...input }));
+    const result = await labelExperienceBullets(["own", "second"]);
+    expect(result).toMatchObject({ labeled: 1, remaining: 1 });
+    expect(result.bullets[0]).toMatchObject({ id: "second", tags: ["Tools"] });
+    expect(update).toHaveBeenNthCalledWith(2, "second", { tags: ["Tools"] });
+    update.mockRejectedValueOnce(new Error("storage unavailable"));
+    await expect(labelExperienceBullets(["own", "second"])).rejects.toThrow(
+      "storage unavailable",
+    );
   });
   it("defaults to untagged only and skips explicit empty/foreign IDs without usage", async () => {
     list.mockResolvedValue([{ ...bullet("tagged"), tags: ["Existing"] }]);
