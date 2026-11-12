@@ -181,11 +181,8 @@ export function createLibraryItem(input: ExperienceBulletInput) {
       kind: input.kind ?? "bullet",
     });
     return (
-      all.find(
-        (item) =>
-          key(item) === key(normalized) ||
-          key(item, true) === key(normalized, true),
-      ) ?? insert(normalized, all)
+      all.find((item) => key(item) === key(normalized)) ??
+      insert(normalized, all)
     );
   });
 }
@@ -306,7 +303,7 @@ function normal(value: unknown): string {
 function normalPeriod(value: unknown) {
   return String(value ?? "").replace(/\s*[\p{Dash_Punctuation}−]\s*/gu, " – ");
 }
-function key(input: ExperienceBulletInput, folded = false) {
+function key(input: ExperienceBulletInput) {
   // A role is identified by employer/title/dates, even when old duty rows
   // lack its location or website. Skill keywords are merged by label.
   const data = input.data ?? {};
@@ -331,7 +328,7 @@ function key(input: ExperienceBulletInput, folded = false) {
   return JSON.stringify([
     input.kind,
     normal(
-      folded
+      ["education", "award", "certification"].includes(input.kind ?? "")
         ? foldedLibraryText(
             input.kind ?? "bullet",
             input.text,
@@ -379,10 +376,7 @@ export function syncCandidateLibrary(
     const result: LibrarySyncResult = { created: 0, skipped: 0, linked: 0 };
     function add(input: ExperienceBulletInput): ExperienceBullet {
       input = normalizeStructured(input);
-      const existing = all.find(
-        (item) =>
-          key(item) === key(input) || key(item, true) === key(input, true),
-      );
+      const existing = all.find((item) => key(item) === key(input));
       if (existing) {
         result.skipped++;
         // Legacy duties have no location/website. Enrich their generated role

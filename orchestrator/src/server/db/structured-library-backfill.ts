@@ -1,3 +1,4 @@
+import { logger } from "@infra/logger";
 import {
   foldedLibraryText,
   parseLibraryData,
@@ -34,7 +35,7 @@ function identity(
     ).map((value) => string(value).trim().replace(/\s+/g, " ")),
   );
 }
-function sourceItems(raw: string, section: string): Record<string, unknown>[] {
+function sourceItems(raw: string): Record<string, Record<string, unknown>[]> {
   try {
     const doc = JSON.parse(raw);
     // Only stored v5 documents: its sections are an object, not the v4 array/layout.
@@ -45,14 +46,38 @@ function sourceItems(raw: string, section: string): Record<string, unknown>[] {
       Array.isArray(doc.sections) ||
       !doc.basics
     )
-      return [];
-    const items = doc.sections[section]?.items;
-    return Array.isArray(items)
-      ? items.filter((item) => item && typeof item === "object")
-      : [];
+      return {};
+    return Object.fromEntries(
+      Object.values(sections).map((section) => {
+        const items = doc.sections[section]?.items;
+        return [
+          section,
+          Array.isArray(items)
+            ? items.filter((item) => item && typeof item === "object")
+            : [],
+        ];
+      }),
+    );
   } catch {
-    return [];
+    return {};
   }
+}
+function hasValue(value: unknown): boolean {
+  if (value && typeof value === "object")
+    return Object.values(value).some(hasValue);
+  return value !== undefined && value !== null && value !== "";
+}
+function conflicts(known: unknown, source: unknown): boolean {
+  if (known && typeof known === "object") {
+    const values =
+      source && typeof source === "object"
+        ? (source as Record<string, unknown>)
+        : {};
+    return Object.entries(known).some(([key, value]) =>
+      conflicts(value, values[key]),
+    );
+  }
+  return hasValue(known) && known !== source;
 }
 /** Startup-only, atomic, scoped data migration. Saved resume documents are read-only. */
 export function backfillStructuredLibrary(sqlite: Database.Database): void {
@@ -77,87 +102,97 @@ export function backfillStructuredLibrary(sqlite: Database.Database): void {
     const update = sqlite.prepare(
       "UPDATE experience_bullets SET text = ?, data = ? WHERE id = ? AND tenant_id = ? AND user_id IS ?",
     );
+    const scopedSources = new Map<string, ReturnType<typeof sourceItems>[]>();
     for (const row of rows) {
-      // Invalid JSON or scalar/array data aborts the transaction, retaining the original bytes.
-      let data: unknown;
       try {
-        data = row.data === null ? {} : JSON.parse(row.data);
-      } catch {
-        throw new Error("Invalid structured library migration data");
-      }
-      if (!data || typeof data !== "object" || Array.isArray(data))
-        throw new Error("Invalid structured library migration data");
-      const known = data as Record<string, unknown>;
-      if (known.schemaVersion === 2) {
-        parseLibraryData(row.kind, known);
-        continue;
-      }
-      const candidates = (
-        sources.all(row.tenant_id, row.user_id, row.tenant_id, row.user_id) as {
-          document: string;
-        }[]
-      )
-        .flatMap((source) => sourceItems(source.document, sections[row.kind]))
-        .filter((item) => {
-          const title = string(
-            row.kind === "education" ? item.degree : item.title,
-          );
-          return (
-            (!item.libraryId || item.libraryId === row.id) &&
-            identity(row.kind, item) === identity(row.kind, known) &&
-            foldedLibraryText(row.kind, title, item) === row.text
-          );
-        });
-      const explicit = candidates.filter((item) => item.libraryId === row.id);
-      const preferred = explicit.length ? explicit : candidates;
-      const recovered = preferred.map((item) => ({
-        text: string(row.kind === "education" ? item.degree : item.title),
-        data: parseLibraryData(
-          row.kind,
-          Object.fromEntries(
-            Object.keys(parseLibraryData(row.kind, {})).map((key) => [
-              key,
-              key === "schemaVersion" ? 2 : item[key],
-            ]),
-          ),
-        ),
-      }));
-      const unique = new Map(
-        recovered.map((item) => [JSON.stringify(item), item]),
-      );
-      let text = row.text;
-      let next = parseLibraryData(row.kind, known);
-      if (unique.size === 1) {
-        const source = [...unique.values()][0];
-        text = source.text;
-        // Canonical nonempty fields win over source resume edits.
-        next = parseLibraryData(row.kind, {
-          ...source.data,
-          ...known,
-          schemaVersion: 2,
-        });
-        for (const [key, value] of Object.entries(source.data)) {
-          if (key === "website") {
-            const canonical = next.website as Record<string, unknown>;
-            next.website = {
-              ...(value as Record<string, unknown>),
-              ...Object.fromEntries(
-                Object.entries(canonical).filter(
-                  ([, field]) => field !== "" && field !== undefined,
-                ),
-              ),
-            };
-          } else if (
-            known[key] === undefined ||
-            known[key] === "" ||
-            known[key] === null
-          )
-            next[key] = value;
+        const data: unknown = row.data === null ? {} : JSON.parse(row.data);
+        if (!data || typeof data !== "object" || Array.isArray(data))
+          throw new Error("Invalid structured library migration data");
+        const known = data as Record<string, unknown>;
+        const normalized = parseLibraryData(row.kind, known);
+        if (known.schemaVersion === 2) continue;
+        const scopeKey = JSON.stringify([row.tenant_id, row.user_id]);
+        let documents = scopedSources.get(scopeKey);
+        if (!documents) {
+          documents = (
+            sources.all(
+              row.tenant_id,
+              row.user_id,
+              row.tenant_id,
+              row.user_id,
+            ) as { document: string }[]
+          ).map((source) => sourceItems(source.document));
+          scopedSources.set(scopeKey, documents);
         }
+        const candidates = documents
+          .flatMap((doc) => doc[sections[row.kind]] ?? [])
+          .flatMap((item) => {
+            const text = string(
+              row.kind === "education" ? item.degree : item.title,
+            );
+            if (
+              (item.libraryId && item.libraryId !== row.id) ||
+              identity(row.kind, item) !== identity(row.kind, known) ||
+              foldedLibraryText(row.kind, text, item) !== row.text
+            )
+              return [];
+            try {
+              const recovered = parseLibraryData(
+                row.kind,
+                Object.fromEntries(
+                  Object.keys(parseLibraryData(row.kind, {}))
+                    .filter((key) => key !== "schemaVersion")
+                    .map((key) => [key, item[key]]),
+                ),
+              );
+              // Old derived copies merely repeat the folded title and already-known fields.
+              if (
+                text === row.text &&
+                !Object.entries(recovered).some(
+                  ([key, value]) =>
+                    key !== "schemaVersion" &&
+                    hasValue(value) &&
+                    JSON.stringify(value) !== JSON.stringify(normalized[key]),
+                )
+              )
+                return [];
+              return [{ text, data: recovered, libraryId: item.libraryId }];
+            } catch {
+              // Invalid saved items cannot supply recovery, but do not poison the row.
+              return [];
+            }
+          });
+        const explicit = candidates.filter((item) => item.libraryId === row.id);
+        const preferred = explicit.length ? explicit : candidates;
+        const unique = new Map(
+          preferred.map(({ text, data }) => [
+            JSON.stringify({ text, data }),
+            { text, data },
+          ]),
+        );
+        let text = row.text;
+        let next = normalized;
+        if (unique.size === 1) {
+          const source = [...unique.values()][0];
+          const conflict = Object.keys(source.data).some(
+            (key) =>
+              key !== "schemaVersion" &&
+              conflicts(normalized[key], source.data[key]),
+          );
+          if (!conflict) {
+            text = source.text;
+            next = { ...known, ...source.data };
+          }
+        }
+        const json = JSON.stringify(next);
+        if (text !== row.text || json !== row.data)
+          update.run(text, json, row.id, row.tenant_id, row.user_id);
+      } catch {
+        logger.warn("Structured library migration skipped invalid row", {
+          libraryItemId: row.id,
+          kind: row.kind,
+        });
       }
-      const json = JSON.stringify(next);
-      if (text !== row.text || json !== row.data)
-        update.run(text, json, row.id, row.tenant_id, row.user_id);
     }
     sqlite
       .prepare("INSERT INTO app_data_migrations(id) VALUES (?)")

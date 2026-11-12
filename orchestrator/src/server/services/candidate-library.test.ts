@@ -986,3 +986,64 @@ it("matches a legacy folded row during import and create without creating duplic
     expect(await repo.listExperienceBullets(true)).toHaveLength(1);
   });
 });
+it("imports, dedupes and stamps double majors as distinct full facts", async () => {
+  const first = {
+    id: "cs",
+    hidden: false,
+    school: "School",
+    location: "City",
+    period: "2024",
+    degree: "BSc",
+    area: "Computer Science",
+    grade: "",
+    description: "",
+    website: { url: "", label: "" },
+  };
+  const second = { ...first, id: "maths", area: "Mathematics" };
+  document.sections.education.items = [first, second];
+  await scope("tenant-a", async () => {
+    expect(api.syncCandidateLibrary(document).created).toBe(2);
+    const all = await (
+      await import("../repositories/experience-bullets")
+    ).listExperienceBullets(true);
+    expect(all).toHaveLength(2);
+    const ids = [first, second].map(
+      (item) =>
+        api.createLibraryItem({
+          kind: "education",
+          text: item.degree,
+          data: { ...item },
+        }).id,
+    );
+    expect(new Set(ids).size).toBe(2);
+    const { stampLibraryRefs } = await vi.importActual<
+      typeof import("@shared/resume-links")
+    >("@shared/resume-links");
+    const stamped = stampLibraryRefs(document, all);
+    expect(stamped.linked).toBe(2);
+    expect(
+      stamped.doc.sections.education.items.map((item) => item.libraryId),
+    ).toEqual(ids);
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+  });
+});
+it.each([
+  "award",
+  "certification",
+] as const)("keeps distinct %s descriptions separate during create dedupe", (kind) => {
+  scope("tenant-a", () => {
+    const input = {
+      kind,
+      text: "Title",
+      data: { date: "2024", issuer: "Institute", description: "First fact" },
+    };
+    const first = api.createLibraryItem(input);
+    expect(api.createLibraryItem(input).id).toBe(first.id);
+    expect(
+      api.createLibraryItem({
+        ...input,
+        data: { ...input.data, description: "Second fact" },
+      }).id,
+    ).not.toBe(first.id);
+  });
+});

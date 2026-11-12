@@ -1,5 +1,6 @@
+import { logger } from "@infra/logger";
 import Database from "better-sqlite3";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { backfillStructuredLibrary } from "./structured-library-backfill";
 
 let db: Database.Database;
@@ -9,7 +10,10 @@ beforeEach(() => {
     CREATE TABLE job_resumes(tenant_id TEXT, user_id TEXT, document TEXT);
     CREATE TABLE design_resume_documents(tenant_id TEXT, user_id TEXT, resume_json TEXT, source_mode TEXT);`);
 });
-afterEach(() => db.close());
+afterEach(() => {
+  db.close();
+  vi.restoreAllMocks();
+});
 function row(
   id: string,
   tenant = "a",
@@ -100,19 +104,91 @@ it("does not split separators or overwrite nonempty structured fields", () => {
     awarder: "Canonical",
     description: "<p>Canonical</p>",
   });
-  row("later");
+  expect(get("literal").text).toBe("Prize · Guild · First");
 });
 it.each([
   "{broken",
   "[]",
   '"scalar"',
-])("preserves malformed data and rolls back the marker: %s", (malformed) => {
+  "null",
+  '{"date":2024}',
+  '{"website":{"url":"x","label":"","icon":"y"}}',
+])("preserves malformed data and commits the marker: %s", (malformed) => {
+  const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
   row("valid");
   row("bad", "a", "one", malformed);
-  expect(() => backfillStructuredLibrary(db)).toThrow();
-  expect(get("bad").data).toBe(malformed);
-  expect(JSON.parse(get("valid").data)).not.toHaveProperty("schemaVersion");
+  const before = get("bad");
+  expect(() => backfillStructuredLibrary(db)).not.toThrow();
+  expect(get("bad")).toEqual(before);
+  expect(JSON.parse(get("valid").data)).toHaveProperty("schemaVersion", 2);
+  expect(warn).toHaveBeenCalledWith(
+    "Structured library migration skipped invalid row",
+    { libraryItemId: "bad", kind: "award" },
+  );
   expect(
     db.prepare("SELECT count(*) AS n FROM app_data_migrations").get(),
-  ).toEqual({ n: 0 });
+  ).toEqual({ n: 1 });
+});
+it("ignores malformed saved documents and source items while completing the migration", () => {
+  row("recoverable");
+  db.prepare("INSERT INTO job_resumes VALUES ('a','one',?)").run("{broken");
+  source("a", "one", { website: { url: "x", label: "", icon: "invalid" } });
+  source();
+  expect(() => backfillStructuredLibrary(db)).not.toThrow();
+  expect(get("recoverable").text).toBe("Prize");
+  expect(
+    db.prepare("SELECT count(*) AS n FROM app_data_migrations").get(),
+  ).toEqual({ n: 1 });
+});
+it("falls back when the only matching source has invalid structured fields", () => {
+  row("fallback");
+  source("a", "one", { website: { url: "x", label: "", icon: "invalid" } });
+  expect(() => backfillStructuredLibrary(db)).not.toThrow();
+  expect(get("fallback").text).toBe("Prize · Guild · First");
+  expect(JSON.parse(get("fallback").data)).toHaveProperty("schemaVersion", 2);
+});
+it("drops old derived linked copies before selecting informative recovery sources", () => {
+  row("prize");
+  db.prepare(
+    "UPDATE experience_bullets SET text = 'Prize · Guild' WHERE id = 'prize'",
+  ).run();
+  source("a", "one", {
+    title: "Prize",
+    awarder: "Guild",
+    description: "",
+    libraryId: "prize",
+    website: { url: "", label: "" },
+  });
+  source("a", "one", {
+    title: "Prize · Guild",
+    awarder: "",
+    description: "",
+    libraryId: "prize",
+    website: { url: "", label: "" },
+  });
+  backfillStructuredLibrary(db);
+  expect(get("prize").text).toBe("Prize");
+  expect(JSON.parse(get("prize").data)).toMatchObject({ awarder: "Guild" });
+});
+it("loads saved sources only once for rows sharing a tenant/user scope", () => {
+  row("one");
+  row("two");
+  row("other", "a", "two");
+  source();
+  const original = db.prepare.bind(db);
+  const prepare = vi.spyOn(db, "prepare");
+  const load = vi.fn();
+  prepare.mockImplementation((sql: string) => {
+    const statement = original(sql);
+    if (sql.startsWith("SELECT document AS document")) {
+      const all = statement.all.bind(statement);
+      vi.spyOn(statement, "all").mockImplementation((...params: unknown[]) => {
+        load(...params);
+        return all(...params);
+      });
+    }
+    return statement;
+  });
+  backfillStructuredLibrary(db);
+  expect(load).toHaveBeenCalledTimes(2);
 });

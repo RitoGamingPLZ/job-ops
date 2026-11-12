@@ -653,11 +653,12 @@ export function stampLibraryRefs(
       const matches = library.filter(
         (value) =>
           value.kind === kind &&
-          (sameLineText(value.text, entryText(item, kind)) ||
-            sameLineText(
-              foldedLibraryText(kind, value.text, value.data),
-              foldedLibraryText(kind, entryText(item, kind), item),
-            )),
+          (["education", "award", "certification"].includes(kind)
+            ? sameLineText(
+                foldedLibraryText(kind, value.text, value.data),
+                foldedLibraryText(kind, entryText(item, kind), item),
+              )
+            : sameLineText(value.text, entryText(item, kind))),
       );
       const match =
         matches.find((value) =>

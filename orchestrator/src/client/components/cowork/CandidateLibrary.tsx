@@ -1,5 +1,9 @@
 import * as api from "@client/api/cowork";
-import { parseLibraryData } from "@shared/candidate-library-schema";
+import {
+  awardDataSchema,
+  certificationDataSchema,
+  educationDataSchema,
+} from "@shared/candidate-library-schema";
 import {
   addToResume,
   applyLibraryUpdate,
@@ -298,13 +302,22 @@ export function CandidateLibrary({
     );
   }
   function startEdit(item: Item) {
+    const schema =
+      item.kind === "education"
+        ? educationDataSchema
+        : item.kind === "award"
+          ? awardDataSchema
+          : item.kind === "certification"
+            ? certificationDataSchema
+            : null;
+    const parsed = schema?.safeParse(item.data ?? {});
     setEdit({
       items: [item],
       input: {
         text: item.text,
         kind: item.kind,
-        data: ["education", "award", "certification"].includes(item.kind)
-          ? parseLibraryData(item.kind, item.data)
+        data: parsed?.success
+          ? parsed.data
           : item.data
             ? { ...item.data }
             : null,
