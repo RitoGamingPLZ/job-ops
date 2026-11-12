@@ -86,7 +86,12 @@ async function materializeJobResume(
   if (opts?.tailor || isTargeted(job)) {
     // B's sync imports the base only on the scope's first build. Subsequent
     // syncs add unlinked job facts without resurrecting deleted library facts.
-    syncCandidateLibrary(base.data as ReactiveResumeV5Document);
+    // Advance only over revisions written by this sync, preserving editor conflicts
+    // from both base loading and generation.
+    const revisions = new Map<string, { from: number; to: number }>();
+    syncCandidateLibrary(base.data as ReactiveResumeV5Document, revisions);
+    const synced = revisions.get(jobId);
+    if (synced?.from === baseRevision) baseRevision = synced.to;
     document = await generateResumeFromLibrary(
       base.data as ReactiveResumeV5Document,
       job,

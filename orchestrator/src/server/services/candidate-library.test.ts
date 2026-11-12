@@ -1083,3 +1083,18 @@ it.each([
     expect(repaired.data?.website).toEqual(clean.website);
   });
 });
+
+it("reports only this sync's successful scoped job revision transitions", () => {
+  document.sections.experience.items = [experience()];
+  scope("tenant-a", () => job("a"));
+  scope("tenant-b", () => job("b", "ready", "tenant-b"));
+  const a = new Map<string, { from: number; to: number }>();
+  scope("tenant-a", () => api.syncCandidateLibrary(undefined, a));
+  expect([...a]).toEqual([["a", { from: 3, to: 4 }]]);
+  const repeated = new Map<string, { from: number; to: number }>();
+  scope("tenant-a", () => api.syncCandidateLibrary(undefined, repeated));
+  expect([...repeated]).toEqual([]);
+  const b = new Map<string, { from: number; to: number }>();
+  scope("tenant-b", () => api.syncCandidateLibrary(undefined, b));
+  expect([...b]).toEqual([["b", { from: 3, to: 4 }]]);
+});

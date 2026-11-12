@@ -1,3 +1,5 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
 import {
   getRequestContext,
   runWithRequestContext,
@@ -79,9 +81,19 @@ let base: ReactiveResumeV5Document;
 let selection: {
   headline: string;
   summary: string;
-  bullets: Record<string, string[]>;
+  experience: {
+    id: string;
+    intro: string | null;
+    lines: { id: string; text: string | null }[];
+  }[];
+  projects: {
+    id: string;
+    intro: string | null;
+    lines: { id: string; text: string | null }[];
+  }[];
+  educationIds: string[];
   skills: { id: string; keywords: string[] }[];
-  projectIds: string[];
+
   awardIds: string[];
   certificationIds: string[];
 };
@@ -108,9 +120,15 @@ beforeEach(() => {
   selection = {
     headline: "Engineer",
     summary: "Builds software",
-    bullets: { role: ["duty"] },
+    experience: [
+      { id: "role", intro: null, lines: [{ id: "duty", text: null }] },
+    ],
+    projects: [
+      { id: "project", intro: null, lines: [{ id: "point", text: null }] },
+    ],
+    educationIds: ["school"],
     skills: [{ id: "skill", keywords: ["typescript", "Invented"] }],
-    projectIds: ["project"],
+
     awardIds: ["award"],
     certificationIds: ["cert"],
   };
@@ -206,7 +224,7 @@ describe("generateResumeFromLibrary", () => {
         ],
       },
     ];
-    selection.bullets = {};
+    selection.experience = [];
     const result = await generateResumeFromLibrary(
       base,
       createJob(),
@@ -320,19 +338,31 @@ describe("generateResumeFromLibrary", () => {
       new Set(duties.map((entry: ExperienceBullet) => entry.parentId)).size,
     ).toBe(80);
   });
-  it("drops unknown and cross-parent ids, deduplicates picks and falls back for an empty role", async () => {
-    selection.bullets = {
-      role: ["missing", "other", "duty", "duty"],
-      role2: ["duty"],
-    };
-    selection.projectIds = ["missing", "award", "project", "project"];
+  it("drops unknown and cross-parent ids, deduplicates picks and falls back when all submitted lines are invalid", async () => {
+    selection.experience = [
+      {
+        id: "role",
+        intro: null,
+        lines: ["missing", "other", "duty", "duty"].map((id) => ({
+          id,
+          text: null,
+        })),
+      },
+      { id: "role", intro: "Duplicate", lines: [] },
+      { id: "missing", intro: null, lines: [] },
+      { id: "award", intro: null, lines: [] },
+      { id: "role2", intro: null, lines: [{ id: "duty", text: null }] },
+    ];
+    selection.projects = ["missing", "award", "project", "project"].map(
+      (id) => ({ id, intro: null, lines: [] }),
+    );
     const result = await generateResumeFromLibrary(base, createJob(), library);
     expect(
       result.sections.experience.items.map((item) => item.bulletRefs),
     ).toEqual([["duty"], ["other"]]);
     expect(result.sections.projects.items).toHaveLength(1);
   });
-  it("keeps the base duty subset when a role receives no valid picks", async () => {
+  it("keeps the base duty subset when all submitted lines are invalid", async () => {
     base.sections.experience.items = [
       {
         id: "base-role",
@@ -346,7 +376,9 @@ describe("generateResumeFromLibrary", () => {
         roles: [],
       },
     ];
-    selection.bullets = { role: ["missing"] };
+    selection.experience = [
+      { id: "role", intro: null, lines: [{ id: "missing", text: null }] },
+    ];
     const result = await generateResumeFromLibrary(base, createJob(), [
       ...library,
       item("extra", "bullet", "Extra library duty", { parentId: "role" }),
@@ -392,7 +424,9 @@ describe("generateResumeFromLibrary", () => {
         aiSelectableProjectIds: ["base-eligible"],
       }),
     );
-    selection.projectIds = ["excluded", "eligible", "project", "eligible"];
+    selection.projects = ["excluded", "eligible", "project", "eligible"].map(
+      (id) => ({ id, intro: null, lines: [] }),
+    );
     const result = await generateResumeFromLibrary(base, createJob(), [
       ...library,
       item("excluded", "project", "Excluded", { data: { period: "2024" } }),
@@ -458,7 +492,7 @@ describe("generateResumeFromLibrary", () => {
         website: { url: "", label: "" },
       },
     ];
-    selection.projectIds = [];
+    selection.projects = [];
     const result = await generateResumeFromLibrary(base, createJob(), library);
     expect(
       result.sections.projects.items.map((entry) => entry.libraryId),
@@ -467,8 +501,15 @@ describe("generateResumeFromLibrary", () => {
   it.each([
     true,
     false,
-  ])("uses current library education in library order (linked base: %s)", async (linked) => {
+  ])("uses current library education in selected order (linked base: %s)", async (linked) => {
     if (linked) base.sections.education.items[0].libraryId = "school";
+    selection.educationIds = [
+      "new-school",
+      "school",
+      "new-school",
+      "role",
+      "foreign",
+    ];
     const result = await generateResumeFromLibrary(base, createJob(), [
       item("new-school", "education", "MSc", {
         data: { school: "New University", location: "Paris", period: "2025" },
@@ -548,6 +589,308 @@ describe("generateResumeFromLibrary", () => {
       { text: "Built a site", ref: "point" },
     ]);
     expect(result.sections.projects.items[0].name).toBe("Portfolio");
+  });
+  it("selects education and rewrites linked lines/intros as escaped job-only text", async () => {
+    selection.educationIds = [];
+    selection.experience[0].intro = "Job intro <script>";
+    selection.experience[0].lines[0].text = "Reworded duty <b>";
+    selection.projects[0].intro = "Project & intro";
+    selection.projects[0].lines = [
+      { id: "point", text: "Reworded project point" },
+      { id: "duty", text: "Wrong parent" },
+    ];
+    const result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(getItemLines(result.sections.experience.items[0])).toEqual([
+      { text: "Reworded duty <b>", ref: "duty" },
+    ]);
+    expect(
+      splitDescription(result.sections.experience.items[0].description)
+        .introHtml,
+    ).toBe("<p>Job intro &lt;script&gt;</p>");
+    expect(getItemLines(result.sections.projects.items[0])).toEqual([
+      { text: "Reworded project point", ref: "point" },
+    ]);
+    expect(result.sections.education.items).toEqual([]);
+    expect(library.find((entry) => entry.id === "duty")?.text).toBe(
+      "Built software",
+    );
+  });
+  it("honors explicit empty role and project lines while omitted locked projects keep their points", async () => {
+    selection.experience[0].lines = [];
+    selection.projects[0].lines = [];
+    let result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(getItemLines(result.sections.experience.items[0])).toEqual([]);
+    expect(getItemLines(result.sections.projects.items[0])).toEqual([]);
+    vi.mocked(getSetting).mockResolvedValue(
+      JSON.stringify({
+        maxProjects: 1,
+        lockedProjectIds: ["project"],
+        aiSelectableProjectIds: [],
+      }),
+    );
+    selection.projects = [];
+    result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(getItemLines(result.sections.projects.items[0])).toEqual([
+      { text: "Built a site", ref: "point" },
+    ]);
+  });
+  it.each([
+    "",
+    "   ",
+  ])("keeps base intros for blank rewrites (%j)", async (intro) => {
+    base = await generateResumeFromLibrary(base, createJob(), library);
+    base.sections.experience.items[0].description = "<p>Base role intro</p>";
+    base.sections.projects.items[0].description = "<p>Base project intro</p>";
+    selection.experience[0].intro = intro;
+    selection.projects[0].intro = intro;
+    const result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(
+      splitDescription(result.sections.experience.items[0].description)
+        .introHtml,
+    ).toBe("<p>Base role intro</p>");
+    expect(
+      splitDescription(result.sections.projects.items[0].description).introHtml,
+    ).toBe("<p>Base project intro</p>");
+  });
+  it("retains library chronology for reordered and omitted model roles", async () => {
+    base = await generateResumeFromLibrary(base, createJob(), library);
+    const older = {
+      id: "role2",
+      intro: null,
+      lines: [{ id: "other", text: "Rewritten older duty" }],
+    };
+    selection.experience = [older, ...selection.experience];
+    let result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(
+      result.sections.experience.items.map((item) => item.libraryId),
+    ).toEqual(["role", "role2"]);
+    selection.experience = [older];
+    result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(
+      result.sections.experience.items.map((item) => item.libraryId),
+    ).toEqual(["role", "role2"]);
+    expect(getItemLines(result.sections.experience.items[1])).toEqual([
+      { text: "Rewritten older duty", ref: "other" },
+    ]);
+  });
+  it("falls back for invalid project points without treating an explicit empty array as invalid", async () => {
+    selection.projects[0].lines = [{ id: "duty", text: "Wrong parent" }];
+    const result = await generateResumeFromLibrary(base, createJob(), library);
+    expect(getItemLines(result.sections.projects.items[0])).toEqual([
+      { text: "Built a site", ref: "point" },
+    ]);
+  });
+  it("supplies plain-text structured facts and grounded intros without arbitrary data or URLs", async () => {
+    base.sections.projects.items = [
+      {
+        id: "base-project",
+        libraryId: "project",
+        hidden: true,
+        name: "Portfolio",
+        period: "2025",
+        description:
+          "<p>Grounded intro https://intro.example me+test@private.example www.intro.example</p><ul><li>Old point</li></ul>",
+        website: { url: "", label: "" },
+      },
+    ];
+    await generateResumeFromLibrary(
+      base,
+      createJob(),
+      library.map((entry) => ({
+        ...entry,
+        data: {
+          ...entry.data,
+          area: "Computing",
+          grade: "First",
+          awarder: "Society",
+          description:
+            '<p>Plain <a href="https://private.example">details</a> https://private.example test@private.example www.private.example</p>',
+          website: { url: "https://private.example" },
+          arbitrary: "PRIVATE DATA",
+        },
+      })),
+    );
+    const prompt = mocks.callJson.mock.calls[0][0].messages[1].content;
+    const catalog = JSON.parse(prompt).library;
+    expect(
+      catalog.find((entry: ExperienceBullet) => entry.id === "project").intro,
+    ).toBe("Grounded intro");
+    expect(
+      catalog.find((entry: ExperienceBullet) => entry.id === "school").data,
+    ).toMatchObject({
+      area: "Computing",
+      grade: "First",
+      description: "Plain details",
+      school: "University",
+    });
+    expect(
+      catalog.find((entry: ExperienceBullet) => entry.id === "award").data
+        .awarder,
+    ).toBe("Society");
+    expect(
+      catalog.find((entry: ExperienceBullet) => entry.id === "cert").data
+        .issuer,
+    ).toBe("Issuer");
+    expect(prompt).not.toContain("https://private.example");
+    expect(prompt).not.toContain("intro.example");
+    expect(prompt).not.toContain("private.example");
+    expect(prompt).not.toContain("PRIVATE DATA");
+    expect(prompt).not.toContain("<p>");
+  });
+  it("preserves URLs and addresses in library line text supplied to the model", async () => {
+    const text =
+      "Launched www.shop.example https://shop.example with shop@example.com";
+    await generateResumeFromLibrary(
+      base,
+      createJob(),
+      library.map((entry) =>
+        entry.id === "duty" ? { ...entry, text } : entry,
+      ),
+    );
+    const prompt = JSON.parse(
+      mocks.callJson.mock.calls[0][0].messages[1].content,
+    );
+    expect(
+      prompt.library.find((entry: ExperienceBullet) => entry.id === "duty")
+        .text,
+    ).toBe(text);
+  });
+  it("never uses a duty omitted from the bounded prompt catalog", async () => {
+    const crowded = [
+      ...library,
+      ...Array.from({ length: 160 }, (_, index) =>
+        item(`extra-${index}`, "bullet", "Relevant platform", {
+          parentId: "role",
+        }),
+      ),
+    ];
+    mocks.callJson.mockImplementation(async (args) => {
+      const supplied = new Set(
+        JSON.parse(args.messages[1].content).library.map(
+          (entry: ExperienceBullet) => entry.id,
+        ),
+      );
+      const omitted = crowded.find(
+        (entry) => entry.kind === "bullet" && !supplied.has(entry.id),
+      );
+      expect(omitted).toBeDefined();
+      return {
+        success: true,
+        data: {
+          ...selection,
+          experience: [
+            {
+              id: "role",
+              intro: null,
+              lines: [{ id: omitted?.id, text: "Injected" }],
+            },
+          ],
+        },
+      };
+    });
+    const result = await generateResumeFromLibrary(
+      base,
+      createJob({ jobDescription: "Relevant platform" }),
+      crowded,
+    );
+    const supplied = JSON.parse(
+      mocks.callJson.mock.calls[0][0].messages[1].content,
+    ).library;
+    expect(getItemLines(result.sections.experience.items[0])).toEqual(
+      supplied
+        .filter(
+          (entry: ExperienceBullet) =>
+            entry.kind === "bullet" && entry.parentId === "role",
+        )
+        .map((entry: ExperienceBullet) => ({
+          text: entry.text,
+          ref: entry.id,
+        })),
+    );
+  });
+  it("imports no rewritten line or duplicate on following library syncs in either tenant", async () => {
+    selection.experience[0].lines[0].text = "Job-only duty rewrite";
+    selection.projects[0].lines[0].text = "Job-only project rewrite";
+    const generated = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      library,
+    );
+    const dir = await mkdtemp(join(process.cwd(), ".generation-sync-"));
+    vi.resetModules();
+    vi.stubEnv("DATA_DIR", dir);
+    vi.stubEnv("JOBOPS_APP_MODE", "local");
+    const database = await import("../db");
+    try {
+      await import("../db/migrate");
+      const { syncCandidateLibrary } = await import("./candidate-library");
+      const { runWithRequestContext: scoped } = await import(
+        "@infra/request-context"
+      );
+      for (const tenantId of ["tenant-a", "tenant-b"]) {
+        database.db
+          .insert(database.schema.tenants)
+          .values({ id: tenantId, name: tenantId, slug: tenantId })
+          .run();
+        if (tenantId === "tenant-a") {
+          database.db
+            .insert(database.schema.experienceBullets)
+            .values(library.map((entry) => ({ ...entry, tenantId })))
+            .run();
+        }
+        database.db
+          .insert(database.schema.jobs)
+          .values({
+            id: tenantId,
+            tenantId,
+            title: "Engineer",
+            employer: "Acme",
+            jobUrl: "https://example.com",
+            status: "ready",
+          })
+          .run();
+        database.db
+          .insert(database.schema.jobResumes)
+          .values({
+            jobId: tenantId,
+            tenantId,
+            document: generated,
+            revision: 1,
+          })
+          .run();
+        scoped({ tenantId }, () => {
+          expect(syncCandidateLibrary().created).toBe(0);
+          expect(syncCandidateLibrary().created).toBe(0);
+        });
+      }
+      for (const saved of database.db
+        .select()
+        .from(database.schema.jobResumes)
+        .all()) {
+        expect(
+          getItemLines(saved.document.sections.experience.items[0]),
+        ).toEqual([{ text: "Job-only duty rewrite", ref: "duty" }]);
+        expect(getItemLines(saved.document.sections.projects.items[0])).toEqual(
+          [{ text: "Job-only project rewrite", ref: "point" }],
+        );
+      }
+      const stored = database.db
+        .select()
+        .from(database.schema.experienceBullets)
+        .all();
+      expect(stored).toHaveLength(library.length);
+      expect(stored.find((entry) => entry.id === "duty")?.text).toBe(
+        "Built software",
+      );
+      expect(stored.find((entry) => entry.id === "point")?.text).toBe(
+        "Built a site",
+      );
+      expect(stored.every((entry) => entry.tenantId === "tenant-a")).toBe(true);
+    } finally {
+      database.closeDb();
+      vi.unstubAllEnvs();
+      await rm(dir, { recursive: true, force: true });
+    }
   });
   it("omits deleted kinds instead of resurrecting unlinked base facts", async () => {
     const result = await generateResumeFromLibrary(
