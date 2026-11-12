@@ -509,6 +509,12 @@ describe("V2 cowork producer", () => {
     const library = kinds.map((kind) => ({
       ...bullet(kind),
       kind,
+      parentId:
+        kind === "bullet"
+          ? "role"
+          : kind === "project_point"
+            ? "project"
+            : null,
       text:
         kind === "contact"
           ? "CONTACT SECRET"
@@ -526,9 +532,9 @@ describe("V2 cowork producer", () => {
     }));
     const prompt = buildCoworkPrompt(withSections(), "Job", library);
     const data = JSON.parse(prompt.split("\n").slice(1).join("\n"));
-    expect(data.library.map((item: ExperienceBullet) => item.kind)).toEqual(
-      kinds.slice(0, -1),
-    );
+    expect(
+      data.library.map((item: ExperienceBullet) => item.kind).sort(),
+    ).toEqual([...kinds.slice(0, -1)].sort());
     expect(
       data.library.find((item: ExperienceBullet) => item.kind === "education"),
     ).toMatchObject({
@@ -597,6 +603,7 @@ describe("V2 cowork producer", () => {
           itemId: "pr",
           bulletIndex: 0,
           text: "Clear point",
+          previousText: "Point",
         }),
         proposal("replace_intro", {
           section: "projects",
@@ -646,7 +653,7 @@ describe("V2 cowork producer", () => {
       { ...bullet("new-line"), parentId: "role" },
     ];
     const input = [
-      proposal("include_library_item", { libraryId: "role" }),
+      proposal("include_library_item", { libraryId: "new-line" }),
       proposal("exclude_library_item", { libraryId: "old-line" }),
       proposal("create_library_item", {
         itemJson: JSON.stringify({
@@ -672,7 +679,7 @@ describe("V2 cowork producer", () => {
             section: "experience",
             itemId: "exp",
             bulletIndex: 0,
-            previousText: "stale",
+            previousText: "Built APIs",
           },
         },
       }),
@@ -697,6 +704,7 @@ describe("V2 cowork producer", () => {
         section: "experience",
         itemId: "exp",
         bulletIndex: 0,
+        previousText: "Built APIs",
       }),
       proposal("set_skill_keywords", {
         itemId: "skill-item",
@@ -754,6 +762,213 @@ describe("V2 cowork producer", () => {
         [],
       ),
     ).toEqual([]);
+  });
+  it("anchors replace/delete and line saves by previousText before the model index", () => {
+    const ctx = context();
+    Object.assign(ctx.document.sections.experience.items[0], {
+      libraryId: "role",
+      description: "<ul><li>First</li><li>Second point</li><li>Third</li></ul>",
+      bulletRefs: ["first", "second", "third"],
+    });
+    const library = ["first", "second", "third"].map((id) => ({
+      ...bullet(id),
+      parentId: "role",
+    }));
+    const line = {
+      section: "experience",
+      itemId: "exp",
+      bulletIndex: 0,
+      previousText: " Second   point ",
+    };
+    for (const op of ["replace_bullet", "delete_bullet", "save_to_library"]) {
+      const input =
+        op === "save_to_library"
+          ? proposal(op, {
+              target: { kind: "line", libraryId: "second", target: line },
+            })
+          : proposal(op, { ...line, text: "Better" });
+      const out = filterCoworkSuggestions([input], ctx, library);
+      expect(out).toHaveLength(1);
+      expect(out[0]).toMatchObject(
+        op === "save_to_library"
+          ? {
+              target: {
+                target: { bulletIndex: 1, previousText: "Second point" },
+              },
+            }
+          : { bulletIndex: 1, previousText: "Second point" },
+      );
+      const stale =
+        op === "save_to_library"
+          ? proposal(op, {
+              target: {
+                kind: "line",
+                libraryId: "first",
+                target: { ...line, previousText: "missing" },
+              },
+            })
+          : proposal(op, { ...line, previousText: "missing", text: "Better" });
+      expect(filterCoworkSuggestions([stale], ctx, library)).toEqual([]);
+      const fallback =
+        op === "save_to_library"
+          ? proposal(op, {
+              target: {
+                kind: "line",
+                libraryId: "first",
+                target: { ...line, previousText: "" },
+              },
+            })
+          : proposal(op, { ...line, previousText: "", text: "Better" });
+      expect(
+        filterCoworkSuggestions([fallback], ctx, library)[0],
+      ).toMatchObject(
+        op === "save_to_library"
+          ? { target: { target: { bulletIndex: 0, previousText: "First" } } }
+          : { bulletIndex: 0, previousText: "First" },
+      );
+    }
+  });
+  it("checks include/exclude against linked entries and lines including hidden items", () => {
+    const ctx = withSections();
+    Object.assign(ctx.document.sections.experience.items[0], {
+      libraryId: "role",
+      bulletRefs: ["linked"],
+    });
+    Object.assign(ctx.document.sections.projects.items[1], {
+      libraryId: "hidden-project",
+    });
+    const library: ExperienceBullet[] = [
+      { ...bullet("role"), kind: "role" },
+      { ...bullet("hidden-project"), kind: "project" },
+      { ...bullet("absent-project"), kind: "project" },
+      { ...bullet("linked"), parentId: "role" },
+      { ...bullet("new"), parentId: "role" },
+      { ...bullet("orphan"), parentId: "absent-role" },
+      {
+        ...bullet("hidden-point"),
+        kind: "project_point",
+        parentId: "hidden-project",
+      },
+    ];
+    for (const op of ["include_library_item", "exclude_library_item"]) {
+      const out = filterCoworkSuggestions(
+        library.map((item) => proposal(op, { libraryId: item.id })),
+        ctx,
+        library,
+      );
+      expect(out.map((s) => ("libraryId" in s ? s.libraryId : null))).toEqual(
+        op === "include_library_item"
+          ? ["absent-project", "new", "hidden-point"]
+          : ["role", "hidden-project", "linked"],
+      );
+    }
+  });
+  it("filters sourceBulletIds without applying libraryId attachment restrictions", () => {
+    const ctx = context();
+    const inputs = [
+      proposal("insert_bullet", {
+        section: "experience",
+        itemId: "exp",
+        bulletIndex: 1,
+        text: "New",
+        sourceBulletIds: ["own", "foreign"],
+      }),
+      proposal("insert_bullet", {
+        section: "experience",
+        itemId: "exp",
+        bulletIndex: 1,
+        text: "New",
+        libraryId: "own",
+      }),
+    ];
+    expect(filterCoworkSuggestions(inputs, ctx, [bullet("own")])).toMatchObject(
+      [{ op: "insert_bullet", sourceBulletIds: ["own"] }],
+    );
+    Object.assign(ctx.document.sections.experience.items[0], {
+      libraryId: "role",
+      bulletRefs: ["own"],
+    });
+    expect(
+      filterCoworkSuggestions(inputs, ctx, [
+        { ...bullet("own"), parentId: "other-role" },
+      ]),
+    ).toMatchObject([{ op: "insert_bullet", sourceBulletIds: ["own"] }]);
+  });
+  it("budgets catalog at 50 KB in priority order and retains parents for lines", () => {
+    const ctx = context();
+    Object.assign(ctx.document.sections.experience.items[0], {
+      libraryId: "role",
+      bulletRefs: ["linked"],
+    });
+    ctx.referencedBulletIds = ["referenced"];
+    const library: ExperienceBullet[] = [
+      ...Array.from({ length: 40 }, (_, i) => ({
+        ...bullet(`line-${i}`, "irrelevant ".repeat(200)),
+        parentId: "role",
+      })),
+      { ...bullet("ranked", "Python ".repeat(300)), parentId: "role" },
+      { ...bullet("parent", "Other role"), kind: "role" },
+      { ...bullet("linked"), parentId: "role" },
+      { ...bullet("referenced"), kind: "project_point", parentId: "project" },
+      { ...bullet("role", "Role"), kind: "role" },
+      { ...bullet("project", "Project"), kind: "project" },
+      { ...bullet("orphan"), parentId: "missing" },
+    ];
+    const prompt = buildCoworkPrompt(ctx, "Python", library);
+    const data = JSON.parse(prompt.split("\n").slice(1).join("\n"));
+    const ids = data.library.map((item: ExperienceBullet) => item.id);
+    expect(ids.slice(0, 7)).toEqual([
+      "role",
+      "linked",
+      "project",
+      "referenced",
+      "parent",
+      "ranked",
+      "line-0",
+    ]);
+    expect(ids).not.toContain("orphan");
+    expect(ids).not.toContain("line-39");
+    expect(Buffer.byteLength(JSON.stringify(data.library))).toBeLessThanOrEqual(
+      50_000,
+    );
+    expect(Buffer.byteLength(prompt)).toBeLessThanOrEqual(250_000);
+    expect(
+      data.library.find((item: ExperienceBullet) => item.id === "role"),
+    ).toEqual({ id: "role", kind: "role", text: "Role" });
+    for (const item of data.library)
+      if (item.kind === "bullet" || item.kind === "project_point")
+        expect(ids).toContain(item.parentId);
+  });
+  it("trims the catalog first without throwing on oversized fixed context", () => {
+    const ctx = context();
+    ctx.document.summary.content = "x".repeat(245_000);
+    const prompt = buildCoworkPrompt(ctx, "Job", [
+      { ...bullet("role", "y".repeat(10_000)), kind: "role" },
+    ]);
+    const data = JSON.parse(prompt.split("\n").slice(1).join("\n"));
+    expect(data.library).toEqual([]);
+    expect(Buffer.byteLength(prompt)).toBeLessThanOrEqual(250_000);
+    ctx.document.summary.content = "x".repeat(260_000);
+    const oversized = buildCoworkPrompt(ctx, "Job", [
+      { ...bullet("role"), kind: "role" },
+    ]);
+    const largeData = JSON.parse(oversized.split("\n").slice(1).join("\n"));
+    expect(largeData.library).toEqual([]);
+    expect(largeData.resume.summary).toHaveLength(260_000);
+  });
+  it("drops markup-only intro replacements but permits an explicit empty clear", () => {
+    const out = filterCoworkSuggestions(
+      ["<p></p>", "", "Clear intro"].map((text) =>
+        proposal("replace_intro", {
+          section: "experience",
+          itemId: "exp",
+          text,
+        }),
+      ),
+      context(),
+      [],
+    );
+    expect(out).toMatchObject([{ text: "" }, { text: "Clear intro" }]);
   });
   it("drops missing/foreign targets for every structural and library operation", () => {
     const ctx = withSections();

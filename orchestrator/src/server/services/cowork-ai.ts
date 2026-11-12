@@ -6,7 +6,7 @@ import {
 } from "@server/repositories/experience-bullets";
 import { safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
 import { htmlToPlainText, splitDescription } from "@shared/resume-bullets";
-import { getItemLines, KIND_SECTION } from "@shared/resume-links";
+import { getItemLines, KIND_SECTION, sameLineText } from "@shared/resume-links";
 import {
   decodeProviderSuggestion,
   suggestionProviderJsonSchema,
@@ -109,6 +109,27 @@ function sectionItems(
     >
   )[section];
   return value?.items ?? [];
+}
+function linkedLibraryIds(context: CoworkChatContext): Set<string> {
+  const ids = new Set<string>();
+  for (const section of [
+    ...Object.values(context.document.sections),
+    ...context.document.customSections,
+  ]) {
+    if (
+      !section ||
+      typeof section !== "object" ||
+      !("items" in section) ||
+      !Array.isArray(section.items)
+    )
+      continue;
+    for (const item of section.items) {
+      if (!item || typeof item !== "object") continue;
+      if (typeof item.libraryId === "string") ids.add(item.libraryId);
+      for (const line of getItemLines(item)) if (line.ref) ids.add(line.ref);
+    }
+  }
+  return ids;
 }
 function fieldText(item: LooseItem, name: string): string {
   const value = typeof item[name] === "string" ? (item[name] as string) : "";
@@ -390,9 +411,7 @@ export function selectLibraryBullets(
         .toLowerCase()
         .match(/[a-z0-9+#]+/g) ?? []
     ).filter((term) => terms.has(term)).length;
-  return library.length <= limit
-    ? library
-    : [...library].sort((a, b) => overlap(b) - overlap(a)).slice(0, limit);
+  return [...library].sort((a, b) => overlap(b) - overlap(a)).slice(0, limit);
 }
 
 export function buildCoworkPrompt(
@@ -404,49 +423,55 @@ export function buildCoworkPrompt(
     htmlToPlainText(typeof value === "string" ? value : "")
       .replace(/(?:https?:\/\/|www\.)[^\s]+/gi, "[link]")
       .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]");
-  const minimal = (item: ExperienceBullet) => ({
-    id: item.id,
-    kind: item.kind,
-    parentId: item.parentId,
-    text: clean(item.text),
-    ...Object.fromEntries(
-      ["company", "role", "startDate", "endDate"].map((key) => [
-        key,
-        clean(
-          item.data?.[key] ??
-            {
-              company: item.company,
-              role: item.role,
-              startDate: item.startDate,
-              endDate: item.endDate,
-            }[key],
+  const minimal = (item: ExperienceBullet) =>
+    Object.fromEntries(
+      Object.entries({
+        id: item.id,
+        kind: item.kind,
+        parentId: item.parentId,
+        text: clean(item.text),
+        ...Object.fromEntries(
+          ["company", "role", "startDate", "endDate"].map((key) => [
+            key,
+            clean(
+              item.data?.[key] ??
+                {
+                  company: item.company,
+                  role: item.role,
+                  startDate: item.startDate,
+                  endDate: item.endDate,
+                }[key],
+            ),
+          ]),
         ),
-      ]),
-    ),
-    ...Object.fromEntries(
-      [
-        "school",
-        "location",
-        "period",
-        "area",
-        "grade",
-        "description",
-        "date",
-        "awarder",
-        "issuer",
-      ].map((key) => [key, clean(item.data?.[key])]),
-    ),
-    ...(item.kind === "skill"
-      ? {
-          keywords: Array.isArray(item.data?.keywords)
-            ? item.data.keywords.map(clean)
-            : [],
-        }
-      : {}),
-  });
-  const catalog = library
-    .filter((item) => item.kind !== "contact")
-    .map(minimal);
+        ...Object.fromEntries(
+          [
+            "school",
+            "location",
+            "period",
+            "area",
+            "grade",
+            "description",
+            "date",
+            "awarder",
+            "issuer",
+          ].map((key) => [key, clean(item.data?.[key])]),
+        ),
+        ...(item.kind === "skill"
+          ? {
+              keywords: Array.isArray(item.data?.keywords)
+                ? item.data.keywords.map(clean)
+                : [],
+            }
+          : {}),
+      }).filter(
+        ([, value]) =>
+          value !== "" &&
+          value != null &&
+          (!Array.isArray(value) || value.length > 0),
+      ),
+    );
+  const catalog: ReturnType<typeof minimal>[] = [];
   const resume: Record<string, unknown> = {
     headline: htmlToPlainText(context.document.basics.headline),
     summary: htmlToPlainText(context.document.summary.content),
@@ -476,14 +501,51 @@ export function buildCoworkPrompt(
     FOCUS: focus,
     library: catalog,
   };
-  // Never truncate serialized JSON: omit catalog rows when the existing context cap is reached.
-  while (
-    catalog.length &&
-    Buffer.byteLength(JSON.stringify(payload)) > payloadBudget
-  )
-    catalog.pop();
-  if (Buffer.byteLength(JSON.stringify(payload)) > payloadBudget)
-    throw upstreamError("Resume prompt exceeds context limit");
+  // Preserve the fixed resume context even if it alone exceeds the ceiling, as before.
+  let remaining = Math.min(
+    50_000 - 2, // Include the catalog array delimiters in its budget.
+    Math.max(0, payloadBudget - Buffer.byteLength(JSON.stringify(payload))),
+  );
+  const available = library.filter((item) => item.kind !== "contact");
+  const byId = new Map(available.map((item) => [item.id, item]));
+  const onResume = linkedLibraryIds(context);
+  const referenced = new Set(context.referencedBulletIds);
+  const isLine = (item: ExperienceBullet) =>
+    item.kind === "bullet" || item.kind === "project_point";
+  const prioritized = [
+    ...available.filter((item) => onResume.has(item.id)),
+    ...available.filter((item) => referenced.has(item.id)),
+    ...available.filter((item) => !isLine(item)),
+    ...selectLibraryBullets(
+      available.filter(isLine),
+      jobDescription,
+      available.length,
+    ),
+  ];
+  const kept = new Set<string>();
+  for (const item of prioritized) {
+    if (kept.has(item.id)) continue;
+    const pending = [];
+    if (isLine(item)) {
+      const parent = item.parentId ? byId.get(item.parentId) : undefined;
+      if (
+        !parent ||
+        parent.kind !== (item.kind === "bullet" ? "role" : "project")
+      )
+        continue;
+      if (!kept.has(parent.id)) pending.push(parent);
+    }
+    pending.push(item);
+    const rows = pending.map(minimal);
+    const cost = rows.reduce(
+      (bytes, row) => bytes + Buffer.byteLength(JSON.stringify(row)) + 1,
+      0,
+    );
+    if (cost > remaining) continue;
+    remaining -= cost;
+    catalog.push(...rows);
+    for (const row of pending) kept.add(row.id);
+  }
   return `${instructions}\n${JSON.stringify(payload)}`;
 }
 
@@ -498,6 +560,7 @@ export function filterCoworkSuggestions(
       .filter((item) => item.kind !== "contact")
       .map((item) => [item.id, item]),
   );
+  const onResume = linkedLibraryIds(context);
   const find = (section: string, id: string) =>
     sectionItems(context, section).find((item) => item.id === id);
   const lineTarget = (target: {
@@ -507,16 +570,31 @@ export function filterCoworkSuggestions(
     previousText: string;
   }) => {
     const item = find(target.section, target.itemId);
-    const line = item && getItemLines(item)[target.bulletIndex];
-    return line ? { ...target, previousText: line.text } : null;
+    if (!item) return null;
+    const lines = getItemLines(item);
+    const index = target.previousText.trim()
+      ? lines.findIndex((line) => sameLineText(line.text, target.previousText))
+      : target.bulletIndex;
+    const line = lines[index];
+    return line
+      ? { ...target, bulletIndex: index, previousText: line.text }
+      : null;
   };
-  return value.slice(0, 100).flatMap((raw): ResumeSuggestionV2[] => {
+  function filterSuggestion(raw: unknown): ResumeSuggestionV2[] {
     const s = decodeProviderSuggestion(raw, randomUUID());
     if (!s) return [];
     switch (s.op) {
-      case "include_library_item":
+      case "include_library_item": {
+        const row = catalog.get(s.libraryId);
+        return row &&
+          !onResume.has(row.id) &&
+          ((row.kind !== "bullet" && row.kind !== "project_point") ||
+            (row.parentId && onResume.has(row.parentId)))
+          ? [s]
+          : [];
+      }
       case "exclude_library_item":
-        return catalog.has(s.libraryId) ? [s] : [];
+        return catalog.has(s.libraryId) && onResume.has(s.libraryId) ? [s] : [];
       case "create_library_item": {
         if (s.item.kind === "contact") return [];
         const parent = s.item.parentId
@@ -544,7 +622,7 @@ export function filterCoworkSuggestions(
                 ? "bullet"
                 : "project_point") ||
             row.parentId !== item.libraryId ||
-            getItemLines(item)[target.target.bulletIndex]?.ref !== row.id
+            getItemLines(item)[stamped.bulletIndex]?.ref !== row.id
           )
             return [];
           return [{ ...s, target: { ...target, target: stamped } }];
@@ -575,25 +653,32 @@ export function filterCoworkSuggestions(
       case "insert_bullet": {
         const item = find(s.section, s.itemId);
         if (!item || s.bulletIndex > getItemLines(item).length) return [];
-        const refs = [s.libraryId, ...(s.sourceBulletIds ?? [])].filter(
-          (id): id is string => !!id,
-        );
-        if (
-          refs.some((id) => {
-            const row = catalog.get(id);
-            return (
-              !row ||
-              row.kind !==
-                (s.section === "experience" ? "bullet" : "project_point") ||
-              !item.libraryId ||
-              row.parentId !== item.libraryId ||
-              getItemLines(item).some((line) => line.ref === id)
-            );
-          })
-        )
-          return [];
-        return [s];
+        if (s.libraryId) {
+          const row = catalog.get(s.libraryId);
+          if (
+            !row ||
+            row.kind !==
+              (s.section === "experience" ? "bullet" : "project_point") ||
+            !item.libraryId ||
+            row.parentId !== item.libraryId ||
+            getItemLines(item).some((line) => line.ref === s.libraryId)
+          )
+            return [];
+        }
+        return [
+          {
+            ...s,
+            ...(s.sourceBulletIds
+              ? {
+                  sourceBulletIds: s.sourceBulletIds.filter((id) =>
+                    catalog.has(id),
+                  ),
+                }
+              : {}),
+          },
+        ];
       }
+
       case "reorder_bullets": {
         const item = find(s.section, s.itemId);
         if (!item) return [];
@@ -606,11 +691,12 @@ export function filterCoworkSuggestions(
       }
       case "replace_intro": {
         const item = find(s.section, s.itemId);
-        return item
+        const text = htmlToPlainText(s.text);
+        return item && (text || s.text === "")
           ? [
               {
                 ...s,
-                text: htmlToPlainText(s.text),
+                text,
                 previousText: htmlToPlainText(
                   splitDescription(String(item.description ?? "")).introHtml,
                 ),
@@ -662,8 +748,8 @@ export function filterCoworkSuggestions(
           : [];
       }
     }
-    return [];
-  });
+  }
+  return value.slice(0, 100).flatMap(filterSuggestion);
 }
 
 /** Label only bullets visible in the current private scope. Each batch has its own usage reservation. */
