@@ -6,11 +6,13 @@ import {
 import {
   addToResume,
   applyLibraryUpdate,
+  foldResumeParts,
   getItemLines,
   isContactOnResume,
   isOnResume,
   KIND_SECTION,
   libraryItemToResumeItem,
+  linkedFieldPatch,
   type ResumeDoc,
   type ResumeItem,
   removeFromResume,
@@ -282,6 +284,8 @@ describe("library updates and resets", () => {
       ...original,
       text: "Updated",
       data: {
+        degree: "Updated",
+        title: "Updated",
         company: "New Co",
         location: "New place",
         website: "https://new.example",
@@ -785,4 +789,260 @@ it.each([
   const restored = setContactOnResume(cleared, after, true);
   expect(setContactOnResume(restored, after, true)).toBe(restored);
   expect(restored.sections.profiles.items).toHaveLength(1);
+});
+
+describe("structured library fields", () => {
+  it.each([
+    [
+      education,
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+    ],
+    [award, { title: "Prize", awarder: "Society", description: "<p>Work</p>" }],
+    [certification, { title: "Certified", description: "<p>Exam</p>" }],
+  ] as const)("preserves structured $0.kind through metadata edits and supports explicit clearing", (legacy, structured) => {
+    const current = {
+      ...legacy,
+      text: foldResumeParts(...Object.values(structured)),
+      data: { ...legacy.data, ...structured },
+    };
+    const doc = addToResume(document(), current.id, [current]);
+    expect(entries(doc, current.kind)[0]).toMatchObject(structured);
+    expect(
+      applyLibraryUpdate(doc, current, { ...current, tags: ["tag"] }),
+    ).toBe(doc);
+    // Older folded rows keep the source values instead of attempting to split text.
+    expect(applyLibraryUpdate(doc, legacy, { ...legacy, tags: ["tag"] })).toBe(
+      doc,
+    );
+    const cleared = Object.fromEntries(
+      Object.keys(structured).map((key) => [key, ""]),
+    );
+    const next = applyLibraryUpdate(doc, current, {
+      ...current,
+      text: "",
+      data: { ...current.data, ...cleared },
+    });
+    expect(entries(next, current.kind)[0]).toMatchObject(cleared);
+  });
+});
+
+describe("edited structured library text", () => {
+  it.each([
+    [
+      education,
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+      "degree",
+    ],
+    [
+      award,
+      { title: "Prize", awarder: "Society", description: "<p>Work</p>" },
+      "title",
+    ],
+    [
+      certification,
+      { title: "Certified", description: "<p>Exam</p>" },
+      "title",
+    ],
+  ] as const)("propagates $0.kind text edits while retaining constituents", (legacy, data, primary) => {
+    const before = {
+      ...legacy,
+      text: foldResumeParts(...Object.values(data)),
+      data: { ...legacy.data, ...data },
+    };
+    const doc = addToResume(document(), before.id, [before]);
+    const after = { ...before, text: "Library edit" };
+    expect(
+      entries(applyLibraryUpdate(doc, before, after), before.kind)[0],
+    ).toMatchObject({ ...data, [primary]: after.text });
+    expect(libraryItemToResumeItem(after)).toMatchObject({
+      ...data,
+      [primary]: after.text,
+    });
+    for (const field of Object.keys(data).filter(
+      (key) => key !== "description",
+    )) {
+      const patch = linkedFieldPatch(
+        after,
+        KIND_SECTION[after.kind] ?? "",
+        field,
+        "Linked edit",
+      );
+      expect(patch?.text).toBe(
+        foldResumeParts(...Object.keys(data).map((key) => patch?.data?.[key])),
+      );
+      const changed = applyLibraryUpdate(doc, before, after);
+      expect(
+        entries(
+          applyLibraryUpdate(changed, after, { ...after, ...patch }),
+          after.kind,
+        )[0],
+      ).toEqual({ ...entries(changed, after.kind)[0], [field]: "Linked edit" });
+    }
+  });
+  it.each([
+    [
+      education,
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+      "degree",
+    ],
+    [
+      award,
+      { title: "Prize", awarder: "Society", description: "<p>Work</p>" },
+      "title",
+    ],
+    [
+      certification,
+      { title: "Certified", description: "<p>Exam</p>" },
+      "title",
+    ],
+  ] as const)("propagates $0.kind text edits without structured primary data", (item, original, primary) => {
+    for (const text of [
+      "degree" in original ? original.degree : original.title,
+      foldResumeParts(...Object.values(original)),
+    ]) {
+      const before = { ...item, text };
+      const doc = addToResume(document(), before.id, [before]);
+      Object.assign(entries(doc, item.kind)[0], original);
+      const resumeItem = { ...entries(doc, item.kind)[0] };
+      expect(
+        applyLibraryUpdate(doc, before, { ...before, tags: ["tag"] }),
+      ).toBe(doc);
+      expect(
+        applyLibraryUpdate(doc, before, { ...before, updatedAt: "later" }),
+      ).toBe(doc);
+      const next = applyLibraryUpdate(doc, before, {
+        ...before,
+        text: "Library edit",
+      });
+      expect(entries(next, item.kind)[0]).toEqual({
+        ...resumeItem,
+        [primary]: "Library edit",
+      });
+    }
+  });
+  it("uses the importer fold for whitespace and HTML", () => {
+    expect(
+      foldResumeParts(" BSc ", " CS\n  Science ", "", "<p>A &amp; B</p>"),
+    ).toBe("BSc · CS Science · A & B");
+  });
+});
+
+describe("linkedFieldPatch", () => {
+  const supported = [
+    [role, "experience", ["position", "company", "location", "period"]],
+    [project, "projects", ["name", "period"]],
+    [skill, "skills", ["name"]],
+    [
+      education,
+      "education",
+      ["degree", "area", "grade", "school", "location", "period"],
+    ],
+    [award, "awards", ["title", "awarder", "date"]],
+    [certification, "certifications", ["title", "issuer", "date"]],
+  ] as const;
+  it.each(
+    supported.flatMap(([item, section, fields]) =>
+      fields.map((field) => ({ item, section, field })),
+    ),
+  )("round-trips $section.$field without changing sibling fields", ({
+    item,
+    section,
+    field,
+  }) => {
+    const before = freeze({
+      ...item,
+      data: { ...item.data, extra: "retained" },
+    });
+    const doc = freeze(addToResume(document(), before.id, [before]));
+    const original = entries(doc, before.kind)[0];
+    const patch = linkedFieldPatch(before, section, field, "New value");
+    expect(patch).not.toBeNull();
+    if (patch?.data) expect(patch.data.extra).toBe("retained");
+    const next = applyLibraryUpdate(doc, before, { ...before, ...patch });
+    expect(entries(next, before.kind)[0]).toEqual({
+      ...original,
+      [field]: "New value",
+    });
+  });
+  it.each([
+    [
+      education,
+      "education",
+      { degree: "BSc", area: "CS", grade: "First" },
+      "area",
+    ],
+    [award, "awards", { title: "Prize", awarder: "Society" }, "awarder"],
+  ] as const)("round-trips legacy $1 constituents without changing clean resume fields", (item, section, original, field) => {
+    const doc = addToResume(document(), item.id, [item]);
+    Object.assign(entries(doc, item.kind)[0], original);
+    const resumeItem = { ...entries(doc, item.kind)[0] };
+    const patch = linkedFieldPatch(item, section, field, "Linked edit");
+    expect(patch).not.toBeNull();
+    const next = applyLibraryUpdate(doc, item, { ...item, ...patch });
+    expect(entries(next, item.kind)[0]).toEqual({
+      ...resumeItem,
+      [field]: "Linked edit",
+    });
+  });
+  it("refuses a folded edit whose resulting text would be empty", () => {
+    const item = {
+      ...certification,
+      text: "X",
+      data: { title: "X", description: "" },
+    };
+    expect(linkedFieldPatch(item, "certifications", "title", "")).toBeNull();
+    expect(linkedFieldPatch(item, "certifications", "title", "  ")).toBeNull();
+  });
+  it("leaves existing sibling values unchanged even when they differ from library data", () => {
+    const doc = addToResume(document(), role.id, [role]);
+    const original = entries(doc, role.kind)[0];
+    Object.assign(original, {
+      location: "My location",
+      period: "My dates",
+      company: "My company",
+    });
+    const patch = linkedFieldPatch(role, "experience", "position", "Lead");
+    const next = applyLibraryUpdate(doc, role, { ...role, ...patch });
+    expect(entries(next, role.kind)[0]).toEqual({
+      ...original,
+      position: "Lead",
+    });
+  });
+  it("refuses prose, mismatched sections and unsupported fields", () => {
+    for (const item of parents) {
+      expect(
+        linkedFieldPatch(
+          item,
+          KIND_SECTION[item.kind] ?? "",
+          "description",
+          "Text",
+        ),
+      ).toBeNull();
+      expect(linkedFieldPatch(item, "wrong", "title", "Text")).toBeNull();
+      expect(
+        linkedFieldPatch(
+          item,
+          KIND_SECTION[item.kind] ?? "",
+          "website",
+          "Text",
+        ),
+      ).toBeNull();
+    }
+    expect(linkedFieldPatch(duty, "experience", "text", "Text")).toBeNull();
+  });
 });

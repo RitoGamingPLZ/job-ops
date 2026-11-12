@@ -257,50 +257,118 @@ function websiteValue(value: unknown, existing?: unknown) {
         : string(fallback.label),
   };
 }
-function fields(item: ExperienceBullet, existingWebsite?: unknown): ResumeItem {
+/** Canonical display/identity text for structured library constituents. */
+export function foldResumeParts(...parts: unknown[]): string {
+  return parts
+    .map((value) => htmlToPlainText(string(value)).replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join(" · ");
+}
+
+const FOLDED_FIELDS: Partial<Record<CandidateItemKind, string[]>> = {
+  education: ["degree", "area", "grade", "description"],
+  award: ["title", "awarder", "description"],
+  certification: ["title", "description"],
+};
+
+function fields(item: ExperienceBullet, existing: ResumeItem = {}): ResumeItem {
   const data = item.data ?? {};
-  const website = websiteValue(data.website, existingWebsite);
+  const website = websiteValue(data.website, existing.website);
+  const structured = (key: string, fallback = "") =>
+    typeof data[key] === "string"
+      ? data[key]
+      : typeof existing[key] === "string"
+        ? existing[key]
+        : fallback;
+  const primary = (key: string) =>
+    typeof data[key] !== "string" ||
+    item.text !==
+      foldResumeParts(
+        ...(FOLDED_FIELDS[item.kind] ?? []).map((key) => data[key]),
+      )
+      ? item.text
+      : data[key];
   switch (item.kind) {
     case "role":
       return {
-        company: string(data.company).trim() ? string(data.company) : "—",
+        company: string(structured("company")).trim()
+          ? structured("company")
+          : "—",
         position: item.text,
-        location: string(data.location),
-        period: string(data.period),
+        location: structured("location"),
+        period: structured("period"),
         website,
       };
     case "project":
-      return { name: item.text, period: string(data.period), website };
+      return { name: item.text, period: structured("period"), website };
     case "skill":
       return { name: item.text };
     case "education":
       return {
-        degree: item.text,
-        school: string(data.school).trim() ? string(data.school) : "—",
-        location: string(data.location),
-        period: string(data.period),
-        area: "",
-        grade: "",
-        description: "",
+        degree: primary("degree"),
+        school: string(structured("school")).trim()
+          ? structured("school")
+          : "—",
+        location: structured("location"),
+        period: structured("period"),
+        area: structured("area"),
+        grade: structured("grade"),
+        description: structured("description"),
       };
     case "award":
       return {
-        title: item.text,
-        date: string(data.date),
-        awarder: "",
-        description: "",
+        title: primary("title"),
+        date: structured("date"),
+        awarder: structured("awarder"),
+        description: structured("description"),
       };
     case "certification":
       return {
-        title: item.text,
-        issuer: string(data.issuer),
-        date: string(data.date),
+        title: primary("title"),
+        issuer: structured("issuer"),
+        date: structured("date"),
         website,
-        description: "",
+        description: structured("description"),
       };
     default:
       throw new Error("A library line requires its parent resume item");
   }
+}
+
+export type LibraryFieldPatch = {
+  text?: string;
+  data?: Record<string, unknown>;
+};
+
+/** Full library PATCH for a supported linked scalar field; prose stays local. */
+export function linkedFieldPatch(
+  item: ExperienceBullet,
+  section: string,
+  field: string,
+  text: string,
+): LibraryFieldPatch | null {
+  if (KIND_SECTION[item.kind] !== section) return null;
+  const textField = { role: "position", project: "name", skill: "name" }[
+    item.kind as "role" | "project" | "skill"
+  ];
+  if (field === textField) return { text };
+  const dataFields: Partial<Record<CandidateItemKind, string[]>> = {
+    role: ["company", "location", "period"],
+    project: ["period"],
+    education: ["degree", "area", "grade", "school", "location", "period"],
+    award: ["title", "awarder", "date"],
+    certification: ["title", "issuer", "date"],
+  };
+  if (!dataFields[item.kind]?.includes(field)) return null;
+  const data = { ...item.data, [field]: text };
+  const foldedFields = FOLDED_FIELDS[item.kind];
+  if (!foldedFields?.includes(field)) return { data };
+  // Preserve the effective primary value when a library text edit superseded
+  // its old constituents, or when this is a legacy row without constituents.
+  const primary = foldedFields[0];
+  if (field !== primary) data[primary] = fields(item)[primary];
+  const foldedText = foldResumeParts(...foldedFields.map((key) => data[key]));
+  return foldedText ? { data, text: foldedText } : null;
 }
 
 /**
@@ -487,8 +555,9 @@ export function removeFromResume(doc: ResumeDoc, libraryId: string): ResumeDoc {
  * - lines with ref === id whose text still equals before.text → after.text
  *   (reworded lines are left alone);
  * - top-level items with libraryId === id get their fields re-derived from
- *   `after` (entry fields are always linked). Skills: the label follows the
- *   library; the resume keeps its own ticked keywords (keywords have no ids).
+ *   `after` for changed library fields, preserving unrelated resume values.
+ *   Skills: the label follows the library; the resume keeps its own ticked
+ *   keywords (keywords have no ids).
  * Returns the same object when nothing changed.
  */
 export function applyLibraryUpdate(
@@ -540,7 +609,12 @@ export function applyLibraryUpdate(
     let next = item;
     if (item.libraryId === before.id) {
       // Legacy URL-only rows have no label; missing fields retain resume values.
-      const derived = fields(after, item.website);
+      const previous = fields(before, item);
+      const derived = Object.fromEntries(
+        Object.entries(fields(after, item)).filter(
+          ([key, value]) => !equal(previous[key], value),
+        ),
+      );
       if (
         Object.entries(derived).some(([key, value]) => !equal(item[key], value))
       )
@@ -593,11 +667,6 @@ export function resetLine(
 }
 
 function entryText(item: ResumeItem, kind: CandidateItemKind): string {
-  const fold = (...values: unknown[]) =>
-    values
-      .map((value) => htmlToPlainText(string(value)))
-      .filter(Boolean)
-      .join(" · ");
   switch (kind) {
     case "role":
       return string(item.position);
@@ -605,11 +674,16 @@ function entryText(item: ResumeItem, kind: CandidateItemKind): string {
     case "skill":
       return string(item.name);
     case "education":
-      return fold(item.degree, item.area, item.grade, item.description);
+      return foldResumeParts(
+        item.degree,
+        item.area,
+        item.grade,
+        item.description,
+      );
     case "award":
-      return fold(item.title, item.awarder, item.description);
+      return foldResumeParts(item.title, item.awarder, item.description);
     case "certification":
-      return fold(item.title, item.description);
+      return foldResumeParts(item.title, item.description);
     default:
       return "";
   }
