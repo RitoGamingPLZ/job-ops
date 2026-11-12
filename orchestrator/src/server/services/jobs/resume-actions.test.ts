@@ -2,9 +2,11 @@ import {
   getRequestContext,
   runWithRequestContext,
 } from "@infra/request-context";
+import { isDemoMode } from "@server/config/demo";
 import { generateFinalPdf, processJob } from "@server/pipeline/index";
 import { getJobResume } from "@server/repositories/job-resumes";
 import * as jobsRepo from "@server/repositories/jobs";
+import { simulateProcessJob } from "@server/services/demo-simulator";
 import { regenerateJobResume } from "@server/services/job-resume";
 import { getJobPdfFreshness } from "@server/services/pdf-fingerprint";
 import { createJob } from "@shared/testing/factories";
@@ -12,6 +14,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   generateMissingResumesInBackground,
   regenerateJobResumeInBackground,
+  targetJobInBackground,
 } from "./actions";
 
 vi.mock("@server/pipeline/index", () => ({
@@ -23,6 +26,7 @@ vi.mock("@server/repositories/jobs", () => ({
   getAllJobs: vi.fn(),
   getJobById: vi.fn(),
   updateJob: vi.fn(),
+  setJobTargeted: vi.fn(),
 }));
 vi.mock("@server/services/job-resume", () => ({
   regenerateJobResume: vi.fn(),
@@ -33,7 +37,7 @@ vi.mock("@server/services/pdf-fingerprint", () => ({
 }));
 vi.mock("@server/services/profile", () => ({ getProfile: vi.fn() }));
 vi.mock("@server/services/scorer", () => ({ scoreJobSuitability: vi.fn() }));
-vi.mock("@server/config/demo", () => ({ isDemoMode: () => false }));
+vi.mock("@server/config/demo", () => ({ isDemoMode: vi.fn(() => false) }));
 vi.mock("@server/services/demo-simulator", () => ({
   simulateProcessJob: vi.fn(),
   simulateRescoreJob: vi.fn(),
@@ -54,6 +58,11 @@ const targeted = (id: string, overrides = {}) =>
 const tick = () => new Promise<void>((resolve) => setImmediate(resolve));
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(isDemoMode).mockReturnValue(false);
+  vi.mocked(simulateProcessJob).mockResolvedValue({ success: true });
+  vi.mocked(jobsRepo.setJobTargeted).mockImplementation(async (id) =>
+    targeted(id),
+  );
   vi.mocked(processJob).mockResolvedValue({ success: true });
   vi.mocked(generateFinalPdf).mockResolvedValue({ success: true });
   vi.mocked(getJobResume).mockResolvedValue({
@@ -190,6 +199,264 @@ describe("resume background actions", () => {
       status: "readyAt" in overrides ? 400 : 409,
     });
     expect(regenerateJobResume).not.toHaveBeenCalled();
+  });
+  it("does not start targeting work during an in-flight regeneration", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.mocked(regenerateJobResume).mockImplementationOnce(async () => {
+      await gate;
+      return {
+        exists: true,
+        revision: 2,
+        updatedAt: "now",
+        document: {} as never,
+      };
+    });
+    await regenerateJobResumeInBackground("job");
+    await tick();
+    vi.mocked(jobsRepo.setJobTargeted).mockResolvedValueOnce(
+      targeted("job", { status: "processing" }),
+    );
+    try {
+      expect(await targetJobInBackground("job")).toMatchObject({
+        id: "job",
+        status: "processing",
+      });
+      await tick();
+      expect(processJob).not.toHaveBeenCalled();
+      expect(jobsRepo.updateJob).toHaveBeenCalledExactlyOnceWith("job", {
+        status: "processing",
+      });
+    } finally {
+      release();
+      await tick();
+    }
+    await targetJobInBackground("job");
+    await tick();
+    expect(processJob).toHaveBeenCalledOnce();
+  });
+  it("does not start targeting work for running or queued batch jobs", async () => {
+    vi.mocked(jobsRepo.getAllJobs).mockResolvedValue([
+      targeted("one", { pdfPath: null }),
+      targeted("two", { pdfPath: null }),
+    ]);
+    let release!: (value: { success: boolean }) => void;
+    vi.mocked(processJob).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    await generateMissingResumesInBackground();
+    await tick();
+    try {
+      for (const id of ["one", "two"]) {
+        expect(await targetJobInBackground(id)).toMatchObject({
+          id,
+          status: "ready",
+        });
+      }
+      await tick();
+      expect(processJob).toHaveBeenCalledExactlyOnceWith("one", undefined);
+      expect(jobsRepo.updateJob).not.toHaveBeenCalled();
+    } finally {
+      release({ success: true });
+      await tick();
+    }
+    expect(vi.mocked(processJob).mock.calls.map(([id]) => id)).toEqual([
+      "one",
+      "two",
+    ]);
+  });
+  it("skips a pending target during the batch worker recheck", async () => {
+    let release!: (value: { success: boolean }) => void;
+    vi.mocked(processJob).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    await targetJobInBackground("job");
+    await tick();
+    vi.mocked(jobsRepo.getAllJobs).mockResolvedValue([
+      targeted("job", { pdfPath: null }),
+      targeted("other", { pdfPath: null }),
+    ]);
+    try {
+      expect(await generateMissingResumesInBackground()).toEqual({
+        jobIds: ["job", "other"],
+        alreadyRunning: false,
+      });
+      await tick();
+      expect(vi.mocked(processJob).mock.calls.map(([id]) => id)).toEqual([
+        "job",
+        "other",
+      ]);
+    } finally {
+      release({ success: true });
+      await tick();
+    }
+  });
+  it("refuses regeneration while targeting a ready job", async () => {
+    let release!: (value: { success: boolean }) => void;
+    vi.mocked(processJob).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    await targetJobInBackground("job");
+    await tick();
+    try {
+      await expect(
+        regenerateJobResumeInBackground("job"),
+      ).rejects.toMatchObject({ status: 409 });
+      expect(regenerateJobResume).not.toHaveBeenCalled();
+      expect(jobsRepo.updateJob).not.toHaveBeenCalled();
+    } finally {
+      release({ success: true });
+      await tick();
+    }
+    await regenerateJobResumeInBackground("job");
+    await tick();
+    expect(regenerateJobResume).toHaveBeenCalledOnce();
+  });
+  it("refuses regeneration for running and queued batch jobs only in their private scope", async () => {
+    vi.mocked(jobsRepo.getAllJobs).mockResolvedValue([
+      targeted("one", { pdfPath: null }),
+      targeted("two", { pdfPath: null }),
+    ]);
+    let release!: (value: { success: boolean }) => void;
+    vi.mocked(processJob).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const scope = { tenantId: "batch-tenant", userId: "one" };
+    await runWithRequestContext(scope, () =>
+      generateMissingResumesInBackground(),
+    );
+    await tick();
+    try {
+      for (const id of ["one", "two"]) {
+        await expect(
+          runWithRequestContext(scope, () =>
+            regenerateJobResumeInBackground(id),
+          ),
+        ).rejects.toMatchObject({ status: 409 });
+      }
+      for (const otherScope of [
+        { tenantId: "batch-tenant", userId: "two" },
+        { tenantId: "other-tenant", userId: "one" },
+      ]) {
+        await runWithRequestContext(otherScope, () =>
+          regenerateJobResumeInBackground("one"),
+        );
+        await tick();
+      }
+      expect(regenerateJobResume).toHaveBeenCalledTimes(2);
+    } finally {
+      release({ success: true });
+      await tick();
+    }
+    await runWithRequestContext(scope, () =>
+      regenerateJobResumeInBackground("two"),
+    );
+    await tick();
+    expect(regenerateJobResume).toHaveBeenCalledTimes(3);
+  });
+  it("skips an in-flight regeneration even while its ready status remains visible", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.mocked(regenerateJobResume).mockImplementationOnce(async () => {
+      await gate;
+      return {
+        exists: true,
+        revision: 2,
+        updatedAt: "now",
+        document: {} as never,
+      };
+    });
+    vi.mocked(jobsRepo.getAllJobs).mockResolvedValue([
+      targeted("job", { pdfPath: null }),
+      targeted("other", { pdfPath: null }),
+    ]);
+    await regenerateJobResumeInBackground("job");
+    await tick();
+    try {
+      expect(await generateMissingResumesInBackground()).toEqual({
+        jobIds: ["other"],
+        alreadyRunning: false,
+      });
+      await tick();
+      expect(processJob).toHaveBeenCalledExactlyOnceWith("other", undefined);
+    } finally {
+      release();
+      await tick();
+    }
+  });
+  it("skips regeneration that starts during the batch document lookup", async () => {
+    let release!: (value: null) => void;
+    vi.mocked(jobsRepo.getAllJobs).mockResolvedValue([targeted("job")]);
+    vi.mocked(getJobResume).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const batch = generateMissingResumesInBackground();
+    await vi.waitFor(() => expect(getJobResume).toHaveBeenCalledOnce());
+    await regenerateJobResumeInBackground("job");
+    release(null);
+    expect(await batch).toEqual({ jobIds: [], alreadyRunning: false });
+    await tick();
+    expect(processJob).not.toHaveBeenCalled();
+    expect(regenerateJobResume).toHaveBeenCalledOnce();
+  });
+  it("uses only the simulator for demo regeneration", async () => {
+    vi.mocked(isDemoMode).mockReturnValue(true);
+    expect((await regenerateJobResumeInBackground("job")).status).toBe(
+      "processing",
+    );
+    await tick();
+    expect(simulateProcessJob).toHaveBeenCalledExactlyOnceWith("job");
+    expect(regenerateJobResume).not.toHaveBeenCalled();
+    expect(generateFinalPdf).not.toHaveBeenCalled();
+    expect(processJob).not.toHaveBeenCalled();
+  });
+  it("runs demo batches sequentially through the simulator", async () => {
+    vi.mocked(isDemoMode).mockReturnValue(true);
+    vi.mocked(jobsRepo.getAllJobs).mockResolvedValue([
+      targeted("one", { pdfPath: null }),
+      targeted("two", { pdfPath: null }),
+    ]);
+    let release!: (value: { success: boolean }) => void;
+    vi.mocked(simulateProcessJob).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    await generateMissingResumesInBackground();
+    await tick();
+    try {
+      expect(simulateProcessJob).toHaveBeenCalledExactlyOnceWith("one");
+    } finally {
+      release({ success: false });
+      await tick();
+    }
+    expect(vi.mocked(simulateProcessJob).mock.calls.map(([id]) => id)).toEqual([
+      "one",
+      "two",
+    ]);
+    expect(processJob).not.toHaveBeenCalled();
+    expect(regenerateJobResume).not.toHaveBeenCalled();
+    expect(generateFinalPdf).not.toHaveBeenCalled();
   });
   it("marks processing immediately, then re-tailors before rendering", async () => {
     expect((await regenerateJobResumeInBackground("job")).status).toBe(

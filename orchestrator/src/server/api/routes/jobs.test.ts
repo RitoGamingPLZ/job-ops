@@ -54,6 +54,66 @@ describe.sequential("Jobs API routes", () => {
     expect(res.headers.get("x-request-id")).toBe("regenerate-request");
   });
 
+  it.each([
+    "target",
+    "batch",
+  ] as const)("returns a correlated conflict while a ready job has pending %s work", async (work) => {
+    const { createJob, updateJob, getJobById } = await import(
+      "@server/repositories/jobs"
+    );
+    const { processJob } = await import("@server/pipeline/index");
+    let release!: (value: { success: boolean }) => void;
+    vi.mocked(processJob).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const jobs = [];
+    for (const title of ["One", "Two"]) {
+      const job = await createJob({
+        source: "manual",
+        title,
+        employer: "Acme",
+        jobUrl: `https://example.com/pending/${title}`,
+      });
+      await updateJob(job.id, { status: "ready", readyAt: "now" });
+      jobs.push(job);
+    }
+    try {
+      const started = await fetch(
+        work === "target"
+          ? `${baseUrl}/api/jobs/${jobs[0].id}/target`
+          : `${baseUrl}/api/jobs/actions/generate-missing-resumes`,
+        { method: "POST" },
+      );
+      expect(started.status).toBe(200);
+      await vi.waitFor(() => expect(processJob).toHaveBeenCalledOnce());
+      for (const job of work === "target" ? jobs.slice(0, 1) : jobs) {
+        expect((await getJobById(job.id))?.status).toBe("ready");
+        const response = await fetch(
+          `${baseUrl}/api/jobs/${job.id}/regenerate-resume`,
+          {
+            method: "POST",
+            headers: { "x-request-id": "pending-work" },
+          },
+        );
+        expect(response.status).toBe(409);
+        expect(response.headers.get("x-request-id")).toBe("pending-work");
+        expect(await response.json()).toMatchObject({
+          ok: false,
+          error: { code: "CONFLICT" },
+          meta: { requestId: "pending-work" },
+        });
+      }
+    } finally {
+      if (work === "batch")
+        vi.mocked(processJob).mockResolvedValueOnce({ success: true });
+      release?.({ success: true });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  });
+
   it("returns processing and hydrated PDF freshness before regeneration finishes", async () => {
     const { createJob, updateJob } = await import("@server/repositories/jobs");
     const resumeService = await import("@server/services/job-resume");

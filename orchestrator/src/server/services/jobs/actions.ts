@@ -140,9 +140,15 @@ export async function targetJobInBackground(
     throw badRequest(
       "Only discovered, processing, or ready jobs can be targeted",
     );
-  const key = `${getPrivateDataScope().scopeKey}:${jobId}`;
+  const scopeKey = getPrivateDataScope().scopeKey;
+  const key = `${scopeKey}:${jobId}`;
   // In-memory only, so a job left in "processing" by a restart is retryable.
-  if (pendingTargets.has(key)) return updated;
+  if (
+    pendingTargets.has(key) ||
+    pendingRegenerations.has(key) ||
+    pendingResumeBatches.get(scopeKey)?.has(jobId)
+  )
+    return updated;
   pendingTargets.add(key);
   let response = updated;
   try {
@@ -180,19 +186,22 @@ export async function targetJobInBackground(
 
 // Per-process locks, scoped exactly like the private repositories.
 const pendingRegenerations = new Set<string>();
-const pendingResumeBatches = new Set<string>();
+const pendingResumeBatches = new Map<string, Set<string>>();
 
 export async function regenerateJobResumeInBackground(
   jobId: string,
   options?: JobActionExecutionOptions,
 ) {
-  const key = `${getPrivateDataScope().scopeKey}:${jobId}`;
+  const scopeKey = getPrivateDataScope().scopeKey;
+  const key = `${scopeKey}:${jobId}`;
   const job = await jobsRepo.getJobById(jobId);
   if (!job) throw notFound("Job not found");
   if (
     job.status === "processing" ||
     job.pdfRegenerating ||
-    pendingRegenerations.has(key)
+    pendingRegenerations.has(key) ||
+    pendingTargets.has(key) ||
+    pendingResumeBatches.get(scopeKey)?.has(jobId)
   )
     throw conflict("Resume generation is already running");
   if (!isTargeted(job))
@@ -210,10 +219,13 @@ export async function regenerateJobResumeInBackground(
   setImmediate(() => {
     void runWithRequestContext({ jobId }, async () => {
       try {
-        await regenerateJobResume(jobId, {
-          requestOrigin: options?.requestOrigin ?? null,
-        });
-        const result = await generateFinalPdf(jobId, options);
+        const result = await (async () => {
+          if (isDemoMode()) return simulateProcessJob(jobId);
+          await regenerateJobResume(jobId, {
+            requestOrigin: options?.requestOrigin ?? null,
+          });
+          return generateFinalPdf(jobId, options);
+        })();
         if (!result.success) throw new Error("Resume PDF generation failed");
       } catch (error) {
         logger.error("Resume regeneration failed", { jobId, error });
@@ -237,7 +249,8 @@ export async function generateMissingResumesInBackground(
   if (pendingResumeBatches.has(key))
     return { jobIds: [], alreadyRunning: true };
   // Claim before any asynchronous selection so simultaneous requests cannot race.
-  pendingResumeBatches.add(key);
+  const queuedJobs = new Set<string>();
+  pendingResumeBatches.set(key, queuedJobs);
   let jobIds: string[];
   try {
     const context = await resolvePdfFingerprintContext();
@@ -255,12 +268,15 @@ export async function generateMissingResumesInBackground(
         job.pdfSource === "uploaded"
       )
         continue;
-      if (
+      const needsResume =
         !job.pdfPath ||
         getJobPdfFreshness(job, context) === "stale" ||
-        !(await getJobResume(job.id))
-      )
+        !(await getJobResume(job.id));
+      // Check after the document lookup: regenerate may start during that await.
+      if (needsResume && !pendingRegenerations.has(`${key}:${job.id}`)) {
         jobIds.push(job.id);
+        queuedJobs.add(job.id);
+      }
     }
   } catch (error) {
     pendingResumeBatches.delete(key);
@@ -279,10 +295,13 @@ export async function generateMissingResumesInBackground(
                 !isTargeted(job) ||
                 job.status === "processing" ||
                 job.pdfRegenerating ||
-                job.pdfSource === "uploaded"
+                job.pdfSource === "uploaded" ||
+                pendingTargets.has(`${key}:${jobId}`)
               )
                 return;
-              const result = await processJob(jobId, options);
+              const result = await (isDemoMode()
+                ? simulateProcessJob(jobId)
+                : processJob(jobId, options));
               if (!result.success)
                 logger.warn("Batch resume generation failed", {
                   jobId,
@@ -290,6 +309,8 @@ export async function generateMissingResumesInBackground(
                 });
             } catch (error) {
               logger.error("Batch resume generation failed", { jobId, error });
+            } finally {
+              queuedJobs.delete(jobId);
             }
           });
         }
