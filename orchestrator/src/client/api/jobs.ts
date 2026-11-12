@@ -123,8 +123,10 @@ export async function untargetJob(id: string): Promise<Job> {
   });
 }
 
-export async function blacklistJobEmployer(id: string): Promise<AppSettings> {
-  return fetchApi<AppSettings>(
+export async function blacklistJobEmployer(
+  id: string,
+): Promise<{ job: Job; settings: AppSettings }> {
+  return fetchApi<{ job: Job; settings: AppSettings }>(
     `/jobs/${encodeURIComponent(id)}/blacklist-employer`,
     { method: "POST" },
   );

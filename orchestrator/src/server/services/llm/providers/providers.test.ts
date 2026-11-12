@@ -437,7 +437,10 @@ describe("provider adapters", () => {
     const itemSchema = skills.items as Record<string, unknown>;
 
     expect(generationConfig.responseMimeType).toBe("application/json");
-    expect(bestMatchIndex.type).toEqual(["integer", "null"]);
+    // Gemini's responseSchema rejects a `type` array ("Proto field is not
+    // repeating, cannot start list"); it wants a single type + `nullable`.
+    expect(bestMatchIndex.type).toBe("integer");
+    expect(bestMatchIndex.nullable).toBe(true);
     expect(responseSchema.additionalProperties).toBeUndefined();
     expect(responseSchema.propertyOrdering).toEqual([
       "bestMatchIndex",

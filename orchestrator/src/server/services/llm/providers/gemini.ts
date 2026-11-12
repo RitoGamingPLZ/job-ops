@@ -21,8 +21,6 @@ export const geminiStrategy = createProviderStrategy({
 
     if (mode === "json_schema") {
       body.generationConfig = {
-        // Gemini JSON Schema structured outputs support nullable type arrays here.
-        // https://ai.google.dev/gemini-api/docs/structured-output#json_schemas
         responseMimeType: "application/json",
         responseSchema: toGeminiJsonSchema(jsonSchema.schema),
       };
@@ -78,6 +76,15 @@ function toGeminiJsonSchema(schema: unknown): unknown {
       continue;
     }
     out[key] = toGeminiJsonSchema(value);
+  }
+
+  // Gemini's responseSchema is an OpenAPI-style Schema object: `type` is a single
+  // enum value with a separate `nullable` flag, not JSON Schema's `type: [T, "null"]`.
+  if (Array.isArray(out.type)) {
+    const rawTypes = out.type;
+    const types = rawTypes.filter((value) => value !== "null");
+    out.type = types[0] ?? "string";
+    if (types.length !== rawTypes.length) out.nullable = true;
   }
 
   const properties = out.properties;
