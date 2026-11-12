@@ -1,7 +1,7 @@
 ---
 id: ghostwriter
 title: Ghostwriter
-description: Context-aware per-job AI chat assistant behavior and API surface.
+description: Draft job-specific writing and review resume suggestions in co-work chat.
 sidebar_position: 2
 ---
 
@@ -40,6 +40,14 @@ Typical use cases:
 5. Enter your prompt and stream a response.
 6. Use the `Copy` button on any completed Ghostwriter reply to copy the full output.
 7. Stop or regenerate responses when needed.
+
+### Resume suggestions in co-work chat
+
+Open a job resume at `/resumes/<jobId>` to chat beside the [co-work resume editor](/docs/next/features/design-resume). Ask, for example, “Include my degree and reorder the project points for this job.” Chat proposes changes for you to review and accept.
+
+Suggestions can include or exclude library items; add a new fact to the library; save an edited linked item to the library; add, remove, or reorder resume entries; edit experience bullets, project points, introductions, the headline, summary, and entry fields; or update skill keywords.
+
+Edits to linked items stay on this job's resume and keep the link. To update reusable content, explicitly ask to save it to the library, then review and accept **Save to library**. This updates other resumes using that item where the content still matches the previous library version; Applied and In progress jobs keep their saved content. **Accept all** skips **Add to library** and **Save to library** suggestions, which need separate acceptance.
 
 ### Note context
 
@@ -91,7 +99,7 @@ Defaults:
 - Job snapshot is truncated to fit prompt budget.
 - Profile snapshot includes relevant slices only.
 - Selected notes are truncated to the note-context limits shown in the UI.
-- System prompt enforces read-only assistant behavior.
+- Replies and co-work suggestions require your review; resume and library changes happen only when you accept them.
 - Logging stores metadata, not full prompt/response dumps.
 
 ### API surface
@@ -138,5 +146,6 @@ Compatibility thread endpoints remain, but UI behavior is one thread per job.
 ## Related pages
 
 - [Settings](/docs/next/features/settings)
+- [Co-work resume editor and candidate library](/docs/next/features/design-resume)
 - [Reactive Resume](/docs/next/features/reactive-resume)
 - [Orchestrator](/docs/next/features/orchestrator)
