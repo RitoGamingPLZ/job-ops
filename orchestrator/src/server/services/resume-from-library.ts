@@ -360,7 +360,8 @@ export async function generateResumeFromLibrary(
         },
       },
     });
-    if (!response.success) throw new Error("Resume library selection failed");
+    if (!response.success)
+      throw new Error(`Resume library selection failed: ${response.error}`);
     const parsed = selectionSchema.safeParse(response.data);
     if (!parsed.success) throw new Error("Invalid resume library selection");
     const selection: ResumeLibrarySelectionV2 = parsed.data;

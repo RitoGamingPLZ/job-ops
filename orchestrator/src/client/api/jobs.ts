@@ -1,6 +1,7 @@
 import type {
   ApplicationStage,
   ApplicationTask,
+  AppSettings,
   Job,
   JobActionRequest,
   JobActionResponse,
@@ -120,6 +121,13 @@ export async function untargetJob(id: string): Promise<Job> {
   return fetchApi<Job>(`/jobs/${encodeURIComponent(id)}/target`, {
     method: "DELETE",
   });
+}
+
+export async function blacklistJobEmployer(id: string): Promise<AppSettings> {
+  return fetchApi<AppSettings>(
+    `/jobs/${encodeURIComponent(id)}/blacklist-employer`,
+    { method: "POST" },
+  );
 }
 
 export async function deleteJob(id: string): Promise<void> {

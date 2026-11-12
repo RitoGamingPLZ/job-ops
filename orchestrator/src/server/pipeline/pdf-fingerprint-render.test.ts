@@ -141,9 +141,11 @@ describe("PDF render freshness snapshot", () => {
     expect(jobsRepo.setJobTargeted).toHaveBeenCalledWith(job.id, true);
     expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(1, job.id, {
       status: "processing",
+      generationError: null,
     });
     expect(jobsRepo.updateJob).toHaveBeenLastCalledWith(job.id, {
       status: "discovered",
+      generationError: "LLM unavailable",
     });
     expect(generatePdf).not.toHaveBeenCalled();
   });
@@ -190,6 +192,7 @@ describe("PDF render freshness snapshot", () => {
       expect(await processJob(job.id)).toEqual({ success: true });
       expect(jobsRepo.updateJob).toHaveBeenCalledExactlyOnceWith(job.id, {
         status: "ready",
+        generationError: null,
       });
       expect(generatePdf).not.toHaveBeenCalled();
     }
@@ -203,6 +206,7 @@ describe("PDF render freshness snapshot", () => {
     expect(await processJob(job.id)).toMatchObject({ success: false });
     expect(jobsRepo.updateJob).toHaveBeenLastCalledWith(job.id, {
       status: "discovered",
+      generationError: "LLM down",
     });
   });
   it("restores a claimed job when a read before rendering throws", async () => {
@@ -213,6 +217,7 @@ describe("PDF render freshness snapshot", () => {
     expect(await processJob(job.id)).toMatchObject({ success: false });
     expect(jobsRepo.updateJob).toHaveBeenCalledExactlyOnceWith(job.id, {
       status: "discovered",
+      generationError: "db busy",
     });
   });
   it("restores a claimed job when the job itself cannot be read", async () => {
@@ -224,6 +229,7 @@ describe("PDF render freshness snapshot", () => {
     expect(await processJob(job.id)).toMatchObject({ success: false });
     expect(jobsRepo.updateJob).toHaveBeenCalledExactlyOnceWith(job.id, {
       status: "discovered",
+      generationError: "db busy",
     });
   });
   it("keeps a ready job in ready while its stale PDF re-renders", async () => {
