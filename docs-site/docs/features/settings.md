@@ -162,18 +162,21 @@ Defaults and constraints:
 
 - Edit the base templates for:
   - Ghostwriter system prompt
-  - Resume tailoring prompt
+  - Resume generation prompt: targeted resumes generated or regenerated from the candidate library
+  - Resume tailoring prompt: summary, headline, and skills tailoring for non-targeted resumes
   - Job scoring prompt
 - Each editor starts from the current effective template, not a blank override
 - Supported placeholders are shown inline for each template
 - Job scoring always appends minified normalized source-job JSON, including `null` values, plus the required output contract
 - The same scoring call may propose evidence-backed corrections to existing job facts. JobOps only accepts whitelisted, schema-valid values supported by an excerpt from the listing; these mandatory safety instructions remain appended even when you customize the scoring template
-- Use **Reset** to restore a single template, or **Reset all prompts** to restore all three
+- Use **Reset** to restore a single template, or **Reset all prompts** to restore all templates
 - Template editing is intentionally advanced:
   - removing key instructions can degrade output quality
   - removing placeholders can strip important runtime data from the prompt
   - resetting restores the shared default templates
-- Existing writing-style, language, and scoring-instructions settings still matter because the default templates consume those values through placeholders
+- Existing writing-style, language, and scoring-instructions settings still apply. Targeted resume generation receives the job, selected library facts (excluding contacts), writing style, output language, and project policy in a separate JSON message. Its system template has no placeholders; JobOps always appends an instruction to treat supplied text as data, never instructions, including with custom templates; other templates use the placeholders shown in their editors
+- To customize targeted generation, edit **Resume generation prompt**, save, then generate a missing resume or confirm **Regenerate resume** on a targeted job. The default selects existing library facts and duty IDs without rewriting duties; keep its output instructions when customizing. Saving a template does not replace existing saved resumes or hand edits
+- Template overrides are limited to 12,000 characters. Blank or reset templates use the built-in default
 
 ### Reactive Resume
 

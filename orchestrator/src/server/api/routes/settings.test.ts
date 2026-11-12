@@ -136,12 +136,41 @@ describe.sequential("Settings API routes", () => {
     expect(body.data.ghostwriterSystemPromptTemplate.value).toBe(
       getDefaultPromptTemplate("ghostwriterSystemPromptTemplate"),
     );
+    expect(body.data.resumeGenerationPromptTemplate.value).toBe(
+      getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
+    );
     expect(body.data.tailoringPromptTemplate.value).toBe(
       getDefaultPromptTemplate("tailoringPromptTemplate"),
     );
     expect(body.data.scoringPromptTemplate.value).toBe(
       getDefaultPromptTemplate("scoringPromptTemplate"),
     );
+  });
+
+  it("persists and resets the resume generation prompt override", async () => {
+    const patch = (value: string | null) =>
+      fetch(`${baseUrl}/api/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeGenerationPromptTemplate: value }),
+      });
+    const saved = await patch("Custom selection instructions");
+    expect(saved.status).toBe(200);
+    const read = await fetch(`${baseUrl}/api/settings`);
+    expect(
+      (await read.json()).data.resumeGenerationPromptTemplate,
+    ).toMatchObject({
+      value: "Custom selection instructions",
+      override: "Custom selection instructions",
+    });
+    const reset = await patch(null);
+    expect(reset.status).toBe(200);
+    expect(
+      (await reset.json()).data.resumeGenerationPromptTemplate,
+    ).toMatchObject({
+      value: getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
+      override: null,
+    });
   });
 
   it("does not expose Basic Auth env values through settings", async () => {
