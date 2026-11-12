@@ -556,7 +556,8 @@ describe("Navy Serif", () => {
           "Example Project 2025",
           "Built reliable systems & APIs.",
           "Reduced latency.",
-          "Example Award - Example Committee, 2024: Delivery excellence.",
+          // Awards print like the editor: title, then the description.
+          "Example Award: Delivery excellence.",
         ])
           expect(result.text).toContain(text);
         const company = result.items.find((i) =>
@@ -698,8 +699,8 @@ describe("Navy Serif", () => {
           "Issuer only - Example Org",
           "Date only - 2025",
           "Bare award",
-          "Awarder only - Example Committee",
-          "Dated award, 2024",
+          "Awarder only",
+          "Dated award",
           "Described award: Great delivery.",
         ]) {
           expect(
@@ -708,7 +709,7 @@ describe("Navy Serif", () => {
           ).toBe(true);
         }
         expect(sparse.text).not.toMatch(
-          /Title only -|Bare award[:,-]| - ,|, :/,
+          /Title only -|Bare award[:,-]|Example Committee|Dated award,| - ,|, :/,
         );
       } finally {
         await rm(dir, { recursive: true, force: true });

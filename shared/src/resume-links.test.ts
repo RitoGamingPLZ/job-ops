@@ -16,6 +16,7 @@ import {
   type ResumeDoc,
   type ResumeItem,
   removeFromResume,
+  resetEntryFields,
   resetLine,
   sameLineText,
   setContactOnResume,
@@ -1048,5 +1049,14 @@ describe("changedLibraryFields", () => {
         library,
       ),
     ).toEqual({});
+  });
+  it("resets changed fields and keeps the item's id and picks", () => {
+    const linked = libraryItemToResumeItem(certification);
+    const edited = { ...linked, issuer: "Academy", hidden: false };
+    expect(resetEntryFields(edited, library)).toEqual(linked);
+    const picked = { ...libraryItemToResumeItem(skill), keywords: ["Go"] };
+    expect(resetEntryFields({ ...picked, name: "Langs" }, library)).toEqual(
+      picked,
+    );
   });
 });

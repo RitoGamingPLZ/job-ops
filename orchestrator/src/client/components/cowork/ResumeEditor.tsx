@@ -10,6 +10,7 @@ import {
   getItemLines,
   type ResumeLine,
   removeFromResume,
+  resetEntryFields,
   resetLine,
   sameLineText,
   setItemLines,
@@ -19,6 +20,7 @@ import {
   NAVY_SERIF_STYLE,
 } from "@shared/resume-style/navy-serif";
 import type {
+  EntrySection,
   ExperienceBullet,
   ReactiveResumeV5Document,
   ResumeFocusRef,
@@ -234,6 +236,8 @@ const SAVE_FIELD_LABELS: Record<string, string> = {
 type Props = {
   library?: ExperienceBullet[];
   onSaveLineToLibrary?: (libraryId: string, text: string) => void;
+  /** Save a linked entry's changed fields to its library item. */
+  onSaveEntryToLibrary?: (section: EntrySection, itemId: string) => void;
   document: ReactiveResumeV5Document;
   onChange: (document: ReactiveResumeV5Document) => void;
   suggestions: ResumeSuggestionV2[];
@@ -257,6 +261,7 @@ export function ResumeEditor({
   onAskAi,
   library = [],
   onSaveLineToLibrary,
+  onSaveEntryToLibrary,
   contactsFromLibrary = false,
 }: Props) {
   const [addingSummary, setAddingSummary] = useState(
@@ -514,6 +519,44 @@ export function ResumeEditor({
     const next = removeFromResume(currentDocument.current, id);
     currentDocument.current = next;
     onChange(next);
+  }
+  /** Reset / Save for a linked entry edited away from its library item. */
+  function entryTools(section: EntrySection, item: Record<string, unknown>) {
+    if (!Object.keys(changedLibraryFields(item, library)).length) return null;
+    return (
+      <>
+        <Button
+          size="sm"
+          variant="ghost"
+          title="Reset to library"
+          aria-label="Reset entry to library"
+          onClick={() =>
+            change((next) => {
+              const items = next.sections[section].items as unknown as Record<
+                string,
+                unknown
+              >[];
+              const index = items.findIndex((entry) => entry.id === item.id);
+              if (index >= 0)
+                items[index] = resetEntryFields(items[index], library);
+            })
+          }
+        >
+          Reset to library
+        </Button>
+        {onSaveEntryToLibrary && (
+          <Button
+            size="sm"
+            variant="ghost"
+            title="Save to library"
+            aria-label="Save entry to library"
+            onClick={() => onSaveEntryToLibrary(section, String(item.id))}
+          >
+            Save to library
+          </Button>
+        )}
+      </>
+    );
   }
   function lineTools(itemId: string, index: number, line: ResumeLine) {
     const original = library.find((item) => item.id === line.ref);
@@ -974,13 +1017,17 @@ export function ResumeEditor({
                           <span aria-hidden="true">-</span>
                         )}
                         {input}
-                        {kind === "awards" && field === "title" && (
-                          <span aria-hidden="true">:</span>
-                        )}
+                        {/* Like the PDF: the colon only leads a description. */}
+                        {kind === "awards" &&
+                          field === "title" &&
+                          bulletsFromHtml(String(item.description ?? ""))
+                            .join("")
+                            .trim() && <span aria-hidden="true">:</span>}
                       </Fragment>
                     );
                   })}
                   <div className="resume-tools">
+                    {entryTools(kind, item)}
                     {askAi({
                       kind: "item",
                       section: kind,
@@ -1165,6 +1212,7 @@ export function ResumeEditor({
                         }}
                       />
                       <div className="resume-tools resume-skill-controls">
+                        {entryTools("skills", skill)}
                         {dragHandle(
                           SKILL_TRANSFER_TYPE,
                           skill.id,
@@ -1356,6 +1404,7 @@ export function ResumeEditor({
                       )}
                     </div>
                     <div className="resume-tools resume-entry-controls">
+                      {entryTools("experience", experience)}
                       {dragHandle(
                         EXPERIENCE_TRANSFER_TYPE,
                         experience.id,
@@ -1681,6 +1730,7 @@ export function ResumeEditor({
                       </span>
                     </div>
                     <div className="resume-tools">
+                      {entryTools("projects", project)}
                       {askAi({
                         kind: "item",
                         section: "projects",

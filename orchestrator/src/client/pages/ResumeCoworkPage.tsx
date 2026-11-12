@@ -10,13 +10,16 @@ import {
 } from "@client/api/settings-profile";
 import {
   applyLibraryUpdate,
+  changedLibraryFields,
   getItemLines,
   isOnResume,
   setItemLines,
 } from "@shared/resume-links";
 import type {
   DesignResumeDocument,
+  EntrySection,
   ExperienceBullet,
+  ExperienceBulletInput,
   Job,
   JobResumeState,
   ReactiveResumeV5Document,
@@ -29,7 +32,10 @@ import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { executeAcceptedSuggestions } from "@/client/components/cowork/acceptSuggestions";
+import {
+  executeAcceptedSuggestions,
+  librarySaveInput,
+} from "@/client/components/cowork/acceptSuggestions";
 import { CandidateLibrary } from "@/client/components/cowork/CandidateLibrary";
 import { coworkError } from "@/client/components/cowork/DutyLibrary";
 import {
@@ -621,14 +627,48 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
       if (mounted.current) setBusy(false);
     }
   }
-  async function saveLineToLibrary(id: string, text: string) {
+  async function saveEntryToLibrary(section: EntrySection, itemId: string) {
+    const document = latest.current?.document;
+    const item = document?.sections[section].items.find(
+      (entry) => entry.id === itemId,
+    );
+    if (!document || typeof item?.libraryId !== "string") return;
+    const saved = librarySaveInput(
+      document,
+      { kind: "entry", section, itemId, libraryId: item.libraryId },
+      library,
+      false,
+    );
+    if (!("input" in saved)) return;
+    // Only the fields changed here: a skill's keywords are this job's pick.
+    const changed = changedLibraryFields(item, library);
+    const data = saved.input.data ?? {};
+    const changedData = Object.keys(data).filter((key) => key in changed);
+    const textChanged = Object.keys(changed).some((key) => !(key in data));
+    await saveToLibrary(item.libraryId, {
+      ...(textChanged ? { text: saved.input.text } : {}),
+      ...(changedData.length
+        ? {
+            data: Object.fromEntries(
+              [...changedData, "schemaVersion"]
+                .filter((key) => key in data)
+                .map((key) => [key, data[key]]),
+            ),
+          }
+        : {}),
+    });
+  }
+  async function saveToLibrary(
+    id: string,
+    input: Partial<ExperienceBulletInput>,
+  ) {
     const before = library.find((item) => item.id === id);
     if (!before || busy) return;
     setBusy(true);
     try {
       const { bullet: after } = await api.updateExperienceBullet(
         id,
-        { text },
+        input,
         jobId,
       );
       if (!mounted.current) return;
@@ -1114,7 +1154,13 @@ function CoworkWorkspace({ jobId, base }: { jobId: string; base: boolean }) {
               onSaveLineToLibrary={
                 base
                   ? undefined
-                  : (id, text) => void saveLineToLibrary(id, text)
+                  : (id, text) => void saveToLibrary(id, { text })
+              }
+              onSaveEntryToLibrary={
+                base
+                  ? undefined
+                  : (section, itemId) =>
+                      void saveEntryToLibrary(section, itemId)
               }
               disabled={busy}
               document={document}

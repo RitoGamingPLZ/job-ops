@@ -383,6 +383,16 @@ export function changedLibraryFields(
   return changed;
 }
 
+/** The item with its library fields restored (skill keywords stay as picked). */
+export function resetEntryFields(
+  item: ResumeItem,
+  library: readonly ExperienceBullet[],
+): ResumeItem {
+  const source = library.find((entry) => entry.id === item.libraryId);
+  if (!source || !KIND_SECTION[source.kind]) return item;
+  return { ...item, ...fields(source, item.website) };
+}
+
 // Copy only changed paths; this also visits linked items in custom sections.
 function mapItems(
   doc: ResumeDoc,

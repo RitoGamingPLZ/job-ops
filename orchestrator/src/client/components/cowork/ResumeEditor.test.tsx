@@ -1258,7 +1258,13 @@ describe("candidate library links", () => {
     { id: "duty-a", text: "Original duty", kind: "bullet" },
     { id: "duty-b", text: "B", kind: "bullet" },
   ] as import("@shared/types").ExperienceBullet[];
-  function LinkedEditor({ onChange = vi.fn(), save = vi.fn() }) {
+  function LinkedEditor({
+    onChange = vi.fn(),
+    save = vi.fn(),
+    saveEntry = undefined as
+      | ((section: string, itemId: string) => void)
+      | undefined,
+  }) {
     const [document, setDocument] = useState(() => {
       const doc = fixture();
       Object.assign(doc.sections.experience.items[0], {
@@ -1275,6 +1281,7 @@ describe("candidate library links", () => {
         document={document}
         library={library}
         onSaveLineToLibrary={save}
+        onSaveEntryToLibrary={saveEntry}
         suggestions={[]}
         onDismiss={vi.fn()}
         onChange={(next) => {
@@ -1409,6 +1416,21 @@ describe("candidate library links", () => {
       "title",
       "Company position — library: Engineer",
     );
+    const saveEntry = vi.fn();
+    cleanup();
+    render(<LinkedEditor saveEntry={saveEntry} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save entry to library" }),
+    );
+    expect(saveEntry).toHaveBeenCalledWith("experience", expect.any(String));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reset entry to library" }),
+    );
+    // The library role has no company, so the company resets to "—" too.
+    expect(screen.getByLabelText("— position")).toHaveValue("Engineer");
+    expect(
+      screen.queryByRole("button", { name: "Reset entry to library" }),
+    ).toBeNull();
   });
 
   it("cancels blank rewording of a linked line", () => {

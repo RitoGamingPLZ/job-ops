@@ -122,8 +122,8 @@
     ])
   } else if key == "awards" and items(key).len() > 0 {
     section(key, "Awards", [#for a in items(key) {
-      let heading = (a.title, str-of(a, "subtitle")).filter(p => p != "").join(" - ")
-      let label = (heading, str-of(a, "date")).filter(p => p != "").join(", ")
+      // One line like the editor: title, then the description.
+      let label = a.title
       block(above: 0pt, below: st.lineItemGap)[#text(weight: st.strongWeight, label + if a.bullets.len() > 0 and label != "" { ":" } else { "" })#if a.bullets.len() > 0 { [ #a.bullets.map(markup).join(" ")] }]
     }])
   } else if key == "customFields" and source.customFieldItems.len() > 0 {
