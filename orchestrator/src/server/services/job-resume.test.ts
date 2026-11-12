@@ -283,6 +283,26 @@ describe("ensureJobResume", () => {
 });
 
 describe("regenerateJobResume", () => {
+  it("does not yield between the before-read and library sync", async () => {
+    let beforeReadInCurrentTurn = false;
+    vi.mocked(getJobResume)
+      .mockResolvedValue(row)
+      .mockResolvedValueOnce(row)
+      .mockImplementationOnce(async () => {
+        beforeReadInCurrentTurn = true;
+        queueMicrotask(() => {
+          beforeReadInCurrentTurn = false;
+        });
+        return row;
+      });
+    vi.mocked(syncCandidateLibrary).mockImplementationOnce(() => {
+      expect(getJobResume).toHaveBeenCalledTimes(2);
+      expect(beforeReadInCurrentTurn).toBe(true);
+      return { created: 0, skipped: 0, linked: 0 };
+    });
+    await regenerateJobResume("job");
+    expect(syncCandidateLibrary).toHaveBeenCalledOnce();
+  });
   it("keeps regeneration's sync revisions separate across tenants", async () => {
     const revisions = new Map([
       ["tenant-a", 7],

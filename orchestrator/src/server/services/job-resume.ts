@@ -92,9 +92,10 @@ async function materializeJobResume(
       const beforeSync = getJobResume(jobId);
       syncCandidateLibrary(base.data as ReactiveResumeV5Document);
       const afterSync = getJobResume(jobId);
-      if (((await beforeSync)?.revision ?? 0) !== baseRevision)
+      const [before, after] = await Promise.all([beforeSync, afterSync]);
+      if ((before?.revision ?? 0) !== baseRevision)
         throw conflict("Resume changed. Reload before saving.");
-      baseRevision = (await afterSync)?.revision ?? 0;
+      baseRevision = after?.revision ?? 0;
     } else {
       syncCandidateLibrary(base.data as ReactiveResumeV5Document);
     }
