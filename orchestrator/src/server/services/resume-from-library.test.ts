@@ -183,6 +183,68 @@ describe("generateResumeFromLibrary", () => {
     expect(prompt).not.toContain("private-contact-tag");
   });
   it.each([
+    [
+      "school",
+      "education",
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+      "degree",
+    ],
+    [
+      "award",
+      "awards",
+      { title: "Prize", awarder: "Society", description: "<p>Research</p>" },
+      "title",
+    ],
+    [
+      "cert",
+      "certifications",
+      { title: "Certificate", description: "<p>Exam</p>" },
+      "title",
+    ],
+  ] as const)("generates edited %s text without structured primary data", async (id, section, data, primary) => {
+    const foldedText = foldResumeParts(...Object.values(data));
+    const structuredLibrary = library.map((entry) =>
+      entry.id === id
+        ? { ...entry, text: foldedText, data: { ...entry.data, ...data } }
+        : entry,
+    );
+    const source = await generateResumeFromLibrary(
+      base,
+      createJob(),
+      structuredLibrary,
+    );
+    for (const text of [
+      "degree" in data ? data.degree : data.title,
+      foldedText,
+    ]) {
+      const legacyLibrary = library.map((entry) =>
+        entry.id === id ? { ...entry, text } : entry,
+      );
+      const unchanged = await generateResumeFromLibrary(
+        source,
+        createJob(),
+        legacyLibrary.map((entry) => ({ ...entry, tags: ["reviewed"] })),
+      );
+      expect(unchanged.sections[section].items[0]).toMatchObject(data);
+      const edited = await generateResumeFromLibrary(
+        source,
+        createJob(),
+        legacyLibrary.map((entry) =>
+          entry.id === id ? { ...entry, text: "Library edit" } : entry,
+        ),
+      );
+      expect(edited.sections[section].items[0]).toMatchObject({
+        ...data,
+        [primary]: "Library edit",
+      });
+    }
+  });
+  it.each([
     true,
     false,
   ])("keeps omitted nested base roles and their intros (source identity: %s)", async (sourceIdentity) => {
@@ -544,8 +606,19 @@ describe("generateResumeFromLibrary", () => {
       createJob(),
       library.map((entry) =>
         entry.id === "school"
-          ? { ...entry, data: { ...entry.data, grade: "", area: "Computing" } }
-          : entry,
+          ? {
+              ...entry,
+              text: foldResumeParts(
+                source.degree,
+                source.area,
+                source.grade,
+                source.description,
+              ),
+              data: { ...entry.data, grade: "", area: "Computing" },
+            }
+          : entry.id === "award"
+            ? { ...entry, text: "Prize · Society · Research" }
+            : entry,
       ),
     );
     expect(result.sections.education.items[0]).toMatchObject({

@@ -281,13 +281,13 @@ function fields(item: ExperienceBullet, existing: ResumeItem = {}): ResumeItem {
         ? existing[key]
         : fallback;
   const primary = (key: string) =>
-    typeof data[key] === "string" &&
+    typeof data[key] !== "string" ||
     item.text !==
       foldResumeParts(
         ...(FOLDED_FIELDS[item.kind] ?? []).map((key) => data[key]),
       )
       ? item.text
-      : structured(key, item.text);
+      : data[key];
   switch (item.kind) {
     case "role":
       return {
@@ -367,10 +367,8 @@ export function linkedFieldPatch(
   // its old constituents, or when this is a legacy row without constituents.
   const primary = foldedFields[0];
   if (field !== primary) data[primary] = fields(item)[primary];
-  return {
-    data,
-    text: foldResumeParts(...foldedFields.map((key) => data[key])),
-  };
+  const foldedText = foldResumeParts(...foldedFields.map((key) => data[key]));
+  return foldedText ? { data, text: foldedText } : null;
 }
 
 /**

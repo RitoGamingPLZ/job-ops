@@ -957,10 +957,12 @@ it("keeps structured facts through sync, ticking and updates, and enriches only 
       grade: "",
       description: "<p>Thesis · research</p>",
     });
-    // Simulate a linked legacy row with missing constituents.
-    api.updateLibraryItem(education.id, {
-      data: { school: "School", area: "", grade: "" },
-    });
+    // Simulate a linked legacy row without rewriting its clean resume degree.
+    api.updateLibraryItem(
+      education.id,
+      { data: { school: "School", area: "", grade: "" } },
+      "ticked-structured",
+    );
     document.sections.education.items[0].libraryId = education.id;
     const foreign = structuredClone(document);
     foreign.sections.education.items[0].degree = "Foreign degree";
@@ -986,6 +988,38 @@ it("keeps structured facts through sync, ticking and updates, and enriches only 
       area: "",
       grade: "",
     });
+    for (const entry of library) {
+      const primary = entry.kind === "education" ? "degree" : "title";
+      const section =
+        entry.kind === "education"
+          ? "education"
+          : entry.kind === "award"
+            ? "awards"
+            : "certifications";
+      const data = { ...entry.data };
+      delete data[primary];
+      const created = api.createLibraryItem({
+        kind: entry.kind,
+        text: "Created in library",
+        data,
+      });
+      const linked = addToResume(document, created.id, [created]);
+      const jobId = `created-${entry.kind}`;
+      job(jobId, "ready", "tenant-a", linked);
+      const before = rows().find((row) => row.jobId === jobId);
+      api.updateLibraryItem(created.id, { tags: ["reviewed"] });
+      expect(rows().find((row) => row.jobId === jobId)).toEqual(before);
+      api.updateLibraryItem(created.id, { text: "Edited in library" });
+      expect(
+        rows().find((row) => row.jobId === jobId)?.document.sections[section]
+          .items,
+      ).toContainEqual(
+        expect.objectContaining({
+          libraryId: created.id,
+          [primary]: "Edited in library",
+        }),
+      );
+    }
     for (const entry of library) {
       api.updateLibraryItem(entry.id, { text: "Library edit" });
       const section =

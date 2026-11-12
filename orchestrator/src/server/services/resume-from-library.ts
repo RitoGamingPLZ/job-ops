@@ -1,6 +1,7 @@
 import { getSetting } from "@server/repositories/settings";
 import { htmlToPlainText, splitDescription } from "@shared/resume-bullets";
 import {
+  foldResumeParts,
   libraryItemToResumeItem,
   setItemLines,
   stampLibraryRefs,
@@ -340,7 +341,10 @@ export async function generateResumeFromLibrary(
         ...Object.fromEntries(
           keys.flatMap((key) =>
             typeof item.data?.[key] !== "string" &&
-            typeof original?.[key] === "string"
+            typeof original?.[key] === "string" &&
+            (key !== keys[0] ||
+              item.text ===
+                foldResumeParts(...keys.map((key) => original?.[key])))
               ? [[key, original[key]]]
               : [],
           ),

@@ -889,6 +889,52 @@ describe("edited structured library text", () => {
       ).toEqual({ ...entries(changed, after.kind)[0], [field]: "Linked edit" });
     }
   });
+  it.each([
+    [
+      education,
+      {
+        degree: "BSc",
+        area: "CS",
+        grade: "First",
+        description: "<p>Thesis</p>",
+      },
+      "degree",
+    ],
+    [
+      award,
+      { title: "Prize", awarder: "Society", description: "<p>Work</p>" },
+      "title",
+    ],
+    [
+      certification,
+      { title: "Certified", description: "<p>Exam</p>" },
+      "title",
+    ],
+  ] as const)("propagates $0.kind text edits without structured primary data", (item, original, primary) => {
+    for (const text of [
+      "degree" in original ? original.degree : original.title,
+      foldResumeParts(...Object.values(original)),
+    ]) {
+      const before = { ...item, text };
+      const doc = addToResume(document(), before.id, [before]);
+      Object.assign(entries(doc, item.kind)[0], original);
+      const resumeItem = { ...entries(doc, item.kind)[0] };
+      expect(
+        applyLibraryUpdate(doc, before, { ...before, tags: ["tag"] }),
+      ).toBe(doc);
+      expect(
+        applyLibraryUpdate(doc, before, { ...before, updatedAt: "later" }),
+      ).toBe(doc);
+      const next = applyLibraryUpdate(doc, before, {
+        ...before,
+        text: "Library edit",
+      });
+      expect(entries(next, item.kind)[0]).toEqual({
+        ...resumeItem,
+        [primary]: "Library edit",
+      });
+    }
+  });
   it("uses the importer fold for whitespace and HTML", () => {
     expect(
       foldResumeParts(" BSc ", " CS\n  Science ", "", "<p>A &amp; B</p>"),
@@ -932,6 +978,35 @@ describe("linkedFieldPatch", () => {
       ...original,
       [field]: "New value",
     });
+  });
+  it.each([
+    [
+      education,
+      "education",
+      { degree: "BSc", area: "CS", grade: "First" },
+      "area",
+    ],
+    [award, "awards", { title: "Prize", awarder: "Society" }, "awarder"],
+  ] as const)("round-trips legacy $1 constituents without changing clean resume fields", (item, section, original, field) => {
+    const doc = addToResume(document(), item.id, [item]);
+    Object.assign(entries(doc, item.kind)[0], original);
+    const resumeItem = { ...entries(doc, item.kind)[0] };
+    const patch = linkedFieldPatch(item, section, field, "Linked edit");
+    expect(patch).not.toBeNull();
+    const next = applyLibraryUpdate(doc, item, { ...item, ...patch });
+    expect(entries(next, item.kind)[0]).toEqual({
+      ...resumeItem,
+      [field]: "Linked edit",
+    });
+  });
+  it("refuses a folded edit whose resulting text would be empty", () => {
+    const item = {
+      ...certification,
+      text: "X",
+      data: { title: "X", description: "" },
+    };
+    expect(linkedFieldPatch(item, "certifications", "title", "")).toBeNull();
+    expect(linkedFieldPatch(item, "certifications", "title", "  ")).toBeNull();
   });
   it("leaves existing sibling values unchanged even when they differ from library data", () => {
     const doc = addToResume(document(), role.id, [role]);
