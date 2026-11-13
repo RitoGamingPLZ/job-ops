@@ -21,6 +21,7 @@ const createJob = (overrides: Partial<JobListItem> = {}): JobListItem => ({
   status: "ready",
   outcome: null,
   closedAt: null,
+  generationError: null,
   suitabilityScore: null,
   sponsorMatchScore: null,
   appliedDuplicateMatch: null,

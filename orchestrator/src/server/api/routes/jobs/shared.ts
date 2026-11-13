@@ -73,6 +73,7 @@ export function toJobListItem(
     status: job.status,
     outcome: job.outcome,
     closedAt: job.closedAt,
+    generationError: job.generationError,
     suitabilityScore: job.suitabilityScore,
     sponsorMatchScore: job.sponsorMatchScore,
     jobType: job.jobType,

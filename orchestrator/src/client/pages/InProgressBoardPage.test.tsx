@@ -163,6 +163,7 @@ const makeJob = (overrides: Partial<JobListItem>): JobListItem => ({
   status: "in_progress",
   outcome: null,
   closedAt: null,
+  generationError: null,
   suitabilityScore: null,
   sponsorMatchScore: null,
   appliedDuplicateMatch: null,

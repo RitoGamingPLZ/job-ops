@@ -124,6 +124,7 @@ export function toJobListItem(job: WatchlistJobResult): JobListItem {
     status: "discovered",
     outcome: null,
     closedAt: null,
+    generationError: null,
     suitabilityScore: null,
     sponsorMatchScore: null,
     appliedDuplicateMatch: null,
