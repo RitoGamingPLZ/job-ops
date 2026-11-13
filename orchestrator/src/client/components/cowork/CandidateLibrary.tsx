@@ -739,7 +739,7 @@ export function CandidateLibrary({
     return (
       <div key={item.id} className="space-y-0.5 py-0.5">
         <div
-          className={`group flex ${hasTags ? "items-center" : "items-start"} gap-1 rounded-sm text-xs ${reworded ? REWORDED_TINT_CLASS : ""}`}
+          className={`group flex ${hasTags ? "items-center" : "items-start"} gap-1 rounded-sm text-sm ${reworded ? REWORDED_TINT_CLASS : ""}`}
           title={rewordedLine?.text ?? changedTitle}
         >
           {tick([item], item.text)}
@@ -1007,7 +1007,7 @@ export function CandidateLibrary({
         <>
           {section === "role" && (
             <>
-              <div className="flex flex-wrap items-center gap-1 text-xs font-medium">
+              <div className="flex flex-wrap items-center gap-1 text-sm font-medium">
                 <span className="mr-auto">Experience</span>
                 <DutyLibraryTools
                   jobId={jobId}
@@ -1061,7 +1061,7 @@ export function CandidateLibrary({
                       value={company}
                       className="border-0 border-t pt-1"
                     >
-                      <div className="group flex items-center gap-1 text-xs font-medium">
+                      <div className="group flex items-center gap-1 text-sm font-medium">
                         {tick(group, company)}
                         <button
                           type="button"
@@ -1106,7 +1106,7 @@ export function CandidateLibrary({
                           />
                         </div>
                       </div>
-                      <AccordionContent className="ml-1.5 space-y-0.5 border-l pb-0.5 pl-2 text-xs">
+                      <AccordionContent className="ml-1.5 space-y-0.5 border-l pb-0.5 pl-2 text-sm">
                         {group.filter(roleShown).map((role) => (
                           <div key={role.id}>
                             <div className="flex items-start gap-1">
@@ -1128,7 +1128,7 @@ export function CandidateLibrary({
           )}
           {section !== "role" && (
             <>
-              <div className="flex items-center justify-between gap-1 text-xs font-medium">
+              <div className="flex items-center justify-between gap-1 text-sm font-medium">
                 {sections.find(([kind]) => kind === section)?.[1]}
                 {addButton(section)}
               </div>

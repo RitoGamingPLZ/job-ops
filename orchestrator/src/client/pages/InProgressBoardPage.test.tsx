@@ -781,7 +781,7 @@ describe("Generate missing resumes", () => {
     ]);
     const invalidate = vi.spyOn(queryClient, "invalidateQueries");
     const button = await screen.findByRole("button", {
-      name: "Generate missing resumes (2)",
+      name: "Generate/refresh resumes (2)",
     });
     fireEvent.click(button);
     await waitFor(() =>
@@ -801,7 +801,7 @@ describe("Generate missing resumes", () => {
     renderBatchBoard([]);
     expect(
       await screen.findByRole("button", {
-        name: "Generate missing resumes (0)",
+        name: "Generate/refresh resumes (0)",
       }),
     ).toBeDisabled();
     expect(api.generateMissingResumes).not.toHaveBeenCalled();
@@ -815,7 +815,7 @@ describe("Generate missing resumes", () => {
     renderBatchBoard([makeJob({ status: "ready", readyAt: "2026-11-08" })]);
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Generate missing resumes (1)",
+        name: "Generate/refresh resumes (1)",
       }),
     );
     await waitFor(() =>
@@ -856,7 +856,7 @@ describe("Batch progress polling", () => {
     });
     await act(async () => {
       fireEvent.click(
-        screen.getByRole("button", { name: "Generate missing resumes (1)" }),
+        screen.getByRole("button", { name: "Generate/refresh resumes (1)" }),
       );
       await vi.advanceTimersByTimeAsync(1);
     });
@@ -900,7 +900,7 @@ it("reports when the server no longer has missing resumes", async () => {
     </MemoryRouter>,
   );
   fireEvent.click(
-    await screen.findByRole("button", { name: "Generate missing resumes (1)" }),
+    await screen.findByRole("button", { name: "Generate/refresh resumes (1)" }),
   );
   await waitFor(() =>
     expect(toast.info).toHaveBeenCalledWith("No resumes need generating"),
