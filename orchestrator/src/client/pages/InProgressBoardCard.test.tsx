@@ -1,7 +1,7 @@
 import type { JobListItem } from "@shared/types.js";
 import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
+import { describe, expect, it } from "vitest";
 import { InProgressBoardCard } from "./InProgressBoardCard";
 
 const JOB_PAGE_LINK_STATE = { jobPageBackTo: "/applications/in-progress" };

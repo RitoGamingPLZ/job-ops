@@ -66,7 +66,11 @@ jobsActionsRouter.post(
       const { job, settings, hiddenCount } = await blacklistJobEmployer(
         req.params.id,
       );
-      ok(res, { job: await hydrateJobPdfFreshness(job), settings, hiddenCount });
+      ok(res, {
+        job: await hydrateJobPdfFreshness(job),
+        settings,
+        hiddenCount,
+      });
     } catch (error) {
       fail(res, toJobsRouteError(error));
     }
