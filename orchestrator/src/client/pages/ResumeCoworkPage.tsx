@@ -246,10 +246,21 @@ function CoworkWorkspace({
   // biome-ignore lint/correctness/useExhaustiveDependencies: bootstrap once per identity; query changes are handled separately.
   useEffect(() => {
     mounted.current = true;
-    if (!base && requestedMode === "preview") {
-      previewRequested.current = true;
-      void showPreview(true);
-    } else void load();
+    // Preview mode shows the same full workspace as edit mode, just toggled
+    // to the PDF pane, so it also loads the same editable state. Mark the
+    // preview as already requested synchronously, before load() starts, so
+    // the state-triggered effect below never redundantly fires its own
+    // (always-render) showPreview() for this mount no matter how the two
+    // promises interleave. Trigger the actual entry-aware preview (only
+    // renders if stale) after load() settles -- never in parallel with it --
+    // so the PDF still shows even if load() failed (e.g. the editable JSON
+    // source has its own error).
+    if (!base && requestedMode === "preview") previewRequested.current = true;
+    void load().then(() => {
+      if (mounted.current && !base && requestedMode === "preview") {
+        void showPreview(true);
+      }
+    });
     return () => {
       mounted.current = false;
       if (timer.current) clearTimeout(timer.current);

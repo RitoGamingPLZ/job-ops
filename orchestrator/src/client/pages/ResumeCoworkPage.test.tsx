@@ -1537,7 +1537,7 @@ describe("explicit resume opening", () => {
   it.each([
     "current",
     "uploaded",
-  ] as const)("previews a %s PDF without materializing editable data", async (pdfFreshness) => {
+  ] as const)("previews a %s PDF in the full workspace layout", async (pdfFreshness) => {
     mocks.getJob.mockResolvedValue({
       id: "job",
       title: "Selected",
@@ -1555,23 +1555,27 @@ describe("explicit resume opening", () => {
     expect(
       await screen.findByRole("document", { name: "Resume PDF preview" }),
     ).toBeVisible();
-    expect(
-      screen.getByRole("heading", { name: "Selected · Company" }),
-    ).toBeVisible();
     expect(screen.getByRole("button", { name: "Back" })).toBeEnabled();
     expect(mocks.getJob).toHaveBeenCalledWith("job");
-    expect(mocks.library).not.toHaveBeenCalled();
-    expect(mocks.getResume).not.toHaveBeenCalled();
+    expect(mocks.library).toHaveBeenCalled();
+    expect(mocks.getResume).toHaveBeenCalledWith("job");
     expect(mocks.getBase).not.toHaveBeenCalled();
     expect(mocks.pdf).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
     await waitFor(() =>
       expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"),
     );
-    expect(mocks.pdf).not.toHaveBeenCalled();
+    if (pdfFreshness === "uploaded") {
+      // Uploaded PDFs are never regenerated, loaded editable state or not.
+      expect(mocks.pdf).not.toHaveBeenCalled();
+    } else {
+      // Once the editable document is loaded, downloadPdf regenerates
+      // defensively before downloading, same as it does from edit mode.
+      expect(mocks.pdf).toHaveBeenCalledWith("job");
+    }
   });
 
-  it("loads Edit lazily and exposes its explicit missing-source error", async () => {
+  it("still previews the PDF when the editable JSON source is missing, and Edit surfaces that error", async () => {
     mocks.getJob.mockResolvedValue({
       id: "job",
       title: "Engineer",
@@ -1580,20 +1584,19 @@ describe("explicit resume opening", () => {
       pdfFreshness: "uploaded",
       pdfSource: "uploaded",
     });
-    mocks.getResume.mockRejectedValueOnce(
+    mocks.getResume.mockRejectedValue(
       new ApiClientError("Import or create a resume first", { status: 409 }),
     );
     mount(false, new QueryClient(), "?mode=preview");
     await screen.findByRole("document");
-    expect(mocks.getResume).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(
-      await screen.findByText("Import or create a resume first."),
-    ).toBeVisible();
     expect(mocks.getResume).toHaveBeenCalledWith("job");
     expect(mocks.library.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.getResume.mock.invocationCallOrder[0],
     );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(
+      await screen.findByText("Import or create a resume first."),
+    ).toBeVisible();
     expect(mocks.pdf).not.toHaveBeenCalled();
   });
 
@@ -1721,7 +1724,7 @@ describe("explicit resume opening", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await screen.findByRole("document");
     expect(mocks.openPdf).toHaveBeenCalledTimes(2);
-    expect(mocks.getResume).not.toHaveBeenCalled();
+    expect(mocks.getResume).toHaveBeenCalledWith("job");
   });
 
   it.each([
@@ -1730,7 +1733,9 @@ describe("explicit resume opening", () => {
     { status: "discovered", readyAt: null, pdfFreshness: "missing" },
     { status: "ready", pdfFreshness: "current", pdfRegenerating: true },
   ])("guards unavailable or regenerating entry %# and allows retry", async (variant) => {
-    mocks.getJob.mockResolvedValueOnce({
+    // Not `...Once`: load() and the preview trigger each call getJob, and
+    // both must consistently see the same not-yet-available job.
+    mocks.getJob.mockResolvedValue({
       id: "job",
       title: "Engineer",
       employer: "Company",
@@ -1839,7 +1844,7 @@ describe("explicit resume opening", () => {
     expect(await screen.findByLabelText("Headline")).toHaveValue("Remote");
   });
 
-  it("does not load or render a previously selected job after its late full-job read", async () => {
+  it("does not load or render a previously selected job's stale late full-job read, only the current job's", async () => {
     let resolveJob!: (value: unknown) => void;
     mocks.getJob
       .mockImplementationOnce(
@@ -1862,8 +1867,10 @@ describe("explicit resume opening", () => {
     await act(async () =>
       resolveJob({ id: "job", status: "ready", pdfFreshness: "stale" }),
     );
-    expect(mocks.library).not.toHaveBeenCalled();
-    expect(mocks.getResume).not.toHaveBeenCalled();
+    // "other" legitimately materializes its own editable state; only the
+    // abandoned "job" fetch must never trigger a second round for it.
+    expect(mocks.library).toHaveBeenCalledTimes(1);
+    expect(mocks.getResume).toHaveBeenCalledExactlyOnceWith("other");
     expect(mocks.pdf).not.toHaveBeenCalled();
     expect(mocks.openPdf).toHaveBeenCalledExactlyOnceWith("other");
     expect(
