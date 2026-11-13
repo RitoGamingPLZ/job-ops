@@ -48,3 +48,18 @@ it("does not repeat an already committed draft on unmount", () => {
   view.unmount();
   expect(onCommit).toHaveBeenCalledExactlyOnceWith(["A", "B"]);
 });
+it("forwards title and data-library-changed in multiline mode", () => {
+  render(
+    <CommaListInput
+      multiline
+      aria-label="Skills"
+      title="library: TypeScript, Go"
+      data-library-changed=""
+      value={["Go"]}
+      onCommit={vi.fn()}
+    />,
+  );
+  const field = screen.getByLabelText("Skills");
+  expect(field).toHaveAttribute("title", "library: TypeScript, Go");
+  expect(field).toHaveAttribute("data-library-changed", "");
+});

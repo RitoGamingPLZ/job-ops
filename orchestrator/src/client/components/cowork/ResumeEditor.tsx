@@ -1193,7 +1193,11 @@ export function ResumeEditor({
                       <CommaListInput
                         multiline
                         className="resume-skill-keywords"
-                        title={`Skill ${index + 1} keywords`}
+                        {...changedProps(
+                          skill,
+                          ["keywords"],
+                          `Skill ${index + 1} keywords`,
+                        )}
                         aria-label={`Skill ${index + 1} keywords`}
                         value={skill.keywords}
                         onCommit={(keywords) => {

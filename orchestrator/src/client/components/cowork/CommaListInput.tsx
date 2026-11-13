@@ -13,6 +13,7 @@ export function CommaListInput({
   onCommit: (value: string[]) => void;
   /** Wrap long lists onto more lines, like the printed resume. */
   multiline?: boolean;
+  "data-library-changed"?: string;
 }) {
   const text = value.join(", ");
   const [draft, setDraft] = useState(text);
@@ -66,6 +67,8 @@ export function CommaListInput({
         rows={1}
         aria-label={props["aria-label"]}
         className={props.className}
+        title={props.title}
+        data-library-changed={props["data-library-changed"]}
         style={{ height: "auto", overflow: "hidden" }}
         ref={(element) => {
           if (element) fitTextarea(element);

@@ -380,6 +380,20 @@ export function changedLibraryFields(
     if (!sameLineText(plain(mine), plain(theirs)))
       changed[field] = plain(theirs);
   }
+  // Skill keywords are a per-job selection from the library's full pool, not
+  // a single canonical value to diff/reset to (resetEntryFields leaves them
+  // as picked) -- but the AI's selection for this job is still worth tinting.
+  if (source.kind === "skill" && Array.isArray(source.data?.keywords)) {
+    const pool = source.data.keywords.filter(
+      (value): value is string => typeof value === "string",
+    );
+    const mine = Array.isArray(item.keywords)
+      ? item.keywords.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [];
+    if (!equal(mine, pool)) changed.keywords = pool.join(", ");
+  }
   return changed;
 }
 

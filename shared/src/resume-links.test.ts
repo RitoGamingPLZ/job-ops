@@ -1043,12 +1043,20 @@ describe("changedLibraryFields", () => {
     expect(
       changedLibraryFields({ ...edited, libraryId: "deleted" }, library),
     ).toEqual({});
+    // A full-pool selection matches the library, so it's not "changed" --
+    // but the AI picking a subset for this job is worth tinting.
+    expect(
+      changedLibraryFields(
+        { ...libraryItemToResumeItem(skill), keywords: ["TypeScript", "Go"] },
+        library,
+      ),
+    ).toEqual({});
     expect(
       changedLibraryFields(
         { ...libraryItemToResumeItem(skill), keywords: ["Go"] },
         library,
       ),
-    ).toEqual({});
+    ).toEqual({ keywords: "TypeScript, Go" });
   });
   it("resets changed fields and keeps the item's id and picks", () => {
     const linked = libraryItemToResumeItem(certification);

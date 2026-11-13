@@ -484,13 +484,16 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
 
       <div className="flex min-w-0 flex-col rounded-lg rounded-t-none border border-t-0 border-border/50 bg-card p-4">
         <div className="space-y-4">
-          {selectedJob.generationError && selectedJob.status !== "processing" && (
-            <Alert variant="destructive">
-              <CircleAlert />
-              <AlertTitle>Resume generation failed</AlertTitle>
-              <AlertDescription>{selectedJob.generationError}</AlertDescription>
-            </Alert>
-          )}
+          {selectedJob.generationError &&
+            selectedJob.status !== "processing" && (
+              <Alert variant="destructive">
+                <CircleAlert />
+                <AlertTitle>Resume generation failed</AlertTitle>
+                <AlertDescription>
+                  {selectedJob.generationError}
+                </AlertDescription>
+              </Alert>
+            )}
 
           {!brief && (
             <div className="grid gap-2 sm:grid-cols-2">

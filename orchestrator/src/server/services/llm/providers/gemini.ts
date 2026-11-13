@@ -81,7 +81,11 @@ function toGeminiJsonSchema(schema: unknown): unknown {
 
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(schema)) {
-    if (key === "additionalProperties" || key === "maxItems" || key === "minItems") {
+    if (
+      key === "additionalProperties" ||
+      key === "maxItems" ||
+      key === "minItems"
+    ) {
       // Gemini enforces an opaque, undocumented cap on the *sum* of every
       // maxItems/minItems value across the whole request schema (confirmed
       // empirically against the live API: a single field passes up to ~400

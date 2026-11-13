@@ -528,8 +528,9 @@ export const InProgressBoardPage: React.FC = () => {
                             generateMissingMutation.isPending
                           }
                           onClick={handleGenerateMissing}
+                          title="Includes jobs with no resume yet and jobs whose PDF is out of date with the saved resume"
                         >
-                          Generate missing resumes ({missingResumeCount})
+                          Generate/refresh resumes ({missingResumeCount})
                         </Button>
                       )}
                     </header>
