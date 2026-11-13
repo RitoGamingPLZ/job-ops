@@ -27,6 +27,7 @@ const makeJob = (overrides: Partial<JobListItem> = {}): JobListItem => ({
   status: "in_progress",
   outcome: null,
   closedAt: null,
+  generationError: null,
   suitabilityScore: 82,
   sponsorMatchScore: null,
   appliedDuplicateMatch: null,
@@ -239,16 +240,25 @@ export const Targeted: Story = () => (
   <div className="grid gap-4">
     {(
       [
-        ["Targeted · preparing resume", "processing"],
-        ["Targeted · resume not prepared", "discovered"],
-        ["Targeted · resume available", "ready"],
+        ["Targeted · preparing resume", "processing", null],
+        ["Targeted · resume not prepared", "discovered", null],
+        [
+          "Targeted · resume generation failed",
+          "discovered",
+          "Resume library selection failed: LLM API key not configured",
+        ],
+        ["Targeted · resume available", "ready", null],
       ] as const
-    ).map(([label, status]) => (
-      <BoardCardFrame key={status} label={label}>
+    ).map(([label, status, generationError]) => (
+      <BoardCardFrame key={label} label={label}>
         <InteractiveBoardCard
           {...baseCardProps}
           stage="targeted"
-          job={makeJob({ status, readyAt: "2026-05-20T00:00:00Z" })}
+          job={makeJob({
+            status,
+            readyAt: "2026-05-20T00:00:00Z",
+            generationError,
+          })}
           onUntarget={() => {}}
           onPreviewPdf={() => {}}
           onPrepareResume={() => {}}

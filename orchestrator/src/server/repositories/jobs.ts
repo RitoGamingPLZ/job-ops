@@ -157,6 +157,7 @@ export async function getJobListItems(
     status: jobs.status,
     outcome: jobs.outcome,
     closedAt: jobs.closedAt,
+    generationError: jobs.generationError,
     suitabilityScore: jobs.suitabilityScore,
     sponsorMatchScore: jobs.sponsorMatchScore,
     pdfPath: jobs.pdfPath,

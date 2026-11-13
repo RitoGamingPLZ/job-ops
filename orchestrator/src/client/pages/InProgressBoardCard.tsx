@@ -1,7 +1,16 @@
 import type { BoardColumn, JobListItem } from "@shared/types.js";
-import { ExternalLink, MoreVertical, PlusCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Circle,
+  CircleAlert,
+  ExternalLink,
+  Loader2,
+  MoreVertical,
+  PlusCircle,
+} from "lucide-react";
 import type React from "react";
 import { Link } from "react-router-dom";
+import { Tip } from "@/client/components/Tip";
 import { getResumeState } from "@/client/lib/pdf-freshness";
 import { resumeEditorLocation } from "@/client/lib/resume-opening";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +22,54 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn, formatTimestamp } from "@/lib/utils";
+
+/** Small at-a-glance marker for the resume's prep state, visible in every stage column. */
+const ResumeStatusDot: React.FC<{ job: JobListItem }> = ({ job }) => {
+  const resumeState = getResumeState(job);
+  if (resumeState === "untargeted") return null;
+
+  if (resumeState === "available") {
+    return (
+      <Tip content="Resume ready" contentClassName="text-xs">
+        <CheckCircle2
+          aria-label="Resume ready"
+          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500"
+        />
+      </Tip>
+    );
+  }
+
+  if (resumeState === "preparing") {
+    return (
+      <Tip content="Preparing resume…" contentClassName="text-xs">
+        <Loader2
+          aria-label="Preparing resume"
+          className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground"
+        />
+      </Tip>
+    );
+  }
+
+  if (job.generationError) {
+    return (
+      <Tip content={job.generationError} contentClassName="max-w-60 text-xs">
+        <CircleAlert
+          aria-label="Resume generation failed"
+          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive"
+        />
+      </Tip>
+    );
+  }
+
+  return (
+    <Tip content="Resume not prepared yet" contentClassName="text-xs">
+      <Circle
+        aria-label="Resume not prepared yet"
+        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/50"
+      />
+    </Tip>
+  );
+};
 
 export type InProgressBoardCardProps = {
   job: JobListItem;
@@ -74,6 +131,7 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
             {job.title}
           </div>
         </Link>
+        <ResumeStatusDot job={job} />
         <div className="relative h-7 w-7 shrink-0">
           <ExternalLink
             aria-hidden

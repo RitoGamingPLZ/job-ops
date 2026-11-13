@@ -322,6 +322,7 @@ export type JobListItem = Pick<
   | "status"
   | "outcome"
   | "closedAt"
+  | "generationError"
   | "suitabilityScore"
   | "sponsorMatchScore"
   | "appliedDuplicateMatch"
