@@ -60,8 +60,9 @@ import {
   needsRender,
   PDF_REGENERATING_MESSAGE,
 } from "@/client/lib/pdf-freshness";
-import { downloadJobPdf, openJobPdf } from "@/client/lib/private-pdf";
+import { downloadJobPdf } from "@/client/lib/private-pdf";
 import { queryKeys } from "@/client/lib/queryKeys";
+import { resumeEditorLocation } from "@/client/lib/resume-opening";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -442,9 +443,7 @@ export const JobPage: React.FC = () => {
 
   const handlePreviewPdf = () => {
     if (!job || pdfActionsDisabled) return;
-    void openJobPdf(job.id, async () => {
-      if (needsRender(job)) await generatePdfMutation.mutateAsync(job.id);
-    }).catch((error) => showErrorToast(error, "Could not preview PDF"));
+    navigate(resumeEditorLocation({ kind: "job", jobId: job.id }, "preview"));
   };
 
   const handleTarget = () =>

@@ -303,6 +303,7 @@ const renderJobPage = (initialEntry: RouterInitialEntry = "/job/job-1/notes") =>
           path="/applications/in-progress"
           element={<div>In progress board</div>}
         />
+        <Route path="/resumes/:jobId" element={<div>Resume editor</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -805,40 +806,24 @@ it("Prepare resume retries preparation for a targeted job", async () => {
   await waitFor(() => expect(api.processJob).toHaveBeenCalledWith("job-1"));
 });
 
-it.each([
-  "missing",
-  "stale",
-  "current",
-  "uploaded",
-])("previews a %s PDF with generation only when necessary", async (pdfFreshness) => {
+it("Preview PDF opens the resume editor in preview mode, not a raw PDF", async () => {
   vi.mocked(api.getJob).mockResolvedValue(
     createJob({
       status: "ready",
       readyAt: "2026-06-01",
-      pdfPath: pdfFreshness === "missing" ? null : "resume.pdf",
-      pdfFreshness: pdfFreshness as Job["pdfFreshness"],
+      pdfPath: "resume.pdf",
     }),
-  );
-  vi.mocked(privatePdf.openJobPdf).mockImplementation(
-    async (_id, beforeFetch) => {
-      await beforeFetch?.();
-    },
   );
   renderJobPage("/job/job-1/documents");
   fireEvent.click(
     (await screen.findAllByRole("button", { name: "Preview PDF" }))[0],
   );
   await waitFor(() =>
-    expect(privatePdf.openJobPdf).toHaveBeenCalledWith(
-      "job-1",
-      expect.any(Function),
+    expect(screen.getByTestId("location-probe")).toHaveTextContent(
+      "/resumes/job-1?mode=preview",
     ),
   );
-  if (["missing", "stale"].includes(pdfFreshness))
-    await waitFor(() =>
-      expect(api.generateJobPdf).toHaveBeenCalledWith("job-1"),
-    );
-  else expect(api.generateJobPdf).not.toHaveBeenCalled();
+  expect(privatePdf.openJobPdf).not.toHaveBeenCalled();
 });
 it("renders a stale PDF before downloading it", async () => {
   vi.mocked(api.getJob).mockResolvedValue(
