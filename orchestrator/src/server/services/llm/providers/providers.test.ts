@@ -442,9 +442,11 @@ describe("provider adapters", () => {
     // repeating, cannot start list"); it wants a single type + `nullable`.
     expect(bestMatchIndex.type).toBe("integer");
     expect(bestMatchIndex.nullable).toBe(true);
-    // Gemini's maxItems/minItems are int64 fields; the JSON mapping for
-    // int64 is a decimal string, not a number.
-    expect(skills.maxItems).toBe("100");
+    // Gemini enforces an opaque, undocumented cap on the *sum* of every
+    // maxItems/minItems across the whole schema, rejecting the request
+    // entirely once crossed regardless of how it's distributed — so these
+    // are dropped for Gemini rather than sent at all.
+    expect(skills).not.toHaveProperty("maxItems");
     expect(responseSchema.additionalProperties).toBeUndefined();
     expect(responseSchema.propertyOrdering).toEqual([
       "bestMatchIndex",

@@ -63,10 +63,8 @@ export const geminiStrategy = createProviderStrategy({
 });
 
 // Gemini's Schema proto stores these as int64; the JSON mapping for int64
-// is a decimal string, not a JSON number (e.g. "maxItems": "200").
+// is a decimal string, not a JSON number (e.g. "maxLength": "200").
 const GEMINI_INT64_SCHEMA_KEYS = new Set([
-  "minItems",
-  "maxItems",
   "minLength",
   "maxLength",
   "minProperties",
@@ -83,7 +81,17 @@ function toGeminiJsonSchema(schema: unknown): unknown {
 
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(schema)) {
-    if (key === "additionalProperties") {
+    if (key === "additionalProperties" || key === "maxItems" || key === "minItems") {
+      // Gemini enforces an opaque, undocumented cap on the *sum* of every
+      // maxItems/minItems value across the whole request schema (confirmed
+      // empirically against the live API: a single field passes up to ~400
+      // but fails above ~450, and splitting the same total across several
+      // fields fails identically once the sum crosses that line) — rejecting
+      // the entire request with a generic "Request contains an invalid
+      // argument." once crossed, regardless of how the total is distributed.
+      // It's only a soft safety net for generation, so drop it for Gemini
+      // rather than risk resume generation silently breaking as the schema
+      // (or candidate library) grows.
       continue;
     }
     out[key] =
@@ -110,6 +118,7 @@ function toGeminiJsonSchema(schema: unknown): unknown {
   ) {
     out.propertyOrdering = Object.keys(properties);
   }
+
   return out;
 }
 
