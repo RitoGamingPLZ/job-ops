@@ -457,6 +457,7 @@ describe("scrape-coordinator", () => {
 
     // Same posting imported into tenant_b succeeds
     const tenantBImport = onTaskDoneForTenant(db, {
+      taskId: task.taskId,
       tenantId: "tenant_b",
       runId: "run_b",
       postingIds: completed.postingIds,
@@ -474,7 +475,15 @@ describe("scrape-coordinator", () => {
     expect(runB?.tasksCached).toBe(1);
 
     // Second task for run_a fails -> run_a becomes partial
+    const failedTask = ensureTask(db, {
+      source: "golangjobs",
+      title: "Senior Go Developer",
+      tenantId: "tenant_a",
+      runId: "run_a",
+      now: t0,
+    });
     onTaskDoneForTenant(db, {
+      taskId: failedTask.taskId,
       tenantId: "tenant_a",
       runId: "run_a",
       postingIds: [],
@@ -666,9 +675,10 @@ describe("scrape-coordinator", () => {
   });
 
   it.each([
-    true,
-    false,
-  ])("refreshes a re-scraped posting and preserves its identity (optional fields=%s)", (includeOptionalFields) => {
+    "provided",
+    "omitted",
+    "cleared",
+  ])("refreshes a re-scraped posting and preserves its identity (optional fields=%s)", (optionalFields) => {
     const t0 = new Date("2026-11-22T10:00:00.000Z");
     const t1 = new Date(t0.getTime() + 25 * 60 * 60 * 1000);
     const taskInput = {
@@ -707,14 +717,21 @@ describe("scrape-coordinator", () => {
       source: "company-board",
       company: "Acme Ltd",
       title: "Senior Engineer",
-      ...(includeOptionalFields
+      ...(optionalFields === "provided"
         ? {
             location: "Remote",
             description: "Updated description",
             postedAt: "2026-11-23",
             extracted: { salary: 70000 },
           }
-        : {}),
+        : optionalFields === "cleared"
+          ? {
+              location: null,
+              description: null,
+              postedAt: null,
+              extracted: null,
+            }
+          : {}),
     };
     const completed = completeTask(db, {
       taskId: rescrape.taskId,
@@ -729,10 +746,17 @@ describe("scrape-coordinator", () => {
         source: refreshed.source,
         company: refreshed.company,
         title: refreshed.title,
-        location: refreshed.location ?? null,
-        description: refreshed.description ?? null,
-        postedAt: refreshed.postedAt ?? null,
-        extracted: refreshed.extracted ?? null,
+        location: optionalFields === "omitted" ? "London" : refreshed.location,
+        description:
+          optionalFields === "omitted"
+            ? "Original description"
+            : refreshed.description,
+        postedAt:
+          optionalFields === "omitted" ? "2026-11-21" : refreshed.postedAt,
+        extracted:
+          optionalFields === "omitted"
+            ? { salary: 50000, obsolete: true }
+            : refreshed.extracted,
         firstSeenAt: t0.toISOString(),
         lastSeenAt: t1.toISOString(),
       },
