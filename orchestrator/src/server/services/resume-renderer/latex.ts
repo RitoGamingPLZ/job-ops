@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
 import type { PdfPaperSize } from "@shared/types";
+import { runResumeCompiler } from "./compiler";
 import { getLatexResumeSectionTitles } from "./document";
 import { materializeResumePicture } from "./picture";
 import type {
@@ -572,70 +572,17 @@ async function runTectonic(args: {
 }): Promise<void> {
   const binary = process.env.TECTONIC_BIN?.trim() || "tectonic";
 
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(binary, ["--outdir", args.cwd, args.texPath], {
-      cwd: args.cwd,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      child.kill("SIGKILL");
-      reject(
-        new Error(
-          `Tectonic timed out after ${TECTONIC_TIMEOUT_MS / 1000}s while rendering resume PDF.`,
-        ),
-      );
-    }, TECTONIC_TIMEOUT_MS);
-
-    child.stdout.on("data", (chunk: Buffer | string) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk: Buffer | string) => {
-      stderr += chunk.toString();
-    });
-
-    child.on("error", (error) => {
-      clearTimeout(timer);
-      if (settled) return;
-      settled = true;
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        reject(
-          new Error(
-            "Tectonic binary not found. Install tectonic or set TECTONIC_BIN to the executable path.",
-          ),
-        );
-        return;
-      }
-      reject(error);
-    });
-
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (settled) return;
-      settled = true;
-      if (code === 0) {
-        resolve();
-        return;
-      }
-
-      reject(
-        new Error(
-          `Tectonic failed with exit code ${code ?? "unknown"}. ${truncateOutput(stderr || stdout)}`,
-        ),
-      );
-    });
-  }).catch((error) => {
-    logger.warn("LaTeX resume compile failed", {
-      jobId: args.jobId,
-      error,
-      compiler: binary,
-    });
-    throw error;
+  await runResumeCompiler({
+    binary,
+    argv: ["--outdir", args.cwd, args.texPath],
+    cwd: args.cwd,
+    timeoutMs: TECTONIC_TIMEOUT_MS,
+    jobId: args.jobId,
+    label: "Tectonic",
+    missingBinaryMessage:
+      "Tectonic binary not found. Install tectonic or set TECTONIC_BIN to the executable path.",
+    warningMessage: "LaTeX resume compile failed",
+    truncateOutput,
   });
 }
 

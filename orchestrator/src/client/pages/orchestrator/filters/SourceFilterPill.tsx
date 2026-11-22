@@ -1,9 +1,12 @@
+import type { JobSource } from "@shared/types.js";
 import { Globe } from "lucide-react";
 import type React from "react";
-import { Button } from "@/components/ui/button";
 import { sourceLabel } from "@/lib/utils";
 import { orderedFilterSources } from "../constants";
-import { FilterPill } from "./FilterPill";
+import {
+  type SingleSelectFilterOption,
+  SingleSelectFilterPill,
+} from "./SingleSelectFilterPill";
 import type { SourceFilterPillProps } from "./types";
 
 export const SourceFilterPill: React.FC<SourceFilterPillProps> = ({
@@ -11,39 +14,30 @@ export const SourceFilterPill: React.FC<SourceFilterPillProps> = ({
   onSourceFilterChange,
   sourcesWithJobs,
 }) => {
-  const visibleSources = orderedFilterSources.filter((source) =>
-    sourcesWithJobs.includes(source),
-  );
+  const options: Array<SingleSelectFilterOption<JobSource | "all">> = [
+    { value: "all", label: "All sources" },
+    ...orderedFilterSources
+      .filter((source) => sourcesWithJobs.includes(source))
+      .map((source) => ({
+        value: source,
+        label: sourceLabel[source] ?? source,
+      })),
+  ];
 
   return (
-    <FilterPill
+    <SingleSelectFilterPill
       icon={<Globe />}
       label="Source"
       active={sourceFilter !== "all"}
-      summary={sourceFilter === "all" ? null : sourceLabel[sourceFilter]}
+      summary={
+        sourceFilter === "all"
+          ? null
+          : (sourceLabel[sourceFilter] ?? sourceFilter)
+      }
+      value={sourceFilter}
+      options={options}
+      onChange={onSourceFilterChange}
       contentClassName="w-72"
-    >
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant={sourceFilter === "all" ? "default" : "outline"}
-          onClick={() => onSourceFilterChange("all")}
-        >
-          All sources
-        </Button>
-        {visibleSources.map((source) => (
-          <Button
-            key={source}
-            type="button"
-            size="sm"
-            variant={sourceFilter === source ? "default" : "outline"}
-            onClick={() => onSourceFilterChange(source)}
-          >
-            {sourceLabel[source]}
-          </Button>
-        ))}
-      </div>
-    </FilterPill>
+    />
   );
 };

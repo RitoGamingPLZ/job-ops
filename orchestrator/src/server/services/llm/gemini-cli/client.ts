@@ -7,11 +7,11 @@ import {
   type JsonSchemaDefinition,
   type LlmRequestOptions,
 } from "../types";
+import { runCliProcess } from "../utils/cli-process";
 import { truncate } from "../utils/string";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 const DEFAULT_VALIDATION_TIMEOUT_MS = 60_000;
-const MAX_STDERR_LINES = 40;
 
 /** Models commonly available via Gemini CLI; same `google/...` ids as the API provider. */
 export const GEMINI_CLI_SUGGESTED_MODELS: string[] = [
@@ -208,93 +208,15 @@ async function runGeminiCliOnce(args: {
 
   const target = resolveGeminiCliSpawnTarget(bin);
 
-  return await new Promise((resolve, reject) => {
-    const stderrLines: string[] = [];
-    const stdoutChunks: Buffer[] = [];
-    let settled = false;
-
-    const child = args.spawnFn(
-      target.command,
-      [...target.scriptPrefix, ...procArgs],
-      {
-        stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env },
-        windowsHide: true,
-        shell: target.shell,
-      },
-    );
-
-    const finish = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      fn();
-    };
-
-    const onAbort = () => {
-      child.kill("SIGTERM");
-    };
-    if (args.signal) {
-      if (args.signal.aborted) {
-        onAbort();
-      } else {
-        args.signal.addEventListener("abort", onAbort, { once: true });
-      }
-    }
-
-    child.stdout.on("data", (chunk: Buffer | string) => {
-      stdoutChunks.push(
-        typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk,
-      );
-    });
-
-    child.stderr.on("data", (chunk: Buffer | string) => {
-      const text = typeof chunk === "string" ? chunk : chunk.toString("utf8");
-      for (const line of text.split(/\r?\n/)) {
-        const t = line.trim();
-        if (!t) continue;
-        stderrLines.push(t);
-        if (stderrLines.length > MAX_STDERR_LINES) {
-          stderrLines.shift();
-        }
-      }
-    });
-
-    const timer = setTimeout(() => {
-      child.kill("SIGTERM");
-      finish(() => {
-        reject(new Error(`Gemini CLI timed out after ${args.timeoutMs}ms.`));
-      });
-    }, args.timeoutMs);
-
-    child.on("error", (error) => {
-      clearTimeout(timer);
-      finish(() => {
-        reject(error);
-      });
-    });
-
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      finish(() => {
-        if (args.signal?.aborted) {
-          reject(new Error("Gemini CLI invocation was aborted."));
-          return;
-        }
-        const stdout = Buffer.concat(stdoutChunks).toString("utf8").trim();
-        const stderr = stderrLines.join(" | ");
-        if (code !== 0) {
-          reject(
-            new Error(
-              stderr ||
-                stdout ||
-                `Gemini CLI exited with code ${code ?? "unknown"}.`,
-            ),
-          );
-          return;
-        }
-        resolve({ stdout, stderr });
-      });
-    });
+  return await runCliProcess({
+    spawnFn: args.spawnFn,
+    command: target.command,
+    argv: [...target.scriptPrefix, ...procArgs],
+    shell: target.shell,
+    stdin: { mode: "ignore" },
+    timeoutMs: args.timeoutMs,
+    signal: args.signal,
+    label: "Gemini CLI",
   });
 }
 

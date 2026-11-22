@@ -12,6 +12,7 @@ import {
   upstreamError,
 } from "@infra/errors";
 import { fail, ok } from "@infra/http";
+import { detectLogoMimeType } from "@infra/image-mime";
 import { logger } from "@infra/logger";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
@@ -19,68 +20,6 @@ import { z } from "zod";
 export const workdayRouter = Router();
 const WORKDAY_ROUTE_TIMEOUT_MS = 30000;
 const WORKDAY_LOGO_MAX_BYTES = 1_000_000;
-
-// Some Workday-hosted logo endpoints return real image bytes with a
-// misleading `text/plain` content type, so we need to sniff the payload
-// before rejecting it as non-image content.
-function detectWorkdayLogoMimeType(
-  bytes: Buffer,
-  contentTypeHeader: string | null,
-): string | null {
-  const normalizedContentType = contentTypeHeader?.trim().toLowerCase() ?? "";
-  if (normalizedContentType.startsWith("image/")) {
-    return contentTypeHeader?.trim() ?? normalizedContentType;
-  }
-
-  if (
-    bytes.byteLength >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a
-  ) {
-    return "image/png";
-  }
-
-  if (
-    bytes.byteLength >= 3 &&
-    bytes[0] === 0xff &&
-    bytes[1] === 0xd8 &&
-    bytes[2] === 0xff
-  ) {
-    return "image/jpeg";
-  }
-
-  if (
-    bytes.byteLength >= 6 &&
-    (bytes.subarray(0, 6).toString("ascii") === "GIF87a" ||
-      bytes.subarray(0, 6).toString("ascii") === "GIF89a")
-  ) {
-    return "image/gif";
-  }
-
-  if (
-    bytes.byteLength >= 12 &&
-    bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
-    bytes.subarray(8, 12).toString("ascii") === "WEBP"
-  ) {
-    return "image/webp";
-  }
-
-  const text = bytes
-    .toString("utf8", 0, Math.min(bytes.byteLength, 512))
-    .trim();
-  const normalizedText = text.replace(/^\uFEFF/, "");
-  if (normalizedText.startsWith("<svg") || normalizedText.startsWith("<?xml")) {
-    return "image/svg+xml";
-  }
-
-  return null;
-}
 
 const fetchWorkdayJobsSchema = z.object({
   careersUrl: z.string().trim().url().max(2000),
@@ -267,7 +206,7 @@ workdayRouter.post("/fetch-logo", async (req: Request, res: Response) => {
     }
 
     const contentTypeHeader = response.headers.get("content-type");
-    const mimeType = detectWorkdayLogoMimeType(bytes, contentTypeHeader);
+    const mimeType = detectLogoMimeType(bytes, contentTypeHeader);
     if (!mimeType) {
       logger.warn("Workday logo upstream returned non-image content", {
         route: "/api/workday/fetch-logo",

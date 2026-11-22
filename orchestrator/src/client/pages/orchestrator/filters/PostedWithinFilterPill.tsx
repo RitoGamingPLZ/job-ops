@@ -1,8 +1,7 @@
 import { Clock } from "lucide-react";
 import type React from "react";
-import { Button } from "@/components/ui/button";
 import { postedWithinOptions } from "../constants";
-import { FilterPill } from "./FilterPill";
+import { SingleSelectFilterPill } from "./SingleSelectFilterPill";
 import type { PostedWithinFilterPillProps } from "./types";
 
 export const PostedWithinFilterPill: React.FC<PostedWithinFilterPillProps> = ({
@@ -10,28 +9,14 @@ export const PostedWithinFilterPill: React.FC<PostedWithinFilterPillProps> = ({
   onPostedWithinChange,
   postedWithinLabel,
 }) => (
-  <FilterPill
+  <SingleSelectFilterPill<number | null>
     icon={<Clock />}
     label="Posted"
     active={postedWithinDays != null}
     summary={postedWithinLabel}
-  >
-    <div className="flex flex-wrap gap-2">
-      {postedWithinOptions.map((option) => (
-        <Button
-          key={option.value}
-          type="button"
-          size="sm"
-          variant={postedWithinDays === option.value ? "default" : "outline"}
-          onClick={() =>
-            onPostedWithinChange(
-              postedWithinDays === option.value ? null : option.value,
-            )
-          }
-        >
-          {option.label}
-        </Button>
-      ))}
-    </div>
-  </FilterPill>
+    value={postedWithinDays}
+    options={postedWithinOptions}
+    onChange={onPostedWithinChange}
+    deselectValue={null}
+  />
 );

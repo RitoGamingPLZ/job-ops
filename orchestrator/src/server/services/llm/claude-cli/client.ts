@@ -5,11 +5,11 @@ import {
   type JsonSchemaDefinition,
   type LlmRequestOptions,
 } from "../types";
+import { runCliProcess } from "../utils/cli-process";
 import { truncate } from "../utils/string";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 const DEFAULT_VALIDATION_TIMEOUT_MS = 60_000;
-const MAX_STDERR_LINES = 40;
 
 const VALIDATION_SCHEMA: JsonSchemaDefinition = {
   name: "validation",
@@ -239,97 +239,18 @@ async function runClaudeCliOnce(args: {
 
   const shell = shouldSpawnClaudeViaWindowsShell(bin);
 
-  return await new Promise((resolve, reject) => {
-    const stderrLines: string[] = [];
-    const stdoutChunks: Buffer[] = [];
-    let settled = false;
-
-    const child = args.spawnFn(bin, procArgs, {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env },
-      windowsHide: true,
-      shell,
-    });
-
-    const finish = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      fn();
-    };
-
-    const onAbort = () => {
-      child.kill("SIGTERM");
-    };
-    if (args.signal) {
-      if (args.signal.aborted) {
-        onAbort();
-      } else {
-        args.signal.addEventListener("abort", onAbort, { once: true });
-      }
-    }
-
-    child.stdout.on("data", (chunk: Buffer | string) => {
-      stdoutChunks.push(
-        typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk,
-      );
-    });
-
-    child.stderr.on("data", (chunk: Buffer | string) => {
-      const text = typeof chunk === "string" ? chunk : chunk.toString("utf8");
-      for (const line of text.split(/\r?\n/)) {
-        const t = line.trim();
-        if (!t) continue;
-        stderrLines.push(t);
-        if (stderrLines.length > MAX_STDERR_LINES) {
-          stderrLines.shift();
-        }
-      }
-    });
-
-    const timer = setTimeout(() => {
-      child.kill("SIGTERM");
-      finish(() => {
-        reject(new Error(`Claude CLI timed out after ${args.timeoutMs}ms.`));
-      });
-    }, args.timeoutMs);
-
-    child.on("error", (error) => {
-      clearTimeout(timer);
-      finish(() => {
-        reject(error);
-      });
-    });
-
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      finish(() => {
-        if (args.signal?.aborted) {
-          reject(new Error("Claude CLI invocation was aborted."));
-          return;
-        }
-        const stdout = Buffer.concat(stdoutChunks).toString("utf8").trim();
-        const stderr = stderrLines.join(" | ");
-        if (code !== 0) {
-          reject(
-            new Error(
-              stderr ||
-                stdout ||
-                `Claude CLI exited with code ${code ?? "unknown"}.`,
-            ),
-          );
-          return;
-        }
-        resolve({ stdout, stderr });
-      });
-    });
-
-    child.stdin.on("error", (error) => {
-      clearTimeout(timer);
-      finish(() => reject(error));
-    });
-    child.stdin.end(
-      args.inputFormat === "stream-json" ? args.input : undefined,
-    );
+  return await runCliProcess({
+    spawnFn: args.spawnFn,
+    command: bin,
+    argv: procArgs,
+    shell,
+    stdin: {
+      mode: "pipe",
+      input: args.inputFormat === "stream-json" ? args.input : undefined,
+    },
+    timeoutMs: args.timeoutMs,
+    signal: args.signal,
+    label: "Claude CLI",
   });
 }
 

@@ -494,13 +494,14 @@ export async function getActiveRunForThread(
   return row ? mapRun(row) : null;
 }
 
-export async function completeRun(
+async function updateCompletedRun(
   runId: string,
   input: {
     status: Exclude<JobChatRunStatus, "running">;
     errorCode?: string | null;
     errorMessage?: string | null;
   },
+  onlyIfRunning: boolean,
 ): Promise<JobChatRun | null> {
   const nowEpoch = Date.now();
   const nowIso = new Date(nowEpoch).toISOString();
@@ -514,9 +515,28 @@ export async function completeRun(
       errorMessage: input.errorMessage ?? null,
       updatedAt: nowIso,
     })
-    .where(and(runsScopeFilter(), eq(jobChatRuns.id, runId)));
+    .where(
+      onlyIfRunning
+        ? and(
+            runsScopeFilter(),
+            eq(jobChatRuns.id, runId),
+            eq(jobChatRuns.status, "running"),
+          )
+        : and(runsScopeFilter(), eq(jobChatRuns.id, runId)),
+    );
 
   return getRunById(runId);
+}
+
+export async function completeRun(
+  runId: string,
+  input: {
+    status: Exclude<JobChatRunStatus, "running">;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+  },
+): Promise<JobChatRun | null> {
+  return updateCompletedRun(runId, input, false);
 }
 
 export async function deleteAllMessagesForThread(
@@ -735,25 +755,5 @@ export async function completeRunIfRunning(
     errorMessage?: string | null;
   },
 ): Promise<JobChatRun | null> {
-  const nowEpoch = Date.now();
-  const nowIso = new Date(nowEpoch).toISOString();
-
-  await db
-    .update(jobChatRuns)
-    .set({
-      status: input.status,
-      completedAt: nowEpoch,
-      errorCode: input.errorCode ?? null,
-      errorMessage: input.errorMessage ?? null,
-      updatedAt: nowIso,
-    })
-    .where(
-      and(
-        runsScopeFilter(),
-        eq(jobChatRuns.id, runId),
-        eq(jobChatRuns.status, "running"),
-      ),
-    );
-
-  return getRunById(runId);
+  return updateCompletedRun(runId, input, true);
 }

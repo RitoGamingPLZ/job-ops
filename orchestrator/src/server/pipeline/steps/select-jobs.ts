@@ -3,23 +3,8 @@ import { matchJobLocationIntent } from "@shared/job-matching.js";
 import { createLocationIntentFromLegacyInputs } from "@shared/location-domain.js";
 import { resolveSearchCities } from "@shared/search-cities.js";
 import type { PipelineConfig } from "@shared/types";
+import { parseWorkplaceTypes } from "../settings-parsers";
 import type { ScoredJob } from "./types";
-
-function parseWorkplaceTypes(
-  raw: string | undefined,
-): Array<"remote" | "hybrid" | "onsite"> {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (value): value is "remote" | "hybrid" | "onsite" =>
-        value === "remote" || value === "hybrid" || value === "onsite",
-    );
-  } catch {
-    return [];
-  }
-}
 
 async function resolveLocationIntent(
   mergedConfig: PipelineConfig,

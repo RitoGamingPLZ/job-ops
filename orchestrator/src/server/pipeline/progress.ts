@@ -90,26 +90,7 @@ function getCurrentSourceStatsForTenant(
   return stats;
 }
 
-let currentProgress: PipelineProgress = {
-  step: "idle",
-  message: "Ready",
-  crawlingSource: null,
-  crawlingSourcesCompleted: 0,
-  crawlingSourcesTotal: 0,
-  crawlingTermsProcessed: 0,
-  crawlingTermsTotal: 0,
-  crawlingListPagesProcessed: 0,
-  crawlingListPagesTotal: 0,
-  crawlingJobCardsFound: 0,
-  crawlingJobPagesEnqueued: 0,
-  crawlingJobPagesSkipped: 0,
-  crawlingJobPagesProcessed: 0,
-  jobsDiscovered: 0,
-  jobsScored: 0,
-  jobsExceptional: 0,
-  jobsProcessed: 0,
-  totalToProcess: 0,
-};
+let currentProgress: PipelineProgress = createIdleProgress();
 
 const emptyCrawlingStats = {
   crawlingTermsProcessed: 0,

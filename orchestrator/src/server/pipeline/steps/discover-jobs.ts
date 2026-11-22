@@ -2,6 +2,7 @@ import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { getExtractorRegistry } from "@server/extractors/registry";
 import { getUserId } from "@server/infra/request-context";
+import { parseWorkplaceTypes } from "@server/pipeline/settings-parsers";
 import { getAllJobUrls } from "@server/repositories/jobs";
 import * as settingsRepo from "@server/repositories/settings";
 import {
@@ -85,22 +86,6 @@ function parseBlockedCompanyKeywords(raw: string | undefined): string[] {
     if (!Array.isArray(parsed)) return [];
     return normalizeStringArray(
       parsed.filter((value): value is string => typeof value === "string"),
-    );
-  } catch {
-    return [];
-  }
-}
-
-function parseWorkplaceTypes(
-  raw: string | undefined,
-): Array<"remote" | "hybrid" | "onsite"> {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (value): value is "remote" | "hybrid" | "onsite" =>
-        value === "remote" || value === "hybrid" || value === "onsite",
     );
   } catch {
     return [];

@@ -4,6 +4,7 @@ type DecodeBase64UploadOptions = {
   dataBase64: string;
   maxBytes: number;
   emptyMessage: string;
+  decodedEmptyMessage?: string;
   invalidMessage: string;
   tooLargeMessage: string;
 };
@@ -12,6 +13,7 @@ export function decodeBase64Upload({
   dataBase64,
   maxBytes,
   emptyMessage,
+  decodedEmptyMessage,
   invalidMessage,
   tooLargeMessage,
 }: DecodeBase64UploadOptions): Buffer {
@@ -48,7 +50,7 @@ export function decodeBase64Upload({
   }
 
   if (decoded.byteLength === 0) {
-    throw badRequest(emptyMessage);
+    throw badRequest(decodedEmptyMessage ?? emptyMessage);
   }
 
   if (decoded.byteLength > maxBytes) {

@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,6 +11,7 @@ import {
   TYPST_THEME_VALUES,
   type TypstTheme,
 } from "@shared/types";
+import { runResumeCompiler } from "./compiler";
 import { getLatexResumeSectionTitles } from "./document";
 import { materializeResumePicture } from "./picture";
 import type {
@@ -648,70 +648,17 @@ async function runTypst(args: {
 }): Promise<void> {
   const binary = process.env.TYPST_BIN?.trim() || "typst";
 
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(binary, ["compile", args.typPath, args.outputPath], {
-      cwd: args.cwd,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      child.kill("SIGKILL");
-      reject(
-        new Error(
-          `Typst timed out after ${TYPST_TIMEOUT_MS / 1000}s while rendering resume PDF.`,
-        ),
-      );
-    }, TYPST_TIMEOUT_MS);
-
-    child.stdout.on("data", (chunk: Buffer | string) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk: Buffer | string) => {
-      stderr += chunk.toString();
-    });
-
-    child.on("error", (error) => {
-      clearTimeout(timer);
-      if (settled) return;
-      settled = true;
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        reject(
-          new Error(
-            "Typst binary not found. Install typst or set TYPST_BIN to the executable path.",
-          ),
-        );
-        return;
-      }
-      reject(error);
-    });
-
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (settled) return;
-      settled = true;
-      if (code === 0) {
-        resolve();
-        return;
-      }
-
-      reject(
-        new Error(
-          `Typst failed with exit code ${code ?? "unknown"}. ${truncateOutput(stderr || stdout)}`,
-        ),
-      );
-    });
-  }).catch((error) => {
-    logger.warn("Typst resume compile failed", {
-      jobId: args.jobId,
-      error,
-      compiler: binary,
-    });
-    throw error;
+  await runResumeCompiler({
+    binary,
+    argv: ["compile", args.typPath, args.outputPath],
+    cwd: args.cwd,
+    timeoutMs: TYPST_TIMEOUT_MS,
+    jobId: args.jobId,
+    label: "Typst",
+    missingBinaryMessage:
+      "Typst binary not found. Install typst or set TYPST_BIN to the executable path.",
+    warningMessage: "Typst resume compile failed",
+    truncateOutput,
   });
 }
 

@@ -23,6 +23,7 @@ import {
   getResumeSchemaValidationMessage,
   safeParseV5ResumeData,
 } from "@server/services/rxresume/schema";
+import { decodeBase64Upload } from "@server/services/upload-base64";
 import { DOCX_MIME } from "@shared/job-document-classification.js";
 import { mapGlmProviderAlias } from "@shared/settings-registry";
 import type { DesignResumeDocument, DesignResumeJson } from "@shared/types";
@@ -413,55 +414,20 @@ function normalizeImportMediaType(input: {
   );
 }
 
-function normalizeBase64Payload(dataBase64: string): string {
-  const trimmed = dataBase64.trim();
-  if (!trimmed) {
-    throw badRequest("Resume import requires file data.");
-  }
-
-  const normalized = trimmed.replace(/\s+/g, "");
-  if (!normalized) {
-    throw badRequest("Resume import requires file data.");
-  }
-  if (
-    normalized.length % 4 !== 0 ||
-    !/^[A-Za-z0-9+/]*={0,2}$/.test(normalized)
-  ) {
-    throw badRequest("Resume file data must be valid base64.");
-  }
-
-  const paddingLength = normalized.endsWith("==")
-    ? 2
-    : normalized.endsWith("=")
-      ? 1
-      : 0;
-  const estimatedByteLength = (normalized.length / 4) * 3 - paddingLength;
-  if (estimatedByteLength > MAX_IMPORT_FILE_BYTES) {
-    throw badRequest("Resume files must be 10 MB or smaller.");
-  }
-
-  return normalized;
-}
-
 function decodeBase64Payload(dataBase64: string): {
   decoded: Buffer;
   normalizedBase64: string;
 } {
-  const normalized = normalizeBase64Payload(dataBase64);
-  const decoded = Buffer.from(normalized, "base64");
-  if (decoded.toString("base64") !== normalized) {
-    throw badRequest("Resume file data must be valid base64.");
-  }
+  const decoded = decodeBase64Upload({
+    dataBase64,
+    maxBytes: MAX_IMPORT_FILE_BYTES,
+    emptyMessage: "Resume import requires file data.",
+    decodedEmptyMessage: "Resume file data must not be empty.",
+    invalidMessage: "Resume file data must be valid base64.",
+    tooLargeMessage: "Resume files must be 10 MB or smaller.",
+  });
 
-  if (decoded.byteLength === 0) {
-    throw badRequest("Resume file data must not be empty.");
-  }
-
-  if (decoded.byteLength > MAX_IMPORT_FILE_BYTES) {
-    throw badRequest("Resume files must be 10 MB or smaller.");
-  }
-
-  return { decoded, normalizedBase64: normalized };
+  return { decoded, normalizedBase64: decoded.toString("base64") };
 }
 
 function buildDataUrl(

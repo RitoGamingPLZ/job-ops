@@ -13,6 +13,7 @@ import { logger } from "@infra/logger";
 import { trackServerProductEvent } from "@infra/product-analytics";
 import { runWithRequestContext } from "@infra/request-context";
 import { sanitizeUnknown } from "@infra/sanitize";
+import { parseWorkplaceTypes } from "@server/pipeline/settings-parsers";
 import { getJobResume } from "@server/repositories/job-resumes";
 import { ensureJobResume } from "@server/services/job-resume";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
@@ -135,22 +136,6 @@ function getPipelineState(
     pipelineStateByTenant.set(scopeKey, state);
   }
   return state;
-}
-
-function parseWorkplaceTypes(
-  raw: string | undefined,
-): Array<"remote" | "hybrid" | "onsite"> {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (value): value is "remote" | "hybrid" | "onsite" =>
-        value === "remote" || value === "hybrid" || value === "onsite",
-    );
-  } catch {
-    return [];
-  }
 }
 
 async function resolveLocationIntent(
