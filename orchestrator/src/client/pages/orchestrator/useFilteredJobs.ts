@@ -1,3 +1,4 @@
+import { toLocalDateKey } from "@client/lib/local-calendar";
 import type { JobListItem } from "@shared/types";
 import { useMemo } from "react";
 import { normalizeCompany } from "./companyFilter";
@@ -176,7 +177,7 @@ const matchesDateDimension = (
   const value = getJobDateValue(job, dimension);
   if (value == null) return false;
 
-  const localDate = toLocalDateKey(value);
+  const localDate = toLocalDateKeyOrNull(value);
   if (!localDate) return false;
 
   if (filter.startDate && localDate < filter.startDate) return false;
@@ -184,12 +185,8 @@ const matchesDateDimension = (
   return true;
 };
 
-const toLocalDateKey = (value: number): string | null => {
+const toLocalDateKeyOrNull = (value: number): string | null => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return toLocalDateKey(date);
 };
