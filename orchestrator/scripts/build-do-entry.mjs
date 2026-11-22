@@ -155,8 +155,9 @@ await build({
 
 const bundled = readFileSync(outFile, "utf8");
 const dynamicRequirePattern =
-  /throw Error\(['"]Dynamic require of ['"]\+([a-zA-Z0-9_$]+)\+['"] is not supported['"]\)/g;
-if (!dynamicRequirePattern.test(bundled)) {
+  /throw Error\('Dynamic require of "'\+([a-zA-Z0-9_$]+)\+'" is not supported'\)/g;
+const matches = bundled.match(dynamicRequirePattern);
+if (!matches || matches.length === 0) {
   throw new Error(
     "Expected esbuild dynamic require helper pattern in dist/do/do-entry.mjs, but none matched",
   );
