@@ -478,6 +478,22 @@ export async function getAllJobUrls(): Promise<string[]> {
   return rows.map((r) => r.jobUrl);
 }
 
+/** Get only the fields needed for fuzzy deduplication in the active scope. */
+export async function getJobDeduplicationCandidates(): Promise<
+  Array<Pick<CreateJobInput, "source" | "title" | "employer" | "jobUrl">>
+> {
+  const rows = await db
+    .select({
+      source: jobs.source,
+      title: jobs.title,
+      employer: jobs.employer,
+      jobUrl: jobs.jobUrl,
+    })
+    .from(jobs)
+    .where(jobsScopeFilter());
+  return rows.map((row) => ({ ...row, source: row.source as Job["source"] }));
+}
+
 async function insertJob(input: CreateJobInput): Promise<Job> {
   const id = randomUUID();
   const now = new Date().toISOString();

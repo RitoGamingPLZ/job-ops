@@ -13,7 +13,19 @@ export async function importJobsStep(args: {
     discovered: args.discoveredJobs.length,
   });
 
-  const dedupedJobs = deduplicateJobsByTitleAndEmployer(args.discoveredJobs);
+  const batchJobs = deduplicateJobsByTitleAndEmployer(args.discoveredJobs);
+  const existingJobs =
+    batchJobs.length > 0 ? await jobsRepo.getJobDeduplicationCandidates() : [];
+  const existingUrls = new Set(existingJobs.map((job) => job.jobUrl));
+  const dedupedJobs = batchJobs.filter(
+    (job) =>
+      // Leave exact URL duplicates to createJobs so they remain counted as skipped.
+      existingUrls.has(job.jobUrl) ||
+      !existingJobs.some(
+        (existing) =>
+          deduplicateJobsByTitleAndEmployer([existing, job]).length === 1,
+      ),
+  );
   const fuzzyMerged = args.discoveredJobs.length - dedupedJobs.length;
 
   if (fuzzyMerged > 0) {
