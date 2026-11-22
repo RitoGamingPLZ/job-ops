@@ -48,85 +48,49 @@ async function assertPictureSupportEnabled(req: Request): Promise<void> {
   );
 }
 
-const addOperationSchema = z
-  .object({
-    op: z.literal("add"),
-    path: jsonPointerSchema,
-    value: z.unknown().optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!("value" in value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["value"],
-        message: "Patch add operations require a value.",
-      });
-    }
-  });
+function valueOperationSchema<const T extends "add" | "replace" | "test">(
+  op: T,
+) {
+  return z
+    .object({
+      op: z.literal(op),
+      path: jsonPointerSchema,
+      value: z.unknown().optional(),
+    })
+    .superRefine((value, ctx) => {
+      if (!("value" in value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["value"],
+          message: `Patch ${op} operations require a value.`,
+        });
+      }
+    });
+}
 
-const replaceOperationSchema = z
-  .object({
-    op: z.literal("replace"),
-    path: jsonPointerSchema,
-    value: z.unknown().optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!("value" in value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["value"],
-        message: "Patch replace operations require a value.",
-      });
-    }
-  });
+function fromOperationSchema<const T extends "move" | "copy">(op: T) {
+  return z
+    .object({
+      op: z.literal(op),
+      path: jsonPointerSchema,
+      from: jsonPointerSchema.optional(),
+    })
+    .superRefine((value, ctx) => {
+      if (!("from" in value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["from"],
+          message: `Patch ${op} operations require a from path.`,
+        });
+      }
+    });
+}
 
-const testOperationSchema = z
-  .object({
-    op: z.literal("test"),
-    path: jsonPointerSchema,
-    value: z.unknown().optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!("value" in value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["value"],
-        message: "Patch test operations require a value.",
-      });
-    }
-  });
-
-const moveOperationSchema = z
-  .object({
-    op: z.literal("move"),
-    path: jsonPointerSchema,
-    from: jsonPointerSchema.optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!("from" in value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["from"],
-        message: "Patch move operations require a from path.",
-      });
-    }
-  });
-
-const copyOperationSchema = z
-  .object({
-    op: z.literal("copy"),
-    path: jsonPointerSchema,
-    from: jsonPointerSchema.optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!("from" in value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["from"],
-        message: "Patch copy operations require a from path.",
-      });
-    }
-  });
+const addOperationSchema = valueOperationSchema("add");
+const replaceOperationSchema = valueOperationSchema("replace");
+const testOperationSchema = valueOperationSchema("test");
+const moveOperationSchema = fromOperationSchema("move");
+const copyOperationSchema = fromOperationSchema("copy");
 
 const patchOperationSchema = z.union([
   addOperationSchema,
