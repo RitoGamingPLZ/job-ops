@@ -101,4 +101,53 @@ describe.sequential("Webhook API routes", () => {
       await stopServer(hostedServer);
     }
   });
+
+  it("requires valid CRON_SECRET on POST /api/webhook/cron and processes due hour", async () => {
+    const cronServer = await startServer({
+      env: {
+        CRON_SECRET: "cron-secret-value",
+      },
+    });
+
+    try {
+      const badRes = await fetch(`${cronServer.baseUrl}/api/webhook/cron`, {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer wrong-secret",
+          "Content-Type": "application/json",
+          "x-request-id": "req-cron-bad",
+        },
+        body: JSON.stringify({ hour: 7 }),
+      });
+      const badBody = await badRes.json();
+      expect(badRes.status).toBe(401);
+      expect(badBody.ok).toBe(false);
+      expect(badBody.error.code).toBe("UNAUTHORIZED");
+      expect(badBody.meta.requestId).toBe("req-cron-bad");
+
+      const goodRes = await fetch(`${cronServer.baseUrl}/api/webhook/cron`, {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer cron-secret-value",
+          "Content-Type": "application/json",
+          "x-request-id": "req-cron-good",
+        },
+        body: JSON.stringify({ hour: 7 }),
+      });
+      const goodBody = await goodRes.json();
+      expect(goodRes.status).toBe(200);
+      expect(goodBody.ok).toBe(true);
+      expect(goodBody.data).toMatchObject({
+        hour: 7,
+        evaluatedCount: expect.any(Number),
+        triggeredCount: expect.any(Number),
+        backupTriggered: false,
+        triggeredAt: expect.any(String),
+      });
+      expect(goodRes.headers.get("x-request-id")).toBe("req-cron-good");
+      expect(goodBody.meta.requestId).toBe("req-cron-good");
+    } finally {
+      await stopServer(cronServer);
+    }
+  });
 });

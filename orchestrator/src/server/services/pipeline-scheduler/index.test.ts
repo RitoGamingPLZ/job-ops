@@ -40,6 +40,7 @@ import {
   getNextScheduledPipelineRun,
   nextDailyFireTime,
   refreshPipelineScheduler,
+  runDueScheduledPipelinesForHour,
   runScheduledPipeline,
   startPipelineScheduler,
   stopPipelineScheduler,
@@ -173,5 +174,33 @@ describe("daily pipeline scheduler", () => {
     ).toBe(new Date(2026, 0, 5, 7).toISOString());
     mocks.getSetting.mockResolvedValue("0");
     expect(await getNextScheduledPipelineRun()).toBeNull();
+  });
+
+  it("triggers only schedules matching the target hour via runDueScheduledPipelinesForHour", async () => {
+    mocks.listOwners.mockResolvedValue([
+      { tenantId: "a", userId: "alice" },
+      { tenantId: "b", userId: "bob" },
+    ]);
+    mocks.getSetting.mockImplementation(async (key) => {
+      const ctx = getRequestContext();
+      if (key === "pipelineScheduleEnabled") return "1";
+      return ctx?.userId === "alice" ? "7" : "9";
+    });
+
+    const skipResult = await runDueScheduledPipelinesForHour(8);
+    expect(skipResult).toEqual({
+      hour: 8,
+      evaluatedCount: 2,
+      triggeredCount: 0,
+    });
+    expect(mocks.start).not.toHaveBeenCalled();
+
+    const matchResult = await runDueScheduledPipelinesForHour(7);
+    expect(matchResult).toEqual({
+      hour: 7,
+      evaluatedCount: 2,
+      triggeredCount: 1,
+    });
+    await vi.waitFor(() => expect(mocks.start).toHaveBeenCalledTimes(1));
   });
 });

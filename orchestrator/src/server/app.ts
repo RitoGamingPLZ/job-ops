@@ -222,6 +222,13 @@ export function createAuthGuard() {
       normalizedPath === "/api/webhook/trigger"
     )
       return Boolean(process.env.WEBHOOK_SECRET?.trim());
+    if (
+      normalizedMethod === "POST" &&
+      normalizedPath === "/api/webhook/cron"
+    )
+      return Boolean(
+        (process.env.CRON_SECRET || process.env.WEBHOOK_SECRET)?.trim(),
+      );
 
     // Auth endpoints must be accessible without existing auth.
     if (

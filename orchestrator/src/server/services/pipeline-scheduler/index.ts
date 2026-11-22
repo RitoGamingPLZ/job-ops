@@ -153,3 +153,57 @@ export function stopPipelineScheduler(): void {
   timer = undefined;
   schedules = [];
 }
+
+/** Execute any enabled daily pipeline schedules matching `targetHour` (0-23). */
+export async function runDueScheduledPipelinesForHour(
+  targetHour = new Date().getHours(),
+): Promise<{ hour: number; evaluatedCount: number; triggeredCount: number }> {
+  if (isDemoMode()) {
+    return { hour: targetHour, evaluatedCount: 0, triggeredCount: 0 };
+  }
+
+  const owners = await listScheduleOwners();
+  const unique = new Map<string, Owner>();
+  for (const owner of owners) {
+    if (isHostedUserIsolationEnabled() && !owner.userId) continue;
+    const key = asOwner(owner, () => getPrivateDataScope().scopeKey);
+    unique.set(key, owner);
+  }
+
+  const now = new Date();
+  let evaluatedCount = 0;
+  let triggeredCount = 0;
+
+  for (const [scopeKey, owner] of unique.entries()) {
+    const settings = await asOwner(owner, scheduleSettings);
+    evaluatedCount++;
+    if (!settings.enabled || settings.hour !== targetHour) {
+      continue;
+    }
+
+    for (const schedule of schedules) {
+      const scheduleKey = asOwner(
+        schedule.owner,
+        () => getPrivateDataScope().scopeKey,
+      );
+      if (scheduleKey === scopeKey) {
+        schedule.at = nextDailyFireTime(settings.hour, now);
+      }
+    }
+
+    triggeredCount++;
+    asOwner(owner, () => {
+      void runScheduledPipeline().catch((error) =>
+        logger.error("Scheduled pipeline failed", {
+          error: sanitizeUnknown(error),
+        }),
+      );
+    });
+  }
+
+  if (triggeredCount > 0 && started) {
+    armTimer();
+  }
+
+  return { hour: targetHour, evaluatedCount, triggeredCount };
+}
