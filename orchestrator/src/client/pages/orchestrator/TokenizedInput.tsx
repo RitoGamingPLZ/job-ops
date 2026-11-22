@@ -60,9 +60,7 @@ export const TokenizedInput: React.FC<TokenizedInputProps> = ({
       setTokensHeight(Math.max(20, tokensRef.current.scrollHeight));
     }
     if (collapsedTokensRef.current) {
-      setCollapsedTokensHeight(
-        Math.max(20, collapsedTokensRef.current.scrollHeight),
-      );
+      setCollapsedTokensHeight(Math.max(20, collapsedTokensRef.current.scrollHeight));
     }
   }, []);
 
@@ -129,9 +127,7 @@ export const TokenizedInput: React.FC<TokenizedInputProps> = ({
         disabled={disabled}
         className={cn(inputClassName)}
       />
-      {helperText ? (
-        <p className="text-xs text-muted-foreground">{helperText}</p>
-      ) : null}
+      {helperText ? <p className="text-xs text-muted-foreground">{helperText}</p> : null}
       {values.length > 0 ? (
         <motion.div
           className="relative overflow-hidden"
@@ -169,11 +165,7 @@ export const TokenizedInput: React.FC<TokenizedInputProps> = ({
                     aria-label={`${removeLabelPrefix} ${value}`}
                     disabled={disabled}
                     onPointerDown={(event) => event.preventDefault()}
-                    onClick={() =>
-                      onValuesChange(
-                        values.filter((existing) => existing !== value),
-                      )
-                    }
+                    onClick={() => onValuesChange(values.filter((existing) => existing !== value))}
                   >
                     {value}
                     <X className="ml-1 h-3 w-3" />
@@ -200,9 +192,7 @@ export const TokenizedInput: React.FC<TokenizedInputProps> = ({
               </span>
             ))}
             {collapsedPreview.hiddenCount > 0 ? (
-              <span className={TOKEN_PILL_CLASS_NAME}>
-                +{collapsedPreview.hiddenCount} more
-              </span>
+              <span className={TOKEN_PILL_CLASS_NAME}>+{collapsedPreview.hiddenCount} more</span>
             ) : null}
           </motion.div>
         </motion.div>

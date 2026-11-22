@@ -30,10 +30,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 });
 
 function createInMemoryR2Bucket(pageSize = 2): R2BucketLike {
-  const objects = new Map<
-    string,
-    { body: Uint8Array; contentType?: string; uploaded: Date }
-  >();
+  const objects = new Map<string, { body: Uint8Array; contentType?: string; uploaded: Date }>();
 
   return {
     async get(key) {
@@ -43,9 +40,7 @@ function createInMemoryR2Bucket(pageSize = 2): R2BucketLike {
         key,
         size: entry.body.byteLength,
         uploaded: entry.uploaded,
-        httpMetadata: entry.contentType
-          ? { contentType: entry.contentType }
-          : undefined,
+        httpMetadata: entry.contentType ? { contentType: entry.contentType } : undefined,
         async arrayBuffer() {
           return entry.body.slice().buffer;
         },
@@ -136,10 +131,7 @@ describe("BlobStore", () => {
       expect(new TextDecoder().decode(fetched?.body)).toBe("hello-pdf");
       expect(fetched?.size).toBe(9);
 
-      await store.put(
-        "job-documents/t1/j1/a.txt",
-        new Uint8Array([1, 2, 3, 4]),
-      );
+      await store.put("job-documents/t1/j1/a.txt", new Uint8Array([1, 2, 3, 4]));
       await store.put("job-documents/t1/j2/b.txt", Buffer.from("abc"));
 
       const all = await store.list();
@@ -150,15 +142,11 @@ describe("BlobStore", () => {
       ]);
 
       const filtered = await store.list({ prefix: "job-documents/t1/j1/" });
-      expect(filtered.map((entry) => entry.key)).toEqual([
-        "job-documents/t1/j1/a.txt",
-      ]);
+      expect(filtered.map((entry) => entry.key)).toEqual(["job-documents/t1/j1/a.txt"]);
 
       await store.delete("pdfs/t1/resume_1.pdf");
       expect(await store.exists("pdfs/t1/resume_1.pdf")).toBe(false);
-      await expect(
-        store.delete("pdfs/t1/missing.pdf"),
-      ).resolves.toBeUndefined();
+      await expect(store.delete("pdfs/t1/missing.pdf")).resolves.toBeUndefined();
     });
 
     it("rejects empty or path-traversal keys", async () => {
@@ -185,11 +173,9 @@ describe("BlobStore", () => {
         join(tempDir, "pdfs/t1/nested"),
       ]);
 
-      expect(
-        (await store.list({ prefix: "pdfs/t1/resume_" })).map(
-          (entry) => entry.key,
-        ),
-      ).toEqual(["pdfs/t1/resume_1.pdf"]);
+      expect((await store.list({ prefix: "pdfs/t1/resume_" })).map((entry) => entry.key)).toEqual([
+        "pdfs/t1/resume_1.pdf",
+      ]);
       expect(await store.list({ prefix: "missing/tenant/" })).toEqual([]);
       await expect(store.list({ prefix: "../outside/" })).rejects.toThrow();
     });
@@ -208,9 +194,7 @@ describe("BlobStore", () => {
       ]) {
         await expect(store.list({ prefix })).resolves.toEqual([]);
       }
-      await expect(store.list({ prefix: "./pdfs/t1/../t2/" })).rejects.toThrow(
-        "Invalid blob key",
-      );
+      await expect(store.list({ prefix: "./pdfs/t1/../t2/" })).rejects.toThrow("Invalid blob key");
     });
   });
 
@@ -296,11 +280,9 @@ describe("BlobStore", () => {
         expect(await readStoredJobPdf(jobId)).toBeNull();
       });
       await runWithRequestContext({ tenantId: "t2" }, async () => {
-        expect(
-          new TextDecoder().decode(
-            (await readStoredJobPdf(jobId)) ?? undefined,
-          ),
-        ).toBe("other tenant");
+        expect(new TextDecoder().decode((await readStoredJobPdf(jobId)) ?? undefined)).toBe(
+          "other tenant",
+        );
       });
     });
 
@@ -311,9 +293,9 @@ describe("BlobStore", () => {
       await store.put(getLegacyJobPdfKey(jobId), "legacy");
       vi.spyOn(store, "put").mockRejectedValueOnce(new Error("write failed"));
 
-      await expect(
-        writeStoredJobPdf(jobId, Buffer.from("replacement")),
-      ).rejects.toThrow("write failed");
+      await expect(writeStoredJobPdf(jobId, Buffer.from("replacement"))).rejects.toThrow(
+        "write failed",
+      );
       expect(await store.exists(getLegacyJobPdfKey(jobId))).toBe(true);
     });
 
@@ -324,9 +306,7 @@ describe("BlobStore", () => {
       await writeStoredJobPdf("job-123", Buffer.from("%PDF-1.4\n"));
       expect(await storedJobPdfExists("job-123")).toBe(true);
       const pdfBytes = await readStoredJobPdf("job-123");
-      expect(new TextDecoder().decode(pdfBytes ?? new Uint8Array())).toBe(
-        "%PDF-1.4\n",
-      );
+      expect(new TextDecoder().decode(pdfBytes ?? new Uint8Array())).toBe("%PDF-1.4\n");
       await removeStoredJobPdf("job-123");
       expect(await storedJobPdfExists("job-123")).toBe(false);
 

@@ -83,9 +83,7 @@ export const createJob = (overrides: Partial<Job> = {}): Job => ({
 export const createTargetedJob = (overrides: Partial<Job> = {}): Job =>
   createJob({ status: "discovered", ...overrides });
 
-export const createStageEvent = (
-  overrides: Partial<StageEvent> = {},
-): StageEvent => ({
+export const createStageEvent = (overrides: Partial<StageEvent> = {}): StageEvent => ({
   id: "event-1",
   applicationId: "job-1",
   title: "Moved to applied",
@@ -111,9 +109,7 @@ export const createApplicationTask = (
   ...overrides,
 });
 
-export const createPipelineRun = (
-  overrides: Partial<PipelineRun> = {},
-): PipelineRun => ({
+export const createPipelineRun = (overrides: Partial<PipelineRun> = {}): PipelineRun => ({
   id: "run-1",
   startedAt: "2025-01-01T00:00:00Z",
   completedAt: null,
@@ -135,9 +131,7 @@ export const createResumeProjectCatalogItem = (
   ...overrides,
 });
 
-export const createAppSettings = (
-  overrides: Partial<AppSettings> = {},
-): AppSettings => ({
+export const createAppSettings = (overrides: Partial<AppSettings> = {}): AppSettings => ({
   model: { value: "gpt-4o", default: "gpt-4o", override: null },
   modelScorer: { value: "gpt-4o", override: null },
   modelTailoring: { value: "gpt-4o", override: null },

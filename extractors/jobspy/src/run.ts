@@ -3,24 +3,11 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  getCountryIso2Code,
-  normalizeCountryKey,
-} from "@shared/location-support.js";
+import { getCountryIso2Code, normalizeCountryKey } from "@shared/location-support.js";
 import { normalizeStringArray } from "@shared/normalize-string-array.js";
-import {
-  matchesRequestedCountry,
-  resolveSearchCities,
-} from "@shared/search-cities.js";
-import type {
-  CreateJobInput,
-  JobLocationEvidence,
-  JobSource,
-} from "@shared/types/jobs";
-import {
-  toNumberOrNull,
-  toStringOrNull,
-} from "@shared/utils/type-conversion.js";
+import { matchesRequestedCountry, resolveSearchCities } from "@shared/search-cities.js";
+import type { CreateJobInput, JobLocationEvidence, JobSource } from "@shared/types/jobs";
+import { toNumberOrNull, toStringOrNull } from "@shared/utils/type-conversion.js";
 import { subscribeChildProcessLines } from "browser-utils";
 
 const srcDir = dirname(fileURLToPath(import.meta.url));
@@ -50,9 +37,7 @@ export type JobSpyProgressEvent =
       error: string;
     };
 
-export function parseJobSpyProgressLine(
-  line: string,
-): JobSpyProgressEvent | null {
+export function parseJobSpyProgressLine(line: string): JobSpyProgressEvent | null {
   if (!line.startsWith(JOBOPS_PROGRESS_PREFIX)) return null;
   const raw = line.slice(JOBOPS_PROGRESS_PREFIX.length).trim();
   let parsed: Record<string, unknown>;
@@ -197,9 +182,7 @@ export interface JobSpyResult {
   sourceErrors?: string[];
 }
 
-function normalizeOptionalString(
-  value: string | null | undefined,
-): string | null {
+function normalizeOptionalString(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 }
@@ -216,12 +199,8 @@ export function resolveJobSpyLocations(args: {
   return locations.length > 0 ? locations : [null];
 }
 
-export function resolveJobSpyCountryIndeed(args: {
-  countryIndeed?: string | null;
-}): string | null {
-  return normalizeOptionalString(
-    args.countryIndeed ?? process.env.JOBSPY_COUNTRY_INDEED,
-  );
+export function resolveJobSpyCountryIndeed(args: { countryIndeed?: string | null }): string | null {
+  return normalizeOptionalString(args.countryIndeed ?? process.env.JOBSPY_COUNTRY_INDEED);
 }
 
 export function resolveJobSpySiteLocations(args: {
@@ -256,21 +235,14 @@ export function resolveJobSpySiteLocations(args: {
 export function deriveIsRemoteFlag(
   workplaceTypes: Array<"remote" | "hybrid" | "onsite"> | undefined,
 ): boolean | undefined {
-  return workplaceTypes?.length === 1 && workplaceTypes[0] === "remote"
-    ? true
-    : undefined;
+  return workplaceTypes?.length === 1 && workplaceTypes[0] === "remote" ? true : undefined;
 }
 
-export async function runJobSpy(
-  options: RunJobSpyOptions = {},
-): Promise<JobSpyResult> {
+export async function runJobSpy(options: RunJobSpyOptions = {}): Promise<JobSpyResult> {
   await mkdir(OUTPUT_DIR, { recursive: true });
 
   const sites = (options.sites ?? ["indeed", "linkedin", "glassdoor"])
-    .filter(
-      (site) =>
-        site === "indeed" || site === "linkedin" || site === "glassdoor",
-    )
+    .filter((site) => site === "indeed" || site === "linkedin" || site === "glassdoor")
     .join(",");
 
   const searchTerms = resolveSearchTerms(options);
@@ -328,13 +300,9 @@ export async function runJobSpy(
               JOBSPY_TERM_INDEX: String(runIndex),
               JOBSPY_TERM_TOTAL: String(totalRuns),
               JOBSPY_RESULTS_WANTED: String(
-                options.resultsWanted ??
-                  process.env.JOBSPY_RESULTS_WANTED ??
-                  200,
+                options.resultsWanted ?? process.env.JOBSPY_RESULTS_WANTED ?? 200,
               ),
-              JOBSPY_HOURS_OLD: String(
-                options.hoursOld ?? process.env.JOBSPY_HOURS_OLD ?? 72,
-              ),
+              JOBSPY_HOURS_OLD: String(options.hoursOld ?? process.env.JOBSPY_HOURS_OLD ?? 72),
               JOBSPY_LINKEDIN_FETCH_DESCRIPTION: String(
                 options.linkedinFetchDescription ??
                   process.env.JOBSPY_LINKEDIN_FETCH_DESCRIPTION ??
@@ -358,9 +326,7 @@ export async function runJobSpy(
               ...(siteLocations.glassdoorLocation
                 ? { JOBSPY_GLASSDOOR_LOCATION: siteLocations.glassdoorLocation }
                 : {}),
-              ...(countryIndeed
-                ? { JOBSPY_COUNTRY_INDEED: countryIndeed }
-                : {}),
+              ...(countryIndeed ? { JOBSPY_COUNTRY_INDEED: countryIndeed } : {}),
             },
           });
 
@@ -368,9 +334,7 @@ export async function runJobSpy(
             const event = parseJobSpyProgressLine(line);
             if (event) {
               if (event.type === "source_error") {
-                sourceErrors.push(
-                  `${event.source}: ${event.error} (term: ${event.searchTerm})`,
-                );
+                sourceErrors.push(`${event.source}: ${event.error} (term: ${event.searchTerm})`);
               }
               options.onProgress?.(event);
               return;
@@ -428,10 +392,7 @@ function parseSearchTermsEnv(raw: string | undefined): string[] | null {
   if (trimmed.startsWith("[")) {
     try {
       const parsed = JSON.parse(trimmed) as unknown;
-      if (
-        Array.isArray(parsed) &&
-        parsed.every((value) => typeof value === "string")
-      ) {
+      if (Array.isArray(parsed) && parsed.every((value) => typeof value === "string")) {
         return parsed;
       }
     } catch {
@@ -439,11 +400,7 @@ function parseSearchTermsEnv(raw: string | undefined): string[] | null {
     }
   }
 
-  const delimiter = trimmed.includes("|")
-    ? "|"
-    : trimmed.includes("\n")
-      ? "\n"
-      : ",";
+  const delimiter = trimmed.includes("|") ? "|" : trimmed.includes("\n") ? "\n" : ",";
   const split = trimmed
     .split(delimiter)
     .map((term) => term.trim())
@@ -515,15 +472,13 @@ export function mapJobSpyRows(
       companyLogo: toStringOrNull(row.company_logo) ?? undefined,
       companyUrlDirect: toStringOrNull(row.company_url_direct) ?? undefined,
       companyAddresses: toJsonStringOrNull(row.company_addresses) ?? undefined,
-      companyNumEmployees:
-        toStringOrNull(row.company_num_employees) ?? undefined,
+      companyNumEmployees: toStringOrNull(row.company_num_employees) ?? undefined,
       companyRevenue: toStringOrNull(row.company_revenue) ?? undefined,
       companyDescription: toStringOrNull(row.company_description) ?? undefined,
       skills: toJsonStringOrNull(row.skills) ?? undefined,
       experienceRange: toJsonStringOrNull(row.experience_range) ?? undefined,
       companyRating: toNumberOrNull(row.company_rating) ?? undefined,
-      companyReviewsCount:
-        toNumberOrNull(row.company_reviews_count) ?? undefined,
+      companyReviewsCount: toNumberOrNull(row.company_reviews_count) ?? undefined,
       vacancyCount: toNumberOrNull(row.vacancy_count) ?? undefined,
       workFromHomeType: toStringOrNull(row.work_from_home_type) ?? undefined,
     });

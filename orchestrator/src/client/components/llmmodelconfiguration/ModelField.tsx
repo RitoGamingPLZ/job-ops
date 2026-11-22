@@ -48,9 +48,7 @@ function ModelField({
           listClassName="max-h-64"
         />
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
-        {helper ? (
-          <div className="text-xs text-muted-foreground">{helper}</div>
-        ) : null}
+        {helper ? <div className="text-xs text-muted-foreground">{helper}</div> : null}
         <div className="text-xs text-muted-foreground">
           Current: <span className="font-mono">{current}</span>
         </div>

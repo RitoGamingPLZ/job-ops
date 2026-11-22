@@ -1,9 +1,5 @@
 import { detectProfileLanguage } from "@shared/language-detection";
-import type {
-  AppSettings,
-  ChatStyleManualLanguage,
-  ResumeProfile,
-} from "@shared/types";
+import type { AppSettings, ChatStyleManualLanguage, ResumeProfile } from "@shared/types";
 
 export function resolveFilenameLanguage(args: {
   settings: AppSettings | null;
@@ -23,9 +19,7 @@ export function resolveFilenameLanguage(args: {
   }
 
   if (languageMode === "match-resume") {
-    return args.profile
-      ? (detectProfileLanguage(args.profile) ?? "english")
-      : "english";
+    return args.profile ? (detectProfileLanguage(args.profile) ?? "english") : "english";
   }
 
   return "english";

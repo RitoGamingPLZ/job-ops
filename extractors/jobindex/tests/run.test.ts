@@ -37,9 +37,7 @@ describe("Jobindex Stash parsing", () => {
       }),
     );
 
-    expect(storeData.geoareaOptions).toEqual([
-      { id: 74, text: "Odsherred", typeid: 30 },
-    ]);
+    expect(storeData.geoareaOptions).toEqual([{ id: 74, text: "Odsherred", typeid: 30 }]);
   });
 
   it("extracts the embedded searchResponse payload", () => {
@@ -48,9 +46,7 @@ describe("Jobindex Stash parsing", () => {
     );
 
     expect(response.total_pages).toBe(2);
-    expect(response.results).toEqual([
-      { tid: "h1", headline: "Software Engineer" },
-    ]);
+    expect(response.results).toEqual([{ tid: "h1", headline: "Software Engineer" }]);
   });
 
   it("parses Stash payloads without relying on lf-only semicolon endings", () => {

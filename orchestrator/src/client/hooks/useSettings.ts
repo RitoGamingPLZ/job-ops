@@ -26,8 +26,7 @@ export function useSettings() {
     settings,
     error: error ?? null,
     isLoading: isLoading || (!!isFetching && !settings && !error),
-    renderMarkdownInJobDescriptions:
-      settings?.renderMarkdownInJobDescriptions?.value ?? true,
+    renderMarkdownInJobDescriptions: settings?.renderMarkdownInJobDescriptions?.value ?? true,
     autoTailorOnManualImport: settings?.autoTailorOnManualImport?.value ?? true,
     refreshSettings,
   };

@@ -5,12 +5,7 @@ import {
   readPageContentIfReady,
   saveCookies,
 } from "browser-utils";
-import {
-  type Browser,
-  type BrowserContext,
-  firefox,
-  type Page,
-} from "playwright";
+import { type Browser, type BrowserContext, firefox, type Page } from "playwright";
 
 export interface BrowserPageResult {
   status: number;
@@ -44,9 +39,7 @@ export class HiringCafeBrowserPages {
       parsed.origin !== origin ||
       !(parsed.pathname === "/" || /^\/job\/[^/]+$/.test(parsed.pathname))
     ) {
-      throw new Error(
-        "Hiring Cafe browser navigation is limited to search and job pages",
-      );
+      throw new Error("Hiring Cafe browser navigation is limited to search and job pages");
     }
   }
 
@@ -117,10 +110,7 @@ export class HiringCafeBrowserPages {
     return this.pendingUrl === url && this.headed && this.page !== null;
   }
 
-  async waitForChallenge(
-    url: string,
-    timeoutMs: number,
-  ): Promise<"clear" | "timeout"> {
+  async waitForChallenge(url: string, timeoutMs: number): Promise<"clear" | "timeout"> {
     this.validateUrl(url);
     if (!this.page || this.pendingUrl !== url || !this.headed) {
       throw new Error("No matching Hiring Cafe browser challenge is open");
@@ -152,11 +142,7 @@ export class HiringCafeBrowserPages {
           this.pendingUrl = null;
           if (this.context) {
             try {
-              await saveCookies(
-                this.context,
-                "hiringcafe",
-                this.options.cookieStorageDir,
-              );
+              await saveCookies(this.context, "hiringcafe", this.options.cookieStorageDir);
             } catch {
               // A usable page completes Solve even when persistence fails.
             }

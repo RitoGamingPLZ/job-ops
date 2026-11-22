@@ -23,13 +23,7 @@ import {
   Trash2,
 } from "lucide-react";
 import React from "react";
-import {
-  Link,
-  useLocation,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { JobBriefPane } from "@/client/components/JobBriefPane";
 import { JobDescriptionPanel } from "@/client/components/JobDescriptionPanel";
@@ -77,30 +71,19 @@ import * as api from "../api";
 import { ConfirmDelete } from "../components/ConfirmDelete";
 import { GhostwriterPanel } from "../components/ghostwriter/GhostwriterPanel";
 import { JobDetailsEditDrawer } from "../components/JobDetailsEditDrawer";
-import {
-  type LogEventFormValues,
-  LogEventModal,
-} from "../components/LogEventModal";
+import { type LogEventFormValues, LogEventModal } from "../components/LogEventModal";
 import { getDeleteEventDescription } from "./job/deleteEventDescription";
 import { JobTimeline } from "./job/Timeline";
 import { JobDocumentsPanel } from "./job-page/JobDocumentsPanel";
 import { JobEmailsPanel } from "./job-page/JobEmailsPanel";
 import { JobNotesCard } from "./job-page/JobNotesCard";
-import {
-  type JobMemoryView,
-  JobPageLeftSidebar,
-} from "./job-page/JobPageLeftSidebar";
+import { type JobMemoryView, JobPageLeftSidebar } from "./job-page/JobPageLeftSidebar";
 import { JobPageRightSidebar } from "./job-page/JobPageRightSidebar";
 import { OverviewGhostwriterComposer } from "./job-page/OverviewGhostwriterComposer";
 
 const normalizeMemoryView = (view: string | undefined): JobMemoryView => {
   if (view === "notes" || view === "note") return "note";
-  if (
-    view === "documents" ||
-    view === "timeline" ||
-    view === "emails" ||
-    view === "ghostwriter"
-  ) {
+  if (view === "documents" || view === "timeline" || view === "emails" || view === "ghostwriter") {
     return view;
   }
   return "overview";
@@ -111,9 +94,7 @@ type JobPageLocationState = {
 };
 
 const isValidJobPageBackTarget = (value: unknown): value is string =>
-  typeof value === "string" &&
-  value.startsWith("/") &&
-  !value.startsWith("/job/");
+  typeof value === "string" && value.startsWith("/") && !value.startsWith("/job/");
 
 const getFallbackBackTarget = (job: Job | null): string => {
   if (job?.status === "ready" || job?.status === "discovered") {
@@ -130,8 +111,7 @@ const getFallbackBackTarget = (job: Job | null): string => {
 
 const sortNotesByUpdatedAtDesc = (notes: JobNote[]) =>
   [...notes].sort(
-    (left, right) =>
-      new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+    (left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
   );
 
 const parseSelectedProjectIds = (value: string | null | undefined) =>
@@ -153,9 +133,7 @@ export const JobPage: React.FC = () => {
   const [isUploadingPdf, setIsUploadingPdf] = React.useState(false);
   const [activeAction, setActiveAction] = React.useState<string | null>(null);
   const [eventToDelete, setEventToDelete] = React.useState<string | null>(null);
-  const [editingEvent, setEditingEvent] = React.useState<StageEvent | null>(
-    null,
-  );
+  const [editingEvent, setEditingEvent] = React.useState<StageEvent | null>(null);
   const [catalog, setCatalog] = React.useState<ResumeProjectCatalogItem[]>([]);
   const pendingEventRef = React.useRef<StageEvent | null>(null);
   const uploadPdfInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -171,10 +149,7 @@ export const JobPage: React.FC = () => {
     queryFn: () => (id ? api.getJob(id) : Promise.resolve(null)),
     enabled: Boolean(id) && activeAction !== "delete-job",
     refetchInterval: (query) =>
-      query.state.data?.status === "processing" ||
-      query.state.data?.pdfRegenerating
-        ? 2000
-        : false,
+      query.state.data?.status === "processing" || query.state.data?.pdfRegenerating ? 2000 : false,
   });
   const eventsQuery = useQuery<StageEvent[]>({
     queryKey: ["jobs", "stage-events", id ?? null] as const,
@@ -192,18 +167,9 @@ export const JobPage: React.FC = () => {
     enabled: Boolean(id) && activeAction !== "delete-job",
   });
 
-  useQueryErrorToast(
-    jobQuery.error,
-    "Failed to load job details. Please try again.",
-  );
-  useQueryErrorToast(
-    eventsQuery.error,
-    "Failed to load job timeline. Please try again.",
-  );
-  useQueryErrorToast(
-    tasksQuery.error,
-    "Failed to load job tasks. Please try again.",
-  );
+  useQueryErrorToast(jobQuery.error, "Failed to load job details. Please try again.");
+  useQueryErrorToast(eventsQuery.error, "Failed to load job timeline. Please try again.");
+  useQueryErrorToast(tasksQuery.error, "Failed to load job tasks. Please try again.");
 
   const markAsAppliedMutation = useMarkAsAppliedMutation();
   const updateJobMutation = useUpdateJobMutation();
@@ -219,8 +185,7 @@ export const JobPage: React.FC = () => {
     [notesQuery.data],
   );
   const tasks = tasksQuery.data ?? [];
-  const isLoading =
-    jobQuery.isLoading || eventsQuery.isLoading || tasksQuery.isLoading;
+  const isLoading = jobQuery.isLoading || eventsQuery.isLoading || tasksQuery.isLoading;
   const activeMemoryView = normalizeMemoryView(view);
   useQueryErrorToast(
     activeMemoryView === "note" ? null : notesQuery.error,
@@ -245,20 +210,14 @@ export const JobPage: React.FC = () => {
   const selectedProjects = React.useMemo(
     () =>
       effectiveSelectedProjectIds.map(
-        (projectId) =>
-          catalog.find((project) => project.id === projectId)?.name ??
-          projectId,
+        (projectId) => catalog.find((project) => project.id === projectId)?.name ?? projectId,
       ),
     [catalog, effectiveSelectedProjectIds],
   );
-  const sourceLabel = job
-    ? (sourceLabels[job.source] ?? formatJobSourceLabel(job.source))
-    : "";
+  const sourceLabel = job ? (sourceLabels[job.source] ?? formatJobSourceLabel(job.source)) : "";
   const jobPageBackTo = React.useMemo(() => {
     const state = location.state as JobPageLocationState | null;
-    return isValidJobPageBackTarget(state?.jobPageBackTo)
-      ? state.jobPageBackTo
-      : null;
+    return isValidJobPageBackTarget(state?.jobPageBackTo) ? state.jobPageBackTo : null;
   }, [location.state]);
   const jobPageNavigationState = React.useMemo(
     () => (jobPageBackTo ? { jobPageBackTo } : undefined),
@@ -310,10 +269,7 @@ export const JobPage: React.FC = () => {
     ]);
   }, [id, queryClient]);
 
-  const handleLogEvent = async (
-    values: LogEventFormValues,
-    eventId?: string,
-  ) => {
+  const handleLogEvent = async (values: LogEventFormValues, eventId?: string) => {
     if (!job) return;
     if (job.status !== "in_progress" && job.status !== "applied") {
       toast.error("Move this job to In Progress to track stages.");
@@ -415,8 +371,7 @@ export const JobPage: React.FC = () => {
         ),
       );
       queryClient.removeQueries({
-        predicate: ({ queryKey }) =>
-          queryKey[0] === "jobs" && queryKey[2] === job.id,
+        predicate: ({ queryKey }) => queryKey[0] === "jobs" && queryKey[2] === job.id,
       });
       navigate(jobPageBackTo ?? getFallbackBackTarget(job), { replace: true });
       toast.success("Job deleted");
@@ -483,9 +438,7 @@ export const JobPage: React.FC = () => {
       setIsUploadingPdf(true);
       await uploadJobPdfFromFile(job.id, file);
       await loadData();
-      toast.success(
-        job.pdfPath ? "Resume PDF replaced" : "Resume PDF attached",
-      );
+      toast.success(job.pdfPath ? "Resume PDF replaced" : "Resume PDF attached");
     } catch (error) {
       showErrorToast(error, "Failed to upload resume PDF");
     } finally {
@@ -523,9 +476,7 @@ export const JobPage: React.FC = () => {
 
   const currentStage = job
     ? (events.at(-1)?.toStage ??
-      (job.status === "applied" || job.status === "in_progress"
-        ? "applied"
-        : null))
+      (job.status === "applied" || job.status === "in_progress" ? "applied" : null))
     : null;
   const stageLabel = currentStage
     ? `${BOARD_COLUMN_LABELS[boardColumnForStage(currentStage)]}${boardColumnForStage(currentStage) === "technical_interview" ? ` · Round ${Math.max(technicalRound(events), 1)}` : ""}${currentStage === "closed" && job?.outcome === "withdrawn" ? " · withdrawn" : ""}`
@@ -541,21 +492,16 @@ export const JobPage: React.FC = () => {
   const isRegeneratingPdf = isPdfRegenerating(job);
   const isStalePdf = isPdfStale(job);
   const pdfLabels = { view: "Preview PDF", download: "Download PDF" };
-  const pdfRegeneratingReason = isRegeneratingPdf
-    ? PDF_REGENERATING_MESSAGE
-    : null;
+  const pdfRegeneratingReason = isRegeneratingPdf ? PDF_REGENERATING_MESSAGE : null;
   const resumeState = job ? getResumeState(job) : null;
   const pdfActionsDisabled =
-    resumeState !== "available" ||
-    isRegeneratingPdf ||
-    generatePdfMutation.isPending;
+    resumeState !== "available" || isRegeneratingPdf || generatePdfMutation.isPending;
   const isDiscovered = job?.status === "discovered";
   const isReady = job?.status === "ready";
   const baseJobPath = id ? `/job/${id}` : "";
   const latestNote = notes[0] ?? null;
   const latestEvent = events.at(-1) ?? null;
-  const latestEventTitle =
-    latestEvent?.metadata?.eventLabel || latestEvent?.title || null;
+  const latestEventTitle = latestEvent?.metadata?.eventLabel || latestEvent?.title || null;
   const jobDescriptionPreview = summarizeMemoryText(job?.jobDescription, 260);
   const latestNotePreview = summarizeMemoryText(latestNote?.content, 180);
   const initialGhostwriterPrompt =
@@ -631,12 +577,7 @@ export const JobPage: React.FC = () => {
               </Button>
             )}
             {resumeState === "untargeted" && (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={isBusy}
-                onClick={handleTarget}
-              >
+              <Button size="sm" variant="outline" disabled={isBusy} onClick={handleTarget}>
                 Target
               </Button>
             )}
@@ -645,10 +586,7 @@ export const JobPage: React.FC = () => {
               size="sm"
               onClick={() => setIsDeleteJobModalOpen(true)}
               disabled={
-                isBusy ||
-                isUploadingPdf ||
-                isRegeneratingPdf ||
-                job.status === "processing"
+                isBusy || isUploadingPdf || isRegeneratingPdf || job.status === "processing"
               }
             >
               <Trash2 data-icon="inline-start" />
@@ -695,21 +633,15 @@ export const JobPage: React.FC = () => {
                         Notes
                       </div>
                       <Badge variant="secondary" className="text-[10px]">
-                        {notesQuery.isLoading
-                          ? "Loading"
-                          : `${notes.length} saved`}
+                        {notesQuery.isLoading ? "Loading" : `${notes.length} saved`}
                       </Badge>
                     </div>
                     <div className="mt-4 min-h-[5.5rem] rounded-lg border border-border/50 bg-background/25 p-3">
                       {latestNote ? (
                         <div>
-                          <div className="text-sm font-medium">
-                            {latestNote.title}
-                          </div>
+                          <div className="text-sm font-medium">{latestNote.title}</div>
                           <div className="mt-1 text-xs text-muted-foreground">
-                            Updated{" "}
-                            {formatDateTime(latestNote.updatedAt) ??
-                              latestNote.updatedAt}
+                            Updated {formatDateTime(latestNote.updatedAt) ?? latestNote.updatedAt}
                           </div>
                           {latestNotePreview && (
                             <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -729,10 +661,7 @@ export const JobPage: React.FC = () => {
                       variant="outline"
                       className="mt-4 w-full justify-between"
                     >
-                      <Link
-                        to={`${baseJobPath}/notes`}
-                        state={jobPageNavigationState}
-                      >
+                      <Link to={`${baseJobPath}/notes`} state={jobPageNavigationState}>
                         Open notes
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Link>
@@ -785,10 +714,7 @@ export const JobPage: React.FC = () => {
                       variant="outline"
                       className="mt-4 w-full justify-between"
                     >
-                      <Link
-                        to={`${baseJobPath}/documents`}
-                        state={jobPageNavigationState}
-                      >
+                      <Link to={`${baseJobPath}/documents`} state={jobPageNavigationState}>
                         Open documents
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Link>
@@ -810,25 +736,18 @@ export const JobPage: React.FC = () => {
                     <div className="mt-4 min-h-[5.5rem] rounded-lg border border-border/50 bg-background/25 p-3">
                       {latestEvent ? (
                         <div>
-                          <div className="text-sm font-medium">
-                            {latestEventTitle}
-                          </div>
+                          <div className="text-sm font-medium">{latestEventTitle}</div>
                           <div className="mt-1 text-xs text-muted-foreground">
                             {formatTimestamp(latestEvent.occurredAt)}
                           </div>
                           {latestEvent.metadata?.note && (
                             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                              {summarizeMemoryText(
-                                latestEvent.metadata.note,
-                                160,
-                              )}
+                              {summarizeMemoryText(latestEvent.metadata.note, 160)}
                             </p>
                           )}
                         </div>
                       ) : (
-                        <div className="text-sm text-muted-foreground">
-                          No timeline events yet.
-                        </div>
+                        <div className="text-sm text-muted-foreground">No timeline events yet.</div>
                       )}
                     </div>
                     {canLogEvents ? (
@@ -850,10 +769,7 @@ export const JobPage: React.FC = () => {
                         variant="outline"
                         className="mt-4 w-full justify-between"
                       >
-                        <Link
-                          to={`${baseJobPath}/timeline`}
-                          state={jobPageNavigationState}
-                        >
+                        <Link to={`${baseJobPath}/timeline`} state={jobPageNavigationState}>
                           Open timeline
                           <ExternalLink className="h-3.5 w-3.5" />
                         </Link>
@@ -864,9 +780,7 @@ export const JobPage: React.FC = () => {
               </section>
             )}
 
-            {activeMemoryView === "note" && job.id && (
-              <JobNotesCard jobId={job.id} />
-            )}
+            {activeMemoryView === "note" && job.id && <JobNotesCard jobId={job.id} />}
 
             {activeMemoryView === "documents" && (
               <div className="space-y-4">
@@ -914,9 +828,7 @@ export const JobPage: React.FC = () => {
                           {job.salary}
                         </Badge>
                       )}
-                      {currentStage && (
-                        <Badge variant="secondary">{stageLabel}</Badge>
-                      )}
+                      {currentStage && <Badge variant="secondary">{stageLabel}</Badge>}
                       {canLogEvents && (
                         <Button
                           size="sm"
@@ -934,8 +846,7 @@ export const JobPage: React.FC = () => {
                 <div className="p-4">
                   {!isInProgress && !isApplied && (
                     <div className="mb-4 rounded-md border border-dashed border-border/60 p-3 text-sm text-muted-foreground">
-                      Mark this job as applied to start tracking application
-                      stages.
+                      Mark this job as applied to start tracking application stages.
                     </div>
                   )}
                   {(isInProgress || isApplied) && isClosedStage && (
@@ -1064,10 +975,7 @@ const mergeEvents = (events: StageEvent[], pending: StageEvent | null) => {
   return [...events, pending].sort((a, b) => a.occurredAt - b.occurredAt);
 };
 
-const summarizeMemoryText = (
-  value: string | null | undefined,
-  maxLength: number,
-) => {
+const summarizeMemoryText = (value: string | null | undefined, maxLength: number) => {
   const text = getRenderableJobDescription(value ?? "")
     .replace(/<[^>]*>/g, " ")
     .replace(/[#*_`>[\](){}-]+/g, " ")

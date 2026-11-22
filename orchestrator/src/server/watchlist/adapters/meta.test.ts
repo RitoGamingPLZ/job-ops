@@ -104,9 +104,9 @@ describe("metaWatchlistAdapter", () => {
       ]),
     ).toEqual([]);
     expect(adapter.descriptor.supportsCustomSource).toBe(false);
-    expect(
-      adapter.hydrateSelectedSource({ ...source, label: " " }),
-    ).toMatchObject({ label: "Meta" });
+    expect(adapter.hydrateSelectedSource({ ...source, label: " " })).toMatchObject({
+      label: "Meta",
+    });
     expect(
       adapter.normalizeCustomSelection({
         careersUrl: `${origin}/jobs?q=software`,
@@ -123,9 +123,7 @@ describe("metaWatchlistAdapter", () => {
     `${origin}/other`,
     "not url",
   ])("rejects unsafe source %s", (careersUrl) => {
-    expect(() =>
-      adapter.normalizeCustomSelection({ careersUrl, label: null }),
-    ).toThrow();
+    expect(() => adapter.normalizeCustomSelection({ careersUrl, label: null })).toThrow();
   });
   it("maps all public fields and reuses details for import without a second request", async () => {
     const mock = mockPages();
@@ -150,9 +148,7 @@ describe("metaWatchlistAdapter", () => {
     });
     const details = await adapter.fetchJobDetails({ source, jobRef: url(1) });
     expect(details.descriptionHtml).toContain("AI Research");
-    expect(details.descriptionHtml).toContain(
-      "Build evaluations.<br>Train models.",
-    );
+    expect(details.descriptionHtml).toContain("Build evaluations.<br>Train models.");
     const imported = await adapter.prepareImportDraft({
       source,
       jobRef: url(1),
@@ -206,9 +202,7 @@ describe("metaWatchlistAdapter", () => {
     mock
       .mockResolvedValueOnce(new Response(sitemap()))
       .mockResolvedValueOnce(new Response("secret", { status: 502 }));
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      "all selected job details failed",
-    );
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow("all selected job details failed");
   });
   it.each([
     "<html>changed</html>",
@@ -217,9 +211,7 @@ describe("metaWatchlistAdapter", () => {
     `<urlset><url><loc>https://evil.test/job/1</loc><lastmod>2026-01-01</lastmod></url></urlset>`,
   ])("rejects changed sitemap shape", async (xml) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(xml)));
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      /structure may have changed/,
-    );
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow(/structure may have changed/);
   });
   it.each([
     `<url><loc>${url(2)}</loc></url>`,
@@ -229,9 +221,7 @@ describe("metaWatchlistAdapter", () => {
   ])("skips an invalid sitemap row while retaining a valid job", async (badRow) => {
     const mock = vi
       .fn()
-      .mockResolvedValueOnce(
-        new Response(sitemap().replace("</urlset>", `${badRow}</urlset>`)),
-      )
+      .mockResolvedValueOnce(new Response(sitemap().replace("</urlset>", `${badRow}</urlset>`)))
       .mockResolvedValueOnce(new Response(detail()));
     vi.stubGlobal("fetch", mock);
     expect(await adapter.fetchJobs({ source })).toMatchObject({
@@ -252,8 +242,7 @@ describe("metaWatchlistAdapter", () => {
     );
     expect((await adapter.fetchJobs({ source })).jobs[0].location).toBeNull();
     expect(
-      (await adapter.prepareImportDraft({ source, jobRef: url(1) })).draft
-        .location,
+      (await adapter.prepareImportDraft({ source, jobRef: url(1) })).draft.location,
     ).toBeUndefined();
   });
   it("fetches one detail on a miss, caches it, and replaces the list cache on refresh", async () => {
@@ -266,13 +255,9 @@ describe("metaWatchlistAdapter", () => {
     expect(mock).toHaveBeenCalledTimes(4);
   });
   it("retries 429 three times and never exposes upstream bodies", async () => {
-    const mock = vi
-      .fn()
-      .mockImplementation(async () => new Response("secret", { status: 429 }));
+    const mock = vi.fn().mockImplementation(async () => new Response("secret", { status: 429 }));
     vi.stubGlobal("fetch", mock);
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      "Meta careers returned HTTP 429.",
-    );
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow("Meta careers returned HTTP 429.");
     expect(mock).toHaveBeenCalledTimes(4);
   });
   it("rejects unsafe detail refs before fetching", async () => {
@@ -283,9 +268,7 @@ describe("metaWatchlistAdapter", () => {
       `${origin}:443/profile/job_details/1/`,
       `${origin}/jobs`,
     ]) {
-      await expect(
-        adapter.prepareImportDraft({ source, jobRef }),
-      ).rejects.toThrow();
+      await expect(adapter.prepareImportDraft({ source, jobRef })).rejects.toThrow();
     }
     expect(mock).not.toHaveBeenCalled();
   });
@@ -294,47 +277,35 @@ describe("metaWatchlistAdapter", () => {
       "fetch",
       vi
         .fn()
-        .mockResolvedValue(
-          new Response(
-            '<meta property="og:description" content="truncated...">',
-          ),
-        ),
+        .mockResolvedValue(new Response('<meta property="og:description" content="truncated...">')),
     );
-    await expect(
-      adapter.prepareImportDraft({ source, jobRef: url(1) }),
-    ).rejects.toThrow(/structure may have changed/);
+    await expect(adapter.prepareImportDraft({ source, jobRef: url(1) })).rejects.toThrow(
+      /structure may have changed/,
+    );
   });
   it("propagates caller cancellation", async () => {
     const controller = new AbortController();
     controller.abort();
     const mock = mockPages();
-    await expect(
-      adapter.fetchJobs({ source, signal: controller.signal }),
-    ).rejects.toThrow();
+    await expect(adapter.fetchJobs({ source, signal: controller.signal })).rejects.toThrow();
     expect(mock).not.toHaveBeenCalled();
   });
   it("returns completed jobs when the operation deadline expires", async () => {
     // An explicit operation deadline; avoid waiting 24 seconds in this regression.
     const timeout = AbortSignal.timeout.bind(AbortSignal);
-    vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) =>
-      timeout(ms === 24_000 ? 250 : ms),
-    );
+    vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => timeout(ms === 24_000 ? 250 : ms));
     let detailCalls = 0;
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockImplementation(async (value: string, options: RequestInit) => {
-          if (value.endsWith("sitemap.xml")) return new Response(sitemap(5));
-          if (++detailCalls === 1) return new Response(detail());
-          await new Promise((_, reject) =>
-            options.signal?.addEventListener(
-              "abort",
-              () => reject(new Error("deadline")),
-              { once: true },
-            ),
-          );
-        }),
+      vi.fn().mockImplementation(async (value: string, options: RequestInit) => {
+        if (value.endsWith("sitemap.xml")) return new Response(sitemap(5));
+        if (++detailCalls === 1) return new Response(detail());
+        await new Promise((_, reject) =>
+          options.signal?.addEventListener("abort", () => reject(new Error("deadline")), {
+            once: true,
+          }),
+        );
+      }),
     );
     try {
       expect((await adapter.fetchJobs({ source })).fetched).toBe(1);

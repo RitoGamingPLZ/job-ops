@@ -58,8 +58,7 @@ vi.mock("@server/repositories/jobs", () => ({
 }));
 
 vi.mock("@server/repositories/post-application-messages", () => ({
-  getPostApplicationMessageByExternalId:
-    mocks.getPostApplicationMessageByExternalId,
+  getPostApplicationMessageByExternalId: mocks.getPostApplicationMessageByExternalId,
   upsertPostApplicationMessage: mocks.upsertPostApplicationMessage,
 }));
 
@@ -174,40 +173,38 @@ describe("gmail sync auto-log idempotency", () => {
   it("creates auto stage event only on first auto_linked transition", async () => {
     const { runGmailIngestionSync } = await import("./gmail-sync");
 
-    mocks.getPostApplicationMessageByExternalId
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: "post-msg-1",
-        provider: "gmail",
-        accountKey: "default",
-        integrationId: "integration-1",
-        syncRunId: "sync-run-1",
-        externalMessageId: "message-1",
-        externalThreadId: "thread-1",
-        fromAddress: "jobs@example.com",
-        fromDomain: "example.com",
-        senderName: "Recruiter",
-        subject: "Interview update",
-        receivedAt: Date.now(),
-        snippet: "snippet",
-        classificationLabel: "assessment",
-        classificationConfidence: 0.99,
-        classificationPayload: { method: "smart_router", reason: "matches" },
-        relevanceLlmScore: 99,
-        relevanceDecision: "relevant",
-        matchedJobId: "job-1",
-        matchConfidence: 99,
-        stageTarget: "assessment",
-        messageType: "interview",
-        stageEventPayload: null,
-        processingStatus: "auto_linked",
-        decidedAt: null,
-        decidedBy: null,
-        errorCode: null,
-        errorMessage: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+    mocks.getPostApplicationMessageByExternalId.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: "post-msg-1",
+      provider: "gmail",
+      accountKey: "default",
+      integrationId: "integration-1",
+      syncRunId: "sync-run-1",
+      externalMessageId: "message-1",
+      externalThreadId: "thread-1",
+      fromAddress: "jobs@example.com",
+      fromDomain: "example.com",
+      senderName: "Recruiter",
+      subject: "Interview update",
+      receivedAt: Date.now(),
+      snippet: "snippet",
+      classificationLabel: "assessment",
+      classificationConfidence: 0.99,
+      classificationPayload: { method: "smart_router", reason: "matches" },
+      relevanceLlmScore: 99,
+      relevanceDecision: "relevant",
+      matchedJobId: "job-1",
+      matchConfidence: 99,
+      stageTarget: "assessment",
+      messageType: "interview",
+      stageEventPayload: null,
+      processingStatus: "auto_linked",
+      decidedAt: null,
+      decidedBy: null,
+      errorCode: null,
+      errorMessage: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
 
     mocks.upsertPostApplicationMessage
       .mockResolvedValueOnce({

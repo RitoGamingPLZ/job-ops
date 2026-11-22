@@ -56,14 +56,10 @@ describe("location-support", () => {
   });
 
   it("applies source compatibility rules by country", () => {
-    expect(isSourceAllowedForCountry("gradcracker", "united kingdom")).toBe(
-      true,
-    );
+    expect(isSourceAllowedForCountry("gradcracker", "united kingdom")).toBe(true);
     expect(isSourceAllowedForCountry("ukvisajobs", "uk")).toBe(true);
     expect(isSourceAllowedForCountry("jobindex", "denmark")).toBe(true);
-    expect(isSourceAllowedForCountry("gradcracker", "united states")).toBe(
-      false,
-    );
+    expect(isSourceAllowedForCountry("gradcracker", "united states")).toBe(false);
     expect(isSourceAllowedForCountry("ukvisajobs", "worldwide")).toBe(false);
     expect(isSourceAllowedForCountry("jobindex", "united kingdom")).toBe(false);
     expect(isSourceAllowedForCountry("indeed", "united states")).toBe(true);
@@ -74,9 +70,7 @@ describe("location-support", () => {
     expect(isSourceAllowedForCountry("adzuna", "japan")).toBe(false);
     expect(isSourceAllowedForCountry("naukri", "india")).toBe(true);
     expect(isSourceAllowedForCountry("naukri", "united kingdom")).toBe(false);
-    expect(isSourceAllowedForCountry("startupjobs", "united states")).toBe(
-      true,
-    );
+    expect(isSourceAllowedForCountry("startupjobs", "united states")).toBe(true);
     expect(isSourceAllowedForCountry("startupjobs", "worldwide")).toBe(true);
     expect(isSourceAllowedForCountry("indeed", "russia")).toBe(false);
     expect(isSourceAllowedForCountry("startupjobs", "russia")).toBe(true);

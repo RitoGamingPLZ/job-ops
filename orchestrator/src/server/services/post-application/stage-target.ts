@@ -10,9 +10,7 @@ const STAGE_TARGET_VALUES = new Set<PostApplicationRouterStageTarget>(
   POST_APPLICATION_ROUTER_STAGE_TARGETS,
 );
 
-export function normalizeStageTarget(
-  value: unknown,
-): PostApplicationRouterStageTarget | null {
+export function normalizeStageTarget(value: unknown): PostApplicationRouterStageTarget | null {
   if (typeof value !== "string") return null;
   return STAGE_TARGET_VALUES.has(value as PostApplicationRouterStageTarget)
     ? (value as PostApplicationRouterStageTarget)
@@ -49,9 +47,7 @@ export function stageTargetFromMessageType(
   return "no_change";
 }
 
-export function resolveStageTransitionForTarget(
-  target: PostApplicationRouterStageTarget,
-): {
+export function resolveStageTransitionForTarget(target: PostApplicationRouterStageTarget): {
   toStage: ApplicationStage | "no_change";
   outcome: JobOutcome | null;
   reasonCode: string | null;

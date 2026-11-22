@@ -25,8 +25,9 @@ In [Google Cloud Console](https://console.cloud.google.com/):
 4. Open **APIs & Services → Credentials** and create **OAuth client ID**.
 5. Choose **Web application**.
 6. Add at least one authorized redirect URI:
-  - Local: `http://localhost:3005/oauth/gmail/callback`
-  - Production: `https://your-domain.com/oauth/gmail/callback`
+
+- Local: `http://localhost:3005/oauth/gmail/callback`
+- Production: `https://your-domain.com/oauth/gmail/callback`
 
 Notes:
 

@@ -6,10 +6,7 @@ import type {
 } from "@shared/types";
 import { and, desc, eq } from "drizzle-orm";
 import { db, schema } from "../db";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { postApplicationSyncRuns } = schema;
 
@@ -37,9 +34,7 @@ type CompletePostApplicationSyncRunInput = {
   errorMessage?: string | null;
 };
 
-function mapRowToSyncRun(
-  row: typeof postApplicationSyncRuns.$inferSelect,
-): PostApplicationSyncRun {
+function mapRowToSyncRun(row: typeof postApplicationSyncRuns.$inferSelect): PostApplicationSyncRun {
   return {
     id: row.id,
     provider: row.provider,
@@ -122,9 +117,7 @@ export async function completePostApplicationSyncRun(
       errorMessage: input.errorMessage ?? null,
       updatedAt: nowIso,
     })
-    .where(
-      and(syncRunsScopeFilter(), eq(postApplicationSyncRuns.id, input.id)),
-    );
+    .where(and(syncRunsScopeFilter(), eq(postApplicationSyncRuns.id, input.id)));
 
   return getPostApplicationSyncRunById(input.id);
 }

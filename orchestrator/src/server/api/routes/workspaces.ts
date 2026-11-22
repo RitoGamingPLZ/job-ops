@@ -1,10 +1,4 @@
-import {
-  badRequest,
-  conflict,
-  forbidden,
-  notFound,
-  unauthorized,
-} from "@infra/errors";
+import { badRequest, conflict, forbidden, notFound, unauthorized } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
 import { getUserId, isSystemAdmin } from "@infra/request-context";
 import { verifyPassword } from "@server/auth/password";
@@ -53,12 +47,7 @@ workspacesRouter.get(
   "/users",
   asyncRoute(async (_req: Request, res: Response) => {
     if (getJobOpsAppConfig().appMode === "hosted") {
-      fail(
-        res,
-        forbidden(
-          "Workspace user administration is unavailable in hosted mode",
-        ),
-      );
+      fail(res, forbidden("Workspace user administration is unavailable in hosted mode"));
       return;
     }
     if (!requireSystemAdmin(res)) return;
@@ -70,10 +59,7 @@ workspacesRouter.post(
   "/users",
   asyncRoute(async (req: Request, res: Response) => {
     if (getJobOpsAppConfig().appMode === "hosted") {
-      fail(
-        res,
-        forbidden("Hosted users must be created through hosted signup."),
-      );
+      fail(res, forbidden("Hosted users must be created through hosted signup."));
       return;
     }
     if (!requireSystemAdmin(res)) return;
@@ -107,12 +93,7 @@ workspacesRouter.patch(
   "/users/:id/disabled",
   asyncRoute(async (req: Request, res: Response) => {
     if (getJobOpsAppConfig().appMode === "hosted") {
-      fail(
-        res,
-        forbidden(
-          "Workspace user administration is unavailable in hosted mode",
-        ),
-      );
+      fail(res, forbidden("Workspace user administration is unavailable in hosted mode"));
       return;
     }
     if (!requireSystemAdmin(res)) return;
@@ -132,10 +113,7 @@ workspacesRouter.patch(
       return;
     }
 
-    const user = await usersRepo.setUserDisabled(
-      userId,
-      parsed.data.isDisabled,
-    );
+    const user = await usersRepo.setUserDisabled(userId, parsed.data.isDisabled);
     if (!user) {
       fail(res, notFound("User not found"));
       return;
@@ -148,12 +126,7 @@ workspacesRouter.post(
   "/users/:id/reset-password",
   asyncRoute(async (req: Request, res: Response) => {
     if (getJobOpsAppConfig().appMode === "hosted") {
-      fail(
-        res,
-        forbidden(
-          "Workspace user administration is unavailable in hosted mode",
-        ),
-      );
+      fail(res, forbidden("Workspace user administration is unavailable in hosted mode"));
       return;
     }
     if (!requireSystemAdmin(res)) return;

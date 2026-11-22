@@ -1,11 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import {
-  MemoryRouter,
-  Route,
-  Routes,
-  useLocation,
-  useSearchParams,
-} from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { useOrchestratorNavigation } from "./useOrchestratorNavigation";
 
@@ -35,9 +29,7 @@ describe("Search Jobs navigation", () => {
       </MemoryRouter>,
     );
     await waitFor(() =>
-      expect(screen.getByTestId("navigation")).toHaveTextContent(
-        `discovered:${to}`,
-      ),
+      expect(screen.getByTestId("navigation")).toHaveTextContent(`discovered:${to}`),
     );
   });
 });

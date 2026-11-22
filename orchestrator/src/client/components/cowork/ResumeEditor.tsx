@@ -15,10 +15,7 @@ import {
   sameLineText,
   setItemLines,
 } from "@shared/resume-links";
-import {
-  NAVY_SERIF_CSS_VARS,
-  NAVY_SERIF_STYLE,
-} from "@shared/resume-style/navy-serif";
+import { NAVY_SERIF_CSS_VARS, NAVY_SERIF_STYLE } from "@shared/resume-style/navy-serif";
 import type {
   EntrySection,
   ExperienceBullet,
@@ -86,9 +83,7 @@ const KEEP_WITH_NEXT = "h2, .resume-position, .resume-experience-heading";
  * margin, Word-style. Returns how many sheets the content needs.
  */
 function paginate(paper: HTMLElement, scale: number) {
-  for (const element of paper.querySelectorAll<HTMLElement>(
-    "[data-page-push]",
-  )) {
+  for (const element of paper.querySelectorAll<HTMLElement>("[data-page-push]")) {
     element.style.marginTop = "";
     element.removeAttribute("data-page-push");
   }
@@ -101,19 +96,16 @@ function paginate(paper: HTMLElement, scale: number) {
       const top = (rect.top - origin()) / scale;
       const sheet = Math.floor(top / pitch);
       const end = sheet * pitch + SHEET - MARGIN_Y;
-      let height =
-        rect.height / scale + (block.matches(KEEP_WITH_NEXT) ? 16 : 0);
+      let height = rect.height / scale + (block.matches(KEEP_WITH_NEXT) ? 16 : 0);
       // A section heading moves with its first role or project when that fits.
       const first = block.matches("h2")
         ? block.parentElement?.querySelector<HTMLElement>(ENTRY)
         : null;
       if (first) {
-        const withEntry =
-          (first.getBoundingClientRect().bottom - rect.top) / scale;
+        const withEntry = (first.getBoundingClientRect().bottom - rect.top) / scale;
         if (withEntry <= SHEET - 2 * MARGIN_Y) height = withEntry;
       }
-      if (height <= 0 || top + height <= end || height > SHEET - 2 * MARGIN_Y)
-        break;
+      if (height <= 0 || top + height <= end || height > SHEET - 2 * MARGIN_Y) break;
       const push = (sheet + 1) * pitch + MARGIN_Y - top;
       block.style.marginTop = `${Number.parseFloat(getComputedStyle(block).marginTop) + push}px`;
       block.setAttribute("data-page-push", "");
@@ -122,10 +114,7 @@ function paginate(paper: HTMLElement, scale: number) {
   let bottom = 0;
   for (const child of paper.children)
     if (!child.classList.contains("resume-sheet"))
-      bottom = Math.max(
-        bottom,
-        (child.getBoundingClientRect().bottom - origin()) / scale,
-      );
+      bottom = Math.max(bottom, (child.getBoundingClientRect().bottom - origin()) / scale);
   return Math.max(1, Math.ceil((bottom + MARGIN_Y - SHEET) / pitch) + 1);
 }
 
@@ -267,9 +256,7 @@ export function ResumeEditor({
   const [addingSummary, setAddingSummary] = useState(
     Boolean(bulletsFromHtml(document.summary.content).length),
   );
-  const [addingHeadline, setAddingHeadline] = useState(
-    Boolean(document.basics.headline),
-  );
+  const [addingHeadline, setAddingHeadline] = useState(Boolean(document.basics.headline));
   // Stable row keys: removing a cleared bullet on blur (mousedown) must not let
   // the following click land on a row that now shows a different bullet.
   const bulletKeys = useRef(new Map<string, { text: string; key: number }[]>());
@@ -281,9 +268,7 @@ export function ResumeEditor({
       return at < 0 ? undefined : previous.splice(at, 1)[0].key;
     });
     // An edited bullet keeps the key of the unmatched row it replaced.
-    const keys = matched.map(
-      (key) => key ?? previous.shift()?.key ?? nextBulletKey.current++,
-    );
+    const keys = matched.map((key) => key ?? previous.shift()?.key ?? nextBulletKey.current++);
     bulletKeys.current.set(
       id,
       bullets.map((text, i) => ({ text, key: keys[i] })),
@@ -337,9 +322,7 @@ export function ResumeEditor({
     if (typeof ResizeObserver === "undefined") return;
     const measure = () => {
       if (!canvas.current) return;
-      setScale(
-        Math.max(0.6, Math.min(1, canvas.current.clientWidth / (210 * MM))),
-      );
+      setScale(Math.max(0.6, Math.min(1, canvas.current.clientWidth / (210 * MM))));
     };
     const observer = new ResizeObserver(measure);
     if (canvas.current) observer.observe(canvas.current);
@@ -355,13 +338,12 @@ export function ResumeEditor({
     if (!pending) return;
     focusAfterMove.current = null;
     const root = pending.scope
-      ? [
-          ...page.current.querySelectorAll<HTMLElement>("[data-focus-item]"),
-        ].find((element) => element.dataset.focusItem === pending.scope)
+      ? [...page.current.querySelectorAll<HTMLElement>("[data-focus-item]")].find(
+          (element) => element.dataset.focusItem === pending.scope,
+        )
       : page.current;
     const buttons = [...(root?.querySelectorAll("button") ?? [])];
-    const find = (label: string) =>
-      buttons.find((b) => b.getAttribute("aria-label") === label);
+    const find = (label: string) => buttons.find((b) => b.getAttribute("aria-label") === label);
     const target = find(pending.label);
     (target && !target.disabled ? target : find(pending.fallback))?.focus();
   });
@@ -432,15 +414,12 @@ export function ResumeEditor({
     return suggestionList(
       suggestions.filter(
         (s) =>
-          s.op === "replace_field" &&
-          s.field?.section === section &&
-          s.field.itemId === itemId,
+          s.op === "replace_field" && s.field?.section === section && s.field.itemId === itemId,
       ),
     );
   }
   function reorderZone(kind: "experience" | "skills", gap: number) {
-    const type =
-      kind === "experience" ? EXPERIENCE_TRANSFER_TYPE : SKILL_TRANSFER_TYPE;
+    const type = kind === "experience" ? EXPERIENCE_TRANSFER_TYPE : SKILL_TRANSFER_TYPE;
     const key = `${kind}-${gap}`;
     return (
       <fieldset
@@ -473,12 +452,7 @@ export function ResumeEditor({
                   from,
                   gap,
                 );
-              else
-                next.sections.skills.items = moveItem(
-                  next.sections.skills.items,
-                  from,
-                  gap,
-                );
+              else next.sections.skills.items = moveItem(next.sections.skills.items, from, gap);
             });
           } catch {
             /* Ignore unrelated or malformed external drags. */
@@ -493,22 +467,13 @@ export function ResumeEditor({
     currentDocument.current = next;
     onChange(next);
   }
-  function updateBullets(
-    id: string,
-    edit: (lines: ResumeLine[]) => ResumeLine[],
-  ) {
+  function updateBullets(id: string, edit: (lines: ResumeLine[]) => ResumeLine[]) {
     change((next) => {
-      for (const section of [
-        next.sections.experience,
-        next.sections.projects,
-      ]) {
+      for (const section of [next.sections.experience, next.sections.projects]) {
         const index = section?.items.findIndex((item) => item.id === id) ?? -1;
         if (!section || index < 0) continue;
         const item = section.items[index];
-        section.items[index] = setItemLines(
-          item,
-          edit(getItemLines(item)),
-        ) as typeof item;
+        section.items[index] = setItemLines(item, edit(getItemLines(item))) as typeof item;
         break;
       }
     });
@@ -532,13 +497,9 @@ export function ResumeEditor({
           aria-label="Reset entry to library"
           onClick={() =>
             change((next) => {
-              const items = next.sections[section].items as unknown as Record<
-                string,
-                unknown
-              >[];
+              const items = next.sections[section].items as unknown as Record<string, unknown>[];
               const index = items.findIndex((entry) => entry.id === item.id);
-              if (index >= 0)
-                items[index] = resetEntryFields(items[index], library);
+              if (index >= 0) items[index] = resetEntryFields(items[index], library);
             })
           }
         >
@@ -569,12 +530,7 @@ export function ResumeEditor({
           title="Reset to library text"
           aria-label="Reset to library text"
           onClick={() => {
-            const next = resetLine(
-              currentDocument.current,
-              itemId,
-              index,
-              library,
-            );
+            const next = resetLine(currentDocument.current, itemId, index, library);
             currentDocument.current = next;
             onChange(next);
           }}
@@ -596,11 +552,7 @@ export function ResumeEditor({
     );
   }
   /** Title (plus tint) for a linked entry field edited away from its library item. */
-  function changedProps(
-    item: Record<string, unknown>,
-    fields: string[],
-    label: string,
-  ) {
+  function changedProps(item: Record<string, unknown>, fields: string[], label: string) {
     const changed = changedLibraryFields(item, library);
     const values = fields.filter((field) => field in changed);
     return values.length
@@ -621,8 +573,7 @@ export function ResumeEditor({
   function target(s: ResumeSuggestionV2) {
     if (s.op === "insert_bullet") {
       const description =
-        document.sections[s.section].items.find((i) => i.id === s.itemId)
-          ?.description ?? "";
+        document.sections[s.section].items.find((i) => i.id === s.itemId)?.description ?? "";
       const previous = snapshots.current.get(s);
       if (previous === undefined) snapshots.current.set(s, description);
       else if (previous !== description) return null;
@@ -663,13 +614,10 @@ export function ResumeEditor({
               include_library_item: "Include library item",
               exclude_library_item: "Exclude library item",
               create_library_item: "Add to library",
-              save_to_library:
-                "Save to library (updates other resumes using it)",
+              save_to_library: "Save to library (updates other resumes using it)",
             }[s.op];
       const savePreview =
-        s.op === "save_to_library"
-          ? librarySaveInput(document, s.target, library)
-          : null;
+        s.op === "save_to_library" ? librarySaveInput(document, s.target, library) : null;
       const applicable =
         s.op === "save_to_library"
           ? Boolean(savePreview && "input" in savePreview)
@@ -686,9 +634,7 @@ export function ResumeEditor({
                     .filter(([key]) => key !== "schemaVersion")
                     .map(([key, value]) => (
                       <div key={key}>
-                        <dt className="font-medium">
-                          {SAVE_FIELD_LABELS[key] ?? key}
-                        </dt>
+                        <dt className="font-medium">{SAVE_FIELD_LABELS[key] ?? key}</dt>
                         <dd>
                           {Array.isArray(value)
                             ? value.join(", ")
@@ -707,9 +653,7 @@ export function ResumeEditor({
               </div>
             ) : (
               <p className="text-muted-foreground">
-                {savePreview &&
-                "code" in savePreview &&
-                savePreview.code === "STALE"
+                {savePreview && "code" in savePreview && savePreview.code === "STALE"
                   ? "Not applicable — this content has changed."
                   : "The linked resume content is no longer available."}
               </p>
@@ -730,9 +674,7 @@ export function ResumeEditor({
                       ? `${s.item.text}${s.includeOnResume ? " · Include on resume" : ""}`
                       : s.op === "add_entry"
                         ? Object.values(s.item)
-                            .filter(
-                              (value) => typeof value === "string" && value,
-                            )
+                            .filter((value) => typeof value === "string" && value)
                             .join(" · ")
                         : "libraryId" in s
                           ? library.find((row) => row.id === s.libraryId)?.text
@@ -740,14 +682,10 @@ export function ResumeEditor({
               </mark>
             </>
           ) : (
-            <p className="text-muted-foreground">
-              Not applicable — this content has changed.
-            </p>
+            <p className="text-muted-foreground">Not applicable — this content has changed.</p>
           )}
           {rejectionReasons[s.id] && (
-            <output className="text-muted-foreground">
-              {rejectionReasons[s.id]}
-            </output>
+            <output className="text-muted-foreground">{rejectionReasons[s.id]}</output>
           )}
           <p className="text-xs text-muted-foreground">{s.reason}</p>
           <div className="resume-review">
@@ -780,10 +718,7 @@ export function ResumeEditor({
       "data-active": dragOver === key,
       onDragLeave: () => setDragOver(null),
       onDragOver: (event: React.DragEvent) => {
-        if (
-          !disabled &&
-          event.dataTransfer.types.includes(RESUME_BULLET_TRANSFER_TYPE)
-        ) {
+        if (!disabled && event.dataTransfer.types.includes(RESUME_BULLET_TRANSFER_TYPE)) {
           event.preventDefault();
           event.stopPropagation();
           event.dataTransfer.dropEffect = "move";
@@ -797,20 +732,13 @@ export function ResumeEditor({
         if (disabled) return;
         if (event.dataTransfer.types.includes(RESUME_BULLET_TRANSFER_TYPE)) {
           try {
-            const source = JSON.parse(
-              event.dataTransfer.getData(RESUME_BULLET_TRANSFER_TYPE),
-            );
+            const source = JSON.parse(event.dataTransfer.getData(RESUME_BULLET_TRANSFER_TYPE));
             if (
               source &&
               typeof source.experienceId === "string" &&
               Number.isInteger(source.index)
             ) {
-              const next = moveResumeBullet(
-                currentDocument.current,
-                source,
-                id,
-                index,
-              );
+              const next = moveResumeBullet(currentDocument.current, source, id, index);
               currentDocument.current = next;
               onChange(next);
             }
@@ -827,11 +755,7 @@ export function ResumeEditor({
   const heading = (
     key: "summary" | "skills" | "experience" | "projects" | SimpleSection,
     name: string,
-  ) =>
-    (key === "summary"
-      ? document.summary.title
-      : document.sections[key].title
-    )?.trim() || name;
+  ) => (key === "summary" ? document.summary.title : document.sections[key].title)?.trim() || name;
   const simpleNames = {
     education: "Education",
     certifications: "Certifications",
@@ -859,11 +783,7 @@ export function ResumeEditor({
       date: kind === "awards" ? "award date" : "certification date",
       website: "website URL",
     };
-    function fieldInput(
-      item: (typeof section.items)[number],
-      index: number,
-      field: string,
-    ) {
+    function fieldInput(item: (typeof section.items)[number], index: number, field: string) {
       const label = `${simpleNames[kind]} ${index + 1} ${fieldLabels[field]}`;
       if (field === "description")
         // One paragraph that wraps and grows with its text.
@@ -884,9 +804,7 @@ export function ResumeEditor({
             onChange={(event) => {
               fitTextarea(event.currentTarget);
               change((next) => {
-                next.sections[kind].items[index].description = introTextToHtml(
-                  event.target.value,
-                );
+                next.sections[kind].items[index].description = introTextToHtml(event.target.value);
               });
             }}
           />
@@ -896,11 +814,7 @@ export function ResumeEditor({
           {...changedProps(item, [field], label)}
           aria-label={label}
           className={`resume-field-${field}`}
-          value={
-            field === "website"
-              ? (item.website?.url ?? "")
-              : String(item[field] ?? "")
-          }
+          value={field === "website" ? (item.website?.url ?? "") : String(item[field] ?? "")}
           placeholder={
             (
               {
@@ -929,10 +843,7 @@ export function ResumeEditor({
       );
     }
     return () => (
-      <section
-        className={`resume-section resume-${kind}`}
-        aria-label={simpleNames[kind]}
-      >
+      <section className={`resume-section resume-${kind}`} aria-label={simpleNames[kind]}>
         {section?.items.some((item) => !item.hidden) && (
           <h2
             {...focusDrag({
@@ -975,9 +886,7 @@ export function ResumeEditor({
                               value: String(item.title ?? ""),
                               onChange: (title) =>
                                 change((next) => {
-                                  next.sections.certifications.items[
-                                    index
-                                  ].title = title;
+                                  next.sections.certifications.items[index].title = title;
                                 }),
                             },
                             {
@@ -987,9 +896,10 @@ export function ResumeEditor({
                               value: item.website?.url ?? "",
                               onChange: (url) =>
                                 change((next) => {
-                                  next.sections.certifications.items[
-                                    index
-                                  ].website = { ...item.website, url };
+                                  next.sections.certifications.items[index].website = {
+                                    ...item.website,
+                                    url,
+                                  };
                                 }),
                             },
                           ]}
@@ -1042,24 +952,17 @@ export function ResumeEditor({
                         title={`Move ${simpleNames[kind]} ${index + 1} ${direction}`}
                         aria-label={`Move ${simpleNames[kind]} ${index + 1} ${direction}`}
                         disabled={
-                          direction === "up"
-                            ? index === 0
-                            : index === section.items.length - 1
+                          direction === "up" ? index === 0 : index === section.items.length - 1
                         }
                         onClick={() => {
-                          const target =
-                            direction === "up" ? index - 1 : index + 1;
+                          const target = direction === "up" ? index - 1 : index + 1;
                           keepMoveFocus(
-                            (d) =>
-                              `Move ${simpleNames[kind]} ${target + 1} ${d}`,
+                            (d) => `Move ${simpleNames[kind]} ${target + 1} ${d}`,
                             direction,
                           );
                           change((next) => {
                             const items = next.sections[kind].items;
-                            [items[index], items[target]] = [
-                              items[target],
-                              items[index],
-                            ];
+                            [items[index], items[target]] = [items[target], items[index]];
                           });
                         }}
                       >
@@ -1094,8 +997,7 @@ export function ResumeEditor({
     summary: document.summary.hidden
       ? null
       : () =>
-          addingSummary ||
-          bulletsFromHtml(document.summary.content).length > 0 ? (
+          addingSummary || bulletsFromHtml(document.summary.content).length > 0 ? (
             <section className="resume-section" aria-label="Summary">
               <h2
                 className="text-sm font-semibold"
@@ -1121,9 +1023,7 @@ export function ResumeEditor({
                   }}
                 />
               </div>
-              {suggestionList(
-                suggestions.filter((s) => s.op === "replace_summary"),
-              )}
+              {suggestionList(suggestions.filter((s) => s.op === "replace_summary"))}
             </section>
           ) : (
             <section className="resume-section resume-empty-summary">
@@ -1136,9 +1036,7 @@ export function ResumeEditor({
               >
                 + Summary
               </Button>
-              {suggestionList(
-                suggestions.filter((s) => s.op === "replace_summary"),
-              )}
+              {suggestionList(suggestions.filter((s) => s.op === "replace_summary"))}
             </section>
           ),
     skills: document.sections.skills.hidden
@@ -1172,18 +1070,13 @@ export function ResumeEditor({
                         <span className="resume-skill-name-box">
                           <span aria-hidden="true">{skill.name}</span>
                           <Input
-                            {...changedProps(
-                              skill,
-                              ["name"],
-                              `Skill ${index + 1} name`,
-                            )}
+                            {...changedProps(skill, ["name"], `Skill ${index + 1} name`)}
                             aria-label={`Skill ${index + 1} name`}
                             className="resume-skill-name"
                             value={skill.name}
                             onChange={(e) =>
                               change((next) => {
-                                next.sections.skills.items[index].name =
-                                  e.target.value;
+                                next.sections.skills.items[index].name = e.target.value;
                               })
                             }
                           />
@@ -1193,11 +1086,7 @@ export function ResumeEditor({
                       <CommaListInput
                         multiline
                         className="resume-skill-keywords"
-                        {...changedProps(
-                          skill,
-                          ["keywords"],
-                          `Skill ${index + 1} keywords`,
-                        )}
+                        {...changedProps(skill, ["keywords"], `Skill ${index + 1} keywords`)}
                         aria-label={`Skill ${index + 1} keywords`}
                         value={skill.keywords}
                         onCommit={(keywords) => {
@@ -1217,11 +1106,7 @@ export function ResumeEditor({
                       />
                       <div className="resume-tools resume-skill-controls">
                         {entryTools("skills", skill)}
-                        {dragHandle(
-                          SKILL_TRANSFER_TYPE,
-                          skill.id,
-                          `Drag skill ${index + 1}`,
-                        )}
+                        {dragHandle(SKILL_TRANSFER_TYPE, skill.id, `Drag skill ${index + 1}`)}
                         {askAi({
                           kind: "skill",
                           section: "skills",
@@ -1235,10 +1120,7 @@ export function ResumeEditor({
                           aria-label={`Move skill ${index + 1} up`}
                           disabled={index === 0}
                           onClick={() => {
-                            keepMoveFocus(
-                              (d) => `Move skill ${index} ${d}`,
-                              "up",
-                            );
+                            keepMoveFocus((d) => `Move skill ${index} ${d}`, "up");
                             change((next) => {
                               next.sections.skills.items = moveItem(
                                 next.sections.skills.items,
@@ -1255,14 +1137,9 @@ export function ResumeEditor({
                           variant="ghost"
                           title={`Move skill ${index + 1} down`}
                           aria-label={`Move skill ${index + 1} down`}
-                          disabled={
-                            index === document.sections.skills.items.length - 1
-                          }
+                          disabled={index === document.sections.skills.items.length - 1}
                           onClick={() => {
-                            keepMoveFocus(
-                              (d) => `Move skill ${index + 2} ${d}`,
-                              "down",
-                            );
+                            keepMoveFocus((d) => `Move skill ${index + 2} ${d}`, "down");
                             change((next) => {
                               next.sections.skills.items = moveItem(
                                 next.sections.skills.items,
@@ -1295,14 +1172,10 @@ export function ResumeEditor({
                   ),
               )}
               {reorderZone("skills", document.sections.skills.items.length)}
-              {suggestionList(
-                suggestions.filter((s) => s.op === "set_skill_keywords"),
-              )}
+              {suggestionList(suggestions.filter((s) => s.op === "set_skill_keywords"))}
             </section>
           ) : (
-            <section className="resume-section">
-              {sectionTools("skills")}
-            </section>
+            <section className="resume-section">{sectionTools("skills")}</section>
           ),
     certifications: simpleSection("certifications"),
     experience: !document.sections.experience.hidden
@@ -1347,11 +1220,7 @@ export function ResumeEditor({
                     )}
                     <Input
                       className="resume-position"
-                      {...changedProps(
-                        experience,
-                        ["position"],
-                        `${name} position`,
-                      )}
+                      {...changedProps(experience, ["position"], `${name} position`)}
                       aria-label={`${name} position`}
                       value={experience.position ?? ""}
                       placeholder="Position"
@@ -1365,47 +1234,39 @@ export function ResumeEditor({
                       }
                     />
                     <div className="resume-experience-heading">
-                      {(["company", "location", "period"] as const).map(
-                        (field) => {
-                          const placeholder =
-                            field === "period"
-                              ? "Jan 2023 – Present"
-                              : field === "company"
-                                ? "Company"
-                                : "Location";
-                          return (
-                            <Fragment key={field}>
-                              {field === "location" && (
-                                <span aria-hidden="true">-</span>
+                      {(["company", "location", "period"] as const).map((field) => {
+                        const placeholder =
+                          field === "period"
+                            ? "Jan 2023 – Present"
+                            : field === "company"
+                              ? "Company"
+                              : "Location";
+                        return (
+                          <Fragment key={field}>
+                            {field === "location" && <span aria-hidden="true">-</span>}
+                            <Input
+                              {...changedProps(
+                                experience,
+                                [field],
+                                `${name} ${field === "period" ? "dates" : field}`,
                               )}
-                              <Input
-                                {...changedProps(
-                                  experience,
-                                  [field],
-                                  `${name} ${field === "period" ? "dates" : field}`,
-                                )}
-                                aria-label={`${name} ${field === "period" ? "dates" : field}`}
-                                value={experience[field] ?? ""}
-                                placeholder={placeholder}
-                                // Width fallback where CSS field-sizing is unsupported (Firefox, Safari).
-                                size={Math.max(
-                                  (experience[field] || placeholder).length,
-                                  1,
-                                )}
-                                onChange={(event) =>
-                                  change((next) => {
-                                    const item =
-                                      next.sections.experience.items.find(
-                                        (entry) => entry.id === experience.id,
-                                      );
-                                    if (item) item[field] = event.target.value;
-                                  })
-                                }
-                              />
-                            </Fragment>
-                          );
-                        },
-                      )}
+                              aria-label={`${name} ${field === "period" ? "dates" : field}`}
+                              value={experience[field] ?? ""}
+                              placeholder={placeholder}
+                              // Width fallback where CSS field-sizing is unsupported (Firefox, Safari).
+                              size={Math.max((experience[field] || placeholder).length, 1)}
+                              onChange={(event) =>
+                                change((next) => {
+                                  const item = next.sections.experience.items.find(
+                                    (entry) => entry.id === experience.id,
+                                  );
+                                  if (item) item[field] = event.target.value;
+                                })
+                              }
+                            />
+                          </Fragment>
+                        );
+                      })}
                     </div>
                     <div className="resume-tools resume-entry-controls">
                       {entryTools("experience", experience)}
@@ -1438,17 +1299,9 @@ export function ResumeEditor({
                         variant="ghost"
                         title={`Move experience ${name} up`}
                         aria-label={`Move experience ${name} up`}
-                        disabled={
-                          document.sections.experience.items.indexOf(
-                            experience,
-                          ) === 0
-                        }
+                        disabled={document.sections.experience.items.indexOf(experience) === 0}
                         onClick={() => {
-                          keepMoveFocus(
-                            (d) => `Move experience ${name} ${d}`,
-                            "up",
-                            experience.id,
-                          );
+                          keepMoveFocus((d) => `Move experience ${name} ${d}`, "up", experience.id);
                           change((next) => {
                             const i = next.sections.experience.items.findIndex(
                               (e) => e.id === experience.id,
@@ -1469,9 +1322,7 @@ export function ResumeEditor({
                         title={`Move experience ${name} down`}
                         aria-label={`Move experience ${name} down`}
                         disabled={
-                          document.sections.experience.items.indexOf(
-                            experience,
-                          ) ===
+                          document.sections.experience.items.indexOf(experience) ===
                           document.sections.experience.items.length - 1
                         }
                         onClick={() => {
@@ -1539,9 +1390,7 @@ export function ResumeEditor({
                                 updateBullets(experience.id, (current) =>
                                   current
                                     .map((text, i) =>
-                                      i === index
-                                        ? { ...text, text: value }
-                                        : text,
+                                      i === index ? { ...text, text: value } : text,
                                     )
                                     .filter((line) => line.text.trim()),
                                 );
@@ -1644,9 +1493,7 @@ export function ResumeEditor({
                       className="resume-gap"
                       title={`Move to end of ${name}`}
                     >
-                      <span className="sr-only">
-                        Drop to move a duty to the end
-                      </span>
+                      <span className="sr-only">Drop to move a duty to the end</span>
                     </div>
                     {suggestionList(
                       suggestions.filter(
@@ -1661,16 +1508,12 @@ export function ResumeEditor({
                   </section>
                 );
               })}
-            {reorderZone(
-              "experience",
-              document.sections.experience.items.length,
-            )}
+            {reorderZone("experience", document.sections.experience.items.length)}
           </section>
         )
       : null,
     projects:
-      !document.sections.projects.hidden &&
-      document.sections.projects.items.length
+      !document.sections.projects.hidden && document.sections.projects.items.length
         ? () => (
             <section className="resume-section" aria-label="Projects">
               {document.sections.projects.items.some((p) => !p.hidden) && (
@@ -1723,13 +1566,7 @@ export function ResumeEditor({
                           {project.name}
                         </a>
                       </h3>
-                      <span
-                        {...changedProps(
-                          project,
-                          ["period"],
-                          String(project.period ?? ""),
-                        )}
-                      >
+                      <span {...changedProps(project, ["period"], String(project.period ?? ""))}>
                         {project.period}
                       </span>
                     </div>
@@ -1757,16 +1594,13 @@ export function ResumeEditor({
                         ×
                       </Button>
                     </div>
-                    {bulletsFromHtml(
-                      splitDescription(project.description ?? "").introHtml,
-                    ).join("\n") && (
-                      <p
-                        className="resume-readonly"
-                        title="Edit in the right panel"
-                      >
-                        {bulletsFromHtml(
-                          splitDescription(project.description).introHtml,
-                        ).join("\n")}
+                    {bulletsFromHtml(splitDescription(project.description ?? "").introHtml).join(
+                      "\n",
+                    ) && (
+                      <p className="resume-readonly" title="Edit in the right panel">
+                        {bulletsFromHtml(splitDescription(project.description).introHtml).join(
+                          "\n",
+                        )}
                       </p>
                     )}
                     <ul className="resume-bullets">
@@ -1784,9 +1618,7 @@ export function ResumeEditor({
                               if (!text.trim() && isLinked(line.ref)) return;
                               updateBullets(project.id, (lines) =>
                                 lines
-                                  .map((old, at) =>
-                                    at === i ? { ...old, text } : old,
-                                  )
+                                  .map((old, at) => (at === i ? { ...old, text } : old))
                                   .filter((old) => old.text.trim()),
                               );
                             }}
@@ -1833,8 +1665,7 @@ export function ResumeEditor({
     awards: "Awards",
   };
   const order = sectionOrder(document.metadata?.layout).filter(
-    (key): key is SectionKey =>
-      key in sections && sections[key as SectionKey] !== null,
+    (key): key is SectionKey => key in sections && sections[key as SectionKey] !== null,
   );
   function moveTo(key: string, before: string | null) {
     onChange(moveSection(document, key, before));
@@ -1847,10 +1678,7 @@ export function ResumeEditor({
         data-active={dragOver === key}
         aria-label={`Move section ${before ? `before ${sectionNames[before as SectionKey]}` : "to the end"}`}
         onDragOver={(event) => {
-          if (
-            !disabled &&
-            event.dataTransfer.types.includes(SECTION_TRANSFER_TYPE)
-          ) {
+          if (!disabled && event.dataTransfer.types.includes(SECTION_TRANSFER_TYPE)) {
             event.preventDefault();
             event.stopPropagation();
             event.dataTransfer.dropEffect = "move";
@@ -1864,11 +1692,8 @@ export function ResumeEditor({
           setDragOver(null);
           if (disabled) return;
           try {
-            const moved = JSON.parse(
-              event.dataTransfer.getData(SECTION_TRANSFER_TYPE),
-            );
-            if (typeof moved === "string" && moved in sections)
-              moveTo(moved, before);
+            const moved = JSON.parse(event.dataTransfer.getData(SECTION_TRANSFER_TYPE));
+            if (typeof moved === "string" && moved in sections) moveTo(moved, before);
           } catch {
             /* Ignore unrelated or malformed external drags. */
           }
@@ -1881,11 +1706,7 @@ export function ResumeEditor({
     const i = order.indexOf(key);
     return (
       <div className="resume-tools resume-section-controls">
-        {dragHandle(
-          SECTION_TRANSFER_TYPE,
-          key,
-          `Drag section ${sectionNames[key]}`,
-        )}
+        {dragHandle(SECTION_TRANSFER_TYPE, key, `Drag section ${sectionNames[key]}`)}
         {askAi(
           key === "summary"
             ? { kind: "summary", label: "Summary" }
@@ -1902,10 +1723,7 @@ export function ResumeEditor({
           aria-label={`Move section ${sectionNames[key]} up`}
           disabled={i === 0}
           onClick={() => {
-            keepMoveFocus(
-              (d) => `Move section ${sectionNames[key]} ${d}`,
-              "up",
-            );
+            keepMoveFocus((d) => `Move section ${sectionNames[key]} ${d}`, "up");
             moveTo(key, order[i - 1]);
           }}
         >
@@ -1918,10 +1736,7 @@ export function ResumeEditor({
           aria-label={`Move section ${sectionNames[key]} down`}
           disabled={i === order.length - 1}
           onClick={() => {
-            keepMoveFocus(
-              (d) => `Move section ${sectionNames[key]} ${d}`,
-              "down",
-            );
+            keepMoveFocus((d) => `Move section ${sectionNames[key]} ${d}`, "down");
             moveTo(key, order[i + 2] ?? null);
           }}
         >
@@ -1937,10 +1752,7 @@ export function ResumeEditor({
         {keys.map((key) => (
           <Fragment key={key}>
             {sectionGap(key)}
-            <div
-              className="resume-row resume-section-slot"
-              data-focus-section={key}
-            >
+            <div className="resume-row resume-section-slot" data-focus-section={key}>
               {sections[key]?.()}
             </div>
           </Fragment>
@@ -1952,8 +1764,7 @@ export function ResumeEditor({
   return (
     <div className="resume-canvas" ref={canvas}>
       <p className="resume-editor-hint">
-        Click a line to show its tools. Drag ⠿ to reorder or drop it into the
-        chat.
+        Click a line to show its tools. Drag ⠿ to reorder or drop it into the chat.
       </p>
       <div
         className="resume-paper-frame"
@@ -1973,8 +1784,7 @@ export function ResumeEditor({
           // and Firefox on macOS do not focus buttons, so the toolbar would
           // hide before the click lands. Drag handles and Ask AI are spans.
           onMouseDown={(event) => {
-            if ((event.target as Element).closest(".resume-tools button"))
-              event.preventDefault();
+            if ((event.target as Element).closest(".resume-tools button")) event.preventDefault();
           }}
           style={{
             ...(NAVY_SERIF_CSS_VARS as CSSProperties),
@@ -2001,9 +1811,7 @@ export function ResumeEditor({
                 onClick={() =>
                   accept(
                     suggestions.filter(
-                      (s) =>
-                        s.op !== "create_library_item" &&
-                        s.op !== "save_to_library",
+                      (s) => s.op !== "create_library_item" && s.op !== "save_to_library",
                     ),
                   )
                 }
@@ -2047,9 +1855,7 @@ export function ResumeEditor({
                     })
                   }
                 />
-                <div className="resume-tools">
-                  {askAi({ kind: "headline", label: "Headline" })}
-                </div>
+                <div className="resume-tools">{askAi({ kind: "headline", label: "Headline" })}</div>
               </div>
             ) : (
               <Button
@@ -2061,42 +1867,21 @@ export function ResumeEditor({
                 + Headline
               </Button>
             )}
-            {suggestionList(
-              suggestions.filter((s) => s.op === "replace_headline"),
-            )}
-            <div
-              className="resume-contact"
-              data-library={contactsFromLibrary || undefined}
-            >
+            {suggestionList(suggestions.filter((s) => s.op === "replace_headline"))}
+            <div className="resume-contact" data-library={contactsFromLibrary || undefined}>
               {(["phone", "email", "location"] as const).map((field) => (
                 <span
                   className="resume-contact-item"
                   key={field}
                   data-empty={!document.basics[field]}
                 >
-                  {field === "phone"
-                    ? "Tel: "
-                    : field === "email"
-                      ? "Email: "
-                      : ""}
+                  {field === "phone" ? "Tel: " : field === "email" ? "Email: " : ""}
                   <Input
                     aria-label={
-                      field === "phone"
-                        ? "Phone"
-                        : field === "email"
-                          ? "Email"
-                          : "Location"
+                      field === "phone" ? "Phone" : field === "email" ? "Email" : "Location"
                     }
-                    type={
-                      field === "phone"
-                        ? "tel"
-                        : field === "email"
-                          ? "email"
-                          : "text"
-                    }
-                    className={
-                      field === "email" ? "resume-contact-link" : undefined
-                    }
+                    type={field === "phone" ? "tel" : field === "email" ? "email" : "text"}
+                    className={field === "email" ? "resume-contact-link" : undefined}
                     value={document.basics[field] ?? ""}
                     placeholder={field === "location" ? "Location" : undefined}
                     onChange={(event) =>
@@ -2181,14 +1966,12 @@ export function ResumeEditor({
                         data-focus-item={profile.id}
                         data-empty={empty}
                         onBlur={(event) => {
-                          if (event.currentTarget.contains(event.relatedTarget))
-                            return;
+                          if (event.currentTarget.contains(event.relatedTarget)) return;
                           if (!empty) return;
                           change((next) => {
-                            next.sections.profiles.items =
-                              next.sections.profiles.items.filter(
-                                (item) => item.id !== profile.id,
-                              );
+                            next.sections.profiles.items = next.sections.profiles.items.filter(
+                              (item) => item.id !== profile.id,
+                            );
                           });
                         }}
                       >
@@ -2226,10 +2009,9 @@ export function ResumeEditor({
                             aria-label={`Delete profile ${index + 1}`}
                             onClick={() =>
                               change((next) => {
-                                next.sections.profiles.items =
-                                  next.sections.profiles.items.filter(
-                                    (item) => item.id !== profile.id,
-                                  );
+                                next.sections.profiles.items = next.sections.profiles.items.filter(
+                                  (item) => item.id !== profile.id,
+                                );
                               })
                             }
                           >
@@ -2255,8 +2037,7 @@ export function ResumeEditor({
                   "delete_bullet",
                 ].includes(s.op) ||
                 (s.op === "replace_summary" && document.summary.hidden) ||
-                (s.op === "set_skill_keywords" &&
-                  document.sections.skills.hidden) ||
+                (s.op === "set_skill_keywords" && document.sections.skills.hidden) ||
                 (s.op === "replace_field" && !fieldVisible(document, s)) ||
                 ((s.op === "replace_bullet" ||
                   s.op === "insert_bullet" ||

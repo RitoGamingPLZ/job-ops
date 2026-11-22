@@ -8,10 +8,7 @@ import {
 } from "@server/config/demo-defaults";
 import { db, schema } from "@server/db/index";
 import * as jobsRepo from "@server/repositories/jobs";
-import {
-  persistDemoGeneratedPdf,
-  seedDemoDesignResume,
-} from "@server/services/demo-pdf";
+import { persistDemoGeneratedPdf, seedDemoDesignResume } from "@server/services/demo-pdf";
 import { resolvePdfFingerprintContext } from "@server/services/pdf-fingerprint";
 import { DEFAULT_TENANT_ID } from "@server/tenancy/constants";
 import { eq } from "drizzle-orm";
@@ -30,11 +27,7 @@ function toIsoFromOffset(now: Date, offsetMinutes: number): string {
   return new Date(now.getTime() - offsetMinutes * 60 * 1000).toISOString();
 }
 
-function makeDemoLink(
-  baseUrl: string,
-  jobId: string,
-  kind: "job" | "apply",
-): string {
+function makeDemoLink(baseUrl: string, jobId: string, kind: "job" | "apply"): string {
   const trimmed = baseUrl.replace(/\/+$/, "");
   return `${trimmed}/${kind}/${jobId}`;
 }
@@ -45,10 +38,7 @@ export function buildDemoBaseline(now: Date): BuiltDemoBaseline {
   for (const event of DEMO_DEFAULT_STAGE_EVENTS) {
     const latest = latestEvents.get(event.applicationId);
     // Smaller offsets are newer; on a tie, the later fixture entry wins.
-    if (
-      !latest ||
-      event.occurredOffsetMinutes <= latest.occurredOffsetMinutes
-    ) {
+    if (!latest || event.occurredOffsetMinutes <= latest.occurredOffsetMinutes) {
       latestEvents.set(event.applicationId, event);
     }
   }
@@ -81,10 +71,7 @@ export function buildDemoBaseline(now: Date): BuiltDemoBaseline {
       closedAt:
         latestEvents.get(job.id)?.toStage === "closed"
           ? Math.floor(
-              (now.getTime() -
-                (latestEvents.get(job.id)?.occurredOffsetMinutes ?? 0) *
-                  60 *
-                  1000) /
+              (now.getTime() - (latestEvents.get(job.id)?.occurredOffsetMinutes ?? 0) * 60 * 1000) /
                 1000,
             )
           : null,
@@ -92,9 +79,7 @@ export function buildDemoBaseline(now: Date): BuiltDemoBaseline {
       suitabilityReason: job.suitabilityReason,
       tailoredSummary: job.tailoredSummary ?? null,
       tailoredHeadline: job.tailoredHeadline ?? null,
-      tailoredSkills: job.tailoredSkills
-        ? JSON.stringify(job.tailoredSkills)
-        : null,
+      tailoredSkills: job.tailoredSkills ? JSON.stringify(job.tailoredSkills) : null,
       selectedProjectIds: job.selectedProjectIds ?? null,
       pdfPath: null,
       discoveredAt: toIsoFromOffset(now, job.discoveredOffsetMinutes),
@@ -117,9 +102,7 @@ export function buildDemoBaseline(now: Date): BuiltDemoBaseline {
       title: event.title,
       fromStage: event.fromStage,
       toStage: event.toStage,
-      occurredAt: Math.floor(
-        (now.getTime() - event.occurredOffsetMinutes * 60 * 1000) / 1000,
-      ),
+      occurredAt: Math.floor((now.getTime() - event.occurredOffsetMinutes * 60 * 1000) / 1000),
       metadata: event.metadata,
       outcome: event.outcome ?? null,
       groupId: null,
@@ -127,31 +110,21 @@ export function buildDemoBaseline(now: Date): BuiltDemoBaseline {
   };
 }
 
-export async function applyDemoBaseline(
-  baseline: BuiltDemoBaseline,
-): Promise<void> {
+export async function applyDemoBaseline(baseline: BuiltDemoBaseline): Promise<void> {
   db.transaction((tx) => {
-    tx.delete(stageEvents)
-      .where(eq(stageEvents.tenantId, DEFAULT_TENANT_ID))
-      .run();
+    tx.delete(stageEvents).where(eq(stageEvents.tenantId, DEFAULT_TENANT_ID)).run();
     tx.delete(tasks).where(eq(tasks.tenantId, DEFAULT_TENANT_ID)).run();
-    tx.delete(interviews)
-      .where(eq(interviews.tenantId, DEFAULT_TENANT_ID))
-      .run();
+    tx.delete(interviews).where(eq(interviews.tenantId, DEFAULT_TENANT_ID)).run();
     tx.delete(jobs).where(eq(jobs.tenantId, DEFAULT_TENANT_ID)).run();
-    tx.delete(pipelineRuns)
-      .where(eq(pipelineRuns.tenantId, DEFAULT_TENANT_ID))
-      .run();
+    tx.delete(pipelineRuns).where(eq(pipelineRuns.tenantId, DEFAULT_TENANT_ID)).run();
     tx.delete(settings).where(eq(settings.tenantId, DEFAULT_TENANT_ID)).run();
 
-    const settingRows = Object.entries(baseline.settings).map(
-      ([key, value]) => ({
-        key,
-        value,
-        createdAt: baseline.resetAt,
-        updatedAt: baseline.resetAt,
-      }),
-    );
+    const settingRows = Object.entries(baseline.settings).map(([key, value]) => ({
+      key,
+      value,
+      createdAt: baseline.resetAt,
+      updatedAt: baseline.resetAt,
+    }));
     if (settingRows.length > 0) {
       tx.insert(settings).values(settingRows).run();
     }

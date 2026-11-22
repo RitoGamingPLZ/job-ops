@@ -20,10 +20,7 @@ describe("job failure status mapping", () => {
   it.each(statuses)("maps %s to %i in both consumers", (code, status) => {
     expect(statusToCode(status)).toBe(code);
     expect(
-      appErrorFromPipelineFailure(
-        { errorCode: code, error: "failure" },
-        "fallback",
-      ),
+      appErrorFromPipelineFailure({ errorCode: code, error: "failure" }, "fallback"),
     ).toMatchObject({ code, status, message: "failure" });
     expect(
       mapJobActionFailure({
@@ -41,12 +38,7 @@ describe("job failure status mapping", () => {
     [{ error: "job not found" }, "job not found", 400, "INVALID_REQUEST"],
     [{ error: "" }, "", 400, "INVALID_REQUEST"],
     [{ errorCode: "CONFLICT" as const }, "fallback", 409, "CONFLICT"],
-    [
-      { errorCode: "CONFLICT" as const, error: "Job not found" },
-      "Job not found",
-      409,
-      "CONFLICT",
-    ],
+    [{ errorCode: "CONFLICT" as const, error: "Job not found" }, "Job not found", 409, "CONFLICT"],
   ])("preserves pipeline fallback for %j", (failure, message, status, code) => {
     expect(appErrorFromPipelineFailure(failure, "fallback")).toMatchObject({
       code,

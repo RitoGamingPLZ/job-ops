@@ -28,15 +28,11 @@ export async function getSettings(): Promise<AppSettings> {
   return settingsPromise;
 }
 
-export async function getProfileProjects(): Promise<
-  ResumeProjectCatalogItem[]
-> {
+export async function getProfileProjects(): Promise<ResumeProjectCatalogItem[]> {
   return fetchApi<ResumeProjectCatalogItem[]>("/profile/projects");
 }
 
-export async function getResumeProjectsCatalog(): Promise<
-  ResumeProjectCatalogItem[]
-> {
+export async function getResumeProjectsCatalog(): Promise<ResumeProjectCatalogItem[]> {
   return getProfileProjects();
 }
 
@@ -85,10 +81,9 @@ export async function generateDesignResumePdf(): Promise<DesignResumePdfResponse
 }
 
 export async function getDesignResumePdfBlob(pdfUrl?: string): Promise<Blob> {
-  return fetchBlobApi(
-    pdfUrl ? normalizeApiPath(pdfUrl) : "/design-resume/pdf",
-    { cache: "no-store" },
-  );
+  return fetchBlobApi(pdfUrl ? normalizeApiPath(pdfUrl) : "/design-resume/pdf", {
+    cache: "no-store",
+  });
 }
 
 export async function previewDesignResumePdfBlob(): Promise<Blob> {
@@ -142,16 +137,11 @@ export async function saveOnboardingProfile(input: {
   });
 }
 
-export async function confirmOnboardingResume(
-  source: string,
-): Promise<OnboardingStatusResponse> {
-  return fetchApi<OnboardingStatusResponse>(
-    "/onboarding/actions/resume/confirm",
-    {
-      method: "POST",
-      body: JSON.stringify({ source }),
-    },
-  );
+export async function confirmOnboardingResume(source: string): Promise<OnboardingStatusResponse> {
+  return fetchApi<OnboardingStatusResponse>("/onboarding/actions/resume/confirm", {
+    method: "POST",
+    body: JSON.stringify({ source }),
+  });
 }
 
 export async function saveOnboardingRxResume(input: {
@@ -214,17 +204,12 @@ export async function validateResumeConfig(): Promise<ValidationResult> {
 }
 
 export async function suggestOnboardingSearchTerms(): Promise<SearchTermsSuggestionResponse> {
-  return fetchApi<SearchTermsSuggestionResponse>(
-    "/onboarding/search-terms/suggest",
-    {
-      method: "POST",
-    },
-  );
+  return fetchApi<SearchTermsSuggestionResponse>("/onboarding/search-terms/suggest", {
+    method: "POST",
+  });
 }
 
-export async function updateSettings(
-  update: Partial<UpdateSettingsInput>,
-): Promise<AppSettings> {
+export async function updateSettings(update: Partial<UpdateSettingsInput>): Promise<AppSettings> {
   return fetchApi<AppSettings>("/settings", {
     method: "PATCH",
     body: JSON.stringify(update),
@@ -232,9 +217,7 @@ export async function updateSettings(
 }
 
 export async function getRxResumes(): Promise<{ id: string; name: string }[]> {
-  const data = await fetchApi<{ resumes: { id: string; name: string }[] }>(
-    `/settings/rx-resumes`,
-  );
+  const data = await fetchApi<{ resumes: { id: string; name: string }[] }>(`/settings/rx-resumes`);
   return data.resumes;
 }
 

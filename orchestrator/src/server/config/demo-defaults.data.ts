@@ -17,11 +17,7 @@ export const DEMO_DEFAULT_SETTINGS: DemoDefaultSettings = {
   llmProvider: "openrouter",
   model: "google/gemini-3-flash-preview",
   pdfRenderer: "latex",
-  searchTerms: JSON.stringify([
-    "software engineer",
-    "backend engineer",
-    "full stack engineer",
-  ]),
+  searchTerms: JSON.stringify(["software engineer", "backend engineer", "full stack engineer"]),
   renderMarkdownInJobDescriptions: "1",
   backupEnabled: "0",
   backupHour: "2",
@@ -592,8 +588,7 @@ export const DEMO_BASE_JOBS: DemoDefaultJob[] = [
     location: "Remote (EU)",
     salary: "EUR 45,000",
     deadline: "2026-03-01",
-    jobDescription:
-      "Frontend-first role focused on marketing pages and design implementation.",
+    jobDescription: "Frontend-first role focused on marketing pages and design implementation.",
     status: "skipped",
     discoveredOffsetMinutes: 860,
     suitabilityScore: 58,

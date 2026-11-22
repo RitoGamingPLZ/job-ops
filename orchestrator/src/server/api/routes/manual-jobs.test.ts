@@ -2,7 +2,7 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-describe.sequential("Manual jobs API routes", () => {
+describe("Manual jobs API routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -47,9 +47,7 @@ describe.sequential("Manual jobs API routes", () => {
       expect(res.status).toBe(422);
       const body = await res.json();
       expect(body.ok).toBe(false);
-      expect(body.error.message).toContain(
-        "Auto-fetch is not supported for LinkedIn links",
-      );
+      expect(body.error.message).toContain("Auto-fetch is not supported for LinkedIn links");
     });
   });
 
@@ -61,9 +59,7 @@ describe.sequential("Manual jobs API routes", () => {
     });
     expect(badRes.status).toBe(400);
 
-    const { inferManualJobDetails } = await import(
-      "@server/services/manualJob"
-    );
+    const { inferManualJobDetails } = await import("@server/services/manualJob");
     vi.mocked(inferManualJobDetails).mockResolvedValue({
       job: { title: "Backend Engineer", employer: "Acme" },
       warning: null,
@@ -161,9 +157,7 @@ describe.sequential("Manual jobs API routes", () => {
     expect(duplicateRes.status).toBe(409);
     expect(duplicateBody.ok).toBe(false);
     expect(duplicateBody.error.code).toBe("CONFLICT");
-    expect(duplicateBody.error.message).toBe(
-      "This job is already in your workspace.",
-    );
+    expect(duplicateBody.error.message).toBe("This job is already in your workspace.");
   });
 
   it("rejects manual imports without a job URL", async () => {

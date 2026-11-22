@@ -59,33 +59,33 @@ Sign-in uses JobOps accounts by default, and can also use Google, GitHub, or any
 
 ## How It Works
 
-| Step | What happens |
-|------|-------------|
-| **Search** | Scrapes 10+ job boards for roles matching your criteria |
-| **Score** | AI ranks each job 0-100 against your profile |
-| **Tailor** | Generates a rewritten CV matched to each job description |
+| Step       | What happens                                                                |
+| ---------- | --------------------------------------------------------------------------- |
+| **Search** | Scrapes 10+ job boards for roles matching your criteria                     |
+| **Score**  | AI ranks each job 0-100 against your profile                                |
+| **Tailor** | Generates a rewritten CV matched to each job description                    |
 | **Export** | Creates a polished PDF locally, or via [Reactive Resume](https://rxresu.me) |
-| **Track** | Connects to Gmail and auto-detects interviews, offers, and rejections |
+| **Track**  | Connects to Gmail and auto-detects interviews, offers, and rejections       |
 
 ---
 
 ## Supported Job Boards
 
-| Platform | Focus |
-|----------|-------|
-| LinkedIn | Global |
-| Indeed | Global |
-| Glassdoor | Global |
-| Adzuna | Multi-country API |
-| Hiring Cafe | Global |
-| startup.jobs | Startup/remote roles |
-| Working Nomads | Remote-only |
-| Gradcracker | STEM/Grads (UK) |
-| UK Visa Jobs | Sponsorship (UK) |
-| Golang Jobs | Go developers |
-| Seek | Australia/NZ (via Apify) |
-| WUZZUF | Egypt (Job Board) |
-| Khamsat | Egypt (Freelance) |
+| Platform       | Focus                    |
+| -------------- | ------------------------ |
+| LinkedIn       | Global                   |
+| Indeed         | Global                   |
+| Glassdoor      | Global                   |
+| Adzuna         | Multi-country API        |
+| Hiring Cafe    | Global                   |
+| startup.jobs   | Startup/remote roles     |
+| Working Nomads | Remote-only              |
+| Gradcracker    | STEM/Grads (UK)          |
+| UK Visa Jobs   | Sponsorship (UK)         |
+| Golang Jobs    | Go developers            |
+| Seek           | Australia/NZ (via Apify) |
+| WUZZUF         | Egypt (Job Board)        |
+| Khamsat        | Egypt (Freelance)        |
 
 Custom extractors can be added via TypeScript. See the [extractor docs](https://jobops.dakheera47.com/docs/extractors/overview).
 
@@ -95,8 +95,8 @@ Custom extractors can be added via TypeScript. See the [extractor docs](https://
 
 Connect your Gmail and JobOps watches for recruiter replies automatically.
 
-- *"We'd like to invite you to interview..."* → Status updates to **Interviewing**
-- *"Unfortunately we won't be progressing..."* → Status updates to **Rejected**
+- _"We'd like to invite you to interview..."_ → Status updates to **Interviewing**
+- _"Unfortunately we won't be progressing..."_ → Status updates to **Rejected**
 
 No manual updates. No spreadsheets. See the [tracking docs](https://jobops.dakheera47.com/docs/features/post-application-tracking) for setup.
 
@@ -126,14 +126,14 @@ Don't want to self-host? JobOps Cloud gives you your own hosted instance with no
 
 <div align="center">
 
-| | BYOK | Zero Setup |
-|---|:---:|:---:|
-| **Price** | £20/month | £30/month |
-| **All features** | ✓ | ✓ |
-| **Your own instance** | ✓ | ✓ |
-| **Managed updates** | ✓ | ✓ |
-| **AI provider** | Bring your own key | Included, no config needed |
-| | [Get Started](https://buy.stripe.com/bJeeVc67v9S42AFeWj4c800) | [Get Started](https://buy.stripe.com/dRmbJ0cvT2pC2AF6pN4c801) |
+|                       |                             BYOK                              |                          Zero Setup                           |
+| --------------------- | :-----------------------------------------------------------: | :-----------------------------------------------------------: |
+| **Price**             |                           £20/month                           |                           £30/month                           |
+| **All features**      |                               ✓                               |                               ✓                               |
+| **Your own instance** |                               ✓                               |                               ✓                               |
+| **Managed updates**   |                               ✓                               |                               ✓                               |
+| **AI provider**       |                      Bring your own key                       |                  Included, no config needed                   |
+|                       | [Get Started](https://buy.stripe.com/bJeeVc67v9S42AFeWj4c800) | [Get Started](https://buy.stripe.com/dRmbJ0cvT2pC2AF6pN4c801) |
 
 </div>
 

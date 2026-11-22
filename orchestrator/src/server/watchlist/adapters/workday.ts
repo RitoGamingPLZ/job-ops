@@ -32,8 +32,7 @@ export const workdayWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourceSearchText: "custom workday url",
     customSourceInputLabel: "Custom Workday URL",
     customSourcePlaceholder: "https://company.wd1.myworkdayjobs.com/...",
-    customSourceHelpText:
-      "Use the public Workday careers URL, not an individual job posting URL.",
+    customSourceHelpText: "Use the public Workday careers URL, not an individual job posting URL.",
     emptyCatalogText: "No Workday companies found.",
     fetchingLabel: "Fetching from Workday...",
     invalidUrlMessage: "Invalid Workday URL",
@@ -61,9 +60,7 @@ export const workdayWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     };
   },
   normalizeCustomSelection(input) {
-    const canonicalCareersUrl = parseWorkdayUrl(
-      input.careersUrl,
-    ).canonicalCareersUrl;
+    const canonicalCareersUrl = parseWorkdayUrl(input.careersUrl).canonicalCareersUrl;
     const trimmedLabel = input.label?.trim();
     const label =
       trimmedLabel &&
@@ -90,9 +87,7 @@ export const workdayWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     return {
       total: response.total,
       fetched: response.fetched,
-      jobs: response.jobs.map((job) =>
-        normalizeWorkdayJob(input.source, source, job),
-      ),
+      jobs: response.jobs.map((job) => normalizeWorkdayJob(input.source, source, job)),
     };
   },
   async fetchJobDetails(input) {
@@ -111,19 +106,12 @@ export const workdayWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       jobUrl: input.jobRef,
       signal: input.signal,
     });
-    const source = workdayUrlToSourceKey(
-      input.source.cxsJobsUrl ?? input.source.careersUrl,
-    );
-    const draft = buildManualDraftFromWorkdayDetails(
-      input.source,
-      source,
-      details.job,
-    );
+    const source = workdayUrlToSourceKey(input.source.cxsJobsUrl ?? input.source.careersUrl);
+    const draft = buildManualDraftFromWorkdayDetails(input.source, source, details.job);
     return {
       draft,
       source: draft.source ?? null,
-      sourceHost:
-        getSourceHost(input.source.careersUrl) ?? getSourceHost(input.jobRef),
+      sourceHost: getSourceHost(input.source.careersUrl) ?? getSourceHost(input.jobRef),
     };
   },
   async fetchBranding(input) {
@@ -136,16 +124,11 @@ export const workdayWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     });
 
     if (!response.ok) {
-      throw new Error(
-        `Failed to fetch Workday logo with HTTP ${response.status}.`,
-      );
+      throw new Error(`Failed to fetch Workday logo with HTTP ${response.status}.`);
     }
 
     const contentLength = Number(response.headers.get("content-length"));
-    if (
-      Number.isFinite(contentLength) &&
-      contentLength > WORKDAY_LOGO_MAX_BYTES
-    ) {
+    if (Number.isFinite(contentLength) && contentLength > WORKDAY_LOGO_MAX_BYTES) {
       throw upstreamError("Workday company logo exceeded size limit", {
         url: logoUrl,
         contentLength,

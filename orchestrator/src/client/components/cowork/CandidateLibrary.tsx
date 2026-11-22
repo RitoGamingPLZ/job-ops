@@ -26,14 +26,7 @@ import type {
   ReactiveResumeV5Document,
 } from "@shared/types";
 import { MessageSquare, Plus, Trash2 } from "lucide-react";
-import {
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import { type SetStateAction, useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Accordion,
@@ -98,15 +91,7 @@ const fields: Partial<Record<CandidateItemKind, string[]>> = {
   contact: ["value", "label", "network", "username"],
   role: ["period"],
   project: ["period", "website"],
-  education: [
-    "school",
-    "location",
-    "period",
-    "area",
-    "grade",
-    "description",
-    "website",
-  ],
+  education: ["school", "location", "period", "area", "grade", "description", "website"],
   award: ["date", "awarder", "description", "website"],
   certification: ["issuer", "website", "date", "description"],
 };
@@ -174,8 +159,7 @@ function editableData(input: ExperienceBulletInput) {
         : key === "website"
           ? {
               url: fieldValue("website", data.website),
-              label:
-                typeof rawWebsite.label === "string" ? rawWebsite.label : "",
+              label: typeof rawWebsite.label === "string" ? rawWebsite.label : "",
               ...(typeof rawWebsite.inlineLink === "boolean"
                 ? { inlineLink: rawWebsite.inlineLink }
                 : {}),
@@ -184,16 +168,11 @@ function editableData(input: ExperienceBulletInput) {
     ]),
   );
 }
-function resumeItems(
-  document?: Doc,
-  sectionName?: string,
-): Record<string, unknown>[] {
+function resumeItems(document?: Doc, sectionName?: string): Record<string, unknown>[] {
   const sections = document?.sections as
     | Record<string, { items?: Record<string, unknown>[] }>
     | undefined;
-  const values = sectionName
-    ? [sections?.[sectionName]]
-    : Object.values(sections ?? {});
+  const values = sectionName ? [sections?.[sectionName]] : Object.values(sections ?? {});
   return values.flatMap((section) => section?.items ?? []);
 }
 
@@ -227,8 +206,7 @@ export function CandidateLibrary({
   const controls = useRef({ providedItems, onItemsChange });
   controls.current = { providedItems, onItemsChange };
   const setItems = useCallback((update: SetStateAction<Item[]>) => {
-    const next =
-      typeof update === "function" ? update(currentItems.current) : update;
+    const next = typeof update === "function" ? update(currentItems.current) : update;
     currentItems.current = next;
     if (controls.current.providedItems === undefined) setLocalItems(next);
     controls.current.onItemsChange?.(next);
@@ -283,19 +261,14 @@ export function CandidateLibrary({
     }
   }
   async function update(before: Item, input: Partial<ExperienceBulletInput>) {
-    const after = (await api.updateExperienceBullet(before.id, input, jobId))
-      .bullet;
-    setItems((current) =>
-      current.map((item) => (item.id === after.id ? after : item)),
-    );
+    const after = (await api.updateExperienceBullet(before.id, input, jobId)).bullet;
+    setItems((current) => current.map((item) => (item.id === after.id ? after : item)));
     if (
       (input.text !== undefined && input.text !== before.text) ||
-      (input.data !== undefined &&
-        JSON.stringify(input.data) !== JSON.stringify(before.data))
+      (input.data !== undefined && JSON.stringify(input.data) !== JSON.stringify(before.data))
     )
       setRanked([]);
-    if (!frozen)
-      onDocumentChange?.((doc) => applyLibraryUpdate(doc, before, after));
+    if (!frozen) onDocumentChange?.((doc) => applyLibraryUpdate(doc, before, after));
     return after;
   }
   function toggle(group: Item[], checked: boolean) {
@@ -330,9 +303,7 @@ export function CandidateLibrary({
           className="h-3 w-3 [&_svg]:h-2.5 [&_svg]:w-2.5"
           aria-label={`Include ${label}`}
           disabled={busy || !document || !onDocumentChange}
-          checked={
-            count === group.length ? true : count ? "indeterminate" : false
-          }
+          checked={count === group.length ? true : count ? "indeterminate" : false}
           onCheckedChange={(checked) => toggle(group, checked === true)}
         />
       </label>
@@ -346,11 +317,7 @@ export function CandidateLibrary({
       input: {
         text: item.text,
         kind: item.kind,
-        data: parsed?.success
-          ? parsed.data
-          : item.data
-            ? { ...item.data }
-            : null,
+        data: parsed?.success ? parsed.data : item.data ? { ...item.data } : null,
         ...(TAG_KINDS.has(item.kind) ? { tags: item.tags } : {}),
       },
       fields: fields[item.kind] ?? [],
@@ -379,10 +346,7 @@ export function CandidateLibrary({
       },
       fields:
         kind === "role"
-          ? [
-              ...(companyData ? [] : ["company", "location", "website"]),
-              "period",
-            ]
+          ? [...(companyData ? [] : ["company", "location", "website"]), "period"]
           : (fields[kind] ?? []),
     });
   }
@@ -406,10 +370,7 @@ export function CandidateLibrary({
           const kept = keywords(after);
           const selected = selectedKeywords(item);
           const added = kept.filter((word) => !before.includes(word));
-          const next = [
-            ...selected.filter((word) => kept.includes(word)),
-            ...added,
-          ];
+          const next = [...selected.filter((word) => kept.includes(word)), ...added];
           if (added.length || next.length !== selected.length)
             selectKeywords(
               item,
@@ -433,9 +394,7 @@ export function CandidateLibrary({
       await api.deleteExperienceBullet(item.id, jobId);
       const removedIds = [
         item.id,
-        ...currentItems.current
-          .filter((row) => row.parentId === item.id)
-          .map((row) => row.id),
+        ...currentItems.current.filter((row) => row.parentId === item.id).map((row) => row.id),
       ];
       if (!frozen)
         onDocumentChange?.((doc) =>
@@ -447,23 +406,18 @@ export function CandidateLibrary({
             doc,
           ),
         );
-      setItems((current) =>
-        current.filter((row) => !removedIds.includes(row.id)),
-      );
+      setItems((current) => current.filter((row) => !removedIds.includes(row.id)));
     }
     setDeletion(null);
     setRanked([]);
   }
   async function requestDelete(group: Item[]) {
-    const usages = await Promise.all(
-      group.map((item) => api.getLibraryItemUsage(item.id)),
-    );
+    const usages = await Promise.all(group.map((item) => api.getLibraryItemUsage(item.id)));
     const usage = {
       jobIds: [...new Set(usages.flatMap((u) => u.jobIds))],
       frozenJobIds: [...new Set(usages.flatMap((u) => u.frozenJobIds))],
     };
-    if (usage.jobIds.length || usage.frozenJobIds.length)
-      setDeletion({ items: group, usage });
+    if (usage.jobIds.length || usage.frozenJobIds.length) setDeletion({ items: group, usage });
     else await remove(group);
   }
   function trash(group: Item[], label: string) {
@@ -486,8 +440,7 @@ export function CandidateLibrary({
   }
   function companyMissing(current: Edit) {
     return (
-      (current.companyOnly ||
-        (!current.items.length && current.input.kind === "role")) &&
+      (current.companyOnly || (!current.items.length && current.input.kind === "role")) &&
       !String(current.input.data?.company ?? "").trim()
     );
   }
@@ -498,8 +451,7 @@ export function CandidateLibrary({
   }
   function editForm(current: Edit) {
     const kind = current.input.kind ?? "bullet";
-    const setInput = (input: ExperienceBulletInput) =>
-      setEdit({ ...current, input });
+    const setInput = (input: ExperienceBulletInput) => setEdit({ ...current, input });
     const textLabel =
       kind === "role"
         ? "Position"
@@ -539,13 +491,11 @@ export function CandidateLibrary({
                 })
               }
             >
-              {["email", "phone", "location", "website", "profile"].map(
-                (type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ),
-              )}
+              {["email", "phone", "location", "website", "profile"].map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
             </select>
           </label>
         )}
@@ -561,9 +511,7 @@ export function CandidateLibrary({
                 disabled={busy}
                 className="font-normal"
                 value={current.input.text}
-                onChange={(event) =>
-                  setInput({ ...current.input, text: event.target.value })
-                }
+                onChange={(event) => setInput({ ...current.input, text: event.target.value })}
               />
             ) : (
               <Input
@@ -573,9 +521,7 @@ export function CandidateLibrary({
                 disabled={busy}
                 className="font-normal"
                 value={current.input.text}
-                onChange={(event) =>
-                  setInput({ ...current.input, text: event.target.value })
-                }
+                onChange={(event) => setInput({ ...current.input, text: event.target.value })}
               />
             )}
           </label>
@@ -591,19 +537,13 @@ export function CandidateLibrary({
           .map((field, index) => {
             const FieldInput = field === "description" ? Textarea : Input;
             return (
-              <label
-                key={field}
-                htmlFor={`${formId}-${field}`}
-                className={fieldClass}
-              >
+              <label key={field} htmlFor={`${formId}-${field}`} className={fieldClass}>
                 {fieldLabel(current, field)}
                 <FieldInput
                   id={`${formId}-${field}`}
                   className="font-normal"
                   required={kind === "contact" && field === "value"}
-                  autoFocus={
-                    (current.companyOnly || kind === "contact") && index === 0
-                  }
+                  autoFocus={(current.companyOnly || kind === "contact") && index === 0}
                   disabled={busy}
                   value={fieldValue(field, current.input.data?.[field])}
                   onChange={(event) =>
@@ -646,11 +586,7 @@ export function CandidateLibrary({
               noun="skill"
               value={keywords(current.input)}
               options={[
-                ...new Set(
-                  items
-                    .filter((item) => item.kind === "skill")
-                    .flatMap(keywords),
-                ),
+                ...new Set(items.filter((item) => item.kind === "skill").flatMap(keywords)),
               ]}
               disabled={busy}
               onChange={(keywords) =>
@@ -675,19 +611,12 @@ export function CandidateLibrary({
           </label>
         )}
         <div className="flex justify-end gap-2 pt-1">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy}
-            onClick={() => setEdit(null)}
-          >
+          <Button type="button" variant="outline" disabled={busy} onClick={() => setEdit(null)}>
             Cancel
           </Button>
           <Button
             type="submit"
-            disabled={
-              busy || !current.input.text.trim() || companyMissing(current)
-            }
+            disabled={busy || !current.input.text.trim() || companyMissing(current)}
           >
             Save
           </Button>
@@ -696,39 +625,28 @@ export function CandidateLibrary({
     );
   }
   function row(item: Item) {
-    const detailSuffix = (
-      item.kind === "contact" ? ["type"] : (fields[item.kind] ?? [])
-    )
+    const detailSuffix = (item.kind === "contact" ? ["type"] : (fields[item.kind] ?? []))
       .map((field) => fieldValue(field, item.data?.[field]))
       .filter(Boolean)
       .map((value) => ` · ${String(value)}`)
       .join("");
     const displayText = item.text + detailSuffix;
     // A labelled contact link shows its label; the tooltip keeps the URL.
-    const label =
-      item.kind === "contact" ? String(item.data?.label ?? "").trim() : "";
+    const label = item.kind === "contact" ? String(item.data?.label ?? "").trim() : "";
     const hasTags = TAG_KINDS.has(item.kind);
     const isLine = item.kind === "bullet" || item.kind === "project_point";
-    const lineSection =
-      item.kind === "bullet" ? KIND_SECTION.role : KIND_SECTION.project;
+    const lineSection = item.kind === "bullet" ? KIND_SECTION.role : KIND_SECTION.project;
     const rewordedLine =
       isLine && lineSection
         ? resumeItems(document, lineSection)
             .flatMap((entry) => getItemLines(entry))
-            .find(
-              (line) =>
-                line.ref === item.id && !sameLineText(line.text, item.text),
-            )
+            .find((line) => line.ref === item.id && !sameLineText(line.text, item.text))
         : undefined;
     // A linked entry whose fields differ on this resume, like a reworded line.
     const entrySection = isLine ? undefined : KIND_SECTION[item.kind];
     const changedEntry = entrySection
       ? resumeItems(document, entrySection)
-          .map((entry) =>
-            entry.libraryId === item.id
-              ? changedLibraryFields(entry, items)
-              : {},
-          )
+          .map((entry) => (entry.libraryId === item.id ? changedLibraryFields(entry, items) : {}))
           .find((changed) => Object.keys(changed).length)
       : undefined;
     const changedTitle = changedEntry
@@ -774,9 +692,7 @@ export function CandidateLibrary({
           )}
         </div>
         {hasTags && (
-          <div
-            className={`flex min-w-0 items-start gap-1 ${jobId ? "pl-4" : ""}`}
-          >
+          <div className={`flex min-w-0 items-start gap-1 ${jobId ? "pl-4" : ""}`}>
             <InlineTags bullet={item} />
             {score && (
               <span
@@ -797,13 +713,9 @@ export function CandidateLibrary({
     );
   }
   function selectedKeywords(item: Item) {
-    const linked = resumeItems(document).find(
-      (entry) => entry.libraryId === item.id,
-    );
+    const linked = resumeItems(document).find((entry) => entry.libraryId === item.id);
     return Array.isArray(linked?.keywords)
-      ? linked.keywords.filter(
-          (value): value is string => typeof value === "string",
-        )
+      ? linked.keywords.filter((value): value is string => typeof value === "string")
       : [];
   }
   function selectKeywords(item: Item, next: string[], library = items) {
@@ -811,10 +723,7 @@ export function CandidateLibrary({
     onDocumentChange?.((doc) => {
       if (!next.length) return removeFromResume(doc, item.id);
       const added = addToResume(doc, item.id, library);
-      const sections = added.sections as Record<
-        string,
-        { items?: Record<string, unknown>[] }
-      >;
+      const sections = added.sections as Record<string, { items?: Record<string, unknown>[] }>;
       const skills = sections.skills;
       if (!skills?.items) return added;
       return {
@@ -824,9 +733,7 @@ export function CandidateLibrary({
           skills: {
             ...skills,
             items: skills.items.map((entry) =>
-              entry.libraryId === item.id
-                ? { ...entry, keywords: next }
-                : entry,
+              entry.libraryId === item.id ? { ...entry, keywords: next } : entry,
             ),
           },
         },
@@ -851,9 +758,7 @@ export function CandidateLibrary({
               onClick={() =>
                 selectKeywords(
                   item,
-                  on
-                    ? selected.filter((word) => word !== keyword)
-                    : [...selected, keyword],
+                  on ? selected.filter((word) => word !== keyword) : [...selected, keyword],
                 )
               }
             >
@@ -901,9 +806,7 @@ export function CandidateLibrary({
   const roles = items.filter((item) => item.kind === "role");
   const query = dutyQuery.trim().toLowerCase();
   function allDuties(role: Item) {
-    return items.filter(
-      (item) => item.parentId === role.id && item.kind === "bullet",
-    );
+    return items.filter((item) => item.parentId === role.id && item.kind === "bullet");
   }
   const matches = (value: unknown) =>
     String(value ?? "")
@@ -922,9 +825,7 @@ export function CandidateLibrary({
   function dutiesOf(role: Item) {
     const duties = allDuties(role);
     if (roleMatches(role)) return duties;
-    return duties.filter(
-      (duty) => matches(duty.text) || duty.tags.some(matches),
-    );
+    return duties.filter((duty) => matches(duty.text) || duty.tags.some(matches));
   }
   function roleShown(role: Item) {
     return roleMatches(role) || dutiesOf(role).length > 0;
@@ -932,9 +833,7 @@ export function CandidateLibrary({
   function dutyCount(role: Item) {
     if (!jobId) return null;
     const duties = allDuties(role);
-    const selected = duties.filter(
-      (item) => document && isOnResume(document, item.id),
-    ).length;
+    const selected = duties.filter((item) => document && isOnResume(document, item.id)).length;
     return (
       <span className="shrink-0 py-1 text-xs text-muted-foreground">
         {`${selected}/${duties.length} duties`}
@@ -946,15 +845,10 @@ export function CandidateLibrary({
     const key = String(role.data?.company ?? role.company ?? "Other");
     companies.set(key, [...(companies.get(key) ?? []), role]);
   }
-  const shownCompanies = [...companies].filter(([, group]) =>
-    group.some(roleShown),
-  );
+  const shownCompanies = [...companies].filter(([, group]) => group.some(roleShown));
   return (
     <div className="space-y-1.5">
-      <section
-        className="flex flex-wrap items-center gap-1"
-        aria-label="Library sections"
-      >
+      <section className="flex flex-wrap items-center gap-1" aria-label="Library sections">
         {sections.map(([kind, label]) => (
           <Button
             key={kind}
@@ -977,9 +871,7 @@ export function CandidateLibrary({
           disabled={busy || loading}
           onClick={() =>
             void run(async () => {
-              const result = await (onSync
-                ? onSync()
-                : api.syncCandidateLibrary());
+              const result = await (onSync ? onSync() : api.syncCandidateLibrary());
               await refresh();
               toast.success(
                 `Synced ${result.created}; skipped ${result.skipped}; linked ${result.linked}`,
@@ -995,11 +887,7 @@ export function CandidateLibrary({
       ) : failed ? (
         <div role="alert">
           Could not load library.{" "}
-          <Button
-            variant="ghost"
-            disabled={busy}
-            onClick={() => void run(refresh)}
-          >
+          <Button variant="ghost" disabled={busy} onClick={() => void run(refresh)}>
             Retry
           </Button>
         </div>
@@ -1043,9 +931,7 @@ export function CandidateLibrary({
                             items.some(
                               (item) =>
                                 item.kind === "bullet" &&
-                                group.some(
-                                  (role) => role.id === item.parentId,
-                                ) &&
+                                group.some((role) => role.id === item.parentId) &&
                                 document &&
                                 isOnResume(document, item.id),
                             ),
@@ -1056,11 +942,7 @@ export function CandidateLibrary({
               >
                 {shownCompanies.map(([company, group]) => {
                   return (
-                    <AccordionItem
-                      key={company}
-                      value={company}
-                      className="border-0 border-t pt-1"
-                    >
+                    <AccordionItem key={company} value={company} className="border-0 border-t pt-1">
                       <div className="group flex items-center gap-1 text-sm font-medium">
                         {tick(group, company)}
                         <button
@@ -1084,9 +966,7 @@ export function CandidateLibrary({
                           }
                         >
                           {company}
-                          {group[0].data?.location
-                            ? ` · ${String(group[0].data.location)}`
-                            : ""}
+                          {group[0].data?.location ? ` · ${String(group[0].data.location)}` : ""}
                         </button>
                         <div className="ml-auto flex shrink-0 items-center gap-1 font-normal">
                           {addButton(
@@ -1114,9 +994,7 @@ export function CandidateLibrary({
                               {dutyCount(role)}
                               {addButton("bullet", role.id, undefined, "duty")}
                             </div>
-                            <div className="ml-1.5 border-l pl-2">
-                              {dutiesOf(role).map(row)}
-                            </div>
+                            <div className="ml-1.5 border-l pl-2">{dutiesOf(role).map(row)}</div>
                           </div>
                         ))}
                       </AccordionContent>
@@ -1141,9 +1019,7 @@ export function CandidateLibrary({
                       <div className="ml-1.5 space-y-0.5 border-l pl-2">
                         {items
                           .filter(
-                            (child) =>
-                              child.parentId === item.id &&
-                              child.kind === "project_point",
+                            (child) => child.parentId === item.id && child.kind === "project_point",
                           )
                           .map(row)}
                         {addButton("project_point", item.id)}
@@ -1200,8 +1076,7 @@ export function CandidateLibrary({
                 ]).size
               }{" "}
               resumes. It will be removed from unapplied resumes.{" "}
-              {deletion?.usage.frozenJobIds.length ?? 0} frozen resumes will
-              keep their text.
+              {deletion?.usage.frozenJobIds.length ?? 0} frozen resumes will keep their text.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

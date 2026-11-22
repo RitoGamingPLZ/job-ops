@@ -43,9 +43,7 @@ export const SortFilterPill: React.FC<SortFilterPillProps> = ({
       icon={<ArrowDownUp />}
       label="Sort"
       active={false}
-      summary={`${sortLabels[sort.key]}${
-        sortDirectionLabel ? ` · ${sortDirectionLabel}` : ""
-      }`}
+      summary={`${sortLabels[sort.key]}${sortDirectionLabel ? ` · ${sortDirectionLabel}` : ""}`}
       contentClassName="w-64"
     >
       <div className="space-y-3 text-sm text-muted-foreground">

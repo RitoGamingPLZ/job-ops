@@ -4,18 +4,12 @@
     {
       "type": "category",
       "label": "Getting Started",
-      "items": [
-        "getting-started/self-hosting",
-        "getting-started/gmail-oauth-setup"
-      ]
+      "items": ["getting-started/self-hosting", "getting-started/gmail-oauth-setup"]
     },
     {
       "type": "category",
       "label": "Workflows",
-      "items": [
-        "workflows/find-jobs-and-apply-workflow",
-        "workflows/post-application-workflow"
-      ]
+      "items": ["workflows/find-jobs-and-apply-workflow", "workflows/post-application-workflow"]
     },
     {
       "type": "category",

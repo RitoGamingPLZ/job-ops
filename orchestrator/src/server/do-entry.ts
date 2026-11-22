@@ -22,20 +22,9 @@ import ukvisajobsManifest from "../../../extractors/ukvisajobs/manifest";
 import wazzufManifest from "../../../extractors/wazzuf/manifest";
 import workingnomadsManifest from "../../../extractors/workingnomads/src/manifest";
 import { createApp } from "./app";
-import {
-  createDurableObjectDrizzleDb,
-  type DurableObjectStorageLike,
-  setDb,
-} from "./db/index";
-import {
-  initializeExtractorRegistry,
-  setStaticExtractorManifests,
-} from "./extractors/registry";
-import {
-  R2BlobStore,
-  type R2BucketLike,
-  setBlobStore,
-} from "./infra/blob-store";
+import { createDurableObjectDrizzleDb, type DurableObjectStorageLike, setDb } from "./db/index";
+import { initializeExtractorRegistry, setStaticExtractorManifests } from "./extractors/registry";
+import { R2BlobStore, type R2BucketLike, setBlobStore } from "./infra/blob-store";
 
 const STATIC_EXTRACTOR_MANIFESTS = [
   adzunaManifest,

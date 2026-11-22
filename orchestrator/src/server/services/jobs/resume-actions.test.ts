@@ -1,7 +1,4 @@
-import {
-  getRequestContext,
-  runWithRequestContext,
-} from "@infra/request-context";
+import { getRequestContext, runWithRequestContext } from "@infra/request-context";
 import { isDemoMode } from "@server/config/demo";
 import { generateFinalPdf, processJob } from "@server/pipeline/index";
 import { getJobResume } from "@server/repositories/job-resumes";
@@ -60,9 +57,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(isDemoMode).mockReturnValue(false);
   vi.mocked(simulateProcessJob).mockResolvedValue({ success: true });
-  vi.mocked(jobsRepo.setJobTargeted).mockImplementation(async (id) =>
-    targeted(id),
-  );
+  vi.mocked(jobsRepo.setJobTargeted).mockImplementation(async (id) => targeted(id));
   vi.mocked(processJob).mockResolvedValue({ success: true });
   vi.mocked(generateFinalPdf).mockResolvedValue({ success: true });
   vi.mocked(getJobResume).mockResolvedValue({
@@ -73,9 +68,7 @@ beforeEach(() => {
   });
   vi.mocked(getJobPdfFreshness).mockReturnValue("current");
   vi.mocked(jobsRepo.getJobById).mockImplementation(async (id) => targeted(id));
-  vi.mocked(jobsRepo.updateJob).mockImplementation(async (id, update) =>
-    targeted(id, update),
-  );
+  vi.mocked(jobsRepo.updateJob).mockImplementation(async (id, update) => targeted(id, update));
 });
 describe("resume background actions", () => {
   it("selects missing, stale and absent documents while excluding ineligible jobs", async () => {
@@ -107,11 +100,7 @@ describe("resume background actions", () => {
       jobIds: ["missing", "stale", "no-doc"],
       alreadyRunning: false,
     });
-    expect(jobsRepo.getAllJobs).toHaveBeenCalledWith([
-      "discovered",
-      "processing",
-      "ready",
-    ]);
+    expect(jobsRepo.getAllJobs).toHaveBeenCalledWith(["discovered", "processing", "ready"]);
     await tick();
     expect(vi.mocked(processJob).mock.calls.map(([id]) => id)).toEqual([
       "missing",
@@ -164,9 +153,8 @@ describe("resume background actions", () => {
     ]) {
       expect(
         (
-          await runWithRequestContext(
-            { tenantId, userId, requestId: "batch-request" },
-            () => generateMissingResumesInBackground(),
+          await runWithRequestContext({ tenantId, userId, requestId: "batch-request" }, () =>
+            generateMissingResumesInBackground(),
           )
         ).alreadyRunning,
       ).toBe(false);
@@ -187,19 +175,16 @@ describe("resume background actions", () => {
     release();
     await tick();
   });
-  it.each([
-    { status: "processing" },
-    { pdfRegenerating: true },
-    { readyAt: null },
-  ])("guards regeneration: %j", async (overrides) => {
-    vi.mocked(jobsRepo.getJobById).mockResolvedValue(
-      targeted("job", overrides),
-    );
-    await expect(regenerateJobResumeInBackground("job")).rejects.toMatchObject({
-      status: "readyAt" in overrides ? 400 : 409,
-    });
-    expect(regenerateJobResume).not.toHaveBeenCalled();
-  });
+  it.each([{ status: "processing" }, { pdfRegenerating: true }, { readyAt: null }])(
+    "guards regeneration: %j",
+    async (overrides) => {
+      vi.mocked(jobsRepo.getJobById).mockResolvedValue(targeted("job", overrides));
+      await expect(regenerateJobResumeInBackground("job")).rejects.toMatchObject({
+        status: "readyAt" in overrides ? 400 : 409,
+      });
+      expect(regenerateJobResume).not.toHaveBeenCalled();
+    },
+  );
   it("does not start targeting work during an in-flight regeneration", async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
@@ -266,10 +251,7 @@ describe("resume background actions", () => {
       release({ success: true });
       await tick();
     }
-    expect(vi.mocked(processJob).mock.calls.map(([id]) => id)).toEqual([
-      "one",
-      "two",
-    ]);
+    expect(vi.mocked(processJob).mock.calls.map(([id]) => id)).toEqual(["one", "two"]);
   });
   it("skips a pending target during the batch worker recheck", async () => {
     let release!: (value: { success: boolean }) => void;
@@ -291,10 +273,7 @@ describe("resume background actions", () => {
         alreadyRunning: false,
       });
       await tick();
-      expect(vi.mocked(processJob).mock.calls.map(([id]) => id)).toEqual([
-        "job",
-        "other",
-      ]);
+      expect(vi.mocked(processJob).mock.calls.map(([id]) => id)).toEqual(["job", "other"]);
     } finally {
       release({ success: true });
       await tick();
@@ -311,9 +290,7 @@ describe("resume background actions", () => {
     await targetJobInBackground("job");
     await tick();
     try {
-      await expect(
-        regenerateJobResumeInBackground("job"),
-      ).rejects.toMatchObject({ status: 409 });
+      await expect(regenerateJobResumeInBackground("job")).rejects.toMatchObject({ status: 409 });
       expect(regenerateJobResume).not.toHaveBeenCalled();
       expect(jobsRepo.updateJob).not.toHaveBeenCalled();
     } finally {
@@ -337,25 +314,19 @@ describe("resume background actions", () => {
         }),
     );
     const scope = { tenantId: "batch-tenant", userId: "one" };
-    await runWithRequestContext(scope, () =>
-      generateMissingResumesInBackground(),
-    );
+    await runWithRequestContext(scope, () => generateMissingResumesInBackground());
     await tick();
     try {
       for (const id of ["one", "two"]) {
         await expect(
-          runWithRequestContext(scope, () =>
-            regenerateJobResumeInBackground(id),
-          ),
+          runWithRequestContext(scope, () => regenerateJobResumeInBackground(id)),
         ).rejects.toMatchObject({ status: 409 });
       }
       for (const otherScope of [
         { tenantId: "batch-tenant", userId: "two" },
         { tenantId: "other-tenant", userId: "one" },
       ]) {
-        await runWithRequestContext(otherScope, () =>
-          regenerateJobResumeInBackground("one"),
-        );
+        await runWithRequestContext(otherScope, () => regenerateJobResumeInBackground("one"));
         await tick();
       }
       expect(regenerateJobResume).toHaveBeenCalledTimes(2);
@@ -363,9 +334,7 @@ describe("resume background actions", () => {
       release({ success: true });
       await tick();
     }
-    await runWithRequestContext(scope, () =>
-      regenerateJobResumeInBackground("two"),
-    );
+    await runWithRequestContext(scope, () => regenerateJobResumeInBackground("two"));
     await tick();
     expect(regenerateJobResume).toHaveBeenCalledTimes(3);
   });
@@ -421,9 +390,7 @@ describe("resume background actions", () => {
   });
   it("uses only the simulator for demo regeneration", async () => {
     vi.mocked(isDemoMode).mockReturnValue(true);
-    expect((await regenerateJobResumeInBackground("job")).status).toBe(
-      "processing",
-    );
+    expect((await regenerateJobResumeInBackground("job")).status).toBe("processing");
     await tick();
     expect(simulateProcessJob).toHaveBeenCalledExactlyOnceWith("job");
     expect(regenerateJobResume).not.toHaveBeenCalled();
@@ -451,33 +418,26 @@ describe("resume background actions", () => {
       release({ success: false });
       await tick();
     }
-    expect(vi.mocked(simulateProcessJob).mock.calls.map(([id]) => id)).toEqual([
-      "one",
-      "two",
-    ]);
+    expect(vi.mocked(simulateProcessJob).mock.calls.map(([id]) => id)).toEqual(["one", "two"]);
     expect(processJob).not.toHaveBeenCalled();
     expect(regenerateJobResume).not.toHaveBeenCalled();
     expect(generateFinalPdf).not.toHaveBeenCalled();
   });
   it("marks processing immediately, then re-tailors before rendering", async () => {
-    expect((await regenerateJobResumeInBackground("job")).status).toBe(
-      "processing",
-    );
+    expect((await regenerateJobResumeInBackground("job")).status).toBe("processing");
     expect(regenerateJobResume).not.toHaveBeenCalled();
     await tick();
     expect(regenerateJobResume).toHaveBeenCalledOnce();
     expect(generateFinalPdf).toHaveBeenCalledOnce();
-    expect(
-      vi.mocked(regenerateJobResume).mock.invocationCallOrder[0],
-    ).toBeLessThan(vi.mocked(generateFinalPdf).mock.invocationCallOrder[0]);
+    expect(vi.mocked(regenerateJobResume).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(generateFinalPdf).mock.invocationCallOrder[0],
+    );
   });
   it("restores the prior status when tailoring fails, without rendering", async () => {
     vi.mocked(jobsRepo.getJobById)
       .mockResolvedValueOnce(targeted("job"))
       .mockResolvedValueOnce(targeted("job", { status: "processing" }));
-    vi.mocked(regenerateJobResume).mockRejectedValue(
-      new Error("generation failed"),
-    );
+    vi.mocked(regenerateJobResume).mockRejectedValue(new Error("generation failed"));
     await regenerateJobResumeInBackground("job");
     await tick();
     expect(generateFinalPdf).not.toHaveBeenCalled();
@@ -490,9 +450,7 @@ describe("resume background actions", () => {
     vi.mocked(jobsRepo.getJobById)
       .mockResolvedValueOnce(targeted("job"))
       .mockResolvedValueOnce(targeted("job", { status: "applied" }));
-    vi.mocked(regenerateJobResume).mockRejectedValueOnce(
-      new Error("generation failed"),
-    );
+    vi.mocked(regenerateJobResume).mockRejectedValueOnce(new Error("generation failed"));
     await regenerateJobResumeInBackground("job");
     await tick();
     expect(generateFinalPdf).not.toHaveBeenCalled();

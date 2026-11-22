@@ -1,10 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type {
-  EnqueueJobOptions,
-  EnqueueJobResult,
-  JobQueue,
-  QueueJobRecord,
-} from "./job-queue";
+import type { EnqueueJobOptions, EnqueueJobResult, JobQueue, QueueJobRecord } from "./job-queue";
 
 type InMemoryJobState = "pending" | "reserved";
 
@@ -25,8 +20,7 @@ export class InMemoryJobQueue implements JobQueue {
     options?: EnqueueJobOptions,
   ): Promise<EnqueueJobResult> {
     const dedupeKey = options?.dedupeKey?.trim();
-    const normalizedDedupeKey =
-      dedupeKey && dedupeKey.length > 0 ? dedupeKey : undefined;
+    const normalizedDedupeKey = dedupeKey && dedupeKey.length > 0 ? dedupeKey : undefined;
 
     if (normalizedDedupeKey) {
       const indexKey = this.toDedupeIndexKey(queue, normalizedDedupeKey);
@@ -61,10 +55,7 @@ export class InMemoryJobQueue implements JobQueue {
     this.queueOrder.push(id);
 
     if (normalizedDedupeKey) {
-      this.dedupeIndex.set(
-        this.toDedupeIndexKey(queue, normalizedDedupeKey),
-        id,
-      );
+      this.dedupeIndex.set(this.toDedupeIndexKey(queue, normalizedDedupeKey), id);
     }
 
     return {
@@ -138,16 +129,11 @@ export class InMemoryJobQueue implements JobQueue {
       this.queueOrder.splice(index, 1);
     }
     if (record.dedupeKey) {
-      this.dedupeIndex.delete(
-        this.toDedupeIndexKey(record.queue, record.dedupeKey),
-      );
+      this.dedupeIndex.delete(this.toDedupeIndexKey(record.queue, record.dedupeKey));
     }
   }
 
-  private toDedupeIndexKey(
-    queue: QueueJobRecord["queue"],
-    dedupeKey: string,
-  ): string {
+  private toDedupeIndexKey(queue: QueueJobRecord["queue"], dedupeKey: string): string {
     return `${queue}:${dedupeKey}`;
   }
 }

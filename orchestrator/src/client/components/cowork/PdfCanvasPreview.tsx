@@ -1,8 +1,4 @@
-import type {
-  PDFDocumentLoadingTask,
-  PDFDocumentProxy,
-  RenderTask,
-} from "pdfjs-dist";
+import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import { useEffect, useRef, useState } from "react";
 
 export function PdfCanvasPreview({ url }: { url: string }) {
@@ -103,20 +99,19 @@ function PdfCanvasDocument({ url }: { url: string }) {
         <>
           {rendering && <output>Loading PDF preview…</output>}
           <div className="flex flex-col items-center gap-4">
-            {Array.from(
-              { length: document?.numPages ?? 0 },
-              (_, index) => index + 1,
-            ).map((pageNumber) => (
-              <canvas
-                key={pageNumber}
-                ref={(canvas) => {
-                  if (canvas) canvases.current.set(pageNumber, canvas);
-                  else canvases.current.delete(pageNumber);
-                }}
-                aria-label={`Resume PDF page ${pageNumber}`}
-                className="block bg-white shadow-sm"
-              />
-            ))}
+            {Array.from({ length: document?.numPages ?? 0 }, (_, index) => index + 1).map(
+              (pageNumber) => (
+                <canvas
+                  key={pageNumber}
+                  ref={(canvas) => {
+                    if (canvas) canvases.current.set(pageNumber, canvas);
+                    else canvases.current.delete(pageNumber);
+                  }}
+                  aria-label={`Resume PDF page ${pageNumber}`}
+                  className="block bg-white shadow-sm"
+                />
+              ),
+            )}
           </div>
         </>
       )}

@@ -267,8 +267,7 @@
   position: relative;
   margin-top: var(--rs-section-above);
 }
-.resume-section-slot
-  > .resume-section:not(:has(h2)):not(:has(.resume-suggestion)) {
+.resume-section-slot > .resume-section:not(:has(h2)):not(:has(.resume-suggestion)) {
   margin: 0;
   min-height: 0;
 }
@@ -276,13 +275,10 @@
   margin: 0 0 var(--rs-rule-to-body);
   /* A background rule keeps its exact thickness; borders snap to whole pixels. */
   padding-bottom: calc(var(--rs-heading-to-rule) + var(--rs-rule));
-  background:
-    linear-gradient(var(--rs-color-accent), var(--rs-color-accent)) bottom /
-    100% var(--rs-rule) no-repeat;
+  background: linear-gradient(var(--rs-color-accent), var(--rs-color-accent)) bottom / 100%
+    var(--rs-rule) no-repeat;
   color: var(--rs-color-accent);
-  font:
-    var(--rs-strong-weight) var(--rs-section) / var(--rs-line-height)
-    var(--rs-font);
+  font: var(--rs-strong-weight) var(--rs-section) / var(--rs-line-height) var(--rs-font);
 }
 .resume-paper textarea {
   display: block;
@@ -316,10 +312,7 @@
 .resume-header:not(:focus-within)
   .resume-contact-item:not([data-empty="true"])
   ~ .resume-contact-item:not([data-empty="true"])::before,
-.resume-header:focus-within
-  .resume-contact:not([data-library])
-  > span
-  + span::before {
+.resume-header:focus-within .resume-contact:not([data-library]) > span + span::before {
   content: " | ";
   white-space: pre;
 }
@@ -742,8 +735,7 @@ h2:focus-within + .resume-section-controls,
   color: #b42318;
 }
 /* Job resumes: contacts come from library ticks, so empty fields stay hidden. */
-.resume-contact[data-library]
-.resume-contact-item[data-empty="true"]:not(:focus-within) {
+.resume-contact[data-library] .resume-contact-item[data-empty="true"]:not(:focus-within) {
   display: none;
 }
 .resume-contact[data-library]

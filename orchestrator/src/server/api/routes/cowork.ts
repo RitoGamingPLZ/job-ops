@@ -46,13 +46,9 @@ export const experienceBulletInputSchema = z
     sourceExperienceId: z.string().max(200).nullable().optional(),
   })
   .strict();
-function parse<T>(
-  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
-  input: unknown,
-): T {
+function parse<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, input: unknown): T {
   const parsed = schema.safeParse(input);
-  if (!parsed.success)
-    throw badRequest("Invalid co-work payload", parsed.error.flatten());
+  if (!parsed.success) throw badRequest("Invalid co-work payload", parsed.error.flatten());
   return parsed.data;
 }
 async function requireJob(id: string) {
@@ -100,9 +96,7 @@ coworkRouter.post(
     ok(
       res,
       {
-        bullet: libraryService.createLibraryItem(
-          parse(experienceBulletInputSchema, req.body),
-        ),
+        bullet: libraryService.createLibraryItem(parse(experienceBulletInputSchema, req.body)),
       },
       201,
     );
@@ -170,9 +164,7 @@ coworkRouter.patch(
   "/experience-bullets/:id",
   asyncRoute(async (req, res) => {
     const input = parse(
-      experienceBulletInputSchema
-        .partial()
-        .refine((value) => Object.keys(value).length > 0),
+      experienceBulletInputSchema.partial().refine((value) => Object.keys(value).length > 0),
       req.body,
     );
     const bullet = libraryService.updateLibraryItem(
@@ -224,8 +216,7 @@ coworkRouter.put(
       req.body,
     );
     const document = safeParseV5ResumeData(input.document);
-    if (!document.success)
-      throw badRequest("Invalid resume document", document.error.flatten());
+    if (!document.success) throw badRequest("Invalid resume document", document.error.flatten());
     ok(
       res,
       await resumesRepo.saveJobResume(

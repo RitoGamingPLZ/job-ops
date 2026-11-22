@@ -43,9 +43,7 @@ function resolveLocationIntentSnapshot(args: {
   );
 }
 
-export function buildRequestedConfigSnapshot(
-  config: PipelineConfig,
-): PipelineRunRequestedConfig {
+export function buildRequestedConfigSnapshot(config: PipelineConfig): PipelineRunRequestedConfig {
   const watchlistFilter = config.watchlistSelectedSourceIds;
   return {
     topN: config.topN,
@@ -56,9 +54,7 @@ export function buildRequestedConfigSnapshot(
     enableImporting: config.enableImporting !== false,
     enableAutoTailoring: config.enableAutoTailoring !== false,
     watchlistSelectedSourceIds:
-      watchlistFilter === undefined || watchlistFilter === null
-        ? null
-        : [...watchlistFilter],
+      watchlistFilter === undefined || watchlistFilter === null ? null : [...watchlistFilter],
   };
 }
 
@@ -91,12 +87,10 @@ function buildEffectiveConfigSnapshot(args: {
       .map((source) => ({
         source,
         reason:
-          sourcePlans.plans
-            .find((plan) => plan.source === source)
-            ?.reasons.join(" ") || "Not available for the selected location",
+          sourcePlans.plans.find((plan) => plan.source === source)?.reasons.join(" ") ||
+          "Not available for the selected location",
       })),
-    blockedCompanyKeywordsCount:
-      args.settings.blockedCompanyKeywords.value.length,
+    blockedCompanyKeywordsCount: args.settings.blockedCompanyKeywords.value.length,
     sourceLimits: {
       ukvisajobsMaxJobs: args.settings.ukvisajobsMaxJobs.value,
       adzunaMaxJobsPerTerm: args.settings.adzunaMaxJobsPerTerm.value,
@@ -115,10 +109,8 @@ function buildEffectiveConfigSnapshot(args: {
     },
     resumeProjects: {
       maxProjects: args.settings.resumeProjects.value.maxProjects,
-      lockedProjectCount:
-        args.settings.resumeProjects.value.lockedProjectIds.length,
-      aiSelectableProjectCount:
-        args.settings.resumeProjects.value.aiSelectableProjectIds.length,
+      lockedProjectCount: args.settings.resumeProjects.value.lockedProjectIds.length,
+      aiSelectableProjectCount: args.settings.resumeProjects.value.aiSelectableProjectIds.length,
     },
   };
 }
@@ -161,7 +153,7 @@ export function updatePipelineRunResultSummary(
 ): PipelineRunResultSummary {
   return {
     ...createPipelineRunResultSummary(),
-    ...(current ?? {}),
+    ...current,
     ...update,
   };
 }

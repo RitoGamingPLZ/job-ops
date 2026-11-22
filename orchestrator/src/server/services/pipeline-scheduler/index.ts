@@ -6,10 +6,7 @@ import { isDemoMode } from "@server/config/demo";
 import { getPipelineStatus } from "@server/pipeline/index";
 import * as pipelineRepo from "@server/repositories/pipeline";
 import * as settingsRepo from "@server/repositories/settings";
-import {
-  getPrivateDataScope,
-  isHostedUserIsolationEnabled,
-} from "@server/tenancy/private-scope";
+import { getPrivateDataScope, isHostedUserIsolationEnabled } from "@server/tenancy/private-scope";
 import { settingsRegistry } from "@shared/settings-registry";
 import { runPipelineSchema, startRequestedPipeline } from "./run-request";
 import { listScheduleOwners, loadRunRequest } from "./storage";
@@ -39,9 +36,7 @@ async function scheduleSettings() {
 export async function getNextScheduledPipelineRun(): Promise<string | null> {
   if (isDemoMode()) return null;
   const settings = await scheduleSettings();
-  return settings.enabled
-    ? nextDailyFireTime(settings.hour).toISOString()
-    : null;
+  return settings.enabled ? nextDailyFireTime(settings.hour).toISOString() : null;
 }
 
 export async function runScheduledPipeline(): Promise<void> {
@@ -213,19 +208,14 @@ export async function runDueScheduledPipelinesForHour(
     const isDueHour = settings.hour === targetHour;
     const isCatchUp =
       !isDueHour &&
-      (await asOwner(owner, () =>
-        shouldCatchUpFailedRunToday(settings.hour, targetHour, now),
-      ));
+      (await asOwner(owner, () => shouldCatchUpFailedRunToday(settings.hour, targetHour, now)));
 
     if (!isDueHour && !isCatchUp) {
       continue;
     }
 
     for (const schedule of schedules) {
-      const scheduleKey = asOwner(
-        schedule.owner,
-        () => getPrivateDataScope().scopeKey,
-      );
+      const scheduleKey = asOwner(schedule.owner, () => getPrivateDataScope().scopeKey);
       if (scheduleKey === scopeKey) {
         schedule.at = nextDailyFireTime(settings.hour, now);
       }

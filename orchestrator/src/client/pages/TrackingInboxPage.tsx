@@ -57,9 +57,7 @@ import * as api from "../api";
 import { EmptyState, PageHeader, PageMain } from "../components";
 import { EmailViewerList } from "./tracking-inbox/EmailViewerList";
 
-const PROVIDER_OPTIONS: PostApplicationProvider[] = [
-  ...POST_APPLICATION_PROVIDERS,
-];
+const PROVIDER_OPTIONS: PostApplicationProvider[] = [...POST_APPLICATION_PROVIDERS];
 const GMAIL_OAUTH_RESULT_TYPE = "gmail-oauth-result";
 const GMAIL_OAUTH_TIMEOUT_MS = 3 * 60 * 1000;
 const EMPTY_INBOX_ITEMS: PostApplicationInboxItem[] = [];
@@ -86,18 +84,12 @@ export const TrackingInboxPage: React.FC = () => {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
-  const [activeAction, setActiveAction] = useState<
-    "connect" | "sync" | "disconnect" | null
-  >(null);
+  const [activeAction, setActiveAction] = useState<"connect" | "sync" | "disconnect" | null>(null);
 
   const [isRunModalOpen, setIsRunModalOpen] = useState(false);
-  const [selectedRun, setSelectedRun] = useState<PostApplicationSyncRun | null>(
-    null,
-  );
+  const [selectedRun, setSelectedRun] = useState<PostApplicationSyncRun | null>(null);
 
-  const [appliedJobByMessageId, setAppliedJobByMessageId] = useState<
-    Record<string, string>
-  >({});
+  const [appliedJobByMessageId, setAppliedJobByMessageId] = useState<Record<string, string>>({});
   const statusQuery = useQuery({
     queryKey: queryKeys.postApplication.providerStatus(provider, accountKey),
     queryFn: () => api.postApplicationProviderStatus({ provider, accountKey }),
@@ -105,14 +97,12 @@ export const TrackingInboxPage: React.FC = () => {
   });
   const inboxQuery = useQuery({
     queryKey: queryKeys.postApplication.inbox(provider, accountKey, 100),
-    queryFn: () =>
-      api.getPostApplicationInbox({ provider, accountKey, limit: 100 }),
+    queryFn: () => api.getPostApplicationInbox({ provider, accountKey, limit: 100 }),
     enabled: Boolean(provider && accountKey),
   });
   const runsQuery = useQuery({
     queryKey: queryKeys.postApplication.runs(provider, accountKey, 20),
-    queryFn: () =>
-      api.getPostApplicationRuns({ provider, accountKey, limit: 20 }),
+    queryFn: () => api.getPostApplicationRuns({ provider, accountKey, limit: 20 }),
     enabled: Boolean(provider && accountKey),
   });
 
@@ -121,24 +111,17 @@ export const TrackingInboxPage: React.FC = () => {
   const runs = runsQuery.data?.runs ?? EMPTY_SYNC_RUNS;
 
   const runMessagesQuery = useQuery({
-    queryKey: queryKeys.postApplication.runMessages(
-      selectedRun?.id ?? "",
-      provider,
-      accountKey,
-    ),
+    queryKey: queryKeys.postApplication.runMessages(selectedRun?.id ?? "", provider, accountKey),
     queryFn: () =>
       api.getPostApplicationRunMessages({
         runId: selectedRun?.id ?? "",
         provider,
         accountKey,
       }),
-    enabled: Boolean(
-      isRunModalOpen && selectedRun?.id && provider && accountKey,
-    ),
+    enabled: Boolean(isRunModalOpen && selectedRun?.id && provider && accountKey),
   });
   const selectedRunItems = runMessagesQuery.data?.items ?? EMPTY_INBOX_ITEMS;
-  const isRunMessagesLoading =
-    runMessagesQuery.isPending || runMessagesQuery.isFetching;
+  const isRunMessagesLoading = runMessagesQuery.isPending || runMessagesQuery.isFetching;
 
   const hasReviewItems = useMemo(
     () => inbox.length > 0 || selectedRunItems.length > 0,
@@ -164,16 +147,14 @@ export const TrackingInboxPage: React.FC = () => {
       ),
     [appliedJobsQuery.data?.jobs],
   );
-  const isAppliedJobsLoading =
-    appliedJobsQuery.isPending || appliedJobsQuery.isFetching;
+  const isAppliedJobsLoading = appliedJobsQuery.isPending || appliedJobsQuery.isFetching;
 
   const [inboxActionDialog, setInboxActionDialog] = useState<{
     isOpen: boolean;
     action: "approve" | "deny" | null;
     itemCount: number;
   }>({ isOpen: false, action: null, itemCount: 0 });
-  const isLoading =
-    statusQuery.isPending || inboxQuery.isPending || runsQuery.isPending;
+  const isLoading = statusQuery.isPending || inboxQuery.isPending || runsQuery.isPending;
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -203,17 +184,13 @@ export const TrackingInboxPage: React.FC = () => {
       let didChange = false;
       for (const item of [...inbox, ...selectedRunItems]) {
         const selectedJobId = next[item.message.id];
-        const hasValidSelection = appliedJobs.some(
-          (appliedJob) => appliedJob.id === selectedJobId,
-        );
+        const hasValidSelection = appliedJobs.some((appliedJob) => appliedJob.id === selectedJobId);
         if (!selectedJobId || !hasValidSelection) {
           const matchedJobId = item.message.matchedJobId ?? "";
           const hasValidMatchedJob = appliedJobs.some(
             (appliedJob) => appliedJob.id === matchedJobId,
           );
-          const nextJobId = hasValidMatchedJob
-            ? matchedJobId
-            : defaultAppliedJobId;
+          const nextJobId = hasValidMatchedJob ? matchedJobId : defaultAppliedJobId;
           if (next[item.message.id] !== nextJobId) {
             next[item.message.id] = nextJobId;
             didChange = true;
@@ -225,10 +202,7 @@ export const TrackingInboxPage: React.FC = () => {
   }, [appliedJobs, inbox, selectedRunItems]);
 
   const waitForGmailOauthResult = useCallback(
-    (
-      expectedState: string,
-      popup: Window,
-    ): Promise<{ code?: string; error?: string }> => {
+    (expectedState: string, popup: Window): Promise<{ code?: string; error?: string }> => {
       return new Promise((resolve, reject) => {
         let settled = false;
 
@@ -299,9 +273,7 @@ export const TrackingInboxPage: React.FC = () => {
               provider,
               result: "error",
             });
-            toast.error(
-              `${provider} connect is not implemented yet. Use Gmail for now.`,
-            );
+            toast.error(`${provider} connect is not implemented yet. Use Gmail for now.`);
             return;
           }
 
@@ -318,23 +290,16 @@ export const TrackingInboxPage: React.FC = () => {
               provider,
               result: "error",
             });
-            toast.error(
-              "Browser blocked the Gmail OAuth popup. Allow popups and retry.",
-            );
+            toast.error("Browser blocked the Gmail OAuth popup. Allow popups and retry.");
             return;
           }
 
-          const oauthResult = await waitForGmailOauthResult(
-            oauthStart.state,
-            popup,
-          );
+          const oauthResult = await waitForGmailOauthResult(oauthStart.state, popup);
           if (oauthResult.error) {
             throw new Error(`Gmail OAuth failed: ${oauthResult.error}`);
           }
           if (!oauthResult.code) {
-            throw new Error(
-              "Gmail OAuth did not return an authorization code.",
-            );
+            throw new Error("Gmail OAuth did not return an authorization code.");
           }
 
           await api.postApplicationGmailOauthExchange({
@@ -358,14 +323,10 @@ export const TrackingInboxPage: React.FC = () => {
             parsedSearchDays < 1 ||
             parsedSearchDays > 365
           ) {
-            toast.error(
-              "Max messages must be 1-500 and search days must be 1-365 before syncing.",
-            );
+            toast.error("Max messages must be 1-500 and search days must be 1-365 before syncing.");
             return;
           }
-          syncToastId = toast.loading(
-            "Sync in progress. This may take up to a couple of minutes.",
-          );
+          syncToastId = toast.loading("Sync in progress. This may take up to a couple of minutes.");
           trackProductEvent("tracking_inbox_sync_started", {
             provider,
             max_messages: parsedMaxMessages,
@@ -382,9 +343,7 @@ export const TrackingInboxPage: React.FC = () => {
             provider,
             result: "success",
           });
-          toast.success("Sync completed", {
-            ...(syncToastId ? { id: syncToastId } : {}),
-          });
+          toast.success("Sync completed", syncToastId ? { id: syncToastId } : {});
         } else {
           await api.postApplicationProviderDisconnect({ provider, accountKey });
           trackProductEvent("tracking_inbox_disconnect_confirmed", {
@@ -441,8 +400,7 @@ export const TrackingInboxPage: React.FC = () => {
       decision: "approve" | "deny",
       context: "main_inbox" | "run_modal",
     ) => {
-      const selectedJobId =
-        appliedJobByMessageId[item.message.id] || item.message.matchedJobId;
+      const selectedJobId = appliedJobByMessageId[item.message.id] || item.message.matchedJobId;
 
       if (decision === "approve" && !selectedJobId) {
         toast.error("Select an applied job before making a decision.");
@@ -521,10 +479,7 @@ export const TrackingInboxPage: React.FC = () => {
           context: "main_inbox",
           item_count: result.requested,
           provider,
-          result:
-            failed === result.requested && result.requested > 0
-              ? "error"
-              : "success",
+          result: failed === result.requested && result.requested > 0 ? "error" : "success",
         });
 
         if (failed === 0 && skipped === 0) {
@@ -534,9 +489,7 @@ export const TrackingInboxPage: React.FC = () => {
             `${succeeded} messages ${actionLabel}, ${skipped} skipped (no suggested match)`,
           );
         } else {
-          toast.error(
-            `${succeeded} ${actionLabel}, ${failed} failed, ${skipped} skipped`,
-          );
+          toast.error(`${succeeded} ${actionLabel}, ${failed} failed, ${skipped} skipped`);
         }
 
         await refresh();
@@ -559,9 +512,7 @@ export const TrackingInboxPage: React.FC = () => {
   const openInboxActionDialog = useCallback(
     (action: "approve" | "deny") => {
       const eligibleCount =
-        action === "approve"
-          ? inbox.filter((item) => item.matchedJob).length
-          : inbox.length;
+        action === "approve" ? inbox.filter((item) => item.matchedJob).length : inbox.length;
 
       if (eligibleCount === 0) {
         toast.error(
@@ -586,20 +537,11 @@ export const TrackingInboxPage: React.FC = () => {
     setIsRunModalOpen(true);
   }, []);
 
-  useQueryErrorToast(
-    statusQuery.error,
-    "Failed to load provider connection status",
-  );
+  useQueryErrorToast(statusQuery.error, "Failed to load provider connection status");
   useQueryErrorToast(inboxQuery.error, "Failed to load inbox");
   useQueryErrorToast(runsQuery.error, "Failed to load sync runs");
-  useQueryErrorToast(
-    appliedJobsQuery.error,
-    "Failed to load jobs for inbox matching",
-  );
-  useQueryErrorToast(
-    runMessagesQuery.error,
-    "Failed to load messages for selected sync run",
-  );
+  useQueryErrorToast(appliedJobsQuery.error, "Failed to load jobs for inbox matching");
+  useQueryErrorToast(runMessagesQuery.error, "Failed to load messages for selected sync run");
 
   const pendingCount = inbox.length;
   const isConnected = Boolean(status?.connected);
@@ -610,15 +552,12 @@ export const TrackingInboxPage: React.FC = () => {
     return "Connected";
   }, [status]);
 
-  const handleAppliedJobChange = useCallback(
-    (messageId: string, value: string) => {
-      setAppliedJobByMessageId((previous) => ({
-        ...previous,
-        [messageId]: value,
-      }));
-    },
-    [],
-  );
+  const handleAppliedJobChange = useCallback((messageId: string, value: string) => {
+    setAppliedJobByMessageId((previous) => ({
+      ...previous,
+      [messageId]: value,
+    }));
+  }, []);
 
   return (
     <>
@@ -647,14 +586,11 @@ export const TrackingInboxPage: React.FC = () => {
       <PageMain className="space-y-4">
         <section className="space-y-1 px-1">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold tracking-tight">
-              Application Inbox Matching
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight">Application Inbox Matching</h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            Connect your inbox to ingest related emails, review the suggested
-            job matches, and approve or deny to automatically update your
-            tracking timeline.
+            Connect your inbox to ingest related emails, review the suggested job matches, and
+            approve or deny to automatically update your tracking timeline.
           </p>
         </section>
 
@@ -668,9 +604,7 @@ export const TrackingInboxPage: React.FC = () => {
                 <Label htmlFor="provider">Provider</Label>
                 <Select
                   value={provider}
-                  onValueChange={(value) =>
-                    setProvider(value as PostApplicationProvider)
-                  }
+                  onValueChange={(value) => setProvider(value as PostApplicationProvider)}
                 >
                   <SelectTrigger id="provider">
                     <SelectValue placeholder="Provider" />
@@ -695,8 +629,8 @@ export const TrackingInboxPage: React.FC = () => {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Gmail connect uses Google OAuth popup and stores credentials
-              server-side. No manual refresh token paste is needed.
+              Gmail connect uses Google OAuth popup and stores credentials server-side. No manual
+              refresh token paste is needed.
             </p>
 
             <div className="grid gap-3 md:grid-cols-4">
@@ -757,12 +691,9 @@ export const TrackingInboxPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              <Badge variant={status?.connected ? "default" : "outline"}>
-                {connectionLabel}
-              </Badge>
+              <Badge variant={status?.connected ? "default" : "outline"}>{connectionLabel}</Badge>
               <span className="text-muted-foreground">
-                Pending review:{" "}
-                <span className="font-semibold">{pendingCount}</span>
+                Pending review: <span className="font-semibold">{pendingCount}</span>
               </span>
               {status?.integration?.lastSyncedAt ? (
                 <span className="text-muted-foreground">
@@ -818,9 +749,7 @@ export const TrackingInboxPage: React.FC = () => {
                 appliedJobs={appliedJobs}
                 appliedJobByMessageId={appliedJobByMessageId}
                 onAppliedJobChange={handleAppliedJobChange}
-                onDecision={(item, decision) =>
-                  void handleDecision(item, decision, "main_inbox")
-                }
+                onDecision={(item, decision) => void handleDecision(item, decision, "main_inbox")}
                 isActionLoading={isActionLoading}
                 isAppliedJobsLoading={isAppliedJobsLoading}
               />
@@ -857,9 +786,7 @@ export const TrackingInboxPage: React.FC = () => {
                         <span className="text-muted-foreground">
                           relevant {run.messagesRelevant}
                         </span>
-                        <span className="text-muted-foreground">
-                          matched {run.messagesMatched}
-                        </span>
+                        <span className="text-muted-foreground">matched {run.messagesMatched}</span>
                       </div>
                     </div>
                   </button>
@@ -896,18 +823,14 @@ export const TrackingInboxPage: React.FC = () => {
                 Loading run messages...
               </div>
             ) : selectedRunItems.length === 0 ? (
-              <p className="py-4 text-sm text-muted-foreground">
-                No messages found for this run.
-              </p>
+              <p className="py-4 text-sm text-muted-foreground">No messages found for this run.</p>
             ) : (
               <EmailViewerList
                 items={selectedRunItems}
                 appliedJobs={appliedJobs}
                 appliedJobByMessageId={appliedJobByMessageId}
                 onAppliedJobChange={handleAppliedJobChange}
-                onDecision={(item, decision) =>
-                  void handleDecision(item, decision, "run_modal")
-                }
+                onDecision={(item, decision) => void handleDecision(item, decision, "run_modal")}
                 isActionLoading={isActionLoading}
                 isAppliedJobsLoading={isAppliedJobsLoading}
               />
@@ -918,9 +841,7 @@ export const TrackingInboxPage: React.FC = () => {
 
       <AlertDialog
         open={inboxActionDialog.isOpen}
-        onOpenChange={(open) =>
-          setInboxActionDialog((previous) => ({ ...previous, isOpen: open }))
-        }
+        onOpenChange={(open) => setInboxActionDialog((previous) => ({ ...previous, isOpen: open }))}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -944,9 +865,7 @@ export const TrackingInboxPage: React.FC = () => {
                 }
               }}
             >
-              {inboxActionDialog.action === "approve"
-                ? "Approve All"
-                : "Ignore All"}
+              {inboxActionDialog.action === "approve" ? "Approve All" : "Ignore All"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

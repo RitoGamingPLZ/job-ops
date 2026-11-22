@@ -43,7 +43,7 @@ vi.mock("./steps", () => ({
   notifyPipelineWebhookStep: vi.fn(async () => undefined),
 }));
 
-describe.sequential("pipeline challenge handling", () => {
+describe("pipeline challenge handling", () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -184,49 +184,31 @@ describe.sequential("pipeline challenge handling", () => {
         pendingChallenges: [],
       });
     const inTenantA = <T>(run: () => T) =>
-      runWithRequestContext(
-        { requestId: "request-a", tenantId: "tenant-a" },
-        run,
-      );
+      runWithRequestContext({ requestId: "request-a", tenantId: "tenant-a" }, run);
     const inTenantB = <T>(run: () => T) =>
-      runWithRequestContext(
-        { requestId: "request-b", tenantId: "tenant-b" },
-        run,
-      );
-    const runPromise = inTenantA(() =>
-      pipeline.runPipeline({ sources: ["hiringcafe"] }),
-    );
+      runWithRequestContext({ requestId: "request-b", tenantId: "tenant-b" }, run);
+    const runPromise = inTenantA(() => pipeline.runPipeline({ sources: ["hiringcafe"] }));
     await vi.waitFor(() => {
       expect(inTenantA(() => pipeline.getPendingChallenges())).toEqual([
         { ...searchChallenge, canSkipSearch: true, solveAttempted: false },
       ]);
     });
-    expect(
-      inTenantA(() => pipeline.skipPipelineChallengeSearch("hiringcafe")),
-    ).toEqual({
+    expect(inTenantA(() => pipeline.skipPipelineChallengeSearch("hiringcafe"))).toEqual({
       status: "not_allowed",
     });
-    expect(
-      inTenantB(() => pipeline.skipPipelineChallengeSearch("hiringcafe")),
-    ).toEqual({
+    expect(inTenantB(() => pipeline.skipPipelineChallengeSearch("hiringcafe"))).toEqual({
       status: "not_found",
     });
-    const finishSolve = inTenantA(() =>
-      pipeline.beginPipelineChallengeSolve("hiringcafe"),
-    );
+    const finishSolve = inTenantA(() => pipeline.beginPipelineChallengeSolve("hiringcafe"));
     expect(finishSolve).toBeTypeOf("function");
-    expect(
-      inTenantA(() => pipeline.skipPipelineChallengeSearch("hiringcafe")),
-    ).toEqual({
+    expect(inTenantA(() => pipeline.skipPipelineChallengeSearch("hiringcafe"))).toEqual({
       status: "busy",
     });
     expect(inTenantA(() => pipeline.getPendingChallenges()[0])).toMatchObject({
       solveAttempted: true,
     });
     finishSolve?.();
-    expect(
-      inTenantA(() => pipeline.skipPipelineChallengeSearch("hiringcafe")),
-    ).toEqual({
+    expect(inTenantA(() => pipeline.skipPipelineChallengeSearch("hiringcafe"))).toEqual({
       status: "skipped",
       remaining: 0,
     });
@@ -269,42 +251,28 @@ describe.sequential("pipeline challenge handling", () => {
         pendingChallenges: [detailChallenge],
       })
       .mockResolvedValueOnce({
-        discoveredJobs: [
-          { ...partialJob, jobDescription: "Full detail description" },
-        ],
+        discoveredJobs: [{ ...partialJob, jobDescription: "Full detail description" }],
         sourceErrors: [],
         pendingChallenges: [],
       });
 
     const inTenantA = <T>(run: () => T) =>
-      runWithRequestContext(
-        { requestId: "request-a", tenantId: "tenant-a" },
-        run,
-      );
+      runWithRequestContext({ requestId: "request-a", tenantId: "tenant-a" }, run);
     const inTenantB = <T>(run: () => T) =>
-      runWithRequestContext(
-        { requestId: "request-b", tenantId: "tenant-b" },
-        run,
-      );
-    const runPromise = inTenantA(() =>
-      pipeline.runPipeline({ sources: ["hiringcafe"] }),
-    );
+      runWithRequestContext({ requestId: "request-b", tenantId: "tenant-b" }, run);
+    const runPromise = inTenantA(() => pipeline.runPipeline({ sources: ["hiringcafe"] }));
 
     await vi.waitFor(() => {
       expect(inTenantA(() => pipeline.getPendingChallenges())).toHaveLength(1);
     });
     expect(vi.mocked(steps.importJobsStep)).not.toHaveBeenCalled();
     expect(inTenantB(() => pipeline.getPendingChallenges())).toEqual([]);
-    expect(
-      inTenantB(() => pipeline.resolvePipelineChallenge("hiringcafe")),
-    ).toEqual({
+    expect(inTenantB(() => pipeline.resolvePipelineChallenge("hiringcafe"))).toEqual({
       resolved: false,
       remaining: 0,
     });
 
-    expect(
-      inTenantA(() => pipeline.resolvePipelineChallenge("hiringcafe")),
-    ).toEqual({
+    expect(inTenantA(() => pipeline.resolvePipelineChallenge("hiringcafe"))).toEqual({
       resolved: true,
       remaining: 0,
     });
@@ -359,9 +327,7 @@ describe.sequential("pipeline challenge handling", () => {
         pendingChallenges: [detailChallenge],
       })
       .mockResolvedValueOnce({
-        discoveredJobs: [
-          { ...partialJob, jobDescription: "Full detail description" },
-        ],
+        discoveredJobs: [{ ...partialJob, jobDescription: "Full detail description" }],
         sourceErrors: [],
         pendingChallenges: [],
       });
@@ -384,9 +350,7 @@ describe.sequential("pipeline challenge handling", () => {
     expect(vi.mocked(steps.discoverJobsStep)).toHaveBeenCalledTimes(3);
     expect(vi.mocked(steps.importJobsStep)).toHaveBeenCalledWith({
       priorRunJobs: [],
-      discoveredJobs: [
-        expect.objectContaining({ jobDescription: "Full detail description" }),
-      ],
+      discoveredJobs: [expect.objectContaining({ jobDescription: "Full detail description" })],
     });
   });
 
@@ -440,10 +404,7 @@ describe.sequential("pipeline challenge handling", () => {
     pipeline.resolvePipelineChallenge("gradcracker");
 
     await vi.waitFor(() => {
-      expect(pipeline.getPendingChallenges()).toEqual([
-        detailChallenge,
-        challenge,
-      ]);
+      expect(pipeline.getPendingChallenges()).toEqual([detailChallenge, challenge]);
     });
     expect(vi.mocked(steps.importJobsStep)).not.toHaveBeenCalled();
     pipeline.resolvePipelineChallenge("hiringcafe");

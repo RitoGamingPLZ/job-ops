@@ -188,10 +188,7 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
         )}
         {stage === "closed" && (
           <div className="mt-2 flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className="border-border/60 bg-muted/30 text-foreground/80"
-            >
+            <Badge variant="outline" className="border-border/60 bg-muted/30 text-foreground/80">
               Reject
             </Badge>
             {job.outcome ? (
@@ -212,12 +209,7 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
           {resumeState === "available" && (
             <>
               <Button size="sm" variant="outline" asChild>
-                <Link
-                  to={resumeEditorLocation(
-                    { kind: "job", jobId: job.id },
-                    "edit",
-                  )}
-                >
+                <Link to={resumeEditorLocation({ kind: "job", jobId: job.id }, "edit")}>
                   Open resume
                 </Link>
               </Button>

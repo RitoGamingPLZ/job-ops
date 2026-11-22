@@ -102,15 +102,8 @@ export type ProviderStrategy = {
     jsonSchema: JsonSchemaDefinition;
   }) => { url: string; headers: Record<string, string>; body: unknown };
   extractText: (response: unknown) => string | null;
-  isCapabilityError: (args: {
-    mode: ResponseMode;
-    status?: number;
-    body?: string;
-  }) => boolean;
-  getValidationUrls: (args: {
-    baseUrl: string;
-    apiKey: string | null;
-  }) => string[];
+  isCapabilityError: (args: { mode: ResponseMode; status?: number; body?: string }) => boolean;
+  getValidationUrls: (args: { baseUrl: string; apiKey: string | null }) => string[];
 };
 
 export interface LlmApiError extends Error {
@@ -123,9 +116,7 @@ export function getLlmMessageText(content: LlmMessageContent): string {
   if (typeof content === "string") return content;
   return content
     .map((part) =>
-      part.type === "text"
-        ? part.text
-        : `[Attached image: ${part.name || part.mediaType}]`,
+      part.type === "text" ? part.text : `[Attached image: ${part.name || part.mediaType}]`,
     )
     .join("\n");
 }

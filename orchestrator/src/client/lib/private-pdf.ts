@@ -1,8 +1,5 @@
 import * as api from "@/client/api";
-import {
-  canOpenJobDocumentInline,
-  type JobDocumentTypeTarget,
-} from "@/client/lib/job-documents";
+import { canOpenJobDocumentInline, type JobDocumentTypeTarget } from "@/client/lib/job-documents";
 
 function openBlob(blob: Blob, filename?: string): void {
   const url = URL.createObjectURL(blob);
@@ -17,9 +14,7 @@ function openBlob(blob: Blob, filename?: string): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-async function createObjectUrlFromBlob(
-  loadBlob: () => Promise<Blob>,
-): Promise<string> {
+async function createObjectUrlFromBlob(loadBlob: () => Promise<Blob>): Promise<string> {
   return URL.createObjectURL(await loadBlob());
 }
 
@@ -43,10 +38,7 @@ export async function openJobPdf(
   }
 }
 
-export async function downloadJobPdf(
-  jobId: string,
-  filename: string,
-): Promise<void> {
+export async function downloadJobPdf(jobId: string, filename: string): Promise<void> {
   openBlob(await api.getJobPdfBlob(jobId), filename);
 }
 
@@ -54,9 +46,7 @@ export async function createJobPdfObjectUrl(jobId: string): Promise<string> {
   return createObjectUrlFromBlob(() => api.getJobPdfBlob(jobId));
 }
 
-export async function createJobPreviewPdfObjectUrl(
-  jobId: string,
-): Promise<string> {
+export async function createJobPreviewPdfObjectUrl(jobId: string): Promise<string> {
   return createObjectUrlFromBlob(() => api.previewJobPdfBlob(jobId));
 }
 
@@ -65,10 +55,7 @@ export async function openJobDocument(
   document: JobDocumentTypeTarget & { id: string },
 ): Promise<void> {
   if (!canOpenJobDocumentInline(document)) {
-    openBlob(
-      await api.getJobDocumentBlob(jobId, document.id),
-      document.fileName,
-    );
+    openBlob(await api.getJobDocumentBlob(jobId, document.id), document.fileName);
     return;
   }
   openBlob(await api.getJobDocumentBlob(jobId, document.id));
@@ -86,14 +73,10 @@ export async function createJobDocumentObjectUrl(
   jobId: string,
   documentId: string,
 ): Promise<string> {
-  return createObjectUrlFromBlob(() =>
-    api.getJobDocumentBlob(jobId, documentId),
-  );
+  return createObjectUrlFromBlob(() => api.getJobDocumentBlob(jobId, documentId));
 }
 
-export async function createDesignResumePdfObjectUrl(
-  pdfUrl?: string,
-): Promise<string> {
+export async function createDesignResumePdfObjectUrl(pdfUrl?: string): Promise<string> {
   return createObjectUrlFromBlob(() => api.getDesignResumePdfBlob(pdfUrl));
 }
 
@@ -101,9 +84,6 @@ export async function createDesignResumePreviewPdfObjectUrl(): Promise<string> {
   return createObjectUrlFromBlob(() => api.previewDesignResumePdfBlob());
 }
 
-export async function downloadDesignResumePdf(
-  filename: string,
-  pdfUrl?: string,
-): Promise<void> {
+export async function downloadDesignResumePdf(filename: string, pdfUrl?: string): Promise<void> {
   openBlob(await api.getDesignResumePdfBlob(pdfUrl), filename);
 }

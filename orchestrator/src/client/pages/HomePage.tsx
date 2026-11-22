@@ -36,9 +36,7 @@ export const HomePage: React.FC = () => {
   const initialDuration: DurationValue = (() => {
     const value = Number(searchParams.get("duration"));
     return (
-      (DURATION_OPTIONS as readonly number[]).includes(value)
-        ? value
-        : DEFAULT_DURATION
+      (DURATION_OPTIONS as readonly number[]).includes(value) ? value : DEFAULT_DURATION
     ) as DurationValue;
   })();
 
@@ -100,10 +98,7 @@ export const HomePage: React.FC = () => {
     () => overviewQuery.data?.jobsWithEvents ?? [],
     [overviewQuery.data],
   );
-  const appliedDates = useMemo(
-    () => overviewQuery.data?.appliedDates ?? [],
-    [overviewQuery.data],
-  );
+  const appliedDates = useMemo(() => overviewQuery.data?.appliedDates ?? [], [overviewQuery.data]);
   const error = overviewQuery.error
     ? overviewQuery.error instanceof Error
       ? overviewQuery.error.message
@@ -136,9 +131,7 @@ export const HomePage: React.FC = () => {
         icon={ChartColumn}
         title="Overview"
         subtitle="Analytics & Insights"
-        actions={
-          <DurationSelector value={duration} onChange={handleDurationChange} />
-        }
+        actions={<DurationSelector value={duration} onChange={handleDurationChange} />}
       />
 
       <PageMain>
@@ -149,11 +142,7 @@ export const HomePage: React.FC = () => {
           daysToShow={duration}
         />
 
-        <ConversionAnalytics
-          jobsWithEvents={jobsWithEvents}
-          error={error}
-          daysToShow={duration}
-        />
+        <ConversionAnalytics jobsWithEvents={jobsWithEvents} error={error} daysToShow={duration} />
 
         <ResponseRateBySourceChart jobs={jobsWithEvents} error={error} />
 

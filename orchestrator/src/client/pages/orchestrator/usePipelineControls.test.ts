@@ -44,13 +44,10 @@ describe("usePipelineControls", () => {
       });
     });
 
-    expect(trackProductEvent).toHaveBeenCalledWith(
-      "jobs_manual_import_completed",
-      {
-        manual_import_source: "fetched_url",
-        manual_import_source_host: "jobs.example.com",
-      },
-    );
+    expect(trackProductEvent).toHaveBeenCalledWith("jobs_manual_import_completed", {
+      manual_import_source: "fetched_url",
+      manual_import_source_host: "jobs.example.com",
+    });
     expect(loadJobs).toHaveBeenCalledOnce();
     expect(navigateWithContext).toHaveBeenCalledWith("ready", "job-1");
   });

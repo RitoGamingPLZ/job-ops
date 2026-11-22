@@ -3,8 +3,7 @@ import { htmlToPlainText } from "@shared/resume-bullets";
 import type { ExperienceBullet } from "@shared/types";
 import { candidateLibraryNeedsFirstBuild } from "./candidate-library";
 
-const compact = (value: string | null) =>
-  (value ?? "").replace(/\s+/g, " ").trim();
+const compact = (value: string | null) => (value ?? "").replace(/\s+/g, " ").trim();
 
 // Free-text periods commonly use ISO dates or English month names.
 function dateOrder(value: string | null): number {
@@ -41,22 +40,13 @@ function dateOrder(value: string | null): number {
 }
 
 const dataText = (item: ExperienceBullet, key: string) =>
-  compact(
-    typeof item.data?.[key] === "string"
-      ? htmlToPlainText(item.data[key])
-      : null,
-  );
+  compact(typeof item.data?.[key] === "string" ? htmlToPlainText(item.data[key]) : null);
 
 /** Read through the private-scope repository on every call; never cache user data.
  * Only a never-initialised, empty library permits callers to use legacy facts.
  */
-export async function buildCandidateExperienceContext(
-  maxChars = 12000,
-): Promise<string | null> {
-  return renderCandidateExperienceContext(
-    await listExperienceBullets(true),
-    maxChars,
-  );
+export async function buildCandidateExperienceContext(maxChars = 12000): Promise<string | null> {
+  return renderCandidateExperienceContext(await listExperienceBullets(true), maxChars);
 }
 
 /** Tailoring already supplies skills and AI-filtered projects in separate fields. */
@@ -74,9 +64,7 @@ export async function buildCandidateTailoringContext() {
               .map((item) => ({
                 name: item.text,
                 keywords: Array.isArray(item.data?.keywords)
-                  ? item.data.keywords.filter(
-                      (value): value is string => typeof value === "string",
-                    )
+                  ? item.data.keywords.filter((value): value is string => typeof value === "string")
                   : [],
               })),
           },
@@ -95,10 +83,7 @@ function renderCandidateExperienceContext(
   const roleIds = new Set(roles.map((role) => role.id));
   // Parent identity is authoritative, even when two roles have identical labels.
   const groups = roles.map((role) => ({
-    company:
-      dataText(role, "company") ||
-      compact(role.company) ||
-      "Unspecified company",
+    company: dataText(role, "company") || compact(role.company) || "Unspecified company",
     role: compact(role.text) || "Unspecified role",
     period:
       dataText(role, "period") ||
@@ -117,10 +102,7 @@ function renderCandidateExperienceContext(
     const group: (typeof groups)[number] = legacy.get(key) ?? {
       company: compact(duty.company) || "Unspecified company",
       role: compact(duty.role) || "Unspecified role",
-      period: [duty.startDate, duty.endDate]
-        .map(compact)
-        .filter(Boolean)
-        .join(" – "),
+      period: [duty.startDate, duty.endDate].map(compact).filter(Boolean).join(" – "),
       items: [],
       createdAt: duty.createdAt,
     };
@@ -134,30 +116,21 @@ function renderCandidateExperienceContext(
     // Periods contain both start and end; order by the most recent endpoint.
     return Math.max(
       0,
-      ...period
-        .split(/[–—]|\s+-\s+|(?<=\b\d{4})-(?=\d{4}\b)|\s+to\s+/i)
-        .map(dateOrder),
+      ...period.split(/[–—]|\s+-\s+|(?<=\b\d{4})-(?=\d{4}\b)|\s+to\s+/i).map(dateOrder),
     );
   };
   groups.sort(
-    (a, b) =>
-      newest(b.period) - newest(a.period) ||
-      b.createdAt.localeCompare(a.createdAt),
+    (a, b) => newest(b.period) - newest(a.period) || b.createdAt.localeCompare(a.createdAt),
   );
   const sections: string[] = [];
   for (const [kind, heading, fields] of [
     ["skill", "Skills", ["keywords"]],
     ["project", "Projects", ["period"]],
-    [
-      "education",
-      "Education",
-      ["school", "location", "period", "area", "grade", "description"],
-    ],
+    ["education", "Education", ["school", "location", "period", "area", "grade", "description"]],
     ["certification", "Certifications", ["issuer", "date", "description"]],
     ["award", "Awards", ["date", "awarder", "description"]],
   ] as const) {
-    if (!includeSkillsAndProjects && (kind === "skill" || kind === "project"))
-      continue;
+    if (!includeSkillsAndProjects && (kind === "skill" || kind === "project")) continue;
     const lines = library
       .filter((item) => item.kind === kind)
       .map((item) => {
@@ -166,11 +139,7 @@ function renderCandidateExperienceContext(
             if (key === "keywords") {
               const values = item.data?.keywords;
               return Array.isArray(values)
-                ? values
-                    .filter(
-                      (value): value is string => typeof value === "string",
-                    )
-                    .map(compact)
+                ? values.filter((value): value is string => typeof value === "string").map(compact)
                 : [];
             }
             return [dataText(item, key)];
@@ -180,11 +149,7 @@ function renderCandidateExperienceContext(
         const points =
           kind === "project"
             ? library
-                .filter(
-                  (point) =>
-                    point.kind === "project_point" &&
-                    point.parentId === item.id,
-                )
+                .filter((point) => point.kind === "project_point" && point.parentId === item.id)
                 .map((point) => `  - ${compact(point.text)}`)
                 .join("\n")
             : "";
@@ -194,10 +159,8 @@ function renderCandidateExperienceContext(
   }
   const sectionBudget = Math.floor(budget / 3);
   const joinSections = () => sections.join("\n\n");
-  while (joinSections().length > sectionBudget && sections.length > 1)
-    sections.pop();
-  if (joinSections().length > sectionBudget)
-    sections[0] = clip(sections[0], sectionBudget);
+  while (joinSections().length > sectionBudget && sections.length > 1) sections.pop();
+  if (joinSections().length > sectionBudget) sections[0] = clip(sections[0], sectionBudget);
   const facts = joinSections();
   const render = () => {
     const counts = new Map<string, { name: string; count: number }>();
@@ -222,10 +185,7 @@ function renderCandidateExperienceContext(
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
       .map(({ name, count }) => `${name} (${count})`)
       .join(", ");
-    const suffixBudget = Math.max(
-      0,
-      sectionBudget - facts.length - (facts ? 2 : 0),
-    );
+    const suffixBudget = Math.max(0, sectionBudget - facts.length - (facts ? 2 : 0));
     const tagSummary = clip(tags ? `Duty tags: ${tags}` : "", suffixBudget);
     return {
       experience,
@@ -243,9 +203,7 @@ function renderCandidateExperienceContext(
   }
   const experienceBudget = Math.max(
     0,
-    budget -
-      rendered.suffix.length -
-      (rendered.experience && rendered.suffix ? 2 : 0),
+    budget - rendered.suffix.length - (rendered.experience && rendered.suffix ? 2 : 0),
   );
   return [clip(rendered.experience, experienceBudget), rendered.suffix]
     .filter(Boolean)

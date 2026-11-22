@@ -12,26 +12,18 @@ export const DEFAULT_PIPELINE_SOURCES: JobSource[] = [
   "ukvisajobs",
 ];
 export const PIPELINE_SOURCES_STORAGE_KEY = "jobops.pipeline.sources";
-export const PIPELINE_WATCHLIST_SOURCES_STORAGE_KEY =
-  "jobops.pipeline.watchlist-sources";
+export const PIPELINE_WATCHLIST_SOURCES_STORAGE_KEY = "jobops.pipeline.watchlist-sources";
 export const IN_PROGRESS_BOARD_APPLIED_COLLAPSED_STORAGE_KEY =
   "jobops.in-progress-board.applied-collapsed";
 
 export const orderedSources = [...PIPELINE_EXTRACTOR_SOURCE_IDS].sort(
-  (left, right) =>
-    EXTRACTOR_SOURCE_METADATA[left].order -
-    EXTRACTOR_SOURCE_METADATA[right].order,
+  (left, right) => EXTRACTOR_SOURCE_METADATA[left].order - EXTRACTOR_SOURCE_METADATA[right].order,
 );
 export const orderedFilterSources: JobSource[] = [...EXTRACTOR_SOURCE_IDS].sort(
-  (left, right) =>
-    EXTRACTOR_SOURCE_METADATA[left].order -
-    EXTRACTOR_SOURCE_METADATA[right].order,
+  (left, right) => EXTRACTOR_SOURCE_METADATA[left].order - EXTRACTOR_SOURCE_METADATA[right].order,
 );
 
-export const statusTokens: Record<
-  JobStatus,
-  { label: string; badge: string; dot: string }
-> = {
+export const statusTokens: Record<JobStatus, { label: string; badge: string; dot: string }> = {
   discovered: {
     label: "Discovered",
     badge: "border-sky-500/30 bg-sky-500/10 text-sky-200",
@@ -84,13 +76,7 @@ export type FilterTab = "ready" | "discovered" | "all";
 export type DateFilterPreset = "7" | "14" | "30" | "90" | "custom";
 export type DateFilterDimension = "ready" | "applied" | "closed" | "discovered";
 
-export type SortKey =
-  | "datePosted"
-  | "discoveredAt"
-  | "score"
-  | "salary"
-  | "title"
-  | "employer";
+export type SortKey = "datePosted" | "discoveredAt" | "score" | "salary" | "title" | "employer";
 export type SortDirection = "asc" | "desc";
 export type SalaryFilterMode = "at_least" | "at_most" | "between";
 
@@ -108,12 +94,7 @@ export interface ScoreFilter {
   max: number | null;
 }
 
-export type EmploymentType =
-  | "full_time"
-  | "part_time"
-  | "contract"
-  | "internship"
-  | "temporary";
+export type EmploymentType = "full_time" | "part_time" | "contract" | "internship" | "temporary";
 
 export const employmentTypeOptions: Array<{
   value: EmploymentType;
@@ -139,9 +120,7 @@ export const postedWithinOptions: Array<{ value: number; label: string }> = [
   { value: 30, label: "30 days" },
 ];
 
-export const postedWithinValues: number[] = postedWithinOptions.map(
-  (option) => option.value,
-);
+export const postedWithinValues: number[] = postedWithinOptions.map((option) => option.value);
 
 export interface JobSort {
   key: SortKey;

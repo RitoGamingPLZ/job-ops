@@ -1,27 +1,12 @@
 import type { ResumeSuggestionV2 } from "./resume-suggestions";
 
-export const JOB_CHAT_MESSAGE_ROLES = [
-  "system",
-  "user",
-  "assistant",
-  "tool",
-] as const;
+export const JOB_CHAT_MESSAGE_ROLES = ["system", "user", "assistant", "tool"] as const;
 export type JobChatMessageRole = (typeof JOB_CHAT_MESSAGE_ROLES)[number];
 
-export const JOB_CHAT_MESSAGE_STATUSES = [
-  "complete",
-  "partial",
-  "cancelled",
-  "failed",
-] as const;
+export const JOB_CHAT_MESSAGE_STATUSES = ["complete", "partial", "cancelled", "failed"] as const;
 export type JobChatMessageStatus = (typeof JOB_CHAT_MESSAGE_STATUSES)[number];
 
-export const JOB_CHAT_RUN_STATUSES = [
-  "running",
-  "completed",
-  "cancelled",
-  "failed",
-] as const;
+export const JOB_CHAT_RUN_STATUSES = ["running", "completed", "cancelled", "failed"] as const;
 export type JobChatRunStatus = (typeof JOB_CHAT_RUN_STATUSES)[number];
 
 export interface JobChatThread {

@@ -47,25 +47,20 @@ export async function getJobDetails(
 ): Promise<{ job: NormalizedGreenhouseJobDetails }> {
   const fetchFn = options.fetchImpl ?? globalThis.fetch;
   if (!fetchFn) {
-    throw new Error(
-      "No fetch implementation available. Pass fetchImpl or use Node 18+.",
-    );
+    throw new Error("No fetch implementation available. Pass fetchImpl or use Node 18+.");
   }
 
   const { token, jobId } = parseGreenhouseJobApiUrl(options.jobRef);
   const detailUrl = greenhouseJobApiUrl(token, jobId);
-  const response = await fetchGreenhouseJson<GreenhouseDetailResponse>(
-    fetchFn,
-    {
-      url: detailUrl,
-      signal: options.signal,
-      headers: {
-        accept: "application/json",
-        "user-agent": options.userAgent ?? GREENHOUSE_DEFAULT_USER_AGENT,
-        ...options.headers,
-      },
+  const response = await fetchGreenhouseJson<GreenhouseDetailResponse>(fetchFn, {
+    url: detailUrl,
+    signal: options.signal,
+    headers: {
+      accept: "application/json",
+      "user-agent": options.userAgent ?? GREENHOUSE_DEFAULT_USER_AGENT,
+      ...options.headers,
     },
-  );
+  });
 
   return {
     job: normalizeGreenhouseJobDetails(response, { token, jobId, detailUrl }),
@@ -89,9 +84,7 @@ export function normalizeGreenhouseJobDetails(
     jobUrl: optionalString(response.absolute_url) ?? ref.detailUrl,
     jobApiUrl: ref.detailUrl,
     locationText: formatLocation(response.location?.name),
-    postedOn:
-      optionalString(response.first_published) ??
-      optionalString(response.updated_at),
+    postedOn: optionalString(response.first_published) ?? optionalString(response.updated_at),
     company: optionalString(response.company_name),
     department: optionalString(response.departments?.[0]?.name),
     jobDescriptionHtml: decodedHtml,
@@ -114,24 +107,19 @@ export function decodeHtmlEntities(input: string): string {
     apos: "'",
     nbsp: " ",
   };
-  return input.replace(
-    /&(#x?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g,
-    (m, ent) => {
-      if (ent[0] === "#") {
-        const isHex = ent[1] === "x" || ent[1] === "X";
-        const code = isHex
-          ? Number.parseInt(ent.slice(2), 16)
-          : Number.parseInt(ent.slice(1), 10);
-        if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return m;
-        try {
-          return String.fromCodePoint(code);
-        } catch {
-          return m;
-        }
+  return input.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g, (m, ent) => {
+    if (ent[0] === "#") {
+      const isHex = ent[1] === "x" || ent[1] === "X";
+      const code = isHex ? Number.parseInt(ent.slice(2), 16) : Number.parseInt(ent.slice(1), 10);
+      if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return m;
+      try {
+        return String.fromCodePoint(code);
+      } catch {
+        return m;
       }
-      return named[ent.toLowerCase()] ?? m;
-    },
-  );
+    }
+    return named[ent.toLowerCase()] ?? m;
+  });
 }
 
 function htmlToText(html: string): string {
@@ -167,9 +155,7 @@ async function fetchGreenhouseJson<T>(
 
   const responseText = await response.text();
   if (!response.ok) {
-    throw new Error(
-      `Greenhouse request failed with HTTP ${response.status} for ${input.url}.`,
-    );
+    throw new Error(`Greenhouse request failed with HTTP ${response.status} for ${input.url}.`);
   }
 
   try {
@@ -179,15 +165,9 @@ async function fetchGreenhouseJson<T>(
   }
 }
 
-function requiredString(
-  value: unknown,
-  fieldName: string,
-  url: string,
-): string {
+function requiredString(value: unknown, fieldName: string, url: string): string {
   if (typeof value === "string" && value.trim()) return value.trim();
-  throw new Error(
-    `Greenhouse response is missing required field ${fieldName} for ${url}.`,
-  );
+  throw new Error(`Greenhouse response is missing required field ${fieldName} for ${url}.`);
 }
 
 function optionalString(value: unknown): string | undefined {

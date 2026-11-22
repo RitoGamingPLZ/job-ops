@@ -71,12 +71,10 @@ describe("PipelineProgress", () => {
     vi.setSystemTime(new Date("2026-07-15T12:02:14.000Z"));
     sseMock.handlers = null;
     sseMock.subscribeToEventSource.mockReset();
-    sseMock.subscribeToEventSource.mockImplementation(
-      (_url: string, handlers: SseHandlers) => {
-        sseMock.handlers = handlers;
-        return vi.fn();
-      },
-    );
+    sseMock.subscribeToEventSource.mockImplementation((_url: string, handlers: SseHandlers) => {
+      sseMock.handlers = handlers;
+      return vi.fn();
+    });
     apiMock.getPipelineProgressSnapshot.mockReset();
     apiMock.getPipelineProgressSnapshot.mockResolvedValue(baseProgress);
     apiMock.prepareChallengeViewer.mockReset();
@@ -113,9 +111,7 @@ describe("PipelineProgress", () => {
         detail: "Hiring Cafe: term 2/2, page 3 (24 collected)",
       }),
     );
-    expect(activity).toHaveTextContent(
-      "Hiring Cafe: term 2/2, page 3 (24 collected)",
-    );
+    expect(activity).toHaveTextContent("Hiring Cafe: term 2/2, page 3 (24 collected)");
     expect(activity).not.toHaveTextContent(baseProgress.detail);
   });
 
@@ -142,9 +138,7 @@ describe("PipelineProgress", () => {
 
   it("hides the fanout card after discovery", () => {
     render(<PipelineProgress isRunning />);
-    act(() =>
-      sseMock.handlers?.onMessage({ ...baseProgress, step: "importing" }),
-    );
+    act(() => sseMock.handlers?.onMessage({ ...baseProgress, step: "importing" }));
 
     expect(screen.queryByText("Searching jobs")).toBeNull();
   });
@@ -169,9 +163,7 @@ describe("PipelineProgress", () => {
     );
 
     expect(screen.getByText("Scoring matches")).toBeInTheDocument();
-    expect(
-      screen.getByTitle("Ranking Frontend Engineer against your profile"),
-    ).toBeInTheDocument();
+    expect(screen.getByTitle("Ranking Frontend Engineer against your profile")).toBeInTheDocument();
     expect(screen.getByText("Exceptional matches")).toBeInTheDocument();
     expect(screen.queryByText("Searching jobs")).toBeNull();
   });

@@ -12,9 +12,7 @@ interface VersionState {
 export function useVersionCheck(): VersionState {
   const [state, setState] = useState<VersionState>(() => ({
     version:
-      typeof __APP_VERSION__ !== "undefined"
-        ? parseVersion(__APP_VERSION__ as string)
-        : "unknown",
+      typeof __APP_VERSION__ !== "undefined" ? parseVersion(__APP_VERSION__ as string) : "unknown",
     updateAvailable: false,
     latestVersion: null,
   }));

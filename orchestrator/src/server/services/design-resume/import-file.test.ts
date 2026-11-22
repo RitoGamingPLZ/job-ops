@@ -100,9 +100,7 @@ describe("importDesignResumeFromFile", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("fetch", vi.fn());
-    vi.mocked(pdfParse).mockResolvedValue(
-      makePdfParseResult("Taylor Quinn\nSenior Engineer"),
-    );
+    vi.mocked(pdfParse).mockResolvedValue(makePdfParseResult("Taylor Quinn\nSenior Engineer"));
     codexCallJsonMock.mockResolvedValue({
       text: JSON.stringify(buildDefaultReactiveResumeDocument()),
       turnId: "turn-1",
@@ -114,8 +112,7 @@ describe("importDesignResumeFromFile", () => {
       apiKey: "sk-test",
     });
     designResumeService.replaceCurrentDesignResumeDocument.mockImplementation(
-      async ({ resumeJson }: { resumeJson: DesignResumeJson }) =>
-        makeResumeDocument(resumeJson),
+      async ({ resumeJson }: { resumeJson: DesignResumeJson }) => makeResumeDocument(resumeJson),
     );
   });
 
@@ -143,16 +140,12 @@ describe("importDesignResumeFromFile", () => {
     const result = await importDesignResumeFromFile({
       fileName: "resume.json",
       mediaType: "application/json",
-      dataBase64: Buffer.from(JSON.stringify(resumeJson), "utf8").toString(
-        "base64",
-      ),
+      dataBase64: Buffer.from(JSON.stringify(resumeJson), "utf8").toString("base64"),
     });
 
     expect(modelSelection.resolveLlmRuntimeSettings).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
-    expect(
-      designResumeService.replaceCurrentDesignResumeDocument,
-    ).toHaveBeenCalledWith({
+    expect(designResumeService.replaceCurrentDesignResumeDocument).toHaveBeenCalledWith({
       importedAt: expect.any(String),
       resumeJson: expect.objectContaining({
         basics: expect.objectContaining({ name: "Jordan Park" }),
@@ -161,9 +154,7 @@ describe("importDesignResumeFromFile", () => {
       sourceResumeId: null,
     });
     expect(result.resumeJson.basics.name).toBe("Jordan Park");
-    expect(
-      result.resumeJson.sections.experience.items[0]?.website.inlineLink,
-    ).toBe(true);
+    expect(result.resumeJson.sections.experience.items[0]?.website.inlineLink).toBe(true);
   });
 
   it("accepts data-wrapped Reactive Resume JSON exports", async () => {
@@ -173,16 +164,11 @@ describe("importDesignResumeFromFile", () => {
     const result = await importDesignResumeFromFile({
       fileName: "resume.json",
       mediaType: "",
-      dataBase64: Buffer.from(
-        JSON.stringify({ data: resumeJson }),
-        "utf8",
-      ).toString("base64"),
+      dataBase64: Buffer.from(JSON.stringify({ data: resumeJson }), "utf8").toString("base64"),
     });
 
     expect(result.resumeJson.basics.name).toBe("Sam Rivera");
-    expect(
-      designResumeService.replaceCurrentDesignResumeDocument,
-    ).toHaveBeenCalledWith(
+    expect(designResumeService.replaceCurrentDesignResumeDocument).toHaveBeenCalledWith(
       expect.objectContaining({
         sourceMode: "v5",
         sourceResumeId: null,
@@ -225,14 +211,10 @@ describe("importDesignResumeFromFile", () => {
     const result = await importDesignResumeFromFile({
       fileName: "resume.json",
       mediaType: "application/json",
-      dataBase64: Buffer.from(JSON.stringify(resumeJson), "utf8").toString(
-        "base64",
-      ),
+      dataBase64: Buffer.from(JSON.stringify(resumeJson), "utf8").toString("base64"),
     });
 
-    const projectIds = result.resumeJson.sections.projects.items.map(
-      (project) => project.id,
-    );
+    const projectIds = result.resumeJson.sections.projects.items.map((project) => project.id);
 
     expect(projectIds[0]).toEqual(expect.any(String));
     expect(projectIds[0]?.trim()).not.toBe("");
@@ -246,10 +228,7 @@ describe("importDesignResumeFromFile", () => {
       importDesignResumeFromFile({
         fileName: "not-a-resume.json",
         mediaType: "application/json",
-        dataBase64: Buffer.from(
-          JSON.stringify({ hello: "world" }),
-          "utf8",
-        ).toString("base64"),
+        dataBase64: Buffer.from(JSON.stringify({ hello: "world" }), "utf8").toString("base64"),
       }),
     ).rejects.toMatchObject({
       status: 400,
@@ -257,9 +236,7 @@ describe("importDesignResumeFromFile", () => {
         "Reactive Resume JSON must contain a v5 resume document or a data-wrapped v5 resume document.",
     });
 
-    expect(
-      designResumeService.replaceCurrentDesignResumeDocument,
-    ).not.toHaveBeenCalled();
+    expect(designResumeService.replaceCurrentDesignResumeDocument).not.toHaveBeenCalled();
   });
 
   it("sends the attached file directly to the configured model and saves the normalized document", async () => {
@@ -305,9 +282,7 @@ describe("importDesignResumeFromFile", () => {
         body: expect.stringContaining('"type":"input_file"'),
       }),
     );
-    expect(
-      designResumeService.replaceCurrentDesignResumeDocument,
-    ).toHaveBeenCalledWith(
+    expect(designResumeService.replaceCurrentDesignResumeDocument).toHaveBeenCalledWith(
       expect.objectContaining({
         sourceMode: null,
         sourceResumeId: null,
@@ -319,10 +294,8 @@ describe("importDesignResumeFromFile", () => {
       }),
     );
 
-    const savedInput =
-      designResumeService.replaceCurrentDesignResumeDocument.mock.calls[0]?.[0];
-    const experienceItems =
-      savedInput?.resumeJson?.sections?.experience?.items ?? [];
+    const savedInput = designResumeService.replaceCurrentDesignResumeDocument.mock.calls[0]?.[0];
+    const experienceItems = savedInput?.resumeJson?.sections?.experience?.items ?? [];
 
     expect(experienceItems).toHaveLength(1);
     expect(experienceItems[0]).toMatchObject({
@@ -383,9 +356,7 @@ describe("importDesignResumeFromFile", () => {
       dataBase64: Buffer.from("pdf-data").toString("base64"),
     });
 
-    const projectIds = result.resumeJson.sections.projects.items.map(
-      (project) => project.id,
-    );
+    const projectIds = result.resumeJson.sections.projects.items.map((project) => project.id);
 
     expect(projectIds).toHaveLength(4);
     expect(projectIds[0]).toEqual(expect.any(String));
@@ -427,8 +398,7 @@ describe("importDesignResumeFromFile", () => {
 
     await importDesignResumeFromFile({
       fileName: "resume.docx",
-      mediaType:
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       dataBase64: docxBase64,
     });
 
@@ -440,8 +410,7 @@ describe("importDesignResumeFromFile", () => {
     );
 
     const fetchCall = vi.mocked(fetch).mock.calls[0];
-    const body =
-      fetchCall?.[1] && "body" in fetchCall[1] ? fetchCall[1].body : "";
+    const body = fetchCall?.[1] && "body" in fetchCall[1] ? fetchCall[1].body : "";
     const parsedBody = JSON.parse(String(body)) as Record<string, unknown>;
 
     expect(JSON.stringify(parsedBody)).not.toContain("inlineData");
@@ -450,9 +419,7 @@ describe("importDesignResumeFromFile", () => {
     const contents = parsedBody.contents as Array<{
       parts?: Array<{ text?: string }>;
     }>;
-    expect(contents[0]?.parts?.[0]?.text).toContain(
-      "The resume file was uploaded as DOCX",
-    );
+    expect(contents[0]?.parts?.[0]?.text).toContain("The resume file was uploaded as DOCX");
     expect(contents[0]?.parts?.[0]?.text).toContain("Taylor Quinn");
     expect(contents[0]?.parts?.[0]?.text).toContain("Senior Engineer");
   });
@@ -468,9 +435,7 @@ describe("importDesignResumeFromFile", () => {
     vi.mocked(fetch).mockResolvedValue(
       new Response(
         JSON.stringify({
-          content: [
-            { type: "text", text: '{"basics":{"name":"Taylor Quinn"}}' },
-          ],
+          content: [{ type: "text", text: '{"basics":{"name":"Taylor Quinn"}}' }],
         }),
         {
           status: 200,
@@ -485,10 +450,7 @@ describe("importDesignResumeFromFile", () => {
       dataBase64: Buffer.from("pdf-data").toString("base64"),
     });
 
-    expect(fetch).toHaveBeenCalledWith(
-      "https://api.anthropic.com/v1/messages",
-      expect.any(Object),
-    );
+    expect(fetch).toHaveBeenCalledWith("https://api.anthropic.com/v1/messages", expect.any(Object));
 
     const fetchCall = vi.mocked(fetch).mock.calls[0];
     const init = fetchCall?.[1] as RequestInit;
@@ -512,9 +474,7 @@ describe("importDesignResumeFromFile", () => {
       },
     });
     expect(pdfParse).not.toHaveBeenCalled();
-    expect(
-      designResumeService.replaceCurrentDesignResumeDocument,
-    ).toHaveBeenCalledWith(
+    expect(designResumeService.replaceCurrentDesignResumeDocument).toHaveBeenCalledWith(
       expect.objectContaining({
         resumeJson: expect.objectContaining({
           basics: expect.objectContaining({ name: "Taylor Quinn" }),
@@ -534,9 +494,7 @@ describe("importDesignResumeFromFile", () => {
     vi.mocked(fetch).mockResolvedValue(
       new Response(
         JSON.stringify({
-          content: [
-            { type: "text", text: '{"basics":{"name":"Taylor Quinn"}}' },
-          ],
+          content: [{ type: "text", text: '{"basics":{"name":"Taylor Quinn"}}' }],
         }),
         {
           status: 200,
@@ -547,8 +505,7 @@ describe("importDesignResumeFromFile", () => {
 
     await importDesignResumeFromFile({
       fileName: "resume.docx",
-      mediaType:
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       dataBase64: await makeDocxBase64("Taylor Quinn\nSenior Engineer"),
     });
 
@@ -595,10 +552,8 @@ describe("importDesignResumeFromFile", () => {
       dataBase64: Buffer.from("pdf-data").toString("base64"),
     });
 
-    const savedInput =
-      designResumeService.replaceCurrentDesignResumeDocument.mock.calls[0]?.[0];
-    const experienceItems =
-      savedInput?.resumeJson?.sections?.experience?.items ?? [];
+    const savedInput = designResumeService.replaceCurrentDesignResumeDocument.mock.calls[0]?.[0];
+    const experienceItems = savedInput?.resumeJson?.sections?.experience?.items ?? [];
 
     expect(experienceItems).toHaveLength(1);
     expect(experienceItems[0]).toMatchObject({
@@ -648,9 +603,7 @@ describe("importDesignResumeFromFile", () => {
       dataBase64: Buffer.from("pdf-data").toString("base64"),
     });
 
-    expect(
-      designResumeService.replaceCurrentDesignResumeDocument,
-    ).toHaveBeenCalledWith(
+    expect(designResumeService.replaceCurrentDesignResumeDocument).toHaveBeenCalledWith(
       expect.objectContaining({
         resumeJson: expect.objectContaining({
           basics: expect.objectContaining({ name: "Taylor Quinn" }),
@@ -751,8 +704,7 @@ describe("importDesignResumeFromFile", () => {
     });
 
     const fetchCall = vi.mocked(fetch).mock.calls[0];
-    const body =
-      fetchCall?.[1] && "body" in fetchCall[1] ? fetchCall[1].body : "";
+    const body = fetchCall?.[1] && "body" in fetchCall[1] ? fetchCall[1].body : "";
     expect(String(body)).toContain('"engine":"cloudflare-ai"');
     expect(String(body)).not.toContain('"engine":"native"');
   });
@@ -807,10 +759,8 @@ describe("importDesignResumeFromFile", () => {
     const secondCall = vi.mocked(fetch).mock.calls[1];
     const firstInit = firstCall?.[1];
     const secondInit = secondCall?.[1];
-    const firstBody =
-      firstInit && "body" in firstInit ? String(firstInit.body) : "";
-    const secondBody =
-      secondInit && "body" in secondInit ? String(secondInit.body) : "";
+    const firstBody = firstInit && "body" in firstInit ? String(firstInit.body) : "";
+    const secondBody = secondInit && "body" in secondInit ? String(secondInit.body) : "";
 
     expect(firstBody).toContain('"engine":"cloudflare-ai"');
     expect(secondBody).toContain('"engine":"mistral-ocr"');
@@ -855,9 +805,7 @@ describe("importDesignResumeFromFile", () => {
     });
 
     expect(fetch).not.toHaveBeenCalled();
-    expect(
-      designResumeService.replaceCurrentDesignResumeDocument,
-    ).not.toHaveBeenCalled();
+    expect(designResumeService.replaceCurrentDesignResumeDocument).not.toHaveBeenCalled();
   });
 
   it("sends normalized base64 upstream after stripping whitespace", async () => {
@@ -884,8 +832,7 @@ describe("importDesignResumeFromFile", () => {
 
     const fetchCall = vi.mocked(fetch).mock.calls[0];
     expect(fetchCall).toBeDefined();
-    const body =
-      fetchCall?.[1] && "body" in fetchCall[1] ? fetchCall[1].body : "";
+    const body = fetchCall?.[1] && "body" in fetchCall[1] ? fetchCall[1].body : "";
     expect(String(body)).toContain(compactBase64);
     expect(String(body)).not.toContain(spacedBase64.trim());
   });
@@ -929,8 +876,7 @@ describe("importDesignResumeFromFile", () => {
       }),
     );
     const fetchCall = vi.mocked(fetch).mock.calls[0];
-    const body =
-      fetchCall?.[1] && "body" in fetchCall[1] ? fetchCall[1].body : "";
+    const body = fetchCall?.[1] && "body" in fetchCall[1] ? fetchCall[1].body : "";
     expect(String(body)).toContain(
       "The resume file was uploaded as PDF and converted locally to plain text before extraction.",
     );
@@ -1022,8 +968,7 @@ describe("importDesignResumeFromFile", () => {
       }),
     );
     const fetchCall = vi.mocked(fetch).mock.calls[0];
-    const body =
-      fetchCall?.[1] && "body" in fetchCall[1] ? fetchCall[1].body : "";
+    const body = fetchCall?.[1] && "body" in fetchCall[1] ? fetchCall[1].body : "";
     expect(String(body)).toContain("Taylor Quinn");
     expect(String(fetchCall?.[0])).not.toContain("/v1/chat/completions");
   });
@@ -1056,8 +1001,7 @@ describe("importDesignResumeFromFile", () => {
 
     await importDesignResumeFromFile({
       fileName: "resume.docx",
-      mediaType:
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       dataBase64: docxBase64,
     });
 
@@ -1107,8 +1051,7 @@ describe("importDesignResumeFromFile", () => {
 
     expect(fetch).toHaveBeenCalledTimes(2);
     const secondCall = vi.mocked(fetch).mock.calls[1];
-    const secondBody =
-      secondCall?.[1] && "body" in secondCall[1] ? secondCall[1].body : "";
+    const secondBody = secondCall?.[1] && "body" in secondCall[1] ? secondCall[1].body : "";
     expect(String(secondBody)).not.toContain('"type":"input_file"');
     expect(String(secondBody)).toContain(
       "The resume file was uploaded as PDF and converted locally to plain text before extraction.",
@@ -1137,9 +1080,7 @@ describe("importDesignResumeFromFile", () => {
     });
 
     expect(fetch).not.toHaveBeenCalled();
-    expect(
-      designResumeService.replaceCurrentDesignResumeDocument,
-    ).not.toHaveBeenCalled();
+    expect(designResumeService.replaceCurrentDesignResumeDocument).not.toHaveBeenCalled();
   });
 
   it("extracts PDF text locally and imports resumes with Codex", async () => {
@@ -1171,21 +1112,14 @@ describe("importDesignResumeFromFile", () => {
                 additionalProperties: false,
               }),
             }),
-            required: [
-              "picture",
-              "basics",
-              "summary",
-              "sections",
-              "customSections",
-              "metadata",
-            ],
+            required: ["picture", "basics", "summary", "sections", "customSections", "metadata"],
           }),
         }),
       }),
     );
-    expect(
-      codexCallJsonMock.mock.calls[0]?.[0].messages[1]?.content,
-    ).not.toContain('property named "json"');
+    expect(codexCallJsonMock.mock.calls[0]?.[0].messages[1]?.content).not.toContain(
+      'property named "json"',
+    );
     expect(pdfParse).toHaveBeenCalledOnce();
     expect(fetch).not.toHaveBeenCalled();
   });

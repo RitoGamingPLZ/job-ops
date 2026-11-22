@@ -1,10 +1,4 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { AutomaticChoiceCardGroup } from "./AutomaticChoiceCardGroup";
 import {
@@ -43,8 +37,7 @@ export function AutomaticSearchTermsCard({
           <div className="flex min-w-0 flex-col gap-1">
             <CardTitle>What roles are you looking for?</CardTitle>
             <CardDescription>
-              Add the titles a job board would recognise. Alternatives widen
-              coverage.
+              Add the titles a job board would recognise. Alternatives widen coverage.
             </CardDescription>
           </div>
         </div>

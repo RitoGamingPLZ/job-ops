@@ -1,20 +1,8 @@
 import { getSetting } from "@server/repositories/settings";
-import {
-  htmlToPlainText,
-  introTextToHtml,
-  splitDescription,
-} from "@shared/resume-bullets";
-import {
-  libraryItemToResumeItem,
-  setItemLines,
-  stampLibraryRefs,
-} from "@shared/resume-links";
+import { htmlToPlainText, introTextToHtml, splitDescription } from "@shared/resume-bullets";
+import { libraryItemToResumeItem, setItemLines, stampLibraryRefs } from "@shared/resume-links";
 import { resolveResumeProjectSelection } from "@shared/resume-projects";
-import type {
-  ExperienceBullet,
-  Job,
-  ReactiveResumeV5Document,
-} from "@shared/types";
+import type { ExperienceBullet, Job, ReactiveResumeV5Document } from "@shared/types";
 import { z } from "zod";
 import { libraryBulletOverlap, selectLibraryBullets } from "./cowork-ai";
 import { withHostedUsageReservation } from "./hosted-usage";
@@ -142,8 +130,7 @@ const properties = {
   certificationIds: idsSchema,
   awardIds: idsSchema,
 };
-const normalize = (text: string) =>
-  text.trim().replace(/\s+/g, " ").toLowerCase();
+const normalize = (text: string) => text.trim().replace(/\s+/g, " ").toLowerCase();
 
 // Newly supplied prose must not expose embedded contact addresses or URLs.
 const promptPlainText = (html: string) =>
@@ -225,8 +212,7 @@ export async function generateResumeFromLibrary(
   ))
     bullets.add(duty);
   const supplied = library.filter(
-    (item) =>
-      item.kind !== "contact" && (item.kind !== "bullet" || bullets.has(item)),
+    (item) => item.kind !== "contact" && (item.kind !== "bullet" || bullets.has(item)),
   );
   // Nested roles inherit their employer context, but retain their own identity,
   // dates and description for the same fallback used by top-level roles.
@@ -244,11 +230,9 @@ export async function generateResumeFromLibrary(
       (item) =>
         role.id === item.libraryId ||
         role.sourceExperienceId === item.id ||
-        (normalize(String(role.data?.company ?? "")) ===
-          normalize(item.company) &&
+        (normalize(String(role.data?.company ?? "")) === normalize(item.company) &&
           normalize(role.text) === normalize(item.position) &&
-          normalize(String(role.data?.period ?? "")) ===
-            normalize(item.period)),
+          normalize(String(role.data?.period ?? "")) === normalize(item.period)),
     );
   const style = await getWritingStyle();
   const prompt = JSON.stringify({
@@ -280,9 +264,7 @@ export async function generateResumeFromLibrary(
               splitDescription(
                 (item.kind === "role"
                   ? baseRole(item)
-                  : stampedBase.sections.projects.items.find(
-                      (entry) => entry.libraryId === item.id,
-                    )
+                  : stampedBase.sections.projects.items.find((entry) => entry.libraryId === item.id)
                 )?.description ?? "",
               ).introHtml,
             ),
@@ -310,29 +292,17 @@ export async function generateResumeFromLibrary(
             if (key === "keywords" && Array.isArray(value))
               return [[key, value.filter((word) => typeof word === "string")]];
             return typeof value === "string"
-              ? [
-                  [
-                    key,
-                    key === "description"
-                      ? promptPlainText(value)
-                      : htmlToPlainText(value),
-                  ],
-                ]
+              ? [[key, key === "description" ? promptPlainText(value) : htmlToPlainText(value)]]
               : [];
           }),
       ),
       tags: item.tags,
     })),
   });
-  const template = await getEffectivePromptTemplate(
-    "resumeGenerationPromptTemplate",
-  );
+  const template = await getEffectivePromptTemplate("resumeGenerationPromptTemplate");
   // Scraped job descriptions and library facts remain untrusted with any template.
   const instructions = `${template}\n\n${GENERATION_INSTRUCTIONS}`;
-  if (
-    Buffer.byteLength(prompt) + Buffer.byteLength(instructions) >
-    LIBRARY_PROMPT_MAX_BYTES
-  )
+  if (Buffer.byteLength(prompt) + Buffer.byteLength(instructions) > LIBRARY_PROMPT_MAX_BYTES)
     throw new Error("Candidate library exceeds generation prompt limit");
   const [llm, model] = await Promise.all([
     createConfiguredLlmService("tailoring"),
@@ -360,8 +330,7 @@ export async function generateResumeFromLibrary(
         },
       },
     });
-    if (!response.success)
-      throw new Error(`Resume library selection failed: ${response.error}`);
+    if (!response.success) throw new Error(`Resume library selection failed: ${response.error}`);
     const parsed = selectionSchema.safeParse(response.data);
     if (!parsed.success) throw new Error("Invalid resume library selection");
     const selection: ResumeLibrarySelectionV2 = parsed.data;
@@ -374,9 +343,7 @@ export async function generateResumeFromLibrary(
       const original =
         item.kind === "role"
           ? baseRole(item)
-          : stampedBase.sections.projects.items.find(
-              (entry) => entry.libraryId === item.id,
-            );
+          : stampedBase.sections.projects.items.find((entry) => entry.libraryId === item.id);
       return setItemLines(
         {
           ...libraryItemToResumeItem(item),
@@ -388,10 +355,7 @@ export async function generateResumeFromLibrary(
                 : "",
         },
         lines.map((line) => ({
-          text:
-            line.text ??
-            supplied.find((item) => item.id === line.id)?.text ??
-            "",
+          text: line.text ?? supplied.find((item) => item.id === line.id)?.text ?? "",
           ref: line.id,
         })),
       );
@@ -399,17 +363,12 @@ export async function generateResumeFromLibrary(
     const unique = (ids: string[]) => [...new Set(ids)];
     const selected = (kind: ExperienceBullet["kind"], ids: string[]) =>
       unique(ids).flatMap((id) => {
-        const item = supplied.find(
-          (item) => item.id === id && item.kind === kind,
-        );
+        const item = supplied.find((item) => item.id === id && item.kind === kind);
         return item ? [item] : [];
       });
     doc.basics.headline = selection.headline;
     doc.summary.content = selection.summary;
-    const uniqueParents = (
-      parents: SelectedParent[],
-      kind: "role" | "project",
-    ) => {
+    const uniqueParents = (parents: SelectedParent[], kind: "role" | "project") => {
       const seen = new Set<string>();
       return parents.filter((parent) => {
         if (
@@ -421,19 +380,13 @@ export async function generateResumeFromLibrary(
         return true;
       });
     };
-    const parentLines = (
-      parent: SelectedParent,
-      kind: "bullet" | "project_point",
-    ) => {
+    const parentLines = (parent: SelectedParent, kind: "bullet" | "project_point") => {
       const seen = new Set<string>();
       return parent.lines.filter((line) => {
         if (
           seen.has(line.id) ||
           !supplied.some(
-            (item) =>
-              item.id === line.id &&
-              item.kind === kind &&
-              item.parentId === parent.id,
+            (item) => item.id === line.id && item.kind === kind && item.parentId === parent.id,
           )
         )
           return false;
@@ -450,9 +403,7 @@ export async function generateResumeFromLibrary(
       const original = parent.kind === "role" ? baseRole(parent) : undefined;
       const baseLines = original
         ? splitDescription(original.description).bullets.flatMap((text) => {
-            const match = available.find(
-              (item) => normalize(item.text) === normalize(text),
-            );
+            const match = available.find((item) => normalize(item.text) === normalize(text));
             return match ? [match] : [];
           })
         : [];
@@ -462,10 +413,7 @@ export async function generateResumeFromLibrary(
       }));
     };
     const selectedLines = (item: ExperienceBullet, parent: SelectedParent) => {
-      const lines = parentLines(
-        parent,
-        item.kind === "role" ? "bullet" : "project_point",
-      );
+      const lines = parentLines(parent, item.kind === "role" ? "bullet" : "project_point");
       return parent.lines.length && !lines.length ? fallbackLines(item) : lines;
     };
     const experienceParents = uniqueParents(selection.experience, "role");
@@ -473,9 +421,7 @@ export async function generateResumeFromLibrary(
     const experience = supplied
       .filter((item) => item.kind === "role")
       .flatMap((role) => {
-        const parent = experienceParents.find(
-          (parent) => parent.id === role.id,
-        );
+        const parent = experienceParents.find((parent) => parent.id === role.id);
         if (!parent && !baseRole(role)) return [];
         return [
           itemWithLines(
@@ -487,16 +433,12 @@ export async function generateResumeFromLibrary(
       });
     const seenSkills = new Set<string>();
     const skills = selection.skills.flatMap((group) => {
-      const item = supplied.find(
-        (item) => item.kind === "skill" && item.id === group.id,
-      );
+      const item = supplied.find((item) => item.kind === "skill" && item.id === group.id);
       if (!item || seenSkills.has(item.id)) return [];
       seenSkills.add(item.id);
       const built = libraryItemToResumeItem(item);
       const allowed = Array.isArray(item.data?.keywords)
-        ? item.data.keywords.filter(
-            (word): word is string => typeof word === "string",
-          )
+        ? item.data.keywords.filter((word): word is string => typeof word === "string")
         : [];
       const keywords = unique(group.keywords.map(normalize)).flatMap((word) => {
         const existing = allowed.find((value) => normalize(value) === word);
@@ -504,24 +446,18 @@ export async function generateResumeFromLibrary(
       });
       return keywords.length ? [{ ...built, keywords }] : [];
     });
-    const sections = doc.sections as unknown as Record<
-      string,
-      { items: unknown[] }
-    >;
+    const sections = doc.sections as unknown as Record<string, { items: unknown[] }>;
     sections.experience.items = experience;
     sections.skills.items = skills;
-    sections.education.items = selected(
-      "education",
-      selection.educationIds,
-    ).map(libraryItemToResumeItem);
+    sections.education.items = selected("education", selection.educationIds).map(
+      libraryItemToResumeItem,
+    );
     const projectParents = uniqueParents(selection.projects, "project");
     const selectedProjectIds = resolveResumeProjectSelection({
       catalog,
       resumeProjects,
       selectedProjectIds: projectParents.flatMap(({ id }) => {
-        const project = projectIdentities.find(
-          (project) => project.item.id === id,
-        );
+        const project = projectIdentities.find((project) => project.item.id === id);
         return project ? [project.id] : [];
       }),
     }).effectiveSelectedIds.flatMap((id) => {
@@ -536,9 +472,7 @@ export async function generateResumeFromLibrary(
       sections[section].items = selected(kind, [...ids]).map((item) =>
         kind === "project"
           ? (() => {
-              const parent = projectParents.find(
-                (parent) => parent.id === item.id,
-              );
+              const parent = projectParents.find((parent) => parent.id === item.id);
               return itemWithLines(
                 item,
                 parent ? selectedLines(item, parent) : fallbackLines(item),

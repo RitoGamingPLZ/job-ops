@@ -14,17 +14,15 @@ vi.mock("impit", () => ({
 }));
 
 vi.mock("@server/services/hiring-cafe-browser", () => ({
-  readHiringCafeBrowserPage: vi.fn(
-    async (_scope: string, _dir: string, url: string) => {
-      const response = await hiringCafeFetch(url, {});
-      const html = await response.text();
-      return {
-        status: response.status,
-        html,
-        challenged: !response.ok && html.includes("challenges.cloudflare.com"),
-      };
-    },
-  ),
+  readHiringCafeBrowserPage: vi.fn(async (_scope: string, _dir: string, url: string) => {
+    const response = await hiringCafeFetch(url, {});
+    const html = await response.text();
+    return {
+      status: response.status,
+      html,
+      challenged: !response.ok && html.includes("challenges.cloudflare.com"),
+    };
+  }),
   closeHiringCafeBrowser: vi.fn(async () => undefined),
 }));
 
@@ -126,9 +124,8 @@ describe("discoverJobsStep", () => {
   it("retains Hiring Cafe listing jobs and pauses on a challenged detail page", async () => {
     const settingsRepo = await import("@server/repositories/settings");
     const registryModule = await import("@server/extractors/registry");
-    const { manifest: hiringCafeManifest } = await import(
-      "../../../../../extractors/hiringcafe/manifest"
-    );
+    const { manifest: hiringCafeManifest } =
+      await import("../../../../../extractors/hiringcafe/manifest");
     const hits = ["req-1", "req-2", "req-3"].map((id) => ({
       original_source_id: id,
       requisition_id: id,
@@ -145,27 +142,23 @@ describe("discoverJobsStep", () => {
         requirements_summary: `Summary ${id}`,
       },
     }));
-    const searchHtml = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(
-      {
-        props: {
-          pageProps: {
-            ssrHits: hits,
-            ssrPage: 0,
-            ssrTotalCount: hits.length,
-            ssrPageSize: 40,
-            ssrIsLastPage: true,
-            ssrError: null,
-          },
+    const searchHtml = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: {
+        pageProps: {
+          ssrHits: hits,
+          ssrPage: 0,
+          ssrTotalCount: hits.length,
+          ssrPageSize: 40,
+          ssrIsLastPage: true,
+          ssrError: null,
         },
       },
-    )}</script>`;
+    })}</script>`;
     hiringCafeFetch.mockImplementation(async (url: string) => ({
       ok: !url.includes("/job/"),
       status: url.includes("/job/") ? 403 : 200,
       text: async () =>
-        url.includes("/job/")
-          ? "<html>challenges.cloudflare.com</html>"
-          : searchHtml,
+        url.includes("/job/") ? "<html>challenges.cloudflare.com</html>" : searchHtml,
     }));
 
     vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
@@ -246,9 +239,7 @@ describe("discoverJobsStep", () => {
       fanoutSeedJobs: result.discoveredJobs,
     });
 
-    expect(hiringCafeFetch.mock.calls[0]?.[0]).toBe(
-      "https://hiringcafe.com/job/req-2",
-    );
+    expect(hiringCafeFetch.mock.calls[0]?.[0]).toBe("https://hiringcafe.com/job/req-2");
     expect(hiringCafeFetch).toHaveBeenCalledTimes(1);
     expect(retryResult.pendingChallenges).toEqual([]);
     expect(retryResult.discoveredJobs).toHaveLength(1);
@@ -327,9 +318,7 @@ describe("discoverJobsStep", () => {
       sources: ["indeed", "linkedin", "ukvisajobs"],
       total: 3,
     });
-    expect(result.sourceErrors).toEqual([
-      "UK Visa Jobs: login failed (sources: ukvisajobs)",
-    ]);
+    expect(result.sourceErrors).toEqual(["UK Visa Jobs: login failed (sources: ukvisajobs)"]);
     expect(jobspyManifest.run).toHaveBeenCalledWith(
       expect.objectContaining({ selectedSources: ["indeed", "linkedin"] }),
     );
@@ -454,8 +443,7 @@ describe("discoverJobsStep", () => {
       run: vi.fn(async (context: ExtractorRuntimeContext) => {
         context.onProgress?.({
           currentUrl: "https://www.gradcracker.com/challenge",
-          detail:
-            "Gradcracker hit a Cloudflare challenge: https://www.gradcracker.com/challenge",
+          detail: "Gradcracker hit a Cloudflare challenge: https://www.gradcracker.com/challenge",
         });
 
         return { success: true, jobs: [] };
@@ -491,8 +479,7 @@ describe("discoverJobsStep", () => {
 
     expect(updates).toContainEqual({
       step: "crawling",
-      detail:
-        "Gradcracker hit a Cloudflare challenge: https://www.gradcracker.com/challenge",
+      detail: "Gradcracker hit a Cloudflare challenge: https://www.gradcracker.com/challenge",
     });
   });
 
@@ -529,9 +516,7 @@ describe("discoverJobsStep", () => {
           sources: ["ukvisajobs"],
         },
       }),
-    ).rejects.toThrow(
-      "All sources failed: UK Visa Jobs: boom (sources: ukvisajobs)",
-    );
+    ).rejects.toThrow("All sources failed: UK Visa Jobs: boom (sources: ukvisajobs)");
   });
 
   it("keeps non-fatal source errors when an extractor succeeds with no jobs", async () => {
@@ -635,9 +620,7 @@ describe("discoverJobsStep", () => {
           sources: ["gradcracker", "ukvisajobs"],
         },
       }),
-    ).rejects.toThrow(
-      "No compatible sources for selected country: United States",
-    );
+    ).rejects.toThrow("No compatible sources for selected country: United States");
   });
 
   it("does not throw when no sources are requested", async () => {
@@ -712,29 +695,27 @@ describe("discoverJobsStep", () => {
       manifestBySource: new Map([["linkedin", jobspyManifest as any]]),
       availableSources: ["linkedin"],
     } as any);
-    vi.mocked(
-      watchlistResults.listHydratedWatchlistSelectedSources,
-    ).mockResolvedValue([selectedWatchlistSource as any]);
-    vi.mocked(watchlistStep.discoverWatchlistJobsForPipeline).mockResolvedValue(
-      {
-        discoveredJobs: [
-          {
-            source: "workday:acme",
-            sourceJobId: "watchlist-job",
-            title: "Watchlist Engineer",
-            employer: "Acme",
-            jobUrl: "https://example.com/watchlist",
-            applicationLink: "https://example.com/watchlist",
-            location: "London, United Kingdom",
-            jobDescription: "Build product systems.",
-          },
-        ],
-        sourceErrors: [],
-        selectedSourceCount: 1,
-        failedSourceCount: 0,
-        searchFilteredCount: 0,
-      },
-    );
+    vi.mocked(watchlistResults.listHydratedWatchlistSelectedSources).mockResolvedValue([
+      selectedWatchlistSource as any,
+    ]);
+    vi.mocked(watchlistStep.discoverWatchlistJobsForPipeline).mockResolvedValue({
+      discoveredJobs: [
+        {
+          source: "workday:acme",
+          sourceJobId: "watchlist-job",
+          title: "Watchlist Engineer",
+          employer: "Acme",
+          jobUrl: "https://example.com/watchlist",
+          applicationLink: "https://example.com/watchlist",
+          location: "London, United Kingdom",
+          jobDescription: "Build product systems.",
+        },
+      ],
+      sourceErrors: [],
+      selectedSourceCount: 1,
+      failedSourceCount: 0,
+      searchFilteredCount: 0,
+    });
 
     const result = await runWithRequestContext(
       { requestId: "test", tenantId: "tenant-a", userId: "user-a" },
@@ -751,13 +732,11 @@ describe("discoverJobsStep", () => {
       "Extractor Engineer",
       "Watchlist Engineer",
     ]);
-    expect(watchlistStep.discoverWatchlistJobsForPipeline).toHaveBeenCalledWith(
-      {
-        selectedSources: [selectedWatchlistSource],
-        searchTerms: ["engineer"],
-        shouldCancel: undefined,
-      },
-    );
+    expect(watchlistStep.discoverWatchlistJobsForPipeline).toHaveBeenCalledWith({
+      selectedSources: [selectedWatchlistSource],
+      searchTerms: ["engineer"],
+      shouldCancel: undefined,
+    });
   });
 
   it("does not touch watchlist discovery when no user context exists", async () => {
@@ -782,12 +761,8 @@ describe("discoverJobsStep", () => {
       },
     });
 
-    expect(
-      watchlistResults.listHydratedWatchlistSelectedSources,
-    ).not.toHaveBeenCalled();
-    expect(
-      watchlistStep.discoverWatchlistJobsForPipeline,
-    ).not.toHaveBeenCalled();
+    expect(watchlistResults.listHydratedWatchlistSelectedSources).not.toHaveBeenCalled();
+    expect(watchlistStep.discoverWatchlistJobsForPipeline).not.toHaveBeenCalled();
   });
 
   it("skips watchlist discovery when disabled for a retry pass", async () => {
@@ -805,24 +780,18 @@ describe("discoverJobsStep", () => {
       availableSources: [],
     } as any);
 
-    await runWithRequestContext(
-      { requestId: "test", tenantId: "tenant-a", userId: "user-a" },
-      () =>
-        discoverJobsStep({
-          mergedConfig: {
-            ...baseConfig,
-            sources: [],
-          },
-          includeWatchlist: false,
-        }),
+    await runWithRequestContext({ requestId: "test", tenantId: "tenant-a", userId: "user-a" }, () =>
+      discoverJobsStep({
+        mergedConfig: {
+          ...baseConfig,
+          sources: [],
+        },
+        includeWatchlist: false,
+      }),
     );
 
-    expect(
-      watchlistResults.listHydratedWatchlistSelectedSources,
-    ).not.toHaveBeenCalled();
-    expect(
-      watchlistStep.discoverWatchlistJobsForPipeline,
-    ).not.toHaveBeenCalled();
+    expect(watchlistResults.listHydratedWatchlistSelectedSources).not.toHaveBeenCalled();
+    expect(watchlistStep.discoverWatchlistJobsForPipeline).not.toHaveBeenCalled();
   });
 
   it("keeps watchlist source failures non-fatal when extractors succeed", async () => {
@@ -870,18 +839,16 @@ describe("discoverJobsStep", () => {
       manifestBySource: new Map([["linkedin", linkedinManifest as any]]),
       availableSources: ["linkedin"],
     } as any);
-    vi.mocked(
-      watchlistResults.listHydratedWatchlistSelectedSources,
-    ).mockResolvedValue([selectedWatchlistSource as any]);
-    vi.mocked(watchlistStep.discoverWatchlistJobsForPipeline).mockResolvedValue(
-      {
-        discoveredJobs: [],
-        sourceErrors: ["Watchlist Acme: failed to fetch jobs"],
-        selectedSourceCount: 1,
-        failedSourceCount: 1,
-        searchFilteredCount: 0,
-      },
-    );
+    vi.mocked(watchlistResults.listHydratedWatchlistSelectedSources).mockResolvedValue([
+      selectedWatchlistSource as any,
+    ]);
+    vi.mocked(watchlistStep.discoverWatchlistJobsForPipeline).mockResolvedValue({
+      discoveredJobs: [],
+      sourceErrors: ["Watchlist Acme: failed to fetch jobs"],
+      selectedSourceCount: 1,
+      failedSourceCount: 1,
+      searchFilteredCount: 0,
+    });
 
     const result = await runWithRequestContext(
       { requestId: "test", tenantId: "tenant-a", userId: "user-a" },
@@ -895,9 +862,7 @@ describe("discoverJobsStep", () => {
     );
 
     expect(result.discoveredJobs).toHaveLength(1);
-    expect(result.sourceErrors).toContain(
-      "Watchlist Acme: failed to fetch jobs",
-    );
+    expect(result.sourceErrors).toContain("Watchlist Acme: failed to fetch jobs");
   });
 
   it("filters watchlist sources to the requested subset (#621)", async () => {
@@ -932,38 +897,33 @@ describe("discoverJobsStep", () => {
       manifestBySource: new Map(),
       availableSources: [],
     } as any);
-    vi.mocked(
-      watchlistResults.listHydratedWatchlistSelectedSources,
-    ).mockResolvedValue([acmeSource as any, beetaSource as any]);
-    vi.mocked(watchlistStep.discoverWatchlistJobsForPipeline).mockResolvedValue(
-      {
-        discoveredJobs: [],
-        sourceErrors: [],
-        selectedSourceCount: 1,
-        failedSourceCount: 0,
-        searchFilteredCount: 0,
-      },
+    vi.mocked(watchlistResults.listHydratedWatchlistSelectedSources).mockResolvedValue([
+      acmeSource as any,
+      beetaSource as any,
+    ]);
+    vi.mocked(watchlistStep.discoverWatchlistJobsForPipeline).mockResolvedValue({
+      discoveredJobs: [],
+      sourceErrors: [],
+      selectedSourceCount: 1,
+      failedSourceCount: 0,
+      searchFilteredCount: 0,
+    });
+
+    await runWithRequestContext({ requestId: "test", tenantId: "tenant-a", userId: "user-a" }, () =>
+      discoverJobsStep({
+        mergedConfig: {
+          ...baseConfig,
+          sources: [],
+        },
+        watchlistSelectedSourceIds: ["watchlist-beeta"],
+      }),
     );
 
-    await runWithRequestContext(
-      { requestId: "test", tenantId: "tenant-a", userId: "user-a" },
-      () =>
-        discoverJobsStep({
-          mergedConfig: {
-            ...baseConfig,
-            sources: [],
-          },
-          watchlistSelectedSourceIds: ["watchlist-beeta"],
-        }),
-    );
-
-    expect(watchlistStep.discoverWatchlistJobsForPipeline).toHaveBeenCalledWith(
-      {
-        selectedSources: [beetaSource],
-        searchTerms: ["engineer"],
-        shouldCancel: undefined,
-      },
-    );
+    expect(watchlistStep.discoverWatchlistJobsForPipeline).toHaveBeenCalledWith({
+      selectedSources: [beetaSource],
+      searchTerms: ["engineer"],
+      shouldCancel: undefined,
+    });
   });
 
   it("drops unknown / cross-tenant watchlist source IDs without calling discovery (#621)", async () => {
@@ -993,33 +953,27 @@ describe("discoverJobsStep", () => {
       manifestBySource: new Map(),
       availableSources: [],
     } as any);
-    vi.mocked(
-      watchlistResults.listHydratedWatchlistSelectedSources,
-    ).mockResolvedValue([owned as any]);
+    vi.mocked(watchlistResults.listHydratedWatchlistSelectedSources).mockResolvedValue([
+      owned as any,
+    ]);
 
-    await runWithRequestContext(
-      { requestId: "test", tenantId: "tenant-a", userId: "user-a" },
-      () =>
-        discoverJobsStep({
-          mergedConfig: {
-            ...baseConfig,
-            sources: [],
-          },
-          // None of these IDs belong to user-a.
-          watchlistSelectedSourceIds: ["other-tenant-id"],
-        }),
+    await runWithRequestContext({ requestId: "test", tenantId: "tenant-a", userId: "user-a" }, () =>
+      discoverJobsStep({
+        mergedConfig: {
+          ...baseConfig,
+          sources: [],
+        },
+        // None of these IDs belong to user-a.
+        watchlistSelectedSourceIds: ["other-tenant-id"],
+      }),
     );
 
     // Owned sources were resolved (proves cross-tenant safety re-resolves
     // via the user-scoped listHydratedWatchlistSelectedSources call), but
     // the cross-tenant ID was dropped so the watchlist discovery step is
     // never invoked.
-    expect(
-      watchlistResults.listHydratedWatchlistSelectedSources,
-    ).toHaveBeenCalled();
-    expect(
-      watchlistStep.discoverWatchlistJobsForPipeline,
-    ).not.toHaveBeenCalled();
+    expect(watchlistResults.listHydratedWatchlistSelectedSources).toHaveBeenCalled();
+    expect(watchlistStep.discoverWatchlistJobsForPipeline).not.toHaveBeenCalled();
   });
 
   it("disables watchlist discovery when explicitly passed an empty list (#621)", async () => {
@@ -1037,24 +991,18 @@ describe("discoverJobsStep", () => {
       availableSources: [],
     } as any);
 
-    await runWithRequestContext(
-      { requestId: "test", tenantId: "tenant-a", userId: "user-a" },
-      () =>
-        discoverJobsStep({
-          mergedConfig: {
-            ...baseConfig,
-            sources: [],
-          },
-          watchlistSelectedSourceIds: [],
-        }),
+    await runWithRequestContext({ requestId: "test", tenantId: "tenant-a", userId: "user-a" }, () =>
+      discoverJobsStep({
+        mergedConfig: {
+          ...baseConfig,
+          sources: [],
+        },
+        watchlistSelectedSourceIds: [],
+      }),
     );
 
-    expect(
-      watchlistResults.listHydratedWatchlistSelectedSources,
-    ).not.toHaveBeenCalled();
-    expect(
-      watchlistStep.discoverWatchlistJobsForPipeline,
-    ).not.toHaveBeenCalled();
+    expect(watchlistResults.listHydratedWatchlistSelectedSources).not.toHaveBeenCalled();
+    expect(watchlistStep.discoverWatchlistJobsForPipeline).not.toHaveBeenCalled();
   });
 
   it("drops discovered jobs when employer matches blocked company keywords", async () => {
@@ -1182,9 +1130,7 @@ describe("discoverJobsStep", () => {
     });
 
     expect(result.discoveredJobs).toHaveLength(2);
-    expect(
-      result.discoveredJobs.every((job) => job.location?.includes("Leeds")),
-    ).toBe(true);
+    expect(result.discoveredJobs.every((job) => job.location?.includes("Leeds"))).toBe(true);
   });
 
   it("drops discovered jobs outside the selected country when no cities are set", async () => {
@@ -1449,9 +1395,7 @@ describe("discoverJobsStep", () => {
       searchTerms: JSON.stringify(["engineer"]),
       jobspyCountryIndeed: "united kingdom",
     } as any);
-    vi.mocked(jobsRepo.getAllJobUrls).mockResolvedValue([
-      "https://example.com/existing",
-    ]);
+    vi.mocked(jobsRepo.getAllJobUrls).mockResolvedValue(["https://example.com/existing"]);
 
     vi.mocked(registryModule.getExtractorRegistry).mockResolvedValue({
       manifests: new Map([
@@ -1466,13 +1410,7 @@ describe("discoverJobsStep", () => {
         ["gradcracker", gradcrackerManifest as any],
         ["ukvisajobs", ukvisaManifest as any],
       ]),
-      availableSources: [
-        "indeed",
-        "linkedin",
-        "glassdoor",
-        "gradcracker",
-        "ukvisajobs",
-      ],
+      availableSources: ["indeed", "linkedin", "glassdoor", "gradcracker", "ukvisajobs"],
     } as any);
 
     await discoverJobsStep({
@@ -1494,8 +1432,6 @@ describe("discoverJobsStep", () => {
     const [{ getExistingJobUrls }] = gradcrackerManifest.run.mock.calls[0] as [
       { getExistingJobUrls: () => Promise<string[]> },
     ];
-    await expect(getExistingJobUrls()).resolves.toEqual([
-      "https://example.com/existing",
-    ]);
+    await expect(getExistingJobUrls()).resolves.toEqual(["https://example.com/existing"]);
   });
 });

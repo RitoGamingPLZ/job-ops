@@ -4,8 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { JobBriefPane } from "./JobBriefPane";
 
 vi.mock("framer-motion", async () => {
-  const actual =
-    await vi.importActual<typeof import("framer-motion")>("framer-motion");
+  const actual = await vi.importActual<typeof import("framer-motion")>("framer-motion");
   return {
     ...actual,
     useReducedMotion: () => true,
@@ -52,9 +51,7 @@ describe("JobBriefPane", () => {
     );
 
     expect(screen.getByText("Fallback fit reason.")).toBeVisible();
-    expect(
-      screen.getByText("Recalculate match to generate a concise JD brief."),
-    ).toBeVisible();
+    expect(screen.getByText("Recalculate match to generate a concise JD brief.")).toBeVisible();
   });
 
   it("does not render empty sections", () => {

@@ -32,9 +32,7 @@ const COMPANY_SUFFIXES = [
 
 function normalizeMatchText(value: string): string {
   const normalized = value.toLowerCase().trim();
-  return normalizeWhitespace(
-    normalized.replace(/[.,'"()[\]{}!?@#$%^&*+=|\\/<>:;`~_-]/g, " "),
-  );
+  return normalizeWhitespace(normalized.replace(/[.,'"()[\]{}!?@#$%^&*+=|\\/<>:;`~_-]/g, " "));
 }
 
 export function normalizeCompanyName(name: string): string {
@@ -181,14 +179,9 @@ export function matchJobLocationIntent(
     }
 
     const cityMatched = intent.cityLocations.some((requestedCity) => {
-      const strict = shouldApplyStrictCityFilter(
-        requestedCity,
-        selectedCountry,
-      );
+      const strict = shouldApplyStrictCityFilter(requestedCity, selectedCountry);
       if (!strict) return true;
-      return candidates.some((candidate) =>
-        matchesRequestedCity(candidate, requestedCity),
-      );
+      return candidates.some((candidate) => matchesRequestedCity(candidate, requestedCity));
     });
 
     if (cityMatched || intent.matchStrictness === "flexible") {
@@ -215,10 +208,7 @@ const FUZZY_DEDUP_EMPLOYER_THRESHOLD = 85;
  * value for each optional field. Required fields (source, title, employer,
  * jobUrl) are taken from `base`.
  */
-function mergeJobInputs(
-  base: CreateJobInput,
-  incoming: CreateJobInput,
-): CreateJobInput {
+function mergeJobInputs(base: CreateJobInput, incoming: CreateJobInput): CreateJobInput {
   return {
     // Required — always from base
     source: base.source,
@@ -254,15 +244,13 @@ function mergeJobInputs(
     companyLogo: base.companyLogo ?? incoming.companyLogo,
     companyUrlDirect: base.companyUrlDirect ?? incoming.companyUrlDirect,
     companyAddresses: base.companyAddresses ?? incoming.companyAddresses,
-    companyNumEmployees:
-      base.companyNumEmployees ?? incoming.companyNumEmployees,
+    companyNumEmployees: base.companyNumEmployees ?? incoming.companyNumEmployees,
     companyRevenue: base.companyRevenue ?? incoming.companyRevenue,
     companyDescription: base.companyDescription ?? incoming.companyDescription,
     skills: base.skills ?? incoming.skills,
     experienceRange: base.experienceRange ?? incoming.experienceRange,
     companyRating: base.companyRating ?? incoming.companyRating,
-    companyReviewsCount:
-      base.companyReviewsCount ?? incoming.companyReviewsCount,
+    companyReviewsCount: base.companyReviewsCount ?? incoming.companyReviewsCount,
     vacancyCount: base.vacancyCount ?? incoming.vacancyCount,
     workFromHomeType: base.workFromHomeType ?? incoming.workFromHomeType,
   };
@@ -290,8 +278,7 @@ export function deduplicateJobsByTitleAndEmployer(
   },
 ): CreateJobInput[] {
   const titleThreshold = opts?.titleThreshold ?? FUZZY_DEDUP_TITLE_THRESHOLD;
-  const employerThreshold =
-    opts?.employerThreshold ?? FUZZY_DEDUP_EMPLOYER_THRESHOLD;
+  const employerThreshold = opts?.employerThreshold ?? FUZZY_DEDUP_EMPLOYER_THRESHOLD;
 
   type PreparedEntry = {
     job: CreateJobInput;
@@ -312,15 +299,9 @@ export function deduplicateJobsByTitleAndEmployer(
 
     const match = merged.find((entry) => {
       if (!entry.normalizedTitle || !entry.normalizedEmployer) return false;
-      const titleScore = calculateSimilarity(
-        normalizedTitle,
-        entry.normalizedTitle,
-      );
+      const titleScore = calculateSimilarity(normalizedTitle, entry.normalizedTitle);
       if (titleScore <= titleThreshold) return false;
-      const employerScore = calculateSimilarity(
-        normalizedEmployer,
-        entry.normalizedEmployer,
-      );
+      const employerScore = calculateSimilarity(normalizedEmployer, entry.normalizedEmployer);
       return employerScore > employerThreshold;
     });
 

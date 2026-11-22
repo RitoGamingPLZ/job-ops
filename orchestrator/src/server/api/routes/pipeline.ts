@@ -46,10 +46,7 @@ import {
   validateRequestedPipeline,
 } from "@server/services/pipeline-scheduler/run-request";
 import { planPipelineSearch } from "@server/services/pipeline-search-plan";
-import {
-  resolveCountryAtPoint,
-  resolveNearbyPlaceNames,
-} from "@server/services/proximity-search";
+import { resolveCountryAtPoint, resolveNearbyPlaceNames } from "@server/services/proximity-search";
 import {
   getPrivateCloudflareCookieStorageDir,
   getPrivateDataScope,
@@ -60,14 +57,8 @@ import {
   LOCATION_MATCH_STRICTNESS_VALUES,
   LOCATION_SEARCH_SCOPE_VALUES,
 } from "@shared/location-preferences.js";
-import type {
-  PipelineProgressState,
-  PipelineStatusResponse,
-} from "@shared/types";
-import {
-  MAX_PIPELINE_RUN_BUDGET,
-  normalizePipelineRunBudget,
-} from "@shared/types";
+import type { PipelineProgressState, PipelineStatusResponse } from "@shared/types";
+import { MAX_PIPELINE_RUN_BUDGET, normalizePipelineRunBudget } from "@shared/types";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 
@@ -92,13 +83,9 @@ const locationAreaSchema = locationCountrySchema.extend({
   radiusMiles: z.number().int().min(1).max(200),
 });
 
-function toSelectedSourcesValue(
-  sources: readonly string[] | undefined,
-): string | undefined {
+function toSelectedSourcesValue(sources: readonly string[] | undefined): string | undefined {
   if (!Array.isArray(sources) || sources.length === 0) return undefined;
-  return [...sources]
-    .sort((left, right) => left.localeCompare(right))
-    .join("|");
+  return [...sources].sort((left, right) => left.localeCompare(right)).join("|");
 }
 
 /**
@@ -126,43 +113,35 @@ pipelineRouter.get("/status", async (_req: Request, res: Response) => {
   }
 });
 
-pipelineRouter.post(
-  "/location-country",
-  async (req: Request, res: Response) => {
-    try {
-      const point = locationCountrySchema.parse(req.body);
-      const country = await resolveCountryAtPoint(point);
-      ok(res, { country });
-    } catch (error) {
-      fail(
-        res,
-        error instanceof z.ZodError
-          ? badRequest("Invalid map point.", error.flatten())
-          : serviceUnavailable(
-              "Unable to detect the country at the selected map point.",
-            ),
-      );
-    }
-  },
-);
+pipelineRouter.post("/location-country", async (req: Request, res: Response) => {
+  try {
+    const point = locationCountrySchema.parse(req.body);
+    const country = await resolveCountryAtPoint(point);
+    ok(res, { country });
+  } catch (error) {
+    fail(
+      res,
+      error instanceof z.ZodError
+        ? badRequest("Invalid map point.", error.flatten())
+        : serviceUnavailable("Unable to detect the country at the selected map point."),
+    );
+  }
+});
 
-pipelineRouter.post(
-  "/location-area-preview",
-  async (req: Request, res: Response) => {
-    try {
-      const proximity = locationAreaSchema.parse(req.body);
-      const locations = await resolveNearbyPlaceNames(proximity);
-      ok(res, { locations });
-    } catch (error) {
-      fail(
-        res,
-        error instanceof z.ZodError
-          ? badRequest("Invalid map area.", error.flatten())
-          : serviceUnavailable("Unable to preview locations in this map area."),
-      );
-    }
-  },
-);
+pipelineRouter.post("/location-area-preview", async (req: Request, res: Response) => {
+  try {
+    const proximity = locationAreaSchema.parse(req.body);
+    const locations = await resolveNearbyPlaceNames(proximity);
+    ok(res, { locations });
+  } catch (error) {
+    fail(
+      res,
+      error instanceof z.ZodError
+        ? badRequest("Invalid map area.", error.flatten())
+        : serviceUnavailable("Unable to preview locations in this map area."),
+    );
+  }
+});
 
 /**
  * GET /api/pipeline/progress/snapshot - Get the current pipeline progress state
@@ -251,15 +230,10 @@ const pipelineSearchPresetConfigSchema = z.object({
   minSuitabilityScore: z.number().int().min(0).max(100),
   runBudget: pipelineRunBudgetSchema,
   scoringInstructions: z.string().trim().max(4000).optional().default(""),
-  automaticPresetId: z
-    .enum(["fast", "balanced", "detailed", "custom"])
-    .optional(),
+  automaticPresetId: z.enum(["fast", "balanced", "detailed", "custom"]).optional(),
   // Optional per-#621 Watchlist source selection persisted with the preset.
   // Omitted = legacy behavior (include every saved Watchlist source).
-  watchlistSelectedSourceIds: z
-    .array(z.string().min(1).max(128))
-    .max(200)
-    .optional(),
+  watchlistSelectedSourceIds: z.array(z.string().min(1).max(128)).max(200).optional(),
 });
 
 const createPipelineSearchPresetSchema = z
@@ -311,17 +285,10 @@ pipelineRouter.post("/search-presets", async (req: Request, res: Response) => {
         name: input.name,
       })
     ) {
-      return fail(
-        res,
-        conflict("A saved search with this name already exists"),
-      );
+      return fail(res, conflict("A saved search with this name already exists"));
     }
 
-    ok(
-      res,
-      await pipelineSearchPresetsRepo.createPipelineSearchPreset(input),
-      201,
-    );
+    ok(res, await pipelineSearchPresetsRepo.createPipelineSearchPreset(input), 201);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return fail(res, badRequest(error.message, error.flatten()));
@@ -337,92 +304,73 @@ pipelineRouter.post("/search-presets", async (req: Request, res: Response) => {
   }
 });
 
-pipelineRouter.patch(
-  "/search-presets/:id",
-  async (req: Request, res: Response) => {
-    try {
-      const input = updatePipelineSearchPresetSchema.parse(req.body);
-      if (
-        input.name !== undefined &&
-        (await pipelineSearchPresetsRepo.pipelineSearchPresetNameExists({
-          name: input.name,
-          excludingId: req.params.id,
-        }))
-      ) {
-        return fail(
-          res,
-          conflict("A saved search with this name already exists"),
-        );
-      }
-
-      const updated =
-        await pipelineSearchPresetsRepo.updatePipelineSearchPreset(
-          req.params.id,
-          input,
-        );
-      if (!updated) return fail(res, notFound("Saved search not found"));
-      ok(res, updated);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return fail(res, badRequest(error.message, error.flatten()));
-      }
-      fail(
-        res,
-        new AppError({
-          status: 500,
-          code: "INTERNAL_ERROR",
-          message: error instanceof Error ? error.message : "Unknown error",
-        }),
-      );
+pipelineRouter.patch("/search-presets/:id", async (req: Request, res: Response) => {
+  try {
+    const input = updatePipelineSearchPresetSchema.parse(req.body);
+    if (
+      input.name !== undefined &&
+      (await pipelineSearchPresetsRepo.pipelineSearchPresetNameExists({
+        name: input.name,
+        excludingId: req.params.id,
+      }))
+    ) {
+      return fail(res, conflict("A saved search with this name already exists"));
     }
-  },
-);
 
-pipelineRouter.post(
-  "/search-presets/:id/used",
-  async (req: Request, res: Response) => {
-    try {
-      const updated =
-        await pipelineSearchPresetsRepo.markPipelineSearchPresetUsed(
-          req.params.id,
-        );
-      if (!updated) return fail(res, notFound("Saved search not found"));
-      ok(res, updated);
-    } catch (error) {
-      fail(
-        res,
-        new AppError({
-          status: 500,
-          code: "INTERNAL_ERROR",
-          message: error instanceof Error ? error.message : "Unknown error",
-        }),
-      );
+    const updated = await pipelineSearchPresetsRepo.updatePipelineSearchPreset(
+      req.params.id,
+      input,
+    );
+    if (!updated) return fail(res, notFound("Saved search not found"));
+    ok(res, updated);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return fail(res, badRequest(error.message, error.flatten()));
     }
-  },
-);
+    fail(
+      res,
+      new AppError({
+        status: 500,
+        code: "INTERNAL_ERROR",
+        message: error instanceof Error ? error.message : "Unknown error",
+      }),
+    );
+  }
+});
 
-pipelineRouter.delete(
-  "/search-presets/:id",
-  async (req: Request, res: Response) => {
-    try {
-      const deleted =
-        await pipelineSearchPresetsRepo.deletePipelineSearchPreset(
-          req.params.id,
-        );
-      if (deleted === 0) return fail(res, notFound("Saved search not found"));
-      ok(res, { deleted: true });
-    } catch (error) {
-      fail(
-        res,
-        new AppError({
-          status: 500,
-          code: "INTERNAL_ERROR",
-          message: error instanceof Error ? error.message : "Unknown error",
-        }),
-      );
-    }
-  },
-);
+pipelineRouter.post("/search-presets/:id/used", async (req: Request, res: Response) => {
+  try {
+    const updated = await pipelineSearchPresetsRepo.markPipelineSearchPresetUsed(req.params.id);
+    if (!updated) return fail(res, notFound("Saved search not found"));
+    ok(res, updated);
+  } catch (error) {
+    fail(
+      res,
+      new AppError({
+        status: 500,
+        code: "INTERNAL_ERROR",
+        message: error instanceof Error ? error.message : "Unknown error",
+      }),
+    );
+  }
+});
+
+pipelineRouter.delete("/search-presets/:id", async (req: Request, res: Response) => {
+  try {
+    const deleted = await pipelineSearchPresetsRepo.deletePipelineSearchPreset(req.params.id);
+    if (deleted === 0) return fail(res, notFound("Saved search not found"));
+    ok(res, { deleted: true });
+  } catch (error) {
+    fail(
+      res,
+      new AppError({
+        status: 500,
+        code: "INTERNAL_ERROR",
+        message: error instanceof Error ? error.message : "Unknown error",
+      }),
+    );
+  }
+});
 
 pipelineRouter.post("/search-plan", async (req: Request, res: Response) => {
   try {
@@ -446,27 +394,24 @@ pipelineRouter.post("/search-plan", async (req: Request, res: Response) => {
 /**
  * GET /api/pipeline/runs/:id/insights - Get exact and inferred metrics for a run
  */
-pipelineRouter.get(
-  "/runs/:id/insights",
-  async (req: Request, res: Response) => {
-    try {
-      const insights = await pipelineRepo.getPipelineRunInsights(req.params.id);
-      if (!insights) {
-        return fail(res, notFound("Pipeline run not found"));
-      }
-      ok(res, insights);
-    } catch (error) {
-      fail(
-        res,
-        new AppError({
-          status: 500,
-          code: "INTERNAL_ERROR",
-          message: error instanceof Error ? error.message : "Unknown error",
-        }),
-      );
+pipelineRouter.get("/runs/:id/insights", async (req: Request, res: Response) => {
+  try {
+    const insights = await pipelineRepo.getPipelineRunInsights(req.params.id);
+    if (!insights) {
+      return fail(res, notFound("Pipeline run not found"));
     }
-  },
-);
+    ok(res, insights);
+  } catch (error) {
+    fail(
+      res,
+      new AppError({
+        status: 500,
+        code: "INTERNAL_ERROR",
+        message: error instanceof Error ? error.message : "Unknown error",
+      }),
+    );
+  }
+});
 
 /**
  * POST /api/pipeline/run - Trigger the pipeline manually
@@ -498,9 +443,7 @@ pipelineRouter.post("/run", async (req: Request, res: Response) => {
         search_terms_count: searchTermsState.searchTermsCount,
         search_terms_source: searchTermsState.source,
         // Count-only, never raw IDs (tenant safety / PII).
-        watchlist_source_filter_count: Array.isArray(
-          config.watchlistSelectedSourceIds,
-        )
+        watchlist_source_filter_count: Array.isArray(config.watchlistSelectedSourceIds)
           ? config.watchlistSelectedSourceIds.length
           : undefined,
       },
@@ -577,10 +520,7 @@ pipelineRouter.post("/resume-scoring", async (_req: Request, res: Response) => {
   try {
     const { resolved } = resumePipelineScoring();
     if (!resolved) {
-      return fail(
-        res,
-        conflict("Pipeline is not paused waiting for LLM configuration"),
-      );
+      return fail(res, conflict("Pipeline is not paused waiting for LLM configuration"));
     }
     ok(res, { resolved: true });
   } catch (error) {
@@ -609,41 +549,30 @@ pipelineRouter.get("/challenges", (_req: Request, res: Response) => {
  * viewer when the server is running in Docker/Linux, and returns the URL the
  * browser client should open before invoking the blocking solve endpoint.
  */
-pipelineRouter.post(
-  "/challenge-viewer",
-  async (_req: Request, res: Response) => {
-    try {
-      const status = await ensureChallengeViewer();
-      const scopeKey = getPrivateDataScope().scopeKey;
-      const session = status.available
-        ? createChallengeViewerSession(scopeKey)
-        : null;
-      if (status.available && !session) {
-        return fail(
-          res,
-          conflict("Challenge viewer is busy with another workspace"),
-        );
-      }
-      ok(res, {
-        available: status.available && Boolean(session),
-        viewerUrl:
-          status.available && session
-            ? buildChallengeViewerUrl({ token: session?.token ?? "" })
-            : null,
-        reason: status.available ? null : status.reason,
-      });
-    } catch (error) {
-      logger.warn("Challenge viewer failed to start", {
-        route: "/api/pipeline/challenge-viewer",
-        error,
-      });
-      fail(
-        res,
-        serviceUnavailable("Challenge viewer is unavailable on this server"),
-      );
+pipelineRouter.post("/challenge-viewer", async (_req: Request, res: Response) => {
+  try {
+    const status = await ensureChallengeViewer();
+    const scopeKey = getPrivateDataScope().scopeKey;
+    const session = status.available ? createChallengeViewerSession(scopeKey) : null;
+    if (status.available && !session) {
+      return fail(res, conflict("Challenge viewer is busy with another workspace"));
     }
-  },
-);
+    ok(res, {
+      available: status.available && Boolean(session),
+      viewerUrl:
+        status.available && session
+          ? buildChallengeViewerUrl({ token: session?.token ?? "" })
+          : null,
+      reason: status.available ? null : status.reason,
+    });
+  } catch (error) {
+    logger.warn("Challenge viewer failed to start", {
+      route: "/api/pipeline/challenge-viewer",
+      error,
+    });
+    fail(res, serviceUnavailable("Challenge viewer is unavailable on this server"));
+  }
+});
 
 /**
  * POST /api/pipeline/solve-challenge - Opens a headed browser for a human to
@@ -667,10 +596,7 @@ pipelineRouter.post("/solve-challenge", async (req: Request, res: Response) => {
     const pending = getPendingChallenges();
     const match = pending.find((c) => c.extractorId === body.extractorId);
     if (!match) {
-      return fail(
-        res,
-        notFound(`No pending challenge for extractor "${body.extractorId}"`),
-      );
+      return fail(res, notFound(`No pending challenge for extractor "${body.extractorId}"`));
     }
 
     // Use the server-side challenge URL, not the client-supplied one.
@@ -699,40 +625,22 @@ pipelineRouter.post("/solve-challenge", async (req: Request, res: Response) => {
     await ensureChallengeViewer();
 
     const scopeKey = getPrivateDataScope().scopeKey;
-    let result: Awaited<
-      ReturnType<typeof import("browser-utils")["solveChallenge"]>
-    >;
+    let result: Awaited<ReturnType<(typeof import("browser-utils"))["solveChallenge"]>>;
     if (body.extractorId === "hiringcafe") {
       try {
         let challenged = hasHiringCafeBrowserChallenge(scopeKey, challengeUrl);
         if (!challenged) {
-          const page = await readHiringCafeBrowserPage(
-            scopeKey,
-            storageDir,
-            challengeUrl,
-          );
+          const page = await readHiringCafeBrowserPage(scopeKey, storageDir, challengeUrl);
           challenged = page.challenged;
         }
-        if (
-          challenged &&
-          !hasHiringCafeBrowserChallenge(scopeKey, challengeUrl)
-        ) {
-          return fail(
-            res,
-            conflict("Challenge viewer is busy with another workspace"),
-          );
+        if (challenged && !hasHiringCafeBrowserChallenge(scopeKey, challengeUrl)) {
+          return fail(res, conflict("Challenge viewer is busy with another workspace"));
         }
         const outcome = challenged
-          ? await waitForHiringCafeBrowserChallenge(
-              scopeKey,
-              challengeUrl,
-              5 * 60 * 1000,
-            )
+          ? await waitForHiringCafeBrowserChallenge(scopeKey, challengeUrl, 5 * 60 * 1000)
           : "clear";
         result =
-          outcome === "clear"
-            ? { status: "solved", cookiesSaved: 0 }
-            : { status: "timeout" };
+          outcome === "clear" ? { status: "solved", cookiesSaved: 0 } : { status: "timeout" };
         if (result.status === "timeout") {
           await closeHiringCafeBrowser(scopeKey);
         }
@@ -805,43 +713,37 @@ pipelineRouter.post("/solve-challenge", async (req: Request, res: Response) => {
   }
 });
 
-pipelineRouter.post(
-  "/skip-challenge-search",
-  async (req: Request, res: Response) => {
-    try {
-      const body = solveChallengeSchema.parse(req.body);
-      const result = skipPipelineChallengeSearch(body.extractorId);
-      if (result.status === "not_found") {
-        return fail(res, notFound("No pending challenge for this extractor"));
-      }
-      if (result.status === "busy") {
-        return fail(res, conflict("Wait for the solve attempt to finish"));
-      }
-      if (result.status === "not_allowed") {
-        return fail(
-          res,
-          conflict("Try solving this Hiring Cafe search before skipping it"),
-        );
-      }
-      await closeHiringCafeBrowser(getPrivateDataScope().scopeKey);
-      logger.info("Skipped challenged Hiring Cafe search", {
-        route: "/api/pipeline/skip-challenge-search",
-        extractorId: body.extractorId,
-        challengesRemaining: result.remaining,
-      });
-      ok(res, result);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return fail(res, badRequest(error.message, error.flatten()));
-      }
-      fail(
-        res,
-        new AppError({
-          status: 500,
-          code: "INTERNAL_ERROR",
-          message: error instanceof Error ? error.message : "Unknown error",
-        }),
-      );
+pipelineRouter.post("/skip-challenge-search", async (req: Request, res: Response) => {
+  try {
+    const body = solveChallengeSchema.parse(req.body);
+    const result = skipPipelineChallengeSearch(body.extractorId);
+    if (result.status === "not_found") {
+      return fail(res, notFound("No pending challenge for this extractor"));
     }
-  },
-);
+    if (result.status === "busy") {
+      return fail(res, conflict("Wait for the solve attempt to finish"));
+    }
+    if (result.status === "not_allowed") {
+      return fail(res, conflict("Try solving this Hiring Cafe search before skipping it"));
+    }
+    await closeHiringCafeBrowser(getPrivateDataScope().scopeKey);
+    logger.info("Skipped challenged Hiring Cafe search", {
+      route: "/api/pipeline/skip-challenge-search",
+      extractorId: body.extractorId,
+      challengesRemaining: result.remaining,
+    });
+    ok(res, result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return fail(res, badRequest(error.message, error.flatten()));
+    }
+    fail(
+      res,
+      new AppError({
+        status: 500,
+        code: "INTERNAL_ERROR",
+        message: error instanceof Error ? error.message : "Unknown error",
+      }),
+    );
+  }
+});

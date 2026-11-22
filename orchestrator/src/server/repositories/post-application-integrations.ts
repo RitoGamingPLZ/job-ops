@@ -6,10 +6,7 @@ import type {
 } from "@shared/types";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "../db";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { postApplicationIntegrations } = schema;
 
@@ -84,10 +81,7 @@ export async function upsertConnectedPostApplicationIntegration(
   const nowEpoch = Date.now();
   const nowIso = new Date(nowEpoch).toISOString();
   const scope = getPrivateDataScope();
-  const existing = await getPostApplicationIntegration(
-    input.provider,
-    input.accountKey,
-  );
+  const existing = await getPostApplicationIntegration(input.provider, input.accountKey);
 
   if (existing) {
     await db
@@ -102,14 +96,9 @@ export async function upsertConnectedPostApplicationIntegration(
       })
       .where(eq(postApplicationIntegrations.id, existing.id));
 
-    const updated = await getPostApplicationIntegration(
-      input.provider,
-      input.accountKey,
-    );
+    const updated = await getPostApplicationIntegration(input.provider, input.accountKey);
     if (!updated) {
-      throw new Error(
-        `Failed to load updated integration ${input.provider}/${input.accountKey}.`,
-      );
+      throw new Error(`Failed to load updated integration ${input.provider}/${input.accountKey}.`);
     }
     return updated;
   }
@@ -130,14 +119,9 @@ export async function upsertConnectedPostApplicationIntegration(
     updatedAt: nowIso,
   });
 
-  const created = await getPostApplicationIntegration(
-    input.provider,
-    input.accountKey,
-  );
+  const created = await getPostApplicationIntegration(input.provider, input.accountKey);
   if (!created) {
-    throw new Error(
-      `Failed to load created integration ${input.provider}/${input.accountKey}.`,
-    );
+    throw new Error(`Failed to load created integration ${input.provider}/${input.accountKey}.`);
   }
   return created;
 }
@@ -158,12 +142,7 @@ export async function disconnectPostApplicationIntegration(
       lastError: null,
       updatedAt: nowIso,
     })
-    .where(
-      and(
-        integrationsScopeFilter(),
-        eq(postApplicationIntegrations.id, existing.id),
-      ),
-    );
+    .where(and(integrationsScopeFilter(), eq(postApplicationIntegrations.id, existing.id)));
 
   return getPostApplicationIntegration(provider, accountKey);
 }
@@ -171,10 +150,7 @@ export async function disconnectPostApplicationIntegration(
 export async function updatePostApplicationIntegrationSyncState(
   input: UpdatePostApplicationIntegrationSyncStateInput,
 ): Promise<PostApplicationIntegration | null> {
-  const existing = await getPostApplicationIntegration(
-    input.provider,
-    input.accountKey,
-  );
+  const existing = await getPostApplicationIntegration(input.provider, input.accountKey);
   if (!existing) return null;
 
   const nowIso = new Date().toISOString();
@@ -182,21 +158,12 @@ export async function updatePostApplicationIntegrationSyncState(
     .update(postApplicationIntegrations)
     .set({
       ...(input.status ? { status: input.status } : {}),
-      ...(input.lastSyncedAt !== undefined
-        ? { lastSyncedAt: input.lastSyncedAt }
-        : {}),
+      ...(input.lastSyncedAt !== undefined ? { lastSyncedAt: input.lastSyncedAt } : {}),
       ...(input.lastError !== undefined ? { lastError: input.lastError } : {}),
-      ...(input.credentials !== undefined
-        ? { credentials: input.credentials }
-        : {}),
+      ...(input.credentials !== undefined ? { credentials: input.credentials } : {}),
       updatedAt: nowIso,
     })
-    .where(
-      and(
-        integrationsScopeFilter(),
-        eq(postApplicationIntegrations.id, existing.id),
-      ),
-    );
+    .where(and(integrationsScopeFilter(), eq(postApplicationIntegrations.id, existing.id)));
 
   return getPostApplicationIntegration(input.provider, input.accountKey);
 }

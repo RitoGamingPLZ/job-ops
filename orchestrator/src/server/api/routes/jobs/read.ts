@@ -30,12 +30,7 @@ import {
 export const jobsReadRouter = Router();
 
 const jobEmailsQuerySchema = z.object({
-  limit: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(MAX_JOB_EMAIL_LIMIT)
-    .default(DEFAULT_JOB_EMAIL_LIMIT),
+  limit: z.coerce.number().int().min(1).max(MAX_JOB_EMAIL_LIMIT).default(DEFAULT_JOB_EMAIL_LIMIT),
 });
 
 jobsReadRouter.get("/", async (req: Request, res: Response) => {
@@ -54,10 +49,7 @@ jobsReadRouter.get("/", async (req: Request, res: Response) => {
     if (!parsedQuery.success) {
       return fail(
         res,
-        badRequest(
-          "Invalid jobs list query parameters",
-          parsedQuery.error.flatten(),
-        ),
+        badRequest("Invalid jobs list query parameters", parsedQuery.error.flatten()),
       );
     }
 
@@ -73,10 +65,7 @@ jobsReadRouter.get("/", async (req: Request, res: Response) => {
             await jobsRepo.getJobListItems(statuses),
             pdfFingerprintContext,
           ).map(toJobListItem)
-        : applyJobsPdfFreshness(
-            await jobsRepo.getAllJobs(statuses),
-            pdfFingerprintContext,
-          );
+        : applyJobsPdfFreshness(await jobsRepo.getAllJobs(statuses), pdfFingerprintContext);
     primaryQueryMs = performance.now() - primaryQueryStart;
     const candidateCount = 0;
     const duplicateMatchingEnabled = false;
@@ -141,10 +130,7 @@ jobsReadRouter.get("/revision", async (req: Request, res: Response) => {
     if (!parsedQuery.success) {
       return fail(
         res,
-        badRequest(
-          "Invalid jobs revision query parameters",
-          parsedQuery.error.flatten(),
-        ),
+        badRequest("Invalid jobs revision query parameters", parsedQuery.error.flatten()),
       );
     }
 
@@ -203,10 +189,7 @@ jobsReadRouter.get("/:id/emails", async (req: Request, res: Response) => {
   }
 
   try {
-    const data = await listJobPostApplicationEmails(
-      jobId,
-      parseResult.data.limit,
-    );
+    const data = await listJobPostApplicationEmails(jobId, parseResult.data.limit);
 
     logger.info("Job emails fetched", {
       route,

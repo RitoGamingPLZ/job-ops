@@ -9,12 +9,8 @@ export function subscribeChildProcessLines(
   child: Pick<ChildProcess, "stdout" | "stderr">,
   onLine: (line: string, stream: NodeJS.WriteStream) => void,
 ): () => void {
-  const stdoutRl = child.stdout
-    ? createInterface({ input: child.stdout })
-    : null;
-  const stderrRl = child.stderr
-    ? createInterface({ input: child.stderr })
-    : null;
+  const stdoutRl = child.stdout ? createInterface({ input: child.stdout }) : null;
+  const stderrRl = child.stderr ? createInterface({ input: child.stderr }) : null;
 
   stdoutRl?.on("line", (line) => onLine(line, process.stdout));
   stderrRl?.on("line", (line) => onLine(line, process.stderr));

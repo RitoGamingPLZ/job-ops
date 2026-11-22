@@ -20,9 +20,7 @@ describe("hosted app-mode config", () => {
       getJobOpsAppConfig({
         JOBOPS_APP_MODE: "hosted",
       }),
-    ).toThrow(
-      "JOBOPS_HOSTED_TENANT_ID is required when JOBOPS_APP_MODE=hosted.",
-    );
+    ).toThrow("JOBOPS_HOSTED_TENANT_ID is required when JOBOPS_APP_MODE=hosted.");
   });
 
   it("accepts JOBOPS_MODE as the hosted-mode alias", () => {

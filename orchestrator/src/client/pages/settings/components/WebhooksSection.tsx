@@ -55,9 +55,7 @@ export const WebhooksSection: React.FC<WebhooksSectionProps> = ({
               inputProps={register("jobCompleteWebhookUrl")}
               placeholder={jobCompleteWebhook.default || "https://..."}
               disabled={isLoading || isSaving}
-              error={
-                errors.jobCompleteWebhookUrl?.message as string | undefined
-              }
+              error={errors.jobCompleteWebhookUrl?.message as string | undefined}
               helper={`When set, the server sends a POST when you mark a job as applied (includes the job description). Default: ${jobCompleteWebhook.default || "—"}.`}
               current={jobCompleteWebhook.effective || "—"}
             />

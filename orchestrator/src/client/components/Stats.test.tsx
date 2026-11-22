@@ -19,9 +19,7 @@ describe("Stats", () => {
     );
 
     const label = screen.getByText("Targeted");
-    expect(
-      within(label.parentElement as HTMLElement).getByText("2"),
-    ).toBeInTheDocument();
+    expect(within(label.parentElement as HTMLElement).getByText("2")).toBeInTheDocument();
     expect(screen.getByText("6 total jobs")).toBeInTheDocument();
     expect(screen.queryByText("Ready")).not.toBeInTheDocument();
   });

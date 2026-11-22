@@ -89,9 +89,7 @@ describe("asyncPool", () => {
         },
         onTaskSettled: (item, _index, outcome) => {
           settled.push(
-            outcome.status === "fulfilled"
-              ? `${item}:ok`
-              : `${item}:fail:${String(outcome.error)}`,
+            outcome.status === "fulfilled" ? `${item}:ok` : `${item}:fail:${String(outcome.error)}`,
           );
         },
         task: async (item) => {

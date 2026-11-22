@@ -35,12 +35,7 @@ describe("runFiveamsat loop", () => {
 
     expect(result).toEqual({
       success: true,
-      jobs: [
-        job("1", "u1"),
-        job("", "u2"),
-        job(undefined, "u4"),
-        job("2", "u5"),
-      ],
+      jobs: [job("1", "u1"), job("", "u2"), job(undefined, "u4"), job("2", "u5")],
     });
     expect(fetchMock).toHaveBeenCalledWith({
       query: "a",
@@ -96,9 +91,7 @@ describe("runFiveamsat loop", () => {
 
   it("discards earlier jobs when a later term fails", async () => {
     parseMock.mockReturnValue([job("1", "u1")]);
-    fetchMock
-      .mockResolvedValueOnce("a")
-      .mockRejectedValueOnce(new Error("boom"));
+    fetchMock.mockResolvedValueOnce("a").mockRejectedValueOnce(new Error("boom"));
     expect(await runFiveamsat({ searchTerms: ["a", "b"] })).toEqual({
       success: false,
       jobs: [],

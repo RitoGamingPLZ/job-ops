@@ -1,15 +1,10 @@
-import type {
-  AppSettings,
-  JobSource,
-  WatchlistSelectedSource,
-} from "@shared/types";
+import type { AppSettings, JobSource, WatchlistSelectedSource } from "@shared/types";
 import type React from "react";
 import { AutomaticRunTab } from "./AutomaticRunTab";
 import type { AutomaticRunValues } from "./automatic-run";
 import type { PipelineSearchPresetComposerProps } from "./usePipelineSearchPresets";
 
-interface OrchestratorSearchComposerProps
-  extends PipelineSearchPresetComposerProps {
+interface OrchestratorSearchComposerProps extends PipelineSearchPresetComposerProps {
   settings: AppSettings | null;
   enabledSources: JobSource[];
   pipelineSources: JobSource[];
@@ -24,9 +19,7 @@ interface OrchestratorSearchComposerProps
   onSaveAndRunAutomatic: (values: AutomaticRunValues) => Promise<void>;
 }
 
-export const OrchestratorSearchComposer: React.FC<
-  OrchestratorSearchComposerProps
-> = ({
+export const OrchestratorSearchComposer: React.FC<OrchestratorSearchComposerProps> = ({
   settings,
   enabledSources,
   pipelineSources,

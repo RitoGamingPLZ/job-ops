@@ -15,10 +15,7 @@ import type {
 } from "@shared/types";
 import { and, desc, eq } from "drizzle-orm";
 import { db, schema } from "../db";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { jobChatMessages, jobChatRuns, jobChatThreads } = schema;
 
@@ -42,9 +39,7 @@ function parseSelectedContextIds(
   try {
     const parsed = JSON.parse(value) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return normalize(
-      parsed.filter((item): item is string => typeof item === "string"),
-    );
+    return normalize(parsed.filter((item): item is string => typeof item === "string"));
   } catch {
     return [];
   }
@@ -59,10 +54,7 @@ function parseSelectedEmailIds(value: string | null): string[] {
 }
 
 function parseSelectedDocumentIds(value: string | null): string[] {
-  return parseSelectedContextIds(
-    value,
-    normalizeGhostwriterSelectedDocumentIds,
-  );
+  return parseSelectedContextIds(value, normalizeGhostwriterSelectedDocumentIds);
 }
 
 function parseImageAttachments(value: string | null): JobChatImageAttachment[] {
@@ -76,17 +68,10 @@ function parseImageAttachments(value: string | null): JobChatImageAttachment[] {
       const record = item as Record<string, unknown>;
       const mediaType = record.mediaType;
       const dataUrl = record.dataUrl;
-      if (
-        mediaType !== "image/png" &&
-        mediaType !== "image/jpeg" &&
-        mediaType !== "image/webp"
-      ) {
+      if (mediaType !== "image/png" && mediaType !== "image/jpeg" && mediaType !== "image/webp") {
         continue;
       }
-      if (
-        typeof dataUrl !== "string" ||
-        !dataUrl.startsWith(`data:${mediaType};base64,`)
-      ) {
+      if (typeof dataUrl !== "string" || !dataUrl.startsWith(`data:${mediaType};base64,`)) {
         continue;
       }
       attachments.push({
@@ -161,9 +146,7 @@ function mapRun(row: typeof jobChatRuns.$inferSelect): JobChatRun {
   };
 }
 
-export async function listThreadsForJob(
-  jobId: string,
-): Promise<JobChatThread[]> {
+export async function listThreadsForJob(jobId: string): Promise<JobChatThread[]> {
   const rows = await db
     .select()
     .from(jobChatThreads)
@@ -187,9 +170,7 @@ export async function getOrCreateThreadForJob(input: {
   });
 }
 
-export async function getThreadById(
-  threadId: string,
-): Promise<JobChatThread | null> {
+export async function getThreadById(threadId: string): Promise<JobChatThread | null> {
   const [row] = await db
     .select()
     .from(jobChatThreads)
@@ -205,11 +186,7 @@ export async function getThreadForJob(
     .select()
     .from(jobChatThreads)
     .where(
-      and(
-        threadsScopeFilter(),
-        eq(jobChatThreads.id, threadId),
-        eq(jobChatThreads.jobId, jobId),
-      ),
+      and(threadsScopeFilter(), eq(jobChatThreads.id, threadId), eq(jobChatThreads.jobId, jobId)),
     );
   return row ? mapThread(row) : null;
 }
@@ -272,9 +249,7 @@ export async function updateThreadContext(input: {
       ...(input.selectedDocumentIds !== undefined
         ? {
             selectedDocumentIds: JSON.stringify(
-              normalizeGhostwriterSelectedDocumentIds(
-                input.selectedDocumentIds,
-              ),
+              normalizeGhostwriterSelectedDocumentIds(input.selectedDocumentIds),
             ),
           }
         : {}),
@@ -291,10 +266,7 @@ export async function updateThreadContext(input: {
   return getThreadForJob(input.jobId, input.threadId);
 }
 
-export async function touchThread(
-  threadId: string,
-  lastMessageAt?: string,
-): Promise<void> {
+export async function touchThread(threadId: string, lastMessageAt?: string): Promise<void> {
   const now = new Date().toISOString();
   await db
     .update(jobChatThreads)
@@ -323,9 +295,7 @@ export async function listMessagesForThread(
   return rows.map(mapMessage);
 }
 
-export async function getMessageById(
-  messageId: string,
-): Promise<JobChatMessage | null> {
+export async function getMessageById(messageId: string): Promise<JobChatMessage | null> {
   const [row] = await db
     .select()
     .from(jobChatMessages)
@@ -393,9 +363,7 @@ export async function updateMessage(
   await db
     .update(jobChatMessages)
     .set({
-      ...(input.suggestions !== undefined
-        ? { suggestions: input.suggestions }
-        : {}),
+      ...(input.suggestions !== undefined ? { suggestions: input.suggestions } : {}),
       ...(input.content !== undefined ? { content: input.content } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.tokensIn !== undefined ? { tokensIn: input.tokensIn } : {}),
@@ -411,9 +379,7 @@ export async function updateMessage(
   return message;
 }
 
-export async function getLatestAssistantMessage(
-  threadId: string,
-): Promise<JobChatMessage | null> {
+export async function getLatestAssistantMessage(threadId: string): Promise<JobChatMessage | null> {
   const [row] = await db
     .select()
     .from(jobChatMessages)
@@ -475,18 +441,12 @@ export async function getRunById(runId: string): Promise<JobChatRun | null> {
   return row ? mapRun(row) : null;
 }
 
-export async function getActiveRunForThread(
-  threadId: string,
-): Promise<JobChatRun | null> {
+export async function getActiveRunForThread(threadId: string): Promise<JobChatRun | null> {
   const [row] = await db
     .select()
     .from(jobChatRuns)
     .where(
-      and(
-        eq(jobChatRuns.threadId, threadId),
-        runsScopeFilter(),
-        eq(jobChatRuns.status, "running"),
-      ),
+      and(eq(jobChatRuns.threadId, threadId), runsScopeFilter(), eq(jobChatRuns.status, "running")),
     )
     .orderBy(desc(jobChatRuns.startedAt))
     .limit(1);
@@ -517,11 +477,7 @@ async function updateCompletedRun(
     })
     .where(
       onlyIfRunning
-        ? and(
-            runsScopeFilter(),
-            eq(jobChatRuns.id, runId),
-            eq(jobChatRuns.status, "running"),
-          )
+        ? and(runsScopeFilter(), eq(jobChatRuns.id, runId), eq(jobChatRuns.status, "running"))
         : and(runsScopeFilter(), eq(jobChatRuns.id, runId)),
     );
 
@@ -539,9 +495,7 @@ export async function completeRun(
   return updateCompletedRun(runId, input, false);
 }
 
-export async function deleteAllMessagesForThread(
-  threadId: string,
-): Promise<number> {
+export async function deleteAllMessagesForThread(threadId: string): Promise<number> {
   const result = await db
     .delete(jobChatMessages)
     .where(and(messagesScopeFilter(), eq(jobChatMessages.threadId, threadId)));
@@ -549,9 +503,7 @@ export async function deleteAllMessagesForThread(
   return result.changes;
 }
 
-export async function deleteAllRunsForThread(
-  threadId: string,
-): Promise<number> {
+export async function deleteAllRunsForThread(threadId: string): Promise<number> {
   const result = await db
     .delete(jobChatRuns)
     .where(and(runsScopeFilter(), eq(jobChatRuns.threadId, threadId)));
@@ -562,10 +514,7 @@ export async function deleteAllRunsForThread(
 /**
  * Set the active root message for a thread (for branch navigation of root messages).
  */
-export async function setActiveRoot(
-  threadId: string,
-  messageId: string,
-): Promise<void> {
+export async function setActiveRoot(threadId: string, messageId: string): Promise<void> {
   const now = new Date().toISOString();
   await db
     .update(jobChatThreads)
@@ -576,10 +525,7 @@ export async function setActiveRoot(
 /**
  * Set the active child pointer on a parent message (for branch navigation).
  */
-export async function setActiveChild(
-  messageId: string,
-  activeChildId: string,
-): Promise<void> {
+export async function setActiveChild(messageId: string, activeChildId: string): Promise<void> {
   const now = new Date().toISOString();
   await db
     .update(jobChatMessages)
@@ -590,18 +536,11 @@ export async function setActiveChild(
 /**
  * Get all children of a message, ordered by createdAt.
  */
-export async function getChildrenOfMessage(
-  parentMessageId: string,
-): Promise<JobChatMessage[]> {
+export async function getChildrenOfMessage(parentMessageId: string): Promise<JobChatMessage[]> {
   const rows = await db
     .select()
     .from(jobChatMessages)
-    .where(
-      and(
-        messagesScopeFilter(),
-        eq(jobChatMessages.parentMessageId, parentMessageId),
-      ),
-    )
+    .where(and(messagesScopeFilter(), eq(jobChatMessages.parentMessageId, parentMessageId)))
     .orderBy(jobChatMessages.createdAt);
   return rows.map(mapMessage);
 }
@@ -630,9 +569,7 @@ export async function getSiblingsOf(
         ),
       )
       .orderBy(jobChatMessages.createdAt);
-    const rootSiblings = allInThread
-      .map(mapMessage)
-      .filter((m) => !m.parentMessageId);
+    const rootSiblings = allInThread.map(mapMessage).filter((m) => !m.parentMessageId);
 
     if (rootSiblings.length <= 1) {
       return { siblings: rootSiblings, activeIndex: 0 };
@@ -665,9 +602,7 @@ export async function getSiblingsOf(
  * Walk the tree from root to leaf following activeChildId pointers.
  * Returns the "active path" — the conversation the user currently sees.
  */
-export async function getActivePathFromRoot(
-  threadId: string,
-): Promise<JobChatMessage[]> {
+export async function getActivePathFromRoot(threadId: string): Promise<JobChatMessage[]> {
   // Load all messages for this thread into memory (fine for typical sizes)
   const allRows = await db
     .select()
@@ -702,14 +637,11 @@ export async function getActivePathFromRoot(
   // Pick the active root: use thread's activeRootMessageId, fall back to newest
   const thread = await getThreadById(threadId);
   const preferredRootId = thread?.activeRootMessageId;
-  const activeRoot = preferredRootId
-    ? roots.find((r) => r.id === preferredRootId)
-    : undefined;
+  const activeRoot = preferredRootId ? roots.find((r) => r.id === preferredRootId) : undefined;
 
   // Walk from root following activeChildId, falling back to newest child
   const path: JobChatMessage[] = [];
-  let currentMsg: JobChatMessage | undefined =
-    activeRoot ?? roots[roots.length - 1];
+  let currentMsg: JobChatMessage | undefined = activeRoot ?? roots[roots.length - 1];
 
   while (currentMsg) {
     path.push(currentMsg);
@@ -731,9 +663,7 @@ export async function getActivePathFromRoot(
  * Walk from a message up to the root via parentMessageId.
  * Returns messages in chronological order (root first).
  */
-export async function getAncestorPath(
-  messageId: string,
-): Promise<JobChatMessage[]> {
+export async function getAncestorPath(messageId: string): Promise<JobChatMessage[]> {
   const path: JobChatMessage[] = [];
   let currentId: string | null = messageId;
 

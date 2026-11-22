@@ -63,13 +63,8 @@ describe("useFilteredJobs", () => {
       (filters: JobFilters) => useFilteredJobs(jobs, filters),
       { initialProps: makeFilters({ companyFilter: [" google "] }) },
     );
-    expect(result.current.map((job) => job.id).sort()).toEqual([
-      "google",
-      "google-manual",
-    ]);
-    rerender(
-      makeFilters({ companyFilter: ["google"], sourceFilter: "linkedin" }),
-    );
+    expect(result.current.map((job) => job.id).sort()).toEqual(["google", "google-manual"]);
+    rerender(makeFilters({ companyFilter: ["google"], sourceFilter: "linkedin" }));
     expect(result.current.map((job) => job.id)).toEqual(["google"]);
     rerender(
       makeFilters({
@@ -88,14 +83,9 @@ describe("useFilteredJobs", () => {
       { ...baseJob, id: "processing", status: "processing" },
     ];
 
-    const { result } = renderHook(() =>
-      useFilteredJobs(jobs, makeFilters({ activeTab: "ready" })),
-    );
+    const { result } = renderHook(() => useFilteredJobs(jobs, makeFilters({ activeTab: "ready" })));
 
-    expect(result.current.map((job) => job.id)).toEqual([
-      "processing",
-      "ready",
-    ]);
+    expect(result.current.map((job) => job.id)).toEqual(["processing", "ready"]);
   });
 
   it("filters by discovered date on the discovered tab", () => {
@@ -203,10 +193,7 @@ describe("useFilteredJobs", () => {
       ),
     );
 
-    expect(result.current.map((job) => job.id)).toEqual([
-      "closed-match",
-      "ready-match",
-    ]);
+    expect(result.current.map((job) => job.id)).toEqual(["closed-match", "ready-match"]);
   });
 
   it("composes date filtering with source and salary filters", () => {
@@ -287,19 +274,11 @@ describe("useFilteredJobs", () => {
       },
     );
 
-    expect(result.current.map((job) => job.id)).toEqual([
-      "newer",
-      "older",
-      "missing",
-    ]);
+    expect(result.current.map((job) => job.id)).toEqual(["newer", "older", "missing"]);
 
     rerender({ direction: "asc" });
 
-    expect(result.current.map((job) => job.id)).toEqual([
-      "older",
-      "newer",
-      "missing",
-    ]);
+    expect(result.current.map((job) => job.id)).toEqual(["older", "newer", "missing"]);
   });
 
   it("filters by employment type and excludes jobs with unknown types", () => {
@@ -320,10 +299,7 @@ describe("useFilteredJobs", () => {
       ),
     );
 
-    expect(result.current.map((job) => job.id).sort()).toEqual([
-      "contract",
-      "full",
-    ]);
+    expect(result.current.map((job) => job.id).sort()).toEqual(["contract", "full"]);
   });
 
   it("filters by location with order-independent token matching", () => {
@@ -334,10 +310,7 @@ describe("useFilteredJobs", () => {
     ];
 
     const { result } = renderHook(() =>
-      useFilteredJobs(
-        jobs,
-        makeFilters({ activeTab: "all", location: "uk london" }),
-      ),
+      useFilteredJobs(jobs, makeFilters({ activeTab: "all", location: "uk london" })),
     );
 
     expect(result.current.map((job) => job.id)).toEqual(["london"]);

@@ -84,8 +84,7 @@ export function RichTextEditor({
       variant="ghost"
       className={cn(
         "h-8 rounded-md px-2.5 text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-        active &&
-          "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground",
+        active && "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground",
       )}
       onClick={onClick}
     >
@@ -95,9 +94,7 @@ export function RichTextEditor({
   );
 
   return (
-    <div
-      className={cn("rounded-xl border border-border/60 bg-card/40", className)}
-    >
+    <div className={cn("rounded-xl border border-border/60 bg-card/40", className)}>
       <div className="flex flex-wrap items-center gap-1 rounded-t-xl border-b border-border/60 bg-muted/20 px-2 py-2">
         {toolbarButton(
           editor.isActive("heading", { level: 1 }),
@@ -117,17 +114,11 @@ export function RichTextEditor({
           <span className="text-[11px] font-semibold">H3</span>,
           () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
         )}
-        {toolbarButton(
-          editor.isActive("bold"),
-          "Bold",
-          <Bold className="h-4 w-4" />,
-          () => editor.chain().focus().toggleBold().run(),
+        {toolbarButton(editor.isActive("bold"), "Bold", <Bold className="h-4 w-4" />, () =>
+          editor.chain().focus().toggleBold().run(),
         )}
-        {toolbarButton(
-          editor.isActive("italic"),
-          "Italic",
-          <Italic className="h-4 w-4" />,
-          () => editor.chain().focus().toggleItalic().run(),
+        {toolbarButton(editor.isActive("italic"), "Italic", <Italic className="h-4 w-4" />, () =>
+          editor.chain().focus().toggleItalic().run(),
         )}
         {toolbarButton(
           editor.isActive("bulletList"),
@@ -147,11 +138,8 @@ export function RichTextEditor({
           <Link2 className="h-4 w-4" />,
           applyLink,
         )}
-        {toolbarButton(
-          false,
-          "Remove link",
-          <Unlink className="h-4 w-4" />,
-          () => editor.chain().focus().unsetLink().run(),
+        {toolbarButton(false, "Remove link", <Unlink className="h-4 w-4" />, () =>
+          editor.chain().focus().unsetLink().run(),
         )}
         {formatLabel ? (
           <div className="ml-auto px-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
@@ -159,9 +147,7 @@ export function RichTextEditor({
           </div>
         ) : null}
         {toolbarEnd ? (
-          <div className={cn("flex items-center", !formatLabel && "ml-auto")}>
-            {toolbarEnd}
-          </div>
+          <div className={cn("flex items-center", !formatLabel && "ml-auto")}>{toolbarEnd}</div>
         ) : null}
       </div>
       <div className="relative">

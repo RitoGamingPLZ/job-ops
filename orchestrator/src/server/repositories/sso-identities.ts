@@ -55,9 +55,7 @@ export async function findSsoIdentity(input: {
   return row ?? null;
 }
 
-export async function listSsoIdentitiesForUser(
-  userId: string,
-): Promise<SsoIdentity[]> {
+export async function listSsoIdentitiesForUser(userId: string): Promise<SsoIdentity[]> {
   return db
     .select(identityColumns)
     .from(ssoIdentities)
@@ -104,25 +102,15 @@ export async function createSsoIdentity(input: {
   };
 }
 
-export async function deleteSsoIdentity(input: {
-  id: string;
-  userId: string;
-}): Promise<boolean> {
+export async function deleteSsoIdentity(input: { id: string; userId: string }): Promise<boolean> {
   const result = await db
     .delete(ssoIdentities)
-    .where(
-      and(
-        eq(ssoIdentities.id, input.id),
-        eq(ssoIdentities.userId, input.userId),
-      ),
-    );
+    .where(and(eq(ssoIdentities.id, input.id), eq(ssoIdentities.userId, input.userId)));
 
   return result.changes > 0;
 }
 
-export async function countSsoIdentitiesForUser(
-  userId: string,
-): Promise<number> {
+export async function countSsoIdentitiesForUser(userId: string): Promise<number> {
   const [row] = await db
     .select({ count: sql<number>`count(*)` })
     .from(ssoIdentities)

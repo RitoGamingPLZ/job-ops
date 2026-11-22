@@ -80,23 +80,16 @@ function makePdfParseResult(text: string) {
 }
 
 function mockDocumentFile(buffer: Buffer) {
-  const read = vi.fn(
-    async (
-      target: Buffer,
-      offset: number,
-      length: number,
-      position: number,
-    ) => {
-      const start = position ?? 0;
-      const bytesRead = buffer.copy(
-        target,
-        offset,
-        start,
-        Math.min(buffer.byteLength, start + length),
-      );
-      return { bytesRead, buffer: target };
-    },
-  );
+  const read = vi.fn(async (target: Buffer, offset: number, length: number, position: number) => {
+    const start = position ?? 0;
+    const bytesRead = buffer.copy(
+      target,
+      offset,
+      start,
+      Math.min(buffer.byteLength, start + length),
+    );
+    return { bytesRead, buffer: target };
+  });
   const close = vi.fn(async () => undefined);
 
   mocks.open.mockResolvedValue({ read, close });
@@ -109,9 +102,7 @@ describe("buildJobChatPromptContext", () => {
     vi.mocked(listJobNotesByIds).mockResolvedValue([]);
     vi.mocked(listJobDocumentsByIds).mockResolvedValue([]);
     mockDocumentFile(Buffer.from(""));
-    vi.mocked(pdfParse).mockResolvedValue(
-      makePdfParseResult("PDF context text"),
-    );
+    vi.mocked(pdfParse).mockResolvedValue(makePdfParseResult("PDF context text"));
     vi.mocked(listJobPostApplicationEmailsByIds).mockResolvedValue([]);
     vi.mocked(getSetting).mockResolvedValue(null);
     vi.mocked(getWritingStyle).mockResolvedValue({
@@ -193,12 +184,8 @@ describe("buildJobChatPromptContext", () => {
     expect(context.systemPrompt).toContain(
       "When suggesting a headline or job title, preserve the original wording instead of translating it.",
     );
-    expect(context.systemPrompt).toContain(
-      "Writing constraints: Keep responses under 120 words",
-    );
-    expect(context.systemPrompt).toContain(
-      "Avoid these terms: synergy, leverage",
-    );
+    expect(context.systemPrompt).toContain("Writing constraints: Keep responses under 120 words");
+    expect(context.systemPrompt).toContain("Avoid these terms: synergy, leverage");
     expect(context.jobSnapshot).toContain('"id":"job-ctx-1"');
     expect(context.jobSnapshot).not.toContain("<p>");
     expect(context.jobSnapshot).not.toContain("\n");
@@ -208,13 +195,9 @@ describe("buildJobChatPromptContext", () => {
   });
 
   it("requests a 4000-character library context for chat", async () => {
-    vi.mocked(getJobById).mockResolvedValue(
-      createJob({ id: "library-budget" }),
-    );
+    vi.mocked(getJobById).mockResolvedValue(createJob({ id: "library-budget" }));
     vi.mocked(getProfile).mockResolvedValue({});
-    vi.mocked(buildCandidateExperienceContext).mockResolvedValueOnce(
-      "Library duty",
-    );
+    vi.mocked(buildCandidateExperienceContext).mockResolvedValueOnce("Library duty");
     const context = await buildJobChatPromptContext("library-budget");
     expect(buildCandidateExperienceContext).toHaveBeenCalledWith(4000);
     expect(context.profileSnapshot).toContain("Experience:\nLibrary duty");
@@ -287,8 +270,7 @@ describe("buildJobChatPromptContext", () => {
       },
       sections: {
         summary: {
-          content:
-            "Expérience en développement, livraison et accompagnement des équipes.",
+          content: "Expérience en développement, livraison et accompagnement des équipes.",
         },
       },
     });
@@ -303,8 +285,7 @@ describe("buildJobChatPromptContext", () => {
   it("matches Ghostwriter language to detected job description language when configured", async () => {
     const job = createJob({
       id: "job-ctx-jd-language",
-      jobDescription:
-        "Wir suchen Erfahrung mit Entwicklung und Verantwortung für APIs.",
+      jobDescription: "Wir suchen Erfahrung mit Entwicklung und Verantwortung für APIs.",
     });
     vi.mocked(getJobById).mockResolvedValue(job);
     vi.mocked(getWritingStyle).mockResolvedValue({
@@ -351,9 +332,7 @@ describe("buildJobChatPromptContext", () => {
     expect(context.systemPrompt).toContain(
       "When the user does not request a language, default to writing user-visible resume or application content in English.",
     );
-    expect(context.systemPrompt).toContain(
-      "Writing constraints: Keep responses under 120 words",
-    );
+    expect(context.systemPrompt).toContain("Writing constraints: Keep responses under 120 words");
     expect(context.systemPrompt).not.toContain("Always respond in French");
   });
 
@@ -383,9 +362,7 @@ describe("buildJobChatPromptContext", () => {
 
     const context = await buildJobChatPromptContext(job.id);
 
-    expect(context.systemPrompt).toContain(
-      "Stop Slop revision rules for Ghostwriter prose",
-    );
+    expect(context.systemPrompt).toContain("Stop Slop revision rules for Ghostwriter prose");
     expect(context.systemPrompt).toContain("Avoid formulaic structures");
   });
 
@@ -416,12 +393,8 @@ describe("buildJobChatPromptContext", () => {
 
     expect(listJobNotesByIds).toHaveBeenCalledWith(job.id, ["note-1"]);
     expect(context.selectedNotesSnapshot).toContain("Selected Job Notes:");
-    expect(context.selectedNotesSnapshot).toContain(
-      "Note 1: Interview transcript",
-    );
-    expect(context.selectedNotesSnapshot).toContain(
-      "Context note: trimmed for AI context limits.",
-    );
+    expect(context.selectedNotesSnapshot).toContain("Note 1: Interview transcript");
+    expect(context.selectedNotesSnapshot).toContain("Context note: trimmed for AI context limits.");
     expect(context.selectedNotesSnapshot).not.toContain("Not selected");
     expect(context.selectedNotesSnapshot).not.toContain("A".repeat(3501));
   });
@@ -507,13 +480,9 @@ describe("buildJobChatPromptContext", () => {
 
     const context = await buildJobChatPromptContext(job.id, [], ["email-1"]);
 
-    expect(listJobPostApplicationEmailsByIds).toHaveBeenCalledWith(job.id, [
-      "email-1",
-    ]);
+    expect(listJobPostApplicationEmailsByIds).toHaveBeenCalledWith(job.id, ["email-1"]);
     expect(context.selectedEmailsSnapshot).toContain("Selected Job Emails:");
-    expect(context.selectedEmailsSnapshot).toContain(
-      "Email 1: Interview update",
-    );
+    expect(context.selectedEmailsSnapshot).toContain("Email 1: Interview update");
     expect(context.selectedEmailsSnapshot).toContain("Sender: Recruiter");
     expect(context.selectedEmailsSnapshot).toContain(
       "Context note: snippet trimmed for AI context limits.",
@@ -558,12 +527,8 @@ describe("buildJobChatPromptContext", () => {
 
     expect(listJobDocumentsByIds).toHaveBeenCalledWith(job.id, ["doc-1"]);
     expect(mocks.open).toHaveBeenCalledWith("/tmp/take-home.md", "r");
-    expect(context.selectedDocumentsSnapshot).toContain(
-      "Selected Job Documents:",
-    );
-    expect(context.selectedDocumentsSnapshot).toContain(
-      "Document 1: take-home.md",
-    );
+    expect(context.selectedDocumentsSnapshot).toContain("Selected Job Documents:");
+    expect(context.selectedDocumentsSnapshot).toContain("Document 1: take-home.md");
     expect(context.selectedDocumentsSnapshot).toContain(
       "Context note: document text trimmed for AI context limits.",
     );
@@ -593,8 +558,7 @@ describe("buildJobChatPromptContext", () => {
         id: "doc-docx",
         jobId: job.id,
         fileName: "interview-pack.docx",
-        mediaType:
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         byteSize: 2048,
         storagePath: "/tmp/interview-pack.docx",
         createdAt: "2026-01-02T00:00:00.000Z",
@@ -603,20 +567,11 @@ describe("buildJobChatPromptContext", () => {
     ]);
     mockDocumentFile(await zip.generateAsync({ type: "nodebuffer" }));
 
-    const context = await buildJobChatPromptContext(
-      job.id,
-      [],
-      [],
-      ["doc-docx"],
-    );
+    const context = await buildJobChatPromptContext(job.id, [], [], ["doc-docx"]);
 
-    expect(context.selectedDocumentsSnapshot).toContain(
-      "Document 1: interview-pack.docx",
-    );
+    expect(context.selectedDocumentsSnapshot).toContain("Document 1: interview-pack.docx");
     expect(context.selectedDocumentsSnapshot).toContain("Interview pack");
-    expect(context.selectedDocumentsSnapshot).toContain(
-      "Discuss reliability & incident response.",
-    );
+    expect(context.selectedDocumentsSnapshot).toContain("Discuss reliability & incident response.");
   });
 
   it("extracts PDF documents for selected job document context", async () => {
@@ -640,17 +595,10 @@ describe("buildJobChatPromptContext", () => {
     ]);
     mockDocumentFile(Buffer.from("%PDF-1.4"));
 
-    const context = await buildJobChatPromptContext(
-      job.id,
-      [],
-      [],
-      ["doc-pdf"],
-    );
+    const context = await buildJobChatPromptContext(job.id, [], [], ["doc-pdf"]);
 
     expect(pdfParse).toHaveBeenCalledOnce();
-    expect(context.selectedDocumentsSnapshot).toContain(
-      "Document 1: interview-pack.pdf",
-    );
+    expect(context.selectedDocumentsSnapshot).toContain("Document 1: interview-pack.pdf");
     expect(context.selectedDocumentsSnapshot).toContain("Interview pack");
     expect(context.selectedDocumentsSnapshot).toContain("Discuss reliability.");
   });
@@ -676,21 +624,13 @@ describe("buildJobChatPromptContext", () => {
     await buildJobChatPromptContext(job.id, [], [], ["doc-large"]);
 
     expect(mocks.open).toHaveBeenCalledWith("/tmp/large.txt", "r");
-    expect(read).toHaveBeenCalledWith(
-      expect.any(Buffer),
-      0,
-      2 * 1024 * 1024,
-      0,
-    );
+    expect(read).toHaveBeenCalledWith(expect.any(Buffer), 0, 2 * 1024 * 1024, 0);
     expect(close).toHaveBeenCalled();
   });
 
   it("uses the editor summary instead of legacy job-row tailoring", async () => {
-    const { buildDefaultReactiveResumeDocument } = await import(
-      "./rxresume/document"
-    );
-    const document =
-      buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+    const { buildDefaultReactiveResumeDocument } = await import("./rxresume/document");
+    const document = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
     document.summary.content = "<p>Editor <strong>summary</strong></p>";
     document.basics.headline = "Editor headline";
     document.sections.skills.items = [
@@ -710,17 +650,13 @@ describe("buildJobChatPromptContext", () => {
     const { job } = JSON.parse(context.jobSnapshot);
     expect(job.tailoredSummary).toBe("Editor summary");
     expect(job.tailoredHeadline).toBe("Editor headline");
-    expect(JSON.parse(job.tailoredSkills)).toEqual([
-      { name: "Go", keywords: ["gRPC"] },
-    ]);
+    expect(JSON.parse(job.tailoredSkills)).toEqual([{ name: "Go", keywords: ["gRPC"] }]);
   });
 
   it("throws not found for unknown job", async () => {
     vi.mocked(getJobById).mockResolvedValue(null);
 
-    await expect(
-      buildJobChatPromptContext("missing-job"),
-    ).rejects.toMatchObject({
+    await expect(buildJobChatPromptContext("missing-job")).rejects.toMatchObject({
       code: "NOT_FOUND",
       status: 404,
     } satisfies Partial<AppError>);

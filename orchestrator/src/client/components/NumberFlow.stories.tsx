@@ -52,11 +52,7 @@ export const Playground: Story = () => {
               className={buttonClassName}
               onClick={() => setIsCycling((current) => !current)}
             >
-              {isCycling ? (
-                <Pause className="h-4 w-4" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
+              {isCycling ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               {isCycling ? "Pause" : "Play"}
             </button>
           </div>
@@ -108,9 +104,7 @@ export const Playground: Story = () => {
               onClick={() => setManualValue(candidate)}
             >
               <span>{candidate}</span>
-              {candidate === value ? (
-                <span className="text-muted-foreground">active</span>
-              ) : null}
+              {candidate === value ? <span className="text-muted-foreground">active</span> : null}
             </button>
           ))}
         </div>

@@ -1,15 +1,11 @@
 import { getOriginalEnvValue } from "@server/services/envSettings";
 import { toStringOrNull } from "@shared/utils/type-conversion";
 
-function normalizeStoredApiKey(
-  value: string | null | undefined,
-): string | null {
+function normalizeStoredApiKey(value: string | null | undefined): string | null {
   return toStringOrNull(value);
 }
 
-function normalizeProviderName(
-  provider: string | null | undefined,
-): string | null {
+function normalizeProviderName(provider: string | null | undefined): string | null {
   const normalized = provider?.trim().toLowerCase().replace(/[-.]/g, "_");
   return normalized || null;
 }
@@ -49,17 +45,11 @@ export function resolveLlmApiKey(options: {
   ) {
     return toStringOrNull(getOriginalEnvValue("LITELLM_API_KEY"));
   }
-  if (
-    provider === "openrouter" &&
-    toStringOrNull(getOriginalEnvValue("OPENROUTER_API_KEY"))
-  ) {
+  if (provider === "openrouter" && toStringOrNull(getOriginalEnvValue("OPENROUTER_API_KEY"))) {
     return toStringOrNull(getOriginalEnvValue("OPENROUTER_API_KEY"));
   }
 
-  if (
-    provider === "requesty" &&
-    toStringOrNull(getOriginalEnvValue("REQUESTY_API_KEY"))
-  ) {
+  if (provider === "requesty" && toStringOrNull(getOriginalEnvValue("REQUESTY_API_KEY"))) {
     return toStringOrNull(getOriginalEnvValue("REQUESTY_API_KEY"));
   }
 
@@ -67,10 +57,7 @@ export function resolveLlmApiKey(options: {
     return toStringOrNull(getOriginalEnvValue("API_ROUTE_API_KEY"));
   }
 
-  if (
-    provider === "orcarouter" &&
-    toStringOrNull(getOriginalEnvValue("ORCAROUTER_API_KEY"))
-  ) {
+  if (provider === "orcarouter" && toStringOrNull(getOriginalEnvValue("ORCAROUTER_API_KEY"))) {
     return toStringOrNull(getOriginalEnvValue("ORCAROUTER_API_KEY"));
   }
 

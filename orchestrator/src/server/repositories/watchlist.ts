@@ -11,12 +11,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db/index";
 import { getActiveTenantId } from "../tenancy/context";
 
-const {
-  watchlistChecks,
-  watchlistJobStates,
-  watchlistSeenJobs,
-  watchlistSelectedSources,
-} = schema;
+const { watchlistChecks, watchlistJobStates, watchlistSeenJobs, watchlistSelectedSources } = schema;
 
 function requireActiveUserId(): string {
   const userId = getUserId();
@@ -26,9 +21,7 @@ function requireActiveUserId(): string {
   return userId;
 }
 
-function mapRowToWatchlistJobState(
-  row: typeof watchlistJobStates.$inferSelect,
-): WatchlistJobState {
+function mapRowToWatchlistJobState(row: typeof watchlistJobStates.$inferSelect): WatchlistJobState {
   return {
     source: row.source,
     sourceJobId: row.sourceJobId,
@@ -55,9 +48,7 @@ function mapRowToWatchlistSelectedSource(
   };
 }
 
-export async function listWatchlistSelectedSources(): Promise<
-  WatchlistSelectedSource[]
-> {
+export async function listWatchlistSelectedSources(): Promise<WatchlistSelectedSource[]> {
   const tenantId = getActiveTenantId();
   const userId = requireActiveUserId();
   const rows = await db
@@ -159,10 +150,7 @@ export async function setWatchlistJobState(input: {
       .update(watchlistJobStates)
       .set({ state: input.state, updatedAt: now })
       .where(
-        and(
-          eq(watchlistJobStates.tenantId, tenantId),
-          eq(watchlistJobStates.id, existing.id),
-        ),
+        and(eq(watchlistJobStates.tenantId, tenantId), eq(watchlistJobStates.id, existing.id)),
       );
   } else {
     await db.insert(watchlistJobStates).values({
@@ -225,11 +213,7 @@ export async function recordWatchlistCheck(
     .map((check) => ({
       source: String(check.source),
       sourceJobIds: Array.from(
-        new Set(
-          check.sourceJobIds
-            .map((sourceJobId) => sourceJobId.trim())
-            .filter(Boolean),
-        ),
+        new Set(check.sourceJobIds.map((sourceJobId) => sourceJobId.trim()).filter(Boolean)),
       ),
     }))
     .filter((check) => check.sourceJobIds.length > 0);
@@ -238,12 +222,7 @@ export async function recordWatchlistCheck(
     const existingCheckpoint = tx
       .select()
       .from(watchlistChecks)
-      .where(
-        and(
-          eq(watchlistChecks.tenantId, tenantId),
-          eq(watchlistChecks.userId, userId),
-        ),
-      )
+      .where(and(eq(watchlistChecks.tenantId, tenantId), eq(watchlistChecks.userId, userId)))
       .get();
 
     const previousLastCheckedAt = existingCheckpoint?.lastCheckedAt ?? null;
@@ -262,13 +241,8 @@ export async function recordWatchlistCheck(
         .all(),
     );
 
-    const existingSeenByKey = new Map<
-      string,
-      (typeof existingSeenRows)[number][number]
-    >(
-      existingSeenRows
-        .flat()
-        .map((row) => [`${row.source}:${row.sourceJobId}`, row] as const),
+    const existingSeenByKey = new Map<string, (typeof existingSeenRows)[number][number]>(
+      existingSeenRows.flat().map((row) => [`${row.source}:${row.sourceJobId}`, row] as const),
     );
 
     for (const check of normalizedChecks) {
@@ -324,15 +298,12 @@ export async function recordWatchlistCheck(
 
     const jobs = normalizedChecks.flatMap((check) =>
       check.sourceJobIds.map((sourceJobId) => {
-        const existing = existingSeenByKey.get(
-          `${check.source}:${sourceJobId}`,
-        );
+        const existing = existingSeenByKey.get(`${check.source}:${sourceJobId}`);
         const firstSeenAt = existing?.firstSeenAt ?? now;
         return {
           source: check.source,
           sourceJobId,
-          isNewSinceLastCheck:
-            previousLastCheckedAt !== null && existing === undefined,
+          isNewSinceLastCheck: previousLastCheckedAt !== null && existing === undefined,
           firstSeenAt,
           lastSeenAt: now,
         };

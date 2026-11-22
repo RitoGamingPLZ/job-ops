@@ -26,10 +26,7 @@ const catalogSchema = z.object({
   label: z.string().trim().min(1).max(200),
   careersUrl: z.string().trim().url().max(2000),
 });
-const idSchema = z.union([
-  z.string().regex(/^\d+$/),
-  z.number().int().positive(),
-]);
+const idSchema = z.union([z.string().regex(/^\d+$/), z.number().int().positive()]);
 const positionSchema = z.object({
   id: idSchema,
   name: z.string().trim().min(1),
@@ -54,8 +51,7 @@ const searchSchema = z.object({
 export function isEightfoldFacetKey(key: string): boolean {
   return (
     key.length <= 60 &&
-    (/^[A-Z][A-Za-z0-9]*(?: [A-Za-z0-9]+)*$/.test(key) ||
-      /^filter_\w+$/.test(key))
+    (/^[A-Z][A-Za-z0-9]*(?: [A-Za-z0-9]+)*$/.test(key) || /^filter_\w+$/.test(key))
   );
 }
 
@@ -106,11 +102,7 @@ async function responsePrefix(response: Response): Promise<string> {
   }
 }
 
-async function fetchJson(
-  url: URL,
-  signal: AbortSignal,
-  kind: "list" | "detail",
-): Promise<unknown> {
+async function fetchJson(url: URL, signal: AbortSignal, kind: "list" | "detail"): Promise<unknown> {
   for (let attempt = 0; ; attempt++) {
     signal.throwIfAborted();
     const response = await fetch(url.toString(), {
@@ -179,16 +171,12 @@ async function fetchJson(
 
 function parsePayload<T>(schema: z.ZodType<T>, payload: unknown): T {
   const result = schema.safeParse(payload);
-  if (!result.success)
-    throw new Error("Eightfold returned an invalid response.");
+  if (!result.success) throw new Error("Eightfold returned an invalid response.");
   return result.data;
 }
 
 function unwrapPcsx(payload: unknown): unknown {
-  const envelope = parsePayload(
-    z.object({ status: z.literal(200), data: z.unknown() }),
-    payload,
-  );
+  const envelope = parsePayload(z.object({ status: z.literal(200), data: z.unknown() }), payload);
   return envelope.data;
 }
 
@@ -207,12 +195,8 @@ function normalizeJob(context: ReturnType<typeof parseSource>, job: Position) {
     jobUrl,
     applicationLink: jobUrl,
     location:
-      job.standardizedLocations?.join("; ") ||
-      job.locations?.join("; ") ||
-      job.location ||
-      null,
-    postedAt:
-      date && Number.isFinite(date.getTime()) ? date.toISOString() : null,
+      job.standardizedLocations?.join("; ") || job.locations?.join("; ") || job.location || null,
+    postedAt: date && Number.isFinite(date.getTime()) ? date.toISOString() : null,
   };
 }
 
@@ -236,9 +220,7 @@ async function loadDetails(input: {
   }
   const id = match[1];
   const url = new URL(
-    context.board.api === "pcsx"
-      ? "/api/pcsx/position_details"
-      : `/api/apply/v2/jobs/${id}`,
+    context.board.api === "pcsx" ? "/api/pcsx/position_details" : `/api/apply/v2/jobs/${id}`,
     context.url.origin,
   );
   url.searchParams.set("domain", context.board.domain);
@@ -268,13 +250,8 @@ function htmlToText(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#(?:(\d+)|x([0-9a-f]+));/gi, (entity, decimal, hexadecimal) => {
-      const codePoint = Number.parseInt(
-        decimal ?? hexadecimal,
-        decimal ? 10 : 16,
-      );
-      return codePoint > 0 &&
-        codePoint <= 0x10ffff &&
-        !(codePoint >= 0xd800 && codePoint <= 0xdfff)
+      const codePoint = Number.parseInt(decimal ?? hexadecimal, decimal ? 10 : 16);
+      return codePoint > 0 && codePoint <= 0x10ffff && !(codePoint >= 0xd800 && codePoint <= 0xdfff)
         ? String.fromCodePoint(codePoint)
         : entity;
     })
@@ -293,8 +270,7 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourceOptionLabel: "Custom Microsoft or Netflix search",
     customSourceSearchText: "custom eightfold microsoft netflix url",
     customSourceInputLabel: "Microsoft or Netflix careers search URL",
-    customSourcePlaceholder:
-      "https://apply.careers.microsoft.com/careers?query=engineer",
+    customSourcePlaceholder: "https://apply.careers.microsoft.com/careers?query=engineer",
     customSourceHelpText:
       "Paste a Microsoft or Netflix careers search URL. Query, location, capitalized facet names (Teams, Work Type, Region), and filter_ parameters are preserved. Up to 60 newest jobs are fetched.",
     emptyCatalogText: "No Eightfold companies found.",
@@ -340,33 +316,21 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     const context = parseSource(input.careersUrl.trim());
     const label = input.label?.trim();
     return {
-      label:
-        label && label !== input.careersUrl.trim()
-          ? label
-          : context.board.label,
+      label: label && label !== input.careersUrl.trim() ? label : context.board.label,
       careersUrl: context.url.toString(),
     };
   },
   async fetchJobs(input) {
     const context = parseSource(input.source.careersUrl);
     const stopAt = Date.now() + 20_000;
-    const signal = AbortSignal.any([
-      callSignal(input.signal),
-      AbortSignal.timeout(20_000),
-    ]);
+    const signal = AbortSignal.any([callSignal(input.signal), AbortSignal.timeout(20_000)]);
     const positions = new Map<string, Position>();
     let start = 0;
     let total = 0;
     // PCSX returns 10 rows/page; cap page requests as well as returned jobs.
-    for (
-      let page = 0;
-      page < Math.ceil(MAX_JOBS / 10) && Date.now() < stopAt;
-      page++
-    ) {
+    for (let page = 0; page < Math.ceil(MAX_JOBS / 10) && Date.now() < stopAt; page++) {
       const url = new URL(
-        context.board.api === "pcsx"
-          ? "/api/pcsx/search"
-          : "/api/apply/v2/jobs",
+        context.board.api === "pcsx" ? "/api/pcsx/search" : "/api/apply/v2/jobs",
         context.url.origin,
       );
       url.search = context.url.search;
@@ -386,37 +350,27 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       } catch (error) {
         input.signal?.throwIfAborted();
         if (positions.size) {
-          logger.warn(
-            "Eightfold returning partial results after list failure",
-            {
-              host: url.hostname,
-              start,
-              fetched: positions.size,
-            },
-          );
+          logger.warn("Eightfold returning partial results after list failure", {
+            host: url.hostname,
+            start,
+            fetched: positions.size,
+          });
           break;
         }
         throw error;
       }
       total = response.count;
       const previousSize = positions.size;
-      for (const position of response.positions)
-        positions.set(String(position.id), position);
+      for (const position of response.positions) positions.set(String(position.id), position);
       start += response.positions.length;
-      if (
-        positions.size >= MAX_JOBS ||
-        start >= total ||
-        positions.size === previousSize
-      )
-        break;
+      if (positions.size >= MAX_JOBS || start >= total || positions.size === previousSize) break;
     }
     input.signal?.throwIfAborted();
     const jobs = [...positions.values()]
       .map((position) => normalizeJob(context, position))
       .sort(
         (left, right) =>
-          (Date.parse(right.postedAt ?? "") || 0) -
-          (Date.parse(left.postedAt ?? "") || 0),
+          (Date.parse(right.postedAt ?? "") || 0) - (Date.parse(left.postedAt ?? "") || 0),
       )
       .slice(0, MAX_JOBS);
     return { total, fetched: jobs.length, jobs };

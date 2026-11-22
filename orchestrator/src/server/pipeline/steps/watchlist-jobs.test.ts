@@ -4,19 +4,14 @@ import {
   listHydratedWatchlistSelectedSources,
   withWatchlistSourceTimeout,
 } from "@server/watchlist/results";
-import type {
-  WatchlistJobResult,
-  WatchlistSelectedSource,
-} from "@shared/types";
+import type { WatchlistJobResult, WatchlistSelectedSource } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { discoverWatchlistJobsForPipeline } from "./watchlist-jobs";
 
 vi.mock("@server/watchlist/results", () => ({
   getWatchlistResultsForSources: vi.fn(),
   listHydratedWatchlistSelectedSources: vi.fn(),
-  withWatchlistSourceTimeout: vi.fn((callback) =>
-    callback(new AbortController().signal),
-  ),
+  withWatchlistSourceTimeout: vi.fn((callback) => callback(new AbortController().signal)),
 }));
 
 vi.mock("@server/watchlist/adapters", () => ({
@@ -233,9 +228,7 @@ describe("discoverWatchlistJobsForPipeline", () => {
     );
 
     expect(result.discoveredJobs).toHaveLength(1);
-    expect(result.discoveredJobs[0]?.jobDescription).toContain(
-      "backend services",
-    );
+    expect(result.discoveredJobs[0]?.jobDescription).toContain("backend services");
     expect(result.searchFilteredCount).toBe(0);
   });
 
@@ -349,9 +342,7 @@ describe("discoverWatchlistJobsForPipeline", () => {
     );
 
     expect(result.discoveredJobs).toEqual([]);
-    expect(result.sourceErrors).toEqual([
-      "Watchlist Acme: failed to fetch details for job-1",
-    ]);
+    expect(result.sourceErrors).toEqual(["Watchlist Acme: failed to fetch details for job-1"]);
     expect(result.sourceErrors.join(" ")).not.toContain("secret token");
   });
 

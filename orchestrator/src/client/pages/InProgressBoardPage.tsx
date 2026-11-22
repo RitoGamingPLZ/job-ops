@@ -1,7 +1,4 @@
-import {
-  type LogEventFormValues,
-  LogEventModal,
-} from "@client/components/LogEventModal";
+import { type LogEventFormValues, LogEventModal } from "@client/components/LogEventModal";
 import { PageHeader, PageMain } from "@client/components/layout";
 import {
   type ApplicationStage,
@@ -16,13 +13,7 @@ import {
   technicalRound,
 } from "@shared/types.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowDownAZ,
-  ChevronLeft,
-  ChevronRight,
-  Columns3,
-  Plus,
-} from "lucide-react";
+import { ArrowDownAZ, ChevronLeft, ChevronRight, Columns3, Plus } from "lucide-react";
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -69,19 +60,16 @@ const sortByRecent = (a: BoardCard, b: BoardCard) => {
   return Date.parse(b.job.discoveredAt) - Date.parse(a.job.discoveredAt);
 };
 
-const sortByTitle = (a: BoardCard, b: BoardCard) =>
-  a.job.title.localeCompare(b.job.title);
+const sortByTitle = (a: BoardCard, b: BoardCard) => a.job.title.localeCompare(b.job.title);
 
-const sortByCompany = (a: BoardCard, b: BoardCard) =>
-  a.job.employer.localeCompare(b.job.employer);
+const sortByCompany = (a: BoardCard, b: BoardCard) => a.job.employer.localeCompare(b.job.employer);
 
 const BOARD_STAGES = BOARD_COLUMNS;
 
 const getAppliedCollapsedStorageKey = () =>
   api.getAuthScopedStorageKey(IN_PROGRESS_BOARD_APPLIED_COLLAPSED_STORAGE_KEY);
 
-const readAppliedCollapsed = () =>
-  localStorage.getItem(getAppliedCollapsedStorageKey()) === "1";
+const readAppliedCollapsed = () => localStorage.getItem(getAppliedCollapsedStorageKey()) === "1";
 
 const getCardLeftAccentClass = (stage: BoardColumn) => {
   if (stage === "technical_interview") {
@@ -103,10 +91,7 @@ const resolveCurrentStage = (
   return { stage: "applied", latestEventAt: null };
 };
 
-const canDrop = (
-  from: BoardColumn,
-  to: BoardColumn,
-): to is Exclude<BoardColumn, "targeted"> =>
+const canDrop = (from: BoardColumn, to: BoardColumn): to is Exclude<BoardColumn, "targeted"> =>
   from !== to && to !== "targeted" && (from !== "targeted" || to === "applied");
 
 export const InProgressBoardPage: React.FC = () => {
@@ -122,24 +107,17 @@ export const InProgressBoardPage: React.FC = () => {
     jobId: string;
     fromStage: BoardColumn;
   } | null>(null);
-  const [dropTargetStage, setDropTargetStage] =
-    React.useState<BoardColumn | null>(null);
+  const [dropTargetStage, setDropTargetStage] = React.useState<BoardColumn | null>(null);
   const [movingJobId, setMovingJobId] = React.useState<string | null>(null);
-  const [sortMode, setSortMode] = React.useState<
-    "updated" | "title" | "company"
-  >("updated");
+  const [sortMode, setSortMode] = React.useState<"updated" | "title" | "company">("updated");
   const [logEventTarget, setLogEventTarget] = React.useState<{
     job: JobListItem;
     stage: ApplicationStage;
   } | null>(null);
-  const [isAppliedCollapsed, setIsAppliedCollapsed] =
-    React.useState(readAppliedCollapsed);
+  const [isAppliedCollapsed, setIsAppliedCollapsed] = React.useState(readAppliedCollapsed);
 
   React.useEffect(() => {
-    localStorage.setItem(
-      getAppliedCollapsedStorageKey(),
-      isAppliedCollapsed ? "1" : "0",
-    );
+    localStorage.setItem(getAppliedCollapsedStorageKey(), isAppliedCollapsed ? "1" : "0");
   }, [isAppliedCollapsed]);
 
   const activeBatch = React.useRef<{
@@ -158,38 +136,25 @@ export const InProgressBoardPage: React.FC = () => {
           !cards.some(
             ({ job }) =>
               batch.jobIds.has(job.id) &&
-              (job.status === "processing" ||
-                job.pdfRegenerating ||
-                needsRender(job)),
+              (job.status === "processing" || job.pdfRegenerating || needsRender(job)),
           ))
       ) {
         activeBatch.current = null;
       }
       return activeBatch.current ||
-        cards.some(
-          ({ job }) => job.status === "processing" || job.pdfRegenerating,
-        )
+        cards.some(({ job }) => job.status === "processing" || job.pdfRegenerating)
         ? 2000
         : false;
     },
     queryFn: async () => {
       const response = await api.getJobs({
-        statuses: [
-          "discovered",
-          "processing",
-          "ready",
-          "applied",
-          "in_progress",
-        ],
+        statuses: ["discovered", "processing", "ready", "applied", "in_progress"],
         view: "list",
       });
 
       // ponytail: add a server targeted=1 filter if the discovered list grows.
       const jobs = response.jobs.filter(
-        (job) =>
-          isTargeted(job) ||
-          job.status === "applied" ||
-          job.status === "in_progress",
+        (job) => isTargeted(job) || job.status === "applied" || job.status === "in_progress",
       );
       const eventResults = await Promise.allSettled(
         jobs.map(async (job) => {
@@ -201,16 +166,12 @@ export const InProgressBoardPage: React.FC = () => {
         const result = eventResults[index];
         const events =
           result?.status === "fulfilled"
-            ? [...result.value.events].sort(
-                (a, b) => a.occurredAt - b.occurredAt,
-              )
+            ? [...result.value.events].sort((a, b) => a.occurredAt - b.occurredAt)
             : null;
         const resolved = resolveCurrentStage(events);
         return {
           job,
-          stage: isTargeted(job)
-            ? ("targeted" as const)
-            : boardColumnForStage(resolved.stage),
+          stage: isTargeted(job) ? ("targeted" as const) : boardColumnForStage(resolved.stage),
           currentStage: resolved.stage,
           round: technicalRound(events ?? []),
           latestEventAt: resolved.latestEventAt,
@@ -220,13 +181,7 @@ export const InProgressBoardPage: React.FC = () => {
   });
 
   const transitionMutation = useMutation({
-    mutationFn: ({
-      jobId,
-      toStage,
-    }: {
-      jobId: string;
-      toStage: ApplicationStage;
-    }) =>
+    mutationFn: ({ jobId, toStage }: { jobId: string; toStage: ApplicationStage }) =>
       api.transitionJobStage(jobId, {
         toStage,
         metadata: {
@@ -245,11 +200,7 @@ export const InProgressBoardPage: React.FC = () => {
 
   const lanes = React.useMemo(() => {
     const sortFn =
-      sortMode === "title"
-        ? sortByTitle
-        : sortMode === "company"
-          ? sortByCompany
-          : sortByRecent;
+      sortMode === "title" ? sortByTitle : sortMode === "company" ? sortByCompany : sortByRecent;
 
     const grouped = Object.fromEntries(
       BOARD_COLUMNS.map((column) => [column, []]),
@@ -275,20 +226,14 @@ export const InProgressBoardPage: React.FC = () => {
 
       const { jobId } = dragging;
       const previousCards =
-        queryClient.getQueryData<BoardCard[]>(
-          queryKeys.jobs.inProgressBoard(),
-        ) ?? [];
+        queryClient.getQueryData<BoardCard[]>(queryKeys.jobs.inProgressBoard()) ?? [];
       const nowEpoch = Math.floor(Date.now() / 1000);
 
       setMovingJobId(jobId);
-      queryClient.setQueryData<BoardCard[]>(
-        queryKeys.jobs.inProgressBoard(),
-        (current) =>
-          (current ?? []).map((card) =>
-            card.job.id === jobId
-              ? { ...card, stage: toStage, latestEventAt: nowEpoch }
-              : card,
-          ),
+      queryClient.setQueryData<BoardCard[]>(queryKeys.jobs.inProgressBoard(), (current) =>
+        (current ?? []).map((card) =>
+          card.job.id === jobId ? { ...card, stage: toStage, latestEventAt: nowEpoch } : card,
+        ),
       );
 
       try {
@@ -303,10 +248,7 @@ export const InProgressBoardPage: React.FC = () => {
           celebrateOffer();
         }
       } catch (error) {
-        queryClient.setQueryData(
-          queryKeys.jobs.inProgressBoard(),
-          previousCards,
-        );
+        queryClient.setQueryData(queryKeys.jobs.inProgressBoard(), previousCards);
         showErrorToast(error, "Failed to move stage");
       } finally {
         setMovingJobId(null);
@@ -320,8 +262,7 @@ export const InProgressBoardPage: React.FC = () => {
   const generateMissingMutation = useGenerateMissingResumesMutation();
   // The server may also select current PDFs without a saved resume document.
   const missingResumeCount = lanes.targeted.filter(
-    ({ job }) =>
-      job.status !== "processing" && !job.pdfRegenerating && needsRender(job),
+    ({ job }) => job.status !== "processing" && !job.pdfRegenerating && needsRender(job),
   ).length;
   const handleGenerateMissing = () =>
     generateMissingMutation.mutate(undefined, {
@@ -349,8 +290,7 @@ export const InProgressBoardPage: React.FC = () => {
 
   const prepareResumeMutation = usePrepareResumeMutation();
   const isResumeBusy = (jobId: string) =>
-    prepareResumeMutation.isPending &&
-    prepareResumeMutation.variables === jobId;
+    prepareResumeMutation.isPending && prepareResumeMutation.variables === jobId;
 
   const handlePreviewPdf = (job: JobListItem) =>
     navigate(resumeEditorLocation({ kind: "job", jobId: job.id }, "preview"));
@@ -411,9 +351,7 @@ export const InProgressBoardPage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Select
               value={sortMode}
-              onValueChange={(value) =>
-                setSortMode(value as "updated" | "title" | "company")
-              }
+              onValueChange={(value) => setSortMode(value as "updated" | "title" | "company")}
             >
               <SelectTrigger className="h-8 w-[132px] text-xs">
                 <ArrowDownAZ className="mr-1.5 h-3.5 w-3.5" />
@@ -446,16 +384,14 @@ export const InProgressBoardPage: React.FC = () => {
             <div className="flex h-full min-w-max items-stretch gap-4">
               {BOARD_STAGES.map((stage) => {
                 const laneCards = lanes[stage];
-                const isCollapsedApplied =
-                  stage === "applied" && isAppliedCollapsed;
+                const isCollapsedApplied = stage === "applied" && isAppliedCollapsed;
                 return (
                   <section
                     key={stage}
                     aria-label={`${BOARD_COLUMN_LABELS[stage]} lane`}
                     onDragOver={(event) => {
                       event.preventDefault();
-                      if (!dragging || !canDrop(dragging.fromStage, stage))
-                        return;
+                      if (!dragging || !canDrop(dragging.fromStage, stage)) return;
                       setDropTargetStage(stage);
                     }}
                     onDrop={(event) => {
@@ -470,16 +406,13 @@ export const InProgressBoardPage: React.FC = () => {
                     className={cn(
                       "flex h-full flex-col rounded-xl border border-border/70 bg-muted/30 shadow-[0_10px_24px_-20px_rgba(0,0,0,0.8)] transition-colors",
                       isCollapsedApplied ? "w-11" : "w-[320px]",
-                      dropTargetStage === stage &&
-                        "border-sky-400/70 bg-sky-500/15",
+                      dropTargetStage === stage && "border-sky-400/70 bg-sky-500/15",
                     )}
                   >
                     <header
                       className={cn(
                         "flex items-center border-b border-border/60 px-3 py-2.5",
-                        isCollapsedApplied
-                          ? "flex-col gap-2"
-                          : "flex-wrap justify-between gap-2",
+                        isCollapsedApplied ? "flex-col gap-2" : "flex-wrap justify-between gap-2",
                       )}
                     >
                       {stage === "applied" && (
@@ -489,13 +422,9 @@ export const InProgressBoardPage: React.FC = () => {
                           size="icon"
                           className="h-6 w-6 shrink-0 text-muted-foreground"
                           aria-label={
-                            isAppliedCollapsed
-                              ? "Expand Applied lane"
-                              : "Collapse Applied lane"
+                            isAppliedCollapsed ? "Expand Applied lane" : "Collapse Applied lane"
                           }
-                          onClick={() =>
-                            setIsAppliedCollapsed((collapsed) => !collapsed)
-                          }
+                          onClick={() => setIsAppliedCollapsed((collapsed) => !collapsed)}
                         >
                           {isAppliedCollapsed ? (
                             <ChevronRight className="h-3.5 w-3.5" />
@@ -523,10 +452,7 @@ export const InProgressBoardPage: React.FC = () => {
                           size="sm"
                           variant="outline"
                           className="h-7 w-full text-xs"
-                          disabled={
-                            missingResumeCount === 0 ||
-                            generateMissingMutation.isPending
-                          }
+                          disabled={missingResumeCount === 0 || generateMissingMutation.isPending}
                           onClick={handleGenerateMissing}
                           title="Includes jobs with no resume yet and jobs whose PDF is out of date with the saved resume"
                         >
@@ -547,56 +473,46 @@ export const InProgressBoardPage: React.FC = () => {
                             Drop a card here or log a stage.
                           </div>
                         ) : (
-                          laneCards.map(
-                            ({
-                              job,
-                              latestEventAt,
-                              stage,
-                              currentStage,
-                              round,
-                            }) => (
-                              <InProgressBoardCard
-                                key={job.id}
-                                job={job}
-                                stage={stage}
-                                round={round}
-                                onUntarget={() => void handleTargetAction(job)}
-                                onPreviewPdf={() => handlePreviewPdf(job)}
-                                onPrepareResume={() => handlePrepareResume(job)}
-                                isResumeBusy={isResumeBusy(job.id)}
-                                latestEventAt={latestEventAt}
-                                jobPageLinkState={jobPageLinkState}
-                                isMoving={movingJobId === job.id}
-                                cardClassName={getCardLeftAccentClass(stage)}
-                                onDragStart={(event) => {
-                                  if (
-                                    (event.target as HTMLElement).closest(
-                                      "[data-board-card-menu]",
-                                    )
-                                  ) {
-                                    event.preventDefault();
-                                    return;
-                                  }
-                                  setDragging({
-                                    jobId: job.id,
-                                    fromStage: stage,
-                                  });
-                                  event.dataTransfer.effectAllowed = "move";
-                                }}
-                                onDragEnd={() => {
-                                  setDragging(null);
-                                  setDropTargetStage(null);
-                                }}
-                                onLogEvent={() =>
-                                  stage !== "targeted" &&
-                                  setLogEventTarget({
-                                    job,
-                                    stage: currentStage,
-                                  })
+                          laneCards.map(({ job, latestEventAt, stage, currentStage, round }) => (
+                            <InProgressBoardCard
+                              key={job.id}
+                              job={job}
+                              stage={stage}
+                              round={round}
+                              onUntarget={() => void handleTargetAction(job)}
+                              onPreviewPdf={() => handlePreviewPdf(job)}
+                              onPrepareResume={() => handlePrepareResume(job)}
+                              isResumeBusy={isResumeBusy(job.id)}
+                              latestEventAt={latestEventAt}
+                              jobPageLinkState={jobPageLinkState}
+                              isMoving={movingJobId === job.id}
+                              cardClassName={getCardLeftAccentClass(stage)}
+                              onDragStart={(event) => {
+                                if (
+                                  (event.target as HTMLElement).closest("[data-board-card-menu]")
+                                ) {
+                                  event.preventDefault();
+                                  return;
                                 }
-                              />
-                            ),
-                          )
+                                setDragging({
+                                  jobId: job.id,
+                                  fromStage: stage,
+                                });
+                                event.dataTransfer.effectAllowed = "move";
+                              }}
+                              onDragEnd={() => {
+                                setDragging(null);
+                                setDropTargetStage(null);
+                              }}
+                              onLogEvent={() =>
+                                stage !== "targeted" &&
+                                setLogEventTarget({
+                                  job,
+                                  stage: currentStage,
+                                })
+                              }
+                            />
+                          ))
                         )}
                       </div>
                     )}

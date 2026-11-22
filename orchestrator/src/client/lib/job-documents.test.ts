@@ -10,8 +10,7 @@ describe("job document helpers", () => {
   it("allows DOCX as Ghostwriter context but not as raw browser text preview", () => {
     const document = {
       fileName: "interview-pack.docx",
-      mediaType:
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     };
 
     expect(canUseJobDocumentForTextContext(document)).toBe(true);

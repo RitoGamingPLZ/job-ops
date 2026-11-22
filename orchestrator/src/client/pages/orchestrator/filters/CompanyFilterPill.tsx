@@ -59,16 +59,12 @@ export const CompanyFilterPill = ({
                   onCompanyFilterChange(
                     next === true
                       ? [...companyFilter, company.value]
-                      : companyFilter.filter(
-                          (value) => value !== company.value,
-                        ),
+                      : companyFilter.filter((value) => value !== company.value),
                   )
                 }
               />
               <span className="min-w-0 break-words">{company.label}</span>
-              <span className="ml-auto text-muted-foreground tabular-nums">
-                {company.count}
-              </span>
+              <span className="ml-auto text-muted-foreground tabular-nums">{company.count}</span>
             </label>
           );
         })}

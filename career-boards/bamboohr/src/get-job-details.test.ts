@@ -11,8 +11,7 @@ describe("getJobDetails", () => {
             meta: {},
             result: {
               jobOpening: {
-                jobOpeningShareUrl:
-                  "https://ashteadtechnology.bamboohr.com/careers/134",
+                jobOpeningShareUrl: "https://ashteadtechnology.bamboohr.com/careers/134",
                 jobOpeningName: "Onshore Electrical Technician",
                 employmentStatusLabel: "Full-Time",
                 location: {
@@ -43,8 +42,7 @@ describe("getJobDetails", () => {
       postedOn: "2025-03-20",
       employmentStatus: "Full-Time",
       minimumExperience: "Experienced",
-      jobDescriptionHtml:
-        "<p><strong>What you'll be doing:</strong></p><ul><li>Testing</li></ul>",
+      jobDescriptionHtml: "<p><strong>What you'll be doing:</strong></p><ul><li>Testing</li></ul>",
     });
     expect(result.job.jobDescriptionText).toContain("What you'll be doing:");
     expect(result.job.jobDescriptionText).toContain("Testing");

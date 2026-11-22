@@ -16,13 +16,13 @@ export function resolveResumeProjectSelection(args: {
 }): ResumeProjectSelectionResolution {
   const catalogIds = unique(args.catalog.map((project) => project.id));
   const catalogSet = new Set(catalogIds);
-  const mustIncludeIds = unique(args.resumeProjects.lockedProjectIds).filter(
-    (id) => catalogSet.has(id),
+  const mustIncludeIds = unique(args.resumeProjects.lockedProjectIds).filter((id) =>
+    catalogSet.has(id),
   );
   const mustIncludeSet = new Set(mustIncludeIds);
-  const aiSelectableIds = unique(
-    args.resumeProjects.aiSelectableProjectIds,
-  ).filter((id) => catalogSet.has(id) && !mustIncludeSet.has(id));
+  const aiSelectableIds = unique(args.resumeProjects.aiSelectableProjectIds).filter(
+    (id) => catalogSet.has(id) && !mustIncludeSet.has(id),
+  );
   const aiSelectableSet = new Set(aiSelectableIds);
   const excludedIds = catalogIds.filter(
     (id) => !mustIncludeSet.has(id) && !aiSelectableSet.has(id),
@@ -37,9 +37,7 @@ export function resolveResumeProjectSelection(args: {
     typeof args.selectedProjectIds === "string"
       ? args.selectedProjectIds.split(",")
       : (args.selectedProjectIds ?? []);
-  const selectedAiIds = unique(selected).filter((id) =>
-    aiSelectableSet.has(id),
-  );
+  const selectedAiIds = unique(selected).filter((id) => aiSelectableSet.has(id));
   const effectiveSelectedIds = [
     ...mustIncludeIds,
     ...selectedAiIds.slice(0, targetCount - mustIncludeIds.length),

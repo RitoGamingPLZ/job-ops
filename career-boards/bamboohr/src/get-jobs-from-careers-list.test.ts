@@ -1,14 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { parseBamboohrUrl } from "./bamboohr-url";
-import {
-  getJobsFromCareersList,
-  normalizeBamboohrListJob,
-} from "./get-jobs-from-careers-list";
+import { getJobsFromCareersList, normalizeBamboohrListJob } from "./get-jobs-from-careers-list";
 
 describe("normalizeBamboohrListJob", () => {
-  const source = parseBamboohrUrl(
-    "https://ashteadtechnology.bamboohr.com/careers",
-  );
+  const source = parseBamboohrUrl("https://ashteadtechnology.bamboohr.com/careers");
 
   it("maps BambooHR list rows into normalized jobs", () => {
     expect(

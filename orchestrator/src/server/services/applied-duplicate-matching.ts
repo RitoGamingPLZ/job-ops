@@ -1,21 +1,9 @@
-import {
-  calculateSimilarity,
-  normalizeCompanyName,
-  normalizeJobTitle,
-} from "@shared/job-matching";
-import type {
-  AppliedDuplicateMatch,
-  Job,
-  JobListItem,
-  JobStatus,
-} from "@shared/types";
+import { calculateSimilarity, normalizeCompanyName, normalizeJobTitle } from "@shared/job-matching";
+import type { AppliedDuplicateMatch, Job, JobListItem, JobStatus } from "@shared/types";
 
 const APPLIED_DUPLICATE_THRESHOLD = 90;
 const APPLIED_DUPLICATE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-const HISTORICAL_JOB_STATUSES: ReadonlySet<JobStatus> = new Set([
-  "applied",
-  "in_progress",
-]);
+const HISTORICAL_JOB_STATUSES: ReadonlySet<JobStatus> = new Set(["applied", "in_progress"]);
 
 type MatchableJob = Pick<
   Job,
@@ -29,9 +17,7 @@ type PreparedMatchableJob = MatchableJob & {
   appliedAtMs: number | null;
 };
 
-export function isHistoricalAppliedJob(
-  job: Pick<Job, "status" | "appliedAt">,
-): boolean {
+export function isHistoricalAppliedJob(job: Pick<Job, "status" | "appliedAt">): boolean {
   return HISTORICAL_JOB_STATUSES.has(job.status) && Boolean(job.appliedAt);
 }
 
@@ -44,15 +30,11 @@ function prepareMatchableJob(job: MatchableJob): PreparedMatchableJob {
     normalizedTitle: normalizeJobTitle(job.title),
     normalizedEmployer: normalizeCompanyName(job.employer),
     discoveredAtMs: Number.isFinite(discoveredAtMs) ? discoveredAtMs : null,
-    appliedAtMs:
-      appliedAtMs !== null && Number.isFinite(appliedAtMs) ? appliedAtMs : null,
+    appliedAtMs: appliedAtMs !== null && Number.isFinite(appliedAtMs) ? appliedAtMs : null,
   };
 }
 
-function isWithinDuplicateWindow(
-  job: PreparedMatchableJob,
-  candidate: PreparedMatchableJob,
-) {
+function isWithinDuplicateWindow(job: PreparedMatchableJob, candidate: PreparedMatchableJob) {
   if (job.discoveredAtMs === null || candidate.appliedAtMs === null) {
     return false;
   }
@@ -85,19 +67,10 @@ function findAppliedDuplicateMatchFromPreparedJobs(
       continue;
     }
 
-    const titleScore = calculateSimilarity(
-      job.normalizedTitle,
-      candidate.normalizedTitle,
-    );
-    const employerScore = calculateSimilarity(
-      job.normalizedEmployer,
-      candidate.normalizedEmployer,
-    );
+    const titleScore = calculateSimilarity(job.normalizedTitle, candidate.normalizedTitle);
+    const employerScore = calculateSimilarity(job.normalizedEmployer, candidate.normalizedEmployer);
 
-    if (
-      titleScore <= APPLIED_DUPLICATE_THRESHOLD ||
-      employerScore <= APPLIED_DUPLICATE_THRESHOLD
-    ) {
+    if (titleScore <= APPLIED_DUPLICATE_THRESHOLD || employerScore <= APPLIED_DUPLICATE_THRESHOLD) {
       continue;
     }
 
@@ -117,8 +90,7 @@ function findAppliedDuplicateMatchFromPreparedJobs(
     if (
       !bestMatch ||
       candidateMatch.score > bestMatch.score ||
-      (candidateMatch.score === bestMatch.score &&
-        currentAppliedAt > bestAppliedAtMs)
+      (candidateMatch.score === bestMatch.score && currentAppliedAt > bestAppliedAtMs)
     ) {
       bestMatch = candidateMatch;
       bestAppliedAtMs = currentAppliedAt;

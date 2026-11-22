@@ -20,8 +20,7 @@ describe("parseFiveamsatServices", () => {
         source: "fiveamsat",
         title: "برمجة إضافة ووردبريس",
         employer: "أحمد محمد",
-        jobUrl:
-          "https://khamsat.com/services/programming/123-%D8%A8%D8%B1%D9%85%D8%AC%D8%A9",
+        jobUrl: "https://khamsat.com/services/programming/123-%D8%A8%D8%B1%D9%85%D8%AC%D8%A9",
         salary: "$25",
         jobDescription: "سأقوم ببناء إضافة ووردبريس باحترافية",
         jobType: "Freelance / Project",

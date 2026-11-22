@@ -45,9 +45,7 @@ export const GhostwriterDrawer: React.FC<GhostwriterDrawerProps> = ({
   triggerVariant = "outline",
 }) => {
   const [open, setOpen] = useState(false);
-  const [displayMode, setDisplayMode] = useState<DisplayMode>(() =>
-    getStoredDisplayMode(),
-  );
+  const [displayMode, setDisplayMode] = useState<DisplayMode>(() => getStoredDisplayMode());
   const isDesktop = useMediaQuery(DESKTOP_MEDIA_QUERY, "false");
 
   useEffect(() => {
@@ -92,9 +90,7 @@ export const GhostwriterDrawer: React.FC<GhostwriterDrawerProps> = ({
             <div className="flex items-start justify-between gap-2 w-full max-w-6xl mx-auto">
               <div className="min-w-0 text-left">
                 <SheetTitle>Ghostwriter</SheetTitle>
-                <SheetDescription>
-                  {job && `${job.title} at ${job.employer}.`}
-                </SheetDescription>
+                <SheetDescription>{job && `${job.title} at ${job.employer}.`}</SheetDescription>
               </div>
               <div className="flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-background/70 p-1">
                 {isDesktop && (
@@ -108,15 +104,9 @@ export const GhostwriterDrawer: React.FC<GhostwriterDrawerProps> = ({
                       )
                     }
                     aria-label={
-                      isFullscreen
-                        ? "Restore Ghostwriter drawer"
-                        : "Open Ghostwriter pop-up"
+                      isFullscreen ? "Restore Ghostwriter drawer" : "Open Ghostwriter pop-up"
                     }
-                    title={
-                      isFullscreen
-                        ? "Restore Ghostwriter drawer"
-                        : "Open Ghostwriter pop-up"
-                    }
+                    title={isFullscreen ? "Restore Ghostwriter drawer" : "Open Ghostwriter pop-up"}
                   >
                     {isFullscreen ? (
                       <Minimize2 className="h-4 w-4" />

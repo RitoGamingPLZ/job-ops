@@ -26,13 +26,13 @@ Do not submit code, docs, assets, generated output, or other material that you d
 
 Use the path that matches your change:
 
-| Path | Main folders | Start command(s) | Canonical docs |
-| --- | --- | --- | --- |
-| Docs/content | `docs-site/docs` | `npm run docs:dev` | [Docs style guide](https://jobops.dakheera47.com/docs/next/reference/documentation-style-guide), [FAQ](https://jobops.dakheera47.com/docs/next/reference/faq) |
-| App/UI/API | `orchestrator`, `shared` | `npm --workspace orchestrator run dev` | [Self-hosting](https://jobops.dakheera47.com/docs/getting-started/self-hosting), [Troubleshooting](https://jobops.dakheera47.com/docs/next/troubleshooting/common-problems) |
-| Watchlist source adapters | `orchestrator/src/server/watchlist/adapters`, `orchestrator/src/server/config` | `npm --workspace orchestrator run dev` | [Watchlist](https://jobops.dakheera47.com/docs/next/features/watchlist) |
-| Extractors | `extractors/*`, sometimes `shared` | Relevant type checks + tests | [Add an extractor](https://jobops.dakheera47.com/docs/next/workflows/add-an-extractor), [Extractors overview](https://jobops.dakheera47.com/docs/extractors/overview) |
-| Typst resume themes | `orchestrator/src/server/services/resume-renderer/typst-themes` | `npm run typst-theme:validate` | [Reactive Resume](https://jobops.dakheera47.com/docs/features/reactive-resume) |
+| Path                      | Main folders                                                                   | Start command(s)                       | Canonical docs                                                                                                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------ | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Docs/content              | `docs-site/docs`                                                               | `npm run docs:dev`                     | [Docs style guide](https://jobops.dakheera47.com/docs/next/reference/documentation-style-guide), [FAQ](https://jobops.dakheera47.com/docs/next/reference/faq)               |
+| App/UI/API                | `orchestrator`, `shared`                                                       | `npm --workspace orchestrator run dev` | [Self-hosting](https://jobops.dakheera47.com/docs/getting-started/self-hosting), [Troubleshooting](https://jobops.dakheera47.com/docs/next/troubleshooting/common-problems) |
+| Watchlist source adapters | `orchestrator/src/server/watchlist/adapters`, `orchestrator/src/server/config` | `npm --workspace orchestrator run dev` | [Watchlist](https://jobops.dakheera47.com/docs/next/features/watchlist)                                                                                                     |
+| Extractors                | `extractors/*`, sometimes `shared`                                             | Relevant type checks + tests           | [Add an extractor](https://jobops.dakheera47.com/docs/next/workflows/add-an-extractor), [Extractors overview](https://jobops.dakheera47.com/docs/extractors/overview)       |
+| Typst resume themes       | `orchestrator/src/server/services/resume-renderer/typst-themes`                | `npm run typst-theme:validate`         | [Reactive Resume](https://jobops.dakheera47.com/docs/features/reactive-resume)                                                                                              |
 
 ## Local Setup (Minimal)
 

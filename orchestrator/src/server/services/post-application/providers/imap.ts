@@ -9,9 +9,7 @@ import type {
 } from "./types";
 
 function notImplemented(accountKey: string): never {
-  throw providerNotImplemented(
-    `IMAP provider is not implemented yet for account '${accountKey}'.`,
-  );
+  throw providerNotImplemented(`IMAP provider is not implemented yet for account '${accountKey}'.`);
 }
 
 export const imapProvider: PostApplicationProviderAdapter = {
@@ -29,9 +27,7 @@ export const imapProvider: PostApplicationProviderAdapter = {
     return notImplemented(args.accountKey);
   },
 
-  async sync(
-    args: PostApplicationProviderSyncArgs,
-  ): Promise<PostApplicationProviderActionResult> {
+  async sync(args: PostApplicationProviderSyncArgs): Promise<PostApplicationProviderActionResult> {
     return notImplemented(args.accountKey);
   },
 

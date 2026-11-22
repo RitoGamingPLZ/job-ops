@@ -93,25 +93,21 @@ describe("useOrchestratorData", () => {
     vi.useRealTimers();
     sseMock.instances.length = 0;
     sseMock.subscribeToEventSource.mockReset();
-    sseMock.subscribeToEventSource.mockImplementation(
-      (url: string, handlers: SseHandlers) => {
-        const instance: MockSseInstance = {
-          url,
-          handlers,
-          unsubscribe: vi.fn(),
-        };
-        sseMock.instances.push(instance);
-        return instance.unsubscribe;
-      },
-    );
+    sseMock.subscribeToEventSource.mockImplementation((url: string, handlers: SseHandlers) => {
+      const instance: MockSseInstance = {
+        url,
+        handlers,
+        unsubscribe: vi.fn(),
+      };
+      sseMock.instances.push(instance);
+      return instance.unsubscribe;
+    });
     (globalThis as any).EventSource = class EventSource {};
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
       value: "visible",
     });
-    vi.mocked(api.getJobs).mockResolvedValue(
-      makeResponse("initial", "rev-initial") as any,
-    );
+    vi.mocked(api.getJobs).mockResolvedValue(makeResponse("initial", "rev-initial") as any);
     vi.mocked(api.getJobsRevision).mockResolvedValue({
       revision: "rev-initial",
       latestUpdatedAt: "2026-01-01T00:00:00.000Z",
@@ -177,9 +173,7 @@ describe("useOrchestratorData", () => {
 
   it("checks revision every 30s and skips full reload when unchanged", async () => {
     vi.useFakeTimers();
-    vi.mocked(api.getJobs).mockResolvedValue(
-      makeResponse("steady", "rev-steady") as any,
-    );
+    vi.mocked(api.getJobs).mockResolvedValue(makeResponse("steady", "rev-steady") as any);
     vi.mocked(api.getJobsRevision).mockResolvedValue({
       revision: "rev-steady",
       latestUpdatedAt: "2026-01-01T00:00:00.000Z",
@@ -240,9 +234,7 @@ describe("useOrchestratorData", () => {
 
   it("triggers immediate revision checks on focus/online/visibility", async () => {
     vi.useFakeTimers();
-    vi.mocked(api.getJobs).mockResolvedValue(
-      makeResponse("initial", "rev-initial") as any,
-    );
+    vi.mocked(api.getJobs).mockResolvedValue(makeResponse("initial", "rev-initial") as any);
 
     renderHook(() => useOrchestratorData(null));
 
@@ -291,9 +283,7 @@ describe("useOrchestratorData", () => {
 
   it("suppresses interval checks while tab is hidden", async () => {
     vi.useFakeTimers();
-    vi.mocked(api.getJobs).mockResolvedValue(
-      makeResponse("initial", "rev-initial") as any,
-    );
+    vi.mocked(api.getJobs).mockResolvedValue(makeResponse("initial", "rev-initial") as any);
 
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
@@ -554,9 +544,7 @@ describe("useOrchestratorData", () => {
     vi.useFakeTimers();
     vi.mocked(api.getJobs)
       .mockResolvedValueOnce(makeResponse("initial", "rev-initial") as any)
-      .mockResolvedValueOnce(
-        makeResponse("after-terminal", "rev-terminal") as any,
-      );
+      .mockResolvedValueOnce(makeResponse("after-terminal", "rev-terminal") as any);
 
     renderHook(() => useOrchestratorData(null));
 
@@ -606,9 +594,7 @@ describe("useOrchestratorData", () => {
 
   it("runs a safety full refresh every 10 minutes when visible", async () => {
     vi.useFakeTimers();
-    vi.mocked(api.getJobs).mockResolvedValue(
-      makeResponse("steady", "rev-steady") as any,
-    );
+    vi.mocked(api.getJobs).mockResolvedValue(makeResponse("steady", "rev-steady") as any);
     vi.mocked(api.getJobsRevision).mockResolvedValue({
       revision: "rev-steady",
       latestUpdatedAt: "2026-01-01T00:00:00.000Z",
@@ -772,9 +758,7 @@ describe("useOrchestratorData", () => {
     );
 
     let selectedJobId: string | null = job1.id;
-    const { result, rerender } = renderHook(() =>
-      useOrchestratorData(selectedJobId),
-    );
+    const { result, rerender } = renderHook(() => useOrchestratorData(selectedJobId));
 
     await waitFor(() => expect(result.current.selectedJob?.id).toBe(job1.id));
 
@@ -818,13 +802,9 @@ describe("useOrchestratorData", () => {
     vi.mocked(api.getJob).mockReturnValue(request.promise);
 
     let selectedJobId: string | null = job.id;
-    const { result, rerender } = renderHook(() =>
-      useOrchestratorData(selectedJobId),
-    );
+    const { result, rerender } = renderHook(() => useOrchestratorData(selectedJobId));
 
-    await waitFor(() =>
-      expect(result.current.selectedJobLoadState).toBe("loading"),
-    );
+    await waitFor(() => expect(result.current.selectedJobLoadState).toBe("loading"));
 
     selectedJobId = null;
     rerender();
@@ -845,15 +825,11 @@ describe("useOrchestratorData", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
     vi.mocked(api.getJobs).mockResolvedValue(makeJobsResponse([job]));
-    vi.mocked(api.getJob)
-      .mockRejectedValueOnce(new Error("offline"))
-      .mockResolvedValueOnce(job);
+    vi.mocked(api.getJob).mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(job);
 
     const { result } = renderHook(() => useOrchestratorData(job.id));
 
-    await waitFor(() =>
-      expect(result.current.selectedJobLoadState).toBe("error"),
-    );
+    await waitFor(() => expect(result.current.selectedJobLoadState).toBe("error"));
 
     act(() => result.current.retrySelectedJob());
 
@@ -901,9 +877,7 @@ describe("useOrchestratorData", () => {
     });
 
     expect(result.current.selectedJob?.status).toBe("processing");
-    expect(result.current.selectedJob?.readyAt).toBe(
-      "2026-01-02T00:00:00.000Z",
-    );
+    expect(result.current.selectedJob?.readyAt).toBe("2026-01-02T00:00:00.000Z");
     expect(result.current.jobs.find((j) => j.id === job1.id)).toMatchObject({
       status: "processing",
       readyAt: "2026-01-02T00:00:00.000Z",
@@ -923,9 +897,7 @@ describe("useOrchestratorData", () => {
     });
 
     expect(result.current.selectedJob?.status).toBe("processing");
-    expect(result.current.jobs.find((j) => j.id === job1.id)?.status).toBe(
-      "processing",
-    );
+    expect(result.current.jobs.find((j) => j.id === job1.id)?.status).toBe("processing");
     expect(result.current.stats.discovered).toBe(1);
     expect(result.current.stats.processing).toBe(1);
   });

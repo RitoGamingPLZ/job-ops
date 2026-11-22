@@ -1,8 +1,4 @@
-import type {
-  BranchInfo,
-  JobChatImageAttachment,
-  JobChatMessageStatus,
-} from "@shared/types";
+import type { BranchInfo, JobChatImageAttachment, JobChatMessageStatus } from "@shared/types";
 import { Check, Copy, Pencil, RefreshCcw } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
@@ -32,11 +28,7 @@ type AiAssistMessageListProps<TMessage extends AiAssistMessage> = {
   assistantLabel?: string;
   userLabel?: string;
   onRegenerate?: (messageId: string) => void;
-  onEdit?: (
-    messageId: string,
-    content: string,
-    attachments: JobChatImageAttachment[],
-  ) => void;
+  onEdit?: (messageId: string, content: string, attachments: JobChatImageAttachment[]) => void;
   onSwitchBranch?: (messageId: string) => void;
   onAssistantCopy?: (message: TMessage) => void;
   renderAssistantActions?: (message: TMessage) => React.ReactNode;
@@ -118,9 +110,7 @@ export function AiAssistMessageList<TMessage extends AiAssistMessage>({
       {messages.map((message) => {
         const isUser = message.role === "user";
         const isActiveStreaming =
-          isStreaming &&
-          message.role === "assistant" &&
-          streamingMessageId === message.id;
+          isStreaming && message.role === "assistant" && streamingMessageId === message.id;
         const isEditing = editingMessageId === message.id;
         const canCopyResponse =
           message.role === "assistant" &&
@@ -133,9 +123,7 @@ export function AiAssistMessageList<TMessage extends AiAssistMessage>({
           <div
             key={message.id}
             className={`group rounded-lg border p-3 ${
-              isUser
-                ? "border-primary/30 bg-primary/5"
-                : "border-border/60 bg-background"
+              isUser ? "border-primary/30 bg-primary/5" : "border-border/60 bg-background"
             }`}
           >
             <div className="mb-1 flex items-center gap-2">
@@ -143,10 +131,7 @@ export function AiAssistMessageList<TMessage extends AiAssistMessage>({
                 {isUser ? userLabel : assistantLabel}
               </span>
               {branch && onSwitchBranch ? (
-                <BranchNavigator
-                  branchInfo={branch}
-                  onSwitch={onSwitchBranch}
-                />
+                <BranchNavigator branchInfo={branch} onSwitch={onSwitchBranch} />
               ) : null}
               <div className="ml-auto flex items-center gap-1 opacity-100 transition-opacity sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
                 {isUser && !isStreaming && !isEditing && onEdit ? (
@@ -175,9 +160,7 @@ export function AiAssistMessageList<TMessage extends AiAssistMessage>({
                         ) : (
                           <Copy className="h-3 w-3" />
                         )}
-                        <span>
-                          {copiedMessageId === message.id ? "Copied" : "Copy"}
-                        </span>
+                        <span>{copiedMessageId === message.id ? "Copied" : "Copy"}</span>
                       </button>
                     ) : null}
                     {onRegenerate ? (
@@ -235,9 +218,7 @@ export function AiAssistMessageList<TMessage extends AiAssistMessage>({
               </div>
             ) : (
               <div className="space-y-2">
-                <ScreenshotAttachmentPreview
-                  attachments={message.attachments ?? []}
-                />
+                <ScreenshotAttachmentPreview attachments={message.attachments ?? []} />
                 <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                   {message.content}
                 </div>

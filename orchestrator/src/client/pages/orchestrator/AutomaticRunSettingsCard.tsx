@@ -14,13 +14,7 @@ import {
 } from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
@@ -53,10 +47,7 @@ interface AutomaticRunSettingsCardProps {
   onCityLocationsChange: (value: string[]) => void;
   onLocationModeChange: (value: LocationInputMode) => void;
   onProximityChange: (value: LocationProximity) => void;
-  onToggleWorkplaceType: (
-    workplaceType: WorkplaceType,
-    checked: boolean,
-  ) => void;
+  onToggleWorkplaceType: (workplaceType: WorkplaceType, checked: boolean) => void;
 }
 
 export function AutomaticRunSettingsCard({
@@ -126,10 +117,7 @@ interface LocationPreferencesProps {
   onCityLocationsChange: (value: string[]) => void;
   onLocationModeChange: (value: LocationInputMode) => void;
   onProximityChange: (value: LocationProximity) => void;
-  onToggleWorkplaceType: (
-    workplaceType: WorkplaceType,
-    checked: boolean,
-  ) => void;
+  onToggleWorkplaceType: (workplaceType: WorkplaceType, checked: boolean) => void;
 }
 
 function LocationPreferences({
@@ -161,8 +149,8 @@ function LocationPreferences({
                 <span className="font-medium text-foreground">
                   {formatCountryLabel(countrySuggestion)}
                 </span>{" "}
-                as a helpful starting point. Apply it to unlock country-specific
-                sources, or choose another country.
+                as a helpful starting point. Apply it to unlock country-specific sources, or choose
+                another country.
               </p>
               <Button
                 type="button"
@@ -212,11 +200,7 @@ function LocationPreferences({
               searchPlaceholder="Search country..."
               emptyText="No matching countries."
               triggerClassName="h-10 w-full"
-              ariaLabel={
-                values.country
-                  ? formatCountryLabel(values.country)
-                  : "Select country"
-              }
+              ariaLabel={values.country ? formatCountryLabel(values.country) : "Select country"}
             />
             {countrySelectionInvalid ? (
               <p className="text-xs text-destructive">
@@ -228,10 +212,7 @@ function LocationPreferences({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label
-              htmlFor="city-locations-input"
-              className="text-base font-semibold"
-            >
+            <Label htmlFor="city-locations-input" className="text-base font-semibold">
               Cities
             </Label>
             <TokenizedInput
@@ -269,16 +250,12 @@ function LocationPreferences({
             label: formatWorkplaceTypeLabel(workplaceType),
             description: formatWorkplaceTypeDescription(workplaceType),
             ariaLabel:
-              workplaceType === "onsite"
-                ? "Onsite"
-                : formatWorkplaceTypeLabel(workplaceType),
+              workplaceType === "onsite" ? "Onsite" : formatWorkplaceTypeLabel(workplaceType),
           }))}
           onValueChange={onToggleWorkplaceType}
         />
         {workplaceTypeSelectionInvalid ? (
-          <p className="text-xs text-destructive">
-            Select at least one workplace type.
-          </p>
+          <p className="text-xs text-destructive">Select at least one workplace type.</p>
         ) : null}
       </div>
     </div>
@@ -298,12 +275,7 @@ interface RadioOptionGroupProps {
   onChange: (value: string) => void;
 }
 
-function RadioOptionGroup({
-  label,
-  value,
-  options,
-  onChange,
-}: RadioOptionGroupProps) {
+function RadioOptionGroup({ label, value, options, onChange }: RadioOptionGroupProps) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -377,17 +349,13 @@ export function AutomaticRunAdvancedSettings({
                   label="Location scope"
                   value={searchScope}
                   options={SEARCH_SCOPE_OPTIONS}
-                  onChange={(value) =>
-                    onSearchScopeChange(value as LocationSearchScope)
-                  }
+                  onChange={(value) => onSearchScopeChange(value as LocationSearchScope)}
                 />
                 <RadioOptionGroup
                   label="Match strictness"
                   value={matchStrictness}
                   options={MATCH_STRICTNESS_OPTIONS}
-                  onChange={(value) =>
-                    onMatchStrictnessChange(value as LocationMatchStrictness)
-                  }
+                  onChange={(value) => onMatchStrictnessChange(value as LocationMatchStrictness)}
                 />
               </div>
 
@@ -411,9 +379,7 @@ export function AutomaticRunAdvancedSettings({
                     min={0}
                     max={100}
                     value={minScoreInput}
-                    onChange={(event) =>
-                      onMinScoreInputChange(event.target.value)
-                    }
+                    onChange={(event) => onMinScoreInputChange(event.target.value)}
                   />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -424,9 +390,7 @@ export function AutomaticRunAdvancedSettings({
                     min={minRunBudget}
                     max={maxRunBudget}
                     value={runBudgetInput}
-                    onChange={(event) =>
-                      onRunBudgetInputChange(event.target.value)
-                    }
+                    onChange={(event) => onRunBudgetInputChange(event.target.value)}
                     onBlur={onRunBudgetInputBlur}
                   />
                 </div>

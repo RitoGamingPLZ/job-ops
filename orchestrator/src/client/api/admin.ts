@@ -12,9 +12,7 @@ export async function getDemoInfo(): Promise<DemoInfoResponse> {
   return fetchApi<DemoInfoResponse>("/demo/info");
 }
 
-export async function fetchJobFromUrl(input: {
-  url: string;
-}): Promise<ManualJobFetchResponse> {
+export async function fetchJobFromUrl(input: { url: string }): Promise<ManualJobFetchResponse> {
   return fetchApi<ManualJobFetchResponse>("/manual-jobs/fetch", {
     method: "POST",
     body: JSON.stringify(input),

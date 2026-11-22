@@ -115,10 +115,7 @@ export function bamboohrUrlToSourceKey(input: string): string {
   return `bamboohr:${toSourceKeyPart(parsed.companySlug)}`;
 }
 
-export function bamboohrUrlToJobDetailsUrl(
-  input: string,
-  jobId: string,
-): string {
+export function bamboohrUrlToJobDetailsUrl(input: string, jobId: string): string {
   return buildBamboohrJobSource(parseBamboohrUrl(input), jobId).detailUrl;
 }
 
@@ -150,11 +147,7 @@ function toUrl(input: string): URL {
   try {
     return new URL(input.trim());
   } catch {
-    throw new BamboohrUrlParseError(
-      "INVALID_URL",
-      `Invalid URL: ${input}`,
-      input,
-    );
+    throw new BamboohrUrlParseError("INVALID_URL", `Invalid URL: ${input}`, input);
   }
 }
 

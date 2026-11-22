@@ -21,11 +21,7 @@ export function normalizeStringArray(
 
     seen.add(key);
     normalized.push(trimmed);
-    if (
-      options?.maxItems !== undefined &&
-      normalized.length >= options.maxItems
-    )
-      break;
+    if (options?.maxItems !== undefined && normalized.length >= options.maxItems) break;
   }
 
   return normalized;

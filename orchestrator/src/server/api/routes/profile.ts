@@ -55,8 +55,7 @@ profileRouter.get("/status", async (_req: Request, res: Response) => {
       return;
     }
 
-    const { resumeId: rxresumeBaseResumeId } =
-      await getConfiguredRxResumeBaseResumeId();
+    const { resumeId: rxresumeBaseResumeId } = await getConfiguredRxResumeBaseResumeId();
 
     if (!rxresumeBaseResumeId) {
       ok(res, {

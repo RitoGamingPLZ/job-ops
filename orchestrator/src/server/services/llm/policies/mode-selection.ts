@@ -6,20 +6,12 @@ export function buildModeCacheKey(provider: string, baseUrl: string): string {
   return `${provider}:${baseUrl}`;
 }
 
-export function getOrderedModes(
-  cacheKey: string,
-  modes: ResponseMode[],
-): ResponseMode[] {
+export function getOrderedModes(cacheKey: string, modes: ResponseMode[]): ResponseMode[] {
   const cachedMode = modeCache.get(cacheKey);
-  return cachedMode
-    ? [cachedMode, ...modes.filter((mode) => mode !== cachedMode)]
-    : modes;
+  return cachedMode ? [cachedMode, ...modes.filter((mode) => mode !== cachedMode)] : modes;
 }
 
-export function rememberSuccessfulMode(
-  cacheKey: string,
-  mode: ResponseMode,
-): void {
+export function rememberSuccessfulMode(cacheKey: string, mode: ResponseMode): void {
   modeCache.set(cacheKey, mode);
 }
 

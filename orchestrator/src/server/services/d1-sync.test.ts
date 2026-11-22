@@ -94,13 +94,9 @@ describe("d1-sync service", () => {
     const sqlite = new Database(dbPath);
     try {
       sqlite
-        .prepare(
-          "INSERT INTO users (id, username, is_system_admin) VALUES (?, ?, ?)",
-        )
+        .prepare("INSERT INTO users (id, username, is_system_admin) VALUES (?, ?, ?)")
         .run("u2", "alan", 0);
-      sqlite
-        .prepare("UPDATE settings SET value = ? WHERE key = ?")
-        .run("light", "theme");
+      sqlite.prepare("UPDATE settings SET value = ? WHERE key = ?").run("light", "theme");
       sqlite.prepare("DELETE FROM users WHERE id = ?").run("u1");
     } finally {
       sqlite.close();
@@ -135,12 +131,8 @@ describe("d1-sync service", () => {
     writePdfFile("tenant-1/resume.pdf", Buffer.from("%PDF-1.4"), tempDir);
     const listed = listPdfFiles(tempDir);
     expect(listed.map((f) => f.path)).toEqual(["tenant-1/resume.pdf"]);
-    expect(readPdfFile("tenant-1/resume.pdf", tempDir)?.toString()).toBe(
-      "%PDF-1.4",
-    );
-    expect(() => readPdfFile("../../etc/passwd", tempDir)).toThrow(
-      /Invalid PDF path/,
-    );
+    expect(readPdfFile("tenant-1/resume.pdf", tempDir)?.toString()).toBe("%PDF-1.4");
+    expect(() => readPdfFile("../../etc/passwd", tempDir)).toThrow(/Invalid PDF path/);
   });
 });
 

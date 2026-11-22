@@ -58,16 +58,11 @@ const cleanOptional = (value?: string | null) => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
-async function resolveSkipTailoring(
-  explicit: boolean | undefined,
-): Promise<boolean> {
+async function resolveSkipTailoring(explicit: boolean | undefined): Promise<boolean> {
   if (typeof explicit === "boolean") return explicit;
   const raw = await getSetting("autoTailorOnManualImport");
-  const parsed = settingsRegistry.autoTailorOnManualImport.parse(
-    raw ?? undefined,
-  );
-  const autoTailor =
-    parsed ?? settingsRegistry.autoTailorOnManualImport.default();
+  const parsed = settingsRegistry.autoTailorOnManualImport.parse(raw ?? undefined);
+  const autoTailor = parsed ?? settingsRegistry.autoTailorOnManualImport.default();
   return !autoTailor;
 }
 
@@ -107,8 +102,7 @@ manualJobsRouter.post("/fetch", async (req: Request, res: Response) => {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
     });
 
@@ -129,32 +123,21 @@ manualJobsRouter.post("/fetch", async (req: Request, res: Response) => {
     const document = dom.window.document;
 
     // Extract page title (often contains job title)
-    const pageTitle =
-      document.querySelector("title")?.textContent?.trim() || "";
+    const pageTitle = document.querySelector("title")?.textContent?.trim() || "";
 
     // Extract meta description
     const metaDescription =
-      document
-        .querySelector('meta[name="description"]')
-        ?.getAttribute("content")
-        ?.trim() || "";
+      document.querySelector('meta[name="description"]')?.getAttribute("content")?.trim() || "";
 
     // Extract Open Graph data
     const ogTitle =
-      document
-        .querySelector('meta[property="og:title"]')
-        ?.getAttribute("content")
-        ?.trim() || "";
+      document.querySelector('meta[property="og:title"]')?.getAttribute("content")?.trim() || "";
     const ogDescription =
-      document
-        .querySelector('meta[property="og:description"]')
-        ?.getAttribute("content")
-        ?.trim() || "";
+      document.querySelector('meta[property="og:description"]')?.getAttribute("content")?.trim() ||
+      "";
     const ogSiteName =
-      document
-        .querySelector('meta[property="og:site-name"]')
-        ?.getAttribute("content")
-        ?.trim() || "";
+      document.querySelector('meta[property="og:site-name"]')?.getAttribute("content")?.trim() ||
+      "";
 
     // Remove non-content elements
     const elementsToRemove = document.querySelectorAll(
@@ -188,8 +171,7 @@ manualJobsRouter.post("/fetch", async (req: Request, res: Response) => {
     // Build enriched content with extracted metadata
     let enrichedContent = "";
     if (pageTitle) enrichedContent += `Page Title: ${pageTitle}\n`;
-    if (ogTitle && ogTitle !== pageTitle)
-      enrichedContent += `Job Title: ${ogTitle}\n`;
+    if (ogTitle && ogTitle !== pageTitle) enrichedContent += `Job Title: ${ogTitle}\n`;
     if (ogSiteName) enrichedContent += `Company/Site: ${ogSiteName}\n`;
     if (ogDescription) enrichedContent += `Summary: ${ogDescription}\n`;
     if (metaDescription && metaDescription !== ogDescription)
@@ -250,10 +232,7 @@ manualJobsRouter.post("/import", async (req: Request, res: Response) => {
     const sourceJobId = cleanOptional(job.sourceJobId);
 
     if (sourceJobId) {
-      const existingJob = await jobsRepo.getJobBySourceJobId(
-        source,
-        sourceJobId,
-      );
+      const existingJob = await jobsRepo.getJobBySourceJobId(source, sourceJobId);
       if (existingJob) {
         return fail(res, conflict("This job is already in your workspace."));
       }
@@ -294,11 +273,7 @@ manualJobsRouter.post("/import", async (req: Request, res: Response) => {
     void (async () => {
       try {
         const rawProfile = await getProfile();
-        if (
-          !rawProfile ||
-          typeof rawProfile !== "object" ||
-          Array.isArray(rawProfile)
-        ) {
+        if (!rawProfile || typeof rawProfile !== "object" || Array.isArray(rawProfile)) {
           throw new Error("Invalid resume profile format");
         }
         const profile = rawProfile as Record<string, unknown>;

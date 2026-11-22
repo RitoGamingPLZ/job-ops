@@ -6,10 +6,7 @@ async function findJobOpsTabId(preferredTabId) {
   if (typeof preferredTabId === "number") {
     try {
       const tab = await ext.tabs.get(preferredTabId);
-      if (
-        tab?.id != null &&
-        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(tab.url || "")
-      ) {
+      if (tab?.id != null && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(tab.url || "")) {
         return tab.id;
       }
     } catch {

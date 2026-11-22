@@ -103,11 +103,9 @@ describe("appleWatchlistAdapter", () => {
         async (_url, options) =>
           new Promise((_, reject) => {
             options.signal.throwIfAborted();
-            options.signal.addEventListener(
-              "abort",
-              () => reject(options.signal.reason),
-              { once: true },
-            );
+            options.signal.addEventListener("abort", () => reject(options.signal.reason), {
+              once: true,
+            });
           }),
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -134,15 +132,11 @@ describe("appleWatchlistAdapter", () => {
       },
     ]);
     expect(adapter.catalogSchema.safeParse(entries[0]).success).toBe(true);
-    const catalogUrl = new URL(
-      adapter.parseCatalogSources(entries)[0].careersUrl,
-    );
+    const catalogUrl = new URL(adapter.parseCatalogSources(entries)[0].careersUrl);
     expect(catalogUrl.toString().length).toBeLessThanOrEqual(2000);
     const teams = catalogUrl.searchParams.get("team")?.split(" ") ?? [];
     expect(teams).toHaveLength(42);
-    expect(teams.every((team) => /^(SFTWR|HRDWR)-[A-Z]+$/.test(team))).toBe(
-      true,
-    );
+    expect(teams.every((team) => /^(SFTWR|HRDWR)-[A-Z]+$/.test(team))).toBe(true);
     expect(teams).toEqual(expect.arrayContaining(["SFTWR-CLD", "HRDWR-ESFD"]));
   });
 
@@ -163,9 +157,10 @@ describe("appleWatchlistAdapter", () => {
         label: source.careersUrl,
       }),
     ).toMatchObject({ label: "Apple" });
-    expect(
-      adapter.hydrateSelectedSource({ ...source, label: "" }),
-    ).toMatchObject({ label: "Apple", cxsJobsUrl: null });
+    expect(adapter.hydrateSelectedSource({ ...source, label: "" })).toMatchObject({
+      label: "Apple",
+      cxsJobsUrl: null,
+    });
     expect(adapter.descriptor.supportsCustomSource).toBe(true);
   });
 
@@ -178,9 +173,7 @@ describe("appleWatchlistAdapter", () => {
     "https://jobs.apple.com:8443/en-us/search",
     "not a url",
   ])("rejects unsupported custom URL %s", (careersUrl) => {
-    expect(() =>
-      adapter.normalizeCustomSelection({ careersUrl, label: null }),
-    ).toThrow();
+    expect(() => adapter.normalizeCustomSelection({ careersUrl, label: null })).toThrow();
   });
 
   it("fetches three filtered pages, maps stable ids, sorts newest and caps at 60", async () => {
@@ -247,9 +240,7 @@ describe("appleWatchlistAdapter", () => {
     '<script>window.__staticRouterHydrationData = JSON.parse("invalid");</script>',
   ])("fails clearly when hydration is missing or malformed", async (body) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body)));
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      /hydration data/,
-    );
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow(/hydration data/);
   });
 
   it.each([
@@ -272,10 +263,7 @@ describe("appleWatchlistAdapter", () => {
     const jobs = Array.from({ length: 20 }, (_, i) => job(i + 1));
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(search(jobs, 50))
-        .mockResolvedValueOnce(search(jobs, 50)),
+      vi.fn().mockResolvedValueOnce(search(jobs, 50)).mockResolvedValueOnce(search(jobs, 50)),
     );
     expect((await adapter.fetchJobs({ source })).fetched).toBe(20);
   });
@@ -293,13 +281,9 @@ describe("appleWatchlistAdapter", () => {
   it("stops after three retries and does not expose the upstream body", async () => {
     const fetchMock = vi
       .fn()
-      .mockImplementation(
-        async () => new Response("secret body", { status: 429 }),
-      );
+      .mockImplementation(async () => new Response("secret body", { status: 429 }));
     vi.stubGlobal("fetch", fetchMock);
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      "Apple careers returned HTTP 429.",
-    );
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow("Apple careers returned HTTP 429.");
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
@@ -310,9 +294,7 @@ describe("appleWatchlistAdapter", () => {
       options.signal.throwIfAborted();
     });
     vi.stubGlobal("fetch", fetchMock);
-    await expect(
-      adapter.fetchJobs({ source, signal: controller.signal }),
-    ).rejects.toThrow();
+    await expect(adapter.fetchJobs({ source, signal: controller.signal })).rejects.toThrow();
   });
 
   it("fetches safe detail HTML and imports complete text with matching source identity", async () => {
@@ -324,9 +306,7 @@ describe("appleWatchlistAdapter", () => {
     vi.stubGlobal("fetch", fetchMock);
     const listed = (await adapter.fetchJobs({ source })).jobs[0];
     const details = await adapter.fetchJobDetails({ source, jobRef });
-    expect(details.descriptionHtml).toContain(
-      "&lt;script&gt;text only&lt;/script&gt;",
-    );
+    expect(details.descriptionHtml).toContain("&lt;script&gt;text only&lt;/script&gt;");
     expect(details.descriptionHtml).not.toContain("<script>");
     const result = await adapter.prepareImportDraft({ source, jobRef });
     expect(result).toMatchObject({
@@ -366,9 +346,9 @@ describe("appleWatchlistAdapter", () => {
         .mockResolvedValueOnce(html({ jobDetails: { jobsData: job() } }))
         .mockResolvedValueOnce(detail()),
     );
-    await expect(
-      adapter.prepareImportDraft({ source, jobRef }),
-    ).rejects.toThrow(/detail structure may have changed/);
+    await expect(adapter.prepareImportDraft({ source, jobRef })).rejects.toThrow(
+      /detail structure may have changed/,
+    );
     await expect(
       adapter.prepareImportDraft({
         source,

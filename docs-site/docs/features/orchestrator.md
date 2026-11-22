@@ -165,11 +165,11 @@ Resume preparation tailors a new job resume from your candidate library and loca
 
 Choose the action that matches your goal:
 
-| Goal | Action | Effect on saved edits |
-| --- | --- | --- |
-| Fill missing resumes or refresh stale PDFs across targets | **Generate missing resumes** in the Targeted lane header | Preserves existing documents and hand edits; skips uploaded PDFs |
-| Render the current saved resume | **Preview PDF** or **Download PDF** | Keeps the saved resume content |
-| Tailor again using the current candidate library | **Regenerate resume** on the job page or detail panel | Replaces the saved resume, including hand edits and any uploaded PDF |
+| Goal                                                      | Action                                                   | Effect on saved edits                                                |
+| --------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------- |
+| Fill missing resumes or refresh stale PDFs across targets | **Generate missing resumes** in the Targeted lane header | Preserves existing documents and hand edits; skips uploaded PDFs     |
+| Render the current saved resume                           | **Preview PDF** or **Download PDF**                      | Keeps the saved resume content                                       |
+| Tailor again using the current candidate library          | **Regenerate resume** on the job page or detail panel    | Replaces the saved resume, including hand edits and any uploaded PDF |
 
 See [In Progress Board](/docs/next/features/in-progress-board#generate-missing-resumes-in-a-batch) for batch selection and progress.
 

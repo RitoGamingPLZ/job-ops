@@ -43,13 +43,9 @@ async function readListingFacets(
   if (page.status < 200 || page.status >= 300)
     throw upstreamError(`Careers facets returned HTTP ${page.status}.`);
   const listing = new URL(page.url);
-  const params = new Map<
-    string,
-    { multi: boolean; values: Map<string, number | undefined> }
-  >();
+  const params = new Map<string, { multi: boolean; values: Map<string, number | undefined> }>();
   const add = (key: string, value: string, multi: boolean, count?: number) => {
-    if (!usableKey(key) || !value || value.length > 120 || !value.trim())
-      return;
+    if (!usableKey(key) || !value || value.length > 120 || !value.trim()) return;
     let param = params.get(key);
     if (!param) {
       param = { multi, values: new Map() };
@@ -57,17 +53,12 @@ async function readListingFacets(
     }
     param.multi ||= multi;
     const previous = param.values.get(value);
-    param.values.set(
-      value,
-      count === undefined ? previous : Math.max(previous ?? 0, count),
-    );
+    param.values.set(value, count === undefined ? previous : Math.max(previous ?? 0, count));
   };
   const choices = (root: ParentNode, key?: string) => {
     for (const select of root.querySelectorAll("select")) {
       const name = key ?? select.getAttribute("name") ?? "";
-      for (const option of select.querySelectorAll<HTMLOptionElement>(
-        "option[value]",
-      )) {
+      for (const option of select.querySelectorAll<HTMLOptionElement>("option[value]")) {
         if (option.disabled || select.disabled) continue;
         const raw = option.getAttribute("data-counter");
         const count =
@@ -92,14 +83,11 @@ async function readListingFacets(
       } catch {
         continue;
       }
-      if (url.origin !== listing.origin || url.username || url.password)
-        continue;
+      if (url.origin !== listing.origin || url.username || url.password) continue;
       if (url.pathname === listing.pathname) {
         for (const [key, value] of url.searchParams) add(key, value, false);
       } else if (
-        /\/(?:positions?|jobs?|openings?|requisitions?)\/[^/]+/i.test(
-          url.pathname,
-        ) ||
+        /\/(?:positions?|jobs?|openings?|requisitions?)\/[^/]+/i.test(url.pathname) ||
         url.searchParams.has("gh_jid")
       ) {
         url.search = "";
@@ -123,10 +111,7 @@ async function readListingFacets(
         pager.total_rows >= 0
       )
         total = pager.total_rows;
-      if (
-        typeof data.prefix === "string" &&
-        /^[_a-z-]{0,20}$/i.test(data.prefix)
-      ) {
+      if (typeof data.prefix === "string" && /^[_a-z-]{0,20}$/i.test(data.prefix)) {
         for (const [name, html] of Object.entries(record(preload.facets))) {
           if (typeof html !== "string") continue;
           const fragment = JSDOM.fragment(html);
@@ -137,9 +122,7 @@ async function readListingFacets(
               `${data.prefix}${name}`,
               choice.getAttribute("data-value") ?? "",
               false,
-              raw !== null &&
-                /^\d+$/.test(raw) &&
-                Number.isSafeInteger(Number(raw))
+              raw !== null && /^\d+$/.test(raw) && Number.isSafeInteger(Number(raw))
                 ? Number(raw)
                 : undefined,
             );
@@ -163,15 +146,12 @@ async function readListingFacets(
         values: [...param.values]
           .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0) || a[0].localeCompare(b[0]))
           .slice(0, 60)
-          .map(([value, count]) =>
-            count === undefined ? { value } : { value, count },
-          ),
+          .map(([value, count]) => (count === undefined ? { value } : { value, count })),
       })),
   } satisfies Facets;
 }
 
 export const discoverCareersSiteFacets: FacetDiscovery = async (input) => ({
   ...(await readListingFacets(input)),
-  countFiltered: async (filtered) =>
-    (await readListingFacets(filtered, true)).unfilteredTotal,
+  countFiltered: async (filtered) => (await readListingFacets(filtered, true)).unfilteredTotal,
 });

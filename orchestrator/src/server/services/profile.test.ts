@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  __getProfileCacheSizeForTests,
-  clearProfileCache,
-  getProfile,
-} from "./profile";
+import { __getProfileCacheSizeForTests, clearProfileCache, getProfile } from "./profile";
 
 // Mock the dependencies
 vi.mock("./design-resume", () => ({
@@ -30,10 +26,7 @@ vi.mock("@server/tenancy/context", () => ({
 }));
 
 import { getActiveTenantId } from "@server/tenancy/context";
-import {
-  designResumeToProfile,
-  isLegacyDesignResumeError,
-} from "./design-resume";
+import { designResumeToProfile, isLegacyDesignResumeError } from "./design-resume";
 import { getResume, RxResumeAuthConfigError } from "./rxresume";
 import { getConfiguredRxResumeBaseResumeId } from "./rxresume/baseResumeId";
 
@@ -215,10 +208,7 @@ describe("getProfile", () => {
 
     expect(getResume).toHaveBeenCalledTimes(2);
     expect(vi.mocked(getResume).mock.calls[0]).toEqual(["test-resume-id"]);
-    expect(vi.mocked(getResume).mock.calls[1]).toEqual([
-      "test-resume-id",
-      { forceRefresh: true },
-    ]);
+    expect(vi.mocked(getResume).mock.calls[1]).toEqual(["test-resume-id", { forceRefresh: true }]);
   });
 
   it("should throw user-friendly error on credential issues", async () => {
@@ -230,9 +220,7 @@ describe("getProfile", () => {
       new (RxResumeAuthConfigError as unknown as new () => Error)(),
     );
 
-    await expect(getProfile()).rejects.toThrow(
-      "Reactive Resume credentials not configured.",
-    );
+    await expect(getProfile()).rejects.toThrow("Reactive Resume credentials not configured.");
   });
 
   it("should throw error if resume data is empty", async () => {
@@ -245,8 +233,6 @@ describe("getProfile", () => {
       data: null,
     } as any);
 
-    await expect(getProfile()).rejects.toThrow(
-      "Resume data is empty or invalid",
-    );
+    await expect(getProfile()).rejects.toThrow("Resume data is empty or invalid");
   });
 });

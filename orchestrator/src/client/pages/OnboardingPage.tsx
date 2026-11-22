@@ -1,10 +1,7 @@
 import { PageHeader, PageMain } from "@client/components/layout";
 import { useDesignResume } from "@client/hooks/useDesignResume";
 import { useOnboardingStatus } from "@client/hooks/useOnboardingStatus";
-import {
-  formatCountryLabel,
-  SUPPORTED_COUNTRY_KEYS,
-} from "@shared/location-support.js";
+import { formatCountryLabel, SUPPORTED_COUNTRY_KEYS } from "@shared/location-support.js";
 import type {
   OnboardingRequirement,
   OnboardingRequirementId,
@@ -38,23 +35,19 @@ import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import { bucketDurationMs, trackProductEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { showErrorToast } from "../lib/error-toast";
-import {
-  getErrorCategory,
-  getHttpStatusBucket,
-  getTextLengthBucket,
-} from "./onboarding/analytics";
+import { getErrorCategory, getHttpStatusBucket, getTextLengthBucket } from "./onboarding/analytics";
 import { BaseResumeStep } from "./onboarding/components/BaseResumeStep";
 import { LlmConnectionStep } from "./onboarding/components/LlmConnectionStep";
 import type { ValidationState } from "./onboarding/types";
 import { useOnboardingFlow } from "./onboarding/useOnboardingFlow";
 
 const STEP_ORDER: OnboardingRequirementId[] = ["profile", "model", "resume"];
-const COUNTRY_OPTIONS = SUPPORTED_COUNTRY_KEYS.filter(
-  (country) => country !== "usa/ca",
-).map((country) => ({
-  value: country,
-  label: formatCountryLabel(country),
-}));
+const COUNTRY_OPTIONS = SUPPORTED_COUNTRY_KEYS.filter((country) => country !== "usa/ca").map(
+  (country) => ({
+    value: country,
+    label: formatCountryLabel(country),
+  }),
+);
 
 function getRequirement(
   status: OnboardingStatusResponse | null,
@@ -63,13 +56,10 @@ function getRequirement(
   return status?.requirements.find((item) => item.id === id) ?? null;
 }
 
-function toValidationState(
-  requirement: OnboardingRequirement | null,
-): ValidationState {
+function toValidationState(requirement: OnboardingRequirement | null): ValidationState {
   return {
     valid: requirement?.status === "ready",
-    message:
-      requirement?.status === "ready" ? null : (requirement?.message ?? null),
+    message: requirement?.status === "ready" ? null : (requirement?.message ?? null),
     status: null,
     checked: Boolean(requirement),
     hydrated: Boolean(requirement),
@@ -82,16 +72,14 @@ function stepTitle(id: OnboardingRequirementId): string {
   return "Your resume";
 }
 
-function getRequirementAnalyticsStatus(
-  requirement: OnboardingRequirement | null,
-) {
+function getRequirementAnalyticsStatus(requirement: OnboardingRequirement | null) {
   return requirement?.status ?? "missing";
 }
 
 export const OnboardingPage: React.FC = () => {
-  const [bootstrapState, setBootstrapState] = useState<
-    "checking" | "account" | "launch" | "error"
-  >("checking");
+  const [bootstrapState, setBootstrapState] = useState<"checking" | "account" | "launch" | "error">(
+    "checking",
+  );
   const analyticsStartedAtRef = useRef(Date.now());
   const analyticsStartedRef = useRef(false);
 
@@ -118,8 +106,7 @@ export const OnboardingPage: React.FC = () => {
     void api
       .getAuthBootstrapStatus()
       .then((status) => {
-        if (!cancelled)
-          setBootstrapState(status.setupRequired ? "account" : "launch");
+        if (!cancelled) setBootstrapState(status.setupRequired ? "account" : "launch");
       })
       .catch(() => {
         if (!cancelled) setBootstrapState("error");
@@ -149,9 +136,7 @@ export const OnboardingPage: React.FC = () => {
   return (
     <LaunchSetup
       analyticsStartedAt={analyticsStartedAtRef.current}
-      onStarted={(nextStep, demoMode) =>
-        trackStarted("launch", nextStep, demoMode)
-      }
+      onStarted={(nextStep, demoMode) => trackStarted("launch", nextStep, demoMode)}
     />
   );
 };
@@ -242,17 +227,11 @@ function AccountSetup({ onComplete }: { onComplete: () => void }) {
                     />
                     <button
                       type="button"
-                      aria-label={
-                        showPassword ? "Hide password" : "Show password"
-                      }
+                      aria-label={showPassword ? "Hide password" : "Show password"}
                       className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
                       onClick={() => setShowPassword((visible) => !visible)}
                     >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </Field>
@@ -271,13 +250,7 @@ function AccountSetup({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -291,10 +264,7 @@ function LaunchSetup({
   onStarted,
 }: {
   analyticsStartedAt: number;
-  onStarted: (
-    nextStep: OnboardingRequirementId | "none",
-    demoMode: boolean,
-  ) => void;
+  onStarted: (nextStep: OnboardingRequirementId | "none", demoMode: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const onboarding = useOnboardingStatus();
@@ -304,20 +274,19 @@ function LaunchSetup({
     queryKey: queryKeys.profile.current(),
     queryFn: api.getProfile,
     enabled: Boolean(
-      designResume.status?.exists ||
-        getRequirement(onboarding.status, "resume")?.details?.resumeId,
+      designResume.status?.exists || getRequirement(onboarding.status, "resume")?.details?.resumeId,
     ),
     retry: false,
   });
-  const [selectedStep, setSelectedStep] =
-    useState<OnboardingRequirementId | null>(null);
+  const [selectedStep, setSelectedStep] = useState<OnboardingRequirementId | null>(null);
   const [profileBusy, setProfileBusy] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [country, setCountry] = useState("");
   const [cities, setCities] = useState("");
-  const [workplaceTypes, setWorkplaceTypes] = useState<
-    Array<"remote" | "hybrid" | "onsite">
-  >(["remote", "hybrid"]);
+  const [workplaceTypes, setWorkplaceTypes] = useState<Array<"remote" | "hybrid" | "onsite">>([
+    "remote",
+    "hybrid",
+  ]);
   const completionTrackedRef = useRef(false);
   const lastStepViewRef = useRef<string | null>(null);
   const lastStatusCheckRef = useRef<string | null>(null);
@@ -326,9 +295,7 @@ function LaunchSetup({
   const showModel = status
     ? status.requirements.some((requirement) => requirement.id === "model")
     : true;
-  const visibleSteps = showModel
-    ? STEP_ORDER
-    : STEP_ORDER.filter((step) => step !== "model");
+  const visibleSteps = showModel ? STEP_ORDER : STEP_ORDER.filter((step) => step !== "model");
   const activeStep = selectedStep ?? status?.nextRequirementId ?? "profile";
   const profileRequirement = getRequirement(status, "profile");
   const modelRequirement = getRequirement(status, "model");
@@ -350,13 +317,7 @@ function LaunchSetup({
       step_index: visibleSteps.indexOf(activeStep) + 1,
       requirement_status: getRequirementAnalyticsStatus(activeRequirement),
     });
-  }, [
-    activeRequirement,
-    activeStep,
-    onboarding.checking,
-    status,
-    visibleSteps,
-  ]);
+  }, [activeRequirement, activeStep, onboarding.checking, status, visibleSteps]);
 
   useEffect(() => {
     if (!status || onboarding.checking) return;
@@ -376,22 +337,15 @@ function LaunchSetup({
       model_status: getRequirementAnalyticsStatus(modelRequirement),
       resume_status: getRequirementAnalyticsStatus(resumeRequirement),
     });
-  }, [
-    modelRequirement,
-    onboarding.checking,
-    profileRequirement,
-    resumeRequirement,
-    status,
-  ]);
+  }, [modelRequirement, onboarding.checking, profileRequirement, resumeRequirement, status]);
 
   const applyStatus = (next: OnboardingStatusResponse) => {
     if (next.complete && !completionTrackedRef.current) {
       completionTrackedRef.current = true;
       trackProductEvent("onboarding_completed", {
         duration_bucket: bucketDurationMs(Date.now() - analyticsStartedAt),
-        completed_steps: next.requirements.filter(
-          (requirement) => requirement.status === "ready",
-        ).length,
+        completed_steps: next.requirements.filter((requirement) => requirement.status === "ready")
+          .length,
       });
     }
     queryClient.setQueryData(queryKeys.onboarding.status(), next);
@@ -494,8 +448,7 @@ function LaunchSetup({
                   key={step}
                   type="button"
                   onClick={() => {
-                    if (complete || step === status?.nextRequirementId)
-                      setSelectedStep(step);
+                    if (complete || step === status?.nextRequirementId) setSelectedStep(step);
                   }}
                   className={cn(
                     "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors",
@@ -515,15 +468,11 @@ function LaunchSetup({
                     {complete ? <Check className="h-4 w-4" /> : index + 1}
                   </span>
                   <span>
-                    <span className="block text-sm font-medium">
-                      {stepTitle(step)}
-                    </span>
+                    <span className="block text-sm font-medium">{stepTitle(step)}</span>
                     <span
                       className={cn(
                         "block text-xs",
-                        selected
-                          ? "text-background/70"
-                          : "text-muted-foreground",
+                        selected ? "text-background/70" : "text-muted-foreground",
                       )}
                     >
                       {complete
@@ -574,16 +523,10 @@ function LaunchSetup({
                       setSelectedStep("model");
                       void onboarding.refetch();
                     }}
-                    onApiKeyChange={(value) =>
-                      flow.setValue("llmApiKey", value)
-                    }
-                    onBaseUrlChange={(value) =>
-                      flow.setValue("llmBaseUrl", value)
-                    }
+                    onApiKeyChange={(value) => flow.setValue("llmApiKey", value)}
+                    onBaseUrlChange={(value) => flow.setValue("llmBaseUrl", value)}
                     onModelChange={(value) => flow.setValue("model", value)}
-                    onProviderChange={(value) =>
-                      flow.setValue("llmProvider", value)
-                    }
+                    onProviderChange={(value) => flow.setValue("llmProvider", value)}
                   />
                   <StepActions
                     onBack={() => setSelectedStep("profile")}
@@ -599,9 +542,7 @@ function LaunchSetup({
                   profile={profileQuery.data ?? null}
                   hasResume={Boolean(resumeSource)}
                   busy={confirmBusy}
-                  onBack={() =>
-                    setSelectedStep(showModel ? "model" : "profile")
-                  }
+                  onBack={() => setSelectedStep(showModel ? "model" : "profile")}
                   onConfirm={confirmResume}
                 />
               )}
@@ -631,9 +572,7 @@ function StepShell({
           {eyebrow}
         </div>
         <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
-        <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-          {description}
-        </p>
+        <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
       </div>
       {children}
     </div>
@@ -676,9 +615,7 @@ function ProfileStep(props: {
   busy: boolean;
   onCountryChange: (value: string) => void;
   onCitiesChange: (value: string) => void;
-  onWorkplaceTypesChange: (
-    value: Array<"remote" | "hybrid" | "onsite">,
-  ) => void;
+  onWorkplaceTypesChange: (value: Array<"remote" | "hybrid" | "onsite">) => void;
   onContinue: () => void;
 }) {
   const toggle = (value: "remote" | "hybrid" | "onsite") =>
@@ -703,11 +640,7 @@ function ProfileStep(props: {
             searchPlaceholder="Search country..."
             emptyText="No matching countries."
             triggerClassName="h-10 w-full"
-            ariaLabel={
-              props.country
-                ? formatCountryLabel(props.country)
-                : "Select country"
-            }
+            ariaLabel={props.country ? formatCountryLabel(props.country) : "Select country"}
             allowCustomValue={false}
           />
         </Field>
@@ -790,9 +723,7 @@ function ResumeStep({
           selectedProvider={flow.selectedProvider}
           onImportResumeFile={flow.handleImportResumeFile}
           onResumeSetupModeChange={flow.setResumeSetupMode}
-          onRxresumeApiKeyChange={(value) =>
-            flow.setValue("rxresumeApiKey", value)
-          }
+          onRxresumeApiKeyChange={(value) => flow.setValue("rxresumeApiKey", value)}
           onRxresumeSelfHostedChange={flow.handleRxresumeSelfHostedChange}
           onRxresumeUrlChange={(value) => flow.setValue("rxresumeUrl", value)}
           onTemplateResumeChange={flow.handleTemplateResumeChange}
@@ -824,13 +755,9 @@ function ResumeStep({
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_15rem]">
         <div className="min-h-80 rounded-xl border border-border/60 bg-muted/15 p-6">
           <div className="mb-6 border-b pb-5">
-            <h3 className="text-2xl font-semibold">
-              {profile?.basics?.name || "Parsed resume"}
-            </h3>
+            <h3 className="text-2xl font-semibold">{profile?.basics?.name || "Parsed resume"}</h3>
             <p className="text-muted-foreground">
-              {profile?.basics?.headline ||
-                profile?.basics?.label ||
-                "Review the imported details"}
+              {profile?.basics?.headline || profile?.basics?.label || "Review the imported details"}
             </p>
             <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
               <MapPin className="h-4 w-4" />
@@ -854,8 +781,8 @@ function ResumeStep({
             ))}
             {experience.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No experience entries were detected. Open your base resume to
-                correct the document before confirming.
+                No experience entries were detected. Open your base resume to correct the document
+                before confirming.
               </p>
             ) : null}
           </div>
@@ -865,8 +792,7 @@ function ResumeStep({
             <FileCheck2 className="mb-3 h-5 w-5" />
             <div className="text-sm font-medium">Parsed successfully</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              {experience.length} experience{" "}
-              {experience.length === 1 ? "entry" : "entries"}
+              {experience.length} experience {experience.length === 1 ? "entry" : "entries"}
             </div>
           </div>
           <Button type="button" variant="outline" className="w-full" asChild>
@@ -877,12 +803,7 @@ function ResumeStep({
           </Button>
         </div>
       </div>
-      <StepActions
-        onBack={onBack}
-        onContinue={onConfirm}
-        busy={busy}
-        label="Use this resume"
-      />
+      <StepActions onBack={onBack} onContinue={onConfirm} busy={busy} label="Use this resume" />
     </StepShell>
   );
 }

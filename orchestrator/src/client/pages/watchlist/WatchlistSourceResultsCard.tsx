@@ -7,21 +7,11 @@ import type {
 } from "@shared/types.js";
 import { CircleAlert, Loader2 } from "lucide-react";
 import { formatUserFacingError } from "@/client/lib/error-format";
-import {
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { JobDetailsState, WatchlistFetchState } from "./types";
 import { rankWatchlistJobs } from "./utils";
@@ -42,15 +32,9 @@ interface WatchlistSourceResultsCardProps {
   unignoreVariables?: { source: string; sourceJobId: string };
   onIgnore: (input: { source: string; sourceJobId: string }) => void;
   onUnignore: (input: { source: string; sourceJobId: string }) => void;
-  onMoveToWorkspace: (
-    job: WatchlistJobResult,
-    source: WatchlistSelectedSource,
-  ) => void;
+  onMoveToWorkspace: (job: WatchlistJobResult, source: WatchlistSelectedSource) => void;
   onOpenWorkspaceJob: (job: WatchlistWorkspaceJobReference) => void;
-  onLoadJobDetails: (
-    job: WatchlistJobResult,
-    source: WatchlistSelectedSource,
-  ) => void;
+  onLoadJobDetails: (job: WatchlistJobResult, source: WatchlistSelectedSource) => void;
 }
 
 function getStatusBadge(item: WatchlistFetchState) {
@@ -125,9 +109,7 @@ export function WatchlistSourceResultsCard({
               {item.source.label} Careers Page
             </a>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {getStatusBadge(item)}
-          </div>
+          <div className="flex shrink-0 items-center gap-2">{getStatusBadge(item)}</div>
         </div>
       </AccordionTrigger>
 
@@ -144,14 +126,10 @@ export function WatchlistSourceResultsCard({
               <AlertTitle>Couldn&apos;t load jobs</AlertTitle>
               <AlertDescription className="space-y-3">
                 <p>
-                  {formatUserFacingError(
-                    item.error,
-                    "Couldn’t fetch jobs from this careers page.",
-                  )}
+                  {formatUserFacingError(item.error, "Couldn’t fetch jobs from this careers page.")}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  This source failed to load, but the rest of your watchlist can
-                  still be checked.
+                  This source failed to load, but the rest of your watchlist can still be checked.
                 </p>
                 <details className="rounded-md border border-destructive/20 bg-background/60 p-3 text-xs text-muted-foreground">
                   <summary className="cursor-pointer font-medium text-foreground">
@@ -198,8 +176,10 @@ export function WatchlistSourceResultsCard({
   );
 }
 
-interface WatchlistSourceJobsProps
-  extends Omit<WatchlistSourceResultsCardProps, "item" | "sourceTypes"> {
+interface WatchlistSourceJobsProps extends Omit<
+  WatchlistSourceResultsCardProps,
+  "item" | "sourceTypes"
+> {
   item: Extract<WatchlistFetchState, { status: "success" }>;
 }
 
@@ -221,11 +201,7 @@ function WatchlistSourceJobs({
   onOpenWorkspaceJob,
   onLoadJobDetails,
 }: WatchlistSourceJobsProps) {
-  const rankedJobs = rankWatchlistJobs(
-    item.jobs,
-    pipelineSearchTerms,
-    locationIntent,
-  );
+  const rankedJobs = rankWatchlistJobs(item.jobs, pipelineSearchTerms, locationIntent);
   const hiddenIgnoredCount = rankedJobs.filter(
     (rankedJob) => rankedJob.rowState === "ignored",
   ).length;

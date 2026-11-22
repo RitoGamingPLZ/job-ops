@@ -2,10 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { JobDocument } from "@shared/types";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db/index";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { jobDocuments } = schema;
 
@@ -25,9 +22,7 @@ export type JobDocumentWithStorage = JobDocument & {
   storagePath: string;
 };
 
-function mapRowToJobDocument(
-  row: typeof jobDocuments.$inferSelect,
-): JobDocumentWithStorage {
+function mapRowToJobDocument(row: typeof jobDocuments.$inferSelect): JobDocumentWithStorage {
   return {
     id: row.id,
     jobId: row.jobId,
@@ -52,9 +47,7 @@ export async function listJobDocuments(jobId: string): Promise<JobDocument[]> {
     .map(({ storagePath: _storagePath, ...document }) => document);
 }
 
-export async function createJobDocument(
-  input: CreateJobDocumentInput,
-): Promise<JobDocument> {
+export async function createJobDocument(input: CreateJobDocumentInput): Promise<JobDocument> {
   const scope = getPrivateDataScope();
   const now = new Date().toISOString();
   const id = randomUUID();
@@ -88,11 +81,7 @@ export async function getJobDocumentForJob(
     .select()
     .from(jobDocuments)
     .where(
-      and(
-        documentsScopeFilter(),
-        eq(jobDocuments.jobId, jobId),
-        eq(jobDocuments.id, documentId),
-      ),
+      and(documentsScopeFilter(), eq(jobDocuments.jobId, jobId), eq(jobDocuments.id, documentId)),
     );
 
   return row ? mapRowToJobDocument(row) : null;
@@ -128,11 +117,7 @@ export async function deleteJobDocumentForJob(
   await db
     .delete(jobDocuments)
     .where(
-      and(
-        documentsScopeFilter(),
-        eq(jobDocuments.jobId, jobId),
-        eq(jobDocuments.id, documentId),
-      ),
+      and(documentsScopeFilter(), eq(jobDocuments.jobId, jobId), eq(jobDocuments.id, documentId)),
     );
 
   return document;

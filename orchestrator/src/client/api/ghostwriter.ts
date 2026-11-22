@@ -56,13 +56,10 @@ export async function updateJobGhostwriterContext(
   jobId: string,
   input: GhostwriterContextSelectionInput,
 ): Promise<GhostwriterContextSelectionResult> {
-  return fetchApi<GhostwriterContextSelectionResult>(
-    `/jobs/${jobId}/chat/context`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(input),
-    },
-  );
+  return fetchApi<GhostwriterContextSelectionResult>(`/jobs/${jobId}/chat/context`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function streamJobGhostwriterMessage(
@@ -79,7 +76,7 @@ export async function streamJobGhostwriterMessage(
       selectedNoteIds: input.selectedNoteIds,
       selectedEmailIds: input.selectedEmailIds,
       selectedDocumentIds: input.selectedDocumentIds,
-      ...{ cowork: input.cowork },
+      cowork: input.cowork,
       attachments: input.attachments,
       stream: true,
     },
@@ -103,13 +100,10 @@ export async function cancelJobGhostwriterRun(
   jobId: string,
   runId: string,
 ): Promise<{ cancelled: boolean; alreadyFinished: boolean }> {
-  return fetchApi(
-    `/jobs/${jobId}/chat/runs/${encodeURIComponent(runId)}/cancel`,
-    {
-      method: "POST",
-      body: JSON.stringify({}),
-    },
-  );
+  return fetchApi(`/jobs/${jobId}/chat/runs/${encodeURIComponent(runId)}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
 export async function streamRegenerateJobGhostwriterMessage(
@@ -126,7 +120,7 @@ export async function streamRegenerateJobGhostwriterMessage(
       selectedNoteIds: input.selectedNoteIds,
       selectedEmailIds: input.selectedEmailIds,
       selectedDocumentIds: input.selectedDocumentIds,
-      ...{ cowork: input.cowork },
+      cowork: input.cowork,
       stream: true,
     },
     {
@@ -154,7 +148,7 @@ export async function editJobGhostwriterMessage(
       selectedNoteIds: input.selectedNoteIds,
       selectedEmailIds: input.selectedEmailIds,
       selectedDocumentIds: input.selectedDocumentIds,
-      ...{ cowork: input.cowork },
+      cowork: input.cowork,
       attachments: input.attachments,
       stream: true,
     },
@@ -169,11 +163,8 @@ export async function switchJobGhostwriterBranch(
   jobId: string,
   messageId: string,
 ): Promise<{ messages: JobChatMessage[]; branches: BranchInfo[] }> {
-  return fetchApi(
-    `/jobs/${jobId}/chat/messages/${encodeURIComponent(messageId)}/switch-branch`,
-    {
-      method: "POST",
-      body: JSON.stringify({}),
-    },
-  );
+  return fetchApi(`/jobs/${jobId}/chat/messages/${encodeURIComponent(messageId)}/switch-branch`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }

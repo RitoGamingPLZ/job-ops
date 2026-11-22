@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.sequential("ghostwriter suggestion persistence", () => {
+describe("ghostwriter suggestion persistence", () => {
   const originalEnv = { ...process.env };
   let scratch = "";
   let closeDb: (() => void) | undefined;
@@ -82,9 +82,7 @@ describe.sequential("ghostwriter suggestion persistence", () => {
       db.run(
         sql`UPDATE job_chat_messages SET suggestions = ${JSON.stringify(stored)} WHERE id = ${message.id}`,
       );
-      expect((await repo.getMessageById(message.id))?.suggestions).toEqual(
-        expected,
-      );
+      expect((await repo.getMessageById(message.id))?.suggestions).toEqual(expected);
       expect(
         await runWithRequestContext({ tenantId: "other-tenant" }, () =>
           repo.getMessageById(message.id),
@@ -97,9 +95,8 @@ describe.sequential("ghostwriter suggestion persistence", () => {
       role: "assistant",
       content: "new",
     });
-    expect(
-      (await repo.updateMessage(message.id, { suggestions: [current] }))
-        ?.suggestions,
-    ).toEqual([current]);
+    expect((await repo.updateMessage(message.id, { suggestions: [current] }))?.suggestions).toEqual(
+      [current],
+    );
   });
 });

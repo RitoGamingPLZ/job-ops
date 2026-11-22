@@ -1,7 +1,4 @@
-import {
-  getRequestContext,
-  runWithRequestContext,
-} from "@infra/request-context";
+import { getRequestContext, runWithRequestContext } from "@infra/request-context";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -58,9 +55,7 @@ beforeEach(() => {
   mocks.getSetting.mockImplementation(async (key) =>
     key === "pipelineScheduleEnabled" ? "1" : "7",
   );
-  mocks.listOwners.mockResolvedValue([
-    { tenantId: "tenant-a", userId: "alice" },
-  ]);
+  mocks.listOwners.mockResolvedValue([{ tenantId: "tenant-a", userId: "alice" }]);
   mocks.load.mockResolvedValue({
     sources: ["indeed"],
     topN: 5,
@@ -78,15 +73,9 @@ afterEach(() => {
 
 describe("daily pipeline scheduler", () => {
   it("fires today before the hour, tomorrow at or after the hour", () => {
-    expect(nextDailyFireTime(7, new Date(2026, 0, 5, 6, 59))).toEqual(
-      new Date(2026, 0, 5, 7),
-    );
-    expect(nextDailyFireTime(7, new Date(2026, 0, 5, 7))).toEqual(
-      new Date(2026, 0, 6, 7),
-    );
-    expect(nextDailyFireTime(7, new Date(2026, 0, 5, 23))).toEqual(
-      new Date(2026, 0, 6, 7),
-    );
+    expect(nextDailyFireTime(7, new Date(2026, 0, 5, 6, 59))).toEqual(new Date(2026, 0, 5, 7));
+    expect(nextDailyFireTime(7, new Date(2026, 0, 5, 7))).toEqual(new Date(2026, 0, 6, 7));
+    expect(nextDailyFireTime(7, new Date(2026, 0, 5, 23))).toEqual(new Date(2026, 0, 6, 7));
   });
   it("uses local calendar days across DST transitions", () => {
     for (const now of [new Date(2026, 2, 7, 12), new Date(2026, 9, 31, 12)]) {
@@ -172,10 +161,7 @@ describe("daily pipeline scheduler", () => {
   });
   it("reports ISO next run only when enabled", async () => {
     expect(
-      await runWithRequestContext(
-        { tenantId: "a", userId: "alice" },
-        getNextScheduledPipelineRun,
-      ),
+      await runWithRequestContext({ tenantId: "a", userId: "alice" }, getNextScheduledPipelineRun),
     ).toBe(new Date(2026, 0, 5, 7).toISOString());
     mocks.getSetting.mockResolvedValue("0");
     expect(await getNextScheduledPipelineRun()).toBeNull();

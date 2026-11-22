@@ -103,9 +103,7 @@ function validateViewerToken(token: string): boolean {
   const now = Date.now();
   pruneExpiredViewerTokens(now);
   const entry = viewerTokens.get(token);
-  return Boolean(
-    entry && entry.expiresAt > now && viewerLease.owns(entry.scopeKey),
-  );
+  return Boolean(entry && entry.expiresAt > now && viewerLease.owns(entry.scopeKey));
 }
 
 function getViewerProxyConfig() {
@@ -174,11 +172,7 @@ function buildProxyHeaders(req: Request): Headers {
   return headers;
 }
 
-function writeUpgradeRejection(
-  socket: Socket,
-  statusCode: number,
-  message: string,
-): void {
+function writeUpgradeRejection(socket: Socket, statusCode: number, message: string): void {
   socket.write(
     `HTTP/1.1 ${statusCode} ${message}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`,
   );
@@ -196,8 +190,7 @@ async function startViewer(): Promise<ViewerStatus> {
   if (process.platform !== "linux") {
     return {
       available: false,
-      reason:
-        "Challenge viewer is only needed in Linux container environments.",
+      reason: "Challenge viewer is only needed in Linux container environments.",
     };
   }
 
@@ -214,25 +207,11 @@ async function startViewer(): Promise<ViewerStatus> {
     vncPort,
   });
 
-  startProcess(
-    "Xvfb",
-    [display, "-screen", "0", "1280x720x24", "-nolisten", "tcp"],
-    "xvfb",
-  );
+  startProcess("Xvfb", [display, "-screen", "0", "1280x720x24", "-nolisten", "tcp"], "xvfb");
   await sleep(500);
   startProcess(
     "x11vnc",
-    [
-      "-display",
-      display,
-      "-forever",
-      "-nopw",
-      "-quiet",
-      "-listen",
-      vncHost,
-      "-rfbport",
-      vncPort,
-    ],
+    ["-display", display, "-forever", "-nopw", "-quiet", "-listen", vncHost, "-rfbport", vncPort],
     "x11vnc",
   );
   startProcess(
@@ -247,8 +226,7 @@ async function startViewer(): Promise<ViewerStatus> {
     stopViewerProcesses();
     return {
       available: false,
-      reason:
-        "Challenge viewer could not start. Check Xvfb/x11vnc/noVNC installation.",
+      reason: "Challenge viewer could not start. Check Xvfb/x11vnc/noVNC installation.",
     };
   }
 
@@ -277,16 +255,12 @@ export async function acquireChallengeViewer(
     throw new Error(status.reason);
   }
   return {
-    display: status.available
-      ? process.env.DISPLAY || DEFAULT_DISPLAY
-      : undefined,
+    display: status.available ? process.env.DISPLAY || DEFAULT_DISPLAY : undefined,
     release,
   };
 }
 
-export function createChallengeViewerSession(
-  scopeKey: string,
-): { token: string } | null {
+export function createChallengeViewerSession(scopeKey: string): { token: string } | null {
   pruneExpiredViewerTokens();
   const release = viewerLease.acquire(scopeKey);
   if (!release) return null;
@@ -317,10 +291,7 @@ export function buildChallengeViewerUrl(args: { token: string }): string {
   return `${viewerPath}?${params.toString()}`;
 }
 
-export async function proxyChallengeViewerRequest(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function proxyChallengeViewerRequest(req: Request, res: Response): Promise<void> {
   const target = getChallengeViewerProxyTarget(req.originalUrl);
   if (!target) {
     res.status(404).type("text/plain; charset=utf-8").send("Not found");
@@ -382,9 +353,7 @@ export function attachChallengeViewerUpgradeProxy(server: Server): void {
 
     upstreamSocket.on("connect", () => {
       const requestPath = `${target.upstreamUrl.pathname}${target.upstreamUrl.search}`;
-      const headerLines = [
-        `${req.method ?? "GET"} ${requestPath} HTTP/${req.httpVersion}`,
-      ];
+      const headerLines = [`${req.method ?? "GET"} ${requestPath} HTTP/${req.httpVersion}`];
 
       for (const [key, value] of Object.entries(req.headers)) {
         if (!value) continue;

@@ -25,19 +25,18 @@ const DEFAULT_CODE_BY_STATUS: Record<number, AppErrorCode> = {
   503: "SERVICE_UNAVAILABLE",
 };
 
-export const STATUS_BY_APP_ERROR_CODE: Readonly<Record<AppErrorCode, number>> =
-  {
-    INVALID_REQUEST: 400,
-    UNAUTHORIZED: 401,
-    FORBIDDEN: 403,
-    NOT_FOUND: 404,
-    REQUEST_TIMEOUT: 408,
-    CONFLICT: 409,
-    UNPROCESSABLE_ENTITY: 422,
-    SERVICE_UNAVAILABLE: 503,
-    UPSTREAM_ERROR: 502,
-    INTERNAL_ERROR: 500,
-  };
+export const STATUS_BY_APP_ERROR_CODE: Readonly<Record<AppErrorCode, number>> = {
+  INVALID_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  REQUEST_TIMEOUT: 408,
+  CONFLICT: 409,
+  UNPROCESSABLE_ENTITY: 422,
+  SERVICE_UNAVAILABLE: 503,
+  UPSTREAM_ERROR: 502,
+  INTERNAL_ERROR: 500,
+};
 
 export class AppError extends Error {
   status: number;
@@ -92,10 +91,7 @@ export function conflict(message: string): AppError {
   return new AppError({ status: 409, code: "CONFLICT", message });
 }
 
-export function unprocessableEntity(
-  message: string,
-  details?: unknown,
-): AppError {
+export function unprocessableEntity(message: string, details?: unknown): AppError {
   return new AppError({
     status: 422,
     code: "UNPROCESSABLE_ENTITY",
@@ -128,9 +124,7 @@ export function toAppError(error: unknown): AppError {
   if (error instanceof AppError) return error;
   if (isZodErrorLike(error)) {
     const flattened =
-      typeof error.flatten === "function"
-        ? error.flatten()
-        : { formErrors: [], fieldErrors: {} };
+      typeof error.flatten === "function" ? error.flatten() : { formErrors: [], fieldErrors: {} };
     const details = {
       ...flattened,
       // flatten() collapses nested paths such as job.applicationLink to job and

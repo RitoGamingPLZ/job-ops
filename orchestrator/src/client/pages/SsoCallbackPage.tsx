@@ -4,13 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { trackProductEvent } from "@/lib/analytics";
 import { resolveNextPath } from "../lib/auth-navigation";
 import { rememberAuthUser } from "../lib/remembered-auth-users";
@@ -60,11 +54,7 @@ export const SsoCallbackPage: React.FC = () => {
     }
 
     const flow = consumePendingSsoFlow();
-    if (
-      !flow ||
-      flow.provider !== provider ||
-      flow.state !== params.get("state")
-    ) {
+    if (!flow || flow.provider !== provider || flow.state !== params.get("state")) {
       setErrorMessage(INVALID_FLOW_MESSAGE);
       return;
     }
@@ -97,9 +87,7 @@ export const SsoCallbackPage: React.FC = () => {
         navigate(resolveNextPath(flow.next), { replace: true });
       } catch (error) {
         setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Unable to finish single sign-on.",
+          error instanceof Error ? error.message : "Unable to finish single sign-on.",
         );
       }
     })();

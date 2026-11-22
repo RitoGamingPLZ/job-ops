@@ -2,17 +2,11 @@ export function isLocalOrPrivateHostname(hostnameRaw: string): boolean {
   const hostname = hostnameRaw.trim().toLowerCase();
   if (!hostname) return true;
 
-  if (
-    hostname === "localhost" ||
-    hostname.endsWith(".localhost") ||
-    hostname.endsWith(".local")
-  ) {
+  if (hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local")) {
     return true;
   }
 
-  const ipv4Match = hostname.match(
-    /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/,
-  );
+  const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (ipv4Match) {
     const octets = ipv4Match.slice(1).map((part) => Number(part));
     if (octets.some((octet) => Number.isNaN(octet) || octet > 255)) return true;

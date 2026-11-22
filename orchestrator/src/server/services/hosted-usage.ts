@@ -10,10 +10,7 @@ import {
   type HostedUsageSummary,
 } from "@shared/types";
 import { and, eq } from "drizzle-orm";
-import {
-  FREE_HOSTED_MONTHLY_LIMITS,
-  getCurrentAccountEntitlements,
-} from "./account-entitlements";
+import { FREE_HOSTED_MONTHLY_LIMITS, getCurrentAccountEntitlements } from "./account-entitlements";
 
 const { hostedUsageCounters, hostedUsageReservations } = schema;
 
@@ -139,11 +136,7 @@ function toReservation(row: UsageReservationRow): HostedUsageReservation {
   };
 }
 
-function noOpAllowance(
-  action: HostedUsageAction,
-  units: number,
-  now?: Date,
-): AllowanceSnapshot {
+function noOpAllowance(action: HostedUsageAction, units: number, now?: Date): AllowanceSnapshot {
   return toAllowanceSnapshot({
     quotasEnabled: false,
     action,
@@ -178,14 +171,7 @@ function getCounter(
     action: HostedUsageAction;
   },
 ): UsageCounterRow | null {
-  return (
-    tx
-      .select()
-      .from(hostedUsageCounters)
-      .where(counterFilter(args))
-      .limit(1)
-      .get() ?? null
-  );
+  return tx.select().from(hostedUsageCounters).where(counterFilter(args)).limit(1).get() ?? null;
 }
 
 function ensureCounter(
@@ -247,10 +233,7 @@ function assertAllowance(args: {
     reservedUnits: args.counter.reservedUnits,
   });
 
-  if (
-    snapshot.availableUnits !== null &&
-    args.requestedUnits > snapshot.availableUnits
-  ) {
+  if (snapshot.availableUnits !== null && args.requestedUnits > snapshot.availableUnits) {
     throw unprocessableEntity("Monthly usage quota exceeded", {
       action: args.action,
       period: args.period,
@@ -277,10 +260,7 @@ function getReservationById(
       )
     : eq(hostedUsageReservations.id, reservationId);
 
-  return (
-    tx.select().from(hostedUsageReservations).where(predicate).limit(1).get() ??
-    null
-  );
+  return tx.select().from(hostedUsageReservations).where(predicate).limit(1).get() ?? null;
 }
 
 function getReservationByIdempotencyKey(
@@ -331,9 +311,7 @@ function applyCounterDeltas(
   return { ...counter, usedUnits, reservedUnits, updatedAt };
 }
 
-export async function getHostedUsageSummary(
-  now: Date = new Date(),
-): Promise<HostedUsageSummary> {
+export async function getHostedUsageSummary(now: Date = new Date()): Promise<HostedUsageSummary> {
   const period = getHostedUsagePeriod(now);
   if (!isHostedQuotaModeEnabled()) {
     return {
@@ -358,22 +336,20 @@ export async function getHostedUsageSummary(
       ),
     );
   const rowByAction = new Map(rows.map((row) => [row.action, row]));
-  const actions: HostedUsageActionSummary[] = HOSTED_USAGE_ACTIONS.map(
-    (action) => {
-      const row = rowByAction.get(action);
-      const limitUnits = limits[action];
-      const usedUnits = row?.usedUnits ?? 0;
-      const reservedUnits = row?.reservedUnits ?? 0;
-      return {
-        action,
-        period,
-        usedUnits,
-        reservedUnits,
-        limitUnits,
-        availableUnits: Math.max(0, limitUnits - usedUnits - reservedUnits),
-      };
-    },
-  );
+  const actions: HostedUsageActionSummary[] = HOSTED_USAGE_ACTIONS.map((action) => {
+    const row = rowByAction.get(action);
+    const limitUnits = limits[action];
+    const usedUnits = row?.usedUnits ?? 0;
+    const reservedUnits = row?.reservedUnits ?? 0;
+    return {
+      action,
+      period,
+      usedUnits,
+      reservedUnits,
+      limitUnits,
+      availableUnits: Math.max(0, limitUnits - usedUnits - reservedUnits),
+    };
+  });
 
   return {
     tenantId: scope.tenantId,

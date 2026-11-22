@@ -1,7 +1,4 @@
-import {
-  TYPST_THEME_LABELS,
-  TYPST_THEME_VALUES,
-} from "../generated/typst-themes";
+import { TYPST_THEME_LABELS, TYPST_THEME_VALUES } from "../generated/typst-themes";
 import type {
   LocationInputMode,
   LocationMatchStrictness,
@@ -44,11 +41,7 @@ export const LLM_PROVIDER_VALUES = [
 ] as const;
 export type LlmProviderId = (typeof LLM_PROVIDER_VALUES)[number];
 
-export const LLM_PURPOSE_VALUES = [
-  "scoring",
-  "tailoring",
-  "projectSelection",
-] as const;
+export const LLM_PURPOSE_VALUES = ["scoring", "tailoring", "projectSelection"] as const;
 export type LlmPurpose = (typeof LLM_PURPOSE_VALUES)[number];
 
 export type LlmPurposeOverride = {
@@ -57,9 +50,7 @@ export type LlmPurposeOverride = {
   model?: string | null;
 };
 
-export type LlmPurposeOverrides = Partial<
-  Record<LlmPurpose, LlmPurposeOverride>
->;
+export type LlmPurposeOverrides = Partial<Record<LlmPurpose, LlmPurposeOverride>>;
 
 export type LlmPurposeApiKeys = Partial<Record<LlmPurpose, string | null>>;
 export type LlmPurposeApiKeyHints = Partial<Record<LlmPurpose, string | null>>;
@@ -88,8 +79,7 @@ export const CHAT_STYLE_LANGUAGE_MODE_VALUES = [
   "match-job-description",
 ] as const;
 
-export type ChatStyleLanguageMode =
-  (typeof CHAT_STYLE_LANGUAGE_MODE_VALUES)[number];
+export type ChatStyleLanguageMode = (typeof CHAT_STYLE_LANGUAGE_MODE_VALUES)[number];
 
 export const CHAT_STYLE_MANUAL_LANGUAGE_VALUES = [
   "english",
@@ -98,13 +88,9 @@ export const CHAT_STYLE_MANUAL_LANGUAGE_VALUES = [
   "spanish",
 ] as const;
 
-export type ChatStyleManualLanguage =
-  (typeof CHAT_STYLE_MANUAL_LANGUAGE_VALUES)[number];
+export type ChatStyleManualLanguage = (typeof CHAT_STYLE_MANUAL_LANGUAGE_VALUES)[number];
 
-export const CHAT_STYLE_MANUAL_LANGUAGE_LABELS: Record<
-  ChatStyleManualLanguage,
-  string
-> = {
+export const CHAT_STYLE_MANUAL_LANGUAGE_LABELS: Record<ChatStyleManualLanguage, string> = {
   english: "English",
   german: "German",
   french: "French",

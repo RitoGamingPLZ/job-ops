@@ -5,7 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-describe.sequential("Auth routes", () => {
+describe("Auth routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -24,9 +24,7 @@ describe.sequential("Auth routes", () => {
 
   async function countTenants(): Promise<number> {
     const { db, schema } = await import("@server/db");
-    const [row] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(schema.tenants);
+    const [row] = await db.select({ count: sql<number>`count(*)` }).from(schema.tenants);
     return row?.count ?? 0;
   }
 
@@ -155,9 +153,7 @@ describe.sequential("Auth routes", () => {
       });
 
       expect(res.status).toBe(200);
-      const persistedSecret = (
-        await readFile(join(tempDir, "jwt-secret"), "utf8")
-      ).trim();
+      const persistedSecret = (await readFile(join(tempDir, "jwt-secret"), "utf8")).trim();
       expect(persistedSecret.length).toBeGreaterThanOrEqual(32);
     });
   });
@@ -206,9 +202,7 @@ describe.sequential("Auth routes", () => {
       });
 
       await expect(countTenants()).resolves.toBe(tenantsBefore);
-      await expect(
-        getTenantMembership({ userId: signupBody.data.user.id }),
-      ).resolves.toEqual({
+      await expect(getTenantMembership({ userId: signupBody.data.user.id })).resolves.toEqual({
         tenantId: "tenant_default",
         role: "member",
       });
@@ -318,9 +312,7 @@ describe.sequential("Auth routes", () => {
       const body = await res.json();
       expect(body.ok).toBe(false);
       expect(body.error.code).toBe("INVALID_REQUEST");
-      expect(body.error.message).toBe(
-        "Password must be at least 8 characters.",
-      );
+      expect(body.error.message).toBe("Password must be at least 8 characters.");
     });
   });
 
@@ -422,9 +414,7 @@ describe.sequential("Auth routes", () => {
       const body = await res.json();
       expect(body.ok).toBe(false);
       expect(body.error.code).toBe("SERVICE_UNAVAILABLE");
-      expect(body.error.message).toContain(
-        "Configured hosted tenant is not available",
-      );
+      expect(body.error.message).toContain("Configured hosted tenant is not available");
       await expect(countTenants()).resolves.toBe(tenantsBefore);
     });
   });
@@ -515,9 +505,7 @@ describe.sequential("Auth routes", () => {
       });
       expect(oldPasswordRes.status).toBe(401);
 
-      await expect(
-        signIn("admin", "a-brand-new-password"),
-      ).resolves.toBeTruthy();
+      await expect(signIn("admin", "a-brand-new-password")).resolves.toBeTruthy();
     });
 
     it("returns a stable backend analytics distinct id from /api/auth/me", async () => {
@@ -546,9 +534,7 @@ describe.sequential("Auth routes", () => {
       expect(secondMeRes.status).toBe(200);
       const secondMeBody = await secondMeRes.json();
       expect(secondMeBody.ok).toBe(true);
-      expect(secondMeBody.data.analyticsDistinctId).toBe(
-        firstMeBody.data.analyticsDistinctId,
-      );
+      expect(secondMeBody.data.analyticsDistinctId).toBe(firstMeBody.data.analyticsDistinctId);
     });
   });
 
@@ -594,9 +580,7 @@ describe.sequential("Auth routes", () => {
       expect(res.status).toBe(400);
       const body = await res.json();
       expect(body.ok).toBe(false);
-      expect(body.error.message).toBe(
-        "Password must be at least 8 characters.",
-      );
+      expect(body.error.message).toBe("Password must be at least 8 characters.");
       expect(body.error.details.fieldErrors.password).toBe("[REDACTED]");
     });
 
@@ -623,9 +607,7 @@ describe.sequential("Auth routes", () => {
       const body = await res.json();
       expect(body.ok).toBe(false);
       expect(body.error.code).toBe("FORBIDDEN");
-      expect(body.error.message).toContain(
-        "First-run setup is disabled in hosted mode",
-      );
+      expect(body.error.message).toContain("First-run setup is disabled in hosted mode");
     });
 
     it("does not report first-run setup as required in hosted mode", async () => {
@@ -798,9 +780,7 @@ describe.sequential("Auth routes", () => {
       const loginRecord = await usersRepo.getUserForLogin("firstlogin");
       expect(loginRecord?.mustChangePassword).toBe(true);
       const listed = await usersRepo.listUsers();
-      expect(
-        listed.find((u) => u.username === "firstlogin")?.mustChangePassword,
-      ).toBe(true);
+      expect(listed.find((u) => u.username === "firstlogin")?.mustChangePassword).toBe(true);
 
       // Login returns user.mustChangePassword === true
       const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
@@ -826,20 +806,17 @@ describe.sequential("Auth routes", () => {
       expect(meBeforeBody.data.user.mustChangePassword).toBe(true);
 
       // Non-admin cannot create users
-      const forbiddenCreateRes = await fetch(
-        `${baseUrl}/api/workspaces/users`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${userToken}`,
-          },
-          body: JSON.stringify({
-            username: "blocked-user",
-            password: "temp-password-123",
-          }),
+      const forbiddenCreateRes = await fetch(`${baseUrl}/api/workspaces/users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userToken}`,
         },
-      );
+        body: JSON.stringify({
+          username: "blocked-user",
+          password: "temp-password-123",
+        }),
+      });
       expect(forbiddenCreateRes.status).toBe(403);
 
       // User changes own password -> clears mustChangePassword

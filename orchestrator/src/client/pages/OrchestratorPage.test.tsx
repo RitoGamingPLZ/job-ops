@@ -2,13 +2,7 @@ import { createJob } from "@shared/testing/factories.js";
 import type { Job } from "@shared/types.js";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { forwardRef, useImperativeHandle } from "react";
-import {
-  MemoryRouter,
-  Route,
-  Routes,
-  useLocation,
-  useNavigationType,
-} from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from "react-router-dom";
 import { toast } from "sonner";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api";
@@ -18,8 +12,7 @@ import { OrchestratorPage } from "./OrchestratorPage";
 import type { AutomaticRunValues } from "./orchestrator/automatic-run";
 import type { FilterTab } from "./orchestrator/constants";
 
-const render = (ui: Parameters<typeof renderWithQueryClient>[0]) =>
-  renderWithQueryClient(ui);
+const render = (ui: Parameters<typeof renderWithQueryClient>[0]) => renderWithQueryClient(ui);
 
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
@@ -300,10 +293,7 @@ vi.mock("./orchestrator/OrchestratorFilters", () => ({
       <button type="button" onClick={onOpenCommandBar}>
         Open Command Bar
       </button>
-      <button
-        type="button"
-        onClick={() => onSortChange({ key: "title", direction: "asc" })}
-      >
+      <button type="button" onClick={() => onSortChange({ key: "title", direction: "asc" })}>
         Set Sort
       </button>
       <button type="button" onClick={() => onCompanyFilterChange(["acme"])}>
@@ -417,25 +407,13 @@ vi.mock("./orchestrator/JobListPanel", () => ({
           >
             Toggle job 3
           </button>
-          <button
-            data-testid="select-job-1"
-            type="button"
-            onClick={() => onSelectJob("job-1")}
-          >
+          <button data-testid="select-job-1" type="button" onClick={() => onSelectJob("job-1")}>
             Select job 1
           </button>
-          <button
-            data-testid="select-job-2"
-            type="button"
-            onClick={() => onSelectJob("job-2")}
-          >
+          <button data-testid="select-job-2" type="button" onClick={() => onSelectJob("job-2")}>
             Select job 2
           </button>
-          <button
-            data-testid="select-job-3"
-            type="button"
-            onClick={() => onSelectJob("job-3")}
-          >
+          <button data-testid="select-job-3" type="button" onClick={() => onSelectJob("job-3")}>
             Select job 3
           </button>
         </div>
@@ -517,11 +495,7 @@ const pressKey = (key: string, options: Partial<KeyboardEventInit> = {}) => {
   fireEvent.keyDown(window, { key, ...options });
 };
 
-const pressKeyOn = (
-  target: Element,
-  key: string,
-  options: Partial<KeyboardEventInit> = {},
-) => {
+const pressKeyOn = (target: Element, key: string, options: Partial<KeyboardEventInit> = {}) => {
   fireEvent.keyDown(target, { key, ...options });
 };
 
@@ -572,45 +546,34 @@ describe("OrchestratorPage", () => {
     });
   });
 
-  it.each([
-    "discovered",
-    "ready",
-  ])("replaces a targeted %s deep link with All, even when Discovered is empty", async (tab) => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
-    const targeted = { ...job2, readyAt: "2026-11-08" };
-    mockJobs = [targeted];
-    mockSelectedJob = targeted;
-    render(
-      <MemoryRouter
-        initialEntries={[`/jobs/${tab}/${targeted.id}?source=linkedin`]}
-      >
-        <LocationWatcher />
-        <Routes>
-          <Route path="/jobs/:tab/:jobId?" element={<OrchestratorPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId("location").textContent).toBe(
-        `/jobs/all/${targeted.id}?source=linkedin`,
-      ),
-    );
-    expect(screen.getByTestId("location")).toHaveAttribute(
-      "data-navigation-type",
-      "REPLACE",
-    );
-    expect(screen.getByTestId("visible-job-ids")).toHaveTextContent(
-      targeted.id,
-    );
-    expect(screen.getByTestId("selected-job")).toHaveTextContent(targeted.id);
-  });
+  it.each(["discovered", "ready"])(
+    "replaces a targeted %s deep link with All, even when Discovered is empty",
+    async (tab) => {
+      window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
+      const targeted = { ...job2, readyAt: "2026-11-08" };
+      mockJobs = [targeted];
+      mockSelectedJob = targeted;
+      render(
+        <MemoryRouter initialEntries={[`/jobs/${tab}/${targeted.id}?source=linkedin`]}>
+          <LocationWatcher />
+          <Routes>
+            <Route path="/jobs/:tab/:jobId?" element={<OrchestratorPage />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId("location").textContent).toBe(
+          `/jobs/all/${targeted.id}?source=linkedin`,
+        ),
+      );
+      expect(screen.getByTestId("location")).toHaveAttribute("data-navigation-type", "REPLACE");
+      expect(screen.getByTestId("visible-job-ids")).toHaveTextContent(targeted.id);
+      expect(screen.getByTestId("selected-job")).toHaveTextContent(targeted.id);
+    },
+  );
 
   it("stays on Discovered when an untargeted job is targeted in place", () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
     const otherDiscovered = createJob({
       id: "job-other",
       source: "linkedin",
@@ -633,9 +596,7 @@ describe("OrchestratorPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByTestId("location").textContent).toBe(
-      `/jobs/discovered/${job2.id}`,
-    );
+    expect(screen.getByTestId("location").textContent).toBe(`/jobs/discovered/${job2.id}`);
 
     const targeted = {
       ...job2,
@@ -654,15 +615,11 @@ describe("OrchestratorPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByTestId("location").textContent).toBe(
-      `/jobs/discovered/${job2.id}`,
-    );
+    expect(screen.getByTestId("location").textContent).toBe(`/jobs/discovered/${job2.id}`);
   });
 
   it("shows only untargeted discovered jobs in Discovered", () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
     mockJobs = [
       job2,
       { ...job2, id: "targeted-discovered", readyAt: "2026-11-08" },
@@ -681,9 +638,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("filters loaded jobs by company and source, preserves company across tabs, and resets", () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
     mockJobs = [
       jobFixture,
       job2,
@@ -700,31 +655,23 @@ describe("OrchestratorPage", () => {
       </MemoryRouter>,
     );
     fireEvent.click(screen.getByText("Set Company"));
-    expect(screen.getByTestId("visible-job-ids")).toHaveTextContent(
-      "job-1,job-2,manual",
-    );
+    expect(screen.getByTestId("visible-job-ids")).toHaveTextContent("job-1,job-2,manual");
     expect(screen.getByTestId("filtered-count")).toHaveTextContent("3");
     expect(screen.getByTestId("location")).toHaveTextContent("company=acme");
     fireEvent.click(screen.getByText("Set Source"));
-    expect(screen.getByTestId("visible-job-ids")).toHaveTextContent(
-      "job-1,job-2",
-    );
+    expect(screen.getByTestId("visible-job-ids")).toHaveTextContent("job-1,job-2");
     expect(screen.getByTestId("filtered-count")).toHaveTextContent("2");
     fireEvent.click(screen.getByText("To Discovered"));
     expect(screen.getByTestId("visible-job-ids").textContent).toBe("job-2");
     expect(screen.getByTestId("location")).toHaveTextContent("company=acme");
     fireEvent.click(screen.getByText("Reset Filters"));
     expect(screen.getByTestId("visible-job-ids").textContent).toBe("job-2");
-    expect(screen.getByTestId("location").textContent).not.toContain(
-      "company=",
-    );
+    expect(screen.getByTestId("location").textContent).not.toContain("company=");
     expect(screen.getByTestId("location").textContent).not.toContain("source=");
   });
 
   it("syncs tab selection to the URL", () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -741,9 +688,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("redirects the removed Applied tab to the In Progress board", () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/applied"]}>
@@ -755,16 +700,12 @@ describe("OrchestratorPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByTestId("location").textContent).toBe(
-      "/applications/in-progress",
-    );
+    expect(screen.getByTestId("location").textContent).toBe("/applications/in-progress");
   });
 
   it("requests pipeline cancellation when running", async () => {
     mockIsPipelineRunning = true;
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -783,9 +724,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("syncs job selection to the URL", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -815,9 +754,7 @@ describe("OrchestratorPage", () => {
     mockIsLoading = true;
     mockJobs = [];
     mockSelectedJob = null;
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/discovered/job-2"]}>
@@ -829,9 +766,7 @@ describe("OrchestratorPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByTestId("location").textContent).toBe(
-      "/jobs/discovered/job-2",
-    );
+    expect(screen.getByTestId("location").textContent).toBe("/jobs/discovered/job-2");
     expect(screen.getByTestId("selected-job")).toHaveTextContent("job-2");
   });
 
@@ -856,9 +791,7 @@ describe("OrchestratorPage", () => {
     });
     mockJobs = [repostedJob, appliedJob, processingJob];
     mockSelectedJob = repostedJob;
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all/job-1"]}>
@@ -870,15 +803,11 @@ describe("OrchestratorPage", () => {
     );
 
     expect(screen.getByTestId("duplicate-count")).toHaveTextContent("1");
-    expect(screen.getByTestId("detail-panel")).toHaveTextContent(
-      "Previously Applied",
-    );
+    expect(screen.getByTestId("detail-panel")).toHaveTextContent("Previously Applied");
   });
 
   it("preserves the selected job id when a refresh temporarily excludes it", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     const { rerender } = render(
       <MemoryRouter initialEntries={["/jobs/all/job-1"]}>
@@ -913,9 +842,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("opens the command bar when the filters search button is clicked", () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -934,9 +861,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("navigates from command search across states and clears active filters", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter
@@ -975,9 +900,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("removes legacy q query params on load", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all?q=backend&sort=title-asc"]}>
@@ -997,9 +920,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("syncs sorting to URL and removes it when default", () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1012,15 +933,11 @@ describe("OrchestratorPage", () => {
     );
 
     fireEvent.click(screen.getByText("Set Sort"));
-    expect(screen.getByTestId("location").textContent).toContain(
-      "sort=title-asc",
-    );
+    expect(screen.getByTestId("location").textContent).toContain("sort=title-asc");
   });
 
   it("syncs source and salary range filters to URL and resets them", () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1033,39 +950,21 @@ describe("OrchestratorPage", () => {
     );
 
     fireEvent.click(screen.getByText("Set Source"));
-    expect(screen.getByTestId("location").textContent).toContain(
-      "source=linkedin",
-    );
+    expect(screen.getByTestId("location").textContent).toContain("source=linkedin");
 
     fireEvent.click(screen.getByText("Set Salary Range"));
-    expect(screen.getByTestId("location").textContent).toContain(
-      "salaryMode=between",
-    );
-    expect(screen.getByTestId("location").textContent).toContain(
-      "salaryMin=60000",
-    );
-    expect(screen.getByTestId("location").textContent).toContain(
-      "salaryMax=90000",
-    );
+    expect(screen.getByTestId("location").textContent).toContain("salaryMode=between");
+    expect(screen.getByTestId("location").textContent).toContain("salaryMin=60000");
+    expect(screen.getByTestId("location").textContent).toContain("salaryMax=90000");
 
     fireEvent.click(screen.getByText("Set Date Filter"));
-    expect(screen.getByTestId("location").textContent).toContain(
-      "date=applied",
-    );
-    expect(screen.getByTestId("location").textContent).toContain(
-      "appliedStart=2026-04-01",
-    );
-    expect(screen.getByTestId("location").textContent).toContain(
-      "appliedEnd=2026-04-08",
-    );
-    expect(screen.getByTestId("location").textContent).toContain(
-      "appliedRange=custom",
-    );
+    expect(screen.getByTestId("location").textContent).toContain("date=applied");
+    expect(screen.getByTestId("location").textContent).toContain("appliedStart=2026-04-01");
+    expect(screen.getByTestId("location").textContent).toContain("appliedEnd=2026-04-08");
+    expect(screen.getByTestId("location").textContent).toContain("appliedRange=custom");
 
     fireEvent.click(screen.getByText("Set Sort"));
-    expect(screen.getByTestId("location").textContent).toContain(
-      "sort=title-asc",
-    );
+    expect(screen.getByTestId("location").textContent).toContain("sort=title-asc");
 
     fireEvent.click(screen.getByText("Reset Filters"));
     const locationText = screen.getByTestId("location").textContent || "";
@@ -1081,9 +980,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("filters all jobs by the selected date filter and updates the query params", () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     mockJobs = [
       createJob({
@@ -1122,16 +1019,12 @@ describe("OrchestratorPage", () => {
 
     fireEvent.click(screen.getByText("Set Date Filter"));
 
-    expect(screen.getByTestId("location").textContent).toContain(
-      "date=applied",
-    );
+    expect(screen.getByTestId("location").textContent).toContain("date=applied");
     expect(screen.getByTestId("filtered-count")).toHaveTextContent("2");
   });
 
   it("opens the detail drawer on mobile when a job is selected", () => {
-    window.matchMedia = createMatchMedia(
-      false,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(false) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1150,9 +1043,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("renders the detail panel inline on desktop", () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1167,9 +1058,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("clears source filter when no jobs exist for it", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all?source=ukvisajobs"]}>
@@ -1181,16 +1070,12 @@ describe("OrchestratorPage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("location").textContent).not.toContain(
-        "source=ukvisajobs",
-      );
+      expect(screen.getByTestId("location").textContent).not.toContain("source=ukvisajobs");
     });
   });
 
   it("saves automatic settings from modal", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
     const setIntervalSpy = vi
       .spyOn(globalThis, "setInterval")
       .mockReturnValue(0 as unknown as NodeJS.Timeout);
@@ -1250,9 +1135,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("shows an error when automatic settings fail to save", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
     vi.mocked(api.updateSettings).mockRejectedValueOnce(
       new Error("Search cities must be 3000 characters or fewer."),
     );
@@ -1270,20 +1153,14 @@ describe("OrchestratorPage", () => {
     fireEvent.click(screen.getByTestId("run-automatic"));
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(
-        "Search cities must be 3000 characters or fewer.",
-      );
+      expect(toast.error).toHaveBeenCalledWith("Search cities must be 3000 characters or fewer.");
     });
     expect(api.runPipeline).not.toHaveBeenCalled();
-    expect(
-      screen.queryByRole("heading", { name: "Something went wrong" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Something went wrong" })).not.toBeInTheDocument();
   });
 
   it("swaps the dashboard for the full-screen search composer", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1301,19 +1178,13 @@ describe("OrchestratorPage", () => {
         name: /find your next role/i,
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /close search/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /find jobs/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /close search/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /find jobs/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/no jobs found/i)).not.toBeInTheDocument();
   });
 
   it("toggles the full-screen search composer from the navbar", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1332,16 +1203,12 @@ describe("OrchestratorPage", () => {
         name: /find your next role/i,
       }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /find jobs/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /find jobs/i })).toBeInTheDocument();
   });
 
   it("always opens Find jobs even when the previous mode was manual", () => {
     localStorage.setItem("jobops.pipeline.run-mode.v1", "manual");
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1354,15 +1221,11 @@ describe("OrchestratorPage", () => {
 
     openAutomaticRunComposer();
 
-    expect(
-      screen.getByRole("heading", { name: /find your next role/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /find your next role/i })).toBeInTheDocument();
   });
 
   it("opens manual import from the header and navigates to the imported job", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1382,18 +1245,14 @@ describe("OrchestratorPage", () => {
 
     await waitFor(() => {
       expect(mockLoadJobs).toHaveBeenCalled();
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        "/jobs/all/manual-job-1",
-      );
+      expect(screen.getByTestId("location")).toHaveTextContent("/jobs/all/manual-job-1");
     });
   });
 
   it("shows the search composer instead of empty columns for brand-new workspaces", () => {
     mockJobs = [];
     mockSelectedJob = null;
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1409,12 +1268,8 @@ describe("OrchestratorPage", () => {
         name: /find your next role/i,
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /find jobs/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /add a job/i }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /find jobs/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add a job/i })).toBeInTheDocument();
     expect(screen.queryByTestId("summary")).not.toBeInTheDocument();
     expect(screen.queryByText(/no jobs found/i)).not.toBeInTheDocument();
   });
@@ -1423,9 +1278,7 @@ describe("OrchestratorPage", () => {
     mockJobs = [];
     mockSelectedJob = null;
     mockIsPipelineRunning = true;
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1447,9 +1300,7 @@ describe("OrchestratorPage", () => {
   it("opens manual import from the first-run search composer state", () => {
     mockJobs = [];
     mockSelectedJob = null;
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1466,9 +1317,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("stores multiple cities for JobSpy sources in automatic mode", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
     mockPipelineSources = ["linkedin"];
     mockAutomaticRunValues = {
       topN: 12,
@@ -1507,9 +1356,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("stores multiple cities when only adzuna is selected", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
     mockPipelineSources = ["adzuna"];
     mockAutomaticRunValues = {
       topN: 12,
@@ -1548,9 +1395,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("stores multiple cities when only hiringcafe is selected", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
     mockPipelineSources = ["hiringcafe"];
     mockAutomaticRunValues = {
       topN: 12,
@@ -1594,9 +1439,7 @@ describe("OrchestratorPage", () => {
       errorMessage: null,
       token: 1,
     };
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1618,9 +1461,7 @@ describe("OrchestratorPage", () => {
       errorMessage: null,
       token: 1,
     };
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1642,9 +1483,7 @@ describe("OrchestratorPage", () => {
       errorMessage: "Pipeline exploded",
       token: 1,
     };
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1661,9 +1500,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("blocks automatic run when no sources are compatible for selected country", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
     mockPipelineSources = ["gradcracker", "ukvisajobs"];
     mockAutomaticRunValues = {
       topN: 12,
@@ -1699,9 +1536,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("shows bulk Target and hides old bulk actions", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
@@ -1719,9 +1554,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("navigates jobs and tabs with shortcuts", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1775,9 +1608,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("opens the listing from summary data while full job details load", () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     mockSelectedJob = null;
     mockSelectedJobListItemOverride = job2;
@@ -1793,20 +1624,14 @@ describe("OrchestratorPage", () => {
 
     pressKey("o");
 
-    expect(openSpy).toHaveBeenCalledWith(
-      job2.applicationLink,
-      "_blank",
-      "noopener,noreferrer",
-    );
+    expect(openSpy).toHaveBeenCalledWith(job2.applicationLink, "_blank", "noopener,noreferrer");
     pressKey("r");
     expect(api.processJob).not.toHaveBeenCalled();
     openSpy.mockRestore();
   });
 
   it("disables skip and mark applied shortcuts", () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
         <Routes>
@@ -1822,9 +1647,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("toggles the help dialog with shortcut", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1849,9 +1672,7 @@ describe("OrchestratorPage", () => {
   it("does not auto-open the keyboard shortcut dialog in demo mode", () => {
     mockDemoMode = true;
     localStorage.removeItem("has-seen-keyboard-shortcuts");
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1895,11 +1716,7 @@ describe("OrchestratorPage", () => {
       expect(screen.getByTestId("help-dialog")).toHaveTextContent("closed");
     } finally {
       if (maxTouchPointsDescriptor) {
-        Object.defineProperty(
-          Navigator.prototype,
-          "maxTouchPoints",
-          maxTouchPointsDescriptor,
-        );
+        Object.defineProperty(Navigator.prototype, "maxTouchPoints", maxTouchPointsDescriptor);
       } else {
         Reflect.deleteProperty(Navigator.prototype, "maxTouchPoints");
       }
@@ -1907,9 +1724,7 @@ describe("OrchestratorPage", () => {
   });
 
   it("disables other shortcuts while help dialog is open", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1922,9 +1737,7 @@ describe("OrchestratorPage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("location").textContent).toContain(
-        "/all/job-1",
-      );
+      expect(screen.getByTestId("location").textContent).toContain("/all/job-1");
     });
 
     pressKey("?", { shiftKey: true });
@@ -1934,16 +1747,12 @@ describe("OrchestratorPage", () => {
 
     pressKey("j");
     await waitFor(() => {
-      expect(screen.getByTestId("location").textContent).toContain(
-        "/all/job-1",
-      );
+      expect(screen.getByTestId("location").textContent).toContain("/all/job-1");
     });
   });
 
   it("guards single-key shortcuts while typing but allows modifier combos", async () => {
-    window.matchMedia = createMatchMedia(
-      true,
-    ) as unknown as typeof window.matchMedia;
+    window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
       <MemoryRouter initialEntries={["/jobs/all"]}>
@@ -1961,9 +1770,7 @@ describe("OrchestratorPage", () => {
 
     pressKeyOn(input, "j");
     await waitFor(() => {
-      expect(screen.getByTestId("location").textContent).toContain(
-        "/all/job-1",
-      );
+      expect(screen.getByTestId("location").textContent).toContain("/all/job-1");
     });
 
     pressKeyOn(input, "/");

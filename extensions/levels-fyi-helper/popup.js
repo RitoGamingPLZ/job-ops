@@ -12,9 +12,7 @@ function renderLookup(lookup) {
   const title = document.createElement("div");
   title.style.fontWeight = "600";
   title.style.color = "#f8fafc";
-  title.textContent = [lookup.title, lookup.employer]
-    .filter(Boolean)
-    .join(" @ ");
+  title.textContent = [lookup.title, lookup.employer].filter(Boolean).join(" @ ");
   statusEl.appendChild(title);
 
   const clearBtn = document.createElement("button");

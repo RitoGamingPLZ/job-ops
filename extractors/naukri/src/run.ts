@@ -1,8 +1,5 @@
 import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
-import {
-  toNumberOrNull,
-  toStringOrNull,
-} from "@shared/utils/type-conversion.js";
+import { toNumberOrNull, toStringOrNull } from "@shared/utils/type-conversion.js";
 import {
   createLaunchOptions,
   getCloudflareCookieStorageDir,
@@ -102,9 +99,7 @@ export function makeSearchPageUrl(args: {
   const keywordSlug = slugifyKeyword(args.keyword) || "jobs";
   const location = args.location?.trim();
   const locationSlug = location ? slugifyKeyword(location) : "";
-  const path = locationSlug
-    ? `/${keywordSlug}-jobs-in-${locationSlug}`
-    : `/${keywordSlug}-jobs`;
+  const path = locationSlug ? `/${keywordSlug}-jobs-in-${locationSlug}` : `/${keywordSlug}-jobs`;
   const url = new URL(`https://www.naukri.com${path}`);
 
   url.searchParams.set("k", args.keyword);
@@ -135,10 +130,7 @@ async function isNaukriAccessDenied(page: Page): Promise<boolean> {
   );
 }
 
-async function assertNoBlockingChallenge(
-  page: Page,
-  url: string,
-): Promise<string | null> {
+async function assertNoBlockingChallenge(page: Page, url: string): Promise<string | null> {
   if (await isChallengePage(page)) {
     const challenge = await waitForChallengeResolution(page, 30_000);
     if (challenge.status === "passed") {
@@ -164,10 +156,9 @@ async function waitForApiPage(params: {
   timeoutMs: number;
 }): Promise<Response> {
   const { page, pageNo, timeoutMs } = params;
-  return await page.waitForResponse(
-    (response) => isApiResponseForPage(response, pageNo),
-    { timeout: timeoutMs },
-  );
+  return await page.waitForResponse((response) => isApiResponseForPage(response, pageNo), {
+    timeout: timeoutMs,
+  });
 }
 
 async function waitForApiPageResult(params: {
@@ -181,9 +172,7 @@ async function waitForApiPageResult(params: {
   );
 }
 
-function unwrapApiPageResult(
-  result: { response: Response } | { error: unknown },
-): Response {
+function unwrapApiPageResult(result: { response: Response } | { error: unknown }): Response {
   if ("error" in result) {
     throw result.error;
   }
@@ -192,8 +181,7 @@ function unwrapApiPageResult(
 }
 
 export function resolveNaukriMaxJobsPerTerm(value: unknown): number {
-  const parsed =
-    typeof value === "number" ? value : Number.parseInt(String(value), 10);
+  const parsed = typeof value === "number" ? value : Number.parseInt(String(value), 10);
 
   if (!Number.isFinite(parsed)) return DEFAULT_MAX_JOBS_PER_TERM;
   return Math.max(1, Math.floor(parsed));
@@ -246,9 +234,7 @@ function getPlaceholder(
   placeholders: NaukriPlaceholder[] | undefined,
   type: string,
 ): string | undefined {
-  const match = placeholders?.find(
-    (placeholder) => toStringOrNull(placeholder.type) === type,
-  );
+  const match = placeholders?.find((placeholder) => toStringOrNull(placeholder.type) === type);
   return toStringOrNull(match?.label) ?? undefined;
 }
 
@@ -323,20 +309,13 @@ export function mapNaukriJob(row: NaukriRawJob): CreateJobInput | null {
     jobDescription: toStringOrNull(row.jobDescription) ?? undefined,
     skills: tagsAndSkills ?? undefined,
     experienceRange:
-      toStringOrNull(row.experienceText) ??
-      getPlaceholder(row.placeholders, "experience"),
-    companyLogo:
-      toStringOrNull(row.logoPathV3) ??
-      toStringOrNull(row.logoPath) ??
-      undefined,
+      toStringOrNull(row.experienceText) ?? getPlaceholder(row.placeholders, "experience"),
+    companyLogo: toStringOrNull(row.logoPathV3) ?? toStringOrNull(row.logoPath) ?? undefined,
     companyRating: rating ?? undefined,
-    companyReviewsCount:
-      reviewsCount === null ? undefined : Math.floor(reviewsCount),
+    companyReviewsCount: reviewsCount === null ? undefined : Math.floor(reviewsCount),
     salaryCurrency: toStringOrNull(row.currency) ?? undefined,
-    salaryMinAmount:
-      toNumberOrNull(row.salaryDetail?.minimumSalary) ?? undefined,
-    salaryMaxAmount:
-      toNumberOrNull(row.salaryDetail?.maximumSalary) ?? undefined,
+    salaryMinAmount: toNumberOrNull(row.salaryDetail?.minimumSalary) ?? undefined,
+    salaryMaxAmount: toNumberOrNull(row.salaryDetail?.maximumSalary) ?? undefined,
   };
 }
 
@@ -360,12 +339,8 @@ export function dedupeNaukriJobs(
   return deduped;
 }
 
-function resolveRunLocations(
-  locations: string[] | undefined,
-): Array<string | null> {
-  const normalized = (locations ?? [])
-    .map((location) => location.trim())
-    .filter(Boolean);
+function resolveRunLocations(locations: string[] | undefined): Array<string | null> {
+  const normalized = (locations ?? []).map((location) => location.trim()).filter(Boolean);
 
   if (normalized.length === 0) return [null];
   return normalized;
@@ -406,10 +381,7 @@ async function collectForTerm(params: {
   await loadCookies(context, EXTRACTOR_ID, storageDir);
   const page = await context.newPage();
   const jobs: CreateJobInput[] = [];
-  const maxPages = Math.max(
-    1,
-    Math.ceil(params.maxJobsPerTerm / RESULTS_PER_PAGE),
-  );
+  const maxPages = Math.max(1, Math.ceil(params.maxJobsPerTerm / RESULTS_PER_PAGE));
 
   try {
     const firstApiResponsePromise = waitForApiPageResult({
@@ -467,9 +439,7 @@ async function collectForTerm(params: {
   }
 }
 
-export async function runNaukri(
-  options: RunNaukriOptions = {},
-): Promise<NaukriResult> {
+export async function runNaukri(options: RunNaukriOptions = {}): Promise<NaukriResult> {
   const searchTerms =
     options.searchTerms && options.searchTerms.length > 0
       ? options.searchTerms
@@ -560,9 +530,7 @@ export async function runNaukri(
       success: false,
       jobs: [],
       error:
-        error instanceof Error
-          ? error.message
-          : "Unexpected error while running Naukri extractor.",
+        error instanceof Error ? error.message : "Unexpected error while running Naukri extractor.",
     };
   } finally {
     await browser?.close();

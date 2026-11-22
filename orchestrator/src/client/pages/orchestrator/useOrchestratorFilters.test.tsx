@@ -1,11 +1,6 @@
 import { act, render, renderHook } from "@testing-library/react";
 import { type ReactNode, StrictMode, useEffect } from "react";
-import {
-  MemoryRouter,
-  useLocation,
-  useNavigate,
-  useNavigationType,
-} from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigate, useNavigationType } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SORT } from "./constants";
 import { useOrchestratorFilters } from "./useOrchestratorFilters";
@@ -146,9 +141,7 @@ describe("useOrchestratorFilters", () => {
     expect(result.current.filters.companyFilter).toEqual(["acme"]);
     expect(getLocation()).toBe("/jobs/ready?source=linkedin&company=acme");
     expect(getNavigationType()).toBe("REPLACE");
-    expect(localStorage.getItem(storageKey)).toBe(
-      "source=linkedin&company=acme",
-    );
+    expect(localStorage.getItem(storageKey)).toBe("source=linkedin&company=acme");
 
     act(() => result.current.filters.setCompanyFilter([]));
     expect(localStorage.getItem(storageKey)).toBe("source=linkedin");
@@ -187,24 +180,23 @@ describe("useOrchestratorFilters", () => {
     expect(getLocation()).toBe("/jobs/all");
   });
 
-  it.each([
-    "getItem",
-    "setItem",
-    "removeItem",
-  ] as const)("keeps filters usable when storage %s throws", (method) => {
-    vi.spyOn(localStorage, method).mockImplementation(() => {
-      throw new Error("Storage unavailable");
-    });
-    const { Wrapper, getLocation } = createWrapper("/all?keep=yes");
-    const { result } = renderHook(() => useOrchestratorFilters(), {
-      wrapper: Wrapper,
-    });
-    act(() => result.current.setSourceFilter("linkedin"));
-    expect(result.current.sourceFilter).toBe("linkedin");
-    act(() => result.current.resetFilters());
-    expect(result.current.sourceFilter).toBe("all");
-    expect(getLocation()).toBe("/all?keep=yes");
-  });
+  it.each(["getItem", "setItem", "removeItem"] as const)(
+    "keeps filters usable when storage %s throws",
+    (method) => {
+      vi.spyOn(localStorage, method).mockImplementation(() => {
+        throw new Error("Storage unavailable");
+      });
+      const { Wrapper, getLocation } = createWrapper("/all?keep=yes");
+      const { result } = renderHook(() => useOrchestratorFilters(), {
+        wrapper: Wrapper,
+      });
+      act(() => result.current.setSourceFilter("linkedin"));
+      expect(result.current.sourceFilter).toBe("linkedin");
+      act(() => result.current.resetFilters());
+      expect(result.current.sourceFilter).toBe("all");
+      expect(getLocation()).toBe("/all?keep=yes");
+    },
+  );
 
   it("round-trips multiple company params without splitting punctuation and resets with source", () => {
     const { Wrapper, getLocation } = createWrapper(
@@ -215,26 +207,16 @@ describe("useOrchestratorFilters", () => {
     });
     expect(result.current.companyFilter).toEqual(["google", "google llc"]);
     expect(result.current.sourceFilter).toBe("linkedin");
-    act(() =>
-      result.current.setCompanyFilter([
-        "Acme, Inc.",
-        " A & B ",
-        "acme, inc.",
-        "  ",
-      ]),
-    );
+    act(() => result.current.setCompanyFilter(["Acme, Inc.", " A & B ", "acme, inc.", "  "]));
     const params = new URLSearchParams(getLocation().split("?")[1]);
     expect(params.getAll("company")).toEqual(["acme, inc.", "a & b"]);
     expect(params.get("source")).toBe("linkedin");
     expect(result.current.companyFilter).toEqual(["acme, inc.", "a & b"]);
     const restored = createWrapper(getLocation());
-    const { result: restoredResult } = renderHook(
-      () => useOrchestratorFilters(),
-      { wrapper: restored.Wrapper },
-    );
-    expect(restoredResult.current.companyFilter).toEqual(
-      result.current.companyFilter,
-    );
+    const { result: restoredResult } = renderHook(() => useOrchestratorFilters(), {
+      wrapper: restored.Wrapper,
+    });
+    expect(restoredResult.current.companyFilter).toEqual(result.current.companyFilter);
     act(() => result.current.setCompanyFilter([]));
     expect(getLocation()).not.toContain("company=");
     act(() => result.current.setCompanyFilter(["Google"]));
@@ -257,11 +239,7 @@ describe("useOrchestratorFilters", () => {
   });
 
   it("falls back to default sort for invalid sort query params", () => {
-    const cases = [
-      "/ready?sort=title",
-      "/ready?sort=invalid-asc",
-      "/ready?sort=title-sideways",
-    ];
+    const cases = ["/ready?sort=title", "/ready?sort=invalid-asc", "/ready?sort=title-sideways"];
 
     for (const entry of cases) {
       const { Wrapper } = createWrapper(entry);

@@ -34,11 +34,7 @@ describe("getEffectiveStageHistory", () => {
       userStage("interview", "recruiter_screen", "technical_interview", 3),
     ];
 
-    expect(ids(getEffectiveStageHistory(events))).toEqual([
-      "applied",
-      "screen",
-      "interview",
-    ]);
+    expect(ids(getEffectiveStageHistory(events))).toEqual(["applied", "screen", "interview"]);
   });
 
   it("sorts by occurredAt without mutating the input", () => {
@@ -49,11 +45,7 @@ describe("getEffectiveStageHistory", () => {
     ];
     const snapshot = [...events];
 
-    expect(ids(getEffectiveStageHistory(events))).toEqual([
-      "applied",
-      "screen",
-      "interview",
-    ]);
+    expect(ids(getEffectiveStageHistory(events))).toEqual(["applied", "screen", "interview"]);
     expect(events).toEqual(snapshot);
   });
 
@@ -75,10 +67,7 @@ describe("getEffectiveStageHistory", () => {
       userStage("assessment", "applied", "assessment", 4),
     ];
 
-    expect(ids(getEffectiveStageHistory(events))).toEqual([
-      "back",
-      "assessment",
-    ]);
+    expect(ids(getEffectiveStageHistory(events))).toEqual(["back", "assessment"]);
   });
 
   it("uses only the most recent move back when there are several", () => {
@@ -116,11 +105,7 @@ describe("getEffectiveStageHistory", () => {
       systemApplied("applied", 9),
     ];
 
-    expect(ids(getEffectiveStageHistory(events))).toEqual([
-      "screen",
-      "interview",
-      "applied",
-    ]);
+    expect(ids(getEffectiveStageHistory(events))).toEqual(["screen", "interview", "applied"]);
   });
 
   it("keeps a stage that was backdated before the system applied event", () => {
@@ -129,10 +114,7 @@ describe("getEffectiveStageHistory", () => {
       userStage("screen", "applied", "recruiter_screen", 2),
     ];
 
-    expect(ids(getEffectiveStageHistory(events))).toEqual([
-      "screen",
-      "applied",
-    ]);
+    expect(ids(getEffectiveStageHistory(events))).toEqual(["screen", "applied"]);
   });
 
   it("ignores user events that never left applied", () => {
@@ -153,11 +135,6 @@ describe("getEffectiveStageHistory", () => {
       }),
     ];
 
-    expect(ids(getEffectiveStageHistory(events))).toEqual([
-      "applied",
-      "screen",
-      "note",
-      "legacy",
-    ]);
+    expect(ids(getEffectiveStageHistory(events))).toEqual(["applied", "screen", "note", "legacy"]);
   });
 });

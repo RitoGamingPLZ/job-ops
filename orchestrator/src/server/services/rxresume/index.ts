@@ -5,10 +5,7 @@ import { resolveResumeProjectsSettings } from "@server/services/resumeProjects";
 import { getActiveTenantId } from "@server/tenancy/context";
 import { resolveResumeProjectSelection } from "@shared/resume-projects";
 import type { ResumeProjectCatalogItem } from "@shared/types";
-import {
-  getResumeSchemaValidationMessage,
-  safeParseV5ResumeData,
-} from "./schema";
+import { getResumeSchemaValidationMessage, safeParseV5ResumeData } from "./schema";
 import {
   applyProjectVisibility,
   applyTailoredChunks,
@@ -78,10 +75,7 @@ const rxResumeResumeCache = new Map<string, RxResumeResumeCacheEntry>();
 const inFlightResumeRequests = new Map<string, Promise<RxResumeResume>>();
 let rxResumeResumeCacheGeneration = 0;
 
-function hasOverrideKey<T extends object>(
-  value: T | undefined,
-  key: PropertyKey,
-): boolean {
+function hasOverrideKey<T extends object>(value: T | undefined, key: PropertyKey): boolean {
   return value !== undefined && Object.hasOwn(value, key);
 }
 
@@ -97,9 +91,7 @@ function resolveOverrideValue(args: {
     return trimmed || args.envValue?.trim() || args.fallback || "";
   }
 
-  return (
-    args.storedValue?.trim() || args.envValue?.trim() || args.fallback || ""
-  );
+  return args.storedValue?.trim() || args.envValue?.trim() || args.fallback || "";
 }
 
 function cloneResume(resume: RxResumeResume): RxResumeResume {
@@ -120,10 +112,7 @@ function normalizeBaseUrlForCache(baseUrl: string): string {
 }
 
 function buildCredentialFingerprint(creds: V5Credentials): string {
-  return createHash("sha256")
-    .update(creds.apiKey.trim())
-    .digest("hex")
-    .slice(0, 12);
+  return createHash("sha256").update(creds.apiKey.trim()).digest("hex").slice(0, 12);
 }
 
 function buildResumeCacheKey(resumeId: string, creds: V5Credentials): string {
@@ -143,18 +132,14 @@ export function clearRxResumeResumeCache(): void {
 }
 
 function normalizeError(error: unknown): Error {
-  if (
-    error instanceof RxResumeAuthConfigError ||
-    error instanceof RxResumeRequestError
-  ) {
+  if (error instanceof RxResumeAuthConfigError || error instanceof RxResumeRequestError) {
     return error;
   }
   if (error instanceof Error) {
     const match = /Reactive Resume API error \((\d+)\)/i.exec(error.message);
     const isNetworkLikeFailure =
       error.name === "AbortError" ||
-      (error instanceof TypeError &&
-        /fetch failed|network/i.test(error.message || ""));
+      (error instanceof TypeError && /fetch failed|network/i.test(error.message || ""));
     return new RxResumeRequestError(
       error.message,
       match ? Number(match[1]) : isNetworkLikeFailure ? 0 : null,
@@ -172,9 +157,7 @@ function normalizeV5ResumeListResponse(payload: unknown): RxResumeResume[] {
 
   return payload.map((resume) => {
     if (!resume || typeof resume !== "object") {
-      throw new RxResumeRequestError(
-        "Reactive Resume v5 returned an invalid resume list item.",
-      );
+      throw new RxResumeRequestError("Reactive Resume v5 returned an invalid resume list item.");
     }
     const item = resume as Record<string, unknown>;
     const id = typeof item.id === "string" ? item.id : String(item.id ?? "");
@@ -257,9 +240,7 @@ async function fetchResumeFromUpstream(
   }
 }
 
-export async function listResumes(
-  options: ResolveModeOptions = {},
-): Promise<RxResumeResume[]> {
+export async function listResumes(options: ResolveModeOptions = {}): Promise<RxResumeResume[]> {
   try {
     const creds = await readV5Credentials(options.v5);
     return normalizeV5ResumeListResponse(
@@ -331,16 +312,11 @@ export async function validateResumeSchema(
     };
   }
 
-  if (
-    !result.data ||
-    typeof result.data !== "object" ||
-    Array.isArray(result.data)
-  ) {
+  if (!result.data || typeof result.data !== "object" || Array.isArray(result.data)) {
     return {
       ok: false,
       mode: "v5",
-      message:
-        "Resume schema validation failed: root payload must be an object.",
+      message: "Resume schema validation failed: root payload must be an object.",
     };
   }
 
@@ -359,9 +335,7 @@ export function extractProjectsFromResume(resumeData: unknown): {
   if (!parsed.success) {
     throw new Error(getResumeSchemaValidationMessage(parsed.error));
   }
-  const { catalog } = extractProjectsFromResumeV5(
-    parsed.data as Record<string, unknown>,
-  );
+  const { catalog } = extractProjectsFromResumeV5(parsed.data as Record<string, unknown>);
   return { mode: "v5", catalog };
 }
 
@@ -467,10 +441,7 @@ export async function exportResumePdf(
 
 export async function validateCredentials(
   options: ResolveModeOptions = {},
-): Promise<
-  | { ok: true; mode: "v5" }
-  | { ok: false; mode: "v5"; status: number; message: string }
-> {
+): Promise<{ ok: true; mode: "v5" } | { ok: false; mode: "v5"; status: number; message: string }> {
   try {
     const v5Creds = await readV5Credentials(options.v5);
     const result = await v5.verifyApiKey(v5Creds.apiKey, v5Creds.baseUrl);
@@ -491,8 +462,7 @@ export async function validateCredentials(
         message: normalized.message,
       };
     }
-    const status =
-      normalized instanceof RxResumeRequestError ? (normalized.status ?? 0) : 0;
+    const status = normalized instanceof RxResumeRequestError ? (normalized.status ?? 0) : 0;
     return {
       ok: false,
       mode: "v5",

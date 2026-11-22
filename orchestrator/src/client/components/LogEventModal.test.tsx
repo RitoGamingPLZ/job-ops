@@ -6,31 +6,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LogEventModal } from "./LogEventModal";
 
 vi.mock("@/components/ui/alert-dialog", () => ({
-  AlertDialog: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
+  AlertDialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogContent: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <div {...props}>{children}</div>
   ),
-  AlertDialogContent: ({
-    children,
-    ...props
-  }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
-  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AlertDialogFooter: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AlertDialogHeader: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AlertDialogCancel: ({
-    children,
-    ...props
-  }: {
-    children: React.ReactNode;
-  }) => (
+  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogCancel: ({ children, ...props }: { children: React.ReactNode }) => (
     <button type="button" {...props}>
       {children}
     </button>
@@ -55,16 +39,10 @@ vi.mock("@/components/ui/select", () => ({
       {children}
     </select>
   ),
-  SelectContent: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
+  SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectItem: ({ children, value }: { children: React.ReactNode; value: string }) => (
+    <option value={value}>{children}</option>
   ),
-  SelectItem: ({
-    children,
-    value,
-  }: {
-    children: React.ReactNode;
-    value: string;
-  }) => <option value={value}>{children}</option>,
   SelectTrigger: () => null,
   SelectValue: () => null,
 }));
@@ -125,57 +103,51 @@ describe("LogEventModal", () => {
 
 it("offers simplified stages and hides assessment and onsite", () => {
   render(<LogEventModal isOpen onClose={vi.fn()} onLog={vi.fn()} />);
-  expect(
-    screen.getByRole("option", { name: "Behaviour Question" }),
-  ).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "Behaviour Question" })).toBeInTheDocument();
   expect(screen.getByRole("option", { name: "Reject" })).toBeInTheDocument();
   expect(screen.getByRole("option", { name: "Withdrawn" })).toBeInTheDocument();
-  expect(
-    screen.queryByRole("option", { name: "Assessment" }),
-  ).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("option", { name: "Onsite" }),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByRole("option", { name: "Assessment" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("option", { name: "Onsite" })).not.toBeInTheDocument();
 });
 
-it.each([
-  "assessment",
-  "onsite",
-] as const)("preserves an edited %s event until the user selects another stage", async (toStage) => {
-  const onLog = vi.fn().mockResolvedValue(undefined);
-  render(
-    <LogEventModal
-      isOpen
-      onClose={vi.fn()}
-      onLog={onLog}
-      editingEvent={createStageEvent({
-        id: "legacy",
-        toStage,
-        metadata: { eventLabel: "Interview", eventType: "status_update" },
-      })}
-    />,
-  );
-  fireEvent.change(screen.getByPlaceholderText("Add details..."), {
-    target: { value: "Updated notes" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
-  await waitFor(() =>
-    expect(onLog).toHaveBeenCalledWith(
-      expect.objectContaining({ stage: toStage, notes: "Updated notes" }),
-      "legacy",
-    ),
-  );
-  fireEvent.change(screen.getAllByTestId("select")[0], {
-    target: { value: "technical_interview" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
-  await waitFor(() =>
-    expect(onLog).toHaveBeenLastCalledWith(
-      expect.objectContaining({ stage: "technical_interview" }),
-      "legacy",
-    ),
-  );
-});
+it.each(["assessment", "onsite"] as const)(
+  "preserves an edited %s event until the user selects another stage",
+  async (toStage) => {
+    const onLog = vi.fn().mockResolvedValue(undefined);
+    render(
+      <LogEventModal
+        isOpen
+        onClose={vi.fn()}
+        onLog={onLog}
+        editingEvent={createStageEvent({
+          id: "legacy",
+          toStage,
+          metadata: { eventLabel: "Interview", eventType: "status_update" },
+        })}
+      />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Add details..."), {
+      target: { value: "Updated notes" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    await waitFor(() =>
+      expect(onLog).toHaveBeenCalledWith(
+        expect.objectContaining({ stage: toStage, notes: "Updated notes" }),
+        "legacy",
+      ),
+    );
+    fireEvent.change(screen.getAllByTestId("select")[0], {
+      target: { value: "technical_interview" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    await waitFor(() =>
+      expect(onLog).toHaveBeenLastCalledWith(
+        expect.objectContaining({ stage: "technical_interview" }),
+        "legacy",
+      ),
+    );
+  },
+);
 
 it("preserves no-stage-change semantics when editing a technical note", async () => {
   const onLog = vi.fn().mockResolvedValue(undefined);
@@ -193,9 +165,6 @@ it("preserves no-stage-change semantics when editing a technical note", async ()
   );
   fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
   await waitFor(() =>
-    expect(onLog).toHaveBeenCalledWith(
-      expect.objectContaining({ stage: "no_change" }),
-      "note",
-    ),
+    expect(onLog).toHaveBeenCalledWith(expect.objectContaining({ stage: "no_change" }), "note"),
   );
 });

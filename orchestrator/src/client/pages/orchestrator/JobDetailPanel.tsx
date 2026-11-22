@@ -1,9 +1,5 @@
 import * as api from "@client/api";
-import {
-  JobBriefPane,
-  JobDescriptionPanel,
-  JobHeader,
-} from "@client/components";
+import { JobBriefPane, JobDescriptionPanel, JobHeader } from "@client/components";
 import { JobDetailsEditDrawer } from "@client/components/JobDetailsEditDrawer";
 import { OpenJobListingButton } from "@client/components/OpenJobListingButton";
 import { usePrepareResumeMutation } from "@client/hooks/queries/useJobMutations";
@@ -132,9 +128,7 @@ const Stat: React.FC<{
       <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
         {label}
       </div>
-      <div className="mt-1 truncate text-xs font-medium text-foreground/85">
-        {value}
-      </div>
+      <div className="mt-1 truncate text-xs font-medium text-foreground/85">{value}</div>
     </div>
   );
 };
@@ -173,8 +167,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const handleJobMoved = useCallback(
     (jobId: string) => {
       const currentIndex = activeJobs.findIndex((job) => job.id === jobId);
-      const nextJob =
-        activeJobs[currentIndex + 1] || activeJobs[currentIndex - 1];
+      const nextJob = activeJobs[currentIndex + 1] || activeJobs[currentIndex - 1];
       onSelectJobId(nextJob?.id ?? null);
     },
     [activeJobs, onSelectJobId],
@@ -213,8 +206,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
         ? api.untargetJob(selectedJob.id)
         : api.targetJob(selectedJob.id));
       toast.success(targeted ? "Job untargeted" : "Job targeted");
-      if (activeTab === "discovered" && !targeted)
-        handleJobMoved(selectedJob.id);
+      if (activeTab === "discovered" && !targeted) handleJobMoved(selectedJob.id);
       await onJobUpdated(updated);
     } catch (error) {
       showErrorToast(error, "Failed to update target");
@@ -225,9 +217,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
 
   const handleOpenPdf = useCallback(() => {
     if (!selectedJob) return;
-    navigate(
-      resumeEditorLocation({ kind: "job", jobId: selectedJob.id }, "preview"),
-    );
+    navigate(resumeEditorLocation({ kind: "job", jobId: selectedJob.id }, "preview"));
   }, [navigate, selectedJob]);
 
   const handlePrepareResume = useCallback(() => {
@@ -240,9 +230,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   const handleBlacklistEmployer = useCallback(async () => {
     if (!selectedJob) return;
     try {
-      const { job, hiddenCount } = await api.blacklistJobEmployer(
-        selectedJob.id,
-      );
+      const { job, hiddenCount } = await api.blacklistJobEmployer(selectedJob.id);
       toast.success(
         `Won't ingest jobs from ${selectedJob.employer} anymore` +
           (hiddenCount > 0
@@ -259,8 +247,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
   if (!selectedJob) {
     if (selectedJobListItem) {
       const isLoadingDetails = selectedJobLoadState !== "error";
-      const listingUrl =
-        selectedJobListItem.applicationLink || selectedJobListItem.jobUrl;
+      const listingUrl = selectedJobListItem.applicationLink || selectedJobListItem.jobUrl;
       const summaryPdfMessage = isPdfRegenerating(selectedJobListItem)
         ? PDF_REGENERATING_MESSAGE
         : isPdfStale(selectedJobListItem)
@@ -274,33 +261,19 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
         >
           <JobHeader
             job={selectedJobListItem}
-            jobCTA={
-              listingUrl ? (
-                <OpenJobListingButton href={listingUrl} />
-              ) : undefined
-            }
+            jobCTA={listingUrl ? <OpenJobListingButton href={listingUrl} /> : undefined}
           />
 
           <div className="flex min-w-0 flex-col gap-4 rounded-lg rounded-t-none border border-t-0 border-border/50 bg-card p-4">
             <div className="grid gap-2 sm:grid-cols-2">
-              <Stat
-                label="Location"
-                value={selectedJobListItem.location}
-                tone="blue"
-              />
-              <Stat
-                label="Salary"
-                value={selectedJobListItem.salary}
-                tone="green"
-              />
+              <Stat label="Location" value={selectedJobListItem.location} tone="blue" />
+              <Stat label="Salary" value={selectedJobListItem.salary} tone="green" />
               <Stat label="Function" value={selectedJobListItem.jobFunction} />
               <Stat label="Type" value={selectedJobListItem.jobType} />
             </div>
 
             {summaryPdfMessage ? (
-              <p className="text-xs text-muted-foreground">
-                {summaryPdfMessage}
-              </p>
+              <p className="text-xs text-muted-foreground">{summaryPdfMessage}</p>
             ) : null}
 
             {selectedJobLoadState === "error" ? (
@@ -308,16 +281,8 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 <CircleAlert />
                 <AlertTitle>Couldn&apos;t load job details</AlertTitle>
                 <AlertDescription className="flex flex-col items-start gap-3">
-                  <p>
-                    The summary is still available. Try loading the details
-                    again.
-                  </p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={onRetrySelectedJob}
-                  >
+                  <p>The summary is still available. Try loading the details again.</p>
+                  <Button type="button" size="sm" variant="outline" onClick={onRetrySelectedJob}>
                     Retry
                   </Button>
                 </AlertDescription>
@@ -360,9 +325,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
           <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-border/50 bg-muted/20">
             <FileText className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div className="text-sm font-medium text-muted-foreground">
-            No job selected
-          </div>
+          <div className="text-sm font-medium text-muted-foreground">No job selected</div>
           <p className="max-w-[220px] text-xs text-muted-foreground/70">
             Select a job to see its brief and resume.
           </p>
@@ -385,9 +348,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
               onClick={() => void handlePrimaryAction()}
               disabled={
                 primaryBusy ||
-                !["discovered", "processing", "ready"].includes(
-                  selectedJob.status,
-                ) ||
+                !["discovered", "processing", "ready"].includes(selectedJob.status) ||
                 (selectedJob.status === "processing" && isTargeted(selectedJob))
               }
               className={cn(
@@ -408,12 +369,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
             {resumeState === "available" && (
               <>
                 <Button size="sm" variant="outline" asChild>
-                  <Link
-                    to={resumeEditorLocation(
-                      { kind: "job", jobId: selectedJob.id },
-                      "edit",
-                    )}
-                  >
+                  <Link to={resumeEditorLocation({ kind: "job", jobId: selectedJob.id }, "edit")}>
                     Open resume
                   </Link>
                 </Button>
@@ -444,11 +400,7 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
                 Prepare resume
               </Button>
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void handleBlacklistEmployer()}
-            >
+            <Button size="sm" variant="outline" onClick={() => void handleBlacklistEmployer()}>
               <Ban className="h-3.5 w-3.5" />
               Blacklist company
             </Button>
@@ -480,16 +432,13 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
 
       <div className="flex min-w-0 flex-col rounded-lg rounded-t-none border border-t-0 border-border/50 bg-card p-4">
         <div className="space-y-4">
-          {selectedJob.generationError &&
-            selectedJob.status !== "processing" && (
-              <Alert variant="destructive">
-                <CircleAlert />
-                <AlertTitle>Resume generation failed</AlertTitle>
-                <AlertDescription>
-                  {selectedJob.generationError}
-                </AlertDescription>
-              </Alert>
-            )}
+          {selectedJob.generationError && selectedJob.status !== "processing" && (
+            <Alert variant="destructive">
+              <CircleAlert />
+              <AlertTitle>Resume generation failed</AlertTitle>
+              <AlertDescription>{selectedJob.generationError}</AlertDescription>
+            </Alert>
+          )}
 
           {!brief && (
             <div className="grid gap-2 sm:grid-cols-2">

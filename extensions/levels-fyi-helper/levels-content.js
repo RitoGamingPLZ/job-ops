@@ -53,10 +53,7 @@ function parseSalaryText(rawText) {
   if (!text) return null;
 
   const rangeMatch = text.match(
-    new RegExp(
-      `(${SINGLE_AMOUNT_SOURCE})\\s*(?:-|–|—|to)\\s*(${SINGLE_AMOUNT_SOURCE})`,
-      "i",
-    ),
+    new RegExp(`(${SINGLE_AMOUNT_SOURCE})\\s*(?:-|–|—|to)\\s*(${SINGLE_AMOUNT_SOURCE})`, "i"),
   );
   if (rangeMatch) {
     const min = parseMonetaryAmount(rangeMatch[1]);
@@ -66,8 +63,7 @@ function parseSalaryText(rawText) {
         salary: `${rangeMatch[1].trim()} - ${rangeMatch[2].trim()}`,
         salaryMinAmount: min,
         salaryMaxAmount: max,
-        salaryCurrency:
-          detectCurrency(rangeMatch[1]) || detectCurrency(rangeMatch[2]),
+        salaryCurrency: detectCurrency(rangeMatch[1]) || detectCurrency(rangeMatch[2]),
       };
     }
   }
@@ -277,9 +273,7 @@ function createPanel(lookup) {
   const rescanBtn = shadow.getElementById("jobops-rescan");
   const closeBtn = shadow.getElementById("jobops-close");
 
-  targetEl.textContent = [lookup.title, lookup.employer]
-    .filter(Boolean)
-    .join(" @ ");
+  targetEl.textContent = [lookup.title, lookup.employer].filter(Boolean).join(" @ ");
 
   function renderCandidates() {
     const candidates = extractSalaryCandidates();
@@ -349,9 +343,7 @@ function createPanel(lookup) {
         if (ext.runtime.lastError || !response?.ok) {
           statusEl.className = "status err";
           statusEl.textContent =
-            response?.error ||
-            ext.runtime.lastError?.message ||
-            "Could not reach Job-Ops tab.";
+            response?.error || ext.runtime.lastError?.message || "Could not reach Job-Ops tab.";
           return;
         }
         statusEl.className = "status ok";

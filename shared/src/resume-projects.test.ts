@@ -69,15 +69,7 @@ describe("resolveResumeProjectSelection", () => {
       target: 3,
       remaining: 0,
     },
-  ])("$name", ({
-    catalogIds,
-    settings,
-    selected,
-    effective,
-    excluded,
-    target,
-    remaining,
-  }) => {
+  ])("$name", ({ catalogIds, settings, selected, effective, excluded, target, remaining }) => {
     expect(
       resolveResumeProjectSelection({
         catalog: catalog(catalogIds),

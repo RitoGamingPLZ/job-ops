@@ -10,13 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { PipelineActionRequired } from "./PipelineActionRequired";
 
@@ -33,10 +27,7 @@ const Segment = ({
   total: number;
 }) =>
   count > 0 ? (
-    <span
-      className={cn("h-full", className)}
-      style={{ width: `${(count / total) * 100}%` }}
-    />
+    <span className={cn("h-full", className)} style={{ width: `${(count / total) * 100}%` }} />
   ) : null;
 
 const RoleStatus = ({ role }: { role: PipelineFanoutRoleProgress }) => (
@@ -61,9 +52,7 @@ const RoleStatus = ({ role }: { role: PipelineFanoutRoleProgress }) => (
     ) : null}
     {role.queued > 0 ? (
       <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-        <span className="font-semibold text-muted-foreground">
-          {role.queued}
-        </span>
+        <span className="font-semibold text-muted-foreground">{role.queued}</span>
         <span className="font-sans text-muted-foreground">queued</span>
       </span>
     ) : null}
@@ -86,11 +75,7 @@ const RoleRow = ({ role }: { role: PipelineFanoutRoleProgress }) => {
         aria-valuemin={0}
         aria-valuenow={role.complete}
       >
-        <Segment
-          className="bg-emerald-400"
-          count={role.complete}
-          total={total}
-        />
+        <Segment className="bg-emerald-400" count={role.complete} total={total} />
         <Segment className="bg-amber-500" count={role.running} total={total} />
         <Segment className="bg-amber-300" count={role.check} total={total} />
       </div>
@@ -124,15 +109,10 @@ export const PipelineFanoutCard = ({
 }: PipelineFanoutCardProps) => {
   const complete = fanout.roles.reduce((sum, role) => sum + role.complete, 0);
   const checks = fanout.roles.reduce((sum, role) => sum + role.check, 0);
-  const running =
-    checks + fanout.roles.reduce((sum, role) => sum + role.running, 0);
+  const running = checks + fanout.roles.reduce((sum, role) => sum + role.running, 0);
   const queued = fanout.roles.reduce((sum, role) => sum + role.queued, 0);
-  const doneRoles = fanout.roles.filter(
-    (role) => role.complete === getRoleTotal(role),
-  );
-  const queuedRoles = fanout.roles.filter(
-    (role) => role.queued === getRoleTotal(role),
-  );
+  const doneRoles = fanout.roles.filter((role) => role.complete === getRoleTotal(role));
+  const queuedRoles = fanout.roles.filter((role) => role.queued === getRoleTotal(role));
   const activeRoles = fanout.roles.filter(
     (role) => !doneRoles.includes(role) && !queuedRoles.includes(role),
   );
@@ -154,14 +134,10 @@ export const PipelineFanoutCard = ({
             </span>
           </div>
           <CardDescription className="text-base">
-            <strong className="text-foreground">{fanout.termCount}</strong>{" "}
-            roles ·{" "}
-            <strong className="text-foreground">{fanout.locationCount}</strong>{" "}
-            locations ·{" "}
-            <strong className="text-foreground">{fanout.sourceCount}</strong>{" "}
-            job boards ·{" "}
-            <strong className="text-foreground">{fanout.total}</strong>{" "}
-            combinations
+            <strong className="text-foreground">{fanout.termCount}</strong> roles ·{" "}
+            <strong className="text-foreground">{fanout.locationCount}</strong> locations ·{" "}
+            <strong className="text-foreground">{fanout.sourceCount}</strong> job boards ·{" "}
+            <strong className="text-foreground">{fanout.total}</strong> combinations
           </CardDescription>
           {activity ? (
             <p className="break-words text-sm text-muted-foreground">
@@ -174,9 +150,7 @@ export const PipelineFanoutCard = ({
           <div className="flex flex-col gap-3 @xl/fanout:flex-row @xl/fanout:items-end @xl/fanout:justify-between">
             <div className="flex flex-wrap items-center gap-2 font-mono text-xs tabular-nums">
               <span className="inline-flex items-baseline gap-2 whitespace-nowrap">
-                <span className="font-semibold text-emerald-400">
-                  {complete}
-                </span>
+                <span className="font-semibold text-emerald-400">{complete}</span>
                 <span className="font-sans text-muted-foreground">
                   {challenges.length > 0
                     ? complete === 1
@@ -192,9 +166,7 @@ export const PipelineFanoutCard = ({
               </span>
               <span className="text-muted-foreground/50">·</span>
               <span className="inline-flex items-baseline gap-2 whitespace-nowrap">
-                <span className="font-semibold text-muted-foreground">
-                  {queued}
-                </span>
+                <span className="font-semibold text-muted-foreground">{queued}</span>
                 <span className="font-sans text-muted-foreground">queued</span>
               </span>
             </div>
@@ -228,16 +200,8 @@ export const PipelineFanoutCard = ({
             aria-valuemin={0}
             aria-valuenow={complete}
           >
-            <Segment
-              className="bg-emerald-400"
-              count={complete}
-              total={fanout.total}
-            />
-            <Segment
-              className="bg-amber-500"
-              count={running}
-              total={fanout.total}
-            />
+            <Segment className="bg-emerald-400" count={complete} total={fanout.total} />
+            <Segment className="bg-amber-500" count={running} total={fanout.total} />
           </div>
         </div>
       </CardHeader>
@@ -257,9 +221,7 @@ export const PipelineFanoutCard = ({
             pending={solvingExtractor === challenge.extractorId}
             onAction={() => onSolveChallenge(challenge.extractorId)}
             secondaryActionLabel={
-              challenge.canSkipSearch && challenge.solveAttempted
-                ? "Skip this search"
-                : undefined
+              challenge.canSkipSearch && challenge.solveAttempted ? "Skip this search" : undefined
             }
             secondaryPendingLabel="Skipping…"
             secondaryPending={skippingExtractor === challenge.extractorId}
@@ -287,8 +249,7 @@ export const PipelineFanoutCard = ({
                   <AccordionTrigger className="min-h-14 px-4 py-3 hover:bg-muted/30 hover:no-underline">
                     <span className="flex min-w-0 flex-1 items-center justify-between gap-4 pr-2 text-sm font-semibold">
                       <span>
-                        {queuedRoles.length}{" "}
-                        {queuedRoles.length === 1 ? "role" : "roles"} queued
+                        {queuedRoles.length} {queuedRoles.length === 1 ? "role" : "roles"} queued
                       </span>
                     </span>
                   </AccordionTrigger>
@@ -305,8 +266,7 @@ export const PipelineFanoutCard = ({
                   <AccordionTrigger className="min-h-14 px-4 py-3 hover:bg-muted/30 hover:no-underline">
                     <span className="flex min-w-0 flex-1 items-center justify-between gap-4 pr-2 text-sm font-semibold">
                       <span>
-                        {doneRoles.length}{" "}
-                        {doneRoles.length === 1 ? "role" : "roles"} done
+                        {doneRoles.length} {doneRoles.length === 1 ? "role" : "roles"} done
                       </span>
                     </span>
                   </AccordionTrigger>

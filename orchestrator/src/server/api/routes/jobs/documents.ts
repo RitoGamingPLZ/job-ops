@@ -8,10 +8,7 @@ import { generateFinalPdf } from "@server/pipeline/index";
 import * as jobDocumentsRepo from "@server/repositories/job-documents";
 import * as jobsRepo from "@server/repositories/jobs";
 import { simulateGeneratePdf } from "@server/services/demo-simulator";
-import {
-  removeStoredJobDocument,
-  storeJobDocument,
-} from "@server/services/job-document-storage";
+import { removeStoredJobDocument, storeJobDocument } from "@server/services/job-document-storage";
 import { uploadJobPdf } from "@server/services/job-pdf-upload";
 import { previewJobPdfBytes } from "@server/services/pdf";
 import { removeStoredJobPdf } from "@server/services/pdf-storage";
@@ -61,10 +58,7 @@ function setJobDocumentContentHeaders(
   res.setHeader("X-Content-Type-Options", "nosniff");
 
   if (!safeInlineMediaType) {
-    res.setHeader(
-      "Content-Disposition",
-      contentDispositionAttachment(document.fileName),
-    );
+    res.setHeader("Content-Disposition", contentDispositionAttachment(document.fileName));
     res.type("application/octet-stream");
     return;
   }
@@ -77,30 +71,27 @@ function setJobDocumentContentHeaders(
   res.type(safeInlineMediaType);
 }
 
-jobsDocumentsRouter.post(
-  "/:id/preview-pdf",
-  async (req: Request, res: Response) => {
-    try {
-      const job = await requireJob(req.params.id);
-      const bytes = await previewJobPdfBytes(job.id, job.jobDescription ?? "", {
-        requestOrigin: resolveRequestOrigin(req),
-      });
-      res.setHeader("Cache-Control", "no-store");
-      res.setHeader("Content-Type", "application/pdf");
-      res.send(Buffer.from(bytes));
-    } catch (error) {
-      const err = toJobsRouteError(error);
-      logger[err.status === 404 ? "warn" : "error"]("Job PDF preview failed", {
-        route: "POST /api/jobs/:id/preview-pdf",
-        jobId: req.params.id,
-        status: err.status,
-        code: err.code,
-        details: err.details,
-      });
-      fail(res, err);
-    }
-  },
-);
+jobsDocumentsRouter.post("/:id/preview-pdf", async (req: Request, res: Response) => {
+  try {
+    const job = await requireJob(req.params.id);
+    const bytes = await previewJobPdfBytes(job.id, job.jobDescription ?? "", {
+      requestOrigin: resolveRequestOrigin(req),
+    });
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Type", "application/pdf");
+    res.send(Buffer.from(bytes));
+  } catch (error) {
+    const err = toJobsRouteError(error);
+    logger[err.status === 404 ? "warn" : "error"]("Job PDF preview failed", {
+      route: "POST /api/jobs/:id/preview-pdf",
+      jobId: req.params.id,
+      status: err.status,
+      code: err.code,
+      details: err.details,
+    });
+    fail(res, err);
+  }
+});
 
 jobsDocumentsRouter.post("/:id/pdf", async (req: Request, res: Response) => {
   let uploadedPath: string | null = null;
@@ -216,91 +207,82 @@ jobsDocumentsRouter.post("/:id/pdf", async (req: Request, res: Response) => {
   }
 });
 
-jobsDocumentsRouter.get(
-  "/:id/documents",
-  async (req: Request, res: Response) => {
-    try {
-      await requireJob(req.params.id);
-      ok(res, await jobDocumentsRepo.listJobDocuments(req.params.id));
-    } catch (error) {
-      const err = toJobsRouteError(error);
-      logger[err.status === 404 ? "warn" : "error"](
-        "Job documents list failed",
-        {
-          route: "GET /api/jobs/:id/documents",
+jobsDocumentsRouter.get("/:id/documents", async (req: Request, res: Response) => {
+  try {
+    await requireJob(req.params.id);
+    ok(res, await jobDocumentsRepo.listJobDocuments(req.params.id));
+  } catch (error) {
+    const err = toJobsRouteError(error);
+    logger[err.status === 404 ? "warn" : "error"]("Job documents list failed", {
+      route: "GET /api/jobs/:id/documents",
+      jobId: req.params.id,
+      status: err.status,
+      code: err.code,
+      details: err.details,
+    });
+    fail(res, err);
+  }
+});
+
+jobsDocumentsRouter.post("/:id/documents", async (req: Request, res: Response) => {
+  let storagePath: string | null = null;
+
+  try {
+    const input = uploadJobDocumentSchema.parse(req.body);
+    await requireJob(req.params.id);
+
+    const stored = await storeJobDocument({
+      jobId: req.params.id,
+      fileName: input.fileName,
+      mediaType: input.mediaType,
+      dataBase64: input.dataBase64,
+    });
+    storagePath = stored.storagePath;
+
+    const document = await jobDocumentsRepo.createJobDocument({
+      jobId: req.params.id,
+      fileName: stored.fileName,
+      mediaType: stored.mediaType,
+      byteSize: stored.byteSize,
+      storagePath: stored.storagePath,
+    });
+
+    logger.info("Job document uploaded", {
+      route: "POST /api/jobs/:id/documents",
+      jobId: req.params.id,
+      documentId: document.id,
+      fileName: document.fileName,
+      mediaType: document.mediaType,
+      byteSize: document.byteSize,
+    });
+
+    ok(res, document, 201);
+  } catch (error) {
+    const err = toJobsRouteError(error, {
+      invalidRequestFallbackMessage: "Invalid job document upload request",
+    });
+
+    if (storagePath) {
+      await removeStoredJobDocument(storagePath).catch((cleanupError) => {
+        logger.warn("Failed to clean up uploaded job document after error", {
+          route: "POST /api/jobs/:id/documents",
           jobId: req.params.id,
-          status: err.status,
-          code: err.code,
-          details: err.details,
-        },
-      );
-      fail(res, err);
-    }
-  },
-);
-
-jobsDocumentsRouter.post(
-  "/:id/documents",
-  async (req: Request, res: Response) => {
-    let storagePath: string | null = null;
-
-    try {
-      const input = uploadJobDocumentSchema.parse(req.body);
-      await requireJob(req.params.id);
-
-      const stored = await storeJobDocument({
-        jobId: req.params.id,
-        fileName: input.fileName,
-        mediaType: input.mediaType,
-        dataBase64: input.dataBase64,
-      });
-      storagePath = stored.storagePath;
-
-      const document = await jobDocumentsRepo.createJobDocument({
-        jobId: req.params.id,
-        fileName: stored.fileName,
-        mediaType: stored.mediaType,
-        byteSize: stored.byteSize,
-        storagePath: stored.storagePath,
-      });
-
-      logger.info("Job document uploaded", {
-        route: "POST /api/jobs/:id/documents",
-        jobId: req.params.id,
-        documentId: document.id,
-        fileName: document.fileName,
-        mediaType: document.mediaType,
-        byteSize: document.byteSize,
-      });
-
-      ok(res, document, 201);
-    } catch (error) {
-      const err = toJobsRouteError(error, {
-        invalidRequestFallbackMessage: "Invalid job document upload request",
-      });
-
-      if (storagePath) {
-        await removeStoredJobDocument(storagePath).catch((cleanupError) => {
-          logger.warn("Failed to clean up uploaded job document after error", {
-            route: "POST /api/jobs/:id/documents",
-            jobId: req.params.id,
-            cleanupError,
-          });
+          cleanupError,
         });
-      }
-
-      logger.error("Job document upload failed", {
-        route: "POST /api/jobs/:id/documents",
-        jobId: req.params.id,
-        status: err.status,
-        code: err.code,
-        details: err.details,
       });
-
-      fail(res, err);
     }
-  },
-);
+
+    logger.error("Job document upload failed", {
+      route: "POST /api/jobs/:id/documents",
+      jobId: req.params.id,
+      status: err.status,
+      code: err.code,
+      details: err.details,
+    });
+
+    fail(res, err);
+  }
+});
 
 jobsDocumentsRouter.get(
   "/:id/documents/:documentId/content",
@@ -336,117 +318,93 @@ jobsDocumentsRouter.get(
       });
     } catch (error) {
       const err = toJobsRouteError(error);
-      logger[err.status === 404 ? "warn" : "error"](
-        "Job document fetch failed",
-        {
-          route: "GET /api/jobs/:id/documents/:documentId/content",
-          jobId: req.params.id,
-          documentId: req.params.documentId,
-          status: err.status,
-          code: err.code,
-          details: err.details,
-        },
-      );
+      logger[err.status === 404 ? "warn" : "error"]("Job document fetch failed", {
+        route: "GET /api/jobs/:id/documents/:documentId/content",
+        jobId: req.params.id,
+        documentId: req.params.documentId,
+        status: err.status,
+        code: err.code,
+        details: err.details,
+      });
       fail(res, err);
     }
   },
 );
 
-jobsDocumentsRouter.delete(
-  "/:id/documents/:documentId",
-  async (req: Request, res: Response) => {
-    try {
-      await requireJob(req.params.id);
-      const document = await jobDocumentsRepo.deleteJobDocumentForJob(
-        req.params.id,
-        req.params.documentId,
-      );
+jobsDocumentsRouter.delete("/:id/documents/:documentId", async (req: Request, res: Response) => {
+  try {
+    await requireJob(req.params.id);
+    const document = await jobDocumentsRepo.deleteJobDocumentForJob(
+      req.params.id,
+      req.params.documentId,
+    );
 
-      if (!document) {
-        throw new AppError({
-          status: 404,
-          code: "NOT_FOUND",
-          message: "Document not found",
-        });
-      }
-
-      await removeStoredJobDocument(document.storagePath).catch((error) => {
-        logger.warn("Failed to delete job document file", {
-          route: "DELETE /api/jobs/:id/documents/:documentId",
-          jobId: req.params.id,
-          documentId: req.params.documentId,
-          error,
-        });
+    if (!document) {
+      throw new AppError({
+        status: 404,
+        code: "NOT_FOUND",
+        message: "Document not found",
       });
+    }
 
-      logger.info("Job document deleted", {
+    await removeStoredJobDocument(document.storagePath).catch((error) => {
+      logger.warn("Failed to delete job document file", {
         route: "DELETE /api/jobs/:id/documents/:documentId",
         jobId: req.params.id,
         documentId: req.params.documentId,
+        error,
       });
+    });
 
-      ok(res, null);
-    } catch (error) {
-      const err = toJobsRouteError(error);
-      logger[err.status === 404 ? "warn" : "error"](
-        "Job document delete failed",
-        {
-          route: "DELETE /api/jobs/:id/documents/:documentId",
-          jobId: req.params.id,
-          documentId: req.params.documentId,
-          status: err.status,
-          code: err.code,
-          details: err.details,
-        },
-      );
-      fail(res, err);
-    }
-  },
-);
+    logger.info("Job document deleted", {
+      route: "DELETE /api/jobs/:id/documents/:documentId",
+      jobId: req.params.id,
+      documentId: req.params.documentId,
+    });
 
-jobsDocumentsRouter.post(
-  "/:id/generate-pdf",
-  async (req: Request, res: Response) => {
-    try {
-      if (isDemoMode()) {
-        const result = await simulateGeneratePdf(req.params.id);
-        if (!result.success) {
-          return fail(
-            res,
-            badRequest(result.error ?? "Failed to generate a resume PDF"),
-          );
-        }
-        const job = await requireJob(req.params.id);
-        return okWithMeta(res, await hydrateJobPdfFreshness(job), {
-          simulated: true,
-        });
-      }
+    ok(res, null);
+  } catch (error) {
+    const err = toJobsRouteError(error);
+    logger[err.status === 404 ? "warn" : "error"]("Job document delete failed", {
+      route: "DELETE /api/jobs/:id/documents/:documentId",
+      jobId: req.params.id,
+      documentId: req.params.documentId,
+      status: err.status,
+      code: err.code,
+      details: err.details,
+    });
+    fail(res, err);
+  }
+});
 
-      // Preparation owns the render; a second render would race its finalize.
-      if ((await requireJob(req.params.id)).status === "processing")
-        return fail(
-          res,
-          conflict("This job's resume is still being prepared."),
-        );
-      const result = await generateFinalPdf(req.params.id, {
-        requestOrigin: resolveRequestOrigin(req),
-        analyticsOrigin: "generate_pdf",
-      });
-
+jobsDocumentsRouter.post("/:id/generate-pdf", async (req: Request, res: Response) => {
+  try {
+    if (isDemoMode()) {
+      const result = await simulateGeneratePdf(req.params.id);
       if (!result.success) {
-        return fail(
-          res,
-          appErrorFromPipelineFailure(
-            result,
-            "Failed to generate a resume PDF",
-          ),
-        );
+        return fail(res, badRequest(result.error ?? "Failed to generate a resume PDF"));
       }
-
       const job = await requireJob(req.params.id);
-      ok(res, await hydrateJobPdfFreshness(job));
-    } catch (error) {
-      fail(res, toJobsRouteError(error));
+      return okWithMeta(res, await hydrateJobPdfFreshness(job), {
+        simulated: true,
+      });
     }
-  },
-);
+
+    // Preparation owns the render; a second render would race its finalize.
+    if ((await requireJob(req.params.id)).status === "processing")
+      return fail(res, conflict("This job's resume is still being prepared."));
+    const result = await generateFinalPdf(req.params.id, {
+      requestOrigin: resolveRequestOrigin(req),
+      analyticsOrigin: "generate_pdf",
+    });
+
+    if (!result.success) {
+      return fail(res, appErrorFromPipelineFailure(result, "Failed to generate a resume PDF"));
+    }
+
+    const job = await requireJob(req.params.id);
+    ok(res, await hydrateJobPdfFreshness(job));
+  } catch (error) {
+    fail(res, toJobsRouteError(error));
+  }
+});

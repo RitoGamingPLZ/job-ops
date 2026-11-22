@@ -9,9 +9,8 @@ describe("subscribeChildProcessLines", () => {
     const stdout = new PassThrough();
     const stderr = new PassThrough();
     const lines: Array<[string, NodeJS.WriteStream]> = [];
-    const close = subscribeChildProcessLines(
-      { stdout, stderr } as never,
-      (line, stream) => lines.push([line, stream]),
+    const close = subscribeChildProcessLines({ stdout, stderr } as never, (line, stream) =>
+      lines.push([line, stream]),
     );
 
     stdout.write("a\nb\n");
@@ -29,10 +28,7 @@ describe("subscribeChildProcessLines", () => {
   });
 
   it("tolerates missing pipes", () => {
-    const close = subscribeChildProcessLines(
-      { stdout: null, stderr: null },
-      () => {},
-    );
+    const close = subscribeChildProcessLines({ stdout: null, stderr: null }, () => {});
     expect(close).not.toThrow();
   });
 });

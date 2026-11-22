@@ -11,9 +11,7 @@ import { db, schema } from "../db/index";
 const { siteRecipes } = schema;
 const normalizeHost = (host: string): string => host.trim().toLowerCase();
 
-export async function getSiteRecipe(
-  host: string,
-): Promise<SiteRecipeRecord | null> {
+export async function getSiteRecipe(host: string): Promise<SiteRecipeRecord | null> {
   const row = db
     .select()
     .from(siteRecipes)
@@ -42,10 +40,7 @@ export async function getSiteRecipe(
 }
 
 /** Upsert a freshly learned recipe: sets learnedAt=now, consecutiveFailures=0, blockedReason=null. */
-export async function saveSiteRecipe(
-  host: string,
-  recipe: Recipe,
-): Promise<void> {
+export async function saveSiteRecipe(host: string, recipe: Recipe): Promise<void> {
   const validated = recipeSchema.parse(recipe);
   const now = new Date().toISOString();
   const values = {
@@ -65,10 +60,7 @@ export async function saveSiteRecipe(
 }
 
 /** Record one run: ok resets failures and sets lastSuccessAt; not ok increments. Returns the new consecutiveFailures. */
-export async function recordSiteRecipeRun(
-  host: string,
-  ok: boolean,
-): Promise<number> {
+export async function recordSiteRecipeRun(host: string, ok: boolean): Promise<number> {
   const now = new Date().toISOString();
   const row = db
     .update(siteRecipes)
@@ -84,10 +76,7 @@ export async function recordSiteRecipeRun(
 }
 
 /** Mark a host as blocked, preserving an existing recipe or inserting a null recipe. */
-export async function markSiteBlocked(
-  host: string,
-  reason: string,
-): Promise<void> {
+export async function markSiteBlocked(host: string, reason: string): Promise<void> {
   const now = new Date().toISOString();
   db.insert(siteRecipes)
     .values({

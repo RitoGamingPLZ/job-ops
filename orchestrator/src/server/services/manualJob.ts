@@ -68,8 +68,7 @@ const MANUAL_JOB_SCHEMA: JsonSchemaDefinition = {
       starting: { type: "string", description: "Start date information" },
       jobDescription: {
         type: "string",
-        description:
-          "Clean text job description with responsibilities and requirements",
+        description: "Clean text job description with responsibilities and requirements",
       },
     },
     required: [
@@ -187,17 +186,14 @@ function normalizeDraft(parsed: ManualJobApiResponse): ManualJobDraft {
   if (parsed.salary?.trim()) out.salary = parsed.salary.trim();
   if (parsed.deadline?.trim()) out.deadline = parsed.deadline.trim();
   if (parsed.jobUrl?.trim()) out.jobUrl = parsed.jobUrl.trim();
-  if (parsed.applicationLink?.trim())
-    out.applicationLink = parsed.applicationLink.trim();
+  if (parsed.applicationLink?.trim()) out.applicationLink = parsed.applicationLink.trim();
   if (parsed.jobType?.trim()) out.jobType = parsed.jobType.trim();
   if (parsed.jobLevel?.trim()) out.jobLevel = parsed.jobLevel.trim();
   if (parsed.jobFunction?.trim()) out.jobFunction = parsed.jobFunction.trim();
   if (parsed.disciplines?.trim()) out.disciplines = parsed.disciplines.trim();
-  if (parsed.degreeRequired?.trim())
-    out.degreeRequired = parsed.degreeRequired.trim();
+  if (parsed.degreeRequired?.trim()) out.degreeRequired = parsed.degreeRequired.trim();
   if (parsed.starting?.trim()) out.starting = parsed.starting.trim();
-  if (parsed.jobDescription?.trim())
-    out.jobDescription = parsed.jobDescription.trim();
+  if (parsed.jobDescription?.trim()) out.jobDescription = parsed.jobDescription.trim();
 
   return out;
 }

@@ -10,10 +10,7 @@ import {
   hydrateWatchlistSelectedSources,
   withWatchlistSourceTimeout,
 } from "@server/watchlist/results";
-import {
-  MAX_WATCHLIST_SOURCES,
-  type WatchlistResultsResponse,
-} from "@shared/types";
+import { MAX_WATCHLIST_SOURCES, type WatchlistResultsResponse } from "@shared/types";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 
@@ -39,13 +36,7 @@ const updateWatchlistSelectionsSchema = z.object({
   selections: z
     .array(
       z.object({
-        catalogSourceId: z
-          .string()
-          .trim()
-          .min(1)
-          .max(500)
-          .nullable()
-          .optional(),
+        catalogSourceId: z.string().trim().min(1).max(500).nullable().optional(),
         sourceType: z.string().trim().min(1).max(120),
         label: z.string().trim().min(1).max(200).nullable().optional(),
         careersUrl: z.string().trim().url().max(2000),
@@ -67,9 +58,7 @@ const watchlistSourceBrandingSchema = z.object({
 
 function getWatchlistSourcesPayload(
   catalogSources: Awaited<ReturnType<typeof listCareerBoardSources>>,
-  selectedSources: Awaited<
-    ReturnType<typeof watchlistRepo.listWatchlistSelectedSources>
-  >,
+  selectedSources: Awaited<ReturnType<typeof watchlistRepo.listWatchlistSelectedSources>>,
 ) {
   return {
     catalogSources,
@@ -100,10 +89,7 @@ watchlistRouter.get(
 watchlistRouter.post(
   "/results",
   asyncRoute(async (_req: Request, res: Response) => {
-    ok(
-      res,
-      (await getCurrentWatchlistResults()) satisfies WatchlistResultsResponse,
-    );
+    ok(res, (await getCurrentWatchlistResults()) satisfies WatchlistResultsResponse);
   }),
 );
 
@@ -114,17 +100,12 @@ watchlistRouter.post(
     if (!parsedBody.success) {
       return fail(
         res,
-        badRequest(
-          "Invalid watchlist job details payload",
-          parsedBody.error.flatten(),
-        ),
+        badRequest("Invalid watchlist job details payload", parsedBody.error.flatten()),
       );
     }
 
     try {
-      const source = await getWatchlistSelectedSourceById(
-        parsedBody.data.selectedSourceId,
-      );
+      const source = await getWatchlistSelectedSourceById(parsedBody.data.selectedSourceId);
       const adapter = getWatchlistSourceAdapter(source.sourceType);
       if (!adapter) {
         return fail(
@@ -155,19 +136,11 @@ watchlistRouter.post(
   asyncRoute(async (req: Request, res: Response) => {
     const parsedBody = watchlistSourceJobSchema.safeParse(req.body ?? {});
     if (!parsedBody.success) {
-      return fail(
-        res,
-        badRequest(
-          "Invalid watchlist import payload",
-          parsedBody.error.flatten(),
-        ),
-      );
+      return fail(res, badRequest("Invalid watchlist import payload", parsedBody.error.flatten()));
     }
 
     try {
-      const source = await getWatchlistSelectedSourceById(
-        parsedBody.data.selectedSourceId,
-      );
+      const source = await getWatchlistSelectedSourceById(parsedBody.data.selectedSourceId);
       const adapter = getWatchlistSourceAdapter(source.sourceType);
       if (!adapter) {
         return fail(
@@ -204,10 +177,7 @@ watchlistRouter.post(
     if (!parsedBody.success) {
       return fail(
         res,
-        badRequest(
-          "Invalid watchlist source branding payload",
-          parsedBody.error.flatten(),
-        ),
+        badRequest("Invalid watchlist source branding payload", parsedBody.error.flatten()),
       );
     }
 
@@ -250,13 +220,7 @@ watchlistRouter.post(
   asyncRoute(async (req: Request, res: Response) => {
     const parsedBody = watchlistCheckSchema.safeParse(req.body ?? {});
     if (!parsedBody.success) {
-      return fail(
-        res,
-        badRequest(
-          "Invalid watchlist check payload",
-          parsedBody.error.flatten(),
-        ),
-      );
+      return fail(res, badRequest("Invalid watchlist check payload", parsedBody.error.flatten()));
     }
 
     ok(res, await watchlistRepo.recordWatchlistCheck(parsedBody.data));
@@ -266,23 +230,16 @@ watchlistRouter.post(
 watchlistRouter.put(
   "/sources",
   asyncRoute(async (req: Request, res: Response) => {
-    const parsedBody = updateWatchlistSelectionsSchema.safeParse(
-      req.body ?? {},
-    );
+    const parsedBody = updateWatchlistSelectionsSchema.safeParse(req.body ?? {});
     if (!parsedBody.success) {
       return fail(
         res,
-        badRequest(
-          "Invalid watchlist source selections",
-          parsedBody.error.flatten(),
-        ),
+        badRequest("Invalid watchlist source selections", parsedBody.error.flatten()),
       );
     }
 
     const catalogSources = await listCareerBoardSources();
-    const catalogSourcesById = new Map(
-      catalogSources.map((source) => [source.id, source]),
-    );
+    const catalogSourcesById = new Map(catalogSources.map((source) => [source.id, source]));
     const normalizedSelections = [];
     const seenUrls = new Set<string>();
 
@@ -312,13 +269,10 @@ watchlistRouter.put(
         if (catalogSource.careersUrl !== normalizedUrl) {
           return fail(
             res,
-            unprocessableEntity(
-              "Selected watchlist source URL does not match the catalog",
-              {
-                catalogSourceId: selection.catalogSourceId,
-                careersUrl: normalizedUrl,
-              },
-            ),
+            unprocessableEntity("Selected watchlist source URL does not match the catalog", {
+              catalogSourceId: selection.catalogSourceId,
+              careersUrl: normalizedUrl,
+            }),
           );
         }
 
@@ -343,12 +297,9 @@ watchlistRouter.put(
       if (!adapter.descriptor.supportsCustomSource) {
         return fail(
           res,
-          unprocessableEntity(
-            "Custom sources are not supported for this source type",
-            {
-              sourceType: selection.sourceType,
-            },
-          ),
+          unprocessableEntity("Custom sources are not supported for this source type", {
+            sourceType: selection.sourceType,
+          }),
         );
       }
 
@@ -376,11 +327,9 @@ watchlistRouter.put(
       }
     }
 
-    const selectedSources = await watchlistRepo.replaceWatchlistSelectedSources(
-      {
-        selections: normalizedSelections,
-      },
-    );
+    const selectedSources = await watchlistRepo.replaceWatchlistSelectedSources({
+      selections: normalizedSelections,
+    });
 
     ok(res, getWatchlistSourcesPayload(catalogSources, selectedSources));
   }),
@@ -393,10 +342,7 @@ watchlistRouter.put(
     if (!parsedParams.success) {
       return fail(
         res,
-        badRequest(
-          "Invalid watchlist state parameters",
-          parsedParams.error.flatten(),
-        ),
+        badRequest("Invalid watchlist state parameters", parsedParams.error.flatten()),
       );
     }
 
@@ -416,10 +362,7 @@ watchlistRouter.delete(
     if (!parsedParams.success) {
       return fail(
         res,
-        badRequest(
-          "Invalid watchlist state parameters",
-          parsedParams.error.flatten(),
-        ),
+        badRequest("Invalid watchlist state parameters", parsedParams.error.flatten()),
       );
     }
 

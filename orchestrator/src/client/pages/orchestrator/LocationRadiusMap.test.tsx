@@ -3,15 +3,14 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import LocationRadiusMap from "./LocationRadiusMap";
 
-const { fitBoundsMock, invalidateSizeMock, observeMock, resizeObserverState } =
-  vi.hoisted(() => ({
-    fitBoundsMock: vi.fn(),
-    invalidateSizeMock: vi.fn(),
-    observeMock: vi.fn(),
-    resizeObserverState: {
-      callback: null as ResizeObserverCallback | null,
-    },
-  }));
+const { fitBoundsMock, invalidateSizeMock, observeMock, resizeObserverState } = vi.hoisted(() => ({
+  fitBoundsMock: vi.fn(),
+  invalidateSizeMock: vi.fn(),
+  observeMock: vi.fn(),
+  resizeObserverState: {
+    callback: null as ResizeObserverCallback | null,
+  },
+}));
 
 vi.stubGlobal(
   "ResizeObserver",
@@ -31,13 +30,7 @@ vi.mock("leaflet", () => ({
 }));
 
 vi.mock("react-leaflet", () => ({
-  MapContainer: ({
-    children,
-    className,
-  }: {
-    children: ReactNode;
-    className: string;
-  }) => (
+  MapContainer: ({ children, className }: { children: ReactNode; className: string }) => (
     <div data-testid="radius-map" className={className}>
       {children}
     </div>
@@ -139,15 +132,10 @@ describe("LocationRadiusMap", () => {
       .getAttribute("data-position");
     fireEvent.mouseMove(marker);
 
-    expect(screen.getByTestId("radius-circle")).toHaveAttribute(
-      "data-position",
-      "55,-2",
+    expect(screen.getByTestId("radius-circle")).toHaveAttribute("data-position", "55,-2");
+    expect(screen.getByTestId("jobops-map-radius-handle").getAttribute("data-position")).not.toBe(
+      initialHandle,
     );
-    expect(
-      screen
-        .getByTestId("jobops-map-radius-handle")
-        .getAttribute("data-position"),
-    ).not.toBe(initialHandle);
     expect(onCenterChange).not.toHaveBeenCalled();
 
     fireEvent.mouseUp(marker);

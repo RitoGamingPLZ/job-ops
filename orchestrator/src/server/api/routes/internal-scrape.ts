@@ -6,12 +6,7 @@ import { sanitizeUnknown } from "@infra/sanitize";
 import { getExtractorRegistry } from "@server/extractors/registry";
 import type { ExtractorSourceId } from "@shared/extractors";
 import type { ExtractorRuntimeContext } from "@shared/types";
-import {
-  type NextFunction,
-  type Request,
-  type Response,
-  Router,
-} from "express";
+import { type NextFunction, type Request, type Response, Router } from "express";
 
 export const internalScrapeRouter = Router();
 
@@ -27,14 +22,8 @@ function getProvidedSecret(req: Request): string {
   return "";
 }
 
-function verifyInternalScrapeSecret(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void {
-  const expectedSecret = (
-    process.env.INTERNAL_SYNC_SECRET || process.env.CRON_SECRET
-  )?.trim();
+function verifyInternalScrapeSecret(req: Request, res: Response, next: NextFunction): void {
+  const expectedSecret = (process.env.INTERNAL_SYNC_SECRET || process.env.CRON_SECRET)?.trim();
   if (!expectedSecret) {
     fail(res, forbidden("Internal scrape execution is not configured."));
     return;
@@ -84,8 +73,7 @@ export async function handleInternalScrapeRun(
     const params = body.params ?? {};
     const searchTerms = Array.isArray(params.searchTerms)
       ? params.searchTerms.filter(
-          (term): term is string =>
-            typeof term === "string" && term.trim().length > 0,
+          (term): term is string => typeof term === "string" && term.trim().length > 0,
         )
       : body.title?.trim()
         ? [body.title.trim()]
@@ -94,8 +82,7 @@ export async function handleInternalScrapeRun(
           : [];
 
     const selectedCountry =
-      typeof params.selectedCountry === "string" &&
-      params.selectedCountry.trim()
+      typeof params.selectedCountry === "string" && params.selectedCountry.trim()
         ? params.selectedCountry.trim()
         : "uk";
 
@@ -105,9 +92,7 @@ export async function handleInternalScrapeRun(
       searchTerms,
       selectedCountry,
       settings:
-        params.settings &&
-        typeof params.settings === "object" &&
-        !Array.isArray(params.settings)
+        params.settings && typeof params.settings === "object" && !Array.isArray(params.settings)
           ? (params.settings as Record<string, string>)
           : {},
       ...(typeof params.cookieStorageDir === "string"

@@ -1,11 +1,4 @@
-import {
-  access,
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -24,9 +17,8 @@ const pdfMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@server/services/pdf", async () => {
-  const actual = await vi.importActual<typeof import("@server/services/pdf")>(
-    "@server/services/pdf",
-  );
+  const actual =
+    await vi.importActual<typeof import("@server/services/pdf")>("@server/services/pdf");
   return {
     ...actual,
     generatePdf: pdfMocks.generatePdf,
@@ -37,7 +29,7 @@ function sortedPairs(map: Record<string, string>) {
   return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
 }
 
-describe.sequential("demo seed baseline", () => {
+describe("demo seed baseline", () => {
   let tempDir: string;
   let closeDb: (() => void) | null = null;
 
@@ -79,9 +71,7 @@ describe.sequential("demo seed baseline", () => {
 
     expect(baseline.resetAt).toBe(now.toISOString());
     expect(Object.keys(baseline.settings).length).toBeGreaterThan(0);
-    expect(baseline.pipelineRuns).toHaveLength(
-      DEMO_DEFAULT_PIPELINE_RUNS.length,
-    );
+    expect(baseline.pipelineRuns).toHaveLength(DEMO_DEFAULT_PIPELINE_RUNS.length);
     expect(baseline.jobs).toHaveLength(DEMO_DEFAULT_JOBS.length);
     expect(baseline.stageEvents).toHaveLength(DEMO_DEFAULT_STAGE_EVENTS.length);
 
@@ -92,19 +82,13 @@ describe.sequential("demo seed baseline", () => {
   it("gives every seeded closed job an outcome and closedAt, including tied events", async () => {
     const { buildDemoBaseline } = await import("./demo-seed");
     const baseline = buildDemoBaseline(new Date("2026-02-05T12:00:00.000Z"));
-    const closedEvents = baseline.stageEvents.filter(
-      (event) => event.toStage === "closed",
-    );
+    const closedEvents = baseline.stageEvents.filter((event) => event.toStage === "closed");
 
     expect(closedEvents.length).toBeGreaterThan(0);
-    expect(closedEvents.map((event) => event.applicationId)).toContain(
-      "demo-job-applied-auto-84",
-    );
+    expect(closedEvents.map((event) => event.applicationId)).toContain("demo-job-applied-auto-84");
     for (const event of closedEvents) {
       expect(event.outcome).toEqual(expect.any(String));
-      expect(
-        baseline.jobs.find((job) => job.id === event.applicationId),
-      ).toMatchObject({
+      expect(baseline.jobs.find((job) => job.id === event.applicationId)).toMatchObject({
         outcome: event.outcome,
         closedAt: event.occurredAt,
       });
@@ -118,25 +102,17 @@ describe.sequential("demo seed baseline", () => {
 
     await resetDemoData();
     const jobs = await getAllJobs();
-    const targets = jobs.filter(
-      (job) => job.status === "discovered" && isTargeted(job),
-    );
+    const targets = jobs.filter((job) => job.status === "discovered" && isTargeted(job));
     expect(targets.length).toBeGreaterThanOrEqual(2);
     for (const job of targets) {
       expect(job.pdfPath).toBeNull();
       expect(job.tailoredSummary).toBeNull();
-      expect(Date.parse(job.readyAt ?? "")).toBeGreaterThanOrEqual(
-        Date.parse(job.discoveredAt),
-      );
+      expect(Date.parse(job.readyAt ?? "")).toBeGreaterThanOrEqual(Date.parse(job.discoveredAt));
     }
-    expect(
-      jobs.some((job) => job.status === "discovered" && !isTargeted(job)),
-    ).toBe(true);
+    expect(jobs.some((job) => job.status === "discovered" && !isTargeted(job))).toBe(true);
     expect(technicalRound(await getStageEvents("demo-job-applied-1"))).toBe(2);
     expect(await getStageEvents("demo-job-applied-2")).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ toStage: "behavioural" }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ toStage: "behavioural" })]),
     );
     expect(await getStageEvents("demo-job-applied-5")).toEqual(
       expect.arrayContaining([
@@ -157,9 +133,7 @@ describe.sequential("demo seed baseline", () => {
   it("resetDemoData restores defaults without deleting another tenant", async () => {
     const { db, schema } = await import("../db/index");
     const { resetDemoData } = await import("./demo-mode");
-    const { setSetting, getAllSettings } = await import(
-      "../repositories/settings"
-    );
+    const { setSetting, getAllSettings } = await import("../repositories/settings");
 
     await resetDemoData();
 
@@ -206,22 +180,16 @@ describe.sequential("demo seed baseline", () => {
     const { resetDemoData } = await import("./demo-mode");
     const { getAllJobs } = await import("../repositories/jobs");
     const { getTenantJobPdfPath } = await import("./pdf-storage");
-    const { getJobPdfFreshness, resolvePdfFingerprintContext } = await import(
-      "./pdf-fingerprint"
-    );
+    const { getJobPdfFreshness, resolvePdfFingerprintContext } = await import("./pdf-fingerprint");
 
     await resetDemoData();
 
     const allJobs = await getAllJobs();
-    const pdfJobs = allJobs.filter(
-      (job) => job.status === "ready" || job.status === "applied",
-    );
+    const pdfJobs = allJobs.filter((job) => job.status === "ready" || job.status === "applied");
     const fingerprintContext = await resolvePdfFingerprintContext();
 
     expect(pdfJobs).toHaveLength(
-      DEMO_DEFAULT_JOBS.filter(
-        (job) => job.status === "ready" || job.status === "applied",
-      ).length,
+      DEMO_DEFAULT_JOBS.filter((job) => job.status === "ready" || job.status === "applied").length,
     );
 
     for (const job of pdfJobs) {
@@ -244,9 +212,7 @@ describe.sequential("demo seed baseline", () => {
 
     const logicalSnapshot = async () => {
       const [settingsRows, runRows, jobRows, stageRows] = await Promise.all([
-        db
-          .select({ key: schema.settings.key, value: schema.settings.value })
-          .from(schema.settings),
+        db.select({ key: schema.settings.key, value: schema.settings.value }).from(schema.settings),
         db
           .select({
             id: schema.pipelineRuns.id,

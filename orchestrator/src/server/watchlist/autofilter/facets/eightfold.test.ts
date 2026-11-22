@@ -116,9 +116,7 @@ it("sorts and caps valid Netflix values while skipping malformed entries", async
     count: 100,
     facets: {
       Teams: {
-        ...Object.fromEntries(
-          Array.from({ length: 65 }, (_, i) => [`Team ${i}`, i]),
-        ),
+        ...Object.fromEntries(Array.from({ length: 65 }, (_, i) => [`Team ${i}`, i])),
         bad: -1,
         invalid: "2",
         ["x".repeat(121)]: 99,
@@ -132,15 +130,8 @@ it("sorts and caps valid Netflix values while skipping malformed entries", async
   expect(result.params).toHaveLength(3);
 });
 
-it.each([
-  netflix,
-  microsoft,
-])("supports freeText when %s has no facet data", async (careersUrl) => {
-  mockResponse(
-    careersUrl === microsoft
-      ? { status: 200, data: { count: 10 } }
-      : { count: 10 },
-  );
+it.each([netflix, microsoft])("supports freeText when %s has no facet data", async (careersUrl) => {
+  mockResponse(careersUrl === microsoft ? { status: 200, data: { count: 10 } } : { count: 10 });
   expect((await discoverEightfoldFacets({ careersUrl })).params).toEqual([
     { key: "query", multi: false, freeText: true },
     { key: "location", multi: false, freeText: true },
@@ -164,13 +155,9 @@ it.each([
 });
 
 it("does not retry a rate limit or expose its body", async () => {
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(new Response("secret", { status: 429 }));
+  const fetch = vi.fn().mockResolvedValue(new Response("secret", { status: 429 }));
   vi.stubGlobal("fetch", fetch);
-  await expect(
-    discoverEightfoldFacets({ careersUrl: microsoft }),
-  ).rejects.toMatchObject({
+  await expect(discoverEightfoldFacets({ careersUrl: microsoft })).rejects.toMatchObject({
     status: 502,
     message: "Eightfold facets returned HTTP 429.",
   });
@@ -185,16 +172,14 @@ it.each([
   { status: 403, data: { count: 1 }, error: "secret" },
 ])("rejects invalid search data %j", async (data) => {
   mockResponse(data);
-  await expect(
-    discoverEightfoldFacets({ careersUrl: microsoft }),
-  ).rejects.toMatchObject({ status: 502 });
+  await expect(discoverEightfoldFacets({ careersUrl: microsoft })).rejects.toMatchObject({
+    status: 502,
+  });
 });
 
 it("handles invalid JSON safely", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("secret")));
-  await expect(
-    discoverEightfoldFacets({ careersUrl: netflix }),
-  ).rejects.toMatchObject({
+  await expect(discoverEightfoldFacets({ careersUrl: netflix })).rejects.toMatchObject({
     message: "Eightfold facets returned invalid JSON.",
   });
 });
@@ -209,18 +194,11 @@ it("honors cancellation before fetch", async () => {
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it.each([
-  "TimeoutError",
-  "AbortError",
-])("preserves %s during body reads", async (name) => {
+it.each(["TimeoutError", "AbortError"])("preserves %s during body reads", async (name) => {
   const error = Object.assign(new Error("interrupted"), { name });
   vi.stubGlobal(
     "fetch",
-    vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: vi.fn().mockRejectedValue(error) }),
+    vi.fn().mockResolvedValue({ ok: true, json: vi.fn().mockRejectedValue(error) }),
   );
-  await expect(discoverEightfoldFacets({ careersUrl: netflix })).rejects.toBe(
-    error,
-  );
+  await expect(discoverEightfoldFacets({ careersUrl: netflix })).rejects.toBe(error);
 });

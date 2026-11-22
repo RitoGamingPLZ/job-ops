@@ -81,10 +81,7 @@ const hostedSignupDisabledAppStatus = {
 
 const realLocation = window.location;
 
-function renderSignInPage(
-  initialEntries: string[],
-  extraRoutes?: React.ReactNode,
-) {
+function renderSignInPage(initialEntries: string[], extraRoutes?: React.ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -184,9 +181,7 @@ describe("SignInPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Enter both username and password.",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Enter both username and password.");
     expect(signInWithCredentials).not.toHaveBeenCalled();
   });
 
@@ -195,10 +190,7 @@ describe("SignInPage", () => {
       setupRequired: true,
     });
 
-    renderSignInPage(
-      ["/sign-in"],
-      <Route path="/onboarding" element={<div>onboarding</div>} />,
-    );
+    renderSignInPage(["/sign-in"], <Route path="/onboarding" element={<div>onboarding</div>} />);
 
     expect(await screen.findByText("onboarding")).toBeInTheDocument();
     expect(signupWithCredentials).not.toHaveBeenCalled();
@@ -209,16 +201,12 @@ describe("SignInPage", () => {
 
     renderSignInPage(["/sign-in"]);
 
-    expect(
-      await screen.findByRole("tab", { name: "Create account" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "Create account" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Sign in" })).toBeInTheDocument();
   });
 
   it("hides hosted signup when hosted signups are disabled", async () => {
-    vi.mocked(getAppStatus).mockResolvedValueOnce(
-      hostedSignupDisabledAppStatus,
-    );
+    vi.mocked(getAppStatus).mockResolvedValueOnce(hostedSignupDisabledAppStatus);
 
     renderSignInPage(["/sign-in"]);
 
@@ -276,9 +264,7 @@ describe("SignInPage", () => {
       });
       expect(screen.getByText("all-jobs-page")).toBeInTheDocument();
     });
-    expect(localStorage.getItem("jobops.rememberedAuthUsers")).toContain(
-      "new-user",
-    );
+    expect(localStorage.getItem("jobops.rememberedAuthUsers")).toContain("new-user");
   });
 
   it("hides the single sign-on divider when no provider is configured", async () => {
@@ -313,22 +299,16 @@ describe("SignInPage", () => {
     const googleButton = await screen.findByRole("button", {
       name: "Continue with Google",
     });
-    expect(
-      screen.getByRole("button", { name: "Continue with Pocket ID" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue with Pocket ID" })).toBeInTheDocument();
     await waitFor(() => expect(googleButton).toBeEnabled());
 
     fireEvent.click(googleButton);
 
     await waitFor(() => {
       expect(startSsoLogin).toHaveBeenCalledWith("google");
-      expect(assign).toHaveBeenCalledWith(
-        "https://accounts.google.com/o/oauth2/v2/auth?x=1",
-      );
+      expect(assign).toHaveBeenCalledWith("https://accounts.google.com/o/oauth2/v2/auth?x=1");
     });
-    expect(
-      JSON.parse(sessionStorage.getItem("jobops.ssoFlow") ?? "null"),
-    ).toMatchObject({
+    expect(JSON.parse(sessionStorage.getItem("jobops.ssoFlow") ?? "null")).toMatchObject({
       provider: "google",
       state: "state-1",
       flowToken: "flow-token-1",
@@ -338,9 +318,7 @@ describe("SignInPage", () => {
   });
 
   it("reports a failed provider start without leaving the page", async () => {
-    vi.mocked(getSsoProviders).mockResolvedValue([
-      { id: "github", displayName: "GitHub" },
-    ]);
+    vi.mocked(getSsoProviders).mockResolvedValue([{ id: "github", displayName: "GitHub" }]);
     vi.mocked(startSsoLogin).mockRejectedValue(
       new Error("Single sign-on is disabled in the public demo."),
     );

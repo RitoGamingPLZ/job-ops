@@ -1,13 +1,9 @@
-import {
-  EXTRACTOR_SOURCE_METADATA,
-  type ExtractorSourceId,
-} from "@shared/extractors";
+import { EXTRACTOR_SOURCE_METADATA, type ExtractorSourceId } from "@shared/extractors";
 import type { LocationSourcePlan } from "@shared/location-intelligence.js";
 import { formatCountryLabel } from "@shared/location-support.js";
 import { sourceLabel } from "@/lib/utils";
 
-const GLASSDOOR_COUNTRY_REASON =
-  "Glassdoor is not available for the selected country.";
+const GLASSDOOR_COUNTRY_REASON = "Glassdoor is not available for the selected country.";
 const GLASSDOOR_LOCATION_REASON =
   "Add at least one city in Location preferences to enable Glassdoor.";
 
@@ -17,12 +13,8 @@ export interface AutomaticSourceStatus {
   available: boolean;
 }
 
-function getKnownJobSource(
-  source: LocationSourcePlan["source"],
-): ExtractorSourceId | null {
-  return source in EXTRACTOR_SOURCE_METADATA
-    ? (source as ExtractorSourceId)
-    : null;
+function getKnownJobSource(source: LocationSourcePlan["source"]): ExtractorSourceId | null {
+  return source in EXTRACTOR_SOURCE_METADATA ? (source as ExtractorSourceId) : null;
 }
 
 export function getSourceStatus(args: {
@@ -32,9 +24,7 @@ export function getSourceStatus(args: {
   const { countrySelected, plan } = args;
   const { source, requestedCountry, requestedCities } = plan;
   const knownSource = getKnownJobSource(source);
-  const countryLabel = requestedCountry
-    ? formatCountryLabel(requestedCountry)
-    : "";
+  const countryLabel = requestedCountry ? formatCountryLabel(requestedCountry) : "";
   const sourceName = knownSource ? sourceLabel[knownSource] : source;
   const isUkOnlySource = knownSource
     ? Boolean(EXTRACTOR_SOURCE_METADATA[knownSource]?.ukOnly)
@@ -44,8 +34,7 @@ export function getSourceStatus(args: {
     if (source === "glassdoor" || isUkOnlySource) {
       return {
         badgeLabel: "Select country",
-        detail:
-          "Pick a country first to check whether this source is available.",
+        detail: "Pick a country first to check whether this source is available.",
         available: false,
       };
     }
@@ -70,10 +59,7 @@ export function getSourceStatus(args: {
       };
     }
 
-    if (
-      plan.capabilities.requiresCityLocations &&
-      requestedCities.length === 0
-    ) {
+    if (plan.capabilities.requiresCityLocations && requestedCities.length === 0) {
       return {
         badgeLabel: "Needs city",
         detail: GLASSDOOR_LOCATION_REASON,

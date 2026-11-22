@@ -1,10 +1,7 @@
 import type { JobStatus } from "@shared/types/jobs";
 import type React from "react";
 import { cn } from "@/lib/utils";
-import {
-  defaultStatusToken,
-  statusTokens,
-} from "../pages/orchestrator/constants";
+import { defaultStatusToken, statusTokens } from "../pages/orchestrator/constants";
 import { Tip } from "./Tip";
 
 const STATUS_INDICATOR_BASE_CLASS =
@@ -69,9 +66,7 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
     >
       <span
         className={cn(
-          appearance === "badge"
-            ? "h-1.5 w-1.5 rounded-full"
-            : STATUS_INDICATOR_DOT_CLASS,
+          appearance === "badge" ? "h-1.5 w-1.5 rounded-full" : STATUS_INDICATOR_DOT_CLASS,
           animateDot ? "animate-pulse" : undefined,
           resolvedDotColor,
           dotClassName,

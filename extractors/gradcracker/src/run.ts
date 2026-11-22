@@ -126,10 +126,7 @@ type FetchResponseLike = {
   text: () => Promise<string>;
 };
 
-type FetchLike = (
-  input: string | URL,
-  init?: RequestInit,
-) => Promise<FetchResponseLike>;
+type FetchLike = (input: string | URL, init?: RequestInit) => Promise<FetchResponseLike>;
 
 class ChallengeRequiredError extends Error {
   constructor(readonly url: string) {
@@ -137,9 +134,7 @@ class ChallengeRequiredError extends Error {
   }
 }
 
-export function parseGradcrackerProgressLine(
-  line: string,
-): GradcrackerChildProgressEvent | null {
+export function parseGradcrackerProgressLine(line: string): GradcrackerChildProgressEvent | null {
   if (!line.startsWith(JOBOPS_PROGRESS_PREFIX)) return null;
 
   const raw = line.slice(JOBOPS_PROGRESS_PREFIX.length).trim();
@@ -178,9 +173,7 @@ export function summarizeGradcrackerBrowserFailure(
   fallbackMessage: string,
 ): string {
   const combined = lines.join("\n");
-  const missingExecutable = /Executable doesn't exist at ([^\n]+)/.exec(
-    combined,
-  );
+  const missingExecutable = /Executable doesn't exist at ([^\n]+)/.exec(combined);
   const failedLaunch = /Failed to launch browser/i.test(combined);
 
   if (missingExecutable || failedLaunch) {
@@ -196,20 +189,14 @@ export function summarizeGradcrackerBrowserFailure(
 
   const meaningfulLine = [...lines]
     .reverse()
-    .find(
-      (line) =>
-        !line.startsWith("INFO  PlaywrightCrawler") && !line.startsWith("> "),
-    );
+    .find((line) => !line.startsWith("INFO  PlaywrightCrawler") && !line.startsWith("> "));
 
   return meaningfulLine
     ? `Gradcracker browser fallback failed: ${meaningfulLine}`
     : fallbackMessage;
 }
 
-function toPositiveIntOrFallback(
-  value: number | string | undefined,
-  fallback: number,
-): number {
+function toPositiveIntOrFallback(value: number | string | undefined, fallback: number): number {
   const parsed =
     typeof value === "number"
       ? value
@@ -221,10 +208,7 @@ function toPositiveIntOrFallback(
   return Math.max(1, Math.floor(parsed));
 }
 
-function toNonNegativeIntOrFallback(
-  value: number | string | undefined,
-  fallback: number,
-): number {
+function toNonNegativeIntOrFallback(value: number | string | undefined, fallback: number): number {
   const parsed =
     typeof value === "number"
       ? value
@@ -266,10 +250,7 @@ function createRequestStartLimiter(minIntervalMs: number): () => Promise<void> {
   };
 }
 
-function createPacedFetch(
-  fetchImpl: FetchLike,
-  requestDelayMs: number,
-): FetchLike {
+function createPacedFetch(fetchImpl: FetchLike, requestDelayMs: number): FetchLike {
   const waitForRequestTurn = createRequestStartLimiter(requestDelayMs);
 
   return async (input, init) => {
@@ -310,10 +291,7 @@ function normalizeUrl(
   }
 }
 
-function toAbsoluteUrl(
-  raw: string | null | undefined,
-  baseUrl: string,
-): string {
+function toAbsoluteUrl(raw: string | null | undefined, baseUrl: string): string {
   if (!raw) return "";
   try {
     return new URL(raw, baseUrl).href;
@@ -327,9 +305,7 @@ function cleanInlineText(value: string | null | undefined): string | undefined {
   return cleaned || undefined;
 }
 
-function cleanMultilineText(
-  value: string | null | undefined,
-): string | undefined {
+function cleanMultilineText(value: string | null | undefined): string | undefined {
   const cleaned = value
     ?.replace(/\r/g, "")
     .split("\n")
@@ -344,16 +320,10 @@ function hasChallengeMarkers(html: string): boolean {
   return CF_CHALLENGE_MARKERS.some((marker) => html.includes(marker));
 }
 
-function isChallengeResponse(
-  response: FetchResponseLike,
-  html: string,
-): boolean {
+function isChallengeResponse(response: FetchResponseLike, html: string): boolean {
   const mitigated = response.headers?.get("cf-mitigated")?.toLowerCase();
   if (mitigated === "challenge") return true;
-  if (
-    (response.status === 403 || response.status === 503) &&
-    hasChallengeMarkers(html)
-  ) {
+  if ((response.status === 403 || response.status === 503) && hasChallengeMarkers(html)) {
     return true;
   }
   return hasChallengeMarkers(html);
@@ -401,12 +371,8 @@ export function parseGradcrackerListPage(
       if (!title || !jobUrl) return null;
 
       const employer =
-        cleanInlineText(article.find("figure img").first().attr("alt")) ??
-        "Unknown Employer";
-      const employerUrl = normalizeUrl(
-        article.find("figure a").first().attr("href"),
-        pageUrl,
-      );
+        cleanInlineText(article.find("figure img").first().attr("alt")) ?? "Unknown Employer";
+      const employerUrl = normalizeUrl(article.find("figure a").first().attr("href"), pageUrl);
 
       return {
         title,
@@ -416,12 +382,8 @@ export function parseGradcrackerListPage(
         ...(cleanInlineText(article.find("h3").first().text())
           ? { disciplines: cleanInlineText(article.find("h3").first().text()) }
           : {}),
-        ...(extractDeadline($, article)
-          ? { deadline: extractDeadline($, article) }
-          : {}),
-        ...(getDdText($, article, "Salary")
-          ? { salary: getDdText($, article, "Salary") }
-          : {}),
+        ...(extractDeadline($, article) ? { deadline: extractDeadline($, article) } : {}),
+        ...(getDdText($, article, "Salary") ? { salary: getDdText($, article, "Salary") } : {}),
         ...(getDdText($, article, "Location")
           ? { location: getDdText($, article, "Location") }
           : {}),
@@ -471,19 +433,14 @@ export function decodeGradcrackerOutUrl(value: string): string | undefined {
   }
 }
 
-export function parseGradcrackerDetailPage(
-  html: string,
-  pageUrl: string,
-): GradcrackerJobDetail {
+export function parseGradcrackerDetailPage(html: string, pageUrl: string): GradcrackerJobDetail {
   const $ = cheerio.load(html);
   const jobDescription = cleanMultilineText($(".body-content").first().text());
   const applyHref =
     $("a[dusk='apply-button']").first().attr("href") ??
     $("a[href*='/out/']").first().attr("href") ??
     $("a")
-      .filter((_, element) =>
-        /apply/i.test(cleanInlineText($(element).text()) ?? ""),
-      )
+      .filter((_, element) => /apply/i.test(cleanInlineText($(element).text()) ?? ""))
       .first()
       .attr("href");
 
@@ -512,14 +469,10 @@ async function createImpitFetch(cookieStorageDir?: string): Promise<FetchLike> {
     ...(headers ? { headers } : {}),
   });
 
-  return (input, init) =>
-    impit.fetch(input, init as Parameters<Impit["fetch"]>[1]);
+  return (input, init) => impit.fetch(input, init as Parameters<Impit["fetch"]>[1]);
 }
 
-async function fetchHtml(args: {
-  fetchImpl: FetchLike;
-  url: string;
-}): Promise<string> {
+async function fetchHtml(args: { fetchImpl: FetchLike; url: string }): Promise<string> {
   const response = await args.fetchImpl(args.url, {
     headers: {
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -615,19 +568,13 @@ async function mapWithConcurrency<T, R>(
     }
   }
 
-  const workers = Array.from(
-    { length: Math.min(concurrency, values.length) },
-    () => worker(),
-  );
+  const workers = Array.from({ length: Math.min(concurrency, values.length) }, () => worker());
   await Promise.all(workers);
   return results;
 }
 
-export async function runHttpCrawler(
-  options: RunCrawlerOptions = {},
-): Promise<CrawlerResult> {
-  const rawFetchImpl =
-    options.fetchImpl ?? (await createImpitFetch(options.cookieStorageDir));
+export async function runHttpCrawler(options: RunCrawlerOptions = {}): Promise<CrawlerResult> {
+  const rawFetchImpl = options.fetchImpl ?? (await createImpitFetch(options.cookieStorageDir));
   const requestDelayMs = toNonNegativeIntOrFallback(
     options.requestDelayMs ??
       process.env.GRADCRACKER_HTTP_REQUEST_DELAY_MS ??
@@ -643,8 +590,7 @@ export async function runHttpCrawler(
       .filter((url): url is string => Boolean(url)),
   );
   const detailConcurrency = toPositiveIntOrFallback(
-    options.detailConcurrency ??
-      process.env.GRADCRACKER_HTTP_DETAIL_CONCURRENCY,
+    options.detailConcurrency ?? process.env.GRADCRACKER_HTTP_DETAIL_CONCURRENCY,
     DEFAULT_DETAIL_CONCURRENCY,
   );
   const startUrls = LOCATIONS.flatMap((location) =>
@@ -682,11 +628,7 @@ export async function runHttpCrawler(
       }
 
       const html = await fetchHtml({ fetchImpl, url: startUrl.url });
-      const summaries = parseGradcrackerListPage(
-        html,
-        startUrl.url,
-        startUrl.role,
-      );
+      const summaries = parseGradcrackerListPage(html, startUrl.url, startUrl.role);
       let enqueued = 0;
       let skippedKnown = 0;
 
@@ -718,37 +660,32 @@ export async function runHttpCrawler(
       });
     }
 
-    const jobs = await mapWithConcurrency(
-      pendingDetails,
-      detailConcurrency,
-      async (summary) => {
-        if (options.shouldCancel?.()) {
-          return null;
-        }
+    const jobs = await mapWithConcurrency(pendingDetails, detailConcurrency, async (summary) => {
+      if (options.shouldCancel?.()) {
+        return null;
+      }
 
-        const html = await fetchHtml({ fetchImpl, url: summary.jobUrl });
-        const detail = parseGradcrackerDetailPage(html, summary.jobUrl);
-        progress.markJobPageDone(summary.jobUrl);
+      const html = await fetchHtml({ fetchImpl, url: summary.jobUrl });
+      const detail = parseGradcrackerDetailPage(html, summary.jobUrl);
+      progress.markJobPageDone(summary.jobUrl);
 
-        const job: CreateJobInput = {
-          source: "gradcracker",
-          title: summary.title,
-          employer: summary.employer,
-          jobUrl: summary.jobUrl,
-        };
-        if (summary.employerUrl) job.employerUrl = summary.employerUrl;
-        if (detail.applicationLink)
-          job.applicationLink = detail.applicationLink;
-        if (summary.disciplines) job.disciplines = summary.disciplines;
-        if (summary.deadline) job.deadline = summary.deadline;
-        if (summary.salary) job.salary = summary.salary;
-        if (summary.location) job.location = summary.location;
-        if (summary.degreeRequired) job.degreeRequired = summary.degreeRequired;
-        if (summary.starting) job.starting = summary.starting;
-        if (detail.jobDescription) job.jobDescription = detail.jobDescription;
-        return job;
-      },
-    );
+      const job: CreateJobInput = {
+        source: "gradcracker",
+        title: summary.title,
+        employer: summary.employer,
+        jobUrl: summary.jobUrl,
+      };
+      if (summary.employerUrl) job.employerUrl = summary.employerUrl;
+      if (detail.applicationLink) job.applicationLink = detail.applicationLink;
+      if (summary.disciplines) job.disciplines = summary.disciplines;
+      if (summary.deadline) job.deadline = summary.deadline;
+      if (summary.salary) job.salary = summary.salary;
+      if (summary.location) job.location = summary.location;
+      if (summary.degreeRequired) job.degreeRequired = summary.degreeRequired;
+      if (summary.starting) job.starting = summary.starting;
+      if (detail.jobDescription) job.jobDescription = detail.jobDescription;
+      return job;
+    });
 
     return {
       success: true,
@@ -778,17 +715,13 @@ async function writeExistingJobUrlsFile(
   return filePath;
 }
 
-async function runBrowserCrawler(
-  options: RunCrawlerOptions = {},
-): Promise<CrawlerResult> {
+async function runBrowserCrawler(options: RunCrawlerOptions = {}): Promise<CrawlerResult> {
   let challengeRequired: string | undefined;
   const childOutputLines: string[] = [];
 
   try {
     await clearStorageDataset();
-    const existingJobUrlsFile = await writeExistingJobUrlsFile(
-      options.existingJobUrls,
-    );
+    const existingJobUrlsFile = await writeExistingJobUrlsFile(options.existingJobUrls);
 
     await new Promise<void>((resolve, reject) => {
       const child = spawn("npm", ["run", "start"], {
@@ -804,15 +737,11 @@ async function runBrowserCrawler(
             : {}),
           JOBOPS_SKIP_APPLY_FOR_EXISTING: "1",
           JOBOPS_EMIT_PROGRESS: "1",
-          GRADCRACKER_SEARCH_TERMS: options.searchTerms
-            ? JSON.stringify(options.searchTerms)
-            : "",
+          GRADCRACKER_SEARCH_TERMS: options.searchTerms ? JSON.stringify(options.searchTerms) : "",
           GRADCRACKER_MAX_JOBS_PER_TERM: options.maxJobsPerTerm
             ? String(options.maxJobsPerTerm)
             : "",
-          ...(existingJobUrlsFile
-            ? { JOBOPS_EXISTING_JOB_URLS_FILE: existingJobUrlsFile }
-            : {}),
+          ...(existingJobUrlsFile ? { JOBOPS_EXISTING_JOB_URLS_FILE: existingJobUrlsFile } : {}),
         },
       });
 
@@ -886,9 +815,7 @@ async function runBrowserCrawler(
   }
 }
 
-export async function runCrawler(
-  options: RunCrawlerOptions = {},
-): Promise<CrawlerResult> {
+export async function runCrawler(options: RunCrawlerOptions = {}): Promise<CrawlerResult> {
   if (process.env.GRADCRACKER_FORCE_BROWSER === "1") {
     return runBrowserCrawler(options);
   }
@@ -908,15 +835,11 @@ export async function runCrawler(
   if (httpResult.challengeRequired && browserResult.error) {
     return {
       ...httpResult,
-      error: httpResult.error
-        ? `${httpResult.error}; ${browserResult.error}`
-        : browserResult.error,
+      error: httpResult.error ? `${httpResult.error}; ${browserResult.error}` : browserResult.error,
     };
   }
 
-  return browserResult.error || browserResult.challengeRequired
-    ? browserResult
-    : httpResult;
+  return browserResult.error || browserResult.challengeRequired ? browserResult : httpResult;
 }
 
 async function readCrawledJobs(): Promise<CreateJobInput[]> {

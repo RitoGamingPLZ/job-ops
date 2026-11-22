@@ -20,9 +20,7 @@ interface OrchestratorMobileJobDrawerProps {
   onRetrySelectedJob: () => void;
 }
 
-export const OrchestratorMobileJobDrawer: React.FC<
-  OrchestratorMobileJobDrawerProps
-> = ({
+export const OrchestratorMobileJobDrawer: React.FC<OrchestratorMobileJobDrawerProps> = ({
   open,
   activeTab,
   activeJobs,

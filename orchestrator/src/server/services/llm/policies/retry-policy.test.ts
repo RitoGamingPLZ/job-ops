@@ -8,42 +8,26 @@ import {
 
 describe("shouldRetryAttempt", () => {
   it("retries parse errors", () => {
-    expect(
-      shouldRetryAttempt({ message: "Failed to parse JSON", status: 200 }),
-    ).toBe(true);
+    expect(shouldRetryAttempt({ message: "Failed to parse JSON", status: 200 })).toBe(true);
   });
 
   it("retries empty completions", () => {
-    expect(
-      shouldRetryAttempt({ message: EMPTY_RESPONSE_ERROR, status: 200 }),
-    ).toBe(true);
-    expect(
-      shouldRetryAttempt({ message: EMPTY_RESPONSE_ERROR, status: undefined }),
-    ).toBe(true);
+    expect(shouldRetryAttempt({ message: EMPTY_RESPONSE_ERROR, status: 200 })).toBe(true);
+    expect(shouldRetryAttempt({ message: EMPTY_RESPONSE_ERROR, status: undefined })).toBe(true);
   });
 
   it("does not retry configuration errors", () => {
-    expect(shouldRetryAttempt({ message: "LLM API key not configured" })).toBe(
-      false,
-    );
+    expect(shouldRetryAttempt({ message: "LLM API key not configured" })).toBe(false);
   });
 
   it("retries on 429 and 5xx", () => {
-    expect(shouldRetryAttempt({ message: "rate limited", status: 429 })).toBe(
-      true,
-    );
-    expect(shouldRetryAttempt({ message: "server error", status: 503 })).toBe(
-      true,
-    );
+    expect(shouldRetryAttempt({ message: "rate limited", status: 429 })).toBe(true);
+    expect(shouldRetryAttempt({ message: "server error", status: 503 })).toBe(true);
   });
 
   it("retries timeout and fetch failures", () => {
-    expect(
-      shouldRetryAttempt({ message: "Request timeout occurred", status: 0 }),
-    ).toBe(true);
-    expect(
-      shouldRetryAttempt({ message: "TypeError: fetch failed", status: 0 }),
-    ).toBe(true);
+    expect(shouldRetryAttempt({ message: "Request timeout occurred", status: 0 })).toBe(true);
+    expect(shouldRetryAttempt({ message: "TypeError: fetch failed", status: 0 })).toBe(true);
   });
 
   it("does not retry non-retryable 4xx", () => {

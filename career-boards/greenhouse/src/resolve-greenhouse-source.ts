@@ -8,15 +8,9 @@ import {
   parseGreenhouseUrl,
 } from "./greenhouse-url";
 
-export type GreenhouseResolutionErrorCode =
-  | "EMPTY_URL"
-  | "INVALID_URL"
-  | "NOT_FOUND";
+export type GreenhouseResolutionErrorCode = "EMPTY_URL" | "INVALID_URL" | "NOT_FOUND";
 
-export type GreenhouseResolutionMethod =
-  | "greenhouse_url"
-  | "page_scrape"
-  | "domain_guess";
+export type GreenhouseResolutionMethod = "greenhouse_url" | "page_scrape" | "domain_guess";
 
 export interface ResolvedGreenhouseSource {
   token: string;
@@ -36,11 +30,7 @@ export class GreenhouseResolutionError extends Error {
   readonly code: GreenhouseResolutionErrorCode;
   readonly input: string;
 
-  constructor(
-    code: GreenhouseResolutionErrorCode,
-    message: string,
-    input: string,
-  ) {
+  constructor(code: GreenhouseResolutionErrorCode, message: string, input: string) {
     super(message);
     this.name = "GreenhouseResolutionError";
     this.code = code;
@@ -68,18 +58,12 @@ export async function resolveGreenhouseSource(
 ): Promise<ResolvedGreenhouseSource> {
   const input = options.url?.trim() ?? "";
   if (!input) {
-    throw new GreenhouseResolutionError(
-      "EMPTY_URL",
-      "URL cannot be empty.",
-      options.url ?? "",
-    );
+    throw new GreenhouseResolutionError("EMPTY_URL", "URL cannot be empty.", options.url ?? "");
   }
 
   const fetchFn = options.fetchImpl ?? globalThis.fetch;
   if (!fetchFn) {
-    throw new Error(
-      "No fetch implementation available. Pass fetchImpl or use Node 18+.",
-    );
+    throw new Error("No fetch implementation available. Pass fetchImpl or use Node 18+.");
   }
   const userAgent = options.userAgent ?? GREENHOUSE_DEFAULT_USER_AGENT;
 
@@ -98,33 +82,18 @@ export async function resolveGreenhouseSource(
   const pageUrl = toUrlOrThrow(input);
 
   // Layer 2: scrape the company careers page for an embedded board token.
-  const html = await tryFetchText(
-    pageUrl.href,
-    fetchFn,
-    options.signal,
-    userAgent,
-  );
+  const html = await tryFetchText(pageUrl.href, fetchFn, options.signal, userAgent);
   if (html) {
     const scraped = extractGreenhouseTokenFromHtml(html);
     if (scraped) {
-      const info = await getBoardInfo(
-        scraped,
-        fetchFn,
-        options.signal,
-        userAgent,
-      );
+      const info = await getBoardInfo(scraped, fetchFn, options.signal, userAgent);
       if (info) return resolved(scraped, info, "page_scrape");
     }
   }
 
   // Layer 3: guess the token from the hostname, validated against the API.
   for (const candidate of guessTokensFromHostname(pageUrl.hostname)) {
-    const info = await getBoardInfo(
-      candidate,
-      fetchFn,
-      options.signal,
-      userAgent,
-    );
+    const info = await getBoardInfo(candidate, fetchFn, options.signal, userAgent);
     if (info) return resolved(candidate, info, "domain_guess");
   }
 
@@ -152,10 +121,7 @@ async function getBoardInfo(
 
   try {
     const body = (await response.json()) as { name?: unknown };
-    const name =
-      typeof body.name === "string" && body.name.trim()
-        ? body.name.trim()
-        : null;
+    const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : null;
     return { name };
   } catch {
     return null;
@@ -197,11 +163,7 @@ function toUrlOrThrow(input: string): URL {
   try {
     return new URL(input);
   } catch {
-    throw new GreenhouseResolutionError(
-      "INVALID_URL",
-      `Invalid URL: ${input}`,
-      input,
-    );
+    throw new GreenhouseResolutionError("INVALID_URL", `Invalid URL: ${input}`, input);
   }
 }
 

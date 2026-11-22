@@ -1,16 +1,8 @@
-import type {
-  ExperienceBullet,
-  ReactiveResumeV5Document,
-  ResumeSuggestionV2,
-} from "@shared/types";
+import type { ExperienceBullet, ReactiveResumeV5Document, ResumeSuggestionV2 } from "@shared/types";
 import { describe, expect, it, vi } from "vitest";
 import { executeAcceptedSuggestions } from "./acceptSuggestions";
 
-const row = (
-  id: string,
-  kind: ExperienceBullet["kind"],
-  extra: Partial<ExperienceBullet> = {},
-) =>
+const row = (id: string, kind: ExperienceBullet["kind"], extra: Partial<ExperienceBullet> = {}) =>
   ({
     id,
     kind,
@@ -49,10 +41,7 @@ const state = () => ({
   jobId: "job",
   baseRevision: 7,
   document: fixture(),
-  library: [
-    row("role", "role"),
-    row("line", "bullet", { parentId: "role", text: "Canonical" }),
-  ],
+  library: [row("role", "role"), row("line", "bullet", { parentId: "role", text: "Canonical" })],
 });
 const create: ResumeSuggestionV2 = {
   id: "create",
@@ -112,11 +101,7 @@ describe("accept suggestions executor", () => {
       }),
     };
     const original = state();
-    const pending = executeAcceptedSuggestions(
-      original,
-      [headline, save, create],
-      api,
-    );
+    const pending = executeAcceptedSuggestions(original, [headline, save, create], api);
     expect(events).toEqual(["create"]);
     expect(original.document.basics.headline).toBe("Engineer");
     release();
@@ -126,20 +111,14 @@ describe("accept suggestions executor", () => {
       ...create.item,
       source: "job_resume",
     });
-    expect(api.updateItem).toHaveBeenCalledWith(
-      "line",
-      { text: "Job wording" },
-      "job",
-    );
+    expect(api.updateItem).toHaveBeenCalledWith("line", { text: "Job wording" }, "job");
     expect(result.document.basics.headline).toBe("Senior Engineer");
     expect(result.document.sections.skills.items[0]).toMatchObject({
       libraryId: "existing",
       name: "Canonical skill",
       keywords: ["JS"],
     });
-    expect(result.applied).toEqual(
-      expect.arrayContaining(["create", "save", "headline"]),
-    );
+    expect(result.applied).toEqual(expect.arrayContaining(["create", "save", "headline"]));
     expect(result.rejected).toEqual([]);
   });
   it("keeps failed library operations unapplied while independent edits succeed", async () => {
@@ -147,11 +126,7 @@ describe("accept suggestions executor", () => {
       createItem: vi.fn().mockRejectedValue(new Error("offline")),
       updateItem: vi.fn().mockRejectedValue(new Error("offline")),
     };
-    const result = await executeAcceptedSuggestions(
-      state(),
-      [create, save, headline],
-      api,
-    );
+    const result = await executeAcceptedSuggestions(state(), [create, save, headline], api);
     expect(result.applied).toEqual(["headline"]);
     expect(result.rejected).toEqual([
       { id: "create", code: "FAILED" },
@@ -163,15 +138,14 @@ describe("accept suggestions executor", () => {
   it("does not PATCH stale lines or mismatched library links", async () => {
     const api = { createItem: vi.fn(), updateItem: vi.fn() };
     const original = state();
-    original.document.sections.experience.items[0].description =
-      "<ul><li>Changed</li></ul>";
-    expect(
-      (await executeAcceptedSuggestions(original, [save], api)).rejected,
-    ).toEqual([{ id: "save", code: "STALE" }]);
+    original.document.sections.experience.items[0].description = "<ul><li>Changed</li></ul>";
+    expect((await executeAcceptedSuggestions(original, [save], api)).rejected).toEqual([
+      { id: "save", code: "STALE" },
+    ]);
     original.document.sections.experience.items[0].bulletRefs = ["other"];
-    expect(
-      (await executeAcceptedSuggestions(original, [save], api)).rejected,
-    ).toEqual([{ id: "save", code: "INVALID_TARGET" }]);
+    expect((await executeAcceptedSuggestions(original, [save], api)).rejected).toEqual([
+      { id: "save", code: "INVALID_TARGET" },
+    ]);
     expect(api.updateItem).not.toHaveBeenCalled();
   });
   it("saves current structured entry fields, never model supplied patches", async () => {
@@ -207,11 +181,7 @@ describe("accept suggestions executor", () => {
         libraryId: "education",
       },
     };
-    const result = await executeAcceptedSuggestions(
-      original,
-      [suggestion],
-      api,
-    );
+    const result = await executeAcceptedSuggestions(original, [suggestion], api);
     expect(api.updateItem).toHaveBeenCalledWith(
       "education",
       {
@@ -263,21 +233,11 @@ it("saves a same-batch rewrite from the post-apply document", async () => {
     previousText: "Job wording",
     text: "New wording",
   };
-  const result = await executeAcceptedSuggestions(
-    original,
-    [save, rewrite],
-    api,
-  );
-  expect(api.updateItem).toHaveBeenCalledWith(
-    "line",
-    { text: "New wording" },
-    "job",
-  );
+  const result = await executeAcceptedSuggestions(original, [save, rewrite], api);
+  expect(api.updateItem).toHaveBeenCalledWith("line", { text: "New wording" }, "job");
   expect(result.applied).toEqual(["rewrite", "save"]);
   expect(result.rejected).toEqual([]);
-  expect(result.document.sections.experience.items[0].description).toContain(
-    "New wording",
-  );
+  expect(result.document.sections.experience.items[0].description).toContain("New wording");
 });
 
 it("reports successful create with failed placement as INVALID_TARGET and keeps the returned row", async () => {

@@ -74,20 +74,13 @@ export const KeyboardShortcutDialog: React.FC<KeyboardShortcutDialogProps> = ({
                 </div>
                 <div className="space-y-1.5">
                   {deduped.map((item) => (
-                    <div
-                      key={item.label}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span className="text-muted-foreground">
-                        {item.label}
-                      </span>
+                    <div key={item.label} className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{item.label}</span>
                       <span className="flex items-center gap-1 ml-3">
                         {item.displayKeys.map((dk, i) => (
                           <span key={dk} className="flex items-center gap-1">
                             {i > 0 && (
-                              <span className="text-muted-foreground/40 text-[10px]">
-                                /
-                              </span>
+                              <span className="text-muted-foreground/40 text-[10px]">/</span>
                             )}
                             <kbd className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded border border-border/60 bg-muted/40 text-[10px] font-mono font-medium leading-none">
                               {dk}

@@ -1,13 +1,6 @@
 import { ApiClientError } from "@client/api/core";
 import type { ExperienceBullet } from "@shared/types";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { coworkError, DutyLibraryTools, InlineTags } from "./DutyLibrary";
 
@@ -52,14 +45,7 @@ describe("candidate library duty tools", () => {
     const ranked = [{ bulletId: "duty", score: 90 }];
     mocks.rank.mockResolvedValue({ ranked });
     const onRanked = vi.fn();
-    render(
-      <DutyLibraryTools
-        jobId="job"
-        roles={[role]}
-        onRefresh={vi.fn()}
-        onRanked={onRanked}
-      />,
-    );
+    render(<DutyLibraryTools jobId="job" roles={[role]} onRefresh={vi.fn()} onRanked={onRanked} />);
     fireEvent.click(screen.getByText("Rank for this job"));
     await waitFor(() => expect(onRanked).toHaveBeenCalledWith(ranked));
     expect(mocks.rank).toHaveBeenCalledWith("job");
@@ -70,13 +56,7 @@ describe("candidate library duty tools", () => {
     });
     mocks.create.mockResolvedValue({});
     const refresh = vi.fn().mockResolvedValue(undefined);
-    render(
-      <DutyLibraryTools
-        roles={[role]}
-        onRefresh={refresh}
-        onRanked={vi.fn()}
-      />,
-    );
+    render(<DutyLibraryTools roles={[role]} onRefresh={refresh} onRanked={vi.fn()} />);
     fireEvent.click(screen.getByText("Paste & extract"));
     fireEvent.change(screen.getByLabelText("Text to extract"), {
       target: { value: "My duties" },
@@ -96,9 +76,7 @@ describe("candidate library duty tools", () => {
     mocks.extract.mockResolvedValue({
       drafts: [{ text: "Built tools", tags: [] }],
     });
-    render(
-      <DutyLibraryTools roles={[]} onRefresh={vi.fn()} onRanked={vi.fn()} />,
-    );
+    render(<DutyLibraryTools roles={[]} onRefresh={vi.fn()} onRanked={vi.fn()} />);
     fireEvent.click(screen.getByText("Paste & extract"));
     fireEvent.change(screen.getByLabelText("Text to extract"), {
       target: { value: "My duties" },
@@ -129,9 +107,7 @@ describe("candidate library duty tools", () => {
     );
     const tags = Array.from({ length: 10 }, (_, index) => `Tag ${index}`);
     const visible = () =>
-      screen
-        .getAllByText(/^Tag \d$/)
-        .filter((chip) => !chip.hasAttribute("aria-hidden"));
+      screen.getAllByText(/^Tag \d$/).filter((chip) => !chip.hasAttribute("aria-hidden"));
     try {
       render(<InlineTags bullet={{ ...role, tags }} />);
       expect(visible()).toHaveLength(2);
@@ -141,9 +117,7 @@ describe("candidate library duty tools", () => {
       width = 240;
       act(() => resize());
       expect(visible()).toHaveLength(4);
-      fireEvent.click(
-        screen.getByRole("button", { name: "Show 6 more tags for Engineer" }),
-      );
+      fireEvent.click(screen.getByRole("button", { name: "Show 6 more tags for Engineer" }));
       expect(screen.getByTitle("Tag 9")).toBeVisible();
       expect(screen.queryByRole("button", { name: /^Remove/ })).toBeNull();
     } finally {
@@ -157,9 +131,6 @@ describe("candidate library duty tools", () => {
     expect(mocks.message).toHaveBeenCalledWith("Co-work is not available yet.");
     const failure = new Error("Offline");
     coworkError(failure);
-    expect(mocks.error).toHaveBeenCalledWith(
-      failure,
-      "Could not complete resume action",
-    );
+    expect(mocks.error).toHaveBeenCalledWith(failure, "Could not complete resume action");
   });
 });

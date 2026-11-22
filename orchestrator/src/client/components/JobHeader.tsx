@@ -51,11 +51,7 @@ const postingAgeDotColor = {
   old: "bg-slate-500",
 };
 
-export const JobHeader: React.FC<JobHeaderProps> = ({
-  job,
-  className,
-  jobCTA,
-}) => {
+export const JobHeader: React.FC<JobHeaderProps> = ({ job, className, jobCTA }) => {
   const jobStatus = getJobStatusIndicator(job.status);
   const fullJob = "isRemote" in job ? job : null;
   const location = useLocation();
@@ -68,9 +64,7 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
   const postingAge = formatPostingAgeLabel(job.datePosted);
   const jobStatusTooltip =
     job.status === "discovered" ? (
-      <p className="text-xs">
-        Found by the pipeline. Target it to prepare its resume.
-      </p>
+      <p className="text-xs">Found by the pipeline. Target it to prepare its resume.</p>
     ) : job.status === "ready" ? (
       <p className="text-xs">Resume prepared and ready to apply.</p>
     ) : undefined;
@@ -165,9 +159,7 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
             <StatusIndicator
               variant="sky"
               tooltip={`Job found ${job.source === "manual" ? "manually" : `on ${formatJobSourceLabel(job.source)}`}`}
-              label={
-                sourceLabel[job.source] ?? formatJobSourceLabel(job.source)
-              }
+              label={sourceLabel[job.source] ?? formatJobSourceLabel(job.source)}
             />
           )}
 

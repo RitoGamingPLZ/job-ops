@@ -1,8 +1,4 @@
-import {
-  htmlToPlainText,
-  introTextToHtml,
-  splitDescription,
-} from "@shared/resume-bullets";
+import { htmlToPlainText, introTextToHtml, splitDescription } from "@shared/resume-bullets";
 import {
   addToResume,
   getItemLines,
@@ -20,8 +16,7 @@ import { normalizeWhitespace } from "@shared/utils/string";
 
 /** previousText arrives as decoded plain text; compare against the field's plain text. */
 const sameText = (previousText: string | undefined, current: string) =>
-  previousText === undefined ||
-  normalizeWhitespace(previousText) === htmlToPlainText(current);
+  previousText === undefined || normalizeWhitespace(previousText) === htmlToPlainText(current);
 
 export const BULLET_TRANSFER_TYPE = "application/x-jobops-bullet";
 export type BulletReference = { id: string; text: string };
@@ -40,11 +35,7 @@ export const MAX_FOCUS = 20;
 export function readFocusTransfer(value: string): ResumeFocusRef | null {
   try {
     const data = JSON.parse(value);
-    return data &&
-      typeof data.kind === "string" &&
-      typeof data.label === "string"
-      ? data
-      : null;
+    return data && typeof data.kind === "string" && typeof data.label === "string" ? data : null;
   } catch {
     return null;
   }
@@ -54,8 +45,7 @@ export function focusKey(ref: ResumeFocusRef) {
 }
 /** Add a ref unless it is already there or the list is full. */
 export function addFocus(list: ResumeFocusRef[], ref: ResumeFocusRef) {
-  return list.length >= MAX_FOCUS ||
-    list.some((item) => focusKey(item) === focusKey(ref))
+  return list.length >= MAX_FOCUS || list.some((item) => focusKey(item) === focusKey(ref))
     ? list
     : [...list, ref];
 }
@@ -63,24 +53,14 @@ export function addFocus(list: ResumeFocusRef[], ref: ResumeFocusRef) {
 type Item = Record<string, unknown> & { id: string; hidden?: boolean };
 const FIELD_NAMES: Record<string, string[]> = {
   experience: ["company", "position", "location", "period"],
-  education: [
-    "school",
-    "degree",
-    "area",
-    "grade",
-    "location",
-    "period",
-    "description",
-  ],
+  education: ["school", "degree", "area", "grade", "location", "period", "description"],
   awards: ["title", "awarder", "date", "description"],
   certifications: ["title", "issuer", "date", "description"],
   projects: ["name", "period", "description"],
   skills: ["name"],
 };
 function sectionItems(document: ReactiveResumeV5Document, section: string) {
-  return document.sections[section] as
-    | { hidden?: boolean; items: Item[] }
-    | undefined;
+  return document.sections[section] as { hidden?: boolean; items: Item[] } | undefined;
 }
 function fieldItem(
   document: ReactiveResumeV5Document,
@@ -92,22 +72,12 @@ function fieldItem(
     ? null
     : (section?.items.find((i) => i.id === field.itemId && !i.hidden) ?? null);
 }
-export function fieldVisible(
-  document: ReactiveResumeV5Document,
-  suggestion: ResumeSuggestionV2,
-) {
-  return (
-    suggestion.op === "replace_field" &&
-    fieldItem(document, suggestion.field) !== null
-  );
+export function fieldVisible(document: ReactiveResumeV5Document, suggestion: ResumeSuggestionV2) {
+  return suggestion.op === "replace_field" && fieldItem(document, suggestion.field) !== null;
 }
 const escapeHtml = (text: string) =>
-  text.replace(
-    /[&<>]/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c,
-  );
-const equal = (a: unknown, b: unknown) =>
-  JSON.stringify(a) === JSON.stringify(b);
+  text.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
+const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const permutation = <T>(order: T[], original: T[]) =>
   order.length === original.length &&
   new Set(order).size === original.length &&
@@ -136,12 +106,8 @@ function lineTargetIndex(
   bulletIndex: number,
   snapshotRef?: string | null,
 ): number {
-  const matches = lines.flatMap((line, index) =>
-    line.text === previousText ? [index] : [],
-  );
-  const linked = snapshotRef
-    ? matches.filter((index) => lines[index].ref === snapshotRef)
-    : [];
+  const matches = lines.flatMap((line, index) => (line.text === previousText ? [index] : []));
+  const linked = snapshotRef ? matches.filter((index) => lines[index].ref === snapshotRef) : [];
   return (
     (linked.length ? linked : matches).sort(
       (a, b) => Math.abs(a - bulletIndex) - Math.abs(b - bulletIndex),
@@ -192,25 +158,17 @@ export function suggestionTarget(
         : null;
     }
     case "set_skill_keywords": {
-      const item = document.sections.skills.items.find(
-        (i) => i.id === s.itemId,
-      );
-      return item &&
-        !document.sections.skills.hidden &&
-        equal(item.keywords, s.previousKeywords)
+      const item = document.sections.skills.items.find((i) => i.id === s.itemId);
+      return item && !document.sections.skills.hidden && equal(item.keywords, s.previousKeywords)
         ? { old: item.keywords.join(", ") }
         : null;
     }
     case "add_entry": {
       const section = sectionItems(document, s.section);
-      return section && s.index >= 0 && s.index <= section.items.length
-        ? { old: "" }
-        : null;
+      return section && s.index >= 0 && s.index <= section.items.length ? { old: "" } : null;
     }
     case "remove_entry":
-      return sectionItems(document, s.section)?.items.some(
-        (i) => i.id === s.itemId,
-      )
+      return sectionItems(document, s.section)?.items.some((i) => i.id === s.itemId)
         ? { old: s.section }
         : null;
     case "reorder_entries": {
@@ -229,10 +187,7 @@ export function suggestionTarget(
       if (!item || section?.hidden) return null;
       const lines = getItemLines(item);
       if (s.op === "replace_intro")
-        return sameText(
-          s.previousText,
-          splitDescription(String(item.description ?? "")).introHtml,
-        )
+        return sameText(s.previousText, splitDescription(String(item.description ?? "")).introHtml)
           ? { old: s.previousText }
           : null;
       if (s.op === "reorder_bullets")
@@ -248,15 +203,13 @@ export function suggestionTarget(
           : null;
       if (s.op === "insert_bullet") {
         const ref =
-          s.libraryId ??
-          (s.sourceBulletIds?.length === 1 ? s.sourceBulletIds[0] : undefined);
+          s.libraryId ?? (s.sourceBulletIds?.length === 1 ? s.sourceBulletIds[0] : undefined);
         if (
           ref &&
           (!library.some(
             (row) =>
               row.id === ref &&
-              row.kind ===
-                (s.section === "experience" ? "bullet" : "project_point") &&
+              row.kind === (s.section === "experience" ? "bullet" : "project_point") &&
               row.parentId === item.libraryId,
           ) ||
             isOnResume(document, ref))
@@ -274,9 +227,7 @@ export function suggestionTarget(
   }
 }
 
-function newEntry(
-  s: Extract<ResumeSuggestionV2, { op: "add_entry" }>,
-): Item | null {
+function newEntry(s: Extract<ResumeSuggestionV2, { op: "add_entry" }>): Item | null {
   const fields: Record<string, unknown> = Object.fromEntries(
     FIELD_NAMES[s.section].map((name) => [name, ""]),
   );
@@ -297,10 +248,7 @@ function newEntry(
   for (const [key, fallback] of Object.entries(fields)) {
     const value = item[key];
     if (Array.isArray(fallback)) {
-      if (
-        !Array.isArray(value) ||
-        (key === "keywords" && value.some((v) => typeof v !== "string"))
-      )
+      if (!Array.isArray(value) || (key === "keywords" && value.some((v) => typeof v !== "string")))
         return null;
     } else if (key === "website") {
       if (
@@ -321,8 +269,7 @@ function applyResolvedSuggestion(
   library: ExperienceBullet[],
 ): ReactiveResumeV5Document | null {
   if (s.op === "create_library_item" || s.op === "save_to_library") return null;
-  if (s.op === "exclude_library_item")
-    return removeFromResume(document, s.libraryId);
+  if (s.op === "exclude_library_item") return removeFromResume(document, s.libraryId);
   if (s.op === "include_library_item") {
     const linked = library.find((row) => row.id === s.libraryId);
     const next = structuredClone(addToResume(document, s.libraryId, library));
@@ -347,22 +294,16 @@ function applyResolvedSuggestion(
   }
   const next = structuredClone(document);
   if (s.op === "replace_headline") next.basics.headline = s.text;
-  else if (s.op === "replace_summary")
-    next.summary.content = escapeHtml(s.text);
+  else if (s.op === "replace_summary") next.summary.content = escapeHtml(s.text);
   else if (s.op === "replace_field") {
     const item = fieldItem(next, s.field);
     if (!item) return null;
-    item[s.field.name] =
-      s.field.name === "description" ? introTextToHtml(s.text) : s.text;
+    item[s.field.name] = s.field.name === "description" ? introTextToHtml(s.text) : s.text;
   } else if (s.op === "set_skill_keywords") {
     const item = next.sections.skills.items.find((i) => i.id === s.itemId);
     if (!item) return null;
     item.keywords = [...s.keywords];
-  } else if (
-    s.op === "add_entry" ||
-    s.op === "remove_entry" ||
-    s.op === "reorder_entries"
-  ) {
+  } else if (s.op === "add_entry" || s.op === "remove_entry" || s.op === "reorder_entries") {
     const section = sectionItems(next, s.section);
     if (!section) return null;
     if (s.op === "add_entry") {
@@ -379,9 +320,7 @@ function applyResolvedSuggestion(
         )
       )
         return null;
-      section.items = s.itemIds.map(
-        (id) => section.items.find((i) => i.id === id) as Item,
-      );
+      section.items = s.itemIds.map((id) => section.items.find((i) => i.id === id) as Item);
     }
   } else if ("section" in s && "itemId" in s) {
     const section = sectionItems(next, s.section);
@@ -390,11 +329,7 @@ function applyResolvedSuggestion(
     if (s.op === "replace_intro") {
       item.description =
         (s.text ? introTextToHtml(s.text) : "") +
-        (
-          String(item.description).match(
-            /<(ul|ol)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
-          ) ?? []
-        ).join("");
+        (String(item.description).match(/<(ul|ol)\b[^>]*>[\s\S]*?<\/\1\s*>/gi) ?? []).join("");
     } else {
       let lines = getItemLines(item);
       if (s.op === "reorder_bullets") {
@@ -415,19 +350,8 @@ function applyResolvedSuggestion(
         const index =
           s.op === "insert_bullet"
             ? target.index
-            : lineTargetIndex(
-                lines,
-                s.previousText,
-                s.bulletIndex,
-                target.snapshotRef,
-              );
-        if (
-          !currentTarget ||
-          index === undefined ||
-          index < 0 ||
-          index > lines.length
-        )
-          return null;
+            : lineTargetIndex(lines, s.previousText, s.bulletIndex, target.snapshotRef);
+        if (!currentTarget || index === undefined || index < 0 || index > lines.length) return null;
         if (s.op === "delete_bullet") lines.splice(index, 1);
         else
           lines.splice(index, s.op === "replace_bullet" ? 1 : 0, {
@@ -435,16 +359,10 @@ function applyResolvedSuggestion(
             ref:
               s.op === "replace_bullet"
                 ? (lines[index]?.ref ?? null)
-                : (s.libraryId ??
-                  (s.sourceBulletIds?.length === 1
-                    ? s.sourceBulletIds[0]
-                    : null)),
+                : (s.libraryId ?? (s.sourceBulletIds?.length === 1 ? s.sourceBulletIds[0] : null)),
           });
       }
-      section.items[section.items.indexOf(item)] = setItemLines(
-        item,
-        lines,
-      ) as Item;
+      section.items[section.items.indexOf(item)] = setItemLines(item, lines) as Item;
     }
   }
   return next;
@@ -455,9 +373,7 @@ export function applySuggestion(
   library: ExperienceBullet[] = [],
 ) {
   const target = suggestionTarget(document, suggestion, library);
-  return target
-    ? applyResolvedSuggestion(document, suggestion, target, library)
-    : null;
+  return target ? applyResolvedSuggestion(document, suggestion, target, library) : null;
 }
 /** Resolve indices against one snapshot; edit from the end to retain their meaning. */
 export function applySuggestions(
@@ -468,8 +384,7 @@ export function applySuggestions(
   const resolved = suggestions.flatMap((suggestion, order) => {
     const target = suggestionTarget(document, suggestion, library);
     const snapshotRef =
-      (suggestion.op === "replace_bullet" ||
-        suggestion.op === "delete_bullet") &&
+      (suggestion.op === "replace_bullet" || suggestion.op === "delete_bullet") &&
       target?.index !== undefined
         ? getItemLines(
             document.sections[suggestion.section].items.find(
@@ -477,9 +392,7 @@ export function applySuggestions(
             ) ?? {},
           )[target.index]?.ref
         : undefined;
-    return target
-      ? [{ suggestion, target: { ...target, snapshotRef }, order }]
-      : [];
+    return target ? [{ suggestion, target: { ...target, snapshotRef }, order }] : [];
   });
   const group = (s: ResumeSuggestionV2) =>
     "itemId" in s ? `${"section" in s ? s.section : "skills"}:${s.itemId}` : "";
@@ -490,26 +403,17 @@ export function applySuggestions(
       Number(membership(a.suggestion)) - Number(membership(b.suggestion)) ||
       group(a.suggestion).localeCompare(group(b.suggestion)) ||
       (b.target.index ?? -1) - (a.target.index ?? -1) ||
-      Number(a.suggestion.op === "insert_bullet") -
-        Number(b.suggestion.op === "insert_bullet") ||
-      (a.suggestion.op === "insert_bullet"
-        ? b.order - a.order
-        : a.order - b.order),
+      Number(a.suggestion.op === "insert_bullet") - Number(b.suggestion.op === "insert_bullet") ||
+      (a.suggestion.op === "insert_bullet" ? b.order - a.order : a.order - b.order),
   );
   let next = document;
   const applied: string[] = [];
   const edited = new Set<string>();
   for (const { suggestion: s, target } of resolved) {
     const key = `${group(s)}:${target.index}`;
-    if (
-      target.index !== undefined &&
-      s.op !== "insert_bullet" &&
-      edited.has(key)
-    )
-      continue;
+    if (target.index !== undefined && s.op !== "insert_bullet" && edited.has(key)) continue;
     // Validate links and structural targets again against preceding operations.
-    if (target.index === undefined && !suggestionTarget(next, s, library))
-      continue;
+    if (target.index === undefined && !suggestionTarget(next, s, library)) continue;
     if (
       s.op === "insert_bullet" &&
       (s.libraryId || s.sourceBulletIds?.length === 1) &&
@@ -520,8 +424,7 @@ export function applySuggestions(
     if (result) {
       next = result;
       applied.push(s.id);
-      if (target.index !== undefined && s.op !== "insert_bullet")
-        edited.add(key);
+      if (target.index !== undefined && s.op !== "insert_bullet") edited.add(key);
     }
   }
   return { document: next, applied };

@@ -21,17 +21,11 @@ export const ClaudeCliSetupHint: React.FC = () => {
         >
           @anthropic-ai/claude-code
         </a>
-        , then run{" "}
-        <code className="rounded bg-muted px-1 py-0.5">claude setup-token</code>{" "}
-        in a terminal (requires a Claude Pro, Max, Team, or Enterprise
-        subscription) and set the printed value as{" "}
-        <code className="rounded bg-muted px-1 py-0.5">
-          CLAUDE_CODE_OAUTH_TOKEN
-        </code>
-        , or set{" "}
-        <code className="rounded bg-muted px-1 py-0.5">ANTHROPIC_API_KEY</code>{" "}
-        instead. JobOps spawns the CLI in headless mode and reuses that
-        authentication — no JobOps API key field.
+        , then run <code className="rounded bg-muted px-1 py-0.5">claude setup-token</code> in a
+        terminal (requires a Claude Pro, Max, Team, or Enterprise subscription) and set the printed
+        value as <code className="rounded bg-muted px-1 py-0.5">CLAUDE_CODE_OAUTH_TOKEN</code>, or
+        set <code className="rounded bg-muted px-1 py-0.5">ANTHROPIC_API_KEY</code> instead. JobOps
+        spawns the CLI in headless mode and reuses that authentication — no JobOps API key field.
       </p>
       <p className="mt-2">
         <a
@@ -44,14 +38,10 @@ export const ClaudeCliSetupHint: React.FC = () => {
           <ExternalLink className="size-3.5 shrink-0 opacity-70" aria-hidden />
         </a>
         . In Docker, set{" "}
-        <code className="rounded bg-muted px-1 py-0.5">
-          CLAUDE_CODE_OAUTH_TOKEN
-        </code>{" "}
-        (or{" "}
-        <code className="rounded bg-muted px-1 py-0.5">ANTHROPIC_API_KEY</code>)
-        in your <code className="rounded bg-muted px-1 py-0.5">.env</code> file
-        — no credential file mount is needed. Optional:{" "}
-        <code className="rounded bg-muted px-1 py-0.5">CLAUDE_CLI_BIN</code> to
+        <code className="rounded bg-muted px-1 py-0.5">CLAUDE_CODE_OAUTH_TOKEN</code> (or{" "}
+        <code className="rounded bg-muted px-1 py-0.5">ANTHROPIC_API_KEY</code>) in your{" "}
+        <code className="rounded bg-muted px-1 py-0.5">.env</code> file — no credential file mount
+        is needed. Optional: <code className="rounded bg-muted px-1 py-0.5">CLAUDE_CLI_BIN</code> to
         override the binary path.
       </p>
     </div>

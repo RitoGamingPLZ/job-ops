@@ -48,9 +48,7 @@ export function SuggestFiltersPanel({
       if (currentRequest === request.current) setSuggestion(result);
     } catch (error) {
       if (currentRequest === request.current) {
-        setError(
-          error instanceof Error ? error.message : "Could not suggest filters.",
-        );
+        setError(error instanceof Error ? error.message : "Could not suggest filters.");
       }
     } finally {
       if (currentRequest === request.current) setLoading(false);
@@ -68,27 +66,19 @@ export function SuggestFiltersPanel({
         onClick={() => void suggest()}
       >
         {loading ? (
-          <Loader2
-            aria-hidden="true"
-            className="mr-1.5 h-3.5 w-3.5 animate-spin"
-          />
+          <Loader2 aria-hidden="true" className="mr-1.5 h-3.5 w-3.5 animate-spin" />
         ) : null}
         {loading ? "Suggesting filters…" : "Suggest filters"}
       </Button>
       <div aria-live="polite" aria-atomic="true" className="space-y-2 text-xs">
-        {loading ? (
-          <p className="text-muted-foreground">Finding and checking filters…</p>
-        ) : null}
+        {loading ? <p className="text-muted-foreground">Finding and checking filters…</p> : null}
         {error ? <p className="text-destructive">{error}</p> : null}
         {suggestion ? (
           <div className="space-y-3 rounded-lg border border-border/70 bg-background/40 p-3">
             <p className="font-medium tabular-nums text-foreground">
-              {suggestion.totals.filtered} of {suggestion.totals.unfiltered}{" "}
-              jobs
+              {suggestion.totals.filtered} of {suggestion.totals.unfiltered} jobs
             </p>
-            <p className="break-all text-muted-foreground">
-              {suggestion.suggestedUrl}
-            </p>
+            <p className="break-all text-muted-foreground">{suggestion.suggestedUrl}</p>
             <p className="text-muted-foreground">{suggestion.rationale}</p>
             {suggestion.sampleTitles.length > 0 ? (
               <ul
@@ -111,18 +101,11 @@ export function SuggestFiltersPanel({
               >
                 Use this URL
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setSuggestion(null)}
-              >
+              <Button type="button" variant="ghost" size="sm" onClick={() => setSuggestion(null)}>
                 Dismiss
               </Button>
             </div>
-            <p className="text-muted-foreground">
-              Save sources to start using this URL.
-            </p>
+            <p className="text-muted-foreground">Save sources to start using this URL.</p>
           </div>
         ) : null}
       </div>

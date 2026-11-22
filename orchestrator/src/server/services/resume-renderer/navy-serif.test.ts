@@ -3,10 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sectionOrder } from "@client/components/cowork/resumeReorder";
-import {
-  NAVY_SERIF_CSS_VARS,
-  NAVY_SERIF_STYLE,
-} from "@shared/resume-style/navy-serif";
+import { NAVY_SERIF_CSS_VARS, NAVY_SERIF_STYLE } from "@shared/resume-style/navy-serif";
 import { TYPST_THEME_LABELS, TYPST_THEME_VALUES } from "@shared/types";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { describe, expect, it } from "vitest";
@@ -31,9 +28,7 @@ const input = {
   },
   sections: {
     profiles: {
-      items: [
-        { network: "Github", website: { url: "https://example.com/code" } },
-      ],
+      items: [{ network: "Github", website: { url: "https://example.com/code" } }],
     },
     skills: { items: [{ name: "Backend", keywords: ["Java", "Node.js"] }] },
     certifications: {
@@ -93,8 +88,7 @@ const input = {
 };
 
 const document = normalizeResumeJsonToLatexDocument(input);
-const available =
-  spawnSync(getTypstBinary(), ["--version"], { stdio: "ignore" }).status === 0;
+const available = spawnSync(getTypstBinary(), ["--version"], { stdio: "ignore" }).status === 0;
 
 describe("Navy Serif", () => {
   it("shares readable body and margin tokens while keeping heading sizes", async () => {
@@ -109,9 +103,7 @@ describe("Navy Serif", () => {
     });
     const theme = await readTypstTheme("navy-serif");
     // Entry dates must stay on the company's text line: no grid/table/place/columns.
-    expect(theme.template).not.toMatch(
-      /\b(grid|table|place|columns)\s*\(|h\(1fr\)/,
-    );
+    expect(theme.template).not.toMatch(/\b(grid|table|place|columns)\s*\(|h\(1fr\)/);
     expect(theme.template).toContain('box(width: 1fr, repeat(" "))');
   });
 
@@ -135,77 +127,69 @@ describe("Navy Serif", () => {
       ...input,
       metadata: { layout },
     });
-    expect([
-      ...(doc.navyLayout?.main ?? []),
-      ...(doc.navyLayout?.sidebar ?? []),
-    ]).toEqual(sectionOrder(layout));
+    expect([...(doc.navyLayout?.main ?? []), ...(doc.navyLayout?.sidebar ?? [])]).toEqual(
+      sectionOrder(layout),
+    );
   });
 
-  it.skipIf(!available)(
-    "keeps wrapped lines compact with 1.5pt extra between items",
-    async () => {
-      const dir = await mkdtemp(join(tmpdir(), "navy-wrap-test-"));
+  it.skipIf(!available)("keeps wrapped lines compact with 1.5pt extra between items", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "navy-wrap-test-"));
+    try {
+      const path = join(dir, "wrap.pdf");
+      await renderTypstPdf({
+        document: normalizeResumeJsonToLatexDocument(wrapSample),
+        typstTheme: "navy-serif",
+        outputPath: path,
+        jobId: "fake-wrap-test",
+      });
+      const pdf = await getDocument({
+        data: new Uint8Array(await readFile(path)),
+        useSystemFonts: true,
+      }).promise;
       try {
-        const path = join(dir, "wrap.pdf");
-        await renderTypstPdf({
-          document: normalizeResumeJsonToLatexDocument(wrapSample),
-          typstTheme: "navy-serif",
-          outputPath: path,
-          jobId: "fake-wrap-test",
-        });
-        const pdf = await getDocument({
-          data: new Uint8Array(await readFile(path)),
-          useSystemFonts: true,
-        }).promise;
-        try {
-          expect(pdf.numPages).toBe(1);
-          const page = await pdf.getPage(1);
-          const content = await page.getTextContent();
-          const items = content.items.filter((item) => "str" in item);
-          const markers = items.filter((item) => item.str === "•");
-          expect(markers).toHaveLength(3);
-          // Experience retains hanging bullets; skills and awards have no markers.
-          for (const index of [0]) {
-            const bodyBaseline = (marker: (typeof items)[number]) =>
+        expect(pdf.numPages).toBe(1);
+        const page = await pdf.getPage(1);
+        const content = await page.getTextContent();
+        const items = content.items.filter((item) => "str" in item);
+        const markers = items.filter((item) => item.str === "•");
+        expect(markers).toHaveLength(3);
+        // Experience retains hanging bullets; skills and awards have no markers.
+        for (const index of [0]) {
+          const bodyBaseline = (marker: (typeof items)[number]) =>
+            items
+              .slice(items.indexOf(marker) + 1)
+              .find((item) => item.str.trim() && item.str !== "•")?.transform[5] ?? Number.NaN;
+          const start = bodyBaseline(markers[index]);
+          const next = bodyBaseline(markers[index + 1]);
+          const baselines = [
+            ...new Set(
               items
-                .slice(items.indexOf(marker) + 1)
-                .find((item) => item.str.trim() && item.str !== "•")
-                ?.transform[5] ?? Number.NaN;
-            const start = bodyBaseline(markers[index]);
-            const next = bodyBaseline(markers[index + 1]);
-            const baselines = [
-              ...new Set(
-                items
-                  .filter(
-                    (item) =>
-                      item.str.trim() &&
-                      item.str !== "•" &&
-                      item.transform[5] <= start + 0.01 &&
-                      item.transform[5] > next + 0.01,
-                  )
-                  .map((item) => item.transform[5]),
-              ),
-            ].sort((a, b) => b - a);
-            expect(baselines.length).toBeGreaterThan(1);
-            const leading = baselines[0] - baselines[1];
-            expect(leading).toBeGreaterThan(11);
-            expect(leading).toBeLessThan(13.5);
-            for (let i = 1; i < baselines.length; i++) {
-              expect(baselines[i - 1] - baselines[i]).toBeCloseTo(leading, 1);
-            }
-            expect(baselines[baselines.length - 1] - next).toBeCloseTo(
-              leading + 1.5,
-              1,
-            );
+                .filter(
+                  (item) =>
+                    item.str.trim() &&
+                    item.str !== "•" &&
+                    item.transform[5] <= start + 0.01 &&
+                    item.transform[5] > next + 0.01,
+                )
+                .map((item) => item.transform[5]),
+            ),
+          ].sort((a, b) => b - a);
+          expect(baselines.length).toBeGreaterThan(1);
+          const leading = baselines[0] - baselines[1];
+          expect(leading).toBeGreaterThan(11);
+          expect(leading).toBeLessThan(13.5);
+          for (let i = 1; i < baselines.length; i++) {
+            expect(baselines[i - 1] - baselines[i]).toBeCloseTo(leading, 1);
           }
-        } finally {
-          await pdf.destroy();
+          expect(baselines[baselines.length - 1] - next).toBeCloseTo(leading + 1.5, 1);
         }
       } finally {
-        await rm(dir, { recursive: true, force: true });
+        await pdf.destroy();
       }
-    },
-  );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 
   it.each([
     [10, 25],
@@ -239,8 +223,7 @@ describe("Navy Serif", () => {
           items: [
             {
               ...input.sections.experience.items[0],
-              description:
-                "<p>Built reliable systems.</p><ul><li>Edited bullet.</li></ul>",
+              description: "<p>Built reliable systems.</p><ul><li>Edited bullet.</li></ul>",
             },
           ],
         },
@@ -264,8 +247,7 @@ describe("Navy Serif", () => {
       bullets: [],
     },
     {
-      description:
-        "<p>Intro text.</p><ul><li>List item.</li></ul><p>Trailing text.</p>",
+      description: "<p>Intro text.</p><ul><li>List item.</li></ul><p>Trailing text.</p>",
       intro: "Intro text.",
       markup: "Intro text.",
       bullets: ["List item."],
@@ -278,19 +260,17 @@ describe("Navy Serif", () => {
     },
   ];
 
-  it.each(descriptions)("separates prose and list items: $description", ({
-    description,
-    intro,
-    markup,
-    bullets,
-  }) => {
-    const doc = normalizeResumeJsonToLatexDocument({
-      sections: { experience: { items: [{ company: "Sample", description }] } },
-    });
-    expect(doc.experience[0]?.intro).toBe(intro);
-    expect(doc.experience[0]?.listBullets).toEqual(bullets);
-    expect(convertDocFieldsToTypst(doc).experience[0]?.intro).toBe(markup);
-  });
+  it.each(descriptions)(
+    "separates prose and list items: $description",
+    ({ description, intro, markup, bullets }) => {
+      const doc = normalizeResumeJsonToLatexDocument({
+        sections: { experience: { items: [{ company: "Sample", description }] } },
+      });
+      expect(doc.experience[0]?.intro).toBe(intro);
+      expect(doc.experience[0]?.listBullets).toEqual(bullets);
+      expect(convertDocFieldsToTypst(doc).experience[0]?.intro).toBe(markup);
+    },
+  );
 
   it.skipIf(!available).each(descriptions)(
     "renders description exactly once: $description",
@@ -327,13 +307,9 @@ describe("Navy Serif", () => {
             "Intro text.",
             "List item.",
           ]) {
-            expect(text.split(phrase).length - 1).toBe(
-              description.includes(phrase) ? 1 : 0,
-            );
+            expect(text.split(phrase).length - 1).toBe(description.includes(phrase) ? 1 : 0);
           }
-          expect(lines.filter((item) => item.str === "•")).toHaveLength(
-            bullets.length,
-          );
+          expect(lines.filter((item) => item.str === "•")).toHaveLength(bullets.length);
           expect(text).not.toContain("Trailing text.");
           for (const [first, second] of [
             ["Paragraph one.", "Paragraph two."],
@@ -373,13 +349,8 @@ describe("Navy Serif", () => {
       ({ degree: _degree, area: _area, ...entry }) => entry,
     );
     legacy.experience = document.experience.map(
-      ({
-        intro: _intro,
-        listBullets: _list,
-        position: _position,
-        location: _location,
-        ...entry
-      }) => entry,
+      ({ intro: _intro, listBullets: _list, position: _position, location: _location, ...entry }) =>
+        entry,
     );
     for (const id of ["classic", "compact", "clean-print-cv"] as const) {
       const theme = await readTypstTheme(id);
@@ -395,9 +366,7 @@ describe("Navy Serif", () => {
           ...rendered,
           defaultSectionOrder: undefined,
           navyLayout: undefined,
-          education: rendered.education.map(
-            ({ degree: _degree, area: _area, ...entry }) => entry,
-          ),
+          education: rendered.education.map(({ degree: _degree, area: _area, ...entry }) => entry),
           experience: rendered.experience.map(
             ({
               intro: _intro,
@@ -433,9 +402,7 @@ describe("Navy Serif", () => {
         }).promise;
         try {
           const page = await pdf.getPage(1);
-          const items = (await page.getTextContent()).items.filter(
-            (item) => "str" in item,
-          );
+          const items = (await page.getTextContent()).items.filter((item) => "str" in item);
           const find = (s: string) => items.find((i) => i.str.includes(s));
           for (const [left, date] of [
             ["Example Systems - Remote", "2023 – Present"],
@@ -443,10 +410,7 @@ describe("Navy Serif", () => {
             ["Example Startup - Example Town", "2017 – 2019"],
             ["Example University", "2013 – 2017"],
           ]) {
-            expect(find(date)?.transform[5]).toBeCloseTo(
-              find(left)?.transform[5] ?? 0,
-              0,
-            );
+            expect(find(date)?.transform[5]).toBeCloseTo(find(left)?.transform[5] ?? 0, 0);
             expect(find(date)?.transform[4]).toBeGreaterThan(400);
           }
         } finally {
@@ -496,10 +460,8 @@ describe("Navy Serif", () => {
             for (const item of (await page.getTextContent()).items)
               if ("str" in item) pageOf.set(item.str, number);
           }
-          const find = (text: string) =>
-            [...pageOf].find(([str]) => str.includes(text))?.[1];
-          for (let n = 0; n < 9; n++)
-            expect(find(`Role ${n} duty 4`)).toBe(find(`Position ${n}`));
+          const find = (text: string) => [...pageOf].find(([str]) => str.includes(text))?.[1];
+          for (let n = 0; n < 9; n++) expect(find(`Role ${n} duty 4`)).toBe(find(`Position ${n}`));
         } finally {
           await pdf.destroy();
         }
@@ -560,9 +522,7 @@ describe("Navy Serif", () => {
           "Example Award: Delivery excellence.",
         ])
           expect(result.text).toContain(text);
-        const company = result.items.find((i) =>
-          i.str.includes("Example Systems - Remote"),
-        );
+        const company = result.items.find((i) => i.str.includes("Example Systems - Remote"));
         const date = result.items.find((i) => i.str.includes("2023 – Present"));
         // Dates are right-aligned yet on the company's baseline.
         expect(date?.transform[5]).toBeCloseTo(company?.transform[5] ?? 0, 0);
@@ -578,20 +538,14 @@ describe("Navy Serif", () => {
         expect(headings.map((h) => result.text.indexOf(h))).toEqual(
           headings.map((h) => result.text.indexOf(h)).sort((a, b) => a - b),
         );
-        const a = result.items.find((i) =>
-          i.str.includes("Example Certificate A"),
-        );
-        const b = result.items.find((i) =>
-          i.str.includes("Example Certificate B"),
-        );
+        const a = result.items.find((i) => i.str.includes("Example Certificate A"));
+        const b = result.items.find((i) => i.str.includes("Example Certificate B"));
         expect(a).toBeDefined();
         expect(b).toBeDefined();
         // One certificate per line, so ATS parsers don't merge them.
         expect(b?.transform[5]).toBeLessThan((a?.transform[5] ?? 0) - 5);
         expect(b?.transform[4]).toBeCloseTo(a?.transform[4] ?? 0, 0);
-        expect(result.text).toContain(
-          "Example Certificate A - Example Org - 2025",
-        );
+        expect(result.text).toContain("Example Certificate A - Example Org - 2025");
         expect(result.text).toContain("BSc in Computing");
         const sidebarDoc = normalizeResumeJsonToLatexDocument(sidebarSample);
         expect(sidebarDoc.navyLayout).toEqual({
@@ -607,14 +561,10 @@ describe("Navy Serif", () => {
         // "Platform: TypeScript, …" starts on one line.
         expect(tools?.transform[5]).toBeCloseTo(skill?.transform[5] ?? 0, 0);
         expect(summary?.transform[4]).toBeCloseTo(skill?.transform[4] ?? 0, 0);
-        expect(sidebar.text).toContain(
-          "Bachelor of Engineering in Computer Engineering",
-        );
+        expect(sidebar.text).toContain("Bachelor of Engineering in Computer Engineering");
         expect(sidebar.items.filter((i) => i.str === "•")).toHaveLength(4);
         const sidebarHeading = sidebar.items.find((i) => i.str === "Skills");
-        expect(sidebarHeading?.transform[5]).toBeLessThan(
-          summary?.transform[5] ?? 0,
-        );
+        expect(sidebarHeading?.transform[5]).toBeLessThan(summary?.transform[5] ?? 0);
         const expectedHeadings = sectionOrder({
           ...sidebarSample.metadata.layout,
           pages: sidebarSample.metadata.layout.pages.map((page) => ({
@@ -623,14 +573,9 @@ describe("Navy Serif", () => {
           })),
         })
           .filter((key) =>
-            [
-              "summary",
-              "experience",
-              "education",
-              "awards",
-              "skills",
-              "certifications",
-            ].includes(key),
+            ["summary", "experience", "education", "awards", "skills", "certifications"].includes(
+              key,
+            ),
           )
           .map((key) => key[0].toUpperCase() + key.slice(1));
         expect(
@@ -639,20 +584,12 @@ describe("Navy Serif", () => {
             .map((item) => item.str),
         ).toEqual(expectedHeadings);
         const name = result.items.find((i) => i.str === "MORGAN EXAMPLE");
-        const headline = result.items.find(
-          (i) => i.str === "Senior Platform Engineer",
-        );
+        const headline = result.items.find((i) => i.str === "Senior Platform Engineer");
         const contact = result.items.find((i) => i.str.includes("Email:"));
         expect(name?.transform[5]).toBeGreaterThan(headline?.transform[5] ?? 0);
-        expect(headline?.transform[5]).toBeGreaterThan(
-          contact?.transform[5] ?? 0,
-        );
-        expect(result.annotations.map((a) => a.url)).toContain(
-          "https://example.com/code",
-        );
-        expect(result.annotations.map((a) => a.url)).toContain(
-          "https://example.com/cert",
-        );
+        expect(headline?.transform[5]).toBeGreaterThan(contact?.transform[5] ?? 0);
+        expect(result.annotations.map((a) => a.url)).toContain("https://example.com/code");
+        expect(result.annotations.map((a) => a.url)).toContain("https://example.com/cert");
         const reordered = normalizeResumeJsonToLatexDocument({
           ...input,
           metadata: {
@@ -666,12 +603,8 @@ describe("Navy Serif", () => {
           },
         });
         const custom = await render(reordered, "custom");
-        expect(custom.text.indexOf("Education")).toBeLessThan(
-          custom.text.indexOf("Experience"),
-        );
-        expect(custom.text.indexOf("Experience")).toBeLessThan(
-          custom.text.indexOf("Skills"),
-        );
+        expect(custom.text.indexOf("Education")).toBeLessThan(custom.text.indexOf("Experience"));
+        expect(custom.text.indexOf("Experience")).toBeLessThan(custom.text.indexOf("Skills"));
         expect(custom.text).not.toContain("Example Project");
         const sparse = await render(
           {
@@ -703,10 +636,9 @@ describe("Navy Serif", () => {
           "Dated award",
           "Described award: Great delivery.",
         ]) {
-          expect(
-            sparse.items.some((item) => item.str === line) ||
-              sparse.text.includes(line),
-          ).toBe(true);
+          expect(sparse.items.some((item) => item.str === line) || sparse.text.includes(line)).toBe(
+            true,
+          );
         }
         expect(sparse.text).not.toMatch(
           /Title only -|Bare award[:,-]|Example Committee|Dated award,| - ,|, :/,

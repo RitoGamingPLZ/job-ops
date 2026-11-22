@@ -1,7 +1,4 @@
-import {
-  EXTRACTOR_SOURCE_METADATA,
-  PIPELINE_EXTRACTOR_SOURCE_IDS,
-} from "@shared/extractors";
+import { EXTRACTOR_SOURCE_METADATA, PIPELINE_EXTRACTOR_SOURCE_IDS } from "@shared/extractors";
 import { createAppSettings, createJob } from "@shared/testing/factories.js";
 import { describe, expect, it } from "vitest";
 import {
@@ -90,9 +87,7 @@ describe("orchestrator utils", () => {
     it("matches on any selected type and excludes unknown types", () => {
       const fullTime = createJob({ jobType: "Full-time" });
       const unknown = createJob({ jobType: null });
-      expect(matchesEmploymentType(fullTime, ["full_time", "contract"])).toBe(
-        true,
-      );
+      expect(matchesEmploymentType(fullTime, ["full_time", "contract"])).toBe(true);
       expect(matchesEmploymentType(fullTime, ["part_time"])).toBe(false);
       expect(matchesEmploymentType(unknown, ["full_time"])).toBe(false);
     });
@@ -100,9 +95,7 @@ describe("orchestrator utils", () => {
 
   describe("matchesLocation", () => {
     it("keeps all jobs for an empty query", () => {
-      expect(matchesLocation(createJob({ location: "London" }), "  ")).toBe(
-        true,
-      );
+      expect(matchesLocation(createJob({ location: "London" }), "  ")).toBe(true);
     });
 
     it("matches tokens regardless of order or punctuation", () => {
@@ -113,9 +106,7 @@ describe("orchestrator utils", () => {
     });
 
     it("excludes jobs without a location while filtering", () => {
-      expect(matchesLocation(createJob({ location: null }), "london")).toBe(
-        false,
-      );
+      expect(matchesLocation(createJob({ location: null }), "london")).toBe(false);
     });
   });
 
@@ -123,9 +114,7 @@ describe("orchestrator utils", () => {
     const now = Date.parse("2026-06-10T12:00:00.000Z");
 
     it("keeps all jobs when no window is set", () => {
-      expect(
-        matchesPostedWithin(createJob({ datePosted: null }), null, now),
-      ).toBe(true);
+      expect(matchesPostedWithin(createJob({ datePosted: null }), null, now)).toBe(true);
     });
 
     it("keeps jobs inside the window and drops older / unparseable ones", () => {

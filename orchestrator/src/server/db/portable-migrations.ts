@@ -24,10 +24,7 @@ export interface DoSqlStorageLike {
   ): Iterable<T> & { toArray?: () => T[] };
 }
 
-export type PortableMigrationTarget =
-  | PortableSqlExecutor
-  | BetterSqliteLike
-  | DoSqlStorageLike;
+export type PortableMigrationTarget = PortableSqlExecutor | BetterSqliteLike | DoSqlStorageLike;
 
 export interface PortableMigration {
   id: string;
@@ -41,17 +38,12 @@ export interface PortableMigrationResult {
   total: number;
 }
 
-export function createBetterSqliteExecutor(
-  sqlite: BetterSqliteLike,
-): PortableSqlExecutor {
+export function createBetterSqliteExecutor(sqlite: BetterSqliteLike): PortableSqlExecutor {
   return {
     exec(sqlText: string) {
       sqlite.exec(sqlText);
     },
-    query<T = Record<string, unknown>>(
-      sqlText: string,
-      params: unknown[] = [],
-    ): T[] {
+    query<T = Record<string, unknown>>(sqlText: string, params: unknown[] = []): T[] {
       return sqlite.prepare(sqlText).all(...params) as T[];
     },
     run(sqlText: string, params: unknown[] = []) {
@@ -60,17 +52,12 @@ export function createBetterSqliteExecutor(
   };
 }
 
-export function createDoSqlStorageExecutor(
-  sqlStorage: DoSqlStorageLike,
-): PortableSqlExecutor {
+export function createDoSqlStorageExecutor(sqlStorage: DoSqlStorageLike): PortableSqlExecutor {
   return {
     exec(sqlText: string) {
       sqlStorage.exec(sqlText);
     },
-    query<T = Record<string, unknown>>(
-      sqlText: string,
-      params: unknown[] = [],
-    ): T[] {
+    query<T = Record<string, unknown>>(sqlText: string, params: unknown[] = []): T[] {
       const cursor = sqlStorage.exec<T>(sqlText, ...params);
       if (typeof cursor.toArray === "function") {
         return cursor.toArray();
@@ -83,9 +70,7 @@ export function createDoSqlStorageExecutor(
   };
 }
 
-export function toPortableSqlExecutor(
-  target: PortableMigrationTarget,
-): PortableSqlExecutor {
+export function toPortableSqlExecutor(target: PortableMigrationTarget): PortableSqlExecutor {
   if (
     "query" in target &&
     typeof target.query === "function" &&
@@ -109,9 +94,7 @@ function fnv1aHex(input: string): string {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-export function computeMigrationChecksum(
-  statements: readonly string[],
-): string {
+export function computeMigrationChecksum(statements: readonly string[]): string {
   return fnv1aHex(statements.join("\n"));
 }
 
@@ -251,9 +234,7 @@ export function runPortableMigrations(
     const existingChecksum = appliedMap.get(migration.id);
     if (existingChecksum !== undefined) {
       if (existingChecksum !== checksum) {
-        throw new Error(
-          `Migration checksum mismatch for ${migration.id} (${migration.name})`,
-        );
+        throw new Error(`Migration checksum mismatch for ${migration.id} (${migration.name})`);
       }
       skipped.push(migration.id);
       continue;
@@ -263,10 +244,11 @@ export function runPortableMigrations(
       executor.exec(statement);
     }
 
-    executor.run(
-      'INSERT INTO "_portable_migrations" ("id", "name", "checksum") VALUES (?, ?, ?)',
-      [migration.id, migration.name, checksum],
-    );
+    executor.run('INSERT INTO "_portable_migrations" ("id", "name", "checksum") VALUES (?, ?, ?)', [
+      migration.id,
+      migration.name,
+      checksum,
+    ]);
     appliedMap.set(migration.id, checksum);
     applied.push(migration.id);
   }

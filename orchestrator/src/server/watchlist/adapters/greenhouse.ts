@@ -113,17 +113,13 @@ export const greenhouseWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       jobRef: input.jobRef,
       signal: input.signal,
     });
-    const source = greenhouseTokenToSourceKey(
-      parseGreenhouseUrl(input.source.careersUrl).token,
-    );
+    const source = greenhouseTokenToSourceKey(parseGreenhouseUrl(input.source.careersUrl).token);
     const draft = buildManualDraft(input.source, source, details.job);
 
     return {
       draft,
       source: draft.source ?? null,
-      sourceHost:
-        getSourceHost(details.job.jobUrl) ??
-        getSourceHost(input.source.careersUrl),
+      sourceHost: getSourceHost(details.job.jobUrl) ?? getSourceHost(input.source.careersUrl),
     };
   },
 };

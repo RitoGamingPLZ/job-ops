@@ -12,8 +12,7 @@ export function NumericFilterInput(props: {
   min?: number;
   max?: number;
 }): React.JSX.Element {
-  const { id, label, value, onChange, normalize, placeholder, min, max } =
-    props;
+  const { id, label, value, onChange, normalize, placeholder, min, max } = props;
   return (
     <div className="space-y-1">
       <Label htmlFor={id}>{label}</Label>

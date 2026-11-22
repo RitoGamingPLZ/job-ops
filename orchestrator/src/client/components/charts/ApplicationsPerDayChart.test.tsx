@@ -5,22 +5,12 @@
 
 import { render, screen } from "@testing-library/react";
 import type React from "react";
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApplicationsPerDayChart } from "./ApplicationsPerDayChart";
 
 // Mock UI components
 vi.mock("@/components/ui/card", () => ({
-  Card: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card">{children}</div>
-  ),
+  Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
   CardContent: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="card-content">{children}</div>
   ),
@@ -46,11 +36,7 @@ vi.mock("@/components/ui/chart", () => ({
     labelFormatter,
   }: {
     labelFormatter: (value: string) => React.ReactNode;
-  }) => (
-    <div data-testid="chart-tooltip-content">
-      {labelFormatter("2025-01-01")}
-    </div>
-  ),
+  }) => <div data-testid="chart-tooltip-content">{labelFormatter("2025-01-01")}</div>,
 }));
 
 vi.mock("recharts", () => ({
@@ -109,30 +95,18 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
 
     it("labels ticks and tooltips with the bucket's own local calendar date", () => {
       render(
-        <ApplicationsPerDayChart
-          appliedAt={[]}
-          isLoading={false}
-          error={null}
-          daysToShow={7}
-        />,
+        <ApplicationsPerDayChart appliedAt={[]} isLoading={false} error={null} daysToShow={7} />,
       );
 
       expect(screen.getByTestId("x-axis")).toHaveTextContent(/^1 Jan$/);
-      expect(screen.getByTestId("chart-tooltip-content")).toHaveTextContent(
-        /^1 Jan 2025$/,
-      );
+      expect(screen.getByTestId("chart-tooltip-content")).toHaveTextContent(/^1 Jan 2025$/);
     });
   });
 
   describe("Empty and Null Data", () => {
     it("handles empty appliedAt array - shows zero total and average", () => {
       render(
-        <ApplicationsPerDayChart
-          appliedAt={[]}
-          isLoading={false}
-          error={null}
-          daysToShow={7}
-        />,
+        <ApplicationsPerDayChart appliedAt={[]} isLoading={false} error={null} daysToShow={7} />,
       );
 
       expect(screen.getByText("0.0")).toBeInTheDocument();
@@ -250,10 +224,7 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
 
       expect(screen.getByText(/Last 7 days · 4 total/)).toBeInTheDocument();
       expect(
-        JSON.parse(
-          screen.getByTestId("bar-chart").getAttribute("data-chart-data") ??
-            "[]",
-        ),
+        JSON.parse(screen.getByTestId("bar-chart").getAttribute("data-chart-data") ?? "[]"),
       ).toEqual([
         { date: "2025-01-09", applications: 1 },
         { date: "2025-01-10", applications: 1 },
@@ -285,12 +256,7 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
     it("shows neutral trend when first half average is 0 and second half is also 0", () => {
       // All zeros - no trend indicator should show
       render(
-        <ApplicationsPerDayChart
-          appliedAt={[]}
-          isLoading={false}
-          error={null}
-          daysToShow={7}
-        />,
+        <ApplicationsPerDayChart appliedAt={[]} isLoading={false} error={null} daysToShow={7} />,
       );
 
       expect(screen.queryByTestId("trending-up")).not.toBeInTheDocument();
@@ -304,12 +270,7 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
         localDate(15),
       ];
       render(
-        <ApplicationsPerDayChart
-          appliedAt={dates}
-          isLoading={false}
-          error={null}
-          daysToShow={7}
-        />,
+        <ApplicationsPerDayChart appliedAt={dates} isLoading={false} error={null} daysToShow={7} />,
       );
 
       expect(screen.getByTestId("trending-up")).toBeInTheDocument();
@@ -324,12 +285,7 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
         localDate(15),
       ];
       render(
-        <ApplicationsPerDayChart
-          appliedAt={dates}
-          isLoading={false}
-          error={null}
-          daysToShow={7}
-        />,
+        <ApplicationsPerDayChart appliedAt={dates} isLoading={false} error={null} daysToShow={7} />,
       );
 
       expect(screen.getByTestId("trending-up")).toBeInTheDocument();
@@ -344,12 +300,7 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
         localDate(15), // Second half - 1 app
       ];
       render(
-        <ApplicationsPerDayChart
-          appliedAt={dates}
-          isLoading={false}
-          error={null}
-          daysToShow={7}
-        />,
+        <ApplicationsPerDayChart appliedAt={dates} isLoading={false} error={null} daysToShow={7} />,
       );
 
       expect(screen.getByTestId("trending-down")).toBeInTheDocument();
@@ -359,12 +310,7 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
   describe("Loading and Error States", () => {
     it("shows loading state description", () => {
       render(
-        <ApplicationsPerDayChart
-          appliedAt={[]}
-          isLoading={true}
-          error={null}
-          daysToShow={7}
-        />,
+        <ApplicationsPerDayChart appliedAt={[]} isLoading={true} error={null} daysToShow={7} />,
       );
 
       expect(screen.getByText("Loading applied jobs...")).toBeInTheDocument();
@@ -380,20 +326,13 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
         />,
       );
 
-      expect(
-        screen.getByText("Failed to load application data"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Failed to load application data")).toBeInTheDocument();
       expect(screen.queryByTestId("chart-container")).not.toBeInTheDocument();
     });
 
     it("renders chart when no error", () => {
       render(
-        <ApplicationsPerDayChart
-          appliedAt={[]}
-          isLoading={false}
-          error={null}
-          daysToShow={7}
-        />,
+        <ApplicationsPerDayChart appliedAt={[]} isLoading={false} error={null} daysToShow={7} />,
       );
 
       expect(screen.getByTestId("chart-container")).toBeInTheDocument();
@@ -429,12 +368,7 @@ describe("ApplicationsPerDayChart - Edge Cases", () => {
         localDate(15),
       ];
       render(
-        <ApplicationsPerDayChart
-          appliedAt={dates}
-          isLoading={false}
-          error={null}
-          daysToShow={7}
-        />,
+        <ApplicationsPerDayChart appliedAt={dates} isLoading={false} error={null} daysToShow={7} />,
       );
 
       expect(screen.getByText(/Last 7 days · 7 total/)).toBeInTheDocument();

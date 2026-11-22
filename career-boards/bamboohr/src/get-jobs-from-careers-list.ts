@@ -1,8 +1,4 @@
-import {
-  type BamboohrSourceConfig,
-  bamboohrUrlToJobUrl,
-  parseBamboohrUrl,
-} from "./bamboohr-url";
+import { type BamboohrSourceConfig, bamboohrUrlToJobUrl, parseBamboohrUrl } from "./bamboohr-url";
 
 export interface BamboohrLocation {
   city?: string | null;
@@ -69,9 +65,7 @@ export async function getJobsFromCareersList(
 ): Promise<FetchBamboohrJobsResult> {
   const fetchFn = options.fetchImpl ?? globalThis.fetch;
   if (!fetchFn) {
-    throw new Error(
-      "No fetch implementation available. Pass fetchImpl or use Node 18+.",
-    );
+    throw new Error("No fetch implementation available. Pass fetchImpl or use Node 18+.");
   }
 
   const source = parseBamboohrUrl(options.careersUrl);
@@ -89,9 +83,7 @@ export async function getJobsFromCareersList(
   const rows = Array.isArray(response.result) ? response.result : [];
   const jobs = rows.map((job) => normalizeBamboohrListJob(job, source));
   const total =
-    typeof response.meta?.totalCount === "number"
-      ? response.meta.totalCount
-      : jobs.length;
+    typeof response.meta?.totalCount === "number" ? response.meta.totalCount : jobs.length;
 
   return {
     total,
@@ -105,11 +97,7 @@ export function normalizeBamboohrListJob(
   source: BamboohrSourceConfig,
 ): NormalizedBamboohrJob {
   const externalId = requiredString(job.id, "id", source.listUrl);
-  const title = requiredString(
-    job.jobOpeningName,
-    "jobOpeningName",
-    source.listUrl,
-  );
+  const title = requiredString(job.jobOpeningName, "jobOpeningName", source.listUrl);
 
   return {
     source: "bamboohr",
@@ -158,9 +146,7 @@ async function fetchBamboohrJson<T>(
 
   const responseText = await response.text();
   if (!response.ok) {
-    throw new Error(
-      `BambooHR request failed with HTTP ${response.status} for ${input.url}.`,
-    );
+    throw new Error(`BambooHR request failed with HTTP ${response.status} for ${input.url}.`);
   }
 
   try {
@@ -170,15 +156,9 @@ async function fetchBamboohrJson<T>(
   }
 }
 
-function requiredString(
-  value: unknown,
-  fieldName: string,
-  url: string,
-): string {
+function requiredString(value: unknown, fieldName: string, url: string): string {
   if (typeof value === "string" && value.trim()) return value.trim();
-  throw new Error(
-    `BambooHR response is missing required field ${fieldName} for ${url}.`,
-  );
+  throw new Error(`BambooHR response is missing required field ${fieldName} for ${url}.`);
 }
 
 function optionalString(value: unknown): string | undefined {

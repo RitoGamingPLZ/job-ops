@@ -13,8 +13,7 @@ import { salaryModeOptions } from "./filterOptions";
 import { NumericFilterInput } from "./NumericFilterInput";
 import type { SalaryFilterPillProps } from "./types";
 
-const positiveOrNull = (value: number): number | null =>
-  value > 0 ? value : null;
+const positiveOrNull = (value: number): number | null => (value > 0 ? value : null);
 
 export const SalaryFilterPill: React.FC<SalaryFilterPillProps> = ({
   salaryFilter,
@@ -22,18 +21,11 @@ export const SalaryFilterPill: React.FC<SalaryFilterPillProps> = ({
   salaryActive,
   salarySummary,
 }) => {
-  const showSalaryMin =
-    salaryFilter.mode === "at_least" || salaryFilter.mode === "between";
-  const showSalaryMax =
-    salaryFilter.mode === "at_most" || salaryFilter.mode === "between";
+  const showSalaryMin = salaryFilter.mode === "at_least" || salaryFilter.mode === "between";
+  const showSalaryMax = salaryFilter.mode === "at_most" || salaryFilter.mode === "between";
 
   return (
-    <FilterPill
-      icon={<Banknote />}
-      label="Salary"
-      active={salaryActive}
-      summary={salarySummary}
-    >
+    <FilterPill icon={<Banknote />} label="Salary" active={salaryActive} summary={salarySummary}>
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <span>Salary is</span>

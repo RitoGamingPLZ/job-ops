@@ -82,33 +82,16 @@ const education = row("education", "education", "BSc · CS · First", {
 const award = row("award", "award", "Prize · Society", {
   data: { date: "2020" },
 });
-const certification = row(
-  "certification",
-  "certification",
-  "Certified Developer",
-  {
-    data: { issuer: "Institute", website: "https://example.com", date: "2024" },
-  },
-);
-const library = [
-  role,
-  duty,
-  otherDuty,
-  project,
-  point,
-  skill,
-  education,
-  award,
-  certification,
-];
+const certification = row("certification", "certification", "Certified Developer", {
+  data: { issuer: "Institute", website: "https://example.com", date: "2024" },
+});
+const library = [role, duty, otherDuty, project, point, skill, education, award, certification];
 const parents = [role, project, skill, education, award, certification];
 function document(): ResumeDoc {
   return structuredClone(defaultV5ResumeData);
 }
 function entries(doc: ResumeDoc, kind: CandidateItemKind): ResumeItem[] {
-  return (
-    doc.sections[KIND_SECTION[kind] ?? "experience"] as { items: ResumeItem[] }
-  ).items;
+  return (doc.sections[KIND_SECTION[kind] ?? "experience"] as { items: ResumeItem[] }).items;
 }
 function withEntry(doc: ResumeDoc, item: ResumeItem): ResumeDoc {
   return {
@@ -156,8 +139,7 @@ describe("resume library lines", () => {
   });
   it("keeps prose before/between/after lists, escapes edits, and aligns reordered refs", () => {
     const item = {
-      description:
-        "<p>Intro</p><ol><li>A</li></ol><p>Between</p><ul><li>B</li></ul><p>After</p>",
+      description: "<p>Intro</p><ol><li>A</li></ol><p>Between</p><ul><li>B</li></ul><p>After</p>",
       bulletRefs: ["a", "b"],
     };
     const next = setItemLines(item, [
@@ -168,9 +150,7 @@ describe("resume library lines", () => {
       "<p>Intro</p><ul><li>B &lt;&amp;&gt;</li><li>New</li></ul><p>Between</p><p>After</p>",
     );
     expect(next.bulletRefs).toEqual(["b", null]);
-    expect(setItemLines(next, []).description).toBe(
-      "<p>Intro</p><p>Between</p><p>After</p>",
-    );
+    expect(setItemLines(next, []).description).toBe("<p>Intro</p><p>Between</p><p>After</p>");
     expect(item.bulletRefs).toEqual(["a", "b"]);
   });
   it("preserves formatted HTML byte-for-byte when only refs change", () => {
@@ -201,11 +181,7 @@ describe("ticking library items", () => {
     [role, duty],
     [project, point],
   ])("auto-adds only the missing parent for a $1.kind", (parent, child) => {
-    const doc = addToResume(
-      freeze(document()),
-      child.id,
-      freeze(structuredClone(library)),
-    );
+    const doc = addToResume(freeze(document()), child.id, freeze(structuredClone(library)));
     const entry = entries(doc, parent.kind)[0];
     expect(entry.libraryId).toBe(parent.id);
     expect(getItemLines(entry)).toEqual([{ text: child.text, ref: child.id }]);
@@ -219,28 +195,26 @@ describe("ticking library items", () => {
   });
   it("adds all children in library order for a parent, and appends new children", () => {
     let doc = addToResume(document(), role.id, [otherDuty, duty, role]);
-    expect(
-      getItemLines(entries(doc, "role")[0]).map((line) => line.ref),
-    ).toEqual([duty.id, otherDuty.id]);
+    expect(getItemLines(entries(doc, "role")[0]).map((line) => line.ref)).toEqual([
+      duty.id,
+      otherDuty.id,
+    ]);
     const extra = row("extra", "bullet", "New", { parentId: role.id });
     doc = addToResume(doc, extra.id, [...library, extra]);
-    expect(
-      getItemLines(entries(doc, "role")[0]).map((line) => line.ref),
-    ).toEqual([duty.id, otherDuty.id, extra.id]);
+    expect(getItemLines(entries(doc, "role")[0]).map((line) => line.ref)).toEqual([
+      duty.id,
+      otherDuty.id,
+      extra.id,
+    ]);
     const another = row("another", "role", "Manager");
     doc = addToResume(doc, another.id, [...library, another]);
-    expect(entries(doc, "role").map((item) => item.libraryId)).toEqual([
-      role.id,
-      another.id,
-    ]);
+    expect(entries(doc, "role").map((item) => item.libraryId)).toEqual([role.id, another.id]);
   });
   it("ignores missing items, missing parents, and parents of the wrong kind", () => {
     const doc = document();
     expect(addToResume(doc, "absent", library)).toBe(doc);
     expect(addToResume(doc, duty.id, [duty])).toBe(doc);
-    expect(addToResume(doc, duty.id, [duty, { ...project, id: role.id }])).toBe(
-      doc,
-    );
+    expect(addToResume(doc, duty.id, [duty, { ...project, id: role.id }])).toBe(doc);
     expect(removeFromResume(doc, "absent")).toBe(doc);
   });
   it("gives skills their own keyword array", () => {
@@ -272,60 +246,51 @@ describe("library updates and resets", () => {
       "<p>Intro</p><ul><li>Fixed &lt;text&gt;</li><li>My rewording</li><li>Built APIs &amp; tools</li></ul><p>After</p>",
     );
     expect(next.sections.skills).toBe(doc.sections.skills);
-    expect(
-      applyLibraryUpdate(next, duty, { ...duty, text: "Another fix" }),
-    ).toBe(next);
+    expect(applyLibraryUpdate(next, duty, { ...duty, text: "Another fix" })).toBe(next);
   });
-  it.each(
-    parents,
-  )("re-derives $kind fields while retaining item identity and other resume fields", (original) => {
-    const doc = addToResume(document(), original.id, library);
-    const entry = entries(doc, original.kind)[0];
-    const after = {
-      ...original,
-      text: "Updated",
-      data: {
-        degree: "Updated",
-        title: "Updated",
-        company: "New Co",
-        location: "New place",
-        website: "https://new.example",
-        period: "2025",
-        school: "New school",
-        issuer: "New issuer",
-        date: "2025",
-        keywords: ["Rust"],
-      },
-    };
-    const next = applyLibraryUpdate(freeze(doc), original, after);
-    const updated = entries(next, original.kind)[0];
-    expect(updated.id).toBe(entry.id);
-    const expected = libraryItemToResumeItem(after);
-    for (const [key, value] of Object.entries(expected)) {
-      if (
-        ["id", "description", "bulletRefs", "keywords", "roles"].includes(key)
-      )
-        continue;
-      expect(updated[key]).toEqual(value);
-    }
-    if (original.kind === "skill")
-      expect(updated.keywords).toEqual(["TypeScript", "Go"]);
-    if (original.kind === "role" || original.kind === "project")
-      expect(getItemLines(updated)).toEqual(getItemLines(entry));
-    expect(applyLibraryUpdate(next, after, after)).toBe(next);
-  });
+  it.each(parents)(
+    "re-derives $kind fields while retaining item identity and other resume fields",
+    (original) => {
+      const doc = addToResume(document(), original.id, library);
+      const entry = entries(doc, original.kind)[0];
+      const after = {
+        ...original,
+        text: "Updated",
+        data: {
+          degree: "Updated",
+          title: "Updated",
+          company: "New Co",
+          location: "New place",
+          website: "https://new.example",
+          period: "2025",
+          school: "New school",
+          issuer: "New issuer",
+          date: "2025",
+          keywords: ["Rust"],
+        },
+      };
+      const next = applyLibraryUpdate(freeze(doc), original, after);
+      const updated = entries(next, original.kind)[0];
+      expect(updated.id).toBe(entry.id);
+      const expected = libraryItemToResumeItem(after);
+      for (const [key, value] of Object.entries(expected)) {
+        if (["id", "description", "bulletRefs", "keywords", "roles"].includes(key)) continue;
+        expect(updated[key]).toEqual(value);
+      }
+      if (original.kind === "skill") expect(updated.keywords).toEqual(["TypeScript", "Go"]);
+      if (original.kind === "role" || original.kind === "project")
+        expect(getItemLines(updated)).toEqual(getItemLines(entry));
+      expect(applyLibraryUpdate(next, after, after)).toBe(next);
+    },
+  );
   it("leaves freezing policy to the caller and does not inspect job status", () => {
     const doc = {
       ...addToResume(document(), duty.id, library),
       status: "applied",
     };
     expect(
-      getItemLines(
-        entries(
-          applyLibraryUpdate(doc, duty, { ...duty, text: "Fixed" }),
-          "role",
-        )[0],
-      )[0].text,
+      getItemLines(entries(applyLibraryUpdate(doc, duty, { ...duty, text: "Fixed" }), "role")[0])[0]
+        .text,
     ).toBe("Fixed");
   });
   it("resets only the specified linked line, and returns identity for no-ops", () => {
@@ -353,12 +318,7 @@ describe("stamping existing resumes", () => {
     let doc = document();
     for (const item of parents) doc = addToResume(doc, item.id, library);
     for (const section of Object.values(doc.sections)) {
-      if (
-        !section ||
-        typeof section !== "object" ||
-        !Array.isArray(section.items)
-      )
-        continue;
+      if (!section || typeof section !== "object" || !Array.isArray(section.items)) continue;
       for (const item of section.items) {
         delete item.libraryId;
         delete item.bulletRefs;
@@ -372,16 +332,10 @@ describe("stamping existing resumes", () => {
     expect(stamped.doc.sections.experience.items[0].description).toBe(
       original.sections.experience.items[0].description,
     );
-    for (const item of library)
-      expect(isOnResume(stamped.doc, item.id)).toBe(true);
+    for (const item of library) expect(isOnResume(stamped.doc, item.id)).toBe(true);
     const stripped = structuredClone(stamped.doc);
     for (const section of Object.values(stripped.sections)) {
-      if (
-        !section ||
-        typeof section !== "object" ||
-        !Array.isArray(section.items)
-      )
-        continue;
+      if (!section || typeof section !== "object" || !Array.isArray(section.items)) continue;
       for (const item of section.items) {
         delete item.libraryId;
         delete item.bulletRefs;
@@ -417,9 +371,7 @@ describe("stamping existing resumes", () => {
       duty,
     ]);
     expect(result.doc.sections.experience.items[0].libraryId).toBe(role.id);
-    expect(result.doc.sections.experience.items[0].bulletRefs).toEqual([
-      duty.id,
-    ]);
+    expect(result.doc.sections.experience.items[0].bulletRefs).toEqual([duty.id]);
   });
   it("folds one-line legacy fields for matching without rewriting them", () => {
     const doc = document();
@@ -452,11 +404,7 @@ describe("stamping existing resumes", () => {
     };
     const result = stampLibraryRefs(withEntry(document(), item), library);
     expect(result.linked).toBe(1);
-    expect(result.doc.sections.experience.items[0].bulletRefs).toEqual([
-      "existing",
-      null,
-      duty.id,
-    ]);
+    expect(result.doc.sections.experience.items[0].bulletRefs).toEqual(["existing", null, duty.id]);
     const empty = document();
     expect(stampLibraryRefs(empty, library).doc).toBe(empty);
     const unmatched = withEntry(empty, {
@@ -489,16 +437,10 @@ describe("stamping existing resumes", () => {
       ...duty,
       text: "Fixed",
     });
-    expect(getItemLines(updated.customSections[0].items[0])[0].text).toBe(
-      "Fixed",
-    );
+    expect(getItemLines(updated.customSections[0].items[0])[0].text).toBe("Fixed");
     const reset = resetLine(updated, String(item.id), 0, library);
-    expect(getItemLines(reset.customSections[0].items[0])[0].text).toBe(
-      duty.text,
-    );
-    expect(removeFromResume(reset, role.id).customSections[0].items).toEqual(
-      [],
-    );
+    expect(getItemLines(reset.customSections[0].items[0])[0].text).toBe(duty.text);
+    expect(removeFromResume(reset, role.id).customSections[0].items).toEqual([]);
   });
 });
 
@@ -527,22 +469,20 @@ describe("review regressions", () => {
     const item = setItemLines(libraryItemToResumeItem(role), [
       { text: "First\nSecond <&>", ref: null },
     ]);
-    expect(item.description).toBe(
-      "<ul><li>First<br>Second &lt;&amp;&gt;</li></ul>",
-    );
+    expect(item.description).toBe("<ul><li>First<br>Second &lt;&amp;&gt;</li></ul>");
     expect(getItemLines(item)[0].text).toBe("First\nSecond <&>");
   });
-  it.each([
-    role,
-    education,
-  ])("keeps $kind schema-valid when required data is missing or cleared", (original) => {
-    const missing = { ...original, data: { period: "2024" } };
-    const doc = addToResume(document(), missing.id, [missing]);
-    expect(() => parseV5ResumeData(doc)).not.toThrow();
-    const populated = addToResume(document(), original.id, library);
-    const cleared = applyLibraryUpdate(populated, original, missing);
-    expect(() => parseV5ResumeData(cleared)).not.toThrow();
-  });
+  it.each([role, education])(
+    "keeps $kind schema-valid when required data is missing or cleared",
+    (original) => {
+      const missing = { ...original, data: { period: "2024" } };
+      const doc = addToResume(document(), missing.id, [missing]);
+      expect(() => parseV5ResumeData(doc)).not.toThrow();
+      const populated = addToResume(document(), original.id, library);
+      const cleared = applyLibraryUpdate(populated, original, missing);
+      expect(() => parseV5ResumeData(cleared)).not.toThrow();
+    },
+  );
   it("preserves resume website labels on library field updates", () => {
     const item = {
       ...libraryItemToResumeItem(role),
@@ -554,60 +494,53 @@ describe("review regressions", () => {
     });
     expect(entries(updated, "role")[0].website).toEqual(item.website);
   });
-  it.each([
-    role,
-    project,
-    certification,
-  ])("builds and updates $kind websites from v5 objects, including label edits", (original) => {
-    const website = { url: "https://example.com", label: "Site" };
-    const before = { ...original, data: { ...original.data, website } };
-    const doc = addToResume(document(), before.id, [before]);
-    expect(entries(doc, before.kind)[0].website).toEqual(website);
-    const updated = applyLibraryUpdate(doc, before, {
-      ...before,
-      text: "Edited another field",
-    });
-    expect(entries(updated, before.kind)[0].website).toEqual(website);
-    const changed = applyLibraryUpdate(updated, before, {
-      ...before,
-      data: { ...before.data, website: { ...website, label: "New label" } },
-    });
-    expect(entries(changed, before.kind)[0].website).toEqual({
-      ...website,
-      label: "New label",
-    });
-  });
-  it.each([
-    role,
-    project,
-    certification,
-  ])("retains local $kind website labels while updating unedited URLs", (original) => {
-    const website = { url: "https://example.com", label: "Site" };
-    const doc = addToResume(document(), original.id, [original]);
-    entries(doc, original.kind)[0].website = website;
-    const missing = { ...original, data: {} };
-    expect(
-      entries(applyLibraryUpdate(doc, original, missing), original.kind)[0]
-        .website,
-    ).toEqual(website);
-    const legacy = { ...original, data: { website: "https://new.example" } };
-    expect(
-      entries(applyLibraryUpdate(doc, original, legacy), original.kind)[0]
-        .website,
-    ).toEqual({ url: "https://new.example", label: "Site" });
-    const cleared = { ...original, data: { website: { url: "", label: "" } } };
-    expect(
-      entries(applyLibraryUpdate(doc, original, cleared), original.kind)[0]
-        .website,
-    ).toEqual({ url: "", label: "Site" });
-  });
+  it.each([role, project, certification])(
+    "builds and updates $kind websites from v5 objects, including label edits",
+    (original) => {
+      const website = { url: "https://example.com", label: "Site" };
+      const before = { ...original, data: { ...original.data, website } };
+      const doc = addToResume(document(), before.id, [before]);
+      expect(entries(doc, before.kind)[0].website).toEqual(website);
+      const updated = applyLibraryUpdate(doc, before, {
+        ...before,
+        text: "Edited another field",
+      });
+      expect(entries(updated, before.kind)[0].website).toEqual(website);
+      const changed = applyLibraryUpdate(updated, before, {
+        ...before,
+        data: { ...before.data, website: { ...website, label: "New label" } },
+      });
+      expect(entries(changed, before.kind)[0].website).toEqual({
+        ...website,
+        label: "New label",
+      });
+    },
+  );
+  it.each([role, project, certification])(
+    "retains local $kind website labels while updating unedited URLs",
+    (original) => {
+      const website = { url: "https://example.com", label: "Site" };
+      const doc = addToResume(document(), original.id, [original]);
+      entries(doc, original.kind)[0].website = website;
+      const missing = { ...original, data: {} };
+      expect(entries(applyLibraryUpdate(doc, original, missing), original.kind)[0].website).toEqual(
+        website,
+      );
+      const legacy = { ...original, data: { website: "https://new.example" } };
+      expect(entries(applyLibraryUpdate(doc, original, legacy), original.kind)[0].website).toEqual({
+        url: "https://new.example",
+        label: "Site",
+      });
+      const cleared = { ...original, data: { website: { url: "", label: "" } } };
+      expect(entries(applyLibraryUpdate(doc, original, cleared), original.kind)[0].website).toEqual(
+        { url: "", label: "Site" },
+      );
+    },
+  );
 });
 
 describe("round one lead decisions", () => {
-  it.each([
-    "role",
-    "duty",
-  ])("inserts a %s after the last normalized company match", (selection) => {
+  it.each(["role", "duty"])("inserts a %s after the last normalized company match", (selection) => {
     const first = { ...role, id: "first" };
     const beta = {
       ...role,
@@ -625,17 +558,12 @@ describe("round one lead decisions", () => {
       data: { ...role.data, company: "Gamma" },
     };
     let doc = document();
-    for (const item of [first, beta, last, gamma])
-      doc = addToResume(doc, item.id, [item]);
+    for (const item of [first, beta, last, gamma]) doc = addToResume(doc, item.id, [item]);
     // The middle editor may have separated roles; insertion follows the last match.
     doc.sections.experience.items = [first, beta, last, gamma].map((item) =>
       entries(doc, "role").find((entry) => entry.libraryId === item.id),
     ) as ResumeDoc["sections"]["experience"]["items"];
-    const next = addToResume(
-      freeze(doc),
-      selection === "role" ? role.id : duty.id,
-      library,
-    );
+    const next = addToResume(freeze(doc), selection === "role" ? role.id : duty.id, library);
     expect(entries(next, "role").map((entry) => entry.libraryId)).toEqual([
       first.id,
       beta.id,
@@ -643,9 +571,9 @@ describe("round one lead decisions", () => {
       role.id,
       gamma.id,
     ]);
-    expect(
-      getItemLines(entries(next, "role")[3]).map((line) => line.ref),
-    ).toEqual(selection === "role" ? [duty.id, otherDuty.id] : [duty.id]);
+    expect(getItemLines(entries(next, "role")[3]).map((line) => line.ref)).toEqual(
+      selection === "role" ? [duty.id, otherDuty.id] : [duty.id],
+    );
   });
 
   it.each([
@@ -656,10 +584,7 @@ describe("round one lead decisions", () => {
     const entry = entries(doc, parent.kind)[0];
     entry.libraryId = undefined;
     entry.description = `<ul><li>${child.text.replace(/&/g, "&amp;")}</li></ul>`;
-    const result = stampLibraryRefs(freeze(doc), [
-      parent,
-      { ...child, parentId: "elsewhere" },
-    ]);
+    const result = stampLibraryRefs(freeze(doc), [parent, { ...child, parentId: "elsewhere" }]);
     expect(result.linked).toBe(1);
     const stamped = entries(result.doc, parent.kind)[0];
     expect(stamped.libraryId).toBe(parent.id);
@@ -734,9 +659,7 @@ describe("contact selections", () => {
       website: { url: "https://github.com/user", label: "Code" },
     });
     expect(setContactOnResume(next, profile, true)).toBe(next);
-    expect(
-      applyLibraryUpdate(next, profile, { ...profile, tags: ["Code"] }),
-    ).toBe(next);
+    expect(applyLibraryUpdate(next, profile, { ...profile, tags: ["Code"] })).toBe(next);
     next.sections.profiles.items[0].icon = "github";
     const edited = applyLibraryUpdate(next, profile, {
       ...profile,
@@ -749,17 +672,12 @@ describe("contact selections", () => {
     });
     delete next.sections.profiles.items[0].libraryId;
     expect(isContactOnResume(next, profile)).toBe(true);
-    expect(
-      setContactOnResume(next, profile, false).sections.profiles.items,
-    ).toEqual([]);
+    expect(setContactOnResume(next, profile, false).sections.profiles.items).toEqual([]);
     expect(parseV5ResumeData(next)).toBeTruthy();
   });
 });
 
-it.each([
-  "username",
-  "value",
-])("keeps profile ticks stable after editing %s", (field) => {
+it.each(["username", "value"])("keeps profile ticks stable after editing %s", (field) => {
   const doc = document();
   doc.sections.profiles.items = [
     {
@@ -793,71 +711,65 @@ it.each([
 });
 
 describe("structured library links", () => {
-  it.each([
-    "education",
-    "award",
-    "certification",
-  ] as const)("derives %s fields and keeps local edits on a library change", (kind) => {
-    const data = {
-      schemaVersion: 2,
-      school: "School",
-      location: "City",
-      period: "2024",
-      area: "Computer Science",
-      grade: "First",
-      issuer: "Institute",
-      awarder: "Guild",
-      date: "2024",
-      description: "<p><strong>Original</strong></p>",
-      website: {
-        url: "https://example.com",
-        label: "Source",
-        inlineLink: true,
-      },
-    };
-    const original = row(`structured-${kind}`, kind, "Title", { data });
-    let doc = addToResume(document(), original.id, [original]);
-    const section = KIND_SECTION[kind] as
-      | "education"
-      | "awards"
-      | "certifications";
-    const entry = doc.sections[section].items[0];
-    expect(entry).toMatchObject({
-      description: data.description,
-      website: data.website,
-    });
-    if (kind === "education")
-      expect(entry).toMatchObject({ area: data.area, grade: data.grade });
-    if (kind === "award")
-      expect(entry).toMatchObject({ awarder: data.awarder });
-    doc = {
-      ...doc,
-      sections: {
-        ...doc.sections,
-        [section]: {
-          ...doc.sections[section],
-          items: [{ ...entry, description: "<p>Local rewrite</p>" }],
+  it.each(["education", "award", "certification"] as const)(
+    "derives %s fields and keeps local edits on a library change",
+    (kind) => {
+      const data = {
+        schemaVersion: 2,
+        school: "School",
+        location: "City",
+        period: "2024",
+        area: "Computer Science",
+        grade: "First",
+        issuer: "Institute",
+        awarder: "Guild",
+        date: "2024",
+        description: "<p><strong>Original</strong></p>",
+        website: {
+          url: "https://example.com",
+          label: "Source",
+          inlineLink: true,
         },
-      },
-    };
-    const next = applyLibraryUpdate(doc, original, {
-      ...original,
-      text: "Updated title",
-      data: {
-        ...data,
-        description: "<p>New canonical</p>",
-        date: "2025",
-        period: "2025",
-      },
-    });
-    expect(next.sections[section].items[0]).toMatchObject({
-      libraryId: original.id,
-      description: "<p>Local rewrite</p>",
-      ...(kind === "education"
-        ? { degree: "Updated title", period: "2025" }
-        : { title: "Updated title", date: "2025" }),
-    });
-  });
+      };
+      const original = row(`structured-${kind}`, kind, "Title", { data });
+      let doc = addToResume(document(), original.id, [original]);
+      const section = KIND_SECTION[kind] as "education" | "awards" | "certifications";
+      const entry = doc.sections[section].items[0];
+      expect(entry).toMatchObject({
+        description: data.description,
+        website: data.website,
+      });
+      if (kind === "education") expect(entry).toMatchObject({ area: data.area, grade: data.grade });
+      if (kind === "award") expect(entry).toMatchObject({ awarder: data.awarder });
+      doc = {
+        ...doc,
+        sections: {
+          ...doc.sections,
+          [section]: {
+            ...doc.sections[section],
+            items: [{ ...entry, description: "<p>Local rewrite</p>" }],
+          },
+        },
+      };
+      const next = applyLibraryUpdate(doc, original, {
+        ...original,
+        text: "Updated title",
+        data: {
+          ...data,
+          description: "<p>New canonical</p>",
+          date: "2025",
+          period: "2025",
+        },
+      });
+      expect(next.sections[section].items[0]).toMatchObject({
+        libraryId: original.id,
+        description: "<p>Local rewrite</p>",
+        ...(kind === "education"
+          ? { degree: "Updated title", period: "2025" }
+          : { title: "Updated title", date: "2025" }),
+      });
+    },
+  );
   it("stamps an old folded entry against reconstructed current structured facts", () => {
     const canonical = row("new-edu", "education", "BSc", {
       data: {
@@ -875,10 +787,9 @@ describe("structured library links", () => {
         libraryId: undefined,
       } as ResumeDoc["sections"]["education"]["items"][number],
     ];
-    expect(
-      stampLibraryRefs(doc, [canonical]).doc.sections.education.items[0]
-        .libraryId,
-    ).toBe(canonical.id);
+    expect(stampLibraryRefs(doc, [canonical]).doc.sections.education.items[0].libraryId).toBe(
+      canonical.id,
+    );
     const contradictory = {
       ...canonical,
       text: "Different degree",
@@ -901,31 +812,28 @@ describe("structured library fields", () => {
     ],
     [award, { title: "Prize", awarder: "Society", description: "<p>Work</p>" }],
     [certification, { title: "Certified", description: "<p>Exam</p>" }],
-  ] as const)("preserves structured $0.kind through metadata edits and supports explicit clearing", (legacy, structured) => {
-    const current = {
-      ...legacy,
-      text: "degree" in structured ? structured.degree : structured.title,
-      data: { ...legacy.data, ...structured },
-    };
-    const doc = addToResume(document(), current.id, [current]);
-    expect(entries(doc, current.kind)[0]).toMatchObject(structured);
-    expect(
-      applyLibraryUpdate(doc, current, { ...current, tags: ["tag"] }),
-    ).toBe(doc);
-    // Older folded rows keep the source values instead of attempting to split text.
-    expect(applyLibraryUpdate(doc, legacy, { ...legacy, tags: ["tag"] })).toBe(
-      doc,
-    );
-    const cleared = Object.fromEntries(
-      Object.keys(structured).map((key) => [key, ""]),
-    );
-    const next = applyLibraryUpdate(doc, current, {
-      ...current,
-      text: "",
-      data: { ...current.data, ...cleared },
-    });
-    expect(entries(next, current.kind)[0]).toMatchObject(cleared);
-  });
+  ] as const)(
+    "preserves structured $0.kind through metadata edits and supports explicit clearing",
+    (legacy, structured) => {
+      const current = {
+        ...legacy,
+        text: "degree" in structured ? structured.degree : structured.title,
+        data: { ...legacy.data, ...structured },
+      };
+      const doc = addToResume(document(), current.id, [current]);
+      expect(entries(doc, current.kind)[0]).toMatchObject(structured);
+      expect(applyLibraryUpdate(doc, current, { ...current, tags: ["tag"] })).toBe(doc);
+      // Older folded rows keep the source values instead of attempting to split text.
+      expect(applyLibraryUpdate(doc, legacy, { ...legacy, tags: ["tag"] })).toBe(doc);
+      const cleared = Object.fromEntries(Object.keys(structured).map((key) => [key, ""]));
+      const next = applyLibraryUpdate(doc, current, {
+        ...current,
+        text: "",
+        data: { ...current.data, ...cleared },
+      });
+      expect(entries(next, current.kind)[0]).toMatchObject(cleared);
+    },
+  );
 });
 
 describe("edited structured library text", () => {
@@ -940,32 +848,28 @@ describe("edited structured library text", () => {
       },
       "degree",
     ],
-    [
-      award,
-      { title: "Prize", awarder: "Society", description: "<p>Work</p>" },
-      "title",
-    ],
-    [
-      certification,
-      { title: "Certified", description: "<p>Exam</p>" },
-      "title",
-    ],
-  ] as const)("propagates $0.kind text edits while retaining constituents", (legacy, data, primary) => {
-    const before = {
-      ...legacy,
-      text: "degree" in data ? data.degree : data.title,
-      data: { ...legacy.data, ...data },
-    };
-    const doc = addToResume(document(), before.id, [before]);
-    const after = { ...before, text: "Library edit" };
-    expect(
-      entries(applyLibraryUpdate(doc, before, after), before.kind)[0],
-    ).toMatchObject({ ...data, [primary]: after.text });
-    expect(libraryItemToResumeItem(after)).toMatchObject({
-      ...data,
-      [primary]: after.text,
-    });
-  });
+    [award, { title: "Prize", awarder: "Society", description: "<p>Work</p>" }, "title"],
+    [certification, { title: "Certified", description: "<p>Exam</p>" }, "title"],
+  ] as const)(
+    "propagates $0.kind text edits while retaining constituents",
+    (legacy, data, primary) => {
+      const before = {
+        ...legacy,
+        text: "degree" in data ? data.degree : data.title,
+        data: { ...legacy.data, ...data },
+      };
+      const doc = addToResume(document(), before.id, [before]);
+      const after = { ...before, text: "Library edit" };
+      expect(entries(applyLibraryUpdate(doc, before, after), before.kind)[0]).toMatchObject({
+        ...data,
+        [primary]: after.text,
+      });
+      expect(libraryItemToResumeItem(after)).toMatchObject({
+        ...data,
+        [primary]: after.text,
+      });
+    },
+  );
   it.each([
     [
       education,
@@ -977,42 +881,32 @@ describe("edited structured library text", () => {
       },
       "degree",
     ],
-    [
-      award,
-      { title: "Prize", awarder: "Society", description: "<p>Work</p>" },
-      "title",
-    ],
-    [
-      certification,
-      { title: "Certified", description: "<p>Exam</p>" },
-      "title",
-    ],
-  ] as const)("propagates $0.kind text edits without structured primary data", (item, original, primary) => {
-    for (const text of [
-      "degree" in original ? original.degree : original.title,
-      foldedLibraryText(item.kind, original[primary], original),
-    ]) {
-      const before = { ...item, text };
-      const doc = addToResume(document(), before.id, [before]);
-      Object.assign(entries(doc, item.kind)[0], original);
-      const resumeItem = { ...entries(doc, item.kind)[0] };
-      expect(
-        applyLibraryUpdate(doc, before, { ...before, tags: ["tag"] }),
-      ).toBe(doc);
-      expect(
-        applyLibraryUpdate(doc, before, { ...before, updatedAt: "later" }),
-      ).toBe(doc);
-      const next = applyLibraryUpdate(doc, before, {
-        ...before,
-        text: "Library edit",
-      });
-      expect(entries(next, item.kind)[0]).toEqual({
-        ...resumeItem,
-        [primary]:
-          text === original[primary] ? "Library edit" : original[primary],
-      });
-    }
-  });
+    [award, { title: "Prize", awarder: "Society", description: "<p>Work</p>" }, "title"],
+    [certification, { title: "Certified", description: "<p>Exam</p>" }, "title"],
+  ] as const)(
+    "propagates $0.kind text edits without structured primary data",
+    (item, original, primary) => {
+      for (const text of [
+        "degree" in original ? original.degree : original.title,
+        foldedLibraryText(item.kind, original[primary], original),
+      ]) {
+        const before = { ...item, text };
+        const doc = addToResume(document(), before.id, [before]);
+        Object.assign(entries(doc, item.kind)[0], original);
+        const resumeItem = { ...entries(doc, item.kind)[0] };
+        expect(applyLibraryUpdate(doc, before, { ...before, tags: ["tag"] })).toBe(doc);
+        expect(applyLibraryUpdate(doc, before, { ...before, updatedAt: "later" })).toBe(doc);
+        const next = applyLibraryUpdate(doc, before, {
+          ...before,
+          text: "Library edit",
+        });
+        expect(entries(next, item.kind)[0]).toEqual({
+          ...resumeItem,
+          [primary]: text === original[primary] ? "Library edit" : original[primary],
+        });
+      }
+    },
+  );
   it("uses the importer fold for whitespace and HTML", () => {
     expect(
       foldedLibraryText("education", " BSc ", {
@@ -1027,9 +921,7 @@ describe("edited structured library text", () => {
 describe("changedLibraryFields", () => {
   it("is empty for every freshly linked item and reports local edits", () => {
     for (const parent of parents)
-      expect(
-        changedLibraryFields(libraryItemToResumeItem(parent), library),
-      ).toEqual({});
+      expect(changedLibraryFields(libraryItemToResumeItem(parent), library)).toEqual({});
     const edited = {
       ...libraryItemToResumeItem(certification),
       title: "Certified  Developer ",
@@ -1040,9 +932,7 @@ describe("changedLibraryFields", () => {
       issuer: "Institute",
       website: "https://example.com",
     });
-    expect(
-      changedLibraryFields({ ...edited, libraryId: "deleted" }, library),
-    ).toEqual({});
+    expect(changedLibraryFields({ ...edited, libraryId: "deleted" }, library)).toEqual({});
     // A full-pool selection matches the library, so it's not "changed" --
     // but the AI picking a subset for this job is worth tinting.
     expect(
@@ -1052,10 +942,7 @@ describe("changedLibraryFields", () => {
       ),
     ).toEqual({});
     expect(
-      changedLibraryFields(
-        { ...libraryItemToResumeItem(skill), keywords: ["Go"] },
-        library,
-      ),
+      changedLibraryFields({ ...libraryItemToResumeItem(skill), keywords: ["Go"] }, library),
     ).toEqual({ keywords: "TypeScript, Go" });
   });
   it("resets changed fields and keeps the item's id and picks", () => {
@@ -1063,8 +950,6 @@ describe("changedLibraryFields", () => {
     const edited = { ...linked, issuer: "Academy", hidden: false };
     expect(resetEntryFields(edited, library)).toEqual(linked);
     const picked = { ...libraryItemToResumeItem(skill), keywords: ["Go"] };
-    expect(resetEntryFields({ ...picked, name: "Langs" }, library)).toEqual(
-      picked,
-    );
+    expect(resetEntryFields({ ...picked, name: "Langs" }, library)).toEqual(picked);
   });
 });

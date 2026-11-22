@@ -31,14 +31,10 @@ function parseRememberedAuthUsers(value: string | null): RememberedAuthUser[] {
           {
             username,
             displayName:
-              typeof candidate.displayName === "string" &&
-              candidate.displayName.trim()
+              typeof candidate.displayName === "string" && candidate.displayName.trim()
                 ? candidate.displayName.trim()
                 : null,
-            rememberedAt:
-              typeof candidate.rememberedAt === "number"
-                ? candidate.rememberedAt
-                : 0,
+            rememberedAt: typeof candidate.rememberedAt === "number" ? candidate.rememberedAt : 0,
           },
         ];
       })
@@ -59,9 +55,7 @@ function writeRememberedAuthUsers(users: RememberedAuthUser[]): void {
 
 export function loadRememberedAuthUsers(): RememberedAuthUser[] {
   try {
-    return parseRememberedAuthUsers(
-      localStorage.getItem(REMEMBERED_AUTH_USERS_KEY),
-    );
+    return parseRememberedAuthUsers(localStorage.getItem(REMEMBERED_AUTH_USERS_KEY));
   } catch {
     return [];
   }

@@ -1,10 +1,4 @@
-import {
-  badRequest,
-  conflict,
-  forbidden,
-  serviceUnavailable,
-  unauthorized,
-} from "@infra/errors";
+import { badRequest, conflict, forbidden, serviceUnavailable, unauthorized } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
 import { blacklistToken, signToken, verifyToken } from "@server/auth/jwt";
 import { verifyPassword } from "@server/auth/password";
@@ -82,13 +76,7 @@ authRouter.post(
 
     const parsed = setupSchema.safeParse(req.body);
     if (!parsed.success) {
-      fail(
-        res,
-        badRequest(
-          toSetupValidationMessage(parsed.error),
-          parsed.error.flatten(),
-        ),
-      );
+      fail(res, badRequest(toSetupValidationMessage(parsed.error), parsed.error.flatten()));
       return;
     }
 
@@ -109,10 +97,7 @@ authRouter.post(
     }
 
     if (!user) {
-      fail(
-        res,
-        serviceUnavailable("Configured hosted tenant is not available"),
-      );
+      fail(res, serviceUnavailable("Configured hosted tenant is not available"));
       return;
     }
 
@@ -148,8 +133,7 @@ authRouter.post(
     if (
       !user ||
       user.isDisabled ||
-      (appConfig.appMode === "hosted" &&
-        user.tenantId !== appConfig.hostedTenantId)
+      (appConfig.appMode === "hosted" && user.tenantId !== appConfig.hostedTenantId)
     ) {
       fail(res, unauthorized("Invalid credentials"));
       return;
@@ -179,9 +163,7 @@ authRouter.post(
       fail(
         res,
         serviceUnavailable(
-          error instanceof Error
-            ? error.message
-            : "Authentication is not fully configured",
+          error instanceof Error ? error.message : "Authentication is not fully configured",
         ),
       );
       return;
@@ -213,10 +195,7 @@ authRouter.post(
     }
 
     if (isDemoMode()) {
-      fail(
-        res,
-        serviceUnavailable("First-run setup is disabled in the public demo."),
-      );
+      fail(res, serviceUnavailable("First-run setup is disabled in the public demo."));
       return;
     }
 
@@ -227,13 +206,7 @@ authRouter.post(
 
     const parsed = setupSchema.safeParse(req.body);
     if (!parsed.success) {
-      fail(
-        res,
-        badRequest(
-          toSetupValidationMessage(parsed.error),
-          parsed.error.flatten(),
-        ),
-      );
+      fail(res, badRequest(toSetupValidationMessage(parsed.error), parsed.error.flatten()));
       return;
     }
 

@@ -26,9 +26,7 @@ interface UseOrchestratorNavigationArgs {
   searchParams: URLSearchParams;
 }
 
-export function useOrchestratorNavigation({
-  searchParams,
-}: UseOrchestratorNavigationArgs) {
+export function useOrchestratorNavigation({ searchParams }: UseOrchestratorNavigationArgs) {
   const { tab, jobId } = useParams<{ tab: string; jobId?: string }>();
   const navigate = useNavigate();
   const activeTab = useMemo(() => {
@@ -43,9 +41,7 @@ export function useOrchestratorNavigation({
       if (newTab === "ready") newTab = "all";
       const search = searchParams.toString();
       const suffix = search ? `?${search}` : "";
-      const path = newJobId
-        ? `/jobs/${newTab}/${newJobId}${suffix}`
-        : `/jobs/${newTab}${suffix}`;
+      const path = newJobId ? `/jobs/${newTab}/${newJobId}${suffix}` : `/jobs/${newTab}${suffix}`;
       navigate(path, { replace: isReplace });
     },
     [navigate, searchParams],
@@ -73,14 +69,11 @@ export function useOrchestratorNavigation({
   const setActiveTab = useCallback(
     (newTab: FilterTab, jobs: JobListItem[]) => {
       const tabDef = tabs.find((item) => item.id === newTab);
-      const selectedItem = selectedJobId
-        ? jobs.find((job) => job.id === selectedJobId)
-        : null;
+      const selectedItem = selectedJobId ? jobs.find((job) => job.id === selectedJobId) : null;
       const jobFitsTab =
         selectedItem &&
         (newTab !== "discovered" || !isTargeted(selectedItem)) &&
-        (tabDef?.statuses.length === 0 ||
-          tabDef?.statuses.includes(selectedItem.status));
+        (tabDef?.statuses.length === 0 || tabDef?.statuses.includes(selectedItem.status));
 
       navigateWithContext(newTab, jobFitsTab ? selectedJobId : null);
     },

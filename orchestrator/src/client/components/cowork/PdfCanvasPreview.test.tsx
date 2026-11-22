@@ -39,9 +39,7 @@ beforeEach(() => {
       disconnect = disconnect;
     },
   );
-  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(
-    () => containerWidth,
-  );
+  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(() => containerWidth);
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
     setTransform: vi.fn(),
   } as unknown as CanvasRenderingContext2D);
@@ -69,9 +67,7 @@ describe("PdfCanvasPreview", () => {
   it("loads the blob URL and renders every page at the container width", async () => {
     render(<PdfCanvasPreview url="blob:resume" />);
     expect(screen.getByRole("status")).toHaveTextContent("Loading PDF preview");
-    await waitFor(() =>
-      expect(screen.queryByRole("status")).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
     expect(mocks.getDocument).toHaveBeenCalledWith("blob:resume");
     expect(getPage.mock.calls).toEqual([[1], [2]]);
     expect(screen.getByLabelText("Resume PDF page 1")).toHaveStyle({
@@ -101,9 +97,7 @@ describe("PdfCanvasPreview", () => {
       destroy,
     }));
     render(<PdfCanvasPreview url="blob:broken" />);
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Could not render the PDF preview.",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not render the PDF preview.");
     expect(screen.getByRole("link", { name: "Download PDF" })).toHaveAttribute(
       "href",
       "blob:broken",

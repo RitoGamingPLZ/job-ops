@@ -21,16 +21,8 @@ export function useLlmModels(input: {
   isLoadingModels: boolean;
   modelsError: string | null;
 } {
-  const {
-    provider,
-    baseUrl,
-    apiKey,
-    showBaseUrl,
-    showApiKey,
-    enabled,
-    hasSavedKey,
-    purpose,
-  } = input;
+  const { provider, baseUrl, apiKey, showBaseUrl, showApiKey, enabled, hasSavedKey, purpose } =
+    input;
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
@@ -62,9 +54,7 @@ export function useLlmModels(input: {
       .catch((error) => {
         if (cancelled) return;
         setAvailableModels([]);
-        setModelsError(
-          error instanceof Error ? error.message : "Failed to load models.",
-        );
+        setModelsError(error instanceof Error ? error.message : "Failed to load models.");
       })
       .finally(() => {
         if (cancelled) return;
@@ -74,16 +64,7 @@ export function useLlmModels(input: {
     return () => {
       cancelled = true;
     };
-  }, [
-    provider,
-    baseUrl,
-    apiKey,
-    showBaseUrl,
-    showApiKey,
-    enabled,
-    hasSavedKey,
-    purpose,
-  ]);
+  }, [provider, baseUrl, apiKey, showBaseUrl, showApiKey, enabled, hasSavedKey, purpose]);
 
   return { availableModels, isLoadingModels, modelsError };
 }

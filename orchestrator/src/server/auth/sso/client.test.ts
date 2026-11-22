@@ -22,9 +22,7 @@ const GITHUB_ENV = {
 
 type FetchCall = { url: string; init: RequestInit | undefined };
 
-function oidcMetadata(
-  overrides: Record<string, unknown> = {},
-): Record<string, unknown> {
+function oidcMetadata(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     issuer: OIDC_ISSUER,
     authorization_endpoint: "https://idp.test/authorize",
@@ -77,9 +75,7 @@ async function createIdTokenSigner(): Promise<{
   };
 }
 
-function idTokenClaims(
-  overrides: Record<string, unknown> = {},
-): Record<string, unknown> {
+function idTokenClaims(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   const issuedAt = Math.floor(Date.now() / 1000);
   return {
     iss: OIDC_ISSUER,
@@ -140,9 +136,7 @@ describe("SSO openid-client integration", () => {
 
   it("builds an authorization URL from the discovered metadata", async () => {
     process.env = { ...originalEnv, ...OIDC_ENV };
-    route("https://idp.test/.well-known/openid-configuration", () =>
-      jsonResponse(oidcMetadata()),
-    );
+    route("https://idp.test/.well-known/openid-configuration", () => jsonResponse(oidcMetadata()));
     const { createSsoAuthorizationRequest } = await importSsoClient();
 
     const request = await createSsoAuthorizationRequest({
@@ -184,9 +178,7 @@ describe("SSO openid-client integration", () => {
     let attempts = 0;
     route("https://idp.test/.well-known/openid-configuration", () => {
       attempts += 1;
-      return attempts === 1
-        ? jsonResponse({ error: "nope" }, 500)
-        : jsonResponse(oidcMetadata());
+      return attempts === 1 ? jsonResponse({ error: "nope" }, 500) : jsonResponse(oidcMetadata());
     });
     const { createSsoAuthorizationRequest } = await importSsoClient();
 
@@ -210,20 +202,15 @@ describe("SSO openid-client integration", () => {
   it("reads identity claims from the ID token", async () => {
     process.env = { ...originalEnv, ...OIDC_ENV };
     const signer = await createIdTokenSigner();
-    route("https://idp.test/.well-known/openid-configuration", () =>
-      jsonResponse(oidcMetadata()),
-    );
+    route("https://idp.test/.well-known/openid-configuration", () => jsonResponse(oidcMetadata()));
     route("https://idp.test/jwks", () => jsonResponse(signer.jwks));
-    const { createSsoAuthorizationRequest, exchangeSsoAuthorizationCode } =
-      await importSsoClient();
+    const { createSsoAuthorizationRequest, exchangeSsoAuthorizationCode } = await importSsoClient();
 
     const request = await createSsoAuthorizationRequest({
       provider: "oidc",
       redirectUri: OIDC_REDIRECT_URI,
     });
-    const idToken = await signer.sign(
-      idTokenClaims({ nonce: request.nonce ?? undefined }),
-    );
+    const idToken = await signer.sign(idTokenClaims({ nonce: request.nonce ?? undefined }));
     route("https://idp.test/token", () =>
       jsonResponse({
         access_token: "oidc-access-token",
@@ -259,9 +246,7 @@ describe("SSO openid-client integration", () => {
   it("falls back to userinfo when the ID token carries no email", async () => {
     process.env = { ...originalEnv, ...OIDC_ENV };
     const signer = await createIdTokenSigner();
-    route("https://idp.test/.well-known/openid-configuration", () =>
-      jsonResponse(oidcMetadata()),
-    );
+    route("https://idp.test/.well-known/openid-configuration", () => jsonResponse(oidcMetadata()));
     route("https://idp.test/jwks", () => jsonResponse(signer.jwks));
     route("https://idp.test/userinfo", () =>
       jsonResponse({
@@ -271,8 +256,7 @@ describe("SSO openid-client integration", () => {
         preferred_username: "person",
       }),
     );
-    const { createSsoAuthorizationRequest, exchangeSsoAuthorizationCode } =
-      await importSsoClient();
+    const { createSsoAuthorizationRequest, exchangeSsoAuthorizationCode } = await importSsoClient();
 
     const request = await createSsoAuthorizationRequest({
       provider: "oidc",
@@ -325,8 +309,7 @@ describe("SSO openid-client integration", () => {
         { email: "octocat@example.com", primary: true, verified: true },
       ]),
     );
-    const { createSsoAuthorizationRequest, exchangeSsoAuthorizationCode } =
-      await importSsoClient();
+    const { createSsoAuthorizationRequest, exchangeSsoAuthorizationCode } = await importSsoClient();
 
     const request = await createSsoAuthorizationRequest({
       provider: "github",
@@ -359,9 +342,7 @@ describe("SSO openid-client integration", () => {
     const headers = new Headers(token.headers);
     expect(headers.get("accept")).toContain("application/json");
     expect(headers.get("user-agent")).toContain("job-ops");
-    expect(headers.get("content-type")).toBe(
-      "application/x-www-form-urlencoded;charset=UTF-8",
-    );
+    expect(headers.get("content-type")).toBe("application/x-www-form-urlencoded;charset=UTF-8");
   });
 
   it("prefers a verified GitHub email and reports none when all are unverified", async () => {
@@ -377,8 +358,7 @@ describe("SSO openid-client integration", () => {
       { email: "verified@example.com", primary: false, verified: true },
     ];
     route("https://api.github.com/user/emails", () => jsonResponse(emails));
-    const { createSsoAuthorizationRequest, exchangeSsoAuthorizationCode } =
-      await importSsoClient();
+    const { createSsoAuthorizationRequest, exchangeSsoAuthorizationCode } = await importSsoClient();
 
     async function exchange() {
       const request = await createSsoAuthorizationRequest({
@@ -413,11 +393,8 @@ describe("SSO openid-client integration", () => {
     route("https://github.com/login/oauth/access_token", () =>
       jsonResponse({ access_token: "gho_token", token_type: "bearer" }),
     );
-    route("https://api.github.com/user", () =>
-      jsonResponse({ message: "Bad credentials" }, 401),
-    );
-    const { createSsoAuthorizationRequest, exchangeSsoAuthorizationCode } =
-      await importSsoClient();
+    route("https://api.github.com/user", () => jsonResponse({ message: "Bad credentials" }, 401));
+    const { createSsoAuthorizationRequest, exchangeSsoAuthorizationCode } = await importSsoClient();
 
     const request = await createSsoAuthorizationRequest({
       provider: "github",

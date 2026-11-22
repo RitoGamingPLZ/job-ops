@@ -1,9 +1,4 @@
-import {
-  AppError,
-  badRequest,
-  serviceUnavailable,
-  upstreamError,
-} from "@infra/errors";
+import { AppError, badRequest, serviceUnavailable, upstreamError } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { getRequestId } from "@server/infra/request-context";
@@ -30,10 +25,7 @@ import type { DesignResumeDocument, DesignResumeJson } from "@shared/types";
 import { jsonrepair } from "jsonrepair";
 import { buildHeaders, getResponseDetail, joinUrl } from "../llm/utils/http";
 import { parseErrorMessage, truncate } from "../llm/utils/string";
-import {
-  ensureImportedProjectIds,
-  replaceCurrentDesignResumeDocument,
-} from "./index";
+import { ensureImportedProjectIds, replaceCurrentDesignResumeDocument } from "./index";
 
 type SupportedImportMediaType =
   | "application/pdf"
@@ -67,14 +59,7 @@ const DESIGN_RESUME_IMPORT_CLI_JSON_SCHEMA: JsonSchemaDefinition = {
       metadata: { type: "object" },
       customSections: { type: "array" },
     },
-    required: [
-      "picture",
-      "basics",
-      "summary",
-      "sections",
-      "metadata",
-      "customSections",
-    ],
+    required: ["picture", "basics", "summary", "sections", "metadata", "customSections"],
     additionalProperties: true,
   },
 };
@@ -252,14 +237,7 @@ const DESIGN_RESUME_IMPORT_CODEX_JSON_SCHEMA: JsonSchemaDefinition = {
       customSections: schemaArrayOf(strictSchemaObject({})),
       metadata: strictSchemaObject({}),
     },
-    required: [
-      "picture",
-      "basics",
-      "summary",
-      "sections",
-      "customSections",
-      "metadata",
-    ],
+    required: ["picture", "basics", "summary", "sections", "customSections", "metadata"],
     additionalProperties: false,
   },
 };
@@ -280,25 +258,20 @@ function getPositiveIntEnv(name: string, fallback: number): number {
   return parsed;
 }
 
-const OPENAI_DEFAULT_TIMEOUT_MS = () =>
-  getPositiveIntEnv("LLM_IMPORT_OPENAI_TIMEOUT_MS", 60_000);
+const OPENAI_DEFAULT_TIMEOUT_MS = () => getPositiveIntEnv("LLM_IMPORT_OPENAI_TIMEOUT_MS", 60_000);
 const OPENROUTER_DEFAULT_TIMEOUT_MS = () =>
   getPositiveIntEnv("LLM_IMPORT_OPENROUTER_TIMEOUT_MS", 90_000);
 const ANTHROPIC_DEFAULT_TIMEOUT_MS = () =>
   getPositiveIntEnv("LLM_IMPORT_ANTHROPIC_TIMEOUT_MS", 90_000);
 const ANTHROPIC_IMPORT_MAX_TOKENS = 16_000;
-const GEMINI_DEFAULT_TIMEOUT_MS = () =>
-  getPositiveIntEnv("LLM_IMPORT_GEMINI_TIMEOUT_MS", 90_000);
+const GEMINI_DEFAULT_TIMEOUT_MS = () => getPositiveIntEnv("LLM_IMPORT_GEMINI_TIMEOUT_MS", 90_000);
 const LOCAL_CHAT_COMPLETIONS_TIMEOUT_MS = () =>
   getPositiveIntEnv("LLM_IMPORT_LOCAL_TIMEOUT_MS", 120_000);
 const CHAT_COMPLETIONS_SUFFIX = "/v1/chat/completions";
 const GLM_CHAT_COMPLETIONS_SUFFIX = "/chat/completions";
 const API_VERSION_SUFFIX = "/v1";
 
-const SUPPORTED_EXTENSION_TO_MEDIA_TYPE: Record<
-  string,
-  SupportedImportMediaType
-> = {
+const SUPPORTED_EXTENSION_TO_MEDIA_TYPE: Record<string, SupportedImportMediaType> = {
   pdf: "application/pdf",
   docx: DOCX_MIME,
   json: "application/json",
@@ -321,9 +294,7 @@ Rules:
 type RecordLike = Record<string, unknown>;
 
 function asRecord(value: unknown): RecordLike | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as RecordLike)
-    : null;
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as RecordLike) : null;
 }
 
 function asArray(value: unknown): unknown[] {
@@ -342,9 +313,7 @@ function elapsedMs(startedAt: number): number {
   return Date.now() - startedAt;
 }
 
-function normalizeRuntimeProvider(
-  provider: string | null,
-): SupportedRuntimeProvider | null {
+function normalizeRuntimeProvider(provider: string | null): SupportedRuntimeProvider | null {
   const normalized = provider?.trim().toLowerCase().replace(/[-.]/g, "_");
   if (normalized === "openai") return "openai";
   if (normalized === "openrouter" || normalized === "open_router") {
@@ -394,24 +363,18 @@ function normalizeImportMediaType(input: {
   const normalizedMediaType = input.mediaType?.trim().toLowerCase() ?? "";
   if (normalizedMediaType === "application/pdf") return "application/pdf";
   if (normalizedMediaType === DOCX_MIME) return DOCX_MIME;
-  if (
-    normalizedMediaType === "application/json" ||
-    normalizedMediaType === "text/json"
-  ) {
+  if (normalizedMediaType === "application/json" || normalizedMediaType === "text/json") {
     return "application/json";
   }
 
   if (
-    (!normalizedMediaType ||
-      normalizedMediaType === "application/octet-stream") &&
+    (!normalizedMediaType || normalizedMediaType === "application/octet-stream") &&
     fromExtension
   ) {
     return fromExtension;
   }
 
-  throw badRequest(
-    "Only PDF, DOCX, and Reactive Resume JSON files are supported.",
-  );
+  throw badRequest("Only PDF, DOCX, and Reactive Resume JSON files are supported.");
 }
 
 function decodeBase64Payload(dataBase64: string): {
@@ -430,10 +393,7 @@ function decodeBase64Payload(dataBase64: string): {
   return { decoded, normalizedBase64: decoded.toString("base64") };
 }
 
-function buildDataUrl(
-  mediaType: SupportedImportMediaType,
-  dataBase64: string,
-): string {
+function buildDataUrl(mediaType: SupportedImportMediaType, dataBase64: string): string {
   return `data:${mediaType};base64,${dataBase64}`;
 }
 
@@ -450,13 +410,7 @@ function appendVersionedPath(baseUrl: string, path: string): string {
 
 function resolveChatCompletionsUrl(
   baseUrlOrEndpoint: string,
-  provider:
-    | "openai_compatible"
-    | "glm"
-    | "ollama"
-    | "lmstudio"
-    | "orcarouter"
-    | "litellm",
+  provider: "openai_compatible" | "glm" | "ollama" | "lmstudio" | "orcarouter" | "litellm",
 ): string {
   const normalized = normalizeBaseUrlOrEndpoint(baseUrlOrEndpoint);
   if (
@@ -774,10 +728,7 @@ async function extractResumeDocxText(decoded: Buffer): Promise<string> {
   try {
     text = await extractDocxText(decoded);
   } catch (error) {
-    if (
-      error instanceof DocxTextExtractionError &&
-      error.code === "MISSING_DOCUMENT"
-    ) {
+    if (error instanceof DocxTextExtractionError && error.code === "MISSING_DOCUMENT") {
       throw badRequest("Resume DOCX file is missing document content.");
     }
     throw badRequest("Resume DOCX file could not be read.");
@@ -973,9 +924,7 @@ function parseCodexResumeImportResponse(content: string): string {
 }
 
 function filterRequiredItems(items: unknown, requiredField: string): unknown[] {
-  return asArray(items).filter((item) =>
-    trimText(asRecord(item)?.[requiredField]),
-  );
+  return asArray(items).filter((item) => trimText(asRecord(item)?.[requiredField]));
 }
 
 function sanitizeNormalizedResume(input: unknown): DesignResumeJson {
@@ -990,10 +939,7 @@ function sanitizeNormalizedResume(input: unknown): DesignResumeJson {
     },
     experience: {
       ...asRecord(sections.experience),
-      items: filterRequiredItems(
-        asRecord(sections.experience)?.items,
-        "company",
-      ),
+      items: filterRequiredItems(asRecord(sections.experience)?.items, "company"),
     },
     education: {
       ...asRecord(sections.education),
@@ -1009,10 +955,7 @@ function sanitizeNormalizedResume(input: unknown): DesignResumeJson {
     },
     languages: {
       ...asRecord(sections.languages),
-      items: filterRequiredItems(
-        asRecord(sections.languages)?.items,
-        "language",
-      ),
+      items: filterRequiredItems(asRecord(sections.languages)?.items, "language"),
     },
     interests: {
       ...asRecord(sections.interests),
@@ -1024,24 +967,15 @@ function sanitizeNormalizedResume(input: unknown): DesignResumeJson {
     },
     certifications: {
       ...asRecord(sections.certifications),
-      items: filterRequiredItems(
-        asRecord(sections.certifications)?.items,
-        "title",
-      ),
+      items: filterRequiredItems(asRecord(sections.certifications)?.items, "title"),
     },
     publications: {
       ...asRecord(sections.publications),
-      items: filterRequiredItems(
-        asRecord(sections.publications)?.items,
-        "title",
-      ),
+      items: filterRequiredItems(asRecord(sections.publications)?.items, "title"),
     },
     volunteer: {
       ...asRecord(sections.volunteer),
-      items: filterRequiredItems(
-        asRecord(sections.volunteer)?.items,
-        "organization",
-      ),
+      items: filterRequiredItems(asRecord(sections.volunteer)?.items, "organization"),
     },
     references: {
       ...asRecord(sections.references),
@@ -1069,11 +1003,7 @@ function asReactiveResumeExportObject(input: unknown): RecordLike | null {
 
   const resume = asRecord(record.resume);
   const resumeData = asRecord(resume?.data);
-  if (
-    resumeData &&
-    asRecord(resumeData.basics) &&
-    asRecord(resumeData.sections)
-  ) {
+  if (resumeData && asRecord(resumeData.basics) && asRecord(resumeData.sections)) {
     return resumeData;
   }
 
@@ -1209,8 +1139,7 @@ function shouldFallbackToExtractedPdfText(input: {
     return false;
   }
 
-  const message =
-    input.error instanceof Error ? input.error.message : String(input.error);
+  const message = input.error instanceof Error ? input.error.message : String(input.error);
   return isFileCapabilityError(message);
 }
 
@@ -1224,10 +1153,7 @@ async function extractWithOpenAi(args: {
   documentText?: string | null;
   requestId: string | undefined;
 }): Promise<string> {
-  const url = joinUrl(
-    args.baseUrl || "https://api.openai.com",
-    "/v1/responses",
-  );
+  const url = joinUrl(args.baseUrl || "https://api.openai.com", "/v1/responses");
   const response = await fetch(url, {
     method: "POST",
     headers: buildHeaders({
@@ -1252,11 +1178,7 @@ async function extractWithOpenAi(args: {
             ? [
                 {
                   type: "input_text",
-                  text: buildDocumentTextPrompt(
-                    args.documentText,
-                    args.fileName,
-                    args.mediaType,
-                  ),
+                  text: buildDocumentTextPrompt(args.documentText, args.fileName, args.mediaType),
                 },
               ]
             : [
@@ -1307,10 +1229,7 @@ async function extractWithOpenRouter(args: {
   documentText?: string | null;
   requestId: string | undefined;
 }): Promise<string> {
-  const url = joinUrl(
-    args.baseUrl || "https://openrouter.ai",
-    "/api/v1/chat/completions",
-  );
+  const url = joinUrl(args.baseUrl || "https://openrouter.ai", "/api/v1/chat/completions");
   const pdfEngines =
     args.mediaType === "application/pdf"
       ? (["cloudflare-ai", "mistral-ocr", null] as const)
@@ -1338,11 +1257,7 @@ async function extractWithOpenRouter(args: {
           {
             role: "user",
             content: args.documentText
-              ? buildDocumentTextPrompt(
-                  args.documentText,
-                  args.fileName,
-                  args.mediaType,
-                )
+              ? buildDocumentTextPrompt(args.documentText, args.fileName, args.mediaType)
               : [
                   {
                     type: "text",
@@ -1403,17 +1318,12 @@ async function extractWithOpenRouter(args: {
     const payload = await response.json();
     const text = extractChatCompletionText(payload);
     if (!text) {
-      throw upstreamError(
-        "OpenRouter returned an empty response for resume import.",
-      );
+      throw upstreamError("OpenRouter returned an empty response for resume import.");
     }
     return text;
   }
 
-  throw (
-    lastError ??
-    upstreamError("OpenRouter returned an empty response for resume import.")
-  );
+  throw lastError ?? upstreamError("OpenRouter returned an empty response for resume import.");
 }
 
 async function extractWithAnthropic(args: {
@@ -1426,10 +1336,7 @@ async function extractWithAnthropic(args: {
   fileName: string;
   requestId: string | undefined;
 }): Promise<string> {
-  const url = joinUrl(
-    args.baseUrl || "https://api.anthropic.com",
-    "/v1/messages",
-  );
+  const url = joinUrl(args.baseUrl || "https://api.anthropic.com", "/v1/messages");
   const response = await fetch(url, {
     method: "POST",
     headers: buildHeaders({
@@ -1447,11 +1354,7 @@ async function extractWithAnthropic(args: {
             ? [
                 {
                   type: "text",
-                  text: buildDocumentTextPrompt(
-                    args.documentText,
-                    args.fileName,
-                    args.mediaType,
-                  ),
+                  text: buildDocumentTextPrompt(args.documentText, args.fileName, args.mediaType),
                 },
               ]
             : [
@@ -1490,9 +1393,7 @@ async function extractWithAnthropic(args: {
   const payload = await response.json();
   const text = extractAnthropicText(payload);
   if (!text) {
-    throw upstreamError(
-      "Anthropic returned an empty response for resume import.",
-    );
+    throw upstreamError("Anthropic returned an empty response for resume import.");
   }
   return text;
 }
@@ -1526,11 +1427,7 @@ async function extractWithGemini(args: {
           parts: args.documentText
             ? [
                 {
-                  text: buildDocumentTextPrompt(
-                    args.documentText,
-                    args.fileName,
-                    args.mediaType,
-                  ),
+                  text: buildDocumentTextPrompt(args.documentText, args.fileName, args.mediaType),
                 },
               ]
             : [
@@ -1575,13 +1472,7 @@ async function extractWithGemini(args: {
 }
 
 function getDefaultChatCompletionsBaseUrl(
-  provider:
-    | "openai_compatible"
-    | "glm"
-    | "ollama"
-    | "lmstudio"
-    | "orcarouter"
-    | "litellm",
+  provider: "openai_compatible" | "glm" | "ollama" | "lmstudio" | "orcarouter" | "litellm",
 ): string {
   if (provider === "ollama") return "http://localhost:11434";
   if (provider === "lmstudio") return "http://localhost:1234";
@@ -1592,13 +1483,7 @@ function getDefaultChatCompletionsBaseUrl(
 }
 
 async function extractWithTextChatCompletions(args: {
-  provider:
-    | "openai_compatible"
-    | "glm"
-    | "ollama"
-    | "lmstudio"
-    | "orcarouter"
-    | "litellm";
+  provider: "openai_compatible" | "glm" | "ollama" | "lmstudio" | "orcarouter" | "litellm";
   apiKey: string | null;
   baseUrl: string | null;
   model: string;
@@ -1627,11 +1512,7 @@ async function extractWithTextChatCompletions(args: {
         },
         {
           role: "user",
-          content: buildDocumentTextPrompt(
-            args.documentText,
-            args.fileName,
-            args.mediaType,
-          ),
+          content: buildDocumentTextPrompt(args.documentText, args.fileName, args.mediaType),
         },
       ],
     }),
@@ -1654,9 +1535,7 @@ async function extractWithTextChatCompletions(args: {
   const payload = await response.json();
   const text = extractChatCompletionText(payload);
   if (!text) {
-    throw upstreamError(
-      `${args.provider} returned an empty response for resume import.`,
-    );
+    throw upstreamError(`${args.provider} returned an empty response for resume import.`);
   }
   return text;
 }
@@ -1668,13 +1547,8 @@ async function extractWithGeminiCli(args: {
   documentText: string;
   requestId: string | undefined;
 }): Promise<string> {
-  const source: "DOCX" | "PDF" =
-    args.mediaType === "application/pdf" ? "PDF" : "DOCX";
-  const userContent = buildTextExtractPrompt(
-    args.documentText,
-    args.fileName,
-    source,
-  );
+  const source: "DOCX" | "PDF" = args.mediaType === "application/pdf" ? "PDF" : "DOCX";
+  const userContent = buildTextExtractPrompt(args.documentText, args.fileName, source);
   const client = new GeminiCliClient();
   try {
     const { text } = await client.callJson({
@@ -1686,9 +1560,7 @@ async function extractWithGeminiCli(args: {
       jsonSchema: DESIGN_RESUME_IMPORT_CLI_JSON_SCHEMA,
     });
     if (!text?.trim()) {
-      throw upstreamError(
-        "Gemini CLI returned an empty response for resume import.",
-      );
+      throw upstreamError("Gemini CLI returned an empty response for resume import.");
     }
     return text;
   } catch (error) {
@@ -1716,13 +1588,8 @@ async function extractWithClaudeCli(args: {
   documentText: string;
   requestId: string | undefined;
 }): Promise<string> {
-  const source: "DOCX" | "PDF" =
-    args.mediaType === "application/pdf" ? "PDF" : "DOCX";
-  const userContent = buildTextExtractPrompt(
-    args.documentText,
-    args.fileName,
-    source,
-  );
+  const source: "DOCX" | "PDF" = args.mediaType === "application/pdf" ? "PDF" : "DOCX";
+  const userContent = buildTextExtractPrompt(args.documentText, args.fileName, source);
   const client = new ClaudeCliClient();
   try {
     const { text } = await client.callJson({
@@ -1734,9 +1601,7 @@ async function extractWithClaudeCli(args: {
       jsonSchema: DESIGN_RESUME_IMPORT_CLI_JSON_SCHEMA,
     });
     if (!text?.trim()) {
-      throw upstreamError(
-        "Claude CLI returned an empty response for resume import.",
-      );
+      throw upstreamError("Claude CLI returned an empty response for resume import.");
     }
     return text;
   } catch (error) {
@@ -1764,14 +1629,9 @@ async function extractWithCodex(args: {
   documentText: string;
   requestId: string | undefined;
 }): Promise<string> {
-  const source: "DOCX" | "PDF" =
-    args.mediaType === "application/pdf" ? "PDF" : "DOCX";
+  const source: "DOCX" | "PDF" = args.mediaType === "application/pdf" ? "PDF" : "DOCX";
   const startedAt = Date.now();
-  const userContent = buildCodexTextExtractPrompt(
-    args.documentText,
-    args.fileName,
-    source,
-  );
+  const userContent = buildCodexTextExtractPrompt(args.documentText, args.fileName, source);
   const client = new CodexClient();
   try {
     logger.info("Codex resume import extraction started", {
@@ -1791,9 +1651,7 @@ async function extractWithCodex(args: {
       jsonSchema: DESIGN_RESUME_IMPORT_CODEX_JSON_SCHEMA,
     });
     if (!text?.trim()) {
-      throw upstreamError(
-        "Codex returned an empty response for resume import.",
-      );
+      throw upstreamError("Codex returned an empty response for resume import.");
     }
     const parsedText = parseCodexResumeImportResponse(text);
     logger.info("Codex resume import extraction completed", {
@@ -1970,9 +1828,7 @@ export async function importDesignResumeFromFile(
       }
 
       const message =
-        error instanceof Error
-          ? error.message
-          : "Reactive Resume JSON import failed.";
+        error instanceof Error ? error.message : "Reactive Resume JSON import failed.";
       throw badRequest(truncate(message, 400));
     }
   }
@@ -2001,9 +1857,7 @@ export async function importDesignResumeFromFile(
   });
 
   if (!provider) {
-    throw serviceUnavailable(
-      buildCapabilityErrorMessage(runtime.provider ?? "unknown"),
-    );
+    throw serviceUnavailable(buildCapabilityErrorMessage(runtime.provider ?? "unknown"));
   }
 
   if (providerRequiresApiKey(provider) && !runtime.apiKey) {
@@ -2067,33 +1921,27 @@ export async function importDesignResumeFromFile(
         throw error;
       }
 
-      logger.info(
-        "Retrying design resume file import with extracted PDF text",
-        {
-          requestId: requestId ?? null,
-          provider,
-          model: runtime.model,
-          fileName,
-          mediaType,
-          totalElapsedMs: elapsedMs(importStartedAt),
-        },
-      );
+      logger.info("Retrying design resume file import with extracted PDF text", {
+        requestId: requestId ?? null,
+        provider,
+        model: runtime.model,
+        fileName,
+        mediaType,
+        totalElapsedMs: elapsedMs(importStartedAt),
+      });
 
       const fallbackTextExtractionStartedAt = Date.now();
       documentText = await extractResumePdfText(decoded);
-      logger.info(
-        "Design resume file import fallback text extraction completed",
-        {
-          requestId: requestId ?? null,
-          provider,
-          model: runtime.model,
-          fileName,
-          mediaType,
-          durationMs: elapsedMs(fallbackTextExtractionStartedAt),
-          totalElapsedMs: elapsedMs(importStartedAt),
-          documentTextChars: documentText.length,
-        },
-      );
+      logger.info("Design resume file import fallback text extraction completed", {
+        requestId: requestId ?? null,
+        provider,
+        model: runtime.model,
+        fileName,
+        mediaType,
+        durationMs: elapsedMs(fallbackTextExtractionStartedAt),
+        totalElapsedMs: elapsedMs(importStartedAt),
+        documentTextChars: documentText.length,
+      });
       const fallbackProviderExtractionStartedAt = Date.now();
       rawText = await extractResumeFromProvider({
         provider,
@@ -2106,19 +1954,16 @@ export async function importDesignResumeFromFile(
         documentText,
         requestId,
       });
-      logger.info(
-        "Design resume file import fallback provider extraction completed",
-        {
-          requestId: requestId ?? null,
-          provider,
-          model: runtime.model,
-          fileName,
-          mediaType,
-          durationMs: elapsedMs(fallbackProviderExtractionStartedAt),
-          totalElapsedMs: elapsedMs(importStartedAt),
-          outputChars: rawText.length,
-        },
-      );
+      logger.info("Design resume file import fallback provider extraction completed", {
+        requestId: requestId ?? null,
+        provider,
+        model: runtime.model,
+        fileName,
+        mediaType,
+        durationMs: elapsedMs(fallbackProviderExtractionStartedAt),
+        totalElapsedMs: elapsedMs(importStartedAt),
+        outputChars: rawText.length,
+      });
     }
     const parseStartedAt = Date.now();
     const parsed = parseImportedResumeJson(rawText);
@@ -2132,9 +1977,7 @@ export async function importDesignResumeFromFile(
       totalElapsedMs: elapsedMs(importStartedAt),
     });
     const normalizeStartedAt = Date.now();
-    const normalized = ensureImportedProjectIds(
-      sanitizeNormalizedResume(parsed),
-    );
+    const normalized = ensureImportedProjectIds(sanitizeNormalizedResume(parsed));
     logger.info("Design resume file import normalized", {
       requestId: requestId ?? null,
       provider,
@@ -2197,8 +2040,7 @@ export async function importDesignResumeFromFile(
       throw error;
     }
 
-    const message =
-      error instanceof Error ? error.message : "Resume import failed.";
+    const message = error instanceof Error ? error.message : "Resume import failed.";
     if (isFileCapabilityError(message)) {
       throw serviceUnavailable(
         `The configured ${provider} model could not accept this attached ${mediaType === "application/pdf" ? "PDF" : "DOCX"} file directly. Choose a model with native file support and try again.`,

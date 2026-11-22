@@ -27,9 +27,7 @@ const expectTextBefore = (leftText: string, rightText: string) => {
   const left = screen.getByText(leftText);
   const right = screen.getByText(rightText);
 
-  expect(left.compareDocumentPosition(right)).toBe(
-    Node.DOCUMENT_POSITION_FOLLOWING,
-  );
+  expect(left.compareDocumentPosition(right)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 };
 
 describe("JobTimeline", () => {
@@ -38,9 +36,7 @@ describe("JobTimeline", () => {
 
     expect(screen.getByText("Discovered")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Job Ops discovered this job and added it to your pipeline.",
-      ),
+      screen.getByText("Job Ops discovered this job and added it to your pipeline."),
     ).toBeInTheDocument();
     expect(screen.queryByText("No stage events yet.")).not.toBeInTheDocument();
     expect(screen.queryByTitle("Edit event")).not.toBeInTheDocument();
@@ -87,9 +83,7 @@ describe("JobTimeline", () => {
     const onEdit = vi.fn();
     const onDelete = vi.fn();
 
-    render(
-      <JobTimeline events={[baseEvent]} onEdit={onEdit} onDelete={onDelete} />,
-    );
+    render(<JobTimeline events={[baseEvent]} onEdit={onEdit} onDelete={onDelete} />);
 
     const editButton = screen.getByTitle("Edit event");
     const deleteButton = screen.getByTitle("Delete event");
@@ -159,10 +153,7 @@ it("labels chronological technical rounds, behavioural events and withdrawn reje
       ]}
     />,
   );
-  expectTextBefore(
-    "Technical Interview · Round 1",
-    "Technical Interview · Round 2",
-  );
+  expectTextBefore("Technical Interview · Round 1", "Technical Interview · Round 2");
   expect(screen.getByText("Behaviour Question")).toBeInTheDocument();
   expect(screen.getByText("Reject · withdrawn")).toBeInTheDocument();
 });

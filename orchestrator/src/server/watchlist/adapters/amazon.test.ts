@@ -105,24 +105,19 @@ describe("amazonWatchlistAdapter", () => {
     "https://user:pass@www.amazon.jobs/en/search",
     "https://www.amazon.jobs:8080/en/search",
   ])("rejects unsupported search URL %s", (careersUrl) => {
-    expect(() =>
-      adapter.normalizeCustomSelection({ label: null, careersUrl }),
-    ).toThrow();
+    expect(() => adapter.normalizeCustomSelection({ label: null, careersUrl })).toThrow();
   });
   it("maps identities and dates, sorts newest first, and caps at 60", async () => {
     const jobs = Array.from({ length: 65 }, (_, i) => ({
       ...job,
       id_icims: String(i + 1),
       job_path: `/en/jobs/${i + 1}/role`,
-      posted_date: new Date(Date.UTC(2026, 0, i + 1)).toLocaleDateString(
-        "en-US",
-        {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          timeZone: "UTC",
-        },
-      ),
+      posted_date: new Date(Date.UTC(2026, 0, i + 1)).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "UTC",
+      }),
     }));
     const fetchMock = vi.fn().mockResolvedValue(response(jobs, 1000));
     vi.stubGlobal("fetch", fetchMock);
@@ -149,15 +144,15 @@ describe("amazonWatchlistAdapter", () => {
       sort: "recent",
     });
   });
-  it.each([
-    "America/Los_Angeles",
-    "Asia/Tokyo",
-  ])("parses posted dates as UTC in %s", async (timezone) => {
-    vi.stubEnv("TZ", timezone);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response()));
-    const result = await adapter.fetchJobs({ source });
-    expect(result.jobs[0].postedAt).toBe("2026-11-06T00:00:00.000Z");
-  });
+  it.each(["America/Los_Angeles", "Asia/Tokyo"])(
+    "parses posted dates as UTC in %s",
+    async (timezone) => {
+      vi.stubEnv("TZ", timezone);
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response()));
+      const result = await adapter.fetchJobs({ source });
+      expect(result.jobs[0].postedAt).toBe("2026-11-06T00:00:00.000Z");
+    },
+  );
   it("skips malformed entries in search and exact-ID re-queries", async () => {
     const entries = [
       null,
@@ -175,32 +170,23 @@ describe("amazonWatchlistAdapter", () => {
       fetched: 1,
       jobs: [{ sourceJobId: "123" }],
     });
-    await expect(
-      adapter.fetchJobDetails({ source, jobRef: "123" }),
-    ).resolves.toMatchObject({
+    await expect(adapter.fetchJobDetails({ source, jobRef: "123" })).resolves.toMatchObject({
       jobRef: "123",
       jobUrl: "https://www.amazon.jobs/en/jobs/123/software-engineer",
     });
-    await expect(
-      adapter.prepareImportDraft({ source, jobRef: "123" }),
-    ).resolves.toMatchObject({ draft: { sourceJobId: "123" } });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(response(entries.slice(0, 3))),
+    await expect(adapter.prepareImportDraft({ source, jobRef: "123" })).resolves.toMatchObject({
+      draft: { sourceJobId: "123" },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(entries.slice(0, 3))));
+    await expect(adapter.prepareImportDraft({ source, jobRef: "123" })).rejects.toThrow(
+      "not found",
     );
-    await expect(
-      adapter.prepareImportDraft({ source, jobRef: "123" }),
-    ).rejects.toThrow("not found");
   });
   it("re-queries the exact ID independently of source filters for details and import", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockImplementation(() => Promise.resolve(response()));
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(response()));
     vi.stubGlobal("fetch", fetchMock);
     const details = await adapter.fetchJobDetails({ source, jobRef: "123" });
-    expect(details.descriptionHtml).toContain(
-      "<h2>Basic qualifications</h2><p>TypeScript</p>",
-    );
+    expect(details.descriptionHtml).toContain("<h2>Basic qualifications</h2><p>TypeScript</p>");
     expect(details.descriptionHtml).toContain("Preferred qualifications");
     const result = await adapter.prepareImportDraft({ source, jobRef: "123" });
     expect(result).toMatchObject({
@@ -227,36 +213,30 @@ describe("amazonWatchlistAdapter", () => {
         .fn()
         .mockResolvedValueOnce(response())
         .mockResolvedValueOnce(
-          response([
-            { ...job, job_path: "https://evil.test/en/jobs/123/role" },
-          ]),
+          response([{ ...job, job_path: "https://evil.test/en/jobs/123/role" }]),
         ),
     );
-    await expect(
-      adapter.prepareImportDraft({ source, jobRef: "999" }),
-    ).rejects.toThrow("not found");
+    await expect(adapter.prepareImportDraft({ source, jobRef: "999" })).rejects.toThrow(
+      "not found",
+    );
     await expect(adapter.fetchJobs({ source })).resolves.toMatchObject({
       total: 1,
       fetched: 0,
       jobs: [],
     });
-    await expect(
-      adapter.fetchJobDetails({ source, jobRef: "https://evil.test" }),
-    ).rejects.toThrow("reference");
+    await expect(adapter.fetchJobDetails({ source, jobRef: "https://evil.test" })).rejects.toThrow(
+      "reference",
+    );
   });
   it("backs off on 429, stopping after three attempts without leaking upstream bodies", async () => {
     vi.useFakeTimers();
     const fetchMock = vi
       .fn()
       .mockImplementation(() =>
-        Promise.resolve(
-          new Response("sensitive upstream body", { status: 429 }),
-        ),
+        Promise.resolve(new Response("sensitive upstream body", { status: 429 })),
       );
     vi.stubGlobal("fetch", fetchMock);
-    const pending = adapter
-      .fetchJobs({ source })
-      .catch((error: unknown) => error);
+    const pending = adapter.fetchJobs({ source }).catch((error: unknown) => error);
     await vi.runAllTimersAsync();
     const error = await pending;
     expect(error).toBeInstanceOf(Error);
@@ -271,9 +251,7 @@ describe("amazonWatchlistAdapter", () => {
       .mockResolvedValueOnce(response());
     vi.stubGlobal("fetch", fetchMock);
     expect((await adapter.fetchJobs({ source })).fetched).toBe(1);
-    await expect(
-      adapter.fetchJobs({ source, signal: AbortSignal.abort() }),
-    ).rejects.toThrow();
+    await expect(adapter.fetchJobs({ source, signal: AbortSignal.abort() })).rejects.toThrow();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

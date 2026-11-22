@@ -22,9 +22,7 @@ export type GhostwriterNoteContextBuildResult = {
   wasTotalTrimmed: boolean;
 };
 
-export function normalizeGhostwriterSelectedNoteIds(
-  selectedNoteIds: readonly string[],
-): string[] {
+export function normalizeGhostwriterSelectedNoteIds(selectedNoteIds: readonly string[]): string[] {
   return normalizeGhostwriterSelectedContextIds(selectedNoteIds);
 }
 

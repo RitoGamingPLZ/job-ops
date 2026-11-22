@@ -8,12 +8,8 @@ function installMatchMedia(initial: boolean, legacy = false) {
   const listeners = new Set<() => void>();
   const media = {
     matches: initial,
-    addEventListener: legacy
-      ? undefined
-      : vi.fn((_: string, cb: () => void) => listeners.add(cb)),
-    removeEventListener: vi.fn((_: string, cb: () => void) =>
-      listeners.delete(cb),
-    ),
+    addEventListener: legacy ? undefined : vi.fn((_: string, cb: () => void) => listeners.add(cb)),
+    removeEventListener: vi.fn((_: string, cb: () => void) => listeners.delete(cb)),
     addListener: vi.fn((cb: () => void) => listeners.add(cb)),
     removeListener: vi.fn((cb: () => void) => listeners.delete(cb)),
   };
@@ -33,9 +29,7 @@ afterEach(() => {
 describe("useMediaQuery", () => {
   it("tracks changes through modern listeners and cleans up", () => {
     const { media, listeners, set } = installMatchMedia(true);
-    const { result, unmount } = renderHook(() =>
-      useMediaQuery("(min-width: 1024px)"),
-    );
+    const { result, unmount } = renderHook(() => useMediaQuery("(min-width: 1024px)"));
     expect(result.current).toBe(true);
     expect(window.matchMedia).toHaveBeenCalledWith("(min-width: 1024px)");
     expect(media.addEventListener).toHaveBeenCalledTimes(1);
@@ -49,9 +43,7 @@ describe("useMediaQuery", () => {
 
   it("falls back to legacy listeners", () => {
     const { media, listeners, set } = installMatchMedia(false, true);
-    const { result, unmount } = renderHook(() =>
-      useMediaQuery("(min-width: 1024px)"),
-    );
+    const { result, unmount } = renderHook(() => useMediaQuery("(min-width: 1024px)"));
     expect(result.current).toBe(false);
     expect(media.addListener).toHaveBeenCalledTimes(1);
     set(true);
@@ -74,9 +66,7 @@ describe("useMediaQuery", () => {
   it("returns false without matchMedia when told to", () => {
     // @ts-expect-error simulate an environment without matchMedia
     window.matchMedia = undefined;
-    const { result } = renderHook(() =>
-      useMediaQuery("(min-width: 1024px)", "false"),
-    );
+    const { result } = renderHook(() => useMediaQuery("(min-width: 1024px)", "false"));
     expect(result.current).toBe(false);
   });
 
@@ -84,8 +74,6 @@ describe("useMediaQuery", () => {
     // @ts-expect-error simulate an environment without matchMedia
     window.matchMedia = undefined;
     vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() =>
-      renderHook(() => useMediaQuery("(min-width: 1024px)")),
-    ).toThrow(TypeError);
+    expect(() => renderHook(() => useMediaQuery("(min-width: 1024px)"))).toThrow(TypeError);
   });
 });

@@ -13,9 +13,7 @@ function parseStoredSearchTerms(raw: string | null): string[] {
   try {
     const parsed = JSON.parse(raw) as unknown;
     return Array.isArray(parsed)
-      ? normalizeSearchTerms(
-          parsed.filter((value): value is string => typeof value === "string"),
-        )
+      ? normalizeSearchTerms(parsed.filter((value): value is string => typeof value === "string"))
       : [];
   } catch {
     return [];
@@ -38,9 +36,7 @@ export async function ensurePipelineSearchTerms(args: {
     };
   }
 
-  const storedTerms = parseStoredSearchTerms(
-    await settingsRepo.getSetting("searchTerms"),
-  );
+  const storedTerms = parseStoredSearchTerms(await settingsRepo.getSetting("searchTerms"));
   if (storedTerms.length > 0) {
     return {
       searchTermsCount: storedTerms.length,

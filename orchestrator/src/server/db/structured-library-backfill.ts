@@ -1,8 +1,5 @@
 import { logger } from "@infra/logger";
-import {
-  foldedLibraryText,
-  parseLibraryData,
-} from "@shared/candidate-library-schema";
+import { foldedLibraryText, parseLibraryData } from "@shared/candidate-library-schema";
 import type { CandidateItemKind } from "@shared/types/cowork";
 import type Database from "better-sqlite3";
 import type { ZodError } from "zod";
@@ -23,10 +20,7 @@ type Row = {
   data: string | null;
 };
 const string = (value: unknown) => (typeof value === "string" ? value : "");
-function identity(
-  kind: CandidateItemKind,
-  data: Record<string, unknown>,
-): string {
+function identity(kind: CandidateItemKind, data: Record<string, unknown>): string {
   return JSON.stringify(
     (kind === "education"
       ? [data.school, data.period]
@@ -53,9 +47,7 @@ function sourceItems(raw: string): Record<string, Record<string, unknown>[]> {
         const items = doc.sections[section]?.items;
         return [
           section,
-          Array.isArray(items)
-            ? items.filter((item) => item && typeof item === "object")
-            : [],
+          Array.isArray(items) ? items.filter((item) => item && typeof item === "object") : [],
         ];
       }),
     );
@@ -64,19 +56,13 @@ function sourceItems(raw: string): Record<string, Record<string, unknown>[]> {
   }
 }
 function hasValue(value: unknown): boolean {
-  if (value && typeof value === "object")
-    return Object.values(value).some(hasValue);
+  if (value && typeof value === "object") return Object.values(value).some(hasValue);
   return value !== undefined && value !== null && value !== "";
 }
 function conflicts(known: unknown, source: unknown): boolean {
   if (known && typeof known === "object") {
-    const values =
-      source && typeof source === "object"
-        ? (source as Record<string, unknown>)
-        : {};
-    return Object.entries(known).some(([key, value]) =>
-      conflicts(value, values[key]),
-    );
+    const values = source && typeof source === "object" ? (source as Record<string, unknown>) : {};
+    return Object.entries(known).some(([key, value]) => conflicts(value, values[key]));
   }
   return hasValue(known) && known !== source;
 }
@@ -86,12 +72,7 @@ export function backfillStructuredLibrary(sqlite: Database.Database): void {
     "CREATE TABLE IF NOT EXISTS app_data_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')))",
   );
   sqlite.transaction(() => {
-    if (
-      sqlite
-        .prepare("SELECT 1 FROM app_data_migrations WHERE id = ?")
-        .get(migrationId)
-    )
-      return;
+    if (sqlite.prepare("SELECT 1 FROM app_data_migrations WHERE id = ?").get(migrationId)) return;
     const rows = sqlite
       .prepare(
         "SELECT id, tenant_id, user_id, kind, text, data FROM experience_bullets WHERE kind IN ('education','award','certification')",
@@ -121,21 +102,16 @@ export function backfillStructuredLibrary(sqlite: Database.Database): void {
         let documents = scopedSources.get(scopeKey);
         if (!documents) {
           documents = (
-            sources.all(
-              row.tenant_id,
-              row.user_id,
-              row.tenant_id,
-              row.user_id,
-            ) as { document: string }[]
+            sources.all(row.tenant_id, row.user_id, row.tenant_id, row.user_id) as {
+              document: string;
+            }[]
           ).map((source) => sourceItems(source.document));
           scopedSources.set(scopeKey, documents);
         }
         const candidates = documents
           .flatMap((doc) => doc[sections[row.kind]] ?? [])
           .flatMap((item) => {
-            const text = string(
-              row.kind === "education" ? item.degree : item.title,
-            );
+            const text = string(row.kind === "education" ? item.degree : item.title);
             if (
               (item.libraryId && item.libraryId !== row.id) ||
               identity(row.kind, item) !== identity(row.kind, known) ||
@@ -171,19 +147,14 @@ export function backfillStructuredLibrary(sqlite: Database.Database): void {
         const explicit = candidates.filter((item) => item.libraryId === row.id);
         const preferred = explicit.length ? explicit : candidates;
         const unique = new Map(
-          preferred.map(({ text, data }) => [
-            JSON.stringify({ text, data }),
-            { text, data },
-          ]),
+          preferred.map(({ text, data }) => [JSON.stringify({ text, data }), { text, data }]),
         );
         let text = row.text;
         let next = normalized;
         if (unique.size === 1) {
           const source = [...unique.values()][0];
           const conflict = Object.keys(source.data).some(
-            (key) =>
-              key !== "schemaVersion" &&
-              conflicts(normalized[key], source.data[key]),
+            (key) => key !== "schemaVersion" && conflicts(normalized[key], source.data[key]),
           );
           if (!conflict) {
             text = source.text;
@@ -199,24 +170,19 @@ export function backfillStructuredLibrary(sqlite: Database.Database): void {
           libraryItemId: row.id,
           kind: row.kind,
           error:
-            validationError?.name === "ZodError" &&
-            Array.isArray(validationError.issues)
+            validationError?.name === "ZodError" && Array.isArray(validationError.issues)
               ? {
                   name: validationError.name,
-                  issues: validationError.issues.map(
-                    ({ code, path, message }) => ({
-                      code,
-                      path,
-                      message,
-                    }),
-                  ),
+                  issues: validationError.issues.map(({ code, path, message }) => ({
+                    code,
+                    path,
+                    message,
+                  })),
                 }
               : error,
         });
       }
     }
-    sqlite
-      .prepare("INSERT INTO app_data_migrations(id) VALUES (?)")
-      .run(migrationId);
+    sqlite.prepare("INSERT INTO app_data_migrations(id) VALUES (?)").run(migrationId);
   })();
 }

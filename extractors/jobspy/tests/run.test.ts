@@ -71,9 +71,7 @@ describe("parseJobSpyProgressLine", () => {
   });
 
   it("runs a country-only search when no city locations are configured", () => {
-    expect(resolveJobSpyLocations({ location: null, locations: [] })).toEqual([
-      null,
-    ]);
+    expect(resolveJobSpyLocations({ location: null, locations: [] })).toEqual([null]);
   });
 
   it("does not fall back country_indeed to UK when none is configured", () => {
@@ -122,8 +120,7 @@ describe("LinkedIn country-qualified queries", () => {
       }).linkedinLocation,
     ).toBe("New York");
     expect(
-      resolveJobSpySiteLocations({ location: "New York", countryIndeed: null })
-        .linkedinLocation,
+      resolveJobSpySiteLocations({ location: "New York", countryIndeed: null }).linkedinLocation,
     ).toBe("New York");
   });
 });
@@ -177,34 +174,24 @@ describe("JobSpy location evidence", () => {
   });
 
   it("does not interpret a US state abbreviation as country evidence", () => {
-    const [job] = mapJobSpyRows(
-      [{ ...row, location: "San Francisco, CA" }],
-      "united states",
-    );
+    const [job] = mapJobSpyRows([{ ...row, location: "San Francisco, CA" }], "united states");
     expect(job.locationEvidence?.country).toBe("US");
   });
 
   it("does not manufacture country evidence for unknown or unscoped locations", () => {
     expect(mapJobSpyRows([row])[0].locationEvidence?.country).toBeUndefined();
+    expect(mapJobSpyRows([row], "worldwide")[0].locationEvidence?.country).toBeUndefined();
     expect(
-      mapJobSpyRows([row], "worldwide")[0].locationEvidence?.country,
+      mapJobSpyRows([{ ...row, location: null }], "united states")[0].locationEvidence,
     ).toBeUndefined();
     expect(
-      mapJobSpyRows([{ ...row, location: null }], "united states")[0]
-        .locationEvidence,
-    ).toBeUndefined();
-    expect(
-      mapJobSpyRows([{ ...row, site: "indeed" }], "united states")[0]
-        .locationEvidence?.country,
+      mapJobSpyRows([{ ...row, site: "indeed" }], "united states")[0].locationEvidence?.country,
     ).toBeUndefined();
   });
 
   it("keeps country evidence isolated between workspace search contexts", () => {
     const [usJob] = mapJobSpyRows([row], "united states");
-    const [caJob] = mapJobSpyRows(
-      [{ ...row, location: "Toronto, ON" }],
-      "canada",
-    );
+    const [caJob] = mapJobSpyRows([{ ...row, location: "Toronto, ON" }], "canada");
     const [unscopedJob] = mapJobSpyRows([row]);
     expect(usJob.locationEvidence?.country).toBe("US");
     expect(caJob.locationEvidence?.country).toBe("CA");

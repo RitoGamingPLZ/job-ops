@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.sequential("sso identities repository", () => {
+describe("sso identities repository", () => {
   const originalEnv = { ...process.env };
   let tempDir: string;
   let closeDb: (() => void) | null = null;
@@ -134,10 +134,7 @@ describe.sequential("sso identities repository", () => {
     });
 
     const identities = await repo.listSsoIdentitiesForUser(alice.id);
-    expect(identities.map((identity) => identity.provider).sort()).toEqual([
-      "github",
-      "google",
-    ]);
+    expect(identities.map((identity) => identity.provider).sort()).toEqual(["github", "google"]);
     await expect(repo.countSsoIdentitiesForUser(alice.id)).resolves.toBe(2);
     await expect(repo.countSsoIdentitiesForUser(bob.id)).resolves.toBe(1);
   });
@@ -157,14 +154,10 @@ describe.sequential("sso identities repository", () => {
       displayName: "Alice",
     });
 
-    await expect(
-      repo.deleteSsoIdentity({ id: identity.id, userId: bob.id }),
-    ).resolves.toBe(false);
+    await expect(repo.deleteSsoIdentity({ id: identity.id, userId: bob.id })).resolves.toBe(false);
     await expect(repo.countSsoIdentitiesForUser(alice.id)).resolves.toBe(1);
 
-    await expect(
-      repo.deleteSsoIdentity({ id: identity.id, userId: alice.id }),
-    ).resolves.toBe(true);
+    await expect(repo.deleteSsoIdentity({ id: identity.id, userId: alice.id })).resolves.toBe(true);
     await expect(repo.countSsoIdentitiesForUser(alice.id)).resolves.toBe(0);
   });
 });

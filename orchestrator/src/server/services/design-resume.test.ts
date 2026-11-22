@@ -104,9 +104,7 @@ function makeDocumentRow(overrides?: Partial<Record<string, unknown>>) {
   };
 }
 
-function makeValidResumeJson(
-  overrides?: Partial<Record<string, unknown>>,
-): DesignResumeJson {
+function makeValidResumeJson(overrides?: Partial<Record<string, unknown>>): DesignResumeJson {
   return {
     ...buildDefaultReactiveResumeDocument(),
     ...overrides,
@@ -216,9 +214,7 @@ describe("design resume service", () => {
         scopeKey: `tenant-test-2:${userId}`,
       });
       const upstreamResume = makeValidResumeJson();
-      const stylesheet: NonNullable<
-        DesignResumeJson["metadata"]["stylesheet"]
-      > = {
+      const stylesheet: NonNullable<DesignResumeJson["metadata"]["stylesheet"]> = {
         mode: "semantic",
         source: { languageVersion: 1, text: `@version 1; /* ${userId} */` },
       };
@@ -270,10 +266,7 @@ describe("design resume service", () => {
   it("generates missing project ids when importing from Reactive Resume", async () => {
     const upstreamResume = makeValidResumeJson({
       sections: {
-        ...(buildDefaultReactiveResumeDocument().sections as Record<
-          string,
-          unknown
-        >),
+        ...(buildDefaultReactiveResumeDocument().sections as Record<string, unknown>),
         projects: {
           title: "",
           columns: 1,
@@ -317,9 +310,7 @@ describe("design resume service", () => {
     } as never);
 
     const result = await importDesignResumeFromReactiveResume();
-    const projectIds = result.resumeJson.sections.projects.items.map(
-      (project) => project.id,
-    );
+    const projectIds = result.resumeJson.sections.projects.items.map((project) => project.id);
 
     expect(projectIds[0]).toEqual(expect.any(String));
     expect(projectIds[0]?.trim()).not.toBe("");
@@ -331,9 +322,7 @@ describe("design resume service", () => {
         resumeJson: expect.objectContaining({
           sections: expect.objectContaining({
             projects: expect.objectContaining({
-              items: expect.arrayContaining([
-                expect.objectContaining({ id: "project-keep" }),
-              ]),
+              items: expect.arrayContaining([expect.objectContaining({ id: "project-keep" })]),
             }),
           }),
         }),
@@ -344,10 +333,7 @@ describe("design resume service", () => {
   it("preserves custom field titles through stored document validation", async () => {
     const resumeJson = makeValidResumeJson({
       basics: {
-        ...(buildDefaultReactiveResumeDocument().basics as Record<
-          string,
-          unknown
-        >),
+        ...(buildDefaultReactiveResumeDocument().basics as Record<string, unknown>),
         customFieldsTitle: "Highlights",
         customFields: [
           {
@@ -360,9 +346,7 @@ describe("design resume service", () => {
         ],
       },
     });
-    repo.getLatestDesignResumeDocument.mockResolvedValueOnce(
-      makeDocumentRow({ resumeJson }),
-    );
+    repo.getLatestDesignResumeDocument.mockResolvedValueOnce(makeDocumentRow({ resumeJson }));
 
     const result = await getCurrentDesignResume();
 
@@ -387,10 +371,7 @@ describe("design resume service", () => {
       .mockReturnValueOnce("project-generated-2");
     const resumeJson = makeValidResumeJson({
       sections: {
-        ...(buildDefaultReactiveResumeDocument().sections as Record<
-          string,
-          unknown
-        >),
+        ...(buildDefaultReactiveResumeDocument().sections as Record<string, unknown>),
         projects: {
           title: "Projects",
           columns: 1,
@@ -427,18 +408,18 @@ describe("design resume service", () => {
         },
       },
     });
-    repo.getLatestDesignResumeDocument.mockResolvedValueOnce(
-      makeDocumentRow({ resumeJson }),
-    );
+    repo.getLatestDesignResumeDocument.mockResolvedValueOnce(makeDocumentRow({ resumeJson }));
 
     const result = await getCurrentDesignResume();
 
     if (!result) {
       throw new Error("Expected stored design resume document");
     }
-    expect(
-      result.resumeJson.sections.projects.items.map((project) => project.id),
-    ).toEqual(["project-generated-1", "project-generated-2", "project-keep"]);
+    expect(result.resumeJson.sections.projects.items.map((project) => project.id)).toEqual([
+      "project-generated-1",
+      "project-generated-2",
+      "project-keep",
+    ]);
     expect(result.revision).toBe(2);
     expect(repo.upsertDesignResumeDocument).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -465,18 +446,14 @@ describe("design resume service", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         headers: {
-          get: (name: string) =>
-            name.toLowerCase() === "content-type" ? "image/webp" : null,
+          get: (name: string) => (name.toLowerCase() === "content-type" ? "image/webp" : null),
         },
         arrayBuffer: async () => Buffer.from("webp-bytes").buffer,
       }),
     );
     const upstreamResume = makeValidResumeJson({
       picture: {
-        ...(buildDefaultReactiveResumeDocument().picture as Record<
-          string,
-          unknown
-        >),
+        ...(buildDefaultReactiveResumeDocument().picture as Record<string, unknown>),
         hidden: false,
         url: "/uploads/profile-photo.png",
       },
@@ -492,9 +469,7 @@ describe("design resume service", () => {
 
     const result = await importDesignResumeFromReactiveResume();
 
-    expect(result.resumeJson.picture.url).toBe(
-      "/api/design-resume/assets/asset-1/content",
-    );
+    expect(result.resumeJson.picture.url).toBe("/api/design-resume/assets/asset-1/content");
     expect(result.resumeJson.picture.hidden).toBe(false);
     expect(fetch).toHaveBeenCalledWith(
       "https://resume.example.com/uploads/profile-photo.png",
@@ -514,10 +489,7 @@ describe("design resume service", () => {
     vi.stubGlobal("fetch", fetchMock);
     const upstreamResume = makeValidResumeJson({
       picture: {
-        ...(buildDefaultReactiveResumeDocument().picture as Record<
-          string,
-          unknown
-        >),
+        ...(buildDefaultReactiveResumeDocument().picture as Record<string, unknown>),
         hidden: false,
         url: "/uploads/profile-photo.png",
       },
@@ -535,9 +507,7 @@ describe("design resume service", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(repo.insertDesignResumeAsset).not.toHaveBeenCalled();
-    expect(result.resumeJson.picture.url).toBe(
-      "http://127.0.0.1:3000/uploads/profile-photo.png",
-    );
+    expect(result.resumeJson.picture.url).toBe("http://127.0.0.1:3000/uploads/profile-photo.png");
   });
 
   it("preserves an explicit picture hidden flag during updates", async () => {
@@ -622,10 +592,7 @@ describe("design resume service", () => {
   it("accepts upstream v5 resumes without wrapper fields or item options", async () => {
     const upstreamResume = makeValidResumeJson({
       sections: {
-        ...(buildDefaultReactiveResumeDocument().sections as Record<
-          string,
-          unknown
-        >),
+        ...(buildDefaultReactiveResumeDocument().sections as Record<string, unknown>),
         profiles: {
           title: "",
           columns: 1,
@@ -673,15 +640,9 @@ describe("design resume service", () => {
 
     expect(result.resumeJson).not.toHaveProperty("$schema");
     expect(result.resumeJson).not.toHaveProperty("version");
-    expect(result.resumeJson.sections.projects.items[0]).not.toHaveProperty(
-      "options",
-    );
-    expect(result.resumeJson.sections.profiles.items[0]).not.toHaveProperty(
-      "options",
-    );
-    expect(
-      result.resumeJson.sections.profiles.items[0]?.website.inlineLink,
-    ).toBe(true);
+    expect(result.resumeJson.sections.projects.items[0]).not.toHaveProperty("options");
+    expect(result.resumeJson.sections.profiles.items[0]).not.toHaveProperty("options");
+    expect(result.resumeJson.sections.profiles.items[0]?.website.inlineLink).toBe(true);
   });
 
   it("rejects legacy local documents and requires re-import", async () => {
@@ -796,9 +757,7 @@ describe("design resume service", () => {
   });
 
   it("cleans up the uploaded file when picture asset insertion fails", async () => {
-    repo.insertDesignResumeAsset.mockRejectedValue(
-      new Error("db insert failed"),
-    );
+    repo.insertDesignResumeAsset.mockRejectedValue(new Error("db insert failed"));
 
     await expect(
       uploadDesignResumePicture({
@@ -807,8 +766,7 @@ describe("design resume service", () => {
       }),
     ).rejects.toThrow("db insert failed");
 
-    const deletedPath =
-      fsMocks.rm.mock.calls[0]?.[0] ?? fsMocks.unlink.mock.calls[0]?.[0];
+    const deletedPath = fsMocks.rm.mock.calls[0]?.[0] ?? fsMocks.unlink.mock.calls[0]?.[0];
     expect(deletedPath?.replace(/\\/g, "/")).toBe(
       "/tmp/job-ops-test/design-resume/assets/asset-1.png",
     );
@@ -817,10 +775,7 @@ describe("design resume service", () => {
   it("applies picture uploads to the caller-provided draft document", async () => {
     const resumeJson = makeValidResumeJson({
       summary: {
-        ...(buildDefaultReactiveResumeDocument().summary as Record<
-          string,
-          unknown
-        >),
+        ...(buildDefaultReactiveResumeDocument().summary as Record<string, unknown>),
         content: "Stored summary",
       },
     });
@@ -923,9 +878,7 @@ describe("design resume service", () => {
       bypassTenantScope: true,
     });
 
-    expect(repo.getDesignResumeAssetByIdAnyTenant).toHaveBeenCalledWith(
-      "asset-1",
-    );
+    expect(repo.getDesignResumeAssetByIdAnyTenant).toHaveBeenCalledWith("asset-1");
     expect(asset.contentUrl).toBe("/api/design-resume/assets/asset-1/content");
   });
 
@@ -961,9 +914,7 @@ describe("design resume service", () => {
 
     await importDesignResumeFromReactiveResume();
 
-    expect(repo.deleteDesignResumeAssetsForDocument).toHaveBeenCalledWith(
-      "primary",
-    );
+    expect(repo.deleteDesignResumeAssetsForDocument).toHaveBeenCalledWith("primary");
     expect(fsMocks.unlink).toHaveBeenCalledWith(
       "/tmp/job-ops-test/design-resume/assets/old-picture.png",
     );
@@ -972,10 +923,7 @@ describe("design resume service", () => {
   it("keeps the existing picture asset when removing it hits a revision conflict", async () => {
     const resumeJson = makeValidResumeJson({
       picture: {
-        ...(buildDefaultReactiveResumeDocument().picture as Record<
-          string,
-          unknown
-        >),
+        ...(buildDefaultReactiveResumeDocument().picture as Record<string, unknown>),
         url: "/api/design-resume/assets/asset-1/content",
       },
     });

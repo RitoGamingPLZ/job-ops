@@ -7,22 +7,14 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 type ForcedPasswordResetGateProps = {
   children: React.ReactNode;
 };
 
-export const ForcedPasswordResetGate: React.FC<
-  ForcedPasswordResetGateProps
-> = ({ children }) => {
+export const ForcedPasswordResetGate: React.FC<ForcedPasswordResetGateProps> = ({ children }) => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [currentPassword, setCurrentPassword] = useState("");
@@ -57,9 +49,7 @@ export const ForcedPasswordResetGate: React.FC<
       toast.success("Password updated");
     },
     onError: (error) => {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to update password.",
-      );
+      setErrorMessage(error instanceof Error ? error.message : "Failed to update password.");
     },
   });
 
@@ -83,9 +73,7 @@ export const ForcedPasswordResetGate: React.FC<
       return;
     }
     if (hasPassword && newPassword === currentPassword) {
-      setErrorMessage(
-        "Choose a new password that differs from your current password.",
-      );
+      setErrorMessage("Choose a new password that differs from your current password.");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -104,22 +92,16 @@ export const ForcedPasswordResetGate: React.FC<
       <div className="mx-auto flex min-h-[70vh] max-w-md items-center">
         <Card className="w-full border-border/60 bg-background/95 shadow-xl">
           <CardHeader className="space-y-2">
-            <CardTitle className="text-2xl tracking-tight">
-              Reset your password
-            </CardTitle>
+            <CardTitle className="text-2xl tracking-tight">Reset your password</CardTitle>
             <CardDescription>
-              Set a new password for {user.username} before continuing to
-              JobOps.
+              Set a new password for {user.username} before continuing to JobOps.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit}>
               {hasPassword ? (
                 <div className="space-y-2">
-                  <label
-                    className="text-sm font-medium"
-                    htmlFor="forced-reset-current-password"
-                  >
+                  <label className="text-sm font-medium" htmlFor="forced-reset-current-password">
                     Current password
                   </label>
                   <Input
@@ -127,19 +109,14 @@ export const ForcedPasswordResetGate: React.FC<
                     type="password"
                     autoComplete="current-password"
                     value={currentPassword}
-                    onChange={(event) =>
-                      setCurrentPassword(event.currentTarget.value)
-                    }
+                    onChange={(event) => setCurrentPassword(event.currentTarget.value)}
                     placeholder="Enter current password"
                     disabled={changePasswordMutation.isPending}
                   />
                 </div>
               ) : null}
               <div className="space-y-2">
-                <label
-                  className="text-sm font-medium"
-                  htmlFor="forced-reset-new-password"
-                >
+                <label className="text-sm font-medium" htmlFor="forced-reset-new-password">
                   New password
                 </label>
                 <Input
@@ -147,18 +124,13 @@ export const ForcedPasswordResetGate: React.FC<
                   type="password"
                   autoComplete="new-password"
                   value={newPassword}
-                  onChange={(event) =>
-                    setNewPassword(event.currentTarget.value)
-                  }
+                  onChange={(event) => setNewPassword(event.currentTarget.value)}
                   placeholder="At least 8 characters"
                   disabled={changePasswordMutation.isPending}
                 />
               </div>
               <div className="space-y-2">
-                <label
-                  className="text-sm font-medium"
-                  htmlFor="forced-reset-confirm-password"
-                >
+                <label className="text-sm font-medium" htmlFor="forced-reset-confirm-password">
                   Confirm new password
                 </label>
                 <Input
@@ -166,9 +138,7 @@ export const ForcedPasswordResetGate: React.FC<
                   type="password"
                   autoComplete="new-password"
                   value={confirmPassword}
-                  onChange={(event) =>
-                    setConfirmPassword(event.currentTarget.value)
-                  }
+                  onChange={(event) => setConfirmPassword(event.currentTarget.value)}
                   placeholder="Re-enter new password"
                   disabled={changePasswordMutation.isPending}
                 />
@@ -178,14 +148,8 @@ export const ForcedPasswordResetGate: React.FC<
                   {errorMessage}
                 </p>
               ) : null}
-              <Button
-                className="w-full"
-                type="submit"
-                disabled={changePasswordMutation.isPending}
-              >
-                {changePasswordMutation.isPending
-                  ? "Updating password..."
-                  : "Update password"}
+              <Button className="w-full" type="submit" disabled={changePasswordMutation.isPending}>
+                {changePasswordMutation.isPending ? "Updating password..." : "Update password"}
               </Button>
               <Button
                 className="w-full"

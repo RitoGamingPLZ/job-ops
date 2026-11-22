@@ -3,10 +3,7 @@ import { getJobOpsAppConfig } from "@server/config/app-mode";
 import * as settingsRepo from "@server/repositories/settings";
 import { getCurrentAccountEntitlements } from "@server/services/account-entitlements";
 import { getOriginalEnvValue } from "@server/services/envSettings";
-import {
-  getDefaultModelForProvider,
-  settingsRegistry,
-} from "@shared/settings-registry";
+import { getDefaultModelForProvider, settingsRegistry } from "@shared/settings-registry";
 import {
   type AppSettings,
   LLM_PURPOSE_VALUES,
@@ -16,21 +13,11 @@ import {
   type LlmPurposeOverrides,
   type ResumeProfile,
 } from "@shared/types";
-import {
-  designResumeToProfile,
-  getCurrentDesignResumeOrNullOnLegacy,
-} from "./design-resume";
+import { designResumeToProfile, getCurrentDesignResumeOrNullOnLegacy } from "./design-resume";
 import { getEnvSettingsData } from "./envSettings";
 import { getProfile } from "./profile";
-import {
-  extractProjectsFromProfile,
-  resolveResumeProjectsSettings,
-} from "./resumeProjects";
-import {
-  extractProjectsFromResume,
-  getResume,
-  RxResumeAuthConfigError,
-} from "./rxresume";
+import { extractProjectsFromProfile, resolveResumeProjectsSettings } from "./resumeProjects";
+import { extractProjectsFromResume, getResume, RxResumeAuthConfigError } from "./rxresume";
 import { resolveRxResumeBaseResumeId } from "./rxresume/baseResumeId";
 
 function resolveDefaultLlmBaseUrl(provider: string): string {
@@ -114,9 +101,7 @@ function normalizeModelForProviderCompatibility(
   }
 
   if (normalizedProvider === "glm") {
-    const isGlmModel =
-      normalizedModel.startsWith("glm") ||
-      normalizedModel.startsWith("charglm");
+    const isGlmModel = normalizedModel.startsWith("glm") || normalizedModel.startsWith("charglm");
     if (!isGlmModel) {
       return null;
     }
@@ -126,19 +111,13 @@ function normalizeModelForProviderCompatibility(
 }
 
 function isBaseResumeNotConfiguredError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message.includes("Base resume not configured")
-  );
+  return error instanceof Error && error.message.includes("Base resume not configured");
 }
 
 function readPurposeOverrides(
   overrides: Partial<Record<settingsRepo.SettingKey, string>>,
 ): LlmPurposeOverrides {
-  return (
-    settingsRegistry.llmPurposeOverrides.parse(overrides.llmPurposeOverrides) ??
-    {}
-  );
+  return settingsRegistry.llmPurposeOverrides.parse(overrides.llmPurposeOverrides) ?? {};
 }
 
 function readPurposeApiKeyHints(
@@ -170,20 +149,14 @@ const MODEL_KEY_BY_PURPOSE: Record<
  * Get the effective app settings, combining environment variables and database overrides.
  */
 export async function getEffectiveSettings(): Promise<AppSettings> {
-  const getAllSettings =
-    "getAllSettings" in settingsRepo ? settingsRepo.getAllSettings : null;
-  const overrides =
-    (typeof getAllSettings === "function" ? await getAllSettings() : null) ??
-    {};
+  const getAllSettings = "getAllSettings" in settingsRepo ? settingsRepo.getAllSettings : null;
+  const overrides = (typeof getAllSettings === "function" ? await getAllSettings() : null) ?? {};
   const hostedMode = getJobOpsAppConfig().appMode === "hosted";
   const allowPlatformLlm =
     !hostedMode || (await getCurrentAccountEntitlements()).platformAiIncluded;
-  const providerOverride = settingsRegistry.llmProvider.parse(
-    overrides.llmProvider,
-  );
+  const providerOverride = settingsRegistry.llmProvider.parse(overrides.llmProvider);
   const effectiveLlmProvider =
-    providerOverride ??
-    (allowPlatformLlm ? settingsRegistry.llmProvider.default() : "openrouter");
+    providerOverride ?? (allowPlatformLlm ? settingsRegistry.llmProvider.default() : "openrouter");
   const purposeOverrides = readPurposeOverrides(overrides);
   const resolvedModelDefault =
     normalizeModelForProviderCompatibility(
@@ -214,13 +187,10 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
       }
     } catch (error) {
       if (error instanceof RxResumeAuthConfigError) {
-        logger.warn(
-          "Reactive Resume credentials missing during settings load",
-          {
-            resumeId: rxresumeBaseResumeId,
-            error,
-          },
-        );
+        logger.warn("Reactive Resume credentials missing during settings load", {
+          resumeId: rxresumeBaseResumeId,
+          error,
+        });
       } else {
         logger.warn("Failed to load Reactive Resume base resume for settings", {
           resumeId: rxresumeBaseResumeId,
@@ -277,8 +247,7 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
       }
 
       if (key === "llmBaseUrl") {
-        const provider =
-          effectiveLlmProvider ?? settingsRegistry.llmProvider.default();
+        const provider = effectiveLlmProvider ?? settingsRegistry.llmProvider.default();
         defaultValue =
           (allowPlatformLlm ? getOriginalEnvValue("LLM_BASE_URL") : null) ||
           resolveDefaultLlmBaseUrl(provider);
@@ -321,9 +290,7 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
       };
     } else if (def.kind === "model") {
       const purpose = (
-        Object.entries(MODEL_KEY_BY_PURPOSE) as Array<
-          [LlmPurpose, keyof typeof settingsRegistry]
-        >
+        Object.entries(MODEL_KEY_BY_PURPOSE) as Array<[LlmPurpose, keyof typeof settingsRegistry]>
       ).find(([, modelKey]) => modelKey === key)?.[0];
       const purposeOverride = purpose ? purposeOverrides[purpose] : undefined;
       const purposeProvider = purposeOverride?.provider ?? effectiveLlmProvider;
@@ -334,9 +301,7 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
       const override =
         normalizeModelForProviderCompatibility(
           purposeProvider,
-          purposeOverride?.model ??
-            overrides[key as settingsRepo.SettingKey] ??
-            null,
+          purposeOverride?.model ?? overrides[key as settingsRepo.SettingKey] ?? null,
         ) ?? null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // biome-ignore lint/suspicious/noExplicitAny: dynamic assignment for settings building
@@ -348,8 +313,7 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
       if (!("envKey" in def) || !def.envKey) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         // biome-ignore lint/suspicious/noExplicitAny: dynamic assignment for settings building
-        (result as any)[key] =
-          overrides[key as settingsRepo.SettingKey] ?? null;
+        (result as any)[key] = overrides[key as settingsRepo.SettingKey] ?? null;
       }
     }
   }

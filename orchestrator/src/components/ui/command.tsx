@@ -52,11 +52,10 @@ const CommandDialog = ({
   );
 };
 
-interface CommandInputProps
-  extends Omit<
-    React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>,
-    "prefix"
-  > {
+interface CommandInputProps extends Omit<
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>,
+  "prefix"
+> {
   prefix?: React.ReactNode;
   wrapperClassName?: string;
 }
@@ -65,14 +64,9 @@ const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   CommandInputProps
 >(({ className, prefix, wrapperClassName, ...props }, ref) => (
-  <div
-    className={cn("flex items-center border-b px-3", wrapperClassName)}
-    cmdk-input-wrapper=""
-  >
+  <div className={cn("flex items-center border-b px-3", wrapperClassName)} cmdk-input-wrapper="">
     <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-    {prefix ? (
-      <div className="mr-2 flex shrink-0 items-center">{prefix}</div>
-    ) : null}
+    {prefix ? <div className="mr-2 flex shrink-0 items-center">{prefix}</div> : null}
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
@@ -103,11 +97,7 @@ const CommandEmpty = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Empty>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Empty>
 >((props, ref) => (
-  <CommandPrimitive.Empty
-    ref={ref}
-    className="py-6 text-center text-sm"
-    {...props}
-  />
+  <CommandPrimitive.Empty ref={ref} className="py-6 text-center text-sm" {...props} />
 ));
 
 CommandEmpty.displayName = CommandPrimitive.Empty.displayName;
@@ -156,16 +146,10 @@ const CommandItem = React.forwardRef<
 
 CommandItem.displayName = CommandPrimitive.Item.displayName;
 
-const CommandShortcut = ({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLSpanElement>) => {
+const CommandShortcut = ({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) => {
   return (
     <span
-      className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground",
-        className,
-      )}
+      className={cn("ml-auto text-xs tracking-widest text-muted-foreground", className)}
       {...props}
     />
   );

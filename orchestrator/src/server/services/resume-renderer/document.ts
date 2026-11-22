@@ -16,13 +16,9 @@ import type {
 
 type RecordLike = Record<string, unknown>;
 
-const LOCAL_ASSET_URL_PATTERN =
-  /^\/api\/design-resume\/assets\/([^/]+)\/content$/;
+const LOCAL_ASSET_URL_PATTERN = /^\/api\/design-resume\/assets\/([^/]+)\/content$/;
 
-const LATEX_RESUME_SECTION_TITLES: Record<
-  ChatStyleManualLanguage,
-  LatexResumeSectionTitles
-> = {
+const LATEX_RESUME_SECTION_TITLES: Record<ChatStyleManualLanguage, LatexResumeSectionTitles> = {
   english: {
     profiles: "Profiles",
     summary: "Summary",
@@ -135,10 +131,7 @@ function getByPath(source: RecordLike, path: string): unknown {
   }, source);
 }
 
-function joinNonEmpty(
-  parts: Array<string | null | undefined>,
-  separator: string,
-) {
+function joinNonEmpty(parts: Array<string | null | undefined>, separator: string) {
   return parts
     .map((part) => (typeof part === "string" ? part.trim() : ""))
     .filter(Boolean)
@@ -174,9 +167,7 @@ function stripHtml(value: string): string {
 function safeUrl(value: string): string | null {
   const url = value.trim();
   try {
-    return ["http:", "https:", "mailto:"].includes(new URL(url).protocol)
-      ? url
-      : null;
+    return ["http:", "https:", "mailto:"].includes(new URL(url).protocol) ? url : null;
   } catch {
     return null;
   }
@@ -222,10 +213,7 @@ function getSectionRecord(resumeJson: RecordLike, key: string): RecordLike {
   return (asRecord(sections[key]) ?? {}) as RecordLike;
 }
 
-function getVisibleSectionItems(
-  resumeJson: RecordLike,
-  key: string,
-): RecordLike[] {
+function getVisibleSectionItems(resumeJson: RecordLike, key: string): RecordLike[] {
   const section = getSectionRecord(resumeJson, key);
   if (toBoolean(section.hidden, false)) return [];
 
@@ -248,17 +236,12 @@ function getSectionTitle(
   return toText(section.title).trim() || titles[key];
 }
 
-function getCustomFieldsTitle(
-  resumeJson: RecordLike,
-  titles: LatexResumeSectionTitles,
-): string {
+function getCustomFieldsTitle(resumeJson: RecordLike, titles: LatexResumeSectionTitles): string {
   const basics = (asRecord(resumeJson.basics) ?? {}) as RecordLike;
   return toText(basics.customFieldsTitle).trim() || titles.customFields;
 }
 
-function getOrderedSectionKeys(
-  resumeJson: RecordLike,
-): LatexResumeOrderedSectionKey[] {
+function getOrderedSectionKeys(resumeJson: RecordLike): LatexResumeOrderedSectionKey[] {
   const metadata = asRecord(resumeJson.metadata);
   const layout = asRecord(metadata?.layout);
   const pages = asArray(layout?.pages);
@@ -321,8 +304,7 @@ function buildContactItems(resumeJson: RecordLike): LatexResumeContactItem[] {
   }
 
   const websiteUrl = toText(getByPath(basics, "website.url")).trim();
-  const websiteLabel =
-    toText(getByPath(basics, "website.label")).trim() || websiteUrl;
+  const websiteLabel = toText(getByPath(basics, "website.label")).trim() || websiteUrl;
   if (websiteUrl) {
     items.push({
       text: websiteLabel,
@@ -338,11 +320,7 @@ function buildProfileItems(resumeJson: RecordLike): LatexResumeProfileItem[] {
   return getVisibleSectionItems(resumeJson, "profiles").map((item) => {
     const url = toText(getByPath(item, "website.url")).trim();
     return {
-      network:
-        toText(item.network).trim() ||
-        toText(item.username).trim() ||
-        url ||
-        "Profile",
+      network: toText(item.network).trim() || toText(item.username).trim() || url || "Profile",
       label: toText(getByPath(item, "website.label")).trim() || null,
       username: toText(item.username).trim() || null,
       url: safeUrl(url),
@@ -350,17 +328,13 @@ function buildProfileItems(resumeJson: RecordLike): LatexResumeProfileItem[] {
   });
 }
 
-function buildCustomFieldItems(
-  resumeJson: RecordLike,
-): LatexResumeCustomFieldItem[] {
+function buildCustomFieldItems(resumeJson: RecordLike): LatexResumeCustomFieldItem[] {
   const basics = (asRecord(resumeJson.basics) ?? {}) as RecordLike;
   return asArray(basics.customFields)
     .map((item) => asRecord(item) ?? {})
     .map((item) => {
-      const title =
-        toText(item.title).trim() || toText(item.name).trim() || null;
-      const text =
-        toText(item.text).trim() || toText(item.value).trim() || title || "";
+      const title = toText(item.title).trim() || toText(item.name).trim() || null;
+      const text = toText(item.text).trim() || toText(item.value).trim() || title || "";
       return {
         title,
         text,
@@ -371,21 +345,17 @@ function buildCustomFieldItems(
 }
 
 function buildExperienceEntries(resumeJson: RecordLike): LatexResumeEntry[] {
-  return getVisibleSectionItems(resumeJson, "experience").map(
-    (item, index) => ({
-      title: toText(item.company, `Experience ${index + 1}`),
-      intro: extractIntro(item.description),
-      listBullets: extractListBullets(toText(item.description)),
-      position: toText(item.position) || null,
-      location: toText(item.location) || null,
-      subtitle:
-        joinNonEmpty([toText(item.position), toText(item.location)], " / ") ||
-        null,
-      date: toText(item.period) || null,
-      bullets: extractBullets(item.description),
-      url: safeUrl(toText(getByPath(item, "website.url"))) || undefined,
-    }),
-  );
+  return getVisibleSectionItems(resumeJson, "experience").map((item, index) => ({
+    title: toText(item.company, `Experience ${index + 1}`),
+    intro: extractIntro(item.description),
+    listBullets: extractListBullets(toText(item.description)),
+    position: toText(item.position) || null,
+    location: toText(item.location) || null,
+    subtitle: joinNonEmpty([toText(item.position), toText(item.location)], " / ") || null,
+    date: toText(item.period) || null,
+    bullets: extractBullets(item.description),
+    url: safeUrl(toText(getByPath(item, "website.url"))) || undefined,
+  }));
 }
 
 function buildEducationEntries(resumeJson: RecordLike): LatexResumeEntry[] {
@@ -393,10 +363,8 @@ function buildEducationEntries(resumeJson: RecordLike): LatexResumeEntry[] {
     title: toText(item.school, `Education ${index + 1}`),
     degree: toText(item.degree).trim() || null,
     area: toText(item.area).trim() || null,
-    subtitle:
-      joinNonEmpty([toText(item.degree), toText(item.area)], ", ") || null,
-    secondarySubtitle:
-      joinNonEmpty([toText(item.location), toText(item.grade)], " | ") || null,
+    subtitle: joinNonEmpty([toText(item.degree), toText(item.area)], ", ") || null,
+    secondarySubtitle: joinNonEmpty([toText(item.location), toText(item.grade)], " | ") || null,
     date: toText(item.period) || null,
     bullets: extractBullets(item.description),
     url: safeUrl(toText(getByPath(item, "website.url"))) || undefined,
@@ -430,10 +398,7 @@ function buildLanguageItems(resumeJson: RecordLike): LatexResumeLanguageItem[] {
   return getVisibleSectionItems(resumeJson, "languages").map((item) => ({
     language: toText(item.language, "Language"),
     fluency: toText(item.fluency).trim() || null,
-    level:
-      typeof item.level === "number" && Number.isFinite(item.level)
-        ? item.level
-        : null,
+    level: typeof item.level === "number" && Number.isFinite(item.level) ? item.level : null,
   }));
 }
 
@@ -448,9 +413,7 @@ function buildInterestItems(resumeJson: RecordLike): LatexResumeInterestItem[] {
 
 // The editor's new, still-empty item must not print a bare bullet.
 function hasContent(entry: LatexResumeEntry): boolean {
-  return Boolean(
-    entry.title.trim() || entry.subtitle || entry.date || entry.bullets.length,
-  );
+  return Boolean(entry.title.trim() || entry.subtitle || entry.date || entry.bullets.length);
 }
 
 function buildAwardsEntries(resumeJson: RecordLike): LatexResumeEntry[] {
@@ -478,15 +441,13 @@ function buildCertificationEntries(resumeJson: RecordLike): LatexResumeEntry[] {
 }
 
 function buildPublicationEntries(resumeJson: RecordLike): LatexResumeEntry[] {
-  return getVisibleSectionItems(resumeJson, "publications").map(
-    (item, index) => ({
-      title: toText(item.title, `Publication ${index + 1}`),
-      subtitle: toText(item.publisher).trim() || null,
-      date: toText(item.date) || null,
-      bullets: extractBullets(item.description),
-      url: safeUrl(toText(getByPath(item, "website.url"))) || undefined,
-    }),
-  );
+  return getVisibleSectionItems(resumeJson, "publications").map((item, index) => ({
+    title: toText(item.title, `Publication ${index + 1}`),
+    subtitle: toText(item.publisher).trim() || null,
+    date: toText(item.date) || null,
+    bullets: extractBullets(item.description),
+    url: safeUrl(toText(getByPath(item, "website.url"))) || undefined,
+  }));
 }
 
 function buildVolunteerEntries(resumeJson: RecordLike): LatexResumeEntry[] {
@@ -500,16 +461,12 @@ function buildVolunteerEntries(resumeJson: RecordLike): LatexResumeEntry[] {
 }
 
 function buildReferenceEntries(resumeJson: RecordLike): LatexResumeEntry[] {
-  return getVisibleSectionItems(resumeJson, "references").map(
-    (item, index) => ({
-      title: toText(item.name, `Reference ${index + 1}`),
-      subtitle:
-        joinNonEmpty([toText(item.position), toText(item.phone)], " | ") ||
-        null,
-      bullets: extractBullets(item.description),
-      url: safeUrl(toText(getByPath(item, "website.url"))) || undefined,
-    }),
-  );
+  return getVisibleSectionItems(resumeJson, "references").map((item, index) => ({
+    title: toText(item.name, `Reference ${index + 1}`),
+    subtitle: joinNonEmpty([toText(item.position), toText(item.phone)], " | ") || null,
+    bullets: extractBullets(item.description),
+    url: safeUrl(toText(getByPath(item, "website.url"))) || undefined,
+  }));
 }
 
 export function getLatexResumeSectionTitles(
@@ -529,11 +486,7 @@ export function normalizeResumeJsonToLatexDocument(
 
   const layout = asRecord(asRecord(record.metadata)?.layout);
   const pages = asArray(layout?.pages).map(asRecord);
-  const sectionKeys = new Set<string>([
-    ...ORDERABLE_SECTION_KEYS,
-    "summary",
-    "customFields",
-  ]);
+  const sectionKeys = new Set<string>([...ORDERABLE_SECTION_KEYS, "summary", "customFields"]);
   const keys = (value: unknown) => [
     ...new Set(
       asArray(value).filter(
@@ -552,10 +505,7 @@ export function normalizeResumeJsonToLatexDocument(
           navyLayout: {
             sidebar,
             main,
-            sidebarWidth: Math.min(
-              35,
-              Math.max(25, toNumber(layout?.sidebarWidth, 30)),
-            ),
+            sidebarWidth: Math.min(35, Math.max(25, toNumber(layout?.sidebarWidth, 30))),
           },
         }
       : {}),
@@ -583,10 +533,8 @@ export function normalizeResumeJsonToLatexDocument(
     references: buildReferenceEntries(record),
     sectionOrder: getOrderedSectionKeys(record),
     defaultSectionOrder:
-      asArray(
-        asRecord(asArray(asRecord(asRecord(record.metadata)?.layout)?.pages)[0])
-          ?.main,
-      ).length === 0,
+      asArray(asRecord(asArray(asRecord(asRecord(record.metadata)?.layout)?.pages)[0])?.main)
+        .length === 0,
     sectionTitles: {
       profiles: getSectionTitle(record, "profiles", titles),
       summary: getSectionTitle(record, "summary", titles),

@@ -90,17 +90,13 @@ describe("generateTailoring", () => {
     expect(callJsonMock).toHaveBeenCalledTimes(1);
 
     const request = callJsonMock.mock.calls[0]?.[0];
-    expect(request?.messages?.[0]?.content).toContain(
-      "WRITING STYLE PREFERENCES:",
-    );
+    expect(request?.messages?.[0]?.content).toContain("WRITING STYLE PREFERENCES:");
     expect(request?.messages?.[0]?.content).toContain("Tone: friendly");
     expect(request?.messages?.[0]?.content).toContain("Formality: low");
     expect(request?.messages?.[0]?.content).toContain(
       "Additional constraints: Keep it under 90 words",
     );
-    expect(request?.messages?.[0]?.content).toContain(
-      "Avoid these words or phrases: synergy",
-    );
+    expect(request?.messages?.[0]?.content).toContain("Avoid these words or phrases: synergy");
     expect(request?.messages?.[0]?.content).toContain(
       "Output language for summary and skills: German",
     );
@@ -112,9 +108,7 @@ describe("generateTailoring", () => {
     );
     expect(request?.messages?.[0]?.content).toContain("Build APIs");
     expect(request?.messages?.[0]?.content).not.toContain("<strong>");
-    expect(request?.messages?.[0]?.content).toContain(
-      '"basics":{"name":"Test User"',
-    );
+    expect(request?.messages?.[0]?.content).toContain('"basics":{"name":"Test User"');
   });
 
   it("omits globally excluded projects from the tailoring prompt", async () => {
@@ -171,9 +165,7 @@ describe("generateTailoring", () => {
     expect(request?.messages?.[0]?.content).toContain(
       "Additional constraints: Keep it under 90 words",
     );
-    expect(request?.messages?.[0]?.content).not.toContain(
-      "Always respond in French",
-    );
+    expect(request?.messages?.[0]?.content).not.toContain("Always respond in French");
     expect(request?.messages?.[0]?.content).toContain(
       "Output language for summary and skills: German",
     );
@@ -191,15 +183,12 @@ describe("generateTailoring", () => {
       maxKeywordsPerSkill: null,
     });
 
-    await generateTailoring(
-      "Wir suchen Erfahrung mit Entwicklung und Verantwortung für APIs.",
-      {
-        basics: {
-          name: "Test User",
-          label: "Engineer",
-        },
+    await generateTailoring("Wir suchen Erfahrung mit Entwicklung und Verantwortung für APIs.", {
+      basics: {
+        name: "Test User",
+        label: "Engineer",
       },
-    );
+    });
 
     const request = callJsonMock.mock.calls.at(-1)?.[0];
     expect(request?.messages?.[0]?.content).toContain(
@@ -247,9 +236,7 @@ describe("generateTailoring", () => {
     });
 
     const request = callJsonMock.mock.calls.at(-1)?.[0];
-    expect(request?.messages?.[0]?.content).toContain(
-      "Tailor friendly German {{unknownToken}}",
-    );
+    expect(request?.messages?.[0]?.content).toContain("Tailor friendly German {{unknownToken}}");
   });
 
   it("includes word limit when summaryMaxWords is set", async () => {

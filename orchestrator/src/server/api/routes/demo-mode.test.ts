@@ -1,9 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import {
-  DEMO_BASELINE_NAME,
-  DEMO_BASELINE_VERSION,
-} from "@server/config/demo-defaults";
+import { DEMO_BASELINE_NAME, DEMO_BASELINE_VERSION } from "@server/config/demo-defaults";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
@@ -12,21 +9,18 @@ const pdfMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@server/services/pdf", async () => {
-  const actual = await vi.importActual<typeof import("@server/services/pdf")>(
-    "@server/services/pdf",
-  );
+  const actual =
+    await vi.importActual<typeof import("@server/services/pdf")>("@server/services/pdf");
   return {
     ...actual,
     generatePdf: pdfMocks.generatePdf,
   };
 });
 
-describe.sequential("Demo mode API behavior", () => {
+describe("Demo mode API behavior", () => {
   beforeEach(() => {
     pdfMocks.generatePdf.mockImplementation(async (jobId: string) => {
-      const { getTenantJobPdfPath } = await import(
-        "@server/services/pdf-storage"
-      );
+      const { getTenantJobPdfPath } = await import("@server/services/pdf-storage");
       const pdfPath = getTenantJobPdfPath(jobId);
       await mkdir(dirname(pdfPath), { recursive: true });
       await writeFile(pdfPath, Buffer.from("%PDF-1.4\nDemo PDF\n%%EOF\n"));
@@ -187,12 +181,9 @@ describe.sequential("Demo mode API behavior", () => {
       expect(importedBody.ok).toBe(true);
       const jobId = importedBody.data.id as string;
 
-      const response = await fetch(
-        `${baseUrl}/api/jobs/${jobId}/generate-pdf`,
-        {
-          method: "POST",
-        },
-      );
+      const response = await fetch(`${baseUrl}/api/jobs/${jobId}/generate-pdf`, {
+        method: "POST",
+      });
       const body = await response.json();
 
       expect(response.status).toBe(200);
@@ -205,9 +196,7 @@ describe.sequential("Demo mode API behavior", () => {
 
       const pdfResponse = await fetch(`${baseUrl}/api/jobs/${jobId}/pdf`);
       expect(pdfResponse.status).toBe(200);
-      expect(pdfResponse.headers.get("content-type")).toContain(
-        "application/pdf",
-      );
+      expect(pdfResponse.headers.get("content-type")).toContain("application/pdf");
       const pdfBytes = Buffer.from(await pdfResponse.arrayBuffer());
       expect(pdfBytes.subarray(0, 5).toString()).toBe("%PDF-");
     } finally {

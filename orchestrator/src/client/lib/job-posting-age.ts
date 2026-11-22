@@ -9,8 +9,7 @@ export interface PostingAgeLabel {
 
 export type PostingAgeTone = "fresh" | "aging" | "old";
 
-const RELATIVE_SOURCE_PATTERN =
-  /\b(ago|today|yesterday|minute|hour|day|week|month|year)s?\b/i;
+const RELATIVE_SOURCE_PATTERN = /\b(ago|today|yesterday|minute|hour|day|week|month|year)s?\b/i;
 
 function parsePostingDate(value: string): Date | null {
   const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -28,10 +27,7 @@ function calendarDayValue(date: Date): number {
 }
 
 function getCalendarAgeDays(date: Date, now: Date): number {
-  return Math.max(
-    0,
-    Math.floor((calendarDayValue(now) - calendarDayValue(date)) / 86_400_000),
-  );
+  return Math.max(0, Math.floor((calendarDayValue(now) - calendarDayValue(date)) / 86_400_000));
 }
 
 function getPostingAgeTone(ageDays: number | null): PostingAgeTone {
@@ -46,9 +42,7 @@ function parseRelativeAgeDays(value: string): number | null {
   if (/\btoday\b/.test(normalized)) return 0;
   if (/\byesterday\b/.test(normalized)) return 1;
 
-  const match = /(\d+)\s*(minute|hour|day|week|month|year)s?\s+ago\b/.exec(
-    normalized,
-  );
+  const match = /(\d+)\s*(minute|hour|day|week|month|year)s?\s+ago\b/.exec(normalized);
   if (!match) return null;
 
   const amount = Number.parseInt(match[1] ?? "", 10);

@@ -81,17 +81,13 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
                 />
               )}
             />
-            <label
-              htmlFor="pipelineScheduleEnabled"
-              className="text-sm font-medium"
-            >
+            <label htmlFor="pipelineScheduleEnabled" className="text-sm font-medium">
               Run job search daily
             </label>
           </div>
           <p className="text-xs text-muted-foreground">
-            Uses your last manually started search, including selected sources.
-            The server must be running. Searches already in progress are
-            skipped.
+            Uses your last manually started search, including selected sources. The server must be
+            running. Searches already in progress are skipped.
           </p>
           <label htmlFor="pipelineScheduleHour" className="text-sm">
             Daily search hour (server local time)
@@ -126,9 +122,7 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
                 id="backupEnabled"
                 checked={field.value ?? backupEnabled.default}
                 onCheckedChange={(checked) => {
-                  field.onChange(
-                    checked === "indeterminate" ? null : checked === true,
-                  );
+                  field.onChange(checked === "indeterminate" ? null : checked === true);
                 }}
                 disabled={isLoading || isSaving}
               />
@@ -142,8 +136,8 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
               Enable automatic backups
             </label>
             <p className="text-xs text-muted-foreground">
-              Automatically create database backups on a daily schedule. Manual
-              backups can always be created regardless of this setting.
+              Automatically create database backups on a daily schedule. Manual backups can always
+              be created regardless of this setting.
             </p>
           </div>
         </div>
@@ -213,9 +207,7 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
         {currentBackupEnabled && nextScheduled && (
           <div className="flex items-center gap-2 pl-7 text-sm text-muted-foreground">
             <Clock className="h-4 w-4" />
-            <span>
-              Next scheduled backup: {formatBackupDate(nextScheduled)}
-            </span>
+            <span>Next scheduled backup: {formatBackupDate(nextScheduled)}</span>
           </div>
         )}
 
@@ -250,19 +242,13 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
               />
             ) : (
               backups.map((backup) => (
-                <ListItem
-                  key={backup.filename}
-                  className="flex items-center justify-between"
-                >
+                <ListItem key={backup.filename} className="flex items-center justify-between">
                   <div className="flex min-w-0 items-center gap-3">
                     <Archive className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">
-                        {backup.filename}
-                      </div>
+                      <div className="truncate text-sm font-medium">{backup.filename}</div>
                       <div className="text-xs text-muted-foreground">
-                        {formatBackupDate(backup.createdAt)} ·{" "}
-                        {formatFileSize(backup.size)}
+                        {formatBackupDate(backup.createdAt)} · {formatFileSize(backup.size)}
                       </div>
                     </div>
                   </div>
@@ -302,15 +288,13 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
           <div>
             <div className="text-xs text-muted-foreground">Hour</div>
             <div className="break-words font-mono text-xs">
-              Effective: {backupHour.effective}:00 UTC | Default:{" "}
-              {backupHour.default}:00 UTC
+              Effective: {backupHour.effective}:00 UTC | Default: {backupHour.default}:00 UTC
             </div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">Max Count</div>
             <div className="break-words font-mono text-xs">
-              Effective: {backupMaxCount.effective} | Default:{" "}
-              {backupMaxCount.default}
+              Effective: {backupMaxCount.effective} | Default: {backupMaxCount.default}
             </div>
           </div>
         </div>

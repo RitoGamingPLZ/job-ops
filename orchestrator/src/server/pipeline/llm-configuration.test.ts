@@ -35,7 +35,7 @@ vi.mock("./steps", () => ({
   notifyPipelineWebhookStep: vi.fn(async () => undefined),
 }));
 
-describe.sequential("pipeline LLM configuration handling", () => {
+describe("pipeline LLM configuration handling", () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -58,12 +58,8 @@ describe.sequential("pipeline LLM configuration handling", () => {
     const { LlmNotConfiguredError } = await import("../services/scorer");
 
     scoreJobsStep
-      .mockRejectedValueOnce(
-        new LlmNotConfiguredError("LLM API key not configured"),
-      )
-      .mockRejectedValueOnce(
-        new LlmNotConfiguredError("LLM API key not configured"),
-      )
+      .mockRejectedValueOnce(new LlmNotConfiguredError("LLM API key not configured"))
+      .mockRejectedValueOnce(new LlmNotConfiguredError("LLM API key not configured"))
       .mockResolvedValueOnce({ unprocessedJobs: [], scoredJobs: [] });
 
     const pipeline = await import("./orchestrator");
@@ -92,9 +88,7 @@ describe.sequential("pipeline LLM configuration handling", () => {
     const result = await runPromise;
 
     expect(scoreJobsStep).toHaveBeenCalledTimes(3);
-    expect(result).toEqual(
-      expect.objectContaining({ success: true, jobsProcessed: 0 }),
-    );
+    expect(result).toEqual(expect.objectContaining({ success: true, jobsProcessed: 0 }));
     expect(vi.mocked(pipelineRepo.updatePipelineRun)).not.toHaveBeenCalledWith(
       "run-llm-config-1",
       expect.objectContaining({ status: "failed" }),

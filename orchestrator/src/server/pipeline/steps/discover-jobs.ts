@@ -18,10 +18,7 @@ import {
 import { asyncPool } from "@server/utils/async-pool";
 import { listHydratedWatchlistSelectedSources } from "@server/watchlist/results";
 import type { ExtractorSourceId } from "@shared/extractors";
-import {
-  deduplicateJobsByTitleAndEmployer,
-  matchJobLocationIntent,
-} from "@shared/job-matching.js";
+import { deduplicateJobsByTitleAndEmployer, matchJobLocationIntent } from "@shared/job-matching.js";
 import {
   buildLocationEvidence as buildSharedLocationEvidence,
   createLocationIntentFromLegacyInputs,
@@ -30,11 +27,7 @@ import {
 } from "@shared/location-domain.js";
 import { formatCountryLabel } from "@shared/location-support.js";
 import { normalizeStringArray } from "@shared/normalize-string-array.js";
-import {
-  type CreateJobInput,
-  deriveExtractorLimits,
-  type PipelineConfig,
-} from "@shared/types";
+import { type CreateJobInput, deriveExtractorLimits, type PipelineConfig } from "@shared/types";
 import {
   type CrawlSource,
   type PendingChallenge,
@@ -60,10 +53,7 @@ type DiscoverySourceTask = {
   run: () => Promise<DiscoveryTaskResult>;
 };
 
-async function withDiscoverySourceTimeout<T>(
-  run: Promise<T>,
-  onTimeout: () => void,
-): Promise<T> {
+async function withDiscoverySourceTimeout<T>(run: Promise<T>, onTimeout: () => void): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeout = setTimeout(() => {
@@ -99,14 +89,10 @@ function isBlockedEmployer(
   if (!employer) return false;
   if (blockedKeywordsLowerCase.length === 0) return false;
   const normalizedEmployer = employer.toLowerCase();
-  return blockedKeywordsLowerCase.some((keyword) =>
-    normalizedEmployer.includes(keyword),
-  );
+  return blockedKeywordsLowerCase.some((keyword) => normalizedEmployer.includes(keyword));
 }
 
-function getLegacyLocationSelection(
-  intent: NonNullable<PipelineConfig["locationIntent"]>,
-): string {
+function getLegacyLocationSelection(intent: NonNullable<PipelineConfig["locationIntent"]>): string {
   return intent.selectedCountry ?? "";
 }
 
@@ -135,9 +121,7 @@ function buildLocationEvidence(args: {
   return buildSharedLocationEvidence({
     location: args.location ?? (args.isRemote ? "Remote" : null),
     isRemote: args.isRemote ?? null,
-    source:
-      args.sourceNotes?.find((note) => note.startsWith("source:"))?.slice(7) ??
-      null,
+    source: args.sourceNotes?.find((note) => note.startsWith("source:"))?.slice(7) ?? null,
   });
 }
 
@@ -151,10 +135,7 @@ export async function discoverJobsStep(args: {
   skippedChallengeSearchStates?: string[];
   watchlistSelectedSourceIds?: string[] | null;
   shouldCancel?: () => boolean;
-  onSourceDiscovered?: (
-    jobs: CreateJobInput[],
-    source: string,
-  ) => Promise<void> | void;
+  onSourceDiscovered?: (jobs: CreateJobInput[], source: string) => Promise<void> | void;
 }): Promise<{
   discoveredJobs: CreateJobInput[];
   sourceErrors: string[];
@@ -181,8 +162,7 @@ export async function discoverJobsStep(args: {
   if (searchTermsSetting) {
     searchTerms = JSON.parse(searchTermsSetting) as string[];
   } else {
-    const defaultSearchTermsEnv =
-      process.env.JOBSPY_SEARCH_TERMS || "web developer";
+    const defaultSearchTermsEnv = process.env.JOBSPY_SEARCH_TERMS || "web developer";
     searchTerms = defaultSearchTermsEnv
       .split("|")
       .map((term) => term.trim())
@@ -222,9 +202,7 @@ export async function discoverJobsStep(args: {
       registry.locationCapabilitiesBySource?.[source],
     ),
   }));
-  const sourcePlanBySource = new Map(
-    sourcePlans.map(({ source, plan }) => [source, plan]),
-  );
+  const sourcePlanBySource = new Map(sourcePlans.map(({ source, plan }) => [source, plan]));
   const compatibleSources = sourcePlans
     .filter(({ plan }) => plan.canRun)
     .map(({ source }) => source);
@@ -313,8 +291,7 @@ export async function discoverJobsStep(args: {
       run: async () => {
         const filteredSettings = Object.fromEntries(
           Object.entries({ ...settings, ...runSettings }).filter(
-            ([, value]) =>
-              typeof value === "string" || typeof value === "undefined",
+            ([, value]) => typeof value === "string" || typeof value === "undefined",
           ),
         ) as Record<string, string | undefined>;
 
@@ -322,9 +299,7 @@ export async function discoverJobsStep(args: {
         const shouldCancel = () => timedOut || args.shouldCancel?.() === true;
         const browserScopeKey =
           manifest.id === "hiringcafe" ? getPrivateDataScope().scopeKey : null;
-        const browserCookieDir = browserScopeKey
-          ? getPrivateCloudflareCookieStorageDir()
-          : null;
+        const browserCookieDir = browserScopeKey ? getPrivateCloudflareCookieStorageDir() : null;
         const run = manifest.run({
           source: grouped.sources[0],
           selectedSources: grouped.sources,
@@ -334,12 +309,7 @@ export async function discoverJobsStep(args: {
           cookieStorageDir: getPrivateCloudflareCookieStorageDir(),
           browserPageReader:
             browserScopeKey && browserCookieDir
-              ? (url) =>
-                  readHiringCafeBrowserPage(
-                    browserScopeKey,
-                    browserCookieDir,
-                    url,
-                  )
+              ? (url) => readHiringCafeBrowserPage(browserScopeKey, browserCookieDir, url)
               : undefined,
           retryChallengeUrl: args.retryChallengeUrls?.[manifest.id],
           resumeState: args.resumeStates?.[manifest.id],
@@ -348,9 +318,7 @@ export async function discoverJobsStep(args: {
           sourceLocationPlan: getSourceLocationPlan(
             grouped.sources[0] as CrawlSource,
             locationIntent,
-            registry.locationCapabilitiesBySource?.[
-              grouped.sources[0] as ExtractorSourceId
-            ],
+            registry.locationCapabilitiesBySource?.[grouped.sources[0] as ExtractorSourceId],
           ),
           getExistingJobUrls,
           shouldCancel,
@@ -358,9 +326,7 @@ export async function discoverJobsStep(args: {
             if (shouldCancel()) return;
             const role =
               searchTerms.find((term) => event.currentUrl === term) ??
-              searchTerms.find((term) =>
-                event.currentUrl?.startsWith(`${term} @`),
-              );
+              searchTerms.find((term) => event.currentUrl?.startsWith(`${term} @`));
             if (event.termsProcessed !== undefined && role) {
               progressHelpers.updateFanoutTaskTerms(
                 manifest.id,
@@ -440,9 +406,8 @@ export async function discoverJobsStep(args: {
     });
   }
 
-  let watchlistSelectedSources: Awaited<
-    ReturnType<typeof listHydratedWatchlistSelectedSources>
-  > = [];
+  let watchlistSelectedSources: Awaited<ReturnType<typeof listHydratedWatchlistSelectedSources>> =
+    [];
   if (includeWatchlist && !watchlistExplicitlyDisabled && getUserId()) {
     try {
       watchlistSelectedSources = await listHydratedWatchlistSelectedSources();
@@ -463,20 +428,15 @@ export async function discoverJobsStep(args: {
       watchlistFilterIds.length > 0 &&
       watchlistSelectedSources.length > 0
     ) {
-      const ownedIds = new Set(
-        watchlistSelectedSources.map((source) => source.id),
-      );
+      const ownedIds = new Set(watchlistSelectedSources.map((source) => source.id));
       const requestedIds = new Set(watchlistFilterIds);
       const unknownIds = watchlistFilterIds.filter((id) => !ownedIds.has(id));
       if (unknownIds.length > 0) {
-        logger.warn(
-          "Ignoring unknown Watchlist source IDs in pipeline discovery",
-          {
-            step: "discover-jobs",
-            unknownIdCount: unknownIds.length,
-            requestedIdCount: watchlistFilterIds.length,
-          },
-        );
+        logger.warn("Ignoring unknown Watchlist source IDs in pipeline discovery", {
+          step: "discover-jobs",
+          unknownIdCount: unknownIds.length,
+          requestedIdCount: watchlistFilterIds.length,
+        });
       }
       watchlistSelectedSources = watchlistSelectedSources.filter((source) =>
         requestedIds.has(source.id),
@@ -484,8 +444,7 @@ export async function discoverJobsStep(args: {
     }
   }
 
-  const totalSources =
-    sourceTasks.length + (watchlistSelectedSources.length > 0 ? 1 : 0);
+  const totalSources = sourceTasks.length + (watchlistSelectedSources.length > 0 ? 1 : 0);
   let completedSources = 0;
   let successfulSearchUnits = 0;
 
@@ -497,9 +456,7 @@ export async function discoverJobsStep(args: {
       tasks: [
         ...sourceTasks.map((task) => ({
           id: task.source,
-          unitsPerRole:
-            (groupedByManifest.get(task.source)?.sources.length ?? 1) *
-            locationCount,
+          unitsPerRole: (groupedByManifest.get(task.source)?.sources.length ?? 1) * locationCount,
         })),
         ...(watchlistSelectedSources.length > 0
           ? [{ id: "watchlist", unitsPerRole: locationCount }]
@@ -514,9 +471,7 @@ export async function discoverJobsStep(args: {
         ...(watchlistSelectedSources.length > 0 ? ["watchlist"] : []),
       ],
       locationCount,
-      sourceCount:
-        compatibleSources.length +
-        (watchlistSelectedSources.length > 0 ? 1 : 0),
+      sourceCount: compatibleSources.length + (watchlistSelectedSources.length > 0 ? 1 : 0),
       capacity: DISCOVERY_CONCURRENCY,
     });
   }
@@ -551,39 +506,26 @@ export async function discoverJobsStep(args: {
             job.locationEvidence = evidence;
             return matchJobLocationIntent(job, locationIntent, {
               nativeRadiusApplied:
-                sourcePlanBySource.get(job.source as ExtractorSourceId)
-                  ?.usesNativeRadius ?? false,
+                sourcePlanBySource.get(job.source as ExtractorSourceId)?.usesNativeRadius ?? false,
             }).matched;
           })
-          .filter(
-            (job) =>
-              !isBlockedEmployer(job.employer, liveBlockedKeywordsLowerCase),
-          );
+          .filter((job) => !isBlockedEmployer(job.employer, liveBlockedKeywordsLowerCase));
       const updateFanoutResults = () => {
         progressHelpers.updateFanoutResults(
           settledJobs.length,
-          deduplicateJobsByTitleAndEmployer(filterForFanout(settledJobs))
-            .length,
+          deduplicateJobsByTitleAndEmployer(filterForFanout(settledJobs)).length,
         );
       };
-      const sourceResults = await asyncPool<
-        DiscoverySourceTask,
-        DiscoveryTaskResult
-      >({
+      const sourceResults = await asyncPool<DiscoverySourceTask, DiscoveryTaskResult>({
         items: sourceTasks,
         concurrency: DISCOVERY_CONCURRENCY,
         shouldStop: args.shouldCancel,
         onTaskStarted: (sourceTask) => {
           progressHelpers.startFanoutTask(sourceTask.source);
-          progressHelpers.startSource(
-            sourceTask.source,
-            completedSources,
-            totalSources,
-            {
-              termsTotal: sourceTask.termsTotal,
-              detail: sourceTask.detail,
-            },
-          );
+          progressHelpers.startSource(sourceTask.source, completedSources, totalSources, {
+            termsTotal: sourceTask.termsTotal,
+            detail: sourceTask.detail,
+          });
         },
         onTaskSettled: (sourceTask, _index, outcome) => {
           completedSources += 1;
@@ -646,14 +588,9 @@ export async function discoverJobsStep(args: {
 
       if (watchlistSelectedSources.length > 0 && !args.shouldCancel?.()) {
         progressHelpers.startFanoutTask("watchlist");
-        progressHelpers.startSource(
-          "watchlist",
-          completedSources,
-          totalSources,
-          {
-            detail: "Watchlist: fetching saved sources...",
-          },
-        );
+        progressHelpers.startSource("watchlist", completedSources, totalSources, {
+          detail: "Watchlist: fetching saved sources...",
+        });
         const watchlistResult = await discoverWatchlistJobsForPipeline({
           selectedSources: watchlistSelectedSources,
           searchTerms,
@@ -678,18 +615,14 @@ export async function discoverJobsStep(args: {
         progressHelpers.settleFanoutTask("watchlist", "complete");
         updateFanoutResults();
         sourceErrors.push(...watchlistResult.sourceErrors);
-        if (
-          watchlistResult.failedSourceCount <
-          watchlistResult.selectedSourceCount
-        ) {
+        if (watchlistResult.failedSourceCount < watchlistResult.selectedSourceCount) {
           successfulSearchUnits += 1;
         }
 
         if (
           sourceTasks.length === 0 &&
           watchlistResult.selectedSourceCount > 0 &&
-          watchlistResult.failedSourceCount ===
-            watchlistResult.selectedSourceCount
+          watchlistResult.failedSourceCount === watchlistResult.selectedSourceCount
         ) {
           throw new Error(`All sources failed: ${sourceErrors.join("; ")}`);
         }
@@ -707,67 +640,50 @@ export async function discoverJobsStep(args: {
         job.locationEvidence = evidence;
         const match = matchJobLocationIntent(job, locationIntent, {
           nativeRadiusApplied:
-            sourcePlanBySource.get(job.source as ExtractorSourceId)
-              ?.usesNativeRadius ?? false,
+            sourcePlanBySource.get(job.source as ExtractorSourceId)?.usesNativeRadius ?? false,
         });
         if (match.matched) {
           return true;
         }
         const reasonCode = match.reasonCode;
-        locationFilterReasonCounts[reasonCode] =
-          (locationFilterReasonCounts[reasonCode] ?? 0) + 1;
+        locationFilterReasonCounts[reasonCode] = (locationFilterReasonCounts[reasonCode] ?? 0) + 1;
         return false;
       });
-      const locationFilteredOutCount =
-        discoveredJobs.length - locationFilteredJobs.length;
+      const locationFilteredOutCount = discoveredJobs.length - locationFilteredJobs.length;
 
       if (locationFilteredOutCount > 0) {
-        logger.info(
-          "Dropped discovered jobs that did not satisfy location preferences",
-          {
-            step: "discover-jobs",
-            droppedCount: locationFilteredOutCount,
-            locationIntent: {
-              selectedCountry: locationIntent.selectedCountry,
-              cityCount: locationIntent.cityLocations.length,
-              radiusMiles: locationIntent.proximity?.radiusMiles ?? null,
-            },
-            primaryLocation: getPrimaryLocationLabel(locationIntent),
-            reasonCounts: locationFilterReasonCounts,
+        logger.info("Dropped discovered jobs that did not satisfy location preferences", {
+          step: "discover-jobs",
+          droppedCount: locationFilteredOutCount,
+          locationIntent: {
+            selectedCountry: locationIntent.selectedCountry,
+            cityCount: locationIntent.cityLocations.length,
+            radiusMiles: locationIntent.proximity?.radiusMiles ?? null,
           },
-        );
+          primaryLocation: getPrimaryLocationLabel(locationIntent),
+          reasonCounts: locationFilterReasonCounts,
+        });
       }
 
-      const blockedCompanyKeywords = parseBlockedCompanyKeywords(
-        settings.blockedCompanyKeywords,
-      );
-      const blockedKeywordsLowerCase = blockedCompanyKeywords.map((value) =>
-        value.toLowerCase(),
-      );
+      const blockedCompanyKeywords = parseBlockedCompanyKeywords(settings.blockedCompanyKeywords);
+      const blockedKeywordsLowerCase = blockedCompanyKeywords.map((value) => value.toLowerCase());
       const filteredDiscoveredJobs = locationFilteredJobs.filter(
         (job) => !isBlockedEmployer(job.employer, blockedKeywordsLowerCase),
       );
-      const droppedCount =
-        locationFilteredJobs.length - filteredDiscoveredJobs.length;
+      const droppedCount = locationFilteredJobs.length - filteredDiscoveredJobs.length;
 
       if (droppedCount > 0) {
-        const blockedCompanyKeywordsPreview = blockedCompanyKeywords.slice(
-          0,
-          10,
-        );
+        const blockedCompanyKeywordsPreview = blockedCompanyKeywords.slice(0, 10);
         const blockedCompanyKeywordsTruncated =
           blockedCompanyKeywordsPreview.length < blockedCompanyKeywords.length;
 
-        logger.info(
-          "Dropped discovered jobs matching blocked company keywords",
-          {
-            step: "discover-jobs",
-            droppedCount,
-            blockedKeywordCount: blockedCompanyKeywords.length,
-            blockedCompanyKeywordsPreview,
-            blockedCompanyKeywordsTruncated,
-          },
-        );
+        logger.info("Dropped discovered jobs matching blocked company keywords", {
+          step: "discover-jobs",
+          droppedCount,
+          blockedKeywordCount: blockedCompanyKeywords.length,
+          blockedCompanyKeywordsPreview,
+          blockedCompanyKeywordsTruncated,
+        });
 
         logger.debug("Full blocked company keywords used for filtering", {
           step: "discover-jobs",
@@ -789,9 +705,7 @@ export async function discoverJobsStep(args: {
       // Don't throw "all sources failed" when challenges are pending — the
       // orchestrator will pause, let the user solve them, then re-run those
       // extractors.  Jobs from non-challenged extractors (if any) are kept.
-      const fatalSourceFailures = sourceResults.filter(
-        (sourceResult) => sourceResult.fatal,
-      ).length;
+      const fatalSourceFailures = sourceResults.filter((sourceResult) => sourceResult.fatal).length;
       if (
         filteredDiscoveredJobs.length === 0 &&
         sourceResults.length > 0 &&
@@ -803,13 +717,10 @@ export async function discoverJobsStep(args: {
 
       if (sourceErrors.length > 0) {
         if (pendingChallenges.length > 0) {
-          logger.info(
-            "Some discovery sources hit challenges and will be retried",
-            {
-              sourceErrors,
-              pendingChallenges,
-            },
-          );
+          logger.info("Some discovery sources hit challenges and will be retried", {
+            sourceErrors,
+            pendingChallenges,
+          });
         } else {
           logger.warn("Some discovery sources failed", { sourceErrors });
         }

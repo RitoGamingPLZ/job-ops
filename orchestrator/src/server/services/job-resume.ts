@@ -3,11 +3,7 @@ import { listExperienceBullets } from "@server/repositories/experience-bullets";
 import { getJobResume, saveJobResume } from "@server/repositories/job-resumes";
 import { getJobById, updateJob } from "@server/repositories/jobs";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
-import {
-  isTargeted,
-  type JobResumeState,
-  type ReactiveResumeV5Document,
-} from "@shared/types";
+import { isTargeted, type JobResumeState, type ReactiveResumeV5Document } from "@shared/types";
 import { syncCandidateLibrary } from "./candidate-library";
 import { loadBaseResumeSource, resolvePdfRenderer } from "./pdf";
 import { generateResumeFromLibrary } from "./resume-from-library";
@@ -16,10 +12,7 @@ import { prepareTailoredResumeForPdf } from "./rxresume";
 export type JobResume = JobResumeState;
 
 // ponytail: per-process map; multiple server processes would need a DB lock instead.
-const inFlight = new Map<
-  string,
-  { tailor: boolean; run: Promise<JobResume> }
->();
+const inFlight = new Map<string, { tailor: boolean; run: Promise<JobResume> }>();
 
 /** Materialize once, in the active private data scope. Existing editor edits always win. */
 export async function ensureJobResume(
@@ -39,19 +32,11 @@ export async function ensureJobResume(
     if (plain.revision !== 1) return plain;
     // A targeted job's plain run already tailored; saving it again is a no-op revision bump.
     const job = await getJobById(jobId);
-    if (
-      job &&
-      isTargeted(job) &&
-      job.tailoredSummary &&
-      job.tailoredHeadline &&
-      job.tailoredSkills
-    )
+    if (job && isTargeted(job) && job.tailoredSummary && job.tailoredHeadline && job.tailoredSkills)
       return plain;
     return materializeJobResume(jobId, opts, 1);
   }
-  const run = materializeJobResume(jobId, opts).finally(() =>
-    inFlight.delete(key),
-  );
+  const run = materializeJobResume(jobId, opts).finally(() => inFlight.delete(key));
   inFlight.set(key, { tailor: !!opts?.tailor, run });
   return run;
 }
@@ -62,12 +47,7 @@ export async function regenerateJobResume(
   opts?: { requestOrigin?: string | null },
 ): Promise<JobResume> {
   const existing = await getJobResume(jobId);
-  return materializeJobResume(
-    jobId,
-    { ...opts, tailor: true },
-    existing?.revision ?? 0,
-    false,
-  );
+  return materializeJobResume(jobId, { ...opts, tailor: true }, existing?.revision ?? 0, false);
 }
 
 async function materializeJobResume(
@@ -114,11 +94,7 @@ async function materializeJobResume(
   try {
     saved = await saveJobResume(jobId, baseRevision, document);
   } catch (error) {
-    if (
-      acceptConcurrentWinner &&
-      error instanceof AppError &&
-      error.code === "CONFLICT"
-    ) {
+    if (acceptConcurrentWinner && error instanceof AppError && error.code === "CONFLICT") {
       const winner = await getJobResume(jobId);
       if (winner) return winner;
     }

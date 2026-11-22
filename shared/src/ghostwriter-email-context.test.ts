@@ -52,33 +52,25 @@ function makeEmail(
 
 describe("ghostwriter email context", () => {
   it("normalizes selected email IDs", () => {
-    expect(
-      normalizeGhostwriterSelectedEmailIds([
-        " email-1 ",
-        "",
-        "email-2",
-        "email-1",
-      ]),
-    ).toEqual(["email-1", "email-2"]);
+    expect(normalizeGhostwriterSelectedEmailIds([" email-1 ", "", "email-2", "email-1"])).toEqual([
+      "email-1",
+      "email-2",
+    ]);
   });
 
   it("builds email context items with per-email and aggregate limits", () => {
-    const emails = Array.from(
-      { length: GHOSTWRITER_EMAIL_CONTEXT_MAX_SELECTED },
-      (_, index) =>
-        makeEmail({
-          id: `email-${index + 1}`,
-          subject: `Email ${index + 1}`,
-          snippet: "A".repeat(GHOSTWRITER_EMAIL_CONTEXT_MAX_SNIPPET_CHARS + 1),
-        }),
+    const emails = Array.from({ length: GHOSTWRITER_EMAIL_CONTEXT_MAX_SELECTED }, (_, index) =>
+      makeEmail({
+        id: `email-${index + 1}`,
+        subject: `Email ${index + 1}`,
+        snippet: "A".repeat(GHOSTWRITER_EMAIL_CONTEXT_MAX_SNIPPET_CHARS + 1),
+      }),
     );
 
     const context = buildGhostwriterEmailContextItems(emails);
 
     expect(context.items).toHaveLength(GHOSTWRITER_EMAIL_CONTEXT_MAX_SELECTED);
-    expect(context.items[0]?.snippet).toHaveLength(
-      GHOSTWRITER_EMAIL_CONTEXT_MAX_SNIPPET_CHARS,
-    );
+    expect(context.items[0]?.snippet).toHaveLength(GHOSTWRITER_EMAIL_CONTEXT_MAX_SNIPPET_CHARS);
     expect(context.items[0]?.wasTrimmed).toBe(true);
     expect(
       context.items.reduce((total, item) => total + item.snippet.length, 0),

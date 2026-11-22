@@ -78,16 +78,10 @@ export function useOrchestratorUiState({
     navOpen;
 
   const isAnyModalOpenExcludingCommandBar =
-    isSearchComposerVisible ||
-    isHelpDialogOpen ||
-    isDetailDrawerOpen ||
-    navOpen;
+    isSearchComposerVisible || isHelpDialogOpen || isDetailDrawerOpen || navOpen;
 
   const isAnyModalOpenExcludingHelp =
-    isSearchComposerVisible ||
-    isCommandBarOpen ||
-    isDetailDrawerOpen ||
-    navOpen;
+    isSearchComposerVisible || isCommandBarOpen || isDetailDrawerOpen || navOpen;
 
   return {
     navOpen,
@@ -97,9 +91,7 @@ export function useOrchestratorUiState({
     isFiltersOpen,
     setIsFiltersOpen,
     isHelpDialogOpen,
-    setIsHelpDialogOpen: setIsHelpDialogOpen as React.Dispatch<
-      React.SetStateAction<boolean>
-    >,
+    setIsHelpDialogOpen: setIsHelpDialogOpen as React.Dispatch<React.SetStateAction<boolean>>,
     isDetailDrawerOpen,
     isDesktop,
     isAnyModalOpen,

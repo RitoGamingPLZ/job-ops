@@ -20,7 +20,7 @@ async function login(baseUrl: string, username: string, password: string) {
   return body.data.token as string;
 }
 
-describe.sequential("Database API routes", () => {
+describe("Database API routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;

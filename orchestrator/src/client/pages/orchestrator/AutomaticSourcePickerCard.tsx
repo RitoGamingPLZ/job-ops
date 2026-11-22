@@ -14,13 +14,7 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { sourceLabel } from "@/lib/utils";
 
 const SOURCE_MOTION_EASE = [0.22, 1, 0.36, 1] as const;
@@ -62,21 +56,14 @@ export function AutomaticSourcePickerCard({
   const sourceMotionTransition = prefersReducedMotion
     ? { duration: 0 }
     : { duration: 0.22, ease: SOURCE_MOTION_EASE };
-  const sourceSectionInitial = prefersReducedMotion
-    ? false
-    : { opacity: 0, y: -8 };
+  const sourceSectionInitial = prefersReducedMotion ? false : { opacity: 0, y: -8 };
   const sourceSectionAnimate = { opacity: 1, y: 0 };
   const sourceRowInitial = prefersReducedMotion
     ? { opacity: 1 }
     : { opacity: 0, y: 8, scale: 0.985 };
-  const sourceRowExit = prefersReducedMotion
-    ? { opacity: 0 }
-    : { opacity: 0, y: -6, scale: 0.985 };
-  const availableCount = sourceRows.filter(
-    (row) => row.status.available,
-  ).length;
-  const selectedCount =
-    selectedSourceRows.length + selectedWatchlistSourceIds.length;
+  const sourceRowExit = prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.985 };
+  const availableCount = sourceRows.filter((row) => row.status.available).length;
+  const selectedCount = selectedSourceRows.length + selectedWatchlistSourceIds.length;
 
   return (
     <Card>
@@ -210,11 +197,7 @@ function WatchlistSourceGroup({
 }: WatchlistSourceGroupProps) {
   return (
     <motion.div layout transition={transition} className="space-y-2">
-      <motion.div
-        layout
-        transition={transition}
-        className="flex items-center justify-between"
-      >
+      <motion.div layout transition={transition} className="flex items-center justify-between">
         <motion.p
           layout
           transition={transition}
@@ -233,9 +216,7 @@ function WatchlistSourceGroup({
       </motion.div>
 
       {isLoading ? (
-        <p className="text-xs text-muted-foreground">
-          Loading Watchlist sources...
-        </p>
+        <p className="text-xs text-muted-foreground">Loading Watchlist sources...</p>
       ) : sources.length === 0 ? (
         <p className="text-xs text-muted-foreground">
           No Watchlist sources saved yet. Add company career pages on the{" "}
@@ -248,11 +229,7 @@ function WatchlistSourceGroup({
           to include them in pipeline runs.
         </p>
       ) : (
-        <motion.div
-          layout
-          transition={transition}
-          className="grid gap-2 md:grid-cols-2"
-        >
+        <motion.div layout transition={transition} className="grid gap-2 md:grid-cols-2">
           <AnimatePresence initial={false} mode="popLayout">
             {sources.map((source) => {
               const isSelected = selectedSourceIds.includes(source.id);
@@ -284,9 +261,7 @@ function WatchlistSourceGroup({
                     }
                   >
                     <span className="min-w-0 space-y-1">
-                      <span className="block truncate text-sm font-semibold">
-                        {source.label}
-                      </span>
+                      <span className="block truncate text-sm font-semibold">{source.label}</span>
                       <span className="block text-xs text-muted-foreground">
                         {source.sourceType}
                       </span>
@@ -340,11 +315,7 @@ function SourceGroup({
       >
         {label}
       </motion.p>
-      <motion.div
-        layout
-        transition={transition}
-        className="grid gap-2 md:grid-cols-2"
-      >
+      <motion.div layout transition={transition} className="grid gap-2 md:grid-cols-2">
         <AnimatePresence initial={false} mode="popLayout">
           {rows.map((row) => (
             <motion.div
@@ -360,11 +331,7 @@ function SourceGroup({
                 variant="ghost"
                 aria-label={sourceLabel[row.source]}
                 aria-pressed={selected}
-                title={
-                  selected
-                    ? "Included in this run."
-                    : "Available for this location setup."
-                }
+                title={selected ? "Included in this run." : "Available for this location setup."}
                 className={
                   selected
                     ? "flex h-auto w-full items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/10 px-3 py-3 text-left text-foreground transition-colors duration-200 hover:bg-primary/15"
@@ -373,9 +340,7 @@ function SourceGroup({
                 onClick={() => onSourceToggle(row.source, !selected)}
               >
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold">
-                    {sourceLabel[row.source]}
-                  </span>
+                  <span className="block text-sm font-semibold">{sourceLabel[row.source]}</span>
                 </span>
               </Button>
             </motion.div>
@@ -412,11 +377,7 @@ function UnavailableSourceGroup({
       >
         Currently unavailable
       </motion.p>
-      <motion.div
-        layout
-        transition={transition}
-        className="grid gap-2 md:grid-cols-2"
-      >
+      <motion.div layout transition={transition} className="grid gap-2 md:grid-cols-2">
         <AnimatePresence initial={false} mode="popLayout">
           {rows.map((row) => (
             <motion.div
@@ -436,9 +397,7 @@ function UnavailableSourceGroup({
                 className="flex h-auto w-full items-start justify-between gap-3 rounded-xl border border-border/50 bg-transparent px-3 py-3 text-left text-foreground/80 disabled:pointer-events-none disabled:opacity-100"
               >
                 <span className="min-w-0 space-y-1">
-                  <span className="block text-sm font-semibold">
-                    {sourceLabel[row.source]}
-                  </span>
+                  <span className="block text-sm font-semibold">{sourceLabel[row.source]}</span>
                   <span className="block text-xs leading-5 text-muted-foreground whitespace-pre-wrap">
                     {row.status.detail}
                   </span>

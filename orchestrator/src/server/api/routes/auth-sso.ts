@@ -1,10 +1,5 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import {
-  badRequest,
-  notFound,
-  serviceUnavailable,
-  unauthorized,
-} from "@infra/errors";
+import { badRequest, notFound, serviceUnavailable, unauthorized } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { getTenantId, getUserId } from "@infra/request-context";
@@ -55,9 +50,7 @@ const callbackBodySchema = z.object({
 const FLOW_UNUSABLE_MESSAGE = "SSO session expired, try again";
 const PROVIDER_UNAVAILABLE_MESSAGE = "SSO provider is not enabled";
 
-function requireUserContext(
-  res: Response,
-): { userId: string; tenantId: string } | null {
+function requireUserContext(res: Response): { userId: string; tenantId: string } | null {
   const userId = getUserId();
   const tenantId = getTenantId();
   if (!userId || !tenantId) {
@@ -68,14 +61,9 @@ function requireUserContext(
 }
 
 /** Unknown and disabled providers answer alike so the enabled set stays private. */
-function requireEnabledProvider(
-  req: Request,
-  res: Response,
-): SsoProviderConfig | null {
+function requireEnabledProvider(req: Request, res: Response): SsoProviderConfig | null {
   const parsed = providerParamsSchema.safeParse(req.params);
-  const config = parsed.success
-    ? getSsoProviderConfig(parsed.data.provider)
-    : null;
+  const config = parsed.success ? getSsoProviderConfig(parsed.data.provider) : null;
   if (!config) {
     fail(res, notFound(PROVIDER_UNAVAILABLE_MESSAGE));
     return null;
@@ -182,10 +170,7 @@ authSsoRouter.post(
   "/:provider/start",
   asyncRoute(async (req: Request, res: Response) => {
     if (isDemoMode()) {
-      fail(
-        res,
-        serviceUnavailable("Single sign-on is disabled in the public demo."),
-      );
+      fail(res, serviceUnavailable("Single sign-on is disabled in the public demo."));
       return;
     }
 
@@ -194,10 +179,7 @@ authSsoRouter.post(
 
     // The first admin owns the instance, so the setup wizard has to run before
     // an identity provider can hand out the first account.
-    if (
-      getJobOpsAppConfig().appMode !== "hosted" &&
-      (await usersRepo.countUsers()) === 0
-    ) {
+    if (getJobOpsAppConfig().appMode !== "hosted" && (await usersRepo.countUsers()) === 0) {
       fail(res, badRequest("Initial setup is required"));
       return;
     }
@@ -318,9 +300,7 @@ authSsoRouter.get(
     const context = requireUserContext(res);
     if (!context) return;
 
-    const identities = await ssoIdentitiesRepo.listSsoIdentitiesForUser(
-      context.userId,
-    );
+    const identities = await ssoIdentitiesRepo.listSsoIdentitiesForUser(context.userId);
     ok(res, identities.map(toSsoIdentitySummary));
   }),
 );

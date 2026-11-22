@@ -1,8 +1,7 @@
 import type { CreateJobInput } from "@shared/types/jobs";
 import { ApifyClient } from "apify-client";
 
-const ACTOR_ID =
-  process.env.SEEK_APIFY_ACTOR_ID ?? "unfenced-group/seek-com-au-scraper";
+const ACTOR_ID = process.env.SEEK_APIFY_ACTOR_ID ?? "unfenced-group/seek-com-au-scraper";
 
 type SeekRawItem = Record<string, unknown>;
 
@@ -50,10 +49,7 @@ function toNum(value: unknown): number | undefined {
   return undefined;
 }
 
-function mapSeekItem(
-  item: SeekRawItem,
-  countryLabel: string,
-): CreateJobInput | null {
+function mapSeekItem(item: SeekRawItem, countryLabel: string): CreateJobInput | null {
   const jobUrl = toStr(item.url);
   if (!jobUrl) return null;
 
@@ -72,9 +68,7 @@ function mapSeekItem(
     employer,
     jobUrl,
     applicationLink: toStr(item.applyUrl) ?? jobUrl,
-    location: toStr(item.location)
-      ? `${toStr(item.location)}, ${countryLabel}`
-      : undefined,
+    location: toStr(item.location) ? `${toStr(item.location)}, ${countryLabel}` : undefined,
     salary: toStr(item.salaryLabel),
     salaryMinAmount: salaryMin,
     salaryMaxAmount: salaryMax,
@@ -87,9 +81,7 @@ function mapSeekItem(
   };
 }
 
-export async function runSeek(
-  options: RunSeekOptions = {},
-): Promise<SeekResult> {
+export async function runSeek(options: RunSeekOptions = {}): Promise<SeekResult> {
   const token = process.env.APIFY_TOKEN?.trim();
   if (!token) {
     return {
@@ -103,8 +95,7 @@ export async function runSeek(
     options.searchTerms && options.searchTerms.length > 0
       ? options.searchTerms
       : ["software engineer"];
-  const countryLabel =
-    options.country === "new zealand" ? "New Zealand" : "Australia";
+  const countryLabel = options.country === "new zealand" ? "New Zealand" : "Australia";
   const locations =
     options.locations && options.locations.length > 0
       ? options.locations

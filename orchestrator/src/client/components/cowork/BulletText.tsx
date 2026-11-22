@@ -6,9 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 export function fitTextarea(element: HTMLTextAreaElement) {
   element.style.height = "auto";
   const style = getComputedStyle(element);
-  const padding =
-    Number.parseFloat(style.paddingTop) +
-    Number.parseFloat(style.paddingBottom);
+  const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
   const lineHeight = Number.parseFloat(style.lineHeight);
   let content = element.scrollHeight - (padding || 0);
   if (lineHeight > 0) content = Math.round(content / lineHeight) * lineHeight;

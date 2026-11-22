@@ -19,9 +19,12 @@ type OverviewGhostwriterComposerProps = {
   navigationState?: { jobPageBackTo: string };
 };
 
-export const OverviewGhostwriterComposer: React.FC<
-  OverviewGhostwriterComposerProps
-> = ({ job, baseJobPath, hasNotes, navigationState }) => {
+export const OverviewGhostwriterComposer: React.FC<OverviewGhostwriterComposerProps> = ({
+  job,
+  baseJobPath,
+  hasNotes,
+  navigationState,
+}) => {
   const navigate = useNavigate();
   const [prompt, setPrompt] = React.useState("");
   const suggestions = React.useMemo(
@@ -32,10 +35,9 @@ export const OverviewGhostwriterComposer: React.FC<
   const submitPrompt = React.useCallback(() => {
     const content = prompt.trim();
     if (!content) return;
-    navigate(
-      `${baseJobPath}/ghostwriter?prompt=${encodeURIComponent(content)}`,
-      { state: navigationState },
-    );
+    navigate(`${baseJobPath}/ghostwriter?prompt=${encodeURIComponent(content)}`, {
+      state: navigationState,
+    });
   }, [baseJobPath, navigate, navigationState, prompt]);
 
   return (
@@ -71,12 +73,7 @@ export const OverviewGhostwriterComposer: React.FC<
           ))}
         </div>
 
-        <Button
-          size="sm"
-          onClick={submitPrompt}
-          disabled={!prompt.trim()}
-          className="mt-3"
-        >
+        <Button size="sm" onClick={submitPrompt} disabled={!prompt.trim()} className="mt-3">
           <Send className="mr-1.5 h-3.5 w-3.5" />
           Go
         </Button>

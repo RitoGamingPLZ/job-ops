@@ -20,10 +20,7 @@ const postingSchema = z.object({
   department: z.string().optional(),
   occupationalCategory: z.string().optional(),
   jobLocation: z
-    .union([
-      z.array(z.object({ name: z.string() })),
-      z.object({ name: z.string() }),
-    ])
+    .union([z.array(z.object({ name: z.string() })), z.object({ name: z.string() })])
     .optional(),
 });
 type Job = {
@@ -46,29 +43,20 @@ function trustedUrl(value: string): URL {
     throw badRequest("Invalid Meta careers URL.");
   }
   const authority = value.trim().match(/^https:\/\/([^/?#]+)/i)?.[1];
-  if (
-    url.origin !== ORIGIN ||
-    !authority ||
-    authority.includes(":") ||
-    authority.includes("@")
-  )
-    throw badRequest(
-      "Use an HTTPS URL on www.metacareers.com without a port or userinfo.",
-    );
+  if (url.origin !== ORIGIN || !authority || authority.includes(":") || authority.includes("@"))
+    throw badRequest("Use an HTTPS URL on www.metacareers.com without a port or userinfo.");
   return url;
 }
 function searchUrl(value: string): string {
   const url = trustedUrl(value);
-  if (!/^\/jobs\/?$/.test(url.pathname))
-    throw badRequest("Use the Meta careers /jobs URL.");
+  if (!/^\/jobs\/?$/.test(url.pathname)) throw badRequest("Use the Meta careers /jobs URL.");
   // One unfiltered catalog source; keyword filtering belongs to the pipeline.
   return `${ORIGIN}/jobs`;
 }
 function requestedId(value: string): string {
   const url = trustedUrl(value);
   const match = url.pathname.match(/^\/profile\/job_details\/(\d+)\/?$/);
-  if (!match || url.search || url.hash)
-    throw badRequest("Invalid Meta job detail URL.");
+  if (!match || url.search || url.hash) throw badRequest("Invalid Meta job detail URL.");
   return match[1];
 }
 function jobUrl(id: string): string {
@@ -87,15 +75,13 @@ async function pageHtml(url: string, signal: AbortSignal): Promise<string> {
       await delay(250 * 2 ** attempt, undefined, { signal });
       continue;
     }
-    if (!response.ok)
-      throw upstreamError(`Meta careers returned HTTP ${response.status}.`);
+    if (!response.ok) throw upstreamError(`Meta careers returned HTTP ${response.status}.`);
     return response.text();
   }
   throw upstreamError("Meta careers retry limit exceeded.");
 }
 function parseSitemap(xml: string) {
-  if (!/<urlset\b/.test(xml) || !/<\/urlset\s*>/.test(xml))
-    throw structureError("sitemap");
+  if (!/<urlset\b/.test(xml) || !/<\/urlset\s*>/.test(xml)) throw structureError("sitemap");
   const rows = [...xml.matchAll(/<url\s*>([\s\S]*?)<\/url\s*>/g)];
   const jobs = rows.flatMap((row) => {
     const loc = row[1].match(/<loc\s*>([^<]+)<\/loc\s*>/)?.[1];
@@ -115,11 +101,8 @@ function parseSitemap(xml: string) {
 function parseDetail(html: string, id: string): Job {
   // Stable public SEO payload observed live, without inspecting private Relay
   // payloads or tokens. Never evaluate embedded JavaScript.
-  for (const script of html.matchAll(
-    /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi,
-  )) {
-    if (!/\btype\s*=\s*["']application\/ld\+json["']/i.test(script[1]))
-      continue;
+  for (const script of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
+    if (!/\btype\s*=\s*["']application\/ld\+json["']/i.test(script[1])) continue;
     let data: unknown;
     try {
       data = JSON.parse(script[2]);
@@ -138,12 +121,8 @@ function parseDetail(html: string, id: string): Job {
     const descriptionHtml = [
       team ? `<h3>Team</h3><p>${escapeHtml(team)}</p>` : "",
       posting.description,
-      posting.responsibilities
-        ? `<h3>Responsibilities</h3>${posting.responsibilities}`
-        : "",
-      posting.qualifications
-        ? `<h3>Qualifications</h3>${posting.qualifications}`
-        : "",
+      posting.responsibilities ? `<h3>Responsibilities</h3>${posting.responsibilities}` : "",
+      posting.qualifications ? `<h3>Qualifications</h3>${posting.qualifications}` : "",
     ]
       .filter(Boolean)
       .join("\n")
@@ -151,8 +130,7 @@ function parseDetail(html: string, id: string): Job {
     return {
       id,
       title: posting.title,
-      location:
-        [...new Set(locations.map((item) => item.name))].join("; ") || null,
+      location: [...new Set(locations.map((item) => item.name))].join("; ") || null,
       postedAt:
         posting.datePosted && Number.isFinite(Date.parse(posting.datePosted))
           ? new Date(posting.datePosted).toISOString()
@@ -163,10 +141,7 @@ function parseDetail(html: string, id: string): Job {
   throw structureError("JobPosting detail");
 }
 function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 function operationSignal(signal?: AbortSignal): AbortSignal {
   const timeout = AbortSignal.timeout(24_000);
@@ -177,10 +152,7 @@ async function details(jobRef: string, signal?: AbortSignal): Promise<Job> {
   signal?.throwIfAborted();
   const cached = listedJobs.get(id);
   if (cached) return cached;
-  const job = parseDetail(
-    await pageHtml(jobUrl(id), operationSignal(signal)),
-    id,
-  );
+  const job = parseDetail(await pageHtml(jobUrl(id), operationSignal(signal)), id);
   if (listedJobs.size >= LIMIT) {
     const oldest = listedJobs.keys().next().value;
     if (oldest) listedJobs.delete(oldest);
@@ -245,34 +217,20 @@ export const metaWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     listedJobs = new Map();
     searchUrl(input.source.careersUrl);
     const stopAt = Date.now() + 20_000;
-    const signal = AbortSignal.any([
-      operationSignal(input.signal),
-      AbortSignal.timeout(20_000),
-    ]);
-    const entries = parseSitemap(
-      await pageHtml(`${ORIGIN}/jobsearch/sitemap.xml`, signal),
-    );
+    const signal = AbortSignal.any([operationSignal(input.signal), AbortSignal.timeout(20_000)]);
+    const entries = parseSitemap(await pageHtml(`${ORIGIN}/jobsearch/sitemap.xml`, signal));
     const selected = entries.slice(0, LIMIT);
     const collected = new Map<string, Job>();
     let index = 0;
     async function worker() {
-      while (
-        index < selected.length &&
-        !signal.aborted &&
-        Date.now() < stopAt
-      ) {
+      while (index < selected.length && !signal.aborted && Date.now() < stopAt) {
         const entry = selected[index++];
         try {
           const requestSignal = AbortSignal.any([
             signal,
-            AbortSignal.timeout(
-              Math.max(1, Math.min(5_000, stopAt - Date.now())),
-            ),
+            AbortSignal.timeout(Math.max(1, Math.min(5_000, stopAt - Date.now()))),
           ]);
-          const job = parseDetail(
-            await pageHtml(jobUrl(entry.id), requestSignal),
-            entry.id,
-          );
+          const job = parseDetail(await pageHtml(jobUrl(entry.id), requestSignal), entry.id);
           collected.set(entry.id, job);
         } catch {
           // A removed/failed posting must not discard other successful details.

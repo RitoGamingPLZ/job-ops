@@ -23,10 +23,7 @@ export interface ExtractorCapabilities {
   locationEvidence?: boolean;
 }
 
-export type ExtractorSourceLocationCapabilities = Omit<
-  LocationSourceCapabilitiesInput,
-  "source"
->;
+export type ExtractorSourceLocationCapabilities = Omit<LocationSourceCapabilitiesInput, "source">;
 
 export interface ExtractorRuntimeContext {
   source: string;
@@ -83,8 +80,6 @@ export interface ExtractorManifest {
   runtime?: ExtractorRuntime;
   rateLimit?: ExtractorRateLimit;
   capabilities?: ExtractorCapabilities;
-  locationCapabilities?: Partial<
-    Record<string, ExtractorSourceLocationCapabilities>
-  >;
+  locationCapabilities?: Partial<Record<string, ExtractorSourceLocationCapabilities>>;
   run: (context: ExtractorRuntimeContext) => Promise<ExtractorRunResult>;
 }

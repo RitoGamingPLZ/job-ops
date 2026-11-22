@@ -2,14 +2,7 @@ import "leaflet/dist/leaflet.css";
 
 import { divIcon, type LeafletMouseEvent, latLng } from "leaflet";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Circle,
-  MapContainer,
-  Marker,
-  TileLayer,
-  useMap,
-  useMapEvents,
-} from "react-leaflet";
+import { Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
 export type MapPoint = { latitude: number; longitude: number };
 
@@ -59,13 +52,7 @@ function MapEvents({
   return null;
 }
 
-function Recenter({
-  center,
-  radiusMiles,
-}: {
-  center: MapPoint | null;
-  radiusMiles: number;
-}) {
+function Recenter({ center, radiusMiles }: { center: MapPoint | null; radiusMiles: number }) {
   const map = useMap();
   const previousCenter = useRef<MapPoint | null>(null);
   useEffect(() => {
@@ -75,9 +62,7 @@ function Recenter({
     }
     if (!previousCenter.current) {
       map.fitBounds(
-        latLng(center.latitude, center.longitude).toBounds(
-          radiusMiles * 1609.344 * 2,
-        ),
+        latLng(center.latitude, center.longitude).toBounds(radiusMiles * 1609.344 * 2),
         { padding: [24, 24] },
       );
     } else if (
@@ -91,13 +76,7 @@ function Recenter({
   return null;
 }
 
-function CountryView({
-  country,
-  hasCenter,
-}: {
-  country: string;
-  hasCenter: boolean;
-}) {
+function CountryView({ country, hasCenter }: { country: string; hasCenter: boolean }) {
   const map = useMap();
   useEffect(() => {
     if (hasCenter) return;
@@ -110,9 +89,7 @@ function CountryView({
 function ResizeMap() {
   const map = useMap();
   useEffect(() => {
-    const observer = new ResizeObserver(() =>
-      map.invalidateSize({ pan: false }),
-    );
+    const observer = new ResizeObserver(() => map.invalidateSize({ pan: false }));
     observer.observe(map.getContainer());
     return () => observer.disconnect();
   }, [map]);
@@ -137,8 +114,7 @@ function RadiusHandle({
       eventHandlers={{
         drag(event) {
           const point = event.target.getLatLng();
-          const miles =
-            map.distance([center.latitude, center.longitude], point) / 1609.344;
+          const miles = map.distance([center.latitude, center.longitude], point) / 1609.344;
           onRadiusChange(Math.min(200, Math.max(1, Math.round(miles))));
         },
       }}
@@ -161,9 +137,7 @@ export default function LocationRadiusMap({
   const handlePosition = useMemo<[number, number] | null>(() => {
     if (!visibleCenter) return null;
     const longitudeOffset =
-      radiusMiles /
-      (69.172 *
-        Math.max(0.1, Math.cos((visibleCenter.latitude * Math.PI) / 180)));
+      radiusMiles / (69.172 * Math.max(0.1, Math.cos((visibleCenter.latitude * Math.PI) / 180)));
     return [visibleCenter.latitude, visibleCenter.longitude + longitudeOffset];
   }, [visibleCenter, radiusMiles]);
 
@@ -178,10 +152,7 @@ export default function LocationRadiusMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <MapEvents
-        onCenterChange={onCenterChange}
-        onViewportCenterChange={onViewportCenterChange}
-      />
+      <MapEvents onCenterChange={onCenterChange} onViewportCenterChange={onViewportCenterChange} />
       <ResizeMap />
       <CountryView country={country} hasCenter={Boolean(center)} />
       <Recenter center={center} radiusMiles={radiusMiles} />

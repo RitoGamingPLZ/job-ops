@@ -1,14 +1,8 @@
 import type { LogEventFormValues } from "@client/components/LogEventModal";
-import type {
-  ApplicationStage,
-  JobOutcome,
-  StageEvent,
-} from "@shared/types.js";
+import type { ApplicationStage, JobOutcome, StageEvent } from "@shared/types.js";
 import * as api from "../api";
 
-export type LogJobStageEventReasonCode =
-  | "job_page_manual_stage"
-  | "in_progress_board_menu";
+export type LogJobStageEventReasonCode = "job_page_manual_stage" | "in_progress_board_menu";
 
 export type LogJobStageEventParams = {
   jobId: string;
@@ -37,9 +31,7 @@ export async function logJobStageEvent({
   eventId,
   manualStageReasonCode = "job_page_manual_stage",
 }: LogJobStageEventParams): Promise<LogJobStageEventResult> {
-  let toStage: ApplicationStage | "no_change" = values.stage as
-    | ApplicationStage
-    | "no_change";
+  let toStage: ApplicationStage | "no_change" = values.stage as ApplicationStage | "no_change";
   let outcome: JobOutcome | null = null;
 
   if (values.stage === "rejected") {
@@ -56,13 +48,9 @@ export async function logJobStageEvent({
     note: values.notes?.trim() || undefined,
     eventLabel: values.title.trim() || undefined,
     reasonCode:
-      values.reasonCode ||
-      (values.stage === "no_change" ? undefined : manualStageReasonCode),
+      values.reasonCode || (values.stage === "no_change" ? undefined : manualStageReasonCode),
     actor: "user" as const,
-    eventType:
-      values.stage === "no_change"
-        ? ("note" as const)
-        : ("status_update" as const),
+    eventType: values.stage === "no_change" ? ("note" as const) : ("status_update" as const),
     externalUrl: values.salary ? `Salary: ${values.salary}` : undefined,
   };
 

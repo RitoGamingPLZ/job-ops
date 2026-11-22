@@ -40,9 +40,7 @@ describe("ensurePipelineSearchTerms", () => {
   });
 
   it("keeps existing saved terms", async () => {
-    vi.mocked(settingsRepo.getSetting).mockResolvedValue(
-      JSON.stringify(["Existing Role"]),
-    );
+    vi.mocked(settingsRepo.getSetting).mockResolvedValue(JSON.stringify(["Existing Role"]));
 
     const result = await ensurePipelineSearchTerms({});
 

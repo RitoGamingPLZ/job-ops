@@ -68,11 +68,7 @@ export async function pickProjectIdsForJob(args: {
         ? result.data.selectedProjectIds
         : [];
   } catch {
-    return fallbackPickProjectIds(
-      jobDescription,
-      args.eligibleProjects,
-      desiredCount,
-    );
+    return fallbackPickProjectIds(jobDescription, args.eligibleProjects, desiredCount);
   }
 
   const unique: string[] = [];
@@ -88,11 +84,7 @@ export async function pickProjectIdsForJob(args: {
     if (unique.length >= desiredCount) break;
   }
 
-  for (const id of fallbackPickProjectIds(
-    jobDescription,
-    args.eligibleProjects,
-    desiredCount,
-  )) {
+  for (const id of fallbackPickProjectIds(jobDescription, args.eligibleProjects, desiredCount)) {
     if (!seen.has(id)) unique.push(id);
     if (unique.length >= desiredCount) break;
   }

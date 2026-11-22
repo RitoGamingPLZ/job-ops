@@ -1,12 +1,8 @@
 import { getSetting } from "@server/repositories/settings";
 
-type BaseResumeIdSettings = Partial<
-  Record<"rxresumeBaseResumeId", string | null>
->;
+type BaseResumeIdSettings = Partial<Record<"rxresumeBaseResumeId", string | null>>;
 
-export function resolveRxResumeBaseResumeId(
-  settings: BaseResumeIdSettings,
-): string | null {
+export function resolveRxResumeBaseResumeId(settings: BaseResumeIdSettings): string | null {
   return settings.rxresumeBaseResumeId?.trim() || null;
 }
 

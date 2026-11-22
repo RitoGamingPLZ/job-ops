@@ -61,14 +61,8 @@ type ScenarioSummary = {
   phasePercentOfTotal: Record<string, number>;
 };
 
-const WARMUP_REQUESTS = Number.parseInt(
-  process.env.JOBS_BENCH_WARMUP_REQUESTS ?? "3",
-  10,
-);
-const MEASURED_REQUESTS = Number.parseInt(
-  process.env.JOBS_BENCH_REQUESTS ?? "10",
-  10,
-);
+const WARMUP_REQUESTS = Number.parseInt(process.env.JOBS_BENCH_WARMUP_REQUESTS ?? "3", 10);
+const MEASURED_REQUESTS = Number.parseInt(process.env.JOBS_BENCH_REQUESTS ?? "10", 10);
 const scenarios: Scenario[] = [
   { label: "list", path: "/api/jobs?view=list" },
   { label: "full", path: "/api/jobs?view=full" },
@@ -95,10 +89,7 @@ function resolveSourceDataDir(cwd: string): string {
 function percentile(values: number[], p: number): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((left, right) => left - right);
-  const index = Math.min(
-    sorted.length - 1,
-    Math.max(0, Math.ceil((p / 100) * sorted.length) - 1),
-  );
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
   return sorted[index] ?? 0;
 }
 
@@ -136,10 +127,7 @@ function parseLogLines(lines: string[]): ParsedLogLine[] {
   });
 }
 
-async function createDbSnapshot(
-  sourceDbPath: string,
-  destinationDbPath: string,
-) {
+async function createDbSnapshot(sourceDbPath: string, destinationDbPath: string) {
   const sourceDb = new Database(sourceDbPath, {
     fileMustExist: true,
     readonly: true,
@@ -200,56 +188,41 @@ function findRequestMetrics(
     }
   }
 
-  return Array.from(requestIdToScenario.entries()).map(
-    ([requestId, scenario]) => {
-      const routeMeta = routeLogs.get(requestId);
-      const httpDurationMs = httpLogs.get(requestId);
+  return Array.from(requestIdToScenario.entries()).map(([requestId, scenario]) => {
+    const routeMeta = routeLogs.get(requestId);
+    const httpDurationMs = httpLogs.get(requestId);
 
-      if (!routeMeta) {
-        throw new Error(`Missing benchmark log for request ${requestId}`);
-      }
+    if (!routeMeta) {
+      throw new Error(`Missing benchmark log for request ${requestId}`);
+    }
 
-      if (httpDurationMs === undefined) {
-        throw new Error(`Missing HTTP duration log for request ${requestId}`);
-      }
+    if (httpDurationMs === undefined) {
+      throw new Error(`Missing HTTP duration log for request ${requestId}`);
+    }
 
-      return {
-        ...routeMeta,
-        requestId,
-        scenario,
-        httpDurationMs,
-        serializeAndWriteMs: Math.max(
-          0,
-          httpDurationMs - routeMeta.internalRouteMs,
-        ),
-      };
-    },
-  );
+    return {
+      ...routeMeta,
+      requestId,
+      scenario,
+      httpDurationMs,
+      serializeAndWriteMs: Math.max(0, httpDurationMs - routeMeta.internalRouteMs),
+    };
+  });
 }
 
 function summarizeScenario(metrics: RequestMetrics[]): ScenarioSummary {
   const phaseMeans = {
     queryParse: summarize(metrics.map((entry) => entry.queryParseMs)).mean,
     primaryQuery: summarize(metrics.map((entry) => entry.primaryQueryMs)).mean,
-    duplicateCandidates: summarize(
-      metrics.map((entry) => entry.duplicateCandidatesQueryMs),
-    ).mean,
-    duplicateMatchCpu: summarize(
-      metrics.map((entry) => entry.duplicateMatchCpuMs),
-    ).mean,
+    duplicateCandidates: summarize(metrics.map((entry) => entry.duplicateCandidatesQueryMs)).mean,
+    duplicateMatchCpu: summarize(metrics.map((entry) => entry.duplicateMatchCpuMs)).mean,
     stats: summarize(metrics.map((entry) => entry.statsAggregateMs)).mean,
     revision: summarize(metrics.map((entry) => entry.revisionAggregateMs)).mean,
-    serializeAndWrite: summarize(
-      metrics.map((entry) => entry.serializeAndWriteMs),
-    ).mean,
+    serializeAndWrite: summarize(metrics.map((entry) => entry.serializeAndWriteMs)).mean,
   };
   const slowestPhase =
-    Object.entries(phaseMeans).sort(
-      (left, right) => right[1] - left[1],
-    )[0]?.[0] ?? "unknown";
-  const totalMean = summarize(
-    metrics.map((entry) => entry.httpDurationMs),
-  ).mean;
+    Object.entries(phaseMeans).sort((left, right) => right[1] - left[1])[0]?.[0] ?? "unknown";
+  const totalMean = summarize(metrics.map((entry) => entry.httpDurationMs)).mean;
 
   return {
     scenario: metrics[0]?.scenario ?? "unknown",
@@ -258,17 +231,11 @@ function summarizeScenario(metrics: RequestMetrics[]): ScenarioSummary {
     internalRoute: summarize(metrics.map((entry) => entry.internalRouteMs)),
     queryParse: summarize(metrics.map((entry) => entry.queryParseMs)),
     primaryQuery: summarize(metrics.map((entry) => entry.primaryQueryMs)),
-    duplicateCandidates: summarize(
-      metrics.map((entry) => entry.duplicateCandidatesQueryMs),
-    ),
-    duplicateMatchCpu: summarize(
-      metrics.map((entry) => entry.duplicateMatchCpuMs),
-    ),
+    duplicateCandidates: summarize(metrics.map((entry) => entry.duplicateCandidatesQueryMs)),
+    duplicateMatchCpu: summarize(metrics.map((entry) => entry.duplicateMatchCpuMs)),
     stats: summarize(metrics.map((entry) => entry.statsAggregateMs)),
     revision: summarize(metrics.map((entry) => entry.revisionAggregateMs)),
-    serializeAndWrite: summarize(
-      metrics.map((entry) => entry.serializeAndWriteMs),
-    ),
+    serializeAndWrite: summarize(metrics.map((entry) => entry.serializeAndWriteMs)),
     slowestPhase,
     phasePercentOfTotal: Object.fromEntries(
       Object.entries(phaseMeans).map(([phase, mean]) => [
@@ -309,23 +276,16 @@ function renderTable(summaries: ScenarioSummary[]): string {
     },
   );
   const widths = headers.map((header) =>
-    Math.max(
-      header.length,
-      ...rows.map((row) => row[header as keyof typeof row].length),
-    ),
+    Math.max(header.length, ...rows.map((row) => row[header as keyof typeof row].length)),
   );
   const formatRow = (values: string[]) =>
-    values
-      .map((value, index) => value.padEnd(widths[index] ?? value.length))
-      .join("  ");
+    values.map((value, index) => value.padEnd(widths[index] ?? value.length)).join("  ");
   const divider = widths.map((width) => "-".repeat(width)).join("  ");
 
   return [
     formatRow(headers),
     divider,
-    ...rows.map((row) =>
-      formatRow(headers.map((header) => row[header as keyof typeof row])),
-    ),
+    ...rows.map((row) => formatRow(headers.map((header) => row[header as keyof typeof row]))),
   ].join("\n");
 }
 
@@ -347,9 +307,7 @@ async function main() {
     process.env.BENCHMARK_JOBS_TIMING = "1";
 
     await import("@server/db/migrate");
-    const { applyStoredEnvOverrides } = await import(
-      "@server/services/envSettings"
-    );
+    const { applyStoredEnvOverrides } = await import("@server/services/envSettings");
     await applyStoredEnvOverrides();
     const { createApp } = await import("@server/app");
     ({ closeDb } = await import("@server/db/index"));
@@ -376,9 +334,7 @@ async function main() {
           headers: { "x-request-id": requestId },
         });
         if (!response.ok) {
-          throw new Error(
-            `Warmup request failed for ${scenario.label}: ${response.status}`,
-          );
+          throw new Error(`Warmup request failed for ${scenario.label}: ${response.status}`);
         }
         await response.text();
       }
@@ -390,9 +346,7 @@ async function main() {
           headers: { "x-request-id": requestId },
         });
         if (!response.ok) {
-          throw new Error(
-            `Benchmark request failed for ${scenario.label}: ${response.status}`,
-          );
+          throw new Error(`Benchmark request failed for ${scenario.label}: ${response.status}`);
         }
         await response.text();
       }
@@ -418,9 +372,7 @@ async function main() {
 
     console.log(`Source DB: ${liveDbPath}`);
     console.log(`Snapshot DB: ${tempDbPath}`);
-    console.log(
-      `Warmup requests: ${WARMUP_REQUESTS}, measured requests: ${MEASURED_REQUESTS}`,
-    );
+    console.log(`Warmup requests: ${WARMUP_REQUESTS}, measured requests: ${MEASURED_REQUESTS}`);
     console.log("");
     console.log(renderTable(summaries));
     console.log("");
@@ -441,9 +393,7 @@ async function main() {
     if (restoreConsole) restoreConsole();
 
     if (server) {
-      await new Promise<void>((resolveClose) =>
-        server?.close(() => resolveClose()),
-      );
+      await new Promise<void>((resolveClose) => server?.close(() => resolveClose()));
     }
     closeDb?.();
     await rm(tempDataDir, { recursive: true, force: true });

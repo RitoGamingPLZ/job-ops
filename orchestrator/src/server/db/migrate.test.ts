@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "vitest";
 
-describe.sequential("database migrations", () => {
+describe("database migrations", () => {
   let tempDir: string | null = null;
 
   afterEach(async () => {
@@ -34,11 +34,10 @@ describe.sequential("database migrations", () => {
       if (row.text !== "Built tools" || row.kind !== "bullet" || row.data !== null || row.parent_id !== null || row.position !== 0) throw new Error("Legacy bullet defaults were not preserved");
       migrated.close();
     `;
-    execFileSync(
-      process.execPath,
-      ["--import", "tsx", "--input-type=module", "-e", script],
-      { env: { ...process.env, DATA_DIR: tempDir }, stdio: "pipe" },
-    );
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: { ...process.env, DATA_DIR: tempDir },
+      stdio: "pipe",
+    });
   });
 
   it("boots when an older pipeline_runs table lacks config_snapshot", async () => {
@@ -73,17 +72,13 @@ describe.sequential("database migrations", () => {
       migratedDb.close();
     `;
 
-    execFileSync(
-      process.execPath,
-      ["--import", "tsx", "--input-type=module", "-e", script],
-      {
-        env: {
-          ...process.env,
-          DATA_DIR: tempDir,
-        },
-        stdio: "pipe",
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: {
+        ...process.env,
+        DATA_DIR: tempDir,
       },
-    );
+      stdio: "pipe",
+    });
   });
 
   it("creates tenant foreign keys for tenant-scoped core tables", async () => {
@@ -113,17 +108,13 @@ describe.sequential("database migrations", () => {
       migratedDb.close();
     `;
 
-    execFileSync(
-      process.execPath,
-      ["--import", "tsx", "--input-type=module", "-e", script],
-      {
-        env: {
-          ...process.env,
-          DATA_DIR: tempDir,
-        },
-        stdio: "pipe",
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: {
+        ...process.env,
+        DATA_DIR: tempDir,
       },
-    );
+      stdio: "pipe",
+    });
   });
 
   it("marks only existing workspaces for legacy onboarding migration", async () => {
@@ -158,14 +149,10 @@ describe.sequential("database migrations", () => {
       migratedDb.close();
     `;
 
-    execFileSync(
-      process.execPath,
-      ["--import", "tsx", "--input-type=module", "-e", script],
-      {
-        env: { ...process.env, DATA_DIR: tempDir },
-        stdio: "pipe",
-      },
-    );
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: { ...process.env, DATA_DIR: tempDir },
+      stdio: "pipe",
+    });
   });
 
   it("creates hosted usage tables with user-scoped foreign keys and indexes", async () => {
@@ -215,17 +202,13 @@ describe.sequential("database migrations", () => {
       migratedDb.close();
     `;
 
-    execFileSync(
-      process.execPath,
-      ["--import", "tsx", "--input-type=module", "-e", script],
-      {
-        env: {
-          ...process.env,
-          DATA_DIR: tempDir,
-        },
-        stdio: "pipe",
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: {
+        ...process.env,
+        DATA_DIR: tempDir,
       },
-    );
+      stdio: "pipe",
+    });
   });
 
   it("backfills legacy PDF rows as generated", async () => {
@@ -259,17 +242,13 @@ describe.sequential("database migrations", () => {
       migratedDb.close();
     `;
 
-    execFileSync(
-      process.execPath,
-      ["--import", "tsx", "--input-type=module", "-e", script],
-      {
-        env: {
-          ...process.env,
-          DATA_DIR: tempDir,
-        },
-        stdio: "pipe",
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: {
+        ...process.env,
+        DATA_DIR: tempDir,
       },
-    );
+      stdio: "pipe",
+    });
   });
 
   it("drops legacy tracer_links and tracer_click_events tables", async () => {
@@ -308,17 +287,13 @@ describe.sequential("database migrations", () => {
       migratedDb.close();
     `;
 
-    execFileSync(
-      process.execPath,
-      ["--import", "tsx", "--input-type=module", "-e", script],
-      {
-        env: {
-          ...process.env,
-          DATA_DIR: tempDir,
-        },
-        stdio: "pipe",
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: {
+        ...process.env,
+        DATA_DIR: tempDir,
       },
-    );
+      stdio: "pipe",
+    });
   });
 
   it("relaxes legacy NOT NULL password columns while preserving accounts", async () => {
@@ -414,19 +389,15 @@ describe.sequential("database migrations", () => {
       migratedDb.close();
     `;
 
-    execFileSync(
-      process.execPath,
-      ["--import", "tsx", "--input-type=module", "-e", script],
-      {
-        env: {
-          ...process.env,
-          DATA_DIR: tempDir,
-          BASIC_AUTH_USER: "",
-          BASIC_AUTH_PASSWORD: "",
-        },
-        stdio: "pipe",
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: {
+        ...process.env,
+        DATA_DIR: tempDir,
+        BASIC_AUTH_USER: "",
+        BASIC_AUTH_PASSWORD: "",
       },
-    );
+      stdio: "pipe",
+    });
   });
 
   it("creates sso_identities with a unique provider subject", async () => {
@@ -502,17 +473,13 @@ describe.sequential("database migrations", () => {
       migratedDb.close();
     `;
 
-    execFileSync(
-      process.execPath,
-      ["--import", "tsx", "--input-type=module", "-e", script],
-      {
-        env: {
-          ...process.env,
-          DATA_DIR: tempDir,
-        },
-        stdio: "pipe",
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: {
+        ...process.env,
+        DATA_DIR: tempDir,
       },
-    );
+      stdio: "pipe",
+    });
   });
 
   it("enforces private unique indexes when user_id is null", async () => {
@@ -554,17 +521,13 @@ describe.sequential("database migrations", () => {
       migratedDb.close();
     `;
 
-    execFileSync(
-      process.execPath,
-      ["--import", "tsx", "--input-type=module", "-e", script],
-      {
-        env: {
-          ...process.env,
-          DATA_DIR: tempDir,
-        },
-        stdio: "pipe",
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: {
+        ...process.env,
+        DATA_DIR: tempDir,
       },
-    );
+      stdio: "pipe",
+    });
   });
 
   it("idempotently adds must_change_password to legacy users tables", async () => {
@@ -610,16 +573,12 @@ describe.sequential("database migrations", () => {
       migratedDb.close();
     `;
 
-    execFileSync(
-      process.execPath,
-      ["--import", "tsx", "--input-type=module", "-e", script],
-      {
-        env: {
-          ...process.env,
-          DATA_DIR: tempDir,
-        },
-        stdio: "pipe",
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: {
+        ...process.env,
+        DATA_DIR: tempDir,
       },
-    );
+      stdio: "pipe",
+    });
   });
 });

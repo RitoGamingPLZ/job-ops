@@ -29,12 +29,7 @@ import type {
   LlmValidationResult,
   ResponseMode,
 } from "./types";
-import {
-  addQueryParam,
-  buildHeaders,
-  getResponseDetail,
-  joinUrl,
-} from "./utils/http";
+import { addQueryParam, buildHeaders, getResponseDetail, joinUrl } from "./utils/http";
 import { parseJsonContent } from "./utils/json";
 import { parseErrorMessage, truncate } from "./utils/string";
 
@@ -87,8 +82,7 @@ export class LlmService {
     this.baseUrl = baseUrl;
     this.apiKey = apiKey;
     this.allowCliProviders =
-      options.allowCliProviders ??
-      options.allowEnvironmentCredentials !== false;
+      options.allowCliProviders ?? options.allowEnvironmentCredentials !== false;
     this.strategy = strategy;
     this.codexClient = new CodexClient();
     this.geminiCliClient = new GeminiCliClient();
@@ -118,14 +112,7 @@ export class LlmService {
       return { success: false, error: "LLM API key not configured" };
     }
 
-    const {
-      model,
-      messages,
-      jsonSchema,
-      maxRetries = 0,
-      retryDelayMs = 500,
-      signal,
-    } = options;
+    const { model, messages, jsonSchema, maxRetries = 0, retryDelayMs = 500, signal } = options;
     const jobId = options.jobId;
 
     const cacheKey = buildModeCacheKey(this.provider, this.baseUrl);
@@ -197,8 +184,7 @@ export class LlmService {
 
     for (const url of urls) {
       try {
-        const validationApiKey =
-          this.provider === "gemini" ? null : this.apiKey;
+        const validationApiKey = this.provider === "gemini" ? null : this.apiKey;
         const response = await fetch(url, {
           method: "GET",
           headers: buildHeaders({
@@ -230,8 +216,7 @@ export class LlmService {
           provider: this.provider,
           error: error instanceof Error ? error.message : String(error),
         });
-        lastMessage =
-          error instanceof Error ? error.message : "LLM validation failed.";
+        lastMessage = error instanceof Error ? error.message : "LLM validation failed.";
       }
     }
 
@@ -243,9 +228,7 @@ export class LlmService {
 
   async listModels(): Promise<string[]> {
     if (!this.allowCliProviders && isCliProvider(this.provider)) {
-      throw new Error(
-        "CLI LLM providers are unavailable for this hosted account.",
-      );
+      throw new Error("CLI LLM providers are unavailable for this hosted account.");
     }
     if (this.provider === "codex") {
       return this.codexClient.listModels();
@@ -306,9 +289,7 @@ export class LlmService {
         const models = await this.listRequestyModels();
         return models.filter(
           (model) =>
-            !/image|seedance|embedding|rerank|whisper|(?:^|[-/])(?:tts|asr)(?:[-/]|$)/i.test(
-              model,
-            ),
+            !/image|seedance|embedding|rerank|whisper|(?:^|[-/])(?:tts|asr)(?:[-/]|$)/i.test(model),
         );
       }
       if (this.provider === "orcarouter") {
@@ -320,9 +301,7 @@ export class LlmService {
     return sortModels(models, getPreferredModel(this.provider));
   }
 
-  private async callCodexJson<T>(
-    options: LlmRequestOptions<T>,
-  ): Promise<LlmResponse<T>> {
+  private async callCodexJson<T>(options: LlmRequestOptions<T>): Promise<LlmResponse<T>> {
     const { maxRetries = 0, retryDelayMs = 500, signal, jobId } = options;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -362,9 +341,7 @@ export class LlmService {
     return { success: false, error: "All retry attempts failed" };
   }
 
-  private async callGeminiCliJson<T>(
-    options: LlmRequestOptions<T>,
-  ): Promise<LlmResponse<T>> {
+  private async callGeminiCliJson<T>(options: LlmRequestOptions<T>): Promise<LlmResponse<T>> {
     const { maxRetries = 0, retryDelayMs = 500, signal, jobId } = options;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -404,9 +381,7 @@ export class LlmService {
     return { success: false, error: "All retry attempts failed" };
   }
 
-  private async callClaudeCliJson<T>(
-    options: LlmRequestOptions<T>,
-  ): Promise<LlmResponse<T>> {
+  private async callClaudeCliJson<T>(options: LlmRequestOptions<T>): Promise<LlmResponse<T>> {
     const { maxRetries = 0, retryDelayMs = 500, signal, jobId } = options;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -456,15 +431,7 @@ export class LlmService {
     jobId?: string;
     signal?: AbortSignal;
   }): Promise<LlmResponse<T>> {
-    const {
-      mode,
-      model: rawModel,
-      messages,
-      jsonSchema,
-      maxRetries,
-      retryDelayMs,
-      signal,
-    } = args;
+    const { mode, model: rawModel, messages, jsonSchema, maxRetries, retryDelayMs, signal } = args;
     const jobId = args.jobId;
     const model = normalizeModelForProvider(this.provider, rawModel);
     let lastRetryAfterMs: number | undefined;
@@ -472,11 +439,7 @@ export class LlmService {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         if (attempt > 0) {
-          const delayMs = getRetryDelayMs(
-            retryDelayMs,
-            attempt,
-            lastRetryAfterMs,
-          );
+          const delayMs = getRetryDelayMs(retryDelayMs, attempt, lastRetryAfterMs);
           logger.info("LLM retry attempt", {
             jobId: jobId ?? "unknown",
             attempt,
@@ -507,14 +470,10 @@ export class LlmService {
           const errorBody = await response.text().catch(() => "No error body");
           const parsedError = parseErrorMessage(errorBody);
           const detail = parsedError ? ` - ${truncate(parsedError, 400)}` : "";
-          const err = new Error(
-            `LLM API error: ${response.status}${detail}`,
-          ) as LlmApiError;
+          const err = new Error(`LLM API error: ${response.status}${detail}`) as LlmApiError;
           err.status = response.status;
           err.body = truncate(errorBody, 600);
-          err.retryAfterMs = parseRetryAfterMs(
-            response.headers?.get?.("retry-after"),
-          );
+          err.retryAfterMs = parseRetryAfterMs(response.headers?.get?.("retry-after"));
           throw err;
         }
 
@@ -607,9 +566,7 @@ export class LlmService {
     };
     return (payload.data ?? [])
       .filter(
-        (entry) =>
-          entry.type?.trim().toLowerCase() === "text" &&
-          entry.display_console !== false,
+        (entry) => entry.type?.trim().toLowerCase() === "text" && entry.display_console !== false,
       )
       .map((entry) => entry.id?.trim() ?? "")
       .filter(Boolean);
@@ -660,9 +617,7 @@ export class LlmService {
     const payload = (await response.json()) as {
       data?: Array<{ id?: string | null }>;
     };
-    return (payload.data ?? [])
-      .map((entry) => entry.id?.trim() ?? "")
-      .filter(Boolean);
+    return (payload.data ?? []).map((entry) => entry.id?.trim() ?? "").filter(Boolean);
   }
 
   private async listAnthropicModels(): Promise<string[]> {
@@ -689,11 +644,7 @@ export class LlmService {
   }
 
   private async listGeminiModels(): Promise<string[]> {
-    const url = addQueryParam(
-      joinUrl(this.baseUrl, "/v1beta/models"),
-      "key",
-      this.apiKey ?? "",
-    );
+    const url = addQueryParam(joinUrl(this.baseUrl, "/v1beta/models"), "key", this.apiKey ?? "");
     const response = await fetch(url, {
       method: "GET",
       headers: buildHeaders({
@@ -714,9 +665,7 @@ export class LlmService {
       }>;
     };
     return (payload.models ?? [])
-      .filter((entry) =>
-        entry.supportedGenerationMethods?.includes("generateContent"),
-      )
+      .filter((entry) => entry.supportedGenerationMethods?.includes("generateContent"))
       .map((entry) => {
         const normalized = normalizeGeminiModelName(entry.name ?? "");
         return normalized ? `google/${normalized}` : "";
@@ -728,9 +677,7 @@ export class LlmService {
   private async listGlmModels(): Promise<string[]> {
     const base = this.baseUrl.replace(/\/+$/, "");
     const suffix = "/chat/completions";
-    const modelsBase = base.endsWith(suffix)
-      ? base.slice(0, -suffix.length)
-      : base;
+    const modelsBase = base.endsWith(suffix) ? base.slice(0, -suffix.length) : base;
     const response = await fetch(joinUrl(modelsBase, "/models"), {
       method: "GET",
       headers: buildHeaders({
@@ -764,17 +711,14 @@ export class LlmService {
 
     if (!response.ok) {
       const detail = await getResponseDetail(response);
-      const providerName =
-        this.provider === "api_route" ? "API Route" : "Requesty";
+      const providerName = this.provider === "api_route" ? "API Route" : "Requesty";
       throw new Error(detail || `${providerName} returned ${response.status}.`);
     }
 
     const payload = (await response.json()) as {
       data?: Array<{ id?: string | null }>;
     };
-    return (payload.data ?? [])
-      .map((entry) => entry.id?.trim() ?? "")
-      .filter(Boolean);
+    return (payload.data ?? []).map((entry) => entry.id?.trim() ?? "").filter(Boolean);
   }
 
   private async listOllamaModels(): Promise<string[]> {
@@ -800,16 +744,10 @@ export class LlmService {
   }
 }
 
-function normalizeProvider(
-  raw: string | null,
-  baseUrl: string | null,
-): LlmProvider {
+function normalizeProvider(raw: string | null, baseUrl: string | null): LlmProvider {
   const normalized = normalizeProviderName(raw);
   if (normalized === "openai_compatible") {
-    if (
-      baseUrl?.includes("localhost:1234") ||
-      baseUrl?.includes("127.0.0.1:1234")
-    ) {
+    if (baseUrl?.includes("localhost:1234") || baseUrl?.includes("127.0.0.1:1234")) {
       return "lmstudio";
     }
     return "openai_compatible";
@@ -859,21 +797,14 @@ function providerUsesConfiguredBaseUrl(provider: LlmProvider): boolean {
 }
 
 function isCliProvider(provider: LlmProvider): boolean {
-  return (
-    provider === "codex" ||
-    provider === "gemini_cli" ||
-    provider === "claude_cli"
-  );
+  return provider === "codex" || provider === "gemini_cli" || provider === "claude_cli";
 }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function normalizeModelForProvider(
-  provider: LlmProvider,
-  model: string,
-): string {
+function normalizeModelForProvider(provider: LlmProvider, model: string): string {
   if (provider !== "gemini" && provider !== "gemini_cli") return model;
   return normalizeGeminiModelName(model) || model;
 }
@@ -946,15 +877,7 @@ function isGlmTextGenerationModel(model: string): boolean {
   const normalized = model.trim().toLowerCase();
   if (!normalized) return false;
 
-  const blockedPatterns = [
-    "embedding",
-    "image",
-    "tts",
-    "asr",
-    "speech",
-    "audio",
-    "tokenizer",
-  ];
+  const blockedPatterns = ["embedding", "image", "tts", "asr", "speech", "audio", "tokenizer"];
   if (blockedPatterns.some((pattern) => normalized.includes(pattern))) {
     return false;
   }
@@ -963,9 +886,7 @@ function isGlmTextGenerationModel(model: string): boolean {
 }
 
 function sortModels(models: string[], preferredModel: string | null): string[] {
-  const unique = Array.from(
-    new Set(models.map((model) => model.trim())),
-  ).filter(Boolean);
+  const unique = Array.from(new Set(models.map((model) => model.trim()))).filter(Boolean);
   unique.sort((left, right) => left.localeCompare(right));
   if (!preferredModel) return unique;
 

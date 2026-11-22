@@ -20,8 +20,7 @@ vi.mock("@/components/ui/sonner", () => ({
 }));
 
 vi.mock("./components/ForcedPasswordResetGate", () => ({
-  ForcedPasswordResetGate: ({ children }: { children: React.ReactNode }) =>
-    children,
+  ForcedPasswordResetGate: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 vi.mock("./components/OnboardingGate", () => ({
@@ -156,37 +155,33 @@ describe("App demo banner", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /dismiss demo waitlist banner/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /dismiss demo waitlist banner/i }));
 
     expect(screen.queryByRole("link", { name: "try.jobops.app" })).toBeNull();
-    expect(localStorage.getItem("jobops.demoWaitlistBannerDismissed")).toBe(
-      "1",
-    );
+    expect(localStorage.getItem("jobops.demoWaitlistBannerDismissed")).toBe("1");
   });
 
-  it.each([
-    "/design-resume",
-    "/design-resume/experience",
-  ])("redirects %s to the base editor", (path) => {
-    vi.mocked(useDemoInfo).mockReturnValue({
-      demoMode: false,
-      resetCadenceHours: 6,
-      lastResetAt: null,
-      nextResetAt: null,
-      baselineVersion: null,
-      baselineName: null,
-    });
+  it.each(["/design-resume", "/design-resume/experience"])(
+    "redirects %s to the base editor",
+    (path) => {
+      vi.mocked(useDemoInfo).mockReturnValue({
+        demoMode: false,
+        resetCadenceHours: 6,
+        lastResetAt: null,
+        nextResetAt: null,
+        baselineVersion: null,
+        baselineName: null,
+      });
 
-    render(
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>,
-    );
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <App />
+        </MemoryRouter>,
+      );
 
-    expect(screen.getByText("base-resume-editor")).toBeInTheDocument();
-  });
+      expect(screen.getByText("base-resume-editor")).toBeInTheDocument();
+    },
+  );
 
   it("redirects hosted users away from Tracking Inbox", () => {
     vi.mocked(useDemoInfo).mockReturnValue({
@@ -215,19 +210,17 @@ function LocationProbe() {
   return <output aria-label="Current path">{location.pathname}</output>;
 }
 
-it.each([
-  "/library",
-  "/resumes/library",
-])("opens the Candidate Library at /library from %s", (path) => {
-  vi.mocked(useDemoInfo).mockReturnValue(null);
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <App />
-      <LocationProbe />
-    </MemoryRouter>,
-  );
-  expect(screen.getByText("candidate-library")).toBeInTheDocument();
-  expect(screen.getByLabelText("Current path")).toHaveTextContent(
-    /^\/library$/,
-  );
-});
+it.each(["/library", "/resumes/library"])(
+  "opens the Candidate Library at /library from %s",
+  (path) => {
+    vi.mocked(useDemoInfo).mockReturnValue(null);
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <App />
+        <LocationProbe />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("candidate-library")).toBeInTheDocument();
+    expect(screen.getByLabelText("Current path")).toHaveTextContent(/^\/library$/);
+  },
+);

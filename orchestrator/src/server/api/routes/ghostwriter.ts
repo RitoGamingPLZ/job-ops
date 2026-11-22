@@ -53,22 +53,16 @@ const imageAttachmentSchema = z
       .regex(/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/),
   })
   .superRefine((attachment, ctx) => {
-    if (
-      !attachment.dataUrl.startsWith(`data:${attachment.mediaType};base64,`)
-    ) {
+    if (!attachment.dataUrl.startsWith(`data:${attachment.mediaType};base64,`)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["dataUrl"],
-        message:
-          "Image data URL media type must match the attachment media type.",
+        message: "Image data URL media type must match the attachment media type.",
       });
     }
   });
 
-const imageAttachmentsSchema = z
-  .array(imageAttachmentSchema)
-  .max(3)
-  .default([]);
+const imageAttachmentsSchema = z.array(imageAttachmentSchema).max(3).default([]);
 
 const sendMessageSchema = z.object({
   content: z.string().trim().min(1).max(20000),
@@ -106,10 +100,7 @@ ghostwriterRouter.get(
     const jobId = getJobId(req);
     const parsed = listMessagesQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return fail(
-        res,
-        badRequest(parsed.error.message, parsed.error.flatten()),
-      );
+      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
     }
 
     await runWithRequestContext({ jobId }, async () => {
@@ -135,10 +126,7 @@ ghostwriterRouter.patch(
     const jobId = getJobId(req);
     const parsed = updateContextSchema.safeParse(req.body);
     if (!parsed.success) {
-      return fail(
-        res,
-        badRequest(parsed.error.message, parsed.error.flatten()),
-      );
+      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
     }
 
     await runWithRequestContext({ jobId }, async () => {
@@ -160,10 +148,7 @@ ghostwriterRouter.post(
 
     const parsed = sendMessageSchema.safeParse(req.body);
     if (!parsed.success) {
-      return fail(
-        res,
-        badRequest(parsed.error.message, parsed.error.flatten()),
-      );
+      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
     }
 
     await runWithRequestContext({ jobId }, async () => {
@@ -234,10 +219,7 @@ ghostwriterRouter.post(
 
     const parsed = regenerateSchema.safeParse(req.body ?? {});
     if (!parsed.success) {
-      return fail(
-        res,
-        badRequest(parsed.error.message, parsed.error.flatten()),
-      );
+      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
     }
 
     await runWithRequestContext({ jobId }, async () => {
@@ -282,15 +264,10 @@ ghostwriterRouter.post(
 
     const parsed = editMessageSchema.safeParse(req.body);
     if (!parsed.success) {
-      return fail(
-        res,
-        badRequest(parsed.error.message, parsed.error.flatten()),
-      );
+      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
     }
 
-    const edit = (
-      input: Parameters<typeof ghostwriterService.editMessageForJob>[0],
-    ) =>
+    const edit = (input: Parameters<typeof ghostwriterService.editMessageForJob>[0]) =>
       req.params.threadId
         ? ghostwriterService.editMessage({
             ...input,
@@ -389,10 +366,7 @@ ghostwriterRouter.post(
     const jobId = getJobId(req);
     const parsed = createThreadSchema.safeParse(req.body);
     if (!parsed.success) {
-      return fail(
-        res,
-        badRequest(parsed.error.message, parsed.error.flatten()),
-      );
+      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
     }
 
     await runWithRequestContext({ jobId }, async () => {
@@ -416,10 +390,7 @@ ghostwriterRouter.get(
 
     const parsed = listMessagesQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return fail(
-        res,
-        badRequest(parsed.error.message, parsed.error.flatten()),
-      );
+      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
     }
 
     await runWithRequestContext({ jobId }, async () => {
@@ -445,10 +416,7 @@ ghostwriterRouter.post(
 
     const parsed = sendMessageSchema.safeParse(req.body);
     if (!parsed.success) {
-      return fail(
-        res,
-        badRequest(parsed.error.message, parsed.error.flatten()),
-      );
+      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
     }
 
     await runWithRequestContext({ jobId }, async () => {
@@ -529,10 +497,7 @@ ghostwriterRouter.post(
 
     const parsed = regenerateSchema.safeParse(req.body ?? {});
     if (!parsed.success) {
-      return fail(
-        res,
-        badRequest(parsed.error.message, parsed.error.flatten()),
-      );
+      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
     }
 
     await runWithRequestContext({ jobId }, async () => {

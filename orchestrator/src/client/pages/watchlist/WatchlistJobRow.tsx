@@ -39,15 +39,9 @@ interface WatchlistJobRowProps {
   unignoreVariables?: { source: string; sourceJobId: string };
   onIgnore: (input: { source: string; sourceJobId: string }) => void;
   onUnignore: (input: { source: string; sourceJobId: string }) => void;
-  onMoveToWorkspace: (
-    job: WatchlistJobResult,
-    source: WatchlistSelectedSource,
-  ) => void;
+  onMoveToWorkspace: (job: WatchlistJobResult, source: WatchlistSelectedSource) => void;
   onOpenWorkspaceJob: (job: WatchlistWorkspaceJobReference) => void;
-  onLoadJobDetails: (
-    job: WatchlistJobResult,
-    source: WatchlistSelectedSource,
-  ) => void;
+  onLoadJobDetails: (job: WatchlistJobResult, source: WatchlistSelectedSource) => void;
 }
 
 type WatchlistSignal = {
@@ -188,14 +182,10 @@ export default function WatchlistJobRow({
           </div>
         </TableCell>
         <TableCell className="py-2.5">
-          <div className="text-sm text-muted-foreground">
-            {watchlistJob.employer}
-          </div>
+          <div className="text-sm text-muted-foreground">{watchlistJob.employer}</div>
         </TableCell>
         <TableCell className="py-2.5">
-          <div className="text-sm text-muted-foreground">
-            {watchlistJob.location || "Unknown"}
-          </div>
+          <div className="text-sm text-muted-foreground">{watchlistJob.location || "Unknown"}</div>
         </TableCell>
         <TableCell className="py-2.5">
           <div className="text-sm text-muted-foreground">
@@ -207,11 +197,7 @@ export default function WatchlistJobRow({
           <div className="flex items-center justify-end">
             {watchlistJob.workspaceJob ? (
               <>
-                <Tip
-                  asChild
-                  clickBehavior="none"
-                  content="View in JobOps workspace"
-                >
+                <Tip asChild clickBehavior="none" content="View in JobOps workspace">
                   <Button
                     type="button"
                     variant="ghost"
@@ -240,9 +226,7 @@ export default function WatchlistJobRow({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => handleDescriptionOpenChange(true)}
-                    >
+                    <DropdownMenuItem onClick={() => handleDescriptionOpenChange(true)}>
                       <FileText className="mr-2 h-4 w-4" />
                       Job description
                     </DropdownMenuItem>
@@ -263,16 +247,11 @@ export default function WatchlistJobRow({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => handleDescriptionOpenChange(true)}
-                  >
+                  <DropdownMenuItem onClick={() => handleDescriptionOpenChange(true)}>
                     <FileText className="mr-2 h-4 w-4" />
                     Job description
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={isUnignoring}
-                    onClick={() => onUnignore(stateInput)}
-                  >
+                  <DropdownMenuItem disabled={isUnignoring} onClick={() => onUnignore(stateInput)}>
                     {isUnignoring ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
@@ -284,11 +263,7 @@ export default function WatchlistJobRow({
               </DropdownMenu>
             ) : (
               <>
-                <Tip
-                  asChild
-                  clickBehavior="none"
-                  content="Move to JobOps workspace"
-                >
+                <Tip asChild clickBehavior="none" content="Move to JobOps workspace">
                   <Button
                     type="button"
                     variant="ghost"
@@ -317,9 +292,7 @@ export default function WatchlistJobRow({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => handleDescriptionOpenChange(true)}
-                    >
+                    <DropdownMenuItem onClick={() => handleDescriptionOpenChange(true)}>
                       <FileText className="mr-2 h-4 w-4" />
                       Job description
                     </DropdownMenuItem>
@@ -334,10 +307,7 @@ export default function WatchlistJobRow({
                         View on careers page
                       </a>
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={isIgnoring}
-                      onClick={() => onIgnore(stateInput)}
-                    >
+                    <DropdownMenuItem disabled={isIgnoring} onClick={() => onIgnore(stateInput)}>
                       {isIgnoring ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : (
@@ -352,20 +322,11 @@ export default function WatchlistJobRow({
           </div>
         </TableCell>
       </TableRow>
-      <Dialog
-        open={isDescriptionOpen}
-        onOpenChange={handleDescriptionOpenChange}
-      >
+      <Dialog open={isDescriptionOpen} onOpenChange={handleDescriptionOpenChange}>
         <DialogContent className="max-h-[85vh] max-w-5xl overflow-hidden p-0">
-          <DialogTitle className="sr-only">
-            {rankedJob.job.title} job description
-          </DialogTitle>
+          <DialogTitle className="sr-only">{rankedJob.job.title} job description</DialogTitle>
           <JobDescriptionPanel
-            description={
-              details?.status === "success"
-                ? details.details.descriptionHtml
-                : null
-            }
+            description={details?.status === "success" ? details.details.descriptionHtml : null}
             jobUrl={watchlistJob.jobUrl}
             collapsible={false}
             isLoading={details?.status === "loading"}

@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
  * Tracks whether a specific modifier key is currently pressed.
  * Defaults to 'Control'.
  */
-export function useModifierPressed(
-  key: "Control" | "Alt" | "Meta" | "Shift" = "Control",
-) {
+export function useModifierPressed(key: "Control" | "Alt" | "Meta" | "Shift" = "Control") {
   const [isPressed, setIsPressed] = useState(false);
 
   useEffect(() => {

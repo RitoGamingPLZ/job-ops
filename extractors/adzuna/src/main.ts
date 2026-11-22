@@ -19,21 +19,11 @@ function emitProgress(payload: Record<string, unknown>): void {
 
 async function run(): Promise<void> {
   const country = (process.env.ADZUNA_COUNTRY || "gb").trim().toLowerCase();
-  const maxJobsPerTerm = parsePositiveInt(
-    process.env.ADZUNA_MAX_JOBS_PER_TERM,
-    50,
-  );
-  const resultsPerPage = Math.min(
-    50,
-    parsePositiveInt(process.env.ADZUNA_RESULTS_PER_PAGE, 50),
-  );
-  const searchTerms = parseSearchTerms(
-    process.env.ADZUNA_SEARCH_TERMS,
-    DEFAULT_SEARCH_TERM,
-  );
+  const maxJobsPerTerm = parsePositiveInt(process.env.ADZUNA_MAX_JOBS_PER_TERM, 50);
+  const resultsPerPage = Math.min(50, parsePositiveInt(process.env.ADZUNA_RESULTS_PER_PAGE, 50));
+  const searchTerms = parseSearchTerms(process.env.ADZUNA_SEARCH_TERMS, DEFAULT_SEARCH_TERM);
   const outputJson =
-    process.env.ADZUNA_OUTPUT_JSON ||
-    join(process.cwd(), "storage/datasets/default/jobs.json");
+    process.env.ADZUNA_OUTPUT_JSON || join(process.cwd(), "storage/datasets/default/jobs.json");
   const locationQuery = process.env.ADZUNA_LOCATION_QUERY?.trim() || "";
 
   const result = await runAdzuna({
@@ -53,11 +43,7 @@ async function run(): Promise<void> {
   }
 
   await mkdir(dirname(outputJson), { recursive: true });
-  await writeFile(
-    outputJson,
-    `${JSON.stringify(result.jobs, null, 2)}\n`,
-    "utf-8",
-  );
+  await writeFile(outputJson, `${JSON.stringify(result.jobs, null, 2)}\n`, "utf-8");
   console.log(`Adzuna extractor wrote ${result.jobs.length} jobs`);
 }
 

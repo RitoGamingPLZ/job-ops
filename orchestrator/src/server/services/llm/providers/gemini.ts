@@ -30,10 +30,7 @@ export const geminiStrategy = createProviderStrategy({
       };
     }
 
-    const url = joinUrl(
-      baseUrl,
-      `/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-    );
+    const url = joinUrl(baseUrl, `/v1beta/models/${encodeURIComponent(model)}:generateContent`);
     const urlWithKey = addQueryParam(url, "key", apiKey ?? "");
 
     return {
@@ -43,12 +40,7 @@ export const geminiStrategy = createProviderStrategy({
     };
   },
   extractText: (response) => {
-    const parts = getNestedValue(response, [
-      "candidates",
-      0,
-      "content",
-      "parts",
-    ]);
+    const parts = getNestedValue(response, ["candidates", 0, "content", "parts"]);
     if (!Array.isArray(parts)) return null;
     const text = parts
       .map((part) => getNestedValue(part, ["text"]))
@@ -81,11 +73,7 @@ function toGeminiJsonSchema(schema: unknown): unknown {
 
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(schema)) {
-    if (
-      key === "additionalProperties" ||
-      key === "maxItems" ||
-      key === "minItems"
-    ) {
+    if (key === "additionalProperties" || key === "maxItems" || key === "minItems") {
       // Gemini enforces an opaque, undocumented cap on the *sum* of every
       // maxItems/minItems value across the whole request schema (confirmed
       // empirically against the live API: a single field passes up to ~400
@@ -130,9 +118,7 @@ function toGeminiContents(messages: LlmRequestOptions<unknown>["messages"]): {
   systemInstruction: { parts: Array<{ text: string }> } | null;
   contents: Array<{
     role: "user" | "model";
-    parts: Array<
-      { text: string } | { inlineData: { mimeType: string; data: string } }
-    >;
+    parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }>;
   }>;
 } {
   const systemParts: string[] = [];
@@ -145,8 +131,7 @@ function toGeminiContents(messages: LlmRequestOptions<unknown>["messages"]): {
       return true;
     })
     .map((message) => {
-      const role: "user" | "model" =
-        message.role === "assistant" ? "model" : "user";
+      const role: "user" | "model" = message.role === "assistant" ? "model" : "user";
       if (typeof message.content === "string") {
         return { role, parts: [{ text: message.content }] };
       }

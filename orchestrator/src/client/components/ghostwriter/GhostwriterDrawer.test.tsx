@@ -18,9 +18,7 @@ vi.mock("@/components/ui/sheet", async () => {
     open: boolean;
     onOpenChange: (open: boolean) => void;
   };
-  const SheetContext = ReactModule.createContext<SheetContextValue | null>(
-    null,
-  );
+  const SheetContext = ReactModule.createContext<SheetContextValue | null>(null);
 
   const useSheetContext = () => {
     const context = ReactModule.useContext(SheetContext);
@@ -39,11 +37,7 @@ vi.mock("@/components/ui/sheet", async () => {
       open: boolean;
       onOpenChange: (open: boolean) => void;
       children: React.ReactNode;
-    }) => (
-      <SheetContext.Provider value={{ open, onOpenChange }}>
-        {children}
-      </SheetContext.Provider>
-    ),
+    }) => <SheetContext.Provider value={{ open, onOpenChange }}>{children}</SheetContext.Provider>,
     SheetTrigger: ({ children }: { children: React.ReactElement }) => {
       const { onOpenChange } = useSheetContext();
       return ReactModule.cloneElement(children, {
@@ -56,13 +50,7 @@ vi.mock("@/components/ui/sheet", async () => {
         onClick: () => onOpenChange(false),
       });
     },
-    SheetContent: ({
-      className,
-      children,
-    }: {
-      className?: string;
-      children: React.ReactNode;
-    }) => {
+    SheetContent: ({ className, children }: { className?: string; children: React.ReactNode }) => {
       const { open } = useSheetContext();
       if (!open) return null;
       return (
@@ -71,23 +59,13 @@ vi.mock("@/components/ui/sheet", async () => {
         </div>
       );
     },
-    SheetHeader: ({
-      className,
-      children,
-    }: {
-      className?: string;
-      children: React.ReactNode;
-    }) => (
+    SheetHeader: ({ className, children }: { className?: string; children: React.ReactNode }) => (
       <div data-testid="sheet-header" className={className}>
         {children}
       </div>
     ),
-    SheetTitle: ({ children }: { children: React.ReactNode }) => (
-      <h2>{children}</h2>
-    ),
-    SheetDescription: ({ children }: { children: React.ReactNode }) => (
-      <p>{children}</p>
-    ),
+    SheetTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+    SheetDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
   };
 });
 
@@ -135,9 +113,7 @@ describe("GhostwriterDrawer", () => {
     const content = screen.getByTestId("sheet-content");
     expect(content.className).toContain("lg:w-[50vw]");
     expect(content.className).not.toContain("w-screen");
-    expect(
-      screen.getByRole("button", { name: "Open Ghostwriter pop-up" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Ghostwriter pop-up" })).toBeInTheDocument();
   });
 
   it("restores fullscreen mode from localStorage on desktop", () => {
@@ -150,9 +126,7 @@ describe("GhostwriterDrawer", () => {
     const content = screen.getByTestId("sheet-content");
     expect(content.className).toContain("w-screen");
     expect(content.className).toContain("max-w-none");
-    expect(
-      screen.getByRole("button", { name: "Restore Ghostwriter drawer" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Restore Ghostwriter drawer" })).toBeInTheDocument();
   });
 
   it("toggles display mode on desktop and persists the new preference", () => {
@@ -161,23 +135,13 @@ describe("GhostwriterDrawer", () => {
     render(<GhostwriterDrawer job={createJob()} />);
     fireEvent.click(screen.getByRole("button", { name: "Ghostwriter" }));
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Open Ghostwriter pop-up" }),
-    );
-    expect(window.localStorage.getItem(DISPLAY_MODE_STORAGE_KEY)).toBe(
-      "fullscreen",
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Open Ghostwriter pop-up" }));
+    expect(window.localStorage.getItem(DISPLAY_MODE_STORAGE_KEY)).toBe("fullscreen");
     expect(screen.getByTestId("sheet-content").className).toContain("w-screen");
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Restore Ghostwriter drawer" }),
-    );
-    expect(window.localStorage.getItem(DISPLAY_MODE_STORAGE_KEY)).toBe(
-      "drawer",
-    );
-    expect(screen.getByTestId("sheet-content").className).toContain(
-      "lg:w-[50vw]",
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Restore Ghostwriter drawer" }));
+    expect(window.localStorage.getItem(DISPLAY_MODE_STORAGE_KEY)).toBe("drawer");
+    expect(screen.getByTestId("sheet-content").className).toContain("lg:w-[50vw]");
   });
 
   it("hides mode toggle on mobile and keeps drawer layout", () => {
@@ -217,12 +181,8 @@ describe("GhostwriterDrawer", () => {
     expect(panelLifecycle.mounts).toBe(1);
     expect(panelLifecycle.unmounts).toBe(0);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Open Ghostwriter pop-up" }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Restore Ghostwriter drawer" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Open Ghostwriter pop-up" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore Ghostwriter drawer" }));
 
     expect(screen.getByTestId("ghostwriter-panel")).toBeInTheDocument();
     expect(panelLifecycle.mounts).toBe(1);

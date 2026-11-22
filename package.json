@@ -13,8 +13,8 @@
     "check:types:shared": "npm --workspace shared run check:types",
     "check:types": "npm --workspace shared run check:types && npm --workspace orchestrator run check:types",
     "check:types:ukvisajobs": "npm --workspace ukvisajobs-extractor run check:types",
-    "check:all": "./orchestrator/node_modules/.bin/biome ci .",
-    "format:all": "./orchestrator/node_modules/.bin/biome format . --write",
+    "check:all": "vp check",
+    "format:all": "vp fmt",
     "check:types:gradcracker": "npm --workspace gradcracker-extractor run check:types",
     "docs:dev": "npm --workspace docs-site run start",
     "docs:build": "npm --workspace docs-site run build",
@@ -30,7 +30,8 @@
     "@types/node": "^25.2.3",
     "knip": "^5.83.1",
     "tsx": "^4.19.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite-plus": "^1.7.0"
   },
   "volta": {
     "node": "22.22.1"

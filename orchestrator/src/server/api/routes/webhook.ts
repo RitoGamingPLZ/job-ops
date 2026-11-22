@@ -7,11 +7,7 @@ import { sanitizeUnknown } from "@infra/sanitize";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { isDemoMode } from "@server/config/demo";
 import { runPipeline } from "@server/pipeline/index";
-import {
-  cleanupOldBackups,
-  createBackup,
-  getBackupSettings,
-} from "@server/services/backup";
+import { cleanupOldBackups, createBackup, getBackupSettings } from "@server/services/backup";
 import { simulatePipelineRun } from "@server/services/demo-simulator";
 import { runDueScheduledPipelinesForHour } from "@server/services/pipeline-scheduler";
 import { type Request, type Response, Router } from "express";
@@ -44,10 +40,7 @@ webhookRouter.post("/trigger", async (req: Request, res: Response) => {
     }
 
     if (getJobOpsAppConfig().appMode === "hosted") {
-      return fail(
-        res,
-        forbidden("Webhook pipeline trigger is unavailable in hosted mode."),
-      );
+      return fail(res, forbidden("Webhook pipeline trigger is unavailable in hosted mode."));
     }
 
     // Start pipeline in background
@@ -91,10 +84,7 @@ function resolveCronHour(body: unknown): number {
     ) {
       return record.hour;
     }
-    if (
-      typeof record.scheduledTime === "number" ||
-      typeof record.scheduledTime === "string"
-    ) {
+    if (typeof record.scheduledTime === "number" || typeof record.scheduledTime === "string") {
       const parsed = new Date(record.scheduledTime);
       if (!Number.isNaN(parsed.getTime())) {
         return parsed.getUTCHours();

@@ -42,9 +42,7 @@ export async function runCliProcess(args: {
     }
 
     child.stdout?.on("data", (chunk: Buffer | string) => {
-      stdoutChunks.push(
-        typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk,
-      );
+      stdoutChunks.push(typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk);
     });
 
     child.stderr?.on("data", (chunk: Buffer | string) => {
@@ -84,11 +82,7 @@ export async function runCliProcess(args: {
         const stderr = stderrLines.join(" | ");
         if (code !== 0) {
           reject(
-            new Error(
-              stderr ||
-                stdout ||
-                `${args.label} exited with code ${code ?? "unknown"}.`,
-            ),
+            new Error(stderr || stdout || `${args.label} exited with code ${code ?? "unknown"}.`),
           );
           return;
         }

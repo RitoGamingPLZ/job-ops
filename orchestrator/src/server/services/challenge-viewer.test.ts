@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  createChallengeViewerSession,
-  revokeChallengeViewerSessions,
-} from "./challenge-viewer";
+import { createChallengeViewerSession, revokeChallengeViewerSessions } from "./challenge-viewer";
 
 describe("challenge viewer tenant ownership", () => {
   it("issues a viewer token only while its private scope owns the desktop", () => {

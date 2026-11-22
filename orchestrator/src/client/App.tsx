@@ -4,13 +4,7 @@
 
 import { X } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { CSSTransition, SwitchTransition } from "react-transition-group";
 
 import { Button } from "@/components/ui/button";
@@ -62,18 +56,16 @@ export const App: React.FC = () => {
   const navigate = useNavigate();
   const nodeRef = useRef<HTMLDivElement>(null);
   const isAuthRoute =
-    location.pathname === "/sign-in" ||
-    location.pathname.startsWith("/sso/callback/");
+    location.pathname === "/sign-in" || location.pathname.startsWith("/sso/callback/");
   const demoInfo = useDemoInfo({ enabled: !isAuthRoute });
   const showDemoBanners = !isAuthRoute && demoInfo?.demoMode;
-  const [demoWaitlistBannerDismissed, setDemoWaitlistBannerDismissed] =
-    useState(() => {
-      try {
-        return localStorage.getItem(DEMO_WAITLIST_BANNER_DISMISSED_KEY) === "1";
-      } catch {
-        return false;
-      }
-    });
+  const [demoWaitlistBannerDismissed, setDemoWaitlistBannerDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(DEMO_WAITLIST_BANNER_DISMISSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
 
   // Determine a stable key for transitions to avoid unnecessary unmounts when switching sub-tabs
   const pageKey = React.useMemo(() => {
@@ -87,11 +79,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     setAuthNavigator((nextPath) => {
       const search = new URLSearchParams();
-      if (
-        nextPath &&
-        nextPath !== "/sign-in" &&
-        !nextPath.startsWith("/sign-in?")
-      ) {
+      if (nextPath && nextPath !== "/sign-in" && !nextPath.startsWith("/sign-in?")) {
         search.set("next", nextPath);
       }
       navigate(`/sign-in${search.toString() ? `?${search.toString()}` : ""}`, {
@@ -119,8 +107,7 @@ export const App: React.FC = () => {
                 {!demoWaitlistBannerDismissed && (
                   <>
                     {" "}
-                    This is a read-only demo. Want JobOps without the Docker
-                    setup?{" "}
+                    This is a read-only demo. Want JobOps without the Docker setup?{" "}
                     <a
                       className="font-semibold underline underline-offset-2 hover:text-amber-50"
                       href="https://try.jobops.app?utm_source=demo&utm_medium=banner&utm_campaign=waitlist"
@@ -141,10 +128,7 @@ export const App: React.FC = () => {
                   onClick={() => {
                     setDemoWaitlistBannerDismissed(true);
                     try {
-                      localStorage.setItem(
-                        DEMO_WAITLIST_BANNER_DISMISSED_KEY,
-                        "1",
-                      );
+                      localStorage.setItem(DEMO_WAITLIST_BANNER_DISMISSED_KEY, "1");
                     } catch {
                       // Ignore storage errors in restricted browser contexts.
                     }
@@ -170,43 +154,21 @@ export const App: React.FC = () => {
                 <Routes location={location}>
                   {/* Backwards-compatibility redirects */}
                   {REDIRECTS.map(({ from, to }) => (
-                    <Route
-                      key={from}
-                      path={from}
-                      element={<Navigate to={to} replace />}
-                    />
+                    <Route key={from} path={from} element={<Navigate to={to} replace />} />
                   ))}
 
                   {/* Application routes */}
                   <Route path="/overview" element={<HomePage />} />
-                  <Route
-                    path="/oauth/gmail/callback"
-                    element={<GmailOauthCallbackPage />}
-                  />
+                  <Route path="/oauth/gmail/callback" element={<GmailOauthCallbackPage />} />
                   <Route path="/job/:id" element={<JobPage />} />
                   <Route path="/job/:id/:view" element={<JobPage />} />
-                  <Route
-                    path="/applications/in-progress"
-                    element={<InProgressBoardPage />}
-                  />
+                  <Route path="/applications/in-progress" element={<InProgressBoardPage />} />
                   <Route path="/resumes" element={<ResumesPage />} />
                   <Route path="/library" element={<ResumeLibraryPage />} />
-                  <Route
-                    path="/resumes/library"
-                    element={<Navigate to="/library" replace />}
-                  />
-                  <Route
-                    path="/resumes/base"
-                    element={<ResumeCoworkPage base />}
-                  />
-                  <Route
-                    path="/resumes/:jobId"
-                    element={<ResumeCoworkPage />}
-                  />
-                  <Route
-                    path="/design-resume"
-                    element={<Navigate to="/resumes/base" replace />}
-                  />
+                  <Route path="/resumes/library" element={<Navigate to="/library" replace />} />
+                  <Route path="/resumes/base" element={<ResumeCoworkPage base />} />
+                  <Route path="/resumes/:jobId" element={<ResumeCoworkPage />} />
+                  <Route path="/design-resume" element={<Navigate to="/resumes/base" replace />} />
                   <Route
                     path="/design-resume/:section"
                     element={<Navigate to="/resumes/base" replace />}
@@ -214,21 +176,12 @@ export const App: React.FC = () => {
                   <Route path="/onboarding" element={<OnboardingPage />} />
                   <Route path="/offline" element={<OfflinePage />} />
                   <Route path="/sign-in" element={<SignInPage />} />
-                  <Route
-                    path="/sso/callback/:provider"
-                    element={<SsoCallbackPage />}
-                  />
+                  <Route path="/sso/callback/:provider" element={<SsoCallbackPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
-                  <Route
-                    path="/tracking-inbox"
-                    element={<TrackingInboxRoute />}
-                  />
+                  <Route path="/tracking-inbox" element={<TrackingInboxRoute />} />
                   <Route path="/watchlist" element={<WatchlistPage />} />
                   <Route path="/jobs/:tab" element={<OrchestratorPage />} />
-                  <Route
-                    path="/jobs/:tab/:jobId"
-                    element={<OrchestratorPage />}
-                  />
+                  <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
                 </Routes>
               </div>
             </CSSTransition>

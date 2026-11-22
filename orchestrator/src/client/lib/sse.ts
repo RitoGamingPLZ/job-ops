@@ -1,7 +1,4 @@
-import {
-  getCachedAuthHeader,
-  recoverAuthHeaderAfterUnauthorized,
-} from "@client/api/client";
+import { getCachedAuthHeader, recoverAuthHeaderAfterUnauthorized } from "@client/api/client";
 
 interface EventSourceSubscriptionHandlers<T> {
   onOpen?: () => void;
@@ -22,10 +19,7 @@ function parseSseFrame(frame: string): string | null {
   return dataLines.length > 0 ? dataLines.join("\n") : null;
 }
 
-function emitParsedFrame<T>(
-  frame: string,
-  handlers: EventSourceSubscriptionHandlers<T>,
-): void {
+function emitParsedFrame<T>(frame: string, handlers: EventSourceSubscriptionHandlers<T>): void {
   const data = parseSseFrame(frame);
   if (!data) return;
 
@@ -68,8 +62,7 @@ export function subscribeToEventSource<T>(
         });
 
         if (response.status === 401 && authAttempt < 1) {
-          const recoveredAuthHeader =
-            await recoverAuthHeaderAfterUnauthorized();
+          const recoveredAuthHeader = await recoverAuthHeaderAfterUnauthorized();
           if (!recoveredAuthHeader) {
             handlers.onError?.();
             return;

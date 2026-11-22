@@ -52,8 +52,7 @@ describe("bamboohrWatchlistAdapter", () => {
             JSON.stringify({
               result: {
                 name: "Ashtead Technology",
-                logoUrl:
-                  "https://images4.bamboohr.com/618032/logos/cropped.jpg?v=28",
+                logoUrl: "https://images4.bamboohr.com/618032/logos/cropped.jpg?v=28",
               },
             }),
             {
@@ -118,8 +117,7 @@ describe("bamboohrWatchlistAdapter", () => {
             JSON.stringify({
               result: {
                 jobOpening: {
-                  jobOpeningShareUrl:
-                    "https://ashteadtechnology.bamboohr.com/careers/134",
+                  jobOpeningShareUrl: "https://ashteadtechnology.bamboohr.com/careers/134",
                   jobOpeningName: "Onshore Electrical Technician",
                   description: "<p>Testing</p>",
                   datePosted: "2025-03-20",
@@ -189,9 +187,7 @@ describe("bamboohrWatchlistAdapter", () => {
 
     for (let index = 0; index < listJobs.length; index += 1) {
       const jobId = String(index + 1);
-      const postedAt = new Date(Date.UTC(2025, 2, index + 1))
-        .toISOString()
-        .slice(0, 10);
+      const postedAt = new Date(Date.UTC(2025, 2, index + 1)).toISOString().slice(0, 10);
       fetchMock.mockResolvedValueOnce(
         new Response(
           JSON.stringify({

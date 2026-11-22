@@ -75,8 +75,9 @@ In Google Cloud:
 2. Enable Gmail API.
 3. Create OAuth client ID (`Web application`).
 4. Add redirect URI:
-  - `http://localhost:3005/oauth/gmail/callback`
-  - Or your production URL, for example `https://your-domain.com/oauth/gmail/callback`
+
+- `http://localhost:3005/oauth/gmail/callback`
+- Or your production URL, for example `https://your-domain.com/oauth/gmail/callback`
 
 ### 2) Configure environment variables
 
@@ -150,8 +151,6 @@ If you self-host Reactive Resume, set:
 
 - `RXRESUME_URL=http://rxresume.local.net`
 - `RXRESUME_API_KEY=...` (or configure `rxresumeApiKey` in JobOps Settings)
-
-
 
 ## Local LaTeX PDF rendering
 

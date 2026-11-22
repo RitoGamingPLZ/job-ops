@@ -37,15 +37,12 @@ export function getPrivateDataScope(): PrivateDataScope {
     tenantId,
     userId,
     enforceUserIsolation,
-    scopeKey:
-      enforceUserIsolation && userId ? `${tenantId}:${userId}` : tenantId,
+    scopeKey: enforceUserIsolation && userId ? `${tenantId}:${userId}` : tenantId,
   };
 }
 
 export function getPrivateCloudflareCookieStorageDir(): string {
-  const scopeHash = createHash("sha256")
-    .update(getPrivateDataScope().scopeKey)
-    .digest("hex");
+  const scopeHash = createHash("sha256").update(getPrivateDataScope().scopeKey).digest("hex");
   return join(getDataDir(), "cloudflare-cookies", scopeHash);
 }
 

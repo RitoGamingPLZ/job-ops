@@ -18,9 +18,7 @@ export function cn(...inputs: ClassValue[]) {
 export const formatDate = (dateStr?: string | null) => {
   if (!dateStr) return null;
   try {
-    const normalized = dateStr.includes("T")
-      ? dateStr
-      : dateStr.replace(" ", "T");
+    const normalized = dateStr.includes("T") ? dateStr : dateStr.replace(" ", "T");
     const parsed = new Date(normalized);
     if (Number.isNaN(parsed.getTime())) return dateStr;
     return parsed.toLocaleDateString("en-GB", {
@@ -56,9 +54,7 @@ export const formatTimestampWithTime = (value?: number | null) => {
 export const formatDateTime = (dateStr?: string | null) => {
   if (!dateStr) return null;
   try {
-    const normalized = dateStr.includes("T")
-      ? dateStr
-      : dateStr.replace(" ", "T");
+    const normalized = dateStr.includes("T") ? dateStr : dateStr.replace(" ", "T");
     const parsed = new Date(normalized);
     if (Number.isNaN(parsed.getTime())) return dateStr;
     const date = parsed.toLocaleDateString("en-GB", {
@@ -136,14 +132,13 @@ export const formatJobForWebhook = (job: Job) => {
   );
 };
 
-export const sourceLabel: Partial<Record<Job["source"], string>> =
-  EXTRACTOR_SOURCE_IDS.reduce(
-    (acc, source) => {
-      acc[source] = getExtractorSourceLabel(source);
-      return acc;
-    },
-    {} as Partial<Record<Job["source"], string>>,
-  );
+export const sourceLabel: Partial<Record<Job["source"], string>> = EXTRACTOR_SOURCE_IDS.reduce(
+  (acc, source) => {
+    acc[source] = getExtractorSourceLabel(source);
+    return acc;
+  },
+  {} as Partial<Record<Job["source"], string>>,
+);
 
 export function formatJobSourceLabel(source?: string | null): string {
   if (!source) return "Unknown Source";

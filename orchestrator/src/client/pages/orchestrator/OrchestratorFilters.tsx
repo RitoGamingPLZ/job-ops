@@ -72,10 +72,7 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
   });
 
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(value) => onTabChange(value as FilterTab)}
-    >
+    <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as FilterTab)}>
       <div className="space-y-3">
         <OrchestratorTabRow
           counts={counts}
@@ -116,10 +113,7 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
               onEmploymentTypesChange={onEmploymentTypesChange}
             />
 
-            <DateFilterPill
-              dateFilter={dateFilter}
-              onDateFilterChange={onDateFilterChange}
-            />
+            <DateFilterPill dateFilter={dateFilter} onDateFilterChange={onDateFilterChange} />
 
             <SalaryFilterPill
               salaryFilter={salaryFilter}

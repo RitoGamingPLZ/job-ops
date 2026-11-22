@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.sequential("Application Tracking Service", () => {
+describe("Application Tracking Service", () => {
   let tempDir: string;
   let db: any;
   let schema: any;
@@ -50,28 +50,17 @@ describe.sequential("Application Tracking Service", () => {
     expect(event1.toStage).toBe("applied");
 
     // Check Job Status
-    const jobAfter1 = await db
-      .select()
-      .from(schema.jobs)
-      .where(eq(schema.jobs.id, job.id))
-      .get();
+    const jobAfter1 = await db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get();
     expect(jobAfter1?.status).toBe("applied");
     expect(jobAfter1?.appliedAt).toBeTruthy();
 
     // 2. Next Transition (Recruiter Screen)
-    const event2 = applicationTracking.transitionStage(
-      job.id,
-      "recruiter_screen",
-    );
+    const event2 = applicationTracking.transitionStage(job.id, "recruiter_screen");
     expect(event2.fromStage).toBe("applied");
     expect(event2.toStage).toBe("recruiter_screen");
 
     // Check Job Status (moves to in_progress beyond applied stage)
-    const jobAfter2 = await db
-      .select()
-      .from(schema.jobs)
-      .where(eq(schema.jobs.id, job.id))
-      .get();
+    const jobAfter2 = await db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get();
     expect(jobAfter2?.status).toBe("in_progress");
   });
 
@@ -109,11 +98,7 @@ describe.sequential("Application Tracking Service", () => {
 
     const now = Math.floor(Date.now() / 1000);
     applicationTracking.transitionStage(job.id, "applied", now - 100);
-    const event2 = applicationTracking.transitionStage(
-      job.id,
-      "recruiter_screen",
-      now,
-    );
+    const event2 = applicationTracking.transitionStage(job.id, "recruiter_screen", now);
 
     // Update event2 (latest) to 'offer'
     applicationTracking.updateStageEvent(event2.id, { toStage: "offer" });
@@ -124,11 +109,7 @@ describe.sequential("Application Tracking Service", () => {
     expect(updatedEvent2?.toStage).toBe("offer");
 
     // Verify Job Status Updated
-    const jobUpdated = await db
-      .select()
-      .from(schema.jobs)
-      .where(eq(schema.jobs.id, job.id))
-      .get();
+    const jobUpdated = await db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get();
     expect(jobUpdated?.status).toBe("in_progress");
     expect(jobUpdated?.outcome).toBe("offer_accepted");
   });
@@ -154,11 +135,7 @@ describe.sequential("Application Tracking Service", () => {
     ); // event2
 
     // Verify job is closed/rejected
-    let jobCheck = await db
-      .select()
-      .from(schema.jobs)
-      .where(eq(schema.jobs.id, job.id))
-      .get();
+    let jobCheck = await db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get();
     expect(jobCheck?.status).toBe("in_progress");
     expect(jobCheck?.outcome).toBe("rejected");
 
@@ -166,11 +143,7 @@ describe.sequential("Application Tracking Service", () => {
     applicationTracking.deleteStageEvent(event2.id);
 
     // Verify job status reverted to event1 (applied)
-    jobCheck = await db
-      .select()
-      .from(schema.jobs)
-      .where(eq(schema.jobs.id, job.id))
-      .get();
+    jobCheck = await db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get();
     expect(jobCheck?.status).toBe("applied");
     expect(jobCheck?.outcome).toBeNull();
   });
@@ -184,14 +157,9 @@ describe.sequential("Application Tracking Service", () => {
     });
 
     applicationTracking.transitionStage(job.id, "applied");
-    const noteEvent = applicationTracking.transitionStage(
-      job.id,
-      "no_change",
-      undefined,
-      {
-        note: "Just checking in",
-      },
-    );
+    const noteEvent = applicationTracking.transitionStage(job.id, "no_change", undefined, {
+      note: "Just checking in",
+    });
 
     expect(noteEvent.toStage).toBe("applied");
 
@@ -218,11 +186,7 @@ describe.sequential("Application Tracking Service", () => {
       "rejected",
     );
 
-    let jobCheck = await db
-      .select()
-      .from(schema.jobs)
-      .where(eq(schema.jobs.id, job.id))
-      .get();
+    let jobCheck = await db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get();
     expect(jobCheck?.outcome).toBe("rejected");
     expect(jobCheck?.closedAt).toBe(now);
 
@@ -230,31 +194,19 @@ describe.sequential("Application Tracking Service", () => {
     applicationTracking.updateStageEvent(event2.id, {
       toStage: "technical_interview",
     });
-    jobCheck = await db
-      .select()
-      .from(schema.jobs)
-      .where(eq(schema.jobs.id, job.id))
-      .get();
+    jobCheck = await db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get();
     expect(jobCheck?.outcome).toBeNull();
     expect(jobCheck?.closedAt).toBeNull();
 
     // 2. Update event2 back to a closure
     applicationTracking.updateStageEvent(event2.id, { toStage: "offer" });
-    jobCheck = await db
-      .select()
-      .from(schema.jobs)
-      .where(eq(schema.jobs.id, job.id))
-      .get();
+    jobCheck = await db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get();
     expect(jobCheck?.outcome).toBe("offer_accepted");
     expect(jobCheck?.closedAt).toBe(now);
 
     // 3. Delete the closure event
     applicationTracking.deleteStageEvent(event2.id);
-    jobCheck = await db
-      .select()
-      .from(schema.jobs)
-      .where(eq(schema.jobs.id, job.id))
-      .get();
+    jobCheck = await db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get();
     expect(jobCheck?.outcome).toBeNull();
     expect(jobCheck?.closedAt).toBeNull();
   });
@@ -271,11 +223,7 @@ describe.sequential("Application Tracking Service", () => {
     applicationTracking.transitionStage(job.id, "applied", now - 100);
     applicationTracking.transitionStage(job.id, "closed", now);
 
-    const jobCheck = await db
-      .select()
-      .from(schema.jobs)
-      .where(eq(schema.jobs.id, job.id))
-      .get();
+    const jobCheck = await db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get();
     expect(jobCheck?.status).toBe("in_progress");
     expect(jobCheck?.outcome).toBeNull();
     expect(jobCheck?.closedAt).toBe(now);
@@ -303,11 +251,7 @@ describe.sequential("Application Tracking Service", () => {
       metadata: { note: "Withdrew after offer" },
     });
 
-    const jobCheck = await db
-      .select()
-      .from(schema.jobs)
-      .where(eq(schema.jobs.id, job.id))
-      .get();
+    const jobCheck = await db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get();
     expect(jobCheck?.outcome).toBe("withdrawn");
     expect(jobCheck?.closedAt).toBe(now);
   });

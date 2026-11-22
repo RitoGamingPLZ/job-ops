@@ -30,13 +30,7 @@ function sourceBaseUrl(source: JobSource): string {
   return DEMO_SOURCE_BASE_URLS[source];
 }
 
-const SOURCE_CYCLE: JobSource[] = [
-  "linkedin",
-  "indeed",
-  "gradcracker",
-  "ukvisajobs",
-  "manual",
-];
+const SOURCE_CYCLE: JobSource[] = ["linkedin", "indeed", "gradcracker", "ukvisajobs", "manual"];
 
 const ROLE_TRACK = [
   "Backend Engineer",
@@ -47,19 +41,9 @@ const ROLE_TRACK = [
   "TypeScript Engineer",
 ] as const;
 
-const FOCUS_TRACK = [
-  "Core Platform",
-  "Integrations",
-  "Data",
-  "Reliability",
-] as const;
+const FOCUS_TRACK = ["Core Platform", "Integrations", "Data", "Reliability"] as const;
 
-const LOCATION_TRACK = [
-  "Remote (US)",
-  "New York, NY",
-  "Chicago, IL",
-  "Austin, TX",
-] as const;
+const LOCATION_TRACK = ["Remote (US)", "New York, NY", "Chicago, IL", "Austin, TX"] as const;
 
 const PROJECT_ID_SETS = [
   "demo-project-1,demo-project-4,demo-project-5",
@@ -72,38 +56,21 @@ function buildDemoDeadline(idx: number): string {
   // Use Date rollover so month/day track changes cannot generate invalid dates.
   const monthIndex = 2 + (idx % 6); // March..August (0-indexed months)
   const dayOfMonth = (idx % 26) + 1;
-  return new Date(Date.UTC(2026, monthIndex, dayOfMonth))
-    .toISOString()
-    .slice(0, 10);
+  return new Date(Date.UTC(2026, monthIndex, dayOfMonth)).toISOString().slice(0, 10);
 }
 
-const baseDiscoveredCount = DEMO_BASE_JOBS.filter(
-  (job) => job.status === "discovered",
-).length;
-const baseReadyCount = DEMO_BASE_JOBS.filter(
-  (job) => job.status === "ready",
-).length;
-const baseAppliedCount = DEMO_BASE_JOBS.filter(
-  (job) => job.status === "applied",
-).length;
+const baseDiscoveredCount = DEMO_BASE_JOBS.filter((job) => job.status === "discovered").length;
+const baseReadyCount = DEMO_BASE_JOBS.filter((job) => job.status === "ready").length;
+const baseAppliedCount = DEMO_BASE_JOBS.filter((job) => job.status === "applied").length;
 
 const TARGET_DISCOVERED_TOTAL = 45;
 const TARGET_READY_TOTAL = Math.floor(TARGET_DISCOVERED_TOTAL / 3);
 // Keep applied volume high in demo seeds so stage timelines have enough events.
 const TARGET_APPLIED_TOTAL = TARGET_DISCOVERED_TOTAL;
 
-const GENERATED_DISCOVERED_JOB_COUNT = Math.max(
-  TARGET_DISCOVERED_TOTAL - baseDiscoveredCount,
-  0,
-);
-const GENERATED_READY_JOB_COUNT = Math.max(
-  TARGET_READY_TOTAL - baseReadyCount,
-  0,
-);
-const GENERATED_APPLIED_JOB_COUNT = Math.max(
-  TARGET_APPLIED_TOTAL - baseAppliedCount,
-  0,
-);
+const GENERATED_DISCOVERED_JOB_COUNT = Math.max(TARGET_DISCOVERED_TOTAL - baseDiscoveredCount, 0);
+const GENERATED_READY_JOB_COUNT = Math.max(TARGET_READY_TOTAL - baseReadyCount, 0);
+const GENERATED_APPLIED_JOB_COUNT = Math.max(TARGET_APPLIED_TOTAL - baseAppliedCount, 0);
 
 function buildGeneratedJob(
   idx: number,
@@ -144,8 +111,7 @@ function buildGeneratedJob(
   >;
 
   if (status === "applied") {
-    const appliedDaysAgo =
-      2 + Math.floor((idx * 18) / Math.max(GENERATED_APPLIED_JOB_COUNT, 1));
+    const appliedDaysAgo = 2 + Math.floor((idx * 18) / Math.max(GENERATED_APPLIED_JOB_COUNT, 1));
     const appliedOffsetMinutes = appliedDaysAgo * 24 * 60 + (idx % 16) * 15;
     const discoveredOffsetMinutes =
       appliedOffsetMinutes + (2 + (idx % 8)) * 24 * 60 + (idx % 5) * 60;
@@ -165,8 +131,7 @@ function buildGeneratedJob(
     };
   }
 
-  const discoveredDaysAgo =
-    1 + Math.floor((idx * 29) / Math.max(TARGET_DISCOVERED_TOTAL, 1));
+  const discoveredDaysAgo = 1 + Math.floor((idx * 29) / Math.max(TARGET_DISCOVERED_TOTAL, 1));
   const discoveredOffsetMinutes = discoveredDaysAgo * 24 * 60 + (idx % 12) * 20;
 
   if (status === "ready") {
@@ -205,10 +170,7 @@ const DEMO_GENERATED_READY_JOBS: DemoDefaultJob[] = Array.from(
 const DEMO_GENERATED_APPLIED_JOBS: DemoDefaultJob[] = Array.from(
   { length: GENERATED_APPLIED_JOB_COUNT },
   (_, idx) =>
-    buildGeneratedJob(
-      idx + GENERATED_DISCOVERED_JOB_COUNT + GENERATED_READY_JOB_COUNT,
-      "applied",
-    ),
+    buildGeneratedJob(idx + GENERATED_DISCOVERED_JOB_COUNT + GENERATED_READY_JOB_COUNT, "applied"),
 );
 
 export const DEMO_DEFAULT_JOBS: DemoDefaultJob[] = [
@@ -218,8 +180,8 @@ export const DEMO_DEFAULT_JOBS: DemoDefaultJob[] = [
   ...DEMO_GENERATED_APPLIED_JOBS,
 ];
 
-const DEMO_GENERATED_STAGE_EVENTS: DemoDefaultStageEvent[] =
-  DEMO_GENERATED_APPLIED_JOBS.flatMap((job, idx) => {
+const DEMO_GENERATED_STAGE_EVENTS: DemoDefaultStageEvent[] = DEMO_GENERATED_APPLIED_JOBS.flatMap(
+  (job, idx) => {
     const n = idx + 1;
     const appliedOffset = job.appliedOffsetMinutes ?? 0;
     const events: DemoDefaultStageEvent[] = [
@@ -284,7 +246,8 @@ const DEMO_GENERATED_STAGE_EVENTS: DemoDefaultStageEvent[] =
     }
 
     return events;
-  });
+  },
+);
 
 export const DEMO_DEFAULT_STAGE_EVENTS: DemoDefaultStageEvent[] = [
   ...DEMO_BASE_STAGE_EVENTS,
@@ -299,9 +262,4 @@ export {
   DEMO_PROJECT_CATALOG,
 };
 
-export type {
-  DemoDefaultJob,
-  DemoDefaultPipelineRun,
-  DemoDefaultSettings,
-  DemoDefaultStageEvent,
-};
+export type { DemoDefaultJob, DemoDefaultPipelineRun, DemoDefaultSettings, DemoDefaultStageEvent };

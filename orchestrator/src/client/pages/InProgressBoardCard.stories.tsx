@@ -1,16 +1,11 @@
 import type { Story } from "@ladle/react";
 import type { BoardColumn, JobListItem } from "@shared/types.js";
 import React from "react";
-import {
-  InProgressBoardCard,
-  type InProgressBoardCardProps,
-} from "./InProgressBoardCard";
+import { InProgressBoardCard, type InProgressBoardCardProps } from "./InProgressBoardCard";
 
 const JOB_PAGE_LINK_STATE = { jobPageBackTo: "/applications/in-progress" };
 
-const LATEST_EVENT_AT = Math.floor(
-  Date.parse("2026-05-20T14:30:00.000Z") / 1000,
-);
+const LATEST_EVENT_AT = Math.floor(Date.parse("2026-05-20T14:30:00.000Z") / 1000);
 
 const makeJob = (overrides: Partial<JobListItem> = {}): JobListItem => ({
   id: "job-1",
@@ -62,9 +57,7 @@ const BoardCardFrame: React.FC<{
   children: React.ReactNode;
 }> = ({ label, children }) => (
   <div className="w-[296px] space-y-2">
-    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-      {label}
-    </p>
+    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
     {children}
   </div>
 );
@@ -80,9 +73,7 @@ const InteractiveBoardCard: React.FC<
         {...props}
         onDragStart={noopDrag}
         onDragEnd={noopDrag}
-        onLogEvent={() =>
-          setLastAction(`Log event · ${props.job.title} (${props.stage})`)
-        }
+        onLogEvent={() => setLastAction(`Log event · ${props.job.title} (${props.stage})`)}
       />
       {lastAction ? (
         <p className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
@@ -189,8 +180,7 @@ export const LongTitle: Story = () => (
     <InteractiveBoardCard
       {...baseCardProps}
       job={makeJob({
-        title:
-          "Senior Staff Software Engineer, Developer Productivity and Internal Platforms",
+        title: "Senior Staff Software Engineer, Developer Productivity and Internal Platforms",
         employer: "Very Long Company Name International Holdings Ltd",
       })}
     />

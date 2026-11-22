@@ -80,22 +80,17 @@ const asStreamEvents = (
   return events;
 };
 
-const mockStreamJobAction = (
-  response: JobActionResponse,
-  waitForRelease?: Promise<void>,
-) => {
-  vi.mocked(api.streamJobAction).mockImplementation(
-    async (_input, handlers) => {
-      for (const event of asStreamEvents(response)) {
-        if (event.type === "started") handlers.onEvent(event);
-      }
-      if (waitForRelease) await waitForRelease;
-      for (const event of asStreamEvents(response)) {
-        if (event.type !== "started") handlers.onEvent(event);
-      }
-      return;
-    },
-  );
+const mockStreamJobAction = (response: JobActionResponse, waitForRelease?: Promise<void>) => {
+  vi.mocked(api.streamJobAction).mockImplementation(async (_input, handlers) => {
+    for (const event of asStreamEvents(response)) {
+      if (event.type === "started") handlers.onEvent(event);
+    }
+    if (waitForRelease) await waitForRelease;
+    for (const event of asStreamEvents(response)) {
+      if (event.type !== "started") handlers.onEvent(event);
+    }
+    return;
+  });
 };
 
 describe("useJobSelectionActions", () => {

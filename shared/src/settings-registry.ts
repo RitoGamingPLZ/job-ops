@@ -60,14 +60,7 @@ function parseBitBoolOrNull(raw: string | undefined): boolean | null {
   return null;
 }
 
-const GLM_PROVIDER_ALIASES = new Set([
-  "zhipu",
-  "zhipu_ai",
-  "zhipuai",
-  "bigmodel",
-  "zai",
-  "z_ai",
-]);
+const GLM_PROVIDER_ALIASES = new Set(["zhipu", "zhipu_ai", "zhipuai", "bigmodel", "zai", "z_ai"]);
 
 /**
  * Map known GLM provider aliases to "glm".
@@ -109,10 +102,7 @@ export function getDefaultModelForProvider(
     return DEFAULT_API_ROUTE_MODEL;
   }
 
-  if (
-    normalizedProvider === "atlascloud" ||
-    normalizedProvider === "atlas_cloud"
-  ) {
+  if (normalizedProvider === "atlascloud" || normalizedProvider === "atlas_cloud") {
     return DEFAULT_ATLAS_CLOUD_MODEL;
   }
 
@@ -148,15 +138,11 @@ export function getDefaultModelForProvider(
   return DEFAULT_GEMINI_MODEL;
 }
 
-function serializeNullableNumber(
-  value: number | null | undefined,
-): string | null {
+function serializeNullableNumber(value: number | null | undefined): string | null {
   return value !== null && value !== undefined ? String(value) : null;
 }
 
-function serializeNullableJsonArray(
-  value: string[] | null | undefined,
-): string | null {
+function serializeNullableJsonArray(value: string[] | null | undefined): string | null {
   return value !== null && value !== undefined ? JSON.stringify(value) : null;
 }
 
@@ -176,9 +162,9 @@ function createEnumParser<const TValues extends readonly [string, ...string[]]>(
   };
 }
 
-function createEnumArrayParser<
-  const TValues extends readonly [string, ...string[]],
->(values: TValues): (raw: string | undefined) => TValues[number][] | null {
+function createEnumArrayParser<const TValues extends readonly [string, ...string[]]>(
+  values: TValues,
+): (raw: string | undefined) => TValues[number][] | null {
   const allowedValues = new Set<string>(values);
 
   return (raw: string | undefined): TValues[number][] | null => {
@@ -205,26 +191,20 @@ function createEnumArrayParser<
   };
 }
 
-const parseChatStyleLanguageModeOrNull = createEnumParser(
-  CHAT_STYLE_LANGUAGE_MODE_VALUES,
-);
+const parseChatStyleLanguageModeOrNull = createEnumParser(CHAT_STYLE_LANGUAGE_MODE_VALUES);
 
-const parseChatStyleManualLanguageOrNull = createEnumParser(
-  CHAT_STYLE_MANUAL_LANGUAGE_VALUES,
-);
+const parseChatStyleManualLanguageOrNull = createEnumParser(CHAT_STYLE_MANUAL_LANGUAGE_VALUES);
 const parsePdfRendererOrNull = createEnumParser(PDF_RENDERER_VALUES);
 const parseTypstThemeOrNull = createEnumParser(TYPST_THEME_VALUES);
 const parsePdfPaperSizeOrNull = createEnumParser(PDF_PAPER_SIZE_VALUES);
 
 const llmPurposeOverrideSchema = z.object({
   provider: z.preprocess(
-    (value) =>
-      typeof value === "string" ? normalizeLlmProviderOrNull(value) : value,
+    (value) => (typeof value === "string" ? normalizeLlmProviderOrNull(value) : value),
     z.enum(LLM_PROVIDER_VALUES).nullable().optional(),
   ),
   baseUrl: z.preprocess(
-    (value) =>
-      typeof value === "string" && value.trim() === "" ? null : value,
+    (value) => (typeof value === "string" && value.trim() === "" ? null : value),
     z.string().trim().url().max(2000).nullable().optional(),
   ),
   model: z.preprocess(
@@ -251,28 +231,20 @@ export const llmPurposeApiKeysSchema = z
 
 const WORKPLACE_TYPE_VALUES = ["remote", "hybrid", "onsite"] as const;
 const parseWorkplaceTypesOrNull = createEnumArrayParser(WORKPLACE_TYPE_VALUES);
-const parseLocationSearchScopeOrNull = createEnumParser(
-  LOCATION_SEARCH_SCOPE_VALUES,
-);
-const parseLocationMatchStrictnessOrNull = createEnumParser(
-  LOCATION_MATCH_STRICTNESS_VALUES,
-);
+const parseLocationSearchScopeOrNull = createEnumParser(LOCATION_SEARCH_SCOPE_VALUES);
+const parseLocationMatchStrictnessOrNull = createEnumParser(LOCATION_MATCH_STRICTNESS_VALUES);
 
 function parseJsonObjectOrNull<T>(raw: string | undefined): T | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as T)
-      : null;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as T) : null;
   } catch {
     return null;
   }
 }
 
-function parseLlmPurposeOverrides(
-  raw: string | undefined,
-): LlmPurposeOverrides | null {
+function parseLlmPurposeOverrides(raw: string | undefined): LlmPurposeOverrides | null {
   const parsed = parseJsonObjectOrNull<unknown>(raw);
   if (!parsed) return null;
 
@@ -280,9 +252,7 @@ function parseLlmPurposeOverrides(
   return result.success ? normalizeLlmPurposeOverrides(result.data) : null;
 }
 
-function parseLlmPurposeApiKeys(
-  raw: string | undefined,
-): LlmPurposeApiKeys | null {
+function parseLlmPurposeApiKeys(raw: string | undefined): LlmPurposeApiKeys | null {
   const parsed = parseJsonObjectOrNull<unknown>(raw);
   if (!parsed) return null;
 
@@ -348,14 +318,10 @@ export const settingsRegistry = {
     schema: z.string().trim().max(200),
     default: (): string =>
       typeof process !== "undefined"
-        ? getDefaultModelForProvider(
-            process.env.LLM_PROVIDER,
-            process.env.MODEL,
-          )
+        ? getDefaultModelForProvider(process.env.LLM_PROVIDER, process.env.MODEL)
         : DEFAULT_GEMINI_MODEL,
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   llmProvider: {
     kind: "typed" as const,
@@ -369,8 +335,7 @@ export const settingsRegistry = {
         ? normalizeLlmProviderOrNull(process.env.LLM_PROVIDER) || "openrouter"
         : "openrouter",
     parse: normalizeLlmProviderOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   llmBaseUrl: {
     kind: "typed" as const,
@@ -379,21 +344,16 @@ export const settingsRegistry = {
       (v) => (v === "" ? null : v),
       z.string().trim().url().max(2000).nullable(),
     ),
-    default: (): string =>
-      typeof process !== "undefined" ? process.env.LLM_BASE_URL || "" : "",
+    default: (): string => (typeof process !== "undefined" ? process.env.LLM_BASE_URL || "" : ""),
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   llmPurposeOverrides: {
     kind: "typed" as const,
     schema: llmPurposeOverridesSchema,
     default: (): LlmPurposeOverrides => ({}),
-    parse: (raw: string | undefined): LlmPurposeOverrides | null =>
-      parseLlmPurposeOverrides(raw),
-    serialize: (
-      value: LlmPurposeOverrides | null | undefined,
-    ): string | null => {
+    parse: (raw: string | undefined): LlmPurposeOverrides | null => parseLlmPurposeOverrides(raw),
+    serialize: (value: LlmPurposeOverrides | null | undefined): string | null => {
       const normalized = normalizeLlmPurposeOverrides(value);
       return normalized ? JSON.stringify(normalized) : null;
     },
@@ -406,19 +366,15 @@ export const settingsRegistry = {
         ? process.env.PIPELINE_WEBHOOK_URL || process.env.WEBHOOK_URL || ""
         : "",
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   jobCompleteWebhookUrl: {
     kind: "typed" as const,
     schema: z.string().trim().max(2000),
     default: (): string =>
-      typeof process !== "undefined"
-        ? process.env.JOB_COMPLETE_WEBHOOK_URL || ""
-        : "",
+      typeof process !== "undefined" ? process.env.JOB_COMPLETE_WEBHOOK_URL || "" : "",
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   resumeProjects: {
     kind: "typed" as const,
@@ -436,9 +392,7 @@ export const settingsRegistry = {
         return null;
       }
     },
-    serialize: (
-      value: ResumeProjectsSettings | null | undefined,
-    ): string | null => {
+    serialize: (value: ResumeProjectsSettings | null | undefined): string | null => {
       return value ? JSON.stringify(value) : null;
     },
   },
@@ -447,24 +401,21 @@ export const settingsRegistry = {
     schema: z.enum(PDF_RENDERER_VALUES),
     default: (): PdfRenderer => "rxresume",
     parse: parsePdfRendererOrNull,
-    serialize: (value: PdfRenderer | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: PdfRenderer | null | undefined): string | null => value ?? null,
   },
   typstTheme: {
     kind: "typed" as const,
     schema: z.enum(TYPST_THEME_VALUES),
     default: (): TypstTheme => "classic",
     parse: parseTypstThemeOrNull,
-    serialize: (value: TypstTheme | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: TypstTheme | null | undefined): string | null => value ?? null,
   },
   pdfPaperSize: {
     kind: "typed" as const,
     schema: z.enum(PDF_PAPER_SIZE_VALUES),
     default: (): PdfPaperSize => "auto",
     parse: parsePdfPaperSizeOrNull,
-    serialize: (value: PdfPaperSize | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: PdfPaperSize | null | undefined): string | null => value ?? null,
   },
   ukvisajobsMaxJobs: {
     kind: "typed" as const,
@@ -478,9 +429,7 @@ export const settingsRegistry = {
     schema: z.number().int().min(1).max(1000),
     default: (): number =>
       parseInt(
-        typeof process !== "undefined"
-          ? process.env.ADZUNA_MAX_JOBS_PER_TERM || "50"
-          : "50",
+        typeof process !== "undefined" ? process.env.ADZUNA_MAX_JOBS_PER_TERM || "50" : "50",
         10,
       ),
     parse: parseIntOrNull,
@@ -498,9 +447,7 @@ export const settingsRegistry = {
     schema: z.number().int().min(1).max(1000),
     default: (): number =>
       parseInt(
-        typeof process !== "undefined"
-          ? process.env.STARTUPJOBS_MAX_RESULTS || "50"
-          : "50",
+        typeof process !== "undefined" ? process.env.STARTUPJOBS_MAX_RESULTS || "50" : "50",
         10,
       ),
     parse: parseIntOrNull,
@@ -511,9 +458,7 @@ export const settingsRegistry = {
     schema: z.number().int().min(1).max(1000),
     default: (): number =>
       parseInt(
-        typeof process !== "undefined"
-          ? process.env.SEEK_MAX_JOBS_PER_TERM || "50"
-          : "50",
+        typeof process !== "undefined" ? process.env.SEEK_MAX_JOBS_PER_TERM || "50" : "50",
         10,
       ),
     parse: parseIntOrNull,
@@ -524,9 +469,7 @@ export const settingsRegistry = {
     schema: z.number().int().min(1).max(1000),
     default: (): number =>
       parseInt(
-        typeof process !== "undefined"
-          ? process.env.NAUKRI_MAX_JOBS_PER_TERM || "50"
-          : "50",
+        typeof process !== "undefined" ? process.env.NAUKRI_MAX_JOBS_PER_TERM || "50" : "50",
         10,
       ),
     parse: parseIntOrNull,
@@ -537,9 +480,7 @@ export const settingsRegistry = {
     schema: z.number().int().min(1).max(1000),
     default: (): number =>
       parseInt(
-        typeof process !== "undefined"
-          ? process.env.JOBINDEX_MAX_JOBS_PER_TERM || "50"
-          : "50",
+        typeof process !== "undefined" ? process.env.JOBINDEX_MAX_JOBS_PER_TERM || "50" : "50",
         10,
       ),
     parse: parseIntOrNull,
@@ -562,11 +503,7 @@ export const settingsRegistry = {
   workplaceTypes: {
     kind: "typed" as const,
     schema: z.array(z.enum(WORKPLACE_TYPE_VALUES)).min(1).max(3),
-    default: (): Array<(typeof WORKPLACE_TYPE_VALUES)[number]> => [
-      "remote",
-      "hybrid",
-      "onsite",
-    ],
+    default: (): Array<(typeof WORKPLACE_TYPE_VALUES)[number]> => ["remote", "hybrid", "onsite"],
     parse: parseWorkplaceTypesOrNull,
     serialize: serializeNullableJsonArray,
   },
@@ -589,8 +526,7 @@ export const settingsRegistry = {
     schema: z.string().trim().max(300),
     default: (): string => "",
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   onboardingLegacyMigrationPending: {
     kind: "typed" as const,
@@ -611,17 +547,14 @@ export const settingsRegistry = {
     schema: z.string().trim().max(4000),
     default: (): string => "",
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   ghostwriterSystemPromptTemplate: {
     kind: "typed" as const,
     schema: z.string().trim().max(12000),
-    default: (): string =>
-      getDefaultPromptTemplate("ghostwriterSystemPromptTemplate"),
+    default: (): string => getDefaultPromptTemplate("ghostwriterSystemPromptTemplate"),
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   ghostwriterStopSlopEnabled: {
     kind: "typed" as const,
@@ -633,30 +566,24 @@ export const settingsRegistry = {
   resumeGenerationPromptTemplate: {
     kind: "typed" as const,
     schema: z.string().trim().max(12000),
-    default: (): string =>
-      getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
+    default: (): string => getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
     parse: (raw: string | undefined): string | null =>
-      raw === LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE
-        ? null
-        : parseNonEmptyStringOrNull(raw),
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+      raw === LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE ? null : parseNonEmptyStringOrNull(raw),
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   tailoringPromptTemplate: {
     kind: "typed" as const,
     schema: z.string().trim().max(12000),
     default: (): string => getDefaultPromptTemplate("tailoringPromptTemplate"),
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   scoringPromptTemplate: {
     kind: "typed" as const,
     schema: z.string().trim().max(12000),
     default: (): string => getDefaultPromptTemplate("scoringPromptTemplate"),
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   searchCities: {
     kind: "typed" as const,
@@ -666,16 +593,14 @@ export const settingsRegistry = {
         ? process.env.SEARCH_CITIES || process.env.JOBSPY_LOCATION || ""
         : "",
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   locationSearchMode: {
     kind: "typed" as const,
     schema: z.enum(LOCATION_INPUT_MODE_VALUES),
     default: () => "radius" as const,
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   locationLatitude: {
     kind: "typed" as const,
@@ -703,25 +628,21 @@ export const settingsRegistry = {
     schema: z.enum(LOCATION_SEARCH_SCOPE_VALUES),
     default: () => "selected_only" as const,
     parse: parseLocationSearchScopeOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   locationMatchStrictness: {
     kind: "typed" as const,
     schema: z.enum(LOCATION_MATCH_STRICTNESS_VALUES),
     default: () => "exact_only" as const,
     parse: parseLocationMatchStrictnessOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   jobspyResultsWanted: {
     kind: "typed" as const,
     schema: z.number().int().min(1).max(1000),
     default: (): number =>
       parseInt(
-        typeof process !== "undefined"
-          ? process.env.JOBSPY_RESULTS_WANTED || "200"
-          : "200",
+        typeof process !== "undefined" ? process.env.JOBSPY_RESULTS_WANTED || "200" : "200",
         10,
       ),
     parse: parseIntOrNull,
@@ -731,12 +652,9 @@ export const settingsRegistry = {
     kind: "typed" as const,
     schema: z.string().trim().max(100),
     default: (): string =>
-      typeof process !== "undefined"
-        ? process.env.JOBSPY_COUNTRY_INDEED || ""
-        : "",
+      typeof process !== "undefined" ? process.env.JOBSPY_COUNTRY_INDEED || "" : "",
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   renderMarkdownInJobDescriptions: {
     kind: "typed" as const,
@@ -760,41 +678,31 @@ export const settingsRegistry = {
         ? process.env.CHAT_STYLE_TONE || "professional"
         : "professional",
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   chatStyleFormality: {
     kind: "typed" as const,
     schema: z.string().trim().max(100),
     default: (): string =>
-      typeof process !== "undefined"
-        ? process.env.CHAT_STYLE_FORMALITY || "medium"
-        : "medium",
+      typeof process !== "undefined" ? process.env.CHAT_STYLE_FORMALITY || "medium" : "medium",
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   chatStyleConstraints: {
     kind: "typed" as const,
     schema: z.string().trim().max(4000),
     default: (): string =>
-      typeof process !== "undefined"
-        ? process.env.CHAT_STYLE_CONSTRAINTS || ""
-        : "",
+      typeof process !== "undefined" ? process.env.CHAT_STYLE_CONSTRAINTS || "" : "",
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   chatStyleDoNotUse: {
     kind: "typed" as const,
     schema: z.string().trim().max(1000),
     default: (): string =>
-      typeof process !== "undefined"
-        ? process.env.CHAT_STYLE_DO_NOT_USE || ""
-        : "",
+      typeof process !== "undefined" ? process.env.CHAT_STYLE_DO_NOT_USE || "" : "",
     parse: parseNonEmptyStringOrNull,
-    serialize: (value: string | null | undefined): string | null =>
-      value ?? null,
+    serialize: (value: string | null | undefined): string | null => value ?? null,
   },
   chatStyleSummaryMaxWords: {
     kind: "typed" as const,
@@ -815,28 +723,20 @@ export const settingsRegistry = {
     schema: z.enum(CHAT_STYLE_LANGUAGE_MODE_VALUES),
     default: (): ChatStyleLanguageMode =>
       parseChatStyleLanguageModeOrNull(
-        typeof process !== "undefined"
-          ? process.env.CHAT_STYLE_LANGUAGE_MODE
-          : undefined,
+        typeof process !== "undefined" ? process.env.CHAT_STYLE_LANGUAGE_MODE : undefined,
       ) ?? "manual",
     parse: parseChatStyleLanguageModeOrNull,
-    serialize: (
-      value: ChatStyleLanguageMode | null | undefined,
-    ): string | null => value ?? null,
+    serialize: (value: ChatStyleLanguageMode | null | undefined): string | null => value ?? null,
   },
   chatStyleManualLanguage: {
     kind: "typed" as const,
     schema: z.enum(CHAT_STYLE_MANUAL_LANGUAGE_VALUES),
     default: (): ChatStyleManualLanguage =>
       parseChatStyleManualLanguageOrNull(
-        typeof process !== "undefined"
-          ? process.env.CHAT_STYLE_MANUAL_LANGUAGE
-          : undefined,
+        typeof process !== "undefined" ? process.env.CHAT_STYLE_MANUAL_LANGUAGE : undefined,
       ) ?? "english",
     parse: parseChatStyleManualLanguageOrNull,
-    serialize: (
-      value: ChatStyleManualLanguage | null | undefined,
-    ): string | null => value ?? null,
+    serialize: (value: ChatStyleManualLanguage | null | undefined): string | null => value ?? null,
   },
   pipelineScheduleEnabled: {
     kind: "typed" as const,
@@ -851,9 +751,7 @@ export const settingsRegistry = {
     default: (): number => 7,
     parse: (raw: string | undefined): number | null => {
       const parsed = raw ? Number(raw) : NaN;
-      return Number.isInteger(parsed) && parsed >= 0 && parsed <= 23
-        ? parsed
-        : null;
+      return Number.isInteger(parsed) && parsed >= 0 && parsed <= 23 ? parsed : null;
     },
     serialize: serializeNullableNumber,
   },
@@ -974,8 +872,7 @@ export const settingsRegistry = {
   llmPurposeApiKeys: {
     kind: "secret" as const,
     schema: llmPurposeApiKeysSchema,
-    parse: (raw: string | undefined): LlmPurposeApiKeys | null =>
-      parseLlmPurposeApiKeys(raw),
+    parse: (raw: string | undefined): LlmPurposeApiKeys | null => parseLlmPurposeApiKeys(raw),
     serialize: (value: LlmPurposeApiKeys | null | undefined): string | null => {
       const normalized = normalizeLlmPurposeApiKeys(value);
       return normalized ? JSON.stringify(normalized) : null;

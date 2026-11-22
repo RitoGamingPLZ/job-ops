@@ -146,9 +146,7 @@ describe("OverviewPipelineRunsSection", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /17 Apr 2026/i }));
 
-    await waitFor(() =>
-      expect(api.getPipelineRunInsights).toHaveBeenCalledWith("run-failed"),
-    );
+    await waitFor(() => expect(api.getPipelineRunInsights).toHaveBeenCalledWith("run-failed"));
     expect(await screen.findByText("Run details")).toBeInTheDocument();
     expect(screen.getByText("Saved settings")).toBeInTheDocument();
     expect(screen.getByText("Requested run")).toBeInTheDocument();
@@ -157,9 +155,7 @@ describe("OverviewPipelineRunsSection", () => {
     expect(screen.getByText("What changed")).toBeInTheDocument();
     expect(screen.getByText("Inferred from timestamps")).toBeInTheDocument();
     expect(screen.getByText("Scoring failed")).toBeInTheDocument();
-    expect(
-      screen.getByText("linkedin: temporary rate limit"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("linkedin: temporary rate limit")).toBeInTheDocument();
   });
 
   it("shows live progress when a run is active", async () => {

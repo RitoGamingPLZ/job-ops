@@ -34,8 +34,7 @@ describe("naukri extractor mapping", () => {
       title: "Software engineer",
       jobId: "270426502000",
       companyName: "Barclays",
-      jdURL:
-        "/job-listings-software-engineer-barclays-pune-0-to-7-years-270426502000",
+      jdURL: "/job-listings-software-engineer-barclays-pune-0-to-7-years-270426502000",
       companyApplyUrl:
         "https://www.naukri.com/cloudgateway-apply/apply-services/v0/apply/saveCompanyApply?id=&file=270426502000&logstr=srprestapi",
       createdDate: 1777288114000,
@@ -115,13 +114,8 @@ describe("naukri extractor mapping", () => {
     ];
 
     expect(
-      dedupeNaukriJobs(jobs, ["https://www.naukri.com/existing"]).map(
-        (job) => job.jobUrl,
-      ),
-    ).toEqual([
-      "https://www.naukri.com/job-one",
-      "https://www.naukri.com/fresh",
-    ]);
+      dedupeNaukriJobs(jobs, ["https://www.naukri.com/existing"]).map((job) => job.jobUrl),
+    ).toEqual(["https://www.naukri.com/job-one", "https://www.naukri.com/fresh"]);
   });
 
   it("normalizes the internal max jobs per term setting", () => {

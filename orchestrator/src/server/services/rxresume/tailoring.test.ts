@@ -21,8 +21,6 @@ describe("rxresume tailoring", () => {
     });
 
     expect(catalog[0].description).toBe("Built analytics using FastAPI.");
-    expect(selectionItems[0].summaryText).toBe(
-      "Built analytics using FastAPI.",
-    );
+    expect(selectionItems[0].summaryText).toBe("Built analytics using FastAPI.");
   });
 });

@@ -27,18 +27,11 @@ export function decodeBase64Upload({
     throw badRequest(emptyMessage);
   }
 
-  if (
-    normalized.length % 4 !== 0 ||
-    !/^[A-Za-z0-9+/]*={0,2}$/.test(normalized)
-  ) {
+  if (normalized.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(normalized)) {
     throw badRequest(invalidMessage);
   }
 
-  const paddingLength = normalized.endsWith("==")
-    ? 2
-    : normalized.endsWith("=")
-      ? 1
-      : 0;
+  const paddingLength = normalized.endsWith("==") ? 2 : normalized.endsWith("=") ? 1 : 0;
   const estimatedByteLength = (normalized.length / 4) * 3 - paddingLength;
   if (estimatedByteLength > maxBytes) {
     throw badRequest(tooLargeMessage);

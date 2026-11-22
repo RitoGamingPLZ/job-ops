@@ -20,13 +20,9 @@ describe("gmail sync http behavior", () => {
   });
 
   it("maps token refresh abort to REQUEST_TIMEOUT", async () => {
-    vi.mocked(fetch).mockRejectedValueOnce(
-      new DOMException("Aborted", "AbortError"),
-    );
+    vi.mocked(fetch).mockRejectedValueOnce(new DOMException("Aborted", "AbortError"));
 
-    await expect(
-      resolveGmailAccessToken({ refreshToken: "refresh-token" }),
-    ).rejects.toMatchObject({
+    await expect(resolveGmailAccessToken({ refreshToken: "refresh-token" })).rejects.toMatchObject({
       status: 408,
       code: "REQUEST_TIMEOUT",
     } satisfies Partial<AppError>);
@@ -39,9 +35,9 @@ describe("gmail sync http behavior", () => {
       json: vi.fn().mockResolvedValue({ error: "invalid_grant" }),
     } as unknown as Response);
 
-    await expect(
-      resolveGmailAccessToken({ refreshToken: "refresh-token" }),
-    ).rejects.toThrow("Gmail token refresh failed with HTTP 401.");
+    await expect(resolveGmailAccessToken({ refreshToken: "refresh-token" })).rejects.toThrow(
+      "Gmail token refresh failed with HTTP 401.",
+    );
   });
 
   it("returns refreshed credentials when token refresh succeeds", async () => {
@@ -64,9 +60,7 @@ describe("gmail sync http behavior", () => {
   });
 
   it("maps gmail API abort to REQUEST_TIMEOUT", async () => {
-    vi.mocked(fetch).mockRejectedValueOnce(
-      new DOMException("Aborted", "AbortError"),
-    );
+    vi.mocked(fetch).mockRejectedValueOnce(new DOMException("Aborted", "AbortError"));
 
     await expect(
       gmailApi("access-token", "https://gmail.googleapis.com/test"),
@@ -83,9 +77,9 @@ describe("gmail sync http behavior", () => {
       json: vi.fn().mockResolvedValue({}),
     } as unknown as Response);
 
-    await expect(
-      gmailApi("access-token", "https://gmail.googleapis.com/test"),
-    ).rejects.toThrow("Gmail API request failed (502).");
+    await expect(gmailApi("access-token", "https://gmail.googleapis.com/test")).rejects.toThrow(
+      "Gmail API request failed (502).",
+    );
   });
 
   it("returns gmail API payload on success", async () => {

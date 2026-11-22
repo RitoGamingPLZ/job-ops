@@ -1,22 +1,14 @@
 import { db, schema } from "@server/db/index";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "@server/tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "@server/tenancy/private-scope";
 import { and, eq, or } from "drizzle-orm";
 import type { PipelineRunRequest } from "./run-request";
 
 // Internal server-owned snapshot of the accepted manual request. Never logged or
 // included in external payloads. The regular settings API cannot write this key.
 const REQUEST_KEY = "pipelineScheduleLastRunRequest";
-export async function saveRunRequest(
-  config: PipelineRunRequest,
-): Promise<void> {
+export async function saveRunRequest(config: PipelineRunRequest): Promise<void> {
   const scope = getPrivateDataScope();
-  const filter = and(
-    privateDataScopeFilter(schema.settings),
-    eq(schema.settings.key, REQUEST_KEY),
-  );
+  const filter = and(privateDataScopeFilter(schema.settings), eq(schema.settings.key, REQUEST_KEY));
   const [existing] = await db
     .select({ key: schema.settings.key })
     .from(schema.settings)
@@ -39,12 +31,7 @@ export async function loadRunRequest(): Promise<unknown | null> {
   const [row] = await db
     .select({ value: schema.settings.value })
     .from(schema.settings)
-    .where(
-      and(
-        privateDataScopeFilter(schema.settings),
-        eq(schema.settings.key, REQUEST_KEY),
-      ),
-    );
+    .where(and(privateDataScopeFilter(schema.settings), eq(schema.settings.key, REQUEST_KEY)));
   return row ? JSON.parse(row.value) : null;
 }
 

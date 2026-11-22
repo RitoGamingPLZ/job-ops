@@ -34,11 +34,7 @@ afterEach(() => {
   _resetKeyboardAvailabilityForTests();
   window.matchMedia = originalMatchMedia;
   if (maxTouchPointsDescriptor) {
-    Object.defineProperty(
-      Navigator.prototype,
-      "maxTouchPoints",
-      maxTouchPointsDescriptor,
-    );
+    Object.defineProperty(Navigator.prototype, "maxTouchPoints", maxTouchPointsDescriptor);
   } else {
     Reflect.deleteProperty(Navigator.prototype, "maxTouchPoints");
   }

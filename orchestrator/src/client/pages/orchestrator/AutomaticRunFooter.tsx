@@ -38,8 +38,7 @@ export function AutomaticRunFooter({
   disabled,
   onRunSearch,
 }: AutomaticRunFooterProps) {
-  const presetLabel =
-    selectedPreset.charAt(0).toUpperCase() + selectedPreset.slice(1);
+  const presetLabel = selectedPreset.charAt(0).toUpperCase() + selectedPreset.slice(1);
   return (
     <Card className="h-fit">
       <CardHeader>
@@ -49,9 +48,7 @@ export function AutomaticRunFooter({
             {disabled ? "Review" : "Ready"}
           </Badge>
         </div>
-        <CardDescription>
-          A plain-English preview of what Job Ops will do.
-        </CardDescription>
+        <CardDescription>A plain-English preview of what Job Ops will do.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-0">
         <SummaryRow
@@ -76,10 +73,7 @@ export function AutomaticRunFooter({
           label="Coverage"
           value={`${presetLabel} · ${jobBoardCount} source${jobBoardCount === 1 ? "" : "s"}`}
         />
-        <p
-          data-testid="search-count-summary"
-          className="mt-2 text-sm text-muted-foreground"
-        >
+        <p data-testid="search-count-summary" className="mt-2 text-sm text-muted-foreground">
           <strong className="font-semibold tabular-nums text-foreground">
             {searchTerms.length}
           </strong>{" "}
@@ -88,9 +82,7 @@ export function AutomaticRunFooter({
             {locationCount ?? "…"}
           </strong>{" "}
           {locationCount === 1 ? "location" : "locations"} ·{" "}
-          <strong className="font-semibold tabular-nums text-foreground">
-            {jobBoardCount}
-          </strong>{" "}
+          <strong className="font-semibold tabular-nums text-foreground">{jobBoardCount}</strong>{" "}
           {jobBoardCount === 1 ? "job board" : "job boards"}
         </p>
       </CardContent>
@@ -125,9 +117,7 @@ function SummaryRow({
       <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
         {label}
       </span>
-      <span className={cn("text-sm", muted && "text-muted-foreground")}>
-        {value}
-      </span>
+      <span className={cn("text-sm", muted && "text-muted-foreground")}>{value}</span>
     </div>
   );
 }

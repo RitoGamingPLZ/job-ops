@@ -44,17 +44,17 @@ export const users = sqliteTable(
     displayName: text("display_name"),
     passwordHash: text("password_hash"),
     passwordSalt: text("password_salt"),
-    isSystemAdmin: integer("is_system_admin", { mode: "boolean" })
-      .notNull()
-      .default(false),
-    isDisabled: integer("is_disabled", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    isSystemAdmin: integer("is_system_admin", { mode: "boolean" }).notNull().default(false),
+    isDisabled: integer("is_disabled", { mode: "boolean" }).notNull().default(false),
     mustChangePassword: integer("must_change_password", { mode: "boolean" })
       .notNull()
       .default(false),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     usernameUnique: uniqueIndex("idx_users_username_unique").on(table.username),
@@ -65,8 +65,12 @@ export const tenants = sqliteTable("tenants", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
-  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
 });
 
 export const tenantMemberships = sqliteTable(
@@ -82,8 +86,12 @@ export const tenantMemberships = sqliteTable(
     role: text("role", { enum: ["owner", "member"] })
       .notNull()
       .default("owner"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     userTenantUnique: uniqueIndex("idx_tenant_memberships_user_tenant").on(
@@ -114,27 +122,28 @@ export const accountSubscriptions = sqliteTable(
     cancelAtPeriodEnd: integer("cancel_at_period_end", { mode: "boolean" })
       .notNull()
       .default(false),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
-    tenantUserUnique: uniqueIndex(
-      "idx_account_subscriptions_tenant_user_unique",
-    ).on(table.tenantId, table.userId),
+    tenantUserUnique: uniqueIndex("idx_account_subscriptions_tenant_user_unique").on(
+      table.tenantId,
+      table.userId,
+    ),
     customerUnique: uniqueIndex("idx_account_subscriptions_customer_unique").on(
       table.stripeCustomerId,
     ),
-    subscriptionUnique: uniqueIndex(
-      "idx_account_subscriptions_subscription_unique",
-    ).on(table.stripeSubscriptionId),
+    subscriptionUnique: uniqueIndex("idx_account_subscriptions_subscription_unique").on(
+      table.stripeSubscriptionId,
+    ),
   }),
 );
 
-export const HOSTED_USAGE_RESERVATION_STATUSES = [
-  "reserved",
-  "settled",
-  "refunded",
-] as const;
+export const HOSTED_USAGE_RESERVATION_STATUSES = ["reserved", "settled", "refunded"] as const;
 
 export const hostedUsageCounters = sqliteTable(
   "hosted_usage_counters",
@@ -151,16 +160,22 @@ export const hostedUsageCounters = sqliteTable(
     usedUnits: integer("used_units").notNull().default(0),
     reservedUnits: integer("reserved_units").notNull().default(0),
     limitUnits: integer("limit_units").notNull(),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     tenantUserPeriodActionUnique: uniqueIndex(
       "idx_hosted_usage_counters_tenant_user_period_action_unique",
     ).on(table.tenantId, table.userId, table.period, table.action),
-    tenantUserPeriodIndex: index(
-      "idx_hosted_usage_counters_tenant_user_period",
-    ).on(table.tenantId, table.userId, table.period),
+    tenantUserPeriodIndex: index("idx_hosted_usage_counters_tenant_user_period").on(
+      table.tenantId,
+      table.userId,
+      table.period,
+    ),
   }),
 );
 
@@ -185,22 +200,22 @@ export const hostedUsageReservations = sqliteTable(
       .notNull()
       .default("reserved"),
     idempotencyKey: text("idempotency_key"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
-    tenantUserPeriodIndex: index(
-      "idx_hosted_usage_reservations_tenant_user_period",
-    ).on(table.tenantId, table.userId, table.period),
-    tenantUserPeriodActionIdempotencyUnique: uniqueIndex(
-      "idx_hosted_usage_reservations_idempotency_unique",
-    ).on(
+    tenantUserPeriodIndex: index("idx_hosted_usage_reservations_tenant_user_period").on(
       table.tenantId,
       table.userId,
       table.period,
-      table.action,
-      table.idempotencyKey,
     ),
+    tenantUserPeriodActionIdempotencyUnique: uniqueIndex(
+      "idx_hosted_usage_reservations_idempotency_unique",
+    ).on(table.tenantId, table.userId, table.period, table.action, table.idempotencyKey),
   }),
 );
 
@@ -264,15 +279,7 @@ export const jobs = sqliteTable(
 
     // Orchestrator enrichments
     status: text("status", {
-      enum: [
-        "discovered",
-        "processing",
-        "ready",
-        "applied",
-        "in_progress",
-        "skipped",
-        "expired",
-      ],
+      enum: ["discovered", "processing", "ready", "applied", "in_progress", "skipped", "expired"],
     })
       .notNull()
       .default("discovered"),
@@ -288,9 +295,7 @@ export const jobs = sqliteTable(
     selectedProjectIds: text("selected_project_ids"),
     pdfPath: text("pdf_path"),
     pdfSource: text("pdf_source", { enum: ["generated", "uploaded"] }),
-    pdfRegenerating: integer("pdf_regenerating", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    pdfRegenerating: integer("pdf_regenerating", { mode: "boolean" }).notNull().default(false),
     pdfFingerprint: text("pdf_fingerprint"),
     pdfGeneratedAt: text("pdf_generated_at"),
 
@@ -301,16 +306,24 @@ export const jobs = sqliteTable(
     processedAt: text("processed_at"),
     readyAt: text("ready_at"), // Also records when the job was targeted.
     appliedAt: text("applied_at"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
-    tenantUserJobUrlUnique: uniqueIndex(
-      "idx_jobs_tenant_user_job_url_unique",
-    ).on(table.tenantId, sql`coalesce(${table.userId}, '')`, table.jobUrl),
-    tenantUserPostingIdUnique: uniqueIndex(
-      "idx_jobs_tenant_user_posting_id_unique",
-    ).on(table.tenantId, sql`coalesce(${table.userId}, '')`, table.postingId),
+    tenantUserJobUrlUnique: uniqueIndex("idx_jobs_tenant_user_job_url_unique").on(
+      table.tenantId,
+      sql`coalesce(${table.userId}, '')`,
+      table.jobUrl,
+    ),
+    tenantUserPostingIdUnique: uniqueIndex("idx_jobs_tenant_user_posting_id_unique").on(
+      table.tenantId,
+      sql`coalesce(${table.userId}, '')`,
+      table.postingId,
+    ),
     tenantStatusIndex: index("idx_jobs_tenant_user_status").on(
       table.tenantId,
       table.userId,
@@ -359,9 +372,7 @@ export const tasks = sqliteTable("tasks", {
   type: text("type", { enum: APPLICATION_TASK_TYPES }).notNull(),
   title: text("title").notNull(),
   dueDate: integer("due_date", { mode: "number" }),
-  isCompleted: integer("is_completed", { mode: "boolean" })
-    .notNull()
-    .default(false),
+  isCompleted: integer("is_completed", { mode: "boolean" }).notNull().default(false),
   notes: text("notes"),
 });
 
@@ -381,14 +392,15 @@ export const jobNotes = sqliteTable(
       .references(() => jobs.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     content: text("content").notNull(),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
-    jobUpdatedIndex: index("idx_job_notes_job_updated").on(
-      table.jobId,
-      table.updatedAt,
-    ),
+    jobUpdatedIndex: index("idx_job_notes_job_updated").on(table.jobId, table.updatedAt),
   }),
 );
 
@@ -419,7 +431,9 @@ export const pipelineRuns = sqliteTable("pipeline_runs", {
   userId: text("user_id").references(() => users.id, {
     onDelete: "cascade",
   }),
-  startedAt: text("started_at").notNull().default(sql`(datetime('now'))`),
+  startedAt: text("started_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
   completedAt: text("completed_at"),
   status: text("status", {
     enum: ["running", "completed", "partial", "failed", "cancelled"],
@@ -451,16 +465,24 @@ export const pipelineSearchPresets = sqliteTable(
     name: text("name").notNull(),
     config: text("config", { mode: "json" }).notNull(),
     lastUsedAt: text("last_used_at"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
-    tenantUserNameUnique: uniqueIndex(
-      "idx_pipeline_search_presets_tenant_user_name_unique",
-    ).on(table.tenantId, table.userId, table.name),
-    tenantUserUpdatedIndex: index(
-      "idx_pipeline_search_presets_tenant_user_updated",
-    ).on(table.tenantId, table.userId, table.updatedAt),
+    tenantUserNameUnique: uniqueIndex("idx_pipeline_search_presets_tenant_user_name_unique").on(
+      table.tenantId,
+      table.userId,
+      table.name,
+    ),
+    tenantUserUpdatedIndex: index("idx_pipeline_search_presets_tenant_user_updated").on(
+      table.tenantId,
+      table.userId,
+      table.updatedAt,
+    ),
   }),
 );
 
@@ -479,8 +501,12 @@ export const jobChatThreads = sqliteTable(
       .notNull()
       .references(() => jobs.id, { onDelete: "cascade" }),
     title: text("title"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
     lastMessageAt: text("last_message_at"),
     activeRootMessageId: text("active_root_message_id"),
     selectedNoteIds: text("selected_note_ids").notNull().default("[]"),
@@ -488,10 +514,7 @@ export const jobChatThreads = sqliteTable(
     selectedDocumentIds: text("selected_document_ids").notNull().default("[]"),
   },
   (table) => ({
-    jobUpdatedIndex: index("idx_job_chat_threads_job_updated").on(
-      table.jobId,
-      table.updatedAt,
-    ),
+    jobUpdatedIndex: index("idx_job_chat_threads_job_updated").on(table.jobId, table.updatedAt),
   }),
 );
 
@@ -514,9 +537,7 @@ export const jobChatMessages = sqliteTable(
       .references(() => jobs.id, { onDelete: "cascade" }),
     role: text("role", { enum: JOB_CHAT_MESSAGE_ROLES }).notNull(),
     content: text("content").notNull().default(""),
-    status: text("status", { enum: JOB_CHAT_MESSAGE_STATUSES })
-      .notNull()
-      .default("partial"),
+    status: text("status", { enum: JOB_CHAT_MESSAGE_STATUSES }).notNull().default("partial"),
     tokensIn: integer("tokens_in"),
     tokensOut: integer("tokens_out"),
     version: integer("version").notNull().default(1),
@@ -524,11 +545,13 @@ export const jobChatMessages = sqliteTable(
     parentMessageId: text("parent_message_id"),
     activeChildId: text("active_child_id"),
     attachments: text("attachments").notNull().default("[]"),
-    suggestions: text("suggestions", { mode: "json" }).$type<
-      ResumeSuggestionV2[]
-    >(),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    suggestions: text("suggestions", { mode: "json" }).$type<ResumeSuggestionV2[]>(),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     threadCreatedIndex: index("idx_job_chat_messages_thread_created").on(
@@ -555,9 +578,7 @@ export const jobChatRuns = sqliteTable(
     jobId: text("job_id")
       .notNull()
       .references(() => jobs.id, { onDelete: "cascade" }),
-    status: text("status", { enum: JOB_CHAT_RUN_STATUSES })
-      .notNull()
-      .default("running"),
+    status: text("status", { enum: JOB_CHAT_RUN_STATUSES }).notNull().default("running"),
     model: text("model"),
     provider: text("provider"),
     errorCode: text("error_code"),
@@ -565,14 +586,15 @@ export const jobChatRuns = sqliteTable(
     startedAt: integer("started_at", { mode: "number" }).notNull(),
     completedAt: integer("completed_at", { mode: "number" }),
     requestId: text("request_id"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
-    threadStatusIndex: index("idx_job_chat_runs_thread_status").on(
-      table.threadId,
-      table.status,
-    ),
+    threadStatusIndex: index("idx_job_chat_runs_thread_status").on(table.threadId, table.status),
   }),
 );
 
@@ -588,8 +610,12 @@ export const settings = sqliteTable(
     }),
     key: text("key").notNull(),
     value: text("value").notNull(),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     tenantUserKeyUnique: uniqueIndex("idx_settings_tenant_user_key_unique").on(
@@ -611,8 +637,12 @@ export const siteRecipes = sqliteTable("site_recipes", {
   lastSuccessAt: text("last_success_at"),
   consecutiveFailures: integer("consecutive_failures").notNull().default(0),
   blockedReason: text("blocked_reason"),
-  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
 });
 
 export const watchlistJobStates = sqliteTable(
@@ -629,16 +659,22 @@ export const watchlistJobStates = sqliteTable(
     state: text("state", { enum: ["ignored", "moved_to_workspace"] })
       .notNull()
       .default("ignored"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     tenantUserSourceJobUnique: uniqueIndex(
       "idx_watchlist_job_states_tenant_user_source_job_unique",
     ).on(table.tenantId, table.userId, table.source, table.sourceJobId),
-    tenantUserStateIndex: index(
-      "idx_watchlist_job_states_tenant_user_state",
-    ).on(table.tenantId, table.userId, table.state),
+    tenantUserStateIndex: index("idx_watchlist_job_states_tenant_user_state").on(
+      table.tenantId,
+      table.userId,
+      table.state,
+    ),
   }),
 );
 
@@ -652,8 +688,12 @@ export const watchlistChecks = sqliteTable(
       .references(() => tenants.id, { onDelete: "cascade" }),
     userId: text("user_id").notNull(),
     lastCheckedAt: text("last_checked_at").notNull(),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     tenantUserUnique: uniqueIndex("idx_watchlist_checks_tenant_user_unique").on(
@@ -676,16 +716,22 @@ export const watchlistSeenJobs = sqliteTable(
     sourceJobId: text("source_job_id").notNull(),
     firstSeenAt: text("first_seen_at").notNull(),
     lastSeenAt: text("last_seen_at").notNull(),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     tenantUserSourceJobUnique: uniqueIndex(
       "idx_watchlist_seen_jobs_tenant_user_source_job_unique",
     ).on(table.tenantId, table.userId, table.source, table.sourceJobId),
-    tenantUserLastSeenIndex: index(
-      "idx_watchlist_seen_jobs_tenant_user_last_seen",
-    ).on(table.tenantId, table.userId, table.lastSeenAt),
+    tenantUserLastSeenIndex: index("idx_watchlist_seen_jobs_tenant_user_last_seen").on(
+      table.tenantId,
+      table.userId,
+      table.lastSeenAt,
+    ),
   }),
 );
 
@@ -703,12 +749,14 @@ export const watchlistSelectedSources = sqliteTable(
     careersUrl: text("careers_url").notNull(),
     cxsJobsUrl: text("cxs_jobs_url"),
     sourceType: text("source_type").notNull(),
-    isCustom: integer("is_custom", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    isCustom: integer("is_custom", { mode: "boolean" }).notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     tenantUserSortOrderUnique: uniqueIndex(
@@ -728,12 +776,14 @@ export const analyticsInstallState = sqliteTable("analytics_install_state", {
   id: text("id").primaryKey(),
   distinctId: text("distinct_id").notNull(),
   installedAt: text("installed_at").notNull(),
-  rawEventReplayVersion: integer("raw_event_replay_version")
-    .notNull()
-    .default(0),
+  rawEventReplayVersion: integer("raw_event_replay_version").notNull().default(0),
   rawEventReplayCompletedAt: text("raw_event_replay_completed_at"),
-  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
 });
 
 export const analyticsMilestones = sqliteTable(
@@ -743,13 +793,15 @@ export const analyticsMilestones = sqliteTable(
     firstSeenAt: integer("first_seen_at", { mode: "number" }).notNull(),
     firstSessionId: text("first_session_id"),
     reportedAt: text("reported_at"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
-    firstSeenAtIndex: index("idx_analytics_milestones_first_seen_at").on(
-      table.firstSeenAt,
-    ),
+    firstSeenAtIndex: index("idx_analytics_milestones_first_seen_at").on(table.firstSeenAt),
   }),
 );
 
@@ -762,16 +814,16 @@ export const analyticsServerEventReplays = sqliteTable(
     payload: text("payload", { mode: "json" }).notNull(),
     claimedAt: integer("claimed_at", { mode: "number" }),
     reportedAt: integer("reported_at", { mode: "number" }),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
-    eventNameIndex: index("idx_analytics_server_event_replays_event_name").on(
-      table.eventName,
-    ),
-    occurredAtIndex: index("idx_analytics_server_event_replays_occurred_at").on(
-      table.occurredAt,
-    ),
+    eventNameIndex: index("idx_analytics_server_event_replays_event_name").on(table.eventName),
+    occurredAtIndex: index("idx_analytics_server_event_replays_occurred_at").on(table.occurredAt),
   }),
 );
 
@@ -786,8 +838,12 @@ export const authSessions = sqliteTable(
     userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
     expiresAt: integer("expires_at", { mode: "number" }).notNull(),
     revokedAt: integer("revoked_at", { mode: "number" }),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     expiresAtIndex: index("idx_auth_sessions_expires_at").on(table.expiresAt),
@@ -811,15 +867,15 @@ export const ssoIdentities = sqliteTable(
     subject: text("subject").notNull(),
     email: text("email"),
     displayName: text("display_name"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
-    providerIdentityUnique: unique().on(
-      table.provider,
-      table.issuer,
-      table.subject,
-    ),
+    providerIdentityUnique: unique().on(table.provider, table.issuer, table.subject),
     userIndex: index("idx_sso_identities_user_id").on(table.userId),
   }),
 );
@@ -837,8 +893,12 @@ export const designResumeDocuments = sqliteTable("design_resume_documents", {
   sourceResumeId: text("source_resume_id"),
   sourceMode: text("source_mode"),
   importedAt: text("imported_at"),
-  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
 });
 
 export const designResumeAssets = sqliteTable(
@@ -862,13 +922,15 @@ export const designResumeAssets = sqliteTable(
     mimeType: text("mime_type").notNull(),
     byteSize: integer("byte_size").notNull(),
     storagePath: text("storage_path").notNull(),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
-    documentIndex: index("idx_design_resume_assets_document_id").on(
-      table.documentId,
-    ),
+    documentIndex: index("idx_design_resume_assets_document_id").on(table.documentId),
   }),
 );
 
@@ -890,15 +952,16 @@ export const jobDocuments = sqliteTable(
     mediaType: text("media_type"),
     byteSize: integer("byte_size").notNull(),
     storagePath: text("storage_path").notNull(),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     jobIndex: index("idx_job_documents_job_id").on(table.jobId),
-    tenantJobIndex: index("idx_job_documents_tenant_job_id").on(
-      table.tenantId,
-      table.jobId,
-    ),
+    tenantJobIndex: index("idx_job_documents_tenant_job_id").on(table.tenantId, table.jobId),
   }),
 );
 
@@ -923,18 +986,17 @@ export const postApplicationIntegrations = sqliteTable(
     lastConnectedAt: integer("last_connected_at", { mode: "number" }),
     lastSyncedAt: integer("last_synced_at", { mode: "number" }),
     lastError: text("last_error"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     providerAccountUnique: uniqueIndex(
       "idx_post_app_integrations_tenant_user_provider_account_unique",
-    ).on(
-      table.tenantId,
-      sql`coalesce(${table.userId}, '')`,
-      table.provider,
-      table.accountKey,
-    ),
+    ).on(table.tenantId, sql`coalesce(${table.userId}, '')`, table.provider, table.accountKey),
   }),
 );
 
@@ -951,10 +1013,9 @@ export const postApplicationSyncRuns = sqliteTable(
     }),
     provider: text("provider", { enum: POST_APPLICATION_PROVIDERS }).notNull(),
     accountKey: text("account_key").notNull().default("default"),
-    integrationId: text("integration_id").references(
-      () => postApplicationIntegrations.id,
-      { onDelete: "set null" },
-    ),
+    integrationId: text("integration_id").references(() => postApplicationIntegrations.id, {
+      onDelete: "set null",
+    }),
     status: text("status", { enum: POST_APPLICATION_SYNC_RUN_STATUSES })
       .notNull()
       .default("running"),
@@ -969,13 +1030,19 @@ export const postApplicationSyncRuns = sqliteTable(
     messagesErrored: integer("messages_errored").notNull().default(0),
     errorCode: text("error_code"),
     errorMessage: text("error_message"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
-    providerAccountStartedAtIndex: index(
-      "idx_post_app_sync_runs_provider_account_started_at",
-    ).on(table.provider, table.accountKey, table.startedAt),
+    providerAccountStartedAtIndex: index("idx_post_app_sync_runs_provider_account_started_at").on(
+      table.provider,
+      table.accountKey,
+      table.startedAt,
+    ),
   }),
 );
 
@@ -992,16 +1059,12 @@ export const postApplicationMessages = sqliteTable(
     }),
     provider: text("provider", { enum: POST_APPLICATION_PROVIDERS }).notNull(),
     accountKey: text("account_key").notNull().default("default"),
-    integrationId: text("integration_id").references(
-      () => postApplicationIntegrations.id,
-      { onDelete: "set null" },
-    ),
-    syncRunId: text("sync_run_id").references(
-      () => postApplicationSyncRuns.id,
-      {
-        onDelete: "set null",
-      },
-    ),
+    integrationId: text("integration_id").references(() => postApplicationIntegrations.id, {
+      onDelete: "set null",
+    }),
+    syncRunId: text("sync_run_id").references(() => postApplicationSyncRuns.id, {
+      onDelete: "set null",
+    }),
     externalMessageId: text("external_message_id").notNull(),
     externalThreadId: text("external_thread_id"),
     fromAddress: text("from_address").notNull().default(""),
@@ -1038,8 +1101,12 @@ export const postApplicationMessages = sqliteTable(
     decidedBy: text("decided_by"),
     errorCode: text("error_code"),
     errorMessage: text("error_message"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     providerAccountExternalMessageUnique: uniqueIndex(
@@ -1067,10 +1134,8 @@ export type TenantMembershipRow = typeof tenantMemberships.$inferSelect;
 export type NewTenantMembershipRow = typeof tenantMemberships.$inferInsert;
 export type HostedUsageCounterRow = typeof hostedUsageCounters.$inferSelect;
 export type NewHostedUsageCounterRow = typeof hostedUsageCounters.$inferInsert;
-export type HostedUsageReservationRow =
-  typeof hostedUsageReservations.$inferSelect;
-export type NewHostedUsageReservationRow =
-  typeof hostedUsageReservations.$inferInsert;
+export type HostedUsageReservationRow = typeof hostedUsageReservations.$inferSelect;
+export type NewHostedUsageReservationRow = typeof hostedUsageReservations.$inferInsert;
 export type JobRow = typeof jobs.$inferSelect;
 export type NewJobRow = typeof jobs.$inferInsert;
 export type StageEventRow = typeof stageEvents.$inferSelect;
@@ -1086,8 +1151,7 @@ export type NewInterviewRow = typeof interviews.$inferInsert;
 export type PipelineRunRow = typeof pipelineRuns.$inferSelect;
 export type NewPipelineRunRow = typeof pipelineRuns.$inferInsert;
 export type PipelineSearchPresetRow = typeof pipelineSearchPresets.$inferSelect;
-export type NewPipelineSearchPresetRow =
-  typeof pipelineSearchPresets.$inferInsert;
+export type NewPipelineSearchPresetRow = typeof pipelineSearchPresets.$inferInsert;
 export type JobChatThreadRow = typeof jobChatThreads.$inferSelect;
 export type NewJobChatThreadRow = typeof jobChatThreads.$inferInsert;
 export type JobChatMessageRow = typeof jobChatMessages.$inferSelect;
@@ -1096,33 +1160,22 @@ export type JobChatRunRow = typeof jobChatRuns.$inferSelect;
 export type NewJobChatRunRow = typeof jobChatRuns.$inferInsert;
 export type SettingsRow = typeof settings.$inferSelect;
 export type NewSettingsRow = typeof settings.$inferInsert;
-export type AnalyticsInstallStateRow =
-  typeof analyticsInstallState.$inferSelect;
-export type NewAnalyticsInstallStateRow =
-  typeof analyticsInstallState.$inferInsert;
+export type AnalyticsInstallStateRow = typeof analyticsInstallState.$inferSelect;
+export type NewAnalyticsInstallStateRow = typeof analyticsInstallState.$inferInsert;
 export type AnalyticsMilestoneRow = typeof analyticsMilestones.$inferSelect;
 export type NewAnalyticsMilestoneRow = typeof analyticsMilestones.$inferInsert;
-export type AnalyticsServerEventReplayRow =
-  typeof analyticsServerEventReplays.$inferSelect;
-export type NewAnalyticsServerEventReplayRow =
-  typeof analyticsServerEventReplays.$inferInsert;
+export type AnalyticsServerEventReplayRow = typeof analyticsServerEventReplays.$inferSelect;
+export type NewAnalyticsServerEventReplayRow = typeof analyticsServerEventReplays.$inferInsert;
 export type DesignResumeDocumentRow = typeof designResumeDocuments.$inferSelect;
-export type NewDesignResumeDocumentRow =
-  typeof designResumeDocuments.$inferInsert;
+export type NewDesignResumeDocumentRow = typeof designResumeDocuments.$inferInsert;
 export type DesignResumeAssetRow = typeof designResumeAssets.$inferSelect;
 export type NewDesignResumeAssetRow = typeof designResumeAssets.$inferInsert;
-export type PostApplicationIntegrationRow =
-  typeof postApplicationIntegrations.$inferSelect;
-export type NewPostApplicationIntegrationRow =
-  typeof postApplicationIntegrations.$inferInsert;
-export type PostApplicationSyncRunRow =
-  typeof postApplicationSyncRuns.$inferSelect;
-export type NewPostApplicationSyncRunRow =
-  typeof postApplicationSyncRuns.$inferInsert;
-export type PostApplicationMessageRow =
-  typeof postApplicationMessages.$inferSelect;
-export type NewPostApplicationMessageRow =
-  typeof postApplicationMessages.$inferInsert;
+export type PostApplicationIntegrationRow = typeof postApplicationIntegrations.$inferSelect;
+export type NewPostApplicationIntegrationRow = typeof postApplicationIntegrations.$inferInsert;
+export type PostApplicationSyncRunRow = typeof postApplicationSyncRuns.$inferSelect;
+export type NewPostApplicationSyncRunRow = typeof postApplicationSyncRuns.$inferInsert;
+export type PostApplicationMessageRow = typeof postApplicationMessages.$inferSelect;
+export type NewPostApplicationMessageRow = typeof postApplicationMessages.$inferInsert;
 export type SiteRecipeRow = typeof siteRecipes.$inferSelect;
 export type NewSiteRecipeRow = typeof siteRecipes.$inferInsert;
 
@@ -1136,10 +1189,7 @@ export const experienceBullets = sqliteTable(
       .references(() => tenants.id, { onDelete: "cascade" }),
     userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
     kind: text("kind").$type<CandidateItemKind>().notNull().default("bullet"),
-    data: text("data", { mode: "json" }).$type<Record<
-      string,
-      unknown
-    > | null>(),
+    data: text("data", { mode: "json" }).$type<Record<string, unknown> | null>(),
     parentId: text("parent_id"),
     position: integer("position").notNull().default(0),
     text: text("text").notNull(),
@@ -1147,23 +1197,18 @@ export const experienceBullets = sqliteTable(
     role: text("role"),
     startDate: text("start_date"),
     endDate: text("end_date"),
-    tags: text("tags", { mode: "json" })
-      .$type<string[]>()
-      .notNull()
-      .default([]),
-    source: text("source")
-      .$type<ExperienceBulletSource>()
-      .notNull()
-      .default("manual"),
+    tags: text("tags", { mode: "json" }).$type<string[]>().notNull().default([]),
+    source: text("source").$type<ExperienceBulletSource>().notNull().default("manual"),
     sourceExperienceId: text("source_experience_id"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
-    scopeIndex: index("idx_experience_bullets_scope").on(
-      table.tenantId,
-      table.userId,
-    ),
+    scopeIndex: index("idx_experience_bullets_scope").on(table.tenantId, table.userId),
   }),
 );
 
@@ -1178,12 +1223,14 @@ export const jobResumes = sqliteTable(
       .default("tenant_default")
       .references(() => tenants.id, { onDelete: "cascade" }),
     userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
-    document: text("document", { mode: "json" })
-      .$type<ReactiveResumeV5Document>()
-      .notNull(),
+    document: text("document", { mode: "json" }).$type<ReactiveResumeV5Document>().notNull(),
     revision: integer("revision").notNull().default(1),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     scopeIndex: index("idx_job_resumes_scope").on(table.tenantId, table.userId),
@@ -1220,22 +1267,20 @@ export const scrapeTasks = sqliteTable(
     postingsFound: integer("postings_found").notNull().default(0),
     postingIds: text("posting_ids", { mode: "json" }).$type<string[] | null>(),
     error: text("error"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     keyWindowUnique: uniqueIndex("idx_scrape_tasks_key_window_unique").on(
       table.scrapeKey,
       table.windowStart,
     ),
-    statusLeaseIndex: index("idx_scrape_tasks_status_lease").on(
-      table.status,
-      table.leaseUntil,
-    ),
-    sourceStatusIndex: index("idx_scrape_tasks_source_status").on(
-      table.source,
-      table.status,
-    ),
+    statusLeaseIndex: index("idx_scrape_tasks_status_lease").on(table.status, table.leaseUntil),
+    sourceStatusIndex: index("idx_scrape_tasks_source_status").on(table.source, table.status),
   }),
 );
 
@@ -1248,7 +1293,9 @@ export const taskSubscribers = sqliteTable(
     tenantId: text("tenant_id").notNull(),
     runId: text("run_id").notNull(),
     notifiedAt: text("notified_at"),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.taskId, table.tenantId, table.runId] }),
@@ -1270,16 +1317,13 @@ export const postings = sqliteTable(
     firstSeenAt: text("first_seen_at")
       .notNull()
       .default(sql`(datetime('now'))`),
-    lastSeenAt: text("last_seen_at").notNull().default(sql`(datetime('now'))`),
-    extracted: text("extracted", { mode: "json" }).$type<Record<
-      string,
-      unknown
-    > | null>(),
+    lastSeenAt: text("last_seen_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    extracted: text("extracted", { mode: "json" }).$type<Record<string, unknown> | null>(),
   },
   (table) => ({
-    urlNormUnique: uniqueIndex("idx_postings_url_norm_unique").on(
-      table.urlNorm,
-    ),
+    urlNormUnique: uniqueIndex("idx_postings_url_norm_unique").on(table.urlNorm),
     lastSeenAtIndex: index("idx_postings_last_seen_at").on(table.lastSeenAt),
   }),
 );

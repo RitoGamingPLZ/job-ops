@@ -28,10 +28,7 @@ const defaultCodexAuthApi: CodexAuthApi = {
   start: api.startCodexAuth,
 };
 
-function isSameCodexAuthStatus(
-  previous: CodexAuthStatus | null,
-  next: CodexAuthStatus,
-): boolean {
+function isSameCodexAuthStatus(previous: CodexAuthStatus | null, next: CodexAuthStatus): boolean {
   if (!previous) return false;
   return (
     previous.authenticated === next.authenticated &&
@@ -59,11 +56,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 function CodexAuthPanelShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="space-y-3 rounded-md border border-border bg-card p-3">
-      {children}
-    </div>
-  );
+  return <div className="space-y-3 rounded-md border border-border bg-card p-3">{children}</div>;
 }
 
 function CodexAuthError({ message }: { message: string | null }) {
@@ -118,13 +111,10 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
   isBusy,
   onStatusChange,
 }) => {
-  const [codexAuthStatus, setCodexAuthStatus] =
-    useState<CodexAuthStatus | null>(null);
-  const [isLoadingCodexAuthStatus, setIsLoadingCodexAuthStatus] =
-    useState(false);
+  const [codexAuthStatus, setCodexAuthStatus] = useState<CodexAuthStatus | null>(null);
+  const [isLoadingCodexAuthStatus, setIsLoadingCodexAuthStatus] = useState(false);
   const [isStartingCodexAuth, setIsStartingCodexAuth] = useState(false);
-  const [isDisconnectingCodexAuth, setIsDisconnectingCodexAuth] =
-    useState(false);
+  const [isDisconnectingCodexAuth, setIsDisconnectingCodexAuth] = useState(false);
   const [codexAuthError, setCodexAuthError] = useState<string | null>(null);
   const [hasCopiedCode, setHasCopiedCode] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -170,9 +160,7 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
           const status = await authApi.getStatus();
           publishCodexAuthStatus(status);
         } catch (error) {
-          setCodexAuthError(
-            getErrorMessage(error, "Failed to load Codex sign-in status."),
-          );
+          setCodexAuthError(getErrorMessage(error, "Failed to load Codex sign-in status."));
         }
         return;
       }
@@ -241,11 +229,7 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
     return () => {
       window.clearInterval(timer);
     };
-  }, [
-    codexAuthStatus?.authenticated,
-    codexAuthStatus?.loginInProgress,
-    refreshCodexAuthStatus,
-  ]);
+  }, [codexAuthStatus?.authenticated, codexAuthStatus?.loginInProgress, refreshCodexAuthStatus]);
 
   const expirationMs = useMemo(() => {
     if (!codexAuthStatus?.expiresAt) return null;
@@ -273,8 +257,7 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
   const hasVerificationUrl = Boolean(codexAuthStatus?.verificationUrl);
   const hasDevicePayload = hasCode && hasVerificationUrl;
   const isAuthenticated = Boolean(codexAuthStatus?.authenticated);
-  const isWaitingForApproval =
-    Boolean(codexAuthStatus?.loginInProgress) && !isAuthenticated;
+  const isWaitingForApproval = Boolean(codexAuthStatus?.loginInProgress) && !isAuthenticated;
   const hasActiveDevicePayload = hasDevicePayload && isWaitingForApproval;
   const displayUsername = codexAuthStatus?.username?.trim() || null;
 
@@ -295,8 +278,8 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
         <div className="flex items-center justify-between gap-3 rounded-md border border-emerald-300/60 bg-emerald-500/10 px-3 py-2">
           <p className="text-sm text-foreground">
             <span className="font-medium">Connected</span>
-            {displayUsername ? ` as ${displayUsername}` : ""}. Existing Codex
-            credentials were found in this runtime.
+            {displayUsername ? ` as ${displayUsername}` : ""}. Existing Codex credentials were found
+            in this runtime.
           </p>
           <button
             type="button"
@@ -326,8 +309,7 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
       </div>
 
       <div className="rounded-md border border-border bg-card px-3 py-2 font-bold text-muted-foreground">
-        Start sign-in to generate a one-time code. After approval in your
-        browser, click{" "}
+        Start sign-in to generate a one-time code. After approval in your browser, click{" "}
         <span className="font-medium text-foreground">Check Status</span>.{" "}
         <a
           href="https://developers.openai.com/codex/auth#preferred-device-code-authentication-beta"
@@ -339,16 +321,8 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
       </div>
 
       <div className="space-y-1 text-xs text-muted-foreground">
-        <StepRow
-          isComplete={hasActiveDevicePayload}
-          label="Start sign-in"
-          step={1}
-        />
-        <StepRow
-          isComplete={hasCopiedCode}
-          label="Copy code and open verification page"
-          step={2}
-        />
+        <StepRow isComplete={hasActiveDevicePayload} label="Start sign-in" step={1} />
+        <StepRow isComplete={hasCopiedCode} label="Copy code and open verification page" step={2} />
         <StepRow
           isComplete={false}
           isLoading={isWaitingForApproval}
@@ -430,13 +404,9 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
 
       <CodexAuthError message={codexAuthError} />
       {codexAuthStatus?.validationMessage && !isAuthenticated ? (
-        <p className="text-xs text-destructive">
-          {codexAuthStatus.validationMessage}
-        </p>
+        <p className="text-xs text-destructive">{codexAuthStatus.validationMessage}</p>
       ) : codexAuthStatus?.flowMessage && !isAuthenticated ? (
-        <p className="text-xs text-muted-foreground">
-          {codexAuthStatus.flowMessage}
-        </p>
+        <p className="text-xs text-muted-foreground">{codexAuthStatus.flowMessage}</p>
       ) : null}
     </CodexAuthPanelShell>
   );

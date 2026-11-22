@@ -1,8 +1,4 @@
-import express, {
-  type NextFunction,
-  type Request,
-  type Response,
-} from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuthGuard } from "./app";
 
@@ -45,24 +41,18 @@ function createMockResponse(): Response & {
     jsonBody: null,
     getHeader: vi.fn(() => undefined),
     setHeader: vi.fn(),
-    status: vi.fn(function status(
-      this: Response & { statusCode: number },
-      code: number,
-    ) {
+    status: vi.fn(function status(this: Response & { statusCode: number }, code: number) {
       this.statusCode = code;
       return this;
     }),
-    json: vi.fn(function json(
-      this: Response & { jsonBody: unknown },
-      body: unknown,
-    ) {
+    json: vi.fn(function json(this: Response & { jsonBody: unknown }, body: unknown) {
       this.jsonBody = body;
       return this;
     }),
   } as unknown as Response & { statusCode: number; jsonBody: unknown };
 }
 
-describe.sequential("Auth read-only enforcement", () => {
+describe("Auth read-only enforcement", () => {
   beforeEach(() => {
     process.env.JOBOPS_TEST_AUTH_BYPASS = "0";
   });

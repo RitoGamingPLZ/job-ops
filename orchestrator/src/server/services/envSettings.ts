@@ -12,9 +12,7 @@ export function getOriginalEnvValue(envKey: string): string | undefined {
   return envDefaults[envKey];
 }
 
-export function normalizeEnvInput(
-  value: string | null | undefined,
-): string | null {
+export function normalizeEnvInput(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 }
@@ -46,11 +44,9 @@ export async function getEnvSettingsData(
               storedApiKey: override,
               provider:
                 normalizeEnvInput(
-                  activeOverrides.llmProvider ??
-                    getOriginalEnvValue("LLM_PROVIDER"),
+                  activeOverrides.llmProvider ?? getOriginalEnvValue("LLM_PROVIDER"),
                 ) ?? null,
-              allowEnvironmentCredentials:
-                options?.allowLlmEnvironmentCredentials,
+              allowEnvironmentCredentials: options?.allowLlmEnvironmentCredentials,
             })
           : normalizeEnvInput(rawValue);
       if (!effectiveSecret) {
@@ -58,10 +54,7 @@ export async function getEnvSettingsData(
         (values as any)[hintKey] = null;
         continue;
       }
-      const hintLength =
-        effectiveSecret.length > 4
-          ? 4
-          : Math.max(effectiveSecret.length - 1, 1);
+      const hintLength = effectiveSecret.length > 4 ? 4 : Math.max(effectiveSecret.length - 1, 1);
       // biome-ignore lint/suspicious/noExplicitAny: explicit partial assignment
       (values as any)[hintKey] = effectiveSecret.slice(0, hintLength);
     } else {

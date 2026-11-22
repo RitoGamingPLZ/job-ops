@@ -59,10 +59,7 @@ function ensureKeyboardListeners() {
 
   const mediaQueries =
     typeof window.matchMedia === "function"
-      ? [
-          window.matchMedia("(any-hover: hover)"),
-          window.matchMedia("(any-pointer: fine)"),
-        ]
+      ? [window.matchMedia("(any-hover: hover)"), window.matchMedia("(any-pointer: fine)")]
       : [];
 
   updateAvailability();
@@ -104,9 +101,7 @@ export function _resetKeyboardAvailabilityForTests() {
  * listeners across the page.
  */
 export function useKeyboardAvailability(): boolean {
-  const [hasKeyboard, setHasKeyboard] = useState(
-    getKeyboardAvailabilitySnapshot,
-  );
+  const [hasKeyboard, setHasKeyboard] = useState(getKeyboardAvailabilitySnapshot);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

@@ -35,10 +35,7 @@ import {
 } from "@client/pages/settings/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { normalizeStringArray } from "@shared/normalize-string-array.js";
-import {
-  type UpdateSettingsInput,
-  updateSettingsSchema,
-} from "@shared/settings-schema.js";
+import { type UpdateSettingsInput, updateSettingsSchema } from "@shared/settings-schema.js";
 import type {
   AppSettings,
   JobStatus,
@@ -50,12 +47,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Settings } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  FormProvider,
-  type Resolver,
-  useForm,
-  useWatch,
-} from "react-hook-form";
+import { FormProvider, type Resolver, useForm, useWatch } from "react-hook-form";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useQueryErrorToast } from "@/client/hooks/useQueryErrorToast";
@@ -208,8 +200,7 @@ const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
       {
         id: "prompt-templates",
         label: "Prompt Templates",
-        description:
-          "Base AI instructions for Ghostwriter, tailoring, and scoring.",
+        description: "Base AI instructions for Ghostwriter, tailoring, and scoring.",
         searchTerms: ["prompt", "templates", "system prompt", "instructions"],
       },
     ],
@@ -221,8 +212,7 @@ const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
       {
         id: "scoring",
         label: "Rules & Filters",
-        description:
-          "Salary penalties, thresholds, keywords, and scorer hints.",
+        description: "Salary penalties, thresholds, keywords, and scorer hints.",
         searchTerms: ["threshold", "salary", "keywords", "instructions"],
       },
     ],
@@ -288,8 +278,7 @@ const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
       {
         id: "backup",
         label: "Backups",
-        description:
-          "Daily job searches, automatic backups, retention, and manual snapshots.",
+        description: "Daily job searches, automatic backups, retention, and manual snapshots.",
         searchTerms: [
           "recovery",
           "database",
@@ -316,10 +305,7 @@ const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
   },
 ];
 
-const SECTION_FIELD_MAP: Record<
-  SettingsSectionId,
-  Array<keyof UpdateSettingsInput>
-> = {
+const SECTION_FIELD_MAP: Record<SettingsSectionId, Array<keyof UpdateSettingsInput>> = {
   billing: [],
   model: [
     "llmProvider",
@@ -361,12 +347,7 @@ const SECTION_FIELD_MAP: Record<
     "resumeProjects",
   ],
   webhooks: ["pipelineWebhookUrl", "jobCompleteWebhookUrl", "webhookSecret"],
-  environment: [
-    "ukvisajobsEmail",
-    "ukvisajobsPassword",
-    "adzunaAppId",
-    "adzunaAppKey",
-  ],
+  environment: ["ukvisajobsEmail", "ukvisajobsPassword", "adzunaAppId", "adzunaAppKey"],
   display: ["renderMarkdownInJobDescriptions", "autoTailorOnManualImport"],
   backup: [
     "pipelineScheduleEnabled",
@@ -378,10 +359,7 @@ const SECTION_FIELD_MAP: Record<
   "danger-zone": [],
 };
 
-function matchesSettingsSearch(
-  searchTerm: string,
-  item: SettingsSectionDescriptor,
-): boolean {
+function matchesSettingsSearch(searchTerm: string, item: SettingsSectionDescriptor): boolean {
   return sectionWorkspaceItemMatchesSearch(searchTerm, item);
 }
 
@@ -397,16 +375,13 @@ const toRxResumeValidationBadgeState = (
   message: validation.valid ? null : (validation.message ?? null),
   status: validation.valid ? null : (validation.status ?? null),
 });
-const isRxResumeMissingConfigValidationFailure = (
-  validation: ValidationResult,
-): boolean =>
+const isRxResumeMissingConfigValidationFailure = (validation: ValidationResult): boolean =>
   !validation.valid &&
   validation.status === 400 &&
   /not configured/i.test(validation.message ?? "");
 
-const normalizeLlmProviderValue = (
-  value: string | null | undefined,
-): LlmProviderValue => (value ? normalizeLlmProvider(value) : null);
+const normalizeLlmProviderValue = (value: string | null | undefined): LlmProviderValue =>
+  value ? normalizeLlmProvider(value) : null;
 
 const LEGACY_MODEL_KEYS = {
   scoring: "modelScorer",
@@ -415,7 +390,7 @@ const LEGACY_MODEL_KEYS = {
 } as const;
 
 const mapPurposeOverridesToForm = (data: AppSettings) => {
-  const overrides = { ...(data.llmPurposeOverrides.override ?? {}) };
+  const overrides = { ...data.llmPurposeOverrides.override };
   for (const [purpose, modelKey] of Object.entries(LEGACY_MODEL_KEYS)) {
     const typedPurpose = purpose as keyof typeof LEGACY_MODEL_KEYS;
     const legacyModel = data[modelKey].override;
@@ -480,9 +455,7 @@ const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
   scoringPromptTemplate: null,
 };
 
-function getResetSettingsPayload(
-  canEditLlmSettings: boolean,
-): Partial<UpdateSettingsInput> {
+function getResetSettingsPayload(canEditLlmSettings: boolean): Partial<UpdateSettingsInput> {
   if (canEditLlmSettings) return NULL_SETTINGS_PAYLOAD;
   const payload: Partial<UpdateSettingsInput> = { ...NULL_SETTINGS_PAYLOAD };
   delete payload.model;
@@ -502,9 +475,7 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
   modelScorer: data.modelScorer.override ?? "",
   modelTailoring: data.modelTailoring.override ?? "",
   modelProjectSelection: data.modelProjectSelection.override ?? "",
-  llmProvider: normalizeLlmProviderValue(
-    data.llmProvider.override ?? data.llmProvider.value,
-  ),
+  llmProvider: normalizeLlmProviderValue(data.llmProvider.override ?? data.llmProvider.value),
   llmBaseUrl: data.llmBaseUrl.override ?? "",
   llmApiKey: "",
   llmPurposeOverrides: mapPurposeOverridesToForm(data),
@@ -516,8 +487,7 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
   typstTheme: data.typstTheme.override ?? data.typstTheme.value,
   pdfPaperSize: data.pdfPaperSize.override ?? data.pdfPaperSize.value,
   rxresumeBaseResumeId: data.rxresumeBaseResumeId,
-  renderMarkdownInJobDescriptions:
-    data.renderMarkdownInJobDescriptions.override,
+  renderMarkdownInJobDescriptions: data.renderMarkdownInJobDescriptions.override,
   autoTailorOnManualImport: data.autoTailorOnManualImport.override,
   chatStyleTone: data.chatStyleTone.override ?? "",
   chatStyleFormality: data.chatStyleFormality.override ?? "",
@@ -525,8 +495,7 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
   chatStyleDoNotUse: data.chatStyleDoNotUse.override ?? "",
   ghostwriterStopSlopEnabled: data.ghostwriterStopSlopEnabled.override,
   chatStyleSummaryMaxWords: data.chatStyleSummaryMaxWords.override ?? null,
-  chatStyleMaxKeywordsPerSkill:
-    data.chatStyleMaxKeywordsPerSkill.override ?? null,
+  chatStyleMaxKeywordsPerSkill: data.chatStyleMaxKeywordsPerSkill.override ?? null,
   chatStyleLanguageMode: data.chatStyleLanguageMode.override ?? null,
   chatStyleManualLanguage: data.chatStyleManualLanguage.override ?? null,
   rxresumeUrl: data.rxresumeUrl ?? "",
@@ -545,10 +514,8 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
   missingSalaryPenalty: data.missingSalaryPenalty.override,
   autoSkipScoreThreshold: data.autoSkipScoreThreshold.override,
   blockedCompanyKeywords: data.blockedCompanyKeywords.override ?? [],
-  ghostwriterSystemPromptTemplate:
-    data.ghostwriterSystemPromptTemplate.value ?? "",
-  resumeGenerationPromptTemplate:
-    data.resumeGenerationPromptTemplate.value ?? "",
+  ghostwriterSystemPromptTemplate: data.ghostwriterSystemPromptTemplate.value ?? "",
+  resumeGenerationPromptTemplate: data.resumeGenerationPromptTemplate.value ?? "",
   tailoringPromptTemplate: data.tailoringPromptTemplate.value ?? "",
   scoringPromptTemplate: data.scoringPromptTemplate.value ?? "",
 });
@@ -570,9 +537,7 @@ const normalizePurposeOverrides = (
 ) => {
   if (!value) return null;
   const out: NonNullable<UpdateSettingsInput["llmPurposeOverrides"]> = {};
-  for (const purpose of Object.keys(LEGACY_MODEL_KEYS) as Array<
-    keyof typeof LEGACY_MODEL_KEYS
-  >) {
+  for (const purpose of Object.keys(LEGACY_MODEL_KEYS) as Array<keyof typeof LEGACY_MODEL_KEYS>) {
     const override = value[purpose];
     if (!override) continue;
     const provider = normalizeLlmProviderValue(override.provider ?? null);
@@ -592,14 +557,10 @@ const normalizePurposeOverrides = (
   return Object.keys(out).length > 0 ? out : null;
 };
 
-const normalizePurposeApiKeys = (
-  value: UpdateSettingsInput["llmPurposeApiKeys"],
-) => {
+const normalizePurposeApiKeys = (value: UpdateSettingsInput["llmPurposeApiKeys"]) => {
   if (!value) return null;
   const out: NonNullable<UpdateSettingsInput["llmPurposeApiKeys"]> = {};
-  for (const purpose of Object.keys(LEGACY_MODEL_KEYS) as Array<
-    keyof typeof LEGACY_MODEL_KEYS
-  >) {
+  for (const purpose of Object.keys(LEGACY_MODEL_KEYS) as Array<keyof typeof LEGACY_MODEL_KEYS>) {
     if (!Object.hasOwn(value, purpose)) continue;
     const normalized = normalizePrivateInput(value[purpose] ?? null);
     if (typeof normalized === "string") {
@@ -631,18 +592,14 @@ const normalizeResumeProjectsForCatalog = (
     aiSelectableProjectIds: [],
   };
 
-  const lockedProjectIds = base.lockedProjectIds.filter((id) =>
-    allowed.has(id),
-  );
+  const lockedProjectIds = base.lockedProjectIds.filter((id) => allowed.has(id));
   const lockedSet = new Set(lockedProjectIds);
   const aiSelectableProjectIds = (
     current ? base.aiSelectableProjectIds : catalog.map((project) => project.id)
   )
     .filter((id) => allowed.has(id))
     .filter((id) => !lockedSet.has(id));
-  const maxProjectsRaw = Number.isFinite(base.maxProjects)
-    ? base.maxProjects
-    : 0;
+  const maxProjectsRaw = Number.isFinite(base.maxProjects) ? base.maxProjects : 0;
   const maxProjectsInt = Math.max(0, Math.floor(maxProjectsRaw));
   const maxProjects = Math.min(
     catalog.length,
@@ -810,38 +767,28 @@ export const SettingsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const location = useLocation();
   const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [activeSection, setActiveSection] =
-    useState<SettingsSectionId>("model");
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>("model");
   const [openGroups, setOpenGroups] = useState<SettingsGroupId[]>([]);
 
   const [settingsSearch, setSettingsSearch] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isBillingBusy, setIsBillingBusy] = useState(false);
   const [rxresumeValidationStatus, setRxresumeValidationStatus] =
-    useState<RxResumeValidationBadgeState>(
-      EMPTY_RXRESUME_VALIDATION_BADGE_STATE,
-    );
+    useState<RxResumeValidationBadgeState>(EMPTY_RXRESUME_VALIDATION_BADGE_STATE);
   const rxresumeSilentValidationAttemptedRef = useRef(false);
-  const [statusesToClear, setStatusesToClear] = useState<JobStatus[]>([
-    "discovered",
-  ]);
-  const [rxResumeBaseResumeIdDraft, setRxResumeBaseResumeIdDraft] = useState<
-    string | null
-  >(null);
+  const [statusesToClear, setStatusesToClear] = useState<JobStatus[]>(["discovered"]);
+  const [rxResumeBaseResumeIdDraft, setRxResumeBaseResumeIdDraft] = useState<string | null>(null);
   const [rxResumeProjectsOverride, setRxResumeProjectsOverride] = useState<
     ResumeProjectCatalogItem[] | null
   >(null);
-  const [isFetchingRxResumeProjects, setIsFetchingRxResumeProjects] =
-    useState(false);
+  const [isFetchingRxResumeProjects, setIsFetchingRxResumeProjects] = useState(false);
 
   // Backup state
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isDeletingBackup, setIsDeletingBackup] = useState(false);
 
   const methods = useForm<UpdateSettingsInput>({
-    resolver: zodResolver(
-      updateSettingsSchema,
-    ) as Resolver<UpdateSettingsInput>,
+    resolver: zodResolver(updateSettingsSchema) as Resolver<UpdateSettingsInput>,
     mode: "onChange",
     defaultValues: DEFAULT_FORM_VALUES,
   });
@@ -909,9 +856,7 @@ export const SettingsPage: React.FC = () => {
     control,
     name: "resumeProjects",
   });
-  const hasRxResumeAccess = Boolean(
-    storedRxResume.hasV5 || rxresumeValidationStatus.valid,
-  );
+  const hasRxResumeAccess = Boolean(storedRxResume.hasV5 || rxresumeValidationStatus.valid);
 
   useEffect(() => {
     if (!settingsQuery.data) return;
@@ -1007,9 +952,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleDeleteBackup = async (filename: string) => {
-    const confirmed = window.confirm(
-      `Delete backup "${filename}"? This action cannot be undone.`,
-    );
+    const confirmed = window.confirm(`Delete backup "${filename}"? This action cannot be undone.`);
     if (!confirmed) {
       return;
     }
@@ -1025,12 +968,9 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const setRxResumeValidationStatus = useCallback(
-    (validation: ValidationResult) => {
-      setRxresumeValidationStatus(toRxResumeValidationBadgeState(validation));
-    },
-    [],
-  );
+  const setRxResumeValidationStatus = useCallback((validation: ValidationResult) => {
+    setRxresumeValidationStatus(toRxResumeValidationBadgeState(validation));
+  }, []);
 
   const clearRxResumeValidationFeedback = useCallback(() => {
     rxresumeSilentValidationAttemptedRef.current = false;
@@ -1061,10 +1001,7 @@ export const SettingsPage: React.FC = () => {
           formatUserFacingError(error, "RxResume validation failed"),
       });
 
-      if (
-        silent &&
-        isRxResumeMissingConfigValidationFailure(result.validation)
-      ) {
+      if (silent && isRxResumeMissingConfigValidationFailure(result.validation)) {
         setRxresumeValidationStatus(EMPTY_RXRESUME_VALIDATION_BADGE_STATE);
       } else {
         setRxResumeValidationStatus(result.validation);
@@ -1072,10 +1009,7 @@ export const SettingsPage: React.FC = () => {
 
       if (result.updatedSettings) {
         setSettings(result.updatedSettings);
-        queryClient.setQueryData(
-          queryKeys.settings.current(),
-          result.updatedSettings,
-        );
+        queryClient.setQueryData(queryKeys.settings.current(), result.updatedSettings);
         if (notify) {
           toast.success(`Reactive Resume validation passed`);
         }
@@ -1087,16 +1021,11 @@ export const SettingsPage: React.FC = () => {
       }
 
       if (result.precheckFailure) {
-        toast.info(
-          result.validation.message ??
-            RXRESUME_PRECHECK_MESSAGES[result.precheckFailure],
-        );
+        toast.info(result.validation.message ?? RXRESUME_PRECHECK_MESSAGES[result.precheckFailure]);
         return;
       }
 
-      toast.error(
-        result.validation.message || `Reactive Resume validation failed`,
-      );
+      toast.error(result.validation.message || `Reactive Resume validation failed`);
     },
     [getValues, queryClient, setRxResumeValidationStatus, storedRxResume],
   );
@@ -1104,10 +1033,7 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => {
     if (!settings) return;
 
-    if (
-      !rxresumeValidationStatus.checked &&
-      !rxresumeSilentValidationAttemptedRef.current
-    ) {
+    if (!rxresumeValidationStatus.checked && !rxresumeSilentValidationAttemptedRef.current) {
       void validateRxresume({ silent: true, persistOnSuccess: false });
     }
   }, [rxresumeValidationStatus, settings, validateRxresume]);
@@ -1192,17 +1118,14 @@ export const SettingsPage: React.FC = () => {
                   modelScorer: null,
                   modelTailoring: null,
                   modelProjectSelection: null,
-                  llmPurposeOverrides: normalizePurposeOverrides(
-                    data.llmPurposeOverrides,
-                    { dropInheritedProviderOverrides: true },
-                  ),
+                  llmPurposeOverrides: normalizePurposeOverrides(data.llmPurposeOverrides, {
+                    dropInheritedProviderOverrides: true,
+                  }),
                 }
               : {}),
             ...(dirtyFields.llmPurposeOverrides
               ? {
-                  llmPurposeOverrides: normalizePurposeOverrides(
-                    data.llmPurposeOverrides,
-                  ),
+                  llmPurposeOverrides: normalizePurposeOverrides(data.llmPurposeOverrides),
                   modelScorer: null,
                   modelTailoring: null,
                   modelProjectSelection: null,
@@ -1210,9 +1133,7 @@ export const SettingsPage: React.FC = () => {
               : {}),
             ...(dirtyFields.llmPurposeApiKeys
               ? {
-                  llmPurposeApiKeys: normalizePurposeApiKeys(
-                    data.llmPurposeApiKeys,
-                  ),
+                  llmPurposeApiKeys: normalizePurposeApiKeys(data.llmPurposeApiKeys),
                 }
               : {}),
           }
@@ -1223,18 +1144,9 @@ export const SettingsPage: React.FC = () => {
         pipelineWebhookUrl: normalizeString(data.pipelineWebhookUrl),
         jobCompleteWebhookUrl: normalizeString(data.jobCompleteWebhookUrl),
         resumeProjects: resumeProjectsOverride,
-        pdfRenderer: nullIfSame(
-          data.pdfRenderer,
-          reactiveResume.pdfRenderer.default,
-        ),
-        typstTheme: nullIfSame(
-          data.typstTheme,
-          reactiveResume.typstTheme.default,
-        ),
-        pdfPaperSize: nullIfSame(
-          data.pdfPaperSize,
-          reactiveResume.pdfPaperSize.default,
-        ),
+        pdfRenderer: nullIfSame(data.pdfRenderer, reactiveResume.pdfRenderer.default),
+        typstTheme: nullIfSame(data.typstTheme, reactiveResume.typstTheme.default),
+        pdfPaperSize: nullIfSame(data.pdfPaperSize, reactiveResume.pdfPaperSize.default),
         ...(dirtyFields.rxresumeBaseResumeId
           ? { rxresumeBaseResumeId: normalizeString(data.rxresumeBaseResumeId) }
           : {}),
@@ -1257,24 +1169,16 @@ export const SettingsPage: React.FC = () => {
         chatStyleSummaryMaxWords: Number.isNaN(data.chatStyleSummaryMaxWords)
           ? null
           : (data.chatStyleSummaryMaxWords ?? null),
-        chatStyleMaxKeywordsPerSkill: Number.isNaN(
-          data.chatStyleMaxKeywordsPerSkill,
-        )
+        chatStyleMaxKeywordsPerSkill: Number.isNaN(data.chatStyleMaxKeywordsPerSkill)
           ? null
           : (data.chatStyleMaxKeywordsPerSkill ?? null),
         chatStyleLanguageMode: data.chatStyleLanguageMode ?? null,
         chatStyleManualLanguage: data.chatStyleManualLanguage ?? null,
         pipelineScheduleEnabled: data.pipelineScheduleEnabled ?? null,
         pipelineScheduleHour: data.pipelineScheduleHour ?? null,
-        backupEnabled: nullIfSame(
-          data.backupEnabled,
-          backup.backupEnabled.default,
-        ),
+        backupEnabled: nullIfSame(data.backupEnabled, backup.backupEnabled.default),
         backupHour: nullIfSame(data.backupHour, backup.backupHour.default),
-        backupMaxCount: nullIfSame(
-          data.backupMaxCount,
-          backup.backupMaxCount.default,
-        ),
+        backupMaxCount: nullIfSame(data.backupMaxCount, backup.backupMaxCount.default),
         penalizeMissingSalary: nullIfSame(
           data.penalizeMissingSalary,
           scoring.penalizeMissingSalary.default,
@@ -1289,12 +1193,8 @@ export const SettingsPage: React.FC = () => {
         ),
         blockedCompanyKeywords: (() => {
           const normalized = normalizeStringArray(data.blockedCompanyKeywords);
-          const normalizedDefault = normalizeStringArray(
-            scoring.blockedCompanyKeywords.default,
-          );
-          return stringArraysEqual(normalized, normalizedDefault)
-            ? null
-            : normalized;
+          const normalizedDefault = normalizeStringArray(scoring.blockedCompanyKeywords.default);
+          return stringArraysEqual(normalized, normalizedDefault) ? null : normalized;
         })(),
         ghostwriterSystemPromptTemplate: nullIfSame(
           normalizeString(data.ghostwriterSystemPromptTemplate),
@@ -1346,8 +1246,7 @@ export const SettingsPage: React.FC = () => {
             clearErrors(getRxResumeValidationFields());
             setError("rxresumeApiKey", {
               type: "manual",
-              message:
-                validation.message ?? "Reactive Resume API key is invalid.",
+              message: validation.message ?? "Reactive Resume API key is invalid.",
             });
             return;
           }
@@ -1445,9 +1344,7 @@ export const SettingsPage: React.FC = () => {
 
   const toggleStatusToClear = (status: JobStatus) => {
     setStatusesToClear((prev) =>
-      prev.includes(status)
-        ? prev.filter((s) => s !== status)
-        : [...prev, status],
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status],
     );
   };
   const handleReset = async () => {
@@ -1478,8 +1375,7 @@ export const SettingsPage: React.FC = () => {
         ...group,
         items: group.items.filter(
           (item) =>
-            (item.id !== "billing" || isHostedMode) &&
-            (canEditLlmSettings || item.id !== "model"),
+            (item.id !== "billing" || isHostedMode) && (canEditLlmSettings || item.id !== "model"),
         ),
       })).filter((group) => group.items.length > 0),
     [canEditLlmSettings, isHostedMode],
@@ -1490,9 +1386,7 @@ export const SettingsPage: React.FC = () => {
       visibleNavGroups
         .map((group) => ({
           ...group,
-          items: group.items.filter((item) =>
-            matchesSettingsSearch(settingsSearch, item),
-          ),
+          items: group.items.filter((item) => matchesSettingsSearch(settingsSearch, item)),
         }))
         .filter((group) => group.items.length > 0),
     [settingsSearch, visibleNavGroups],
@@ -1500,25 +1394,18 @@ export const SettingsPage: React.FC = () => {
 
   useEffect(() => {
     const hash = location.hash.replace(/^#/, "");
-    const allSectionIds = visibleNavGroups.flatMap((g) =>
-      g.items.map((i) => i.id),
-    );
+    const allSectionIds = visibleNavGroups.flatMap((g) => g.items.map((i) => i.id));
     if (hash && allSectionIds.includes(hash as SettingsSectionId)) {
       setActiveSection(hash as SettingsSectionId);
-      const parentGroup = visibleNavGroups.find((g) =>
-        g.items.some((i) => i.id === hash),
-      );
+      const parentGroup = visibleNavGroups.find((g) => g.items.some((i) => i.id === hash));
       if (parentGroup) {
-        setOpenGroups((prev) =>
-          prev.includes(parentGroup.id) ? prev : [...prev, parentGroup.id],
-        );
+        setOpenGroups((prev) => (prev.includes(parentGroup.id) ? prev : [...prev, parentGroup.id]));
       }
     }
   }, [location.hash, visibleNavGroups]);
 
   const visibleSectionIds = useMemo(
-    () =>
-      filteredNavGroups.flatMap((group) => group.items.map((item) => item.id)),
+    () => filteredNavGroups.flatMap((group) => group.items.map((item) => item.id)),
     [filteredNavGroups],
   );
 
@@ -1532,22 +1419,18 @@ export const SettingsPage: React.FC = () => {
   const firstVisibleGroup = visibleNavGroups[0] ?? SETTINGS_NAV_GROUPS[0];
   const firstVisibleSection = firstVisibleGroup.items[0];
   const activeSectionMeta =
-    visibleNavGroups
-      .flatMap((group) => group.items)
-      .find((item) => item.id === activeSection) ?? firstVisibleSection;
+    visibleNavGroups.flatMap((group) => group.items).find((item) => item.id === activeSection) ??
+    firstVisibleSection;
   const activeGroup =
-    visibleNavGroups.find((group) =>
-      group.items.some((item) => item.id === activeSection),
-    ) ?? firstVisibleGroup;
+    visibleNavGroups.find((group) => group.items.some((item) => item.id === activeSection)) ??
+    firstVisibleGroup;
 
   const sectionHasDirtyState = (sectionId: SettingsSectionId) =>
     SECTION_FIELD_MAP[sectionId].some((field) => Boolean(dirtyFields[field]));
   const sectionHasErrors = (sectionId: SettingsSectionId) =>
     SECTION_FIELD_MAP[sectionId].some((field) => Boolean(errors[field]));
 
-  const getSectionBadge = (
-    sectionId: SettingsSectionId,
-  ): SectionWorkspaceBadge | null => {
+  const getSectionBadge = (sectionId: SettingsSectionId): SectionWorkspaceBadge | null => {
     if (sectionId === "danger-zone") {
       return { label: "Sensitive", variant: "destructive" as const };
     }
@@ -1564,9 +1447,7 @@ export const SettingsPage: React.FC = () => {
           ? {
               label: billingQuery.data.plan === "pro" ? "Pro" : "Free",
               variant:
-                billingQuery.data.plan === "pro"
-                  ? ("outline" as const)
-                  : ("secondary" as const),
+                billingQuery.data.plan === "pro" ? ("outline" as const) : ("secondary" as const),
             }
           : null;
       case "model":
@@ -1594,16 +1475,13 @@ export const SettingsPage: React.FC = () => {
           ? { label: "Customized", variant: "outline" as const }
           : { label: "Default rules", variant: "secondary" as const };
       case "reactive-resume":
-        return hasRxResumeAccess
-          ? { label: "Connected", variant: "outline" as const }
-          : null;
+        return hasRxResumeAccess ? { label: "Connected", variant: "outline" as const } : null;
       case "webhooks":
         return pipelineWebhook.effective || jobCompleteWebhook.effective
           ? { label: "Configured", variant: "outline" as const }
           : { label: "Optional", variant: "secondary" as const };
       case "environment":
-        return envSettings.readable.ukvisajobsEmail ||
-          envSettings.readable.adzunaAppId
+        return envSettings.readable.ukvisajobsEmail || envSettings.readable.adzunaAppId
           ? { label: "Configured", variant: "outline" as const }
           : null;
       case "display":
@@ -1753,9 +1631,7 @@ export const SettingsPage: React.FC = () => {
           toggleStatusToClear={toggleStatusToClear}
           handleClearByStatuses={handleClearByStatuses}
           handleClearDatabase={
-            currentUserQuery.data?.isSystemAdmin
-              ? handleClearDatabase
-              : undefined
+            currentUserQuery.data?.isSystemAdmin ? handleClearDatabase : undefined
           }
           handleClearByScore={handleClearByScore}
           isLoading={isLoading}

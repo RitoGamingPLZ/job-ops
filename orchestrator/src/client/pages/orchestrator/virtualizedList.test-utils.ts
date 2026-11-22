@@ -5,15 +5,13 @@ const DEFAULT_RECT = {
 
 const readRectSize = (element: Element) => {
   const htmlElement = element as HTMLElement;
-  const height =
-    Number(htmlElement.dataset.virtualHeight) || DEFAULT_RECT.height;
+  const height = Number(htmlElement.dataset.virtualHeight) || DEFAULT_RECT.height;
   const width = Number(htmlElement.dataset.virtualWidth) || DEFAULT_RECT.width;
   return { height, width };
 };
 
 export const installVirtualizerSizeMock = () => {
-  const originalGetBoundingClientRect =
-    HTMLElement.prototype.getBoundingClientRect;
+  const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
   const originalResizeObserver = globalThis.ResizeObserver;
 
   Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {

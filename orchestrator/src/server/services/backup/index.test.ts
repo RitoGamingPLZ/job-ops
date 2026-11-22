@@ -71,9 +71,9 @@ describe("Backup Service", () => {
         fileMustExist: true,
       });
       try {
-        const row = backupDb
-          .prepare("SELECT name FROM test_items ORDER BY id LIMIT 1")
-          .get() as { name: string } | undefined;
+        const row = backupDb.prepare("SELECT name FROM test_items ORDER BY id LIMIT 1").get() as
+          | { name: string }
+          | undefined;
         expect(row?.name).toBe("alpha");
       } finally {
         backupDb.close();
@@ -84,9 +84,7 @@ describe("Backup Service", () => {
       const filename = await backup.createBackup("manual");
 
       // Check filename format: jobs_manual_YYYY_MM_DD_HH_MM_SS.db
-      expect(filename).toMatch(
-        /^jobs_manual_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}\.db$/,
-      );
+      expect(filename).toMatch(/^jobs_manual_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}\.db$/);
 
       // Check file was created
       const backupPath = path.join(tempDir, filename);
@@ -97,9 +95,9 @@ describe("Backup Service", () => {
         fileMustExist: true,
       });
       try {
-        const count = backupDb
-          .prepare("SELECT COUNT(*) as count FROM test_items")
-          .get() as { count: number };
+        const count = backupDb.prepare("SELECT COUNT(*) as count FROM test_items").get() as {
+          count: number;
+        };
         expect(count.count).toBe(1);
       } finally {
         backupDb.close();
@@ -134,9 +132,7 @@ describe("Backup Service", () => {
       // Delete the database
       await fs.promises.unlink(dbPath);
 
-      await expect(backup.createBackup("auto")).rejects.toThrow(
-        "Database file not found",
-      );
+      await expect(backup.createBackup("auto")).rejects.toThrow("Database file not found");
     });
   });
 
@@ -214,15 +210,11 @@ describe("Backup Service", () => {
       await expect(backup.deleteBackup("../../../etc/passwd")).rejects.toThrow(
         "Invalid backup filename",
       );
-      await expect(backup.deleteBackup("random.txt")).rejects.toThrow(
-        "Invalid backup filename",
-      );
+      await expect(backup.deleteBackup("random.txt")).rejects.toThrow("Invalid backup filename");
     });
 
     it("should throw error if backup does not exist", async () => {
-      await expect(backup.deleteBackup("jobs_2026_01_01.db")).rejects.toThrow(
-        "Backup not found",
-      );
+      await expect(backup.deleteBackup("jobs_2026_01_01.db")).rejects.toThrow("Backup not found");
     });
 
     it("should delete a suffixed manual backup", async () => {
@@ -364,9 +356,7 @@ describe("Backup Service", () => {
       expect(secondRun).not.toBeNull();
       expect(firstRun).not.toBeNull();
       if (secondRun && firstRun) {
-        expect(new Date(secondRun).getTime()).toBeGreaterThan(
-          new Date(firstRun).getTime(),
-        );
+        expect(new Date(secondRun).getTime()).toBeGreaterThan(new Date(firstRun).getTime());
       }
     });
   });

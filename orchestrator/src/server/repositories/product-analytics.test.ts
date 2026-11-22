@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.sequential("product analytics repository", () => {
+describe("product analytics repository", () => {
   const originalEnv = { ...process.env };
   let tempDir: string;
   let closeDb: (() => void) | null = null;
@@ -45,9 +45,7 @@ describe.sequential("product analytics repository", () => {
       occurredAt: 1_704_153_600,
     });
     const candidates = await repo.getHistoricalActivationMilestoneCandidates();
-    expect(candidates.activation_first_positive_response).toBe(
-      1_704_153_600_000,
-    );
+    expect(candidates.activation_first_positive_response).toBe(1_704_153_600_000);
     expect(candidates.activation_first_interview).toBe(1_704_153_600_000);
   });
 
@@ -109,12 +107,8 @@ describe.sequential("product analytics repository", () => {
     });
     await repo.deleteActivationMilestone("activation_first_acceptance");
 
-    const updatedOffer = await repo.getActivationMilestone(
-      "activation_first_offer",
-    );
-    const deletedAcceptance = await repo.getActivationMilestone(
-      "activation_first_acceptance",
-    );
+    const updatedOffer = await repo.getActivationMilestone("activation_first_offer");
+    const deletedAcceptance = await repo.getActivationMilestone("activation_first_acceptance");
 
     expect(updatedOffer?.firstSeenAt).toBe(7_000);
     expect(updatedOffer?.firstSessionId).toBeNull();
@@ -183,15 +177,9 @@ describe.sequential("product analytics repository", () => {
     const candidates = await repo.getHistoricalActivationMilestoneCandidates();
 
     expect(installState.installedAt).toBe("2026-01-01T00:00:00.000Z");
-    expect(candidates.activation_first_pipeline_run).toBe(
-      Date.parse("2026-01-02T00:00:00.000Z"),
-    );
-    expect(candidates.activation_first_application).toBe(
-      Date.parse("2026-01-03T00:00:00.000Z"),
-    );
-    expect(candidates.activation_first_positive_response).toBe(
-      1_704_067_200_000,
-    );
+    expect(candidates.activation_first_pipeline_run).toBe(Date.parse("2026-01-02T00:00:00.000Z"));
+    expect(candidates.activation_first_application).toBe(Date.parse("2026-01-03T00:00:00.000Z"));
+    expect(candidates.activation_first_positive_response).toBe(1_704_067_200_000);
     expect(candidates.activation_first_interview).toBe(1_704_153_600_000);
     expect(candidates.activation_first_offer).toBe(1_704_240_000_000);
     expect(candidates.activation_first_acceptance).toBe(1_704_240_000_000);
@@ -300,8 +288,7 @@ describe.sequential("product analytics repository", () => {
     });
 
     const stageCandidate = candidates.find(
-      (candidate) =>
-        candidate.eventKey === "application_stage_reached:stage-screen",
+      (candidate) => candidate.eventKey === "application_stage_reached:stage-screen",
     );
     expect(stageCandidate?.occurredAt).toBe(1_704_153_600_000);
 

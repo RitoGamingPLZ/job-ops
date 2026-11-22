@@ -24,13 +24,11 @@ export type FatalErrorSnapshot = {
 const REDACTED = "[redacted]";
 const REDACTED_LONG_VALUE = "[redacted-long-value]";
 const MAX_TEXT_LENGTH = 6_000;
-const AUTHORIZATION_PATTERN =
-  /\b(authorization\s*[:=]\s*)(?:Bearer|Basic)?\s*[^\s,;{}]+/gi;
+const AUTHORIZATION_PATTERN = /\b(authorization\s*[:=]\s*)(?:Bearer|Basic)?\s*[^\s,;{}]+/gi;
 const SENSITIVE_ASSIGNMENT_PATTERN =
   /\b(cookie|password|passwd|secret|token|api[_-]?key|x-api-key|credential|set-cookie|proxy-authorization)(\s*[:=]\s*)(["']?)([^"'\s,;{}&]+)/gi;
 const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi;
-const JWT_PATTERN =
-  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g;
+const JWT_PATTERN = /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g;
 const LONG_VALUE_PATTERN = /\b[A-Za-z0-9+/=_-]{80,}\b/g;
 
 function truncateText(value: string): string {
@@ -40,11 +38,7 @@ function truncateText(value: string): string {
 
 export function sanitizeCrashText(input: unknown): string {
   const text =
-    typeof input === "string"
-      ? input
-      : input === undefined || input === null
-        ? ""
-        : String(input);
+    typeof input === "string" ? input : input === undefined || input === null ? "" : String(input);
 
   return truncateText(text)
     .replace(AUTHORIZATION_PATTERN, `$1${REDACTED}`)
@@ -109,9 +103,7 @@ export function createFatalErrorSnapshot(
     name: parts.name,
     message: parts.message || "Unknown error",
     stack: parts.stack,
-    componentStack: options.componentStack
-      ? sanitizeCrashText(options.componentStack)
-      : null,
+    componentStack: options.componentStack ? sanitizeCrashText(options.componentStack) : null,
     route: sanitizeCrashText(options.route ?? currentRoute()),
     appVersion: getCurrentAppVersion(),
     userAgent: userAgent(),
@@ -154,10 +146,7 @@ Please add what you were doing before the app showed this screen.
 }
 
 export function buildFatalIssueUrl(snapshot: FatalErrorSnapshot): string {
-  const title = sanitizeCrashText(`Client crash: ${snapshot.message}`).slice(
-    0,
-    180,
-  );
+  const title = sanitizeCrashText(`Client crash: ${snapshot.message}`).slice(0, 180);
   const params = new URLSearchParams({
     title,
     body: issueBody(snapshot),
@@ -198,13 +187,10 @@ export function FatalErrorScreen({
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
           </div>
           <div className="min-w-0 space-y-2">
-            <h1 className="text-2xl font-semibold tracking-normal">
-              Something went wrong
-            </h1>
+            <h1 className="text-2xl font-semibold tracking-normal">Something went wrong</h1>
             <p className="max-w-prose text-sm leading-6 text-muted-foreground">
-              JobOps hit an unexpected client error. Your data should still be
-              safe; reload the app or open a GitHub issue with the diagnostics
-              below.
+              JobOps hit an unexpected client error. Your data should still be safe; reload the app
+              or open a GitHub issue with the diagnostics below.
             </p>
           </div>
         </div>
@@ -229,9 +215,7 @@ export function FatalErrorScreen({
         </div>
 
         <details className="rounded-md border border-border bg-muted/30 p-4">
-          <summary className="cursor-pointer text-sm font-medium">
-            Technical details
-          </summary>
+          <summary className="cursor-pointer text-sm font-medium">Technical details</summary>
           <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">
             {formatDetails(snapshot)}
           </pre>
@@ -277,9 +261,7 @@ function isOpenPanelRejection(reason: unknown): boolean {
   }
 
   const lines = reason.stack.trim().split(/\r?\n/);
-  const header = reason.message
-    ? `${reason.name}: ${reason.message}`
-    : reason.name;
+  const header = reason.message ? `${reason.name}: ${reason.message}` : reason.name;
   let hasOpenPanelFrame = false;
 
   for (const [index, line] of lines.entries()) {
@@ -335,8 +317,7 @@ export function isOpaqueCrossOriginError(event: ErrorEvent): boolean {
 export function AppErrorBoundary({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const route = `${location.pathname}${location.search}${location.hash}`;
-  const [globalSnapshot, setGlobalSnapshot] =
-    useState<FatalErrorSnapshot | null>(null);
+  const [globalSnapshot, setGlobalSnapshot] = useState<FatalErrorSnapshot | null>(null);
 
   useEffect(() => {
     setGlobalSnapshot((current) => (current?.route === route ? current : null));
@@ -385,10 +366,7 @@ export function AppErrorBoundary({ children }: { children: React.ReactNode }) {
 
     return () => {
       window.removeEventListener("error", handleError);
-      window.removeEventListener(
-        "unhandledrejection",
-        handleUnhandledRejection,
-      );
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
     };
   }, [route]);
 

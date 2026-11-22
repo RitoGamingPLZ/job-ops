@@ -69,9 +69,7 @@ function typstAvailable(): boolean {
   return result.status === 0;
 }
 
-async function readNativeThemeTokens(
-  theme: TypstTheme,
-): Promise<TypstThemeTokens> {
+async function readNativeThemeTokens(theme: TypstTheme): Promise<TypstThemeTokens> {
   const loadedTheme = await readTypstTheme(theme);
   if (!loadedTheme.tokens) {
     throw new Error(`Expected ${theme} to be a native Typst theme`);
@@ -91,9 +89,7 @@ describe("typst resume renderer", () => {
   });
 
   it("exposes the bundled Typst template", async () => {
-    expect(getTypstTemplatePath().replace(/\\/g, "/")).toContain(
-      "typst-themes/classic/main.typ",
-    );
+    expect(getTypstTemplatePath().replace(/\\/g, "/")).toContain("typst-themes/classic/main.typ");
     const template = await readTypstTemplate();
     expect(template).toContain("#set page");
     expect(template).toContain("__BODY__");
@@ -222,12 +218,8 @@ describe("typst resume renderer", () => {
       tokens,
     );
 
-    expect(typst.indexOf("= Technical Skills")).toBeLessThan(
-      typst.indexOf("= Projects"),
-    );
-    expect(typst.indexOf("= Projects")).toBeLessThan(
-      typst.indexOf("= Experience"),
-    );
+    expect(typst.indexOf("= Technical Skills")).toBeLessThan(typst.indexOf("= Projects"));
+    expect(typst.indexOf("= Projects")).toBeLessThan(typst.indexOf("= Experience"));
   });
 
   it("exposes a stable resume data path for package-backed themes", async () => {
@@ -257,9 +249,7 @@ describe("typst resume renderer", () => {
     expect(buildTypstDocument(baseDocument, template, tokens, "letter")).toBe(
       '#set page(paper: "us-letter")',
     );
-    expect(buildTypstDocument(baseDocument, template, tokens, "a4")).toBe(
-      '#set page(paper: "a4")',
-    );
+    expect(buildTypstDocument(baseDocument, template, tokens, "a4")).toBe('#set page(paper: "a4")');
   });
 
   it("keeps rendering A4 when the paper size is left to the renderer", async () => {
@@ -269,9 +259,7 @@ describe("typst resume renderer", () => {
     expect(buildTypstDocument(baseDocument, template, tokens, "auto")).toBe(
       '#set page(paper: "a4")',
     );
-    expect(buildTypstDocument(baseDocument, template, tokens)).toBe(
-      '#set page(paper: "a4")',
-    );
+    expect(buildTypstDocument(baseDocument, template, tokens)).toBe('#set page(paper: "a4")');
   });
 
   it("keeps links in the clean-print-cv adapter", async () => {
@@ -406,17 +394,13 @@ describe("typst resume renderer", () => {
     const typst = buildTypstDocument(
       {
         ...baseDocument,
-        summary:
-          "<strong>Bold summary</strong> & <em>Italic summary</em> with # and * sign.",
+        summary: "<strong>Bold summary</strong> & <em>Italic summary</em> with # and * sign.",
         experience: [
           {
             title: "Acme",
             subtitle: "<b>Senior</b> Platform Engineer",
             date: "2023",
-            bullets: [
-              "Managed <i>critical</i> systems.",
-              "Handled $50k budgets.",
-            ],
+            bullets: ["Managed <i>critical</i> systems.", "Handled $50k budgets."],
           },
         ],
       },
@@ -424,9 +408,7 @@ describe("typst resume renderer", () => {
       tokens,
     );
 
-    expect(typst).toContain(
-      "#strong[Bold summary] & #emph[Italic summary] with \\# and \\* sign.",
-    );
+    expect(typst).toContain("#strong[Bold summary] & #emph[Italic summary] with \\# and \\* sign.");
     expect(typst).toContain("#strong[Senior] Platform Engineer");
     expect(typst).toContain("Managed #emph[critical] systems.");
     expect(typst).toContain("Handled \\$50k budgets.");
@@ -441,17 +423,12 @@ describe("typst resume renderer", () => {
           title: "Acme",
           subtitle: "Platform Engineer",
           date: "2023",
-          bullets: [
-            "Managed <i>critical</i> systems.",
-            "Handled $50k budgets.",
-          ],
+          bullets: ["Managed <i>critical</i> systems.", "Handled $50k budgets."],
         },
       ],
     });
 
-    expect(converted.summary).toBe(
-      "#strong[Bold] and #emph[Italic] and normal.",
-    );
+    expect(converted.summary).toBe("#strong[Bold] and #emph[Italic] and normal.");
     expect(converted.experience[0]?.bullets).toEqual([
       "Managed #emph[critical] systems.",
       "Handled \\$50k budgets.",
@@ -480,26 +457,23 @@ describe("typst resume renderer", () => {
     }
   });
 
-  it.skipIf(!typstAvailable())(
-    "renders a PDF when typst is installed",
-    async () => {
-      const tempDir = await createTempDir();
-      tempDirs.push(tempDir);
-      const outputPath = join(tempDir, "resume.pdf");
+  it.skipIf(!typstAvailable())("renders a PDF when typst is installed", async () => {
+    const tempDir = await createTempDir();
+    tempDirs.push(tempDir);
+    const outputPath = join(tempDir, "resume.pdf");
 
-      await renderTypstPdf({
-        document: baseDocument,
-        outputPath,
-        jobId: "job-render-success",
-        typstTheme: "compact",
-      });
+    await renderTypstPdf({
+      document: baseDocument,
+      outputPath,
+      jobId: "job-render-success",
+      typstTheme: "compact",
+    });
 
-      const stats = spawnSync("sh", ["-lc", `test -s "${outputPath}"`], {
-        stdio: "ignore",
-      });
-      expect(stats.status).toBe(0);
-    },
-  );
+    const stats = spawnSync("sh", ["-lc", `test -s "${outputPath}"`], {
+      stdio: "ignore",
+    });
+    expect(stats.status).toBe(0);
+  });
 
   it.skipIf(!typstAvailable())(
     "renders the clean-print-cv theme when typst is installed",
@@ -563,25 +537,20 @@ describe("typst resume renderer", () => {
     },
   );
 
-  it.skipIf(!typstAvailable())(
-    "renders A4 pages in every theme by default",
-    async () => {
-      const tempDir = await createTempDir();
-      tempDirs.push(tempDir);
+  it.skipIf(!typstAvailable())("renders A4 pages in every theme by default", async () => {
+    const tempDir = await createTempDir();
+    tempDirs.push(tempDir);
 
-      for (const typstTheme of TYPST_THEME_VALUES) {
-        const outputPath = join(tempDir, `${typstTheme}-default.pdf`);
-        await renderTypstPdf({
-          document: baseDocument,
-          outputPath,
-          jobId: `job-render-default-${typstTheme}`,
-          typstTheme,
-        });
+    for (const typstTheme of TYPST_THEME_VALUES) {
+      const outputPath = join(tempDir, `${typstTheme}-default.pdf`);
+      await renderTypstPdf({
+        document: baseDocument,
+        outputPath,
+        jobId: `job-render-default-${typstTheme}`,
+        typstTheme,
+      });
 
-        expect(await readPdfPageSizes(outputPath), typstTheme).toEqual([
-          { width: 595, height: 842 },
-        ]);
-      }
-    },
-  );
+      expect(await readPdfPageSizes(outputPath), typstTheme).toEqual([{ width: 595, height: 842 }]);
+    }
+  });
 });

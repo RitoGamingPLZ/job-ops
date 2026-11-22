@@ -95,10 +95,7 @@ function isRemoteCity(cityName: string | undefined): boolean {
   return normalizeLocationToken(cityName) === "remote";
 }
 
-function formatLocation(
-  cityName: string | undefined,
-  country: string | undefined,
-): string {
+function formatLocation(cityName: string | undefined, country: string | undefined): string {
   const city = cityName?.trim();
   const countryLabel = country?.trim();
 
@@ -120,9 +117,7 @@ function matchesSearchTerm(job: GolangJobsRow, searchTerm: string): boolean {
   if (!normalizedTerm) return true;
 
   const requirements = Array.isArray(job.requirements)
-    ? job.requirements
-        .filter((value): value is string => typeof value === "string")
-        .join(" ")
+    ? job.requirements.filter((value): value is string => typeof value === "string").join(" ")
     : "";
   const city =
     job.cities && typeof job.cities === "object" && !Array.isArray(job.cities)
@@ -171,10 +166,7 @@ function matchesRequestedLocation(
   return normalizedLocation.includes(normalizedRequestedLocation);
 }
 
-function matchesSelectedCountry(
-  row: GolangJobsRow,
-  selectedCountry: string | undefined,
-): boolean {
+function matchesSelectedCountry(row: GolangJobsRow, selectedCountry: string | undefined): boolean {
   const normalizedCountry = normalizeCountryKey(selectedCountry);
   if (!normalizedCountry || normalizedCountry === "worldwide") {
     return true;
@@ -207,9 +199,7 @@ function matchesWorkplaceTypes(
         : undefined
       : undefined;
 
-  const workplaceType: GolangJobsWorkplaceType = isRemoteCity(cityName)
-    ? "remote"
-    : "onsite";
+  const workplaceType: GolangJobsWorkplaceType = isRemoteCity(cityName) ? "remote" : "onsite";
 
   return workplaceTypes.includes(workplaceType);
 }
@@ -233,8 +223,7 @@ function mapGolangJobsRow(row: GolangJobsRow): CreateJobInput | null {
       : undefined;
   const jobUrl = `https://www.golangjobs.tech/golang-jobs/${slug}`;
   const applicationLink =
-    typeof row.application_url === "string" &&
-    row.application_url.trim().length > 0
+    typeof row.application_url === "string" && row.application_url.trim().length > 0
       ? row.application_url
       : jobUrl;
   const requirements = Array.isArray(row.requirements)
@@ -248,14 +237,12 @@ function mapGolangJobsRow(row: GolangJobsRow): CreateJobInput | null {
     source: "golangjobs",
     sourceJobId,
     title: typeof row.title === "string" ? row.title : "Unknown Title",
-    employer:
-      typeof row.company === "string" ? row.company : "Unknown Employer",
+    employer: typeof row.company === "string" ? row.company : "Unknown Employer",
     jobUrl,
     applicationLink,
     location: formatLocation(cityName, country),
     datePosted: typeof row.posted_at === "string" ? row.posted_at : undefined,
-    jobDescription:
-      typeof row.description === "string" ? row.description : undefined,
+    jobDescription: typeof row.description === "string" ? row.description : undefined,
     jobType: typeof row.type === "string" ? mapJobType(row.type) : undefined,
     skills: requirements.length > 0 ? requirements.join(", ") : undefined,
     isRemote: isRemoteCity(cityName),
@@ -334,18 +321,13 @@ function resolveExplicitLocations(
     if (!normalizedLocation) return false;
     if (!normalizedCountry) return true;
     if (normalizedCountry === "usa/ca") {
-      return (
-        normalizedLocation !== "united states" &&
-        normalizedLocation !== "canada"
-      );
+      return normalizedLocation !== "united states" && normalizedLocation !== "canada";
     }
     return normalizedLocation !== normalizedCountry;
   });
 }
 
-export async function runGolangJobs(
-  options: RunGolangJobsOptions = {},
-): Promise<GolangJobsResult> {
+export async function runGolangJobs(options: RunGolangJobsOptions = {}): Promise<GolangJobsResult> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const supabaseAnonKey =
     options.supabaseAnonKey ??
@@ -356,10 +338,7 @@ export async function runGolangJobs(
       ? options.searchTerms
       : ["software engineer"];
   const maxJobsPerTerm = toIntegerOrFallback(options.maxJobsPerTerm, 50);
-  const explicitLocations = resolveExplicitLocations(
-    options.locations,
-    options.selectedCountry,
-  );
+  const explicitLocations = resolveExplicitLocations(options.locations, options.selectedCountry);
 
   try {
     const sourceRows = await fetchAllGolangJobs({
@@ -398,9 +377,7 @@ export async function runGolangJobs(
         if (!mapped) continue;
         if (
           explicitLocations.length > 0 &&
-          !explicitLocations.some((location) =>
-            matchesRequestedLocation(mapped.location, location),
-          )
+          !explicitLocations.some((location) => matchesRequestedLocation(mapped.location, location))
         ) {
           continue;
         }

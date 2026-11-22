@@ -1,8 +1,5 @@
 import { resolveSearchCities } from "@shared/search-cities.js";
-import type {
-  ExtractorManifest,
-  ExtractorProgressEvent,
-} from "@shared/types/extractors";
+import type { ExtractorManifest, ExtractorProgressEvent } from "@shared/types/extractors";
 import { runNaukri } from "./src/run";
 
 function toProgress(event: {
@@ -66,14 +63,8 @@ export const manifest: ExtractorManifest = {
     const configuredMaxJobsPerTerm = context.settings.naukriMaxJobsPerTerm
       ? parseInt(context.settings.naukriMaxJobsPerTerm, 10)
       : 50;
-    const locationCount = Math.max(
-      1,
-      context.sourceLocationPlan?.requestedCities.length ?? 0,
-    );
-    const maxJobsPerTerm = Math.max(
-      1,
-      Math.ceil(configuredMaxJobsPerTerm / locationCount),
-    );
+    const locationCount = Math.max(1, context.sourceLocationPlan?.requestedCities.length ?? 0);
+    const maxJobsPerTerm = Math.max(1, Math.ceil(configuredMaxJobsPerTerm / locationCount));
     const existingJobUrls = await context.getExistingJobUrls?.();
 
     const result = await runNaukri({
@@ -81,8 +72,7 @@ export const manifest: ExtractorManifest = {
       searchTerms: context.searchTerms,
       locations: resolveSearchCities({
         list: context.sourceLocationPlan?.requestedCities,
-        single:
-          context.settings.searchCities ?? context.settings.jobspyLocation,
+        single: context.settings.searchCities ?? context.settings.jobspyLocation,
       }),
       existingJobUrls,
       maxJobsPerTerm,

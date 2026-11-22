@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { hashPassword } from "@server/auth/password";
-import {
-  DEFAULT_TENANT_ID,
-  DEFAULT_TENANT_NAME,
-} from "@server/tenancy/constants";
+import { DEFAULT_TENANT_ID, DEFAULT_TENANT_NAME } from "@server/tenancy/constants";
 import type { AuthUser as SharedAuthUser } from "@shared/types";
 import { eq, sql } from "drizzle-orm";
 import { db, schema } from "../db";
@@ -83,9 +80,7 @@ export async function countUsers(): Promise<number> {
   return row?.count ?? 0;
 }
 
-export async function getUserForLogin(
-  username: string,
-): Promise<AuthUser | null> {
+export async function getUserForLogin(username: string): Promise<AuthUser | null> {
   const [row] = await db
     .select({
       id: users.id,
@@ -442,10 +437,7 @@ export async function createInitialSystemAdmin(input: {
   return user;
 }
 
-export async function setUserDisabled(
-  id: string,
-  isDisabled: boolean,
-): Promise<PublicUser | null> {
+export async function setUserDisabled(id: string, isDisabled: boolean): Promise<PublicUser | null> {
   await db
     .update(users)
     .set({ isDisabled, updatedAt: new Date().toISOString() })

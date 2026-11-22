@@ -25,10 +25,7 @@ import {
   readCookieJar,
   saveCookies,
 } from "browser-utils";
-import {
-  toNumberOrNull,
-  toStringOrNull,
-} from "job-ops-shared/utils/type-conversion";
+import { toNumberOrNull, toStringOrNull } from "job-ops-shared/utils/type-conversion";
 import type { Request } from "playwright";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -37,18 +34,14 @@ const API_URL = "https://my.ukvisajobs.com/ukvisa-api/api/fetch-jobs-data";
 const SIGNIN_URL = "https://my.ukvisajobs.com/signin";
 const OPEN_JOBS_URL =
   "https://my.ukvisajobs.com/open-jobs/1?is_global=0&sortBy=desc&visaAcceptance=false&applicants_outside_uk=false&pageNo=1";
-const STORAGE_ROOT =
-  process.env.UKVISAJOBS_STORAGE_DIR || join(__dirname, "../storage");
+const STORAGE_ROOT = process.env.UKVISAJOBS_STORAGE_DIR || join(__dirname, "../storage");
 const AUTH_CACHE_PATH = join(STORAGE_ROOT, "ukvisajobs-auth.json");
 const JOBS_PER_PAGE = 15;
 const DEFAULT_MAX_JOBS = 50;
 const MAX_ALLOWED_JOBS = 200;
 const JOBOPS_PROGRESS_PREFIX = "JOBOPS_PROGRESS ";
 
-function emitProgress(
-  event: string,
-  payload: Record<string, unknown> = {},
-): void {
+function emitProgress(event: string, payload: Record<string, unknown> = {}): void {
   if (process.env.JOBOPS_EMIT_PROGRESS !== "1") return;
   const serialized = JSON.stringify({ event, ...payload });
   process.stdout.write(`${JOBOPS_PROGRESS_PREFIX}${serialized}\n`);
@@ -168,9 +161,7 @@ async function fetchPage(
         text,
       );
     }
-    throw new Error(
-      `UKVisaJobs API returned ${response.status}: ${response.statusText} - ${text}`,
-    );
+    throw new Error(`UKVisaJobs API returned ${response.status}: ${response.statusText} - ${text}`);
   }
 
   return response.json() as Promise<UkVisaJobsApiResponse>;
@@ -182,12 +173,7 @@ function mapJob(raw: UkVisaJobsApiJob): ExtractedJob {
   const minSalary = toNumberOrNull(raw.min_salary);
   const maxSalary = toNumberOrNull(raw.max_salary);
 
-  if (
-    minSalary !== null &&
-    minSalary > 0 &&
-    maxSalary !== null &&
-    maxSalary > 0
-  ) {
+  if (minSalary !== null && minSalary > 0 && maxSalary !== null && maxSalary > 0) {
     salary = `Â£${minSalary.toLocaleString()}-${maxSalary.toLocaleString()}`;
     if (raw.salary_interval) {
       salary += ` / ${raw.salary_interval}`;
@@ -201,18 +187,13 @@ function mapJob(raw: UkVisaJobsApiJob): ExtractedJob {
 
   // Build a description from visa sponsorship fields
   const visaInfo: string[] = [];
-  if (raw.visa_acceptance?.toLowerCase() === "yes")
-    visaInfo.push("Visa acceptance: Yes");
+  if (raw.visa_acceptance?.toLowerCase() === "yes") visaInfo.push("Visa acceptance: Yes");
   if (raw.applicants_outside_uk?.toLowerCase() === "yes")
     visaInfo.push("Accepts applicants outside UK");
-  if (raw.likely_to_sponsor?.toLowerCase() === "yes")
-    visaInfo.push("Likely to sponsor");
-  if (raw.definitely_sponsored?.toLowerCase() === "yes")
-    visaInfo.push("Definitely sponsored");
-  if (raw.new_entrant?.toLowerCase() === "yes")
-    visaInfo.push("New entrant friendly");
-  if (raw.student_graduate?.toLowerCase() === "yes")
-    visaInfo.push("Student/Graduate friendly");
+  if (raw.likely_to_sponsor?.toLowerCase() === "yes") visaInfo.push("Likely to sponsor");
+  if (raw.definitely_sponsored?.toLowerCase() === "yes") visaInfo.push("Definitely sponsored");
+  if (raw.new_entrant?.toLowerCase() === "yes") visaInfo.push("New entrant friendly");
+  if (raw.student_graduate?.toLowerCase() === "yes") visaInfo.push("Student/Graduate friendly");
 
   const description = raw.description
     ? raw.description
@@ -274,9 +255,7 @@ async function loadCachedAuthSession(): Promise<UkVisaJobsAuthSession | null> {
   }
 }
 
-async function saveCachedAuthSession(
-  session: UkVisaJobsAuthSession,
-): Promise<void> {
+async function saveCachedAuthSession(session: UkVisaJobsAuthSession): Promise<void> {
   const payload = {
     token: session.token,
     authToken: session.authToken,
@@ -304,8 +283,7 @@ function extractMultipartField(body: string, field: string): string | null {
   }
   if (separatorIndex === -1) return null;
 
-  const valueStart =
-    index + nameToken.length + separatorIndex + separatorLength;
+  const valueStart = index + nameToken.length + separatorIndex + separatorLength;
   const remainder = body.slice(valueStart);
   const endIndex = remainder.indexOf("\r\n");
   if (endIndex === -1) return remainder.trim();
@@ -342,10 +320,7 @@ function isAuthErrorResponse(status: number, bodyText: string): boolean {
   return bodyText.toLowerCase().includes("expired");
 }
 
-async function loginWithBrowser(
-  email: string,
-  password: string,
-): Promise<UkVisaJobsAuthSession> {
+async function loginWithBrowser(email: string, password: string): Promise<UkVisaJobsAuthSession> {
   const { firefox } = await import("playwright");
   const headless = process.env.UKVISAJOBS_HEADLESS !== "false";
   const EXTRACTOR_ID = "ukvisajobs";
@@ -391,16 +366,14 @@ async function loginWithBrowser(
 
     const requestPromise = page.waitForRequest(
       (request) =>
-        request.url().includes("/ukvisa-api/api/fetch-jobs-data") &&
-        request.method() === "POST",
+        request.url().includes("/ukvisa-api/api/fetch-jobs-data") && request.method() === "POST",
       { timeout: 30000 },
     );
 
-    const { challengeResult: jobsChallenge } = await navigateWithChallenge(
-      page,
-      OPEN_JOBS_URL,
-      { waitUntil: "networkidle", challengeTimeoutMs: 30_000 },
-    );
+    const { challengeResult: jobsChallenge } = await navigateWithChallenge(page, OPEN_JOBS_URL, {
+      waitUntil: "networkidle",
+      challengeTimeoutMs: 30_000,
+    });
     if (jobsChallenge.status === "timeout") {
       await invalidateCookies(EXTRACTOR_ID, STORAGE_DIR);
       emitProgress("challenge_required", { url: OPEN_JOBS_URL });
@@ -420,15 +393,10 @@ async function loginWithBrowser(
     }
 
     const cookies = await context.cookies("https://my.ukvisajobs.com");
-    const csrfToken =
-      cookies.find((cookie) => cookie.name === "csrf_token")?.value || "";
-    const ciSession =
-      cookies.find((cookie) => cookie.name === "ci_session")?.value || "";
-    const authToken =
-      cookies.find((cookie) => cookie.name === "authToken")?.value || "";
-    const token = fetchRequest
-      ? extractTokenFromRequest(fetchRequest)
-      : authToken;
+    const csrfToken = cookies.find((cookie) => cookie.name === "csrf_token")?.value || "";
+    const ciSession = cookies.find((cookie) => cookie.name === "ci_session")?.value || "";
+    const authToken = cookies.find((cookie) => cookie.name === "authToken")?.value || "";
+    const token = fetchRequest ? extractTokenFromRequest(fetchRequest) : authToken;
 
     if (!token) {
       throw new Error("Failed to locate auth token from browser session.");
@@ -463,16 +431,11 @@ async function main(): Promise<void> {
 
   if (refreshOnly) {
     if (!credentials) {
-      console.error(
-        "ERROR: UKVISAJOBS_EMAIL and UKVISAJOBS_PASSWORD must be set",
-      );
+      console.error("ERROR: UKVISAJOBS_EMAIL and UKVISAJOBS_PASSWORD must be set");
       process.exit(1);
     }
     console.log("   Refresh-only mode: logging in to refresh tokens...");
-    authSession = await loginWithBrowser(
-      credentials.email,
-      credentials.password,
-    );
+    authSession = await loginWithBrowser(credentials.email, credentials.password);
     await saveCachedAuthSession(authSession);
     console.log("   Auth session refreshed.");
     return;
@@ -480,16 +443,11 @@ async function main(): Promise<void> {
 
   if (!authSession) {
     if (!credentials) {
-      console.error(
-        "ERROR: UKVISAJOBS_EMAIL and UKVISAJOBS_PASSWORD must be set",
-      );
+      console.error("ERROR: UKVISAJOBS_EMAIL and UKVISAJOBS_PASSWORD must be set");
       process.exit(1);
     }
     console.log("   No cached session found. Logging in to refresh tokens...");
-    authSession = await loginWithBrowser(
-      credentials.email,
-      credentials.password,
-    );
+    authSession = await loginWithBrowser(credentials.email, credentials.password);
     await saveCachedAuthSession(authSession);
   }
 
@@ -535,15 +493,9 @@ async function main(): Promise<void> {
           throw error;
         }
 
-        const reason =
-          error instanceof UkVisaJobsAuthError
-            ? "Auth expired."
-            : "Fetch failed.";
+        const reason = error instanceof UkVisaJobsAuthError ? "Auth expired." : "Fetch failed.";
         console.log(`   ${reason} Refreshing tokens and retrying...`);
-        authSession = await loginWithBrowser(
-          credentials.email,
-          credentials.password,
-        );
+        authSession = await loginWithBrowser(credentials.email, credentials.password);
         await saveCachedAuthSession(authSession);
         response = await fetchPage(pageNo, authSession, { searchKeyword });
       }
@@ -554,9 +506,7 @@ async function main(): Promise<void> {
           status: response.status,
           message: `API returned status ${response.status}`,
         });
-        console.warn(
-          `   âš ï¸ API returned status ${response.status} on page ${pageNo}`,
-        );
+        console.warn(`   âš ï¸ API returned status ${response.status} on page ${pageNo}`);
         break;
       }
 
@@ -618,10 +568,7 @@ async function main(): Promise<void> {
 
     // Write each job as a separate JSON file (Crawlee dataset format)
     for (let i = 0; i < allJobs.length; i++) {
-      const filename = join(
-        storageDir,
-        `${String(i + 1).padStart(6, "0")}.json`,
-      );
+      const filename = join(storageDir, `${String(i + 1).padStart(6, "0")}.json`);
       await writeFile(filename, JSON.stringify(allJobs[i], null, 2));
     }
 

@@ -20,8 +20,7 @@ export interface ReactiveResumeV5Role extends ReactiveResumeV5LooseObject {
   description: string;
 }
 
-export interface ReactiveResumeV5CustomField
-  extends ReactiveResumeV5LooseObject {
+export interface ReactiveResumeV5CustomField extends ReactiveResumeV5LooseObject {
   id: string;
   title?: string;
   icon: string;
@@ -53,15 +52,13 @@ export interface ReactiveResumeV5Basics extends ReactiveResumeV5LooseObject {
   customFields: ReactiveResumeV5CustomField[];
 }
 
-export interface ReactiveResumeV5SectionBase
-  extends ReactiveResumeV5LooseObject {
+export interface ReactiveResumeV5SectionBase extends ReactiveResumeV5LooseObject {
   title: string;
   columns: number;
   hidden: boolean;
 }
 
-export interface ReactiveResumeV5SummarySection
-  extends ReactiveResumeV5SectionBase {
+export interface ReactiveResumeV5SummarySection extends ReactiveResumeV5SectionBase {
   content: string;
 }
 
@@ -84,8 +81,7 @@ export interface ReactiveResumeV5ProfileItem extends ReactiveResumeV5BaseItem {
   website: ReactiveResumeV5ItemUrl;
 }
 
-export interface ReactiveResumeV5ExperienceItem
-  extends ReactiveResumeV5BaseItem {
+export interface ReactiveResumeV5ExperienceItem extends ReactiveResumeV5BaseItem {
   company: string;
   position: string;
   location: string;
@@ -95,8 +91,7 @@ export interface ReactiveResumeV5ExperienceItem
   roles: ReactiveResumeV5Role[];
 }
 
-export interface ReactiveResumeV5EducationItem
-  extends ReactiveResumeV5BaseItem {
+export interface ReactiveResumeV5EducationItem extends ReactiveResumeV5BaseItem {
   school: string;
   degree: string;
   area: string;
@@ -142,8 +137,7 @@ export interface ReactiveResumeV5AwardItem extends ReactiveResumeV5BaseItem {
   description: string;
 }
 
-export interface ReactiveResumeV5CertificationItem
-  extends ReactiveResumeV5BaseItem {
+export interface ReactiveResumeV5CertificationItem extends ReactiveResumeV5BaseItem {
   title: string;
   issuer: string;
   date: string;
@@ -151,8 +145,7 @@ export interface ReactiveResumeV5CertificationItem
   description: string;
 }
 
-export interface ReactiveResumeV5PublicationItem
-  extends ReactiveResumeV5BaseItem {
+export interface ReactiveResumeV5PublicationItem extends ReactiveResumeV5BaseItem {
   title: string;
   publisher: string;
   date: string;
@@ -160,8 +153,7 @@ export interface ReactiveResumeV5PublicationItem
   description: string;
 }
 
-export interface ReactiveResumeV5VolunteerItem
-  extends ReactiveResumeV5BaseItem {
+export interface ReactiveResumeV5VolunteerItem extends ReactiveResumeV5BaseItem {
   organization: string;
   location: string;
   period: string;
@@ -169,8 +161,7 @@ export interface ReactiveResumeV5VolunteerItem
   description: string;
 }
 
-export interface ReactiveResumeV5ReferenceItem
-  extends ReactiveResumeV5BaseItem {
+export interface ReactiveResumeV5ReferenceItem extends ReactiveResumeV5BaseItem {
   name: string;
   position: string;
   website: ReactiveResumeV5ItemUrl;
@@ -178,14 +169,12 @@ export interface ReactiveResumeV5ReferenceItem
   description: string;
 }
 
-export interface ReactiveResumeV5CoverLetterItem
-  extends ReactiveResumeV5BaseItem {
+export interface ReactiveResumeV5CoverLetterItem extends ReactiveResumeV5BaseItem {
   recipient: string;
   content: string;
 }
 
-export interface ReactiveResumeV5ItemSection<TItem>
-  extends ReactiveResumeV5SectionBase {
+export interface ReactiveResumeV5ItemSection<TItem> extends ReactiveResumeV5SectionBase {
   items: TItem[];
 }
 
@@ -221,36 +210,31 @@ export type ReactiveResumeV5CustomSectionItem =
   | ReactiveResumeV5VolunteerItem
   | ReactiveResumeV5ReferenceItem;
 
-export interface ReactiveResumeV5CustomSection
-  extends ReactiveResumeV5SectionBase {
+export interface ReactiveResumeV5CustomSection extends ReactiveResumeV5SectionBase {
   id: string;
   type: ReactiveResumeV5SectionType;
   items: ReactiveResumeV5CustomSectionItem[];
 }
 
-export interface ReactiveResumeV5MetadataLayoutPage
-  extends ReactiveResumeV5LooseObject {
+export interface ReactiveResumeV5MetadataLayoutPage extends ReactiveResumeV5LooseObject {
   fullWidth: boolean;
   main: string[];
   sidebar: string[];
 }
 
-export interface ReactiveResumeV5MetadataLayout
-  extends ReactiveResumeV5LooseObject {
+export interface ReactiveResumeV5MetadataLayout extends ReactiveResumeV5LooseObject {
   sidebarWidth: number;
   pages: ReactiveResumeV5MetadataLayoutPage[];
 }
 
-export interface ReactiveResumeV5MetadataCss
-  extends ReactiveResumeV5LooseObject {
+export interface ReactiveResumeV5MetadataCss extends ReactiveResumeV5LooseObject {
   enabled: boolean;
   value: string;
 }
 
 export type ReactiveResumeV5PageFormat = "a4" | "letter" | "free-form";
 
-export interface ReactiveResumeV5MetadataPage
-  extends ReactiveResumeV5LooseObject {
+export interface ReactiveResumeV5MetadataPage extends ReactiveResumeV5LooseObject {
   gapX: number;
   gapY: number;
   marginX: number;
@@ -269,35 +253,30 @@ export type ReactiveResumeV5LevelType =
   | "progress-bar"
   | "icon";
 
-export interface ReactiveResumeV5MetadataLevel
-  extends ReactiveResumeV5LooseObject {
+export interface ReactiveResumeV5MetadataLevel extends ReactiveResumeV5LooseObject {
   icon: string;
   type: ReactiveResumeV5LevelType;
 }
 
-export interface ReactiveResumeV5MetadataColors
-  extends ReactiveResumeV5LooseObject {
+export interface ReactiveResumeV5MetadataColors extends ReactiveResumeV5LooseObject {
   primary: string;
   text: string;
   background: string;
 }
 
-export interface ReactiveResumeV5MetadataTypographyBlock
-  extends ReactiveResumeV5LooseObject {
+export interface ReactiveResumeV5MetadataTypographyBlock extends ReactiveResumeV5LooseObject {
   fontFamily: string;
   fontWeights: string[];
   fontSize: number;
   lineHeight: number;
 }
 
-export interface ReactiveResumeV5MetadataDesign
-  extends ReactiveResumeV5LooseObject {
+export interface ReactiveResumeV5MetadataDesign extends ReactiveResumeV5LooseObject {
   level: ReactiveResumeV5MetadataLevel;
   colors: ReactiveResumeV5MetadataColors;
 }
 
-export interface ReactiveResumeV5MetadataTypography
-  extends ReactiveResumeV5LooseObject {
+export interface ReactiveResumeV5MetadataTypography extends ReactiveResumeV5LooseObject {
   body: ReactiveResumeV5MetadataTypographyBlock;
   heading: ReactiveResumeV5MetadataTypographyBlock;
 }
@@ -413,10 +392,7 @@ export interface DesignResumePdfResponse {
   generatedAt: string;
 }
 
-export type DesignResumeAiFieldValueType =
-  | "plain_text"
-  | "html"
-  | "string_list";
+export type DesignResumeAiFieldValueType = "plain_text" | "html" | "string_list";
 
 export interface DesignResumeAiFieldSuggestionRequest {
   document: DesignResumeJson;

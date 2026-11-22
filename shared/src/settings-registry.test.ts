@@ -3,10 +3,7 @@ import {
   getDefaultPromptTemplate,
   LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
 } from "./prompt-template-definitions";
-import {
-  getDefaultModelForProvider,
-  settingsRegistry,
-} from "./settings-registry";
+import { getDefaultModelForProvider, settingsRegistry } from "./settings-registry";
 
 describe("settingsRegistry helpers", () => {
   it("treats only the exact legacy generation default as unset", () => {
@@ -18,9 +15,7 @@ describe("settingsRegistry helpers", () => {
   });
   it("uses a bare API Route default and preserves explicit model choices", () => {
     expect(getDefaultModelForProvider("api_route")).toBe("gpt-6.1-sol");
-    expect(getDefaultModelForProvider("api-route", "claude-haiku-4-5")).toBe(
-      "claude-haiku-4-5",
-    );
+    expect(getDefaultModelForProvider("api-route", "claude-haiku-4-5")).toBe("claude-haiku-4-5");
   });
   describe("searchCities defaults", () => {
     it("defaults to empty when no location env is configured", () => {
@@ -89,12 +84,8 @@ describe("settingsRegistry helpers", () => {
     });
 
     it("defaults location scope and strictness to explicit local matching", () => {
-      expect(settingsRegistry.locationSearchScope.default()).toBe(
-        "selected_only",
-      );
-      expect(settingsRegistry.locationMatchStrictness.default()).toBe(
-        "exact_only",
-      );
+      expect(settingsRegistry.locationSearchScope.default()).toBe("selected_only");
+      expect(settingsRegistry.locationMatchStrictness.default()).toBe("exact_only");
     });
   });
 
@@ -139,8 +130,7 @@ describe("settingsRegistry helpers", () => {
     });
 
     it("uses env-backed defaults for jobindex per-term caps", () => {
-      const previousJobindexMaxJobsPerTerm =
-        process.env.JOBINDEX_MAX_JOBS_PER_TERM;
+      const previousJobindexMaxJobsPerTerm = process.env.JOBINDEX_MAX_JOBS_PER_TERM;
 
       process.env.JOBINDEX_MAX_JOBS_PER_TERM = "75";
 
@@ -151,8 +141,7 @@ describe("settingsRegistry helpers", () => {
         if (previousJobindexMaxJobsPerTerm === undefined) {
           delete process.env.JOBINDEX_MAX_JOBS_PER_TERM;
         } else {
-          process.env.JOBINDEX_MAX_JOBS_PER_TERM =
-            previousJobindexMaxJobsPerTerm;
+          process.env.JOBINDEX_MAX_JOBS_PER_TERM = previousJobindexMaxJobsPerTerm;
         }
       }
     });
@@ -178,39 +167,26 @@ describe("settingsRegistry helpers", () => {
 
   describe("boolean (bit-bool) parsing and serialization", () => {
     it("parses bit bools correctly", () => {
-      expect(settingsRegistry.renderMarkdownInJobDescriptions.parse("1")).toBe(
-        true,
-      );
-      expect(settingsRegistry.renderMarkdownInJobDescriptions.parse("0")).toBe(
-        false,
-      );
+      expect(settingsRegistry.renderMarkdownInJobDescriptions.parse("1")).toBe(true);
+      expect(settingsRegistry.renderMarkdownInJobDescriptions.parse("0")).toBe(false);
       expect(settingsRegistry.ghostwriterStopSlopEnabled.parse("1")).toBe(true);
-      expect(settingsRegistry.ghostwriterStopSlopEnabled.parse("0")).toBe(
-        false,
-      );
+      expect(settingsRegistry.ghostwriterStopSlopEnabled.parse("0")).toBe(false);
     });
 
     it("serializes bit bools correctly", () => {
-      expect(
-        settingsRegistry.renderMarkdownInJobDescriptions.serialize(true),
-      ).toBe("1");
-      expect(
-        settingsRegistry.renderMarkdownInJobDescriptions.serialize(false),
-      ).toBe("0");
-      expect(settingsRegistry.ghostwriterStopSlopEnabled.serialize(true)).toBe(
-        "1",
-      );
-      expect(settingsRegistry.ghostwriterStopSlopEnabled.serialize(false)).toBe(
-        "0",
-      );
+      expect(settingsRegistry.renderMarkdownInJobDescriptions.serialize(true)).toBe("1");
+      expect(settingsRegistry.renderMarkdownInJobDescriptions.serialize(false)).toBe("0");
+      expect(settingsRegistry.ghostwriterStopSlopEnabled.serialize(true)).toBe("1");
+      expect(settingsRegistry.ghostwriterStopSlopEnabled.serialize(false)).toBe("0");
     });
   });
 
   describe("JSON array parsing", () => {
     it("parses valid JSON arrays", () => {
-      expect(settingsRegistry.searchTerms.parse('["dev", "engineer"]')).toEqual(
-        ["dev", "engineer"],
-      );
+      expect(settingsRegistry.searchTerms.parse('["dev", "engineer"]')).toEqual([
+        "dev",
+        "engineer",
+      ]);
     });
 
     it("returns null for invalid JSON or non-arrays", () => {
@@ -228,15 +204,14 @@ describe("settingsRegistry helpers", () => {
     });
 
     it("parses valid workplace type arrays", () => {
-      expect(
-        settingsRegistry.workplaceTypes.parse('["remote","onsite"]'),
-      ).toEqual(["remote", "onsite"]);
+      expect(settingsRegistry.workplaceTypes.parse('["remote","onsite"]')).toEqual([
+        "remote",
+        "onsite",
+      ]);
     });
 
     it("rejects invalid workplace type arrays", () => {
-      expect(
-        settingsRegistry.workplaceTypes.parse('["remote","satellite"]'),
-      ).toBeNull();
+      expect(settingsRegistry.workplaceTypes.parse('["remote","satellite"]')).toBeNull();
       expect(settingsRegistry.workplaceTypes.parse("[]")).toBeNull();
     });
   });
@@ -278,9 +253,7 @@ describe("settingsRegistry helpers", () => {
 
       try {
         expect(settingsRegistry.chatStyleLanguageMode.default()).toBe("manual");
-        expect(settingsRegistry.chatStyleManualLanguage.default()).toBe(
-          "english",
-        );
+        expect(settingsRegistry.chatStyleManualLanguage.default()).toBe("english");
       } finally {
         if (previousLanguageMode === undefined) {
           delete process.env.CHAT_STYLE_LANGUAGE_MODE;
@@ -297,69 +270,41 @@ describe("settingsRegistry helpers", () => {
     });
 
     it("parses and serializes supported language settings", () => {
-      expect(settingsRegistry.chatStyleLanguageMode.parse("manual")).toBe(
-        "manual",
+      expect(settingsRegistry.chatStyleLanguageMode.parse("manual")).toBe("manual");
+      expect(settingsRegistry.chatStyleLanguageMode.parse("match-resume")).toBe("match-resume");
+      expect(settingsRegistry.chatStyleLanguageMode.parse("match-job-description")).toBe(
+        "match-job-description",
       );
-      expect(settingsRegistry.chatStyleLanguageMode.parse("match-resume")).toBe(
-        "match-resume",
-      );
-      expect(
-        settingsRegistry.chatStyleLanguageMode.parse("match-job-description"),
-      ).toBe("match-job-description");
       expect(settingsRegistry.chatStyleLanguageMode.parse("auto")).toBeNull();
       expect(settingsRegistry.chatStyleLanguageMode.parse("")).toBeNull();
-      expect(
-        settingsRegistry.chatStyleLanguageMode.serialize(
-          "match-job-description",
-        ),
-      ).toBe("match-job-description");
+      expect(settingsRegistry.chatStyleLanguageMode.serialize("match-job-description")).toBe(
+        "match-job-description",
+      );
       expect(settingsRegistry.chatStyleLanguageMode.serialize(null)).toBeNull();
 
-      expect(settingsRegistry.chatStyleManualLanguage.parse("english")).toBe(
-        "english",
-      );
-      expect(settingsRegistry.chatStyleManualLanguage.parse("german")).toBe(
-        "german",
-      );
-      expect(
-        settingsRegistry.chatStyleManualLanguage.parse("italian"),
-      ).toBeNull();
+      expect(settingsRegistry.chatStyleManualLanguage.parse("english")).toBe("english");
+      expect(settingsRegistry.chatStyleManualLanguage.parse("german")).toBe("german");
+      expect(settingsRegistry.chatStyleManualLanguage.parse("italian")).toBeNull();
       expect(settingsRegistry.chatStyleManualLanguage.parse("")).toBeNull();
-      expect(
-        settingsRegistry.chatStyleManualLanguage.serialize("spanish"),
-      ).toBe("spanish");
-      expect(
-        settingsRegistry.chatStyleManualLanguage.serialize(null),
-      ).toBeNull();
+      expect(settingsRegistry.chatStyleManualLanguage.serialize("spanish")).toBe("spanish");
+      expect(settingsRegistry.chatStyleManualLanguage.serialize(null)).toBeNull();
     });
   });
 
   describe("LLM provider parsing", () => {
     it("normalizes the documented openai-compatible alias", () => {
-      expect(settingsRegistry.llmProvider.parse("openai-compatible")).toBe(
-        "openai_compatible",
-      );
-      expect(settingsRegistry.llmProvider.parse("OPENAI-COMPATIBLE")).toBe(
-        "openai_compatible",
-      );
+      expect(settingsRegistry.llmProvider.parse("openai-compatible")).toBe("openai_compatible");
+      expect(settingsRegistry.llmProvider.parse("OPENAI-COMPATIBLE")).toBe("openai_compatible");
     });
 
     it("accepts gemini_cli including hyphenated alias", () => {
-      expect(settingsRegistry.llmProvider.parse("gemini_cli")).toBe(
-        "gemini_cli",
-      );
-      expect(settingsRegistry.llmProvider.parse("gemini-cli")).toBe(
-        "gemini_cli",
-      );
+      expect(settingsRegistry.llmProvider.parse("gemini_cli")).toBe("gemini_cli");
+      expect(settingsRegistry.llmProvider.parse("gemini-cli")).toBe("gemini_cli");
     });
 
     it("accepts claude_cli including hyphenated alias", () => {
-      expect(settingsRegistry.llmProvider.parse("claude_cli")).toBe(
-        "claude_cli",
-      );
-      expect(settingsRegistry.llmProvider.parse("claude-cli")).toBe(
-        "claude_cli",
-      );
+      expect(settingsRegistry.llmProvider.parse("claude_cli")).toBe("claude_cli");
+      expect(settingsRegistry.llmProvider.parse("claude-cli")).toBe("claude_cli");
     });
 
     it("accepts GLM provider aliases", () => {
@@ -373,25 +318,17 @@ describe("settingsRegistry helpers", () => {
     });
 
     it("uses provider-specific default models", () => {
-      expect(getDefaultModelForProvider("atlascloud")).toBe(
-        "deepseek-ai/deepseek-v3.2",
-      );
+      expect(getDefaultModelForProvider("atlascloud")).toBe("deepseek-ai/deepseek-v3.2");
       expect(getDefaultModelForProvider("openai")).toBe("gpt-5.4-mini");
       expect(getDefaultModelForProvider("anthropic")).toBe("claude-sonnet-4-6");
       expect(getDefaultModelForProvider("glm")).toBe("glm-5.1");
-      expect(getDefaultModelForProvider("gemini")).toBe(
-        "google/gemini-3.1-flash-lite",
-      );
-      expect(getDefaultModelForProvider("gemini_cli")).toBe(
-        "google/gemini-3.1-flash-lite",
-      );
+      expect(getDefaultModelForProvider("gemini")).toBe("google/gemini-3.1-flash-lite");
+      expect(getDefaultModelForProvider("gemini_cli")).toBe("google/gemini-3.1-flash-lite");
       expect(getDefaultModelForProvider("claude_cli")).toBe("claude-sonnet-5");
       expect(getDefaultModelForProvider("codex")).toBe("gpt-5.4-mini");
       expect(getDefaultModelForProvider("ollama")).toBe("");
       expect(getDefaultModelForProvider("litellm")).toBe("");
-      expect(getDefaultModelForProvider("openrouter")).toBe(
-        "google/gemini-3.1-flash-lite",
-      );
+      expect(getDefaultModelForProvider("openrouter")).toBe("google/gemini-3.1-flash-lite");
     });
   });
 
@@ -419,9 +356,7 @@ describe("settingsRegistry helpers", () => {
 
     it("returns null for malformed stored purpose overrides", () => {
       expect(
-        settingsRegistry.llmPurposeOverrides.parse(
-          JSON.stringify({ tailoring: { baseUrl: 123 } }),
-        ),
+        settingsRegistry.llmPurposeOverrides.parse(JSON.stringify({ tailoring: { baseUrl: 123 } })),
       ).toBeNull();
       expect(
         settingsRegistry.llmPurposeOverrides.parse(
@@ -443,9 +378,7 @@ describe("settingsRegistry helpers", () => {
 
     it("returns null for malformed stored purpose API keys", () => {
       expect(
-        settingsRegistry.llmPurposeApiKeys.parse(
-          JSON.stringify({ tailoring: 123 }),
-        ),
+        settingsRegistry.llmPurposeApiKeys.parse(JSON.stringify({ tailoring: 123 })),
       ).toBeNull();
       expect(
         settingsRegistry.llmPurposeApiKeys.parse(
@@ -485,13 +418,9 @@ describe("pipeline schedule settings", () => {
     expect(settingsRegistry.pipelineScheduleEnabled.default()).toBe(false);
     expect(settingsRegistry.pipelineScheduleHour.default()).toBe(7);
     for (const hour of [0, 7, 23])
-      expect(
-        settingsRegistry.pipelineScheduleHour.schema.safeParse(hour).success,
-      ).toBe(true);
+      expect(settingsRegistry.pipelineScheduleHour.schema.safeParse(hour).success).toBe(true);
     for (const hour of [-1, 24, 7.5])
-      expect(
-        settingsRegistry.pipelineScheduleHour.schema.safeParse(hour).success,
-      ).toBe(false);
+      expect(settingsRegistry.pipelineScheduleHour.schema.safeParse(hour).success).toBe(false);
     expect(settingsRegistry.pipelineScheduleEnabled.serialize(true)).toBe("1");
     expect(settingsRegistry.pipelineScheduleHour.parse("24")).toBeNull();
   });

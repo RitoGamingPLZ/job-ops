@@ -1,12 +1,6 @@
-import {
-  ADZUNA_SUPPORTED_COUNTRY_KEYS,
-  getAdzunaCountryCode,
-} from "@shared/location-support.js";
+import { ADZUNA_SUPPORTED_COUNTRY_KEYS, getAdzunaCountryCode } from "@shared/location-support.js";
 import { resolveSearchCities } from "@shared/search-cities.js";
-import type {
-  ExtractorManifest,
-  ExtractorProgressEvent,
-} from "@shared/types/extractors";
+import type { ExtractorManifest, ExtractorProgressEvent } from "@shared/types/extractors";
 import { runAdzuna } from "./src/run";
 
 function toProgress(event: {
@@ -79,14 +73,8 @@ export const manifest: ExtractorManifest = {
     const configuredMaxJobsPerTerm = context.settings.adzunaMaxJobsPerTerm
       ? parseInt(context.settings.adzunaMaxJobsPerTerm, 10)
       : 50;
-    const locationCount = Math.max(
-      1,
-      context.sourceLocationPlan?.requestedCities.length ?? 0,
-    );
-    const maxJobsPerTerm = Math.max(
-      1,
-      Math.ceil(configuredMaxJobsPerTerm / locationCount),
-    );
+    const locationCount = Math.max(1, context.sourceLocationPlan?.requestedCities.length ?? 0);
+    const maxJobsPerTerm = Math.max(1, Math.ceil(configuredMaxJobsPerTerm / locationCount));
 
     let result: Awaited<ReturnType<typeof runAdzuna>>;
     try {
@@ -96,8 +84,7 @@ export const manifest: ExtractorManifest = {
         searchTerms: context.searchTerms,
         locations: resolveSearchCities({
           list: context.sourceLocationPlan?.requestedCities,
-          single:
-            context.settings.searchCities ?? context.settings.jobspyLocation,
+          single: context.settings.searchCities ?? context.settings.jobspyLocation,
         }),
         maxJobsPerTerm,
         shouldCancel: context.shouldCancel,

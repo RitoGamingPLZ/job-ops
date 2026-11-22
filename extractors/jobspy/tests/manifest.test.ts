@@ -42,15 +42,9 @@ describe("JobSpy manifest map-radius planning", () => {
         resultsWanted: 17,
       }),
     );
-    expect(
-      manifest.locationCapabilities?.indeed?.supportsNativeRadius,
-    ).not.toBe(true);
-    expect(
-      manifest.locationCapabilities?.linkedin?.supportsNativeRadius,
-    ).not.toBe(true);
-    expect(
-      manifest.locationCapabilities?.glassdoor?.supportsNativeRadius,
-    ).not.toBe(true);
+    expect(manifest.locationCapabilities?.indeed?.supportsNativeRadius).not.toBe(true);
+    expect(manifest.locationCapabilities?.linkedin?.supportsNativeRadius).not.toBe(true);
+    expect(manifest.locationCapabilities?.glassdoor?.supportsNativeRadius).not.toBe(true);
   });
 
   it("keeps the configured allowance for manual cities", async () => {

@@ -35,17 +35,11 @@ export type PostApplicationProviderActionResult = {
 export interface PostApplicationProviderAdapter {
   readonly key: PostApplicationProvider;
 
-  connect(
-    args: PostApplicationProviderConnectArgs,
-  ): Promise<PostApplicationProviderActionResult>;
+  connect(args: PostApplicationProviderConnectArgs): Promise<PostApplicationProviderActionResult>;
 
-  status(
-    args: PostApplicationProviderStatusArgs,
-  ): Promise<PostApplicationProviderActionResult>;
+  status(args: PostApplicationProviderStatusArgs): Promise<PostApplicationProviderActionResult>;
 
-  sync(
-    args: PostApplicationProviderSyncArgs,
-  ): Promise<PostApplicationProviderActionResult>;
+  sync(args: PostApplicationProviderSyncArgs): Promise<PostApplicationProviderActionResult>;
 
   disconnect(
     args: PostApplicationProviderDisconnectArgs,

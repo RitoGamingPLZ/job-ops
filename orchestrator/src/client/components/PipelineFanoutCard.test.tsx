@@ -35,9 +35,9 @@ describe("PipelineFanoutCard", () => {
     );
 
     expect(screen.getByText("Searching jobs")).toBeInTheDocument();
-    expect(
-      screen.getByText("Latest activity:").parentElement,
-    ).toHaveTextContent("JobSpy: term 1/2 (Frontend Engineer)");
+    expect(screen.getByText("Latest activity:").parentElement).toHaveTextContent(
+      "JobSpy: term 1/2 (Frontend Engineer)",
+    );
     expect(screen.getByText("15")).toBeInTheDocument();
   });
 
@@ -98,9 +98,7 @@ describe("PipelineFanoutCard", () => {
         fanout={{
           ...fanout,
           total: 1,
-          roles: [
-            { role: "Backend", complete: 1, running: 0, queued: 0, check: 0 },
-          ],
+          roles: [{ role: "Backend", complete: 1, running: 0, queued: 0, check: 0 }],
         }}
         elapsedSeconds={0}
         activity="Hiring Cafe: browser check required"
@@ -143,9 +141,7 @@ describe("PipelineFanoutCard", () => {
         onSkipChallengeSearch={onSkipChallengeSearch}
       />,
     );
-    expect(
-      screen.queryByRole("button", { name: "Skip this search" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Skip this search" })).toBeNull();
 
     rerender(
       <PipelineFanoutCard

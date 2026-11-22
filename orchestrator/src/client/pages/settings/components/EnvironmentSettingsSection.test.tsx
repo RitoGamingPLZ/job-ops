@@ -104,9 +104,7 @@ describe("EnvironmentSettingsSection", () => {
 
     expect(screen.getByText(/pass\*{8}/)).toBeInTheDocument();
     expect(screen.getByText(/adzu\*{8}/)).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText("Enable authentication"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Enable authentication")).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText("username")).not.toBeInTheDocument();
 
     // Sections
@@ -118,8 +116,7 @@ describe("EnvironmentSettingsSection", () => {
   it("updates a workspace user's reset password without crashing", async () => {
     render(<EnvironmentSettingsHarness />);
 
-    const resetPasswordInput =
-      await screen.findByPlaceholderText("New password");
+    const resetPasswordInput = await screen.findByPlaceholderText("New password");
 
     fireEvent.change(resetPasswordInput, {
       target: { value: "new-password" },

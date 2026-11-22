@@ -5,9 +5,7 @@ type MissingMatchMedia = "throw" | "false";
 // "throw" calls matchMedia unguarded (throws when absent); "false" reports no match.
 function canMatch(missingMatchMedia: MissingMatchMedia): boolean {
   if (typeof window === "undefined") return false;
-  return (
-    missingMatchMedia === "throw" || typeof window.matchMedia === "function"
-  );
+  return missingMatchMedia === "throw" || typeof window.matchMedia === "function";
 }
 
 export function useMediaQuery(

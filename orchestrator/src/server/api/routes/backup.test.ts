@@ -3,7 +3,7 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-describe.sequential("Backup API routes", () => {
+describe("Backup API routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -53,9 +53,7 @@ describe.sequential("Backup API routes", () => {
       expect(res.status).toBe(200);
       expect(body.ok).toBe(true);
       expect(body.data.type).toBe("manual");
-      expect(body.data.filename).toMatch(
-        /^jobs_manual_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}\.db$/,
-      );
+      expect(body.data.filename).toMatch(/^jobs_manual_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}\.db$/);
       expect(body.data.size).toBeGreaterThan(0);
     });
 

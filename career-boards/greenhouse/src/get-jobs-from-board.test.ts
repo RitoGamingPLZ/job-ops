@@ -15,8 +15,7 @@ describe("normalizeGreenhouseListJob", () => {
         {
           id: 6103058004,
           title: "Animation Systems Programmer",
-          absolute_url:
-            "https://epicgames.com/careers/jobs/6103058004?gh_jid=6103058004",
+          absolute_url: "https://epicgames.com/careers/jobs/6103058004?gh_jid=6103058004",
           location: { name: "Larkspur,California,United States" },
           first_published: "2026-06-01T00:00:00-04:00",
           company_name: "Epic Games",
@@ -28,8 +27,7 @@ describe("normalizeGreenhouseListJob", () => {
       externalId: "6103058004",
       title: "Animation Systems Programmer",
       jobUrl: "https://epicgames.com/careers/jobs/6103058004?gh_jid=6103058004",
-      jobApiUrl:
-        "https://boards-api.greenhouse.io/v1/boards/epicgames/jobs/6103058004",
+      jobApiUrl: "https://boards-api.greenhouse.io/v1/boards/epicgames/jobs/6103058004",
       locationText: "Larkspur, California, United States",
       postedOn: "2026-06-01T00:00:00-04:00",
       company: "Epic Games",
@@ -52,12 +50,8 @@ describe("formatLocation", () => {
     expect(formatLocation(null)).toBeUndefined();
   });
   it("drops Greenhouse 'BLANK' placeholder components", () => {
-    expect(formatLocation("BLANK,BLANK,Multiple Locations")).toBe(
-      "Multiple Locations",
-    );
-    expect(formatLocation("Cary,BLANK,United States")).toBe(
-      "Cary, United States",
-    );
+    expect(formatLocation("BLANK,BLANK,Multiple Locations")).toBe("Multiple Locations");
+    expect(formatLocation("Cary,BLANK,United States")).toBe("Cary, United States");
   });
   it("returns undefined when every component is a placeholder", () => {
     expect(formatLocation("BLANK,BLANK")).toBeUndefined();
@@ -69,9 +63,7 @@ describe("getJobsFromBoard", () => {
     const result = await getJobsFromBoard({
       careersUrl: "https://job-boards.greenhouse.io/epicgames",
       fetchImpl: async (url) => {
-        expect(String(url)).toBe(
-          "https://boards-api.greenhouse.io/v1/boards/epicgames/jobs",
-        );
+        expect(String(url)).toBe("https://boards-api.greenhouse.io/v1/boards/epicgames/jobs");
         return new Response(
           JSON.stringify({
             meta: { total: 2 },
@@ -97,10 +89,7 @@ describe("getJobsFromBoard", () => {
 
     expect(result.total).toBe(2);
     expect(result.fetched).toBe(2);
-    expect(result.jobs.map((job) => job.title)).toEqual([
-      "Engineer",
-      "Designer",
-    ]);
+    expect(result.jobs.map((job) => job.title)).toEqual(["Engineer", "Designer"]);
   });
 
   it("throws on a non-200 response", async () => {

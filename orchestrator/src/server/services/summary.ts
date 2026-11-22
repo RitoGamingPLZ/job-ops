@@ -8,14 +8,8 @@ import { stripHtmlTags } from "@shared/utils/string";
 import { buildCandidateTailoringContext } from "./candidate-experience";
 import type { JsonSchemaDefinition } from "./llm/types";
 import { createConfiguredLlmService, resolveLlmModel } from "./modelSelection";
-import {
-  getWritingLanguageLabel,
-  resolveWritingOutputLanguage,
-} from "./output-language";
-import {
-  getEffectivePromptTemplate,
-  renderPromptTemplate,
-} from "./prompt-templates";
+import { getWritingLanguageLabel, resolveWritingOutputLanguage } from "./output-language";
+import { getEffectivePromptTemplate, renderPromptTemplate } from "./prompt-templates";
 import { filterProfileProjectsForAi } from "./resumeProjects";
 import {
   getWritingStyle,
@@ -88,11 +82,7 @@ export async function generateTailoring(
     getWritingStyle(),
     filterProfileProjectsForAi(profile),
   ]);
-  const prompt = await buildTailoringPrompt(
-    aiProfile,
-    jobDescription,
-    writingStyle,
-  );
+  const prompt = await buildTailoringPrompt(aiProfile, jobDescription, writingStyle);
 
   const llm = await createConfiguredLlmService("tailoring");
   const result = await llm.callJson<TailoredData>({
@@ -143,15 +133,12 @@ async function buildTailoringPrompt(
     jobDescription,
   });
   const outputLanguage = getWritingLanguageLabel(resolvedLanguage.language);
-  let effectiveConstraints = stripLanguageDirectivesFromConstraints(
-    writingStyle.constraints,
-  );
+  let effectiveConstraints = stripLanguageDirectivesFromConstraints(writingStyle.constraints);
   if (writingStyle.summaryMaxWords != null) {
     effectiveConstraints = stripWordLimitFromConstraints(effectiveConstraints);
   }
   if (writingStyle.maxKeywordsPerSkill != null) {
-    effectiveConstraints =
-      stripKeywordLimitFromConstraints(effectiveConstraints);
+    effectiveConstraints = stripKeywordLimitFromConstraints(effectiveConstraints);
   }
 
   const { experience: libraryContext, skills: librarySkills } =

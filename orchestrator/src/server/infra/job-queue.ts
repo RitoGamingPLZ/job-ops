@@ -50,9 +50,7 @@ export interface JobQueue {
     options?: EnqueueJobOptions,
   ): Promise<EnqueueJobResult>;
 
-  reserveNext<K extends JobQueueName>(
-    queue: K,
-  ): Promise<QueueJobRecord<K> | null>;
+  reserveNext<K extends JobQueueName>(queue: K): Promise<QueueJobRecord<K> | null>;
 
   acknowledge(jobId: string): Promise<void>;
 

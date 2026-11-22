@@ -5,15 +5,9 @@ export type GreenhouseUrlParseErrorCode =
   | "MISSING_BOARD_TOKEN";
 
 export const GREENHOUSE_BOARDS_API_ORIGIN = "https://boards-api.greenhouse.io";
-export const GREENHOUSE_CANONICAL_BOARD_ORIGIN =
-  "https://job-boards.greenhouse.io";
+export const GREENHOUSE_CANONICAL_BOARD_ORIGIN = "https://job-boards.greenhouse.io";
 
-export const GREENHOUSE_FILTER_KEYS = [
-  "departments",
-  "location",
-  "offices",
-  "workplace",
-] as const;
+export const GREENHOUSE_FILTER_KEYS = ["departments", "location", "offices", "workplace"] as const;
 
 export const GREENHOUSE_DEFAULT_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
@@ -23,15 +17,7 @@ export const GREENHOUSE_DEFAULT_USER_AGENT =
 // hyphens/underscores. Path segments like "embed"/"v1"/"boards" are structural
 // and must never be treated as a token.
 const TOKEN_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
-const RESERVED_SEGMENTS = new Set([
-  "embed",
-  "v1",
-  "boards",
-  "jobs",
-  "job_board",
-  "job_app",
-  "js",
-]);
+const RESERVED_SEGMENTS = new Set(["embed", "v1", "boards", "jobs", "job_board", "job_app", "js"]);
 
 export interface GreenhouseSourceConfig {
   inputUrl: string;
@@ -45,11 +31,7 @@ export class GreenhouseUrlParseError extends Error {
   readonly code: GreenhouseUrlParseErrorCode;
   readonly input: string;
 
-  constructor(
-    code: GreenhouseUrlParseErrorCode,
-    message: string,
-    input: string,
-  ) {
+  constructor(code: GreenhouseUrlParseErrorCode, message: string, input: string) {
     super(message);
     this.name = "GreenhouseUrlParseError";
     this.code = code;
@@ -73,11 +55,7 @@ export function isGreenhouseHost(hostname: string): boolean {
 
 export function parseGreenhouseUrl(input: string): GreenhouseSourceConfig {
   if (!input.trim()) {
-    throw new GreenhouseUrlParseError(
-      "EMPTY_URL",
-      "URL cannot be empty.",
-      input,
-    );
+    throw new GreenhouseUrlParseError("EMPTY_URL", "URL cannot be empty.", input);
   }
 
   const url = toUrl(input);
@@ -104,9 +82,7 @@ export function parseGreenhouseUrl(input: string): GreenhouseSourceConfig {
   for (const key of GREENHOUSE_FILTER_KEYS) {
     const values = url.searchParams
       .getAll(key)
-      .flatMap((value) =>
-        key === "departments" || key === "offices" ? value.split(",") : [value],
-      )
+      .flatMap((value) => (key === "departments" || key === "offices" ? value.split(",") : [value]))
       .map((value) => value.trim())
       .filter(Boolean);
     if (values.length) filters.set(key, [...new Set(values)].sort().join(","));
@@ -115,10 +91,7 @@ export function parseGreenhouseUrl(input: string): GreenhouseSourceConfig {
   return source;
 }
 
-export function buildGreenhouseSourceConfig(
-  token: string,
-  inputUrl = "",
-): GreenhouseSourceConfig {
+export function buildGreenhouseSourceConfig(token: string, inputUrl = ""): GreenhouseSourceConfig {
   const normalized = normalizeToken(token);
   if (!normalized) {
     throw new GreenhouseUrlParseError(
@@ -159,8 +132,7 @@ export function parseGreenhouseJobApiUrl(input: string): GreenhouseJobApiRef {
   const url = toUrl(input);
   const segments = getPathSegments(url.pathname);
   const boardsIdx = segments.indexOf("boards");
-  const token =
-    boardsIdx >= 0 ? normalizeToken(segments[boardsIdx + 1]) : undefined;
+  const token = boardsIdx >= 0 ? normalizeToken(segments[boardsIdx + 1]) : undefined;
   const jobsIdx = segments.indexOf("jobs");
   const jobId = jobsIdx >= 0 ? segments[jobsIdx + 1] : undefined;
 
@@ -212,21 +184,10 @@ export function guessTokensFromHostname(hostname: string): string[] {
   if (labels.length === 0) return [];
 
   // Drop the public-suffix tail (e.g. ".com", ".co.uk").
-  const suffixSecondLevel = new Set([
-    "co",
-    "com",
-    "org",
-    "net",
-    "gov",
-    "edu",
-    "ac",
-  ]);
+  const suffixSecondLevel = new Set(["co", "com", "org", "net", "gov", "edu", "ac"]);
   const meaningful = [...labels];
   meaningful.pop(); // TLD label (com, io, uk, ...)
-  if (
-    meaningful.length > 1 &&
-    suffixSecondLevel.has(meaningful[meaningful.length - 1] ?? "")
-  ) {
+  if (meaningful.length > 1 && suffixSecondLevel.has(meaningful[meaningful.length - 1] ?? "")) {
     meaningful.pop(); // second-level public suffix (co.uk -> drop "co")
   }
 
@@ -248,10 +209,7 @@ export function guessTokensFromHostname(hostname: string): string[] {
   return result;
 }
 
-function buildSourceConfig(
-  inputUrl: string,
-  token: string,
-): GreenhouseSourceConfig {
+function buildSourceConfig(inputUrl: string, token: string): GreenhouseSourceConfig {
   const boardApiUrl = `${GREENHOUSE_BOARDS_API_ORIGIN}/v1/boards/${token}`;
   return {
     inputUrl,
@@ -291,11 +249,7 @@ function toUrl(input: string): URL {
   try {
     return new URL(input.trim());
   } catch {
-    throw new GreenhouseUrlParseError(
-      "INVALID_URL",
-      `Invalid URL: ${input}`,
-      input,
-    );
+    throw new GreenhouseUrlParseError("INVALID_URL", `Invalid URL: ${input}`, input);
   }
 }
 

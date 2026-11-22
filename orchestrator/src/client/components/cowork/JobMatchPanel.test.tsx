@@ -1,22 +1,8 @@
 import { ApiClientError } from "@client/api/core";
-import type {
-  Job,
-  ReactiveResumeV5Document,
-  ScreeningReport,
-} from "@shared/types";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import type { Job, ReactiveResumeV5Document, ScreeningReport } from "@shared/types";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  clearScreeningCache,
-  findFocusTarget,
-  JobMatchPanel,
-} from "./JobMatchPanel";
+import { clearScreeningCache, findFocusTarget, JobMatchPanel } from "./JobMatchPanel";
 
 const mocks = vi.hoisted(() => ({
   screening: vi.fn(),
@@ -123,17 +109,13 @@ describe("JobMatchPanel", () => {
     };
     const view = render(<JobMatchPanel {...props} />);
     await screen.findByText(report.summary);
-    expect(
-      screen.queryByText("Resume changed since this check"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Resume changed since this check")).not.toBeInTheDocument();
     current = { ...doc, basics: { ...doc.basics, headline: "Updated" } };
     view.rerender(<JobMatchPanel {...props} />);
     expect(screen.getByText("Resume changed since this check")).toBeVisible();
     fireEvent.click(screen.getByText("Check again"));
     await waitFor(() =>
-      expect(
-        screen.queryByText("Resume changed since this check"),
-      ).not.toBeInTheDocument(),
+      expect(screen.queryByText("Resume changed since this check")).not.toBeInTheDocument(),
     );
     expect(mocks.screening).toHaveBeenLastCalledWith("job", current);
   });
@@ -148,16 +130,10 @@ describe("JobMatchPanel", () => {
     expect(screen.getByText("In your library")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText(/Built Java services/));
-    expect(props.onFocusRef).toHaveBeenCalledWith(
-      report.requirements[0].evidence[0].focus,
-    );
+    expect(props.onFocusRef).toHaveBeenCalledWith(report.requirements[0].evidence[0].focus);
     fireEvent.click(screen.getByRole("button", { name: "Ask AI" }));
-    expect(props.onAskAi).toHaveBeenCalledWith(
-      expect.stringContaining("Kafka"),
-    );
-    expect(
-      await screen.findByRole("button", { name: "Drag duty: Ran AWS" }),
-    ).toBeInTheDocument();
+    expect(props.onAskAi).toHaveBeenCalledWith(expect.stringContaining("Kafka"));
+    expect(await screen.findByRole("button", { name: "Drag duty: Ran AWS" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText("Show gaps only"));
     expect(screen.queryByText("5+ years Java")).not.toBeInTheDocument();
@@ -176,16 +152,12 @@ describe("JobMatchPanel", () => {
   });
 
   it("auto-runs once per job per session, even after a failure", async () => {
-    mocks.screening.mockRejectedValueOnce(
-      new ApiClientError("x", { status: 500 }),
-    );
+    mocks.screening.mockRejectedValueOnce(new ApiClientError("x", { status: 500 }));
     mount();
     await waitFor(() => expect(mocks.screening).toHaveBeenCalledTimes(1));
     cleanup();
     mount();
-    expect(
-      await screen.findByRole("button", { name: "Check match" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Check match" })).toBeInTheDocument();
     expect(mocks.screening).toHaveBeenCalledTimes(1);
   });
 
@@ -194,15 +166,11 @@ describe("JobMatchPanel", () => {
     expect(mocks.screening).not.toHaveBeenCalled();
   });
 
-  it.each([
-    404, 501,
-  ])("shows a toast when the API returns %i", async (status) => {
+  it.each([404, 501])("shows a toast when the API returns %i", async (status) => {
     mocks.screening.mockRejectedValue(new ApiClientError("nope", { status }));
     mount();
     await waitFor(() =>
-      expect(mocks.toast).toHaveBeenCalledWith(
-        "Job match is not available yet.",
-      ),
+      expect(mocks.toast).toHaveBeenCalledWith("Job match is not available yet."),
     );
     expect(mocks.screening).toHaveBeenCalledTimes(1);
   });
@@ -224,10 +192,9 @@ describe("findFocusTarget", () => {
         label: "",
       })?.id,
     ).toBe("b");
-    expect(
-      findFocusTarget(root, { kind: "item", itemId: "exp", label: "" })
-        ?.tagName,
-    ).toBe("SECTION");
+    expect(findFocusTarget(root, { kind: "item", itemId: "exp", label: "" })?.tagName).toBe(
+      "SECTION",
+    );
     expect(
       findFocusTarget(root, {
         kind: "item",
@@ -236,8 +203,6 @@ describe("findFocusTarget", () => {
         label: "",
       })?.getAttribute("data-focus-section"),
     ).toBe("experience");
-    expect(findFocusTarget(root, { kind: "summary", label: "" })?.id).toBe(
-      "sum",
-    );
+    expect(findFocusTarget(root, { kind: "summary", label: "" })?.id).toBe("sum");
   });
 });

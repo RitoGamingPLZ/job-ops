@@ -16,11 +16,7 @@ const source: WatchlistSelectedSource = {
   updatedAt: "2026-11-08",
 };
 afterEach(() => vi.unstubAllGlobals());
-function row(
-  id: number,
-  department = "Software Engineering",
-  workplace = "Remote",
-) {
+function row(id: number, department = "Software Engineering", workplace = "Remote") {
   return {
     id,
     title: `Engineer ${id}`,
@@ -33,36 +29,27 @@ function row(
 }
 it("keeps normalized filters in source identity and validates filtered custom URLs", async () => {
   const url = `${base}?workplace=Remote&departments=Technical%20Program%20Management,Software%20Engineering&unknown=drop`;
-  const mock = vi
-    .fn()
-    .mockResolvedValue(new Response(JSON.stringify({ name: "Airbnb" })));
+  const mock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ name: "Airbnb" })));
   vi.stubGlobal("fetch", mock);
   const normalized = await adapter.normalizeCustomSelection({
     careersUrl: url,
     label: null,
   });
-  const parsed = adapter.parseCatalogSources([
-    { label: "Airbnb", greenhouseUrl: url },
-  ])[0];
+  const parsed = adapter.parseCatalogSources([{ label: "Airbnb", greenhouseUrl: url }])[0];
   expect(normalized.careersUrl).toBe(parsed.careersUrl);
-  expect(parsed.id).toBe(
-    `greenhouse:airbnb${new URL(parsed.careersUrl).search}`,
-  );
+  expect(parsed.id).toBe(`greenhouse:airbnb${new URL(parsed.careersUrl).search}`);
   expect(parsed.careersUrl).not.toContain("unknown");
-  expect(
-    adapter.parseCatalogSources([{ label: "Airbnb", greenhouseUrl: base }])[0]
-      .id,
-  ).toBe("greenhouse:airbnb");
-  expect(
-    adapter.hydrateSelectedSource({ ...source, careersUrl: url }).careersUrl,
-  ).toBe(parsed.careersUrl);
+  expect(adapter.parseCatalogSources([{ label: "Airbnb", greenhouseUrl: base }])[0].id).toBe(
+    "greenhouse:airbnb",
+  );
+  expect(adapter.hydrateSelectedSource({ ...source, careersUrl: url }).careersUrl).toBe(
+    parsed.careersUrl,
+  );
   expect(mock).toHaveBeenCalledTimes(1);
 });
 it("filters exact departments and workplace before sorting/capping to retain all 51 matches", async () => {
   const rows = [
-    ...Array.from({ length: 70 }, (_, i) =>
-      row(100 + i, "Engineering & Technology"),
-    ),
+    ...Array.from({ length: 70 }, (_, i) => row(100 + i, "Engineering & Technology")),
     ...Array.from({ length: 49 }, (_, i) => row(i)),
     row(49, "Technical Program Management"),
     row(50, "Technical Program Management"),
@@ -70,11 +57,7 @@ it("filters exact departments and workplace before sorting/capping to retain all
   ];
   const mock = vi
     .fn()
-    .mockResolvedValue(
-      new Response(
-        JSON.stringify({ jobs: rows, meta: { total: rows.length } }),
-      ),
-    );
+    .mockResolvedValue(new Response(JSON.stringify({ jobs: rows, meta: { total: rows.length } })));
   vi.stubGlobal("fetch", mock);
   const result = await adapter.fetchJobs({
     source: {
@@ -89,26 +72,24 @@ it("filters exact departments and workplace before sorting/capping to retain all
     "https://boards-api.greenhouse.io/v1/boards/airbnb/jobs?content=true",
   );
 });
-it.each([
-  "",
-  "?workplace=Remote",
-])("caps both unfiltered and filtered lists at 60: %s", async (query) => {
-  const mock = vi
-    .fn()
-    .mockResolvedValue(
-      new Response(
-        JSON.stringify({ jobs: Array.from({ length: 110 }, (_, i) => row(i)) }),
-      ),
-    );
-  vi.stubGlobal("fetch", mock);
-  const result = await adapter.fetchJobs({
-    source: { ...source, careersUrl: base + query },
-  });
-  expect(result).toMatchObject({ total: 110, fetched: 60 });
-  expect(result.jobs[0].sourceJobId).toBe("109");
-  expect(result.jobs[59].sourceJobId).toBe("50");
-  expect(mock.mock.calls[0][0]).not.toContain("content=true");
-});
+it.each(["", "?workplace=Remote"])(
+  "caps both unfiltered and filtered lists at 60: %s",
+  async (query) => {
+    const mock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ jobs: Array.from({ length: 110 }, (_, i) => row(i)) })),
+      );
+    vi.stubGlobal("fetch", mock);
+    const result = await adapter.fetchJobs({
+      source: { ...source, careersUrl: base + query },
+    });
+    expect(result).toMatchObject({ total: 110, fetched: 60 });
+    expect(result.jobs[0].sourceJobId).toBe("109");
+    expect(result.jobs[59].sourceJobId).toBe("50");
+    expect(mock.mock.calls[0][0]).not.toContain("content=true");
+  },
+);
 it("ANDs office and case-insensitive location filters and excludes missing metadata", async () => {
   vi.stubGlobal(
     "fetch",

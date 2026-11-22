@@ -5,8 +5,6 @@ interface JobCommandBarLockBadgeProps {
   activeLock: StatusLock;
 }
 
-export const JobCommandBarLockBadge = ({
-  activeLock,
-}: JobCommandBarLockBadgeProps) => (
+export const JobCommandBarLockBadge = ({ activeLock }: JobCommandBarLockBadgeProps) => (
   <JobStatusBadge status={activeLock} label={`@${lockLabel[activeLock]}`} />
 );

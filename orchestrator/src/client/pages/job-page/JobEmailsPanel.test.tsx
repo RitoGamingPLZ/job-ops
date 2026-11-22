@@ -1,7 +1,4 @@
-import type {
-  PostApplicationJobEmailItem,
-  PostApplicationMessage,
-} from "@shared/types.js";
+import type { PostApplicationJobEmailItem, PostApplicationMessage } from "@shared/types.js";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "@/client/api";
@@ -16,9 +13,7 @@ vi.mock("@/client/hooks/useQueryErrorToast", () => ({
   useQueryErrorToast: vi.fn(),
 }));
 
-const makeMessage = (
-  overrides: Partial<PostApplicationMessage>,
-): PostApplicationMessage => ({
+const makeMessage = (overrides: Partial<PostApplicationMessage>): PostApplicationMessage => ({
   id: "msg-1",
   provider: "gmail",
   accountKey: "default",
@@ -66,8 +61,7 @@ const makeItem = (
   };
 };
 
-const renderPanel = () =>
-  renderWithQueryClient(<JobEmailsPanel jobId="job-1" />);
+const renderPanel = () => renderWithQueryClient(<JobEmailsPanel jobId="job-1" />);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -83,9 +77,7 @@ describe("JobEmailsPanel", () => {
 
     expect(await screen.findByText("Interview invite")).toBeInTheDocument();
     expect(screen.getByText("Recruiting")).toBeInTheDocument();
-    expect(
-      screen.getByText("Let's schedule an interview."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Let's schedule an interview.")).toBeInTheDocument();
     expect(screen.getAllByText("Auto linked").length).toBeGreaterThan(1);
     expect(screen.getByText("95% confidence")).toBeInTheDocument();
     expect(screen.getByText("Work Gmail")).toBeInTheDocument();
@@ -93,10 +85,7 @@ describe("JobEmailsPanel", () => {
     const link = screen.getByRole("link", {
       name: /open in gmail: interview invite/i,
     });
-    expect(link).toHaveAttribute(
-      "href",
-      "https://mail.google.com/mail/u/0/#all/thread-1",
-    );
+    expect(link).toHaveAttribute("href", "https://mail.google.com/mail/u/0/#all/thread-1");
     expect(link).toHaveAttribute("target", "_blank");
   });
 
@@ -129,16 +118,12 @@ describe("JobEmailsPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Manual" }));
 
-    await waitFor(() =>
-      expect(screen.queryByText("Auto match")).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByText("Auto match")).not.toBeInTheDocument());
     expect(screen.getByText("Manual match")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Needs review" }));
 
-    expect(
-      await screen.findByText("No emails match this filter"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("No emails match this filter")).toBeInTheDocument();
   });
 
   it("shows the no linked emails empty state", async () => {
@@ -168,9 +153,7 @@ describe("JobEmailsPanel", () => {
 
     renderPanel();
 
-    expect(
-      await screen.findByText("Provider metadata only"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Provider metadata only")).toBeInTheDocument();
     expect(screen.getByText("Gmail link unavailable")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open in gmail/i })).toBeNull();
   });

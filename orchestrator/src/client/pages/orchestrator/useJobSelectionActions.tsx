@@ -1,22 +1,12 @@
 import * as api from "@client/api";
-import type {
-  JobAction,
-  JobActionResponse,
-  JobListItem,
-} from "@shared/types.js";
+import type { JobAction, JobActionResponse, JobListItem } from "@shared/types.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { trackProductEvent } from "@/lib/analytics";
 import type { FilterTab } from "./constants";
 import { JobActionProgressToast } from "./JobActionProgressToast";
-import {
-  canMoveToReady,
-  canRescore,
-  canSkip,
-  canTarget,
-  getFailedJobIds,
-} from "./jobActions";
+import { canMoveToReady, canRescore, canSkip, canTarget, getFailedJobIds } from "./jobActions";
 import { clampNumber } from "./utils";
 
 const MAX_JOB_ACTION_JOB_IDS = 500;
@@ -44,12 +34,8 @@ export function useJobSelectionActions({
   activeTab,
   loadJobs,
 }: UseJobSelectionActionsArgs) {
-  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [jobActionInFlight, setJobActionInFlight] = useState<null | JobAction>(
-    null,
-  );
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(() => new Set());
+  const [jobActionInFlight, setJobActionInFlight] = useState<null | JobAction>(null);
   const targetInFlight = useRef(false);
   const [isTargeting, setIsTargeting] = useState(false);
   const previousActiveTabRef = useRef<FilterTab>(activeTab);
@@ -60,14 +46,8 @@ export function useJobSelectionActions({
   );
 
   const canSkipSelected = useMemo(() => canSkip(selectedJobs), [selectedJobs]);
-  const canMoveSelected = useMemo(
-    () => canMoveToReady(selectedJobs),
-    [selectedJobs],
-  );
-  const canRescoreSelected = useMemo(
-    () => canRescore(selectedJobs),
-    [selectedJobs],
-  );
+  const canMoveSelected = useMemo(() => canMoveToReady(selectedJobs), [selectedJobs]);
+  const canRescoreSelected = useMemo(() => canRescore(selectedJobs), [selectedJobs]);
 
   useEffect(() => {
     if (previousActiveTabRef.current === activeTab) return;
@@ -79,9 +59,7 @@ export function useJobSelectionActions({
     const activeJobIdSet = new Set(activeJobs.map((job) => job.id));
     setSelectedJobIds((previous) => {
       if (previous.size === 0) return previous;
-      const next = new Set(
-        Array.from(previous).filter((jobId) => activeJobIdSet.has(jobId)),
-      );
+      const next = new Set(Array.from(previous).filter((jobId) => activeJobIdSet.has(jobId)));
       return next.size === previous.size ? previous : next;
     });
   }, [activeJobs]);
@@ -106,9 +84,7 @@ export function useJobSelectionActions({
         if (allIds.length <= MAX_JOB_ACTION_JOB_IDS) {
           return new Set(allIds);
         }
-        toast.error(
-          `Select all is limited to ${MAX_JOB_ACTION_JOB_IDS} jobs per action.`,
-        );
+        toast.error(`Select all is limited to ${MAX_JOB_ACTION_JOB_IDS} jobs per action.`);
         return new Set(allIds.slice(0, MAX_JOB_ACTION_JOB_IDS));
       });
     },
@@ -124,9 +100,7 @@ export function useJobSelectionActions({
       const selectedAtStart = Array.from(selectedJobIds);
       if (selectedAtStart.length === 0) return;
       if (selectedAtStart.length > MAX_JOB_ACTION_JOB_IDS) {
-        toast.error(
-          `You can run job actions on up to ${MAX_JOB_ACTION_JOB_IDS} jobs at a time.`,
-        );
+        toast.error(`You can run job actions on up to ${MAX_JOB_ACTION_JOB_IDS} jobs at a time.`);
         return;
       }
 
@@ -143,11 +117,7 @@ export function useJobSelectionActions({
 
       const getProgressTitle = () => {
         const safeRequested = Math.max(latestProgress.requested, 1);
-        const safeCompleted = clampNumber(
-          latestProgress.completed,
-          0,
-          safeRequested,
-        );
+        const safeCompleted = clampNumber(latestProgress.completed, 0, safeRequested);
         return `${safeCompleted}/${safeRequested} ${jobActionLabel[action]}`;
       };
 
@@ -248,9 +218,7 @@ export function useJobSelectionActions({
         if (result.failed === 0) {
           toast.success(`${result.succeeded} ${successLabel}`);
         } else {
-          toast.error(
-            `${result.succeeded} succeeded, ${result.failed} failed.`,
-          );
+          toast.error(`${result.succeeded} succeeded, ${result.failed} failed.`);
         }
 
         await loadJobs();
@@ -261,10 +229,7 @@ export function useJobSelectionActions({
           const removedDuringRequest = Array.from(selectedAtStartSet).filter(
             (jobId) => !current.has(jobId),
           );
-          const next = new Set([
-            ...Array.from(failedIds),
-            ...addedDuringRequest,
-          ]);
+          const next = new Set([...Array.from(failedIds), ...addedDuringRequest]);
           for (const jobId of removedDuringRequest) next.delete(jobId);
           return next;
         });
@@ -284,9 +249,7 @@ export function useJobSelectionActions({
     if (targetInFlight.current || jobActionInFlight) return;
     if (!canTarget(selectedJobs)) return;
     if (selectedJobIds.size > MAX_JOB_ACTION_JOB_IDS) {
-      toast.error(
-        `You can run job actions on up to ${MAX_JOB_ACTION_JOB_IDS} jobs at a time.`,
-      );
+      toast.error(`You can run job actions on up to ${MAX_JOB_ACTION_JOB_IDS} jobs at a time.`);
       return;
     }
     const ids = selectedJobs.map((job) => job.id);
@@ -307,19 +270,12 @@ export function useJobSelectionActions({
           }),
         );
       }
-      if (failed.size)
-        toast.error(
-          `${ids.length - failed.size} targeted, ${failed.size} failed.`,
-        );
+      if (failed.size) toast.error(`${ids.length - failed.size} targeted, ${failed.size} failed.`);
       else toast.success(`${ids.length} jobs targeted`);
       await loadJobs();
       setSelectedJobIds(
         (current) =>
-          new Set(
-            Array.from(current).filter(
-              (id) => !started.has(id) || failed.has(id),
-            ),
-          ),
+          new Set(Array.from(current).filter((id) => !started.has(id) || failed.has(id))),
       );
     } catch (error) {
       showErrorToast(error, "Failed to refresh targeted jobs");

@@ -111,9 +111,7 @@ describe("PDF render freshness snapshot", () => {
     vi.mocked(jobsRepo.getJobById).mockResolvedValue(job);
     vi.mocked(jobsRepo.updateJob).mockResolvedValue(job);
     vi.mocked(jobsRepo.finalizeGeneratedPdfIfCurrent).mockResolvedValue(job);
-    vi.mocked(resolvePdfFingerprintContext).mockImplementation(
-      async () => current,
-    );
+    vi.mocked(resolvePdfFingerprintContext).mockImplementation(async () => current);
     vi.mocked(createJobPdfFingerprint).mockImplementation(
       (_job, snapshot) => snapshot.jobResumeHashes?.own ?? "missing",
     );
@@ -134,9 +132,7 @@ describe("PDF render freshness snapshot", () => {
     vi.mocked(jobsRepo.getJobById).mockResolvedValue(job);
     vi.mocked(jobsRepo.updateJob).mockResolvedValue(job);
     vi.mocked(getJobResume).mockResolvedValue(null);
-    vi.mocked(ensureJobResume).mockRejectedValueOnce(
-      new Error("LLM unavailable"),
-    );
+    vi.mocked(ensureJobResume).mockRejectedValueOnce(new Error("LLM unavailable"));
     expect(await processJob(job.id)).toMatchObject({ success: false });
     expect(jobsRepo.setJobTargeted).toHaveBeenCalledWith(job.id, true);
     expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(1, job.id, {

@@ -1,13 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
-import type {
-  PostApplicationMessage,
-  PostApplicationRouterStageTarget,
-} from "@shared/types";
+import type { PostApplicationMessage, PostApplicationRouterStageTarget } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-describe.sequential("Post-Application Review Workflow API", () => {
+describe("Post-Application Review Workflow API", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -30,9 +27,8 @@ describe.sequential("Post-Application Review Workflow API", () => {
     jobId: string;
   }> {
     const { createJob } = await import("@server/repositories/jobs");
-    const { upsertPostApplicationMessage } = await import(
-      "@server/repositories/post-application-messages"
-    );
+    const { upsertPostApplicationMessage } =
+      await import("@server/repositories/post-application-messages");
 
     const job = await createJob({
       source: "manual",
@@ -68,8 +64,7 @@ describe.sequential("Post-Application Review Workflow API", () => {
           : "interview",
       stageEventPayload: { note: "from test" },
       processingStatus: "pending_user",
-      matchedJobId:
-        input?.matchedJobId === undefined ? job.id : input.matchedJobId,
+      matchedJobId: input?.matchedJobId === undefined ? job.id : input.matchedJobId,
     });
 
     return { message, jobId: job.id };
@@ -95,19 +90,16 @@ describe.sequential("Post-Application Review Workflow API", () => {
     const { message, jobId } = await seedPendingMessage();
     const { db, schema } = await import("@server/db");
 
-    const res = await fetch(
-      `${baseUrl}/api/post-application/inbox/${message.id}/approve`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: "gmail",
-          accountKey: "default",
-          jobId,
-          decidedBy: "tester",
-        }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/post-application/inbox/${message.id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: "gmail",
+        accountKey: "default",
+        jobId,
+        decidedBy: "tester",
+      }),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -129,34 +121,28 @@ describe.sequential("Post-Application Review Workflow API", () => {
     });
     const { message, jobId } = await seedPendingMessage({ syncRunId: run.id });
 
-    const firstRes = await fetch(
-      `${baseUrl}/api/post-application/inbox/${message.id}/approve`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: "gmail",
-          accountKey: "default",
-          jobId,
-          decidedBy: "tester",
-        }),
-      },
-    );
+    const firstRes = await fetch(`${baseUrl}/api/post-application/inbox/${message.id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: "gmail",
+        accountKey: "default",
+        jobId,
+        decidedBy: "tester",
+      }),
+    });
     expect(firstRes.status).toBe(200);
 
-    const secondRes = await fetch(
-      `${baseUrl}/api/post-application/inbox/${message.id}/approve`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: "gmail",
-          accountKey: "default",
-          jobId,
-          decidedBy: "tester",
-        }),
-      },
-    );
+    const secondRes = await fetch(`${baseUrl}/api/post-application/inbox/${message.id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: "gmail",
+        accountKey: "default",
+        jobId,
+        decidedBy: "tester",
+      }),
+    });
     const secondBody = await secondRes.json();
 
     expect(secondRes.status).toBe(409);
@@ -171,18 +157,15 @@ describe.sequential("Post-Application Review Workflow API", () => {
   it("denies an inbox item as ignored", async () => {
     const { message } = await seedPendingMessage();
 
-    const denyRes = await fetch(
-      `${baseUrl}/api/post-application/inbox/${message.id}/deny`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: "gmail",
-          accountKey: "default",
-          decidedBy: "tester",
-        }),
-      },
-    );
+    const denyRes = await fetch(`${baseUrl}/api/post-application/inbox/${message.id}/deny`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: "gmail",
+        accountKey: "default",
+        decidedBy: "tester",
+      }),
+    });
     const denyBody = await denyRes.json();
 
     expect(denyRes.status).toBe(200);
@@ -217,9 +200,8 @@ describe.sequential("Post-Application Review Workflow API", () => {
   });
 
   it("lists messages for a sync run", async () => {
-    const { startPostApplicationSyncRun } = await import(
-      "@server/repositories/post-application-sync-runs"
-    );
+    const { startPostApplicationSyncRun } =
+      await import("@server/repositories/post-application-sync-runs");
     const run = await startPostApplicationSyncRun({
       provider: "gmail",
       accountKey: "default",
@@ -245,18 +227,15 @@ describe.sequential("Post-Application Review Workflow API", () => {
     });
     const { db, schema } = await import("@server/db");
 
-    const res = await fetch(
-      `${baseUrl}/api/post-application/inbox/${message.id}/approve`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: "gmail",
-          accountKey: "default",
-          jobId,
-        }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/post-application/inbox/${message.id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: "gmail",
+        accountKey: "default",
+        jobId,
+      }),
+    });
 
     expect(res.status).toBe(200);
 
@@ -264,9 +243,7 @@ describe.sequential("Post-Application Review Workflow API", () => {
     expect(stageRows.at(-1)?.toStage).toBe("closed");
     expect(stageRows.at(-1)?.outcome).toBe("rejected");
 
-    const jobRow = (await db.select().from(schema.jobs)).find(
-      (job) => job.id === jobId,
-    );
+    const jobRow = (await db.select().from(schema.jobs)).find((job) => job.id === jobId);
     expect(jobRow?.outcome).toBe("rejected");
   });
 
@@ -276,18 +253,15 @@ describe.sequential("Post-Application Review Workflow API", () => {
     });
     const { db, schema } = await import("@server/db");
 
-    const res = await fetch(
-      `${baseUrl}/api/post-application/inbox/${message.id}/approve`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: "gmail",
-          accountKey: "default",
-          jobId,
-        }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/post-application/inbox/${message.id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: "gmail",
+        accountKey: "default",
+        jobId,
+      }),
+    });
 
     expect(res.status).toBe(200);
 
@@ -295,9 +269,7 @@ describe.sequential("Post-Application Review Workflow API", () => {
     expect(stageRows.at(-1)?.toStage).toBe("closed");
     expect(stageRows.at(-1)?.outcome).toBe("withdrawn");
 
-    const jobRow = (await db.select().from(schema.jobs)).find(
-      (job) => job.id === jobId,
-    );
+    const jobRow = (await db.select().from(schema.jobs)).find((job) => job.id === jobId);
     expect(jobRow?.outcome).toBe("withdrawn");
   });
 });

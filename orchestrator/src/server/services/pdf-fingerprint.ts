@@ -58,12 +58,8 @@ export async function resolvePdfFingerprintContext(): Promise<PdfFingerprintCont
     getConfiguredRxResumeBaseResumeId(),
   ]);
 
-  const parsedRenderer = settingsRegistry.pdfRenderer.parse(
-    rawRenderer ?? undefined,
-  );
-  const parsedTypstTheme = settingsRegistry.typstTheme.parse(
-    rawTypstTheme ?? undefined,
-  );
+  const parsedRenderer = settingsRegistry.pdfRenderer.parse(rawRenderer ?? undefined);
+  const parsedTypstTheme = settingsRegistry.typstTheme.parse(rawTypstTheme ?? undefined);
 
   return {
     jobResumeHashes: Object.fromEntries(
@@ -108,13 +104,9 @@ export function createJobPdfFingerprint(
     version: context.version,
     ...(jobResumeHash ? { jobResumeHash } : {}),
     renderer: context.pdfRenderer,
-    ...(context.pdfRenderer === "typst"
-      ? { typstTheme: context.typstTheme }
-      : {}),
+    ...(context.pdfRenderer === "typst" ? { typstTheme: context.typstTheme } : {}),
     // Omitted while unset so fingerprints stored before this field existed stay valid.
-    ...(context.pdfPaperSize !== "auto"
-      ? { paperSize: context.pdfPaperSize }
-      : {}),
+    ...(context.pdfPaperSize !== "auto" ? { paperSize: context.pdfPaperSize } : {}),
     ...(jobResumeHash
       ? {
           job: {

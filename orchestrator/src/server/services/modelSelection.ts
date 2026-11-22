@@ -6,10 +6,7 @@ import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
 import { LlmService } from "@server/services/llm/service";
 import { getEffectiveSettings } from "@server/services/settings";
-import {
-  getDefaultModelForProvider,
-  settingsRegistry,
-} from "@shared/settings-registry";
+import { getDefaultModelForProvider, settingsRegistry } from "@shared/settings-registry";
 import { LLM_PURPOSE_VALUES, type LlmPurpose } from "@shared/types";
 
 export type LlmModelPurpose = "default" | LlmPurpose;
@@ -32,9 +29,7 @@ const MODEL_KEY_BY_PURPOSE: Record<
   projectSelection: "modelProjectSelection",
 };
 
-function readStringSettingValue(
-  setting: { value?: unknown } | null | undefined,
-): string | null {
+function readStringSettingValue(setting: { value?: unknown } | null | undefined): string | null {
   if (typeof setting?.value !== "string") {
     return null;
   }
@@ -49,8 +44,7 @@ function resolveDefaultModelFromSettings(
   return (
     readStringSettingValue(settings?.model) ??
     getDefaultModelForProvider(
-      readStringSettingValue(settings?.llmProvider) ??
-        getOriginalEnvValue("LLM_PROVIDER"),
+      readStringSettingValue(settings?.llmProvider) ?? getOriginalEnvValue("LLM_PROVIDER"),
       getOriginalEnvValue("MODEL"),
     )
   );
@@ -67,9 +61,7 @@ function resolveModelFromSettings(
   const purposeOverride = settings?.llmPurposeOverrides?.value?.[purpose];
   const purposeProvider = purposeOverride?.provider?.trim() || defaultProvider;
   const purposeModel = purposeOverride?.model?.trim();
-  const resolvedPurposeModel = readStringSettingValue(
-    settings?.[MODEL_KEY_BY_PURPOSE[purpose]],
-  );
+  const resolvedPurposeModel = readStringSettingValue(settings?.[MODEL_KEY_BY_PURPOSE[purpose]]);
 
   if (purposeModel) return purposeModel;
   if (resolvedPurposeModel) return resolvedPurposeModel;
@@ -84,9 +76,7 @@ function isLlmPurpose(purpose: LlmModelPurpose): purpose is LlmPurpose {
   return (LLM_PURPOSE_VALUES as readonly string[]).includes(purpose);
 }
 
-function getDefaultBaseUrlForProvider(
-  provider: string | null | undefined,
-): string | null {
+function getDefaultBaseUrlForProvider(provider: string | null | undefined): string | null {
   const normalized = provider?.trim().toLowerCase().replace(/-/g, "_");
   if (normalized === "atlascloud" || normalized === "atlas_cloud") {
     return "https://api.atlascloud.ai";
@@ -103,11 +93,7 @@ function getDefaultBaseUrlForProvider(
   if (normalized === "gemini") {
     return "https://generativelanguage.googleapis.com";
   }
-  if (
-    normalized === "gemini_cli" ||
-    normalized === "claude_cli" ||
-    normalized === "codex"
-  )
+  if (normalized === "gemini_cli" || normalized === "claude_cli" || normalized === "codex")
     return null;
   if (normalized === "requesty") return "https://router.requesty.ai/v1";
   if (normalized === "api_route") return "https://global.api-route.com/v1";
@@ -115,9 +101,7 @@ function getDefaultBaseUrlForProvider(
   return "https://openrouter.ai";
 }
 
-function providerUsesConfiguredBaseUrl(
-  provider: string | null | undefined,
-): boolean {
+function providerUsesConfiguredBaseUrl(provider: string | null | undefined): boolean {
   const normalized = provider?.trim().toLowerCase().replace(/[-.]/g, "_");
   return (
     normalized === "litellm" ||
@@ -142,8 +126,7 @@ async function resolveHostedLlmRuntimeSettings(
   const entitlements = await getCurrentAccountEntitlements();
   if (entitlements.platformAiIncluded) {
     const provider =
-      settingsRegistry.llmProvider.parse(getOriginalEnvValue("LLM_PROVIDER")) ??
-      "openrouter";
+      settingsRegistry.llmProvider.parse(getOriginalEnvValue("LLM_PROVIDER")) ?? "openrouter";
     return {
       provider,
       model: getDefaultModelForProvider(provider, getOriginalEnvValue("MODEL")),
@@ -159,13 +142,9 @@ async function resolveHostedLlmRuntimeSettings(
 
   const overrides = await settingsRepo.getAllSettings();
   const purposeOverrides =
-    settingsRegistry.llmPurposeOverrides.parse(overrides.llmPurposeOverrides) ??
-    {};
-  const purposeOverride = isLlmPurpose(purpose)
-    ? purposeOverrides[purpose]
-    : undefined;
-  const defaultProvider =
-    settingsRegistry.llmProvider.parse(overrides.llmProvider) ?? "openrouter";
+    settingsRegistry.llmPurposeOverrides.parse(overrides.llmPurposeOverrides) ?? {};
+  const purposeOverride = isLlmPurpose(purpose) ? purposeOverrides[purpose] : undefined;
+  const defaultProvider = settingsRegistry.llmProvider.parse(overrides.llmProvider) ?? "openrouter";
   const selectedProvider = purposeOverride?.provider ?? defaultProvider;
   const provider =
     isCliProvider(selectedProvider) || isHostedLocalProvider(selectedProvider)
@@ -174,11 +153,8 @@ async function resolveHostedLlmRuntimeSettings(
   const defaultModel =
     provider !== defaultProvider
       ? getDefaultModelForProvider(provider)
-      : (settingsRegistry.model.parse(overrides.model) ??
-        getDefaultModelForProvider(provider));
-  const purposeModelKey = isLlmPurpose(purpose)
-    ? MODEL_KEY_BY_PURPOSE[purpose]
-    : null;
+      : (settingsRegistry.model.parse(overrides.model) ?? getDefaultModelForProvider(provider));
+  const purposeModelKey = isLlmPurpose(purpose) ? MODEL_KEY_BY_PURPOSE[purpose] : null;
   const model =
     purposeOverride?.model?.trim() ||
     (purposeModelKey ? overrides[purposeModelKey]?.trim() : null) ||
@@ -200,9 +176,7 @@ async function resolveHostedLlmRuntimeSettings(
   };
 }
 
-export async function resolveLlmModel(
-  purpose: LlmModelPurpose = "default",
-): Promise<string> {
+export async function resolveLlmModel(purpose: LlmModelPurpose = "default"): Promise<string> {
   if (getJobOpsAppConfig().appMode === "hosted") {
     return (await resolveHostedLlmRuntimeSettings(purpose)).model;
   }
@@ -217,8 +191,7 @@ export async function resolveLlmRuntimeSettings(
     return resolveHostedLlmRuntimeSettings(purpose);
   }
 
-  const getAllSettings =
-    "getAllSettings" in settingsRepo ? settingsRepo.getAllSettings : null;
+  const getAllSettings = "getAllSettings" in settingsRepo ? settingsRepo.getAllSettings : null;
   const [settings, overrides] = await Promise.all([
     getEffectiveSettings(),
     typeof getAllSettings === "function"
@@ -233,8 +206,7 @@ export async function resolveLlmRuntimeSettings(
     : undefined;
   const provider = purposeOverride?.provider?.trim() || defaultProvider;
   const configuredBaseUrl = providerUsesConfiguredBaseUrl(provider)
-    ? purposeOverride?.baseUrl?.trim() ||
-      (provider === defaultProvider ? defaultBaseUrl : null)
+    ? purposeOverride?.baseUrl?.trim() || (provider === defaultProvider ? defaultBaseUrl : null)
     : null;
   const baseUrl = configuredBaseUrl || getDefaultBaseUrlForProvider(provider);
   const purposeApiKeys = readPurposeApiKeys(overrides?.llmPurposeApiKeys);

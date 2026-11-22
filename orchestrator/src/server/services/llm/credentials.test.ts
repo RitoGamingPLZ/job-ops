@@ -103,9 +103,7 @@ describe("resolveLlmApiKey", () => {
   it("uses the API Route key only when environment credentials are allowed", async () => {
     process.env.API_ROUTE_API_KEY = "route-platform-test";
     const { resolveLlmApiKey } = await loadResolver();
-    expect(resolveLlmApiKey({ provider: "api-route" })).toBe(
-      "route-platform-test",
-    );
+    expect(resolveLlmApiKey({ provider: "api-route" })).toBe("route-platform-test");
     expect(
       resolveLlmApiKey({
         provider: "api_route",

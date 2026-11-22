@@ -44,9 +44,7 @@ describe("extractPdfJobDescription", () => {
     ["role.txt", 100],
     ["role.pdf", 10 * 1024 * 1024 + 1],
   ])("rejects unsupported files before parsing (%s)", async (name, size) => {
-    await expect(extractPdfJobDescription(file(name, size))).rejects.toThrow(
-      /PDF|10 MB/,
-    );
+    await expect(extractPdfJobDescription(file(name, size))).rejects.toThrow(/PDF|10 MB/);
     expect(getDocument).not.toHaveBeenCalled();
   });
   it("rejects image-only PDFs with an OCR explanation", async () => {
@@ -54,9 +52,7 @@ describe("extractPdfJobDescription", () => {
       getTextContent: async () => ({ items: [] }),
       cleanup: vi.fn(),
     });
-    await expect(extractPdfJobDescription(file())).rejects.toThrow(
-      /scanned|OCR/,
-    );
+    await expect(extractPdfJobDescription(file())).rejects.toThrow(/scanned|OCR/);
     expect(destroy).toHaveBeenCalledOnce();
   });
   it("rejects excessive page counts and releases the loading task", async () => {

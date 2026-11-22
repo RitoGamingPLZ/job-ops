@@ -7,23 +7,13 @@ import { OrchestratorHeader } from "./OrchestratorHeader";
 
 vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SheetTrigger: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetHeader: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetTitle: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  SheetTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SheetContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SheetHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SheetTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-const renderHeader = (
-  overrides: Partial<React.ComponentProps<typeof OrchestratorHeader>> = {},
-) => {
+const renderHeader = (overrides: Partial<React.ComponentProps<typeof OrchestratorHeader>> = {}) => {
   const props: React.ComponentProps<typeof OrchestratorHeader> = {
     navOpen: false,
     onNavOpenChange: vi.fn(),
@@ -73,12 +63,8 @@ describe("OrchestratorHeader", () => {
 
   it("hides the run action while keeping manual import reachable", () => {
     renderHeader({ hideRunAction: true });
-    expect(
-      screen.queryByRole("button", { name: /find jobs/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /add a job/i }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /find jobs/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add a job/i })).toBeInTheDocument();
   });
 
   it("renders cancel button while running and triggers cancel", () => {

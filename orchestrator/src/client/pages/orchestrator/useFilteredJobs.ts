@@ -2,11 +2,7 @@ import { toLocalDateKey } from "@client/lib/local-calendar";
 import type { JobListItem } from "@shared/types";
 import { useMemo } from "react";
 import { normalizeCompany } from "./companyFilter";
-import type {
-  DateFilterDimension,
-  JobDateFilter,
-  JobFilters,
-} from "./constants";
+import type { DateFilterDimension, JobDateFilter, JobFilters } from "./constants";
 import {
   compareJobs,
   getJobDateValue,
@@ -34,9 +30,7 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
     let filtered = [...jobs];
 
     if (activeTab === "ready") {
-      filtered = filtered.filter(
-        (job) => job.status === "ready" || job.status === "processing",
-      );
+      filtered = filtered.filter((job) => job.status === "ready" || job.status === "processing");
     } else if (activeTab === "discovered") {
       filtered = filtered.filter(
         (job) => job.status === "discovered" || job.status === "processing",
@@ -50,9 +44,7 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
 
     if (dateFilter.dimensions.length > 0) {
       filtered = filtered.filter((job) =>
-        dateFilter.dimensions.some((dimension) =>
-          matchesDateDimension(job, dimension, dateFilter),
-        ),
+        dateFilter.dimensions.some((dimension) => matchesDateDimension(job, dimension, dateFilter)),
       );
     }
 
@@ -62,22 +54,16 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
 
     if (companyFilter.length > 0) {
       const companies = new Set(companyFilter.map(normalizeCompany));
-      filtered = filtered.filter((job) =>
-        companies.has(normalizeCompany(job.employer ?? "")),
-      );
+      filtered = filtered.filter((job) => companies.has(normalizeCompany(job.employer ?? "")));
     }
 
     if (postedWithinDays != null) {
       const now = Date.now();
-      filtered = filtered.filter((job) =>
-        matchesPostedWithin(job, postedWithinDays, now),
-      );
+      filtered = filtered.filter((job) => matchesPostedWithin(job, postedWithinDays, now));
     }
 
     if (employmentTypes.length > 0) {
-      filtered = filtered.filter((job) =>
-        matchesEmploymentType(job, employmentTypes),
-      );
+      filtered = filtered.filter((job) => matchesEmploymentType(job, employmentTypes));
     }
 
     if (location.trim()) {

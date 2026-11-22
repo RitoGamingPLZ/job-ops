@@ -5,8 +5,7 @@ import { validateAndApplyJobPatches } from "./job-fact-patches";
 describe("validateAndApplyJobPatches", () => {
   it("applies supported corrections and is idempotent", () => {
     const job = createJob({
-      jobDescription:
-        "<p>Pay\u00a0rate: £35 per hour. The role is based in Manchester.</p>",
+      jobDescription: "<p>Pay\u00a0rate: £35 per hour. The role is based in Manchester.</p>",
       salaryInterval: "yearly",
       location: "London",
       locationEvidence: { location: "London", source: "extractor" },
@@ -39,8 +38,7 @@ describe("validateAndApplyJobPatches", () => {
   });
 
   it("rejects unsafe patches", () => {
-    const listing =
-      "Pay rate: £35 per hour. We offer a competitive salary. This is a hybrid role.";
+    const listing = "Pay rate: £35 per hour. We offer a competitive salary. This is a hybrid role.";
     const cases = [
       [
         {

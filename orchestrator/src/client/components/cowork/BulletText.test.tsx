@@ -9,11 +9,7 @@ it("keeps trailing spaces while typing against normalized HTML and accepts exter
     const [value, setValue] = useState("Duty");
     return (
       <>
-        <BulletText
-          value={value}
-          label="Bullet"
-          onChange={(text) => setValue(text.trim())}
-        />
+        <BulletText value={value} label="Bullet" onChange={(text) => setValue(text.trim())} />
         <button type="button" onClick={() => setValue("Library replacement")}>
           Replace
         </button>
@@ -35,14 +31,7 @@ it("keeps trailing spaces while typing against normalized HTML and accepts exter
 
 it("cancels a blank linked draft without deleting the saved text", () => {
   const onChange = vi.fn();
-  render(
-    <BulletText
-      linked
-      value="Library duty"
-      label="Linked bullet"
-      onChange={onChange}
-    />,
-  );
+  render(<BulletText linked value="Library duty" label="Linked bullet" onChange={onChange} />);
   fireEvent.change(screen.getByLabelText("Linked bullet"), {
     target: { value: "  " },
   });

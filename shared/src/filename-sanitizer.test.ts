@@ -17,9 +17,9 @@ describe("safeFilenamePart", () => {
   });
 
   it("uses Spanish transliteration for Spanish filenames", () => {
-    expect(
-      safeFilenamePart("Niño Vergüenza ¿Qué?", { language: "spanish" }),
-    ).toBe("Nino_Verguenza__Que_");
+    expect(safeFilenamePart("Niño Vergüenza ¿Qué?", { language: "spanish" })).toBe(
+      "Nino_Verguenza__Que_",
+    );
   });
 
   it("falls back to Unknown for unsupported or punctuation-only input", () => {

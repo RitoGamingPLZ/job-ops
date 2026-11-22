@@ -97,11 +97,7 @@ type ReactiveResumeConfigPanelProps = {
 };
 
 function renderStatusPill(label: string, state: VersionValidationState) {
-  const statusLabel = state.checked
-    ? state.valid
-      ? "Connected"
-      : "Failed"
-    : "Not tested";
+  const statusLabel = state.checked ? (state.valid ? "Connected" : "Failed") : "Not tested";
   const dotColor = state.checked
     ? state.valid
       ? "bg-emerald-500"
@@ -112,11 +108,7 @@ function renderStatusPill(label: string, state: VersionValidationState) {
     <StatusIndicator
       label={`${label}: ${statusLabel}`}
       dotColor={dotColor}
-      tooltip={
-        state.checked && !state.valid && state.message
-          ? state.message
-          : undefined
-      }
+      tooltip={state.checked && !state.valid && state.message ? state.message : undefined}
     />
   );
 }
@@ -126,9 +118,7 @@ function isAvailabilityWarning(state?: VersionValidationState): boolean {
   return status === 0 || (typeof status === "number" && status >= 500);
 }
 
-export const ReactiveResumeConfigPanel: React.FC<
-  ReactiveResumeConfigPanelProps
-> = ({
+export const ReactiveResumeConfigPanel: React.FC<ReactiveResumeConfigPanelProps> = ({
   pdfRenderer,
   onPdfRendererChange,
   pdfRendererError,
@@ -154,16 +144,14 @@ export const ReactiveResumeConfigPanel: React.FC<
   const selectedValidationStatus = validationStatus;
   const showInlineValidationAlert = Boolean(
     selectedValidationStatus?.checked &&
-      !selectedValidationStatus.valid &&
-      selectedValidationStatus.message,
+    !selectedValidationStatus.valid &&
+    selectedValidationStatus.message,
   );
   const selectedValidationIsWarning =
-    showInlineValidationAlert &&
-    isAvailabilityWarning(selectedValidationStatus);
+    showInlineValidationAlert && isAvailabilityWarning(selectedValidationStatus);
 
   const rendererHelperText: Record<PdfRenderer, string> = {
-    rxresume:
-      "RxResume export uses the upstream print/export endpoint for the final PDF.",
+    rxresume: "RxResume export uses the upstream print/export endpoint for the final PDF.",
     latex:
       "LaTeX renders PDFs locally with Jake's template and requires tectonic on the JobOps host.",
     typst: "Typst renders PDFs locally and supports selectable resume themes.",
@@ -207,12 +195,8 @@ export const ReactiveResumeConfigPanel: React.FC<
             ))}
           </SelectContent>
         </Select>
-        {pdfRendererError ? (
-          <p className="text-xs text-destructive">{pdfRendererError}</p>
-        ) : null}
-        <p className="text-xs text-muted-foreground">
-          {rendererHelperText[pdfRenderer]}
-        </p>
+        {pdfRendererError ? <p className="text-xs text-destructive">{pdfRendererError}</p> : null}
+        <p className="text-xs text-muted-foreground">{rendererHelperText[pdfRenderer]}</p>
       </div>
 
       {pdfRenderer === "typst" ? (
@@ -236,12 +220,9 @@ export const ReactiveResumeConfigPanel: React.FC<
               ))}
             </SelectContent>
           </Select>
-          {typstThemeError ? (
-            <p className="text-xs text-destructive">{typstThemeError}</p>
-          ) : null}
+          {typstThemeError ? <p className="text-xs text-destructive">{typstThemeError}</p> : null}
           <p className="text-xs text-muted-foreground">
-            Classic mirrors the current resume density; Compact fits more
-            content on the page.
+            Classic mirrors the current resume density; Compact fits more content on the page.
           </p>
         </div>
       ) : null}
@@ -266,12 +247,8 @@ export const ReactiveResumeConfigPanel: React.FC<
             ))}
           </SelectContent>
         </Select>
-        {pdfPaperSizeError ? (
-          <p className="text-xs text-destructive">{pdfPaperSizeError}</p>
-        ) : null}
-        <p className="text-xs text-muted-foreground">
-          {rendererDefaultPaperSizeText[pdfRenderer]}
-        </p>
+        {pdfPaperSizeError ? <p className="text-xs text-destructive">{pdfPaperSizeError}</p> : null}
+        <p className="text-xs text-muted-foreground">{rendererDefaultPaperSizeText[pdfRenderer]}</p>
       </div>
 
       {showValidationStatus && selectedValidationStatus ? (
@@ -281,21 +258,16 @@ export const ReactiveResumeConfigPanel: React.FC<
       ) : null}
 
       {showInlineValidationAlert && selectedValidationStatus?.message ? (
-        <Alert
-          variant={selectedValidationIsWarning ? "warning" : "destructive"}
-        >
+        <Alert variant={selectedValidationIsWarning ? "warning" : "destructive"}>
           {selectedValidationIsWarning ? (
             <AlertTriangle className="h-4 w-4" />
           ) : (
             <AlertCircle className="h-4 w-4" />
           )}
           <AlertTitle>
-            Reactive Resume API{" "}
-            {selectedValidationIsWarning ? "warning" : "error"}
+            Reactive Resume API {selectedValidationIsWarning ? "warning" : "error"}
           </AlertTitle>
-          <AlertDescription>
-            {selectedValidationStatus.message}
-          </AlertDescription>
+          <AlertDescription>{selectedValidationStatus.message}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -306,13 +278,10 @@ export const ReactiveResumeConfigPanel: React.FC<
             inputProps={{
               name: "rxresumeUrl",
               value: shared.baseUrl,
-              onChange: (event) =>
-                shared.onBaseUrlChange(event.currentTarget.value),
+              onChange: (event) => shared.onBaseUrlChange(event.currentTarget.value),
             }}
             type="url"
-            placeholder={
-              shared.baseUrlPlaceholder ?? "https://resume.example.com"
-            }
+            placeholder={shared.baseUrlPlaceholder ?? "https://resume.example.com"}
             helper={
               shared.baseUrlHelper ??
               "Leave blank to use the default for the selected mode (or the RXRESUME_URL environment override, if set)."
@@ -342,8 +311,8 @@ export const ReactiveResumeConfigPanel: React.FC<
 
           {!canShowProjectSelection ? (
             <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-              No resume projects were found. Add projects to your active resume
-              to configure automatic project selection.
+              No resume projects were found. Add projects to your active resume to configure
+              automatic project selection.
             </div>
           ) : (
             <div className="space-y-4">
@@ -360,23 +329,19 @@ export const ReactiveResumeConfigPanel: React.FC<
                 <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
                   Loading resume projects...
                 </div>
-              ) : hasRxResumeAccess &&
-                !projectSelection.baseResumeId &&
-                !hasProjectCatalog ? (
+              ) : hasRxResumeAccess && !projectSelection.baseResumeId && !hasProjectCatalog ? (
                 <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
                   Choose a PDF to configure resume projects.
                 </div>
               ) : !hasProjectCatalog ? (
                 <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                  No resume projects were found. Add projects to your active
-                  resume to configure automatic project selection.
+                  No resume projects were found. Add projects to your active resume to configure
+                  automatic project selection.
                 </div>
               ) : (
                 <>
                   <div className="space-y-2">
-                    <div className="text-sm font-medium">
-                      Max projects to choose
-                    </div>
+                    <div className="text-sm font-medium">Max projects to choose</div>
                     <Input
                       type="number"
                       inputMode="numeric"
@@ -430,9 +395,7 @@ export const ReactiveResumeConfigPanel: React.FC<
                     <TableBody>
                       {projectSelection.projects.map((project) => {
                         const value = projectSelection.value;
-                        const locked = Boolean(
-                          value?.lockedProjectIds.includes(project.id),
-                        );
+                        const locked = Boolean(value?.lockedProjectIds.includes(project.id));
                         const aiSelectable = Boolean(
                           value?.aiSelectableProjectIds.includes(project.id),
                         );
@@ -442,19 +405,13 @@ export const ReactiveResumeConfigPanel: React.FC<
                           <TableRow key={project.id}>
                             <TableCell>
                               <div className="space-y-0.5">
-                                <div className="font-medium">
-                                  {project.name}
-                                </div>
+                                <div className="font-medium">{project.name}</div>
                                 {projectMeta ? (
-                                  <div className="text-xs text-muted-foreground">
-                                    {projectMeta}
-                                  </div>
+                                  <div className="text-xs text-muted-foreground">{projectMeta}</div>
                                 ) : null}
                               </div>
                             </TableCell>
-                            <TableCell>
-                              {project.isVisibleInBase ? "Yes" : "No"}
-                            </TableCell>
+                            <TableCell>{project.isVisibleInBase ? "Yes" : "No"}</TableCell>
                             <TableCell>
                               <Checkbox
                                 checked={locked}
@@ -465,8 +422,7 @@ export const ReactiveResumeConfigPanel: React.FC<
                                       settings: value,
                                       projectId: project.id,
                                       checked: !locked,
-                                      maxProjectsTotal:
-                                        projectSelection.maxProjectsTotal,
+                                      maxProjectsTotal: projectSelection.maxProjectsTotal,
                                     }),
                                   );
                                 }}

@@ -151,9 +151,7 @@ export const LogEventModal: React.FC<LogEventModalProps> = ({
         className="max-h-[calc(100vh-2rem)] max-w-md overflow-y-auto"
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            {editingEvent ? "Edit Event" : "Log Event"}
-          </AlertDialogTitle>
+          <AlertDialogTitle>{editingEvent ? "Edit Event" : "Log Event"}</AlertDialogTitle>
           <AlertDialogDescription>
             {editingEvent
               ? "Update the details of this event."
@@ -250,11 +248,7 @@ export const LogEventModal: React.FC<LogEventModalProps> = ({
               Cancel
             </AlertDialogCancel>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting
-                ? "Saving..."
-                : editingEvent
-                  ? "Save Changes"
-                  : "Log Event"}
+              {isSubmitting ? "Saving..." : editingEvent ? "Save Changes" : "Log Event"}
             </Button>
           </AlertDialogFooter>
         </form>

@@ -29,15 +29,9 @@ import * as jobsRepo from "../repositories/jobs";
 import * as settingsRepo from "../repositories/settings";
 import { buildCandidateExperienceContext } from "./candidate-experience";
 import { extractDocxText, extractPdfText } from "./document-text-extraction";
-import {
-  getWritingLanguageLabel,
-  resolveWritingOutputLanguage,
-} from "./output-language";
+import { getWritingLanguageLabel, resolveWritingOutputLanguage } from "./output-language";
 import { getProfile } from "./profile";
-import {
-  getEffectivePromptTemplate,
-  renderPromptTemplate,
-} from "./prompt-templates";
+import { getEffectivePromptTemplate, renderPromptTemplate } from "./prompt-templates";
 import { filterProfileProjectsForAi } from "./resumeProjects";
 import {
   getWritingStyle,
@@ -115,37 +109,28 @@ function buildJobSnapshot(job: Job): string {
       tailoredSummary: truncate(job.tailoredSummary, 1200),
       tailoredHeadline: truncate(job.tailoredHeadline, 300),
       tailoredSkills: truncate(job.tailoredSkills, 1200),
-      jobDescription: truncate(
-        stripHtmlTags(job.jobDescription ?? ""),
-        MAX_JOB_DESCRIPTION,
-      ),
+      jobDescription: truncate(stripHtmlTags(job.jobDescription ?? ""), MAX_JOB_DESCRIPTION),
     },
   };
 
   return JSON.stringify(snapshot);
 }
 
-function buildProfileSnapshot(
-  profile: ResumeProfile,
-  candidateExperience: string | null,
-): string {
+function buildProfileSnapshot(profile: ResumeProfile, candidateExperience: string | null): string {
   const summary =
     truncate(profile?.sections?.summary?.content, MAX_PROFILE_SUMMARY) ||
     truncate(profile?.basics?.summary, MAX_PROFILE_SUMMARY);
 
-  const skills = (profile?.sections?.skills?.items ?? [])
-    .slice(0, MAX_SKILLS)
-    .map((item) => {
-      const keywords = (item.keywords ?? []).slice(0, 8).join(", ");
-      return `${item.name}${keywords ? `: ${keywords}` : ""}`;
-    });
+  const skills = (profile?.sections?.skills?.items ?? []).slice(0, MAX_SKILLS).map((item) => {
+    const keywords = (item.keywords ?? []).slice(0, 8).join(", ");
+    return `${item.name}${keywords ? `: ${keywords}` : ""}`;
+  });
 
   const projects = (profile?.sections?.projects?.items ?? [])
     .filter((item) => item.visible !== false)
     .slice(0, MAX_PROJECTS)
     .map(
-      (item) =>
-        `${item.name} (${item.date || "n/a"}): ${truncate(item.summary, MAX_ITEM_TEXT)}`,
+      (item) => `${item.name} (${item.date || "n/a"}): ${truncate(item.summary, MAX_ITEM_TEXT)}`,
     );
 
   const experience = (profile?.sections?.experience?.items ?? [])
@@ -195,8 +180,7 @@ async function buildSelectedNotesSnapshot(
   const selectedNotes = await listSelectedContextItems({
     selectedIds: selectedNoteIds,
     normalize: normalizeGhostwriterSelectedNoteIds,
-    listItems: (normalizedNoteIds) =>
-      jobsRepo.listJobNotesByIds(jobId, normalizedNoteIds),
+    listItems: (normalizedNoteIds) => jobsRepo.listJobNotesByIds(jobId, normalizedNoteIds),
     getId: (note) => note.id,
   });
 
@@ -220,14 +204,11 @@ async function buildSelectedEmailsSnapshot(
   jobId: string,
   selectedEmailIds: readonly string[],
 ): Promise<string> {
-  const { listJobPostApplicationEmailsByIds } = await import(
-    "./post-application/job-emails"
-  );
+  const { listJobPostApplicationEmailsByIds } = await import("./post-application/job-emails");
   const selectedEmails = await listSelectedContextItems({
     selectedIds: selectedEmailIds,
     normalize: normalizeGhostwriterSelectedEmailIds,
-    listItems: (normalizedEmailIds) =>
-      listJobPostApplicationEmailsByIds(jobId, normalizedEmailIds),
+    listItems: (normalizedEmailIds) => listJobPostApplicationEmailsByIds(jobId, normalizedEmailIds),
     getId: (email) => email.message.id,
   });
 
@@ -240,17 +221,11 @@ async function buildSelectedEmailsSnapshot(
       compactJoin([
         `Email ${index + 1}: ${email.subject}`,
         `Sender: ${email.sender}`,
-        email.receivedAt
-          ? `Received: ${new Date(email.receivedAt).toISOString()}`
-          : null,
+        email.receivedAt ? `Received: ${new Date(email.receivedAt).toISOString()}` : null,
         `Type: ${email.messageType}`,
         `Status: ${email.processingStatus}`,
-        email.matchConfidence !== null
-          ? `Match confidence: ${email.matchConfidence}%`
-          : null,
-        email.wasTrimmed
-          ? "Context note: snippet trimmed for AI context limits."
-          : null,
+        email.matchConfidence !== null ? `Match confidence: ${email.matchConfidence}%` : null,
+        email.wasTrimmed ? "Context note: snippet trimmed for AI context limits." : null,
         email.snippet ? `Snippet:\n${email.snippet}` : "Snippet: [empty]",
       ]),
     ),
@@ -271,10 +246,7 @@ async function readFilePrefix(path: string, maxBytes: number): Promise<Buffer> {
 async function extractDocumentText(
   document: jobDocumentsRepo.JobDocumentWithStorage,
 ): Promise<string> {
-  const buffer = await readFilePrefix(
-    document.storagePath,
-    MAX_DOCUMENT_READ_BYTES,
-  );
+  const buffer = await readFilePrefix(document.storagePath, MAX_DOCUMENT_READ_BYTES);
 
   if (isJobDocumentPdf(document)) {
     try {
@@ -324,12 +296,10 @@ async function buildSelectedDocumentsSnapshot(
   if (selectedDocuments.length === 0) return "";
 
   const documentsWithContent = await Promise.all(
-    selectedDocuments
-      .filter(canUseJobDocumentForGhostwriterContext)
-      .map(async (document) => ({
-        ...document,
-        content: await extractDocumentText(document),
-      })),
+    selectedDocuments.filter(canUseJobDocumentForGhostwriterContext).map(async (document) => ({
+      ...document,
+      content: await extractDocumentText(document),
+    })),
   );
   const context = buildGhostwriterDocumentContextItems(documentsWithContent);
   if (context.items.length === 0) return "";
@@ -341,9 +311,7 @@ async function buildSelectedDocumentsSnapshot(
         `Document ${index + 1}: ${document.fileName}`,
         document.mediaType ? `Type: ${document.mediaType}` : null,
         `Uploaded: ${document.createdAt}`,
-        document.wasTrimmed
-          ? "Context note: document text trimmed for AI context limits."
-          : null,
+        document.wasTrimmed ? "Context note: document text trimmed for AI context limits." : null,
         document.content ? `Content:\n${document.content}` : "Content: [empty]",
       ]),
     ),
@@ -361,23 +329,15 @@ async function buildSystemPrompt(
     jobDescription,
   });
   const outputLanguage = getWritingLanguageLabel(resolvedLanguage.language);
-  const effectiveConstraints = stripLanguageDirectivesFromConstraints(
-    style.constraints,
-  );
-  const template = await getEffectivePromptTemplate(
-    "ghostwriterSystemPromptTemplate",
-  );
+  const effectiveConstraints = stripLanguageDirectivesFromConstraints(style.constraints);
+  const template = await getEffectivePromptTemplate("ghostwriterSystemPromptTemplate");
 
   return renderPromptTemplate(template, {
     outputLanguage,
     tone: style.tone,
     formality: style.formality,
-    constraintsSentence: effectiveConstraints
-      ? `Writing constraints: ${effectiveConstraints}`
-      : "",
-    avoidTermsSentence: style.doNotUse
-      ? `Avoid these terms: ${style.doNotUse}`
-      : "",
+    constraintsSentence: effectiveConstraints ? `Writing constraints: ${effectiveConstraints}` : "",
+    avoidTermsSentence: style.doNotUse ? `Avoid these terms: ${style.doNotUse}` : "",
   });
 }
 
@@ -463,12 +423,9 @@ export async function buildJobChatPromptContext(
       selectedNotesChars: selectedNotesSnapshot.length,
       selectedEmailsChars: selectedEmailsSnapshot.length,
       selectedDocumentsChars: selectedDocumentsSnapshot.length,
-      selectedNoteCount:
-        normalizeGhostwriterSelectedNoteIds(selectedNoteIds).length,
-      selectedEmailCount:
-        normalizeGhostwriterSelectedEmailIds(selectedEmailIds).length,
-      selectedDocumentCount:
-        normalizeGhostwriterSelectedDocumentIds(selectedDocumentIds).length,
+      selectedNoteCount: normalizeGhostwriterSelectedNoteIds(selectedNoteIds).length,
+      selectedEmailCount: normalizeGhostwriterSelectedEmailIds(selectedEmailIds).length,
+      selectedDocumentCount: normalizeGhostwriterSelectedDocumentIds(selectedDocumentIds).length,
     }),
   });
 

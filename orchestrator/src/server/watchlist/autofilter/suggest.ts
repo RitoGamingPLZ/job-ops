@@ -1,14 +1,7 @@
-import {
-  serviceUnavailable,
-  unprocessableEntity,
-  upstreamError,
-} from "@infra/errors";
+import { serviceUnavailable, unprocessableEntity, upstreamError } from "@infra/errors";
 import { logger } from "@infra/logger";
 import type { JsonSchemaDefinition } from "@server/services/llm/types";
-import {
-  createConfiguredLlmService,
-  resolveLlmModel,
-} from "@server/services/modelSelection";
+import { createConfiguredLlmService, resolveLlmModel } from "@server/services/modelSelection";
 import { getWatchlistSourceAdapter } from "@server/watchlist/adapters";
 import { withWatchlistSourceTimeout } from "@server/watchlist/results";
 import { z } from "zod";
@@ -68,13 +61,11 @@ function validatePicks(picks: FilterParam[], facets: Facets): FilterParam[] {
         ...pick.values.filter(
           (value) =>
             value.trim() &&
-            (facet.freeText ||
-              facet.values?.some((item) => item.value.trim() === value)),
+            (facet.freeText || facet.values?.some((item) => item.value.trim() === value)),
         ),
       ]),
     ];
-    if (values.length)
-      merged.set(pick.key, values.slice(0, facet.multi ? 10 : 1));
+    if (values.length) merged.set(pick.key, values.slice(0, facet.multi ? 10 : 1));
   }
   return [...merged].map(([key, values]) => ({ key, values }));
 }
@@ -90,16 +81,13 @@ export async function suggestFilters(input: {
     : undefined;
   const adapter = getWatchlistSourceAdapter(input.sourceType);
   if (!discover || !adapter)
-    throw unprocessableEntity(
-      "Filter suggestions are not supported for this source type",
-    );
+    throw unprocessableEntity("Filter suggestions are not supported for this source type");
   input.signal?.throwIfAborted();
   const facets = await discover({
     careersUrl: input.careersUrl,
     signal: input.signal,
   });
-  if (facets.unfilteredTotal < 1)
-    throw unprocessableEntity("No jobs available to filter");
+  if (facets.unfilteredTotal < 1) throw unprocessableEntity("No jobs available to filter");
   const intent = await loadFilterIntent();
   const llm = await createConfiguredLlmService("default");
   const response = await llm.callJson<unknown>({
@@ -120,23 +108,15 @@ export async function suggestFilters(input: {
   });
   if (!response.success) {
     const status = response.error.match(/LLM API error: (\d{3})\b/)?.[1];
-    if (response.error === "LLM API key not configured")
-      throw serviceUnavailable(response.error);
-    if (
-      /\b(timed?\s*out|aborted|AbortError|TimeoutError)\b/i.test(response.error)
-    )
-      throw serviceUnavailable(
-        "Filter suggestion request timed out or was aborted",
-      );
+    if (response.error === "LLM API key not configured") throw serviceUnavailable(response.error);
+    if (/\b(timed?\s*out|aborted|AbortError|TimeoutError)\b/i.test(response.error))
+      throw serviceUnavailable("Filter suggestion request timed out or was aborted");
     throw upstreamError(
-      status
-        ? `LLM request failed (HTTP ${status})`
-        : "LLM could not suggest filters",
+      status ? `LLM request failed (HTTP ${status})` : "LLM could not suggest filters",
     );
   }
   const parsed = suggestionSchema.safeParse(response.data);
-  if (!parsed.success)
-    throw unprocessableEntity("LLM returned an invalid filter suggestion");
+  if (!parsed.success) throw unprocessableEntity("LLM returned an invalid filter suggestion");
   let params = validatePicks(parsed.data.params, facets);
   if (!params.length) throw unprocessableEntity("No matching filters");
   const base = new URL(input.careersUrl);
@@ -147,8 +127,7 @@ export async function suggestFilters(input: {
     input.signal?.throwIfAborted();
     const url = new URL(base);
     for (const param of params)
-      for (const value of param.values)
-        url.searchParams.append(param.key, value);
+      for (const value of param.values) url.searchParams.append(param.key, value);
     url.searchParams.sort();
     const normalized = await adapter.normalizeCustomSelection({
       label: input.label,
@@ -158,18 +137,14 @@ export async function suggestFilters(input: {
     const sameParams = [...url.searchParams.keys()].every((key) => {
       const expected = url.searchParams.getAll(key).sort();
       return (
-        JSON.stringify(expected) ===
-        JSON.stringify(normalizedUrl.searchParams.getAll(key).sort())
+        JSON.stringify(expected) === JSON.stringify(normalizedUrl.searchParams.getAll(key).sort())
       );
     });
     if (normalizedUrl.origin !== base.origin || !sameParams) {
-      logger.error(
-        "Autofilter adapter normalization disagrees with discovered facets",
-        { sourceType: input.sourceType },
-      );
-      throw unprocessableEntity(
-        "Source adapter does not preserve the suggested filters",
-      );
+      logger.error("Autofilter adapter normalization disagrees with discovered facets", {
+        sourceType: input.sourceType,
+      });
+      throw unprocessableEntity("Source adapter does not preserve the suggested filters");
     }
     const result = await withWatchlistSourceTimeout((timeoutSignal) =>
       adapter.fetchJobs({
@@ -184,9 +159,7 @@ export async function suggestFilters(input: {
           createdAt: "",
           updatedAt: "",
         },
-        signal: input.signal
-          ? AbortSignal.any([input.signal, timeoutSignal])
-          : timeoutSignal,
+        signal: input.signal ? AbortSignal.any([input.signal, timeoutSignal]) : timeoutSignal,
       }),
     );
     const countFiltered = facets.countFiltered;
@@ -194,9 +167,7 @@ export async function suggestFilters(input: {
       ? await withWatchlistSourceTimeout((timeoutSignal) =>
           countFiltered({
             careersUrl: normalized.careersUrl,
-            signal: input.signal
-              ? AbortSignal.any([input.signal, timeoutSignal])
-              : timeoutSignal,
+            signal: input.signal ? AbortSignal.any([input.signal, timeoutSignal]) : timeoutSignal,
           }),
         )
       : result.total;
@@ -209,19 +180,15 @@ export async function suggestFilters(input: {
         sampleTitles: result.jobs.slice(0, 5).map((job) => job.title),
       };
     if (filteredTotal !== 0 || attempt === 1 || params.length === 1)
-      throw unprocessableEntity(
-        "Suggested filters did not narrow the jobs to a nonempty result",
-        {
-          totals: {
-            filtered: filteredTotal,
-            unfiltered: facets.unfilteredTotal,
-          },
+      throw unprocessableEntity("Suggested filters did not narrow the jobs to a nonempty result", {
+        totals: {
+          filtered: filteredTotal,
+          unfiltered: facets.unfilteredTotal,
         },
-      );
+      });
     let freeText = -1;
     params.forEach((param, index) => {
-      if (facets.params.find((facet) => facet.key === param.key)?.freeText)
-        freeText = index;
+      if (facets.params.find((facet) => facet.key === param.key)?.freeText) freeText = index;
     });
     const drop =
       freeText >= 0
@@ -233,8 +200,8 @@ export async function suggestFilters(input: {
                   total +
                   (facets.params
                     .find((facet) => facet.key === item.key)
-                    ?.values?.find((entry) => entry.value.trim() === value)
-                    ?.count ?? Number.MAX_SAFE_INTEGER),
+                    ?.values?.find((entry) => entry.value.trim() === value)?.count ??
+                    Number.MAX_SAFE_INTEGER),
                 0,
               );
             return count(param) <= count(params[best]) ? index : best;

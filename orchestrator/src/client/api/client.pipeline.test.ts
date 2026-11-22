@@ -42,10 +42,7 @@ describe("pipeline client helpers", () => {
     await expect(api.getPipelineRuns()).resolves.toEqual([
       expect.objectContaining({ id: "run-1", status: "completed" }),
     ]);
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "/api/pipeline/runs",
-      expect.any(Object),
-    );
+    expect(fetchSpy).toHaveBeenCalledWith("/api/pipeline/runs", expect.any(Object));
   });
 
   it("fetches the current pipeline progress snapshot", async () => {
@@ -81,10 +78,7 @@ describe("pipeline client helpers", () => {
         message: "Fetching jobs from sources...",
       }),
     );
-    expect(fetchSpy).toHaveBeenCalledWith(
-      "/api/pipeline/progress/snapshot",
-      expect.any(Object),
-    );
+    expect(fetchSpy).toHaveBeenCalledWith("/api/pipeline/progress/snapshot", expect.any(Object));
   });
 
   it("fetches pipeline run insights for a specific run", async () => {

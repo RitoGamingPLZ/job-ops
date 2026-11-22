@@ -3,10 +3,7 @@ import { dirname, join, normalize, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const themesDir = join(
-  repoRoot,
-  "orchestrator/src/server/services/resume-renderer/typst-themes",
-);
+const themesDir = join(repoRoot, "orchestrator/src/server/services/resume-renderer/typst-themes");
 const outputPath = join(repoRoot, "shared/src/generated/typst-themes.ts");
 const checkOnly = process.argv.includes("--check");
 
@@ -63,13 +60,9 @@ async function readThemeManifest(themeDirName) {
   const raw = await readFile(manifestPath, "utf8");
   const manifest = JSON.parse(raw);
 
+  assert(isPlainObject(manifest), `${themeDirName}/theme.json must be an object`);
   assert(
-    isPlainObject(manifest),
-    `${themeDirName}/theme.json must be an object`,
-  );
-  assert(
-    typeof manifest.id === "string" &&
-      /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(manifest.id),
+    typeof manifest.id === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(manifest.id),
     `${themeDirName}/theme.json id must be kebab-case`,
   );
   assert(
@@ -81,8 +74,7 @@ async function readThemeManifest(themeDirName) {
     `${themeDirName}/theme.json label is required`,
   );
   assert(
-    typeof manifest.description === "string" &&
-      manifest.description.trim().length > 0,
+    typeof manifest.description === "string" && manifest.description.trim().length > 0,
     `${themeDirName}/theme.json description is required`,
   );
   assert(
@@ -90,8 +82,7 @@ async function readThemeManifest(themeDirName) {
     `${themeDirName}/theme.json kind must be "native" or "adapted"`,
   );
   assert(
-    typeof manifest.entrypoint === "string" &&
-      manifest.entrypoint.trim().length > 0,
+    typeof manifest.entrypoint === "string" && manifest.entrypoint.trim().length > 0,
     `${themeDirName}/theme.json entrypoint is required`,
   );
   assertSafeThemePath(themeDirName, manifest.entrypoint, "entrypoint");
@@ -107,8 +98,7 @@ async function readThemeManifest(themeDirName) {
     );
     for (const key of REQUIRED_NATIVE_TOKEN_KEYS) {
       assert(
-        typeof manifest.tokens[key] === "string" &&
-          manifest.tokens[key].trim().length > 0,
+        typeof manifest.tokens[key] === "string" && manifest.tokens[key].trim().length > 0,
         `${themeDirName}/theme.json tokens.${key} is required`,
       );
     }
@@ -144,19 +134,14 @@ async function readThemeManifests() {
 
 function buildGeneratedSource(manifests) {
   const values = manifests.map((manifest) => manifest.id);
-  const labels = Object.fromEntries(
-    manifests.map((manifest) => [manifest.id, manifest.label]),
-  );
+  const labels = Object.fromEntries(manifests.map((manifest) => [manifest.id, manifest.label]));
   const descriptions = Object.fromEntries(
     manifests.map((manifest) => [manifest.id, manifest.description]),
   );
-  const kinds = Object.fromEntries(
-    manifests.map((manifest) => [manifest.id, manifest.kind]),
-  );
+  const kinds = Object.fromEntries(manifests.map((manifest) => [manifest.id, manifest.kind]));
   const formatArray = (items) =>
     `[\n${items.map((item) => `  ${JSON.stringify(item)},`).join("\n")}\n]`;
-  const formatKey = (key) =>
-    /^[A-Za-z_$][\w$]*$/.test(key) ? key : JSON.stringify(key);
+  const formatKey = (key) => (/^[A-Za-z_$][\w$]*$/.test(key) ? key : JSON.stringify(key));
   const formatRecord = (record) => {
     const entries = Object.entries(record)
       .map(([key, value]) => {
@@ -206,7 +191,5 @@ if (checkOnly) {
   console.log(`Validated ${manifests.length} Typst theme manifests.`);
 } else {
   await writeFile(outputPath, generated, "utf8");
-  console.log(
-    `Generated ${relative(repoRoot, outputPath)} from ${manifests.length} Typst themes.`,
-  );
+  console.log(`Generated ${relative(repoRoot, outputPath)} from ${manifests.length} Typst themes.`);
 }

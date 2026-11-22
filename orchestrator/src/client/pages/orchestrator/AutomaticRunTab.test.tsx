@@ -1,13 +1,7 @@
 import * as api from "@client/api";
 import { createAppSettings } from "@shared/testing/factories.js";
 import type { JobSource, PipelineSearchPreset } from "@shared/types";
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type React from "react";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,16 +14,10 @@ const { getDetectedCountryKeyMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/components/ui/tooltip", () => ({
-  TooltipProvider: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-  TooltipContent: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("@/components/ui/select", () => ({
@@ -55,17 +43,11 @@ vi.mock("@/components/ui/select", () => ({
   ),
   SelectTrigger: () => null,
   SelectValue: () => null,
-  SelectContent: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
+  SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   SelectGroup: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  SelectItem: ({
-    value,
-    children,
-  }: {
-    value: string;
-    children: React.ReactNode;
-  }) => <option value={value}>{children}</option>,
+  SelectItem: ({ value, children }: { value: string; children: React.ReactNode }) => (
+    <option value={value}>{children}</option>
+  ),
 }));
 
 vi.mock("@/lib/user-location", () => ({
@@ -195,12 +177,8 @@ describe("AutomaticRunTab", () => {
         name: "Find your next role",
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText("What kind of jobs are you looking for?"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Build my search" }),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("What kind of jobs are you looking for?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Build my search" })).toBeInTheDocument();
   });
 
   it("generates search settings without starting the search", async () => {
@@ -221,8 +199,7 @@ describe("AutomaticRunTab", () => {
         topN: 20,
         minSuitabilityScore: 40,
         runBudget: 500,
-        scoringInstructions:
-          "Prioritize backend platform work and remote-friendly roles.",
+        scoringInstructions: "Prioritize backend platform work and remote-friendly roles.",
         automaticPresetId: "custom",
       },
     });
@@ -251,12 +228,9 @@ describe("AutomaticRunTab", () => {
       />,
     );
 
-    fireEvent.change(
-      screen.getByLabelText("What kind of jobs are you looking for?"),
-      {
-        target: { value: "Find platform jobs in London" },
-      },
-    );
+    fireEvent.change(screen.getByLabelText("What kind of jobs are you looking for?"), {
+      target: { value: "Find platform jobs in London" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Build my search" }));
 
     await waitFor(() => {
@@ -272,39 +246,25 @@ describe("AutomaticRunTab", () => {
       );
     });
     await waitFor(() => {
-      expect(screen.getAllByText("Configure details").length).toBeGreaterThan(
-        0,
-      );
+      expect(screen.getAllByText("Configure details").length).toBeGreaterThan(0);
     });
 
     expect(onSaveAndRun).not.toHaveBeenCalled();
     expect(onSetPipelineSources).toHaveBeenCalledWith(["linkedin"]);
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    expect(
-      screen.getByRole("heading", { name: "Configure your search" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText("Assumed remote-friendly roles."),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Configure your search" })).toBeInTheDocument();
+    expect(screen.queryByText("Assumed remote-friendly roles.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Search notes (1)" }));
-    expect(
-      screen.getByText("Assumed remote-friendly roles."),
-    ).toBeInTheDocument();
-    expect(trackProductEvent).toHaveBeenCalledWith(
-      "jobs_search_composer_plan_generated",
-      {
-        result: "success",
-        prompt_length_bucket: "11_30",
-        source: "ai",
-      },
-    );
-    expect(trackProductEvent).toHaveBeenCalledWith(
-      "jobs_search_composer_details_opened",
-      { source: "generated_plan" },
-    );
-    expect(
-      screen.queryByText("Focused the search on platform roles."),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText("Assumed remote-friendly roles.")).toBeInTheDocument();
+    expect(trackProductEvent).toHaveBeenCalledWith("jobs_search_composer_plan_generated", {
+      result: "success",
+      prompt_length_bucket: "11_30",
+      source: "ai",
+    });
+    expect(trackProductEvent).toHaveBeenCalledWith("jobs_search_composer_details_opened", {
+      source: "generated_plan",
+    });
+    expect(screen.queryByText("Focused the search on platform roles.")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Ranking preferences")).toHaveValue(
       "Prioritize backend platform work and remote-friendly roles.",
     );
@@ -314,26 +274,21 @@ describe("AutomaticRunTab", () => {
       target: { value: "Prefer paid platform roles" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Describe search" }));
-    expect(
-      screen.getByLabelText("What kind of jobs are you looking for?"),
-    ).toHaveValue("Find platform jobs in London");
-    openConfigureDetails();
-    expect(screen.getByLabelText("Ranking preferences")).toHaveValue(
-      "Prefer paid platform roles",
+    expect(screen.getByLabelText("What kind of jobs are you looking for?")).toHaveValue(
+      "Find platform jobs in London",
     );
+    openConfigureDetails();
+    expect(screen.getByLabelText("Ranking preferences")).toHaveValue("Prefer paid platform roles");
     expect(onSaveAndRun).not.toHaveBeenCalled();
   });
 
   it("keeps the existing criteria and shows a short notice when AI is unavailable", async () => {
-    vi.mocked(api.planPipelineSearch).mockImplementationOnce(
-      async ({ currentConfig }) => ({
-        source: "fallback",
-        config: currentConfig,
-        summary:
-          "A long provider explanation that should not take over the review.",
-        warnings: [],
-      }),
-    );
+    vi.mocked(api.planPipelineSearch).mockImplementationOnce(async ({ currentConfig }) => ({
+      source: "fallback",
+      config: currentConfig,
+      summary: "A long provider explanation that should not take over the review.",
+      warnings: [],
+    }));
     render(
       <AutomaticRunTab
         open
@@ -346,22 +301,15 @@ describe("AutomaticRunTab", () => {
         onSaveAndRun={vi.fn()}
       />,
     );
-    fireEvent.change(
-      screen.getByLabelText("What kind of jobs are you looking for?"),
-      { target: { value: "Platform roles" } },
-    );
+    fireEvent.change(screen.getByLabelText("What kind of jobs are you looking for?"), {
+      target: { value: "Platform roles" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Build my search" }));
+    expect(await screen.findByText(/AI couldn’t build this search\./)).toBeInTheDocument();
     expect(
-      await screen.findByText(/AI couldn’t build this search\./),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(
-        "A long provider explanation that should not take over the review.",
-      ),
+      screen.queryByText("A long provider explanation that should not take over the review."),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Configure your search" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Configure your search" })).toBeInTheDocument();
   });
 
   it("shows detected country as a suggestion when location settings are still defaults", () => {
@@ -383,12 +331,8 @@ describe("AutomaticRunTab", () => {
     openConfigureDetails();
     fireEvent.click(screen.getByRole("radio", { name: /Manual cities/i }));
 
-    expect(
-      screen.getByRole("button", { name: "Select country" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Use suggestion" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Select country" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Use suggestion" })).toBeInTheDocument();
     expect(screen.getByText(/Detected from your browser/i)).toBeInTheDocument();
   });
 
@@ -412,12 +356,8 @@ describe("AutomaticRunTab", () => {
     fireEvent.click(screen.getByRole("radio", { name: /Manual cities/i }));
     fireEvent.click(screen.getByRole("button", { name: "Use suggestion" }));
 
-    expect(
-      screen.getByRole("button", { name: "United States" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/Detected from your browser/i),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "United States" })).toBeInTheDocument();
+    expect(screen.queryByText(/Detected from your browser/i)).not.toBeInTheDocument();
   });
 
   it("hides the manual country picker in the default map mode", () => {
@@ -436,9 +376,7 @@ describe("AutomaticRunTab", () => {
 
     openConfigureDetails();
 
-    expect(
-      screen.queryByRole("button", { name: "Select country" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Select country" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run search" })).toBeDisabled();
   });
 
@@ -465,14 +403,10 @@ describe("AutomaticRunTab", () => {
     openConfigureDetails();
 
     expect(screen.getByRole("radio", { name: /Map radius/i })).toBeChecked();
-    expect(
-      screen.queryByRole("button", { name: "United Kingdom" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "United Kingdom" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run search" })).toBeDisabled();
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Use map centre" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Use map centre" }));
     await waitFor(() => {
       expect(api.detectLocationCountry).toHaveBeenCalledWith({
         latitude: 54.5,
@@ -491,9 +425,7 @@ describe("AutomaticRunTab", () => {
     );
 
     fireEvent.click(screen.getByRole("radio", { name: /Manual cities/i }));
-    expect(
-      screen.getByRole("button", { name: "United Kingdom" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "United Kingdom" })).toBeInTheDocument();
     expect(screen.getByLabelText("Cities")).toBeInTheDocument();
     expect(screen.queryByLabelText("Radius in miles")).not.toBeInTheDocument();
   });
@@ -527,9 +459,7 @@ describe("AutomaticRunTab", () => {
     openConfigureDetails();
     fireEvent.click(screen.getByRole("radio", { name: /Manual cities/i }));
 
-    expect(
-      screen.getByRole("button", { name: "United States" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "United States" })).toBeInTheDocument();
   });
 
   it("maps legacy usa/ca country to United States in the picker", () => {
@@ -561,9 +491,7 @@ describe("AutomaticRunTab", () => {
     openConfigureDetails();
     fireEvent.click(screen.getByRole("radio", { name: /Manual cities/i }));
 
-    expect(
-      screen.getByRole("button", { name: "United States" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "United States" })).toBeInTheDocument();
   });
 
   it("disables and prunes UK-only sources for non-UK country", async () => {
@@ -643,10 +571,7 @@ describe("AutomaticRunTab", () => {
 
   it("moves a deselected source to the end of the ready list", async () => {
     const StatefulTab = () => {
-      const [pipelineSources, setPipelineSources] = useState<JobSource[]>([
-        "linkedin",
-        "indeed",
-      ]);
+      const [pipelineSources, setPipelineSources] = useState<JobSource[]>(["linkedin", "indeed"]);
 
       return (
         <AutomaticRunTab
@@ -730,9 +655,7 @@ describe("AutomaticRunTab", () => {
     openSourcePicker();
 
     expect(
-      screen.getByTitle(
-        "Gradcracker is available only when country is United Kingdom.",
-      ),
+      screen.getByTitle("Gradcracker is available only when country is United Kingdom."),
     ).toBeInTheDocument();
   });
 
@@ -855,9 +778,7 @@ describe("AutomaticRunTab", () => {
     openConfigureDetails();
     fireEvent.focus(screen.getByLabelText("Cities"));
 
-    expect(
-      screen.queryByRole("button", { name: /Remove city/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Remove city/i })).not.toBeInTheDocument();
   });
 
   it("does not remove existing search terms when Backspace is pressed on an empty input", () => {
@@ -892,9 +813,7 @@ describe("AutomaticRunTab", () => {
     fireEvent.keyDown(input, { key: "Backspace" });
 
     expect(screen.getAllByText("backend engineer").length).toBeGreaterThan(0);
-    expect(
-      screen.getByRole("button", { name: "Remove frontend engineer" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove frontend engineer" })).toBeInTheDocument();
   });
 
   it("loads multiple saved cities and keeps glassdoor enabled", () => {
@@ -928,24 +847,16 @@ describe("AutomaticRunTab", () => {
     );
 
     openConfigureDetails();
-    const collapsedTokens = screen.getByTestId(
-      "city-locations-input-collapsed-tokens",
-    );
+    const collapsedTokens = screen.getByTestId("city-locations-input-collapsed-tokens");
     expect(within(collapsedTokens).getByText("London")).toBeInTheDocument();
     expect(within(collapsedTokens).getByText("Manchester")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Remove city London" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove city London" })).not.toBeInTheDocument();
 
     fireEvent.focus(screen.getByLabelText("Cities"));
     openSourcePicker();
 
-    expect(
-      screen.getByRole("button", { name: "Remove city London" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Remove city Manchester" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove city London" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove city Manchester" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Glassdoor" })).toBeEnabled();
   });
 
@@ -1041,9 +952,7 @@ describe("AutomaticRunTab", () => {
     fireEvent.click(screen.getByLabelText("Hybrid"));
     fireEvent.click(screen.getByLabelText("Onsite"));
 
-    expect(
-      screen.getByText("Select at least one workplace type."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Select at least one workplace type.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run search" })).toBeDisabled();
   });
 
@@ -1068,9 +977,7 @@ describe("AutomaticRunTab", () => {
     );
 
     expect(
-      screen.queryByText(
-        /Some sources can only apply a strict remote filter\./i,
-      ),
+      screen.queryByText(/Some sources can only apply a strict remote filter\./i),
     ).not.toBeInTheDocument();
   });
 
@@ -1200,9 +1107,7 @@ describe("AutomaticRunTab", () => {
       expect(onSaveAndRun).toHaveBeenCalled();
     });
 
-    expect(
-      JSON.parse(localStorage.getItem(RUN_MEMORY_STORAGE_KEY) ?? "{}"),
-    ).toEqual(
+    expect(JSON.parse(localStorage.getItem(RUN_MEMORY_STORAGE_KEY) ?? "{}")).toEqual(
       expect.objectContaining({
         presetId: "balanced",
         runBudget: AUTOMATIC_PRESETS.balanced.runBudget,
@@ -1293,9 +1198,7 @@ describe("AutomaticRunTab", () => {
       expect(onSaveAndRun).toHaveBeenCalled();
     });
 
-    expect(
-      JSON.parse(localStorage.getItem(RUN_MEMORY_STORAGE_KEY) ?? "{}"),
-    ).toEqual(
+    expect(JSON.parse(localStorage.getItem(RUN_MEMORY_STORAGE_KEY) ?? "{}")).toEqual(
       expect.objectContaining({
         presetId: "custom",
         runBudget: AUTOMATIC_PRESETS.balanced.runBudget,
@@ -1385,9 +1288,7 @@ describe("AutomaticRunTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run settings" }));
     expect(screen.getByText("Location scope")).toBeInTheDocument();
     expect(screen.getByText("Match strictness")).toBeInTheDocument();
-    expect(
-      screen.getByText("Selected locations + remote worldwide"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Selected locations + remote worldwide")).toBeInTheDocument();
     expect(screen.getByText("Include likely matches")).toBeInTheDocument();
     expect(screen.getByTestId("search-count-summary")).toHaveTextContent(
       "1 role · 1 location · 1 job board",
@@ -1454,16 +1355,11 @@ describe("AutomaticRunTab", () => {
       target: { value: "search-1" },
     });
 
-    expect(
-      screen.getByRole("button", { name: "United Kingdom" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "United Kingdom" })).toBeInTheDocument();
     expect(screen.getAllByText("backend engineer").length).toBeGreaterThan(0);
     expect(screen.getAllByText("London").length).toBeGreaterThan(0);
     expect(screen.getByRole("radio", { name: /Fast/i })).toBeChecked();
-    expect(onSetPipelineSources).toHaveBeenCalledWith([
-      "linkedin",
-      "glassdoor",
-    ]);
+    expect(onSetPipelineSources).toHaveBeenCalledWith(["linkedin", "glassdoor"]);
     expect(onApplySavedSearch).toHaveBeenCalledWith(savedSearch);
   });
 

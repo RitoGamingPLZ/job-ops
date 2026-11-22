@@ -7,15 +7,9 @@ import {
   recordSiteRecipeRun,
   saveSiteRecipe,
 } from "@server/repositories/site-recipes";
-import {
-  learnRecipe,
-  RecipeLearningError,
-} from "@server/watchlist/careers-site/learn";
+import { learnRecipe, RecipeLearningError } from "@server/watchlist/careers-site/learn";
 import { runRecipe } from "@server/watchlist/careers-site/run-recipe";
-import {
-  type CrawledJob,
-  SiteBlockedError,
-} from "@server/watchlist/careers-site/types";
+import { type CrawledJob, SiteBlockedError } from "@server/watchlist/careers-site/types";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { convert } from "html-to-text";
 import { z } from "zod";
@@ -32,10 +26,7 @@ const LEARNING = "Learning this careers site, check again in a minute";
 const learning = new Map<string, Promise<void>>();
 const failedLearns = new Map<string, number>();
 const FAILED_LEARN_COOLDOWN_MS = 30 * 60_000;
-const cache = new Map<
-  string,
-  { expires: number; jobs: Map<string, CrawledJob> }
->();
+const cache = new Map<string, { expires: number; jobs: Map<string, CrawledJob> }>();
 
 function careersUrl(value: string): URL {
   let url: URL;
@@ -45,20 +36,11 @@ function careersUrl(value: string): URL {
     throw badRequest("Use an HTTPS careers URL without credentials or a port.");
   }
   const authority = value.trim().match(/^https:\/\/([^/?#]+)/i)?.[1];
-  if (
-    url.protocol !== "https:" ||
-    !authority ||
-    authority.includes("@") ||
-    authority.includes(":")
-  )
+  if (url.protocol !== "https:" || !authority || authority.includes("@") || authority.includes(":"))
     throw badRequest("Use an HTTPS careers URL without credentials or a port.");
   url.hash = "";
   for (const name of [...url.searchParams.keys()]) {
-    if (
-      /^(?:utm_.*|gclid|dclid|fbclid|msclkid|gbraid|wbraid|mc_cid|mc_eid|_ga|_gl)$/i.test(
-        name,
-      )
-    )
+    if (/^(?:utm_.*|gclid|dclid|fbclid|msclkid|gbraid|wbraid|mc_cid|mc_eid|_ga|_gl)$/i.test(name))
       url.searchParams.delete(name);
   }
   url.searchParams.sort();
@@ -79,8 +61,7 @@ function clearHostCache(host: string) {
   const plain = key(host);
   const filteredPrefix = key(host, "?").split("?")[0];
   for (const sourceKey of cache.keys()) {
-    if (sourceKey === plain || sourceKey.startsWith(`${filteredPrefix}?`))
-      cache.delete(sourceKey);
+    if (sourceKey === plain || sourceKey.startsWith(`${filteredPrefix}?`)) cache.delete(sourceKey);
   }
 }
 function blocked(host: string) {
@@ -94,13 +75,8 @@ function startLearning(host: string, url: string): never {
   plainUrl.hash = "";
   clearHostCache(host);
   const failedAt = failedLearns.get(host);
-  if (
-    failedAt !== undefined &&
-    Date.now() - failedAt < FAILED_LEARN_COOLDOWN_MS
-  )
-    throw serviceUnavailable(
-      "Could not learn this careers site. Try again later.",
-    );
+  if (failedAt !== undefined && Date.now() - failedAt < FAILED_LEARN_COOLDOWN_MS)
+    throw serviceUnavailable("Could not learn this careers site. Try again later.");
   if (!learning.has(host)) {
     const p = (async () => {
       try {
@@ -110,13 +86,11 @@ function startLearning(host: string, url: string): never {
         await saveSiteRecipe(host, recipe);
         failedLearns.delete(host);
       } catch (error) {
-        if (error instanceof SiteBlockedError)
-          await markSiteBlocked(host, error.reason);
+        if (error instanceof SiteBlockedError) await markSiteBlocked(host, error.reason);
         else {
           const now = Date.now();
           for (const [failedHost, failedAt] of failedLearns) {
-            if (now - failedAt >= FAILED_LEARN_COOLDOWN_MS)
-              failedLearns.delete(failedHost);
+            if (now - failedAt >= FAILED_LEARN_COOLDOWN_MS) failedLearns.delete(failedHost);
           }
           failedLearns.set(host, now);
         }
@@ -154,14 +128,8 @@ function cachedJob(input: {
   const sourceKey = key(host, url.search);
   const entry = cache.get(sourceKey);
   if (entry && entry.expires <= Date.now()) cache.delete(sourceKey);
-  const job =
-    entry && entry.expires > Date.now()
-      ? entry.jobs.get(input.jobRef)
-      : undefined;
-  if (!job)
-    throw badRequest(
-      "Refresh this careers site before importing or opening this posting.",
-    );
+  const job = entry && entry.expires > Date.now() ? entry.jobs.get(input.jobRef) : undefined;
+  if (!job) throw badRequest("Refresh this careers site before importing or opening this posting.");
   return { host, sourceKey, job };
 }
 
@@ -179,8 +147,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       "Paste an HTTPS careers URL. First visits learn the site in the background; check again in a minute. Fetches up to 60 postings, 10 when only the listing renders, or 4 when details render.",
     emptyCatalogText: "No careers site sources found.",
     fetchingLabel: "Fetching from careers site...",
-    invalidUrlMessage:
-      "Use an HTTPS careers URL without credentials or a port.",
+    invalidUrlMessage: "Use an HTTPS careers URL without credentials or a port.",
     supportsCustomSource: true,
     supportsBranding: false,
   },
@@ -224,9 +191,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     const sourceKey = key(host, url.search);
     const stopAt = Date.now() + 20_000;
     const timeout = AbortSignal.timeout(25_000);
-    const signal = input.signal
-      ? AbortSignal.any([input.signal, timeout])
-      : timeout;
+    const signal = input.signal ? AbortSignal.any([input.signal, timeout]) : timeout;
     signal.throwIfAborted();
     const stored = await getSiteRecipe(host);
     signal.throwIfAborted();
@@ -234,11 +199,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       clearHostCache(host);
       throw blocked(host);
     }
-    if (
-      learning.has(host) ||
-      !stored?.recipe ||
-      stored.consecutiveFailures >= 3
-    )
+    if (learning.has(host) || !stored?.recipe || stored.consecutiveFailures >= 3)
       startLearning(host, url.href);
     const recipe = stored.recipe;
     // Rendered details take 2–20 s/page. Keep their cap at 4 within the
@@ -268,9 +229,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       input.signal?.throwIfAborted();
       const failures = await recordSiteRecipeRun(host, false);
       if (failures >= 3) startLearning(host, url.href);
-      throw upstreamError(
-        "Could not read jobs from this careers site. Try again later.",
-      );
+      throw upstreamError("Could not read jobs from this careers site. Try again later.");
     }
     // An empty filtered listing says nothing about the shared host recipe.
     if (collected.length > 0 || !url.search) {

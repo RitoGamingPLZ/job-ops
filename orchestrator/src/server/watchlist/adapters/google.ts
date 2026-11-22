@@ -54,9 +54,7 @@ function trustedUrl(value: string): URL {
     authority.includes(":") ||
     authority.includes("@")
   ) {
-    throw badRequest(
-      "Use an HTTPS careers URL on www.google.com without userinfo or a port.",
-    );
+    throw badRequest("Use an HTTPS careers URL on www.google.com without userinfo or a port.");
   }
   return url;
 }
@@ -67,15 +65,8 @@ export function searchUrl(value: string): URL {
     throw badRequest("Use a Google careers jobs/results/ search URL.");
   }
   const url = new URL(PATH, ORIGIN);
-  for (const key of [
-    "q",
-    "location",
-    "target_level",
-    "employment_type",
-    "degree",
-  ]) {
-    for (const value of input.searchParams.getAll(key))
-      url.searchParams.append(key, value);
+  for (const key of ["q", "location", "target_level", "employment_type", "degree"]) {
+    for (const value of input.searchParams.getAll(key)) url.searchParams.append(key, value);
   }
   url.searchParams.set("sort_by", "date");
   url.searchParams.sort();
@@ -104,8 +95,7 @@ async function pageHtml(url: URL, signal: AbortSignal): Promise<string> {
       await delay(250 * 2 ** attempt, undefined, { signal });
       continue;
     }
-    if (!response.ok)
-      throw upstreamError(`Google careers returned HTTP ${response.status}.`);
+    if (!response.ok) throw upstreamError(`Google careers returned HTTP ${response.status}.`);
     return response.text();
   }
   throw upstreamError("Google careers retry limit exceeded.");
@@ -120,9 +110,7 @@ function structureError(key: string): Error {
 // The observed array literal is valid JSON. Scan balanced brackets while respecting
 // JSON strings/escapes; never execute JavaScript or repair untrusted expressions.
 export function callbackData(html: string, key: "ds:0" | "ds:1"): unknown {
-  for (const script of html.matchAll(
-    /<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi,
-  )) {
+  for (const script of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
     const content = script[1];
     const header = content.match(
       /^\s*AF_initDataCallback\(\{\s*key:\s*['"](ds:\d+)['"][\s\S]*?\bdata:\s*/,
@@ -173,10 +161,7 @@ async function details(jobRef: string, signal?: AbortSignal) {
   signal?.throwIfAborted();
   let job = listedJobs.get(id);
   if (!job || !hasDescription(job)) {
-    const html = await pageHtml(
-      new URL(`${PATH}${id}`, ORIGIN),
-      callSignal(signal),
-    );
+    const html = await pageHtml(new URL(`${PATH}${id}`, ORIGIN), callSignal(signal));
     // Only the observed primary-job envelope is supported; ds:1 is related jobs.
     const data = callbackData(html, "ds:0");
     const parsed = jobSchema.safeParse(Array.isArray(data) ? data[0] : null);
@@ -257,11 +242,7 @@ export const googleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       url.searchParams.set("page", String(page));
       const data = callbackData(await pageHtml(url, signal), "ds:1");
       const parsed = z
-        .tuple([
-          z.array(jobSchema).nullable(),
-          z.unknown(),
-          z.number().int().nonnegative(),
-        ])
+        .tuple([z.array(jobSchema).nullable(), z.unknown(), z.number().int().nonnegative()])
         .rest(z.unknown())
         .safeParse(data);
       if (

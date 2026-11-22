@@ -48,14 +48,12 @@ const defaultConnectedAccountsApi: ConnectedAccountsApi = {
 
 function formatConnectedAt(createdAt: string): string {
   const connectedAt = new Date(createdAt);
-  return Number.isNaN(connectedAt.getTime())
-    ? createdAt
-    : connectedAt.toLocaleDateString();
+  return Number.isNaN(connectedAt.getTime()) ? createdAt : connectedAt.toLocaleDateString();
 }
 
-export const ConnectedAccountsSection: React.FC<
-  ConnectedAccountsSectionProps
-> = ({ api = defaultConnectedAccountsApi }) => {
+export const ConnectedAccountsSection: React.FC<ConnectedAccountsSectionProps> = ({
+  api = defaultConnectedAccountsApi,
+}) => {
   const queryClient = useQueryClient();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -83,8 +81,7 @@ export const ConnectedAccountsSection: React.FC<
   });
 
   const unlinkMutation = useMutation({
-    mutationFn: (identity: SsoIdentitySummary) =>
-      api.unlinkSsoIdentity(identity.id),
+    mutationFn: (identity: SsoIdentitySummary) => api.unlinkSsoIdentity(identity.id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.auth.ssoIdentities(),
@@ -115,12 +112,8 @@ export const ConnectedAccountsSection: React.FC<
   const hasPassword = meQuery.data?.hasPassword ?? true;
   const providers = providersQuery.data ?? [];
   const identities = identitiesQuery.data ?? [];
-  const linkedProviders = new Set(
-    identities.map((identity) => identity.provider),
-  );
-  const connectableProviders = providers.filter(
-    (provider) => !linkedProviders.has(provider.id),
-  );
+  const linkedProviders = new Set(identities.map((identity) => identity.provider));
+  const connectableProviders = providers.filter((provider) => !linkedProviders.has(provider.id));
 
   const handleConnect = async (provider: SsoProviderInfo) => {
     try {
@@ -140,9 +133,7 @@ export const ConnectedAccountsSection: React.FC<
 
   const handleChangePassword = () => {
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      setPasswordError(
-        `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
-      );
+      setPasswordError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -152,9 +143,7 @@ export const ConnectedAccountsSection: React.FC<
 
     setPasswordError(null);
     changePasswordMutation.mutate(
-      hasPassword
-        ? { password: newPassword, currentPassword }
-        : { password: newPassword },
+      hasPassword ? { password: newPassword, currentPassword } : { password: newPassword },
     );
   };
 
@@ -173,21 +162,18 @@ export const ConnectedAccountsSection: React.FC<
             <div className="divide-y divide-border rounded-md border border-border">
               {identities.map((identity) => {
                 const displayName =
-                  providers.find(
-                    (provider) => provider.id === identity.provider,
-                  )?.displayName ?? identity.provider;
+                  providers.find((provider) => provider.id === identity.provider)?.displayName ??
+                  identity.provider;
                 return (
                   <div
                     className="flex flex-wrap items-center justify-between gap-3 p-3"
                     key={identity.id}
                   >
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">
-                        {displayName}
-                      </div>
+                      <div className="truncate text-sm font-medium">{displayName}</div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {identity.email ?? identity.displayName ?? "No email"} ·
-                        connected {formatConnectedAt(identity.createdAt)}
+                        {identity.email ?? identity.displayName ?? "No email"} · connected{" "}
+                        {formatConnectedAt(identity.createdAt)}
                       </div>
                     </div>
                     <AlertDialog>
@@ -203,19 +189,15 @@ export const ConnectedAccountsSection: React.FC<
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Unlink {displayName}?
-                          </AlertDialogTitle>
+                          <AlertDialogTitle>Unlink {displayName}?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            You will no longer be able to sign in to JobOps with
-                            this {displayName} account.
+                            You will no longer be able to sign in to JobOps with this {displayName}{" "}
+                            account.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => unlinkMutation.mutate(identity)}
-                          >
+                          <AlertDialogAction onClick={() => unlinkMutation.mutate(identity)}>
                             Unlink account
                           </AlertDialogAction>
                         </AlertDialogFooter>
@@ -226,9 +208,7 @@ export const ConnectedAccountsSection: React.FC<
               })}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              No accounts are connected yet.
-            </p>
+            <p className="text-sm text-muted-foreground">No accounts are connected yet.</p>
           )}
 
           {connectableProviders.length > 0 ? (
@@ -258,8 +238,7 @@ export const ConnectedAccountsSection: React.FC<
           <div className="text-sm font-semibold">Account password</div>
           {hasPassword ? null : (
             <p className="text-sm text-muted-foreground">
-              This account has no password yet. Set one to keep a fallback
-              sign-in method.
+              This account has no password yet. Set one to keep a fallback sign-in method.
             </p>
           )}
         </div>
@@ -267,10 +246,7 @@ export const ConnectedAccountsSection: React.FC<
         <div className="grid gap-3 md:grid-cols-3">
           {hasPassword ? (
             <div className="space-y-1.5">
-              <label
-                className="text-sm font-medium"
-                htmlFor="account-current-password"
-              >
+              <label className="text-sm font-medium" htmlFor="account-current-password">
                 Current password
               </label>
               <Input
@@ -279,17 +255,12 @@ export const ConnectedAccountsSection: React.FC<
                 autoComplete="current-password"
                 placeholder="Enter current password"
                 value={currentPassword}
-                onChange={(event) =>
-                  setCurrentPassword(event.currentTarget.value)
-                }
+                onChange={(event) => setCurrentPassword(event.currentTarget.value)}
               />
             </div>
           ) : null}
           <div className="space-y-1.5">
-            <label
-              className="text-sm font-medium"
-              htmlFor="account-new-password"
-            >
+            <label className="text-sm font-medium" htmlFor="account-new-password">
               New password
             </label>
             <Input
@@ -302,10 +273,7 @@ export const ConnectedAccountsSection: React.FC<
             />
           </div>
           <div className="space-y-1.5">
-            <label
-              className="text-sm font-medium"
-              htmlFor="account-confirm-password"
-            >
+            <label className="text-sm font-medium" htmlFor="account-confirm-password">
               Confirm new password
             </label>
             <Input
@@ -314,9 +282,7 @@ export const ConnectedAccountsSection: React.FC<
               autoComplete="new-password"
               placeholder="Re-enter the new password"
               value={confirmPassword}
-              onChange={(event) =>
-                setConfirmPassword(event.currentTarget.value)
-              }
+              onChange={(event) => setConfirmPassword(event.currentTarget.value)}
             />
           </div>
         </div>

@@ -2,10 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { ExperienceBullet, ExperienceBulletInput } from "@shared/types";
 import { and, asc, eq } from "drizzle-orm";
 import { db, schema } from "../db";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { experienceBullets: table } = schema;
 function publicBullet({
@@ -15,18 +12,11 @@ function publicBullet({
 }: typeof table.$inferSelect): ExperienceBullet {
   return bullet;
 }
-export async function listExperienceBullets(
-  allKinds = false,
-): Promise<ExperienceBullet[]> {
+export async function listExperienceBullets(allKinds = false): Promise<ExperienceBullet[]> {
   return db
     .select()
     .from(table)
-    .where(
-      and(
-        privateDataScopeFilter(table),
-        allKinds ? undefined : eq(table.kind, "bullet"),
-      ),
-    )
+    .where(and(privateDataScopeFilter(table), allKinds ? undefined : eq(table.kind, "bullet")))
     .orderBy(asc(table.position), asc(table.createdAt), asc(table.id))
     .all()
     .map(publicBullet);
@@ -82,9 +72,5 @@ export async function deleteExperienceBullet(id: string): Promise<boolean> {
   );
 }
 export function normalizeBulletText(text: string): string {
-  return text
-    .normalize("NFKC")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLocaleLowerCase("en-US");
+  return text.normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase("en-US");
 }

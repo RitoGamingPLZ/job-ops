@@ -28,9 +28,9 @@ function sqlString(value: string): string {
 }
 
 function tableHasColumn(tableName: string, columnName: string): boolean {
-  const columns = sqlite
-    .prepare(`PRAGMA table_info(${tableName})`)
-    .all() as Array<{ name: string }>;
+  const columns = sqlite.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{
+    name: string;
+  }>;
   return columns.some((column) => column.name === columnName);
 }
 
@@ -167,27 +167,16 @@ function hashPasswordSync(password: string): {
   passwordSalt: string;
 } {
   const passwordSalt = randomBytes(16).toString("base64url");
-  const passwordHash = scryptSync(password, passwordSalt, 64).toString(
-    "base64url",
-  );
+  const passwordHash = scryptSync(password, passwordSalt, 64).toString("base64url");
   return { passwordHash, passwordSalt };
 }
 
-const pipelineRunsHasConfigSnapshot = tableHasColumn(
-  "pipeline_runs",
-  "config_snapshot",
-);
+const pipelineRunsHasConfigSnapshot = tableHasColumn("pipeline_runs", "config_snapshot");
 const pipelineRunsHasTenantId = tableHasColumn("pipeline_runs", "tenant_id");
-const pipelineRunsHasTaskCounters = tableHasColumn(
-  "pipeline_runs",
-  "tasks_total",
-);
+const pipelineRunsHasTaskCounters = tableHasColumn("pipeline_runs", "tasks_total");
 const jobsHasPdfRegenerating = tableHasColumn("jobs", "pdf_regenerating");
 const jobsHasJobBrief = tableHasColumn("jobs", "job_brief");
-const watchlistJobStatesHasUserId = tableHasColumn(
-  "watchlist_job_states",
-  "user_id",
-);
+const watchlistJobStatesHasUserId = tableHasColumn("watchlist_job_states", "user_id");
 
 const migrations = [
   `CREATE TABLE IF NOT EXISTS tenants (
@@ -1053,17 +1042,9 @@ const migrations = [
     id, tenant_id, user_id, source, source_job_id, state, created_at, updated_at
   )
   SELECT
-    ${
-      watchlistJobStatesHasUserId
-        ? "watchlist_job_states.id"
-        : "lower(hex(randomblob(16)))"
-    },
+    ${watchlistJobStatesHasUserId ? "watchlist_job_states.id" : "lower(hex(randomblob(16)))"},
     watchlist_job_states.tenant_id,
-    ${
-      watchlistJobStatesHasUserId
-        ? "watchlist_job_states.user_id"
-        : "tenant_owners.user_id"
-    },
+    ${watchlistJobStatesHasUserId ? "watchlist_job_states.user_id" : "tenant_owners.user_id"},
     watchlist_job_states.source,
     watchlist_job_states.source_job_id,
     watchlist_job_states.state,
@@ -1340,32 +1321,16 @@ for (const migration of migrations) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const isDuplicateColumn =
-      (migration
-        .toLowerCase()
-        .includes("alter table experience_bullets add column") ||
+      (migration.toLowerCase().includes("alter table experience_bullets add column") ||
         migration.toLowerCase().includes("alter table jobs add column") ||
-        migration
-          .toLowerCase()
-          .includes("alter table pipeline_runs add column") ||
+        migration.toLowerCase().includes("alter table pipeline_runs add column") ||
         migration.toLowerCase().includes("alter table tasks add column") ||
-        migration
-          .toLowerCase()
-          .includes("alter table pipeline_runs add column") ||
-        migration
-          .toLowerCase()
-          .includes("alter table post_application_messages add column") ||
-        migration
-          .toLowerCase()
-          .includes("alter table stage_events add column") ||
-        migration
-          .toLowerCase()
-          .includes("alter table job_chat_messages add column") ||
-        migration
-          .toLowerCase()
-          .includes("alter table job_chat_threads add column") ||
-        migration
-          .toLowerCase()
-          .includes("alter table analytics_install_state add column") ||
+        migration.toLowerCase().includes("alter table pipeline_runs add column") ||
+        migration.toLowerCase().includes("alter table post_application_messages add column") ||
+        migration.toLowerCase().includes("alter table stage_events add column") ||
+        migration.toLowerCase().includes("alter table job_chat_messages add column") ||
+        migration.toLowerCase().includes("alter table job_chat_threads add column") ||
+        migration.toLowerCase().includes("alter table analytics_install_state add column") ||
         migration.toLowerCase().includes("alter table users add column")) &&
       message.toLowerCase().includes("duplicate column name");
 
@@ -1384,9 +1349,7 @@ for (const migration of migrations) {
 
     // Optional performance-only migration: if this fails we should still boot
     // existing databases and continue without the index.
-    const isOptionalOptimizationMigration = migration.includes(
-      "idx_jobs_status_discovered_at",
-    );
+    const isOptionalOptimizationMigration = migration.includes("idx_jobs_status_discovered_at");
     if (isOptionalOptimizationMigration) {
       console.warn("⚠️ Optional migration skipped:", message);
       continue;
@@ -1419,10 +1382,7 @@ function ensureTenantColumns(): void {
     addTenantColumn(tableName);
   }
 
-  if (
-    tableExists("auth_sessions") &&
-    !tableHasColumn("auth_sessions", "user_id")
-  ) {
+  if (tableExists("auth_sessions") && !tableHasColumn("auth_sessions", "user_id")) {
     sqlite.exec("ALTER TABLE auth_sessions ADD COLUMN user_id TEXT");
   }
 }
@@ -1463,12 +1423,7 @@ function ensurePrivateUserColumns(): void {
     backfillUserFromTenantOwner(tableName);
   }
 
-  for (const tableName of [
-    "stage_events",
-    "tasks",
-    "job_notes",
-    "interviews",
-  ]) {
+  for (const tableName of ["stage_events", "tasks", "job_notes", "interviews"]) {
     backfillUserFromParent({
       tableName,
       parentTableName: "jobs",
@@ -1488,11 +1443,7 @@ function ensurePrivateUserColumns(): void {
     backfillUserFromTenantOwner(tableName);
   }
 
-  for (const tableName of [
-    "job_chat_threads",
-    "job_chat_messages",
-    "job_chat_runs",
-  ]) {
+  for (const tableName of ["job_chat_threads", "job_chat_messages", "job_chat_runs"]) {
     backfillUserFromParent({
       tableName,
       parentTableName: "jobs",
@@ -1553,9 +1504,7 @@ function rebuildSettingsTable(): void {
       tenant_memberships.created_at ASC,
       tenant_memberships.user_id ASC
     LIMIT 1)`;
-  const userExpression = hasUserId
-    ? `COALESCE(user_id, ${ownerExpression})`
-    : ownerExpression;
+  const userExpression = hasUserId ? `COALESCE(user_id, ${ownerExpression})` : ownerExpression;
   sqlite.exec(`INSERT OR REPLACE INTO settings_new(tenant_id, user_id, key, value, created_at, updated_at)
     SELECT ${tenantExpression}, ${userExpression}, key, value, created_at, updated_at
     FROM settings`);
@@ -1564,21 +1513,12 @@ function rebuildSettingsTable(): void {
 }
 
 function rebuildPostApplicationPrivateTables(): void {
-  if (
-    !tableExists("post_application_integrations") ||
-    !tableExists("post_application_messages")
-  ) {
+  if (!tableExists("post_application_integrations") || !tableExists("post_application_messages")) {
     return;
   }
 
-  for (const tableName of [
-    "post_application_integrations",
-    "post_application_messages",
-  ]) {
-    if (
-      !tableHasColumn(tableName, "tenant_id") ||
-      !tableHasColumn(tableName, "user_id")
-    ) {
+  for (const tableName of ["post_application_integrations", "post_application_messages"]) {
+    if (!tableHasColumn(tableName, "tenant_id") || !tableHasColumn(tableName, "user_id")) {
       return;
     }
   }
@@ -1687,9 +1627,7 @@ function ensureNullableUserPasswordColumns(): void {
     name: string;
     notnull: number;
   }>;
-  const passwordHash = columns.find(
-    (column) => column.name === "password_hash",
-  );
+  const passwordHash = columns.find((column) => column.name === "password_hash");
   if (!passwordHash || passwordHash.notnull === 0) return;
 
   sqlite.exec("PRAGMA foreign_keys = OFF");
@@ -1725,9 +1663,7 @@ function ensureNullableUserPasswordColumns(): void {
 }
 
 function seedLegacyOwnerFromBasicAuth(): void {
-  const existing = sqlite
-    .prepare("SELECT count(*) AS count FROM users")
-    .get() as { count: number };
+  const existing = sqlite.prepare("SELECT count(*) AS count FROM users").get() as { count: number };
   if (existing.count > 0) return;
 
   const rawUsername = (process.env.BASIC_AUTH_USER || "").trim();
@@ -1745,15 +1681,7 @@ function seedLegacyOwnerFromBasicAuth(): void {
       `INSERT INTO users(id, username, display_name, password_hash, password_salt, is_system_admin, is_disabled, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, 1, 0, ?, ?)`,
     )
-    .run(
-      userId,
-      username,
-      rawUsername || username,
-      passwordHash,
-      passwordSalt,
-      now,
-      now,
-    );
+    .run(userId, username, rawUsername || username, passwordHash, passwordSalt, now, now);
 
   sqlite
     .prepare(
@@ -1772,9 +1700,7 @@ function seedLegacyOnboardingMigration(): void {
   )`);
 
   const migrationId = "onboarding-markers-v1";
-  const applied = sqlite
-    .prepare("SELECT 1 FROM app_data_migrations WHERE id = ?")
-    .get(migrationId);
+  const applied = sqlite.prepare("SELECT 1 FROM app_data_migrations WHERE id = ?").get(migrationId);
   if (applied) return;
 
   sqlite.exec(`INSERT OR IGNORE INTO settings(
@@ -1797,9 +1723,7 @@ function seedLegacyOnboardingMigration(): void {
         'onboardingLegacyMigrationPending'
       )
   )`);
-  sqlite
-    .prepare("INSERT INTO app_data_migrations(id) VALUES (?)")
-    .run(migrationId);
+  sqlite.prepare("INSERT INTO app_data_migrations(id) VALUES (?)").run(migrationId);
 }
 
 console.log("🔐 Applying tenancy compatibility migrations...");
@@ -1826,9 +1750,7 @@ sqlite.exec(
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_tenant_user_posting_id_unique ON jobs(tenant_id, coalesce(user_id, ''), posting_id)",
 );
 sqlite.exec("DROP INDEX IF EXISTS idx_jobs_tenant_status");
-sqlite.exec(
-  "DROP INDEX IF EXISTS idx_post_app_integrations_tenant_user_provider_account_unique",
-);
+sqlite.exec("DROP INDEX IF EXISTS idx_post_app_integrations_tenant_user_provider_account_unique");
 sqlite.exec(
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_post_app_integrations_tenant_user_provider_account_unique ON post_application_integrations(tenant_id, coalesce(user_id, ''), provider, account_key)",
 );
@@ -1841,9 +1763,7 @@ sqlite.exec(
 sqlite.exec(
   "CREATE INDEX IF NOT EXISTS idx_jobs_tenant_user_status ON jobs(tenant_id, user_id, status)",
 );
-sqlite.exec(
-  "CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id)",
-);
+sqlite.exec("CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id)");
 
 sqlite.close();
 console.log("🎉 Database migrations complete!");

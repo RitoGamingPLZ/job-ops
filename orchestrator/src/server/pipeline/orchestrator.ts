@@ -36,10 +36,7 @@ import {
   settleHostedUsageReservation,
 } from "../services/hosted-usage";
 import { generatePdf } from "../services/pdf";
-import {
-  createJobPdfFingerprint,
-  resolvePdfFingerprintContext,
-} from "../services/pdf-fingerprint";
+import { createJobPdfFingerprint, resolvePdfFingerprintContext } from "../services/pdf-fingerprint";
 import { removeStoredJobPdf } from "../services/pdf-storage";
 import { getProfile } from "../services/profile";
 import { pickProjectIdsForJob } from "../services/projectSelection";
@@ -49,11 +46,7 @@ import {
 } from "../services/resumeProjects";
 import { LlmNotConfiguredError } from "../services/scorer";
 import { generateTailoring } from "../services/summary";
-import {
-  type PendingChallenge,
-  progressHelpers,
-  resetProgress,
-} from "./progress";
+import { type PendingChallenge, progressHelpers, resetProgress } from "./progress";
 import {
   buildPipelineRunSavedDetails,
   createPipelineRunResultSummary,
@@ -119,9 +112,7 @@ function getPipelineScopeKey(): string {
   return getPrivateDataScope().scopeKey;
 }
 
-function getPipelineState(
-  scopeKey = getPipelineScopeKey(),
-): TenantPipelineState {
+function getPipelineState(scopeKey = getPipelineScopeKey()): TenantPipelineState {
   let state = pipelineStateByTenant.get(scopeKey);
   if (!state) {
     state = {
@@ -196,23 +187,18 @@ export function getPendingChallenges(): PendingChallenge[] {
 }
 
 /** Mark a browser solve attempt and prevent a concurrent skip. */
-export function beginPipelineChallengeSolve(
-  extractorId: string,
-): (() => void) | null {
+export function beginPipelineChallengeSolve(extractorId: string): (() => void) | null {
   const state = getPipelineState();
   const challengeState = state.activeChallengeState;
   const challenge = challengeState?.challenges.get(extractorId);
-  if (!challengeState || !challenge || challengeState.solving.has(extractorId))
-    return null;
+  if (!challengeState || !challenge || challengeState.solving.has(extractorId)) return null;
 
   challengeState.solving.add(extractorId);
   const searchState = hiringCafeSearchState(challenge);
   if (searchState) {
     state.attemptedChallengeSearchStates.add(searchState);
     challenge.solveAttempted = true;
-    progressHelpers.challengeRequired(
-      Array.from(challengeState.challenges.values()),
-    );
+    progressHelpers.challengeRequired(Array.from(challengeState.challenges.values()));
   }
 
   return () => challengeState.solving.delete(extractorId);
@@ -258,9 +244,7 @@ export function resolvePipelineChallenge(extractorId: string): {
   const remaining = challengeState.challenges.size;
 
   // Update progress so the UI reflects the change immediately
-  progressHelpers.challengeResolved(
-    Array.from(challengeState.challenges.values()),
-  );
+  progressHelpers.challengeResolved(Array.from(challengeState.challenges.values()));
 
   if (remaining === 0) {
     challengeState.resolve();
@@ -319,9 +303,7 @@ function mergeRetriedJobs(
     const existing = merged[index];
     merged[index] = {
       ...existing,
-      ...Object.fromEntries(
-        Object.entries(retried).filter(([, value]) => value != null),
-      ),
+      ...Object.fromEntries(Object.entries(retried).filter(([, value]) => value != null)),
     };
   }
   return merged;
@@ -389,8 +371,7 @@ export async function runPipeline(
     let jobsDiscovered = 0;
     let jobsProcessed = 0;
     let pipelineUsageUnits = 0;
-    let resultSummary =
-      savedDetails?.resultSummary ?? createPipelineRunResultSummary();
+    let resultSummary = savedDetails?.resultSummary ?? createPipelineRunResultSummary();
     const persistResultSummary = async (
       update: Parameters<typeof updatePipelineRunResultSummary>[1],
     ) => {
@@ -427,10 +408,7 @@ export async function runPipeline(
       const incrementallyImportedUrls = new Set<string>();
       // Jobs imported so far in this run; later batches fuzzy-dedup against them.
       const runJobs: CreateJobInput[] = [];
-      const importSourceBatch = async (
-        sourceJobs: CreateJobInput[],
-        source: string,
-      ) => {
+      const importSourceBatch = async (sourceJobs: CreateJobInput[], source: string) => {
         if (sourceJobs.length === 0) return;
         try {
           const batch = await importJobsStep({
@@ -446,37 +424,27 @@ export async function runPipeline(
             incrementallyImportedUrls.add(job.jobUrl);
           }
         } catch (error) {
-          pipelineLogger.warn(
-            "Incremental per-source import failed; will retry after discovery",
-            {
-              source,
-              jobCount: sourceJobs.length,
-              error: sanitizeUnknown(error),
-            },
-          );
+          pipelineLogger.warn("Incremental per-source import failed; will retry after discovery", {
+            source,
+            jobCount: sourceJobs.length,
+            error: sanitizeUnknown(error),
+          });
         }
       };
       // Sources finish concurrently; serialise imports so each batch sees the
       // jobs every earlier batch imported.
       let importChain = Promise.resolve();
-      const handleSourceDiscovered = (
-        sourceJobs: CreateJobInput[],
-        source: string,
-      ) => {
-        importChain = importChain.then(() =>
-          importSourceBatch(sourceJobs, source),
-        );
+      const handleSourceDiscovered = (sourceJobs: CreateJobInput[], source: string) => {
+        importChain = importChain.then(() => importSourceBatch(sourceJobs, source));
         return importChain;
       };
 
-      let { discoveredJobs, sourceErrors, pendingChallenges } =
-        await discoverJobsStep({
-          mergedConfig,
-          watchlistSelectedSourceIds: mergedConfig.watchlistSelectedSourceIds,
-          shouldCancel: () =>
-            getPipelineState(scopeKey).cancelRequestedAt !== null,
-          onSourceDiscovered: handleSourceDiscovered,
-        });
+      let { discoveredJobs, sourceErrors, pendingChallenges } = await discoverJobsStep({
+        mergedConfig,
+        watchlistSelectedSourceIds: mergedConfig.watchlistSelectedSourceIds,
+        shouldCancel: () => getPipelineState(scopeKey).cancelRequestedAt !== null,
+        onSourceDiscovered: handleSourceDiscovered,
+      });
       await persistResultSummary({
         stage: "discovery",
         sourceErrors,
@@ -490,8 +458,7 @@ export async function runPipeline(
             ? {
                 ...challenge,
                 canSkipSearch: true,
-                solveAttempted:
-                  tenantState.attemptedChallengeSearchStates.has(searchState),
+                solveAttempted: tenantState.attemptedChallengeSearchStates.has(searchState),
               }
             : challenge;
         });
@@ -511,10 +478,7 @@ export async function runPipeline(
         // and ensureNotCancelled() fires after the Promise resolves.
         const challengedSources = pendingChallenges.flatMap((c) => c.sources);
         const retryChallengeUrls = Object.fromEntries(
-          pendingChallenges.map((challenge) => [
-            challenge.extractorId,
-            challenge.url,
-          ]),
+          pendingChallenges.map((challenge) => [challenge.extractorId, challenge.url]),
         );
         const resumeStates = Object.fromEntries(
           pendingChallenges.flatMap((challenge) =>
@@ -526,9 +490,7 @@ export async function runPipeline(
 
         await new Promise<void>((resolve) => {
           tenantState.activeChallengeState = {
-            challenges: new Map(
-              pendingChallenges.map((c) => [c.extractorId, c]),
-            ),
+            challenges: new Map(pendingChallenges.map((c) => [c.extractorId, c])),
             solving: new Set(),
             resolve,
           };
@@ -550,18 +512,12 @@ export async function runPipeline(
           fanoutSeedJobs: discoveredJobs,
           retryChallengeUrls,
           resumeStates,
-          skippedChallengeSearchStates: Array.from(
-            tenantState.skippedChallengeSearchStates,
-          ),
-          shouldCancel: () =>
-            getPipelineState(scopeKey).cancelRequestedAt !== null,
+          skippedChallengeSearchStates: Array.from(tenantState.skippedChallengeSearchStates),
+          shouldCancel: () => getPipelineState(scopeKey).cancelRequestedAt !== null,
           onSourceDiscovered: handleSourceDiscovered,
         });
 
-        discoveredJobs = mergeRetriedJobs(
-          discoveredJobs,
-          retryResult.discoveredJobs,
-        );
+        discoveredJobs = mergeRetriedJobs(discoveredJobs, retryResult.discoveredJobs);
         sourceErrors = [...sourceErrors, ...retryResult.sourceErrors];
 
         // Keep the run paused until every challenged source finishes a retry
@@ -570,9 +526,7 @@ export async function runPipeline(
         pendingChallenges = retryResult.pendingChallenges;
         if (pendingChallenges.length > 0) {
           pipelineLogger.warn("Challenge persists; pausing again", {
-            retryPendingChallenges: pendingChallenges.map(
-              (challenge) => challenge.extractorId,
-            ),
+            retryPendingChallenges: pendingChallenges.map((challenge) => challenge.extractorId),
           });
         }
       }
@@ -584,9 +538,7 @@ export async function runPipeline(
       const remainingJobs =
         incrementallyImportedUrls.size === 0
           ? discoveredJobs
-          : discoveredJobs.filter(
-              (job) => !incrementallyImportedUrls.has(job.jobUrl),
-            );
+          : discoveredJobs.filter((job) => !incrementallyImportedUrls.has(job.jobUrl));
       let created = incrementalImportTotals.created;
       let skipped = incrementalImportTotals.skipped;
       let fuzzyMerged = incrementalImportTotals.fuzzyMerged;
@@ -617,8 +569,7 @@ export async function runPipeline(
             profile,
             scoringInstructions: mergedConfig.scoringInstructions,
             hostedUsageReserved: true,
-            shouldCancel: () =>
-              getPipelineState(scopeKey).cancelRequestedAt !== null,
+            shouldCancel: () => getPipelineState(scopeKey).cancelRequestedAt !== null,
           }));
           break;
         } catch (error) {
@@ -826,27 +777,17 @@ export async function summarizeJob(
       let tailoredSkills = job.tailoredSkills;
       const requestedFields = options?.fields;
       const shouldUpdateAllTailoring = !requestedFields?.length;
-      const shouldUpdateSummary =
-        shouldUpdateAllTailoring || requestedFields.includes("summary");
-      const shouldUpdateHeadline =
-        shouldUpdateAllTailoring || requestedFields.includes("headline");
-      const shouldUpdateSkills =
-        shouldUpdateAllTailoring || requestedFields.includes("skills");
-      const shouldUpdateProjects =
-        shouldUpdateAllTailoring || requestedFields.includes("projects");
+      const shouldUpdateSummary = shouldUpdateAllTailoring || requestedFields.includes("summary");
+      const shouldUpdateHeadline = shouldUpdateAllTailoring || requestedFields.includes("headline");
+      const shouldUpdateSkills = shouldUpdateAllTailoring || requestedFields.includes("skills");
+      const shouldUpdateProjects = shouldUpdateAllTailoring || requestedFields.includes("projects");
       const shouldGenerateTailoring =
         shouldUpdateSummary || shouldUpdateHeadline || shouldUpdateSkills;
 
-      if (
-        shouldGenerateTailoring &&
-        (!tailoredSummary || !tailoredHeadline || options?.force)
-      ) {
+      if (shouldGenerateTailoring && (!tailoredSummary || !tailoredHeadline || options?.force)) {
         jobLogger.info("Generating tailoring content");
         await reserveTailoringUsage();
-        const tailoringResult = await generateTailoring(
-          job.jobDescription || "",
-          profile,
-        );
+        const tailoringResult = await generateTailoring(job.jobDescription || "", profile);
         if (tailoringResult.success && tailoringResult.data) {
           tailoringUsageSucceeded = true;
           if (shouldUpdateSummary) {
@@ -875,12 +816,9 @@ export async function summarizeJob(
       let selectedProjectIds = job.selectedProjectIds;
       if (shouldUpdateProjects) {
         try {
-          const existingSelectedProjectIds =
-            parseProjectIdsCsv(selectedProjectIds);
-          const { catalog, selectionItems } =
-            extractProjectsFromProfile(profile);
-          const overrideResumeProjectsRaw =
-            await settingsRepo.getSetting("resumeProjects");
+          const existingSelectedProjectIds = parseProjectIdsCsv(selectedProjectIds);
+          const { catalog, selectionItems } = extractProjectsFromProfile(profile);
+          const overrideResumeProjectsRaw = await settingsRepo.getSetting("resumeProjects");
           const { resumeProjects } = resolveResumeProjectsSettings({
             catalog,
             overrideRaw: overrideResumeProjectsRaw,
@@ -898,24 +836,17 @@ export async function summarizeJob(
           const storedSelectionIsValid =
             existingSelectedProjectIds.length > 0 &&
             existingSelectedProjectIds.length === currentAiIds.length &&
-            existingSelectedProjectIds.every(
-              (id, index) => id === currentAiIds[index],
-            );
+            existingSelectedProjectIds.every((id, index) => id === currentAiIds[index]);
           const emptySelection = resolveResumeProjectSelection({
             catalog,
             resumeProjects,
           });
           const eligibleSet = new Set(emptySelection.aiSelectableIds);
-          const eligibleProjects = selectionItems.filter((p) =>
-            eligibleSet.has(p.id),
-          );
+          const eligibleProjects = selectionItems.filter((p) => eligibleSet.has(p.id));
           if (storedSelectionIsValid && !options?.force) {
             selectedProjectIds = currentAiIds.join(",");
           } else {
-            if (
-              emptySelection.remainingSlots > 0 &&
-              eligibleProjects.length > 0
-            ) {
+            if (emptySelection.remainingSlots > 0 && eligibleProjects.length > 0) {
               await reserveTailoringUsage();
               const picked = await pickProjectIdsForJob({
                 jobDescription: job.jobDescription || "",
@@ -934,18 +865,10 @@ export async function summarizeJob(
       }
 
       await jobsRepo.updateJob(job.id, {
-        ...(shouldUpdateSummary
-          ? { tailoredSummary: tailoredSummary ?? undefined }
-          : {}),
-        ...(shouldUpdateHeadline
-          ? { tailoredHeadline: tailoredHeadline ?? undefined }
-          : {}),
-        ...(shouldUpdateSkills
-          ? { tailoredSkills: tailoredSkills ?? undefined }
-          : {}),
-        ...(shouldUpdateProjects
-          ? { selectedProjectIds: selectedProjectIds ?? undefined }
-          : {}),
+        ...(shouldUpdateSummary ? { tailoredSummary: tailoredSummary ?? undefined } : {}),
+        ...(shouldUpdateHeadline ? { tailoredHeadline: tailoredHeadline ?? undefined } : {}),
+        ...(shouldUpdateSkills ? { tailoredSkills: tailoredSkills ?? undefined } : {}),
+        ...(shouldUpdateProjects ? { selectedProjectIds: selectedProjectIds ?? undefined } : {}),
       });
 
       await settleTailoringUsage();
@@ -1011,8 +934,7 @@ export async function generateFinalPdf(
 
       // Only an unprepared job moves through processing -> ready. Every other
       // status (ready, applied, in_progress, ...) keeps its status while rendering.
-      const movesToReady =
-        job.status === "discovered" || job.status === "processing";
+      const movesToReady = job.status === "discovered" || job.status === "processing";
       const claimedJob = await jobsRepo.updateJob(job.id, {
         ...(movesToReady ? { status: "processing" } : {}),
         pdfRegenerating: true,
@@ -1040,9 +962,7 @@ export async function generateFinalPdf(
         pdfRegeneratingMarked = false;
         await settlePdfUsage(0);
         const preservedPdfMessage =
-          !movesToReady && job.pdfPath
-            ? " Your previous resume PDF is still available."
-            : "";
+          !movesToReady && job.pdfPath ? " Your previous resume PDF is still available." : "";
         return {
           success: false,
           error: `PDF generation failed.${preservedPdfMessage}${
@@ -1056,9 +976,7 @@ export async function generateFinalPdf(
       }
 
       const pdfFingerprint = createJobPdfFingerprint(job, fingerprintContext);
-      const expectedStatusAtCommit: JobStatus = movesToReady
-        ? "processing"
-        : job.status;
+      const expectedStatusAtCommit: JobStatus = movesToReady ? "processing" : job.status;
 
       const updatedJob = await jobsRepo.finalizeGeneratedPdfIfCurrent({
         id: job.id,
@@ -1102,10 +1020,7 @@ export async function generateFinalPdf(
           origin: analyticsOrigin,
           generation_kind: generationKind,
           renderer: fingerprintContext.pdfRenderer,
-          theme:
-            fingerprintContext.pdfRenderer === "typst"
-              ? fingerprintContext.typstTheme
-              : null,
+          theme: fingerprintContext.pdfRenderer === "typst" ? fingerprintContext.typstTheme : null,
           has_tailored_summary: Boolean(job.tailoredSummary),
           has_tailored_skills: Boolean(job.tailoredSkills),
         },
@@ -1192,8 +1107,7 @@ export async function processJob(
         resume &&
         job.pdfPath &&
         (job.pdfSource === "uploaded" ||
-          createJobPdfFingerprint(job, await resolvePdfFingerprintContext()) ===
-            job.pdfFingerprint)
+          createJobPdfFingerprint(job, await resolvePdfFingerprintContext()) === job.pdfFingerprint)
       ) {
         await markReady();
         return { success: true };
@@ -1222,8 +1136,7 @@ export async function processJob(
       }
       return result;
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Resume generation failed";
+      const message = error instanceof Error ? error.message : "Resume generation failed";
       await restore(message).catch((restoreError) =>
         logger.warn("Failed to restore job status after generation error", {
           jobId,

@@ -11,11 +11,7 @@ const AUTH_ENV = {
   JOBOPS_TEST_AUTH_BYPASS: "0",
 };
 
-function stateUrl(
-  baseUrl: string,
-  source: string,
-  sourceJobId: string,
-): string {
+function stateUrl(baseUrl: string, source: string, sourceJobId: string): string {
   return `${baseUrl}/api/watchlist/states/${encodeURIComponent(source)}/${encodeURIComponent(sourceJobId)}`;
 }
 
@@ -41,7 +37,7 @@ function authHeaders(token: string) {
   };
 }
 
-describe.sequential("Watchlist API routes", () => {
+describe("Watchlist API routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -77,16 +73,14 @@ describe.sequential("Watchlist API routes", () => {
             label: "Autodesk",
             sourceType: "workday",
             careersUrl: "https://autodesk.wd1.myworkdayjobs.com/Ext",
-            cxsJobsUrl:
-              "https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs",
+            cxsJobsUrl: "https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs",
           }),
           expect.objectContaining({
             id: "pg-workday",
             label: "P&G",
             sourceType: "workday",
             careersUrl: "https://pg.wd5.myworkdayjobs.com/en-US/1000",
-            cxsJobsUrl:
-              "https://pg.wd5.myworkdayjobs.com/wday/cxs/pg/1000/jobs",
+            cxsJobsUrl: "https://pg.wd5.myworkdayjobs.com/wday/cxs/pg/1000/jobs",
           }),
         ]),
       );
@@ -151,9 +145,7 @@ describe.sequential("Watchlist API routes", () => {
         }),
       ]);
 
-      const secondBody = await fetch(`${baseUrl}/api/watchlist/sources`).then(
-        (res) => res.json(),
-      );
+      const secondBody = await fetch(`${baseUrl}/api/watchlist/sources`).then((res) => res.json());
       expect(secondBody.data.selectedSources).toHaveLength(2);
       expect(secondBody.data.selectedSources[1]).toEqual(
         expect.objectContaining({
@@ -210,20 +202,17 @@ describe.sequential("Watchlist API routes", () => {
         ),
       );
 
-      const res = await nativeFetch(
-        `${baseUrl}/api/watchlist/source-branding`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-request-id": "watchlist-branding-size-cap",
-          },
-          body: JSON.stringify({
-            sourceType: "workday",
-            careersUrl: "https://autodesk.wd1.myworkdayjobs.com/Ext",
-          }),
+      const res = await nativeFetch(`${baseUrl}/api/watchlist/source-branding`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-request-id": "watchlist-branding-size-cap",
         },
-      );
+        body: JSON.stringify({
+          sourceType: "workday",
+          careersUrl: "https://autodesk.wd1.myworkdayjobs.com/Ext",
+        }),
+      });
       const body = await res.json();
 
       expect(res.status).toBe(502);
@@ -306,10 +295,8 @@ describe.sequential("Watchlist API routes", () => {
           selections: [
             {
               sourceType: "bamboohr",
-              careersUrl:
-                "https://ashteadtechnology.bamboohr.com/careers/134/detail",
-              label:
-                "https://ashteadtechnology.bamboohr.com/careers/134/detail",
+              careersUrl: "https://ashteadtechnology.bamboohr.com/careers/134/detail",
+              label: "https://ashteadtechnology.bamboohr.com/careers/134/detail",
             },
           ],
         }),
@@ -350,9 +337,7 @@ describe.sequential("Watchlist API routes", () => {
       });
       expect(secondRes.status).toBe(200);
 
-      const listBody = await fetch(`${baseUrl}/api/watchlist/states`).then(
-        (res) => res.json(),
-      );
+      const listBody = await fetch(`${baseUrl}/api/watchlist/states`).then((res) => res.json());
       expect(listBody.ok).toBe(true);
       expect(listBody.data.states).toHaveLength(1);
       expect(listBody.data.states[0]).toMatchObject({
@@ -368,9 +353,7 @@ describe.sequential("Watchlist API routes", () => {
       expect(deleteRes.status).toBe(200);
       expect(deleteBody).toMatchObject({ ok: true, data: { cleared: true } });
 
-      const emptyBody = await fetch(`${baseUrl}/api/watchlist/states`).then(
-        (res) => res.json(),
-      );
+      const emptyBody = await fetch(`${baseUrl}/api/watchlist/states`).then((res) => res.json());
       expect(emptyBody.data.states).toEqual([]);
     });
 

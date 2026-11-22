@@ -1,10 +1,7 @@
 import * as api from "@client/api";
 import type { ManualImportResult } from "@client/components/ManualImportFlow";
 import { useSettings } from "@client/hooks/useSettings";
-import {
-  createLocationIntent,
-  planLocationSources,
-} from "@shared/location-intelligence.js";
+import { createLocationIntent, planLocationSources } from "@shared/location-intelligence.js";
 import {
   type AppSettings,
   type JobSource,
@@ -17,10 +14,7 @@ import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { trackProductEvent } from "@/lib/analytics";
 import type { AutomaticRunValues } from "./automatic-run";
-import {
-  deriveExtractorLimits,
-  serializeCityLocationsSetting,
-} from "./automatic-run";
+import { deriveExtractorLimits, serializeCityLocationsSetting } from "./automatic-run";
 
 type UsePipelineControlsArgs = {
   isPipelineRunning: boolean;
@@ -29,11 +23,7 @@ type UsePipelineControlsArgs = {
   pipelineSources: JobSource[];
   watchlistSelectedSourceIds?: string[];
   loadJobs: () => Promise<void>;
-  navigateWithContext: (
-    newTab: string,
-    newJobId?: string | null,
-    isReplace?: boolean,
-  ) => void;
+  navigateWithContext: (newTab: string, newJobId?: string | null, isReplace?: boolean) => void;
 };
 
 export type UsePipelineControlsResult = {
@@ -47,9 +37,7 @@ export type UsePipelineControlsResult = {
   refreshSettings: () => Promise<AppSettings | null>;
 };
 
-export function usePipelineControls(
-  args: UsePipelineControlsArgs,
-): UsePipelineControlsResult {
+export function usePipelineControls(args: UsePipelineControlsArgs): UsePipelineControlsResult {
   const {
     isPipelineRunning,
     setIsPipelineRunning,
@@ -169,10 +157,7 @@ export function usePipelineControls(
       const locationIntent = createLocationIntent({
         selectedCountry: normalizedValues.country,
         cityLocations: normalizedValues.cityLocations,
-        proximity:
-          normalizedValues.locationMode === "radius"
-            ? normalizedValues.proximity
-            : null,
+        proximity: normalizedValues.locationMode === "radius" ? normalizedValues.proximity : null,
         workplaceTypes: normalizedValues.workplaceTypes,
         searchScope: normalizedValues.searchScope,
         matchStrictness: normalizedValues.matchStrictness,
@@ -205,9 +190,7 @@ export function usePipelineControls(
         sources: compatibleSources,
       });
       try {
-        const searchCities = serializeCityLocationsSetting(
-          normalizedValues.cityLocations,
-        );
+        const searchCities = serializeCityLocationsSetting(normalizedValues.cityLocations);
         await api.updateSettings({
           searchTerms: normalizedValues.searchTerms,
           workplaceTypes: normalizedValues.workplaceTypes,
@@ -242,12 +225,7 @@ export function usePipelineControls(
         showErrorToast(error, "Failed to start search");
       }
     },
-    [
-      pipelineSources,
-      refreshSettings,
-      startPipelineRun,
-      watchlistSelectedSourceIds,
-    ],
+    [pipelineSources, refreshSettings, startPipelineRun, watchlistSelectedSourceIds],
   );
 
   const handleManualImported = useCallback(

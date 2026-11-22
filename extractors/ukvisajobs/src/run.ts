@@ -22,10 +22,7 @@ type CreateJobInput = {
   jobLevel?: string;
 };
 
-import {
-  toNumberOrNull,
-  toStringOrNull,
-} from "@shared/utils/type-conversion.js";
+import { toNumberOrNull, toStringOrNull } from "@shared/utils/type-conversion.js";
 
 const srcDir = dirname(fileURLToPath(import.meta.url));
 const EXTRACTOR_DIR = join(srcDir, "..");
@@ -109,9 +106,7 @@ export type UkVisaJobsProgressEvent =
       totalCollected: number;
     };
 
-export function parseUkVisaJobsProgressLine(
-  line: string,
-): UkVisaJobsExtractorProgressEvent | null {
+export function parseUkVisaJobsProgressLine(line: string): UkVisaJobsExtractorProgressEvent | null {
   if (!line.startsWith(JOBOPS_PROGRESS_PREFIX)) return null;
   const raw = line.slice(JOBOPS_PROGRESS_PREFIX.length).trim();
   let parsed: Record<string, unknown>;
@@ -212,10 +207,7 @@ function cleanHtml(html: string): string {
   return text;
 }
 
-async function fetchJobDescription(
-  url: string,
-  authCachePath: string,
-): Promise<string | null> {
+async function fetchJobDescription(url: string, authCachePath: string): Promise<string | null> {
   try {
     const authSession = await loadCachedAuthSession(authCachePath);
     const cookieParts: string[] = [];
@@ -251,9 +243,7 @@ async function fetchJobDescription(
   }
 }
 
-async function loadCachedAuthSession(
-  authCachePath: string,
-): Promise<UkVisaJobsAuthSession | null> {
+async function loadCachedAuthSession(authCachePath: string): Promise<UkVisaJobsAuthSession | null> {
   try {
     const data = await readFile(authCachePath, "utf-8");
     return JSON.parse(data) as UkVisaJobsAuthSession;
@@ -270,13 +260,9 @@ async function clearStorageDataset(storageDir: string): Promise<void> {
   }
 }
 
-export async function runUkVisaJobs(
-  options: RunUkVisaJobsOptions = {},
-): Promise<UkVisaJobsResult> {
+export async function runUkVisaJobs(options: RunUkVisaJobsOptions = {}): Promise<UkVisaJobsResult> {
   const email = (options.email ?? process.env.UKVISAJOBS_EMAIL)?.trim();
-  const password = (
-    options.password ?? process.env.UKVISAJOBS_PASSWORD
-  )?.trim();
+  const password = (options.password ?? process.env.UKVISAJOBS_PASSWORD)?.trim();
   if (!email || !password) {
     return {
       success: false,
@@ -334,8 +320,7 @@ export async function runUkVisaJobs(
               UKVISAJOBS_STORAGE_DIR: storageRoot,
               ...(options.cookieStorageDir
                 ? {
-                    JOBOPS_CLOUDFLARE_COOKIE_STORAGE_DIR:
-                      options.cookieStorageDir,
+                    JOBOPS_CLOUDFLARE_COOKIE_STORAGE_DIR: options.cookieStorageDir,
                   }
                 : {}),
               JOBOPS_EMIT_PROGRESS: "1",
@@ -349,10 +334,7 @@ export async function runUkVisaJobs(
               const raw = line.slice(JOBOPS_PROGRESS_PREFIX.length).trim();
               try {
                 const parsed = JSON.parse(raw) as Record<string, unknown>;
-                if (
-                  parsed.event === "challenge_required" &&
-                  typeof parsed.url === "string"
-                ) {
+                if (parsed.event === "challenge_required" && typeof parsed.url === "string") {
                   challengeRequired = parsed.url;
                   return;
                 }
@@ -380,9 +362,7 @@ export async function runUkVisaJobs(
             closeLines();
             if (code === 0) resolve();
             else {
-              reject(
-                new Error(`UK Visa Jobs extractor exited with code ${code}`),
-              );
+              reject(new Error(`UK Visa Jobs extractor exited with code ${code}`));
             }
           });
           child.on("error", reject);
@@ -402,10 +382,7 @@ export async function runUkVisaJobs(
             job.jobDescription.startsWith("Visa sponsorship info:");
 
           if (isPoorDescription && job.jobUrl) {
-            const enriched = await fetchJobDescription(
-              job.jobUrl,
-              authCachePath,
-            );
+            const enriched = await fetchJobDescription(job.jobUrl, authCachePath);
             if (enriched) {
               job.jobDescription = enriched;
             }
@@ -425,8 +402,7 @@ export async function runUkVisaJobs(
           totalCollected: allJobs.length,
         });
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unknown error";
+        const message = error instanceof Error ? error.message : "Unknown error";
         options.onProgress?.({
           type: "error",
           termIndex,
@@ -455,9 +431,7 @@ async function readDataset(storageDir: string): Promise<CreateJobInput[]> {
 
   try {
     const files = await readdir(storageDir);
-    const jsonFiles = files.filter(
-      (file) => file.endsWith(".json") && file !== "jobs.json",
-    );
+    const jsonFiles = files.filter((file) => file.endsWith(".json") && file !== "jobs.json");
 
     for (const file of jsonFiles.sort()) {
       try {
@@ -471,9 +445,7 @@ async function readDataset(storageDir: string): Promise<CreateJobInput[]> {
           employer: (job.employer as string) || "Unknown Employer",
           employerUrl: job.employerUrl as string | undefined,
           jobUrl: job.jobUrl as string,
-          applicationLink:
-            (job.applicationLink as string | undefined) ||
-            (job.jobUrl as string),
+          applicationLink: (job.applicationLink as string | undefined) || (job.jobUrl as string),
           location: job.location as string | undefined,
           deadline: job.deadline as string | undefined,
           salary: job.salary as string | undefined,

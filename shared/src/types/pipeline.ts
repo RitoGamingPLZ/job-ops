@@ -12,10 +12,7 @@ export const MIN_PIPELINE_RUN_BUDGET = 300;
 export const MAX_PIPELINE_RUN_BUDGET = 1000;
 
 export function normalizePipelineRunBudget(value: number): number {
-  return Math.min(
-    MAX_PIPELINE_RUN_BUDGET,
-    Math.max(MIN_PIPELINE_RUN_BUDGET, Math.round(value)),
-  );
+  return Math.min(MAX_PIPELINE_RUN_BUDGET, Math.max(MIN_PIPELINE_RUN_BUDGET, Math.round(value)));
 }
 
 export interface ExtractorLimits {
@@ -51,8 +48,7 @@ export function deriveExtractorLimits(args: {
     "naukri",
   ] as const;
   const weightedContributors =
-    perTermSources.filter((source) => args.sources.includes(source)).length *
-      termCount +
+    perTermSources.filter((source) => args.sources.includes(source)).length * termCount +
     (args.sources.includes("ukvisajobs") ? 1 : 0);
 
   if (weightedContributors <= 0) {
@@ -211,11 +207,7 @@ export interface PipelineStatusResponse {
   nextScheduledRun: string | null;
 }
 
-export type PipelineSearchPresetMode =
-  | "fast"
-  | "balanced"
-  | "detailed"
-  | "custom";
+export type PipelineSearchPresetMode = "fast" | "balanced" | "detailed" | "custom";
 
 export interface PipelineSearchPresetConfig {
   searchTerms: string[];
@@ -353,10 +345,7 @@ export interface PipelineProgressState {
   completedAt?: string;
 }
 
-export type PipelineMetricQuality =
-  | "exact"
-  | "inferred_from_timestamps"
-  | "unavailable";
+export type PipelineMetricQuality = "exact" | "inferred_from_timestamps" | "unavailable";
 
 export interface PipelineRunMetric<T = number | null> {
   value: T;

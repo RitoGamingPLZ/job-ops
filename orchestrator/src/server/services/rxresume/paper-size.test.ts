@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  applyPdfPaperSizeToResumeData,
-  resolveRxResumePageFormat,
-} from "./paper-size";
+import { applyPdfPaperSizeToResumeData, resolveRxResumePageFormat } from "./paper-size";
 
 describe("resolveRxResumePageFormat", () => {
   it("keeps the resume's own format when the paper size is left to the renderer", () => {
@@ -49,15 +46,13 @@ describe("applyPdfPaperSizeToResumeData", () => {
   });
 
   it("returns the resume unchanged when the paper size is left to the renderer", () => {
-    expect(applyPdfPaperSizeToResumeData(resumeData, "auto")).toEqual(
-      resumeData,
-    );
+    expect(applyPdfPaperSizeToResumeData(resumeData, "auto")).toEqual(resumeData);
   });
 
   it("treats a missing or unknown page format as A4, like the importer does", () => {
-    expect(
-      applyPdfPaperSizeToResumeData({ metadata: { page: {} } }, "letter"),
-    ).toEqual({ metadata: { page: { format: "letter" } } });
+    expect(applyPdfPaperSizeToResumeData({ metadata: { page: {} } }, "letter")).toEqual({
+      metadata: { page: { format: "letter" } },
+    });
     expect(applyPdfPaperSizeToResumeData({}, "letter")).toEqual({
       metadata: { page: { format: "letter" } },
     });

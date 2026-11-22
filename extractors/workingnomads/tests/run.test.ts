@@ -135,12 +135,7 @@ describe("runWorkingNomads", () => {
     expect(body.query?.bool?.filter).toEqual([
       {
         terms: {
-          locations: expect.arrayContaining([
-            "USA",
-            "Canada",
-            "North America",
-            "Anywhere",
-          ]),
+          locations: expect.arrayContaining(["USA", "Canada", "North America", "Anywhere"]),
         },
       },
     ]);

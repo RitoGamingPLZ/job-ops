@@ -9,10 +9,7 @@ vi.mock("@server/repositories/settings", () => ({
 }));
 
 import { getSetting } from "@server/repositories/settings";
-import {
-  getEffectivePromptTemplate,
-  renderPromptTemplate,
-} from "./prompt-templates";
+import { getEffectivePromptTemplate, renderPromptTemplate } from "./prompt-templates";
 
 describe("prompt templates", () => {
   beforeEach(() => {
@@ -29,27 +26,23 @@ describe("prompt templates", () => {
   });
 
   it("returns the shared default template when no override is stored", async () => {
-    await expect(
-      getEffectivePromptTemplate("ghostwriterSystemPromptTemplate"),
-    ).resolves.toBe(
+    await expect(getEffectivePromptTemplate("ghostwriterSystemPromptTemplate")).resolves.toBe(
       getDefaultPromptTemplate("ghostwriterSystemPromptTemplate"),
     );
   });
 
   it("uses the new generation policy for a saved legacy default", async () => {
-    vi.mocked(getSetting).mockResolvedValue(
-      LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
+    vi.mocked(getSetting).mockResolvedValue(LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE);
+    await expect(getEffectivePromptTemplate("resumeGenerationPromptTemplate")).resolves.toBe(
+      getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
     );
-    await expect(
-      getEffectivePromptTemplate("resumeGenerationPromptTemplate"),
-    ).resolves.toBe(getDefaultPromptTemplate("resumeGenerationPromptTemplate"));
   });
 
   it("returns the stored template override when present", async () => {
     vi.mocked(getSetting).mockResolvedValue("Custom template {{tone}}");
 
-    await expect(
-      getEffectivePromptTemplate("ghostwriterSystemPromptTemplate"),
-    ).resolves.toBe("Custom template {{tone}}");
+    await expect(getEffectivePromptTemplate("ghostwriterSystemPromptTemplate")).resolves.toBe(
+      "Custom template {{tone}}",
+    );
   });
 });

@@ -2,7 +2,7 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-describe.sequential("Jobs tailoring PATCH route", () => {
+describe("Jobs tailoring PATCH route", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -49,9 +49,7 @@ describe.sequential("Jobs tailoring PATCH route", () => {
 
   it("accepts tailoredHeadline and tailoredSkills when JSON shape is valid", async () => {
     const jobId = await createManualJobId();
-    const skills = JSON.stringify([
-      { name: "Backend", keywords: ["TypeScript", "Node.js"] },
-    ]);
+    const skills = JSON.stringify([{ name: "Backend", keywords: ["TypeScript", "Node.js"] }]);
 
     const response = await fetch(`${baseUrl}/api/jobs/${jobId}`, {
       method: "PATCH",

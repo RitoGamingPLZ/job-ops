@@ -29,53 +29,42 @@ import {
 
 export const jobsActionsRouter = Router();
 
-jobsActionsRouter.post(
-  "/actions/generate-missing-resumes",
-  async (req: Request, res: Response) => {
-    try {
-      ok(
-        res,
-        await generateMissingResumesInBackground({
-          requestOrigin: resolveRequestOrigin(req),
-        }),
-      );
-    } catch (error) {
-      fail(res, toJobsRouteError(error));
-    }
-  },
-);
-
-jobsActionsRouter.post(
-  "/:id/regenerate-resume",
-  async (req: Request, res: Response) => {
-    try {
-      const job = await regenerateJobResumeInBackground(req.params.id, {
+jobsActionsRouter.post("/actions/generate-missing-resumes", async (req: Request, res: Response) => {
+  try {
+    ok(
+      res,
+      await generateMissingResumesInBackground({
         requestOrigin: resolveRequestOrigin(req),
-      });
-      ok(res, await hydrateJobPdfFreshness(job));
-    } catch (error) {
-      fail(res, toJobsRouteError(error));
-    }
-  },
-);
+      }),
+    );
+  } catch (error) {
+    fail(res, toJobsRouteError(error));
+  }
+});
 
-jobsActionsRouter.post(
-  "/:id/blacklist-employer",
-  async (req: Request, res: Response) => {
-    try {
-      const { job, settings, hiddenCount } = await blacklistJobEmployer(
-        req.params.id,
-      );
-      ok(res, {
-        job: await hydrateJobPdfFreshness(job),
-        settings,
-        hiddenCount,
-      });
-    } catch (error) {
-      fail(res, toJobsRouteError(error));
-    }
-  },
-);
+jobsActionsRouter.post("/:id/regenerate-resume", async (req: Request, res: Response) => {
+  try {
+    const job = await regenerateJobResumeInBackground(req.params.id, {
+      requestOrigin: resolveRequestOrigin(req),
+    });
+    ok(res, await hydrateJobPdfFreshness(job));
+  } catch (error) {
+    fail(res, toJobsRouteError(error));
+  }
+});
+
+jobsActionsRouter.post("/:id/blacklist-employer", async (req: Request, res: Response) => {
+  try {
+    const { job, settings, hiddenCount } = await blacklistJobEmployer(req.params.id);
+    ok(res, {
+      job: await hydrateJobPdfFreshness(job),
+      settings,
+      hiddenCount,
+    });
+  } catch (error) {
+    fail(res, toJobsRouteError(error));
+  }
+});
 
 jobsActionsRouter.post("/actions", async (req: Request, res: Response) => {
   try {
@@ -88,8 +77,7 @@ jobsActionsRouter.post("/actions", async (req: Request, res: Response) => {
     const rawResults = await asyncPool({
       items: dedupedJobIds,
       concurrency: JOB_ACTION_CONCURRENCY,
-      task: async (jobId) =>
-        executeJobActionForJob(parsed.action, jobId, executionOptions),
+      task: async (jobId) => executeJobActionForJob(parsed.action, jobId, executionOptions),
     });
     const pdfFingerprintContext = await resolvePdfFingerprintContext();
     const results = await Promise.all(
@@ -97,10 +85,7 @@ jobsActionsRouter.post("/actions", async (req: Request, res: Response) => {
         result.ok
           ? {
               ...result,
-              job: hydrateJobPdfFreshnessWithContext(
-                result.job,
-                pdfFingerprintContext,
-              ),
+              job: hydrateJobPdfFreshnessWithContext(result.job, pdfFingerprintContext),
             }
           : result,
       ),
@@ -149,193 +134,176 @@ jobsActionsRouter.post("/actions", async (req: Request, res: Response) => {
   }
 });
 
-jobsActionsRouter.post(
-  "/actions/stream",
-  async (req: Request, res: Response) => {
-    const parsed = jobActionRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return fail(
-        res,
-        badRequest("Invalid job action request", parsed.error.flatten()),
-      );
+jobsActionsRouter.post("/actions/stream", async (req: Request, res: Response) => {
+  const parsed = jobActionRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return fail(res, badRequest("Invalid job action request", parsed.error.flatten()));
+  }
+
+  const dedupedJobIds = Array.from(new Set(parsed.data.jobIds));
+  const requestId = String(res.getHeader("x-request-id") || "unknown");
+  const action = parsed.data.action;
+  const executionOptions = buildJobActionExecutionOptions(action, {
+    requestOrigin: resolveRequestOrigin(req),
+  });
+  const requested = dedupedJobIds.length;
+  const results: JobActionResult[] = [];
+  let succeeded = 0;
+  let failed = 0;
+
+  setupSse(res, {
+    cacheControl: "no-cache, no-transform",
+    disableBuffering: true,
+    flushHeaders: true,
+  });
+  const stopHeartbeat = startSseHeartbeat(res);
+
+  let clientDisconnected = false;
+  res.on("close", () => {
+    clientDisconnected = true;
+    stopHeartbeat();
+  });
+
+  const isResponseWritable = () => !clientDisconnected && !res.writableEnded && !res.destroyed;
+
+  const sendEvent = (event: JobActionStreamEvent) => {
+    if (!isResponseWritable()) return false;
+    writeSseData(res, event);
+    return true;
+  };
+
+  try {
+    const pdfFingerprintContext = await resolvePdfFingerprintContext();
+
+    if (
+      !sendEvent({
+        type: "started",
+        action,
+        requested,
+        completed: 0,
+        succeeded: 0,
+        failed: 0,
+        requestId,
+      })
+    ) {
+      logger.info("Client disconnected before action stream started", {
+        route: "POST /api/jobs/actions/stream",
+        action,
+        requested,
+        succeeded,
+        failed,
+        requestId,
+      });
+      return;
     }
 
-    const dedupedJobIds = Array.from(new Set(parsed.data.jobIds));
-    const requestId = String(res.getHeader("x-request-id") || "unknown");
-    const action = parsed.data.action;
-    const executionOptions = buildJobActionExecutionOptions(action, {
-      requestOrigin: resolveRequestOrigin(req),
-    });
-    const requested = dedupedJobIds.length;
-    const results: JobActionResult[] = [];
-    let succeeded = 0;
-    let failed = 0;
+    await asyncPool({
+      items: dedupedJobIds,
+      concurrency: JOB_ACTION_CONCURRENCY,
+      shouldStop: () => !isResponseWritable(),
+      task: async (jobId) => {
+        if (!isResponseWritable()) return;
 
-    setupSse(res, {
-      cacheControl: "no-cache, no-transform",
-      disableBuffering: true,
-      flushHeaders: true,
-    });
-    const stopHeartbeat = startSseHeartbeat(res);
+        const rawResult = await executeJobActionForJob(action, jobId, executionOptions);
+        const result = rawResult.ok
+          ? {
+              ...rawResult,
+              job: hydrateJobPdfFreshnessWithContext(rawResult.job, pdfFingerprintContext),
+            }
+          : rawResult;
+        results.push(result);
+        if (result.ok) succeeded += 1;
+        else failed += 1;
 
-    let clientDisconnected = false;
-    res.on("close", () => {
-      clientDisconnected = true;
-      stopHeartbeat();
-    });
-
-    const isResponseWritable = () =>
-      !clientDisconnected && !res.writableEnded && !res.destroyed;
-
-    const sendEvent = (event: JobActionStreamEvent) => {
-      if (!isResponseWritable()) return false;
-      writeSseData(res, event);
-      return true;
-    };
-
-    try {
-      const pdfFingerprintContext = await resolvePdfFingerprintContext();
-
-      if (
-        !sendEvent({
-          type: "started",
-          action,
-          requested,
-          completed: 0,
-          succeeded: 0,
-          failed: 0,
-          requestId,
-        })
-      ) {
-        logger.info("Client disconnected before action stream started", {
-          route: "POST /api/jobs/actions/stream",
-          action,
-          requested,
-          succeeded,
-          failed,
-          requestId,
-        });
-        return;
-      }
-
-      await asyncPool({
-        items: dedupedJobIds,
-        concurrency: JOB_ACTION_CONCURRENCY,
-        shouldStop: () => !isResponseWritable(),
-        task: async (jobId) => {
-          if (!isResponseWritable()) return;
-
-          const rawResult = await executeJobActionForJob(
+        if (
+          !sendEvent({
+            type: "progress",
             action,
-            jobId,
-            executionOptions,
-          );
-          const result = rawResult.ok
-            ? {
-                ...rawResult,
-                job: hydrateJobPdfFreshnessWithContext(
-                  rawResult.job,
-                  pdfFingerprintContext,
-                ),
-              }
-            : rawResult;
-          results.push(result);
-          if (result.ok) succeeded += 1;
-          else failed += 1;
+            requested,
+            completed: results.length,
+            succeeded,
+            failed,
+            result,
+            requestId,
+          })
+        ) {
+          logger.info("Client disconnected while writing action stream progress", {
+            route: "POST /api/jobs/actions/stream",
+            action,
+            requested,
+            succeeded,
+            failed,
+            requestId,
+          });
+        }
+      },
+    });
 
-          if (
-            !sendEvent({
-              type: "progress",
-              action,
-              requested,
-              completed: results.length,
-              succeeded,
-              failed,
-              result,
-              requestId,
-            })
-          ) {
-            logger.info(
-              "Client disconnected while writing action stream progress",
-              {
-                route: "POST /api/jobs/actions/stream",
-                action,
-                requested,
-                succeeded,
-                failed,
-                requestId,
-              },
-            );
-          }
-        },
-      });
+    sendEvent({
+      type: "completed",
+      action,
+      requested,
+      completed: results.length,
+      succeeded,
+      failed,
+      results,
+      requestId,
+    });
 
-      sendEvent({
-        type: "completed",
-        action,
-        requested,
-        completed: results.length,
-        succeeded,
-        failed,
-        results,
-        requestId,
-      });
+    logger.info("Job action stream completed", {
+      route: "POST /api/jobs/actions/stream",
+      action,
+      requested,
+      succeeded,
+      failed,
+      concurrency: JOB_ACTION_CONCURRENCY,
+      requestId,
+    });
+  } catch (error) {
+    const err =
+      error instanceof AppError
+        ? error
+        : new AppError({
+            status: 500,
+            code: "INTERNAL_ERROR",
+            message: error instanceof Error ? error.message : "Unknown error",
+          });
 
-      logger.info("Job action stream completed", {
-        route: "POST /api/jobs/actions/stream",
-        action,
-        requested,
-        succeeded,
-        failed,
-        concurrency: JOB_ACTION_CONCURRENCY,
-        requestId,
-      });
-    } catch (error) {
-      const err =
-        error instanceof AppError
-          ? error
-          : new AppError({
-              status: 500,
-              code: "INTERNAL_ERROR",
-              message: error instanceof Error ? error.message : "Unknown error",
-            });
+    logger.error("Job action stream failed", {
+      route: "POST /api/jobs/actions/stream",
+      action,
+      requested,
+      succeeded,
+      failed,
+      status: err.status,
+      code: err.code,
+      requestId,
+    });
 
-      logger.error("Job action stream failed", {
-        route: "POST /api/jobs/actions/stream",
-        action,
-        requested,
-        succeeded,
-        failed,
-        status: err.status,
+    if (
+      !sendEvent({
+        type: "error",
         code: err.code,
+        message: err.message,
+        requestId,
+      })
+    ) {
+      logger.info("Skipping stream error event because client disconnected", {
+        route: "POST /api/jobs/actions/stream",
+        action,
+        requested,
+        succeeded,
+        failed,
         requestId,
       });
-
-      if (
-        !sendEvent({
-          type: "error",
-          code: err.code,
-          message: err.message,
-          requestId,
-        })
-      ) {
-        logger.info("Skipping stream error event because client disconnected", {
-          route: "POST /api/jobs/actions/stream",
-          action,
-          requested,
-          succeeded,
-          failed,
-          requestId,
-        });
-      }
-    } finally {
-      stopHeartbeat();
-      if (!res.writableEnded && !res.destroyed) {
-        res.end();
-      }
     }
-  },
-);
+  } finally {
+    stopHeartbeat();
+    if (!res.writableEnded && !res.destroyed) {
+      res.end();
+    }
+  }
+});
 
 jobsActionsRouter.post("/:id/process", async (req: Request, res: Response) => {
   const result = await executeJobActionForJob("move_to_ready", req.params.id, {

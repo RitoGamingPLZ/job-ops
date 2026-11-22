@@ -22,10 +22,7 @@ function appendVersionedPath(baseUrl: string, path: string): string {
 
 function resolveChatCompletionsUrl(baseUrlOrEndpoint: string): string {
   const normalized = normalizeBaseUrlOrEndpoint(baseUrlOrEndpoint);
-  if (
-    normalized.endsWith(CHAT_COMPLETIONS_SUFFIX) ||
-    normalized.endsWith("/chat/completions")
-  ) {
+  if (normalized.endsWith(CHAT_COMPLETIONS_SUFFIX) || normalized.endsWith("/chat/completions")) {
     return normalized;
   }
   return appendVersionedPath(normalized, CHAT_COMPLETIONS_SUFFIX);

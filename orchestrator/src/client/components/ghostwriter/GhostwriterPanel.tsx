@@ -68,9 +68,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
   const [areDocumentsLoading, setAreDocumentsLoading] = useState(true);
   const [isSavingContext, setIsSavingContext] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
-    null,
-  );
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
 
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
@@ -78,15 +76,12 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
   const consumedInitialPromptRef = useRef<string | null>(null);
-  const runTriggerRef = useRef<"new_prompt" | "regenerate" | "edit">(
-    "new_prompt",
-  );
+  const runTriggerRef = useRef<"new_prompt" | "regenerate" | "edit">("new_prompt");
 
   useEffect(() => {
     const container = messageListRef.current;
     if (!container) return;
-    const distanceToBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight;
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
     if (distanceToBottom < 120 || isStreaming) {
       container.scrollTop = container.scrollHeight;
     }
@@ -142,12 +137,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      await Promise.all([
-        loadMessages(),
-        loadNotes(),
-        loadEmails(),
-        loadDocuments(),
-      ]);
+      await Promise.all([loadMessages(), loadNotes(), loadEmails(), loadDocuments()]);
     } catch (error) {
       showErrorToast(error, "Failed to load Ghostwriter");
     } finally {
@@ -166,9 +156,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
   useEffect(() => {
     if (areNotesLoading) return;
     const noteIds = new Set(notes.map((note) => note.id));
-    setSelectedNoteIds((current) =>
-      current.filter((noteId) => noteIds.has(noteId)),
-    );
+    setSelectedNoteIds((current) => current.filter((noteId) => noteIds.has(noteId)));
   }, [areNotesLoading, notes]);
 
   useEffect(() => {
@@ -243,12 +231,8 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
           });
         }
         setMessages((current) => {
-          const next = current.filter(
-            (message) => message.id !== event.message.id,
-          );
-          return [...next, event.message].sort((a, b) =>
-            a.createdAt.localeCompare(b.createdAt),
-          );
+          const next = current.filter((message) => message.id !== event.message.id);
+          return [...next, event.message].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
         });
         setStreamingMessageId(null);
         setActiveRunId(null);
@@ -359,9 +343,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
 
       // Remove messages below the branch point (everything after the regenerated message disappears)
       setMessages((current) => {
-        const targetIndex = current.findIndex(
-          (m) => m.id === assistantMessageId,
-        );
+        const targetIndex = current.findIndex((m) => m.id === assistantMessageId);
         if (targetIndex === -1) return current;
         return current.slice(0, targetIndex);
       });
@@ -410,11 +392,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
   );
 
   const editMessage = useCallback(
-    async (
-      messageId: string,
-      content: string,
-      attachments: JobChatImageAttachment[] = [],
-    ) => {
+    async (messageId: string, content: string, attachments: JobChatImageAttachment[] = []) => {
       if (isStreaming) return;
 
       // Remove the edited message and everything below it (old branch disappears)
@@ -589,13 +567,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
     consumedInitialPromptRef.current = content;
     onInitialPromptConsumed?.();
     void sendMessage(content);
-  }, [
-    initialPrompt,
-    isLoading,
-    isStreaming,
-    onInitialPromptConsumed,
-    sendMessage,
-  ]);
+  }, [initialPrompt, isLoading, isStreaming, onInitialPromptConsumed, sendMessage]);
 
   const resetConversation = useCallback(async () => {
     try {
@@ -626,12 +598,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
             </p>
             {!cowork && (
               <div className="mt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 w-fit"
-                  asChild
-                >
+                <Button variant="outline" size="sm" className="gap-1.5 w-fit" asChild>
                   <Link to="/settings#chat">
                     <Settings2 className="h-4 w-4" />
                     Alter personality
@@ -672,9 +639,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
               areEmailsLoading={areEmailsLoading}
               areDocumentsLoading={areDocumentsLoading}
               isSaving={isSavingContext}
-              onNotesChange={(nextSelectedNoteIds) =>
-                void updateSelectedNotes(nextSelectedNoteIds)
-              }
+              onNotesChange={(nextSelectedNoteIds) => void updateSelectedNotes(nextSelectedNoteIds)}
               onEmailsChange={(nextSelectedEmailIds) =>
                 void updateSelectedEmails(nextSelectedEmailIds)
               }
@@ -694,8 +659,7 @@ export const GhostwriterPanel: React.FC<GhostwriterPanelProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Start over?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently erase the entire conversation. This action
-              cannot be undone.
+              This will permanently erase the entire conversation. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

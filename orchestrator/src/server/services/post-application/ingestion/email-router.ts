@@ -1,9 +1,6 @@
 import { withHostedUsageReservation } from "@server/services/hosted-usage";
 import type { JsonSchemaDefinition } from "@server/services/llm/types";
-import {
-  createConfiguredLlmService,
-  resolveLlmModel,
-} from "@server/services/modelSelection";
+import { createConfiguredLlmService, resolveLlmModel } from "@server/services/modelSelection";
 import {
   messageTypeFromStageTarget,
   normalizeStageTarget,
@@ -25,8 +22,7 @@ const SMART_ROUTER_SCHEMA: JsonSchemaDefinition = {
     properties: {
       bestMatchIndex: {
         type: ["integer", "null"],
-        description:
-          "Best matching active-job index from provided list (1-based), or null.",
+        description: "Best matching active-job index from provided list (1-based), or null.",
       },
       confidence: {
         type: "integer",
@@ -35,18 +31,15 @@ const SMART_ROUTER_SCHEMA: JsonSchemaDefinition = {
       stageTarget: {
         type: "string",
         enum: [...POST_APPLICATION_ROUTER_STAGE_TARGETS],
-        description:
-          "Normalized stage target for this message, matching Log Event options.",
+        description: "Normalized stage target for this message, matching Log Event options.",
       },
       isRelevant: {
         type: "boolean",
-        description:
-          "Whether this is a relevant recruitment/application email.",
+        description: "Whether this is a relevant recruitment/application email.",
       },
       stageEventPayload: {
         type: ["object", "null"],
-        description:
-          "Structured metadata for a potential stage event, or null.",
+        description: "Structured metadata for a potential stage event, or null.",
         properties: {
           note: {
             type: ["string", "null"],
@@ -122,15 +115,10 @@ export function buildIndexedActiveJobs(
 }
 
 export function buildCompactActiveJobsList(jobs: IndexedActiveJob[]): string {
-  return jobs
-    .map((job) => `${job.index}. ${job.company}: ${job.title}`)
-    .join("\n");
+  return jobs.map((job) => `${job.index}. ${job.company}: ${job.title}`).join("\n");
 }
 
-export function normalizeBestMatchIndex(
-  value: unknown,
-  max: number,
-): number | null {
+export function normalizeBestMatchIndex(value: unknown, max: number): number | null {
   if (value === null || value === undefined || max <= 0) return null;
   const numeric =
     typeof value === "number"
@@ -206,20 +194,14 @@ ${llmEmailText}`,
     throw new Error(`LLM classification failed: ${result.error}`);
   }
 
-  const confidence = Math.max(
-    0,
-    Math.min(100, Math.round(Number(result.data.confidence) || 0)),
-  );
+  const confidence = Math.max(0, Math.min(100, Math.round(Number(result.data.confidence) || 0)));
   const bestMatchIndex = normalizeBestMatchIndex(
     result.data.bestMatchIndex,
     indexedActiveJobs.length,
   );
   const bestMatchId =
-    bestMatchIndex !== null
-      ? (indexedActiveJobs[bestMatchIndex - 1]?.id ?? null)
-      : null;
-  const stageTarget =
-    normalizeStageTarget(result.data.stageTarget) ?? "no_change";
+    bestMatchIndex !== null ? (indexedActiveJobs[bestMatchIndex - 1]?.id ?? null) : null;
+  const stageTarget = normalizeStageTarget(result.data.stageTarget) ?? "no_change";
   const messageType = messageTypeFromStageTarget(stageTarget);
 
   return {
@@ -229,8 +211,7 @@ ${llmEmailText}`,
     messageType,
     isRelevant: Boolean(result.data.isRelevant),
     stageEventPayload:
-      result.data.stageEventPayload &&
-      typeof result.data.stageEventPayload === "object"
+      result.data.stageEventPayload && typeof result.data.stageEventPayload === "object"
         ? result.data.stageEventPayload
         : null,
     reason: String(result.data.reason ?? "").trim(),

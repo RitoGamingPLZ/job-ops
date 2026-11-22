@@ -27,31 +27,18 @@ export const LOCATION_SEARCH_SCOPE_VALUES = LOCATION_GEO_SCOPE_VALUES;
 
 export type LocationSearchScope = LocationGeoScope;
 
-export const LOCATION_MATCH_STRICTNESS_VALUES = [
-  "exact_only",
-  "flexible",
-] as const;
+export const LOCATION_MATCH_STRICTNESS_VALUES = ["exact_only", "flexible"] as const;
 
-export type LocationMatchStrictness =
-  (typeof LOCATION_MATCH_STRICTNESS_VALUES)[number];
+export type LocationMatchStrictness = (typeof LOCATION_MATCH_STRICTNESS_VALUES)[number];
 
-export const LOCATION_WORKPLACE_TYPE_VALUES = [
-  "remote",
-  "hybrid",
-  "onsite",
-] as const;
+export const LOCATION_WORKPLACE_TYPE_VALUES = ["remote", "hybrid", "onsite"] as const;
 
-export type LocationWorkplaceType =
-  (typeof LOCATION_WORKPLACE_TYPE_VALUES)[number];
+export type LocationWorkplaceType = (typeof LOCATION_WORKPLACE_TYPE_VALUES)[number];
 
 export const LOCATION_INPUT_MODE_VALUES = ["radius", "cities"] as const;
 export type LocationInputMode = (typeof LOCATION_INPUT_MODE_VALUES)[number];
 
-export type LocationEvidenceEntryKind =
-  | "location"
-  | "city"
-  | "region"
-  | "country";
+export type LocationEvidenceEntryKind = "location" | "city" | "region" | "country";
 
 export interface LocationEvidenceEntry {
   kind: LocationEvidenceEntryKind;
@@ -59,11 +46,7 @@ export interface LocationEvidenceEntry {
   sourceField?: string | null;
 }
 
-export type LocationEvidenceQuality =
-  | "exact"
-  | "approximate"
-  | "weak"
-  | "unknown";
+export type LocationEvidenceQuality = "exact" | "approximate" | "weak" | "unknown";
 
 export interface LocationProximity {
   latitude: number;
@@ -71,13 +54,7 @@ export interface LocationProximity {
   radiusMiles: number;
 }
 
-const BROAD_COUNTRY_SENTINELS = new Set([
-  "",
-  "all",
-  "anywhere",
-  "global",
-  "remote",
-]);
+const BROAD_COUNTRY_SENTINELS = new Set(["", "all", "anywhere", "global", "remote"]);
 
 export interface LocationIntentInput {
   selectedCountry?: string | null;
@@ -173,16 +150,8 @@ export interface LocationPlanResult {
 
 export interface LocationMatchResult {
   matched: boolean;
-  matchedBy:
-    | "selected_location"
-    | "remote_worldwide"
-    | "unfiltered"
-    | "no_match";
-  reasonCode:
-    | "selected_location"
-    | "remote_worldwide"
-    | "unfiltered"
-    | "no_match";
+  matchedBy: "selected_location" | "remote_worldwide" | "unfiltered" | "no_match";
+  reasonCode: "selected_location" | "remote_worldwide" | "unfiltered" | "no_match";
   priority: 0 | 1;
   intent: LocationIntent;
   evidence: LocationEvidence;
@@ -192,9 +161,7 @@ export interface LocationMatchResult {
   reasons: string[];
 }
 
-function normalizeStringOrNull(
-  value: string | null | undefined,
-): string | null {
+function normalizeStringOrNull(value: string | null | undefined): string | null {
   const normalized = normalizeWhitespace(value ?? "");
   return normalized ? normalized : null;
 }
@@ -224,9 +191,7 @@ function normalizeWorkplaceTypes(
   return out;
 }
 
-function normalizeCountryKeys(
-  values: readonly string[] | null | undefined,
-): string[] {
+function normalizeCountryKeys(values: readonly string[] | null | undefined): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
 
@@ -240,13 +205,9 @@ function normalizeCountryKeys(
   return out;
 }
 
-function normalizeSelectedCountryKey(
-  value: string | null | undefined,
-): string | null {
+function normalizeSelectedCountryKey(value: string | null | undefined): string | null {
   const normalized = normalizeCountryKey(value);
-  return normalized && !BROAD_COUNTRY_SENTINELS.has(normalized)
-    ? normalized
-    : null;
+  return normalized && !BROAD_COUNTRY_SENTINELS.has(normalized) ? normalized : null;
 }
 
 function normalizeLocationEvidenceEntries(
@@ -268,9 +229,7 @@ function normalizeLocationEvidenceEntries(
 
     switch (entry.kind) {
       case "location":
-        if (
-          /remote|worldwide|anywhere|work from home|wfh/i.test(normalizedValue)
-        ) {
+        if (/remote|worldwide|anywhere|work from home|wfh/i.test(normalizedValue)) {
           isRemote = true;
           workplaceType = workplaceType ?? "remote";
         }
@@ -318,9 +277,7 @@ function inferWorkplaceTypeFromEvidence(
   return null;
 }
 
-function createDefaultSupportedCountryKeys(
-  source: JobSource | string,
-): string[] | null {
+function createDefaultSupportedCountryKeys(source: JobSource | string): string[] | null {
   return getSourceSupportedCountryKeys(source as JobSource);
 }
 
@@ -329,8 +286,8 @@ function buildEvidenceLocationText(
 ): string | undefined {
   if (evidence.location) return evidence.location;
 
-  const parts = [evidence.city, evidence.country].filter(
-    (value): value is string => Boolean(value),
+  const parts = [evidence.city, evidence.country].filter((value): value is string =>
+    Boolean(value),
   );
   if (parts.length === 0) return undefined;
   return parts.join(", ");
@@ -355,8 +312,7 @@ function describeSelectedGeography(
   }
 
   const filteredCities = cities.filter(
-    (city) =>
-      normalizeCountryKey(city) !== normalizeCountryKey(selectedCountry),
+    (city) => normalizeCountryKey(city) !== normalizeCountryKey(selectedCountry),
   );
 
   if (filteredCities.length === 0) return countryLabel;
@@ -377,13 +333,9 @@ function joinList(values: string[]): string {
   return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
 }
 
-function describeNonRemoteWorkplaceTypes(
-  workplaceTypes: LocationWorkplaceType[],
-): string {
+function describeNonRemoteWorkplaceTypes(workplaceTypes: LocationWorkplaceType[]): string {
   const nonRemote = workplaceTypes.filter((type) => type !== "remote");
-  const labels = nonRemote.map((type) =>
-    type === "onsite" ? "onsite" : "hybrid",
-  );
+  const labels = nonRemote.map((type) => (type === "onsite" ? "onsite" : "hybrid"));
   return joinList(labels);
 }
 
@@ -420,14 +372,10 @@ function normalizeSearchCitiesInput(
   if (Array.isArray(value)) {
     return normalizeStringArray(value);
   }
-  return parseSearchCitiesSetting(
-    typeof value === "string" ? value : undefined,
-  );
+  return parseSearchCitiesSetting(typeof value === "string" ? value : undefined);
 }
 
-export function normalizeLocationGeoScope(
-  value: string | null | undefined,
-): LocationGeoScope {
+export function normalizeLocationGeoScope(value: string | null | undefined): LocationGeoScope {
   return normalizeGeoScope(value);
 }
 
@@ -440,9 +388,7 @@ export function normalizeLocationSearchScope(
 export function normalizeLocationMatchStrictness(
   value: string | null | undefined,
 ): LocationMatchStrictness {
-  return LOCATION_MATCH_STRICTNESS_VALUES.includes(
-    value as LocationMatchStrictness,
-  )
+  return LOCATION_MATCH_STRICTNESS_VALUES.includes(value as LocationMatchStrictness)
     ? (value as LocationMatchStrictness)
     : "exact_only";
 }
@@ -459,9 +405,7 @@ export function normalizeLocationWorkplaceTypes(
   return normalizeWorkplaceTypes(values);
 }
 
-export function normalizeLocationCountryKey(
-  value: string | null | undefined,
-): string {
+export function normalizeLocationCountryKey(value: string | null | undefined): string {
   return normalizeCountryKey(value);
 }
 
@@ -469,17 +413,9 @@ export function normalizeLocationIntent(
   value: LocationIntentInput | LocationIntent,
 ): LocationIntent {
   const rawSelectedCountry =
-    "selectedCountry" in value
-      ? value.selectedCountry
-      : "country" in value
-        ? value.country
-        : null;
+    "selectedCountry" in value ? value.selectedCountry : "country" in value ? value.country : null;
   const rawGeoScope =
-    "geoScope" in value
-      ? value.geoScope
-      : "searchScope" in value
-        ? value.searchScope
-        : null;
+    "geoScope" in value ? value.geoScope : "searchScope" in value ? value.searchScope : null;
   const rawCities =
     "cityLocations" in value && value.cityLocations != null
       ? value.cityLocations
@@ -503,17 +439,12 @@ export function normalizeLocationIntent(
   };
 }
 
-export function createLocationIntent(
-  value: LocationIntentInput | LocationIntent,
-): LocationIntent {
+export function createLocationIntent(value: LocationIntentInput | LocationIntent): LocationIntent {
   return normalizeLocationIntent(value);
 }
 
 export function normalizeLocationEvidence(
-  value:
-    | LocationEvidenceInput
-    | LocationEvidence
-    | readonly LocationEvidenceEntry[],
+  value: LocationEvidenceInput | LocationEvidence | readonly LocationEvidenceEntry[],
 ): LocationEvidence {
   if (Array.isArray(value)) {
     return normalizeLocationEvidenceEntries(value);
@@ -521,19 +452,14 @@ export function normalizeLocationEvidence(
 
   const evidence = value as LocationEvidenceInput | LocationEvidence;
   const location = normalizeStringOrNull(
-    "rawLocation" in evidence
-      ? (evidence.rawLocation ?? evidence.location)
-      : evidence.location,
+    "rawLocation" in evidence ? (evidence.rawLocation ?? evidence.location) : evidence.location,
   );
   const country = normalizeSelectedCountryKey(
-    "countryKey" in evidence
-      ? (evidence.countryKey ?? evidence.country)
-      : evidence.country,
+    "countryKey" in evidence ? (evidence.countryKey ?? evidence.country) : evidence.country,
   );
   const city = normalizeStringOrNull(evidence.city);
   const workplaceType = inferWorkplaceTypeFromEvidence(evidence);
-  const isRemote =
-    evidence.isRemote ?? (workplaceType === "remote" ? true : null);
+  const isRemote = evidence.isRemote ?? (workplaceType === "remote" ? true : null);
   const source = normalizeStringOrNull(evidence.source);
 
   return {
@@ -542,17 +468,13 @@ export function normalizeLocationEvidence(
     countryKey: country,
     country,
     city,
-    regionHints:
-      "regionHints" in evidence ? (evidence.regionHints ?? null) : null,
+    regionHints: "regionHints" in evidence ? (evidence.regionHints ?? null) : null,
     workplaceType,
     isRemote,
     isHybrid: "isHybrid" in evidence ? (evidence.isHybrid ?? null) : null,
     evidenceQuality:
-      "evidenceQuality" in evidence
-        ? (evidence.evidenceQuality ?? "unknown")
-        : "unknown",
-    sourceNotes:
-      "sourceNotes" in evidence ? (evidence.sourceNotes ?? null) : null,
+      "evidenceQuality" in evidence ? (evidence.evidenceQuality ?? "unknown") : "unknown",
+    sourceNotes: "sourceNotes" in evidence ? (evidence.sourceNotes ?? null) : null,
     source,
   };
 }
@@ -564,8 +486,7 @@ export function getDefaultLocationSourceCapabilities(
     source,
     supportedCountryKeys: createDefaultSupportedCountryKeys(source),
     requiresCityLocations: sourceRequiresCityLocations(source as JobSource),
-    requiresSelectedCountry:
-      source === "adzuna" || source === "glassdoor" || source === "seek",
+    requiresSelectedCountry: source === "adzuna" || source === "glassdoor" || source === "seek",
     supportsNativeRadius: false,
   };
 }
@@ -617,22 +538,16 @@ export function planLocationSource(args: {
   const requestedCountry = intent.selectedCountry;
   const requestedCities = intent.cityLocations;
   const allowRemoteWorldwide =
-    intent.workplaceTypes.includes("remote") &&
-    intent.geoScope !== "selected_only";
-  const prioritizeSelectedLocation =
-    intent.geoScope === "remote_worldwide_prioritize_selected";
-  const usesNativeRadius = Boolean(
-    intent.proximity && capabilities.supportsNativeRadius,
-  );
+    intent.workplaceTypes.includes("remote") && intent.geoScope !== "selected_only";
+  const prioritizeSelectedLocation = intent.geoScope === "remote_worldwide_prioritize_selected";
+  const usesNativeRadius = Boolean(intent.proximity && capabilities.supportsNativeRadius);
 
   let isCompatible = true;
   const reasons: string[] = [];
 
   if (requestedCountry) {
     const supportedCountryKeys = capabilities.supportedCountryKeys;
-    isCompatible =
-      supportedCountryKeys === null ||
-      supportedCountryKeys.includes(requestedCountry);
+    isCompatible = supportedCountryKeys === null || supportedCountryKeys.includes(requestedCountry);
     reasons.push(
       isCompatible
         ? `Selected country ${formatCountryLabel(requestedCountry)} is supported.`
@@ -686,10 +601,7 @@ export function planLocationSources(args: {
   intent: LocationIntentInput | LocationIntent;
   sources: readonly (JobSource | string)[];
   capabilitiesBySource?: Partial<
-    Record<
-      JobSource | string,
-      LocationSourceCapabilitiesInput | LocationSourceCapabilities
-    >
+    Record<JobSource | string, LocationSourceCapabilitiesInput | LocationSourceCapabilities>
   >;
 }): LocationPlanResult {
   const intent = normalizeLocationIntent(args.intent);
@@ -704,12 +616,8 @@ export function planLocationSources(args: {
   return {
     intent,
     plans,
-    compatibleSources: plans
-      .filter((plan) => plan.isCompatible)
-      .map((plan) => plan.source),
-    incompatibleSources: plans
-      .filter((plan) => !plan.isCompatible)
-      .map((plan) => plan.source),
+    compatibleSources: plans.filter((plan) => plan.isCompatible).map((plan) => plan.source),
+    incompatibleSources: plans.filter((plan) => !plan.isCompatible).map((plan) => plan.source),
   };
 }
 
@@ -722,10 +630,7 @@ export function getCompatibleSourcesForLocationIntent(
 
 export function matchLocationIntent(
   intent: LocationIntentInput | LocationIntent,
-  evidence:
-    | LocationEvidenceInput
-    | LocationEvidence
-    | readonly LocationEvidenceEntry[],
+  evidence: LocationEvidenceInput | LocationEvidence | readonly LocationEvidenceEntry[],
 ): LocationMatchResult {
   const normalizedIntent = normalizeLocationIntent(intent);
   const normalizedEvidence = normalizeLocationEvidence(evidence);
@@ -768,24 +673,16 @@ export function matchLocationIntent(
         countryMatched: true,
         cityMatched: true,
         remoteMatched: false,
-        reasons: [
-          `Selected country ${formatCountryLabel(selectedCountry)} matched.`,
-        ],
+        reasons: [`Selected country ${formatCountryLabel(selectedCountry)} matched.`],
       };
     }
 
     const cityMatched = requestedCities.some((requestedCity) => {
-      const strict = shouldApplyStrictCityFilter(
-        requestedCity,
-        selectedCountry,
-      );
+      const strict = shouldApplyStrictCityFilter(requestedCity, selectedCountry);
       if (!strict) return true;
       return (
         matchesRequestedCity(evidenceLocation, requestedCity) ||
-        matchesRequestedCity(
-          normalizedEvidence.city ?? undefined,
-          requestedCity,
-        )
+        matchesRequestedCity(normalizedEvidence.city ?? undefined, requestedCity)
       );
     });
 
@@ -840,9 +737,7 @@ export function matchLocationIntent(
   }
 
   if (allowRemoteWorldwide && !normalizedEvidence.isRemote) {
-    reasons.push(
-      "Remote jobs worldwide were allowed, but the job was not remote.",
-    );
+    reasons.push("Remote jobs worldwide were allowed, but the job was not remote.");
   } else if (!allowRemoteWorldwide) {
     reasons.push("Remote jobs worldwide are not allowed for this intent.");
   }
@@ -861,9 +756,7 @@ export function matchLocationIntent(
   };
 }
 
-export function describeLocationIntent(
-  intent: LocationIntentInput | LocationIntent,
-): string {
+export function describeLocationIntent(intent: LocationIntentInput | LocationIntent): string {
   const normalized = normalizeLocationIntent(intent);
   const selectedGeography = describeSelectedGeography(
     normalized.selectedCountry,
@@ -926,9 +819,7 @@ export function describeLocationIntent(
   return summary;
 }
 
-export function summarizeLocationIntent(
-  intent: LocationIntentInput | LocationIntent,
-): string {
+export function summarizeLocationIntent(intent: LocationIntentInput | LocationIntent): string {
   return describeLocationIntent(intent);
 }
 
@@ -954,10 +845,7 @@ export function isSourceCompatibleWithLocationIntent(
   source: JobSource,
   intent: LocationIntentInput | LocationIntent,
 ): boolean {
-  return isSourceAllowedForCountry(
-    source,
-    normalizeLocationIntent(intent).selectedCountry,
-  );
+  return isSourceAllowedForCountry(source, normalizeLocationIntent(intent).selectedCountry);
 }
 
 export function createLocationIntentFromLegacyInputs(
@@ -967,8 +855,7 @@ export function createLocationIntentFromLegacyInputs(
 ): LocationIntent {
   return normalizeLocationIntent({
     selectedCountry: value.selectedCountry ?? value.country ?? null,
-    cityLocations:
-      value.cityLocations ?? normalizeSearchCitiesInput(value.searchCities),
+    cityLocations: value.cityLocations ?? normalizeSearchCitiesInput(value.searchCities),
     workplaceTypes: value.workplaceTypes ?? [],
     geoScope: value.geoScope ?? value.searchScope ?? null,
     matchStrictness: value.matchStrictness ?? null,
@@ -977,31 +864,21 @@ export function createLocationIntentFromLegacyInputs(
 }
 
 export function buildLocationEvidence(
-  value:
-    | LocationEvidenceInput
-    | LocationEvidence
-    | readonly LocationEvidenceEntry[],
+  value: LocationEvidenceInput | LocationEvidence | readonly LocationEvidenceEntry[],
 ): LocationEvidence {
   return normalizeLocationEvidence(value);
 }
 
-export function getLegacyLocationSelection(
-  intent: LocationIntentInput | LocationIntent,
-): string {
+export function getLegacyLocationSelection(intent: LocationIntentInput | LocationIntent): string {
   return normalizeLocationIntent(intent).selectedCountry ?? "";
 }
 
-export function getPrimaryLocationLabel(
-  intent: LocationIntentInput | LocationIntent,
-): string {
+export function getPrimaryLocationLabel(intent: LocationIntentInput | LocationIntent): string {
   const normalized = normalizeLocationIntent(intent);
   if (normalized.proximity) {
     return `${normalized.proximity.radiusMiles}-mile map area`;
   }
-  return describeSelectedGeography(
-    normalized.selectedCountry,
-    normalized.cityLocations,
-  );
+  return describeSelectedGeography(normalized.selectedCountry, normalized.cityLocations);
 }
 
 export function getSourceLocationPlan(

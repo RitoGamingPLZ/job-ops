@@ -10,10 +10,7 @@ function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function firstText(
-  root: Cheerio<AnyNode>,
-  selectors: string[],
-): string | undefined {
+function firstText(root: Cheerio<AnyNode>, selectors: string[]): string | undefined {
   for (const selector of selectors) {
     const text = normalizeWhitespace(root.find(selector).first().text());
     if (text) return text;
@@ -34,22 +31,16 @@ function createSourceJobId(url: string): string {
 }
 
 function extractPrice(text: string): string | undefined {
-  const match =
-    /(?:\$\s?\d[\d,.]*|\d[\d,.]*\s*(?:دولار|جنيه|ر\.س|ريال|USD))/i.exec(text);
+  const match = /(?:\$\s?\d[\d,.]*|\d[\d,.]*\s*(?:دولار|جنيه|ر\.س|ريال|USD))/i.exec(text);
   return match?.[0]?.trim();
 }
 
-function titleAnchorFor(
-  $: CheerioAPI,
-  card: Cheerio<AnyNode>,
-): Cheerio<AnyNode> {
-  const anchors = card
-    .find('a[href*="/service"], a[href*="/services"]')
-    .filter((_, element) => {
-      const href = $(element).attr("href") ?? "";
-      const text = normalizeWhitespace($(element).text());
-      return text.length > 0 && !href.includes("/user/");
-    });
+function titleAnchorFor($: CheerioAPI, card: Cheerio<AnyNode>): Cheerio<AnyNode> {
+  const anchors = card.find('a[href*="/service"], a[href*="/services"]').filter((_, element) => {
+    const href = $(element).attr("href") ?? "";
+    const text = normalizeWhitespace($(element).text());
+    return text.length > 0 && !href.includes("/user/");
+  });
   return anchors.first();
 }
 
@@ -57,15 +48,10 @@ export function parseFiveamsatServices(html: string): CreateJobInput[] {
   const $ = cheerio.load(html);
   const jobs: CreateJobInput[] = [];
   const seen = new Set<string>();
-  const anchors = $('a[href*="/service"], a[href*="/services"]').filter(
-    (_, element) => {
-      const href = $(element).attr("href") ?? "";
-      return (
-        !href.includes("/user/") &&
-        normalizeWhitespace($(element).text()).length > 0
-      );
-    },
-  );
+  const anchors = $('a[href*="/service"], a[href*="/services"]').filter((_, element) => {
+    const href = $(element).attr("href") ?? "";
+    return !href.includes("/user/") && normalizeWhitespace($(element).text()).length > 0;
+  });
 
   anchors.each((_, anchor) => {
     try {
@@ -92,18 +78,10 @@ export function parseFiveamsatServices(html: string): CreateJobInput[] {
           ".author",
           'a[href*="/user/"]',
         ]) ?? "Khamsat Seller";
-      const description = firstText(root, [
-        '[class*="description"]',
-        '[class*="summary"]',
-        "p",
-      ]);
+      const description = firstText(root, ['[class*="description"]', '[class*="summary"]', "p"]);
       const salary =
-        firstText(root, [
-          '[class*="price"]',
-          '[class*="amount"]',
-          ".price",
-          ".money",
-        ]) ?? extractPrice(rootText);
+        firstText(root, ['[class*="price"]', '[class*="amount"]', ".price", ".money"]) ??
+        extractPrice(rootText);
 
       jobs.push({
         source: "fiveamsat",

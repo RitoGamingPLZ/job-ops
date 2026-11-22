@@ -58,8 +58,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
     },
     ref,
   ) => {
-    const { ref: listRef, scrollMargin } =
-      useWindowScrollMargin<HTMLDivElement>();
+    const { ref: listRef, scrollMargin } = useWindowScrollMargin<HTMLDivElement>();
     const virtualizer = useVirtualizedList({
       count: activeJobs.length,
       mode: "window",
@@ -72,8 +71,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
     useImperativeHandle(
       ref,
       () => ({
-        scrollToIndex: (index, options) =>
-          virtualizer.scrollToIndex(index, options),
+        scrollToIndex: (index, options) => virtualizer.scrollToIndex(index, options),
       }),
       [virtualizer],
     );
@@ -105,11 +103,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
                   </Button>
                 )}
                 {secondaryEmptyStateAction && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={secondaryEmptyStateAction.onClick}
-                  >
+                  <Button size="sm" variant="outline" onClick={secondaryEmptyStateAction.onClick}>
                     {secondaryEmptyStateAction.label}
                   </Button>
                 )}
@@ -133,13 +127,11 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
               <Checkbox
                 id="job-list-select-all"
                 checked={
-                  activeJobs.length > 0 &&
-                  activeJobs.every((job) => selectedJobIds.has(job.id))
+                  activeJobs.length > 0 && activeJobs.every((job) => selectedJobIds.has(job.id))
                 }
                 onCheckedChange={() => {
                   const allSelected =
-                    activeJobs.length > 0 &&
-                    activeJobs.every((job) => selectedJobIds.has(job.id));
+                    activeJobs.length > 0 && activeJobs.every((job) => selectedJobIds.has(job.id));
                   onToggleSelectAll(!allSelected);
                 }}
                 aria-label="Select all filtered jobs"
@@ -164,8 +156,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
 
               const isSelected = job.id === selectedJobId;
               const isChecked = selectedJobIds.has(job.id);
-              const statusToken =
-                statusTokens[job.status] ?? defaultStatusToken;
+              const statusToken = statusTokens[job.status] ?? defaultStatusToken;
               const statusDotClassName = job.appliedDuplicateMatch
                 ? appliedDuplicateIndicator.dot
                 : statusToken.dot;
@@ -184,8 +175,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
                     // Base row layout and hover behavior.
                     "group absolute left-0 top-0 flex w-full items-center gap-3 border-l-2 border-b px-4 py-3 transition-colors cursor-pointer",
                     // selected or checked
-                    (isChecked || isSelected) &&
-                      "shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]",
+                    (isChecked || isSelected) && "shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]",
                     // Checked rows keep their left border and background emphasized.
                     isChecked
                       ? "border-l! border-l-primary bg-primary/15! hover:bg-primary/25!"
@@ -195,9 +185,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
                       ? "bg-primary/15 hover:bg-primary/25"
                       : "border-b-border/40 hover:bg-muted/80",
                     // If the row is both selected and checked, add a subtle focus outline.
-                    isChecked &&
-                      isSelected &&
-                      "bg-primary/40 hover:bg-primary/20",
+                    isChecked && isSelected && "bg-primary/40 hover:bg-primary/20",
                   )}
                   style={{
                     transform: `translateY(${virtualRow.start - scrollMargin}px)`,
@@ -208,9 +196,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
                       className={cn(
                         "absolute inset-0 m-auto h-2 w-2 rounded-full transition-opacity duration-150 ease-out",
                         statusDotClassName,
-                        isChecked || isSelected
-                          ? "opacity-0"
-                          : "opacity-100 group-hover:opacity-0",
+                        isChecked || isSelected ? "opacity-0" : "opacity-100 group-hover:opacity-0",
                       )}
                       title={statusDotTitle}
                     />
@@ -234,11 +220,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
                     className="flex min-w-0 flex-1 cursor-pointer text-left"
                     aria-pressed={isSelected}
                   >
-                    <JobRowContent
-                      job={job}
-                      isSelected={isSelected}
-                      showStatusDot={false}
-                    />
+                    <JobRowContent job={job} isSelected={isSelected} showStatusDot={false} />
                   </button>
                 </div>
               );

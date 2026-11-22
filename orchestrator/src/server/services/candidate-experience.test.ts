@@ -17,10 +17,7 @@ import {
   buildCandidateTailoringContext,
 } from "./candidate-experience";
 
-const bullet = (
-  id: string,
-  extra: Partial<ExperienceBullet> = {},
-): ExperienceBullet => ({
+const bullet = (id: string, extra: Partial<ExperienceBullet> = {}): ExperienceBullet => ({
   id,
   kind: "bullet" as const,
   data: null,
@@ -275,15 +272,11 @@ it("includes library facts and project points, omitting all contact data and unk
     expect(result).toContain(text);
   expect(result).not.toContain("private@example.com");
   expect(result).not.toContain("secret");
-  expect(
-    (await buildCandidateExperienceContext(40))?.length,
-  ).toBeLessThanOrEqual(40);
+  expect((await buildCandidateExperienceContext(40))?.length).toBeLessThanOrEqual(40);
   expect(await buildCandidateExperienceContext(0)).toBe("");
 });
 it("does not use contacts-only libraries as a reason to resurrect legacy facts", async () => {
-  list.mockResolvedValue([
-    bullet("contact", { kind: "contact", text: "private@example.com" }),
-  ]);
+  list.mockResolvedValue([bullet("contact", { kind: "contact", text: "private@example.com" })]);
   expect(await buildCandidateExperienceContext()).toBe("");
 });
 
@@ -305,9 +298,11 @@ it("orders compact year ranges by their end year without breaking ISO months", a
       data: { company: "Gamma", period: "2021-03" },
     }),
   ]);
-  expect(
-    (await buildCandidateExperienceContext())?.match(/(?:Older|Newer|ISO) \(/g),
-  ).toEqual(["ISO (", "Newer (", "Older ("]);
+  expect((await buildCandidateExperienceContext())?.match(/(?:Older|Newer|ISO) \(/g)).toEqual([
+    "ISO (",
+    "Newer (",
+    "Older (",
+  ]);
 });
 it("bounds non-role sections before they can displace a second role", async () => {
   list.mockResolvedValue([

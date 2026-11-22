@@ -354,8 +354,7 @@ const mockPublicAvailability = vi.hoisted(() => ({
 }));
 
 vi.mock("@server/infra/public-availability", () => ({
-  getJobOpsPublicAvailability:
-    mockPublicAvailability.getJobOpsPublicAvailability,
+  getJobOpsPublicAvailability: mockPublicAvailability.getJobOpsPublicAvailability,
   resolvePublicBaseUrl: mockPublicAvailability.resolvePublicBaseUrl,
 }));
 
@@ -385,37 +384,33 @@ vi.mock("./rxresume", async () => {
       mode: "v5",
       data: mockProfile,
     }),
-    prepareTailoredResumeForPdf: vi
-      .fn()
-      .mockImplementation(async (args: any) => {
-        const data = clone(args.resumeData);
-        if (args.tailedContent?.summary || args.tailoredContent?.summary) {
-          const summary = args.tailoredContent?.summary;
-          if (data.summary) data.summary.content = summary;
-        }
-        if (args.tailoredContent?.headline && data.basics) {
-          data.basics.headline = args.tailoredContent.headline;
-        }
+    prepareTailoredResumeForPdf: vi.fn().mockImplementation(async (args: any) => {
+      const data = clone(args.resumeData);
+      if (args.tailedContent?.summary || args.tailoredContent?.summary) {
+        const summary = args.tailoredContent?.summary;
+        if (data.summary) data.summary.content = summary;
+      }
+      if (args.tailoredContent?.headline && data.basics) {
+        data.basics.headline = args.tailoredContent.headline;
+      }
 
-        const selected = (
-          (args.selectedProjectIds as string | null | undefined) ?? ""
-        )
-          .split(",")
-          .map((s) => s.trim())
-          .filter((id) => id === "p2");
-        const selectedSet = new Set(["p1", ...selected]);
-        for (const item of data.sections?.projects?.items ?? []) {
-          item.hidden = !selectedSet.has(item.id);
-        }
-        if (data.sections?.projects) data.sections.projects.hidden = false;
+      const selected = ((args.selectedProjectIds as string | null | undefined) ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter((id) => id === "p2");
+      const selectedSet = new Set(["p1", ...selected]);
+      for (const item of data.sections?.projects?.items ?? []) {
+        item.hidden = !selectedSet.has(item.id);
+      }
+      if (data.sections?.projects) data.sections.projects.hidden = false;
 
-        return {
-          mode: args.mode,
-          data,
-          projectCatalog: [],
-          selectedProjectIds: [...selectedSet],
-        };
-      }),
+      return {
+        mode: args.mode,
+        data,
+        projectCatalog: [],
+        selectedProjectIds: [...selectedSet],
+      };
+    }),
   };
 });
 
@@ -466,9 +461,7 @@ describe("PDF Service Tailoring Logic", () => {
     mockProfile.sections.projects.items[0].description = "";
     mocks.readFile.mockResolvedValue(JSON.stringify(mockProfile));
     mockResumeRenderer.clearLastResumeJson();
-    mockPublicAvailability.resolvePublicBaseUrl.mockReturnValue(
-      "https://jobops.example",
-    );
+    mockPublicAvailability.resolvePublicBaseUrl.mockReturnValue("https://jobops.example");
     mockPublicAvailability.getJobOpsPublicAvailability.mockResolvedValue({
       status: "ready",
       isPubliclyAvailable: true,
@@ -533,12 +526,8 @@ describe("PDF Service Tailoring Logic", () => {
     expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalled();
     const savedResumeJson = mockResumeRenderer.getLastResumeJson();
 
-    const p1 = savedResumeJson.sections.projects.items.find(
-      (p: any) => p.id === "p1",
-    );
-    const p2 = savedResumeJson.sections.projects.items.find(
-      (p: any) => p.id === "p2",
-    );
+    const p1 = savedResumeJson.sections.projects.items.find((p: any) => p.id === "p1");
+    const p2 = savedResumeJson.sections.projects.items.find((p: any) => p.id === "p2");
 
     expect(p1.hidden).toBe(false);
     expect(p2.hidden).toBe(false);
@@ -650,23 +639,23 @@ describe("PDF Service Tailoring Logic", () => {
     );
   });
 
-  it.each([
-    "latex",
-    "typst",
-  ] as const)("passes the configured paper size to the local %s renderer", async (renderer) => {
-    currentPdfRenderer.value = renderer;
-    currentPdfPaperSize.value = "letter";
+  it.each(["latex", "typst"] as const)(
+    "passes the configured paper size to the local %s renderer",
+    async (renderer) => {
+      currentPdfRenderer.value = renderer;
+      currentPdfPaperSize.value = "letter";
 
-    await generatePdf("job-letter-paper", "desc");
+      await generatePdf("job-letter-paper", "desc");
 
-    expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalledWith(
-      expect.objectContaining({
-        jobId: "job-letter-paper",
-        renderer,
-        paperSize: "letter",
-      }),
-    );
-  });
+      expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobId: "job-letter-paper",
+          renderer,
+          paperSize: "letter",
+        }),
+      );
+    },
+  );
 
   it("passes the configured paper size when rendering the Design Resume preview", async () => {
     currentPdfPaperSize.value = "a4";
@@ -769,13 +758,8 @@ describe("PDF Service Tailoring Logic", () => {
         data: expect.any(Object),
       });
       expect(rxresume.exportResumePdf).toHaveBeenCalledWith("temp-resume-id");
-      expect(fetchMock).toHaveBeenCalledWith(
-        "https://pdf.rxresume.test/print/123",
-      );
-      expect(mocks.writeFile).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(Uint8Array),
-      );
+      expect(fetchMock).toHaveBeenCalledWith("https://pdf.rxresume.test/print/123");
+      expect(mocks.writeFile).toHaveBeenCalledWith(expect.any(String), expect.any(Uint8Array));
       expect(mocks.rename).toHaveBeenCalledWith(
         expect.any(String),
         expect.stringContaining("resume_job-rxresume.pdf"),
@@ -788,9 +772,7 @@ describe("PDF Service Tailoring Logic", () => {
 
   it("strips Resume Studio pictures from RxResume export when JobOps is not hosted", async () => {
     currentPdfRenderer.value = "rxresume";
-    mockPublicAvailability.resolvePublicBaseUrl.mockReturnValue(
-      "http://localhost:3005",
-    );
+    mockPublicAvailability.resolvePublicBaseUrl.mockReturnValue("http://localhost:3005");
     mockPublicAvailability.getJobOpsPublicAvailability.mockResolvedValue({
       status: "unavailable",
       isPubliclyAvailable: false,
@@ -798,8 +780,7 @@ describe("PDF Service Tailoring Logic", () => {
       healthUrl: "http://localhost:3005/health",
       checkedAt: 1,
       lastSuccessAt: null,
-      reason:
-        "Configured public URL must be internet-reachable (not localhost/private network).",
+      reason: "Configured public URL must be internet-reachable (not localhost/private network).",
     });
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -856,8 +837,7 @@ describe("PDF Service Tailoring Logic", () => {
       healthUrl: "http://localhost:3005/health",
       checkedAt: 1,
       lastSuccessAt: null,
-      reason:
-        "Configured public URL must be internet-reachable (not localhost/private network).",
+      reason: "Configured public URL must be internet-reachable (not localhost/private network).",
     });
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -906,9 +886,7 @@ describe("PDF Service Tailoring Logic", () => {
   });
 
   it("renders preview bytes without writing to BlobStore, and persists on generate", async () => {
-    const { getBlobStore, setBlobStore } = await import(
-      "@server/infra/blob-store"
-    );
+    const { getBlobStore, setBlobStore } = await import("@server/infra/blob-store");
     const put = vi.fn().mockResolvedValue(undefined);
     const mockStore = {
       ...getBlobStore(),

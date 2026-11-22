@@ -19,13 +19,9 @@ vi.mock("../api", () => ({
 
 // Mock Tooltip components to simplify testing
 vi.mock("@/components/ui/tooltip", () => ({
-  TooltipProvider: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   TooltipContent: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="tooltip-content">{children}</div>
   ),
@@ -45,8 +41,7 @@ const mockJob = createJob({
 });
 
 describe("JobHeader", () => {
-  const renderWithRouter = (ui: React.ReactElement) =>
-    render(<MemoryRouter>{ui}</MemoryRouter>);
+  const renderWithRouter = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter>);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -64,11 +59,7 @@ describe("JobHeader", () => {
   });
 
   it("renders lightweight list data without full-detail indicators", () => {
-    const {
-      isRemote: _isRemote,
-      suitabilityReason: _suitabilityReason,
-      ...summary
-    } = mockJob;
+    const { isRemote: _isRemote, suitabilityReason: _suitabilityReason, ...summary } = mockJob;
 
     renderWithRouter(<JobHeader job={summary as JobListItem} />);
 
@@ -79,9 +70,10 @@ describe("JobHeader", () => {
   it("links the title to the job page", () => {
     renderWithRouter(<JobHeader job={mockJob} />);
 
-    expect(
-      screen.getByRole("link", { name: "Software Engineer" }),
-    ).toHaveAttribute("href", "/job/job-1");
+    expect(screen.getByRole("link", { name: "Software Engineer" })).toHaveAttribute(
+      "href",
+      "/job/job-1",
+    );
   });
 
   it("shows a previously applied status indicator with match details", () => {
@@ -101,15 +93,11 @@ describe("JobHeader", () => {
     renderWithRouter(<JobHeader job={jobWithAppliedDuplicate} />);
 
     expect(screen.getByText("Previously Applied")).toBeInTheDocument();
-    expect(
-      screen.getByText("Applied 1 Apr 2026 · 97% match"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Applied 1 Apr 2026 · 97% match")).toBeInTheDocument();
   });
 
   it("shows posting age when the source provides a posting date", () => {
-    renderWithRouter(
-      <JobHeader job={{ ...mockJob, datePosted: "1 hour ago" }} />,
-    );
+    renderWithRouter(<JobHeader job={{ ...mockJob, datePosted: "1 hour ago" }} />);
 
     expect(screen.getByText("Posted 1 hour ago")).toBeInTheDocument();
     expect(screen.getByText("Source reported: 1 hour ago")).toBeInTheDocument();
@@ -125,20 +113,14 @@ describe("JobHeader", () => {
     renderWithRouter(<JobHeader job={jobWithTooltips} />);
 
     expect(
-      screen.getByText(
-        "Found by the pipeline. Target it to prepare its resume.",
-      ),
+      screen.getByText("Found by the pipeline. Target it to prepare its resume."),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("img", { name: "Suitability score 45" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Suitability score 45" })).toBeInTheDocument();
   });
 
   it("shows interactive suitability button when suitabilityReason is present", () => {
     renderWithRouter(<JobHeader job={mockJob} />);
-    expect(
-      screen.getByRole("button", { name: "View fit assessment" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "View fit assessment" })).toBeInTheDocument();
   });
 
   it("shows discovered jobs without scores as awaiting AI scoring", () => {
@@ -170,9 +152,7 @@ describe("JobHeader", () => {
 
     renderWithRouter(<JobHeader job={readyJob} />);
 
-    expect(
-      screen.getByText("Resume prepared and ready to apply."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Resume prepared and ready to apply.")).toBeInTheDocument();
   });
 
   it("hides sponsor info when showSponsorInfo is false", () => {
@@ -184,9 +164,7 @@ describe("JobHeader", () => {
     renderWithRouter(<JobHeader job={jobWithSponsor} />);
 
     expect(screen.queryByText("Confirmed Sponsor")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Check Sponsorship Status"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Check Sponsorship Status")).not.toBeInTheDocument();
   });
 
   it("hides the view button when already on a job page", () => {
@@ -196,9 +174,7 @@ describe("JobHeader", () => {
       </MemoryRouter>,
     );
 
-    expect(
-      screen.queryByRole("link", { name: /view/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /view/i })).not.toBeInTheDocument();
   });
 
   it("renders View job link next to the score when jobUrl is present off the job page", () => {
@@ -236,15 +212,11 @@ describe("JobHeader", () => {
       </MemoryRouter>,
     );
 
-    expect(
-      screen.queryByRole("link", { name: /view job/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /view job/i })).not.toBeInTheDocument();
   });
 
   it("renders 'Check salary on Levels.fyi' when salary is missing off the job page", () => {
-    const postSpy = vi
-      .spyOn(window, "postMessage")
-      .mockImplementation(() => {});
+    const postSpy = vi.spyOn(window, "postMessage").mockImplementation(() => {});
     const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
 
     render(

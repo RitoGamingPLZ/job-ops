@@ -8,10 +8,7 @@ import { getSetting } from "@server/repositories/settings";
 import { getCurrentAccountEntitlements } from "@server/services/account-entitlements";
 import { enqueueAutoPdfRegenerationForSettingsChanges } from "@server/services/auto-pdf-regeneration";
 import { syncCandidateLibrary } from "@server/services/candidate-library";
-import {
-  getCurrentDesignResume,
-  getDesignResumeStatus,
-} from "@server/services/design-resume";
+import { getCurrentDesignResume, getDesignResumeStatus } from "@server/services/design-resume";
 import { getOriginalEnvValue } from "@server/services/envSettings";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
@@ -94,9 +91,7 @@ export async function validateLlm(options: {
   ]);
 
   const normalizedProvider = normalizeLlmProviderValue(
-    options.provider?.trim() ||
-      storedProvider?.trim() ||
-      (hostedMode ? "openrouter" : undefined),
+    options.provider?.trim() || storedProvider?.trim() || (hostedMode ? "openrouter" : undefined),
   );
   const {
     usesBaseUrl: shouldUseBaseUrl,
@@ -115,14 +110,10 @@ export async function validateLlm(options: {
     allowEnvironmentCredentials: !hostedMode,
   });
 
-  if (
-    hostedMode &&
-    (isHostedLocalProvider(normalizedProvider) || hasCustomUserBaseUrl)
-  ) {
+  if (hostedMode && (isHostedLocalProvider(normalizedProvider) || hasCustomUserBaseUrl)) {
     return {
       valid: false,
-      message:
-        "Hosted LLM providers must use supported public provider endpoints.",
+      message: "Hosted LLM providers must use supported public provider endpoints.",
     };
   }
 
@@ -150,8 +141,7 @@ export async function validateResumeConfig(): Promise<ValidationResponse> {
       return { valid: true, message: null };
     }
 
-    const { resumeId: rxresumeBaseResumeId } =
-      await getConfiguredRxResumeBaseResumeId();
+    const { resumeId: rxresumeBaseResumeId } = await getConfiguredRxResumeBaseResumeId();
 
     if (!rxresumeBaseResumeId) {
       return {
@@ -185,14 +175,11 @@ export async function validateResumeConfig(): Promise<ValidationResponse> {
         };
       }
       const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to fetch resume from RxResume.";
+        error instanceof Error ? error.message : "Failed to fetch resume from RxResume.";
       return { valid: false, message };
     }
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Resume validation failed.";
+    const message = error instanceof Error ? error.message : "Resume validation failed.";
     return { valid: false, message };
   }
 }
@@ -207,12 +194,8 @@ export async function validateRxresume(options?: {
   const storedBaseUrl = await getSetting("rxresumeUrl");
   const resolvedBaseUrl =
     options?.baseUrl !== undefined && options?.baseUrl !== null
-      ? options.baseUrl.trim() ||
-        getOriginalEnvValue("RXRESUME_URL")?.trim() ||
-        "https://rxresu.me"
-      : storedBaseUrl?.trim() ||
-        getOriginalEnvValue("RXRESUME_URL")?.trim() ||
-        "https://rxresu.me";
+      ? options.baseUrl.trim() || getOriginalEnvValue("RXRESUME_URL")?.trim() || "https://rxresu.me"
+      : storedBaseUrl?.trim() || getOriginalEnvValue("RXRESUME_URL")?.trim() || "https://rxresu.me";
 
   if (hasExplicitV5Input && !requestApiKey) {
     return {
@@ -240,15 +223,11 @@ export async function validateRxresume(options?: {
     };
   }
 
-  if (
-    result.status === 401 ||
-    normalizedMessage.includes("invalidcredentials")
-  ) {
+  if (result.status === 401 || normalizedMessage.includes("invalidcredentials")) {
     return {
       valid: false,
       status: result.status,
-      message:
-        "Reactive Resume v5 API key is invalid. Update the API key and try again.",
+      message: "Reactive Resume v5 API key is invalid. Update the API key and try again.",
     };
   }
 
@@ -289,9 +268,7 @@ function isUnavailable(validation: ValidationResponse): boolean {
   ].some((needle) => message.includes(needle));
 }
 
-function classifyValidation(
-  validation: ValidationResponse,
-): OnboardingRequirementStatus {
+function classifyValidation(validation: ValidationResponse): OnboardingRequirementStatus {
   if (validation.valid) return "ready";
   if (isUnavailable(validation)) return "checking_unavailable";
   const message = validation.message?.toLowerCase() ?? "";
@@ -437,8 +414,7 @@ async function buildResumeRequirement(): Promise<OnboardingRequirement> {
     return buildRequirement({
       id: "resume",
       status: confirmedSource === source ? "ready" : "needs_action",
-      title:
-        confirmedSource === source ? "Resume confirmed" : "Review your resume",
+      title: confirmedSource === source ? "Resume confirmed" : "Review your resume",
       message:
         confirmedSource === source
           ? "You confirmed the resume Job Ops should use for matching and applications."
@@ -488,8 +464,7 @@ async function buildResumeRequirement(): Promise<OnboardingRequirement> {
     return buildRequirement({
       id: "resume",
       status: confirmedSource === source ? "ready" : "needs_action",
-      title:
-        confirmedSource === source ? "Resume confirmed" : "Review your resume",
+      title: confirmedSource === source ? "Resume confirmed" : "Review your resume",
       message:
         confirmedSource === source
           ? "You confirmed the Reactive Resume template Job Ops should use."
@@ -576,10 +551,7 @@ async function migrateLegacyOnboardingState(args: {
     const normalizedProvider = normalizeLlmProviderValue(provider);
     update.onboardingLlmCompleted =
       validation.valid &&
-      !(
-        (normalizedProvider === "ollama" || normalizedProvider === "litellm") &&
-        !model?.trim()
-      );
+      !((normalizedProvider === "ollama" || normalizedProvider === "litellm") && !model?.trim());
   }
 
   if (!args.hostedMode) {
@@ -649,10 +621,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatusResponse> {
   const profileRequirement = buildRequirement({
     id: "profile",
     status: profileCompleted === "1" ? "ready" : "needs_action",
-    title:
-      profileCompleted === "1"
-        ? "Search preferences saved"
-        : "Tell us where you want to work",
+    title: profileCompleted === "1" ? "Search preferences saved" : "Tell us where you want to work",
     message:
       profileCompleted === "1"
         ? "Your location and workplace preferences will seed future runs."
@@ -663,19 +632,13 @@ export async function getOnboardingStatus(): Promise<OnboardingStatusResponse> {
     ? [
         profileRequirement,
         await buildModelRequirement(),
-        hostedMode
-          ? await buildHostedResumeRequirement()
-          : await buildResumeRequirement(),
+        hostedMode ? await buildHostedResumeRequirement() : await buildResumeRequirement(),
       ]
     : [
         profileRequirement,
-        hostedMode
-          ? await buildHostedResumeRequirement()
-          : await buildResumeRequirement(),
+        hostedMode ? await buildHostedResumeRequirement() : await buildResumeRequirement(),
       ];
-  const nextRequirement = requirements.find(
-    (requirement) => requirement.status !== "ready",
-  );
+  const nextRequirement = requirements.find((requirement) => requirement.status !== "ready");
 
   return {
     complete: !nextRequirement,
@@ -684,10 +647,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatusResponse> {
   };
 }
 
-async function persistOnboardingSettings(
-  input: UpdateSettingsInput,
-  route: string,
-): Promise<void> {
+async function persistOnboardingSettings(input: UpdateSettingsInput, route: string): Promise<void> {
   const plan = await applySettingsUpdates(input);
   if (plan.shouldClearRxResumeCaches) {
     clearRxResumeResumeCache();
@@ -725,9 +685,7 @@ export async function saveOnboardingModelAction(
   const storedNormalizedProvider = normalizeLlmProviderValue(storedProvider);
   const hasInputModel = Boolean(input.model?.trim());
   const hasSavedOllamaModel =
-    provider === "ollama" &&
-    storedNormalizedProvider === "ollama" &&
-    Boolean(storedModel?.trim());
+    provider === "ollama" && storedNormalizedProvider === "ollama" && Boolean(storedModel?.trim());
 
   const hasSavedLiteLlmModel =
     provider === "litellm" &&
@@ -809,9 +767,7 @@ export async function saveOnboardingProfileAction(
   return getOnboardingStatus();
 }
 
-async function syncCandidateLibraryForOnboardingSource(
-  source: string,
-): Promise<void> {
+async function syncCandidateLibraryForOnboardingSource(source: string): Promise<void> {
   try {
     if (source.startsWith("local:")) {
       const designResume = await getCurrentDesignResume();
@@ -834,15 +790,12 @@ async function syncCandidateLibraryForOnboardingSource(
       }
     }
   } catch (error) {
-    logger.warn(
-      "Failed to sync candidate library during onboarding resume confirmation",
-      {
-        requestId: getRequestId(),
-        route: "POST /api/onboarding/actions/resume/confirm",
-        source,
-        error,
-      },
-    );
+    logger.warn("Failed to sync candidate library during onboarding resume confirmation", {
+      requestId: getRequestId(),
+      route: "POST /api/onboarding/actions/resume/confirm",
+      source,
+      error,
+    });
   }
 }
 
@@ -877,19 +830,15 @@ export async function saveOnboardingRxResumeAction(
 ): Promise<OnboardingStatusResponse> {
   const route = "POST /api/onboarding/actions/rxresume";
   const draftApiKey = input.apiKey?.trim() || undefined;
-  const hasCredentialInput =
-    draftApiKey !== undefined || input.baseUrl !== undefined;
+  const hasCredentialInput = draftApiKey !== undefined || input.baseUrl !== undefined;
   const validation = await validateRxresume(
-    hasCredentialInput
-      ? { apiKey: draftApiKey, baseUrl: input.baseUrl }
-      : undefined,
+    hasCredentialInput ? { apiKey: draftApiKey, baseUrl: input.baseUrl } : undefined,
   );
 
   if (!validation.valid && hasCredentialInput) {
-    throw unprocessableEntity(
-      validation.message || "Reactive Resume could not be verified.",
-      { status: validation.status ?? null },
-    );
+    throw unprocessableEntity(validation.message || "Reactive Resume could not be verified.", {
+      status: validation.status ?? null,
+    });
   }
 
   const update: UpdateSettingsInput = {

@@ -41,9 +41,7 @@ const fixture = () =>
       skills: { items: [] },
     },
   }) as unknown as ReactiveResumeV5Document;
-const suggestion = (
-  overrides: Partial<ResumeSuggestion> = {},
-): ResumeSuggestionV2 => {
+const suggestion = (overrides: Partial<ResumeSuggestion> = {}): ResumeSuggestionV2 => {
   const s = {
     id: "s",
     op: "replace_bullet",
@@ -80,51 +78,37 @@ describe("resume suggestion application", () => {
     expect(result?.sections.experience.items[1].description).toBe(
       original.sections.experience.items[1].description,
     );
-    expect(original.sections.experience.items[0].description).toContain(
-      "Second",
-    );
+    expect(original.sections.experience.items[0].description).toContain("Second");
   });
   it("falls back to the index when previous text is absent", () => {
     expect(
-      applySuggestion(
-        fixture(),
-        suggestion({ previousText: undefined, bulletIndex: 0 }),
-      )?.sections.experience.items[0].description,
+      applySuggestion(fixture(), suggestion({ previousText: undefined, bulletIndex: 0 }))?.sections
+        .experience.items[0].description,
     ).toContain("<li>Improved</li><li>Second</li>");
   });
   it("rejects stale, missing and hidden targets", () => {
-    expect(
-      applySuggestion(fixture(), suggestion({ previousText: "Changed" })),
-    ).toBeNull();
-    expect(
-      applySuggestion(fixture(), suggestion({ experienceId: "missing" })),
-    ).toBeNull();
+    expect(applySuggestion(fixture(), suggestion({ previousText: "Changed" }))).toBeNull();
+    expect(applySuggestion(fixture(), suggestion({ experienceId: "missing" }))).toBeNull();
     const doc = fixture();
     doc.sections.experience.items[0].hidden = true;
     expect(suggestionTarget(doc, suggestion())).toBeNull();
   });
   it("inserts at the end and deletes the matched bullet", () => {
     expect(
-      applySuggestion(
-        fixture(),
-        suggestion({ op: "insert_bullet", bulletIndex: 2 }),
-      )?.sections.experience.items[0].description,
+      applySuggestion(fixture(), suggestion({ op: "insert_bullet", bulletIndex: 2 }))?.sections
+        .experience.items[0].description,
     ).toContain("<li>Second</li><li>Improved</li>");
     expect(
-      applySuggestion(fixture(), suggestion({ op: "delete_bullet" }))?.sections
-        .experience.items[0].description,
+      applySuggestion(fixture(), suggestion({ op: "delete_bullet" }))?.sections.experience.items[0]
+        .description,
     ).toBe("<ul><li>First</li></ul>");
     expect(
-      applySuggestion(
-        fixture(),
-        suggestion({ op: "insert_bullet", bulletIndex: 99 }),
-      ),
+      applySuggestion(fixture(), suggestion({ op: "insert_bullet", bulletIndex: 99 })),
     ).toBeNull();
   });
   it("resolves [A,B,C] insert@0 and delete@2 against the original document", () => {
     const document = fixture();
-    document.sections.experience.items[0].description =
-      "<ul><li>A</li><li>B</li><li>C</li></ul>";
+    document.sections.experience.items[0].description = "<ul><li>A</li><li>B</li><li>C</li></ul>";
     const insert = suggestion({
       id: "insert",
       op: "insert_bullet",
@@ -180,8 +164,8 @@ describe("resume suggestion application", () => {
   });
   it("escapes inserted text and plain summary suggestions", () => {
     expect(
-      applySuggestion(fixture(), suggestion({ text: "<script>&" }))?.sections
-        .experience.items[0].description,
+      applySuggestion(fixture(), suggestion({ text: "<script>&" }))?.sections.experience.items[0]
+        .description,
     ).toContain("&lt;script&gt;&amp;");
     expect(
       applySuggestion(
@@ -206,10 +190,7 @@ describe("resume suggestion application", () => {
       )?.basics.headline,
     ).toBe("Senior Engineer");
     expect(
-      applySuggestion(
-        fixture(),
-        suggestion({ op: "replace_headline", previousText: "Old" }),
-      ),
+      applySuggestion(fixture(), suggestion({ op: "replace_headline", previousText: "Old" })),
     ).toBeNull();
   });
 });
@@ -237,35 +218,24 @@ describe("library bullet drops", () => {
 describe("description-aware suggestions", () => {
   const intro =
     '<p class="kept">First <a href="https://example.com">link</a></p>\n<p><b>Second</b> paragraph.</p>';
-  it.each([
-    "replace_bullet",
-    "insert_bullet",
-    "delete_bullet",
-  ] as const)("preserves original intro for %s", (op) => {
-    const original = fixture();
-    original.sections.experience.items[0].description = `${intro}<ul><li>First</li><li>Second</li></ul>`;
-    const result = applySuggestion(original, suggestion({ op }));
-    expect(
-      result?.sections.experience.items[0].description.startsWith(intro),
-    ).toBe(true);
-  });
+  it.each(["replace_bullet", "insert_bullet", "delete_bullet"] as const)(
+    "preserves original intro for %s",
+    (op) => {
+      const original = fixture();
+      original.sections.experience.items[0].description = `${intro}<ul><li>First</li><li>Second</li></ul>`;
+      const result = applySuggestion(original, suggestion({ op }));
+      expect(result?.sections.experience.items[0].description.startsWith(intro)).toBe(true);
+    },
+  );
   it("treats prose-only descriptions as zero bullets in targeting and batch apply", () => {
     const original = fixture();
     original.sections.experience.items[0].description = intro;
+    expect(suggestionTarget(original, suggestion({ previousText: undefined }))).toBeNull();
     expect(
-      suggestionTarget(original, suggestion({ previousText: undefined })),
+      suggestionTarget(original, suggestion({ op: "delete_bullet", previousText: "First" })),
     ).toBeNull();
     expect(
-      suggestionTarget(
-        original,
-        suggestion({ op: "delete_bullet", previousText: "First" }),
-      ),
-    ).toBeNull();
-    expect(
-      suggestionTarget(
-        original,
-        suggestion({ op: "insert_bullet", bulletIndex: 1 }),
-      ),
+      suggestionTarget(original, suggestion({ op: "insert_bullet", bulletIndex: 1 })),
     ).toBeNull();
     const result = applySuggestions(original, [
       suggestion({
@@ -317,10 +287,9 @@ describe("replace_field", () => {
   it("replaces a plain field", () => {
     expect(suggestionTarget(doc(), field())).toEqual({ old: "MIT" });
     const next = applySuggestion(doc(), field());
-    expect(
-      (next?.sections.education.items[0] as unknown as { school: string })
-        .school,
-    ).toBe("Harvard");
+    expect((next?.sections.education.items[0] as unknown as { school: string }).school).toBe(
+      "Harvard",
+    );
   });
 
   it("writes HTML fields as escaped paragraphs", () => {
@@ -330,9 +299,9 @@ describe("replace_field", () => {
       text: "A <b> & c",
     });
     expect(suggestionTarget(doc(), s)).toEqual({ old: "Old" });
-    expect(
-      applySuggestion(doc(), s)?.sections.awards.items[0].description,
-    ).toBe("<p>A &lt;b&gt; &amp; c</p>");
+    expect(applySuggestion(doc(), s)?.sections.awards.items[0].description).toBe(
+      "<p>A &lt;b&gt; &amp; c</p>",
+    );
   });
 
   it("compares HTML fields as decoded plain text and skips lists", () => {
@@ -363,10 +332,7 @@ describe("replace_field", () => {
   });
 
   it("applies alongside bullet edits", () => {
-    const result = applySuggestions(doc(), [
-      field(),
-      suggestion({ id: "b", text: "New first" }),
-    ]);
+    const result = applySuggestions(doc(), [field(), suggestion({ id: "b", text: "New first" })]);
     expect(result.applied).toEqual(expect.arrayContaining(["s", "b"]));
   });
 });
@@ -406,10 +372,7 @@ describe("linked suggestion lines", () => {
     original.sections.experience.items[0].bulletRefs = ["first", "second"];
     const replaced = applySuggestion(original, suggestion());
     if (!replaced) throw new Error("Expected replacement to apply");
-    expect(replaced.sections.experience.items[0].bulletRefs).toEqual([
-      "first",
-      "second",
-    ]);
+    expect(replaced.sections.experience.items[0].bulletRefs).toEqual(["first", "second"]);
     const inserted = applySuggestion(
       replaced,
       suggestion({
@@ -420,24 +383,14 @@ describe("linked suggestion lines", () => {
       }),
     );
     if (!inserted) throw new Error("Expected insertion to apply");
-    expect(inserted.sections.experience.items[0].bulletRefs).toEqual([
-      null,
-      "first",
-      "second",
-    ]);
+    expect(inserted.sections.experience.items[0].bulletRefs).toEqual([null, "first", "second"]);
     const deleted = applySuggestion(
       inserted,
       suggestion({ op: "delete_bullet", previousText: "First" }),
     );
     if (!deleted) throw new Error("Expected deletion to apply");
-    expect(deleted.sections.experience.items[0].bulletRefs).toEqual([
-      null,
-      "second",
-    ]);
-    expect(original.sections.experience.items[0].bulletRefs).toEqual([
-      "first",
-      "second",
-    ]);
+    expect(deleted.sections.experience.items[0].bulletRefs).toEqual([null, "second"]);
+    expect(original.sections.experience.items[0].bulletRefs).toEqual(["first", "second"]);
   });
   it("rejects blank rewording and permits local field edits on linked entries", () => {
     const original = fixture();
@@ -530,9 +483,7 @@ describe("V2 document operations", () => {
       previousTexts: ["A", "B"],
       order: [1, 0],
     };
-    expect(
-      applySuggestion(doc(), s)?.sections.projects.items[0].bulletRefs,
-    ).toEqual(["b", "a"]);
+    expect(applySuggestion(doc(), s)?.sections.projects.items[0].bulletRefs).toEqual(["b", "a"]);
     for (const order of [[0], [0, 0], [1, 2], [0, 1, 2]])
       expect(applySuggestion(doc(), { ...s, order })).toBeNull();
   });
@@ -566,14 +517,8 @@ describe("V2 document operations", () => {
       libraryId: "new",
     };
     const result = applySuggestion(doc(), s, library);
-    expect(result?.sections.projects.items[0].bulletRefs).toEqual([
-      "a",
-      "new",
-      "b",
-    ]);
-    expect(
-      applySuggestion(doc(), s, [{ ...library[0], parentId: "foreign" }]),
-    ).toBeNull();
+    expect(result?.sections.projects.items[0].bulletRefs).toEqual(["a", "new", "b"]);
+    expect(applySuggestion(doc(), s, [{ ...library[0], parentId: "foreign" }])).toBeNull();
     if (!result) throw new Error("Expected linked insert");
     expect(applySuggestion(result, s, library)).toBeNull();
   });
@@ -587,17 +532,11 @@ describe("V2 document operations", () => {
       section: "experience",
       itemIds: ["two", "one"],
     };
-    expect(
-      applySuggestion(original, reorder)?.sections.experience.items.map(
-        (i) => i.id,
-      ),
-    ).toEqual(["two", "one"]);
-    for (const itemIds of [
-      ["one"],
-      ["one", "one"],
-      ["one", "foreign"],
-      ["one", "two", "extra"],
-    ])
+    expect(applySuggestion(original, reorder)?.sections.experience.items.map((i) => i.id)).toEqual([
+      "two",
+      "one",
+    ]);
+    for (const itemIds of [["one"], ["one", "one"], ["one", "foreign"], ["one", "two", "extra"]])
       expect(applySuggestion(original, { ...reorder, itemIds })).toBeNull();
     const added = applySuggestion(original, {
       id: "add",
@@ -644,64 +583,58 @@ it("includes hidden library entries, excludes them, and never writes the library
   expect(included?.sections.experience.items[0].hidden).toBe(false);
   expect(item.hidden).toBe(true);
   if (!included) throw new Error("Expected include");
-  const excluded = applySuggestion(
-    included,
-    { ...include, op: "exclude_library_item" },
-    library,
-  );
+  const excluded = applySuggestion(included, { ...include, op: "exclude_library_item" }, library);
   expect(excluded?.sections.experience.items.map((i) => i.id)).toEqual(["two"]);
   expect(library).toEqual([{ id: "role", kind: "role", text: "Role" }]);
 });
 
 describe("batch line targeting after library membership changes", () => {
-  it.each([
-    "replace_bullet",
-    "delete_bullet",
-  ] as const)("resolves %s by current text and keeps the correct ref", (op) => {
-    const document = fixture();
-    document.customSections = [];
-    document.sections.experience.items[0] = {
-      ...document.sections.experience.items[0],
-      libraryId: "role",
-      description: "<ul><li>A</li><li>B</li><li>C</li><li>D</li></ul>",
-      bulletRefs: ["a", "b", "c", "d"],
-    };
-    const library = [
-      { id: "b", kind: "bullet", parentId: "role", text: "B" },
-    ] as import("@shared/types").ExperienceBullet[];
-    const result = applySuggestions(
-      document,
-      [
-        {
-          id: "exclude",
-          reason: "Review",
-          op: "exclude_library_item",
-          libraryId: "b",
-        },
-        {
-          id: "edit",
-          reason: "Review",
-          op,
-          section: "experience",
-          itemId: "one",
-          bulletIndex: 2,
-          previousText: "C",
-          ...(op === "replace_bullet" ? { text: "C2" } : {}),
-        } as ResumeSuggestionV2,
-      ],
-      library,
-    );
-    const item = result.document.sections.experience.items[0];
-    expect(item.description).toBe(
-      op === "replace_bullet"
-        ? "<ul><li>A</li><li>C2</li><li>D</li></ul>"
-        : "<ul><li>A</li><li>D</li></ul>",
-    );
-    expect(item.bulletRefs).toEqual(
-      op === "replace_bullet" ? ["a", "c", "d"] : ["a", "d"],
-    );
-    expect(result.applied).toEqual(["edit", "exclude"]);
-  });
+  it.each(["replace_bullet", "delete_bullet"] as const)(
+    "resolves %s by current text and keeps the correct ref",
+    (op) => {
+      const document = fixture();
+      document.customSections = [];
+      document.sections.experience.items[0] = {
+        ...document.sections.experience.items[0],
+        libraryId: "role",
+        description: "<ul><li>A</li><li>B</li><li>C</li><li>D</li></ul>",
+        bulletRefs: ["a", "b", "c", "d"],
+      };
+      const library = [
+        { id: "b", kind: "bullet", parentId: "role", text: "B" },
+      ] as import("@shared/types").ExperienceBullet[];
+      const result = applySuggestions(
+        document,
+        [
+          {
+            id: "exclude",
+            reason: "Review",
+            op: "exclude_library_item",
+            libraryId: "b",
+          },
+          {
+            id: "edit",
+            reason: "Review",
+            op,
+            section: "experience",
+            itemId: "one",
+            bulletIndex: 2,
+            previousText: "C",
+            ...(op === "replace_bullet" ? { text: "C2" } : {}),
+          } as ResumeSuggestionV2,
+        ],
+        library,
+      );
+      const item = result.document.sections.experience.items[0];
+      expect(item.description).toBe(
+        op === "replace_bullet"
+          ? "<ul><li>A</li><li>C2</li><li>D</li></ul>"
+          : "<ul><li>A</li><li>D</li></ul>",
+      );
+      expect(item.bulletRefs).toEqual(op === "replace_bullet" ? ["a", "c", "d"] : ["a", "d"]);
+      expect(result.applied).toEqual(["edit", "exclude"]);
+    },
+  );
   it("includes a line by unhiding both its existing parent and section", () => {
     const document = fixture();
     document.customSections = [];
@@ -745,79 +678,77 @@ describe("snapshot positions before library membership changes", () => {
   const library = [
     { id: "b", kind: "bullet", parentId: "role", text: "B" },
   ] as import("@shared/types").ExperienceBullet[];
-  it.each([
-    3, 4,
-  ])("inserts at snapshot position %i before excluding an earlier line", (bulletIndex) => {
-    const result = applySuggestions(
-      original(),
-      [
-        {
-          id: "exclude",
-          reason: "Review",
-          op: "exclude_library_item",
-          libraryId: "b",
-        },
-        {
-          id: "insert",
-          reason: "Review",
-          op: "insert_bullet",
-          section: "experience",
-          itemId: "one",
-          bulletIndex,
-          text: "New",
-        },
-      ],
-      library,
-    );
-    const item = result.document.sections.experience.items[0];
-    expect(item.description).toBe(
-      bulletIndex === 3
-        ? "<ul><li>A</li><li>C</li><li>New</li><li>D</li></ul>"
-        : "<ul><li>A</li><li>C</li><li>D</li><li>New</li></ul>",
-    );
-    expect(item.bulletRefs).toEqual(
-      bulletIndex === 3 ? ["a", "c", null, "d"] : ["a", "c", "d", null],
-    );
-    expect(result.applied).toEqual(["insert", "exclude"]);
-  });
-  it.each([
-    "replace_bullet",
-    "delete_bullet",
-  ] as const)("targets the second linked duplicate for %s after excluding b", (op) => {
-    const document = original();
-    document.sections.experience.items[0].description =
-      "<ul><li>X</li><li>B</li><li>X</li></ul>";
-    document.sections.experience.items[0].bulletRefs = ["x1", "b", "x2"];
-    const result = applySuggestions(
-      document,
-      [
-        {
-          id: "exclude",
-          reason: "Review",
-          op: "exclude_library_item",
-          libraryId: "b",
-        },
-        {
-          id: "edit",
-          reason: "Review",
-          op,
-          section: "experience",
-          itemId: "one",
-          bulletIndex: 2,
-          previousText: "X",
-          ...(op === "replace_bullet" ? { text: "Y" } : {}),
-        } as ResumeSuggestionV2,
-      ],
-      library,
-    );
-    expect(result.document.sections.experience.items[0]).toMatchObject({
-      description:
-        op === "replace_bullet"
-          ? "<ul><li>X</li><li>Y</li></ul>"
-          : "<ul><li>X</li></ul>",
-      bulletRefs: op === "replace_bullet" ? ["x1", "x2"] : ["x1"],
-    });
-  });
+  it.each([3, 4])(
+    "inserts at snapshot position %i before excluding an earlier line",
+    (bulletIndex) => {
+      const result = applySuggestions(
+        original(),
+        [
+          {
+            id: "exclude",
+            reason: "Review",
+            op: "exclude_library_item",
+            libraryId: "b",
+          },
+          {
+            id: "insert",
+            reason: "Review",
+            op: "insert_bullet",
+            section: "experience",
+            itemId: "one",
+            bulletIndex,
+            text: "New",
+          },
+        ],
+        library,
+      );
+      const item = result.document.sections.experience.items[0];
+      expect(item.description).toBe(
+        bulletIndex === 3
+          ? "<ul><li>A</li><li>C</li><li>New</li><li>D</li></ul>"
+          : "<ul><li>A</li><li>C</li><li>D</li><li>New</li></ul>",
+      );
+      expect(item.bulletRefs).toEqual(
+        bulletIndex === 3 ? ["a", "c", null, "d"] : ["a", "c", "d", null],
+      );
+      expect(result.applied).toEqual(["insert", "exclude"]);
+    },
+  );
+  it.each(["replace_bullet", "delete_bullet"] as const)(
+    "targets the second linked duplicate for %s after excluding b",
+    (op) => {
+      const document = original();
+      document.sections.experience.items[0].description = "<ul><li>X</li><li>B</li><li>X</li></ul>";
+      document.sections.experience.items[0].bulletRefs = ["x1", "b", "x2"];
+      const result = applySuggestions(
+        document,
+        [
+          {
+            id: "exclude",
+            reason: "Review",
+            op: "exclude_library_item",
+            libraryId: "b",
+          },
+          {
+            id: "edit",
+            reason: "Review",
+            op,
+            section: "experience",
+            itemId: "one",
+            bulletIndex: 2,
+            previousText: "X",
+            ...(op === "replace_bullet" ? { text: "Y" } : {}),
+          } as ResumeSuggestionV2,
+        ],
+        library,
+      );
+      expect(result.document.sections.experience.items[0]).toMatchObject({
+        description:
+          op === "replace_bullet" ? "<ul><li>X</li><li>Y</li></ul>" : "<ul><li>X</li></ul>",
+        bulletRefs: op === "replace_bullet" ? ["x1", "x2"] : ["x1"],
+      });
+    },
+  );
   it("prefers the snapshot ref over a newly introduced closer text match", () => {
     const document = original();
     document.sections.experience.items[0].description =
@@ -888,13 +819,12 @@ describe("snapshot positions before library membership changes", () => {
           item: { company: "New company", position: "New role" },
         },
       ],
-      [
-        { id: "role", kind: "role", text: "Role" },
-      ] as import("@shared/types").ExperienceBullet[],
+      [{ id: "role", kind: "role", text: "Role" }] as import("@shared/types").ExperienceBullet[],
     );
-    expect(
-      result.document.sections.experience.items.map((item) => item.id),
-    ).toEqual(["two", "cowork-entry-add"]);
+    expect(result.document.sections.experience.items.map((item) => item.id)).toEqual([
+      "two",
+      "cowork-entry-add",
+    ]);
     expect(result.applied).toEqual(["add", "exclude"]);
   });
 });
@@ -923,13 +853,8 @@ describe("skills acceptance guards", () => {
       keywords: ["TS"],
     };
     const next = applySuggestion(doc, update);
-    expect(next?.sections.skills.items).toEqual([
-      { ...visible, keywords: ["TS"] },
-      hidden,
-    ]);
-    expect(
-      applySuggestion(doc, { ...update, previousKeywords: ["old"] }),
-    ).toBeNull();
+    expect(next?.sections.skills.items).toEqual([{ ...visible, keywords: ["TS"] }, hidden]);
+    expect(applySuggestion(doc, { ...update, previousKeywords: ["old"] })).toBeNull();
     doc.sections.skills.hidden = true;
     expect(applySuggestion(doc, update)).toBeNull();
   });
@@ -982,9 +907,7 @@ describe("skills acceptance guards", () => {
       }),
       library,
     );
-    expect(next && getItemLines(next.sections.experience.items[0])[0].ref).toBe(
-      "bullet",
-    );
+    expect(next && getItemLines(next.sections.experience.items[0])[0].ref).toBe("bullet");
   });
   it("rejects reinserting a cited library line already on the resume", () => {
     const original = fixture();
@@ -1001,9 +924,7 @@ describe("skills acceptance guards", () => {
     });
     const next = applySuggestion(original, insert, library);
     if (!next) throw new Error("Expected insertion to apply");
-    expect(getItemLines(next.sections.experience.items[0])[0].ref).toBe(
-      "available",
-    );
+    expect(getItemLines(next.sections.experience.items[0])[0].ref).toBe("available");
     const again = applySuggestion(next, insert, library);
     expect(again).toBeNull();
   });

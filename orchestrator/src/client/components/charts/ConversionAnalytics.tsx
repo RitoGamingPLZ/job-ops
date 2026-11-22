@@ -1,8 +1,4 @@
-import {
-  getLocalDayRange,
-  parseLocalDateKey,
-  toLocalDateKey,
-} from "@client/lib/local-calendar";
+import { getLocalDayRange, parseLocalDateKey, toLocalDateKey } from "@client/lib/local-calendar";
 /**
  * Conversion Analytics
  * Shows Application → Response conversion metrics including funnel, time-series, and insights.
@@ -24,13 +20,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { ChartKpiPanel } from "./ChartKpiPanel";
 
@@ -199,11 +189,7 @@ const buildConversionTimeSeries = (
     for (
       let windowDay = new Date(windowStart);
       windowDay <= day;
-      windowDay = new Date(
-        windowDay.getFullYear(),
-        windowDay.getMonth(),
-        windowDay.getDate() + 1,
-      )
+      windowDay = new Date(windowDay.getFullYear(), windowDay.getMonth(), windowDay.getDate() + 1)
     ) {
       const windowKey = toLocalDateKey(windowDay);
       const jobs = jobsByDate.get(windowKey) ?? [];
@@ -212,17 +198,14 @@ const buildConversionTimeSeries = (
         appliedCount++;
 
         // Check if reached any conversion stage
-        const reachedConversion = job.events.some((event) =>
-          CONVERSION_STAGES.has(event.toStage),
-        );
+        const reachedConversion = job.events.some((event) => CONVERSION_STAGES.has(event.toStage));
         if (reachedConversion) {
           convertedCount++;
         }
       }
     }
 
-    const conversionRate =
-      appliedCount > 0 ? (convertedCount / appliedCount) * 100 : 0;
+    const conversionRate = appliedCount > 0 ? (convertedCount / appliedCount) * 100 : 0;
 
     data.push({
       date: key,
@@ -246,9 +229,7 @@ const calculateOverallConversion = (
     if (!job.appliedAt) continue;
     total++;
 
-    const reachedConversion = job.events.some((event) =>
-      CONVERSION_STAGES.has(event.toStage),
-    );
+    const reachedConversion = job.events.some((event) => CONVERSION_STAGES.has(event.toStage));
     if (reachedConversion) {
       converted++;
     }
@@ -315,10 +296,7 @@ export function ConversionAnalytics({
               <h4 className="mb-3 text-sm font-medium text-muted-foreground">
                 Funnel: Applied → Screening → Interview → Offer → Reject
               </h4>
-              <ChartContainer
-                config={chartConfig}
-                className="aspect-auto h-[200px] w-full"
-              >
+              <ChartContainer config={chartConfig} className="aspect-auto h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={funnelData}
@@ -373,10 +351,7 @@ export function ConversionAnalytics({
                   -day average)
                 </h4>
               </div>
-              <ChartContainer
-                config={chartConfig}
-                className="aspect-auto h-[200px] w-full"
-              >
+              <ChartContainer config={chartConfig} className="aspect-auto h-[200px] w-full">
                 <LineChart
                   data={conversionTimeSeries}
                   margin={{ left: 12, right: 12, top: 5, bottom: 5 }}
@@ -410,9 +385,7 @@ export function ConversionAnalytics({
                       return (
                         <div className="rounded-lg border border-border/60 bg-background px-3 py-2 text-xs shadow-sm">
                           <div className="mb-2 text-[11px] font-medium text-muted-foreground">
-                            {parseLocalDateKey(
-                              label as string,
-                            ).toLocaleDateString("en-GB", {
+                            {parseLocalDateKey(label as string).toLocaleDateString("en-GB", {
                               month: "short",
                               day: "numeric",
                               year: "numeric",
@@ -420,9 +393,7 @@ export function ConversionAnalytics({
                           </div>
                           <div className="space-y-1">
                             <div className="flex items-center justify-between gap-3">
-                              <span className="text-muted-foreground">
-                                Conversion Rate
-                              </span>
+                              <span className="text-muted-foreground">Conversion Rate</span>
                               <span className="font-semibold text-foreground">
                                 {data.conversionRate.toFixed(1)}%
                               </span>
@@ -436,9 +407,7 @@ export function ConversionAnalytics({
                               </span>
                             </div>
                             <div className="flex items-center justify-between gap-3">
-                              <span className="text-muted-foreground">
-                                Converted
-                              </span>
+                              <span className="text-muted-foreground">Converted</span>
                               <span className="font-semibold text-foreground">
                                 {data.convertedCount}
                               </span>

@@ -1,7 +1,4 @@
-import type {
-  ExtractorManifest,
-  ExtractorRuntimeContext,
-} from "@shared/types/extractors";
+import type { ExtractorManifest, ExtractorRuntimeContext } from "@shared/types/extractors";
 import { runCrawler } from "./src/run";
 
 export const manifest: ExtractorManifest = {

@@ -7,9 +7,7 @@ describe("isConfigurationFailure", () => {
   });
 
   it("flags rejected credentials", () => {
-    expect(isConfigurationFailure("LLM API error: 401 - Invalid API key")).toBe(
-      true,
-    );
+    expect(isConfigurationFailure("LLM API error: 401 - Invalid API key")).toBe(true);
     expect(isConfigurationFailure("LLM API error: 403 - Forbidden")).toBe(true);
   });
 
@@ -25,24 +23,14 @@ describe("isConfigurationFailure", () => {
   it("does not flag transient provider faults", () => {
     expect(isConfigurationFailure("No content in response")).toBe(false);
     expect(isConfigurationFailure("Rate limit exceeded")).toBe(false);
-    expect(isConfigurationFailure("LLM API error: 429 - slow down")).toBe(
-      false,
-    );
-    expect(isConfigurationFailure("LLM API error: 500 - internal error")).toBe(
-      false,
-    );
+    expect(isConfigurationFailure("LLM API error: 429 - slow down")).toBe(false);
+    expect(isConfigurationFailure("LLM API error: 500 - internal error")).toBe(false);
     expect(isConfigurationFailure("Request timed out")).toBe(false);
-    expect(
-      isConfigurationFailure("Unable to parse JSON from model response"),
-    ).toBe(false);
+    expect(isConfigurationFailure("Unable to parse JSON from model response")).toBe(false);
   });
 
   it("does not flag a 404 or other 4xx as configuration", () => {
-    expect(isConfigurationFailure("LLM API error: 404 - not found")).toBe(
-      false,
-    );
-    expect(isConfigurationFailure("LLM API error: 400 - bad request")).toBe(
-      false,
-    );
+    expect(isConfigurationFailure("LLM API error: 404 - not found")).toBe(false);
+    expect(isConfigurationFailure("LLM API error: 400 - bad request")).toBe(false);
   });
 });

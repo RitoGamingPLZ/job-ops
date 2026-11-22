@@ -10,9 +10,7 @@ describe("runStartupJobs", () => {
   });
 
   it("falls back to the default max jobs per term when options.maxJobsPerTerm is NaN", async () => {
-    const { scrapeStartupJobsViaAlgolia } = await import(
-      "startup-jobs-scraper"
-    );
+    const { scrapeStartupJobsViaAlgolia } = await import("startup-jobs-scraper");
     const scrapeMock = vi.mocked(scrapeStartupJobsViaAlgolia);
     scrapeMock.mockResolvedValueOnce([]);
 
@@ -31,9 +29,7 @@ describe("runStartupJobs", () => {
   });
 
   it("drops broad location sentinels and falls back to selectedCountry behavior", async () => {
-    const { scrapeStartupJobsViaAlgolia } = await import(
-      "startup-jobs-scraper"
-    );
+    const { scrapeStartupJobsViaAlgolia } = await import("startup-jobs-scraper");
     const scrapeMock = vi.mocked(scrapeStartupJobsViaAlgolia);
     scrapeMock.mockResolvedValueOnce([]);
 
@@ -53,9 +49,7 @@ describe("runStartupJobs", () => {
   });
 
   it("normalizes explicit city-country aliases before passing location to the scraper", async () => {
-    const { scrapeStartupJobsViaAlgolia } = await import(
-      "startup-jobs-scraper"
-    );
+    const { scrapeStartupJobsViaAlgolia } = await import("startup-jobs-scraper");
     const scrapeMock = vi.mocked(scrapeStartupJobsViaAlgolia);
     scrapeMock.mockResolvedValueOnce([]);
 
@@ -74,9 +68,7 @@ describe("runStartupJobs", () => {
   });
 
   it("passes workplaceType to the scraper", async () => {
-    const { scrapeStartupJobsViaAlgolia } = await import(
-      "startup-jobs-scraper"
-    );
+    const { scrapeStartupJobsViaAlgolia } = await import("startup-jobs-scraper");
     const scrapeMock = vi.mocked(scrapeStartupJobsViaAlgolia);
     scrapeMock.mockResolvedValueOnce([]);
 
@@ -95,9 +87,7 @@ describe("runStartupJobs", () => {
   });
 
   it("maps onsite workplaceType to the scraper's on-site value", async () => {
-    const { scrapeStartupJobsViaAlgolia } = await import(
-      "startup-jobs-scraper"
-    );
+    const { scrapeStartupJobsViaAlgolia } = await import("startup-jobs-scraper");
     const scrapeMock = vi.mocked(scrapeStartupJobsViaAlgolia);
     scrapeMock.mockResolvedValueOnce([]);
 
@@ -116,9 +106,7 @@ describe("runStartupJobs", () => {
   });
 
   it("propagates the scraper published date into datePosted", async () => {
-    const { scrapeStartupJobsViaAlgolia } = await import(
-      "startup-jobs-scraper"
-    );
+    const { scrapeStartupJobsViaAlgolia } = await import("startup-jobs-scraper");
     const scrapeMock = vi.mocked(scrapeStartupJobsViaAlgolia);
     scrapeMock.mockResolvedValueOnce([
       {
@@ -139,9 +127,7 @@ describe("runStartupJobs", () => {
   });
 
   it("does not persist a generic company-profile link as the employer", async () => {
-    const { scrapeStartupJobsViaAlgolia } = await import(
-      "startup-jobs-scraper"
-    );
+    const { scrapeStartupJobsViaAlgolia } = await import("startup-jobs-scraper");
     vi.mocked(scrapeStartupJobsViaAlgolia).mockResolvedValueOnce([
       {
         title: "Machine Learning Intern",
@@ -158,9 +144,7 @@ describe("runStartupJobs", () => {
   });
 
   it("preserves a real employer name even when an employer URL is present", async () => {
-    const { scrapeStartupJobsViaAlgolia } = await import(
-      "startup-jobs-scraper"
-    );
+    const { scrapeStartupJobsViaAlgolia } = await import("startup-jobs-scraper");
     vi.mocked(scrapeStartupJobsViaAlgolia).mockResolvedValueOnce([
       {
         title: "Software Engineer",

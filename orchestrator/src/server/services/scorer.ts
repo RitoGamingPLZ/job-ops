@@ -130,11 +130,7 @@ const SCORING_SCHEMA: JsonSchemaDefinition = {
           properties: {
             field: { type: "string", enum: [...PATCHABLE_JOB_FIELDS] },
             value: {
-              anyOf: [
-                { type: "string" },
-                { type: "number" },
-                { type: "boolean" },
-              ],
+              anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
             },
             confidence: {
               type: "string",
@@ -217,11 +213,7 @@ const NON_SOURCE_JOB_FIELDS = new Set<keyof Job>([
  * Returns true for null, empty string, or whitespace-only strings.
  */
 function isSalaryMissing(job: Job): boolean {
-  return (
-    !job.salary?.trim() &&
-    job.salaryMinAmount == null &&
-    job.salaryMaxAmount == null
-  );
+  return !job.salary?.trim() && job.salaryMinAmount == null && job.salaryMaxAmount == null;
 }
 
 /**
@@ -291,8 +283,7 @@ export async function scoreJobSuitability(
   const prompt = buildScoringPrompt(job, promptProfile, {
     instructions: scoringInstructions,
     promptTemplate:
-      settings.scoringPromptTemplate?.value ??
-      getDefaultPromptTemplate("scoringPromptTemplate"),
+      settings.scoringPromptTemplate?.value ?? getDefaultPromptTemplate("scoringPromptTemplate"),
   });
 
   const llm = await createConfiguredLlmService("scoring");
@@ -341,10 +332,7 @@ export async function scoreJobSuitability(
 
   const clampedScore = Math.min(100, Math.max(0, Math.round(score)));
   const clampedReason = reason || "No explanation provided";
-  const patchResult = validateAndApplyJobPatches(
-    job,
-    result.data.jobPatches ?? [],
-  );
+  const patchResult = validateAndApplyJobPatches(job, result.data.jobPatches ?? []);
 
   if (patchResult.accepted.length > 0 || patchResult.rejected.length > 0) {
     logger.info("Reviewed AI job fact patches", {
@@ -361,15 +349,10 @@ export async function scoreJobSuitability(
   }
 
   // Apply salary penalty if enabled
-  const penaltyResult = applySalaryPenalty(
-    patchResult.patchedJob,
-    clampedScore,
-    clampedReason,
-    {
-      penalizeMissingSalary: settings.penalizeMissingSalary.value,
-      missingSalaryPenalty: settings.missingSalaryPenalty.value,
-    },
-  );
+  const penaltyResult = applySalaryPenalty(patchResult.patchedJob, clampedScore, clampedReason, {
+    penalizeMissingSalary: settings.penalizeMissingSalary.value,
+    missingSalaryPenalty: settings.missingSalaryPenalty.value,
+  });
 
   return {
     score: penaltyResult.score,
@@ -423,10 +406,7 @@ export function parseJsonFromContent(
 
   // Fix unquoted keys: word: -> "word":
   // Be more careful - only match at start of object or after comma
-  sanitized = sanitized.replace(
-    /([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g,
-    '$1"$2":',
-  );
+  sanitized = sanitized.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
 
   // Fix single quotes to double quotes
   sanitized = sanitized.replace(/'/g, '"');
@@ -451,14 +431,10 @@ export function parseJsonFromContent(
 
   // Step 6: Even more aggressive - try to rebuild a minimal valid JSON
   // by extracting just the score and reason values
-  const scoreMatch = originalContent.match(
-    /["']?score["']?\s*[:=]\s*(\d+(?:\.\d+)?)/i,
-  );
+  const scoreMatch = originalContent.match(/["']?score["']?\s*[:=]\s*(\d+(?:\.\d+)?)/i);
   const reasonMatch =
     originalContent.match(/["']?reason["']?\s*[:=]\s*["']([^"'\n]+)["']/i) ||
-    originalContent.match(
-      /["']?reason["']?\s*[:=]\s*["']?(.*?)["']?\s*[,}\n]/is,
-    );
+    originalContent.match(/["']?reason["']?\s*[:=]\s*["']?(.*?)["']?\s*[,}\n]/is);
 
   if (scoreMatch) {
     const score = Math.round(parseFloat(scoreMatch[1]));
@@ -490,9 +466,7 @@ function buildScoringPrompt(
   const jobDescription = stripHtmlTags(job.jobDescription ?? "") || null;
   const jobJson = JSON.stringify({
     ...Object.fromEntries(
-      Object.entries(job).filter(
-        ([key]) => !NON_SOURCE_JOB_FIELDS.has(key as keyof Job),
-      ),
+      Object.entries(job).filter(([key]) => !NON_SOURCE_JOB_FIELDS.has(key as keyof Job)),
     ),
     jobDescription,
   });
@@ -512,9 +486,7 @@ function buildScoringPrompt(
   })}\n\nJOB DATA (JSON):\n${jobJson}\n\n${SCORING_OUTPUT_INSTRUCTIONS}`;
 }
 
-function sanitizeProfileForPrompt(
-  profile: Record<string, unknown>,
-): Record<string, unknown> {
+function sanitizeProfileForPrompt(profile: Record<string, unknown>): Record<string, unknown> {
   return {
     basics: sanitizeBasics(profile.basics),
     skills: sanitizeItems(profile, "skills", [
@@ -553,11 +525,7 @@ function sanitizeProfileForPrompt(
       "summary",
       "description",
     ]),
-    languages: sanitizeItems(profile, "languages", [
-      "language",
-      "fluency",
-      "level",
-    ]),
+    languages: sanitizeItems(profile, "languages", ["language", "fluency", "level"]),
     awards: sanitizeItems(profile, "awards", [
       "title",
       "awarder",
@@ -588,12 +556,7 @@ function sanitizeProfileForPrompt(
       "summary",
       "description",
     ]),
-    interests: sanitizeItems(profile, "interests", [
-      "name",
-      "summary",
-      "description",
-      "keywords",
-    ]),
+    interests: sanitizeItems(profile, "interests", ["name", "summary", "description", "keywords"]),
   };
 }
 
@@ -613,10 +576,7 @@ function sanitizeItems(
     .filter((item) => Object.keys(item).length > 0);
 }
 
-function collectSectionItems(
-  profile: ProfileRecord,
-  sectionKey: string,
-): ProfileRecord[] {
+function collectSectionItems(profile: ProfileRecord, sectionKey: string): ProfileRecord[] {
   const sections = isRecord(profile.sections) ? profile.sections : {};
   const section = sections[sectionKey];
 
@@ -639,18 +599,13 @@ function collectSectionItems(
   return [];
 }
 
-function sanitizeCvItem(
-  item: ProfileRecord,
-  allowedKeys: string[],
-): ProfileRecord {
+function sanitizeCvItem(item: ProfileRecord, allowedKeys: string[]): ProfileRecord {
   const sanitized = pickDefined(item, allowedKeys);
   if (Array.isArray(item.roles)) {
     const roles = item.roles
       .filter(isRecord)
       .filter(isVisibleCvItem)
-      .map((role) =>
-        pickDefined(role, ["position", "period", "summary", "description"]),
-      )
+      .map((role) => pickDefined(role, ["position", "period", "summary", "description"]))
       .filter((role) => Object.keys(role).length > 0);
     if (roles.length > 0) sanitized.roles = roles;
   }

@@ -6,8 +6,8 @@ import { getCompaniesWithJobs } from "../companyFilter";
 import { CompanyFilterPill } from "./CompanyFilterPill";
 
 const companies = getCompaniesWithJobs(
-  ["Google", " GOOGLE ", "Google LLC", " A   & B ", "A & B", " "].map(
-    (employer) => createJob({ employer }),
+  ["Google", " GOOGLE ", "Google LLC", " A   & B ", "A & B", " "].map((employer) =>
+    createJob({ employer }),
   ),
 );
 
@@ -35,12 +35,12 @@ describe("CompanyFilterPill", () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: /^company/i }));
     const options = await screen.findAllByRole("checkbox");
-    expect(
-      options.map((option) => option.closest("label")?.textContent),
-    ).toEqual(["A & B2", "Google2", "Google LLC1"]);
-    expect(
-      screen.queryByRole("textbox", { name: "Search companies" }),
-    ).not.toBeInTheDocument();
+    expect(options.map((option) => option.closest("label")?.textContent)).toEqual([
+      "A & B2",
+      "Google2",
+      "Google LLC1",
+    ]);
+    expect(screen.queryByRole("textbox", { name: "Search companies" })).not.toBeInTheDocument();
   });
 
   it("selects multiple companies, deselects, and clears", async () => {
@@ -48,16 +48,10 @@ describe("CompanyFilterPill", () => {
     fireEvent.click(screen.getByRole("button", { name: /^company/i }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "Google 2" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Google LLC 1" }));
-    expect(screen.getByLabelText("Selected companies")).toHaveTextContent(
-      "google|google llc",
-    );
+    expect(screen.getByLabelText("Selected companies")).toHaveTextContent("google|google llc");
     fireEvent.click(screen.getByRole("checkbox", { name: "Google 2" }));
-    expect(
-      screen.getByRole("checkbox", { name: "Google 2" }),
-    ).not.toBeChecked();
-    expect(
-      screen.getByRole("checkbox", { name: "Google LLC 1" }),
-    ).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Google 2" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Google LLC 1" })).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "All companies" }));
     expect(screen.getByLabelText("Selected companies")).toBeEmptyDOMElement();
     expect(
@@ -71,9 +65,7 @@ describe("CompanyFilterPill", () => {
     render(
       <CompanyFilterPill
         companiesWithJobs={getCompaniesWithJobs(
-          Array.from({ length: 11 }, (_, i) =>
-            createJob({ employer: `Company ${i}` }),
-          ),
+          Array.from({ length: 11 }, (_, i) => createJob({ employer: `Company ${i}` })),
         )}
         companyFilter={[]}
         onCompanyFilterChange={() => {}}
@@ -85,9 +77,7 @@ describe("CompanyFilterPill", () => {
     });
     fireEvent.change(search, { target: { value: " COMPANY  10 " } });
     expect(screen.getAllByRole("checkbox")).toHaveLength(1);
-    expect(
-      screen.getByRole("checkbox", { name: "Company 10 1" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Company 10 1" })).toBeInTheDocument();
     fireEvent.change(search, { target: { value: "missing" } });
     expect(screen.getByText("No companies found")).toBeInTheDocument();
   });

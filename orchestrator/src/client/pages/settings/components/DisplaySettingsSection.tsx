@@ -23,11 +23,7 @@ export const DisplaySettingsSection: React.FC<DisplaySettingsSectionProps> = ({
   const { control } = useFormContext<UpdateSettingsInput>();
 
   return (
-    <SettingsSectionFrame
-      mode={layoutMode}
-      title="Display Settings"
-      value="display"
-    >
+    <SettingsSectionFrame mode={layoutMode} title="Display Settings" value="display">
       <div className="space-y-4">
         <div className="flex items-start space-x-3">
           <Controller
@@ -38,9 +34,7 @@ export const DisplaySettingsSection: React.FC<DisplaySettingsSectionProps> = ({
                 id="renderMarkdownInJobDescriptions"
                 checked={field.value ?? renderMarkdownInJobDescriptions.default}
                 onCheckedChange={(checked) => {
-                  field.onChange(
-                    checked === "indeterminate" ? null : checked === true,
-                  );
+                  field.onChange(checked === "indeterminate" ? null : checked === true);
                 }}
                 disabled={isLoading || isSaving}
               />
@@ -54,9 +48,8 @@ export const DisplaySettingsSection: React.FC<DisplaySettingsSectionProps> = ({
               Render Markdown in job descriptions
             </label>
             <p className="text-xs text-muted-foreground">
-              Show headings, bold text, lists, and code blocks as formatted
-              content when you expand a full job description. Turn this off if
-              you prefer the raw source text.
+              Show headings, bold text, lists, and code blocks as formatted content when you expand
+              a full job description. Turn this off if you prefer the raw source text.
             </p>
           </div>
         </div>
@@ -72,9 +65,7 @@ export const DisplaySettingsSection: React.FC<DisplaySettingsSectionProps> = ({
                 id="autoTailorOnManualImport"
                 checked={field.value ?? autoTailorOnManualImport.default}
                 onCheckedChange={(checked) => {
-                  field.onChange(
-                    checked === "indeterminate" ? null : checked === true,
-                  );
+                  field.onChange(checked === "indeterminate" ? null : checked === true);
                 }}
                 disabled={isLoading || isSaving}
               />
@@ -88,10 +79,9 @@ export const DisplaySettingsSection: React.FC<DisplaySettingsSectionProps> = ({
               Auto-tailor manually imported jobs
             </label>
             <p className="text-xs text-muted-foreground">
-              When enabled, jobs added via Manual Import are immediately scored
-              and have a tailored resume PDF generated. Turn off to save LLM
-              tokens and tailor later from the job detail view. You can override
-              this per import in the review step.
+              When enabled, jobs added via Manual Import are immediately scored and have a tailored
+              resume PDF generated. Turn off to save LLM tokens and tailor later from the job detail
+              view. You can override this per import in the review step.
             </p>
           </div>
         </div>
@@ -100,35 +90,25 @@ export const DisplaySettingsSection: React.FC<DisplaySettingsSectionProps> = ({
 
         <div className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
-            <div className="text-xs text-muted-foreground">
-              Markdown rendering effective
-            </div>
+            <div className="text-xs text-muted-foreground">Markdown rendering effective</div>
             <div className="break-words font-mono text-xs">
-              {renderMarkdownInJobDescriptions.effective
-                ? "Enabled"
-                : "Disabled"}
+              {renderMarkdownInJobDescriptions.effective ? "Enabled" : "Disabled"}
             </div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground">
-              Markdown rendering default
-            </div>
+            <div className="text-xs text-muted-foreground">Markdown rendering default</div>
             <div className="break-words font-mono text-xs font-semibold">
               {renderMarkdownInJobDescriptions.default ? "Enabled" : "Disabled"}
             </div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground">
-              Auto-tailor on import effective
-            </div>
+            <div className="text-xs text-muted-foreground">Auto-tailor on import effective</div>
             <div className="break-words font-mono text-xs">
               {autoTailorOnManualImport.effective ? "Enabled" : "Disabled"}
             </div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground">
-              Auto-tailor on import default
-            </div>
+            <div className="text-xs text-muted-foreground">Auto-tailor on import default</div>
             <div className="break-words font-mono text-xs font-semibold">
               {autoTailorOnManualImport.default ? "Enabled" : "Disabled"}
             </div>

@@ -3,9 +3,7 @@ import { editorHtmlToMarkdown, markdownToEditorHtml } from "./jobNoteContent";
 
 describe("job note content bridge", () => {
   it("renders markdown into TipTap-friendly html", () => {
-    const html = markdownToEditorHtml(
-      "## Fit\n\n- mission\n- team\n\n[site](https://example.com)",
-    );
+    const html = markdownToEditorHtml("## Fit\n\n- mission\n- team\n\n[site](https://example.com)");
 
     expect(html).toContain("<h2>Fit</h2>");
     expect(html).toContain("<ul>");
@@ -20,9 +18,7 @@ describe("job note content bridge", () => {
     );
 
     expect(markdown).toContain("## Fit");
-    expect(markdown).toContain(
-      "Because **yes** and [docs](https://example.com/docs).",
-    );
+    expect(markdown).toContain("Because **yes** and [docs](https://example.com/docs).");
     expect(markdown).toContain("- mission");
     expect(markdown).toContain("- team");
   });
@@ -34,9 +30,7 @@ describe("job note content bridge", () => {
   });
 
   it("serializes balanced parentheses in link urls safely", () => {
-    const markdown = editorHtmlToMarkdown(
-      `<p><a href="https://example.com/foo(bar)">Docs</a></p>`,
-    );
+    const markdown = editorHtmlToMarkdown(`<p><a href="https://example.com/foo(bar)">Docs</a></p>`);
 
     expect(markdown).toBe("[Docs](https://example.com/foo%28bar%29)");
   });

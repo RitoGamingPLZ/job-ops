@@ -11,9 +11,7 @@ const MIN_JWT_SECRET_LENGTH = 32;
 const LOCAL_JWT_SECRET_FILENAME = "jwt-secret";
 let cachedJwtSecret: string | null = null;
 
-async function readPersistedJwtSecret(
-  secretPath: string,
-): Promise<string | null> {
+async function readPersistedJwtSecret(secretPath: string): Promise<string | null> {
   try {
     const stored = (await readFile(secretPath, "utf8")).trim();
     return stored || null;
@@ -72,9 +70,7 @@ async function getJwtSecret(): Promise<string> {
   const explicit = process.env.JWT_SECRET;
   if (explicit) {
     if (explicit.length < MIN_JWT_SECRET_LENGTH) {
-      throw new Error(
-        `JWT_SECRET must be at least ${MIN_JWT_SECRET_LENGTH} characters long`,
-      );
+      throw new Error(`JWT_SECRET must be at least ${MIN_JWT_SECRET_LENGTH} characters long`);
     }
     cachedJwtSecret = explicit;
     return explicit;
@@ -89,9 +85,7 @@ function getJwtExpirySeconds(): number {
   const raw = process.env.JWT_EXPIRY_SECONDS;
   if (!raw) return DEFAULT_EXPIRY_SECONDS;
   const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0
-    ? parsed
-    : DEFAULT_EXPIRY_SECONDS;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_EXPIRY_SECONDS;
 }
 
 export async function signToken(args: {

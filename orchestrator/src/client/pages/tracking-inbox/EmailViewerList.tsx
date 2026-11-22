@@ -21,10 +21,7 @@ export type EmailViewerListProps = {
   appliedJobs: JobListItem[];
   appliedJobByMessageId: Record<string, string>;
   onAppliedJobChange: (messageId: string, value: string) => void;
-  onDecision: (
-    item: PostApplicationInboxItem,
-    decision: "approve" | "deny",
-  ) => void;
+  onDecision: (item: PostApplicationInboxItem, decision: "approve" | "deny") => void;
   isActionLoading: boolean;
   isAppliedJobsLoading: boolean;
 };
@@ -34,10 +31,7 @@ function formatEpochMs(value?: number | null): string {
   return formatDateTime(new Date(value).toISOString()) ?? "n/a";
 }
 
-function getSenderLabel(
-  senderName: string | null,
-  fromAddress: string,
-): string {
+function getSenderLabel(senderName: string | null, fromAddress: string): string {
   const preferred = (senderName ?? "").trim();
   if (preferred) return preferred;
   const trimmed = fromAddress.trim();
@@ -93,14 +87,10 @@ const EmailViewerRow: React.FC<EmailViewerRowProps> = ({
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">
-              {getSenderLabel(
-                item.message.senderName,
-                item.message.fromAddress,
-              )}
+              {getSenderLabel(item.message.senderName, item.message.fromAddress)}
             </p>
             <p className="truncate text-xs text-muted-foreground">
-              {item.message.fromAddress} ·{" "}
-              {formatEpochMs(item.message.receivedAt)}
+              {item.message.fromAddress} · {formatEpochMs(item.message.receivedAt)}
             </p>
           </div>
         </div>
@@ -108,8 +98,7 @@ const EmailViewerRow: React.FC<EmailViewerRowProps> = ({
         <p className="truncate text-sm font-medium">{item.message.subject}</p>
         {item.message.matchedJobId ? null : (
           <p className="text-xs text-amber-600">
-            Relevant email with no reliable job match. Please select the correct
-            job.
+            Relevant email with no reliable job match. Please select the correct job.
           </p>
         )}
       </div>
@@ -121,18 +110,14 @@ const EmailViewerRow: React.FC<EmailViewerRowProps> = ({
           onValueChange={onAppliedJobChange}
           placeholder={isAppliedJobsLoading ? "Loading jobs..." : "Select job"}
           searchPlaceholder="Search jobs..."
-          emptyText={
-            isAppliedJobsLoading ? "Loading jobs..." : "No jobs found."
-          }
+          emptyText={isAppliedJobsLoading ? "Loading jobs..." : "No jobs found."}
           disabled={isActionLoading}
           triggerClassName="min-w-0 flex-1"
           contentClassName="w-[360px]"
           ariaLabel="Select job"
         />
 
-        <span
-          className={`shrink-0 text-xs tabular-nums ${scoreTextClass(score)}`}
-        >
+        <span className={`shrink-0 text-xs tabular-nums ${scoreTextClass(score)}`}>
           {score === null ? "n/a" : `${Math.round(score)}%`}
         </span>
 
@@ -177,9 +162,7 @@ export const EmailViewerList: React.FC<EmailViewerListProps> = ({
     <div className="overflow-hidden rounded-lg border">
       {items.map((item) => {
         const selectedAppliedJobId =
-          appliedJobByMessageId[item.message.id] ||
-          item.message.matchedJobId ||
-          "";
+          appliedJobByMessageId[item.message.id] || item.message.matchedJobId || "";
 
         return (
           <EmailViewerRow
@@ -187,9 +170,7 @@ export const EmailViewerList: React.FC<EmailViewerListProps> = ({
             item={item}
             jobs={appliedJobs}
             selectedAppliedJobId={selectedAppliedJobId}
-            onAppliedJobChange={(value) =>
-              onAppliedJobChange(item.message.id, value)
-            }
+            onAppliedJobChange={(value) => onAppliedJobChange(item.message.id, value)}
             onApprove={() => onDecision(item, "approve")}
             onDeny={() => onDecision(item, "deny")}
             isActionLoading={isActionLoading}

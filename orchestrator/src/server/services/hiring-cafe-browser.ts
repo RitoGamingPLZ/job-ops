@@ -43,11 +43,7 @@ function getSession(scopeKey: string, cookieStorageDir: string): Entry {
   return entry;
 }
 
-export function readHiringCafeBrowserPage(
-  scopeKey: string,
-  cookieStorageDir: string,
-  url: string,
-) {
+export function readHiringCafeBrowserPage(scopeKey: string, cookieStorageDir: string, url: string) {
   return getSession(scopeKey, cookieStorageDir).pages.read(url);
 }
 
@@ -57,16 +53,12 @@ export async function waitForHiringCafeBrowserChallenge(
   timeoutMs: number,
 ): Promise<"clear" | "timeout"> {
   const entry = sessions.get(scopeKey);
-  if (!entry)
-    throw new Error("Hiring Cafe browser session is no longer available");
+  if (!entry) throw new Error("Hiring Cafe browser session is no longer available");
   armExpiry(scopeKey, entry);
   return entry.pages.waitForChallenge(url, timeoutMs);
 }
 
-export function hasHiringCafeBrowserChallenge(
-  scopeKey: string,
-  url: string,
-): boolean {
+export function hasHiringCafeBrowserChallenge(scopeKey: string, url: string): boolean {
   return sessions.get(scopeKey)?.pages.canWaitForChallenge(url) ?? false;
 }
 

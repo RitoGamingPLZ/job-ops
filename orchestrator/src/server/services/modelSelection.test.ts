@@ -152,31 +152,32 @@ describe("Model Selection Logic", () => {
       ["openrouter", null, null, "google/gemini-3-flash-preview"],
       ["openai", "gpt-purpose", "gpt-legacy", "gpt-purpose"],
       ["openai", null, "gpt-legacy", "gpt-legacy"],
-    ])("resolves hosted scoring provider %s with purpose model %s and legacy model %s", async (provider, purposeModel, legacyModel, expectedModel) => {
-      vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
-        llmProvider: "openrouter",
-        model: "google/gemini-3-flash-preview",
-        llmApiKey: "synthetic-global-key",
-        llmPurposeOverrides: JSON.stringify({
-          scoring: { provider, model: purposeModel },
-        }),
-        llmPurposeApiKeys: JSON.stringify({ scoring: "synthetic-scoring-key" }),
-        ...(legacyModel ? { modelScorer: legacyModel } : {}),
-      });
-      const envBefore = { ...process.env };
-      await expect(resolveLlmRuntimeSettings("scoring")).resolves.toMatchObject(
-        {
+    ])(
+      "resolves hosted scoring provider %s with purpose model %s and legacy model %s",
+      async (provider, purposeModel, legacyModel, expectedModel) => {
+        vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
+          llmProvider: "openrouter",
+          model: "google/gemini-3-flash-preview",
+          llmApiKey: "synthetic-global-key",
+          llmPurposeOverrides: JSON.stringify({
+            scoring: { provider, model: purposeModel },
+          }),
+          llmPurposeApiKeys: JSON.stringify({ scoring: "synthetic-scoring-key" }),
+          ...(legacyModel ? { modelScorer: legacyModel } : {}),
+        });
+        const envBefore = { ...process.env };
+        await expect(resolveLlmRuntimeSettings("scoring")).resolves.toMatchObject({
           provider,
           model: expectedModel,
           apiKey: "synthetic-scoring-key",
           allowEnvironmentCredentials: false,
           allowCliProviders: false,
-        },
-      );
-      await expect(resolveLlmModel("scoring")).resolves.toBe(expectedModel);
-      expect(process.env).toEqual(envBefore);
-      expect(global.fetch).not.toHaveBeenCalled();
-    });
+        });
+        await expect(resolveLlmModel("scoring")).resolves.toBe(expectedModel);
+        expect(process.env).toEqual(envBefore);
+        expect(global.fetch).not.toHaveBeenCalled();
+      },
+    );
 
     it("resolves native Gemini scoring with its default model, native endpoint and scoped BYOK key", async () => {
       vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
@@ -203,23 +204,20 @@ describe("Model Selection Logic", () => {
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it.each([
-      "codex",
-      "gemini_cli",
-      "claude_cli",
-      "ollama",
-      "lmstudio",
-    ])("cannot select restricted provider %s for Free", async (llmProvider) => {
-      vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
-        llmProvider,
-      });
+    it.each(["codex", "gemini_cli", "claude_cli", "ollama", "lmstudio"])(
+      "cannot select restricted provider %s for Free",
+      async (llmProvider) => {
+        vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
+          llmProvider,
+        });
 
-      await expect(resolveLlmRuntimeSettings()).resolves.toMatchObject({
-        provider: "openrouter",
-        apiKey: null,
-        allowCliProviders: false,
-      });
-    });
+        await expect(resolveLlmRuntimeSettings()).resolves.toMatchObject({
+          provider: "openrouter",
+          apiKey: null,
+          allowCliProviders: false,
+        });
+      },
+    );
 
     it("uses platform provider, model, and credentials for hosted Free", async () => {
       vi.mocked(getCurrentAccountEntitlements).mockResolvedValue({
@@ -239,15 +237,13 @@ describe("Model Selection Logic", () => {
         llmPurposeApiKeys: JSON.stringify({ scoring: "sk-user-scoring" }),
       });
 
-      await expect(resolveLlmRuntimeSettings("scoring")).resolves.toMatchObject(
-        {
-          provider: "openai",
-          model: "platform-model",
-          apiKey: "sk-platform",
-          allowEnvironmentCredentials: true,
-          allowCliProviders: true,
-        },
-      );
+      await expect(resolveLlmRuntimeSettings("scoring")).resolves.toMatchObject({
+        provider: "openai",
+        model: "platform-model",
+        apiKey: "sk-platform",
+        allowEnvironmentCredentials: true,
+        allowCliProviders: true,
+      });
     });
   });
 
@@ -285,10 +281,7 @@ describe("Model Selection Logic", () => {
         missingSalaryPenalty: { value: 10, default: 10, override: null },
       } as any);
 
-      await scoreJobSuitability(
-        { title: "Test Job", jobDescription: "desc" } as any,
-        {},
-      );
+      await scoreJobSuitability({ title: "Test Job", jobDescription: "desc" } as any, {});
 
       const fetchCall = vi.mocked(fetch).mock.calls[0];
       const body = JSON.parse(fetchCall[1]?.body as string);
@@ -485,9 +478,7 @@ describe("Model Selection Logic", () => {
         },
       } as any);
 
-      await expect(
-        resolveLlmRuntimeSettings("tailoring"),
-      ).resolves.toMatchObject({
+      await expect(resolveLlmRuntimeSettings("tailoring")).resolves.toMatchObject({
         apiKey: "sk-global",
         provider: "openai",
       });
@@ -528,14 +519,12 @@ describe("Model Selection Logic", () => {
         },
       } as any);
 
-      await expect(resolveLlmRuntimeSettings("scoring")).resolves.toMatchObject(
-        {
-          provider: "glm",
-          model: "glm-5.1",
-          baseUrl: "https://api.z.ai/api/paas/v4",
-          apiKey: "sk-glm",
-        },
-      );
+      await expect(resolveLlmRuntimeSettings("scoring")).resolves.toMatchObject({
+        provider: "glm",
+        model: "glm-5.1",
+        baseUrl: "https://api.z.ai/api/paas/v4",
+        apiKey: "sk-glm",
+      });
     });
 
     it("uses Anthropic defaults for a purpose-specific provider override", async () => {
@@ -573,9 +562,7 @@ describe("Model Selection Logic", () => {
         },
       } as any);
 
-      await expect(
-        resolveLlmRuntimeSettings("tailoring"),
-      ).resolves.toMatchObject({
+      await expect(resolveLlmRuntimeSettings("tailoring")).resolves.toMatchObject({
         provider: "anthropic",
         model: "claude-sonnet-4-6",
         baseUrl: "https://api.anthropic.com",
@@ -613,9 +600,7 @@ describe("Model Selection Logic", () => {
         },
       } as any);
 
-      await expect(
-        resolveLlmRuntimeSettings("tailoring"),
-      ).resolves.toMatchObject({
+      await expect(resolveLlmRuntimeSettings("tailoring")).resolves.toMatchObject({
         provider: "anthropic",
         model: "claude-sonnet-4-6",
         baseUrl: "https://api.anthropic.com",
@@ -656,9 +641,7 @@ describe("Model Selection Logic", () => {
       } as any);
 
       await expect(resolveLlmModel("tailoring")).resolves.toBe("gpt-5.4-mini");
-      await expect(
-        resolveLlmRuntimeSettings("tailoring"),
-      ).resolves.toMatchObject({
+      await expect(resolveLlmRuntimeSettings("tailoring")).resolves.toMatchObject({
         provider: "codex",
         model: "gpt-5.4-mini",
       });

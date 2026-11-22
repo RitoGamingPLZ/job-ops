@@ -3,10 +3,7 @@ import type React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  dateFilterDimensionLabels,
-  dateFilterDimensionOrder,
-} from "../constants";
+import { dateFilterDimensionLabels, dateFilterDimensionOrder } from "../constants";
 import { FilterPill } from "./FilterPill";
 import { datePresetOptions } from "./filterOptions";
 import { getDateRangeForPreset, toggleDimension } from "./filterUtils";
@@ -39,14 +36,8 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
               key={dimension}
               type="button"
               size="sm"
-              variant={
-                dateFilter.dimensions.includes(dimension)
-                  ? "default"
-                  : "outline"
-              }
-              onClick={() =>
-                onDateFilterChange(toggleDimension(dateFilter, dimension))
-              }
+              variant={dateFilter.dimensions.includes(dimension) ? "default" : "outline"}
+              onClick={() => onDateFilterChange(toggleDimension(dateFilter, dimension))}
             >
               {dateFilterDimensionLabels[dimension]}
             </Button>
@@ -61,9 +52,7 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
                   key={option.value}
                   type="button"
                   size="sm"
-                  variant={
-                    dateFilter.preset === option.value ? "default" : "outline"
-                  }
+                  variant={dateFilter.preset === option.value ? "default" : "outline"}
                   onClick={() =>
                     onDateFilterChange({
                       ...dateFilter,
@@ -111,12 +100,7 @@ export const DateFilterPill: React.FC<DateFilterPillProps> = ({
               </div>
             </div>
 
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={clearDateFilter}
-            >
+            <Button type="button" size="sm" variant="outline" onClick={clearDateFilter}>
               Clear date filters
             </Button>
           </>

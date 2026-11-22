@@ -33,12 +33,8 @@ const getHistoricalServerEventReplayCandidates = vi.fn().mockResolvedValue([
   },
 ]);
 const hasPendingAnalyticsServerEventReplays = vi.fn().mockResolvedValue(false);
-const markAnalyticsRawEventReplayCompleted = vi
-  .fn()
-  .mockResolvedValue(undefined);
-const markAnalyticsServerEventReplayDelivered = vi
-  .fn()
-  .mockResolvedValue(undefined);
+const markAnalyticsRawEventReplayCompleted = vi.fn().mockResolvedValue(undefined);
+const markAnalyticsServerEventReplayDelivered = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@infra/product-analytics", () => ({
   trackServerProductEvent,
@@ -63,9 +59,8 @@ describe("historical product analytics replay", () => {
   });
 
   it("skips mark_applied replay candidates to match live analytics", async () => {
-    const { initializeHistoricalServerEventReplay } = await import(
-      "./historical-product-analytics"
-    );
+    const { initializeHistoricalServerEventReplay } =
+      await import("./historical-product-analytics");
 
     await initializeHistoricalServerEventReplay();
 

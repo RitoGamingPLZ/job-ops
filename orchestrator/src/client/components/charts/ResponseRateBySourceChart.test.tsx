@@ -1,7 +1,4 @@
-import {
-  createJob as createBaseJob,
-  createStageEvent,
-} from "@shared/testing/factories.js";
+import { createJob as createBaseJob, createStageEvent } from "@shared/testing/factories.js";
 import type { Job, StageEvent } from "@shared/types.js";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type React from "react";
@@ -9,9 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ResponseRateBySourceChart } from "./ResponseRateBySourceChart";
 
 vi.mock("@/components/ui/card", () => ({
-  Card: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card">{children}</div>
-  ),
+  Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
   CardContent: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="card-content">{children}</div>
   ),
@@ -33,21 +28,13 @@ vi.mock("@/components/ui/chart", () => ({
 }));
 
 vi.mock("recharts", () => ({
-  BarChart: ({
-    children,
-    data,
-  }: {
-    children: React.ReactNode;
-    data?: unknown;
-  }) => (
+  BarChart: ({ children, data }: { children: React.ReactNode; data?: unknown }) => (
     <div data-testid="bar-chart">
       {children}
       <div data-testid="bar-chart-data">{JSON.stringify(data)}</div>
     </div>
   ),
-  Bar: ({ children }: { children?: React.ReactNode }) => (
-    <div data-testid="bar">{children}</div>
-  ),
+  Bar: ({ children }: { children?: React.ReactNode }) => <div data-testid="bar">{children}</div>,
   Cell: () => <div data-testid="cell">Cell</div>,
   LabelList: () => <div data-testid="label-list">LabelList</div>,
   CartesianGrid: () => <div data-testid="cartesian-grid">Grid</div>,
@@ -108,15 +95,9 @@ describe("ResponseRateBySourceChart", () => {
 
     expect(screen.getByText("50.0%")).toBeInTheDocument();
     expect(screen.getByText(/1 of 2 applications/)).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("switch", { name: "Include small samples" }),
-    );
-    const data = JSON.parse(
-      screen.getByTestId("bar-chart-data").textContent ?? "[]",
-    );
-    expect(data).toEqual([
-      expect.objectContaining({ applied: 2, responded: 1, rate: 50 }),
-    ]);
+    fireEvent.click(screen.getByRole("switch", { name: "Include small samples" }));
+    const data = JSON.parse(screen.getByTestId("bar-chart-data").textContent ?? "[]");
+    expect(data).toEqual([expect.objectContaining({ applied: 2, responded: 1, rate: 50 })]);
   });
 
   it("excludes behavioural responses retracted by moving back to Applied", () => {
@@ -164,10 +145,7 @@ describe("ResponseRateBySourceChart", () => {
           metadata: { actor: "user", eventType: "status_update" },
         }),
       ]),
-      createJob("job-2", [
-        stageEvent("job-2", "applied", 1),
-        stageEvent("job-2", "assessment", 2),
-      ]),
+      createJob("job-2", [stageEvent("job-2", "applied", 1), stageEvent("job-2", "assessment", 2)]),
     ];
 
     render(<ResponseRateBySourceChart jobs={jobs} error={null} />);

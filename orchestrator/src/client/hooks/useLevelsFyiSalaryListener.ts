@@ -6,9 +6,7 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 /** Listen for same-origin salary payloads relayed by the Levels.fyi Chrome extension bridge. */
-export function useLevelsFyiSalaryListener(
-  onJobUpdated: (job: Job) => Promise<void> | void,
-) {
+export function useLevelsFyiSalaryListener(onJobUpdated: (job: Job) => Promise<void> | void) {
   const onJobUpdatedRef = useRef(onJobUpdated);
   onJobUpdatedRef.current = onJobUpdated;
 

@@ -26,9 +26,7 @@ export async function applySettingsUpdates(
 
   const keys = Object.keys(input) as Array<keyof UpdateSettingsInput>;
   for (const key of keys) {
-    const handler = settingsUpdateRegistry[key] as
-      | SettingUpdateHandler<typeof key>
-      | undefined;
+    const handler = settingsUpdateRegistry[key] as SettingUpdateHandler<typeof key> | undefined;
     if (!handler) continue;
 
     const result = await handler({ key, value: input[key], context });
@@ -44,9 +42,7 @@ export async function applySettingsUpdates(
   }
 
   return {
-    shouldRefreshBackupScheduler: deferredSideEffects.has(
-      "refreshBackupScheduler",
-    ),
+    shouldRefreshBackupScheduler: deferredSideEffects.has("refreshBackupScheduler"),
     shouldClearRxResumeCaches: deferredSideEffects.has("clearRxResumeCaches"),
     updatedSettingKeys: Array.from(updatedSettingKeys).sort(),
   };

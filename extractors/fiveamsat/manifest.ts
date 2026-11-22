@@ -29,9 +29,7 @@ export const manifest: ExtractorManifest = {
 
     const result = await runFiveamsat({
       searchTerms: context.searchTerms,
-      maxJobsPerTerm: Number.isFinite(parsedMaxJobsPerTerm)
-        ? parsedMaxJobsPerTerm
-        : undefined,
+      maxJobsPerTerm: Number.isFinite(parsedMaxJobsPerTerm) ? parsedMaxJobsPerTerm : undefined,
       shouldCancel: context.shouldCancel,
       onProgress: (event) => {
         if (context.shouldCancel?.()) return;

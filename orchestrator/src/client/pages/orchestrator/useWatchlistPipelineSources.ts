@@ -23,14 +23,10 @@ function readStoredSelection(storageKey: string): StoredSelection | null {
     if (!parsed || typeof parsed !== "object") return null;
     const candidate = parsed as Partial<StoredSelection>;
     const selectedIds = Array.isArray(candidate.selectedIds)
-      ? candidate.selectedIds.filter(
-          (value): value is string => typeof value === "string",
-        )
+      ? candidate.selectedIds.filter((value): value is string => typeof value === "string")
       : [];
     const knownIds = Array.isArray(candidate.knownIds)
-      ? candidate.knownIds.filter(
-          (value): value is string => typeof value === "string",
-        )
+      ? candidate.knownIds.filter((value): value is string => typeof value === "string")
       : selectedIds;
     return { selectedIds, knownIds };
   } catch {
@@ -38,10 +34,7 @@ function readStoredSelection(storageKey: string): StoredSelection | null {
   }
 }
 
-function writeStoredSelection(
-  storageKey: string,
-  selection: StoredSelection,
-): void {
+function writeStoredSelection(storageKey: string, selection: StoredSelection): void {
   try {
     localStorage.setItem(storageKey, JSON.stringify(selection));
   } catch {
@@ -66,9 +59,7 @@ function reconcileSelection(args: {
   // Auto-select sources that appeared since the last reconciliation — they
   // would have been included automatically before #621, so keep them in
   // unless the user later opts out.
-  const newlyAddedSelected = availableIds.filter(
-    (id) => !previouslyKnown.has(id),
-  );
+  const newlyAddedSelected = availableIds.filter((id) => !previouslyKnown.has(id));
 
   const selectedIds = [
     ...args.stored.selectedIds.filter((id) => availableSet.has(id)),
@@ -164,9 +155,7 @@ export function useWatchlistPipelineSources(): UseWatchlistPipelineSourcesResult
   const toggleWatchlistSource = useCallback(
     (sourceId: string, checked: boolean) => {
       setSelectedIds((current) => {
-        const availableSet = new Set(
-          watchlistSources.map((source) => source.id),
-        );
+        const availableSet = new Set(watchlistSources.map((source) => source.id));
         if (!availableSet.has(sourceId)) return current;
         const next = checked
           ? Array.from(new Set([...current, sourceId]))

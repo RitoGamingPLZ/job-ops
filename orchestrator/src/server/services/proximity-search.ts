@@ -44,8 +44,7 @@ async function reverseGeocodeAddress(
         headers: { "user-agent": "job-ops/1.0 proximity-search" },
         signal: AbortSignal.timeout(15_000),
       });
-    const response =
-      fetchImpl === fetch ? await nominatimQueue.add(request) : await request();
+    const response = fetchImpl === fetch ? await nominatimQueue.add(request) : await request();
     if (!response?.ok) return null;
     const payload = (await response.json()) as {
       address?: Record<string, string | undefined>;
@@ -81,9 +80,7 @@ export function distanceMiles(
   const toLatitude = toRadians(to.latitude);
   const a =
     Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos(fromLatitude) *
-      Math.cos(toLatitude) *
-      Math.sin(longitudeDelta / 2) ** 2;
+    Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(longitudeDelta / 2) ** 2;
   return 3958.7613 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -114,10 +111,7 @@ async function fetchNearbyPlaceNames(
     }
   }
 
-  const places = new Map<
-    string,
-    { name: string; distance: number; population: number }
-  >();
+  const places = new Map<string, { name: string; distance: number; population: number }>();
 
   for (const element of payload?.elements ?? []) {
     const name = element.tags?.["name:en"] ?? element.tags?.name;
@@ -133,21 +127,17 @@ async function fetchNearbyPlaceNames(
 
     const key = name.trim().toLowerCase();
     if (!key) continue;
-    const population =
-      Number.parseInt(element.tags?.population ?? "0", 10) || 0;
+    const population = Number.parseInt(element.tags?.population ?? "0", 10) || 0;
     const existing = places.get(key);
     if (!existing || distance < existing.distance) {
       places.set(key, { name: name.trim(), distance, population });
     }
   }
 
-  const ordered = Array.from(places.values()).sort(
-    (left, right) => left.distance - right.distance,
-  );
+  const ordered = Array.from(places.values()).sort((left, right) => left.distance - right.distance);
   const nearest = ordered.shift();
   ordered.sort(
-    (left, right) =>
-      right.population - left.population || left.distance - right.distance,
+    (left, right) => right.population - left.population || left.distance - right.distance,
   );
 
   const result = [nearest, ...ordered]
@@ -159,11 +149,7 @@ async function fetchNearbyPlaceNames(
 
   const address = await reverseGeocodeAddress(proximity, fetchImpl);
   const name =
-    address?.city ??
-    address?.town ??
-    address?.village ??
-    address?.municipality ??
-    address?.county;
+    address?.city ?? address?.town ?? address?.village ?? address?.municipality ?? address?.county;
   if (name?.trim()) return [name.trim()];
 
   throw new Error("Unable to resolve nearby places for the selected map area.");

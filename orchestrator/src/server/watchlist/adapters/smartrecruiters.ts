@@ -94,13 +94,11 @@ async function request(url: string, signal: AbortSignal): Promise<unknown> {
           ? Math.max(0, date - Date.now())
           : [1000, 3000, 8000][attempt];
       await response.body?.cancel();
-      if (wait > 10_000)
-        throw upstreamError("SmartRecruiters returned HTTP 429.");
+      if (wait > 10_000) throw upstreamError("SmartRecruiters returned HTTP 429.");
       await delay(wait, undefined, { signal });
       continue;
     }
-    if (!response.ok)
-      throw upstreamError(`SmartRecruiters returned HTTP ${response.status}.`);
+    if (!response.ok) throw upstreamError(`SmartRecruiters returned HTTP ${response.status}.`);
     try {
       return await response.json();
     } catch {
@@ -111,8 +109,7 @@ async function request(url: string, signal: AbortSignal): Promise<unknown> {
 }
 function parse<T>(schema: z.ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);
-  if (!result.success)
-    throw upstreamError("SmartRecruiters response structure may have changed.");
+  if (!result.success) throw upstreamError("SmartRecruiters response structure may have changed.");
   return result.data;
 }
 function parseList(data: unknown) {
@@ -134,19 +131,15 @@ function jobUrl(company: string, job: Job) {
 function location(job: Job) {
   const loc = job.location;
   const text =
-    loc?.fullLocation ||
-    [loc?.city, loc?.region, loc?.country].filter(Boolean).join(", ");
+    loc?.fullLocation || [loc?.city, loc?.region, loc?.country].filter(Boolean).join(", ");
   return (
-    [text, loc?.remote ? "Remote" : loc?.hybrid ? "Hybrid" : null]
-      .filter(Boolean)
-      .join("; ") || null
+    [text, loc?.remote ? "Remote" : loc?.hybrid ? "Hybrid" : null].filter(Boolean).join("; ") ||
+    null
   );
 }
 function checkCompany(job: Job, company: string) {
   if (job.company.identifier.toLowerCase() !== company.toLowerCase())
-    throw upstreamError(
-      "SmartRecruiters returned a different company than requested.",
-    );
+    throw upstreamError("SmartRecruiters returned a different company than requested.");
 }
 async function details(input: {
   source: WatchlistSelectedSource;
@@ -155,38 +148,27 @@ async function details(input: {
 }) {
   const { company } = board(input.source.careersUrl);
   const ref = board(input.jobRef);
-  const id = new URL(input.jobRef).pathname
-    .split("/")[2]
-    ?.match(/^(\d+)(?:-|$)/)?.[1];
+  const id = new URL(input.jobRef).pathname.split("/")[2]?.match(/^(\d+)(?:-|$)/)?.[1];
   if (ref.company.toLowerCase() !== company.toLowerCase() || !id)
-    throw badRequest(
-      "The SmartRecruiters posting must belong to the selected company.",
-    );
+    throw badRequest("The SmartRecruiters posting must belong to the selected company.");
   const signal = signalFor(input.signal);
   signal.throwIfAborted();
   const cacheKey = `${company.toLowerCase()}:${id}`;
   const cached = cache.get(cacheKey);
   let job = cached && cached.expires > Date.now() ? cached.job : undefined;
   if (!job) {
-    job = parse(
-      detailSchema,
-      await request(`${API}/${company}/postings/${id}`, signal),
-    );
+    job = parse(detailSchema, await request(`${API}/${company}/postings/${id}`, signal));
     checkCompany(job, company);
     if (job.id !== id)
-      throw upstreamError(
-        "SmartRecruiters returned a different posting than requested.",
-      );
+      throw upstreamError("SmartRecruiters returned a different posting than requested.");
   }
   const descriptionHtml = Object.values(job.jobAd.sections)
     .filter((section) => section.text?.trim())
     .map(
-      (section) =>
-        `${section.title ? `<h3>${escapeHtml(section.title)}</h3>` : ""}${section.text}`,
+      (section) => `${section.title ? `<h3>${escapeHtml(section.title)}</h3>` : ""}${section.text}`,
     )
     .join("\n");
-  if (!descriptionHtml)
-    throw upstreamError("SmartRecruiters posting description is missing.");
+  if (!descriptionHtml) throw upstreamError("SmartRecruiters posting description is missing.");
   cache.delete(cacheKey);
   cache.set(cacheKey, { job, expires: Date.now() + 15 * 60_000 });
   while (cache.size > 200) {
@@ -247,10 +229,7 @@ export const smartrecruitersWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async normalizeCustomSelection(input) {
     const result = board(input.careersUrl);
     const list = parseList(
-      await request(
-        `${API}/${result.company}/postings?limit=1&offset=0`,
-        signalFor(),
-      ),
+      await request(`${API}/${result.company}/postings?limit=1&offset=0`, signalFor()),
     );
     for (const job of list.content) checkCompany(job, result.company);
     return {
@@ -271,10 +250,7 @@ export const smartrecruitersWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     // ponytail: newest 60 of the first 500; bound sequential list requests.
     do {
       const page = parseList(
-        await request(
-          `${API}/${company}/postings?limit=100&offset=${offset}`,
-          signal,
-        ),
+        await request(`${API}/${company}/postings?limit=100&offset=${offset}`, signal),
       );
       total = page.totalFound;
       if (page.offset !== offset || (!page.content.length && offset < total))
@@ -287,9 +263,7 @@ export const smartrecruitersWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       pages++;
     } while (offset < total && pages < 5);
     const selected = [...collected.values()]
-      .sort((a, b) =>
-        (b.releasedDate || "").localeCompare(a.releasedDate || ""),
-      )
+      .sort((a, b) => (b.releasedDate || "").localeCompare(a.releasedDate || ""))
       .slice(0, MAX_JOBS);
     const jobs = selected.map((job) => ({
       jobRef: jobUrl(company, job),

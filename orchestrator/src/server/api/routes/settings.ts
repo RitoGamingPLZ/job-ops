@@ -43,14 +43,8 @@ import {
 } from "@server/services/rxresume";
 import { getEffectiveSettings } from "@server/services/settings";
 import { applySettingsUpdates } from "@server/services/settings-update";
-import {
-  mapGlmProviderAlias,
-  settingsRegistry,
-} from "@shared/settings-registry";
-import {
-  type UpdateSettingsInput,
-  updateSettingsSchema,
-} from "@shared/settings-schema";
+import { mapGlmProviderAlias, settingsRegistry } from "@shared/settings-registry";
+import { type UpdateSettingsInput, updateSettingsSchema } from "@shared/settings-schema";
 import { LLM_PURPOSE_VALUES, type LlmPurpose } from "@shared/types";
 import { type Request, type Response, Router } from "express";
 
@@ -106,10 +100,7 @@ function requireSystemAdmin(res: Response): boolean {
   return false;
 }
 
-function requireSystemAdminOrSearchSettings(
-  res: Response,
-  input: UpdateSettingsInput,
-): boolean {
+function requireSystemAdminOrSearchSettings(res: Response, input: UpdateSettingsInput): boolean {
   if (
     getJobOpsAppConfig().appMode === "hosted" ||
     isSystemAdmin() ||
@@ -142,9 +133,7 @@ async function assertLlmSettingsEditable(): Promise<void> {
   }
 }
 
-function assertHostedProviderAllowed(
-  provider: string | null | undefined,
-): void {
+function assertHostedProviderAllowed(provider: string | null | undefined): void {
   if (getJobOpsAppConfig().appMode !== "hosted") return;
   if (isHostedLocalProvider(provider)) {
     throw forbidden(
@@ -186,20 +175,13 @@ function buildRxResumeValidationOptions(
 ): Parameters<typeof validateRxResumeCredentials>[0] {
   return {
     v5: {
-      ...(hasInputKey(input, "rxresumeApiKey")
-        ? { apiKey: input.rxresumeApiKey }
-        : {}),
-      ...(hasInputKey(input, "rxresumeUrl")
-        ? { baseUrl: input.rxresumeUrl }
-        : {}),
+      ...(hasInputKey(input, "rxresumeApiKey") ? { apiKey: input.rxresumeApiKey } : {}),
+      ...(hasInputKey(input, "rxresumeUrl") ? { baseUrl: input.rxresumeUrl } : {}),
     },
   };
 }
 
-function toRxResumeValidationAppError(
-  status: number,
-  message: string,
-): AppError {
+function toRxResumeValidationAppError(status: number, message: string): AppError {
   if (status === 401) {
     return unauthorized(message);
   }
@@ -215,9 +197,7 @@ function toRxResumeValidationAppError(
   });
 }
 
-function normalizeLlmProviderValue(
-  provider: string | null | undefined,
-): string | undefined {
+function normalizeLlmProviderValue(provider: string | null | undefined): string | undefined {
   if (!provider) return undefined;
   const normalized = provider.trim().toLowerCase().replace(/[-.]/g, "_");
   const mapped = mapGlmProviderAlias(normalized);
@@ -289,25 +269,18 @@ async function resolveLlmConfig(input: {
   baseUrl: string | undefined;
 }> {
   const hostedMode = getJobOpsAppConfig().appMode === "hosted";
-  const [storedApiKey, storedProvider, storedBaseUrl, storedPurposeApiKeys] =
-    await Promise.all([
-      getSetting("llmApiKey"),
-      getSetting("llmProvider"),
-      getSetting("llmBaseUrl"),
-      getSetting("llmPurposeApiKeys"),
-    ]);
+  const [storedApiKey, storedProvider, storedBaseUrl, storedPurposeApiKeys] = await Promise.all([
+    getSetting("llmApiKey"),
+    getSetting("llmProvider"),
+    getSetting("llmBaseUrl"),
+    getSetting("llmPurposeApiKeys"),
+  ]);
   const purposeApiKeys =
-    settingsRegistry.llmPurposeApiKeys.parse(
-      storedPurposeApiKeys ?? undefined,
-    ) ?? {};
-  const storedPurposeApiKey = input.purpose
-    ? purposeApiKeys[input.purpose]?.trim()
-    : null;
+    settingsRegistry.llmPurposeApiKeys.parse(storedPurposeApiKeys ?? undefined) ?? {};
+  const storedPurposeApiKey = input.purpose ? purposeApiKeys[input.purpose]?.trim() : null;
 
   const provider = normalizeLlmProviderValue(
-    input.provider?.trim() ||
-      storedProvider?.trim() ||
-      (hostedMode ? "openrouter" : undefined),
+    input.provider?.trim() || storedProvider?.trim() || (hostedMode ? "openrouter" : undefined),
   );
   const { baseUrl, hasCustomUserBaseUrl } = resolveLlmValidationEndpoint({
     provider,
@@ -317,9 +290,7 @@ async function resolveLlmConfig(input: {
     fallbackToDefault: true,
   });
   if (hostedMode && (isHostedLocalProvider(provider) || hasCustomUserBaseUrl)) {
-    throw forbidden(
-      "Hosted LLM providers must use supported public provider endpoints.",
-    );
+    throw forbidden("Hosted LLM providers must use supported public provider endpoints.");
   }
 
   return {
@@ -336,9 +307,7 @@ async function resolveLlmConfig(input: {
 
 function parseLlmPurpose(value: unknown): LlmPurpose | null {
   if (typeof value !== "string") return null;
-  return (LLM_PURPOSE_VALUES as readonly string[]).includes(value)
-    ? (value as LlmPurpose)
-    : null;
+  return (LLM_PURPOSE_VALUES as readonly string[]).includes(value) ? (value as LlmPurpose) : null;
 }
 
 async function getCodexAuthResponseData(): Promise<{
@@ -403,11 +372,9 @@ settingsRouter.patch(
   "/",
   asyncRoute(async (req: Request, res: Response) => {
     if (isDemoMode()) {
-      return sendDemoBlocked(
-        res,
-        "Saving settings is disabled in the public demo.",
-        { route: "PATCH /api/settings" },
-      );
+      return sendDemoBlocked(res, "Saving settings is disabled in the public demo.", {
+        route: "PATCH /api/settings",
+      });
     }
 
     const input = updateSettingsSchema.parse(req.body);
@@ -417,9 +384,7 @@ settingsRouter.patch(
       assertHostedLlmInputAllowed(input);
     }
     if (shouldValidateRxResumeOnSave(input)) {
-      const validation = await validateRxResumeCredentials(
-        buildRxResumeValidationOptions(input),
-      );
+      const validation = await validateRxResumeCredentials(buildRxResumeValidationOptions(input));
       if (!validation.ok) {
         const status = validation.status ?? 0;
         if (
@@ -471,21 +436,17 @@ settingsRouter.patch(
     }
     if (
       plan.updatedSettingKeys.some(
-        (key) =>
-          key === "pipelineScheduleEnabled" || key === "pipelineScheduleHour",
+        (key) => key === "pipelineScheduleEnabled" || key === "pipelineScheduleHour",
       )
     ) {
       try {
         await refreshPipelineScheduler();
       } catch (error) {
-        logger.warn(
-          "Failed to refresh pipeline scheduler after settings save",
-          {
-            requestId: getRequestId() ?? null,
-            route: "PATCH /api/settings",
-            error: sanitizeUnknown(error),
-          },
-        );
+        logger.warn("Failed to refresh pipeline scheduler after settings save", {
+          requestId: getRequestId() ?? null,
+          route: "PATCH /api/settings",
+          error: sanitizeUnknown(error),
+        });
       }
     }
     ok(res, data);
@@ -495,14 +456,11 @@ settingsRouter.patch(
         updatedSettingKeys: plan.updatedSettingKeys,
         requestedBy: "user",
       }).catch((error) => {
-        logger.warn(
-          "Failed to queue auto PDF regeneration for settings change",
-          {
-            route: "PATCH /api/settings",
-            updatedSettingKeys: plan.updatedSettingKeys,
-            error,
-          },
-        );
+        logger.warn("Failed to queue auto PDF regeneration for settings change", {
+          route: "PATCH /api/settings",
+          updatedSettingKeys: plan.updatedSettingKeys,
+          error,
+        });
       });
     });
   }),
@@ -516,12 +474,9 @@ settingsRouter.post(
       return;
     }
 
-    const provider =
-      typeof req.body?.provider === "string" ? req.body.provider : undefined;
-    const apiKey =
-      typeof req.body?.apiKey === "string" ? req.body.apiKey : undefined;
-    const baseUrl =
-      typeof req.body?.baseUrl === "string" ? req.body.baseUrl : undefined;
+    const provider = typeof req.body?.provider === "string" ? req.body.provider : undefined;
+    const apiKey = typeof req.body?.apiKey === "string" ? req.body.apiKey : undefined;
+    const baseUrl = typeof req.body?.baseUrl === "string" ? req.body.baseUrl : undefined;
     const purpose = parseLlmPurpose(req.body?.purpose);
     await assertLlmSettingsEditable();
     assertHostedProviderAllowed(provider);
@@ -545,9 +500,7 @@ settingsRouter.post(
       ok(res, { models });
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to fetch available LLM models.";
+        error instanceof Error ? error.message : "Failed to fetch available LLM models.";
       logger.warn("LLM model discovery failed", {
         requestId: getRequestId() ?? null,
         route: "POST /api/settings/llm-models",
@@ -556,12 +509,7 @@ settingsRouter.post(
         hasApiKey: Boolean(resolved.apiKey),
         message,
       });
-      fail(
-        res,
-        /api key is missing/i.test(message)
-          ? badRequest(message)
-          : upstreamError(message),
-      );
+      fail(res, /api key is missing/i.test(message) ? badRequest(message) : upstreamError(message));
     }
   }),
 );
@@ -570,9 +518,7 @@ settingsRouter.get(
   "/codex-auth",
   asyncRoute(async (_req: Request, res: Response) => {
     if (getJobOpsAppConfig().appMode === "hosted") {
-      throw forbidden(
-        "Codex CLI authentication is unavailable in hosted mode.",
-      );
+      throw forbidden("Codex CLI authentication is unavailable in hosted mode.");
     }
     const data = await getCodexAuthResponseData();
     ok(res, data);
@@ -585,16 +531,11 @@ settingsRouter.post(
     if (!requireSystemAdmin(res)) return;
 
     if (isDemoMode()) {
-      fail(
-        res,
-        serviceUnavailable("Codex sign-in is disabled in the public demo."),
-      );
+      fail(res, serviceUnavailable("Codex sign-in is disabled in the public demo."));
       return;
     }
     if (getJobOpsAppConfig().appMode === "hosted") {
-      throw forbidden(
-        "Codex CLI authentication is unavailable in hosted mode.",
-      );
+      throw forbidden("Codex CLI authentication is unavailable in hosted mode.");
     }
 
     const forceRestart = req.body?.forceRestart === true;
@@ -605,10 +546,7 @@ settingsRouter.post(
       const data = await getCodexAuthResponseData();
       ok(res, data);
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to start Codex sign-in.";
+      const message = error instanceof Error ? error.message : "Failed to start Codex sign-in.";
       logger.warn("Codex sign-in flow failed to start", {
         requestId: getRequestId() ?? null,
         route: "POST /api/settings/codex-auth/start",
@@ -625,16 +563,12 @@ settingsRouter.post(
     if (!requireSystemAdmin(res)) return;
 
     if (isDemoMode()) {
-      return sendDemoBlocked(
-        res,
-        "Codex sign-out is disabled in the public demo.",
-        { route: "POST /api/settings/codex-auth/disconnect" },
-      );
+      return sendDemoBlocked(res, "Codex sign-out is disabled in the public demo.", {
+        route: "POST /api/settings/codex-auth/disconnect",
+      });
     }
     if (getJobOpsAppConfig().appMode === "hosted") {
-      throw forbidden(
-        "Codex CLI authentication is unavailable in hosted mode.",
-      );
+      throw forbidden("Codex CLI authentication is unavailable in hosted mode.");
     }
 
     try {
@@ -646,9 +580,7 @@ settingsRouter.post(
       ok(res, data);
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Unable to disconnect Codex right now.";
+        error instanceof Error ? error.message : "Unable to disconnect Codex right now.";
       logger.warn("Codex sign-out failed", {
         requestId: getRequestId(),
         route: "POST /api/settings/codex-auth/disconnect",
@@ -693,12 +625,7 @@ function failRxResume(res: Response, error: unknown): void {
       return;
     }
     if (error.status === 0) {
-      fail(
-        res,
-        serviceUnavailable(
-          "Reactive Resume is unavailable. Check the URL and try again.",
-        ),
-      );
+      fail(res, serviceUnavailable("Reactive Resume is unavailable. Check the URL and try again."));
       return;
     }
   }

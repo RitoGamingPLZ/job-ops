@@ -6,11 +6,7 @@ import { getPrivateDataScope } from "@server/tenancy/private-scope";
 
 export function getTenantPdfKeyPrefix(tenantId = getActiveTenantId()): string {
   const scope = getPrivateDataScope();
-  if (
-    scope.enforceUserIsolation &&
-    scope.userId &&
-    tenantId === scope.tenantId
-  ) {
+  if (scope.enforceUserIsolation && scope.userId && tenantId === scope.tenantId) {
     return `pdfs/${tenantId}/users/${scope.userId}`;
   }
   return `pdfs/${tenantId}`;
@@ -54,9 +50,7 @@ export async function storedJobPdfExists(jobId: string): Promise<boolean> {
   return blobStore.exists(getLegacyJobPdfKey(jobId));
 }
 
-export async function readStoredJobPdf(
-  jobId: string,
-): Promise<Uint8Array | null> {
+export async function readStoredJobPdf(jobId: string): Promise<Uint8Array | null> {
   const blobStore = getBlobStore();
   const tenantObj = await blobStore.get(getTenantJobPdfKey(jobId));
   if (tenantObj) return tenantObj.body;
@@ -64,10 +58,7 @@ export async function readStoredJobPdf(
   return legacyObj?.body ?? null;
 }
 
-export async function writeStoredJobPdf(
-  jobId: string,
-  data: Uint8Array | Buffer,
-): Promise<void> {
+export async function writeStoredJobPdf(jobId: string, data: Uint8Array | Buffer): Promise<void> {
   const blobStore = getBlobStore();
   await blobStore.put(getTenantJobPdfKey(jobId), data, {
     contentType: "application/pdf",

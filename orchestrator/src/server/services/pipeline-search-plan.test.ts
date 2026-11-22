@@ -111,28 +111,17 @@ describe("search plan string normalization", () => {
         ...Array.from({ length: 20 }, (_, i) => `t${i}`),
       ],
     }).searchTerms;
-    expect(terms).toEqual([
-      long,
-      "Go",
-      ...Array.from({ length: 10 }, (_, i) => `t${i}`),
-    ]);
+    expect(terms).toEqual([long, "Go", ...Array.from({ length: 10 }, (_, i) => `t${i}`)]);
   });
 
   it("falls back to current search terms when nothing usable remains", () => {
-    expect(normalize({ searchTerms: [" ", 5] }).searchTerms).toEqual([
-      "Backend Engineer",
-    ]);
-    expect(normalize({ searchTerms: "nope" }).searchTerms).toEqual([
-      "Backend Engineer",
-    ]);
+    expect(normalize({ searchTerms: [" ", 5] }).searchTerms).toEqual(["Backend Engineer"]);
+    expect(normalize({ searchTerms: "nope" }).searchTerms).toEqual(["Backend Engineer"]);
   });
 
   it("keeps an explicitly empty city list but falls back for non-arrays", () => {
     expect(normalize({ cityLocations: [" ", 3] }).cityLocations).toEqual([]);
-    expect(normalize({ cityLocations: "Leeds" }).cityLocations).toEqual([
-      "Leeds",
-      "York",
-    ]);
+    expect(normalize({ cityLocations: "Leeds" }).cityLocations).toEqual(["Leeds", "York"]);
     const long = "c".repeat(100);
     const cities = normalize({
       cityLocations: [
@@ -141,9 +130,6 @@ describe("search plan string normalization", () => {
         ...Array.from({ length: 30 }, (_, i) => `c${i}`),
       ],
     }).cityLocations;
-    expect(cities).toEqual([
-      long,
-      ...Array.from({ length: 24 }, (_, i) => `c${i}`),
-    ]);
+    expect(cities).toEqual([long, ...Array.from({ length: 24 }, (_, i) => `c${i}`)]);
   });
 });

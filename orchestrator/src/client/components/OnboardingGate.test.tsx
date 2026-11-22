@@ -94,10 +94,7 @@ describe("OnboardingGate", () => {
       <MemoryRouter initialEntries={["/sso/callback/google"]}>
         <OnboardingGate />
         <Routes>
-          <Route
-            path="/sso/callback/:provider"
-            element={<div>sso-callback</div>}
-          />
+          <Route path="/sso/callback/:provider" element={<div>sso-callback</div>} />
           <Route path="/sign-in" element={<div>sign-in</div>} />
           <Route path="/onboarding" element={<div>onboarding</div>} />
         </Routes>
@@ -158,33 +155,30 @@ describe("OnboardingGate", () => {
     expect(screen.queryByText("onboarding")).not.toBeInTheDocument();
   });
 
-  it.each([
-    "/design-resume",
-    "/design-resume/experience",
-  ])("allows the retired route %s through during resume onboarding", async (path) => {
-    vi.mocked(useOnboardingStatus).mockReturnValue({
-      checking: false,
-      complete: false,
-      nextRequirementId: "resume",
-    } as any);
-    render(
-      <MemoryRouter initialEntries={[path]}>
-        <OnboardingGate />
-        <Routes>
-          <Route
-            path="/design-resume/*"
-            element={<div>retired resume route</div>}
-          />
-          <Route path="/resumes/base" element={<div>base resume</div>} />
-          <Route path="/onboarding" element={<div>onboarding</div>} />
-        </Routes>
-      </MemoryRouter>,
-      { wrapper: createWrapper() },
-    );
-    await waitFor(() => expect(useOnboardingStatus).toHaveBeenCalled());
-    expect(screen.getByText("retired resume route")).toBeInTheDocument();
-    expect(screen.queryByText("onboarding")).not.toBeInTheDocument();
-  });
+  it.each(["/design-resume", "/design-resume/experience"])(
+    "allows the retired route %s through during resume onboarding",
+    async (path) => {
+      vi.mocked(useOnboardingStatus).mockReturnValue({
+        checking: false,
+        complete: false,
+        nextRequirementId: "resume",
+      } as any);
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <OnboardingGate />
+          <Routes>
+            <Route path="/design-resume/*" element={<div>retired resume route</div>} />
+            <Route path="/resumes/base" element={<div>base resume</div>} />
+            <Route path="/onboarding" element={<div>onboarding</div>} />
+          </Routes>
+        </MemoryRouter>,
+        { wrapper: createWrapper() },
+      );
+      await waitFor(() => expect(useOnboardingStatus).toHaveBeenCalled());
+      expect(screen.getByText("retired resume route")).toBeInTheDocument();
+      expect(screen.queryByText("onboarding")).not.toBeInTheDocument();
+    },
+  );
 
   it("sends brand-new installs to onboarding before auth redirects", async () => {
     const { getAuthBootstrapStatus } = await import("@client/api");

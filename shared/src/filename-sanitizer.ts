@@ -8,10 +8,7 @@ type PdfFilenameOptions = FilenameOptions & {
   fallbackBase?: string;
 };
 
-const LANGUAGE_TRANSLITERATION_MAPS: Record<
-  ChatStyleManualLanguage,
-  Record<string, string>
-> = {
+const LANGUAGE_TRANSLITERATION_MAPS: Record<ChatStyleManualLanguage, Record<string, string>> = {
   english: {
     À: "A",
     Á: "A",
@@ -136,41 +133,28 @@ const LANGUAGE_TRANSLITERATION_MAPS: Record<
   },
 };
 
-function transliterate(
-  value: string,
-  language?: ChatStyleManualLanguage | null,
-) {
+function transliterate(value: string, language?: ChatStyleManualLanguage | null) {
   const languageMap = language
     ? LANGUAGE_TRANSLITERATION_MAPS[language]
     : LANGUAGE_TRANSLITERATION_MAPS.english;
 
   return Array.from(value, (char) => {
-    const mapped =
-      languageMap[char] ?? LANGUAGE_TRANSLITERATION_MAPS.english[char];
+    const mapped = languageMap[char] ?? LANGUAGE_TRANSLITERATION_MAPS.english[char];
     return mapped ?? char.normalize("NFKD").replace(/\p{Mark}/gu, "");
   }).join("");
 }
 
 function sanitizeFilenamePart(value: string, options: FilenameOptions = {}) {
-  const cleaned = transliterate(value, options.language).replace(
-    /[^a-z0-9]/gi,
-    "_",
-  );
+  const cleaned = transliterate(value, options.language).replace(/[^a-z0-9]/gi, "_");
   return cleaned.replace(/_/g, "") === "" ? "" : cleaned;
 }
 
-export function safeFilenamePart(
-  value: string,
-  options: FilenameOptions = {},
-): string {
+export function safeFilenamePart(value: string, options: FilenameOptions = {}): string {
   const cleaned = sanitizeFilenamePart(value, options);
   return cleaned || "Unknown";
 }
 
-export function safePdfFileName(
-  value: string,
-  options: PdfFilenameOptions = {},
-): string {
+export function safePdfFileName(value: string, options: PdfFilenameOptions = {}): string {
   const baseValue = value.trim().replace(/\.pdf$/i, "");
   const sanitized = sanitizeFilenamePart(baseValue, {
     language: options.language,

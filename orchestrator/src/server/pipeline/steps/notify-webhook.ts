@@ -6,8 +6,7 @@ export async function notifyPipelineWebhookStep(
   event: "pipeline.completed" | "pipeline.failed",
   payload: Record<string, unknown>,
 ): Promise<void> {
-  const overridePipelineWebhookUrl =
-    await settingsRepo.getSetting("pipelineWebhookUrl");
+  const overridePipelineWebhookUrl = await settingsRepo.getSetting("pipelineWebhookUrl");
   const pipelineWebhookUrl = (
     overridePipelineWebhookUrl ||
     process.env.PIPELINE_WEBHOOK_URL ||

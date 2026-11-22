@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.sequential("account entitlements", () => {
+describe("account entitlements", () => {
   const originalEnv = { ...process.env };
   let tempDir: string;
   let closeDb: (() => void) | null = null;
@@ -48,23 +48,14 @@ describe.sequential("account entitlements", () => {
 
   async function withUser<T>(userId: string, work: () => Promise<T>) {
     const { runWithRequestContext } = await import("@infra/request-context");
-    return runWithRequestContext(
-      { tenantId: "tenant_default", userId, username: userId },
-      work,
-    );
+    return runWithRequestContext({ tenantId: "tenant_default", userId, username: userId }, work);
   }
 
   it("moves one account Free → Pro → Free without affecting its tenant peer", async () => {
-    const { getCurrentAccountEntitlements } = await import(
-      "./account-entitlements"
-    );
-    const { saveSubscriptionState } = await import(
-      "@server/repositories/account-subscriptions"
-    );
+    const { getCurrentAccountEntitlements } = await import("./account-entitlements");
+    const { saveSubscriptionState } = await import("@server/repositories/account-subscriptions");
 
-    await expect(
-      withUser("alice", getCurrentAccountEntitlements),
-    ).resolves.toMatchObject({
+    await expect(withUser("alice", getCurrentAccountEntitlements)).resolves.toMatchObject({
       plan: "free",
       platformAiIncluded: true,
       userEditableLlmSettings: false,
@@ -82,18 +73,14 @@ describe.sequential("account entitlements", () => {
       cancelAtPeriodEnd: true,
     });
 
-    await expect(
-      withUser("alice", getCurrentAccountEntitlements),
-    ).resolves.toMatchObject({
+    await expect(withUser("alice", getCurrentAccountEntitlements)).resolves.toMatchObject({
       plan: "pro",
       platformAiIncluded: true,
       userEditableLlmSettings: false,
       hostedLimits: { job_search: 500 },
       subscription: { cancelAtPeriodEnd: true },
     });
-    await expect(
-      withUser("bob", getCurrentAccountEntitlements),
-    ).resolves.toMatchObject({
+    await expect(withUser("bob", getCurrentAccountEntitlements)).resolves.toMatchObject({
       plan: "free",
       platformAiIncluded: true,
       hostedLimits: { job_search: 100 },
@@ -109,9 +96,7 @@ describe.sequential("account entitlements", () => {
       currentPeriodEnd: 2_000_000_000,
       cancelAtPeriodEnd: false,
     });
-    await expect(
-      withUser("alice", getCurrentAccountEntitlements),
-    ).resolves.toMatchObject({
+    await expect(withUser("alice", getCurrentAccountEntitlements)).resolves.toMatchObject({
       plan: "free",
       platformAiIncluded: true,
       hostedLimits: { job_search: 100 },
@@ -121,9 +106,7 @@ describe.sequential("account entitlements", () => {
   it("leaves local behavior unlimited and user-configurable without account context", async () => {
     delete process.env.JOBOPS_APP_MODE;
     delete process.env.JOBOPS_HOSTED_TENANT_ID;
-    const { getCurrentAccountEntitlements } = await import(
-      "./account-entitlements"
-    );
+    const { getCurrentAccountEntitlements } = await import("./account-entitlements");
 
     await expect(getCurrentAccountEntitlements()).resolves.toMatchObject({
       plan: "free",

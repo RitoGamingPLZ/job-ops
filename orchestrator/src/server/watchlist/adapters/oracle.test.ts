@@ -43,11 +43,7 @@ describe("oracleWatchlistAdapter", () => {
       { label: "Uber", sourceType: "oracle", careersUrl: base },
     ]);
     expect(
-      adapter.parseCatalogSources([
-        null,
-        {},
-        { label: "bad", careersUrl: "https://evil.com" },
-      ]),
+      adapter.parseCatalogSources([null, {}, { label: "bad", careersUrl: "https://evil.com" }]),
     ).toEqual([]);
     const sources = adapter.parseCatalogSources([
       { label: "Uber", careersUrl: base },
@@ -75,9 +71,7 @@ describe("oracleWatchlistAdapter", () => {
     base.replace("/jobs", "/job/123"),
     base.replace("iaziqy.fa.ocs.oraclecloud.com", "127.0.0.1"),
   ])("rejects unsafe or unsupported URL %s", (careersUrl) => {
-    expect(() =>
-      adapter.normalizeCustomSelection({ careersUrl, label: null }),
-    ).toThrow();
+    expect(() => adapter.normalizeCustomSelection({ careersUrl, label: null })).toThrow();
   });
   it("preserves only allow-listed filters on any valid Oracle tenant, without network access", () => {
     const fetch = vi.fn();
@@ -110,9 +104,7 @@ describe("oracleWatchlistAdapter", () => {
     );
     expect(url.toString()).toContain("selectedLocationsFacet%3D1%3B2");
     expect(url.toString()).not.toContain("%253B");
-    expect(url.searchParams.get("expand")).toBe(
-      "requisitionList.secondaryLocations",
-    );
+    expect(url.searchParams.get("expand")).toBe("requisitionList.secondaryLocations");
     expect(fetch.mock.calls[0][1]).toMatchObject({
       redirect: "error",
       headers: { "user-agent": "job-ops-watchlist/0.1" },
@@ -120,9 +112,7 @@ describe("oracleWatchlistAdapter", () => {
   });
   it("pages newest first to 60, retains the pre-cap total and maps public URLs", async () => {
     const fetch = vi.fn().mockImplementation(async (value: string) => {
-      const offset = Number(
-        new URL(value).searchParams.get("finder")?.match(/offset=(\d+)/)?.[1],
-      );
+      const offset = Number(new URL(value).searchParams.get("finder")?.match(/offset=(\d+)/)?.[1]);
       return page(
         826,
         Array.from({ length: 25 }, (_, i) => job(String(offset + i + 1))),
@@ -141,9 +131,7 @@ describe("oracleWatchlistAdapter", () => {
       postedAt: "2026-11-07",
     });
     expect(result.jobs.at(-1)?.sourceJobId).toBe("60");
-    expect(
-      new URL(fetch.mock.calls[2][0]).searchParams.get("finder"),
-    ).toContain("offset=50");
+    expect(new URL(fetch.mock.calls[2][0]).searchParams.get("finder")).toContain("offset=50");
   });
   it("stops at the total or an empty page", async () => {
     const fetch = vi
@@ -160,19 +148,13 @@ describe("oracleWatchlistAdapter", () => {
       .mockResolvedValueOnce(new Response('<div data-sitenumber="CX_9">'))
       .mockResolvedValueOnce(page());
     vi.stubGlobal("fetch", fetch);
-    const careersUrl = base
-      .replace("iaziqy", "other")
-      .replace("UberCareers", "Other");
+    const careersUrl = base.replace("iaziqy", "other").replace("UberCareers", "Other");
     const result = await adapter.fetchJobs({
       source: { ...source, careersUrl },
     });
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(
-      new URL(fetch.mock.calls[1][0]).searchParams.get("finder"),
-    ).toContain("siteNumber=CX_9");
-    expect(result.jobs[0].jobUrl).toBe(
-      careersUrl.replace("/jobs", "/job/304060"),
-    );
+    expect(new URL(fetch.mock.calls[1][0]).searchParams.get("finder")).toContain("siteNumber=CX_9");
+    expect(result.jobs[0].jobUrl).toBe(careersUrl.replace("/jobs", "/job/304060"));
   });
   it("loads detail HTML and imports text with the same source identity as listings", async () => {
     const detail = {
@@ -214,16 +196,14 @@ describe("oracleWatchlistAdapter", () => {
   it("rejects mismatched detail IDs, arbitrary references, invalid payloads and redirects", async () => {
     const fetch = vi.fn().mockResolvedValue(json({ items: [job("999")] }));
     vi.stubGlobal("fetch", fetch);
-    await expect(
-      adapter.fetchJobDetails({ source, jobRef: "304060" }),
-    ).rejects.toThrow("invalid job details");
-    await expect(
-      adapter.fetchJobDetails({ source, jobRef: "1,siteNumber=CX_9" }),
-    ).rejects.toThrow("Invalid Oracle job reference");
-    fetch.mockResolvedValueOnce(json({ items: [] }));
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      "invalid job listings",
+    await expect(adapter.fetchJobDetails({ source, jobRef: "304060" })).rejects.toThrow(
+      "invalid job details",
     );
+    await expect(adapter.fetchJobDetails({ source, jobRef: "1,siteNumber=CX_9" })).rejects.toThrow(
+      "Invalid Oracle job reference",
+    );
+    fetch.mockResolvedValueOnce(json({ items: [] }));
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow("invalid job listings");
     fetch.mockResolvedValueOnce(new Response(null, { status: 302 }));
     await expect(adapter.fetchJobs({ source })).rejects.toThrow("HTTP 302");
   });

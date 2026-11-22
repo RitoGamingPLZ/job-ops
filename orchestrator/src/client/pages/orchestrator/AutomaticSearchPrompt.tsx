@@ -39,12 +39,9 @@ export function AutomaticSearchPrompt({
   return (
     <div className="flex w-full flex-col">
       <header className="mb-6 space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Find your next role
-        </h1>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Find your next role</h1>
         <p className="max-w-lg text-sm leading-6 text-muted-foreground sm:text-base">
-          Tell us what you’re looking for. We’ll prepare a search you can
-          review.
+          Tell us what you’re looking for. We’ll prepare a search you can review.
         </p>
       </header>
 
@@ -83,9 +80,7 @@ export function AutomaticSearchPrompt({
           disabled={isPlanningSearch || searchPrompt.trim().length === 0}
           onClick={onGenerateSearchPlan}
         >
-          {isPlanningSearch ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : null}
+          {isPlanningSearch ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {isPlanningSearch ? "Building your search…" : "Build my search"}
           {!isPlanningSearch ? <ArrowRight className="h-4 w-4" /> : null}
         </Button>
@@ -99,9 +94,7 @@ export function AutomaticSearchPrompt({
           Enter search details instead
         </Button>
       </div>
-      <p className="mt-4 text-xs text-muted-foreground">
-        Nothing runs until you start the search.
-      </p>
+      <p className="mt-4 text-xs text-muted-foreground">Nothing runs until you start the search.</p>
     </div>
   );
 }

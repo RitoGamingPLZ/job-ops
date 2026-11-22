@@ -120,30 +120,25 @@ describe("SsoCallbackPage", () => {
 
     renderCallback("?code=secret-code&state=state-2");
 
-    expect(
-      await screen.findByText("This sign-in link is no longer valid."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("This sign-in link is no longer valid.")).toBeInTheDocument();
     expect(completeSsoLogin).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole("link", { name: "Back to sign in" }),
-    ).toHaveAttribute("href", "/sign-in");
+    expect(screen.getByRole("link", { name: "Back to sign in" })).toHaveAttribute(
+      "href",
+      "/sign-in",
+    );
   });
 
   it("rejects a callback with no stored flow", async () => {
     renderCallback("?code=secret-code&state=state-1");
 
-    expect(
-      await screen.findByText("This sign-in link is no longer valid."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("This sign-in link is no longer valid.")).toBeInTheDocument();
     expect(completeSsoLogin).not.toHaveBeenCalled();
   });
 
   it("reports a provider error without echoing its text or burning the flow", async () => {
     storeFlow();
 
-    renderCallback(
-      "?error=access_denied&error_description=Call+555+0100+to+unlock",
-    );
+    renderCallback("?error=access_denied&error_description=Call+555+0100+to+unlock");
 
     expect(
       await screen.findByText(/Your identity provider refused the sign-in/),
@@ -173,14 +168,10 @@ describe("SsoCallbackPage", () => {
 
   it("shows the server's message when the exchange fails", async () => {
     storeFlow();
-    vi.mocked(completeSsoLogin).mockRejectedValue(
-      new Error("SSO session expired, try again"),
-    );
+    vi.mocked(completeSsoLogin).mockRejectedValue(new Error("SSO session expired, try again"));
 
     renderCallback("?code=secret-code&state=state-1");
 
-    expect(
-      await screen.findByText("SSO session expired, try again"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("SSO session expired, try again")).toBeInTheDocument();
   });
 });

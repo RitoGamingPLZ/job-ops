@@ -24,13 +24,13 @@ npx camoufox-js fetch
 
 Set the following environment variables:
 
-| Variable | Description |
-|----------|-------------|
-| `UKVISAJOBS_EMAIL` | Login email for automatic token refresh |
-| `UKVISAJOBS_PASSWORD` | Login password for automatic token refresh |
-| `UKVISAJOBS_HEADLESS` | Set to `false` to show the browser (default: true) |
-| `UKVISAJOBS_MAX_JOBS` | Maximum jobs to fetch (default: 50, max: 200) |
-| `UKVISAJOBS_SEARCH_KEYWORD` | Optional search filter |
+| Variable                    | Description                                        |
+| --------------------------- | -------------------------------------------------- |
+| `UKVISAJOBS_EMAIL`          | Login email for automatic token refresh            |
+| `UKVISAJOBS_PASSWORD`       | Login password for automatic token refresh         |
+| `UKVISAJOBS_HEADLESS`       | Set to `false` to show the browser (default: true) |
+| `UKVISAJOBS_MAX_JOBS`       | Maximum jobs to fetch (default: 50, max: 200)      |
+| `UKVISAJOBS_SEARCH_KEYWORD` | Optional search filter                             |
 
 ## Automatic login & cache
 
@@ -48,4 +48,3 @@ npm start
 ```
 
 Output is written to `storage/datasets/default/` as JSON files.
-

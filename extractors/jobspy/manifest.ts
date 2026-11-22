@@ -2,15 +2,10 @@ import {
   GLASSDOOR_SUPPORTED_COUNTRY_KEYS,
   JOBSPY_SUPPORTED_COUNTRY_KEYS,
 } from "@shared/location-support.js";
-import type {
-  ExtractorManifest,
-  ExtractorRuntimeContext,
-} from "@shared/types/extractors";
+import type { ExtractorManifest, ExtractorRuntimeContext } from "@shared/types/extractors";
 import { runJobSpy } from "./src/run";
 
-type JobSpySite = NonNullable<
-  NonNullable<Parameters<typeof runJobSpy>[0]>["sites"]
->[number];
+type JobSpySite = NonNullable<NonNullable<Parameters<typeof runJobSpy>[0]>["sites"]>[number];
 
 const JOBSPY_SOURCES = new Set<JobSpySite>(["indeed", "linkedin", "glassdoor"]);
 
@@ -45,20 +40,14 @@ export const manifest: ExtractorManifest = {
       : undefined;
     const resultsWanted =
       configuredResultsWanted && context.locationIntent?.proximity
-        ? Math.max(
-            1,
-            Math.ceil(
-              configuredResultsWanted / Math.max(1, locations?.length ?? 0),
-            ),
-          )
+        ? Math.max(1, Math.ceil(configuredResultsWanted / Math.max(1, locations?.length ?? 0)))
         : configuredResultsWanted;
 
     const result = await runJobSpy({
       sites,
       searchTerms: context.searchTerms,
       locations,
-      location:
-        context.settings.searchCities ?? context.settings.jobspyLocation,
+      location: context.settings.searchCities ?? context.settings.jobspyLocation,
       resultsWanted,
       countryIndeed: context.settings.jobspyCountryIndeed,
       workplaceTypes: context.settings.workplaceTypes

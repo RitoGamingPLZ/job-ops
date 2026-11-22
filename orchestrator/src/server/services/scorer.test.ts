@@ -105,8 +105,7 @@ describe("parseJsonFromContent", () => {
     });
 
     it("should extract JSON from text after", () => {
-      const input =
-        '{"score": 60, "reason": "Moderate match"} I hope this helps!';
+      const input = '{"score": 60, "reason": "Moderate match"} I hope this helps!';
       const result = parseJsonFromContent(input);
       expect(result.score).toBe(60);
     });
@@ -162,8 +161,7 @@ describe("parseJsonFromContent", () => {
 
   describe("malformed responses - regex fallback", () => {
     it("should extract score from completely malformed response", () => {
-      const input =
-        'I think the score should be score: 50 and the reason: "Average candidate"';
+      const input = 'I think the score should be score: 50 and the reason: "Average candidate"';
       const result = parseJsonFromContent(input);
       expect(result.score).toBe(50);
     });
@@ -175,8 +173,7 @@ describe("parseJsonFromContent", () => {
     });
 
     it("should handle reason with special characters", () => {
-      const input =
-        '{"score": 73, "reason": "Good match! The candidate\'s skills align well."}';
+      const input = '{"score": 73, "reason": "Good match! The candidate\'s skills align well."}';
       const result = parseJsonFromContent(input);
       expect(result.score).toBe(73);
     });
@@ -226,15 +223,11 @@ describe("parseJsonFromContent", () => {
   describe("failure cases", () => {
     it("should throw when no score can be extracted", () => {
       const input = "This is just plain text with no JSON or score.";
-      expect(() => parseJsonFromContent(input)).toThrow(
-        "Unable to parse JSON from model response",
-      );
+      expect(() => parseJsonFromContent(input)).toThrow("Unable to parse JSON from model response");
     });
 
     it("should throw for empty input", () => {
-      expect(() => parseJsonFromContent("")).toThrow(
-        "Unable to parse JSON from model response",
-      );
+      expect(() => parseJsonFromContent("")).toThrow("Unable to parse JSON from model response");
     });
 
     it("should throw for only whitespace", () => {
@@ -321,9 +314,7 @@ describe("salary penalty", () => {
 
   function getPromptProfile(): Record<string, any> {
     const prompt = getScoringPrompt();
-    const match = prompt.match(
-      /CANDIDATE PROFILE:\n(?<profile>[\s\S]*?)\n\nSCORING INSTRUCTIONS:/,
-    );
+    const match = prompt.match(/CANDIDATE PROFILE:\n(?<profile>[\s\S]*?)\n\nSCORING INSTRUCTIONS:/);
     expect(match?.groups?.profile).toBeDefined();
     return JSON.parse(match?.groups?.profile ?? "{}");
   }
@@ -354,9 +345,7 @@ describe("salary penalty", () => {
       {},
     );
 
-    const match = getScoringPrompt().match(
-      /JOB DATA \(JSON\):\n(?<job>[^\n]+)\n\n/,
-    );
+    const match = getScoringPrompt().match(/JOB DATA \(JSON\):\n(?<job>[^\n]+)\n\n/);
     const job = JSON.parse(match?.groups?.job ?? "{}");
     expect(job).toMatchObject({
       salary: null,
@@ -497,9 +486,7 @@ describe("salary penalty", () => {
       expect(getScoringPrompt()).not.toContain("+44 7000 000000");
       expect(getScoringPrompt()).not.toContain("education-private-id");
       expect(getScoringPrompt()).not.toContain("role-private-id");
-      expect(getScoringPrompt()).not.toContain(
-        "https://university.example.com",
-      );
+      expect(getScoringPrompt()).not.toContain("https://university.example.com");
     });
 
     it("includes education from nested resume sections", async () => {
@@ -511,28 +498,25 @@ describe("salary penalty", () => {
         rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
-      await scoreJobSuitability(
-        createJob({ id: "test-job-profile-sections" }),
-        {
-          sections: {
-            education: {
-              title: "Education",
-              hidden: false,
-              items: [
-                {
-                  school: "University of Sheffield",
-                  degree: "BSc Computer Science",
-                  area: "Software Engineering",
-                  location: "Sheffield",
-                },
-              ],
-            },
-          },
-          metadata: {
-            layout: "private-renderer-layout",
+      await scoreJobSuitability(createJob({ id: "test-job-profile-sections" }), {
+        sections: {
+          education: {
+            title: "Education",
+            hidden: false,
+            items: [
+              {
+                school: "University of Sheffield",
+                degree: "BSc Computer Science",
+                area: "Software Engineering",
+                location: "Sheffield",
+              },
+            ],
           },
         },
-      );
+        metadata: {
+          layout: "private-renderer-layout",
+        },
+      });
 
       const promptProfile = getPromptProfile();
       expect(promptProfile.education).toEqual([
@@ -555,48 +539,43 @@ describe("salary penalty", () => {
         rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
-      await scoreJobSuitability(
-        createJob({ id: "test-job-profile-hidden-items" }),
-        {
-          sections: {
-            skills: {
-              items: [
-                { name: "Frontend", keywords: ["React"], visible: true },
-                {
-                  name: "Hidden Skill",
-                  keywords: ["PrivateSkill"],
-                  hidden: true,
-                },
-                {
-                  name: "Invisible Skill",
-                  keywords: ["InvisibleSkill"],
-                  visible: false,
-                },
-              ],
-            },
-            education: {
-              items: [
-                { school: "Visible University", degree: "BSc Computing" },
-                {
-                  school: "Hidden University",
-                  degree: "Private Degree",
-                  hidden: true,
-                },
-                {
-                  school: "Invisible University",
-                  degree: "Invisible Degree",
-                  visible: false,
-                },
-              ],
-            },
+      await scoreJobSuitability(createJob({ id: "test-job-profile-hidden-items" }), {
+        sections: {
+          skills: {
+            items: [
+              { name: "Frontend", keywords: ["React"], visible: true },
+              {
+                name: "Hidden Skill",
+                keywords: ["PrivateSkill"],
+                hidden: true,
+              },
+              {
+                name: "Invisible Skill",
+                keywords: ["InvisibleSkill"],
+                visible: false,
+              },
+            ],
+          },
+          education: {
+            items: [
+              { school: "Visible University", degree: "BSc Computing" },
+              {
+                school: "Hidden University",
+                degree: "Private Degree",
+                hidden: true,
+              },
+              {
+                school: "Invisible University",
+                degree: "Invisible Degree",
+                visible: false,
+              },
+            ],
           },
         },
-      );
+      });
 
       const promptProfile = getPromptProfile();
-      expect(promptProfile.skills).toEqual([
-        { name: "Frontend", keywords: ["React"] },
-      ]);
+      expect(promptProfile.skills).toEqual([{ name: "Frontend", keywords: ["React"] }]);
       expect(promptProfile.education).toEqual([
         { school: "Visible University", degree: "BSc Computing" },
       ]);
@@ -774,11 +753,9 @@ describe("salary penalty", () => {
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
         scoringInstructions: {
-          value:
-            "Open to relocating, so do not mark down for location discrepancies.",
+          value: "Open to relocating, so do not mark down for location discrepancies.",
           default: "",
-          override:
-            "Open to relocating, so do not mark down for location discrepancies.",
+          override: "Open to relocating, so do not mark down for location discrepancies.",
         },
         rxresumeBaseResumeId: "base-resume-123",
       } as any);
@@ -867,19 +844,13 @@ describe("salary penalty", () => {
         }),
         {},
         {
-          scoringInstructions:
-            "Prefer roles above GBP 60k and lower-score graduate programmes.",
+          scoringInstructions: "Prefer roles above GBP 60k and lower-score graduate programmes.",
         },
       );
 
-      const prompt =
-        callJsonMock.mock.calls.at(-1)?.[0]?.messages?.[0]?.content;
-      expect(prompt).toContain(
-        "Prefer roles above GBP 60k and lower-score graduate programmes.",
-      );
-      expect(prompt).not.toContain(
-        "Global instruction that should not be used.",
-      );
+      const prompt = callJsonMock.mock.calls.at(-1)?.[0]?.messages?.[0]?.content;
+      expect(prompt).toContain("Prefer roles above GBP 60k and lower-score graduate programmes.");
+      expect(prompt).not.toContain("Global instruction that should not be used.");
     });
 
     it("uses a custom scoring prompt template override", async () => {
@@ -893,11 +864,9 @@ describe("salary penalty", () => {
           override: "Prioritize backend work.",
         },
         scoringPromptTemplate: {
-          value:
-            "Custom scoring {{jobTitle}} {{scoringInstructionsText}} {{unknownToken}}",
+          value: "Custom scoring {{jobTitle}} {{scoringInstructionsText}} {{unknownToken}}",
           default: "",
-          override:
-            "Custom scoring {{jobTitle}} {{scoringInstructionsText}} {{unknownToken}}",
+          override: "Custom scoring {{jobTitle}} {{scoringInstructionsText}} {{unknownToken}}",
         },
         rxresumeBaseResumeId: "base-resume-123",
       } as any);
@@ -938,13 +907,7 @@ describe("salary penalty", () => {
           ],
           jsonSchema: expect.objectContaining({
             schema: expect.objectContaining({
-              required: [
-                "score",
-                "reason",
-                "jobBrief",
-                "jobPatches",
-                "jobWarnings",
-              ],
+              required: ["score", "reason", "jobBrief", "jobPatches", "jobWarnings"],
             }),
           }),
         }),
@@ -955,9 +918,7 @@ describe("salary penalty", () => {
         "Do not guess, infer from general knowledge, estimate, annualise compensation",
       );
       expect(getScoringPrompt()).toContain("JOB DATA (JSON):");
-      expect(getScoringPrompt()).toContain(
-        '"jobDescription":"Job description content"',
-      );
+      expect(getScoringPrompt()).toContain('"jobDescription":"Job description content"');
       expect(JSON.parse(result.jobBrief as string)).toEqual(
         expect.objectContaining({ role_summary: "Build backend services." }),
       );
@@ -1088,9 +1049,7 @@ describe("salary penalty", () => {
 
   describe("LlmNotConfiguredError", () => {
     it("should throw LlmNotConfiguredError when API key is not configured", async () => {
-      const { scoreJobSuitability, LlmNotConfiguredError } = await import(
-        "./scorer"
-      );
+      const { scoreJobSuitability, LlmNotConfiguredError } = await import("./scorer");
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
@@ -1108,15 +1067,11 @@ describe("salary penalty", () => {
         title: "Software Engineer",
       });
 
-      await expect(scoreJobSuitability(job, {})).rejects.toThrow(
-        LlmNotConfiguredError,
-      );
+      await expect(scoreJobSuitability(job, {})).rejects.toThrow(LlmNotConfiguredError);
     });
 
     it("should throw LlmNotConfiguredError when the provider rejects the credentials", async () => {
-      const { scoreJobSuitability, LlmNotConfiguredError } = await import(
-        "./scorer"
-      );
+      const { scoreJobSuitability, LlmNotConfiguredError } = await import("./scorer");
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
@@ -1133,15 +1088,11 @@ describe("salary penalty", () => {
         title: "Software Engineer",
       });
 
-      await expect(scoreJobSuitability(job, {})).rejects.toThrow(
-        LlmNotConfiguredError,
-      );
+      await expect(scoreJobSuitability(job, {})).rejects.toThrow(LlmNotConfiguredError);
     });
 
     it("should throw ScoringUnavailableError for transient provider faults", async () => {
-      const { scoreJobSuitability, ScoringUnavailableError } = await import(
-        "./scorer"
-      );
+      const { scoreJobSuitability, ScoringUnavailableError } = await import("./scorer");
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
@@ -1158,15 +1109,11 @@ describe("salary penalty", () => {
         title: "Software Engineer",
       });
 
-      await expect(scoreJobSuitability(job, {})).rejects.toThrow(
-        ScoringUnavailableError,
-      );
+      await expect(scoreJobSuitability(job, {})).rejects.toThrow(ScoringUnavailableError);
     });
 
     it("should throw ScoringUnavailableError when the AI returns no numeric score", async () => {
-      const { scoreJobSuitability, ScoringUnavailableError } = await import(
-        "./scorer"
-      );
+      const { scoreJobSuitability, ScoringUnavailableError } = await import("./scorer");
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
@@ -1183,9 +1130,7 @@ describe("salary penalty", () => {
         title: "Software Engineer",
       });
 
-      await expect(scoreJobSuitability(job, {})).rejects.toThrow(
-        ScoringUnavailableError,
-      );
+      await expect(scoreJobSuitability(job, {})).rejects.toThrow(ScoringUnavailableError);
     });
   });
 });

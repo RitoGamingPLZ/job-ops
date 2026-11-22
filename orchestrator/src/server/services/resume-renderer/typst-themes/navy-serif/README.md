@@ -35,7 +35,9 @@ Experience descriptions can contain an intro followed by a list:
 
 ```html
 <p>Built reliable platform services.</p>
-<ul><li>Reduced deployment time.</li></ul>
+<ul>
+  <li>Reduced deployment time.</li>
+</ul>
 ```
 
 Descriptions without list items render as prose with paragraph and line breaks.

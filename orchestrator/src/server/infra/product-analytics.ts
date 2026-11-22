@@ -21,11 +21,7 @@ const UMAMI_FALLBACK_USER_AGENT =
 const OPENPANEL_FALLBACK_USER_AGENT = "jobops-orchestrator/1.0";
 const ANALYTICS_DISABLED_TRUTHY_VALUES = new Set(["1", "true", "yes", "on"]);
 type UmamiClient = {
-  init: (options: {
-    websiteId: string;
-    hostUrl: string;
-    userAgent?: string;
-  }) => void;
+  init: (options: { websiteId: string; hostUrl: string; userAgent?: string }) => void;
   track: (payload: {
     id?: string;
     timestamp?: number;
@@ -86,10 +82,10 @@ function resolveBaseUrl(requestOrigin?: string | null): string {
   );
 }
 
-function buildPagePayload(args: {
-  requestOrigin?: string | null;
-  urlPath?: string;
-}): { hostname: string; url: string } {
+function buildPagePayload(args: { requestOrigin?: string | null; urlPath?: string }): {
+  hostname: string;
+  url: string;
+} {
   const baseUrl = resolveBaseUrl(args.requestOrigin);
   const resolvedUrl = new URL(args.urlPath ?? "/", baseUrl);
   return {
@@ -98,9 +94,7 @@ function buildPagePayload(args: {
   };
 }
 
-function toUnixTimestampSeconds(
-  value: Date | number | string | null | undefined,
-): number | null {
+function toUnixTimestampSeconds(value: Date | number | string | null | undefined): number | null {
   if (value === null || value === undefined) return null;
 
   let epochMs: number | null = null;
@@ -119,9 +113,7 @@ function toUnixTimestampSeconds(
   return Math.floor(epochMs / 1000);
 }
 
-function toIsoTimestamp(
-  value: Date | number | string | null | undefined,
-): string | null {
+function toIsoTimestamp(value: Date | number | string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
 
   let date: Date | null = null;
@@ -174,7 +166,7 @@ async function trackOpenPanelProductEvent(args: {
   }
 
   const properties: AnalyticsPayload = {
-    ...(args.data ?? {}),
+    ...args.data,
     __path: args.urlPath,
   };
   const timestamp = toIsoTimestamp(args.occurredAt);
@@ -236,11 +228,9 @@ export async function trackServerProductEvent(
 
   const requestContext = getRequestContext();
   const sessionId =
-    options?.sessionId?.trim() ||
-    requestContext?.analyticsSessionId?.trim() ||
-    null;
+    options?.sessionId?.trim() || requestContext?.analyticsSessionId?.trim() || null;
   const sanitized = sanitizeAnalyticsPayload({
-    ...(data ?? {}),
+    ...data,
     ...(sessionId ? { sessionId } : {}),
   });
   const page = buildPagePayload({

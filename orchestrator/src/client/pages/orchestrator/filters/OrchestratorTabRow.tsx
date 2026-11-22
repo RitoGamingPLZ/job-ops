@@ -79,10 +79,7 @@ export const OrchestratorTabRow: React.FC<OrchestratorTabRowProps> = ({
           aria-expanded={isFiltersOpen}
           aria-controls="orchestrator-filter-bar"
           onClick={() => onFiltersOpenChange(!isFiltersOpen)}
-          className={cn(
-            "h-8 gap-1.5 text-xs",
-            isFiltersOpen && "bg-accent text-accent-foreground",
-          )}
+          className={cn("h-8 gap-1.5 text-xs", isFiltersOpen && "bg-accent text-accent-foreground")}
         >
           <Filter className="h-3.5 w-3.5" />
           Filters

@@ -11,9 +11,7 @@ import {
 describe("resume bullets", () => {
   it("htmlToPlainText strips tags, decodes entities and keeps line breaks", () => {
     expect(
-      htmlToPlainText(
-        "<p>R&amp;D&nbsp;prize &lt;2020&gt; &#39;x&#x27;</p><p>Second<br>line</p>  ",
-      ),
+      htmlToPlainText("<p>R&amp;D&nbsp;prize &lt;2020&gt; &#39;x&#x27;</p><p>Second<br>line</p>  "),
     ).toBe("R&D prize <2020> 'x'\nSecond\nline");
     expect(htmlToPlainText("<b>a</b>   <i>b</i>")).toBe("a b");
     expect(htmlToPlainText("")).toBe("");
@@ -59,9 +57,10 @@ describe("description prose and bullets", () => {
     expect(splitDescription("")).toEqual({ introHtml: "", bullets: [] });
   });
   it("extracts ordered lists and multiple lists without treating other prose as duties", () => {
-    expect(
-      splitDescription("<p>Intro</p><ol><li>A</li></ol><ul><li>B</li></ul>"),
-    ).toEqual({ introHtml: "<p>Intro</p>", bullets: ["A", "B"] });
+    expect(splitDescription("<p>Intro</p><ol><li>A</li></ol><ul><li>B</li></ul>")).toEqual({
+      introHtml: "<p>Intro</p>",
+      bullets: ["A", "B"],
+    });
   });
   it("escapes manual intro edits and preserves paragraph boundaries", () => {
     expect(introTextToHtml("First <script>\nSecond & text")).toBe(
@@ -74,8 +73,6 @@ describe("description prose and bullets", () => {
     expect(joinDescription(introHtml, ["Edited"], original)).toBe(
       `${intro}<ul><li>Edited</li></ul>\n<p>After <b>list</b></p>`,
     );
-    expect(joinDescription(introHtml, [], original)).toBe(
-      `${intro}\n<p>After <b>list</b></p>`,
-    );
+    expect(joinDescription(introHtml, [], original)).toBe(`${intro}\n<p>After <b>list</b></p>`);
   });
 });

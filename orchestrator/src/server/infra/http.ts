@@ -1,12 +1,6 @@
 import crypto from "node:crypto";
 import type { ApiResponse } from "@shared/types";
-import type {
-  ErrorRequestHandler,
-  NextFunction,
-  Request,
-  RequestHandler,
-  Response,
-} from "express";
+import type { ErrorRequestHandler, NextFunction, Request, RequestHandler, Response } from "express";
 import type { AppError } from "./errors";
 import { notFound, toAppError } from "./errors";
 import { logger } from "./logger";
@@ -14,11 +8,7 @@ import { getRequestId, runWithRequestContext } from "./request-context";
 import { sanitizeUnknown } from "./sanitize";
 
 function getResponseRequestId(res: Response): string {
-  return (
-    (res.getHeader("x-request-id") as string | undefined) ??
-    getRequestId() ??
-    "unknown"
-  );
+  return (res.getHeader("x-request-id") as string | undefined) ?? getRequestId() ?? "unknown";
 }
 
 export function ok<T>(res: Response, data: T, status = 200): void {
@@ -54,21 +44,15 @@ export function fail(
     error: {
       code: error.code,
       message: error.message,
-      ...(error.details !== undefined
-        ? { details: sanitizeUnknown(error.details) }
-        : {}),
+      ...(error.details !== undefined ? { details: sanitizeUnknown(error.details) } : {}),
     },
-    meta: { requestId: getResponseRequestId(res), ...(meta ?? {}) },
+    meta: { requestId: getResponseRequestId(res), ...meta },
   };
   res.status(error.status).json(payload);
 }
 
 export function asyncRoute(
-  handler: (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) => Promise<unknown>,
+  handler: (req: Request, res: Response, next: NextFunction) => Promise<unknown>,
 ): RequestHandler {
   return (req, res, next) => {
     Promise.resolve(handler(req, res, next)).catch(next);
@@ -78,19 +62,13 @@ export function asyncRoute(
 export function requestContextMiddleware(): RequestHandler {
   return (req, res, next) => {
     const requestIdHeader = req.header("x-request-id")?.trim();
-    const analyticsSessionId =
-      req.header("x-jobops-analytics-session-id")?.trim() || undefined;
+    const analyticsSessionId = req.header("x-jobops-analytics-session-id")?.trim() || undefined;
     const requestUserAgent = req.header("user-agent")?.trim() || undefined;
     const requestId =
-      requestIdHeader && requestIdHeader.length > 0
-        ? requestIdHeader
-        : crypto.randomUUID();
+      requestIdHeader && requestIdHeader.length > 0 ? requestIdHeader : crypto.randomUUID();
 
     res.setHeader("x-request-id", requestId);
-    runWithRequestContext(
-      { requestId, analyticsSessionId, requestUserAgent },
-      () => next(),
-    );
+    runWithRequestContext({ requestId, analyticsSessionId, requestUserAgent }, () => next());
   };
 }
 

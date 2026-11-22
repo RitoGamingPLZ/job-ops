@@ -43,9 +43,9 @@ export async function getCurrentAccountEntitlements(): Promise<AccountEntitlemen
   });
   const pro = Boolean(
     subscription?.stripePriceId &&
-      subscription.stripePriceId === process.env.STRIPE_PRO_PRICE_ID?.trim() &&
-      subscription.stripeStatus &&
-      PRO_STATUSES.has(subscription.stripeStatus),
+    subscription.stripePriceId === process.env.STRIPE_PRO_PRICE_ID?.trim() &&
+    subscription.stripeStatus &&
+    PRO_STATUSES.has(subscription.stripeStatus),
   );
   const platformAiIncluded = config.capabilities.platformLlm;
 

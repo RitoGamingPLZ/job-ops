@@ -6,9 +6,7 @@ import type { RunWazzufOptions } from "./types";
 
 export type WazzufResult = ExtractorRunResult;
 
-export function runWazzuf(
-  options: RunWazzufOptions = {},
-): Promise<WazzufResult> {
+export function runWazzuf(options: RunWazzufOptions = {}): Promise<WazzufResult> {
   return runSearchTermJobs(
     options,
     async (searchTerm) =>

@@ -93,7 +93,7 @@ async function executeWithKeyRetries(
     const headers = {
       "x-api-key": apiKey,
       ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(options.headers || {}),
+      ...options.headers,
     } as Record<string, string>;
 
     const response = await fetch(url, {
@@ -107,11 +107,7 @@ async function executeWithKeyRetries(
         .catch(async () => await response.text().catch(() => null));
       const errorMsg = extractErrorMessage(errorBody, response.statusText);
 
-      if (
-        response.status === 401 &&
-        apiKeys.length > 1 &&
-        attempt < apiKeys.length - 1
-      ) {
+      if (response.status === 401 && apiKeys.length > 1 && attempt < apiKeys.length - 1) {
         continue;
       }
 
@@ -122,9 +118,7 @@ async function executeWithKeyRetries(
         upstreamError: errorBody,
       });
 
-      throw new Error(
-        `Reactive Resume API error (${response.status}): ${errorMsg}`,
-      );
+      throw new Error(`Reactive Resume API error (${response.status}): ${errorMsg}`);
     }
 
     const contentType = response.headers.get("content-type");
@@ -156,10 +150,7 @@ export async function fetchRxResume(
   options: RequestInit = {},
   config?: RxResumeApiConfig,
 ): Promise<unknown> {
-  const baseUrl =
-    config?.baseUrl ??
-    getOriginalEnvValue("RXRESUME_URL") ??
-    "https://rxresu.me";
+  const baseUrl = config?.baseUrl ?? getOriginalEnvValue("RXRESUME_URL") ?? "https://rxresu.me";
   const url = `${cleanBaseUrl(baseUrl)}/api/openapi${path}`;
   return executeWithKeyRetries(url, options, config?.apiKey);
 }
@@ -171,21 +162,14 @@ export async function getResume(
   id: string,
   config?: RxResumeApiConfig,
 ): Promise<RxResumeGetByIdResponse> {
-  const payload = (await fetchRxResume(
-    `/resumes/${id}`,
-    {},
-    config,
-  )) as RxResumeGetByIdResponse;
+  const payload = (await fetchRxResume(`/resumes/${id}`, {}, config)) as RxResumeGetByIdResponse;
   if (payload.data !== undefined) {
     payload.data = parseV5ResumeData(payload.data) as Record<string, unknown>;
   }
   return payload;
 }
 
-export async function verifyApiKey(
-  apiKey?: string,
-  baseUrl?: string,
-): Promise<VerifyApiKeyResult> {
+export async function verifyApiKey(apiKey?: string, baseUrl?: string): Promise<VerifyApiKeyResult> {
   try {
     const payload = await fetchRxResume("/resumes", {}, { apiKey, baseUrl });
     if (!Array.isArray(payload)) {
@@ -237,15 +221,8 @@ export async function importResume(
 /**
  * Delete a resume.
  */
-export async function deleteResume(
-  id: string,
-  config?: RxResumeApiConfig,
-): Promise<void> {
-  await fetchRxResume(
-    `/resumes/${id}`,
-    { method: "DELETE", body: JSON.stringify({}) },
-    config,
-  );
+export async function deleteResume(id: string, config?: RxResumeApiConfig): Promise<void> {
+  await fetchRxResume(`/resumes/${id}`, { method: "DELETE", body: JSON.stringify({}) }, config);
 }
 
 /**
@@ -255,11 +232,7 @@ export async function exportResumePdf(
   id: string,
   config?: RxResumeApiConfig,
 ): Promise<RxResumeExportPdfResult> {
-  const result = (await fetchRxResume(
-    `/resumes/${id}/pdf`,
-    {},
-    config,
-  )) as unknown;
+  const result = (await fetchRxResume(`/resumes/${id}/pdf`, {}, config)) as unknown;
 
   if (result instanceof Uint8Array) {
     return { kind: "pdf", bytes: result };
@@ -272,9 +245,7 @@ export async function exportResumePdf(
     }
   }
 
-  throw new Error(
-    "Reactive Resume returned an unexpected PDF export response shape.",
-  );
+  throw new Error("Reactive Resume returned an unexpected PDF export response shape.");
 }
 
 /**

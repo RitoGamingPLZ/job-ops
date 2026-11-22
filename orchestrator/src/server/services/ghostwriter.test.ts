@@ -1,15 +1,7 @@
 import { rmSync } from "node:fs";
 import { suggestionProviderJsonSchema } from "@shared/resume-suggestion-schema";
 import type { JobChatMessage, ReactiveResumeV5Document } from "@shared/types";
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
 
 // Own sqlite file: sharing the default DATA_DIR with parallel test files causes "database is locked".
@@ -127,8 +119,7 @@ vi.mock("../repositories/job-documents", () => ({
 }));
 
 vi.mock("./post-application/job-emails", () => ({
-  listJobPostApplicationEmailsByIds:
-    mocks.jobEmails.listJobPostApplicationEmailsByIds,
+  listJobPostApplicationEmailsByIds: mocks.jobEmails.listJobPostApplicationEmailsByIds,
 }));
 
 vi.mock("./modelSelection", () => ({
@@ -300,14 +291,8 @@ describe("ghostwriter service", () => {
         status: "failed",
       },
     ]);
-    mocks.repo.getActivePathFromRoot.mockResolvedValue([
-      baseUserMessage,
-      baseAssistantMessage,
-    ]);
-    mocks.repo.getAncestorPath.mockResolvedValue([
-      baseUserMessage,
-      baseAssistantMessage,
-    ]);
+    mocks.repo.getActivePathFromRoot.mockResolvedValue([baseUserMessage, baseAssistantMessage]);
+    mocks.repo.getAncestorPath.mockResolvedValue([baseUserMessage, baseAssistantMessage]);
     mocks.repo.setActiveChild.mockResolvedValue(undefined);
     mocks.repo.setActiveRoot.mockResolvedValue(undefined);
     mocks.repo.getSiblingsOf.mockResolvedValue({
@@ -326,14 +311,10 @@ describe("ghostwriter service", () => {
   });
 
   it("persists filtered cowork suggestions and includes them in SSE completion", async () => {
-    const document =
-      buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+    const document = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
     const cowork = { document, referencedBulletIds: [] };
     const unusedFields = Object.fromEntries(
-      Object.keys(suggestionProviderJsonSchema.properties).map((key) => [
-        key,
-        null,
-      ]),
+      Object.keys(suggestionProviderJsonSchema.properties).map((key) => [key, null]),
     );
     mocks.repo.createMessage.mockResolvedValue(baseAssistantMessage);
     mocks.repo.updateMessage.mockImplementation(async (_id, update) => ({
@@ -378,9 +359,7 @@ describe("ghostwriter service", () => {
         onError: vi.fn(),
       },
     });
-    expect(mocks.llmCallJson.mock.calls[0][0].jsonSchema.name).toBe(
-      "cowork_response",
-    );
+    expect(mocks.llmCallJson.mock.calls[0][0].jsonSchema.name).toBe("cowork_response");
     expect(mocks.repo.updateMessage).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
@@ -413,14 +392,11 @@ describe("ghostwriter service", () => {
       threadId: "thread-1",
       assistantMessageId: "assistant-1",
       cowork: {
-        document:
-          buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document,
+        document: buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document,
         referencedBulletIds: [],
       },
     });
-    expect(mocks.llmCallJson.mock.calls[0][0].jsonSchema.name).toBe(
-      "cowork_response",
-    );
+    expect(mocks.llmCallJson.mock.calls[0][0].jsonSchema.name).toBe("cowork_response");
     expect(mocks.repo.updateMessage).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ suggestions: [] }),
@@ -436,14 +412,11 @@ describe("ghostwriter service", () => {
       messageId: "user-1",
       content: "Revised",
       cowork: {
-        document:
-          buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document,
+        document: buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document,
         referencedBulletIds: [],
       },
     });
-    expect(mocks.llmCallJson.mock.calls[0][0].jsonSchema.name).toBe(
-      "cowork_response",
-    );
+    expect(mocks.llmCallJson.mock.calls[0][0].jsonSchema.name).toBe("cowork_response");
   });
 
   it("sends message, runs LLM, and returns user + assistant messages", async () => {
@@ -488,19 +461,16 @@ describe("ghostwriter service", () => {
     });
     expect(
       llmArg.messages.filter(
-        (message: { role: string }) =>
-          message.role !== "system" && message.role !== "user",
+        (message: { role: string }) => message.role !== "system" && message.role !== "user",
       ),
     ).toEqual([{ role: "assistant", content: "Draft response" }]);
     expect(mocks.hostedUsage.reserveHostedUsage).toHaveBeenCalledWith({
       action: "ghostwriter",
     });
-    expect(mocks.hostedUsage.settleHostedUsageReservation).toHaveBeenCalledWith(
-      {
-        reservationId: "usage-reservation-1",
-        usedUnits: 1,
-      },
-    );
+    expect(mocks.hostedUsage.settleHostedUsageReservation).toHaveBeenCalledWith({
+      reservationId: "usage-reservation-1",
+      usedUnits: 1,
+    });
   });
 
   it("does not persist a user message when Ghostwriter quota is exhausted", async () => {
@@ -548,9 +518,7 @@ describe("ghostwriter service", () => {
       },
     ]);
     mocks.repo.updateThreadContext.mockResolvedValue(threadWithNotes);
-    mocks.repo.getThreadForJob
-      .mockResolvedValueOnce(thread)
-      .mockResolvedValueOnce(threadWithNotes);
+    mocks.repo.getThreadForJob.mockResolvedValueOnce(thread).mockResolvedValueOnce(threadWithNotes);
     mocks.buildJobChatPromptContext.mockResolvedValue({
       job: { id: "job-1" },
       style: {
@@ -578,9 +546,7 @@ describe("ghostwriter service", () => {
       selectedNoteIds: ["note-1"],
     });
 
-    expect(mocks.jobsRepo.listJobNotesByIds).toHaveBeenCalledWith("job-1", [
-      "note-1",
-    ]);
+    expect(mocks.jobsRepo.listJobNotesByIds).toHaveBeenCalledWith("job-1", ["note-1"]);
     expect(mocks.repo.updateThreadContext).toHaveBeenCalledWith({
       jobId: "job-1",
       threadId: "thread-1",
@@ -588,12 +554,7 @@ describe("ghostwriter service", () => {
       selectedEmailIds: undefined,
       selectedDocumentIds: undefined,
     });
-    expect(mocks.buildJobChatPromptContext).toHaveBeenCalledWith(
-      "job-1",
-      ["note-1"],
-      [],
-      [],
-    );
+    expect(mocks.buildJobChatPromptContext).toHaveBeenCalledWith("job-1", ["note-1"], [], []);
     expect(mocks.llmCallJson.mock.calls[0][0].messages).toContainEqual({
       role: "system",
       content: "Selected Job Notes:\nNote 1: Recruiter call",
@@ -686,9 +647,9 @@ describe("ghostwriter service", () => {
       selectedEmailIds: ["email-1"],
     });
 
-    expect(
-      mocks.jobEmails.listJobPostApplicationEmailsByIds,
-    ).toHaveBeenCalledWith("job-1", ["email-1"]);
+    expect(mocks.jobEmails.listJobPostApplicationEmailsByIds).toHaveBeenCalledWith("job-1", [
+      "email-1",
+    ]);
     expect(mocks.repo.updateThreadContext).toHaveBeenCalledWith({
       jobId: "job-1",
       threadId: "thread-1",
@@ -696,12 +657,7 @@ describe("ghostwriter service", () => {
       selectedEmailIds: ["email-1"],
       selectedDocumentIds: undefined,
     });
-    expect(mocks.buildJobChatPromptContext).toHaveBeenCalledWith(
-      "job-1",
-      [],
-      ["email-1"],
-      [],
-    );
+    expect(mocks.buildJobChatPromptContext).toHaveBeenCalledWith("job-1", [], ["email-1"], []);
     expect(mocks.llmCallJson.mock.calls[0][0].messages).toContainEqual({
       role: "system",
       content: "Selected Job Emails:\nEmail 1: Interview update",
@@ -754,8 +710,7 @@ describe("ghostwriter service", () => {
       profileSnapshot: "profile snapshot",
       selectedNotesSnapshot: "",
       selectedEmailsSnapshot: "",
-      selectedDocumentsSnapshot:
-        "Selected Job Documents:\nDocument 1: take-home.md",
+      selectedDocumentsSnapshot: "Selected Job Documents:\nDocument 1: take-home.md",
     });
     mocks.repo.createMessage
       .mockResolvedValueOnce(baseUserMessage)
@@ -769,10 +724,7 @@ describe("ghostwriter service", () => {
       selectedDocumentIds: ["doc-1"],
     });
 
-    expect(mocks.jobDocumentsRepo.listJobDocumentsByIds).toHaveBeenCalledWith(
-      "job-1",
-      ["doc-1"],
-    );
+    expect(mocks.jobDocumentsRepo.listJobDocumentsByIds).toHaveBeenCalledWith("job-1", ["doc-1"]);
     expect(mocks.repo.updateThreadContext).toHaveBeenCalledWith({
       jobId: "job-1",
       threadId: "thread-1",
@@ -780,12 +732,7 @@ describe("ghostwriter service", () => {
       selectedEmailIds: undefined,
       selectedDocumentIds: ["doc-1"],
     });
-    expect(mocks.buildJobChatPromptContext).toHaveBeenCalledWith(
-      "job-1",
-      [],
-      [],
-      ["doc-1"],
-    );
+    expect(mocks.buildJobChatPromptContext).toHaveBeenCalledWith("job-1", [], [], ["doc-1"]);
     expect(mocks.llmCallJson.mock.calls[0][0].messages).toContainEqual({
       role: "system",
       content: "Selected Job Documents:\nDocument 1: take-home.md",
@@ -856,9 +803,7 @@ describe("ghostwriter service", () => {
         name: "form.png",
       },
     ]);
-    expect(
-      mocks.llmCallJson.mock.calls[0][0].jsonSchema.schema.properties.response,
-    ).toMatchObject({
+    expect(mocks.llmCallJson.mock.calls[0][0].jsonSchema.schema.properties.response).toMatchObject({
       description: expect.stringContaining("Do not serialize JSON"),
     });
   });
@@ -1002,10 +947,7 @@ describe("ghostwriter service", () => {
       sendMessageForJob({
         jobId: "job-1",
         content: "Use these",
-        selectedNoteIds: Array.from(
-          { length: 9 },
-          (_, index) => `note-${index}`,
-        ),
+        selectedNoteIds: Array.from({ length: 9 }, (_, index) => `note-${index}`),
       }),
     ).rejects.toMatchObject({
       code: "INVALID_REQUEST",
@@ -1018,10 +960,7 @@ describe("ghostwriter service", () => {
       sendMessageForJob({
         jobId: "job-1",
         content: "Use these",
-        selectedEmailIds: Array.from(
-          { length: 9 },
-          (_, index) => `email-${index}`,
-        ),
+        selectedEmailIds: Array.from({ length: 9 }, (_, index) => `email-${index}`),
       }),
     ).rejects.toMatchObject({
       code: "INVALID_REQUEST",
@@ -1034,10 +973,7 @@ describe("ghostwriter service", () => {
       sendMessageForJob({
         jobId: "job-1",
         content: "Use these",
-        selectedDocumentIds: Array.from(
-          { length: 6 },
-          (_, index) => `doc-${index}`,
-        ),
+        selectedDocumentIds: Array.from({ length: 6 }, (_, index) => `doc-${index}`),
       }),
     ).rejects.toMatchObject({
       code: "INVALID_REQUEST",
@@ -1090,15 +1026,13 @@ describe("ghostwriter service", () => {
       }),
     ).rejects.toMatchObject({
       code: "UPSTREAM_ERROR",
-      message:
-        "LLM response structure was invalid: missing 'response' property",
+      message: "LLM response structure was invalid: missing 'response' property",
     });
 
     expect(mocks.repo.completeRun).toHaveBeenCalledWith("run-1", {
       status: "failed",
       errorCode: "UPSTREAM_ERROR",
-      errorMessage:
-        "LLM response structure was invalid: missing 'response' property",
+      errorMessage: "LLM response structure was invalid: missing 'response' property",
     });
     expect(mocks.hostedUsage.refundHostedUsageReservation).toHaveBeenCalledWith(
       "usage-reservation-1",
@@ -1178,12 +1112,10 @@ describe("ghostwriter service", () => {
     expect(onCancelled).toHaveBeenCalled();
     expect(onCompleted).not.toHaveBeenCalled();
     expect(result.assistantMessage?.status).toBe("cancelled");
-    expect(mocks.hostedUsage.settleHostedUsageReservation).toHaveBeenCalledWith(
-      {
-        reservationId: "usage-reservation-1",
-        usedUnits: 0,
-      },
-    );
+    expect(mocks.hostedUsage.settleHostedUsageReservation).toHaveBeenCalledWith({
+      reservationId: "usage-reservation-1",
+      usedUnits: 0,
+    });
   });
 
   it("regenerates any assistant message, not just the latest", async () => {
@@ -1219,10 +1151,7 @@ describe("ghostwriter service", () => {
 
     expect(result.runId).toBe("run-1");
     expect(result.assistantMessage?.id).toBe("assistant-regen");
-    expect(mocks.repo.setActiveChild).toHaveBeenCalledWith(
-      "user-1",
-      "assistant-regen",
-    );
+    expect(mocks.repo.setActiveChild).toHaveBeenCalledWith("user-1", "assistant-regen");
   });
 
   it("returns alreadyFinished when cancelling non-running run", async () => {

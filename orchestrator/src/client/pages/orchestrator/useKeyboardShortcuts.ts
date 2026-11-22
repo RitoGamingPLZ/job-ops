@@ -58,13 +58,8 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
   const navigateJobList = useCallback(
     (direction: 1 | -1) => {
       if (activeJobs.length === 0) return;
-      const currentIndex = selectedJobId
-        ? activeJobs.findIndex((j) => j.id === selectedJobId)
-        : -1;
-      const nextIndex = Math.max(
-        0,
-        Math.min(activeJobs.length - 1, currentIndex + direction),
-      );
+      const currentIndex = selectedJobId ? activeJobs.findIndex((j) => j.id === selectedJobId) : -1;
+      const nextIndex = Math.max(0, Math.min(activeJobs.length - 1, currentIndex + direction));
       const nextJob = activeJobs[nextIndex];
       if (nextJob && nextJob.id !== selectedJobId) {
         handleSelectJobId(nextJob.id);
@@ -131,10 +126,7 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
           void targetSelectedJobs();
           return;
         }
-        if (
-          !selectedJob ||
-          !["discovered", "processing", "ready"].includes(selectedJob.status)
-        )
+        if (!selectedJob || !["discovered", "processing", "ready"].includes(selectedJob.status))
           return;
         const targeted = isTargeted(selectedJob);
         if (targeted && selectedJob.status === "processing") return;
@@ -143,13 +135,10 @@ export function useKeyboardShortcuts(args: UseKeyboardShortcutsArgs): void {
         void (targeted ? api.untargetJob(jobId) : api.targetJob(jobId))
           .then(async () => {
             toast.success(targeted ? "Job untargeted" : "Job targeted");
-            if (activeTab === "discovered" && !targeted)
-              selectNextAfterAction(jobId);
+            if (activeTab === "discovered" && !targeted) selectNextAfterAction(jobId);
             await loadJobs();
           })
-          .catch((error: unknown) =>
-            showErrorToast(error, "Failed to update target"),
-          )
+          .catch((error: unknown) => showErrorToast(error, "Failed to update target"))
           .finally(() => {
             shortcutActionInFlight.current = false;
           });

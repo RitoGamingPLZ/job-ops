@@ -52,11 +52,7 @@ describe("solveChallenge", () => {
     const oldJar = JSON.stringify({ savedAt: "yesterday", cookies: [] });
     await writeFile(path, oldJar);
 
-    const result = await solveChallenge(
-      "https://hiringcafe.com/job/req-1",
-      "hiringcafe",
-      dir,
-    );
+    const result = await solveChallenge("https://hiringcafe.com/job/req-1", "hiringcafe", dir);
 
     expect(result).toMatchObject({
       status: "error",
@@ -80,16 +76,10 @@ describe("solveChallenge", () => {
       },
     ]);
 
-    const result = await solveChallenge(
-      "https://hiringcafe.com/job/req-1",
-      "hiringcafe",
-      dir,
-    );
+    const result = await solveChallenge("https://hiringcafe.com/job/req-1", "hiringcafe", dir);
 
     expect(result).toEqual({ status: "solved", cookiesSaved: 1 });
-    expect(
-      await readFile(join(dir, "hiringcafe-cookies.json"), "utf8"),
-    ).toContain("cf_clearance");
+    expect(await readFile(join(dir, "hiringcafe-cookies.json"), "utf8")).toContain("cf_clearance");
   });
 
   it("does not accept an unchanged saved clearance cookie as a new solve", async () => {
@@ -112,11 +102,7 @@ describe("solveChallenge", () => {
         userAgent: "Mozilla/5.0 Saved",
       }),
     );
-    const result = await solveChallenge(
-      "https://hiringcafe.com/job/req-1",
-      "hiringcafe",
-      dir,
-    );
+    const result = await solveChallenge("https://hiringcafe.com/job/req-1", "hiringcafe", dir);
 
     expect(result).toMatchObject({
       status: "error",
@@ -124,8 +110,8 @@ describe("solveChallenge", () => {
     });
     expect(mock.browser.newContext).toHaveBeenCalledWith();
     expect(mock.context.cookies).toHaveBeenCalled();
-    expect(
-      await readFile(join(dir, "hiringcafe-cookies.json"), "utf8"),
-    ).toContain("saved-clearance");
+    expect(await readFile(join(dir, "hiringcafe-cookies.json"), "utf8")).toContain(
+      "saved-clearance",
+    );
   });
 });

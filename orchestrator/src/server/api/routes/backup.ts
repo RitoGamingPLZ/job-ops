@@ -49,11 +49,9 @@ backupRouter.post(
     if (!requireSystemAdmin(res)) return;
     try {
       if (isDemoMode()) {
-        return sendDemoBlocked(
-          res,
-          "Manual backup creation is disabled in the public demo.",
-          { route: "POST /api/backups" },
-        );
+        return sendDemoBlocked(res, "Manual backup creation is disabled in the public demo.", {
+          route: "POST /api/backups",
+        });
       }
 
       const filename = await createBackup("manual");
@@ -84,14 +82,10 @@ backupRouter.delete(
     if (!requireSystemAdmin(res)) return;
     try {
       if (isDemoMode()) {
-        return sendDemoBlocked(
-          res,
-          "Deleting backups is disabled in the public demo.",
-          {
-            route: "DELETE /api/backups/:filename",
-            filename: req.params.filename,
-          },
-        );
+        return sendDemoBlocked(res, "Deleting backups is disabled in the public demo.", {
+          route: "DELETE /api/backups/:filename",
+          filename: req.params.filename,
+        });
       }
 
       const { filename } = req.params;

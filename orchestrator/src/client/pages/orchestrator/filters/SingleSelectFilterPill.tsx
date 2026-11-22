@@ -48,11 +48,7 @@ export function SingleSelectFilterPill<T>({
               size="sm"
               variant={isSelected ? "default" : "outline"}
               onClick={() =>
-                onChange(
-                  isSelected && deselectValue !== undefined
-                    ? deselectValue
-                    : option.value,
-                )
+                onChange(isSelected && deselectValue !== undefined ? deselectValue : option.value)
               }
             >
               {option.label}

@@ -12,15 +12,9 @@ describe("RichTextEditor", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("button", { name: /heading 1/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /heading 2/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /heading 3/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /heading 1/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /heading 2/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /heading 3/i })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(container.querySelector("h2")).toHaveTextContent("Why this role");

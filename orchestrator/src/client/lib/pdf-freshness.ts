@@ -1,10 +1,7 @@
 import type { Job, JobListItem } from "@shared/types";
 import { isTargeted } from "@shared/types.js";
 
-type PdfFreshnessCarrier = Pick<
-  Job | JobListItem,
-  "pdfFreshness" | "pdfRegenerating"
->;
+type PdfFreshnessCarrier = Pick<Job | JobListItem, "pdfFreshness" | "pdfRegenerating">;
 
 export const STALE_PDF_MESSAGE =
   "PDF is out of date. Preview or download renders a fresh one from the editor resume.";
@@ -33,20 +30,14 @@ export function needsRender(job: PdfFreshnessCarrier | null | undefined) {
   return freshness === "missing" || freshness === "stale";
 }
 
-export type ResumeState =
-  | "preparing"
-  | "untargeted"
-  | "unprepared"
-  | "available";
+export type ResumeState = "preparing" | "untargeted" | "unprepared" | "available";
 
 /**
  * What a job's resume entry may offer. Opening the editor or previewing
  * before preparation finishes would create an untailored resume, so only
  * "available" shows Open resume / Preview / Download.
  */
-export function getResumeState(
-  job: Pick<JobListItem, "status" | "readyAt">,
-): ResumeState {
+export function getResumeState(job: Pick<JobListItem, "status" | "readyAt">): ResumeState {
   if (job.status === "processing") return "preparing";
   if (job.status !== "discovered") return "available";
   return isTargeted(job) ? "unprepared" : "untargeted";

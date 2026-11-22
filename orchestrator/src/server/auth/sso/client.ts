@@ -25,9 +25,7 @@ function toErrorMessage(error: unknown): string {
 }
 
 function asTrimmedString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : undefined;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function requireProviderConfig(provider: SsoProvider): SsoProviderConfig {
@@ -38,20 +36,14 @@ function requireProviderConfig(provider: SsoProvider): SsoProviderConfig {
   return config;
 }
 
-async function discoverConfiguration(
-  config: SsoProviderConfig,
-): Promise<client.Configuration> {
+async function discoverConfiguration(config: SsoProviderConfig): Promise<client.Configuration> {
   try {
     return await client.discovery(
       new URL(config.issuerUrl),
       config.clientId,
       undefined,
-      config.clientSecret
-        ? client.ClientSecretPost(config.clientSecret)
-        : client.None(),
-      config.allowInsecureHttp
-        ? { execute: [client.allowInsecureRequests] }
-        : undefined,
+      config.clientSecret ? client.ClientSecretPost(config.clientSecret) : client.None(),
+      config.allowInsecureHttp ? { execute: [client.allowInsecureRequests] } : undefined,
     );
   } catch (error) {
     throw serviceUnavailable(
@@ -64,9 +56,7 @@ async function discoverConfiguration(
  * GitHub is plain OAuth 2.0 with no discovery document and no ID token, and it
  * answers the token endpoint with a form-encoded body unless asked for JSON.
  */
-function buildGithubConfiguration(
-  config: SsoProviderConfig,
-): client.Configuration {
+function buildGithubConfiguration(config: SsoProviderConfig): client.Configuration {
   const configuration = new client.Configuration(
     {
       issuer: GITHUB_ISSUER,
@@ -75,9 +65,7 @@ function buildGithubConfiguration(
     },
     config.clientId,
     config.clientSecret ?? undefined,
-    config.clientSecret
-      ? client.ClientSecretPost(config.clientSecret)
-      : client.None(),
+    config.clientSecret ? client.ClientSecretPost(config.clientSecret) : client.None(),
   );
 
   configuration[client.customFetch] = (url, options) =>
@@ -94,16 +82,12 @@ function buildGithubConfiguration(
   return configuration;
 }
 
-async function resolveConfiguration(
-  config: SsoProviderConfig,
-): Promise<client.Configuration> {
+async function resolveConfiguration(config: SsoProviderConfig): Promise<client.Configuration> {
   const cached = configurationCache.get(config.id);
   if (cached) return cached;
 
   const configuration =
-    config.id === "github"
-      ? buildGithubConfiguration(config)
-      : await discoverConfiguration(config);
+    config.id === "github" ? buildGithubConfiguration(config) : await discoverConfiguration(config);
   configurationCache.set(config.id, configuration);
   return configuration;
 }
@@ -165,8 +149,7 @@ export async function exchangeSsoAuthorizationCode(input: {
   const config = requireProviderConfig(input.provider);
   const configuration = await resolveConfiguration(config);
 
-  let tokens: client.TokenEndpointResponse &
-    client.TokenEndpointResponseHelpers;
+  let tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers;
   try {
     // The full callback query string is replayed so that RFC 9207 `iss` and any
     // other issuer-supplied parameters survive validation.
@@ -197,9 +180,7 @@ async function readOidcClaims(args: {
 }): Promise<SsoIdentityClaims> {
   const claims = args.tokens.claims();
   if (!claims) {
-    throw upstreamError(
-      `SSO provider ${args.config.displayName} did not return an ID token`,
-    );
+    throw upstreamError(`SSO provider ${args.config.displayName} did not return an ID token`);
   }
 
   let email = asTrimmedString(claims.email);
@@ -224,8 +205,7 @@ async function readOidcClaims(args: {
     email = asTrimmedString(userInfo.email);
     emailVerified = userInfo.email_verified === true;
     displayName = displayName ?? asTrimmedString(userInfo.name);
-    preferredUsername =
-      preferredUsername ?? asTrimmedString(userInfo.preferred_username);
+    preferredUsername = preferredUsername ?? asTrimmedString(userInfo.preferred_username);
   }
 
   return {
@@ -238,10 +218,7 @@ async function readOidcClaims(args: {
   };
 }
 
-async function fetchGithubJson<T>(
-  url: string,
-  accessToken: string,
-): Promise<T> {
+async function fetchGithubJson<T>(url: string, accessToken: string): Promise<T> {
   let response: Response;
   try {
     response = await fetch(url, {
@@ -267,9 +244,7 @@ type GithubEmail = {
   verified?: boolean;
 };
 
-async function readGithubClaims(
-  accessToken: string,
-): Promise<SsoIdentityClaims> {
+async function readGithubClaims(accessToken: string): Promise<SsoIdentityClaims> {
   const user = await fetchGithubJson<{
     id?: number;
     login?: string;

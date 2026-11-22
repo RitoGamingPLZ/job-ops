@@ -2,29 +2,17 @@ import { badRequest, conflict, serviceUnavailable } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { runWithRequestContext } from "@infra/request-context";
 import { sanitizeUnknown } from "@infra/sanitize";
-import {
-  type ExtractorRegistry,
-  getExtractorRegistry,
-} from "@server/extractors/registry";
+import { type ExtractorRegistry, getExtractorRegistry } from "@server/extractors/registry";
 import { getPipelineStatus, runPipeline } from "@server/pipeline/index";
-import {
-  reserveHostedUsage,
-  settleHostedUsageReservation,
-} from "@server/services/hosted-usage";
+import { reserveHostedUsage, settleHostedUsageReservation } from "@server/services/hosted-usage";
 import { ensurePipelineSearchTerms } from "@server/services/pipeline-search-terms";
 import { PIPELINE_EXTRACTOR_SOURCE_IDS } from "@shared/extractors";
-import {
-  createLocationIntent,
-  planLocationSources,
-} from "@shared/location-intelligence.js";
+import { createLocationIntent, planLocationSources } from "@shared/location-intelligence.js";
 import {
   LOCATION_MATCH_STRICTNESS_VALUES,
   LOCATION_SEARCH_SCOPE_VALUES,
 } from "@shared/location-preferences.js";
-import {
-  MAX_PIPELINE_RUN_BUDGET,
-  normalizePipelineRunBudget,
-} from "@shared/types";
+import { MAX_PIPELINE_RUN_BUDGET, normalizePipelineRunBudget } from "@shared/types";
 import { z } from "zod";
 import { saveRunRequest } from "./storage";
 
@@ -57,11 +45,7 @@ export const runPipelineSchema = z.object({
     })
     .nullable()
     .optional(),
-  workplaceTypes: z
-    .array(z.enum(WORKPLACE_TYPE_VALUES))
-    .min(1)
-    .max(3)
-    .optional(),
+  workplaceTypes: z.array(z.enum(WORKPLACE_TYPE_VALUES)).min(1).max(3).optional(),
   searchScope: z.enum(LOCATION_SEARCH_SCOPE_VALUES).optional(),
   matchStrictness: z.enum(LOCATION_MATCH_STRICTNESS_VALUES).optional(),
   // Per-#621: optional client-supplied per-run Watchlist source filter.
@@ -118,20 +102,16 @@ export async function validateRequestedPipeline(config: PipelineRunRequest) {
           reasons: plan.reasons,
         }));
 
-      throw badRequest(
-        "Requested sources are incompatible with the selected location setup",
-        { incompatibleSources: incompatible },
-      );
+      throw badRequest("Requested sources are incompatible with the selected location setup", {
+        incompatibleSources: incompatible,
+      });
     }
   }
 
   return locationIntent;
 }
 
-export async function startRequestedPipeline(
-  config: PipelineRunRequest,
-  remember = true,
-) {
+export async function startRequestedPipeline(config: PipelineRunRequest, remember = true) {
   const locationIntent = await validateRequestedPipeline(config);
   if (getPipelineStatus().isRunning) {
     throw conflict("Pipeline is already running");

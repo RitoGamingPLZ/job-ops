@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.sequential("users repository", () => {
+describe("users repository", () => {
   const originalEnv = { ...process.env };
   let tempDir: string;
   let closeDb: (() => void) | null = null;
@@ -49,9 +49,7 @@ describe.sequential("users repository", () => {
     });
 
     const listed = await repo.listUsers();
-    expect(
-      listed.map((user) => [user.username, user.hasPassword]).sort(),
-    ).toEqual([
+    expect(listed.map((user) => [user.username, user.hasPassword]).sort()).toEqual([
       ["alice", true],
       ["bob", false],
     ]);

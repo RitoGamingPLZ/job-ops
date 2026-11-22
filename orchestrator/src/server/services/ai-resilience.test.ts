@@ -113,25 +113,19 @@ describe("AI Service Resilience", () => {
         statusText: "Internal Server Error",
       } as any);
 
-      await expect(scoreJobSuitability(mockJob, mockProfile)).rejects.toThrow(
-        "AI scoring failed",
-      );
+      await expect(scoreJobSuitability(mockJob, mockProfile)).rejects.toThrow("AI scoring failed");
     });
 
     it("should throw ScoringUnavailableError on Malformed/Invalid JSON in API response", async () => {
       const mockResponse = {
         ok: true,
         json: async () => ({
-          choices: [
-            { message: { content: "This is not JSON at all, just text." } },
-          ],
+          choices: [{ message: { content: "This is not JSON at all, just text." } }],
         }),
       };
       vi.mocked(global.fetch).mockResolvedValue(mockResponse as any);
 
-      await expect(scoreJobSuitability(mockJob, mockProfile)).rejects.toThrow(
-        "AI scoring failed",
-      );
+      await expect(scoreJobSuitability(mockJob, mockProfile)).rejects.toThrow("AI scoring failed");
     });
 
     it("should extract JSON from markdown code blocks", async () => {
@@ -141,8 +135,7 @@ describe("AI Service Resilience", () => {
           choices: [
             {
               message: {
-                content:
-                  'Here is the score: ```json\n{ "score": 90, "reason": "Good" }\n```',
+                content: 'Here is the score: ```json\n{ "score": 90, "reason": "Good" }\n```',
               },
             },
           ],

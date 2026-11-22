@@ -87,8 +87,6 @@ describe("CodexAuthPanel", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
     await waitFor(() => expect(disconnect).toHaveBeenCalledOnce());
     expect(await screen.findByText("Codex Sign-In")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /start sign-in/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /start sign-in/i })).toBeInTheDocument();
   });
 });

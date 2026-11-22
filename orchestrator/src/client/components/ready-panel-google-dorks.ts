@@ -74,9 +74,7 @@ function buildDork(
   };
 }
 
-export function buildReadyPanelGoogleDorks(
-  job: Job,
-): ReadyPanelGoogleDorkLink[] {
+export function buildReadyPanelGoogleDorks(job: Job): ReadyPanelGoogleDorkLink[] {
   const employer = job.employer.trim();
   const title = job.title.trim();
   const keywords = getKeywordTerms(job);
@@ -92,9 +90,7 @@ export function buildReadyPanelGoogleDorks(
   const links: ReadyPanelGoogleDorkLink[] = [];
 
   const linkedinQuery =
-    linkedinTerms.length > 0
-      ? `site:linkedin.com/in ${quoteTerms(linkedinTerms)}`
-      : "";
+    linkedinTerms.length > 0 ? `site:linkedin.com/in ${quoteTerms(linkedinTerms)}` : "";
   if (linkedinQuery) {
     links.push({
       query: linkedinQuery,
@@ -103,8 +99,7 @@ export function buildReadyPanelGoogleDorks(
     });
   }
 
-  const githubQuery =
-    githubTerms.length > 0 ? `site:github.com ${quoteTerms(githubTerms)}` : "";
+  const githubQuery = githubTerms.length > 0 ? `site:github.com ${quoteTerms(githubTerms)}` : "";
   if (githubQuery) {
     links.push({
       query: githubQuery,

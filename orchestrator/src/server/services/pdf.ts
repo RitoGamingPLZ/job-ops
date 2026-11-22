@@ -16,11 +16,7 @@ import { getJobOpsPublicAvailability } from "@server/infra/public-availability";
 import { getSetting } from "@server/repositories/settings";
 import { safePdfFileName } from "@shared/filename-sanitizer";
 import { settingsRegistry } from "@shared/settings-registry";
-import type {
-  DesignResumePdfResponse,
-  PdfPaperSize,
-  PdfRenderer,
-} from "@shared/types";
+import type { DesignResumePdfResponse, PdfPaperSize, PdfRenderer } from "@shared/types";
 import { getCurrentDesignResume } from "./design-resume";
 import { ensureJobResume } from "./job-resume";
 import { resolveWritingOutputLanguageForResumeJson } from "./output-language";
@@ -99,9 +95,7 @@ async function resolveLocalResumeLanguage(
 async function downloadRxResumePdfBytes(url: string): Promise<Uint8Array> {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(
-      `Reactive Resume PDF download failed with HTTP ${response.status}.`,
-    );
+    throw new Error(`Reactive Resume PDF download failed with HTTP ${response.status}.`);
   }
 
   return new Uint8Array(await response.arrayBuffer());
@@ -112,9 +106,7 @@ async function stripPictureWhenJobOpsIsNotHosted(args: {
   requestOrigin?: string | null;
 }): Promise<Record<string, unknown>> {
   const picture =
-    args.data.picture &&
-    typeof args.data.picture === "object" &&
-    !Array.isArray(args.data.picture)
+    args.data.picture && typeof args.data.picture === "object" && !Array.isArray(args.data.picture)
       ? (args.data.picture as Record<string, unknown>)
       : null;
   if (!picture) return args.data;
@@ -223,10 +215,7 @@ function classifyPdfGenerationError(error: unknown): AppErrorCode {
     return error.code;
   }
 
-  if (
-    error instanceof Error &&
-    /Reactive Resume|RxResume/i.test(error.message)
-  ) {
+  if (error instanceof Error && /Reactive Resume|RxResume/i.test(error.message)) {
     return "UPSTREAM_ERROR";
   }
 
@@ -288,15 +277,12 @@ async function resolveDesignResumeForRenderer(args: {
       mode: "v5",
     };
   } catch (error) {
-    logger.warn(
-      "Failed to refresh Reactive Resume template metadata for Design Resume rendering",
-      {
-        documentId: designResume.id,
-        sourceResumeId: designResume.sourceResumeId,
-        sourceMode: designResume.sourceMode,
-        error,
-      },
-    );
+    logger.warn("Failed to refresh Reactive Resume template metadata for Design Resume rendering", {
+      documentId: designResume.id,
+      sourceResumeId: designResume.sourceResumeId,
+      sourceMode: designResume.sourceMode,
+      error,
+    });
 
     return {
       documentId: designResume.id,
@@ -328,9 +314,10 @@ export async function loadBaseResumeSource(args: {
     }
 
     return {
-      data: parseV5ResumeData(
-        designResume.resumeJson as Record<string, unknown>,
-      ) as Record<string, unknown>,
+      data: parseV5ResumeData(designResume.resumeJson as Record<string, unknown>) as Record<
+        string,
+        unknown
+      >,
       mode: "v5",
     };
   }
@@ -362,9 +349,7 @@ async function renderJobPdfBytes(
   const savedResume = await ensureJobResume(jobId, {
     requestOrigin: options?.requestOrigin ?? null,
   });
-  const data = parseV5ResumeData(
-    structuredClone(savedResume.document),
-  ) as Record<string, unknown>;
+  const data = parseV5ResumeData(structuredClone(savedResume.document)) as Record<string, unknown>;
   const preparedResume = {
     mode: "v5" as const,
     data,
@@ -449,9 +434,7 @@ export async function generatePdf(
   }
 }
 
-async function renderDesignResumePdfBytes(options?: {
-  requestOrigin?: string | null;
-}): Promise<{
+async function renderDesignResumePdfBytes(options?: { requestOrigin?: string | null }): Promise<{
   bytes: Uint8Array;
   title: string;
   language: Awaited<ReturnType<typeof resolveLocalResumeLanguage>>;
@@ -486,8 +469,7 @@ async function renderDesignResumePdfBytes(options?: {
           jobId: "design-resume",
           language,
           renderer,
-          typstTheme:
-            renderer === "typst" ? await resolveTypstTheme() : undefined,
+          typstTheme: renderer === "typst" ? await resolveTypstTheme() : undefined,
           paperSize,
         })
       : await renderRxResumePdfBytes({

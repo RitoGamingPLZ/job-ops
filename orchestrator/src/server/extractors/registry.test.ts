@@ -7,11 +7,7 @@ vi.mock("./discovery", () => ({
   loadManifestFromFile: vi.fn(),
 }));
 
-function makeManifest(
-  id: string,
-  sources: string[],
-  displayName = id,
-): ExtractorManifest {
+function makeManifest(id: string, sources: string[], displayName = id): ExtractorManifest {
   return {
     id,
     displayName,
@@ -50,17 +46,12 @@ describe("extractor registry", () => {
       "/tmp/naukri.ts",
       "/tmp/ukvisajobs.ts",
     ]);
-    vi.mocked(discovery.loadManifestFromFile).mockImplementation(
-      async (path) =>
-        path === "/tmp/jobspy.ts"
-          ? makeManifest(
-              "jobspy",
-              ["indeed", "linkedin", "glassdoor"],
-              "JobSpy",
-            )
-          : path === "/tmp/naukri.ts"
-            ? makeManifest("naukri", ["naukri"], "Naukri")
-            : makeManifest("ukvisajobs", ["ukvisajobs"], "UK Visa Jobs"),
+    vi.mocked(discovery.loadManifestFromFile).mockImplementation(async (path) =>
+      path === "/tmp/jobspy.ts"
+        ? makeManifest("jobspy", ["indeed", "linkedin", "glassdoor"], "JobSpy")
+        : path === "/tmp/naukri.ts"
+          ? makeManifest("naukri", ["naukri"], "Naukri")
+          : makeManifest("ukvisajobs", ["ukvisajobs"], "UK Visa Jobs"),
     );
 
     const registry = await registryModule.initializeExtractorRegistry();
@@ -79,9 +70,7 @@ describe("extractor registry", () => {
     const registryModule = await import("./registry");
     registryModule.__resetExtractorRegistryForTests();
 
-    vi.mocked(discovery.discoverManifestPaths).mockResolvedValue([
-      "/tmp/jobspy.ts",
-    ]);
+    vi.mocked(discovery.discoverManifestPaths).mockResolvedValue(["/tmp/jobspy.ts"]);
     vi.mocked(discovery.loadManifestFromFile).mockResolvedValue({
       ...makeManifest("jobspy", ["indeed", "glassdoor"], "JobSpy"),
       locationCapabilities: {
@@ -117,9 +106,7 @@ describe("extractor registry", () => {
     registryModule.__resetExtractorRegistryForTests();
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
-    vi.mocked(discovery.discoverManifestPaths).mockResolvedValue([
-      "/tmp/jobspy.ts",
-    ]);
+    vi.mocked(discovery.discoverManifestPaths).mockResolvedValue(["/tmp/jobspy.ts"]);
     vi.mocked(discovery.loadManifestFromFile).mockResolvedValue({
       ...makeManifest("jobspy", ["indeed"], "JobSpy"),
       locationCapabilities: {
@@ -138,9 +125,7 @@ describe("extractor registry", () => {
       warnSpy.mock.calls.some(
         ([message, context]) =>
           typeof message === "string" &&
-          message.includes(
-            "location capabilities for sources it does not provide",
-          ) &&
+          message.includes("location capabilities for sources it does not provide") &&
           typeof context === "object" &&
           context !== null &&
           "unknownSources" in context &&
@@ -156,9 +141,7 @@ describe("extractor registry", () => {
     registryModule.__resetExtractorRegistryForTests();
     process.env.EXTRACTOR_REGISTRY_STRICT = "true";
 
-    vi.mocked(discovery.discoverManifestPaths).mockResolvedValue([
-      "/tmp/jobspy.ts",
-    ]);
+    vi.mocked(discovery.discoverManifestPaths).mockResolvedValue(["/tmp/jobspy.ts"]);
     vi.mocked(discovery.loadManifestFromFile).mockResolvedValue({
       ...makeManifest("jobspy", ["indeed"], "JobSpy"),
       locationCapabilities: {
@@ -177,10 +160,7 @@ describe("extractor registry", () => {
     registryModule.__resetExtractorRegistryForTests();
     process.env.EXTRACTOR_REGISTRY_STRICT = "true";
 
-    vi.mocked(discovery.discoverManifestPaths).mockResolvedValue([
-      "/tmp/one.ts",
-      "/tmp/two.ts",
-    ]);
+    vi.mocked(discovery.discoverManifestPaths).mockResolvedValue(["/tmp/one.ts", "/tmp/two.ts"]);
     vi.mocked(discovery.loadManifestFromFile).mockImplementation(async (path) =>
       makeManifest(
         "duplicate",
@@ -200,15 +180,11 @@ describe("extractor registry", () => {
     registryModule.__resetExtractorRegistryForTests();
     process.env.EXTRACTOR_REGISTRY_STRICT = "false";
 
-    vi.mocked(discovery.discoverManifestPaths).mockResolvedValue([
-      "/tmp/one.ts",
-      "/tmp/two.ts",
-    ]);
-    vi.mocked(discovery.loadManifestFromFile).mockImplementation(
-      async (path) =>
-        path === "/tmp/one.ts"
-          ? makeManifest("one", ["indeed"], "One")
-          : makeManifest("two", ["indeed"], "Two"),
+    vi.mocked(discovery.discoverManifestPaths).mockResolvedValue(["/tmp/one.ts", "/tmp/two.ts"]);
+    vi.mocked(discovery.loadManifestFromFile).mockImplementation(async (path) =>
+      path === "/tmp/one.ts"
+        ? makeManifest("one", ["indeed"], "One")
+        : makeManifest("two", ["indeed"], "Two"),
     );
 
     await expect(registryModule.initializeExtractorRegistry()).rejects.toThrow(
@@ -226,11 +202,10 @@ describe("extractor registry", () => {
       "/tmp/unknown.ts",
       "/tmp/valid.ts",
     ]);
-    vi.mocked(discovery.loadManifestFromFile).mockImplementation(
-      async (path) =>
-        path === "/tmp/unknown.ts"
-          ? makeManifest("unknown", ["not-a-real-source"], "Unknown")
-          : makeManifest("valid", ["indeed"], "Valid"),
+    vi.mocked(discovery.loadManifestFromFile).mockImplementation(async (path) =>
+      path === "/tmp/unknown.ts"
+        ? makeManifest("unknown", ["not-a-real-source"], "Unknown")
+        : makeManifest("valid", ["indeed"], "Valid"),
     );
 
     const registry = await registryModule.initializeExtractorRegistry();
@@ -252,9 +227,7 @@ describe("extractor registry", () => {
     registryModule.__resetExtractorRegistryForTests();
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
 
-    vi.mocked(discovery.discoverManifestPaths).mockResolvedValue([
-      "/tmp/only-indeed.ts",
-    ]);
+    vi.mocked(discovery.discoverManifestPaths).mockResolvedValue(["/tmp/only-indeed.ts"]);
     vi.mocked(discovery.loadManifestFromFile).mockResolvedValue(
       makeManifest("only-indeed", ["indeed"], "Only Indeed"),
     );
@@ -280,14 +253,12 @@ describe("extractor registry", () => {
       "/tmp/broken.ts",
       "/tmp/valid.ts",
     ]);
-    vi.mocked(discovery.loadManifestFromFile).mockImplementation(
-      async (path) => {
-        if (path === "/tmp/broken.ts") {
-          throw new Error("bad manifest");
-        }
-        return makeManifest("valid", ["indeed"], "Valid");
-      },
-    );
+    vi.mocked(discovery.loadManifestFromFile).mockImplementation(async (path) => {
+      if (path === "/tmp/broken.ts") {
+        throw new Error("bad manifest");
+      }
+      return makeManifest("valid", ["indeed"], "Valid");
+    });
 
     const registry = await registryModule.initializeExtractorRegistry();
 

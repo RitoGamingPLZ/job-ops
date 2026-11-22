@@ -1,11 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { getDataDir } from "@server/config/dataDir";
 import Database from "better-sqlite3";
@@ -98,9 +91,9 @@ export function getContainerHydrationState(dbPath = getDefaultSyncDbPath()): {
     const snapDb = openSqlite(dbPath);
     try {
       for (const schema of schemas) {
-        const rows = snapDb
-          .prepare(`SELECT * FROM ${quoteIdent(schema.name)}`)
-          .all() as Array<Record<string, unknown>>;
+        const rows = snapDb.prepare(`SELECT * FROM ${quoteIdent(schema.name)}`).all() as Array<
+          Record<string, unknown>
+        >;
         baseline.set(schema.name, buildRowSnapshot(schema, rows));
       }
     } finally {
@@ -111,9 +104,7 @@ export function getContainerHydrationState(dbPath = getDefaultSyncDbPath()): {
   return { hydrated: userCount > 0, userCount };
 }
 
-export function getD1SyncSchema(
-  dbPath = getDefaultSyncDbPath(),
-): D1TableSchema[] {
+export function getD1SyncSchema(dbPath = getDefaultSyncDbPath()): D1TableSchema[] {
   const sqlite = openSqlite(dbPath);
   try {
     const tables = sqlite
@@ -188,10 +179,7 @@ export function importTablesFromD1(
     typeof dbPathOrOptions === "string"
       ? dbPathOrOptions
       : (dbPathOrOptions.dbPath ?? getDefaultSyncDbPath());
-  const append =
-    typeof dbPathOrOptions === "string"
-      ? false
-      : Boolean(dbPathOrOptions.append);
+  const append = typeof dbPathOrOptions === "string" ? false : Boolean(dbPathOrOptions.append);
   const schemas = getD1SyncSchema(dbPath);
   const schemaByName = new Map(schemas.map((s) => [s.name, s]));
   const sqlite = openSqlite(dbPath);
@@ -235,9 +223,9 @@ export function importTablesFromD1(
       // Initialize baseline for any local table not included in payload
       for (const [name, schema] of schemaByName) {
         if (!baseline.has(name)) {
-          const currentRows = sqlite
-            .prepare(`SELECT * FROM ${quoteIdent(name)}`)
-            .all() as Array<Record<string, unknown>>;
+          const currentRows = sqlite.prepare(`SELECT * FROM ${quoteIdent(name)}`).all() as Array<
+            Record<string, unknown>
+          >;
           baseline.set(name, buildRowSnapshot(schema, currentRows));
         }
       }
@@ -252,9 +240,7 @@ export function importTablesFromD1(
   return { importedTables, importedRows };
 }
 
-export function collectD1Changes(
-  dbPath = getDefaultSyncDbPath(),
-): D1ChangesPayload {
+export function collectD1Changes(dbPath = getDefaultSyncDbPath()): D1ChangesPayload {
   const schemas = getD1SyncSchema(dbPath);
   const sqlite = openSqlite(dbPath);
   const baseline = getOrCreateBaseline(dbPath);
@@ -264,9 +250,9 @@ export function collectD1Changes(
 
   try {
     for (const schema of schemas) {
-      const currentRows = sqlite
-        .prepare(`SELECT * FROM ${quoteIdent(schema.name)}`)
-        .all() as Array<Record<string, unknown>>;
+      const currentRows = sqlite.prepare(`SELECT * FROM ${quoteIdent(schema.name)}`).all() as Array<
+        Record<string, unknown>
+      >;
       const currentSnapshot = buildRowSnapshot(schema, currentRows);
       const prevSnapshot = baseline.get(schema.name) ?? new Map();
 
@@ -317,10 +303,7 @@ function getPdfsRootDir(dataDir = getDataDir()): string {
   return resolve(join(dataDir, "pdfs"));
 }
 
-function resolveSafePdfPath(
-  relativePath: string,
-  dataDir = getDataDir(),
-): string {
+function resolveSafePdfPath(relativePath: string, dataDir = getDataDir()): string {
   const root = getPdfsRootDir(dataDir);
   const normalized = relativePath.replace(/^\/+/, "");
   const target = resolve(root, normalized);
@@ -355,20 +338,13 @@ export function listPdfFiles(dataDir = getDataDir()): PdfFileEntry[] {
   return entries.sort((a, b) => a.path.localeCompare(b.path));
 }
 
-export function readPdfFile(
-  relativePath: string,
-  dataDir = getDataDir(),
-): Buffer | null {
+export function readPdfFile(relativePath: string, dataDir = getDataDir()): Buffer | null {
   const target = resolveSafePdfPath(relativePath, dataDir);
   if (!existsSync(target)) return null;
   return readFileSync(target);
 }
 
-export function writePdfFile(
-  relativePath: string,
-  content: Buffer,
-  dataDir = getDataDir(),
-): void {
+export function writePdfFile(relativePath: string, content: Buffer, dataDir = getDataDir()): void {
   const target = resolveSafePdfPath(relativePath, dataDir);
   const parent = dirname(target);
   if (!existsSync(parent)) {

@@ -22,18 +22,13 @@ const STANDARD_SECTION_TITLES = {
   references: "References",
 } satisfies Record<SectionType, string>;
 
-const STANDARD_SECTION_KEYS = Object.keys(
-  STANDARD_SECTION_TITLES,
-) as SectionType[];
+const STANDARD_SECTION_KEYS = Object.keys(STANDARD_SECTION_TITLES) as SectionType[];
 
 function buildV5Document(): V5ResumeData {
   return buildDefaultReactiveResumeDocument() as V5ResumeData;
 }
 
-function mergeV5Documents(
-  upstream: V5ResumeData,
-  local: V5ResumeData,
-): V5ResumeData {
+function mergeV5Documents(upstream: V5ResumeData, local: V5ResumeData): V5ResumeData {
   return mergeReactiveResumeV5Content(upstream, local) as V5ResumeData;
 }
 
@@ -65,10 +60,7 @@ describe("prepareReactiveResumeV5DocumentForExternalUse", () => {
       source: { languageVersion: 1, text: "" },
     };
     const exported = prepareReactiveResumeV5DocumentForExternalUse(
-      mergeV5Documents(
-        normalizeReactiveResumeV5Document(template) as V5ResumeData,
-        content,
-      ),
+      mergeV5Documents(normalizeReactiveResumeV5Document(template) as V5ResumeData, content),
     ) as V5ResumeData;
     expect(exported.metadata.stylesheet).toEqual(stylesheet);
     expect(exported.metadata.styleRules).toEqual(styleRules);
@@ -86,9 +78,7 @@ describe("prepareReactiveResumeV5DocumentForExternalUse", () => {
         slots: { text: { unsupportedProperty: "value" } },
       },
     ];
-    expect(() =>
-      prepareReactiveResumeV5DocumentForExternalUse(document),
-    ).toThrow();
+    expect(() => prepareReactiveResumeV5DocumentForExternalUse(document)).toThrow();
   });
 
   it("preserves current inline links and migrates the legacy JobOps option", () => {
@@ -195,18 +185,10 @@ describe("prepareReactiveResumeV5DocumentForExternalUse", () => {
     const prepared = prepareReactiveResumeV5DocumentForExternalUse(document);
     const sections = prepared.sections as Record<string, any>;
 
-    expect((prepared.summary as Record<string, unknown>).content).toBe(
-      "<p>Plain summary</p>",
-    );
-    expect(sections.experience.items[0].description).toBe(
-      "<p>Built things</p>",
-    );
-    expect(sections.experience.items[0].roles[0].description).toBe(
-      "<p>Owned APIs</p>",
-    );
-    expect(sections.education.items[0].description).toBe(
-      "<p>Relevant Modules: Web Apps</p>",
-    );
+    expect((prepared.summary as Record<string, unknown>).content).toBe("<p>Plain summary</p>");
+    expect(sections.experience.items[0].description).toBe("<p>Built things</p>");
+    expect(sections.experience.items[0].roles[0].description).toBe("<p>Owned APIs</p>");
+    expect(sections.education.items[0].description).toBe("<p>Relevant Modules: Web Apps</p>");
   });
 
   it("preserves existing HTML and escapes plain text before wrapping", () => {
@@ -237,9 +219,7 @@ describe("prepareReactiveResumeV5DocumentForExternalUse", () => {
     const prepared = prepareReactiveResumeV5DocumentForExternalUse(document);
     const sections = prepared.sections as Record<string, any>;
 
-    expect((prepared.summary as Record<string, unknown>).content).toBe(
-      "<p>Already HTML</p>",
-    );
+    expect((prepared.summary as Record<string, unknown>).content).toBe("<p>Already HTML</p>");
     expect(sections.projects.items[0].description).toBe(
       "<p>Used A&amp;B &lt; C<br>Then shipped</p>",
     );
@@ -265,15 +245,12 @@ describe("prepareReactiveResumeV5DocumentForExternalUse", () => {
     ];
 
     const prepared = prepareReactiveResumeV5DocumentForExternalUse(document);
-    const customSections = prepared.customSections as Array<
-      Record<string, any>
-    >;
+    const customSections = prepared.customSections as Array<Record<string, any>>;
 
     expect(customSections[0].items[0].content).toBe("<p>Extra note</p>");
-    expect(
-      (document.customSections as Array<Record<string, any>>)[0].items[0]
-        .content,
-    ).toBe("Extra note");
+    expect((document.customSections as Array<Record<string, any>>)[0].items[0].content).toBe(
+      "Extra note",
+    );
   });
 });
 

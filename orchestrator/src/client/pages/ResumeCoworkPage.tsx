@@ -48,10 +48,7 @@ import {
   readBulletTransfer,
   readFocusTransfer,
 } from "@/client/components/cowork/editor";
-import {
-  focusResumePart,
-  JobMatchPanel,
-} from "@/client/components/cowork/JobMatchPanel";
+import { focusResumePart, JobMatchPanel } from "@/client/components/cowork/JobMatchPanel";
 import { PdfCanvasPreview } from "@/client/components/cowork/PdfCanvasPreview";
 import { ResumeEditor } from "@/client/components/cowork/ResumeEditor";
 import { GhostwriterPanel } from "@/client/components/ghostwriter/GhostwriterPanel";
@@ -70,10 +67,7 @@ import {
   downloadJobPdf,
 } from "@/client/lib/private-pdf";
 import { queryKeys } from "@/client/lib/queryKeys";
-import {
-  type ResumeEditorMode,
-  readResumeEditorMode,
-} from "@/client/lib/resume-opening";
+import { type ResumeEditorMode, readResumeEditorMode } from "@/client/lib/resume-opening";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -91,9 +85,7 @@ import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 const PREVIEW_KEY = "resume-cowork-preview";
 const WIDE_QUERY = "(min-width: 1280px)";
 function useWideLayout() {
-  const [wide, setWide] = useState(
-    () => window.matchMedia?.(WIDE_QUERY).matches ?? false,
-  );
+  const [wide, setWide] = useState(() => window.matchMedia?.(WIDE_QUERY).matches ?? false);
   useEffect(() => {
     const query = window.matchMedia?.(WIDE_QUERY);
     if (!query) return;
@@ -139,8 +131,7 @@ function CoworkWorkspace({
   const [importFile, setImportFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const readResume = useCallback(
-    async () =>
-      base ? baseState(await getDesignResume()) : api.getJobResume(jobId),
+    async () => (base ? baseState(await getDesignResume()) : api.getJobResume(jobId)),
     [base, jobId],
   );
   const navigate = useNavigate();
@@ -164,14 +155,10 @@ function CoworkWorkspace({
   const [state, setState] = useState<JobResumeState | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [suggestions, setSuggestions] = useState<ResumeSuggestionV2[]>([]);
-  const [rejectionReasons, setRejectionReasons] = useState<
-    Record<string, string>
-  >({});
+  const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
   const accepting = useRef(false);
   const pendingAcceptedIds = useRef<string[]>([]);
-  const acceptedUndoIds = useRef(
-    new WeakMap<ReactiveResumeV5Document, string[]>(),
-  );
+  const acceptedUndoIds = useRef(new WeakMap<ReactiveResumeV5Document, string[]>());
   const [references, setReferences] = useState<BulletReference[]>([]);
   const [focus, setFocus] = useState<ResumeFocusRef[]>([]);
   const chat = useRef<HTMLElement>(null);
@@ -218,8 +205,7 @@ function CoworkWorkspace({
             throw new Error(
               "Prepare this resume before opening it. Wait for preparation to finish, then retry.",
             );
-          if (isPdfRegenerating(nextJob))
-            throw new Error(PDF_REGENERATING_MESSAGE);
+          if (isPdfRegenerating(nextJob)) throw new Error(PDF_REGENERATING_MESSAGE);
         }
         // GET /library can stamp refs and advance the resume revision on first build.
         // Read the resume only after that build has finished.
@@ -309,17 +295,13 @@ function CoworkWorkspace({
           });
         const changed = version.current !== editVersion;
         publish(
-          changed && latest.current
-            ? { ...saved, document: latest.current.document }
-            : saved,
+          changed && latest.current ? { ...saved, document: latest.current.document } : saved,
         );
         dirty.current = changed;
         if (!changed && pendingAcceptedIds.current.length) {
           const ids = pendingAcceptedIds.current;
           pendingAcceptedIds.current = [];
-          setSuggestions((current) =>
-            current.filter((s) => !ids.includes(s.id)),
-          );
+          setSuggestions((current) => current.filter((s) => !ids.includes(s.id)));
         }
         if (mounted.current) setStatus(changed ? "Unsaved changes" : "Saved");
         return true;
@@ -341,8 +323,7 @@ function CoworkWorkspace({
           }
         } else {
           coworkError(failure);
-          if (mounted.current)
-            setStatus("Save failed · retry to keep your changes");
+          if (mounted.current) setStatus("Save failed · retry to keep your changes");
         }
         return false;
       } finally {
@@ -416,15 +397,8 @@ function CoworkWorkspace({
     const element = window.document.activeElement;
     const now = Date.now();
     const field =
-      typing &&
-      element?.closest(
-        "input, textarea, [contenteditable]:not([contenteditable=false])",
-      );
-    if (
-      !field ||
-      lastTyping.current?.element !== element ||
-      now - lastTyping.current.time > 1000
-    )
+      typing && element?.closest("input, textarea, [contenteditable]:not([contenteditable=false])");
+    if (!field || lastTyping.current?.element !== element || now - lastTyping.current.time > 1000)
       pushUndo(latest.current.document);
     lastTyping.current = field && element ? { element, time: now } : null;
     version.current++;
@@ -437,9 +411,7 @@ function CoworkWorkspace({
     const previous = history.current.pop();
     if (!previous || !latest.current) return;
     const undoneIds = acceptedUndoIds.current.get(previous) ?? [];
-    pendingAcceptedIds.current = pendingAcceptedIds.current.filter(
-      (id) => !undoneIds.includes(id),
-    );
+    pendingAcceptedIds.current = pendingAcceptedIds.current.filter((id) => !undoneIds.includes(id));
     acceptedUndoIds.current.delete(previous);
     setUndoStack([...history.current]);
     lastTyping.current = null;
@@ -452,9 +424,7 @@ function CoworkWorkspace({
     const keydown = (event: KeyboardEvent) => {
       if (
         event.target instanceof Element &&
-        event.target.closest(
-          "input, textarea, [contenteditable]:not([contenteditable=false])",
-        )
+        event.target.closest("input, textarea, [contenteditable]:not([contenteditable=false])")
       )
         return;
       if (
@@ -481,9 +451,7 @@ function CoworkWorkspace({
       pendingAcceptedIds.current = [];
     }
     version.current++;
-    publish(
-      keepMine ? { ...remote, document: latest.current.document } : remote,
-    );
+    publish(keepMine ? { ...remote, document: latest.current.document } : remote);
     dirty.current = keepMine;
     conflict.current = null;
     lastTyping.current = null;
@@ -518,14 +486,12 @@ function CoworkWorkspace({
     }
   }
   async function syncLibrary() {
-    if (syncing.current || busy)
-      throw new Error("A resume action is already running.");
+    if (syncing.current || busy) throw new Error("A resume action is already running.");
     syncing.current = true;
     setBusy(true);
     if (timer.current) clearTimeout(timer.current);
     try {
-      if (!(await flush()))
-        throw new Error("Save your resume before syncing the library.");
+      if (!(await flush())) throw new Error("Save your resume before syncing the library.");
       // Sync can stamp refs and increment the server revision. Block every save
       // until we know that no reload is needed or have read that new revision.
       resumeReloadRequired.current = true;
@@ -587,8 +553,7 @@ function CoworkWorkspace({
     if (busy || syncing.current || !latest.current) return;
     const key = `${id}:${bullet.id}:${bullet.text}`;
     const now = Date.now();
-    if (lastInsert.current?.key === key && now - lastInsert.current.time < 500)
-      return;
+    if (lastInsert.current?.key === key && now - lastInsert.current.time < 500) return;
     lastInsert.current = { key, time: now };
     const original = library.find((item) => item.id === bullet.id);
     const ref = original?.kind === "bullet" ? original.id : null;
@@ -674,9 +639,7 @@ function CoworkWorkspace({
       coworkError(failure);
       setRejectionReasons((current) => ({
         ...current,
-        ...Object.fromEntries(
-          items.map((s) => [s.id, "Acceptance failed. Review and retry."]),
-        ),
+        ...Object.fromEntries(items.map((s) => [s.id, "Acceptance failed. Review and retry."])),
       }));
     } finally {
       syncing.current = false;
@@ -686,9 +649,7 @@ function CoworkWorkspace({
   }
   async function saveEntryToLibrary(section: EntrySection, itemId: string) {
     const document = latest.current?.document;
-    const item = document?.sections[section].items.find(
-      (entry) => entry.id === itemId,
-    );
+    const item = document?.sections[section].items.find((entry) => entry.id === itemId);
     if (!document || typeof item?.libraryId !== "string") return;
     const saved = librarySaveInput(
       document,
@@ -715,25 +676,14 @@ function CoworkWorkspace({
         : {}),
     });
   }
-  async function saveToLibrary(
-    id: string,
-    input: Partial<ExperienceBulletInput>,
-  ) {
+  async function saveToLibrary(id: string, input: Partial<ExperienceBulletInput>) {
     const before = library.find((item) => item.id === id);
     if (!before || busy) return;
     setBusy(true);
     try {
-      const { bullet: after } = await api.updateExperienceBullet(
-        id,
-        input,
-        jobId,
-      );
+      const { bullet: after } = await api.updateExperienceBullet(id, input, jobId);
       if (!mounted.current) return;
-      if (
-        job?.status !== "applied" &&
-        job?.status !== "in_progress" &&
-        latest.current
-      )
+      if (job?.status !== "applied" && job?.status !== "in_progress" && latest.current)
         edit(applyLibraryUpdate(latest.current.document, before, after));
       setLibrary((await api.listCandidateLibrary()).items);
     } catch (failure) {
@@ -757,14 +707,11 @@ function CoworkWorkspace({
           throw new Error(
             "Prepare this resume before opening it. Wait for preparation to finish, then retry.",
           );
-        if (isPdfRegenerating(selectedJob))
-          throw new Error(PDF_REGENERATING_MESSAGE);
+        if (isPdfRegenerating(selectedJob)) throw new Error(PDF_REGENERATING_MESSAGE);
       }
       const uploaded =
-        selectedJob?.pdfSource === "uploaded" ||
-        selectedJob?.pdfFreshness === "uploaded";
-      const render =
-        base || (!uploaded && (!entry || needsRender(selectedJob)));
+        selectedJob?.pdfSource === "uploaded" || selectedJob?.pdfFreshness === "uploaded";
+      const render = base || (!uploaded && (!entry || needsRender(selectedJob)));
       if (render) {
         if (!latest.current) await load();
         if (!mounted.current) return;
@@ -773,14 +720,10 @@ function CoworkWorkspace({
             "Could not load the editable resume. Open Edit to resolve the source error, then retry.",
           );
         if (!(await flush()))
-          throw new Error(
-            "Save the resume and resolve any conflict before previewing.",
-          );
+          throw new Error("Save the resume and resolve any conflict before previewing.");
         if (!mounted.current) return;
       } else if (!(await flush())) {
-        throw new Error(
-          "Save the resume and resolve any conflict before previewing.",
-        );
+        throw new Error("Save the resume and resolve any conflict before previewing.");
       }
       if (!mounted.current) return;
       const url = base
@@ -795,11 +738,7 @@ function CoworkWorkspace({
       setPdfUrl(url);
     } catch (failure) {
       if (mounted.current) {
-        setPreviewError(
-          failure instanceof Error
-            ? failure.message
-            : "Could not preview the PDF.",
-        );
+        setPreviewError(failure instanceof Error ? failure.message : "Could not preview the PDF.");
         coworkError(failure);
       }
     } finally {
@@ -823,8 +762,7 @@ function CoworkWorkspace({
         if (!mounted.current) return;
         if (getResumeState(selectedJob) !== "available")
           throw new Error("Prepare this resume before downloading it.");
-        if (isPdfRegenerating(selectedJob))
-          throw new Error(PDF_REGENERATING_MESSAGE);
+        if (isPdfRegenerating(selectedJob)) throw new Error(PDF_REGENERATING_MESSAGE);
         if (
           selectedJob.pdfSource !== "uploaded" &&
           selectedJob.pdfFreshness !== "uploaded" &&
@@ -832,8 +770,7 @@ function CoworkWorkspace({
         ) {
           if (!latest.current) await load();
           if (!mounted.current) return;
-          if (!latest.current)
-            throw new Error("Could not load the editable resume.");
+          if (!latest.current) throw new Error("Could not load the editable resume.");
           if (!(await flush()) || !mounted.current) return;
           await generateJobPdf(jobId);
         }
@@ -854,10 +791,7 @@ function CoworkWorkspace({
         return;
       }
       if (importFile) {
-        const payload = await fileToUploadPayload(
-          importFile,
-          "Could not read this resume file.",
-        );
+        const payload = await fileToUploadPayload(importFile, "Could not read this resume file.");
         await importDesignResumeFromFile({
           ...payload,
           mediaType: payload.mediaType ?? undefined,
@@ -899,10 +833,7 @@ function CoworkWorkspace({
     void showPreview();
   }
 
-  const getDocument = useCallback(
-    () => latest.current?.document as ReactiveResumeV5Document,
-    [],
-  );
+  const getDocument = useCallback(() => latest.current?.document as ReactiveResumeV5Document, []);
   const receiveSuggestions = useCallback(
     (items: ResumeSuggestionV2[] | null) => {
       if (items?.length && !wide)
@@ -968,15 +899,11 @@ function CoworkWorkspace({
           <AlertDialogHeader>
             <AlertDialogTitle>Import base resume?</AlertDialogTitle>
             <AlertDialogDescription>
-              This replaces your base resume. Existing job resumes keep their
-              current content. Choose a file or import your configured RxResume.
+              This replaces your base resume. Existing job resumes keep their current content.
+              Choose a file or import your configured RxResume.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={() => fileInput.current?.click()}
-          >
+          <Button variant="outline" disabled={busy} onClick={() => fileInput.current?.click()}>
             {importFile ? importFile.name : "Choose file"}
           </Button>
           <AlertDialogFooter>
@@ -1024,10 +951,7 @@ function CoworkWorkspace({
             {previewError ??
               "Could not load this job’s resume. Open Edit to resolve the source error."}
           </p>
-          <Button
-            disabled={busy}
-            onClick={() => void showPreview(!latest.current)}
-          >
+          <Button disabled={busy} onClick={() => void showPreview(!latest.current)}>
             Retry
           </Button>
         </div>
@@ -1054,22 +978,12 @@ function CoworkWorkspace({
           >
             <ArrowLeft aria-hidden="true" />
           </Button>
-          <h1 className="mr-auto">
-            {job ? `${job.title} · ${job.employer}` : "Resume preview"}
-          </h1>
+          <h1 className="mr-auto">{job ? `${job.title} · ${job.employer}` : "Resume preview"}</h1>
           <fieldset aria-label="Editor mode">
-            <Button
-              disabled={busy}
-              aria-pressed={false}
-              onClick={() => setPreviewMode(false)}
-            >
+            <Button disabled={busy} aria-pressed={false} onClick={() => setPreviewMode(false)}>
               Edit
             </Button>
-            <Button
-              disabled={busy}
-              aria-pressed={true}
-              onClick={() => void showPreview(true)}
-            >
+            <Button disabled={busy} aria-pressed={true} onClick={() => void showPreview(true)}>
               Preview
             </Button>
           </fieldset>
@@ -1080,8 +994,7 @@ function CoworkWorkspace({
         {previewContent}
       </main>
     );
-  if ((!base && !job) || !state)
-    return <output className="p-6">Loading resume…</output>;
+  if ((!base && !job) || !state) return <output className="p-6">Loading resume…</output>;
   const title = base ? "Base resume" : `${job?.title} · ${job?.employer}`;
   const document = state.document;
   const targets = document.sections.experience.items
@@ -1125,29 +1038,14 @@ function CoworkWorkspace({
         <output className="text-xs text-muted-foreground">
           {rendering ? "Rendering PDF…" : status}
         </output>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy || !undoStack.length}
-          onClick={undo}
-        >
+        <Button size="sm" variant="outline" disabled={busy || !undoStack.length} onClick={undo}>
           Undo
         </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          onClick={() => void flush()}
-        >
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => void flush()}>
           Save now
         </Button>
         {!base && job && (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={busy}
-            onClick={() => setResetOpen(true)}
-          >
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => setResetOpen(true)}>
             Reset to base
           </Button>
         )}
@@ -1162,32 +1060,26 @@ function CoworkWorkspace({
           Download PDF
         </Button>
       </header>
-      <div
-        className="flex gap-2 xl:hidden"
-        role="tablist"
-        aria-label="Resume workspace"
-      >
-        {(base ? ["editor", "library"] : ["chat", "editor", "library"]).map(
-          (name) => (
-            <Button
-              key={name}
-              id={`cowork-tab-${name}`}
-              aria-controls={`cowork-panel-${name}`}
-              role="tab"
-              aria-selected={tab === name}
-              variant={tab === name ? "secondary" : "ghost"}
-              onClick={() => setTab(name)}
-            >
-              {name === "library"
-                ? base
-                  ? "Library"
-                  : "Library & match"
-                : name === "editor" && suggestions.length
-                  ? `Editor (${suggestions.length})`
-                  : name[0].toUpperCase() + name.slice(1)}
-            </Button>
-          ),
-        )}
+      <div className="flex gap-2 xl:hidden" role="tablist" aria-label="Resume workspace">
+        {(base ? ["editor", "library"] : ["chat", "editor", "library"]).map((name) => (
+          <Button
+            key={name}
+            id={`cowork-tab-${name}`}
+            aria-controls={`cowork-panel-${name}`}
+            role="tab"
+            aria-selected={tab === name}
+            variant={tab === name ? "secondary" : "ghost"}
+            onClick={() => setTab(name)}
+          >
+            {name === "library"
+              ? base
+                ? "Library"
+                : "Library & match"
+              : name === "editor" && suggestions.length
+                ? `Editor (${suggestions.length})`
+                : name[0].toUpperCase() + name.slice(1)}
+          </Button>
+        ))}
       </div>
       <div
         className={`grid min-h-0 flex-1 gap-4 ${base ? "xl:grid-cols-[minmax(360px,5fr)_minmax(260px,3fr)]" : "xl:grid-cols-[minmax(260px,3fr)_minmax(360px,5fr)_minmax(260px,3fr)]"}`}
@@ -1232,17 +1124,13 @@ function CoworkWorkspace({
               setDragOver(false);
               if (e.dataTransfer.types.includes(FOCUS_TRANSFER_TYPE)) {
                 e.preventDefault();
-                const ref = readFocusTransfer(
-                  e.dataTransfer.getData(FOCUS_TRANSFER_TYPE),
-                );
+                const ref = readFocusTransfer(e.dataTransfer.getData(FOCUS_TRANSFER_TYPE));
                 if (ref) addFocusRef(ref);
                 return;
               }
               if (!e.dataTransfer.types.includes(BULLET_TRANSFER_TYPE)) return;
               e.preventDefault();
-              const bullet = readBulletTransfer(
-                e.dataTransfer.getData(BULLET_TRANSFER_TYPE),
-              );
+              const bullet = readBulletTransfer(e.dataTransfer.getData(BULLET_TRANSFER_TYPE));
               if (bullet) reference(bullet);
             }}
           >
@@ -1269,9 +1157,7 @@ function CoworkWorkspace({
                       aria-label={`Remove focus: ${ref.label}`}
                       onClick={() =>
                         setFocus((current) =>
-                          current.filter(
-                            (item) => focusKey(item) !== focusKey(ref),
-                          ),
+                          current.filter((item) => focusKey(item) !== focusKey(ref)),
                         )
                       }
                     >
@@ -1288,9 +1174,7 @@ function CoworkWorkspace({
                       title={b.text}
                       aria-label={`Remove reference: ${b.text}`}
                       onClick={() =>
-                        setReferences((current) =>
-                          current.filter((item) => item.id !== b.id),
-                        )
+                        setReferences((current) => current.filter((item) => item.id !== b.id))
                       }
                     >
                       <span className="truncate">{b.text}</span>
@@ -1345,15 +1229,10 @@ function CoworkWorkspace({
               library={library}
               contactsFromLibrary={!base}
               onSaveLineToLibrary={
-                base
-                  ? undefined
-                  : (id, text) => void saveToLibrary(id, { text })
+                base ? undefined : (id, text) => void saveToLibrary(id, { text })
               }
               onSaveEntryToLibrary={
-                base
-                  ? undefined
-                  : (section, itemId) =>
-                      void saveEntryToLibrary(section, itemId)
+                base ? undefined : (section, itemId) => void saveEntryToLibrary(section, itemId)
               }
               disabled={busy}
               document={document}
@@ -1366,9 +1245,7 @@ function CoworkWorkspace({
                       setTab("chat");
                       // The chat panel may only become visible after this render.
                       setTimeout(() =>
-                        chat.current
-                          ?.querySelector<HTMLElement>("textarea")
-                          ?.focus(),
+                        chat.current?.querySelector<HTMLElement>("textarea")?.focus(),
                       );
                     }
               }
@@ -1376,9 +1253,7 @@ function CoworkWorkspace({
               onAccept={(items) => void acceptSuggestions(items)}
               rejectionReasons={rejectionReasons}
               onDismiss={(ids) =>
-                setSuggestions((current) =>
-                  current.filter((s) => !ids.includes(s.id)),
-                )
+                setSuggestions((current) => current.filter((s) => !ids.includes(s.id)))
               }
             />
           )}
@@ -1392,11 +1267,7 @@ function CoworkWorkspace({
         >
           {!base && job && (
             <>
-              <div
-                className="flex gap-1 mb-3"
-                role="tablist"
-                aria-label="Library and job match"
-              >
+              <div className="flex gap-1 mb-3" role="tablist" aria-label="Library and job match">
                 {(
                   [
                     ["library", "Library"],
@@ -1430,34 +1301,26 @@ function CoworkWorkspace({
                     setTab("editor");
                     // After the editor tab is shown on narrow screens.
                     setTimeout(() => {
-                      if (editorPane.current)
-                        focusResumePart(editorPane.current, ref);
+                      if (editorPane.current) focusResumePart(editorPane.current, ref);
                     });
                   }}
                 />
               </div>
             </>
           )}
-          <fieldset
-            disabled={busy}
-            hidden={rightTab !== "library"}
-            className="min-w-0"
-          >
+          <fieldset disabled={busy} hidden={rightTab !== "library"} className="min-w-0">
             <CandidateLibrary
               jobId={base ? undefined : jobId}
               items={library}
               onItemsChange={setLibrary}
               onSync={base ? undefined : syncLibrary}
-              frozen={
-                job?.status === "applied" || job?.status === "in_progress"
-              }
+              frozen={job?.status === "applied" || job?.status === "in_progress"}
               document={base ? undefined : document}
               onDocumentChange={
                 base
                   ? undefined
                   : (update) => {
-                      if (!busy && latest.current)
-                        edit(update(latest.current.document));
+                      if (!busy && latest.current) edit(update(latest.current.document));
                     }
               }
               onReferenceBullet={base ? undefined : reference}
@@ -1491,21 +1354,15 @@ function CoworkWorkspace({
           <AlertDialogHeader>
             <AlertDialogTitle>Resume changed elsewhere</AlertDialogTitle>
             <AlertDialogDescription>
-              Your edits are still here. Keep mine saves them against the latest
-              revision. Use latest loads the server copy; Undo restores your
-              edits.
+              Your edits are still here. Keep mine saves them against the latest revision. Use
+              latest loads the server copy; Undo restores your edits.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => void resolveConflict(false)}
-            >
+            <Button variant="outline" onClick={() => void resolveConflict(false)}>
               Use latest
             </Button>
-            <Button onClick={() => void resolveConflict(true)}>
-              Keep mine
-            </Button>
+            <Button onClick={() => void resolveConflict(true)}>Keep mine</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1514,15 +1371,13 @@ function CoworkWorkspace({
           <AlertDialogHeader>
             <AlertDialogTitle>Reset to base?</AlertDialogTitle>
             <AlertDialogDescription>
-              This discards your edits to this job’s resume and rebuilds it from
-              your base resume and this job’s tailoring. This cannot be undone.
+              This discards your edits to this job’s resume and rebuilds it from your base resume
+              and this job’s tailoring. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void resetToBase()}>
-              Reset resume
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => void resetToBase()}>Reset resume</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -84,18 +84,16 @@ describe("BillingSettingsSection", () => {
     expect(screen.getByRole("heading", { name: "Free" })).toBeVisible();
     expect(screen.getByText(/Included AI with lower/)).toBeVisible();
     expect(screen.getByText(/£30/)).toBeVisible();
-    expect(
-      screen.getByRole("heading", { name: "Monthly usage" }),
-    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Monthly usage" })).toBeVisible();
     expect(screen.getByText("80 / 100")).toBeVisible();
     const jobSearchMeter = screen.getByRole("progressbar", {
       name: "Job-source searches usage",
     });
     expect(jobSearchMeter).toHaveAttribute("aria-valuetext", "80 of 100 used");
     expect(jobSearchMeter).toHaveClass("[&>div]:bg-amber-500");
-    expect(
-      screen.getByRole("progressbar", { name: "PDF exports usage" }),
-    ).toHaveClass("[&>div]:bg-destructive");
+    expect(screen.getByRole("progressbar", { name: "PDF exports usage" })).toHaveClass(
+      "[&>div]:bg-destructive",
+    );
     expect(screen.getAllByRole("progressbar")).toHaveLength(5);
     fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
     expect(onUpgrade).toHaveBeenCalledOnce();
@@ -126,9 +124,7 @@ describe("BillingSettingsSection", () => {
 
     expect(screen.getByRole("heading", { name: "Pro" })).toBeVisible();
     expect(screen.getByText(/Included AI with higher/)).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Manage subscription" }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Manage subscription" })).toBeVisible();
   });
 
   it("shows scheduled cancellation while retaining Pro", () => {
@@ -177,9 +173,7 @@ describe("BillingSettingsSection", () => {
       />,
     );
 
-    expect(
-      screen.getByText("Usage limits are not enabled for this workspace."),
-    ).toBeVisible();
+    expect(screen.getByText("Usage limits are not enabled for this workspace.")).toBeVisible();
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
 });

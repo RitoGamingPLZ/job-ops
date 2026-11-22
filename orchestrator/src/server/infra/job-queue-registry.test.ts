@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { JobQueue } from "./job-queue";
 import { InMemoryJobQueue } from "./job-queue-memory";
-import {
-  __resetJobQueueForTests,
-  getJobQueue,
-  setJobQueue,
-} from "./job-queue-registry";
+import { __resetJobQueueForTests, getJobQueue, setJobQueue } from "./job-queue-registry";
 
 describe("job queue registry", () => {
   it("allows overriding and resetting the active queue", () => {

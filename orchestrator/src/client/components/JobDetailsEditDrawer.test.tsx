@@ -7,24 +7,15 @@ import * as api from "../api";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { JobDetailsEditDrawer } from "./JobDetailsEditDrawer";
 
-const render = (ui: Parameters<typeof renderWithQueryClient>[0]) =>
-  renderWithQueryClient(ui);
+const render = (ui: Parameters<typeof renderWithQueryClient>[0]) => renderWithQueryClient(ui);
 
 vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
     open ? <div>{children}</div> : null,
-  SheetContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetHeader: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetTitle: ({ children }: { children: React.ReactNode }) => (
-    <h2>{children}</h2>
-  ),
-  SheetDescription: ({ children }: { children: React.ReactNode }) => (
-    <p>{children}</p>
-  ),
+  SheetContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SheetHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SheetTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+  SheetDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
 }));
 
 vi.mock("../api", () => ({
@@ -130,8 +121,7 @@ describe("JobDetailsEditDrawer", () => {
     );
 
     const successCalls = vi.mocked(toast.success).mock.calls;
-    const [, payload] =
-      successCalls.find((call) => call[0] === "Job details updated") ?? [];
+    const [, payload] = successCalls.find((call) => call[0] === "Job details updated") ?? [];
     expect(payload).toBeTruthy();
 
     (payload as { action?: { onClick?: () => void } }).action?.onClick?.();

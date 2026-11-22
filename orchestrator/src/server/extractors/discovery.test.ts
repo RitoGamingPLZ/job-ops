@@ -100,8 +100,6 @@ describe("extractor discovery", () => {
       "utf8",
     );
 
-    await expect(loadManifestFromFile(invalidPath)).rejects.toThrow(
-      "Invalid manifest export",
-    );
+    await expect(loadManifestFromFile(invalidPath)).rejects.toThrow("Invalid manifest export");
   });
 });

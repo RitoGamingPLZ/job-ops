@@ -12,19 +12,13 @@ function getPositiveIntEnv(name: string, fallback: number): number {
 
 const DEVICE_AUTH_TIMEOUT_MS = () =>
   getPositiveIntEnv("CODEX_APP_SERVER_DEVICE_AUTH_TIMEOUT_MS", 15_000);
-const LOGOUT_TIMEOUT_MS = () =>
-  getPositiveIntEnv("CODEX_APP_SERVER_LOGOUT_TIMEOUT_MS", 10_000);
+const LOGOUT_TIMEOUT_MS = () => getPositiveIntEnv("CODEX_APP_SERVER_LOGOUT_TIMEOUT_MS", 10_000);
 const MAX_BUFFERED_LINES = 80;
 const DEVICE_CODE_REGEX = /\b[A-Z0-9]{4,}-[A-Z0-9]{4,}\b/;
 const URL_REGEX = /(https?:\/\/[^\s]+)/i;
 const EXPIRES_MINUTES_REGEX = /expires in (\d+) minutes/i;
 
-type DeviceAuthFlowStatus =
-  | "idle"
-  | "starting"
-  | "running"
-  | "completed"
-  | "failed";
+type DeviceAuthFlowStatus = "idle" | "starting" | "running" | "completed" | "failed";
 
 type DeviceAuthSession = {
   status: DeviceAuthFlowStatus;
@@ -79,9 +73,7 @@ function stripAnsi(value: string): string {
   return output;
 }
 
-function toSnapshot(
-  session: DeviceAuthSession | null,
-): CodexDeviceAuthSnapshot {
+function toSnapshot(session: DeviceAuthSession | null): CodexDeviceAuthSnapshot {
   if (!session) {
     return {
       status: "idle",
@@ -96,14 +88,11 @@ function toSnapshot(
 
   return {
     status: session.status,
-    loginInProgress:
-      session.status === "starting" || session.status === "running",
+    loginInProgress: session.status === "starting" || session.status === "running",
     verificationUrl: session.verificationUrl,
     userCode: session.userCode,
     startedAt: new Date(session.startedAtMs).toISOString(),
-    expiresAt: session.expiresAtMs
-      ? new Date(session.expiresAtMs).toISOString()
-      : null,
+    expiresAt: session.expiresAtMs ? new Date(session.expiresAtMs).toISOString() : null,
     message: session.message,
   };
 }
@@ -132,9 +121,7 @@ function appendLine(session: DeviceAuthSession, line: string): void {
 
   if (!session.expiresAtMs) {
     const expiresMatch = normalized.match(EXPIRES_MINUTES_REGEX);
-    const minutes = expiresMatch?.[1]
-      ? Number.parseInt(expiresMatch[1], 10)
-      : 0;
+    const minutes = expiresMatch?.[1] ? Number.parseInt(expiresMatch[1], 10) : 0;
     if (Number.isFinite(minutes) && minutes > 0) {
       session.expiresAtMs = Date.now() + minutes * 60_000;
     }
@@ -157,9 +144,7 @@ function normalizeStartupFailureMessage(message: string): string {
 }
 
 function isAlreadyLoggedOutMessage(message: string): boolean {
-  return /not logged in|not authenticated|already logged out|already signed out/i.test(
-    message,
-  );
+  return /not logged in|not authenticated|already logged out|already signed out/i.test(message);
 }
 
 function stopSessionProcess(session: DeviceAuthSession): void {
@@ -169,9 +154,7 @@ function stopSessionProcess(session: DeviceAuthSession): void {
   session.proc = null;
 }
 
-async function waitForDeviceCode(
-  session: DeviceAuthSession,
-): Promise<CodexDeviceAuthSnapshot> {
+async function waitForDeviceCode(session: DeviceAuthSession): Promise<CodexDeviceAuthSnapshot> {
   return await new Promise<CodexDeviceAuthSnapshot>((resolve, reject) => {
     const proc = session.proc;
     if (!proc) {
@@ -181,8 +164,7 @@ async function waitForDeviceCode(
 
     const timeout = setTimeout(() => {
       session.status = "failed";
-      session.message =
-        "Timed out waiting for Codex device authorization code. Try again.";
+      session.message = "Timed out waiting for Codex device authorization code. Try again.";
       stopSessionProcess(session);
       cleanup();
       reject(new Error(session.message));
@@ -200,8 +182,7 @@ async function waitForDeviceCode(
         attachExitTracking(session);
         clearTimeout(timeout);
         session.status = "running";
-        session.message =
-          "Open the verification URL and enter the one-time code to finish login.";
+        session.message = "Open the verification URL and enter the one-time code to finish login.";
         cleanup();
         resolve(toSnapshot(session));
       }
@@ -280,8 +261,7 @@ function attachExitTracking(session: DeviceAuthSession): void {
   if (!proc) return;
 
   proc.once("exit", (code, signal) => {
-    const running =
-      session.status === "running" || session.status === "starting";
+    const running = session.status === "running" || session.status === "starting";
     if (!running) return;
 
     if (code === 0) {
@@ -297,8 +277,7 @@ function attachExitTracking(session: DeviceAuthSession): void {
   });
 
   proc.once("error", (error) => {
-    const running =
-      session.status === "running" || session.status === "starting";
+    const running = session.status === "running" || session.status === "starting";
     if (!running) return;
 
     session.status = "failed";
@@ -318,14 +297,9 @@ export function consumeCompletedCodexDeviceAuth(): CodexDeviceAuthSnapshot | nul
   return snapshot;
 }
 
-export async function startCodexDeviceAuth(
-  forceRestart = false,
-): Promise<CodexDeviceAuthSnapshot> {
+export async function startCodexDeviceAuth(forceRestart = false): Promise<CodexDeviceAuthSnapshot> {
   if (activeSession) {
-    if (
-      activeSession.status === "starting" ||
-      activeSession.status === "running"
-    ) {
+    if (activeSession.status === "starting" || activeSession.status === "running") {
       if (!forceRestart) {
         return toSnapshot(activeSession);
       }
@@ -419,8 +393,7 @@ export async function disconnectCodexAuth(): Promise<CodexDeviceAuthSnapshot> {
 
       const latestOutput = output.at(-1);
       const message =
-        latestOutput ||
-        `Codex logout failed (code=${code ?? "null"}, signal=${signal ?? "null"}).`;
+        latestOutput || `Codex logout failed (code=${code ?? "null"}, signal=${signal ?? "null"}).`;
       if (isAlreadyLoggedOutMessage(message)) {
         resolve();
         return;

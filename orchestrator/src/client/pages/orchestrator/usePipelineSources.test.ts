@@ -2,10 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { PIPELINE_SOURCES_STORAGE_KEY } from "./constants";
-import {
-  getPipelineSourcesStorageKey,
-  usePipelineSources,
-} from "./usePipelineSources";
+import { getPipelineSourcesStorageKey, usePipelineSources } from "./usePipelineSources";
 
 function ensureStorage(): Storage {
   const existing = globalThis.localStorage as Partial<Storage> | undefined;
@@ -100,11 +97,7 @@ function ensureSessionStorage(): Storage {
 function makeAuthToken(tenantId: string): string {
   const encode = (value: unknown) =>
     Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
-  return [
-    encode({ alg: "HS256", typ: "JWT" }),
-    encode({ tenantId }),
-    "signature",
-  ].join(".");
+  return [encode({ alg: "HS256", typ: "JWT" }), encode({ tenantId }), "signature"].join(".");
 }
 
 describe("usePipelineSources", () => {
@@ -127,10 +120,7 @@ describe("usePipelineSources", () => {
   });
 
   it("falls back to the first enabled source", () => {
-    ensureStorage().setItem(
-      PIPELINE_SOURCES_STORAGE_KEY,
-      JSON.stringify(["ukvisajobs"]),
-    );
+    ensureStorage().setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["ukvisajobs"]));
 
     const enabledSources = ["gradcracker", "linkedin"] as const;
 
@@ -140,10 +130,7 @@ describe("usePipelineSources", () => {
   });
 
   it("ignores toggles for disabled sources", () => {
-    ensureStorage().setItem(
-      PIPELINE_SOURCES_STORAGE_KEY,
-      JSON.stringify(["gradcracker"]),
-    );
+    ensureStorage().setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["gradcracker"]));
 
     const enabledSources = ["gradcracker"] as const;
 
@@ -159,16 +146,10 @@ describe("usePipelineSources", () => {
   it("loads and saves sources using workspace-scoped storage keys", () => {
     const sessionStorage = ensureSessionStorage();
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-one"));
-    ensureStorage().setItem(
-      getPipelineSourcesStorageKey(),
-      JSON.stringify(["ukvisajobs"]),
-    );
+    ensureStorage().setItem(getPipelineSourcesStorageKey(), JSON.stringify(["ukvisajobs"]));
 
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-two"));
-    ensureStorage().setItem(
-      getPipelineSourcesStorageKey(),
-      JSON.stringify(["linkedin"]),
-    );
+    ensureStorage().setItem(getPipelineSourcesStorageKey(), JSON.stringify(["linkedin"]));
 
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-one"));
     const enabledSources = ["ukvisajobs", "linkedin"] as const;
@@ -185,16 +166,12 @@ describe("usePipelineSources", () => {
 
     expect(
       JSON.parse(
-        ensureStorage().getItem(
-          `${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-one`,
-        ) ?? "[]",
+        ensureStorage().getItem(`${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-one`) ?? "[]",
       ),
     ).toEqual(["ukvisajobs", "linkedin"]);
     expect(
       JSON.parse(
-        ensureStorage().getItem(
-          `${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-two`,
-        ) ?? "[]",
+        ensureStorage().getItem(`${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-two`) ?? "[]",
       ),
     ).toEqual(["linkedin"]);
   });
@@ -203,19 +180,14 @@ describe("usePipelineSources", () => {
     const sessionStorage = ensureSessionStorage();
     const localStorage = ensureStorage();
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-one"));
-    localStorage.setItem(
-      PIPELINE_SOURCES_STORAGE_KEY,
-      JSON.stringify(["ukvisajobs"]),
-    );
+    localStorage.setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["ukvisajobs"]));
 
     const enabledSources = ["ukvisajobs", "linkedin"] as const;
     const { result } = renderHook(() => usePipelineSources(enabledSources));
 
     expect(result.current.pipelineSources).toEqual(["ukvisajobs"]);
-    expect(
-      localStorage.getItem(
-        `${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-one`,
-      ),
-    ).toBe(localStorage.getItem(PIPELINE_SOURCES_STORAGE_KEY));
+    expect(localStorage.getItem(`${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-one`)).toBe(
+      localStorage.getItem(PIPELINE_SOURCES_STORAGE_KEY),
+    );
   });
 });

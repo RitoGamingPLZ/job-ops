@@ -48,9 +48,7 @@ vi.mock("./onboarding/components/LlmConnectionStep", () => ({
       LLM configuration
       <button
         type="button"
-        onClick={() =>
-          props.onCodexAuthStatusChange?.({ authenticated: false })
-        }
+        onClick={() => props.onCodexAuthStatusChange?.({ authenticated: false })}
       >
         Mock Codex disconnect
       </button>
@@ -157,9 +155,7 @@ const completeStatus: OnboardingStatusResponse = {
   })),
 };
 
-function mockFlow(
-  overrides: Partial<ReturnType<typeof useOnboardingFlow>> = {},
-) {
+function mockFlow(overrides: Partial<ReturnType<typeof useOnboardingFlow>> = {}) {
   const flow = {
     demoMode: false,
     handleImportResumeFile: vi.fn(),
@@ -230,9 +226,7 @@ describe("OnboardingPage", () => {
     vi.mocked(api.getAuthBootstrapStatus).mockResolvedValue({
       setupRequired: true,
     });
-    vi.mocked(api.setupFirstAdmin).mockImplementation(
-      () => new Promise(() => undefined),
-    );
+    vi.mocked(api.setupFirstAdmin).mockImplementation(() => new Promise(() => undefined));
 
     renderWithQueryClient(
       <MemoryRouter initialEntries={["/onboarding"]}>
@@ -279,17 +273,13 @@ describe("OnboardingPage", () => {
     vi.mocked(api.saveOnboardingProfile).mockResolvedValue(resumeStatus);
 
     await renderPage();
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Select country" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Select country" }));
     const countrySearch = screen.getByPlaceholderText("Search country...");
     fireEvent.change(countrySearch, {
       target: { value: "United Kingdom" },
     });
     await waitFor(() =>
-      expect(
-        screen.queryByRole("option", { name: "Afghanistan" }),
-      ).not.toBeInTheDocument(),
+      expect(screen.queryByRole("option", { name: "Afghanistan" })).not.toBeInTheDocument(),
     );
     fireEvent.keyDown(countrySearch, { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: /save and continue/i }));
@@ -389,15 +379,14 @@ describe("OnboardingPage", () => {
 
     await renderPage();
 
-    expect(
-      screen.getByRole("link", { name: /edit base resume/i }),
-    ).toHaveAttribute("href", "/resumes/base");
+    expect(screen.getByRole("link", { name: /edit base resume/i })).toHaveAttribute(
+      "href",
+      "/resumes/base",
+    );
     expect(await screen.findByText("Sam")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /use this resume/i }));
 
-    await waitFor(() =>
-      expect(api.confirmOnboardingResume).toHaveBeenCalledWith("local:doc-1"),
-    );
+    await waitFor(() => expect(api.confirmOnboardingResume).toHaveBeenCalledWith("local:doc-1"));
     expect(api.confirmOnboardingResume).toHaveBeenCalledTimes(1);
     expect(analyticsMocks.trackProductEvent).toHaveBeenCalledWith(
       "onboarding_resume_confirm_completed",
@@ -422,9 +411,7 @@ describe("OnboardingPage", () => {
     } as unknown as ReturnType<typeof useOnboardingStatus>);
 
     await renderPage();
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Mock Codex disconnect" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Mock Codex disconnect" }));
     expect(refetch).toHaveBeenCalledOnce();
   });
 });

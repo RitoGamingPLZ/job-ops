@@ -24,8 +24,7 @@ export const useScrollToJobItem = ({
   onEnsureJobSelected,
   listHandleRef,
 }: UseScrollToJobItemParams) => {
-  const [pendingTarget, setPendingTarget] =
-    useState<PendingScrollTarget | null>(null);
+  const [pendingTarget, setPendingTarget] = useState<PendingScrollTarget | null>(null);
 
   const requestScrollToJob = useCallback(
     (jobId: string, options?: { ensureSelected?: boolean }) => {
@@ -43,8 +42,7 @@ export const useScrollToJobItem = ({
     if (!activeJobs.some((job) => job.id === pendingTarget.jobId)) return;
 
     if (selectedJobId !== pendingTarget.jobId) {
-      if (!pendingTarget.ensureSelected || pendingTarget.selectionRequested)
-        return;
+      if (!pendingTarget.ensureSelected || pendingTarget.selectionRequested) return;
       onEnsureJobSelected(pendingTarget.jobId);
       setPendingTarget((current) =>
         current
@@ -57,9 +55,7 @@ export const useScrollToJobItem = ({
       return;
     }
 
-    const targetIndex = activeJobs.findIndex(
-      (job) => job.id === pendingTarget.jobId,
-    );
+    const targetIndex = activeJobs.findIndex((job) => job.id === pendingTarget.jobId);
     const listHandle = listHandleRef.current;
     if (targetIndex === -1 || !listHandle) return;
 
@@ -68,14 +64,7 @@ export const useScrollToJobItem = ({
       behavior: isDesktop ? "smooth" : "auto",
     });
     setPendingTarget(null);
-  }, [
-    activeJobs,
-    isDesktop,
-    onEnsureJobSelected,
-    pendingTarget,
-    selectedJobId,
-    listHandleRef,
-  ]);
+  }, [activeJobs, isDesktop, onEnsureJobSelected, pendingTarget, selectedJobId, listHandleRef]);
 
   return { requestScrollToJob };
 };

@@ -19,9 +19,7 @@ describe("JobDescriptionPanel", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("heading", { name: /senior engineer/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /senior engineer/i })).toBeInTheDocument();
     expect(screen.getByText("Build systems")).toBeInTheDocument();
     expect(container.querySelector("script")).toBeNull();
   });

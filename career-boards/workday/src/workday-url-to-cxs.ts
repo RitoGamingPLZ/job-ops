@@ -106,12 +106,7 @@ export function parseWorkdayJobUrl(input: string): WorkdayJobSourceConfig {
   return {
     ...source,
     externalPath,
-    cxsJobUrl: buildCxsJobUrl(
-      source.origin,
-      source.tenant,
-      source.site,
-      externalPath,
-    ),
+    cxsJobUrl: buildCxsJobUrl(source.origin, source.tenant, source.site, externalPath),
     canonicalJobUrl: `${source.canonicalCareersUrl}${externalPath}`,
   };
 }
@@ -136,18 +131,10 @@ export function parseWorkdayUrl(input: string): WorkdaySourceConfig {
   const origin = url.origin;
   const segments = getPathSegments(url.pathname);
 
-  const cxsResult = parseExistingCxsEndpoint(
-    input,
-    url,
-    host,
-    origin,
-    segments,
-  );
+  const cxsResult = parseExistingCxsEndpoint(input, url, host, origin, segments);
   if (cxsResult) return cxsResult;
 
-  const legacyMatch = host.match(
-    /^(?<tenant>[a-z0-9-]+)\.(?<shard>wd\d+)\.myworkdayjobs\.com$/i,
-  );
+  const legacyMatch = host.match(/^(?<tenant>[a-z0-9-]+)\.(?<shard>wd\d+)\.myworkdayjobs\.com$/i);
 
   if (legacyMatch?.groups) {
     return parseLegacyMyworkdayjobsUrl({
@@ -160,9 +147,7 @@ export function parseWorkdayUrl(input: string): WorkdaySourceConfig {
     });
   }
 
-  const myworkdaysiteMatch = host.match(
-    /^(?<shard>wd\d+)\.myworkdaysite\.com$/i,
-  );
+  const myworkdaysiteMatch = host.match(/^(?<shard>wd\d+)\.myworkdaysite\.com$/i);
 
   if (myworkdaysiteMatch?.groups) {
     return parseMyworkdaysiteRecruitingUrl({
@@ -174,11 +159,7 @@ export function parseWorkdayUrl(input: string): WorkdaySourceConfig {
     });
   }
 
-  throw new WorkdayUrlParseError(
-    "UNSUPPORTED_HOST",
-    `Unsupported Workday host: ${host}`,
-    input,
-  );
+  throw new WorkdayUrlParseError("UNSUPPORTED_HOST", `Unsupported Workday host: ${host}`, input);
 }
 
 function parseExistingCxsEndpoint(
@@ -188,9 +169,7 @@ function parseExistingCxsEndpoint(
   origin: string,
   segments: string[],
 ): WorkdaySourceConfig | null {
-  const wdayIndex = segments.findIndex(
-    (segment) => segment.toLowerCase() === "wday",
-  );
+  const wdayIndex = segments.findIndex((segment) => segment.toLowerCase() === "wday");
 
   if (wdayIndex === -1) return null;
 
@@ -227,16 +206,12 @@ function parseExistingCxsEndpoint(
   };
 }
 
-function parseExistingCxsJobEndpoint(
-  input: string,
-): WorkdayJobSourceConfig | null {
+function parseExistingCxsJobEndpoint(input: string): WorkdayJobSourceConfig | null {
   const url = toUrl(input);
   const host = url.hostname.toLowerCase();
   const origin = url.origin;
   const segments = getPathSegments(url.pathname);
-  const wdayIndex = segments.findIndex(
-    (segment) => segment.toLowerCase() === "wday",
-  );
+  const wdayIndex = segments.findIndex((segment) => segment.toLowerCase() === "wday");
 
   if (wdayIndex === -1) return null;
 
@@ -261,12 +236,7 @@ function parseExistingCxsJobEndpoint(
   }
 
   const shard = extractShard(host);
-  const canonicalCareersUrl = buildCanonicalCareersUrl(
-    origin,
-    host,
-    tenant,
-    site,
-  );
+  const canonicalCareersUrl = buildCanonicalCareersUrl(origin, host, tenant, site);
   const externalPath = `/${externalPathParts.map(encodePathSegment).join("/")}`;
 
   return {
@@ -336,9 +306,7 @@ function parseMyworkdaysiteRecruitingUrl(args: {
 }): WorkdaySourceConfig {
   const { input, origin, host, shard, segments } = args;
   const { locale, rest } = peelLocale(segments);
-  const recruitingIndex = rest.findIndex(
-    (segment) => segment.toLowerCase() === "recruiting",
-  );
+  const recruitingIndex = rest.findIndex((segment) => segment.toLowerCase() === "recruiting");
 
   if (recruitingIndex === -1) {
     throw new WorkdayUrlParseError(
@@ -369,12 +337,7 @@ function parseMyworkdaysiteRecruitingUrl(args: {
     shard,
     locale,
     cxsJobsUrl: buildCxsJobsUrl(origin, tenant, site),
-    canonicalCareersUrl: buildMyworkdaysiteCareersUrl(
-      origin,
-      tenant,
-      site,
-      locale,
-    ),
+    canonicalCareersUrl: buildMyworkdaysiteCareersUrl(origin, tenant, site, locale),
   };
 }
 
@@ -388,9 +351,7 @@ function buildCxsJobUrl(
   site: string,
   externalPath: string,
 ): string {
-  const normalizedExternalPath = externalPath.startsWith("/")
-    ? externalPath
-    : `/${externalPath}`;
+  const normalizedExternalPath = externalPath.startsWith("/") ? externalPath : `/${externalPath}`;
 
   return `${origin}/wday/cxs/${encodePathSegment(tenant)}/${encodePathSegment(site)}${encodePath(normalizedExternalPath)}`;
 }
@@ -408,11 +369,7 @@ function buildCanonicalCareersUrl(
   return buildLegacyCareersUrl(origin, site);
 }
 
-function buildLegacyCareersUrl(
-  origin: string,
-  site: string,
-  locale?: string,
-): string {
+function buildLegacyCareersUrl(origin: string, site: string, locale?: string): string {
   const localePart = locale ? `/${encodePathSegment(locale)}` : "";
   return `${origin}${localePart}/${encodePathSegment(site)}`;
 }
@@ -433,9 +390,7 @@ function getJobExternalPath(
   segments: string[],
 ): string {
   if (source.kind === "cxs-jobs-endpoint") {
-    const wdayIndex = segments.findIndex(
-      (segment) => segment.toLowerCase() === "wday",
-    );
+    const wdayIndex = segments.findIndex((segment) => segment.toLowerCase() === "wday");
     const rest = segments.slice(wdayIndex + 4);
 
     if (rest[0]?.toLowerCase() === "jobs") {
@@ -459,9 +414,7 @@ function getJobExternalPath(
 
   if (source.kind === "myworkdaysite-recruiting") {
     const { rest } = peelLocale(segments);
-    const recruitingIndex = rest.findIndex(
-      (segment) => segment.toLowerCase() === "recruiting",
-    );
+    const recruitingIndex = rest.findIndex((segment) => segment.toLowerCase() === "recruiting");
     const externalPathParts = rest.slice(recruitingIndex + 3);
     if (externalPathParts.length > 0) {
       return `/${externalPathParts.map(encodePathSegment).join("/")}`;
@@ -482,9 +435,7 @@ function toUrl(input: string): URL {
     throw new WorkdayUrlParseError("EMPTY_URL", "Workday URL is empty.", input);
   }
 
-  const withScheme = /^https?:\/\//i.test(trimmed)
-    ? trimmed
-    : `https://${trimmed}`;
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 
   try {
     const url = new URL(withScheme);
@@ -492,11 +443,7 @@ function toUrl(input: string): URL {
     url.search = "";
     return url;
   } catch {
-    throw new WorkdayUrlParseError(
-      "INVALID_URL",
-      `Invalid URL: ${input}`,
-      input,
-    );
+    throw new WorkdayUrlParseError("INVALID_URL", `Invalid URL: ${input}`, input);
   }
 }
 
@@ -558,16 +505,9 @@ function isGenericWorkdaySiteSlug(value: string): boolean {
   if (!normalized) return true;
   if (/^\d+$/.test(normalized)) return true;
 
-  return [
-    "careers",
-    "career",
-    "jobs",
-    "job",
-    "external",
-    "ext",
-    "default",
-    "global",
-  ].includes(normalized);
+  return ["careers", "career", "jobs", "job", "external", "ext", "default", "global"].includes(
+    normalized,
+  );
 }
 
 function formatCompanySlug(value: string): string {

@@ -57,9 +57,7 @@ export function findFocusTarget(root: ParentNode, ref: ResumeFocusRef) {
   return (
     bullet ??
     item ??
-    (section
-      ? root.querySelector(`[data-focus-section=${JSON.stringify(section)}]`)
-      : null)
+    (section ? root.querySelector(`[data-focus-section=${JSON.stringify(section)}]`) : null)
   );
 }
 
@@ -76,10 +74,7 @@ export function focusResumePart(root: ParentNode, ref: ResumeFocusRef) {
 }
 
 export function askAiPrompt(requirement: ScreeningRequirement) {
-  const gap =
-    requirement.status === "partial"
-      ? "only partly shows this"
-      : "does not show this";
+  const gap = requirement.status === "partial" ? "only partly shows this" : "does not show this";
   return [
     `The job requires: "${requirement.text}". My resume ${gap}.`,
     requirement.tip,
@@ -107,9 +102,7 @@ export function JobMatchPanel({
   onAskAi,
   onFocusRef,
 }: Props) {
-  const [checked, setChecked] = useState<Checked | null>(
-    () => reports.get(job.id) ?? null,
-  );
+  const [checked, setChecked] = useState<Checked | null>(() => reports.get(job.id) ?? null);
   const [loading, setLoading] = useState(false);
   const [gapsOnly, setGapsOnly] = useState(false);
   const [library, setLibrary] = useState<Map<string, string> | null>(null);
@@ -125,10 +118,7 @@ export function JobMatchPanel({
       reports.set(job.id, next);
       setChecked(next);
     } catch (error) {
-      if (
-        error instanceof ApiClientError &&
-        (error.status === 404 || error.status === 501)
-      )
+      if (error instanceof ApiClientError && (error.status === 404 || error.status === 501))
         toast.message("Job match is not available yet.");
       else coworkError(error);
     } finally {
@@ -141,23 +131,17 @@ export function JobMatchPanel({
     if (active && !checked && !autoChecked.has(job.id)) void check();
   }, [active, checked, check, job.id]);
 
-  const needsLibrary = Boolean(
-    checked?.report.requirements.some((r) => r.libraryBulletIds.length),
-  );
+  const needsLibrary = Boolean(checked?.report.requirements.some((r) => r.libraryBulletIds.length));
   useEffect(() => {
     if (!needsLibrary || library) return;
     api
       .listExperienceBullets()
-      .then(({ bullets }) =>
-        setLibrary(new Map(bullets.map((b) => [b.id, b.text]))),
-      )
+      .then(({ bullets }) => setLibrary(new Map(bullets.map((b) => [b.id, b.text]))))
       .catch(() => setLibrary(new Map()));
   }, [needsLibrary, library]);
 
   const report = checked?.report;
-  const score = report
-    ? Math.max(0, Math.min(100, Math.round(report.score)))
-    : 0;
+  const score = report ? Math.max(0, Math.min(100, Math.round(report.score))) : 0;
   const scoreTone =
     score >= 70
       ? "border-emerald-500 text-emerald-700"
@@ -174,9 +158,7 @@ export function JobMatchPanel({
       <li key={r.id} className="rounded-md border p-2 text-sm space-y-1">
         <div className="flex items-start gap-2">
           <p className="mr-auto">{r.text}</p>
-          <span
-            className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${status.tone}`}
-          >
+          <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${status.tone}`}>
             {status.label}
           </span>
         </div>
@@ -213,10 +195,7 @@ export function JobMatchPanel({
                 className="cursor-grab text-muted-foreground"
                 draggable
                 onDragStart={(e) => {
-                  e.dataTransfer.setData(
-                    BULLET_TRANSFER_TYPE,
-                    JSON.stringify(bullet),
-                  );
+                  e.dataTransfer.setData(BULLET_TRANSFER_TYPE, JSON.stringify(bullet));
                   e.dataTransfer.effectAllowed = "copy";
                 }}
               >
@@ -231,10 +210,7 @@ export function JobMatchPanel({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   {targets.map((t) => (
-                    <DropdownMenuItem
-                      key={t.id}
-                      onSelect={() => onInsert(bullet, t.id)}
-                    >
+                    <DropdownMenuItem key={t.id} onSelect={() => onInsert(bullet, t.id)}>
                       {t.label}
                     </DropdownMenuItem>
                   ))}
@@ -276,26 +252,17 @@ export function JobMatchPanel({
             </output>
           )}
           <div className="mr-auto min-w-0">
-            <p className="font-medium truncate">
-              {report?.jobTitle || job.title}
-            </p>
+            <p className="font-medium truncate">{report?.jobTitle || job.title}</p>
             <p className="text-xs text-muted-foreground truncate">
               {report?.employer || job.employer}
             </p>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={loading}
-            onClick={() => void check()}
-          >
+          <Button size="sm" variant="outline" disabled={loading} onClick={() => void check()}>
             {report ? "Check again" : "Check match"}
           </Button>
         </div>
         {checked && checked.document !== JSON.stringify(getDocument()) && (
-          <p className="text-xs text-muted-foreground">
-            Resume changed since this check
-          </p>
+          <p className="text-xs text-muted-foreground">Resume changed since this check</p>
         )}
         {report && <p className="text-sm">{report.summary}</p>}
         {checked && (
@@ -335,13 +302,9 @@ export function JobMatchPanel({
                 group.items.length > 0 && (
                   <section key={group.importance} className="space-y-1">
                     <h3 className="text-xs font-semibold uppercase text-muted-foreground">
-                      {group.importance === "must"
-                        ? "Must-have"
-                        : "Nice-to-have"}
+                      {group.importance === "must" ? "Must-have" : "Nice-to-have"}
                     </h3>
-                    <ul className="space-y-1">
-                      {group.items.map(requirementRow)}
-                    </ul>
+                    <ul className="space-y-1">{group.items.map(requirementRow)}</ul>
                   </section>
                 ),
             )}

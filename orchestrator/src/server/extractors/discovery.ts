@@ -9,10 +9,7 @@ const moduleDir =
     ? dirname(fileURLToPath(import.meta.url))
     : process.cwd();
 const DEFAULT_EXTRACTORS_ROOT = resolve(process.cwd(), "../extractors");
-const MODULE_RELATIVE_EXTRACTORS_ROOT = resolve(
-  moduleDir,
-  "../../../../extractors",
-);
+const MODULE_RELATIVE_EXTRACTORS_ROOT = resolve(moduleDir, "../../../../extractors");
 
 const MANIFEST_CANDIDATES = ["manifest.ts", "src/manifest.ts"] as const;
 
@@ -46,9 +43,7 @@ async function resolveExtractorsRoot(): Promise<string> {
   return DEFAULT_EXTRACTORS_ROOT;
 }
 
-export async function discoverManifestPaths(
-  extractorsRoot?: string,
-): Promise<string[]> {
+export async function discoverManifestPaths(extractorsRoot?: string): Promise<string[]> {
   const root = extractorsRoot ?? (await resolveExtractorsRoot());
   if (basename(root) !== "extractors") {
     return [];
@@ -90,15 +85,11 @@ function isManifest(value: unknown): value is ExtractorManifest {
   );
 }
 
-export async function loadManifestFromFile(
-  path: string,
-): Promise<ExtractorManifest> {
+export async function loadManifestFromFile(path: string): Promise<ExtractorManifest> {
   const loaded = await import(pathToFileURL(path).href);
   const candidateManifest = (loaded as { manifest?: unknown }).manifest;
   const candidateDefault = (loaded as { default?: unknown }).default;
-  const manifest = isManifest(candidateManifest)
-    ? candidateManifest
-    : candidateDefault;
+  const manifest = isManifest(candidateManifest) ? candidateManifest : candidateDefault;
 
   if (!isManifest(manifest)) {
     throw new Error(`Invalid manifest export in ${path}`);
@@ -107,8 +98,6 @@ export async function loadManifestFromFile(
   return {
     ...manifest,
     providesSources: [...manifest.providesSources],
-    requiredEnvVars: manifest.requiredEnvVars
-      ? [...manifest.requiredEnvVars]
-      : undefined,
+    requiredEnvVars: manifest.requiredEnvVars ? [...manifest.requiredEnvVars] : undefined,
   };
 }

@@ -51,8 +51,7 @@ describe("Resume Projects Logic", () => {
         },
       } as any;
 
-      const { catalog, selectionItems } =
-        rp.extractProjectsFromProfile(profile);
+      const { catalog, selectionItems } = rp.extractProjectsFromProfile(profile);
 
       expect(catalog).toHaveLength(2);
       expect(catalog[0].id).toBe("p1");
@@ -172,10 +171,7 @@ describe("Resume Projects Logic", () => {
 
       // p1 is visible in base, so it should be locked by default
       expect(result.resumeProjects.lockedProjectIds).toEqual(["p1"]);
-      expect(result.resumeProjects.aiSelectableProjectIds).toEqual([
-        "p2",
-        "p3",
-      ]);
+      expect(result.resumeProjects.aiSelectableProjectIds).toEqual(["p2", "p3"]);
       expect(result.resumeProjects.maxProjects).toBe(3);
     });
 

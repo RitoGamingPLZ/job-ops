@@ -36,9 +36,7 @@ vi.mock("./services/pdf-fingerprint", () => ({
 describe("Tailoring Flow", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(pdfFingerprint.createJobPdfFingerprint).mockReturnValue(
-      "test-pdf-fingerprint",
-    );
+    vi.mocked(pdfFingerprint.createJobPdfFingerprint).mockReturnValue("test-pdf-fingerprint");
     vi.mocked(pdfFingerprint.resolvePdfFingerprintContext).mockResolvedValue({
       version: "v1",
       designResumeDocumentId: null,
@@ -54,9 +52,7 @@ describe("Tailoring Flow", () => {
         aiSelectableProjectIds: [],
       },
     });
-    vi.mocked(jobsRepo.finalizeGeneratedPdfIfCurrent).mockResolvedValue(
-      {} as any,
-    );
+    vi.mocked(jobsRepo.finalizeGeneratedPdfIfCurrent).mockResolvedValue({} as any);
     vi.mocked(jobsRepo.updateJob).mockResolvedValue({} as any);
     vi.mocked(removeStoredJobPdf).mockResolvedValue(undefined);
     vi.mocked(trackServerProductEvent).mockClear();
@@ -106,8 +102,7 @@ describe("Tailoring Flow", () => {
       jobDescription: "Senior TypeScript Developer",
       status: "discovered",
       // Manual overrides:
-      tailoredSummary:
-        "This is a manually edited summary specifically for this job.",
+      tailoredSummary: "This is a manually edited summary specifically for this job.",
       tailoredHeadline: "Manually Edited Headline",
       tailoredSkills: JSON.stringify(["React", "TypeScript", "Vitest"]),
       selectedProjectIds: "project-a,project-c", // User selected specific projects
@@ -234,10 +229,9 @@ describe("Tailoring Flow", () => {
       pdfFingerprint: "test-pdf-fingerprint",
       pdfGeneratedAt: expect.any(String),
     });
-    expect(jobsRepo.updateJob).toHaveBeenLastCalledWith(
-      "job-ready-superseded",
-      { pdfRegenerating: false },
-    );
+    expect(jobsRepo.updateJob).toHaveBeenLastCalledWith("job-ready-superseded", {
+      pdfRegenerating: false,
+    });
   });
 
   it("keeps ready jobs ready when PDF regeneration fails", async () => {
@@ -277,43 +271,43 @@ describe("Tailoring Flow", () => {
     });
   });
 
-  it.each([
-    "applied",
-    "in_progress",
-  ] as const)("keeps an %s job's status while its PDF renders", async (status) => {
-    const job = { id: "job-1", jobDescription: "JD", status };
-    vi.mocked(jobsRepo.getJobById).mockResolvedValue(job as any);
-    vi.mocked(pdfService.generatePdf).mockResolvedValue({
-      success: true,
-      pdfPath: "new.pdf",
-    });
-
-    expect((await generateFinalPdf("job-1")).success).toBe(true);
-    expect(jobsRepo.updateJob).toHaveBeenCalledWith("job-1", {
-      pdfRegenerating: true,
-    });
-    expect(jobsRepo.finalizeGeneratedPdfIfCurrent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        expectedStatus: status,
-        requireGeneratedSource: true,
+  it.each(["applied", "in_progress"] as const)(
+    "keeps an %s job's status while its PDF renders",
+    async (status) => {
+      const job = { id: "job-1", jobDescription: "JD", status };
+      vi.mocked(jobsRepo.getJobById).mockResolvedValue(job as any);
+      vi.mocked(pdfService.generatePdf).mockResolvedValue({
+        success: true,
         pdfPath: "new.pdf",
-      }),
-    );
+      });
 
-    vi.mocked(jobsRepo.updateJob).mockClear();
-    vi.mocked(pdfService.generatePdf).mockResolvedValue({
-      success: false,
-      error: "boom",
-    });
-    expect((await generateFinalPdf("job-1")).success).toBe(false);
-    expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(1, "job-1", {
-      pdfRegenerating: true,
-    });
-    expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(2, "job-1", {
-      status,
-      pdfRegenerating: false,
-    });
-  });
+      expect((await generateFinalPdf("job-1")).success).toBe(true);
+      expect(jobsRepo.updateJob).toHaveBeenCalledWith("job-1", {
+        pdfRegenerating: true,
+      });
+      expect(jobsRepo.finalizeGeneratedPdfIfCurrent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expectedStatus: status,
+          requireGeneratedSource: true,
+          pdfPath: "new.pdf",
+        }),
+      );
+
+      vi.mocked(jobsRepo.updateJob).mockClear();
+      vi.mocked(pdfService.generatePdf).mockResolvedValue({
+        success: false,
+        error: "boom",
+      });
+      expect((await generateFinalPdf("job-1")).success).toBe(false);
+      expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(1, "job-1", {
+        pdfRegenerating: true,
+      });
+      expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(2, "job-1", {
+        status,
+        pdfRegenerating: false,
+      });
+    },
+  );
 
   it("restores the previous status when generation throws before rendering", async () => {
     const discoveredJob = {
@@ -327,22 +321,18 @@ describe("Tailoring Flow", () => {
 
     vi.mocked(jobsRepo.getJobById).mockResolvedValue(discoveredJob as any);
 
-    vi.mocked(ensureJobResume).mockRejectedValueOnce(
-      new Error("Invalid stored resume"),
-    );
+    vi.mocked(ensureJobResume).mockRejectedValueOnce(new Error("Invalid stored resume"));
     const result = await generateFinalPdf("job-discovered-bad-skills");
 
     expect(result.success).toBe(false);
     expect(pdfService.generatePdf).not.toHaveBeenCalled();
-    expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(
-      1,
-      "job-discovered-bad-skills",
-      { status: "processing", pdfRegenerating: true },
-    );
-    expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(
-      2,
-      "job-discovered-bad-skills",
-      { status: "discovered", pdfRegenerating: false },
-    );
+    expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(1, "job-discovered-bad-skills", {
+      status: "processing",
+      pdfRegenerating: true,
+    });
+    expect(jobsRepo.updateJob).toHaveBeenNthCalledWith(2, "job-discovered-bad-skills", {
+      status: "discovered",
+      pdfRegenerating: false,
+    });
   });
 });

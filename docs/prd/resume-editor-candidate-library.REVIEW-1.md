@@ -4,12 +4,14 @@ Reviews: /tmp/review-a.md, /tmp/review-b.md, /tmp/review-d.md, /tmp/review-e.md.
 Contract changes are already in `shared/src/resume-links.ts` doc comments and the PLAN.
 
 ## Shared rules (all steps)
+
 - A ref (bulletRefs entry or libraryId) to an id that is not in the library is
   **unlinked** everywhere: no tint, no Reset/Save, × is a plain delete,
   stamp leaves it as is.
 - Delete never touches a frozen job's resume (no ref stripping).
 
 ## A (shared/src/resume-links.ts)
+
 1. addToResume: a role goes right after the last experience entry with the same
    company when there is one, else end of section (PRD R2 "end of its job").
 2. stampLibraryRefs: lines link only to children of the item's matched parent;
@@ -18,6 +20,7 @@ Contract changes are already in `shared/src/resume-links.ts` doc comments and th
 4. Kept: folding behaviour for legacy one-line items; `—` placeholder.
 
 ## B (server)
+
 - B1: legacy duties attach first by `sourceExperienceId` to the role built from
   that base experience item; and `key()` normalises the period (any dash/hyphen,
   any spacing → " – ").
@@ -39,6 +42,7 @@ Contract changes are already in `shared/src/resume-links.ts` doc comments and th
   Others: leave.
 
 ## D (right column)
+
 - 1: scan only experience/projects items (KIND_SECTION) for lines.
 - 2: new optional prop `frozen?: boolean`: when true, edits and deletes never
   call onDocumentChange; ticks still do.
@@ -52,6 +56,7 @@ Contract changes are already in `shared/src/resume-links.ts` doc comments and th
   Leave DutyLibrary deletion to W.
 
 ## E (middle column)
+
 - 1: replace the item in its array instead of Object.assign.
 - 2: experience rows render from `getItemLines` only (one array).
 - 3: dropping a library line already on the resume does nothing; a drop of a

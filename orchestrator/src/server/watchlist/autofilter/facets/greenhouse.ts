@@ -30,10 +30,7 @@ const jobsSchema = z.object({
   ),
 });
 
-export const discoverGreenhouseFacets: FacetDiscovery = async ({
-  careersUrl,
-  signal,
-}) => {
+export const discoverGreenhouseFacets: FacetDiscovery = async ({ careersUrl, signal }) => {
   let source: ReturnType<typeof parseGreenhouseUrl>;
   let url: URL;
   try {
@@ -68,26 +65,17 @@ export const discoverGreenhouseFacets: FacetDiscovery = async ({
       signal: requestSignal,
       headers: { accept: "application/json" },
     });
-    if (!response.ok)
-      throw upstreamError(
-        `Greenhouse facets returned HTTP ${response.status}.`,
-      );
+    if (!response.ok) throw upstreamError(`Greenhouse facets returned HTTP ${response.status}.`);
     try {
       return await response.json();
     } catch (error) {
-      if (
-        error instanceof Error &&
-        (error.name === "AbortError" || error.name === "TimeoutError")
-      )
+      if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
         throw error;
       throw upstreamError("Greenhouse facets returned invalid JSON.");
     }
   }
   // Public board data only; no tenant data or process-level cache.
-  const [departmentsData, jobsData] = await Promise.all([
-    load("departments"),
-    load("jobs"),
-  ]);
+  const [departmentsData, jobsData] = await Promise.all([load("departments"), load("jobs")]);
   const departments = departmentsSchema.safeParse(departmentsData);
   const jobs = jobsSchema.safeParse(jobsData);
   if (!departments.success || !jobs.success)
@@ -98,8 +86,7 @@ export const discoverGreenhouseFacets: FacetDiscovery = async ({
   );
   function add(key: string, value: string | undefined, count = 1) {
     const values = counts.get(key);
-    if (value && values && count > 0)
-      values.set(value, (values.get(value) ?? 0) + count);
+    if (value && values && count > 0) values.set(value, (values.get(value) ?? 0) + count);
   }
   for (const department of departments.data.departments) {
     // Commas delimit department selections in the URL parser.

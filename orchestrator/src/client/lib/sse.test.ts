@@ -69,11 +69,7 @@ describe("subscribeToEventSource", () => {
         status: 200,
         body: new ReadableStream<Uint8Array>({
           start(controller) {
-            controller.enqueue(
-              encoder.encode(
-                'data: {"step":"crawling","message":"Working"}\n\n',
-              ),
-            );
+            controller.enqueue(encoder.encode('data: {"step":"crawling","message":"Working"}\n\n'));
             controller.close();
           },
         }),
@@ -113,9 +109,7 @@ describe("subscribeToEventSource", () => {
     __setAuthTokenForTests("stream-token");
 
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      createStreamResponse([
-        'data: {"step":"crawling","message":"Working"}\r\n\r\n',
-      ]),
+      createStreamResponse(['data: {"step":"crawling","message":"Working"}\r\n\r\n']),
     );
 
     subscribeToEventSource("/api/pipeline/progress", {
@@ -143,10 +137,7 @@ describe("subscribeToEventSource", () => {
     __setAuthTokenForTests("stream-token");
 
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      createStreamResponse([
-        ": heartbeat\n\n",
-        'data: {"step":"processing","message":"Halfway"}',
-      ]),
+      createStreamResponse([": heartbeat\n\n", 'data: {"step":"processing","message":"Halfway"}']),
     );
 
     subscribeToEventSource("/api/pipeline/progress", {

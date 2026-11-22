@@ -62,9 +62,7 @@ async function startServer() {
       error: sanitizedError,
     });
     if (process.env.NODE_ENV === "production") {
-      logger.error(
-        "Extractor registry initialization failed in production. Shutting down server.",
-      );
+      logger.error("Extractor registry initialization failed in production. Shutting down server.");
       process.exit(1);
     }
 
@@ -120,12 +118,8 @@ async function startServer() {
       const backupMaxCount = await settingsRepo.getSetting("backupMaxCount");
 
       const parsedHour = backupHour ? parseInt(backupHour, 10) : NaN;
-      const parsedMaxCount = backupMaxCount
-        ? parseInt(backupMaxCount, 10)
-        : NaN;
-      const safeHour = Number.isNaN(parsedHour)
-        ? 2
-        : Math.min(23, Math.max(0, parsedHour));
+      const parsedMaxCount = backupMaxCount ? parseInt(backupMaxCount, 10) : NaN;
+      const safeHour = Number.isNaN(parsedHour) ? 2 : Math.min(23, Math.max(0, parsedHour));
       const safeMaxCount = Number.isNaN(parsedMaxCount)
         ? 5
         : Math.min(5, Math.max(1, parsedMaxCount));
@@ -144,9 +138,7 @@ async function startServer() {
           `✅ Backup scheduler started (hour: ${settings.hour}, max: ${settings.maxCount})`,
         );
       } else {
-        console.log(
-          "ℹ️ Backups disabled. Enable in settings to schedule automatic backups.",
-        );
+        console.log("ℹ️ Backups disabled. Enable in settings to schedule automatic backups.");
       }
     } catch (error) {
       logger.warn("Failed to initialize backup service", {

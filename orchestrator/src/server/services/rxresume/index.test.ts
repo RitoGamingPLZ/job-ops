@@ -62,9 +62,7 @@ describe("RxResume Service (index.ts)", () => {
     it("throws RxResumeAuthConfigError if no API key is configured", async () => {
       vi.mocked(getSetting).mockResolvedValue(null);
 
-      await expect(listResumes()).rejects.toThrow(
-        "Reactive Resume API key is not configured",
-      );
+      await expect(listResumes()).rejects.toThrow("Reactive Resume API key is not configured");
     });
   });
 
@@ -176,11 +174,7 @@ describe("RxResume Service (index.ts)", () => {
         data: { basics: { name: "John" } },
       });
 
-      const [res1, res2, res3] = await Promise.all([
-        promise1,
-        promise2,
-        promise3,
-      ]);
+      const [res1, res2, res3] = await Promise.all([promise1, promise2, promise3]);
 
       expect(res1).toEqual(res2);
       expect(res1).toEqual(res3);
@@ -238,10 +232,7 @@ describe("RxResume Service (index.ts)", () => {
 
       const result = await validateCredentials();
 
-      expect(v5.verifyApiKey).toHaveBeenCalledWith(
-        "test-api-key",
-        "https://rxresu.me",
-      );
+      expect(v5.verifyApiKey).toHaveBeenCalledWith("test-api-key", "https://rxresu.me");
       expect(result).toEqual({ ok: true, mode: "v5" });
     });
 

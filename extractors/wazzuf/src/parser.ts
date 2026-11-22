@@ -10,10 +10,7 @@ function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function firstText(
-  root: Cheerio<AnyNode>,
-  selectors: string[],
-): string | undefined {
+function firstText(root: Cheerio<AnyNode>, selectors: string[]): string | undefined {
   for (const selector of selectors) {
     const text = normalizeWhitespace(root.find(selector).first().text());
     if (text) return text.replace(/\s*-\s*$/, "").trim();
@@ -56,21 +53,13 @@ function extractJobType(text: string): string | undefined {
   return undefined;
 }
 
-function extractSkills(
-  $: CheerioAPI,
-  root: Cheerio<AnyNode>,
-): string | undefined {
+function extractSkills($: CheerioAPI, root: Cheerio<AnyNode>): string | undefined {
   const skills = root
     .find('a[href*="/jobs/"], span, .tag')
     .map((_, element) => normalizeWhitespace($(element).text()))
     .get()
     .filter((value) => value.length > 1)
-    .filter(
-      (value) =>
-        !/full[-\s]?time|part[-\s]?time|internship|contract|freelance/i.test(
-          value,
-        ),
-    );
+    .filter((value) => !/full[-\s]?time|part[-\s]?time|internship|contract|freelance/i.test(value));
   const unique = [...new Set(skills)].slice(0, 12);
   return unique.length > 0 ? unique.join(", ") : undefined;
 }
@@ -97,8 +86,7 @@ export function parseWazzufJobs(html: string): CreateJobInput[] {
       const rootCandidate = $(anchor).closest(
         'article, li, div[data-testid*="job"], .job-card, .css-1gatmva, .css-pkv5jc',
       );
-      const root =
-        rootCandidate.length > 0 ? rootCandidate : $(anchor).parent();
+      const root = rootCandidate.length > 0 ? rootCandidate : $(anchor).parent();
       const rootText = normalizeWhitespace(root.text());
       const employer =
         firstText(root, [
@@ -115,13 +103,8 @@ export function parseWazzufJobs(html: string): CreateJobInput[] {
         '[class*="location"]',
       ]);
       const postedAt =
-        root.find("time").first().attr("datetime") ??
-        firstText(root, ["time", '[class*="date"]']);
-      const salary = firstText(root, [
-        '[data-testid="salary"]',
-        ".salary",
-        '[class*="salary"]',
-      ]);
+        root.find("time").first().attr("datetime") ?? firstText(root, ["time", '[class*="date"]']);
+      const salary = firstText(root, ['[data-testid="salary"]', ".salary", '[class*="salary"]']);
       const description = firstText(root, [
         '[data-testid="job-description"]',
         ".job-description",

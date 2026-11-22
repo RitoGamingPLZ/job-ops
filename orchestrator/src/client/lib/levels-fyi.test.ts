@@ -18,16 +18,12 @@ describe("levels-fyi helpers", () => {
   });
 
   it("infers role slugs from job titles", () => {
-    expect(inferLevelsRoleSlug("Senior Backend Software Engineer")).toBe(
-      "software-engineer",
-    );
+    expect(inferLevelsRoleSlug("Senior Backend Software Engineer")).toBe("software-engineer");
     expect(inferLevelsRoleSlug("Staff Machine Learning Engineer")).toBe(
       "machine-learning-engineer",
     );
     expect(inferLevelsRoleSlug("Data Scientist")).toBe("data-scientist");
-    expect(inferLevelsRoleSlug("Engineering Manager, Core")).toBe(
-      "software-engineering-manager",
-    );
+    expect(inferLevelsRoleSlug("Engineering Manager, Core")).toBe("software-engineering-manager");
     expect(inferLevelsRoleSlug("Office Coordinator")).toBeNull();
   });
 
@@ -37,9 +33,7 @@ describe("levels-fyi helpers", () => {
         employer: "Google LLC",
         title: "Senior Software Engineer",
       }),
-    ).toBe(
-      "https://www.levels.fyi/companies/google/salaries/software-engineer",
-    );
+    ).toBe("https://www.levels.fyi/companies/google/salaries/software-engineer");
 
     expect(
       buildLevelsFyiSalaryUrl({
@@ -57,9 +51,7 @@ describe("levels-fyi helpers", () => {
   });
 
   it("posts active lookup context and opens a Levels.fyi popup window", () => {
-    const postSpy = vi
-      .spyOn(window, "postMessage")
-      .mockImplementation(() => {});
+    const postSpy = vi.spyOn(window, "postMessage").mockImplementation(() => {});
     const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
 
     const url = openLevelsFyiLookup({
@@ -69,9 +61,7 @@ describe("levels-fyi helpers", () => {
       location: "London",
     });
 
-    expect(url).toBe(
-      "https://www.levels.fyi/companies/stripe/salaries/software-engineer",
-    );
+    expect(url).toBe("https://www.levels.fyi/companies/stripe/salaries/software-engineer");
     expect(postSpy).toHaveBeenCalledWith(
       {
         type: LEVELS_LOOKUP_START_EVENT,
@@ -83,11 +73,7 @@ describe("levels-fyi helpers", () => {
       },
       window.location.origin,
     );
-    expect(openSpy).toHaveBeenCalledWith(
-      url,
-      "jobops-levels-fyi",
-      "popup,width=1020,height=760",
-    );
+    expect(openSpy).toHaveBeenCalledWith(url, "jobops-levels-fyi", "popup,width=1020,height=760");
 
     postSpy.mockRestore();
     openSpy.mockRestore();

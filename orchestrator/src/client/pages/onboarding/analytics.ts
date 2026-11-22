@@ -1,8 +1,4 @@
-import {
-  bucketDurationMs,
-  bucketFileSize,
-  bucketQueryLength,
-} from "@/lib/analytics";
+import { bucketDurationMs, bucketFileSize, bucketQueryLength } from "@/lib/analytics";
 export function getTextLengthBucket(value: string): string {
   return bucketQueryLength(value.length);
 }
@@ -12,9 +8,7 @@ export function getFileType(file: File): "pdf" | "docx" | "json" | "unknown" {
   const name = file.name.toLowerCase();
   if (type.includes("pdf") || name.endsWith(".pdf")) return "pdf";
   if (
-    type.includes(
-      "vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ) ||
+    type.includes("vnd.openxmlformats-officedocument.wordprocessingml.document") ||
     name.endsWith(".docx")
   ) {
     return "docx";
@@ -31,9 +25,7 @@ export function getDurationBucket(startedAt: number): string {
   return bucketDurationMs(Date.now() - startedAt);
 }
 
-export function getEndpointMode(
-  value: string | null | undefined,
-): "default" | "custom" | "blank" {
+export function getEndpointMode(value: string | null | undefined): "default" | "custom" | "blank" {
   if (value === undefined) return "default";
   if (value === null) return "blank";
   return value.trim() ? "custom" : "blank";
@@ -61,8 +53,7 @@ export function getErrorCategory(error: unknown): string {
   if (status === 409) return "conflict";
   if (status >= 500) return "server";
 
-  const message =
-    error instanceof Error ? error.message.toLowerCase() : String(error ?? "");
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error ?? "");
   if (message.includes("timeout") || message.includes("timed out")) {
     return "timeout";
   }

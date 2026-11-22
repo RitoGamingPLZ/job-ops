@@ -40,8 +40,7 @@ interface IndexedSection {
 }
 
 const str = (value: unknown) => (typeof value === "string" ? value : "");
-const short = (text: string, max = 60) =>
-  text.length > max ? `${text.slice(0, max - 1)}…` : text;
+const short = (text: string, max = 60) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
 function indexDocument(document: ReactiveResumeV5Document) {
   const sections = new Map<string, IndexedSection>();
@@ -50,8 +49,7 @@ function indexDocument(document: ReactiveResumeV5Document) {
   for (const [key, nameFields] of Object.entries(SECTION_NAMES)) {
     const section = all[key];
     if (!section || section.hidden) continue;
-    const sectionLabel =
-      section.title?.trim() || key[0].toUpperCase() + key.slice(1);
+    const sectionLabel = section.title?.trim() || key[0].toUpperCase() + key.slice(1);
     const items = new Map<string, IndexedItem>();
     const promptItems = (section.items ?? [])
       .filter((item) => !item.hidden && typeof item.id === "string")
@@ -71,9 +69,7 @@ function indexDocument(document: ReactiveResumeV5Document) {
           period: str(item.period) || str(item.date) || undefined,
           keywords: Array.isArray(item.keywords) ? item.keywords : undefined,
           intro: stripHtmlTags(introHtml) || undefined,
-          bullets: bullets.length
-            ? bullets.map((text, index) => ({ index, text }))
-            : undefined,
+          bullets: bullets.length ? bullets.map((text, index) => ({ index, text })) : undefined,
         };
       });
     if (!promptItems.length) continue;
@@ -99,8 +95,7 @@ function validateFocus(
   const item = raw.itemId ? section.items.get(raw.itemId) : undefined;
   if (!item || !raw.itemId) return null;
   const base = { section: raw.section, itemId: raw.itemId };
-  if (raw.kind !== "bullet")
-    return { kind: raw.kind, ...base, label: item.label };
+  if (raw.kind !== "bullet") return { kind: raw.kind, ...base, label: item.label };
   const index = raw.bulletIndex;
   if (index == null || index >= item.bullets.length) return null;
   return {
@@ -111,14 +106,7 @@ function validateFocus(
   };
 }
 
-const KINDS = [
-  "section",
-  "item",
-  "bullet",
-  "skill",
-  "summary",
-  "headline",
-] as const;
+const KINDS = ["section", "item", "bullet", "skill", "summary", "headline"] as const;
 const focusSchema = z.object({
   kind: z.enum(KINDS),
   section: z.string().nullish(),
@@ -128,14 +116,7 @@ const focusSchema = z.object({
 const requirementSchema = z.object({
   text: z.string().trim().min(1).max(300),
   importance: z.enum(["must", "nice"]),
-  category: z.enum([
-    "skill",
-    "experience",
-    "education",
-    "certification",
-    "domain",
-    "other",
-  ]),
+  category: z.enum(["skill", "experience", "education", "certification", "domain", "other"]),
   status: z.enum(["met", "partial", "in_library", "missing"]),
   evidence: z
     .array(
@@ -234,45 +215,40 @@ export async function screenResume(
     LIBRARY_LIMIT,
   );
   const { sections, prompt } = indexDocument(document);
-  const raw = await withHostedUsageReservation(
-    { action: "tailoring" },
-    async () => {
-      const [llm, model] = await Promise.all([
-        createConfiguredLlmService("tailoring"),
-        resolveLlmModel("tailoring"),
-      ]);
-      const result = await llm.callJson<unknown>({
-        model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: JSON.stringify({
-              job: { title: job.title, employer: job.employer, jobDescription },
-              resume: {
-                headline: stripHtmlTags(document.basics.headline),
-                summary: stripHtmlTags(document.summary.content),
-                sections: prompt,
-              },
-              library: library.map(({ id, text, company, role, tags }) => ({
-                id,
-                text,
-                company,
-                role,
-                tags,
-              })),
-            }),
-          },
-        ],
-        jsonSchema: SCREENING_RESPONSE_SCHEMA,
-      });
-      const parsed = reportSchema.safeParse(
-        result.success ? result.data : undefined,
-      );
-      if (!parsed.success) throw upstreamError("Unable to screen resume");
-      return { result: parsed.data, usedUnits: 1 };
-    },
-  );
+  const raw = await withHostedUsageReservation({ action: "tailoring" }, async () => {
+    const [llm, model] = await Promise.all([
+      createConfiguredLlmService("tailoring"),
+      resolveLlmModel("tailoring"),
+    ]);
+    const result = await llm.callJson<unknown>({
+      model,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: JSON.stringify({
+            job: { title: job.title, employer: job.employer, jobDescription },
+            resume: {
+              headline: stripHtmlTags(document.basics.headline),
+              summary: stripHtmlTags(document.summary.content),
+              sections: prompt,
+            },
+            library: library.map(({ id, text, company, role, tags }) => ({
+              id,
+              text,
+              company,
+              role,
+              tags,
+            })),
+          }),
+        },
+      ],
+      jsonSchema: SCREENING_RESPONSE_SCHEMA,
+    });
+    const parsed = reportSchema.safeParse(result.success ? result.data : undefined);
+    if (!parsed.success) throw upstreamError("Unable to screen resume");
+    return { result: parsed.data, usedUnits: 1 };
+  });
 
   const libraryIds = new Set(library.map((bullet) => bullet.id));
   const requirements = raw.requirements
@@ -283,10 +259,7 @@ export async function screenResume(
       const libraryBulletIds = [
         ...new Set(r.libraryBulletIds.filter((id) => libraryIds.has(id))),
       ].slice(0, 10);
-      const status =
-        r.status === "in_library" && !libraryBulletIds.length
-          ? "missing"
-          : r.status;
+      const status = r.status === "in_library" && !libraryBulletIds.length ? "missing" : r.status;
       return [
         {
           id: randomUUID(),
@@ -307,10 +280,7 @@ export async function screenResume(
       ];
     })
     // Stable sort keeps model order within each importance.
-    .sort(
-      (a, b) =>
-        Number(a.importance === "nice") - Number(b.importance === "nice"),
-    )
+    .sort((a, b) => Number(a.importance === "nice") - Number(b.importance === "nice"))
     .slice(0, SCREENING_MAX_REQUIREMENTS);
   return {
     requirements,

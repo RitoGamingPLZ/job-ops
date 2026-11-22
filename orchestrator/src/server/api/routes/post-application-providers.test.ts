@@ -6,7 +6,7 @@ vi.mock("@server/services/post-application/providers", () => ({
   executePostApplicationProviderAction: vi.fn(),
 }));
 
-describe.sequential("Post-Application Provider actions API", () => {
+describe("Post-Application Provider actions API", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -14,10 +14,8 @@ describe.sequential("Post-Application Provider actions API", () => {
   const originalClientId = process.env.GMAIL_OAUTH_CLIENT_ID;
   const originalClientSecret = process.env.GMAIL_OAUTH_CLIENT_SECRET;
   const originalRedirectUri = process.env.GMAIL_OAUTH_REDIRECT_URI;
-  const originalOauthStateMaxEntries =
-    process.env.POST_APPLICATION_OAUTH_STATE_MAX_ENTRIES;
-  const originalOauthStateTtlMs =
-    process.env.POST_APPLICATION_OAUTH_STATE_TTL_MS;
+  const originalOauthStateMaxEntries = process.env.POST_APPLICATION_OAUTH_STATE_MAX_ENTRIES;
+  const originalOauthStateTtlMs = process.env.POST_APPLICATION_OAUTH_STATE_TTL_MS;
 
   beforeEach(async () => {
     ({ server, baseUrl, closeDb, tempDir } = await startServer());
@@ -27,17 +25,15 @@ describe.sequential("Post-Application Provider actions API", () => {
     process.env.GMAIL_OAUTH_CLIENT_ID = originalClientId;
     process.env.GMAIL_OAUTH_CLIENT_SECRET = originalClientSecret;
     process.env.GMAIL_OAUTH_REDIRECT_URI = originalRedirectUri;
-    process.env.POST_APPLICATION_OAUTH_STATE_MAX_ENTRIES =
-      originalOauthStateMaxEntries;
+    process.env.POST_APPLICATION_OAUTH_STATE_MAX_ENTRIES = originalOauthStateMaxEntries;
     process.env.POST_APPLICATION_OAUTH_STATE_TTL_MS = originalOauthStateTtlMs;
     await stopServer({ server, closeDb, tempDir });
     vi.clearAllMocks();
   });
 
   it("dispatches provider status action and returns unified success contract", async () => {
-    const { executePostApplicationProviderAction } = await import(
-      "@server/services/post-application/providers"
-    );
+    const { executePostApplicationProviderAction } =
+      await import("@server/services/post-application/providers");
     vi.mocked(executePostApplicationProviderAction).mockResolvedValueOnce({
       provider: "gmail",
       action: "status",
@@ -51,17 +47,14 @@ describe.sequential("Post-Application Provider actions API", () => {
       message: "Provider ready",
     });
 
-    const res = await fetch(
-      `${baseUrl}/api/post-application/providers/gmail/actions/status`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-request-id": "req-post-app-1",
-        },
-        body: JSON.stringify({ accountKey: "primary" }),
+    const res = await fetch(`${baseUrl}/api/post-application/providers/gmail/actions/status`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-request-id": "req-post-app-1",
       },
-    );
+      body: JSON.stringify({ accountKey: "primary" }),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -91,9 +84,8 @@ describe.sequential("Post-Application Provider actions API", () => {
   });
 
   it("defaults to account key 'default' when omitted", async () => {
-    const { executePostApplicationProviderAction } = await import(
-      "@server/services/post-application/providers"
-    );
+    const { executePostApplicationProviderAction } =
+      await import("@server/services/post-application/providers");
     vi.mocked(executePostApplicationProviderAction).mockResolvedValueOnce({
       provider: "gmail",
       action: "connect",
@@ -106,18 +98,15 @@ describe.sequential("Post-Application Provider actions API", () => {
       },
     });
 
-    const res = await fetch(
-      `${baseUrl}/api/post-application/providers/gmail/actions/connect`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          payload: {
-            refreshToken: "redacted-token",
-          },
-        }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/post-application/providers/gmail/actions/connect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        payload: {
+          refreshToken: "redacted-token",
+        },
+      }),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -137,14 +126,11 @@ describe.sequential("Post-Application Provider actions API", () => {
   });
 
   it("returns 400 INVALID_REQUEST for unsupported actions", async () => {
-    const res = await fetch(
-      `${baseUrl}/api/post-application/providers/gmail/actions/invalid`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/post-application/providers/gmail/actions/invalid`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(400);
@@ -154,9 +140,8 @@ describe.sequential("Post-Application Provider actions API", () => {
   });
 
   it("maps provider service errors to standardized error responses", async () => {
-    const { executePostApplicationProviderAction } = await import(
-      "@server/services/post-application/providers"
-    );
+    const { executePostApplicationProviderAction } =
+      await import("@server/services/post-application/providers");
     const { AppError } = await import("@infra/errors");
     vi.mocked(executePostApplicationProviderAction).mockRejectedValueOnce(
       new AppError({
@@ -166,14 +151,11 @@ describe.sequential("Post-Application Provider actions API", () => {
       }),
     );
 
-    const res = await fetch(
-      `${baseUrl}/api/post-application/providers/gmail/actions/sync`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountKey: "primary", maxMessages: 20 }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/post-application/providers/gmail/actions/sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountKey: "primary", maxMessages: 20 }),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(503);
@@ -204,9 +186,7 @@ describe.sequential("Post-Application Provider actions API", () => {
     expect(body.data.provider).toBe("gmail");
     expect(body.data.accountKey).toBe("primary");
     expect(typeof body.data.state).toBe("string");
-    expect(body.data.authorizationUrl).toContain(
-      "https://accounts.google.com/o/oauth2/v2/auth",
-    );
+    expect(body.data.authorizationUrl).toContain("https://accounts.google.com/o/oauth2/v2/auth");
     expect(body.data.authorizationUrl).toContain("response_type=code");
     expect(body.meta.requestId).toBe("req-post-app-oauth-start");
   });
@@ -216,20 +196,17 @@ describe.sequential("Post-Application Provider actions API", () => {
     process.env.GMAIL_OAUTH_CLIENT_SECRET = "client-secret";
     process.env.GMAIL_OAUTH_REDIRECT_URI = `${baseUrl}/oauth/gmail/callback`;
 
-    const res = await fetch(
-      `${baseUrl}/api/post-application/providers/gmail/oauth/exchange`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          accountKey: "default",
-          state: "missing-state",
-          code: "oauth-code",
-        }),
+    const res = await fetch(`${baseUrl}/api/post-application/providers/gmail/oauth/exchange`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        accountKey: "default",
+        state: "missing-state",
+        code: "oauth-code",
+      }),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(400);
@@ -245,9 +222,7 @@ describe.sequential("Post-Application Provider actions API", () => {
     process.env.GMAIL_OAUTH_REDIRECT_URI = `${baseUrl}/oauth/gmail/callback`;
     process.env.POST_APPLICATION_OAUTH_STATE_TTL_MS = "1";
 
-    const startRes = await fetch(
-      `${baseUrl}/api/post-application/providers/gmail/oauth/start`,
-    );
+    const startRes = await fetch(`${baseUrl}/api/post-application/providers/gmail/oauth/start`);
     const startBody = await startRes.json();
     expect(startRes.status).toBe(200);
 
@@ -318,9 +293,7 @@ describe.sequential("Post-Application Provider actions API", () => {
     delete process.env.GMAIL_OAUTH_CLIENT_SECRET;
     delete process.env.GMAIL_OAUTH_REDIRECT_URI;
 
-    const res = await fetch(
-      `${baseUrl}/api/post-application/providers/gmail/oauth/start`,
-    );
+    const res = await fetch(`${baseUrl}/api/post-application/providers/gmail/oauth/start`);
     const body = await res.json();
 
     expect(res.status).toBe(503);

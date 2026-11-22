@@ -5,13 +5,7 @@ import { LocateFixed, MapPin } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { MapPoint } from "./LocationRadiusMap";
@@ -127,12 +121,7 @@ export function LocationRadiusPicker({
             <MapPin data-icon="inline-start" />
             Use map centre
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={useCurrentLocation}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={useCurrentLocation}>
             <LocateFixed data-icon="inline-start" />
             Use my location
           </Button>
@@ -143,20 +132,16 @@ export function LocationRadiusPicker({
           ) : null}
         </div>
         <FieldDescription>
-          Click the map to place the centre. Drag the centre or edge handle to
-          adjust the search area.
+          Click the map to place the centre. Drag the centre or edge handle to adjust the search
+          area.
         </FieldDescription>
-        {!value ? (
-          <FieldError>Select a centre point on the map.</FieldError>
-        ) : null}
+        {!value ? <FieldError>Select a centre point on the map.</FieldError> : null}
       </Field>
 
       <div className={cn("grid gap-4", value && "sm:grid-cols-2")}>
         {value ? (
           <Field>
-            <FieldLabel htmlFor="location-detected-country">
-              Detected country
-            </FieldLabel>
+            <FieldLabel htmlFor="location-detected-country">Detected country</FieldLabel>
             <Input
               id="location-detected-country"
               value={
@@ -173,9 +158,7 @@ export function LocationRadiusPicker({
         ) : null}
 
         <Field>
-          <FieldLabel htmlFor="location-radius-miles">
-            Radius in miles
-          </FieldLabel>
+          <FieldLabel htmlFor="location-radius-miles">Radius in miles</FieldLabel>
           <Input
             id="location-radius-miles"
             type="number"

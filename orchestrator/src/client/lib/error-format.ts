@@ -32,11 +32,9 @@ function toFriendlyFieldLabel(path: string): string | null {
     return "application URL";
   }
   if (/^sections\.skills\.items\.\d+\.name$/.test(path)) return "skill name";
-  if (/^sections\.projects\.items\.\d+\.name$/.test(path))
-    return "project name";
+  if (/^sections\.projects\.items\.\d+\.name$/.test(path)) return "project name";
 
-  const sectionMatch =
-    /^sections\.([a-z-]+)\.items\.\d+\.([a-zA-Z0-9_-]+)$/.exec(path);
+  const sectionMatch = /^sections\.([a-z-]+)\.items\.\d+\.([a-zA-Z0-9_-]+)$/.exec(path);
   if (sectionMatch) {
     const section = normalizeSectionName(sectionMatch[1] ?? "item");
     const field = (sectionMatch[2] ?? "field")
@@ -97,14 +95,11 @@ function toFriendlyIssueMessage(issue: ZodLikeIssue): string | null {
     /\binvalid\s+url\b/.test(normalizedIssueMessage);
 
   if (isInvalidUrl) {
-    return label
-      ? `Please enter a valid ${label}.`
-      : "Please enter a valid URL.";
+    return label ? `Please enter a valid ${label}.` : "Please enter a valid URL.";
   }
 
   if (path === "password") {
-    const minimum =
-      issue.minimum ?? extractNumericConstraint(issue.message, "minimum");
+    const minimum = issue.minimum ?? extractNumericConstraint(issue.message, "minimum");
     if (issue.code === "too_small" || minimum !== null) {
       if (minimum === null || minimum <= 1) {
         return "Please enter a password before continuing.";
@@ -112,8 +107,7 @@ function toFriendlyIssueMessage(issue: ZodLikeIssue): string | null {
       return `Password must be at least ${minimum} characters.`;
     }
 
-    const maximum =
-      issue.maximum ?? extractNumericConstraint(issue.message, "maximum");
+    const maximum = issue.maximum ?? extractNumericConstraint(issue.message, "maximum");
     if (issue.code === "too_big" || maximum !== null) {
       return maximum === null
         ? "Password is too long."
@@ -122,17 +116,10 @@ function toFriendlyIssueMessage(issue: ZodLikeIssue): string | null {
   }
 
   const isStringIssue =
-    issue.type === "string" ||
-    issue.origin === "string" ||
-    /\bstring\b/i.test(issue.message ?? "");
-  const maximum =
-    issue.maximum ?? extractNumericConstraint(issue.message, "maximum");
+    issue.type === "string" || issue.origin === "string" || /\bstring\b/i.test(issue.message ?? "");
+  const maximum = issue.maximum ?? extractNumericConstraint(issue.message, "maximum");
 
-  if (
-    label &&
-    isStringIssue &&
-    (issue.code === "too_big" || maximum !== null)
-  ) {
+  if (label && isStringIssue && (issue.code === "too_big" || maximum !== null)) {
     return maximum === null
       ? `${toSentenceCase(label)} is too long.`
       : `${toSentenceCase(label)} must be ${maximum} characters or fewer.`;
@@ -163,11 +150,7 @@ function toZodLikeIssues(value: unknown): ZodLikeIssue[] | null {
     return issues.length > 0 ? issues : null;
   }
 
-  if (
-    value &&
-    typeof value === "object" &&
-    Array.isArray((value as { issues?: unknown }).issues)
-  ) {
+  if (value && typeof value === "object" && Array.isArray((value as { issues?: unknown }).issues)) {
     return toZodLikeIssues((value as { issues: unknown[] }).issues);
   }
 
@@ -245,15 +228,10 @@ function extractRawErrorMessage(error: unknown): string {
 
 function extractErrorDetails(error: unknown): unknown {
   if (!error || typeof error !== "object") return null;
-  if ("details" in error)
-    return (error as { details?: unknown }).details ?? null;
+  if ("details" in error) return (error as { details?: unknown }).details ?? null;
   if ("error" in error) {
     const nestedError = (error as { error?: unknown }).error;
-    if (
-      nestedError &&
-      typeof nestedError === "object" &&
-      "details" in nestedError
-    ) {
+    if (nestedError && typeof nestedError === "object" && "details" in nestedError) {
       return (nestedError as { details?: unknown }).details ?? null;
     }
   }

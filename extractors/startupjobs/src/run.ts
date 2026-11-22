@@ -1,14 +1,8 @@
-import {
-  formatCountryLabel,
-  normalizeCountryKey,
-} from "@shared/location-support.js";
+import { formatCountryLabel, normalizeCountryKey } from "@shared/location-support.js";
 import { resolveSearchCities } from "@shared/search-cities.js";
 import type { CreateJobInput } from "@shared/types/jobs";
 import { toIntegerOrFallback } from "@shared/utils/type-conversion.js";
-import {
-  type StartupJobRecord,
-  scrapeStartupJobsViaAlgolia,
-} from "startup-jobs-scraper";
+import { type StartupJobRecord, scrapeStartupJobsViaAlgolia } from "startup-jobs-scraper";
 
 export type StartupJobsProgressEvent =
   | {
@@ -73,9 +67,7 @@ const GENERIC_EMPLOYER_LABELS = new Set([
 
 function isUsableEmployer(value: string | undefined): value is string {
   const employer = value?.trim();
-  return Boolean(
-    employer && !GENERIC_EMPLOYER_LABELS.has(employer.toLowerCase()),
-  );
+  return Boolean(employer && !GENERIC_EMPLOYER_LABELS.has(employer.toLowerCase()));
 }
 
 function employerNameFromUrl(value: string | undefined): string | undefined {
@@ -228,8 +220,7 @@ export async function runStartupJobs(
           ? error
           : "Unexpected error while running startup.jobs extractor.";
     const missingBrowser =
-      /playwright|browser|executable/i.test(message) &&
-      /install/i.test(message);
+      /playwright|browser|executable/i.test(message) && /install/i.test(message);
     return {
       success: false,
       jobs: [],

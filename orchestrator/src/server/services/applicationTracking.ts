@@ -13,10 +13,7 @@ import type {
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "../db/index";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { jobs, stageEvents, tasks } = schema;
 
@@ -70,25 +67,15 @@ export const stageEventMetadataSchema = z
     eventLabel: z.string().nullable().optional(),
     externalUrl: z.string().nullable().optional(),
     reasonCode: z.string().nullable().optional(),
-    eventType: z
-      .enum(["interview_log", "status_update", "note"])
-      .nullable()
-      .optional(),
+    eventType: z.enum(["interview_log", "status_update", "note"]).nullable().optional(),
   })
   .strict();
 
-export async function getStageEvents(
-  applicationId: string,
-): Promise<StageEvent[]> {
+export async function getStageEvents(applicationId: string): Promise<StageEvent[]> {
   const rows = await db
     .select()
     .from(stageEvents)
-    .where(
-      and(
-        stageEventsScopeFilter(),
-        eq(stageEvents.applicationId, applicationId),
-      ),
-    )
+    .where(and(stageEventsScopeFilter(), eq(stageEvents.applicationId, applicationId)))
     .orderBy(asc(stageEvents.occurredAt));
 
   return rows.map((row) => ({
@@ -140,9 +127,7 @@ export function transitionStage(
   metadata?: StageEventMetadata | null,
   outcome?: JobOutcome | null,
 ): StageEvent {
-  const parsedMetadata = metadata
-    ? stageEventMetadataSchema.parse(metadata)
-    : null;
+  const parsedMetadata = metadata ? stageEventMetadataSchema.parse(metadata) : null;
 
   const now = Math.floor(Date.now() / 1000);
   const timestamp = occurredAt ?? now;
@@ -161,20 +146,13 @@ export function transitionStage(
     const lastEvent = tx
       .select()
       .from(stageEvents)
-      .where(
-        and(
-          stageEventsScopeFilter(),
-          eq(stageEvents.applicationId, applicationId),
-        ),
-      )
+      .where(and(stageEventsScopeFilter(), eq(stageEvents.applicationId, applicationId)))
       .orderBy(desc(stageEvents.occurredAt))
       .limit(1)
       .get();
 
-    const fromStage =
-      (lastEvent?.toStage as ApplicationStage | undefined) ?? null;
-    const finalToStage =
-      toStage === "no_change" ? (fromStage ?? "applied") : toStage;
+    const fromStage = (lastEvent?.toStage as ApplicationStage | undefined) ?? null;
+    const finalToStage = toStage === "no_change" ? (fromStage ?? "applied") : toStage;
     const eventId = randomUUID();
     const isNoteEvent = parsedMetadata?.eventType === "note";
 
@@ -250,9 +228,7 @@ export function updateStageEvent(
   },
 ): void {
   const { toStage, occurredAt, metadata, outcome } = payload;
-  const parsedMetadata = metadata
-    ? stageEventMetadataSchema.parse(metadata)
-    : undefined;
+  const parsedMetadata = metadata ? stageEventMetadataSchema.parse(metadata) : undefined;
   const hasOutcome = Object.hasOwn(payload, "outcome");
   db.transaction((tx) => {
     const event = tx
@@ -268,8 +244,7 @@ export function updateStageEvent(
     if (parsedMetadata !== undefined) {
       updates.metadata = parsedMetadata;
       if (parsedMetadata?.eventLabel) updates.title = parsedMetadata.eventLabel;
-      if (parsedMetadata?.groupId !== undefined)
-        updates.groupId = parsedMetadata.groupId;
+      if (parsedMetadata?.groupId !== undefined) updates.groupId = parsedMetadata.groupId;
     }
     if (hasOutcome) updates.outcome = outcome ?? null;
     if (toStage && !hasOutcome && !isClosingStage(toStage)) {
@@ -285,12 +260,7 @@ export function updateStageEvent(
     const lastEvent = tx
       .select()
       .from(stageEvents)
-      .where(
-        and(
-          stageEventsScopeFilter(),
-          eq(stageEvents.applicationId, event.applicationId),
-        ),
-      )
+      .where(and(stageEventsScopeFilter(), eq(stageEvents.applicationId, event.applicationId)))
       .orderBy(desc(stageEvents.occurredAt))
       .limit(1)
       .get();
@@ -344,12 +314,7 @@ export function deleteStageEvent(eventId: string): void {
     const lastEvent = tx
       .select()
       .from(stageEvents)
-      .where(
-        and(
-          stageEventsScopeFilter(),
-          eq(stageEvents.applicationId, event.applicationId),
-        ),
-      )
+      .where(and(stageEventsScopeFilter(), eq(stageEvents.applicationId, event.applicationId)))
       .orderBy(desc(stageEvents.occurredAt))
       .limit(1)
       .get();
@@ -468,8 +433,7 @@ function maybeTrackStageAnalytics(
     POSITIVE_RESPONSE_STAGES.has(event.toStage) &&
     (event.fromStage === null || event.fromStage === "applied");
   const enteredInterview =
-    INTERVIEW_STAGES.has(event.toStage) &&
-    !INTERVIEW_STAGES.has(event.fromStage ?? "applied");
+    INTERVIEW_STAGES.has(event.toStage) && !INTERVIEW_STAGES.has(event.fromStage ?? "applied");
 
   void trackServerProductEvent(
     "application_stage_reached",
@@ -563,9 +527,7 @@ function resolveOutcomeAndClosedAt(input: {
   const inferredOutcome = inferOutcome(input.lastStage, input.metadata);
   const closingStage = isClosingStage(input.lastStage);
   const outcome =
-    input.lastEventOutcome ??
-    inferredOutcome ??
-    (closingStage ? input.jobOutcome : null);
+    input.lastEventOutcome ?? inferredOutcome ?? (closingStage ? input.jobOutcome : null);
 
   if (input.lastStage === "closed") {
     return { outcome, closedAt: input.lastEventOccurredAt };

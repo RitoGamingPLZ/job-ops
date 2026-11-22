@@ -10,10 +10,7 @@ describe("mode-selection policy", () => {
   it("returns provider modes in declared order when cache is empty", () => {
     clearModeCache();
     const key = buildModeCacheKey("openrouter", "https://openrouter.ai");
-    expect(getOrderedModes(key, ["json_schema", "none"])).toEqual([
-      "json_schema",
-      "none",
-    ]);
+    expect(getOrderedModes(key, ["json_schema", "none"])).toEqual(["json_schema", "none"]);
   });
 
   it("prefers cached mode first", () => {

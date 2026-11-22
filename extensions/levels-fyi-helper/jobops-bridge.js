@@ -5,8 +5,7 @@ const SALARY_RESULT_EVENT = "JOBOPS_LEVELS_SALARY_RESULT";
 document.documentElement.dataset.jobopsLevelsExtension = "1";
 
 window.addEventListener("message", (event) => {
-  if (event.source !== window || event.origin !== window.location.origin)
-    return;
+  if (event.source !== window || event.origin !== window.location.origin) return;
   const data = event.data;
   if (!data || typeof data !== "object" || data.type !== LOOKUP_START_EVENT) {
     return;
@@ -24,11 +23,7 @@ window.addEventListener("message", (event) => {
 });
 
 ext.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (
-    !message ||
-    typeof message !== "object" ||
-    message.type !== "APPLY_SALARY"
-  ) {
+  if (!message || typeof message !== "object" || message.type !== "APPLY_SALARY") {
     return undefined;
   }
 

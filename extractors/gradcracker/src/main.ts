@@ -121,9 +121,7 @@ const crawler = new PlaywrightCrawler({
     async ({ page, request }) => {
       if (!(await isChallengePage(page))) return;
 
-      log.warning(
-        `Cloudflare challenge detected on ${request.url}, waiting for resolution...`,
-      );
+      log.warning(`Cloudflare challenge detected on ${request.url}, waiting for resolution...`);
       const result = await waitForChallengeResolution(page, 30_000);
 
       if (result.status === "passed") {
@@ -136,9 +134,7 @@ const crawler = new PlaywrightCrawler({
         // Signal the orchestrator that a human needs to solve this challenge
         emitChallengeRequired(request.url);
         // Throw to trigger Crawlee's built-in retry
-        throw new Error(
-          `Cloudflare challenge ${result.status} on ${request.url}`,
-        );
+        throw new Error(`Cloudflare challenge ${result.status} on ${request.url}`);
       }
     },
   ],

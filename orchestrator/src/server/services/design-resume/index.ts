@@ -14,10 +14,7 @@ import { getOriginalEnvValue } from "@server/services/envSettings";
 import { getResume } from "@server/services/rxresume";
 import { getConfiguredRxResumeBaseResumeId } from "@server/services/rxresume/baseResumeId";
 import { getResumeSchemaValidationMessage } from "@server/services/rxresume/schema";
-import {
-  parseV5ResumeData,
-  safeParseV5ResumeData,
-} from "@server/services/rxresume/schema/v5";
+import { parseV5ResumeData, safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
 import { getActiveTenantId } from "@server/tenancy/context";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import type {
@@ -35,8 +32,7 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_PICTURE_FETCH_REDIRECTS = 3;
 const LEGACY_REIMPORT_MESSAGE =
   "Stored base resume document is no longer compatible. Re-import from Reactive Resume v5 to continue.";
-const INVALID_V5_PREFIX =
-  "Base resume must be a valid Reactive Resume v5 document.";
+const INVALID_V5_PREFIX = "Base resume must be a valid Reactive Resume v5 document.";
 
 function buildTenantScopedDesignResumeDocumentId(): string {
   const scope = getPrivateDataScope();
@@ -48,9 +44,7 @@ function buildTenantScopedDesignResumeDocumentId(): string {
   return `${DESIGN_RESUME_DEFAULT_ID}_${getActiveTenantId()}`;
 }
 
-type JsonPatchOperation = NonNullable<
-  DesignResumePatchRequest["operations"]
->[number];
+type JsonPatchOperation = NonNullable<DesignResumePatchRequest["operations"]>[number];
 
 function toBoolean(value: unknown, fallback = false): boolean {
   return typeof value === "boolean" ? value : fallback;
@@ -74,9 +68,7 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-export function ensureImportedProjectIds(
-  resumeJson: DesignResumeJson,
-): DesignResumeJson {
+export function ensureImportedProjectIds(resumeJson: DesignResumeJson): DesignResumeJson {
   const sections = asRecord(resumeJson.sections);
   const projects = asRecord(sections?.projects);
   const items = asArray(projects?.items);
@@ -119,9 +111,7 @@ function formatValidationMessage(prefix: string, error: unknown): string {
   return `${prefix} ${detail}`;
 }
 
-function validateIncomingDesignResumeDocument(
-  input: unknown,
-): DesignResumeJson {
+function validateIncomingDesignResumeDocument(input: unknown): DesignResumeJson {
   try {
     return parseV5ResumeData(input) as DesignResumeJson;
   } catch (error) {
@@ -195,10 +185,7 @@ function normalizeImageMimeType(input: {
   mimeType?: string | null;
   fileName?: string | null;
 }): string {
-  const normalizedMimeType = input.mimeType
-    ?.split(";")[0]
-    ?.trim()
-    .toLowerCase();
+  const normalizedMimeType = input.mimeType?.split(";")[0]?.trim().toLowerCase();
   if (normalizedMimeType && IMAGE_MIME_TYPES.has(normalizedMimeType)) {
     return normalizedMimeType;
   }
@@ -232,9 +219,7 @@ function parsePublicPictureUrl(value: string): URL {
     throw badRequest("Base resume picture URLs cannot include credentials.");
   }
   if (isLocalOrPrivateHostname(parsed.hostname)) {
-    throw badRequest(
-      "Base resume picture URLs must point to a publicly reachable host.",
-    );
+    throw badRequest("Base resume picture URLs must point to a publicly reachable host.");
   }
 
   return parsed;
@@ -251,10 +236,7 @@ function originalNameFromUrl(url: string, mimeType: string): string {
   return `picture${extensionForMimeType(mimeType)}`;
 }
 
-function buildDesignResumeAssetBlobKey(
-  assetId: string,
-  extension: string,
-): string {
+function buildDesignResumeAssetBlobKey(assetId: string, extension: string): string {
   const scope = getPrivateDataScope();
   if (scope.enforceUserIsolation && scope.userId) {
     return `design-resume/assets/${scope.tenantId}/users/${scope.userId}/${assetId}${extension}`;
@@ -319,23 +301,15 @@ async function fetchPictureFromUrl(
     signal: AbortSignal.timeout(15_000),
     redirect: "manual",
   });
-  if (
-    response.status >= 300 &&
-    response.status < 400 &&
-    response.headers.get("location")
-  ) {
+  if (response.status >= 300 && response.status < 400 && response.headers.get("location")) {
     if (redirectCount >= MAX_PICTURE_FETCH_REDIRECTS) {
-      throw new Error(
-        "Reactive Resume picture download redirected too many times.",
-      );
+      throw new Error("Reactive Resume picture download redirected too many times.");
     }
     const nextUrl = new URL(response.headers.get("location") ?? "", parsedUrl);
     return fetchPictureFromUrl(nextUrl.toString(), redirectCount + 1);
   }
   if (!response.ok) {
-    throw new Error(
-      `Reactive Resume picture download failed with HTTP ${response.status}.`,
-    );
+    throw new Error(`Reactive Resume picture download failed with HTTP ${response.status}.`);
   }
 
   const mimeType = normalizeImageMimeType({
@@ -359,9 +333,7 @@ async function fetchPictureFromUrl(
 }
 
 function toDesignResumeAsset(
-  row: Awaited<
-    ReturnType<typeof designResumeRepo.getDesignResumeAssetById>
-  > extends infer T
+  row: Awaited<ReturnType<typeof designResumeRepo.getDesignResumeAssetById>> extends infer T
     ? NonNullable<T>
     : never,
 ): DesignResumeAsset {
@@ -417,19 +389,13 @@ async function persistMissingProjectIdRepair(
 }
 
 async function hydrateDocument(
-  row: Awaited<
-    ReturnType<typeof designResumeRepo.getLatestDesignResumeDocument>
-  >,
+  row: Awaited<ReturnType<typeof designResumeRepo.getLatestDesignResumeDocument>>,
 ): Promise<DesignResumeDocument | null> {
   if (!row) return null;
-  const validatedResumeJson = validateStoredDesignResumeDocument(
-    row.resumeJson ?? {},
-  );
+  const validatedResumeJson = validateStoredDesignResumeDocument(row.resumeJson ?? {});
   const resumeJson = ensureImportedProjectIds(validatedResumeJson);
   const documentRow =
-    resumeJson === validatedResumeJson
-      ? row
-      : await persistMissingProjectIdRepair(row, resumeJson);
+    resumeJson === validatedResumeJson ? row : await persistMissingProjectIdRepair(row, resumeJson);
   const assets = await designResumeRepo.listDesignResumeAssets(documentRow.id);
   return {
     id: documentRow.id,
@@ -514,10 +480,7 @@ function getPointerParent(
   return { parent: current, key: tokens[tokens.length - 1] ?? "" };
 }
 
-function readPointerValue(
-  root: Record<string, unknown>,
-  path: string,
-): unknown {
+function readPointerValue(root: Record<string, unknown>, path: string): unknown {
   if (path === "") return root;
   const { parent, key } = getPointerParent(root, path);
   if (Array.isArray(parent)) {
@@ -533,16 +496,9 @@ function readPointerValue(
   return parent[key];
 }
 
-function applyPatchOperation(
-  root: Record<string, unknown>,
-  operation: JsonPatchOperation,
-) {
+function applyPatchOperation(root: Record<string, unknown>, operation: JsonPatchOperation) {
   if (operation.path === "" && operation.op === "replace") {
-    if (
-      !operation.value ||
-      typeof operation.value !== "object" ||
-      Array.isArray(operation.value)
-    ) {
+    if (!operation.value || typeof operation.value !== "object" || Array.isArray(operation.value)) {
       throw badRequest("Replacing the root document requires an object value.");
     }
     return structuredClone(operation.value) as Record<string, unknown>;
@@ -609,23 +565,18 @@ function applyPatchOperation(
       return root;
     }
     default:
-      throw badRequest(
-        `Unsupported patch operation: ${sanitizeUnknown(operation.op)}`,
-      );
+      throw badRequest(`Unsupported patch operation: ${sanitizeUnknown(operation.op)}`);
   }
 }
 
-function validatePatchedDocument(
-  document: Record<string, unknown>,
-): DesignResumeJson {
+function validatePatchedDocument(document: Record<string, unknown>): DesignResumeJson {
   return validateIncomingDesignResumeDocument(document);
 }
 
 function isMissingDesignResumeTableError(error: unknown): boolean {
   const message = String((error as Error)?.message ?? error);
   return (
-    (message.includes("no such table") &&
-      message.includes("design_resume_documents")) ||
+    (message.includes("no such table") && message.includes("design_resume_documents")) ||
     (message.includes("no such column") && message.includes("tenant_id"))
   );
 }
@@ -651,9 +602,7 @@ async function deleteAssetFile(storagePath: string): Promise<void> {
   }
 }
 
-async function clearDesignResumeAssetsForDocument(
-  documentId: string,
-): Promise<void> {
+async function clearDesignResumeAssetsForDocument(documentId: string): Promise<void> {
   const assets = await designResumeRepo.listDesignResumeAssets(documentId);
   if (assets.length === 0) return;
 
@@ -693,9 +642,7 @@ export async function replaceCurrentDesignResumeDocument(input: {
 
 export async function getCurrentDesignResume(): Promise<DesignResumeDocument | null> {
   try {
-    return hydrateDocument(
-      await designResumeRepo.getLatestDesignResumeDocument(),
-    );
+    return hydrateDocument(await designResumeRepo.getLatestDesignResumeDocument());
   } catch (error) {
     if (isMissingDesignResumeTableError(error)) {
       return null;
@@ -805,7 +752,7 @@ async function localizeImportedDesignResumePicture(
 
   const nextDocument = structuredClone(document.resumeJson) as DesignResumeJson;
   nextDocument.picture = {
-    ...(asRecord(nextDocument.picture) ?? {}),
+    ...asRecord(nextDocument.picture),
     url: contentUrlForAsset(assetId),
   } as DesignResumeJson["picture"];
 
@@ -835,18 +782,13 @@ export async function updateCurrentDesignResume(
       structuredClone(input.document) as Record<string, unknown>,
     );
   } else if (input.operations && input.operations.length > 0) {
-    let nextDocumentRecord = structuredClone(current.resumeJson) as Record<
-      string,
-      unknown
-    >;
+    let nextDocumentRecord = structuredClone(current.resumeJson) as Record<string, unknown>;
     for (const operation of input.operations) {
       nextDocumentRecord = applyPatchOperation(nextDocumentRecord, operation);
     }
     nextDocument = validatePatchedDocument(nextDocumentRecord);
   } else {
-    throw badRequest(
-      "Base resume update requires a document or patch operations.",
-    );
+    throw badRequest("Base resume update requires a document or patch operations.");
   }
 
   const now = new Date().toISOString();
@@ -872,12 +814,10 @@ export async function uploadDesignResumePicture(input: {
 }): Promise<DesignResumeDocument> {
   const current = await requireCurrentDesignResume();
   const parsed = parseDataUrl(input.dataUrl);
-  const existingAsset = await designResumeRepo.findDesignResumeAssetForDocument(
-    {
-      documentId: current.id,
-      kind: "picture",
-    },
-  );
+  const existingAsset = await designResumeRepo.findDesignResumeAssetForDocument({
+    documentId: current.id,
+    kind: "picture",
+  });
 
   const now = new Date().toISOString();
   const { assetId, storagePath } = await storeDesignResumePictureAsset({
@@ -889,9 +829,7 @@ export async function uploadDesignResumePicture(input: {
   });
 
   const baseDocument = input.document
-    ? validatePatchedDocument(
-        structuredClone(input.document) as Record<string, unknown>,
-      )
+    ? validatePatchedDocument(structuredClone(input.document) as Record<string, unknown>)
     : current.resumeJson;
   const nextDocument = structuredClone(baseDocument) as DesignResumeJson;
   const picture = asRecord(nextDocument.picture) ?? {};
@@ -945,12 +883,10 @@ export async function uploadDesignResumePictureFile(input: {
   }
   assertImageByteSize(input.data.byteLength);
 
-  const existingAsset = await designResumeRepo.findDesignResumeAssetForDocument(
-    {
-      documentId: current.id,
-      kind: "picture",
-    },
-  );
+  const existingAsset = await designResumeRepo.findDesignResumeAssetForDocument({
+    documentId: current.id,
+    kind: "picture",
+  });
 
   const now = new Date().toISOString();
   const { assetId, storagePath } = await storeDesignResumePictureAsset({
@@ -1008,9 +944,7 @@ export async function deleteDesignResumePicture(input?: {
   });
 
   const baseDocument = input?.document
-    ? validatePatchedDocument(
-        structuredClone(input.document) as Record<string, unknown>,
-      )
+    ? validatePatchedDocument(structuredClone(input.document) as Record<string, unknown>)
     : current.resumeJson;
   const nextDocument = structuredClone(baseDocument) as DesignResumeJson;
   const picture = asRecord(nextDocument.picture) ?? {};
@@ -1055,9 +989,7 @@ export async function readDesignResumeAssetContent(
   }
 
   const blob = await getBlobStore().get(toDesignResumeBlobKey(row.storagePath));
-  const content = blob
-    ? Buffer.from(blob.body)
-    : await readFile(row.storagePath);
+  const content = blob ? Buffer.from(blob.body) : await readFile(row.storagePath);
   return {
     asset: toDesignResumeAsset(row),
     content,

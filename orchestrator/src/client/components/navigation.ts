@@ -22,12 +22,7 @@ export const NAV_LINKS: NavLink[] = [
     to: "/jobs/ready",
     label: "Jobs",
     icon: LayoutDashboard,
-    activePaths: [
-      "/jobs/ready",
-      "/jobs/discovered",
-      "/jobs/applied",
-      "/jobs/all",
-    ],
+    activePaths: ["/jobs/ready", "/jobs/discovered", "/jobs/applied", "/jobs/all"],
   },
   {
     to: "/applications/in-progress",
@@ -52,14 +47,8 @@ export const NAV_LINKS: NavLink[] = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
-export const isNavActive = (
-  pathname: string,
-  to: string,
-  activePaths?: string[],
-) => {
+export const isNavActive = (pathname: string, to: string, activePaths?: string[]) => {
   if (pathname === to) return true;
   if (!activePaths) return false;
-  return activePaths.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`),
-  );
+  return activePaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 };

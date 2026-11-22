@@ -1,8 +1,4 @@
-import {
-  applyLibraryUpdate,
-  getItemLines,
-  KIND_SECTION,
-} from "@shared/resume-links";
+import { applyLibraryUpdate, getItemLines, KIND_SECTION } from "@shared/resume-links";
 import type {
   ExperienceBullet,
   ExperienceBulletInput,
@@ -19,9 +15,7 @@ export interface AcceptResult {
   library: ExperienceBullet[];
 }
 type AcceptApi = {
-  createItem: (
-    input: ExperienceBulletInput,
-  ) => Promise<{ bullet: ExperienceBullet }>;
+  createItem: (input: ExperienceBulletInput) => Promise<{ bullet: ExperienceBullet }>;
   updateItem: (
     id: string,
     input: Partial<ExperienceBulletInput>,
@@ -67,9 +61,7 @@ export function librarySaveInput(
     patch = { text: line.text };
   } else {
     const section = document.sections[target.section];
-    const item = section.items.find(
-      (item) => item.id === target.itemId && !item.hidden,
-    );
+    const item = section.items.find((item) => item.id === target.itemId && !item.hidden);
     if (
       !item ||
       section.hidden ||
@@ -90,15 +82,7 @@ export function librarySaveInput(
       experience: ["company", "location", "period", "website"],
       projects: ["period", "website"],
       skills: ["keywords"],
-      education: [
-        "school",
-        "location",
-        "period",
-        "area",
-        "grade",
-        "description",
-        "website",
-      ],
+      education: ["school", "location", "period", "area", "grade", "description", "website"],
       awards: ["date", "awarder", "description", "website"],
       certifications: ["issuer", "date", "description", "website"],
     }[target.section];
@@ -130,18 +114,14 @@ function rejectionCode(
     const item = document.sections[s.field.section].items.find(
       (item) => item.id === s.field.itemId && !item.hidden,
     );
-    return item && typeof item[s.field.name] === "string"
-      ? "STALE"
-      : "INVALID_TARGET";
+    return item && typeof item[s.field.name] === "string" ? "STALE" : "INVALID_TARGET";
   }
   if (s.op === "set_skill_keywords")
     return document.sections.skills.items.some((item) => item.id === s.itemId)
       ? "STALE"
       : "INVALID_TARGET";
   if ("section" in s && "itemId" in s && "previousText" in s)
-    return document.sections[s.section].items.some(
-      (item) => item.id === s.itemId && !item.hidden,
-    )
+    return document.sections[s.section].items.some((item) => item.id === s.itemId && !item.hidden)
       ? "STALE"
       : "INVALID_TARGET";
   if (s.op === "reorder_bullets") {
@@ -224,11 +204,7 @@ export async function executeAcceptedSuggestions(
     }
     const { before, input: patch } = current;
     try {
-      const { bullet: after } = await api.updateItem(
-        before.id,
-        patch,
-        state.jobId,
-      );
+      const { bullet: after } = await api.updateItem(before.id, patch, state.jobId);
       document = applyLibraryUpdate(document, before, after);
       remember(after);
       applied.push(s.id);

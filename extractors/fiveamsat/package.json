@@ -1,8 +1,12 @@
 {
   "name": "fiveamsat-extractor",
   "version": "0.0.1",
-  "type": "module",
   "description": "Khamsat extractor for freelance service listings",
+  "type": "module",
+  "scripts": {
+    "check:types": "tsc --noEmit",
+    "test:run": "vitest run"
+  },
   "dependencies": {
     "cheerio": "^1.0.0",
     "job-ops-shared": "^1.0.0"
@@ -11,9 +15,5 @@
     "@types/node": "^24.0.0",
     "typescript": "~5.9.0",
     "vitest": "^4.0.16"
-  },
-  "scripts": {
-    "check:types": "tsc --noEmit",
-    "test:run": "vitest run"
   }
 }

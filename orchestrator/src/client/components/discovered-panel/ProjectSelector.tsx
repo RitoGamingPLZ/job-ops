@@ -22,8 +22,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   const selectedIds = new Set(resolution.effectiveSelectedIds);
   const targetFilled = selectedIds.size >= resolution.targetCount;
   const projects = catalog.filter(
-    (project) =>
-      mustIncludeIds.has(project.id) || aiSelectableIds.has(project.id),
+    (project) => mustIncludeIds.has(project.id) || aiSelectableIds.has(project.id),
   );
 
   return (
@@ -64,11 +63,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-medium">{project.name}</span>
                   <span className="shrink-0 text-[10px] text-muted-foreground">
-                    {mustInclude
-                      ? "Must include"
-                      : selected
-                        ? "Selected"
-                        : "Available"}
+                    {mustInclude ? "Must include" : selected ? "Selected" : "Available"}
                   </span>
                 </div>
                 <div className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">

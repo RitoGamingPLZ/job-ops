@@ -1,11 +1,7 @@
 import { escapeHtmlText } from "@infra/html";
 import { createId } from "@paralleldrive/cuid2";
 import { resolvePublicBaseUrl } from "@server/infra/public-availability";
-import {
-  defaultV5ResumeData,
-  metadataSchema,
-  parseV5ResumeData,
-} from "./schema/v5";
+import { defaultV5ResumeData, metadataSchema, parseV5ResumeData } from "./schema/v5";
 
 type RecordLike = Record<string, unknown>;
 
@@ -59,9 +55,7 @@ const DEFAULT_SIDEBAR_SECTIONS = [
 const STANDARD_SECTION_KEYS = Object.keys(defaultV5ResumeData.sections);
 
 function asRecord(value: unknown): RecordLike | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as RecordLike)
-    : null;
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as RecordLike) : null;
 }
 
 function asArray(value: unknown): unknown[] {
@@ -126,9 +120,7 @@ function normalizeFontWeights(value: unknown): string[] {
   const weights = asArray(value)
     .map((entry) => toText(entry).trim())
     .filter((entry) =>
-      ["100", "200", "300", "400", "500", "600", "700", "800", "900"].includes(
-        entry,
-      ),
+      ["100", "200", "300", "400", "500", "600", "700", "800", "900"].includes(entry),
     );
   return weights.length > 0 ? weights : ["400"];
 }
@@ -145,9 +137,7 @@ function normalizeTypographyBlock(
   const record = asRecord(value);
   return {
     fontFamily: toText(record?.fontFamily, fallback.fontFamily),
-    fontWeights: normalizeFontWeights(
-      record?.fontWeights ?? fallback.fontWeights,
-    ),
+    fontWeights: normalizeFontWeights(record?.fontWeights ?? fallback.fontWeights),
     fontSize: toNumber(record?.fontSize, fallback.fontSize),
     lineHeight: toNumber(record?.lineHeight, fallback.lineHeight),
   };
@@ -184,11 +174,8 @@ function normalizeLayoutPages(
 
       return null;
     })
-    .filter(
-      (
-        page,
-      ): page is { fullWidth: boolean; main: string[]; sidebar: string[] } =>
-        Boolean(page),
+    .filter((page): page is { fullWidth: boolean; main: string[]; sidebar: string[] } =>
+      Boolean(page),
     );
 
   return normalized.length > 0 ? normalized : [defaultPage];
@@ -200,10 +187,7 @@ function normalizeUrl(
 ): { url: string; label: string } {
   const record = asRecord(value);
   const rawUrl = toText(record?.url ?? record?.href ?? value).trim();
-  const url =
-    rawUrl.startsWith("/") && publicBaseUrl
-      ? `${publicBaseUrl}${rawUrl}`
-      : rawUrl;
+  const url = rawUrl.startsWith("/") && publicBaseUrl ? `${publicBaseUrl}${rawUrl}` : rawUrl;
 
   return {
     url,
@@ -220,26 +204,15 @@ function normalizeItemUrl(
   const options = asRecord(legacyOptions);
   return {
     ...normalizeUrl(value, publicBaseUrl),
-    inlineLink: toBoolean(
-      record?.inlineLink,
-      toBoolean(options?.showLinkInTitle, false),
-    ),
+    inlineLink: toBoolean(record?.inlineLink, toBoolean(options?.showLinkInTitle, false)),
   };
 }
 
-function absolutizeUrlString(
-  value: string,
-  publicBaseUrl: string | null,
-): string {
-  return value.startsWith("/") && publicBaseUrl
-    ? `${publicBaseUrl}${value}`
-    : value;
+function absolutizeUrlString(value: string, publicBaseUrl: string | null): string {
+  return value.startsWith("/") && publicBaseUrl ? `${publicBaseUrl}${value}` : value;
 }
 
-function absolutizeV5UrlNode(
-  value: unknown,
-  publicBaseUrl: string | null,
-): unknown {
+function absolutizeV5UrlNode(value: unknown, publicBaseUrl: string | null): unknown {
   const record = asRecord(value);
   if (!record) return value;
 
@@ -254,10 +227,7 @@ function absolutizeV5UrlNode(
   };
 }
 
-function absolutizeSectionWebsites(
-  section: unknown,
-  publicBaseUrl: string | null,
-): unknown {
+function absolutizeSectionWebsites(section: unknown, publicBaseUrl: string | null): unknown {
   const record = asRecord(section);
   if (!record) return section;
 
@@ -300,38 +270,26 @@ function prepareRichTextItemForExternalUse(item: unknown): unknown {
     ...(typeof record.description === "string"
       ? { description: ensureHtmlBlock(record.description) }
       : {}),
-    ...(typeof record.content === "string"
-      ? { content: ensureHtmlBlock(record.content) }
-      : {}),
+    ...(typeof record.content === "string" ? { content: ensureHtmlBlock(record.content) } : {}),
     ...(typeof record.recipient === "string"
       ? { recipient: ensureHtmlBlock(record.recipient) }
       : {}),
     ...(Array.isArray(record.roles)
       ? {
-          roles: record.roles.map((role) =>
-            prepareRichTextItemForExternalUse(role),
-          ),
+          roles: record.roles.map((role) => prepareRichTextItemForExternalUse(role)),
         }
       : {}),
   };
 }
 
-function prepareSectionForExternalUse(
-  section: unknown,
-  publicBaseUrl: string | null,
-): unknown {
-  const withAbsoluteWebsites = absolutizeSectionWebsites(
-    section,
-    publicBaseUrl,
-  );
+function prepareSectionForExternalUse(section: unknown, publicBaseUrl: string | null): unknown {
+  const withAbsoluteWebsites = absolutizeSectionWebsites(section, publicBaseUrl);
   const record = asRecord(withAbsoluteWebsites);
   if (!record) return withAbsoluteWebsites;
 
   return {
     ...record,
-    items: asArray(record.items).map((item) =>
-      prepareRichTextItemForExternalUse(item),
-    ),
+    items: asArray(record.items).map((item) => prepareRichTextItemForExternalUse(item)),
   };
 }
 
@@ -359,10 +317,7 @@ function normalizeRoles(value: unknown) {
   });
 }
 
-function resolveHidden(
-  record: RecordLike | null,
-  visibleFallback = true,
-): boolean {
+function resolveHidden(record: RecordLike | null, visibleFallback = true): boolean {
   if (!record) return !visibleFallback;
   if (typeof record.hidden === "boolean") return record.hidden;
   if (typeof record.show === "boolean") return !record.show;
@@ -378,10 +333,7 @@ function normalizeSectionBase(section: RecordLike | null, title: string) {
   };
 }
 
-function buildMetadata(
-  source: RecordLike,
-  publicBaseUrl: string | null,
-): RecordLike {
+function buildMetadata(source: RecordLike, publicBaseUrl: string | null): RecordLike {
   const metadata = asRecord(source.metadata) ?? {};
   const layout = asRecord(metadata.layout);
   const css = asRecord(metadata.css);
@@ -403,16 +355,11 @@ function buildMetadata(
   void publicBaseUrl;
 
   return {
-    ...metadataSchema
-      .pick({ stylesheet: true, styleRules: true })
-      .parse(metadata),
+    ...metadataSchema.pick({ stylesheet: true, styleRules: true }).parse(metadata),
     template: pickTemplate(metadata.template),
     layout: {
       sidebarWidth: toNumber(layout?.sidebarWidth, 35),
-      pages: normalizeLayoutPages(
-        layout?.pages ?? metadata.layout,
-        defaultPage,
-      ),
+      pages: normalizeLayoutPages(layout?.pages ?? metadata.layout, defaultPage),
     },
     css: {
       enabled: toBoolean(css?.enabled, toBoolean(css?.visible, false)),
@@ -423,14 +370,9 @@ function buildMetadata(
       gapY: toNumber(page?.gapY, 6),
       marginX: toNumber(page?.marginX, toNumber(page?.margin, 14)),
       marginY: toNumber(page?.marginY, toNumber(page?.margin, 12)),
-      format: VALID_PAGE_FORMATS.has(toText(page?.format))
-        ? toText(page?.format)
-        : "a4",
+      format: VALID_PAGE_FORMATS.has(toText(page?.format)) ? toText(page?.format) : "a4",
       locale: toText(page?.locale, "en-US"),
-      hideIcons: toBoolean(
-        page?.hideIcons,
-        toBoolean(legacyTypography?.hideIcons, false),
-      ),
+      hideIcons: toBoolean(page?.hideIcons, toBoolean(legacyTypography?.hideIcons, false)),
     },
     design: {
       level: {
@@ -444,10 +386,7 @@ function buildMetadata(
           asRecord(design?.colors)?.primary ?? legacyTheme?.primary,
           "rgba(220, 38, 38, 1)",
         ),
-        text: toText(
-          asRecord(design?.colors)?.text ?? legacyTheme?.text,
-          "rgba(0, 0, 0, 1)",
-        ),
+        text: toText(asRecord(design?.colors)?.text ?? legacyTheme?.text, "rgba(0, 0, 0, 1)"),
         background: toText(
           asRecord(design?.colors)?.background ?? legacyTheme?.background,
           "rgba(255, 255, 255, 1)",
@@ -495,15 +434,9 @@ export function normalizeReactiveResumeV5Document(
       rotation: clamp(toNumber(picture.rotation, 0), 0, 360),
       aspectRatio: clamp(toNumber(picture.aspectRatio, 1), 0.5, 2.5),
       borderRadius: clamp(toNumber(picture.borderRadius, 0), 0, 100),
-      borderColor: toText(
-        picture.borderColor,
-        toText(asRecord(defaults.picture)?.borderColor),
-      ),
+      borderColor: toText(picture.borderColor, toText(asRecord(defaults.picture)?.borderColor)),
       borderWidth: Math.max(0, toNumber(picture.borderWidth, 0)),
-      shadowColor: toText(
-        picture.shadowColor,
-        toText(asRecord(defaults.picture)?.shadowColor),
-      ),
+      shadowColor: toText(picture.shadowColor, toText(asRecord(defaults.picture)?.shadowColor)),
       shadowWidth: Math.max(0, toNumber(picture.shadowWidth, 0)),
     },
     basics: {
@@ -532,11 +465,7 @@ export function normalizeReactiveResumeV5Document(
             icon: toText(record.icon),
             network: toText(record.network),
             username: toText(record.username),
-            website: normalizeItemUrl(
-              record.website,
-              publicBaseUrl,
-              record.options,
-            ),
+            website: normalizeItemUrl(record.website, publicBaseUrl, record.options),
           };
         }),
       },
@@ -552,11 +481,7 @@ export function normalizeReactiveResumeV5Document(
             position: toText(record.position),
             location: toText(record.location),
             period: toText(record.period ?? record.date),
-            website: normalizeItemUrl(
-              record.website ?? record.url,
-              publicBaseUrl,
-              record.options,
-            ),
+            website: normalizeItemUrl(record.website ?? record.url, publicBaseUrl, record.options),
             description: toText(record.description ?? record.summary),
             roles: normalizeRoles(record.roles),
           };
@@ -576,11 +501,7 @@ export function normalizeReactiveResumeV5Document(
             grade: toText(record.grade ?? record.score),
             location: toText(record.location),
             period: toText(record.period ?? record.date),
-            website: normalizeItemUrl(
-              record.website ?? record.url,
-              publicBaseUrl,
-              record.options,
-            ),
+            website: normalizeItemUrl(record.website ?? record.url, publicBaseUrl, record.options),
             description: toText(record.description ?? record.summary),
           };
         }),
@@ -595,11 +516,7 @@ export function normalizeReactiveResumeV5Document(
             hidden: resolveHidden(record, true),
             name: toText(record.name),
             period: toText(record.period ?? record.date),
-            website: normalizeItemUrl(
-              record.website ?? record.url,
-              publicBaseUrl,
-              record.options,
-            ),
+            website: normalizeItemUrl(record.website ?? record.url, publicBaseUrl, record.options),
             description: toText(record.description ?? record.summary),
           };
         }),
@@ -659,11 +576,7 @@ export function normalizeReactiveResumeV5Document(
             title: toText(record.title),
             awarder: toText(record.awarder),
             date: toText(record.date),
-            website: normalizeItemUrl(
-              record.website ?? record.url,
-              publicBaseUrl,
-              record.options,
-            ),
+            website: normalizeItemUrl(record.website ?? record.url, publicBaseUrl, record.options),
             description: toText(record.description ?? record.summary),
           };
         }),
@@ -679,11 +592,7 @@ export function normalizeReactiveResumeV5Document(
             title: toText(record.title ?? record.name),
             issuer: toText(record.issuer),
             date: toText(record.date),
-            website: normalizeItemUrl(
-              record.website ?? record.url,
-              publicBaseUrl,
-              record.options,
-            ),
+            website: normalizeItemUrl(record.website ?? record.url, publicBaseUrl, record.options),
             description: toText(record.description ?? record.summary),
           };
         }),
@@ -699,11 +608,7 @@ export function normalizeReactiveResumeV5Document(
             title: toText(record.title ?? record.name),
             publisher: toText(record.publisher),
             date: toText(record.date),
-            website: normalizeItemUrl(
-              record.website ?? record.url,
-              publicBaseUrl,
-              record.options,
-            ),
+            website: normalizeItemUrl(record.website ?? record.url, publicBaseUrl, record.options),
             description: toText(record.description ?? record.summary),
           };
         }),
@@ -719,11 +624,7 @@ export function normalizeReactiveResumeV5Document(
             organization: toText(record.organization),
             location: toText(record.location),
             period: toText(record.period ?? record.date),
-            website: normalizeItemUrl(
-              record.website ?? record.url,
-              publicBaseUrl,
-              record.options,
-            ),
+            website: normalizeItemUrl(record.website ?? record.url, publicBaseUrl, record.options),
             description: toText(record.description ?? record.summary),
           };
         }),
@@ -738,20 +639,14 @@ export function normalizeReactiveResumeV5Document(
             hidden: resolveHidden(record, true),
             name: toText(record.name),
             position: toText(record.position ?? record.description),
-            website: normalizeItemUrl(
-              record.website ?? record.url,
-              publicBaseUrl,
-              record.options,
-            ),
+            website: normalizeItemUrl(record.website ?? record.url, publicBaseUrl, record.options),
             phone: toText(record.phone),
             description: toText(record.description ?? record.summary),
           };
         }),
       },
     },
-    customSections: customSections.map((section) =>
-      structuredClone(section),
-    ) as unknown[],
+    customSections: customSections.map((section) => structuredClone(section)) as unknown[],
     metadata: buildMetadata(source, publicBaseUrl),
   };
 }
@@ -782,48 +677,26 @@ export function prepareReactiveResumeV5DocumentForExternalUse(
     summary: {
       ...summary,
       content:
-        typeof summary.content === "string"
-          ? ensureHtmlBlock(summary.content)
-          : summary.content,
+        typeof summary.content === "string" ? ensureHtmlBlock(summary.content) : summary.content,
     },
     sections: {
       ...sections,
       profiles: prepareSectionForExternalUse(sections.profiles, publicBaseUrl),
-      experience: prepareSectionForExternalUse(
-        sections.experience,
-        publicBaseUrl,
-      ),
-      education: prepareSectionForExternalUse(
-        sections.education,
-        publicBaseUrl,
-      ),
+      experience: prepareSectionForExternalUse(sections.experience, publicBaseUrl),
+      education: prepareSectionForExternalUse(sections.education, publicBaseUrl),
       projects: prepareSectionForExternalUse(sections.projects, publicBaseUrl),
       awards: prepareSectionForExternalUse(sections.awards, publicBaseUrl),
-      certifications: prepareSectionForExternalUse(
-        sections.certifications,
-        publicBaseUrl,
-      ),
-      publications: prepareSectionForExternalUse(
-        sections.publications,
-        publicBaseUrl,
-      ),
-      volunteer: prepareSectionForExternalUse(
-        sections.volunteer,
-        publicBaseUrl,
-      ),
-      references: prepareSectionForExternalUse(
-        sections.references,
-        publicBaseUrl,
-      ),
+      certifications: prepareSectionForExternalUse(sections.certifications, publicBaseUrl),
+      publications: prepareSectionForExternalUse(sections.publications, publicBaseUrl),
+      volunteer: prepareSectionForExternalUse(sections.volunteer, publicBaseUrl),
+      references: prepareSectionForExternalUse(sections.references, publicBaseUrl),
     },
     customSections: asArray(parsed.customSections).map((section) => {
       const record = asRecord(section);
       if (!record) return section;
       return {
         ...record,
-        items: asArray(record.items).map((item) =>
-          prepareRichTextItemForExternalUse(item),
-        ),
+        items: asArray(record.items).map((item) => prepareRichTextItemForExternalUse(item)),
       };
     }),
   };
@@ -840,9 +713,7 @@ function mergeSectionWithTitleFallback(
   const localTitle = toText(local.title);
 
   const resolvedTitle =
-    localTitle.trim().length === 0 && upstreamTitle.trim().length > 0
-      ? upstreamTitle
-      : localTitle;
+    localTitle.trim().length === 0 && upstreamTitle.trim().length > 0 ? upstreamTitle : localTitle;
 
   return {
     ...structuredClone(local),

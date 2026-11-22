@@ -22,10 +22,7 @@ export class ApiClientError extends Error {
   status?: number;
   code?: string;
 
-  constructor(
-    message: string,
-    options?: { requestId?: string; status?: number; code?: string },
-  ) {
+  constructor(message: string, options?: { requestId?: string; status?: number; code?: string }) {
     super(message);
     this.name = "ApiClientError";
     this.requestId = options?.requestId;
@@ -54,6 +51,7 @@ export type StreamSseInput =
       selectedNoteIds?: string[];
       selectedEmailIds?: string[];
       selectedDocumentIds?: string[];
+      cowork?: import("@shared/types").CoworkChatContext;
       attachments?: import("@shared/types").JobChatImageAttachment[];
       stream: true;
     }
@@ -61,6 +59,7 @@ export type StreamSseInput =
       selectedNoteIds?: string[];
       selectedEmailIds?: string[];
       selectedDocumentIds?: string[];
+      cowork?: import("@shared/types").CoworkChatContext;
       stream: true;
     };
 
@@ -88,9 +87,7 @@ function describeAction(endpoint: string, method?: string): string {
   return "This action ran in demo simulation mode.";
 }
 
-export function normalizeHeaders(
-  headers?: HeadersInit,
-): Record<string, string> {
+export function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
   if (!headers) return {};
   if (headers instanceof Headers) {
     const next: Record<string, string> = {};
@@ -120,9 +117,7 @@ export function withQuery(
   return query ? `${path}?${query}` : path;
 }
 
-export function normalizeApiResponse<T>(
-  payload: unknown,
-): ApiResponse<T> | LegacyApiResponse<T> {
+export function normalizeApiResponse<T>(payload: unknown): ApiResponse<T> | LegacyApiResponse<T> {
   if (!payload || typeof payload !== "object") {
     throw new ApiClientError("API request failed: malformed JSON response");
   }
@@ -174,19 +169,13 @@ export function toApiError<T>(
     });
   }
   if (parsed.success) {
-    return new ApiClientError(
-      formatUserFacingError(parsed.message || "API request failed"),
-      {
-        status: response.status,
-      },
-    );
-  }
-  return new ApiClientError(
-    formatUserFacingError(parsed, "API request failed"),
-    {
+    return new ApiClientError(formatUserFacingError(parsed.message || "API request failed"), {
       status: response.status,
-    },
-  );
+    });
+  }
+  return new ApiClientError(formatUserFacingError(parsed, "API request failed"), {
+    status: response.status,
+  });
 }
 
 export async function readAuthResponse<T>(
@@ -226,9 +215,7 @@ export async function performLoginWithCredentials(
   }
 
   const token =
-    "ok" in parsed
-      ? parsed.data?.token
-      : (parsed.data as { token?: string } | undefined)?.token;
+    "ok" in parsed ? parsed.data?.token : (parsed.data as { token?: string } | undefined)?.token;
   if (!token) {
     throw new Error("No token returned");
   }
@@ -245,10 +232,7 @@ export async function restoreAuthSessionFromLegacyCredentials(): Promise<boolean
 
   const migration = (async () => {
     try {
-      await performLoginWithCredentials(
-        credentials.username,
-        credentials.password,
-      );
+      await performLoginWithCredentials(credentials.username, credentials.password);
       return true;
     } catch {
       return false;
@@ -275,9 +259,7 @@ async function recoverAuthSessionFromUnauthorized(): Promise<string | null> {
   return null;
 }
 
-export async function recoverAuthHeaderAfterUnauthorized(): Promise<
-  string | null
-> {
+export async function recoverAuthHeaderAfterUnauthorized(): Promise<string | null> {
   return recoverAuthSessionFromUnauthorized();
 }
 
@@ -315,19 +297,12 @@ async function fetchAndParse<T>(
   return { response, parsed };
 }
 
-export async function fetchApi<T>(
-  endpoint: string,
-  options?: RequestInit,
-): Promise<T> {
+export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   let authHeader = getCachedAuthHeader();
   let authAttempt = 0;
 
   while (true) {
-    const { response, parsed } = await fetchAndParse(
-      endpoint,
-      options,
-      authHeader,
-    );
+    const { response, parsed } = await fetchAndParse(endpoint, options, authHeader);
 
     if (isUnauthorizedResponse(response, parsed) && authAttempt < 1) {
       const recoveredAuthHeader = await recoverAuthSessionFromUnauthorized();
@@ -371,10 +346,7 @@ export async function fetchApi<T>(
   }
 }
 
-export async function fetchBlobApi(
-  endpoint: string,
-  options?: RequestInit,
-): Promise<Blob> {
+export async function fetchBlobApi(endpoint: string, options?: RequestInit): Promise<Blob> {
   let authHeader = getCachedAuthHeader();
   let authAttempt = 0;
 

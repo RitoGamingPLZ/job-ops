@@ -25,26 +25,18 @@ function countryNameFromCode(code: string): string | undefined {
 // FreeHire sometimes tags a US state abbreviation as a country (e.g. "MO" for
 // Missouri next to "US"). With several candidates, keep only the one the
 // display location names last; otherwise leave the country unknown.
-function pickCountry(
-  countries: string[],
-  location: string | undefined,
-): string | undefined {
+function pickCountry(countries: string[], location: string | undefined): string | undefined {
   if (countries.length === 1) return countryNameFromCode(countries[0]);
   const tail = location?.split(",").at(-1)?.trim();
   if (!tail) return undefined;
-  const tailCode = ISO2_CODE.test(tail)
-    ? tail.toUpperCase()
-    : getCountryIso2Code(tail);
+  const tailCode = ISO2_CODE.test(tail) ? tail.toUpperCase() : getCountryIso2Code(tail);
   const match = countries.find((code) => code.toUpperCase() === tailCode);
   return match ? countryNameFromCode(match) : undefined;
 }
 
 // Only trust a city the display location actually names, and prefer the one
 // it names first ("London, Islington" -> London).
-function pickCity(
-  cities: string[],
-  location: string | undefined,
-): string | undefined {
+function pickCity(cities: string[], location: string | undefined): string | undefined {
   if (!location) return undefined;
   const folded = foldForMatch(location);
   let best: { city: string; index: number } | undefined;

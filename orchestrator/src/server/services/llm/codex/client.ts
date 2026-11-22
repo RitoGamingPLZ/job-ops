@@ -3,11 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface, type Interface } from "node:readline";
 import { logger } from "@infra/logger";
-import {
-  getLlmMessageText,
-  type JsonSchemaDefinition,
-  type LlmRequestOptions,
-} from "../types";
+import { getLlmMessageText, type JsonSchemaDefinition, type LlmRequestOptions } from "../types";
 import { truncate } from "../utils/string";
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 15_000;
@@ -107,9 +103,7 @@ function isSessionInfrastructureError(error: unknown): boolean {
 }
 
 function toNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : null;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
 function getRecordString(
@@ -174,9 +168,8 @@ function resolveClientVersion(): string {
   }
 
   const packageVersion =
-    readVersionFromPackage(
-      join(process.cwd(), "orchestrator", "package.json"),
-    ) || readVersionFromPackage(join(process.cwd(), "package.json"));
+    readVersionFromPackage(join(process.cwd(), "orchestrator", "package.json")) ||
+    readVersionFromPackage(join(process.cwd(), "package.json"));
   if (packageVersion) {
     cachedClientVersion = packageVersion;
     return cachedClientVersion;
@@ -207,9 +200,7 @@ function formatPrompt(args: {
   ].join("\n\n");
 }
 
-function extractAgentMessageText(
-  turn: { items?: unknown[] } | null,
-): string | null {
+function extractAgentMessageText(turn: { items?: unknown[] } | null): string | null {
   const items = Array.isArray(turn?.items) ? turn.items : [];
   let fallback: string | null = null;
 
@@ -296,9 +287,7 @@ class CodexAppServerSession {
         .filter(Boolean)
         .join(" ");
       this.shutdownWithError(
-        new Error(
-          `Codex app-server exited unexpectedly${details ? ` (${details})` : ""}.`,
-        ),
+        new Error(`Codex app-server exited unexpectedly${details ? ` (${details})` : ""}.`),
       );
     });
   }
@@ -317,10 +306,7 @@ class CodexAppServerSession {
 
     const startupTimeoutMs =
       args.startupTimeoutMs ??
-      getPositiveIntEnv(
-        "CODEX_APP_SERVER_STARTUP_TIMEOUT_MS",
-        DEFAULT_STARTUP_TIMEOUT_MS,
-      );
+      getPositiveIntEnv("CODEX_APP_SERVER_STARTUP_TIMEOUT_MS", DEFAULT_STARTUP_TIMEOUT_MS);
 
     try {
       await session.request(
@@ -392,10 +378,7 @@ class CodexAppServerSession {
     const id = this.nextId++;
     const timeoutMs =
       options?.timeoutMs ??
-      getPositiveIntEnv(
-        "CODEX_APP_SERVER_REQUEST_TIMEOUT_MS",
-        DEFAULT_REQUEST_TIMEOUT_MS,
-      );
+      getPositiveIntEnv("CODEX_APP_SERVER_REQUEST_TIMEOUT_MS", DEFAULT_REQUEST_TIMEOUT_MS);
 
     return await new Promise<unknown>((resolve, reject) => {
       const pending: PendingRequest = {
@@ -415,9 +398,7 @@ class CodexAppServerSession {
 
       pending.timer = setTimeout(() => {
         this.pending.delete(id);
-        pending.reject(
-          new Error(`Codex app-server request timeout (${method}).`),
-        );
+        pending.reject(new Error(`Codex app-server request timeout (${method}).`));
       }, timeoutMs);
 
       if (options?.signal) {
@@ -451,15 +432,10 @@ class CodexAppServerSession {
   ): Promise<JsonRpcNotification> {
     const timeoutMs =
       options?.timeoutMs ??
-      getPositiveIntEnv(
-        "CODEX_APP_SERVER_TURN_TIMEOUT_MS",
-        DEFAULT_TURN_TIMEOUT_MS,
-      );
+      getPositiveIntEnv("CODEX_APP_SERVER_TURN_TIMEOUT_MS", DEFAULT_TURN_TIMEOUT_MS);
 
     while (true) {
-      const fromQueue = this.notificationQueue.find((notification) =>
-        predicate(notification),
-      );
+      const fromQueue = this.notificationQueue.find((notification) => predicate(notification));
       if (fromQueue) {
         const index = this.notificationQueue.indexOf(fromQueue);
         this.notificationQueue.splice(index, 1);
@@ -583,8 +559,7 @@ class CodexAppServerSession {
     this.pending.delete(response.id);
 
     if (response.error) {
-      const message =
-        response.error.message || "Unknown Codex app-server request error.";
+      const message = response.error.message || "Unknown Codex app-server request error.";
       pending.reject(new Error(truncate(message, 500)));
       return;
     }
@@ -596,8 +571,7 @@ class CodexAppServerSession {
     if (typeof id !== "string" && typeof id !== "number") {
       return;
     }
-    const method =
-      typeof request.method === "string" ? request.method : "unknown-method";
+    const method = typeof request.method === "string" ? request.method : "unknown-method";
 
     logger.warn("Codex app-server sent unsupported server request", {
       method,
@@ -681,9 +655,7 @@ function scheduleIdleClose(): void {
   }, idleTimeoutMs);
 }
 
-async function getOrStartSession(
-  signal?: AbortSignal,
-): Promise<CodexAppServerSession> {
+async function getOrStartSession(signal?: AbortSignal): Promise<CodexAppServerSession> {
   if (sharedSession) {
     return sharedSession;
   }
@@ -833,16 +805,12 @@ export class CodexClient {
           cursor = result.nextCursor;
         }
 
-        return Array.from(new Set(models)).sort((left, right) =>
-          left.localeCompare(right),
-        );
+        return Array.from(new Set(models)).sort((left, right) => left.localeCompare(right));
       },
     });
   }
 
-  async callJson(
-    options: LlmRequestOptions<unknown>,
-  ): Promise<{ text: string; turnId: string }> {
+  async callJson(options: LlmRequestOptions<unknown>): Promise<{ text: string; turnId: string }> {
     return await withCodexSession({
       signal: options.signal,
       task: async (session) => {
@@ -899,19 +867,14 @@ export class CodexClient {
           "CODEX_APP_SERVER_TURN_TIMEOUT_MS",
           DEFAULT_TURN_TIMEOUT_MS,
         );
-        const capturedMessages = new Map<
-          string,
-          { text: string; phase: string | null }
-        >();
+        const capturedMessages = new Map<string, { text: string; phase: string | null }>();
         let turnCompleted: JsonRpcNotification | null = null;
 
         while (!turnCompleted) {
           const notification = await session.waitForNotification(
             (candidate) => {
               if (candidate.method === "turn/completed") {
-                const params = candidate.params as
-                  | { turn?: { id?: string } }
-                  | undefined;
+                const params = candidate.params as { turn?: { id?: string } } | undefined;
                 return params?.turn?.id === turnId;
               }
 
@@ -947,14 +910,9 @@ export class CodexClient {
           );
 
           if (notification.method === "item/agentMessage/delta") {
-            const params = notification.params as
-              | { itemId?: string; delta?: string }
-              | undefined;
+            const params = notification.params as { itemId?: string; delta?: string } | undefined;
             const itemId = params?.itemId;
-            if (
-              typeof itemId === "string" &&
-              typeof params?.delta === "string"
-            ) {
+            if (typeof itemId === "string" && typeof params?.delta === "string") {
               const existing = capturedMessages.get(itemId) ?? {
                 text: "",
                 phase: null,
@@ -968,9 +926,7 @@ export class CodexClient {
           }
 
           if (notification.method === "item/completed") {
-            const params = notification.params as
-              | { item?: unknown }
-              | undefined;
+            const params = notification.params as { item?: unknown } | undefined;
             const item =
               params && typeof params.item === "object" && params.item !== null
                 ? (params.item as Record<string, unknown>)
@@ -1014,9 +970,7 @@ export class CodexClient {
           throw new Error("Codex turn was interrupted.");
         }
 
-        const textFromEvents = pickBestAgentMessageText(
-          Array.from(capturedMessages.values()),
-        );
+        const textFromEvents = pickBestAgentMessageText(Array.from(capturedMessages.values()));
         if (textFromEvents) {
           return { text: textFromEvents, turnId };
         }
@@ -1046,9 +1000,7 @@ export class CodexClient {
         }
 
         if (!text) {
-          throw new Error(
-            "Codex turn completed but no assistant message text was returned.",
-          );
+          throw new Error("Codex turn completed but no assistant message text was returned.");
         }
 
         return { text, turnId };

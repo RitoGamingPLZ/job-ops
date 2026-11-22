@@ -1,10 +1,7 @@
 import { LlmModelConfiguration } from "@client/components/llmmodelconfiguration/LlmModelConfiguration";
 import { SettingsSectionFrame } from "@client/pages/settings/components/SettingsSectionFrame";
 import type { ModelValues } from "@client/pages/settings/types";
-import {
-  type LlmProviderId,
-  normalizeLlmProvider,
-} from "@client/pages/settings/utils";
+import { type LlmProviderId, normalizeLlmProvider } from "@client/pages/settings/utils";
 import type { UpdateSettingsInput } from "@shared/settings-schema.js";
 import type { LlmPurpose } from "@shared/types.js";
 import type React from "react";
@@ -57,7 +54,7 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
     value: string | null,
   ) => {
     const current = watch("llmPurposeOverrides") ?? {};
-    const nextPurpose = { ...(current[purpose] ?? {}) };
+    const nextPurpose = { ...current[purpose] };
     if (value === null || value === "") {
       delete nextPurpose[field];
     } else {

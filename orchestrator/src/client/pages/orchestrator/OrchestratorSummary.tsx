@@ -8,9 +8,7 @@ interface OrchestratorSummaryProps {
   isPipelineRunning: boolean;
 }
 
-export const OrchestratorSummary: React.FC<OrchestratorSummaryProps> = ({
-  isPipelineRunning,
-}) => {
+export const OrchestratorSummary: React.FC<OrchestratorSummaryProps> = ({ isPipelineRunning }) => {
   const welcomeText = useWelcomeMessage();
 
   return (

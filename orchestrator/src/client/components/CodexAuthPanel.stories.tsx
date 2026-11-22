@@ -7,9 +7,7 @@ type CodexAuthApi = React.ComponentProps<typeof CodexAuthPanel>["authApi"];
 
 const verificationUrl = "https://auth.openai.com/codex/device";
 
-const makeStatus = (
-  overrides: Partial<CodexAuthStatusResponse> = {},
-): CodexAuthStatusResponse => ({
+const makeStatus = (overrides: Partial<CodexAuthStatusResponse> = {}): CodexAuthStatusResponse => ({
   authenticated: false,
   username: null,
   validationMessage:
@@ -33,8 +31,7 @@ const waitingStatus = makeStatus({
   userCode: "ABCD-EFGH",
   startedAt: new Date(Date.now() - 45_000).toISOString(),
   expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
-  flowMessage:
-    "Open the verification URL and enter the one-time code to finish login.",
+  flowMessage: "Open the verification URL and enter the one-time code to finish login.",
 });
 const expiringStatus = makeStatus({
   ...waitingStatus,
@@ -84,17 +81,13 @@ const PanelFrame: React.FC<{
   label: string;
 }> = ({ children, label }) => (
   <section className="w-full max-w-[584px] space-y-2">
-    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-      {label}
-    </p>
+    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
     {children}
   </section>
 );
 
 const StoryShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <main className="min-h-[420px] bg-background p-6 text-foreground">
-    {children}
-  </main>
+  <main className="min-h-[420px] bg-background p-6 text-foreground">{children}</main>
 );
 
 function renderPanel(
@@ -121,25 +114,18 @@ export const Idle: Story = () => (
 Idle.storyName = "Idle";
 
 export const WaitingForApproval: Story = () => (
-  <StoryShell>
-    {renderPanel("Waiting for browser approval", waitingStatus)}
-  </StoryShell>
+  <StoryShell>{renderPanel("Waiting for browser approval", waitingStatus)}</StoryShell>
 );
 WaitingForApproval.storyName = "Waiting for approval";
 
 export const ExpiringSoon: Story = () => (
-  <StoryShell>
-    {renderPanel("Device code expiring soon", expiringStatus)}
-  </StoryShell>
+  <StoryShell>{renderPanel("Device code expiring soon", expiringStatus)}</StoryShell>
 );
 ExpiringSoon.storyName = "Expiring soon";
 
 export const CompletedButNotAuthenticated: Story = () => (
   <StoryShell>
-    {renderPanel(
-      "Completed flow, validation still failing",
-      completedButUnauthenticatedStatus,
-    )}
+    {renderPanel("Completed flow, validation still failing", completedButUnauthenticatedStatus)}
   </StoryShell>
 );
 CompletedButNotAuthenticated.storyName = "Completed but not authenticated";
@@ -156,9 +142,7 @@ export const Authenticated: Story = () => (
 Authenticated.storyName = "Authenticated";
 
 export const BusyDisabled: Story = () => (
-  <StoryShell>
-    {renderPanel("Parent form busy", waitingStatus, { isBusy: true })}
-  </StoryShell>
+  <StoryShell>{renderPanel("Parent form busy", waitingStatus, { isBusy: true })}</StoryShell>
 );
 BusyDisabled.storyName = "Busy / disabled";
 
@@ -179,10 +163,7 @@ export const AllStates: Story = () => (
       {renderPanel("Idle / not authenticated", idleStatus)}
       {renderPanel("Waiting for browser approval", waitingStatus)}
       {renderPanel("Device code expiring soon", expiringStatus)}
-      {renderPanel(
-        "Completed flow, validation still failing",
-        completedButUnauthenticatedStatus,
-      )}
+      {renderPanel("Completed flow, validation still failing", completedButUnauthenticatedStatus)}
       {renderPanel("Authenticated", authenticatedStatus, {
         authApi: createAuthApi(authenticatedStatus, {
           disconnectStatus: idleStatus,

@@ -103,11 +103,7 @@ function ensureSessionStorage(): Storage {
 function makeAuthToken(tenantId: string): string {
   const encode = (value: unknown) =>
     Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
-  return [
-    encode({ alg: "HS256", typ: "JWT" }),
-    encode({ tenantId }),
-    "signature",
-  ].join(".");
+  return [encode({ alg: "HS256", typ: "JWT" }), encode({ tenantId }), "signature"].join(".");
 }
 
 describe("automatic-run utilities", () => {
@@ -123,9 +119,7 @@ describe("automatic-run utilities", () => {
       runBudget: 300,
     });
 
-    expect(AUTOMATIC_PRESETS.detailed.topN).toBeGreaterThan(
-      AUTOMATIC_PRESETS.fast.topN,
-    );
+    expect(AUTOMATIC_PRESETS.detailed.topN).toBeGreaterThan(AUTOMATIC_PRESETS.fast.topN);
   });
 
   it("keeps discovered cap under budget regardless of search-term count", () => {
@@ -135,8 +129,7 @@ describe("automatic-run utilities", () => {
       sources: ["indeed", "linkedin", "glassdoor", "gradcracker"],
     });
 
-    const cap =
-      3 * limits.jobspyResultsWanted * 3 + limits.gradcrackerMaxJobsPerTerm * 3;
+    const cap = 3 * limits.jobspyResultsWanted * 3 + limits.gradcrackerMaxJobsPerTerm * 3;
 
     expect(cap).toBeLessThanOrEqual(750);
   });
@@ -224,9 +217,7 @@ describe("automatic-run utilities", () => {
       presetId: "custom",
     });
 
-    expect(getRunMemoryStorageKey()).toBe(
-      `${RUN_MEMORY_STORAGE_KEY}:workspace:tenant-one`,
-    );
+    expect(getRunMemoryStorageKey()).toBe(`${RUN_MEMORY_STORAGE_KEY}:workspace:tenant-one`);
 
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-two"));
     expect(loadAutomaticRunMemory()).toBeNull();
@@ -270,9 +261,9 @@ describe("automatic-run utilities", () => {
       runBudget: 350,
       presetId: "custom",
     });
-    expect(
-      localStorage.getItem(`${RUN_MEMORY_STORAGE_KEY}:workspace:tenant-one`),
-    ).toBe(localStorage.getItem(RUN_MEMORY_STORAGE_KEY));
+    expect(localStorage.getItem(`${RUN_MEMORY_STORAGE_KEY}:workspace:tenant-one`)).toBe(
+      localStorage.getItem(RUN_MEMORY_STORAGE_KEY),
+    );
   });
 
   it("infers custom when legacy values do not match a preset", () => {

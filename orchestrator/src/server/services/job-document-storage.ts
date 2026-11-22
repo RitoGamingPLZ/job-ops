@@ -22,24 +22,14 @@ export function getTenantJobDocumentsKeyPrefix(
   tenantId = getActiveTenantId(),
 ): string {
   const scope = getPrivateDataScope();
-  if (
-    scope.enforceUserIsolation &&
-    scope.userId &&
-    tenantId === scope.tenantId
-  ) {
+  if (scope.enforceUserIsolation && scope.userId && tenantId === scope.tenantId) {
     return `job-documents/${tenantId}/users/${scope.userId}/${jobId}`;
   }
   return `job-documents/${tenantId}/${jobId}`;
 }
 
-function getTenantJobDocumentsDir(
-  jobId: string,
-  tenantId = getActiveTenantId(),
-): string {
-  return join(
-    getDataDir(),
-    ...getTenantJobDocumentsKeyPrefix(jobId, tenantId).split("/"),
-  );
+function getTenantJobDocumentsDir(jobId: string, tenantId = getActiveTenantId()): string {
+  return join(getDataDir(), ...getTenantJobDocumentsKeyPrefix(jobId, tenantId).split("/"));
 }
 
 function resolveBlobKeyFromStoragePath(storagePath: string): string | null {
@@ -67,9 +57,7 @@ export function normalizeJobDocumentFileName(fileName: string): string {
   return trimmed;
 }
 
-export function normalizeJobDocumentMediaType(
-  mediaType?: string | null,
-): string | null {
+export function normalizeJobDocumentMediaType(mediaType?: string | null): string | null {
   const normalized = mediaType?.trim().toLowerCase() ?? "";
   if (!normalized) return null;
   if (normalized.length > 200) {
@@ -111,9 +99,7 @@ export async function storeJobDocument(input: StoredJobDocumentInput): Promise<{
   };
 }
 
-export async function removeStoredJobDocument(
-  storagePath: string,
-): Promise<void> {
+export async function removeStoredJobDocument(storagePath: string): Promise<void> {
   const blobKey = resolveBlobKeyFromStoragePath(storagePath);
   if (blobKey) {
     await getBlobStore().delete(blobKey);

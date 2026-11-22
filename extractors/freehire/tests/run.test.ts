@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  buildFreeHireSearchUrl,
-  fetchFreeHirePage,
-  mapFreeHireJob,
-  runFreeHire,
-} from "../src/run";
+import { buildFreeHireSearchUrl, fetchFreeHirePage, mapFreeHireJob, runFreeHire } from "../src/run";
 
 function jsonResponse(data: unknown, status = 200): Response {
   return {
@@ -115,21 +110,18 @@ describe("FreeHire extractor", () => {
         countries: ["gb"],
         cities: ["Islington", "London"],
       }),
-    ).toEqual(
-      expect.objectContaining({ country: "United Kingdom", city: "London" }),
-    );
+    ).toEqual(expect.objectContaining({ country: "United Kingdom", city: "London" }));
     // A geocoded city the location never names is dropped.
-    expect(
-      evidence({ location: "Belen, NM", countries: ["us"], cities: ["Belém"] }),
-    ).toEqual({
+    expect(evidence({ location: "Belen, NM", countries: ["us"], cities: ["Belém"] })).toEqual({
       location: "Belen, NM",
       country: "United States",
       source: "freehire",
     });
     // Several countries the location can't decide between stay unknown.
-    expect(
-      evidence({ location: "Remote — EU", countries: ["de", "fr"] }),
-    ).toEqual({ location: "Remote — EU", source: "freehire" });
+    expect(evidence({ location: "Remote — EU", countries: ["de", "fr"] })).toEqual({
+      location: "Remote — EU",
+      source: "freehire",
+    });
     expect(evidence({})).toBeUndefined();
   });
 

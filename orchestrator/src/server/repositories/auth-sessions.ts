@@ -72,7 +72,5 @@ export async function deleteExpiredOrRevokedAuthSessions(): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
   await db
     .delete(authSessions)
-    .where(
-      or(lte(authSessions.expiresAt, now), lte(authSessions.revokedAt, now)),
-    );
+    .where(or(lte(authSessions.expiresAt, now), lte(authSessions.revokedAt, now)));
 }

@@ -1,17 +1,8 @@
 import { redirectToSignIn } from "@client/lib/auth-navigation";
 import type { AuthUser } from "@shared/types";
 import type { AuthCredentials } from "./auth-session";
-import {
-  clearAuthSession,
-  getCachedAuthHeader,
-  setAuthenticatedSession,
-} from "./auth-session";
-import {
-  fetchApi,
-  performLoginWithCredentials,
-  readAuthResponse,
-  toApiError,
-} from "./core";
+import { clearAuthSession, getCachedAuthHeader, setAuthenticatedSession } from "./auth-session";
+import { fetchApi, performLoginWithCredentials, readAuthResponse, toApiError } from "./core";
 
 export type CodexAuthStatusResponse = {
   authenticated: boolean;
@@ -37,10 +28,7 @@ export type CurrentAuthContext = {
   analyticsDistinctId: string | null;
 };
 
-export async function signInWithCredentials(
-  username: string,
-  password: string,
-): Promise<void> {
+export async function signInWithCredentials(username: string, password: string): Promise<void> {
   return performLoginWithCredentials(username, password);
 }
 
@@ -131,9 +119,7 @@ export {
   restoreAuthSessionFromLegacyCredentials,
 } from "./core";
 
-export async function logout(
-  options: { redirect?: boolean } = {},
-): Promise<void> {
+export async function logout(options: { redirect?: boolean } = {}): Promise<void> {
   const authHeader = getCachedAuthHeader();
   if (authHeader) {
     try {
@@ -184,10 +170,7 @@ export async function setWorkspaceUserDisabled(
   return result.user;
 }
 
-export async function resetWorkspaceUserPassword(
-  userId: string,
-  password: string,
-): Promise<void> {
+export async function resetWorkspaceUserPassword(userId: string, password: string): Promise<void> {
   await fetchApi<{ userId: string }>(
     `/workspaces/users/${encodeURIComponent(userId)}/reset-password`,
     {

@@ -1,8 +1,5 @@
 import { normalizeCountryKey } from "@shared/location-support.js";
-import {
-  resolveSearchCities,
-  shouldApplyStrictCityFilter,
-} from "@shared/search-cities.js";
+import { resolveSearchCities, shouldApplyStrictCityFilter } from "@shared/search-cities.js";
 import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
 import type { LocationProximity } from "@shared/types/location.js";
 import {
@@ -11,10 +8,7 @@ import {
   toStringOrNull,
 } from "@shared/utils/type-conversion.js";
 import type { HiringCafeBrowserPages } from "./browser-pages.js";
-import {
-  type HiringCafeCountryLocation,
-  resolveHiringCafeCountryLocation,
-} from "./country-map.js";
+import { type HiringCafeCountryLocation, resolveHiringCafeCountryLocation } from "./country-map.js";
 import { createDefaultSearchState } from "./default-search-state.js";
 
 // hiring.cafe now 308-redirects to hiringcafe.com; target it directly so
@@ -162,10 +156,7 @@ function withThrottleAndRetry(fetchImpl: typeof fetch): typeof fetch {
       try {
         const response = await fetchImpl(input, init);
         lastRequestAt = Date.now();
-        if (
-          response.status !== 429 ||
-          attempt >= RATE_LIMIT_RETRY_DELAYS_MS.length
-        ) {
+        if (response.status !== 429 || attempt >= RATE_LIMIT_RETRY_DELAYS_MS.length) {
           return response;
         }
       } catch (error) {
@@ -190,9 +181,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => toStringOrNull(item))
-    .filter((item): item is string => Boolean(item));
+  return value.map((item) => toStringOrNull(item)).filter((item): item is string => Boolean(item));
 }
 
 function firstArrayValue(value: unknown): string | null {
@@ -223,20 +212,15 @@ function parseWorkplaceTypes(
   return out.length > 0 ? out : ["Remote", "Hybrid", "Onsite"];
 }
 
-function formatCompensation(
-  processedJobData: Record<string, unknown> | null,
-): string | undefined {
+function formatCompensation(processedJobData: Record<string, unknown> | null): string | undefined {
   if (!processedJobData) return undefined;
 
   const min = toNumberOrNull(processedJobData.yearly_min_compensation);
   const max = toNumberOrNull(processedJobData.yearly_max_compensation);
   if (min === null && max === null) return undefined;
 
-  const currency = toStringOrNull(
-    processedJobData.listed_compensation_currency,
-  );
-  const frequency =
-    toStringOrNull(processedJobData.listed_compensation_frequency) ?? "Yearly";
+  const currency = toStringOrNull(processedJobData.listed_compensation_currency);
+  const frequency = toStringOrNull(processedJobData.listed_compensation_frequency) ?? "Yearly";
   const amount = formatCompensationAmount(min, max);
 
   const parts = [currency, amount, frequency ? `/ ${frequency}` : ""]
@@ -247,10 +231,7 @@ function formatCompensation(
   return parts || undefined;
 }
 
-function formatCompensationAmount(
-  min: number | null,
-  max: number | null,
-): string {
+function formatCompensationAmount(min: number | null, max: number | null): string {
   if (min !== null && max !== null) {
     return `${Math.round(min)}-${Math.round(max)}`;
   }
@@ -264,11 +245,7 @@ function buildLocationEvidence(args: {
   states: string[];
   countries: string[];
 }): JobLocationEvidence | undefined {
-  const location =
-    args.formattedLocation ??
-    args.cities[0] ??
-    args.states[0] ??
-    args.countries[0];
+  const location = args.formattedLocation ?? args.cities[0] ?? args.states[0] ?? args.countries[0];
 
   const city = args.cities[0];
   const country = args.countries[0];
@@ -380,16 +357,12 @@ function parseRawJobs(value: unknown): HiringCafeRawJob[] {
 }
 
 function parseNextData(html: string, challengeUrl = BASE_URL): unknown {
-  const match = html.match(
-    /<script[^>]*id=["']__NEXT_DATA__["'][^>]*>\s*([\s\S]*?)\s*<\/script>/i,
-  );
+  const match = html.match(/<script[^>]*id=["']__NEXT_DATA__["'][^>]*>\s*([\s\S]*?)\s*<\/script>/i);
   if (!match) {
     if (CHALLENGE_BODY_PATTERN.test(html)) {
       throw new HiringCafeChallengeError(challengeUrl);
     }
-    throw new Error(
-      "Hiring Cafe response did not include Next.js search data.",
-    );
+    throw new Error("Hiring Cafe response did not include Next.js search data.");
   }
 
   try {
@@ -453,10 +426,7 @@ export function parseHiringCafeJobDetailPage(
   return job ? (job as HiringCafeRawJob) : null;
 }
 
-export function buildHiringCafeSearchUrl(args: {
-  searchState: unknown;
-  pageNo: number;
-}): string {
+export function buildHiringCafeSearchUrl(args: { searchState: unknown; pageNo: number }): string {
   const url = new URL(BASE_URL);
   url.searchParams.set("searchState", JSON.stringify(args.searchState));
   if (args.pageNo > 0) {
@@ -507,10 +477,7 @@ async function fetchHiringCafeJobDetail(args: {
   requisitionId: string;
   fetchImpl: typeof fetch;
 }): Promise<HiringCafeRawJob | null> {
-  const url = new URL(
-    encodeURIComponent(args.requisitionId),
-    JOB_DETAIL_BASE_URL,
-  );
+  const url = new URL(encodeURIComponent(args.requisitionId), JOB_DETAIL_BASE_URL);
   const response = await args.fetchImpl(url.toString(), {
     headers: {
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -614,8 +581,7 @@ async function resolveCityLocationContext(args: {
       toStringOrNull(address?.region) ??
       args.countryLong;
     const displayName =
-      toStringOrNull(first.display_name) ??
-      `${args.city}, ${regionLong}, ${args.countryShort}`;
+      toStringOrNull(first.display_name) ?? `${args.city}, ${regionLong}, ${args.countryShort}`;
 
     return {
       id: buildCityLocationId(args.city),
@@ -750,20 +716,16 @@ async function buildSearchState(args: {
   });
 }
 
-export async function runHiringCafe(
-  options: RunHiringCafeOptions = {},
-): Promise<HiringCafeResult> {
+export async function runHiringCafe(options: RunHiringCafeOptions = {}): Promise<HiringCafeResult> {
   const searchTerms =
     options.searchTerms && options.searchTerms.length > 0
       ? options.searchTerms
       : [DEFAULT_SEARCH_TERM];
   const country = (options.country ?? "").trim().toLowerCase();
   const countryKey = normalizeCountryKey(options.countryKey ?? country);
-  const maxJobsPerTerm = toIntegerOrFallback(
-    options.maxJobsPerTerm,
-    DEFAULT_MAX_JOBS_PER_TERM,
-    { parseStrings: false },
-  );
+  const maxJobsPerTerm = toIntegerOrFallback(options.maxJobsPerTerm, DEFAULT_MAX_JOBS_PER_TERM, {
+    parseStrings: false,
+  });
   const locationRadiusMiles = toIntegerOrFallback(
     options.locationRadiusMiles,
     DEFAULT_LOCATION_RADIUS_MILES,
@@ -783,12 +745,8 @@ export async function runHiringCafe(
   const jobs: CreateJobInput[] = [];
   const seen = new Set(options.searchResume?.seenKeys ?? []);
   const sourceErrors: string[] = [];
-  const skippedSearchStates = new Set(
-    options.skippedChallengeSearchStates ?? [],
-  );
-  let skipDetailEnrichment = Boolean(
-    options.searchResume?.pendingDetailChallengeUrl,
-  );
+  const skippedSearchStates = new Set(options.skippedChallengeSearchStates ?? []);
+  let skipDetailEnrichment = Boolean(options.searchResume?.pendingDetailChallengeUrl);
   let detailChallengeUrl = options.searchResume?.pendingDetailChallengeUrl;
   let activeSearchResume: HiringCafeSearchResume | undefined;
 
@@ -818,9 +776,7 @@ export async function runHiringCafe(
         runLocations[resume.locationIndex] !== resume.location ||
         searchTerms[resume.termIndex] !== resume.searchTerm)
     ) {
-      throw new Error(
-        "Hiring Cafe search checkpoint no longer matches this run",
-      );
+      throw new Error("Hiring Cafe search checkpoint no longer matches this run");
     }
     const rawFetch = options.pageReader
       ? ((async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -829,8 +785,7 @@ export async function runHiringCafe(
             return (options.fetchImpl ?? fetch)(input, init);
           }
           const page = await options.pageReader?.read(url);
-          if (!page)
-            throw new Error("Hiring Cafe browser page was unavailable");
+          if (!page) throw new Error("Hiring Cafe browser page was unavailable");
           if (page.challenged) {
             throw new HiringCafeChallengeError(url, page.status);
           }
@@ -841,9 +796,7 @@ export async function runHiringCafe(
       throw new Error("Hiring Cafe requires a Firefox page reader");
     }
     const fetchImpl =
-      options.fetchImpl && !options.pageReader
-        ? rawFetch
-        : withThrottleAndRetry(rawFetch);
+      options.fetchImpl && !options.pageReader ? rawFetch : withThrottleAndRetry(rawFetch);
     const countryLocation = resolveHiringCafeCountryLocation(country);
     let retryRequisitionId: string | undefined;
     let retriedDetailJob: HiringCafeRawJob | null = null;
@@ -854,9 +807,7 @@ export async function runHiringCafe(
         retryUrl.origin === new URL(BASE_URL).origin &&
         /^\/job\/[^/]+$/.test(retryUrl.pathname)
       ) {
-        retryRequisitionId = decodeURIComponent(
-          retryUrl.pathname.slice("/job/".length),
-        );
+        retryRequisitionId = decodeURIComponent(retryUrl.pathname.slice("/job/".length));
         retriedDetailJob = await fetchHiringCafeJobDetail({
           requisitionId: retryRequisitionId,
           fetchImpl,
@@ -868,9 +819,7 @@ export async function runHiringCafe(
     // A detail challenge is reported only after the search terms have finished.
     // The pipeline already holds their jobs; this retry only needs the detail.
     if (retryRequisitionId && !options.searchResume) {
-      const mapped = retriedDetailJob
-        ? mapHiringCafeJob(retriedDetailJob)
-        : null;
+      const mapped = retriedDetailJob ? mapHiringCafeJob(retriedDetailJob) : null;
       if (mapped) jobs.push(mapped);
       return successfulResult();
     }
@@ -878,10 +827,7 @@ export async function runHiringCafe(
     for (let runIndex = 0; runIndex < runLocations.length; runIndex += 1) {
       if (options.shouldCancel?.()) return successfulResult();
 
-      if (
-        options.searchResume &&
-        runIndex < options.searchResume.locationIndex
-      ) {
+      if (options.searchResume && runIndex < options.searchResume.locationIndex) {
         continue;
       }
 
@@ -916,16 +862,13 @@ export async function runHiringCafe(
         });
 
         const resumingHere =
-          options.searchResume?.locationIndex === runIndex &&
-          options.searchResume.termIndex === i;
+          options.searchResume?.locationIndex === runIndex && options.searchResume.termIndex === i;
         if (
           resumingHere &&
           (options.searchResume?.searchTerm !== searchTerm ||
             options.searchResume.location !== runLocation)
         ) {
-          throw new Error(
-            "Hiring Cafe search settings changed during a challenge",
-          );
+          throw new Error("Hiring Cafe search settings changed during a challenge");
         }
         const searchState = resumingHere
           ? JSON.parse(options.searchResume?.searchState ?? "null")
@@ -946,9 +889,7 @@ export async function runHiringCafe(
           continue;
         }
         let pageNo = resumingHere ? (options.searchResume?.pageNo ?? 0) : 0;
-        let termCollected = resumingHere
-          ? (options.searchResume?.termCollected ?? 0)
-          : 0;
+        let termCollected = resumingHere ? (options.searchResume?.termCollected ?? 0) : 0;
 
         while (termCollected < maxJobsPerTerm && pageNo < PAGE_LIMIT) {
           if (options.shouldCancel?.()) return successfulResult();
@@ -962,9 +903,7 @@ export async function runHiringCafe(
             termCollected,
             searchState: JSON.stringify(searchState),
             seenKeys: Array.from(seen),
-            ...(detailChallengeUrl
-              ? { pendingDetailChallengeUrl: detailChallengeUrl }
-              : {}),
+            ...(detailChallengeUrl ? { pendingDetailChallengeUrl: detailChallengeUrl } : {}),
           };
           const page = await fetchHiringCafeSearchPage({
             searchState,
@@ -981,10 +920,7 @@ export async function runHiringCafe(
             if (dedupeKey && seen.has(dedupeKey)) continue;
 
             let enrichedRawJob = rawJob;
-            if (
-              retriedDetailJob &&
-              getHiringCafeRequisitionId(rawJob) === retryRequisitionId
-            ) {
+            if (retriedDetailJob && getHiringCafeRequisitionId(rawJob) === retryRequisitionId) {
               enrichedRawJob = retriedDetailJob;
               retriedDetailApplied = true;
             } else if (!skipDetailEnrichment) {
@@ -1006,8 +942,7 @@ export async function runHiringCafe(
             const mapped = mapHiringCafeJob(enrichedRawJob);
             if (!mapped) continue;
 
-            const finalDedupeKey =
-              dedupeKey ?? mapped.sourceJobId ?? mapped.jobUrl;
+            const finalDedupeKey = dedupeKey ?? mapped.sourceJobId ?? mapped.jobUrl;
             if (seen.has(finalDedupeKey)) continue;
             seen.add(finalDedupeKey);
             jobs.push(mapped);
@@ -1049,8 +984,7 @@ export async function runHiringCafe(
         !jobs.some(
           (job) =>
             job.source === mapped.source &&
-            (job.sourceJobId === mapped.sourceJobId ||
-              job.jobUrl === mapped.jobUrl),
+            (job.sourceJobId === mapped.sourceJobId || job.jobUrl === mapped.jobUrl),
         )
       ) {
         jobs.push(mapped);

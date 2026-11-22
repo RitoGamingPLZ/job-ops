@@ -16,8 +16,7 @@ const escapeLinkTarget = (value: string) =>
 
 const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ");
 
-const isElement = (node: Node): node is HTMLElement =>
-  node.nodeType === Node.ELEMENT_NODE;
+const isElement = (node: Node): node is HTMLElement => node.nodeType === Node.ELEMENT_NODE;
 
 function serializeInlineNode(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) {

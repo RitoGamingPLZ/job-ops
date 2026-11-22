@@ -26,9 +26,7 @@ export const liteLlmStrategy = createProviderStrategy({
   requiresApiKey: false,
   modes: ["json_schema", "json_object", "text", "none"],
   validationPaths: ["/v1/models"],
-  getValidationUrls: ({ baseUrl }) => [
-    joinUrl(normalizeLiteLlmBaseUrl(baseUrl), "/v1/models"),
-  ],
+  getValidationUrls: ({ baseUrl }) => [joinUrl(normalizeLiteLlmBaseUrl(baseUrl), "/v1/models")],
   buildRequest: ({ mode, baseUrl, apiKey, model, messages, jsonSchema }) => ({
     url: joinUrl(normalizeLiteLlmBaseUrl(baseUrl), "/v1/chat/completions"),
     headers: buildHeaders({ apiKey, provider: "litellm" }),

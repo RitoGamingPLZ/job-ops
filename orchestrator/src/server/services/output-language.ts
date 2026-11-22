@@ -84,8 +84,6 @@ export function resolveWritingOutputLanguageForResumeJson(args: {
   };
 }
 
-export function getWritingLanguageLabel(
-  language: ChatStyleManualLanguage,
-): string {
+export function getWritingLanguageLabel(language: ChatStyleManualLanguage): string {
   return CHAT_STYLE_MANUAL_LANGUAGE_LABELS[language];
 }

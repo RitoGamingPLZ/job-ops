@@ -19,8 +19,6 @@ describe("skillsSnapshot", () => {
 
   it("handles empty groups and missing values", () => {
     expect(skillsSnapshot([])).toBe("");
-    expect(skillsSnapshot([{ name: "Empty", keywords: [] }, {}])).toBe(
-      "Empty: \n: ",
-    );
+    expect(skillsSnapshot([{ name: "Empty", keywords: [] }, {}])).toBe("Empty: \n: ");
   });
 });

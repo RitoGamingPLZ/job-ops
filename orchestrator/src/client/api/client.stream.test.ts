@@ -12,9 +12,7 @@ describe("API client SSE streaming", () => {
     const cancelSpy = vi.fn();
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        controller.enqueue(
-          encoder.encode('data: {"type":"started","requestId":"req-1"}\n\n'),
-        );
+        controller.enqueue(encoder.encode('data: {"type":"started","requestId":"req-1"}\n\n'));
       },
       cancel() {
         cancelSpy();

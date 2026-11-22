@@ -44,10 +44,7 @@ function getOrCreateDefaultDb(): AppDatabase {
     filename: string,
   ) => BetterSqliteDatabaseLike;
   const { drizzle } = nodeRequire("drizzle-orm/better-sqlite3") as {
-    drizzle: (
-      client: BetterSqliteDatabaseLike,
-      config: { schema: typeof schema },
-    ) => AppDatabase;
+    drizzle: (client: BetterSqliteDatabaseLike, config: { schema: typeof schema }) => AppDatabase;
   };
 
   // Database path - can be overridden via env for Docker
@@ -71,9 +68,7 @@ function getOrCreateDefaultDb(): AppDatabase {
  * Wraps `transaction()` so synchronous callbacks return their value (working around
  * drizzle-orm@0.38.2 SQLiteDOSession returning `{}`).
  */
-export function createDurableObjectDrizzleDb(
-  storage: DurableObjectStorageLike,
-): AppDatabase {
+export function createDurableObjectDrizzleDb(storage: DurableObjectStorageLike): AppDatabase {
   const doDb = drizzleDurable(storage as Parameters<typeof drizzleDurable>[0], {
     schema,
   });

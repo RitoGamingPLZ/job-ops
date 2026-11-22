@@ -20,13 +20,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer } from "@/components/ui/chart";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -81,9 +75,7 @@ const BAR_COLORS = [
 /** Minimum applications required for a source to appear by default. */
 const MIN_SAMPLE_DEFAULT = 5;
 
-const buildResponseRateBySource = (
-  jobs: JobForSourceChart[],
-): SourceRateDataPoint[] => {
+const buildResponseRateBySource = (jobs: JobForSourceChart[]): SourceRateDataPoint[] => {
   const bySource = new Map<JobSource, { applied: number; responded: number }>();
 
   for (const job of jobs) {
@@ -117,34 +109,21 @@ interface ResponseRateBySourceChartProps {
   error: string | null;
 }
 
-export function ResponseRateBySourceChart({
-  jobs,
-  error,
-}: ResponseRateBySourceChartProps) {
+export function ResponseRateBySourceChart({ jobs, error }: ResponseRateBySourceChartProps) {
   const [includeSmall, setIncludeSmall] = useState(false);
 
   const allData = useMemo(() => buildResponseRateBySource(jobs), [jobs]);
 
   const data = useMemo(
-    () =>
-      includeSmall
-        ? allData
-        : allData.filter((d) => d.applied >= MIN_SAMPLE_DEFAULT),
+    () => (includeSmall ? allData : allData.filter((d) => d.applied >= MIN_SAMPLE_DEFAULT)),
     [allData, includeSmall],
   );
 
   const hiddenCount = allData.length - data.length;
 
-  const totalApplied = useMemo(
-    () => allData.reduce((sum, d) => sum + d.applied, 0),
-    [allData],
-  );
-  const totalResponded = useMemo(
-    () => allData.reduce((sum, d) => sum + d.responded, 0),
-    [allData],
-  );
-  const overallRate =
-    totalApplied > 0 ? (totalResponded / totalApplied) * 100 : 0;
+  const totalApplied = useMemo(() => allData.reduce((sum, d) => sum + d.applied, 0), [allData]);
+  const totalResponded = useMemo(() => allData.reduce((sum, d) => sum + d.responded, 0), [allData]);
+  const overallRate = totalApplied > 0 ? (totalResponded / totalApplied) * 100 : 0;
 
   const chartHeight = Math.max(80, data.length * 52);
   const xAxisMax = Math.min(
@@ -188,9 +167,7 @@ export function ResponseRateBySourceChart({
                   <>
                     n &lt; {MIN_SAMPLE_DEFAULT} hidden
                     {hiddenCount > 0 && (
-                      <span className="ml-1 text-muted-foreground/60">
-                        ({hiddenCount})
-                      </span>
+                      <span className="ml-1 text-muted-foreground/60">({hiddenCount})</span>
                     )}
                   </>
                 )}
@@ -205,8 +182,8 @@ export function ResponseRateBySourceChart({
 
             {data.length === 0 ? (
               <div className="px-4 py-4 text-sm text-muted-foreground">
-                All sources have fewer than {MIN_SAMPLE_DEFAULT} applications.
-                Enable the toggle above to show them.
+                All sources have fewer than {MIN_SAMPLE_DEFAULT} applications. Enable the toggle
+                above to show them.
               </div>
             ) : (
               <ChartContainer
@@ -254,9 +231,7 @@ export function ResponseRateBySourceChart({
                               </div>
                               <div className="flex items-center justify-between gap-4">
                                 <span>Responded</span>
-                                <span className="font-semibold text-foreground">
-                                  {d.responded}
-                                </span>
+                                <span className="font-semibold text-foreground">{d.responded}</span>
                               </div>
                             </div>
                             <div className="mt-2 border-t pt-1.5 text-[10px] text-muted-foreground/70">
@@ -268,10 +243,7 @@ export function ResponseRateBySourceChart({
                     />
                     <Bar dataKey="rate" radius={[0, 4, 4, 0]}>
                       {data.map((entry, index) => (
-                        <Cell
-                          key={entry.source}
-                          fill={BAR_COLORS[index % BAR_COLORS.length]}
-                        />
+                        <Cell key={entry.source} fill={BAR_COLORS[index % BAR_COLORS.length]} />
                       ))}
                       <LabelList
                         dataKey="rate"

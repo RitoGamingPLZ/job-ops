@@ -339,9 +339,7 @@ describe("job notes API client", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
 
     await expect(api.getJobDocumentBlob("job-1", "doc-1")).resolves.toBe(blob);
-    await expect(
-      api.deleteJobDocument("job-1", "doc-1"),
-    ).resolves.toBeUndefined();
+    await expect(api.deleteJobDocument("job-1", "doc-1")).resolves.toBeUndefined();
 
     expect(fetchSpy).toHaveBeenNthCalledWith(
       1,

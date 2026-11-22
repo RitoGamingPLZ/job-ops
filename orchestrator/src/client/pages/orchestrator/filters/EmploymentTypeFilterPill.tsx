@@ -5,9 +5,10 @@ import { employmentTypeOptions } from "../constants";
 import { FilterPill } from "./FilterPill";
 import type { EmploymentTypeFilterPillProps } from "./types";
 
-export const EmploymentTypeFilterPill: React.FC<
-  EmploymentTypeFilterPillProps
-> = ({ employmentTypes, onEmploymentTypesChange }) => (
+export const EmploymentTypeFilterPill: React.FC<EmploymentTypeFilterPillProps> = ({
+  employmentTypes,
+  onEmploymentTypesChange,
+}) => (
   <FilterPill
     icon={<Briefcase />}
     label="Employment"

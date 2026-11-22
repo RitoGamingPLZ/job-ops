@@ -11,8 +11,7 @@ export type SolverResult =
 function noReusableCookiesError(): SolverResult {
   return {
     status: "error",
-    message:
-      "Challenge appeared solved, but no reusable Cloudflare clearance cookie was saved.",
+    message: "Challenge appeared solved, but no reusable Cloudflare clearance cookie was saved.",
   };
 }
 
@@ -60,9 +59,7 @@ export async function solveChallenge(
   timeoutMs = 5 * 60 * 1000,
 ): Promise<SolverResult> {
   let context: BrowserContext | undefined;
-  let browser:
-    | Awaited<ReturnType<typeof import("playwright").firefox.launch>>
-    | undefined;
+  let browser: Awaited<ReturnType<typeof import("playwright").firefox.launch>> | undefined;
 
   try {
     const { firefox } = await import("playwright");
@@ -83,11 +80,7 @@ export async function solveChallenge(
     // A clear page without a reusable cookie cannot fix a challenged HTTP
     // extractor. Do not report success and retry with the old cookie jar.
     if (!(await isChallengePage(page))) {
-      const cookiesSaved = await saveReusableCookies(
-        context,
-        extractorId,
-        storageDir,
-      );
+      const cookiesSaved = await saveReusableCookies(context, extractorId, storageDir);
       if (cookiesSaved === null) return noReusableCookiesError();
       await showSolvedPage(page);
       return { status: "solved", cookiesSaved };
@@ -101,11 +94,7 @@ export async function solveChallenge(
       await page.waitForTimeout(pollInterval);
 
       if (!(await isChallengePage(page))) {
-        const cookiesSaved = await saveReusableCookies(
-          context,
-          extractorId,
-          storageDir,
-        );
+        const cookiesSaved = await saveReusableCookies(context, extractorId, storageDir);
         if (cookiesSaved === null) return noReusableCookiesError();
         await showSolvedPage(page);
         return { status: "solved", cookiesSaved };

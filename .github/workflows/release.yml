@@ -102,7 +102,7 @@ jobs:
       - name: Format generated docs files
         if: steps.validate.outputs.version_already_set != 'true'
         run: |
-          ./orchestrator/node_modules/.bin/biome check --write \
+          npx vp fmt \
             docs-site/versions.json \
             docs-site/versioned_docs \
             docs-site/versioned_sidebars

@@ -48,19 +48,10 @@ vi.mock("@server/repositories/post-application-integrations", () => ({
   ),
 }));
 
-const integrationRepo = await import(
-  "@server/repositories/post-application-integrations"
-);
+const integrationRepo = await import("@server/repositories/post-application-integrations");
 
-import {
-  PostApplicationProviderError,
-  providerUpstreamError,
-  toProviderAppError,
-} from "./errors";
-import {
-  listPostApplicationProviders,
-  resolvePostApplicationProvider,
-} from "./registry";
+import { PostApplicationProviderError, providerUpstreamError, toProviderAppError } from "./errors";
+import { listPostApplicationProviders, resolvePostApplicationProvider } from "./registry";
 import { executePostApplicationProviderAction } from "./service";
 
 beforeEach(() => {
@@ -93,9 +84,7 @@ describe("post-application provider registry", () => {
       throw new Error("expected resolve to throw");
     } catch (error) {
       expect(error).toBeInstanceOf(PostApplicationProviderError);
-      expect((error as PostApplicationProviderError).kind).toBe(
-        "invalid_request",
-      );
+      expect((error as PostApplicationProviderError).kind).toBe("invalid_request");
     }
   });
 });
@@ -116,9 +105,7 @@ describe("post-application provider action dispatcher", () => {
       },
     });
 
-    expect(
-      integrationRepo.upsertConnectedPostApplicationIntegration,
-    ).toHaveBeenCalledWith(
+    expect(integrationRepo.upsertConnectedPostApplicationIntegration).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "gmail",
         accountKey: "account:gmail:test",
@@ -157,8 +144,7 @@ describe("post-application provider action dispatcher", () => {
   });
 
   it("disconnects gmail and clears credentials from integration store", async () => {
-    const getIntegrationMock =
-      integrationRepo.getPostApplicationIntegration as Mock;
+    const getIntegrationMock = integrationRepo.getPostApplicationIntegration as Mock;
     getIntegrationMock.mockResolvedValueOnce({
       id: "integration-test",
       provider: "gmail",
@@ -182,9 +168,10 @@ describe("post-application provider action dispatcher", () => {
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(
-      integrationRepo.disconnectPostApplicationIntegration,
-    ).toHaveBeenCalledWith("gmail", "account:gmail:test");
+    expect(integrationRepo.disconnectPostApplicationIntegration).toHaveBeenCalledWith(
+      "gmail",
+      "account:gmail:test",
+    );
     expect(response.status.connected).toBe(false);
     expect(response.message).toBe("Gmail integration disconnected.");
     expect(response.status.integration?.credentials).toEqual(
@@ -219,15 +206,12 @@ describe("post-application provider action dispatcher", () => {
     ).rejects.toMatchObject({
       status: 503,
       code: "SERVICE_UNAVAILABLE",
-      message:
-        "IMAP provider is not implemented yet for account 'account:imap:test'.",
+      message: "IMAP provider is not implemented yet for account 'account:imap:test'.",
     });
   });
 
   it("maps upstream provider errors to upstream app errors", () => {
-    const appError = toProviderAppError(
-      providerUpstreamError("Provider API timed out"),
-    );
+    const appError = toProviderAppError(providerUpstreamError("Provider API timed out"));
 
     expect(appError.status).toBe(502);
     expect(appError.code).toBe("UPSTREAM_ERROR");

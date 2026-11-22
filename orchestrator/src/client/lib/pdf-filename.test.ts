@@ -27,13 +27,11 @@ describe("resolveFilenameLanguage", () => {
   it("detects the profile language in match-resume mode", () => {
     const profile: ResumeProfile = {
       basics: {
-        summary:
-          "Ich entwickle Plattformen und arbeite mit der Entwicklung zusammen.",
+        summary: "Ich entwickle Plattformen und arbeite mit der Entwicklung zusammen.",
       },
       sections: {
         summary: {
-          content:
-            "Erfahrung mit APIs und verantwortlicher Lieferung für das Team.",
+          content: "Erfahrung mit APIs und verantwortlicher Lieferung für das Team.",
         },
       },
     };
@@ -55,13 +53,11 @@ describe("resolveFilenameLanguage", () => {
   it("falls back to english in match-job-description mode without JD text", () => {
     const profile: ResumeProfile = {
       basics: {
-        summary:
-          "Ich entwickle Plattformen und arbeite mit der Entwicklung zusammen.",
+        summary: "Ich entwickle Plattformen und arbeite mit der Entwicklung zusammen.",
       },
       sections: {
         summary: {
-          content:
-            "Erfahrung mit APIs und verantwortlicher Lieferung für das Team.",
+          content: "Erfahrung mit APIs und verantwortlicher Lieferung für das Team.",
         },
       },
     };

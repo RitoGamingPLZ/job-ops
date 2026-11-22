@@ -58,16 +58,12 @@ function renderCard(job: JobListItem) {
 describe("InProgressBoardCard resume status indicator", () => {
   it("shows a ready indicator once the resume is available", () => {
     const { container } = renderCard(makeJob({ status: "ready" }));
-    expect(
-      container.querySelector('[aria-label="Resume ready"]'),
-    ).toBeInTheDocument();
+    expect(container.querySelector('[aria-label="Resume ready"]')).toBeInTheDocument();
   });
 
   it("shows a preparing indicator while the job is processing", () => {
     const { container } = renderCard(makeJob({ status: "processing" }));
-    expect(
-      container.querySelector('[aria-label="Preparing resume"]'),
-    ).toBeInTheDocument();
+    expect(container.querySelector('[aria-label="Preparing resume"]')).toBeInTheDocument();
   });
 
   it("shows a failure indicator when generation failed", () => {
@@ -77,17 +73,11 @@ describe("InProgressBoardCard resume status indicator", () => {
         generationError: "LLM API key not configured",
       }),
     );
-    expect(
-      container.querySelector('[aria-label="Resume generation failed"]'),
-    ).toBeInTheDocument();
+    expect(container.querySelector('[aria-label="Resume generation failed"]')).toBeInTheDocument();
   });
 
   it("shows a neutral indicator when not yet prepared and no error", () => {
-    const { container } = renderCard(
-      makeJob({ status: "discovered", generationError: null }),
-    );
-    expect(
-      container.querySelector('[aria-label="Resume not prepared yet"]'),
-    ).toBeInTheDocument();
+    const { container } = renderCard(makeJob({ status: "discovered", generationError: null }));
+    expect(container.querySelector('[aria-label="Resume not prepared yet"]')).toBeInTheDocument();
   });
 });

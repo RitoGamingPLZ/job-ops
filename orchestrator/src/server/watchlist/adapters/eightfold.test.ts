@@ -7,21 +7,14 @@ import { eightfoldWatchlistAdapter as adapter } from "./eightfold";
 // The jsdom fake clock does not replace node:timers/promises. Keep its
 // abortable delay contract, using the clock-controlled global timer in tests.
 vi.mock("node:timers/promises", () => {
-  const delay = (
-    milliseconds: number,
-    value: unknown,
-    options: { signal: AbortSignal },
-  ) =>
+  const delay = (milliseconds: number, value: unknown, options: { signal: AbortSignal }) =>
     new Promise((resolve, reject) => {
       const { signal } = options;
       const abortError = () =>
-        Object.assign(
-          new Error("The operation was aborted", { cause: signal.reason }),
-          {
-            name: "AbortError",
-            code: "ABORT_ERR",
-          },
-        );
+        Object.assign(new Error("The operation was aborted", { cause: signal.reason }), {
+          name: "AbortError",
+          code: "ABORT_ERR",
+        });
       if (signal.aborted) {
         reject(abortError());
         return;
@@ -85,10 +78,7 @@ describe("eightfoldWatchlistAdapter", () => {
   it("parses both real catalog entries without throwing", () => {
     const parsed = adapter.parseCatalogSources(catalog);
     expect(parsed).toHaveLength(2);
-    expect(parsed.map((entry) => entry.id)).toEqual([
-      "eightfold:microsoft",
-      "eightfold:netflix",
-    ]);
+    expect(parsed.map((entry) => entry.id)).toEqual(["eightfold:microsoft", "eightfold:netflix"]);
     expect(parsed[0]).toMatchObject({
       label: "Microsoft",
       sourceType: "eightfold",
@@ -103,10 +93,7 @@ describe("eightfoldWatchlistAdapter", () => {
     ).toEqual([]);
   });
 
-  it.each([
-    microsoft,
-    netflix,
-  ])("canonicalizes %s searches and preserves filters", (origin) => {
+  it.each([microsoft, netflix])("canonicalizes %s searches and preserves filters", (origin) => {
     expect(
       adapter.normalizeCustomSelection({
         label: null,
@@ -144,53 +131,51 @@ describe("eightfoldWatchlistAdapter", () => {
     `${microsoft}/careers/job/123`,
     "not a URL",
   ])("rejects unsupported custom URL %s", (careersUrl) => {
-    expect(() =>
-      adapter.normalizeCustomSelection({ label: null, careersUrl }),
-    ).toThrow();
+    expect(() => adapter.normalizeCustomSelection({ label: null, careersUrl })).toThrow();
   });
 
-  it.each([
-    microsoft,
-    netflix,
-  ])("preserves repeated bare facet names through normalization and API fetch for %s", async (origin) => {
-    const normalized = await adapter.normalizeCustomSelection({
-      label: null,
-      careersUrl: `${origin}/careers?Teams=Engineering&Teams=Games&Work+Type=remote&Region=ucan&filter_profession=software&domain=evil.test&host=evil.test&redirect=https://evil.test&start=90&num=900`,
-    });
-    const url = new URL(normalized.careersUrl);
-    expect(url.origin).toBe(origin);
-    expect(url.searchParams.getAll("Teams")).toEqual(["Engineering", "Games"]);
-    expect(url.searchParams.get("Work Type")).toBe("remote");
-    expect(url.searchParams.get("Region")).toBe("ucan");
-    expect(url.searchParams.get("filter_profession")).toBe("software");
-    for (const key of ["domain", "host", "redirect", "start", "num"])
-      expect(url.searchParams.has(key)).toBe(false);
-    const other = await adapter.normalizeCustomSelection({
-      label: null,
-      careersUrl: `${origin}/careers?Teams=Finance`,
-    });
-    expect(other.careersUrl).not.toBe(normalized.careersUrl);
-    const fetch = vi
-      .fn()
-      .mockResolvedValue(
-        origin === microsoft
-          ? pcsx({ count: 0, positions: [] })
-          : json({ count: 0, positions: [] }),
+  it.each([microsoft, netflix])(
+    "preserves repeated bare facet names through normalization and API fetch for %s",
+    async (origin) => {
+      const normalized = await adapter.normalizeCustomSelection({
+        label: null,
+        careersUrl: `${origin}/careers?Teams=Engineering&Teams=Games&Work+Type=remote&Region=ucan&filter_profession=software&domain=evil.test&host=evil.test&redirect=https://evil.test&start=90&num=900`,
+      });
+      const url = new URL(normalized.careersUrl);
+      expect(url.origin).toBe(origin);
+      expect(url.searchParams.getAll("Teams")).toEqual(["Engineering", "Games"]);
+      expect(url.searchParams.get("Work Type")).toBe("remote");
+      expect(url.searchParams.get("Region")).toBe("ucan");
+      expect(url.searchParams.get("filter_profession")).toBe("software");
+      for (const key of ["domain", "host", "redirect", "start", "num"])
+        expect(url.searchParams.has(key)).toBe(false);
+      const other = await adapter.normalizeCustomSelection({
+        label: null,
+        careersUrl: `${origin}/careers?Teams=Finance`,
+      });
+      expect(other.careersUrl).not.toBe(normalized.careersUrl);
+      const fetch = vi
+        .fn()
+        .mockResolvedValue(
+          origin === microsoft
+            ? pcsx({ count: 0, positions: [] })
+            : json({ count: 0, positions: [] }),
+        );
+      vi.stubGlobal("fetch", fetch);
+      await adapter.fetchJobs({
+        source: { ...source(origin), careersUrl: normalized.careersUrl },
+      });
+      const api = new URL(fetch.mock.calls[0][0]);
+      expect(api.origin).toBe(origin);
+      expect(api.searchParams.getAll("Teams")).toEqual(["Engineering", "Games"]);
+      expect(api.searchParams.get("Work Type")).toBe("remote");
+      expect(api.searchParams.get("Region")).toBe("ucan");
+      expect(api.searchParams.get("filter_profession")).toBe("software");
+      expect(api.searchParams.get("domain")).toBe(
+        origin === microsoft ? "microsoft.com" : "netflix.com",
       );
-    vi.stubGlobal("fetch", fetch);
-    await adapter.fetchJobs({
-      source: { ...source(origin), careersUrl: normalized.careersUrl },
-    });
-    const api = new URL(fetch.mock.calls[0][0]);
-    expect(api.origin).toBe(origin);
-    expect(api.searchParams.getAll("Teams")).toEqual(["Engineering", "Games"]);
-    expect(api.searchParams.get("Work Type")).toBe("remote");
-    expect(api.searchParams.get("Region")).toBe("ucan");
-    expect(api.searchParams.get("filter_profession")).toBe("software");
-    expect(api.searchParams.get("domain")).toBe(
-      origin === microsoft ? "microsoft.com" : "netflix.com",
-    );
-  });
+    },
+  );
 
   it("maps, sorts and caps Microsoft jobs while forwarding search parameters", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
@@ -238,27 +223,21 @@ describe("eightfoldWatchlistAdapter", () => {
       const start = Number(new URL(value).searchParams.get("start"));
       return pcsx({
         count: 100,
-        positions: Array.from({ length: 10 }, (_, index) =>
-          position(start + index + 1),
-        ),
+        positions: Array.from({ length: 10 }, (_, index) => position(start + index + 1)),
       });
     });
     vi.stubGlobal("fetch", fetchMock);
     const result = await adapter.fetchJobs({ source: source() });
     expect(result.fetched).toBe(60);
-    expect(
-      fetchMock.mock.calls.map(([value]) =>
-        new URL(value).searchParams.get("start"),
-      ),
-    ).toEqual(["0", "10", "20", "30", "40", "50"]);
+    expect(fetchMock.mock.calls.map(([value]) => new URL(value).searchParams.get("start"))).toEqual(
+      ["0", "10", "20", "30", "40", "50"],
+    );
   });
 
   it("stops on empty or repeated pages", async () => {
     const fetchMock = vi
       .fn()
-      .mockImplementation(async () =>
-        pcsx({ count: 99, positions: [position()] }),
-      );
+      .mockImplementation(async () => pcsx({ count: 99, positions: [position()] }));
     vi.stubGlobal("fetch", fetchMock);
     expect((await adapter.fetchJobs({ source: source() })).fetched).toBe(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -300,15 +279,9 @@ describe("eightfoldWatchlistAdapter", () => {
         jobUrl: result.jobs[0].jobUrl,
       },
     });
-    expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe(
-      "/api/apply/v2/jobs",
-    );
-    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("num")).toBe(
-      "60",
-    );
-    expect(new URL(fetchMock.mock.calls[1][0]).pathname).toBe(
-      "/api/apply/v2/jobs/456",
-    );
+    expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe("/api/apply/v2/jobs");
+    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("num")).toBe("60");
+    expect(new URL(fetchMock.mock.calls[1][0]).pathname).toBe("/api/apply/v2/jobs/456");
   });
 
   it("decodes decimal and hexadecimal entities and preserves escaped entity text", async () => {
@@ -363,9 +336,9 @@ describe("eightfoldWatchlistAdapter", () => {
   ])("rejects foreign or invalid job refs before fetching: %s", async (jobRef) => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    await expect(
-      adapter.prepareImportDraft({ source: source(), jobRef }),
-    ).rejects.toThrow("reference");
+    await expect(adapter.prepareImportDraft({ source: source(), jobRef })).rejects.toThrow(
+      "reference",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -427,13 +400,9 @@ describe("eightfoldWatchlistAdapter", () => {
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
     const fetchMock = vi
       .fn()
-      .mockImplementation(
-        async () => new Response("secret token", { status: 429 }),
-      );
+      .mockImplementation(async () => new Response("secret token", { status: 429 }));
     vi.stubGlobal("fetch", fetchMock);
-    const pending = expect(
-      adapter.fetchJobs({ source: source() }),
-    ).rejects.toThrow(
+    const pending = expect(adapter.fetchJobs({ source: source() })).rejects.toThrow(
       "Eightfold request failed with HTTP 429 (host=apply.careers.microsoft.com, start=0, attempt=4).",
     );
     for (const [index, milliseconds] of [1000, 3000, 8000].entries()) {
@@ -469,13 +438,12 @@ describe("eightfoldWatchlistAdapter", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(pcsx({ count: 100, positions: [position()] }))
-      .mockImplementation(
-        async () => new Response("x".repeat(300), { status: 429, headers }),
-      );
+      .mockImplementation(async () => new Response("x".repeat(300), { status: 429, headers }));
     vi.stubGlobal("fetch", fetchMock);
-    const pending = expect(
-      adapter.fetchJobs({ source: source() }),
-    ).resolves.toMatchObject({ total: 100, fetched: 1 });
+    const pending = expect(adapter.fetchJobs({ source: source() })).resolves.toMatchObject({
+      total: 100,
+      fetched: 1,
+    });
     await vi.advanceTimersByTimeAsync(12000);
     await pending;
     expect(warn).toHaveBeenNthCalledWith(4, "Eightfold request rate limited", {
@@ -505,42 +473,37 @@ describe("eightfoldWatchlistAdapter", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it.each([
-    "seconds",
-    "date",
-  ])("keeps Retry-After %s capped at two seconds and three attempts", async (format) => {
-    vi.useFakeTimers();
-    vi.spyOn(logger, "warn").mockImplementation(() => {});
-    const retryAfter =
-      format === "seconds" ? "60" : new Date(Date.now() + 60_000).toUTCString();
-    const fetchMock = vi.fn().mockImplementation(
-      async () =>
-        new Response("", {
-          status: 429,
-          headers: { "retry-after": retryAfter },
-        }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    const pending = adapter
-      .fetchJobs({ source: source() })
-      .catch((error: unknown) => error);
-    for (const attempt of [1, 2]) {
-      await vi.advanceTimersByTimeAsync(1999);
-      expect(fetchMock).toHaveBeenCalledTimes(attempt);
-      await vi.advanceTimersByTimeAsync(1);
-      expect(fetchMock).toHaveBeenCalledTimes(attempt + 1);
-    }
-    expect(await pending).toMatchObject({
-      message: expect.stringContaining("attempt=3"),
-    });
-  });
+  it.each(["seconds", "date"])(
+    "keeps Retry-After %s capped at two seconds and three attempts",
+    async (format) => {
+      vi.useFakeTimers();
+      vi.spyOn(logger, "warn").mockImplementation(() => {});
+      const retryAfter = format === "seconds" ? "60" : new Date(Date.now() + 60_000).toUTCString();
+      const fetchMock = vi.fn().mockImplementation(
+        async () =>
+          new Response("", {
+            status: 429,
+            headers: { "retry-after": retryAfter },
+          }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      const pending = adapter.fetchJobs({ source: source() }).catch((error: unknown) => error);
+      for (const attempt of [1, 2]) {
+        await vi.advanceTimersByTimeAsync(1999);
+        expect(fetchMock).toHaveBeenCalledTimes(attempt);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(fetchMock).toHaveBeenCalledTimes(attempt + 1);
+      }
+      expect(await pending).toMatchObject({
+        message: expect.stringContaining("attempt=3"),
+      });
+    },
+  );
 
   it("aborts during missing-header backoff without another request", async () => {
     vi.useFakeTimers();
     vi.spyOn(logger, "warn").mockImplementation(() => {});
-    const fetchMock = vi
-      .fn()
-      .mockImplementation(async () => new Response("", { status: 429 }));
+    const fetchMock = vi.fn().mockImplementation(async () => new Response("", { status: 429 }));
     vi.stubGlobal("fetch", fetchMock);
     const controller = new AbortController();
     const pending = adapter
@@ -558,41 +521,39 @@ describe("eightfoldWatchlistAdapter", () => {
     { origin: netflix, retryAfter: null },
     { origin: microsoft, retryAfter: "60" },
     { origin: netflix, retryAfter: "60" },
-  ])("limits $origin detail 429s to one retry after one second (Retry-After: $retryAfter)", async ({
-    origin,
-    retryAfter,
-  }) => {
-    vi.useFakeTimers();
-    vi.spyOn(logger, "warn").mockImplementation(() => {});
-    const fetchMock = vi.fn().mockImplementation(
-      async () =>
-        new Response("upstream body", {
-          status: 429,
-          headers: retryAfter === null ? {} : { "retry-after": retryAfter },
-        }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    const pending = adapter
-      .prepareImportDraft({
-        source: source(origin),
-        jobRef: `${origin}/careers/job/123`,
-      })
-      .catch((error: unknown) => error);
-    await vi.advanceTimersByTimeAsync(999);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(1);
-    const error = await pending;
-    expect(error).toMatchObject({
-      message: `Eightfold request failed with HTTP 429 (host=${new URL(origin).hostname}, start=n/a, attempt=2).`,
-    });
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe(
-      origin === microsoft
-        ? "/api/pcsx/position_details"
-        : "/api/apply/v2/jobs/123",
-    );
-  });
+  ])(
+    "limits $origin detail 429s to one retry after one second (Retry-After: $retryAfter)",
+    async ({ origin, retryAfter }) => {
+      vi.useFakeTimers();
+      vi.spyOn(logger, "warn").mockImplementation(() => {});
+      const fetchMock = vi.fn().mockImplementation(
+        async () =>
+          new Response("upstream body", {
+            status: 429,
+            headers: retryAfter === null ? {} : { "retry-after": retryAfter },
+          }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      const pending = adapter
+        .prepareImportDraft({
+          source: source(origin),
+          jobRef: `${origin}/careers/job/123`,
+        })
+        .catch((error: unknown) => error);
+      await vi.advanceTimersByTimeAsync(999);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      const error = await pending;
+      expect(error).toMatchObject({
+        message: `Eightfold request failed with HTTP 429 (host=${new URL(origin).hostname}, start=n/a, attempt=2).`,
+      });
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(new URL(fetchMock.mock.calls[0][0]).pathname).toBe(
+        origin === microsoft ? "/api/pcsx/position_details" : "/api/apply/v2/jobs/123",
+      );
+    },
+  );
 
   it("recovers a detail request on its one allowed retry", async () => {
     vi.useFakeTimers();
@@ -622,9 +583,7 @@ describe("eightfoldWatchlistAdapter", () => {
       return start < 40
         ? pcsx({
             count: 100,
-            positions: Array.from({ length: 10 }, (_, i) =>
-              position(start + i + 1),
-            ),
+            positions: Array.from({ length: 10 }, (_, i) => position(start + i + 1)),
           })
         : new Response("", { status: 429 });
     });
@@ -643,30 +602,26 @@ describe("eightfoldWatchlistAdapter", () => {
     );
   });
 
-  it.each([
-    "http",
-    "network",
-    "json",
-    "schema",
-  ])("keeps collected jobs on a later %s failure but throws on the first page", async (failure) => {
-    vi.spyOn(logger, "warn").mockImplementation(() => {});
-    const fail = async () => {
-      if (failure === "network") throw new Error("Network unavailable");
-      if (failure === "http") return new Response("", { status: 503 });
-      if (failure === "json") return new Response("invalid JSON");
-      return pcsx({ count: 100 });
-    };
-    const fetchMock = vi.fn().mockImplementation(fail);
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(adapter.fetchJobs({ source: source() })).rejects.toThrow();
-    fetchMock.mockResolvedValueOnce(
-      pcsx({ count: 100, positions: [position()] }),
-    );
-    const result = await adapter.fetchJobs({ source: source() });
-    expect(result).toMatchObject({ total: 100, fetched: 1 });
-    expect(result.jobs[0].sourceJobId).toBe("123");
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-  });
+  it.each(["http", "network", "json", "schema"])(
+    "keeps collected jobs on a later %s failure but throws on the first page",
+    async (failure) => {
+      vi.spyOn(logger, "warn").mockImplementation(() => {});
+      const fail = async () => {
+        if (failure === "network") throw new Error("Network unavailable");
+        if (failure === "http") return new Response("", { status: 503 });
+        if (failure === "json") return new Response("invalid JSON");
+        return pcsx({ count: 100 });
+      };
+      const fetchMock = vi.fn().mockImplementation(fail);
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(adapter.fetchJobs({ source: source() })).rejects.toThrow();
+      fetchMock.mockResolvedValueOnce(pcsx({ count: 100, positions: [position()] }));
+      const result = await adapter.fetchJobs({ source: source() });
+      expect(result).toMatchObject({ total: 100, fetched: 1 });
+      expect(result.jobs[0].sourceJobId).toBe("123");
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    },
+  );
 
   it("propagates caller cancellation even after collecting a page", async () => {
     const controller = new AbortController();
@@ -691,18 +646,13 @@ describe("eightfoldWatchlistAdapter", () => {
     const controller = new AbortController();
     // Node's AbortSignal.timeout uses an internal timer, so drive its signal
     // with the fake clock while retaining the operation's real abort handling.
-    const timeout = vi
-      .spyOn(AbortSignal, "timeout")
-      .mockImplementation((milliseconds) => {
-        setTimeout(
-          () =>
-            controller.abort(
-              new DOMException("Operation timed out", "TimeoutError"),
-            ),
-          milliseconds,
-        );
-        return controller.signal;
-      });
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((milliseconds) => {
+      setTimeout(
+        () => controller.abort(new DOMException("Operation timed out", "TimeoutError")),
+        milliseconds,
+      );
+      return controller.signal;
+    });
     const fetchMock = vi.fn().mockImplementation(async () =>
       fetchMock.mock.calls.length % 4 === 0
         ? pcsx({
@@ -712,9 +662,7 @@ describe("eightfoldWatchlistAdapter", () => {
         : new Response("", { status: 429 }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const pending = adapter
-      .fetchJobs({ source: source() })
-      .catch((error: unknown) => error);
+    const pending = adapter.fetchJobs({ source: source() }).catch((error: unknown) => error);
     await vi.advanceTimersByTimeAsync(19_999);
     expect(fetchMock).toHaveBeenCalledTimes(7);
     expect(controller.signal.aborted).toBe(false);
@@ -745,11 +693,7 @@ describe("eightfoldWatchlistAdapter", () => {
         .mockResolvedValueOnce(pcsx({ id: 123, name: "Engineer" })),
     );
     const input = { source: source(), jobRef: `${microsoft}/careers/job/123` };
-    await expect(adapter.prepareImportDraft(input)).rejects.toThrow(
-      "different job reference",
-    );
-    await expect(adapter.prepareImportDraft(input)).rejects.toThrow(
-      "description is unavailable",
-    );
+    await expect(adapter.prepareImportDraft(input)).rejects.toThrow("different job reference");
+    await expect(adapter.prepareImportDraft(input)).rejects.toThrow("description is unavailable");
   });
 });

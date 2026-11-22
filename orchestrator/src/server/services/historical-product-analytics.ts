@@ -28,9 +28,7 @@ const CANONICAL_ACTIVATION_EVENTS = new Set<CanonicalActivationEvent>([
   "application_accepted",
 ]);
 
-function isCanonicalActivationEvent(
-  eventName: string,
-): eventName is CanonicalActivationEvent {
+function isCanonicalActivationEvent(eventName: string): eventName is CanonicalActivationEvent {
   return CANONICAL_ACTIVATION_EVENTS.has(eventName as CanonicalActivationEvent);
 }
 
@@ -66,14 +64,10 @@ export async function initializeHistoricalServerEventReplay(): Promise<void> {
     }
 
     const delivered = isCanonicalActivationEvent(candidate.eventName)
-      ? await trackCanonicalActivationEvent(
-          candidate.eventName,
-          candidate.data,
-          {
-            occurredAt: candidate.occurredAt,
-            urlPath: candidate.urlPath,
-          },
-        )
+      ? await trackCanonicalActivationEvent(candidate.eventName, candidate.data, {
+          occurredAt: candidate.occurredAt,
+          urlPath: candidate.urlPath,
+        })
       : await trackServerProductEvent(candidate.eventName, candidate.data, {
           distinctId: installState.distinctId,
           occurredAt: candidate.occurredAt,

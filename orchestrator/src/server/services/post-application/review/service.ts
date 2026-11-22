@@ -1,9 +1,4 @@
-import {
-  AppError,
-  conflict,
-  notFound,
-  unprocessableEntity,
-} from "@infra/errors";
+import { AppError, conflict, notFound, unprocessableEntity } from "@infra/errors";
 import { trackServerProductEvent } from "@infra/product-analytics";
 import { db, schema } from "@server/db";
 import { getJobById, listJobSummariesByIds } from "@server/repositories/jobs";
@@ -52,9 +47,7 @@ function buildMatchedJobMap(
   const jobById = new Map(jobs.map((job) => [job.id, job]));
   return items.map((message) => ({
     message,
-    matchedJob: message.matchedJobId
-      ? (jobById.get(message.matchedJobId) ?? null)
-      : null,
+    matchedJob: message.matchedJobId ? (jobById.get(message.matchedJobId) ?? null) : null,
   }));
 }
 
@@ -92,10 +85,7 @@ export async function approvePostApplicationInboxItem(args: {
   if (!message) {
     throw notFound(`Post-application message '${args.messageId}' not found.`);
   }
-  if (
-    message.provider !== args.provider ||
-    message.accountKey !== args.accountKey
-  ) {
+  if (message.provider !== args.provider || message.accountKey !== args.accountKey) {
     throw notFound(`Post-application message '${args.messageId}' not found.`);
   }
   if (message.processingStatus !== "pending_user") {
@@ -139,9 +129,7 @@ export async function approvePostApplicationInboxItem(args: {
       )
       .run();
     if (messageUpdateResult.changes === 0) {
-      throw conflict(
-        `Message '${message.id}' was already decided by another request.`,
-      );
+      throw conflict(`Message '${message.id}' was already decided by another request.`);
     }
 
     const resolvedTarget =
@@ -156,9 +144,7 @@ export async function approvePostApplicationInboxItem(args: {
         resolvedJobId,
         transition.toStage,
         Math.floor(
-          Number.isFinite(message.receivedAt)
-            ? message.receivedAt / 1000
-            : decidedAt / 1000,
+          Number.isFinite(message.receivedAt) ? message.receivedAt / 1000 : decidedAt / 1000,
         ),
         {
           actor: "system",
@@ -178,12 +164,7 @@ export async function approvePostApplicationInboxItem(args: {
           messagesApproved: sql`${postApplicationSyncRuns.messagesApproved} + 1`,
           updatedAt: decidedAtIso,
         })
-        .where(
-          and(
-            syncRunsScopeFilter(),
-            eq(postApplicationSyncRuns.id, message.syncRunId),
-          ),
-        )
+        .where(and(syncRunsScopeFilter(), eq(postApplicationSyncRuns.id, message.syncRunId)))
         .run();
     }
 
@@ -193,9 +174,7 @@ export async function approvePostApplicationInboxItem(args: {
   const updatedMessage = await getPostApplicationMessageById(message.id);
 
   if (!updatedMessage) {
-    throw notFound(
-      `Post-application message '${message.id}' not found after approval.`,
-    );
+    throw notFound(`Post-application message '${message.id}' not found after approval.`);
   }
 
   void trackServerProductEvent(
@@ -222,10 +201,7 @@ export async function denyPostApplicationInboxItem(args: {
   if (!message) {
     throw notFound(`Post-application message '${args.messageId}' not found.`);
   }
-  if (
-    message.provider !== args.provider ||
-    message.accountKey !== args.accountKey
-  ) {
+  if (message.provider !== args.provider || message.accountKey !== args.accountKey) {
     throw notFound(`Post-application message '${args.messageId}' not found.`);
   }
   if (message.processingStatus !== "pending_user") {
@@ -255,9 +231,7 @@ export async function denyPostApplicationInboxItem(args: {
       )
       .run();
     if (messageUpdateResult.changes === 0) {
-      throw conflict(
-        `Message '${message.id}' was already decided by another request.`,
-      );
+      throw conflict(`Message '${message.id}' was already decided by another request.`);
     }
 
     if (message.syncRunId) {
@@ -266,21 +240,14 @@ export async function denyPostApplicationInboxItem(args: {
           messagesDenied: sql`${postApplicationSyncRuns.messagesDenied} + 1`,
           updatedAt: decidedAtIso,
         })
-        .where(
-          and(
-            syncRunsScopeFilter(),
-            eq(postApplicationSyncRuns.id, message.syncRunId),
-          ),
-        )
+        .where(and(syncRunsScopeFilter(), eq(postApplicationSyncRuns.id, message.syncRunId)))
         .run();
     }
   });
 
   const updatedMessage = await getPostApplicationMessageById(message.id);
   if (!updatedMessage) {
-    throw notFound(
-      `Post-application message '${message.id}' not found after denial.`,
-    );
+    throw notFound(`Post-application message '${message.id}' not found after denial.`);
   }
 
   return { message: updatedMessage };
@@ -411,11 +378,7 @@ export async function listPostApplicationReviewRuns(args: {
   accountKey: string;
   limit?: number;
 }): Promise<PostApplicationSyncRun[]> {
-  return listPostApplicationSyncRuns(
-    args.provider,
-    args.accountKey,
-    args.limit ?? 20,
-  );
+  return listPostApplicationSyncRuns(args.provider, args.accountKey, args.limit ?? 20);
 }
 
 export async function listPostApplicationRunMessages(args: {
@@ -428,11 +391,7 @@ export async function listPostApplicationRunMessages(args: {
   items: PostApplicationInboxItem[];
 }> {
   const run = await getPostApplicationSyncRunById(args.runId);
-  if (
-    !run ||
-    run.provider !== args.provider ||
-    run.accountKey !== args.accountKey
-  ) {
+  if (!run || run.provider !== args.provider || run.accountKey !== args.accountKey) {
     throw notFound(`Post-application sync run '${args.runId}' not found.`);
   }
 

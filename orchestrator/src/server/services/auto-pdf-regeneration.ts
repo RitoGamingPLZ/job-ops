@@ -7,10 +7,7 @@ import type { SettingKey } from "@server/repositories/settings";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import type { Job } from "@shared/types";
 import { generateFinalPdf } from "../pipeline";
-import {
-  getJobPdfFreshness,
-  resolvePdfFingerprintContext,
-} from "./pdf-fingerprint";
+import { getJobPdfFreshness, resolvePdfFingerprintContext } from "./pdf-fingerprint";
 
 const AUTO_PDF_REGEN_BATCH_LIMIT = 25;
 const AUTO_PDF_REGEN_RETRY_DELAY_MS = 5000;
@@ -25,9 +22,7 @@ const SETTINGS_INVALIDATION_KEYS = new Set<SettingKey>([
   "resumeProjects",
 ]);
 
-function onlyInvalidatesTypstTheme(
-  updatedSettingKeys: ReadonlyArray<SettingKey>,
-): boolean {
+function onlyInvalidatesTypstTheme(updatedSettingKeys: ReadonlyArray<SettingKey>): boolean {
   let foundTypstTheme = false;
   for (const key of updatedSettingKeys) {
     if (!SETTINGS_INVALIDATION_KEYS.has(key)) continue;
@@ -126,9 +121,7 @@ async function drainQueue(): Promise<void> {
   }
 }
 
-function shouldTopUpReadyPdfRegeneration(
-  reason: AutoPdfRegenerationReason,
-): boolean {
+function shouldTopUpReadyPdfRegeneration(reason: AutoPdfRegenerationReason): boolean {
   return reason === "settings_changed";
 }
 
@@ -172,14 +165,11 @@ async function processQueuedAutoPdfRegeneration(input: {
     async () => {
       const job = await jobsRepo.getJobById(input.jobId);
       if (!job) {
-        logger.info(
-          "Skipping auto PDF regeneration because job was not found",
-          {
-            tenantId: input.tenantId,
-            jobId: input.jobId,
-            reason: input.reason,
-          },
-        );
+        logger.info("Skipping auto PDF regeneration because job was not found", {
+          tenantId: input.tenantId,
+          jobId: input.jobId,
+          reason: input.reason,
+        });
         return "processed";
       }
 
@@ -225,11 +215,7 @@ async function enqueueAutoPdfRegenerationPayload(
   options?: { delayMs?: number },
 ): Promise<void> {
   await getJobQueue().enqueue("auto_pdf_regeneration", payload, {
-    dedupeKey: [
-      payload.tenantId,
-      payload.userId ?? "tenant",
-      payload.jobId,
-    ].join(":"),
+    dedupeKey: [payload.tenantId, payload.userId ?? "tenant", payload.jobId].join(":"),
     delayMs: options?.delayMs,
   });
   scheduleWorker(options?.delayMs);

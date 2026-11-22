@@ -156,10 +156,8 @@ export async function trackCanonicalActivationEvent(
     }
 
     const requestContext = getRequestContext();
-    const sessionId =
-      options?.sessionId ?? requestContext?.analyticsSessionId ?? null;
-    const requestUserAgent =
-      options?.requestUserAgent ?? requestContext?.requestUserAgent ?? null;
+    const sessionId = options?.sessionId ?? requestContext?.analyticsSessionId ?? null;
+    const requestUserAgent = options?.requestUserAgent ?? requestContext?.requestUserAgent ?? null;
     const occurredAtMs = toEpochMs(options?.occurredAt);
     const delivered = await trackServerProductEvent(event, data, {
       occurredAt: occurredAtMs,
@@ -211,16 +209,13 @@ export async function initializeActivationAnalytics(): Promise<void> {
     });
 
     if (delivered) {
-      await markActivationMilestoneReported(
-        pending.milestone as ActivationMilestone,
-      );
+      await markActivationMilestoneReported(pending.milestone as ActivationMilestone);
     }
   }
 }
 
 export async function reconcileActivationMilestonesFromHistory(): Promise<void> {
-  const historicalCandidates =
-    await getHistoricalActivationMilestoneCandidates();
+  const historicalCandidates = await getHistoricalActivationMilestoneCandidates();
   const existingMilestones = new Map(
     (await listActivationMilestones()).map((milestone) => [
       milestone.milestone as ActivationMilestone,
@@ -242,10 +237,7 @@ export async function reconcileActivationMilestonesFromHistory(): Promise<void> 
         continue;
       }
 
-      if (
-        existing.firstSeenAt !== occurredAtMs ||
-        existing.firstSessionId !== null
-      ) {
+      if (existing.firstSeenAt !== occurredAtMs || existing.firstSessionId !== null) {
         await setActivationMilestoneFromHistory({
           milestone,
           firstSeenAt: occurredAtMs,

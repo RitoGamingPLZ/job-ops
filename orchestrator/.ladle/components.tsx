@@ -54,9 +54,7 @@ export const Provider: React.FC<{
   return (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
-        <div className="dark min-h-screen bg-background text-foreground p-6">
-          {children}
-        </div>
+        <div className="dark min-h-screen bg-background text-foreground p-6">{children}</div>
       </MemoryRouter>
     </QueryClientProvider>
   );

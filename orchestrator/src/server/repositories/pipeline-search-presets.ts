@@ -33,24 +33,16 @@ function mapRowToSearchPreset(
   };
 }
 
-export async function listPipelineSearchPresets(): Promise<
-  PipelineSearchPreset[]
-> {
+export async function listPipelineSearchPresets(): Promise<PipelineSearchPreset[]> {
   const tenantId = getActiveTenantId();
   const userId = requireActiveUserId();
   const rows = await db
     .select()
     .from(pipelineSearchPresets)
     .where(
-      and(
-        eq(pipelineSearchPresets.tenantId, tenantId),
-        eq(pipelineSearchPresets.userId, userId),
-      ),
+      and(eq(pipelineSearchPresets.tenantId, tenantId), eq(pipelineSearchPresets.userId, userId)),
     )
-    .orderBy(
-      desc(pipelineSearchPresets.lastUsedAt),
-      desc(pipelineSearchPresets.updatedAt),
-    );
+    .orderBy(desc(pipelineSearchPresets.lastUsedAt), desc(pipelineSearchPresets.updatedAt));
 
   return rows.map(mapRowToSearchPreset);
 }
@@ -171,9 +163,7 @@ export async function pipelineSearchPresetNameExists(input: {
   return Boolean(row);
 }
 
-async function getPipelineSearchPreset(
-  id: string,
-): Promise<PipelineSearchPreset | null> {
+async function getPipelineSearchPreset(id: string): Promise<PipelineSearchPreset | null> {
   const tenantId = getActiveTenantId();
   const userId = requireActiveUserId();
   const [row] = await db

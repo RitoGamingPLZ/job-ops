@@ -68,9 +68,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(
-    {},
-  );
+  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>({});
   const chronologicalEvents = React.useMemo(
     () => [...events].sort((a, b) => a.occurredAt - b.occurredAt),
     [events],
@@ -80,12 +78,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({
     const round =
       boardColumnForStage(event.toStage) === "technical_interview" &&
       event.metadata?.eventType !== "note"
-        ? technicalRound(
-            chronologicalEvents.slice(
-              0,
-              chronologicalEvents.indexOf(event) + 1,
-            ),
-          )
+        ? technicalRound(chronologicalEvents.slice(0, chronologicalEvents.indexOf(event) + 1))
         : 0;
     return `${event.title || label}${round ? ` · Round ${round}` : ""}${event.outcome === "withdrawn" ? " · withdrawn" : ""}`;
   };
@@ -115,9 +108,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({
     }));
 
     groups.forEach((value, id) => {
-      const sorted = [...value.events].sort(
-        (a, b) => a.occurredAt - b.occurredAt,
-      );
+      const sorted = [...value.events].sort((a, b) => a.occurredAt - b.occurredAt);
       mapped.push({
         kind: "group",
         id,
@@ -176,9 +167,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({
             entryIndex === entries.length - 1 &&
             entry.event.toStage !== "applied";
           const isOffer = entry.event.toStage === "offer";
-          const salary = entry.event.metadata?.externalUrl?.startsWith(
-            "Salary: ",
-          )
+          const salary = entry.event.metadata?.externalUrl?.startsWith("Salary: ")
             ? entry.event.metadata.externalUrl.replace("Salary: ", "")
             : null;
           return (
@@ -193,19 +182,14 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({
               onEdit={onEdit ? () => onEdit(entry.event) : undefined}
               onDelete={onDelete ? () => onDelete(entry.event.id) : undefined}
             >
-              {note && (
-                <div className="text-sm text-muted-foreground">{note}</div>
-              )}
+              {note && <div className="text-sm text-muted-foreground">{note}</div>}
               {salary && (
                 <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                   {salary}
                 </div>
               )}
               {reason && (
-                <Badge
-                  variant="outline"
-                  className="mt-2 text-[10px] uppercase tracking-wide"
-                >
+                <Badge variant="outline" className="mt-2 text-[10px] uppercase tracking-wide">
                   {reason}
                 </Badge>
               )}
@@ -222,8 +206,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({
           /submitted|completed|finished/i.test(event.title || ""),
         );
         const isCurrentGroup =
-          currentStage === entry.events.at(-1)?.toStage &&
-          entryIndex === entries.length - 1;
+          currentStage === entry.events.at(-1)?.toStage && entryIndex === entries.length - 1;
 
         return (
           <div key={entry.id} className="space-y-2">
@@ -253,9 +236,7 @@ export const JobTimeline: React.FC<JobTimelineProps> = ({
                       onDelete={onDelete ? () => onDelete(event.id) : undefined}
                     >
                       {event.metadata?.note && (
-                        <div className="text-xs text-muted-foreground">
-                          {event.metadata.note}
-                        </div>
+                        <div className="text-xs text-muted-foreground">{event.metadata.note}</div>
                       )}
                     </TimelineRow>
                   ))}
@@ -326,9 +307,7 @@ const TimelineRow: React.FC<TimelineRowProps> = ({
             : "grid grid-cols-[100px_24px_1fr] gap-4"
         }
       >
-        <div className="text-right text-xs font-medium text-muted-foreground">
-          {date}
-        </div>
+        <div className="text-right text-xs font-medium text-muted-foreground">{date}</div>
         <div className="relative flex flex-col items-center">
           <span className="absolute inset-y-0 w-px bg-border" />
           <div
@@ -344,17 +323,11 @@ const TimelineRow: React.FC<TimelineRowProps> = ({
           >
             {isFilled && icon}
           </div>
-          {isLast && (
-            <span className="absolute bottom-0 h-4 w-px bg-background" />
-          )}
+          {isLast && <span className="absolute bottom-0 h-4 w-px bg-background" />}
         </div>
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1 min-w-0 flex-1">
-            <div
-              className={
-                isCompact ? "text-xs font-semibold" : "text-sm font-semibold"
-              }
-            >
+            <div className={isCompact ? "text-xs font-semibold" : "text-sm font-semibold"}>
               {title}
             </div>
             {children}

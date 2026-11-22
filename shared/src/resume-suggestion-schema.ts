@@ -25,9 +25,7 @@ const metadata = { id, reason: z.string().trim().min(1).max(2000) };
 const keywords = z.array(z.string().max(200)).max(100);
 const libraryCreate = z
   .object({
-    kind: z.enum(
-      CANDIDATE_ITEM_KINDS as [CandidateItemKind, ...CandidateItemKind[]],
-    ),
+    kind: z.enum(CANDIDATE_ITEM_KINDS as [CandidateItemKind, ...CandidateItemKind[]]),
     text: z.string().trim().min(1).max(10000),
     parentId: id.nullable().optional(),
     company: z.string().max(500).nullable().optional(),
@@ -77,16 +75,12 @@ const saveTarget = z.discriminatedUnion("kind", [
       libraryId: id,
     })
     .strict(),
-  z
-    .object({ kind: z.literal("entry"), section, itemId: id, libraryId: id })
-    .strict(),
+  z.object({ kind: z.literal("entry"), section, itemId: id, libraryId: id }).strict(),
 ]);
 // Arbitrary entry records still have a bounded, identity-free JSON payload.
 const maxEntrySize = 100000; // serialized JSON characters
 const entryItem = z.record(z.unknown()).superRefine((item, ctx) => {
-  const pending: { value: unknown; depth: number }[] = [
-    { value: item, depth: 0 },
-  ];
+  const pending: { value: unknown; depth: number }[] = [{ value: item, depth: 0 }];
   const seen = new Set<object>();
   let nodes = 0;
   while (pending.length) {
@@ -195,9 +189,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
       item: entryItem,
     })
     .strict(),
-  z
-    .object({ ...metadata, op: z.literal("remove_entry"), section, itemId: id })
-    .strict(),
+  z.object({ ...metadata, op: z.literal("remove_entry"), section, itemId: id }).strict(),
   z
     .object({
       ...metadata,
@@ -214,9 +206,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
       text: newText,
     })
     .strict(),
-  z
-    .object({ ...metadata, op: z.literal("delete_bullet"), ...lineTarget })
-    .strict(),
+  z.object({ ...metadata, op: z.literal("delete_bullet"), ...lineTarget }).strict(),
   z
     .object({
       ...metadata,
@@ -266,9 +256,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
     .object({
       ...metadata,
       op: z.literal("replace_field"),
-      field: z
-        .object({ section, itemId: id, name: z.string().trim().min(1).max(50) })
-        .strict(),
+      field: z.object({ section, itemId: id, name: z.string().trim().min(1).max(50) }).strict(),
       previousText: text,
       text,
     })
@@ -285,9 +273,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
 ]);
 
 /** Read historical messages without guessing missing stale-target guards. */
-export function decodeStoredSuggestion(
-  raw: unknown,
-): ResumeSuggestionV2 | null {
+export function decodeStoredSuggestion(raw: unknown): ResumeSuggestionV2 | null {
   try {
     const current = resumeSuggestionV2Schema.safeParse(raw);
     if (current.success) return current.data;
@@ -306,9 +292,7 @@ export function decodeStoredSuggestion(
           section: "experience",
           itemId: legacy.experienceId,
           bulletIndex: legacy.bulletIndex,
-          ...(legacy.op !== "insert_bullet"
-            ? { previousText: legacy.previousText }
-            : {}),
+          ...(legacy.op !== "insert_bullet" ? { previousText: legacy.previousText } : {}),
           ...(legacy.op !== "delete_bullet" ? { text: legacy.text } : {}),
           ...(legacy.op === "insert_bullet" && legacy.sourceBulletIds != null
             ? { sourceBulletIds: legacy.sourceBulletIds }
@@ -346,9 +330,7 @@ export function decodeStoredSuggestion(
 function pickProviderKeys(raw: unknown, keys: string[]): unknown {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
   return Object.fromEntries(
-    Object.entries(raw).filter(
-      ([key, value]) => keys.includes(key) && value !== null,
-    ),
+    Object.entries(raw).filter(([key, value]) => keys.includes(key) && value !== null),
   );
 }
 
@@ -364,17 +346,13 @@ export function decodeProviderSuggestion(
       (option) => option.shape.op.value === envelope.op,
     );
     if (!member) return null;
-    const candidate = pickProviderKeys(
-      envelope,
-      Object.keys(member.shape),
-    ) as Record<string, unknown>;
+    const candidate = pickProviderKeys(envelope, Object.keys(member.shape)) as Record<
+      string,
+      unknown
+    >;
     if (envelope.op === "create_library_item" || envelope.op === "add_entry") {
       if (typeof envelope.itemJson !== "string") return null;
-      if (
-        envelope.op === "add_entry" &&
-        envelope.itemJson.length > maxEntrySize
-      )
-        return null;
+      if (envelope.op === "add_entry" && envelope.itemJson.length > maxEntrySize) return null;
       candidate.item = JSON.parse(envelope.itemJson);
     }
     if (
@@ -388,10 +366,7 @@ export function decodeProviderSuggestion(
         (option) => option.shape.kind.value === target.kind,
       );
       if (!targetMember) return null;
-      candidate.target = pickProviderKeys(
-        target,
-        Object.keys(targetMember.shape),
-      );
+      candidate.target = pickProviderKeys(target, Object.keys(targetMember.shape));
     }
     const result = resumeSuggestionV2Schema.safeParse({
       ...candidate,
@@ -428,9 +403,7 @@ const array = (items: Record<string, unknown>) => ({
 export const suggestionProviderJsonSchema = object({
   op: {
     type: "string",
-    enum: resumeSuggestionV2Schema.options.map(
-      (option) => option.shape.op.value,
-    ),
+    enum: resumeSuggestionV2Schema.options.map((option) => option.shape.op.value),
   },
   reason: string,
   libraryId: nullableString,

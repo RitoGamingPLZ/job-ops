@@ -25,15 +25,12 @@ export function OfflinePage() {
             <WifiOff className="h-12 w-12" aria-hidden="true" />
           </div>
           <div className="min-w-0 space-y-2">
-            <h1 className="text-3xl font-semibold tracking-normal sm:text-4xl">
-              You seem offline
-            </h1>
+            <h1 className="text-3xl font-semibold tracking-normal sm:text-4xl">You seem offline</h1>
             <p className="max-w-prose text-sm leading-6 text-muted-foreground">
               Check your internet connection and try again.
             </p>
             <p className="max-w-prose text-sm leading-6 text-muted-foreground">
-              This page will automatically redirect when your connection is
-              restored.
+              This page will automatically redirect when your connection is restored.
             </p>
           </div>
         </div>

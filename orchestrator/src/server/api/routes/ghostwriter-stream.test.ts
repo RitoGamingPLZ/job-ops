@@ -1,9 +1,6 @@
 import type { Server } from "node:http";
 import { AppError } from "@infra/errors";
-import {
-  getRequestContext,
-  runWithRequestContext,
-} from "@infra/request-context";
+import { getRequestContext, runWithRequestContext } from "@infra/request-context";
 import type { sendMessageForJob } from "@server/services/ghostwriter";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -22,22 +19,14 @@ vi.mock("@server/services/ghostwriter", () => services);
 
 const routes = [
   ["messages", "sendMessageForJob", "callback-thread"],
-  [
-    "messages/assistant-1/regenerate",
-    "regenerateMessageForJob",
-    "callback-thread",
-  ],
+  ["messages/assistant-1/regenerate", "regenerateMessageForJob", "callback-thread"],
   ["messages/user-1/edit", "editMessageForJob", "callback-thread"],
   ["threads/url-thread/messages/user-1/edit", "editMessage", "callback-thread"],
   ["threads/url-thread/messages", "sendMessage", "url-thread"],
-  [
-    "threads/url-thread/messages/assistant-1/regenerate",
-    "regenerateMessage",
-    "url-thread",
-  ],
+  ["threads/url-thread/messages/assistant-1/regenerate", "regenerateMessage", "url-thread"],
 ] as const;
 
-describe.sequential("Ghostwriter route streams", () => {
+describe("Ghostwriter route streams", () => {
   let server: Server;
   let baseUrl: string;
   const endCounts = new Map<string, () => number>();
@@ -55,10 +44,7 @@ describe.sequential("Ghostwriter route streams", () => {
       const end = vi.spyOn(res, "end");
       endCounts.set(requestId, () => end.mock.calls.length);
       headersSent.set(requestId, () => res.headersSent);
-      runWithRequestContext(
-        { requestId, tenantId: req.header("x-tenant-id") },
-        next,
-      );
+      runWithRequestContext({ requestId, tenantId: req.header("x-tenant-id") }, next);
     });
     app.use("/api/jobs/:id/chat", ghostwriterRouter);
     server = await new Promise<Server>((resolve) => {
@@ -86,43 +72,37 @@ describe.sequential("Ghostwriter route streams", () => {
     });
   }
 
-  it.each(
-    routes,
-  )("serializes callbacks for %s", async (path, service, threadId) => {
-    services[service].mockImplementationOnce(
-      async ({ stream }: { stream: Stream }) => {
-        expect(headersSent.get("stream-request")?.()).toBe(true);
-        const ready = {
-          runId: "run-1",
-          threadId: "callback-thread",
-          messageId: "assistant-1",
-          requestId: "callback-request",
-          privateField: "omit me",
-        };
-        stream.onReady(ready);
-        stream.onDelta({
-          runId: "run-1",
-          messageId: "assistant-1",
-          delta: "hello",
-        });
-        stream.onCompleted({ runId: "run-1", message: null });
-        stream.onCancelled({ runId: "run-1", message: null });
-        const error = {
-          runId: "run-1",
-          code: "UPSTREAM_ERROR",
-          message: "failed",
-          requestId: "callback-request",
-          details: "omit me",
-        };
-        stream.onError(error);
-      },
-    );
+  it.each(routes)("serializes callbacks for %s", async (path, service, threadId) => {
+    services[service].mockImplementationOnce(async ({ stream }: { stream: Stream }) => {
+      expect(headersSent.get("stream-request")?.()).toBe(true);
+      const ready = {
+        runId: "run-1",
+        threadId: "callback-thread",
+        messageId: "assistant-1",
+        requestId: "callback-request",
+        privateField: "omit me",
+      };
+      stream.onReady(ready);
+      stream.onDelta({
+        runId: "run-1",
+        messageId: "assistant-1",
+        delta: "hello",
+      });
+      stream.onCompleted({ runId: "run-1", message: null });
+      stream.onCancelled({ runId: "run-1", message: null });
+      const error = {
+        runId: "run-1",
+        code: "UPSTREAM_ERROR",
+        message: "failed",
+        requestId: "callback-request",
+        details: "omit me",
+      };
+      stream.onError(error);
+    });
     const response = await post(path, "stream-request");
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("text/event-stream");
-    expect(response.headers.get("cache-control")).toBe(
-      "no-cache, no-transform",
-    );
+    expect(response.headers.get("cache-control")).toBe("no-cache, no-transform");
     expect(response.headers.get("connection")).toBe("keep-alive");
     expect(await response.text()).toBe(
       [
@@ -153,15 +133,11 @@ describe.sequential("Ghostwriter route streams", () => {
         .join(""),
     );
     expect(services[service]).toHaveBeenCalledOnce();
-    expect(services[service]).toHaveBeenCalledWith(
-      expect.objectContaining({ jobId: "job-1" }),
-    );
+    expect(services[service]).toHaveBeenCalledWith(expect.objectContaining({ jobId: "job-1" }));
     expect(endCounts.get("stream-request")?.()).toBe(1);
   });
 
-  it.each(
-    routes,
-  )("converts thrown errors and ends once for %s", async (path, service) => {
+  it.each(routes)("converts thrown errors and ends once for %s", async (path, service) => {
     services[service].mockRejectedValueOnce(
       new AppError({
         status: 409,
@@ -187,26 +163,22 @@ describe.sequential("Ghostwriter route streams", () => {
   });
 
   it("keeps concurrent tenant and job contexts through asynchronous callbacks", async () => {
-    services.sendMessageForJob.mockImplementation(
-      async ({ stream }: { stream: Stream }) => {
-        const before = getRequestContext();
-        await new Promise<void>((resolve) => setImmediate(resolve));
-        expect(getRequestContext()).toEqual(before);
-        expect(before).toMatchObject({ jobId: "job-1" });
-        stream.onDelta({
-          runId: before?.tenantId ?? "",
-          messageId: "assistant-1",
-          delta: before?.requestId ?? "",
-        });
-      },
-    );
+    services.sendMessageForJob.mockImplementation(async ({ stream }: { stream: Stream }) => {
+      const before = getRequestContext();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(getRequestContext()).toEqual(before);
+      expect(before).toMatchObject({ jobId: "job-1" });
+      stream.onDelta({
+        runId: before?.tenantId ?? "",
+        messageId: "assistant-1",
+        delta: before?.requestId ?? "",
+      });
+    });
     const responses = await Promise.all([
       post("messages", "request-a", "tenant-a"),
       post("messages", "request-b", "tenant-b"),
     ]);
-    const bodies = await Promise.all(
-      responses.map((response) => response.text()),
-    );
+    const bodies = await Promise.all(responses.map((response) => response.text()));
     expect(bodies).toEqual([
       'data: {"type":"delta","runId":"tenant-a","messageId":"assistant-1","delta":"request-a"}\n\n',
       'data: {"type":"delta","runId":"tenant-b","messageId":"assistant-1","delta":"request-b"}\n\n',

@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./utils/*": "./src/utils/*.ts",
+    "./*": "./src/*.ts"
+  },
   "scripts": {
     "check:types": "tsc --noEmit"
   },
@@ -11,10 +16,5 @@
   },
   "devDependencies": {
     "typescript": "~5.9.0"
-  },
-  "exports": {
-    ".": "./src/index.ts",
-    "./utils/*": "./src/utils/*.ts",
-    "./*": "./src/*.ts"
   }
 }

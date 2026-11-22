@@ -5,14 +5,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SearchableDropdown } from "./searchable-dropdown";
 
 vi.mock("@/components/ui/button", () => ({
-  Button: React.forwardRef<
-    HTMLButtonElement,
-    ButtonHTMLAttributes<HTMLButtonElement>
-  >(({ className, children, ...props }, ref) => (
-    <button ref={ref} className={className} {...props}>
-      {children}
-    </button>
-  )),
+  Button: React.forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(
+    ({ className, children, ...props }, ref) => (
+      <button ref={ref} className={className} {...props}>
+        {children}
+      </button>
+    ),
+  ),
 }));
 vi.mock("@/components/ui/virtualized-listbox", () => {
   const React = require("react") as typeof import("react");
@@ -44,10 +43,7 @@ vi.mock("@/components/ui/virtualized-listbox", () => {
         getVirtualItems: () => virtualItems,
         measureElement: vi.fn(),
         scrollToIndex: (index: number) => {
-          const nextStart = Math.min(
-            Math.max(0, index - Math.floor(windowSize / 2)),
-            maxStart,
-          );
+          const nextStart = Math.min(Math.max(0, index - Math.floor(windowSize / 2)), maxStart);
           setStartIndex(nextStart);
         },
       };
@@ -55,8 +51,7 @@ vi.mock("@/components/ui/virtualized-listbox", () => {
   };
 });
 vi.mock("@/lib/utils", () => ({
-  cn: (...inputs: Array<string | false | null | undefined>) =>
-    inputs.filter(Boolean).join(" "),
+  cn: (...inputs: Array<string | false | null | undefined>) => inputs.filter(Boolean).join(" "),
 }));
 
 const buildOptions = (count: number) =>
@@ -117,9 +112,7 @@ describe("SearchableDropdown", () => {
     fireEvent.keyDown(input, { key: "End" });
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("option", { name: "Option 119" }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Option 119" })).toBeInTheDocument();
     });
 
     fireEvent.keyDown(input, { key: "Enter" });
@@ -151,9 +144,7 @@ describe("SearchableDropdown", () => {
     const listbox = screen.getByRole("listbox");
     expect(listbox).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("option", { name: 'Use "Custom company"' }),
-    );
+    fireEvent.click(screen.getByRole("option", { name: 'Use "Custom company"' }));
 
     expect(onValueChange).toHaveBeenCalledWith("Custom company");
 

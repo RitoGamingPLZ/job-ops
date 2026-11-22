@@ -1,9 +1,5 @@
 import type React from "react";
-import {
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 
 type SettingsSectionFrameProps = {
@@ -27,9 +23,7 @@ export const SettingsSectionFrame: React.FC<SettingsSectionFrameProps> = ({
 }) => {
   if (mode === "panel") {
     return (
-      <section
-        className={cn("space-y-4", tone === "danger" && "pt-2", className)}
-      >
+      <section className={cn("space-y-4", tone === "danger" && "pt-2", className)}>
         <div className={cn("space-y-4", contentClassName)}>{children}</div>
       </section>
     );
@@ -58,9 +52,7 @@ export const SettingsSectionFrame: React.FC<SettingsSectionFrameProps> = ({
           title
         )}
       </AccordionTrigger>
-      <AccordionContent className={cn("pb-4", contentClassName)}>
-        {children}
-      </AccordionContent>
+      <AccordionContent className={cn("pb-4", contentClassName)}>{children}</AccordionContent>
     </AccordionItem>
   );
 };

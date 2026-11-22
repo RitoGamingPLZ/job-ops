@@ -20,10 +20,7 @@ function buildModelOptions(input: {
   ];
 
   const fallbackValue = input.fallbackValue?.trim();
-  if (
-    fallbackValue &&
-    !options.some((option) => option.value === fallbackValue)
-  ) {
+  if (fallbackValue && !options.some((option) => option.value === fallbackValue)) {
     options.unshift({
       value: fallbackValue,
       label: fallbackValue,
@@ -34,11 +31,7 @@ function buildModelOptions(input: {
   return options;
 }
 
-function renderKeyHelper(
-  helperText: string,
-  helperHref: string | null,
-  keepSavedKey: boolean,
-) {
+function renderKeyHelper(helperText: string, helperHref: string | null, keepSavedKey: boolean) {
   return (
     <>
       {helperHref ? (

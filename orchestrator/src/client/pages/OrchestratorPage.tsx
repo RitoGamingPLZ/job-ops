@@ -58,12 +58,8 @@ export const OrchestratorPage: React.FC = () => {
   useLevelsFyiSalaryListener(handleJobUpdated);
   useNavigationRefresh(loadJobs);
 
-  const enabledSources = useMemo(
-    () => getEnabledSources(settings ?? null),
-    [settings],
-  );
-  const { pipelineSources, setPipelineSources, toggleSource } =
-    usePipelineSources(enabledSources);
+  const enabledSources = useMemo(() => getEnabledSources(settings ?? null), [settings]);
+  const { pipelineSources, setPipelineSources, toggleSource } = usePipelineSources(enabledSources);
   const {
     watchlistSources,
     selectedWatchlistSourceIds,
@@ -90,8 +86,7 @@ export const OrchestratorPage: React.FC = () => {
     navigateWithContext: navigation.navigateWithContext,
   });
 
-  const isFirstRunWorkspace =
-    !isLoading && jobs.length === 0 && !isPipelineRunning;
+  const isFirstRunWorkspace = !isLoading && jobs.length === 0 && !isPipelineRunning;
   const isSearchComposerVisible = isRunModeModalOpen || isFirstRunWorkspace;
   const wasSearchComposerVisible = useRef(false);
 
@@ -118,12 +113,7 @@ export const OrchestratorPage: React.FC = () => {
     }
 
     openSearch();
-  }, [
-    canToggleSearchComposer,
-    isSearchComposerVisible,
-    openSearch,
-    setIsRunModeModalOpen,
-  ]);
+  }, [canToggleSearchComposer, isSearchComposerVisible, openSearch, setIsRunModeModalOpen]);
 
   return (
     <>
@@ -134,9 +124,7 @@ export const OrchestratorPage: React.FC = () => {
         isCancelling={isCancelling}
         pipelineSources={pipelineSources}
         hideRunAction={isSearchComposerVisible && !canToggleSearchComposer}
-        isSearchComposerOpen={
-          isSearchComposerVisible && canToggleSearchComposer
-        }
+        isSearchComposerOpen={isSearchComposerVisible && canToggleSearchComposer}
         onOpenAutomaticRun={handleToggleAutomaticRun}
         onCancelPipeline={handleCancelPipeline}
         onOpenManualImport={() => {

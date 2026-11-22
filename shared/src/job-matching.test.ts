@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  deduplicateJobsByTitleAndEmployer,
-  matchJobLocationIntent,
-} from "./job-matching";
+import { deduplicateJobsByTitleAndEmployer, matchJobLocationIntent } from "./job-matching";
 
 describe("map-radius location matching", () => {
   const intent = {
@@ -17,17 +14,13 @@ describe("map-radius location matching", () => {
   };
 
   it("accepts expanded places and native-radius source results", () => {
-    expect(
-      matchJobLocationIntent({ location: "Wakefield" }, intent).matched,
-    ).toBe(true);
+    expect(matchJobLocationIntent({ location: "Wakefield" }, intent).matched).toBe(true);
     expect(
       matchJobLocationIntent({ location: "West Yorkshire" }, intent, {
         nativeRadiusApplied: true,
       }).matched,
     ).toBe(true);
-    expect(
-      matchJobLocationIntent({ location: "Manchester" }, intent).matched,
-    ).toBe(false);
+    expect(matchJobLocationIntent({ location: "Manchester" }, intent).matched).toBe(false);
   });
 });
 

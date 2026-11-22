@@ -83,10 +83,7 @@ function searchEndpoint(careersUrl: string): URL {
 function jobUrl(job: AmazonJob): string {
   if (!/^\d+$/.test(job.id_icims)) throw new Error("Invalid Amazon job ID.");
   const url = new URL(job.job_path, ORIGIN);
-  if (
-    url.origin !== ORIGIN ||
-    !url.pathname.startsWith(`/en/jobs/${job.id_icims}/`)
-  ) {
+  if (url.origin !== ORIGIN || !url.pathname.startsWith(`/en/jobs/${job.id_icims}/`)) {
     throw new Error("Invalid Amazon job URL.");
   }
   return url.href;
@@ -118,8 +115,7 @@ async function getJob(jobRef: string, signal?: AbortSignal) {
 function descriptionHtml(job: AmazonJob): string {
   return [
     job.description,
-    job.basic_qualifications &&
-      `<h2>Basic qualifications</h2>${job.basic_qualifications}`,
+    job.basic_qualifications && `<h2>Basic qualifications</h2>${job.basic_qualifications}`,
     job.preferred_qualifications &&
       `<h2>Preferred qualifications</h2>${job.preferred_qualifications}`,
   ]
@@ -202,15 +198,9 @@ export const amazonWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       }
       total = result.hits;
       const previousSize = collected.size;
-      for (const job of validJobs(result.jobs))
-        collected.set(job.id_icims, job);
+      for (const job of validJobs(result.jobs)) collected.set(job.id_icims, job);
       offset += result.jobs.length;
-      if (
-        collected.size >= MAX_JOBS ||
-        offset >= total ||
-        collected.size === previousSize
-      )
-        break;
+      if (collected.size >= MAX_JOBS || offset >= total || collected.size === previousSize) break;
     }
     input.signal?.throwIfAborted();
     const jobs = [...collected.values()]

@@ -1,7 +1,4 @@
-import {
-  GREENHOUSE_FILTER_KEYS,
-  parseGreenhouseUrl,
-} from "@career-boards/greenhouse";
+import { GREENHOUSE_FILTER_KEYS, parseGreenhouseUrl } from "@career-boards/greenhouse";
 import { afterEach, expect, it, vi } from "vitest";
 import { discoverGreenhouseFacets } from "./greenhouse";
 import { facetDiscoverers } from "./index";
@@ -12,9 +9,7 @@ function mockBoard(departments: unknown = [], jobs: unknown = []) {
     async (url: string) =>
       new Response(
         JSON.stringify(
-          url.endsWith("/departments")
-            ? { departments }
-            : { jobs, meta: { total: 999 } },
+          url.endsWith("/departments") ? { departments } : { jobs, meta: { total: 999 } },
         ),
       ),
   );
@@ -94,9 +89,7 @@ it("registers discovery, uses two unfiltered endpoints and skips offices", async
     if (!value) throw new Error("Expected a discovered value");
     url.searchParams.set(param.key, value);
     expect(
-      new URL(
-        parseGreenhouseUrl(url.href).canonicalCareersUrl,
-      ).searchParams.get(param.key),
+      new URL(parseGreenhouseUrl(url.href).canonicalCareersUrl).searchParams.get(param.key),
     ).toBe(value);
   }
 });
@@ -177,17 +170,13 @@ it.each([
   await expect(discoverGreenhouseFacets({ careersUrl })).rejects.toMatchObject({
     status: 422,
     code: "UNPROCESSABLE_ENTITY",
-    message:
-      "Use https://job-boards.greenhouse.io/<board> to suggest Greenhouse filters.",
+    message: "Use https://job-boards.greenhouse.io/<board> to suggest Greenhouse filters.",
   });
   expect(fetch).not.toHaveBeenCalled();
 });
 
 it.each([
-  [
-    new Response("secret", { status: 500 }),
-    "Greenhouse facets returned HTTP 500.",
-  ],
+  [new Response("secret", { status: 500 }), "Greenhouse facets returned HTTP 500."],
   [new Response("secret"), "Greenhouse facets returned invalid JSON."],
   [
     new Response(JSON.stringify({ secret: "private" })),
@@ -204,17 +193,12 @@ it.each([
   });
 });
 
-it.each([
-  "AbortError",
-  "TimeoutError",
-])("preserves %s during JSON reading", async (name) => {
+it.each(["AbortError", "TimeoutError"])("preserves %s during JSON reading", async (name) => {
   const error = new Error("interrupted");
   error.name = name;
   vi.stubGlobal(
     "fetch",
-    vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: vi.fn().mockRejectedValue(error) }),
+    vi.fn().mockResolvedValue({ ok: true, json: vi.fn().mockRejectedValue(error) }),
   );
   await expect(discoverGreenhouseFacets({ careersUrl })).rejects.toBe(error);
 });

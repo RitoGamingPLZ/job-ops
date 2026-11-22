@@ -58,16 +58,9 @@ function json(data: unknown) {
 describe("leverWatchlistAdapter", () => {
   it("parses its real catalog and ignores malformed entries", () => {
     const sources = adapter.parseCatalogSources(catalog);
-    expect(sources.map((s) => s.id)).toEqual([
-      "lever:spotify",
-      "lever:palantir",
-      "lever:zoox",
-    ]);
-    expect(
-      sources.every((s) => s.sourceType === "lever" && s.cxsJobsUrl === null),
-    ).toBe(true);
-    for (const entry of catalog)
-      expect(adapter.catalogSchema.safeParse(entry).success).toBe(true);
+    expect(sources.map((s) => s.id)).toEqual(["lever:spotify", "lever:palantir", "lever:zoox"]);
+    expect(sources.every((s) => s.sourceType === "lever" && s.cxsJobsUrl === null)).toBe(true);
+    for (const entry of catalog) expect(adapter.catalogSchema.safeParse(entry).success).toBe(true);
     expect(
       adapter.parseCatalogSources([
         null,
@@ -77,34 +70,34 @@ describe("leverWatchlistAdapter", () => {
     ).toEqual([]);
     expect(adapter.descriptor.supportsCustomSource).toBe(true);
   });
-  it.each([
-    `${base}/`,
-    `${base}/posting-1`,
-    `${base}/posting-1/apply?source=ref#apply`,
-  ])("normalizes a board/posting/apply URL with one validation GET: %s", async (careersUrl) => {
-    const mock = vi.fn().mockResolvedValue(json([job()]));
-    vi.stubGlobal("fetch", mock);
-    expect(
-      await adapter.normalizeCustomSelection({
-        careersUrl,
-        label: " Spotify Music ",
-      }),
-    ).toEqual({ careersUrl: base, label: "Spotify Music" });
-    expect(mock).toHaveBeenCalledTimes(1);
-    expect(mock.mock.calls[0][0]).toBe(
-      "https://api.lever.co/v0/postings/spotify?mode=json&limit=1",
-    );
-    expect(mock.mock.calls[0][1]).toMatchObject({
-      redirect: "error",
-      signal: expect.any(AbortSignal),
-    });
-  });
+  it.each([`${base}/`, `${base}/posting-1`, `${base}/posting-1/apply?source=ref#apply`])(
+    "normalizes a board/posting/apply URL with one validation GET: %s",
+    async (careersUrl) => {
+      const mock = vi.fn().mockResolvedValue(json([job()]));
+      vi.stubGlobal("fetch", mock);
+      expect(
+        await adapter.normalizeCustomSelection({
+          careersUrl,
+          label: " Spotify Music ",
+        }),
+      ).toEqual({ careersUrl: base, label: "Spotify Music" });
+      expect(mock).toHaveBeenCalledTimes(1);
+      expect(mock.mock.calls[0][0]).toBe(
+        "https://api.lever.co/v0/postings/spotify?mode=json&limit=1",
+      );
+      expect(mock.mock.calls[0][1]).toMatchObject({
+        redirect: "error",
+        signal: expect.any(AbortSignal),
+      });
+    },
+  );
   it("accepts a valid empty company board, defaults the label, and supports EU", async () => {
     const mock = vi.fn().mockImplementation(async () => json([]));
     vi.stubGlobal("fetch", mock);
-    expect(
-      await adapter.normalizeCustomSelection({ careersUrl: base, label: base }),
-    ).toEqual({ careersUrl: base, label: "spotify" });
+    expect(await adapter.normalizeCustomSelection({ careersUrl: base, label: base })).toEqual({
+      careersUrl: base,
+      label: "spotify",
+    });
     expect(
       await adapter.normalizeCustomSelection({
         careersUrl: "https://jobs.eu.lever.co/acme/job-1/apply",
@@ -139,28 +132,20 @@ describe("leverWatchlistAdapter", () => {
   ])("rejects an unsafe custom URL before fetching: %s", async (careersUrl) => {
     const mock = vi.fn();
     vi.stubGlobal("fetch", mock);
-    await expect(
-      adapter.normalizeCustomSelection({ careersUrl, label: null }),
-    ).rejects.toThrow();
+    await expect(adapter.normalizeCustomSelection({ careersUrl, label: null })).rejects.toThrow();
     expect(mock).not.toHaveBeenCalled();
   });
   it("validates the company against the API and hides upstream bodies", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response("secret response body", { status: 404 }),
-        ),
+      vi.fn().mockResolvedValue(new Response("secret response body", { status: 404 })),
     );
     await expect(
       adapter.normalizeCustomSelection({ careersUrl: base, label: null }),
     ).rejects.toThrow("Lever returned HTTP 404.");
   });
   it("sorts newest first before capping, deduplicates and maps identity consistently", async () => {
-    const rows = Array.from({ length: 65 }, (_, i) =>
-      job(`job-${i}`, 1700000000000 + i),
-    );
+    const rows = Array.from({ length: 65 }, (_, i) => job(`job-${i}`, 1700000000000 + i));
     const mock = vi.fn().mockResolvedValue(json([...rows, rows[0]]));
     vi.stubGlobal("fetch", mock);
     const result = await adapter.fetchJobs({ source });
@@ -199,9 +184,7 @@ describe("leverWatchlistAdapter", () => {
         jobType: "Full-time",
       },
     });
-    expect(imported.draft.jobDescription).toContain(
-      "Build & maintain music services.",
-    );
+    expect(imported.draft.jobDescription).toContain("Build & maintain music services.");
     expect(imported.draft.jobDescription).toContain("TypeScript");
     expect(imported.draft.jobDescription).toContain("Equal opportunities.");
     expect(mock).toHaveBeenCalledTimes(1);
@@ -303,9 +286,7 @@ describe("leverWatchlistAdapter", () => {
       base,
       "https://jobs.eu.lever.co/spotify/posting-1",
     ])
-      await expect(
-        adapter.fetchJobDetails({ source, jobRef }),
-      ).rejects.toThrow();
+      await expect(adapter.fetchJobDetails({ source, jobRef })).rejects.toThrow();
     expect(mock).not.toHaveBeenCalled();
   });
   it("pins upstream posting and apply URLs to the company", async () => {
@@ -327,16 +308,15 @@ describe("leverWatchlistAdapter", () => {
       applicationLink: `${base}/posting-1/apply`,
     });
   });
-  it.each([
-    {},
-    [{ id: "x" }],
-    [{ ...job(), createdAt: 9e15 }],
-  ])("rejects malformed list payloads", async (data) => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(data)));
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      "Lever returned invalid board data.",
-    );
-  });
+  it.each([{}, [{ id: "x" }], [{ ...job(), createdAt: 9e15 }]])(
+    "rejects malformed list payloads",
+    async (data) => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(data)));
+      await expect(adapter.fetchJobs({ source })).rejects.toThrow(
+        "Lever returned invalid board data.",
+      );
+    },
+  );
   it("rejects malformed JSON and mismatched detail IDs", async () => {
     vi.stubGlobal(
       "fetch",
@@ -345,9 +325,7 @@ describe("leverWatchlistAdapter", () => {
         .mockResolvedValueOnce(new Response("not JSON"))
         .mockResolvedValueOnce(json(job("wrong"))),
     );
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      "Lever returned invalid JSON.",
-    );
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow("Lever returned invalid JSON.");
     await expect(
       adapter.prepareImportDraft({ source, jobRef: `${base}/posting-1` }),
     ).rejects.toThrow("Lever returned invalid posting data.");
@@ -356,10 +334,8 @@ describe("leverWatchlistAdapter", () => {
     vi.useFakeTimers();
     // Native promise timers need a wrapper to use Vitest's fake clock.
     vi.doMock("node:timers/promises", async (importOriginal) => {
-      const actual =
-        await importOriginal<typeof import("node:timers/promises")>();
-      const delay = (ms: number) =>
-        new Promise((resolve) => setTimeout(resolve, ms));
+      const actual = await importOriginal<typeof import("node:timers/promises")>();
+      const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
       return {
         ...actual,
         setTimeout: delay,
@@ -383,15 +359,10 @@ describe("leverWatchlistAdapter", () => {
     expect(mock).toHaveBeenCalledTimes(4);
     expect(attempts).toEqual([0, 1000, 4000, 12000]);
   });
-  it.each([
-    "0",
-    new Date(0).toUTCString(),
-  ])("honors Retry-After %s", async (header) => {
+  it.each(["0", new Date(0).toUTCString()])("honors Retry-After %s", async (header) => {
     const mock = vi
       .fn()
-      .mockResolvedValueOnce(
-        new Response("", { status: 429, headers: { "Retry-After": header } }),
-      )
+      .mockResolvedValueOnce(new Response("", { status: 429, headers: { "Retry-After": header } }))
       .mockResolvedValueOnce(json([]));
     vi.stubGlobal("fetch", mock);
     expect((await adapter.fetchJobs({ source })).fetched).toBe(0);
@@ -402,13 +373,9 @@ describe("leverWatchlistAdapter", () => {
     controller.abort();
     const mock = vi
       .fn()
-      .mockResolvedValue(
-        new Response("", { status: 429, headers: { "Retry-After": "100" } }),
-      );
+      .mockResolvedValue(new Response("", { status: 429, headers: { "Retry-After": "100" } }));
     vi.stubGlobal("fetch", mock);
-    await expect(
-      adapter.fetchJobs({ source, signal: controller.signal }),
-    ).rejects.toThrow();
+    await expect(adapter.fetchJobs({ source, signal: controller.signal })).rejects.toThrow();
     expect(mock).not.toHaveBeenCalled();
     const next = new AbortController();
     const pending = adapter.fetchJobs({ source, signal: next.signal });
@@ -431,16 +398,12 @@ describe("leverWatchlistAdapter", () => {
   });
   it("applies the 25 second budget to retry waits even without a caller signal", async () => {
     const controller = new AbortController();
-    const timeout = vi
-      .spyOn(AbortSignal, "timeout")
-      .mockReturnValue(controller.signal);
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
     vi.stubGlobal(
       "fetch",
       vi
         .fn()
-        .mockResolvedValue(
-          new Response("", { status: 429, headers: { "Retry-After": "100" } }),
-        ),
+        .mockResolvedValue(new Response("", { status: 429, headers: { "Retry-After": "100" } })),
     );
     const pending = adapter.fetchJobs({ source });
     setTimeout(() => controller.abort(), 20);
@@ -474,23 +437,17 @@ it("normalizes repeated URL filters, drops unknowns, and preserves posting links
       json(Array.from({ length: 105 }, (_, i) => job(`filter-${i}`, i))),
     );
   vi.stubGlobal("fetch", mock);
-  expect(
-    await adapter.normalizeCustomSelection({ careersUrl, label: null }),
-  ).toMatchObject({
+  expect(await adapter.normalizeCustomSelection({ careersUrl, label: null })).toMatchObject({
     careersUrl: canonical,
   });
   expect(mock.mock.calls[0][0]).toBe(
     "https://api.lever.co/v0/postings/spotify?mode=json&department=Engineering&location=London&location=New+York&team=A&team=Z&limit=1",
   );
-  const catalog = adapter.parseCatalogSources([
-    { label: "Spotify", careersUrl },
-  ]);
+  const catalog = adapter.parseCatalogSources([{ label: "Spotify", careersUrl }]);
   expect(catalog[0].id).toBe(`lever:spotify${new URL(canonical).search}`);
-  expect(
-    adapter.parseCatalogSources([
-      { label: "Spotify", careersUrl: canonical },
-    ])[0].id,
-  ).toBe(catalog[0].id);
+  expect(adapter.parseCatalogSources([{ label: "Spotify", careersUrl: canonical }])[0].id).toBe(
+    catalog[0].id,
+  );
   const filtered = { ...source, careersUrl: canonical };
   const result = await adapter.fetchJobs({ source: filtered });
   expect(result).toMatchObject({ total: 105, fetched: 60 });

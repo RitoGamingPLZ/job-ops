@@ -6,10 +6,7 @@ import {
   normalizeLocationMatchStrictness,
   normalizeLocationSearchScope,
 } from "@shared/location-preferences.js";
-import {
-  parseSearchCitiesSetting,
-  serializeSearchCitiesSetting,
-} from "@shared/search-cities.js";
+import { parseSearchCitiesSetting, serializeSearchCitiesSetting } from "@shared/search-cities.js";
 import {
   deriveExtractorLimits,
   type LocationProximity,
@@ -20,11 +17,7 @@ import { getAuthScopedStorageKey } from "@/client/api/client";
 export type AutomaticPresetId = "fast" | "balanced" | "detailed";
 export type AutomaticPresetSelection = AutomaticPresetId | "custom";
 export type WorkplaceType = "remote" | "hybrid" | "onsite";
-export const WORKPLACE_TYPE_OPTIONS: WorkplaceType[] = [
-  "remote",
-  "hybrid",
-  "onsite",
-];
+export const WORKPLACE_TYPE_OPTIONS: WorkplaceType[] = ["remote", "hybrid", "onsite"];
 
 export interface AutomaticRunValues {
   topN: number;
@@ -50,21 +43,11 @@ export interface AutomaticPresetValues {
   runBudget: number;
 }
 
-function isAutomaticPresetSelection(
-  value: unknown,
-): value is AutomaticPresetSelection {
-  return (
-    value === "custom" ||
-    value === "fast" ||
-    value === "balanced" ||
-    value === "detailed"
-  );
+function isAutomaticPresetSelection(value: unknown): value is AutomaticPresetSelection {
+  return value === "custom" || value === "fast" || value === "balanced" || value === "detailed";
 }
 
-export const AUTOMATIC_PRESETS: Record<
-  AutomaticPresetId,
-  AutomaticPresetValues
-> = {
+export const AUTOMATIC_PRESETS: Record<AutomaticPresetId, AutomaticPresetValues> = {
   fast: {
     topN: 5,
     minSuitabilityScore: 75,
@@ -181,8 +164,7 @@ export function inferAutomaticPresetSelection(args: {
 
   if (
     args.topN === AUTOMATIC_PRESETS.balanced.topN &&
-    args.minSuitabilityScore ===
-      AUTOMATIC_PRESETS.balanced.minSuitabilityScore &&
+    args.minSuitabilityScore === AUTOMATIC_PRESETS.balanced.minSuitabilityScore &&
     (!hasRunBudget || args.runBudget === AUTOMATIC_PRESETS.balanced.runBudget)
   ) {
     return "balanced";
@@ -190,8 +172,7 @@ export function inferAutomaticPresetSelection(args: {
 
   if (
     args.topN === AUTOMATIC_PRESETS.detailed.topN &&
-    args.minSuitabilityScore ===
-      AUTOMATIC_PRESETS.detailed.minSuitabilityScore &&
+    args.minSuitabilityScore === AUTOMATIC_PRESETS.detailed.minSuitabilityScore &&
     (!hasRunBudget || args.runBudget === AUTOMATIC_PRESETS.detailed.runBudget)
   ) {
     return "detailed";
@@ -222,9 +203,7 @@ export function parseCityLocationsInput(input: string): string[] {
   return out;
 }
 
-export function parseCityLocationsSetting(
-  location: string | null | undefined,
-): string[] {
+export function parseCityLocationsSetting(location: string | null | undefined): string[] {
   return parseSearchCitiesSetting(location);
 }
 
@@ -235,12 +214,7 @@ export function serializeCityLocationsSetting(cities: string[]): string | null {
 export function summarizeLocationPreferences(
   values: Pick<
     AutomaticRunValues,
-    | "country"
-    | "cityLocations"
-    | "proximity"
-    | "workplaceTypes"
-    | "searchScope"
-    | "matchStrictness"
+    "country" | "cityLocations" | "proximity" | "workplaceTypes" | "searchScope" | "matchStrictness"
   >,
 ): string {
   return buildLocationPreferencesSummary({
@@ -258,24 +232,16 @@ export function loadAutomaticRunMemory(): AutomaticRunMemory | null {
     const raw = readRunMemoryStorage();
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (
-      typeof parsed.topN !== "number" ||
-      typeof parsed.minSuitabilityScore !== "number"
-    ) {
+    if (typeof parsed.topN !== "number" || typeof parsed.minSuitabilityScore !== "number") {
       return null;
     }
     const topN = Math.min(50, Math.max(1, Math.round(parsed.topN)));
-    const minSuitabilityScore = Math.min(
-      100,
-      Math.max(0, Math.round(parsed.minSuitabilityScore)),
-    );
+    const minSuitabilityScore = Math.min(100, Math.max(0, Math.round(parsed.minSuitabilityScore)));
     const runBudget =
       typeof parsed.runBudget === "number"
         ? normalizePipelineRunBudget(parsed.runBudget)
         : undefined;
-    const explicitPresetId = isAutomaticPresetSelection(parsed.presetId)
-      ? parsed.presetId
-      : null;
+    const explicitPresetId = isAutomaticPresetSelection(parsed.presetId) ? parsed.presetId : null;
     migrateLegacyRunMemoryStorage(raw);
 
     if (explicitPresetId && explicitPresetId !== "custom") {

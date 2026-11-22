@@ -59,9 +59,7 @@ describe("MessageList", () => {
     fireEvent.click(screen.getByRole("button", { name: /copy response/i }));
 
     await waitFor(() =>
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        "Tailored response draft",
-      ),
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith("Tailored response draft"),
     );
     expect(screen.getByText("Copied")).toBeInTheDocument();
   });
@@ -100,9 +98,7 @@ describe("MessageList", () => {
       />,
     );
 
-    expect(
-      screen.queryByRole("button", { name: /copy response/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /copy response/i })).not.toBeInTheDocument();
   });
 
   it("shows a friendly error when clipboard access is unavailable", () => {
@@ -145,9 +141,7 @@ describe("MessageList", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /copy response/i }));
 
-    expect(toast.error).toHaveBeenCalledWith(
-      "Copy is not available in this browser context",
-    );
+    expect(toast.error).toHaveBeenCalledWith("Copy is not available in this browser context");
   });
 
   it("renders user message screenshot attachments with the shared preview", () => {

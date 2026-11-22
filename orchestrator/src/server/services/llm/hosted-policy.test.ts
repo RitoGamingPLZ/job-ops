@@ -11,9 +11,7 @@ describe("hosted LLM policy", () => {
   it("allows public HTTPS endpoints and blocks private or non-HTTPS URLs", () => {
     expect(isSafeHostedBaseUrl("https://api.example.com/v1")).toBe(true);
     expect(isSafeHostedBaseUrl("http://localhost:11434")).toBe(false);
-    expect(
-      isSafeHostedBaseUrl("https://169.254.169.254/latest/meta-data"),
-    ).toBe(false);
+    expect(isSafeHostedBaseUrl("https://169.254.169.254/latest/meta-data")).toBe(false);
     expect(isSafeHostedBaseUrl(null)).toBe(true);
   });
 });

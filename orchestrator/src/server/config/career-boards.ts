@@ -43,16 +43,11 @@ const configDir =
 const careerBoardFilePrefix = "career-boards-";
 
 function getSourceTypeFromFilename(fileName: string): WatchedSourceType | null {
-  if (
-    !fileName.startsWith(careerBoardFilePrefix) ||
-    extname(fileName) !== ".json"
-  ) {
+  if (!fileName.startsWith(careerBoardFilePrefix) || extname(fileName) !== ".json") {
     return null;
   }
 
-  const sourceType = basename(fileName, ".json").slice(
-    careerBoardFilePrefix.length,
-  );
+  const sourceType = basename(fileName, ".json").slice(careerBoardFilePrefix.length);
   return sourceType.length > 0 ? sourceType : null;
 }
 
@@ -66,9 +61,7 @@ function parseCareerBoardCatalog(
   return adapter.parseCatalogSources(Array.isArray(parsed) ? parsed : []);
 }
 
-async function loadCareerBoardFile(
-  fileName: string,
-): Promise<WatchlistSource[]> {
+async function loadCareerBoardFile(fileName: string): Promise<WatchlistSource[]> {
   const sourceType = getSourceTypeFromFilename(fileName);
   if (!sourceType) return [];
 
@@ -85,9 +78,7 @@ export async function listCareerBoardSources(): Promise<WatchlistSource[]> {
     files = [];
   }
 
-  const matchedFiles = files.filter(
-    (fileName) => getSourceTypeFromFilename(fileName) !== null,
-  );
+  const matchedFiles = files.filter((fileName) => getSourceTypeFromFilename(fileName) !== null);
 
   if (matchedFiles.length === 0) {
     return BUNDLED_CAREER_BOARD_CATALOGS.flatMap(({ sourceType, catalog }) =>
@@ -95,10 +86,6 @@ export async function listCareerBoardSources(): Promise<WatchlistSource[]> {
     ).sort((left, right) => left.label.localeCompare(right.label));
   }
 
-  const results = await Promise.all(
-    matchedFiles.map((fileName) => loadCareerBoardFile(fileName)),
-  );
-  return results
-    .flat()
-    .sort((left, right) => left.label.localeCompare(right.label));
+  const results = await Promise.all(matchedFiles.map((fileName) => loadCareerBoardFile(fileName)));
+  return results.flat().sort((left, right) => left.label.localeCompare(right.label));
 }

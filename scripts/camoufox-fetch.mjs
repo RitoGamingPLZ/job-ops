@@ -32,9 +32,7 @@ if (githubToken) {
 
     const headers = new Headers(
       init?.headers ??
-        (input && typeof input === "object" && "headers" in input
-          ? input.headers
-          : undefined),
+        (input && typeof input === "object" && "headers" in input ? input.headers : undefined),
     );
 
     if (!headers.has("authorization")) {

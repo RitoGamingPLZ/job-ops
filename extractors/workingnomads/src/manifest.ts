@@ -30,8 +30,7 @@ export const manifest: ExtractorManifest = {
       searchTerms: context.searchTerms,
       locations: resolveSearchCities({
         list: context.sourceLocationPlan?.requestedCities,
-        single:
-          context.settings.searchCities ?? context.settings.jobspyLocation,
+        single: context.settings.searchCities ?? context.settings.jobspyLocation,
       }),
       workplaceTypes: context.settings.workplaceTypes
         ? JSON.parse(context.settings.workplaceTypes)
@@ -40,9 +39,7 @@ export const manifest: ExtractorManifest = {
       shouldCancel: context.shouldCancel,
       onProgress: (event) => {
         if (context.shouldCancel?.()) return;
-        context.onProgress?.(
-          toTermProgress(event, { label: "Working Nomads" }),
-        );
+        context.onProgress?.(toTermProgress(event, { label: "Working Nomads" }));
       },
     });
 

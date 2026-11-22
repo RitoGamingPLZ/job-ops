@@ -60,9 +60,7 @@ export function inferLevelsRoleSlug(title: string): string | null {
 }
 
 /** Build the best matching Levels.fyi salaries URL for a job. */
-export function buildLevelsFyiSalaryUrl(
-  job: Pick<JobListItem, "employer" | "title">,
-): string {
+export function buildLevelsFyiSalaryUrl(job: Pick<JobListItem, "employer" | "title">): string {
   const companySlug = slugifyCompanyForLevels(job.employer);
   const roleSlug = inferLevelsRoleSlug(job.title);
 
@@ -98,9 +96,7 @@ export function openLevelsFyiLookup(
   return url;
 }
 
-function asOptionalFiniteNonNegative(
-  value: unknown,
-): number | null | undefined {
+function asOptionalFiniteNonNegative(value: unknown): number | null | undefined {
   if (value === undefined) return undefined;
   if (value === null) return null;
   if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
@@ -120,9 +116,7 @@ function asOptionalTrimmedString(value: unknown): string | null | undefined {
 }
 
 /** Validate and normalize a salary result message posted by the extension bridge. */
-export function parseLevelsSalaryMessage(
-  data: unknown,
-): LevelsSalaryResult | null {
+export function parseLevelsSalaryMessage(data: unknown): LevelsSalaryResult | null {
   if (!data || typeof data !== "object") return null;
   const record = data as Record<string, unknown>;
   if (record.type !== LEVELS_SALARY_RESULT_EVENT) return null;

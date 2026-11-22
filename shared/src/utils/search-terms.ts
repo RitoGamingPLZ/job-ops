@@ -10,10 +10,7 @@ export function detectSearchTermDelimiter(value: string): string {
   return ",";
 }
 
-export function parseSearchTerms(
-  raw: string | undefined,
-  fallbackTerm: string,
-): string[] {
+export function parseSearchTerms(raw: string | undefined, fallbackTerm: string): string[] {
   if (!raw || raw.trim().length === 0) return [fallbackTerm];
 
   const trimmed = raw.trim();

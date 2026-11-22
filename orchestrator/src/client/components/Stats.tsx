@@ -3,14 +3,7 @@
  */
 
 import type { JobStatus } from "@shared/types.js";
-import {
-  CheckCircle2,
-  Clock,
-  Loader2,
-  Search,
-  Sparkles,
-  XCircle,
-} from "lucide-react";
+import { CheckCircle2, Clock, Loader2, Search, Sparkles, XCircle } from "lucide-react";
 import type React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -49,21 +42,13 @@ export const Stats: React.FC<StatsProps> = ({ stats }) => {
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-md bg-background/40 text-muted-foreground">
-                    <Icon
-                      className={
-                        key === "processing"
-                          ? "h-4 w-4 animate-spin"
-                          : "h-4 w-4"
-                      }
-                    />
+                    <Icon className={key === "processing" ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
                   </div>
                   <div className="min-w-0">
                     <div className="text-2xl font-semibold tabular-nums leading-none">
                       {stats[key] || 0}
                     </div>
-                    <div className="mt-1 truncate text-xs text-muted-foreground">
-                      {label}
-                    </div>
+                    <div className="mt-1 truncate text-xs text-muted-foreground">{label}</div>
                   </div>
                 </div>
               </CardContent>

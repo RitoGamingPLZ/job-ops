@@ -17,9 +17,7 @@ interface UsePipelineSearchPresetsArgs {
 export interface PipelineSearchPresetComposerProps {
   savedSearches: PipelineSearchPreset[];
   isSavedSearchesLoading: boolean;
-  onCreateSavedSearch: (
-    input: CreatePipelineSearchPresetInput,
-  ) => Promise<PipelineSearchPreset>;
+  onCreateSavedSearch: (input: CreatePipelineSearchPresetInput) => Promise<PipelineSearchPreset>;
   onUpdateSavedSearch: (
     id: string,
     input: UpdatePipelineSearchPresetInput,
@@ -54,13 +52,8 @@ export function usePipelineSearchPresets({
   });
 
   const updateSavedSearchMutation = useMutation({
-    mutationFn: ({
-      id,
-      input,
-    }: {
-      id: string;
-      input: UpdatePipelineSearchPresetInput;
-    }) => api.updatePipelineSearchPreset(id, input),
+    mutationFn: ({ id, input }: { id: string; input: UpdatePipelineSearchPresetInput }) =>
+      api.updatePipelineSearchPreset(id, input),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.pipeline.searchPresets(),
@@ -95,8 +88,7 @@ export function usePipelineSearchPresets({
   });
 
   const onCreateSavedSearch = useCallback(
-    (input: CreatePipelineSearchPresetInput) =>
-      createSavedSearchMutation.mutateAsync(input),
+    (input: CreatePipelineSearchPresetInput) => createSavedSearchMutation.mutateAsync(input),
     [createSavedSearchMutation],
   );
 
@@ -107,8 +99,7 @@ export function usePipelineSearchPresets({
   );
 
   const onDeleteSavedSearch = useCallback(
-    (id: string) =>
-      deleteSavedSearchMutation.mutateAsync(id).then(() => undefined),
+    (id: string) => deleteSavedSearchMutation.mutateAsync(id).then(() => undefined),
     [deleteSavedSearchMutation],
   );
 

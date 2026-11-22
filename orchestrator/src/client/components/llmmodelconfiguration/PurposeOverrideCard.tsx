@@ -2,11 +2,7 @@ import { ClaudeCliSetupHint } from "@client/components/ClaudeCliSetupHint";
 import { CodexAuthPanel } from "@client/components/CodexAuthPanel";
 import { GeminiCliSetupHint } from "@client/components/GeminiCliSetupHint";
 import { getDefaultModelForProvider } from "@shared/settings-registry";
-import type {
-  LlmProviderId,
-  LlmPurpose,
-  LlmPurposeOverrides,
-} from "@shared/types";
+import type { LlmProviderId, LlmPurpose, LlmPurposeOverrides } from "@shared/types";
 import { SettingsInput } from "@/client/pages/settings/components/SettingsInput";
 import {
   formatSecretHint,
@@ -23,10 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  buildModelOptions,
-  renderKeyHelper,
-} from "./llm-model-configuration-helpers";
+import { buildModelOptions, renderKeyHelper } from "./llm-model-configuration-helpers";
 import ModelField from "./ModelField";
 import { useLlmModels } from "./useLlmModels";
 
@@ -61,18 +54,13 @@ export default function PurposeOverrideCard({
   ) => void;
   onApiKeyChange: (purpose: LlmPurpose, value: string) => void;
 }) {
-  const selectedProvider = value?.provider
-    ? normalizeLlmProvider(value.provider)
-    : defaultProvider;
+  const selectedProvider = value?.provider ? normalizeLlmProvider(value.provider) : defaultProvider;
   const hasProviderOverride = Boolean(value?.provider);
   const providerConfig = getLlmProviderConfig(selectedProvider);
   const isCodexProvider = providerConfig.normalizedProvider === "codex";
-  const isGeminiCliProvider =
-    providerConfig.normalizedProvider === "gemini_cli";
-  const isClaudeCliProvider =
-    providerConfig.normalizedProvider === "claude_cli";
-  const supportsModelSuggestions =
-    supportsLlmModelSuggestions(selectedProvider);
+  const isGeminiCliProvider = providerConfig.normalizedProvider === "gemini_cli";
+  const isClaudeCliProvider = providerConfig.normalizedProvider === "claude_cli";
+  const supportsModelSuggestions = supportsLlmModelSuggestions(selectedProvider);
   const baseUrlValue = value?.baseUrl ?? "";
   const modelValue = value?.model ?? "";
   const purposeProviderDefaultModel = hasProviderOverride
@@ -82,8 +70,7 @@ export default function PurposeOverrideCard({
     ? providerConfig.baseUrlPlaceholder
     : "";
   const effectiveBaseUrl =
-    baseUrlValue ||
-    (hasProviderOverride ? providerDefaultBaseUrl : defaultBaseUrl);
+    baseUrlValue || (hasProviderOverride ? providerDefaultBaseUrl : defaultBaseUrl);
   const hasSavedKey = Boolean(apiKeyHint || defaultApiKeyHint);
   const keyHint = apiKeyHint
     ? formatSecretHint(apiKeyHint)
@@ -98,8 +85,7 @@ export default function PurposeOverrideCard({
     showApiKey: providerConfig.showApiKey,
     enabled:
       supportsModelSuggestions &&
-      (!providerConfig.requiresApiKey ||
-        Boolean(apiKeyValue.trim() || hasSavedKey)),
+      (!providerConfig.requiresApiKey || Boolean(apiKeyValue.trim() || hasSavedKey)),
     hasSavedKey,
     purpose,
   });
@@ -126,11 +112,7 @@ export default function PurposeOverrideCard({
       <Select
         value={value?.provider ?? "__inherit__"}
         onValueChange={(nextValue) => {
-          onChange(
-            purpose,
-            "provider",
-            nextValue === "__inherit__" ? null : nextValue,
-          );
+          onChange(purpose, "provider", nextValue === "__inherit__" ? null : nextValue);
           onChange(purpose, "baseUrl", null);
           onChange(purpose, "model", null);
         }}
@@ -151,21 +133,13 @@ export default function PurposeOverrideCard({
       <div className="text-xs text-muted-foreground">
         Current:{" "}
         <span className="font-mono">
-          {hasProviderOverride
-            ? selectedProvider
-            : `inherits ${defaultProvider}`}
+          {hasProviderOverride ? selectedProvider : `inherits ${defaultProvider}`}
         </span>
       </div>
 
-      {hasProviderOverride && isCodexProvider ? (
-        <CodexAuthPanel isBusy={disabled} />
-      ) : null}
-      {hasProviderOverride && isGeminiCliProvider ? (
-        <GeminiCliSetupHint />
-      ) : null}
-      {hasProviderOverride && isClaudeCliProvider ? (
-        <ClaudeCliSetupHint />
-      ) : null}
+      {hasProviderOverride && isCodexProvider ? <CodexAuthPanel isBusy={disabled} /> : null}
+      {hasProviderOverride && isGeminiCliProvider ? <GeminiCliSetupHint /> : null}
+      {hasProviderOverride && isClaudeCliProvider ? <ClaudeCliSetupHint /> : null}
 
       {hasProviderOverride && providerConfig.showBaseUrl ? (
         <SettingsInput
@@ -173,8 +147,7 @@ export default function PurposeOverrideCard({
           inputProps={{
             name: `${purpose}.baseUrl`,
             value: baseUrlValue,
-            onChange: (event) =>
-              onChange(purpose, "baseUrl", event.target.value),
+            onChange: (event) => onChange(purpose, "baseUrl", event.target.value),
           }}
           placeholder={providerConfig.baseUrlPlaceholder}
           disabled={disabled}
@@ -185,9 +158,7 @@ export default function PurposeOverrideCard({
 
       {hasProviderOverride && providerConfig.showApiKey ? (
         <SettingsInput
-          label={
-            providerConfig.requiresApiKey ? "API key" : "API key (optional)"
-          }
+          label={providerConfig.requiresApiKey ? "API key" : "API key (optional)"}
           inputProps={{
             name: `${purpose}.apiKey`,
             value: apiKeyValue,
@@ -195,9 +166,7 @@ export default function PurposeOverrideCard({
           }}
           type="password"
           placeholder={
-            providerConfig.requiresApiKey
-              ? "Paste a purpose key"
-              : "Optional bearer token"
+            providerConfig.requiresApiKey ? "Paste a purpose key" : "Optional bearer token"
           }
           disabled={disabled}
           helper={renderKeyHelper(

@@ -48,8 +48,7 @@ function UsageMeter({ usage }: { usage: HostedUsageActionSummary }) {
       <div className="flex items-baseline justify-between gap-4">
         <span className="text-sm font-medium">{label}</span>
         <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-          {numberFormatter.format(usedUnits)} /{" "}
-          {numberFormatter.format(usage.limitUnits)}
+          {numberFormatter.format(usedUnits)} / {numberFormatter.format(usage.limitUnits)}
         </span>
       </div>
       <Progress
@@ -75,12 +74,8 @@ export function BillingSettingsSection({
 }: BillingSettingsSectionProps) {
   const pro = status?.plan === "pro";
   const includedAi = status?.platformAiIncluded;
-  const periodEnd = formatPeriodEnd(
-    status?.subscription?.currentPeriodEnd ?? null,
-  );
-  const cancellationScheduled = Boolean(
-    pro && status?.subscription?.cancelAtPeriodEnd,
-  );
+  const periodEnd = formatPeriodEnd(status?.subscription?.currentPeriodEnd ?? null);
+  const cancellationScheduled = Boolean(pro && status?.subscription?.cancelAtPeriodEnd);
 
   return (
     <SettingsSectionFrame mode="panel" title="Billing" value="billing">
@@ -91,9 +86,7 @@ export function BillingSettingsSection({
               <CardTitle className="text-lg">
                 <h3>{pro ? "Pro" : "Free"}</h3>
               </CardTitle>
-              <Badge variant={pro ? "default" : "secondary"}>
-                Current plan
-              </Badge>
+              <Badge variant={pro ? "default" : "secondary"}>Current plan</Badge>
             </div>
             {pro ? (
               <p className="max-w-xl text-sm text-muted-foreground">
@@ -109,20 +102,14 @@ export function BillingSettingsSection({
                     : "Connect your own AI provider. Upgrade for higher monthly hosted limits."}
                 </p>
                 <p className="text-sm font-medium tabular-nums">
-                  £30{" "}
-                  <span className="font-normal text-muted-foreground">
-                    / month
-                  </span>
+                  £30 <span className="font-normal text-muted-foreground">/ month</span>
                 </p>
               </div>
             )}
             {cancellationScheduled ? (
               <p className="text-sm text-amber-700 dark:text-amber-400">
                 Your Pro access remains active
-                {periodEnd
-                  ? ` until ${periodEnd}`
-                  : " until the current period ends"}
-                .
+                {periodEnd ? ` until ${periodEnd}` : " until the current period ends"}.
               </p>
             ) : null}
           </div>
@@ -133,11 +120,7 @@ export function BillingSettingsSection({
             disabled={isLoading || isBusy || !status}
             onClick={pro ? onManage : onUpgrade}
           >
-            {isBusy
-              ? "Opening Stripe…"
-              : pro
-                ? "Manage subscription"
-                : "Upgrade to Pro"}
+            {isBusy ? "Opening Stripe…" : pro ? "Manage subscription" : "Upgrade to Pro"}
           </Button>
         </CardHeader>
 
@@ -147,9 +130,7 @@ export function BillingSettingsSection({
             <CardContent className="flex flex-col gap-5 p-6">
               <div className="flex items-baseline justify-between gap-4">
                 <h4 className="font-semibold tracking-tight">Monthly usage</h4>
-                <span className="text-xs text-muted-foreground">
-                  Resets monthly
-                </span>
+                <span className="text-xs text-muted-foreground">Resets monthly</span>
               </div>
               {status.usage.quotasEnabled ? (
                 <ul className="grid gap-4">

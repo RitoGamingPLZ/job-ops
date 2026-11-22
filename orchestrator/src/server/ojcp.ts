@@ -62,17 +62,13 @@ const inFlightSearches = new Map<string, Promise<Record<string, unknown>>>();
 const candidateContextSchema = z
   .object({
     ojcp_candidate_context_version: z.string().trim().min(1).optional(),
-    consent_scope: z.union([
-      z.enum(CONSENT_SCOPES),
-      z.array(z.string().trim().min(1)).min(1),
-    ]),
+    consent_scope: z.union([z.enum(CONSENT_SCOPES), z.array(z.string().trim().min(1)).min(1)]),
   })
   .passthrough();
 
 const candidateContextInputSchema = {
   type: "object" as const,
-  description:
-    "Optional OJCP candidate context. Omit unless explicit consent is available.",
+  description: "Optional OJCP candidate context. Omit unless explicit consent is available.",
   properties: {
     ojcp_candidate_context_version: {
       type: "string" as const,
@@ -155,8 +151,7 @@ const OJCP_TOOLS: Tool[] = [
       properties: {
         query: {
           type: "string",
-          description:
-            "Natural language search query, e.g. 'senior backend engineer remote'",
+          description: "Natural language search query, e.g. 'senior backend engineer remote'",
         },
         location: {
           type: "object",
@@ -206,9 +201,7 @@ function toIsoDate(value: string | null | undefined): string | undefined {
   const leadingDate = /^\d{4}-\d{2}-\d{2}/.exec(value)?.[0];
   if (leadingDate) return leadingDate;
   const timestamp = Date.parse(value);
-  return Number.isNaN(timestamp)
-    ? undefined
-    : new Date(timestamp).toISOString().slice(0, 10);
+  return Number.isNaN(timestamp) ? undefined : new Date(timestamp).toISOString().slice(0, 10);
 }
 
 function normalizeEnum(value: string | null | undefined): string | undefined {
@@ -281,16 +274,13 @@ function mapJobLocation(job: OjcpJob): Record<string, unknown> | undefined {
 }
 
 function mapSalary(job: OjcpJob): Record<string, unknown> | undefined {
-  if (job.salaryMinAmount == null && job.salaryMaxAmount == null)
-    return undefined;
+  if (job.salaryMinAmount == null && job.salaryMaxAmount == null) return undefined;
   return {
     "@type": "MonetaryAmountDistribution",
     ...(job.salaryCurrency ? { currency: job.salaryCurrency } : {}),
     ...(job.salaryMinAmount != null ? { minValue: job.salaryMinAmount } : {}),
     ...(job.salaryMaxAmount != null ? { maxValue: job.salaryMaxAmount } : {}),
-    ...(job.salaryInterval
-      ? { unitText: job.salaryInterval.toUpperCase() }
-      : {}),
+    ...(job.salaryInterval ? { unitText: job.salaryInterval.toUpperCase() } : {}),
   };
 }
 
@@ -308,8 +298,7 @@ export function mapJobPosting(
 ): Record<string, unknown> {
   const description = stripHtmlTags(job.jobDescription ?? "");
   const skills = parseSkills(job.skills);
-  const datePosted =
-    toIsoDate(job.datePosted) ?? toIsoDate(job.discoveredAt) ?? "1970-01-01";
+  const datePosted = toIsoDate(job.datePosted) ?? toIsoDate(job.discoveredAt) ?? "1970-01-01";
   return {
     ojcp_id: job.id,
     title: job.title,
@@ -322,20 +311,14 @@ export function mapJobPosting(
       ...(job.companyLogo ? { logo: job.companyLogo } : {}),
     },
     datePosted,
-    ...(toIsoDate(job.deadline)
-      ? { validThrough: toIsoDate(job.deadline) }
-      : {}),
+    ...(toIsoDate(job.deadline) ? { validThrough: toIsoDate(job.deadline) } : {}),
     ...(options.includeDescription && description
       ? { description }
       : description
         ? { description: description.slice(0, 500) }
         : {}),
-    ...(normalizeEnum(job.jobType)
-      ? { employmentType: normalizeEnum(job.jobType) }
-      : {}),
-    ...(normalizeEnum(job.jobLevel)
-      ? { experienceLevel: normalizeEnum(job.jobLevel) }
-      : {}),
+    ...(normalizeEnum(job.jobType) ? { employmentType: normalizeEnum(job.jobType) } : {}),
+    ...(normalizeEnum(job.jobLevel) ? { experienceLevel: normalizeEnum(job.jobLevel) } : {}),
     ...(mapJobLocation(job) ? { jobLocation: mapJobLocation(job) } : {}),
     ...(mapRemotePolicy(job) ? { remote_policy: mapRemotePolicy(job) } : {}),
     ...(mapSalary(job) ? { baseSalary: mapSalary(job) } : {}),
@@ -386,16 +369,12 @@ function cacheDetails(jobs: OjcpJob[]): void {
 function unsupportedFilters(input: SearchJobsInput): string[] {
   return [
     ...(input.location?.state ? ["location.state"] : []),
-    ...(input.location?.radius_miles !== undefined
-      ? ["location.radius_miles"]
-      : []),
+    ...(input.location?.radius_miles !== undefined ? ["location.radius_miles"] : []),
     ...(input.filters?.employment_type ? ["filters.employment_type"] : []),
     ...(input.filters?.salary_min !== undefined ? ["filters.salary_min"] : []),
     ...(input.filters?.salary_max !== undefined ? ["filters.salary_max"] : []),
     ...(input.filters?.experience_level ? ["filters.experience_level"] : []),
-    ...(input.filters?.posted_within_days !== undefined
-      ? ["filters.posted_within_days"]
-      : []),
+    ...(input.filters?.posted_within_days !== undefined ? ["filters.posted_within_days"] : []),
   ];
 }
 
@@ -476,10 +455,8 @@ function getUnsupportedFilter(error: unknown): string | undefined {
   if (!details || typeof details !== "object" || Array.isArray(details)) {
     return undefined;
   }
-  const unsupportedFilters = (details as Record<string, unknown>)
-    .unsupported_filters;
-  return Array.isArray(unsupportedFilters) &&
-    typeof unsupportedFilters[0] === "string"
+  const unsupportedFilters = (details as Record<string, unknown>).unsupported_filters;
+  return Array.isArray(unsupportedFilters) && typeof unsupportedFilters[0] === "string"
     ? unsupportedFilters[0]
     : undefined;
 }
@@ -496,11 +473,7 @@ function searchRejectionReason(
   return undefined;
 }
 
-function trackSearchFailure(
-  req: Request,
-  error: unknown,
-  latencyMs: number,
-): void {
+function trackSearchFailure(req: Request, error: unknown, latencyMs: number): void {
   const errorCode = getOjcpErrorCode(error);
   const filter = getUnsupportedFilter(error);
   const reason = searchRejectionReason(errorCode, filter);
@@ -514,8 +487,7 @@ function trackSearchFailure(
   }
 
   trackOjcpEvent(req, "ojcp_search_failed", {
-    reason:
-      errorCode === "provider_error" ? "provider_error" : "upstream_error",
+    reason: errorCode === "provider_error" ? "provider_error" : "upstream_error",
     latency_bucket: bucketLatency(latencyMs),
   });
 }
@@ -543,10 +515,7 @@ function trackSearchCompleted(
   });
 }
 
-async function callSearchJobs(
-  req: Request,
-  arguments_: unknown,
-): Promise<CallToolResult> {
+async function callSearchJobs(req: Request, arguments_: unknown): Promise<CallToolResult> {
   const startedAt = Date.now();
   try {
     const input = parseInput(searchJobsSchema, arguments_);
@@ -559,10 +528,7 @@ async function callSearchJobs(
   }
 }
 
-async function callGetJobDetail(
-  req: Request,
-  arguments_: unknown,
-): Promise<CallToolResult> {
+async function callGetJobDetail(req: Request, arguments_: unknown): Promise<CallToolResult> {
   const startedAt = Date.now();
   let input: GetJobDetailInput | undefined;
   try {
@@ -596,15 +562,12 @@ async function callGetJobDetail(
   }
 }
 
-async function searchJobsLive(
-  input: SearchJobsInput,
-): Promise<Record<string, unknown>> {
+async function searchJobsLive(input: SearchJobsInput): Promise<Record<string, unknown>> {
   const page = await fetchFreeHirePage({
     searchTerm: input.query,
     selectedCountry: input.location?.country,
     locations: input.location?.city ? [input.location.city] : undefined,
-    workplaceTypes:
-      input.location?.remote_ok === false ? ["hybrid", "onsite"] : undefined,
+    workplaceTypes: input.location?.remote_ok === false ? ["hybrid", "onsite"] : undefined,
     limit: input.pagination.limit,
     offset: input.pagination.offset,
     timeoutMs: FREEHIRE_TIMEOUT_MS,
@@ -613,17 +576,14 @@ async function searchJobsLive(
   const ojcpJobs = page.jobs.map((job) => toOjcpJob(job, discoveredAt));
   cacheDetails(ojcpJobs);
 
-  const warnings = [
-    ...(input.candidate_context
-      ? [
-          {
-            code: "candidate_context_not_applied",
-            message:
-              "Candidate context was validated but not used for personalization.",
-          },
-        ]
-      : []),
-  ];
+  const warnings = input.candidate_context
+    ? [
+        {
+          code: "candidate_context_not_applied",
+          message: "Candidate context was validated but not used for personalization.",
+        },
+      ]
+    : [];
 
   return {
     ojcp_version: OJCP_VERSION,
@@ -631,16 +591,12 @@ async function searchJobsLive(
     total_results: page.total,
     returned: ojcpJobs.length,
     offset: page.offset,
-    jobs: ojcpJobs.map((job) =>
-      mapJobPosting(job, { includeDescription: false }),
-    ),
+    jobs: ojcpJobs.map((job) => mapJobPosting(job, { includeDescription: false })),
     ...(warnings.length > 0 ? { warnings } : {}),
   };
 }
 
-async function searchJobsWithMetadata(
-  input: SearchJobsInput,
-): Promise<SearchExecution> {
+async function searchJobsWithMetadata(input: SearchJobsInput): Promise<SearchExecution> {
   const unsupported = unsupportedFilters(input);
   if (unsupported.length > 0) {
     throw ojcpError(
@@ -683,9 +639,7 @@ async function searchJobsWithMetadata(
   }
 }
 
-export async function searchJobs(
-  input: SearchJobsInput,
-): Promise<Record<string, unknown>> {
+export async function searchJobs(input: SearchJobsInput): Promise<Record<string, unknown>> {
   return (await searchJobsWithMetadata(input)).result;
 }
 
@@ -704,9 +658,7 @@ export async function getJobDetail(input: GetJobDetailInput) {
       ? {
           employer_context: {
             name: job.employer,
-            ...(job.companyDescription
-              ? { description: job.companyDescription }
-              : {}),
+            ...(job.companyDescription ? { description: job.companyDescription } : {}),
             ...(job.companyIndustry
               ? {
                   industries: job.companyIndustry
@@ -718,9 +670,7 @@ export async function getJobDetail(input: GetJobDetailInput) {
             ...((job.companyUrlDirect ?? job.employerUrl)
               ? { url: job.companyUrlDirect ?? job.employerUrl }
               : {}),
-            ...(job.companyNumEmployees
-              ? { employee_count: job.companyNumEmployees }
-              : {}),
+            ...(job.companyNumEmployees ? { employee_count: job.companyNumEmployees } : {}),
           },
         }
       : {}),
@@ -729,8 +679,7 @@ export async function getJobDetail(input: GetJobDetailInput) {
           warnings: [
             {
               code: "candidate_context_not_applied",
-              message:
-                "Candidate context was validated but not used for personalization.",
+              message: "Candidate context was validated but not used for personalization.",
             },
           ],
         }
@@ -760,15 +709,11 @@ function ojcpError(
     ...(details === undefined ? {} : { details: sanitizeUnknown(details) }),
   };
   // OJCP: MCP providers signal rate limiting with JSON-RPC code -32029.
-  const code =
-    errorCode === "rate_limited" ? OJCP_RATE_LIMITED_CODE : OJCP_ERROR_CODE;
+  const code = errorCode === "rate_limited" ? OJCP_RATE_LIMITED_CODE : OJCP_ERROR_CODE;
   return new McpError(code, message, envelope);
 }
 
-function parseInput<Schema extends z.ZodTypeAny>(
-  schema: Schema,
-  input: unknown,
-): z.infer<Schema> {
+function parseInput<Schema extends z.ZodTypeAny>(schema: Schema, input: unknown): z.infer<Schema> {
   const parsed = schema.safeParse(input ?? {});
   if (!parsed.success) {
     throw ojcpError(
@@ -803,10 +748,7 @@ function createOjcpServer(req: Request): Server {
       if (request.params.name === "get_job_detail") {
         return await callGetJobDetail(req, request.params.arguments);
       }
-      throw ojcpError(
-        "invalid_request",
-        `Unknown OJCP tool: ${request.params.name}`,
-      );
+      throw ojcpError("invalid_request", `Unknown OJCP tool: ${request.params.name}`);
     } catch (error) {
       if (error instanceof McpError) throw error;
       logger.error("OJCP tool failed", {
@@ -814,20 +756,13 @@ function createOjcpServer(req: Request): Server {
         tool: request.params.name,
         error: sanitizeUnknown(error),
       });
-      throw ojcpError(
-        "provider_error",
-        "JobOps could not complete the request.",
-      );
+      throw ojcpError("provider_error", "JobOps could not complete the request.");
     }
   });
   return server;
 }
 
-function sendJsonRpcError(
-  res: Response,
-  status: number,
-  message: string,
-): void {
+function sendJsonRpcError(res: Response, status: number, message: string): void {
   res.status(status).json({
     jsonrpc: "2.0",
     error: { code: OJCP_ERROR_CODE, message },

@@ -15,11 +15,11 @@ type ScreenshotAttachmentPreviewProps = {
   onRemove?: (attachment: JobChatImageAttachment) => void;
 };
 
-export const ScreenshotAttachmentPreview: React.FC<
-  ScreenshotAttachmentPreviewProps
-> = ({ attachments, onRemove }) => {
-  const [previewAttachment, setPreviewAttachment] =
-    useState<JobChatImageAttachment | null>(null);
+export const ScreenshotAttachmentPreview: React.FC<ScreenshotAttachmentPreviewProps> = ({
+  attachments,
+  onRemove,
+}) => {
+  const [previewAttachment, setPreviewAttachment] = useState<JobChatImageAttachment | null>(null);
 
   if (attachments.length === 0) return null;
 

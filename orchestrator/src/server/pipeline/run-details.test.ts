@@ -86,15 +86,9 @@ describe("buildPipelineRunSavedDetails", () => {
     expect(savedDetails.effectiveConfig.countryLabel).toBe("United States");
     expect(savedDetails.effectiveConfig.searchCities).toEqual(["New York"]);
     expect(savedDetails.effectiveConfig.workplaceTypes).toEqual(["remote"]);
-    expect(savedDetails.effectiveConfig.locationSearchScope).toBe(
-      "selected_only",
-    );
-    expect(savedDetails.effectiveConfig.locationMatchStrictness).toBe(
-      "exact_only",
-    );
-    expect(savedDetails.effectiveConfig.compatibleSources).toEqual([
-      "linkedin",
-    ]);
+    expect(savedDetails.effectiveConfig.locationSearchScope).toBe("selected_only");
+    expect(savedDetails.effectiveConfig.locationMatchStrictness).toBe("exact_only");
+    expect(savedDetails.effectiveConfig.compatibleSources).toEqual(["linkedin"]);
     expect(savedDetails.effectiveConfig.skippedSources).toEqual([
       expect.objectContaining({
         source: "gradcracker",

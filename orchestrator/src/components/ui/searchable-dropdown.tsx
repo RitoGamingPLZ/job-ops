@@ -1,11 +1,7 @@
 import { Check, ChevronsUpDown, Search } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useVirtualizedListbox } from "@/components/ui/virtualized-listbox";
 import { cn } from "@/lib/utils";
 
@@ -89,9 +85,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
 }) => {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
-  const [listElement, setListElement] = React.useState<HTMLDivElement | null>(
-    null,
-  );
+  const [listElement, setListElement] = React.useState<HTMLDivElement | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const deferredQuery = React.useDeferredValue(query);
   const listId = React.useId();
@@ -102,8 +96,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
     allowCustomValue &&
     trimmedQuery.length > 0 &&
     !options.some(
-      (option) =>
-        option.value === trimmedQuery || option.label.trim() === trimmedQuery,
+      (option) => option.value === trimmedQuery || option.label.trim() === trimmedQuery,
     );
   const triggerLabel = selectedOption?.label ?? (value || placeholder);
   const filteredOptions = React.useMemo(() => {
@@ -126,13 +119,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
     if (filteredOptions.length > 0) return;
     if (hasCustomValue) return;
     onEmptyResults(deferredTrimmedQuery);
-  }, [
-    open,
-    deferredTrimmedQuery,
-    filteredOptions.length,
-    hasCustomValue,
-    onEmptyResults,
-  ]);
+  }, [open, deferredTrimmedQuery, filteredOptions.length, hasCustomValue, onEmptyResults]);
 
   const rows = React.useMemo<SearchableDropdownRow[]>(() => {
     const nextRows: SearchableDropdownRow[] = [];
@@ -161,10 +148,8 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
 
   const selectedRowId = React.useMemo(
     () =>
-      rows.find(
-        (row) =>
-          row.type === "option" && row.option.value === value && !row.disabled,
-      )?.id ?? null,
+      rows.find((row) => row.type === "option" && row.option.value === value && !row.disabled)
+        ?.id ?? null,
     [rows, value],
   );
   const rowIds = React.useMemo(() => rows.map((row) => row.id), [rows]);
@@ -203,10 +188,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
     setActiveRowId((current) => {
       if (current) {
         const currentRow = rows.find((row) => row.id === current);
-        if (
-          currentRow &&
-          (currentRow.type === "custom" || !currentRow.disabled)
-        ) {
+        if (currentRow && (currentRow.type === "custom" || !currentRow.disabled)) {
           return current;
         }
       }
@@ -247,8 +229,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
     (direction: 1 | -1) => {
       if (!selectableRowIndexes.length) return;
 
-      const currentSelectableIndex =
-        selectableRowIndexes.indexOf(activeRowIndex);
+      const currentSelectableIndex = selectableRowIndexes.indexOf(activeRowIndex);
 
       let nextSelectableIndex = currentSelectableIndex;
       if (nextSelectableIndex < 0) {
@@ -259,9 +240,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
         (nextSelectableIndex + direction + selectableRowIndexes.length) %
         selectableRowIndexes.length;
 
-      setActiveRowId(
-        rows[selectableRowIndexes[nextSelectableIndex]]?.id ?? null,
-      );
+      setActiveRowId(rows[selectableRowIndexes[nextSelectableIndex]]?.id ?? null);
     },
     [activeRowIndex, rows, selectableRowIndexes],
   );
@@ -287,9 +266,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
 
     if (event.key === "End") {
       event.preventDefault();
-      setActiveRowId(
-        rows[selectableRowIndexes[selectableRowIndexes.length - 1]]?.id ?? null,
-      );
+      setActiveRowId(rows[selectableRowIndexes[selectableRowIndexes.length - 1]]?.id ?? null);
       return;
     }
 
@@ -339,10 +316,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className={cn("w-[320px] p-0", contentClassName)}
-      >
+      <PopoverContent align="start" className={cn("w-[320px] p-0", contentClassName)}>
         <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
           <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
           <input
@@ -364,10 +338,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
           id={listId}
           role="listbox"
           aria-label={ariaLabel}
-          className={cn(
-            "max-h-56 overflow-y-auto overflow-x-hidden",
-            listClassName,
-          )}
+          className={cn("max-h-56 overflow-y-auto overflow-x-hidden", listClassName)}
           onWheelCapture={(event) => event.stopPropagation()}
         >
           {rows.length === 0 ? (
@@ -378,8 +349,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
                 const row = rows[virtualItem.index];
                 if (!row) return null;
 
-                const selected =
-                  row.type === "option" && value === row.option.value;
+                const selected = row.type === "option" && value === row.option.value;
                 const isActive = row.id === activeRowId;
 
                 return (

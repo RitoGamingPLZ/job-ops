@@ -37,9 +37,7 @@ export const jobNoteSchema = z.object({
   content: z.string().trim().min(1).max(20000),
 });
 
-export async function hydrateJobPdfFreshness<T extends Job>(
-  job: T,
-): Promise<T> {
+export async function hydrateJobPdfFreshness<T extends Job>(job: T): Promise<T> {
   const context = await resolvePdfFingerprintContext();
   return applyJobPdfFreshness(job, context);
 }
@@ -51,9 +49,7 @@ export function hydrateJobPdfFreshnessWithContext<T extends Job>(
   return applyJobPdfFreshness(job, context);
 }
 
-export function toJobListItem(
-  job: jobsRepo.JobListItemWithPdfFreshnessInput,
-): JobListItem {
+export function toJobListItem(job: jobsRepo.JobListItemWithPdfFreshnessInput): JobListItem {
   return {
     id: job.id,
     source: job.source,
@@ -107,15 +103,7 @@ export const updateJobSchema = z.object({
   salaryCurrency: z.string().trim().max(20).nullable().optional(),
   deadline: z.string().trim().max(100).nullable().optional(),
   status: z
-    .enum([
-      "discovered",
-      "processing",
-      "ready",
-      "applied",
-      "in_progress",
-      "skipped",
-      "expired",
-    ])
+    .enum(["discovered", "processing", "ready", "applied", "in_progress", "skipped", "expired"])
     .optional(),
   outcome: z.enum(APPLICATION_OUTCOMES).nullable().optional(),
   closedAt: z.number().int().nullable().optional(),
@@ -137,8 +125,7 @@ export const updateJobSchema = z.object({
       } catch {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message:
-            "tailoredSkills must be a JSON array of { name, keywords } objects",
+          message: "tailoredSkills must be a JSON array of { name, keywords } objects",
         });
         return;
       }
@@ -148,8 +135,7 @@ export const updateJobSchema = z.object({
       if (!parseResult.success) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message:
-            "tailoredSkills must be a JSON array of { name, keywords } objects",
+          message: "tailoredSkills must be a JSON array of { name, keywords } objects",
         });
       }
     }),
@@ -223,15 +209,10 @@ export const uploadJobDocumentSchema = z.object({
 });
 
 export const JOBS_BENCHMARK_ENABLED =
-  process.env.BENCHMARK_JOBS_TIMING === "1" ||
-  process.env.BENCHMARK_JOBS_TIMING === "true";
+  process.env.BENCHMARK_JOBS_TIMING === "1" || process.env.BENCHMARK_JOBS_TIMING === "true";
 
-export function parseStatusFilter(
-  statusFilter?: string,
-): JobStatus[] | undefined {
-  const parsed = statusFilter?.split(",").filter(Boolean) as
-    | JobStatus[]
-    | undefined;
+export function parseStatusFilter(statusFilter?: string): JobStatus[] | undefined {
+  const parsed = statusFilter?.split(",").filter(Boolean) as JobStatus[] | undefined;
   return parsed && parsed.length > 0 ? parsed : undefined;
 }
 
@@ -253,9 +234,7 @@ export function toJobsRouteError(
 ): AppError {
   if (error instanceof z.ZodError) {
     return badRequest(
-      error.issues[0]?.message ??
-        options?.invalidRequestFallbackMessage ??
-        error.message,
+      error.issues[0]?.message ?? options?.invalidRequestFallbackMessage ?? error.message,
       error.flatten(),
     );
   }
@@ -271,8 +250,7 @@ export function appErrorFromPipelineFailure(
   result: { error?: string; errorCode?: AppErrorCode },
   fallbackMessage: string,
 ): AppError {
-  const code =
-    result.errorCode ?? (result.error === "Job not found" ? "NOT_FOUND" : null);
+  const code = result.errorCode ?? (result.error === "Job not found" ? "NOT_FOUND" : null);
 
   if (!code) {
     return badRequest(result.error ?? fallbackMessage);

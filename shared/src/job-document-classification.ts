@@ -1,7 +1,6 @@
 import type { JobDocument } from "./types";
 
-export const DOCX_MIME =
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+export const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 const TEXT_DOCUMENT_EXTENSIONS = new Set([
   "csv",
@@ -88,15 +87,11 @@ export function getSafeInlineJobDocumentImageMediaType(
   );
 }
 
-export function isJobDocumentSafeInlineImage(
-  document: JobDocumentTypeTarget,
-): boolean {
+export function isJobDocumentSafeInlineImage(document: JobDocumentTypeTarget): boolean {
   return Boolean(getSafeInlineJobDocumentImageMediaType(document));
 }
 
-export function isJobDocumentTextLike(
-  document: JobDocumentTypeTarget,
-): boolean {
+export function isJobDocumentTextLike(document: JobDocumentTypeTarget): boolean {
   const mediaType = document.mediaType?.toLowerCase() ?? "";
   return (
     mediaType.startsWith("text/") ||
@@ -105,27 +100,19 @@ export function isJobDocumentTextLike(
   );
 }
 
-export function canUseJobDocumentForTextContext(
-  document: JobDocumentTypeTarget,
-): boolean {
+export function canUseJobDocumentForTextContext(document: JobDocumentTypeTarget): boolean {
   return isJobDocumentPdf(document) || isJobDocumentTextLike(document);
 }
 
-export function canPreviewJobDocumentAsRawText(
-  document: JobDocumentTypeTarget,
-): boolean {
+export function canPreviewJobDocumentAsRawText(document: JobDocumentTypeTarget): boolean {
   const mediaType = document.mediaType?.toLowerCase() ?? "";
   return (
     RAW_TEXT_PREVIEW_MEDIA_TYPES.has(mediaType) ||
-    RAW_TEXT_PREVIEW_EXTENSIONS.has(
-      getJobDocumentFileExtension(document.fileName),
-    )
+    RAW_TEXT_PREVIEW_EXTENSIONS.has(getJobDocumentFileExtension(document.fileName))
   );
 }
 
-export function getSafeInlineJobDocumentMediaType(
-  document: JobDocumentTypeTarget,
-): string | null {
+export function getSafeInlineJobDocumentMediaType(document: JobDocumentTypeTarget): string | null {
   if (isJobDocumentPdf(document)) return "application/pdf";
   const imageMediaType = getSafeInlineJobDocumentImageMediaType(document);
   if (imageMediaType) return imageMediaType;
@@ -133,8 +120,6 @@ export function getSafeInlineJobDocumentMediaType(
   return null;
 }
 
-export function canOpenJobDocumentInline(
-  document: JobDocumentTypeTarget,
-): boolean {
+export function canOpenJobDocumentInline(document: JobDocumentTypeTarget): boolean {
   return Boolean(getSafeInlineJobDocumentMediaType(document));
 }

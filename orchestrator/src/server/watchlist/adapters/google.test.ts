@@ -72,11 +72,7 @@ function callback(data: unknown, key = "ds:1") {
 const realListHtml = `<!doctype html><html><body>${callback([[["unrelated company"]]], "ds:0")}${callback([[realJob], null, 1420, 20])}</body></html>`;
 const jobRef = `${base}79008891555193542-technical-program-manager-infrastructure-deployment-software`;
 function job(index: number) {
-  return [
-    String(index),
-    `Software Engineer, AI/ML ${index}`,
-    ...realJob.slice(2),
-  ];
+  return [String(index), `Software Engineer, AI/ML ${index}`, ...realJob.slice(2)];
 }
 function list(jobs: unknown[] | null = [realJob], total = jobs?.length ?? 0) {
   return new Response(callback([jobs, null, total, 20]));
@@ -102,11 +98,7 @@ describe("googleWatchlistAdapter", () => {
     ]);
     expect(adapter.catalogSchema.safeParse(catalog[0]).success).toBe(true);
     expect(
-      adapter.parseCatalogSources([
-        null,
-        {},
-        { label: "Bad", careersUrl: "https://evil.test/" },
-      ]),
+      adapter.parseCatalogSources([null, {}, { label: "Bad", careersUrl: "https://evil.test/" }]),
     ).toEqual([]);
   });
   it("keeps supported repeated filters, removes paging and enforces newest first", () => {
@@ -150,9 +142,7 @@ describe("googleWatchlistAdapter", () => {
     "https://www.google.com/",
     "not a url",
   ])("rejects untrusted search URL %s", (careersUrl) => {
-    expect(() =>
-      adapter.normalizeCustomSelection({ careersUrl, label: null }),
-    ).toThrow();
+    expect(() => adapter.normalizeCustomSelection({ careersUrl, label: null })).toThrow();
   });
   it("maps the real HTML fixture without fetching detail pages", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(realListHtml));
@@ -233,9 +223,7 @@ describe("googleWatchlistAdapter", () => {
     );
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
-  it.each([
-    0, 5,
-  ])("stops on a short subsequent page of %s jobs", async (length) => {
+  it.each([0, 5])("stops on a short subsequent page of %s jobs", async (length) => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -272,13 +260,11 @@ describe("googleWatchlistAdapter", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
   it("deduplicates the first results page", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValueOnce(list([job(1), job(1), job(2)], 3)),
-    );
-    expect(
-      (await adapter.fetchJobs({ source })).jobs.map((row) => row.sourceJobId),
-    ).toEqual(["1", "2"]);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(list([job(1), job(1), job(2)], 3)));
+    expect((await adapter.fetchJobs({ source })).jobs.map((row) => row.sourceJobId)).toEqual([
+      "1",
+      "2",
+    ]);
   });
   it.each([null, []])("accepts a genuine empty list (%s)", async (jobs) => {
     const fetchMock = vi.fn().mockResolvedValue(list(jobs, 0));
@@ -300,9 +286,7 @@ describe("googleWatchlistAdapter", () => {
     `<script>AF_initDataCallback({key: 'ds:1', data:[[],null,0, sideChannel: {}});</script>`,
   ])("fails loudly on missing/malformed/changed structure", async (html) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(html)));
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      /structure may have changed/,
-    );
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow(/structure may have changed/);
   });
   it("handles brackets, escaped quotes and backslashes inside JSON strings", async () => {
     vi.stubGlobal(
@@ -310,13 +294,7 @@ describe("googleWatchlistAdapter", () => {
       vi
         .fn()
         .mockResolvedValue(
-          list([
-            [
-              ...job(1).slice(0, 1),
-              'Engineer [a] "quote" \\ special',
-              ...job(1).slice(2),
-            ],
-          ]),
+          list([[...job(1).slice(0, 1), 'Engineer [a] "quote" \\ special', ...job(1).slice(2)]]),
         ),
     );
     expect((await adapter.fetchJobs({ source })).jobs[0].title).toBe(
@@ -343,10 +321,7 @@ describe("googleWatchlistAdapter", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
   it("rejects upstream errors without leaking response bodies", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("secret", { status: 502 })),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("secret", { status: 502 })));
     await expect(adapter.fetchJobs({ source })).rejects.toThrow(
       "Google careers returned HTTP 502.",
     );
@@ -360,9 +335,7 @@ describe("googleWatchlistAdapter", () => {
         options.signal.throwIfAborted();
       }),
     );
-    await expect(
-      adapter.fetchJobs({ source, signal: controller.signal }),
-    ).rejects.toThrow();
+    await expect(adapter.fetchJobs({ source, signal: controller.signal })).rejects.toThrow();
   });
   it("fetches one detail page on a cache miss and imports all sections with matching identity", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => detail());
@@ -469,13 +442,11 @@ describe("googleWatchlistAdapter", () => {
   it("rejects ds:1 related-job envelopes on a detail cache miss", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(new Response(callback([[realJob], null, 1, 20]))),
+      vi.fn().mockResolvedValue(new Response(callback([[realJob], null, 1, 20]))),
     );
-    await expect(
-      adapter.prepareImportDraft({ source, jobRef }),
-    ).rejects.toThrow(/structure may have changed/);
+    await expect(adapter.prepareImportDraft({ source, jobRef })).rejects.toThrow(
+      /structure may have changed/,
+    );
   });
   it("rejects mismatched job identity, empty descriptions and changed detail data", async () => {
     const empty = [...realJob];
@@ -491,9 +462,9 @@ describe("googleWatchlistAdapter", () => {
         .mockResolvedValueOnce(detail({})),
     );
     for (let i = 0; i < 3; i += 1)
-      await expect(
-        adapter.prepareImportDraft({ source, jobRef }),
-      ).rejects.toThrow(/structure may have changed/);
+      await expect(adapter.prepareImportDraft({ source, jobRef })).rejects.toThrow(
+        /structure may have changed/,
+      );
   });
   it.each([
     "https://evil.test/123",
@@ -503,9 +474,7 @@ describe("googleWatchlistAdapter", () => {
   ])("rejects unsafe job refs before fetching %s", async (jobRef) => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    await expect(
-      adapter.prepareImportDraft({ source, jobRef }),
-    ).rejects.toThrow();
+    await expect(adapter.prepareImportDraft({ source, jobRef })).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

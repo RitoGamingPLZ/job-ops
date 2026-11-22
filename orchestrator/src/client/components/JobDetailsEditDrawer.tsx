@@ -201,63 +201,49 @@ export const JobDetailsEditDrawer: React.FC<JobDetailsEditDrawerProps> = ({
                     id="edit-job-title"
                     label="Title *"
                     value={draft.title}
-                    onChange={(value) =>
-                      setDraft((prev) => ({ ...prev, title: value }))
-                    }
+                    onChange={(value) => setDraft((prev) => ({ ...prev, title: value }))}
                     placeholder="e.g. Full Stack Engineer"
                   />
                   <FieldInput
                     id="edit-job-employer"
                     label="Employer *"
                     value={draft.employer}
-                    onChange={(value) =>
-                      setDraft((prev) => ({ ...prev, employer: value }))
-                    }
+                    onChange={(value) => setDraft((prev) => ({ ...prev, employer: value }))}
                     placeholder="e.g. Acme Labs"
                   />
                   <FieldInput
                     id="edit-job-url"
                     label="Job URL *"
                     value={draft.jobUrl}
-                    onChange={(value) =>
-                      setDraft((prev) => ({ ...prev, jobUrl: value }))
-                    }
+                    onChange={(value) => setDraft((prev) => ({ ...prev, jobUrl: value }))}
                     placeholder="https://..."
                   />
                   <FieldInput
                     id="edit-application-url"
                     label="Application URL"
                     value={draft.applicationLink}
-                    onChange={(value) =>
-                      setDraft((prev) => ({ ...prev, applicationLink: value }))
-                    }
+                    onChange={(value) => setDraft((prev) => ({ ...prev, applicationLink: value }))}
                     placeholder="https://..."
                   />
                   <FieldInput
                     id="edit-location"
                     label="Location"
                     value={draft.location}
-                    onChange={(value) =>
-                      setDraft((prev) => ({ ...prev, location: value }))
-                    }
+                    onChange={(value) => setDraft((prev) => ({ ...prev, location: value }))}
                     placeholder="e.g. London, UK"
                   />
                   <FieldInput
                     id="edit-salary"
                     label="Salary"
                     value={draft.salary}
-                    onChange={(value) =>
-                      setDraft((prev) => ({ ...prev, salary: value }))
-                    }
+                    onChange={(value) => setDraft((prev) => ({ ...prev, salary: value }))}
                     placeholder="e.g. GBP 90k-110k"
                   />
                   <FieldInput
                     id="edit-deadline"
                     label="Deadline"
                     value={draft.deadline}
-                    onChange={(value) =>
-                      setDraft((prev) => ({ ...prev, deadline: value }))
-                    }
+                    onChange={(value) => setDraft((prev) => ({ ...prev, deadline: value }))}
                     placeholder="e.g. 31 Mar 2026"
                   />
                 </div>

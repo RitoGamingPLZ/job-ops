@@ -15,9 +15,7 @@ export const MAX_JOB_EMAIL_LIMIT = 200;
 
 function buildMessageSourceUrl(message: PostApplicationMessage): string | null {
   if (message.provider !== "gmail" || !message.externalThreadId) return null;
-  return `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(
-    message.externalThreadId,
-  )}`;
+  return `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(message.externalThreadId)}`;
 }
 
 export async function listJobPostApplicationEmails(

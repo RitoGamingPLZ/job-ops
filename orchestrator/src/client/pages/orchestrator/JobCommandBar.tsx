@@ -1,14 +1,7 @@
 import { useHotkeys } from "@client/hooks/useHotkeys";
 import type { JobListItem } from "@shared/types.js";
 import type React from "react";
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { CommandDialog, CommandInput } from "@/components/ui/command";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { bucketQueryLength, trackProductEvent } from "@/lib/analytics";
@@ -65,10 +58,7 @@ const lockDialogAccentClass: Record<StatusLock, string> = {
 };
 
 const buildSelectableRows = (rows: CommandBarRow[]) =>
-  rows.filter(
-    (row): row is Extract<CommandBarRow, { kind: "option" }> =>
-      row.kind === "option",
-  );
+  rows.filter((row): row is Extract<CommandBarRow, { kind: "option" }> => row.kind === "option");
 
 const FALLBACK_OVERSCAN_PX = 240;
 
@@ -99,8 +89,7 @@ const buildFallbackVirtualItems = (
   let startIndex = 0;
   while (
     startIndex < rows.length &&
-    offsets[startIndex] + getEstimatedRowHeight(rows[startIndex]) <
-      startThreshold
+    offsets[startIndex] + getEstimatedRowHeight(rows[startIndex]) < startThreshold
   ) {
     startIndex += 1;
   }
@@ -164,9 +153,7 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
   );
 
   const deferredQuery = useDeferredValue(query);
-  const normalizedQuery = (jobs.length > 250 ? deferredQuery : query)
-    .trim()
-    .toLowerCase();
+  const normalizedQuery = (jobs.length > 250 ? deferredQuery : query).trim().toLowerCase();
 
   const scopedJobs = useMemo(() => {
     if (!activeLock) return jobs;
@@ -202,10 +189,7 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
   );
 
   const selectableRows = useMemo(() => buildSelectableRows(rows), [rows]);
-  const selectableRowIds = useMemo(
-    () => selectableRows.map((row) => row.id),
-    [selectableRows],
-  );
+  const selectableRowIds = useMemo(() => selectableRows.map((row) => row.id), [selectableRows]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -229,30 +213,25 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
     return rows.findIndex((row) => row.id === activeRowId);
   }, [activeRowId, rows]);
 
-  const {
-    scrollElementRef,
-    virtualItems,
-    totalSize,
-    measureElement,
-    scrollToIndex,
-  } = useVirtualizedList({
-    count: rows.length,
-    enabled: isOpen,
-    estimateSize: (index) => {
-      const row = rows[index];
-      if (!row) return 0;
-      if (row.kind === "option" && row.optionKind === "lockSuggestion") {
-        return LOCK_ROW_HEIGHT_ESTIMATE;
-      }
-      return ROW_HEIGHT_ESTIMATES[row.kind];
-    },
-    getItemKey: (index) => rows[index]?.id ?? `row-${index}`,
-    overscan: 8,
-    initialRect: {
-      height: Math.max(240, Math.round(window.innerHeight * 0.65)),
-      width: window.innerWidth,
-    },
-  });
+  const { scrollElementRef, virtualItems, totalSize, measureElement, scrollToIndex } =
+    useVirtualizedList({
+      count: rows.length,
+      enabled: isOpen,
+      estimateSize: (index) => {
+        const row = rows[index];
+        if (!row) return 0;
+        if (row.kind === "option" && row.optionKind === "lockSuggestion") {
+          return LOCK_ROW_HEIGHT_ESTIMATE;
+        }
+        return ROW_HEIGHT_ESTIMATES[row.kind];
+      },
+      getItemKey: (index) => rows[index]?.id ?? `row-${index}`,
+      overscan: 8,
+      initialRect: {
+        height: Math.max(240, Math.round(window.innerHeight * 0.65)),
+        width: window.innerWidth,
+      },
+    });
 
   const viewportHeight = Math.max(240, Math.round(window.innerHeight * 0.65));
 
@@ -261,18 +240,12 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
     [rows, scrollTop, viewportHeight],
   );
   const estimatedTotalSize = useMemo(
-    () =>
-      rows.reduce(
-        (currentTotal, row) => currentTotal + getEstimatedRowHeight(row),
-        0,
-      ),
+    () => rows.reduce((currentTotal, row) => currentTotal + getEstimatedRowHeight(row), 0),
     [rows],
   );
 
-  const renderedVirtualItems =
-    virtualItems.length > 0 ? virtualItems : estimatedLayout;
-  const renderedTotalSize =
-    virtualItems.length > 0 ? totalSize : estimatedTotalSize;
+  const renderedVirtualItems = virtualItems.length > 0 ? virtualItems : estimatedLayout;
+  const renderedTotalSize = virtualItems.length > 0 ? totalSize : estimatedTotalSize;
 
   const setResultsScrollElement = useCallback(
     (element: HTMLDivElement | null) => {
@@ -286,9 +259,7 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
     if (activeRowIndex < 0) return;
     scrollToIndex(activeRowIndex, { align: "auto" });
     if (virtualItems.length === 0) {
-      const nextScrollTop = estimatedLayout.find(
-        (item) => item.index === activeRowIndex,
-      )?.start;
+      const nextScrollTop = estimatedLayout.find((item) => item.index === activeRowIndex)?.start;
       if (typeof nextScrollTop === "number") {
         if (resultsScrollRef.current) {
           resultsScrollRef.current.scrollTop = nextScrollTop;
@@ -344,9 +315,7 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
         had_status_lock: Boolean(activeLock),
         status_lock: activeLock ?? "none",
         result_group: row.groupId,
-        query_length_bucket: bucketQueryLength(
-          stripLeadingAtToken(query).trim(),
-        ),
+        query_length_bucket: bucketQueryLength(stripLeadingAtToken(query).trim()),
       });
       closeDialog();
       onSelectJob(getFilterTab(row.job.status), row.job.id);
@@ -355,11 +324,7 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
   );
 
   const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (
-      (event.key === "Tab" || event.key === "Enter") &&
-      !event.shiftKey &&
-      !event.altKey
-    ) {
+    if ((event.key === "Tab" || event.key === "Enter") && !event.shiftKey && !event.altKey) {
       const token = extractLeadingAtToken(query);
       if (!token) {
         if (event.key === "Enter" && activeRowId) {
@@ -445,11 +410,7 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
         value={query}
         onValueChange={setQuery}
         onKeyDown={handleInputKeyDown}
-        prefix={
-          activeLock ? (
-            <JobCommandBarLockBadge activeLock={activeLock} />
-          ) : undefined
-        }
+        prefix={activeLock ? <JobCommandBarLockBadge activeLock={activeLock} /> : undefined}
         aria-controls={RESULTS_LIST_ID}
         aria-activedescendant={activeRowId ?? undefined}
         aria-autocomplete="list"
@@ -457,8 +418,8 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
         aria-expanded={isOpen}
       />
       <div className="px-3 py-1 text-[11px] text-muted-foreground border-b">
-        Use <span className="font-mono">@</span> + status + Tab/Enter to lock a
-        status. Backspace on empty search clears the lock.
+        Use <span className="font-mono">@</span> + status + Tab/Enter to lock a status. Backspace on
+        empty search clears the lock.
       </div>
 
       {rows.length === 0 ? (
@@ -470,10 +431,7 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
           id={RESULTS_LIST_ID}
           ref={setResultsScrollElement}
           data-testid={RESULTS_LIST_ID}
-          data-virtual-height={Math.max(
-            240,
-            Math.round(window.innerHeight * 0.65),
-          )}
+          data-virtual-height={Math.max(240, Math.round(window.innerHeight * 0.65))}
           className="max-h-[65vh] overflow-y-auto overflow-x-hidden"
           role="listbox"
           aria-label="Job search results"
@@ -481,10 +439,7 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
             setScrollTop(event.currentTarget.scrollTop);
           }}
         >
-          <div
-            className="relative w-full"
-            style={{ height: `${renderedTotalSize}px` }}
-          >
+          <div className="relative w-full" style={{ height: `${renderedTotalSize}px` }}>
             {renderedVirtualItems.map((virtualItem) => {
               const row = rows[virtualItem.index];
               if (!row) return null;
@@ -571,10 +526,7 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
                         selectRow(row);
                       }}
                     >
-                      <JobRowContent
-                        job={row.job}
-                        isSelected={row.id === activeRowId}
-                      />
+                      <JobRowContent job={row.job} isSelected={row.id === activeRowId} />
                     </div>
                   ) : null}
                 </div>

@@ -6,10 +6,7 @@ import { mapGlmProviderAlias } from "@shared/settings-registry";
 import type { ResumeProjectsSettings } from "@shared/types";
 import { arraysEqual } from "@/lib/utils";
 
-export function resumeProjectsEqual(
-  a: ResumeProjectsSettings,
-  b: ResumeProjectsSettings,
-) {
+export function resumeProjectsEqual(a: ResumeProjectsSettings, b: ResumeProjectsSettings) {
   return (
     a.maxProjects === b.maxProjects &&
     arraysEqual(a.lockedProjectIds, b.lockedProjectIds) &&
@@ -17,8 +14,7 @@ export function resumeProjectsEqual(
   );
 }
 
-export const formatSecretHint = (hint: string | null) =>
-  hint ? `${hint}********` : "Not set";
+export const formatSecretHint = (hint: string | null) => (hint ? `${hint}********` : "Not set");
 
 export const LLM_PROVIDERS = [
   "atlascloud",
@@ -87,10 +83,7 @@ const PROVIDERS_WITH_API_KEY = new Set<LlmProviderId>([
   "gemini",
 ]);
 
-const PROVIDERS_WITH_OPTIONAL_API_KEY = new Set<LlmProviderId>([
-  "litellm",
-  "ollama",
-]);
+const PROVIDERS_WITH_OPTIONAL_API_KEY = new Set<LlmProviderId>(["litellm", "ollama"]);
 
 const PROVIDERS_WITH_BASE_URL = new Set<LlmProviderId>([
   "litellm",
@@ -105,8 +98,7 @@ const PROVIDER_HINTS: Record<LlmProviderId, string> = {
     "Atlas Cloud provides OpenAI-compatible access to hosted text models with one API key.",
   litellm:
     "LiteLLM is a self-hosted AI gateway: one endpoint for 100+ providers (OpenAI, Anthropic, Gemini, Bedrock, Azure, Vertex AI, Ollama) with virtual keys, budgets and fallbacks.",
-  openrouter:
-    "OpenRouter uses your API key and supports model routing across providers.",
+  openrouter: "OpenRouter uses your API key and supports model routing across providers.",
   orcarouter:
     "OrcaRouter uses your API key and routes requests across providers through an OpenAI-compatible endpoint with adaptive routing and guardrails.",
   requesty:
@@ -117,24 +109,18 @@ const PROVIDER_HINTS: Record<LlmProviderId, string> = {
   ollama:
     "Ollama typically runs locally. Add an API key only for Ollama-compatible endpoints protected by bearer auth.",
   openai: "OpenAI uses the Responses API with structured outputs.",
-  anthropic:
-    "Claude uses Anthropic's native Messages API with your Anthropic API key.",
-  openai_compatible:
-    "Use a bearer token with any chat-completions-compatible endpoint.",
+  anthropic: "Claude uses Anthropic's native Messages API with your Anthropic API key.",
+  openai_compatible: "Use a bearer token with any chat-completions-compatible endpoint.",
   glm: "GLM uses the Z.AI chat completions API (OpenAI-compatible) with your API key.",
   gemini: "Gemini uses the native AI Studio API and requires a key.",
   gemini_cli:
     "Gemini (CLI) runs the official Google Gemini CLI on this host using your OAuth session or CLI API key — no JobOps LLM key.",
   claude_cli:
     "Claude (CLI) runs the official Claude Code CLI on this host using your subscription token or API key — no JobOps LLM key.",
-  codex:
-    "Codex runs through a local app-server process and uses your Codex login session.",
+  codex: "Codex runs through a local app-server process and uses your Codex login session.",
 };
 
-const PROVIDER_KEY_HELPERS: Record<
-  LlmProviderId,
-  { text: string; href?: string }
-> = {
+const PROVIDER_KEY_HELPERS: Record<LlmProviderId, { text: string; href?: string }> = {
   atlascloud: {
     text: "Create a key at atlascloud.ai",
     href: "https://www.atlascloud.ai/console/api-keys",
@@ -191,13 +177,7 @@ const PROVIDER_KEY_HELPERS: Record<
   codex: { text: "No API key required when Codex is authenticated locally" },
 };
 
-const BASE_URL_PROVIDERS = [
-  "litellm",
-  "lmstudio",
-  "ollama",
-  "openai_compatible",
-  "glm",
-] as const;
+const BASE_URL_PROVIDERS = ["litellm", "lmstudio", "ollama", "openai_compatible", "glm"] as const;
 type BaseUrlProviderId = (typeof BASE_URL_PROVIDERS)[number];
 
 const PROVIDER_BASE_URLS: Record<BaseUrlProviderId, string> = {
@@ -208,9 +188,7 @@ const PROVIDER_BASE_URLS: Record<BaseUrlProviderId, string> = {
   glm: "https://api.z.ai/api/paas/v4",
 };
 
-export function normalizeLlmProvider(
-  value: string | null | undefined,
-): LlmProviderId {
+export function normalizeLlmProvider(value: string | null | undefined): LlmProviderId {
   const normalized = value?.trim().toLowerCase();
   if (!normalized) return "openrouter";
   const normalizedId = normalized.replace(/[-.]/g, "_");
@@ -222,20 +200,15 @@ export function normalizeLlmProvider(
     : "openrouter";
 }
 
-export function supportsLlmModelSuggestions(
-  provider: string | null | undefined,
-): boolean {
+export function supportsLlmModelSuggestions(provider: string | null | undefined): boolean {
   const normalizedProvider = normalizeLlmProvider(provider);
-  return (LLM_MODEL_SUGGESTION_PROVIDERS as readonly string[]).includes(
-    normalizedProvider,
-  );
+  return (LLM_MODEL_SUGGESTION_PROVIDERS as readonly string[]).includes(normalizedProvider);
 }
 
 export function getLlmProviderConfig(provider: string | null | undefined) {
   const normalizedProvider = normalizeLlmProvider(provider);
   const requiresApiKey = PROVIDERS_WITH_API_KEY.has(normalizedProvider);
-  const showApiKey =
-    requiresApiKey || PROVIDERS_WITH_OPTIONAL_API_KEY.has(normalizedProvider);
+  const showApiKey = requiresApiKey || PROVIDERS_WITH_OPTIONAL_API_KEY.has(normalizedProvider);
   const showBaseUrl = PROVIDERS_WITH_BASE_URL.has(normalizedProvider);
   const baseUrlPlaceholder = showBaseUrl
     ? PROVIDER_BASE_URLS[normalizedProvider as BaseUrlProviderId]

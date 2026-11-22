@@ -56,10 +56,7 @@ export function ResumesPage() {
         ) : error ? (
           <div role="alert">
             <p>Could not load resumes</p>
-            <Button
-              variant="outline"
-              onClick={() => setAttempt((value) => value + 1)}
-            >
+            <Button variant="outline" onClick={() => setAttempt((value) => value + 1)}>
               Retry
             </Button>
           </div>
@@ -82,10 +79,7 @@ export function ResumesPage() {
                       {getResumeState(item) === "available" ? (
                         <Link
                           className="underline underline-offset-4"
-                          to={resumeEditorLocation(
-                            { kind: "job", jobId: item.jobId },
-                            "edit",
-                          )}
+                          to={resumeEditorLocation({ kind: "job", jobId: item.jobId }, "edit")}
                         >
                           {item.title}
                         </Link>
@@ -95,9 +89,7 @@ export function ResumesPage() {
                     </td>
                     <td className="p-3">{item.employer}</td>
                     <td className="p-3">{item.stage ?? "—"}</td>
-                    <td className="p-3">
-                      {new Date(item.updatedAt).toLocaleString()}
-                    </td>
+                    <td className="p-3">{new Date(item.updatedAt).toLocaleString()}</td>
                     <td className="p-3">
                       <Button
                         variant="link"
@@ -105,10 +97,7 @@ export function ResumesPage() {
                         disabled={getResumeState(item) !== "available"}
                         onClick={() =>
                           navigate(
-                            resumeEditorLocation(
-                              { kind: "job", jobId: item.jobId },
-                              "preview",
-                            ),
+                            resumeEditorLocation({ kind: "job", jobId: item.jobId }, "preview"),
                           )
                         }
                       >

@@ -23,15 +23,11 @@ const PromptTemplatesHarness = () => {
           values={{
             ghostwriterSystemPromptTemplate: {
               effective: "Custom Ghostwriter",
-              default: getDefaultPromptTemplate(
-                "ghostwriterSystemPromptTemplate",
-              ),
+              default: getDefaultPromptTemplate("ghostwriterSystemPromptTemplate"),
             },
             resumeGenerationPromptTemplate: {
               effective: "Custom Generation",
-              default: getDefaultPromptTemplate(
-                "resumeGenerationPromptTemplate",
-              ),
+              default: getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
             },
             tailoringPromptTemplate: {
               effective: "Custom Tailoring",
@@ -54,9 +50,7 @@ describe("PromptTemplatesSection", () => {
   it("renders the warning and placeholder reference", () => {
     render(<PromptTemplatesHarness />);
 
-    expect(
-      screen.getByText(/changing these templates can degrade/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/changing these templates can degrade/i)).toBeInTheDocument();
     expect(
       screen.getByText("None — job and library data are attached as JSON"),
     ).toBeInTheDocument();
@@ -67,9 +61,7 @@ describe("PromptTemplatesSection", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText("{{tone}}").length).toBeGreaterThan(0);
     expect(screen.getAllByText("{{profileJson}}").length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText("{{scoringInstructionsText}}").length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("{{scoringInstructionsText}}").length).toBeGreaterThan(0);
   });
 
   it("resets one prompt back to its default template", () => {

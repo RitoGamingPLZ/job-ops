@@ -11,17 +11,13 @@ const LOCATION_ALIASES: Record<string, string> = {
   usa: "united states",
 };
 
-export function normalizeLocationToken(
-  value: string | null | undefined,
-): string {
+export function normalizeLocationToken(value: string | null | undefined): string {
   const normalized = value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
   if (!normalized) return "";
   return LOCATION_ALIASES[normalized] ?? normalized;
 }
 
-export function parseSearchCitiesSetting(
-  value: string | null | undefined,
-): string[] {
+export function parseSearchCitiesSetting(value: string | null | undefined): string[] {
   const trimmed = value?.trim();
   if (!trimmed) return [];
   const split = trimmed.includes("|")
@@ -39,9 +35,7 @@ interface ResolveSearchCitiesOptions {
   fallback?: string | null;
 }
 
-export function resolveSearchCities(
-  options: ResolveSearchCitiesOptions,
-): string[] {
+export function resolveSearchCities(options: ResolveSearchCitiesOptions): string[] {
   // Priority order:
   // 1) explicit list (searchCities array in config)
   // 2) explicit single value
@@ -67,10 +61,7 @@ export function serializeSearchCitiesSetting(cities: string[]): string | null {
   return cities.join("|");
 }
 
-export function shouldApplyStrictCityFilter(
-  city: string,
-  country: string,
-): boolean {
+export function shouldApplyStrictCityFilter(city: string, country: string): boolean {
   const normalizedCity = normalizeLocationToken(city);
   const normalizedCountry = normalizeCountryKey(country);
   if (!normalizedCity || !normalizedCountry) return false;

@@ -12,7 +12,7 @@ const recipe: Recipe = {
   detail: { kind: "jsonld" },
 };
 
-describe.sequential("global site recipes repository", () => {
+describe("global site recipes repository", () => {
   let tempDir: string;
   let db: Awaited<typeof import("../db/index")>["db"];
   let schema: Awaited<typeof import("../db/index")>["schema"];
@@ -93,9 +93,7 @@ describe.sequential("global site recipes repository", () => {
     expect(await repo.recordSiteRecipeRun("example.com", false)).toBe(1);
     expect(
       await Promise.all(
-        Array.from({ length: 5 }, () =>
-          repo.recordSiteRecipeRun("EXAMPLE.COM", false),
-        ),
+        Array.from({ length: 5 }, () => repo.recordSiteRecipeRun("EXAMPLE.COM", false)),
       ),
     ).toEqual([2, 3, 4, 5, 6]);
     expect(await repo.getSiteRecipe("example.com")).toMatchObject({
@@ -134,9 +132,7 @@ describe.sequential("global site recipes repository", () => {
       lastSuccessAt: null,
     });
     await repo.markSiteBlocked("missing.example", "HTTP 406");
-    expect((await repo.getSiteRecipe("missing.example"))?.blockedReason).toBe(
-      "HTTP 406",
-    );
+    expect((await repo.getSiteRecipe("missing.example"))?.blockedReason).toBe("HTTP 406");
     await repo.saveSiteRecipe("missing.example", recipe);
     expect(await repo.getSiteRecipe("missing.example")).toMatchObject({
       recipe,
@@ -144,45 +140,33 @@ describe.sequential("global site recipes repository", () => {
     });
   });
 
-  it.each([
-    "{broken",
-    "null",
-    "{}",
-    '{"version":2}',
-  ])("reads invalid stored JSON/schema as a null recipe: %s", async (stored) => {
-    await repo.saveSiteRecipe("example.com", recipe);
-    db.update(schema.siteRecipes)
-      .set({ recipe: stored })
-      .where(eq(schema.siteRecipes.host, "example.com"))
-      .run();
-    expect(await repo.getSiteRecipe("example.com")).toMatchObject({
-      host: "example.com",
-      recipe: null,
-      consecutiveFailures: 0,
-    });
-  });
+  it.each(["{broken", "null", "{}", '{"version":2}'])(
+    "reads invalid stored JSON/schema as a null recipe: %s",
+    async (stored) => {
+      await repo.saveSiteRecipe("example.com", recipe);
+      db.update(schema.siteRecipes)
+        .set({ recipe: stored })
+        .where(eq(schema.siteRecipes.host, "example.com"))
+        .run();
+      expect(await repo.getSiteRecipe("example.com")).toMatchObject({
+        host: "example.com",
+        recipe: null,
+        consecutiveFailures: 0,
+      });
+    },
+  );
 
   it("shares public recipes across tenant contexts", async () => {
     const { runWithRequestContext } = await import("@infra/request-context");
     await runWithRequestContext({ tenantId: "tenant-a", userId: "alice" }, () =>
       repo.saveSiteRecipe("example.com", recipe),
     );
-    await runWithRequestContext(
-      { tenantId: "tenant-b", userId: "bob" },
-      async () => {
-        expect((await repo.getSiteRecipe("example.com"))?.recipe).toEqual(
-          recipe,
-        );
-        await repo.recordSiteRecipeRun("example.com", false);
-      },
-    );
-    await runWithRequestContext(
-      { tenantId: "tenant-a", userId: "alice" },
-      async () => {
-        expect(
-          (await repo.getSiteRecipe("example.com"))?.consecutiveFailures,
-        ).toBe(1);
-      },
-    );
+    await runWithRequestContext({ tenantId: "tenant-b", userId: "bob" }, async () => {
+      expect((await repo.getSiteRecipe("example.com"))?.recipe).toEqual(recipe);
+      await repo.recordSiteRecipeRun("example.com", false);
+    });
+    await runWithRequestContext({ tenantId: "tenant-a", userId: "alice" }, async () => {
+      expect((await repo.getSiteRecipe("example.com"))?.consecutiveFailures).toBe(1);
+    });
   });
 });

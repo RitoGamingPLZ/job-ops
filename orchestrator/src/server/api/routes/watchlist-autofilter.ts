@@ -17,10 +17,7 @@ watchlistAutofilterRouter.post(
   asyncRoute(async (req, res) => {
     const parsed = bodySchema.safeParse(req.body ?? {});
     if (!parsed.success)
-      return fail(
-        res,
-        badRequest("Invalid filter suggestion payload", parsed.error.flatten()),
-      );
+      return fail(res, badRequest("Invalid filter suggestion payload", parsed.error.flatten()));
     try {
       ok(res, await suggestFilters(parsed.data));
     } catch (error) {
@@ -32,9 +29,7 @@ watchlistAutofilterRouter.post(
       fail(
         res,
         unavailable
-          ? serviceUnavailable(
-              "Filter suggestion request timed out or was aborted",
-            )
+          ? serviceUnavailable("Filter suggestion request timed out or was aborted")
           : toAppError(error),
       );
     }

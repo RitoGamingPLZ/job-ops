@@ -9,8 +9,7 @@ vi.mock("@server/repositories/settings", () => ({
 
 describe("initial editor document skills", () => {
   it("preserves v5 skill fields when materializing legacy tailored skills", async () => {
-    const base =
-      buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+    const base = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
     base.sections.skills.items = [
       {
         id: "existing-skill",
@@ -48,8 +47,7 @@ describe("initial editor document skills", () => {
     expect(base.sections.skills.items[0].keywords).toEqual(["Java"]);
   });
   it("copies valid skill structure for a newly tailored category", async () => {
-    const base =
-      buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+    const base = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
     base.sections.skills.items = [
       {
         id: "skill-template",

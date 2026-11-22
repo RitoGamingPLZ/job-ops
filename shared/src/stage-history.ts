@@ -7,9 +7,7 @@ import type { StageEvent } from "./types/jobs";
  * edited.
  */
 const isMoveBackToApplied = (event: StageEvent): boolean =>
-  event.toStage === "applied" &&
-  event.fromStage !== null &&
-  event.fromStage !== "applied";
+  event.toStage === "applied" && event.fromStage !== null && event.fromStage !== "applied";
 
 /**
  * Narrows an application's stage history to the events that still count
@@ -27,9 +25,7 @@ const isMoveBackToApplied = (event: StageEvent): boolean =>
  * Returns a new array sorted by occurredAt ascending; the input is not
  * mutated.
  */
-export function getEffectiveStageHistory(
-  events: readonly StageEvent[],
-): StageEvent[] {
+export function getEffectiveStageHistory(events: readonly StageEvent[]): StageEvent[] {
   const ordered = [...events].sort((a, b) => a.occurredAt - b.occurredAt);
   for (let index = ordered.length - 1; index > 0; index -= 1) {
     if (isMoveBackToApplied(ordered[index])) {

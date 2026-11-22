@@ -3,7 +3,7 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-describe.sequential("Jobs email routes", () => {
+describe("Jobs email routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -19,12 +19,10 @@ describe.sequential("Jobs email routes", () => {
 
   async function seedJobEmail() {
     const { createJob } = await import("@server/repositories/jobs");
-    const { upsertConnectedPostApplicationIntegration } = await import(
-      "@server/repositories/post-application-integrations"
-    );
-    const { upsertPostApplicationMessage } = await import(
-      "@server/repositories/post-application-messages"
-    );
+    const { upsertConnectedPostApplicationIntegration } =
+      await import("@server/repositories/post-application-integrations");
+    const { upsertPostApplicationMessage } =
+      await import("@server/repositories/post-application-messages");
     const integration = await upsertConnectedPostApplicationIntegration({
       provider: "gmail",
       accountKey: "default",
@@ -85,9 +83,7 @@ describe.sequential("Jobs email routes", () => {
       "https://mail.google.com/mail/u/0/#all/thread-route-1",
     );
     expect(body.data.items[0]).not.toHaveProperty("credentials");
-    expect(body.data.items[0].accountDisplayName).not.toContain(
-      "secret-refresh-token",
-    );
+    expect(body.data.items[0].accountDisplayName).not.toContain("secret-refresh-token");
   });
 
   it("returns 404 for a missing job", async () => {

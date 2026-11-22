@@ -22,10 +22,7 @@ vi.mock("./profile", () => ({
   getProfile: vi.fn(),
 }));
 
-import {
-  buildFallbackSearchTerms,
-  suggestOnboardingSearchTerms,
-} from "./onboarding-search-terms";
+import { buildFallbackSearchTerms, suggestOnboardingSearchTerms } from "./onboarding-search-terms";
 import { getProfile } from "./profile";
 
 describe("suggestOnboardingSearchTerms", () => {
@@ -58,12 +55,7 @@ describe("suggestOnboardingSearchTerms", () => {
     callJsonMock.mockResolvedValue({
       success: true,
       data: {
-        terms: [
-          " Senior Backend Engineer ",
-          "Platform Engineer",
-          "platform engineer",
-          "",
-        ],
+        terms: [" Senior Backend Engineer ", "Platform Engineer", "platform engineer", ""],
       },
     });
 

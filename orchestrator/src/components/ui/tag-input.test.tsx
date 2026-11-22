@@ -21,16 +21,9 @@ describe("TagInput", () => {
   it("adds a picked suggestion at once and hides chosen ones", () => {
     const onChange = vi.fn();
     const { container } = render(
-      <TagInput
-        value={["Go"]}
-        options={["Go", "Rust"]}
-        noun="skill"
-        onChange={onChange}
-      />,
+      <TagInput value={["Go"]} options={["Go", "Rust"]} noun="skill" onChange={onChange} />,
     );
-    expect(
-      Array.from(container.querySelectorAll("option"), (o) => o.value),
-    ).toEqual(["Rust"]);
+    expect(Array.from(container.querySelectorAll("option"), (o) => o.value)).toEqual(["Rust"]);
     fireEvent.change(screen.getByLabelText("Add skill"), {
       target: { value: "Rust" },
     });

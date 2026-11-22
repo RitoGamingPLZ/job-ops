@@ -32,9 +32,7 @@ describe("server product analytics", () => {
   const originalAppVersion = process.env.JOBOPS_APP_VERSION;
   const fetchMock = vi.fn<typeof fetch>();
   const getMockUmami = () =>
-    (typeof umamiModule === "object" &&
-    umamiModule !== null &&
-    "default" in umamiModule
+    (typeof umamiModule === "object" && umamiModule !== null && "default" in umamiModule
       ? umamiModule.default
       : umamiModule) as {
       init: ReturnType<typeof vi.fn>;
@@ -45,17 +43,13 @@ describe("server product analytics", () => {
     process.env.NODE_ENV = "development";
     process.env.JOBOPS_PUBLIC_BASE_URL = "https://jobops.example";
     process.env.JOBOPS_APP_VERSION = "v0.test";
-    process.env.JOBOPS_OPENPANEL_API_URL =
-      "https://openpanel.dakheera47.com/api";
-    process.env.JOBOPS_OPENPANEL_CLIENT_ID =
-      "6a953241-309b-4e5a-be1b-412c5d7b6544";
+    process.env.JOBOPS_OPENPANEL_API_URL = "https://openpanel.dakheera47.com/api";
+    process.env.JOBOPS_OPENPANEL_CLIENT_ID = "6a953241-309b-4e5a-be1b-412c5d7b6544";
     vi.clearAllMocks();
     fetchMock.mockReset();
     fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-    vi.mocked(getMockUmami().track).mockResolvedValue(
-      new Response(null, { status: 202 }),
-    );
+    vi.mocked(getMockUmami().track).mockResolvedValue(new Response(null, { status: 202 }));
   });
 
   afterEach(() => {
@@ -79,10 +73,7 @@ describe("server product analytics", () => {
       { label: "hello", count: 0, enabled: false, empty: null },
       { label: "hello", count: 0, enabled: false, empty: null },
     ],
-    [
-      { QueryText: "private", statusCODE: 1, safe: "retained" },
-      { safe: "retained" },
-    ],
+    [{ QueryText: "private", statusCODE: 1, safe: "retained" }, { safe: "retained" }],
     [
       { count: Number.NaN, high: Number.POSITIVE_INFINITY },
       { count: Number.NaN, high: Number.POSITIVE_INFINITY },
@@ -141,34 +132,31 @@ describe("server product analytics", () => {
         app_version: "v0.test",
       },
     });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://openpanel.dakheera47.com/api/track",
-      {
-        method: "POST",
-        headers: expect.objectContaining({
-          "content-type": "application/json",
-          "openpanel-client-id": "6a953241-309b-4e5a-be1b-412c5d7b6544",
-          "user-agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-        }),
-        body: JSON.stringify({
-          type: "track",
-          payload: {
-            name: "application_offer_detected",
-            profileId: "install-distinct-id",
-            properties: {
-              source: "tracking_inbox_auto",
-              stage: "offer",
-              sessionId: "session-123",
-              analytics_user_id: "install-distinct-id",
-              app_version: "v0.test",
-              __path: "/applications/in-progress",
-              __timestamp: "2024-04-01T00:00:00.000Z",
-            },
+    expect(fetchMock).toHaveBeenCalledWith("https://openpanel.dakheera47.com/api/track", {
+      method: "POST",
+      headers: expect.objectContaining({
+        "content-type": "application/json",
+        "openpanel-client-id": "6a953241-309b-4e5a-be1b-412c5d7b6544",
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+      }),
+      body: JSON.stringify({
+        type: "track",
+        payload: {
+          name: "application_offer_detected",
+          profileId: "install-distinct-id",
+          properties: {
+            source: "tracking_inbox_auto",
+            stage: "offer",
+            sessionId: "session-123",
+            analytics_user_id: "install-distinct-id",
+            app_version: "v0.test",
+            __path: "/applications/in-progress",
+            __timestamp: "2024-04-01T00:00:00.000Z",
           },
-        }),
-      },
-    );
+        },
+      }),
+    });
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
@@ -186,9 +174,7 @@ describe("server product analytics", () => {
   });
 
   it("returns delivered when OpenPanel succeeds even if Umami fails", async () => {
-    vi.mocked(getMockUmami().track).mockResolvedValue(
-      new Response(null, { status: 500 }),
-    );
+    vi.mocked(getMockUmami().track).mockResolvedValue(new Response(null, { status: 500 }));
 
     const delivered = await trackServerProductEvent(
       "resume_generated",
@@ -203,16 +189,13 @@ describe("server product analytics", () => {
 
     expect(delivered).toBe(true);
 
-    expect(logger.warn).toHaveBeenCalledWith(
-      "Server product analytics request failed",
-      {
-        provider: "umami",
-        event: "resume_generated",
-        status: 500,
-        requestOrigin: "https://app.jobops.example",
-        urlPath: "/jobs",
-      },
-    );
+    expect(logger.warn).toHaveBeenCalledWith("Server product analytics request failed", {
+      provider: "umami",
+      event: "resume_generated",
+      status: 500,
+      requestOrigin: "https://app.jobops.example",
+      urlPath: "/jobs",
+    });
   });
 
   it("returns delivered when OpenPanel succeeds even if Umami throws", async () => {
@@ -252,9 +235,7 @@ describe("server product analytics", () => {
     }));
 
     vi.resetModules();
-    const { trackServerProductEvent: trackWithCommonJsShape } = await import(
-      "./product-analytics"
-    );
+    const { trackServerProductEvent: trackWithCommonJsShape } = await import("./product-analytics");
     const remockedModule = await import("@umami/node");
     const runtimeUmami = (
       remockedModule.default as unknown as {
@@ -265,16 +246,12 @@ describe("server product analytics", () => {
       }
     ).default;
 
-    const delivered = await trackWithCommonJsShape(
-      "application_marked_applied",
-      undefined,
-      {
-        requestOrigin: "https://app.jobops.example",
-        occurredAt: 1_711_929_600_000,
-        sessionId: "session-commonjs",
-        urlPath: "/jobs",
-      },
-    );
+    const delivered = await trackWithCommonJsShape("application_marked_applied", undefined, {
+      requestOrigin: "https://app.jobops.example",
+      occurredAt: 1_711_929_600_000,
+      sessionId: "session-commonjs",
+      urlPath: "/jobs",
+    });
 
     expect(delivered).toBe(true);
     expect(runtimeUmami.init).toHaveBeenCalledTimes(1);
@@ -299,9 +276,7 @@ describe("server product analytics", () => {
   });
 
   it("logs and returns false when both providers fail", async () => {
-    vi.mocked(getMockUmami().track).mockResolvedValue(
-      new Response(null, { status: 500 }),
-    );
+    vi.mocked(getMockUmami().track).mockResolvedValue(new Response(null, { status: 500 }));
     fetchMock.mockResolvedValue(new Response(null, { status: 500 }));
 
     const delivered = await trackServerProductEvent(

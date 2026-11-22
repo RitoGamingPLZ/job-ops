@@ -32,10 +32,7 @@ describe("PipelineProgressCard", () => {
     expect(screen.queryByText("Overall progress")).toBeNull();
     expect(screen.queryByText("Live")).toBeNull();
     expect(screen.getByText("35%")).toBeInTheDocument();
-    expect(screen.getByRole("progressbar")).toHaveAttribute(
-      "aria-valuenow",
-      "35",
-    );
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "35");
     expect(screen.getByText("Discovered")).toBeInTheDocument();
     expect(screen.getByText("Awaiting score")).toBeInTheDocument();
     expect(screen.getByText("Exceptional matches")).toBeInTheDocument();
@@ -55,12 +52,8 @@ describe("PipelineProgressCard", () => {
       />,
     );
 
-    expect(
-      screen.getByTitle("Ranking Frontend Engineer against your profile"),
-    ).toBeInTheDocument();
-    expect(container.querySelector("[data-live-job-title]")).toHaveTextContent(
-      "Frontend Engineer",
-    );
+    expect(screen.getByTitle("Ranking Frontend Engineer against your profile")).toBeInTheDocument();
+    expect(container.querySelector("[data-live-job-title]")).toHaveTextContent("Frontend Engineer");
 
     rerender(
       <PipelineProgressCard
@@ -75,12 +68,8 @@ describe("PipelineProgressCard", () => {
       />,
     );
 
-    expect(
-      screen.getByTitle("Ranking Platform Engineer against your profile"),
-    ).toBeInTheDocument();
-    expect(container.querySelector("[data-live-job-title]")).toHaveTextContent(
-      "Platform Engineer",
-    );
+    expect(screen.getByTitle("Ranking Platform Engineer against your profile")).toBeInTheDocument();
+    expect(container.querySelector("[data-live-job-title]")).toHaveTextContent("Platform Engineer");
   });
 
   it("shows failures clearly", () => {

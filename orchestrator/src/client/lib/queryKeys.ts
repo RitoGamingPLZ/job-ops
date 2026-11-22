@@ -38,19 +38,16 @@ export const queryKeys = {
   },
   jobs: {
     all: ["jobs"] as const,
-    inProgressBoard: () =>
-      [...queryKeys.jobs.all, "in-progress-board"] as const,
+    inProgressBoard: () => [...queryKeys.jobs.all, "in-progress-board"] as const,
     list: (options?: { statuses?: JobStatus[]; view?: "list" | "full" }) =>
       [...queryKeys.jobs.all, "list", options ?? {}] as const,
     revision: (options?: { statuses?: JobStatus[] }) =>
       [...queryKeys.jobs.all, "revision", options ?? {}] as const,
     detail: (id: string) => [...queryKeys.jobs.all, "detail", id] as const,
-    stageEvents: (id: string) =>
-      [...queryKeys.jobs.all, "stage-events", id] as const,
+    stageEvents: (id: string) => [...queryKeys.jobs.all, "stage-events", id] as const,
     tasks: (id: string) => [...queryKeys.jobs.all, "tasks", id] as const,
     notes: (id: string) => [...queryKeys.jobs.all, "notes", id] as const,
-    documents: (id: string) =>
-      [...queryKeys.jobs.all, "documents", id] as const,
+    documents: (id: string) => [...queryKeys.jobs.all, "documents", id] as const,
     emails: (id: string, limit: number) =>
       [...queryKeys.jobs.all, "emails", id, { limit }] as const,
   },
@@ -59,8 +56,7 @@ export const queryKeys = {
     status: () => [...queryKeys.pipeline.all, "status"] as const,
     runs: () => [...queryKeys.pipeline.all, "runs"] as const,
     searchPresets: () => [...queryKeys.pipeline.all, "search-presets"] as const,
-    runInsights: (id: string) =>
-      [...queryKeys.pipeline.all, "run-insights", id] as const,
+    runInsights: (id: string) => [...queryKeys.pipeline.all, "run-insights", id] as const,
   },
   watchlist: {
     all: ["watchlist"] as const,
@@ -71,41 +67,13 @@ export const queryKeys = {
   postApplication: {
     all: ["post-application"] as const,
     providerStatus: (provider: PostApplicationProvider, accountKey: string) =>
-      [
-        ...queryKeys.postApplication.all,
-        "provider-status",
-        { provider, accountKey },
-      ] as const,
-    inbox: (
-      provider: PostApplicationProvider,
-      accountKey: string,
-      limit: number,
-    ) =>
-      [
-        ...queryKeys.postApplication.all,
-        "inbox",
-        { provider, accountKey, limit },
-      ] as const,
-    runs: (
-      provider: PostApplicationProvider,
-      accountKey: string,
-      limit: number,
-    ) =>
-      [
-        ...queryKeys.postApplication.all,
-        "runs",
-        { provider, accountKey, limit },
-      ] as const,
-    runMessages: (
-      runId: string,
-      provider: PostApplicationProvider,
-      accountKey: string,
-    ) =>
-      [
-        ...queryKeys.postApplication.all,
-        "run-messages",
-        { runId, provider, accountKey },
-      ] as const,
+      [...queryKeys.postApplication.all, "provider-status", { provider, accountKey }] as const,
+    inbox: (provider: PostApplicationProvider, accountKey: string, limit: number) =>
+      [...queryKeys.postApplication.all, "inbox", { provider, accountKey, limit }] as const,
+    runs: (provider: PostApplicationProvider, accountKey: string, limit: number) =>
+      [...queryKeys.postApplication.all, "runs", { provider, accountKey, limit }] as const,
+    runMessages: (runId: string, provider: PostApplicationProvider, accountKey: string) =>
+      [...queryKeys.postApplication.all, "run-messages", { runId, provider, accountKey }] as const,
   },
   backups: {
     all: ["backups"] as const,

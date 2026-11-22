@@ -2,11 +2,7 @@ import {
   type AiAssistMessage,
   AiAssistMessageList,
 } from "@client/components/ai-assist/AiAssistMessageList";
-import type {
-  BranchInfo,
-  JobChatImageAttachment,
-  JobChatMessage,
-} from "@shared/types";
+import type { BranchInfo, JobChatImageAttachment, JobChatMessage } from "@shared/types";
 import type React from "react";
 import { bucketQueryLength, trackProductEvent } from "@/lib/analytics";
 
@@ -16,11 +12,7 @@ type MessageListProps = {
   isStreaming: boolean;
   streamingMessageId: string | null;
   onRegenerate: (messageId: string) => void;
-  onEdit: (
-    messageId: string,
-    content: string,
-    attachments: JobChatImageAttachment[],
-  ) => void;
+  onEdit: (messageId: string, content: string, attachments: JobChatImageAttachment[]) => void;
   onSwitchBranch: (messageId: string) => void;
 };
 
@@ -45,9 +37,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 }) => (
   <AiAssistMessageList
     messages={messages
-      .filter(
-        (message) => message.role === "user" || message.role === "assistant",
-      )
+      .filter((message) => message.role === "user" || message.role === "assistant")
       .map(toAiAssistMessage)}
     branches={branches}
     isStreaming={isStreaming}

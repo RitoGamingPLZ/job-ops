@@ -159,9 +159,7 @@ describe("createScheduler", () => {
     expect(secondRun).not.toBeNull();
     expect(firstRun).not.toBeNull();
     if (secondRun && firstRun) {
-      expect(new Date(secondRun).getTime()).toBeGreaterThan(
-        new Date(firstRun).getTime(),
-      );
+      expect(new Date(secondRun).getTime()).toBeGreaterThan(new Date(firstRun).getTime());
     }
 
     scheduler.stop();
@@ -181,10 +179,7 @@ describe("createScheduler", () => {
     await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000);
 
     expect(callback).toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith(
-      "❌ [test] Scheduled task failed:",
-      expect.any(Error),
-    );
+    expect(consoleSpy).toHaveBeenCalledWith("❌ [test] Scheduled task failed:", expect.any(Error));
 
     // Scheduler should still be running after error
     expect(scheduler.isRunning()).toBe(true);

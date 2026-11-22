@@ -1,9 +1,6 @@
 import type { Page } from "playwright";
 import { describe, expect, it, vi } from "vitest";
-import {
-  readPageContentIfReady,
-  waitForChallengeResolution,
-} from "../src/challenge.js";
+import { readPageContentIfReady, waitForChallengeResolution } from "../src/challenge.js";
 
 describe("challenge page navigation", () => {
   it("waits through a navigation before reporting a solved challenge", async () => {

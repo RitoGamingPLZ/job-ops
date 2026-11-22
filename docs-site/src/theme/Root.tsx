@@ -36,10 +36,7 @@ export default function Root({ children }: RootProps) {
 
     const boot = async () => {
       const defaultDemoMode = umamiConfig.docsBuildDemoMode === true;
-      const standaloneDocsDev = isStandaloneDocsDev(
-        window.location,
-        umamiConfig.standaloneDevPort,
-      );
+      const standaloneDocsDev = isStandaloneDocsDev(window.location, umamiConfig.standaloneDevPort);
       const demoMode = standaloneDocsDev
         ? defaultDemoMode
         : await getDocsDemoMode({

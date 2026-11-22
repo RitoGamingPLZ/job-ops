@@ -23,9 +23,7 @@ describe("naukri manifest", () => {
     const { manifest } = await import("../manifest");
     const onProgress = vi.fn();
     const shouldCancel = vi.fn(() => false);
-    const getExistingJobUrls = vi
-      .fn()
-      .mockResolvedValue(["https://www.naukri.com/existing"]);
+    const getExistingJobUrls = vi.fn().mockResolvedValue(["https://www.naukri.com/existing"]);
 
     await manifest.run({
       source: "naukri",

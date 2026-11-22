@@ -37,16 +37,10 @@ vi.mock("./rxresume", () => ({
 
 import { logger } from "@infra/logger";
 import { getAllSettings } from "@server/repositories/settings";
-import {
-  designResumeToProfile,
-  getCurrentDesignResumeOrNullOnLegacy,
-} from "./design-resume";
+import { designResumeToProfile, getCurrentDesignResumeOrNullOnLegacy } from "./design-resume";
 import { getEnvSettingsData, getOriginalEnvValue } from "./envSettings";
 import { getProfile } from "./profile";
-import {
-  extractProjectsFromProfile,
-  resolveResumeProjectsSettings,
-} from "./resumeProjects";
+import { extractProjectsFromProfile, resolveResumeProjectsSettings } from "./resumeProjects";
 import { extractProjectsFromResume } from "./rxresume";
 import { getEffectiveSettings } from "./settings";
 
@@ -96,9 +90,7 @@ describe("getEffectiveSettings", () => {
 
     expect(extractProjectsFromProfile).toHaveBeenCalledTimes(1);
     expect(extractProjectsFromResume).not.toHaveBeenCalled();
-    expect(settings.profileProjects).toEqual([
-      { id: "local-project", label: "Local project" },
-    ]);
+    expect(settings.profileProjects).toEqual([{ id: "local-project", label: "Local project" }]);
   });
 
   it("falls back when no compatible local Resume Studio document is available", async () => {

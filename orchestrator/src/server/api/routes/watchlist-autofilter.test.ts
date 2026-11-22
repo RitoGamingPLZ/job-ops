@@ -84,10 +84,7 @@ it.each([
   { name: "TimeoutError", message: "The operation was aborted due to timeout" },
   { name: "AbortError", message: "The operation was aborted" },
   { name: "Error", message: "Watchlist source timed out after 30s" },
-])("maps $name ($message) to a sanitized 503 envelope", async ({
-  name,
-  message,
-}) => {
+])("maps $name ($message) to a sanitized 503 envelope", async ({ name, message }) => {
   const error = new Error(message);
   error.name = name;
   mocks.suggest.mockRejectedValue(error);
@@ -106,9 +103,7 @@ it.each([
 
 it("preserves missing LLM key service unavailability", async () => {
   const { serviceUnavailable } = await import("@infra/errors");
-  mocks.suggest.mockRejectedValue(
-    serviceUnavailable("LLM API key not configured"),
-  );
+  mocks.suggest.mockRejectedValue(serviceUnavailable("LLM API key not configured"));
   const response = await post(payload, await login());
   expect(response.status).toBe(503);
   expect(await response.json()).toMatchObject({

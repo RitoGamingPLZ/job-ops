@@ -1,9 +1,4 @@
-import {
-  AppError,
-  badRequest,
-  serviceUnavailable,
-  upstreamError,
-} from "@infra/errors";
+import { AppError, badRequest, serviceUnavailable, upstreamError } from "@infra/errors";
 
 export type PostApplicationProviderErrorKind =
   | "invalid_request"
@@ -40,11 +35,7 @@ export function providerServiceUnavailable(
   message: string,
   details?: unknown,
 ): PostApplicationProviderError {
-  return new PostApplicationProviderError(
-    "service_unavailable",
-    message,
-    details,
-  );
+  return new PostApplicationProviderError("service_unavailable", message, details);
 }
 
 export function providerUpstreamError(

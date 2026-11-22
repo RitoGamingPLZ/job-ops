@@ -9,11 +9,7 @@ it("commits pending text on unmount using the latest callback", () => {
   const latestCommit = vi.fn();
   const view = render(
     <StrictMode>
-      <CommaListInput
-        aria-label="Skills"
-        value={["TypeScript"]}
-        onCommit={oldCommit}
-      />
+      <CommaListInput aria-label="Skills" value={["TypeScript"]} onCommit={oldCommit} />
     </StrictMode>,
   );
   expect(oldCommit).not.toHaveBeenCalled();
@@ -22,25 +18,16 @@ it("commits pending text on unmount using the latest callback", () => {
   });
   view.rerender(
     <StrictMode>
-      <CommaListInput
-        aria-label="Skills"
-        value={["TypeScript"]}
-        onCommit={latestCommit}
-      />
+      <CommaListInput aria-label="Skills" value={["TypeScript"]} onCommit={latestCommit} />
     </StrictMode>,
   );
   expect(oldCommit).not.toHaveBeenCalled();
   view.unmount();
-  expect(latestCommit).toHaveBeenCalledExactlyOnceWith([
-    "Machine Learning",
-    "TypeScript",
-  ]);
+  expect(latestCommit).toHaveBeenCalledExactlyOnceWith(["Machine Learning", "TypeScript"]);
 });
 it("does not repeat an already committed draft on unmount", () => {
   const onCommit = vi.fn();
-  const view = render(
-    <CommaListInput aria-label="Skills" value={[]} onCommit={onCommit} />,
-  );
+  const view = render(<CommaListInput aria-label="Skills" value={[]} onCommit={onCommit} />);
   fireEvent.change(screen.getByLabelText("Skills"), {
     target: { value: "A, B" },
   });

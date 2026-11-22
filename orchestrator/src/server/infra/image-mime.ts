@@ -1,7 +1,4 @@
-export function detectLogoMimeType(
-  bytes: Buffer,
-  contentTypeHeader: string | null,
-): string | null {
+export function detectLogoMimeType(bytes: Buffer, contentTypeHeader: string | null): string | null {
   const normalizedContentType = contentTypeHeader?.trim().toLowerCase() ?? "";
   if (normalizedContentType.startsWith("image/")) {
     return contentTypeHeader?.trim() ?? normalizedContentType;
@@ -21,12 +18,7 @@ export function detectLogoMimeType(
     return "image/png";
   }
 
-  if (
-    bytes.byteLength >= 3 &&
-    bytes[0] === 0xff &&
-    bytes[1] === 0xd8 &&
-    bytes[2] === 0xff
-  ) {
+  if (bytes.byteLength >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
     return "image/jpeg";
   }
 

@@ -20,8 +20,7 @@ type PromptTemplatesSectionProps = {
   layoutMode?: "accordion" | "panel";
 };
 
-const TEMPLATE_FIELD_NAMES =
-  PROMPT_TEMPLATE_SETTING_KEYS as PromptTemplateSettingKey[];
+const TEMPLATE_FIELD_NAMES = PROMPT_TEMPLATE_SETTING_KEYS as PromptTemplateSettingKey[];
 
 export const PromptTemplatesSection: React.FC<PromptTemplatesSectionProps> = ({
   values,
@@ -42,24 +41,19 @@ export const PromptTemplatesSection: React.FC<PromptTemplatesSectionProps> = ({
   };
 
   return (
-    <SettingsSectionFrame
-      mode={layoutMode}
-      title="Prompt Templates"
-      value="prompt-templates"
-    >
+    <SettingsSectionFrame mode={layoutMode} title="Prompt Templates" value="prompt-templates">
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Edit the base AI instructions used by Ghostwriter, resume tailoring,
-          and scoring.
+          Edit the base AI instructions used by Ghostwriter, resume tailoring, and scoring.
         </p>
 
         <Alert variant="warning">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Advanced setting</AlertTitle>
           <AlertDescription>
-            Changing these templates can degrade or break AI behavior. Removing
-            important instructions or placeholders may produce poor results. Use
-            reset to restore the default templates.
+            Changing these templates can degrade or break AI behavior. Removing important
+            instructions or placeholders may produce poor results. Use reset to restore the default
+            templates.
           </AlertDescription>
         </Alert>
 
@@ -86,9 +80,7 @@ export const PromptTemplatesSection: React.FC<PromptTemplatesSectionProps> = ({
                   <label htmlFor={key} className="text-sm font-medium">
                     {definition.label}
                   </label>
-                  <p className="text-xs text-muted-foreground">
-                    {definition.description}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{definition.description}</p>
                 </div>
                 <Button
                   type="button"

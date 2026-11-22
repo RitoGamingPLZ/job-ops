@@ -2,10 +2,7 @@ import { logger } from "@infra/logger";
 import type { ExtractorRegistry } from "@server/extractors/registry";
 import { getExtractorRegistry } from "@server/extractors/registry";
 import { withHostedUsageReservation } from "@server/services/hosted-usage";
-import {
-  createConfiguredLlmService,
-  resolveLlmModel,
-} from "@server/services/modelSelection";
+import { createConfiguredLlmService, resolveLlmModel } from "@server/services/modelSelection";
 import {
   collectSearchTermContext,
   type SearchTermContext,
@@ -23,20 +20,14 @@ import {
   normalizeLocationMatchStrictness,
   normalizeLocationSearchScope,
 } from "@shared/location-preferences.js";
-import {
-  normalizeCountryKey,
-  SUPPORTED_COUNTRY_KEYS,
-} from "@shared/location-support.js";
+import { normalizeCountryKey, SUPPORTED_COUNTRY_KEYS } from "@shared/location-support.js";
 import { normalizeStringArray } from "@shared/normalize-string-array";
 import type {
   PipelineSearchPlanRequest,
   PipelineSearchPlanResponse,
   PipelineSearchPresetConfig,
 } from "@shared/types";
-import {
-  MAX_PIPELINE_RUN_BUDGET,
-  MIN_PIPELINE_RUN_BUDGET,
-} from "@shared/types";
+import { MAX_PIPELINE_RUN_BUDGET, MIN_PIPELINE_RUN_BUDGET } from "@shared/types";
 import { normalizeSearchTerms } from "@shared/utils/search-terms";
 import type { JsonSchemaDefinition } from "./llm/types";
 
@@ -131,12 +122,7 @@ const SEARCH_PLAN_SCHEMA: JsonSchemaDefinition = {
   },
 };
 
-function clampNumber(
-  value: unknown,
-  min: number,
-  max: number,
-  fallback: number,
-): number {
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
   const parsed = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, Math.round(parsed)));
@@ -170,10 +156,7 @@ function normalizeOptionalStrings(
   );
 }
 
-function normalizeWorkplaceTypes(
-  value: unknown,
-  fallback: WorkplaceType[],
-): WorkplaceType[] {
+function normalizeWorkplaceTypes(value: unknown, fallback: WorkplaceType[]): WorkplaceType[] {
   const raw = Array.isArray(value) ? value : fallback;
   const out = raw.filter((item): item is WorkplaceType =>
     WORKPLACE_TYPE_VALUES.includes(item as WorkplaceType),
@@ -211,20 +194,13 @@ function normalizeSources(
 }
 
 function normalizeCountry(value: unknown, fallback: string): string {
-  const normalized = normalizeCountryKey(
-    typeof value === "string" ? value : fallback,
-  );
+  const normalized = normalizeCountryKey(typeof value === "string" ? value : fallback);
   if (SUPPORTED_COUNTRY_KEYS.includes(normalized)) return normalized;
   return normalizeCountryKey(fallback);
 }
 
 function normalizeWarnings(value: unknown): string[] {
-  return normalizeStrings(
-    Array.isArray(value) ? value : [],
-    [],
-    MAX_WARNINGS,
-    220,
-  );
+  return normalizeStrings(Array.isArray(value) ? value : [], [], MAX_WARNINGS, 220);
 }
 
 function normalizeSummary(value: unknown, source: "ai" | "fallback"): string {
@@ -235,10 +211,7 @@ function normalizeSummary(value: unknown, source: "ai" | "fallback"): string {
     : "Search settings were left unchanged because AI planning was unavailable.";
 }
 
-function normalizeScoringInstructions(
-  value: unknown,
-  fallback: string,
-): string {
+function normalizeScoringInstructions(value: unknown, fallback: string): string {
   const raw = typeof value === "string" ? value.trim() : fallback.trim();
   return raw.slice(0, 4000);
 }
@@ -264,9 +237,7 @@ function filterCompatibleSources(args: {
   const compatible = locationPlan.plans
     .filter((plan) => plan.canRun)
     .map((plan) => plan.source as ExtractorSourceId);
-  const removed = config.sources.filter(
-    (source) => !compatible.includes(source),
-  );
+  const removed = config.sources.filter((source) => !compatible.includes(source));
   if (removed.length > 0) {
     warnings.push(
       `Removed sources that cannot run with this location setup: ${removed.join(", ")}.`,
@@ -299,9 +270,7 @@ function filterCompatibleSources(args: {
     return [firstCompatible as ExtractorSourceId];
   }
 
-  warnings.push(
-    "No compatible runtime source was available; keeping current source selection.",
-  );
+  warnings.push("No compatible runtime source was available; keeping current source selection.");
   return config.sources;
 }
 
@@ -314,23 +283,14 @@ export function normalizePipelineSearchPlanConfig(args: {
   const { candidate, currentConfig, registry } = args;
   const warnings = [...(args.initialWarnings ?? [])];
   const searchTerms = normalizeSearchTerms(
-    normalizeStrings(
-      candidate?.searchTerms,
-      currentConfig.searchTerms,
-      12,
-      200,
-    ),
+    normalizeStrings(candidate?.searchTerms, currentConfig.searchTerms, 12, 200),
     { maxTerms: 12, maxLength: 200 },
   );
   const workplaceTypes = normalizeWorkplaceTypes(
     candidate?.workplaceTypes,
     currentConfig.workplaceTypes,
   );
-  const sourcesResult = normalizeSources(
-    candidate?.sources,
-    currentConfig.sources,
-    registry,
-  );
+  const sourcesResult = normalizeSources(candidate?.sources, currentConfig.sources, registry);
   const cityLocations = normalizeOptionalStrings(
     candidate?.cityLocations,
     currentConfig.cityLocations,
@@ -344,26 +304,19 @@ export function normalizePipelineSearchPlanConfig(args: {
       : currentConfig.locationMode) ??
     "cities";
   if (sourcesResult.removed.length > 0) {
-    warnings.push(
-      `Ignored unavailable sources: ${sourcesResult.removed.join(", ")}.`,
-    );
+    warnings.push(`Ignored unavailable sources: ${sourcesResult.removed.join(", ")}.`);
   }
 
   const config: PipelineSearchPresetConfig = {
-    searchTerms:
-      searchTerms.length > 0 ? searchTerms : currentConfig.searchTerms,
+    searchTerms: searchTerms.length > 0 ? searchTerms : currentConfig.searchTerms,
     sources: sourcesResult.sources,
     country: normalizeCountry(candidate?.country, currentConfig.country),
     cityLocations,
     locationMode,
     proximity:
-      locationMode === "cities"
-        ? null
-        : (candidate?.proximity ?? currentConfig.proximity ?? null),
+      locationMode === "cities" ? null : (candidate?.proximity ?? currentConfig.proximity ?? null),
     workplaceTypes,
-    searchScope: normalizeLocationSearchScope(
-      candidate?.searchScope ?? currentConfig.searchScope,
-    ),
+    searchScope: normalizeLocationSearchScope(candidate?.searchScope ?? currentConfig.searchScope),
     matchStrictness: normalizeLocationMatchStrictness(
       candidate?.matchStrictness ?? currentConfig.matchStrictness,
     ),
@@ -405,9 +358,7 @@ function buildPrompt(args: {
     id: source,
     label: EXTRACTOR_SOURCE_METADATA[source].label,
     ukOnly: Boolean(EXTRACTOR_SOURCE_METADATA[source].ukOnly),
-    requiresCredentials: Boolean(
-      EXTRACTOR_SOURCE_METADATA[source].requiresCredentials,
-    ),
+    requiresCredentials: Boolean(EXTRACTOR_SOURCE_METADATA[source].requiresCredentials),
   }));
 
   return [
@@ -460,8 +411,7 @@ function fallbackResponse(args: {
   });
   return {
     config: normalized.config,
-    summary:
-      "Search settings were left unchanged because AI planning was unavailable.",
+    summary: "Search settings were left unchanged because AI planning was unavailable.",
     warnings: normalized.warnings,
     source: "fallback",
   };
@@ -506,19 +456,15 @@ export async function planPipelineSearch(
       });
 
       if (!result.success) {
-        logger.warn(
-          "Pipeline search planning fell back after AI generation failed",
-          {
-            route: "POST /api/pipeline/search-plan",
-            error: result.error,
-          },
-        );
+        logger.warn("Pipeline search planning fell back after AI generation failed", {
+          route: "POST /api/pipeline/search-plan",
+          error: result.error,
+        });
         return {
           result: fallbackResponse({
             currentConfig: input.currentConfig,
             registry,
-            warning:
-              "AI planning was unavailable, so the current settings were kept.",
+            warning: "AI planning was unavailable, so the current settings were kept.",
           }),
           usedUnits: 1,
         };

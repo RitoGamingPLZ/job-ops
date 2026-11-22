@@ -17,9 +17,7 @@ export function getPipelineRunDisplayStatus(
   return run.status;
 }
 
-export function getPipelineRunStatusLabel(
-  status: PipelineRunDisplayStatus,
-): string {
+export function getPipelineRunStatusLabel(status: PipelineRunDisplayStatus): string {
   switch (status) {
     case "running":
       return "Running";

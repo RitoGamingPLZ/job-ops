@@ -48,15 +48,9 @@ export function CommaListInput({
     setDraft(normalized);
     onCommit(values);
   };
-  const onKeyDown = (
-    event: React.KeyboardEvent<HTMLInputElement & HTMLTextAreaElement>,
-  ) => {
+  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement & HTMLTextAreaElement>) => {
     props.onKeyDown?.(event);
-    if (
-      event.key === "Enter" &&
-      !event.defaultPrevented &&
-      !event.nativeEvent.isComposing
-    ) {
+    if (event.key === "Enter" && !event.defaultPrevented && !event.nativeEvent.isComposing) {
       if (multiline) event.preventDefault();
       commit();
     }

@@ -91,11 +91,7 @@ function normalizeEvidence(value: string): string {
 
 function includesNumber(evidence: string, value: number): boolean {
   const compact = evidence.toLowerCase().replace(/,/g, "");
-  if (
-    new RegExp(`(^|\\D)${String(value).replace(".", "\\.")}($|\\D)`).test(
-      compact,
-    )
-  ) {
+  if (new RegExp(`(^|\\D)${String(value).replace(".", "\\.")}($|\\D)`).test(compact)) {
     return true;
   }
   return value >= 1_000 && compact.includes(`${value / 1_000}k`);
@@ -139,10 +135,8 @@ function evidenceSupportsValue(
       return (
         {
           remote: /\bremote\b/i,
-          hybrid:
-            /\bhybrid\b|office.{0,30}(day|week)|(?:day|week).{0,30}office/i,
-          onsite:
-            /\b(onsite|on-site)\b|(?:five|5).{0,20}(day|week).{0,30}office/i,
+          hybrid: /\bhybrid\b|office.{0,30}(day|week)|(?:day|week).{0,30}office/i,
+          onsite: /\b(onsite|on-site)\b|(?:five|5).{0,20}(day|week).{0,30}office/i,
         }[value as string]?.test(evidence) === true
       );
     default:
@@ -240,12 +234,8 @@ export function validateAndApplyJobPatches(
     });
   }
 
-  const nextMin = (updates.salaryMinAmount ?? job.salaryMinAmount) as
-    | number
-    | null;
-  const nextMax = (updates.salaryMaxAmount ?? job.salaryMaxAmount) as
-    | number
-    | null;
+  const nextMin = (updates.salaryMinAmount ?? job.salaryMinAmount) as number | null;
+  const nextMax = (updates.salaryMaxAmount ?? job.salaryMaxAmount) as number | null;
   if (nextMin !== null && nextMax !== null && nextMin > nextMax) {
     for (const field of ["salaryMinAmount", "salaryMaxAmount"] as const) {
       if (!(field in updates)) continue;
@@ -259,13 +249,9 @@ export function validateAndApplyJobPatches(
 
   if (
     accepted.some(({ field }) =>
-      [
-        "salary",
-        "salaryMinAmount",
-        "salaryMaxAmount",
-        "salaryCurrency",
-        "salaryInterval",
-      ].includes(field),
+      ["salary", "salaryMinAmount", "salaryMaxAmount", "salaryCurrency", "salaryInterval"].includes(
+        field,
+      ),
     )
   ) {
     updates.salarySource = "ai_job_fact_review";

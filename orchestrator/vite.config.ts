@@ -1,10 +1,8 @@
-/// <reference types="vitest" />
-
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig } from "vite-plus";
 
 function readAppVersion(): string {
   const packageJsonPath = new URL("./package.json", import.meta.url);
@@ -12,13 +10,8 @@ function readAppVersion(): string {
     version?: unknown;
   };
 
-  if (
-    typeof packageJson.version !== "string" ||
-    !/^\d+\.\d+\.\d+$/.test(packageJson.version)
-  ) {
-    throw new Error(
-      "orchestrator/package.json must contain a semver version in x.y.z format",
-    );
+  if (typeof packageJson.version !== "string" || !/^\d+\.\d+\.\d+$/.test(packageJson.version)) {
+    throw new Error("orchestrator/package.json must contain a semver version in x.y.z format");
   }
 
   return `v${packageJson.version}`;
@@ -55,7 +48,6 @@ export default defineConfig({
             "../career-boards/**/*.test.ts",
             "../extractors/**/tests/**/*.test.ts",
             "../extractors/*/src/**/*.test.ts",
-            "../visa-sponsor-providers/**/*.test.ts",
           ],
         },
       },
@@ -87,14 +79,8 @@ export default defineConfig({
       "@infra": path.resolve(__dirname, "./src/server/infra"),
       "@shared": path.resolve(__dirname, "../shared/src"),
       "job-ops-shared": path.resolve(__dirname, "../shared/src"),
-      "@career-boards/bamboohr": path.resolve(
-        __dirname,
-        "../career-boards/bamboohr/src/index.ts",
-      ),
-      "@career-boards/workday": path.resolve(
-        __dirname,
-        "../career-boards/workday/src/index.ts",
-      ),
+      "@career-boards/bamboohr": path.resolve(__dirname, "../career-boards/bamboohr/src/index.ts"),
+      "@career-boards/workday": path.resolve(__dirname, "../career-boards/workday/src/index.ts"),
       "@career-boards/greenhouse": path.resolve(
         __dirname,
         "../career-boards/greenhouse/src/index.ts",

@@ -8,25 +8,16 @@ export async function asyncPool<TItem, TResult>(args: {
   shouldStop?: () => boolean;
   task: (item: TItem, index: number) => Promise<TResult>;
   onTaskStarted?: (item: TItem, index: number) => void;
-  onTaskSettled?: (
-    item: TItem,
-    index: number,
-    outcome: AsyncPoolTaskStatus<TResult>,
-  ) => void;
+  onTaskSettled?: (item: TItem, index: number, outcome: AsyncPoolTaskStatus<TResult>) => void;
 }): Promise<TResult[]> {
   const { items, task, shouldStop, onTaskStarted, onTaskSettled } = args;
-  const rawConcurrency = Number.isFinite(args.concurrency)
-    ? args.concurrency
-    : 1;
+  const rawConcurrency = Number.isFinite(args.concurrency) ? args.concurrency : 1;
   const safeConcurrency = Math.max(1, Math.min(10, Math.floor(rawConcurrency)));
 
   if (items.length === 0) return [];
 
   const UNSET = Symbol("unset");
-  const results: Array<TResult | typeof UNSET> = Array.from(
-    { length: items.length },
-    () => UNSET,
-  );
+  const results: Array<TResult | typeof UNSET> = Array.from({ length: items.length }, () => UNSET);
   let nextIndex = 0;
   let firstError: unknown = null;
 
@@ -39,11 +30,7 @@ export async function asyncPool<TItem, TResult>(args: {
     }
   };
 
-  const callTaskSettled = (
-    item: TItem,
-    index: number,
-    outcome: AsyncPoolTaskStatus<TResult>,
-  ) => {
+  const callTaskSettled = (item: TItem, index: number, outcome: AsyncPoolTaskStatus<TResult>) => {
     if (!onTaskSettled) return;
     try {
       onTaskSettled(item, index, outcome);

@@ -101,10 +101,7 @@ export type EnsureTaskResult =
  * task or attaching the caller as a subscriber to an active/new task.
  * Callers must dedupe by buildScrapeKey within each run before setting tasksTotal.
  */
-export function ensureTask(
-  db: AppDatabase,
-  input: EnsureTaskInput,
-): EnsureTaskResult {
+export function ensureTask(db: AppDatabase, input: EnsureTaskInput): EnsureTaskResult {
   const now = input.now ?? new Date();
   const nowIso = now.toISOString();
   const cutoffIso = new Date(now.getTime() - DAY_MS).toISOString();
@@ -122,12 +119,7 @@ export function ensureTask(
     const recentDone = tx
       .select()
       .from(scrapeTasks)
-      .where(
-        and(
-          eq(scrapeTasks.scrapeKey, scrapeKey),
-          eq(scrapeTasks.status, "done"),
-        ),
-      )
+      .where(and(eq(scrapeTasks.scrapeKey, scrapeKey), eq(scrapeTasks.status, "done")))
       .orderBy(desc(scrapeTasks.completedAt))
       .limit(1)
       .get();
@@ -172,12 +164,7 @@ export function ensureTask(
       tx
         .select({ id: scrapeTasks.id })
         .from(scrapeTasks)
-        .where(
-          and(
-            eq(scrapeTasks.scrapeKey, scrapeKey),
-            eq(scrapeTasks.windowStart, windowStart),
-          ),
-        )
+        .where(and(eq(scrapeTasks.scrapeKey, scrapeKey), eq(scrapeTasks.windowStart, windowStart)))
         .get()
     ) {
       windowStartMs += 1;
@@ -234,11 +221,7 @@ function decrementSourceInFlight(
   tx: Parameters<Parameters<AppDatabase["transaction"]>[0]>[0],
   source: string,
 ): void {
-  const state = tx
-    .select()
-    .from(sourceState)
-    .where(eq(sourceState.source, source))
-    .get();
+  const state = tx.select().from(sourceState).where(eq(sourceState.source, source)).get();
   if (!state) return;
 
   tx.update(sourceState)
@@ -270,12 +253,7 @@ export function dispatchPendingTasks(
     const expiredTasks = tx
       .select()
       .from(scrapeTasks)
-      .where(
-        and(
-          eq(scrapeTasks.status, "running"),
-          lt(scrapeTasks.leaseUntil, nowIso),
-        ),
-      )
+      .where(and(eq(scrapeTasks.status, "running"), lt(scrapeTasks.leaseUntil, nowIso)))
       .all();
 
     let expiredCount = 0;
@@ -355,15 +333,13 @@ export function dispatchPendingTasks(
         continue;
       }
 
-      const requestsToday =
-        currentState?.day === todayStr ? currentState.requestsToday : 0;
+      const requestsToday = currentState?.day === todayStr ? currentState.requestsToday : 0;
       if (dailyCap !== undefined && requestsToday >= dailyCap) {
         continue;
       }
 
       if (currentState?.lastDispatchAt) {
-        const elapsedMs =
-          nowMs - new Date(currentState.lastDispatchAt).getTime();
+        const elapsedMs = nowMs - new Date(currentState.lastDispatchAt).getTime();
         if (elapsedMs < minIntervalMs) {
           continue;
         }
@@ -402,11 +378,7 @@ export function dispatchPendingTasks(
       }
 
       runningByRuntime[task.runtime] += 1;
-      const updatedTask = tx
-        .select()
-        .from(scrapeTasks)
-        .where(eq(scrapeTasks.id, task.id))
-        .get();
+      const updatedTask = tx.select().from(scrapeTasks).where(eq(scrapeTasks.id, task.id)).get();
       if (updatedTask) {
         leasedTasks.push(updatedTask);
       }
@@ -435,10 +407,7 @@ export function recordSourceRateLimitHit(
       .get();
 
     const currentLevel = existing?.cooldownLevel ?? 0;
-    const cooldownMs = Math.min(
-      MAX_COOLDOWN_MS,
-      BASE_COOLDOWN_MS * 2 ** currentLevel,
-    );
+    const cooldownMs = Math.min(MAX_COOLDOWN_MS, BASE_COOLDOWN_MS * 2 ** currentLevel);
     const cooldownUntil = new Date(now.getTime() + cooldownMs).toISOString();
     const nextLevel = currentLevel + 1;
 
@@ -470,12 +439,7 @@ export function recordSourceRateLimitHit(
           leaseUntil: null,
           updatedAt: nowIso,
         })
-        .where(
-          and(
-            eq(scrapeTasks.id, input.taskId),
-            eq(scrapeTasks.status, "running"),
-          ),
-        )
+        .where(and(eq(scrapeTasks.id, input.taskId), eq(scrapeTasks.status, "running")))
         .run();
     }
 
@@ -517,11 +481,7 @@ export function completeTask(
   const nowIso = now.toISOString();
 
   return db.transaction((tx) => {
-    const task = tx
-      .select()
-      .from(scrapeTasks)
-      .where(eq(scrapeTasks.id, input.taskId))
-      .get();
+    const task = tx.select().from(scrapeTasks).where(eq(scrapeTasks.id, input.taskId)).get();
 
     if (!task) {
       throw new Error(`Scrape task not found: ${input.taskId}`);
@@ -530,12 +490,7 @@ export function completeTask(
     const pendingSubscribers = tx
       .select()
       .from(taskSubscribers)
-      .where(
-        and(
-          eq(taskSubscribers.taskId, input.taskId),
-          isNull(taskSubscribers.notifiedAt),
-        ),
-      )
+      .where(and(eq(taskSubscribers.taskId, input.taskId), isNull(taskSubscribers.notifiedAt)))
       .all();
 
     if (task.status === "done") {
@@ -551,11 +506,7 @@ export function completeTask(
 
     for (const item of input.postings) {
       const urlNorm = normalizePostingUrl(item.jobUrl);
-      const existing = tx
-        .select()
-        .from(postings)
-        .where(eq(postings.urlNorm, urlNorm))
-        .get();
+      const existing = tx.select().from(postings).where(eq(postings.urlNorm, urlNorm)).get();
 
       let postingId: string;
       if (existing) {
@@ -565,19 +516,11 @@ export function completeTask(
             source: item.source,
             company: item.company,
             title: item.title,
-            location:
-              item.location !== undefined ? item.location : existing.location,
-            description:
-              item.description !== undefined
-                ? item.description
-                : existing.description,
-            postedAt:
-              item.postedAt !== undefined ? item.postedAt : existing.postedAt,
+            location: item.location !== undefined ? item.location : existing.location,
+            description: item.description !== undefined ? item.description : existing.description,
+            postedAt: item.postedAt !== undefined ? item.postedAt : existing.postedAt,
             lastSeenAt: nowIso,
-            extracted:
-              item.extracted !== undefined
-                ? item.extracted
-                : existing.extracted,
+            extracted: item.extracted !== undefined ? item.extracted : existing.extracted,
           })
           .where(eq(postings.id, existing.id))
           .run();
@@ -607,11 +550,7 @@ export function completeTask(
     }
 
     if (task.status === "running") {
-      const state = tx
-        .select()
-        .from(sourceState)
-        .where(eq(sourceState.source, task.source))
-        .get();
+      const state = tx.select().from(sourceState).where(eq(sourceState.source, task.source)).get();
       if (state) {
         tx.update(sourceState)
           .set({
@@ -655,11 +594,7 @@ export function markTaskNeedsAttention(
   const nowIso = (input.now ?? new Date()).toISOString();
 
   db.transaction((tx) => {
-    const task = tx
-      .select()
-      .from(scrapeTasks)
-      .where(eq(scrapeTasks.id, input.taskId))
-      .get();
+    const task = tx.select().from(scrapeTasks).where(eq(scrapeTasks.id, input.taskId)).get();
     if (!task) return;
 
     if (task.status === "running") {
@@ -713,11 +648,7 @@ export function onTaskDoneForTenant(
         createdAt: nowIso,
       })
       .onConflictDoUpdate({
-        target: [
-          taskSubscribers.taskId,
-          taskSubscribers.tenantId,
-          taskSubscribers.runId,
-        ],
+        target: [taskSubscribers.taskId, taskSubscribers.tenantId, taskSubscribers.runId],
         set: { notifiedAt: nowIso },
         setWhere: isNull(taskSubscribers.notifiedAt),
       })
@@ -766,22 +697,15 @@ export function onTaskDoneForTenant(
     const run = tx
       .select()
       .from(pipelineRuns)
-      .where(
-        and(
-          eq(pipelineRuns.id, input.runId),
-          eq(pipelineRuns.tenantId, input.tenantId),
-        ),
-      )
+      .where(and(eq(pipelineRuns.id, input.runId), eq(pipelineRuns.tenantId, input.tenantId)))
       .get();
 
     if (run) {
       const nextDone = run.tasksDone + (input.taskStatus === "failed" ? 0 : 1);
-      const nextFailed =
-        run.tasksFailed + (input.taskStatus === "failed" ? 1 : 0);
+      const nextFailed = run.tasksFailed + (input.taskStatus === "failed" ? 1 : 0);
       const nextCached = run.tasksCached + (input.cached ? 1 : 0);
       const nextDiscovered = run.jobsDiscovered + insertedCount;
-      const allFinished =
-        run.tasksTotal > 0 && nextDone + nextFailed >= run.tasksTotal;
+      const allFinished = run.tasksTotal > 0 && nextDone + nextFailed >= run.tasksTotal;
 
       tx.update(pipelineRuns)
         .set({
@@ -813,14 +737,9 @@ export function cleanupUnseenPostings(
 ): { deletedCount: number } {
   const now = options.now ?? new Date();
   const retentionDays = options.retentionDays ?? DEFAULT_RETENTION_DAYS;
-  const cutoffIso = new Date(
-    now.getTime() - retentionDays * DAY_MS,
-  ).toISOString();
+  const cutoffIso = new Date(now.getTime() - retentionDays * DAY_MS).toISOString();
 
-  const result = db
-    .delete(postings)
-    .where(lt(postings.lastSeenAt, cutoffIso))
-    .run();
+  const result = db.delete(postings).where(lt(postings.lastSeenAt, cutoffIso)).run();
 
   return { deletedCount: result.changes };
 }

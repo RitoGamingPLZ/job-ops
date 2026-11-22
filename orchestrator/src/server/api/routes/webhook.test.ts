@@ -2,7 +2,7 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-describe.sequential("Webhook API routes", () => {
+describe("Webhook API routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -53,21 +53,15 @@ describe.sequential("Webhook API routes", () => {
     });
 
     try {
-      const unauthorizedRes = await fetch(
-        `${demoServer.baseUrl}/api/webhook/trigger`,
-        {
-          method: "POST",
-        },
-      );
+      const unauthorizedRes = await fetch(`${demoServer.baseUrl}/api/webhook/trigger`, {
+        method: "POST",
+      });
       expect(unauthorizedRes.status).toBe(401);
 
-      const authorizedRes = await fetch(
-        `${demoServer.baseUrl}/api/webhook/trigger`,
-        {
-          method: "POST",
-          headers: { Authorization: "Bearer secret" },
-        },
-      );
+      const authorizedRes = await fetch(`${demoServer.baseUrl}/api/webhook/trigger`, {
+        method: "POST",
+        headers: { Authorization: "Bearer secret" },
+      });
       expect(authorizedRes.status).toBe(200);
       const authorizedBody = await authorizedRes.json();
       expect(authorizedBody.ok).toBe(true);

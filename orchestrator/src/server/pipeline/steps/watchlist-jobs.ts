@@ -50,9 +50,7 @@ function createJobInputFromWatchlistJob(
     title: draft.title ?? job.title,
     employer: draft.employer ?? job.employer,
     jobUrl: draft.jobUrl ?? job.jobUrl,
-    applicationLink: optionalString(
-      draft.applicationLink ?? job.applicationLink,
-    ),
+    applicationLink: optionalString(draft.applicationLink ?? job.applicationLink),
     location: optionalString(draft.location ?? job.location),
     datePosted: optionalString(job.postedAt),
     jobDescription: optionalString(draft.jobDescription),
@@ -69,23 +67,13 @@ function createJobInputFromWatchlistJob(
 
 function getWatchlistSearchText(job: CreateJobInput): string {
   return normalizeJobTitle(
-    [
-      job.title,
-      job.jobDescription,
-      job.jobFunction,
-      job.jobType,
-      job.disciplines,
-      job.skills,
-    ]
+    [job.title, job.jobDescription, job.jobFunction, job.jobType, job.disciplines, job.skills]
       .filter((value): value is string => Boolean(value?.trim()))
       .join(" "),
   );
 }
 
-function matchesWatchlistSearchTerms(
-  job: CreateJobInput,
-  searchTerms: readonly string[],
-): boolean {
+function matchesWatchlistSearchTerms(job: CreateJobInput, searchTerms: readonly string[]): boolean {
   const normalizedTerms = normalizeSearchTerms([...searchTerms])
     .map((term) => normalizeJobTitle(term))
     .filter(Boolean);
@@ -117,8 +105,7 @@ export async function discoverWatchlistJobsForPipeline(
     };
   }
 
-  const selectedSources =
-    args.selectedSources ?? (await listHydratedWatchlistSelectedSources());
+  const selectedSources = args.selectedSources ?? (await listHydratedWatchlistSelectedSources());
   const searchTerms = normalizeSearchTerms(args.searchTerms ?? []);
   if (selectedSources.length === 0 || args.shouldCancel?.()) {
     return {
@@ -145,9 +132,7 @@ export async function discoverWatchlistJobsForPipeline(
   for (const result of results.sources) {
     if (result.status === "error") {
       failedSourceCount += 1;
-      sourceErrors.push(
-        buildWatchlistSourceError(result.source, "failed to fetch jobs"),
-      );
+      sourceErrors.push(buildWatchlistSourceError(result.source, "failed to fetch jobs"));
       logger.warn("Watchlist source failed during pipeline discovery", {
         step: "discover-watchlist-jobs",
         selectedSourceId: result.source.id,
@@ -160,9 +145,7 @@ export async function discoverWatchlistJobsForPipeline(
     const adapter = getWatchlistSourceAdapter(result.source.sourceType);
     if (!adapter) {
       failedSourceCount += 1;
-      sourceErrors.push(
-        buildWatchlistSourceError(result.source, "unsupported source type"),
-      );
+      sourceErrors.push(buildWatchlistSourceError(result.source, "unsupported source type"));
       continue;
     }
 

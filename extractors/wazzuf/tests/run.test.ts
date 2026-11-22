@@ -2,10 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildWazzufSearchUrl } from "../src/fetcher";
 import { runWazzuf } from "../src/run";
 
-function createTextResponse(
-  body: string,
-  init: Partial<Response> = {},
-): Response {
+function createTextResponse(body: string, init: Partial<Response> = {}): Response {
   return {
     ok: init.ok ?? true,
     status: init.status ?? 200,

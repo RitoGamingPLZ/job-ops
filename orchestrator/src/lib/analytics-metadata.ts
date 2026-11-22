@@ -50,7 +50,7 @@ export function withAnalyticsMetadata(
   }
 
   return {
-    ...(payload ?? {}),
+    ...payload,
     ...(analyticsUserId ? { analytics_user_id: analyticsUserId } : {}),
     ...(appVersion ? { app_version: appVersion } : {}),
   };

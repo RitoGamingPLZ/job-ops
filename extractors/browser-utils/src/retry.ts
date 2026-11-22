@@ -92,17 +92,14 @@ export async function navigateWithRetry(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const { response, challengeResult } = await navigateWithChallenge(
-        page,
-        url,
-        { waitUntil, challengeTimeoutMs, navigationTimeoutMs },
-      );
+      const { response, challengeResult } = await navigateWithChallenge(page, url, {
+        waitUntil,
+        challengeTimeoutMs,
+        navigationTimeoutMs,
+      });
 
       // Challenge resolved or wasn't one — success
-      if (
-        challengeResult.status === "passed" ||
-        challengeResult.status === "not-a-challenge"
-      ) {
+      if (challengeResult.status === "passed" || challengeResult.status === "not-a-challenge") {
         return { response, challengeResult, attempts: attempt };
       }
 

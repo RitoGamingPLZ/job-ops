@@ -16,10 +16,7 @@ extractorHealthRouter.get(
 
     const result = await checkExtractorHealth(rawSource);
     if (!result) {
-      return fail(
-        res,
-        notFound(`Extractor source is not available at runtime: ${rawSource}`),
-      );
+      return fail(res, notFound(`Extractor source is not available at runtime: ${rawSource}`));
     }
 
     if (!result.healthy) {

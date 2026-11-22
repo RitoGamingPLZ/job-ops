@@ -8,11 +8,7 @@ import { hashPassword } from "../src/server/auth/password";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const ORCHESTRATOR_DIR = resolve(SCRIPT_DIR, "..");
 
-export const DEFAULT_SOURCE_DB_PATH = resolve(
-  ORCHESTRATOR_DIR,
-  "data",
-  "jobs.db",
-);
+export const DEFAULT_SOURCE_DB_PATH = resolve(ORCHESTRATOR_DIR, "data", "jobs.db");
 export const DEFAULT_OUT_DB_PATH = resolve(
   ORCHESTRATOR_DIR,
   "data",
@@ -104,21 +100,16 @@ export function validateAdminPrefix(prefix: string): string {
   return normalized;
 }
 
-export function generateAdminUsername(
-  prefix: string = DEFAULT_ADMIN_PREFIX,
-): string {
+export function generateAdminUsername(prefix: string = DEFAULT_ADMIN_PREFIX): string {
   const validPrefix = validateAdminPrefix(prefix);
   let suffix = "";
   for (let index = 0; index < ADMIN_SUFFIX_LENGTH; index += 1) {
-    suffix +=
-      LOWERCASE_ALPHANUMERIC[randomInt(0, LOWERCASE_ALPHANUMERIC.length)];
+    suffix += LOWERCASE_ALPHANUMERIC[randomInt(0, LOWERCASE_ALPHANUMERIC.length)];
   }
   return `${validPrefix}-${suffix}`;
 }
 
-export function generateOneTimePassword(
-  length: number = DEFAULT_PASSWORD_LENGTH,
-): string {
+export function generateOneTimePassword(length: number = DEFAULT_PASSWORD_LENGTH): string {
   if (!Number.isInteger(length) || length < 20) {
     throw new Error("One-time password length must be an integer >= 20");
   }
@@ -178,9 +169,7 @@ export function parseCliArgs(
     }
 
     if (arg === "--source" || arg.startsWith("--source=")) {
-      const inline = arg.includes("=")
-        ? arg.slice(arg.indexOf("=") + 1)
-        : undefined;
+      const inline = arg.includes("=") ? arg.slice(arg.indexOf("=") + 1) : undefined;
       const value = readFlagValue("--source", inline, argv[index + 1]);
       if (inline === undefined) index += 1;
       sourcePath = resolve(cwd, value);
@@ -188,9 +177,7 @@ export function parseCliArgs(
     }
 
     if (arg === "--out" || arg.startsWith("--out=")) {
-      const inline = arg.includes("=")
-        ? arg.slice(arg.indexOf("=") + 1)
-        : undefined;
+      const inline = arg.includes("=") ? arg.slice(arg.indexOf("=") + 1) : undefined;
       const value = readFlagValue("--out", inline, argv[index + 1]);
       if (inline === undefined) index += 1;
       outPath = resolve(cwd, value);
@@ -198,9 +185,7 @@ export function parseCliArgs(
     }
 
     if (arg === "--admin-prefix" || arg.startsWith("--admin-prefix=")) {
-      const inline = arg.includes("=")
-        ? arg.slice(arg.indexOf("=") + 1)
-        : undefined;
+      const inline = arg.includes("=") ? arg.slice(arg.indexOf("=") + 1) : undefined;
       const value = readFlagValue("--admin-prefix", inline, argv[index + 1]);
       if (inline === undefined) index += 1;
       adminPrefix = validateAdminPrefix(value);
@@ -208,9 +193,7 @@ export function parseCliArgs(
     }
 
     if (arg === "--exclude-user" || arg.startsWith("--exclude-user=")) {
-      const inline = arg.includes("=")
-        ? arg.slice(arg.indexOf("=") + 1)
-        : undefined;
+      const inline = arg.includes("=") ? arg.slice(arg.indexOf("=") + 1) : undefined;
       const value = readFlagValue("--exclude-user", inline, argv[index + 1]);
       if (inline === undefined) index += 1;
       const normalized = normalizeUsername(value);
@@ -261,10 +244,7 @@ function getUserTables(db: Database.Database): string[] {
   return rows.map((row) => row.name);
 }
 
-function getTableColumns(
-  db: Database.Database,
-  tableName: string,
-): Set<string> {
+function getTableColumns(db: Database.Database, tableName: string): Set<string> {
   const rows = db
     .prepare(`PRAGMA table_info(${quoteIdentifier(tableName)})`)
     .all() as TableInfoRow[];
@@ -276,9 +256,7 @@ function ensureMustChangePasswordColumn(db: Database.Database): boolean {
   if (columns.has("must_change_password")) {
     return false;
   }
-  db.exec(
-    "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0",
-  );
+  db.exec("ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0");
   return true;
 }
 
@@ -344,9 +322,7 @@ function stripExcludedUsers(
       const members = membersInTenantStmt.all(tenantId) as Array<{
         user_id: string;
       }>;
-      const hasKeptMember = members.some(
-        (member) => !excludedUserIdSet.has(member.user_id),
-      );
+      const hasKeptMember = members.some((member) => !excludedUserIdSet.has(member.user_id));
       if (!hasKeptMember) {
         privateTenantIds.push(tenantId);
       }
@@ -358,9 +334,7 @@ function stripExcludedUsers(
       if (table === "users" || table === "tenants") continue;
       const cols = tableColumnMap.get(table);
       if (cols?.has("user_id")) {
-        db.prepare(
-          `DELETE FROM ${quoteIdentifier(table)} WHERE user_id = ?`,
-        ).run(user.id);
+        db.prepare(`DELETE FROM ${quoteIdentifier(table)} WHERE user_id = ?`).run(user.id);
       }
     }
 
@@ -370,9 +344,7 @@ function stripExcludedUsers(
         if (table === "users" || table === "tenants") continue;
         const cols = tableColumnMap.get(table);
         if (cols?.has("tenant_id")) {
-          db.prepare(
-            `DELETE FROM ${quoteIdentifier(table)} WHERE tenant_id = ?`,
-          ).run(tenantId);
+          db.prepare(`DELETE FROM ${quoteIdentifier(table)} WHERE tenant_id = ?`).run(tenantId);
         }
       }
       db.prepare("DELETE FROM tenants WHERE id = ?").run(tenantId);
@@ -390,13 +362,8 @@ function stripExcludedUsers(
   return { excludedUsers, notFoundExcludedUsers };
 }
 
-function pickUniqueAdminUsername(
-  db: Database.Database,
-  prefix: string,
-): string {
-  const existsStmt = db.prepare(
-    "SELECT 1 FROM users WHERE lower(username) = ?",
-  );
+function pickUniqueAdminUsername(db: Database.Database, prefix: string): string {
+  const existsStmt = db.prepare("SELECT 1 FROM users WHERE lower(username) = ?");
   for (let attempt = 0; attempt < 25; attempt += 1) {
     const candidate = generateAdminUsername(prefix);
     if (!existsStmt.get(candidate)) {
@@ -408,15 +375,12 @@ function pickUniqueAdminUsername(
   );
 }
 
-function collectTableRowCounts(
-  db: Database.Database,
-  tables: string[],
-): Record<string, number> {
+function collectTableRowCounts(db: Database.Database, tables: string[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const table of tables) {
-    const row = db
-      .prepare(`SELECT count(*) AS count FROM ${quoteIdentifier(table)}`)
-      .get() as { count: number };
+    const row = db.prepare(`SELECT count(*) AS count FROM ${quoteIdentifier(table)}`).get() as {
+      count: number;
+    };
     counts[table] = row.count;
   }
   return counts;
@@ -493,9 +457,7 @@ export async function prepareCloudflareDb(
         }
       } else if (existingAdmins.length > 0) {
         outDb
-          .prepare(
-            "UPDATE users SET is_system_admin = 0, updated_at = ? WHERE is_system_admin = 1",
-          )
+          .prepare("UPDATE users SET is_system_admin = 0, updated_at = ? WHERE is_system_admin = 1")
           .run(now);
         for (const admin of existingAdmins) {
           demotedAdmins.push(admin.username);
@@ -511,13 +473,7 @@ export async function prepareCloudflareDb(
         .prepare(
           "INSERT INTO tenants (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
         )
-        .run(
-          adminTenantId,
-          `System Admin (${adminUsername})`,
-          adminTenantSlug,
-          now,
-          now,
-        );
+        .run(adminTenantId, `System Admin (${adminUsername})`, adminTenantSlug, now, now);
 
       outDb
         .prepare(
@@ -534,15 +490,7 @@ export async function prepareCloudflareDb(
             updated_at
           ) VALUES (?, ?, ?, ?, ?, 1, 0, 1, ?, ?)`,
         )
-        .run(
-          adminUserId,
-          adminUsername,
-          "System Admin",
-          passwordHash,
-          passwordSalt,
-          now,
-          now,
-        );
+        .run(adminUserId, adminUsername, "System Admin", passwordHash, passwordSalt, now, now);
 
       outDb
         .prepare(
@@ -633,9 +581,7 @@ export function formatSummary(result: PrepareCloudflareDbResult): string {
   ];
 
   if (result.notFoundExcludedUsers.length > 0) {
-    lines.push(
-      `Exclude not found:     ${result.notFoundExcludedUsers.join(", ")}`,
-    );
+    lines.push(`Exclude not found:     ${result.notFoundExcludedUsers.join(", ")}`);
   }
 
   lines.push("", "--- Preserved Table Row Counts ---");
@@ -651,10 +597,7 @@ export function formatSummary(result: PrepareCloudflareDbResult): string {
   const sortedTables = Object.entries(result.tableRowCounts).filter(
     ([table, count]) => count > 0 || keyTables.has(table),
   );
-  const maxNameLen = Math.max(
-    ...sortedTables.map(([table]) => table.length),
-    10,
-  );
+  const maxNameLen = Math.max(...sortedTables.map(([table]) => table.length), 10);
   for (const [table, count] of sortedTables) {
     lines.push(`  ${table.padEnd(maxNameLen)}  ${count}`);
   }
@@ -694,8 +637,7 @@ async function main(): Promise<void> {
 }
 
 const isDirectExecution =
-  process.argv[1] !== undefined &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+  process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isDirectExecution) {
   void main().catch((error: unknown) => {

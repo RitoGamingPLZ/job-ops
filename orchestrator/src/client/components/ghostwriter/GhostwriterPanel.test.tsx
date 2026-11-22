@@ -1,13 +1,7 @@
 import { ApiClientError } from "@client/api/core";
 import { createJob } from "@shared/testing/factories.js";
 import type { CoworkChatContext, JobChatMessage } from "@shared/types";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -38,13 +32,7 @@ vi.mock("./GhostwriterContextSelector", () => ({
   GhostwriterContextSelector: () => null,
 }));
 vi.mock("./Composer", () => ({
-  Composer: ({
-    onSend,
-    disabled,
-  }: {
-    onSend: (text: string) => void;
-    disabled: boolean;
-  }) => (
+  Composer: ({ onSend, disabled }: { onSend: (text: string) => void; disabled: boolean }) => (
     <button type="button" disabled={disabled} onClick={() => onSend("Prompt")}>
       Send
     </button>
@@ -102,9 +90,7 @@ beforeEach(() => {
 });
 describe("co-work chat context", () => {
   it("keeps reference chips visible in empty and populated conversations", async () => {
-    mocks.list
-      .mockResolvedValueOnce(result())
-      .mockResolvedValue(result([message]));
+    mocks.list.mockResolvedValueOnce(result()).mockResolvedValue(result([message]));
     mount();
     await waitFor(() => expect(screen.getByText("Send")).toBeEnabled());
     expect(screen.getByText("Remove reference")).toBeVisible();
@@ -113,10 +99,7 @@ describe("co-work chat context", () => {
     expect(screen.getByText("Remove reference")).toBeVisible();
     expect(mocks.send.mock.calls[0][1].cowork).toEqual(context);
   });
-  it.each([
-    "Regenerate",
-    "Edit message",
-  ])("sends fresh co-work context on %s", async (action) => {
+  it.each(["Regenerate", "Edit message"])("sends fresh co-work context on %s", async (action) => {
     mount();
     await screen.findByText("Regenerate");
     fireEvent.click(screen.getByText(action));
@@ -124,21 +107,19 @@ describe("co-work chat context", () => {
     await waitFor(() => expect(request).toHaveBeenCalled());
     expect(request.mock.calls[0][2].cowork).toEqual(context);
   });
-  it.each([
-    "Regenerate",
-    "Edit message",
-  ])("handles an unavailable co-work endpoint on %s", async (action) => {
-    const request = action === "Regenerate" ? mocks.regenerate : mocks.edit;
-    request.mockRejectedValueOnce(
-      new ApiClientError("Unavailable", { status: 501 }),
-    );
-    mount();
-    await screen.findByText("Regenerate");
-    fireEvent.click(screen.getByText(action));
-    await waitFor(() =>
-      expect(mocks.toast).toHaveBeenCalledWith("Co-work is not available yet."),
-    );
-  });
+  it.each(["Regenerate", "Edit message"])(
+    "handles an unavailable co-work endpoint on %s",
+    async (action) => {
+      const request = action === "Regenerate" ? mocks.regenerate : mocks.edit;
+      request.mockRejectedValueOnce(new ApiClientError("Unavailable", { status: 501 }));
+      mount();
+      await screen.findByText("Regenerate");
+      fireEvent.click(screen.getByText(action));
+      await waitFor(() =>
+        expect(mocks.toast).toHaveBeenCalledWith("Co-work is not available yet."),
+      );
+    },
+  );
 });
 
 describe("initial prompt", () => {

@@ -1,9 +1,14 @@
 {
   "name": "seek-extractor",
   "version": "0.0.1",
-  "type": "module",
   "description": "Seek extractor via Apify - fetches jobs from seek.com.au",
+  "type": "module",
   "main": "src/main.ts",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "start:dev": "tsx src/main.ts",
+    "check:types": "tsc --noEmit"
+  },
   "dependencies": {
     "apify-client": "^2.9.0",
     "job-ops-shared": "^1.0.0",
@@ -12,10 +17,5 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "~5.9.0"
-  },
-  "scripts": {
-    "start": "tsx src/main.ts",
-    "start:dev": "tsx src/main.ts",
-    "check:types": "tsc --noEmit"
   }
 }

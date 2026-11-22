@@ -51,14 +51,10 @@ export function extractProjectsFromProfile(profile: ResumeProfile): {
 export function buildDefaultResumeProjectsSettings(
   catalog: ResumeProjectCatalogItem[],
 ): ResumeProjectsSettings {
-  const lockedProjectIds = catalog
-    .filter((p) => p.isVisibleInBase)
-    .map((p) => p.id);
+  const lockedProjectIds = catalog.filter((p) => p.isVisibleInBase).map((p) => p.id);
   const lockedSet = new Set(lockedProjectIds);
 
-  const aiSelectableProjectIds = catalog
-    .map((p) => p.id)
-    .filter((id) => !lockedSet.has(id));
+  const aiSelectableProjectIds = catalog.map((p) => p.id).filter((id) => !lockedSet.has(id));
 
   const total = catalog.length;
   const preferredMax = Math.max(lockedProjectIds.length, 3);
@@ -70,9 +66,7 @@ export function buildDefaultResumeProjectsSettings(
   );
 }
 
-export function parseResumeProjectsSettings(
-  raw: string | null,
-): ResumeProjectsSettings | null {
+export function parseResumeProjectsSettings(raw: string | null): ResumeProjectsSettings | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<ResumeProjectsSettings>;
@@ -82,15 +76,9 @@ export function parseResumeProjectsSettings(
     const aiSelectableProjectIds = parsed.aiSelectableProjectIds;
 
     if (typeof maxProjects !== "number") return null;
-    if (
-      !Array.isArray(lockedProjectIds) ||
-      !Array.isArray(aiSelectableProjectIds)
-    )
-      return null;
-    if (!lockedProjectIds.every((v: unknown) => typeof v === "string"))
-      return null;
-    if (!aiSelectableProjectIds.every((v: unknown) => typeof v === "string"))
-      return null;
+    if (!Array.isArray(lockedProjectIds) || !Array.isArray(aiSelectableProjectIds)) return null;
+    if (!lockedProjectIds.every((v: unknown) => typeof v === "string")) return null;
+    if (!aiSelectableProjectIds.every((v: unknown) => typeof v === "string")) return null;
 
     return {
       maxProjects,
@@ -106,27 +94,21 @@ export function normalizeResumeProjectsSettings(
   settings: ResumeProjectsSettings,
   allowedProjectIds?: ReadonlySet<string>,
 ): ResumeProjectsSettings {
-  const allowed =
-    allowedProjectIds && allowedProjectIds.size > 0 ? allowedProjectIds : null;
+  const allowed = allowedProjectIds && allowedProjectIds.size > 0 ? allowedProjectIds : null;
 
   const lockedProjectIds = normalizeStringArray(settings.lockedProjectIds, {
     caseSensitive: true,
   }).filter((id) => (allowed ? allowed.has(id) : true));
   const lockedSet = new Set(lockedProjectIds);
 
-  const aiSelectableProjectIds = normalizeStringArray(
-    settings.aiSelectableProjectIds,
-    {
-      caseSensitive: true,
-    },
-  )
+  const aiSelectableProjectIds = normalizeStringArray(settings.aiSelectableProjectIds, {
+    caseSensitive: true,
+  })
     .filter((id) => (allowed ? allowed.has(id) : true))
     .filter((id) => !lockedSet.has(id));
 
   const maxCap = allowed ? allowed.size : Number.POSITIVE_INFINITY;
-  const maxProjectsRaw = Number.isFinite(settings.maxProjects)
-    ? settings.maxProjects
-    : 0;
+  const maxProjectsRaw = Number.isFinite(settings.maxProjects) ? settings.maxProjects : 0;
   const maxProjectsInt = Math.max(0, Math.floor(maxProjectsRaw));
   const minRequired = lockedProjectIds.length;
   const maxProjects = Math.min(maxCap, Math.max(minRequired, maxProjectsInt));
@@ -145,8 +127,7 @@ export function resolveResumeProjectsSettings(args: {
 } {
   const profileProjects = args.catalog;
   const allowed = new Set(profileProjects.map((p) => p.id));
-  const defaultResumeProjects =
-    buildDefaultResumeProjectsSettings(profileProjects);
+  const defaultResumeProjects = buildDefaultResumeProjectsSettings(profileProjects);
   const overrideParsed = parseResumeProjectsSettings(args.overrideRaw);
   const overrideResumeProjects = overrideParsed
     ? normalizeResumeProjectsSettings(overrideParsed, allowed)
@@ -164,9 +145,7 @@ export function resolveResumeProjectsSettings(args: {
   };
 }
 
-export async function filterProfileProjectsForAi(
-  profile: ResumeProfile,
-): Promise<ResumeProfile> {
+export async function filterProfileProjectsForAi(profile: ResumeProfile): Promise<ResumeProfile> {
   const items = profile.sections?.projects?.items;
   if (!items?.length) return profile;
 
@@ -179,10 +158,7 @@ export async function filterProfileProjectsForAi(
     catalog,
     resumeProjects,
   });
-  const allowedIds = new Set([
-    ...resolution.mustIncludeIds,
-    ...resolution.aiSelectableIds,
-  ]);
+  const allowedIds = new Set([...resolution.mustIncludeIds, ...resolution.aiSelectableIds]);
 
   return {
     ...profile,

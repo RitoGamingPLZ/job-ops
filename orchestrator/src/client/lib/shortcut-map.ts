@@ -150,9 +150,7 @@ export const SHORTCUTS = {
 export function getShortcutsForTab(tab: FilterTab): ShortcutDef[] {
   return (Object.values(SHORTCUTS) as ShortcutDef[]).filter(
     (s) =>
-      ![SHORTCUTS.tabReady, SHORTCUTS.skip, SHORTCUTS.markApplied].some(
-        (hidden) => hidden === s,
-      ) &&
+      ![SHORTCUTS.tabReady, SHORTCUTS.skip, SHORTCUTS.markApplied].some((hidden) => hidden === s) &&
       (!s.scope || s.scope.includes(tab)),
   );
 }
@@ -160,9 +158,7 @@ export function getShortcutsForTab(tab: FilterTab): ShortcutDef[] {
 /**
  * Group an array of ShortcutDefs by their `group` field.
  */
-export function groupShortcuts(
-  defs: ShortcutDef[],
-): Record<ShortcutGroup, ShortcutDef[]> {
+export function groupShortcuts(defs: ShortcutDef[]): Record<ShortcutGroup, ShortcutDef[]> {
   const result: Record<ShortcutGroup, ShortcutDef[]> = {
     navigation: [],
     tabs: [],

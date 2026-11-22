@@ -22,8 +22,7 @@ export const manifest: ExtractorManifest = {
       ? parseInt(context.settings.seekMaxJobsPerTerm, 10)
       : 50;
 
-    const countryLabel =
-      context.selectedCountry === "new zealand" ? "New Zealand" : "Australia";
+    const countryLabel = context.selectedCountry === "new zealand" ? "New Zealand" : "Australia";
 
     const cities = resolveSearchCities({
       list: context.sourceLocationPlan?.requestedCities,
@@ -39,9 +38,7 @@ export const manifest: ExtractorManifest = {
       shouldCancel: context.shouldCancel,
       onProgress: (event) => {
         if (context.shouldCancel?.()) return;
-        context.onProgress?.(
-          toTermProgress(event, { label: "Seek", completionStyle: "dash" }),
-        );
+        context.onProgress?.(toTermProgress(event, { label: "Seek", completionStyle: "dash" }));
       },
     });
 

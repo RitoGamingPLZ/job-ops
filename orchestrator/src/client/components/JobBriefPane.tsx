@@ -17,10 +17,7 @@ const BULLET_STAGGER_BASE_DELAY = 0.03;
 const HIGHLIGHT_X_OFFSET = 6;
 const FADE_ONLY_BULLET_SECTIONS = new Set(["Company offers", "They want"]);
 
-export const JobBriefPane: React.FC<JobBriefPaneProps> = ({
-  job,
-  className,
-}) => {
+export const JobBriefPane: React.FC<JobBriefPaneProps> = ({ job, className }) => {
   const brief = parseJobBrief(job.jobBrief);
   const prefersReducedMotion = useReducedMotion();
 
@@ -44,12 +41,7 @@ export const JobBriefPane: React.FC<JobBriefPaneProps> = ({
 
   if (!brief) {
     return (
-      <section
-        className={cn(
-          "rounded-lg border border-border/45 bg-muted/5 px-4 py-3",
-          className,
-        )}
-      >
+      <section className={cn("rounded-lg border border-border/45 bg-muted/5 px-4 py-3", className)}>
         <FitLine job={job} />
         <p className="mt-2 text-xs text-muted-foreground">
           Recalculate match to generate a concise JD brief.
@@ -66,9 +58,7 @@ export const JobBriefPane: React.FC<JobBriefPaneProps> = ({
       animate={{ opacity: 1 }}
       transition={CARD_ENTER_TRANSITION}
     >
-      <p className="text-lg font-bold leading-7 text-foreground">
-        {brief.role_summary}
-      </p>
+      <p className="text-lg font-bold leading-7 text-foreground">{brief.role_summary}</p>
 
       {brief.specifics.length > 0 && (
         <HighlightsSection
@@ -103,9 +93,7 @@ const FitLine: React.FC<{ job: Job }> = ({ job }) => {
       <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/75" />
       <span>
         {job.suitabilityScore != null && (
-          <span className="font-semibold tabular-nums">
-            {job.suitabilityScore}/100:{" "}
-          </span>
+          <span className="font-semibold tabular-nums">{job.suitabilityScore}/100: </span>
         )}
         {job.suitabilityReason}
       </span>
@@ -127,9 +115,7 @@ const HighlightsSection: React.FC<{
         <motion.span
           key={`${jobId}-highlight-${index}-${item}`}
           className="inline-flex items-center whitespace-nowrap rounded-lg border border-border/45 bg-background px-2 py-1 text-foreground shadow-sm"
-          initial={
-            prefersReducedMotion ? false : { opacity: 0, x: HIGHLIGHT_X_OFFSET }
-          }
+          initial={prefersReducedMotion ? false : { opacity: 0, x: HIGHLIGHT_X_OFFSET }}
           animate={{ opacity: 1, x: 0 }}
           transition={{
             ...BULLET_ENTER_TRANSITION,
@@ -177,8 +163,7 @@ const BulletSection: React.FC<{
               ...BULLET_ENTER_TRANSITION,
               delay: prefersReducedMotion
                 ? 0
-                : BULLET_STAGGER_BASE_DELAY +
-                  (startIndex + index) * BULLET_STAGGER_SECONDS,
+                : BULLET_STAGGER_BASE_DELAY + (startIndex + index) * BULLET_STAGGER_SECONDS,
             }}
           >
             <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-foreground/45" />

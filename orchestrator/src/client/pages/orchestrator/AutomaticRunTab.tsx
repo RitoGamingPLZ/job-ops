@@ -1,12 +1,6 @@
 import * as api from "@client/api";
-import {
-  createLocationIntent,
-  planLocationSources,
-} from "@shared/location-intelligence.js";
-import type {
-  LocationMatchStrictness,
-  LocationSearchScope,
-} from "@shared/location-preferences.js";
+import { createLocationIntent, planLocationSources } from "@shared/location-intelligence.js";
+import type { LocationMatchStrictness, LocationSearchScope } from "@shared/location-preferences.js";
 import {
   formatCountryLabel,
   normalizeCountryKey,
@@ -41,10 +35,7 @@ import { getDetectedCountryKey } from "@/lib/user-location";
 import { cn } from "@/lib/utils";
 import { AutomaticRankingPreferencesCard } from "./AutomaticRankingPreferencesCard";
 import { AutomaticRunFooter } from "./AutomaticRunFooter";
-import {
-  AutomaticRunAdvancedSettings,
-  AutomaticRunSettingsCard,
-} from "./AutomaticRunSettingsCard";
+import { AutomaticRunAdvancedSettings, AutomaticRunSettingsCard } from "./AutomaticRunSettingsCard";
 import { AutomaticSavedSearchControls } from "./AutomaticSavedSearchControls";
 import { AutomaticSaveSearchDialog } from "./AutomaticSaveSearchDialog";
 import { AutomaticSearchPrompt } from "./AutomaticSearchPrompt";
@@ -83,9 +74,7 @@ interface AutomaticRunTabProps {
   onSaveAndRun: (values: AutomaticRunValues) => Promise<void>;
   savedSearches?: PipelineSearchPreset[];
   isSavedSearchesLoading?: boolean;
-  onCreateSavedSearch?: (
-    input: CreatePipelineSearchPresetInput,
-  ) => Promise<PipelineSearchPreset>;
+  onCreateSavedSearch?: (input: CreatePipelineSearchPresetInput) => Promise<PipelineSearchPreset>;
   onUpdateSavedSearch?: (
     id: string,
     input: UpdatePipelineSearchPresetInput,
@@ -168,29 +157,19 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
   const [nearbyPlaceCount, setNearbyPlaceCount] = useState<number | null>(null);
   const [isPlanningSearch, setIsPlanningSearch] = useState(false);
   const [searchPrompt, setSearchPrompt] = useState("");
-  const [automaticTab, setAutomaticTab] = useState<"describe" | "details">(
-    "describe",
-  );
+  const [automaticTab, setAutomaticTab] = useState<"describe" | "details">("describe");
   const [planWarnings, setPlanWarnings] = useState<string[]>([]);
   const [planSource, setPlanSource] = useState<"ai" | "fallback" | null>(null);
   const wasOpenRef = useRef(open);
   const [isSavingSearch, setIsSavingSearch] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [saveDialogMode, setSaveDialogMode] = useState<"create" | "update">(
-    "create",
-  );
+  const [saveDialogMode, setSaveDialogMode] = useState<"create" | "update">("create");
   const [saveName, setSaveName] = useState("");
-  const [selectedSavedSearchId, setSelectedSavedSearchId] = useState<
-    string | null
-  >(null);
-  const [sourceDisplayOrder, setSourceDisplayOrder] =
-    useState<JobSource[]>(enabledSources);
-  const [browserCountrySuggestion, setBrowserCountrySuggestion] = useState<
-    string | null
-  >(null);
-  const [selectedPreset, setSelectedPreset] =
-    useState<AutomaticPresetSelection>("custom");
+  const [selectedSavedSearchId, setSelectedSavedSearchId] = useState<string | null>(null);
+  const [sourceDisplayOrder, setSourceDisplayOrder] = useState<JobSource[]>(enabledSources);
+  const [browserCountrySuggestion, setBrowserCountrySuggestion] = useState<string | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<AutomaticPresetSelection>("custom");
   const { watch, reset, setValue } = useForm<AutomaticRunFormValues>({
     defaultValues: {
       topN: String(DEFAULT_VALUES.topN),
@@ -262,62 +241,44 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
         DEFAULT_VALUES.runBudget,
     );
     const rememberedPresetValues =
-      memory?.presetId && memory.presetId !== "custom"
-        ? AUTOMATIC_PRESETS[memory.presetId]
-        : null;
-    const rememberedTopN =
-      rememberedPresetValues?.topN ?? memory?.topN ?? DEFAULT_VALUES.topN;
+      memory?.presetId && memory.presetId !== "custom" ? AUTOMATIC_PRESETS[memory.presetId] : null;
+    const rememberedTopN = rememberedPresetValues?.topN ?? memory?.topN ?? DEFAULT_VALUES.topN;
     const rememberedMinSuitabilityScore =
       rememberedPresetValues?.minSuitabilityScore ??
       memory?.minSuitabilityScore ??
       DEFAULT_VALUES.minSuitabilityScore;
     const rememberedRunBudget = normalizeRunBudget(
-      rememberedPresetValues?.runBudget ??
-        memory?.runBudget ??
-        fallbackRunBudget,
+      rememberedPresetValues?.runBudget ?? memory?.runBudget ?? fallbackRunBudget,
     );
     const hasExplicitLocationOverride = Boolean(
-      settings?.jobspyCountryIndeed?.override ||
-        settings?.searchCities?.override,
+      settings?.jobspyCountryIndeed?.override || settings?.searchCities?.override,
     );
     const rememberedCountry = normalizeUiCountryKey(
       settings?.jobspyCountryIndeed?.value ??
         settings?.searchCities?.value ??
         DEFAULT_VALUES.country,
     );
-    const detectedCountry = !hasExplicitLocationOverride
-      ? getDetectedCountryKey()
-      : null;
+    const detectedCountry = !hasExplicitLocationOverride ? getDetectedCountryKey() : null;
     const countryValue = rememberedCountry || DEFAULT_VALUES.country;
-    const suggestion =
-      !countryValue && detectedCountry ? detectedCountry : null;
-    const rememberedLocations = parseCityLocationsSetting(
-      settings?.searchCities?.value,
-    ).filter(
-      (location) =>
-        normalizeCountryKey(location) !== normalizeCountryKey(countryValue),
+    const suggestion = !countryValue && detectedCountry ? detectedCountry : null;
+    const rememberedLocations = parseCityLocationsSetting(settings?.searchCities?.value).filter(
+      (location) => normalizeCountryKey(location) !== normalizeCountryKey(countryValue),
     );
-    const rememberedWorkplaceTypes = normalizeWorkplaceTypes(
-      settings?.workplaceTypes?.value,
-    );
+    const rememberedWorkplaceTypes = normalizeWorkplaceTypes(settings?.workplaceTypes?.value);
     const rememberedSearchScope =
       settings?.locationSearchScope?.value ?? DEFAULT_VALUES.searchScope;
     const rememberedMatchStrictness =
-      settings?.locationMatchStrictness?.value ??
-      DEFAULT_VALUES.matchStrictness;
+      settings?.locationMatchStrictness?.value ?? DEFAULT_VALUES.matchStrictness;
     const rememberedLocationMode =
       settings?.locationSearchMode?.override ??
       (rememberedLocations.length > 0 ? "cities" : DEFAULT_VALUES.locationMode);
     const rememberedProximity =
-      settings?.locationLatitude?.value != null &&
-      settings?.locationLongitude?.value != null
+      settings?.locationLatitude?.value != null && settings?.locationLongitude?.value != null
         ? {
             latitude: settings.locationLatitude.value,
             longitude: settings.locationLongitude.value,
             radiusMiles:
-              settings.locationRadiusMiles?.value ??
-              DEFAULT_VALUES.proximity?.radiusMiles ??
-              50,
+              settings.locationRadiusMiles?.value ?? DEFAULT_VALUES.proximity?.radiusMiles ?? 50,
           }
         : null;
 
@@ -355,12 +316,8 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
 
   useEffect(() => {
     setSourceDisplayOrder((current) => {
-      const filtered = current.filter((source) =>
-        enabledSources.includes(source),
-      );
-      const additions = enabledSources.filter(
-        (source) => !filtered.includes(source),
-      );
+      const filtered = current.filter((source) => enabledSources.includes(source));
+      const additions = enabledSources.filter((source) => !filtered.includes(source));
       const next = [...filtered, ...additions];
 
       return next.length === current.length &&
@@ -374,12 +331,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
     const normalizedCountry = normalizeUiCountryKey(countryInput);
     return {
       topN: toNumber(topNInput, 1, 50, DEFAULT_VALUES.topN),
-      minSuitabilityScore: toNumber(
-        minScoreInput,
-        0,
-        100,
-        DEFAULT_VALUES.minSuitabilityScore,
-      ),
+      minSuitabilityScore: toNumber(minScoreInput, 0, 100, DEFAULT_VALUES.minSuitabilityScore),
       runBudget: toNumber(
         runBudgetInput,
         MIN_PIPELINE_RUN_BUDGET,
@@ -434,16 +386,12 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
   );
 
   const sourcePlans = useMemo(
-    () =>
-      planLocationSources({ intent: locationIntent, sources: enabledSources }),
+    () => planLocationSources({ intent: locationIntent, sources: enabledSources }),
     [enabledSources, locationIntent],
   );
 
   const sourcePlanBySource = useMemo(
-    () =>
-      new Map(
-        sourcePlans.plans.map((plan) => [plan.source as JobSource, plan]),
-      ),
+    () => new Map(sourcePlans.plans.map((plan) => [plan.source as JobSource, plan])),
     [sourcePlans.plans],
   );
 
@@ -482,12 +430,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
           },
         ];
       }),
-    [
-      countrySelectionInvalid,
-      pipelineSources,
-      sourceDisplayOrder,
-      sourcePlanBySource,
-    ],
+    [countrySelectionInvalid, pipelineSources, sourceDisplayOrder, sourcePlanBySource],
   );
   const selectedSourceRows = useMemo(
     () => sourceRows.filter((row) => row.selected && row.status.available),
@@ -507,9 +450,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
       : null;
 
   useEffect(() => {
-    const filtered = pipelineSources.filter((source) =>
-      isSourceAvailableForRun(source),
-    );
+    const filtered = pipelineSources.filter((source) => isSourceAvailableForRun(source));
     if (filtered.length === pipelineSources.length) return;
     if (filtered.length > 0) {
       onSetPipelineSources(filtered);
@@ -518,32 +459,22 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
     if (compatibleEnabledSources.length > 0) {
       onSetPipelineSources([compatibleEnabledSources[0]]);
     }
-  }, [
-    compatibleEnabledSources,
-    isSourceAvailableForRun,
-    onSetPipelineSources,
-    pipelineSources,
-  ]);
+  }, [compatibleEnabledSources, isSourceAvailableForRun, onSetPipelineSources, pipelineSources]);
 
-  const locationSummary = useMemo(
-    () => summarizeLocationPreferences(values),
-    [values],
-  );
+  const locationSummary = useMemo(() => summarizeLocationPreferences(values), [values]);
   const selectedSavedSearch = useMemo(
     () =>
       selectedSavedSearchId
-        ? (savedSearches.find(
-            (search) => search.id === selectedSavedSearchId,
-          ) ?? null)
+        ? (savedSearches.find((search) => search.id === selectedSavedSearchId) ?? null)
         : null,
     [savedSearches, selectedSavedSearchId],
   );
   const savedSearchSupportEnabled = Boolean(
     onCreateSavedSearch ||
-      onUpdateSavedSearch ||
-      onDeleteSavedSearch ||
-      onApplySavedSearch ||
-      savedSearches.length > 0,
+    onUpdateSavedSearch ||
+    onDeleteSavedSearch ||
+    onApplySavedSearch ||
+    savedSearches.length > 0,
   );
   const currentSavedSearchConfig = useMemo<PipelineSearchPresetConfig>(
     () => ({
@@ -575,10 +506,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
     (values.locationMode === "radius" && !values.proximity) ||
     workplaceTypeSelectionInvalid;
 
-  const toggleWorkplaceType = (
-    workplaceType: WorkplaceType,
-    checked: boolean,
-  ) => {
+  const toggleWorkplaceType = (workplaceType: WorkplaceType, checked: boolean) => {
     const next = checked
       ? normalizeWorkplaceTypes([...workplaceTypes, workplaceType])
       : workplaceTypes.filter((value) => value !== workplaceType);
@@ -588,10 +516,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
 
   const handleSourceToggle = useCallback(
     (source: JobSource, checked: boolean) => {
-      setSourceDisplayOrder((current) => [
-        ...current.filter((value) => value !== source),
-        source,
-      ]);
+      setSourceDisplayOrder((current) => [...current.filter((value) => value !== source), source]);
       onToggleSource(source, checked);
     },
     [onToggleSource],
@@ -641,11 +566,9 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
     });
     setValue("cityLocations", config.cityLocations, { shouldDirty: true });
     setValue("cityLocationDraft", "");
-    setValue(
-      "locationMode",
-      config.locationMode ?? (config.proximity ? "radius" : "cities"),
-      { shouldDirty: true },
-    );
+    setValue("locationMode", config.locationMode ?? (config.proximity ? "radius" : "cities"), {
+      shouldDirty: true,
+    });
     setValue("proximity", config.proximity ?? null, { shouldDirty: true });
     setValue("workplaceTypes", normalizeWorkplaceTypes(config.workplaceTypes), {
       shouldDirty: true,
@@ -658,18 +581,14 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
       shouldDirty: true,
     });
 
-    const nextSources = config.sources.filter((source) =>
-      enabledSources.includes(source),
-    );
+    const nextSources = config.sources.filter((source) => enabledSources.includes(source));
     if (nextSources.length > 0) {
       onSetPipelineSources(nextSources);
     }
 
     if (Array.isArray(config.watchlistSelectedSourceIds)) {
       const availableIds = new Set(watchlistSources.map((source) => source.id));
-      const restored = config.watchlistSelectedSourceIds.filter((id) =>
-        availableIds.has(id),
-      );
+      const restored = config.watchlistSelectedSourceIds.filter((id) => availableIds.has(id));
       onSetSelectedWatchlistSourceIds?.(restored);
     }
   };
@@ -763,12 +682,12 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
 
   const countryOptions = useMemo(
     () =>
-      SUPPORTED_COUNTRY_KEYS.filter(
-        (country) => !HIDDEN_COUNTRY_KEYS.has(country),
-      ).map((country) => ({
-        value: country,
-        label: formatCountryLabel(country),
-      })),
+      SUPPORTED_COUNTRY_KEYS.filter((country) => !HIDDEN_COUNTRY_KEYS.has(country)).map(
+        (country) => ({
+          value: country,
+          label: formatCountryLabel(country),
+        }),
+      ),
     [],
   );
 
@@ -786,9 +705,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
 
       <Tabs
         value={automaticTab}
-        onValueChange={(value) =>
-          setAutomaticTab(value === "details" ? "details" : "describe")
-        }
+        onValueChange={(value) => setAutomaticTab(value === "details" ? "details" : "describe")}
         className="flex min-h-0 flex-1 flex-col"
       >
         <TabsList className="sr-only">
@@ -817,10 +734,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
             />
           </TabsContent>
 
-          <TabsContent
-            value="details"
-            className="mt-0 flex flex-col gap-6 pb-8"
-          >
+          <TabsContent value="details" className="mt-0 flex flex-col gap-6 pb-8">
             <header>
               <div className="flex flex-col gap-2">
                 <Button
@@ -833,12 +747,9 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
                   <ArrowLeft data-icon="inline-start" />
                   Describe search
                 </Button>
-                <h1 className="text-3xl font-semibold tracking-tight">
-                  Configure your search
-                </h1>
+                <h1 className="text-3xl font-semibold tracking-tight">Configure your search</h1>
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Tell Job Ops what matters, review the plan, then search your
-                  selected sources.
+                  Tell Job Ops what matters, review the plan, then search your selected sources.
                 </p>
               </div>
             </header>
@@ -848,8 +759,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
                 role="alert"
                 className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm"
               >
-                AI couldn’t build this search. Review the existing details or
-                try again.
+                AI couldn’t build this search. Review the existing details or try again.
               </p>
             ) : null}
             {planWarnings.length > 0 ? (
@@ -877,9 +787,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
                   searchTermDraft={searchTermDraft}
                   onApplyPreset={applyPreset}
                   onSelectCustomPreset={() => setSelectedPreset("custom")}
-                  onSearchTermDraftChange={(value) =>
-                    setValue("searchTermDraft", value)
-                  }
+                  onSearchTermDraftChange={(value) => setValue("searchTermDraft", value)}
                   onSearchTermsChange={(value) =>
                     setValue("searchTerms", value, { shouldDirty: true })
                   }
@@ -909,18 +817,14 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
                     });
                     setValue("proximity", null, { shouldDirty: true });
                   }}
-                  onCityLocationDraftChange={(value) =>
-                    setValue("cityLocationDraft", value)
-                  }
+                  onCityLocationDraftChange={(value) => setValue("cityLocationDraft", value)}
                   onCityLocationsChange={(value) =>
                     setValue("cityLocations", value, { shouldDirty: true })
                   }
                   onLocationModeChange={(value) =>
                     setValue("locationMode", value, { shouldDirty: true })
                   }
-                  onProximityChange={(value) =>
-                    setValue("proximity", value, { shouldDirty: true })
-                  }
+                  onProximityChange={(value) => setValue("proximity", value, { shouldDirty: true })}
                   onToggleWorkplaceType={toggleWorkplaceType}
                 />
 
@@ -978,8 +882,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
                       "runBudget",
                       String(
                         normalizeRunBudget(
-                          Number.parseInt(runBudgetInput, 10) ||
-                            DEFAULT_VALUES.runBudget,
+                          Number.parseInt(runBudgetInput, 10) || DEFAULT_VALUES.runBudget,
                         ),
                       ),
                     )
@@ -997,13 +900,9 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
                     canCreate={Boolean(onCreateSavedSearch)}
                     canUpdate={Boolean(onUpdateSavedSearch)}
                     canDelete={Boolean(onDeleteSavedSearch)}
-                    onApplySavedSearch={(preset) =>
-                      void applySavedSearch(preset)
-                    }
+                    onApplySavedSearch={(preset) => void applySavedSearch(preset)}
                     onOpenSaveDialog={openSaveDialog}
-                    onDeleteSelectedSearch={() =>
-                      void handleDeleteSelectedSearch()
-                    }
+                    onDeleteSelectedSearch={() => void handleDeleteSelectedSearch()}
                   />
                 ) : null}
 
@@ -1018,10 +917,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
                   workplaceTypes={values.workplaceTypes}
                   scoringInstructions={values.scoringInstructions}
                   selectedPreset={selectedPreset}
-                  jobBoardCount={
-                    selectedSourceRows.length +
-                    selectedWatchlistSourceIds.length
-                  }
+                  jobBoardCount={selectedSourceRows.length + selectedWatchlistSourceIds.length}
                   isSaving={isSaving}
                   disabled={runDisabled}
                   onRunSearch={() => void handleSaveAndRun()}

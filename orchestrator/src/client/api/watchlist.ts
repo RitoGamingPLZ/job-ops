@@ -65,13 +65,10 @@ export async function prepareWatchlistImportDraft(
 export async function fetchWatchlistSourceBranding(
   input: WatchlistSourceBrandingInput,
 ): Promise<WatchlistSourceBrandingResponse> {
-  return fetchApi<WatchlistSourceBrandingResponse>(
-    "/watchlist/source-branding",
-    {
-      method: "POST",
-      body: JSON.stringify(input),
-    },
-  );
+  return fetchApi<WatchlistSourceBrandingResponse>("/watchlist/source-branding", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function updateWatchlistSources(
@@ -97,10 +94,9 @@ export async function unignoreWatchlistJob(input: {
   source: string;
   sourceJobId: string;
 }): Promise<{ cleared: true }> {
-  return fetchApi<{ cleared: true }>(
-    watchlistStatePath(input.source, input.sourceJobId),
-    { method: "DELETE" },
-  );
+  return fetchApi<{ cleared: true }>(watchlistStatePath(input.source, input.sourceJobId), {
+    method: "DELETE",
+  });
 }
 
 export async function suggestWatchlistFilters(input: {

@@ -15,16 +15,12 @@ export const RXRESUME_PRECHECK_MESSAGES = {
   "missing-v5-api-key": "Add an API key, then test again.",
 } as const;
 
-export const getStoredRxResumeCredentialAvailability = (
-  settings: RxResumeSettingsLike,
-) => {
+export const getStoredRxResumeCredentialAvailability = (settings: RxResumeSettingsLike) => {
   const apiKey = Boolean(settings?.rxresumeApiKeyHint);
   return { apiKey, hasV5: apiKey };
 };
 
-export const getRxResumeBaseResumeSelection = (
-  settings: RxResumeSettingsLike,
-) => {
+export const getRxResumeBaseResumeSelection = (settings: RxResumeSettingsLike) => {
   return { selectedId: settings?.rxresumeBaseResumeId ?? null };
 };
 
@@ -36,9 +32,7 @@ export const getRxResumeCredentialDrafts = (input: {
   apiKey: input.rxresumeApiKey?.trim() ?? "",
 });
 
-export type RxResumeCredentialDrafts = ReturnType<
-  typeof getRxResumeCredentialDrafts
->;
+export type RxResumeCredentialDrafts = ReturnType<typeof getRxResumeCredentialDrafts>;
 export type RxResumeStoredCredentialAvailability = Pick<
   ReturnType<typeof getStoredRxResumeCredentialAvailability>,
   "apiKey"
@@ -65,29 +59,20 @@ export const toRxResumeValidationPayload = (
 ) => {
   const preserveBlankFields = new Set(options?.preserveBlankFields ?? []);
   return {
-    baseUrl: preserveBlankFields.has("baseUrl")
-      ? draft.baseUrl
-      : draft.baseUrl || undefined,
-    apiKey: preserveBlankFields.has("apiKey")
-      ? draft.apiKey
-      : draft.apiKey || undefined,
+    baseUrl: preserveBlankFields.has("baseUrl") ? draft.baseUrl : draft.baseUrl || undefined,
+    apiKey: preserveBlankFields.has("apiKey") ? draft.apiKey : draft.apiKey || undefined,
   };
 };
 
-export const isRxResumeBlockingValidationFailure = (
-  validation: ValidationResult,
-): boolean =>
+export const isRxResumeBlockingValidationFailure = (validation: ValidationResult): boolean =>
   !validation.valid &&
   typeof validation.status === "number" &&
   validation.status >= 400 &&
   validation.status < 500;
 
-export const isRxResumeAvailabilityValidationFailure = (
-  validation: ValidationResult,
-): boolean =>
+export const isRxResumeAvailabilityValidationFailure = (validation: ValidationResult): boolean =>
   !validation.valid &&
-  (validation.status === 0 ||
-    (typeof validation.status === "number" && validation.status >= 500));
+  (validation.status === 0 || (typeof validation.status === "number" && validation.status >= 500));
 
 export const buildRxResumeSettingsUpdate = (
   draft: RxResumeCredentialDrafts,
@@ -105,15 +90,11 @@ type ValidateAndMaybePersistRxResumeModeInput<TSettings> = {
   validationPayloadOptions?: {
     preserveBlankFields?: Array<keyof RxResumeCredentialDrafts>;
   };
-  validate: (
-    payload: ReturnType<typeof toRxResumeValidationPayload>,
-  ) => Promise<ValidationResult>;
+  validate: (payload: ReturnType<typeof toRxResumeValidationPayload>) => Promise<ValidationResult>;
   persist?: (update: Partial<UpdateSettingsInput>) => Promise<TSettings>;
   persistOnSuccess?: boolean;
   skipPrecheck?: boolean;
-  getPrecheckMessage?: (
-    failure: Exclude<RxResumeCredentialPrecheckFailure, null>,
-  ) => string;
+  getPrecheckMessage?: (failure: Exclude<RxResumeCredentialPrecheckFailure, null>) => string;
   getValidationErrorMessage?: (error: unknown) => string;
   getPersistErrorMessage?: (error: unknown) => string;
 };
@@ -162,9 +143,7 @@ export const validateAndMaybePersistRxResumeMode = async <TSettings>(
 
   let validation: ValidationResult;
   try {
-    validation = await validate(
-      toRxResumeValidationPayload(draft, validationPayloadOptions),
-    );
+    validation = await validate(toRxResumeValidationPayload(draft, validationPayloadOptions));
   } catch (error) {
     return {
       validation: {

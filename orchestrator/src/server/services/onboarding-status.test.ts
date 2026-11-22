@@ -172,24 +172,9 @@ describe("onboarding status engine", () => {
     const cases = [
       [undefined, null, undefined, undefined],
       [null, "", undefined, undefined],
-      [
-        undefined,
-        " http://stored.example ",
-        undefined,
-        "http://stored.example",
-      ],
-      [
-        null,
-        "http://stored.example",
-        "http://env.example",
-        "http://stored.example",
-      ],
-      [
-        "",
-        "http://stored.example",
-        " http://env.example ",
-        "http://env.example",
-      ],
+      [undefined, " http://stored.example ", undefined, "http://stored.example"],
+      [null, "http://stored.example", "http://env.example", "http://stored.example"],
+      ["", "http://stored.example", " http://env.example ", "http://env.example"],
       [" ", "http://stored.example", undefined, "http://localhost:4000"],
       [
         " http://override.example ",
@@ -254,18 +239,13 @@ describe("onboarding status engine", () => {
     );
     mocks.applySettingsUpdates.mockImplementation(async (update) => {
       if (update.onboardingProfileCompleted !== undefined) {
-        values.onboardingProfileCompleted = update.onboardingProfileCompleted
-          ? "1"
-          : "0";
+        values.onboardingProfileCompleted = update.onboardingProfileCompleted ? "1" : "0";
       }
       if (update.onboardingLlmCompleted !== undefined) {
-        values.onboardingLlmCompleted = update.onboardingLlmCompleted
-          ? "1"
-          : "0";
+        values.onboardingLlmCompleted = update.onboardingLlmCompleted ? "1" : "0";
       }
       if (update.onboardingResumeConfirmedSource !== undefined) {
-        values.onboardingResumeConfirmedSource =
-          update.onboardingResumeConfirmedSource;
+        values.onboardingResumeConfirmedSource = update.onboardingResumeConfirmedSource;
       }
       values.onboardingLegacyMigrationPending = "0";
       return {

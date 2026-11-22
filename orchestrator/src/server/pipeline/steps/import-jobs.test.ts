@@ -93,9 +93,11 @@ describe("importJobsStep", () => {
       jobUrl: "https://linkedin.com/jobs/new",
     };
 
-    expect(
-      await importJobsStep({ discoveredJobs: [job], emitProgress: false }),
-    ).toEqual({ created: 1, skipped: 0, fuzzyMerged: 0 });
+    expect(await importJobsStep({ discoveredJobs: [job], emitProgress: false })).toEqual({
+      created: 1,
+      skipped: 0,
+      fuzzyMerged: 0,
+    });
     expect(jobsRepo.createJobs).toHaveBeenCalledWith([job], undefined);
   });
 });

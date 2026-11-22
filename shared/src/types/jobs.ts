@@ -69,8 +69,7 @@ export function boardColumnForStage(s: ApplicationStage): BoardColumn {
 }
 
 export function technicalRound(
-  events: (Pick<StageEvent, "toStage"> &
-    Partial<Pick<StageEvent, "metadata">>)[],
+  events: (Pick<StageEvent, "toStage"> & Partial<Pick<StageEvent, "metadata">>)[],
 ): number {
   return events.filter(
     (event) =>
@@ -79,14 +78,10 @@ export function technicalRound(
   ).length;
 }
 
-export function isTargeted(
-  j: Pick<JobListItem, "status" | "readyAt">,
-): boolean {
+export function isTargeted(j: Pick<JobListItem, "status" | "readyAt">): boolean {
   return (
     j.readyAt != null &&
-    (j.status === "discovered" ||
-      j.status === "processing" ||
-      j.status === "ready")
+    (j.status === "discovered" || j.status === "processing" || j.status === "ready")
   );
 }
 
@@ -103,12 +98,7 @@ export const APPLICATION_OUTCOMES = [
 
 export type JobOutcome = (typeof APPLICATION_OUTCOMES)[number];
 
-export const APPLICATION_TASK_TYPES = [
-  "prep",
-  "todo",
-  "follow_up",
-  "check_status",
-] as const;
+export const APPLICATION_TASK_TYPES = ["prep", "todo", "follow_up", "check_status"] as const;
 
 export type ApplicationTaskType = (typeof APPLICATION_TASK_TYPES)[number];
 
@@ -123,12 +113,7 @@ export const INTERVIEW_TYPES = [
 
 export type InterviewType = (typeof INTERVIEW_TYPES)[number];
 
-export const INTERVIEW_OUTCOMES = [
-  "pass",
-  "fail",
-  "pending",
-  "cancelled",
-] as const;
+export const INTERVIEW_OUTCOMES = ["pass", "fail", "pending", "cancelled"] as const;
 
 export type InterviewOutcome = (typeof INTERVIEW_OUTCOMES)[number];
 
@@ -196,12 +181,7 @@ export interface JobDocument {
 export type JobSource = ExtractorSourceId | (string & {});
 
 export type JobPdfSource = "generated" | "uploaded";
-export type JobPdfFreshness =
-  | "missing"
-  | "uploaded"
-  | "current"
-  | "stale"
-  | "regenerating";
+export type JobPdfFreshness = "missing" | "uploaded" | "current" | "stale" | "regenerating";
 
 export interface AppliedDuplicateMatch {
   jobId: string;

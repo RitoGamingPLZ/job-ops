@@ -12,10 +12,7 @@ import type {
 } from "@shared/types";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db, schema } from "../db/index";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { jobs, pipelineRuns } = schema;
 
@@ -27,9 +24,7 @@ function jobsScopeFilter() {
   return privateDataScopeFilter(jobs);
 }
 
-function mapRowToPipelineRun(
-  row: typeof schema.pipelineRuns.$inferSelect,
-): PipelineRun {
+function mapRowToPipelineRun(row: typeof schema.pipelineRuns.$inferSelect): PipelineRun {
   return {
     id: row.id,
     startedAt: row.startedAt,
@@ -50,12 +45,9 @@ function mapRowToSavedDetails(
   }
 
   return {
-    requestedConfig:
-      row.requestedConfig as PipelineRunSavedDetails["requestedConfig"],
-    effectiveConfig:
-      row.effectiveConfig as PipelineRunSavedDetails["effectiveConfig"],
-    resultSummary:
-      row.resultSummary as PipelineRunSavedDetails["resultSummary"],
+    requestedConfig: row.requestedConfig as PipelineRunSavedDetails["requestedConfig"],
+    effectiveConfig: row.effectiveConfig as PipelineRunSavedDetails["effectiveConfig"],
+    resultSummary: row.resultSummary as PipelineRunSavedDetails["resultSummary"],
   };
 }
 
@@ -66,9 +58,7 @@ function serializeConfigSnapshot(
   return JSON.stringify(value);
 }
 
-function parseConfigSnapshot(
-  value: string | null | undefined,
-): PipelineRunConfigSnapshot | null {
+function parseConfigSnapshot(value: string | null | undefined): PipelineRunConfigSnapshot | null {
   if (!value) return null;
   try {
     return JSON.parse(value) as PipelineRunConfigSnapshot;
@@ -137,9 +127,7 @@ export async function updatePipelineRun(
             configSnapshot: serializeConfigSnapshot(configSnapshot ?? null),
           }
         : {}),
-      ...(Object.hasOwn(update, "resultSummary")
-        ? { resultSummary: resultSummary ?? null }
-        : {}),
+      ...(Object.hasOwn(update, "resultSummary") ? { resultSummary: resultSummary ?? null } : {}),
     })
     .where(and(pipelineRunsScopeFilter(), eq(pipelineRuns.id, id)));
 }
@@ -163,9 +151,7 @@ export async function getLatestPipelineRun(): Promise<PipelineRun | null> {
 /**
  * Get recent pipeline runs.
  */
-export async function getRecentPipelineRuns(
-  limit: number = 10,
-): Promise<PipelineRun[]> {
+export async function getRecentPipelineRuns(limit: number = 10): Promise<PipelineRun[]> {
   const rows = await db
     .select()
     .from(pipelineRuns)
@@ -176,9 +162,7 @@ export async function getRecentPipelineRuns(
   return rows.map(mapRowToPipelineRun);
 }
 
-export async function getPipelineRunInsights(
-  id: string,
-): Promise<PipelineRunInsights | null> {
+export async function getPipelineRunInsights(id: string): Promise<PipelineRunInsights | null> {
   const [row] = await db
     .select()
     .from(pipelineRuns)
@@ -192,11 +176,7 @@ export async function getPipelineRunInsights(
   const durationMs =
     run.completedAt == null
       ? null
-      : Math.max(
-          0,
-          new Date(run.completedAt).getTime() -
-            new Date(run.startedAt).getTime(),
-        );
+      : Math.max(0, new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime());
 
   if (!run.completedAt) {
     return {

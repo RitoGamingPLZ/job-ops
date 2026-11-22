@@ -149,13 +149,9 @@ describe("API client auth flow", () => {
     });
     const clearSpy = vi.spyOn(queryClient, "clear");
 
-    vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      jwtLoginSuccess("fresh-token"),
-    );
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(jwtLoginSuccess("fresh-token"));
 
-    await expect(
-      api.signInWithCredentials("legacy-user", "legacy-pass"),
-    ).resolves.toBeUndefined();
+    await expect(api.signInWithCredentials("legacy-user", "legacy-pass")).resolves.toBeUndefined();
     expect(api.getCachedAuthHeader()).toBe("Bearer fresh-token");
     expect(clearSpy).toHaveBeenCalledTimes(1);
   });

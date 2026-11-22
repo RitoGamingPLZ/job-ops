@@ -3,14 +3,7 @@ import {
   getRenderableJobDescription,
   looksLikeHtmlJobDescription,
 } from "@client/lib/jobDescription";
-import {
-  Copy,
-  Edit2,
-  ExternalLink,
-  FileText,
-  Loader2,
-  Save,
-} from "lucide-react";
+import { Copy, Edit2, ExternalLink, FileText, Loader2, Save } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -59,18 +52,13 @@ export const JobDescriptionPanel: React.FC<JobDescriptionPanelProps> = ({
 }) => {
   const { renderMarkdownInJobDescriptions } = useSettings();
   const [isEditing, setIsEditing] = useState(false);
-  const [editedDescription, setEditedDescription] = useState(
-    rawDescription ?? "",
-  );
+  const [editedDescription, setEditedDescription] = useState(rawDescription ?? "");
   const [isSaving, setIsSaving] = useState(false);
   const hasHtmlDescription = useMemo(
     () => looksLikeHtmlJobDescription(rawDescription),
     [rawDescription],
   );
-  const description = useMemo(
-    () => getRenderableJobDescription(rawDescription),
-    [rawDescription],
-  );
+  const description = useMemo(() => getRenderableJobDescription(rawDescription), [rawDescription]);
   const canEdit = Boolean(onSave);
 
   useEffect(() => {
@@ -132,20 +120,10 @@ export const JobDescriptionPanel: React.FC<JobDescriptionPanelProps> = ({
     </>
   ) : (
     <>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={handleCancel}
-        disabled={isSaving}
-      >
+      <Button size="sm" variant="ghost" onClick={handleCancel} disabled={isSaving}>
         Cancel
       </Button>
-      <Button
-        size="sm"
-        variant="secondary"
-        onClick={() => void handleSave()}
-        disabled={isSaving}
-      >
+      <Button size="sm" variant="secondary" onClick={() => void handleSave()} disabled={isSaving}>
         {isSaving ? (
           <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
         ) : (
@@ -157,12 +135,7 @@ export const JobDescriptionPanel: React.FC<JobDescriptionPanelProps> = ({
   );
 
   const body = (
-    <div
-      className={cn(
-        "overflow-y-auto bg-background/20 p-4 w-full",
-        maxHeightClassName,
-      )}
-    >
+    <div className={cn("overflow-y-auto bg-background/20 p-4 w-full", maxHeightClassName)}>
       {isLoading ? (
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -190,10 +163,7 @@ export const JobDescriptionPanel: React.FC<JobDescriptionPanelProps> = ({
   if (!collapsible) {
     return (
       <div
-        className={cn(
-          "overflow-hidden rounded-lg border border-border/45 bg-muted/25",
-          className,
-        )}
+        className={cn("overflow-hidden rounded-lg border border-border/45 bg-muted/25", className)}
       >
         <div className="border-b border-border/35 bg-muted/5 px-3 py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between w-[calc(100%_-_24px)]">
@@ -202,9 +172,7 @@ export const JobDescriptionPanel: React.FC<JobDescriptionPanelProps> = ({
                 <FileText className="h-3.5 w-3.5 text-sky-400/80" />
                 Job description
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground/65">
-                {helperText}
-              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground/65">{helperText}</p>
             </div>
             <div className="flex flex-wrap justify-end gap-1">{actions}</div>
           </div>
@@ -222,10 +190,7 @@ export const JobDescriptionPanel: React.FC<JobDescriptionPanelProps> = ({
       onValueChange={(value) => {
         if (value === "job-description") onOpen?.();
       }}
-      className={cn(
-        "overflow-hidden rounded-lg border border-border/45 bg-muted/25",
-        className,
-      )}
+      className={cn("overflow-hidden rounded-lg border border-border/45 bg-muted/25", className)}
     >
       <AccordionItem value="job-description" className="border-b-0">
         <div className="relative">
@@ -235,9 +200,7 @@ export const JobDescriptionPanel: React.FC<JobDescriptionPanelProps> = ({
                 <FileText className="h-3.5 w-3.5 text-sky-400/80" />
                 Job description
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground/65 max-w-3/5">
-                {helperText}
-              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground/65 max-w-3/5">{helperText}</p>
             </div>
           </AccordionTrigger>
           <div className="flex flex-wrap justify-end gap-1 border-b border-border/35 bg-muted/5 px-3 pb-2 sm:absolute sm:right-8 sm:top-1/2 sm:border-b-0 sm:bg-transparent sm:p-0 sm:-translate-y-1/2">

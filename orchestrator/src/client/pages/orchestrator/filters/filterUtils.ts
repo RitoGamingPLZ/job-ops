@@ -9,9 +9,7 @@ import type {
 } from "../constants";
 import { dateFilterDimensionOrder } from "../constants";
 
-export const getDateRangeForPreset = (
-  preset: Exclude<DateFilterPreset, "custom">,
-) => {
+export const getDateRangeForPreset = (preset: Exclude<DateFilterPreset, "custom">) => {
   const end = new Date();
   end.setHours(0, 0, 0, 0);
 
@@ -53,8 +51,7 @@ export const toggleDimension = (
     ? filter.dimensions.filter((value) => value !== dimension)
     : [...filter.dimensions, dimension].sort(
         (left, right) =>
-          dateFilterDimensionOrder.indexOf(left) -
-          dateFilterDimensionOrder.indexOf(right),
+          dateFilterDimensionOrder.indexOf(left) - dateFilterDimensionOrder.indexOf(right),
       );
 
   return {
@@ -69,9 +66,7 @@ export const isSalaryFilterActive = (salaryFilter: SalaryFilter) =>
   (typeof salaryFilter.min === "number" && salaryFilter.min > 0) ||
   (typeof salaryFilter.max === "number" && salaryFilter.max > 0);
 
-export const formatSalarySummary = (
-  salaryFilter: SalaryFilter,
-): string | null => {
+export const formatSalarySummary = (salaryFilter: SalaryFilter): string | null => {
   if (!isSalaryFilterActive(salaryFilter)) {
     return null;
   }
@@ -90,8 +85,7 @@ export const formatSalarySummary = (
   return null;
 };
 
-export const isScoreFilterActive = (scoreFilter: ScoreFilter) =>
-  scoreFilter.mode !== "any";
+export const isScoreFilterActive = (scoreFilter: ScoreFilter) => scoreFilter.mode !== "any";
 
 export const formatScoreSummary = (scoreFilter: ScoreFilter): string | null => {
   if (scoreFilter.mode === "missing") return "No score";

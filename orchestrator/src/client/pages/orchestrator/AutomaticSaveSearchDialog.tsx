@@ -34,9 +34,7 @@ export function AutomaticSaveSearchDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {mode === "update" ? "Update saved search" : "Save search"}
-          </DialogTitle>
+          <DialogTitle>{mode === "update" ? "Update saved search" : "Save search"}</DialogTitle>
           <DialogDescription>Save the current search setup.</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -55,11 +53,7 @@ export function AutomaticSaveSearchDialog({
           />
         </div>
         <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button

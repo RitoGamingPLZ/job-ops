@@ -11,10 +11,8 @@ import type {
 } from "@shared/types";
 import { fetchApi } from "./core";
 
-const bulletPath = (id: string) =>
-  `/experience-bullets/${encodeURIComponent(id)}`;
-const resumePath = (jobId: string) =>
-  `/jobs/${encodeURIComponent(jobId)}/resume`;
+const bulletPath = (id: string) => `/experience-bullets/${encodeURIComponent(id)}`;
+const resumePath = (jobId: string) => `/jobs/${encodeURIComponent(jobId)}/resume`;
 export function listExperienceBullets() {
   return fetchApi<{ bullets: ExperienceBullet[] }>("/experience-bullets");
 }
@@ -29,21 +27,17 @@ export function updateExperienceBullet(
   input: Partial<ExperienceBulletInput>,
   skipJobId?: string,
 ) {
-  return fetchApi<{ bullet: ExperienceBullet }>(
-    bulletPath(id) + skipQuery(skipJobId),
-    {
-      method: "PATCH",
-      body: JSON.stringify(input),
-    },
-  );
+  return fetchApi<{ bullet: ExperienceBullet }>(bulletPath(id) + skipQuery(skipJobId), {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 export function deleteExperienceBullet(id: string, skipJobId?: string) {
   return fetchApi<{ deleted: true }>(bulletPath(id) + skipQuery(skipJobId), {
     method: "DELETE",
   });
 }
-const skipQuery = (jobId?: string) =>
-  jobId ? `?skipJobId=${encodeURIComponent(jobId)}` : "";
+const skipQuery = (jobId?: string) => (jobId ? `?skipJobId=${encodeURIComponent(jobId)}` : "");
 export function listCandidateLibrary() {
   return fetchApi<{ items: ExperienceBullet[] }>("/library");
 }
@@ -56,16 +50,16 @@ export function syncCandidateLibrary() {
 export function labelExperienceBullets(
   ids?: string[],
 ): Promise<{ bullets: ExperienceBullet[]; labeled: number }> {
-  return fetchApi<{ bullets: ExperienceBullet[]; labeled: number }>(
-    "/experience-bullets/label",
-    { method: "POST", body: JSON.stringify(ids ? { ids } : {}) },
-  );
+  return fetchApi<{ bullets: ExperienceBullet[]; labeled: number }>("/experience-bullets/label", {
+    method: "POST",
+    body: JSON.stringify(ids ? { ids } : {}),
+  });
 }
 export function extractExperienceBullets(text: string) {
-  return fetchApi<{ drafts: ExperienceBulletInput[] }>(
-    "/experience-bullets/extract",
-    { method: "POST", body: JSON.stringify({ text }) },
-  );
+  return fetchApi<{ drafts: ExperienceBulletInput[] }>("/experience-bullets/extract", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
 }
 export function rankExperienceBullets(jobId: string) {
   return fetchApi<{ ranked: RankedBullet[] }>("/experience-bullets/rank", {
@@ -91,10 +85,7 @@ export function deleteJobResume(jobId: string) {
 export function listResumes() {
   return fetchApi<{ resumes: ResumeListItem[] }>("/resumes");
 }
-export function getScreeningReport(
-  jobId: string,
-  document: ReactiveResumeV5Document,
-) {
+export function getScreeningReport(jobId: string, document: ReactiveResumeV5Document) {
   return fetchApi<ScreeningReport>(`${resumePath(jobId)}/screening`, {
     method: "POST",
     body: JSON.stringify({ document }),

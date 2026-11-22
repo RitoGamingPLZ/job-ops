@@ -48,22 +48,13 @@ it("stores and replaces the exact request, isolated by tenant and hosted user", 
     storage.saveRunRequest(request),
   );
   expect(
-    await scope.runWithRequestContext(
-      { tenantId: "a", userId: "alice" },
-      storage.loadRunRequest,
-    ),
+    await scope.runWithRequestContext({ tenantId: "a", userId: "alice" }, storage.loadRunRequest),
   ).toEqual(request);
   expect(
-    await scope.runWithRequestContext(
-      { tenantId: "a", userId: "bob" },
-      storage.loadRunRequest,
-    ),
+    await scope.runWithRequestContext({ tenantId: "a", userId: "bob" }, storage.loadRunRequest),
   ).toBeNull();
   expect(
-    await scope.runWithRequestContext(
-      { tenantId: "b", userId: "alice" },
-      storage.loadRunRequest,
-    ),
+    await scope.runWithRequestContext({ tenantId: "b", userId: "alice" }, storage.loadRunRequest),
   ).toBeNull();
   await scope.runWithRequestContext({ tenantId: "a", userId: "alice" }, () =>
     storage.saveRunRequest({
@@ -73,10 +64,7 @@ it("stores and replaces the exact request, isolated by tenant and hosted user", 
     }),
   );
   expect(
-    await scope.runWithRequestContext(
-      { tenantId: "a", userId: "alice" },
-      storage.loadRunRequest,
-    ),
+    await scope.runWithRequestContext({ tenantId: "a", userId: "alice" }, storage.loadRunRequest),
   ).toEqual({ ...request, topN: 20, watchlistSelectedSourceIds: [] });
 });
 

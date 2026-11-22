@@ -64,12 +64,8 @@ describe("filterUtils", () => {
 
   describe("salary helpers", () => {
     it("detects active salary filters", () => {
-      expect(
-        isSalaryFilterActive({ mode: "at_least", min: 60000, max: null }),
-      ).toBe(true);
-      expect(
-        isSalaryFilterActive({ mode: "at_least", min: null, max: null }),
-      ).toBe(false);
+      expect(isSalaryFilterActive({ mode: "at_least", min: 60000, max: null })).toBe(true);
+      expect(isSalaryFilterActive({ mode: "at_least", min: null, max: null })).toBe(false);
     });
 
     it("formats salary summaries", () => {

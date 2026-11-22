@@ -49,9 +49,7 @@ export const BaseResumeSelection: React.FC<BaseResumeSelectionProps> = ({
       }
     } catch (error) {
       setResumes([]);
-      setFetchError(
-        error instanceof Error ? error.message : "Failed to fetch resumes",
-      );
+      setFetchError(error instanceof Error ? error.message : "Failed to fetch resumes");
     } finally {
       setIsFetchingResumes(false);
     }
@@ -81,9 +79,7 @@ export const BaseResumeSelection: React.FC<BaseResumeSelectionProps> = ({
           disabled={isFetchingResumes || isLoading || disabled}
           className="h-8 px-2"
         >
-          <RefreshCw
-            className={`h-3 w-3 mr-1 ${isFetchingResumes ? "animate-spin" : ""}`}
-          />
+          <RefreshCw className={`h-3 w-3 mr-1 ${isFetchingResumes ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
@@ -95,11 +91,7 @@ export const BaseResumeSelection: React.FC<BaseResumeSelectionProps> = ({
       >
         <SelectTrigger>
           <SelectValue
-            placeholder={
-              resumes.length > 0
-                ? "Select a template resume..."
-                : "No resumes found"
-            }
+            placeholder={resumes.length > 0 ? "Select a template resume..." : "No resumes found"}
           />
         </SelectTrigger>
         <SelectContent>
@@ -126,9 +118,7 @@ export const BaseResumeSelection: React.FC<BaseResumeSelectionProps> = ({
         </div>
       )}
 
-      {fetchError && (
-        <div className="text-xs text-destructive mt-1">{fetchError}</div>
-      )}
+      {fetchError && <div className="text-xs text-destructive mt-1">{fetchError}</div>}
     </div>
   );
 };

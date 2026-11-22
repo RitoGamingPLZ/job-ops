@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { badRequest, notFound } from "@infra/errors";
-import {
-  foldedLibraryText,
-  parseLibraryData,
-} from "@shared/candidate-library-schema";
+import { foldedLibraryText, parseLibraryData } from "@shared/candidate-library-schema";
 import { splitDescription } from "@shared/resume-bullets";
 import {
   applyLibraryUpdate,
@@ -23,10 +20,7 @@ import type {
 import { and, asc, eq } from "drizzle-orm";
 import { db, schema } from "../db";
 import { normalizeBulletText } from "../repositories/experience-bullets";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const table = schema.experienceBullets;
 function library(): ExperienceBullet[] {
@@ -44,20 +38,13 @@ function resumes() {
     .from(schema.jobResumes)
     .innerJoin(
       schema.jobs,
-      and(
-        eq(schema.jobs.id, schema.jobResumes.jobId),
-        privateDataScopeFilter(schema.jobs),
-      ),
+      and(eq(schema.jobs.id, schema.jobResumes.jobId), privateDataScopeFilter(schema.jobs)),
     )
     .where(privateDataScopeFilter(schema.jobResumes))
     .all();
 }
-const frozen = (status: string) =>
-  status === "applied" || status === "in_progress";
-function save(
-  row: typeof schema.jobResumes.$inferSelect,
-  document: ReactiveResumeV5Document,
-) {
+const frozen = (status: string) => status === "applied" || status === "in_progress";
+function save(row: typeof schema.jobResumes.$inferSelect, document: ReactiveResumeV5Document) {
   if (document === row.document) return false;
   const saved = db
     .update(schema.jobResumes)
@@ -76,19 +63,13 @@ function save(
     .run();
   return saved.changes > 0;
 }
-function validate(
-  input: ExperienceBulletInput,
-  all: ExperienceBullet[],
-  id?: string,
-) {
+function validate(input: ExperienceBulletInput, all: ExperienceBullet[], id?: string) {
   const kind = input.kind ?? "bullet";
   if (kind === "contact") {
     const data = input.data;
     if (
       !data ||
-      !["email", "phone", "location", "website", "profile"].includes(
-        String(data.type),
-      ) ||
+      !["email", "phone", "location", "website", "profile"].includes(String(data.type)) ||
       typeof data.value !== "string" ||
       !data.value.trim() ||
       ["label", "network", "username", "url"].some(
@@ -97,20 +78,17 @@ function validate(
     )
       throw badRequest("Invalid contact data");
   }
-  const parentKind =
-    kind === "bullet" ? "role" : kind === "project_point" ? "project" : null;
+  const parentKind = kind === "bullet" ? "role" : kind === "project_point" ? "project" : null;
   if (input.parentId) {
     const parent = all.find((item) => item.id === input.parentId);
     if (!parentKind || parent?.kind !== parentKind || parent.id === id)
       throw badRequest("Invalid library parent");
-  } else if (kind === "project_point")
-    throw badRequest("Project point requires a project parent");
+  } else if (kind === "project_point") throw badRequest("Project point requires a project parent");
   if (
     id &&
     all.some(
       (item) =>
-        item.parentId === id &&
-        (item.kind === "bullet" ? kind !== "role" : kind !== "project"),
+        item.parentId === id && (item.kind === "bullet" ? kind !== "role" : kind !== "project"),
     )
   )
     throw badRequest("Item kind is incompatible with its children");
@@ -164,8 +142,7 @@ function insert(input: ExperienceBulletInput, all: ExperienceBullet[]) {
         input.position ??
         all.filter(
           (item) =>
-            item.kind === (input.kind ?? "bullet") &&
-            item.parentId === (input.parentId ?? null),
+            item.kind === (input.kind ?? "bullet") && item.parentId === (input.parentId ?? null),
         ).length,
       updatedAt: new Date().toISOString(),
     })
@@ -182,10 +159,7 @@ export function createLibraryItem(input: ExperienceBulletInput) {
       ...input,
       kind: input.kind ?? "bullet",
     });
-    return (
-      all.find((item) => key(item) === key(normalized)) ??
-      insert(normalized, all)
-    );
+    return all.find((item) => key(item) === key(normalized)) ?? insert(normalized, all);
   });
 }
 export function updateLibraryItem(
@@ -199,15 +173,13 @@ export function updateLibraryItem(
     if (!before) throw notFound("Bullet not found");
     if (input.kind && input.kind !== before.kind)
       throw badRequest("Library item kind cannot change");
-    if (input.data !== undefined)
-      input = { ...input, data: { ...before.data, ...input.data } };
+    if (input.data !== undefined) input = { ...input, data: { ...before.data, ...input.data } };
     input = {
       ...input,
       data: normalizeStructured({ ...before, ...input }).data,
     };
     validate({ ...before, ...input }, all, id);
-    if (before.kind === "contact")
-      input = normalizeContact({ ...before, ...input });
+    if (before.kind === "contact") input = normalizeContact({ ...before, ...input });
     if (before.kind !== "bullet") {
       input = {
         ...input,
@@ -245,15 +217,11 @@ export function updateLibraryItem(
   });
 }
 function relatedIds(id: string, all: ExperienceBullet[]) {
-  return new Set([
-    id,
-    ...all.filter((item) => item.parentId === id).map((item) => item.id),
-  ]);
+  return new Set([id, ...all.filter((item) => item.parentId === id).map((item) => item.id)]);
 }
 export function libraryItemUsage(id: string): LibraryItemUsage {
   const all = library();
-  if (!all.some((item) => item.id === id))
-    throw notFound("Library item not found");
+  if (!all.some((item) => item.id === id)) throw notFound("Library item not found");
   const ids = relatedIds(id, all);
   const result: LibraryItemUsage = { jobIds: [], frozenJobIds: [] };
   for (const { resume, status } of resumes())
@@ -309,8 +277,7 @@ function key(input: ExperienceBulletInput) {
   // A role is identified by employer/title/dates, even when old duty rows
   // lack its location or website. Skill keywords are merged by label.
   const data = input.data ?? {};
-  if (input.kind === "contact")
-    return JSON.stringify(["contact", data.type, normal(data.value)]);
+  if (input.kind === "contact") return JSON.stringify(["contact", data.type, normal(data.value)]);
   const identity =
     input.kind === "role"
       ? [data.company, normalPeriod(data.period)]
@@ -331,22 +298,15 @@ function key(input: ExperienceBulletInput) {
     input.kind,
     normal(
       ["education", "award", "certification"].includes(input.kind ?? "")
-        ? foldedLibraryText(
-            input.kind ?? "bullet",
-            input.text,
-            input.data ?? null,
-          )
+        ? foldedLibraryText(input.kind ?? "bullet", input.text, input.data ?? null)
         : input.text,
     ),
     input.parentId ?? null,
     normal(identity),
   ]);
 }
-function normalizeStructured(
-  input: ExperienceBulletInput,
-): ExperienceBulletInput {
-  if (!["education", "award", "certification"].includes(input.kind ?? ""))
-    return input;
+function normalizeStructured(input: ExperienceBulletInput): ExperienceBulletInput {
+  if (!["education", "award", "certification"].includes(input.kind ?? "")) return input;
   try {
     return {
       ...input,
@@ -362,12 +322,7 @@ function hasImportMarker(key: string): boolean {
   return !!db
     .select({ key: schema.settings.key })
     .from(schema.settings)
-    .where(
-      and(
-        privateDataScopeFilter(schema.settings),
-        eq(schema.settings.key, key),
-      ),
-    )
+    .where(and(privateDataScopeFilter(schema.settings), eq(schema.settings.key, key)))
     .get();
 }
 export function candidateLibraryNeedsFirstBuild(): boolean {
@@ -396,12 +351,7 @@ export function syncCandidateLibrary(
           const hasValue = (value: unknown) =>
             typeof value === "string"
               ? Boolean(value.trim())
-              : Boolean(
-                  value &&
-                    typeof value === "object" &&
-                    "url" in value &&
-                    value.url,
-                );
+              : Boolean(value && typeof value === "object" && "url" in value && value.url);
           let changed = false;
           for (const field of ["location", "website"]) {
             if (!hasValue(data[field]) && hasValue(input.data?.[field])) {
@@ -413,17 +363,13 @@ export function syncCandidateLibrary(
             existing.data = data;
             db.update(table)
               .set({ data, updatedAt: new Date().toISOString() })
-              .where(
-                and(privateDataScopeFilter(table), eq(table.id, existing.id)),
-              )
+              .where(and(privateDataScopeFilter(table), eq(table.id, existing.id)))
               .run();
           }
         }
         if (input.kind === "skill") {
           const keywords = [
-            ...(Array.isArray(existing.data?.keywords)
-              ? (existing.data.keywords as string[])
-              : []),
+            ...(Array.isArray(existing.data?.keywords) ? (existing.data.keywords as string[]) : []),
           ];
           const seen = new Set(keywords.map(normal));
           for (const word of (input.data?.keywords ?? []) as string[])
@@ -434,9 +380,7 @@ export function syncCandidateLibrary(
           existing.data = { ...existing.data, keywords };
           db.update(table)
             .set({ data: existing.data })
-            .where(
-              and(privateDataScopeFilter(table), eq(table.id, existing.id)),
-            )
+            .where(and(privateDataScopeFilter(table), eq(table.id, existing.id)))
             .run();
         }
         return existing;
@@ -445,9 +389,7 @@ export function syncCandidateLibrary(
         {
           ...normalizeContact(input),
           position: all.filter(
-            (item) =>
-              item.kind === input.kind &&
-              item.parentId === (input.parentId ?? null),
+            (item) => item.kind === input.kind && item.parentId === (input.parentId ?? null),
           ).length,
         },
         all,
@@ -458,8 +400,7 @@ export function syncCandidateLibrary(
     }
     if (base) {
       for (const type of ["email", "phone", "location", "website"] as const) {
-        const value =
-          type === "website" ? base.basics.website.url : base.basics[type];
+        const value = type === "website" ? base.basics.website.url : base.basics[type];
         if (value.trim())
           add({
             kind: "contact",
@@ -468,9 +409,7 @@ export function syncCandidateLibrary(
             data: {
               type,
               value,
-              ...(type === "website"
-                ? { label: base.basics.website.label }
-                : {}),
+              ...(type === "website" ? { label: base.basics.website.label } : {}),
             },
           });
       }
@@ -524,9 +463,7 @@ export function syncCandidateLibrary(
     for (const item of all.slice())
       if (item.kind === "bullet" && !item.parentId) {
         const role =
-          (item.sourceExperienceId
-            ? baseParents.get(item.sourceExperienceId)
-            : undefined) ??
+          (item.sourceExperienceId ? baseParents.get(item.sourceExperienceId) : undefined) ??
           add({
             kind: "role",
             text: item.role ?? "",
@@ -534,18 +471,13 @@ export function syncCandidateLibrary(
               company: item.company || "",
               location: "",
               website: { url: "", label: "" },
-              period: [item.startDate, item.endDate]
-                .filter(Boolean)
-                .join(" – "),
+              period: [item.startDate, item.endDate].filter(Boolean).join(" – "),
             },
             source: "resume",
           });
         item.parentId = role.id;
         item.position = all.filter(
-          (child) =>
-            child.id !== item.id &&
-            child.kind === "bullet" &&
-            child.parentId === role.id,
+          (child) => child.id !== item.id && child.kind === "bullet" && child.parentId === role.id,
         ).length;
         Object.assign(item, parentFields(role));
         db.update(table)
@@ -559,9 +491,7 @@ export function syncCandidateLibrary(
       }
     const saved = resumes();
     const documents = [
-      ...(firstBuild && base
-        ? [{ document: base, source: "resume" as const }]
-        : []),
+      ...(firstBuild && base ? [{ document: base, source: "resume" as const }] : []),
       ...saved
         .filter(({ status }) => importFrozen || !frozen(status))
         .map(({ resume }) => ({
@@ -571,10 +501,7 @@ export function syncCandidateLibrary(
     ];
     // Any explicit ref, including a dangling ref left by deletion, prevents
     // importing that same fact again. Still collect unlinked children.
-    function parentFor(
-      item: Record<string, unknown>,
-      input: ExperienceBulletInput,
-    ) {
+    function parentFor(item: Record<string, unknown>, input: ExperienceBulletInput) {
       if (typeof item.libraryId === "string" && item.libraryId)
         return all.find((row) => row.id === item.libraryId);
       return add(input);
@@ -606,12 +533,8 @@ export function syncCandidateLibrary(
             });
           if (!parent) continue;
           const refs =
-            "bulletRefs" in role && Array.isArray(role.bulletRefs)
-              ? role.bulletRefs
-              : [];
-          for (const [index, text] of splitDescription(
-            role.description,
-          ).bullets.entries()) {
+            "bulletRefs" in role && Array.isArray(role.bulletRefs) ? role.bulletRefs : [];
+          for (const [index, text] of splitDescription(role.description).bullets.entries()) {
             if (refs[index]) continue;
             add({
               kind: "bullet",
@@ -631,11 +554,8 @@ export function syncCandidateLibrary(
           source,
         });
         if (!parent) continue;
-        for (const [index, text] of splitDescription(
-          item.description,
-        ).bullets.entries()) {
-          if (Array.isArray(item.bulletRefs) && item.bulletRefs[index])
-            continue;
+        for (const [index, text] of splitDescription(item.description).bullets.entries()) {
+          if (Array.isArray(item.bulletRefs) && item.bulletRefs[index]) continue;
           add({ kind: "project_point", text, parentId: parent.id, source });
         }
       }

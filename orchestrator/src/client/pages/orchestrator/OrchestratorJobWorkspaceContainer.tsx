@@ -79,9 +79,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
   const counts = useMemo(
     () => ({
       ...getJobCounts(jobs),
-      discovered: jobs.filter(
-        (job) => job.status === "discovered" && !isTargeted(job),
-      ).length,
+      discovered: jobs.filter((job) => job.status === "discovered" && !isTargeted(job)).length,
     }),
     [jobs],
   );
@@ -134,15 +132,12 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     if (!selectedJobListItem) return null;
     if (
       navigation.activeTab === "discovered" &&
-      (selectedJobListItem.status !== "discovered" ||
-        isTargeted(selectedJobListItem))
+      (selectedJobListItem.status !== "discovered" || isTargeted(selectedJobListItem))
     )
       return null;
     const tabDef = tabs.find((tab) => tab.id === navigation.activeTab);
     if (!tabDef || tabDef.statuses.length === 0) return selectedJobListItem;
-    return tabDef.statuses.includes(selectedJobListItem.status)
-      ? selectedJobListItem
-      : null;
+    return tabDef.statuses.includes(selectedJobListItem.status) ? selectedJobListItem : null;
   }, [navigation.activeTab, selectedJobListItem]);
 
   const {
@@ -178,8 +173,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     activeJobs,
     selectedJobId: navigation.selectedJobId,
     isDesktop: ui.isDesktop,
-    onEnsureJobSelected: (id) =>
-      navigation.navigateWithContext(navigation.activeTab, id, true),
+    onEnsureJobSelected: (id) => navigation.navigateWithContext(navigation.activeTab, id, true),
     listHandleRef: jobListHandleRef,
   });
 
@@ -209,10 +203,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     (targetTab: FilterTab, id: string) => {
       requestScrollToJob(id, { ensureSelected: true });
       const job = jobs.find((item) => item.id === id);
-      navigation.navigateToCommandJob(
-        job && isTargeted(job) ? "all" : targetTab,
-        id,
-      );
+      navigation.navigateToCommandJob(job && isTargeted(job) ? "all" : targetTab, id);
       ui.openDetailDrawerForMobile();
     },
     [jobs, navigation, requestScrollToJob, ui],
@@ -225,19 +216,9 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
       return;
     }
     if (!navigation.selectedJobId && ui.isDesktop) {
-      navigation.navigateWithContext(
-        navigation.activeTab,
-        activeJobs[0].id,
-        true,
-      );
+      navigation.navigateWithContext(navigation.activeTab, activeJobs[0].id, true);
     }
-  }, [
-    activeJobs,
-    isLoading,
-    navigation,
-    redirectTargetedSelection,
-    ui.isDesktop,
-  ]);
+  }, [activeJobs, isLoading, navigation, redirectTargetedSelection, ui.isDesktop]);
 
   const primaryEmptyStateAction = useMemo(
     () => ({
@@ -265,9 +246,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           activeJobs={activeJobs}
           selectedJob={visibleSelectedJob}
           selectedJobListItem={visibleSelectedJobListItem}
-          selectedJobLoadState={
-            visibleSelectedJobListItem ? selectedJobLoadState : "idle"
-          }
+          selectedJobLoadState={visibleSelectedJobListItem ? selectedJobLoadState : "idle"}
           selectedJobId={navigation.selectedJobId}
           selectedJobIds={selectedJobIds}
           activeTab={navigation.activeTab}
@@ -332,9 +311,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           activeJobs={activeJobs}
           selectedJob={visibleSelectedJob}
           selectedJobListItem={visibleSelectedJobListItem}
-          selectedJobLoadState={
-            visibleSelectedJobListItem ? selectedJobLoadState : "idle"
-          }
+          selectedJobLoadState={visibleSelectedJobListItem ? selectedJobLoadState : "idle"}
           onOpenChange={ui.onDetailDrawerOpenChange}
           onSelectJobId={navigation.handleSelectJobId}
           onJobUpdated={loadJobs}

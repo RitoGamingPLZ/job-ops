@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const originalEnv = { ...process.env };
 
-describe.sequential("envSettings overrides", () => {
+describe("envSettings overrides", () => {
   let tempDir: string;
   let closeDb: (() => void) | null = null;
 

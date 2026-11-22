@@ -151,8 +151,6 @@ export function getPromptTemplateDefinition(
   return PROMPT_TEMPLATE_DEFINITIONS[key];
 }
 
-export function getDefaultPromptTemplate(
-  key: PromptTemplateSettingKey,
-): string {
+export function getDefaultPromptTemplate(key: PromptTemplateSettingKey): string {
   return PROMPT_TEMPLATE_DEFINITIONS[key].defaultTemplate;
 }

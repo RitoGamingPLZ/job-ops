@@ -1,9 +1,6 @@
 import type * as api from "@client/api";
 import { LlmModelConfiguration } from "@client/components/llmmodelconfiguration/LlmModelConfiguration";
-import {
-  getLlmProviderConfig,
-  type LlmProviderId,
-} from "@client/pages/settings/utils";
+import { getLlmProviderConfig, type LlmProviderId } from "@client/pages/settings/utils";
 import type React from "react";
 import type { ValidationState } from "../types";
 import { InlineValidation } from "./InlineValidation";
@@ -22,9 +19,7 @@ export const LlmConnectionStep: React.FC<{
   validation: ValidationState;
   onApiKeyChange: (value: string) => void;
   onBaseUrlChange: (value: string) => void;
-  onCodexAuthStatusChange?: (
-    status: Awaited<ReturnType<typeof api.getCodexAuthStatus>>,
-  ) => void;
+  onCodexAuthStatusChange?: (status: Awaited<ReturnType<typeof api.getCodexAuthStatus>>) => void;
   onModelChange: (value: string) => void;
   onProviderChange: (value: string) => void;
 }> = ({
@@ -47,8 +42,7 @@ export const LlmConnectionStep: React.FC<{
 }) => {
   const providerConfig = getLlmProviderConfig(selectedProvider);
   const displayValidation =
-    !providerConfig.requiresApiKey &&
-    validation.message?.toLowerCase().includes("api key")
+    !providerConfig.requiresApiKey && validation.message?.toLowerCase().includes("api key")
       ? { ...validation, checked: false, message: null }
       : validation;
 

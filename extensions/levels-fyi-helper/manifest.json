@@ -4,11 +4,7 @@
   "version": "1.0.0",
   "description": "Relay compensation data you view on Levels.fyi back to your local Job-Ops tab.",
   "permissions": ["storage", "tabs"],
-  "host_permissions": [
-    "https://www.levels.fyi/*",
-    "http://localhost/*",
-    "http://127.0.0.1/*"
-  ],
+  "host_permissions": ["https://www.levels.fyi/*", "http://localhost/*", "http://127.0.0.1/*"],
   "background": {
     "service_worker": "background.js"
   },

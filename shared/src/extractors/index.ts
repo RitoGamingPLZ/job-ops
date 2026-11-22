@@ -30,10 +30,7 @@ export interface ExtractorSourceMetadata {
   ukOnly?: boolean;
 }
 
-export const EXTRACTOR_SOURCE_METADATA: Record<
-  ExtractorSourceId,
-  ExtractorSourceMetadata
-> = {
+export const EXTRACTOR_SOURCE_METADATA: Record<ExtractorSourceId, ExtractorSourceMetadata> = {
   gradcracker: {
     label: "Gradcracker",
     order: 10,
@@ -109,12 +106,9 @@ export function sourceLabel(source: ExtractorSourceId): string {
   return EXTRACTOR_SOURCE_METADATA[source].label;
 }
 
-export function sortSources<T extends { source: ExtractorSourceId }>(
-  values: T[],
-): T[] {
+export function sortSources<T extends { source: ExtractorSourceId }>(values: T[]): T[] {
   return [...values].sort(
     (left, right) =>
-      EXTRACTOR_SOURCE_METADATA[left.source].order -
-      EXTRACTOR_SOURCE_METADATA[right.source].order,
+      EXTRACTOR_SOURCE_METADATA[left.source].order - EXTRACTOR_SOURCE_METADATA[right.source].order,
   );
 }

@@ -11,7 +11,5 @@ export function getResumeSchemaValidationMessage(error: unknown): string {
       ? `Resume schema validation failed at "${path}": ${issue.message}`
       : `Resume schema validation failed: ${issue.message}`;
   }
-  return error instanceof Error
-    ? error.message
-    : "Resume schema validation failed.";
+  return error instanceof Error ? error.message : "Resume schema validation failed.";
 }

@@ -12,9 +12,7 @@ import { buildDefaultReactiveResumeDocument } from "@server/services/rxresume/do
 import type { DesignResumeJson, Job, JobStatus } from "@shared/types";
 
 function buildDemoDesignResume(): DesignResumeJson {
-  const document = structuredClone(
-    buildDefaultReactiveResumeDocument(),
-  ) as DesignResumeJson;
+  const document = structuredClone(buildDefaultReactiveResumeDocument()) as DesignResumeJson;
 
   document.basics = {
     ...document.basics,
@@ -161,9 +159,7 @@ export async function persistDemoGeneratedPdf(
   const pdfFingerprint = createJobPdfFingerprint(job, context);
   const nextStatus = resolveDemoPdfStatus(job.status);
   const updated = await jobsRepo.updateJob(job.id, {
-    ...(job.status === "ready" || nextStatus !== job.status
-      ? { status: nextStatus }
-      : {}),
+    ...(job.status === "ready" || nextStatus !== job.status ? { status: nextStatus } : {}),
     pdfPath: result.pdfPath,
     pdfSource: "generated",
     pdfRegenerating: false,

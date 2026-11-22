@@ -1,9 +1,4 @@
-import {
-  badRequest,
-  conflict,
-  notFound,
-  serviceUnavailable,
-} from "@infra/errors";
+import { badRequest, conflict, notFound, serviceUnavailable } from "@infra/errors";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import {
   type AccountBillingScope,
@@ -83,9 +78,7 @@ function idOf(value: string | { id: string } | null): string | null {
   return typeof value === "string" ? value : (value?.id ?? null);
 }
 
-function subscriptionPeriodEnd(
-  subscription: Stripe.Subscription,
-): number | null {
+function subscriptionPeriodEnd(subscription: Stripe.Subscription): number | null {
   const ends = subscription.items.data
     .map((item) => item.current_period_end)
     .filter((value): value is number => typeof value === "number");
@@ -95,8 +88,7 @@ function subscriptionPeriodEnd(
 function subscriptionPriceId(subscription: Stripe.Subscription): string | null {
   const configuredPrice = process.env.STRIPE_PRO_PRICE_ID?.trim();
   return (
-    subscription.items.data.find((item) => item.price.id === configuredPrice)
-      ?.price.id ??
+    subscription.items.data.find((item) => item.price.id === configuredPrice)?.price.id ??
     subscription.items.data[0]?.price.id ??
     null
   );
@@ -109,10 +101,7 @@ async function scopeFromStripeObject(
   const appConfig = getJobOpsAppConfig();
   const existing = await getAccountSubscriptionByCustomerId(customerId);
   if (existing) {
-    if (
-      appConfig.appMode === "hosted" &&
-      existing.tenantId !== appConfig.hostedTenantId
-    ) {
+    if (appConfig.appMode === "hosted" && existing.tenantId !== appConfig.hostedTenantId) {
       return null;
     }
     return { tenantId: existing.tenantId, userId: existing.userId };
@@ -170,9 +159,7 @@ async function retrieveCurrentSubscription(
   }
 }
 
-export async function createCheckoutSession(
-  stripe?: Stripe,
-): Promise<{ url: string }> {
+export async function createCheckoutSession(stripe?: Stripe): Promise<{ url: string }> {
   requireHostedMode();
   const client = stripe ?? getStripe();
   const scope = getCurrentScope();
@@ -180,9 +167,7 @@ export async function createCheckoutSession(
   if (
     existing?.stripeSubscriptionId &&
     existing.stripeStatus &&
-    OPEN_SUBSCRIPTION_STATUSES.has(
-      existing.stripeStatus as Stripe.Subscription.Status,
-    )
+    OPEN_SUBSCRIPTION_STATUSES.has(existing.stripeStatus as Stripe.Subscription.Status)
   ) {
     throw conflict("This account already has a Stripe subscription.");
   }
@@ -211,9 +196,7 @@ export async function createCheckoutSession(
   return { url: session.url };
 }
 
-export async function createPortalSession(
-  stripe?: Stripe,
-): Promise<{ url: string }> {
+export async function createPortalSession(stripe?: Stripe): Promise<{ url: string }> {
   requireHostedMode();
   const client = stripe ?? getStripe();
   const subscription = await getAccountSubscription(getCurrentScope());
@@ -238,11 +221,7 @@ export async function handleStripeWebhook(
 
   let event: Stripe.Event;
   try {
-    event = client.webhooks.constructEvent(
-      payload,
-      signature,
-      requireEnv("STRIPE_WEBHOOK_SECRET"),
-    );
+    event = client.webhooks.constructEvent(payload, signature, requireEnv("STRIPE_WEBHOOK_SECRET"));
   } catch {
     throw badRequest("Invalid Stripe webhook signature.");
   }
@@ -255,9 +234,7 @@ export async function handleStripeWebhook(
     }
     const subscriptionId = idOf(session.subscription);
     if (subscriptionId) {
-      await persistSubscription(
-        await client.subscriptions.retrieve(subscriptionId),
-      );
+      await persistSubscription(await client.subscriptions.retrieve(subscriptionId));
     }
     return;
   }
@@ -267,9 +244,7 @@ export async function handleStripeWebhook(
     event.type === "customer.subscription.updated"
   ) {
     const incoming = event.data.object;
-    await persistSubscription(
-      await retrieveCurrentSubscription(client, incoming),
-    );
+    await persistSubscription(await retrieveCurrentSubscription(client, incoming));
     return;
   }
 

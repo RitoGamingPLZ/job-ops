@@ -7,10 +7,7 @@ type BranchNavigatorProps = {
   onSwitch: (messageId: string) => void;
 };
 
-export const BranchNavigator: React.FC<BranchNavigatorProps> = ({
-  branchInfo,
-  onSwitch,
-}) => {
+export const BranchNavigator: React.FC<BranchNavigatorProps> = ({ branchInfo, onSwitch }) => {
   const { siblingIds, activeIndex } = branchInfo;
   const total = siblingIds.length;
   const canGoLeft = activeIndex > 0;

@@ -38,9 +38,7 @@ describe("hiringcafe manifest", () => {
       resumeState: searchResume,
     });
 
-    expect(runHiringCafe).toHaveBeenCalledWith(
-      expect.objectContaining({ searchResume }),
-    );
+    expect(runHiringCafe).toHaveBeenCalledWith(expect.objectContaining({ searchResume }));
     expect(result.resumeState).toEqual(searchResume);
   });
 
@@ -57,9 +55,7 @@ describe("hiringcafe manifest", () => {
     vi.mocked(runHiringCafe).mockResolvedValue({
       success: true,
       jobs: [job],
-      sourceErrors: [
-        "Hiring Cafe job detail request was challenged (HTTP 429)",
-      ],
+      sourceErrors: ["Hiring Cafe job detail request was challenged (HTTP 429)"],
       challengeRequired: "https://hiringcafe.com/job/req-1",
     });
 

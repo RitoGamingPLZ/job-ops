@@ -97,9 +97,7 @@ export function AutomaticMultiChoiceCardGroup<T extends string>({
                 id={id}
                 checked={values.includes(option.value)}
                 aria-label={option.ariaLabel ?? option.label}
-                onCheckedChange={(nextChecked) =>
-                  onValueChange(option.value, nextChecked === true)
-                }
+                onCheckedChange={(nextChecked) => onValueChange(option.value, nextChecked === true)}
               />
             }
           />
@@ -128,9 +126,7 @@ function ChoiceCard({
       {control}
       <span className="flex flex-col gap-1">
         <span className="text-sm font-medium">{label}</span>
-        <span className="text-xs leading-4 text-muted-foreground">
-          {description}
-        </span>
+        <span className="text-xs leading-4 text-muted-foreground">{description}</span>
       </span>
     </label>
   );

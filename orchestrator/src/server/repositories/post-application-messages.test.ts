@@ -4,17 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.sequential("post-application message upsert transition semantics", () => {
+describe("post-application message upsert transition semantics", () => {
   let tempDir: string;
   let upsertPostApplicationMessage: typeof import("./post-application-messages").upsertPostApplicationMessage;
 
   async function upsertMessage(args: {
     externalMessageId: string;
-    processingStatus:
-      | "pending_user"
-      | "auto_linked"
-      | "manual_linked"
-      | "ignored";
+    processingStatus: "pending_user" | "auto_linked" | "manual_linked" | "ignored";
   }) {
     return upsertPostApplicationMessage({
       provider: "gmail",
@@ -50,9 +46,7 @@ describe.sequential("post-application message upsert transition semantics", () =
     process.env.NODE_ENV = "test";
 
     await import("../db/migrate");
-    ({ upsertPostApplicationMessage } = await import(
-      "./post-application-messages"
-    ));
+    ({ upsertPostApplicationMessage } = await import("./post-application-messages"));
   });
 
   afterEach(async () => {

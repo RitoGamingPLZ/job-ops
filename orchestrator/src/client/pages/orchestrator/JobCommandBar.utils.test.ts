@@ -1,9 +1,6 @@
 import { createJob } from "@shared/testing/factories.js";
 import { describe, expect, it } from "vitest";
-import {
-  computeJobMatchScore,
-  groupJobsForCommandBar,
-} from "./JobCommandBar.utils";
+import { computeJobMatchScore, groupJobsForCommandBar } from "./JobCommandBar.utils";
 
 describe("JobCommandBar score helpers", () => {
   it("returns zero when no title, employer, or location matches", () => {

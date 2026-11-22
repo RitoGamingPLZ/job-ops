@@ -2,11 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { logger } from "@infra/logger";
-import {
-  getLlmMessageText,
-  type JsonSchemaDefinition,
-  type LlmRequestOptions,
-} from "../types";
+import { getLlmMessageText, type JsonSchemaDefinition, type LlmRequestOptions } from "../types";
 import { runCliProcess } from "../utils/cli-process";
 import { truncate } from "../utils/string";
 
@@ -31,9 +27,7 @@ function getPositiveIntEnv(name: string, fallback: number): number {
 }
 
 function toNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : null;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
 function buildGeminiCliErrorMessage(error: unknown): string {
@@ -63,14 +57,7 @@ function tryResolveGeminiBundleJsBesideNpmShim(command: string): string | null {
   if (!lower.endsWith(".cmd") && !lower.endsWith(".ps1")) return null;
   if (!isAbsolute(command)) return null;
   const shimDir = dirname(command);
-  const bundle = join(
-    shimDir,
-    "node_modules",
-    "@google",
-    "gemini-cli",
-    "bundle",
-    "gemini.js",
-  );
+  const bundle = join(shimDir, "node_modules", "@google", "gemini-cli", "bundle", "gemini.js");
   return existsSync(bundle) ? bundle : null;
 }
 
@@ -119,10 +106,7 @@ function resolveGeminiCliSpawnTarget(bin: string): GeminiCliSpawnTarget {
   }
 
   const normalized = trimmed.toLowerCase();
-  if (
-    process.platform === "win32" &&
-    (normalized === "gemini" || normalized === "gemini.cmd")
-  ) {
+  if (process.platform === "win32" && (normalized === "gemini" || normalized === "gemini.cmd")) {
     const globalBundle = tryDefaultWindowsGlobalGeminiBundle();
     if (globalBundle) {
       return {
@@ -176,9 +160,7 @@ function parseCliJsonOutput(stdout: string): { response: string } {
   const parsed = JSON.parse(trimmed) as { response?: unknown };
   const response = toNonEmptyString(parsed.response);
   if (!response) {
-    throw new Error(
-      "Gemini CLI JSON output did not include a string `response` field.",
-    );
+    throw new Error("Gemini CLI JSON output did not include a string `response` field.");
   }
   return { response };
 }
@@ -243,8 +225,7 @@ export class GeminiCliClient {
     try {
       const { stdout } = await runGeminiCliOnce({
         spawnFn: this.spawnFn,
-        prompt:
-          'Return only valid JSON with no markdown or explanation: {"ok":true}',
+        prompt: 'Return only valid JSON with no markdown or explanation: {"ok":true}',
         model: null,
         timeoutMs,
         signal,
@@ -286,9 +267,7 @@ export class GeminiCliClient {
     return Promise.resolve([preferred, ...rest]);
   }
 
-  async callJson(
-    options: LlmRequestOptions<unknown>,
-  ): Promise<{ text: string }> {
+  async callJson(options: LlmRequestOptions<unknown>): Promise<{ text: string }> {
     const timeoutMs = getPositiveIntEnv(
       "GEMINI_CLI_REQUEST_TIMEOUT_MS",
       DEFAULT_REQUEST_TIMEOUT_MS,

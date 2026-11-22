@@ -95,22 +95,10 @@ describe("location-domain", () => {
         searchScope: "selected_plus_remote_worldwide",
         matchStrictness: "exact_only",
       },
-      sources: [
-        "gradcracker",
-        "indeed",
-        "glassdoor",
-        "ukvisajobs",
-        "adzuna",
-        "startupjobs",
-      ],
+      sources: ["gradcracker", "indeed", "glassdoor", "ukvisajobs", "adzuna", "startupjobs"],
     });
 
-    expect(result.compatibleSources).toEqual([
-      "indeed",
-      "glassdoor",
-      "adzuna",
-      "startupjobs",
-    ]);
+    expect(result.compatibleSources).toEqual(["indeed", "glassdoor", "adzuna", "startupjobs"]);
     expect(result.incompatibleSources).toEqual(["gradcracker", "ukvisajobs"]);
     expect(result.plans[0]).toMatchObject({
       source: "gradcracker",
@@ -141,9 +129,7 @@ describe("location-domain", () => {
       isCompatible: false,
       canRun: false,
     });
-    expect(result.plans[0]?.reasons).toContain(
-      "At least one city is required for this source.",
-    );
+    expect(result.plans[0]?.reasons).toContain("At least one city is required for this source.");
   });
 
   it("matches selected locations before remote worldwide and keeps tie priority", () => {
@@ -155,9 +141,7 @@ describe("location-domain", () => {
       matchStrictness: "exact_only",
     } as const;
 
-    expect(
-      matchLocationIntent(intent, { location: "Zagreb, Croatia" }),
-    ).toMatchObject({
+    expect(matchLocationIntent(intent, { location: "Zagreb, Croatia" })).toMatchObject({
       matched: true,
       matchedBy: "selected_location",
       reasonCode: "selected_location",
@@ -196,12 +180,10 @@ describe("location-domain", () => {
       matched: true,
       countryMatched: true,
     });
-    expect(matchLocationIntent(intent, { country: "Nederland" })).toMatchObject(
-      {
-        matched: true,
-        countryMatched: true,
-      },
-    );
+    expect(matchLocationIntent(intent, { country: "Nederland" })).toMatchObject({
+      matched: true,
+      countryMatched: true,
+    });
   });
 
   it("keeps flexible city matching available after country matches", () => {
@@ -240,9 +222,7 @@ describe("location-domain", () => {
   });
 
   it("exposes normalized source capabilities for known sources", () => {
-    expect(
-      normalizeLocationSourceCapabilities({ source: "gradcracker" }),
-    ).toEqual({
+    expect(normalizeLocationSourceCapabilities({ source: "gradcracker" })).toEqual({
       requiresCityLocations: false,
       requiresSelectedCountry: false,
       supportsNativeRadius: false,
@@ -263,9 +243,7 @@ describe("location-domain", () => {
       source: "naukri",
       supportedCountryKeys: ["india"],
     });
-    expect(
-      normalizeLocationSourceCapabilities({ source: "startupjobs" }),
-    ).toEqual({
+    expect(normalizeLocationSourceCapabilities({ source: "startupjobs" })).toEqual({
       requiresCityLocations: false,
       requiresSelectedCountry: false,
       supportsNativeRadius: false,
@@ -318,9 +296,7 @@ describe("location-domain", () => {
     expect(plans.plans[1]).toMatchObject({
       canRun: true,
       usesNativeRadius: false,
-      reasons: expect.arrayContaining([
-        "The map radius will be expanded into nearby places.",
-      ]),
+      reasons: expect.arrayContaining(["The map radius will be expanded into nearby places."]),
     });
   });
 
@@ -358,9 +334,7 @@ describe("location-domain", () => {
       isCompatible: false,
       canRun: false,
     });
-    expect(result.plans[0]?.reasons).toContain(
-      "A selected country is required for this source.",
-    );
+    expect(result.plans[0]?.reasons).toContain("A selected country is required for this source.");
   });
 
   it("enforces requiresSelectedCountry even for country-agnostic source lists", () => {
@@ -389,8 +363,6 @@ describe("location-domain", () => {
       isCompatible: false,
       canRun: false,
     });
-    expect(result.plans[0]?.reasons).toContain(
-      "A selected country is required for this source.",
-    );
+    expect(result.plans[0]?.reasons).toContain("A selected country is required for this source.");
   });
 });

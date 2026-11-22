@@ -14,15 +14,10 @@ const LEGACY_SESSION_JWT_KEY = "jobops.jwtToken";
 const SESSION_AUTH_TOKEN_KEY = "jobops.authToken";
 const LEGACY_SESSION_AUTH_TTL_MS = 5 * 60 * 1000;
 
-function decodeBase64UrlJsonSegment(
-  segment: string,
-): Record<string, unknown> | null {
+function decodeBase64UrlJsonSegment(segment: string): Record<string, unknown> | null {
   try {
     const normalized = segment.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized.padEnd(
-      normalized.length + ((4 - (normalized.length % 4)) % 4),
-      "=",
-    );
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
     const decoded = globalThis.atob(padded);
     const parsed = JSON.parse(decoded) as unknown;
     return parsed && typeof parsed === "object" && !Array.isArray(parsed)
@@ -38,9 +33,7 @@ function getTenantIdFromAuthToken(token: string | null): string | null {
   if (!payloadSegment) return null;
   const payload = decodeBase64UrlJsonSegment(payloadSegment);
   const tenantId = payload?.tenantId;
-  return typeof tenantId === "string" && tenantId.trim().length > 0
-    ? tenantId.trim()
-    : null;
+  return typeof tenantId === "string" && tenantId.trim().length > 0 ? tenantId.trim() : null;
 }
 
 function loadStoredLegacyCredentials(): AuthCredentials | null {
@@ -128,8 +121,7 @@ export function getAuthScopedStorageKey(baseKey: string): string {
   return scope ? `${baseKey}:${scope}` : baseKey;
 }
 
-let cachedLegacyCredentials: AuthCredentials | null =
-  loadStoredLegacyCredentials();
+let cachedLegacyCredentials: AuthCredentials | null = loadStoredLegacyCredentials();
 let cachedAuthToken: string | null = loadStoredAuthToken();
 let authMigrationInFlight: Promise<boolean> | null = null;
 
@@ -182,9 +174,7 @@ export function getAuthMigrationInFlight(): Promise<boolean> | null {
   return authMigrationInFlight;
 }
 
-export function setAuthMigrationInFlight(
-  promise: Promise<boolean> | null,
-): void {
+export function setAuthMigrationInFlight(promise: Promise<boolean> | null): void {
   authMigrationInFlight = promise;
 }
 
@@ -196,9 +186,7 @@ export function __resetApiClientAuthForTests(): void {
   storeAuthToken(null);
 }
 
-export function __setLegacyAuthCredentialsForTests(
-  credentials: AuthCredentials | null,
-): void {
+export function __setLegacyAuthCredentialsForTests(credentials: AuthCredentials | null): void {
   cachedLegacyCredentials = credentials;
   storeLegacyCredentials(credentials);
 }

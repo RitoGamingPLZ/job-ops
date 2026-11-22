@@ -1,6 +1,5 @@
 export const POST_APPLICATION_PROVIDERS = ["gmail", "imap"] as const;
-export type PostApplicationProvider =
-  (typeof POST_APPLICATION_PROVIDERS)[number];
+export type PostApplicationProvider = (typeof POST_APPLICATION_PROVIDERS)[number];
 
 export const POST_APPLICATION_PROVIDER_ACTIONS = [
   "connect",
@@ -8,8 +7,7 @@ export const POST_APPLICATION_PROVIDER_ACTIONS = [
   "sync",
   "disconnect",
 ] as const;
-export type PostApplicationProviderAction =
-  (typeof POST_APPLICATION_PROVIDER_ACTIONS)[number];
+export type PostApplicationProviderAction = (typeof POST_APPLICATION_PROVIDER_ACTIONS)[number];
 
 export const POST_APPLICATION_INTEGRATION_STATUSES = [
   "disconnected",
@@ -25,8 +23,7 @@ export const POST_APPLICATION_SYNC_RUN_STATUSES = [
   "failed",
   "cancelled",
 ] as const;
-export type PostApplicationSyncRunStatus =
-  (typeof POST_APPLICATION_SYNC_RUN_STATUSES)[number];
+export type PostApplicationSyncRunStatus = (typeof POST_APPLICATION_SYNC_RUN_STATUSES)[number];
 
 export const POST_APPLICATION_RELEVANCE_DECISIONS = [
   "relevant",
@@ -43,8 +40,7 @@ export const POST_APPLICATION_MESSAGE_TYPES = [
   "update",
   "other",
 ] as const;
-export type PostApplicationMessageType =
-  (typeof POST_APPLICATION_MESSAGE_TYPES)[number];
+export type PostApplicationMessageType = (typeof POST_APPLICATION_MESSAGE_TYPES)[number];
 
 export const POST_APPLICATION_ROUTER_STAGE_TARGETS = [
   "no_change",
@@ -69,8 +65,7 @@ export const POST_APPLICATION_PROCESSING_STATUSES = [
   "manual_linked",
   "ignored",
 ] as const;
-export type PostApplicationProcessingStatus =
-  (typeof POST_APPLICATION_PROCESSING_STATUSES)[number];
+export type PostApplicationProcessingStatus = (typeof POST_APPLICATION_PROCESSING_STATUSES)[number];
 
 export interface PostApplicationIntegration {
   id: string;

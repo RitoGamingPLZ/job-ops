@@ -7,8 +7,7 @@ import {
 import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
 import { toIntegerOrFallback } from "@shared/utils/type-conversion.js";
 
-const WORKING_NOMADS_SEARCH_URL =
-  "https://www.workingnomads.com/jobsapi/_search";
+const WORKING_NOMADS_SEARCH_URL = "https://www.workingnomads.com/jobsapi/_search";
 const WORKING_NOMADS_MAX_SEARCH_PAGE_SIZE = 100;
 
 export type WorkingNomadsWorkplaceType = "remote" | "hybrid" | "onsite";
@@ -106,8 +105,7 @@ function buildLocationEvidence(args: {
   legacyLocation?: string | undefined;
   locations: string[];
 }): JobLocationEvidence | undefined {
-  const location =
-    args.locationBase ?? args.legacyLocation ?? args.locations[0] ?? undefined;
+  const location = args.locationBase ?? args.legacyLocation ?? args.locations[0] ?? undefined;
 
   if (!location) return undefined;
 
@@ -135,10 +133,7 @@ function buildQueryString(searchTerm: string): string {
   return `"${escapeQueryString(trimmed)}"`;
 }
 
-function matchesSearchTerm(
-  job: WorkingNomadsSearchJob,
-  searchTerm: string,
-): boolean {
+function matchesSearchTerm(job: WorkingNomadsSearchJob, searchTerm: string): boolean {
   const normalizedTerm = searchTerm
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
@@ -155,9 +150,7 @@ function matchesSearchTerm(
           .filter(Boolean)
       : [];
   const locations = Array.isArray(job.locations)
-    ? job.locations.filter(
-        (value): value is string => typeof value === "string",
-      )
+    ? job.locations.filter((value): value is string => typeof value === "string")
     : typeof job.location === "string"
       ? [job.location]
       : [];
@@ -394,10 +387,7 @@ function buildSearchRequest(args: {
   maxJobsPerTerm: number;
 }): Record<string, unknown> {
   const request: Record<string, unknown> = {
-    size: Math.min(
-      Math.max(args.maxJobsPerTerm, 50),
-      WORKING_NOMADS_MAX_SEARCH_PAGE_SIZE,
-    ),
+    size: Math.min(Math.max(args.maxJobsPerTerm, 50), WORKING_NOMADS_MAX_SEARCH_PAGE_SIZE),
     _source: [
       "id",
       "slug",
@@ -467,14 +457,10 @@ async function fetchWorkingNomadsJobs(args: {
   });
 
   if (!response.ok) {
-    throw new Error(
-      `Working Nomads search request failed with ${response.status}`,
-    );
+    throw new Error(`Working Nomads search request failed with ${response.status}`);
   }
 
-  const payload = (await response.json()) as
-    | WorkingNomadsSearchResponse
-    | WorkingNomadsSearchJob[];
+  const payload = (await response.json()) as WorkingNomadsSearchResponse | WorkingNomadsSearchJob[];
   if (Array.isArray(payload)) {
     return payload;
   }
@@ -489,15 +475,9 @@ async function fetchWorkingNomadsJobs(args: {
     .filter((job): job is WorkingNomadsSearchJob => Boolean(job));
 }
 
-function mapWorkingNomadsJob(
-  job: WorkingNomadsSearchJob,
-): CreateJobInput | null {
+function mapWorkingNomadsJob(job: WorkingNomadsSearchJob): CreateJobInput | null {
   const sourceJobId =
-    typeof job.id === "number"
-      ? String(job.id)
-      : typeof job.id === "string"
-        ? job.id
-        : undefined;
+    typeof job.id === "number" ? String(job.id) : typeof job.id === "string" ? job.id : undefined;
   const slug = typeof job.slug === "string" ? job.slug : undefined;
   const legacyUrl = typeof job.url === "string" ? job.url : undefined;
   const jobUrl = slug
@@ -507,29 +487,21 @@ function mapWorkingNomadsJob(
       : (legacyUrl ?? null);
   if (!jobUrl) return null;
 
-  const description =
-    typeof job.description === "string" ? job.description : undefined;
+  const description = typeof job.description === "string" ? job.description : undefined;
   const title = typeof job.title === "string" ? job.title : "Unknown Title";
-  const locationBase =
-    typeof job.location_base === "string" ? job.location_base : undefined;
+  const locationBase = typeof job.location_base === "string" ? job.location_base : undefined;
   const locations = Array.isArray(job.locations)
-    ? job.locations.filter(
-        (value): value is string => typeof value === "string",
-      )
+    ? job.locations.filter((value): value is string => typeof value === "string")
     : [];
-  const legacyLocation =
-    typeof job.location === "string" ? job.location : undefined;
+  const legacyLocation = typeof job.location === "string" ? job.location : undefined;
   const location =
-    locationBase ??
-    legacyLocation ??
-    (locations.length > 0 ? locations.join(", ") : "Remote");
+    locationBase ?? legacyLocation ?? (locations.length > 0 ? locations.join(", ") : "Remote");
   const locationEvidence = buildLocationEvidence({
     locationBase,
     legacyLocation,
     locations,
   });
-  const category =
-    typeof job.category_name === "string" ? job.category_name : undefined;
+  const category = typeof job.category_name === "string" ? job.category_name : undefined;
   const tags = Array.isArray(job.tags)
     ? job.tags.filter((value): value is string => typeof value === "string")
     : typeof job.tags === "string"
@@ -538,18 +510,14 @@ function mapWorkingNomadsJob(
           .map((value) => value.trim())
           .filter(Boolean)
       : [];
-  const positionType =
-    typeof job.position_type === "string" ? job.position_type : undefined;
+  const positionType = typeof job.position_type === "string" ? job.position_type : undefined;
   const applyUrl =
-    typeof job.apply_url === "string" && job.apply_url.trim().length > 0
-      ? job.apply_url
-      : jobUrl;
+    typeof job.apply_url === "string" && job.apply_url.trim().length > 0 ? job.apply_url : jobUrl;
 
   return {
     source: "workingnomads",
     sourceJobId:
-      sourceJobId ??
-      (legacyUrl ? /\/job\/go\/(\d+)\/?$/i.exec(legacyUrl)?.[1] : undefined),
+      sourceJobId ?? (legacyUrl ? /\/job\/go\/(\d+)\/?$/i.exec(legacyUrl)?.[1] : undefined),
     title,
     employer:
       typeof job.company === "string"
@@ -574,9 +542,7 @@ function mapWorkingNomadsJob(
   };
 }
 
-function matchesWorkplaceTypes(
-  workplaceTypes: WorkingNomadsWorkplaceType[] | undefined,
-): boolean {
+function matchesWorkplaceTypes(workplaceTypes: WorkingNomadsWorkplaceType[] | undefined): boolean {
   if (!workplaceTypes || workplaceTypes.length === 0) return true;
   return workplaceTypes.includes("remote");
 }
@@ -590,14 +556,9 @@ export async function runWorkingNomads(
       ? options.searchTerms
       : ["software engineer"];
   const maxJobsPerTerm = toIntegerOrFallback(options.maxJobsPerTerm, 50);
-  const explicitLocations = resolveExplicitLocations(
-    options.locations,
-    options.selectedCountry,
-  );
+  const explicitLocations = resolveExplicitLocations(options.locations, options.selectedCountry);
   const locationTokens =
-    explicitLocations.length > 0
-      ? []
-      : getCountrySearchTokens(options.selectedCountry);
+    explicitLocations.length > 0 ? [] : getCountrySearchTokens(options.selectedCountry);
 
   if (!matchesWorkplaceTypes(options.workplaceTypes)) {
     return { success: true, jobs: [] };
@@ -642,9 +603,7 @@ export async function runWorkingNomads(
         if (!mapped) continue;
         if (
           explicitLocations.length > 0 &&
-          !explicitLocations.some((location) =>
-            matchesRequestedLocation(mapped.location, location),
-          )
+          !explicitLocations.some((location) => matchesRequestedLocation(mapped.location, location))
         ) {
           continue;
         }

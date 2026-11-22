@@ -267,12 +267,7 @@ type ProductEventMap = {
   onboarding_step_viewed: {
     step: "profile" | "model" | "resume";
     step_index: number;
-    requirement_status:
-      | "ready"
-      | "needs_action"
-      | "invalid"
-      | "checking_unavailable"
-      | "missing";
+    requirement_status: "ready" | "needs_action" | "invalid" | "checking_unavailable" | "missing";
   };
   onboarding_account_create_submitted: {
     username_length_bucket: string;
@@ -338,24 +333,9 @@ type ProductEventMap = {
   onboarding_status_checked: {
     complete: boolean;
     next_step: "profile" | "model" | "resume" | "none";
-    profile_status:
-      | "ready"
-      | "needs_action"
-      | "invalid"
-      | "checking_unavailable"
-      | "missing";
-    model_status:
-      | "ready"
-      | "needs_action"
-      | "invalid"
-      | "checking_unavailable"
-      | "missing";
-    resume_status:
-      | "ready"
-      | "needs_action"
-      | "invalid"
-      | "checking_unavailable"
-      | "missing";
+    profile_status: "ready" | "needs_action" | "invalid" | "checking_unavailable" | "missing";
+    model_status: "ready" | "needs_action" | "invalid" | "checking_unavailable" | "missing";
+    resume_status: "ready" | "needs_action" | "invalid" | "checking_unavailable" | "missing";
   };
   onboarding_resume_confirm_completed: {
     result: "success" | "error";
@@ -384,20 +364,14 @@ type Primitive = string | number | boolean | null;
 type SanitizedPayload = AnalyticsPayload;
 
 function generateAnalyticsUserId() {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
   return `anon_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
 }
 
 function generateAnalyticsSessionId() {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
   return `session_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
@@ -440,9 +414,7 @@ export function getAnalyticsSessionId(): string | null {
   if (cachedAnalyticsSessionId) return cachedAnalyticsSessionId;
 
   try {
-    const existing = window.sessionStorage.getItem(
-      ANALYTICS_SESSION_ID_STORAGE_KEY,
-    );
+    const existing = window.sessionStorage.getItem(ANALYTICS_SESSION_ID_STORAGE_KEY);
     if (existing) {
       cachedAnalyticsSessionId = existing;
       return existing;
@@ -484,10 +456,7 @@ function stableStringify(value: Record<string, Primitive> | undefined): string {
   return JSON.stringify(ordered);
 }
 
-function shouldDedupe(
-  event: string,
-  data: SanitizedPayload | undefined,
-): boolean {
+function shouldDedupe(event: string, data: SanitizedPayload | undefined): boolean {
   const now = Date.now();
   const cacheKey = `${event}:${stableStringify(data)}`;
   const lastSeenAt = recentEventCache.get(cacheKey);
@@ -502,10 +471,7 @@ function shouldDedupe(
   return typeof lastSeenAt === "number" && now - lastSeenAt < DEDUPE_WINDOW_MS;
 }
 
-export function trackProductEvent<T extends ProductEventName>(
-  event: T,
-  data: ProductEventMap[T],
-) {
+export function trackProductEvent<T extends ProductEventName>(event: T, data: ProductEventMap[T]) {
   const sanitized = sanitizeAnalyticsPayload(data as Record<string, unknown>);
   if (shouldDedupe(event, sanitized)) return;
   trackEvent(event, sanitized);
@@ -517,9 +483,7 @@ function normalizeDistinctId(id: string | null | undefined): string | null {
   return trimmed.slice(0, UMAMI_DISTINCT_ID_MAX_LENGTH);
 }
 
-export function identifyAnalyticsUser(
-  distinctId: string | null | undefined,
-): void {
+export function identifyAnalyticsUser(distinctId: string | null | undefined): void {
   if (typeof window === "undefined") return;
   const umamiIdentify = window.umami?.identify;
   const openPanel = window.op;
@@ -528,9 +492,7 @@ export function identifyAnalyticsUser(
   if (!hasOpenPanel && !hasUmami) return;
 
   const normalized =
-    normalizeDistinctId(distinctId) ??
-    normalizeDistinctId(getAnalyticsUserId()) ??
-    null;
+    normalizeDistinctId(distinctId) ?? normalizeDistinctId(getAnalyticsUserId()) ?? null;
   if (!normalized || normalized === cachedDistinctId) return;
 
   if (hasUmami) {
@@ -574,12 +536,7 @@ export function bucketClicks(value: number): string {
 }
 
 export function bucketQueryLength(value: string | number): string {
-  const length =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? value.length
-        : 0;
+  const length = typeof value === "number" ? value : typeof value === "string" ? value.length : 0;
   if (!Number.isFinite(length) || length <= 0) return "0";
   if (length <= 3) return "1_3";
   if (length <= 10) return "4_10";

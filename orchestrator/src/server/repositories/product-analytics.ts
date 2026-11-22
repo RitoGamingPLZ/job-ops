@@ -91,9 +91,7 @@ function getAnalyticsInstallStateId(): string {
 }
 
 function analyticsPrivateDataFilter(table: UserScopedAnalyticsTable): SQL {
-  return isHostedUserIsolationEnabled()
-    ? privateDataScopeFilter(table)
-    : sql`1 = 1`;
+  return isHostedUserIsolationEnabled() ? privateDataScopeFilter(table) : sql`1 = 1`;
 }
 
 function toScopedActivationMilestone(milestone: ActivationMilestone): string {
@@ -103,18 +101,14 @@ function toScopedActivationMilestone(milestone: ActivationMilestone): string {
 }
 
 function toScopedActivationMilestones(): string[] {
-  return ACTIVATION_MILESTONES.map((milestone) =>
-    toScopedActivationMilestone(milestone),
-  );
+  return ACTIVATION_MILESTONES.map((milestone) => toScopedActivationMilestone(milestone));
 }
 
 function fromScopedActivationMilestone(milestone: string): string {
   const stateId = getAnalyticsInstallStateId();
   if (stateId === ANALYTICS_INSTALL_STATE_ID) return milestone;
   const prefix = `${stateId}${HOSTED_ANALYTICS_SCOPE_SEPARATOR}`;
-  return milestone.startsWith(prefix)
-    ? milestone.slice(prefix.length)
-    : milestone;
+  return milestone.startsWith(prefix) ? milestone.slice(prefix.length) : milestone;
 }
 
 function mapMilestoneRow(row: MilestoneRow): MilestoneRow {
@@ -143,10 +137,7 @@ function toIsoString(epochMs: number): string {
   return new Date(epochMs).toISOString();
 }
 
-function earlierTimestamp(
-  left: number | null,
-  right: number | null,
-): number | null {
+function earlierTimestamp(left: number | null, right: number | null): number | null {
   if (left === null) return right;
   if (right === null) return left;
   return Math.min(left, right);
@@ -256,9 +247,7 @@ async function estimateInstallTimestampMs(): Promise<number> {
       .where(analyticsPrivateDataFilter(designResumeDocuments)),
     db
       .select({
-        value: sql<
-          string | null
-        >`min(${postApplicationIntegrations.createdAt})`,
+        value: sql<string | null>`min(${postApplicationIntegrations.createdAt})`,
       })
       .from(postApplicationIntegrations)
       .where(analyticsPrivateDataFilter(postApplicationIntegrations)),
@@ -328,9 +317,7 @@ export async function listActivationMilestones(): Promise<MilestoneRow[]> {
   const rows = await db
     .select()
     .from(analyticsMilestones)
-    .where(
-      inArray(analyticsMilestones.milestone, toScopedActivationMilestones()),
-    );
+    .where(inArray(analyticsMilestones.milestone, toScopedActivationMilestones()));
   return rows.map(mapMilestoneRow);
 }
 
@@ -381,12 +368,7 @@ export async function recordActivationMilestone(args: {
         ...(args.sessionId ? { firstSessionId: args.sessionId } : {}),
         updatedAt: now,
       })
-      .where(
-        eq(
-          analyticsMilestones.milestone,
-          toScopedActivationMilestone(args.milestone),
-        ),
-      );
+      .where(eq(analyticsMilestones.milestone, toScopedActivationMilestone(args.milestone)));
     const updated = await getActivationMilestone(args.milestone);
     if (!updated) {
       throw new Error(`Failed to update milestone '${args.milestone}'`);
@@ -410,12 +392,7 @@ export async function setActivationMilestoneFromHistory(args: {
       firstSessionId: null,
       updatedAt: now,
     })
-    .where(
-      eq(
-        analyticsMilestones.milestone,
-        toScopedActivationMilestone(args.milestone),
-      ),
-    );
+    .where(eq(analyticsMilestones.milestone, toScopedActivationMilestone(args.milestone)));
 
   const updated = await getActivationMilestone(args.milestone);
   if (!updated) {
@@ -425,14 +402,10 @@ export async function setActivationMilestoneFromHistory(args: {
   return updated;
 }
 
-export async function deleteActivationMilestone(
-  milestone: ActivationMilestone,
-): Promise<void> {
+export async function deleteActivationMilestone(milestone: ActivationMilestone): Promise<void> {
   await db
     .delete(analyticsMilestones)
-    .where(
-      eq(analyticsMilestones.milestone, toScopedActivationMilestone(milestone)),
-    );
+    .where(eq(analyticsMilestones.milestone, toScopedActivationMilestone(milestone)));
 }
 
 export async function markActivationMilestoneReported(
@@ -444,14 +417,10 @@ export async function markActivationMilestoneReported(
       reportedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
-    .where(
-      eq(analyticsMilestones.milestone, toScopedActivationMilestone(milestone)),
-    );
+    .where(eq(analyticsMilestones.milestone, toScopedActivationMilestone(milestone)));
 }
 
-export async function listPendingActivationMilestones(): Promise<
-  MilestoneRow[]
-> {
+export async function listPendingActivationMilestones(): Promise<MilestoneRow[]> {
   const rows = await db
     .select()
     .from(analyticsMilestones)
@@ -505,12 +474,7 @@ export async function getHistoricalActivationMilestoneCandidates(): Promise<
     db
       .select({ value: sql<number | null>`min(${stageEvents.occurredAt})` })
       .from(stageEvents)
-      .where(
-        and(
-          analyticsPrivateDataFilter(stageEvents),
-          eq(stageEvents.toStage, "offer"),
-        ),
-      ),
+      .where(and(analyticsPrivateDataFilter(stageEvents), eq(stageEvents.toStage, "offer"))),
     db
       .select({ value: sql<number | null>`min(${jobs.closedAt})` })
       .from(jobs)
@@ -525,17 +489,13 @@ export async function getHistoricalActivationMilestoneCandidates(): Promise<
       .select({ value: sql<number | null>`min(${stageEvents.occurredAt})` })
       .from(stageEvents)
       .where(
-        and(
-          analyticsPrivateDataFilter(stageEvents),
-          eq(stageEvents.outcome, "offer_accepted"),
-        ),
+        and(analyticsPrivateDataFilter(stageEvents), eq(stageEvents.outcome, "offer_accepted")),
       ),
   ]);
 
   const earliestPipelineRunValue = earliestPipelineRun[0]?.value ?? null;
   const earliestApplicationValue = earliestApplication[0]?.value ?? null;
-  const earliestPositiveResponseValue =
-    earliestPositiveResponse[0]?.value ?? null;
+  const earliestPositiveResponseValue = earliestPositiveResponse[0]?.value ?? null;
   const earliestInterviewValue = earliestInterview[0]?.value ?? null;
   const earliestOfferValue = earliestOffer[0]?.value ?? null;
   const earliestAcceptedJobValue = earliestAcceptedJob[0]?.value ?? null;
@@ -543,41 +503,30 @@ export async function getHistoricalActivationMilestoneCandidates(): Promise<
 
   const acceptanceTimestamp = earlierTimestamp(
     earliestAcceptedJobValue !== null ? earliestAcceptedJobValue * 1000 : null,
-    earliestAcceptedStageValue !== null
-      ? earliestAcceptedStageValue * 1000
-      : null,
+    earliestAcceptedStageValue !== null ? earliestAcceptedStageValue * 1000 : null,
   );
 
   return {
     ...(toEpochMs(earliestPipelineRunValue) !== null
       ? {
-          activation_first_pipeline_run: toEpochMs(
-            earliestPipelineRunValue,
-          ) as number,
+          activation_first_pipeline_run: toEpochMs(earliestPipelineRunValue) as number,
         }
       : {}),
     ...(toEpochMs(earliestApplicationValue) !== null
       ? {
-          activation_first_application: toEpochMs(
-            earliestApplicationValue,
-          ) as number,
+          activation_first_application: toEpochMs(earliestApplicationValue) as number,
         }
       : {}),
     ...(earliestPositiveResponseValue !== null
       ? {
-          activation_first_positive_response:
-            earliestPositiveResponseValue * 1000,
+          activation_first_positive_response: earliestPositiveResponseValue * 1000,
         }
       : {}),
     ...(earliestInterviewValue !== null
       ? { activation_first_interview: earliestInterviewValue * 1000 }
       : {}),
-    ...(earliestOfferValue !== null
-      ? { activation_first_offer: earliestOfferValue * 1000 }
-      : {}),
-    ...(acceptanceTimestamp !== null
-      ? { activation_first_acceptance: acceptanceTimestamp }
-      : {}),
+    ...(earliestOfferValue !== null ? { activation_first_offer: earliestOfferValue * 1000 } : {}),
+    ...(acceptanceTimestamp !== null ? { activation_first_acceptance: acceptanceTimestamp } : {}),
   };
 }
 
@@ -656,8 +605,7 @@ export async function claimAnalyticsServerEventReplay(args: {
       return false;
     }
 
-    const canReclaim =
-      existing.claimedAt === null || existing.claimedAt < staleBefore;
+    const canReclaim = existing.claimedAt === null || existing.claimedAt < staleBefore;
     if (!canReclaim) {
       return false;
     }
@@ -683,9 +631,7 @@ export async function claimAnalyticsServerEventReplay(args: {
   }
 }
 
-export async function markAnalyticsServerEventReplayDelivered(
-  eventKey: string,
-): Promise<void> {
+export async function markAnalyticsServerEventReplayDelivered(eventKey: string): Promise<void> {
   const scopedEventKey = toScopedServerEventKey(eventKey);
   const nowMs = Date.now();
   const nowIso = new Date(nowMs).toISOString();
@@ -699,9 +645,7 @@ export async function markAnalyticsServerEventReplayDelivered(
     .where(eq(analyticsServerEventReplays.eventKey, scopedEventKey));
 }
 
-export async function hasPendingAnalyticsServerEventReplays(
-  eventKeys: string[],
-): Promise<boolean> {
+export async function hasPendingAnalyticsServerEventReplays(eventKeys: string[]): Promise<boolean> {
   if (eventKeys.length === 0) return false;
   const scopedEventKeys = eventKeys.map(toScopedServerEventKey);
 
@@ -762,20 +706,14 @@ export async function getHistoricalServerEventReplayCandidates(args: {
       .where(
         and(
           analyticsPrivateDataFilter(postApplicationMessages),
-          inArray(postApplicationMessages.processingStatus, [
-            "auto_linked",
-            "manual_linked",
-          ]),
+          inArray(postApplicationMessages.processingStatus, ["auto_linked", "manual_linked"]),
           sql`coalesce(${postApplicationMessages.decidedAt}, ${postApplicationMessages.receivedAt}) < ${args.cutoffMs}`,
         ),
       ),
   ]);
 
   const candidates: HistoricalServerEventReplayCandidate[] = [];
-  const acceptedByJob = new Map<
-    string,
-    { occurredAt: number; source: string }
-  >();
+  const acceptedByJob = new Map<string, { occurredAt: number; source: string }>();
 
   for (const row of pipelineRunRows) {
     const occurredAt = toEpochMs(row.startedAt);
@@ -795,10 +733,7 @@ export async function getHistoricalServerEventReplayCandidates(args: {
     if (metadata?.eventType === "note") {
       continue;
     }
-    const source = classifyHistoricalStageAnalyticsSource(
-      metadata,
-      String(row.toStage),
-    );
+    const source = classifyHistoricalStageAnalyticsSource(metadata, String(row.toStage));
 
     if (String(row.toStage) !== "applied") {
       candidates.push(
@@ -912,10 +847,7 @@ export async function getHistoricalServerEventReplayCandidates(args: {
         urlPath: "/tracking-inbox",
         data: toPrimitiveRecord({
           provider: String(row.provider),
-          match_mode:
-            row.processingStatus === "auto_linked"
-              ? "auto_link"
-              : "manual_review",
+          match_mode: row.processingStatus === "auto_linked" ? "auto_link" : "manual_review",
           result: "success",
         }),
       }),

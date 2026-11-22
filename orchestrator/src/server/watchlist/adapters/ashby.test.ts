@@ -57,9 +57,7 @@ function detail(id = "posting-1", multipleLocations = false) {
       description: "<p>Build &amp; ship</p>",
       datePosted: "2026-11-07",
       employmentType: "FULL_TIME",
-      jobLocation: multipleLocations
-        ? [place, { address: { addressLocality: "London" } }]
-        : place,
+      jobLocation: multipleLocations ? [place, { address: { addressLocality: "London" } }] : place,
     })}</script>`,
   );
 }
@@ -78,37 +76,29 @@ describe("ashbyWatchlistAdapter", () => {
     const parsed = adapter.parseCatalogSources(catalog);
     expect(parsed).toHaveLength(7);
     expect(parsed.map((row) => row.id)).toContain("ashby:linear");
-    for (const row of catalog)
-      expect(adapter.catalogSchema.safeParse(row).success).toBe(true);
+    for (const row of catalog) expect(adapter.catalogSchema.safeParse(row).success).toBe(true);
     expect(
-      adapter.parseCatalogSources([
-        null,
-        {},
-        { label: "Bad", ashbyUrl: "https://evil.test/foo" },
-      ]),
+      adapter.parseCatalogSources([null, {}, { label: "Bad", ashbyUrl: "https://evil.test/foo" }]),
     ).toEqual([]);
   });
-  it.each([
-    "/Linear",
-    "/linear/posting-1",
-    "/linear/posting-1/application?utm_source=test#apply",
-  ])("normalizes and validates %s with one board GET", async (path) => {
-    const mock = stub(list());
-    expect(
-      await adapter.normalizeCustomSelection({
-        careersUrl: `https://jobs.ashbyhq.com${path}`,
-        label: " Custom ",
-      }),
-    ).toEqual({ label: "Custom", careersUrl: source.careersUrl });
-    expect(mock).toHaveBeenCalledTimes(1);
-    expect(mock.mock.calls[0][0]).toBe(
-      "https://api.ashbyhq.com/posting-api/job-board/linear",
-    );
-    expect(mock.mock.calls[0][1]).toMatchObject({
-      redirect: "error",
-      signal: expect.any(AbortSignal),
-    });
-  });
+  it.each(["/Linear", "/linear/posting-1", "/linear/posting-1/application?utm_source=test#apply"])(
+    "normalizes and validates %s with one board GET",
+    async (path) => {
+      const mock = stub(list());
+      expect(
+        await adapter.normalizeCustomSelection({
+          careersUrl: `https://jobs.ashbyhq.com${path}`,
+          label: " Custom ",
+        }),
+      ).toEqual({ label: "Custom", careersUrl: source.careersUrl });
+      expect(mock).toHaveBeenCalledTimes(1);
+      expect(mock.mock.calls[0][0]).toBe("https://api.ashbyhq.com/posting-api/job-board/linear");
+      expect(mock.mock.calls[0][1]).toMatchObject({
+        redirect: "error",
+        signal: expect.any(AbortSignal),
+      });
+    },
+  );
   it.each([
     "http://jobs.ashbyhq.com/linear",
     "https://jobs.ashbyhq.com.evil.test/linear",
@@ -121,9 +111,7 @@ describe("ashbyWatchlistAdapter", () => {
     "bad",
   ])("rejects unsafe URL %s without fetching", async (careersUrl) => {
     const mock = stub();
-    await expect(
-      adapter.normalizeCustomSelection({ careersUrl, label: null }),
-    ).rejects.toThrow();
+    await expect(adapter.normalizeCustomSelection({ careersUrl, label: null })).rejects.toThrow();
     expect(mock).not.toHaveBeenCalled();
   });
   it("uses company fallback labels and hydrates canonically", async () => {
@@ -168,8 +156,7 @@ describe("ashbyWatchlistAdapter", () => {
       ],
     });
     expect(
-      (await adapter.fetchJobDetails({ source, jobRef: result.jobs[0].jobRef }))
-        .descriptionHtml,
+      (await adapter.fetchJobDetails({ source, jobRef: result.jobs[0].jobRef })).descriptionHtml,
     ).toBe(job().descriptionHtml);
     expect(
       await adapter.prepareImportDraft({
@@ -200,28 +187,19 @@ describe("ashbyWatchlistAdapter", () => {
     expect(result.jobs[59].sourceJobId).toBe("id-5");
   });
   it("accepts empty boards and rejects malformed responses without exposing bodies", async () => {
-    stub(
-      list([]),
-      new Response('{"secret":"private"}'),
-      new Response("secret", { status: 502 }),
-    );
+    stub(list([]), new Response('{"secret":"private"}'), new Response("secret", { status: 502 }));
     expect(await adapter.fetchJobs({ source })).toEqual({
       total: 0,
       fetched: 0,
       jobs: [],
     });
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      /structure may have changed/,
-    );
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      "Ashby returned HTTP 502.",
-    );
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow(/structure may have changed/);
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow("Ashby returned HTTP 502.");
   });
   it("fetches only the requested posting on a cache miss and checks its ID", async () => {
     const mock = stub(detail(), detail("wrong"));
     expect(
-      (await adapter.prepareImportDraft({ source, jobRef: job().jobUrl }))
-        .draft,
+      (await adapter.prepareImportDraft({ source, jobRef: job().jobUrl })).draft,
     ).toMatchObject({
       source: "ashby:linear",
       sourceJobId: "posting-1",
@@ -229,15 +207,14 @@ describe("ashbyWatchlistAdapter", () => {
       location: "New York, US",
     });
     expect(mock.mock.calls[0][0]).toBe(job().jobUrl);
-    await expect(
-      adapter.fetchJobDetails({ source, jobRef: job().jobUrl }),
-    ).rejects.toThrow(/structure may have changed/);
+    await expect(adapter.fetchJobDetails({ source, jobRef: job().jobUrl })).rejects.toThrow(
+      /structure may have changed/,
+    );
   });
   it("accepts JSON-LD location arrays on a cache miss", async () => {
     const mock = stub(detail("posting-1", true));
     expect(
-      (await adapter.prepareImportDraft({ source, jobRef: job().jobUrl })).draft
-        .location,
+      (await adapter.prepareImportDraft({ source, jobRef: job().jobUrl })).draft.location,
     ).toBe("New York, US; London");
     expect(mock).toHaveBeenCalledTimes(1);
   });
@@ -282,8 +259,7 @@ describe("ashbyWatchlistAdapter", () => {
     await adapter.fetchJobs({ source });
     await adapter.fetchJobs({ source: other });
     expect(
-      (await adapter.prepareImportDraft({ source, jobRef: job().jobUrl }))
-        .draft,
+      (await adapter.prepareImportDraft({ source, jobRef: job().jobUrl })).draft,
     ).toMatchObject({ employer: "Linear", jobDescription: "Build & ship" });
     expect(
       (
@@ -325,9 +301,7 @@ describe("ashbyWatchlistAdapter", () => {
     });
   });
   it("rejects cross-company job refs and API links", async () => {
-    const mock = stub(
-      list([{ ...job(), jobUrl: "https://evil.test/posting-1" }]),
-    );
+    const mock = stub(list([{ ...job(), jobUrl: "https://evil.test/posting-1" }]));
     await expect(
       adapter.prepareImportDraft({
         source,
@@ -335,9 +309,7 @@ describe("ashbyWatchlistAdapter", () => {
       }),
     ).rejects.toThrow();
     expect(mock).not.toHaveBeenCalled();
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      /structure may have changed/,
-    );
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow(/structure may have changed/);
   });
   it("converts HTML when plaintext is absent and escapes plaintext for details", async () => {
     stub(
@@ -352,13 +324,11 @@ describe("ashbyWatchlistAdapter", () => {
     );
     await adapter.fetchJobs({ source });
     expect(
-      (await adapter.prepareImportDraft({ source, jobRef: job().jobUrl })).draft
-        .jobDescription,
+      (await adapter.prepareImportDraft({ source, jobRef: job().jobUrl })).draft.jobDescription,
     ).toBe("Build & ship");
     await adapter.fetchJobs({ source });
     expect(
-      (await adapter.fetchJobDetails({ source, jobRef: job().jobUrl }))
-        .descriptionHtml,
+      (await adapter.fetchJobDetails({ source, jobRef: job().jobUrl })).descriptionHtml,
     ).toContain("&lt;text&gt; &amp; safe");
   });
   it("honors Retry-After and stops after three retries", async () => {
@@ -372,9 +342,7 @@ describe("ashbyWatchlistAdapter", () => {
           }),
       ),
     );
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      "Ashby returned HTTP 429.",
-    );
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow("Ashby returned HTTP 429.");
     expect(mock).toHaveBeenCalledTimes(4);
   });
   it("uses 1s/3s/8s fallback backoff", async () => {
@@ -398,11 +366,9 @@ describe("ashbyWatchlistAdapter", () => {
       expect(mock).toHaveBeenCalledTimes(index + 2);
     }
     expect((await pending).fetched).toBe(1);
-    expect(
-      mock.mock.calls.every(
-        (call) => call[1].signal === mock.mock.calls[0][1].signal,
-      ),
-    ).toBe(true);
+    expect(mock.mock.calls.every((call) => call[1].signal === mock.mock.calls[0][1].signal)).toBe(
+      true,
+    );
   });
   it("combines the 25s budget with caller cancellation, including cached details", async () => {
     const timeout = vi.spyOn(AbortSignal, "timeout");
@@ -411,9 +377,7 @@ describe("ashbyWatchlistAdapter", () => {
     expect(timeout).toHaveBeenCalledWith(25000);
     const controller = new AbortController();
     controller.abort();
-    await expect(
-      adapter.fetchJobs({ source, signal: controller.signal }),
-    ).rejects.toThrow();
+    await expect(adapter.fetchJobs({ source, signal: controller.signal })).rejects.toThrow();
     await expect(
       adapter.prepareImportDraft({
         source,

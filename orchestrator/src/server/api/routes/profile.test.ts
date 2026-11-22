@@ -33,7 +33,7 @@ import { getSetting } from "@server/repositories/settings";
 import { getProfile } from "@server/services/profile";
 import { getResume, RxResumeAuthConfigError } from "@server/services/rxresume";
 
-describe.sequential("Profile API routes", () => {
+describe("Profile API routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -86,9 +86,7 @@ describe.sequential("Profile API routes", () => {
     });
 
     it("returns error when profile is not configured", async () => {
-      vi.mocked(getProfile).mockRejectedValue(
-        new Error("Base resume not configured."),
-      );
+      vi.mocked(getProfile).mockRejectedValue(new Error("Base resume not configured."));
 
       const res = await fetch(`${baseUrl}/api/profile/projects`);
       const body = await res.json();
@@ -107,9 +105,7 @@ describe.sequential("Profile API routes", () => {
         },
       });
       try {
-        vi.mocked(getProfile).mockRejectedValue(
-          new Error("should not be used"),
-        );
+        vi.mocked(getProfile).mockRejectedValue(new Error("should not be used"));
 
         const res = await fetch(`${demoServer.baseUrl}/api/profile/projects`);
         const body = await res.json();
@@ -145,9 +141,7 @@ describe.sequential("Profile API routes", () => {
     });
 
     it("returns error when profile is not configured", async () => {
-      vi.mocked(getProfile).mockRejectedValue(
-        new Error("Base resume not configured."),
-      );
+      vi.mocked(getProfile).mockRejectedValue(new Error("Base resume not configured."));
 
       const res = await fetch(`${baseUrl}/api/profile`);
       const body = await res.json();

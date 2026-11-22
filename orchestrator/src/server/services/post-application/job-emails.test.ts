@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { PostApplicationMessage } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.sequential("post-application job emails service", () => {
+describe("post-application job emails service", () => {
   let tempDir: string;
   let createJob: typeof import("@server/repositories/jobs").createJob;
   let upsertPostApplicationMessage: typeof import("@server/repositories/post-application-messages").upsertPostApplicationMessage;
@@ -23,12 +23,10 @@ describe.sequential("post-application job emails service", () => {
 
     await import("@server/db/migrate");
     ({ createJob } = await import("@server/repositories/jobs"));
-    ({ upsertPostApplicationMessage } = await import(
-      "@server/repositories/post-application-messages"
-    ));
-    ({ upsertConnectedPostApplicationIntegration } = await import(
-      "@server/repositories/post-application-integrations"
-    ));
+    ({ upsertPostApplicationMessage } =
+      await import("@server/repositories/post-application-messages"));
+    ({ upsertConnectedPostApplicationIntegration } =
+      await import("@server/repositories/post-application-integrations"));
     ({ listJobPostApplicationEmails } = await import("./job-emails"));
     ({ db, schema } = await import("@server/db"));
     ({ runWithRequestContext } = await import("@infra/request-context"));
@@ -108,14 +106,12 @@ describe.sequential("post-application job emails service", () => {
       receivedAt: 1_704_153_600_000,
       integrationId: integration.id,
     });
-    await runWithRequestContext(
-      { requestId: "other-tenant", tenantId: "tenant_other" },
-      () =>
-        seedMessage({
-          jobId: job.id,
-          receivedAt: 1_704_240_000_000,
-          integrationId: null,
-        }),
+    await runWithRequestContext({ requestId: "other-tenant", tenantId: "tenant_other" }, () =>
+      seedMessage({
+        jobId: job.id,
+        receivedAt: 1_704_240_000_000,
+        integrationId: null,
+      }),
     );
 
     const limited = await listJobPostApplicationEmails(job.id, 1);
@@ -132,9 +128,7 @@ describe.sequential("post-application job emails service", () => {
   });
 
   it("returns 404 for a missing job before listing emails", async () => {
-    await expect(
-      listJobPostApplicationEmails("missing-job-id", 100),
-    ).rejects.toMatchObject({
+    await expect(listJobPostApplicationEmails("missing-job-id", 100)).rejects.toMatchObject({
       status: 404,
       code: "NOT_FOUND",
     });

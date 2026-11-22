@@ -63,9 +63,7 @@ function ResumeImportProgress({
   const cappedElapsedMs = Math.min(elapsedMs, progressProfile.totalMs);
   const activeStepIndex = Math.min(
     RESUME_IMPORT_STEPS.length - 1,
-    Math.floor(
-      (cappedElapsedMs / progressProfile.totalMs) * RESUME_IMPORT_STEPS.length,
-    ),
+    Math.floor((cappedElapsedMs / progressProfile.totalMs) * RESUME_IMPORT_STEPS.length),
   );
   const progressValue = Math.min(
     96,
@@ -74,10 +72,7 @@ function ResumeImportProgress({
   const isLongRunning = elapsedMs >= progressProfile.totalMs;
 
   return (
-    <output
-      className="block rounded-lg border border-border/60 bg-muted/10 p-5"
-      aria-live="polite"
-    >
+    <output className="block rounded-lg border border-border/60 bg-muted/10 p-5" aria-live="polite">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background text-muted-foreground">
           <FileText className="h-4 w-4" aria-hidden="true" />
@@ -90,15 +85,9 @@ function ResumeImportProgress({
                 {fileName ?? "Selected resume file"}
               </div>
             </div>
-            <div className="text-xs tabular-nums text-muted-foreground">
-              {progressValue}%
-            </div>
+            <div className="text-xs tabular-nums text-muted-foreground">{progressValue}%</div>
           </div>
-          <Progress
-            value={progressValue}
-            className="h-1.5"
-            aria-label="Resume import progress"
-          />
+          <Progress value={progressValue} className="h-1.5" aria-label="Resume import progress" />
           <p className="bg-gradient-to-r from-muted-foreground via-foreground to-muted-foreground bg-clip-text text-sm leading-6 text-transparent motion-safe:animate-pulse">
             {isLongRunning
               ? progressProfile.longRunningMessage
@@ -158,9 +147,7 @@ export const BaseResumeStep: React.FC<{
   onTemplateResumeChange,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const effectiveResumeSetupMode = allowReactiveResume
-    ? resumeSetupMode
-    : "upload";
+  const effectiveResumeSetupMode = allowReactiveResume ? resumeSetupMode : "upload";
   const uploadTitle = allowReactiveResume
     ? "Upload a resume file"
     : "Upload your existing resume, PDF or DOCX";
@@ -191,9 +178,7 @@ export const BaseResumeStep: React.FC<{
         <RadioGroup
           value={resumeSetupMode}
           onValueChange={(value) =>
-            onResumeSetupModeChange(
-              value === "rxresume" ? "rxresume" : "upload",
-            )
+            onResumeSetupModeChange(value === "rxresume" ? "rxresume" : "upload")
           }
           className="grid gap-4 lg:grid-cols-2"
         >
@@ -219,20 +204,12 @@ export const BaseResumeStep: React.FC<{
                 htmlFor={radioId}
                 className={cn(
                   "flex cursor-pointer items-start gap-4 rounded-xl border p-4 transition-colors",
-                  checked
-                    ? "border-primary bg-muted/40"
-                    : "border-border/60 hover:bg-muted/20",
+                  checked ? "border-primary bg-muted/40" : "border-border/60 hover:bg-muted/20",
                 )}
               >
-                <RadioGroupItem
-                  id={radioId}
-                  value={option.value}
-                  className="mt-1"
-                />
+                <RadioGroupItem id={radioId} value={option.value} className="mt-1" />
                 <div className="space-y-1">
-                  <div className="text-base font-medium text-foreground">
-                    {option.title}
-                  </div>
+                  <div className="text-base font-medium text-foreground">{option.title}</div>
                   <div className="text-sm leading-6 text-muted-foreground">
                     {option.description}
                   </div>
@@ -254,9 +231,7 @@ export const BaseResumeStep: React.FC<{
             <div className="rounded-lg border border-border/60 bg-muted/10 p-5">
               <div className="space-y-2">
                 <div className="text-sm font-medium">{uploadTitle}</div>
-                <p className="text-sm text-muted-foreground">
-                  {uploadDescription}
-                </p>
+                <p className="text-sm text-muted-foreground">{uploadDescription}</p>
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -268,9 +243,7 @@ export const BaseResumeStep: React.FC<{
                   <Upload className="h-4 w-4" />
                   Upload resume file
                 </Button>
-                <div className="text-xs text-muted-foreground">
-                  {supportedFormats}
-                </div>
+                <div className="text-xs text-muted-foreground">{supportedFormats}</div>
               </div>
             </div>
           )}

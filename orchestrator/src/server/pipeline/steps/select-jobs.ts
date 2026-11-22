@@ -42,24 +42,14 @@ export async function selectJobsStep(args: {
     locationIntent.geoScope === "remote_worldwide_prioritize_selected";
 
   return args.scoredJobs
-    .filter(
-      (job) =>
-        (job.suitabilityScore ?? 0) >= args.mergedConfig.minSuitabilityScore,
-    )
+    .filter((job) => (job.suitabilityScore ?? 0) >= args.mergedConfig.minSuitabilityScore)
     .sort((left, right) => {
-      const scoreDelta =
-        (right.suitabilityScore ?? 0) - (left.suitabilityScore ?? 0);
+      const scoreDelta = (right.suitabilityScore ?? 0) - (left.suitabilityScore ?? 0);
       if (scoreDelta !== 0) return scoreDelta;
       if (!prioritizeSelectedLocations) return 0;
 
-      const leftPriority = matchJobLocationIntent(
-        left,
-        locationIntent,
-      ).priority;
-      const rightPriority = matchJobLocationIntent(
-        right,
-        locationIntent,
-      ).priority;
+      const leftPriority = matchJobLocationIntent(left, locationIntent).priority;
+      const rightPriority = matchJobLocationIntent(right, locationIntent).priority;
       return rightPriority - leftPriority;
     })
     .slice(0, args.mergedConfig.topN);

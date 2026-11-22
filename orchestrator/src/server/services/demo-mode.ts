@@ -1,14 +1,7 @@
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
-import {
-  DEMO_RESET_CADENCE_HOURS,
-  isDemoMode,
-  setDemoResetTimes,
-} from "@server/config/demo";
-import {
-  DEMO_BASELINE_NAME,
-  DEMO_BASELINE_VERSION,
-} from "@server/config/demo-defaults";
+import { DEMO_RESET_CADENCE_HOURS, isDemoMode, setDemoResetTimes } from "@server/config/demo";
+import { DEMO_BASELINE_NAME, DEMO_BASELINE_VERSION } from "@server/config/demo-defaults";
 import { applyDemoBaseline, buildDemoBaseline } from "./demo-seed";
 
 const RESET_INTERVAL_MS = DEMO_RESET_CADENCE_HOURS * 60 * 60 * 1000;

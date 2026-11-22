@@ -4,10 +4,7 @@
  */
 export const EMPTY_RESPONSE_ERROR = "No content in response";
 
-export function shouldRetryAttempt(args: {
-  message: string;
-  status?: number;
-}): boolean {
+export function shouldRetryAttempt(args: { message: string; status?: number }): boolean {
   return (
     args.message.includes("parse") ||
     args.message.includes(EMPTY_RESPONSE_ERROR) ||
@@ -43,9 +40,7 @@ export function getRetryDelayMs(
  * Parse a `Retry-After` header value (seconds or HTTP-date) into milliseconds.
  * Returns undefined for missing/invalid values.
  */
-export function parseRetryAfterMs(
-  headerValue: string | null | undefined,
-): number | undefined {
+export function parseRetryAfterMs(headerValue: string | null | undefined): number | undefined {
   if (!headerValue) return undefined;
   const trimmed = headerValue.trim();
   if (trimmed === "") return undefined;

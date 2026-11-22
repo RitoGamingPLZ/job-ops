@@ -8,12 +8,7 @@ import type {
   TypstTheme,
 } from "@shared/types.js";
 import type React from "react";
-import {
-  type Path,
-  type PathValue,
-  useFormContext,
-  useWatch,
-} from "react-hook-form";
+import { type Path, type PathValue, useFormContext, useWatch } from "react-hook-form";
 
 type ReactiveResumeSectionProps = {
   rxResumeBaseResumeIdDraft: string | null;
@@ -69,8 +64,7 @@ export const ReactiveResumeSection: React.FC<ReactiveResumeSectionProps> = ({
     control,
     name: "pdfPaperSize",
   }) ?? "auto") as PdfPaperSize;
-  const rxresumeApiKeyValue =
-    useWatch({ control, name: "rxresumeApiKey" }) ?? "";
+  const rxresumeApiKeyValue = useWatch({ control, name: "rxresumeApiKey" }) ?? "";
   const rxresumeUrlValue = useWatch({ control, name: "rxresumeUrl" }) ?? "";
   const resumeProjectsValue = useWatch({ control, name: "resumeProjects" });
   const setDirtyTouchedValue = <TField extends Path<UpdateSettingsInput>>(
@@ -88,26 +82,16 @@ export const ReactiveResumeSection: React.FC<ReactiveResumeSectionProps> = ({
   };
 
   return (
-    <SettingsSectionFrame
-      mode={layoutMode}
-      title="Reactive Resume"
-      value="reactive-resume"
-    >
+    <SettingsSectionFrame mode={layoutMode} title="Reactive Resume" value="reactive-resume">
       <ReactiveResumeConfigPanel
         pdfRenderer={pdfRendererValue}
-        onPdfRendererChange={(value) =>
-          setDirtyTouchedValue("pdfRenderer", value)
-        }
+        onPdfRendererChange={(value) => setDirtyTouchedValue("pdfRenderer", value)}
         pdfRendererError={errors.pdfRenderer?.message as string | undefined}
         typstTheme={typstThemeValue}
-        onTypstThemeChange={(value) =>
-          setDirtyTouchedValue("typstTheme", value)
-        }
+        onTypstThemeChange={(value) => setDirtyTouchedValue("typstTheme", value)}
         typstThemeError={errors.typstTheme?.message as string | undefined}
         pdfPaperSize={pdfPaperSizeValue}
-        onPdfPaperSizeChange={(value) =>
-          setDirtyTouchedValue("pdfPaperSize", value)
-        }
+        onPdfPaperSizeChange={(value) => setDirtyTouchedValue("pdfPaperSize", value)}
         pdfPaperSizeError={errors.pdfPaperSize?.message as string | undefined}
         disabled={isLoading || isSaving}
         hasRxResumeAccess={hasRxResumeAccess}
@@ -139,8 +123,7 @@ export const ReactiveResumeSection: React.FC<ReactiveResumeSectionProps> = ({
           maxProjectsTotal,
           isProjectsLoading,
           disabled: isLoading || isSaving,
-          maxProjectsError:
-            errors.resumeProjects?.maxProjects?.message?.toString(),
+          maxProjectsError: errors.resumeProjects?.maxProjects?.message?.toString(),
         }}
       />
     </SettingsSectionFrame>

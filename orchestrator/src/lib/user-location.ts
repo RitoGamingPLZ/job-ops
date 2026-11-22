@@ -1,7 +1,4 @@
-import {
-  normalizeCountryKey,
-  SUPPORTED_COUNTRY_KEYS,
-} from "@shared/location-support.js";
+import { normalizeCountryKey, SUPPORTED_COUNTRY_KEYS } from "@shared/location-support.js";
 
 const STORAGE_KEY = "jobops.user-country-cache.v1";
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -96,21 +93,15 @@ function canUseStorage(): boolean {
   );
 }
 
-function normalizeSupportedCountry(
-  value: string | null | undefined,
-): string | null {
+function normalizeSupportedCountry(value: string | null | undefined): string | null {
   const normalized = normalizeCountryKey(value);
   if (!normalized) return null;
   return SUPPORTED_COUNTRY_KEYS.includes(normalized) ? normalized : null;
 }
 
-function countryFromRegionCode(
-  regionCode: string | null | undefined,
-): string | null {
+function countryFromRegionCode(regionCode: string | null | undefined): string | null {
   if (!regionCode) return null;
-  return normalizeSupportedCountry(
-    REGION_TO_COUNTRY_KEY[regionCode.toLowerCase()],
-  );
+  return normalizeSupportedCountry(REGION_TO_COUNTRY_KEY[regionCode.toLowerCase()]);
 }
 
 function extractRegionCodeFromLocaleTag(localeTag: string): string | null {
@@ -122,13 +113,9 @@ function extractRegionCodeFromLocaleTag(localeTag: string): string | null {
   return null;
 }
 
-function countryFromTimezone(
-  timeZone: string | null | undefined,
-): string | null {
+function countryFromTimezone(timeZone: string | null | undefined): string | null {
   if (!timeZone) return null;
-  const matched = TIMEZONE_TO_REGION.find(([prefix]) =>
-    timeZone.startsWith(prefix),
-  );
+  const matched = TIMEZONE_TO_REGION.find(([prefix]) => timeZone.startsWith(prefix));
   if (!matched) return null;
   return countryFromRegionCode(matched[1]);
 }
@@ -138,12 +125,8 @@ export function detectUserCountryKey(input?: {
   language?: string | null;
   timeZone?: string | null;
 }): string | null {
-  const localeCandidates = [
-    ...(input?.languages ?? []),
-    input?.language ?? null,
-  ].filter(
-    (value): value is string =>
-      typeof value === "string" && value.trim().length > 0,
+  const localeCandidates = [...(input?.languages ?? []), input?.language ?? null].filter(
+    (value): value is string => typeof value === "string" && value.trim().length > 0,
   );
 
   for (const locale of localeCandidates) {
@@ -161,10 +144,7 @@ function readCachedUserCountry(now: number): string | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<CachedUserCountry>;
-    if (
-      typeof parsed.country !== "string" ||
-      typeof parsed.detectedAt !== "number"
-    ) {
+    if (typeof parsed.country !== "string" || typeof parsed.detectedAt !== "number") {
       return null;
     }
     if (now - parsed.detectedAt > CACHE_TTL_MS) return null;

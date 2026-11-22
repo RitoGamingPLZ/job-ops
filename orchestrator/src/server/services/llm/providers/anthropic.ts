@@ -34,12 +34,7 @@ const ANTHROPIC_UNSUPPORTED_SCHEMA_KEYWORDS = new Set([
 // Keys whose values are maps of (arbitrary) names to nested schemas. Their keys
 // must be preserved verbatim and only their values sanitized, so a property
 // legitimately named e.g. "format" or "pattern" is never dropped.
-const SCHEMA_NAME_MAP_KEYS = new Set([
-  "properties",
-  "patternProperties",
-  "$defs",
-  "definitions",
-]);
+const SCHEMA_NAME_MAP_KEYS = new Set(["properties", "patternProperties", "$defs", "definitions"]);
 
 function sanitizeAnthropicSchema(node: unknown): unknown {
   if (Array.isArray(node)) {
@@ -64,9 +59,7 @@ function sanitizeAnthropicSchema(node: unknown): unknown {
       !Array.isArray(value)
     ) {
       const nested: Record<string, unknown> = {};
-      for (const [name, schema] of Object.entries(
-        value as Record<string, unknown>,
-      )) {
+      for (const [name, schema] of Object.entries(value as Record<string, unknown>)) {
         nested[name] = sanitizeAnthropicSchema(schema);
       }
       result[key] = nested;
@@ -150,9 +143,7 @@ export const anthropicStrategy = createProviderStrategy({
   },
 });
 
-function toAnthropicMessages(
-  messages: LlmRequestOptions<unknown>["messages"],
-): {
+function toAnthropicMessages(messages: LlmRequestOptions<unknown>["messages"]): {
   system: string | null;
   anthropicMessages: Array<{
     role: "user" | "assistant";
@@ -184,9 +175,7 @@ function toAnthropicMessages(
   };
 }
 
-function toAnthropicContent(
-  content: LlmMessageContent,
-): string | AnthropicContentBlock[] {
+function toAnthropicContent(content: LlmMessageContent): string | AnthropicContentBlock[] {
   if (typeof content === "string") return content;
   return content.map((part) => {
     if (part.type === "text") {
@@ -200,10 +189,7 @@ function toAnthropicContent(
   });
 }
 
-function toAnthropicImageSource(
-  imageUrl: string,
-  fallbackMediaType: string,
-): AnthropicImageSource {
+function toAnthropicImageSource(imageUrl: string, fallbackMediaType: string): AnthropicImageSource {
   const match = imageUrl.match(/^data:([^;,]+);base64,(.+)$/);
   if (!match) {
     return { type: "url", url: imageUrl };

@@ -75,9 +75,7 @@ async function assertScoringSettingsIsolation(
   const { runWithRequestContext } = await import("@infra/request-context");
   const settingsRepo = await import("@server/repositories/settings");
   const { getEffectiveSettings } = await import("@server/services/settings");
-  const { resolveLlmRuntimeSettings } = await import(
-    "@server/services/modelSelection"
-  );
+  const { resolveLlmRuntimeSettings } = await import("@server/services/modelSelection");
   const claims = (token: string) =>
     JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()) as {
       tenantId: string;
@@ -105,10 +103,7 @@ async function assertScoringSettingsIsolation(
         await settingsRepo.setSetting("llmProvider", "openrouter");
         await settingsRepo.setSetting("model", "google/gemini-3-flash-preview");
         await settingsRepo.setSetting("llmApiKey", `${key}-global`);
-        await settingsRepo.setSetting(
-          "llmPurposeApiKeys",
-          JSON.stringify({ scoring: key }),
-        );
+        await settingsRepo.setSetting("llmPurposeApiKeys", JSON.stringify({ scoring: key }));
         await settingsRepo.setSetting(
           "llmPurposeOverrides",
           JSON.stringify({ scoring: { provider, model } }),
@@ -122,10 +117,7 @@ async function assertScoringSettingsIsolation(
         expect(runtime.model).toBe(saved.modelScorer.value);
         return runtime;
       });
-    const [ownerRuntime, otherRuntime] = await Promise.all([
-      read(owner),
-      read(other),
-    ]);
+    const [ownerRuntime, otherRuntime] = await Promise.all([read(owner), read(other)]);
     expect(ownerRuntime).toMatchObject({
       provider: "openai",
       model: "gpt-5.4-mini",
@@ -137,15 +129,11 @@ async function assertScoringSettingsIsolation(
       apiKey: "synthetic-other-key",
     });
     // Removing one scope's purpose key inherits only that scope's global key.
-    await runWithRequestContext(owner, () =>
-      settingsRepo.setSetting("llmPurposeApiKeys", null),
-    );
+    await runWithRequestContext(owner, () => settingsRepo.setSetting("llmPurposeApiKeys", null));
     expect((await read(owner)).apiKey).toBe("synthetic-owner-key-global");
     expect((await read(other)).apiKey).toBe("synthetic-other-key");
     if (hosted) {
-      await runWithRequestContext(owner, () =>
-        settingsRepo.setSetting("llmApiKey", null),
-      );
+      await runWithRequestContext(owner, () => settingsRepo.setSetting("llmApiKey", null));
       expect(await read(owner)).toMatchObject({
         apiKey: null,
         allowEnvironmentCredentials: false,
@@ -160,19 +148,9 @@ async function assertScoringSettingsIsolation(
   }
 }
 
-async function assertCoworkIsolation(
-  baseUrl: string,
-  ownerToken: string,
-  otherToken: string,
-) {
-  const job = await importManualJob(
-    baseUrl,
-    ownerToken,
-    "Private co-work role",
-  );
-  const { buildDefaultReactiveResumeDocument } = await import(
-    "@server/services/rxresume/document"
-  );
+async function assertCoworkIsolation(baseUrl: string, ownerToken: string, otherToken: string) {
+  const job = await importManualJob(baseUrl, ownerToken, "Private co-work role");
+  const { buildDefaultReactiveResumeDocument } = await import("@server/services/rxresume/document");
   const document = buildDefaultReactiveResumeDocument();
   const call = (path: string, token: string, method = "GET", body?: unknown) =>
     fetch(`${baseUrl}/api${path}`, {
@@ -186,13 +164,12 @@ async function assertCoworkIsolation(
   expect(created.status).toBe(201);
   const bullet = (await created.json()).data.bullet;
   const { runWithRequestContext } = await import("@infra/request-context");
-  const { buildCandidateExperienceContext } = await import(
-    "@server/services/candidate-experience"
-  );
+  const { buildCandidateExperienceContext } = await import("@server/services/candidate-experience");
   const candidateContext = (token: string) => {
-    const claims = JSON.parse(
-      Buffer.from(token.split(".")[1], "base64url").toString(),
-    ) as { tenantId: string; userId: string };
+    const claims = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()) as {
+      tenantId: string;
+      userId: string;
+    };
     return runWithRequestContext(
       { tenantId: claims.tenantId, userId: claims.userId },
       buildCandidateExperienceContext,
@@ -201,9 +178,7 @@ async function assertCoworkIsolation(
   expect(await candidateContext(ownerToken)).toContain("Private duty");
   expect(await candidateContext(otherToken)).toBeNull();
 
-  expect(
-    (await (await call("/experience-bullets", otherToken)).json()).data.bullets,
-  ).toEqual([]);
+  expect((await (await call("/experience-bullets", otherToken)).json()).data.bullets).toEqual([]);
   expect(
     (
       await call(`/experience-bullets/${bullet.id}`, otherToken, "PATCH", {
@@ -211,17 +186,9 @@ async function assertCoworkIsolation(
       })
     ).status,
   ).toBe(404);
-  expect(
-    (await call(`/experience-bullets/${bullet.id}`, otherToken, "DELETE"))
-      .status,
-  ).toBe(404);
+  expect((await call(`/experience-bullets/${bullet.id}`, otherToken, "DELETE")).status).toBe(404);
   for (const body of [{ ids: [bullet.id] }, {}]) {
-    const labeled = await call(
-      "/experience-bullets/label",
-      otherToken,
-      "POST",
-      body,
-    );
+    const labeled = await call("/experience-bullets/label", otherToken, "POST", body);
     expect(labeled.status).toBe(200);
     expect((await labeled.json()).data).toEqual({
       bullets: [],
@@ -253,22 +220,17 @@ async function assertCoworkIsolation(
       ).status,
     ).toBe(404);
   }
-  expect(
-    (await (await call("/resumes", otherToken)).json()).data.resumes,
-  ).toEqual([]);
-  expect(
-    (await (await call("/resumes", ownerToken)).json()).data.resumes,
-  ).toEqual([expect.objectContaining({ jobId: job.id })]);
-  expect(
-    (await (await call(`/jobs/${job.id}/resume`, ownerToken)).json()).data
-      .revision,
-  ).toBe(1);
-  expect(
-    (await (await call("/experience-bullets", ownerToken)).json()).data.bullets,
-  ).toEqual([expect.objectContaining({ id: bullet.id, text: "Private duty" })]);
+  expect((await (await call("/resumes", otherToken)).json()).data.resumes).toEqual([]);
+  expect((await (await call("/resumes", ownerToken)).json()).data.resumes).toEqual([
+    expect.objectContaining({ jobId: job.id }),
+  ]);
+  expect((await (await call(`/jobs/${job.id}/resume`, ownerToken)).json()).data.revision).toBe(1);
+  expect((await (await call("/experience-bullets", ownerToken)).json()).data.bullets).toEqual([
+    expect.objectContaining({ id: bullet.id, text: "Private duty" }),
+  ]);
 }
 
-describe.sequential("Tenant isolation", () => {
+describe("Tenant isolation", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -296,11 +258,7 @@ describe.sequential("Tenant isolation", () => {
       }),
     });
     expect(created.status).toBe(201);
-    await assertScoringSettingsIsolation(
-      owner,
-      await login(baseUrl, "adam", "adam-secret"),
-      false,
-    );
+    await assertScoringSettingsIsolation(owner, await login(baseUrl, "adam", "adam-secret"), false);
   });
 
   it("isolates experience bullets and job resumes between private workspaces", async () => {
@@ -315,11 +273,7 @@ describe.sequential("Tenant isolation", () => {
       }),
     });
     expect(created.status).toBe(201);
-    await assertCoworkIsolation(
-      baseUrl,
-      adminToken,
-      await login(baseUrl, "adam", "adam-secret"),
-    );
+    await assertCoworkIsolation(baseUrl, adminToken, await login(baseUrl, "adam", "adam-secret"));
   });
 
   it("isolates jobs and PDFs between private workspaces", async () => {
@@ -350,16 +304,12 @@ describe.sequential("Tenant isolation", () => {
     const adminList = await fetch(`${baseUrl}/api/jobs`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     }).then((res) => res.json());
-    expect(adminList.data.jobs.map((job: { id: string }) => job.id)).toEqual([
-      adminJob.id,
-    ]);
+    expect(adminList.data.jobs.map((job: { id: string }) => job.id)).toEqual([adminJob.id]);
 
     const adamList = await fetch(`${baseUrl}/api/jobs`, {
       headers: { Authorization: `Bearer ${adamToken}` },
     }).then((res) => res.json());
-    expect(adamList.data.jobs.map((job: { id: string }) => job.id)).toEqual([
-      adamJob.id,
-    ]);
+    expect(adamList.data.jobs.map((job: { id: string }) => job.id)).toEqual([adamJob.id]);
 
     const crossTenantJob = await fetch(`${baseUrl}/api/jobs/${adminJob.id}`, {
       headers: { Authorization: `Bearer ${adamToken}` },
@@ -388,13 +338,10 @@ describe.sequential("Tenant isolation", () => {
     });
     expect(adamPdf.status).toBe(404);
 
-    const adamDeletesAdminJob = await fetch(
-      `${baseUrl}/api/jobs/${adminJob.id}`,
-      {
-        method: "DELETE",
-        headers: authHeaders(adamToken),
-      },
-    );
+    const adamDeletesAdminJob = await fetch(`${baseUrl}/api/jobs/${adminJob.id}`, {
+      method: "DELETE",
+      headers: authHeaders(adamToken),
+    });
     expect(adamDeletesAdminJob.status).toBe(404);
     expect((await adamDeletesAdminJob.json()).error.code).toBe("NOT_FOUND");
     const deleteRes = await fetch(`${baseUrl}/api/jobs/${adminJob.id}`, {
@@ -484,7 +431,7 @@ describe.sequential("Tenant isolation", () => {
   });
 });
 
-describe.sequential("Hosted current-user isolation", () => {
+describe("Hosted current-user isolation", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -526,11 +473,7 @@ describe.sequential("Hosted current-user isolation", () => {
   it("authorizes deletion for only the job owner within a shared hosted tenant", async () => {
     const aliceToken = await signup(baseUrl, "alice", "alice-secret");
     const bobToken = await signup(baseUrl, "bob", "bob-secret");
-    const aliceJob = await importManualJob(
-      baseUrl,
-      aliceToken,
-      "Alice delete role",
-    );
+    const aliceJob = await importManualJob(baseUrl, aliceToken, "Alice delete role");
     const bobJob = await importManualJob(baseUrl, bobToken, "Bob keep role");
 
     const { db, schema } = await import("@server/db");
@@ -550,29 +493,22 @@ describe.sequential("Hosted current-user isolation", () => {
         }),
       });
       expect(pdfRes.status).toBe(201);
-      const documentRes = await fetch(
-        `${baseUrl}/api/jobs/${job.id}/documents`,
-        {
-          method: "POST",
-          headers: authHeaders(token),
-          body: JSON.stringify({
-            fileName: "note.txt",
-            mediaType: "text/plain",
-            dataBase64: Buffer.from("Private attachment").toString("base64"),
-          }),
-        },
-      );
+      const documentRes = await fetch(`${baseUrl}/api/jobs/${job.id}/documents`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({
+          fileName: "note.txt",
+          mediaType: "text/plain",
+          dataBase64: Buffer.from("Private attachment").toString("base64"),
+        }),
+      });
       expect(documentRes.status).toBe(201);
       storedFiles.push({
         pdfPath:
-          db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get()
-            ?.pdfPath ?? "",
+          db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get()?.pdfPath ?? "",
         documentPath:
-          db
-            .select()
-            .from(schema.jobDocuments)
-            .where(eq(schema.jobDocuments.jobId, job.id))
-            .get()?.storagePath ?? "",
+          db.select().from(schema.jobDocuments).where(eq(schema.jobDocuments.jobId, job.id)).get()
+            ?.storagePath ?? "",
       });
     }
     const tamperPathRes = await fetch(`${baseUrl}/api/jobs/${aliceJob.id}`, {
@@ -606,9 +542,7 @@ describe.sequential("Hosted current-user isolation", () => {
       code: "ENOENT",
     });
     expect(await readFile(storedFiles[1].pdfPath)).toEqual(pdfBytes);
-    expect(await readFile(storedFiles[1].documentPath, "utf8")).toBe(
-      "Private attachment",
-    );
+    expect(await readFile(storedFiles[1].documentPath, "utf8")).toBe("Private attachment");
     expect(
       (
         await fetch(`${baseUrl}/api/jobs/${aliceJob.id}`, {
@@ -636,30 +570,23 @@ describe.sequential("Hosted current-user isolation", () => {
     const aliceList = await fetch(`${baseUrl}/api/jobs`, {
       headers: { Authorization: `Bearer ${aliceToken}` },
     }).then((res) => res.json());
-    expect(aliceList.data.jobs.map((job: { id: string }) => job.id)).toEqual([
-      aliceJob.id,
-    ]);
+    expect(aliceList.data.jobs.map((job: { id: string }) => job.id)).toEqual([aliceJob.id]);
 
     const bobList = await fetch(`${baseUrl}/api/jobs`, {
       headers: { Authorization: `Bearer ${bobToken}` },
     }).then((res) => res.json());
-    expect(bobList.data.jobs.map((job: { id: string }) => job.id)).toEqual([
-      bobJob.id,
-    ]);
+    expect(bobList.data.jobs.map((job: { id: string }) => job.id)).toEqual([bobJob.id]);
 
     const bobReadsAliceJob = await fetch(`${baseUrl}/api/jobs/${aliceJob.id}`, {
       headers: { Authorization: `Bearer ${bobToken}` },
     });
     expect(bobReadsAliceJob.status).toBe(404);
 
-    const bobMutatesAliceJob = await fetch(
-      `${baseUrl}/api/jobs/${aliceJob.id}`,
-      {
-        method: "PATCH",
-        headers: authHeaders(bobToken),
-        body: JSON.stringify({ status: "ready" }),
-      },
-    );
+    const bobMutatesAliceJob = await fetch(`${baseUrl}/api/jobs/${aliceJob.id}`, {
+      method: "PATCH",
+      headers: authHeaders(bobToken),
+      body: JSON.stringify({ status: "ready" }),
+    });
     expect(bobMutatesAliceJob.status).toBe(404);
 
     const pdfBytes = Buffer.from("%PDF-1.4\n%EOF\n").toString("base64");
@@ -674,48 +601,39 @@ describe.sequential("Hosted current-user isolation", () => {
     });
     expect(uploadPdfRes.status).toBe(201);
 
-    const aliceReadsOwnPdf = await fetch(
-      `${baseUrl}/api/jobs/${aliceJob.id}/pdf`,
-      {
-        headers: { Authorization: `Bearer ${aliceToken}` },
-      },
-    );
+    const aliceReadsOwnPdf = await fetch(`${baseUrl}/api/jobs/${aliceJob.id}/pdf`, {
+      headers: { Authorization: `Bearer ${aliceToken}` },
+    });
     expect(aliceReadsOwnPdf.status).toBe(200);
     expect(Buffer.from(await aliceReadsOwnPdf.arrayBuffer())).toEqual(
       Buffer.from(pdfBytes, "base64"),
     );
     expect(aliceReadsOwnPdf.headers.get("cache-control")).toContain("no-store");
 
-    const bobReadsAlicePdf = await fetch(
-      `${baseUrl}/api/jobs/${aliceJob.id}/pdf`,
-      { headers: { Authorization: `Bearer ${bobToken}` } },
-    );
+    const bobReadsAlicePdf = await fetch(`${baseUrl}/api/jobs/${aliceJob.id}/pdf`, {
+      headers: { Authorization: `Bearer ${bobToken}` },
+    });
     expect(bobReadsAlicePdf.status).toBe(404);
 
-    const uploadDocumentRes = await fetch(
-      `${baseUrl}/api/jobs/${aliceJob.id}/documents`,
-      {
-        method: "POST",
-        headers: authHeaders(aliceToken),
-        body: JSON.stringify({
-          fileName: "note.txt",
-          mediaType: "text/plain",
-          dataBase64: Buffer.from("private note").toString("base64"),
-        }),
-      },
-    );
+    const uploadDocumentRes = await fetch(`${baseUrl}/api/jobs/${aliceJob.id}/documents`, {
+      method: "POST",
+      headers: authHeaders(aliceToken),
+      body: JSON.stringify({
+        fileName: "note.txt",
+        mediaType: "text/plain",
+        dataBase64: Buffer.from("private note").toString("base64"),
+      }),
+    });
     expect(uploadDocumentRes.status).toBe(201);
 
-    const bobListsAliceDocuments = await fetch(
-      `${baseUrl}/api/jobs/${aliceJob.id}/documents`,
-      { headers: { Authorization: `Bearer ${bobToken}` } },
-    );
+    const bobListsAliceDocuments = await fetch(`${baseUrl}/api/jobs/${aliceJob.id}/documents`, {
+      headers: { Authorization: `Bearer ${bobToken}` },
+    });
     expect(bobListsAliceDocuments.status).toBe(404);
 
-    const bobReadsAliceChat = await fetch(
-      `${baseUrl}/api/jobs/${aliceJob.id}/chat/messages`,
-      { headers: { Authorization: `Bearer ${bobToken}` } },
-    );
+    const bobReadsAliceChat = await fetch(`${baseUrl}/api/jobs/${aliceJob.id}/chat/messages`, {
+      headers: { Authorization: `Bearer ${bobToken}` },
+    });
     expect(bobReadsAliceChat.status).toBe(404);
 
     const savedSearchConfig = {
@@ -744,19 +662,16 @@ describe.sequential("Hosted current-user isolation", () => {
       expect(res.status).toBe(201);
     }
 
-    const aliceSearches = await fetch(
-      `${baseUrl}/api/pipeline/search-presets`,
-      { headers: { Authorization: `Bearer ${aliceToken}` } },
-    ).then((res) => res.json());
+    const aliceSearches = await fetch(`${baseUrl}/api/pipeline/search-presets`, {
+      headers: { Authorization: `Bearer ${aliceToken}` },
+    }).then((res) => res.json());
     const bobSearches = await fetch(`${baseUrl}/api/pipeline/search-presets`, {
       headers: { Authorization: `Bearer ${bobToken}` },
     }).then((res) => res.json());
 
     expect(aliceSearches.data.searches).toHaveLength(1);
     expect(bobSearches.data.searches).toHaveLength(1);
-    expect(aliceSearches.data.searches[0].id).not.toBe(
-      bobSearches.data.searches[0].id,
-    );
+    expect(aliceSearches.data.searches[0].id).not.toBe(bobSearches.data.searches[0].id);
   });
 
   it("keeps bulk job deletion scoped to the current hosted user", async () => {
@@ -789,31 +704,23 @@ describe.sequential("Hosted current-user isolation", () => {
     });
     expect((await statusDelete.json()).data.count).toBe(1);
 
-    const bobAfterStatusDelete = await fetch(
-      `${baseUrl}/api/jobs/${bobJob.id}`,
-      { headers: { Authorization: `Bearer ${bobToken}` } },
-    );
+    const bobAfterStatusDelete = await fetch(`${baseUrl}/api/jobs/${bobJob.id}`, {
+      headers: { Authorization: `Bearer ${bobToken}` },
+    });
     expect(bobAfterStatusDelete.status).toBe(200);
 
-    const aliceLowScoreJob = await importManualJob(
-      baseUrl,
-      aliceToken,
-      "Alice Low Score Role",
-    );
-    const scorePatch = await fetch(
-      `${baseUrl}/api/jobs/${aliceLowScoreJob.id}`,
-      {
-        method: "PATCH",
-        headers: authHeaders(aliceToken),
-        body: JSON.stringify({ suitabilityScore: 10 }),
-      },
-    );
+    const aliceLowScoreJob = await importManualJob(baseUrl, aliceToken, "Alice Low Score Role");
+    const scorePatch = await fetch(`${baseUrl}/api/jobs/${aliceLowScoreJob.id}`, {
+      method: "PATCH",
+      headers: authHeaders(aliceToken),
+      body: JSON.stringify({ suitabilityScore: 10 }),
+    });
     expect(scorePatch.status).toBe(200);
     // Manual imports land Targeted; score cleanup keeps targeted jobs.
-    const untarget = await fetch(
-      `${baseUrl}/api/jobs/${aliceLowScoreJob.id}/target`,
-      { method: "DELETE", headers: authHeaders(aliceToken) },
-    );
+    const untarget = await fetch(`${baseUrl}/api/jobs/${aliceLowScoreJob.id}/target`, {
+      method: "DELETE",
+      headers: authHeaders(aliceToken),
+    });
     expect(untarget.status).toBe(200);
 
     const scoreDelete = await fetch(`${baseUrl}/api/jobs/score/50`, {
@@ -822,10 +729,9 @@ describe.sequential("Hosted current-user isolation", () => {
     });
     expect((await scoreDelete.json()).data.count).toBe(1);
 
-    const bobAfterScoreDelete = await fetch(
-      `${baseUrl}/api/jobs/${bobJob.id}`,
-      { headers: { Authorization: `Bearer ${bobToken}` } },
-    );
+    const bobAfterScoreDelete = await fetch(`${baseUrl}/api/jobs/${bobJob.id}`, {
+      headers: { Authorization: `Bearer ${bobToken}` },
+    });
     expect(bobAfterScoreDelete.status).toBe(200);
   });
 });

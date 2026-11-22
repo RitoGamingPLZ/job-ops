@@ -21,9 +21,7 @@ function normalizeBaseUrl(rawUrl: string | null | undefined): string | null {
   return trimmed.replace(/\/+$/, "");
 }
 
-function resolveReadinessBaseUrl(args: {
-  requestOrigin?: string | null;
-}): string | null {
+function resolveReadinessBaseUrl(args: { requestOrigin?: string | null }): string | null {
   const fromEnv = normalizeBaseUrl(process.env.JOBOPS_PUBLIC_BASE_URL ?? null);
   if (fromEnv) return fromEnv;
   return normalizeBaseUrl(args.requestOrigin);
@@ -48,10 +46,7 @@ function makePublicAvailabilityResponse(
   };
 }
 
-async function fetchWithTimeout(
-  input: string,
-  timeoutMs: number,
-): Promise<Response> {
+async function fetchWithTimeout(input: string, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -69,9 +64,7 @@ async function fetchWithTimeout(
   }
 }
 
-export function resolvePublicBaseUrl(args: {
-  requestOrigin?: string | null;
-}): string | null {
+export function resolvePublicBaseUrl(args: { requestOrigin?: string | null }): string | null {
   const fromRequest = normalizeBaseUrl(args.requestOrigin);
   if (fromRequest) return fromRequest;
   return normalizeBaseUrl(process.env.JOBOPS_PUBLIC_BASE_URL ?? null);
@@ -102,8 +95,7 @@ export async function getJobOpsPublicAvailability(
     response = makePublicAvailabilityResponse("unconfigured", {
       baseUrl: null,
       checkedAt,
-      reason:
-        "No public JobOps base URL is configured. Set JOBOPS_PUBLIC_BASE_URL.",
+      reason: "No public JobOps base URL is configured. Set JOBOPS_PUBLIC_BASE_URL.",
     });
   } else {
     let hostname: string | null = null;
@@ -117,17 +109,13 @@ export async function getJobOpsPublicAvailability(
       response = makePublicAvailabilityResponse("unavailable", {
         baseUrl,
         checkedAt,
-        reason:
-          "Configured public URL must be internet-reachable (not localhost/private network).",
+        reason: "Configured public URL must be internet-reachable (not localhost/private network).",
       });
     } else {
       const healthUrl = `${baseUrl}/health`;
 
       try {
-        const healthResponse = await fetchWithTimeout(
-          healthUrl,
-          READINESS_TIMEOUT_MS,
-        );
+        const healthResponse = await fetchWithTimeout(healthUrl, READINESS_TIMEOUT_MS);
 
         if (!healthResponse.ok) {
           response = makePublicAvailabilityResponse("unavailable", {

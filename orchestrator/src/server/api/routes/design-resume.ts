@@ -17,10 +17,7 @@ import {
   uploadDesignResumePictureFile,
 } from "@server/services/design-resume";
 import { importDesignResumeFromFile } from "@server/services/design-resume/import-file";
-import {
-  generateDesignResumePdf,
-  previewDesignResumePdfBytes,
-} from "@server/services/pdf";
+import { generateDesignResumePdf, previewDesignResumePdfBytes } from "@server/services/pdf";
 import {
   getTenantDesignResumePdfKey,
   getTenantDesignResumePdfPath,
@@ -36,11 +33,9 @@ function elapsedMs(startedAt: number): number {
   return Date.now() - startedAt;
 }
 
-const jsonPointerSchema = z
-  .string()
-  .refine((value) => value === "" || value.startsWith("/"), {
-    message: "Patch paths must be valid JSON Pointers.",
-  });
+const jsonPointerSchema = z.string().refine((value) => value === "" || value.startsWith("/"), {
+  message: "Patch paths must be valid JSON Pointers.",
+});
 
 async function assertPictureSupportEnabled(req: Request): Promise<void> {
   const availability = await getJobOpsPublicAvailability({
@@ -50,14 +45,11 @@ async function assertPictureSupportEnabled(req: Request): Promise<void> {
   if (availability.isPubliclyAvailable) return;
 
   throw conflict(
-    availability.reason ??
-      "Base resume pictures require JobOps to be reachable at a public URL.",
+    availability.reason ?? "Base resume pictures require JobOps to be reachable at a public URL.",
   );
 }
 
-function valueOperationSchema<const T extends "add" | "replace" | "test">(
-  op: T,
-) {
+function valueOperationSchema<const T extends "add" | "replace" | "test">(op: T) {
   return z
     .object({
       op: z.literal(op),
@@ -224,9 +216,7 @@ designResumeRouter.post(
 designResumeRouter.patch(
   "/",
   asyncRoute(async (req: Request, res: Response) => {
-    const input = designResumePatchSchema.parse(
-      req.body,
-    ) as DesignResumePatchRequest;
+    const input = designResumePatchSchema.parse(req.body) as DesignResumePatchRequest;
     const document = await updateCurrentDesignResume(input);
     clearProfileCache();
     ok(res, document);
@@ -342,8 +332,6 @@ designResumeRouter.get(
   }),
 );
 
-designResumeRouter.use(
-  (error: unknown, _req: Request, res: Response, _next: () => void) => {
-    fail(res, toAppError(error));
-  },
-);
+designResumeRouter.use((error: unknown, _req: Request, res: Response, _next: () => void) => {
+  fail(res, toAppError(error));
+});

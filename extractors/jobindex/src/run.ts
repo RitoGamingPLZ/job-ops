@@ -121,9 +121,7 @@ function getString(value: unknown): string | undefined {
 }
 
 function getNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function decodeHtmlEntities(value: string): string {
@@ -176,9 +174,7 @@ function toAbsoluteUrl(value: string | undefined): string | undefined {
 
 function extractFirstJobLink(html: string | undefined): string | undefined {
   if (!html) return undefined;
-  const headingMatch = html.match(
-    /<h4\b[\s\S]*?<a\b[^>]*\bhref=(["'])(.*?)\1/i,
-  );
+  const headingMatch = html.match(/<h4\b[\s\S]*?<a\b[^>]*\bhref=(["'])(.*?)\1/i);
   return toAbsoluteUrl(decodeHtmlEntities(headingMatch?.[2] ?? ""));
 }
 
@@ -237,8 +233,7 @@ function buildLocationEvidence(args: {
 function parseAddresses(value: unknown): JobindexAddress[] {
   if (!Array.isArray(value)) return [];
   return value.filter(
-    (address): address is JobindexAddress =>
-      address !== null && typeof address === "object",
+    (address): address is JobindexAddress => address !== null && typeof address === "object",
   );
 }
 
@@ -272,9 +267,7 @@ export function extractJobindexStoreData(html: string): JobindexStoreData {
   return storeData;
 }
 
-export function extractJobindexSearchResponse(
-  html: string,
-): JobindexSearchResponse {
+export function extractJobindexSearchResponse(html: string): JobindexSearchResponse {
   const searchResponse = extractJobindexStoreData(html).searchResponse;
   if (!searchResponse || typeof searchResponse !== "object") {
     throw new Error("Jobindex searchResponse payload was not found.");
@@ -298,8 +291,7 @@ function normalizeLocationLabel(value: string): string {
 function parseGeoareaOptions(value: unknown): JobindexGeoareaOption[] {
   if (!Array.isArray(value)) return [];
   return value.filter(
-    (option): option is JobindexGeoareaOption =>
-      option !== null && typeof option === "object",
+    (option): option is JobindexGeoareaOption => option !== null && typeof option === "object",
   );
 }
 
@@ -354,8 +346,7 @@ export function resolveGeoareaIds(
       )
       .sort(
         (left, right) =>
-          getGeoareaPreferenceRank(left.option) -
-          getGeoareaPreferenceRank(right.option),
+          getGeoareaPreferenceRank(left.option) - getGeoareaPreferenceRank(right.option),
       );
 
     const matchedId = matches[0]?.id;
@@ -383,9 +374,7 @@ export function buildJobindexSearchUrl(
   return url.toString();
 }
 
-export function mapJobindexResult(
-  result: JobindexSearchResult,
-): CreateJobInput | null {
+export function mapJobindexResult(result: JobindexSearchResult): CreateJobInput | null {
   const sourceJobId = getString(result.tid);
   const shareUrl = toAbsoluteUrl(getString(result.share_url));
   const jobUrl = shareUrl ?? toAbsoluteUrl(getString(result.url));
@@ -395,10 +384,7 @@ export function mapJobindexResult(
   const addresses = parseAddresses(result.addresses);
   const area = getString(result.area);
   const location = buildLocation(addresses, area);
-  const employer =
-    getString(result.companytext) ??
-    getString(company?.name) ??
-    "Unknown Employer";
+  const employer = getString(result.companytext) ?? getString(company?.name) ?? "Unknown Employer";
   const applicationLink =
     extractFirstJobLink(getString(result.html)) ??
     toAbsoluteUrl(getString(result.app_apply_url)) ??
@@ -423,17 +409,11 @@ export function mapJobindexResult(
     datePosted: getString(result.firstdate),
     deadline:
       getString(result.apply_deadline) ??
-      (result.apply_deadline_asap === true
-        ? "ASAP"
-        : getString(result.lastdate)),
+      (result.apply_deadline_asap === true ? "ASAP" : getString(result.lastdate)),
     jobDescription: extractDescription(getString(result.html)),
-    isRemote:
-      typeof result.home_workplace === "boolean"
-        ? result.home_workplace
-        : undefined,
+    isRemote: typeof result.home_workplace === "boolean" ? result.home_workplace : undefined,
     companyLogo:
-      toAbsoluteUrl(getString(result.listlogo_url)) ??
-      toAbsoluteUrl(getString(company?.logo)),
+      toAbsoluteUrl(getString(result.listlogo_url)) ?? toAbsoluteUrl(getString(company?.logo)),
     companyRating: ratingScore,
     companyReviewsCount: ratingCount,
     companyUrlDirect: toAbsoluteUrl(getString(company?.homeurl)),
@@ -446,11 +426,7 @@ async function fetchSearchPageHtml(args: {
   page: number;
   geoareaIds?: number[];
 }): Promise<string> {
-  const url = buildJobindexSearchUrl(
-    args.searchTerm,
-    args.page,
-    args.geoareaIds,
-  );
+  const url = buildJobindexSearchUrl(args.searchTerm, args.page, args.geoareaIds);
   const response = await args.fetchImpl(url, {
     headers: {
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -490,9 +466,7 @@ async function fetchGeoareaOptions(args: {
   return parseGeoareaOptions(extractJobindexStoreData(html).geoareaOptions);
 }
 
-export async function runJobindex(
-  options: RunJobindexOptions = {},
-): Promise<JobindexResult> {
+export async function runJobindex(options: RunJobindexOptions = {}): Promise<JobindexResult> {
   if (normalizeCountryKey(options.selectedCountry) !== "denmark") {
     return { success: true, jobs: [] };
   }

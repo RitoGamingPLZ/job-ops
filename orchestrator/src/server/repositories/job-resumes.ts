@@ -1,20 +1,11 @@
 import { conflict, notFound } from "@infra/errors";
-import type {
-  JobResumeState,
-  ReactiveResumeV5Document,
-  ResumeListItem,
-} from "@shared/types";
+import type { JobResumeState, ReactiveResumeV5Document, ResumeListItem } from "@shared/types";
 import { and, desc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { db, schema } from "../db";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { jobResumes: table, jobs } = schema;
-export async function getJobResume(
-  jobId: string,
-): Promise<JobResumeState | null> {
+export async function getJobResume(jobId: string): Promise<JobResumeState | null> {
   const row = db
     .select()
     .from(table)
@@ -100,16 +91,8 @@ export async function listResumes(): Promise<ResumeListItem[]> {
       readyAt: jobs.readyAt,
     })
     .from(jobs)
-    .leftJoin(
-      table,
-      and(eq(table.jobId, jobs.id), privateDataScopeFilter(table)),
-    )
-    .where(
-      and(
-        privateDataScopeFilter(jobs),
-        or(isNotNull(table.jobId), isNotNull(jobs.readyAt)),
-      ),
-    )
+    .leftJoin(table, and(eq(table.jobId, jobs.id), privateDataScopeFilter(table)))
+    .where(and(privateDataScopeFilter(jobs), or(isNotNull(table.jobId), isNotNull(jobs.readyAt))))
     .orderBy(desc(updated), desc(jobs.id))
     .all()
     .map(({ pdfPath, ...row }) => ({ ...row, hasPdf: Boolean(pdfPath) }));

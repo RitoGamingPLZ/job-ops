@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  formatUserFacingError,
-  stripRequestIdFromMessage,
-} from "./error-format";
+import { formatUserFacingError, stripRequestIdFromMessage } from "./error-format";
 
 describe("error-format", () => {
   it("strips requestId suffix from error messages", () => {
@@ -35,9 +32,7 @@ describe("error-format", () => {
     const raw =
       'Resume Studio must be a valid Reactive Resume v5 document. Resume schema validation failed at "sections.skills.items.7.name": String must contain at least 1 character(s)';
 
-    expect(formatUserFacingError(new Error(raw))).toBe(
-      "Please enter a skill (e.g., Python, SQL).",
-    );
+    expect(formatUserFacingError(new Error(raw))).toBe("Please enter a skill (e.g., Python, SQL).");
   });
 
   it("maps invalid url validation issues to a friendly field-specific message", () => {
@@ -50,9 +45,7 @@ describe("error-format", () => {
       },
     ]);
 
-    expect(formatUserFacingError(new Error(raw))).toBe(
-      "Please enter a valid application URL.",
-    );
+    expect(formatUserFacingError(new Error(raw))).toBe("Please enter a valid application URL.");
   });
 
   it("maps zod issue JSON with a requestId suffix to a friendly message", () => {
@@ -65,9 +58,7 @@ describe("error-format", () => {
       },
     ])} (requestId: 541baba5-26cf-4e23-8e8b-5bd9f7a5f68e)`;
 
-    expect(formatUserFacingError(new Error(raw))).toBe(
-      "Please enter a valid job URL.",
-    );
+    expect(formatUserFacingError(new Error(raw))).toBe("Please enter a valid job URL.");
   });
 
   it("maps direct zod-like error objects to a friendly message", () => {
@@ -102,9 +93,7 @@ describe("error-format", () => {
       },
     };
 
-    expect(formatUserFacingError(error)).toBe(
-      "Please enter a valid application URL.",
-    );
+    expect(formatUserFacingError(error)).toBe("Please enter a valid application URL.");
   });
 
   it("maps nested string length validation to the field and limit", () => {
@@ -123,9 +112,7 @@ describe("error-format", () => {
       },
     };
 
-    expect(formatUserFacingError(error)).toBe(
-      "Disciplines must be 200 characters or fewer.",
-    );
+    expect(formatUserFacingError(error)).toBe("Disciplines must be 200 characters or fewer.");
   });
 
   it("uses nested API error details payload when message is generic", () => {
@@ -176,9 +163,7 @@ describe("error-format", () => {
       },
     };
 
-    expect(formatUserFacingError(error)).toBe(
-      "Password must be at least 8 characters.",
-    );
+    expect(formatUserFacingError(error)).toBe("Password must be at least 8 characters.");
   });
 
   it("falls back to generic message for unparseable JSON errors", () => {

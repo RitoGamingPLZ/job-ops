@@ -8,10 +8,7 @@ export function trackApplicationAcceptedIfNeeded(args: {
   requestOrigin?: string | null;
   source: string;
 }): void {
-  if (
-    args.nextOutcome !== "offer_accepted" ||
-    args.previousOutcome === "offer_accepted"
-  ) {
+  if (args.nextOutcome !== "offer_accepted" || args.previousOutcome === "offer_accepted") {
     return;
   }
 
@@ -21,8 +18,7 @@ export function trackApplicationAcceptedIfNeeded(args: {
       source: args.source,
     },
     {
-      occurredAt:
-        typeof args.closedAt === "number" ? args.closedAt * 1000 : Date.now(),
+      occurredAt: typeof args.closedAt === "number" ? args.closedAt * 1000 : Date.now(),
       requestOrigin: args.requestOrigin ?? null,
       urlPath: "/applications/in-progress",
     },

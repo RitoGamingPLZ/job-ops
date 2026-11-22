@@ -5,19 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const stepState = vi.hoisted(() => {
   let resolveDiscover:
-    | ((value: {
-        discoveredJobs: [];
-        sourceErrors: [];
-        pendingChallenges: [];
-      }) => void)
+    | ((value: { discoveredJobs: []; sourceErrors: []; pendingChallenges: [] }) => void)
     | null = null;
   return {
     setResolver: (
-      fn: (value: {
-        discoveredJobs: [];
-        sourceErrors: [];
-        pendingChallenges: [];
-      }) => void,
+      fn: (value: { discoveredJobs: []; sourceErrors: []; pendingChallenges: [] }) => void,
     ) => {
       resolveDiscover = fn;
     },
@@ -65,7 +57,7 @@ vi.mock("./steps", () => ({
   notifyPipelineWebhookStep: vi.fn(async () => undefined),
 }));
 
-describe.sequential("pipeline cancellation", () => {
+describe("pipeline cancellation", () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -123,9 +115,7 @@ describe.sequential("pipeline cancellation", () => {
     const steps = await import("./steps");
     const jobsRepo = await import("../repositories/jobs");
     const targeted = vi.spyOn(jobsRepo, "setJobTargeted");
-    vi.mocked(steps.selectJobsStep).mockReturnValue([
-      { id: "selected-job" },
-    ] as never);
+    vi.mocked(steps.selectJobsStep).mockReturnValue([{ id: "selected-job" }] as never);
     const run = pipeline.runPipeline({ sources: [] });
     await vi.waitFor(() => expect(steps.discoverJobsStep).toHaveBeenCalled());
     stepState.resolveDiscover();

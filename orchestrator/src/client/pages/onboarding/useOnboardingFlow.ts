@@ -25,19 +25,15 @@ import type { OnboardingFormData, ResumeSetupMode } from "./types";
 export function useOnboardingFlow({ allowSelfHosted = true } = {}) {
   const queryClient = useQueryClient();
   const { settings, isLoading: settingsLoading } = useSettings();
-  const { setBaseResumeId, syncBaseResumeId } =
-    useRxResumeConfigState(settings);
+  const { setBaseResumeId, syncBaseResumeId } = useRxResumeConfigState(settings);
   const demoInfo = useDemoInfo();
   const demoMode = demoInfo?.demoMode ?? false;
 
   const [isSaving, setIsSaving] = useState(false);
   const [isImportingResume, setIsImportingResume] = useState(false);
-  const [importingResumeFileName, setImportingResumeFileName] = useState<
-    string | null
-  >(null);
+  const [importingResumeFileName, setImportingResumeFileName] = useState<string | null>(null);
   const [isRxResumeSelfHosted, setIsRxResumeSelfHosted] = useState(false);
-  const [resumeSetupMode, setResumeSetupMode] =
-    useState<ResumeSetupMode>("upload");
+  const [resumeSetupMode, setResumeSetupMode] = useState<ResumeSetupMode>("upload");
   const resumeSetupModeTouchedRef = useRef(false);
 
   const { getValues, reset, setValue, watch } = useForm<OnboardingFormData>({
@@ -145,9 +141,7 @@ export function useOnboardingFlow({ allowSelfHosted = true } = {}) {
     trackProductEvent("onboarding_rxresume_verify_submitted", {
       self_hosted: selfHosted,
       has_key_input: Boolean(values.rxresumeApiKey.trim()),
-      endpoint_mode: selfHosted
-        ? getEndpointMode(values.rxresumeUrl)
-        : "default",
+      endpoint_mode: selfHosted ? getEndpointMode(values.rxresumeUrl) : "default",
     });
 
     try {
@@ -163,9 +157,7 @@ export function useOnboardingFlow({ allowSelfHosted = true } = {}) {
         result: "success",
         self_hosted: selfHosted,
       });
-      toast.success(
-        status.complete ? "Resume source verified" : "Reactive Resume saved",
-      );
+      toast.success(status.complete ? "Resume source verified" : "Reactive Resume saved");
       return status;
     } catch (error) {
       trackProductEvent("onboarding_rxresume_verify_completed", {
@@ -179,13 +171,7 @@ export function useOnboardingFlow({ allowSelfHosted = true } = {}) {
     } finally {
       setIsSaving(false);
     }
-  }, [
-    allowSelfHosted,
-    getValues,
-    isRxResumeSelfHosted,
-    refreshOnboardingState,
-    setValue,
-  ]);
+  }, [allowSelfHosted, getValues, isRxResumeSelfHosted, refreshOnboardingState, setValue]);
 
   const handleRxresumeSelfHostedChange = useCallback(
     (next: boolean) => {
@@ -257,8 +243,10 @@ export function useOnboardingFlow({ allowSelfHosted = true } = {}) {
           duration_bucket: getDurationBucket(startedAt),
           section_count_bucket: bucketCount(
             Object.keys(
-              ((document as { sections?: Record<string, unknown> }).sections ??
-                {}) as Record<string, unknown>,
+              ((document as { sections?: Record<string, unknown> }).sections ?? {}) as Record<
+                string,
+                unknown
+              >,
             ).length,
           ),
         });

@@ -20,14 +20,9 @@ import {
   postedWithinValues,
 } from "./constants";
 
-const allowedSalaryModes: SalaryFilterMode[] = [
-  "at_least",
-  "at_most",
-  "between",
-];
+const allowedSalaryModes: SalaryFilterMode[] = ["at_least", "at_most", "between"];
 const allowedScoreModes: ScoreFilterMode[] = ["any", "has", "missing"];
-const clampScoreValue = (value: number): number =>
-  Math.min(100, Math.max(0, value));
+const clampScoreValue = (value: number): number => Math.min(100, Math.max(0, value));
 const allowedSortKeys: JobSort["key"][] = [
   "datePosted",
   "discoveredAt",
@@ -37,13 +32,7 @@ const allowedSortKeys: JobSort["key"][] = [
   "employer",
 ];
 const allowedSortDirections: JobSort["direction"][] = ["asc", "desc"];
-const allowedDateFilterPresets: DateFilterPreset[] = [
-  "7",
-  "14",
-  "30",
-  "90",
-  "custom",
-];
+const allowedDateFilterPresets: DateFilterPreset[] = ["7", "14", "30", "90", "custom"];
 
 const isValidDateInput = (value: string | null): value is string =>
   value != null && /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -175,8 +164,7 @@ export const useOrchestratorFilters = () => {
     [setSearchParams],
   );
 
-  const sourceFilter =
-    (searchParams.get("source") as JobSource | "all") || "all";
+  const sourceFilter = (searchParams.get("source") as JobSource | "all") || "all";
   const setSourceFilter = useCallback(
     (source: JobSource | "all") => {
       updateFilterParams((prev) => {
@@ -211,8 +199,7 @@ export const useOrchestratorFilters = () => {
       ? (modeRaw as SalaryFilterMode)
       : "at_least";
 
-    const minRaw =
-      searchParams.get("salaryMin") ?? searchParams.get("minSalary");
+    const minRaw = searchParams.get("salaryMin") ?? searchParams.get("minSalary");
     const minParsed = minRaw == null ? Number.NaN : Number.parseInt(minRaw, 10);
     const min = Number.isFinite(minParsed) && minParsed > 0 ? minParsed : null;
 
@@ -296,16 +283,13 @@ export const useOrchestratorFilters = () => {
   );
 
   const employmentTypes = useMemo(
-    (): EmploymentType[] =>
-      parseEmploymentTypes(searchParams.get("employment")),
+    (): EmploymentType[] => parseEmploymentTypes(searchParams.get("employment")),
     [searchParams],
   );
 
   const setEmploymentTypes = useCallback(
     (values: EmploymentType[]) => {
-      const normalized = employmentTypeValues.filter((type) =>
-        values.includes(type),
-      );
+      const normalized = employmentTypeValues.filter((type) => values.includes(type));
       updateFilterParams((prev) => {
         if (normalized.length === 0) prev.delete("employment");
         else prev.set("employment", normalized.join(","));
@@ -354,9 +338,7 @@ export const useOrchestratorFilters = () => {
     const endDate = isValidDateInput(endDateRaw) ? endDateRaw : null;
 
     const presetRaw = searchParams.get("appliedRange");
-    const preset = allowedDateFilterPresets.includes(
-      presetRaw as DateFilterPreset,
-    )
+    const preset = allowedDateFilterPresets.includes(presetRaw as DateFilterPreset)
       ? (presetRaw as DateFilterPreset)
       : null;
 
@@ -373,10 +355,7 @@ export const useOrchestratorFilters = () => {
   const setSort = useCallback(
     (newSort: JobSort) => {
       updateFilterParams((prev) => {
-        if (
-          newSort.key === DEFAULT_SORT.key &&
-          newSort.direction === DEFAULT_SORT.direction
-        ) {
+        if (newSort.key === DEFAULT_SORT.key && newSort.direction === DEFAULT_SORT.direction) {
           prev.delete("sort");
         } else {
           prev.set("sort", `${newSort.key}-${newSort.direction}`);

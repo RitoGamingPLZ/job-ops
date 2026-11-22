@@ -35,12 +35,7 @@ export const JobDescriptionMarkdown: React.FC<JobDescriptionMarkdownProps> = ({
   description,
 }) => {
   return (
-    <div
-      className={cn(
-        "max-w-none prose dark:prose-invert dark:prose-a:text-primary",
-        className,
-      )}
-    >
+    <div className={cn("max-w-none prose dark:prose-invert dark:prose-a:text-primary", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -50,12 +45,7 @@ export const JobDescriptionMarkdown: React.FC<JobDescriptionMarkdownProps> = ({
             if (!safeHref) return <span>{children}</span>;
 
             return (
-              <a
-                {...props}
-                href={safeHref}
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-              >
+              <a {...props} href={safeHref} target="_blank" rel="noopener noreferrer nofollow">
                 {children}
               </a>
             );

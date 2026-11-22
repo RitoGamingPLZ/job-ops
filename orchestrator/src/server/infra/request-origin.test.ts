@@ -35,21 +35,15 @@ describe("resolveRequestOrigin", () => {
     expect(resolveRequestOrigin(request())).toBe("https://example.com:8443");
   });
 
-  it.each([
-    undefined,
-    "",
-    "   ",
-    "not a url",
-    "mailto:test@example.com",
-  ])("falls back to the request for unusable configuration %s", (configured) => {
-    vi.stubEnv("JOBOPS_PUBLIC_BASE_URL", configured);
-    expect(resolveRequestOrigin(request())).toBe("http://localhost:3000");
-  });
+  it.each([undefined, "", "   ", "not a url", "mailto:test@example.com"])(
+    "falls back to the request for unusable configuration %s",
+    (configured) => {
+      vi.stubEnv("JOBOPS_PUBLIC_BASE_URL", configured);
+      expect(resolveRequestOrigin(request())).toBe("http://localhost:3000");
+    },
+  );
 
-  it.each([
-    false,
-    true,
-  ])("gates forwarded headers on proxy trust %s", (trustProxy) => {
+  it.each([false, true])("gates forwarded headers on proxy trust %s", (trustProxy) => {
     vi.stubEnv("JOBOPS_PUBLIC_BASE_URL", "");
     expect(
       resolveRequestOrigin(
@@ -75,12 +69,11 @@ describe("resolveRequestOrigin", () => {
     ).toBe("http://localhost:3000");
   });
 
-  it.each([
-    { protocol: "" },
-    { host: "" },
-    { protocol: " ", host: " " },
-  ])("returns null when protocol or host is missing: %j", (input) => {
-    vi.stubEnv("JOBOPS_PUBLIC_BASE_URL", "");
-    expect(resolveRequestOrigin(request(input))).toBeNull();
-  });
+  it.each([{ protocol: "" }, { host: "" }, { protocol: " ", host: " " }])(
+    "returns null when protocol or host is missing: %j",
+    (input) => {
+      vi.stubEnv("JOBOPS_PUBLIC_BASE_URL", "");
+      expect(resolveRequestOrigin(request(input))).toBeNull();
+    },
+  );
 });

@@ -30,19 +30,13 @@ export function resolveNextPath(
 
 export function buildSignInPath(nextPath: string | null): string {
   const url = new URL("/sign-in", "http://localhost");
-  if (
-    nextPath &&
-    nextPath !== "/sign-in" &&
-    !nextPath.startsWith("/sign-in?")
-  ) {
+  if (nextPath && nextPath !== "/sign-in" && !nextPath.startsWith("/sign-in?")) {
     url.searchParams.set("next", nextPath);
   }
   return `${url.pathname}${url.search}`;
 }
 
-export function redirectToSignIn(
-  nextPath: string | null = getCurrentAppPath(),
-): void {
+export function redirectToSignIn(nextPath: string | null = getCurrentAppPath()): void {
   if (authNavigator) {
     authNavigator(nextPath);
     return;

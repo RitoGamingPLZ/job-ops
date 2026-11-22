@@ -1,10 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  type ConnectedAccountsApi,
-  ConnectedAccountsSection,
-} from "./ConnectedAccountsSection";
+import { type ConnectedAccountsApi, ConnectedAccountsSection } from "./ConnectedAccountsSection";
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -40,9 +37,7 @@ const googleIdentity = {
 
 const realLocation = window.location;
 
-function createApi(
-  overrides: Partial<ConnectedAccountsApi> = {},
-): ConnectedAccountsApi {
+function createApi(overrides: Partial<ConnectedAccountsApi> = {}): ConnectedAccountsApi {
   return {
     changeOwnPassword: vi.fn(async () => {}),
     getCurrentAuthUser: vi.fn(async () => passwordUser),
@@ -95,9 +90,7 @@ describe("ConnectedAccountsSection", () => {
 
     expect(await screen.findByText("Google")).toBeInTheDocument();
     expect(screen.getByText(/sadia@example\.com/)).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Connect GitHub" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect GitHub" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Connect Google" })).toBeNull();
   });
 
@@ -106,9 +99,7 @@ describe("ConnectedAccountsSection", () => {
     renderSection(api);
 
     fireEvent.click(await screen.findByRole("button", { name: "Unlink" }));
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Unlink account" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Unlink account" }));
 
     await waitFor(() => {
       expect(api.unlinkSsoIdentity).toHaveBeenCalledWith("identity-1");
@@ -118,17 +109,13 @@ describe("ConnectedAccountsSection", () => {
   it("reports an unlink the server refuses", async () => {
     const api = createApi({
       unlinkSsoIdentity: vi.fn(async () => {
-        throw new Error(
-          "Set a password before removing your last sign-in method",
-        );
+        throw new Error("Set a password before removing your last sign-in method");
       }),
     });
     renderSection(api);
 
     fireEvent.click(await screen.findByRole("button", { name: "Unlink" }));
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Unlink account" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Unlink account" }));
 
     await waitFor(() => {
       expect(showErrorToast).toHaveBeenCalled();
@@ -144,19 +131,13 @@ describe("ConnectedAccountsSection", () => {
     const api = createApi();
     renderSection(api);
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Connect GitHub" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Connect GitHub" }));
 
     await waitFor(() => {
       expect(api.startSsoLink).toHaveBeenCalledWith("github");
-      expect(assign).toHaveBeenCalledWith(
-        "https://github.com/login/oauth/authorize?x=1",
-      );
+      expect(assign).toHaveBeenCalledWith("https://github.com/login/oauth/authorize?x=1");
     });
-    expect(
-      JSON.parse(sessionStorage.getItem("jobops.ssoFlow") ?? "null"),
-    ).toMatchObject({
+    expect(JSON.parse(sessionStorage.getItem("jobops.ssoFlow") ?? "null")).toMatchObject({
       provider: "github",
       state: "state-1",
       flowToken: "flow-token-1",
@@ -235,9 +216,7 @@ describe("ConnectedAccountsSection", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Change password" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "New passwords do not match.",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("New passwords do not match.");
     expect(api.changeOwnPassword).not.toHaveBeenCalled();
   });
 
@@ -248,9 +227,7 @@ describe("ConnectedAccountsSection", () => {
     });
     renderSection(api);
 
-    expect(
-      await screen.findByRole("button", { name: "Change password" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Change password" })).toBeInTheDocument();
     expect(screen.queryByText("Connected accounts")).toBeNull();
   });
 });

@@ -26,12 +26,7 @@ function job(id = 1, company = "ServiceNow") {
     location: { fullLocation: "London, UK", remote: true },
   };
 }
-function list(
-  content: unknown[] = [job()],
-  totalFound = content.length,
-  offset = 0,
-  limit = 100,
-) {
+function list(content: unknown[] = [job()], totalFound = content.length, offset = 0, limit = 100) {
   return Response.json({ content, totalFound, offset, limit });
 }
 function detail(id = 1, company = "ServiceNow") {
@@ -62,55 +57,53 @@ afterEach(() => {
 
 describe("smartrecruitersWatchlistAdapter", () => {
   it("parses the shipped two-company catalog and skips invalid entries", () => {
+    expect(adapter.parseCatalogSources(catalog).map((entry) => entry.id)).toEqual([
+      "smartrecruiters:servicenow",
+      "smartrecruiters:canva",
+    ]);
+    for (const entry of catalog) expect(adapter.catalogSchema.safeParse(entry).success).toBe(true);
     expect(
-      adapter.parseCatalogSources(catalog).map((entry) => entry.id),
-    ).toEqual(["smartrecruiters:servicenow", "smartrecruiters:canva"]);
-    for (const entry of catalog)
-      expect(adapter.catalogSchema.safeParse(entry).success).toBe(true);
-    expect(
-      adapter.parseCatalogSources([
-        null,
-        {},
-        { label: "Bad", careersUrl: "https://evil.test/x" },
-      ]),
+      adapter.parseCatalogSources([null, {}, { label: "Bad", careersUrl: "https://evil.test/x" }]),
     ).toEqual([]);
     expect(adapter.descriptor.supportsCustomSource).toBe(true);
   });
-  it.each([
-    base,
-    `${base}/123-engineer`,
-    `${base}/123-engineer/apply?x=y#top`,
-  ])("validates and canonicalizes custom URL %s in one request", async (careersUrl) => {
-    const mock = vi.fn().mockResolvedValue(list());
-    vi.stubGlobal("fetch", mock);
-    expect(
-      await adapter.normalizeCustomSelection({ careersUrl, label: null }),
-    ).toEqual({ label: "ServiceNow", careersUrl: base });
-    expect(mock).toHaveBeenCalledTimes(1);
-    expect(mock.mock.calls[0][0]).toBe(
-      "https://api.smartrecruiters.com/v1/companies/ServiceNow/postings?limit=1&offset=0",
-    );
-    expect(mock.mock.calls[0][1]).toMatchObject({
-      redirect: "error",
-      signal: expect.any(AbortSignal),
-    });
-  });
+  it.each([base, `${base}/123-engineer`, `${base}/123-engineer/apply?x=y#top`])(
+    "validates and canonicalizes custom URL %s in one request",
+    async (careersUrl) => {
+      const mock = vi.fn().mockResolvedValue(list());
+      vi.stubGlobal("fetch", mock);
+      expect(await adapter.normalizeCustomSelection({ careersUrl, label: null })).toEqual({
+        label: "ServiceNow",
+        careersUrl: base,
+      });
+      expect(mock).toHaveBeenCalledTimes(1);
+      expect(mock.mock.calls[0][0]).toBe(
+        "https://api.smartrecruiters.com/v1/companies/ServiceNow/postings?limit=1&offset=0",
+      );
+      expect(mock.mock.calls[0][1]).toMatchObject({
+        redirect: "error",
+        signal: expect.any(AbortSignal),
+      });
+    },
+  );
   it("canonicalizes company case from the first valid posting", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async () => list()),
     );
     for (const careersUrl of [base, base.toLowerCase()]) {
-      expect(
-        await adapter.normalizeCustomSelection({ careersUrl, label: null }),
-      ).toEqual({ label: "ServiceNow", careersUrl: base });
+      expect(await adapter.normalizeCustomSelection({ careersUrl, label: null })).toEqual({
+        label: "ServiceNow",
+        careersUrl: base,
+      });
     }
   });
   it("preserves the supplied company case for an empty board", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(list([])));
-    expect(
-      await adapter.normalizeCustomSelection({ careersUrl: base, label: null }),
-    ).toEqual({ label: "ServiceNow", careersUrl: base });
+    expect(await adapter.normalizeCustomSelection({ careersUrl: base, label: null })).toEqual({
+      label: "ServiceNow",
+      careersUrl: base,
+    });
   });
   it("preserves custom labels and hydrates without network", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(list()));
@@ -145,9 +138,7 @@ describe("smartrecruitersWatchlistAdapter", () => {
   ])("rejects unsafe URLs without network %s", async (careersUrl) => {
     const mock = vi.fn();
     vi.stubGlobal("fetch", mock);
-    await expect(
-      adapter.normalizeCustomSelection({ careersUrl, label: null }),
-    ).rejects.toThrow();
+    await expect(adapter.normalizeCustomSelection({ careersUrl, label: null })).rejects.toThrow();
     expect(mock).not.toHaveBeenCalled();
   });
   it("paginates, deduplicates, sorts newest first and caps 60 without details", async () => {
@@ -204,12 +195,8 @@ describe("smartrecruitersWatchlistAdapter", () => {
   it("skips malformed postings while retaining valid rows and pagination", async () => {
     const mock = vi
       .fn()
-      .mockResolvedValueOnce(
-        list([null, { ...job(), releasedDate: "invalid" }, job(2)], 101),
-      )
-      .mockResolvedValueOnce(
-        list([{ ...job(), location: null }, job(101)], 101, 100),
-      );
+      .mockResolvedValueOnce(list([null, { ...job(), releasedDate: "invalid" }, job(2)], 101))
+      .mockResolvedValueOnce(list([{ ...job(), location: null }, job(101)], 101, 100));
     vi.stubGlobal("fetch", mock);
     const result = await adapter.fetchJobs({ source });
     expect(result.jobs.map((entry) => entry.sourceJobId)).toEqual(["101", "2"]);
@@ -243,10 +230,7 @@ describe("smartrecruitersWatchlistAdapter", () => {
     });
   });
   it("fetches exactly one detail on a miss and reuses it for import", async () => {
-    const mock = vi
-      .fn()
-      .mockResolvedValueOnce(list())
-      .mockResolvedValueOnce(detail());
+    const mock = vi.fn().mockResolvedValueOnce(list()).mockResolvedValueOnce(detail());
     vi.stubGlobal("fetch", mock);
     const listed = (await adapter.fetchJobs({ source })).jobs[0];
     const details = await adapter.fetchJobDetails({
@@ -317,8 +301,7 @@ describe("smartrecruitersWatchlistAdapter", () => {
       label: "Private tenant label",
     };
     expect(
-      (await adapter.prepareImportDraft({ source: other, jobRef: `${base}/1` }))
-        .draft.employer,
+      (await adapter.prepareImportDraft({ source: other, jobRef: `${base}/1` })).draft.employer,
     ).toBe("ServiceNow");
     await adapter.prepareImportDraft({
       source: {
@@ -339,9 +322,7 @@ describe("smartrecruitersWatchlistAdapter", () => {
   ])("rejects foreign or missing posting refs %s", async (jobRef) => {
     const mock = vi.fn();
     vi.stubGlobal("fetch", mock);
-    await expect(
-      adapter.prepareImportDraft({ source, jobRef }),
-    ).rejects.toThrow();
+    await expect(adapter.prepareImportDraft({ source, jobRef })).rejects.toThrow();
     expect(mock).not.toHaveBeenCalled();
   });
   it("rejects malformed, wrong-company and stalled lists", async () => {
@@ -351,22 +332,17 @@ describe("smartrecruitersWatchlistAdapter", () => {
       .mockResolvedValueOnce(list([job(1, "Canva")]))
       .mockResolvedValueOnce(list([], 20));
     vi.stubGlobal("fetch", mock);
-    for (let i = 0; i < 3; i++)
-      await expect(adapter.fetchJobs({ source })).rejects.toThrow();
+    for (let i = 0; i < 3; i++) await expect(adapter.fetchJobs({ source })).rejects.toThrow();
   });
   it("rejects mismatched and empty details without caching them", async () => {
     const mock = vi
       .fn()
       .mockResolvedValueOnce(detail(2))
       .mockResolvedValueOnce(detail(1, "Canva"))
-      .mockResolvedValueOnce(
-        Response.json({ ...job(), jobAd: { sections: {} } }),
-      );
+      .mockResolvedValueOnce(Response.json({ ...job(), jobAd: { sections: {} } }));
     vi.stubGlobal("fetch", mock);
     for (let i = 0; i < 3; i++)
-      await expect(
-        adapter.prepareImportDraft({ source, jobRef: `${base}/1` }),
-      ).rejects.toThrow();
+      await expect(adapter.prepareImportDraft({ source, jobRef: `${base}/1` })).rejects.toThrow();
     expect(mock).toHaveBeenCalledTimes(3);
   });
   it("backs off 1/3/8 seconds and stops after three retries", async () => {
@@ -384,47 +360,41 @@ describe("smartrecruitersWatchlistAdapter", () => {
       expect(times[i + 1] - times[i]).toBeGreaterThanOrEqual(minimum - 20);
   });
   it.each(["seconds", "date"])("honors Retry-After %s", async (kind) => {
-    const retry =
-      kind === "seconds" ? "1" : new Date(Date.now() + 2000).toUTCString();
+    const retry = kind === "seconds" ? "1" : new Date(Date.now() + 2000).toUTCString();
     const start = Date.now();
     const mock = vi
       .fn()
-      .mockResolvedValueOnce(
-        new Response(null, { status: 429, headers: { "Retry-After": retry } }),
-      )
+      .mockResolvedValueOnce(new Response(null, { status: 429, headers: { "Retry-After": retry } }))
       .mockResolvedValueOnce(list());
     vi.stubGlobal("fetch", mock);
     expect((await adapter.fetchJobs({ source })).fetched).toBe(1);
     expect(Date.now() - start).toBeGreaterThanOrEqual(980);
     expect(mock).toHaveBeenCalledTimes(2);
   });
-  it.each([
-    "seconds",
-    "date",
-  ])("fails fast on Retry-After longer than ten seconds (%s)", async (kind) => {
-    const retry =
-      kind === "seconds" ? "60" : new Date(Date.now() + 60_000).toUTCString();
-    const mock = vi.fn().mockResolvedValue(
-      new Response("secret", {
-        status: 429,
-        headers: { "Retry-After": retry },
-      }),
-    );
-    vi.stubGlobal("fetch", mock);
-    const start = Date.now();
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
-      "SmartRecruiters returned HTTP 429.",
-    );
-    expect(Date.now() - start).toBeLessThan(1000);
-    expect(mock).toHaveBeenCalledTimes(1);
-  });
+  it.each(["seconds", "date"])(
+    "fails fast on Retry-After longer than ten seconds (%s)",
+    async (kind) => {
+      const retry = kind === "seconds" ? "60" : new Date(Date.now() + 60_000).toUTCString();
+      const mock = vi.fn().mockResolvedValue(
+        new Response("secret", {
+          status: 429,
+          headers: { "Retry-After": retry },
+        }),
+      );
+      vi.stubGlobal("fetch", mock);
+      const start = Date.now();
+      await expect(adapter.fetchJobs({ source })).rejects.toThrow(
+        "SmartRecruiters returned HTTP 429.",
+      );
+      expect(Date.now() - start).toBeLessThan(1000);
+      expect(mock).toHaveBeenCalledTimes(1);
+    },
+  );
   it("combines a 25-second budget with caller cancellation during retries", async () => {
     const timeout = vi.spyOn(AbortSignal, "timeout");
     const mock = vi
       .fn()
-      .mockResolvedValue(
-        new Response(null, { status: 429, headers: { "Retry-After": "10" } }),
-      );
+      .mockResolvedValue(new Response(null, { status: 429, headers: { "Retry-After": "10" } }));
     vi.stubGlobal("fetch", mock);
     const controller = new AbortController();
     const outcome = expect(
@@ -452,9 +422,7 @@ describe("smartrecruitersWatchlistAdapter", () => {
         signal: controller.signal,
       }),
     ).rejects.toThrow();
-    await expect(
-      adapter.fetchJobs({ source, signal: controller.signal }),
-    ).rejects.toThrow();
+    await expect(adapter.fetchJobs({ source, signal: controller.signal })).rejects.toThrow();
     expect(mock).toHaveBeenCalledTimes(1);
   });
   it("reports HTTP and invalid JSON errors without response bodies", async () => {

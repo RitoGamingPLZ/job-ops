@@ -61,8 +61,7 @@ beforeEach(() => {
         response.statusCode = reply.status ?? 200;
         response.headers = reply.headers ?? {};
         callback(response);
-        for (const chunk of reply.chunks ?? [reply.body ?? ""])
-          response.write(Buffer.from(chunk));
+        for (const chunk of reply.chunks ?? [reply.body ?? ""]) response.write(Buffer.from(chunk));
         response.end();
       });
     return req;
@@ -140,19 +139,16 @@ describe("fetchPublicText", () => {
     expect(network[0].options.family).toBe(4);
     expect(network[0].options.headers).toEqual({
       accept: "text/html",
-      "user-agent":
-        "job-ops-crawler/1.0 (+https://github.com/DaKheera47/job-ops)",
+      "user-agent": "job-ops-crawler/1.0 (+https://github.com/DaKheera47/job-ops)",
     });
   });
-  it.each([
-    "http://careers.example/",
-    "https://user:pass@careers.example/",
-  ])("rejects unsafe URL %s", async (url) => {
-    await expect((await api()).fetchPublicText(url, {})).rejects.toThrow(
-      "HTTPS",
-    );
-    expect(mocks.request).not.toHaveBeenCalled();
-  });
+  it.each(["http://careers.example/", "https://user:pass@careers.example/"])(
+    "rejects unsafe URL %s",
+    async (url) => {
+      await expect((await api()).fetchPublicText(url, {})).rejects.toThrow("HTTPS");
+      expect(mocks.request).not.toHaveBeenCalled();
+    },
+  );
   it.each([
     "0.0.0.0",
     "10.0.0.1",
@@ -177,12 +173,10 @@ describe("fetchPublicText", () => {
     "64:ff9b::a00:1",
     "2001:db8::1",
   ])("rejects DNS resolving to non-public %s", async (address) => {
-    mocks.lookup.mockResolvedValue([
-      { address, family: address.includes(":") ? 6 : 4 },
-    ]);
-    await expect(
-      (await api()).fetchPublicText("https://careers.example/", {}),
-    ).rejects.toThrow("non-public");
+    mocks.lookup.mockResolvedValue([{ address, family: address.includes(":") ? 6 : 4 }]);
+    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow(
+      "non-public",
+    );
     expect(mocks.request).not.toHaveBeenCalled();
   });
   it("rejects mixed public/private DNS answers and literal IPs", async () => {
@@ -191,28 +185,20 @@ describe("fetchPublicText", () => {
       { address: "93.184.216.34", family: 4 },
       { address: "::1", family: 6 },
     ]);
-    await expect(
-      fetchPublicText("https://careers.example/", {}),
-    ).rejects.toThrow("non-public");
-    await expect(
-      fetchPublicText("https://[::ffff:192.168.0.1]/", {}),
-    ).rejects.toThrow("non-public");
+    await expect(fetchPublicText("https://careers.example/", {})).rejects.toThrow("non-public");
+    await expect(fetchPublicText("https://[::ffff:192.168.0.1]/", {})).rejects.toThrow(
+      "non-public",
+    );
     expect(mocks.request).not.toHaveBeenCalled();
   });
-  it.each([
-    "2606:4700:4700::1111",
-    "172.32.0.1",
-    "192.169.0.1",
-  ])("allows public %s", async (address) => {
-    mocks.lookup.mockResolvedValue([
-      { address, family: address.includes(":") ? 6 : 4 },
-    ]);
-    replies.push({ body: "ok" });
-    expect(
-      (await (await api()).fetchPublicText("https://careers.example/", {}))
-        .html,
-    ).toBe("ok");
-  });
+  it.each(["2606:4700:4700::1111", "172.32.0.1", "192.169.0.1"])(
+    "allows public %s",
+    async (address) => {
+      mocks.lookup.mockResolvedValue([{ address, family: address.includes(":") ? 6 : 4 }]);
+      replies.push({ body: "ok" });
+      expect((await (await api()).fetchPublicText("https://careers.example/", {})).html).toBe("ok");
+    },
+  );
   it("follows at most three same-host HTTPS redirects and rechecks DNS", async () => {
     replies.push(
       { status: 302, headers: { location: "/one" } },
@@ -231,9 +217,7 @@ describe("fetchPublicText", () => {
         headers: { location: "/loop" },
       })),
     );
-    await expect(
-      fetchPublicText("https://careers.example/", {}),
-    ).rejects.toThrow("redirect limit");
+    await expect(fetchPublicText("https://careers.example/", {})).rejects.toThrow("redirect limit");
   });
   it.each([
     "https://evil.example/jobs",
@@ -241,9 +225,7 @@ describe("fetchPublicText", () => {
     "https://careers.example:444/jobs",
   ])("rejects redirect to %s", async (location) => {
     replies.push({ status: 302, headers: { location } });
-    await expect(
-      (await api()).fetchPublicText("https://careers.example/", {}),
-    ).rejects.toThrow();
+    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow();
     expect(network).toHaveLength(1);
   });
   it("rejects a rebinding answer on a redirect", async () => {
@@ -251,25 +233,23 @@ describe("fetchPublicText", () => {
       .mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }])
       .mockResolvedValueOnce([{ address: "127.0.0.1", family: 4 }]);
     replies.push({ status: 302, headers: { location: "/jobs" } });
-    await expect(
-      (await api()).fetchPublicText("https://careers.example/", {}),
-    ).rejects.toThrow("non-public");
+    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow(
+      "non-public",
+    );
     expect(network).toHaveLength(1);
   });
-  it.each([
-    { headers: { "content-length": "99" } },
-    { chunks: ["123", "456"] },
-  ])("caps declared and streamed sizes", async (reply) => {
-    replies.push(reply);
-    await expect(
-      (await api()).fetchPublicText("https://careers.example/", {
-        maxBytes: 5,
-      }),
-    ).rejects.toThrow("byte limit");
-  });
-  it.each([
-    403, 406,
-  ])("marks HTTP %s blocked without exposing the body", async (status) => {
+  it.each([{ headers: { "content-length": "99" } }, { chunks: ["123", "456"] }])(
+    "caps declared and streamed sizes",
+    async (reply) => {
+      replies.push(reply);
+      await expect(
+        (await api()).fetchPublicText("https://careers.example/", {
+          maxBytes: 5,
+        }),
+      ).rejects.toThrow("byte limit");
+    },
+  );
+  it.each([403, 406])("marks HTTP %s blocked without exposing the body", async (status) => {
     replies.push({ status, body: "secret body" });
     const { SiteBlockedError } = await import("./types");
     await expect(
@@ -278,9 +258,9 @@ describe("fetchPublicText", () => {
   });
   it("marks Cloudflare challenge HTML blocked", async () => {
     replies.push({ body: "<title>Just a moment...</title>" });
-    await expect(
-      (await api()).fetchPublicText("https://careers.example/", {}),
-    ).rejects.toThrow("Cloudflare challenge");
+    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow(
+      "Cloudflare challenge",
+    );
   });
   it("recognizes the Cloudflare challenge header without a challenge title", async () => {
     replies.push({
@@ -297,14 +277,9 @@ describe("fetchPublicText", () => {
     // AbortSignal.timeout uses a native timer; use a controlled signal to prove
     // that the complete operation, including DNS, receives the deadline.
     const deadline = new AbortController();
-    const timeout = vi
-      .spyOn(AbortSignal, "timeout")
-      .mockReturnValue(deadline.signal);
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
     mocks.lookup.mockReturnValue(new Promise(() => {}));
-    const pending = (await api()).fetchPublicText(
-      "https://careers.example/",
-      {},
-    );
+    const pending = (await api()).fetchPublicText("https://careers.example/", {});
     deadline.abort(new Error("deadline"));
     await expect(pending).rejects.toThrow("deadline");
     expect(timeout).toHaveBeenCalledWith(20_000);
@@ -314,9 +289,9 @@ describe("fetchPublicText", () => {
   it("stops before networking on abort and aborts a stalled DNS lookup", async () => {
     const { fetchPublicText } = await api();
     const first = AbortSignal.abort(new Error("cancelled"));
-    await expect(
-      fetchPublicText("https://careers.example/", { signal: first }),
-    ).rejects.toThrow("cancelled");
+    await expect(fetchPublicText("https://careers.example/", { signal: first })).rejects.toThrow(
+      "cancelled",
+    );
     mocks.lookup.mockReturnValue(new Promise(() => {}));
     const controller = new AbortController();
     const pending = fetchPublicText("https://careers.example/", {
@@ -336,13 +311,9 @@ describe("isAllowedByRobots", () => {
     const { isAllowedByRobots: allowed } = await api();
     expect(await allowed("https://careers.example/jobs", {})).toBe(true);
     expect(await allowed("https://careers.example/private/a", {})).toBe(false);
-    expect(await allowed("https://careers.example/private/jobs/one", {})).toBe(
-      true,
-    );
+    expect(await allowed("https://careers.example/private/jobs/one", {})).toBe(true);
     expect(await allowed("https://careers.example/same", {})).toBe(true);
-    expect(await allowed("https://careers.example/jobs?secret=yes", {})).toBe(
-      false,
-    );
+    expect(await allowed("https://careers.example/jobs?secret=yes", {})).toBe(false);
     expect(network).toHaveLength(1);
     expect(network[0].url.href).toBe("https://careers.example/robots.txt");
   });
@@ -350,9 +321,7 @@ describe("isAllowedByRobots", () => {
     replies.push({ body: "User-agent: *\nDisallow: /*a*a*a*a*a*a*a*b" });
     const { isAllowedByRobots: allowed } = await api();
     const start = performance.now();
-    expect(
-      await allowed(`https://careers.example/${"a".repeat(100)}`, {}),
-    ).toBe(true);
+    expect(await allowed(`https://careers.example/${"a".repeat(100)}`, {})).toBe(true);
     expect(performance.now() - start).toBeLessThan(500);
   });
   it("honors end anchors, repeated wildcards, and literal metacharacters", async () => {
@@ -369,9 +338,7 @@ describe("isAllowedByRobots", () => {
     replies.push({
       body: "User-agent: *\nSitemap: https://careers.example/map.xml\nUnknown: ignored\nUser-agent: OtherBot\nDisallow: /",
     });
-    expect(
-      await (await api()).isAllowedByRobots("https://careers.example/jobs", {}),
-    ).toBe(false);
+    expect(await (await api()).isAllowedByRobots("https://careers.example/jobs", {})).toBe(false);
   });
   it("shares in-flight robots requests and caches failures until expiry", async () => {
     vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
@@ -381,14 +348,9 @@ describe("isAllowedByRobots", () => {
       allowed("https://careers.example/jobs", {}),
       allowed("https://careers.example/other", {}),
     ]);
-    expect(results.map((result) => result.status)).toEqual([
-      "rejected",
-      "rejected",
-    ]);
+    expect(results.map((result) => result.status)).toEqual(["rejected", "rejected"]);
     expect(network).toHaveLength(1);
-    await expect(allowed("https://careers.example/jobs", {})).rejects.toThrow(
-      "robots.txt",
-    );
+    await expect(allowed("https://careers.example/jobs", {})).rejects.toThrow("robots.txt");
     expect(network).toHaveLength(1);
     vi.setSystemTime(Date.now() + 3_600_001);
     expect(await allowed("https://careers.example/jobs", {})).toBe(true);
@@ -406,11 +368,7 @@ describe("isAllowedByRobots", () => {
   });
   it("expires public rules in one hour and isolates host caches", async () => {
     vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
-    replies.push(
-      { body: "User-agent: *\nDisallow: /" },
-      { body: "" },
-      { body: "" },
-    );
+    replies.push({ body: "User-agent: *\nDisallow: /" }, { body: "" }, { body: "" });
     const { isAllowedByRobots: allowed } = await api();
     const first = allowed("https://one.example/jobs", {});
     await vi.runAllTicks();
@@ -425,9 +383,7 @@ describe("isAllowedByRobots", () => {
     replies.push({ status: 404 }, { status: 503 }, { status: 403 });
     const { isAllowedByRobots: allowed } = await api();
     expect(await allowed("https://missing.example/jobs", {})).toBe(true);
-    await expect(allowed("https://down.example/jobs", {})).rejects.toThrow(
-      "robots.txt",
-    );
+    await expect(allowed("https://down.example/jobs", {})).rejects.toThrow("robots.txt");
     await expect(allowed("https://blocked.example/jobs", {})).rejects.toThrow(
       "blocks automated access",
     );
@@ -438,11 +394,7 @@ describe("loadPage", () => {
   it("delegates unrendered pages to the safe transport", async () => {
     replies.push({ body: "plain jobs" });
     expect(
-      (
-        await (
-          await api()
-        ).loadPage("https://careers.example/jobs", { render: false })
-      ).html,
+      (await (await api()).loadPage("https://careers.example/jobs", { render: false })).html,
     ).toBe("plain jobs");
     expect(mocks.launch).not.toHaveBeenCalled();
   });
@@ -507,50 +459,48 @@ describe("loadPage", () => {
     expect(browser.close).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    false,
-    true,
-  ])("bounds stalled context cleanup while preserving the load outcome (error: %s)", async (fails) => {
-    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
-    let closing!: () => void;
-    const closeStarted = new Promise<void>((resolve) => {
-      closing = resolve;
-    });
-    context.close.mockImplementationOnce(() => {
-      closing();
-      return new Promise(() => {});
-    });
-    if (fails) page.goto.mockRejectedValue(new Error("navigation failed"));
-    let finished = false;
-    const pending = (await api())
-      .loadPage("https://careers.example/jobs", {
-        render: true,
-      })
-      .finally(() => {
-        finished = true;
+  it.each([false, true])(
+    "bounds stalled context cleanup while preserving the load outcome (error: %s)",
+    async (fails) => {
+      vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+      let closing!: () => void;
+      const closeStarted = new Promise<void>((resolve) => {
+        closing = resolve;
       });
-    const outcome = fails
-      ? expect(pending).rejects.toThrow("navigation failed")
-      : expect(pending).resolves.toMatchObject({ status: 200 });
-    await closeStarted;
-    await vi.advanceTimersByTimeAsync(4_999);
-    expect(finished).toBe(false);
-    await vi.advanceTimersByTimeAsync(1);
-    await outcome;
-    expect(finished).toBe(true);
-    await vi.advanceTimersByTimeAsync(5 * 60_000);
-    expect(browser.close).toHaveBeenCalledTimes(1);
-  });
+      context.close.mockImplementationOnce(() => {
+        closing();
+        return new Promise(() => {});
+      });
+      if (fails) page.goto.mockRejectedValue(new Error("navigation failed"));
+      let finished = false;
+      const pending = (await api())
+        .loadPage("https://careers.example/jobs", {
+          render: true,
+        })
+        .finally(() => {
+          finished = true;
+        });
+      const outcome = fails
+        ? expect(pending).rejects.toThrow("navigation failed")
+        : expect(pending).resolves.toMatchObject({ status: 200 });
+      await closeStarted;
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(finished).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await outcome;
+      expect(finished).toBe(true);
+      await vi.advanceTimersByTimeAsync(5 * 60_000);
+      expect(browser.close).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("honors the executable override and retries a failed launch", async () => {
     vi.stubEnv("CRAWLER_CHROMIUM_PATH", "/configured/chromium");
-    mocks.launch
-      .mockRejectedValueOnce(new Error("launch failed"))
-      .mockResolvedValue(browser);
+    mocks.launch.mockRejectedValueOnce(new Error("launch failed")).mockResolvedValue(browser);
     const { loadPage } = await api();
-    await expect(
-      loadPage("https://careers.example/jobs", { render: true }),
-    ).rejects.toThrow("launch failed");
+    await expect(loadPage("https://careers.example/jobs", { render: true })).rejects.toThrow(
+      "launch failed",
+    );
     await loadPage("https://careers.example/jobs", { render: true });
     expect(mocks.launch).toHaveBeenLastCalledWith({
       headless: true,
@@ -575,7 +525,9 @@ describe("loadPage", () => {
       },
     ];
     replies.push({ body: "<html>jobs</html>" });
-    await (await api()).loadPage("https://careers.example/jobs", {
+    await (
+      await api()
+    ).loadPage("https://careers.example/jobs", {
       render: true,
     });
     expect(network).toHaveLength(1);
@@ -598,7 +550,9 @@ describe("loadPage", () => {
   it("identifies rendered requests with the honest crawler User-Agent", async () => {
     browserRequests = [{ url: "https://careers.example/jobs" }];
     replies.push({ body: "jobs" });
-    await (await api()).loadPage("https://careers.example/jobs", {
+    await (
+      await api()
+    ).loadPage("https://careers.example/jobs", {
       render: true,
     });
     expect(network[0].options.headers["user-agent"]).toBe(
@@ -674,14 +628,14 @@ describe("loadPage", () => {
   it("rejects a cross-host browser navigation and propagates blocked documents", async () => {
     const { loadPage } = await api();
     browserRequests = [{ url: "https://other.example/jobs" }];
-    await expect(
-      loadPage("https://careers.example/jobs", { render: true }),
-    ).rejects.toThrow("unsafe browser navigation");
+    await expect(loadPage("https://careers.example/jobs", { render: true })).rejects.toThrow(
+      "unsafe browser navigation",
+    );
     browserRequests = [{ url: "https://careers.example/jobs" }];
     replies.push({ status: 403 });
-    await expect(
-      loadPage("https://careers.example/jobs", { render: true }),
-    ).rejects.toThrow("HTTP 403");
+    await expect(loadPage("https://careers.example/jobs", { render: true })).rejects.toThrow(
+      "HTTP 403",
+    );
     expect(context.close).toHaveBeenCalledTimes(2);
   });
   it("closes the context when the caller aborts", async () => {

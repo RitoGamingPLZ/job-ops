@@ -17,8 +17,7 @@ const TIPTAP_HTML =
   `<h2>Fit</h2><p>Because <strong>this team</strong> and <a href="https://example.com/docs">docs</a>.</p>` +
   `<ul><li>mission</li><li>team</li></ul>`;
 
-const render = (ui: Parameters<typeof renderWithQueryClient>[0]) =>
-  renderWithQueryClient(ui);
+const render = (ui: Parameters<typeof renderWithQueryClient>[0]) => renderWithQueryClient(ui);
 
 let notesStore: JobNote[] = [];
 
@@ -54,19 +53,9 @@ vi.mock("@/client/components/design-resume/RichTextEditor", () => ({
 
 vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <>{children}</>,
-  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => (
-    <>{children}</>
-  ),
-  DropdownMenuContent: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DropdownMenuItem: ({
-    children,
-    onSelect,
-  }: {
-    children: ReactNode;
-    onSelect?: () => void;
-  }) => (
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({ children, onSelect }: { children: ReactNode; onSelect?: () => void }) => (
     <button type="button" onClick={() => onSelect?.()}>
       {children}
     </button>
@@ -107,9 +96,7 @@ vi.mock("@/client/lib/private-pdf", () => ({
 }));
 
 vi.mock("../components/JobHeader", () => ({
-  JobHeader: ({ job }: { job: Job }) => (
-    <div data-testid="job-header">{job.title}</div>
-  ),
+  JobHeader: ({ job }: { job: Job }) => <div data-testid="job-header">{job.title}</div>,
 }));
 
 vi.mock("../components/ghostwriter/GhostwriterDrawer", () => ({
@@ -251,25 +238,21 @@ beforeEach(() => {
     notesStore = [created, ...notesStore];
     return created;
   });
-  vi.mocked(api.updateJobNote).mockImplementation(
-    async (_jobId, noteId, input) => {
-      const current = notesStore.find((note) => note.id === noteId);
-      if (!current) {
-        throw new Error("Note not found");
-      }
+  vi.mocked(api.updateJobNote).mockImplementation(async (_jobId, noteId, input) => {
+    const current = notesStore.find((note) => note.id === noteId);
+    if (!current) {
+      throw new Error("Note not found");
+    }
 
-      const updated = {
-        ...current,
-        title: input.title,
-        content: input.content,
-        updatedAt: "2026-01-01T11:00:00.000Z",
-      };
-      notesStore = notesStore.map((note) =>
-        note.id === noteId ? updated : note,
-      );
-      return updated;
-    },
-  );
+    const updated = {
+      ...current,
+      title: input.title,
+      content: input.content,
+      updatedAt: "2026-01-01T11:00:00.000Z",
+    };
+    notesStore = notesStore.map((note) => (note.id === noteId ? updated : note));
+    return updated;
+  });
   vi.mocked(api.deleteJobNote).mockImplementation(async (_jobId, noteId) => {
     notesStore = notesStore.filter((note) => note.id !== noteId);
   });
@@ -285,9 +268,7 @@ const LocationProbe = () => {
   );
 };
 
-type RouterInitialEntry = NonNullable<
-  Parameters<typeof MemoryRouter>[0]["initialEntries"]
->[number];
+type RouterInitialEntry = NonNullable<Parameters<typeof MemoryRouter>[0]["initialEntries"]>[number];
 
 const renderJobPage = (initialEntry: RouterInitialEntry = "/job/job-1/notes") =>
   render(
@@ -299,10 +280,7 @@ const renderJobPage = (initialEntry: RouterInitialEntry = "/job/job-1/notes") =>
         <Route path="/jobs/discovered" element={<div>Discovered jobs</div>} />
         <Route path="/jobs/applied" element={<div>Applied jobs</div>} />
         <Route path="/jobs/all" element={<div>All jobs</div>} />
-        <Route
-          path="/applications/in-progress"
-          element={<div>In progress board</div>}
-        />
+        <Route path="/applications/in-progress" element={<div>In progress board</div>} />
         <Route path="/resumes/:jobId" element={<div>Resume editor</div>} />
       </Routes>
     </MemoryRouter>,
@@ -314,16 +292,12 @@ describe("JobPage deletion", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Delete job" }));
     expect(api.deleteJob).not.toHaveBeenCalled();
-    expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "This cannot be undone",
-    );
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("This cannot be undone");
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(api.deleteJob).not.toHaveBeenCalled();
-    expect(screen.getByTestId("location-probe")).toHaveTextContent(
-      "/job/job-1/timeline",
-    );
+    expect(screen.getByTestId("location-probe")).toHaveTextContent("/job/job-1/timeline");
   });
 
   it("clears deleted-job caches, refreshes lists, and returns to the entry page", async () => {
@@ -346,17 +320,11 @@ describe("JobPage deletion", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByTestId("location-probe")).toHaveTextContent(
-        "/jobs/ready?q=backend",
-      ),
+      expect(screen.getByTestId("location-probe")).toHaveTextContent("/jobs/ready?q=backend"),
     );
     expect(api.deleteJob).toHaveBeenCalledExactlyOnceWith("job-1");
-    expect(
-      queryClient.getQueryData(queryKeys.jobs.detail("job-1")),
-    ).toBeUndefined();
-    expect(
-      queryClient.getQueryData(queryKeys.jobs.detail(otherJob.id)),
-    ).toEqual(otherJob);
+    expect(queryClient.getQueryData(queryKeys.jobs.detail("job-1"))).toBeUndefined();
+    expect(queryClient.getQueryData(queryKeys.jobs.detail(otherJob.id))).toEqual(otherJob);
     expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
     expect(toast.success).toHaveBeenCalledWith("Job deleted");
   });
@@ -378,12 +346,8 @@ describe("JobPage deletion", () => {
         "This job is being processed. Try again when it finishes.",
       ),
     );
-    expect(
-      queryClient.getQueryData(queryKeys.jobs.detail("job-1")),
-    ).toBeDefined();
-    expect(screen.getByTestId("location-probe")).toHaveTextContent(
-      "/job/job-1",
-    );
+    expect(queryClient.getQueryData(queryKeys.jobs.detail("job-1"))).toBeDefined();
+    expect(screen.getByTestId("location-probe")).toHaveTextContent("/job/job-1");
     expect(toast.success).not.toHaveBeenCalled();
   });
 });
@@ -393,18 +357,14 @@ describe("JobPage notes", () => {
     renderJobPage("/job/job-1/notes");
 
     expect(await screen.findByTestId("job-notes-section")).toBeInTheDocument();
-    expect(screen.getByTestId("location-probe")).toHaveTextContent(
-      "/job/job-1/notes",
-    );
+    expect(screen.getByTestId("location-probe")).toHaveTextContent("/job/job-1/notes");
   });
 
   it("normalizes the legacy /note URL to /notes", async () => {
     renderJobPage("/job/job-1/note?draft=1");
 
     await waitFor(() =>
-      expect(screen.getByTestId("location-probe")).toHaveTextContent(
-        "/job/job-1/notes?draft=1",
-      ),
+      expect(screen.getByTestId("location-probe")).toHaveTextContent("/job/job-1/notes?draft=1"),
     );
     expect(await screen.findByTestId("job-notes-section")).toBeInTheDocument();
   });
@@ -420,8 +380,7 @@ describe("JobPage notes", () => {
       makeNote({
         id: "note-newer",
         title: "Why this company",
-        content:
-          "# Strong fit\n\n- Great mission\n- Good team\n\n[Team](https://example.com)",
+        content: "# Strong fit\n\n- Great mission\n- Good team\n\n[Team](https://example.com)",
         updatedAt: "2026-01-01T12:00:00.000Z",
       }),
     ];
@@ -429,18 +388,14 @@ describe("JobPage notes", () => {
     renderJobPage();
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Acme Labs" }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Acme Labs" })).toBeInTheDocument();
     });
 
     expect(screen.getByTestId("job-notes-section")).toHaveClass("w-full");
     expect(screen.getByTestId("job-notes-list")).toBeInTheDocument();
     expect(screen.getByTestId("job-notes-detail")).toBeInTheDocument();
 
-    expect(
-      await screen.findByRole("heading", { name: "Strong fit" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Strong fit" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Team" })).toHaveAttribute(
       "href",
       "https://example.com",
@@ -448,9 +403,7 @@ describe("JobPage notes", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Recruiter contact/i }));
 
-    await waitFor(() =>
-      expect(screen.getByText("Reach out to Jane.")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText("Reach out to Jane.")).toBeInTheDocument());
   });
 
   it("switches between markdown view and TipTap edit mode inline", async () => {
@@ -460,9 +413,7 @@ describe("JobPage notes", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(
-          "No notes yet. Capture reminders, interview prep, or links in markdown.",
-        ),
+        screen.getByText("No notes yet. Capture reminders, interview prep, or links in markdown."),
       ).toBeInTheDocument(),
     );
 
@@ -472,16 +423,12 @@ describe("JobPage notes", () => {
       }),
     );
 
-    await waitFor(() =>
-      expect(screen.getByTestId("tiptap-editor")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId("tiptap-editor")).toBeInTheDocument());
 
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Why this company" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Emit editor content" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Emit editor content" }));
     fireEvent.click(screen.getByRole("button", { name: /save note/i }));
 
     const expectedMarkdown = editorHtmlToMarkdown(TIPTAP_HTML);
@@ -493,9 +440,7 @@ describe("JobPage notes", () => {
       }),
     );
     expect(toast.success).toHaveBeenCalledWith("Note saved");
-    expect(
-      await screen.findByRole("heading", { name: "Fit" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Fit" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "docs" })).toHaveAttribute(
       "href",
       "https://example.com/docs",
@@ -507,16 +452,10 @@ describe("JobPage notes", () => {
       }),
     );
 
-    await waitFor(() =>
-      expect(screen.getByTestId("tiptap-editor")).toBeInTheDocument(),
-    );
-    expect(screen.getByTestId("tiptap-editor-value")).toHaveTextContent(
-      "<h2>Fit</h2>",
-    );
+    await waitFor(() => expect(screen.getByTestId("tiptap-editor")).toBeInTheDocument());
+    expect(screen.getByTestId("tiptap-editor-value")).toHaveTextContent("<h2>Fit</h2>");
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Emit editor content" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Emit editor content" }));
     fireEvent.click(screen.getByRole("button", { name: /save note/i }));
 
     await waitFor(() =>
@@ -538,44 +477,32 @@ describe("JobPage notes", () => {
       }),
     );
 
-    await waitFor(() =>
-      expect(api.deleteJobNote).toHaveBeenCalledWith("job-1", "note-1"),
-    );
+    await waitFor(() => expect(api.deleteJobNote).toHaveBeenCalledWith("job-1", "note-1"));
     expect(toast.success).toHaveBeenCalledWith("Note deleted");
-    await waitFor(() =>
-      expect(screen.queryByText("Why this company")).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByText("Why this company")).toBeNull());
   });
 });
 
 describe("JobPage timeline actions", () => {
   it("shows a log event button on the overview page when stage logging is available", async () => {
-    vi.mocked(api.getJob).mockResolvedValue(
-      createJob({ status: "in_progress" }) as Job,
-    );
+    vi.mocked(api.getJob).mockResolvedValue(createJob({ status: "in_progress" }) as Job);
 
     renderJobPage("/job/job-1");
 
     expect(await screen.findByTestId("job-right-sidebar")).toBeInTheDocument();
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /log event/i }),
-      ).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: /log event/i })).toBeInTheDocument(),
     );
   });
 
   it("shows a log event button on the timeline page when stage logging is available", async () => {
-    vi.mocked(api.getJob).mockResolvedValue(
-      createJob({ status: "in_progress" }) as Job,
-    );
+    vi.mocked(api.getJob).mockResolvedValue(createJob({ status: "in_progress" }) as Job);
 
     renderJobPage("/job/job-1/timeline");
 
     expect(screen.queryByTestId("job-right-sidebar")).not.toBeInTheDocument();
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /log event/i }),
-      ).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: /log event/i })).toBeInTheDocument(),
     );
   });
 });
@@ -586,9 +513,7 @@ describe("JobPage emails", () => {
 
     expect(await screen.findByText("Captured emails")).toBeInTheDocument();
     expect(screen.queryByTestId("job-right-sidebar")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^emails$/i })).toHaveClass(
-      "border-input",
-    );
+    expect(screen.getByRole("link", { name: /^emails$/i })).toHaveClass("border-input");
     expect(api.getJobEmails).toHaveBeenCalledWith("job-1", { limit: 100 });
   });
 });
@@ -603,9 +528,7 @@ describe("JobPage project count", () => {
       aiSelectableProjectIds: [],
     };
     vi.mocked(api.getSettings).mockResolvedValue(appSettings);
-    vi.mocked(api.getJob).mockResolvedValue(
-      createJob({ selectedProjectIds: "" }) as Job,
-    );
+    vi.mocked(api.getJob).mockResolvedValue(createJob({ selectedProjectIds: "" }) as Job);
     vi.mocked(api.getResumeProjectsCatalog).mockResolvedValue(
       projectIds.map((id) => ({
         id,
@@ -619,9 +542,7 @@ describe("JobPage project count", () => {
     renderJobPage("/job/job-1");
 
     const projectsLabel = await screen.findByText("Projects Chosen");
-    await waitFor(() =>
-      expect(projectsLabel.parentElement).toHaveTextContent("3"),
-    );
+    await waitFor(() => expect(projectsLabel.parentElement).toHaveTextContent("3"));
   });
 });
 
@@ -653,9 +574,7 @@ describe("JobPage PDF filenames", () => {
 
     renderJobPage("/job/job-1/documents");
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: /download pdf/i }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: /download pdf/i }));
 
     await waitFor(() =>
       expect(privatePdf.downloadJobPdf).toHaveBeenCalledWith(
@@ -678,17 +597,13 @@ describe("JobPage back navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: /^back$/i }));
 
     await waitFor(() =>
-      expect(screen.getByTestId("location-probe")).toHaveTextContent(
-        "/jobs/ready?q=backend",
-      ),
+      expect(screen.getByTestId("location-probe")).toHaveTextContent("/jobs/ready?q=backend"),
     );
     expect(screen.getByText("Ready jobs")).toBeInTheDocument();
   });
 
   it("falls back to the status page when there is no entry page state", async () => {
-    vi.mocked(api.getJob).mockResolvedValue(
-      createJob({ status: "in_progress" }) as Job,
-    );
+    vi.mocked(api.getJob).mockResolvedValue(createJob({ status: "in_progress" }) as Job);
 
     renderJobPage("/job/job-1/timeline");
 
@@ -697,9 +612,7 @@ describe("JobPage back navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: /^back$/i }));
 
     await waitFor(() =>
-      expect(screen.getByTestId("location-probe")).toHaveTextContent(
-        "/applications/in-progress",
-      ),
+      expect(screen.getByTestId("location-probe")).toHaveTextContent("/applications/in-progress"),
     );
     expect(screen.getByText("In progress board")).toBeInTheDocument();
   });
@@ -715,24 +628,18 @@ describe("JobPage back navigation", () => {
     fireEvent.click(screen.getByRole("link", { name: /^notes$/i }));
 
     await waitFor(() =>
-      expect(screen.getByTestId("location-probe")).toHaveTextContent(
-        "/job/job-1/notes",
-      ),
+      expect(screen.getByTestId("location-probe")).toHaveTextContent("/job/job-1/notes"),
     );
 
     fireEvent.click(screen.getByRole("button", { name: /^back$/i }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("location-probe")).toHaveTextContent(
-        "/jobs/ready?source=naukri",
-      );
+      expect(screen.getByTestId("location-probe")).toHaveTextContent("/jobs/ready?source=naukri");
     });
   });
 
   it("triggers celebrateOffer when an offer event is logged", async () => {
-    vi.mocked(api.getJob).mockResolvedValue(
-      createJob({ status: "in_progress" }) as Job,
-    );
+    vi.mocked(api.getJob).mockResolvedValue(createJob({ status: "in_progress" }) as Job);
     vi.mocked(api.transitionJobStage).mockResolvedValue({
       id: "evt-offer",
       applicationId: "job-1",
@@ -767,12 +674,9 @@ it("offers editor links and regeneration for a prepared targeted job", async () 
   const links = await screen.findAllByRole("link", { name: "Open resume" });
   // Sidebar has a separate focused test; this page uses its mock.
   expect(links).toHaveLength(1);
-  for (const link of links)
-    expect(link).toHaveAttribute("href", "/resumes/job-1");
+  for (const link of links) expect(link).toHaveAttribute("href", "/resumes/job-1");
   expect(document.querySelector('a[href*="inspector=tailoring"]')).toBeNull();
-  expect(
-    screen.getByRole("button", { name: "Regenerate resume" }),
-  ).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Regenerate resume" })).toBeEnabled();
 });
 
 it.each([
@@ -780,13 +684,9 @@ it.each([
   ["discovered", null, "Target"],
   ["discovered", "2026-06-01", "Prepare resume"],
 ] as const)("header for a %s job (readyAt %s) offers only %s", async (status, readyAt, label) => {
-  vi.mocked(api.getJob).mockResolvedValue(
-    createJob({ status, readyAt }) as Job,
-  );
+  vi.mocked(api.getJob).mockResolvedValue(createJob({ status, readyAt }) as Job);
   renderJobPage("/job/job-1");
-  expect(
-    (await screen.findAllByRole("button", { name: label })).length,
-  ).toBeGreaterThan(0);
+  expect((await screen.findAllByRole("button", { name: label })).length).toBeGreaterThan(0);
   expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
   for (const preview of screen.queryAllByRole("button", {
     name: "Preview PDF",
@@ -800,9 +700,7 @@ it("Prepare resume retries preparation for a targeted job", async () => {
   );
   vi.mocked(api.processJob).mockResolvedValue({} as Job);
   renderJobPage("/job/job-1");
-  fireEvent.click(
-    (await screen.findAllByRole("button", { name: "Prepare resume" }))[0],
-  );
+  fireEvent.click((await screen.findAllByRole("button", { name: "Prepare resume" }))[0]);
   await waitFor(() => expect(api.processJob).toHaveBeenCalledWith("job-1"));
 });
 
@@ -815,13 +713,9 @@ it("Preview PDF opens the resume editor in preview mode, not a raw PDF", async (
     }),
   );
   renderJobPage("/job/job-1/documents");
-  fireEvent.click(
-    (await screen.findAllByRole("button", { name: "Preview PDF" }))[0],
-  );
+  fireEvent.click((await screen.findAllByRole("button", { name: "Preview PDF" }))[0]);
   await waitFor(() =>
-    expect(screen.getByTestId("location-probe")).toHaveTextContent(
-      "/resumes/job-1?mode=preview",
-    ),
+    expect(screen.getByTestId("location-probe")).toHaveTextContent("/resumes/job-1?mode=preview"),
   );
   expect(privatePdf.openJobPdf).not.toHaveBeenCalled();
 });
@@ -837,9 +731,7 @@ it("renders a stale PDF before downloading it", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Download PDF" }));
   await waitFor(() => expect(privatePdf.downloadJobPdf).toHaveBeenCalled());
   expect(api.generateJobPdf).toHaveBeenCalledWith("job-1");
-  expect(
-    vi.mocked(api.generateJobPdf).mock.invocationCallOrder[0],
-  ).toBeLessThan(
+  expect(vi.mocked(api.generateJobPdf).mock.invocationCallOrder[0]).toBeLessThan(
     vi.mocked(privatePdf.downloadJobPdf).mock.invocationCallOrder[0],
   );
 });
@@ -853,13 +745,9 @@ it("requires confirmation before regenerating a targeted job resume", async () =
   });
   const { queryClient } = renderJobPage("/job/job-1");
   const invalidate = vi.spyOn(queryClient, "invalidateQueries");
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Regenerate resume" }),
-  );
+  fireEvent.click(await screen.findByRole("button", { name: "Regenerate resume" }));
   expect(api.regenerateJobResume).not.toHaveBeenCalled();
-  expect(screen.getByRole("alertdialog")).toHaveTextContent(
-    "including your edits",
-  );
+  expect(screen.getByRole("alertdialog")).toHaveTextContent("including your edits");
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(api.regenerateJobResume).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Regenerate resume" }));
@@ -868,9 +756,7 @@ it("requires confirmation before regenerating a targeted job resume", async () =
       name: "Regenerate resume",
     }),
   );
-  await waitFor(() =>
-    expect(api.regenerateJobResume).toHaveBeenCalledWith(job.id),
-  );
+  await waitFor(() => expect(api.regenerateJobResume).toHaveBeenCalledWith(job.id));
   await waitFor(() =>
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: queryKeys.jobs.detail(job.id),
@@ -878,16 +764,12 @@ it("requires confirmation before regenerating a targeted job resume", async () =
   );
 });
 
-it.each([
-  "discovered",
-  "processing",
-] as const)("hides regeneration for a targeted %s job", async (status) => {
-  vi.mocked(api.getJob).mockResolvedValue(
-    createJob({ status, readyAt: "2026-11-08" }),
-  );
-  renderJobPage("/job/job-1");
-  await screen.findByRole("button", { name: "Delete job" });
-  expect(
-    screen.queryByRole("button", { name: "Regenerate resume" }),
-  ).toBeNull();
-});
+it.each(["discovered", "processing"] as const)(
+  "hides regeneration for a targeted %s job",
+  async (status) => {
+    vi.mocked(api.getJob).mockResolvedValue(createJob({ status, readyAt: "2026-11-08" }));
+    renderJobPage("/job/job-1");
+    await screen.findByRole("button", { name: "Delete job" });
+    expect(screen.queryByRole("button", { name: "Regenerate resume" })).toBeNull();
+  },
+);

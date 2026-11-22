@@ -1,8 +1,5 @@
 import { resolveSearchCities } from "@shared/search-cities.js";
-import type {
-  ExtractorManifest,
-  ExtractorProgressEvent,
-} from "@shared/types/extractors";
+import type { ExtractorManifest, ExtractorProgressEvent } from "@shared/types/extractors";
 import { type HiringCafeSearchResume, runHiringCafe } from "./src/run";
 
 type HiringCafeContext = Parameters<ExtractorManifest["run"]>[0];
@@ -34,9 +31,7 @@ function resolveContextCountry(context: HiringCafeContext): string {
 
 function resolveContextLocations(context: HiringCafeContext): string[] {
   return resolveSearchCities({
-    list:
-      context.sourceLocationPlan?.requestedCities ??
-      context.locationIntent?.cityLocations,
+    list: context.sourceLocationPlan?.requestedCities ?? context.locationIntent?.cityLocations,
     single: context.settings.searchCities ?? context.settings.jobspyLocation,
   });
 }
@@ -127,9 +122,7 @@ export const manifest: ExtractorManifest = {
       searchResume: context.resumeState as HiringCafeSearchResume | undefined,
       skippedChallengeSearchStates: context.skippedChallengeSearchStates,
       cookieStorageDir: context.cookieStorageDir,
-      pageReader: context.browserPageReader
-        ? { read: context.browserPageReader }
-        : undefined,
+      pageReader: context.browserPageReader ? { read: context.browserPageReader } : undefined,
       shouldCancel: context.shouldCancel,
       onProgress: (event) => {
         if (context.shouldCancel?.()) return;

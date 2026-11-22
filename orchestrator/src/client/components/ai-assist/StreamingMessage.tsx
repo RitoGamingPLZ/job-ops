@@ -4,9 +4,7 @@ type StreamingMessageProps = {
   content: string;
 };
 
-export const StreamingMessage: React.FC<StreamingMessageProps> = ({
-  content,
-}) => {
+export const StreamingMessage: React.FC<StreamingMessageProps> = ({ content }) => {
   return (
     <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
       {content}

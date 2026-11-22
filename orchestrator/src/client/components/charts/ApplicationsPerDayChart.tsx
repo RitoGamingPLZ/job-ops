@@ -1,8 +1,4 @@
-import {
-  getLocalDayRange,
-  parseLocalDateKey,
-  toLocalDateKey,
-} from "@client/lib/local-calendar";
+import { getLocalDayRange, parseLocalDateKey, toLocalDateKey } from "@client/lib/local-calendar";
 /**
  * Applications Per Day Chart
  * Shows daily application volume over a selected time range.
@@ -12,18 +8,8 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 type DailyApplications = {
   date: string;
@@ -37,10 +23,7 @@ const chartConfig = {
   },
 };
 
-const buildApplicationsPerDay = (
-  appliedAt: Array<string | null>,
-  daysToShow: number,
-) => {
+const buildApplicationsPerDay = (appliedAt: Array<string | null>, daysToShow: number) => {
   const { start, end } = getLocalDayRange(daysToShow);
 
   const counts = new Map<string, number>();
@@ -71,13 +54,11 @@ const buildApplicationsPerDay = (
   const secondHalf = data.slice(halfPoint);
   const firstHalfAvg =
     firstHalf.length > 0
-      ? firstHalf.reduce((sum, item) => sum + item.applications, 0) /
-        firstHalf.length
+      ? firstHalf.reduce((sum, item) => sum + item.applications, 0) / firstHalf.length
       : 0;
   const secondHalfAvg =
     secondHalf.length > 0
-      ? secondHalf.reduce((sum, item) => sum + item.applications, 0) /
-        secondHalf.length
+      ? secondHalf.reduce((sum, item) => sum + item.applications, 0) / secondHalf.length
       : 0;
   const trend =
     firstHalfAvg === 0
@@ -149,15 +130,8 @@ export function ApplicationsPerDayChart({
         {error ? (
           <div className="px-4 py-6 text-sm text-destructive">{error}</div>
         ) : (
-          <ChartContainer
-            config={chartConfig}
-            className="aspect-auto h-[280px] w-full"
-          >
-            <BarChart
-              accessibilityLayer
-              data={chartData}
-              margin={{ left: 12, right: 12 }}
-            >
+          <ChartContainer config={chartConfig} className="aspect-auto h-[280px] w-full">
+            <BarChart accessibilityLayer data={chartData} margin={{ left: 12, right: 12 }}>
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="date"
@@ -180,23 +154,16 @@ export function ApplicationsPerDayChart({
                     className="w-[160px]"
                     nameKey="applications"
                     labelFormatter={(value) =>
-                      parseLocalDateKey(value as string).toLocaleDateString(
-                        "en-GB",
-                        {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        },
-                      )
+                      parseLocalDateKey(value as string).toLocaleDateString("en-GB", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
                     }
                   />
                 }
               />
-              <Bar
-                dataKey="applications"
-                fill="var(--color-applications)"
-                radius={[6, 6, 0, 0]}
-              />
+              <Bar dataKey="applications" fill="var(--color-applications)" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ChartContainer>
         )}

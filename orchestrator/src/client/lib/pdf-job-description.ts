@@ -24,9 +24,7 @@ export async function extractPdfJobDescription(file: File): Promise<string> {
       // No onPassword callback: PDF.js rejects encrypted files without a prompt.
       document = await task.promise;
     } catch {
-      throw new Error(
-        "Could not read this PDF. It may be damaged or password-protected.",
-      );
+      throw new Error("Could not read this PDF. It may be damaged or password-protected.");
     }
     if (document.numPages > MAX_PAGES) {
       throw new Error("Choose a PDF with no more than 100 pages.");
@@ -38,9 +36,7 @@ export async function extractPdfJobDescription(file: File): Promise<string> {
       try {
         const content = await page.getTextContent();
         const text = content.items
-          .map((item) =>
-            "str" in item ? `${item.str}${item.hasEOL ? "\n" : " "}` : "",
-          )
+          .map((item) => ("str" in item ? `${item.str}${item.hasEOL ? "\n" : " "}` : ""))
           .join("")
           .replace(/[ \t]+\n/g, "\n")
           .trim();

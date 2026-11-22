@@ -248,10 +248,9 @@ describe("provider adapters", () => {
 
       if (testCase.expectedResponseFormat) {
         const body = request.body as Record<string, unknown>;
-        expect(
-          (body.response_format as Record<string, unknown>).type,
-          testCase.name,
-        ).toBe(testCase.expectedResponseFormat);
+        expect((body.response_format as Record<string, unknown>).type, testCase.name).toBe(
+          testCase.expectedResponseFormat,
+        );
       }
     }
   });
@@ -358,9 +357,7 @@ describe("provider adapters", () => {
   });
 
   it("extracts text for openai and gemini variants", () => {
-    expect(openAiStrategy.extractText({ output_text: "openai-direct" })).toBe(
-      "openai-direct",
-    );
+    expect(openAiStrategy.extractText({ output_text: "openai-direct" })).toBe("openai-direct");
     expect(
       anthropicStrategy.extractText({
         content: [
@@ -401,8 +398,7 @@ describe("provider adapters", () => {
           properties: {
             bestMatchIndex: {
               type: ["integer", "null"],
-              description:
-                "Best matching active-job index from provided list, or null.",
+              description: "Best matching active-job index from provided list, or null.",
             },
             skills: {
               type: "array",
@@ -424,17 +420,17 @@ describe("provider adapters", () => {
       },
     });
 
-    const generationConfig = (request.body as Record<string, unknown>)
-      .generationConfig as Record<string, unknown>;
-    const responseSchema = generationConfig.responseSchema as Record<
+    const generationConfig = (request.body as Record<string, unknown>).generationConfig as Record<
       string,
       unknown
     >;
-    const skills = (responseSchema.properties as Record<string, unknown>)
-      .skills as Record<string, unknown>;
-    const bestMatchIndex = (
-      responseSchema.properties as Record<string, unknown>
-    ).bestMatchIndex as Record<string, unknown>;
+    const responseSchema = generationConfig.responseSchema as Record<string, unknown>;
+    const skills = (responseSchema.properties as Record<string, unknown>).skills as Record<
+      string,
+      unknown
+    >;
+    const bestMatchIndex = (responseSchema.properties as Record<string, unknown>)
+      .bestMatchIndex as Record<string, unknown>;
     const itemSchema = skills.items as Record<string, unknown>;
 
     expect(generationConfig.responseMimeType).toBe("application/json");
@@ -448,10 +444,7 @@ describe("provider adapters", () => {
     // are dropped for Gemini rather than sent at all.
     expect(skills).not.toHaveProperty("maxItems");
     expect(responseSchema.additionalProperties).toBeUndefined();
-    expect(responseSchema.propertyOrdering).toEqual([
-      "bestMatchIndex",
-      "skills",
-    ]);
+    expect(responseSchema.propertyOrdering).toEqual(["bestMatchIndex", "skills"]);
     expect(itemSchema.additionalProperties).toBeUndefined();
     expect(itemSchema.propertyOrdering).toEqual(["name", "keywords"]);
   });
@@ -546,10 +539,7 @@ describe("provider adapters", () => {
         output_config: { format: { schema: Record<string, unknown> } };
       }
     ).output_config.format.schema;
-    const properties = sentSchema.properties as Record<
-      string,
-      Record<string, unknown>
-    >;
+    const properties = sentSchema.properties as Record<string, Record<string, unknown>>;
 
     expect(properties.they_want).not.toHaveProperty("maxItems");
     expect(properties.they_want).not.toHaveProperty("minItems");

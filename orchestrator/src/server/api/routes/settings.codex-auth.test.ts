@@ -39,7 +39,7 @@ vi.mock("@server/services/llm/service", () => ({
 
 import { startServer, stopServer } from "./test-utils";
 
-describe.sequential("Settings codex auth routes", () => {
+describe("Settings codex auth routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;

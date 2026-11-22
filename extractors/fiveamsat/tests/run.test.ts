@@ -2,10 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildFiveamsatSearchUrl } from "../src/fetcher";
 import { runFiveamsat } from "../src/run";
 
-function createTextResponse(
-  body: string,
-  init: Partial<Response> = {},
-): Response {
+function createTextResponse(body: string, init: Partial<Response> = {}): Response {
   return {
     ok: init.ok ?? true,
     status: init.status ?? 200,

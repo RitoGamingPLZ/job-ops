@@ -48,13 +48,8 @@ export function AutomaticSavedSearchControls({
           }}
           disabled={savedSearches.length === 0}
         >
-          <SelectTrigger
-            aria-label="Saved searches"
-            className="h-9 min-w-0 flex-1"
-          >
-            <SelectValue
-              placeholder={isLoading ? "Loading..." : "Select saved search"}
-            />
+          <SelectTrigger aria-label="Saved searches" className="h-9 min-w-0 flex-1">
+            <SelectValue placeholder={isLoading ? "Loading..." : "Select saved search"} />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>

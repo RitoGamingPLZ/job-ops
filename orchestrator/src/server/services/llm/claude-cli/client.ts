@@ -1,10 +1,6 @@
 import { spawn } from "node:child_process";
 import { logger } from "@infra/logger";
-import {
-  getLlmMessageText,
-  type JsonSchemaDefinition,
-  type LlmRequestOptions,
-} from "../types";
+import { getLlmMessageText, type JsonSchemaDefinition, type LlmRequestOptions } from "../types";
 import { runCliProcess } from "../utils/cli-process";
 import { truncate } from "../utils/string";
 
@@ -38,9 +34,7 @@ function getPositiveIntEnv(name: string, fallback: number): number {
 }
 
 function toNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : null;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
 function buildClaudeCliErrorMessage(error: unknown): string {
@@ -65,9 +59,7 @@ function shouldSpawnClaudeViaWindowsShell(command: string): boolean {
   return lower.endsWith(".cmd") || lower.endsWith(".bat");
 }
 
-function formatMessagesPrompt(
-  messages: LlmRequestOptions<unknown>["messages"],
-): string {
+function formatMessagesPrompt(messages: LlmRequestOptions<unknown>["messages"]): string {
   const transcript = messages
     .map((message, index) => {
       return `Message ${index + 1} (${message.role.toUpperCase()}):\n${getLlmMessageText(message.content).trim()}`;
@@ -94,19 +86,14 @@ type ClaudeCliInputBlock =
       };
     };
 
-function hasImageInput(
-  messages: LlmRequestOptions<unknown>["messages"],
-): boolean {
+function hasImageInput(messages: LlmRequestOptions<unknown>["messages"]): boolean {
   return messages.some(
     (message) =>
-      typeof message.content !== "string" &&
-      message.content.some((part) => part.type === "image"),
+      typeof message.content !== "string" && message.content.some((part) => part.type === "image"),
   );
 }
 
-function formatMessagesStreamInput(
-  messages: LlmRequestOptions<unknown>["messages"],
-): string {
+function formatMessagesStreamInput(messages: LlmRequestOptions<unknown>["messages"]): string {
   const content: ClaudeCliInputBlock[] = [
     {
       type: "text",
@@ -136,13 +123,9 @@ function formatMessagesStreamInput(
         continue;
       }
 
-      const match = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/s.exec(
-        part.imageUrl,
-      );
+      const match = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/s.exec(part.imageUrl);
       if (!match) {
-        throw new Error(
-          "Claude CLI image input must be a PNG, JPEG, or WebP base64 data URL.",
-        );
+        throw new Error("Claude CLI image input must be a PNG, JPEG, or WebP base64 data URL.");
       }
       content.push({
         type: "image",
@@ -220,13 +203,7 @@ async function runClaudeCliOnce(args: {
   const bin = process.env.CLAUDE_CLI_BIN?.trim() || "claude";
   const procArgs: string[] = ["-p"];
   if (args.inputFormat === "stream-json") {
-    procArgs.push(
-      "--input-format",
-      "stream-json",
-      "--output-format",
-      "stream-json",
-      "--verbose",
-    );
+    procArgs.push("--input-format", "stream-json", "--output-format", "stream-json", "--verbose");
   } else {
     procArgs.push(args.input, "--output-format", "json");
   }
@@ -321,9 +298,7 @@ export class ClaudeCliClient {
     return Promise.resolve([preferred, ...rest]);
   }
 
-  async callJson(
-    options: LlmRequestOptions<unknown>,
-  ): Promise<{ text: string }> {
+  async callJson(options: LlmRequestOptions<unknown>): Promise<{ text: string }> {
     const timeoutMs = getPositiveIntEnv(
       "CLAUDE_CLI_REQUEST_TIMEOUT_MS",
       DEFAULT_REQUEST_TIMEOUT_MS,

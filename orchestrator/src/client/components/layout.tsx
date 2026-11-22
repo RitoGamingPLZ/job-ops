@@ -4,13 +4,7 @@
 
 import { getAppStatus, logout } from "@client/api";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ExternalLink,
-  LogOut,
-  type LucideIcon,
-  Menu,
-  UserRound,
-} from "lucide-react";
+import { ExternalLink, LogOut, type LucideIcon, Menu, UserRound } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -23,20 +17,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useVersionCheck } from "../hooks/useVersionCheck";
 import { queryKeys } from "../lib/queryKeys";
-import {
-  loadRememberedAuthUsers,
-  type RememberedAuthUser,
-} from "../lib/remembered-auth-users";
+import { loadRememberedAuthUsers, type RememberedAuthUser } from "../lib/remembered-auth-users";
 import { isNavActive, NAV_LINKS } from "./navigation";
 import { StatusBadgeIndicator } from "./StatusIndicator";
 import { Tip } from "./Tip";
@@ -46,9 +31,7 @@ export const AppModeContext = React.createContext({
   isPending: false,
 });
 
-export const AppModeProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const AppModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const appStatusQuery = useQuery({
     queryKey: queryKeys.app.status(),
     queryFn: getAppStatus,
@@ -69,11 +52,7 @@ export const AppModeProvider: React.FC<{ children: React.ReactNode }> = ({
 const buildSignInPath = (username: string, nextPath: string): string => {
   const params = new URLSearchParams();
   params.set("user", username);
-  if (
-    nextPath &&
-    nextPath !== "/sign-in" &&
-    !nextPath.startsWith("/sign-in?")
-  ) {
+  if (nextPath && nextPath !== "/sign-in" && !nextPath.startsWith("/sign-in?")) {
     params.set("next", nextPath);
   }
   return `/sign-in?${params.toString()}`;
@@ -109,17 +88,15 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const [internalNavOpen, setInternalNavOpen] = useState(false);
-  const [rememberedUsers, setRememberedUsers] = useState<RememberedAuthUser[]>(
-    () => loadRememberedAuthUsers(),
+  const [rememberedUsers, setRememberedUsers] = useState<RememberedAuthUser[]>(() =>
+    loadRememberedAuthUsers(),
   );
   const navOpen = controlledNavOpen ?? internalNavOpen;
   const setNavOpen = onNavOpenChange ?? setInternalNavOpen;
   const { version, updateAvailable } = useVersionCheck();
   const { appMode } = React.useContext(AppModeContext);
   const navLinks =
-    appMode === "hosted"
-      ? NAV_LINKS.filter(({ to }) => to !== "/tracking-inbox")
-      : NAV_LINKS;
+    appMode === "hosted" ? NAV_LINKS.filter(({ to }) => to !== "/tracking-inbox") : NAV_LINKS;
 
   useEffect(() => {
     if (navOpen) {
@@ -200,9 +177,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                         rememberedUsers.map((user) => (
                           <DropdownMenuItem
                             key={user.username}
-                            onSelect={() =>
-                              void handleRememberedUserClick(user.username)
-                            }
+                            onSelect={() => void handleRememberedUserClick(user.username)}
                             className="flex min-w-0 items-start gap-2"
                           >
                             <UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -224,10 +199,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={() => void handleSignOut()}
-                        className="gap-2"
-                      >
+                      <DropdownMenuItem onSelect={() => void handleSignOut()} className="gap-2">
                         <LogOut className="h-3.5 w-3.5" />
                         <span>Sign out</span>
                       </DropdownMenuItem>
@@ -302,16 +274,8 @@ interface SplitLayoutProps {
   className?: string;
 }
 
-export const SplitLayout: React.FC<SplitLayoutProps> = ({
-  children,
-  className,
-}) => (
-  <section
-    className={cn(
-      "grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]",
-      className,
-    )}
-  >
+export const SplitLayout: React.FC<SplitLayoutProps> = ({ children, className }) => (
+  <section className={cn("grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]", className)}>
     {children}
   </section>
 );
@@ -327,27 +291,13 @@ interface ListPanelProps {
   className?: string;
 }
 
-export const ListPanel: React.FC<ListPanelProps> = ({
-  children,
-  header,
-  footer,
-  className,
-}) => (
+export const ListPanel: React.FC<ListPanelProps> = ({ children, header, footer, className }) => (
   <div
-    className={cn(
-      "min-w-0 rounded-xl border border-border/60 bg-card/40 flex flex-col",
-      className,
-    )}
+    className={cn("min-w-0 rounded-xl border border-border/60 bg-card/40 flex flex-col", className)}
   >
-    {header && (
-      <div className="border-b border-border/60 px-4 py-3">{header}</div>
-    )}
-    <div className="flex-1 divide-y divide-border/60 overflow-y-auto">
-      {children}
-    </div>
-    {footer && (
-      <div className="border-t border-border/60 px-4 py-2">{footer}</div>
-    )}
+    {header && <div className="border-b border-border/60 px-4 py-3">{header}</div>}
+    <div className="flex-1 divide-y divide-border/60 overflow-y-auto">{children}</div>
+    {footer && <div className="border-t border-border/60 px-4 py-2">{footer}</div>}
   </div>
 );
 
@@ -362,12 +312,7 @@ interface ListItemProps {
   className?: string;
 }
 
-export const ListItem: React.FC<ListItemProps> = ({
-  selected,
-  onClick,
-  children,
-  className,
-}) => (
+export const ListItem: React.FC<ListItemProps> = ({ selected, onClick, children, className }) => (
   <button
     type="button"
     onClick={onClick}
@@ -392,11 +337,7 @@ interface DetailPanelProps {
   sticky?: boolean;
 }
 
-export const DetailPanel: React.FC<DetailPanelProps> = ({
-  children,
-  className,
-  sticky = true,
-}) => (
+export const DetailPanel: React.FC<DetailPanelProps> = ({ children, className, sticky = true }) => (
   <div
     className={cn(
       "min-w-0 rounded-xl border border-border/60 bg-card/40 p-4",
@@ -428,9 +369,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
     {Icon && <Icon className="h-10 w-10 text-muted-foreground/50 mb-2" />}
     <div className="text-base font-semibold">{title}</div>
-    {description && (
-      <p className="max-w-md text-sm text-muted-foreground">{description}</p>
-    )}
+    {description && <p className="max-w-md text-sm text-muted-foreground">{description}</p>}
     {action && <div className="mt-2">{action}</div>}
   </div>
 );
@@ -451,10 +390,7 @@ const getScoreTokens = (score: number) => {
   return { bar: "bg-rose-500/80" };
 };
 
-export const ScoreMeter: React.FC<ScoreMeterProps> = ({
-  score,
-  showLabel = true,
-}) => {
+export const ScoreMeter: React.FC<ScoreMeterProps> = ({ score, showLabel = true }) => {
   if (score == null) {
     return <span className="text-xs text-muted-foreground">Not scored</span>;
   }
@@ -468,9 +404,7 @@ export const ScoreMeter: React.FC<ScoreMeterProps> = ({
           style={{ width: `${Math.max(4, Math.min(100, score))}%` }}
         />
       </div>
-      {showLabel && (
-        <span className="tabular-nums text-foreground">{score}%</span>
-      )}
+      {showLabel && <span className="tabular-nums text-foreground">{score}%</span>}
     </div>
   );
 };
@@ -484,16 +418,8 @@ interface SectionCardProps {
   className?: string;
 }
 
-export const SectionCard: React.FC<SectionCardProps> = ({
-  children,
-  className,
-}) => (
-  <section
-    className={cn(
-      "rounded-xl border border-border/60 bg-card/40 p-4",
-      className,
-    )}
-  >
+export const SectionCard: React.FC<SectionCardProps> = ({ children, className }) => (
+  <section className={cn("rounded-xl border border-border/60 bg-card/40 p-4", className)}>
     {children}
   </section>
 );
@@ -508,9 +434,5 @@ interface PageMainProps {
 }
 
 export const PageMain: React.FC<PageMainProps> = ({ children, className }) => (
-  <main
-    className={cn("container mx-auto space-y-6 px-4 py-6 pb-12", className)}
-  >
-    {children}
-  </main>
+  <main className={cn("container mx-auto space-y-6 px-4 py-6 pb-12", className)}>{children}</main>
 );

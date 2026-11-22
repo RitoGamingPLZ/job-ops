@@ -30,8 +30,7 @@ export const bamboohrWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourceSearchText: "custom bamboohr url",
     customSourceInputLabel: "Custom BambooHR URL",
     customSourcePlaceholder: "https://company.bamboohr.com/careers",
-    customSourceHelpText:
-      "Use the public BambooHR careers URL, not an individual job posting URL.",
+    customSourceHelpText: "Use the public BambooHR careers URL, not an individual job posting URL.",
     emptyCatalogText: "No BambooHR companies found.",
     fetchingLabel: "Fetching from BambooHR...",
     invalidUrlMessage: "Invalid BambooHR URL",
@@ -137,8 +136,7 @@ export const bamboohrWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     return {
       draft,
       source: draft.source ?? null,
-      sourceHost:
-        getSourceHost(input.source.careersUrl) ?? getSourceHost(input.jobRef),
+      sourceHost: getSourceHost(input.source.careersUrl) ?? getSourceHost(input.jobRef),
     };
   },
   async fetchBranding(input) {
@@ -160,20 +158,14 @@ export const bamboohrWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     });
 
     if (!response.ok) {
-      throw upstreamError(
-        `Failed to fetch BambooHR logo with HTTP ${response.status}.`,
-        {
-          url: logoUrl,
-          status: response.status,
-        },
-      );
+      throw upstreamError(`Failed to fetch BambooHR logo with HTTP ${response.status}.`, {
+        url: logoUrl,
+        status: response.status,
+      });
     }
 
     const contentLength = Number(response.headers.get("content-length"));
-    if (
-      Number.isFinite(contentLength) &&
-      contentLength > BAMBOOHR_LOGO_MAX_BYTES
-    ) {
+    if (Number.isFinite(contentLength) && contentLength > BAMBOOHR_LOGO_MAX_BYTES) {
       throw upstreamError("BambooHR company logo exceeded size limit", {
         url: logoUrl,
         contentLength,
@@ -259,10 +251,7 @@ function getSourceHost(value: string): string | null {
   }
 }
 
-function comparePostedAtDesc(
-  left: string | null,
-  right: string | null,
-): number {
+function comparePostedAtDesc(left: string | null, right: string | null): number {
   const leftTime = left ? Date.parse(left) : Number.NaN;
   const rightTime = right ? Date.parse(right) : Number.NaN;
   const leftValid = Number.isFinite(leftTime);

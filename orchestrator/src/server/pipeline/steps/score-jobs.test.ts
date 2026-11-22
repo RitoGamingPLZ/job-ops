@@ -165,27 +165,27 @@ describe("scoreJobsStep auto-skip behavior", () => {
   it.each([
     { score: 90, exceptional: 0 },
     { score: 91, exceptional: 1 },
-  ])("reports $exceptional exceptional matches for a score of $score", async ({
-    score,
-    exceptional,
-  }) => {
-    const scorer = await import("@server/services/scorer");
-    const { progressHelpers } = await import("../progress");
-    vi.mocked(scorer.scoreJobSuitability).mockResolvedValue({
-      score,
-      reason: "Test score",
-      jobBrief: null,
-    });
+  ])(
+    "reports $exceptional exceptional matches for a score of $score",
+    async ({ score, exceptional }) => {
+      const scorer = await import("@server/services/scorer");
+      const { progressHelpers } = await import("../progress");
+      vi.mocked(scorer.scoreJobSuitability).mockResolvedValue({
+        score,
+        reason: "Test score",
+        jobBrief: null,
+      });
 
-    await scoreJobsStep({ profile: {} });
+      await scoreJobsStep({ profile: {} });
 
-    expect(progressHelpers.scoringJob).toHaveBeenCalledWith(
-      1,
-      1,
-      expect.objectContaining({ id: "job-1" }),
-      exceptional,
-    );
-  });
+      expect(progressHelpers.scoringJob).toHaveBeenCalledWith(
+        1,
+        1,
+        expect.objectContaining({ id: "job-1" }),
+        exceptional,
+      );
+    },
+  );
 
   it("does not auto-skip jobs when score equals threshold", async () => {
     const settingsRepo = await import("@server/repositories/settings");
@@ -265,10 +265,7 @@ describe("scoreJobsStep auto-skip behavior", () => {
 
     await scoreJobsStep({ profile: {} });
 
-    expect(jobsRepo.updateJob).toHaveBeenCalledWith(
-      "job-applied",
-      expect.any(Object),
-    );
+    expect(jobsRepo.updateJob).toHaveBeenCalledWith("job-applied", expect.any(Object));
     const updatePayload = vi.mocked(jobsRepo.updateJob).mock.calls[0][1] as {
       status?: string;
     };
@@ -352,9 +349,7 @@ describe("scoreJobsStep auto-skip behavior", () => {
 
     vi.mocked(scorer.scoreJobSuitability)
       .mockRejectedValueOnce(
-        new scorer.ScoringUnavailableError(
-          "AI scoring failed: No content in response",
-        ),
+        new scorer.ScoringUnavailableError("AI scoring failed: No content in response"),
       )
       .mockResolvedValueOnce({
         score: 72,
@@ -394,9 +389,7 @@ describe("scoreJobsStep auto-skip behavior", () => {
     );
 
     vi.mocked(scorer.scoreJobSuitability).mockRejectedValue(
-      new scorer.ScoringUnavailableError(
-        "AI scoring failed: No content in response",
-      ),
+      new scorer.ScoringUnavailableError("AI scoring failed: No content in response"),
     );
 
     await expect(scoreJobsStep({ profile: {} })).rejects.toBeInstanceOf(

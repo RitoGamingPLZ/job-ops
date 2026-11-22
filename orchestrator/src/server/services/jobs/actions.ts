@@ -12,15 +12,9 @@ import { isDemoMode } from "@server/config/demo";
 import { generateFinalPdf, processJob } from "@server/pipeline/index";
 import { getJobResume } from "@server/repositories/job-resumes";
 import * as jobsRepo from "@server/repositories/jobs";
-import {
-  simulateProcessJob,
-  simulateRescoreJob,
-} from "@server/services/demo-simulator";
+import { simulateProcessJob, simulateRescoreJob } from "@server/services/demo-simulator";
 import { regenerateJobResume } from "@server/services/job-resume";
-import {
-  getJobPdfFreshness,
-  resolvePdfFingerprintContext,
-} from "@server/services/pdf-fingerprint";
+import { getJobPdfFreshness, resolvePdfFingerprintContext } from "@server/services/pdf-fingerprint";
 import { getProfile } from "@server/services/profile";
 import { scoreJobSuitability } from "@server/services/scorer";
 import { getEffectiveSettings } from "@server/services/settings";
@@ -35,10 +29,7 @@ import {
   type JobStatus,
 } from "@shared/types";
 
-const SKIPPABLE_STATUSES: ReadonlySet<JobStatus> = new Set([
-  "discovered",
-  "ready",
-]);
+const SKIPPABLE_STATUSES: ReadonlySet<JobStatus> = new Set(["discovered", "ready"]);
 
 function mapErrorForResult(error: unknown): {
   code: string;
@@ -69,27 +60,17 @@ function mapErrorForResult(error: unknown): {
 export type JobActionExecutionOptions = {
   getProfileForRescore?: () => Promise<Record<string, unknown>>;
   requestOrigin?: string | null;
-  analyticsOrigin?:
-    | "move_to_ready"
-    | "generate_pdf"
-    | "pipeline"
-    | "manual_job_create";
+  analyticsOrigin?: "move_to_ready" | "generate_pdf" | "pipeline" | "manual_job_create";
 };
 
-export function createSharedRescoreProfileLoader(): () => Promise<
-  Record<string, unknown>
-> {
+export function createSharedRescoreProfileLoader(): () => Promise<Record<string, unknown>> {
   let profilePromise: Promise<Record<string, unknown>> | null = null;
 
   return async () => {
     if (!profilePromise) {
       profilePromise = (async () => {
         const rawProfile = await getProfile();
-        if (
-          !rawProfile ||
-          typeof rawProfile !== "object" ||
-          Array.isArray(rawProfile)
-        ) {
+        if (!rawProfile || typeof rawProfile !== "object" || Array.isArray(rawProfile)) {
           throw badRequest("Invalid resume profile format");
         }
         return rawProfile as Record<string, unknown>;
@@ -107,19 +88,14 @@ export function buildJobActionExecutionOptions(
     ...(action === "rescore" && !isDemoMode()
       ? { getProfileForRescore: createSharedRescoreProfileLoader() }
       : {}),
-    ...(action === "move_to_ready"
-      ? { requestOrigin: options?.requestOrigin ?? null }
-      : {}),
+    ...(action === "move_to_ready" ? { requestOrigin: options?.requestOrigin ?? null } : {}),
   };
 }
 
 const pendingTargets = new Set<string>();
 
 /** Start in the caller's async tenant/request context; never hold the HTTP response for rendering. */
-export async function targetJobInBackground(
-  jobId: string,
-  options?: JobActionExecutionOptions,
-) {
+export async function targetJobInBackground(jobId: string, options?: JobActionExecutionOptions) {
   const job = await jobsRepo.getJobById(jobId);
   if (!job)
     throw new AppError({
@@ -128,10 +104,7 @@ export async function targetJobInBackground(
       message: "Job not found",
     });
   const updated = await jobsRepo.setJobTargeted(jobId, true);
-  if (!updated)
-    throw badRequest(
-      "Only discovered, processing, or ready jobs can be targeted",
-    );
+  if (!updated) throw badRequest("Only discovered, processing, or ready jobs can be targeted");
   const scopeKey = getPrivateDataScope().scopeKey;
   const key = `${scopeKey}:${jobId}`;
   // In-memory only, so a job left in "processing" by a restart is retryable.
@@ -146,8 +119,7 @@ export async function targetJobInBackground(
   try {
     // Show "processing" in this response and the next list fetch; ready jobs stay visible.
     if (updated.status === "discovered")
-      response =
-        (await jobsRepo.updateJob(jobId, { status: "processing" })) ?? updated;
+      response = (await jobsRepo.updateJob(jobId, { status: "processing" })) ?? updated;
   } catch (error) {
     pendingTargets.delete(key);
     throw error;
@@ -168,9 +140,7 @@ export async function targetJobInBackground(
             error: result.error,
           });
       })
-      .catch((error) =>
-        logger.error("Targeted job generation failed", { jobId, error }),
-      )
+      .catch((error) => logger.error("Targeted job generation failed", { jobId, error }))
       .finally(() => pendingTargets.delete(key));
   });
   return response;
@@ -199,10 +169,7 @@ export async function blacklistJobEmployer(jobId: string): Promise<{
       blockedCompanyKeywords: [...current, employer],
     });
   }
-  const hiddenCount = await jobsRepo.skipJobsByEmployer(
-    employer,
-    Array.from(SKIPPABLE_STATUSES),
-  );
+  const hiddenCount = await jobsRepo.skipJobsByEmployer(employer, Array.from(SKIPPABLE_STATUSES));
   const updatedJob = (await jobsRepo.getJobById(jobId)) ?? job;
   return {
     job: updatedJob,
@@ -231,8 +198,7 @@ export async function regenerateJobResumeInBackground(
     pendingResumeBatches.get(scopeKey)?.has(jobId)
   )
     throw conflict("Resume generation is already running");
-  if (!isTargeted(job))
-    throw badRequest("Only targeted jobs can regenerate resumes");
+  if (!isTargeted(job)) throw badRequest("Only targeted jobs can regenerate resumes");
   pendingRegenerations.add(key);
   let response = job;
   try {
@@ -256,14 +222,10 @@ export async function regenerateJobResumeInBackground(
           });
           return generateFinalPdf(jobId, options);
         })();
-        if (!result.success)
-          throw new Error(result.error ?? "Resume PDF generation failed");
+        if (!result.success) throw new Error(result.error ?? "Resume PDF generation failed");
       } catch (error) {
         logger.error("Resume regeneration failed", { jobId, error });
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Resume PDF generation failed";
+        const message = error instanceof Error ? error.message : "Resume PDF generation failed";
         const current = await jobsRepo.getJobById(jobId);
         if (current?.status === "processing")
           await jobsRepo.updateJob(jobId, {
@@ -274,9 +236,7 @@ export async function regenerateJobResumeInBackground(
       } finally {
         pendingRegenerations.delete(key);
       }
-    }).catch((error) =>
-      logger.error("Failed to restore regenerated job", { jobId, error }),
-    );
+    }).catch((error) => logger.error("Failed to restore regenerated job", { jobId, error }));
   });
   return response;
 }
@@ -285,19 +245,14 @@ export async function generateMissingResumesInBackground(
   options?: JobActionExecutionOptions,
 ): Promise<{ jobIds: string[]; alreadyRunning: boolean }> {
   const key = getPrivateDataScope().scopeKey;
-  if (pendingResumeBatches.has(key))
-    return { jobIds: [], alreadyRunning: true };
+  if (pendingResumeBatches.has(key)) return { jobIds: [], alreadyRunning: true };
   // Claim before any asynchronous selection so simultaneous requests cannot race.
   const queuedJobs = new Set<string>();
   pendingResumeBatches.set(key, queuedJobs);
   let jobIds: string[];
   try {
     const context = await resolvePdfFingerprintContext();
-    const jobs = await jobsRepo.getAllJobs([
-      "discovered",
-      "processing",
-      "ready",
-    ]);
+    const jobs = await jobsRepo.getAllJobs(["discovered", "processing", "ready"]);
     jobIds = [];
     for (const job of jobs) {
       if (
@@ -419,22 +374,13 @@ export async function executeJobActionForJob(
       ? await options.getProfileForRescore()
       : await (async () => {
           const rawProfile = await getProfile();
-          if (
-            !rawProfile ||
-            typeof rawProfile !== "object" ||
-            Array.isArray(rawProfile)
-          ) {
+          if (!rawProfile || typeof rawProfile !== "object" || Array.isArray(rawProfile)) {
             throw badRequest("Invalid resume profile format");
           }
           return rawProfile as Record<string, unknown>;
         })();
 
-    const {
-      score,
-      reason,
-      jobBrief,
-      jobUpdates = {},
-    } = await scoreJobSuitability(job, profile);
+    const { score, reason, jobBrief, jobUpdates = {} } = await scoreJobSuitability(job, profile);
 
     const updated = await jobsRepo.updateJob(job.id, {
       ...jobUpdates,
@@ -464,13 +410,9 @@ export async function executeJobActionForJob(
   }
 }
 
-export function mapJobActionFailure(
-  failure: Extract<JobActionResult, { ok: false }>,
-): AppError {
+export function mapJobActionFailure(failure: Extract<JobActionResult, { ok: false }>): AppError {
   const code = (
-    failure.error.code in STATUS_BY_APP_ERROR_CODE
-      ? failure.error.code
-      : "INTERNAL_ERROR"
+    failure.error.code in STATUS_BY_APP_ERROR_CODE ? failure.error.code : "INTERNAL_ERROR"
   ) as AppErrorCode;
 
   return new AppError({

@@ -1,9 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  getLocalDayRange,
-  parseLocalDateKey,
-  toLocalDateKey,
-} from "./local-calendar";
+import { getLocalDayRange, parseLocalDateKey, toLocalDateKey } from "./local-calendar";
 
 describe("local-calendar", () => {
   const previousTimezone = process.env.TZ;
@@ -35,9 +31,7 @@ describe("local-calendar", () => {
     expect(toLocalDateKey(start)).toBe("2026-03-07");
     expect(start.getHours()).toBe(0);
     expect(toLocalDateKey(end)).toBe("2026-03-10");
-    expect([end.getHours(), end.getMinutes(), end.getSeconds()]).toEqual([
-      23, 59, 59,
-    ]);
+    expect([end.getHours(), end.getMinutes(), end.getSeconds()]).toEqual([23, 59, 59]);
     expect(end.getMilliseconds()).toBe(999);
     expect(now.getHours()).toBe(12);
   });

@@ -24,10 +24,7 @@ vi.mock("hiringcafe-extractor/src/browser-pages", () => ({
   },
 }));
 
-import {
-  closeHiringCafeBrowser,
-  readHiringCafeBrowserPage,
-} from "./hiring-cafe-browser";
+import { closeHiringCafeBrowser, readHiringCafeBrowserPage } from "./hiring-cafe-browser";
 
 describe("Hiring Cafe browser scope", () => {
   afterEach(async () => {

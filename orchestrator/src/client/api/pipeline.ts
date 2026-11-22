@@ -80,19 +80,14 @@ export async function solvePipelineChallenge(extractorId: string): Promise<{
   });
 }
 
-export async function skipPipelineChallengeSearch(
-  extractorId: string,
-): Promise<{
+export async function skipPipelineChallengeSearch(extractorId: string): Promise<{
   status: "skipped";
   remaining: number;
 }> {
-  return fetchApi<{ status: "skipped"; remaining: number }>(
-    "/pipeline/skip-challenge-search",
-    {
-      method: "POST",
-      body: JSON.stringify({ extractorId }),
-    },
-  );
+  return fetchApi<{ status: "skipped"; remaining: number }>("/pipeline/skip-challenge-search", {
+    method: "POST",
+    body: JSON.stringify({ extractorId }),
+  });
 }
 
 export async function resumePipelineScoring(): Promise<{ resolved: boolean }> {
@@ -101,12 +96,8 @@ export async function resumePipelineScoring(): Promise<{ resolved: boolean }> {
   });
 }
 
-export async function getPipelineRunInsights(
-  id: string,
-): Promise<PipelineRunInsights> {
-  return fetchApi<PipelineRunInsights>(
-    `/pipeline/runs/${encodeURIComponent(id)}/insights`,
-  );
+export async function getPipelineRunInsights(id: string): Promise<PipelineRunInsights> {
+  return fetchApi<PipelineRunInsights>(`/pipeline/runs/${encodeURIComponent(id)}/insights`);
 }
 
 export async function getPipelineSearchPresets(): Promise<PipelineSearchPresetsResponse> {
@@ -126,35 +117,22 @@ export async function updatePipelineSearchPreset(
   id: string,
   input: UpdatePipelineSearchPresetInput,
 ): Promise<PipelineSearchPreset> {
-  return fetchApi<PipelineSearchPreset>(
-    `/pipeline/search-presets/${encodeURIComponent(id)}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(input),
-    },
-  );
+  return fetchApi<PipelineSearchPreset>(`/pipeline/search-presets/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
-export async function markPipelineSearchPresetUsed(
-  id: string,
-): Promise<PipelineSearchPreset> {
-  return fetchApi<PipelineSearchPreset>(
-    `/pipeline/search-presets/${encodeURIComponent(id)}/used`,
-    {
-      method: "POST",
-    },
-  );
+export async function markPipelineSearchPresetUsed(id: string): Promise<PipelineSearchPreset> {
+  return fetchApi<PipelineSearchPreset>(`/pipeline/search-presets/${encodeURIComponent(id)}/used`, {
+    method: "POST",
+  });
 }
 
-export async function deletePipelineSearchPreset(
-  id: string,
-): Promise<{ deleted: true }> {
-  return fetchApi<{ deleted: true }>(
-    `/pipeline/search-presets/${encodeURIComponent(id)}`,
-    {
-      method: "DELETE",
-    },
-  );
+export async function deletePipelineSearchPreset(id: string): Promise<{ deleted: true }> {
+  return fetchApi<{ deleted: true }>(`/pipeline/search-presets/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }
 
 export async function planPipelineSearch(

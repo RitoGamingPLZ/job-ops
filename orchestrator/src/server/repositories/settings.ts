@@ -5,10 +5,7 @@
 import type { settingsRegistry } from "@shared/settings-registry";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "../db/index";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { settings } = schema;
 
@@ -33,9 +30,7 @@ export async function getSetting(key: SettingKey): Promise<string | null> {
   return row?.value ?? null;
 }
 
-export async function getAllSettings(): Promise<
-  Partial<Record<SettingKey, string>>
-> {
+export async function getAllSettings(): Promise<Partial<Record<SettingKey, string>>> {
   const rows = await db.select().from(settings).where(settingsScopeFilter());
   return rows.reduce(
     (acc, row) => {
@@ -46,17 +41,12 @@ export async function getAllSettings(): Promise<
   );
 }
 
-export async function setSetting(
-  key: SettingKey,
-  value: string | null,
-): Promise<void> {
+export async function setSetting(key: SettingKey, value: string | null): Promise<void> {
   const now = new Date().toISOString();
   const scope = getPrivateDataScope();
 
   if (value === null) {
-    await db
-      .delete(settings)
-      .where(and(settingsScopeFilter(), eq(settings.key, key)));
+    await db.delete(settings).where(and(settingsScopeFilter(), eq(settings.key, key)));
     return;
   }
 

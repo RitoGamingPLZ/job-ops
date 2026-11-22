@@ -1,9 +1,6 @@
 import { logger } from "@infra/logger";
 import type { JsonSchemaDefinition } from "@server/services/llm/types";
-import {
-  createConfiguredLlmService,
-  resolveLlmModel,
-} from "@server/services/modelSelection";
+import { createConfiguredLlmService, resolveLlmModel } from "@server/services/modelSelection";
 import { JSDOM } from "jsdom";
 import { isAllowedByRobots, loadPage } from "./fetch";
 import { detectQueryPagination, runRecipe } from "./run-recipe";
@@ -16,8 +13,7 @@ const matchesUrl = (pattern: RegExp, url: string) =>
   url.length <= MAX_URL_LENGTH && pattern.test(url);
 
 const string = { type: "string" };
-const jobPathPattern =
-  /(?:^|\/)(?:jobs?|careers?|positions?|openings?)(?:[/-]|$)/i;
+const jobPathPattern = /(?:^|\/)(?:jobs?|careers?|positions?|openings?)(?:[/-]|$)/i;
 const recipeJsonSchema: JsonSchemaDefinition = {
   name: "careers_site_recipe",
   schema: {
@@ -104,12 +100,7 @@ const recipeJsonSchema: JsonSchemaDefinition = {
 function ownUrl(value: string, base: URL): string | null {
   try {
     const url = new URL(value, base);
-    if (
-      url.protocol !== "https:" ||
-      url.host !== base.host ||
-      url.username ||
-      url.password
-    ) {
+    if (url.protocol !== "https:" || url.host !== base.host || url.username || url.password) {
       return null;
     }
     url.hash = "";
@@ -123,8 +114,7 @@ function ownUrl(value: string, base: URL): string | null {
 function localeRank(value: string): number {
   const segments = new URL(value).pathname.split("/");
   return segments.some(
-    (part) =>
-      /^[a-z]{2}(?:-[a-z]{2})?$/i.test(part) && !/^en(?:-|$)/i.test(part),
+    (part) => /^[a-z]{2}(?:-[a-z]{2})?$/i.test(part) && !/^en(?:-|$)/i.test(part),
   )
     ? 1
     : 0;
@@ -149,20 +139,14 @@ function safeRegex(source: string): boolean {
     if (char === "[") inClass = true;
     if (char === "]") inClass = false;
     if (inClass) continue;
-    if (
-      char === "*" ||
-      char === "+" ||
-      (char === "{" && /^\d+,\}/.test(source.slice(i + 1)))
-    ) {
+    if (char === "*" || char === "+" || (char === "{" && /^\d+,\}/.test(source.slice(i + 1)))) {
       if (++unboundedQuantifiers > 3) return false;
     }
     if (char === "(") groups.push({ complex: false });
     else if (char === ")") {
       const group = groups.pop();
-      if (group?.complex && /^(?:[+*?]|\{\d)/.test(source.slice(i + 1)))
-        return false;
-      if (group?.complex && groups.length)
-        groups[groups.length - 1].complex = true;
+      if (group?.complex && /^(?:[+*?]|\{\d)/.test(source.slice(i + 1))) return false;
+      if (group?.complex && groups.length) groups[groups.length - 1].complex = true;
     } else if (
       char === "|" ||
       char === "*" ||
@@ -181,8 +165,7 @@ function looksLikeJobUrl(value: string, base: URL): boolean {
   const last = parts.at(-1) || "";
   return (
     parts.length > base.pathname.split("/").filter(Boolean).length &&
-    (/\d{3,}/.test(last) ||
-      (last.length >= 16 && /^[a-z0-9]+(?:-[a-z0-9]+)+$/i.test(last)))
+    (/\d{3,}/.test(last) || (last.length >= 16 && /^[a-z0-9]+(?:-[a-z0-9]+)+$/i.test(last)))
   );
 }
 
@@ -197,15 +180,11 @@ function hasJobPosting(html: string): boolean {
       const object = value as Record<string, unknown>;
       const types = [object["@type"]].flat();
       return (
-        types.some(
-          (type) =>
-            type === "JobPosting" || type === "https://schema.org/JobPosting",
-        ) || containsJob(object["@graph"])
+        types.some((type) => type === "JobPosting" || type === "https://schema.org/JobPosting") ||
+        containsJob(object["@graph"])
       );
     };
-    return Array.from(
-      doc.querySelectorAll('script[type="application/ld+json"]'),
-    ).some((node) => {
+    return Array.from(doc.querySelectorAll('script[type="application/ld+json"]')).some((node) => {
       try {
         return containsJob(JSON.parse(node.textContent || "null"));
       } catch {
@@ -252,10 +231,7 @@ export async function learnRecipe(
     }
   };
   if (!(await isAllowedByRobots(base.href, { signal }))) {
-    throw new SiteBlockedError(
-      base.hostname,
-      "robots.txt disallows the careers URL",
-    );
+    throw new SiteBlockedError(base.hostname, "robots.txt disallows the careers URL");
   }
   const robots = await read(new URL("/robots.txt", base).href);
   const advertised = Array.from(
@@ -302,9 +278,7 @@ export async function learnRecipe(
     );
     if (index) {
       if (entry.depth < 2)
-        queue.unshift(
-          ...urls.slice(0, 8).map((url) => ({ url, depth: entry.depth + 1 })),
-        );
+        queue.unshift(...urls.slice(0, 8).map((url) => ({ url, depth: entry.depth + 1 })));
       continue;
     }
     sitemapUrls.set(entry.url, urls);
@@ -335,8 +309,7 @@ export async function learnRecipe(
           signal,
           bypassCache: true,
         });
-        if (jobs.length && jobs.every((job) => matchesUrl(re, job.url)))
-          return recipe;
+        if (jobs.length && jobs.every((job) => matchesUrl(re, job.url))) return recipe;
       } catch (error) {
         signal.throwIfAborted();
         if (error instanceof SiteBlockedError) throw error;
@@ -350,12 +323,12 @@ export async function learnRecipe(
   const staticDom = new JSDOM(listingHtml || "");
   let hasStaticJobs: boolean;
   try {
-    hasStaticJobs = Array.from(
-      staticDom.window.document.querySelectorAll("a[href]"),
-    ).some((node) => {
-      const url = ownUrl(node.getAttribute("href") || "", base);
-      return url !== null && looksLikeJobUrl(url, base);
-    });
+    hasStaticJobs = Array.from(staticDom.window.document.querySelectorAll("a[href]")).some(
+      (node) => {
+        const url = ownUrl(node.getAttribute("href") || "", base);
+        return url !== null && looksLikeJobUrl(url, base);
+      },
+    );
   } finally {
     staticDom.window.close();
   }
@@ -363,25 +336,20 @@ export async function learnRecipe(
     listingHtml = (await read(base.href, true)) ?? listingHtml;
     listingRendered = true;
   }
-  if (!listingHtml)
-    throw new RecipeLearningError("Could not load an allowed careers listing");
+  if (!listingHtml) throw new RecipeLearningError("Could not load an allowed careers listing");
   const dom = new JSDOM(listingHtml);
   let links: { url: string; text: string }[];
   let allLinks: { url: string; text: string }[];
   try {
-    links = Array.from(
-      dom.window.document.querySelectorAll("a[href]"),
-      (a) => ({
-        url: ownUrl(a.getAttribute("href") || "", base),
-        text: (a.textContent || "").replace(/\s+/g, " ").trim().slice(0, 160),
-      }),
-    ).filter((a): a is { url: string; text: string } => a.url !== null);
+    links = Array.from(dom.window.document.querySelectorAll("a[href]"), (a) => ({
+      url: ownUrl(a.getAttribute("href") || "", base),
+      text: (a.textContent || "").replace(/\s+/g, " ").trim().slice(0, 160),
+    })).filter((a): a is { url: string; text: string } => a.url !== null);
     allLinks = Array.from(new Map(links.map((a) => [a.url, a])).values());
     links = allLinks.filter((link) => link.url !== base.href);
     links.sort(
       (a, b) =>
-        Number(looksLikeJobUrl(b.url, base)) -
-          Number(looksLikeJobUrl(a.url, base)) ||
+        Number(looksLikeJobUrl(b.url, base)) - Number(looksLikeJobUrl(a.url, base)) ||
         Number(jobPathPattern.test(new URL(b.url).pathname)) -
           Number(jobPathPattern.test(new URL(a.url).pathname)),
     );
@@ -412,10 +380,7 @@ export async function learnRecipe(
       }
     }
   }
-  if (!sample)
-    throw new RecipeLearningError(
-      "No allowed job page found for recipe learning",
-    );
+  if (!sample) throw new RecipeLearningError("No allowed job page found for recipe learning");
   const detailDom = new JSDOM(sample.html);
   let outline: string;
   try {
@@ -426,8 +391,7 @@ export async function learnRecipe(
       });
     outline = Array.from(
       (
-        detailDom.window.document.querySelector("main") ||
-        detailDom.window.document.body
+        detailDom.window.document.querySelector("main") || detailDom.window.document.body
       ).querySelectorAll("*"),
     )
       .slice(0, 350)
@@ -464,16 +428,11 @@ export async function learnRecipe(
   let evidence = JSON.stringify(evidenceData);
   while (Buffer.byteLength(evidence, "utf8") > 55_000) {
     if (evidenceData.jobPageOutline.length > 1_000) {
-      evidenceData.jobPageOutline = evidenceData.jobPageOutline.slice(
-        0,
-        -1_000,
-      );
+      evidenceData.jobPageOutline = evidenceData.jobPageOutline.slice(0, -1_000);
     } else if (evidenceData.links.length) {
       evidenceData.links.pop();
     } else {
-      throw new RecipeLearningError(
-        "Careers URL evidence exceeds the learning budget",
-      );
+      throw new RecipeLearningError("Careers URL evidence exceeds the learning budget");
     }
     evidence = JSON.stringify(evidenceData);
   }
@@ -502,95 +461,63 @@ export async function learnRecipe(
           throw new RecipeLearningError("LLM API key not configured");
         const status = response.error.match(/LLM API error: (\d{3})\b/)?.[1];
         throw new RecipeLearningError(
-          status
-            ? `LLM request failed (HTTP ${status})`
-            : "LLM could not return a recipe",
+          status ? `LLM request failed (HTTP ${status})` : "LLM could not return a recipe",
         );
       }
       const parsed = recipeSchema.safeParse(response.data);
       if (!parsed.success) {
         // Only fixed schema field names; never rejected values.
         const field =
-          [
-            "version",
-            "jobUrlPattern",
-            "jobIdPattern",
-            "listing",
-            "detail",
-          ].find((name) => name === parsed.error.issues[0]?.path[0]) ||
-          "recipe";
-        throw new RecipeLearningError(
-          `Recipe failed schema validation (${field})`,
-        );
+          ["version", "jobUrlPattern", "jobIdPattern", "listing", "detail"].find(
+            (name) => name === parsed.error.issues[0]?.path[0],
+          ) || "recipe";
+        throw new RecipeLearningError(`Recipe failed schema validation (${field})`);
       }
       const recipe = parsed.data;
       if (!ownUrl(recipe.listing.url, base))
-        throw new RecipeLearningError(
-          "Listing URL must stay on the same HTTPS host",
-        );
+        throw new RecipeLearningError("Listing URL must stay on the same HTTPS host");
       if (
         !safeRegex(recipe.jobUrlPattern) ||
         (recipe.jobIdPattern !== undefined && !safeRegex(recipe.jobIdPattern))
       )
-        throw new RecipeLearningError(
-          "Recipe contains an unsafe regular expression",
-        );
+        throw new RecipeLearningError("Recipe contains an unsafe regular expression");
       let re: RegExp;
       let hasIdCapture = true;
       try {
         re = new RegExp(recipe.jobUrlPattern);
         if (recipe.jobIdPattern !== undefined)
-          hasIdCapture =
-            (new RegExp(`${recipe.jobIdPattern}|`).exec("")?.length ?? 0) >= 2;
+          hasIdCapture = (new RegExp(`${recipe.jobIdPattern}|`).exec("")?.length ?? 0) >= 2;
       } catch {
-        throw new RecipeLearningError(
-          "Recipe contains an invalid regular expression",
-        );
+        throw new RecipeLearningError("Recipe contains an invalid regular expression");
       }
-      if (!hasIdCapture)
-        throw new RecipeLearningError("Missing job ID capture group");
-      const boundedLinks = allLinks.filter(
-        (link) => link.url.length <= MAX_URL_LENGTH,
-      );
+      if (!hasIdCapture) throw new RecipeLearningError("Missing job ID capture group");
+      const boundedLinks = allLinks.filter((link) => link.url.length <= MAX_URL_LENGTH);
       if (
         matchesUrl(re, base.href) ||
         matchesUrl(re, new URL("/", base).href) ||
-        (boundedLinks.length >= 3 &&
-          boundedLinks.every((link) => matchesUrl(re, link.url))) ||
-        ((looksLikeJobUrl(sample.url, base) ||
-          evidenceData.jobPageHasJobPosting) &&
+        (boundedLinks.length >= 3 && boundedLinks.every((link) => matchesUrl(re, link.url))) ||
+        ((looksLikeJobUrl(sample.url, base) || evidenceData.jobPageHasJobPosting) &&
           !matchesUrl(re, sample.url))
       )
-        throw new RecipeLearningError(
-          "Recipe pattern does not distinguish job URLs",
-        );
+        throw new RecipeLearningError("Recipe pattern does not distinguish job URLs");
       if (!(await isAllowedByRobots(recipe.listing.url, { signal })))
-        throw new RecipeLearningError(
-          "Listing URL is disallowed by robots.txt",
-        );
+        throw new RecipeLearningError("Listing URL is disallowed by robots.txt");
       // Reuse sitemap evidence already read during tier 0. A learned URL pattern
       // can identify useful job sitemaps even when structured data was absent.
       if (recipe.listing.kind === "page") {
         const listingUrls = new Set(
-          allLinks
-            .filter((link) => matchesUrl(re, link.url))
-            .map((link) => link.url),
+          allLinks.filter((link) => matchesUrl(re, link.url)).map((link) => link.url),
         );
         const listingCount = listingUrls.size;
         let best: { url: string; count: number } | undefined;
         for (const [url, urls] of sitemapUrls) {
-          const candidates = new Set(
-            urls.filter((candidate) => matchesUrl(re, candidate)),
-          );
+          const candidates = new Set(urls.filter((candidate) => matchesUrl(re, candidate)));
           const count = candidates.size;
-          const overlap = [...listingUrls].filter((url) =>
-            candidates.has(url),
-          ).length;
+          const overlap = [...listingUrls].filter((url) => candidates.has(url)).length;
           if (
             overlap > listingCount / 2 &&
             count > listingCount &&
-            (count >= Math.max(2, listingCount * 2) ||
-              count >= listingCount + 20) &&
+            (count >= Math.max(2, listingCount * 2) || count >= listingCount + 20) &&
             (!best || count > best.count)
           ) {
             best = { url, count };
@@ -600,46 +527,33 @@ export async function learnRecipe(
         if (best) recipe.listing = { kind: "sitemap", url: best.url };
       }
       if (recipe.detail.kind === "selectors" && recipe.detail.render) {
-        const staticHtml =
-          pages.get(`false:${sample.url}`) ?? (await read(sample.url));
+        const staticHtml = pages.get(`false:${sample.url}`) ?? (await read(sample.url));
         const staticDoc = new JSDOM(staticHtml || "");
         try {
           if (
-            staticDoc.window.document
-              .querySelector(recipe.detail.title)
-              ?.textContent?.trim() &&
-            staticDoc.window.document
-              .querySelector(recipe.detail.description)
-              ?.textContent?.trim()
+            staticDoc.window.document.querySelector(recipe.detail.title)?.textContent?.trim() &&
+            staticDoc.window.document.querySelector(recipe.detail.description)?.textContent?.trim()
           )
             recipe.detail.render = false;
         } finally {
           staticDoc.window.close();
         }
       }
-      if (
-        recipe.listing.kind === "page" &&
-        recipe.listing.pagination.kind === "query"
-      ) {
+      if (recipe.listing.kind === "page" && recipe.listing.pagination.kind === "query") {
         const listing = recipe.listing;
         const pagination = listing.pagination;
         if (pagination.kind === "query") {
           const firstUrl = new URL(listing.url);
           firstUrl.searchParams.set(pagination.param, String(pagination.start));
           const secondUrl = new URL(firstUrl);
-          secondUrl.searchParams.set(
-            pagination.param,
-            String(pagination.start + pagination.step),
-          );
+          secondUrl.searchParams.set(pagination.param, String(pagination.start + pagination.step));
           const jobLinks = (html: string | null) => {
             const doc = new JSDOM(html || "");
             try {
               return new Set(
                 Array.from(doc.window.document.querySelectorAll("a[href]"))
                   .map((node) => ownUrl(node.getAttribute("href") || "", base))
-                  .filter(
-                    (url): url is string => url !== null && matchesUrl(re, url),
-                  ),
+                  .filter((url): url is string => url !== null && matchesUrl(re, url)),
               );
             } finally {
               doc.window.close();
@@ -650,9 +564,7 @@ export async function learnRecipe(
             firstHtml !== undefined
               ? jobLinks(firstHtml)
               : new Set(
-                  allLinks
-                    .filter((link) => matchesUrl(re, link.url))
-                    .map((link) => link.url),
+                  allLinks.filter((link) => matchesUrl(re, link.url)).map((link) => link.url),
                 );
           const second = jobLinks(await read(secondUrl.href, listing.render));
           if (!first.size || ![...second].some((url) => !first.has(url))) {
@@ -668,30 +580,19 @@ export async function learnRecipe(
       }).catch((error: unknown) => {
         signal.throwIfAborted();
         if (error instanceof SiteBlockedError) throw error;
-        throw new RecipeLearningError(
-          "Recipe verification failed during execution",
-        );
+        throw new RecipeLearningError("Recipe verification failed during execution");
       });
-      if (jobs.length === 0)
-        throw new RecipeLearningError("Recipe found no jobs");
+      if (jobs.length === 0) throw new RecipeLearningError("Recipe found no jobs");
       if (jobs.some((job) => !matchesUrl(re, job.url)))
-        throw new RecipeLearningError(
-          "Recipe returned URLs outside its job pattern",
-        );
+        throw new RecipeLearningError("Recipe returned URLs outside its job pattern");
       return recipe;
     } catch (error) {
       signal.throwIfAborted();
       if (error instanceof SiteBlockedError) throw error;
-      if (
-        error instanceof Error &&
-        error.message === "LLM API key not configured"
-      )
-        throw error;
+      if (error instanceof Error && error.message === "LLM API key not configured") throw error;
       // Never reflect upstream bodies, provider messages, or page text into errors.
       const reason =
-        error instanceof RecipeLearningError
-          ? error.message
-          : "LLM recipe request failed";
+        error instanceof RecipeLearningError ? error.message : "LLM recipe request failed";
       logger.warn("Careers recipe rejected", {
         host: base.hostname,
         attempt: attempt + 1,
@@ -699,9 +600,7 @@ export async function learnRecipe(
       });
       feedback = `\nPrevious recipe failed: ${reason}. Return a corrected Recipe using the evidence.`;
       if (attempt === 1)
-        throw new RecipeLearningError(
-          `Could not learn a verified careers recipe: ${reason}`,
-        );
+        throw new RecipeLearningError(`Could not learn a verified careers recipe: ${reason}`);
     }
   }
   throw new RecipeLearningError("Could not learn a verified careers recipe");

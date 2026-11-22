@@ -203,9 +203,7 @@ describe("LlmService", () => {
       return {
         ok: true,
         json: async () => ({
-          choices: [
-            { message: { content: '{"value": "success", "count": 3}' } },
-          ],
+          choices: [{ message: { content: '{"value": "success", "count": 3}' } }],
         }),
       } as Response;
     });
@@ -318,16 +316,12 @@ describe("parseJsonContent", () => {
   });
 
   it("handles markdown code fences", () => {
-    const result = parseJsonContent<{ foo: string }>(
-      '```json\n{"foo": "bar"}\n```',
-    );
+    const result = parseJsonContent<{ foo: string }>('```json\n{"foo": "bar"}\n```');
     expect(result.foo).toBe("bar");
   });
 
   it("handles json without language specifier", () => {
-    const result = parseJsonContent<{ foo: string }>(
-      '```\n{"foo": "bar"}\n```',
-    );
+    const result = parseJsonContent<{ foo: string }>('```\n{"foo": "bar"}\n```');
     expect(result.foo).toBe("bar");
   });
 

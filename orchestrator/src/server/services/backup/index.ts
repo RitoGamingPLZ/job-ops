@@ -18,8 +18,7 @@ const DB_FILENAME = "jobs.db";
 const AUTO_BACKUP_PREFIX = "jobs_";
 const MANUAL_BACKUP_PREFIX = "jobs_manual_";
 const AUTO_BACKUP_PATTERN = /^jobs_\d{4}_\d{2}_\d{2}\.db$/;
-const MANUAL_BACKUP_PATTERN =
-  /^jobs_manual_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}(?:_\d+)?\.db$/;
+const MANUAL_BACKUP_PATTERN = /^jobs_manual_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}(?:_\d+)?\.db$/;
 
 const AUTO_BACKUP_REGEX = /^jobs_(\d{4})_(\d{2})_(\d{2})\.db$/;
 const MANUAL_BACKUP_REGEX =
@@ -138,9 +137,7 @@ export async function createBackup(type: "auto" | "manual"): Promise<string> {
     throw new Error(`Database file not found: ${dbPath}`);
   }
 
-  const tryReserve = async (
-    candidatePath: string,
-  ): Promise<FileHandle | null> => {
+  const tryReserve = async (candidatePath: string): Promise<FileHandle | null> => {
     try {
       return await fs.promises.open(candidatePath, "wx");
     } catch (error) {
@@ -163,8 +160,7 @@ export async function createBackup(type: "auto" | "manual"): Promise<string> {
     let sequence = 0;
 
     while (!reservedHandle && sequence <= 100) {
-      const candidate =
-        sequence === 0 ? baseFilename : `${baseName}_${sequence}.db`;
+      const candidate = sequence === 0 ? baseFilename : `${baseName}_${sequence}.db`;
       const candidatePath = path.join(backupDir, candidate);
       const reserved = await tryReserve(candidatePath);
       if (reserved) {
@@ -212,8 +208,7 @@ export async function listBackups(): Promise<BackupInfo[]> {
 
   const files = await fs.promises.readdir(backupDir);
   const backupFiles = files.filter(
-    (file) =>
-      AUTO_BACKUP_PATTERN.test(file) || MANUAL_BACKUP_PATTERN.test(file),
+    (file) => AUTO_BACKUP_PATTERN.test(file) || MANUAL_BACKUP_PATTERN.test(file),
   );
 
   const backups: BackupInfo[] = [];
@@ -233,18 +228,13 @@ export async function listBackups(): Promise<BackupInfo[]> {
     }
   }
 
-  backups.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+  backups.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return backups;
 }
 
 export async function deleteBackup(filename: string): Promise<void> {
-  if (
-    !AUTO_BACKUP_PATTERN.test(filename) &&
-    !MANUAL_BACKUP_PATTERN.test(filename)
-  ) {
+  if (!AUTO_BACKUP_PATTERN.test(filename) && !MANUAL_BACKUP_PATTERN.test(filename)) {
     throw new Error("Invalid backup filename");
   }
 
@@ -263,9 +253,7 @@ export async function cleanupOldBackups(): Promise<void> {
   const backups = await listBackups();
   const autoBackups = backups.filter((b) => b.type === "auto");
 
-  autoBackups.sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  );
+  autoBackups.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   const maxCount = currentSettings.maxCount;
   if (autoBackups.length > maxCount) {

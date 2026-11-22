@@ -10,8 +10,7 @@ const { bindings } = vi.hoisted(() => ({
 }));
 vi.mock("@client/api", () => ({ targetJob: vi.fn(), untargetJob: vi.fn() }));
 vi.mock("@client/hooks/useHotkeys", () => ({
-  useHotkeys: (keys: Record<string, () => void>) =>
-    Object.assign(bindings, keys),
+  useHotkeys: (keys: Record<string, () => void>) => Object.assign(bindings, keys),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 

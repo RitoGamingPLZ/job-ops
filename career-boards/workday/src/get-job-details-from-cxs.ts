@@ -89,8 +89,7 @@ export async function getJobDetailsFromCxs(
   if (!fetchFn) {
     throw new WorkdayCxsFetchError({
       url: options.jobUrl,
-      message:
-        "No fetch implementation available. Pass fetchImpl or use Node 18+.",
+      message: "No fetch implementation available. Pass fetchImpl or use Node 18+.",
     });
   }
 
@@ -205,11 +204,7 @@ export function normalizeWorkdayCxsJobDetails(
   };
 }
 
-function requiredString(
-  value: unknown,
-  fieldName: string,
-  url: string,
-): string {
+function requiredString(value: unknown, fieldName: string, url: string): string {
   if (typeof value === "string" && value.trim()) return value.trim();
   throw new WorkdayCxsFetchError({
     url,

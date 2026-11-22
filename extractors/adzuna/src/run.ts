@@ -1,13 +1,7 @@
 import { normalizeCountryKey } from "@shared/location-support.js";
-import {
-  resolveSearchCities,
-  shouldApplyStrictCityFilter,
-} from "@shared/search-cities.js";
+import { resolveSearchCities, shouldApplyStrictCityFilter } from "@shared/search-cities.js";
 import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
-import {
-  toNumberOrNull,
-  toStringOrNull,
-} from "@shared/utils/type-conversion.js";
+import { toNumberOrNull, toStringOrNull } from "@shared/utils/type-conversion.js";
 
 const API_BASE = "https://api.adzuna.com/v1/api";
 const DEFAULT_SEARCH_TERM = "web developer";
@@ -96,8 +90,7 @@ function mapAdzunaJob(raw: AdzunaRawJob): CreateJobInput | null {
 
   const id = toStringOrNull(raw.id);
   const title = toStringOrNull(raw.title) ?? "Unknown Title";
-  const employer =
-    toStringOrNull(raw.company?.display_name) ?? "Unknown Employer";
+  const employer = toStringOrNull(raw.company?.display_name) ?? "Unknown Employer";
   const location = toStringOrNull(raw.location?.display_name);
   const locationEvidence = location
     ? ({
@@ -163,9 +156,7 @@ export async function fetchAdzunaJobsPage(args: {
 /**
  * Worker-safe Adzuna extractor using direct fetch calls without child_process.
  */
-export async function runAdzuna(
-  options: RunAdzunaOptions = {},
-): Promise<AdzunaResult> {
+export async function runAdzuna(options: RunAdzunaOptions = {}): Promise<AdzunaResult> {
   const appId = options.appId?.trim() || readEnvVar("ADZUNA_APP_ID");
   const appKey = options.appKey?.trim() || readEnvVar("ADZUNA_APP_KEY");
   if (!appId || !appKey) {

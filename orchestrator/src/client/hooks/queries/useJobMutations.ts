@@ -1,9 +1,5 @@
 import * as api from "@client/api";
-import type {
-  CreateJobNoteInput,
-  Job,
-  UpdateJobNoteInput,
-} from "@shared/types";
+import type { CreateJobNoteInput, Job, UpdateJobNoteInput } from "@shared/types";
 import type { QueryClient } from "@tanstack/react-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/client/lib/queryKeys";
@@ -21,8 +17,7 @@ export async function invalidateJobNotesData(
 export function useUpdateJobMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, update }: { id: string; update: Partial<Job> }) =>
-      api.updateJob(id, update),
+    mutationFn: ({ id, update }: { id: string; update: Partial<Job> }) => api.updateJob(id, update),
     onSuccess: async (_data, variables) => {
       await invalidateJobData(queryClient, variables.id);
     },
@@ -35,9 +30,7 @@ export function useMarkAsAppliedMutation() {
     mutationFn: (id: string) => api.markAsApplied(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.jobs.detail(id) });
-      const previousJob = queryClient.getQueryData<Job>(
-        queryKeys.jobs.detail(id),
-      );
+      const previousJob = queryClient.getQueryData<Job>(queryKeys.jobs.detail(id));
       queryClient.setQueryData<Job>(queryKeys.jobs.detail(id), (current) =>
         current ? { ...current, status: "applied" } : current,
       );
@@ -45,10 +38,7 @@ export function useMarkAsAppliedMutation() {
     },
     onError: (_error, _id, context) => {
       if (context?.id) {
-        queryClient.setQueryData(
-          queryKeys.jobs.detail(context.id),
-          context.previousJob,
-        );
+        queryClient.setQueryData(queryKeys.jobs.detail(context.id), context.previousJob);
       }
     },
     onSettled: async (_data, _error, id) => {
@@ -63,9 +53,7 @@ export function useSkipJobMutation() {
     mutationFn: (id: string) => api.skipJob(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.jobs.detail(id) });
-      const previousJob = queryClient.getQueryData<Job>(
-        queryKeys.jobs.detail(id),
-      );
+      const previousJob = queryClient.getQueryData<Job>(queryKeys.jobs.detail(id));
       queryClient.setQueryData<Job>(queryKeys.jobs.detail(id), (current) =>
         current ? { ...current, status: "skipped" } : current,
       );
@@ -73,10 +61,7 @@ export function useSkipJobMutation() {
     },
     onError: (_error, _id, context) => {
       if (context?.id) {
-        queryClient.setQueryData(
-          queryKeys.jobs.detail(context.id),
-          context.previousJob,
-        );
+        queryClient.setQueryData(queryKeys.jobs.detail(context.id), context.previousJob);
       }
     },
     onSettled: async (_data, _error, id) => {
@@ -119,13 +104,8 @@ export function usePrepareResumeMutation() {
 export function useCreateJobNoteMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      jobId,
-      input,
-    }: {
-      jobId: string;
-      input: CreateJobNoteInput;
-    }) => api.createJobNote(jobId, input),
+    mutationFn: ({ jobId, input }: { jobId: string; input: CreateJobNoteInput }) =>
+      api.createJobNote(jobId, input),
     onSuccess: async (_data, variables) => {
       await invalidateJobNotesData(queryClient, variables.jobId);
     },

@@ -1,15 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
-import {
-  access,
-  mkdir,
-  readdir,
-  readFile,
-  rename,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { access, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { getDataDir } from "@server/config/dataDir";
 
@@ -73,19 +64,12 @@ export interface R2BucketLike {
 }
 
 function normalizeBlobKey(key: string): string {
-  const normalized = key
-    .replace(/\\/g, "/")
-    .replace(/^\/+/, "")
-    .replace(/\/+/g, "/");
+  const normalized = key.replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+/g, "/");
   if (!normalized) {
     throw new Error("Blob key must not be empty");
   }
   const segments = normalized.split("/");
-  if (
-    segments.some(
-      (segment) => segment === "" || segment === "." || segment === "..",
-    )
-  ) {
+  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
     throw new Error(`Invalid blob key: ${key}`);
   }
   return normalized;
@@ -96,9 +80,7 @@ function normalizeBlobPrefix(prefix?: string): string {
   return prefix.replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+/g, "/");
 }
 
-function toUint8Array(
-  data: Uint8Array | Buffer | ArrayBuffer | string,
-): Uint8Array {
+function toUint8Array(data: Uint8Array | Buffer | ArrayBuffer | string): Uint8Array {
   if (typeof data === "string") {
     return new TextEncoder().encode(data);
   }
@@ -147,11 +129,7 @@ export class LocalBlobStore implements BlobStore {
     const { normalizedKey, fullPath } = this.resolveKeyPath(key);
     try {
       const buffer = await readFile(fullPath);
-      const body = new Uint8Array(
-        buffer.buffer,
-        buffer.byteOffset,
-        buffer.byteLength,
-      );
+      const body = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
       return {
         key: normalizedKey,
         body,
@@ -212,12 +190,8 @@ export class LocalBlobStore implements BlobStore {
       throw new Error(`Invalid blob key: ${prefix}`);
     }
     if (segments.includes(".")) return [];
-    const prefixDir = prefix
-      .slice(0, prefix.lastIndexOf("/") + 1)
-      .replace(/\/$/, "");
-    const startDir = prefixDir
-      ? this.resolveKeyPath(prefixDir).fullPath
-      : rootDir;
+    const prefixDir = prefix.slice(0, prefix.lastIndexOf("/") + 1).replace(/\/$/, "");
+    const startDir = prefixDir ? this.resolveKeyPath(prefixDir).fullPath : rootDir;
     const entries: BlobListEntry[] = [];
 
     const walk = async (dirPath: string): Promise<void> => {
@@ -294,9 +268,7 @@ export class R2BlobStore implements BlobStore {
     await this.bucket.put(
       normalizedKey,
       bytes,
-      options?.contentType
-        ? { httpMetadata: { contentType: options.contentType } }
-        : undefined,
+      options?.contentType ? { httpMetadata: { contentType: options.contentType } } : undefined,
     );
     return {
       key: normalizedKey,

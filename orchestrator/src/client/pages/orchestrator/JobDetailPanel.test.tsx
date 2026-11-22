@@ -3,13 +3,7 @@ import { openJobPdf } from "@client/lib/private-pdf";
 import { renderWithQueryClient } from "@client/test/renderWithQueryClient";
 import { createJob } from "@shared/testing/factories.js";
 import type { AppSettings, Job } from "@shared/types.js";
-import {
-  act,
-  fireEvent,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type React from "react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,9 +11,7 @@ import { JobDetailPanel } from "./JobDetailPanel";
 
 const LocationWatcher = () => {
   const location = useLocation();
-  return (
-    <div data-testid="location">{location.pathname + location.search}</div>
-  );
+  return <div data-testid="location">{location.pathname + location.search}</div>;
 };
 
 const render = (ui: Parameters<typeof renderWithQueryClient>[0]) =>
@@ -41,12 +33,8 @@ const mockSettings = {
 
 vi.mock("@/components/ui/dropdown-menu", () => {
   return {
-    DropdownMenu: ({ children }: { children: React.ReactNode }) => (
-      <div>{children}</div>
-    ),
-    DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => (
-      <>{children}</>
-    ),
+    DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     DropdownMenuContent: ({ children }: { children: React.ReactNode }) => (
       <div role="menu">{children}</div>
     ),
@@ -58,12 +46,7 @@ vi.mock("@/components/ui/dropdown-menu", () => {
       children: React.ReactNode;
       onSelect?: () => void;
     }) => (
-      <button
-        type="button"
-        role="menuitem"
-        onClick={() => onSelect?.()}
-        {...props}
-      >
+      <button type="button" role="menuitem" onClick={() => onSelect?.()} {...props}>
         {children}
       </button>
     ),
@@ -196,9 +179,7 @@ describe("JobDetailPanel", () => {
       onSelectJobId: vi.fn(),
       onJobUpdated: vi.fn(),
     });
-    expect(screen.getAllByRole("link", { name: "Open resume" })).toHaveLength(
-      1,
-    );
+    expect(screen.getAllByRole("link", { name: "Open resume" })).toHaveLength(1);
     expect(screen.getByRole("link", { name: "Open resume" })).toHaveAttribute(
       "href",
       "/resumes/job-1?mode=edit",
@@ -207,35 +188,33 @@ describe("JobDetailPanel", () => {
     expect(document.querySelector('a[href*="inspector=tailoring"]')).toBeNull();
   });
 
-  it.each([
-    "edit",
-    "preview",
-  ])("opens the selected job among multiple jobs in %s mode", async (mode) => {
-    const selectedJob = createJob({
-      id: "selected",
-      status: "ready",
-      readyAt: "2026-11-08",
-    });
-    await renderJobDetailPanel({
-      activeTab: "all",
-      activeJobs: [createJob(), selectedJob],
-      selectedJob,
-      onSelectJobId: vi.fn(),
-      onJobUpdated: vi.fn(),
-    });
-    fireEvent.click(
-      mode === "edit"
-        ? screen.getByRole("link", { name: "Open resume" })
-        : screen.getByRole("button", { name: "Preview PDF" }),
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        `/resumes/selected?mode=${mode}`,
-      ),
-    );
-    expect(api.generateJobPdf).not.toHaveBeenCalled();
-    expect(openJobPdf).not.toHaveBeenCalled();
-  });
+  it.each(["edit", "preview"])(
+    "opens the selected job among multiple jobs in %s mode",
+    async (mode) => {
+      const selectedJob = createJob({
+        id: "selected",
+        status: "ready",
+        readyAt: "2026-11-08",
+      });
+      await renderJobDetailPanel({
+        activeTab: "all",
+        activeJobs: [createJob(), selectedJob],
+        selectedJob,
+        onSelectJobId: vi.fn(),
+        onJobUpdated: vi.fn(),
+      });
+      fireEvent.click(
+        mode === "edit"
+          ? screen.getByRole("link", { name: "Open resume" })
+          : screen.getByRole("button", { name: "Preview PDF" }),
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId("location")).toHaveTextContent(`/resumes/selected?mode=${mode}`),
+      );
+      expect(api.generateJobPdf).not.toHaveBeenCalled();
+      expect(openJobPdf).not.toHaveBeenCalled();
+    },
+  );
 
   it("shows the selected job summary and safe links while full details load", async () => {
     const summary = createJob({
@@ -260,14 +239,13 @@ describe("JobDetailPanel", () => {
     expect(screen.getByText("Example Ltd")).toBeInTheDocument();
     expect(screen.getByTestId("job-detail-skeleton")).toBeInTheDocument();
     expect(screen.getByText("Loading full job details…")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /open job listing/i }),
-    ).toHaveAttribute("href", "https://example.com/apply/job-2");
+    expect(screen.getByRole("link", { name: /open job listing/i })).toHaveAttribute(
+      "href",
+      "https://example.com/apply/job-2",
+    );
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByText("Start Tailoring")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /more actions/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /more actions/i })).not.toBeInTheDocument();
   });
 
   it("keeps the summary and offers retry when detail loading fails", async () => {
@@ -291,9 +269,7 @@ describe("JobDetailPanel", () => {
     });
 
     expect(screen.getByText("Platform Engineer")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Couldn't load job details",
-    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load job details");
     expect(screen.queryByTestId("job-detail-skeleton")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
@@ -315,12 +291,8 @@ describe("JobDetailPanel", () => {
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
 
-    expect(
-      screen.getByRole("button", { name: /^Target$/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("tab", { name: /tailoring/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Target$/ })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /tailoring/i })).not.toBeInTheDocument();
     expect(
       screen.getByText(
         "Base description extracted from the job listing, editable if something looks off. Used by the Ghostwriter and for fit assessment.",
@@ -328,28 +300,27 @@ describe("JobDetailPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it.each([
-    "discovered",
-    "ready",
-    "processing",
-  ] as const)("targets a %s job without tailoring it", async (status) => {
-    const job = createJob({ status, readyAt: null });
-    const updated = { ...job, readyAt: "2026-11-08T12:00:00Z" };
-    vi.mocked(api.targetJob).mockResolvedValue(updated);
-    const onJobUpdated = vi.fn().mockResolvedValue(undefined);
-    await renderJobDetailPanel({
-      activeTab: "all",
-      activeJobs: [job],
-      selectedJob: job,
-      onSelectJobId: vi.fn(),
-      onJobUpdated,
-    });
-    fireEvent.click(screen.getByRole("button", { name: /^Target$/ }));
-    await waitFor(() => expect(api.targetJob).toHaveBeenCalledWith(job.id));
-    expect(onJobUpdated).toHaveBeenCalledWith(updated);
-    expect(api.processJob).not.toHaveBeenCalled();
-    expect(api.generateJobPdf).not.toHaveBeenCalled();
-  });
+  it.each(["discovered", "ready", "processing"] as const)(
+    "targets a %s job without tailoring it",
+    async (status) => {
+      const job = createJob({ status, readyAt: null });
+      const updated = { ...job, readyAt: "2026-11-08T12:00:00Z" };
+      vi.mocked(api.targetJob).mockResolvedValue(updated);
+      const onJobUpdated = vi.fn().mockResolvedValue(undefined);
+      await renderJobDetailPanel({
+        activeTab: "all",
+        activeJobs: [job],
+        selectedJob: job,
+        onSelectJobId: vi.fn(),
+        onJobUpdated,
+      });
+      fireEvent.click(screen.getByRole("button", { name: /^Target$/ }));
+      await waitFor(() => expect(api.targetJob).toHaveBeenCalledWith(job.id));
+      expect(onJobUpdated).toHaveBeenCalledWith(updated);
+      expect(api.processJob).not.toHaveBeenCalled();
+      expect(api.generateJobPdf).not.toHaveBeenCalled();
+    },
+  );
 
   it("untargets a job with the same primary button", async () => {
     const job = createJob({
@@ -380,9 +351,7 @@ describe("JobDetailPanel", () => {
       onSelectJobId: vi.fn(),
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
-    expect(
-      screen.getAllByRole("button", { name: "Preparing resume…" })[0],
-    ).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Preparing resume…" })[0]).toBeDisabled();
   });
 
   it("keeps only the information actions and hides the application workflow", async () => {
@@ -398,42 +367,40 @@ describe("JobDetailPanel", () => {
       onSelectJobId: vi.fn(),
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
-    expect(
-      screen.queryByRole("tab", { name: /apply/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /ask ghostwriter/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getAllByRole("menuitem").map((item) => item.textContent),
-    ).toEqual(["Edit details", "Copy job info"]);
-    expect(
-      screen.getByRole("button", { name: /blacklist company/i }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /apply/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /ask ghostwriter/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "Edit details",
+      "Copy job info",
+    ]);
+    expect(screen.getByRole("button", { name: /blacklist company/i })).toBeInTheDocument();
   });
 
   it.each([
     ["processing", "2026-11-08", "Preparing resume…"],
     ["discovered", null, "Target"],
     ["discovered", "2026-11-08", "Prepare resume"],
-  ] as const)("offers no editor or preview for a %s job (readyAt %s)", async (status, readyAt, label) => {
-    vi.mocked(api.processJob).mockResolvedValue(createJob());
-    const job = createJob({ status, readyAt });
-    await renderJobDetailPanel({
-      activeTab: "all",
-      activeJobs: [job],
-      selectedJob: job,
-      onSelectJobId: vi.fn(),
-      onJobUpdated: vi.fn().mockResolvedValue(undefined),
-    });
-    expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Preview PDF" })).toBeNull();
-    if (label === "Prepare resume") {
-      fireEvent.click(screen.getByRole("button", { name: label }));
-      await waitFor(() => expect(api.processJob).toHaveBeenCalledWith(job.id));
-    }
-  });
+  ] as const)(
+    "offers no editor or preview for a %s job (readyAt %s)",
+    async (status, readyAt, label) => {
+      vi.mocked(api.processJob).mockResolvedValue(createJob());
+      const job = createJob({ status, readyAt });
+      await renderJobDetailPanel({
+        activeTab: "all",
+        activeJobs: [job],
+        selectedJob: job,
+        onSelectJobId: vi.fn(),
+        onJobUpdated: vi.fn().mockResolvedValue(undefined),
+      });
+      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Preview PDF" })).toBeNull();
+      if (label === "Prepare resume") {
+        fireEvent.click(screen.getByRole("button", { name: label }));
+        await waitFor(() => expect(api.processJob).toHaveBeenCalledWith(job.id));
+      }
+    },
+  );
 
   it("offers Open resume and Preview PDF for an applied job", async () => {
     await renderJobDetailPanel({
@@ -443,9 +410,7 @@ describe("JobDetailPanel", () => {
       onSelectJobId: vi.fn(),
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
-    expect(
-      screen.getByRole("link", { name: "Open resume" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open resume" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Preview PDF" })).toBeEnabled();
   });
 
@@ -474,10 +439,7 @@ describe("JobDetailPanel", () => {
     });
 
     expect(
-      screen.getByText(
-        (_, node) =>
-          node?.tagName === "P" && node.textContent === "Hello world",
-      ),
+      screen.getByText((_, node) => node?.tagName === "P" && node.textContent === "Hello world"),
     ).toBeInTheDocument();
   });
 
@@ -493,9 +455,7 @@ describe("JobDetailPanel", () => {
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
 
-    expect(
-      screen.getByRole("heading", { name: "Responsibilities" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Responsibilities" })).toBeInTheDocument();
     expect(screen.queryByText("# Responsibilities")).not.toBeInTheDocument();
   });
 
@@ -512,9 +472,7 @@ describe("JobDetailPanel", () => {
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
 
-    expect(
-      screen.queryByRole("link", { name: /view job/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /view job/i })).not.toBeInTheDocument();
     expect(screen.getByTestId("job-header")).toBeInTheDocument();
   });
 
@@ -532,15 +490,9 @@ describe("JobDetailPanel", () => {
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
 
-    const rawDescription = rendered.container.querySelector(
-      "div.whitespace-pre-wrap",
-    );
-    expect(rawDescription?.textContent).toBe(
-      "# Responsibilities\n\n- Build APIs",
-    );
-    expect(
-      screen.queryByRole("heading", { name: "Responsibilities" }),
-    ).not.toBeInTheDocument();
+    const rawDescription = rendered.container.querySelector("div.whitespace-pre-wrap");
+    expect(rawDescription?.textContent).toBe("# Responsibilities\n\n- Build APIs");
+    expect(screen.queryByRole("heading", { name: "Responsibilities" })).not.toBeInTheDocument();
   });
 
   it("saves an edited description", async () => {
@@ -583,16 +535,12 @@ describe("JobDetailPanel", () => {
     });
 
     fireEvent.click(screen.getByRole("menuitem", { name: /edit details/i }));
-    expect(
-      await screen.findByTestId("job-details-edit-drawer"),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId("job-details-edit-drawer")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /save details/i }));
 
     await waitFor(() => expect(onJobUpdated).toHaveBeenCalled());
-    expect(
-      screen.queryByTestId("job-details-edit-drawer"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("job-details-edit-drawer")).not.toBeInTheDocument();
   });
 });
 
@@ -619,64 +567,59 @@ it("confirms before regenerating from the detail CTA", async () => {
       name: "Regenerate resume",
     }),
   );
-  await waitFor(() =>
-    expect(api.regenerateJobResume).toHaveBeenCalledWith(job.id),
-  );
+  await waitFor(() => expect(api.regenerateJobResume).toHaveBeenCalledWith(job.id));
 });
 
-it.each([
-  { status: "ready" as const, pdfRegenerating: true },
-])("disables regeneration during resume work: %o", async (overrides) => {
-  const job = createJob({ readyAt: "2026-11-08", ...overrides });
-  await renderJobDetailPanel({
-    activeTab: "all",
-    activeJobs: [job],
-    selectedJob: job,
-    onSelectJobId: vi.fn(),
-    onJobUpdated: vi.fn(),
-  });
-  expect(
-    screen.getByRole("button", { name: "Regenerate resume" }),
-  ).toBeDisabled();
-});
+it.each([{ status: "ready" as const, pdfRegenerating: true }])(
+  "disables regeneration during resume work: %o",
+  async (overrides) => {
+    const job = createJob({ readyAt: "2026-11-08", ...overrides });
+    await renderJobDetailPanel({
+      activeTab: "all",
+      activeJobs: [job],
+      selectedJob: job,
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn(),
+    });
+    expect(screen.getByRole("button", { name: "Regenerate resume" })).toBeDisabled();
+  },
+);
 
-it.each([
-  "discovered",
-  "processing",
-] as const)("hides regeneration for a targeted %s job", async (status) => {
-  const job = createJob({ status, readyAt: "2026-11-08" });
-  await renderJobDetailPanel({
-    activeTab: "all",
-    activeJobs: [job],
-    selectedJob: job,
-    onSelectJobId: vi.fn(),
-    onJobUpdated: vi.fn(),
-  });
-  expect(
-    screen.queryByRole("button", { name: "Regenerate resume" }),
-  ).toBeNull();
-});
+it.each(["discovered", "processing"] as const)(
+  "hides regeneration for a targeted %s job",
+  async (status) => {
+    const job = createJob({ status, readyAt: "2026-11-08" });
+    await renderJobDetailPanel({
+      activeTab: "all",
+      activeJobs: [job],
+      selectedJob: job,
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn(),
+    });
+    expect(screen.queryByRole("button", { name: "Regenerate resume" })).toBeNull();
+  },
+);
 
-it.each([
-  { pdfFreshness: "uploaded" as const },
-  { pdfSource: "uploaded" as const },
-])("warns that regenerating replaces an uploaded PDF: %o", async (overrides) => {
-  vi.mocked(api.regenerateJobResume).mockClear();
-  const job = createJob({
-    status: "ready",
-    readyAt: "2026-11-08",
-    ...overrides,
-  });
-  await renderJobDetailPanel({
-    activeTab: "all",
-    activeJobs: [job],
-    selectedJob: job,
-    onSelectJobId: vi.fn(),
-    onJobUpdated: vi.fn(),
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Regenerate resume" }));
-  expect(screen.getByRole("alertdialog")).toHaveTextContent(
-    "The uploaded PDF will be replaced by a generated one.",
-  );
-  expect(api.regenerateJobResume).not.toHaveBeenCalled();
-});
+it.each([{ pdfFreshness: "uploaded" as const }, { pdfSource: "uploaded" as const }])(
+  "warns that regenerating replaces an uploaded PDF: %o",
+  async (overrides) => {
+    vi.mocked(api.regenerateJobResume).mockClear();
+    const job = createJob({
+      status: "ready",
+      readyAt: "2026-11-08",
+      ...overrides,
+    });
+    await renderJobDetailPanel({
+      activeTab: "all",
+      activeJobs: [job],
+      selectedJob: job,
+      onSelectJobId: vi.fn(),
+      onJobUpdated: vi.fn(),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate resume" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "The uploaded PDF will be replaced by a generated one.",
+    );
+    expect(api.regenerateJobResume).not.toHaveBeenCalled();
+  },
+);

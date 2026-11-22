@@ -71,10 +71,7 @@ function sanitizeJobDescriptionHtml(html: string): string {
   const output = document.implementation.createHTMLDocument("");
   const container = output.createElement("div");
 
-  function appendSanitizedChildren(
-    source: Node,
-    target: HTMLElement | DocumentFragment,
-  ) {
+  function appendSanitizedChildren(source: Node, target: HTMLElement | DocumentFragment) {
     for (const child of source.childNodes) {
       if (child.nodeType === Node.TEXT_NODE) {
         target.appendChild(output.createTextNode(child.textContent ?? ""));
@@ -124,10 +121,7 @@ export const JobDescriptionHtml: React.FC<JobDescriptionHtmlProps> = ({
 
   return (
     <div
-      className={cn(
-        "max-w-none prose dark:prose-invert dark:prose-a:text-primary",
-        className,
-      )}
+      className={cn("max-w-none prose dark:prose-invert dark:prose-a:text-primary", className)}
       // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML is sanitized through a strict allowlist before rendering.
       dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
     />

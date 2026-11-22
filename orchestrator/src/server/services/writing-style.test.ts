@@ -114,29 +114,23 @@ describe("getWritingStyle", () => {
 
 describe("stripWordLimitFromConstraints", () => {
   it("strips 'keep summary under N words' patterns", () => {
-    expect(
-      stripWordLimitFromConstraints(
-        "Keep summary under 100 words. Be concise.",
-      ),
-    ).toBe("Be concise");
+    expect(stripWordLimitFromConstraints("Keep summary under 100 words. Be concise.")).toBe(
+      "Be concise",
+    );
   });
 
   it("strips 'max N words' patterns", () => {
-    expect(
-      stripWordLimitFromConstraints("Use action verbs. Max 80 words."),
-    ).toBe("Use action verbs");
+    expect(stripWordLimitFromConstraints("Use action verbs. Max 80 words.")).toBe(
+      "Use action verbs",
+    );
   });
 
   it("strips 'N words max' patterns", () => {
-    expect(
-      stripWordLimitFromConstraints("50 words max. Focus on impact."),
-    ).toBe("Focus on impact");
+    expect(stripWordLimitFromConstraints("50 words max. Focus on impact.")).toBe("Focus on impact");
   });
 
   it("strips 'no more than N words' patterns", () => {
-    expect(
-      stripWordLimitFromConstraints("No more than 60 words in the summary."),
-    ).toBe("");
+    expect(stripWordLimitFromConstraints("No more than 60 words in the summary.")).toBe("");
   });
 
   it("returns empty string for empty input", () => {
@@ -144,33 +138,29 @@ describe("stripWordLimitFromConstraints", () => {
   });
 
   it("preserves unrelated constraints", () => {
-    expect(
-      stripWordLimitFromConstraints("Be professional. Use strong verbs."),
-    ).toBe("Be professional. Use strong verbs");
+    expect(stripWordLimitFromConstraints("Be professional. Use strong verbs.")).toBe(
+      "Be professional. Use strong verbs",
+    );
   });
 });
 
 describe("stripKeywordLimitFromConstraints", () => {
   it("strips 'max N keywords per category' patterns", () => {
-    expect(
-      stripKeywordLimitFromConstraints(
-        "Max 5 keywords per category. Be specific.",
-      ),
-    ).toBe("Be specific");
+    expect(stripKeywordLimitFromConstraints("Max 5 keywords per category. Be specific.")).toBe(
+      "Be specific",
+    );
   });
 
   it("strips 'limit keywords to N' patterns", () => {
-    expect(
-      stripKeywordLimitFromConstraints("Limit keywords to 8. Use JD terms."),
-    ).toBe("Use JD terms");
+    expect(stripKeywordLimitFromConstraints("Limit keywords to 8. Use JD terms.")).toBe(
+      "Use JD terms",
+    );
   });
 
   it("strips 'N keywords max' patterns", () => {
-    expect(
-      stripKeywordLimitFromConstraints(
-        "10 keywords max. Prioritize hard skills.",
-      ),
-    ).toBe("Prioritize hard skills");
+    expect(stripKeywordLimitFromConstraints("10 keywords max. Prioritize hard skills.")).toBe(
+      "Prioritize hard skills",
+    );
   });
 
   it("returns empty string for empty input", () => {
@@ -178,8 +168,8 @@ describe("stripKeywordLimitFromConstraints", () => {
   });
 
   it("preserves unrelated constraints", () => {
-    expect(
-      stripKeywordLimitFromConstraints("Be professional. Use strong verbs."),
-    ).toBe("Be professional. Use strong verbs");
+    expect(stripKeywordLimitFromConstraints("Be professional. Use strong verbs.")).toBe(
+      "Be professional. Use strong verbs",
+    );
   });
 });

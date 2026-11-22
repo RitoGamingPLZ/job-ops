@@ -9,8 +9,7 @@ describe("ProjectSelector", () => {
     const catalog = [
       createResumeProjectCatalogItem({
         id: "project",
-        description:
-          "<ul><li><p><strong>Built analytics</strong> using FastAPI.</p></li></ul>",
+        description: "<ul><li><p><strong>Built analytics</strong> using FastAPI.</p></li></ul>",
       }),
     ];
     render(
@@ -65,9 +64,7 @@ describe("ProjectSelector", () => {
 
   it("blocks another manual choice once the target is filled", () => {
     const onToggle = vi.fn();
-    const catalog = ["a", "b"].map((id) =>
-      createResumeProjectCatalogItem({ id, name: id }),
-    );
+    const catalog = ["a", "b"].map((id) => createResumeProjectCatalogItem({ id, name: id }));
     render(
       <ProjectSelector
         catalog={catalog}

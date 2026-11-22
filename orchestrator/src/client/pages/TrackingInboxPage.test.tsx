@@ -5,8 +5,7 @@ import * as api from "../api";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { TrackingInboxPage } from "./TrackingInboxPage";
 
-const render = (ui: Parameters<typeof renderWithQueryClient>[0]) =>
-  renderWithQueryClient(ui);
+const render = (ui: Parameters<typeof renderWithQueryClient>[0]) => renderWithQueryClient(ui);
 
 vi.mock("../api", () => ({
   postApplicationProviderStatus: vi.fn(),
@@ -217,9 +216,7 @@ describe("TrackingInboxPage", () => {
       expect(screen.getByText("Interview invite")).toBeInTheDocument();
     });
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Confirm email-job match" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Confirm email-job match" }));
 
     await waitFor(() => {
       expect(api.approvePostApplicationInboxItem).toHaveBeenCalled();

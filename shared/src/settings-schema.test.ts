@@ -150,12 +150,8 @@ describe("updateSettingsSchema", () => {
       return;
     }
 
-    expect(
-      result.error.flatten().fieldErrors.chatStyleLanguageMode,
-    ).toBeDefined();
-    expect(
-      result.error.flatten().fieldErrors.chatStyleManualLanguage,
-    ).toBeDefined();
+    expect(result.error.flatten().fieldErrors.chatStyleLanguageMode).toBeDefined();
+    expect(result.error.flatten().fieldErrors.chatStyleManualLanguage).toBeDefined();
   });
 
   it("accepts a nullable rxresumeUrl and rejects invalid URLs", () => {
@@ -222,19 +218,19 @@ describe("updateSettingsSchema", () => {
     });
   });
 
-  it.each([
-    "ghostwriterSystemPromptTemplate",
-    "resumeGenerationPromptTemplate",
-  ] as const)("rejects %s overrides above 12000 characters", (key) => {
-    const result = updateSettingsSchema.safeParse({
-      [key]: "A".repeat(12001),
-    });
+  it.each(["ghostwriterSystemPromptTemplate", "resumeGenerationPromptTemplate"] as const)(
+    "rejects %s overrides above 12000 characters",
+    (key) => {
+      const result = updateSettingsSchema.safeParse({
+        [key]: "A".repeat(12001),
+      });
 
-    expect(result.success).toBe(false);
-    if (result.success) {
-      return;
-    }
+      expect(result.success).toBe(false);
+      if (result.success) {
+        return;
+      }
 
-    expect(result.error.flatten().fieldErrors[key]).toBeDefined();
-  });
+      expect(result.error.flatten().fieldErrors[key]).toBeDefined();
+    },
+  );
 });

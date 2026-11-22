@@ -60,13 +60,9 @@ describe("docs umami", () => {
       document,
     });
 
-    const scripts = document.querySelectorAll(
-      'script[data-jobops-umami="docs"]',
-    );
+    const scripts = document.querySelectorAll('script[data-jobops-umami="docs"]');
     expect(scripts).toHaveLength(1);
-    expect(scripts[0]?.getAttribute("data-website-id")).toBe(
-      DEFAULT_DOCS_UMAMI_WEBSITE_ID,
-    );
+    expect(scripts[0]?.getAttribute("data-website-id")).toBe(DEFAULT_DOCS_UMAMI_WEBSITE_ID);
     expect(scripts[0]?.getAttribute("data-host-url")).toBe("/stats");
   });
 
@@ -84,10 +80,7 @@ describe("docs umami", () => {
 
     anchor.click();
 
-    expect(track).toHaveBeenCalledWith(
-      "docs_intro_self_hosting_click",
-      undefined,
-    );
+    expect(track).toHaveBeenCalledWith("docs_intro_self_hosting_click", undefined);
 
     cleanup();
     delete window.umami;

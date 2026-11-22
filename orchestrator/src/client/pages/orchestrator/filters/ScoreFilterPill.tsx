@@ -21,12 +21,7 @@ export const ScoreFilterPill: React.FC<ScoreFilterPillProps> = ({
   scoreActive,
   scoreSummary,
 }) => (
-  <FilterPill
-    icon={<Star />}
-    label="Score"
-    active={scoreActive}
-    summary={scoreSummary}
-  >
+  <FilterPill icon={<Star />} label="Score" active={scoreActive} summary={scoreSummary}>
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <span>Score</span>

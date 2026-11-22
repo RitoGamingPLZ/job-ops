@@ -30,9 +30,7 @@ export type UseVirtualizedListboxOptions = {
   scrollElement?: HTMLElement | null;
 };
 
-export function useVirtualizedListbox<
-  TItemElement extends HTMLElement = HTMLElement,
->({
+export function useVirtualizedListbox<TItemElement extends HTMLElement = HTMLElement>({
   count,
   estimateSize = () => 40,
   enabled = true,
@@ -55,14 +53,10 @@ export function useVirtualizedListbox<
   return {
     getTotalSize: () => virtualizer.getTotalSize(),
     getVirtualItems: () => virtualizer.getVirtualItems(),
-    measureElement: (
-      node: Parameters<typeof virtualizer.measureElement>[0],
-    ) => {
+    measureElement: (node: Parameters<typeof virtualizer.measureElement>[0]) => {
       virtualizer.measureElement(node);
     },
-    scrollToIndex: (
-      index: number,
-      options?: Parameters<typeof virtualizer.scrollToIndex>[1],
-    ) => virtualizer.scrollToIndex(index, options),
+    scrollToIndex: (index: number, options?: Parameters<typeof virtualizer.scrollToIndex>[1]) =>
+      virtualizer.scrollToIndex(index, options),
   };
 }

@@ -49,19 +49,12 @@ describe("JobCommandBar", () => {
   };
 
   it("opens the command dialog with keyboard shortcut", () => {
-    render(
-      <JobCommandBar
-        jobs={[createJob({ id: "job-1" })]}
-        onSelectJob={vi.fn()}
-      />,
-    );
+    render(<JobCommandBar jobs={[createJob({ id: "job-1" })]} onSelectJob={vi.fn()} />);
 
     openWithKeyboard();
 
     expect(
-      screen.getByPlaceholderText(
-        "Search jobs by job title or company name...",
-      ),
+      screen.getByPlaceholderText("Search jobs by job title or company name..."),
     ).toBeInTheDocument();
   });
 
@@ -74,9 +67,7 @@ describe("JobCommandBar", () => {
     );
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@disc" } });
     fireEvent.keyDown(input, { key: "Tab" });
 
@@ -85,16 +76,11 @@ describe("JobCommandBar", () => {
 
   it("creates lock from @targeted + Enter", () => {
     render(
-      <JobCommandBar
-        jobs={[createJob({ id: "job-1", status: "ready" })]}
-        onSelectJob={vi.fn()}
-      />,
+      <JobCommandBar jobs={[createJob({ id: "job-1", status: "ready" })]} onSelectJob={vi.fn()} />,
     );
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@targeted" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
@@ -113,9 +99,7 @@ describe("JobCommandBar", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog.className).not.toContain("border-sky-500/50");
 
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@disc" } });
     fireEvent.keyDown(input, { key: "Tab" });
 
@@ -140,9 +124,7 @@ describe("JobCommandBar", () => {
     );
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@targeted" } });
 
     const lockSuggestion = await screen.findByText("Lock to @targeted");
@@ -164,9 +146,7 @@ describe("JobCommandBar", () => {
     );
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@" } });
 
     await waitFor(() => {
@@ -188,9 +168,7 @@ describe("JobCommandBar", () => {
     );
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@prog" } });
     fireEvent.keyDown(input, { key: "Tab" });
 
@@ -216,14 +194,9 @@ describe("JobCommandBar", () => {
     render(<JobCommandBar jobs={jobs} onSelectJob={onSelectJob} />);
 
     openWithKeyboard();
-    fireEvent.change(
-      screen.getByPlaceholderText(
-        "Search jobs by job title or company name...",
-      ),
-      {
-        target: { value: "Globex" },
-      },
-    );
+    fireEvent.change(screen.getByPlaceholderText("Search jobs by job title or company name..."), {
+      target: { value: "Globex" },
+    });
     fireEvent.click(await screen.findByText("Platform Engineer"));
 
     expect(onSelectJob).toHaveBeenCalledWith("all", "applied-job");
@@ -246,9 +219,7 @@ describe("JobCommandBar", () => {
     render(<JobCommandBar jobs={jobs} onSelectJob={vi.fn()} />);
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@disc" } });
     fireEvent.keyDown(input, { key: "Tab" });
     fireEvent.change(input, { target: { value: "Frontend" } });
@@ -285,9 +256,7 @@ describe("JobCommandBar", () => {
     render(<JobCommandBar jobs={jobs} onSelectJob={vi.fn()} />);
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@disc" } });
     fireEvent.keyDown(input, { key: "Tab" });
     fireEvent.change(input, {
@@ -301,16 +270,11 @@ describe("JobCommandBar", () => {
 
   it("replaces an existing lock when new @ token is tab-completed", () => {
     render(
-      <JobCommandBar
-        jobs={[createJob({ id: "job-1", status: "ready" })]}
-        onSelectJob={vi.fn()}
-      />,
+      <JobCommandBar jobs={[createJob({ id: "job-1", status: "ready" })]} onSelectJob={vi.fn()} />,
     );
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@targeted" } });
     fireEvent.keyDown(input, { key: "Tab" });
     expect(screen.getByText("@targeted")).toBeInTheDocument();
@@ -323,37 +287,25 @@ describe("JobCommandBar", () => {
 
   it("does not show an x remove button on the lock chip", () => {
     render(
-      <JobCommandBar
-        jobs={[createJob({ id: "job-1", status: "ready" })]}
-        onSelectJob={vi.fn()}
-      />,
+      <JobCommandBar jobs={[createJob({ id: "job-1", status: "ready" })]} onSelectJob={vi.fn()} />,
     );
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@targeted" } });
     fireEvent.keyDown(input, { key: "Tab" });
 
     expect(screen.getByText("@targeted")).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText("Remove ready filter"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Remove ready filter")).not.toBeInTheDocument();
   });
 
   it("removes lock with Backspace when query is empty", () => {
     render(
-      <JobCommandBar
-        jobs={[createJob({ id: "job-1", status: "ready" })]}
-        onSelectJob={vi.fn()}
-      />,
+      <JobCommandBar jobs={[createJob({ id: "job-1", status: "ready" })]} onSelectJob={vi.fn()} />,
     );
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@targeted" } });
     fireEvent.keyDown(input, { key: "Tab" });
     fireEvent.keyDown(input, { key: "Backspace" });
@@ -363,16 +315,11 @@ describe("JobCommandBar", () => {
 
   it("clears lock on Escape and keeps dialog open", () => {
     render(
-      <JobCommandBar
-        jobs={[createJob({ id: "job-1", status: "ready" })]}
-        onSelectJob={vi.fn()}
-      />,
+      <JobCommandBar jobs={[createJob({ id: "job-1", status: "ready" })]} onSelectJob={vi.fn()} />,
     );
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@targeted" } });
     fireEvent.keyDown(input, { key: "Tab" });
     expect(screen.getByText("@targeted")).toBeInTheDocument();
@@ -381,24 +328,17 @@ describe("JobCommandBar", () => {
 
     expect(screen.queryByText("@targeted")).not.toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText(
-        "Search jobs by job title or company name...",
-      ),
+      screen.getByPlaceholderText("Search jobs by job title or company name..."),
     ).toBeInTheDocument();
   });
 
   it("clears active lock when the dialog closes", () => {
     render(
-      <JobCommandBar
-        jobs={[createJob({ id: "job-1", status: "ready" })]}
-        onSelectJob={vi.fn()}
-      />,
+      <JobCommandBar jobs={[createJob({ id: "job-1", status: "ready" })]} onSelectJob={vi.fn()} />,
     );
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@targeted" } });
     fireEvent.keyDown(input, { key: "Tab" });
     expect(screen.getByText("@targeted")).toBeInTheDocument();
@@ -411,23 +351,16 @@ describe("JobCommandBar", () => {
 
   it("treats @all as invalid and does not lock", () => {
     render(
-      <JobCommandBar
-        jobs={[createJob({ id: "job-1", status: "ready" })]}
-        onSelectJob={vi.fn()}
-      />,
+      <JobCommandBar jobs={[createJob({ id: "job-1", status: "ready" })]} onSelectJob={vi.fn()} />,
     );
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@all" } });
     fireEvent.keyDown(input, { key: "Tab" });
 
     expect(
-      screen.queryByText(
-        /^@(ready|discovered|applied|in-progress|skipped|expired)$/,
-      ),
+      screen.queryByText(/^@(ready|discovered|applied|in-progress|skipped|expired)$/),
     ).not.toBeInTheDocument();
     expect((input as HTMLInputElement).value).toBe("@all");
   });
@@ -450,14 +383,9 @@ describe("JobCommandBar", () => {
     );
 
     openWithKeyboard();
-    fireEvent.change(
-      screen.getByPlaceholderText(
-        "Search jobs by job title or company name...",
-      ),
-      {
-        target: { value: "Globex" },
-      },
-    );
+    fireEvent.change(screen.getByPlaceholderText("Search jobs by job title or company name..."), {
+      target: { value: "Globex" },
+    });
     fireEvent.click(await screen.findByText("Staff Engineer"));
 
     expect(onSelectJob).toHaveBeenCalledWith("all", "in-progress-job");
@@ -502,18 +430,14 @@ describe("JobCommandBar", () => {
     render(<JobCommandBar jobs={jobs} onSelectJob={vi.fn()} />);
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     const lockTokens = ["@targeted", "@disc", "@applied", "@skip", "@exp"];
 
     for (const token of lockTokens) {
       fireEvent.change(input, { target: { value: token } });
       fireEvent.keyDown(input, { key: "Tab" });
       fireEvent.change(input, { target: { value: "Processing-only keyword" } });
-      expect(
-        screen.queryByText("Processing-only keyword"),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Processing-only keyword")).not.toBeInTheDocument();
     }
   });
 
@@ -531,14 +455,9 @@ describe("JobCommandBar", () => {
     render(<JobCommandBar jobs={jobs} onSelectJob={vi.fn()} />);
 
     openWithKeyboard();
-    fireEvent.change(
-      screen.getByPlaceholderText(
-        "Search jobs by job title or company name...",
-      ),
-      {
-        target: { value: "Engineer" },
-      },
-    );
+    fireEvent.change(screen.getByPlaceholderText("Search jobs by job title or company name..."), {
+      target: { value: "Engineer" },
+    });
 
     await waitFor(() => {
       expect(screen.getAllByRole("option").length).toBeLessThan(jobs.length);
@@ -562,9 +481,7 @@ describe("JobCommandBar", () => {
     render(<JobCommandBar jobs={jobs} onSelectJob={onSelectJob} />);
 
     openWithKeyboard();
-    const input = screen.getByPlaceholderText(
-      "Search jobs by job title or company name...",
-    );
+    const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "Engineer" } });
 
     await screen.findByText("Engineer 19");

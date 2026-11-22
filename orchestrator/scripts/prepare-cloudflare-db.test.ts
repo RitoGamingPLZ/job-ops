@@ -95,9 +95,7 @@ function createFixtureSourceDb(
     `);
 
     // Seed tenants
-    db.prepare(
-      "INSERT INTO tenants (id, name, slug) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)",
-    ).run(
+    db.prepare("INSERT INTO tenants (id, name, slug) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)").run(
       "tenant_default",
       "JobOps",
       "default",
@@ -282,9 +280,7 @@ describe("prepare-cloudflare-db CLI and generators", () => {
 
   it("rejects unknown flags and invalid admin prefixes", () => {
     expect(() => parseCliArgs(["--bogus"])).toThrow(/Unknown CLI argument/);
-    expect(() => parseCliArgs(["--admin-prefix", "bad prefix!"])).toThrow(
-      /Invalid --admin-prefix/,
-    );
+    expect(() => parseCliArgs(["--admin-prefix", "bad prefix!"])).toThrow(/Invalid --admin-prefix/);
     expect(() => parseCliArgs(["--source"])).toThrow(/Missing value/);
   });
 
@@ -342,12 +338,10 @@ describe("prepareCloudflareDb", () => {
     // 1. Source DB must be completely untouched
     const sourceCheck = new Database(sourcePath, { readonly: true });
     try {
-      const sourceCols = sourceCheck
-        .prepare("PRAGMA table_info(users)")
-        .all() as Array<{ name: string }>;
-      expect(
-        sourceCols.some((col) => col.name === "must_change_password"),
-      ).toBe(false);
+      const sourceCols = sourceCheck.prepare("PRAGMA table_info(users)").all() as Array<{
+        name: string;
+      }>;
+      expect(sourceCols.some((col) => col.name === "must_change_password")).toBe(false);
 
       const sourceAlan = sourceCheck
         .prepare("SELECT is_system_admin FROM users WHERE username = 'alan'")
@@ -399,9 +393,7 @@ describe("prepareCloudflareDb", () => {
       const cols = outDb.prepare("PRAGMA table_info(users)").all() as Array<{
         name: string;
       }>;
-      expect(cols.some((col) => col.name === "must_change_password")).toBe(
-        true,
-      );
+      expect(cols.some((col) => col.name === "must_change_password")).toBe(true);
 
       // alan is demoted, data & WAL job preserved
       const alan = outDb
@@ -422,43 +414,26 @@ describe("prepareCloudflareDb", () => {
       const alanJobs = outDb
         .prepare("SELECT id FROM jobs WHERE user_id = 'user_alan' ORDER BY id")
         .all() as Array<{ id: string }>;
-      expect(alanJobs.map((row) => row.id)).toEqual([
-        "job_alan_1",
-        "job_alan_wal",
-      ]);
+      expect(alanJobs.map((row) => row.id)).toEqual(["job_alan_1", "job_alan_wal"]);
 
       // onboarding-test and its private tenant are completely gone
       expect(
-        outDb
-          .prepare("SELECT 1 FROM users WHERE username = 'onboarding-test'")
-          .get(),
+        outDb.prepare("SELECT 1 FROM users WHERE username = 'onboarding-test'").get(),
       ).toBeUndefined();
       expect(
-        outDb
-          .prepare("SELECT 1 FROM tenants WHERE id = 'tenant_onboarding'")
-          .get(),
+        outDb.prepare("SELECT 1 FROM tenants WHERE id = 'tenant_onboarding'").get(),
       ).toBeUndefined();
-      expect(
-        outDb.prepare("SELECT 1 FROM jobs WHERE id = 'job_onb_1'").get(),
-      ).toBeUndefined();
+      expect(outDb.prepare("SELECT 1 FROM jobs WHERE id = 'job_onb_1'").get()).toBeUndefined();
 
       // temp-guest is gone (including watchlist_seen_jobs without FK), but shared tenant & teammate remain
       expect(
-        outDb
-          .prepare("SELECT 1 FROM users WHERE username = 'temp-guest'")
-          .get(),
+        outDb.prepare("SELECT 1 FROM users WHERE username = 'temp-guest'").get(),
       ).toBeUndefined();
       expect(
-        outDb
-          .prepare("SELECT 1 FROM watchlist_seen_jobs WHERE id = 'wl_guest'")
-          .get(),
+        outDb.prepare("SELECT 1 FROM watchlist_seen_jobs WHERE id = 'wl_guest'").get(),
       ).toBeUndefined();
-      expect(
-        outDb.prepare("SELECT 1 FROM tenants WHERE id = 'tenant_shared'").get(),
-      ).toBeDefined();
-      expect(
-        outDb.prepare("SELECT 1 FROM jobs WHERE id = 'job_shared_keep'").get(),
-      ).toBeDefined();
+      expect(outDb.prepare("SELECT 1 FROM tenants WHERE id = 'tenant_shared'").get()).toBeDefined();
+      expect(outDb.prepare("SELECT 1 FROM jobs WHERE id = 'job_shared_keep'").get()).toBeDefined();
       expect(
         outDb.prepare("SELECT 1 FROM jobs WHERE id = 'job_shared_drop'").get(),
       ).toBeUndefined();
@@ -541,9 +516,7 @@ describe("prepareCloudflareDb", () => {
     const outDb = new Database(outPath, { readonly: true });
     try {
       const admins = outDb
-        .prepare(
-          "SELECT username FROM users WHERE is_system_admin = 1 ORDER BY username",
-        )
+        .prepare("SELECT username FROM users WHERE is_system_admin = 1 ORDER BY username")
         .all() as Array<{ username: string }>;
       expect(admins.map((row) => row.username).sort()).toEqual(
         ["alan", result.adminUser.username].sort(),

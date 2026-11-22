@@ -84,11 +84,7 @@ describe("default model list lifecycle", () => {
   });
 
   it("skips required-key providers without a key or hint", () => {
-    render(
-      <LlmModelConfiguration
-        {...defaultProps({ selectedProvider: "openai" })}
-      />,
-    );
+    render(<LlmModelConfiguration {...defaultProps({ selectedProvider: "openai" })} />);
     expect(getLlmModels).not.toHaveBeenCalled();
   });
 
@@ -115,26 +111,18 @@ describe("default model list lifecycle", () => {
   it("falls back to generic error text for non-Error rejections", async () => {
     getLlmModels.mockRejectedValue("nope");
     render(<LlmModelConfiguration {...defaultProps()} />);
-    expect(
-      await screen.findByText("Failed to load models."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Failed to load models.")).toBeInTheDocument();
   });
 
   it("ignores a stale request after the provider changes", async () => {
     const stale = deferred<string[]>();
     getLlmModels.mockReturnValueOnce(stale.promise).mockResolvedValue([]);
     const { rerender } = render(<LlmModelConfiguration {...defaultProps()} />);
-    rerender(
-      <LlmModelConfiguration
-        {...defaultProps({ selectedProvider: "ollama" })}
-      />,
-    );
+    rerender(<LlmModelConfiguration {...defaultProps({ selectedProvider: "ollama" })} />);
     await waitFor(() => expect(getLlmModels).toHaveBeenCalledTimes(2));
     stale.reject(new Error("stale failure"));
     await waitFor(() =>
-      expect(
-        screen.getByText(/No Ollama models were returned/),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/No Ollama models were returned/)).toBeInTheDocument(),
     );
     expect(screen.queryByText("stale failure")).not.toBeInTheDocument();
   });
@@ -163,9 +151,7 @@ describe("purpose override model list lifecycle", () => {
   });
 
   it("skips required-key providers without a key or any hint", () => {
-    render(
-      <PurposeOverrideCard {...cardProps({ value: { provider: "openai" } })} />,
-    );
+    render(<PurposeOverrideCard {...cardProps({ value: { provider: "openai" } })} />);
     expect(getLlmModels).not.toHaveBeenCalled();
   });
 
@@ -180,9 +166,7 @@ describe("purpose override model list lifecycle", () => {
       />,
     );
     await waitFor(() => expect(getLlmModels).toHaveBeenCalled());
-    expect(sentPayloads()).toEqual([
-      { provider: "openai", purpose: "scoring" },
-    ]);
+    expect(sentPayloads()).toEqual([{ provider: "openai", purpose: "scoring" }]);
   });
 
   it("shows loading, then error text with a non-Error fallback", async () => {
@@ -191,8 +175,6 @@ describe("purpose override model list lifecycle", () => {
     render(<PurposeOverrideCard {...cardProps()} />);
     expect(screen.getByText("Loading available models...")).toBeInTheDocument();
     request.reject("nope");
-    expect(
-      await screen.findByText("Failed to load models."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Failed to load models.")).toBeInTheDocument();
   });
 });

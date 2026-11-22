@@ -25,17 +25,13 @@ describe("buildGhostwriterNoteContextItems", () => {
     ]);
 
     expect(result.items[0]?.wasTrimmed).toBe(true);
-    expect(result.items[0]?.content).toHaveLength(
-      GHOSTWRITER_NOTE_CONTEXT_MAX_NOTE_CHARS,
-    );
+    expect(result.items[0]?.content).toHaveLength(GHOSTWRITER_NOTE_CONTEXT_MAX_NOTE_CHARS);
     expect(result.wasTotalTrimmed).toBe(false);
   });
 
   it("reports total-budget trimming when capped note content exceeds the total", () => {
     const noteCount =
-      GHOSTWRITER_NOTE_CONTEXT_MAX_TOTAL_CHARS /
-        GHOSTWRITER_NOTE_CONTEXT_MAX_NOTE_CHARS +
-      1;
+      GHOSTWRITER_NOTE_CONTEXT_MAX_TOTAL_CHARS / GHOSTWRITER_NOTE_CONTEXT_MAX_NOTE_CHARS + 1;
     const result = buildGhostwriterNoteContextItems(
       Array.from({ length: noteCount }, (_, index) =>
         makeNote({

@@ -59,9 +59,7 @@ const LANGUAGE_MARKERS: Record<ChatStyleManualLanguage, Set<string>> = {
   ]),
 };
 
-const SPECIAL_CHARACTER_PATTERNS: Partial<
-  Record<ChatStyleManualLanguage, RegExp>
-> = {
+const SPECIAL_CHARACTER_PATTERNS: Partial<Record<ChatStyleManualLanguage, RegExp>> = {
   german: /[äöüß]/gi,
   french: /[àâæçéèêëîïôœùûüÿ]/gi,
   spanish: /[áéíóúñ¿¡]/gi,
@@ -111,9 +109,7 @@ function toText(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-function collectReactiveResumeV5LanguageSample(
-  resumeJson: Record<string, unknown>,
-): string {
+function collectReactiveResumeV5LanguageSample(resumeJson: Record<string, unknown>): string {
   const segments: string[] = [];
 
   const add = (value: unknown): void => {
@@ -173,10 +169,7 @@ function collectReactiveResumeV5LanguageSample(
   return segments.join("\n");
 }
 
-function scoreLanguageSample(
-  sample: string,
-  language: ChatStyleManualLanguage,
-): number {
+function scoreLanguageSample(sample: string, language: ChatStyleManualLanguage): number {
   const normalized = sample.toLowerCase();
   const tokens = normalized.match(/\p{L}+/gu) ?? [];
   const markers = LANGUAGE_MARKERS[language];
@@ -196,9 +189,7 @@ function scoreLanguageSample(
   return score;
 }
 
-function detectLanguageFromSample(
-  sample: string,
-): ChatStyleManualLanguage | null {
+function detectLanguageFromSample(sample: string): ChatStyleManualLanguage | null {
   if (!sample.trim()) {
     return null;
   }
@@ -226,9 +217,7 @@ function detectLanguageFromSample(
   return best.language;
 }
 
-export function detectProfileLanguage(
-  profile: ResumeProfile,
-): ChatStyleManualLanguage | null {
+export function detectProfileLanguage(profile: ResumeProfile): ChatStyleManualLanguage | null {
   return detectLanguageFromSample(collectProfileLanguageSample(profile));
 }
 
@@ -241,7 +230,5 @@ export function detectJobDescriptionLanguage(
 export function detectReactiveResumeV5Language(
   resumeJson: Record<string, unknown>,
 ): ChatStyleManualLanguage | null {
-  return detectLanguageFromSample(
-    collectReactiveResumeV5LanguageSample(resumeJson),
-  );
+  return detectLanguageFromSample(collectReactiveResumeV5LanguageSample(resumeJson));
 }

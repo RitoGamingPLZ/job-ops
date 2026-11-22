@@ -5,12 +5,7 @@ import * as jobsRepo from "@server/repositories/jobs";
 import * as pipelineRepo from "@server/repositories/pipeline";
 import { transitionStage } from "@server/services/applicationTracking";
 import { persistDemoGeneratedPdf } from "@server/services/demo-pdf";
-import type {
-  Job,
-  JobSource,
-  PipelineConfig,
-  StageEventMetadata,
-} from "@shared/types";
+import type { Job, JobSource, PipelineConfig, StageEventMetadata } from "@shared/types";
 
 type ProcessOptions = {
   force?: boolean;
@@ -68,9 +63,7 @@ export async function simulatePipelineRun(
     enableImporting: config?.enableImporting ?? true,
     enableAutoTailoring: config?.enableAutoTailoring ?? true,
   };
-  const savedDetails = await buildPipelineRunSavedDetails(mergedConfig).catch(
-    () => null,
-  );
+  const savedDetails = await buildPipelineRunSavedDetails(mergedConfig).catch(() => null);
   const run = await pipelineRepo.createPipelineRun({ savedDetails });
   const source = config?.sources?.[0] ?? "manual";
   const now = new Date();
@@ -85,8 +78,7 @@ export async function simulatePipelineRun(
     location: "Remote",
     salary: "Competitive",
     deadline: now.toISOString().slice(0, 10),
-    jobDescription:
-      "This is a generated demo job used to simulate pipeline behavior.",
+    jobDescription: "This is a generated demo job used to simulate pipeline behavior.",
   });
 
   await pipelineRepo.updatePipelineRun(run.id, {
@@ -148,8 +140,7 @@ export async function simulateGeneratePdf(
   } catch (error) {
     return {
       success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to generate demo PDF",
+      error: error instanceof Error ? error.message : "Failed to generate demo PDF",
     };
   }
 }

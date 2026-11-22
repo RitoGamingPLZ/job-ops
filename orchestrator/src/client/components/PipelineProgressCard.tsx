@@ -6,13 +6,7 @@ import "slot-text/style.css";
 import { SlotText } from "slot-text/react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { PipelineActionRequired } from "./PipelineActionRequired";
@@ -57,8 +51,7 @@ const stepLabels: Record<PipelineProgressState["step"], string> = {
   configuration_required: "Action needed",
 };
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, value));
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 const getPercentage = (progress: PipelineProgressState): number => {
   switch (progress.step) {
@@ -66,31 +59,17 @@ const getPercentage = (progress: PipelineProgressState): number => {
       return 15;
     case "crawling":
       return progress.crawlingTermsTotal > 0
-        ? clamp(
-            5 +
-              (progress.crawlingTermsProcessed / progress.crawlingTermsTotal) *
-                10,
-            5,
-            15,
-          )
+        ? clamp(5 + (progress.crawlingTermsProcessed / progress.crawlingTermsTotal) * 10, 5, 15)
         : 5;
     case "importing":
       return 20;
     case "scoring":
       return progress.jobsDiscovered > 0
-        ? clamp(
-            20 + (progress.jobsScored / progress.jobsDiscovered) * 30,
-            20,
-            50,
-          )
+        ? clamp(20 + (progress.jobsScored / progress.jobsDiscovered) * 30, 20, 50)
         : 25;
     case "processing":
       return progress.totalToProcess > 0
-        ? clamp(
-            50 + (progress.jobsProcessed / progress.totalToProcess) * 50,
-            50,
-            100,
-          )
+        ? clamp(50 + (progress.jobsProcessed / progress.totalToProcess) * 50, 50, 100)
         : 55;
     case "completed":
     case "cancelled":
@@ -176,10 +155,7 @@ export const PipelineProgressCard = ({
   resumingScoring = false,
   onResumeScoring,
 }: PipelineProgressCardProps) => {
-  if (
-    progress.fanout &&
-    (progress.step === "crawling" || progress.step === "challenge_required")
-  ) {
+  if (progress.fanout && (progress.step === "crawling" || progress.step === "challenge_required")) {
     return (
       <PipelineFanoutCard
         fanout={progress.fanout}
@@ -195,20 +171,11 @@ export const PipelineProgressCard = ({
   }
 
   const percentage = getPercentage(progress);
-  const remaining = Math.max(
-    progress.totalToProcess - progress.jobsProcessed,
-    0,
-  );
-  const awaitingScore = Math.max(
-    progress.jobsDiscovered - progress.jobsScored,
-    0,
-  );
-  const isScoring =
-    progress.step === "scoring" || progress.step === "configuration_required";
+  const remaining = Math.max(progress.totalToProcess - progress.jobsProcessed, 0);
+  const awaitingScore = Math.max(progress.jobsDiscovered - progress.jobsScored, 0);
+  const isScoring = progress.step === "scoring" || progress.step === "configuration_required";
   const stageCopy = liveStageCopy(progress);
-  const stageText = stageCopy
-    ? `${stageCopy.before} ${stageCopy.title} ${stageCopy.after}`
-    : null;
+  const stageText = stageCopy ? `${stageCopy.before} ${stageCopy.title} ${stageCopy.after}` : null;
   const showMetrics = progress.step !== "idle";
   const badgeVariant =
     progress.step === "failed"
@@ -222,17 +189,14 @@ export const PipelineProgressCard = ({
       <CardHeader className="gap-4 p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-col gap-2">
-            <CardTitle className="text-2xl tracking-tight">
-              {stepTitles[progress.step]}
-            </CardTitle>
+            <CardTitle className="text-2xl tracking-tight">{stepTitles[progress.step]}</CardTitle>
             <CardDescription
               className="overflow-hidden text-base leading-6"
               title={stageText ?? undefined}
             >
               {stageCopy ? (
                 <>
-                  {stageCopy.before} <RollingStageText text={stageCopy.title} />{" "}
-                  {stageCopy.after}
+                  {stageCopy.before} <RollingStageText text={stageCopy.title} /> {stageCopy.after}
                 </>
               ) : (
                 progress.message

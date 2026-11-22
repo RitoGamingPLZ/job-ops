@@ -33,9 +33,7 @@ export type DesignResumeJakeDocument = {
 };
 
 function asRecord(value: unknown): RecordLike | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as RecordLike)
-    : null;
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as RecordLike) : null;
 }
 
 function asArray(value: unknown): unknown[] {
@@ -98,9 +96,7 @@ function extractBullets(value: unknown): string[] {
     .filter(Boolean);
 }
 
-function dedupeContacts(
-  contacts: DesignResumeJakeContactItem[],
-): DesignResumeJakeContactItem[] {
+function dedupeContacts(contacts: DesignResumeJakeContactItem[]): DesignResumeJakeContactItem[] {
   const seen = new Set<string>();
   return contacts.filter((item) => {
     const key = `${item.text}|${item.url ?? ""}`.toLowerCase();
@@ -110,10 +106,7 @@ function dedupeContacts(
   });
 }
 
-function getVisibleSectionItems(
-  resumeJson: RecordLike,
-  sectionKey: string,
-): RecordLike[] {
+function getVisibleSectionItems(resumeJson: RecordLike, sectionKey: string): RecordLike[] {
   const sections = (asRecord(resumeJson.sections) ?? {}) as RecordLike;
   const section = (asRecord(sections[sectionKey]) ?? {}) as RecordLike;
   if (toBoolean(section.hidden, false)) return [];
@@ -166,29 +159,23 @@ function buildContacts(resumeJson: RecordLike): DesignResumeJakeContactItem[] {
 }
 
 function toExperienceEntries(resumeJson: RecordLike): DesignResumeJakeEntry[] {
-  return getVisibleSectionItems(resumeJson, "experience").map(
-    (item, index) => ({
-      id: toText(item.id, `experience-${index}`),
-      title: toText(item.company, "Untitled"),
-      subtitle: toText(item.position) || null,
-      meta: toText(item.location) || null,
-      date: toText(item.period) || null,
-      bullets: extractBullets(item.description),
-      url: toText(getByPath(item, "website.url")) || undefined,
-    }),
-  );
+  return getVisibleSectionItems(resumeJson, "experience").map((item, index) => ({
+    id: toText(item.id, `experience-${index}`),
+    title: toText(item.company, "Untitled"),
+    subtitle: toText(item.position) || null,
+    meta: toText(item.location) || null,
+    date: toText(item.period) || null,
+    bullets: extractBullets(item.description),
+    url: toText(getByPath(item, "website.url")) || undefined,
+  }));
 }
 
 function toEducationEntries(resumeJson: RecordLike): DesignResumeJakeEntry[] {
   return getVisibleSectionItems(resumeJson, "education").map((item, index) => ({
     id: toText(item.id, `education-${index}`),
     title: toText(item.school, "Untitled"),
-    subtitle:
-      [toText(item.degree), toText(item.area)].filter(Boolean).join(", ") ||
-      null,
-    meta:
-      [toText(item.location), toText(item.grade)].filter(Boolean).join(" | ") ||
-      null,
+    subtitle: [toText(item.degree), toText(item.area)].filter(Boolean).join(", ") || null,
+    meta: [toText(item.location), toText(item.grade)].filter(Boolean).join(" | ") || null,
     date: toText(item.period) || null,
     bullets: extractBullets(item.description),
     url: toText(getByPath(item, "website.url")) || undefined,

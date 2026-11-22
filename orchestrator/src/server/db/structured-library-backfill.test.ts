@@ -52,9 +52,7 @@ it("marks fresh databases and repeats without touching later rows", () => {
   row("later");
   backfillStructuredLibrary(db);
   expect(JSON.parse(get("later").data)).not.toHaveProperty("schemaVersion");
-  expect(
-    db.prepare("SELECT count(*) AS n FROM app_data_migrations").get(),
-  ).toEqual({ n: 1 });
+  expect(db.prepare("SELECT count(*) AS n FROM app_data_migrations").get()).toEqual({ n: 1 });
 });
 it("recovers only in the same tenant and user, preserves provenance and never changes resumes", () => {
   row("a1");
@@ -71,8 +69,7 @@ it("recovers only in the same tenant and user, preserves provenance and never ch
     description: "<p>First</p>",
     website: { label: "Prize", inlineLink: true },
   });
-  for (const id of ["a2", "b1", "null"])
-    expect(get(id).text).toBe("Prize · Guild · First");
+  for (const id of ["a2", "b1", "null"]) expect(get(id).text).toBe("Prize · Guild · First");
   expect(get("a1").updated_at).toBe("original");
   expect(db.prepare("SELECT document FROM job_resumes").get()).toEqual({
     document: original,
@@ -146,9 +143,7 @@ it.each([
       }),
     );
   }
-  expect(
-    db.prepare("SELECT count(*) AS n FROM app_data_migrations").get(),
-  ).toEqual({ n: 1 });
+  expect(db.prepare("SELECT count(*) AS n FROM app_data_migrations").get()).toEqual({ n: 1 });
 });
 it("ignores malformed saved documents and source items while completing the migration", () => {
   row("recoverable");
@@ -157,9 +152,7 @@ it("ignores malformed saved documents and source items while completing the migr
   source();
   expect(() => backfillStructuredLibrary(db)).not.toThrow();
   expect(get("recoverable").text).toBe("Prize");
-  expect(
-    db.prepare("SELECT count(*) AS n FROM app_data_migrations").get(),
-  ).toEqual({ n: 1 });
+  expect(db.prepare("SELECT count(*) AS n FROM app_data_migrations").get()).toEqual({ n: 1 });
 });
 it("falls back when the only matching source has invalid structured fields", () => {
   row("fallback");
@@ -170,9 +163,7 @@ it("falls back when the only matching source has invalid structured fields", () 
 });
 it("drops old derived linked copies before selecting informative recovery sources", () => {
   row("prize");
-  db.prepare(
-    "UPDATE experience_bullets SET text = 'Prize · Guild' WHERE id = 'prize'",
-  ).run();
+  db.prepare("UPDATE experience_bullets SET text = 'Prize · Guild' WHERE id = 'prize'").run();
   source("a", "one", {
     title: "Prize",
     awarder: "Guild",

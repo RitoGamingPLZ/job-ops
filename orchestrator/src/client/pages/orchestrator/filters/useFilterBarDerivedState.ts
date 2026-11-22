@@ -73,8 +73,7 @@ export const useFilterBarDerivedState = ({
   );
 
   const postedWithinLabel =
-    postedWithinOptions.find((option) => option.value === postedWithinDays)
-      ?.label ?? null;
+    postedWithinOptions.find((option) => option.value === postedWithinDays)?.label ?? null;
 
   const sortDirectionLabel = getDirectionOptions(sort.key).find(
     (option) => option.value === sort.direction,

@@ -4,10 +4,7 @@ import { asyncRoute, fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { executePostApplicationProviderAction } from "@server/services/post-application/providers";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
-import {
-  POST_APPLICATION_PROVIDER_ACTIONS,
-  POST_APPLICATION_PROVIDERS,
-} from "@shared/types";
+import { POST_APPLICATION_PROVIDER_ACTIONS, POST_APPLICATION_PROVIDERS } from "@shared/types";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 
@@ -54,18 +51,12 @@ const oauthStateStore = new Map<
 >();
 
 function getOauthStateTtlMs(): number {
-  const parsed = Number.parseInt(
-    process.env.POST_APPLICATION_OAUTH_STATE_TTL_MS ?? "",
-    10,
-  );
+  const parsed = Number.parseInt(process.env.POST_APPLICATION_OAUTH_STATE_TTL_MS ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 10 * 60 * 1000;
 }
 
 function getOauthStateMaxEntries(): number {
-  const parsed = Number.parseInt(
-    process.env.POST_APPLICATION_OAUTH_STATE_MAX_ENTRIES ?? "",
-    10,
-  );
+  const parsed = Number.parseInt(process.env.POST_APPLICATION_OAUTH_STATE_MAX_ENTRIES ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1000;
 }
 
@@ -114,9 +105,7 @@ function setOauthState(
 }
 
 function asNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : null;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
 function resolveGmailOauthConfig(req: Request): {
@@ -132,9 +121,7 @@ function resolveGmailOauthConfig(req: Request): {
     );
   }
 
-  const configuredRedirectUri = asNonEmptyString(
-    process.env.GMAIL_OAUTH_REDIRECT_URI,
-  );
+  const configuredRedirectUri = asNonEmptyString(process.env.GMAIL_OAUTH_REDIRECT_URI);
   const origin = `${req.protocol}://${req.get("host")}`;
   const redirectUri = configuredRedirectUri ?? `${origin}/oauth/gmail/callback`;
 
@@ -170,10 +157,7 @@ async function exchangeGmailAuthorizationCode(args: {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
   });
-  const data = (await response.json().catch(() => ({}))) as Record<
-    string,
-    unknown
-  >;
+  const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (!response.ok) {
     throw upstreamError("Google OAuth token exchange failed.");
   }
@@ -190,13 +174,9 @@ async function exchangeGmailAuthorizationCode(args: {
   return {
     refreshToken,
     ...(accessToken ? { accessToken } : {}),
-    ...(Number.isFinite(expiryIn)
-      ? { expiryDate: Date.now() + expiryIn * 1000 }
-      : {}),
+    ...(Number.isFinite(expiryIn) ? { expiryDate: Date.now() + expiryIn * 1000 } : {}),
     ...(asNonEmptyString(data.scope) ? { scope: String(data.scope) } : {}),
-    ...(asNonEmptyString(data.token_type)
-      ? { tokenType: String(data.token_type) }
-      : {}),
+    ...(asNonEmptyString(data.token_type) ? { tokenType: String(data.token_type) } : {}),
   };
 }
 
@@ -204,25 +184,16 @@ async function fetchGmailUserProfile(accessToken: string): Promise<{
   email?: string;
   displayName?: string;
 }> {
-  const response = await fetch(
-    "https://www.googleapis.com/oauth2/v2/userinfo",
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+  const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
     },
-  );
+  });
 
   if (!response.ok) return {};
-  const data = (await response.json().catch(() => ({}))) as Record<
-    string,
-    unknown
-  >;
+  const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   const email = asNonEmptyString(data.email) ?? undefined;
-  const displayName =
-    asNonEmptyString(data.name) ??
-    asNonEmptyString(data.given_name) ??
-    undefined;
+  const displayName = asNonEmptyString(data.name) ?? asNonEmptyString(data.given_name) ?? undefined;
   return {
     ...(email ? { email } : {}),
     ...(displayName ? { displayName } : {}),
@@ -378,18 +349,14 @@ postApplicationProvidersRouter.post(
         const parsedBody = connectBodySchema.parse(req.body ?? {});
         accountKey = parsedBody.accountKey ?? "default";
         connectPayload = {
-          ...(parsedBody.accountKey
-            ? { accountKey: parsedBody.accountKey }
-            : {}),
+          ...(parsedBody.accountKey ? { accountKey: parsedBody.accountKey } : {}),
           ...(parsedBody.payload ? { payload: parsedBody.payload } : {}),
         };
       } else if (action === "sync") {
         const parsedBody = syncBodySchema.parse(req.body ?? {});
         accountKey = parsedBody.accountKey ?? "default";
         syncPayload = {
-          ...(parsedBody.accountKey
-            ? { accountKey: parsedBody.accountKey }
-            : {}),
+          ...(parsedBody.accountKey ? { accountKey: parsedBody.accountKey } : {}),
           ...(typeof parsedBody.maxMessages === "number"
             ? { maxMessages: parsedBody.maxMessages }
             : {}),

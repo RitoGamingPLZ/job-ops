@@ -3,10 +3,7 @@ import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtractorRegistry } from "@server/extractors/registry";
-import {
-  type ExtractorSourceId,
-  PIPELINE_EXTRACTOR_SOURCE_IDS,
-} from "@shared/extractors";
+import { type ExtractorSourceId, PIPELINE_EXTRACTOR_SOURCE_IDS } from "@shared/extractors";
 import { normalizeLocationSourceCapabilities } from "@shared/location-domain.js";
 import type { ExtractorManifest } from "@shared/types";
 import { vi } from "vitest";
@@ -80,23 +77,15 @@ vi.mock("@server/services/activation-funnel", () => ({
   trackCanonicalActivationEvent: vi.fn().mockResolvedValue(true),
   initializeActivationAnalytics: vi.fn().mockResolvedValue(undefined),
   initializeActivationAnalyticsSafely: vi.fn().mockResolvedValue(undefined),
-  reconcileActivationMilestonesFromHistory: vi
-    .fn()
-    .mockResolvedValue(undefined),
-  reconcileActivationMilestonesFromHistorySafely: vi
-    .fn()
-    .mockResolvedValue(undefined),
+  reconcileActivationMilestonesFromHistory: vi.fn().mockResolvedValue(undefined),
+  reconcileActivationMilestonesFromHistorySafely: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@server/services/challenge-viewer", () => ({
-  ensureChallengeViewer: vi
-    .fn()
-    .mockResolvedValue({ available: false, reason: "not a container" }),
+  ensureChallengeViewer: vi.fn().mockResolvedValue({ available: false, reason: "not a container" }),
   createChallengeViewerSession: vi.fn(() => ({ token: "viewer-token" })),
   revokeChallengeViewerSessions: vi.fn(),
-  buildChallengeViewerUrl: vi.fn(
-    () => "/challenge-viewer/session/viewer-token/vnc.html",
-  ),
+  buildChallengeViewerUrl: vi.fn(() => "/challenge-viewer/session/viewer-token/vnc.html"),
   proxyChallengeViewerRequest: vi.fn(),
 }));
 
@@ -118,13 +107,10 @@ vi.mock("@server/services/visa-sponsors/index", () => ({
   getOrganizationDetails: vi.fn(),
   downloadLatestCsv: vi.fn(),
   calculateSponsorMatchSummary: vi.fn((results) => {
-    if (!results || results.length === 0)
-      return { sponsorMatchScore: 0, sponsorMatchNames: null };
+    if (!results || results.length === 0) return { sponsorMatchScore: 0, sponsorMatchNames: null };
     return {
       sponsorMatchScore: results[0].score,
-      sponsorMatchNames: JSON.stringify(
-        results.map((r: any) => r.sponsor.organisationName),
-      ),
+      sponsorMatchNames: JSON.stringify(results.map((r: any) => r.sponsor.organisationName)),
     };
   }),
 }));
@@ -271,9 +257,7 @@ async function ensureMigratedDbTemplate(): Promise<string> {
   return migratedDbTemplatePromise;
 }
 
-export async function startServer(options?: {
-  env?: Record<string, string | undefined>;
-}): Promise<{
+export async function startServer(options?: { env?: Record<string, string | undefined> }): Promise<{
   server: Server;
   baseUrl: string;
   closeDb: () => void;
@@ -301,19 +285,13 @@ export async function startServer(options?: {
   } else {
     await copyFile(await ensureMigratedDbTemplate(), join(tempDir, "jobs.db"));
   }
-  const { applyStoredEnvOverrides } = await import(
-    "@server/services/envSettings"
-  );
+  const { applyStoredEnvOverrides } = await import("@server/services/envSettings");
   const registryModule = await import("@server/extractors/registry");
   const defaultRegistry = createTestExtractorRegistry();
   if (vi.isMockFunction(registryModule.getExtractorRegistry)) {
-    vi.mocked(registryModule.getExtractorRegistry).mockResolvedValue(
-      defaultRegistry,
-    );
+    vi.mocked(registryModule.getExtractorRegistry).mockResolvedValue(defaultRegistry);
   } else {
-    vi.spyOn(registryModule, "getExtractorRegistry").mockResolvedValue(
-      defaultRegistry,
-    );
+    vi.spyOn(registryModule, "getExtractorRegistry").mockResolvedValue(defaultRegistry);
   }
   const { createApp } = await import("../../app");
   const { closeDb } = await import("@server/db/index");
@@ -325,9 +303,7 @@ export async function startServer(options?: {
   const app = createApp();
   const server = await new Promise<Server>((resolve, reject) => {
     let listeningServer: Server;
-    listeningServer = app.listen(0, "127.0.0.1", () =>
-      resolve(listeningServer),
-    );
+    listeningServer = app.listen(0, "127.0.0.1", () => resolve(listeningServer));
     listeningServer.once("error", reject);
   });
   const address = server.address();
@@ -342,11 +318,7 @@ export async function startServer(options?: {
   };
 }
 
-export async function stopServer(args: {
-  server: Server;
-  closeDb: () => void;
-  tempDir?: string;
-}) {
+export async function stopServer(args: { server: Server; closeDb: () => void; tempDir?: string }) {
   // Defensive: if startServer throws, callers may still run cleanup.
   if (args.server) {
     await new Promise<void>((resolve) => args.server.close(() => resolve()));

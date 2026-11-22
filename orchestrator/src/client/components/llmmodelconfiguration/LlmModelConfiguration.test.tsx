@@ -65,9 +65,7 @@ describe("LLM form configuration preview", () => {
     render(<LlmModelConfiguration {...props()} />);
     expect(screen.getByText("Configuration preview")).toBeInTheDocument();
     expect(previewValue("Scoring provider")).toHaveTextContent("openai");
-    expect(previewValue("Scoring model")).toHaveTextContent(
-      getDefaultModelForProvider("openai"),
-    );
+    expect(previewValue("Scoring model")).toHaveTextContent(getDefaultModelForProvider("openai"));
   });
 
   it("inherits the draft default for a same-provider or unset provider", () => {
@@ -76,14 +74,10 @@ describe("LLM form configuration preview", () => {
     input.model = field("draft-global-model");
     const { rerender } = render(<LlmModelConfiguration {...input} />);
     expect(previewValue("Scoring provider")).toHaveTextContent("openrouter");
-    expect(previewValue("Scoring model")).toHaveTextContent(
-      "draft-global-model",
-    );
+    expect(previewValue("Scoring model")).toHaveTextContent("draft-global-model");
     input.purposeOverrides.values = {};
     rerender(<LlmModelConfiguration {...input} />);
-    expect(previewValue("Scoring model")).toHaveTextContent(
-      "draft-global-model",
-    );
+    expect(previewValue("Scoring model")).toHaveTextContent("draft-global-model");
   });
 
   it("updates explicit models and provider-only drafts without using stale legacy or saved pairs", () => {
@@ -126,14 +120,10 @@ describe("LLM form configuration preview", () => {
     input.effectiveModel = "saved-custom-model";
     input.model = field("saved-custom-model");
     const { rerender } = render(<LlmModelConfiguration {...input} />);
-    expect(previewValue("Scoring model")).toHaveTextContent(
-      "saved-custom-model",
-    );
+    expect(previewValue("Scoring model")).toHaveTextContent("saved-custom-model");
     input.model = field();
     rerender(<LlmModelConfiguration {...input} />);
-    expect(previewValue("Scoring model")).toHaveTextContent(
-      "provider-default-model",
-    );
+    expect(previewValue("Scoring model")).toHaveTextContent("provider-default-model");
   });
 
   it("keeps legacy model overrides and inheritance for callers without purpose bindings", () => {
@@ -141,9 +131,7 @@ describe("LLM form configuration preview", () => {
     input.purposeOverrides = undefined;
     input.modelScorer = field("legacy-explicit-model");
     const { rerender } = render(<LlmModelConfiguration {...input} />);
-    expect(previewValue("Scoring model")).toHaveTextContent(
-      "legacy-explicit-model",
-    );
+    expect(previewValue("Scoring model")).toHaveTextContent("legacy-explicit-model");
     input.modelScorer = field();
     rerender(<LlmModelConfiguration {...input} />);
     expect(previewValue("Scoring model")).toHaveTextContent("inherits");
@@ -171,12 +159,11 @@ describe("LlmModelConfiguration", () => {
 
     expect(screen.getByText("Codex Sign-In")).toBeInTheDocument();
     expect(screen.queryByLabelText(/api key/i)).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("No API key is required for this provider."),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "find out what model name to use" }),
-    ).toHaveAttribute("href", "https://developers.openai.com/codex/models");
+    expect(screen.queryByText("No API key is required for this provider.")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "find out what model name to use" })).toHaveAttribute(
+      "href",
+      "https://developers.openai.com/codex/models",
+    );
   });
 
   it("asks Ollama users to choose an installed model instead of using a default", async () => {

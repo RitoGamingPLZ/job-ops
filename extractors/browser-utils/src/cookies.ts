@@ -50,9 +50,7 @@ export interface PersistedFetchCookieJarInfo extends CookieJarInfo {
 export function getCloudflareCookieStorageDir(storageDir?: string): string {
   if (storageDir) return storageDir;
 
-  const fromEnv = (
-    process.env.JOBOPS_CLOUDFLARE_COOKIE_STORAGE_DIR || ""
-  ).trim();
+  const fromEnv = (process.env.JOBOPS_CLOUDFLARE_COOKIE_STORAGE_DIR || "").trim();
   if (fromEnv) return fromEnv;
 
   const dataDir = (process.env.DATA_DIR || "").trim();
@@ -82,10 +80,7 @@ async function readPersistedCookieJar(
   extractorId: string,
   storageDir?: string,
 ): Promise<PersistedCookieJar | null> {
-  const path = cookiePath(
-    getCloudflareCookieStorageDir(storageDir),
-    extractorId,
-  );
+  const path = cookiePath(getCloudflareCookieStorageDir(storageDir), extractorId);
 
   try {
     const data = await readFile(path, "utf-8");
@@ -96,9 +91,7 @@ async function readPersistedCookieJar(
 }
 
 function getValidCookies(jar: PersistedCookieJar): PlaywrightCookie[] {
-  return Array.isArray(jar.cookies)
-    ? jar.cookies.filter((cookie) => !isExpired(cookie))
-    : [];
+  return Array.isArray(jar.cookies) ? jar.cookies.filter((cookie) => !isExpired(cookie)) : [];
 }
 
 function cookieOriginUrl(cookie: PlaywrightCookie): string {
@@ -187,10 +180,7 @@ export async function loadCookies(
   extractorId: string,
   storageDir?: string,
 ): Promise<number> {
-  const path = cookiePath(
-    getCloudflareCookieStorageDir(storageDir),
-    extractorId,
-  );
+  const path = cookiePath(getCloudflareCookieStorageDir(storageDir), extractorId);
 
   let jar: PersistedCookieJar;
   try {
@@ -246,13 +236,9 @@ export async function createPersistedFetchCookieJar(
   const validCookies = persistedJar ? getValidCookies(persistedJar) : [];
 
   for (const cookie of validCookies) {
-    await toughJar.setCookie(
-      toSetCookieHeader(cookie),
-      cookieOriginUrl(cookie),
-      {
-        ignoreError: true,
-      },
-    );
+    await toughJar.setCookie(toSetCookieHeader(cookie), cookieOriginUrl(cookie), {
+      ignoreError: true,
+    });
   }
 
   return {
@@ -273,14 +259,8 @@ export async function createPersistedFetchCookieJar(
  * Deletes the cookie jar file for an extractor.
  * Call this when cookies are known to be stale (e.g. after a CF re-challenge).
  */
-export async function invalidateCookies(
-  extractorId: string,
-  storageDir?: string,
-): Promise<void> {
-  const path = cookiePath(
-    getCloudflareCookieStorageDir(storageDir),
-    extractorId,
-  );
+export async function invalidateCookies(extractorId: string, storageDir?: string): Promise<void> {
+  const path = cookiePath(getCloudflareCookieStorageDir(storageDir), extractorId);
   try {
     await unlink(path);
   } catch {

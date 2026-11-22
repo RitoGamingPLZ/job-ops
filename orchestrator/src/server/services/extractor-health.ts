@@ -1,11 +1,7 @@
 import { logger } from "@infra/logger";
 import { getExtractorRegistry } from "@server/extractors/registry";
 import type { ExtractorSourceId } from "@shared/extractors";
-import type {
-  ExtractorHealthResponse,
-  ExtractorManifest,
-  ExtractorRunResult,
-} from "@shared/types";
+import type { ExtractorHealthResponse, ExtractorManifest, ExtractorRunResult } from "@shared/types";
 
 const HEALTH_CACHE_TTL_MS = 60 * 60 * 1000;
 const DEFAULT_HEALTH_SEARCH_TERM = "software";
@@ -29,10 +25,7 @@ type CachedHealthCheckEntry = {
   result: ExtractorHealthCheckResult;
 };
 
-const HEALTH_PROBE_CONFIG_BY_SOURCE: Record<
-  ExtractorSourceId,
-  HealthProbeConfig
-> = {
+const HEALTH_PROBE_CONFIG_BY_SOURCE: Record<ExtractorSourceId, HealthProbeConfig> = {
   gradcracker: {
     searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
     selectedCountry: DEFAULT_HEALTH_SELECTED_COUNTRY,
@@ -155,19 +148,13 @@ const HEALTH_PROBE_CONFIG_BY_SOURCE: Record<
   },
 };
 
-const extractorHealthCache = new Map<
-  ExtractorSourceId,
-  CachedHealthCheckEntry
->();
+const extractorHealthCache = new Map<ExtractorSourceId, CachedHealthCheckEntry>();
 
 function hasNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function cloneCachedResult(
-  entry: CachedHealthCheckEntry,
-  now: number,
-): ExtractorHealthCheckResult {
+function cloneCachedResult(entry: CachedHealthCheckEntry, now: number): ExtractorHealthCheckResult {
   return {
     ...entry.result,
     response: {
@@ -294,10 +281,7 @@ function createUnhealthyResult(args: {
   };
 }
 
-function countValidJobs(
-  source: ExtractorSourceId,
-  result: ExtractorRunResult,
-): number {
+function countValidJobs(source: ExtractorSourceId, result: ExtractorRunResult): number {
   return result.jobs.filter(
     (job) =>
       job.source === source &&

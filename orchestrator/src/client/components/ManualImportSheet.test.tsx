@@ -34,9 +34,7 @@ describe("ManualImportSheet", () => {
   });
 
   it("reviews PDF text before AI analysis and imports the reviewed draft", async () => {
-    vi.mocked(extractPdfJobDescription).mockResolvedValue(
-      "Backend Engineer\nAcme Labs",
-    );
+    vi.mocked(extractPdfJobDescription).mockResolvedValue("Backend Engineer\nAcme Labs");
     vi.mocked(api.inferManualJob).mockResolvedValue({
       job: {
         title: "Backend Engineer",
@@ -46,9 +44,7 @@ describe("ManualImportSheet", () => {
     });
     vi.mocked(api.importManualJob).mockResolvedValue({ id: "pdf-job" } as any);
     const imported = vi.fn();
-    render(
-      <ManualImportSheet open onOpenChange={vi.fn()} onImported={imported} />,
-    );
+    render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={imported} />);
     fireEvent.change(screen.getByLabelText("Job URL"), {
       target: { value: "https://old.example/job" },
     });
@@ -58,9 +54,7 @@ describe("ManualImportSheet", () => {
       },
     });
     const textarea = screen.getByLabelText("Job description");
-    await waitFor(() =>
-      expect(textarea).toHaveValue("Backend Engineer\nAcme Labs"),
-    );
+    await waitFor(() => expect(textarea).toHaveValue("Backend Engineer\nAcme Labs"));
     expect(api.inferManualJob).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Job URL")).toHaveValue("");
     fireEvent.change(textarea, {
@@ -73,9 +67,7 @@ describe("ManualImportSheet", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /import & target/i }));
     await waitFor(() =>
-      expect(imported).toHaveBeenCalledWith(
-        expect.objectContaining({ jobId: "pdf-job" }),
-      ),
+      expect(imported).toHaveBeenCalledWith(expect.objectContaining({ jobId: "pdf-job" })),
     );
     expect(api.importManualJob).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -87,12 +79,8 @@ describe("ManualImportSheet", () => {
   });
 
   it("keeps the previous description when PDF extraction fails", async () => {
-    vi.mocked(extractPdfJobDescription).mockRejectedValue(
-      new Error("Scanned documents need OCR."),
-    );
-    render(
-      <ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />,
-    );
+    vi.mocked(extractPdfJobDescription).mockRejectedValue(new Error("Scanned documents need OCR."));
+    render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("Job description"), {
       target: { value: "Existing description" },
     });
@@ -100,9 +88,7 @@ describe("ManualImportSheet", () => {
       target: { files: [new File(["pdf"], "scan.pdf")] },
     });
     await screen.findByText("Scanned documents need OCR.");
-    expect(screen.getByLabelText("Job description")).toHaveValue(
-      "Existing description",
-    );
+    expect(screen.getByLabelText("Job description")).toHaveValue("Existing description");
     expect(api.inferManualJob).not.toHaveBeenCalled();
   });
 
@@ -126,9 +112,7 @@ describe("ManualImportSheet", () => {
     rerender(<ManualImportSheet open={false} {...props} />);
     finish("Late result");
     rerender(<ManualImportSheet open {...props} />);
-    await waitFor(() =>
-      expect(screen.getByLabelText("Job description")).toHaveValue(""),
-    );
+    await waitFor(() => expect(screen.getByLabelText("Job description")).toHaveValue(""));
     expect(api.inferManualJob).not.toHaveBeenCalled();
   });
 
@@ -147,13 +131,7 @@ describe("ManualImportSheet", () => {
     });
     vi.mocked(api.importManualJob).mockResolvedValue({ id: "job-1" } as any);
 
-    render(
-      <ManualImportSheet
-        open
-        onOpenChange={onOpenChange}
-        onImported={onImported}
-      />,
-    );
+    render(<ManualImportSheet open onOpenChange={onOpenChange} onImported={onImported} />);
 
     fireEvent.change(
       screen.getByPlaceholderText(
@@ -163,9 +141,7 @@ describe("ManualImportSheet", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /analyze jd/i }));
 
-    const titleInput = await screen.findByPlaceholderText(
-      "e.g. Junior Backend Engineer",
-    );
+    const titleInput = await screen.findByPlaceholderText("e.g. Junior Backend Engineer");
     expect(titleInput).toHaveValue("Backend Engineer");
 
     const jdTextarea = screen.getByPlaceholderText(
@@ -224,27 +200,17 @@ describe("ManualImportSheet", () => {
       url,
       content: `Description for ${url}`,
     }));
-    vi.mocked(api.inferManualJob).mockImplementation(
-      async ({ jobDescription }) => ({
-        job: {
-          title: jobDescription.includes("backend")
-            ? "Backend Engineer"
-            : "Data Scientist",
-          employer: "Acme Labs",
-        },
-      }),
-    );
+    vi.mocked(api.inferManualJob).mockImplementation(async ({ jobDescription }) => ({
+      job: {
+        title: jobDescription.includes("backend") ? "Backend Engineer" : "Data Scientist",
+        employer: "Acme Labs",
+      },
+    }));
     vi.mocked(api.importManualJob)
       .mockResolvedValueOnce({ id: "job-1" } as any)
       .mockResolvedValueOnce({ id: "job-2" } as any);
 
-    render(
-      <ManualImportSheet
-        open
-        onOpenChange={onOpenChange}
-        onImported={onImported}
-      />,
-    );
+    render(<ManualImportSheet open onOpenChange={onOpenChange} onImported={onImported} />);
 
     fireEvent.click(screen.getByRole("button", { name: /url list/i }));
     fireEvent.change(screen.getByPlaceholderText(/backend-engineer/), {
@@ -276,9 +242,7 @@ describe("ManualImportSheet", () => {
       warning: "AI inference failed. Fill details manually.",
     });
 
-    render(
-      <ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />,
-    );
+    render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />);
 
     fireEvent.change(
       screen.getByPlaceholderText(
@@ -295,12 +259,9 @@ describe("ManualImportSheet", () => {
     });
     expect(importButton).toBeDisabled();
 
-    fireEvent.change(
-      screen.getByPlaceholderText("e.g. Junior Backend Engineer"),
-      {
-        target: { value: "QA Engineer" },
-      },
-    );
+    fireEvent.change(screen.getByPlaceholderText("e.g. Junior Backend Engineer"), {
+      target: { value: "QA Engineer" },
+    });
     fireEvent.change(screen.getByPlaceholderText("e.g. Acme Labs"), {
       target: { value: "Acme Labs" },
     });
@@ -317,13 +278,9 @@ describe("ManualImportSheet", () => {
   it("returns to the paste step when inference fails", async () => {
     const rawDescription = "Backend role description.";
 
-    vi.mocked(api.inferManualJob).mockRejectedValue(
-      new Error("Inference failed"),
-    );
+    vi.mocked(api.inferManualJob).mockRejectedValue(new Error("Inference failed"));
 
-    render(
-      <ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />,
-    );
+    render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />);
 
     fireEvent.change(
       screen.getByPlaceholderText(
@@ -334,12 +291,8 @@ describe("ManualImportSheet", () => {
     fireEvent.click(screen.getByRole("button", { name: /analyze jd/i }));
 
     await screen.findByText("Inference failed");
-    expect(
-      screen.getByRole("button", { name: /analyze jd/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByPlaceholderText("e.g. Junior Backend Engineer"),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /analyze jd/i })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("e.g. Junior Backend Engineer")).not.toBeInTheDocument();
   });
 
   it("shows a toast error and keeps the sheet open when import fails", async () => {
@@ -350,19 +303,11 @@ describe("ManualImportSheet", () => {
         jobUrl: "https://example.com/jobs/backend-engineer",
       },
     });
-    vi.mocked(api.importManualJob).mockRejectedValue(
-      new Error("Import failed"),
-    );
+    vi.mocked(api.importManualJob).mockRejectedValue(new Error("Import failed"));
 
     const onOpenChange = vi.fn();
 
-    render(
-      <ManualImportSheet
-        open
-        onOpenChange={onOpenChange}
-        onImported={vi.fn()}
-      />,
-    );
+    render(<ManualImportSheet open onOpenChange={onOpenChange} onImported={vi.fn()} />);
 
     fireEvent.change(
       screen.getByPlaceholderText(
@@ -380,9 +325,7 @@ describe("ManualImportSheet", () => {
       }),
     );
 
-    await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith("Import failed"),
-    );
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Import failed"));
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(
       screen.getByRole("button", {
@@ -402,9 +345,7 @@ describe("ManualImportSheet", () => {
     });
     vi.mocked(api.importManualJob).mockResolvedValue({ id: "job-3" } as any);
 
-    render(
-      <ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />,
-    );
+    render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />);
 
     fireEvent.change(
       screen.getByPlaceholderText(
@@ -416,14 +357,10 @@ describe("ManualImportSheet", () => {
 
     await screen.findByPlaceholderText("e.g. Junior Backend Engineer");
 
-    const tailorCheckbox = screen.getByLabelText(
-      /target and prepare resume after import/i,
-    );
+    const tailorCheckbox = screen.getByLabelText(/target and prepare resume after import/i);
     fireEvent.click(tailorCheckbox);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /import without targeting/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /import without targeting/i }));
 
     await waitFor(() => expect(api.importManualJob).toHaveBeenCalled());
     expect(api.importManualJob).toHaveBeenCalledWith(
@@ -450,9 +387,7 @@ describe("ManualImportSheet", () => {
     });
     vi.mocked(api.importManualJob).mockResolvedValue({ id: "job-4" } as any);
 
-    render(
-      <ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />,
-    );
+    render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />);
 
     fireEvent.change(
       screen.getByPlaceholderText(
@@ -464,13 +399,9 @@ describe("ManualImportSheet", () => {
 
     await screen.findByPlaceholderText("e.g. Junior Backend Engineer");
 
-    expect(
-      screen.getByLabelText(/target and prepare resume after import/i),
-    ).not.toBeChecked();
+    expect(screen.getByLabelText(/target and prepare resume after import/i)).not.toBeChecked();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /import without targeting/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /import without targeting/i }));
 
     await waitFor(() =>
       expect(api.importManualJob).toHaveBeenCalledWith(
@@ -481,9 +412,7 @@ describe("ManualImportSheet", () => {
 
   describe("URL fetch functionality", () => {
     it("treats URL fetch as optional and only enables analyze when description is filled", async () => {
-      render(
-        <ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />,
-      );
+      render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />);
 
       const fetchButton = screen.getByRole("button", { name: /fetch/i });
       const analyzeButton = screen.getByRole("button", { name: /analyze jd/i });
@@ -491,10 +420,9 @@ describe("ManualImportSheet", () => {
       expect(fetchButton).toBeDisabled();
       expect(analyzeButton).toBeDisabled();
 
-      fireEvent.change(
-        screen.getByPlaceholderText("https://example.com/job-posting"),
-        { target: { value: "https://example.com/job" } },
-      );
+      fireEvent.change(screen.getByPlaceholderText("https://example.com/job-posting"), {
+        target: { value: "https://example.com/job" },
+      });
 
       expect(fetchButton).toBeEnabled();
       expect(analyzeButton).toBeDisabled();
@@ -515,20 +443,15 @@ describe("ManualImportSheet", () => {
         url: "https://example.com/job",
       });
 
-      render(
-        <ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />,
-      );
+      render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />);
 
-      fireEvent.change(
-        screen.getByPlaceholderText("https://example.com/job-posting"),
-        { target: { value: "https://example.com/job" } },
-      );
+      fireEvent.change(screen.getByPlaceholderText("https://example.com/job-posting"), {
+        target: { value: "https://example.com/job" },
+      });
 
       fireEvent.click(screen.getByRole("button", { name: /fetch/i }));
 
-      await screen.findByText(
-        "Fetched the page text. Review it below, then analyze.",
-      );
+      await screen.findByText("Fetched the page text. Review it below, then analyze.");
 
       expect(api.fetchJobFromUrl).toHaveBeenCalledWith({
         url: "https://example.com/job",
@@ -540,9 +463,7 @@ describe("ManualImportSheet", () => {
           "Paste the full job description here, or fetch it from a URL above...",
         ),
       ).toHaveValue("Software Engineer role at Acme Corp");
-      expect(
-        screen.queryByPlaceholderText("e.g. Junior Backend Engineer"),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByPlaceholderText("e.g. Junior Backend Engineer")).not.toBeInTheDocument();
     });
 
     it("preserves fetched URL in the job URL field", async () => {
@@ -557,19 +478,14 @@ describe("ManualImportSheet", () => {
         },
       });
 
-      render(
-        <ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />,
-      );
+      render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />);
 
-      fireEvent.change(
-        screen.getByPlaceholderText("https://example.com/job-posting"),
-        { target: { value: "https://example.com/job" } },
-      );
+      fireEvent.change(screen.getByPlaceholderText("https://example.com/job-posting"), {
+        target: { value: "https://example.com/job" },
+      });
       fireEvent.click(screen.getByRole("button", { name: /fetch/i }));
 
-      await screen.findByText(
-        "Fetched the page text. Review it below, then analyze.",
-      );
+      await screen.findByText("Fetched the page text. Review it below, then analyze.");
       fireEvent.click(screen.getByRole("button", { name: /analyze jd/i }));
 
       await screen.findByPlaceholderText("e.g. Junior Backend Engineer");
@@ -589,14 +505,11 @@ describe("ManualImportSheet", () => {
       });
       vi.mocked(api.importManualJob).mockResolvedValue({ id: "job-2" } as any);
 
-      render(
-        <ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />,
-      );
+      render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />);
 
-      fireEvent.change(
-        screen.getByPlaceholderText("https://example.com/job-posting"),
-        { target: { value: "https://www.linkedin.com/jobs/view/123" } },
-      );
+      fireEvent.change(screen.getByPlaceholderText("https://example.com/job-posting"), {
+        target: { value: "https://www.linkedin.com/jobs/view/123" },
+      });
       fireEvent.change(
         screen.getByPlaceholderText(
           "Paste the full job description here, or fetch it from a URL above...",
@@ -639,23 +552,14 @@ describe("ManualImportSheet", () => {
       });
       vi.mocked(api.importManualJob).mockResolvedValue({ id: "job-2" } as any);
 
-      render(
-        <ManualImportSheet
-          open
-          onOpenChange={vi.fn()}
-          onImported={onImported}
-        />,
-      );
+      render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={onImported} />);
 
-      fireEvent.change(
-        screen.getByPlaceholderText("https://example.com/job-posting"),
-        { target: { value: "https://jobs.example.com/job" } },
-      );
+      fireEvent.change(screen.getByPlaceholderText("https://example.com/job-posting"), {
+        target: { value: "https://jobs.example.com/job" },
+      });
       fireEvent.click(screen.getByRole("button", { name: /fetch/i }));
 
-      await screen.findByText(
-        "Fetched the page text. Review it below, then analyze.",
-      );
+      await screen.findByText("Fetched the page text. Review it below, then analyze.");
       fireEvent.click(screen.getByRole("button", { name: /analyze jd/i }));
 
       await screen.findByPlaceholderText("e.g. Junior Backend Engineer");
@@ -676,19 +580,14 @@ describe("ManualImportSheet", () => {
 
     it("shows error and returns to paste step when fetch fails", async () => {
       vi.mocked(api.fetchJobFromUrl).mockRejectedValue(
-        new Error(
-          "Couldn't fetch this URL automatically. Paste the job description manually.",
-        ),
+        new Error("Couldn't fetch this URL automatically. Paste the job description manually."),
       );
 
-      render(
-        <ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />,
-      );
+      render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />);
 
-      fireEvent.change(
-        screen.getByPlaceholderText("https://example.com/job-posting"),
-        { target: { value: "https://example.com/bad-url" } },
-      );
+      fireEvent.change(screen.getByPlaceholderText("https://example.com/job-posting"), {
+        target: { value: "https://example.com/bad-url" },
+      });
       fireEvent.click(screen.getByRole("button", { name: /fetch/i }));
 
       await screen.findByText(
@@ -704,14 +603,11 @@ describe("ManualImportSheet", () => {
     });
 
     it("rejects blocked autofetch domains before calling the API", async () => {
-      render(
-        <ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />,
-      );
+      render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />);
 
-      fireEvent.change(
-        screen.getByPlaceholderText("https://example.com/job-posting"),
-        { target: { value: "https://www.linkedin.com/jobs/view/123" } },
-      );
+      fireEvent.change(screen.getByPlaceholderText("https://example.com/job-posting"), {
+        target: { value: "https://www.linkedin.com/jobs/view/123" },
+      });
       fireEvent.click(screen.getByRole("button", { name: /fetch/i }));
 
       await screen.findByText(
@@ -725,23 +621,16 @@ describe("ManualImportSheet", () => {
         content: "Job content",
         url: "https://example.com/job",
       });
-      vi.mocked(api.inferManualJob).mockRejectedValue(
-        new Error("Inference failed"),
-      );
+      vi.mocked(api.inferManualJob).mockRejectedValue(new Error("Inference failed"));
 
-      render(
-        <ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />,
-      );
+      render(<ManualImportSheet open onOpenChange={vi.fn()} onImported={vi.fn()} />);
 
-      fireEvent.change(
-        screen.getByPlaceholderText("https://example.com/job-posting"),
-        { target: { value: "https://example.com/job" } },
-      );
+      fireEvent.change(screen.getByPlaceholderText("https://example.com/job-posting"), {
+        target: { value: "https://example.com/job" },
+      });
       fireEvent.click(screen.getByRole("button", { name: /fetch/i }));
 
-      await screen.findByText(
-        "Fetched the page text. Review it below, then analyze.",
-      );
+      await screen.findByText("Fetched the page text. Review it below, then analyze.");
       fireEvent.click(screen.getByRole("button", { name: /analyze jd/i }));
 
       await screen.findByText("Inference failed");

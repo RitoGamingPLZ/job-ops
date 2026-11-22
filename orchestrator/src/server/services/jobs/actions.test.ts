@@ -5,11 +5,7 @@ import { getEffectiveSettings } from "@server/services/settings";
 import { applySettingsUpdates } from "@server/services/settings-update";
 import { createAppSettings, createJob } from "@shared/testing/factories";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  blacklistJobEmployer,
-  executeJobActionForJob,
-  targetJobInBackground,
-} from "./actions";
+import { blacklistJobEmployer, executeJobActionForJob, targetJobInBackground } from "./actions";
 
 vi.mock("@server/pipeline/index", () => ({ processJob: vi.fn() }));
 vi.mock("@server/repositories/jobs", () => ({
@@ -60,9 +56,7 @@ describe("target generation dispatch", () => {
       ...job,
       status: "ready",
     });
-    expect(await executeJobActionForJob("move_to_ready", job.id)).toMatchObject(
-      { ok: true },
-    );
+    expect(await executeJobActionForJob("move_to_ready", job.id)).toMatchObject({ ok: true });
     await vi.waitFor(() => expect(processJob).toHaveBeenCalledOnce());
   });
   it("keeps pending work isolated by tenant and retains async context", async () => {
@@ -79,9 +73,7 @@ describe("target generation dispatch", () => {
         ),
       ),
     );
-    await vi.waitFor(() =>
-      expect(tenants.sort()).toEqual(["tenant-a", "tenant-b"]),
-    );
+    await vi.waitFor(() => expect(tenants.sort()).toEqual(["tenant-a", "tenant-b"]));
   });
   it("shows a discovered job as processing in the response, before generation runs", async () => {
     vi.mocked(jobsRepo.setJobTargeted).mockResolvedValue({
@@ -130,10 +122,7 @@ describe("blacklistJobEmployer", () => {
     expect(applySettingsUpdates).toHaveBeenCalledWith({
       blockedCompanyKeywords: [job.employer],
     });
-    expect(jobsRepo.skipJobsByEmployer).toHaveBeenCalledWith(job.employer, [
-      "discovered",
-      "ready",
-    ]);
+    expect(jobsRepo.skipJobsByEmployer).toHaveBeenCalledWith(job.employer, ["discovered", "ready"]);
     expect(result.hiddenCount).toBe(3);
     expect(result.job.status).toBe("skipped");
   });
@@ -156,10 +145,7 @@ describe("blacklistJobEmployer", () => {
     await blacklistJobEmployer(job.id);
     expect(applySettingsUpdates).not.toHaveBeenCalled();
     // Hiding existing posts isn't gated on the dedup check above.
-    expect(jobsRepo.skipJobsByEmployer).toHaveBeenCalledWith(job.employer, [
-      "discovered",
-      "ready",
-    ]);
+    expect(jobsRepo.skipJobsByEmployer).toHaveBeenCalledWith(job.employer, ["discovered", "ready"]);
   });
 
   it("blacklists an already-applied job without changing its own status", async () => {

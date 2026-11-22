@@ -31,9 +31,7 @@ function AccountManagementSection() {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
-  const [resetPasswordByUserId, setResetPasswordByUserId] = useState<
-    Record<string, string>
-  >({});
+  const [resetPasswordByUserId, setResetPasswordByUserId] = useState<Record<string, string>>({});
 
   const meQuery = useQuery({
     queryKey: queryKeys.auth.currentUser(),
@@ -138,9 +136,7 @@ function AccountManagementSection() {
             })
           }
           disabled={
-            createUserMutation.isPending ||
-            username.trim().length === 0 ||
-            password.length < 8
+            createUserMutation.isPending || username.trim().length === 0 || password.length < 8
           }
         >
           Create
@@ -161,16 +157,10 @@ function AccountManagementSection() {
                     {user.displayName || user.username}
                   </span>
                   <Badge variant="outline">{user.username}</Badge>
-                  {user.isSystemAdmin ? (
-                    <Badge variant="secondary">System admin</Badge>
-                  ) : null}
-                  {user.isDisabled ? (
-                    <Badge variant="destructive">Disabled</Badge>
-                  ) : null}
+                  {user.isSystemAdmin ? <Badge variant="secondary">System admin</Badge> : null}
+                  {user.isDisabled ? <Badge variant="destructive">Disabled</Badge> : null}
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {user.workspaceName}
-                </div>
+                <div className="mt-1 text-xs text-muted-foreground">{user.workspaceName}</div>
               </div>
               <div className="flex gap-2">
                 <Input
@@ -191,9 +181,7 @@ function AccountManagementSection() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={
-                    resetPasswordMutation.isPending || resetPassword.length < 8
-                  }
+                  disabled={resetPasswordMutation.isPending || resetPassword.length < 8}
                   onClick={() =>
                     resetPasswordMutation.mutate({
                       userId: user.id,
@@ -208,9 +196,7 @@ function AccountManagementSection() {
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={
-                  disableUserMutation.isPending || user.id === meQuery.data?.id
-                }
+                disabled={disableUserMutation.isPending || user.id === meQuery.data?.id}
                 onClick={() =>
                   disableUserMutation.mutate({
                     userId: user.id,
@@ -224,18 +210,19 @@ function AccountManagementSection() {
           );
         })}
         {users.length === 0 ? (
-          <div className="p-3 text-sm text-muted-foreground">
-            No users found.
-          </div>
+          <div className="p-3 text-sm text-muted-foreground">No users found.</div>
         ) : null}
       </div>
     </div>
   );
 }
 
-export const EnvironmentSettingsSection: React.FC<
-  EnvironmentSettingsSectionProps
-> = ({ values, isLoading, isSaving, layoutMode }) => {
+export const EnvironmentSettingsSection: React.FC<EnvironmentSettingsSectionProps> = ({
+  values,
+  isLoading,
+  isSaving,
+  layoutMode,
+}) => {
   const {
     register,
     formState: { errors },
@@ -243,11 +230,7 @@ export const EnvironmentSettingsSection: React.FC<
   const { private: privateValues } = values;
 
   return (
-    <SettingsSectionFrame
-      mode={layoutMode}
-      title="Environment & Workspaces"
-      value="environment"
-    >
+    <SettingsSectionFrame mode={layoutMode} title="Environment & Workspaces" value="environment">
       <div className="space-y-8">
         <div className="space-y-6">
           <div className="text-sm font-bold uppercase tracking-wider text-muted-foreground">

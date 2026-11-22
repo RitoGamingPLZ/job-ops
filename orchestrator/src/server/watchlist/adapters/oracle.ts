@@ -27,9 +27,7 @@ const filterKeys = [
   "selectedTitlesFacet",
 ] as const;
 const jobSchema = z.object({
-  Id: z
-    .union([z.string().regex(/^\d+$/), z.number().int().positive()])
-    .transform(String),
+  Id: z.union([z.string().regex(/^\d+$/), z.number().int().positive()]).transform(String),
   Title: z.string().min(1),
   PrimaryLocation: z.string().nullish(),
   PostedDate: z.string().nullish(),
@@ -58,16 +56,12 @@ function board(value: string) {
     authority.includes(":") ||
     authority.includes("@") ||
     url.protocol !== "https:" ||
-    !/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+oraclecloud\.com$/.test(
-      url.hostname,
-    ) ||
+    !/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+oraclecloud\.com$/.test(url.hostname) ||
     url.username ||
     url.password ||
     !path
   ) {
-    throw badRequest(
-      "Use an HTTPS Oracle Cloud Candidate Experience jobs URL.",
-    );
+    throw badRequest("Use an HTTPS Oracle Cloud Candidate Experience jobs URL.");
   }
   const canonical = new URL(url.pathname.replace(/\/$/, ""), url.origin);
   for (const key of filterKeys) {
@@ -75,16 +69,10 @@ function board(value: string) {
     if (value) {
       if (
         value.length > 1000 ||
-        [...value].some(
-          (char) => char.charCodeAt(0) < 32 || char === '"' || char === "\\",
-        )
+        [...value].some((char) => char.charCodeAt(0) < 32 || char === '"' || char === "\\")
       )
         throw badRequest("Invalid Oracle search filter.");
-      if (
-        key !== "keyword" &&
-        key !== "location" &&
-        !/^[a-zA-Z0-9_.;-]+$/.test(value)
-      )
+      if (key !== "keyword" && key !== "location" && !/^[a-zA-Z0-9_.;-]+$/.test(value))
         throw badRequest("Invalid Oracle search filter.");
       canonical.searchParams.set(key, value);
     }
@@ -93,9 +81,7 @@ function board(value: string) {
   const key = `${url.hostname}:${path[2]}`;
   const rawId = `oracle:${key}${canonical.search}`;
   const id =
-    rawId.length <= 120
-      ? rawId
-      : `oracle:${createHash("sha256").update(rawId).digest("hex")}`;
+    rawId.length <= 120 ? rawId : `oracle:${createHash("sha256").update(rawId).digest("hex")}`;
   return {
     url: canonical,
     site: path[2],
@@ -109,11 +95,7 @@ function budget(signal?: AbortSignal) {
   const timeout = AbortSignal.timeout(25_000);
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
-async function request(
-  url: URL,
-  signal: AbortSignal,
-  json = true,
-): Promise<unknown> {
+async function request(url: URL, signal: AbortSignal, json = true): Promise<unknown> {
   for (let attempt = 0; ; attempt++) {
     signal.throwIfAborted();
     const response = await fetch(url.toString(), {
@@ -152,16 +134,9 @@ async function siteNumber(b: Board, signal: AbortSignal) {
     return parsed.key === b.key;
   });
   if (known) return known.siteNumber;
-  const html = await request(
-    new URL(b.url.pathname, b.url.origin),
-    signal,
-    false,
-  );
-  const number = String(html).match(
-    /data-sitenumber\s*=\s*["'](CX_\d+)["']/i,
-  )?.[1];
-  if (!number)
-    throw upstreamError("Oracle careers site number is unavailable.");
+  const html = await request(new URL(b.url.pathname, b.url.origin), signal, false);
+  const number = String(html).match(/data-sitenumber\s*=\s*["'](CX_\d+)["']/i)?.[1];
+  if (!number) throw upstreamError("Oracle careers site number is unavailable.");
   return number;
 }
 function api(b: Board, resource: string, finder: string, expand: string) {
@@ -175,8 +150,7 @@ function api(b: Board, resource: string, finder: string, expand: string) {
   return url;
 }
 function jobUrl(b: Board, id: string) {
-  return b.url.hostname === "iaziqy.fa.ocs.oraclecloud.com" &&
-    b.site === "UberCareers"
+  return b.url.hostname === "iaziqy.fa.ocs.oraclecloud.com" && b.site === "UberCareers"
     ? `https://jobs.uber.com/en/jobs/${id}/`
     : `${b.url.origin}${b.basePath}/job/${id}`;
 }
@@ -184,36 +158,23 @@ function location(job: Job) {
   return (
     [
       ...new Set(
-        [
-          job.PrimaryLocation,
-          ...(job.secondaryLocations ?? []).map((x) => x.Name),
-        ].filter(Boolean),
+        [job.PrimaryLocation, ...(job.secondaryLocations ?? []).map((x) => x.Name)].filter(Boolean),
       ),
     ].join("; ") || null
   );
 }
-async function details(
-  careersUrl: string,
-  jobRef: string,
-  signal?: AbortSignal,
-) {
+async function details(careersUrl: string, jobRef: string, signal?: AbortSignal) {
   if (!/^\d+$/.test(jobRef)) throw badRequest("Invalid Oracle job reference.");
   const b = board(careersUrl);
   const activeSignal = budget(signal);
   const site = await siteNumber(b, activeSignal);
   const payload = await request(
-    api(
-      b,
-      "recruitingCEJobRequisitionDetails",
-      `ById;Id="${jobRef}",siteNumber=${site}`,
-      "all",
-    ),
+    api(b, "recruitingCEJobRequisitionDetails", `ById;Id="${jobRef}",siteNumber=${site}`, "all"),
     activeSignal,
   );
   const parsed = z.object({ items: z.array(jobSchema) }).safeParse(payload);
   const job = parsed.success ? parsed.data.items[0] : undefined;
-  if (!job || job.Id !== jobRef)
-    throw upstreamError("Oracle returned invalid job details.");
+  if (!job || job.Id !== jobRef) throw upstreamError("Oracle returned invalid job details.");
   const descriptionHtml = [
     job.ExternalDescriptionStr,
     job.ExternalResponsibilitiesStr,
@@ -221,8 +182,7 @@ async function details(
   ]
     .filter(Boolean)
     .join("\n");
-  if (!descriptionHtml.trim())
-    throw upstreamError("Oracle job description is unavailable.");
+  if (!descriptionHtml.trim()) throw upstreamError("Oracle job description is unavailable.");
   return { b, job, descriptionHtml };
 }
 
@@ -296,12 +256,7 @@ export const oracleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       for (const [key, value] of b.url.searchParams)
         finder += `,${key}=${key === "keyword" || key === "location" ? `"${value}"` : value}`;
       const payload = await request(
-        api(
-          b,
-          "recruitingCEJobRequisitions",
-          finder,
-          "requisitionList.secondaryLocations",
-        ),
+        api(b, "recruitingCEJobRequisitions", finder, "requisitionList.secondaryLocations"),
         activeSignal,
       );
       const parsed = z
@@ -322,12 +277,7 @@ export const oracleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
         if (jobs.size >= 60) break;
         jobs.set(job.Id, job);
       }
-      if (
-        offset + 25 >= total ||
-        jobs.size === previousSize ||
-        !page.requisitionList.length
-      )
-        break;
+      if (offset + 25 >= total || jobs.size === previousSize || !page.requisitionList.length) break;
     }
     const mapped = [...jobs.values()].map((job) => ({
       jobRef: job.Id,

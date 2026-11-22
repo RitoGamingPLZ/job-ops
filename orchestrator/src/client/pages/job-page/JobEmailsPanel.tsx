@@ -3,13 +3,7 @@ import type {
   PostApplicationProcessingStatus,
 } from "@shared/types.js";
 import { useQuery } from "@tanstack/react-query";
-import {
-  CircleUserRound,
-  ExternalLink,
-  Inbox,
-  Mail,
-  MailWarning,
-} from "lucide-react";
+import { CircleUserRound, ExternalLink, Inbox, Mail, MailWarning } from "lucide-react";
 import React from "react";
 import * as api from "@/client/api";
 import { useQueryErrorToast } from "@/client/hooks/useQueryErrorToast";
@@ -107,15 +101,11 @@ const EmptyState: React.FC<{
       <Icon className="h-4 w-4" />
     </div>
     <div className="mt-3 text-sm font-semibold">{title}</div>
-    <p className="mt-1 max-w-md text-sm leading-6 text-muted-foreground">
-      {description}
-    </p>
+    <p className="mt-1 max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
   </div>
 );
 
-const EmailRow: React.FC<{ item: PostApplicationJobEmailItem }> = ({
-  item,
-}) => {
+const EmailRow: React.FC<{ item: PostApplicationJobEmailItem }> = ({ item }) => {
   const sender = getSenderLabel(item);
   const date = formatEpochMs(item.message.receivedAt);
 
@@ -140,10 +130,7 @@ const EmailRow: React.FC<{ item: PostApplicationJobEmailItem }> = ({
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Badge
                 variant="outline"
-                className={cn(
-                  "text-[10px]",
-                  statusClassName[item.message.processingStatus],
-                )}
+                className={cn("text-[10px]", statusClassName[item.message.processingStatus])}
               >
                 {statusLabel[item.message.processingStatus]}
               </Badge>
@@ -189,16 +176,11 @@ export const JobEmailsPanel: React.FC<JobEmailsPanelProps> = ({ jobId }) => {
     queryFn: () => api.getJobEmails(jobId, { limit: JOB_EMAIL_LIMIT }),
   });
 
-  useQueryErrorToast(
-    emailsQuery.error,
-    "Failed to load captured emails. Please try again.",
-  );
+  useQueryErrorToast(emailsQuery.error, "Failed to load captured emails. Please try again.");
 
   const items = emailsQuery.data?.items ?? [];
   const filter = filterOptions.find((option) => option.id === activeFilter);
-  const filteredItems = items.filter((item) =>
-    filter?.matches(item.message.processingStatus),
-  );
+  const filteredItems = items.filter((item) => filter?.matches(item.message.processingStatus));
   const accountLabel = getAccountLabel(items);
 
   return (
@@ -213,15 +195,11 @@ export const JobEmailsPanel: React.FC<JobEmailsPanelProps> = ({ jobId }) => {
                 <Badge variant="secondary" className="text-[10px]">
                   {emailsQuery.isLoading
                     ? "Loading"
-                    : `${filteredItems.length} of ${
-                        emailsQuery.data?.total ?? items.length
-                      }`}
+                    : `${filteredItems.length} of ${emailsQuery.data?.total ?? items.length}`}
                 </Badge>
               </div>
               {accountLabel && (
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {accountLabel}
-                </div>
+                <div className="mt-1 text-xs text-muted-foreground">{accountLabel}</div>
               )}
             </div>
           </div>
@@ -259,14 +237,12 @@ export const JobEmailsPanel: React.FC<JobEmailsPanelProps> = ({ jobId }) => {
           />
         )}
 
-        {!emailsQuery.isLoading &&
-          !emailsQuery.isError &&
-          items.length === 0 && (
-            <EmptyState
-              title="No linked emails"
-              description="When post-application messages are linked to this job, their stored sender, subject, status, and snippet will appear here."
-            />
-          )}
+        {!emailsQuery.isLoading && !emailsQuery.isError && items.length === 0 && (
+          <EmptyState
+            title="No linked emails"
+            description="When post-application messages are linked to this job, their stored sender, subject, status, and snippet will appear here."
+          />
+        )}
 
         {!emailsQuery.isLoading &&
           !emailsQuery.isError &&
@@ -278,15 +254,13 @@ export const JobEmailsPanel: React.FC<JobEmailsPanelProps> = ({ jobId }) => {
             />
           )}
 
-        {!emailsQuery.isLoading &&
-          !emailsQuery.isError &&
-          filteredItems.length > 0 && (
-            <div className="overflow-hidden rounded-lg border border-border/60 bg-background/20">
-              {filteredItems.map((item) => (
-                <EmailRow key={item.message.id} item={item} />
-              ))}
-            </div>
-          )}
+        {!emailsQuery.isLoading && !emailsQuery.isError && filteredItems.length > 0 && (
+          <div className="overflow-hidden rounded-lg border border-border/60 bg-background/20">
+            {filteredItems.map((item) => (
+              <EmailRow key={item.message.id} item={item} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

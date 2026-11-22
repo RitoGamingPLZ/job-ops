@@ -24,9 +24,7 @@ function isPendingSsoFlow(value: unknown): value is PendingSsoFlow {
   );
 }
 
-export function rememberPendingSsoFlow(
-  flow: Omit<PendingSsoFlow, "startedAt">,
-): void {
+export function rememberPendingSsoFlow(flow: Omit<PendingSsoFlow, "startedAt">): void {
   try {
     sessionStorage.setItem(
       PENDING_SSO_FLOW_KEY,

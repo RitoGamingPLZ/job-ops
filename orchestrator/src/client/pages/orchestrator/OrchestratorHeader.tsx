@@ -37,14 +37,8 @@ export const OrchestratorHeader: React.FC<OrchestratorHeaderProps> = ({
       variant="destructive"
       className="gap-2"
     >
-      {isCancelling ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <Square className="h-4 w-4" />
-      )}
-      <span>
-        {isCancelling ? `Cancelling (${pipelineSources.length})` : `Cancel run`}
-      </span>
+      {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />}
+      <span>{isCancelling ? `Cancelling (${pipelineSources.length})` : `Cancel run`}</span>
     </Button>
   ) : (
     <Button
@@ -54,23 +48,14 @@ export const OrchestratorHeader: React.FC<OrchestratorHeaderProps> = ({
       className="gap-2"
       aria-pressed={isSearchComposerOpen}
     >
-      {isSearchComposerOpen ? (
-        <X className="h-4 w-4" />
-      ) : (
-        <Search className="h-4 w-4" />
-      )}
+      {isSearchComposerOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
       <span>{isSearchComposerOpen ? "Close search" : "Find jobs"}</span>
     </Button>
   );
   const actions = (
     <div className="flex items-center gap-2">
       {primaryAction}
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={onOpenManualImport}
-      >
+      <Button type="button" variant="ghost" size="sm" onClick={onOpenManualImport}>
         <FileText className="h-4 w-4" />
         Add a job
       </Button>
@@ -79,17 +64,13 @@ export const OrchestratorHeader: React.FC<OrchestratorHeaderProps> = ({
 
   return (
     <PageHeader
-      icon={() => (
-        <img src="/favicon.png" alt="" className="size-8 rounded-lg" />
-      )}
+      icon={() => <img src="/favicon.png" alt="" className="size-8 rounded-lg" />}
       title="Job Ops"
       subtitle="Orchestrator"
       navOpen={navOpen}
       onNavOpenChange={onNavOpenChange}
       statusIndicator={
-        isPipelineRunning ? (
-          <StatusIndicator label="Search running" variant="amber" />
-        ) : undefined
+        isPipelineRunning ? <StatusIndicator label="Search running" variant="amber" /> : undefined
       }
       actions={actions}
     />

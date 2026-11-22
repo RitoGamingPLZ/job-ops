@@ -1,10 +1,7 @@
 import type { Story } from "@ladle/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type React from "react";
-import {
-  type ConnectedAccountsApi,
-  ConnectedAccountsSection,
-} from "./ConnectedAccountsSection";
+import { type ConnectedAccountsApi, ConnectedAccountsSection } from "./ConnectedAccountsSection";
 
 const passwordUser = {
   id: "user-1",
@@ -34,9 +31,7 @@ const googleIdentity = {
   createdAt: "2026-05-20T00:00:00.000Z",
 };
 
-function createApi(
-  overrides: Partial<ConnectedAccountsApi> = {},
-): ConnectedAccountsApi {
+function createApi(overrides: Partial<ConnectedAccountsApi> = {}): ConnectedAccountsApi {
   return {
     changeOwnPassword: async () => {},
     getCurrentAuthUser: async () => passwordUser,
@@ -53,9 +48,7 @@ function createApi(
   };
 }
 
-const ConnectedAccountsHarness: React.FC<{ api: ConnectedAccountsApi }> = ({
-  api,
-}) => {
+const ConnectedAccountsHarness: React.FC<{ api: ConnectedAccountsApi }> = ({ api }) => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -71,9 +64,7 @@ const ConnectedAccountsHarness: React.FC<{ api: ConnectedAccountsApi }> = ({
   );
 };
 
-export const WithLinkedProvider: Story = () => (
-  <ConnectedAccountsHarness api={createApi()} />
-);
+export const WithLinkedProvider: Story = () => <ConnectedAccountsHarness api={createApi()} />;
 
 WithLinkedProvider.storyName = "Password user with a linked provider";
 

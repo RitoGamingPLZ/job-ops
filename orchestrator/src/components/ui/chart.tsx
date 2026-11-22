@@ -1,9 +1,5 @@
 import * as React from "react";
-import {
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-  type TooltipProps,
-} from "recharts";
+import { Tooltip as RechartsTooltip, ResponsiveContainer, type TooltipProps } from "recharts";
 
 import { cn } from "@/lib/utils";
 
@@ -20,19 +16,14 @@ const ChartConfigContext = React.createContext<ChartConfig | null>(null);
 
 const useChartConfig = () => React.useContext(ChartConfigContext);
 
-const ChartStyle: React.FC<{ id: string; config: ChartConfig }> = ({
-  id,
-  config,
-}) => {
+const ChartStyle: React.FC<{ id: string; config: ChartConfig }> = ({ id, config }) => {
   const entries = Object.entries(config).filter(([, value]) => value.color);
   if (entries.length === 0) return null;
 
   return (
     <style>{`
       [data-chart="${id}"] {
-        ${entries
-          .map(([key, value]) => `--color-${key}: ${value.color};`)
-          .join("\n")}
+        ${entries.map(([key, value]) => `--color-${key}: ${value.color};`).join("\n")}
       }
     `}</style>
   );
@@ -72,19 +63,11 @@ export type ChartTooltipContentProps = React.ComponentPropsWithoutRef<"div"> &
   Pick<TooltipProps<number, string>, "active" | "payload" | "label"> & {
     indicator?: "dot" | "line" | "dashed";
     labelFormatter?: (value: unknown, payload: unknown[]) => React.ReactNode;
-    formatter?: (
-      value: unknown,
-      name: string,
-      item: unknown,
-      index: number,
-    ) => React.ReactNode;
+    formatter?: (value: unknown, name: string, item: unknown, index: number) => React.ReactNode;
     nameKey?: string;
   };
 
-export const ChartTooltipContent = React.forwardRef<
-  HTMLDivElement,
-  ChartTooltipContentProps
->(
+export const ChartTooltipContent = React.forwardRef<HTMLDivElement, ChartTooltipContentProps>(
   (
     {
       active,
@@ -101,9 +84,7 @@ export const ChartTooltipContent = React.forwardRef<
   ) => {
     const config = useChartConfig() ?? {};
     if (!active || !payload?.length) return null;
-    const formattedLabel = labelFormatter
-      ? labelFormatter(label, payload)
-      : label;
+    const formattedLabel = labelFormatter ? labelFormatter(label, payload) : label;
 
     return (
       <div
@@ -115,9 +96,7 @@ export const ChartTooltipContent = React.forwardRef<
         {...props}
       >
         {formattedLabel ? (
-          <div className="mb-2 text-[11px] font-medium text-muted-foreground">
-            {formattedLabel}
-          </div>
+          <div className="mb-2 text-[11px] font-medium text-muted-foreground">{formattedLabel}</div>
         ) : null}
         <div className="space-y-1">
           {payload.map((item, index) => {
@@ -125,12 +104,9 @@ export const ChartTooltipContent = React.forwardRef<
             const configKey = nameKey ?? dataKey;
             const entry = config[configKey] ?? config[dataKey];
             const IndicatorIcon = entry?.icon;
-            const value = formatter
-              ? formatter(item.value, dataKey, item, index)
-              : item.value;
+            const value = formatter ? formatter(item.value, dataKey, item, index) : item.value;
             const labelText = entry?.label ?? item.name ?? dataKey;
-            const indicatorColor =
-              entry?.color ?? item.color ?? item.fill ?? "currentColor";
+            const indicatorColor = entry?.color ?? item.color ?? item.fill ?? "currentColor";
 
             return (
               <div
@@ -146,25 +122,21 @@ export const ChartTooltipContent = React.forwardRef<
                         "inline-block",
                         indicator === "dot" && "h-2 w-2 rounded-full",
                         indicator === "line" && "h-0.5 w-3 rounded-full",
-                        indicator === "dashed" &&
-                          "h-0.5 w-3 rounded-full border border-dashed",
+                        indicator === "dashed" && "h-0.5 w-3 rounded-full border border-dashed",
                       )}
                       style={{
                         backgroundColor:
                           indicator === "dot" || indicator === "line"
                             ? indicatorColor
                             : "transparent",
-                        borderColor:
-                          indicator === "dashed" ? indicatorColor : undefined,
+                        borderColor: indicator === "dashed" ? indicatorColor : undefined,
                       }}
                     />
                   )}
                   <span>{labelText}</span>
                 </div>
                 <span className="font-semibold text-foreground">
-                  {typeof value === "number"
-                    ? value.toLocaleString()
-                    : (value as React.ReactNode)}
+                  {typeof value === "number" ? value.toLocaleString() : (value as React.ReactNode)}
                 </span>
               </div>
             );

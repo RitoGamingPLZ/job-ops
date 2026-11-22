@@ -58,9 +58,7 @@ export async function fetchWithTimeout(
       "name" in error &&
       error.name === "AbortError"
     ) {
-      throw requestTimeout(
-        `Gmail request timed out after ${args.timeoutMs}ms for ${url}.`,
-      );
+      throw requestTimeout(`Gmail request timed out after ${args.timeoutMs}ms for ${url}.`);
     }
     throw error;
   } finally {
@@ -72,11 +70,7 @@ export async function resolveGmailAccessToken(
   credentials: GmailCredentials,
 ): Promise<GmailCredentials> {
   const now = Date.now();
-  if (
-    credentials.accessToken &&
-    credentials.expiryDate &&
-    credentials.expiryDate > now + 60_000
-  ) {
+  if (credentials.accessToken && credentials.expiryDate && credentials.expiryDate > now + 60_000) {
     return credentials;
   }
 
@@ -95,17 +89,14 @@ export async function resolveGmailAccessToken(
     refresh_token: credentials.refreshToken,
   });
 
-  const response = await fetchWithTimeout(
-    "https://oauth2.googleapis.com/token",
-    {
-      timeoutMs: GMAIL_HTTP_TIMEOUT_MS,
-      init: {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-      },
+  const response = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
+    timeoutMs: GMAIL_HTTP_TIMEOUT_MS,
+    init: {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
     },
-  );
+  });
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
@@ -118,9 +109,7 @@ export async function resolveGmailAccessToken(
       ? data.expires_in
       : 3600;
   if (!accessToken) {
-    throw new Error(
-      "Gmail token refresh response did not include access_token.",
-    );
+    throw new Error("Gmail token refresh response did not include access_token.");
   }
 
   return {
@@ -235,18 +224,10 @@ export function buildGmailQuery(searchDays: number): string {
   ];
 
   const quoteTerm = (value: string) => `"${value.replace(/"/g, '\\"')}"`;
-  const subjectBlock = subjectTerms
-    .map((term) => `subject:${quoteTerm(term)}`)
-    .join(" OR ");
-  const fromBlock = fromTerms
-    .map((term) => `from:${quoteTerm(term)}`)
-    .join(" OR ");
-  const fullTextBlock = fullTextTerms
-    .map((term) => quoteTerm(term))
-    .join(" OR ");
-  const excludeClauses = excludeSubjectTerms
-    .map((term) => `-subject:${quoteTerm(term)}`)
-    .join(" ");
+  const subjectBlock = subjectTerms.map((term) => `subject:${quoteTerm(term)}`).join(" OR ");
+  const fromBlock = fromTerms.map((term) => `from:${quoteTerm(term)}`).join(" OR ");
+  const fullTextBlock = fullTextTerms.map((term) => quoteTerm(term)).join(" OR ");
+  const excludeClauses = excludeSubjectTerms.map((term) => `-subject:${quoteTerm(term)}`).join(" ");
 
   return `newer_than:${searchDays}d ((${subjectBlock}) OR (${fromBlock}) OR (${fullTextBlock})) ${excludeClauses}`.trim();
 }
@@ -308,10 +289,7 @@ export async function getMessageMetadata(
   };
 }
 
-export async function getMessageFull(
-  token: string,
-  messageId: string,
-): Promise<GmailFullMessage> {
+export async function getMessageFull(token: string, messageId: string): Promise<GmailFullMessage> {
   const message = await gmailApi<{
     id?: string;
     threadId?: string;
@@ -355,9 +333,7 @@ function decodeBase64Url(value: string): string {
   return Buffer.from(padded, "base64").toString("utf8");
 }
 
-function decodeTextPart(
-  part: NonNullable<GmailFullMessage["payload"]>,
-): string {
+function decodeTextPart(part: NonNullable<GmailFullMessage["payload"]>): string {
   const data = part.body?.data;
   if (!data) return "";
   const decoded = decodeBase64Url(data);
@@ -388,9 +364,7 @@ export function extractBodyText(payload: GmailFullMessage["payload"]): string {
     const mimeType = String(part.mimeType ?? "").toLowerCase();
 
     if (mimeType === "multipart/alternative") {
-      const children = (part.parts ?? []) as Array<
-        NonNullable<GmailFullMessage["payload"]>
-      >;
+      const children = (part.parts ?? []) as Array<NonNullable<GmailFullMessage["payload"]>>;
       const plainChild = children.find(
         (child) => String(child.mimeType ?? "").toLowerCase() === "text/plain",
       );

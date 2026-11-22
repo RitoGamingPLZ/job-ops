@@ -9,23 +9,23 @@ describe("normalizeStringArray", () => {
   });
 
   it("trims values and removes empty entries", () => {
-    expect(normalizeStringArray(["  staffing  ", " ", "\n"])).toEqual([
-      "staffing",
-    ]);
+    expect(normalizeStringArray(["  staffing  ", " ", "\n"])).toEqual(["staffing"]);
   });
 
   it("deduplicates values case-insensitively while preserving first casing", () => {
-    expect(
-      normalizeStringArray(["Recruit", "staffing", "recruit", "STAFFING"]),
-    ).toEqual(["Recruit", "staffing"]);
+    expect(normalizeStringArray(["Recruit", "staffing", "recruit", "STAFFING"])).toEqual([
+      "Recruit",
+      "staffing",
+    ]);
   });
 });
 
 describe("normalizeStringArray options", () => {
   it("dedupes case-sensitively when asked", () => {
-    expect(
-      normalizeStringArray([" Id", "id", "Id "], { caseSensitive: true }),
-    ).toEqual(["Id", "id"]);
+    expect(normalizeStringArray([" Id", "id", "Id "], { caseSensitive: true })).toEqual([
+      "Id",
+      "id",
+    ]);
   });
 
   it("truncates before deduping and stops at maxItems", () => {

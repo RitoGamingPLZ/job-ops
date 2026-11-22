@@ -16,9 +16,7 @@ describe("decodeHtmlEntities", () => {
 
   it("preserves double-encoded inner entities as valid HTML", () => {
     // Greenhouse stores `<p>A &amp; B</p>` as `&lt;p&gt;A &amp;amp; B&lt;/p&gt;`.
-    expect(decodeHtmlEntities("&lt;p&gt;A &amp;amp; B&lt;/p&gt;")).toBe(
-      "<p>A &amp; B</p>",
-    );
+    expect(decodeHtmlEntities("&lt;p&gt;A &amp;amp; B&lt;/p&gt;")).toBe("<p>A &amp; B</p>");
   });
 
   it("leaves unknown entities untouched", () => {
@@ -30,8 +28,7 @@ describe("normalizeGreenhouseJobDetails", () => {
   const ref = {
     token: "epicgames",
     jobId: "6103058004",
-    detailUrl:
-      "https://boards-api.greenhouse.io/v1/boards/epicgames/jobs/6103058004",
+    detailUrl: "https://boards-api.greenhouse.io/v1/boards/epicgames/jobs/6103058004",
   };
 
   it("normalizes a detail response with decoded description", () => {
@@ -72,8 +69,7 @@ describe("normalizeGreenhouseJobDetails", () => {
 describe("getJobDetails", () => {
   it("fetches from the board API job detail endpoint", async () => {
     const details = await getJobDetails({
-      jobRef:
-        "https://boards-api.greenhouse.io/v1/boards/epicgames/jobs/6103058004",
+      jobRef: "https://boards-api.greenhouse.io/v1/boards/epicgames/jobs/6103058004",
       fetchImpl: async (url) => {
         expect(String(url)).toBe(
           "https://boards-api.greenhouse.io/v1/boards/epicgames/jobs/6103058004",

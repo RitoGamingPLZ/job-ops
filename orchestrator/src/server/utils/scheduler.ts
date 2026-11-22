@@ -44,10 +44,7 @@ export function calculateNextTime(hour: number): Date {
  * @param callback - Async function to execute at scheduled time
  * @returns Scheduler interface with start/stop/getNextRun methods
  */
-export function createScheduler(
-  name: string,
-  callback: () => Promise<void>,
-): Scheduler {
+export function createScheduler(name: string, callback: () => Promise<void>): Scheduler {
   const state: SchedulerState = {
     timer: null,
     nextRunTime: null,
@@ -73,9 +70,7 @@ export function createScheduler(
     state.nextRunTime = calculateNextTime(hour);
     const delay = state.nextRunTime.getTime() - Date.now();
 
-    console.log(
-      `⏰ [${name}] Next run scheduled for: ${state.nextRunTime.toISOString()}`,
-    );
+    console.log(`⏰ [${name}] Next run scheduled for: ${state.nextRunTime.toISOString()}`);
 
     state.timer = setTimeout(async () => {
       console.log(`🔄 [${name}] Running scheduled task...`);

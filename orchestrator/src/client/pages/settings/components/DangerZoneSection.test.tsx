@@ -12,14 +12,11 @@ const DangerZoneHarness = ({
   initialStatuses?: JobStatus[];
   onClear?: () => void;
 }) => {
-  const [statusesToClear, setStatusesToClear] =
-    useState<JobStatus[]>(initialStatuses);
+  const [statusesToClear, setStatusesToClear] = useState<JobStatus[]>(initialStatuses);
 
   const toggleStatusToClear = (status: JobStatus) => {
     setStatusesToClear((prev) =>
-      prev.includes(status)
-        ? prev.filter((s) => s !== status)
-        : [...prev, status],
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status],
     );
   };
 
@@ -47,9 +44,7 @@ describe("DangerZoneSection", () => {
 
   it("toggles status selection and confirms clear", async () => {
     const onClear = vi.fn();
-    render(
-      <DangerZoneHarness initialStatuses={["applied"]} onClear={onClear} />,
-    );
+    render(<DangerZoneHarness initialStatuses={["applied"]} onClear={onClear} />);
 
     const appliedButton = screen.getByRole("button", { name: /^applied\b/i });
     const clearButton = screen.getByRole("button", { name: /clear selected/i });

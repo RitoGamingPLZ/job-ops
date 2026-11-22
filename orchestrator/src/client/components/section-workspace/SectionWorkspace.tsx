@@ -54,11 +54,7 @@ export function sectionWorkspaceItemMatchesSearch(
 ): boolean {
   if (!searchTerm) return true;
   const normalized = searchTerm.toLowerCase();
-  const haystack = [
-    item.label,
-    item.description,
-    ...(item.searchTerms ?? []),
-  ].join(" ");
+  const haystack = [item.label, item.description, ...(item.searchTerms ?? [])].join(" ");
   return haystack.toLowerCase().includes(normalized);
 }
 
@@ -97,12 +93,8 @@ export function SectionWorkspaceNav<
           {groups.length > 0 ? (
             <Accordion
               type="multiple"
-              value={
-                trimmedSearch ? groups.map((group) => group.id) : openGroupIds
-              }
-              onValueChange={(value) =>
-                onOpenGroupIdsChange(value as TGroupId[])
-              }
+              value={trimmedSearch ? groups.map((group) => group.id) : openGroupIds}
+              onValueChange={(value) => onOpenGroupIdsChange(value as TGroupId[])}
               className="space-y-1"
             >
               {groups.map((group) => (
@@ -132,14 +124,9 @@ export function SectionWorkspaceNav<
                             )}
                             onClick={() => onSectionSelect(item.id)}
                           >
-                            <span className="min-w-0 flex-1 truncate">
-                              {item.label}
-                            </span>
+                            <span className="min-w-0 flex-1 truncate">{item.label}</span>
                             {badge ? (
-                              <Badge
-                                variant={badge.variant ?? "secondary"}
-                                className="shrink-0"
-                              >
+                              <Badge variant={badge.variant ?? "secondary"} className="shrink-0">
                                 {badge.label}
                               </Badge>
                             ) : null}
@@ -201,29 +188,17 @@ export function SectionWorkspacePanel({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-2xl font-semibold tracking-tight">
-              {sectionLabel}
-            </h2>
-            {badge ? (
-              <Badge variant={badge.variant ?? "secondary"}>
-                {badge.label}
-              </Badge>
-            ) : null}
+            <h2 className="text-2xl font-semibold tracking-tight">{sectionLabel}</h2>
+            {badge ? <Badge variant={badge.variant ?? "secondary"}>{badge.label}</Badge> : null}
             {secondaryBadge ? (
-              <Badge variant={secondaryBadge.variant ?? "secondary"}>
-                {secondaryBadge.label}
-              </Badge>
+              <Badge variant={secondaryBadge.variant ?? "secondary"}>{secondaryBadge.label}</Badge>
             ) : null}
           </div>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            {sectionDescription}
-          </p>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{sectionDescription}</p>
         </div>
 
         {actions ? (
-          <div className="flex shrink-0 flex-nowrap gap-2 self-start">
-            {actions}
-          </div>
+          <div className="flex shrink-0 flex-nowrap gap-2 self-start">{actions}</div>
         ) : null}
       </div>
     </header>

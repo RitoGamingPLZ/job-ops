@@ -4,13 +4,7 @@ import {
   type JobListItem,
   type StageEvent,
 } from "@shared/types";
-import {
-  act,
-  fireEvent,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { toast } from "sonner";
@@ -22,15 +16,12 @@ import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { InProgressBoardPage } from "./InProgressBoardPage";
 
 vi.mock("@/components/ui/dropdown-menu", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/components/ui/dropdown-menu")>();
+  const actual = await importOriginal<typeof import("@/components/ui/dropdown-menu")>();
 
   return {
     ...actual,
     DropdownMenu: ({ children }: { children: ReactNode }) => <>{children}</>,
-    DropdownMenuTrigger: ({ children }: { children: ReactNode }) => (
-      <>{children}</>
-    ),
+    DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
     DropdownMenuContent: ({ children }: { children: ReactNode }) => (
       <div role="menu">{children}</div>
     ),
@@ -43,12 +34,7 @@ vi.mock("@/components/ui/dropdown-menu", async (importOriginal) => {
       onSelect?: () => void;
       disabled?: boolean;
     }) => (
-      <button
-        type="button"
-        role="menuitem"
-        disabled={disabled}
-        onClick={onSelect}
-      >
+      <button type="button" role="menuitem" disabled={disabled} onClick={onSelect}>
         {children}
       </button>
     ),
@@ -57,15 +43,10 @@ vi.mock("@/components/ui/dropdown-menu", async (importOriginal) => {
 
 const LocationWatcher = () => {
   const location = useLocation();
-  return (
-    <output data-testid="location">
-      {location.pathname + location.search}
-    </output>
-  );
+  return <output data-testid="location">{location.pathname + location.search}</output>;
 };
 
-const render = (ui: Parameters<typeof renderWithQueryClient>[0]) =>
-  renderWithQueryClient(ui);
+const render = (ui: Parameters<typeof renderWithQueryClient>[0]) => renderWithQueryClient(ui);
 
 const getBoardCardRoot = (cardTitle: HTMLElement): HTMLElement => {
   const cardRoot = cardTitle.closest("div.rounded-lg");
@@ -90,11 +71,9 @@ vi.mock("../api", () => ({
 }));
 
 vi.mock("@/client/lib/private-pdf", () => ({
-  openJobPdf: vi.fn(
-    async (_id: string, beforeFetch?: () => Promise<unknown>) => {
-      await beforeFetch?.();
-    },
-  ),
+  openJobPdf: vi.fn(async (_id: string, beforeFetch?: () => Promise<unknown>) => {
+    await beforeFetch?.();
+  }),
 }));
 
 vi.mock("@/client/lib/celebrate", () => ({
@@ -133,10 +112,7 @@ vi.mock("@client/components/LogEventModal", () => {
             <option value="no_change">No Change</option>
             <option value="offer">Offer</option>
           </select>
-          <button
-            type="button"
-            onClick={() => onLog({ title, stage, date: "2026-06-12" })}
-          >
+          <button type="button" onClick={() => onLog({ title, stage, date: "2026-06-12" })}>
             Log Event
           </button>
           <button type="button" onClick={onClose}>
@@ -227,13 +203,7 @@ describe("InProgressBoardPage", () => {
 
     await waitFor(() => {
       expect(api.getJobs).toHaveBeenCalledWith({
-        statuses: [
-          "discovered",
-          "processing",
-          "ready",
-          "applied",
-          "in_progress",
-        ],
+        statuses: ["discovered", "processing", "ready", "applied", "in_progress"],
         view: "list",
       });
     });
@@ -279,16 +249,12 @@ describe("InProgressBoardPage", () => {
     const appliedLane = await screen.findByRole("region", {
       name: "Applied lane",
     });
-    expect(
-      within(appliedLane).getByText("Backend Engineer"),
-    ).toBeInTheDocument();
+    expect(within(appliedLane).getByText("Backend Engineer")).toBeInTheDocument();
 
     const recruiterScreenLane = screen.getByRole("region", {
       name: "Recruiter Screen lane",
     });
-    expect(
-      within(recruiterScreenLane).queryByText("Backend Engineer"),
-    ).not.toBeInTheDocument();
+    expect(within(recruiterScreenLane).queryByText("Backend Engineer")).not.toBeInTheDocument();
   });
 
   it("collapses and expands the Applied lane, persisting the preference", async () => {
@@ -299,17 +265,13 @@ describe("InProgressBoardPage", () => {
     );
 
     await screen.findByRole("region", { name: "Applied lane" });
-    fireEvent.click(
-      screen.getByRole("button", { name: /collapse applied lane/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /collapse applied lane/i }));
 
     const collapsedAppliedLane = screen.getByRole("region", {
       name: "Applied lane",
     });
     expect(
-      within(collapsedAppliedLane).queryByText(
-        "Drop a card here or log a stage.",
-      ),
+      within(collapsedAppliedLane).queryByText("Drop a card here or log a stage."),
     ).not.toBeInTheDocument();
     unmount();
 
@@ -320,9 +282,7 @@ describe("InProgressBoardPage", () => {
     );
 
     await screen.findByRole("region", { name: "Applied lane" });
-    expect(
-      screen.getByRole("button", { name: /expand applied lane/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /expand applied lane/i })).toBeInTheDocument();
   });
 
   it("transitions a job stage when dropped into another lane", async () => {
@@ -370,19 +330,13 @@ describe("InProgressBoardPage", () => {
       </MemoryRouter>,
     );
 
-    const cardRoot = getBoardCardRoot(
-      await screen.findByText("Backend Engineer"),
-    );
+    const cardRoot = getBoardCardRoot(await screen.findByText("Backend Engineer"));
 
-    fireEvent.click(
-      within(cardRoot).getByRole("menuitem", { name: /log event/i }),
-    );
+    fireEvent.click(within(cardRoot).getByRole("menuitem", { name: /log event/i }));
 
     expect(screen.getByTestId("log-event-modal")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /record a new update or stage change for backend engineer at acme/i,
-      ),
+      screen.getByText(/record a new update or stage change for backend engineer at acme/i),
     ).toBeInTheDocument();
   });
 
@@ -393,13 +347,9 @@ describe("InProgressBoardPage", () => {
       </MemoryRouter>,
     );
 
-    const cardRoot = getBoardCardRoot(
-      await screen.findByText("Backend Engineer"),
-    );
+    const cardRoot = getBoardCardRoot(await screen.findByText("Backend Engineer"));
 
-    fireEvent.click(
-      within(cardRoot).getByRole("menuitem", { name: /log event/i }),
-    );
+    fireEvent.click(within(cardRoot).getByRole("menuitem", { name: /log event/i }));
 
     fireEvent.change(screen.getByPlaceholderText("e.g. Recruiter Screen"), {
       target: { value: "Phone screen" },
@@ -443,13 +393,9 @@ describe("InProgressBoardPage", () => {
       </MemoryRouter>,
     );
 
-    const cardRoot = getBoardCardRoot(
-      await screen.findByText("Backend Engineer"),
-    );
+    const cardRoot = getBoardCardRoot(await screen.findByText("Backend Engineer"));
 
-    fireEvent.click(
-      within(cardRoot).getByRole("menuitem", { name: /log event/i }),
-    );
+    fireEvent.click(within(cardRoot).getByRole("menuitem", { name: /log event/i }));
 
     fireEvent.change(screen.getByTestId("mock-stage-select"), {
       target: { value: "offer" },
@@ -505,36 +451,26 @@ describe("Targeted board workflow", () => {
       BOARD_COLUMNS.map((column) => `${BOARD_COLUMN_LABELS[column]} lane`),
     );
     expect(lane.parentElement?.parentElement).toHaveClass("overflow-x-auto");
-    expect(lanes.every((lane) => lane.classList.contains("w-[320px]"))).toBe(
-      true,
-    );
+    expect(lanes.every((lane) => lane.classList.contains("w-[320px]"))).toBe(true);
   });
 
   it("opens the selected resume in explicit edit or preview mode", async () => {
     showTargeted("ready");
     const link = await screen.findByRole("link", { name: "Open resume" });
-    expect(screen.getAllByRole("link", { name: "Open resume" })).toHaveLength(
-      1,
-    );
+    expect(screen.getAllByRole("link", { name: "Open resume" })).toHaveLength(1);
     expect(link).toHaveAttribute("href", "/resumes/job-1?mode=edit");
     expect(document.querySelector('a[href*="inspector=tailoring"]')).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: /tailor|regenerate resume/i }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /tailor|regenerate resume/i })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Preview PDF" }));
     await waitFor(() =>
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        "/resumes/job-1?mode=preview",
-      ),
+      expect(screen.getByTestId("location")).toHaveTextContent("/resumes/job-1?mode=preview"),
     );
     expect(api.generateJobPdf).not.toHaveBeenCalled();
     expect(openJobPdf).not.toHaveBeenCalled();
     expect(api.processJob).not.toHaveBeenCalled();
     fireEvent.click(link);
     await waitFor(() =>
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        "/resumes/job-1?mode=edit",
-      ),
+      expect(screen.getByTestId("location")).toHaveTextContent("/resumes/job-1?mode=edit"),
     );
   });
 
@@ -561,24 +497,14 @@ describe("Targeted board workflow", () => {
         <InProgressBoardPage />
       </MemoryRouter>,
     );
-    const selected = getBoardCardRoot(
-      await screen.findByRole("link", { name: "Selected" }),
-    );
-    fireEvent.click(
-      within(selected).getByRole("button", { name: "Preview PDF" }),
-    );
+    const selected = getBoardCardRoot(await screen.findByRole("link", { name: "Selected" }));
+    fireEvent.click(within(selected).getByRole("button", { name: "Preview PDF" }));
     await waitFor(() =>
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        "/resumes/selected?mode=preview",
-      ),
+      expect(screen.getByTestId("location")).toHaveTextContent("/resumes/selected?mode=preview"),
     );
-    fireEvent.click(
-      within(selected).getByRole("link", { name: "Open resume" }),
-    );
+    fireEvent.click(within(selected).getByRole("link", { name: "Open resume" }));
     await waitFor(() =>
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        "/resumes/selected?mode=edit",
-      ),
+      expect(screen.getByTestId("location")).toHaveTextContent("/resumes/selected?mode=edit"),
     );
     expect(api.generateJobPdf).not.toHaveBeenCalled();
     expect(openJobPdf).not.toHaveBeenCalled();
@@ -586,9 +512,7 @@ describe("Targeted board workflow", () => {
 
   it("shows Preparing resume… without editor or preview while processing", async () => {
     showTargeted("processing");
-    expect(
-      await screen.findByRole("button", { name: "Preparing resume…" }),
-    ).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Preparing resume…" })).toBeDisabled();
     expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Preview PDF" })).toBeNull();
   });
@@ -596,9 +520,7 @@ describe("Targeted board workflow", () => {
   it("offers Prepare resume when a targeted job has no prepared resume", async () => {
     vi.mocked(api.processJob).mockResolvedValue({} as never);
     showTargeted("discovered");
-    expect(
-      await screen.findByText("Resume not prepared yet"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Resume not prepared yet")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Open resume" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Preview PDF" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Prepare resume" }));
@@ -617,9 +539,7 @@ describe("Targeted board workflow", () => {
     const card = await screen.findByText("Backend Engineer");
     fireEvent.dragStart(card, { dataTransfer: { effectAllowed: "move" } });
     fireEvent.drop(screen.getByRole("region", { name: "Applied lane" }));
-    await waitFor(() =>
-      expect(api.markAsApplied).toHaveBeenCalledWith("job-1"),
-    );
+    await waitFor(() => expect(api.markAsApplied).toHaveBeenCalledWith("job-1"));
     expect(api.transitionJobStage).not.toHaveBeenCalled();
   });
 
@@ -641,52 +561,50 @@ describe("Targeted board workflow", () => {
     expect(within(lane).getByText("Round 3")).toBeInTheDocument();
   });
 
-  it.each([
-    "assessment",
-    "onsite",
-  ] as const)("keeps a no-change note on legacy %s and leaves the round unchanged", async (toStage) => {
-    vi.mocked(api.getJobStageEvents).mockResolvedValue([
-      makeEvent({ toStage }),
-      makeEvent({ id: "note", toStage, metadata: { eventType: "note" } }),
-    ]);
-    render(
-      <MemoryRouter>
-        <InProgressBoardPage />
-      </MemoryRouter>,
-    );
-    const card = getBoardCardRoot(await screen.findByText("Backend Engineer"));
-    expect(within(card).getByText("Round 1")).toBeInTheDocument();
-    fireEvent.click(within(card).getByRole("menuitem", { name: /log event/i }));
-    fireEvent.click(screen.getByRole("button", { name: /^log event$/i }));
-    await waitFor(() =>
-      expect(api.transitionJobStage).toHaveBeenCalledWith(
-        "job-1",
-        expect.objectContaining({
-          toStage,
-          metadata: expect.objectContaining({ eventType: "note" }),
-        }),
-      ),
-    );
-  });
+  it.each(["assessment", "onsite"] as const)(
+    "keeps a no-change note on legacy %s and leaves the round unchanged",
+    async (toStage) => {
+      vi.mocked(api.getJobStageEvents).mockResolvedValue([
+        makeEvent({ toStage }),
+        makeEvent({ id: "note", toStage, metadata: { eventType: "note" } }),
+      ]);
+      render(
+        <MemoryRouter>
+          <InProgressBoardPage />
+        </MemoryRouter>,
+      );
+      const card = getBoardCardRoot(await screen.findByText("Backend Engineer"));
+      expect(within(card).getByText("Round 1")).toBeInTheDocument();
+      fireEvent.click(within(card).getByRole("menuitem", { name: /log event/i }));
+      fireEvent.click(screen.getByRole("button", { name: /^log event$/i }));
+      await waitFor(() =>
+        expect(api.transitionJobStage).toHaveBeenCalledWith(
+          "job-1",
+          expect.objectContaining({
+            toStage,
+            metadata: expect.objectContaining({ eventType: "note" }),
+          }),
+        ),
+      );
+    },
+  );
 
-  it.each([
-    "Targeted lane",
-    "Recruiter Screen lane",
-  ])("refuses dragging a target into %s", async (laneName) => {
-    showTargeted();
-    const card = await screen.findByText("Backend Engineer");
-    fireEvent.dragStart(card, { dataTransfer: { effectAllowed: "move" } });
-    const lane = screen.getByRole("region", { name: laneName });
-    fireEvent.dragOver(lane);
-    fireEvent.drop(lane);
-    expect(api.markAsApplied).not.toHaveBeenCalled();
-    expect(api.transitionJobStage).not.toHaveBeenCalled();
-    expect(
-      within(screen.getByRole("region", { name: "Targeted lane" })).getByText(
-        "Backend Engineer",
-      ),
-    ).toBeInTheDocument();
-  });
+  it.each(["Targeted lane", "Recruiter Screen lane"])(
+    "refuses dragging a target into %s",
+    async (laneName) => {
+      showTargeted();
+      const card = await screen.findByText("Backend Engineer");
+      fireEvent.dragStart(card, { dataTransfer: { effectAllowed: "move" } });
+      const lane = screen.getByRole("region", { name: laneName });
+      fireEvent.dragOver(lane);
+      fireEvent.drop(lane);
+      expect(api.markAsApplied).not.toHaveBeenCalled();
+      expect(api.transitionJobStage).not.toHaveBeenCalled();
+      expect(
+        within(screen.getByRole("region", { name: "Targeted lane" })).getByText("Backend Engineer"),
+      ).toBeInTheDocument();
+    },
+  );
 
   it("refuses dragging an application-stage card into Targeted", async () => {
     render(
@@ -712,9 +630,7 @@ describe("Targeted board workflow", () => {
     );
     const card = await screen.findByText("Backend Engineer");
     fireEvent.dragStart(card, { dataTransfer: { effectAllowed: "move" } });
-    fireEvent.drop(
-      screen.getByRole("region", { name: "Technical Interview lane" }),
-    );
+    fireEvent.drop(screen.getByRole("region", { name: "Technical Interview lane" }));
     expect(await screen.findByText("Round 1")).toBeInTheDocument();
     expect(screen.queryByText("Round 0")).not.toBeInTheDocument();
   });
@@ -738,9 +654,7 @@ describe("Targeted board workflow", () => {
 
 describe("Generate missing resumes", () => {
   const renderBatchBoard = (jobs: JobListItem[]) => {
-    vi.mocked(api.getJobs).mockResolvedValue({ jobs } as Awaited<
-      ReturnType<typeof api.getJobs>
-    >);
+    vi.mocked(api.getJobs).mockResolvedValue({ jobs } as Awaited<ReturnType<typeof api.getJobs>>);
     return render(
       <MemoryRouter>
         <InProgressBoardPage />
@@ -750,10 +664,7 @@ describe("Generate missing resumes", () => {
 
   it("counts only eligible targeted jobs and disables during the request", async () => {
     const targeted = { status: "ready" as const, readyAt: "2026-11-08" };
-    let complete!: (result: {
-      jobIds: string[];
-      alreadyRunning: boolean;
-    }) => void;
+    let complete!: (result: { jobIds: string[]; alreadyRunning: boolean }) => void;
     vi.mocked(api.generateMissingResumes).mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -783,15 +694,11 @@ describe("Generate missing resumes", () => {
       name: "Generate/refresh resumes (2)",
     });
     fireEvent.click(button);
-    await waitFor(() =>
-      expect(api.generateMissingResumes).toHaveBeenCalledTimes(1),
-    );
+    await waitFor(() => expect(api.generateMissingResumes).toHaveBeenCalledTimes(1));
     expect(button).toBeDisabled();
     complete({ jobIds: ["missing", "stale"], alreadyRunning: false });
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith(
-        "Generating 2 resumes one at a time",
-      ),
+      expect(toast.success).toHaveBeenCalledWith("Generating 2 resumes one at a time"),
     );
     expect(invalidate).toHaveBeenCalled();
   });
@@ -817,19 +724,14 @@ describe("Generate missing resumes", () => {
         name: "Generate/refresh resumes (1)",
       }),
     );
-    await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("Already running"),
-    );
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Already running"));
   });
 });
 
 describe("Batch progress polling", () => {
   afterEach(() => vi.useRealTimers());
 
-  it.each([
-    "completion",
-    "timeout",
-  ] as const)("polls through idle gaps until %s", async (stop) => {
+  it.each(["completion", "timeout"] as const)("polls through idle gaps until %s", async (stop) => {
     vi.useFakeTimers();
     const job = makeJob({
       status: "ready",
@@ -838,8 +740,7 @@ describe("Batch progress polling", () => {
     });
     let currentJob = job;
     vi.mocked(api.getJobs).mockImplementation(
-      async () =>
-        ({ jobs: [currentJob] }) as Awaited<ReturnType<typeof api.getJobs>>,
+      async () => ({ jobs: [currentJob] }) as Awaited<ReturnType<typeof api.getJobs>>,
     );
     vi.mocked(api.generateMissingResumes).mockResolvedValue({
       jobIds: [job.id],
@@ -854,14 +755,10 @@ describe("Batch progress polling", () => {
       await vi.advanceTimersByTimeAsync(1);
     });
     await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Generate/refresh resumes (1)" }),
-      );
+      fireEvent.click(screen.getByRole("button", { name: "Generate/refresh resumes (1)" }));
       await vi.advanceTimersByTimeAsync(1);
     });
-    expect(toast.success).toHaveBeenCalledWith(
-      "Generating 1 resume one at a time",
-    );
+    expect(toast.success).toHaveBeenCalledWith("Generating 1 resume one at a time");
     const afterStart = vi.mocked(api.getJobs).mock.calls.length;
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2000);
@@ -898,10 +795,6 @@ it("reports when the server no longer has missing resumes", async () => {
       <InProgressBoardPage />
     </MemoryRouter>,
   );
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Generate/refresh resumes (1)" }),
-  );
-  await waitFor(() =>
-    expect(toast.info).toHaveBeenCalledWith("No resumes need generating"),
-  );
+  fireEvent.click(await screen.findByRole("button", { name: "Generate/refresh resumes (1)" }));
+  await waitFor(() => expect(toast.info).toHaveBeenCalledWith("No resumes need generating"));
 });

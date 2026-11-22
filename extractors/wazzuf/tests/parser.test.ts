@@ -44,9 +44,7 @@ describe("parseWazzufJobs", () => {
 
     expect(jobs).toHaveLength(1);
     expect(jobs[0]?.employer).toBe("Unknown Employer");
-    expect(jobs[0]?.jobUrl).toBe(
-      "https://wuzzuf.net/jobs/p/xyz-Frontend-Engineer",
-    );
+    expect(jobs[0]?.jobUrl).toBe("https://wuzzuf.net/jobs/p/xyz-Frontend-Engineer");
   });
 
   it("skips malformed cards silently", () => {

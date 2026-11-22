@@ -18,8 +18,7 @@ export function toStringOrNull(value: unknown): string | null {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : null;
   }
-  if (typeof value === "number" || typeof value === "boolean")
-    return String(value);
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
   return null;
 }
 

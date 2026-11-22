@@ -60,9 +60,7 @@ function asString(value: unknown): string | undefined {
 }
 
 function asNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function asStringList(value: unknown): string[] {
@@ -76,9 +74,7 @@ function asHttpUrl(value: unknown): string | undefined {
   if (!raw) return undefined;
   try {
     const url = new URL(raw);
-    return url.protocol === "http:" || url.protocol === "https:"
-      ? url.toString()
-      : undefined;
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : undefined;
   } catch {
     return undefined;
   }
@@ -143,8 +139,7 @@ export function mapFreeHireJob(value: unknown): CreateJobInput | null {
     skills: skills.length > 0 ? skills.join(", ") : undefined,
     companyIndustry: domains.length > 0 ? domains.join(", ") : undefined,
     companyNumEmployees: asString(enrichment?.company_size),
-    experienceRange:
-      experienceYears === undefined ? undefined : `${experienceYears}+ years`,
+    experienceRange: experienceYears === undefined ? undefined : `${experienceYears}+ years`,
     workFromHomeType: asString(row.work_mode),
   };
 }
@@ -163,10 +158,7 @@ export function buildFreeHireSearchUrl(args: {
   url.searchParams.set("sort", "posted_at");
   url.searchParams.set("order", "desc");
   url.searchParams.set("limit", String(Math.min(100, Math.max(1, args.limit))));
-  url.searchParams.set(
-    "offset",
-    String(Math.max(0, Math.floor(args.offset ?? 0))),
-  );
+  url.searchParams.set("offset", String(Math.max(0, Math.floor(args.offset ?? 0))));
 
   const countryCode = getCountryIso2Code(args.selectedCountry);
   if (countryCode) url.searchParams.set("countries", countryCode);
@@ -180,9 +172,7 @@ export function buildFreeHireSearchUrl(args: {
   return url;
 }
 
-export async function fetchFreeHirePage(
-  options: FetchFreeHirePageOptions,
-): Promise<FreeHirePage> {
+export async function fetchFreeHirePage(options: FetchFreeHirePageOptions): Promise<FreeHirePage> {
   const requestedLimit = Math.min(100, Math.max(1, Math.floor(options.limit)));
   const requestedOffset = Math.max(0, Math.floor(options.offset ?? 0));
   const response = await (options.fetchImpl ?? fetch)(
@@ -226,12 +216,8 @@ export async function fetchFreeHirePage(
   };
 }
 
-export async function runFreeHire(
-  options: RunFreeHireOptions = {},
-): Promise<FreeHireResult> {
-  const searchTerms = options.searchTerms?.length
-    ? options.searchTerms
-    : ["software engineer"];
+export async function runFreeHire(options: RunFreeHireOptions = {}): Promise<FreeHireResult> {
+  const searchTerms = options.searchTerms?.length ? options.searchTerms : ["software engineer"];
   const maxJobsPerTerm = Number.isFinite(options.maxJobsPerTerm)
     ? Math.max(1, Math.floor(options.maxJobsPerTerm as number))
     : 50;

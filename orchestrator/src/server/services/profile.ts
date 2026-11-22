@@ -3,10 +3,7 @@ import { getRequestContext } from "@infra/request-context";
 import { getActiveTenantId } from "@server/tenancy/context";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import type { ResumeProfile } from "@shared/types";
-import {
-  designResumeToProfile,
-  isLegacyDesignResumeError,
-} from "./design-resume";
+import { designResumeToProfile, isLegacyDesignResumeError } from "./design-resume";
 import { getResume, RxResumeAuthConfigError } from "./rxresume";
 import { getConfiguredRxResumeBaseResumeId } from "./rxresume/baseResumeId";
 
@@ -86,16 +83,12 @@ export async function getProfile(forceRefresh = false): Promise<ResumeProfile> {
     if (!isLegacyDesignResumeError(error)) {
       throw error;
     }
-    logger.warn(
-      "Ignoring legacy local Design Resume while loading profile fallback",
-      {
-        error,
-      },
-    );
+    logger.warn("Ignoring legacy local Design Resume while loading profile fallback", {
+      error,
+    });
   }
 
-  const { resumeId: rxresumeBaseResumeId } =
-    await getConfiguredRxResumeBaseResumeId();
+  const { resumeId: rxresumeBaseResumeId } = await getConfiguredRxResumeBaseResumeId();
 
   if (!rxresumeBaseResumeId) {
     throw new Error(
@@ -104,11 +97,7 @@ export async function getProfile(forceRefresh = false): Promise<ResumeProfile> {
   }
 
   // Return cached profile if valid
-  if (
-    cache.profile &&
-    cache.resumeId === rxresumeBaseResumeId &&
-    !forceRefresh
-  ) {
+  if (cache.profile && cache.resumeId === rxresumeBaseResumeId && !forceRefresh) {
     return cache.profile;
   }
 

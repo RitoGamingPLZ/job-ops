@@ -1,13 +1,7 @@
 import { createJob } from "@shared/testing/factories.js";
 import type { JobActionResponse } from "@shared/types.js";
 import { describe, expect, it } from "vitest";
-import {
-  canMoveToReady,
-  canRescore,
-  canSkip,
-  canTarget,
-  getFailedJobIds,
-} from "./jobActions";
+import { canMoveToReady, canRescore, canSkip, canTarget, getFailedJobIds } from "./jobActions";
 
 describe("jobActions", () => {
   it("targets only nonempty selections of pre-application jobs", () => {
@@ -39,9 +33,7 @@ describe("jobActions", () => {
         createJob({ id: "2", status: "discovered" }),
       ]),
     ).toBe(true);
-    expect(canMoveToReady([createJob({ id: "1", status: "ready" })])).toBe(
-      false,
-    );
+    expect(canMoveToReady([createJob({ id: "1", status: "ready" })])).toBe(false);
 
     expect(
       canRescore([

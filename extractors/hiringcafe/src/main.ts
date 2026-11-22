@@ -46,31 +46,21 @@ function emitProgress(payload: Record<string, unknown>): void {
 
 async function run(): Promise<void> {
   const outputPath =
-    process.env.HIRING_CAFE_OUTPUT_JSON ||
-    join(__dirname, "../storage/datasets/default/jobs.json");
+    process.env.HIRING_CAFE_OUTPUT_JSON || join(__dirname, "../storage/datasets/default/jobs.json");
 
   const pages = new HiringCafeBrowserPages({
-    cookieStorageDir:
-      process.env.JOBOPS_CLOUDFLARE_COOKIE_STORAGE_DIR || "./storage",
+    cookieStorageDir: process.env.JOBOPS_CLOUDFLARE_COOKIE_STORAGE_DIR || "./storage",
     initialHeadless: process.env.HIRING_CAFE_HEADLESS !== "false",
     promoteToHeaded: async () => ({ release: () => undefined }),
   });
   try {
     const result = await runHiringCafe({
-      searchTerms: parseSearchTerms(
-        process.env.HIRING_CAFE_SEARCH_TERMS,
-        DEFAULT_SEARCH_TERM,
-      ),
+      searchTerms: parseSearchTerms(process.env.HIRING_CAFE_SEARCH_TERMS, DEFAULT_SEARCH_TERM),
       country: process.env.HIRING_CAFE_COUNTRY,
       countryKey: process.env.HIRING_CAFE_COUNTRY,
       locations: parseStringArray(process.env.HIRING_CAFE_LOCATION_QUERY),
-      workplaceTypes: parseWorkplaceTypes(
-        process.env.HIRING_CAFE_WORKPLACE_TYPES,
-      ),
-      locationRadiusMiles: parsePositiveInt(
-        process.env.HIRING_CAFE_LOCATION_RADIUS_MILES,
-        50,
-      ),
+      workplaceTypes: parseWorkplaceTypes(process.env.HIRING_CAFE_WORKPLACE_TYPES),
+      locationRadiusMiles: parsePositiveInt(process.env.HIRING_CAFE_LOCATION_RADIUS_MILES, 50),
       maxJobsPerTerm: parsePositiveInt(
         process.env.HIRING_CAFE_MAX_JOBS_PER_TERM,
         DEFAULT_MAX_JOBS_PER_TERM,
@@ -83,12 +73,9 @@ async function run(): Promise<void> {
           termTotal: event.termTotal,
           searchTerm: event.searchTerm,
           pageNo: "pageNo" in event ? event.pageNo : undefined,
-          resultsOnPage:
-            "resultsOnPage" in event ? event.resultsOnPage : undefined,
-          totalCollected:
-            "totalCollected" in event ? event.totalCollected : undefined,
-          jobsFoundTerm:
-            "jobsFoundTerm" in event ? event.jobsFoundTerm : undefined,
+          resultsOnPage: "resultsOnPage" in event ? event.resultsOnPage : undefined,
+          totalCollected: "totalCollected" in event ? event.totalCollected : undefined,
+          jobsFoundTerm: "jobsFoundTerm" in event ? event.jobsFoundTerm : undefined,
         });
       },
     });

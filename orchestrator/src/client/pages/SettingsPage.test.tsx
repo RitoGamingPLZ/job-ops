@@ -10,8 +10,7 @@ import { SettingsPage } from "./SettingsPage";
 
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 
-const render = (ui: Parameters<typeof renderWithQueryClient>[0]) =>
-  renderWithQueryClient(ui);
+const render = (ui: Parameters<typeof renderWithQueryClient>[0]) => renderWithQueryClient(ui);
 
 vi.mock("../api", () => ({
   getBillingStatus: vi.fn(),
@@ -44,8 +43,7 @@ vi.mock("../api", () => ({
     userCode: "ABCD-EFGH",
     startedAt: "2026-04-14T16:00:00.000Z",
     expiresAt: "2026-04-14T16:15:00.000Z",
-    flowMessage:
-      "Open the verification URL and enter the one-time code to finish login.",
+    flowMessage: "Open the verification URL and enter the one-time code to finish login.",
   }),
   disconnectCodexAuth: vi.fn(),
   updateSettings: vi.fn(),
@@ -135,8 +133,7 @@ const renderPage = () => {
   );
 };
 
-const getSaveButton = () =>
-  screen.getByRole("button", { name: /save changes/i });
+const getSaveButton = () => screen.getByRole("button", { name: /save changes/i });
 
 const openNavGroup = async (name: RegExp) => {
   const groupButton = await screen.findByRole("button", { name });
@@ -241,13 +238,10 @@ describe("SettingsPage", () => {
     renderPage();
     await openNavGroup(/^backups$/i);
     await clickLastButtonByName(/^backups$/i);
-    fireEvent.click(
-      await screen.findByRole("switch", { name: "Run job search daily" }),
-    );
-    fireEvent.change(
-      screen.getByLabelText("Daily search hour (server local time)"),
-      { target: { value: "9" } },
-    );
+    fireEvent.click(await screen.findByRole("switch", { name: "Run job search daily" }));
+    fireEvent.change(screen.getByLabelText("Daily search hour (server local time)"), {
+      target: { value: "9" },
+    });
     await waitFor(() => expect(getSaveButton()).toBeEnabled());
     fireEvent.click(getSaveButton());
     await waitFor(() =>
@@ -343,10 +337,7 @@ describe("SettingsPage", () => {
     const openVerificationLink = await screen.findByRole("link", {
       name: /open verification page/i,
     });
-    expect(openVerificationLink).toHaveAttribute(
-      "href",
-      "https://auth.openai.com/codex/device",
-    );
+    expect(openVerificationLink).toHaveAttribute("href", "https://auth.openai.com/codex/device");
   });
 
   it("hides stale codex device code after login completes", async () => {
@@ -381,16 +372,10 @@ describe("SettingsPage", () => {
         "Codex is not authenticated in this container. Run `codex login` and try again.",
       ),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText("Codex login completed."),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Codex login completed.")).not.toBeInTheDocument();
     expect(screen.queryByText(/ABCD-EFGH/)).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /check status/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /start sign-in/i }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /check status/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /start sign-in/i })).toBeInTheDocument();
   });
 
   it("shows validation error for too long model override", async () => {
@@ -406,9 +391,7 @@ describe("SettingsPage", () => {
     fireEvent.change(modelInput, { target: { value: "a".repeat(201) } });
 
     // Should see error message
-    expect(
-      await screen.findByText(/(?:at most 200|<=200)/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/(?:at most 200|<=200)/i)).toBeInTheDocument();
 
     // Save button should be disabled due to validation error (isValid will be false)
     const saveButton = getSaveButton();
@@ -436,9 +419,7 @@ describe("SettingsPage", () => {
     });
     fireEvent.click(confirmButton);
 
-    await waitFor(() =>
-      expect(api.deleteJobsByStatus).toHaveBeenCalledWith("discovered"),
-    );
+    await waitFor(() => expect(api.deleteJobsByStatus).toHaveBeenCalledWith("discovered"));
     expect(toast.success).toHaveBeenCalledWith(
       "Jobs cleared",
       expect.objectContaining({
@@ -654,17 +635,13 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByRole("combobox", { name: /provider/i }));
     fireEvent.click(await screen.findByText("OpenAI"));
 
-    const preview = within(
-      screen.getByText("Configuration preview").parentElement as HTMLElement,
-    );
+    const preview = within(screen.getByText("Configuration preview").parentElement as HTMLElement);
     const previewValue = (label: string) =>
       preview.getByText(label, { exact: true }).nextElementSibling;
     expect(previewValue("Scoring provider")).toHaveTextContent("openai");
     expect(previewValue("Scoring model")).toHaveTextContent("gpt-5.4-mini");
     expect(previewValue("Project selection")).toHaveTextContent("gpt-5.4-mini");
-    expect(previewValue("Tailoring model")).toHaveTextContent(
-      "tailoring-custom-model",
-    );
+    expect(previewValue("Tailoring model")).toHaveTextContent("tailoring-custom-model");
     await clickLastButtonByName(/^scoring/i);
     const scoringModel = screen.getByLabelText(/^model$/i);
     expect(
@@ -674,20 +651,13 @@ describe("SettingsPage", () => {
     await clickLastButtonByName(/tailoring/i);
     const tailoringModel = screen.getByLabelText(/^model$/i);
     expect(
-      within(tailoringModel.parentElement as HTMLElement).getByText(
-        "tailoring-custom-model",
-        { exact: true },
-      ),
+      within(tailoringModel.parentElement as HTMLElement).getByText("tailoring-custom-model", {
+        exact: true,
+      }),
     ).toHaveTextContent("tailoring-custom-model");
-    expect(screen.getByLabelText(/^api key$/i)).toHaveValue(
-      "synthetic-purpose-key",
-    );
-    expect(screen.getByLabelText(/^base url$/i)).toHaveValue(
-      "https://synthetic.example/v1",
-    );
-    expect(screen.getByLabelText(/^llm api key$/i)).toHaveValue(
-      "synthetic-default-key",
-    );
+    expect(screen.getByLabelText(/^api key$/i)).toHaveValue("synthetic-purpose-key");
+    expect(screen.getByLabelText(/^base url$/i)).toHaveValue("https://synthetic.example/v1");
+    expect(screen.getByLabelText(/^llm api key$/i)).toHaveValue("synthetic-default-key");
 
     const saveButton = getSaveButton();
     await waitFor(() => expect(saveButton).toBeEnabled());
@@ -863,18 +833,12 @@ describe("SettingsPage", () => {
     renderPage();
 
     await openModelSection();
-    expect(
-      screen.queryByRole("button", { name: /ukvisajobs extractor/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /ukvisajobs extractor/i })).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /gradcracker extractor/i }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /search terms/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /jobspy scraper/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /search terms/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /jobspy scraper/i })).not.toBeInTheDocument();
   });
 
   it("enables save button when display setting is changed", async () => {
@@ -980,8 +944,7 @@ describe("SettingsPage", () => {
     vi.mocked(api.validateRxresume).mockClear();
     vi.mocked(api.validateRxresume).mockResolvedValue({
       valid: false,
-      message:
-        "Reactive Resume v5 API key is invalid. Update the API key and try again.",
+      message: "Reactive Resume v5 API key is invalid. Update the API key and try again.",
       status: 401,
     });
 
@@ -993,9 +956,9 @@ describe("SettingsPage", () => {
     await waitFor(() => expect(saveButton).toBeEnabled());
     fireEvent.click(saveButton);
 
-    expect(
-      await screen.findAllByText(/Reactive Resume v5 API key is invalid/i),
-    ).not.toHaveLength(0);
+    expect(await screen.findAllByText(/Reactive Resume v5 API key is invalid/i)).not.toHaveLength(
+      0,
+    );
     expect(api.updateSettings).not.toHaveBeenCalled();
   });
 
@@ -1049,9 +1012,7 @@ describe("SettingsPage", () => {
     fireEvent.click(saveButton);
 
     await waitFor(() => expect(api.updateSettings).toHaveBeenCalled());
-    expect(
-      await screen.findByText(/instance is unavailable right now/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/instance is unavailable right now/i)).toBeInTheDocument();
     expect(toast.success).toHaveBeenCalledWith("Settings saved");
     expect(toast.info).toHaveBeenCalledWith(
       "Settings saved, but JobOps could not verify Reactive Resume because the instance is unavailable.",
@@ -1098,18 +1059,14 @@ describe("SettingsPage", () => {
     renderPage();
     await openReactiveResumeSection();
 
-    expect(
-      await screen.findByText(/instance is unavailable right now/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/instance is unavailable right now/i)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/rxresume url/i), {
       target: { value: "https://resume.example.com" },
     });
 
     await waitFor(() =>
-      expect(
-        screen.queryByText(/instance is unavailable right now/i),
-      ).not.toBeInTheDocument(),
+      expect(screen.queryByText(/instance is unavailable right now/i)).not.toBeInTheDocument(),
     );
   });
 
@@ -1131,9 +1088,7 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByRole("combobox", { name: /output language/i }));
     fireEvent.click(await screen.findByText("Match current resume language"));
 
-    expect(
-      screen.queryByRole("combobox", { name: /specific language/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /specific language/i })).not.toBeInTheDocument();
 
     const saveButton = getSaveButton();
     await waitFor(() => expect(saveButton).toBeEnabled());
@@ -1166,9 +1121,7 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByRole("combobox", { name: /output language/i }));
     fireEvent.click(await screen.findByText("Match job description"));
 
-    expect(
-      screen.queryByRole("combobox", { name: /specific language/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /specific language/i })).not.toBeInTheDocument();
 
     const saveButton = getSaveButton();
     await waitFor(() => expect(saveButton).toBeEnabled());
@@ -1198,9 +1151,7 @@ describe("SettingsPage", () => {
     renderPage();
     await openWritingStyleSection();
 
-    const stopSlopCheckbox = screen.getByLabelText(
-      /use stop slop for ghostwriter/i,
-    );
+    const stopSlopCheckbox = screen.getByLabelText(/use stop slop for ghostwriter/i);
     expect(stopSlopCheckbox).not.toBeChecked();
 
     fireEvent.click(stopSlopCheckbox);
@@ -1233,12 +1184,8 @@ describe("SettingsPage", () => {
     const search = await screen.findByLabelText(/search settings/i);
     fireEvent.change(search, { target: { value: "single sign-on" } });
 
-    expect(
-      await screen.findAllByRole("button", { name: /workspace access/i }),
-    ).not.toHaveLength(0);
-    expect(
-      screen.queryAllByRole("button", { name: /display preferences/i }),
-    ).toHaveLength(0);
+    expect(await screen.findAllByRole("button", { name: /workspace access/i })).not.toHaveLength(0);
+    expect(screen.queryAllByRole("button", { name: /display preferences/i })).toHaveLength(0);
   });
 
   it("saves blocked company keywords from scoring settings", async () => {
@@ -1342,9 +1289,7 @@ describe("SettingsPage", () => {
 
     await openScoringSection();
 
-    expect(
-      screen.queryByLabelText(/scoring instructions/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/scoring instructions/i)).not.toBeInTheDocument();
   });
 
   it("saves a custom resume generation template", async () => {
@@ -1361,8 +1306,7 @@ describe("SettingsPage", () => {
     await waitFor(() =>
       expect(api.updateSettings).toHaveBeenCalledWith(
         expect.objectContaining({
-          resumeGenerationPromptTemplate:
-            "Custom library selection instructions",
+          resumeGenerationPromptTemplate: "Custom library selection instructions",
         }),
       ),
     );

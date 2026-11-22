@@ -71,18 +71,12 @@ export async function extractDocxText(buffer: Buffer): Promise<string> {
   try {
     zip = await JSZip.loadAsync(buffer);
   } catch {
-    throw new DocxTextExtractionError(
-      "INVALID_DOCX",
-      "DOCX file could not be read.",
-    );
+    throw new DocxTextExtractionError("INVALID_DOCX", "DOCX file could not be read.");
   }
 
   const documentXml = zip.file("word/document.xml");
   if (!documentXml) {
-    throw new DocxTextExtractionError(
-      "MISSING_DOCUMENT",
-      "DOCX file is missing document content.",
-    );
+    throw new DocxTextExtractionError("MISSING_DOCUMENT", "DOCX file is missing document content.");
   }
 
   const xml = await documentXml.async("string");
@@ -95,19 +89,13 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
     const data = (await pdfParse(buffer)) as { text?: string };
     const text = typeof data?.text === "string" ? data.text.trim() : "";
     if (!text) {
-      throw new PdfTextExtractionError(
-        "EMPTY_TEXT",
-        "PDF file did not contain readable text.",
-      );
+      throw new PdfTextExtractionError("EMPTY_TEXT", "PDF file did not contain readable text.");
     }
     return text;
   } catch (error) {
     if (error instanceof PdfTextExtractionError) {
       throw error;
     }
-    throw new PdfTextExtractionError(
-      "INVALID_PDF",
-      "PDF file could not be read or is encrypted.",
-    );
+    throw new PdfTextExtractionError("INVALID_PDF", "PDF file could not be read or is encrypted.");
   }
 }

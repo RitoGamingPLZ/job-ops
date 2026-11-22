@@ -55,12 +55,8 @@ describe("BaseResumeStep", () => {
     expect(screen.getByText("resume.pdf")).toBeInTheDocument();
     expect(screen.getAllByText("Reading file")).toHaveLength(1);
     expect(screen.queryByText("Preparing import")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Extracting resume text"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /upload resume file/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Extracting resume text")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /upload resume file/i })).not.toBeInTheDocument();
 
     act(() => {
       vi.advanceTimersByTime(25_000);
@@ -68,9 +64,7 @@ describe("BaseResumeStep", () => {
 
     expect(screen.getByText("96%")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Still working. Larger PDFs and DOCX files can take a little longer.",
-      ),
+      screen.getByText("Still working. Larger PDFs and DOCX files can take a little longer."),
     ).toBeInTheDocument();
   });
 
@@ -93,9 +87,7 @@ describe("BaseResumeStep", () => {
 
     expect(screen.getByText("40%")).toBeInTheDocument();
     expect(
-      screen.queryByText(
-        "Still working. Larger PDFs and DOCX files can take a little longer.",
-      ),
+      screen.queryByText("Still working. Larger PDFs and DOCX files can take a little longer."),
     ).not.toBeInTheDocument();
 
     act(() => {
@@ -104,24 +96,16 @@ describe("BaseResumeStep", () => {
 
     expect(screen.getByText("96%")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Still working. Codex imports can take around a minute for larger resumes.",
-      ),
+      screen.getByText("Still working. Codex imports can take around a minute for larger resumes."),
     ).toBeInTheDocument();
   });
 
   it("shows only document upload copy when Reactive Resume is disabled", () => {
     render(<BaseResumeStep {...defaultProps} allowReactiveResume={false} />);
 
-    expect(
-      screen.getByText("Upload your existing resume, PDF or DOCX"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Supported formats: PDF and DOCX."),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("radio", { name: /use reactive resume/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText("Upload your existing resume, PDF or DOCX")).toBeInTheDocument();
+    expect(screen.getByText("Supported formats: PDF and DOCX.")).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: /use reactive resume/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/Reactive Resume JSON/i)).not.toBeInTheDocument();
   });
 
@@ -134,9 +118,7 @@ describe("BaseResumeStep", () => {
       />,
     );
 
-    expect(
-      screen.queryByText("Self-hosted Reactive Resume?"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Self-hosted Reactive Resume?")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Custom URL")).not.toBeInTheDocument();
   });
 });

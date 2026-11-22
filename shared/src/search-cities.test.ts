@@ -10,21 +10,13 @@ import {
 
 describe("search-cities", () => {
   it("parses and deduplicates search cities", () => {
-    expect(parseSearchCitiesSetting("Leeds|london|Leeds")).toEqual([
-      "Leeds",
-      "london",
-    ]);
-    expect(parseSearchCitiesSetting("Leeds\nLondon\nleeds")).toEqual([
-      "Leeds",
-      "London",
-    ]);
+    expect(parseSearchCitiesSetting("Leeds|london|Leeds")).toEqual(["Leeds", "london"]);
+    expect(parseSearchCitiesSetting("Leeds\nLondon\nleeds")).toEqual(["Leeds", "London"]);
     expect(parseSearchCitiesSetting("")).toEqual([]);
   });
 
   it("serializes search cities", () => {
-    expect(serializeSearchCitiesSetting(["Leeds", "London"])).toBe(
-      "Leeds|London",
-    );
+    expect(serializeSearchCitiesSetting(["Leeds", "London"])).toBe("Leeds|London");
     expect(serializeSearchCitiesSetting([])).toBeNull();
   });
 
@@ -35,22 +27,14 @@ describe("search-cities", () => {
       }),
     ).toEqual(["Leeds", "London"]);
 
-    expect(resolveSearchCities({ single: "Leeds|London" })).toEqual([
-      "Leeds",
-      "London",
-    ]);
-    expect(resolveSearchCities({ env: "Leeds\nLondon" })).toEqual([
-      "Leeds",
-      "London",
-    ]);
+    expect(resolveSearchCities({ single: "Leeds|London" })).toEqual(["Leeds", "London"]);
+    expect(resolveSearchCities({ env: "Leeds\nLondon" })).toEqual(["Leeds", "London"]);
     expect(resolveSearchCities({ fallback: "UK" })).toEqual(["UK"]);
   });
 
   it("falls back when single/env values parse to empty", () => {
     expect(resolveSearchCities({ single: "", fallback: "UK" })).toEqual(["UK"]);
-    expect(resolveSearchCities({ single: "||", fallback: "UK" })).toEqual([
-      "UK",
-    ]);
+    expect(resolveSearchCities({ single: "||", fallback: "UK" })).toEqual(["UK"]);
     expect(resolveSearchCities({ env: "   ", fallback: "UK" })).toEqual(["UK"]);
   });
 
@@ -73,65 +57,42 @@ describe("search-cities", () => {
 
   it("matches by whole location tokens and avoids substring false positives", () => {
     expect(matchesRequestedCity("Leeds, England, UK", "Leeds")).toBe(true);
-    expect(matchesRequestedCity("Manchester, England, UK", "Chester")).toBe(
-      false,
-    );
-    expect(
-      matchesRequestedCity("New York, NY, United States", "new york"),
-    ).toBe(true);
+    expect(matchesRequestedCity("Manchester, England, UK", "Chester")).toBe(false);
+    expect(matchesRequestedCity("New York, NY, United States", "new york")).toBe(true);
   });
 
   it("matches requested countries using canonical names and common aliases", () => {
     expect(matchesRequestedCountry("Zagreb, Croatia", "croatia")).toBe(true);
+    expect(matchesRequestedCountry("Leeds, England, UK", "united kingdom")).toBe(true);
     expect(
-      matchesRequestedCountry("Leeds, England, UK", "united kingdom"),
-    ).toBe(true);
-    expect(
-      matchesRequestedCountry(
-        "Austin, Texas, United States of America",
-        "united states",
-      ),
+      matchesRequestedCountry("Austin, Texas, United States of America", "united states"),
     ).toBe(true);
     expect(matchesRequestedCountry("Bengaluru, India", "croatia")).toBe(false);
     expect(matchesRequestedCountry(undefined, "croatia")).toBe(false);
   });
 
   it("matches ISO-2 codes and localized country names", () => {
-    expect(
-      matchesRequestedCountry("Amsterdam Zuid, NH, NL", "netherlands"),
-    ).toBe(true);
+    expect(matchesRequestedCountry("Amsterdam Zuid, NH, NL", "netherlands")).toBe(true);
     expect(matchesRequestedCountry("Berlin, DE", "germany")).toBe(false);
     expect(matchesRequestedCountry("Amsterdam, Netherlands", "NL")).toBe(true);
     expect(matchesRequestedCountry("Berlin, BE, DE", "germany")).toBe(true);
-    expect(matchesRequestedCountry("Amsterdam, Nederland", "netherlands")).toBe(
-      true,
-    );
-    expect(matchesRequestedCountry("Berlin, Deutschland", "germany")).toBe(
-      true,
-    );
+    expect(matchesRequestedCountry("Amsterdam, Nederland", "netherlands")).toBe(true);
+    expect(matchesRequestedCountry("Berlin, Deutschland", "germany")).toBe(true);
     expect(matchesRequestedCountry("Madrid, España", "spain")).toBe(true);
     expect(matchesRequestedCountry("İstanbul, Türkiye", "turkey")).toBe(true);
   });
 
-  it.each([
-    "US",
-    "USA",
-    "us",
-    "usa",
-  ])("matches the %s country suffix without treating it as a subdivision", (suffix) => {
-    expect(
-      matchesRequestedCountry(`New York, NY, ${suffix}`, "united states"),
-    ).toBe(true);
-    expect(matchesRequestedCountry(`New York, NY, ${suffix}`, "canada")).toBe(
-      false,
-    );
-  });
+  it.each(["US", "USA", "us", "usa"])(
+    "matches the %s country suffix without treating it as a subdivision",
+    (suffix) => {
+      expect(matchesRequestedCountry(`New York, NY, ${suffix}`, "united states")).toBe(true);
+      expect(matchesRequestedCountry(`New York, NY, ${suffix}`, "canada")).toBe(false);
+    },
+  );
 
   it("does not confuse country codes with subdivision abbreviations", () => {
     expect(matchesRequestedCountry("San Francisco, CA", "canada")).toBe(false);
-    expect(matchesRequestedCountry("San Francisco, CA, US", "canada")).toBe(
-      false,
-    );
+    expect(matchesRequestedCountry("San Francisco, CA, US", "canada")).toBe(false);
     expect(matchesRequestedCountry("Indianapolis, IN", "india")).toBe(false);
     expect(matchesRequestedCountry("IN", "india")).toBe(true);
   });

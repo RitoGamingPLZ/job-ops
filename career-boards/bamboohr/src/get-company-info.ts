@@ -33,25 +33,20 @@ export async function getCompanyInfo(
 ): Promise<{ company: NormalizedBamboohrCompanyInfo }> {
   const fetchFn = options.fetchImpl ?? globalThis.fetch;
   if (!fetchFn) {
-    throw new Error(
-      "No fetch implementation available. Pass fetchImpl or use Node 18+.",
-    );
+    throw new Error("No fetch implementation available. Pass fetchImpl or use Node 18+.");
   }
 
   const parsed = parseBamboohrUrl(options.careersUrl);
-  const response = await fetchBamboohrJson<BamboohrCompanyInfoResponse>(
-    fetchFn,
-    {
-      url: parsed.companyInfoUrl,
-      signal: options.signal,
-      headers: {
-        accept: "application/json",
-        referer: parsed.canonicalCareersUrl,
-        "user-agent": options.userAgent ?? DEFAULT_USER_AGENT,
-        ...options.headers,
-      },
+  const response = await fetchBamboohrJson<BamboohrCompanyInfoResponse>(fetchFn, {
+    url: parsed.companyInfoUrl,
+    signal: options.signal,
+    headers: {
+      accept: "application/json",
+      referer: parsed.canonicalCareersUrl,
+      "user-agent": options.userAgent ?? DEFAULT_USER_AGENT,
+      ...options.headers,
     },
-  );
+  });
 
   return {
     company: normalizeBamboohrCompanyInfo(response, parsed.companyInfoUrl),
@@ -64,9 +59,7 @@ export function normalizeBamboohrCompanyInfo(
 ): NormalizedBamboohrCompanyInfo {
   const result = response.result;
   if (!result) {
-    throw new Error(
-      `BambooHR company info response is missing result for ${url}.`,
-    );
+    throw new Error(`BambooHR company info response is missing result for ${url}.`);
   }
 
   const name = requiredString(result.name, "name", url);
@@ -93,9 +86,7 @@ async function fetchBamboohrJson<T>(
 
   const responseText = await response.text();
   if (!response.ok) {
-    throw new Error(
-      `BambooHR request failed with HTTP ${response.status} for ${input.url}.`,
-    );
+    throw new Error(`BambooHR request failed with HTTP ${response.status} for ${input.url}.`);
   }
 
   try {
@@ -105,15 +96,9 @@ async function fetchBamboohrJson<T>(
   }
 }
 
-function requiredString(
-  value: unknown,
-  fieldName: string,
-  url: string,
-): string {
+function requiredString(value: unknown, fieldName: string, url: string): string {
   if (typeof value === "string" && value.trim()) return value.trim();
-  throw new Error(
-    `BambooHR response is missing required field ${fieldName} for ${url}.`,
-  );
+  throw new Error(`BambooHR response is missing required field ${fieldName} for ${url}.`);
 }
 
 function optionalString(value: unknown): string | undefined {

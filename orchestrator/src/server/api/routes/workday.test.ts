@@ -4,7 +4,7 @@ import { startServer, stopServer } from "./test-utils";
 
 const nativeFetch = globalThis.fetch;
 
-describe.sequential("Workday API routes", () => {
+describe("Workday API routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;

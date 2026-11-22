@@ -5,12 +5,7 @@ import {
   WorkdayCxsFetchError,
   workdayUrlToCxsJobsUrl,
 } from "@career-boards/workday";
-import {
-  badRequest,
-  requestTimeout,
-  toAppError,
-  upstreamError,
-} from "@infra/errors";
+import { badRequest, requestTimeout, toAppError, upstreamError } from "@infra/errors";
 import { fail, ok } from "@infra/http";
 import { detectLogoMimeType } from "@infra/image-mime";
 import { logger } from "@infra/logger";
@@ -28,10 +23,7 @@ const fetchWorkdayJobsSchema = z.object({
 
 workdayRouter.post("/fetch-jobs", async (req: Request, res: Response) => {
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    WORKDAY_ROUTE_TIMEOUT_MS,
-  );
+  const timeout = setTimeout(() => controller.abort(), WORKDAY_ROUTE_TIMEOUT_MS);
 
   try {
     const input = fetchWorkdayJobsSchema.parse(req.body ?? {});
@@ -86,48 +78,42 @@ const fetchWorkdayJobDetailsSchema = z.object({
   jobUrl: z.string().trim().url().max(2000),
 });
 
-workdayRouter.post(
-  "/fetch-job-details",
-  async (req: Request, res: Response) => {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      WORKDAY_ROUTE_TIMEOUT_MS,
-    );
+workdayRouter.post("/fetch-job-details", async (req: Request, res: Response) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), WORKDAY_ROUTE_TIMEOUT_MS);
 
-    try {
-      const input = fetchWorkdayJobDetailsSchema.parse(req.body ?? {});
-      const response = await getJobDetailsFromCxs({
-        jobUrl: input.jobUrl,
-        signal: controller.signal,
-      });
+  try {
+    const input = fetchWorkdayJobDetailsSchema.parse(req.body ?? {});
+    const response = await getJobDetailsFromCxs({
+      jobUrl: input.jobUrl,
+      signal: controller.signal,
+    });
 
-      ok(res, {
-        jobUrl: input.jobUrl,
-        response,
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return fail(res, badRequest(error.message, error.flatten()));
-      }
-      if (error instanceof Error && error.name === "AbortError") {
-        return fail(res, requestTimeout());
-      }
-      if (error instanceof WorkdayCxsFetchError) {
-        return fail(
-          res,
-          upstreamError(error.message, {
-            url: error.url,
-            status: error.status,
-          }),
-        );
-      }
-      fail(res, toAppError(error));
-    } finally {
-      clearTimeout(timeout);
+    ok(res, {
+      jobUrl: input.jobUrl,
+      response,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return fail(res, badRequest(error.message, error.flatten()));
     }
-  },
-);
+    if (error instanceof Error && error.name === "AbortError") {
+      return fail(res, requestTimeout());
+    }
+    if (error instanceof WorkdayCxsFetchError) {
+      return fail(
+        res,
+        upstreamError(error.message, {
+          url: error.url,
+          status: error.status,
+        }),
+      );
+    }
+    fail(res, toAppError(error));
+  } finally {
+    clearTimeout(timeout);
+  }
+});
 
 const fetchWorkdayLogoSchema = z.object({
   careersUrl: z.string().trim().url().max(2000),
@@ -135,10 +121,7 @@ const fetchWorkdayLogoSchema = z.object({
 
 workdayRouter.post("/fetch-logo", async (req: Request, res: Response) => {
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    WORKDAY_ROUTE_TIMEOUT_MS,
-  );
+  const timeout = setTimeout(() => controller.abort(), WORKDAY_ROUTE_TIMEOUT_MS);
 
   try {
     const input = fetchWorkdayLogoSchema.parse(req.body ?? {});
@@ -179,10 +162,7 @@ workdayRouter.post("/fetch-logo", async (req: Request, res: Response) => {
     }
 
     const contentLength = Number(response.headers.get("content-length"));
-    if (
-      Number.isFinite(contentLength) &&
-      contentLength > WORKDAY_LOGO_MAX_BYTES
-    ) {
+    if (Number.isFinite(contentLength) && contentLength > WORKDAY_LOGO_MAX_BYTES) {
       return fail(
         res,
         upstreamError("Workday company logo exceeded size limit", {

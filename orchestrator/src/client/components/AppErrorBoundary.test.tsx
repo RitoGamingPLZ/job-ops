@@ -46,35 +46,26 @@ describe("AppErrorBoundary", () => {
       await screen.findByRole("heading", { name: "Something went wrong" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /reload app/i })).toBeVisible();
-    expect(screen.getByRole("link", { name: /go home/i })).toHaveAttribute(
-      "href",
-      "/overview",
-    );
+    expect(screen.getByRole("link", { name: /go home/i })).toHaveAttribute("href", "/overview");
 
     const issueLink = screen.getByRole("link", {
       name: /open github issue/i,
     });
     expect(issueLink).toHaveAttribute(
       "href",
-      expect.stringContaining(
-        "https://github.com/DaKheera47/job-ops/issues/new",
-      ),
+      expect.stringContaining("https://github.com/DaKheera47/job-ops/issues/new"),
     );
     expect(decodeURIComponent(issueLink.getAttribute("href") ?? "")).toContain(
       "password=[redacted]",
     );
-    expect(
-      decodeURIComponent(issueLink.getAttribute("href") ?? ""),
-    ).not.toContain("super-secret");
+    expect(decodeURIComponent(issueLink.getAttribute("href") ?? "")).not.toContain("super-secret");
 
     const details = screen.getByText("Technical details").closest("details");
     expect(details).not.toBeNull();
     expect(details).not.toHaveAttribute("open");
 
     fireEvent.click(screen.getByText("Technical details"));
-    expect(
-      within(details as HTMLElement).getByText(/Version: v1\.2\.3/),
-    ).toBeInTheDocument();
+    expect(within(details as HTMLElement).getByText(/Version: v1\.2\.3/)).toBeInTheDocument();
   });
 
   it("calls the reload handler from the fatal screen button", () => {
@@ -127,9 +118,7 @@ describe("AppErrorBoundary", () => {
     });
 
     expect(screen.getByText("Healthy app")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "Something went wrong" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Something went wrong" })).not.toBeInTheDocument();
   });
 
   it("shows the fatal fallback for unhandled promise rejections", async () => {
@@ -208,22 +197,15 @@ describe("AppErrorBoundary", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Healthy app" }));
     expect(onClick).toHaveBeenCalledTimes(1);
-    expect(
-      screen.queryByRole("heading", { name: "Something went wrong" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: /open github issue/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Something went wrong" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /open github issue/i })).not.toBeInTheDocument();
     expect(event.defaultPrevented).toBe(false);
     expect(errorToast.showErrorToast).not.toHaveBeenCalled();
     expect(reason.stack).toBe(stack);
   });
 
   it.each([
-    [
-      "application frames",
-      "    at load (http://localhost:3000/src/app.tsx:10:2)",
-    ],
+    ["application frames", "    at load (http://localhost:3000/src/app.tsx:10:2)"],
     ["a missing stack", undefined],
     ["an empty stack", ""],
     [
@@ -237,21 +219,11 @@ describe("AppErrorBoundary", () => {
     ],
     [
       "an application frame followed by OpenPanel",
-      "load@http://localhost:3000/src/app.tsx:10:2\n" +
-        "P.post@https://openpanel.dev/op1.js:1:2",
+      "load@http://localhost:3000/src/app.tsx:10:2\n" + "P.post@https://openpanel.dev/op1.js:1:2",
     ],
-    [
-      "an unrelated script",
-      "    at send (https://analytics.example/sdk.js:1:2)",
-    ],
-    [
-      "a lookalike host",
-      "    at send (https://openpanel.dev.evil.example/op1.js:1:2)",
-    ],
-    [
-      "another OpenPanel path",
-      "    at send (https://openpanel.dev/other.js:1:2)",
-    ],
+    ["an unrelated script", "    at send (https://analytics.example/sdk.js:1:2)"],
+    ["a lookalike host", "    at send (https://openpanel.dev.evil.example/op1.js:1:2)"],
+    ["another OpenPanel path", "    at send (https://openpanel.dev/other.js:1:2)"],
     ["an HTTP URL", "    at send (http://openpanel.dev/op1.js:1:2)"],
     ["a different port", "    at send (https://openpanel.dev:8080/op1.js:1:2)"],
     [
@@ -290,9 +262,7 @@ describe("AppErrorBoundary", () => {
 
   it("does not use an OpenPanel URL in the error message as provenance", async () => {
     renderBoundary(<div>Healthy app</div>, "/overview");
-    const reason = new TypeError(
-      "Failed to fetch https://openpanel.dev/op1.js",
-    );
+    const reason = new TypeError("Failed to fetch https://openpanel.dev/op1.js");
     reason.stack = `${reason.name}: ${reason.message}`;
     const event = new Event("unhandledrejection", {
       cancelable: true,
@@ -309,34 +279,31 @@ describe("AppErrorBoundary", () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
-  it.each([
-    false,
-    true,
-  ])("keeps API errors recoverable with an OpenPanel stack: %s", async (withOpenPanelStack) => {
-    renderBoundary(<div>Healthy app</div>, "/jobs/ready");
-    const event = new Event("unhandledrejection", {
-      cancelable: true,
-    }) as PromiseRejectionEvent;
-    const reason = new ApiClientError("API request failed", { status: 500 });
-    if (withOpenPanelStack) {
-      reason.stack = "    at send (https://openpanel.dev/op1.js:1:2)";
-    }
-    Object.defineProperty(event, "reason", { value: reason });
+  it.each([false, true])(
+    "keeps API errors recoverable with an OpenPanel stack: %s",
+    async (withOpenPanelStack) => {
+      renderBoundary(<div>Healthy app</div>, "/jobs/ready");
+      const event = new Event("unhandledrejection", {
+        cancelable: true,
+      }) as PromiseRejectionEvent;
+      const reason = new ApiClientError("API request failed", { status: 500 });
+      if (withOpenPanelStack) {
+        reason.stack = "    at send (https://openpanel.dev/op1.js:1:2)";
+      }
+      Object.defineProperty(event, "reason", { value: reason });
 
-    act(() => {
-      window.dispatchEvent(event);
-    });
+      act(() => {
+        window.dispatchEvent(event);
+      });
 
-    expect(screen.getByText("Healthy app")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "Something went wrong" }),
-    ).not.toBeInTheDocument();
-    expect(event.defaultPrevented).toBe(true);
-    expect(errorToast.showErrorToast).toHaveBeenCalledWith(
-      reason,
-      "API request failed",
-    );
-  });
+      expect(screen.getByText("Healthy app")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "Something went wrong" }),
+      ).not.toBeInTheDocument();
+      expect(event.defaultPrevented).toBe(true);
+      expect(errorToast.showErrorToast).toHaveBeenCalledWith(reason, "API request failed");
+    },
+  );
 
   it.each([
     null,
@@ -409,9 +376,7 @@ describe("AppErrorBoundary", () => {
 
   it("classifies opaque cross-origin errors, but not real Error events", () => {
     expect(
-      isOpaqueCrossOriginError(
-        new ErrorEvent("error", { message: "Script error.", filename: "" }),
-      ),
+      isOpaqueCrossOriginError(new ErrorEvent("error", { message: "Script error.", filename: "" })),
     ).toBe(true);
     expect(
       isOpaqueCrossOriginError(
@@ -435,11 +400,7 @@ describe("AppErrorBoundary", () => {
   it("redacts long opaque values", () => {
     const longSecret = "a".repeat(100);
 
-    expect(sanitizeCrashText(`secret=${longSecret}`)).toContain(
-      "secret=[redacted]",
-    );
-    expect(sanitizeCrashText(`value ${longSecret}`)).toContain(
-      "[redacted-long-value]",
-    );
+    expect(sanitizeCrashText(`secret=${longSecret}`)).toContain("secret=[redacted]");
+    expect(sanitizeCrashText(`value ${longSecret}`)).toContain("[redacted-long-value]");
   });
 });

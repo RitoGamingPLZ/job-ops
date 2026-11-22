@@ -41,9 +41,7 @@ export function PdfJobDescriptionInput({ disabled, onText, onBusy }: Props) {
             const text = await extractPdfJobDescription(file);
             if (current !== generation.current) return;
             onText(text);
-            setMessage(
-              "PDF text loaded. Review and edit it below before analyzing.",
-            );
+            setMessage("PDF text loaded. Review and edit it below before analyzing.");
           } catch (error) {
             if (current !== generation.current) return;
             setMessage(
@@ -60,15 +58,10 @@ export function PdfJobDescriptionInput({ disabled, onText, onBusy }: Props) {
         }}
       />
       <p className="text-xs text-muted-foreground">
-        Replaces the description below. Text PDFs only, up to 10 MB and 100
-        pages. The file stays in your browser. Analyze JD sends the reviewed
-        text to your configured AI provider.
+        Replaces the description below. Text PDFs only, up to 10 MB and 100 pages. The file stays in
+        your browser. Analyze JD sends the reviewed text to your configured AI provider.
       </p>
-      {message && (
-        <output className="block text-xs text-muted-foreground">
-          {message}
-        </output>
-      )}
+      {message && <output className="block text-xs text-muted-foreground">{message}</output>}
     </div>
   );
 }

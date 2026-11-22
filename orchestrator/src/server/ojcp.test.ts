@@ -1,12 +1,4 @@
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./api/routes/test-utils";
 import { mapJobPosting } from "./ojcp";
 
@@ -53,7 +45,7 @@ async function callMcp(
   return (await response.json()) as RpcResponse;
 }
 
-describe.sequential("OJCP MCP", () => {
+describe("OJCP MCP", () => {
   let running: Awaited<ReturnType<typeof startServer>> | undefined;
 
   beforeAll(async () => {
@@ -103,14 +95,10 @@ describe.sequential("OJCP MCP", () => {
 
   it("discovers the provider and serves cached details from live FreeHire search", async () => {
     if (!running) throw new Error("Test server did not start");
-    const manifestResponse = await fetch(
-      `${running.baseUrl}/.well-known/ojcp.json`,
-    );
+    const manifestResponse = await fetch(`${running.baseUrl}/.well-known/ojcp.json`);
     const manifest = (await manifestResponse.json()) as Record<string, unknown>;
     expect(manifestResponse.status).toBe(200);
-    expect(manifestResponse.headers.get("cache-control")).toBe(
-      "public, max-age=3600",
-    );
+    expect(manifestResponse.headers.get("cache-control")).toBe("public, max-age=3600");
     expect(manifest).toMatchObject({
       ojcp_version: "0.1",
       mcp_endpoint: `${running.baseUrl}/ojcp/mcp`,
@@ -134,8 +122,7 @@ describe.sequential("OJCP MCP", () => {
       "get_job_detail",
     ]);
     expect(
-      listed.result?.tools?.find((tool) => tool.name === "search_jobs")
-        ?.inputSchema,
+      listed.result?.tools?.find((tool) => tool.name === "search_jobs")?.inputSchema,
     ).toMatchObject({
       properties: {
         candidate_context: {
@@ -255,12 +242,12 @@ describe.sequential("OJCP MCP", () => {
       expect.objectContaining({ outcome: "not_found" }),
       expect.objectContaining({ urlPath: "/ojcp/mcp" }),
     );
-    expect(
-      JSON.stringify(mocks.trackServerProductEvent.mock.calls),
-    ).not.toContain("senior backend engineer");
-    expect(
-      JSON.stringify(mocks.trackServerProductEvent.mock.calls),
-    ).not.toContain("example.com/jobs");
+    expect(JSON.stringify(mocks.trackServerProductEvent.mock.calls)).not.toContain(
+      "senior backend engineer",
+    );
+    expect(JSON.stringify(mocks.trackServerProductEvent.mock.calls)).not.toContain(
+      "example.com/jobs",
+    );
   });
 
   it("rejects filters that FreeHire cannot apply correctly", async () => {
@@ -377,9 +364,7 @@ describe.sequential("OJCP MCP", () => {
         arguments: { query: `engineer ${index}` },
       }),
     );
-    await vi.waitFor(() =>
-      expect(mocks.fetchFreeHirePage).toHaveBeenCalledTimes(10),
-    );
+    await vi.waitFor(() => expect(mocks.fetchFreeHirePage).toHaveBeenCalledTimes(10));
 
     const limited = await callMcp(baseUrl, 110, "tools/call", {
       name: "search_jobs",

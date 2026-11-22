@@ -1,8 +1,5 @@
 import { resolveSearchCities } from "@shared/search-cities.js";
-import type {
-  ExtractorManifest,
-  ExtractorProgressEvent,
-} from "@shared/types/extractors";
+import type { ExtractorManifest, ExtractorProgressEvent } from "@shared/types/extractors";
 import { type FreeHireProgressEvent, runFreeHire } from "./run";
 
 function toProgress(event: FreeHireProgressEvent): ExtractorProgressEvent {
@@ -40,8 +37,7 @@ export const manifest: ExtractorManifest = {
       selectedCountry: context.selectedCountry,
       locations: resolveSearchCities({
         list: context.sourceLocationPlan?.requestedCities,
-        single:
-          context.settings.searchCities ?? context.settings.jobspyLocation,
+        single: context.settings.searchCities ?? context.settings.jobspyLocation,
       }),
       workplaceTypes: context.settings.workplaceTypes
         ? JSON.parse(context.settings.workplaceTypes)

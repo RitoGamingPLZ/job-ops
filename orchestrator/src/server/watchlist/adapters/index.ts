@@ -30,10 +30,9 @@ const adapters = [
   oracleWatchlistAdapter,
 ] as const;
 
-const adaptersByType = new Map<
-  WatchedSourceType,
-  WatchlistCatalogSourceAdapter
->(adapters.map((adapter) => [adapter.sourceType, adapter]));
+const adaptersByType = new Map<WatchedSourceType, WatchlistCatalogSourceAdapter>(
+  adapters.map((adapter) => [adapter.sourceType, adapter]),
+);
 
 export function listWatchlistSourceAdapters(): WatchlistCatalogSourceAdapter[] {
   return [...adapters];

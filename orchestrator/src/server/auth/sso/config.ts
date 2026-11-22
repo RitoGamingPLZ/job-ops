@@ -36,11 +36,7 @@ function readTrimmedEnv(env: EnvSource, key: string): string {
   return env[key]?.trim() ?? "";
 }
 
-function parseBooleanFlag(
-  env: EnvSource,
-  key: string,
-  defaultValue: boolean,
-): boolean {
+function parseBooleanFlag(env: EnvSource, key: string, defaultValue: boolean): boolean {
   const raw = env[key];
   if (raw === undefined) return defaultValue;
 
@@ -80,10 +76,9 @@ function resolvePublicIdpSignup(args: {
 
   if (!warnedOpenSignupProviders.has(args.id)) {
     warnedOpenSignupProviders.add(args.id);
-    logger.warn(
-      "Ignoring SSO signup flag because no email domains are allowed",
-      { provider: args.id },
-    );
+    logger.warn("Ignoring SSO signup flag because no email domains are allowed", {
+      provider: args.id,
+    });
   }
   return false;
 }
@@ -92,10 +87,7 @@ function readGoogleConfig(env: EnvSource): SsoProviderConfig | null {
   const clientId = readTrimmedEnv(env, "SSO_GOOGLE_CLIENT_ID");
   if (!clientId) return null;
 
-  const allowedEmailDomains = parseEmailDomains(
-    env,
-    "SSO_GOOGLE_ALLOWED_EMAIL_DOMAINS",
-  );
+  const allowedEmailDomains = parseEmailDomains(env, "SSO_GOOGLE_ALLOWED_EMAIL_DOMAINS");
 
   return {
     id: "google",
@@ -118,10 +110,7 @@ function readGithubConfig(env: EnvSource): SsoProviderConfig | null {
   const clientId = readTrimmedEnv(env, "SSO_GITHUB_CLIENT_ID");
   if (!clientId) return null;
 
-  const allowedEmailDomains = parseEmailDomains(
-    env,
-    "SSO_GITHUB_ALLOWED_EMAIL_DOMAINS",
-  );
+  const allowedEmailDomains = parseEmailDomains(env, "SSO_GITHUB_ALLOWED_EMAIL_DOMAINS");
 
   return {
     id: "github",
@@ -147,33 +136,21 @@ function readOidcConfig(env: EnvSource): SsoProviderConfig | null {
 
   return {
     id: "oidc",
-    displayName:
-      readTrimmedEnv(env, "SSO_OIDC_DISPLAY_NAME") || DEFAULT_OIDC_DISPLAY_NAME,
+    displayName: readTrimmedEnv(env, "SSO_OIDC_DISPLAY_NAME") || DEFAULT_OIDC_DISPLAY_NAME,
     clientId,
     clientSecret: readTrimmedEnv(env, "SSO_OIDC_CLIENT_SECRET") || null,
     issuerUrl,
     scopes: readTrimmedEnv(env, "SSO_OIDC_SCOPES") || DEFAULT_OIDC_SCOPES,
     allowSignup: parseBooleanFlag(env, "SSO_OIDC_ALLOW_SIGNUP", false),
-    allowedEmailDomains: parseEmailDomains(
-      env,
-      "SSO_OIDC_ALLOWED_EMAIL_DOMAINS",
-    ),
-    allowInsecureHttp: parseBooleanFlag(
-      env,
-      "SSO_OIDC_ALLOW_INSECURE_HTTP",
-      false,
-    ),
+    allowedEmailDomains: parseEmailDomains(env, "SSO_OIDC_ALLOWED_EMAIL_DOMAINS"),
+    allowInsecureHttp: parseBooleanFlag(env, "SSO_OIDC_ALLOW_INSECURE_HTTP", false),
   };
 }
 
-export function getSsoProviderConfigs(
-  env: EnvSource = process.env,
-): SsoProviderConfig[] {
-  return [
-    readGoogleConfig(env),
-    readGithubConfig(env),
-    readOidcConfig(env),
-  ].filter((config): config is SsoProviderConfig => config !== null);
+export function getSsoProviderConfigs(env: EnvSource = process.env): SsoProviderConfig[] {
+  return [readGoogleConfig(env), readGithubConfig(env), readOidcConfig(env)].filter(
+    (config): config is SsoProviderConfig => config !== null,
+  );
 }
 
 export function getSsoProviderConfig(
@@ -183,9 +160,7 @@ export function getSsoProviderConfig(
   return getSsoProviderConfigs(env).find((config) => config.id === id) ?? null;
 }
 
-export function listEnabledSsoProviders(
-  env: EnvSource = process.env,
-): SsoProviderInfo[] {
+export function listEnabledSsoProviders(env: EnvSource = process.env): SsoProviderInfo[] {
   return getSsoProviderConfigs(env).map((config) => ({
     id: config.id,
     displayName: config.displayName,

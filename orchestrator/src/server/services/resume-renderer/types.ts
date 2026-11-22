@@ -1,8 +1,4 @@
-import type {
-  ChatStyleManualLanguage,
-  PdfPaperSize,
-  TypstTheme,
-} from "@shared/types";
+import type { ChatStyleManualLanguage, PdfPaperSize, TypstTheme } from "@shared/types";
 
 export interface LatexResumeContactItem {
   text: string;
@@ -148,5 +144,4 @@ export interface NormalizeResumeJsonToLatexDocumentOptions {
   language?: ChatStyleManualLanguage;
 }
 export type ResumeRenderDocument = LatexResumeDocument;
-export type NormalizeResumeJsonOptions =
-  NormalizeResumeJsonToLatexDocumentOptions;
+export type NormalizeResumeJsonOptions = NormalizeResumeJsonToLatexDocumentOptions;

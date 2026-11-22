@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  GreenhouseResolutionError,
-  resolveGreenhouseSource,
-} from "./resolve-greenhouse-source";
+import { GreenhouseResolutionError, resolveGreenhouseSource } from "./resolve-greenhouse-source";
 
 interface MockOptions {
   validTokens: Record<string, string | null>;
@@ -12,9 +9,7 @@ interface MockOptions {
 function makeFetch(opts: MockOptions): typeof fetch {
   return (async (input: RequestInfo | URL) => {
     const url = String(input);
-    const boardMatch = url.match(
-      /boards-api\.greenhouse\.io\/v1\/boards\/([a-z0-9_-]+)$/,
-    );
+    const boardMatch = url.match(/boards-api\.greenhouse\.io\/v1\/boards\/([a-z0-9_-]+)$/);
     if (boardMatch) {
       const token = boardMatch[1];
       if (Object.hasOwn(opts.validTokens, token)) {

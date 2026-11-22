@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getMetaKeyLabel,
-  getMetaShortcutLabel,
-  isMetaKeyPressed,
-} from "./meta-key";
+import { getMetaKeyLabel, getMetaShortcutLabel, isMetaKeyPressed } from "./meta-key";
 
 describe("meta-key helper", () => {
   it("returns command symbol for apple platforms", () => {
@@ -26,9 +22,7 @@ describe("meta-key helper", () => {
 
   it("formats shortcut labels by platform", () => {
     expect(getMetaShortcutLabel("k", { platform: "MacIntel" })).toBe("⌘K");
-    expect(getMetaShortcutLabel("k", { platform: "Linux x86_64" })).toBe(
-      "Ctrl+K",
-    );
+    expect(getMetaShortcutLabel("k", { platform: "Linux x86_64" })).toBe("Ctrl+K");
   });
 
   it("detects pressed meta/ctrl modifier", () => {

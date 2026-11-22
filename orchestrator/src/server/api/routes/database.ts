@@ -21,11 +21,9 @@ databaseRouter.delete("/", async (_req: Request, res: Response) => {
     if (!requireSystemAdmin(res)) return;
 
     if (isDemoMode()) {
-      return sendDemoBlocked(
-        res,
-        "Clearing the database is disabled in the public demo.",
-        { route: "DELETE /api/database" },
-      );
+      return sendDemoBlocked(res, "Clearing the database is disabled in the public demo.", {
+        route: "DELETE /api/database",
+      });
     }
 
     const result = clearDatabase();

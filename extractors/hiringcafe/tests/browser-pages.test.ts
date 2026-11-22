@@ -31,8 +31,7 @@ vi.mock("playwright", () => ({
   },
 }));
 vi.mock("browser-utils", async () => {
-  const actual =
-    await vi.importActual<typeof import("browser-utils")>("browser-utils");
+  const actual = await vi.importActual<typeof import("browser-utils")>("browser-utils");
   return {
     ...actual,
     createLaunchOptions: vi.fn(async ({ headless }) => ({
@@ -94,9 +93,7 @@ describe("HiringCafeBrowserPages", () => {
 
   it("accepts a valid page after a challenge even if cookie persistence fails", async () => {
     const challenge = "<html>Just a moment...</html>";
-    fixture.headedPage.content
-      .mockResolvedValueOnce(challenge)
-      .mockResolvedValueOnce(challenge);
+    fixture.headedPage.content.mockResolvedValueOnce(challenge).mockResolvedValueOnce(challenge);
     vi.mocked(saveCookies).mockRejectedValueOnce(new Error("disk full"));
     const pages = new HiringCafeBrowserPages({
       cookieStorageDir: "/tmp/hiringcafe-browser-test",

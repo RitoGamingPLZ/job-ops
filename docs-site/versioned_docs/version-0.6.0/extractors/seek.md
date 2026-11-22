@@ -25,11 +25,11 @@ That's it. Once `APIFY_TOKEN` is set, the Seek source will appear in the pipelin
 
 ## Environment variables
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `APIFY_TOKEN` | Yes | — | Apify API token for running actors |
-| `SEEK_MAX_JOBS_PER_TERM` | No | `50` | Max results fetched per search term |
-| `SEEK_APIFY_ACTOR_ID` | No | `unfenced-group/seek-com-au-scraper` | Override the Apify actor (deploy-time swap) |
+| Variable                 | Required | Default                              | Description                                 |
+| ------------------------ | -------- | ------------------------------------ | ------------------------------------------- |
+| `APIFY_TOKEN`            | Yes      | —                                    | Apify API token for running actors          |
+| `SEEK_MAX_JOBS_PER_TERM` | No       | `50`                                 | Max results fetched per search term         |
+| `SEEK_APIFY_ACTOR_ID`    | No       | `unfenced-group/seek-com-au-scraper` | Override the Apify actor (deploy-time swap) |
 
 ## Cost
 

@@ -4,9 +4,7 @@ import type { WatchlistSourceDraftCardProps } from "./types";
 import { WatchlistSourcesCard } from "./WatchlistSourcesCard";
 
 vi.mock("@client/api", () => ({
-  fetchWatchlistSourceBranding: vi
-    .fn()
-    .mockResolvedValue({ imageDataUrl: null }),
+  fetchWatchlistSourceBranding: vi.fn().mockResolvedValue({ imageDataUrl: null }),
 }));
 vi.mock("./SuggestFiltersPanel", () => ({
   SuggestFiltersPanel: ({
@@ -16,20 +14,14 @@ vi.mock("./SuggestFiltersPanel", () => ({
     onUse: (url: string) => void;
     careersUrl: string;
   }) => (
-    <button
-      type="button"
-      onClick={() => onUse(`${careersUrl}?team=Engineering`)}
-    >
+    <button type="button" onClick={() => onUse(`${careersUrl}?team=Engineering`)}>
       Use this URL
     </button>
   ),
 }));
 
 describe("WatchlistSourcesCard filter suggestions", () => {
-  it.each([
-    false,
-    true,
-  ])("applies suggestions as a custom URL (isCustom=%s)", (isCustom) => {
+  it.each([false, true])("applies suggestions as a custom URL (isCustom=%s)", (isCustom) => {
     const draft = {
       id: "source-1",
       sourceType: "lever",

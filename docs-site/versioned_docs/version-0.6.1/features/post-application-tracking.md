@@ -88,15 +88,15 @@ Confidence interpretation:
 
 ## API reference
 
-| Method | Endpoint                                  | Description           |
-| ------ | ----------------------------------------- | --------------------- |
-| GET    | `/api/post-application/inbox`             | List pending messages |
-| POST   | `/api/post-application/inbox/:id/approve` | Approve message       |
-| POST   | `/api/post-application/inbox/:id/deny`    | Ignore message        |
-| GET    | `/api/post-application/runs`              | List sync runs        |
-| GET    | `/api/jobs/:id/emails?limit=100`          | List job-linked email metadata |
-| GET    | `/api/post-application/providers/gmail/oauth/start` | Start OAuth flow |
-| POST   | `/api/post-application/providers/gmail/oauth/exchange` | Exchange OAuth code |
+| Method | Endpoint                                               | Description                    |
+| ------ | ------------------------------------------------------ | ------------------------------ |
+| GET    | `/api/post-application/inbox`                          | List pending messages          |
+| POST   | `/api/post-application/inbox/:id/approve`              | Approve message                |
+| POST   | `/api/post-application/inbox/:id/deny`                 | Ignore message                 |
+| GET    | `/api/post-application/runs`                           | List sync runs                 |
+| GET    | `/api/jobs/:id/emails?limit=100`                       | List job-linked email metadata |
+| GET    | `/api/post-application/providers/gmail/oauth/start`    | Start OAuth flow               |
+| POST   | `/api/post-application/providers/gmail/oauth/exchange` | Exchange OAuth code            |
 
 ## Common issues
 

@@ -2,8 +2,7 @@ import { getItemLines, setItemLines } from "@shared/resume-links";
 import type { ReactiveResumeV5Document } from "@shared/types";
 
 export const RESUME_BULLET_TRANSFER_TYPE = "application/x-jobops-resume-bullet";
-export const EXPERIENCE_TRANSFER_TYPE =
-  "application/x-jobops-resume-experience";
+export const EXPERIENCE_TRANSFER_TYPE = "application/x-jobops-resume-experience";
 export const SKILL_TRANSFER_TYPE = "application/x-jobops-resume-skill";
 
 /** Destination is a gap in the original list, before removing the source. */
@@ -48,12 +47,8 @@ export function moveResumeBullet(
   )
     return document;
   const next = structuredClone(document);
-  const sourceItem = next.sections.experience.items.find(
-    (e) => e.id === source.experienceId,
-  );
-  const targetItem = next.sections.experience.items.find(
-    (e) => e.id === destinationId,
-  );
+  const sourceItem = next.sections.experience.items.find((e) => e.id === source.experienceId);
+  const targetItem = next.sections.experience.items.find((e) => e.id === destinationId);
   if (!sourceItem || !targetItem) return document;
   const items = next.sections.experience.items;
   const sourceIndex = items.indexOf(sourceItem);
@@ -111,9 +106,7 @@ export function moveSection(
   before: string | null,
 ): ReactiveResumeV5Document {
   if (key === before) return document;
-  const order = sectionOrder(document.metadata?.layout).filter(
-    (k) => k !== key,
-  );
+  const order = sectionOrder(document.metadata?.layout).filter((k) => k !== key);
   const at = before === null ? -1 : order.indexOf(before);
   order.splice(at < 0 ? order.length : at, 0, key);
   const next = structuredClone(document);

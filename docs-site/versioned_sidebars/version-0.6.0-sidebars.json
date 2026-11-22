@@ -4,10 +4,7 @@
     {
       "type": "category",
       "label": "Getting Started",
-      "items": [
-        "getting-started/self-hosting",
-        "getting-started/gmail-oauth-setup"
-      ]
+      "items": ["getting-started/self-hosting", "getting-started/gmail-oauth-setup"]
     },
     {
       "type": "category",

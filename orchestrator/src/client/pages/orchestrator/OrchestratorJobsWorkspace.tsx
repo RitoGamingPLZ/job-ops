@@ -78,9 +78,7 @@ interface OrchestratorJobsWorkspaceProps {
   onRetrySelectedJob: () => void;
 }
 
-export const OrchestratorJobsWorkspace: React.FC<
-  OrchestratorJobsWorkspaceProps
-> = ({
+export const OrchestratorJobsWorkspace: React.FC<OrchestratorJobsWorkspaceProps> = ({
   stats,
   isPipelineRunning,
   jobs,

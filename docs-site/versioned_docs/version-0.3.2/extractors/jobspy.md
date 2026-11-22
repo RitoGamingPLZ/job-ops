@@ -8,6 +8,7 @@ sidebar_position: 3
 A walkthrough of the JobSpy extractor for Indeed, LinkedIn, and Glassdoor.
 
 Original websites:
+
 - [indeed.com](https://www.indeed.com)
 - [linkedin.com/jobs](https://www.linkedin.com/jobs)
 - [glassdoor.com](https://www.glassdoor.com)

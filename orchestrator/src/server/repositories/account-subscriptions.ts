@@ -20,11 +20,7 @@ function scopeFilter(scope: AccountBillingScope) {
 export async function getAccountSubscription(
   scope: AccountBillingScope,
 ): Promise<AccountSubscription | null> {
-  const [row] = await db
-    .select()
-    .from(accountSubscriptions)
-    .where(scopeFilter(scope))
-    .limit(1);
+  const [row] = await db.select().from(accountSubscriptions).where(scopeFilter(scope)).limit(1);
   return row ?? null;
 }
 
@@ -76,8 +72,7 @@ export async function saveSubscriptionState(input: {
   if (
     existing?.stripeSubscriptionId &&
     existing.stripeSubscriptionId !== input.stripeSubscriptionId &&
-    (existing.stripeSubscriptionCreatedAt ?? 0) >=
-      input.stripeSubscriptionCreatedAt
+    (existing.stripeSubscriptionCreatedAt ?? 0) >= input.stripeSubscriptionCreatedAt
   ) {
     return existing;
   }

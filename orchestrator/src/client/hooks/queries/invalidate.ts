@@ -33,8 +33,6 @@ export async function invalidateJobData(
   });
 }
 
-export async function invalidateSettingsData(
-  queryClient: QueryClient,
-): Promise<void> {
+export async function invalidateSettingsData(queryClient: QueryClient): Promise<void> {
   await queryClient.invalidateQueries({ queryKey: queryKeys.settings.all });
 }

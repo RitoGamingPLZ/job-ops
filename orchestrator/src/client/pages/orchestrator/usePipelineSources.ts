@@ -17,10 +17,7 @@ function readPipelineSourcesStorage(storageKey: string): string | null {
   return localStorage.getItem(PIPELINE_SOURCES_STORAGE_KEY);
 }
 
-function migrateLegacyPipelineSourcesStorage(
-  storageKey: string,
-  raw: string,
-): void {
+function migrateLegacyPipelineSourcesStorage(storageKey: string, raw: string): void {
   if (storageKey === PIPELINE_SOURCES_STORAGE_KEY) return;
   if (localStorage.getItem(storageKey)) return;
   localStorage.setItem(storageKey, raw);
@@ -31,34 +28,24 @@ const resolveAllowedSources = (enabledSources?: readonly JobSource[]) =>
     ? (enabledSources as JobSource[])
     : DEFAULT_PIPELINE_SOURCES;
 
-const normalizeSources = (
-  sources: JobSource[],
-  allowedSources: JobSource[],
-) => {
+const normalizeSources = (sources: JobSource[], allowedSources: JobSource[]) => {
   const filtered = sources.filter((value) => allowedSources.includes(value));
   return filtered.length > 0 ? filtered : allowedSources.slice(0, 1);
 };
 
 const sourcesMatch = (left: JobSource[], right: JobSource[]) =>
-  left.length === right.length &&
-  left.every((value, index) => value === right[index]);
+  left.length === right.length && left.every((value, index) => value === right[index]);
 
 export const usePipelineSources = (enabledSources?: readonly JobSource[]) => {
-  const allowedSources = useMemo(
-    () => resolveAllowedSources(enabledSources),
-    [enabledSources],
-  );
+  const allowedSources = useMemo(() => resolveAllowedSources(enabledSources), [enabledSources]);
   const storageKey = useMemo(() => getPipelineSourcesStorageKey(), []);
   const [pipelineSources, setPipelineSources] = useState<JobSource[]>(() => {
     try {
       const raw = readPipelineSourcesStorage(storageKey);
       if (!raw) return normalizeSources(allowedSources, allowedSources);
       const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed))
-        return normalizeSources(allowedSources, allowedSources);
-      const next = parsed.filter((value): value is JobSource =>
-        orderedSources.includes(value),
-      );
+      if (!Array.isArray(parsed)) return normalizeSources(allowedSources, allowedSources);
+      const next = parsed.filter((value): value is JobSource => orderedSources.includes(value));
       migrateLegacyPipelineSourcesStorage(storageKey, raw);
       return normalizeSources(next, allowedSources);
     } catch {

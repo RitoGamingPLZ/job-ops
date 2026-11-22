@@ -16,14 +16,8 @@ describe("setupSse", () => {
     });
 
     expect(response.status).toHaveBeenCalledWith(200);
-    expect(response.setHeader).toHaveBeenCalledWith(
-      "Content-Type",
-      "text/event-stream",
-    );
-    expect(response.setHeader).toHaveBeenCalledWith(
-      "Cache-Control",
-      "no-cache, no-transform",
-    );
+    expect(response.setHeader).toHaveBeenCalledWith("Content-Type", "text/event-stream");
+    expect(response.setHeader).toHaveBeenCalledWith("Cache-Control", "no-cache, no-transform");
     expect(response.setHeader).toHaveBeenCalledWith("Connection", "keep-alive");
     expect(response.setHeader).toHaveBeenCalledWith("X-Accel-Buffering", "no");
     expect(response.flushHeaders).toHaveBeenCalledOnce();

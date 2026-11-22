@@ -6,9 +6,7 @@ import type { RunFiveamsatOptions } from "./types";
 
 export type FiveamsatResult = ExtractorRunResult;
 
-export function runFiveamsat(
-  options: RunFiveamsatOptions = {},
-): Promise<FiveamsatResult> {
+export function runFiveamsat(options: RunFiveamsatOptions = {}): Promise<FiveamsatResult> {
   return runSearchTermJobs(
     options,
     async (searchTerm) =>

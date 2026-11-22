@@ -7,15 +7,7 @@ import type {
   ResumeSuggestionV2,
 } from "@shared/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { queryKeys } from "@/client/lib/queryKeys";
@@ -105,15 +97,15 @@ vi.mock("@/client/components/ghostwriter/GhostwriterPanel", () => ({
       <button
         type="button"
         onClick={() =>
-          onSuggestions([
-            ...["one", "two", "three"].map((id) => ({
+          onSuggestions(
+            ["one", "two", "three"].map((id) => ({
               id,
               op: "replace_headline",
               previousText: "Base",
               text: `Edited ${id}`,
               reason: "Review",
-            })),
-          ] as ResumeSuggestionV2[])
+            })) as ResumeSuggestionV2[],
+          )
         }
       >
         Suggest edits
@@ -136,9 +128,7 @@ vi.mock("@/client/components/ghostwriter/GhostwriterPanel", () => ({
       </button>
       Chat {initialPrompt}
       {referenceChips}
-      <output data-testid="focus">
-        {JSON.stringify(cowork().focus?.map((f) => f.label))}
-      </output>
+      <output data-testid="focus">{JSON.stringify(cowork().focus?.map((f) => f.label))}</output>
     </div>
   ),
 }));
@@ -157,10 +147,7 @@ vi.mock("@/client/components/cowork/JobMatchPanel", () => ({
       <button type="button" onClick={() => onAskAi("Close the Java gap")}>
         Job match {active ? "active" : "idle"}
       </button>
-      <button
-        type="button"
-        onClick={() => onInsert({ id: "duty", text: "Library duty" }, "exp")}
-      >
+      <button type="button" onClick={() => onInsert({ id: "duty", text: "Library duty" }, "exp")}>
         Insert library duty
       </button>
     </>
@@ -182,10 +169,7 @@ vi.mock("@/client/components/cowork/CandidateLibrary", () => ({
     return (
       <div>
         Candidate checklist
-        <button
-          type="button"
-          onClick={() => void props.onSync?.().catch(() => {})}
-        >
+        <button type="button" onClick={() => void props.onSync?.().catch(() => {})}>
           Sync library
         </button>
         <button
@@ -231,16 +215,11 @@ vi.mock("@/client/components/cowork/ResumeEditor", () => ({
       <>
         <button
           type="button"
-          onClick={() =>
-            extra.onSaveLineToLibrary?.("duty", "New library text")
-          }
+          onClick={() => extra.onSaveLineToLibrary?.("duty", "New library text")}
         >
           Save line to library
         </button>
-        <button
-          type="button"
-          onClick={() => onAskAi({ kind: "headline", label: "Headline" })}
-        >
+        <button type="button" onClick={() => onAskAi({ kind: "headline", label: "Headline" })}>
           Ask AI
         </button>
         <input
@@ -275,9 +254,7 @@ function state(headline = "Base", revision = 0): JobResumeState {
 function mount(base = false, queryClient = new QueryClient(), search = "") {
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter
-        initialEntries={[(base ? "/resumes/base" : "/resumes/job") + search]}
-      >
+      <MemoryRouter initialEntries={[(base ? "/resumes/base" : "/resumes/job") + search]}>
         <Link to="/resumes/job?mode=edit">Route edit</Link>
         <Link to="/resumes/job?mode=preview">Route preview</Link>
         <Link to="/resumes/other?mode=preview">Route other</Link>
@@ -325,10 +302,10 @@ beforeEach(() => {
   });
   mocks.getResume.mockResolvedValue(state());
   mocks.save.mockImplementation(
-    async (
-      _job: string,
-      input: { document: ReactiveResumeV5Document; baseRevision: number },
-    ) => ({ ...state("", input.baseRevision + 1), document: input.document }),
+    async (_job: string, input: { document: ReactiveResumeV5Document; baseRevision: number }) => ({
+      ...state("", input.baseRevision + 1),
+      document: input.document,
+    }),
   );
   mocks.pdf.mockResolvedValue({});
   mocks.openPdf.mockResolvedValue("blob:fake");
@@ -348,9 +325,7 @@ async function selectOtherResume() {
   });
   const search = screen.getByRole("combobox");
   await waitFor(() =>
-    expect(search.getAttribute("aria-activedescendant")).toContain(
-      "-option-other",
-    ),
+    expect(search.getAttribute("aria-activedescendant")).toContain("-option-other"),
   );
   fireEvent.keyDown(search, { key: "Enter" });
 }
@@ -370,14 +345,10 @@ describe("resume navigation", () => {
     fireEvent.click(switcher);
     const search = screen.getByRole("combobox");
     await waitFor(() =>
-      expect(search.getAttribute("aria-activedescendant")).toContain(
-        "-option-job",
-      ),
+      expect(search.getAttribute("aria-activedescendant")).toContain("-option-job"),
     );
     fireEvent.keyDown(search, { key: "ArrowDown" });
-    expect(search.getAttribute("aria-activedescendant")).toContain(
-      "-option-base",
-    );
+    expect(search.getAttribute("aria-activedescendant")).toContain("-option-base");
     fireEvent.change(search, { target: { value: "Designer" } });
     expect(await screen.findByText("No results found.")).toBeVisible();
     expect(mocks.coworkError).not.toHaveBeenCalled();
@@ -406,9 +377,7 @@ describe("resume navigation", () => {
       target: { value: "Mine" },
     });
     await selectOtherResume();
-    expect(
-      screen.getByRole("alertdialog", { name: "Unsaved changes" }),
-    ).toBeVisible();
+    expect(screen.getByRole("alertdialog", { name: "Unsaved changes" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(mocks.navigate).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Headline")).toHaveValue("Mine");
@@ -455,30 +424,28 @@ describe("resume navigation", () => {
     expect(mocks.save).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith("/resumes/other");
   });
-  it.each([
-    new Error("Offline"),
-    new ApiClientError("Conflict", { status: 409 }),
-  ])("stays when saving fails: %s", async (failure) => {
-    mocks.save.mockRejectedValueOnce(failure);
-    mount();
-    fireEvent.change(await screen.findByLabelText("Headline"), {
-      target: { value: "Mine" },
-    });
-    await selectOtherResume();
-    fireEvent.click(screen.getByRole("button", { name: "Save and switch" }));
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("alertdialog", { name: "Unsaved changes" }),
-      ).not.toBeInTheDocument(),
-    );
-    expect(mocks.navigate).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Headline")).toHaveValue("Mine");
-    if (failure instanceof ApiClientError)
-      expect(
-        screen.getByRole("alertdialog", { name: "Resume changed elsewhere" }),
-      ).toBeVisible();
-    else expect(mocks.coworkError).toHaveBeenCalledWith(failure);
-  });
+  it.each([new Error("Offline"), new ApiClientError("Conflict", { status: 409 })])(
+    "stays when saving fails: %s",
+    async (failure) => {
+      mocks.save.mockRejectedValueOnce(failure);
+      mount();
+      fireEvent.change(await screen.findByLabelText("Headline"), {
+        target: { value: "Mine" },
+      });
+      await selectOtherResume();
+      fireEvent.click(screen.getByRole("button", { name: "Save and switch" }));
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("alertdialog", { name: "Unsaved changes" }),
+        ).not.toBeInTheDocument(),
+      );
+      expect(mocks.navigate).not.toHaveBeenCalled();
+      expect(screen.getByLabelText("Headline")).toHaveValue("Mine");
+      if (failure instanceof ApiClientError)
+        expect(screen.getByRole("alertdialog", { name: "Resume changed elsewhere" })).toBeVisible();
+      else expect(mocks.coworkError).toHaveBeenCalledWith(failure);
+    },
+  );
 });
 
 describe("resume co-work saving", () => {
@@ -542,12 +509,8 @@ describe("resume co-work saving", () => {
     });
   });
   it("keeps local edits on revision conflict and can load latest with undo", async () => {
-    mocks.save.mockRejectedValueOnce(
-      new ApiClientError("Conflict", { status: 409 }),
-    );
-    mocks.getResume
-      .mockResolvedValueOnce(state())
-      .mockResolvedValueOnce(state("Remote edit", 2));
+    mocks.save.mockRejectedValueOnce(new ApiClientError("Conflict", { status: 409 }));
+    mocks.getResume.mockResolvedValueOnce(state()).mockResolvedValueOnce(state("Remote edit", 2));
     mount();
     await screen.findByLabelText("Headline");
     fireEvent.change(screen.getByLabelText("Headline"), {
@@ -563,12 +526,8 @@ describe("resume co-work saving", () => {
     expect(mocks.pdf).not.toHaveBeenCalled();
   });
   it("ignores Ctrl+Z behind the conflict dialog and reports dropped edits on leave", async () => {
-    mocks.save.mockRejectedValueOnce(
-      new ApiClientError("Conflict", { status: 409 }),
-    );
-    mocks.getResume
-      .mockResolvedValueOnce(state())
-      .mockResolvedValueOnce(state("Remote", 4));
+    mocks.save.mockRejectedValueOnce(new ApiClientError("Conflict", { status: 409 }));
+    mocks.getResume.mockResolvedValueOnce(state()).mockResolvedValueOnce(state("Remote", 4));
     const view = mount();
     fireEvent.change(await screen.findByLabelText("Headline"), {
       target: { value: "Mine" },
@@ -588,12 +547,8 @@ describe("resume co-work saving", () => {
     );
   });
   it("re-saves local edits against the latest revision when choosing Keep mine", async () => {
-    mocks.save.mockRejectedValueOnce(
-      new ApiClientError("Conflict", { status: 409 }),
-    );
-    mocks.getResume
-      .mockResolvedValueOnce(state())
-      .mockResolvedValueOnce(state("Remote", 4));
+    mocks.save.mockRejectedValueOnce(new ApiClientError("Conflict", { status: 409 }));
+    mocks.getResume.mockResolvedValueOnce(state()).mockResolvedValueOnce(state("Remote", 4));
     mount();
     fireEvent.change(await screen.findByLabelText("Headline"), {
       target: { value: "Mine" },
@@ -628,8 +583,7 @@ describe("resume co-work saving", () => {
     const field = await screen.findByLabelText("Headline");
     for (let index = 1; index <= 55; index++)
       fireEvent.change(field, { target: { value: String(index) } });
-    for (let index = 0; index < 50; index++)
-      fireEvent.click(screen.getByText("Undo"));
+    for (let index = 0; index < 50; index++) fireEvent.click(screen.getByText("Undo"));
     expect(field).toHaveValue("5");
     expect(screen.getByText("Undo")).toBeDisabled();
   });
@@ -638,9 +592,7 @@ describe("resume co-work saving", () => {
     await screen.findByLabelText("Headline");
     fireEvent.click(screen.getByText("Suggest edits"));
     expect(screen.getByRole("tab", { name: "Editor (3)" })).toBeInTheDocument();
-    expect(mocks.toast).toHaveBeenCalledWith(
-      "3 suggestions - review in Editor",
-    );
+    expect(mocks.toast).toHaveBeenCalledWith("3 suggestions - review in Editor");
   });
   it("dismisses only accepted ids after the resume CAS succeeds", async () => {
     mount();
@@ -651,9 +603,7 @@ describe("resume co-work saving", () => {
       await props.onAccept([props.suggestions[0]]);
     });
     await waitFor(() =>
-      expect(
-        screen.getByRole("tab", { name: "Editor (2)" }),
-      ).toBeInTheDocument(),
+      expect(screen.getByRole("tab", { name: "Editor (2)" })).toBeInTheDocument(),
     );
     expect(mocks.save).toHaveBeenCalledWith("job", {
       baseRevision: 0,
@@ -670,17 +620,15 @@ describe("resume co-work saving", () => {
       await props.onAccept(props.suggestions);
     });
     await waitFor(() =>
-      expect(
-        mocks.editorProps.mock.lastCall?.[0].rejectionReasons.create,
-      ).toContain("Library update failed"),
+      expect(mocks.editorProps.mock.lastCall?.[0].rejectionReasons.create).toContain(
+        "Library update failed",
+      ),
     );
     expect(mocks.editorProps.mock.lastCall?.[0].suggestions).toHaveLength(1);
     expect(mocks.save).not.toHaveBeenCalled();
   });
   it("retains accepted suggestions when the resume CAS fails", async () => {
-    mocks.save.mockRejectedValueOnce(
-      new ApiClientError("Unavailable", { status: 503 }),
-    );
+    mocks.save.mockRejectedValueOnce(new ApiClientError("Unavailable", { status: 503 }));
     mount();
     await screen.findByLabelText("Headline");
     fireEvent.click(screen.getByText("Suggest edits"));
@@ -689,19 +637,15 @@ describe("resume co-work saving", () => {
       await props.onAccept([props.suggestions[0]]);
     });
     await waitFor(() =>
-      expect(
-        mocks.editorProps.mock.lastCall?.[0].rejectionReasons.one,
-      ).toContain("Resume save failed or conflicted"),
+      expect(mocks.editorProps.mock.lastCall?.[0].rejectionReasons.one).toContain(
+        "Resume save failed or conflicted",
+      ),
     );
     expect(mocks.editorProps.mock.lastCall?.[0].suggestions).toHaveLength(3);
   });
   it("dismisses applied suggestion ids after Keep mine resolves a CAS conflict", async () => {
-    mocks.save.mockRejectedValueOnce(
-      new ApiClientError("Conflict", { status: 409 }),
-    );
-    mocks.getResume
-      .mockResolvedValueOnce(state())
-      .mockResolvedValueOnce(state("Remote", 4));
+    mocks.save.mockRejectedValueOnce(new ApiClientError("Conflict", { status: 409 }));
+    mocks.getResume.mockResolvedValueOnce(state()).mockResolvedValueOnce(state("Remote", 4));
     mount();
     await screen.findByLabelText("Headline");
     fireEvent.click(screen.getByText("Suggest edits"));
@@ -712,9 +656,7 @@ describe("resume co-work saving", () => {
     fireEvent.click(await screen.findByText("Keep mine"));
     await waitFor(() =>
       expect(
-        mocks.editorProps.mock.lastCall?.[0].suggestions.map(
-          (s: ResumeSuggestionV2) => s.id,
-        ),
+        mocks.editorProps.mock.lastCall?.[0].suggestions.map((s: ResumeSuggestionV2) => s.id),
       ).toEqual(["two", "three"]),
     );
     expect(mocks.save.mock.calls[1][1]).toMatchObject({
@@ -723,9 +665,7 @@ describe("resume co-work saving", () => {
     });
   });
   it("retains an accepted suggestion after its unsaved edit is undone", async () => {
-    mocks.save.mockRejectedValueOnce(
-      new ApiClientError("Unavailable", { status: 503 }),
-    );
+    mocks.save.mockRejectedValueOnce(new ApiClientError("Unavailable", { status: 503 }));
     mount();
     await screen.findByLabelText("Headline");
     fireEvent.click(screen.getByText("Suggest edits"));
@@ -734,9 +674,9 @@ describe("resume co-work saving", () => {
       props.onAccept([props.suggestions[0]]);
     });
     await waitFor(() =>
-      expect(
-        mocks.editorProps.mock.lastCall?.[0].rejectionReasons.one,
-      ).toContain("Resume save failed"),
+      expect(mocks.editorProps.mock.lastCall?.[0].rejectionReasons.one).toContain(
+        "Resume save failed",
+      ),
     );
     fireEvent.click(screen.getByText("Undo"));
     expect(screen.getByLabelText("Headline")).toHaveValue("Base");
@@ -745,9 +685,7 @@ describe("resume co-work saving", () => {
     expect(mocks.editorProps.mock.lastCall?.[0].suggestions).toHaveLength(3);
   });
   it("keeps pending accepted ids when undo only removes a later manual edit", async () => {
-    mocks.save.mockRejectedValueOnce(
-      new ApiClientError("Unavailable", { status: 503 }),
-    );
+    mocks.save.mockRejectedValueOnce(new ApiClientError("Unavailable", { status: 503 }));
     mount();
     await screen.findByLabelText("Headline");
     fireEvent.click(screen.getByText("Suggest edits"));
@@ -756,9 +694,9 @@ describe("resume co-work saving", () => {
       props.onAccept([props.suggestions[0]]);
     });
     await waitFor(() =>
-      expect(
-        mocks.editorProps.mock.lastCall?.[0].rejectionReasons.one,
-      ).toContain("Resume save failed"),
+      expect(mocks.editorProps.mock.lastCall?.[0].rejectionReasons.one).toContain(
+        "Resume save failed",
+      ),
     );
     fireEvent.change(screen.getByLabelText("Headline"), {
       target: { value: "Manual edit" },
@@ -768,9 +706,7 @@ describe("resume co-work saving", () => {
     fireEvent.click(screen.getByText("Save now"));
     await waitFor(() =>
       expect(
-        mocks.editorProps.mock.lastCall?.[0].suggestions.map(
-          (s: ResumeSuggestionV2) => s.id,
-        ),
+        mocks.editorProps.mock.lastCall?.[0].suggestions.map((s: ResumeSuggestionV2) => s.id),
       ).toEqual(["two", "three"]),
     );
   });
@@ -806,9 +742,7 @@ describe("resume co-work saving", () => {
     });
     const renderButton = screen.getByRole("button", { name: "Preview" });
     expect(renderButton.closest("header")).toBeNull();
-    expect(screen.getByRole("tabpanel", { name: "Editor" })).toContainElement(
-      renderButton,
-    );
+    expect(screen.getByRole("tabpanel", { name: "Editor" })).toContainElement(renderButton);
     fireEvent.click(renderButton);
     expect(await screen.findByTestId("pdf-canvas-preview")).toHaveAttribute(
       "data-url",
@@ -823,9 +757,7 @@ describe("resume co-work saving", () => {
   });
   it("replaces the displayed PDF and revokes its old URL when rendering again", async () => {
     const revoke = vi.spyOn(URL, "revokeObjectURL");
-    mocks.previewPdf
-      .mockResolvedValueOnce("blob:first")
-      .mockResolvedValueOnce("blob:second");
+    mocks.previewPdf.mockResolvedValueOnce("blob:first").mockResolvedValueOnce("blob:second");
     mount();
     await screen.findByLabelText("Headline");
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
@@ -835,10 +767,7 @@ describe("resume co-work saving", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     await waitFor(() =>
-      expect(screen.getByTestId("pdf-canvas-preview")).toHaveAttribute(
-        "data-url",
-        "blob:second",
-      ),
+      expect(screen.getByTestId("pdf-canvas-preview")).toHaveAttribute("data-url", "blob:second"),
     );
     expect(mocks.previewPdf).toHaveBeenCalledTimes(2);
     expect(mocks.pdf).not.toHaveBeenCalled();
@@ -882,23 +811,23 @@ describe("resume co-work saving", () => {
     await act(async () => resolveSave(state("Unsaved", 1)));
     expect(unload()).toBe(false);
   });
-  it.each([
-    new Error("Offline"),
-    new ApiClientError("Conflict", { status: 409 }),
-  ])("reports an unmount-flush failure: %s", async (failure) => {
-    mocks.save.mockRejectedValueOnce(failure);
-    const view = mount();
-    await screen.findByLabelText("Headline");
-    fireEvent.change(screen.getByLabelText("Headline"), {
-      target: { value: "Last edit" },
-    });
-    view.unmount();
-    await waitFor(() =>
-      expect(
-        failure instanceof ApiClientError ? mocks.toast : mocks.coworkError,
-      ).toHaveBeenCalled(),
-    );
-  });
+  it.each([new Error("Offline"), new ApiClientError("Conflict", { status: 409 })])(
+    "reports an unmount-flush failure: %s",
+    async (failure) => {
+      mocks.save.mockRejectedValueOnce(failure);
+      const view = mount();
+      await screen.findByLabelText("Headline");
+      fireEvent.change(screen.getByLabelText("Headline"), {
+        target: { value: "Last edit" },
+      });
+      view.unmount();
+      await waitFor(() =>
+        expect(
+          failure instanceof ApiClientError ? mocks.toast : mocks.coworkError,
+        ).toHaveBeenCalled(),
+      );
+    },
+  );
   it("requires confirmation before resetting and supports cancel", async () => {
     mocks.reset.mockResolvedValue(undefined);
     mount();
@@ -917,70 +846,52 @@ describe("resume co-work saving", () => {
       new ApiClientError("Import or create a resume first", { status: 409 }),
     );
     mount();
-    expect(
-      await screen.findByText("Import or create a resume first."),
-    ).toBeVisible();
-    expect(screen.getByText("Open base resume")).toHaveAttribute(
-      "href",
-      "/resumes/base",
-    );
+    expect(await screen.findByText("Import or create a resume first.")).toBeVisible();
+    expect(screen.getByText("Open base resume")).toHaveAttribute("href", "/resumes/base");
     expect(mocks.save).not.toHaveBeenCalled();
   });
 });
 
 describe("duty library insert", () => {
-  it.each([
-    "",
-    "<ul><li>Existing</li></ul>",
-  ])("preserves raw intro HTML with existing bullets %s", async (list) => {
-    const initial = state();
-    const intro =
-      '<p class="intro">First <a href="https://example.com">link</a></p>\n<p>Second paragraph</p>';
-    initial.document.sections.experience.items = [
-      { id: "exp", description: intro + list },
-    ] as ReactiveResumeV5Document["sections"]["experience"]["items"];
-    mocks.getResume.mockResolvedValue(initial);
-    mount();
-    await screen.findByLabelText("Headline");
-    fireEvent.click(screen.getByRole("tab", { name: "Job match" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Insert library duty" }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Insert library duty" }),
-    );
-    fireEvent.click(screen.getByText("Save now"));
-    await waitFor(() => expect(mocks.save).toHaveBeenCalled());
-    expect(
-      mocks.save.mock.calls[0][1].document.sections.experience.items[0]
-        .description,
-    ).toBe(
-      intro +
-        (list
-          ? "<ul><li>Existing</li><li>Library duty</li></ul>"
-          : "<ul><li>Library duty</li></ul>"),
-    );
-    expect(
-      mocks.save.mock.calls[0][1].document.sections.experience.items[0]
-        .bulletRefs,
-    ).toEqual(list ? [null, "duty"] : ["duty"]);
-  });
+  it.each(["", "<ul><li>Existing</li></ul>"])(
+    "preserves raw intro HTML with existing bullets %s",
+    async (list) => {
+      const initial = state();
+      const intro =
+        '<p class="intro">First <a href="https://example.com">link</a></p>\n<p>Second paragraph</p>';
+      initial.document.sections.experience.items = [
+        { id: "exp", description: intro + list },
+      ] as ReactiveResumeV5Document["sections"]["experience"]["items"];
+      mocks.getResume.mockResolvedValue(initial);
+      mount();
+      await screen.findByLabelText("Headline");
+      fireEvent.click(screen.getByRole("tab", { name: "Job match" }));
+      fireEvent.click(screen.getByRole("button", { name: "Insert library duty" }));
+      fireEvent.click(screen.getByRole("button", { name: "Insert library duty" }));
+      fireEvent.click(screen.getByText("Save now"));
+      await waitFor(() => expect(mocks.save).toHaveBeenCalled());
+      expect(mocks.save.mock.calls[0][1].document.sections.experience.items[0].description).toBe(
+        intro +
+          (list
+            ? "<ul><li>Existing</li><li>Library duty</li></ul>"
+            : "<ul><li>Library duty</li></ul>"),
+      );
+      expect(mocks.save.mock.calls[0][1].document.sections.experience.items[0].bulletRefs).toEqual(
+        list ? [null, "duty"] : ["duty"],
+      );
+    },
+  );
   it("opens Library by default and sends Job match Ask AI prompts to the chat", async () => {
     mount();
     await screen.findByLabelText("Headline");
-    expect(screen.getByRole("tab", { name: "Library" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(screen.getByRole("tab", { name: "Library" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("Candidate checklist")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Library & match" }));
     fireEvent.click(screen.getByRole("tab", { name: "Job match" }));
     fireEvent.click(screen.getByRole("button", { name: "Job match active" }));
     expect(screen.getByText("Chat Close the Java gap")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Library" }));
-    expect(
-      screen.queryByRole("button", { name: "Job match active" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Job match active" })).not.toBeInTheDocument();
   });
 });
 
@@ -995,9 +906,7 @@ describe("resume co-work wide layout", () => {
     mount();
     await screen.findByLabelText("Headline");
     fireEvent.click(screen.getByRole("tab", { name: "Job match" }));
-    expect(
-      screen.getByRole("button", { name: "Job match active" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Job match active" })).toBeInTheDocument();
   });
 });
 
@@ -1018,17 +927,11 @@ describe("resume co-work focus chips", () => {
       dataTransfer,
     });
     await waitFor(() =>
-      expect(screen.getByTestId("focus").textContent).toBe(
-        '["Headline","Experience › Citi"]',
-      ),
+      expect(screen.getByTestId("focus").textContent).toBe('["Headline","Experience › Citi"]'),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Remove focus: Headline" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove focus: Headline" }));
     await waitFor(() =>
-      expect(screen.getByTestId("focus").textContent).toBe(
-        '["Experience › Citi"]',
-      ),
+      expect(screen.getByTestId("focus").textContent).toBe('["Experience › Citi"]'),
     );
   });
 });
@@ -1084,33 +987,30 @@ describe("candidate library page wiring", () => {
     expect(mocks.library.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.getResume.mock.invocationCallOrder[0],
     );
-    expect(mocks.editorProps).toHaveBeenLastCalledWith(
-      expect.objectContaining({ library: [] }),
-    );
+    expect(mocks.editorProps).toHaveBeenLastCalledWith(expect.objectContaining({ library: [] }));
   });
-  it.each([
-    "applied",
-    "in_progress",
-    "ready",
-  ])("passes the frozen flag for %s jobs", async (status) => {
-    mocks.getJob.mockResolvedValue({
-      id: "job",
-      title: "Engineer",
-      employer: "Acme",
-      status,
-    });
-    mount();
-    await screen.findByLabelText("Headline");
-    expect(mocks.libraryProps).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        jobId: "job",
-        frozen: status !== "ready",
-        document: expect.any(Object),
-        onDocumentChange: expect.any(Function),
-        onReferenceBullet: expect.any(Function),
-      }),
-    );
-  });
+  it.each(["applied", "in_progress", "ready"])(
+    "passes the frozen flag for %s jobs",
+    async (status) => {
+      mocks.getJob.mockResolvedValue({
+        id: "job",
+        title: "Engineer",
+        employer: "Acme",
+        status,
+      });
+      mount();
+      await screen.findByLabelText("Headline");
+      expect(mocks.libraryProps).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          jobId: "job",
+          frozen: status !== "ready",
+          document: expect.any(Object),
+          onDocumentChange: expect.any(Function),
+          onReferenceBullet: expect.any(Function),
+        }),
+      );
+    },
+  );
   it("saves a rewording to the library with the open job excluded and refreshes editor data", async () => {
     mocks.updateBullet.mockResolvedValue({
       bullet: { id: "duty", kind: "bullet", text: "New library text" },
@@ -1148,17 +1048,12 @@ describe("candidate library page wiring", () => {
         }),
       ),
     );
-    expect(mocks.updateBullet).toHaveBeenCalledWith(
-      "duty",
-      { text: "New library text" },
-      "job",
-    );
+    expect(mocks.updateBullet).toHaveBeenCalledWith("duty", { text: "New library text" }, "job");
     fireEvent.click(screen.getByText("Save now"));
     await waitFor(() => expect(mocks.save).toHaveBeenCalled());
-    expect(
-      mocks.save.mock.calls[0][1].document.sections.experience.items[0]
-        .description,
-    ).toBe("<ul><li>New library text</li><li>My wording</li></ul>");
+    expect(mocks.save.mock.calls[0][1].document.sections.experience.items[0].description).toBe(
+      "<ul><li>New library text</li><li>My wording</li></ul>",
+    );
   });
   it("flushes edits before inline PDF rendering and remembers Preview", async () => {
     mount();
@@ -1168,9 +1063,7 @@ describe("candidate library page wiring", () => {
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     const preview = await screen.findByTestId("pdf-canvas-preview");
     expect(preview).toHaveAttribute("data-url", "blob:fake");
-    expect(
-      screen.getByRole("document", { name: "Resume PDF preview" }),
-    ).toContainElement(preview);
+    expect(screen.getByRole("document", { name: "Resume PDF preview" })).toContainElement(preview);
     expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.previewPdf.mock.invocationCallOrder[0],
     );
@@ -1200,19 +1093,13 @@ describe("workspace library coordination", () => {
     fireEvent.click(screen.getByText("Change library items"));
     expect(mocks.editorProps).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        library: [
-          { id: "changed", kind: "bullet", text: "Changed from checklist" },
-        ],
+        library: [{ id: "changed", kind: "bullet", text: "Changed from checklist" }],
       }),
     );
     expect(mocks.library).toHaveBeenCalledOnce();
   });
   it("flushes before Sync and blocks edits until the stamped revision has reloaded", async () => {
-    let finishSync!: (result: {
-      created: number;
-      skipped: number;
-      linked: number;
-    }) => void;
+    let finishSync!: (result: { created: number; skipped: number; linked: number }) => void;
     let finishReload!: (result: JobResumeState) => void;
     mocks.sync.mockImplementationOnce(
       () =>
@@ -1271,9 +1158,7 @@ describe("workspace library coordination", () => {
     mount();
     await screen.findByLabelText("Headline");
     fireEvent.click(screen.getByText("Sync library"));
-    expect(
-      await screen.findByText("Could not load this job’s resume."),
-    ).toBeVisible();
+    expect(await screen.findByText("Could not load this job’s resume.")).toBeVisible();
     expect(mocks.save).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText("Retry"));
     fireEvent.change(await screen.findByLabelText("Headline"), {
@@ -1299,9 +1184,7 @@ describe("workspace library coordination", () => {
 describe("base resume mode", () => {
   it("loads and saves the base with its revision and omits job tools", async () => {
     mount(true);
-    expect(
-      await screen.findByRole("heading", { name: "Base resume" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Base resume" })).toBeInTheDocument();
     expect(mocks.getJob).not.toHaveBeenCalled();
     expect(mocks.getResume).not.toHaveBeenCalled();
     expect(screen.queryByText("Co-work chat")).not.toBeInTheDocument();
@@ -1324,10 +1207,7 @@ describe("base resume mode", () => {
   });
   it("invalidates cached base document and status after saving", async () => {
     const queryClient = new QueryClient();
-    const keys = [
-      queryKeys.designResume.current(),
-      queryKeys.designResume.status(),
-    ];
+    const keys = [queryKeys.designResume.current(), queryKeys.designResume.status()];
     for (const key of keys) queryClient.setQueryData(key, null);
     mount(true, queryClient);
     fireEvent.change(await screen.findByLabelText("Headline"), {
@@ -1335,41 +1215,37 @@ describe("base resume mode", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Save now" }));
     await waitFor(() => {
-      for (const key of keys)
-        expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+      for (const key of keys) expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
     });
   });
-  it.each([
-    "RxResume",
-    "file",
-  ])("invalidates base and onboarding caches after %s import", async (source) => {
-    const queryClient = new QueryClient();
-    const keys = [
-      queryKeys.designResume.current(),
-      queryKeys.designResume.status(),
-      queryKeys.onboarding.status(),
-    ];
-    for (const key of keys) queryClient.setQueryData(key, null);
-    mount(true, queryClient);
-    fireEvent.click(await screen.findByRole("button", { name: "Import" }));
-    if (source === "file")
-      fireEvent.change(screen.getByLabelText("Import resume file"), {
-        target: {
-          files: [
-            new File(["resume"], "resume.json", { type: "application/json" }),
-          ],
-        },
+  it.each(["RxResume", "file"])(
+    "invalidates base and onboarding caches after %s import",
+    async (source) => {
+      const queryClient = new QueryClient();
+      const keys = [
+        queryKeys.designResume.current(),
+        queryKeys.designResume.status(),
+        queryKeys.onboarding.status(),
+      ];
+      for (const key of keys) queryClient.setQueryData(key, null);
+      mount(true, queryClient);
+      fireEvent.click(await screen.findByRole("button", { name: "Import" }));
+      if (source === "file")
+        fireEvent.change(screen.getByLabelText("Import resume file"), {
+          target: {
+            files: [new File(["resume"], "resume.json", { type: "application/json" })],
+          },
+        });
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: source === "file" ? "Import file" : "Import from RxResume",
+        }),
+      );
+      await waitFor(() => {
+        for (const key of keys) expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
       });
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: source === "file" ? "Import file" : "Import from RxResume",
-      }),
-    );
-    await waitFor(() => {
-      for (const key of keys)
-        expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
-    });
-  });
+    },
+  );
   it("renders the saved base resume before downloading, so it matches the preview", async () => {
     mount(true);
     const download = await screen.findByRole("button", {
@@ -1377,9 +1253,7 @@ describe("base resume mode", () => {
     });
     expect(download).toBeEnabled();
     fireEvent.click(download);
-    await waitFor(() =>
-      expect(mocks.baseDownload).toHaveBeenCalledWith("resume.pdf"),
-    );
+    await waitFor(() => expect(mocks.baseDownload).toHaveBeenCalledWith("resume.pdf"));
     expect(mocks.basePdf.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.baseDownload.mock.invocationCallOrder[0],
     );
@@ -1388,25 +1262,17 @@ describe("base resume mode", () => {
     const failure = new ApiClientError("Missing PDF", { status: 404 });
     mocks.baseDownload.mockRejectedValueOnce(failure);
     mount(true);
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Download PDF" }),
-    );
-    await waitFor(() =>
-      expect(mocks.coworkError).toHaveBeenCalledWith(failure),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Download PDF" }));
+    await waitFor(() => expect(mocks.coworkError).toHaveBeenCalledWith(failure));
   });
   it("closes import when flushing edits encounters a conflict", async () => {
     mount(true);
     fireEvent.change(await screen.findByLabelText("Headline"), {
       target: { value: "Mine" },
     });
-    mocks.saveBase.mockRejectedValueOnce(
-      new ApiClientError("Conflict", { status: 409 }),
-    );
+    mocks.saveBase.mockRejectedValueOnce(new ApiClientError("Conflict", { status: 409 }));
     fireEvent.click(screen.getByRole("button", { name: "Import" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Import from RxResume" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Import from RxResume" }));
     await screen.findByRole("heading", { name: "Resume changed elsewhere" });
     expect(
       screen.queryByRole("heading", {
@@ -1422,9 +1288,7 @@ describe("base resume mode", () => {
     mount(true);
     await screen.findByTestId("pdf-canvas-preview");
     fireEvent.click(screen.getByRole("button", { name: "Import" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Import from RxResume" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Import from RxResume" }));
     await waitFor(() =>
       expect(
         screen.queryByRole("heading", { name: "Import base resume?" }),
@@ -1435,17 +1299,13 @@ describe("base resume mode", () => {
   });
   it("offers Base resume in the job title switcher", async () => {
     mount();
-    fireEvent.click(
-      await screen.findByRole("button", { name: /Switch resume/ }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: /Switch resume/ }));
     fireEvent.change(screen.getByRole("combobox"), {
       target: { value: "Base resume" },
     });
     const search = screen.getByRole("combobox");
     await waitFor(() =>
-      expect(search.getAttribute("aria-activedescendant")).toContain(
-        "-option-base",
-      ),
+      expect(search.getAttribute("aria-activedescendant")).toContain("-option-base"),
     );
     fireEvent.keyDown(search, { key: "Enter" });
     expect(mocks.navigate).toHaveBeenCalledWith("/resumes/base");
@@ -1461,9 +1321,7 @@ describe("base resume mode", () => {
       revision: 5,
     });
     fireEvent.click(screen.getByRole("button", { name: "Import" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Import from RxResume" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Import from RxResume" }));
     expect(await screen.findByDisplayValue("Imported")).toBeInTheDocument();
     expect(mocks.importRx).toHaveBeenCalledOnce();
     expect(mocks.getBase).toHaveBeenCalledTimes(2);
@@ -1473,9 +1331,7 @@ describe("base resume mode", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Import" }));
     fireEvent.change(screen.getByLabelText("Import resume file"), {
       target: {
-        files: [
-          new File(["resume"], "resume.json", { type: "application/json" }),
-        ],
+        files: [new File(["resume"], "resume.json", { type: "application/json" })],
       },
     });
     expect(mocks.importFile).not.toHaveBeenCalled();
@@ -1500,9 +1356,7 @@ describe("base resume mode", () => {
     expect(mocks.basePdf).not.toHaveBeenCalled();
     expect(mocks.pdf).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
-    await waitFor(() =>
-      expect(mocks.baseDownload).toHaveBeenCalledWith("resume.pdf"),
-    );
+    await waitFor(() => expect(mocks.baseDownload).toHaveBeenCalledWith("resume.pdf"));
     expect(mocks.basePdf).toHaveBeenCalledOnce();
   });
   it("uses the same conflict dialog and latest base revision", async () => {
@@ -1531,61 +1385,53 @@ describe("base resume mode", () => {
 });
 
 it("can import a base resume when none exists yet", async () => {
-  mocks.getBase.mockRejectedValueOnce(
-    new ApiClientError("Missing", { status: 404 }),
-  );
+  mocks.getBase.mockRejectedValueOnce(new ApiClientError("Missing", { status: 404 }));
   mount(true);
   fireEvent.click(await screen.findByRole("button", { name: "Import" }));
   expect(screen.queryByText("Open base resume")).not.toBeInTheDocument();
   expect(mocks.importRx).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Import from RxResume" }));
-  expect(
-    await screen.findByRole("heading", { name: "Base resume" }),
-  ).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Base resume" })).toBeInTheDocument();
   expect(mocks.importRx).toHaveBeenCalledOnce();
 });
 
 describe("explicit resume opening", () => {
-  it.each([
-    "current",
-    "uploaded",
-  ] as const)("previews a %s PDF in the full workspace layout", async (pdfFreshness) => {
-    mocks.getJob.mockResolvedValue({
-      id: "job",
-      title: "Selected",
-      employer: "Company",
-      status: "ready",
-      pdfFreshness,
-      pdfSource: pdfFreshness === "uploaded" ? "uploaded" : "generated",
-    });
-    localStorage.setItem("resume-cowork-preview", "false");
-    mount(false, new QueryClient(), "?mode=preview");
-    expect(screen.getByRole("button", { name: "Preview" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(
-      await screen.findByRole("document", { name: "Resume PDF preview" }),
-    ).toBeVisible();
-    expect(screen.getByRole("button", { name: "Back" })).toBeEnabled();
-    expect(mocks.getJob).toHaveBeenCalledWith("job");
-    expect(mocks.library).toHaveBeenCalled();
-    expect(mocks.getResume).toHaveBeenCalledWith("job");
-    expect(mocks.getBase).not.toHaveBeenCalled();
-    expect(mocks.pdf).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
-    await waitFor(() =>
-      expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"),
-    );
-    if (pdfFreshness === "uploaded") {
-      // Uploaded PDFs are never regenerated, loaded editable state or not.
+  it.each(["current", "uploaded"] as const)(
+    "previews a %s PDF in the full workspace layout",
+    async (pdfFreshness) => {
+      mocks.getJob.mockResolvedValue({
+        id: "job",
+        title: "Selected",
+        employer: "Company",
+        status: "ready",
+        pdfFreshness,
+        pdfSource: pdfFreshness === "uploaded" ? "uploaded" : "generated",
+      });
+      localStorage.setItem("resume-cowork-preview", "false");
+      mount(false, new QueryClient(), "?mode=preview");
+      expect(screen.getByRole("button", { name: "Preview" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      expect(await screen.findByRole("document", { name: "Resume PDF preview" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "Back" })).toBeEnabled();
+      expect(mocks.getJob).toHaveBeenCalledWith("job");
+      expect(mocks.library).toHaveBeenCalled();
+      expect(mocks.getResume).toHaveBeenCalledWith("job");
+      expect(mocks.getBase).not.toHaveBeenCalled();
       expect(mocks.pdf).not.toHaveBeenCalled();
-    } else {
-      // Once the editable document is loaded, downloadPdf regenerates
-      // defensively before downloading, same as it does from edit mode.
-      expect(mocks.pdf).toHaveBeenCalledWith("job");
-    }
-  });
+      fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+      await waitFor(() => expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"));
+      if (pdfFreshness === "uploaded") {
+        // Uploaded PDFs are never regenerated, loaded editable state or not.
+        expect(mocks.pdf).not.toHaveBeenCalled();
+      } else {
+        // Once the editable document is loaded, downloadPdf regenerates
+        // defensively before downloading, same as it does from edit mode.
+        expect(mocks.pdf).toHaveBeenCalledWith("job");
+      }
+    },
+  );
 
   it("still previews the PDF when the editable JSON source is missing, and Edit surfaces that error", async () => {
     mocks.getJob.mockResolvedValue({
@@ -1606,62 +1452,57 @@ describe("explicit resume opening", () => {
       mocks.getResume.mock.invocationCallOrder[0],
     );
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(
-      await screen.findByText("Import or create a resume first."),
-    ).toBeVisible();
+    expect(await screen.findByText("Import or create a resume first.")).toBeVisible();
     expect(mocks.pdf).not.toHaveBeenCalled();
   });
 
-  it.each([
-    "missing",
-    "stale",
-  ])("renders the saved tailored document for a %s PDF after the library load", async (pdfFreshness) => {
-    mocks.getJob.mockResolvedValue({
-      id: "job",
-      title: "Engineer",
-      employer: "Company",
-      status: "ready",
-      pdfFreshness,
-    });
-    mocks.getResume.mockResolvedValue(state("Saved tailored", 7));
-    mount(false, new QueryClient(), "?mode=preview");
-    await screen.findByRole("document");
-    expect(mocks.getResume).toHaveBeenCalledTimes(1);
-    expect(mocks.library.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.getResume.mock.invocationCallOrder[0],
-    );
-    expect(mocks.getResume.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.previewPdf.mock.invocationCallOrder[0],
-    );
-    expect(mocks.previewPdf).toHaveBeenCalledWith("job");
-    expect(mocks.pdf).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByLabelText("Headline")).toHaveValue("Saved tailored");
-    expect(mocks.getBase).not.toHaveBeenCalled();
-    expect(mocks.reset).not.toHaveBeenCalled();
-  });
+  it.each(["missing", "stale"])(
+    "renders the saved tailored document for a %s PDF after the library load",
+    async (pdfFreshness) => {
+      mocks.getJob.mockResolvedValue({
+        id: "job",
+        title: "Engineer",
+        employer: "Company",
+        status: "ready",
+        pdfFreshness,
+      });
+      mocks.getResume.mockResolvedValue(state("Saved tailored", 7));
+      mount(false, new QueryClient(), "?mode=preview");
+      await screen.findByRole("document");
+      expect(mocks.getResume).toHaveBeenCalledTimes(1);
+      expect(mocks.library.mock.invocationCallOrder[0]).toBeLessThan(
+        mocks.getResume.mock.invocationCallOrder[0],
+      );
+      expect(mocks.getResume.mock.invocationCallOrder[0]).toBeLessThan(
+        mocks.previewPdf.mock.invocationCallOrder[0],
+      );
+      expect(mocks.previewPdf).toHaveBeenCalledWith("job");
+      expect(mocks.pdf).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+      expect(screen.getByLabelText("Headline")).toHaveValue("Saved tailored");
+      expect(mocks.getBase).not.toHaveBeenCalled();
+      expect(mocks.reset).not.toHaveBeenCalled();
+    },
+  );
 
-  it.each([
-    "",
-    "?mode=invalid",
-  ])("keeps remembered preview for a compatible bare/invalid entry %s", async (search) => {
-    localStorage.setItem("resume-cowork-preview", "true");
-    mount(false, new QueryClient(), search);
-    await screen.findByRole("document");
-    expect(screen.getByRole("button", { name: "Preview" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-  });
+  it.each(["", "?mode=invalid"])(
+    "keeps remembered preview for a compatible bare/invalid entry %s",
+    async (search) => {
+      localStorage.setItem("resume-cowork-preview", "true");
+      mount(false, new QueryClient(), search);
+      await screen.findByRole("document");
+      expect(screen.getByRole("button", { name: "Preview" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    },
+  );
 
   it("overrides remembered preview with explicit Edit before first display", async () => {
     localStorage.setItem("resume-cowork-preview", "true");
     mount(false, new QueryClient(), "?mode=edit");
     expect(await screen.findByLabelText("Headline")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute("aria-pressed", "true");
     expect(mocks.pdf).not.toHaveBeenCalled();
   });
 
@@ -1687,9 +1528,7 @@ describe("explicit resume opening", () => {
       mocks.save.mock.invocationCallOrder[0],
     );
     fireEvent.click(screen.getByRole("link", { name: "Route edit" }));
-    expect(await screen.findByLabelText("Headline")).toHaveValue(
-      "Keep this edit",
-    );
+    expect(await screen.findByLabelText("Headline")).toHaveValue("Keep this edit");
     expect(mocks.getResume).toHaveBeenCalledTimes(1);
   });
 
@@ -1711,9 +1550,7 @@ describe("explicit resume opening", () => {
     expect(mocks.save).toHaveBeenCalled();
     expect(mocks.pdf).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
-    await waitFor(() =>
-      expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"),
-    );
+    await waitFor(() => expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"));
     expect(mocks.pdf).not.toHaveBeenCalled();
   });
 
@@ -1729,9 +1566,7 @@ describe("explicit resume opening", () => {
       new ApiClientError("Please sign in again", { status: 401 }),
     );
     mount(false, new QueryClient(), "?mode=preview");
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Please sign in again",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Please sign in again");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await screen.findByRole("document");
     expect(mocks.openPdf).toHaveBeenCalledTimes(1);
@@ -1790,16 +1625,10 @@ describe("explicit resume opening", () => {
     await waitFor(() => expect(mocks.openPdf).toHaveBeenCalledWith("job"));
     fireEvent.click(screen.getByRole("link", { name: "Route other" }));
     await waitFor(() =>
-      expect(screen.getByTestId("pdf-canvas-preview")).toHaveAttribute(
-        "data-url",
-        "blob:other",
-      ),
+      expect(screen.getByTestId("pdf-canvas-preview")).toHaveAttribute("data-url", "blob:other"),
     );
     await act(async () => resolveFirst("blob:late"));
-    expect(screen.getByTestId("pdf-canvas-preview")).toHaveAttribute(
-      "data-url",
-      "blob:other",
-    );
+    expect(screen.getByTestId("pdf-canvas-preview")).toHaveAttribute("data-url", "blob:other");
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:late");
     expect(mocks.pdf).not.toHaveBeenCalled();
   });
@@ -1811,9 +1640,7 @@ describe("explicit resume opening", () => {
       status: "processing",
     });
     mount(false, new QueryClient(), "?mode=edit");
-    expect(
-      await screen.findByText("Could not load this job’s resume."),
-    ).toBeVisible();
+    expect(await screen.findByText("Could not load this job’s resume.")).toBeVisible();
     expect(mocks.library).not.toHaveBeenCalled();
     expect(mocks.getResume).not.toHaveBeenCalled();
   });
@@ -1826,9 +1653,7 @@ describe("explicit resume opening", () => {
     });
     mocks.previewPdf.mockRejectedValueOnce(new Error("Renderer unavailable"));
     mount(false, new QueryClient(), "?mode=preview");
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Renderer unavailable",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Renderer unavailable");
     expect(mocks.openPdf).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await screen.findByRole("document");
@@ -1841,17 +1666,13 @@ describe("explicit resume opening", () => {
     fireEvent.change(await screen.findByLabelText("Headline"), {
       target: { value: "Mine" },
     });
-    mocks.save.mockRejectedValueOnce(
-      new ApiClientError("Conflict", { status: 409 }),
-    );
+    mocks.save.mockRejectedValueOnce(new ApiClientError("Conflict", { status: 409 }));
     mocks.getResume.mockResolvedValue(state("Remote", 5));
     fireEvent.click(screen.getByRole("link", { name: "Route preview" }));
     await screen.findByRole("heading", { name: "Resume changed elsewhere" });
     expect(mocks.pdf).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Use latest" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "resolve any conflict",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("resolve any conflict");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await screen.findByRole("document");
     fireEvent.click(screen.getByRole("link", { name: "Route edit" }));
@@ -1878,17 +1699,13 @@ describe("explicit resume opening", () => {
     await waitFor(() => expect(mocks.getJob).toHaveBeenCalledWith("job"));
     fireEvent.click(screen.getByRole("link", { name: "Route other" }));
     await screen.findByRole("document");
-    await act(async () =>
-      resolveJob({ id: "job", status: "ready", pdfFreshness: "stale" }),
-    );
+    await act(async () => resolveJob({ id: "job", status: "ready", pdfFreshness: "stale" }));
     // "other" legitimately materializes its own editable state; only the
     // abandoned "job" fetch must never trigger a second round for it.
     expect(mocks.library).toHaveBeenCalledTimes(1);
     expect(mocks.getResume).toHaveBeenCalledExactlyOnceWith("other");
     expect(mocks.pdf).not.toHaveBeenCalled();
     expect(mocks.openPdf).toHaveBeenCalledExactlyOnceWith("other");
-    expect(
-      screen.getByRole("heading", { name: "other · Company" }),
-    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "other · Company" })).toBeVisible();
   });
 });

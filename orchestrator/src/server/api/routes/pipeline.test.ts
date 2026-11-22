@@ -3,14 +3,11 @@ import type { PipelineSearchPresetConfig } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-const { mockCallJson, mockResolveCountryAtPoint, mockResolveNearbyPlaceNames } =
-  vi.hoisted(() => ({
-    mockCallJson: vi.fn(),
-    mockResolveCountryAtPoint: vi.fn().mockResolvedValue("united kingdom"),
-    mockResolveNearbyPlaceNames: vi
-      .fn()
-      .mockResolvedValue(["Leeds", "Bradford"]),
-  }));
+const { mockCallJson, mockResolveCountryAtPoint, mockResolveNearbyPlaceNames } = vi.hoisted(() => ({
+  mockCallJson: vi.fn(),
+  mockResolveCountryAtPoint: vi.fn().mockResolvedValue("united kingdom"),
+  mockResolveNearbyPlaceNames: vi.fn().mockResolvedValue(["Leeds", "Bradford"]),
+}));
 
 vi.mock("@server/services/modelSelection", () => ({
   resolveLlmModel: vi.fn().mockResolvedValue("test-model"),
@@ -20,14 +17,12 @@ vi.mock("@server/services/modelSelection", () => ({
 }));
 
 vi.mock("@server/services/proximity-search", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("@server/services/proximity-search")
-  >()),
+  ...(await importOriginal<typeof import("@server/services/proximity-search")>()),
   resolveCountryAtPoint: mockResolveCountryAtPoint,
   resolveNearbyPlaceNames: mockResolveNearbyPlaceNames,
 }));
 
-describe.sequential("Pipeline API routes", () => {
+describe("Pipeline API routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -70,9 +65,7 @@ describe.sequential("Pipeline API routes", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pipelineScheduleEnabled: false }),
     });
-    const disabled = await (
-      await fetch(`${baseUrl}/api/pipeline/status`)
-    ).json();
+    const disabled = await (await fetch(`${baseUrl}/api/pipeline/status`)).json();
     expect(disabled.data.nextScheduledRun).toBeNull();
   });
 
@@ -97,15 +90,11 @@ describe.sequential("Pipeline API routes", () => {
       body: JSON.stringify(request),
     });
     expect(response.status).toBe(200);
-    const { loadRunRequest } = await import(
-      "@server/services/pipeline-scheduler/storage"
-    );
+    const { loadRunRequest } = await import("@server/services/pipeline-scheduler/storage");
     expect(await loadRunRequest()).toEqual(request);
     const { runPipeline } = await import("@server/pipeline/index");
     const firstCall = vi.mocked(runPipeline).mock.calls.at(-1);
-    const { runScheduledPipeline } = await import(
-      "@server/services/pipeline-scheduler"
-    );
+    const { runScheduledPipeline } = await import("@server/services/pipeline-scheduler");
     await runScheduledPipeline();
     expect(vi.mocked(runPipeline).mock.calls.at(-1)).toEqual(firstCall);
     expect(runPipeline).toHaveBeenCalledTimes(2);
@@ -184,9 +173,7 @@ describe.sequential("Pipeline API routes", () => {
       },
     }));
 
-    const unauthorizedRes = await fetch(
-      `${baseUrl}/api/pipeline/progress/snapshot`,
-    );
+    const unauthorizedRes = await fetch(`${baseUrl}/api/pipeline/progress/snapshot`);
     expect(unauthorizedRes.status).toBe(401);
 
     const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
@@ -196,12 +183,9 @@ describe.sequential("Pipeline API routes", () => {
     });
     const loginBody = await loginRes.json();
 
-    const authorizedRes = await fetch(
-      `${baseUrl}/api/pipeline/progress/snapshot`,
-      {
-        headers: { Authorization: `Bearer ${loginBody.data.token}` },
-      },
-    );
+    const authorizedRes = await fetch(`${baseUrl}/api/pipeline/progress/snapshot`, {
+      headers: { Authorization: `Bearer ${loginBody.data.token}` },
+    });
     const authorizedBody = await authorizedRes.json();
 
     expect(authorizedRes.status).toBe(200);
@@ -278,9 +262,7 @@ describe.sequential("Pipeline API routes", () => {
         lastUsedAt: null,
       }),
     );
-    expect(createBody.data.config.watchlistSelectedSourceIds).toEqual([
-      "wl-source-a",
-    ]);
+    expect(createBody.data.config.watchlistSelectedSourceIds).toEqual(["wl-source-a"]);
 
     const duplicateRes = await fetch(`${baseUrl}/api/pipeline/search-presets`, {
       method: "POST",
@@ -299,23 +281,18 @@ describe.sequential("Pipeline API routes", () => {
     expect(usedRes.status).toBe(200);
     expect(usedBody.data.lastUsedAt).toEqual(expect.any(String));
 
-    const updateRes = await fetch(
-      `${baseUrl}/api/pipeline/search-presets/${createBody.data.id}`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "Senior backend",
-          config: { ...config, searchTerms: ["senior backend engineer"] },
-        }),
-      },
-    );
+    const updateRes = await fetch(`${baseUrl}/api/pipeline/search-presets/${createBody.data.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Senior backend",
+        config: { ...config, searchTerms: ["senior backend engineer"] },
+      }),
+    });
     const updateBody = await updateRes.json();
     expect(updateRes.status).toBe(200);
     expect(updateBody.data.name).toBe("Senior backend");
-    expect(updateBody.data.config.searchTerms).toEqual([
-      "senior backend engineer",
-    ]);
+    expect(updateBody.data.config.searchTerms).toEqual(["senior backend engineer"]);
 
     const listRes = await fetch(`${baseUrl}/api/pipeline/search-presets`);
     const listBody = await listRes.json();
@@ -324,10 +301,9 @@ describe.sequential("Pipeline API routes", () => {
     expect(listBody.data.searches).toHaveLength(1);
     expect(listBody.data.searches[0].name).toBe("Senior backend");
 
-    const deleteRes = await fetch(
-      `${baseUrl}/api/pipeline/search-presets/${createBody.data.id}`,
-      { method: "DELETE" },
-    );
+    const deleteRes = await fetch(`${baseUrl}/api/pipeline/search-presets/${createBody.data.id}`, {
+      method: "DELETE",
+    });
     const deleteBody = await deleteRes.json();
     expect(deleteRes.status).toBe(200);
     expect(deleteBody.data).toEqual({ deleted: true });
@@ -358,11 +334,7 @@ describe.sequential("Pipeline API routes", () => {
       success: true,
       data: {
         config: {
-          searchTerms: [
-            "Senior Backend Engineer",
-            "Platform Engineer",
-            "Senior Backend Engineer",
-          ],
+          searchTerms: ["Senior Backend Engineer", "Platform Engineer", "Senior Backend Engineer"],
           sources: ["naukri", "manual", "linkedin"],
           country: "United Kingdom",
           cityLocations: [],
@@ -372,12 +344,10 @@ describe.sequential("Pipeline API routes", () => {
           topN: 80,
           minSuitabilityScore: -10,
           runBudget: 5000,
-          scoringInstructions:
-            "Prioritize senior backend platform roles and remote-first options.",
+          scoringInstructions: "Prioritize senior backend platform roles and remote-first options.",
           automaticPresetId: "detailed",
         },
-        summary:
-          "The search was updated to focus on senior backend/platform roles.",
+        summary: "The search was updated to focus on senior backend/platform roles.",
         warnings: ["Assumed remote-first roles."],
       },
     });
@@ -402,11 +372,8 @@ describe.sequential("Pipeline API routes", () => {
     expect(body.data.summary).toBe(
       "The search was updated to focus on senior backend/platform roles.",
     );
-    const searchPlanPrompt =
-      mockCallJson.mock.calls.at(-1)?.[0]?.messages?.[0]?.content;
-    expect(searchPlanPrompt).toContain(
-      "Write summary in neutral product voice",
-    );
+    const searchPlanPrompt = mockCallJson.mock.calls.at(-1)?.[0]?.messages?.[0]?.content;
+    expect(searchPlanPrompt).toContain("Write summary in neutral product voice");
     expect(searchPlanPrompt).toContain("never 'I updated...'");
     expect(body.data.config).toEqual(
       expect.objectContaining({
@@ -420,8 +387,7 @@ describe.sequential("Pipeline API routes", () => {
         topN: 50,
         minSuitabilityScore: 0,
         runBudget: 1000,
-        scoringInstructions:
-          "Prioritize senior backend platform roles and remote-first options.",
+        scoringInstructions: "Prioritize senior backend platform roles and remote-first options.",
         automaticPresetId: "detailed",
       }),
     );
@@ -483,9 +449,7 @@ describe.sequential("Pipeline API routes", () => {
 
   it("scopes pipeline saved searches by tenant and user", async () => {
     const { db, schema } = await import("@server/db");
-    const { runWithRequestContext } = await import(
-      "@server/infra/request-context"
-    );
+    const { runWithRequestContext } = await import("@server/infra/request-context");
     const repo = await import("@server/repositories/pipeline-search-presets");
     const config: PipelineSearchPresetConfig = {
       searchTerms: ["platform engineer"],
@@ -573,10 +537,7 @@ describe.sequential("Pipeline API routes", () => {
     expect(userAResults).toHaveLength(1);
     expect(userBResults).toHaveLength(1);
     expect(tenantAltResults).toHaveLength(1);
-    expect(
-      new Set([userAResults[0].id, userBResults[0].id, tenantAltResults[0].id])
-        .size,
-    ).toBe(3);
+    expect(new Set([userAResults[0].id, userBResults[0].id, tenantAltResults[0].id]).size).toBe(3);
   });
 
   it("returns pipeline run insights for a completed run", async () => {
@@ -676,9 +637,7 @@ describe.sequential("Pipeline API routes", () => {
       },
     ]);
 
-    const res = await fetch(
-      `${baseUrl}/api/pipeline/runs/run-insight-1/insights`,
-    );
+    const res = await fetch(`${baseUrl}/api/pipeline/runs/run-insight-1/insights`);
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -730,9 +689,7 @@ describe.sequential("Pipeline API routes", () => {
       errorMessage: null,
     });
 
-    const res = await fetch(
-      `${baseUrl}/api/pipeline/runs/run-incomplete-1/insights`,
-    );
+    const res = await fetch(`${baseUrl}/api/pipeline/runs/run-incomplete-1/insights`);
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -753,9 +710,7 @@ describe.sequential("Pipeline API routes", () => {
   });
 
   it("returns not found for an unknown run insights request", async () => {
-    const res = await fetch(
-      `${baseUrl}/api/pipeline/runs/does-not-exist/insights`,
-    );
+    const res = await fetch(`${baseUrl}/api/pipeline/runs/does-not-exist/insights`);
     const body = await res.json();
 
     expect(res.status).toBe(404);
@@ -765,9 +720,7 @@ describe.sequential("Pipeline API routes", () => {
   });
 
   it("validates pipeline run payloads", async () => {
-    const { trackCanonicalActivationEvent } = await import(
-      "@server/services/activation-funnel"
-    );
+    const { trackCanonicalActivationEvent } = await import("@server/services/activation-funnel");
     const badRun = await fetch(`${baseUrl}/api/pipeline/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -920,9 +873,7 @@ describe.sequential("Pipeline API routes", () => {
       },
     }));
 
-    const { runWithRequestContext } = await import(
-      "@server/infra/request-context"
-    );
+    const { runWithRequestContext } = await import("@server/infra/request-context");
     const { db, schema } = await import("@server/db");
     const usage = await import("@server/services/hosted-usage");
 
@@ -983,9 +934,7 @@ describe.sequential("Pipeline API routes", () => {
 
   it("forwards Watchlist source filter to the pipeline runner (#621)", async () => {
     const { runPipeline } = await import("@server/pipeline/index");
-    const { trackCanonicalActivationEvent } = await import(
-      "@server/services/activation-funnel"
-    );
+    const { trackCanonicalActivationEvent } = await import("@server/services/activation-funnel");
 
     const runRes = await fetch(`${baseUrl}/api/pipeline/run`, {
       method: "POST",
@@ -1083,9 +1032,7 @@ describe.sequential("Pipeline API routes", () => {
   });
 
   it("prepares the challenge viewer lazily", async () => {
-    const { ensureChallengeViewer } = await import(
-      "@server/services/challenge-viewer"
-    );
+    const { ensureChallengeViewer } = await import("@server/services/challenge-viewer");
     vi.mocked(ensureChallengeViewer).mockResolvedValueOnce({
       available: true,
     });
@@ -1169,9 +1116,7 @@ describe.sequential("Pipeline API routes", () => {
         sources: ["hiringcafe"],
       },
     ]);
-    vi.mocked(pipeline.beginPipelineChallengeSolve).mockReturnValueOnce(
-      vi.fn(),
-    );
+    vi.mocked(pipeline.beginPipelineChallengeSolve).mockReturnValueOnce(vi.fn());
     vi.mocked(pipeline.resolvePipelineChallenge).mockReturnValueOnce({
       resolved: true,
       remaining: 0,
@@ -1182,9 +1127,7 @@ describe.sequential("Pipeline API routes", () => {
     vi.mocked(browser.hasHiringCafeBrowserChallenge)
       .mockReturnValueOnce(true)
       .mockReturnValueOnce(true);
-    vi.mocked(browser.waitForHiringCafeBrowserChallenge).mockResolvedValueOnce(
-      "clear",
-    );
+    vi.mocked(browser.waitForHiringCafeBrowserChallenge).mockResolvedValueOnce("clear");
 
     const res = await fetch(`${baseUrl}/api/pipeline/solve-challenge`, {
       method: "POST",
@@ -1202,27 +1145,19 @@ describe.sequential("Pipeline API routes", () => {
       url,
       5 * 60 * 1000,
     );
-    expect(browser.hasHiringCafeBrowserChallenge).toHaveBeenCalledWith(
-      expect.any(String),
-      url,
-    );
-    expect(pipeline.resolvePipelineChallenge).toHaveBeenCalledWith(
-      "hiringcafe",
-    );
+    expect(browser.hasHiringCafeBrowserChallenge).toHaveBeenCalledWith(expect.any(String), url);
+    expect(pipeline.resolvePipelineChallenge).toHaveBeenCalledWith("hiringcafe");
   });
 
   it("rejects invalid skip requests and unknown challenges with the API contract", async () => {
-    const invalid = await fetch(
-      `${baseUrl}/api/pipeline/skip-challenge-search`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-request-id": "skip-invalid",
-        },
-        body: JSON.stringify({}),
+    const invalid = await fetch(`${baseUrl}/api/pipeline/skip-challenge-search`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-request-id": "skip-invalid",
       },
-    );
+      body: JSON.stringify({}),
+    });
     expect(invalid.status).toBe(400);
     expect(invalid.headers.get("x-request-id")).toBe("skip-invalid");
     expect(await invalid.json()).toMatchObject({
@@ -1231,14 +1166,11 @@ describe.sequential("Pipeline API routes", () => {
       meta: { requestId: "skip-invalid" },
     });
 
-    const missing = await fetch(
-      `${baseUrl}/api/pipeline/skip-challenge-search`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ extractorId: "hiringcafe" }),
-      },
-    );
+    const missing = await fetch(`${baseUrl}/api/pipeline/skip-challenge-search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ extractorId: "hiringcafe" }),
+    });
     const missingBody = await missing.json();
     expect(missing.status, JSON.stringify(missingBody)).toBe(404);
     expect(missingBody).toMatchObject({

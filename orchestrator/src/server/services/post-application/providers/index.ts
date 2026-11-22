@@ -8,10 +8,7 @@ export {
 } from "./errors";
 export { gmailProvider } from "./gmail";
 export { imapProvider } from "./imap";
-export {
-  listPostApplicationProviders,
-  resolvePostApplicationProvider,
-} from "./registry";
+export { listPostApplicationProviders, resolvePostApplicationProvider } from "./registry";
 export { executePostApplicationProviderAction } from "./service";
 export type {
   ExecutePostApplicationProviderActionInput,

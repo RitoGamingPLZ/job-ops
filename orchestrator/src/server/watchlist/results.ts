@@ -2,10 +2,7 @@ import { notFound } from "@infra/errors";
 import * as jobsRepo from "@server/repositories/jobs";
 import * as watchlistRepo from "@server/repositories/watchlist";
 import { asyncPool } from "@server/utils/async-pool";
-import {
-  getWatchlistSourceAdapter,
-  listWatchlistSourceAdapters,
-} from "@server/watchlist/adapters";
+import { getWatchlistSourceAdapter, listWatchlistSourceAdapters } from "@server/watchlist/adapters";
 import type {
   JobListItem,
   WatchlistCheckResponse,
@@ -36,12 +33,8 @@ export function hydrateWatchlistSelectedSources(
   return selectedSources.map(hydrateWatchlistSelectedSource);
 }
 
-export async function listHydratedWatchlistSelectedSources(): Promise<
-  WatchlistSelectedSource[]
-> {
-  return hydrateWatchlistSelectedSources(
-    await watchlistRepo.listWatchlistSelectedSources(),
-  );
+export async function listHydratedWatchlistSelectedSources(): Promise<WatchlistSelectedSource[]> {
+  return hydrateWatchlistSelectedSources(await watchlistRepo.listWatchlistSelectedSources());
 }
 
 export async function getWatchlistResultsForSources(
@@ -98,9 +91,7 @@ export async function getWatchlistResultsForSources(
 }
 
 export async function getCurrentWatchlistResults(): Promise<WatchlistResultsResponse> {
-  return getWatchlistResultsForSources(
-    await listHydratedWatchlistSelectedSources(),
-  );
+  return getWatchlistResultsForSources(await listHydratedWatchlistSelectedSources());
 }
 
 export async function getWatchlistSelectedSourceById(
@@ -172,10 +163,7 @@ export function annotateWatchlistSourceResults(input: {
   const importedByUrl = new Map<string, JobListItem>();
   for (const job of input.workspaceJobs) {
     if (job.sourceJobId) {
-      importedByKey.set(
-        getWatchlistJobKey(String(job.source), job.sourceJobId),
-        job,
-      );
+      importedByKey.set(getWatchlistJobKey(String(job.source), job.sourceJobId), job);
     }
     importedByUrl.set(job.jobUrl, job);
   }
@@ -187,8 +175,7 @@ export function annotateWatchlistSourceResults(input: {
       ...result,
       jobs: result.jobs.map((job): WatchlistJobResult => {
         const jobKey = getWatchlistJobKey(String(job.source), job.sourceJobId);
-        const workspaceJob =
-          importedByKey.get(jobKey) ?? importedByUrl.get(job.jobUrl) ?? null;
+        const workspaceJob = importedByKey.get(jobKey) ?? importedByUrl.get(job.jobUrl) ?? null;
         const rowState = workspaceJob
           ? "moved_to_workspace"
           : ignoredKeys.has(jobKey)
@@ -199,9 +186,7 @@ export function annotateWatchlistSourceResults(input: {
           ...job,
           rowState,
           isNewSinceLastCheck: rowState === "new" && newJobKeys.has(jobKey),
-          workspaceJob: workspaceJob
-            ? { id: workspaceJob.id, status: workspaceJob.status }
-            : null,
+          workspaceJob: workspaceJob ? { id: workspaceJob.id, status: workspaceJob.status } : null,
         };
       }),
     };
@@ -230,9 +215,6 @@ export async function withWatchlistSourceTimeout<T>(
   }
 }
 
-export function getWatchlistJobKey(
-  source: string,
-  sourceJobId: string,
-): string {
+export function getWatchlistJobKey(source: string, sourceJobId: string): string {
   return `${source}:${sourceJobId}`;
 }

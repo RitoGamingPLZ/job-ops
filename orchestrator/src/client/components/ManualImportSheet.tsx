@@ -47,8 +47,7 @@ export const ManualImportSheet: React.FC<ManualImportSheetProps> = ({
               Add a job
             </SheetTitle>
             <SheetDescription>
-              Add a link, description, or PDF. Review the details before adding
-              the job.
+              Add a link, description, or PDF. Review the details before adding the job.
             </SheetDescription>
           </SheetHeader>
 

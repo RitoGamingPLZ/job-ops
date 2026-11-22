@@ -1,12 +1,6 @@
-import {
-  type ExtractorTermEvent,
-  toTermProgress,
-} from "@shared/extractor-progress";
+import { type ExtractorTermEvent, toTermProgress } from "@shared/extractor-progress";
 import { normalizeCountryKey } from "@shared/location-support.js";
-import type {
-  ExtractorManifest,
-  ExtractorProgressEvent,
-} from "@shared/types/extractors";
+import type { ExtractorManifest, ExtractorProgressEvent } from "@shared/types/extractors";
 import { runJobindex } from "./run";
 
 function toProgress(
@@ -59,8 +53,7 @@ export const manifest: ExtractorManifest = {
       selectedCountry: context.selectedCountry,
       searchTerms: context.searchTerms,
       cityLocations:
-        context.sourceLocationPlan?.requestedCities ??
-        context.locationIntent?.cityLocations,
+        context.sourceLocationPlan?.requestedCities ?? context.locationIntent?.cityLocations,
       maxJobsPerTerm,
       shouldCancel: context.shouldCancel,
       onProgress: (event) => {

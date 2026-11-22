@@ -18,10 +18,8 @@ export function resolveRequestOrigin(req: Request): string | null {
   let host = (req.header("host") || "").trim();
 
   if (trustProxy) {
-    const forwardedProto =
-      req.header("x-forwarded-proto")?.split(",")[0]?.trim() ?? "";
-    const forwardedHost =
-      req.header("x-forwarded-host")?.split(",")[0]?.trim() ?? "";
+    const forwardedProto = req.header("x-forwarded-proto")?.split(",")[0]?.trim() ?? "";
+    const forwardedHost = req.header("x-forwarded-host")?.split(",")[0]?.trim() ?? "";
     if (forwardedProto) protocol = forwardedProto;
     if (forwardedHost) host = forwardedHost;
   }

@@ -31,10 +31,7 @@ export function writeSseComment(res: Response, comment: string): void {
   res.write(`: ${comment}\n\n`);
 }
 
-export function startSseHeartbeat(
-  res: Response,
-  intervalMs = DEFAULT_HEARTBEAT_MS,
-): () => void {
+export function startSseHeartbeat(res: Response, intervalMs = DEFAULT_HEARTBEAT_MS): () => void {
   const heartbeat = setInterval(() => {
     writeSseComment(res, "heartbeat");
   }, intervalMs);

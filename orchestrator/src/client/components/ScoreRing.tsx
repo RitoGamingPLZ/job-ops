@@ -4,19 +4,12 @@ import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { FitAssessmentContent } from "./FitAssessmentContent";
 import { Tip } from "./Tip";
 
-const getSuitabilityScoreTokens = (
-  score: number | null,
-  isAwaitingAi = false,
-) => {
+const getSuitabilityScoreTokens = (score: number | null, isAwaitingAi = false) => {
   if (score === null && isAwaitingAi) {
     return {
       shell: "border-blue-300/55 bg-blue-500/10 text-blue-200",
@@ -57,9 +50,7 @@ const getSuitabilityScoreTokens = (
   };
 };
 
-export function isAwaitingAiScore(
-  job: Pick<Job, "status" | "suitabilityScore">,
-): boolean {
+export function isAwaitingAiScore(job: Pick<Job, "status" | "suitabilityScore">): boolean {
   if (job.suitabilityScore != null) return false;
   return job.status === "discovered" || job.status === "processing";
 }
@@ -70,13 +61,7 @@ export const ScoreRing: React.FC<{
   isAwaitingAi?: boolean;
   suitabilityReason?: string | null;
   jobId?: string;
-}> = ({
-  score,
-  size = "lg",
-  isAwaitingAi = false,
-  suitabilityReason,
-  jobId,
-}) => {
+}> = ({ score, size = "lg", isAwaitingAi = false, suitabilityReason, jobId }) => {
   const tokens = getSuitabilityScoreTokens(score, isAwaitingAi);
   const isLoading = score === null && isAwaitingAi;
   const hasReason = !!suitabilityReason;
@@ -89,11 +74,7 @@ export const ScoreRing: React.FC<{
 
   if (!hasReason) {
     return (
-      <Tip
-        content={tokens.label}
-        contentClassName="max-w-60 text-xs"
-        side="left"
-      >
+      <Tip content={tokens.label} contentClassName="max-w-60 text-xs" side="left">
         <div
           role="img"
           aria-label={tokens.label}
@@ -208,10 +189,7 @@ export const ScoreRing: React.FC<{
         align="end"
         className="w-96 rounded-xl border border-border/80 bg-card/95 p-4 shadow-2xl backdrop-blur-md z-[100]"
       >
-        <FitAssessmentContent
-          score={score}
-          suitabilityReason={suitabilityReason}
-        />
+        <FitAssessmentContent score={score} suitabilityReason={suitabilityReason} />
       </PopoverContent>
     </Popover>
   );

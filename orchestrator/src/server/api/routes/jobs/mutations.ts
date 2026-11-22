@@ -23,11 +23,10 @@ jobsMutationsRouter.delete("/:id", async (req: Request, res: Response) => {
   const jobId = req.params.id;
   try {
     if (isDemoMode()) {
-      return sendDemoBlocked(
-        res,
-        "Deleting jobs is disabled to keep the demo stable.",
-        { route, jobId },
-      );
+      return sendDemoBlocked(res, "Deleting jobs is disabled to keep the demo stable.", {
+        route,
+        jobId,
+      });
     }
 
     const result = await jobsRepo.deleteJob(jobId);
@@ -55,16 +54,13 @@ jobsMutationsRouter.delete("/:id", async (req: Request, res: Response) => {
     ok(res, null);
   } catch (error) {
     const err = toJobsRouteError(error);
-    logger[err.status === 404 || err.status === 409 ? "warn" : "error"](
-      "Job deletion failed",
-      {
-        route,
-        jobId,
-        status: err.status,
-        code: err.code,
-        details: err.details,
-      },
-    );
+    logger[err.status === 404 || err.status === 409 ? "warn" : "error"]("Job deletion failed", {
+      route,
+      jobId,
+      status: err.status,
+      code: err.code,
+      details: err.details,
+    });
     fail(res, err);
   }
 });

@@ -58,9 +58,7 @@ export async function getJobsFromBoard(
 ): Promise<FetchGreenhouseJobsResult> {
   const fetchFn = options.fetchImpl ?? globalThis.fetch;
   if (!fetchFn) {
-    throw new Error(
-      "No fetch implementation available. Pass fetchImpl or use Node 18+.",
-    );
+    throw new Error("No fetch implementation available. Pass fetchImpl or use Node 18+.");
   }
 
   const source = parseGreenhouseUrl(options.careersUrl);
@@ -120,8 +118,7 @@ export async function getJobsFromBoard(
         const entries = job[field];
         if (
           names &&
-          (!Array.isArray(entries) ||
-            !entries.some((entry) => names.includes(entry?.name)))
+          (!Array.isArray(entries) || !entries.some((entry) => names.includes(entry?.name)))
         )
           return false;
       }
@@ -130,23 +127,17 @@ export async function getJobsFromBoard(
         workplace &&
         (!Array.isArray(job.metadata) ||
           !job.metadata.some(
-            (entry) =>
-              entry?.name === "Workplace Type" && entry.value === workplace,
+            (entry) => entry?.name === "Workplace Type" && entry.value === workplace,
           ))
       )
         return false;
       const location = filters.get("location");
-      return (
-        !location ||
-        !!job.location?.name?.toLowerCase().includes(location.toLowerCase())
-      );
+      return !location || !!job.location?.name?.toLowerCase().includes(location.toLowerCase());
     })
     .sort((a, b) => publishedTime(b) - publishedTime(a))
     .map((job) => normalizeGreenhouseListJob(job, source));
   const total =
-    !filters.size && typeof response.meta?.total === "number"
-      ? response.meta.total
-      : jobs.length;
+    !filters.size && typeof response.meta?.total === "number" ? response.meta.total : jobs.length;
 
   return {
     total,
@@ -169,16 +160,13 @@ export function normalizeGreenhouseListJob(
     jobUrl: optionalString(job.absolute_url) ?? source.canonicalCareersUrl,
     jobApiUrl: greenhouseJobApiUrl(source.token, externalId),
     locationText: formatLocation(job.location?.name),
-    postedOn:
-      optionalString(job.first_published) ?? optionalString(job.updated_at),
+    postedOn: optionalString(job.first_published) ?? optionalString(job.updated_at),
     company: optionalString(job.company_name),
     raw: job,
   };
 }
 
-export function formatLocation(
-  value: string | null | undefined,
-): string | undefined {
+export function formatLocation(value: string | null | undefined): string | undefined {
   const text = optionalString(value);
   if (!text) return undefined;
   // Greenhouse joins location parts without spaces
@@ -207,9 +195,7 @@ async function fetchGreenhouseJson<T>(
 
   const responseText = await response.text();
   if (!response.ok) {
-    throw new Error(
-      `Greenhouse request failed with HTTP ${response.status} for ${input.url}.`,
-    );
+    throw new Error(`Greenhouse request failed with HTTP ${response.status} for ${input.url}.`);
   }
 
   try {
@@ -219,18 +205,12 @@ async function fetchGreenhouseJson<T>(
   }
 }
 
-function requiredString(
-  value: unknown,
-  fieldName: string,
-  url: string,
-): string {
+function requiredString(value: unknown, fieldName: string, url: string): string {
   if (typeof value === "number" && Number.isFinite(value)) {
     return String(value);
   }
   if (typeof value === "string" && value.trim()) return value.trim();
-  throw new Error(
-    `Greenhouse response is missing required field ${fieldName} for ${url}.`,
-  );
+  throw new Error(`Greenhouse response is missing required field ${fieldName} for ${url}.`);
 }
 
 function optionalString(value: unknown): string | undefined {

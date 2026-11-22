@@ -1,8 +1,4 @@
-import type {
-  JobDocument,
-  JobNote,
-  PostApplicationJobEmailItem,
-} from "@shared/types";
+import type { JobDocument, JobNote, PostApplicationJobEmailItem } from "@shared/types";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { GhostwriterContextSelector } from "./GhostwriterContextSelector";
@@ -69,9 +65,7 @@ const makeDocument = (overrides: Partial<JobDocument> = {}): JobDocument => ({
 });
 
 function renderSelector(
-  overrides: Partial<
-    React.ComponentProps<typeof GhostwriterContextSelector>
-  > = {},
+  overrides: Partial<React.ComponentProps<typeof GhostwriterContextSelector>> = {},
 ) {
   return render(
     <GhostwriterContextSelector
@@ -118,9 +112,7 @@ describe("GhostwriterContextSelector", () => {
       selectedDocumentIds: ["doc-1"],
     });
 
-    expect(
-      screen.getByRole("button", { name: /3 context/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /3 context/i })).toBeInTheDocument();
   });
 
   it("shows estimated token counts for selected context", () => {
@@ -177,14 +169,8 @@ describe("GhostwriterContextSelector", () => {
   });
 
   it("shows independent limits and trimming feedback per group", () => {
-    const selectedNoteIds = Array.from(
-      { length: 8 },
-      (_, index) => `note-${index + 1}`,
-    );
-    const selectedEmailIds = Array.from(
-      { length: 8 },
-      (_, index) => `email-${index + 1}`,
-    );
+    const selectedNoteIds = Array.from({ length: 8 }, (_, index) => `note-${index + 1}`);
+    const selectedEmailIds = Array.from({ length: 8 }, (_, index) => `email-${index + 1}`);
 
     renderSelector({
       notes: [
@@ -244,8 +230,7 @@ describe("GhostwriterContextSelector", () => {
         makeDocument({
           id: "doc-docx",
           fileName: "interview-pack.docx",
-          mediaType:
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         }),
       ],
       onDocumentsChange,

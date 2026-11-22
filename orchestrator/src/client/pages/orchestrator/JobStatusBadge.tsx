@@ -8,11 +8,7 @@ interface JobStatusBadgeProps {
   className?: string;
 }
 
-export const JobStatusBadge = ({
-  status,
-  label,
-  className,
-}: JobStatusBadgeProps) => {
+export const JobStatusBadge = ({ status, label, className }: JobStatusBadgeProps) => {
   const statusToken = statusTokens[status] ?? defaultStatusToken;
   return (
     <span

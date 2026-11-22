@@ -8,11 +8,7 @@ type TooltipWhenDisabledProps = {
   className?: string;
 };
 
-export function TooltipWhenDisabled({
-  reason,
-  children,
-  className,
-}: TooltipWhenDisabledProps) {
+export function TooltipWhenDisabled({ reason, children, className }: TooltipWhenDisabledProps) {
   const descriptionId = useId();
 
   if (!reason) {
@@ -20,11 +16,7 @@ export function TooltipWhenDisabled({
   }
 
   return (
-    <Tip
-      asChild
-      content={<p>{reason}</p>}
-      contentClassName="max-w-xs text-center"
-    >
+    <Tip asChild content={<p>{reason}</p>} contentClassName="max-w-xs text-center">
       {/* biome-ignore-start lint/a11y/noNoninteractiveTabindex: Disabled controls need a focusable wrapper so keyboard users can read the reason tooltip. */}
       <span
         aria-describedby={descriptionId}

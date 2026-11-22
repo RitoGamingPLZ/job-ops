@@ -5,17 +5,9 @@ import type { NormalizeResumeJsonOptions } from "./types";
 import { renderTypstPdf } from "./typst";
 
 export { buildResumeRenderDocument } from "./document";
-export {
-  getLatexTemplatePath,
-  getTectonicBinary,
-  readLatexTemplate,
-} from "./latex";
+export { getLatexTemplatePath, getTectonicBinary, readLatexTemplate } from "./latex";
 export type * from "./types";
-export {
-  getTypstBinary,
-  getTypstTemplatePath,
-  readTypstTemplate,
-} from "./typst";
+export { getTypstBinary, getTypstTemplatePath, readTypstTemplate } from "./typst";
 
 type LocalPdfRenderer = Exclude<PdfRenderer, "rxresume">;
 

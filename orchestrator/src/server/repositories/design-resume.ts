@@ -1,9 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db, schema } from "../db/index";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { designResumeAssets, designResumeDocuments } = schema;
 
@@ -38,9 +35,7 @@ export async function listDesignResumeAssets(documentId: string) {
   return db
     .select()
     .from(designResumeAssets)
-    .where(
-      and(assetsScopeFilter(), eq(designResumeAssets.documentId, documentId)),
-    )
+    .where(and(assetsScopeFilter(), eq(designResumeAssets.documentId, documentId)))
     .orderBy(desc(designResumeAssets.updatedAt));
 }
 
@@ -87,9 +82,7 @@ export async function upsertDesignResumeDocument(input: {
         importedAt: input.importedAt,
         updatedAt: input.updatedAt,
       })
-      .where(
-        and(documentsScopeFilter(), eq(designResumeDocuments.id, input.id)),
-      );
+      .where(and(documentsScopeFilter(), eq(designResumeDocuments.id, input.id)));
   } else {
     await db.insert(designResumeDocuments).values({
       id: input.id,
@@ -147,9 +140,7 @@ export async function deleteDesignResumeAsset(id: string) {
 export async function deleteDesignResumeAssetsForDocument(documentId: string) {
   await db
     .delete(designResumeAssets)
-    .where(
-      and(assetsScopeFilter(), eq(designResumeAssets.documentId, documentId)),
-    );
+    .where(and(assetsScopeFilter(), eq(designResumeAssets.documentId, documentId)));
 }
 
 export async function findDesignResumeAssetForDocument(args: {

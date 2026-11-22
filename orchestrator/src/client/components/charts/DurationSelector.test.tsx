@@ -22,38 +22,22 @@ vi.mock("@/components/ui/tabs", () => ({
     <div data-testid="tabs" data-value={value}>
       {children}
       {onValueChange && (
-        <button
-          type="button"
-          data-testid="tab-trigger-7"
-          onClick={() => onValueChange("7")}
-        >
+        <button type="button" data-testid="tab-trigger-7" onClick={() => onValueChange("7")}>
           7d
         </button>
       )}
       {onValueChange && (
-        <button
-          type="button"
-          data-testid="tab-trigger-14"
-          onClick={() => onValueChange("14")}
-        >
+        <button type="button" data-testid="tab-trigger-14" onClick={() => onValueChange("14")}>
           14d
         </button>
       )}
       {onValueChange && (
-        <button
-          type="button"
-          data-testid="tab-trigger-30"
-          onClick={() => onValueChange("30")}
-        >
+        <button type="button" data-testid="tab-trigger-30" onClick={() => onValueChange("30")}>
           30d
         </button>
       )}
       {onValueChange && (
-        <button
-          type="button"
-          data-testid="tab-trigger-90"
-          onClick={() => onValueChange("90")}
-        >
+        <button type="button" data-testid="tab-trigger-90" onClick={() => onValueChange("90")}>
           90d
         </button>
       )}
@@ -62,13 +46,7 @@ vi.mock("@/components/ui/tabs", () => ({
   TabsList: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="tabs-list">{children}</div>
   ),
-  TabsTrigger: ({
-    children,
-    value,
-  }: {
-    children: React.ReactNode;
-    value: string;
-  }) => (
+  TabsTrigger: ({ children, value }: { children: React.ReactNode; value: string }) => (
     <button type="button" data-testid={`tab-${value}`} value={value}>
       {children}
     </button>
@@ -157,9 +135,7 @@ describe("DurationSelector - Edge Cases", () => {
 
   describe("Value Synchronization", () => {
     it("updates when value prop changes", () => {
-      const { rerender } = render(
-        <DurationSelector value={7} onChange={mockOnChange} />,
-      );
+      const { rerender } = render(<DurationSelector value={7} onChange={mockOnChange} />);
 
       expect(screen.getByTestId("tabs")).toHaveAttribute("data-value", "7");
 
@@ -195,12 +171,7 @@ describe("DurationSelector - Edge Cases", () => {
       render(<DurationSelector value={7} onChange={mockOnChange} />);
 
       const expectedValues = [7, 14, 30, 90];
-      const triggers = [
-        "tab-trigger-7",
-        "tab-trigger-14",
-        "tab-trigger-30",
-        "tab-trigger-90",
-      ];
+      const triggers = ["tab-trigger-7", "tab-trigger-14", "tab-trigger-30", "tab-trigger-90"];
 
       triggers.forEach((trigger, index) => {
         fireEvent.click(screen.getByTestId(trigger));

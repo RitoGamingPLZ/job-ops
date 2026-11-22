@@ -1,8 +1,4 @@
-import type {
-  JobOpsAppCapabilities,
-  JobOpsAppMode,
-  JobOpsAppStatusResponse,
-} from "@shared/types";
+import type { JobOpsAppCapabilities, JobOpsAppMode, JobOpsAppStatusResponse } from "@shared/types";
 
 const APP_MODE_ENV_KEY = "JOBOPS_APP_MODE";
 const LEGACY_APP_MODE_ENV_KEY = "JOBOPS_MODE";
@@ -26,23 +22,18 @@ function readTrimmedEnv(env: EnvSource, key: string): string {
 
 function parseAppMode(env: EnvSource): JobOpsAppMode {
   const rawMode = (
-    readTrimmedEnv(env, APP_MODE_ENV_KEY) ||
-    readTrimmedEnv(env, LEGACY_APP_MODE_ENV_KEY)
+    readTrimmedEnv(env, APP_MODE_ENV_KEY) || readTrimmedEnv(env, LEGACY_APP_MODE_ENV_KEY)
   ).toLowerCase();
   if (!rawMode) return "local";
   if (rawMode === "local" || rawMode === "hosted") return rawMode;
-  throw new Error(
-    `${APP_MODE_ENV_KEY} must be "local" or "hosted" when configured.`,
-  );
+  throw new Error(`${APP_MODE_ENV_KEY} must be "local" or "hosted" when configured.`);
 }
 
 function parseBooleanFlag(env: EnvSource, key: string): boolean {
   const normalized = readTrimmedEnv(env, key).toLowerCase();
   if (TRUE_VALUES.has(normalized)) return true;
   if (FALSE_VALUES.has(normalized)) return false;
-  throw new Error(
-    `${key} must be a boolean flag: true/false, 1/0, yes/no, or on/off.`,
-  );
+  throw new Error(`${key} must be a boolean flag: true/false, 1/0, yes/no, or on/off.`);
 }
 
 function buildCapabilities(args: {
@@ -62,25 +53,18 @@ function buildCapabilities(args: {
   };
 }
 
-export function getJobOpsAppConfig(
-  env: EnvSource = process.env,
-): JobOpsAppConfig {
+export function getJobOpsAppConfig(env: EnvSource = process.env): JobOpsAppConfig {
   const appMode = parseAppMode(env);
   const hostedTenantId = readTrimmedEnv(env, HOSTED_TENANT_ID_ENV_KEY) || null;
 
   if (appMode === "hosted" && !hostedTenantId) {
-    throw new Error(
-      `${HOSTED_TENANT_ID_ENV_KEY} is required when ${APP_MODE_ENV_KEY}=hosted.`,
-    );
+    throw new Error(`${HOSTED_TENANT_ID_ENV_KEY} is required when ${APP_MODE_ENV_KEY}=hosted.`);
   }
 
   const capabilities = buildCapabilities({
     appMode,
     hostedSignupsEnabled: parseBooleanFlag(env, HOSTED_SIGNUPS_ENV_KEY),
-    hostedPlatformLlmEnabled: parseBooleanFlag(
-      env,
-      HOSTED_PLATFORM_LLM_ENV_KEY,
-    ),
+    hostedPlatformLlmEnabled: parseBooleanFlag(env, HOSTED_PLATFORM_LLM_ENV_KEY),
     hostedQuotasEnabled: parseBooleanFlag(env, HOSTED_QUOTAS_ENV_KEY),
   });
 
@@ -92,10 +76,7 @@ export function getJobOpsAppConfig(
   };
 }
 
-export function getJobOpsAppStatus(
-  env: EnvSource = process.env,
-): JobOpsAppStatusResponse {
-  const { appMode, capabilities, hostedTenantConfigured } =
-    getJobOpsAppConfig(env);
+export function getJobOpsAppStatus(env: EnvSource = process.env): JobOpsAppStatusResponse {
+  const { appMode, capabilities, hostedTenantConfigured } = getJobOpsAppConfig(env);
   return { appMode, capabilities, hostedTenantConfigured };
 }

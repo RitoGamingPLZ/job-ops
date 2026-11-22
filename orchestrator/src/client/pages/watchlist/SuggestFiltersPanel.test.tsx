@@ -30,12 +30,10 @@ describe("SuggestFiltersPanel", () => {
     expect(await screen.findByText("12 of 85 jobs")).toBeInTheDocument();
     expect(screen.getByText(result.suggestedUrl)).toBeInTheDocument();
     expect(screen.getByText(result.rationale)).toBeInTheDocument();
-    expect(
-      screen.getByRole("list", { name: "Sample job titles" }),
-    ).toHaveTextContent("Software Engineer");
-    expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent(
-      "12 of 85 jobs",
+    expect(screen.getByRole("list", { name: "Sample job titles" })).toHaveTextContent(
+      "Software Engineer",
     );
+    expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent("12 of 85 jobs");
     expect(suggestWatchlistFilters).toHaveBeenCalledWith({
       sourceType: props.sourceType,
       careersUrl: props.careersUrl,
@@ -60,15 +58,11 @@ describe("SuggestFiltersPanel", () => {
     [422, "Filter suggestions are not supported for this source type"],
     [503, "LLM API key not configured"],
   ])("shows a %i API error inline", async (status, message) => {
-    vi.mocked(suggestWatchlistFilters).mockRejectedValue(
-      new ApiClientError(message, { status }),
-    );
+    vi.mocked(suggestWatchlistFilters).mockRejectedValue(new ApiClientError(message, { status }));
     render(<SuggestFiltersPanel {...props} />);
     fireEvent.click(screen.getByRole("button", { name: "Suggest filters" }));
     expect(await screen.findByText(message)).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Suggest filters" }),
-    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Suggest filters" })).toBeEnabled();
   });
 
   it("shows a spinner and prevents repeated requests while loading", async () => {
@@ -87,9 +81,7 @@ describe("SuggestFiltersPanel", () => {
     fireEvent.click(button);
     expect(suggestWatchlistFilters).toHaveBeenCalledTimes(1);
     await act(async () => resolve(result));
-    expect(
-      screen.getByRole("button", { name: "Suggest filters" }),
-    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Suggest filters" })).toBeEnabled();
   });
 
   it("ignores an in-flight answer after the source URL changes", async () => {
@@ -101,22 +93,13 @@ describe("SuggestFiltersPanel", () => {
     );
     const { rerender } = render(<SuggestFiltersPanel {...props} />);
     fireEvent.click(screen.getByRole("button", { name: "Suggest filters" }));
-    rerender(
-      <SuggestFiltersPanel
-        {...props}
-        careersUrl="https://jobs.lever.co/other"
-      />,
-    );
+    rerender(<SuggestFiltersPanel {...props} careersUrl="https://jobs.lever.co/other" />);
     await act(async () => resolve(result));
-    expect(
-      screen.queryByRole("button", { name: "Use this URL" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use this URL" })).not.toBeInTheDocument();
   });
 
   it("disables suggestions until a URL is available", () => {
     render(<SuggestFiltersPanel {...props} careersUrl="" />);
-    expect(
-      screen.getByRole("button", { name: "Suggest filters" }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Suggest filters" })).toBeDisabled();
   });
 });

@@ -108,7 +108,7 @@ Before marking work complete, verify changes with the same checks used by CI.
 
 Run from repository root:
 
-1. `./orchestrator/node_modules/.bin/biome ci .`
+1. `vp check`
 2. `npm run check:types:shared`
 3. `npm --workspace orchestrator run check:types`
 4. `npm --workspace gradcracker-extractor run check:types`
@@ -130,6 +130,7 @@ CI runs on Node 22. If local behavior differs, verify with Node 22 before conclu
 - A change is considered valid only when all required checks pass without ignored failures.
 
 <!-- CODEGRAPH_START -->
+
 ## CodeGraph
 
 In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the repo root), reach for it BEFORE grep/find or reading files when you need to understand or locate code:

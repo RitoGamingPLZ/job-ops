@@ -34,8 +34,7 @@ jobsStagesRouter.get("/:id/events", async (req: Request, res: Response) => {
 jobsStagesRouter.get("/:id/tasks", async (req: Request, res: Response) => {
   try {
     const includeCompleted =
-      req.query.includeCompleted === "1" ||
-      req.query.includeCompleted === "true";
+      req.query.includeCompleted === "1" || req.query.includeCompleted === "true";
     const tasks = await getTasks(req.params.id, includeCompleted);
     ok(res, tasks);
   } catch (error) {
@@ -68,47 +67,41 @@ jobsStagesRouter.post("/:id/stages", async (req: Request, res: Response) => {
   }
 });
 
-jobsStagesRouter.patch(
-  "/:id/events/:eventId",
-  async (req: Request, res: Response) => {
-    try {
-      const input = updateStageEventSchema.parse(req.body);
-      updateStageEvent(req.params.eventId, input);
-      ok(res, null);
-      queueMicrotask(() => {
-        void reconcileActivationMilestonesFromHistorySafely({
-          route: "PATCH /api/jobs/:id/events/:eventId",
-          jobId: req.params.id,
-          eventId: req.params.eventId,
-        });
+jobsStagesRouter.patch("/:id/events/:eventId", async (req: Request, res: Response) => {
+  try {
+    const input = updateStageEventSchema.parse(req.body);
+    updateStageEvent(req.params.eventId, input);
+    ok(res, null);
+    queueMicrotask(() => {
+      void reconcileActivationMilestonesFromHistorySafely({
+        route: "PATCH /api/jobs/:id/events/:eventId",
+        jobId: req.params.id,
+        eventId: req.params.eventId,
       });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return fail(res, badRequest(error.message, error.flatten()));
-      }
-      fail(res, toAppError(error));
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return fail(res, badRequest(error.message, error.flatten()));
     }
-  },
-);
+    fail(res, toAppError(error));
+  }
+});
 
-jobsStagesRouter.delete(
-  "/:id/events/:eventId",
-  async (req: Request, res: Response) => {
-    try {
-      deleteStageEvent(req.params.eventId);
-      ok(res, null);
-      queueMicrotask(() => {
-        void reconcileActivationMilestonesFromHistorySafely({
-          route: "DELETE /api/jobs/:id/events/:eventId",
-          jobId: req.params.id,
-          eventId: req.params.eventId,
-        });
+jobsStagesRouter.delete("/:id/events/:eventId", async (req: Request, res: Response) => {
+  try {
+    deleteStageEvent(req.params.eventId);
+    ok(res, null);
+    queueMicrotask(() => {
+      void reconcileActivationMilestonesFromHistorySafely({
+        route: "DELETE /api/jobs/:id/events/:eventId",
+        jobId: req.params.id,
+        eventId: req.params.eventId,
       });
-    } catch (error) {
-      fail(res, toAppError(error));
-    }
-  },
-);
+    });
+  } catch (error) {
+    fail(res, toAppError(error));
+  }
+});
 
 jobsStagesRouter.patch("/:id/outcome", async (req: Request, res: Response) => {
   try {
@@ -117,9 +110,7 @@ jobsStagesRouter.patch("/:id/outcome", async (req: Request, res: Response) => {
     if (!currentJob) {
       return fail(res, notFound("Job not found"));
     }
-    const closedAt = input.outcome
-      ? (input.closedAt ?? Math.floor(Date.now() / 1000))
-      : null;
+    const closedAt = input.outcome ? (input.closedAt ?? Math.floor(Date.now() / 1000)) : null;
     const job = await jobsRepo.updateJob(req.params.id, {
       outcome: input.outcome,
       closedAt,

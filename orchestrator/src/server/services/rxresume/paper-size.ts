@@ -7,9 +7,7 @@ const RX_RESUME_PAGE_FORMATS = new Set<string>(["a4", "letter", "free-form"]);
 type RecordLike = Record<string, unknown>;
 
 function asRecord(value: unknown): RecordLike {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as RecordLike)
-    : {};
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as RecordLike) : {};
 }
 
 /**

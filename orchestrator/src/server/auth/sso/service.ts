@@ -24,9 +24,7 @@ export type SsoLoginResult = {
 
 const USERNAME_SUFFIX_LIMIT = 20;
 
-export function toSsoIdentitySummary(
-  identity: SsoIdentity,
-): SsoIdentitySummary {
+export function toSsoIdentitySummary(identity: SsoIdentity): SsoIdentitySummary {
   return {
     id: identity.id,
     provider: identity.provider,
@@ -49,10 +47,7 @@ function isUsernameConflictError(error: unknown): boolean {
   return /UNIQUE constraint failed: users\.username/i.test(error.message);
 }
 
-function buildUsernameAttempts(
-  provider: SsoProvider,
-  claims: SsoIdentityClaims,
-): string[] {
+function buildUsernameAttempts(provider: SsoProvider, claims: SsoIdentityClaims): string[] {
   const base =
     [
       claims.preferredUsername,
@@ -87,21 +82,12 @@ function readEmailDomain(email: string | null): string {
  * OIDC provider already decides who may authenticate, so its allowlist is
  * optional.
  */
-function assertSignupAllowed(
-  config: SsoProviderConfig,
-  claims: SsoIdentityClaims,
-): void {
+function assertSignupAllowed(config: SsoProviderConfig, claims: SsoIdentityClaims): void {
   if (config.id === "oidc" && config.allowedEmailDomains.length === 0) return;
 
   const domain = readEmailDomain(claims.email);
-  if (
-    !claims.emailVerified ||
-    !domain ||
-    !config.allowedEmailDomains.includes(domain)
-  ) {
-    throw forbidden(
-      "This identity is not allowed to create an account on this instance",
-    );
+  if (!claims.emailVerified || !domain || !config.allowedEmailDomains.includes(domain)) {
+    throw forbidden("This identity is not allowed to create an account on this instance");
   }
 }
 
@@ -110,8 +96,7 @@ async function provisionSsoUser(input: {
   claims: SsoIdentityClaims;
 }): Promise<usersRepo.PublicUser> {
   const appConfig = getJobOpsAppConfig();
-  const hostedTenantId =
-    appConfig.appMode === "hosted" ? appConfig.hostedTenantId : null;
+  const hostedTenantId = appConfig.appMode === "hosted" ? appConfig.hostedTenantId : null;
 
   if (appConfig.appMode === "hosted") {
     if (!appConfig.capabilities.hostedSignups) {
@@ -171,8 +156,7 @@ export async function completeSsoLogin(input: {
     if (
       !user ||
       user.isDisabled ||
-      (appConfig.appMode === "hosted" &&
-        user.workspaceId !== appConfig.hostedTenantId)
+      (appConfig.appMode === "hosted" && user.workspaceId !== appConfig.hostedTenantId)
     ) {
       throw unauthorized("Invalid credentials");
     }
@@ -229,9 +213,7 @@ export async function linkSsoIdentity(input: {
 
   if (existing) {
     if (existing.userId !== input.userId) {
-      throw conflict(
-        `This ${config.displayName} account is already linked to a different user`,
-      );
+      throw conflict(`This ${config.displayName} account is already linked to a different user`);
     }
     return { identity: toSsoIdentitySummary(existing), created: false };
   }
@@ -248,19 +230,13 @@ export async function linkSsoIdentity(input: {
   return { identity: toSsoIdentitySummary(identity), created: true };
 }
 
-export async function unlinkSsoIdentity(input: {
-  id: string;
-  userId: string;
-}): Promise<void> {
+export async function unlinkSsoIdentity(input: { id: string; userId: string }): Promise<void> {
   const user = await usersRepo.getUserById(input.userId);
   if (!user) {
     throw unauthorized("Authentication required");
   }
 
-  if (
-    !user.hasPassword &&
-    (await ssoIdentitiesRepo.countSsoIdentitiesForUser(input.userId)) <= 1
-  ) {
+  if (!user.hasPassword && (await ssoIdentitiesRepo.countSsoIdentitiesForUser(input.userId)) <= 1) {
     throw badRequest("Set a password before removing your last sign-in method");
   }
 

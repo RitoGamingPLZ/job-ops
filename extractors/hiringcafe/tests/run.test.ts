@@ -6,10 +6,7 @@ import {
   runHiringCafe,
 } from "../src/run";
 
-function createTextResponse(
-  body: string,
-  init: Partial<Response> = {},
-): Response {
+function createTextResponse(body: string, init: Partial<Response> = {}): Response {
   return {
     ok: init.ok ?? true,
     status: init.status ?? 200,
@@ -18,10 +15,7 @@ function createTextResponse(
   } as Response;
 }
 
-function createJsonResponse(
-  body: unknown,
-  init: Partial<Response> = {},
-): Response {
+function createJsonResponse(body: unknown, init: Partial<Response> = {}): Response {
   return {
     ok: init.ok ?? true,
     status: init.status ?? 200,
@@ -142,9 +136,7 @@ describe("Hiring Cafe SSR parser", () => {
   });
 
   it("returns null for an expired detail page", () => {
-    expect(
-      parseHiringCafeJobDetailPage(createExpiredJobDetailHtml()),
-    ).toBeNull();
+    expect(parseHiringCafeJobDetailPage(createExpiredJobDetailHtml())).toBeNull();
   });
 
   it("builds the public search URL with url-encoded JSON state", () => {
@@ -201,9 +193,7 @@ describe("runHiringCafe", () => {
 
     const first = await runHiringCafe(options);
     expect(first.challengeRequired).toContain("page=1");
-    expect(first.searchResume?.pendingDetailChallengeUrl).toBe(
-      "https://hiringcafe.com/job/req-1",
-    );
+    expect(first.searchResume?.pendingDetailChallengeUrl).toBe("https://hiringcafe.com/job/req-1");
 
     searchPageClear = true;
     const resumed = await runHiringCafe({
@@ -245,9 +235,7 @@ describe("runHiringCafe", () => {
 
     expect(result.jobs.map((job) => job.sourceJobId)).toEqual(["job-3"]);
     expect(
-      new URL(
-        fetchMock.mock.calls[0]?.[0] ?? "https://hiringcafe.com/",
-      ).searchParams.get("page"),
+      new URL(fetchMock.mock.calls[0]?.[0] ?? "https://hiringcafe.com/").searchParams.get("page"),
     ).toBe("2");
   });
 
@@ -291,9 +279,7 @@ describe("runHiringCafe", () => {
       }
       requestedSearchPages.push(url);
       const parsed = new URL(url);
-      const state = JSON.parse(
-        parsed.searchParams.get("searchState") ?? "{}",
-      ) as {
+      const state = JSON.parse(parsed.searchParams.get("searchState") ?? "{}") as {
         searchQuery: string;
         locations: Array<{ id: string }>;
       };
@@ -347,9 +333,7 @@ describe("runHiringCafe", () => {
     });
     expect(requestedSearchPages).toHaveLength(1);
     expect(
-      new URL(
-        requestedSearchPages[0] ?? "https://hiringcafe.com/",
-      ).searchParams.get("page"),
+      new URL(requestedSearchPages[0] ?? "https://hiringcafe.com/").searchParams.get("page"),
     ).toBe("2");
     expect(challengedAgain.searchResume).toEqual(first.searchResume);
 
@@ -363,9 +347,7 @@ describe("runHiringCafe", () => {
     expect(resumed.challengeRequired).toBeUndefined();
     const searches = requestedSearchPages.map((url) => {
       const parsed = new URL(url);
-      const state = JSON.parse(
-        parsed.searchParams.get("searchState") ?? "{}",
-      ) as {
+      const state = JSON.parse(parsed.searchParams.get("searchState") ?? "{}") as {
         searchQuery: string;
         locations: Array<{ id: string }>;
       };
@@ -412,18 +394,16 @@ describe("runHiringCafe", () => {
       fetchImpl: fetchMock as typeof fetch,
     });
 
-    expect(result.jobs).toEqual([
-      expect.objectContaining({ sourceJobId: "job-1" }),
-    ]);
+    expect(result.jobs).toEqual([expect.objectContaining({ sourceJobId: "job-1" })]);
     expect(pageReader.read).toHaveBeenCalledOnce();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("keeps jobs from earlier search terms when a later search is challenged", async () => {
     const fetchMock = vi.fn((url: string) => {
-      const searchState = JSON.parse(
-        new URL(url).searchParams.get("searchState") ?? "{}",
-      ) as { searchQuery?: string };
+      const searchState = JSON.parse(new URL(url).searchParams.get("searchState") ?? "{}") as {
+        searchQuery?: string;
+      };
       return Promise.resolve(
         searchState.searchQuery === "backend engineer"
           ? createTextResponse("<html>challenges.cloudflare.com</html>", {
@@ -442,14 +422,12 @@ describe("runHiringCafe", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.jobs).toEqual([
-      expect.objectContaining({ sourceJobId: "job-1" }),
-    ]);
+    expect(result.jobs).toEqual([expect.objectContaining({ sourceJobId: "job-1" })]);
     expect(result.sourceErrors).toEqual([expect.stringContaining("HTTP 429")]);
     expect(
-      new URL(
-        result.challengeRequired ?? "https://hiringcafe.com/",
-      ).searchParams.get("searchState"),
+      new URL(result.challengeRequired ?? "https://hiringcafe.com/").searchParams.get(
+        "searchState",
+      ),
     ).toContain("backend engineer");
   });
 
@@ -457,9 +435,9 @@ describe("runHiringCafe", () => {
     let challengeSecondTerm = true;
     const fetchedTerms: string[] = [];
     const fetchMock = vi.fn((url: string) => {
-      const searchState = JSON.parse(
-        new URL(url).searchParams.get("searchState") ?? "{}",
-      ) as { searchQuery?: string };
+      const searchState = JSON.parse(new URL(url).searchParams.get("searchState") ?? "{}") as {
+        searchQuery?: string;
+      };
       const term = searchState.searchQuery ?? "";
       fetchedTerms.push(term);
       if (term === "backend engineer" && challengeSecondTerm) {
@@ -504,18 +482,13 @@ describe("runHiringCafe", () => {
     expect(resumed.success).toBe(true);
     expect(resumed.challengeRequired).toBeUndefined();
     expect(fetchedTerms).toEqual(["web developer", "data engineer"]);
-    expect(resumed.jobs.map((job) => job.sourceJobId)).toEqual([
-      "job-1",
-      "job-3",
-    ]);
+    expect(resumed.jobs.map((job) => job.sourceJobId)).toEqual(["job-1", "job-3"]);
   });
 
   it("fetches rendered search pages and maps jobs without a browser", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(
-        createTextResponse(createSearchHtml([createRawJob()])),
-      );
+      .mockResolvedValue(createTextResponse(createSearchHtml([createRawJob()])));
 
     const result = await runHiringCafe({
       searchTerms: ["web developer"],
@@ -568,9 +541,7 @@ describe("runHiringCafe", () => {
     };
     const fetchMock = vi.fn((url: string) => {
       if (url === "https://hiringcafe.com/job/req-1") {
-        return Promise.resolve(
-          createTextResponse(createJobDetailHtml(detailJob)),
-        );
+        return Promise.resolve(createTextResponse(createJobDetailHtml(detailJob)));
       }
 
       return Promise.resolve(createTextResponse(createSearchHtml([searchHit])));
@@ -710,9 +681,7 @@ describe("runHiringCafe", () => {
       fetchImpl: fetchMock as typeof fetch,
     });
 
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://hiringcafe.com/job/req-old",
-    );
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://hiringcafe.com/job/req-old");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
       success: true,
@@ -769,9 +738,7 @@ describe("runHiringCafe", () => {
     });
     const fetchMock = vi.fn((url: string) => {
       if (url === "https://hiringcafe.com/job/req-1") {
-        return Promise.resolve(
-          createTextResponse(createExpiredJobDetailHtml()),
-        );
+        return Promise.resolve(createTextResponse(createExpiredJobDetailHtml()));
       }
 
       return Promise.resolve(createTextResponse(createSearchHtml([searchHit])));
@@ -827,9 +794,10 @@ describe("runHiringCafe", () => {
       String(url).startsWith("https://hiringcafe.com/"),
     );
     const url = new URL(String(searchCall?.[0]));
-    const searchState = JSON.parse(
-      url.searchParams.get("searchState") ?? "{}",
-    ) as Record<string, unknown>;
+    const searchState = JSON.parse(url.searchParams.get("searchState") ?? "{}") as Record<
+      string,
+      unknown
+    >;
     const locations = searchState.locations as Array<Record<string, unknown>>;
     const firstLocation = locations[0];
 
@@ -845,9 +813,7 @@ describe("runHiringCafe", () => {
   });
 
   it("serializes the selected map point and radius without geocoding a city", async () => {
-    const fetchMock = vi.fn(() =>
-      Promise.resolve(createTextResponse(createSearchHtml([]))),
-    );
+    const fetchMock = vi.fn(() => Promise.resolve(createTextResponse(createSearchHtml([]))));
 
     await runHiringCafe({
       searchTerms: ["web developer"],
@@ -872,9 +838,10 @@ describe("runHiringCafe", () => {
       String(url).startsWith("https://hiringcafe.com/"),
     );
     const url = new URL(String(searchCall?.[0]));
-    const searchState = JSON.parse(
-      url.searchParams.get("searchState") ?? "{}",
-    ) as Record<string, unknown>;
+    const searchState = JSON.parse(url.searchParams.get("searchState") ?? "{}") as Record<
+      string,
+      unknown
+    >;
     const locations = searchState.locations as Array<{
       geometry?: { location?: { lat?: number; lon?: number } };
       options?: { radius?: number; radius_unit?: string };

@@ -309,17 +309,7 @@ const customSectionSchema = baseSectionSchema.extend({
 
 const customSectionsSchema = z.array(customSectionSchema);
 
-const fontWeightSchema = z.enum([
-  "100",
-  "200",
-  "300",
-  "400",
-  "500",
-  "600",
-  "700",
-  "800",
-  "900",
-]);
+const fontWeightSchema = z.enum(["100", "200", "300", "400", "500", "600", "700", "800", "900"]);
 
 const typographyItemSchema = z.object({
   fontFamily: z.string(),
@@ -369,9 +359,7 @@ const styleIntentSchema = z
     textDecoration: z.enum(["none", "underline", "line-through"]).optional(),
     textDecorationStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
     textAlign: z.enum(["left", "center", "right", "justify"]).optional(),
-    textTransform: z
-      .enum(["none", "uppercase", "lowercase", "capitalize"])
-      .optional(),
+    textTransform: z.enum(["none", "uppercase", "lowercase", "capitalize"]).optional(),
     padding: z.number().min(-72).max(72).optional(),
     paddingTop: z.number().min(-72).max(72).optional(),
     paddingRight: z.number().min(-72).max(72).optional(),
@@ -420,9 +408,7 @@ const styleRuleSchema = z
           sectionType: sectionTypeSchema,
         })
         .strict(),
-      z
-        .object({ scope: z.literal("sectionId"), sectionId: z.string().min(1) })
-        .strict(),
+      z.object({ scope: z.literal("sectionId"), sectionId: z.string().min(1) }).strict(),
     ]),
     slots: z
       .record(styleSlotSchema, styleIntentSchema)
@@ -531,19 +517,14 @@ function migrateLegacyInlineLinkOptions(input: unknown): unknown {
   const sections = asRecord(source.sections);
   const nextSections = sections
     ? Object.fromEntries(
-        Object.entries(sections).map(([key, section]) => [
-          key,
-          migrateSection(section),
-        ]),
+        Object.entries(sections).map(([key, section]) => [key, migrateSection(section)]),
       )
     : source.sections;
   const customSections = Array.isArray(source.customSections)
     ? source.customSections.map(migrateSection)
     : source.customSections;
 
-  return changed
-    ? { ...source, sections: nextSections, customSections }
-    : input;
+  return changed ? { ...source, sections: nextSections, customSections } : input;
 }
 
 const v5ResumeDataObjectSchema = z.object({
@@ -681,14 +662,7 @@ export const defaultV5ResumeData: V5ResumeData = {
             "volunteer",
             "references",
           ],
-          sidebar: [
-            "skills",
-            "certifications",
-            "awards",
-            "languages",
-            "interests",
-            "publications",
-          ],
+          sidebar: ["skills", "certifications", "awards", "languages", "interests", "publications"],
         },
       ],
     },

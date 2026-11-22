@@ -18,10 +18,7 @@ import type {
   UpdateJobInput,
   UpdateJobNoteInput,
 } from "@shared/types";
-import type {
-  LocationEvidence,
-  LocationEvidenceEntry,
-} from "@shared/types/location";
+import type { LocationEvidence, LocationEvidenceEntry } from "@shared/types/location";
 import {
   and,
   desc,
@@ -37,10 +34,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { db, schema } from "../db/index";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { jobNotes, jobs } = schema;
 
@@ -49,10 +43,7 @@ function jobsScopeFilter() {
 }
 
 function untargetedJobsFilter() {
-  return or(
-    isNull(jobs.readyAt),
-    notInArray(jobs.status, ["discovered", "processing", "ready"]),
-  );
+  return or(isNull(jobs.readyAt), notInArray(jobs.status, ["discovered", "processing", "ready"]));
 }
 
 function jobNotesScopeFilter() {
@@ -87,9 +78,7 @@ function normalizeStatusFilter(statuses?: JobStatus[]): string | null {
   return Array.from(new Set(statuses)).sort().join(",");
 }
 
-function parseLocationEvidence(
-  raw: string | null | undefined,
-): JobLocationEvidence | null {
+function parseLocationEvidence(raw: string | null | undefined): JobLocationEvidence | null {
   if (!raw) return null;
 
   try {
@@ -125,11 +114,7 @@ export async function getAllJobs(statuses?: JobStatus[]): Promise<Job[]> {
           .from(jobs)
           .where(and(jobsScopeFilter(), inArray(jobs.status, statuses)))
           .orderBy(desc(jobs.discoveredAt))
-      : db
-          .select()
-          .from(jobs)
-          .where(jobsScopeFilter())
-          .orderBy(desc(jobs.discoveredAt));
+      : db.select().from(jobs).where(jobsScopeFilter()).orderBy(desc(jobs.discoveredAt));
 
   const rows = await query;
   return rows.map(mapRowToJob);
@@ -186,11 +171,7 @@ export async function getJobListItems(
           .from(jobs)
           .where(and(jobsScopeFilter(), inArray(jobs.status, statuses)))
           .orderBy(desc(jobs.discoveredAt))
-      : db
-          .select(selection)
-          .from(jobs)
-          .where(jobsScopeFilter())
-          .orderBy(desc(jobs.discoveredAt));
+      : db.select(selection).from(jobs).where(jobsScopeFilter()).orderBy(desc(jobs.discoveredAt));
 
   const rows = await query;
   return rows.map((row) => {
@@ -246,9 +227,7 @@ export async function getAppliedDuplicateMatchCandidates(): Promise<
 /**
  * Get a lightweight revision token for jobs list invalidation.
  */
-export async function getJobsRevision(
-  statuses?: JobStatus[],
-): Promise<JobsRevisionResponse> {
+export async function getJobsRevision(statuses?: JobStatus[]): Promise<JobsRevisionResponse> {
   const statusFilter = normalizeStatusFilter(statuses);
   const whereClause =
     statuses && statuses.length > 0
@@ -291,11 +270,7 @@ export async function listJobNotes(jobId: string): Promise<JobNote[]> {
     .select()
     .from(jobNotes)
     .where(and(jobNotesScopeFilter(), eq(jobNotes.jobId, jobId)))
-    .orderBy(
-      desc(jobNotes.updatedAt),
-      desc(jobNotes.createdAt),
-      desc(jobNotes.id),
-    );
+    .orderBy(desc(jobNotes.updatedAt), desc(jobNotes.createdAt), desc(jobNotes.id));
 
   return rows.map(mapRowToJobNote);
 }
@@ -331,20 +306,11 @@ export async function getJobNoteById(noteId: string): Promise<JobNote | null> {
   return row ? mapRowToJobNote(row) : null;
 }
 
-export async function getJobNoteForJob(
-  jobId: string,
-  noteId: string,
-): Promise<JobNote | null> {
+export async function getJobNoteForJob(jobId: string, noteId: string): Promise<JobNote | null> {
   const [row] = await db
     .select()
     .from(jobNotes)
-    .where(
-      and(
-        jobNotesScopeFilter(),
-        eq(jobNotes.id, noteId),
-        eq(jobNotes.jobId, jobId),
-      ),
-    );
+    .where(and(jobNotesScopeFilter(), eq(jobNotes.id, noteId), eq(jobNotes.jobId, jobId)));
   return row ? mapRowToJobNote(row) : null;
 }
 
@@ -386,28 +352,17 @@ export async function updateJobNote(
       updatedAt: now,
     })
     .where(
-      and(
-        jobNotesScopeFilter(),
-        eq(jobNotes.id, input.noteId),
-        eq(jobNotes.jobId, input.jobId),
-      ),
+      and(jobNotesScopeFilter(), eq(jobNotes.id, input.noteId), eq(jobNotes.jobId, input.jobId)),
     );
 
   return getJobNoteForJob(input.jobId, input.noteId);
 }
 
-export async function deleteJobNote(input: {
-  jobId: string;
-  noteId: string;
-}): Promise<number> {
+export async function deleteJobNote(input: { jobId: string; noteId: string }): Promise<number> {
   const result = await db
     .delete(jobNotes)
     .where(
-      and(
-        jobNotesScopeFilter(),
-        eq(jobNotes.id, input.noteId),
-        eq(jobNotes.jobId, input.jobId),
-      ),
+      and(jobNotesScopeFilter(), eq(jobNotes.id, input.noteId), eq(jobNotes.jobId, input.jobId)),
     );
 
   return result.changes;
@@ -453,13 +408,7 @@ export async function getJobBySourceJobId(
   const [row] = await db
     .select()
     .from(jobs)
-    .where(
-      and(
-        jobsScopeFilter(),
-        eq(jobs.source, source),
-        eq(jobs.sourceJobId, sourceJobId),
-      ),
-    );
+    .where(and(jobsScopeFilter(), eq(jobs.source, source), eq(jobs.sourceJobId, sourceJobId)));
   return row ? mapRowToJob(row) : null;
 }
 
@@ -467,10 +416,7 @@ export async function getJobBySourceJobId(
  * Get all known job URLs (for deduplication / crawler optimizations).
  */
 export async function getAllJobUrls(): Promise<string[]> {
-  const rows = await db
-    .select({ jobUrl: jobs.jobUrl })
-    .from(jobs)
-    .where(jobsScopeFilter());
+  const rows = await db.select({ jobUrl: jobs.jobUrl }).from(jobs).where(jobsScopeFilter());
   return rows.map((r) => r.jobUrl);
 }
 
@@ -637,10 +583,7 @@ export async function createJob(input: CreateJobInput): Promise<Job> {
 /**
  * Update a job.
  */
-export async function updateJob(
-  id: string,
-  input: UpdateJobInput,
-): Promise<Job | null> {
+export async function updateJob(id: string, input: UpdateJobInput): Promise<Job | null> {
   const now = new Date().toISOString();
   if (input.jobUrl !== undefined) {
     const existing = await getJobByUrl(input.jobUrl);
@@ -706,8 +649,7 @@ export async function finalizeGeneratedPdfIfCurrent(input: {
     .update(jobs)
     .set({
       // processing -> ready (ready stays ready); any other status is left as it is.
-      ...(input.expectedStatus === "processing" ||
-      input.expectedStatus === "ready"
+      ...(input.expectedStatus === "processing" || input.expectedStatus === "ready"
         ? {
             status: "ready" as const,
             readyAt: sql`coalesce(${jobs.readyAt}, ${now})`,
@@ -757,10 +699,7 @@ export async function getJobStats(): Promise<Record<JobStatus, number>> {
   return stats;
 }
 
-export async function getReadyJobsWithGeneratedPdfs(
-  limit: number,
-  offset = 0,
-): Promise<Job[]> {
+export async function getReadyJobsWithGeneratedPdfs(limit: number, offset = 0): Promise<Job[]> {
   const rows = await db
     .select()
     .from(jobs)
@@ -782,23 +721,14 @@ export async function getReadyJobsWithGeneratedPdfs(
 /**
  * Get discovered jobs missing a suitability score.
  */
-export async function getUnscoredDiscoveredJobs(
-  limit?: number,
-): Promise<Job[]> {
+export async function getUnscoredDiscoveredJobs(limit?: number): Promise<Job[]> {
   const query = db
     .select()
     .from(jobs)
-    .where(
-      and(
-        jobsScopeFilter(),
-        eq(jobs.status, "discovered"),
-        isNull(jobs.suitabilityScore),
-      ),
-    )
+    .where(and(jobsScopeFilter(), eq(jobs.status, "discovered"), isNull(jobs.suitabilityScore)))
     .orderBy(desc(jobs.discoveredAt));
 
-  const rows =
-    typeof limit === "number" ? await query.limit(limit) : await query;
+  const rows = typeof limit === "number" ? await query.limit(limit) : await query;
   return rows.map(mapRowToJob);
 }
 
@@ -856,10 +786,7 @@ export async function resetInterruptedJobs(): Promise<number> {
 }
 
 /** Set targeting without changing pipeline status; guard the write atomically. */
-export async function setJobTargeted(
-  id: string,
-  targeted: boolean,
-): Promise<Job | null> {
+export async function setJobTargeted(id: string, targeted: boolean): Promise<Job | null> {
   const now = new Date().toISOString();
   const rows = await db
     .update(jobs)
@@ -873,9 +800,7 @@ export async function setJobTargeted(
         eq(jobs.id, id),
         inArray(
           jobs.status,
-          targeted
-            ? ["discovered", "processing", "ready"]
-            : ["discovered", "ready"],
+          targeted ? ["discovered", "processing", "ready"] : ["discovered", "ready"],
         ),
       ),
     )
@@ -883,9 +808,7 @@ export async function setJobTargeted(
   return rows[0] ? mapRowToJob(rows[0]) : null;
 }
 
-export async function deleteJob(
-  id: string,
-): Promise<"deleted" | "not_found" | "busy"> {
+export async function deleteJob(id: string): Promise<"deleted" | "not_found" | "busy"> {
   const runningChat = db
     .select({ id: schema.jobChatRuns.id })
     .from(schema.jobChatRuns)

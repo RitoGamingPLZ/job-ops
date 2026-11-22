@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type Stripe from "stripe";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.sequential("hosted billing service", () => {
+describe("hosted billing service", () => {
   const originalEnv = { ...process.env };
   let tempDir: string;
   let closeDb: (() => void) | null = null;
@@ -93,9 +93,9 @@ describe.sequential("hosted billing service", () => {
     } as unknown as Stripe;
     const { createCheckoutSession } = await import("./billing");
 
-    await expect(
-      withAlice(() => createCheckoutSession(stripe)),
-    ).resolves.toEqual({ url: "https://checkout.stripe.test/session" });
+    await expect(withAlice(() => createCheckoutSession(stripe))).resolves.toEqual({
+      url: "https://checkout.stripe.test/session",
+    });
     expect(createCustomer).toHaveBeenCalledWith({
       metadata: {
         jobops_tenant_id: "tenant_default",
@@ -117,9 +117,7 @@ describe.sequential("hosted billing service", () => {
   });
 
   it("does not create a second Checkout subscription while one is open", async () => {
-    const { saveSubscriptionState } = await import(
-      "@server/repositories/account-subscriptions"
-    );
+    const { saveSubscriptionState } = await import("@server/repositories/account-subscriptions");
     await saveSubscriptionState({
       scope: { tenantId: "tenant_default", userId: "alice" },
       stripeCustomerId: "cus_alice",
@@ -138,9 +136,10 @@ describe.sequential("hosted billing service", () => {
     } as unknown as Stripe;
     const { createCheckoutSession } = await import("./billing");
 
-    await expect(
-      withAlice(() => createCheckoutSession(stripe)),
-    ).rejects.toMatchObject({ status: 409, code: "CONFLICT" });
+    await expect(withAlice(() => createCheckoutSession(stripe))).rejects.toMatchObject({
+      status: 409,
+      code: "CONFLICT",
+    });
     expect(createSession).not.toHaveBeenCalled();
   });
 
@@ -154,9 +153,7 @@ describe.sequential("hosted billing service", () => {
     } as unknown as Stripe;
     const { handleStripeWebhook } = await import("./billing");
 
-    await expect(
-      handleStripeWebhook(Buffer.from("{}"), "invalid", stripe),
-    ).rejects.toMatchObject({
+    await expect(handleStripeWebhook(Buffer.from("{}"), "invalid", stripe)).rejects.toMatchObject({
       status: 400,
       code: "INVALID_REQUEST",
       message: "Invalid Stripe webhook signature.",
@@ -172,9 +169,7 @@ describe.sequential("hosted billing service", () => {
       subscriptions: { retrieve },
     } as unknown as Stripe;
     const { handleStripeWebhook } = await import("./billing");
-    const { getCurrentAccountEntitlements } = await import(
-      "./account-entitlements"
-    );
+    const { getCurrentAccountEntitlements } = await import("./account-entitlements");
 
     constructEvent.mockReturnValue({
       type: "customer.subscription.created",
@@ -182,18 +177,14 @@ describe.sequential("hosted billing service", () => {
     });
     await handleStripeWebhook(Buffer.from("{}"), "valid", stripe);
     await handleStripeWebhook(Buffer.from("{}"), "valid", stripe);
-    await expect(
-      withAlice(getCurrentAccountEntitlements),
-    ).resolves.toMatchObject({ plan: "pro" });
+    await expect(withAlice(getCurrentAccountEntitlements)).resolves.toMatchObject({ plan: "pro" });
 
     constructEvent.mockReturnValue({
       type: "customer.subscription.deleted",
       data: { object: { ...active, status: "canceled" } },
     });
     await handleStripeWebhook(Buffer.from("{}"), "valid", stripe);
-    await expect(
-      withAlice(getCurrentAccountEntitlements),
-    ).resolves.toMatchObject({ plan: "free" });
+    await expect(withAlice(getCurrentAccountEntitlements)).resolves.toMatchObject({ plan: "free" });
 
     const older = {
       ...active,
@@ -208,12 +199,8 @@ describe.sequential("hosted billing service", () => {
       data: { object: older },
     });
     await handleStripeWebhook(Buffer.from("{}"), "valid", stripe);
-    await expect(
-      withAlice(getCurrentAccountEntitlements),
-    ).resolves.toMatchObject({ plan: "free" });
-    const { getAccountSubscription } = await import(
-      "@server/repositories/account-subscriptions"
-    );
+    await expect(withAlice(getCurrentAccountEntitlements)).resolves.toMatchObject({ plan: "free" });
+    const { getAccountSubscription } = await import("@server/repositories/account-subscriptions");
     await expect(
       getAccountSubscription({ tenantId: "tenant_default", userId: "alice" }),
     ).resolves.toMatchObject({

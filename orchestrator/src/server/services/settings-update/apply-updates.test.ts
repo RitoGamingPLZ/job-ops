@@ -91,9 +91,7 @@ describe("applySettingsUpdates", () => {
   it("resolves and persists normalized resumeProjects", async () => {
     const settingsRepo = await import("@server/repositories/settings");
     const profileService = await import("@server/services/profile");
-    const resumeProjectsService = await import(
-      "@server/services/resumeProjects"
-    );
+    const resumeProjectsService = await import("@server/services/resumeProjects");
 
     const input: ResumeProjectsSettingsInput = {
       maxProjects: 2,
@@ -107,27 +105,21 @@ describe("applySettingsUpdates", () => {
     };
 
     vi.mocked(profileService.getProfile).mockResolvedValue({} as any);
-    vi.mocked(resumeProjectsService.extractProjectsFromProfile).mockReturnValue(
-      {
-        catalog: [{ id: "proj-1" }, { id: "proj-2" }] as any,
-        selectionItems: [],
-      },
+    vi.mocked(resumeProjectsService.extractProjectsFromProfile).mockReturnValue({
+      catalog: [{ id: "proj-1" }, { id: "proj-2" }] as any,
+      selectionItems: [],
+    });
+    vi.mocked(resumeProjectsService.normalizeResumeProjectsSettings).mockReturnValue(
+      normalized as any,
     );
-    vi.mocked(
-      resumeProjectsService.normalizeResumeProjectsSettings,
-    ).mockReturnValue(normalized as any);
 
     await applySettingsUpdates({ resumeProjects: input });
 
     expect(profileService.getProfile).toHaveBeenCalledOnce();
-    const allowedSet = vi.mocked(
-      resumeProjectsService.normalizeResumeProjectsSettings,
-    ).mock.calls[0]?.[1];
+    const allowedSet = vi.mocked(resumeProjectsService.normalizeResumeProjectsSettings).mock
+      .calls[0]?.[1];
     expect(allowedSet).toBeInstanceOf(Set);
-    expect(Array.from(allowedSet as Set<string>).sort()).toEqual([
-      "proj-1",
-      "proj-2",
-    ]);
+    expect(Array.from(allowedSet as Set<string>).sort()).toEqual(["proj-1", "proj-2"]);
     expect(vi.mocked(settingsRepo.setSetting)).toHaveBeenCalledWith(
       "resumeProjects",
       JSON.stringify(normalized),

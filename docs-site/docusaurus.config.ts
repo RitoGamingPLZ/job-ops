@@ -19,16 +19,12 @@ function isSitemapItem(value: unknown): value is SitemapItem {
 const productionSiteUrl = "https://jobops.dakheera47.com";
 const siteUrl =
   process.env.DOCS_SITE_URL ??
-  (process.env.NODE_ENV === "development"
-    ? "http://localhost:3006"
-    : productionSiteUrl);
+  (process.env.NODE_ENV === "development" ? "http://localhost:3006" : productionSiteUrl);
 const configuredBaseUrl = process.env.DOCS_BASE_URL ?? "/docs/";
 const normalizedBaseUrl = configuredBaseUrl.startsWith("/")
   ? configuredBaseUrl
   : `/${configuredBaseUrl}`;
-const siteBaseUrl = normalizedBaseUrl.endsWith("/")
-  ? normalizedBaseUrl
-  : `${normalizedBaseUrl}/`;
+const siteBaseUrl = normalizedBaseUrl.endsWith("/") ? normalizedBaseUrl : `${normalizedBaseUrl}/`;
 const docsBuildDemoMode = process.env.DEMO_MODE === "true";
 
 const config: Config = {
@@ -97,8 +93,7 @@ const config: Config = {
             return rawItems.filter(isSitemapItem).filter((item) => {
               const pathname = new URL(item.url).pathname;
               const isNextDocsRoute = pathname.startsWith("/docs/next/");
-              const isVersionedDocsRoute =
-                /^\/docs\/\d+\.\d+\.\d+(?:\/|$)/.test(pathname);
+              const isVersionedDocsRoute = /^\/docs\/\d+\.\d+\.\d+(?:\/|$)/.test(pathname);
 
               return !isNextDocsRoute && !isVersionedDocsRoute;
             });

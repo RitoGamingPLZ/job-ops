@@ -14,11 +14,7 @@ import { Router } from "express";
 export const billingRouter = Router();
 
 billingRouter.use((_req, _res, next) => {
-  next(
-    getJobOpsAppConfig().appMode === "hosted"
-      ? undefined
-      : notFound("Route not found"),
-  );
+  next(getJobOpsAppConfig().appMode === "hosted" ? undefined : notFound("Route not found"));
 });
 
 billingRouter.get(

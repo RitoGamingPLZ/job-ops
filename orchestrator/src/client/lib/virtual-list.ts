@@ -43,11 +43,10 @@ type WindowVirtualizedListOptions = VirtualizedListBaseOptions & {
   mode?: "window";
 };
 
-type ElementVirtualizedListOptions<TScrollElement extends Element> =
-  VirtualizedListBaseOptions & {
-    mode: "element";
-    scrollElement: TScrollElement | null;
-  };
+type ElementVirtualizedListOptions<TScrollElement extends Element> = VirtualizedListBaseOptions & {
+  mode: "element";
+  scrollElement: TScrollElement | null;
+};
 
 type ScrollObserverCleanup = () => void;
 
@@ -59,8 +58,7 @@ const addEventListenerOptions = {
   passive: true,
 };
 
-const supportsScrollEnd =
-  typeof window === "undefined" ? true : "onscrollend" in window;
+const supportsScrollEnd = typeof window === "undefined" ? true : "onscrollend" in window;
 
 const createDebouncedCallback = (
   targetWindow: Window & typeof globalThis,
@@ -99,9 +97,7 @@ const observeElementOffsetWithCleanup = <
   const scrollElement = instance.scrollElement;
   if (!scrollElement) return;
 
-  const targetWindow = instance.targetWindow as
-    | (Window & typeof globalThis)
-    | null;
+  const targetWindow = instance.targetWindow as (Window & typeof globalThis) | null;
   if (!targetWindow) return;
 
   let offset = 0;
@@ -116,25 +112,18 @@ const observeElementOffsetWithCleanup = <
 
   const createHandler = (isScrolling: boolean) => () => {
     const { horizontal, isRtl } = instance.options;
-    offset = horizontal
-      ? scrollElement.scrollLeft * ((isRtl && -1) || 1)
-      : scrollElement.scrollTop;
+    offset = horizontal ? scrollElement.scrollLeft * ((isRtl && -1) || 1) : scrollElement.scrollTop;
     fallback?.();
     cb(offset, isScrolling);
   };
 
   const handler = createHandler(true);
   const endHandler = createHandler(false);
-  const registerScrollEndEvent =
-    instance.options.useScrollendEvent && supportsScrollEnd;
+  const registerScrollEndEvent = instance.options.useScrollendEvent && supportsScrollEnd;
 
   scrollElement.addEventListener("scroll", handler, addEventListenerOptions);
   if (registerScrollEndEvent) {
-    scrollElement.addEventListener(
-      "scrollend",
-      endHandler,
-      addEventListenerOptions,
-    );
+    scrollElement.addEventListener("scrollend", endHandler, addEventListenerOptions);
   }
 
   return () => {
@@ -153,9 +142,7 @@ const observeWindowOffsetWithCleanup = <TItemElement extends Element>(
   const scrollElement = instance.scrollElement;
   if (!scrollElement) return;
 
-  const targetWindow = instance.targetWindow as
-    | (Window & typeof globalThis)
-    | null;
+  const targetWindow = instance.targetWindow as (Window & typeof globalThis) | null;
   if (!targetWindow) return;
 
   let offset = 0;
@@ -176,16 +163,11 @@ const observeWindowOffsetWithCleanup = <TItemElement extends Element>(
 
   const handler = createHandler(true);
   const endHandler = createHandler(false);
-  const registerScrollEndEvent =
-    instance.options.useScrollendEvent && supportsScrollEnd;
+  const registerScrollEndEvent = instance.options.useScrollendEvent && supportsScrollEnd;
 
   scrollElement.addEventListener("scroll", handler, addEventListenerOptions);
   if (registerScrollEndEvent) {
-    scrollElement.addEventListener(
-      "scrollend",
-      endHandler,
-      addEventListenerOptions,
-    );
+    scrollElement.addEventListener("scrollend", endHandler, addEventListenerOptions);
   }
 
   return () => {
@@ -197,22 +179,17 @@ const observeWindowOffsetWithCleanup = <TItemElement extends Element>(
   };
 };
 
-export function useVirtualizedList<
-  TItemElement extends Element = HTMLDivElement,
->(options: WindowVirtualizedListOptions): Virtualizer<Window, TItemElement>;
+export function useVirtualizedList<TItemElement extends Element = HTMLDivElement>(
+  options: WindowVirtualizedListOptions,
+): Virtualizer<Window, TItemElement>;
 export function useVirtualizedList<
   TScrollElement extends Element,
   TItemElement extends Element = HTMLDivElement,
 >(
   options: ElementVirtualizedListOptions<TScrollElement>,
 ): Virtualizer<TScrollElement, TItemElement>;
-export function useVirtualizedList<
-  TScrollElement extends Element,
-  TItemElement extends Element,
->(
-  options:
-    | WindowVirtualizedListOptions
-    | ElementVirtualizedListOptions<TScrollElement>,
+export function useVirtualizedList<TScrollElement extends Element, TItemElement extends Element>(
+  options: WindowVirtualizedListOptions | ElementVirtualizedListOptions<TScrollElement>,
 ) {
   const {
     count,
@@ -224,8 +201,7 @@ export function useVirtualizedList<
     scrollMargin = 0,
   } = options;
   const isElementMode = options.mode === "element";
-  const isJsdom =
-    typeof navigator !== "undefined" && navigator.userAgent.includes("jsdom");
+  const isJsdom = typeof navigator !== "undefined" && navigator.userAgent.includes("jsdom");
 
   const scrollWindow = (
     offset: number,
@@ -250,8 +226,7 @@ export function useVirtualizedList<
     const property = instance.options.horizontal ? "scrollX" : "scrollY";
 
     try {
-      (scrollElement as unknown as Record<string, unknown>)[property] =
-        nextOffset;
+      (scrollElement as unknown as Record<string, unknown>)[property] = nextOffset;
     } catch {
       try {
         Object.defineProperty(scrollElement, property, {
@@ -313,8 +288,7 @@ export function useVirtualizedList<
     enabled: enabled && isElementMode,
     initialRect,
     scrollMargin,
-    getScrollElement: () =>
-      options.mode === "element" ? options.scrollElement : null,
+    getScrollElement: () => (options.mode === "element" ? options.scrollElement : null),
     observeElementOffset: observeElementOffsetWithCleanup,
     scrollToFn: scrollElement,
     useFlushSync: false,
@@ -346,9 +320,7 @@ export function useVirtualizedList<
  * unmounts while the list stays on screen, so this re-measures on layout
  * changes rather than once on mount.
  */
-export function useWindowScrollMargin<
-  TElement extends HTMLElement = HTMLDivElement,
->() {
+export function useWindowScrollMargin<TElement extends HTMLElement = HTMLDivElement>() {
   const [element, setElement] = useState<TElement | null>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
 
@@ -363,9 +335,7 @@ export function useWindowScrollMargin<
     if (!targetWindow) return;
 
     const measure = () => {
-      const next = Math.round(
-        element.getBoundingClientRect().top + targetWindow.scrollY,
-      );
+      const next = Math.round(element.getBoundingClientRect().top + targetWindow.scrollY);
       setScrollMargin((current) => (current === next ? current : next));
     };
 

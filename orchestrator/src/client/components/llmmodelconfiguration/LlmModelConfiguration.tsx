@@ -12,11 +12,7 @@ import {
   supportsLlmModelSuggestions,
 } from "@client/pages/settings/utils";
 import { getDefaultModelForProvider } from "@shared/settings-registry";
-import type {
-  LlmPurpose,
-  LlmPurposeApiKeyHints,
-  LlmPurposeOverrides,
-} from "@shared/types";
+import type { LlmPurpose, LlmPurposeApiKeyHints, LlmPurposeOverrides } from "@shared/types";
 import type React from "react";
 import { useDeferredValue, useEffect } from "react";
 import {
@@ -78,9 +74,7 @@ type LlmModelConfigurationProps = {
   modelProjectSelection?: TextFieldBinding;
   purposeOverrides?: PurposeOverrideBinding;
   validationSlot?: React.ReactNode;
-  onCodexAuthStatusChange?: React.ComponentProps<
-    typeof CodexAuthPanel
-  >["onStatusChange"];
+  onCodexAuthStatusChange?: React.ComponentProps<typeof CodexAuthPanel>["onStatusChange"];
 };
 
 export function LlmModelConfiguration({
@@ -106,26 +100,21 @@ export function LlmModelConfiguration({
   const providerConfig = getLlmProviderConfig(selectedProvider);
   const { showApiKey, showBaseUrl } = providerConfig;
   const isCodexProvider = providerConfig.normalizedProvider === "codex";
-  const isGeminiCliProvider =
-    providerConfig.normalizedProvider === "gemini_cli";
-  const isClaudeCliProvider =
-    providerConfig.normalizedProvider === "claude_cli";
+  const isGeminiCliProvider = providerConfig.normalizedProvider === "gemini_cli";
+  const isClaudeCliProvider = providerConfig.normalizedProvider === "claude_cli";
   const requiresExplicitDefaultModel =
     providerConfig.normalizedProvider === "ollama" ||
     providerConfig.normalizedProvider === "litellm";
   const deferredProvider = useDeferredValue(selectedProvider);
   const deferredBaseUrl = useDeferredValue(baseUrl.value);
   const deferredApiKey = useDeferredValue(apiKey.value);
-  const supportsModelSuggestions =
-    supportsLlmModelSuggestions(selectedProvider);
+  const supportsModelSuggestions = supportsLlmModelSuggestions(selectedProvider);
   const hasAvailableApiKey = providerConfig.requiresApiKey
     ? Boolean(deferredApiKey.trim() || apiKeyHint)
     : true;
   const providerDefaultModel = getDefaultModelForProvider(
     selectedProvider,
-    selectedProvider === savedProvider
-      ? (defaultModel ?? undefined)
-      : undefined,
+    selectedProvider === savedProvider ? (defaultModel ?? undefined) : undefined,
   );
 
   useEffect(() => {
@@ -184,8 +173,7 @@ export function LlmModelConfiguration({
     "-";
   const selectedScoringModel = modelScorer?.value.trim() ?? "";
   const selectedTailoringModel = modelTailoring?.value.trim() ?? "";
-  const selectedProjectSelectionModel =
-    modelProjectSelection?.value.trim() ?? "";
+  const selectedProjectSelectionModel = modelProjectSelection?.value.trim() ?? "";
   const previewPurpose = (purpose: LlmPurpose, legacyModel: string) => {
     const value = purposeOverrides?.values[purpose];
     const purposeProvider = value?.provider?.trim() || selectedProvider;
@@ -201,10 +189,7 @@ export function LlmModelConfiguration({
   };
   const scoring = previewPurpose("scoring", selectedScoringModel);
   const tailoring = previewPurpose("tailoring", selectedTailoringModel);
-  const projectSelection = previewPurpose(
-    "projectSelection",
-    selectedProjectSelectionModel,
-  );
+  const projectSelection = previewPurpose("projectSelection", selectedProjectSelectionModel);
   const scoringModel = scoring.model;
   const tailoringModel = tailoring.model;
   const projectSelectionModel = projectSelection.model;
@@ -224,8 +209,8 @@ export function LlmModelConfiguration({
     )
   ) : isCodexProvider ? (
     <>
-      Type the exact model name manually, or leave blank to use the{" "}
-      {providerConfig.label} default model.{" "}
+      Type the exact model name manually, or leave blank to use the {providerConfig.label} default
+      model.{" "}
       <a
         href="https://developers.openai.com/codex/models"
         target="_blank"
@@ -266,21 +251,15 @@ export function LlmModelConfiguration({
     fallbackValue: modelProjectSelection?.value.trim(),
   });
   const providerGridClass =
-    mode === "compact"
-      ? "grid gap-5 lg:grid-cols-2"
-      : "grid gap-4 md:grid-cols-2";
+    mode === "compact" ? "grid gap-5 lg:grid-cols-2" : "grid gap-4 md:grid-cols-2";
   const providerHintClass =
-    mode === "compact"
-      ? "text-sm text-muted-foreground"
-      : "text-xs text-muted-foreground";
+    mode === "compact" ? "text-sm text-muted-foreground" : "text-xs text-muted-foreground";
 
   return (
     <>
       <div className={mode === "compact" ? "space-y-6" : "space-y-4"}>
         <div className="space-y-4">
-          {mode === "settings" ? (
-            <div className="text-sm font-medium">LLM Provider</div>
-          ) : null}
+          {mode === "settings" ? <div className="text-sm font-medium">LLM Provider</div> : null}
           <div className={providerGridClass}>
             <div className="space-y-2">
               <label htmlFor="llmProvider" className="text-sm font-medium">
@@ -291,10 +270,7 @@ export function LlmModelConfiguration({
                 onValueChange={handleProviderChange}
                 disabled={disabled}
               >
-                <SelectTrigger
-                  id="llmProvider"
-                  className={mode === "compact" ? "h-10" : undefined}
-                >
+                <SelectTrigger id="llmProvider" className={mode === "compact" ? "h-10" : undefined}>
                   <SelectValue placeholder="Select provider" />
                 </SelectTrigger>
                 <SelectContent>
@@ -305,22 +281,16 @@ export function LlmModelConfiguration({
                   ))}
                 </SelectContent>
               </Select>
-              {provider.error ? (
-                <p className="text-xs text-destructive">{provider.error}</p>
-              ) : null}
+              {provider.error ? <p className="text-xs text-destructive">{provider.error}</p> : null}
               {mode === "settings" ? (
                 <p className="text-xs text-muted-foreground">
-                  Used for scoring, tailoring, ghostwriting, and email
-                  classification.
+                  Used for scoring, tailoring, ghostwriting, and email classification.
                 </p>
               ) : null}
               <p className={providerHintClass}>{providerConfig.providerHint}</p>
             </div>
             {isCodexProvider ? (
-              <CodexAuthPanel
-                isBusy={disabled}
-                onStatusChange={onCodexAuthStatusChange}
-              />
+              <CodexAuthPanel isBusy={disabled} onStatusChange={onCodexAuthStatusChange} />
             ) : null}
             {isGeminiCliProvider ? <GeminiCliSetupHint /> : null}
             {isClaudeCliProvider ? <ClaudeCliSetupHint /> : null}
@@ -396,9 +366,7 @@ export function LlmModelConfiguration({
           <Separator />
 
           <div>
-            <div className="font-medium mt-8">
-              Purpose-specific model overrides
-            </div>
+            <div className="font-medium mt-8">Purpose-specific model overrides</div>
             <div className="space-y-4">
               {purposeOverrides ? (
                 <Accordion type="single" collapsible>
@@ -406,9 +374,7 @@ export function LlmModelConfiguration({
                     <AccordionItem key={purpose.id} value={purpose.id}>
                       <AccordionTrigger>
                         <div className="flex flex-col items-start gap-1">
-                          <span className="font-medium text-sm">
-                            {purpose.label}
-                          </span>
+                          <span className="font-medium text-sm">{purpose.label}</span>
                           <span className="text-xs text-muted-foreground">
                             {purpose.description}
                           </span>
@@ -423,12 +389,8 @@ export function LlmModelConfiguration({
                           defaultBaseUrl={resolvedBaseUrl}
                           defaultApiKeyHint={apiKeyHint ?? null}
                           value={purposeOverrides.values[purpose.id]}
-                          apiKeyValue={
-                            purposeOverrides.apiKeys[purpose.id] ?? ""
-                          }
-                          apiKeyHint={
-                            purposeOverrides.apiKeyHints[purpose.id] ?? null
-                          }
+                          apiKeyValue={purposeOverrides.apiKeys[purpose.id] ?? ""}
+                          apiKeyHint={purposeOverrides.apiKeyHints[purpose.id] ?? null}
                           currentModel={previewPurpose(purpose.id, "").model}
                           disabled={disabled}
                           onChange={purposeOverrides.onChange}
@@ -482,9 +444,7 @@ export function LlmModelConfiguration({
           </div>
 
           <div className="space-y-3 text-sm">
-            <div className="text-xs text-muted-foreground">
-              Configuration preview
-            </div>
+            <div className="text-xs text-muted-foreground">Configuration preview</div>
             <div className="grid gap-x-4 gap-y-2 text-xs sm:grid-cols-[160px_1fr]">
               <div className="text-muted-foreground">Provider</div>
               <div className="font-mono">{selectedProvider || "-"}</div>
@@ -503,16 +463,12 @@ export function LlmModelConfiguration({
 
               <div className="text-muted-foreground">Scoring model</div>
               <div className="font-mono">
-                {purposeOverrides || selectedScoringModel
-                  ? scoringModel
-                  : "inherits"}
+                {purposeOverrides || selectedScoringModel ? scoringModel : "inherits"}
               </div>
 
               <div className="text-muted-foreground">Tailoring model</div>
               <div className="font-mono">
-                {purposeOverrides || selectedTailoringModel
-                  ? tailoringModel
-                  : "inherits"}
+                {purposeOverrides || selectedTailoringModel ? tailoringModel : "inherits"}
               </div>
 
               <div className="text-muted-foreground">Project selection</div>

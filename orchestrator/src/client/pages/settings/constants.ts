@@ -27,11 +27,7 @@ export const STATUS_DESCRIPTIONS: Record<JobStatus, string> = {
   expired: "Deadline passed",
 };
 
-export type WritingStylePresetId =
-  | "professional"
-  | "concise"
-  | "direct"
-  | "friendly";
+export type WritingStylePresetId = "professional" | "concise" | "direct" | "friendly";
 
 export type WritingStyleDraft = {
   tone: string;

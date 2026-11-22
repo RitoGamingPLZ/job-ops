@@ -41,9 +41,7 @@ describe("WebhooksSection", () => {
     expect(screen.getByText("Pipeline Status")).toBeInTheDocument();
     expect(screen.getByText("Job Completion")).toBeInTheDocument();
 
-    expect(
-      screen.getByDisplayValue("https://pipeline.com"),
-    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("https://pipeline.com")).toBeInTheDocument();
     expect(screen.getByDisplayValue("https://job.com")).toBeInTheDocument();
     expect(screen.getByLabelText("Webhook Secret")).toBeInTheDocument();
   });

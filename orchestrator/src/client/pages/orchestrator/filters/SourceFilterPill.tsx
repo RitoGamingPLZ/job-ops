@@ -3,10 +3,7 @@ import { Globe } from "lucide-react";
 import type React from "react";
 import { sourceLabel } from "@/lib/utils";
 import { orderedFilterSources } from "../constants";
-import {
-  type SingleSelectFilterOption,
-  SingleSelectFilterPill,
-} from "./SingleSelectFilterPill";
+import { type SingleSelectFilterOption, SingleSelectFilterPill } from "./SingleSelectFilterPill";
 import type { SourceFilterPillProps } from "./types";
 
 export const SourceFilterPill: React.FC<SourceFilterPillProps> = ({
@@ -29,11 +26,7 @@ export const SourceFilterPill: React.FC<SourceFilterPillProps> = ({
       icon={<Globe />}
       label="Source"
       active={sourceFilter !== "all"}
-      summary={
-        sourceFilter === "all"
-          ? null
-          : (sourceLabel[sourceFilter] ?? sourceFilter)
-      }
+      summary={sourceFilter === "all" ? null : (sourceLabel[sourceFilter] ?? sourceFilter)}
       value={sourceFilter}
       options={options}
       onChange={onSourceFilterChange}

@@ -84,9 +84,7 @@ describe("pipeline fanout progress", () => {
       progressHelpers.updateFanoutTaskTerms("hiringcafe", "Data", 2, 3);
       progressHelpers.updateFanoutTaskTerms("hiringcafe", "Data", 3, 3);
       progressHelpers.settleFanoutTask("hiringcafe", "complete");
-      expect(
-        getProgress().fanout?.roles.every((role) => role.complete === 1),
-      ).toBe(true);
+      expect(getProgress().fanout?.roles.every((role) => role.complete === 1)).toBe(true);
     });
   });
 

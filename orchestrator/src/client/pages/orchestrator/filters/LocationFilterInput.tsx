@@ -15,10 +15,7 @@ export const LocationFilterInput: React.FC<LocationFilterInputProps> = ({
       value={locationFilter}
       onChange={(event) => onLocationFilterChange(event.target.value)}
       placeholder="Location"
-      className={cn(
-        "h-9 w-[180px] rounded-full pl-8 text-xs",
-        locationFilter.trim() && "pr-8",
-      )}
+      className={cn("h-9 w-[180px] rounded-full pl-8 text-xs", locationFilter.trim() && "pr-8")}
     />
     {locationFilter.trim() ? (
       <button

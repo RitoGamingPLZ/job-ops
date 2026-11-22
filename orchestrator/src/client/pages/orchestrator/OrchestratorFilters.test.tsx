@@ -1,15 +1,7 @@
 import type { JobSource } from "@shared/types.js";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { trackProductEvent } from "@/lib/analytics";
 import type { FilterTab, JobSort } from "./constants";
 import { OrchestratorFilters } from "./OrchestratorFilters";
@@ -42,9 +34,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-const renderFilters = (
-  overrides?: Partial<ComponentProps<typeof OrchestratorFilters>>,
-) => {
+const renderFilters = (overrides?: Partial<ComponentProps<typeof OrchestratorFilters>>) => {
   const props = {
     activeTab: "ready" as FilterTab,
     onTabChange: vi.fn(),
@@ -106,9 +96,7 @@ describe("OrchestratorFilters", () => {
       companyFilter: ["google", "google llc"],
       isFiltersOpen: true,
     });
-    expect(screen.getByRole("button", { name: /^filters/i })).toHaveTextContent(
-      "1",
-    );
+    expect(screen.getByRole("button", { name: /^filters/i })).toHaveTextContent("1");
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(props.onResetFilters).toHaveBeenCalled();
   });
@@ -116,12 +104,8 @@ describe("OrchestratorFilters", () => {
   it("hides the filter bar by default", () => {
     renderFilters({ isFiltersOpen: false });
 
-    expect(
-      screen.queryByRole("textbox", { name: /filter by location/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /^source/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /filter by location/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^source/i })).not.toBeInTheDocument();
   });
 
   it("toggles the filter bar when the Filters button is clicked", () => {
@@ -138,9 +122,7 @@ describe("OrchestratorFilters", () => {
       sourceFilter: "linkedin",
     });
 
-    expect(screen.getByRole("button", { name: /^filters/i })).toHaveTextContent(
-      "1",
-    );
+    expect(screen.getByRole("button", { name: /^filters/i })).toHaveTextContent("1");
   });
 
   it("notifies when tabs and command search shortcut are used", () => {
@@ -160,9 +142,7 @@ describe("OrchestratorFilters", () => {
     fireEvent.pointerOver(discoveredTab);
     fireEvent.pointerMove(discoveredTab);
 
-    expect(
-      await screen.findAllByText("Jobs searched, ready to be tailored"),
-    ).toHaveLength(2);
+    expect(await screen.findAllByText("Jobs searched, ready to be tailored")).toHaveLength(2);
   });
 
   it("updates source and salary range from the filter bar", async () => {
@@ -182,9 +162,7 @@ describe("OrchestratorFilters", () => {
       max: null,
     });
 
-    fireEvent.click(
-      screen.getByRole("combobox", { name: "Salary range specifier" }),
-    );
+    fireEvent.click(screen.getByRole("combobox", { name: "Salary range specifier" }));
     fireEvent.click(await screen.findByRole("option", { name: "between" }));
     expect(props.onSalaryFilterChange).toHaveBeenCalledWith({
       mode: "between",
@@ -197,9 +175,7 @@ describe("OrchestratorFilters", () => {
     const { props } = renderFilters();
 
     fireEvent.click(screen.getByRole("button", { name: /^sort/i }));
-    fireEvent.click(
-      await screen.findByRole("combobox", { name: "Sort field" }),
-    );
+    fireEvent.click(await screen.findByRole("combobox", { name: "Sort field" }));
     fireEvent.click(await screen.findByRole("option", { name: "Posted" }));
     expect(props.onSortChange).toHaveBeenCalledWith({
       key: "datePosted",
@@ -215,9 +191,7 @@ describe("OrchestratorFilters", () => {
     });
 
     fireEvent.click(screen.getByRole("combobox", { name: "Sort order" }));
-    fireEvent.click(
-      await screen.findByRole("option", { name: "Smallest first" }),
-    );
+    fireEvent.click(await screen.findByRole("option", { name: "Smallest first" }));
     expect(props.onSortChange).toHaveBeenCalledWith({
       key: "score",
       direction: "asc",
@@ -298,12 +272,8 @@ describe("OrchestratorFilters", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^source/i }));
 
-    expect(
-      screen.queryByRole("button", { name: "LinkedIn" }),
-    ).not.toBeInTheDocument();
-    expect(
-      await screen.findByRole("button", { name: "Gradcracker" }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "LinkedIn" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Gradcracker" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Manual" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));

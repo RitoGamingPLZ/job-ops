@@ -60,25 +60,13 @@ describe("analytics", () => {
 
     expect(typeof firstPayload.analytics_user_id).toBe("string");
     expect(firstPayload.analytics_user_id).toBeTruthy();
-    expect(secondPayload.analytics_user_id).toBe(
-      firstPayload.analytics_user_id,
-    );
+    expect(secondPayload.analytics_user_id).toBe(firstPayload.analytics_user_id);
     expect(storedId).toBe(firstPayload.analytics_user_id);
     expect(firstPayload.app_version).toBe("abc1234-dev");
     expect(secondPayload.app_version).toBe("abc1234-dev");
 
-    expect(op).toHaveBeenNthCalledWith(
-      1,
-      "track",
-      "star_repo_click",
-      firstPayload,
-    );
-    expect(op).toHaveBeenNthCalledWith(
-      2,
-      "track",
-      "jobs_search_composer_opened",
-      secondPayload,
-    );
+    expect(op).toHaveBeenNthCalledWith(1, "track", "star_repo_click", firstPayload);
+    expect(op).toHaveBeenNthCalledWith(2, "track", "jobs_search_composer_opened", secondPayload);
   });
 
   it("drops disallowed keys and non-primitive payload values", () => {
@@ -116,10 +104,7 @@ describe("analytics", () => {
       { label: "hello", count: 0, enabled: false, empty: null },
       { label: "hello", count: 0, enabled: false, empty: null },
     ],
-    [
-      { QueryText: "private", statusCODE: 1, safe: "retained" },
-      { safe: "retained" },
-    ],
+    [{ QueryText: "private", statusCODE: 1, safe: "retained" }, { safe: "retained" }],
     [
       { count: Number.NaN, high: Number.POSITIVE_INFINITY },
       { count: Number.NaN, high: Number.POSITIVE_INFINITY },
@@ -145,9 +130,9 @@ describe("analytics", () => {
 
     expect(firstHeaders["x-jobops-analytics-session-id"]).toBeTruthy();
     expect(secondHeaders).toEqual(firstHeaders);
-    expect(
-      window.sessionStorage.getItem("jobops.analytics.session_id.v1"),
-    ).toBe(firstHeaders["x-jobops-analytics-session-id"]);
+    expect(window.sessionStorage.getItem("jobops.analytics.session_id.v1")).toBe(
+      firstHeaders["x-jobops-analytics-session-id"],
+    );
   });
 
   it("identifies authenticated users with Umami distinct IDs", () => {
@@ -157,9 +142,7 @@ describe("analytics", () => {
     expect(identify).toHaveBeenCalledTimes(1);
     expect(identify).toHaveBeenCalledWith("user-123");
     expect(op).toHaveBeenCalledWith("identify", { profileId: "user-123" });
-    expect(window.localStorage.getItem("jobops.analytics.user_id.v1")).toBe(
-      "user-123",
-    );
+    expect(window.localStorage.getItem("jobops.analytics.user_id.v1")).toBe("user-123");
   });
 
   it("uses identified distinct IDs in event metadata", () => {

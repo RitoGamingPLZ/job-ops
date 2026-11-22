@@ -332,9 +332,7 @@ export const GLASSDOOR_SUPPORTED_COUNTRY_KEYS = [
   "vietnam",
 ] as const;
 
-export const ADZUNA_SUPPORTED_COUNTRY_KEYS = Object.keys(
-  ADZUNA_COUNTRY_CODE_BY_KEY,
-);
+export const ADZUNA_SUPPORTED_COUNTRY_KEYS = Object.keys(ADZUNA_COUNTRY_CODE_BY_KEY);
 
 const SOURCE_SUPPORTED_COUNTRY_KEYS: Partial<Record<JobSource, string[]>> = {
   gradcracker: ["united kingdom"],
@@ -350,23 +348,18 @@ const SOURCE_SUPPORTED_COUNTRY_KEYS: Partial<Record<JobSource, string[]>> = {
   wazzuf: ["egypt"],
 };
 
-const SOURCE_SUPPORTED_COUNTRY_KEYS_NORMALIZED: Partial<
-  Record<JobSource, string[]>
-> = {};
-const SOURCE_SUPPORTED_COUNTRY_SETS: Partial<Record<JobSource, Set<string>>> =
-  {};
+const SOURCE_SUPPORTED_COUNTRY_KEYS_NORMALIZED: Partial<Record<JobSource, string[]>> = {};
+const SOURCE_SUPPORTED_COUNTRY_SETS: Partial<Record<JobSource, Set<string>>> = {};
 
-for (const [source, countries] of Object.entries(
-  SOURCE_SUPPORTED_COUNTRY_KEYS,
-) as Array<[JobSource, string[]]>) {
+for (const [source, countries] of Object.entries(SOURCE_SUPPORTED_COUNTRY_KEYS) as Array<
+  [JobSource, string[]]
+>) {
   const normalized = countries.map((country) => normalizeCountryKey(country));
   SOURCE_SUPPORTED_COUNTRY_KEYS_NORMALIZED[source] = normalized;
   SOURCE_SUPPORTED_COUNTRY_SETS[source] = new Set(normalized);
 }
 
-export function getSourceSupportedCountryKeys(
-  source: JobSource,
-): string[] | null {
+export function getSourceSupportedCountryKeys(source: JobSource): string[] | null {
   return SOURCE_SUPPORTED_COUNTRY_KEYS_NORMALIZED[source] ?? null;
 }
 
@@ -413,18 +406,14 @@ function buildRegionNameMap(): Map<string, string> {
   return map;
 }
 
-export function getCountryIso2Code(
-  country: string | null | undefined,
-): string | null {
+export function getCountryIso2Code(country: string | null | undefined): string | null {
   const countryKey = normalizeCountryKey(country);
   const code = countryKey.toUpperCase();
   if (/^[A-Z]{2}$/.test(code) && validRegionCodes.has(code)) return code;
   return ISO2_ALIASES[countryKey] ?? regionNameMap.get(countryKey) ?? null;
 }
 
-export function getCountryNameVariants(
-  country: string | null | undefined,
-): string[] {
+export function getCountryNameVariants(country: string | null | undefined): string[] {
   const countryKey = normalizeCountryKey(country);
   if (!countryKey) return [];
 
@@ -454,35 +443,22 @@ export function getCountryNameVariants(
 export function formatCountryLabel(value: string): string {
   const normalized = normalizeCountryKey(value);
   if (!normalized) return "";
-  return (
-    COUNTRY_LABELS[normalized] ||
-    normalized.replace(/\b\w/g, (char) => char.toUpperCase())
-  );
+  return COUNTRY_LABELS[normalized] || normalized.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 export const SUPPORTED_COUNTRY_KEYS = Array.from(
-  new Set(
-    SUPPORTED_COUNTRY_INPUTS.map((country) => normalizeCountryKey(country)),
-  ),
+  new Set(SUPPORTED_COUNTRY_INPUTS.map((country) => normalizeCountryKey(country))),
 ).filter(Boolean);
 
 export function isUkCountry(country: string | null | undefined): boolean {
   return normalizeCountryKey(country) === "united kingdom";
 }
 
-export function isGlassdoorCountry(
-  country: string | null | undefined,
-): boolean {
-  return (
-    SOURCE_SUPPORTED_COUNTRY_SETS.glassdoor?.has(
-      normalizeCountryKey(country),
-    ) ?? false
-  );
+export function isGlassdoorCountry(country: string | null | undefined): boolean {
+  return SOURCE_SUPPORTED_COUNTRY_SETS.glassdoor?.has(normalizeCountryKey(country)) ?? false;
 }
 
-export function getAdzunaCountryCode(
-  country: string | null | undefined,
-): string | null {
+export function getAdzunaCountryCode(country: string | null | undefined): string | null {
   return ADZUNA_COUNTRY_CODE_BY_KEY[normalizeCountryKey(country)] ?? null;
 }
 
@@ -492,8 +468,7 @@ export function isSourceAllowedForCountry(
 ): boolean {
   const supportedCountryKeys = SOURCE_SUPPORTED_COUNTRY_SETS[source];
   return (
-    supportedCountryKeys === undefined ||
-    supportedCountryKeys.has(normalizeCountryKey(country))
+    supportedCountryKeys === undefined || supportedCountryKeys.has(normalizeCountryKey(country))
   );
 }
 

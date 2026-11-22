@@ -4,14 +4,8 @@ import * as settingsRepo from "@server/repositories/settings";
 import type { Job } from "@shared/types";
 
 export async function notifyJobCompleteWebhook(job: Job) {
-  const overrideWebhookUrl = await settingsRepo.getSetting(
-    "jobCompleteWebhookUrl",
-  );
-  const webhookUrl = (
-    overrideWebhookUrl ||
-    process.env.JOB_COMPLETE_WEBHOOK_URL ||
-    ""
-  ).trim();
+  const overrideWebhookUrl = await settingsRepo.getSetting("jobCompleteWebhookUrl");
+  const webhookUrl = (overrideWebhookUrl || process.env.JOB_COMPLETE_WEBHOOK_URL || "").trim();
   if (!webhookUrl) return;
 
   try {

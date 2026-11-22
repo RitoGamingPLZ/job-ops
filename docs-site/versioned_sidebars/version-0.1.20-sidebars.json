@@ -29,10 +29,7 @@
     {
       "type": "category",
       "label": "Self-Hosting & Ops",
-      "items": [
-        "getting-started/self-hosting",
-        "troubleshooting/common-problems"
-      ]
+      "items": ["getting-started/self-hosting", "troubleshooting/common-problems"]
     },
     {
       "type": "category",

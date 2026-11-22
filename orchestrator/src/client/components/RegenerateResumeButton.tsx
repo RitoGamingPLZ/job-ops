@@ -27,10 +27,7 @@ export function RegenerateResumeButton({
   const [open, setOpen] = useState(false);
   const mutation = useRegenerateJobResumeMutation();
   const busy =
-    disabled ||
-    mutation.isPending ||
-    job.status === "processing" ||
-    isPdfRegenerating(job);
+    disabled || mutation.isPending || job.status === "processing" || isPdfRegenerating(job);
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
@@ -43,10 +40,9 @@ export function RegenerateResumeButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Regenerate resume?</AlertDialogTitle>
           <AlertDialogDescription>
-            Re-tailors from your candidate library and replaces this job's
-            resume, including your edits.
-            {(job.pdfFreshness === "uploaded" ||
-              job.pdfSource === "uploaded") &&
+            Re-tailors from your candidate library and replaces this job's resume, including your
+            edits.
+            {(job.pdfFreshness === "uploaded" || job.pdfSource === "uploaded") &&
               " The uploaded PDF will be replaced by a generated one."}
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -57,8 +53,7 @@ export function RegenerateResumeButton({
             onClick={() =>
               mutation.mutate(job.id, {
                 onSuccess: () => toast.success("Regenerating resume"),
-                onError: (error) =>
-                  showErrorToast(error, "Failed to regenerate resume"),
+                onError: (error) => showErrorToast(error, "Failed to regenerate resume"),
               })
             }
           >

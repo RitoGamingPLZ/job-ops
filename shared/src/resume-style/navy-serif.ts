@@ -54,9 +54,7 @@ export const NAVY_SERIF_CSS_VARS: Record<string, string> = {
   "--rs-strong-weight": String(s.strongWeight),
   "--rs-entry-weight": String(s.entryWeight),
   "--rs-entry-style": s.entryStyle,
-  ...Object.fromEntries(
-    Object.entries(s.color).map(([k, v]) => [`--rs-color-${k}`, v]),
-  ),
+  ...Object.fromEntries(Object.entries(s.color).map(([k, v]) => [`--rs-color-${k}`, v])),
   ...Object.fromEntries(
     Object.entries({ ...s.size, ...s.space }).map(([k, v]) => [
       `--rs-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`,

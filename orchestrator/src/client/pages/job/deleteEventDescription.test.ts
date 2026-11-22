@@ -30,10 +30,7 @@ describe("getDeleteEventDescription", () => {
   });
 
   it("warns about rolling back when deleting the latest event", () => {
-    const events = [
-      makeEvent("a", "applied"),
-      makeEvent("b", "recruiter_screen"),
-    ];
+    const events = [makeEvent("a", "applied"), makeEvent("b", "recruiter_screen")];
     const description = getDeleteEventDescription(events, "b");
     expect(description.toLowerCase()).toContain("roll");
     expect(description).toContain("Applied");
@@ -47,17 +44,12 @@ describe("getDeleteEventDescription", () => {
 
   it("returns the default when the targeted event does not exist", () => {
     const events = [makeEvent("a", "applied")];
-    expect(getDeleteEventDescription(events, "nonexistent")).toMatch(
-      /cannot be undone/i,
-    );
+    expect(getDeleteEventDescription(events, "nonexistent")).toMatch(/cannot be undone/i);
   });
 });
 
 it("uses the simplified label when rolling back a legacy stage", () => {
   expect(
-    getDeleteEventDescription(
-      [makeEvent("old", "onsite"), makeEvent("new", "behavioural")],
-      "new",
-    ),
+    getDeleteEventDescription([makeEvent("old", "onsite"), makeEvent("new", "behavioural")], "new"),
   ).toContain("Technical Interview");
 });

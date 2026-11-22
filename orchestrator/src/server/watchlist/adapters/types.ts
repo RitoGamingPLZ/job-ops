@@ -15,13 +15,8 @@ export interface WatchlistCatalogSourceAdapter {
   descriptor: WatchlistSourceTypeDescriptor;
   catalogSchema: z.ZodType<unknown>;
   parseCatalogSources(entries: unknown[]): WatchlistSource[];
-  hydrateSelectedSource(
-    source: WatchlistSelectedSource,
-  ): WatchlistSelectedSource;
-  normalizeCustomSelection(input: {
-    label: string | null | undefined;
-    careersUrl: string;
-  }):
+  hydrateSelectedSource(source: WatchlistSelectedSource): WatchlistSelectedSource;
+  normalizeCustomSelection(input: { label: string | null | undefined; careersUrl: string }):
     | {
         label: string;
         careersUrl: string;
@@ -53,12 +48,7 @@ export interface WatchlistCatalogSourceAdapter {
 export interface WatchlistAdapterJobsResult {
   total: number;
   fetched: number;
-  jobs: Array<
-    Omit<
-      WatchlistJobResult,
-      "rowState" | "isNewSinceLastCheck" | "workspaceJob"
-    >
-  >;
+  jobs: Array<Omit<WatchlistJobResult, "rowState" | "isNewSinceLastCheck" | "workspaceJob">>;
 }
 
 export interface WatchlistAdapterImportDraftResult {

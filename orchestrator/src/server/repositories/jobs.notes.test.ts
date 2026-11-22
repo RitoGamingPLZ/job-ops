@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.sequential("jobs repository job notes", () => {
+describe("jobs repository job notes", () => {
   let tempDir: string;
   let db: Awaited<typeof import("../db/index")>["db"];
   let schema: Awaited<typeof import("../db/index")>["schema"];

@@ -26,12 +26,8 @@ describe("job note mutations", () => {
     };
     vi.mocked(api.createJobNote).mockResolvedValue(note);
 
-    const { result, queryClient } = renderHookWithQueryClient(() =>
-      useCreateJobNoteMutation(),
-    );
-    const invalidateSpy = vi
-      .spyOn(queryClient, "invalidateQueries")
-      .mockResolvedValue(undefined);
+    const { result, queryClient } = renderHookWithQueryClient(() => useCreateJobNoteMutation());
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue(undefined);
 
     await act(async () => {
       await result.current.mutateAsync({

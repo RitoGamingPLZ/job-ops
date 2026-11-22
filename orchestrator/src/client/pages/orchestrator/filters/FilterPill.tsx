@@ -1,11 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import type React from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 /** Trigger button shared by every filter dropdown ("faceted filter" style). */
@@ -41,14 +37,10 @@ export const FilterPill: React.FC<FilterPillProps> = ({
           active && "border-primary/50 bg-primary/5 text-foreground",
         )}
       >
-        <span className="[&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:opacity-70">
-          {icon}
-        </span>
+        <span className="[&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:opacity-70">{icon}</span>
         <span>{label}</span>
         {summary ? (
-          <span className="max-w-[10rem] truncate font-semibold text-foreground">
-            {summary}
-          </span>
+          <span className="max-w-[10rem] truncate font-semibold text-foreground">{summary}</span>
         ) : null}
         {typeof badge === "number" && badge > 0 ? (
           <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/20 px-1 text-[10px] font-semibold tabular-nums text-primary">

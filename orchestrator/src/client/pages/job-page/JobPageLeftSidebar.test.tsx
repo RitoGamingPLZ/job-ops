@@ -36,9 +36,7 @@ describe("JobPageLeftSidebar score ring", () => {
     });
 
     expect(ring).toHaveClass(expectedClass);
-    expect(
-      within(ring).getByText(score === null ? "!" : String(score)),
-    ).toBeInTheDocument();
+    expect(within(ring).getByText(score === null ? "!" : String(score))).toBeInTheDocument();
   });
 
   it("renders an interactive button when suitabilityReason is present", () => {

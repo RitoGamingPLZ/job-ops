@@ -1,12 +1,5 @@
 import type { ExperienceBullet, ReactiveResumeV5Document } from "@shared/types";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CandidateLibrary } from "./CandidateLibrary";
 import { REWORDED_TINT_CLASS } from "./rewordTint";
@@ -214,30 +207,28 @@ describe("candidate library", () => {
       items: [role, duty, otherRole, otherDuty],
       onDocumentChange: vi.fn(),
     };
-    const view = render(
-      <CandidateLibrary {...props} jobId="first-job" document={doc} />,
+    const view = render(<CandidateLibrary {...props} jobId="first-job" document={doc} />);
+    expect(screen.getByRole("button", { name: "Show roles for Acme" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
     );
-    expect(
-      screen.getByRole("button", { name: "Show roles for Acme" }),
-    ).toHaveAttribute("aria-expanded", "true");
-    expect(
-      screen.getByRole("button", { name: "Show roles for Globex" }),
-    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Show roles for Globex" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
 
-    view.rerender(
-      <CandidateLibrary {...props} jobId="second-job" document={otherDoc} />,
+    view.rerender(<CandidateLibrary {...props} jobId="second-job" document={otherDoc} />);
+    expect(screen.getByRole("button", { name: "Show roles for Acme" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
     );
-    expect(
-      screen.getByRole("button", { name: "Show roles for Acme" }),
-    ).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Built tools")).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Show roles for Globex" }),
-    ).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Show roles for Globex" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
     expect(screen.getByText("Designed tools")).toBeVisible();
-    expect(
-      screen.getByRole("checkbox", { name: "Include Acme" }),
-    ).toBeVisible();
+    expect(screen.getByRole("checkbox", { name: "Include Acme" })).toBeVisible();
     expect(screen.getByText("1/1 duties")).toBeVisible();
   });
   it("searches duties by text or tag and opens the matching jobs", () => {
@@ -256,9 +247,7 @@ describe("candidate library", () => {
     fireEvent.change(search, { target: { value: "postgres" } });
     expect(screen.getByText("Led migrations")).toBeVisible();
     expect(screen.queryByText("Built tools")).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: "Show roles for Globex" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show roles for Globex" })).toBeNull();
     fireEvent.change(search, { target: { value: "designed" } });
     expect(screen.getByText("Designed tools")).toBeVisible();
     // Company, location and job title match a whole role with all its duties.
@@ -273,12 +262,14 @@ describe("candidate library", () => {
   it("opens only the first job in standalone mode after loading", async () => {
     mocks.list.mockResolvedValue({ items: [role, duty, otherRole] });
     render(<CandidateLibrary />);
-    expect(
-      await screen.findByRole("button", { name: "Show roles for Acme" }),
-    ).toHaveAttribute("aria-expanded", "true");
-    expect(
-      screen.getByRole("button", { name: "Show roles for Globex" }),
-    ).toHaveAttribute("aria-expanded", "false");
+    expect(await screen.findByRole("button", { name: "Show roles for Acme" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Show roles for Globex" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
   it("shows every section and no ticks in library-only mode", async () => {
     await mount();
@@ -299,9 +290,7 @@ describe("candidate library", () => {
   it("ticks duties and grouped jobs through functional document updates", async () => {
     const change = vi.fn();
     await mount({ jobId: "job", document: doc, onDocumentChange: change });
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: "Include Built tools" }),
-    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "Include Built tools" }));
     change.mock.calls[0][0](doc);
     expect(mocks.add).toHaveBeenCalledWith(doc, "duty", library);
     mocks.onResume.mockReturnValue(true);
@@ -340,16 +329,12 @@ describe("candidate library", () => {
     fireEvent.change(input, { target: { value: "   " } });
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     fireEvent.keyDown(input, { key: "Escape" });
-    await waitFor(() =>
-      expect(screen.queryByRole("textbox", { name: "Duty" })).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Duty" })).toBeNull());
     expect(mocks.update).not.toHaveBeenCalled();
   });
   it("creates a duty under its role", async () => {
     await mount();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Add duty to Engineer" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Add duty to Engineer" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Duty" }), {
       target: { value: "Mentored engineers" },
     });
@@ -379,12 +364,8 @@ describe("candidate library", () => {
     expect(mocks.remove).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete Built tools" }));
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Delete from library" }),
-    );
-    await waitFor(() =>
-      expect(mocks.remove).toHaveBeenCalledWith("duty", "one"),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Delete from library" }));
+    await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith("duty", "one"));
     change.mock.calls[0][0](doc);
     expect(mocks.subtract).toHaveBeenCalledWith(doc, "duty");
   });
@@ -402,8 +383,7 @@ describe("candidate library", () => {
     const row = screen.getByRole("button", {
       name: "Built tools",
     }).parentElement;
-    for (const className of REWORDED_TINT_CLASS.split(" "))
-      expect(row).toHaveClass(className);
+    for (const className of REWORDED_TINT_CLASS.split(" ")) expect(row).toHaveClass(className);
     expect(row).toHaveAttribute("title", "Reworded tools");
     expect(screen.getByRole("button", { name: "Built tools" })).toHaveAttribute(
       "title",
@@ -426,9 +406,7 @@ describe("candidate library", () => {
       }) as unknown as ReactiveResumeV5Document;
     const same = docWith(entry);
     await mount({ jobId: "job", document: same });
-    const row = () =>
-      screen.getByRole("button", { name: "Engineer · 2020–2024" })
-        .parentElement;
+    const row = () => screen.getByRole("button", { name: "Engineer · 2020–2024" }).parentElement;
     expect(row()).not.toHaveClass("bg-amber-100/70");
     cleanup();
     await mount({
@@ -445,15 +423,11 @@ describe("candidate library", () => {
     });
     await mount({ jobId: "job", document: doc, onReferenceBullet: reference });
     expect(screen.getByText("Tools")).toBeVisible();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Chat reference: Built tools" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Chat reference: Built tools" }));
     expect(reference).toHaveBeenCalledWith(duty);
     fireEvent.click(screen.getByRole("button", { name: "Rank for this job" }));
     expect(await screen.findByText("88/100")).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Paste & extract" }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Paste & extract" })).toBeVisible();
   });
   it("keeps duty actions on the first line and tags and score on the second", async () => {
     mocks.rank.mockResolvedValue({
@@ -482,13 +456,9 @@ describe("candidate library", () => {
     expect(score).toHaveFocus();
     expect(screen.queryByText("Relevant tools")).toBeNull();
     expect(score.parentElement).toBe(firstLine.nextElementSibling);
-    expect(
-      within(score.parentElement as HTMLElement).getByText("Tools"),
-    ).toBeVisible();
+    expect(within(score.parentElement as HTMLElement).getByText("Tools")).toBeVisible();
     fireEvent.click(description);
-    expect(screen.getByRole("textbox", { name: "Duty" })).toHaveValue(
-      duty.text,
-    );
+    expect(screen.getByRole("textbox", { name: "Duty" })).toHaveValue(duty.text);
   });
   it.each([
     ["project", "Projects", "Compiler"],
@@ -497,9 +467,7 @@ describe("candidate library", () => {
     ["certification", "Certifications", "Certificate"],
   ])("renders, adds and removes tags on a %s", async (id, section, text) => {
     mocks.list.mockResolvedValue({
-      items: library.map((item) =>
-        item.id === id ? { ...item, tags: ["Existing"] } : item,
-      ),
+      items: library.map((item) => (item.id === id ? { ...item, tags: ["Existing"] } : item)),
     });
     await mount({ jobId: "job", document: doc });
     fireEvent.click(screen.getByRole("button", { name: section }));
@@ -509,9 +477,7 @@ describe("candidate library", () => {
     expect(description).toHaveClass("truncate");
     expect(description).toHaveAttribute("title", description.textContent);
     const firstLine = description.parentElement as HTMLElement;
-    expect(
-      within(firstLine).getByRole("button", { name: `Delete ${text}` }),
-    ).toBeVisible();
+    expect(within(firstLine).getByRole("button", { name: `Delete ${text}` })).toBeVisible();
     const tagsLine = firstLine.nextElementSibling as HTMLElement;
     expect(within(tagsLine).getByText("Existing")).toBeVisible();
     expect(within(tagsLine).queryByRole("button")).toBeNull();
@@ -520,12 +486,8 @@ describe("candidate library", () => {
     const input = within(dialog).getByLabelText("Add tag");
     fireEvent.change(input, { target: { value: "New tag" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    fireEvent.click(
-      within(dialog).getByRole("button", { name: "Remove tag Existing" }),
-    );
-    expect(
-      within(dialog).getByRole("button", { name: "Remove tag New tag" }),
-    ).toBeVisible();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove tag Existing" }));
+    expect(within(dialog).getByRole("button", { name: "Remove tag New tag" })).toBeVisible();
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(mocks.update).toHaveBeenLastCalledWith(
@@ -541,18 +503,14 @@ describe("candidate library", () => {
     await mount();
     fireEvent.click(screen.getByRole("button", { name: "Sync from resumes" }));
     await waitFor(() =>
-      expect(mocks.success).toHaveBeenCalledWith(
-        "Synced 3; skipped 4; linked 5",
-      ),
+      expect(mocks.success).toHaveBeenCalledWith("Synced 3; skipped 4; linked 5"),
     );
     expect(mocks.list).toHaveBeenCalledTimes(2);
   });
   it("distinguishes load failure and allows retry", async () => {
     mocks.list.mockRejectedValueOnce(new Error("offline"));
     render(<CandidateLibrary />);
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Could not load library",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load library");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText("Built tools")).toBeVisible();
   });
@@ -588,9 +546,10 @@ describe("candidate library", () => {
       ),
     );
     await waitFor(() => expect(change).toHaveBeenCalled());
-    expect(
-      change.mock.lastCall?.[0](doc).sections.skills.items[0].keywords,
-    ).toEqual(["Rust", "Go"]);
+    expect(change.mock.lastCall?.[0](doc).sections.skills.items[0].keywords).toEqual([
+      "Rust",
+      "Go",
+    ]);
   });
   it("scans only experience and project lines for rewording", async () => {
     mocks.lines.mockImplementation((entry) => {
@@ -630,19 +589,18 @@ describe("candidate library", () => {
     );
     fireEvent.click(add);
     expect(
-      within(screen.getByRole("dialog", { name: "Add duty" })).getByRole(
-        "form",
-        { name: "Edit library item" },
-      ),
+      within(screen.getByRole("dialog", { name: "Add duty" })).getByRole("form", {
+        name: "Edit library item",
+      }),
     ).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     const addRole = screen.getByRole("button", { name: "Add role at Acme" });
     expect(addRole.parentElement?.parentElement).toContainElement(
       screen.getByRole("button", { name: "Acme · London" }),
     );
-    expect(
-      screen.getByRole("button", { name: "Add job" }).parentElement,
-    ).toContainElement(screen.getByRole("button", { name: "Paste & extract" }));
+    expect(screen.getByRole("button", { name: "Add job" }).parentElement).toContainElement(
+      screen.getByRole("button", { name: "Paste & extract" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Add job" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Position" }), {
       target: { value: "Engineer" },
@@ -653,9 +611,7 @@ describe("candidate library", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Company" }), {
       target: { value: "New company" },
     });
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Save" })).toBeEnabled(),
-    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
   });
   it("keeps rank scores after a tag edit", async () => {
     mocks.rank.mockResolvedValue({
@@ -695,9 +651,7 @@ describe("candidate library", () => {
   it("labels certification website editing as Link", async () => {
     await mount();
     fireEvent.click(screen.getByRole("button", { name: "Certifications" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /Certificate · Institute/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Certificate · Institute/ }));
     expect(screen.getByRole("textbox", { name: "Link" })).toBeVisible();
     expect(screen.queryByRole("textbox", { name: "Website" })).toBeNull();
   });
@@ -712,9 +666,7 @@ describe("candidate library", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Extract drafts" }));
     await screen.findByText("Extracted duty");
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create selected duties" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Create selected duties" }));
     await waitFor(() =>
       expect(mocks.create).toHaveBeenCalledWith({
         text: "Extracted duty",
@@ -730,9 +682,7 @@ describe("candidate library", () => {
 describe("candidate library workspace integration", () => {
   it("uses supplied items without another load and reports edits to the workspace", async () => {
     const onItemsChange = vi.fn();
-    const view = render(
-      <CandidateLibrary items={library} onItemsChange={onItemsChange} />,
-    );
+    const view = render(<CandidateLibrary items={library} onItemsChange={onItemsChange} />);
     expect(screen.getByText("Built tools")).toBeVisible();
     expect(mocks.list).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Built tools" }));
@@ -742,86 +692,75 @@ describe("candidate library workspace integration", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(onItemsChange).toHaveBeenCalledWith(
-        library.map((item) =>
-          item.id === duty.id ? { ...duty, text: "Updated duty" } : item,
-        ),
+        library.map((item) => (item.id === duty.id ? { ...duty, text: "Updated duty" } : item)),
       ),
     );
     const updated = onItemsChange.mock.calls.at(-1)?.[0];
-    view.rerender(
-      <CandidateLibrary items={updated} onItemsChange={onItemsChange} />,
-    );
-    expect(
-      await screen.findByRole("button", { name: "Updated duty" }),
-    ).toBeVisible();
+    view.rerender(<CandidateLibrary items={updated} onItemsChange={onItemsChange} />);
+    expect(await screen.findByRole("button", { name: "Updated duty" })).toBeVisible();
     expect(mocks.list).not.toHaveBeenCalled();
   });
   it("delegates Sync to the workspace, then refreshes and reports the library", async () => {
-    const onSync = vi
-      .fn()
-      .mockResolvedValue({ created: 1, skipped: 2, linked: 3 });
+    const onSync = vi.fn().mockResolvedValue({ created: 1, skipped: 2, linked: 3 });
     const onItemsChange = vi.fn();
     await mount({ items: library, onItemsChange, onSync });
     fireEvent.click(screen.getByText("Sync from resumes"));
     await waitFor(() =>
-      expect(mocks.success).toHaveBeenCalledWith(
-        "Synced 1; skipped 2; linked 3",
-      ),
+      expect(mocks.success).toHaveBeenCalledWith("Synced 1; skipped 2; linked 3"),
     );
     expect(onSync).toHaveBeenCalledOnce();
     expect(mocks.sync).not.toHaveBeenCalled();
     expect(mocks.list).toHaveBeenCalledOnce();
     expect(onItemsChange).toHaveBeenCalledWith(library);
   });
-  it.each([
-    false,
-    true,
-  ])("deletes moved child lines along with their parent; frozen=%s", async (frozen) => {
-    const links = await vi.importActual<typeof import("@shared/resume-links")>(
-      "@shared/resume-links",
-    );
-    mocks.subtract.mockImplementation(links.removeFromResume);
-    const initial = {
-      ...doc,
-      customSections: [],
-      sections: {
-        ...doc.sections,
-        experience: {
-          items: [
-            { id: "original", libraryId: role.id, description: "" },
-            {
-              id: "other",
-              libraryId: "other-role",
-              description: "<ul><li>Built tools</li><li>Keep me</li></ul>",
-              bulletRefs: [duty.id, null],
-            },
-          ],
+  it.each([false, true])(
+    "deletes moved child lines along with their parent; frozen=%s",
+    async (frozen) => {
+      const links =
+        await vi.importActual<typeof import("@shared/resume-links")>("@shared/resume-links");
+      mocks.subtract.mockImplementation(links.removeFromResume);
+      const initial = {
+        ...doc,
+        customSections: [],
+        sections: {
+          ...doc.sections,
+          experience: {
+            items: [
+              { id: "original", libraryId: role.id, description: "" },
+              {
+                id: "other",
+                libraryId: "other-role",
+                description: "<ul><li>Built tools</li><li>Keep me</li></ul>",
+                bulletRefs: [duty.id, null],
+              },
+            ],
+          },
         },
-      },
-    } as unknown as ReactiveResumeV5Document;
-    let current = initial;
-    const change = vi.fn((update) => {
-      current = update(current);
-    });
-    await mount({
-      jobId: "job",
-      document: initial,
-      frozen,
-      onDocumentChange: change,
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Delete Engineer" }));
-    await waitFor(() => expect(screen.queryByText("Built tools")).toBeNull());
-    expect(mocks.remove).toHaveBeenCalledWith(role.id, "job");
-    if (frozen) {
-      expect(change).not.toHaveBeenCalled();
-      expect(current).toBe(initial);
-    } else {
-      expect(current.sections.experience.items).toHaveLength(1);
-      expect(links.getItemLines(current.sections.experience.items[0])).toEqual([
-        { text: "Keep me", ref: null },
-      ]);
-    }
-  });
+      } as unknown as ReactiveResumeV5Document;
+      let current = initial;
+      const change = vi.fn((update) => {
+        current = update(current);
+      });
+      await mount({
+        jobId: "job",
+        document: initial,
+        frozen,
+        onDocumentChange: change,
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Delete Engineer" }));
+      await waitFor(() => expect(screen.queryByText("Built tools")).toBeNull());
+      expect(mocks.remove).toHaveBeenCalledWith(role.id, "job");
+      if (frozen) {
+        expect(change).not.toHaveBeenCalled();
+        expect(current).toBe(initial);
+      } else {
+        expect(current.sections.experience.items).toHaveLength(1);
+        expect(links.getItemLines(current.sections.experience.items[0])).toEqual([
+          { text: "Keep me", ref: null },
+        ]);
+      }
+    },
+  );
   it.each(
     (["role", "project", "certification"] as const).flatMap((kind) =>
       [
@@ -832,54 +771,52 @@ describe("candidate library workspace integration", () => {
         { website: "https://example.test", label: "" },
       ].map((value) => ({ kind, ...value })),
     ),
-  )("displays and edits $kind website URLs with label '$label'", async ({
-    kind,
-    website,
-    label,
-  }) => {
-    const entry = {
-      ...role,
-      id: "entry",
-      kind,
-      text: "Entry",
-      data: {
-        ...role.data,
-        website,
-      },
-    };
-    mocks.update.mockImplementation(async (id, input) => ({
-      bullet: { ...entry, id, ...input },
-    }));
-    render(<CandidateLibrary items={[entry]} />);
-    if (kind === "role")
-      fireEvent.click(screen.getByRole("button", { name: "Acme · London" }));
-    else {
-      fireEvent.click(
-        screen.getByRole("button", {
-          name: kind === "project" ? "Projects" : "Certifications",
-        }),
-      );
-      expect(screen.queryByText(/\[object Object\]/)).toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: /Entry ·/ }));
-    }
-    const url = screen.getByRole("textbox", {
-      name: kind === "certification" ? "Link" : "Website",
-    });
-    expect(url).toHaveValue("https://example.test");
-    fireEvent.change(url, { target: { value: "https://changed.test" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() =>
-      expect(mocks.update).toHaveBeenCalledWith(
-        "entry",
-        expect.objectContaining({
-          data: expect.objectContaining({
-            website: { url: "https://changed.test", label },
+  )(
+    "displays and edits $kind website URLs with label '$label'",
+    async ({ kind, website, label }) => {
+      const entry = {
+        ...role,
+        id: "entry",
+        kind,
+        text: "Entry",
+        data: {
+          ...role.data,
+          website,
+        },
+      };
+      mocks.update.mockImplementation(async (id, input) => ({
+        bullet: { ...entry, id, ...input },
+      }));
+      render(<CandidateLibrary items={[entry]} />);
+      if (kind === "role") fireEvent.click(screen.getByRole("button", { name: "Acme · London" }));
+      else {
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: kind === "project" ? "Projects" : "Certifications",
           }),
-        }),
-        undefined,
-      ),
-    );
-  });
+        );
+        expect(screen.queryByText(/\[object Object\]/)).toBeNull();
+        fireEvent.click(screen.getByRole("button", { name: /Entry ·/ }));
+      }
+      const url = screen.getByRole("textbox", {
+        name: kind === "certification" ? "Link" : "Website",
+      });
+      expect(url).toHaveValue("https://example.test");
+      fireEvent.change(url, { target: { value: "https://changed.test" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() =>
+        expect(mocks.update).toHaveBeenCalledWith(
+          "entry",
+          expect.objectContaining({
+            data: expect.objectContaining({
+              website: { url: "https://changed.test", label },
+            }),
+          }),
+          undefined,
+        ),
+      );
+    },
+  );
 });
 
 it("renders Contact first, edits contact data, and hides standalone ticks", async () => {
@@ -892,14 +829,10 @@ it("renders Contact first, edits contact data, and hides standalone ticks", asyn
   };
   render(<CandidateLibrary items={[contact]} />);
   const sections = screen.getByRole("region", { name: "Library sections" });
-  expect(within(sections).getAllByRole("button")[0]).toHaveTextContent(
-    "Contact",
-  );
+  expect(within(sections).getAllByRole("button")[0]).toHaveTextContent("Contact");
   fireEvent.click(screen.getByRole("button", { name: "Contact" }));
   expect(screen.queryByRole("checkbox")).toBeNull();
-  fireEvent.click(
-    screen.getByRole("button", { name: "a@example.com · email" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "a@example.com · email" }));
   expect(screen.queryByLabelText("Text")).toBeNull();
   expect(screen.queryByLabelText("Label")).toBeNull();
   fireEvent.change(screen.getByLabelText("Value"), {
@@ -962,22 +895,16 @@ it("names repeated add controls after their role, company, and item", () => {
   );
   fireEvent.click(screen.getByRole("button", { name: "Show roles for Beta" }));
   for (const name of ["Engineer", "Manager", "Designer"])
-    expect(
-      screen.getByRole("button", { name: `Add duty to ${name}` }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: `Add duty to ${name}` })).toBeVisible();
   for (const name of ["Acme", "Beta"])
-    expect(
-      screen.getByRole("button", { name: `Add role at ${name}` }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: `Add role at ${name}` })).toBeVisible();
 });
 
 it("explains contact sync and creates contacts from Value alone", async () => {
   render(<CandidateLibrary items={[]} />);
   fireEvent.click(screen.getByRole("button", { name: "Contact" }));
   expect(
-    screen.getByText(
-      "Add a contact or sync to import missing contacts from your base resume.",
-    ),
+    screen.getByText("Add a contact or sync to import missing contacts from your base resume."),
   ).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Add contact" }));
   expect(screen.queryByLabelText("Text")).toBeNull();

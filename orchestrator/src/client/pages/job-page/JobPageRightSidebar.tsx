@@ -90,17 +90,10 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
   return (
     <aside className="space-y-4 xl:sticky xl:top-5">
       <section className="rounded-xl border border-border/50 bg-card/85 p-3">
-        <div className="mb-3 flex items-center gap-2 px-1 text-sm font-semibold">
-          Actions
-        </div>
+        <div className="mb-3 flex items-center gap-2 px-1 text-sm font-semibold">Actions</div>
         <div className="space-y-2">
           {jobLink && (
-            <Button
-              asChild
-              size="sm"
-              variant="outline"
-              className="w-full justify-start"
-            >
+            <Button asChild size="sm" variant="outline" className="w-full justify-start">
               <a href={jobLink} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                 Open Job Listing
@@ -121,21 +114,14 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
             </Button>
           )}
           {resumeState === "preparing" && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full justify-start"
-              disabled
-            >
+            <Button size="sm" variant="outline" className="w-full justify-start" disabled>
               <Sparkles className="mr-1.5 h-3.5 w-3.5" />
               Preparing resume…
             </Button>
           )}
           {resumeState === "unprepared" && (
             <>
-              <p className="text-xs text-muted-foreground">
-                Resume not prepared yet
-              </p>
+              <p className="text-xs text-muted-foreground">Resume not prepared yet</p>
               <Button
                 size="sm"
                 variant="outline"
@@ -177,23 +163,13 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
 
           {resumeState === "available" && (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full justify-start"
-                asChild
-              >
+              <Button size="sm" variant="outline" className="w-full justify-start" asChild>
                 <Link to={`/resumes/${job.id}`}>Open resume</Link>
               </Button>
               {job.pdfSource === "uploaded" && (
-                <p className="text-xs text-muted-foreground">
-                  Uploaded PDF (not from the editor)
-                </p>
+                <p className="text-xs text-muted-foreground">Uploaded PDF (not from the editor)</p>
               )}
-              <TooltipWhenDisabled
-                reason={pdfRegeneratingReason}
-                className="w-full"
-              >
+              <TooltipWhenDisabled reason={pdfRegeneratingReason} className="w-full">
                 <Button
                   size="sm"
                   variant="outline"
@@ -216,11 +192,7 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
             disabled={isUploadingPdf}
           >
             <Upload className="mr-1.5 h-3.5 w-3.5" />
-            {isUploadingPdf
-              ? "Uploading PDF"
-              : job.pdfPath
-                ? "Replace PDF"
-                : "Upload PDF"}
+            {isUploadingPdf ? "Uploading PDF" : job.pdfPath ? "Replace PDF" : "Upload PDF"}
           </Button>
 
           {(isReady || isDiscovered) && (
@@ -267,28 +239,15 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={onUploadPdf}
-                disabled={isUploadingPdf}
-              >
+              <DropdownMenuItem onSelect={onUploadPdf} disabled={isUploadingPdf}>
                 <Upload className="mr-2 h-4 w-4" />
-                {isUploadingPdf
-                  ? "Uploading PDF..."
-                  : job.pdfPath
-                    ? "Replace PDF"
-                    : "Upload PDF"}
+                {isUploadingPdf ? "Uploading PDF..." : job.pdfPath ? "Replace PDF" : "Upload PDF"}
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={onViewPdf}
-                disabled={pdfActionsDisabled}
-              >
+              <DropdownMenuItem onSelect={onViewPdf} disabled={pdfActionsDisabled}>
                 <ExternalLink className="mr-2 h-4 w-4" />
                 {pdfViewLabel}
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={onDownloadPdf}
-                disabled={pdfActionsDisabled}
-              >
+              <DropdownMenuItem onSelect={onDownloadPdf} disabled={pdfActionsDisabled}>
                 <Download className="mr-2 h-4 w-4" />
                 {pdfDownloadLabel}
               </DropdownMenuItem>
@@ -307,15 +266,8 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
             {tasks.map((task) => (
               <div key={task.id} className="space-y-1">
                 <div className="text-sm font-medium">{task.title}</div>
-                {task.notes && (
-                  <div className="text-xs text-muted-foreground">
-                    {task.notes}
-                  </div>
-                )}
-                <Badge
-                  variant="outline"
-                  className="text-[10px] uppercase tracking-wide"
-                >
+                {task.notes && <div className="text-xs text-muted-foreground">{task.notes}</div>}
+                <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
                   {formatTimestamp(task.dueDate)}
                 </Badge>
               </div>

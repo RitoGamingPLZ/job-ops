@@ -68,20 +68,16 @@ describe("document text extraction", () => {
   it("rejects PDFs with no readable text", async () => {
     vi.mocked(pdfParse).mockResolvedValueOnce(makePdfParseResult("   "));
 
-    await expect(extractPdfText(Buffer.from("%PDF-1.4"))).rejects.toMatchObject(
-      {
-        name: "PdfTextExtractionError",
-        code: "EMPTY_TEXT",
-      },
-    );
+    await expect(extractPdfText(Buffer.from("%PDF-1.4"))).rejects.toMatchObject({
+      name: "PdfTextExtractionError",
+      code: "EMPTY_TEXT",
+    });
   });
 
   it("rejects unreadable or encrypted PDFs", async () => {
     vi.mocked(pdfParse).mockRejectedValueOnce(new Error("invalid pdf"));
 
-    await expect(
-      extractPdfText(Buffer.from("not a pdf")),
-    ).rejects.toMatchObject({
+    await expect(extractPdfText(Buffer.from("not a pdf"))).rejects.toMatchObject({
       name: "PdfTextExtractionError",
       code: "INVALID_PDF",
     });
@@ -90,18 +86,14 @@ describe("document text extraction", () => {
   it("extracts readable DOCX text", async () => {
     const buffer = await makeDocxBuffer("Taylor & Quinn\nSenior Engineer");
 
-    await expect(extractDocxText(buffer)).resolves.toBe(
-      "Taylor & Quinn\nSenior Engineer",
-    );
+    await expect(extractDocxText(buffer)).resolves.toBe("Taylor & Quinn\nSenior Engineer");
   });
 
   it("rejects invalid DOCX files", async () => {
-    await expect(
-      extractDocxText(Buffer.from("not a docx")),
-    ).rejects.toBeInstanceOf(DocxTextExtractionError);
-    await expect(
-      extractDocxText(Buffer.from("not a docx")),
-    ).rejects.toMatchObject({
+    await expect(extractDocxText(Buffer.from("not a docx"))).rejects.toBeInstanceOf(
+      DocxTextExtractionError,
+    );
+    await expect(extractDocxText(Buffer.from("not a docx"))).rejects.toMatchObject({
       code: "INVALID_DOCX",
     });
   });

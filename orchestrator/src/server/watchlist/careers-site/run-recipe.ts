@@ -7,10 +7,7 @@ const DETAIL_CACHE_TTL_MS = 24 * 60 * 60_000;
 const DETAIL_CACHE_MAX_ENTRIES = 2_000;
 // Explicitly global: only public job details, keyed by their full URL (including
 // query), never tenant settings or credentials. ponytail: In-memory, lost on restart.
-const detailCache = new Map<
-  string,
-  { job: CrawledJob; expires: number; extraction: string }
->();
+const detailCache = new Map<string, { job: CrawledJob; expires: number; extraction: string }>();
 
 function jobId(url: string, recipe: Recipe): string | undefined {
   return url.length <= MAX_URL_LENGTH && recipe.jobIdPattern
@@ -57,18 +54,13 @@ export function facetConfig(html: string | undefined): string | null {
       else if (char === '"') quoted = false;
     } else if (char === '"') quoted = true;
     else if (char === "{") depth++;
-    else if (char === "}" && --depth === 0)
-      return assignment.slice(offset, i + 1);
+    else if (char === "}" && --depth === 0) return assignment.slice(offset, i + 1);
   }
   return null;
 }
 
 /** Infer query pagination from same-path links or public FacetWP pager metadata. */
-export function detectQueryPagination(
-  values: string[],
-  base: string,
-  html?: string,
-) {
+export function detectQueryPagination(values: string[], base: string, html?: string) {
   const first = new URL(base);
   // FacetWP server-renders jobs but serializes its pager as JSON, without hrefs.
   // Read the public configuration as data; never execute page scripts.
@@ -107,23 +99,16 @@ export function detectQueryPagination(
     if (!href) continue;
     const next = new URL(href);
     if (next.pathname !== first.pathname) continue;
-    const keys = new Set([
-      ...first.searchParams.keys(),
-      ...next.searchParams.keys(),
-    ]);
+    const keys = new Set([...first.searchParams.keys(), ...next.searchParams.keys()]);
     const changed = [...keys].filter(
-      (key) =>
-        first.searchParams.getAll(key).join() !==
-        next.searchParams.getAll(key).join(),
+      (key) => first.searchParams.getAll(key).join() !== next.searchParams.getAll(key).join(),
     );
-    if (changed.length !== 1 || !/^(?:_?paged?|offset|skip)$/i.test(changed[0]))
-      continue;
+    if (changed.length !== 1 || !/^(?:_?paged?|offset|skip)$/i.test(changed[0])) continue;
     const param = changed[0];
     const raw = next.searchParams.get(param);
     if (!raw || !/^\d+$/.test(raw)) continue;
     const start = Number(
-      first.searchParams.get(param) ??
-        (/^(?:offset|skip)$/i.test(param) ? 0 : 1),
+      first.searchParams.get(param) ?? (/^(?:offset|skip)$/i.test(param) ? 0 : 1),
     );
     const end = Number(raw);
     if (Number.isSafeInteger(start) && Number.isSafeInteger(end) && end > start)
@@ -136,15 +121,11 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object"
-    ? (value as Record<string, unknown>)
-    : {};
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 function date(value: unknown): string | null {
   const raw = text(value);
-  return raw && Number.isFinite(Date.parse(raw))
-    ? new Date(raw).toISOString()
-    : null;
+  return raw && Number.isFinite(Date.parse(raw)) ? new Date(raw).toISOString() : null;
 }
 function location(value: unknown): string | null {
   const entries = Array.isArray(value) ? value : [value];
@@ -173,12 +154,7 @@ function posting(value: unknown): Record<string, unknown> | null {
   }
   const data = record(value);
   const types = Array.isArray(data["@type"]) ? data["@type"] : [data["@type"]];
-  if (
-    types.includes("JobPosting") &&
-    text(data.title) &&
-    text(data.description)
-  )
-    return data;
+  if (types.includes("JobPosting") && text(data.title) && text(data.description)) return data;
   return data["@graph"] ? posting(data["@graph"]) : null;
 }
 
@@ -209,11 +185,7 @@ function microdata(scope: Element): Record<string, unknown> {
 }
 
 /** Parse one job page per recipe.detail. Returns null for missing jobs, invalid selectors, or overlong URLs. */
-export function extractJob(
-  html: string,
-  url: string,
-  recipe: Recipe,
-): CrawledJob | null {
+export function extractJob(html: string, url: string, recipe: Recipe): CrawledJob | null {
   if (url.length > MAX_URL_LENGTH) return null;
   const dom = new JSDOM(html);
   try {
@@ -225,24 +197,18 @@ export function extractJob(
       data = {
         title: document.querySelector(detail.title)?.textContent,
         description: document.querySelector(detail.description)?.innerHTML,
-        jobLocation: detail.location
-          ? document.querySelector(detail.location)?.textContent
-          : null,
+        jobLocation: detail.location ? document.querySelector(detail.location)?.textContent : null,
         datePosted: detail.postedAt
           ? (() => {
               const node = document.querySelector(detail.postedAt);
               return (
-                node?.getAttribute("datetime") ??
-                node?.getAttribute("content") ??
-                node?.textContent
+                node?.getAttribute("datetime") ?? node?.getAttribute("content") ?? node?.textContent
               );
             })()
           : null,
       };
     } else {
-      for (const script of document.querySelectorAll(
-        'script[type="application/ld+json"]',
-      )) {
+      for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
         try {
           data = posting(JSON.parse(script.textContent ?? ""));
         } catch {
@@ -254,16 +220,12 @@ export function extractJob(
         }
       }
       if (!data) {
-        for (const scope of document.querySelectorAll(
-          "[itemscope][itemtype]",
-        )) {
+        for (const scope of document.querySelectorAll("[itemscope][itemtype]")) {
           if (
             scope
               .getAttribute("itemtype")
               ?.split(/\s+/)
-              .some((type) =>
-                /^https?:\/\/schema\.org\/JobPosting\/?$/.test(type),
-              )
+              .some((type) => /^https?:\/\/schema\.org\/JobPosting\/?$/.test(type))
           ) {
             const candidate = microdata(scope);
             if (text(candidate.title) && text(candidate.description)) {
@@ -286,10 +248,7 @@ export function extractJob(
       id: jobId(url, recipe) || url,
       url,
       title: decode(text(data.title)) as string,
-      employer: decode(
-        text(record(data.hiringOrganization).name) ??
-          text(data.hiringOrganization),
-      ),
+      employer: decode(text(record(data.hiringOrganization).name) ?? text(data.hiringOrganization)),
       location: decode(location(data.jobLocation)),
       postedAt: date(data.datePosted),
       descriptionHtml: text(data.description),
@@ -339,13 +298,9 @@ export async function runRecipe(
   async function read(url: string, render = false, waitFor?: string) {
     signal?.throwIfAborted();
     if (stopped()) return null;
-    if (!sameSite(url, base))
-      throw new Error("Recipe URL must use the same HTTPS host.");
+    if (!sameSite(url, base)) throw new Error("Recipe URL must use the same HTTPS host.");
     if (!(await isAllowedByRobots(url, { signal: loadSignal })))
-      throw new SiteBlockedError(
-        new URL(url).hostname,
-        "robots.txt disallows this URL",
-      );
+      throw new SiteBlockedError(new URL(url).hostname, "robots.txt disallows this URL");
     signal?.throwIfAborted();
     if (stopped()) return null;
     const page = await loadPage(url, { render, waitFor, signal: loadSignal });
@@ -359,12 +314,7 @@ export async function runRecipe(
   function add(value: string, modified = 0, relativeTo = base) {
     if (value.length > MAX_URL_LENGTH) return;
     const url = sameSite(value, relativeTo);
-    if (
-      url &&
-      url.length <= MAX_URL_LENGTH &&
-      sameSite(url, base) &&
-      pattern.test(url)
-    )
+    if (url && url.length <= MAX_URL_LENGTH && sameSite(url, base) && pattern.test(url))
       candidates.set(url, Math.max(candidates.get(url) ?? 0, modified));
   }
   function rethrowFatal(error: unknown) {
@@ -398,19 +348,13 @@ export async function runRecipe(
               rethrowFatal(error);
             }
           }
-          if (!successes && !stopped())
-            throw new Error("No careers sitemaps could be read.");
+          if (!successes && !stopped()) throw new Error("No careers sitemaps could be read.");
         } else if (root.localName === "urlset") {
           for (const entry of Array.from(root.children)) {
             const children = Array.from(entry.children);
-            const loc = children.find(
-              (child) => child.localName === "loc",
-            )?.textContent;
-            const lastmod = children.find(
-              (child) => child.localName === "lastmod",
-            )?.textContent;
-            if (loc)
-              add(loc.trim(), lastmod ? Date.parse(lastmod) || 0 : 0, page.url);
+            const loc = children.find((child) => child.localName === "loc")?.textContent;
+            const lastmod = children.find((child) => child.localName === "lastmod")?.textContent;
+            if (loc) add(loc.trim(), lastmod ? Date.parse(lastmod) || 0 : 0, page.url);
           }
         } else throw new Error("Invalid careers sitemap.");
       } finally {
@@ -422,13 +366,8 @@ export async function runRecipe(
     const listing = recipe.listing;
     const render = listing.kind === "page" && listing.render;
     const waitFor = listing.kind === "page" ? listing.waitFor : undefined;
-    let pagination =
-      listing.kind === "page" ? listing.pagination : { kind: "none" as const };
-    const maxPages = filtered
-      ? 10
-      : listing.kind === "page"
-        ? Math.min(10, listing.maxPages)
-        : 1;
+    let pagination = listing.kind === "page" ? listing.pagination : { kind: "none" as const };
+    const maxPages = filtered ? 10 : listing.kind === "page" ? Math.min(10, listing.maxPages) : 1;
     const candidateIds = new Set<string>();
     let successes = 0;
     for (let pageIndex = 0; pageIndex < maxPages; pageIndex++) {
@@ -491,8 +430,7 @@ export async function runRecipe(
     .map(([url, modified]) => ({
       url,
       day: modified ? Math.floor(modified / 86_400_000) : null,
-      id:
-        !filtered && recipe.listing.kind === "sitemap" ? numericId(url) : null,
+      id: !filtered && recipe.listing.kind === "sitemap" ? numericId(url) : null,
     }))
     .sort((a, b) => {
       if (a.day !== b.day) {
@@ -534,10 +472,7 @@ export async function runRecipe(
       const [url] = selected[index++];
       if (jobs.has(url)) continue;
       try {
-        const page = await read(
-          url,
-          recipe.detail.kind === "selectors" && recipe.detail.render,
-        );
+        const page = await read(url, recipe.detail.kind === "selectors" && recipe.detail.render);
         if (!page) break;
         completed++;
         const job = extractJob(page.html, page.url, recipe);
@@ -569,9 +504,7 @@ export async function runRecipe(
   if (fatal) throw fatal;
   signal?.throwIfAborted();
   if ((selected.length && !jobs.size) || (completed > 0 && fresh === 0))
-    throw new Error(
-      "All selected careers job pages failed or contained no job.",
-    );
+    throw new Error("All selected careers job pages failed or contained no job.");
   return selected.flatMap(([url]) => {
     const job = jobs.get(url);
     return job ? [job] : [];

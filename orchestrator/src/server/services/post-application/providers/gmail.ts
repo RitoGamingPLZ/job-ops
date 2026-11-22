@@ -27,25 +27,17 @@ type GmailCredentialPayload = {
 };
 
 function asString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : undefined;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function asNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function parseGmailCredentials(
-  args: PostApplicationProviderConnectArgs,
-): GmailCredentialPayload {
+function parseGmailCredentials(args: PostApplicationProviderConnectArgs): GmailCredentialPayload {
   const raw = args.payload?.payload;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw providerInvalidRequest(
-      "Gmail connect requires payload credentials in body.payload.",
-    );
+    throw providerInvalidRequest("Gmail connect requires payload credentials in body.payload.");
   }
 
   const refreshToken = asString((raw as Record<string, unknown>).refreshToken);
@@ -76,11 +68,9 @@ function toPublicIntegration(
     ...integration,
     credentials: {
       hasRefreshToken:
-        typeof credentials.refreshToken === "string" &&
-        credentials.refreshToken.length > 0,
+        typeof credentials.refreshToken === "string" && credentials.refreshToken.length > 0,
       hasAccessToken:
-        typeof credentials.accessToken === "string" &&
-        credentials.accessToken.length > 0,
+        typeof credentials.accessToken === "string" && credentials.accessToken.length > 0,
       scope: asString(credentials.scope) ?? null,
       tokenType: asString(credentials.tokenType) ?? null,
       expiryDate: asNumber(credentials.expiryDate) ?? null,
@@ -95,9 +85,7 @@ function buildStatus(
   message?: string,
 ): PostApplicationProviderActionResult {
   const publicIntegration = toPublicIntegration(integration);
-  const hasRefreshToken = Boolean(
-    publicIntegration?.credentials?.hasRefreshToken,
-  );
+  const hasRefreshToken = Boolean(publicIntegration?.credentials?.hasRefreshToken);
 
   return {
     status: {
@@ -124,9 +112,7 @@ async function revokeGoogleToken(token: string): Promise<void> {
       signal: controller.signal,
     });
     if (!response.ok) {
-      throw providerUpstreamError(
-        `Google token revoke failed with HTTP ${response.status}.`,
-      );
+      throw providerUpstreamError(`Google token revoke failed with HTTP ${response.status}.`);
     }
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
@@ -145,9 +131,7 @@ export const gmailProvider: PostApplicationProviderAdapter = {
   ): Promise<PostApplicationProviderActionResult> {
     const credentials = parseGmailCredentials(args);
     const displayName =
-      credentials.displayName ??
-      credentials.email ??
-      `Gmail (${args.accountKey})`;
+      credentials.displayName ?? credentials.email ?? `Gmail (${args.accountKey})`;
 
     const integration = await upsertConnectedPostApplicationIntegration({
       provider: "gmail",
@@ -155,9 +139,7 @@ export const gmailProvider: PostApplicationProviderAdapter = {
       displayName,
       credentials: {
         refreshToken: credentials.refreshToken,
-        ...(credentials.accessToken
-          ? { accessToken: credentials.accessToken }
-          : {}),
+        ...(credentials.accessToken ? { accessToken: credentials.accessToken } : {}),
         ...(typeof credentials.expiryDate === "number"
           ? { expiryDate: credentials.expiryDate }
           : {}),
@@ -174,42 +156,24 @@ export const gmailProvider: PostApplicationProviderAdapter = {
       integrationId: integration.id,
     });
 
-    return buildStatus(
-      args.accountKey,
-      integration,
-      "Gmail integration connected.",
-    );
+    return buildStatus(args.accountKey, integration, "Gmail integration connected.");
   },
 
   async status(
     args: PostApplicationProviderStatusArgs,
   ): Promise<PostApplicationProviderActionResult> {
-    const integration = await getPostApplicationIntegration(
-      "gmail",
-      args.accountKey,
-    );
+    const integration = await getPostApplicationIntegration("gmail", args.accountKey);
     if (!integration) {
-      return buildStatus(
-        args.accountKey,
-        null,
-        "Gmail provider is not connected.",
-      );
+      return buildStatus(args.accountKey, null, "Gmail provider is not connected.");
     }
 
     return buildStatus(args.accountKey, integration);
   },
 
-  async sync(
-    args: PostApplicationProviderSyncArgs,
-  ): Promise<PostApplicationProviderActionResult> {
-    const integration = await getPostApplicationIntegration(
-      "gmail",
-      args.accountKey,
-    );
+  async sync(args: PostApplicationProviderSyncArgs): Promise<PostApplicationProviderActionResult> {
+    const integration = await getPostApplicationIntegration("gmail", args.accountKey);
     if (!integration) {
-      throw providerInvalidRequest(
-        `Gmail account '${args.accountKey}' is not connected.`,
-      );
+      throw providerInvalidRequest(`Gmail account '${args.accountKey}' is not connected.`);
     }
 
     const summary = await runGmailIngestionSync({
@@ -218,10 +182,7 @@ export const gmailProvider: PostApplicationProviderAdapter = {
       searchDays: args.payload?.searchDays,
     });
 
-    const refreshedIntegration = await getPostApplicationIntegration(
-      "gmail",
-      args.accountKey,
-    );
+    const refreshedIntegration = await getPostApplicationIntegration("gmail", args.accountKey);
     logger.info("Gmail sync completed", {
       provider: "gmail",
       accountKey: args.accountKey,
@@ -243,10 +204,7 @@ export const gmailProvider: PostApplicationProviderAdapter = {
   async disconnect(
     args: PostApplicationProviderDisconnectArgs,
   ): Promise<PostApplicationProviderActionResult> {
-    const integration = await getPostApplicationIntegration(
-      "gmail",
-      args.accountKey,
-    );
+    const integration = await getPostApplicationIntegration("gmail", args.accountKey);
     const refreshToken =
       integration?.credentials &&
       typeof integration.credentials.refreshToken === "string" &&
@@ -260,9 +218,7 @@ export const gmailProvider: PostApplicationProviderAdapter = {
         await revokeGoogleToken(refreshToken);
       } catch (error) {
         revokeWarning =
-          error instanceof Error
-            ? error.message
-            : "Google token revoke failed before disconnect.";
+          error instanceof Error ? error.message : "Google token revoke failed before disconnect.";
         logger.warn("Gmail token revoke failed during disconnect", {
           provider: "gmail",
           accountKey: args.accountKey,
@@ -272,10 +228,7 @@ export const gmailProvider: PostApplicationProviderAdapter = {
       }
     }
 
-    const disconnected = await disconnectPostApplicationIntegration(
-      "gmail",
-      args.accountKey,
-    );
+    const disconnected = await disconnectPostApplicationIntegration("gmail", args.accountKey);
     logger.info("Gmail integration disconnected", {
       provider: "gmail",
       accountKey: args.accountKey,

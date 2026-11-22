@@ -1,9 +1,7 @@
 import { runSeek } from "./run.js";
 
 const searchTerms = (
-  process.env.SEEK_SEARCH_TERMS
-    ? JSON.parse(process.env.SEEK_SEARCH_TERMS)
-    : ["software engineer"]
+  process.env.SEEK_SEARCH_TERMS ? JSON.parse(process.env.SEEK_SEARCH_TERMS) : ["software engineer"]
 ) as string[];
 
 const location = process.env.SEEK_LOCATION ?? "All Australia";

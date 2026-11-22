@@ -83,12 +83,7 @@ export class WorkdayCxsFetchError extends Error {
   readonly url: string;
   readonly responseBody?: string;
 
-  constructor(args: {
-    message: string;
-    url: string;
-    status?: number;
-    responseBody?: string;
-  }) {
+  constructor(args: { message: string; url: string; status?: number; responseBody?: string }) {
     super(args.message);
     this.name = "WorkdayCxsFetchError";
     this.url = args.url;
@@ -118,22 +113,15 @@ export async function getJobsFromCxs(
   if (!fetchFn) {
     throw new WorkdayCxsFetchError({
       url: options.cxsJobsUrl,
-      message:
-        "No fetch implementation available. Pass fetchImpl or use Node 18+.",
+      message: "No fetch implementation available. Pass fetchImpl or use Node 18+.",
     });
   }
 
   const cxsUrl = new URL(options.cxsJobsUrl);
   const { tenant, site } = parseCxsJobsUrl(cxsUrl);
   const limit = clampPositiveInteger(options.limit ?? DEFAULT_LIMIT, 1, 100);
-  const maxJobs = clampPositiveInteger(
-    options.maxJobs ?? DEFAULT_MAX_JOBS,
-    1,
-    10_000,
-  );
-  const careersBaseUrl = normalizeCareersBaseUrl(
-    options.careersUrl ?? `${cxsUrl.origin}/${site}`,
-  );
+  const maxJobs = clampPositiveInteger(options.maxJobs ?? DEFAULT_MAX_JOBS, 1, 10_000);
+  const careersBaseUrl = normalizeCareersBaseUrl(options.careersUrl ?? `${cxsUrl.origin}/${site}`);
 
   const jobs: NormalizedWorkdayJob[] = [];
   const rawResponses: WorkdayCxsJobsResponse[] = [];
@@ -162,9 +150,7 @@ export async function getJobsFromCxs(
 
     total = typeof response.total === "number" ? response.total : jobs.length;
 
-    const postings = Array.isArray(response.jobPostings)
-      ? response.jobPostings
-      : [];
+    const postings = Array.isArray(response.jobPostings) ? response.jobPostings : [];
     if (postings.length === 0) break;
 
     for (const posting of postings) {
@@ -270,13 +256,8 @@ export function normalizeWorkdayCxsPosting(
 }
 
 export function parseCxsJobsUrl(url: URL): { tenant: string; site: string } {
-  const segments = url.pathname
-    .split("/")
-    .filter(Boolean)
-    .map(decodeURIComponent);
-  const wdayIndex = segments.findIndex(
-    (segment) => segment.toLowerCase() === "wday",
-  );
+  const segments = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  const wdayIndex = segments.findIndex((segment) => segment.toLowerCase() === "wday");
 
   if (wdayIndex === -1) {
     throw new WorkdayCxsFetchError({
@@ -290,12 +271,7 @@ export function parseCxsJobsUrl(url: URL): { tenant: string; site: string } {
   const site = segments[wdayIndex + 3];
   const jobs = segments[wdayIndex + 4];
 
-  if (
-    cxs?.toLowerCase() !== "cxs" ||
-    !tenant ||
-    !site ||
-    jobs?.toLowerCase() !== "jobs"
-  ) {
+  if (cxs?.toLowerCase() !== "cxs" || !tenant || !site || jobs?.toLowerCase() !== "jobs") {
     throw new WorkdayCxsFetchError({
       url: url.toString(),
       message: "CXS jobs URL must look like /wday/cxs/{tenant}/{site}/jobs.",
@@ -318,14 +294,9 @@ function normalizeCareersBaseUrl(input: string): string {
   return url.toString().replace(/\/$/, "");
 }
 
-function extractExternalId(
-  posting: WorkdayCxsJobPosting,
-  externalPath: string,
-): string {
+function extractExternalId(posting: WorkdayCxsJobPosting, externalPath: string): string {
   const bulletId = Array.isArray(posting.bulletFields)
-    ? posting.bulletFields.find(
-        (field) => typeof field === "string" && field.trim(),
-      )
+    ? posting.bulletFields.find((field) => typeof field === "string" && field.trim())
     : undefined;
 
   if (bulletId) return bulletId.trim();

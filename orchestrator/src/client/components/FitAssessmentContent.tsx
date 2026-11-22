@@ -18,9 +18,7 @@ export const FitAssessmentContent: React.FC<FitAssessmentContentProps> = ({
       <div className="flex items-center justify-between border-b border-border/50 pb-2">
         <div className="flex items-center gap-2">
           <Glasses className="h-4 w-4 text-emerald-400 animate-pulse" />
-          <span className="font-semibold text-sm text-foreground">
-            Fit Assessment
-          </span>
+          <span className="font-semibold text-sm text-foreground">Fit Assessment</span>
         </div>
         {score !== null && (
           <span

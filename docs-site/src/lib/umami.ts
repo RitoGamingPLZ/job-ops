@@ -1,7 +1,5 @@
-export const DEFAULT_DOCS_UMAMI_WEBSITE_ID =
-  "a3d08b50-443f-4d21-8ebb-9355ba67578b";
-export const DEMO_DOCS_UMAMI_WEBSITE_ID =
-  "7956a54d-63f5-4528-af0f-f823dd421752";
+export const DEFAULT_DOCS_UMAMI_WEBSITE_ID = "a3d08b50-443f-4d21-8ebb-9355ba67578b";
+export const DEMO_DOCS_UMAMI_WEBSITE_ID = "7956a54d-63f5-4528-af0f-f823dd421752";
 export const UMAMI_PROXY_BASE_PATH = "/stats";
 export const UMAMI_UPSTREAM_ORIGIN = "https://umami.dakheera47.com";
 export const DOCS_STANDALONE_DEV_PORT = "3006";
@@ -37,9 +35,7 @@ export function isStandaloneDocsDev(
   location: LocationLike,
   standaloneDevPort = DOCS_STANDALONE_DEV_PORT,
 ): boolean {
-  return (
-    location.hostname === "localhost" && location.port === standaloneDevPort
-  );
+  return location.hostname === "localhost" && location.port === standaloneDevPort;
 }
 
 export function resolveDocsUmamiConfig(args: {
@@ -48,17 +44,14 @@ export function resolveDocsUmamiConfig(args: {
   siteConfig?: DocsUmamiSiteConfig;
 }): DocsUmamiRuntimeConfig {
   const siteConfig = args.siteConfig ?? {};
-  const standaloneDevPort =
-    siteConfig.standaloneDevPort ?? DOCS_STANDALONE_DEV_PORT;
+  const standaloneDevPort = siteConfig.standaloneDevPort ?? DOCS_STANDALONE_DEV_PORT;
   const proxyBasePath = siteConfig.proxyBasePath ?? UMAMI_PROXY_BASE_PATH;
   const upstreamOrigin = siteConfig.upstreamOrigin ?? UMAMI_UPSTREAM_ORIGIN;
   const useDirectScript = isStandaloneDocsDev(args.location, standaloneDevPort);
 
   return {
     demoMode: args.demoMode,
-    scriptSrc: useDirectScript
-      ? `${upstreamOrigin}/script.js`
-      : `${proxyBasePath}/script.js`,
+    scriptSrc: useDirectScript ? `${upstreamOrigin}/script.js` : `${proxyBasePath}/script.js`,
     hostUrl: useDirectScript ? upstreamOrigin : proxyBasePath,
     websiteId: args.demoMode
       ? (siteConfig.demoWebsiteId ?? DEMO_DOCS_UMAMI_WEBSITE_ID)

@@ -140,10 +140,7 @@ const LiveStageStory = ({
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const intervalId = window.setInterval(
-      () => setTick((current) => current + 1),
-      1600,
-    );
+    const intervalId = window.setInterval(() => setTick((current) => current + 1), 1600);
     return () => window.clearInterval(intervalId);
   }, []);
 
@@ -233,15 +230,11 @@ Importing.storyName = "Stage · importing";
 
 export const Scoring: Story = () => (
   <LiveStageStory
-    progress={stageProgress(
-      "scoring",
-      "Ranking discovered jobs against your profile…",
-      {
-        detail: "Evaluating role fit, experience, and preferences.",
-        jobsScored: 1860,
-        jobsExceptional: 126,
-      },
-    )}
+    progress={stageProgress("scoring", "Ranking discovered jobs against your profile…", {
+      detail: "Evaluating role fit, experience, and preferences.",
+      jobsScored: 1860,
+      jobsExceptional: 126,
+    })}
     elapsedSeconds={246}
   />
 );
@@ -249,15 +242,11 @@ Scoring.storyName = "Stage · scoring";
 
 export const Processing: Story = () => (
   <LiveStageStory
-    progress={stageProgress(
-      "processing",
-      "Preparing the strongest matches for review…",
-      {
-        detail: "Generating tailored application materials for 240 jobs.",
-        jobsScored: 3102,
-        jobsProcessed: 118,
-      },
-    )}
+    progress={stageProgress("processing", "Preparing the strongest matches for review…", {
+      detail: "Generating tailored application materials for 240 jobs.",
+      jobsScored: 3102,
+      jobsProcessed: 118,
+    })}
     elapsedSeconds={318}
   />
 );
@@ -277,14 +266,10 @@ Completed.storyName = "Stage · complete";
 
 export const Cancelled: Story = () => (
   <PipelineProgressCard
-    progress={stageProgress(
-      "cancelled",
-      "Search stopped. Everything found so far has been kept.",
-      {
-        detail: "You can start another run whenever you are ready.",
-        jobsScored: 1860,
-      },
-    )}
+    progress={stageProgress("cancelled", "Search stopped. Everything found so far has been kept.", {
+      detail: "You can start another run whenever you are ready.",
+      jobsScored: 1860,
+    })}
     elapsedSeconds={211}
   />
 );

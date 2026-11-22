@@ -1,8 +1,5 @@
 import { createJob } from "@shared/testing/factories.js";
-import type {
-  WatchlistJobResult,
-  WatchlistSelectedSource,
-} from "@shared/types.js";
+import type { WatchlistJobResult, WatchlistSelectedSource } from "@shared/types.js";
 import { render, screen } from "@testing-library/react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import WatchlistJobRow from "./WatchlistJobRow";
@@ -79,9 +76,7 @@ describe("WatchlistJobRow posted date labels", () => {
     renderPostedDate("2025-01-01");
     expect(
       screen.getByText(
-        new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
-          new Date(2025, 0, 1),
-        ),
+        new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(2025, 0, 1)),
       ),
     ).toBeInTheDocument();
   });
@@ -90,17 +85,12 @@ describe("WatchlistJobRow posted date labels", () => {
     renderPostedDate("2025-01-01T00:00:00Z");
     expect(
       screen.getByText(
-        new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
-          new Date(2024, 11, 31),
-        ),
+        new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(2024, 11, 31)),
       ),
     ).toBeInTheDocument();
   });
 
-  it.each([
-    null,
-    "not-a-date",
-  ])("handles missing or invalid dates (%s)", (value) => {
+  it.each([null, "not-a-date"])("handles missing or invalid dates (%s)", (value) => {
     renderPostedDate(value);
     expect(screen.getByText(value ?? "—")).toBeInTheDocument();
   });

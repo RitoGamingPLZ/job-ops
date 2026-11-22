@@ -98,11 +98,7 @@ describe("V2 domain contract", () => {
     expect(decodeStoredSuggestion(suggestion)).toEqual(suggestion);
   });
 
-  it.each([
-    "id",
-    "libraryId",
-    "bulletRefs",
-  ])("rejects add_entry forging %s", (key) => {
+  it.each(["id", "libraryId", "bulletRefs"])("rejects add_entry forging %s", (key) => {
     expect(
       resumeSuggestionV2Schema.safeParse({
         ...metadata,
@@ -163,69 +159,65 @@ describe("V2 domain contract", () => {
     },
     { op: "save_to_library", target: { kind: "entry", ...parent } },
   ])("rejects invalid targets and fields: $op", (body) => {
-    expect(
-      resumeSuggestionV2Schema.safeParse({ ...metadata, ...body }).success,
-    ).toBe(false);
+    expect(resumeSuggestionV2Schema.safeParse({ ...metadata, ...body }).success).toBe(false);
   });
 });
 
 describe("historical messages", () => {
-  it.each([
-    "replace_bullet",
-    "insert_bullet",
-    "delete_bullet",
-  ])("converts legacy %s to an experience target", (op) => {
-    const result = decodeStoredSuggestion({
-      ...metadata,
-      op,
-      experienceId: "role",
-      bulletIndex: 2,
-      previousText: "Before",
-      text: "After",
-      sourceBulletIds: ["source"],
-    });
-    expect(result).toEqual({
-      ...metadata,
-      op,
-      section: "experience",
-      itemId: "role",
-      bulletIndex: 2,
-      ...(op !== "insert_bullet" ? { previousText: "Before" } : {}),
-      ...(op !== "delete_bullet" ? { text: "After" } : {}),
-      ...(op === "insert_bullet" ? { sourceBulletIds: ["source"] } : {}),
-    });
-  });
+  it.each(["replace_bullet", "insert_bullet", "delete_bullet"])(
+    "converts legacy %s to an experience target",
+    (op) => {
+      const result = decodeStoredSuggestion({
+        ...metadata,
+        op,
+        experienceId: "role",
+        bulletIndex: 2,
+        previousText: "Before",
+        text: "After",
+        sourceBulletIds: ["source"],
+      });
+      expect(result).toEqual({
+        ...metadata,
+        op,
+        section: "experience",
+        itemId: "role",
+        bulletIndex: 2,
+        ...(op !== "insert_bullet" ? { previousText: "Before" } : {}),
+        ...(op !== "delete_bullet" ? { text: "After" } : {}),
+        ...(op === "insert_bullet" ? { sourceBulletIds: ["source"] } : {}),
+      });
+    },
+  );
 
-  it.each([
-    "replace_headline",
-    "replace_summary",
-    "replace_field",
-  ])("converts legacy %s with unused optional fields", (op) => {
-    const body = {
-      ...metadata,
-      op,
-      previousText: "Before",
-      text: "After",
-      ...(op === "replace_field"
-        ? {
-            field: {
-              section: "education",
-              itemId: "education",
-              name: "school",
-            },
-          }
-        : {}),
-    };
-    expect(
-      decodeStoredSuggestion({
-        ...body,
-        experienceId: null,
-        bulletIndex: null,
-        skills: null,
-        sourceBulletIds: [],
-      }),
-    ).toEqual(body);
-  });
+  it.each(["replace_headline", "replace_summary", "replace_field"])(
+    "converts legacy %s with unused optional fields",
+    (op) => {
+      const body = {
+        ...metadata,
+        op,
+        previousText: "Before",
+        text: "After",
+        ...(op === "replace_field"
+          ? {
+              field: {
+                section: "education",
+                itemId: "education",
+                name: "school",
+              },
+            }
+          : {}),
+      };
+      expect(
+        decodeStoredSuggestion({
+          ...body,
+          experienceId: null,
+          bulletIndex: null,
+          skills: null,
+          sourceBulletIds: [],
+        }),
+      ).toEqual(body);
+    },
+  );
 
   it("does not execute legacy set_skills or guess missing guards", () => {
     expect(
@@ -260,10 +252,7 @@ describe("historical messages", () => {
 
 function providerEnvelope(suggestion: ResumeSuggestionV2) {
   const envelope: Record<string, unknown> = Object.fromEntries(
-    Object.keys(suggestionProviderJsonSchema.properties).map((key) => [
-      key,
-      null,
-    ]),
+    Object.keys(suggestionProviderJsonSchema.properties).map((key) => [key, null]),
   );
   const { id: _id, ...body } = suggestion;
   Object.assign(envelope, body);
@@ -284,9 +273,7 @@ function providerEnvelope(suggestion: ResumeSuggestionV2) {
 
 describe("strict provider envelope", () => {
   it.each(suggestions)("lowers $op to the domain contract", (suggestion) => {
-    expect(
-      decodeProviderSuggestion(providerEnvelope(suggestion), metadata.id),
-    ).toEqual(suggestion);
+    expect(decodeProviderSuggestion(providerEnvelope(suggestion), metadata.id)).toEqual(suggestion);
   });
 
   it("preserves nulls in JSON-encoded library data", () => {
@@ -296,9 +283,10 @@ describe("strict provider envelope", () => {
       includeOnResume: false,
       item: { kind: "role", text: "Fact", parentId: null, data: null },
     } as const;
-    expect(
-      decodeProviderSuggestion(providerEnvelope(suggestion), "server-id"),
-    ).toEqual({ ...suggestion, id: "server-id" });
+    expect(decodeProviderSuggestion(providerEnvelope(suggestion), "server-id")).toEqual({
+      ...suggestion,
+      id: "server-id",
+    });
   });
 
   it.each([
@@ -318,12 +306,7 @@ describe("strict provider envelope", () => {
     { op: "unknown", itemJson: "{}" },
     { op: "set_skills", skills: [] },
   ])("rejects malformed JSON or wrong operation: $op", (body) => {
-    expect(
-      decodeProviderSuggestion(
-        { reason: metadata.reason, ...body },
-        metadata.id,
-      ),
-    ).toBeNull();
+    expect(decodeProviderSuggestion({ reason: metadata.reason, ...body }, metadata.id)).toBeNull();
   });
 
   it("uses required nullable fields and closed objects at every schema level", () => {
@@ -332,10 +315,7 @@ describe("strict provider envelope", () => {
       expect(schema).not.toHaveProperty("oneOf");
       if ("enum" in schema) expect(schema.enum).not.toContain(null);
       if ("properties" in schema) {
-        const properties = schema.properties as Record<
-          string,
-          Record<string, unknown>
-        >;
+        const properties = schema.properties as Record<string, Record<string, unknown>>;
         expect(schema.additionalProperties).toBe(false);
         expect(schema.required).toEqual(Object.keys(properties));
         for (const child of Object.values(properties)) visit(child);
@@ -376,26 +356,19 @@ it.each([
 
 describe("review regressions", () => {
   const requireText = suggestions.filter((suggestion) =>
-    [
-      "replace_bullet",
-      "insert_bullet",
-      "replace_headline",
-      "replace_summary",
-    ].includes(suggestion.op),
+    ["replace_bullet", "insert_bullet", "replace_headline", "replace_summary"].includes(
+      suggestion.op,
+    ),
   );
-  it.each(
-    requireText,
-  )("rejects blank new text for $op and trims valid text", (suggestion) => {
+  it.each(requireText)("rejects blank new text for $op and trims valid text", (suggestion) => {
     for (const text of ["", "  ", "\n\t"]) {
       const empty = { ...suggestion, text };
       expect(resumeSuggestionV2Schema.safeParse(empty).success).toBe(false);
-      expect(
-        decodeProviderSuggestion(providerEnvelope(empty), metadata.id),
-      ).toBeNull();
+      expect(decodeProviderSuggestion(providerEnvelope(empty), metadata.id)).toBeNull();
     }
-    expect(
-      resumeSuggestionV2Schema.parse({ ...suggestion, text: "  New text  " }),
-    ).toMatchObject({ text: "New text" });
+    expect(resumeSuggestionV2Schema.parse({ ...suggestion, text: "  New text  " })).toMatchObject({
+      text: "New text",
+    });
   });
 
   it("allows clearing an intro or a field and allows an empty previous value", () => {
@@ -419,28 +392,24 @@ describe("review regressions", () => {
     ).toBe(true);
   });
 
-  it.each(
-    suggestions,
-  )("ignores unused non-null provider fields for $op while keeping domain validation strict", (suggestion) => {
-    const envelope = providerEnvelope(suggestion);
-    // These are valid envelope properties, but are unused by every tested op.
-    for (const key of Object.keys(envelope)) {
-      if (envelope[key] === null) envelope[key] = "stray";
-    }
-    expect(decodeProviderSuggestion(envelope, metadata.id)).toEqual(suggestion);
-    expect(
-      resumeSuggestionV2Schema.safeParse({ ...suggestion, stray: "value" })
-        .success,
-    ).toBe(false);
-  });
+  it.each(suggestions)(
+    "ignores unused non-null provider fields for $op while keeping domain validation strict",
+    (suggestion) => {
+      const envelope = providerEnvelope(suggestion);
+      // These are valid envelope properties, but are unused by every tested op.
+      for (const key of Object.keys(envelope)) {
+        if (envelope[key] === null) envelope[key] = "stray";
+      }
+      expect(decodeProviderSuggestion(envelope, metadata.id)).toEqual(suggestion);
+      expect(resumeSuggestionV2Schema.safeParse({ ...suggestion, stray: "value" }).success).toBe(
+        false,
+      );
+    },
+  );
 
-  it.each([
-    "line",
-    "entry",
-  ])("ignores unused save-to-library %s target fields", (kind) => {
+  it.each(["line", "entry"])("ignores unused save-to-library %s target fields", (kind) => {
     const suggestion = suggestions.find(
-      (suggestion) =>
-        suggestion.op === "save_to_library" && suggestion.target.kind === kind,
+      (suggestion) => suggestion.op === "save_to_library" && suggestion.target.kind === kind,
     );
     if (!suggestion) throw new Error("Missing fixture");
     const envelope = providerEnvelope(suggestion);
@@ -451,26 +420,23 @@ describe("review regressions", () => {
     expect(decodeProviderSuggestion(envelope, metadata.id)).toEqual(suggestion);
   });
 
-  it.each([
-    "id",
-    "libraryId",
-    "bulletRefs",
-  ])("rejects nested role %s through both entry validators", (key) => {
-    const suggestion = {
-      ...metadata,
-      op: "add_entry",
-      section: "experience",
-      index: 0,
-      item: {
-        company: "Company",
-        roles: [{ position: "Engineer", [key]: "forged" }],
-      },
-    } as const;
-    expect(resumeSuggestionV2Schema.safeParse(suggestion).success).toBe(false);
-    expect(
-      decodeProviderSuggestion(providerEnvelope(suggestion), metadata.id),
-    ).toBeNull();
-  });
+  it.each(["id", "libraryId", "bulletRefs"])(
+    "rejects nested role %s through both entry validators",
+    (key) => {
+      const suggestion = {
+        ...metadata,
+        op: "add_entry",
+        section: "experience",
+        index: 0,
+        item: {
+          company: "Company",
+          roles: [{ position: "Engineer", [key]: "forged" }],
+        },
+      } as const;
+      expect(resumeSuggestionV2Schema.safeParse(suggestion).success).toBe(false);
+      expect(decodeProviderSuggestion(providerEnvelope(suggestion), metadata.id)).toBeNull();
+    },
+  );
 
   const nested: Record<string, unknown> = {};
   let current = nested;
@@ -482,18 +448,12 @@ describe("review regressions", () => {
     { description: "x".repeat(10001) },
     { roles: [{ description: "x".repeat(10001) }] },
     { description: "x".repeat(1000001) },
-    Object.fromEntries(
-      Array.from({ length: 11 }, (_, i) => [`field${i}`, "x".repeat(10000)]),
-    ),
+    Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`field${i}`, "x".repeat(10000)])),
     nested,
     { keywords: Array.from({ length: 201 }, () => "keyword") },
-    Object.fromEntries(
-      Array.from({ length: 201 }, (_, i) => [`field${i}`, "value"]),
-    ),
+    Object.fromEntries(Array.from({ length: 201 }, (_, i) => [`field${i}`, "value"])),
     {
-      roles: Array.from({ length: 200 }, () =>
-        Array.from({ length: 20 }, () => "value"),
-      ),
+      roles: Array.from({ length: 200 }, () => Array.from({ length: 20 }, () => "value")),
     },
   ])("bounds added entry payloads through both validators (%#)", (item) => {
     const suggestion = {
@@ -504,9 +464,7 @@ describe("review regressions", () => {
       item,
     } as const;
     expect(resumeSuggestionV2Schema.safeParse(suggestion).success).toBe(false);
-    expect(
-      decodeProviderSuggestion(providerEnvelope(suggestion), metadata.id),
-    ).toBeNull();
+    expect(decodeProviderSuggestion(providerEnvelope(suggestion), metadata.id)).toBeNull();
   });
 
   it("accepts a bounded nested role without identities", () => {
@@ -527,9 +485,7 @@ describe("review regressions", () => {
       },
     } as const;
     expect(resumeSuggestionV2Schema.parse(suggestion)).toEqual(suggestion);
-    expect(
-      decodeProviderSuggestion(providerEnvelope(suggestion), metadata.id),
-    ).toEqual(suggestion);
+    expect(decodeProviderSuggestion(providerEnvelope(suggestion), metadata.id)).toEqual(suggestion);
   });
 
   it("rejects cyclic entry data without throwing in the decoders", () => {
@@ -546,9 +502,7 @@ describe("review regressions", () => {
     expect(decodeStoredSuggestion(suggestion)).toBeNull();
   });
 
-  it.each(
-    CANDIDATE_ITEM_KINDS,
-  )("validates create-library kind and parent rules for %s", (kind) => {
+  it.each(CANDIDATE_ITEM_KINDS)("validates create-library kind and parent rules for %s", (kind) => {
     const makeSuggestion = (parentId?: string | null): ResumeSuggestionV2 => ({
       ...metadata,
       op: "create_library_item",
@@ -560,16 +514,11 @@ describe("review regressions", () => {
       const suggestion = makeSuggestion(parentId);
       const valid =
         kind !== "contact" &&
-        (child
-          ? parentId === "parent"
-          : parentId === undefined || parentId === null);
-      expect(resumeSuggestionV2Schema.safeParse(suggestion).success).toBe(
+        (child ? parentId === "parent" : parentId === undefined || parentId === null);
+      expect(resumeSuggestionV2Schema.safeParse(suggestion).success).toBe(valid);
+      expect(decodeProviderSuggestion(providerEnvelope(suggestion), metadata.id) !== null).toBe(
         valid,
       );
-      expect(
-        decodeProviderSuggestion(providerEnvelope(suggestion), metadata.id) !==
-          null,
-      ).toBe(valid);
     }
   });
 });

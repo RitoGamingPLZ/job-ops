@@ -44,7 +44,7 @@ const OIDC_ISSUER = "https://idp.test";
 const GOOGLE_ISSUER = "https://accounts.google.com";
 const CALLBACK_SEARCH = "?code=authorization-code&state=stored-state";
 
-describe.sequential("SSO auth routes", () => {
+describe("SSO auth routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -64,9 +64,7 @@ describe.sequential("SSO auth routes", () => {
         };
       },
     );
-    ssoClientMocks.exchangeSsoAuthorizationCode.mockResolvedValue(
-      buildClaims(),
-    );
+    ssoClientMocks.exchangeSsoAuthorizationCode.mockResolvedValue(buildClaims());
   });
 
   afterEach(async () => {
@@ -85,19 +83,13 @@ describe.sequential("SSO auth routes", () => {
     };
   }
 
-  async function startSsoServer(
-    env: Record<string, string | undefined> = {},
-  ): Promise<void> {
+  async function startSsoServer(env: Record<string, string | undefined> = {}): Promise<void> {
     ({ server, baseUrl, closeDb, tempDir } = await startServer({
       env: { ...AUTH_ENV, ...SSO_ENV, ...env },
     }));
   }
 
-  async function postJson(
-    path: string,
-    body?: unknown,
-    token?: string,
-  ): Promise<Response> {
+  async function postJson(path: string, body?: unknown, token?: string): Promise<Response> {
     return fetch(`${baseUrl}${path}`, {
       method: "POST",
       headers: {
@@ -121,11 +113,7 @@ describe.sequential("SSO auth routes", () => {
     token?: string;
   }): Promise<{ state: string; flowToken: string }> {
     const suffix = input.mode === "link" ? "link/start" : "start";
-    const res = await postJson(
-      `/api/auth/sso/${input.provider}/${suffix}`,
-      undefined,
-      input.token,
-    );
+    const res = await postJson(`/api/auth/sso/${input.provider}/${suffix}`, undefined, input.token);
     expect(res.status).toBe(200);
     const body = await res.json();
     return {
@@ -153,10 +141,7 @@ describe.sequential("SSO auth routes", () => {
     );
   }
 
-  async function signInWithSso(input: {
-    provider: string;
-    claims: SsoClaims;
-  }): Promise<Response> {
+  async function signInWithSso(input: { provider: string; claims: SsoClaims }): Promise<Response> {
     const flow = await startFlow({ provider: input.provider });
     ssoClientMocks.exchangeSsoAuthorizationCode.mockResolvedValue(input.claims);
     return postCallback({ provider: input.provider, ...flow });
@@ -218,16 +203,12 @@ describe.sequential("SSO auth routes", () => {
         provider: "oidc",
         state: "state-1",
       });
-      expect(body.data.authorizationUrl).toContain(
-        "https://idp.test/authorize",
-      );
+      expect(body.data.authorizationUrl).toContain("https://idp.test/authorize");
       expect(body.data.flowToken).toBeTruthy();
-      expect(ssoClientMocks.createSsoAuthorizationRequest).toHaveBeenCalledWith(
-        {
-          provider: "oidc",
-          redirectUri: `${baseUrl}/sso/callback/oidc`,
-        },
-      );
+      expect(ssoClientMocks.createSsoAuthorizationRequest).toHaveBeenCalledWith({
+        provider: "oidc",
+        redirectUri: `${baseUrl}/sso/callback/oidc`,
+      });
     });
 
     it("returns 404 for a provider that is not configured", async () => {
@@ -267,9 +248,7 @@ describe.sequential("SSO auth routes", () => {
     it("returns 503 when no public base URL can be derived", async () => {
       await startSsoServer({ JOBOPS_PUBLIC_BASE_URL: "" });
 
-      await expect(
-        postWithEmptyHostHeader("/api/auth/sso/oidc/start"),
-      ).resolves.toBe(503);
+      await expect(postWithEmptyHostHeader("/api/auth/sso/oidc/start")).resolves.toBe(503);
     });
   });
 
@@ -421,9 +400,7 @@ describe.sequential("SSO auth routes", () => {
       const body = await res.json();
       expect(body.ok).toBe(false);
       expect(body.data).toBeUndefined();
-      expect(
-        ssoClientMocks.exchangeSsoAuthorizationCode,
-      ).not.toHaveBeenCalled();
+      expect(ssoClientMocks.exchangeSsoAuthorizationCode).not.toHaveBeenCalled();
     });
 
     it("rejects a state issued for another provider", async () => {
@@ -433,17 +410,13 @@ describe.sequential("SSO auth routes", () => {
       const res = await postCallback({ provider: "github", ...flow });
 
       expect(res.status).toBe(400);
-      expect(
-        ssoClientMocks.exchangeSsoAuthorizationCode,
-      ).not.toHaveBeenCalled();
+      expect(ssoClientMocks.exchangeSsoAuthorizationCode).not.toHaveBeenCalled();
     });
 
     it("rejects a disabled user", async () => {
       await startSsoServer();
       const usersRepo = await import("@server/repositories/users");
-      const identitiesRepo = await import(
-        "@server/repositories/sso-identities"
-      );
+      const identitiesRepo = await import("@server/repositories/sso-identities");
       const user = await usersRepo.createPrivateWorkspaceUser({
         username: "blocked",
         password: "blocked-password",
@@ -522,9 +495,7 @@ describe.sequential("SSO auth routes", () => {
         JOBOPS_HOSTED_TENANT_ID: "tenant_hosted",
       });
       const usersRepo = await import("@server/repositories/users");
-      const identitiesRepo = await import(
-        "@server/repositories/sso-identities"
-      );
+      const identitiesRepo = await import("@server/repositories/sso-identities");
       const user = await usersRepo.createPrivateWorkspaceUser({
         username: "outsider",
         password: "outsider-password",
@@ -609,9 +580,7 @@ describe.sequential("SSO auth routes", () => {
     it("returns 409 when the identity belongs to another user", async () => {
       await startSsoServer();
       const usersRepo = await import("@server/repositories/users");
-      const identitiesRepo = await import(
-        "@server/repositories/sso-identities"
-      );
+      const identitiesRepo = await import("@server/repositories/sso-identities");
       const other = await usersRepo.createPrivateWorkspaceUser({
         username: "other",
         password: "other-password",
@@ -664,9 +633,7 @@ describe.sequential("SSO auth routes", () => {
       });
 
       expect(res.status).toBe(400);
-      expect(
-        ssoClientMocks.exchangeSsoAuthorizationCode,
-      ).not.toHaveBeenCalled();
+      expect(ssoClientMocks.exchangeSsoAuthorizationCode).not.toHaveBeenCalled();
     });
 
     it("requires a bearer token, in demo mode as well", async () => {
@@ -709,9 +676,7 @@ describe.sequential("SSO auth routes", () => {
     it("lists only the caller's identities and refuses to unlink another user's", async () => {
       await startSsoServer();
       const usersRepo = await import("@server/repositories/users");
-      const identitiesRepo = await import(
-        "@server/repositories/sso-identities"
-      );
+      const identitiesRepo = await import("@server/repositories/sso-identities");
       const other = await usersRepo.createPrivateWorkspaceUser({
         username: "other",
         password: "other-password",
@@ -743,14 +708,12 @@ describe.sequential("SSO auth routes", () => {
       expect(identities).toHaveLength(1);
       expect(identities[0]?.id).not.toBe(otherIdentity.id);
 
-      const deleteRes = await fetch(
-        `${baseUrl}/api/auth/sso/identities/${otherIdentity.id}`,
-        { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
-      );
+      const deleteRes = await fetch(`${baseUrl}/api/auth/sso/identities/${otherIdentity.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
       expect(deleteRes.status).toBe(404);
-      await expect(
-        identitiesRepo.countSsoIdentitiesForUser(other.id),
-      ).resolves.toBe(1);
+      await expect(identitiesRepo.countSsoIdentitiesForUser(other.id)).resolves.toBe(1);
     });
 
     it("keeps a password-less account from removing its last sign-in method", async () => {

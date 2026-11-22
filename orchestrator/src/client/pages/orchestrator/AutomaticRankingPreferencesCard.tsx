@@ -1,10 +1,4 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -27,8 +21,7 @@ export function AutomaticRankingPreferencesCard({
           <div className="flex min-w-0 flex-col gap-1">
             <CardTitle>What should Job Ops prioritise?</CardTitle>
             <CardDescription>
-              These instructions affect ranking, not discovery. Write them in
-              plain English.
+              These instructions affect ranking, not discovery. Write them in plain English.
             </CardDescription>
           </div>
         </div>

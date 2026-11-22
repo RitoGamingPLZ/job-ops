@@ -28,9 +28,7 @@ it("opens the tab before loading and navigates it when ready", async () => {
     closed: false,
     close: vi.fn(),
   };
-  const open = vi
-    .spyOn(window, "open")
-    .mockReturnValue(tab as unknown as Window);
+  const open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
   const operation = openJobPdf("job");
   expect(open).toHaveBeenCalledWith("about:blank", "_blank");
   expect(tab.location.href).toBe("about:blank");
@@ -42,11 +40,11 @@ it("opens the tab before loading and navigates it when ready", async () => {
 it("downloads if the tab is blocked", async () => {
   vi.spyOn(window, "open").mockReturnValue(null);
   mocks.blob.mockResolvedValue(new Blob(["fake"]));
-  const click = vi
-    .spyOn(HTMLAnchorElement.prototype, "click")
-    .mockImplementation(function (this: HTMLAnchorElement) {
-      expect(this.download).toBe("resume.pdf");
-    });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    expect(this.download).toBe("resume.pdf");
+  });
   await openJobPdf("job");
   expect(click).toHaveBeenCalledOnce();
 });
@@ -72,9 +70,7 @@ it("reserves a tab before generation and fetches only after generation succeeds"
     closed: false,
     close: vi.fn(),
   };
-  const open = vi
-    .spyOn(window, "open")
-    .mockReturnValue(tab as unknown as Window);
+  const open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
   mocks.blob.mockResolvedValue(new Blob(["generated"]));
   const operation = openJobPdf("job", generate);
   expect(open).toHaveBeenCalledOnce();

@@ -40,10 +40,7 @@ vi.mock("@server/services/rxresume", () => ({
   },
   RxResumeRequestError: class RxResumeRequestError extends Error {
     status: number | null;
-    constructor(
-      message = "Reactive Resume request failed",
-      status: number | null = null,
-    ) {
+    constructor(message = "Reactive Resume request failed", status: number | null = null) {
       super(message);
       this.name = "RxResumeRequestError";
       this.status = status;
@@ -95,7 +92,7 @@ async function login(baseUrl: string, username: string, password: string) {
   return body.data.token as string;
 }
 
-describe.sequential("Settings API routes", () => {
+describe("Settings API routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -125,24 +122,9 @@ describe.sequential("Settings API routes", () => {
     const cases = [
       [undefined, "", undefined, "http://localhost:4000"],
       [null, "", undefined, "http://localhost:4000"],
-      [
-        undefined,
-        " http://stored.example ",
-        undefined,
-        "http://stored.example",
-      ],
-      [
-        null,
-        "http://stored.example",
-        "http://env.example",
-        "http://stored.example",
-      ],
-      [
-        "",
-        "http://stored.example",
-        " http://env.example ",
-        "http://env.example",
-      ],
+      [undefined, " http://stored.example ", undefined, "http://stored.example"],
+      [null, "http://stored.example", "http://env.example", "http://stored.example"],
+      ["", "http://stored.example", " http://env.example ", "http://env.example"],
       [" ", "http://stored.example", undefined, "http://localhost:4000"],
       [
         " http://override.example ",
@@ -204,15 +186,12 @@ describe.sequential("Settings API routes", () => {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        resumeGenerationPromptTemplate:
-          LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
+        resumeGenerationPromptTemplate: LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
       }),
     });
     expect(saved.status).toBe(200);
     const read = await fetch(`${baseUrl}/api/settings`);
-    expect(
-      (await read.json()).data.resumeGenerationPromptTemplate,
-    ).toMatchObject({
+    expect((await read.json()).data.resumeGenerationPromptTemplate).toMatchObject({
       value: getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
       default: getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
       override: null,
@@ -229,17 +208,13 @@ describe.sequential("Settings API routes", () => {
     const saved = await patch("Custom selection instructions");
     expect(saved.status).toBe(200);
     const read = await fetch(`${baseUrl}/api/settings`);
-    expect(
-      (await read.json()).data.resumeGenerationPromptTemplate,
-    ).toMatchObject({
+    expect((await read.json()).data.resumeGenerationPromptTemplate).toMatchObject({
       value: "Custom selection instructions",
       override: "Custom selection instructions",
     });
     const reset = await patch(null);
     expect(reset.status).toBe(200);
-    expect(
-      (await reset.json()).data.resumeGenerationPromptTemplate,
-    ).toMatchObject({
+    expect((await reset.json()).data.resumeGenerationPromptTemplate).toMatchObject({
       value: getDefaultPromptTemplate("resumeGenerationPromptTemplate"),
       override: null,
     });
@@ -512,8 +487,7 @@ describe.sequential("Settings API routes", () => {
       ok: false,
       mode: "v5",
       status: 401,
-      message:
-        "Reactive Resume v5 API key is invalid. Update the API key and try again.",
+      message: "Reactive Resume v5 API key is invalid. Update the API key and try again.",
     });
 
     const res = await fetch(`${baseUrl}/api/settings`, {
@@ -559,9 +533,7 @@ describe.sequential("Settings API routes", () => {
 
     const settingsRes = await fetch(`${baseUrl}/api/settings`);
     const settingsBody = await settingsRes.json();
-    expect(settingsBody.data.rxresumeUrl).toBe(
-      "https://env.rxresume.example.com",
-    );
+    expect(settingsBody.data.rxresumeUrl).toBe("https://env.rxresume.example.com");
   });
 
   it("allows saving when Reactive Resume is temporarily unavailable", async () => {
@@ -569,8 +541,7 @@ describe.sequential("Settings API routes", () => {
       ok: false,
       mode: "v5",
       status: 0,
-      message:
-        "JobOps could not verify Reactive Resume because the instance is unavailable.",
+      message: "JobOps could not verify Reactive Resume because the instance is unavailable.",
     });
 
     const res = await fetch(`${baseUrl}/api/settings`, {
@@ -711,9 +682,7 @@ describe.sequential("Settings API routes", () => {
 
     expect(searchSettingsRes.status).toBe(200);
     expect(searchSettingsBody.ok).toBe(true);
-    expect(searchSettingsBody.data.searchTerms.value).toEqual([
-      "backend engineer",
-    ]);
+    expect(searchSettingsBody.data.searchTerms.value).toEqual(["backend engineer"]);
     expect(searchSettingsBody.data.searchCities.value).toBe("London");
 
     const protectedSettingsRes = await fetch(`${baseUrl}/api/settings`, {
@@ -736,15 +705,10 @@ describe.sequential("Settings API routes", () => {
   it("preserves upstream 404 from Reactive Resume project lookup", async () => {
     const { RxResumeRequestError } = await import("@server/services/rxresume");
     vi.mocked(getResume).mockRejectedValue(
-      new RxResumeRequestError(
-        "Reactive Resume API error (404): Resume not found",
-        404,
-      ),
+      new RxResumeRequestError("Reactive Resume API error (404): Resume not found", 404),
     );
 
-    const res = await fetch(
-      `${baseUrl}/api/settings/rx-resumes/missing/projects`,
-    );
+    const res = await fetch(`${baseUrl}/api/settings/rx-resumes/missing/projects`);
     const body = await res.json();
 
     expect(res.status).toBe(404);
@@ -780,9 +744,7 @@ describe.sequential("Settings API routes", () => {
       },
     } as any);
 
-    const res = await fetch(
-      `${baseUrl}/api/settings/rx-resumes/resume-v5/projects?mode=v5`,
-    );
+    const res = await fetch(`${baseUrl}/api/settings/rx-resumes/resume-v5/projects?mode=v5`);
     const body = await res.json();
 
     expect(res.status).toBe(200);

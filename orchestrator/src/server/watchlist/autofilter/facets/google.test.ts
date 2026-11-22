@@ -2,8 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { discoverGoogleFacets } from "./google";
 import { facetDiscoverers } from "./index";
 
-const careersUrl =
-  "https://www.google.com/about/careers/applications/jobs/results/";
+const careersUrl = "https://www.google.com/about/careers/applications/jobs/results/";
 const page = (data: unknown) =>
   `<script>AF_initDataCallback({key: 'ds:1', hash: '2', data:${JSON.stringify(data)}, sideChannel: {}});</script>`;
 
@@ -28,31 +27,21 @@ it("fetches the unfiltered board once without paging and returns verified enum v
       {
         key: "target_level",
         multi: true,
-        values: [
-          "EARLY",
-          "MID",
-          "ADVANCED",
-          "DIRECTOR_PLUS",
-          "INTERN_AND_APPRENTICE",
-        ].map((value) => ({ value })),
-      },
-      {
-        key: "employment_type",
-        multi: true,
-        values: ["FULL_TIME", "PART_TIME", "TEMPORARY", "INTERN"].map(
+        values: ["EARLY", "MID", "ADVANCED", "DIRECTOR_PLUS", "INTERN_AND_APPRENTICE"].map(
           (value) => ({ value }),
         ),
       },
       {
+        key: "employment_type",
+        multi: true,
+        values: ["FULL_TIME", "PART_TIME", "TEMPORARY", "INTERN"].map((value) => ({ value })),
+      },
+      {
         key: "degree",
         multi: true,
-        values: [
-          "PURSUING_DEGREE",
-          "ASSOCIATE",
-          "BACHELORS",
-          "MASTERS",
-          "DOCTORATE",
-        ].map((value) => ({ value })),
+        values: ["PURSUING_DEGREE", "ASSOCIATE", "BACHELORS", "MASTERS", "DOCTORATE"].map(
+          (value) => ({ value }),
+        ),
       },
     ],
   });
@@ -70,28 +59,19 @@ it.each([
 ])("rejects unsafe or unsupported URLs before fetching: %s", async (value) => {
   const fetch = vi.fn();
   vi.stubGlobal("fetch", fetch);
-  await expect(
-    discoverGoogleFacets({ careersUrl: value }),
-  ).rejects.toMatchObject({ status: 400 });
+  await expect(discoverGoogleFacets({ careersUrl: value })).rejects.toMatchObject({ status: 400 });
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it.each([
-  0, 10000,
-])("uses the match total rather than the listed job count (%s)", async (total) => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(new Response(page([null, null, total]))),
-  );
-  expect((await discoverGoogleFacets({ careersUrl })).unfilteredTotal).toBe(
-    total,
-  );
+it.each([0, 10000])("uses the match total rather than the listed job count (%s)", async (total) => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(page([null, null, total]))));
+  expect((await discoverGoogleFacets({ careersUrl })).unfilteredTotal).toBe(total);
 });
 
 it.each(
-  [[], [[], null, -1], [[], null, 1.5], [[], null, "3"], [[], null, null]].map(
-    (data) => ({ data }),
-  ),
+  [[], [[], null, -1], [[], null, 1.5], [[], null, "3"], [[], null, null]].map((data) => ({
+    data,
+  })),
 )("rejects malformed totals (%j)", async ({ data }) => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(page(data))));
   await expect(discoverGoogleFacets({ careersUrl })).rejects.toMatchObject({
@@ -110,9 +90,7 @@ it.each([
   });
 });
 
-it.each([
-  429, 500,
-])("does not retry HTTP %s or expose response bodies", async (status) => {
+it.each([429, 500])("does not retry HTTP %s or expose response bodies", async (status) => {
   const fetch = vi.fn().mockResolvedValue(new Response("secret", { status }));
   vi.stubGlobal("fetch", fetch);
   await expect(discoverGoogleFacets({ careersUrl })).rejects.toMatchObject({
@@ -133,17 +111,12 @@ it("honors cancellation before fetching", async () => {
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it.each([
-  "AbortError",
-  "TimeoutError",
-])("preserves %s during body reads", async (name) => {
+it.each(["AbortError", "TimeoutError"])("preserves %s during body reads", async (name) => {
   const error = new Error("interrupted");
   error.name = name;
   vi.stubGlobal(
     "fetch",
-    vi
-      .fn()
-      .mockResolvedValue({ ok: true, text: vi.fn().mockRejectedValue(error) }),
+    vi.fn().mockResolvedValue({ ok: true, text: vi.fn().mockRejectedValue(error) }),
   );
   await expect(discoverGoogleFacets({ careersUrl })).rejects.toBe(error);
 });

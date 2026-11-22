@@ -14,22 +14,13 @@ import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { resolveNextPath } from "../lib/auth-navigation";
 import { queryKeys } from "../lib/queryKeys";
-import {
-  loadRememberedAuthUsers,
-  rememberAuthUser,
-} from "../lib/remembered-auth-users";
+import { loadRememberedAuthUsers, rememberAuthUser } from "../lib/remembered-auth-users";
 import { rememberPendingSsoFlow } from "../lib/sso-flow";
 import { SSO_PROVIDER_ICONS } from "../lib/sso-providers";
 
@@ -46,9 +37,7 @@ export function SignInPage() {
   const [hostedSignupEnabled, setHostedSignupEnabled] = useState(false);
   const [isBusy, setIsBusy] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [rememberedUsers, setRememberedUsers] = useState(() =>
-    loadRememberedAuthUsers(),
-  );
+  const [rememberedUsers, setRememberedUsers] = useState(() => loadRememberedAuthUsers());
   const ssoProvidersQuery = useQuery({
     queryKey: queryKeys.auth.ssoProviders(),
     queryFn: getSsoProviders,
@@ -77,9 +66,7 @@ export function SignInPage() {
       try {
         const appStatus = await getAppStatus();
         if (cancelled) return;
-        const canSignup =
-          appStatus.appMode === "hosted" &&
-          appStatus.capabilities.hostedSignups;
+        const canSignup = appStatus.appMode === "hosted" && appStatus.capabilities.hostedSignups;
         setHostedSignupEnabled(canSignup);
 
         const bootstrap = await getAuthBootstrapStatus();
@@ -101,9 +88,7 @@ export function SignInPage() {
       } catch (error) {
         if (!cancelled) {
           setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "Unable to load sign-in status.",
+            error instanceof Error ? error.message : "Unable to load sign-in status.",
           );
         }
       } finally {
@@ -159,9 +144,7 @@ export function SignInPage() {
       });
       navigate(nextPath, { replace: true });
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Unable to sign in",
-      );
+      setErrorMessage(error instanceof Error ? error.message : "Unable to sign in");
       setIsBusy(false);
     }
   };
@@ -182,9 +165,7 @@ export function SignInPage() {
       window.location.assign(start.authorizationUrl);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : `Unable to continue with ${provider.displayName}`,
+        error instanceof Error ? error.message : `Unable to continue with ${provider.displayName}`,
       );
       setIsBusy(false);
     }
@@ -218,16 +199,10 @@ export function SignInPage() {
                 className="mb-5"
               >
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger
-                    value="sign-in"
-                    onClick={() => resetFormFeedback("sign-in")}
-                  >
+                  <TabsTrigger value="sign-in" onClick={() => resetFormFeedback("sign-in")}>
                     Sign in
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="signup"
-                    onClick={() => resetFormFeedback("signup")}
-                  >
+                  <TabsTrigger value="signup" onClick={() => resetFormFeedback("signup")}>
                     Create account
                   </TabsTrigger>
                 </TabsList>
@@ -243,11 +218,7 @@ export function SignInPage() {
                     <Button
                       key={user.username}
                       type="button"
-                      variant={
-                        username.trim() === user.username
-                          ? "secondary"
-                          : "outline"
-                      }
+                      variant={username.trim() === user.username ? "secondary" : "outline"}
                       size="sm"
                       className="h-8 max-w-full px-2.5"
                       disabled={isBusy}
@@ -257,9 +228,7 @@ export function SignInPage() {
                         setErrorMessage(null);
                       }}
                     >
-                      <span className="truncate">
-                        {user.displayName ?? user.username}
-                      </span>
+                      <span className="truncate">{user.displayName ?? user.username}</span>
                     </Button>
                   ))}
                 </div>
@@ -268,19 +237,14 @@ export function SignInPage() {
             <form className="space-y-4" onSubmit={handleSubmit}>
               {authMode === "signup" ? (
                 <div className="space-y-2">
-                  <label
-                    className="text-sm font-medium"
-                    htmlFor="auth-display-name"
-                  >
+                  <label className="text-sm font-medium" htmlFor="auth-display-name">
                     Name
                   </label>
                   <Input
                     id="auth-display-name"
                     autoComplete="name"
                     value={displayName}
-                    onChange={(event) =>
-                      setDisplayName(event.currentTarget.value)
-                    }
+                    onChange={(event) => setDisplayName(event.currentTarget.value)}
                     placeholder="Your name"
                     disabled={isBusy}
                   />
@@ -306,9 +270,7 @@ export function SignInPage() {
                 <Input
                   id="auth-password"
                   type="password"
-                  autoComplete={
-                    authMode === "signup" ? "new-password" : "current-password"
-                  }
+                  autoComplete={authMode === "signup" ? "new-password" : "current-password"}
                   value={password}
                   onChange={(event) => setPassword(event.currentTarget.value)}
                   placeholder="Enter password"

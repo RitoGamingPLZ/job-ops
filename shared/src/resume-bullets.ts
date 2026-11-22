@@ -29,9 +29,7 @@ export function htmlToPlainText(html: string): string {
       };
       const key = entity.slice(1, -1).toLowerCase();
       if (!key.startsWith("#")) return named[key] ?? entity;
-      const code = key.startsWith("#x")
-        ? Number.parseInt(key.slice(2), 16)
-        : Number(key.slice(1));
+      const code = key.startsWith("#x") ? Number.parseInt(key.slice(2), 16) : Number(key.slice(1));
       return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff)
         ? String.fromCodePoint(code)
         : "\uFFFD";
@@ -67,9 +65,7 @@ export function splitDescription(html: string): {
   const lists = [...html.matchAll(/<(ul|ol)\b[^>]*>[\s\S]*?<\/\1\s*>/gi)];
   return {
     introHtml: html.replace(/<(ul|ol)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ""),
-    bullets: lists.flatMap(([list]) =>
-      /<li\b/i.test(list) ? bulletsFromHtml(list) : [],
-    ),
+    bullets: lists.flatMap(([list]) => (/<li\b/i.test(list) ? bulletsFromHtml(list) : [])),
   };
 }
 
@@ -80,19 +76,13 @@ export function joinDescription(
   originalHtml?: string,
 ): string {
   const listHtml = bulletsToHtml(bullets);
-  if (
-    originalHtml !== undefined &&
-    splitDescription(originalHtml).introHtml === introHtml
-  ) {
+  if (originalHtml !== undefined && splitDescription(originalHtml).introHtml === introHtml) {
     let replaced = false;
-    const next = originalHtml.replace(
-      /<(ul|ol)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
-      () => {
-        const replacement = replaced ? "" : listHtml;
-        replaced = true;
-        return replacement;
-      },
-    );
+    const next = originalHtml.replace(/<(ul|ol)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, () => {
+      const replacement = replaced ? "" : listHtml;
+      replaced = true;
+      return replacement;
+    });
     if (replaced) return next;
   }
   return introHtml + listHtml;

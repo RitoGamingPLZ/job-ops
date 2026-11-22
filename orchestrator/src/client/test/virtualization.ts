@@ -31,10 +31,7 @@ export const setupWindowVirtualizerTestEnvironment = (
 ) => {
   const { viewportHeight = 240, rowHeight = 84 } = options;
   let listOffsetTop = options.listOffsetTop ?? 0;
-  const innerHeightDescriptor = Object.getOwnPropertyDescriptor(
-    window,
-    "innerHeight",
-  );
+  const innerHeightDescriptor = Object.getOwnPropertyDescriptor(window, "innerHeight");
   const scrollYDescriptor = Object.getOwnPropertyDescriptor(window, "scrollY");
   const scrollY = window.scrollY ?? 0;
 
@@ -49,10 +46,7 @@ export const setupWindowVirtualizerTestEnvironment = (
   });
 
   const { documentElement } = document;
-  const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(
-    documentElement,
-    "scrollHeight",
-  );
+  const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(documentElement, "scrollHeight");
   if (options.documentHeight != null) {
     Object.defineProperty(documentElement, "scrollHeight", {
       configurable: true,
@@ -100,11 +94,7 @@ export const setupWindowVirtualizerTestEnvironment = (
     boundingRectSpy.mockRestore();
 
     if (scrollHeightDescriptor) {
-      Object.defineProperty(
-        documentElement,
-        "scrollHeight",
-        scrollHeightDescriptor,
-      );
+      Object.defineProperty(documentElement, "scrollHeight", scrollHeightDescriptor);
     } else {
       Reflect.deleteProperty(documentElement, "scrollHeight");
     }

@@ -3,9 +3,7 @@ import type { JobActionResponse, JobListItem } from "@shared/types";
 const SKIPPABLE_STATUSES = new Set(["discovered", "ready"]);
 
 export function canSkip(jobs: JobListItem[]): boolean {
-  return (
-    jobs.length > 0 && jobs.every((job) => SKIPPABLE_STATUSES.has(job.status))
-  );
+  return jobs.length > 0 && jobs.every((job) => SKIPPABLE_STATUSES.has(job.status));
 }
 
 export function canMoveToReady(jobs: JobListItem[]): boolean {
@@ -17,9 +15,7 @@ export function canRescore(jobs: JobListItem[]): boolean {
 }
 
 export function getFailedJobIds(response: JobActionResponse): Set<string> {
-  const failedIds = response.results
-    .filter((result) => !result.ok)
-    .map((result) => result.jobId);
+  const failedIds = response.results.filter((result) => !result.ok).map((result) => result.jobId);
   return new Set(failedIds);
 }
 
@@ -27,8 +23,6 @@ export function getFailedJobIds(response: JobActionResponse): Set<string> {
 export function canTarget(jobs: JobListItem[]): boolean {
   return (
     jobs.length > 0 &&
-    jobs.every((job) =>
-      ["discovered", "processing", "ready"].includes(job.status),
-    )
+    jobs.every((job) => ["discovered", "processing", "ready"].includes(job.status))
   );
 }

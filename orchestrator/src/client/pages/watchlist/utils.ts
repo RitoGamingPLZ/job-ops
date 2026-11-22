@@ -1,7 +1,4 @@
-import {
-  bamboohrUrlToCompanyLabel,
-  parseBamboohrUrl,
-} from "@career-boards/bamboohr";
+import { bamboohrUrlToCompanyLabel, parseBamboohrUrl } from "@career-boards/bamboohr";
 import {
   parseWorkdayUrl,
   workdayUrlToCompanyLabel,
@@ -10,11 +7,7 @@ import {
 import { matchJobLocationIntent } from "@shared/job-matching.js";
 import type { LocationIntent } from "@shared/location-intelligence.js";
 import { normalizeCountryKey } from "@shared/location-support.js";
-import type {
-  JobListItem,
-  WatchedSourceType,
-  WatchlistJobResult,
-} from "@shared/types.js";
+import type { JobListItem, WatchedSourceType, WatchlistJobResult } from "@shared/types.js";
 import { computeJobMatchScore } from "../orchestrator/JobCommandBar.utils";
 import type { RankedWatchlistJob, SourceSelectionDraft } from "./types";
 
@@ -75,10 +68,7 @@ export function getWatchlistSelectionIdentityKey(selection: {
   return JSON.stringify({
     catalogSourceId: selection.catalogSourceId,
     sourceType: selection.sourceType,
-    careersUrl: getNormalizedWatchlistCareersUrl(
-      selection.sourceType,
-      selection.careersUrl,
-    ),
+    careersUrl: getNormalizedWatchlistCareersUrl(selection.sourceType, selection.careersUrl),
   });
 }
 
@@ -86,10 +76,7 @@ export function getWatchlistPreviewLabel(
   sourceType: WatchedSourceType,
   careersUrl: string,
 ): string {
-  const normalizedCareersUrl = getNormalizedWatchlistCareersUrl(
-    sourceType,
-    careersUrl,
-  );
+  const normalizedCareersUrl = getNormalizedWatchlistCareersUrl(sourceType, careersUrl);
   if (!normalizedCareersUrl) return "Custom source";
 
   try {
@@ -186,9 +173,7 @@ function formatFallbackEmployerLabel(careersUrl: string): string {
     : employer.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function formatWatchlistCheckTimestamp(
-  value: string | null,
-): string | null {
+export function formatWatchlistCheckTimestamp(value: string | null): string | null {
   if (!value) return null;
 
   try {
@@ -201,10 +186,7 @@ export function formatWatchlistCheckTimestamp(
   }
 }
 
-export function getWorkspaceJobPath(job: {
-  id: string;
-  status: string;
-}): string {
+export function getWorkspaceJobPath(job: { id: string; status: string }): string {
   const tab =
     job.status === "discovered"
       ? "discovered"

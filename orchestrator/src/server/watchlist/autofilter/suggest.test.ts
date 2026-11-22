@@ -85,9 +85,7 @@ it("drops unknown keys/values, deduplicates and honors single selection", async 
     },
   });
   const result = await suggestFilters(input);
-  expect(result.suggestedUrl).toBe(
-    "https://jobs.lever.co/test?team=Engineering",
-  );
+  expect(result.suggestedUrl).toBe("https://jobs.lever.co/test?team=Engineering");
   expect(result.totals).toEqual({ filtered: 5, unfiltered: 100 });
   expect(result.sampleTitles).toEqual(["Engineer"]);
 });
@@ -116,9 +114,9 @@ it.each([0, 100])("rejects non-narrowing total %i", async (total) => {
   });
 });
 it("rejects unsupported types without LLM", async () => {
-  await expect(
-    suggestFilters({ ...input, sourceType: "meta" }),
-  ).rejects.toMatchObject({ status: 422 });
+  await expect(suggestFilters({ ...input, sourceType: "meta" })).rejects.toMatchObject({
+    status: 422,
+  });
   expect(mocks.callJson).not.toHaveBeenCalled();
 });
 it.each([
@@ -146,9 +144,7 @@ it("allows Google-like normalization to add sort_by while preserving picked filt
     return { ...value, careersUrl: url.href };
   });
   const result = await suggestFilters(input);
-  expect(result.suggestedUrl).toBe(
-    "https://jobs.lever.co/test?team=Engineering&sort_by=date",
-  );
+  expect(result.suggestedUrl).toBe("https://jobs.lever.co/test?team=Engineering&sort_by=date");
   expect(result.params).toEqual([{ key: "team", values: ["Engineering"] }]);
   expect(mocks.fetchJobs).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -162,15 +158,9 @@ it("reads each tenant's current intent without caching or sending unrelated sett
     jobspyCountryIndeed: "Canada",
     apiKey: "private",
   }));
-  await runWithRequestContext({ tenantId: "tenant-a" }, () =>
-    suggestFilters(input),
-  );
-  await runWithRequestContext({ tenantId: "tenant-b" }, () =>
-    suggestFilters(input),
-  );
-  const prompts = mocks.callJson.mock.calls.map(([arg]) =>
-    JSON.parse(arg.messages[1].content),
-  );
+  await runWithRequestContext({ tenantId: "tenant-a" }, () => suggestFilters(input));
+  await runWithRequestContext({ tenantId: "tenant-b" }, () => suggestFilters(input));
+  const prompts = mocks.callJson.mock.calls.map(([arg]) => JSON.parse(arg.messages[1].content));
   expect(prompts[0].intent.titles).toEqual(["tenant-a"]);
   expect(prompts[1].intent.titles).toEqual(["tenant-b"]);
   expect(JSON.stringify(prompts)).not.toContain("private");
@@ -270,14 +260,8 @@ it.each([
     "Request timed out: private upstream text",
     "Filter suggestion request timed out or was aborted",
   ],
-  [
-    "The operation was aborted",
-    "Filter suggestion request timed out or was aborted",
-  ],
-  [
-    "TimeoutError: private upstream text",
-    "Filter suggestion request timed out or was aborted",
-  ],
+  ["The operation was aborted", "Filter suggestion request timed out or was aborted"],
+  ["TimeoutError: private upstream text", "Filter suggestion request timed out or was aborted"],
 ])("maps LLM unavailability to 503 (%s)", async (error, message) => {
   mocks.callJson.mockResolvedValue({ success: false, error });
   await expect(suggestFilters(input)).rejects.toMatchObject({
@@ -288,27 +272,24 @@ it.each([
   expect(mocks.fetchJobs).not.toHaveBeenCalled();
 });
 
-it.each([
-  60, 10, 4,
-])("rejects ignored careers filters despite capped crawler total %i", async (total) => {
-  const facets = await mocks.discover();
-  const countFiltered = vi.fn().mockResolvedValue(100);
-  mocks.discover.mockResolvedValue({ ...facets, countFiltered });
-  mocks.fetchJobs.mockResolvedValue({ total, jobs: [] });
-  await expect(
-    suggestFilters({ ...input, sourceType: "careers_site" }),
-  ).rejects.toMatchObject({
-    status: 422,
-    details: { totals: { filtered: 100, unfiltered: 100 } },
-  });
-  expect(countFiltered).toHaveBeenCalledWith({
-    careersUrl: "https://jobs.lever.co/test?team=Engineering",
-    signal: expect.any(AbortSignal),
-  });
-});
-it.each([
-  0, 4, 10, 60,
-])("uses listing count even when crawler total is %i", async (total) => {
+it.each([60, 10, 4])(
+  "rejects ignored careers filters despite capped crawler total %i",
+  async (total) => {
+    const facets = await mocks.discover();
+    const countFiltered = vi.fn().mockResolvedValue(100);
+    mocks.discover.mockResolvedValue({ ...facets, countFiltered });
+    mocks.fetchJobs.mockResolvedValue({ total, jobs: [] });
+    await expect(suggestFilters({ ...input, sourceType: "careers_site" })).rejects.toMatchObject({
+      status: 422,
+      details: { totals: { filtered: 100, unfiltered: 100 } },
+    });
+    expect(countFiltered).toHaveBeenCalledWith({
+      careersUrl: "https://jobs.lever.co/test?team=Engineering",
+      signal: expect.any(AbortSignal),
+    });
+  },
+);
+it.each([0, 4, 10, 60])("uses listing count even when crawler total is %i", async (total) => {
   const facets = await mocks.discover();
   mocks.discover.mockResolvedValue({
     ...facets,

@@ -11,10 +11,7 @@ export const getRenderableJobDescription = (jobDescription?: string | null) => {
     : jobDescription;
 
   const normalizedLineBreaks = plainText.replace(/\r\n/g, "\n");
-  if (
-    normalizedLineBreaks.includes("\\n") &&
-    !normalizedLineBreaks.includes("\n")
-  ) {
+  if (normalizedLineBreaks.includes("\\n") && !normalizedLineBreaks.includes("\n")) {
     return normalizedLineBreaks.replace(/\\n/g, "\n");
   }
 

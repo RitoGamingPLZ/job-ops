@@ -1,14 +1,7 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  db,
-  execRawSql,
-  getDb,
-  runTransactionSync,
-  schema,
-  setDb,
-} from "./index";
+import { db, execRawSql, getDb, runTransactionSync, schema, setDb } from "./index";
 import {
   type DoSqlStorageLike,
   PORTABLE_MIGRATIONS,
@@ -64,9 +57,7 @@ describe("portable-migrations", () => {
       expect(first.total).toBe(PORTABLE_MIGRATIONS.length);
 
       const tables = sqlite
-        .prepare(
-          "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
-        )
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
         .all() as Array<{ name: string }>;
       const tableNames = tables.map((row) => row.name);
       expect(tableNames).toContain("users");
@@ -114,9 +105,7 @@ describe("portable-migrations", () => {
       const m1: PortableMigration = {
         id: "0001",
         name: "create_items",
-        statements: [
-          'CREATE TABLE IF NOT EXISTS "items" ("id" text PRIMARY KEY NOT NULL);',
-        ],
+        statements: ['CREATE TABLE IF NOT EXISTS "items" ("id" text PRIMARY KEY NOT NULL);'],
       };
       const m2: PortableMigration = {
         id: "0002",
@@ -138,9 +127,7 @@ describe("portable-migrations", () => {
           'CREATE TABLE IF NOT EXISTS "items" ("id" text PRIMARY KEY NOT NULL, "extra" text);',
         ],
       };
-      expect(() => runPortableMigrations(sqlite, [tamperedM1, m2])).toThrow(
-        /checksum mismatch/i,
-      );
+      expect(() => runPortableMigrations(sqlite, [tamperedM1, m2])).toThrow(/checksum mismatch/i);
     } finally {
       sqlite.close();
     }

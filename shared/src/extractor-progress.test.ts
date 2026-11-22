@@ -12,12 +12,7 @@ describe("toTermProgress", () => {
       "with 7 services",
       "with 0 services",
     ],
-    [
-      { label: "Seek", completionStyle: "dash" as const },
-      "engineer",
-      "— 7 jobs",
-      "— 0 jobs",
-    ],
+    [{ label: "Seek", completionStyle: "dash" as const }, "engineer", "— 7 jobs", "— 0 jobs"],
     [
       { label: "startup.jobs", scope: "engineer @ Berlin" },
       "engineer @ Berlin",
@@ -26,9 +21,7 @@ describe("toTermProgress", () => {
     ],
   ])("formats %o", (options, scope, completed, missing) => {
     const label = options.label;
-    expect(
-      toTermProgress({ ...base, type: "term_start" }, options),
-    ).toStrictEqual({
+    expect(toTermProgress({ ...base, type: "term_start" }, options)).toStrictEqual({
       phase: "list",
       termsProcessed: 0,
       termsTotal: 3,
@@ -36,10 +29,7 @@ describe("toTermProgress", () => {
       detail: `${label}: term 0/3 (${scope})`,
     });
     expect(
-      toTermProgress(
-        { ...base, type: "term_complete", jobsFoundTerm: 7 },
-        options,
-      ),
+      toTermProgress({ ...base, type: "term_complete", jobsFoundTerm: 7 }, options),
     ).toStrictEqual({
       phase: "list",
       termsProcessed: 0,
@@ -63,10 +53,7 @@ describe("toTermProgress", () => {
 
   it("reports the previous term as processed on start", () => {
     expect(
-      toTermProgress(
-        { ...base, type: "term_start", termIndex: 2 },
-        { label: "X" },
-      ).termsProcessed,
+      toTermProgress({ ...base, type: "term_start", termIndex: 2 }, { label: "X" }).termsProcessed,
     ).toBe(1);
   });
 });

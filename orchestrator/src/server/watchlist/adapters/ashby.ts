@@ -80,8 +80,7 @@ async function request(url: string, signal: AbortSignal) {
       await timers.setTimeout(Math.min(wait, 25_000), undefined, { signal });
       continue;
     }
-    if (!response.ok)
-      throw upstreamError(`Ashby returned HTTP ${response.status}.`);
+    if (!response.ok) throw upstreamError(`Ashby returned HTTP ${response.status}.`);
     return response;
   }
   throw upstreamError("Ashby retry limit exceeded.");
@@ -130,10 +129,9 @@ function location(job: Job) {
   return (
     [
       ...new Set(
-        [
-          job.location,
-          ...(job.secondaryLocations ?? []).map((item) => item.location),
-        ].filter(Boolean),
+        [job.location, ...(job.secondaryLocations ?? []).map((item) => item.location)].filter(
+          Boolean,
+        ),
       ),
     ].join("; ") || (job.isRemote ? "Remote" : null)
   );
@@ -156,10 +154,7 @@ async function details(
   if (cached) return cached;
   // The public API has no single-posting endpoint. Fetch just this posting's
   // public page and read its observed JobPosting JSON-LD on a cache miss.
-  const response = await request(
-    postingUrl(company, ref.id),
-    callSignal(signal),
-  );
+  const response = await request(postingUrl(company, ref.id), callSignal(signal));
   const html = await response.text();
   const placeSchema = z.object({
     address: z.object({
@@ -207,11 +202,7 @@ async function details(
       location:
         places
           .map(({ address }) =>
-            [
-              address.addressLocality,
-              address.addressRegion,
-              address.addressCountry,
-            ]
+            [address.addressLocality, address.addressRegion, address.addressCountry]
               .filter(Boolean)
               .join(", "),
           )
@@ -289,9 +280,7 @@ export const ashbyWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     const all = await board(company, callSignal(signal));
     const jobs = [...new Map(all.map((job) => [job.id, job])).values()]
       .sort(
-        (a, b) =>
-          (Date.parse(b.publishedAt ?? "") || 0) -
-          (Date.parse(a.publishedAt ?? "") || 0),
+        (a, b) => (Date.parse(b.publishedAt ?? "") || 0) - (Date.parse(a.publishedAt ?? "") || 0),
       )
       .slice(0, MAX_JOBS);
     listedJobs.set(company, new Map(jobs.map((job) => [job.id, job])));
@@ -309,9 +298,7 @@ export const ashbyWatchlistAdapter: WatchlistCatalogSourceAdapter = {
         applicationLink: `${postingUrl(company, job.id)}/application`,
         location: location(job),
         postedAt:
-          job.publishedAt && Number.isFinite(Date.parse(job.publishedAt))
-            ? job.publishedAt
-            : null,
+          job.publishedAt && Number.isFinite(Date.parse(job.publishedAt)) ? job.publishedAt : null,
       })),
     };
   },
@@ -339,8 +326,7 @@ export const ashbyWatchlistAdapter: WatchlistCatalogSourceAdapter = {
         applicationLink: job.applyUrl,
         location: location(job) ?? undefined,
         jobDescription:
-          job.descriptionPlain?.trim() ||
-          convert(description(job), { wordwrap: false }),
+          job.descriptionPlain?.trim() || convert(description(job), { wordwrap: false }),
         jobType: job.employmentType,
       },
     };

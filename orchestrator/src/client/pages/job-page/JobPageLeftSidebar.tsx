@@ -66,9 +66,7 @@ const memoryLinks = [
   },
 ];
 
-const PostingAgeRow: React.FC<{ datePosted: Job["datePosted"] }> = ({
-  datePosted,
-}) => {
+const PostingAgeRow: React.FC<{ datePosted: Job["datePosted"] }> = ({ datePosted }) => {
   const postingAge = formatPostingAgeLabel(datePosted);
   if (!postingAge) return null;
 
@@ -97,9 +95,7 @@ export const JobPageLeftSidebar: React.FC<JobPageLeftSidebarProps> = ({
           <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
             Application dossier
           </div>
-          <h1 className="text-2xl font-semibold leading-tight">
-            {job.employer}
-          </h1>
+          <h1 className="text-2xl font-semibold leading-tight">{job.employer}</h1>
           <div className="text-sm text-muted-foreground">{job.title}</div>
         </div>
         <div className="flex justify-start sm:justify-end">
@@ -119,9 +115,7 @@ export const JobPageLeftSidebar: React.FC<JobPageLeftSidebarProps> = ({
         </div>
         <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-3">
           <span className="text-muted-foreground">Location</span>
-          <span className="text-right font-medium">
-            {job.location || "Unknown"}
-          </span>
+          <span className="text-right font-medium">{job.location || "Unknown"}</span>
         </div>
         <PostingAgeRow datePosted={job.datePosted} />
         <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-3">
@@ -147,9 +141,7 @@ export const JobPageLeftSidebar: React.FC<JobPageLeftSidebarProps> = ({
         <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-3">
           <span className="text-muted-foreground">Projects Chosen</span>
           <span className="text-right font-medium">
-            {selectedProjects.length > 0
-              ? selectedProjects.length
-              : "No projects"}
+            {selectedProjects.length > 0 ? selectedProjects.length : "No projects"}
           </span>
         </div>
       </div>
@@ -170,9 +162,7 @@ export const JobPageLeftSidebar: React.FC<JobPageLeftSidebarProps> = ({
               asChild
               key={linkView}
               variant={activeMemoryView === linkView ? "outline" : "ghost"}
-              className={cn(
-                "h-9 w-full justify-between px-2 text-left text-sm",
-              )}
+              className={cn("h-9 w-full justify-between px-2 text-left text-sm")}
             >
               <Link to={path} state={navigationState}>
                 <span className="flex min-w-0 items-center gap-2">

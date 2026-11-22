@@ -35,9 +35,7 @@ export function parseVersion(rawVersion: string): string {
 
 export function getCurrentAppVersion(): string {
   const currentRaw =
-    typeof __APP_VERSION__ !== "undefined"
-      ? (__APP_VERSION__ as string)
-      : "unknown";
+    typeof __APP_VERSION__ !== "undefined" ? (__APP_VERSION__ as string) : "unknown";
   return parseVersion(currentRaw);
 }
 
@@ -63,9 +61,7 @@ export async function checkForUpdate(): Promise<VersionCheckResult> {
   }
 
   try {
-    const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
-    );
+    const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
     if (!response.ok) throw new Error("Failed to fetch");
 
     const data: unknown = await response.json();
@@ -79,8 +75,7 @@ export async function checkForUpdate(): Promise<VersionCheckResult> {
     }
     const latestVersion = parseVersion((data as { tag_name: string }).tag_name);
 
-    const updateAvailable =
-      currentVersion !== "unknown" && latestVersion !== currentVersion;
+    const updateAvailable = currentVersion !== "unknown" && latestVersion !== currentVersion;
 
     const result: VersionCheckResult = {
       currentVersion,

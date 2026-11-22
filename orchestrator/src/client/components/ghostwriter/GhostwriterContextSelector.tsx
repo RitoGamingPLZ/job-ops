@@ -13,11 +13,7 @@ import {
   GHOSTWRITER_NOTE_CONTEXT_MAX_SELECTED,
   GHOSTWRITER_NOTE_CONTEXT_MAX_TOTAL_CHARS,
 } from "@shared/ghostwriter-note-context.js";
-import type {
-  JobDocument,
-  JobNote,
-  PostApplicationJobEmailItem,
-} from "@shared/types";
+import type { JobDocument, JobNote, PostApplicationJobEmailItem } from "@shared/types";
 import { ChevronDown, FileText, Info, Mail, Paperclip } from "lucide-react";
 import type React from "react";
 import {
@@ -27,11 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn, formatDateTime } from "@/lib/utils";
 
 const APPROX_CHARS_PER_TOKEN = 4;
@@ -111,23 +103,13 @@ function estimateSelectedContextTokens<TItem>(input: {
   getContentLength: (item: TItem) => number;
   filterItem?: (item: TItem) => boolean;
 }): { selectedContentChars: number; estimatedTokens: number } {
-  const selectedContentChars = getSelectedItems(
-    input.items,
-    input.selectedIds,
-    input.getId,
-  )
+  const selectedContentChars = getSelectedItems(input.items, input.selectedIds, input.getId)
     .filter((item) => input.filterItem?.(item) ?? true)
-    .reduce(
-      (total, item) =>
-        total + Math.min(input.getContentLength(item), input.maxItemChars),
-      0,
-    );
+    .reduce((total, item) => total + Math.min(input.getContentLength(item), input.maxItemChars), 0);
 
   return {
     selectedContentChars,
-    estimatedTokens: estimateTokensFromChars(
-      Math.min(selectedContentChars, input.maxTotalChars),
-    ),
+    estimatedTokens: estimateTokensFromChars(Math.min(selectedContentChars, input.maxTotalChars)),
   };
 }
 
@@ -150,10 +132,9 @@ function canUseDocumentForGhostwriter(document: JobDocument): boolean {
 }
 
 function getDocumentMeta(document: JobDocument): string {
-  return [
-    document.mediaType || "Unknown type",
-    formatJobDocumentByteSize(document.byteSize),
-  ].join(" - ");
+  return [document.mediaType || "Unknown type", formatJobDocumentByteSize(document.byteSize)].join(
+    " - ",
+  );
 }
 
 function ContextGroup<TItem>({
@@ -190,8 +171,7 @@ function ContextGroup<TItem>({
         getContentLength,
       })
     : { selectedContentChars: 0, estimatedTokens: 0 };
-  const hasTotalOverflow =
-    showTokenEstimate && selectedContentChars > maxTotalChars;
+  const hasTotalOverflow = showTokenEstimate && selectedContentChars > maxTotalChars;
   const isAtSelectionLimit = selectedIds.length >= maxSelected;
 
   const toggleItem = (itemId: string) => {
@@ -227,22 +207,16 @@ function ContextGroup<TItem>({
 
       <div className="py-1">
         {isLoading ? (
-          <div className="px-3 py-5 text-sm text-muted-foreground">
-            {loadingLabel}
-          </div>
+          <div className="px-3 py-5 text-sm text-muted-foreground">{loadingLabel}</div>
         ) : items.length === 0 ? (
-          <div className="px-3 py-5 text-sm text-muted-foreground">
-            {emptyLabel}
-          </div>
+          <div className="px-3 py-5 text-sm text-muted-foreground">{emptyLabel}</div>
         ) : (
           items.map((item) => {
             const itemId = getId(item);
             const isSelected = selectedIds.includes(itemId);
-            const isTrimmed =
-              showTokenEstimate && getContentLength(item) > maxItemChars;
+            const isTrimmed = showTokenEstimate && getContentLength(item) > maxItemChars;
             const unavailableReason = getUnavailableReason?.(item) ?? null;
-            const isUnavailable =
-              !isSelected && (isAtSelectionLimit || Boolean(unavailableReason));
+            const isUnavailable = !isSelected && (isAtSelectionLimit || Boolean(unavailableReason));
             const checkboxId = getCheckboxId(item);
 
             return (
@@ -265,14 +239,11 @@ function ContextGroup<TItem>({
                   htmlFor={checkboxId}
                   className={cn(
                     "min-w-0 flex-1 cursor-pointer",
-                    (disabled || isLoading || isSaving || isUnavailable) &&
-                      "cursor-not-allowed",
+                    (disabled || isLoading || isSaving || isUnavailable) && "cursor-not-allowed",
                   )}
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-sm font-medium">
-                      {getTitle(item)}
-                    </span>
+                    <span className="truncate text-sm font-medium">{getTitle(item)}</span>
                     {isSelected && isTrimmed && (
                       <Badge variant="outline" className="shrink-0 text-[10px]">
                         Trimmed for AI
@@ -309,9 +280,7 @@ function ContextGroup<TItem>({
   );
 }
 
-export const GhostwriterContextSelector: React.FC<
-  GhostwriterContextSelectorProps
-> = ({
+export const GhostwriterContextSelector: React.FC<GhostwriterContextSelectorProps> = ({
   notes,
   emails,
   documents,
@@ -328,9 +297,7 @@ export const GhostwriterContextSelector: React.FC<
   onDocumentsChange,
 }) => {
   const selectedCount =
-    selectedNoteIds.length +
-    selectedEmailIds.length +
-    selectedDocumentIds.length;
+    selectedNoteIds.length + selectedEmailIds.length + selectedDocumentIds.length;
   const estimatedContextTokens =
     estimateSelectedContextTokens({
       items: notes,
@@ -348,8 +315,7 @@ export const GhostwriterContextSelector: React.FC<
       getId: (email) => email.message.id,
       getContentLength: (email) => email.message.snippet.trim().length,
     }).estimatedTokens;
-  const triggerLabel =
-    selectedCount > 0 ? `${selectedCount} context` : "Context";
+  const triggerLabel = selectedCount > 0 ? `${selectedCount} context` : "Context";
 
   return (
     <Popover>
@@ -410,9 +376,7 @@ export const GhostwriterContextSelector: React.FC<
             isSaving={isSaving}
             getId={(note) => note.id}
             getTitle={(note) => note.title}
-            getMeta={(note) =>
-              `Updated ${formatDateTime(note.updatedAt) ?? note.updatedAt}`
-            }
+            getMeta={(note) => `Updated ${formatDateTime(note.updatedAt) ?? note.updatedAt}`}
             getContentLength={(note) => note.content.trim().length}
             getCheckboxId={(note) => `ghostwriter-note-context-${note.id}`}
             onChange={onNotesChange}
@@ -438,13 +402,9 @@ export const GhostwriterContextSelector: React.FC<
             getTitle={(document) => document.fileName}
             getMeta={getDocumentMeta}
             getContentLength={() => 0}
-            getCheckboxId={(document) =>
-              `ghostwriter-document-context-${document.id}`
-            }
+            getCheckboxId={(document) => `ghostwriter-document-context-${document.id}`}
             getUnavailableReason={(document) =>
-              canUseDocumentForGhostwriter(document)
-                ? null
-                : "PDF or text-like files only"
+              canUseDocumentForGhostwriter(document) ? null : "PDF or text-like files only"
             }
             onChange={onDocumentsChange}
           />
@@ -468,9 +428,7 @@ export const GhostwriterContextSelector: React.FC<
             getTitle={(email) => email.message.subject || "No subject"}
             getMeta={getEmailMeta}
             getContentLength={(email) => email.message.snippet.trim().length}
-            getCheckboxId={(email) =>
-              `ghostwriter-email-context-${email.message.id}`
-            }
+            getCheckboxId={(email) => `ghostwriter-email-context-${email.message.id}`}
             onChange={onEmailsChange}
           />
         </div>

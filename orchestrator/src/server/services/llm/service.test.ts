@@ -318,10 +318,7 @@ describe("LlmService provider normalization", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          data: [
-            { id: "openai/gpt-4o-mini" },
-            { id: "anthropic/claude-sonnet-4-5" },
-          ],
+          data: [{ id: "openai/gpt-4o-mini" }, { id: "anthropic/claude-sonnet-4-5" }],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ),
@@ -368,9 +365,7 @@ describe("LlmService provider normalization", () => {
     ]);
     const [url, init] = fetchSpy.mock.calls[0] ?? [];
     expect(String(url)).toBe("https://global.api-route.com/v1/models");
-    expect(new Headers(init?.headers).get("Authorization")).toBe(
-      "Bearer tenant-route-test",
-    );
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer tenant-route-test");
   });
 
   it("lists console-visible Atlas Cloud text models", async () => {
@@ -399,9 +394,7 @@ describe("LlmService provider normalization", () => {
 
     expect(models).toEqual(["deepseek-ai/deepseek-v3.2"]);
     const [requestedUrl] = fetchSpy.mock.calls[0] ?? [];
-    expect(String(requestedUrl)).toBe(
-      "https://api.atlascloud.ai/api/v1/models",
-    );
+    expect(String(requestedUrl)).toBe("https://api.atlascloud.ai/api/v1/models");
   });
 
   it("lists LiteLLM chat deployments from /model/info", async () => {
@@ -436,9 +429,7 @@ describe("LlmService provider normalization", () => {
     expect(models).toEqual(["claude-sonnet", "gpt-4.1-mini"]);
     const [requestedUrl, init] = fetchSpy.mock.calls[0] ?? [];
     expect(String(requestedUrl)).toBe("http://localhost:4000/model/info");
-    expect((init?.headers as Record<string, string>).Authorization).toBe(
-      "Bearer sk-virtual",
-    );
+    expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer sk-virtual");
   });
 
   it("falls back to /v1/models when a LiteLLM key cannot read /model/info", async () => {
@@ -451,10 +442,10 @@ describe("LlmService provider normalization", () => {
         }),
       )
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ data: [{ id: "claude-sonnet" }, { id: "" }] }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
+        new Response(JSON.stringify({ data: [{ id: "claude-sonnet" }, { id: "" }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
       );
 
     const llm = new LlmService({ provider: "litellm" });
@@ -463,36 +454,29 @@ describe("LlmService provider normalization", () => {
     expect(models).toEqual(["claude-sonnet"]);
     const [requestedUrl, init] = fetchSpy.mock.calls[1] ?? [];
     expect(String(requestedUrl)).toBe("http://localhost:4000/v1/models");
-    expect(
-      (init?.headers as Record<string, string>).Authorization,
-    ).toBeUndefined();
+    expect((init?.headers as Record<string, string>).Authorization).toBeUndefined();
   });
 
   it("reports the LiteLLM proxy error when no model list is readable", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockRejectedValueOnce(new Error("ECONNREFUSED"))
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ error: { message: "Invalid proxy server token" } }),
-          { status: 401, headers: { "Content-Type": "application/json" } },
-        ),
+        new Response(JSON.stringify({ error: { message: "Invalid proxy server token" } }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        }),
       );
 
     const llm = new LlmService({ provider: "litellm", apiKey: "sk-bad" });
 
-    await expect(llm.listModels()).rejects.toThrow(
-      "Invalid proxy server token",
-    );
+    await expect(llm.listModels()).rejects.toThrow("Invalid proxy server token");
   });
 
   it("lists OrcaRouter models from the /models endpoint", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          data: [
-            { id: "openai/gpt-4o-mini" },
-            { id: "anthropic/claude-sonnet-4-5" },
-          ],
+          data: [{ id: "openai/gpt-4o-mini" }, { id: "anthropic/claude-sonnet-4-5" }],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ),

@@ -10,12 +10,7 @@ import { pipeline } from "node:stream/promises";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { fileURLToPath } from "node:url";
 import { unauthorized } from "@infra/errors";
-import {
-  apiErrorHandler,
-  fail,
-  notFoundApiHandler,
-  requestContextMiddleware,
-} from "@infra/http";
+import { apiErrorHandler, fail, notFoundApiHandler, requestContextMiddleware } from "@infra/http";
 import { logger } from "@infra/logger";
 import { runWithRequestContext } from "@infra/request-context";
 import { sanitizeUnknown } from "@infra/sanitize";
@@ -123,10 +118,7 @@ function isUmamiProxyTimeoutError(error: unknown): boolean {
   ) {
     return true;
   }
-  return (
-    error instanceof Error &&
-    (error.name === "AbortError" || error.name === "TimeoutError")
-  );
+  return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
 }
 
 function buildUmamiProxyBody(req: express.Request): BodyInit | undefined {
@@ -143,10 +135,7 @@ function buildUmamiProxyBody(req: express.Request): BodyInit | undefined {
   return JSON.stringify(req.body);
 }
 
-function copyUmamiResponseHeaders(
-  upstreamResponse: Response,
-  res: express.Response,
-): void {
+function copyUmamiResponseHeaders(upstreamResponse: Response, res: express.Response): void {
   for (const [key, value] of upstreamResponse.headers.entries()) {
     if (HOP_BY_HOP_RESPONSE_HEADERS.has(key.toLowerCase())) continue;
     res.setHeader(key, value);
@@ -164,8 +153,7 @@ function buildUmamiProxyHeaders(req: express.Request): Headers {
 
 export function createAuthGuard() {
   const testAuthBypassEnabled =
-    process.env.NODE_ENV === "test" &&
-    process.env.JOBOPS_TEST_AUTH_BYPASS === "1";
+    process.env.NODE_ENV === "test" && process.env.JOBOPS_TEST_AUTH_BYPASS === "1";
 
   async function getAuthorizationContext(req: express.Request): Promise<{
     userId: string;
@@ -184,8 +172,7 @@ export function createAuthGuard() {
         !user ||
         user.isDisabled ||
         user.workspaceId !== payload.tenantId ||
-        (appConfig.appMode === "hosted" &&
-          user.workspaceId !== appConfig.hostedTenantId)
+        (appConfig.appMode === "hosted" && user.workspaceId !== appConfig.hostedTenantId)
       ) {
         return null;
       }
@@ -214,22 +201,12 @@ export function createAuthGuard() {
       getJobOpsAppConfig().appMode === "hosted"
     )
       return true;
-    if (normalizedMethod === "POST" && normalizedPath === "/ojcp/mcp")
-      return true;
-    if (
-      normalizedMethod === "POST" &&
-      normalizedPath === "/api/visa-sponsors/search"
-    )
-      return true;
-    if (
-      normalizedMethod === "POST" &&
-      normalizedPath === "/api/webhook/trigger"
-    )
+    if (normalizedMethod === "POST" && normalizedPath === "/ojcp/mcp") return true;
+    if (normalizedMethod === "POST" && normalizedPath === "/api/visa-sponsors/search") return true;
+    if (normalizedMethod === "POST" && normalizedPath === "/api/webhook/trigger")
       return Boolean(process.env.WEBHOOK_SECRET?.trim());
     if (normalizedMethod === "POST" && normalizedPath === "/api/webhook/cron")
-      return Boolean(
-        (process.env.CRON_SECRET || process.env.WEBHOOK_SECRET)?.trim(),
-      );
+      return Boolean((process.env.CRON_SECRET || process.env.WEBHOOK_SECRET)?.trim());
     if (normalizedPath.startsWith("/api/internal/d1-sync/")) {
       return Boolean(process.env.INTERNAL_SYNC_SECRET?.trim());
     }
@@ -243,21 +220,11 @@ export function createAuthGuard() {
         normalizedPath === "/api/auth/setup")
     )
       return true;
-    if (
-      normalizedMethod === "GET" &&
-      normalizedPath === "/api/auth/bootstrap-status"
-    )
-      return true;
-    if (
-      normalizedMethod === "GET" &&
-      normalizedPath === "/api/auth/sso/providers"
-    )
-      return true;
+    if (normalizedMethod === "GET" && normalizedPath === "/api/auth/bootstrap-status") return true;
+    if (normalizedMethod === "GET" && normalizedPath === "/api/auth/sso/providers") return true;
     if (
       normalizedMethod === "POST" &&
-      /^\/api\/auth\/sso\/(google|github|oidc)\/(start|callback)$/.test(
-        normalizedPath,
-      )
+      /^\/api\/auth\/sso\/(google|github|oidc)\/(start|callback)$/.test(normalizedPath)
     )
       return true;
     if (
@@ -265,10 +232,7 @@ export function createAuthGuard() {
       /^\/api\/design-resume\/assets\/[^/]+\/content$/.test(normalizedPath)
     )
       return getJobOpsAppConfig().appMode !== "hosted";
-    if (
-      ["GET", "HEAD"].includes(normalizedMethod) &&
-      /^\/api\/[^/]+\/health$/.test(normalizedPath)
-    )
+    if (["GET", "HEAD"].includes(normalizedMethod) && /^\/api\/[^/]+\/health$/.test(normalizedPath))
       return true;
 
     return false;
@@ -319,18 +283,13 @@ export function createAuthGuard() {
     if (isStatsRoute(normalizedPath)) return false;
 
     // All other /api/* paths require auth regardless of HTTP method.
-    if (normalizedPath === "/api" || normalizedPath.startsWith("/api/"))
-      return true;
+    if (normalizedPath === "/api" || normalizedPath.startsWith("/api/")) return true;
 
     // Non-API routes (SPA, /health, static) remain publicly readable via GET/HEAD.
     return !["GET", "HEAD"].includes(method.toUpperCase());
   }
 
-  const middleware = (
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction,
-  ) => {
+  const middleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     void (async () => {
       if (!requiresAuth(req.method, req.path)) {
         next();
@@ -354,11 +313,7 @@ export function createAuthGuard() {
       if (userCount === 0) {
         fail(
           res,
-          unauthorized(
-            isDemoMode()
-              ? "Authentication required"
-              : "Initial setup is required",
-          ),
+          unauthorized(isDemoMode() ? "Authentication required" : "Initial setup is required"),
         );
         return;
       }
@@ -394,22 +349,14 @@ export function createApp() {
   });
   app.use(requestContextMiddleware());
   if (getJobOpsAppConfig().appMode === "hosted") {
-    app.use(
-      "/api/billing/webhook",
-      express.raw({ limit: "1mb", type: "application/json" }),
-    );
+    app.use("/api/billing/webhook", express.raw({ limit: "1mb", type: "application/json" }));
   }
   app.use("/stats", express.raw({ limit: "1mb", type: "*/*" }));
   app.use(
     "/api/design-resume/assets",
     express.raw({
       limit: "10mb",
-      type: [
-        "image/png",
-        "image/jpeg",
-        "image/webp",
-        "application/octet-stream",
-      ],
+      type: ["image/png", "image/jpeg", "image/webp", "application/octet-stream"],
     }),
   );
   // Resume file import sends base64 JSON payloads, which expand beyond the raw
@@ -455,10 +402,7 @@ export function createApp() {
   app.use(notFoundApiHandler());
 
   app.get("/challenge-viewer/solved", (_req, res) => {
-    res
-      .status(200)
-      .type("html")
-      .send(`<!doctype html>
+    res.status(200).type("html").send(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Challenge solved · Job Ops</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0a0a0a;color:#4ade80;font-family:system-ui,sans-serif;text-align:center}h1{font-size:2rem;font-weight:600;margin-bottom:.5rem}p{color:#a1a1aa;font-size:1.1rem}</style></head>
@@ -482,10 +426,7 @@ export function createApp() {
     }
     if (!isAllowedUmamiMethod(req.method, upstreamUrl.pathname)) {
       res
-        .setHeader(
-          "Allow",
-          getAllowedUmamiMethods(upstreamUrl.pathname).join(", "),
-        )
+        .setHeader("Allow", getAllowedUmamiMethods(upstreamUrl.pathname).join(", "))
         .status(405)
         .type("text/plain; charset=utf-8")
         .send("Method not allowed");
@@ -513,23 +454,16 @@ export function createApp() {
         return;
       }
 
-      await pipeline(
-        Readable.fromWeb(upstreamResponse.body as NodeReadableStream),
-        res,
-      );
+      await pipeline(Readable.fromWeb(upstreamResponse.body as NodeReadableStream), res);
     } catch (error) {
       if (isUmamiProxyTimeoutError(error)) {
         logger.warn("Umami proxy timed out", {
           route: req.path,
           method: req.method,
           upstreamUrl: upstreamUrl.toString(),
-          requestId:
-            (res.getHeader("x-request-id") as string | undefined) ?? undefined,
+          requestId: (res.getHeader("x-request-id") as string | undefined) ?? undefined,
         });
-        res
-          .status(504)
-          .type("text/plain; charset=utf-8")
-          .send("Upstream timeout");
+        res.status(504).type("text/plain; charset=utf-8").send("Upstream timeout");
         return;
       }
 
@@ -537,8 +471,7 @@ export function createApp() {
         route: req.path,
         method: req.method,
         upstreamUrl: upstreamUrl.toString(),
-        requestId:
-          (res.getHeader("x-request-id") as string | undefined) ?? undefined,
+        requestId: (res.getHeader("x-request-id") as string | undefined) ?? undefined,
         error: sanitizeUnknown(error),
       });
       res.status(502).type("text/plain; charset=utf-8").send("Upstream error");
@@ -576,9 +509,7 @@ export function createApp() {
   if (process.env.NODE_ENV === "production") {
     const packagedDocsDir = join(__dirname, "../../dist/docs");
     const workspaceDocsDir = join(__dirname, "../../../docs-site/build");
-    const docsDir = existsSync(packagedDocsDir)
-      ? packagedDocsDir
-      : workspaceDocsDir;
+    const docsDir = existsSync(packagedDocsDir) ? packagedDocsDir : workspaceDocsDir;
     const docsIndexPath = join(docsDir, "index.html");
     let cachedDocsIndexHtml: string | null = null;
 
@@ -604,10 +535,7 @@ export function createApp() {
     const clientDir = join(__dirname, "../../dist/client");
     const indexPath = join(clientDir, "index.html");
     let cachedIndexHtml: string | null = null;
-    const serveClientHtml = async (
-      req: express.Request,
-      res: express.Response,
-    ) => {
+    const serveClientHtml = async (req: express.Request, res: express.Response) => {
       if (!req.accepts("html")) {
         res.status(404).end();
         return;

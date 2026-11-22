@@ -52,9 +52,7 @@ describe("manual job inference", () => {
     delete process.env.OPENROUTER_API_KEY;
     vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({});
 
-    const result = await inferManualJobDetails(
-      "<p>JD <strong>text</strong></p>",
-    );
+    const result = await inferManualJobDetails("<p>JD <strong>text</strong></p>");
 
     expect(result.job).toEqual({});
     expect(result.warning).toContain("LLM API key not set");
@@ -84,9 +82,7 @@ describe("manual job inference", () => {
       employer: "Acme",
       salary: "100k",
     });
-    const body = JSON.parse(
-      vi.mocked(global.fetch).mock.calls[0]?.[1]?.body as string,
-    );
+    const body = JSON.parse(vi.mocked(global.fetch).mock.calls[0]?.[1]?.body as string);
     expect(body.messages[0].content).toContain("JD text");
     expect(body.messages[0].content).not.toContain("<strong>");
   });

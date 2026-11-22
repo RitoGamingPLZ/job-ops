@@ -25,14 +25,10 @@ const TERMINAL_STEPS: ReadonlySet<PipelineProgressState["step"]> = new Set([
   "failed",
 ]);
 
-export const PipelineProgress: React.FC<PipelineProgressProps> = ({
-  isRunning,
-}) => {
+export const PipelineProgress: React.FC<PipelineProgressProps> = ({ isRunning }) => {
   const [progress, setProgress] = useState<PipelineProgressState | null>(null);
   const [solvingExtractor, setSolvingExtractor] = useState<string | null>(null);
-  const [skippingExtractor, setSkippingExtractor] = useState<string | null>(
-    null,
-  );
+  const [skippingExtractor, setSkippingExtractor] = useState<string | null>(null);
   const [resumingScoring, setResumingScoring] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
@@ -120,22 +116,19 @@ export const PipelineProgress: React.FC<PipelineProgressProps> = ({
       }, SNAPSHOT_POLL_INTERVAL_MS);
     };
 
-    const unsubscribe = subscribeToEventSource<PipelineProgressState>(
-      "/api/pipeline/progress",
-      {
-        onOpen: () => {
-          if (!isActive) return;
-          hasOpened = true;
-          stopPolling();
-        },
-        onMessage: (payload) => {
-          if (!isActive) return;
-          setProgress(payload);
-          if (TERMINAL_STEPS.has(payload.step)) stopPolling();
-        },
-        onError: startPolling,
+    const unsubscribe = subscribeToEventSource<PipelineProgressState>("/api/pipeline/progress", {
+      onOpen: () => {
+        if (!isActive) return;
+        hasOpened = true;
+        stopPolling();
       },
-    );
+      onMessage: (payload) => {
+        if (!isActive) return;
+        setProgress(payload);
+        if (TERMINAL_STEPS.has(payload.step)) stopPolling();
+      },
+      onError: startPolling,
+    });
 
     const fallbackTimeoutId = setTimeout(() => {
       if (!hasOpened) startPolling();
@@ -158,17 +151,12 @@ export const PipelineProgress: React.FC<PipelineProgressProps> = ({
 
   if (!isRunning || !progress) return null;
 
-  const startedAt = progress.startedAt
-    ? Date.parse(progress.startedAt)
-    : Number.NaN;
+  const startedAt = progress.startedAt ? Date.parse(progress.startedAt) : Number.NaN;
   const elapsedSeconds = Number.isFinite(startedAt)
     ? Math.max(0, Math.floor((now - startedAt) / 1000))
     : 0;
 
-  if (
-    progress.step === "scoring" ||
-    progress.step === "configuration_required"
-  ) {
+  if (progress.step === "scoring" || progress.step === "configuration_required") {
     return (
       <PipelineProgressCard
         progress={progress}

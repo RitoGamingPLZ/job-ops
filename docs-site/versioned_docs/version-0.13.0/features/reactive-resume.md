@@ -91,7 +91,6 @@ Before connecting Reactive Resume to JobOps:
 1. Generate an API key in your Reactive Resume account.
 2. Configure `rxresumeApiKey` in **Settings → Reactive Resume** (or set `RXRESUME_API_KEY` in your environment).
 
-
 ### 1) Configure Reactive Resume access
 
 Configure in **Settings → Reactive Resume**:

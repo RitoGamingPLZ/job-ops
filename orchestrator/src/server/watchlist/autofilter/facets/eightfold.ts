@@ -16,10 +16,7 @@ const filterSchema = z.object({
   options: z.array(z.unknown()),
 });
 
-export const discoverEightfoldFacets: FacetDiscovery = async ({
-  careersUrl,
-  signal,
-}) => {
+export const discoverEightfoldFacets: FacetDiscovery = async ({ careersUrl, signal }) => {
   let normalized: { careersUrl: string };
   try {
     normalized = await eightfoldWatchlistAdapter.normalizeCustomSelection({
@@ -27,17 +24,12 @@ export const discoverEightfoldFacets: FacetDiscovery = async ({
       label: null,
     });
   } catch {
-    throw badRequest(
-      "Use a supported Microsoft or Netflix careers search URL.",
-    );
+    throw badRequest("Use a supported Microsoft or Netflix careers search URL.");
   }
   signal?.throwIfAborted();
   const base = new URL(normalized.careersUrl);
   const microsoft = base.hostname === "apply.careers.microsoft.com";
-  const url = new URL(
-    microsoft ? "/api/pcsx/search" : "/api/apply/v2/jobs",
-    base.origin,
-  );
+  const url = new URL(microsoft ? "/api/pcsx/search" : "/api/apply/v2/jobs", base.origin);
   // Discover the unfiltered total, never forwarding user query/transport params.
   url.searchParams.set("domain", microsoft ? "microsoft.com" : "netflix.com");
   if (microsoft) url.searchParams.set("start", "0");
@@ -50,27 +42,19 @@ export const discoverEightfoldFacets: FacetDiscovery = async ({
     headers: { accept: "application/json" },
   });
   // In particular, do not retry PCSX 429s during facet discovery.
-  if (!response.ok)
-    throw upstreamError(`Eightfold facets returned HTTP ${response.status}.`);
+  if (!response.ok) throw upstreamError(`Eightfold facets returned HTTP ${response.status}.`);
   let payload: unknown;
   try {
     payload = await response.json();
   } catch (error) {
-    if (
-      error instanceof Error &&
-      (error.name === "AbortError" || error.name === "TimeoutError")
-    )
+    if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
       throw error;
     throw upstreamError("Eightfold facets returned invalid JSON.");
   }
   if (microsoft) {
-    const envelope = z
-      .object({ status: z.literal(200), data: z.unknown() })
-      .safeParse(payload);
+    const envelope = z.object({ status: z.literal(200), data: z.unknown() }).safeParse(payload);
     if (!envelope.success)
-      throw upstreamError(
-        "Eightfold facets returned an invalid PCSX response.",
-      );
+      throw upstreamError("Eightfold facets returned an invalid PCSX response.");
     payload = envelope.data.data;
   }
   const parsed = responseSchema.safeParse(payload);
@@ -85,16 +69,15 @@ export const discoverEightfoldFacets: FacetDiscovery = async ({
     // PCSX puts option values under filterDef, rather than apply/v2.facets.
     const definition = recordSchema.safeParse(record.data.filterDef);
     const filters = definition.success
-      ? [definition.data.smartFilters, definition.data.allFilters].flatMap(
-          (value) => (Array.isArray(value) ? value : []),
+      ? [definition.data.smartFilters, definition.data.allFilters].flatMap((value) =>
+          Array.isArray(value) ? value : [],
         )
       : [];
     for (const entry of filters) {
       const filter = filterSchema.safeParse(entry);
       if (!filter.success) continue;
       const key = `filter_${filter.data.filterName}`;
-      if (!isEightfoldFacetKey(key) || params.some((p) => p.key === key))
-        continue;
+      if (!isEightfoldFacetKey(key) || params.some((p) => p.key === key)) continue;
       const values = [
         ...new Set(
           filter.data.options.flatMap((option) => {

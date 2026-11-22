@@ -1,17 +1,8 @@
 import { getPostingDateSortValue } from "@client/lib/job-posting-age";
 import { EXTRACTOR_SOURCE_METADATA } from "@shared/extractors";
 import type { AppSettings, JobListItem, JobSource } from "@shared/types";
-import type {
-  DateFilterDimension,
-  EmploymentType,
-  FilterTab,
-  JobSort,
-} from "./constants";
-import {
-  DEFAULT_PIPELINE_SOURCES,
-  orderedFilterSources,
-  orderedSources,
-} from "./constants";
+import type { DateFilterDimension, EmploymentType, FilterTab, JobSort } from "./constants";
+import { DEFAULT_PIPELINE_SOURCES, orderedFilterSources, orderedSources } from "./constants";
 
 const dateValue = (value: string | null) => {
   if (!value) return null;
@@ -26,25 +17,14 @@ const compareNumber = (a: number, b: number) => a - b;
 export const clampNumber = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
 
-export const parseSalaryBounds = (
-  job: JobListItem,
-): { min: number; max: number } | null => {
-  if (
-    typeof job.salaryMinAmount === "number" &&
-    Number.isFinite(job.salaryMinAmount)
-  ) {
-    if (
-      typeof job.salaryMaxAmount === "number" &&
-      Number.isFinite(job.salaryMaxAmount)
-    ) {
+export const parseSalaryBounds = (job: JobListItem): { min: number; max: number } | null => {
+  if (typeof job.salaryMinAmount === "number" && Number.isFinite(job.salaryMinAmount)) {
+    if (typeof job.salaryMaxAmount === "number" && Number.isFinite(job.salaryMaxAmount)) {
       return { min: job.salaryMinAmount, max: job.salaryMaxAmount };
     }
     return { min: job.salaryMinAmount, max: job.salaryMinAmount };
   }
-  if (
-    typeof job.salaryMaxAmount === "number" &&
-    Number.isFinite(job.salaryMaxAmount)
-  ) {
+  if (typeof job.salaryMaxAmount === "number" && Number.isFinite(job.salaryMaxAmount)) {
     return { min: job.salaryMaxAmount, max: job.salaryMaxAmount };
   }
   if (!job.salary) return null;
@@ -170,9 +150,7 @@ const normalizeText = (value: string): string =>
  * "Contract / Temp") onto canonical {@link EmploymentType} buckets. A single
  * string may yield multiple types, so the result is a set.
  */
-export const extractEmploymentTypes = (
-  raw: string | null | undefined,
-): Set<EmploymentType> => {
+export const extractEmploymentTypes = (raw: string | null | undefined): Set<EmploymentType> => {
   const types = new Set<EmploymentType>();
   if (!raw) return types;
 
@@ -196,10 +174,7 @@ export const extractEmploymentTypes = (
  * When the job has no recognizable type it is excluded while the filter is
  * active (an unknown type cannot be confirmed to match the user's choice).
  */
-export const matchesEmploymentType = (
-  job: JobListItem,
-  selected: EmploymentType[],
-): boolean => {
+export const matchesEmploymentType = (job: JobListItem, selected: EmploymentType[]): boolean => {
   if (selected.length === 0) return true;
   const jobTypes = extractEmploymentTypes(job.jobType);
   if (jobTypes.size === 0) return false;
@@ -236,9 +211,7 @@ export const matchesPostedWithin = (
   return posted >= now - days * 86_400_000;
 };
 
-export const getJobCounts = (
-  jobs: JobListItem[],
-): Record<FilterTab, number> => {
+export const getJobCounts = (jobs: JobListItem[]): Record<FilterTab, number> => {
   const byTab: Record<FilterTab, number> = {
     ready: 0,
     discovered: 0,
@@ -249,8 +222,7 @@ export const getJobCounts = (
     if (job.closedAt != null) continue;
     if (job.status === "in_progress") continue;
     if (job.status === "ready" || job.status === "processing") byTab.ready += 1;
-    if (job.status === "discovered" || job.status === "processing")
-      byTab.discovered += 1;
+    if (job.status === "discovered" || job.status === "processing") byTab.discovered += 1;
   }
 
   return byTab;
@@ -264,18 +236,14 @@ export const getSourcesWithJobs = (jobs: JobListItem[]): JobSource[] => {
   return orderedFilterSources.filter((source) => seen.has(source));
 };
 
-export const getEnabledSources = (
-  settings: AppSettings | null,
-): JobSource[] => {
+export const getEnabledSources = (settings: AppSettings | null): JobSource[] => {
   if (!settings) return [...orderedSources];
 
   const enabled: JobSource[] = [];
   const hasUkVisaJobsAuth = Boolean(
     settings.ukvisajobsEmail?.trim() && settings.ukvisajobsPasswordHint,
   );
-  const hasAdzunaAuth = Boolean(
-    settings.adzunaAppId?.trim() && settings.adzunaAppKeyHint,
-  );
+  const hasAdzunaAuth = Boolean(settings.adzunaAppId?.trim() && settings.adzunaAppKeyHint);
   const hasApifyToken = Boolean(settings.apifyTokenHint);
 
   for (const source of orderedSources) {

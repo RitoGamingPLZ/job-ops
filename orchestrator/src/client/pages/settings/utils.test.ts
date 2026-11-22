@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getLlmProviderConfig,
-  normalizeLlmProvider,
-  supportsLlmModelSuggestions,
-} from "./utils";
+import { getLlmProviderConfig, normalizeLlmProvider, supportsLlmModelSuggestions } from "./utils";
 
 describe("settings utils", () => {
   it("offers API Route with authenticated model discovery", () => {
@@ -21,18 +17,14 @@ describe("settings utils", () => {
     expect(config.label).toBe("OpenAI-compatible");
     expect(config.showApiKey).toBe(true);
     expect(config.showBaseUrl).toBe(true);
-    expect(config.baseUrlPlaceholder).toBe(
-      "https://api.example.com/v1/chat/completions",
-    );
+    expect(config.baseUrlPlaceholder).toBe("https://api.example.com/v1/chat/completions");
   });
 
   it("exposes provider key links for hosted providers", () => {
     expect(getLlmProviderConfig("atlascloud").keyHelperHref).toBe(
       "https://www.atlascloud.ai/console/api-keys",
     );
-    expect(getLlmProviderConfig("openrouter").keyHelperHref).toBe(
-      "https://openrouter.ai/keys",
-    );
+    expect(getLlmProviderConfig("openrouter").keyHelperHref).toBe("https://openrouter.ai/keys");
     expect(getLlmProviderConfig("orcarouter").keyHelperHref).toBe(
       "https://www.orcarouter.ai/console",
     );
@@ -103,9 +95,7 @@ describe("settings utils", () => {
     expect(config.showBaseUrl).toBe(true);
     expect(config.baseUrlPlaceholder).toBe("http://localhost:4000");
     expect(config.baseUrlHelper).toContain("http://host.docker.internal:4000");
-    expect(config.keyHelperHref).toBe(
-      "https://docs.litellm.ai/docs/proxy/virtual_keys",
-    );
+    expect(config.keyHelperHref).toBe("https://docs.litellm.ai/docs/proxy/virtual_keys");
   });
 
   it("normalizes the hyphenated openai-compatible alias", () => {

@@ -32,17 +32,11 @@ function isEditableTarget(event: KeyboardEvent): boolean {
  * "Shift+?") stay blocked in inputs so typing punctuation doesn't trigger app
  * hotkeys.
  */
-export function useHotkeys(
-  bindings: KeyBindingMap,
-  options: { enabled?: boolean } = {},
-) {
+export function useHotkeys(bindings: KeyBindingMap, options: { enabled?: boolean } = {}) {
   const { enabled = true } = options;
   const bindingsRef = useRef(bindings);
   bindingsRef.current = bindings;
-  const bindingSignature = useMemo(
-    () => Object.keys(bindings).sort().join("|"),
-    [bindings],
-  );
+  const bindingSignature = useMemo(() => Object.keys(bindings).sort().join("|"), [bindings]);
 
   useEffect(() => {
     if (!enabled) return;

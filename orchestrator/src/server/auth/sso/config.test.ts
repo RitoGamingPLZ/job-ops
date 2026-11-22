@@ -1,11 +1,7 @@
 import { logger } from "@infra/logger";
 import type { Request } from "express";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  getSsoProviderConfig,
-  listEnabledSsoProviders,
-  resolveSsoBaseUrl,
-} from "./config";
+import { getSsoProviderConfig, listEnabledSsoProviders, resolveSsoBaseUrl } from "./config";
 
 describe("SSO provider config", () => {
   const originalEnv = { ...process.env };
@@ -19,8 +15,7 @@ describe("SSO provider config", () => {
     return {
       protocol: input.protocol ?? "",
       app: { get: () => false },
-      header: (name: string) =>
-        name.toLowerCase() === "host" ? input.host : undefined,
+      header: (name: string) => (name.toLowerCase() === "host" ? input.host : undefined),
     } as unknown as Request;
   }
 
@@ -39,9 +34,7 @@ describe("SSO provider config", () => {
   });
 
   it("requires both an issuer and a client id for the generic provider", () => {
-    expect(
-      listEnabledSsoProviders({ SSO_OIDC_CLIENT_ID: "oidc-client" }),
-    ).toEqual([]);
+    expect(listEnabledSsoProviders({ SSO_OIDC_CLIENT_ID: "oidc-client" })).toEqual([]);
 
     expect(
       listEnabledSsoProviders({
@@ -142,24 +135,22 @@ describe("SSO provider config", () => {
     process.env.SSO_REDIRECT_BASE_URL = "https://sso.example.com/";
     process.env.JOBOPS_PUBLIC_BASE_URL = "https://public.example.com";
 
-    expect(
-      resolveSsoBaseUrl(fakeRequest({ protocol: "http", host: "localhost" })),
-    ).toBe("https://sso.example.com");
+    expect(resolveSsoBaseUrl(fakeRequest({ protocol: "http", host: "localhost" }))).toBe(
+      "https://sso.example.com",
+    );
   });
 
   it("falls back to the public base URL and then to the request origin", () => {
     process.env.SSO_REDIRECT_BASE_URL = "";
     process.env.JOBOPS_PUBLIC_BASE_URL = "https://public.example.com/";
-    expect(
-      resolveSsoBaseUrl(fakeRequest({ protocol: "http", host: "localhost" })),
-    ).toBe("https://public.example.com");
+    expect(resolveSsoBaseUrl(fakeRequest({ protocol: "http", host: "localhost" }))).toBe(
+      "https://public.example.com",
+    );
 
     process.env.JOBOPS_PUBLIC_BASE_URL = "";
-    expect(
-      resolveSsoBaseUrl(
-        fakeRequest({ protocol: "http", host: "localhost:3000" }),
-      ),
-    ).toBe("http://localhost:3000");
+    expect(resolveSsoBaseUrl(fakeRequest({ protocol: "http", host: "localhost:3000" }))).toBe(
+      "http://localhost:3000",
+    );
   });
 
   it("returns null when no base URL can be derived", () => {

@@ -7,7 +7,5 @@ export function showErrorToast(
   options?: ExternalToast,
 ): string | number {
   const message = formatUserFacingError(error, fallback);
-  return options === undefined
-    ? toast.error(message)
-    : toast.error(message, options);
+  return options === undefined ? toast.error(message) : toast.error(message, options);
 }

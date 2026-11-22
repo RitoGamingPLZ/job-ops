@@ -33,12 +33,8 @@ export async function scoreJobsStep(args: {
   const unprocessedJobs = await jobsRepo.getUnscoredDiscoveredJobs();
 
   // Check if auto-skip threshold is configured
-  const autoSkipThresholdRaw = await settingsRepo.getSetting(
-    "autoSkipScoreThreshold",
-  );
-  const autoSkipThreshold = autoSkipThresholdRaw
-    ? parseInt(autoSkipThresholdRaw, 10)
-    : null;
+  const autoSkipThresholdRaw = await settingsRepo.getSetting("autoSkipScoreThreshold");
+  const autoSkipThreshold = autoSkipThresholdRaw ? parseInt(autoSkipThresholdRaw, 10) : null;
 
   updateProgress({
     step: "scoring",
@@ -64,8 +60,7 @@ export async function scoreJobsStep(args: {
       if (args.shouldCancel?.()) return;
 
       const hasCachedScore =
-        typeof job.suitabilityScore === "number" &&
-        !Number.isNaN(job.suitabilityScore);
+        typeof job.suitabilityScore === "number" && !Number.isNaN(job.suitabilityScore);
 
       if (hasCachedScore) {
         if ((job.suitabilityScore as number) > 90) exceptional += 1;

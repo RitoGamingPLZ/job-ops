@@ -42,20 +42,18 @@ vi.mock("@server/services/ghostwriter", () => ({
       selectedDocumentIds: ["doc-1"],
     },
   ]),
-  createThread: vi.fn(
-    async (input: { jobId: string; title?: string | null }) => ({
-      id: "thread-created",
-      jobId: input.jobId,
-      title: input.title ?? null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      lastMessageAt: null,
-      activeRootMessageId: null,
-      selectedNoteIds: [],
-      selectedEmailIds: [],
-      selectedDocumentIds: [],
-    }),
-  ),
+  createThread: vi.fn(async (input: { jobId: string; title?: string | null }) => ({
+    id: "thread-created",
+    jobId: input.jobId,
+    title: input.title ?? null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    lastMessageAt: null,
+    activeRootMessageId: null,
+    selectedNoteIds: [],
+    selectedEmailIds: [],
+    selectedDocumentIds: [],
+  })),
   updateContextForJob: vi.fn(
     async (input: {
       jobId: string;
@@ -191,7 +189,7 @@ vi.mock("@server/services/ghostwriter", () => ({
   })),
 }));
 
-describe.sequential("Ghostwriter API", () => {
+describe("Ghostwriter API", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -269,9 +267,7 @@ describe.sequential("Ghostwriter API", () => {
       expect(response.status).toBe(200);
       expect(service).toHaveBeenCalledWith(expect.objectContaining({ cowork }));
     }
-    expect(editMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ threadId: "thread-1" }),
-    );
+    expect(editMessage).toHaveBeenCalledWith(expect.objectContaining({ threadId: "thread-1" }));
   });
 
   it("sends a message in the per-job conversation", async () => {
@@ -344,14 +340,11 @@ describe.sequential("Ghostwriter API", () => {
   });
 
   it("edits a user message", async () => {
-    const res = await fetch(
-      `${baseUrl}/api/jobs/job-1/chat/messages/user-1/edit`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: "edited content" }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/jobs/job-1/chat/messages/user-1/edit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "edited content" }),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -361,14 +354,11 @@ describe.sequential("Ghostwriter API", () => {
   });
 
   it("switches branch", async () => {
-    const res = await fetch(
-      `${baseUrl}/api/jobs/job-1/chat/messages/message-1/switch-branch`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/jobs/job-1/chat/messages/message-1/switch-branch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
     const body = await res.json();
 
     expect(res.status).toBe(200);

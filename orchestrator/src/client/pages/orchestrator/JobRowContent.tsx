@@ -48,19 +48,12 @@ export const JobRowContent = ({
       />
 
       <div className="min-w-0 flex-1">
-        <div
-          className={cn(
-            "truncate leading-tight",
-            isSelected ? "font-semibold" : "font-medium",
-          )}
-        >
+        <div className={cn("truncate leading-tight", isSelected ? "font-semibold" : "font-medium")}>
           {job.title}
         </div>
         <div className="truncate text-sm text-muted-foreground mt-0.5">
           {job.employer}
-          {job.location && (
-            <span className="before:content-['_in_']">{job.location}</span>
-          )}
+          {job.location && <span className="before:content-['_in_']">{job.location}</span>}
         </div>
         {(job.salary?.trim() || isTargeted(job)) && (
           <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
@@ -70,9 +63,7 @@ export const JobRowContent = ({
               </span>
             )}
             {job.salary?.trim() && (
-              <span className="truncate text-xs text-muted-foreground">
-                {job.salary}
-              </span>
+              <span className="truncate text-xs text-muted-foreground">{job.salary}</span>
             )}
           </div>
         )}
@@ -86,10 +77,7 @@ export const JobRowContent = ({
         </div>
       ) : showSuitabilityScore && isAwaitingAi ? (
         <div className="shrink-0 text-right">
-          <Tip
-            content="Waiting for AI scoring to finish."
-            contentClassName="max-w-60 text-xs"
-          >
+          <Tip content="Waiting for AI scoring to finish." contentClassName="max-w-60 text-xs">
             <Loader2
               aria-label="Waiting for AI scoring to finish."
               className="h-4 w-4 animate-spin text-muted-foreground"

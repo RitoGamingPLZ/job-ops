@@ -8,7 +8,7 @@ vi.mock("@server/services/onboarding-search-terms", () => ({
 
 import { suggestOnboardingSearchTerms } from "@server/services/onboarding-search-terms";
 
-describe.sequential("Onboarding API routes", () => {
+describe("Onboarding API routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -30,12 +30,9 @@ describe.sequential("Onboarding API routes", () => {
         source: "ai",
       });
 
-      const res = await fetch(
-        `${baseUrl}/api/onboarding/search-terms/suggest`,
-        {
-          method: "POST",
-        },
-      );
+      const res = await fetch(`${baseUrl}/api/onboarding/search-terms/suggest`, {
+        method: "POST",
+      });
       const body = await res.json();
 
       expect(res.ok).toBe(true);
@@ -61,12 +58,9 @@ describe.sequential("Onboarding API routes", () => {
         }),
       );
 
-      const res = await fetch(
-        `${baseUrl}/api/onboarding/search-terms/suggest`,
-        {
-          method: "POST",
-        },
-      );
+      const res = await fetch(`${baseUrl}/api/onboarding/search-terms/suggest`, {
+        method: "POST",
+      });
       const body = await res.json();
 
       expect(res.status).toBe(409);

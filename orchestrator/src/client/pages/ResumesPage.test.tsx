@@ -1,10 +1,4 @@
-import {
-  cleanup,
-  fireEvent,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { isNavActive, NAV_LINKS } from "../components/navigation";
@@ -35,11 +29,7 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 function LocationWatcher() {
   const location = useLocation();
-  return (
-    <output data-testid="location">
-      {location.pathname + location.search}
-    </output>
-  );
+  return <output data-testid="location">{location.pathname + location.search}</output>;
 }
 function mount() {
   return renderWithQueryClient(
@@ -50,9 +40,7 @@ function mount() {
   );
 }
 it("distinguishes a load error from an empty list and retries", async () => {
-  mocks.list
-    .mockRejectedValueOnce(new Error("Offline"))
-    .mockResolvedValueOnce({ resumes: [] });
+  mocks.list.mockRejectedValueOnce(new Error("Offline")).mockResolvedValueOnce({ resumes: [] });
   mount();
   expect(await screen.findByText("Could not load resumes")).toBeVisible();
   expect(screen.queryByText(/No resumes yet/)).not.toBeInTheDocument();
@@ -60,40 +48,38 @@ it("distinguishes a load error from an empty list and retries", async () => {
   expect(await screen.findByText(/No resumes yet/)).toBeVisible();
   expect(mocks.list).toHaveBeenCalledTimes(2);
 });
-it.each([
-  "edit",
-  "preview",
-])("opens the selected resume in %s mode without PDF side effects", async (mode) => {
-  mocks.list.mockResolvedValue({
-    resumes: ["first", "selected"].map((jobId) => ({
-      jobId,
-      title: jobId,
-      employer: "Example",
-      updatedAt: "2026-01-01",
-      hasPdf: true,
-      status: "ready",
-      readyAt: "2026-01-01",
-    })),
-  });
-  mount();
-  const link = await screen.findByRole("link", { name: "selected" });
-  expect(link).toHaveAttribute("href", "/resumes/selected?mode=edit");
-  if (mode === "edit") fireEvent.click(link);
-  else
-    fireEvent.click(
-      within(link.closest("tr") as HTMLElement).getByRole("button", {
-        name: "Preview PDF",
-      }),
+it.each(["edit", "preview"])(
+  "opens the selected resume in %s mode without PDF side effects",
+  async (mode) => {
+    mocks.list.mockResolvedValue({
+      resumes: ["first", "selected"].map((jobId) => ({
+        jobId,
+        title: jobId,
+        employer: "Example",
+        updatedAt: "2026-01-01",
+        hasPdf: true,
+        status: "ready",
+        readyAt: "2026-01-01",
+      })),
+    });
+    mount();
+    const link = await screen.findByRole("link", { name: "selected" });
+    expect(link).toHaveAttribute("href", "/resumes/selected?mode=edit");
+    if (mode === "edit") fireEvent.click(link);
+    else
+      fireEvent.click(
+        within(link.closest("tr") as HTMLElement).getByRole("button", {
+          name: "Preview PDF",
+        }),
+      );
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(`/resumes/selected?mode=${mode}`),
     );
-  await waitFor(() =>
-    expect(screen.getByTestId("location")).toHaveTextContent(
-      `/resumes/selected?mode=${mode}`,
-    ),
-  );
-  expect(mocks.open).not.toHaveBeenCalled();
-  expect(mocks.generate).not.toHaveBeenCalled();
-  expect(mocks.job).not.toHaveBeenCalled();
-});
+    expect(mocks.open).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.job).not.toHaveBeenCalled();
+  },
+);
 
 it("disables preview while preparation is running", async () => {
   mocks.list.mockResolvedValue({
@@ -108,15 +94,10 @@ it("disables preview while preparation is running", async () => {
     ],
   });
   mount();
-  expect(
-    await screen.findByRole("button", { name: "Preview PDF" }),
-  ).toBeDisabled();
+  expect(await screen.findByRole("button", { name: "Preview PDF" })).toBeDisabled();
 });
 
-it.each([
-  "processing",
-  "discovered",
-])("does not link a %s resume to the editor", async (status) => {
+it.each(["processing", "discovered"])("does not link a %s resume to the editor", async (status) => {
   mocks.list.mockResolvedValue({
     resumes: [
       {
@@ -139,9 +120,7 @@ it("renders the resumes header with navigation and the base resume action", asyn
   mocks.list.mockResolvedValue({ resumes: [] });
   mount();
   expect(within(screen.getByRole("banner")).getByText("Resumes")).toBeVisible();
-  expect(
-    screen.getByRole("button", { name: "Open navigation menu" }),
-  ).toBeVisible();
+  expect(screen.getByRole("button", { name: "Open navigation menu" })).toBeVisible();
   expect(
     within(screen.getByRole("banner")).queryByRole("link", {
       name: "Candidate Library",
@@ -156,12 +135,8 @@ it("renders the library with the standard header and navigation", () => {
       <ResumeLibraryPage />
     </MemoryRouter>,
   );
-  expect(
-    within(screen.getByRole("banner")).getByText("Candidate Library"),
-  ).toBeVisible();
-  expect(
-    screen.getByRole("button", { name: "Open navigation menu" }),
-  ).toBeVisible();
+  expect(within(screen.getByRole("banner")).getByText("Candidate Library")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Open navigation menu" })).toBeVisible();
   expect(screen.getByRole("main")).toHaveTextContent("Library content");
 });
 
@@ -195,9 +170,9 @@ it.each([
   ["/resumes", "Resumes"],
 ])("activates only the matching navigation item on %s", (path, label) => {
   expect(
-    NAV_LINKS.filter(({ to, activePaths }) =>
-      isNavActive(path, to, activePaths),
-    ).map((link) => link.label),
+    NAV_LINKS.filter(({ to, activePaths }) => isNavActive(path, to, activePaths)).map(
+      (link) => link.label,
+    ),
   ).toEqual([label]);
   const resumesIndex = NAV_LINKS.findIndex(({ to }) => to === "/resumes");
   expect(NAV_LINKS[resumesIndex + 1]).toMatchObject({

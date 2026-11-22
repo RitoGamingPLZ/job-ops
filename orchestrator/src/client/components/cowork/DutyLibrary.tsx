@@ -1,25 +1,12 @@
 import { ApiClientError } from "@client/api/core";
 import * as api from "@client/api/cowork";
-import type {
-  ExperienceBullet,
-  ExperienceBulletInput,
-  RankedBullet,
-} from "@shared/types";
+import type { ExperienceBullet, ExperienceBulletInput, RankedBullet } from "@shared/types";
 import { useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -45,9 +32,7 @@ export function InlineTags({ bullet }: { bullet: ExperienceBullet }) {
       if (!row || !row.clientWidth) return;
       const gap = 4;
       const available = row.clientWidth;
-      const widths = bullet.tags.map(
-        (_, index) => tagChips.current[index]?.offsetWidth ?? 0,
-      );
+      const widths = bullet.tags.map((_, index) => tagChips.current[index]?.offsetWidth ?? 0);
       const allWidth = widths.reduce((sum, width) => sum + width + gap, 0);
       const limit =
         allWidth <= available && bullet.tags.length <= 8
@@ -85,11 +70,7 @@ export function InlineTags({ bullet }: { bullet: ExperienceBullet }) {
           {tag}
         </span>
       ))}
-      <span
-        ref={overflowMeasure}
-        aria-hidden="true"
-        className="invisible absolute text-xs"
-      >
+      <span ref={overflowMeasure} aria-hidden="true" className="invisible absolute text-xs">
         +{bullet.tags.length}
       </span>
       {bullet.tags.length > visibleCount && (
@@ -103,10 +84,7 @@ export function InlineTags({ bullet }: { bullet: ExperienceBullet }) {
               +{bullet.tags.length - visibleCount}
             </button>
           </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            className="flex max-h-60 flex-wrap gap-1 overflow-auto p-2"
-          >
+          <PopoverContent align="start" className="flex max-h-60 flex-wrap gap-1 overflow-auto p-2">
             {bullet.tags.slice(visibleCount).map((tag, index) => (
               <span
                 key={`${index}-${tag}`}
@@ -138,9 +116,7 @@ export function DutyLibraryTools({
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
-  const [drafts, setDrafts] = useState<
-    { input: ExperienceBulletInput; selected: boolean }[]
-  >([]);
+  const [drafts, setDrafts] = useState<{ input: ExperienceBulletInput; selected: boolean }[]>([]);
   const [parentId, setParentId] = useState("");
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -204,9 +180,10 @@ export function DutyLibraryTools({
             onClick={() =>
               void run(async () => {
                 setDrafts(
-                  (await api.extractExperienceBullets(text)).drafts.map(
-                    (input) => ({ input, selected: true }),
-                  ),
+                  (await api.extractExperienceBullets(text)).drafts.map((input) => ({
+                    input,
+                    selected: true,
+                  })),
                 );
               })
             }
@@ -214,18 +191,13 @@ export function DutyLibraryTools({
             Extract drafts
           </Button>
           {drafts.map((draft, index) => (
-            <label
-              key={`${index}-${draft.input.text}`}
-              className="flex gap-2 text-sm"
-            >
+            <label key={`${index}-${draft.input.text}`} className="flex gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={draft.selected}
                 onChange={(e) =>
                   setDrafts((current) =>
-                    current.map((d, i) =>
-                      i === index ? { ...d, selected: e.target.checked } : d,
-                    ),
+                    current.map((d, i) => (i === index ? { ...d, selected: e.target.checked } : d)),
                   )
                 }
               />
@@ -247,9 +219,7 @@ export function DutyLibraryTools({
                 }))}
               />
               {!roles.length && (
-                <p className="text-sm">
-                  Add a job and role before adding extracted duties.
-                </p>
+                <p className="text-sm">Add a job and role before adding extracted duties.</p>
               )}
               <Button
                 disabled={busy || !parentId || !drafts.some((d) => d.selected)}
@@ -262,9 +232,7 @@ export function DutyLibraryTools({
                         parentId,
                         source: "ai_extract",
                       });
-                      setDrafts((current) =>
-                        current.filter((d) => d !== draft),
-                      );
+                      setDrafts((current) => current.filter((d) => d !== draft));
                     }
                     await onRefresh();
                     setOpen(false);

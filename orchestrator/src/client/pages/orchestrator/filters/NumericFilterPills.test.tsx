@@ -4,8 +4,7 @@ import type { SalaryFilter, ScoreFilter } from "../constants";
 import { SalaryFilterPill } from "./SalaryFilterPill";
 import { ScoreFilterPill } from "./ScoreFilterPill";
 
-const openPill = (name: RegExp) =>
-  fireEvent.click(screen.getByRole("button", { name }));
+const openPill = (name: RegExp) => fireEvent.click(screen.getByRole("button", { name }));
 
 const renderScore = (scoreFilter: ScoreFilter) => {
   const onScoreFilterChange = vi.fn();

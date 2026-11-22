@@ -8,10 +8,7 @@ type ComposerProps = {
   canReset: boolean;
   noteContextSelector?: React.ReactNode;
   onStop: () => Promise<void>;
-  onSend: (
-    content: string,
-    attachments: JobChatImageAttachment[],
-  ) => Promise<void>;
+  onSend: (content: string, attachments: JobChatImageAttachment[]) => Promise<void>;
   onReset: () => void;
 };
 

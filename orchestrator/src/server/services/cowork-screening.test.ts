@@ -21,8 +21,7 @@ import { SCREENING_RESPONSE_SCHEMA, screenResume } from "./cowork-screening";
 
 const job = { title: "Engineer", employer: "Acme", jobDescription: "Java" };
 function doc(): ReactiveResumeV5Document {
-  const document =
-    buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+  const document = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
   document.sections.experience.items = [
     {
       id: "exp",
@@ -112,9 +111,7 @@ describe("screenResume", () => {
       ["Kotlin", "add it"],
     ]);
     expect(new Set(report.requirements.map((r) => r.id)).size).toBe(2);
-    expect(callJson.mock.calls[0][0].jsonSchema).toBe(
-      SCREENING_RESPONSE_SCHEMA,
-    );
+    expect(callJson.mock.calls[0][0].jsonSchema).toBe(SCREENING_RESPONSE_SCHEMA);
   });
 
   it("sends visible sections with ids and indexed bullets only", async () => {
@@ -151,12 +148,7 @@ describe("screenResume", () => {
 
   it("rebuilds valid focus refs and nulls refs that point nowhere", async () => {
     const ev = (focus: unknown) => ({ text: "x", focus });
-    const f = (
-      kind: string,
-      section?: string,
-      itemId?: string,
-      i?: number,
-    ) => ({
+    const f = (kind: string, section?: string, itemId?: string, i?: number) => ({
       kind,
       section: section ?? null,
       itemId: itemId ?? null,
@@ -202,27 +194,17 @@ describe("screenResume", () => {
       { kind: "summary", label: "Summary" },
     ]);
     expect(focus.slice(3)).toEqual([null, null]); // evidence capped at 5
-    expect(b.evidence.map((e) => e.focus)).toEqual([
-      null,
-      null,
-      null,
-      null,
-      null,
-    ]);
+    expect(b.evidence.map((e) => e.focus)).toEqual([null, null, null, null, null]);
   });
 
   it("caps requirements at 40 with must-haves kept first", async () => {
     answer([
-      ...Array.from({ length: 30 }, (_, i) =>
-        req({ text: `nice ${i}`, importance: "nice" }),
-      ),
+      ...Array.from({ length: 30 }, (_, i) => req({ text: `nice ${i}`, importance: "nice" })),
       ...Array.from({ length: 30 }, (_, i) => req({ text: `must ${i}` })),
     ]);
     const { requirements } = await screenResume(job, doc());
     expect(requirements).toHaveLength(40);
-    expect(requirements.filter((r) => r.importance === "must")).toHaveLength(
-      30,
-    );
+    expect(requirements.filter((r) => r.importance === "must")).toHaveLength(30);
     expect(requirements[0].text).toBe("must 0");
   });
 
@@ -252,16 +234,11 @@ describe("screenResume", () => {
     expect(callJson).not.toHaveBeenCalled();
     answer([]);
     await screenResume(job, doc());
-    expect(reserve).toHaveBeenLastCalledWith(
-      { action: "tailoring" },
-      expect.any(Function),
-    );
+    expect(reserve).toHaveBeenLastCalledWith({ action: "tailoring" }, expect.any(Function));
   });
 
   it("raises an upstream error when the LLM fails", async () => {
     callJson.mockResolvedValue({ success: false, error: "boom" });
-    await expect(screenResume(job, doc())).rejects.toThrow(
-      "Unable to screen resume",
-    );
+    await expect(screenResume(job, doc())).rejects.toThrow("Unable to screen resume");
   });
 });

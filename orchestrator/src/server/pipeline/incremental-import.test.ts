@@ -42,7 +42,7 @@ vi.mock("./steps", async (importOriginal) => ({
   notifyPipelineWebhookStep: vi.fn(async () => undefined),
 }));
 
-describe.sequential("incremental per-source import", () => {
+describe("incremental per-source import", () => {
   let tempDir: string;
 
   // One DB for the file: each test uses distinct titles.
@@ -83,9 +83,7 @@ describe.sequential("incremental per-source import", () => {
     expect((await pipeline.runPipeline({ sources: [] })).success).toBe(true);
 
     const stored = await jobsRepo.getAllJobs();
-    expect(stored.map((job) => job.jobUrl)).toEqual([
-      "https://linkedin.com/jobs/1",
-    ]);
+    expect(stored.map((job) => job.jobUrl)).toEqual(["https://linkedin.com/jobs/1"]);
   });
 
   it("still creates a job matching one stored by a previous run", async () => {
@@ -109,11 +107,7 @@ describe.sequential("incremental per-source import", () => {
 
     expect((await pipeline.runPipeline({ sources: [] })).success).toBe(true);
 
-    expect(await jobsRepo.getJobByUrl("https://linkedin.com/jobs/2")).not.toBe(
-      null,
-    );
-    expect(await jobsRepo.getJobByUrl("https://indeed.com/jobs/old")).not.toBe(
-      null,
-    );
+    expect(await jobsRepo.getJobByUrl("https://linkedin.com/jobs/2")).not.toBe(null);
+    expect(await jobsRepo.getJobByUrl("https://indeed.com/jobs/old")).not.toBe(null);
   });
 });

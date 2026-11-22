@@ -25,12 +25,7 @@ function resolveTemplatePath(): string {
   try {
     if (import.meta.url.startsWith("file:")) {
       const modulePath = fileURLToPath(import.meta.url);
-      const moduleRelativePath = join(
-        modulePath,
-        "..",
-        "templates",
-        "jake-resume.tex",
-      );
+      const moduleRelativePath = join(modulePath, "..", "templates", "jake-resume.tex");
       if (existsSync(moduleRelativePath)) {
         return moduleRelativePath;
       }
@@ -41,15 +36,9 @@ function resolveTemplatePath(): string {
 
   const cwd = process.cwd();
   if (cwd.endsWith("/orchestrator")) {
-    return join(
-      cwd,
-      "src/server/services/resume-renderer/templates/jake-resume.tex",
-    );
+    return join(cwd, "src/server/services/resume-renderer/templates/jake-resume.tex");
   }
-  return join(
-    cwd,
-    "orchestrator/src/server/services/resume-renderer/templates/jake-resume.tex",
-  );
+  return join(cwd, "orchestrator/src/server/services/resume-renderer/templates/jake-resume.tex");
 }
 
 const TEMPLATE_PATH = resolveTemplatePath();
@@ -227,9 +216,7 @@ function renderHeaderItems(
   }
 
   for (const item of profileItems) {
-    const displayUrl = item.url
-      ? cleanUrlForDisplay(item.url)
-      : item.username || item.network;
+    const displayUrl = item.url ? cleanUrlForDisplay(item.url) : item.username || item.network;
     const icon = getIconForKindOrNetwork(item.network);
     const linkStr = renderLink(displayUrl, item.url);
     renderedItems.push(`${icon}~${linkStr}`);
@@ -269,9 +256,7 @@ function renderBullets(items: string[]): string {
 function renderSubheadingEntry(entry: LatexResumeEntry): string {
   const title = renderLink(entry.title, entry.url);
   const subtitle = entry.subtitle ? escapeForCommand(entry.subtitle) : "";
-  const secondaryTitle = entry.secondaryTitle
-    ? escapeForCommand(entry.secondaryTitle)
-    : "";
+  const secondaryTitle = entry.secondaryTitle ? escapeForCommand(entry.secondaryTitle) : "";
   const secondarySubtitle = entry.secondarySubtitle
     ? escapeForCommand(entry.secondarySubtitle)
     : "";
@@ -290,9 +275,7 @@ function renderSubheadingEntry(entry: LatexResumeEntry): string {
 
 function renderProjectEntry(entry: LatexResumeEntry): string {
   const title = renderLink(entry.title, entry.url);
-  const subtitle = entry.subtitle
-    ? ` $|$ \\emph{${escapeForCommand(entry.subtitle)}}`
-    : "";
+  const subtitle = entry.subtitle ? ` $|$ \\emph{${escapeForCommand(entry.subtitle)}}` : "";
   const date = entry.date ? escapeForCommand(entry.date) : "";
   const lines = [
     "      \\resumeProjectHeading",
@@ -323,9 +306,7 @@ function renderEntrySection(args: {
   if (args.entries.length === 0) return "";
   const body = args.entries
     .map((entry) =>
-      args.kind === "project"
-        ? renderProjectEntry(entry)
-        : renderSubheadingEntry(entry),
+      args.kind === "project" ? renderProjectEntry(entry) : renderSubheadingEntry(entry),
     )
     .join("\n\n");
   return [
@@ -342,9 +323,7 @@ function renderSkillsSection(document: LatexResumeDocument): string {
   const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
   const items = document.skillGroups
     .map((group) => {
-      const keywords = group.keywords.map((keyword) =>
-        escapeForCommand(keyword),
-      );
+      const keywords = group.keywords.map((keyword) => escapeForCommand(keyword));
       const keywordsText = keywords.join(", ");
       return `     \\textbf{${escapeForCommand(group.name)}}{: ${keywordsText}} \\\\`;
     })
@@ -378,18 +357,14 @@ function renderProfilesSection(_document: LatexResumeDocument): string {
 function renderCustomFieldsSection(document: LatexResumeDocument): string {
   if (document.customFieldItems.length === 0) return "";
   const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
-  const lines = document.customFieldItems.map(
-    (item: LatexResumeCustomFieldItem) => {
-      const value = item.url
-        ? renderLink(item.text, item.url)
-        : escapeForCommand(item.text);
-      if (!item.title) return value;
-      if (item.title === item.text) {
-        return `\\textbf{${escapeForCommand(item.title)}}`;
-      }
-      return `\\textbf{${escapeForCommand(item.title)}}{: ${value}}`;
-    },
-  );
+  const lines = document.customFieldItems.map((item: LatexResumeCustomFieldItem) => {
+    const value = item.url ? renderLink(item.text, item.url) : escapeForCommand(item.text);
+    if (!item.title) return value;
+    if (item.title === item.text) {
+      return `\\textbf{${escapeForCommand(item.title)}}`;
+    }
+    return `\\textbf{${escapeForCommand(item.title)}}{: ${value}}`;
+  });
   return renderLineSection(titles.customFields, lines);
 }
 
@@ -428,13 +403,8 @@ function renderPictureBlock(document: LatexResumeDocument): string {
   if (!picture?.renderPath || picture.hidden) return "";
 
   const width = Math.max(48, Math.min(picture.size, 144));
-  const height = Math.max(
-    48,
-    Math.round(width / Math.max(picture.aspectRatio, 0.5)),
-  );
-  const angle = picture.rotation
-    ? `,angle=${Math.round(picture.rotation)}`
-    : "";
+  const height = Math.max(48, Math.round(width / Math.max(picture.aspectRatio, 0.5)));
+  const angle = picture.rotation ? `,angle=${Math.round(picture.rotation)}` : "";
 
   return [
     `    \\includegraphics[width=${width}pt,height=${height}pt,keepaspectratio${angle}]{\\detokenize{${picture.renderPath}}} \\\\`,
@@ -536,8 +506,7 @@ export function buildLatexDocument(
   const headlineBlock = document.headline
     ? `    \\small ${escapeForCommand(document.headline)} \\\\ \\vspace{1pt}\n`
     : "";
-  const hasHeaderItems =
-    document.contactItems.length > 0 || document.profileItems.length > 0;
+  const hasHeaderItems = document.contactItems.length > 0 || document.profileItems.length > 0;
   const contactBlock = hasHeaderItems
     ? `    \\vspace{5pt} \\small ${renderHeaderItems(document.contactItems, document.profileItems)}\n`
     : "";
@@ -565,11 +534,7 @@ function truncateOutput(value: string): string {
   return `${trimmed.slice(0, 1200)}…(truncated ${trimmed.length - 1200} chars)`;
 }
 
-async function runTectonic(args: {
-  cwd: string;
-  texPath: string;
-  jobId: string;
-}): Promise<void> {
+async function runTectonic(args: { cwd: string; texPath: string; jobId: string }): Promise<void> {
   const binary = process.env.TECTONIC_BIN?.trim() || "tectonic";
 
   await runResumeCompiler({
@@ -588,18 +553,13 @@ async function runTectonic(args: {
 
 export const latexResumeRenderer: ResumeRenderer = {
   async render({ document, outputPath, jobId, paperSize = "auto" }) {
-    const tempDir = await mkdtemp(
-      join(tmpdir(), `job-ops-resume-render-${jobId}-`),
-    );
+    const tempDir = await mkdtemp(join(tmpdir(), `job-ops-resume-render-${jobId}-`));
     const texPath = join(tempDir, "resume.tex");
     const compiledPdfPath = join(tempDir, OUTPUT_FILENAME);
 
     try {
       const template = await loadTemplate();
-      const renderableDocument = await materializeResumePicture(
-        document,
-        tempDir,
-      );
+      const renderableDocument = await materializeResumePicture(document, tempDir);
       const latex = buildLatexDocument(renderableDocument, template, paperSize);
 
       await writeFile(texPath, latex, "utf8");
@@ -634,15 +594,13 @@ export const latexResumeRenderer: ResumeRenderer = {
       });
       throw error;
     } finally {
-      await rm(tempDir, { recursive: true, force: true }).catch(
-        (cleanupError) => {
-          logger.warn("Failed to cleanup temporary LaTeX render directory", {
-            jobId,
-            tempDir,
-            error: cleanupError,
-          });
-        },
-      );
+      await rm(tempDir, { recursive: true, force: true }).catch((cleanupError) => {
+        logger.warn("Failed to cleanup temporary LaTeX render directory", {
+          jobId,
+          tempDir,
+          error: cleanupError,
+        });
+      });
     }
   },
 };

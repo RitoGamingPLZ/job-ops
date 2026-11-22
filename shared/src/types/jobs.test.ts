@@ -36,15 +36,9 @@ describe("board stage contract", () => {
     expect(technicalRound([])).toBe(0);
     expect(
       technicalRound(
-        [
-          "assessment",
-          "technical_interview",
-          "behavioural",
-          "technical_interview",
-          "onsite",
-        ].map((toStage) => ({ toStage })) as Parameters<
-          typeof technicalRound
-        >[0],
+        ["assessment", "technical_interview", "behavioural", "technical_interview", "onsite"].map(
+          (toStage) => ({ toStage }),
+        ) as Parameters<typeof technicalRound>[0],
       ),
     ).toBe(4);
   });

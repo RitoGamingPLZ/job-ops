@@ -10,24 +10,17 @@ import type {
 import { joinUrl } from "../utils/http";
 import { getNestedValue } from "../utils/object";
 
-type ProviderStrategyArgs = Omit<
-  ProviderStrategy,
-  "isCapabilityError" | "getValidationUrls"
-> & {
+type ProviderStrategyArgs = Omit<ProviderStrategy, "isCapabilityError" | "getValidationUrls"> & {
   getValidationUrls?: ProviderStrategy["getValidationUrls"];
 };
 
-export function createProviderStrategy(
-  args: ProviderStrategyArgs,
-): ProviderStrategy {
+export function createProviderStrategy(args: ProviderStrategyArgs): ProviderStrategy {
   return {
     ...args,
-    isCapabilityError: ({ mode, status, body }) =>
-      isCapabilityError({ mode, status, body }),
+    isCapabilityError: ({ mode, status, body }) => isCapabilityError({ mode, status, body }),
     getValidationUrls:
       args.getValidationUrls ??
-      (({ baseUrl }) =>
-        args.validationPaths.map((path) => joinUrl(baseUrl, path))),
+      (({ baseUrl }) => args.validationPaths.map((path) => joinUrl(baseUrl, path))),
   };
 }
 
@@ -42,7 +35,7 @@ export function buildChatCompletionsBody(args: {
     model: args.model,
     messages: toChatCompletionsMessages(args.messages),
     stream: false,
-    ...(args.extra ?? {}),
+    ...args.extra,
   };
 
   if (args.mode === "json_schema") {
@@ -86,11 +79,6 @@ export function toChatCompletionsMessages(messages: LlmMessage[]) {
 }
 
 export function extractChatCompletionsText(response: unknown): string | null {
-  const content = getNestedValue(response, [
-    "choices",
-    0,
-    "message",
-    "content",
-  ]);
+  const content = getNestedValue(response, ["choices", 0, "message", "content"]);
   return typeof content === "string" ? content : null;
 }

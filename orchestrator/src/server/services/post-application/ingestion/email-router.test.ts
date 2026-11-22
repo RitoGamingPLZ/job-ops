@@ -6,10 +6,8 @@ vi.mock("@server/services/modelSelection", () => ({
   createConfiguredLlmService: vi.fn().mockResolvedValue({ callJson }),
 }));
 vi.mock("@server/services/hosted-usage", () => ({
-  withHostedUsageReservation: async (
-    _options: unknown,
-    run: () => Promise<{ result: unknown }>,
-  ) => (await run()).result,
+  withHostedUsageReservation: async (_options: unknown, run: () => Promise<{ result: unknown }>) =>
+    (await run()).result,
 }));
 
 import { classifyWithSmartRouter } from "./email-router";
@@ -36,13 +34,9 @@ it("routes behavioural interviews and guides the LLM to distinguish technical in
     messageType: "interview",
   });
   const request = callJson.mock.calls[0][0];
-  expect(request.jsonSchema.schema.properties.stageTarget.enum).toContain(
-    "behavioural",
-  );
+  expect(request.jsonSchema.schema.properties.stageTarget.enum).toContain("behavioural");
   expect(request.messages[1].content).toContain(
     "Use behavioural for behavioural/behavioral questions",
   );
-  expect(request.messages[1].content).toContain(
-    "Keep technical_interview coarse",
-  );
+  expect(request.messages[1].content).toContain("Keep technical_interview coarse");
 });

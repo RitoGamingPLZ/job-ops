@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  formatPostingAgeLabel,
-  getPostingDateSortValue,
-} from "./job-posting-age";
+import { formatPostingAgeLabel, getPostingDateSortValue } from "./job-posting-age";
 
 const NOW = new Date("2026-05-27T12:00:00.000Z");
 
@@ -102,14 +99,10 @@ describe("getPostingDateSortValue", () => {
   });
 
   it("sorts date-only postings at local midnight", () => {
-    expect(getPostingDateSortValue("2026-05-25", NOW)).toBe(
-      new Date(2026, 4, 25).getTime(),
-    );
+    expect(getPostingDateSortValue("2026-05-25", NOW)).toBe(new Date(2026, 4, 25).getTime());
   });
 
   it("approximates source-provided relative posting ages", () => {
-    expect(getPostingDateSortValue("5 days ago", NOW)).toBe(
-      NOW.getTime() - 5 * 86_400_000,
-    );
+    expect(getPostingDateSortValue("5 days ago", NOW)).toBe(NOW.getTime() - 5 * 86_400_000);
   });
 });

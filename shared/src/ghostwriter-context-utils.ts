@@ -3,11 +3,7 @@ export type GhostwriterContextBudgetOptions<TInput, TOutput> = {
   maxItemChars: number;
   maxTotalChars: number;
   getContent: (item: TInput) => string;
-  mapItem: (input: {
-    item: TInput;
-    content: string;
-    wasTrimmed: boolean;
-  }) => TOutput;
+  mapItem: (input: { item: TInput; content: string; wasTrimmed: boolean }) => TOutput;
 };
 
 export type GhostwriterContextBudgetResult<TItem> = {
@@ -16,9 +12,7 @@ export type GhostwriterContextBudgetResult<TItem> = {
   wasTotalTrimmed: boolean;
 };
 
-export function normalizeGhostwriterSelectedContextIds(
-  selectedIds: readonly string[],
-): string[] {
+export function normalizeGhostwriterSelectedContextIds(selectedIds: readonly string[]): string[] {
   return normalizeStringArray(selectedIds, { caseSensitive: true });
 }
 
@@ -35,8 +29,7 @@ export function buildGhostwriterContextBudgetItems<TInput, TOutput>(
     const perItemContent = content.slice(0, options.maxItemChars);
     const finalContent = perItemContent.slice(0, Math.max(remainingTotal, 0));
     const wasTrimmed =
-      content.length > finalContent.length ||
-      perItemContent.length > finalContent.length;
+      content.length > finalContent.length || perItemContent.length > finalContent.length;
 
     totalContentChars += content.length;
     remainingTotal -= finalContent.length;

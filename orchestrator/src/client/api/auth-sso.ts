@@ -26,10 +26,7 @@ export type SsoLoginResult = {
  * `fetchApi` (and its redirect-to-sign-in recovery) the way `setupFirstAdmin`
  * does.
  */
-async function requestPublicSso<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
+async function requestPublicSso<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, init);
   const parsed = await readAuthResponse<T>(response);
   if ("ok" in parsed) {
@@ -61,9 +58,7 @@ export async function getSsoProviders(): Promise<SsoProviderInfo[]> {
   return requestPublicSso<SsoProviderInfo[]>("/auth/sso/providers");
 }
 
-export async function startSsoLogin(
-  provider: SsoProvider,
-): Promise<SsoStartResponse> {
+export async function startSsoLogin(provider: SsoProvider): Promise<SsoStartResponse> {
   return requestPublicSso<SsoStartResponse>(`/auth/sso/${provider}/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -86,9 +81,7 @@ export async function completeSsoLogin(
   return result;
 }
 
-export async function startSsoLink(
-  provider: SsoProvider,
-): Promise<SsoStartResponse> {
+export async function startSsoLink(provider: SsoProvider): Promise<SsoStartResponse> {
   return fetchApi<SsoStartResponse>(`/auth/sso/${provider}/link/start`, {
     method: "POST",
     body: "{}",
@@ -110,8 +103,7 @@ export async function listSsoIdentities(): Promise<SsoIdentitySummary[]> {
 }
 
 export async function unlinkSsoIdentity(id: string): Promise<void> {
-  await fetchApi<{ deleted: boolean }>(
-    `/auth/sso/identities/${encodeURIComponent(id)}`,
-    { method: "DELETE" },
-  );
+  await fetchApi<{ deleted: boolean }>(`/auth/sso/identities/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }

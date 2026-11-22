@@ -1,7 +1,4 @@
-import {
-  getCountryIso2Code,
-  normalizeCountryKey,
-} from "@shared/location-support.js";
+import { getCountryIso2Code, normalizeCountryKey } from "@shared/location-support.js";
 
 export interface HiringCafeCountryLocation {
   formatted_address: string;

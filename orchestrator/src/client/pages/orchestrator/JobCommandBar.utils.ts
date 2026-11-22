@@ -3,13 +3,7 @@ import { isTargeted } from "@shared/types.js";
 import type { FilterTab } from "./constants";
 
 export type CommandGroupId = "ready" | "discovered" | "applied" | "other";
-export type StatusLock =
-  | "ready"
-  | "discovered"
-  | "applied"
-  | "in_progress"
-  | "skipped"
-  | "expired";
+export type StatusLock = "ready" | "discovered" | "applied" | "in_progress" | "skipped" | "expired";
 
 export type CommandBarRow =
   | {
@@ -32,13 +26,12 @@ export type CommandBarRow =
       job?: JobListItem;
     };
 
-export const commandGroupMeta: Array<{ id: CommandGroupId; heading: string }> =
-  [
-    { id: "ready", heading: "Targeted" },
-    { id: "discovered", heading: "Discovered" },
-    { id: "applied", heading: "Applied" },
-    { id: "other", heading: "Other" },
-  ];
+export const commandGroupMeta: Array<{ id: CommandGroupId; heading: string }> = [
+  { id: "ready", heading: "Targeted" },
+  { id: "discovered", heading: "Discovered" },
+  { id: "applied", heading: "Applied" },
+  { id: "other", heading: "Other" },
+];
 
 const lockAliases: Record<StatusLock, string[]> = {
   ready: ["targeted", "target", "ready", "rdy"],
@@ -115,19 +108,14 @@ export const extractLeadingAtToken = (input: string) => {
   return match[1].toLowerCase();
 };
 
-export const stripLeadingAtToken = (input: string) =>
-  input.replace(tokenRegex, "").trimStart();
+export const stripLeadingAtToken = (input: string) => input.replace(tokenRegex, "").trimStart();
 
-export const getLockMatchesFromAliasPrefix = (
-  rawToken: string,
-): StatusLock[] => {
+export const getLockMatchesFromAliasPrefix = (rawToken: string): StatusLock[] => {
   const token = rawToken.trim().toLowerCase();
   if (!token) return Object.keys(lockAliases) as StatusLock[];
 
   const matches: StatusLock[] = [];
-  for (const [status, aliases] of Object.entries(lockAliases) as Array<
-    [StatusLock, string[]]
-  >) {
+  for (const [status, aliases] of Object.entries(lockAliases) as Array<[StatusLock, string[]]>) {
     if (aliases.some((alias) => alias.startsWith(token))) {
       matches.push(status);
     }
@@ -135,9 +123,7 @@ export const getLockMatchesFromAliasPrefix = (
   return matches;
 };
 
-export const resolveLockFromAliasPrefix = (
-  rawToken: string,
-): StatusLock | null => {
+export const resolveLockFromAliasPrefix = (rawToken: string): StatusLock | null => {
   const matches = getLockMatchesFromAliasPrefix(rawToken);
   if (matches.length !== 1) return null;
   return matches[0];
@@ -145,8 +131,7 @@ export const resolveLockFromAliasPrefix = (
 
 export const jobMatchesLock = (job: JobListItem, lock: StatusLock) => {
   if (lock === "ready") return isTargeted(job);
-  if (lock === "discovered")
-    return job.status === "discovered" && !isTargeted(job);
+  if (lock === "discovered") return job.status === "discovered" && !isTargeted(job);
   if (lock === "applied") return job.status === "applied";
   if (lock === "in_progress") return job.status === "in_progress";
   if (lock === "skipped") return job.status === "skipped";
@@ -154,17 +139,11 @@ export const jobMatchesLock = (job: JobListItem, lock: StatusLock) => {
   return false;
 };
 
-export const computeJobMatchScore = (
-  job: JobListItem,
-  normalizedQuery: string,
-) => {
+export const computeJobMatchScore = (job: JobListItem, normalizedQuery: string) => {
   if (!normalizedQuery) return 0;
   const titleScore = computeFieldMatchScore(job.title, normalizedQuery);
   const employerScore = computeFieldMatchScore(job.employer, normalizedQuery);
-  const locationScore = computeFieldMatchScore(
-    job.location ?? "",
-    normalizedQuery,
-  );
+  const locationScore = computeFieldMatchScore(job.location ?? "", normalizedQuery);
 
   // Prefer title/company matches over location when scores tie.
   // Only apply bias when a field actually matched.
@@ -220,8 +199,7 @@ export const orderCommandGroups = (
 
   const withScores = commandGroupMeta.map((group) => {
     const maxScore = groupedJobs[group.id].reduce(
-      (currentMax, job) =>
-        Math.max(currentMax, computeJobMatchScore(job, normalizedQuery)),
+      (currentMax, job) => Math.max(currentMax, computeJobMatchScore(job, normalizedQuery)),
       0,
     );
     return {

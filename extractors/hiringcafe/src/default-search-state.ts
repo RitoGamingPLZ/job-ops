@@ -51,12 +51,7 @@ export function createDefaultSearchState(args: {
       "Seasonal",
       "Volunteer",
     ],
-    seniorityLevel: [
-      "No Prior Experience Required",
-      "Entry Level",
-      "Mid Level",
-      "Senior Level",
-    ],
+    seniorityLevel: ["No Prior Experience Required", "Entry Level", "Mid Level", "Senior Level"],
     roleTypes: ["Individual Contributor", "People Manager"],
     roleYoeRange: [0, 20],
     excludeIfRoleYoeIsNotSpecified: false,

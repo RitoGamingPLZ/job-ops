@@ -55,16 +55,12 @@ export async function materializeResumePicture(
 
   const response = await fetch(picture.url);
   if (!response.ok) {
-    throw new Error(
-      `Resume picture download failed with HTTP ${response.status}.`,
-    );
+    throw new Error(`Resume picture download failed with HTTP ${response.status}.`);
   }
 
   const bytes = new Uint8Array(await response.arrayBuffer());
   const mimeType = response.headers.get("content-type")?.split(";")[0]?.trim();
-  const extension = mimeType
-    ? extensionForMimeType(mimeType)
-    : extensionFromUrl(picture.url);
+  const extension = mimeType ? extensionForMimeType(mimeType) : extensionFromUrl(picture.url);
   const destination = join(outputDir, `resume-picture${extension}`);
   await writeFile(destination, bytes);
   return {

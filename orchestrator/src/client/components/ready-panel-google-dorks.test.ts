@@ -23,8 +23,7 @@ describe("buildReadyPanelGoogleDorks", () => {
     });
     expect(links[2]).toMatchObject({
       query: '"HP" "Frontend Engineer" "Wolf Security"',
-      label:
-        "Web results with HP, Frontend Engineer, and Wolf Security in them",
+      label: "Web results with HP, Frontend Engineer, and Wolf Security in them",
     });
     expect(links[0]?.href).toContain(
       encodeURIComponent('site:linkedin.com/in "HP" "Wolf Security" "React"'),
@@ -41,9 +40,7 @@ describe("buildReadyPanelGoogleDorks", () => {
       }),
     );
 
-    expect(links[0]?.query).toBe(
-      'site:linkedin.com/in "Acme" "Node.js" "TypeScript"',
-    );
+    expect(links[0]?.query).toBe('site:linkedin.com/in "Acme" "Node.js" "TypeScript"');
   });
 
   it("deduplicates repeated keywords and excludes employer matches", () => {
@@ -54,9 +51,7 @@ describe("buildReadyPanelGoogleDorks", () => {
       }),
     );
 
-    expect(links[0]?.query).toBe(
-      'site:linkedin.com/in "Acme" "React" "TypeScript"',
-    );
+    expect(links[0]?.query).toBe('site:linkedin.com/in "Acme" "React" "TypeScript"');
     expect(links[1]?.query).toBe('site:github.com "Acme" "React" "TypeScript"');
   });
 

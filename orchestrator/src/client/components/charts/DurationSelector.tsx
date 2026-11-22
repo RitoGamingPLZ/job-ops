@@ -35,11 +35,7 @@ export function DurationSelector({ value, onChange }: DurationSelectorProps) {
       <Tabs value={String(value)} onValueChange={handleChange}>
         <TabsList className="h-8">
           {DURATION_OPTIONS.map((option) => (
-            <TabsTrigger
-              key={option.value}
-              value={String(option.value)}
-              className="px-3 text-xs"
-            >
+            <TabsTrigger key={option.value} value={String(option.value)} className="px-3 text-xs">
               {option.label}
             </TabsTrigger>
           ))}

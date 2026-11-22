@@ -14,10 +14,7 @@ import {
   normalizeStageTarget,
   stageTargetFromMessageType,
 } from "../services/post-application/stage-target";
-import {
-  getPrivateDataScope,
-  privateDataScopeFilter,
-} from "../tenancy/private-scope";
+import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { postApplicationIntegrations, postApplicationMessages } = schema;
 
@@ -79,17 +76,14 @@ export type ListPostApplicationMessagesForJobResult = {
   total: number;
 };
 
-function isTerminalProcessingStatus(
-  status: PostApplicationProcessingStatus,
-): boolean {
+function isTerminalProcessingStatus(status: PostApplicationProcessingStatus): boolean {
   return status !== "pending_user";
 }
 
 function mapRowToPostApplicationMessage(
   row: typeof postApplicationMessages.$inferSelect,
 ): PostApplicationMessage {
-  const stageEventPayload =
-    (row.stageEventPayload as Record<string, unknown> | null) ?? null;
+  const stageEventPayload = (row.stageEventPayload as Record<string, unknown> | null) ?? null;
   const stageTarget =
     normalizeStageTarget(stageEventPayload?.suggestedStageTarget) ??
     normalizeStageTarget(row.classificationLabel) ??
@@ -111,11 +105,9 @@ function mapRowToPostApplicationMessage(
     snippet: row.snippet,
     classificationLabel: row.classificationLabel,
     classificationConfidence: row.classificationConfidence,
-    classificationPayload:
-      (row.classificationPayload as Record<string, unknown> | null) ?? null,
+    classificationPayload: (row.classificationPayload as Record<string, unknown> | null) ?? null,
     relevanceLlmScore: row.relevanceLlmScore,
-    relevanceDecision:
-      row.relevanceDecision as PostApplicationRelevanceDecision,
+    relevanceDecision: row.relevanceDecision as PostApplicationRelevanceDecision,
     matchedJobId: row.matchedJobId,
     matchConfidence: row.matchConfidence,
     stageTarget,
@@ -131,10 +123,7 @@ function mapRowToPostApplicationMessage(
   };
 }
 
-function integrationKey(
-  provider: PostApplicationProvider,
-  accountKey: string,
-): string {
+function integrationKey(provider: PostApplicationProvider, accountKey: string): string {
   return `${provider}:${accountKey}`;
 }
 
@@ -196,7 +185,7 @@ export async function upsertPostApplicationMessage(
     normalizeStageTarget(input.classificationLabel) ??
     stageTargetFromMessageType(input.messageType);
   const stageEventPayload = {
-    ...(input.stageEventPayload ?? {}),
+    ...input.stageEventPayload,
     suggestedStageTarget: stageTarget,
   };
   const nowIso = new Date().toISOString();
@@ -210,14 +199,11 @@ export async function upsertPostApplicationMessage(
     ));
 
   if (existing) {
-    const nextProcessingStatus = isTerminalProcessingStatus(
-      existing.processingStatus,
-    )
+    const nextProcessingStatus = isTerminalProcessingStatus(existing.processingStatus)
       ? existing.processingStatus
       : input.processingStatus;
     const autoLinkTransitioned =
-      existing.processingStatus !== "auto_linked" &&
-      nextProcessingStatus === "auto_linked";
+      existing.processingStatus !== "auto_linked" && nextProcessingStatus === "auto_linked";
 
     await db
       .update(postApplicationMessages)
@@ -247,9 +233,7 @@ export async function upsertPostApplicationMessage(
         errorMessage: input.errorMessage ?? null,
         updatedAt: nowIso,
       })
-      .where(
-        and(messagesScopeFilter(), eq(postApplicationMessages.id, existing.id)),
-      );
+      .where(and(messagesScopeFilter(), eq(postApplicationMessages.id, existing.id)));
 
     const updated = await getPostApplicationMessageByExternalId(
       input.provider,
@@ -310,9 +294,7 @@ export async function upsertPostApplicationMessage(
     input.externalMessageId,
   );
   if (!created) {
-    throw new Error(
-      `Failed to load created post-application message ${input.externalMessageId}.`,
-    );
+    throw new Error(`Failed to load created post-application message ${input.externalMessageId}.`);
   }
   return {
     message: created,
@@ -372,10 +354,7 @@ export async function listPostApplicationMessagesForJob(
   jobId: string,
   limit = 100,
 ): Promise<ListPostApplicationMessagesForJobResult> {
-  const whereClause = and(
-    messagesScopeFilter(),
-    eq(postApplicationMessages.matchedJobId, jobId),
-  );
+  const whereClause = and(messagesScopeFilter(), eq(postApplicationMessages.matchedJobId, jobId));
   const rows = await db
     .select()
     .from(postApplicationMessages)
@@ -402,12 +381,8 @@ export async function listPostApplicationMessagesForJob(
     items: rows.map((row) => {
       const message = mapRowToPostApplicationMessage(row);
       const integration =
-        (message.integrationId
-          ? integrationsById.get(message.integrationId)
-          : undefined) ??
-        integrationsByProviderAccount.get(
-          integrationKey(message.provider, message.accountKey),
-        );
+        (message.integrationId ? integrationsById.get(message.integrationId) : undefined) ??
+        integrationsByProviderAccount.get(integrationKey(message.provider, message.accountKey));
 
       return {
         message,
@@ -422,9 +397,7 @@ export async function listPostApplicationMessagesForJobByIds(
   jobId: string,
   messageIds: readonly string[],
 ): Promise<Array<Omit<PostApplicationJobEmailItem, "sourceUrl">>> {
-  const ids = Array.from(
-    new Set(messageIds.map((id) => id.trim()).filter(Boolean)),
-  );
+  const ids = Array.from(new Set(messageIds.map((id) => id.trim()).filter(Boolean)));
   if (ids.length === 0) return [];
 
   const rows = await db
@@ -452,18 +425,12 @@ export async function listPostApplicationMessagesForJobByIds(
 
   return ids
     .map((id) => rowsById.get(id))
-    .filter((row): row is typeof postApplicationMessages.$inferSelect =>
-      Boolean(row),
-    )
+    .filter((row): row is typeof postApplicationMessages.$inferSelect => Boolean(row))
     .map((row) => {
       const message = mapRowToPostApplicationMessage(row);
       const integration =
-        (message.integrationId
-          ? integrationsById.get(message.integrationId)
-          : undefined) ??
-        integrationsByProviderAccount.get(
-          integrationKey(message.provider, message.accountKey),
-        );
+        (message.integrationId ? integrationsById.get(message.integrationId) : undefined) ??
+        integrationsByProviderAccount.get(integrationKey(message.provider, message.accountKey));
 
       return {
         message,

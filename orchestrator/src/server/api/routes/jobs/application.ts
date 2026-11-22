@@ -13,63 +13,60 @@ import { hydrateJobPdfFreshness, requireJob, toJobsRouteError } from "./shared";
 
 export const jobsApplicationRouter = Router();
 
-jobsApplicationRouter.post(
-  "/:id/apply",
-  async (req: Request, res: Response) => {
-    try {
-      if (isDemoMode()) {
-        const updatedJob = await simulateApplyJob(req.params.id);
-        return okWithMeta(res, await hydrateJobPdfFreshness(updatedJob), {
-          simulated: true,
-        });
-      }
-
-      const job = await requireJob(req.params.id);
-
-      const appliedAtDate = new Date();
-      const appliedAt = appliedAtDate.toISOString();
-
-      transitionStage(
-        job.id,
-        "applied",
-        Math.floor(appliedAtDate.getTime() / 1000),
-        {
-          eventLabel: "Applied",
-          actor: "system",
-        },
-        null,
-      );
-
-      const updatedJob = await jobsRepo.updateJob(job.id, {
-        status: "applied",
-        appliedAt,
+jobsApplicationRouter.post("/:id/apply", async (req: Request, res: Response) => {
+  try {
+    if (isDemoMode()) {
+      const updatedJob = await simulateApplyJob(req.params.id);
+      return okWithMeta(res, await hydrateJobPdfFreshness(updatedJob), {
+        simulated: true,
       });
-
-      if (updatedJob) {
-        void trackCanonicalActivationEvent(
-          "application_marked_applied",
-          {
-            source: "jobs_apply_route",
-            had_pdf: Boolean(updatedJob.pdfPath),
-          },
-          {
-            occurredAt: appliedAtDate,
-            requestOrigin: resolveRequestOrigin(req),
-            urlPath: "/jobs",
-          },
-        );
-        notifyJobCompleteWebhook(updatedJob).catch((error) => {
-          logger.warn("Job complete webhook dispatch failed", error);
-        });
-      }
-
-      if (!updatedJob) {
-        return fail(res, notFound("Job not found"));
-      }
-
-      ok(res, await hydrateJobPdfFreshness(updatedJob));
-    } catch (error) {
-      fail(res, toJobsRouteError(error));
     }
-  },
-);
+
+    const job = await requireJob(req.params.id);
+
+    const appliedAtDate = new Date();
+    const appliedAt = appliedAtDate.toISOString();
+
+    transitionStage(
+      job.id,
+      "applied",
+      Math.floor(appliedAtDate.getTime() / 1000),
+      {
+        eventLabel: "Applied",
+        actor: "system",
+      },
+      null,
+    );
+
+    const updatedJob = await jobsRepo.updateJob(job.id, {
+      status: "applied",
+      appliedAt,
+    });
+
+    if (updatedJob) {
+      void trackCanonicalActivationEvent(
+        "application_marked_applied",
+        {
+          source: "jobs_apply_route",
+          had_pdf: Boolean(updatedJob.pdfPath),
+        },
+        {
+          occurredAt: appliedAtDate,
+          requestOrigin: resolveRequestOrigin(req),
+          urlPath: "/jobs",
+        },
+      );
+      notifyJobCompleteWebhook(updatedJob).catch((error) => {
+        logger.warn("Job complete webhook dispatch failed", error);
+      });
+    }
+
+    if (!updatedJob) {
+      return fail(res, notFound("Job not found"));
+    }
+
+    ok(res, await hydrateJobPdfFreshness(updatedJob));
+  } catch (error) {
+    fail(res, toJobsRouteError(error));
+  }
+});

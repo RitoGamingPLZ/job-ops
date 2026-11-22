@@ -32,9 +32,7 @@ export const PipelineActionRequired = ({
     <div className="flex min-w-0 size-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 flex-col gap-1">
         <AlertTitle className="mb-0">{title}</AlertTitle>
-        {description ? (
-          <AlertDescription>{description}</AlertDescription>
-        ) : null}
+        {description ? <AlertDescription>{description}</AlertDescription> : null}
       </div>
       <div className="flex shrink-0 flex-wrap gap-2 self-start sm:self-auto">
         <Button

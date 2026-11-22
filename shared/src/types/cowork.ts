@@ -1,11 +1,7 @@
 import type { ReactiveResumeV5Document } from "./design-resume";
 import type { JobStatus } from "./jobs";
 
-export type ExperienceBulletSource =
-  | "resume"
-  | "manual"
-  | "ai_extract"
-  | "job_resume";
+export type ExperienceBulletSource = "resume" | "manual" | "ai_extract" | "job_resume";
 
 /**
  * Candidate library item kinds (PRD docs/prd/resume-editor-candidate-library.md §6).
@@ -141,13 +137,7 @@ export interface CoworkChatContext {
   referencedBulletIds: string[];
   focus?: ResumeFocusRef[]; // max 20
 }
-export type ResumeFocusKind =
-  | "section"
-  | "item"
-  | "bullet"
-  | "skill"
-  | "summary"
-  | "headline";
+export type ResumeFocusKind = "section" | "item" | "bullet" | "skill" | "summary" | "headline";
 export interface ResumeFocusRef {
   kind: ResumeFocusKind;
   section?: string; // v5 section key, e.g. "experience","education","awards","certifications","projects","skills"

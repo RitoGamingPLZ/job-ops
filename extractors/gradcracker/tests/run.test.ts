@@ -8,10 +8,7 @@ import {
   summarizeGradcrackerBrowserFailure,
 } from "../src/run";
 
-function createResponse(
-  payload: string,
-  init: Partial<Response> = {},
-): Response {
+function createResponse(payload: string, init: Partial<Response> = {}): Response {
   return {
     ok: init.ok ?? true,
     status: init.status ?? 200,

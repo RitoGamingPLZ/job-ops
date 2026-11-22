@@ -25,8 +25,7 @@ function createRegistry(
   return {
     manifests: new Map(manifests.map((manifest) => [manifest.id, manifest])),
     manifestBySource,
-    availableSources:
-      availableSources ?? Array.from(manifestBySource.keys()).sort(),
+    availableSources: availableSources ?? Array.from(manifestBySource.keys()).sort(),
     locationCapabilitiesBySource: Object.fromEntries(
       Array.from(manifestBySource.keys()).map((source) => [
         source,

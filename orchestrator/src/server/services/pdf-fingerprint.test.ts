@@ -90,15 +90,15 @@ describe("PDF freshness", () => {
         },
       ),
     ).toBe(original);
-    expect(
-      createJobPdfFingerprint(job, { ...editorContext, pdfRenderer: "typst" }),
-    ).not.toBe(original);
-    expect(
-      createJobPdfFingerprint({ ...job, employer: "Renamed" }, editorContext),
-    ).not.toBe(original);
-    expect(
-      createJobPdfFingerprint(job, { ...editorContext, pdfPaperSize: "a4" }),
-    ).not.toBe(original);
+    expect(createJobPdfFingerprint(job, { ...editorContext, pdfRenderer: "typst" })).not.toBe(
+      original,
+    );
+    expect(createJobPdfFingerprint({ ...job, employer: "Renamed" }, editorContext)).not.toBe(
+      original,
+    );
+    expect(createJobPdfFingerprint(job, { ...editorContext, pdfPaperSize: "a4" })).not.toBe(
+      original,
+    );
   });
   it("selects only scoped job resume metadata and hashes revision plus update time", async () => {
     let rows = [{ jobId: "own", revision: 1, updatedAt: "first" }];
@@ -119,9 +119,7 @@ describe("PDF freshness", () => {
       expect(revised.jobResumeHashes?.own).not.toBe(first.jobResumeHashes?.own);
       rows = [{ jobId: "own", revision: 1, updatedAt: "recreated" }];
       const recreated = await resolvePdfFingerprintContext();
-      expect(recreated.jobResumeHashes?.own).not.toBe(
-        first.jobResumeHashes?.own,
-      );
+      expect(recreated.jobResumeHashes?.own).not.toBe(first.jobResumeHashes?.own);
     } finally {
       select.mockRestore();
     }
@@ -163,9 +161,7 @@ describe("PDF freshness", () => {
     });
     const pdfFingerprint = createJobPdfFingerprint(job, context);
 
-    expect(getJobPdfFreshness({ ...job, pdfFingerprint }, context)).toBe(
-      "current",
-    );
+    expect(getJobPdfFreshness({ ...job, pdfFingerprint }, context)).toBe("current");
   });
 
   it("maps generated PDFs with mismatched fingerprints to stale", () => {
@@ -226,22 +222,21 @@ describe("PDF freshness", () => {
       employer: "Acme",
     });
 
-    expect(
-      createJobPdfFingerprint(job, { ...context, pdfPaperSize: "auto" }),
-    ).toBe("4234923d27476ae958a74acf6e92331030e14da238323b17c05066f845fb724a");
+    expect(createJobPdfFingerprint(job, { ...context, pdfPaperSize: "auto" })).toBe(
+      "4234923d27476ae958a74acf6e92331030e14da238323b17c05066f845fb724a",
+    );
   });
 
   it("includes paper size changes for every renderer", () => {
     const job = createJob({ tailoredSummary: "Summary" });
 
     for (const pdfRenderer of ["rxresume", "latex", "typst"] as const) {
-      const fingerprints = (["auto", "a4", "letter"] as const).map(
-        (pdfPaperSize) =>
-          createJobPdfFingerprint(job, {
-            ...context,
-            pdfRenderer,
-            pdfPaperSize,
-          }),
+      const fingerprints = (["auto", "a4", "letter"] as const).map((pdfPaperSize) =>
+        createJobPdfFingerprint(job, {
+          ...context,
+          pdfRenderer,
+          pdfPaperSize,
+        }),
       );
 
       expect(new Set(fingerprints).size, pdfRenderer).toBe(3);

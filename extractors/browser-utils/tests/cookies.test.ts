@@ -21,11 +21,7 @@ function storageDir() {
   return dir;
 }
 
-function writeCookieJar(
-  dir: string,
-  extractorId: string,
-  overrides: Record<string, unknown> = {},
-) {
+function writeCookieJar(dir: string, extractorId: string, overrides: Record<string, unknown> = {}) {
   const jar = {
     extractorId,
     savedAt: new Date().toISOString(),
@@ -44,10 +40,7 @@ function writeCookieJar(
     ],
     ...overrides,
   };
-  writeFileSync(
-    join(dir, `${extractorId}-cookies.json`),
-    JSON.stringify(jar, null, 2),
-  );
+  writeFileSync(join(dir, `${extractorId}-cookies.json`), JSON.stringify(jar, null, 2));
 }
 
 describe("cookies", () => {
@@ -74,25 +67,19 @@ describe("cookies", () => {
   describe("getCloudflareCookieStorageDir", () => {
     it("stores cookies under DATA_DIR when configured", () => {
       process.env.DATA_DIR = "/tmp/job-ops-data";
-      expect(getCloudflareCookieStorageDir()).toBe(
-        join("/tmp/job-ops-data", "cloudflare-cookies"),
-      );
+      expect(getCloudflareCookieStorageDir()).toBe(join("/tmp/job-ops-data", "cloudflare-cookies"));
     });
 
     it("uses explicit storage dirs for direct callers", () => {
       process.env.DATA_DIR = "/tmp/job-ops-data";
-      expect(getCloudflareCookieStorageDir("/tmp/custom-cookies")).toBe(
-        "/tmp/custom-cookies",
-      );
+      expect(getCloudflareCookieStorageDir("/tmp/custom-cookies")).toBe("/tmp/custom-cookies");
     });
 
     it("uses the scoped directory passed to extractor child processes", () => {
       process.env.DATA_DIR = "/tmp/job-ops-data";
       process.env.JOBOPS_CLOUDFLARE_COOKIE_STORAGE_DIR = "/tmp/tenant-cookies";
       expect(getCloudflareCookieStorageDir()).toBe("/tmp/tenant-cookies");
-      expect(getCloudflareCookieStorageDir("/tmp/explicit-cookies")).toBe(
-        "/tmp/explicit-cookies",
-      );
+      expect(getCloudflareCookieStorageDir("/tmp/explicit-cookies")).toBe("/tmp/explicit-cookies");
     });
   });
 
@@ -158,10 +145,7 @@ describe("cookies", () => {
   });
 
   describe("saveCookies", () => {
-    function mockContext(
-      cookies: Record<string, string>[],
-      userAgent = "Mozilla/5.0 TestUA",
-    ) {
+    function mockContext(cookies: Record<string, string>[], userAgent = "Mozilla/5.0 TestUA") {
       return {
         cookies: async () =>
           cookies.map((c) => ({
@@ -184,10 +168,7 @@ describe("cookies", () => {
 
     it("persists userAgent from the browser context", async () => {
       const dir = storageDir();
-      const ctx = mockContext(
-        [{ name: "cf_clearance" }],
-        "Mozilla/5.0 Camoufox/123",
-      );
+      const ctx = mockContext([{ name: "cf_clearance" }], "Mozilla/5.0 Camoufox/123");
 
       await expect(saveCookies(ctx, "test-extractor", dir)).resolves.toBe(1);
 
@@ -245,12 +226,12 @@ describe("cookies", () => {
       expect(result.hasClearanceCookie).toBe(true);
       expect(result.cookieCount).toBe(1);
       expect(result.userAgent).toBe("Mozilla/5.0 SolverUA");
-      await expect(
-        result.cookieJar.getCookieString("https://www.example.com/jobs"),
-      ).resolves.toBe("cf_clearance=fake");
-      await expect(
-        result.cookieJar.getCookieString("http://www.example.com/jobs"),
-      ).resolves.toBe("");
+      await expect(result.cookieJar.getCookieString("https://www.example.com/jobs")).resolves.toBe(
+        "cf_clearance=fake",
+      );
+      await expect(result.cookieJar.getCookieString("http://www.example.com/jobs")).resolves.toBe(
+        "",
+      );
     });
 
     it("keeps response cookies in memory for later HTTP requests", async () => {
@@ -263,9 +244,9 @@ describe("cookies", () => {
         "https://www.example.com/jobs",
       );
 
-      await expect(
-        result.cookieJar.getCookieString("https://www.example.com/jobs"),
-      ).resolves.toBe("cf_clearance=fake; session_id=abc");
+      await expect(result.cookieJar.getCookieString("https://www.example.com/jobs")).resolves.toBe(
+        "cf_clearance=fake; session_id=abc",
+      );
     });
   });
 
@@ -282,9 +263,7 @@ describe("cookies", () => {
 
     it("does not throw when file does not exist", async () => {
       const dir = storageDir();
-      await expect(
-        invalidateCookies("nonexistent", dir),
-      ).resolves.toBeUndefined();
+      await expect(invalidateCookies("nonexistent", dir)).resolves.toBeUndefined();
     });
 
     it("makes readCookieJar return hasCookies false after invalidation", async () => {

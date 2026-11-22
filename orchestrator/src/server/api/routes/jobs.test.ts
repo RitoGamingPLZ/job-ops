@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-describe.sequential("Jobs API routes", () => {
+describe("Jobs API routes", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -28,10 +28,7 @@ describe.sequential("Jobs API routes", () => {
       expected: 409,
     },
     { status: "ready", readyAt: "now", pdfRegenerating: true, expected: 409 },
-  ] as const)("guards resume regeneration: %j", async ({
-    expected,
-    ...state
-  }) => {
+  ] as const)("guards resume regeneration: %j", async ({ expected, ...state }) => {
     const { createJob, updateJob } = await import("@server/repositories/jobs");
     const job = await createJob({
       source: "manual",
@@ -47,72 +44,64 @@ describe.sequential("Jobs API routes", () => {
     expect(res.status).toBe(expected);
     const body = await res.json();
     expect(body.ok).toBe(false);
-    expect(body.error.code).toBe(
-      expected === 400 ? "INVALID_REQUEST" : "CONFLICT",
-    );
+    expect(body.error.code).toBe(expected === 400 ? "INVALID_REQUEST" : "CONFLICT");
     expect(body.meta.requestId).toBe("regenerate-request");
     expect(res.headers.get("x-request-id")).toBe("regenerate-request");
   });
 
-  it.each([
-    "target",
-    "batch",
-  ] as const)("returns a correlated conflict while a ready job has pending %s work", async (work) => {
-    const { createJob, updateJob, getJobById } = await import(
-      "@server/repositories/jobs"
-    );
-    const { processJob } = await import("@server/pipeline/index");
-    let release!: (value: { success: boolean }) => void;
-    vi.mocked(processJob).mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          release = resolve;
-        }),
-    );
-    const jobs = [];
-    for (const title of ["One", "Two"]) {
-      const job = await createJob({
-        source: "manual",
-        title,
-        employer: "Acme",
-        jobUrl: `https://example.com/pending/${title}`,
-      });
-      await updateJob(job.id, { status: "ready", readyAt: "now" });
-      jobs.push(job);
-    }
-    try {
-      const started = await fetch(
-        work === "target"
-          ? `${baseUrl}/api/jobs/${jobs[0].id}/target`
-          : `${baseUrl}/api/jobs/actions/generate-missing-resumes`,
-        { method: "POST" },
+  it.each(["target", "batch"] as const)(
+    "returns a correlated conflict while a ready job has pending %s work",
+    async (work) => {
+      const { createJob, updateJob, getJobById } = await import("@server/repositories/jobs");
+      const { processJob } = await import("@server/pipeline/index");
+      let release!: (value: { success: boolean }) => void;
+      vi.mocked(processJob).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
       );
-      expect(started.status).toBe(200);
-      await vi.waitFor(() => expect(processJob).toHaveBeenCalledOnce());
-      for (const job of work === "target" ? jobs.slice(0, 1) : jobs) {
-        expect((await getJobById(job.id))?.status).toBe("ready");
-        const response = await fetch(
-          `${baseUrl}/api/jobs/${job.id}/regenerate-resume`,
-          {
+      const jobs = [];
+      for (const title of ["One", "Two"]) {
+        const job = await createJob({
+          source: "manual",
+          title,
+          employer: "Acme",
+          jobUrl: `https://example.com/pending/${title}`,
+        });
+        await updateJob(job.id, { status: "ready", readyAt: "now" });
+        jobs.push(job);
+      }
+      try {
+        const started = await fetch(
+          work === "target"
+            ? `${baseUrl}/api/jobs/${jobs[0].id}/target`
+            : `${baseUrl}/api/jobs/actions/generate-missing-resumes`,
+          { method: "POST" },
+        );
+        expect(started.status).toBe(200);
+        await vi.waitFor(() => expect(processJob).toHaveBeenCalledOnce());
+        for (const job of work === "target" ? jobs.slice(0, 1) : jobs) {
+          expect((await getJobById(job.id))?.status).toBe("ready");
+          const response = await fetch(`${baseUrl}/api/jobs/${job.id}/regenerate-resume`, {
             method: "POST",
             headers: { "x-request-id": "pending-work" },
-          },
-        );
-        expect(response.status).toBe(409);
-        expect(response.headers.get("x-request-id")).toBe("pending-work");
-        expect(await response.json()).toMatchObject({
-          ok: false,
-          error: { code: "CONFLICT" },
-          meta: { requestId: "pending-work" },
-        });
+          });
+          expect(response.status).toBe(409);
+          expect(response.headers.get("x-request-id")).toBe("pending-work");
+          expect(await response.json()).toMatchObject({
+            ok: false,
+            error: { code: "CONFLICT" },
+            meta: { requestId: "pending-work" },
+          });
+        }
+      } finally {
+        if (work === "batch") vi.mocked(processJob).mockResolvedValueOnce({ success: true });
+        release?.({ success: true });
+        await new Promise<void>((resolve) => setImmediate(resolve));
       }
-    } finally {
-      if (work === "batch")
-        vi.mocked(processJob).mockResolvedValueOnce({ success: true });
-      release?.({ success: true });
-      await new Promise<void>((resolve) => setImmediate(resolve));
-    }
-  });
+    },
+  );
 
   it("returns processing and hydrated PDF freshness before regeneration finishes", async () => {
     const { createJob, updateJob } = await import("@server/repositories/jobs");
@@ -120,20 +109,18 @@ describe.sequential("Jobs API routes", () => {
     const { generateFinalPdf } = await import("@server/pipeline/index");
     vi.mocked(generateFinalPdf).mockResolvedValueOnce({ success: true });
     let release!: () => void;
-    const spy = vi
-      .spyOn(resumeService, "regenerateJobResume")
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            release = () =>
-              resolve({
-                exists: true,
-                revision: 2,
-                updatedAt: "now",
-                document: {} as never,
-              });
-          }),
-      );
+    const spy = vi.spyOn(resumeService, "regenerateJobResume").mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () =>
+            resolve({
+              exists: true,
+              revision: 2,
+              updatedAt: "now",
+              document: {} as never,
+            });
+        }),
+    );
     try {
       const job = await createJob({
         source: "manual",
@@ -142,10 +129,9 @@ describe.sequential("Jobs API routes", () => {
         jobUrl: "https://example.com/regenerate",
       });
       await updateJob(job.id, { readyAt: "now", status: "ready" });
-      const res = await fetch(
-        `${baseUrl}/api/jobs/${job.id}/regenerate-resume`,
-        { method: "POST" },
-      );
+      const res = await fetch(`${baseUrl}/api/jobs/${job.id}/regenerate-resume`, {
+        method: "POST",
+      });
       expect(res.status).toBe(200);
       expect((await res.json()).data).toMatchObject({
         id: job.id,
@@ -153,10 +139,9 @@ describe.sequential("Jobs API routes", () => {
         pdfFreshness: "missing",
       });
       expect(generateFinalPdf).not.toHaveBeenCalled();
-      const again = await fetch(
-        `${baseUrl}/api/jobs/${job.id}/regenerate-resume`,
-        { method: "POST" },
-      );
+      const again = await fetch(`${baseUrl}/api/jobs/${job.id}/regenerate-resume`, {
+        method: "POST",
+      });
       expect(again.status).toBe(409);
       release();
       await vi.waitFor(() => expect(generateFinalPdf).toHaveBeenCalledOnce());
@@ -192,10 +177,10 @@ describe.sequential("Jobs API routes", () => {
       });
       await updateJob(other.id, { readyAt: "now" });
     });
-    const res = await fetch(
-      `${baseUrl}/api/jobs/actions/generate-missing-resumes`,
-      { method: "POST", headers: { "x-request-id": "batch-request" } },
-    );
+    const res = await fetch(`${baseUrl}/api/jobs/actions/generate-missing-resumes`, {
+      method: "POST",
+      headers: { "x-request-id": "batch-request" },
+    });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
       ok: true,
@@ -211,15 +196,13 @@ describe.sequential("Jobs API routes", () => {
     await db
       .insert(schema.tenants)
       .values({ id: "other-tenant", name: "Other", slug: "other-tenant" });
-    const other = await runWithRequestContext(
-      { tenantId: "other-tenant" },
-      () =>
-        createJob({
-          source: "manual",
-          title: "Private",
-          employer: "Acme",
-          jobUrl: "https://example.com/private-resume",
-        }),
+    const other = await runWithRequestContext({ tenantId: "other-tenant" }, () =>
+      createJob({
+        source: "manual",
+        title: "Private",
+        employer: "Acme",
+        jobUrl: "https://example.com/private-resume",
+      }),
     );
     for (const id of ["missing", other.id]) {
       const res = await fetch(`${baseUrl}/api/jobs/${id}/regenerate-resume`, {
@@ -239,9 +222,7 @@ describe.sequential("Jobs API routes", () => {
     "skipped",
     "expired",
   ] as const)("guards target and untarget for %s", async (status) => {
-    const { createJob, updateJob, getJobById } = await import(
-      "@server/repositories/jobs"
-    );
+    const { createJob, updateJob, getJobById } = await import("@server/repositories/jobs");
     const job = await createJob({
       source: "manual",
       title: "Target",
@@ -259,9 +240,7 @@ describe.sequential("Jobs API routes", () => {
     expect(body.meta.requestId).toBe("target-request");
     expect(res.headers.get("x-request-id")).toBe("target-request");
     if (eligible) {
-      expect(body.data.status).toBe(
-        status === "discovered" ? "processing" : status,
-      );
+      expect(body.data.status).toBe(status === "discovered" ? "processing" : status);
       expect(body.data.readyAt).toBeTruthy();
       const again = await fetch(`${baseUrl}/api/jobs/${job.id}/target`, {
         method: "POST",
@@ -274,9 +253,7 @@ describe.sequential("Jobs API routes", () => {
       method: "DELETE",
     });
     const unbody = await unres.json();
-    expect(unres.status).toBe(
-      ["discovered", "ready"].includes(status) ? 200 : 400,
-    );
+    expect(unres.status).toBe(["discovered", "ready"].includes(status) ? 200 : 400);
     if (unres.ok) expect(unbody.data.readyAt).toBeNull();
     else expect(unbody.error.code).toBe("INVALID_REQUEST");
     expect((await getJobById(job.id))?.status).toBe(status);
@@ -318,9 +295,7 @@ describe.sequential("Jobs API routes", () => {
   });
 
   it("clears discovered jobs while retaining targeted discovered jobs", async () => {
-    const { createJob, updateJob, getJobById } = await import(
-      "@server/repositories/jobs"
-    );
+    const { createJob, updateJob, getJobById } = await import("@server/repositories/jobs");
     const input = { source: "manual", title: "Target", employer: "Acme" };
     const kept = await createJob({
       ...input,
@@ -340,63 +315,60 @@ describe.sequential("Jobs API routes", () => {
     expect(await getJobById(removed.id)).toBeNull();
   });
 
-  it.each([
-    "processing",
-    "ready",
-  ] as const)("explicit %s status cleanup deletes targeted jobs too", async (status) => {
-    const { createJob, updateJob } = await import("@server/repositories/jobs");
-    const job = await createJob({
-      source: "manual",
-      title: "Targeted",
-      employer: "Acme",
-      jobUrl: `https://example.com/cleanup/explicit-${status}`,
-    });
-    await updateJob(job.id, { status, readyAt: "2026-11-08T00:00:00Z" });
+  it.each(["processing", "ready"] as const)(
+    "explicit %s status cleanup deletes targeted jobs too",
+    async (status) => {
+      const { createJob, updateJob } = await import("@server/repositories/jobs");
+      const job = await createJob({
+        source: "manual",
+        title: "Targeted",
+        employer: "Acme",
+        jobUrl: `https://example.com/cleanup/explicit-${status}`,
+      });
+      await updateJob(job.id, { status, readyAt: "2026-11-08T00:00:00Z" });
 
-    const res = await fetch(`${baseUrl}/api/jobs/status/${status}`, {
-      method: "DELETE",
-    });
-    expect((await res.json()).data.count).toBe(1);
-  });
+      const res = await fetch(`${baseUrl}/api/jobs/status/${status}`, {
+        method: "DELETE",
+      });
+      expect((await res.json()).data.count).toBe(1);
+    },
+  );
 
-  it.each([
-    "discovered",
-  ] as const)("preserves targeted %s jobs during bulk status cleanup", async (status) => {
-    const { createJob, updateJob, getJobById } = await import(
-      "@server/repositories/jobs"
-    );
-    const targetedAt = "2026-11-08T00:00:00Z";
-    const kept = await createJob({
-      source: "manual",
-      title: "Targeted",
-      employer: "Acme",
-      jobUrl: "https://example.com/cleanup/targeted",
-    });
-    const removed = await createJob({
-      source: "manual",
-      title: "Untargeted",
-      employer: "Acme",
-      jobUrl: "https://example.com/cleanup/untargeted",
-    });
-    await updateJob(kept.id, { status, readyAt: targetedAt });
-    await updateJob(removed.id, { status, readyAt: null });
+  it.each(["discovered"] as const)(
+    "preserves targeted %s jobs during bulk status cleanup",
+    async (status) => {
+      const { createJob, updateJob, getJobById } = await import("@server/repositories/jobs");
+      const targetedAt = "2026-11-08T00:00:00Z";
+      const kept = await createJob({
+        source: "manual",
+        title: "Targeted",
+        employer: "Acme",
+        jobUrl: "https://example.com/cleanup/targeted",
+      });
+      const removed = await createJob({
+        source: "manual",
+        title: "Untargeted",
+        employer: "Acme",
+        jobUrl: "https://example.com/cleanup/untargeted",
+      });
+      await updateJob(kept.id, { status, readyAt: targetedAt });
+      await updateJob(removed.id, { status, readyAt: null });
 
-    const res = await fetch(`${baseUrl}/api/jobs/status/${status}`, {
-      method: "DELETE",
-    });
-    expect(res.status).toBe(200);
-    expect((await res.json()).data.count).toBe(1);
-    expect(await getJobById(kept.id)).toMatchObject({
-      status,
-      readyAt: targetedAt,
-    });
-    expect(await getJobById(removed.id)).toBeNull();
-  });
+      const res = await fetch(`${baseUrl}/api/jobs/status/${status}`, {
+        method: "DELETE",
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).data.count).toBe(1);
+      expect(await getJobById(kept.id)).toMatchObject({
+        status,
+        readyAt: targetedAt,
+      });
+      expect(await getJobById(removed.id)).toBeNull();
+    },
+  );
 
   it("preserves every targeted status during score cleanup and deletes only eligible low scores", async () => {
-    const { createJob, updateJob, getJobById } = await import(
-      "@server/repositories/jobs"
-    );
+    const { createJob, updateJob, getJobById } = await import("@server/repositories/jobs");
     const cases = [
       ["discovered", true, 40, false],
       ["processing", true, 40, false],
@@ -448,9 +420,7 @@ describe.sequential("Jobs API routes", () => {
 
   it("accepts behavioural stage end to end as an interview and positive response", async () => {
     const { createJob, getJobById } = await import("@server/repositories/jobs");
-    const { trackCanonicalActivationEvent } = await import(
-      "@server/services/activation-funnel"
-    );
+    const { trackCanonicalActivationEvent } = await import("@server/services/activation-funnel");
     const job = await createJob({
       source: "manual",
       title: "Behaviour",
@@ -504,12 +474,9 @@ describe.sequential("Jobs API routes", () => {
 
   it("deletes a job, its dependent records, and owned files without trusting pdfPath", async () => {
     const { db, schema } = await import("@server/db");
-    const { createJob, getJobById, updateJob, createJobNote } = await import(
-      "@server/repositories/jobs"
-    );
-    const { getTenantJobPdfPath } = await import(
-      "@server/services/pdf-storage"
-    );
+    const { createJob, getJobById, updateJob, createJobNote } =
+      await import("@server/repositories/jobs");
+    const { getTenantJobPdfPath } = await import("@server/services/pdf-storage");
     const job = await createJob({
       source: "manual",
       title: "Delete this role",
@@ -554,9 +521,7 @@ describe.sequential("Jobs API routes", () => {
         scheduledAt: Date.now(),
       })
       .run();
-    db.insert(schema.jobChatThreads)
-      .values({ id: "delete-thread", jobId: job.id })
-      .run();
+    db.insert(schema.jobChatThreads).values({ id: "delete-thread", jobId: job.id }).run();
     db.insert(schema.jobChatMessages)
       .values({
         id: "delete-message",
@@ -597,9 +562,7 @@ describe.sequential("Jobs API routes", () => {
     });
     expect(uploadRes.status).toBe(201);
     const { data: document } = await uploadRes.json();
-    const { getJobDocumentForJob } = await import(
-      "@server/repositories/job-documents"
-    );
+    const { getJobDocumentForJob } = await import("@server/repositories/job-documents");
     const storedDocument = await getJobDocumentForJob(job.id, document.id);
     expect(storedDocument).not.toBeNull();
     const res = await fetch(`${baseUrl}/api/jobs/${job.id}`, {
@@ -628,27 +591,18 @@ describe.sequential("Jobs API routes", () => {
     ]) {
       expect(db.select({ id: table.id }).from(table).all()).toEqual([]);
     }
-    expect(
-      db.select().from(schema.postApplicationMessages).get()?.matchedJobId,
-    ).toBeNull();
+    expect(db.select().from(schema.postApplicationMessages).get()?.matchedJobId).toBeNull();
     await expect(readFile(pdfPath)).rejects.toMatchObject({ code: "ENOENT" });
-    await expect(
-      readFile(storedDocument?.storagePath ?? ""),
-    ).rejects.toMatchObject({
+    await expect(readFile(storedDocument?.storagePath ?? "")).rejects.toMatchObject({
       code: "ENOENT",
     });
     expect(await readFile(unrelatedPath, "utf8")).toBe("%PDF-unrelated");
-    expect(
-      (await fetch(`${baseUrl}/api/jobs/${job.id}`, { method: "DELETE" }))
-        .status,
-    ).toBe(404);
+    expect((await fetch(`${baseUrl}/api/jobs/${job.id}`, { method: "DELETE" })).status).toBe(404);
   });
 
   it("blocks deletion while processing, regenerating a PDF, or running Ghostwriter", async () => {
     const { db, schema } = await import("@server/db");
-    const { createJob, updateJob, getJobById } = await import(
-      "@server/repositories/jobs"
-    );
+    const { createJob, updateJob, getJobById } = await import("@server/repositories/jobs");
     const job = await createJob({
       source: "manual",
       title: "Busy role",
@@ -668,9 +622,7 @@ describe.sequential("Jobs API routes", () => {
       expect(await getJobById(job.id)).not.toBeNull();
     }
     await updateJob(job.id, { pdfRegenerating: false });
-    db.insert(schema.jobChatThreads)
-      .values({ id: "busy-thread", jobId: job.id })
-      .run();
+    db.insert(schema.jobChatThreads).values({ id: "busy-thread", jobId: job.id }).run();
     db.insert(schema.jobChatRuns)
       .values({
         id: "busy-run",
@@ -731,9 +683,7 @@ describe.sequential("Jobs API routes", () => {
     expect(defaultRes.status).toBe(200);
     expect(defaultBody.ok).toBe(true);
     expect(defaultBody.data.jobs[0]).not.toHaveProperty("jobDescription");
-    expect(defaultBody.data.jobs[0]).not.toHaveProperty(
-      "appliedDuplicateMatch",
-    );
+    expect(defaultBody.data.jobs[0]).not.toHaveProperty("appliedDuplicateMatch");
     expect(typeof defaultBody.data.revision).toBe("string");
   });
 
@@ -782,9 +732,7 @@ describe.sequential("Jobs API routes", () => {
     await fetch(`${baseUrl}/api/jobs?view=list`);
 
     expect(
-      infoSpy.mock.calls.filter(
-        ([message]) => message === "Jobs list benchmark",
-      ),
+      infoSpy.mock.calls.filter(([message]) => message === "Jobs list benchmark"),
     ).toHaveLength(0);
 
     infoSpy.mockClear();
@@ -878,10 +826,7 @@ describe.sequential("Jobs API routes", () => {
 
   it("skips applied duplicate candidate fetching when the list only contains historical jobs", async () => {
     const jobsRepo = await import("@server/repositories/jobs");
-    const candidateSpy = vi.spyOn(
-      jobsRepo,
-      "getAppliedDuplicateMatchCandidates",
-    );
+    const candidateSpy = vi.spyOn(jobsRepo, "getAppliedDuplicateMatchCandidates");
     const { createJob, updateJob } = jobsRepo;
     const appliedJob = await createJob({
       source: "manual",
@@ -907,9 +852,7 @@ describe.sequential("Jobs API routes", () => {
       appliedAt: "2026-04-02T10:00:00.000Z",
     });
 
-    const listRes = await fetch(
-      `${baseUrl}/api/jobs?view=list&status=applied,in_progress`,
-    );
+    const listRes = await fetch(`${baseUrl}/api/jobs?view=list&status=applied,in_progress`);
     const listBody = await listRes.json();
 
     expect(listRes.status).toBe(200);
@@ -918,8 +861,7 @@ describe.sequential("Jobs API routes", () => {
     expect(listBody.data.jobs).toHaveLength(2);
     expect(
       listBody.data.jobs.every(
-        (job: { appliedDuplicateMatch?: unknown }) =>
-          !Object.hasOwn(job, "appliedDuplicateMatch"),
+        (job: { appliedDuplicateMatch?: unknown }) => !Object.hasOwn(job, "appliedDuplicateMatch"),
       ),
     ).toBe(true);
 
@@ -956,9 +898,7 @@ describe.sequential("Jobs API routes", () => {
     expect(allBody.data.latestUpdatedAt).toBeTruthy();
     expect(allBody.data.statusFilter).toBeNull();
 
-    const filteredRes = await fetch(
-      `${baseUrl}/api/jobs/revision?status=applied,ready`,
-    );
+    const filteredRes = await fetch(`${baseUrl}/api/jobs/revision?status=applied,ready`);
     const filteredBody = await filteredRes.json();
 
     expect(filteredRes.status).toBe(200);
@@ -1007,16 +947,12 @@ describe.sequential("Jobs API routes", () => {
       expect(createRes.status).toBe(201);
       expect(createBody.ok).toBe(true);
       expect(createBody.data.title).toBe("Why this company");
-      expect(createBody.data.content).toBe(
-        "Strong mission, team, and growth opportunities.",
-      );
+      expect(createBody.data.content).toBe("Strong mission, team, and growth opportunities.");
       expect(createBody.data.jobId).toBe(job.id);
       expect(createBody.data.createdAt).toBeTruthy();
       expect(createBody.data.updatedAt).toBeTruthy();
       expect(typeof createBody.meta.requestId).toBe("string");
-      expect(createRes.headers.get("x-request-id")).toBe(
-        createBody.meta.requestId,
-      );
+      expect(createRes.headers.get("x-request-id")).toBe(createBody.meta.requestId);
 
       const listRes = await fetch(`${baseUrl}/api/jobs/${job.id}/notes`);
       const listBody = await listRes.json();
@@ -1029,34 +965,26 @@ describe.sequential("Jobs API routes", () => {
       expect(listBody.data[0].title).toBe("Why this company");
       expect(typeof listBody.meta.requestId).toBe("string");
 
-      const updateRes = await fetch(
-        `${baseUrl}/api/jobs/${job.id}/notes/${createBody.data.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: "Recruiter contact",
-            content: "Jamie Lee at Acme. Follow up next week.",
-          }),
-        },
-      );
+      const updateRes = await fetch(`${baseUrl}/api/jobs/${job.id}/notes/${createBody.data.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Recruiter contact",
+          content: "Jamie Lee at Acme. Follow up next week.",
+        }),
+      });
       const updateBody = await updateRes.json();
 
       expect(updateRes.status).toBe(200);
       expect(updateBody.ok).toBe(true);
       expect(updateBody.data.title).toBe("Recruiter contact");
-      expect(updateBody.data.content).toBe(
-        "Jamie Lee at Acme. Follow up next week.",
-      );
+      expect(updateBody.data.content).toBe("Jamie Lee at Acme. Follow up next week.");
       expect(updateBody.data.updatedAt).toBeTruthy();
       expect(typeof updateBody.meta.requestId).toBe("string");
 
-      const deleteRes = await fetch(
-        `${baseUrl}/api/jobs/${job.id}/notes/${createBody.data.id}`,
-        {
-          method: "DELETE",
-        },
-      );
+      const deleteRes = await fetch(`${baseUrl}/api/jobs/${job.id}/notes/${createBody.data.id}`, {
+        method: "DELETE",
+      });
       const deleteBody = await deleteRes.json();
 
       expect(deleteRes.status).toBe(200);
@@ -1081,17 +1009,14 @@ describe.sequential("Jobs API routes", () => {
         jobDescription: "Test description",
       });
 
-      const invalidCreateRes = await fetch(
-        `${baseUrl}/api/jobs/${job.id}/notes`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: "   ",
-            content: "x".repeat(20001),
-          }),
-        },
-      );
+      const invalidCreateRes = await fetch(`${baseUrl}/api/jobs/${job.id}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "   ",
+          content: "x".repeat(20001),
+        }),
+      });
       const invalidCreateBody = await invalidCreateRes.json();
 
       expect(invalidCreateRes.status).toBe(400);
@@ -1141,9 +1066,7 @@ describe.sequential("Jobs API routes", () => {
         jobDescription: "Test description",
       });
 
-      const missingJobListRes = await fetch(
-        `${baseUrl}/api/jobs/missing-id/notes`,
-      );
+      const missingJobListRes = await fetch(`${baseUrl}/api/jobs/missing-id/notes`);
       const missingJobListBody = await missingJobListRes.json();
 
       expect(missingJobListRes.status).toBe(404);
@@ -1151,17 +1074,14 @@ describe.sequential("Jobs API routes", () => {
       expect(missingJobListBody.error.code).toBe("NOT_FOUND");
       expect(typeof missingJobListBody.meta.requestId).toBe("string");
 
-      const missingJobCreateRes = await fetch(
-        `${baseUrl}/api/jobs/missing-id/notes`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: "Question",
-            content: "Answer",
-          }),
-        },
-      );
+      const missingJobCreateRes = await fetch(`${baseUrl}/api/jobs/missing-id/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Question",
+          content: "Answer",
+        }),
+      });
       const missingJobCreateBody = await missingJobCreateRes.json();
 
       expect(missingJobCreateRes.status).toBe(404);
@@ -1233,17 +1153,14 @@ describe.sequential("Jobs API routes", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 20));
 
-      const updateRes = await fetch(
-        `${baseUrl}/api/jobs/${job.id}/notes/${firstBody.data.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: "Company research",
-            content: "Read the latest product launch post and team blog.",
-          }),
-        },
-      );
+      const updateRes = await fetch(`${baseUrl}/api/jobs/${job.id}/notes/${firstBody.data.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Company research",
+          content: "Read the latest product launch post and team blog.",
+        }),
+      });
       const updateBody = await updateRes.json();
 
       expect(updateRes.status).toBe(200);
@@ -1257,9 +1174,7 @@ describe.sequential("Jobs API routes", () => {
       expect(listBody.data).toHaveLength(2);
       expect(listBody.data[0].id).toBe(firstBody.data.id);
       expect(listBody.data[1].id).toBe(secondBody.data.id);
-      expect(listBody.data[0].updatedAt >= listBody.data[1].updatedAt).toBe(
-        true,
-      );
+      expect(listBody.data[0].updatedAt >= listBody.data[1].updatedAt).toBe(true);
     });
   });
 
@@ -1284,12 +1199,7 @@ describe.sequential("Jobs API routes", () => {
       }),
     });
     const body = await res.json();
-    const storedPath = join(
-      tempDir,
-      "pdfs",
-      "tenant_default",
-      `resume_${job.id}.pdf`,
-    );
+    const storedPath = join(tempDir, "pdfs", "tenant_default", `resume_${job.id}.pdf`);
 
     expect(res.status).toBe(201);
     expect(body.ok).toBe(true);
@@ -1297,9 +1207,7 @@ describe.sequential("Jobs API routes", () => {
     expect(body.data.status).toBe("ready");
     expect(body.data.readyAt).toBeTruthy();
     expect(typeof body.meta.requestId).toBe("string");
-    await expect(readFile(storedPath, "utf8")).resolves.toContain(
-      "Uploaded resume",
-    );
+    await expect(readFile(storedPath, "utf8")).resolves.toContain("Uploaded resume");
   });
 
   it("does not regress job status when uploading a PDF for an applied job", async () => {
@@ -1401,19 +1309,16 @@ describe.sequential("Jobs API routes", () => {
     const contentRes = await fetch(
       `${baseUrl}/api/jobs/${job.id}/documents/${uploadBody.data.id}/content`,
     );
-    const content = Buffer.from(await contentRes.arrayBuffer()).toString(
-      "utf8",
-    );
+    const content = Buffer.from(await contentRes.arrayBuffer()).toString("utf8");
     expect(contentRes.status).toBe(200);
     expect(contentRes.headers.get("cache-control")).toBe("no-store");
     expect(contentRes.headers.get("content-disposition")).toBe("inline");
     expect(contentRes.headers.get("content-type")).toMatch(/^text\/plain/);
     expect(content).toBe("cover letter draft");
 
-    const deleteRes = await fetch(
-      `${baseUrl}/api/jobs/${job.id}/documents/${uploadBody.data.id}`,
-      { method: "DELETE" },
-    );
+    const deleteRes = await fetch(`${baseUrl}/api/jobs/${job.id}/documents/${uploadBody.data.id}`, {
+      method: "DELETE",
+    });
     const deleteBody = await deleteRes.json();
     expect(deleteRes.status).toBe(200);
     expect(deleteBody.ok).toBe(true);
@@ -1450,12 +1355,8 @@ describe.sequential("Jobs API routes", () => {
 
     expect(contentRes.status).toBe(200);
     expect(contentRes.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(contentRes.headers.get("content-type")).toMatch(
-      /^application\/octet-stream/,
-    );
-    expect(contentRes.headers.get("content-disposition")).toContain(
-      "attachment",
-    );
+    expect(contentRes.headers.get("content-type")).toMatch(/^application\/octet-stream/);
+    expect(contentRes.headers.get("content-disposition")).toContain("attachment");
     expect(contentRes.headers.get("content-disposition")).toContain(
       "filename*=UTF-8''payload%27s%20%28test%29%21%2A.html",
     );
@@ -1463,9 +1364,7 @@ describe.sequential("Jobs API routes", () => {
 
   it("returns a JSON error when a stored job document file is missing", async () => {
     const { createJob } = await import("@server/repositories/jobs");
-    const { createJobDocument } = await import(
-      "@server/repositories/job-documents"
-    );
+    const { createJobDocument } = await import("@server/repositories/job-documents");
     const job = await createJob({
       source: "manual",
       title: "Missing Document File Role",
@@ -1481,9 +1380,7 @@ describe.sequential("Jobs API routes", () => {
       storagePath: "/definitely/missing/job-document.html",
     });
 
-    const res = await fetch(
-      `${baseUrl}/api/jobs/${job.id}/documents/${document.id}/content`,
-    );
+    const res = await fetch(`${baseUrl}/api/jobs/${job.id}/documents/${document.id}/content`);
     const body = await res.json();
 
     expect(res.status).toBe(404);
@@ -1540,18 +1437,15 @@ describe.sequential("Jobs API routes", () => {
       jobDescription: "Second document description",
     });
 
-    const uploadRes = await fetch(
-      `${baseUrl}/api/jobs/${firstJob.id}/documents`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: "first.txt",
-          mediaType: "text/plain",
-          dataBase64: Buffer.from("first").toString("base64"),
-        }),
-      },
-    );
+    const uploadRes = await fetch(`${baseUrl}/api/jobs/${firstJob.id}/documents`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileName: "first.txt",
+        mediaType: "text/plain",
+        dataBase64: Buffer.from("first").toString("base64"),
+      }),
+    });
     const uploadBody = await uploadRes.json();
 
     const crossJobContentRes = await fetch(
@@ -1561,9 +1455,7 @@ describe.sequential("Jobs API routes", () => {
       `${baseUrl}/api/jobs/${secondJob.id}/documents/${uploadBody.data.id}`,
       { method: "DELETE" },
     );
-    const secondListRes = await fetch(
-      `${baseUrl}/api/jobs/${secondJob.id}/documents`,
-    );
+    const secondListRes = await fetch(`${baseUrl}/api/jobs/${secondJob.id}/documents`);
     const secondListBody = await secondListRes.json();
 
     expect(crossJobContentRes.status).toBe(404);
@@ -1573,9 +1465,7 @@ describe.sequential("Jobs API routes", () => {
 
   it("serves legacy job PDFs when pdfPath is not set", async () => {
     const { createJob } = await import("@server/repositories/jobs");
-    const { getLegacyJobPdfPath } = await import(
-      "@server/services/pdf-storage"
-    );
+    const { getLegacyJobPdfPath } = await import("@server/services/pdf-storage");
     const job = await createJob({
       source: "manual",
       title: "Legacy PDF Role",
@@ -1631,12 +1521,8 @@ describe.sequential("Jobs API routes", () => {
     expect(body.ok).toBe(true);
     expect(body.data.title).toBe("Updated Title");
     expect(body.data.employer).toBe("Updated Employer");
-    expect(body.data.jobUrl).toBe(
-      "https://example.com/job/core-fields-updated",
-    );
-    expect(body.data.applicationLink).toBe(
-      "https://example.com/apply/core-fields-updated",
-    );
+    expect(body.data.jobUrl).toBe("https://example.com/job/core-fields-updated");
+    expect(body.data.applicationLink).toBe("https://example.com/apply/core-fields-updated");
     expect(body.data.location).toBe("London, UK");
     expect(body.data.salary).toBe("GBP 100k");
     expect(body.data.salarySource).toBe("levels.fyi");
@@ -1726,9 +1612,7 @@ describe.sequential("Jobs API routes", () => {
     expect(res.status).toBe(502);
     expect(body.ok).toBe(false);
     expect(body.error.code).toBe("UPSTREAM_ERROR");
-    expect(body.error.message).toContain(
-      "Your previous resume PDF is still available",
-    );
+    expect(body.error.message).toContain("Your previous resume PDF is still available");
     expect(typeof body.meta.requestId).toBe("string");
   });
 
@@ -1941,10 +1825,7 @@ describe.sequential("Jobs API routes", () => {
     expect(body.data.failed).toBe(2);
     const failures = body.data.results.filter((r: any) => !r.ok);
     expect(failures).toHaveLength(2);
-    expect(failures.map((r: any) => r.error.code).sort()).toEqual([
-      "INVALID_REQUEST",
-      "NOT_FOUND",
-    ]);
+    expect(failures.map((r: any) => r.error.code).sort()).toEqual(["INVALID_REQUEST", "NOT_FOUND"]);
   });
 
   it("runs move_to_ready action and rejects ineligible statuses", async () => {
@@ -1986,9 +1867,9 @@ describe.sequential("Jobs API routes", () => {
         analyticsOrigin: "move_to_ready",
         requestOrigin: "https://canonical.jobops.example",
       });
-      expect(
-        body.data.results.find((r: any) => r.jobId === ready.id).error.code,
-      ).toBe("INVALID_REQUEST");
+      expect(body.data.results.find((r: any) => r.jobId === ready.id).error.code).toBe(
+        "INVALID_REQUEST",
+      );
     } finally {
       if (previousBaseUrl === undefined) {
         delete process.env.JOBOPS_PUBLIC_BASE_URL;
@@ -2084,20 +1965,16 @@ describe.sequential("Jobs API routes", () => {
     expect(body.data.requested).toBe(4);
     expect(body.data.succeeded).toBe(2);
     expect(body.data.failed).toBe(2);
-    expect(
-      body.data.results.find((r: any) => r.jobId === discovered.id).job
-        .suitabilityScore,
-    ).toBe(81);
-    expect(
-      body.data.results.find((r: any) => r.jobId === ready.id).job
-        .suitabilityScore,
-    ).toBe(81);
-    expect(
-      body.data.results.find((r: any) => r.jobId === processing.id).error.code,
-    ).toBe("INVALID_REQUEST");
-    expect(
-      body.data.results.find((r: any) => r.jobId === "missing-id").error.code,
-    ).toBe("NOT_FOUND");
+    expect(body.data.results.find((r: any) => r.jobId === discovered.id).job.suitabilityScore).toBe(
+      81,
+    );
+    expect(body.data.results.find((r: any) => r.jobId === ready.id).job.suitabilityScore).toBe(81);
+    expect(body.data.results.find((r: any) => r.jobId === processing.id).error.code).toBe(
+      "INVALID_REQUEST",
+    );
+    expect(body.data.results.find((r: any) => r.jobId === "missing-id").error.code).toBe(
+      "NOT_FOUND",
+    );
     expect(vi.mocked(getProfile)).toHaveBeenCalledTimes(1);
   });
 
@@ -2191,10 +2068,7 @@ describe.sequential("Jobs API routes", () => {
   });
 
   it("validates job action payloads", async () => {
-    const tooManyIds = Array.from(
-      { length: 501 },
-      (_, index) => `job-${index}`,
-    );
+    const tooManyIds = Array.from({ length: 501 }, (_, index) => `job-${index}`);
     const res = await fetch(`${baseUrl}/api/jobs/actions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2212,9 +2086,7 @@ describe.sequential("Jobs API routes", () => {
 
   it("applies a job", async () => {
     const { createJob } = await import("@server/repositories/jobs");
-    const { trackCanonicalActivationEvent } = await import(
-      "@server/services/activation-funnel"
-    );
+    const { trackCanonicalActivationEvent } = await import("@server/services/activation-funnel");
     const job = await createJob({
       source: "manual",
       title: "Test Role",
@@ -2400,9 +2272,7 @@ describe.sequential("Jobs API routes", () => {
     });
 
     it("transitions stages and retrieves events", async () => {
-      const { trackCanonicalActivationEvent } = await import(
-        "@server/services/activation-funnel"
-      );
+      const { trackCanonicalActivationEvent } = await import("@server/services/activation-funnel");
       // 1. Initial transition to applied
       const trans1 = await fetch(`${baseUrl}/api/jobs/${jobId}/stages`, {
         method: "POST",
@@ -2452,14 +2322,11 @@ describe.sequential("Jobs API routes", () => {
       );
 
       // 4. Patch an event
-      const patchRes = await fetch(
-        `${baseUrl}/api/jobs/${jobId}/events/${eventId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ metadata: { note: "Updated note" } }),
-        },
-      );
+      const patchRes = await fetch(`${baseUrl}/api/jobs/${jobId}/events/${eventId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata: { note: "Updated note" } }),
+      });
       expect(patchRes.status).toBe(200);
 
       const eventsRes2 = await fetch(`${baseUrl}/api/jobs/${jobId}/events`);
@@ -2467,12 +2334,9 @@ describe.sequential("Jobs API routes", () => {
       expect(eventsBody2.data[0].metadata.note).toBe("Updated note");
 
       // 5. Delete an event
-      const deleteRes = await fetch(
-        `${baseUrl}/api/jobs/${jobId}/events/${eventId}`,
-        {
-          method: "DELETE",
-        },
-      );
+      const deleteRes = await fetch(`${baseUrl}/api/jobs/${jobId}/events/${eventId}`, {
+        method: "DELETE",
+      });
       expect(deleteRes.status).toBe(200);
 
       const eventsRes3 = await fetch(`${baseUrl}/api/jobs/${jobId}/events`);
@@ -2481,9 +2345,7 @@ describe.sequential("Jobs API routes", () => {
     });
 
     it("tracks offer stages as offer and acceptance backend events", async () => {
-      const { trackCanonicalActivationEvent } = await import(
-        "@server/services/activation-funnel"
-      );
+      const { trackCanonicalActivationEvent } = await import("@server/services/activation-funnel");
 
       const res = await fetch(`${baseUrl}/api/jobs/${jobId}/stages`, {
         method: "POST",
@@ -2553,17 +2415,13 @@ describe.sequential("Jobs API routes", () => {
       const body3 = await res3.json();
       expect(body3.data).toHaveLength(0); // includeCompleted defaults to false
 
-      const res4 = await fetch(
-        `${baseUrl}/api/jobs/${jobId}/tasks?includeCompleted=true`,
-      );
+      const res4 = await fetch(`${baseUrl}/api/jobs/${jobId}/tasks?includeCompleted=true`);
       const body4 = await res4.json();
       expect(body4.data).toHaveLength(1);
     });
 
     it("updates job outcome", async () => {
-      const { trackCanonicalActivationEvent } = await import(
-        "@server/services/activation-funnel"
-      );
+      const { trackCanonicalActivationEvent } = await import("@server/services/activation-funnel");
       const res = await fetch(`${baseUrl}/api/jobs/${jobId}/outcome`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -2581,9 +2439,7 @@ describe.sequential("Jobs API routes", () => {
     });
 
     it("tracks accepted outcomes as a canonical backend event", async () => {
-      const { trackCanonicalActivationEvent } = await import(
-        "@server/services/activation-funnel"
-      );
+      const { trackCanonicalActivationEvent } = await import("@server/services/activation-funnel");
 
       const res = await fetch(`${baseUrl}/api/jobs/${jobId}/outcome`, {
         method: "PATCH",

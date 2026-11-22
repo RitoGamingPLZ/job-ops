@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  loadRememberedAuthUsers,
-  rememberAuthUser,
-} from "./remembered-auth-users";
+import { loadRememberedAuthUsers, rememberAuthUser } from "./remembered-auth-users";
 
 describe("remembered auth users", () => {
   beforeEach(() => {
@@ -21,9 +18,7 @@ describe("remembered auth users", () => {
       { username: "sam", displayName: null },
       { username: "admin", displayName: "Admin" },
     ]);
-    expect(localStorage.getItem("jobops.rememberedAuthUsers")).not.toContain(
-      "password",
-    );
+    expect(localStorage.getItem("jobops.rememberedAuthUsers")).not.toContain("password");
   });
 
   it("keeps an existing display name when the next sign-in only has a username", () => {

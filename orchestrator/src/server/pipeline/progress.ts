@@ -42,10 +42,7 @@ function createIdleProgress(): PipelineProgress {
 
 const currentProgressByTenant = new Map<string, PipelineProgress>();
 
-const currentSourceStatsByTenant = new Map<
-  string,
-  Map<CrawlSource, SourceCrawlingStats>
->();
+const currentSourceStatsByTenant = new Map<string, Map<CrawlSource, SourceCrawlingStats>>();
 
 type FanoutUnitState = "queued" | "running" | "complete" | "check";
 type FanoutTask = {
@@ -79,9 +76,7 @@ function getCurrentProgressForTenant(tenantId: string): PipelineProgress {
   return idle;
 }
 
-function getCurrentSourceStatsForTenant(
-  tenantId: string,
-): Map<CrawlSource, SourceCrawlingStats> {
+function getCurrentSourceStatsForTenant(tenantId: string): Map<CrawlSource, SourceCrawlingStats> {
   let stats = currentSourceStatsByTenant.get(tenantId);
   if (!stats) {
     stats = new Map<CrawlSource, SourceCrawlingStats>();
@@ -164,10 +159,7 @@ function aggregateCrawlingStats(tenantId = getProgressScopeKey()) {
 function buildFanoutProgress(tracker: FanoutTracker): PipelineFanoutProgress {
   const roles = tracker.roles.map((role, index) => {
     const states = [...tracker.tasks.values()].flatMap((task) =>
-      task.states.slice(
-        index * task.unitsPerRole,
-        (index + 1) * task.unitsPerRole,
-      ),
+      task.states.slice(index * task.unitsPerRole, (index + 1) * task.unitsPerRole),
     );
     return {
       role,
@@ -184,8 +176,7 @@ function buildFanoutProgress(tracker: FanoutTracker): PipelineFanoutProgress {
     locations: tracker.locations,
     sources: tracker.sources,
     total: roles.reduce(
-      (sum, role) =>
-        sum + role.complete + role.running + role.queued + role.check,
+      (sum, role) => sum + role.complete + role.running + role.queued + role.check,
       0,
     ),
     capacity: tracker.capacity,
@@ -302,15 +293,10 @@ export const progressHelpers = {
     const tracker = getFanoutTracker();
     const task = tracker?.tasks.get(taskId);
     if (!tracker || !task) return;
-    if (
-      !task.termProgressStarted &&
-      task.states.every((state) => state === "queued")
-    ) {
+    if (!task.termProgressStarted && task.states.every((state) => state === "queued")) {
       task.states = task.states.map(() => "running" as const);
     } else {
-      task.states = task.states.map((state) =>
-        state === "check" ? "running" : state,
-      );
+      task.states = task.states.map((state) => (state === "check" ? "running" : state));
     }
     emitFanout(tracker);
   },
@@ -338,26 +324,15 @@ export const progressHelpers = {
     const roleStates = task.states.slice(roleStart, roleEnd);
     if (processed > task.completedTerms) {
       let remaining = (processed - task.completedTerms) * unitsPerTerm;
-      for (
-        let index = 0;
-        index < roleStates.length && remaining > 0;
-        index += 1
-      ) {
+      for (let index = 0; index < roleStates.length && remaining > 0; index += 1) {
         if (roleStates[index] === "complete") continue;
         task.states[roleStart + index] = "complete";
         remaining -= 1;
       }
       task.completedTerms = processed;
-    } else if (
-      processed === task.completedTerms &&
-      !roleStates.includes("running")
-    ) {
+    } else if (processed === task.completedTerms && !roleStates.includes("running")) {
       let remaining = unitsPerTerm;
-      for (
-        let index = 0;
-        index < roleStates.length && remaining > 0;
-        index += 1
-      ) {
+      for (let index = 0; index < roleStates.length && remaining > 0; index += 1) {
         if (roleStates[index] !== "queued") continue;
         task.states[roleStart + index] = "running";
         remaining -= 1;
@@ -374,9 +349,7 @@ export const progressHelpers = {
       task.states.fill("complete");
     } else {
       task.states = task.states.map((unit) =>
-        unit === "running" || (!task.termProgressStarted && unit === "queued")
-          ? "check"
-          : unit,
+        unit === "running" || (!task.termProgressStarted && unit === "queued") ? "check" : unit,
       );
     }
     emitFanout(tracker);
@@ -399,9 +372,7 @@ export const progressHelpers = {
         step: "crawling",
         message: "Fetching jobs from sources...",
         detail: "Starting crawler",
-        startedAt: preserveStartedAt
-          ? getProgress().startedAt
-          : new Date().toISOString(),
+        startedAt: preserveStartedAt ? getProgress().startedAt : new Date().toISOString(),
         crawlingSource: null,
         crawlingSourcesCompleted: 0,
         crawlingSourcesTotal: sourcesTotal,
@@ -422,8 +393,7 @@ export const progressHelpers = {
   ) => {
     const tenantId = getProgressScopeKey();
     const crawlingStatsBySource = getCurrentSourceStatsForTenant(tenantId);
-    const existing =
-      crawlingStatsBySource.get(source) ?? emptySourceCrawlingStats();
+    const existing = crawlingStatsBySource.get(source) ?? emptySourceCrawlingStats();
     crawlingStatsBySource.set(source, {
       ...emptySourceCrawlingStats(),
       termsTotal: options?.termsTotal ?? existing.termsTotal,
@@ -475,19 +445,16 @@ export const progressHelpers = {
     const crawlingStatsBySource = getCurrentSourceStatsForTenant(tenantId);
     const current = getProgress();
     if (update.source) {
-      const existing =
-        crawlingStatsBySource.get(update.source) ?? emptySourceCrawlingStats();
+      const existing = crawlingStatsBySource.get(update.source) ?? emptySourceCrawlingStats();
       const nextForSource: SourceCrawlingStats = {
         termsProcessed: update.termsProcessed ?? existing.termsProcessed,
         termsTotal: update.termsTotal ?? existing.termsTotal,
-        listPagesProcessed:
-          update.listPagesProcessed ?? existing.listPagesProcessed,
+        listPagesProcessed: update.listPagesProcessed ?? existing.listPagesProcessed,
         listPagesTotal: update.listPagesTotal ?? existing.listPagesTotal,
         jobCardsFound: update.jobCardsFound ?? existing.jobCardsFound,
         jobPagesEnqueued: update.jobPagesEnqueued ?? existing.jobPagesEnqueued,
         jobPagesSkipped: update.jobPagesSkipped ?? existing.jobPagesSkipped,
-        jobPagesProcessed:
-          update.jobPagesProcessed ?? existing.jobPagesProcessed,
+        jobPagesProcessed: update.jobPagesProcessed ?? existing.jobPagesProcessed,
       };
       crawlingStatsBySource.set(update.source, nextForSource);
     }
@@ -535,13 +502,8 @@ export const progressHelpers = {
         ? `, terms ${next.crawlingTermsProcessed}/${next.crawlingTermsTotal}`
         : "";
     const skippedPart =
-      next.crawlingJobPagesSkipped > 0
-        ? `, skipped ${next.crawlingJobPagesSkipped}`
-        : "";
-    const cardsPart =
-      next.crawlingJobCardsFound > 0
-        ? `, cards ${next.crawlingJobCardsFound}`
-        : "";
+      next.crawlingJobPagesSkipped > 0 ? `, skipped ${next.crawlingJobPagesSkipped}` : "";
+    const cardsPart = next.crawlingJobCardsFound > 0 ? `, cards ${next.crawlingJobCardsFound}` : "";
 
     const message = `Crawling jobs (list pages ${sourcesPart}, job pages ${pagesPart}${termsPart}${skippedPart}${cardsPart})...`;
     const detail =
@@ -579,11 +541,7 @@ export const progressHelpers = {
       crawlingCurrentUrl: undefined,
     }),
 
-  importingJob: (
-    index: number,
-    total: number,
-    job: PipelineProgressCurrentJob,
-  ) =>
+  importingJob: (index: number, total: number, job: PipelineProgressCurrentJob) =>
     updateProgress({
       step: "importing",
       message: `Importing jobs (${index}/${total})...`,

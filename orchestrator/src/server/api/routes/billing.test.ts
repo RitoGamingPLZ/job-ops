@@ -2,7 +2,7 @@ import type { Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-describe.sequential("Billing routes", () => {
+describe("Billing routes", () => {
   let server: Server;
   let closeDb: () => void;
   let tempDir: string;

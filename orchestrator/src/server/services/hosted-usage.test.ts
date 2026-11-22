@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.sequential("hosted usage service", () => {
+describe("hosted usage service", () => {
   const originalEnv = { ...process.env };
   let tempDir: string;
   let closeDb: (() => void) | null = null;
@@ -87,9 +87,7 @@ describe.sequential("hosted usage service", () => {
       units: 3,
       now: new Date("2026-01-15T12:00:00.000Z"),
     });
-    const summary = await service.getHostedUsageSummary(
-      new Date("2026-01-15T12:00:00.000Z"),
-    );
+    const summary = await service.getHostedUsageSummary(new Date("2026-01-15T12:00:00.000Z"));
 
     expect(allowance).toMatchObject({
       quotasEnabled: false,
@@ -149,12 +147,8 @@ describe.sequential("hosted usage service", () => {
         units: 2,
         now: new Date("2026-02-15T00:00:00.000Z"),
       });
-      const summary = await service.getHostedUsageSummary(
-        new Date("2026-02-28T23:59:59.000Z"),
-      );
-      const search = summary.actions.find(
-        (action) => action.action === "job_search",
-      );
+      const summary = await service.getHostedUsageSummary(new Date("2026-02-28T23:59:59.000Z"));
+      const search = summary.actions.find((action) => action.action === "job_search");
 
       expect(search).toMatchObject({
         period: "2026-02",
@@ -176,24 +170,22 @@ describe.sequential("hosted usage service", () => {
     await createUser("bob");
     const service = await import("./hosted-usage");
 
-    await withUser("alice", () =>
-      service.consumeHostedUsage({ action: "tailoring", units: 7 }),
-    );
-    await withUser("bob", () =>
-      service.consumeHostedUsage({ action: "tailoring", units: 2 }),
-    );
+    await withUser("alice", () => service.consumeHostedUsage({ action: "tailoring", units: 7 }));
+    await withUser("bob", () => service.consumeHostedUsage({ action: "tailoring", units: 2 }));
 
     await withUser("alice", async () => {
       const summary = await service.getHostedUsageSummary();
-      expect(
-        summary.actions.find((action) => action.action === "tailoring"),
-      ).toMatchObject({ usedUnits: 7, availableUnits: 243 });
+      expect(summary.actions.find((action) => action.action === "tailoring")).toMatchObject({
+        usedUnits: 7,
+        availableUnits: 243,
+      });
     });
     await withUser("bob", async () => {
       const summary = await service.getHostedUsageSummary();
-      expect(
-        summary.actions.find((action) => action.action === "tailoring"),
-      ).toMatchObject({ usedUnits: 2, availableUnits: 248 });
+      expect(summary.actions.find((action) => action.action === "tailoring")).toMatchObject({
+        usedUnits: 2,
+        availableUnits: 248,
+      });
     });
   });
 
@@ -216,9 +208,11 @@ describe.sequential("hosted usage service", () => {
       });
 
       let summary = await service.getHostedUsageSummary();
-      expect(
-        summary.actions.find((action) => action.action === "ghostwriter"),
-      ).toMatchObject({ usedUnits: 0, reservedUnits: 10, availableUnits: 240 });
+      expect(summary.actions.find((action) => action.action === "ghostwriter")).toMatchObject({
+        usedUnits: 0,
+        reservedUnits: 10,
+        availableUnits: 240,
+      });
 
       const settled = await service.settleHostedUsageReservation({
         reservationId: reserved.reservation?.id ?? "",
@@ -231,17 +225,17 @@ describe.sequential("hosted usage service", () => {
       });
 
       summary = await service.getHostedUsageSummary();
-      expect(
-        summary.actions.find((action) => action.action === "ghostwriter"),
-      ).toMatchObject({ usedUnits: 6, reservedUnits: 0, availableUnits: 244 });
+      expect(summary.actions.find((action) => action.action === "ghostwriter")).toMatchObject({
+        usedUnits: 6,
+        reservedUnits: 0,
+        availableUnits: 244,
+      });
 
       const second = await service.reserveHostedUsage({
         action: "ghostwriter",
         units: 5,
       });
-      const refunded = await service.refundHostedUsageReservation(
-        second.reservation?.id ?? "",
-      );
+      const refunded = await service.refundHostedUsageReservation(second.reservation?.id ?? "");
       expect(refunded).toMatchObject({
         usedUnits: 0,
         refundedUnits: 5,
@@ -249,9 +243,11 @@ describe.sequential("hosted usage service", () => {
       });
 
       summary = await service.getHostedUsageSummary();
-      expect(
-        summary.actions.find((action) => action.action === "ghostwriter"),
-      ).toMatchObject({ usedUnits: 6, reservedUnits: 0, availableUnits: 244 });
+      expect(summary.actions.find((action) => action.action === "ghostwriter")).toMatchObject({
+        usedUnits: 6,
+        reservedUnits: 0,
+        availableUnits: 244,
+      });
     });
   });
 
@@ -268,9 +264,11 @@ describe.sequential("hosted usage service", () => {
 
       expect(result).toBe("completed");
       const summary = await service.getHostedUsageSummary();
-      expect(
-        summary.actions.find((action) => action.action === "job_search"),
-      ).toMatchObject({ usedUnits: 2, reservedUnits: 0, availableUnits: 98 });
+      expect(summary.actions.find((action) => action.action === "job_search")).toMatchObject({
+        usedUnits: 2,
+        reservedUnits: 0,
+        availableUnits: 98,
+      });
     });
   });
 
@@ -281,18 +279,17 @@ describe.sequential("hosted usage service", () => {
 
     await withUser("alice", async () => {
       await expect(
-        service.withHostedUsageReservation(
-          { action: "ghostwriter", units: 3 },
-          async () => {
-            throw new Error("generation failed");
-          },
-        ),
+        service.withHostedUsageReservation({ action: "ghostwriter", units: 3 }, async () => {
+          throw new Error("generation failed");
+        }),
       ).rejects.toThrow("generation failed");
 
       const summary = await service.getHostedUsageSummary();
-      expect(
-        summary.actions.find((action) => action.action === "ghostwriter"),
-      ).toMatchObject({ usedUnits: 0, reservedUnits: 0, availableUnits: 250 });
+      expect(summary.actions.find((action) => action.action === "ghostwriter")).toMatchObject({
+        usedUnits: 0,
+        reservedUnits: 0,
+        availableUnits: 250,
+      });
     });
   });
 
@@ -320,9 +317,7 @@ describe.sequential("hosted usage service", () => {
         status: 404,
         code: "NOT_FOUND",
       });
-      await expect(
-        service.refundHostedUsageReservation(reservationId),
-      ).rejects.toMatchObject({
+      await expect(service.refundHostedUsageReservation(reservationId)).rejects.toMatchObject({
         status: 404,
         code: "NOT_FOUND",
       });
@@ -330,9 +325,11 @@ describe.sequential("hosted usage service", () => {
 
     await withUser("alice", async () => {
       const summary = await service.getHostedUsageSummary();
-      expect(
-        summary.actions.find((action) => action.action === "ghostwriter"),
-      ).toMatchObject({ usedUnits: 0, reservedUnits: 10, availableUnits: 240 });
+      expect(summary.actions.find((action) => action.action === "ghostwriter")).toMatchObject({
+        usedUnits: 0,
+        reservedUnits: 10,
+        availableUnits: 240,
+      });
     });
   });
 
@@ -379,19 +376,17 @@ describe.sequential("hosted usage service", () => {
         now: new Date("2026-04-01T00:00:00.000Z"),
       });
 
-      const march = await service.getHostedUsageSummary(
-        new Date("2026-03-15T00:00:00.000Z"),
-      );
-      const april = await service.getHostedUsageSummary(
-        new Date("2026-04-15T00:00:00.000Z"),
-      );
+      const march = await service.getHostedUsageSummary(new Date("2026-03-15T00:00:00.000Z"));
+      const april = await service.getHostedUsageSummary(new Date("2026-04-15T00:00:00.000Z"));
 
-      expect(
-        march.actions.find((action) => action.action === "pdf_export"),
-      ).toMatchObject({ period: "2026-03", usedUnits: 3 });
-      expect(
-        april.actions.find((action) => action.action === "pdf_export"),
-      ).toMatchObject({ period: "2026-04", usedUnits: 1 });
+      expect(march.actions.find((action) => action.action === "pdf_export")).toMatchObject({
+        period: "2026-03",
+        usedUnits: 3,
+      });
+      expect(april.actions.find((action) => action.action === "pdf_export")).toMatchObject({
+        period: "2026-04",
+        usedUnits: 1,
+      });
     });
   });
 
@@ -414,9 +409,11 @@ describe.sequential("hosted usage service", () => {
 
       expect(second.reservation?.id).toBe(first.reservation?.id);
       const summary = await service.getHostedUsageSummary();
-      expect(
-        summary.actions.find((action) => action.action === "job_search"),
-      ).toMatchObject({ usedUnits: 0, reservedUnits: 3, availableUnits: 97 });
+      expect(summary.actions.find((action) => action.action === "job_search")).toMatchObject({
+        usedUnits: 0,
+        reservedUnits: 3,
+        availableUnits: 97,
+      });
     });
   });
 
@@ -425,9 +422,7 @@ describe.sequential("hosted usage service", () => {
     process.env.STRIPE_PRO_PRICE_ID = "price_pro";
     await createUser("alice");
     const service = await import("./hosted-usage");
-    const { saveSubscriptionState } = await import(
-      "@server/repositories/account-subscriptions"
-    );
+    const { saveSubscriptionState } = await import("@server/repositories/account-subscriptions");
 
     await withUser("alice", async () => {
       await service.consumeHostedUsage({ action: "job_search", units: 90 });

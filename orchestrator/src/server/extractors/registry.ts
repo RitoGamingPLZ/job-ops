@@ -16,9 +16,7 @@ export interface ExtractorRegistry {
   manifests: Map<string, ExtractorManifest>;
   manifestBySource: Map<ExtractorSourceId, ExtractorManifest>;
   availableSources: ExtractorSourceId[];
-  locationCapabilitiesBySource: Partial<
-    Record<ExtractorSourceId, LocationSourceCapabilitiesInput>
-  >;
+  locationCapabilitiesBySource: Partial<Record<ExtractorSourceId, LocationSourceCapabilitiesInput>>;
 }
 
 let registry: ExtractorRegistry | null = null;
@@ -29,9 +27,7 @@ let staticExtractorManifests: ExtractorManifest[] | null = null;
  * Registers statically bundled extractor manifests for runtimes without
  * filesystem discovery (e.g. Cloudflare Durable Objects).
  */
-export function setStaticExtractorManifests(
-  manifests: ExtractorManifest[] | null,
-): void {
+export function setStaticExtractorManifests(manifests: ExtractorManifest[] | null): void {
   staticExtractorManifests = manifests;
   registry = null;
   initPromise = null;
@@ -95,9 +91,7 @@ function strictModeEnabled(): boolean {
   return process.env.NODE_ENV === "production";
 }
 
-function resolveCatalogMismatches(
-  manifests: Map<string, ExtractorManifest>,
-): void {
+function resolveCatalogMismatches(manifests: Map<string, ExtractorManifest>): void {
   const missingFromCatalog = new Set<string>();
   const missingManifest = new Set<ExtractorSourceId>();
 
@@ -120,8 +114,7 @@ function resolveCatalogMismatches(
 
   const strict = strictModeEnabled();
   if (missingFromCatalog.size > 0) {
-    const message =
-      "Extractor sources are missing from shared extractor catalog";
+    const message = "Extractor sources are missing from shared extractor catalog";
     const context = {
       missingFromCatalog: [...missingFromCatalog],
       strict,
@@ -231,11 +224,10 @@ async function createRegistry(): Promise<ExtractorRegistry> {
       manifests.set(manifest.id, manifest);
       for (const source of validSources) {
         manifestBySource.set(source, manifest);
-        locationCapabilitiesBySource[source] =
-          normalizeLocationSourceCapabilities({
-            source,
-            ...(manifest.locationCapabilities?.[source] ?? {}),
-          });
+        locationCapabilitiesBySource[source] = normalizeLocationSourceCapabilities({
+          source,
+          ...manifest.locationCapabilities?.[source],
+        });
       }
     } catch (error) {
       if (error instanceof DuplicateSourceProviderError) {

@@ -18,14 +18,11 @@ export function getRequestContext(): RequestContext | undefined {
   return storage.getStore();
 }
 
-export function runWithRequestContext<T>(
-  context: Partial<RequestContext>,
-  fn: () => T,
-): T {
+export function runWithRequestContext<T>(context: Partial<RequestContext>, fn: () => T): T {
   const current = storage.getStore();
   const merged: RequestContext = {
     requestId: context.requestId ?? current?.requestId ?? "unknown",
-    ...(current ?? {}),
+    ...current,
     ...context,
   };
   return storage.run(merged, fn);

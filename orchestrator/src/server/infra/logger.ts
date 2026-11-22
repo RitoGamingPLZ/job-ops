@@ -52,12 +52,11 @@ export class Logger {
       level,
       msg: message,
       ...this.context,
-      ...(requestContext ?? {}),
+      ...requestContext,
     };
 
     if (meta !== undefined) {
-      payload.meta =
-        meta instanceof Error ? sanitizeError(meta) : sanitizeUnknown(meta);
+      payload.meta = meta instanceof Error ? sanitizeError(meta) : sanitizeUnknown(meta);
     }
 
     const line = JSON.stringify(payload);

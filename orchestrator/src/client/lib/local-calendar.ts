@@ -12,10 +12,7 @@ export function parseLocalDateKey(value: string): Date {
 }
 
 /** Inclusive range covering the last `days` local days, ending today 23:59:59.999. */
-export function getLocalDayRange(
-  days: number,
-  now: Date = new Date(),
-): { start: Date; end: Date } {
+export function getLocalDayRange(days: number, now: Date = new Date()): { start: Date; end: Date } {
   const end = new Date(now);
   end.setHours(23, 59, 59, 999);
   const start = new Date(end);

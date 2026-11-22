@@ -30,9 +30,7 @@ interface KeyboardShortcutBarProps {
   activeTab: FilterTab;
 }
 
-export const KeyboardShortcutBar: React.FC<KeyboardShortcutBarProps> = ({
-  activeTab,
-}) => {
+export const KeyboardShortcutBar: React.FC<KeyboardShortcutBarProps> = ({ activeTab }) => {
   const hasKeyboard = useKeyboardAvailability();
   const isControlPressed = useModifierPressed("Control");
 
@@ -55,10 +53,7 @@ export const KeyboardShortcutBar: React.FC<KeyboardShortcutBarProps> = ({
               </span>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {deduped.map((item) => (
-                  <span
-                    key={item.label}
-                    className="inline-flex items-center gap-2"
-                  >
+                  <span key={item.label} className="inline-flex items-center gap-2">
                     <div className="flex gap-1">
                       {item.displayKeys.map((dk) => (
                         <kbd
@@ -69,9 +64,7 @@ export const KeyboardShortcutBar: React.FC<KeyboardShortcutBarProps> = ({
                         </kbd>
                       ))}
                     </div>
-                    <span className="text-muted-foreground/80">
-                      {item.label}
-                    </span>
+                    <span className="text-muted-foreground/80">{item.label}</span>
                   </span>
                 ))}
               </div>

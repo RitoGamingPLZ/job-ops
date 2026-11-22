@@ -61,11 +61,7 @@ type JobDocumentsPanelProps = {
   onDownloadPdf: () => void;
 };
 
-function DocumentIcon({
-  document,
-}: {
-  document: Pick<JobDocument, "fileName" | "mediaType">;
-}) {
+function DocumentIcon({ document }: { document: Pick<JobDocument, "fileName" | "mediaType"> }) {
   if (isJobDocumentPdf(document) || isJobDocumentTextLike(document)) {
     return <FileText className="h-3.5 w-3.5 text-sky-400/80" />;
   }
@@ -83,10 +79,7 @@ const DocumentPreview: React.FC<{
   const canPreviewAsObject = canPreviewJobDocumentAsObject(document);
   const canPreviewAsText = canPreviewJobDocumentAsText(document);
   const loadObjectUrl = useCallback(
-    () =>
-      canPreviewAsObject
-        ? createJobDocumentObjectUrl(document.jobId, document.id)
-        : null,
+    () => (canPreviewAsObject ? createJobDocumentObjectUrl(document.jobId, document.id) : null),
     [canPreviewAsObject, document.id, document.jobId],
   );
   const { objectUrl, error } = useObjectUrl(loadObjectUrl);
@@ -165,10 +158,7 @@ const DocumentPreview: React.FC<{
 };
 
 const ResumePdfPreview: React.FC<{ jobId: string }> = ({ jobId }) => {
-  const loadObjectUrl = useCallback(
-    () => createJobPdfObjectUrl(jobId),
-    [jobId],
-  );
+  const loadObjectUrl = useCallback(() => createJobPdfObjectUrl(jobId), [jobId]);
   const { objectUrl, error } = useObjectUrl(loadObjectUrl);
 
   if (error) {
@@ -214,9 +204,7 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
   const resumeState = getResumeState(job);
   const uploadDocumentInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
-  const [documentToDelete, setDocumentToDelete] = useState<JobDocument | null>(
-    null,
-  );
+  const [documentToDelete, setDocumentToDelete] = useState<JobDocument | null>(null);
 
   const documentsQuery = useQuery({
     queryKey: queryKeys.jobs.documents(job.id),
@@ -286,28 +274,15 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
               )}
               Upload document
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onUploadPdf}
-              disabled={isUploadingPdf}
-            >
+            <Button size="sm" variant="outline" onClick={onUploadPdf} disabled={isUploadingPdf}>
               <Upload className="mr-1.5 h-3.5 w-3.5" />
-              {isUploadingPdf
-                ? "Uploading PDF"
-                : job.pdfPath
-                  ? "Replace PDF"
-                  : "Upload PDF"}
+              {isUploadingPdf ? "Uploading PDF" : job.pdfPath ? "Replace PDF" : "Upload PDF"}
             </Button>
           </div>
         </div>
 
         <div className="space-y-4 p-4">
-          <Accordion
-            type="multiple"
-            defaultValue={defaultAccordionValues}
-            className="space-y-3"
-          >
+          <Accordion type="multiple" defaultValue={defaultAccordionValues} className="space-y-3">
             <AccordionItem
               value="resume-pdf"
               className="overflow-hidden rounded-lg border border-border/45 bg-muted/25"
@@ -347,10 +322,7 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
                       Prepare resume
                     </Button>
                   )}
-                  <TooltipWhenDisabled
-                    reason={pdfRegeneratingReason}
-                    className="w-auto"
-                  >
+                  <TooltipWhenDisabled reason={pdfRegeneratingReason} className="w-auto">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -361,10 +333,7 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
                       {pdfViewLabel}
                     </Button>
                   </TooltipWhenDisabled>
-                  <TooltipWhenDisabled
-                    reason={pdfRegeneratingReason}
-                    className="w-auto"
-                  >
+                  <TooltipWhenDisabled reason={pdfRegeneratingReason} className="w-auto">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -375,12 +344,7 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
                       {pdfDownloadLabel}
                     </Button>
                   </TooltipWhenDisabled>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={onUploadPdf}
-                    disabled={isUploadingPdf}
-                  >
+                  <Button size="sm" variant="ghost" onClick={onUploadPdf} disabled={isUploadingPdf}>
                     <Upload className="mr-1.5 h-3.5 w-3.5" />
                     Replace PDF
                   </Button>
@@ -394,9 +358,7 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
                       <span>{STALE_PDF_MESSAGE}</span>
                     </div>
                   ) : null}
-                  {job.pdfPath && !isStalePdf && (
-                    <ResumePdfPreview jobId={job.id} />
-                  )}
+                  {job.pdfPath && !isStalePdf && <ResumePdfPreview jobId={job.id} />}
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -416,10 +378,8 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
                       </div>
                       <p className="mt-0.5 text-xs text-muted-foreground/65">
                         {document.mediaType || "Unknown type"} ·{" "}
-                        {formatJobDocumentByteSize(document.byteSize)} ·
-                        Uploaded{" "}
-                        {formatDateTime(document.createdAt) ??
-                          document.createdAt}
+                        {formatJobDocumentByteSize(document.byteSize)} · Uploaded{" "}
+                        {formatDateTime(document.createdAt) ?? document.createdAt}
                       </p>
                     </div>
                   </AccordionTrigger>
@@ -440,12 +400,8 @@ export const JobDocumentsPanel: React.FC<JobDocumentsPanelProps> = ({
                       size="sm"
                       variant="ghost"
                       onClick={() =>
-                        void downloadJobDocument(
-                          job.id,
-                          document.id,
-                          document.fileName,
-                        ).catch((error) =>
-                          showErrorToast(error, "Could not download document"),
+                        void downloadJobDocument(job.id, document.id, document.fileName).catch(
+                          (error) => showErrorToast(error, "Could not download document"),
                         )
                       }
                     >

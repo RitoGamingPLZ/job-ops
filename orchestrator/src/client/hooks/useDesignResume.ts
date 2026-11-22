@@ -1,7 +1,4 @@
-import type {
-  DesignResumeDocument,
-  DesignResumeStatusResponse,
-} from "@shared/types";
+import type { DesignResumeDocument, DesignResumeStatusResponse } from "@shared/types";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/client/lib/queryKeys";
 import * as api from "../api";

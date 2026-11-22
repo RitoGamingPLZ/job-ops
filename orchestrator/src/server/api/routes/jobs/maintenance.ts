@@ -18,71 +18,54 @@ const jobStatusParamSchema = z.enum([
   "expired",
 ]);
 
-jobsMaintenanceRouter.delete(
-  "/status/:status",
-  async (req: Request, res: Response) => {
-    try {
-      if (isDemoMode()) {
-        return sendDemoBlocked(
-          res,
-          "Clearing jobs by status is disabled to keep the demo stable.",
-          {
-            route: "DELETE /api/jobs/status/:status",
-            status: req.params.status,
-          },
-        );
-      }
-
-      const parseResult = jobStatusParamSchema.safeParse(req.params.status);
-      if (!parseResult.success) {
-        return fail(res, badRequest("Invalid job status"));
-      }
-
-      const status: JobStatus = parseResult.data;
-      const count = await jobsRepo.deleteJobsByStatus(status);
-
-      ok(res, {
-        message: `Cleared ${count} ${status} jobs`,
-        count,
+jobsMaintenanceRouter.delete("/status/:status", async (req: Request, res: Response) => {
+  try {
+    if (isDemoMode()) {
+      return sendDemoBlocked(res, "Clearing jobs by status is disabled to keep the demo stable.", {
+        route: "DELETE /api/jobs/status/:status",
+        status: req.params.status,
       });
-    } catch (error) {
-      fail(res, toAppError(error));
     }
-  },
-);
 
-jobsMaintenanceRouter.delete(
-  "/score/:threshold",
-  async (req: Request, res: Response) => {
-    try {
-      if (isDemoMode()) {
-        return sendDemoBlocked(
-          res,
-          "Clearing jobs by score is disabled to keep the demo stable.",
-          {
-            route: "DELETE /api/jobs/score/:threshold",
-            threshold: req.params.threshold,
-          },
-        );
-      }
+    const parseResult = jobStatusParamSchema.safeParse(req.params.status);
+    if (!parseResult.success) {
+      return fail(res, badRequest("Invalid job status"));
+    }
 
-      const threshold = Number(req.params.threshold);
-      if (!Number.isInteger(threshold) || threshold < 0 || threshold > 100) {
-        return fail(
-          res,
-          badRequest("Threshold must be a number between 0 and 100"),
-        );
-      }
+    const status: JobStatus = parseResult.data;
+    const count = await jobsRepo.deleteJobsByStatus(status);
 
-      const count = await jobsRepo.deleteJobsBelowScore(threshold);
+    ok(res, {
+      message: `Cleared ${count} ${status} jobs`,
+      count,
+    });
+  } catch (error) {
+    fail(res, toAppError(error));
+  }
+});
 
-      ok(res, {
-        message: `Cleared ${count} jobs with score below ${threshold}`,
-        count,
-        threshold,
+jobsMaintenanceRouter.delete("/score/:threshold", async (req: Request, res: Response) => {
+  try {
+    if (isDemoMode()) {
+      return sendDemoBlocked(res, "Clearing jobs by score is disabled to keep the demo stable.", {
+        route: "DELETE /api/jobs/score/:threshold",
+        threshold: req.params.threshold,
       });
-    } catch (error) {
-      fail(res, toAppError(error));
     }
-  },
-);
+
+    const threshold = Number(req.params.threshold);
+    if (!Number.isInteger(threshold) || threshold < 0 || threshold > 100) {
+      return fail(res, badRequest("Threshold must be a number between 0 and 100"));
+    }
+
+    const count = await jobsRepo.deleteJobsBelowScore(threshold);
+
+    ok(res, {
+      message: `Cleared ${count} jobs with score below ${threshold}`,
+      count,
+      threshold,
+    });
+  } catch (error) {
+    fail(res, toAppError(error));
+  }
+});

@@ -1,9 +1,6 @@
 import * as settingsRepo from "@server/repositories/settings";
 import { settingsRegistry } from "@shared/settings-registry";
-import type {
-  ChatStyleLanguageMode,
-  ChatStyleManualLanguage,
-} from "@shared/types";
+import type { ChatStyleLanguageMode, ChatStyleManualLanguage } from "@shared/types";
 
 export type WritingStyle = {
   tone: string;
@@ -49,10 +46,7 @@ const LANGUAGE_DIRECTIVE_PATTERNS = [
   ),
 ];
 
-function stripDirectivesFromConstraints(
-  constraints: string,
-  patterns: RegExp[],
-): string {
+function stripDirectivesFromConstraints(constraints: string, patterns: RegExp[]): string {
   if (!constraints.trim()) {
     return "";
   }
@@ -76,13 +70,8 @@ function stripDirectivesFromConstraints(
     .join("\n");
 }
 
-export function stripLanguageDirectivesFromConstraints(
-  constraints: string,
-): string {
-  return stripDirectivesFromConstraints(
-    constraints,
-    LANGUAGE_DIRECTIVE_PATTERNS,
-  );
+export function stripLanguageDirectivesFromConstraints(constraints: string): string {
+  return stripDirectivesFromConstraints(constraints, LANGUAGE_DIRECTIVE_PATTERNS);
 }
 
 export function stripWordLimitFromConstraints(constraints: string): string {
@@ -94,8 +83,7 @@ export function stripKeywordLimitFromConstraints(constraints: string): string {
 }
 
 export async function getWritingStyle(): Promise<WritingStyle> {
-  const getSettingFromRepo =
-    "getSetting" in settingsRepo ? settingsRepo.getSetting : null;
+  const getSettingFromRepo = "getSetting" in settingsRepo ? settingsRepo.getSetting : null;
   const getSetting =
     typeof getSettingFromRepo === "function"
       ? getSettingFromRepo.bind(settingsRepo)
@@ -121,17 +109,15 @@ export async function getWritingStyle(): Promise<WritingStyle> {
   ]);
 
   const rawSummaryMaxWords =
-    settingsRegistry.chatStyleSummaryMaxWords.parse(
-      summaryMaxWordsRaw ?? undefined,
-    ) ?? settingsRegistry.chatStyleSummaryMaxWords.default();
+    settingsRegistry.chatStyleSummaryMaxWords.parse(summaryMaxWordsRaw ?? undefined) ??
+    settingsRegistry.chatStyleSummaryMaxWords.default();
   const parsedSummaryMaxWords =
     rawSummaryMaxWords != null && rawSummaryMaxWords > 0
       ? Math.max(1, Math.min(500, rawSummaryMaxWords))
       : null;
   const rawMaxKeywordsPerSkill =
-    settingsRegistry.chatStyleMaxKeywordsPerSkill.parse(
-      maxKeywordsPerSkillRaw ?? undefined,
-    ) ?? settingsRegistry.chatStyleMaxKeywordsPerSkill.default();
+    settingsRegistry.chatStyleMaxKeywordsPerSkill.parse(maxKeywordsPerSkillRaw ?? undefined) ??
+    settingsRegistry.chatStyleMaxKeywordsPerSkill.default();
   const parsedMaxKeywordsPerSkill =
     rawMaxKeywordsPerSkill != null && rawMaxKeywordsPerSkill > 0
       ? Math.max(1, Math.min(50, rawMaxKeywordsPerSkill))
@@ -145,24 +131,19 @@ export async function getWritingStyle(): Promise<WritingStyle> {
       settingsRegistry.chatStyleFormality.parse(formalityRaw ?? undefined) ??
       settingsRegistry.chatStyleFormality.default(),
     constraints:
-      settingsRegistry.chatStyleConstraints.parse(
-        constraintsRaw ?? undefined,
-      ) ?? settingsRegistry.chatStyleConstraints.default(),
+      settingsRegistry.chatStyleConstraints.parse(constraintsRaw ?? undefined) ??
+      settingsRegistry.chatStyleConstraints.default(),
     doNotUse:
       settingsRegistry.chatStyleDoNotUse.parse(doNotUseRaw ?? undefined) ??
       settingsRegistry.chatStyleDoNotUse.default(),
     languageMode:
-      settingsRegistry.chatStyleLanguageMode.parse(
-        languageModeRaw ?? undefined,
-      ) ?? settingsRegistry.chatStyleLanguageMode.default(),
+      settingsRegistry.chatStyleLanguageMode.parse(languageModeRaw ?? undefined) ??
+      settingsRegistry.chatStyleLanguageMode.default(),
     manualLanguage:
-      settingsRegistry.chatStyleManualLanguage.parse(
-        manualLanguageRaw ?? undefined,
-      ) ?? settingsRegistry.chatStyleManualLanguage.default(),
+      settingsRegistry.chatStyleManualLanguage.parse(manualLanguageRaw ?? undefined) ??
+      settingsRegistry.chatStyleManualLanguage.default(),
     summaryMaxWords:
-      parsedSummaryMaxWords != null && parsedSummaryMaxWords > 0
-        ? parsedSummaryMaxWords
-        : null,
+      parsedSummaryMaxWords != null && parsedSummaryMaxWords > 0 ? parsedSummaryMaxWords : null,
     maxKeywordsPerSkill:
       parsedMaxKeywordsPerSkill != null && parsedMaxKeywordsPerSkill > 0
         ? parsedMaxKeywordsPerSkill

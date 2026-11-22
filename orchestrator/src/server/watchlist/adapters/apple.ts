@@ -41,9 +41,7 @@ const detailSchema = jobSchema.extend({
 function searchUrl(value: string): URL {
   const url = trustedUrl(value);
   if (!/^\/en-us\/search\/?$/.test(url.pathname)) {
-    throw badRequest(
-      "Use an Apple careers search URL (jobs.apple.com/en-us/search).",
-    );
+    throw badRequest("Use an Apple careers search URL (jobs.apple.com/en-us/search).");
   }
   url.pathname = "/en-us/search";
   url.hash = "";
@@ -104,8 +102,7 @@ async function hydration(url: URL, signal: AbortSignal) {
     }
     try {
       const data = JSON.parse(JSON.parse(match[1]));
-      return z.object({ loaderData: z.record(z.unknown()) }).parse(data)
-        .loaderData;
+      return z.object({ loaderData: z.record(z.unknown()) }).parse(data).loaderData;
     } catch {
       throw upstreamError(
         "Apple careers hydration data is invalid; the page structure may have changed.",
@@ -119,16 +116,10 @@ function jobUrl(job: z.infer<typeof jobSchema>): string {
   return `${ORIGIN}/en-us/details/${job.positionId}/${encodeURIComponent(job.transformedPostingTitle)}`;
 }
 
-function locationText(
-  locations: z.infer<typeof locationSchema>[],
-): string | null {
+function locationText(locations: z.infer<typeof locationSchema>[]): string | null {
   const values = locations
     .map((location) => {
-      const parts = [
-        location.city,
-        location.stateProvince,
-        location.countryName,
-      ].filter(Boolean);
+      const parts = [location.city, location.stateProvince, location.countryName].filter(Boolean);
       return [...new Set(parts)].join(", ") || location.name || "";
     })
     .filter(Boolean);
@@ -138,9 +129,7 @@ function locationText(
 async function details(jobRef: string, signal?: AbortSignal) {
   const url = detailUrl(jobRef);
   const data = await hydration(url, callSignal(signal));
-  const parsed = z
-    .object({ jobsData: detailSchema })
-    .safeParse(data.jobDetails);
+  const parsed = z.object({ jobsData: detailSchema }).safeParse(data.jobDetails);
   if (!parsed.success) {
     throw upstreamError(
       "Apple careers loaderData.jobDetails.jobsData is invalid; the detail structure may have changed.",
@@ -148,9 +137,7 @@ async function details(jobRef: string, signal?: AbortSignal) {
   }
   const job = parsed.data.jobsData;
   if (job.positionId !== url.pathname.split("/")[3]) {
-    throw upstreamError(
-      "Apple careers returned a different job than requested.",
-    );
+    throw upstreamError("Apple careers returned a different job than requested.");
   }
   // Apple supplies plain text; escape it before exposing it as descriptionHtml.
   const sections = [
@@ -181,8 +168,7 @@ export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     customSourceOptionLabel: "Custom Apple search URL",
     customSourceSearchText: "custom apple url",
     customSourceInputLabel: "Apple careers search URL",
-    customSourcePlaceholder:
-      "https://jobs.apple.com/en-us/search?search=engineer",
+    customSourcePlaceholder: "https://jobs.apple.com/en-us/search?search=engineer",
     customSourceHelpText:
       "Paste a filtered Apple search URL. Location filters use Apple's location slugs. Fetches up to 60 newest jobs.",
     emptyCatalogText: "No Apple sources found.",
@@ -207,10 +193,7 @@ export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   hydrateSelectedSource(source) {
     return {
       ...source,
-      label:
-        source.label.trim() && source.label !== source.careersUrl
-          ? source.label
-          : "Apple",
+      label: source.label.trim() && source.label !== source.careersUrl ? source.label : "Apple",
       careersUrl: searchUrl(source.careersUrl).toString(),
       cxsJobsUrl: null,
     };
@@ -227,17 +210,10 @@ export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async fetchJobs(input) {
     const url = searchUrl(input.source.careersUrl);
     const stopAt = Date.now() + 20_000;
-    const signal = AbortSignal.any([
-      callSignal(input.signal),
-      AbortSignal.timeout(20_000),
-    ]);
+    const signal = AbortSignal.any([callSignal(input.signal), AbortSignal.timeout(20_000)]);
     const collected: z.infer<typeof jobSchema>[] = [];
     let total = 0;
-    for (
-      let page = 1;
-      page <= Math.ceil(MAX_JOBS / 20) && Date.now() < stopAt;
-      page += 1
-    ) {
+    for (let page = 1; page <= Math.ceil(MAX_JOBS / 20) && Date.now() < stopAt; page += 1) {
       url.searchParams.set("page", String(page));
       let data: Awaited<ReturnType<typeof hydration>>;
       try {
@@ -248,10 +224,7 @@ export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
         throw error;
       }
       const parsed = searchSchema.safeParse(data.search);
-      if (
-        !parsed.success ||
-        (parsed.data.totalRecords > 0 && !parsed.data.searchResults.length)
-      ) {
+      if (!parsed.success || (parsed.data.totalRecords > 0 && !parsed.data.searchResults.length)) {
         throw upstreamError(
           "Apple careers loaderData.search.searchResults is invalid; the search structure may have changed.",
         );
@@ -266,13 +239,9 @@ export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       )
         break;
     }
-    const unique = [
-      ...new Map(collected.map((job) => [job.positionId, job])).values(),
-    ];
+    const unique = [...new Map(collected.map((job) => [job.positionId, job])).values()];
     unique.sort(
-      (a, b) =>
-        (Date.parse(b.postDateInGMT ?? "") || 0) -
-        (Date.parse(a.postDateInGMT ?? "") || 0),
+      (a, b) => (Date.parse(b.postDateInGMT ?? "") || 0) - (Date.parse(a.postDateInGMT ?? "") || 0),
     );
     input.signal?.throwIfAborted();
     const jobs = unique.slice(0, MAX_JOBS).map((job) => ({

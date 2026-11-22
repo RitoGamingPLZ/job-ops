@@ -6,21 +6,12 @@ import type { FacetDiscovery } from "../types";
 // _.hB (target_level), _.gB (employment_type), _.fB (degree). Its filter
 // templates expose these nonzero options; UNSPECIFIED is not a filter choice.
 const enums = {
-  target_level: [
-    "EARLY",
-    "MID",
-    "ADVANCED",
-    "DIRECTOR_PLUS",
-    "INTERN_AND_APPRENTICE",
-  ],
+  target_level: ["EARLY", "MID", "ADVANCED", "DIRECTOR_PLUS", "INTERN_AND_APPRENTICE"],
   employment_type: ["FULL_TIME", "PART_TIME", "TEMPORARY", "INTERN"],
   degree: ["PURSUING_DEGREE", "ASSOCIATE", "BACHELORS", "MASTERS", "DOCTORATE"],
 };
 
-export const discoverGoogleFacets: FacetDiscovery = async ({
-  careersUrl,
-  signal,
-}) => {
+export const discoverGoogleFacets: FacetDiscovery = async ({ careersUrl, signal }) => {
   const url = searchUrl(careersUrl);
   // Facets and the baseline total must describe the whole board, even when the
   // selected URL already has filters. One results request, without robots' page=.
@@ -32,8 +23,7 @@ export const discoverGoogleFacets: FacetDiscovery = async ({
       ? AbortSignal.any([signal, AbortSignal.timeout(25_000)])
       : AbortSignal.timeout(25_000),
   });
-  if (!response.ok)
-    throw upstreamError(`Google facets returned HTTP ${response.status}.`);
+  if (!response.ok) throw upstreamError(`Google facets returned HTTP ${response.status}.`);
   const data = callbackData(await response.text(), "ds:1");
   const total = Array.isArray(data) ? data[2] : undefined;
   if (!Number.isSafeInteger(total) || total < 0)

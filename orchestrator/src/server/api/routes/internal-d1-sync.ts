@@ -1,11 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import {
-  badRequest,
-  forbidden,
-  notFound,
-  toAppError,
-  unauthorized,
-} from "@infra/errors";
+import { badRequest, forbidden, notFound, toAppError, unauthorized } from "@infra/errors";
 import { fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import {
@@ -17,20 +11,11 @@ import {
   readPdfFile,
   writePdfFile,
 } from "@server/services/d1-sync";
-import express, {
-  type NextFunction,
-  type Request,
-  type Response,
-  Router,
-} from "express";
+import express, { type NextFunction, type Request, type Response, Router } from "express";
 
 export const internalD1SyncRouter = Router();
 
-function verifyInternalSyncSecret(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void {
+function verifyInternalSyncSecret(req: Request, res: Response, next: NextFunction): void {
   const expectedSecret = process.env.INTERNAL_SYNC_SECRET?.trim();
   if (!expectedSecret) {
     fail(res, forbidden("Internal D1 sync is not configured."));
@@ -38,8 +23,7 @@ function verifyInternalSyncSecret(
   }
 
   const providedHeader = req.headers["x-internal-sync-secret"];
-  const providedSecret =
-    typeof providedHeader === "string" ? providedHeader.trim() : "";
+  const providedSecret = typeof providedHeader === "string" ? providedHeader.trim() : "";
 
   const expectedBuffer = Buffer.from(expectedSecret, "utf8");
   const providedBuffer = Buffer.from(providedSecret, "utf8");
@@ -88,18 +72,15 @@ internalD1SyncRouter.post("/import", (req: Request, res: Response) => {
   }
 });
 
-internalD1SyncRouter.post(
-  "/collect-changes",
-  (_req: Request, res: Response) => {
-    try {
-      const changes = collectD1Changes();
-      ok(res, changes);
-    } catch (error) {
-      logger.error("Failed to collect SQLite changes for D1", error);
-      fail(res, toAppError(error));
-    }
-  },
-);
+internalD1SyncRouter.post("/collect-changes", (_req: Request, res: Response) => {
+  try {
+    const changes = collectD1Changes();
+    ok(res, changes);
+  } catch (error) {
+    logger.error("Failed to collect SQLite changes for D1", error);
+    fail(res, toAppError(error));
+  }
+});
 
 internalD1SyncRouter.get("/files", (_req: Request, res: Response) => {
   try {
@@ -111,31 +92,28 @@ internalD1SyncRouter.get("/files", (_req: Request, res: Response) => {
   }
 });
 
-internalD1SyncRouter.get(
-  "/files/:encodedPath",
-  (req: Request, res: Response) => {
-    try {
-      const encodedPath = Array.isArray(req.params.encodedPath)
-        ? req.params.encodedPath[0]
-        : req.params.encodedPath;
-      const relativePath = decodeURIComponent(encodedPath || "");
-      if (!relativePath) {
-        fail(res, badRequest("Missing file path."));
-        return;
-      }
-      const buffer = readPdfFile(relativePath);
-      if (!buffer) {
-        fail(res, notFound("PDF file not found."));
-        return;
-      }
-      res.setHeader("Content-Type", "application/octet-stream");
-      res.status(200).send(buffer);
-    } catch (error) {
-      logger.error("Failed to read PDF file for R2 sync", error);
-      fail(res, toAppError(error));
+internalD1SyncRouter.get("/files/:encodedPath", (req: Request, res: Response) => {
+  try {
+    const encodedPath = Array.isArray(req.params.encodedPath)
+      ? req.params.encodedPath[0]
+      : req.params.encodedPath;
+    const relativePath = decodeURIComponent(encodedPath || "");
+    if (!relativePath) {
+      fail(res, badRequest("Missing file path."));
+      return;
     }
-  },
-);
+    const buffer = readPdfFile(relativePath);
+    if (!buffer) {
+      fail(res, notFound("PDF file not found."));
+      return;
+    }
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.status(200).send(buffer);
+  } catch (error) {
+    logger.error("Failed to read PDF file for R2 sync", error);
+    fail(res, toAppError(error));
+  }
+});
 
 internalD1SyncRouter.put(
   "/files/:encodedPath",
@@ -150,9 +128,7 @@ internalD1SyncRouter.put(
         fail(res, badRequest("Missing file path."));
         return;
       }
-      const content = Buffer.isBuffer(req.body)
-        ? req.body
-        : Buffer.from(req.body ?? "");
+      const content = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body ?? "");
       writePdfFile(relativePath, content);
       ok(res, { path: relativePath, bytes: content.byteLength });
     } catch (error) {

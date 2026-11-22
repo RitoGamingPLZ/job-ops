@@ -6,8 +6,7 @@ import * as api from "../api";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { WatchlistPage } from "./WatchlistPage";
 
-const render = (ui: Parameters<typeof renderWithQueryClient>[0]) =>
-  renderWithQueryClient(ui);
+const render = (ui: Parameters<typeof renderWithQueryClient>[0]) => renderWithQueryClient(ui);
 
 vi.mock("@client/hooks/useSettings", () => ({
   useSettings: () => ({
@@ -44,8 +43,7 @@ vi.mock("../api", () => ({
   unignoreWatchlistJob: vi.fn(),
 }));
 
-const autodeskCxsJobsUrl =
-  "https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs";
+const autodeskCxsJobsUrl = "https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs";
 
 const workdaySourceType = {
   sourceType: "workday" as const,
@@ -138,9 +136,7 @@ function renderPage() {
   );
 }
 
-function makeWatchlistResults(
-  jobs: WatchlistJobResult[] = [backendJob, salesJob],
-) {
+function makeWatchlistResults(jobs: WatchlistJobResult[] = [backendJob, salesJob]) {
   return {
     checkedAt: "2026-05-17T00:05:00.000Z",
     previousLastCheckedAt: null,
@@ -219,15 +215,9 @@ beforeEach(() => {
     ],
     availableSourceTypes: [workdaySourceType, bamboohrSourceType],
   };
-  vi.mocked(api.getWatchlistSources).mockImplementation(
-    async () => watchlistSourcesState,
-  );
-  vi.mocked(api.fetchWatchlistResults).mockImplementation(async () =>
-    makeWatchlistResults(),
-  );
-  vi.mocked(api.fetchWatchlistSourceBranding).mockRejectedValue(
-    new Error("No logo in test"),
-  );
+  vi.mocked(api.getWatchlistSources).mockImplementation(async () => watchlistSourcesState);
+  vi.mocked(api.fetchWatchlistResults).mockImplementation(async () => makeWatchlistResults());
+  vi.mocked(api.fetchWatchlistSourceBranding).mockRejectedValue(new Error("No logo in test"));
   vi.mocked(api.updateWatchlistSources).mockImplementation(async (input) => {
     watchlistSourcesState = {
       ...watchlistSourcesState,
@@ -296,21 +286,14 @@ describe("WatchlistPage", () => {
 
     expect(await screen.findByText("Backend Engineer")).toBeInTheDocument();
     expect(screen.getByText("Sales Manager")).toBeInTheDocument();
-    expect(
-      screen.getByRole("columnheader", { name: "Posted" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Posted" })).toBeInTheDocument();
     expect(screen.getByText("May 1, 2026")).toBeInTheDocument();
-    expect(
-      screen.getAllByRole("button", { name: /more actions/i }),
-    ).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /more actions/i })).toHaveLength(2);
   });
 
   it("hides ignored rows by default and reveals them with unignore", async () => {
     vi.mocked(api.fetchWatchlistResults).mockImplementation(async () =>
-      makeWatchlistResults([
-        { ...backendJob },
-        { ...salesJob, rowState: "ignored" },
-      ]),
+      makeWatchlistResults([{ ...backendJob }, { ...salesJob, rowState: "ignored" }]),
     );
 
     renderPage();
@@ -327,9 +310,7 @@ describe("WatchlistPage", () => {
     );
 
     expect(await screen.findByText("Sales Manager")).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(/view signals for sales manager/i),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/view signals for sales manager/i)).toBeInTheDocument();
   });
 
   it("marks jobs that are new since the previous check", async () => {
@@ -359,9 +340,7 @@ describe("WatchlistPage", () => {
 
     expect(await screen.findByText("Backend Engineer")).toBeInTheDocument();
     expect(screen.getByText(/1 new since/i)).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(/view signals for backend engineer/i),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/view signals for backend engineer/i)).toBeInTheDocument();
   });
 
   it("shows a friendly inline alert for source fetch failures", async () => {
@@ -422,9 +401,7 @@ describe("WatchlistPage", () => {
     await openSourceResults("Autodesk");
 
     expect(await screen.findByText("Sales Manager")).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(/view signals for sales manager/i),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/view signals for sales manager/i)).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.queryByText("Ignored")).not.toBeInTheDocument();
@@ -461,9 +438,7 @@ describe("WatchlistPage", () => {
           },
         ],
       });
-      expect(
-        screen.getByRole("button", { name: /save sources/i }),
-      ).toBeDisabled();
+      expect(screen.getByRole("button", { name: /save sources/i })).toBeDisabled();
     });
   });
 });

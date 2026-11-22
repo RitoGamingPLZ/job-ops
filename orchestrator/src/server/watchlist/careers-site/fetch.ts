@@ -7,8 +7,7 @@ import { join } from "node:path";
 import { type Browser, type BrowserContext, chromium } from "playwright";
 import { type LoadedPage, SiteBlockedError } from "./types";
 
-const USER_AGENT =
-  "job-ops-crawler/1.0 (+https://github.com/DaKheera47/job-ops)";
+const USER_AGENT = "job-ops-crawler/1.0 (+https://github.com/DaKheera47/job-ops)";
 const MAX_BYTES = 5 * 1024 * 1024;
 const PAGE_TIMEOUT = 20_000;
 const CONTEXT_CLOSE_TIMEOUT = 5_000;
@@ -43,9 +42,7 @@ function publicAddress(address: string): boolean {
     : head;
   const parts = words.map((word) => Number.parseInt(word, 16));
   if (parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff) {
-    return publicAddress(
-      `${parts[6] >> 8}.${parts[6] & 255}.${parts[7] >> 8}.${parts[7] & 255}`,
-    );
+    return publicAddress(`${parts[6] >> 8}.${parts[6] & 255}.${parts[7] >> 8}.${parts[7] & 255}`);
   }
   // Only global unicast; excludes loopback, ULA, link-local, multicast,
   // unspecified, NAT64 and other translation ranges. Exclude tunnel/docs ranges.
@@ -81,10 +78,7 @@ async function publicTarget(url: URL, signal: AbortSignal) {
   const addresses = isIP(hostname)
     ? [{ address: hostname, family: isIP(hostname) }]
     : await withAbort(lookup(hostname, { all: true, verbatim: true }), signal);
-  if (
-    !addresses.length ||
-    addresses.some(({ address }) => !publicAddress(address))
-  ) {
+  if (!addresses.length || addresses.some(({ address }) => !publicAddress(address))) {
     throw new Error("Crawler refuses non-public network addresses");
   }
   return addresses[0];
@@ -154,8 +148,7 @@ async function requestBytes(
           }
           const headers: Record<string, string> = {};
           for (const [key, value] of Object.entries(response.headers)) {
-            if (value !== undefined)
-              headers[key] = Array.isArray(value) ? value.join(", ") : value;
+            if (value !== undefined) headers[key] = Array.isArray(value) ? value.join(", ") : value;
           }
           if (REDIRECTS.has(status)) {
             response.destroy();
@@ -172,9 +165,7 @@ async function requestBytes(
           response.on("data", (chunk: Buffer) => {
             bytes += chunk.length;
             if (bytes > options.maxBytes) {
-              response.destroy(
-                new Error("Crawler response exceeds byte limit"),
-              );
+              response.destroy(new Error("Crawler response exceeds byte limit"));
               return;
             }
             chunks.push(chunk);
@@ -197,18 +188,13 @@ async function requestBytes(
       const location = result.headers.location;
       if (!location) throw new Error("Crawler redirect has no location");
       const next = safeUrl(new URL(location, url).href);
-      if (next.host !== originHost)
-        throw new Error("Crawler refuses cross-host redirects");
+      if (next.host !== originHost) throw new Error("Crawler refuses cross-host redirects");
       if (redirects >= 3) throw new Error("Crawler redirect limit exceeded");
       if (options.redirects === false) return result;
       url = next;
       continue;
     }
-    if (
-      /just a moment(?:\.{3}|…)?\s*<\/title>/i.test(
-        result.body.toString("utf8"),
-      )
-    ) {
+    if (/just a moment(?:\.{3}|…)?\s*<\/title>/i.test(result.body.toString("utf8"))) {
       throw new SiteBlockedError(url.hostname, "Cloudflare challenge");
     }
     return result;
@@ -240,10 +226,7 @@ interface RobotsRule {
   allow: boolean;
 }
 // Explicitly global: only public robots rules, never user settings or credentials.
-const robotsCache = new Map<
-  string,
-  { expires: number; rules: Promise<RobotsRule[]> }
->();
+const robotsCache = new Map<string, { expires: number; rules: Promise<RobotsRule[]> }>();
 
 function parseRobots(text: string): RobotsRule[] {
   const groups: { agents: string[]; rules: RobotsRule[] }[] = [];
@@ -264,19 +247,14 @@ function parseRobots(text: string): RobotsRule[] {
         hasDirectives = false;
       }
       group.agents.push(value.toLowerCase());
-    } else if (
-      group.agents.length &&
-      ["allow", "disallow", "crawl-delay"].includes(key)
-    ) {
+    } else if (group.agents.length && ["allow", "disallow", "crawl-delay"].includes(key)) {
       hasDirectives = true;
       if ((key === "allow" || key === "disallow") && value)
         group.rules.push({ pattern: value, allow: key === "allow" });
     }
   }
   groups.push(group);
-  return groups
-    .filter(({ agents }) => agents.includes("*"))
-    .flatMap(({ rules }) => rules);
+  return groups.filter(({ agents }) => agents.includes("*")).flatMap(({ rules }) => rules);
 }
 
 function normalizeRobotsPath(value: string): string {
@@ -336,16 +314,13 @@ export async function isAllowedByRobots(
     void rules.catch(() => {});
     entry = { expires: Date.now() + ROBOTS_TTL, rules };
     // Bound global state even when many arbitrary public hosts are supplied.
-    if (robotsCache.size >= 1000)
-      robotsCache.delete(robotsCache.keys().next().value as string);
+    if (robotsCache.size >= 1000) robotsCache.delete(robotsCache.keys().next().value as string);
     robotsCache.set(key, entry);
   }
   const path = normalizeRobotsPath(url.pathname + url.search);
   let length = -1;
   let allowed = true;
-  const rules = options.signal
-    ? await withAbort(entry.rules, options.signal)
-    : await entry.rules;
+  const rules = options.signal ? await withAbort(entry.rules, options.signal) : await entry.rules;
   for (const rule of rules) {
     const pattern = normalizeRobotsPath(rule.pattern);
     const specificity = Buffer.byteLength(pattern.replace(/[*$]/g, ""));
@@ -384,18 +359,10 @@ async function getBrowser(): Promise<Browser> {
         const entries = await readdir(root);
         const newest = entries
           .filter((name) => /^chromium_headless_shell-\d+$/.test(name))
-          .sort(
-            (a, b) => Number(b.split("-").at(-1)) - Number(a.split("-").at(-1)),
-          )[0];
+          .sort((a, b) => Number(b.split("-").at(-1)) - Number(a.split("-").at(-1)))[0];
         if (!newest)
-          throw new Error(
-            "Crawler Chromium is not installed; set CRAWLER_CHROMIUM_PATH",
-          );
-        executablePath = join(
-          root,
-          newest,
-          "chrome-headless-shell-linux64/chrome-headless-shell",
-        );
+          throw new Error("Crawler Chromium is not installed; set CRAWLER_CHROMIUM_PATH");
+        executablePath = join(root, newest, "chrome-headless-shell-linux64/chrome-headless-shell");
       }
       const browser = await chromium.launch({
         executablePath,
@@ -438,8 +405,7 @@ export async function loadPage(
   value: string,
   options: { render: boolean; waitFor?: string; signal?: AbortSignal },
 ): Promise<LoadedPage> {
-  if (!options.render)
-    return fetchPublicText(value, { signal: options.signal });
+  if (!options.render) return fetchPublicText(value, { signal: options.signal });
   const url = safeUrl(value);
   const signal = AbortSignal.any([
     AbortSignal.timeout(PAGE_TIMEOUT),
@@ -479,10 +445,7 @@ export async function loadPage(
     await context.route("**/*", async (route) => {
       const req = route.request();
       try {
-        if (
-          req.method() !== "GET" ||
-          ["image", "media", "font"].includes(req.resourceType())
-        ) {
+        if (req.method() !== "GET" || ["image", "media", "font"].includes(req.resourceType())) {
           await route.abort();
           return;
         }
@@ -511,8 +474,7 @@ export async function loadPage(
           body: result.body,
         });
       } catch (error) {
-        if (req.isNavigationRequest() && req.frame() === page.mainFrame())
-          routeError = error;
+        if (req.isNavigationRequest() && req.frame() === page.mainFrame()) routeError = error;
         await route.abort().catch(() => {});
       }
     });
@@ -522,15 +484,13 @@ export async function loadPage(
         waitUntil: "domcontentloaded",
         timeout: PAGE_TIMEOUT,
       });
-      if (options.waitFor)
-        await page.waitForSelector(options.waitFor, { state: "attached" });
+      if (options.waitFor) await page.waitForSelector(options.waitFor, { state: "attached" });
     } catch (error) {
       throw routeError ?? (signal.aborted ? signal.reason : error);
     }
     if (routeError) throw routeError;
     const html = await page.content();
-    if (Buffer.byteLength(html) > MAX_BYTES)
-      throw new Error("Crawler response exceeds byte limit");
+    if (Buffer.byteLength(html) > MAX_BYTES) throw new Error("Crawler response exceeds byte limit");
     if (/just a moment(?:\.{3}|…)?\s*<\/title>/i.test(html))
       throw new SiteBlockedError(url.hostname, "Cloudflare challenge");
     const finalUrl = safeUrl(page.url());

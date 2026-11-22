@@ -58,8 +58,7 @@ function parseGmailCredentials(
 
   const accessToken = asString(credentials.accessToken) ?? undefined;
   const expiryDate =
-    typeof credentials.expiryDate === "number" &&
-    Number.isFinite(credentials.expiryDate)
+    typeof credentials.expiryDate === "number" && Number.isFinite(credentials.expiryDate)
       ? credentials.expiryDate
       : undefined;
 
@@ -73,13 +72,8 @@ function parseGmailCredentials(
   };
 }
 
-function headerValue(
-  headers: Array<{ name?: string; value?: string }>,
-  name: string,
-): string {
-  const found = headers.find(
-    (header) => (header.name ?? "").toLowerCase() === name.toLowerCase(),
-  );
+function headerValue(headers: Array<{ name?: string; value?: string }>, name: string): string {
+  const found = headers.find((header) => (header.name ?? "").toLowerCase() === name.toLowerCase());
   return String(found?.value ?? "");
 }
 
@@ -92,8 +86,7 @@ function parseFromHeader(fromHeader: string): {
   const senderName = match?.[1]?.trim() || null;
   const fromAddress = (match?.[2] || fromHeader).trim().toLowerCase();
   const atIndex = fromAddress.indexOf("@");
-  const fromDomain =
-    atIndex > 0 ? fromAddress.slice(atIndex + 1).toLowerCase() : null;
+  const fromDomain = atIndex > 0 ? fromAddress.slice(atIndex + 1).toLowerCase() : null;
 
   return { fromAddress, fromDomain, senderName };
 }
@@ -139,9 +132,7 @@ async function createAutoStageEvent(args: {
   if (transition.toStage === "no_change") return;
 
   const eventLabel =
-    args.stageTarget === "applied"
-      ? "Email received"
-      : `Logged from email: ${args.stageTarget}`;
+    args.stageTarget === "applied" ? "Email received" : `Logged from email: ${args.stageTarget}`;
 
   transitionStage(
     args.jobId,
@@ -165,15 +156,13 @@ async function runWithConcurrency<T>(
 ): Promise<void> {
   if (items.length === 0) return;
   const queue = [...items];
-  const workers = Array.from({ length: Math.max(1, concurrency) }).map(
-    async () => {
-      while (queue.length > 0) {
-        const next = queue.shift();
-        if (!next) return;
-        await worker(next);
-      }
-    },
-  );
+  const workers = Array.from({ length: Math.max(1, concurrency) }).map(async () => {
+    while (queue.length > 0) {
+      const next = queue.shift();
+      if (!next) return;
+      await worker(next);
+    }
+  });
   await Promise.all(workers);
 }
 
@@ -182,13 +171,8 @@ export async function runGmailIngestionSync(args: {
   maxMessages?: number;
   searchDays?: number;
 }): Promise<GmailSyncSummary> {
-  const integration = await getPostApplicationIntegration(
-    "gmail",
-    args.accountKey,
-  );
-  const parsedCredentials = parseGmailCredentials(
-    integration?.credentials ?? null,
-  );
+  const integration = await getPostApplicationIntegration("gmail", args.accountKey);
+  const parsedCredentials = parseGmailCredentials(integration?.credentials ?? null);
   if (!integration || !parsedCredentials) {
     throw new Error(`Gmail account '${args.accountKey}' is not connected.`);
   }
@@ -209,8 +193,7 @@ export async function runGmailIngestionSync(args: {
   let errored = 0;
 
   try {
-    const resolvedCredentials =
-      await resolveGmailAccessToken(parsedCredentials);
+    const resolvedCredentials = await resolveGmailAccessToken(parsedCredentials);
     if (!resolvedCredentials.accessToken) {
       throw new Error("Gmail sync failed to resolve access token.");
     }
@@ -235,24 +218,13 @@ export async function runGmailIngestionSync(args: {
       });
     }
 
-    const messageIds = await listMessageIds(
-      accessToken,
-      searchDays,
-      maxMessages,
-    );
-    const activeJobs = await getAllJobs([
-      "applied",
-      "in_progress",
-      "processing",
-    ]);
+    const messageIds = await listMessageIds(accessToken, searchDays, maxMessages);
+    const activeJobs = await getAllJobs(["applied", "in_progress", "processing"]);
     const activeJobMinified = minifyActiveJobs(activeJobs);
     const activeJobIds = new Set(activeJobMinified.map((job) => job.id));
     const concurrency = Math.max(
       1,
-      Number.parseInt(
-        process.env.POST_APPLICATION_ROUTER_CONCURRENCY ?? "3",
-        10,
-      ) || 3,
+      Number.parseInt(process.env.POST_APPLICATION_ROUTER_CONCURRENCY ?? "3", 10) || 3,
     );
 
     await runWithConcurrency(messageIds, concurrency, async (message) => {
@@ -287,8 +259,7 @@ export async function runGmailIngestionSync(args: {
               receivedAt,
               snippet: metadata.snippet,
               classificationLabel: existingMessage.classificationLabel,
-              classificationConfidence:
-                existingMessage.classificationConfidence,
+              classificationConfidence: existingMessage.classificationConfidence,
               classificationPayload: existingMessage.classificationPayload,
               relevanceLlmScore: existingMessage.relevanceLlmScore,
               relevanceDecision: existingMessage.relevanceDecision,
@@ -346,38 +317,35 @@ export async function runGmailIngestionSync(args: {
           isRelevantOrphan,
         });
 
-        const { message: savedMessage, autoLinkTransitioned } =
-          await upsertPostApplicationMessage({
-            provider: "gmail",
-            accountKey: args.accountKey,
-            integrationId: integration.id,
-            syncRunId: syncRun.id,
-            externalMessageId: metadata.id,
-            externalThreadId: metadata.threadId,
-            fromAddress,
-            fromDomain,
-            senderName,
-            subject,
-            receivedAt,
-            snippet: metadata.snippet,
-            classificationLabel: routerResult.stageTarget,
-            classificationConfidence: routerResult.confidence / 100,
-            classificationPayload: {
-              method: "smart_router",
-              reason: routerResult.reason,
-              stageTarget: routerResult.stageTarget,
-            },
-            relevanceLlmScore: routerResult.confidence,
-            relevanceDecision: routerResult.isRelevant
-              ? "relevant"
-              : "not_relevant",
-            matchedJobId: isAutoLinked || isPendingMatch ? matchedJobId : null,
-            matchConfidence: routerResult.confidence,
+        const { message: savedMessage, autoLinkTransitioned } = await upsertPostApplicationMessage({
+          provider: "gmail",
+          accountKey: args.accountKey,
+          integrationId: integration.id,
+          syncRunId: syncRun.id,
+          externalMessageId: metadata.id,
+          externalThreadId: metadata.threadId,
+          fromAddress,
+          fromDomain,
+          senderName,
+          subject,
+          receivedAt,
+          snippet: metadata.snippet,
+          classificationLabel: routerResult.stageTarget,
+          classificationConfidence: routerResult.confidence / 100,
+          classificationPayload: {
+            method: "smart_router",
+            reason: routerResult.reason,
             stageTarget: routerResult.stageTarget,
-            messageType: routerResult.messageType,
-            stageEventPayload: routerResult.stageEventPayload,
-            processingStatus,
-          });
+          },
+          relevanceLlmScore: routerResult.confidence,
+          relevanceDecision: routerResult.isRelevant ? "relevant" : "not_relevant",
+          matchedJobId: isAutoLinked || isPendingMatch ? matchedJobId : null,
+          matchConfidence: routerResult.confidence,
+          stageTarget: routerResult.stageTarget,
+          messageType: routerResult.messageType,
+          stageEventPayload: routerResult.stageEventPayload,
+          processingStatus,
+        });
 
         if (savedMessage.processingStatus !== "ignored") {
           relevant += 1;

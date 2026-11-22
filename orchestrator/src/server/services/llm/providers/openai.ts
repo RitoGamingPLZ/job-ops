@@ -1,9 +1,4 @@
-import type {
-  LlmMessage,
-  LlmMessageContent,
-  LlmRequestOptions,
-  ResponseMode,
-} from "../types";
+import type { LlmMessage, LlmMessageContent, LlmRequestOptions, ResponseMode } from "../types";
 import { getLlmMessageText } from "../types";
 import { buildHeaders, joinUrl } from "../utils/http";
 import { getNestedValue } from "../utils/object";
@@ -16,9 +11,7 @@ export const openAiStrategy = createProviderStrategy({
   modes: ["json_schema", "json_object", "none"],
   validationPaths: ["/v1/models"],
   buildRequest: ({ mode, baseUrl, apiKey, model, messages, jsonSchema }) => {
-    const input = ensureJsonInstructionIfNeeded(messages, mode).map(
-      toResponsesInputMessage,
-    );
+    const input = ensureJsonInstructionIfNeeded(messages, mode).map(toResponsesInputMessage);
     const body: Record<string, unknown> = {
       model,
       input,

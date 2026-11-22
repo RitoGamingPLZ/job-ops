@@ -163,8 +163,7 @@ describe("resolveWritingOutputLanguage", () => {
               {
                 hidden: false,
                 name: "Plateforme interne",
-                description:
-                  "Responsable des APIs et du développement pour les équipes produit.",
+                description: "Responsable des APIs et du développement pour les équipes produit.",
               },
             ],
           },
@@ -241,8 +240,7 @@ describe("resolveWritingOutputLanguage", () => {
           manualLanguage: "french",
         },
         resumeJson,
-        jobDescription:
-          "Wir suchen Erfahrung mit Entwicklung und Verantwortung für APIs.",
+        jobDescription: "Wir suchen Erfahrung mit Entwicklung und Verantwortung für APIs.",
       }),
     ).toEqual({
       language: "german",

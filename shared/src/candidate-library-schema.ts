@@ -12,8 +12,7 @@ const websiteSchema = z
   })
   .strict();
 const website = z.preprocess(
-  (value) =>
-    typeof value === "string" ? { url: value, label: "" } : (value ?? {}),
+  (value) => (typeof value === "string" ? { url: value, label: "" } : (value ?? {})),
   websiteSchema,
 );
 const common = {
@@ -31,36 +30,17 @@ export const educationDataSchema = z
     grade: scalar,
   })
   .passthrough();
-export const awardDataSchema = z
-  .object({ ...common, date, awarder: scalar })
-  .passthrough();
-export const certificationDataSchema = z
-  .object({ ...common, issuer: scalar, date })
-  .passthrough();
+export const awardDataSchema = z.object({ ...common, date, awarder: scalar }).passthrough();
+export const certificationDataSchema = z.object({ ...common, issuer: scalar, date }).passthrough();
 export type LibraryWebsite = z.infer<typeof websiteSchema>;
 export type EducationLibraryData = z.infer<typeof educationDataSchema>;
 export type AwardLibraryData = z.infer<typeof awardDataSchema>;
 export type CertificationLibraryData = z.infer<typeof certificationDataSchema>;
-export function parseLibraryData(
-  kind: "education",
-  data: unknown,
-): EducationLibraryData;
-export function parseLibraryData(
-  kind: "award",
-  data: unknown,
-): AwardLibraryData;
-export function parseLibraryData(
-  kind: "certification",
-  data: unknown,
-): CertificationLibraryData;
-export function parseLibraryData(
-  kind: CandidateItemKind,
-  data: unknown,
-): Record<string, unknown>;
-export function parseLibraryData(
-  kind: CandidateItemKind,
-  data: unknown,
-): Record<string, unknown> {
+export function parseLibraryData(kind: "education", data: unknown): EducationLibraryData;
+export function parseLibraryData(kind: "award", data: unknown): AwardLibraryData;
+export function parseLibraryData(kind: "certification", data: unknown): CertificationLibraryData;
+export function parseLibraryData(kind: CandidateItemKind, data: unknown): Record<string, unknown>;
+export function parseLibraryData(kind: CandidateItemKind, data: unknown): Record<string, unknown> {
   const schema =
     kind === "education"
       ? educationDataSchema

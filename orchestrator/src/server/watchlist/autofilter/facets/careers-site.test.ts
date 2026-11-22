@@ -56,15 +56,12 @@ it("parses bounded FacetWP HTML choices and exact total without executing script
       facets: {
         departments:
           '<select multiple><option value="">All</option><option value="engineering" data-counter="54">Engineering</option><option value="legal" data-counter="4">Legal</option></select>',
-        workplace_type:
-          '<div data-value="remote" data-counter="30">Remote</div>',
+        workplace_type: '<div data-value="remote" data-counter="30">Remote</div>',
         paged: '<select><option value="2">2</option></select>',
       },
     },
   };
-  page(
-    `<script>window.shouldNotRun = true; FWP_JSON = ${JSON.stringify(data)};</script>`,
-  );
+  page(`<script>window.shouldNotRun = true; FWP_JSON = ${JSON.stringify(data)};</script>`);
   expect(await discoverCareersSiteFacets({ careersUrl: url })).toEqual({
     countFiltered: expect.any(Function),
     unfilteredTotal: 205,
@@ -107,21 +104,18 @@ it.each([
 });
 it("does not load robots-disallowed pages", async () => {
   vi.mocked(isAllowedByRobots).mockResolvedValue(false);
-  await expect(
-    discoverCareersSiteFacets({ careersUrl: url }),
-  ).rejects.toMatchObject({ name: "SiteBlockedError" });
+  await expect(discoverCareersSiteFacets({ careersUrl: url })).rejects.toMatchObject({
+    name: "SiteBlockedError",
+  });
   expect(loadPage).not.toHaveBeenCalled();
 });
-it.each([
-  "invalid",
-  "http://careers.example.com/",
-  "https://user:pass@careers.example.com/",
-])("rejects invalid input %s before network", async (careersUrl) => {
-  await expect(discoverCareersSiteFacets({ careersUrl })).rejects.toMatchObject(
-    { status: 400 },
-  );
-  expect(isAllowedByRobots).not.toHaveBeenCalled();
-});
+it.each(["invalid", "http://careers.example.com/", "https://user:pass@careers.example.com/"])(
+  "rejects invalid input %s before network",
+  async (careersUrl) => {
+    await expect(discoverCareersSiteFacets({ careersUrl })).rejects.toMatchObject({ status: 400 });
+    expect(isAllowedByRobots).not.toHaveBeenCalled();
+  },
+);
 it("preserves cancellation and safe upstream failures", async () => {
   const controller = new AbortController();
   controller.abort();
@@ -134,9 +128,7 @@ it("preserves cancellation and safe upstream failures", async () => {
     status: 500,
     html: "private upstream body",
   });
-  await expect(
-    discoverCareersSiteFacets({ careersUrl: url }),
-  ).rejects.toMatchObject({
+  await expect(discoverCareersSiteFacets({ careersUrl: url })).rejects.toMatchObject({
     status: 502,
     message: "Careers facets returned HTTP 500.",
   });
@@ -173,38 +165,30 @@ it("bounds the prompt to 12 keys with at most 60 values each", async () => {
   );
   const result = await discoverCareersSiteFacets({ careersUrl: url });
   expect(result.params).toHaveLength(12);
-  expect(result.params.every((param) => param.values?.length === 60)).toBe(
-    true,
-  );
+  expect(result.params.every((param) => param.values?.length === 60)).toBe(true);
 });
-it.each([
-  true,
-  false,
-])("counts the built filtered listing using the same method (FacetWP=%s)", async (facetwp) => {
-  const html = (count: number) =>
-    facetwp
-      ? `<script>FWP_JSON = ${JSON.stringify({ preload_data: { settings: { pager: { total_rows: count } } } })};</script>`
-      : Array.from(
-          { length: count },
-          (_, i) => `<a href="/positions/${i}">Job</a>`,
-        ).join("");
-  page(html(100));
-  const facets = await discoverCareersSiteFacets({ careersUrl: url });
-  page(html(25));
-  const signal = new AbortController().signal;
-  expect(
-    await facets.countFiltered?.({
-      careersUrl: `${url}?team=engineering`,
+it.each([true, false])(
+  "counts the built filtered listing using the same method (FacetWP=%s)",
+  async (facetwp) => {
+    const html = (count: number) =>
+      facetwp
+        ? `<script>FWP_JSON = ${JSON.stringify({ preload_data: { settings: { pager: { total_rows: count } } } })};</script>`
+        : Array.from({ length: count }, (_, i) => `<a href="/positions/${i}">Job</a>`).join("");
+    page(html(100));
+    const facets = await discoverCareersSiteFacets({ careersUrl: url });
+    page(html(25));
+    const signal = new AbortController().signal;
+    expect(
+      await facets.countFiltered?.({
+        careersUrl: `${url}?team=engineering`,
+        signal,
+      }),
+    ).toBe(25);
+    expect(facets.unfilteredTotal).toBe(100);
+    expect(isAllowedByRobots).toHaveBeenLastCalledWith(`${url}?team=engineering`, { signal });
+    expect(loadPage).toHaveBeenLastCalledWith(`${url}?team=engineering`, {
+      render: false,
       signal,
-    }),
-  ).toBe(25);
-  expect(facets.unfilteredTotal).toBe(100);
-  expect(isAllowedByRobots).toHaveBeenLastCalledWith(
-    `${url}?team=engineering`,
-    { signal },
-  );
-  expect(loadPage).toHaveBeenLastCalledWith(`${url}?team=engineering`, {
-    render: false,
-    signal,
-  });
-});
+    });
+  },
+);

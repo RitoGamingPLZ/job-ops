@@ -21,10 +21,7 @@ type AiAssistComposerProps = {
   placeholder?: string;
   allowScreenshots?: boolean;
   onStop?: () => Promise<void>;
-  onSend: (
-    content: string,
-    attachments: JobChatImageAttachment[],
-  ) => Promise<void>;
+  onSend: (content: string, attachments: JobChatImageAttachment[]) => Promise<void>;
   onReset?: () => void;
 };
 
@@ -73,8 +70,7 @@ export const AiAssistComposer: React.FC<AiAssistComposerProps> = ({
         dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(String(reader.result || ""));
-          reader.onerror = () =>
-            reject(reader.error ?? new Error("Could not read screenshot"));
+          reader.onerror = () => reject(reader.error ?? new Error("Could not read screenshot"));
           reader.readAsDataURL(file);
         });
       } catch {
@@ -121,9 +117,7 @@ export const AiAssistComposer: React.FC<AiAssistComposerProps> = ({
         <ScreenshotAttachmentPreview
           attachments={attachments}
           onRemove={(attachment) =>
-            setAttachments((current) =>
-              current.filter((item) => item.id !== attachment.id),
-            )
+            setAttachments((current) => current.filter((item) => item.id !== attachment.id))
           }
         />
       )}

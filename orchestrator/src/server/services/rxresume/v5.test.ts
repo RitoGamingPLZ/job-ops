@@ -28,8 +28,7 @@ function jsonResponse(data: unknown, ok = true, status = 200) {
     status,
     statusText: ok ? "OK" : "Error",
     headers: {
-      get: (name: string) =>
-        name.toLowerCase() === "content-type" ? "application/json" : null,
+      get: (name: string) => (name.toLowerCase() === "content-type" ? "application/json" : null),
     },
     json: async () => data,
     text: async () => JSON.stringify(data),
@@ -42,8 +41,7 @@ function pdfResponse(bytes: Uint8Array, ok = true, status = 200) {
     status,
     statusText: ok ? "OK" : "Error",
     headers: {
-      get: (name: string) =>
-        name.toLowerCase() === "content-type" ? "application/pdf" : null,
+      get: (name: string) => (name.toLowerCase() === "content-type" ? "application/pdf" : null),
     },
     arrayBuffer: async () => bytes.buffer.slice(0),
     json: async () => {
@@ -117,8 +115,7 @@ describe("rxresume v5 endpoints", () => {
     });
 
     expect(
-      (result.data as Record<string, any>).sections.experience.items[0].website
-        .inlineLink,
+      (result.data as Record<string, any>).sections.experience.items[0].website.inlineLink,
     ).toBe(true);
   });
 
@@ -126,9 +123,7 @@ describe("rxresume v5 endpoints", () => {
     const mockFetch = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(
-        jsonResponse({ id: "resume-123", name: "Resume", slug: "resume" }),
-      )
+      .mockResolvedValueOnce(jsonResponse({ id: "resume-123", name: "Resume", slug: "resume" }))
       .mockResolvedValueOnce(jsonResponse({ id: "imported-123" }))
       .mockResolvedValueOnce(jsonResponse({ ok: true }))
       .mockResolvedValueOnce(pdfResponse(new Uint8Array([37, 80, 68, 70])));
@@ -178,9 +173,7 @@ describe("rxresume v5 endpoints", () => {
   it("supports older PDF export responses that return a download URL", async () => {
     const mockFetch = vi
       .fn()
-      .mockResolvedValue(
-        jsonResponse({ url: "https://rxresu.me/storage/resume-123.pdf" }),
-      );
+      .mockResolvedValue(jsonResponse({ url: "https://rxresu.me/storage/resume-123.pdf" }));
     vi.stubGlobal("fetch", mockFetch);
 
     await expect(
@@ -203,9 +196,7 @@ describe("rxresume v5 endpoints", () => {
         baseUrl: "https://rxresu.me",
         apiKey: "test-key",
       }),
-    ).rejects.toThrow(
-      "Reactive Resume returned an unexpected PDF export response shape.",
-    );
+    ).rejects.toThrow("Reactive Resume returned an unexpected PDF export response shape.");
   });
 
   it("preserves current v5 templates during import", async () => {
@@ -231,9 +222,7 @@ describe("rxresume v5 endpoints", () => {
         picture: ["Invalid input: expected boolean, received undefined"],
       },
     };
-    const mockFetch = vi
-      .fn()
-      .mockResolvedValue(jsonResponse(errorPayload, false, 400));
+    const mockFetch = vi.fn().mockResolvedValue(jsonResponse(errorPayload, false, 400));
     vi.stubGlobal("fetch", mockFetch);
 
     await expect(

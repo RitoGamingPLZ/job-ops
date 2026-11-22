@@ -27,9 +27,7 @@ export function ChartKpiPanel({
       <div className="flex flex-col gap-1">
         <span className="text-xs text-muted-foreground">{label}</span>
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold leading-none sm:text-3xl">
-            {rate.toFixed(1)}%
-          </span>
+          <span className="text-lg font-bold leading-none sm:text-3xl">{rate.toFixed(1)}%</span>
           {rate < lowThreshold ? (
             <TrendingDown className="h-4 w-4 text-destructive" />
           ) : rate > highThreshold ? (

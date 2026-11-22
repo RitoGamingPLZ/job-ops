@@ -8,10 +8,7 @@ import { JobDocumentsPanel } from "./JobDocumentsPanel";
 vi.mock("@client/api", () => ({
   getJobDocuments: vi.fn().mockResolvedValue([]),
 }));
-it.each([
-  false,
-  true,
-])("exposes the editor and PDF preview (uploaded: %s)", (uploaded) => {
+it.each([false, true])("exposes the editor and PDF preview (uploaded: %s)", (uploaded) => {
   const preview = vi.fn();
   renderWithQueryClient(
     <MemoryRouter>
@@ -42,10 +39,7 @@ it.each([
   expect(document.querySelector('a[href*="inspector=tailoring"]')).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Preview PDF" }));
   expect(preview).toHaveBeenCalledOnce();
-  if (uploaded)
-    expect(
-      screen.getByText("Uploaded PDF (not from the editor)"),
-    ).toBeVisible();
+  if (uploaded) expect(screen.getByText("Uploaded PDF (not from the editor)")).toBeVisible();
 });
 
 it.each([

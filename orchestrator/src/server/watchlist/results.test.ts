@@ -180,10 +180,7 @@ describe("watchlist results service", () => {
   });
 
   it("fetches sources, records checks, and annotates ignored/imported jobs", async () => {
-    const result = await getWatchlistResultsForSources([
-      workdaySource,
-      bamboohrSource,
-    ]);
+    const result = await getWatchlistResultsForSources([workdaySource, bamboohrSource]);
 
     expect(watchlistRepo.recordWatchlistCheck).toHaveBeenCalledWith({
       checks: [
@@ -194,13 +191,11 @@ describe("watchlist results service", () => {
     expect(result.checkedAt).toBe("2026-01-02T00:00:00.000Z");
     expect(result.sources).toHaveLength(2);
 
-    const workdayJobs =
-      result.sources[0]?.status === "success" ? result.sources[0].jobs : [];
+    const workdayJobs = result.sources[0]?.status === "success" ? result.sources[0].jobs : [];
     expect(workdayJobs.map((job) => job.rowState)).toEqual(["new", "ignored"]);
     expect(workdayJobs[0]?.isNewSinceLastCheck).toBe(true);
 
-    const bamboohrJobs =
-      result.sources[1]?.status === "success" ? result.sources[1].jobs : [];
+    const bamboohrJobs = result.sources[1]?.status === "success" ? result.sources[1].jobs : [];
     expect(bamboohrJobs[0]?.rowState).toBe("moved_to_workspace");
     expect(bamboohrJobs[0]?.workspaceJob).toEqual({
       id: "workspace-job",
@@ -223,13 +218,12 @@ describe("watchlist results service", () => {
         : workingAdapter,
     );
     let finished = false;
-    const pending = getWatchlistResultsForSources([
-      workdaySource,
-      bamboohrSource,
-    ]).then((result) => {
-      finished = true;
-      return result;
-    });
+    const pending = getWatchlistResultsForSources([workdaySource, bamboohrSource]).then(
+      (result) => {
+        finished = true;
+        return result;
+      },
+    );
 
     await vi.advanceTimersByTimeAsync(WATCHLIST_SOURCE_TIMEOUT_MS - 1);
     expect(finished).toBe(false);
@@ -255,9 +249,7 @@ describe("watchlist results service", () => {
 
   it("clears the source timer after success or an adapter error", async () => {
     vi.useFakeTimers();
-    await expect(withWatchlistSourceTimeout(async () => "done")).resolves.toBe(
-      "done",
-    );
+    await expect(withWatchlistSourceTimeout(async () => "done")).resolves.toBe("done");
     await expect(
       withWatchlistSourceTimeout(async () => {
         throw new Error("adapter failed");

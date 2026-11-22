@@ -43,9 +43,7 @@ export function rememberSsoFlow(
   // Evicting live entries would break sign-ins that are already in flight, so
   // the newcomer is turned away instead.
   if (flows.size >= SSO_STATE_MAX_ENTRIES) {
-    throw serviceUnavailable(
-      "Too many sign-in attempts in progress, try again shortly",
-    );
+    throw serviceUnavailable("Too many sign-in attempts in progress, try again shortly");
   }
 
   const stored: SsoFlowState = { ...flow, createdAt: now };

@@ -23,11 +23,7 @@ vi.mock("node:child_process", () => ({
 }));
 
 function createMockProcess(
-  configure: (
-    stdout: PassThrough,
-    stderr: PassThrough,
-    proc: EventEmitter,
-  ) => void,
+  configure: (stdout: PassThrough, stderr: PassThrough, proc: EventEmitter) => void,
 ): ChildProcessWithoutNullStreams {
   const stdin = new PassThrough();
   const stdout = new PassThrough();
@@ -78,9 +74,7 @@ describe("codex device login service", () => {
 
     expect(snapshot.status).toBe("running");
     expect(snapshot.loginInProgress).toBe(true);
-    expect(snapshot.verificationUrl).toBe(
-      "https://auth.openai.com/codex/device",
-    );
+    expect(snapshot.verificationUrl).toBe("https://auth.openai.com/codex/device");
     expect(snapshot.userCode).toBe("HU0J-CGNH0");
     expect(snapshot.expiresAt).not.toBeNull();
 
@@ -170,9 +164,7 @@ describe("codex device login service", () => {
       }),
     );
 
-    await expect(startCodexDeviceAuth()).rejects.toThrow(
-      /device code|login exited/i,
-    );
+    await expect(startCodexDeviceAuth()).rejects.toThrow(/device code|login exited/i);
     expect(getCodexDeviceAuthSnapshot().status).toBe("failed");
   });
 
@@ -188,9 +180,7 @@ describe("codex device login service", () => {
       }),
     );
 
-    await expect(startCodexDeviceAuth()).rejects.toThrow(
-      /ChatGPT Security Settings/i,
-    );
+    await expect(startCodexDeviceAuth()).rejects.toThrow(/ChatGPT Security Settings/i);
     const snapshot = getCodexDeviceAuthSnapshot();
     expect(snapshot.status).toBe("failed");
     expect(snapshot.message).toMatch(/Security Settings/i);

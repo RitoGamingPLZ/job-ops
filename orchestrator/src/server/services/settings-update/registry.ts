@@ -10,9 +10,7 @@ import { settingsRegistry } from "@shared/settings-registry";
 import type { UpdateSettingsInput } from "@shared/settings-schema";
 import { LLM_PURPOSE_VALUES, type LlmPurposeApiKeys } from "@shared/types";
 
-export type DeferredSideEffect =
-  | "refreshBackupScheduler"
-  | "clearRxResumeCaches";
+export type DeferredSideEffect = "refreshBackupScheduler" | "clearRxResumeCaches";
 
 export type SettingsUpdateAction = {
   settingKey: SettingKey;
@@ -41,9 +39,7 @@ export type SettingsUpdatePlan = {
   updatedSettingKeys: SettingKey[];
 };
 
-const LEGACY_SETTINGS_TO_CLEAR_ON_UPDATE: Partial<
-  Record<SettingKey, SettingKey[]>
-> = {
+const LEGACY_SETTINGS_TO_CLEAR_ON_UPDATE: Partial<Record<SettingKey, SettingKey[]>> = {
   searchCities: ["jobspyLocation"],
 };
 
@@ -83,8 +79,7 @@ const RXRESUME_CACHE_INVALIDATION_KEYS = new Set<keyof UpdateSettingsInput>([
 ]);
 
 for (const [key, def] of Object.entries(settingsRegistry)) {
-  const targetKey =
-    def.kind === "alias" ? (def.target as SettingKey) : (key as SettingKey);
+  const targetKey = def.kind === "alias" ? (def.target as SettingKey) : (key as SettingKey);
   const isBackup = key.startsWith("backup");
 
   // Special case for resumeProjects
@@ -137,8 +132,7 @@ for (const [key, def] of Object.entries(settingsRegistry)) {
       for (const purpose of LLM_PURPOSE_VALUES) {
         if (!Object.hasOwn(value, purpose)) continue;
         const rawValue = value[purpose];
-        const normalized =
-          typeof rawValue === "string" ? rawValue.trim() : rawValue;
+        const normalized = typeof rawValue === "string" ? rawValue.trim() : rawValue;
         if (!normalized) {
           delete next[purpose];
           continue;
@@ -166,9 +160,7 @@ for (const [key, def] of Object.entries(settingsRegistry)) {
     if (isBackup) {
       deferred.push("refreshBackupScheduler");
     }
-    if (
-      RXRESUME_CACHE_INVALIDATION_KEYS.has(key as keyof UpdateSettingsInput)
-    ) {
+    if (RXRESUME_CACHE_INVALIDATION_KEYS.has(key as keyof UpdateSettingsInput)) {
       deferred.push("clearRxResumeCaches");
     }
 

@@ -1,13 +1,7 @@
 import { conflict } from "@infra/errors";
 import { logger } from "@infra/logger";
-import {
-  createConfiguredLlmService,
-  resolveLlmModel,
-} from "@server/services/modelSelection";
-import type {
-  ResumeProfile,
-  SearchTermsSuggestionResponse,
-} from "@shared/types";
+import { createConfiguredLlmService, resolveLlmModel } from "@server/services/modelSelection";
+import type { ResumeProfile, SearchTermsSuggestionResponse } from "@shared/types";
 import {
   MAX_SEARCH_TERM_LENGTH,
   MAX_SEARCH_TERMS,
@@ -66,22 +60,15 @@ function dedupe(values: string[], maxItems = MAX_SEARCH_TERMS): string[] {
   });
 }
 
-export function collectSearchTermContext(
-  profile: ResumeProfile,
-): SearchTermContext {
+export function collectSearchTermContext(profile: ResumeProfile): SearchTermContext {
   const experienceItems =
-    profile.sections?.experience?.items?.filter((item) => isVisible(item)) ??
-    [];
-  const projectItems =
-    profile.sections?.projects?.items?.filter((item) => isVisible(item)) ?? [];
-  const skillItems =
-    profile.sections?.skills?.items?.filter((item) => isVisible(item)) ?? [];
+    profile.sections?.experience?.items?.filter((item) => isVisible(item)) ?? [];
+  const projectItems = profile.sections?.projects?.items?.filter((item) => isVisible(item)) ?? [];
+  const skillItems = profile.sections?.skills?.items?.filter((item) => isVisible(item)) ?? [];
 
   return {
     headline: toTrimmed(profile.basics?.headline || profile.basics?.label),
-    summary: toTrimmed(
-      profile.basics?.summary || profile.sections?.summary?.content,
-    ),
+    summary: toTrimmed(profile.basics?.summary || profile.sections?.summary?.content),
     experiencePositions: dedupe(
       experienceItems.map((item) => toTrimmed(item.position)),
       12,
@@ -90,36 +77,28 @@ export function collectSearchTermContext(
       projectItems.map((item) => toTrimmed(item.name)),
       12,
     ),
-    projectKeywords: dedupe(
-      projectItems.flatMap((item) => item.keywords ?? []).map(toTrimmed),
-      20,
-    ),
+    projectKeywords: dedupe(projectItems.flatMap((item) => item.keywords ?? []).map(toTrimmed), 20),
     skillNames: dedupe(
       skillItems.map((item) => toTrimmed(item.name)),
       20,
     ),
-    skillKeywords: dedupe(
-      skillItems.flatMap((item) => item.keywords ?? []).map(toTrimmed),
-      30,
-    ),
+    skillKeywords: dedupe(skillItems.flatMap((item) => item.keywords ?? []).map(toTrimmed), 30),
   };
 }
 
 function hasUsableContext(context: SearchTermContext): boolean {
   return Boolean(
     context.headline ||
-      context.summary ||
-      context.experiencePositions.length > 0 ||
-      context.projectNames.length > 0 ||
-      context.projectKeywords.length > 0 ||
-      context.skillNames.length > 0 ||
-      context.skillKeywords.length > 0,
+    context.summary ||
+    context.experiencePositions.length > 0 ||
+    context.projectNames.length > 0 ||
+    context.projectKeywords.length > 0 ||
+    context.skillNames.length > 0 ||
+    context.skillKeywords.length > 0,
   );
 }
 
-export function buildFallbackSearchTerms(
-  profile: ResumeProfile,
-): SearchTermsSuggestionResponse {
+export function buildFallbackSearchTerms(profile: ResumeProfile): SearchTermsSuggestionResponse {
   const context = collectSearchTermContext(profile);
 
   return {
@@ -167,24 +146,18 @@ async function suggestOnboardingSearchTermsImpl(): Promise<SearchTermsSuggestion
   try {
     profile = await getProfile();
   } catch (error) {
-    logger.warn(
-      "Onboarding search-term suggestion skipped because no resume is available",
-      {
-        route: "POST /api/onboarding/search-terms/suggest",
-        error,
-      },
-    );
+    logger.warn("Onboarding search-term suggestion skipped because no resume is available", {
+      route: "POST /api/onboarding/search-terms/suggest",
+      error,
+    });
     throw conflict("Resume must be configured before suggesting search terms.");
   }
 
   const context = collectSearchTermContext(profile);
   if (!hasUsableContext(context)) {
-    logger.warn(
-      "Onboarding search-term suggestion skipped because resume context was empty",
-      {
-        route: "POST /api/onboarding/search-terms/suggest",
-      },
-    );
+    logger.warn("Onboarding search-term suggestion skipped because resume context was empty", {
+      route: "POST /api/onboarding/search-terms/suggest",
+    });
     throw conflict("Resume must be configured before suggesting search terms.");
   }
 
@@ -200,33 +173,23 @@ async function suggestOnboardingSearchTermsImpl(): Promise<SearchTermsSuggestion
     });
 
     if (!result.success) {
-      logger.warn(
-        "Onboarding search-term suggestion fell back after AI generation failed",
-        {
-          route: "POST /api/onboarding/search-terms/suggest",
-          error: result.error,
-          fallbackTermsCount: fallback.terms.length,
-        },
-      );
+      logger.warn("Onboarding search-term suggestion fell back after AI generation failed", {
+        route: "POST /api/onboarding/search-terms/suggest",
+        error: result.error,
+        fallbackTermsCount: fallback.terms.length,
+      });
       if (fallback.terms.length > 0) return fallback;
-      throw conflict(
-        "Resume must be configured before suggesting search terms.",
-      );
+      throw conflict("Resume must be configured before suggesting search terms.");
     }
 
     const terms = dedupe(result.data?.terms ?? []);
     if (terms.length === 0) {
-      logger.warn(
-        "Onboarding search-term suggestion produced no usable AI terms",
-        {
-          route: "POST /api/onboarding/search-terms/suggest",
-          fallbackTermsCount: fallback.terms.length,
-        },
-      );
+      logger.warn("Onboarding search-term suggestion produced no usable AI terms", {
+        route: "POST /api/onboarding/search-terms/suggest",
+        fallbackTermsCount: fallback.terms.length,
+      });
       if (fallback.terms.length > 0) return fallback;
-      throw conflict(
-        "Resume must be configured before suggesting search terms.",
-      );
+      throw conflict("Resume must be configured before suggesting search terms.");
     }
 
     return {
@@ -234,14 +197,11 @@ async function suggestOnboardingSearchTermsImpl(): Promise<SearchTermsSuggestion
       source: "ai",
     };
   } catch (error) {
-    logger.warn(
-      "Onboarding search-term suggestion fell back after unexpected generation error",
-      {
-        route: "POST /api/onboarding/search-terms/suggest",
-        error,
-        fallbackTermsCount: fallback.terms.length,
-      },
-    );
+    logger.warn("Onboarding search-term suggestion fell back after unexpected generation error", {
+      route: "POST /api/onboarding/search-terms/suggest",
+      error,
+      fallbackTermsCount: fallback.terms.length,
+    });
     if (fallback.terms.length > 0) return fallback;
     throw conflict("Resume must be configured before suggesting search terms.");
   }

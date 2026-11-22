@@ -38,11 +38,7 @@ class MockResizeObserver implements ResizeObserver {
   }
 }
 
-const defineDimensionProperty = (
-  target: object,
-  key: string,
-  value: number,
-) => {
+const defineDimensionProperty = (target: object, key: string, value: number) => {
   Object.defineProperty(target, key, {
     configurable: true,
     get: () => value,
@@ -60,10 +56,7 @@ const getMeasurement = (element: Element): ElementMeasurement => {
   );
 };
 
-export const mockElementMeasurement = (
-  element: Element,
-  measurement: ElementMeasurement,
-) => {
+export const mockElementMeasurement = (element: Element, measurement: ElementMeasurement) => {
   const next = {
     top: 0,
     left: 0,
@@ -98,10 +91,7 @@ export const mockElementMeasurement = (
   });
 };
 
-export const triggerElementResize = (
-  element: Element,
-  measurement?: ElementMeasurement,
-) => {
+export const triggerElementResize = (element: Element, measurement?: ElementMeasurement) => {
   if (measurement) {
     mockElementMeasurement(element, measurement);
   }

@@ -1,10 +1,5 @@
 import * as React from "react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type TipProps = {
@@ -34,10 +29,7 @@ type TriggerEventProps = {
 };
 
 const hasContent = (content: React.ReactNode) =>
-  content !== null &&
-  content !== undefined &&
-  content !== false &&
-  content !== "";
+  content !== null && content !== undefined && content !== false && content !== "";
 
 const composeEventHandlers =
   <Event extends React.SyntheticEvent>(
@@ -116,51 +108,45 @@ export function Tip({
 
   const trigger =
     asChild && React.isValidElement(children) ? (
-      React.cloneElement(
-        children as React.ReactElement<React.HTMLAttributes<HTMLElement>>,
-        {
-          className: cn(
-            (children.props as { className?: string }).className,
-            className,
-          ),
-          onMouseEnter: composeEventHandlers(
-            (children.props as React.HTMLAttributes<HTMLElement>).onMouseEnter,
-            eventProps.onMouseEnter,
-          ),
-          onMouseLeave: composeEventHandlers(
-            (children.props as React.HTMLAttributes<HTMLElement>).onMouseLeave,
-            eventProps.onMouseLeave,
-          ),
-          onFocus: composeEventHandlers(
-            (children.props as React.HTMLAttributes<HTMLElement>).onFocus,
-            eventProps.onFocus,
-          ),
-          onPointerOver: composeEventHandlers(
-            (children.props as React.HTMLAttributes<HTMLElement>).onPointerOver,
-            eventProps.onPointerOver,
-          ),
-          onPointerOut: composeEventHandlers(
-            (children.props as React.HTMLAttributes<HTMLElement>).onPointerOut,
-            eventProps.onPointerOut,
-          ),
-          onBlur: composeEventHandlers(
-            (children.props as React.HTMLAttributes<HTMLElement>).onBlur,
-            eventProps.onBlur,
-          ),
-          onTouchStart: composeEventHandlers(
-            (children.props as React.HTMLAttributes<HTMLElement>).onTouchStart,
-            eventProps.onTouchStart,
-          ),
-          onClick: composeEventHandlers(
-            (children.props as React.HTMLAttributes<HTMLElement>).onClick,
-            eventProps.onClick,
-          ),
-          onKeyDown: composeEventHandlers(
-            (children.props as React.HTMLAttributes<HTMLElement>).onKeyDown,
-            eventProps.onKeyDown,
-          ),
-        },
-      )
+      React.cloneElement(children as React.ReactElement<React.HTMLAttributes<HTMLElement>>, {
+        className: cn((children.props as { className?: string }).className, className),
+        onMouseEnter: composeEventHandlers(
+          (children.props as React.HTMLAttributes<HTMLElement>).onMouseEnter,
+          eventProps.onMouseEnter,
+        ),
+        onMouseLeave: composeEventHandlers(
+          (children.props as React.HTMLAttributes<HTMLElement>).onMouseLeave,
+          eventProps.onMouseLeave,
+        ),
+        onFocus: composeEventHandlers(
+          (children.props as React.HTMLAttributes<HTMLElement>).onFocus,
+          eventProps.onFocus,
+        ),
+        onPointerOver: composeEventHandlers(
+          (children.props as React.HTMLAttributes<HTMLElement>).onPointerOver,
+          eventProps.onPointerOver,
+        ),
+        onPointerOut: composeEventHandlers(
+          (children.props as React.HTMLAttributes<HTMLElement>).onPointerOut,
+          eventProps.onPointerOut,
+        ),
+        onBlur: composeEventHandlers(
+          (children.props as React.HTMLAttributes<HTMLElement>).onBlur,
+          eventProps.onBlur,
+        ),
+        onTouchStart: composeEventHandlers(
+          (children.props as React.HTMLAttributes<HTMLElement>).onTouchStart,
+          eventProps.onTouchStart,
+        ),
+        onClick: composeEventHandlers(
+          (children.props as React.HTMLAttributes<HTMLElement>).onClick,
+          eventProps.onClick,
+        ),
+        onKeyDown: composeEventHandlers(
+          (children.props as React.HTMLAttributes<HTMLElement>).onKeyDown,
+          eventProps.onKeyDown,
+        ),
+      })
     ) : asChild ? (
       children
     ) : (
@@ -190,11 +176,7 @@ export function Tip({
           sideOffset={sideOffset}
           className={contentClassName}
         >
-          {typeof content === "string" ? (
-            <span className="inline-block">{content}</span>
-          ) : (
-            content
-          )}
+          {typeof content === "string" ? <span className="inline-block">{content}</span> : content}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

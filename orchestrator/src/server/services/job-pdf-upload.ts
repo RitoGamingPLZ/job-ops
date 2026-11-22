@@ -22,10 +22,7 @@ function normalizeFileName(fileName: string): string {
   return trimmed;
 }
 
-function normalizePdfMediaType(input: {
-  fileName: string;
-  mediaType?: string | null;
-}): void {
+function normalizePdfMediaType(input: { fileName: string; mediaType?: string | null }): void {
   const extension = input.fileName.toLowerCase().split(".").pop() ?? "";
   const normalizedMediaType = input.mediaType?.trim().toLowerCase() ?? "";
 
@@ -34,8 +31,7 @@ function normalizePdfMediaType(input: {
   }
 
   if (
-    (!normalizedMediaType ||
-      normalizedMediaType === "application/octet-stream") &&
+    (!normalizedMediaType || normalizedMediaType === "application/octet-stream") &&
     extension === "pdf"
   ) {
     return;

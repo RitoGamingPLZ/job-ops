@@ -2,7 +2,7 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-describe.sequential("target ownership", () => {
+describe("target ownership", () => {
   let server: Server;
   let baseUrl: string;
   let closeDb: () => void;
@@ -58,10 +58,7 @@ describe.sequential("target ownership", () => {
     const aliceJob = await create(alice, "alice");
     const bobJob = await create(bob, "bob");
     for (const method of ["POST", "DELETE"]) {
-      expect(
-        (await fetch(`${baseUrl}/api/jobs/${aliceJob}/target`, { method }))
-          .status,
-      ).toBe(401);
+      expect((await fetch(`${baseUrl}/api/jobs/${aliceJob}/target`, { method })).status).toBe(401);
       expect(
         (
           await fetch(`${baseUrl}/api/jobs/${aliceJob}/target`, {
@@ -114,10 +111,9 @@ describe.sequential("target ownership", () => {
         })
       ).status,
     ).toBe(200);
-    expect(
-      (await fetch(`${baseUrl}/api/jobs/${bobJob}`, { headers: headers(bob) }))
-        .status,
-    ).toBe(200);
+    expect((await fetch(`${baseUrl}/api/jobs/${bobJob}`, { headers: headers(bob) })).status).toBe(
+      200,
+    );
     const cleanup = await fetch(`${baseUrl}/api/jobs/status/discovered`, {
       method: "DELETE",
       headers: headers(alice),
@@ -133,9 +129,8 @@ describe.sequential("target ownership", () => {
       headers: headers(alice),
     });
     expect((await cleanup2.json()).data.count).toBe(1);
-    expect(
-      (await fetch(`${baseUrl}/api/jobs/${bobJob}`, { headers: headers(bob) }))
-        .status,
-    ).toBe(200);
+    expect((await fetch(`${baseUrl}/api/jobs/${bobJob}`, { headers: headers(bob) })).status).toBe(
+      200,
+    );
   });
 });

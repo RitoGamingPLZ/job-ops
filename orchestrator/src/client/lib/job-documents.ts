@@ -36,14 +36,10 @@ export function formatJobDocumentByteSize(byteSize: number): string {
   return `${bytesFormatter.format(byteSize / (1024 * 1024))} MB`;
 }
 
-export function canPreviewJobDocumentAsObject(
-  document: JobDocumentTypeTarget,
-): boolean {
+export function canPreviewJobDocumentAsObject(document: JobDocumentTypeTarget): boolean {
   return isJobDocumentPdf(document) || isJobDocumentSafeInlineImage(document);
 }
 
-export function canPreviewJobDocumentAsText(
-  document: JobDocumentTypeTarget,
-): boolean {
+export function canPreviewJobDocumentAsText(document: JobDocumentTypeTarget): boolean {
   return canPreviewJobDocumentAsRawText(document);
 }

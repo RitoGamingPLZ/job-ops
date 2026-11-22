@@ -4,13 +4,11 @@ const BLOCKED_AUTOFETCH_HOSTS: Array<{
 }> = [
   {
     label: "LinkedIn",
-    match: (hostname) =>
-      hostname === "linkedin.com" || hostname.endsWith(".linkedin.com"),
+    match: (hostname) => hostname === "linkedin.com" || hostname.endsWith(".linkedin.com"),
   },
   {
     label: "Indeed",
-    match: (hostname) =>
-      hostname === "indeed.com" || hostname.includes("indeed."),
+    match: (hostname) => hostname === "indeed.com" || hostname.includes("indeed."),
   },
 ];
 
@@ -23,8 +21,5 @@ export function getBlockedAutofetchLabel(url: string): string | null {
     return null;
   }
   if (!hostname) return null;
-  return (
-    BLOCKED_AUTOFETCH_HOSTS.find((entry) => entry.match(hostname))?.label ??
-    null
-  );
+  return BLOCKED_AUTOFETCH_HOSTS.find((entry) => entry.match(hostname))?.label ?? null;
 }

@@ -1,13 +1,7 @@
 import { triggerElementResize } from "@client/test/dom-measurement";
 import { setupWindowVirtualizerTestEnvironment } from "@client/test/virtualization";
 import { createJob } from "@shared/testing/factories.js";
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef, type Ref } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { VirtualListHandle } from "@/client/lib/virtual-list";
@@ -22,9 +16,8 @@ const createJobs = (count: number) =>
     }),
   );
 
-let virtualizationEnvironment: ReturnType<
-  typeof setupWindowVirtualizerTestEnvironment
-> | null = null;
+let virtualizationEnvironment: ReturnType<typeof setupWindowVirtualizerTestEnvironment> | null =
+  null;
 
 afterEach(() => {
   virtualizationEnvironment?.cleanup();
@@ -74,15 +67,9 @@ describe("JobListPanel", () => {
     );
 
     expect(screen.getByText("No jobs found")).toBeInTheDocument();
-    expect(
-      screen.getByText("Run a search to discover and process new jobs."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /tailor discovered jobs/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /run search/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Run a search to discover and process new jobs.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /tailor discovered jobs/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /run search/i })).toBeInTheDocument();
   });
 
   it("fires empty state actions when provided", () => {
@@ -111,9 +98,7 @@ describe("JobListPanel", () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /tailor discovered jobs/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /tailor discovered jobs/i }));
     fireEvent.click(screen.getByRole("button", { name: /run search/i }));
 
     expect(onPrimary).toHaveBeenCalledTimes(1);
@@ -136,9 +121,7 @@ describe("JobListPanel", () => {
       />,
     );
 
-    expect(
-      screen.getByText("No applied jobs found for this date range."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No applied jobs found for this date range.")).toBeInTheDocument();
   });
 
   it("renders jobs and notifies when a job is selected", () => {
@@ -168,9 +151,10 @@ describe("JobListPanel", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("button", { name: /Backend Engineer/i }),
-    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /Backend Engineer/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /Frontend Engineer/i }));
     expect(onSelectJob).toHaveBeenCalledWith("job-2");
@@ -201,9 +185,7 @@ describe("JobListPanel", () => {
       />,
     );
 
-    expect(
-      screen.getByLabelText("Waiting for AI scoring to finish."),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Waiting for AI scoring to finish.")).toBeInTheDocument();
     expect(
       screen.queryByLabelText("AI misconfiguration or service error."),
     ).not.toBeInTheDocument();
@@ -241,9 +223,7 @@ describe("JobListPanel", () => {
     );
 
     expect(screen.queryByText("Previously Applied")).not.toBeInTheDocument();
-    expect(screen.getByTitle("Previously Applied")).toHaveClass(
-      "bg-yellow-400",
-    );
+    expect(screen.getByTitle("Previously Applied")).toHaveClass("bg-yellow-400");
   });
 
   it("toggles row selection and select-all", () => {
@@ -291,9 +271,7 @@ describe("JobListPanel", () => {
       />,
     );
 
-    expect(screen.getByLabelText("Select Backend Engineer")).toHaveClass(
-      "opacity-0",
-    );
+    expect(screen.getByLabelText("Select Backend Engineer")).toHaveClass("opacity-0");
 
     rerender(
       <JobListPanel
@@ -309,9 +287,7 @@ describe("JobListPanel", () => {
       />,
     );
 
-    expect(screen.getByLabelText("Select Backend Engineer")).toHaveClass(
-      "opacity-100",
-    );
+    expect(screen.getByLabelText("Select Backend Engineer")).toHaveClass("opacity-100");
 
     rerender(
       <JobListPanel
@@ -327,9 +303,7 @@ describe("JobListPanel", () => {
       />,
     );
 
-    expect(screen.getByLabelText("Select Backend Engineer")).toHaveClass(
-      "opacity-100",
-    );
+    expect(screen.getByLabelText("Select Backend Engineer")).toHaveClass("opacity-100");
   });
 
   it("keeps large lists virtualized and scrolls offscreen rows into view", async () => {
@@ -371,10 +345,7 @@ describe("JobListPanel", () => {
     const ROW_HEIGHT = 84;
     const VIEWPORT_HEIGHT = 240;
 
-    const renderList = (
-      jobs: ReturnType<typeof createJobs>,
-      ref?: Ref<VirtualListHandle>,
-    ) =>
+    const renderList = (jobs: ReturnType<typeof createJobs>, ref?: Ref<VirtualListHandle>) =>
       render(
         <JobListPanel
           ref={ref}

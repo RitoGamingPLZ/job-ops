@@ -15,9 +15,7 @@ describe("designResumePatchSchema", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe(
-      "Patch paths must be valid JSON Pointers.",
-    );
+    expect(result.error?.issues[0]?.message).toBe("Patch paths must be valid JSON Pointers.");
   });
 
   it("requires a value for test operations", () => {
@@ -49,11 +47,7 @@ describe("patch operation required properties", () => {
     });
   });
 
-  it.each([
-    "add",
-    "replace",
-    "test",
-  ])("accepts explicit undefined and null values for %s", (op) => {
+  it.each(["add", "replace", "test"])("accepts explicit undefined and null values for %s", (op) => {
     for (const value of [undefined, null]) {
       const result = designResumePatchSchema.parse({
         baseRevision: 1,

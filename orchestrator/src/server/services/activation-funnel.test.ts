@@ -15,9 +15,7 @@ vi.mock("@server/infra/request-context", () => ({
 }));
 
 vi.mock("@server/repositories/product-analytics", () => ({
-  getHistoricalActivationMilestoneCandidates: vi
-    .fn()
-    .mockRejectedValue(new Error("history boom")),
+  getHistoricalActivationMilestoneCandidates: vi.fn().mockRejectedValue(new Error("history boom")),
 }));
 
 describe("activation funnel safety wrappers", () => {
@@ -31,9 +29,7 @@ describe("activation funnel safety wrappers", () => {
     process.env.NODE_ENV = "development";
 
     const { logger } = await import("@infra/logger");
-    const { trackCanonicalActivationEvent } = await import(
-      "./activation-funnel"
-    );
+    const { trackCanonicalActivationEvent } = await import("./activation-funnel");
 
     await expect(
       trackCanonicalActivationEvent("jobs_pipeline_run_started", {
@@ -53,9 +49,7 @@ describe("activation funnel safety wrappers", () => {
 
   it("swallows history reconciliation failures", async () => {
     const { logger } = await import("@infra/logger");
-    const { reconcileActivationMilestonesFromHistorySafely } = await import(
-      "./activation-funnel"
-    );
+    const { reconcileActivationMilestonesFromHistorySafely } = await import("./activation-funnel");
 
     await expect(
       reconcileActivationMilestonesFromHistorySafely({

@@ -298,9 +298,7 @@ describe("latex resume renderer", () => {
       "\\faLinkedin~\\href{https://linkedin.com/in/janedoe}{\\underline{linkedin.com/in/janedoe}}",
     );
     expect(latex).toContain("\\section{Custom Fields}");
-    expect(latex).toContain(
-      "\\textbf{Eligibility}{: Eligible to work in the UK}",
-    );
+    expect(latex).toContain("\\textbf{Eligibility}{: Eligible to work in the UK}");
     expect(latex).toContain("\\section{Languages}");
     expect(latex).toContain("\\section{Interests}");
     expect(latex).toContain("\\section{Awards}");
@@ -350,17 +348,13 @@ describe("latex resume renderer", () => {
     const latex = buildLatexDocument(
       {
         ...baseDocument,
-        summary:
-          "<strong>Bold summary</strong> & <em>Italic summary</em> with # and % sign.",
+        summary: "<strong>Bold summary</strong> & <em>Italic summary</em> with # and % sign.",
         experience: [
           {
             title: "Acme & Sons",
             subtitle: "<b>Senior</b> Platform Engineer",
             date: "2023",
-            bullets: [
-              "Managed <i>critical</i> systems.",
-              "Handled $50k budgets.",
-            ],
+            bullets: ["Managed <i>critical</i> systems.", "Handled $50k budgets."],
           },
         ],
       },
@@ -398,25 +392,22 @@ describe("latex resume renderer", () => {
     }
   });
 
-  it.skipIf(!tectonicAvailable())(
-    "renders a PDF when tectonic is installed",
-    async () => {
-      const tempDir = await createTempDir();
-      tempDirs.push(tempDir);
-      const outputPath = join(tempDir, "resume.pdf");
+  it.skipIf(!tectonicAvailable())("renders a PDF when tectonic is installed", async () => {
+    const tempDir = await createTempDir();
+    tempDirs.push(tempDir);
+    const outputPath = join(tempDir, "resume.pdf");
 
-      await renderLatexPdf({
-        document: baseDocument,
-        outputPath,
-        jobId: "job-render-success",
-      });
+    await renderLatexPdf({
+      document: baseDocument,
+      outputPath,
+      jobId: "job-render-success",
+    });
 
-      const stats = spawnSync("sh", ["-lc", `test -s "${outputPath}"`], {
-        stdio: "ignore",
-      });
-      expect(stats.status).toBe(0);
-    },
-  );
+    const stats = spawnSync("sh", ["-lc", `test -s "${outputPath}"`], {
+      stdio: "ignore",
+    });
+    expect(stats.status).toBe(0);
+  });
 
   it.skipIf(!tectonicAvailable())(
     "renders physical pages in the requested paper size",

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getMatchingWritingStylePresetId,
-  resolveWritingStyleDraft,
-} from "./constants";
+import { getMatchingWritingStylePresetId, resolveWritingStyleDraft } from "./constants";
 
 describe("settings constants", () => {
   it("falls back to effective defaults when overrides are blank", () => {

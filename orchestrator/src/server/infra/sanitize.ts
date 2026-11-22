@@ -22,11 +22,7 @@ export function sanitizeUnknown(
 
   if (value === null || value === undefined) return value;
   if (typeof value === "string") return redactString(value, maxString);
-  if (
-    typeof value === "number" ||
-    typeof value === "boolean" ||
-    typeof value === "bigint"
-  ) {
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
     return value;
   }
 
@@ -99,16 +95,11 @@ export function sanitizeError(error: Error): Record<string, unknown> {
   return out;
 }
 
-export function sanitizeWebhookPayload(
-  payload: unknown,
-): Record<string, unknown> {
+export function sanitizeWebhookPayload(payload: unknown): Record<string, unknown> {
   const raw = sanitizeUnknown(payload, {
     depth: 4,
     maxItems: 20,
     maxString: 300,
   });
-  return (raw && typeof raw === "object" ? raw : { value: raw }) as Record<
-    string,
-    unknown
-  >;
+  return (raw && typeof raw === "object" ? raw : { value: raw }) as Record<string, unknown>;
 }

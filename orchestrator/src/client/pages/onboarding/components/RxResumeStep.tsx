@@ -39,9 +39,8 @@ export const RxResumeStep: React.FC<{
   <div className="space-y-6">
     <div className="space-y-5">
       <div className="rounded-lg border border-border/60 bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
-        Use Reactive Resume if your current resume already lives there. Once
-        connected, Job Ops can use that resume for matching, fit assessment,
-        tailoring, and application workflows.
+        Use Reactive Resume if your current resume already lives there. Once connected, Job Ops can
+        use that resume for matching, fit assessment, tailoring, and application workflows.
       </div>
 
       <SettingsInput
@@ -49,40 +48,27 @@ export const RxResumeStep: React.FC<{
         inputProps={{
           name: "rxresumeApiKey",
           value: rxresumeApiKey,
-          onChange: (event) =>
-            onRxresumeApiKeyChange(event.currentTarget.value),
+          onChange: (event) => onRxresumeApiKeyChange(event.currentTarget.value),
         }}
         type="password"
         placeholder="Enter v5 API key"
-        helper={
-          rxresumeApiKeyHint
-            ? "Leave blank to keep the saved v5 API key."
-            : undefined
-        }
+        helper={rxresumeApiKeyHint ? "Leave blank to keep the saved v5 API key." : undefined}
         disabled={isBusy}
       />
 
       {allowSelfHosted ? (
         <div className="rounded-lg border border-border/60 bg-muted/10 px-4 py-3">
-          <label
-            htmlFor="rxresume-self-hosted"
-            className="flex cursor-pointer items-start gap-3"
-          >
+          <label htmlFor="rxresume-self-hosted" className="flex cursor-pointer items-start gap-3">
             <Checkbox
               id="rxresume-self-hosted"
               checked={isSelfHosted}
-              onCheckedChange={(checked) =>
-                onSelfHostedChange(Boolean(checked))
-              }
+              onCheckedChange={(checked) => onSelfHostedChange(Boolean(checked))}
               disabled={isBusy}
             />
             <div className="space-y-1">
-              <div className="text-sm font-medium">
-                Self-hosted Reactive Resume?
-              </div>
+              <div className="text-sm font-medium">Self-hosted Reactive Resume?</div>
               <p className="text-xs text-muted-foreground">
-                Turn this on only if you run your own instance and need a custom
-                base URL.
+                Turn this on only if you run your own instance and need a custom base URL.
               </p>
             </div>
           </label>
@@ -109,8 +95,8 @@ export const RxResumeStep: React.FC<{
           <div className="space-y-1">
             <div className="text-sm font-medium">Template resume</div>
             <p className="text-xs text-muted-foreground">
-              Choose the resume Job Ops should use as the source for matching,
-              fit assessment, and tailored applications.
+              Choose the resume Job Ops should use as the source for matching, fit assessment, and
+              tailored applications.
             </p>
           </div>
           <BaseResumeSelection
@@ -121,8 +107,7 @@ export const RxResumeStep: React.FC<{
           />
           {isResumeReady ? (
             <div className="text-xs text-muted-foreground">
-              You already have a usable resume source, so this selection stays
-              optional.
+              You already have a usable resume source, so this selection stays optional.
             </div>
           ) : null}
         </div>

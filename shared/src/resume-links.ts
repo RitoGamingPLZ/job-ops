@@ -42,10 +42,7 @@ export const KIND_SECTION: Partial<Record<CandidateItemKind, string>> = {
 };
 
 /** Library kinds that are lines inside a parent resume item. */
-export const LINE_KINDS: readonly CandidateItemKind[] = [
-  "bullet",
-  "project_point",
-];
+export const LINE_KINDS: readonly CandidateItemKind[] = ["bullet", "project_point"];
 
 export interface ResumeLine {
   text: string;
@@ -60,28 +57,20 @@ export function sameLineText(a: string, b: string): boolean {
 /** Bullet lines of an experience/projects item with their refs. */
 export function getItemLines(item: ResumeItem): ResumeLine[] {
   const refs = Array.isArray(item.bulletRefs) ? item.bulletRefs : [];
-  return splitDescription(string(item.description)).bullets.map(
-    (text, index) => ({
-      text,
-      ref: typeof refs[index] === "string" ? refs[index] : null,
-    }),
-  );
+  return splitDescription(string(item.description)).bullets.map((text, index) => ({
+    text,
+    ref: typeof refs[index] === "string" ? refs[index] : null,
+  }));
 }
 
 /**
  * Writes lines back: description bullets (keeping intro prose, via
  * joinDescription) and bulletRefs in the same order.
  */
-export function setItemLines(
-  item: ResumeItem,
-  lines: ResumeLine[],
-): ResumeItem {
+export function setItemLines(item: ResumeItem, lines: ResumeLine[]): ResumeItem {
   const current = getItemLines(item);
   const refs = lines.map((line) => line.ref);
-  if (
-    equal(current, lines) &&
-    (item.bulletRefs === undefined || equal(item.bulletRefs, refs))
-  )
+  if (equal(current, lines) && (item.bulletRefs === undefined || equal(item.bulletRefs, refs)))
     return item;
   const original = string(item.description);
   return {
@@ -110,8 +99,7 @@ function descriptionWithLines(
   const used = new Set<number>();
   const rendered = lines.map((line) => {
     const index = current.findIndex(
-      (value, index) =>
-        !used.has(index) && value.ref === line.ref && value.text === line.text,
+      (value, index) => !used.has(index) && value.ref === line.ref && value.text === line.text,
     );
     if (index >= 0 && markup[index]) {
       used.add(index);
@@ -138,10 +126,7 @@ function matchesContactProfile(
 }
 
 /** Contact selection follows document values, including contacts without library links. */
-export function isContactOnResume(
-  doc: ResumeDoc,
-  item: ExperienceBullet,
-): boolean {
+export function isContactOnResume(doc: ResumeDoc, item: ExperienceBullet): boolean {
   const data = item.data ?? {};
   const value = string(data.value);
   if (!value) return false;
@@ -153,9 +138,7 @@ export function isContactOnResume(
     case "website":
       return doc.basics.website.url === value;
     case "profile":
-      return doc.sections.profiles.items.some((profile) =>
-        matchesContactProfile(profile, item),
-      );
+      return doc.sections.profiles.items.some((profile) => matchesContactProfile(profile, item));
     default:
       return false;
   }
@@ -208,9 +191,7 @@ export function setContactOnResume(
               },
             },
           ]
-        : section.items.filter(
-            (profile) => !matchesContactProfile(profile, item),
-          );
+        : section.items.filter((profile) => !matchesContactProfile(profile, item));
       return {
         ...doc,
         sections: { ...doc.sections, profiles: { ...section, items } },
@@ -225,10 +206,7 @@ export function setContactOnResume(
 export function isOnResume(doc: ResumeDoc, libraryId: string): boolean {
   let found = false;
   mapItems(doc, (item) => {
-    if (
-      item.libraryId === libraryId ||
-      getItemLines(item).some((line) => line.ref === libraryId)
-    )
+    if (item.libraryId === libraryId || getItemLines(item).some((line) => line.ref === libraryId))
       found = true;
     return item;
   });
@@ -243,22 +221,13 @@ function equal(a: unknown, b: unknown): boolean {
 }
 function websiteValue(value: unknown, existing?: unknown) {
   const fallback =
-    existing && typeof existing === "object"
-      ? (existing as Record<string, unknown>)
-      : {};
+    existing && typeof existing === "object" ? (existing as Record<string, unknown>) : {};
   const website =
-    value && typeof value === "object"
-      ? (value as Record<string, unknown>)
-      : { url: value };
+    value && typeof value === "object" ? (value as Record<string, unknown>) : { url: value };
   return {
     url: typeof website.url === "string" ? website.url : string(fallback.url),
-    ...(typeof website.inlineLink === "boolean"
-      ? { inlineLink: website.inlineLink }
-      : {}),
-    label:
-      typeof website.label === "string"
-        ? website.label
-        : string(fallback.label),
+    ...(typeof website.inlineLink === "boolean" ? { inlineLink: website.inlineLink } : {}),
+    label: typeof website.label === "string" ? website.label : string(fallback.label),
   };
 }
 function fields(item: ExperienceBullet, existingWebsite?: unknown): ResumeItem {
@@ -342,9 +311,7 @@ export function libraryItemToResumeItem(item: ExperienceBullet): ResumeItem {
         proficiency: "",
         level: 0,
         keywords: Array.isArray(item.data?.keywords)
-          ? item.data.keywords.filter(
-              (word): word is string => typeof word === "string",
-            )
+          ? item.data.keywords.filter((word): word is string => typeof word === "string")
           : [],
       };
     case "education":
@@ -372,25 +339,17 @@ export function changedLibraryFields(
       field === "description" ? htmlToPlainText(string(v)) : string(v);
     const [mine, theirs] =
       field === "website"
-        ? [
-            (item.website as { url?: unknown } | undefined)?.url,
-            (value as { url: string }).url,
-          ]
+        ? [(item.website as { url?: unknown } | undefined)?.url, (value as { url: string }).url]
         : [item[field], value];
-    if (!sameLineText(plain(mine), plain(theirs)))
-      changed[field] = plain(theirs);
+    if (!sameLineText(plain(mine), plain(theirs))) changed[field] = plain(theirs);
   }
   // Skill keywords are a per-job selection from the library's full pool, not
   // a single canonical value to diff/reset to (resetEntryFields leaves them
   // as picked) -- but the AI's selection for this job is still worth tinting.
   if (source.kind === "skill" && Array.isArray(source.data?.keywords)) {
-    const pool = source.data.keywords.filter(
-      (value): value is string => typeof value === "string",
-    );
+    const pool = source.data.keywords.filter((value): value is string => typeof value === "string");
     const mine = Array.isArray(item.keywords)
-      ? item.keywords.filter(
-          (value): value is string => typeof value === "string",
-        )
+      ? item.keywords.filter((value): value is string => typeof value === "string")
       : [];
     if (!equal(mine, pool)) changed.keywords = pool.join(", ");
   }
@@ -408,14 +367,9 @@ export function resetEntryFields(
 }
 
 // Copy only changed paths; this also visits linked items in custom sections.
-function mapItems(
-  doc: ResumeDoc,
-  update: (item: ResumeItem) => ResumeItem | null,
-): ResumeDoc {
+function mapItems(doc: ResumeDoc, update: (item: ResumeItem) => ResumeItem | null): ResumeDoc {
   const section = <T extends { items: ResumeItem[] }>(value: T): T => {
-    const items = value.items
-      .map(update)
-      .filter((item): item is ResumeItem => item !== null);
+    const items = value.items.map(update).filter((item): item is ResumeItem => item !== null);
     return items.length === value.items.length &&
       items.every((item, index) => item === value.items[index])
       ? value
@@ -424,10 +378,7 @@ function mapItems(
   const sections = Object.fromEntries(
     Object.entries(doc.sections).map(([key, value]) => [
       key,
-      value &&
-      typeof value === "object" &&
-      "items" in value &&
-      Array.isArray(value.items)
+      value && typeof value === "object" && "items" in value && Array.isArray(value.items)
         ? section(value as { items: ResumeItem[] })
         : value,
     ]),
@@ -445,19 +396,14 @@ function mapItems(
   };
 }
 
-function appendItem(
-  doc: ResumeDoc,
-  kind: CandidateItemKind,
-  item: ResumeItem,
-): ResumeDoc {
+function appendItem(doc: ResumeDoc, kind: CandidateItemKind, item: ResumeItem): ResumeDoc {
   const key = KIND_SECTION[kind];
   if (!key) return doc;
   const section = doc.sections[key] as { items: ResumeItem[] };
   let insertionIndex = section.items.length;
   if (kind === "role") {
     section.items.forEach((entry, index) => {
-      if (sameLineText(string(entry.company), string(item.company)))
-        insertionIndex = index + 1;
+      if (sameLineText(string(entry.company), string(item.company))) insertionIndex = index + 1;
     });
   }
   const items = [...section.items];
@@ -493,8 +439,7 @@ export function addToResume(
   if (LINE_KINDS.includes(item.kind)) {
     const parent = library.find(
       (value) =>
-        value.id === item.parentId &&
-        value.kind === (item.kind === "bullet" ? "role" : "project"),
+        value.id === item.parentId && value.kind === (item.kind === "bullet" ? "role" : "project"),
     );
     if (!parent) return doc;
     const next = isOnResume(doc, parent.id)
@@ -502,10 +447,7 @@ export function addToResume(
       : appendItem(doc, parent.kind, libraryItemToResumeItem(parent));
     return mapItems(next, (entry) =>
       entry.libraryId === parent.id
-        ? setItemLines(entry, [
-            ...getItemLines(entry),
-            { text: item.text, ref: item.id },
-          ])
+        ? setItemLines(entry, [...getItemLines(entry), { text: item.text, ref: item.id }])
         : entry,
     );
   }
@@ -555,8 +497,7 @@ export function applyLibraryUpdate(
   after: ExperienceBullet,
 ): ResumeDoc {
   if (before.kind === "contact") {
-    if (equal(before.data, after.data) || !isContactOnResume(doc, before))
-      return doc;
+    if (equal(before.data, after.data) || !isContactOnResume(doc, before)) return doc;
     if (before.data?.type === "profile" && after.data?.type === "profile") {
       const section = doc.sections.profiles;
       const data = after.data;
@@ -575,10 +516,7 @@ export function applyLibraryUpdate(
                     username: string(data.username),
                     website: {
                       ...profile.website,
-                      url:
-                        typeof data.url === "string"
-                          ? data.url
-                          : string(data.value),
+                      url: typeof data.url === "string" ? data.url : string(data.value),
                       label: string(data.label),
                     },
                   }
@@ -588,11 +526,7 @@ export function applyLibraryUpdate(
         },
       };
     }
-    return setContactOnResume(
-      setContactOnResume(doc, before, false),
-      after,
-      true,
-    );
+    return setContactOnResume(setContactOnResume(doc, before, false), after, true);
   }
   return mapItems(doc, (item) => {
     let next = item;
@@ -602,9 +536,7 @@ export function applyLibraryUpdate(
       const changes = Object.fromEntries(
         Object.entries(derived).filter(
           ([key, value]) =>
-            key !== "website" &&
-            equal(item[key], previous[key]) &&
-            !equal(item[key], value),
+            key !== "website" && equal(item[key], previous[key]) && !equal(item[key], value),
         ),
       );
       if (derived.website && item.website && typeof item.website === "object") {
@@ -612,13 +544,10 @@ export function applyLibraryUpdate(
         const oldWebsite = previous.website as Record<string, unknown>;
         const websiteChanges = Object.fromEntries(
           Object.entries(derived.website).filter(
-            ([key, value]) =>
-              equal(current[key], oldWebsite[key]) &&
-              !equal(current[key], value),
+            ([key, value]) => equal(current[key], oldWebsite[key]) && !equal(current[key], value),
           ),
         );
-        if (Object.keys(websiteChanges).length)
-          changes.website = { ...current, ...websiteChanges };
+        if (Object.keys(websiteChanges).length) changes.website = { ...current, ...websiteChanges };
       }
       if (Object.keys(changes).length) next = { ...item, ...changes };
     }
@@ -655,9 +584,7 @@ export function resetLine(
     if (item.id !== resumeItemId) return item;
     const lines = getItemLines(item);
     const line = lines[lineIndex];
-    const original = line?.ref
-      ? library.find((value) => value.id === line.ref)
-      : undefined;
+    const original = line?.ref ? library.find((value) => value.id === line.ref) : undefined;
     if (!line || !original || line.text === original.text) return item;
     return setItemLines(
       item,
@@ -723,20 +650,13 @@ export function stampLibraryRefs(
               : kind === "award"
                 ? sameLineText(string(value.data?.date), string(item.date))
                 : kind === "certification"
-                  ? sameLineText(
-                      string(value.data?.issuer),
-                      string(item.issuer),
-                    ) &&
+                  ? sameLineText(string(value.data?.issuer), string(item.issuer)) &&
                     sameLineText(string(value.data?.date), string(item.date))
                   : kind === "project"
-                    ? sameLineText(
-                        string(value.data?.period),
-                        string(item.period),
-                      )
+                    ? sameLineText(string(value.data?.period), string(item.period))
                     : true,
         ) ??
-        (!["education", "award", "certification"].includes(kind) &&
-        matches.length === 1
+        (!["education", "award", "certification"].includes(kind) && matches.length === 1
           ? matches[0]
           : undefined);
       if (match) {
@@ -746,9 +666,7 @@ export function stampLibraryRefs(
     }
     if (
       (kind === "role" || kind === "project") &&
-      library.some(
-        (value) => value.id === next.libraryId && value.kind === kind,
-      )
+      library.some((value) => value.id === next.libraryId && value.kind === kind)
     ) {
       let changed = false;
       const lines = getItemLines(next).map((line) => {
@@ -764,17 +682,14 @@ export function stampLibraryRefs(
         linked++;
         return { ...line, ref: match.id };
       });
-      if (changed)
-        next = { ...next, bulletRefs: lines.map((line) => line.ref) };
+      if (changed) next = { ...next, bulletRefs: lines.map((line) => line.ref) };
     }
     return next;
   };
   let next = doc;
   for (const [kind, key] of Object.entries(KIND_SECTION)) {
     const section = next.sections[key] as { items: ResumeItem[] };
-    const items = section.items.map((item) =>
-      stamp(item, kind as CandidateItemKind),
-    );
+    const items = section.items.map((item) => stamp(item, kind as CandidateItemKind));
     if (items.some((item, index) => item !== section.items[index]))
       next = {
         ...next,
@@ -782,20 +697,16 @@ export function stampLibraryRefs(
       };
   }
   const customSections = next.customSections.map((section) => {
-    const kind = Object.entries(KIND_SECTION).find(
-      ([, key]) => key === section.type,
-    )?.[0] as CandidateItemKind | undefined;
+    const kind = Object.entries(KIND_SECTION).find(([, key]) => key === section.type)?.[0] as
+      | CandidateItemKind
+      | undefined;
     if (!kind) return section;
     const items = section.items.map((item) => stamp(item, kind));
     return items.some((item, index) => item !== section.items[index])
       ? { ...section, items }
       : section;
   });
-  if (
-    customSections.some(
-      (section, index) => section !== next.customSections[index],
-    )
-  )
+  if (customSections.some((section, index) => section !== next.customSections[index]))
     next = {
       ...next,
       customSections: customSections as ResumeDoc["customSections"],

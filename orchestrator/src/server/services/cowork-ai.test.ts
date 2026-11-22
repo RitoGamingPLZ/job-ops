@@ -31,8 +31,7 @@ import {
 } from "./cowork-ai";
 
 function context(): CoworkChatContext {
-  const document =
-    buildDefaultReactiveResumeDocument() as CoworkChatContext["document"];
+  const document = buildDefaultReactiveResumeDocument() as CoworkChatContext["document"];
   document.sections.experience.items = [
     {
       id: "exp",
@@ -135,17 +134,13 @@ describe("cowork AI", () => {
     callJson.mockResolvedValue({
       success: true,
       data: {
-        drafts: [
-          { text: "Built APIs", source: "resume", sourceExperienceId: "fake" },
-        ],
+        drafts: [{ text: "Built APIs", source: "resume", sourceExperienceId: "fake" }],
       },
     });
     expect(await extractExperienceBullets("Built APIs")).toEqual([
       { text: "Built APIs", source: "ai_extract" },
     ]);
-    expect(callJson.mock.calls[0][0].jsonSchema.name).toBe(
-      "experience_extract",
-    );
+    expect(callJson.mock.calls[0][0].jsonSchema.name).toBe("experience_extract");
     callJson.mockResolvedValue({
       success: true,
       data: { drafts: [{ text: "" }] },
@@ -166,9 +161,10 @@ describe("cowork AI", () => {
         ],
       },
     });
-    expect(
-      (await rankExperienceBullets("tools")).map((b) => b.bulletId),
-    ).toEqual(["second", "own"]);
+    expect((await rankExperienceBullets("tools")).map((b) => b.bulletId)).toEqual([
+      "second",
+      "own",
+    ]);
   });
   it("does not call the LLM for an empty library", async () => {
     list.mockResolvedValue([]);
@@ -185,25 +181,13 @@ describe("cowork AI", () => {
     await extractExperienceBullets("text");
     await rankExperienceBullets("job");
     expect(reserve).toHaveBeenCalledTimes(2);
-    expect(reserve).toHaveBeenNthCalledWith(
-      1,
-      { action: "tailoring" },
-      expect.any(Function),
-    );
-    expect(reserve).toHaveBeenNthCalledWith(
-      2,
-      { action: "tailoring" },
-      expect.any(Function),
-    );
+    expect(reserve).toHaveBeenNthCalledWith(1, { action: "tailoring" }, expect.any(Function));
+    expect(reserve).toHaveBeenNthCalledWith(2, { action: "tailoring" }, expect.any(Function));
     callJson.mockClear();
     reserve.mockRejectedValueOnce(new Error("quota exceeded"));
-    await expect(extractExperienceBullets("text")).rejects.toThrow(
-      "quota exceeded",
-    );
+    await expect(extractExperienceBullets("text")).rejects.toThrow("quota exceeded");
     reserve.mockRejectedValueOnce(new Error("quota exceeded"));
-    await expect(rankExperienceBullets("job")).rejects.toThrow(
-      "quota exceeded",
-    );
+    await expect(rankExperienceBullets("job")).rejects.toThrow("quota exceeded");
     expect(callJson).not.toHaveBeenCalled();
   });
 
@@ -218,9 +202,7 @@ describe("cowork AI", () => {
         ranked: [{ bulletId: "b204", score: 100, reason: "not supplied" }],
       },
     });
-    expect(await rankExperienceBullets(`Python ${"x".repeat(21000)}`)).toEqual(
-      [],
-    );
+    expect(await rankExperienceBullets(`Python ${"x".repeat(21000)}`)).toEqual([]);
     const data = JSON.parse(callJson.mock.calls[0][0].messages[1].content);
     expect(data.jobDescription).toHaveLength(20000);
     expect(data.bullets).toHaveLength(200);
@@ -245,9 +227,7 @@ describe("cowork AI", () => {
     expect(drafts[0].text).toBe("Good");
     expect(drafts.some((item) => item.text === "Beyond cap")).toBe(false);
     callJson.mockResolvedValue({ success: true, data: { drafts: "invalid" } });
-    await expect(extractExperienceBullets("text")).rejects.toThrow(
-      "Unable to extract",
-    );
+    await expect(extractExperienceBullets("text")).rejects.toThrow("Unable to extract");
   });
   it("validates document shape, reference count and byte cap", () => {
     expect(coworkChatContextSchema.safeParse(context()).success).toBe(true);
@@ -268,9 +248,7 @@ describe("cowork AI", () => {
       itemId: "exp",
       label: "Acme",
     };
-    expect(
-      coworkChatContextSchema.safeParse({ ...context(), focus: [ref] }).success,
-    ).toBe(true);
+    expect(coworkChatContextSchema.safeParse({ ...context(), focus: [ref] }).success).toBe(true);
     for (const focus of [
       Array(21).fill(ref),
       [{ ...ref, kind: "page" }],
@@ -278,9 +256,7 @@ describe("cowork AI", () => {
       [{ ...ref, extra: 1 }],
       [{ ...ref, bulletIndex: -1 }],
     ])
-      expect(
-        coworkChatContextSchema.safeParse({ ...context(), focus }).success,
-      ).toBe(false);
+      expect(coworkChatContextSchema.safeParse({ ...context(), focus }).success).toBe(false);
   });
   it("sends visible sections with ids and a FOCUS block with current text", () => {
     const cowork = withSections();
@@ -320,13 +296,8 @@ describe("cowork AI", () => {
         description: "Won it",
       },
     ]);
-    expect(data.resume.projects.map((p: { id: string }) => p.id)).toEqual([
-      "pr",
-      "hiddenpr",
-    ]);
-    expect(data.resume.certifications).toEqual([
-      { id: "ce", hidden: true, libraryId: null },
-    ]);
+    expect(data.resume.projects.map((p: { id: string }) => p.id)).toEqual(["pr", "hiddenpr"]);
+    expect(data.resume.certifications).toEqual([{ id: "ce", hidden: true, libraryId: null }]);
     expect(data.FOCUS.map((f: { current: unknown }) => f.current)).toEqual([
       "Built APIs",
       data.resume.awards[0],
@@ -388,9 +359,10 @@ describe("cowork AI", () => {
     expect(prompt).not.toContain("Private company — hidden focus");
     expect(prompt).not.toContain("Private skill focus");
     const data = JSON.parse(prompt.split("\n").slice(1).join("\n"));
-    expect(
-      data.resume.experience.map((item: { id: string }) => item.id),
-    ).toEqual(["exp", "hidden-exp"]);
+    expect(data.resume.experience.map((item: { id: string }) => item.id)).toEqual([
+      "exp",
+      "hidden-exp",
+    ]);
     expect(data.resume.skills).toEqual([
       {
         id: "skill",
@@ -420,9 +392,7 @@ describe("cowork AI", () => {
       { kind: "skill", itemId: "skill", label: "skill" },
       { kind: "section", section: "experience", label: "section" },
     ];
-    const hidden = JSON.parse(
-      buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"),
-    );
+    const hidden = JSON.parse(buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"));
     expect(hidden.resume.experience).toEqual([
       { id: "exp", hidden: true, libraryId: null },
       { id: "hidden-exp", hidden: true, libraryId: null },
@@ -431,9 +401,7 @@ describe("cowork AI", () => {
       { id: "skill", hidden: true, libraryId: "private-link" },
       { id: "hidden-skill", hidden: true, libraryId: null },
     ]);
-    expect(
-      hidden.FOCUS.map((ref: { current: unknown }) => ref.current),
-    ).toEqual([]);
+    expect(hidden.FOCUS.map((ref: { current: unknown }) => ref.current)).toEqual([]);
   });
   it("keeps summary, headline and visible empty or out-of-range focus targets", () => {
     const cowork = context();
@@ -450,9 +418,7 @@ describe("cowork AI", () => {
         label: "Hidden",
       },
     ];
-    const hidden = JSON.parse(
-      buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"),
-    );
+    const hidden = JSON.parse(buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"));
     expect(hidden.FOCUS.map((ref: { label: string }) => ref.label)).toEqual([
       "Summary",
       "Headline",
@@ -501,9 +467,7 @@ describe("cowork AI", () => {
     for (const hideSection of [false, true]) {
       cowork.document.sections.experience.hidden = hideSection;
       cowork.document.sections.experience.items[0].hidden = !hideSection;
-      expect(filterCoworkSuggestions([...inputs, bullet], cowork, [])).toEqual(
-        [],
-      );
+      expect(filterCoworkSuggestions([...inputs, bullet], cowork, [])).toEqual([]);
     }
   });
   it("stamps V2 keyword edits with the visible item's keywords and rejects hidden or missing targets", () => {
@@ -595,10 +559,8 @@ describe("cowork AI", () => {
   });
   it("decodes entities, skips list descriptions, dedupes and caps FOCUS", () => {
     const cowork = withSections();
-    cowork.document.sections.awards.items[0].description =
-      "<p>R&amp;D prize &lt;2020&gt;</p>";
-    cowork.document.sections.projects.items[0].description =
-      "<ul><li>Shipped</li></ul>";
+    cowork.document.sections.awards.items[0].description = "<p>R&amp;D prize &lt;2020&gt;</p>";
+    cowork.document.sections.projects.items[0].description = "<ul><li>Shipped</li></ul>";
     cowork.document.summary.content = "<p>Ops &amp; dev</p>";
     const suggestion = (section: string, itemId: string) => ({
       op: "replace_field",
@@ -641,14 +603,8 @@ describe("cowork AI", () => {
     expect(parsed.focus).toHaveLength(1);
 
     cowork.document.sections.awards.items[0].description = "x".repeat(15_000);
-    cowork.focus = [
-      ref,
-      { ...ref, label: "b" },
-      { kind: "summary", label: "s" },
-    ];
-    const data = JSON.parse(
-      buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"),
-    );
+    cowork.focus = [ref, { ...ref, label: "b" }, { kind: "summary", label: "s" }];
+    const data = JSON.parse(buildCoworkPrompt(cowork, "Job", []).split("\n").slice(1).join("\n"));
     expect(data.resume.summary).toBe("Ops & dev");
     expect(data.FOCUS[0].current.description).toHaveLength(15_000);
     expect(data.FOCUS[1]).toMatchObject({ current: null, truncated: true });
@@ -656,10 +612,7 @@ describe("cowork AI", () => {
   });
 
   it("strict schema includes nullable field object", () => {
-    const item = COWORK_RESPONSE_SCHEMA.schema.properties as Record<
-      string,
-      any
-    >;
+    const item = COWORK_RESPONSE_SCHEMA.schema.properties as Record<string, any>;
     const props = item.suggestions.items;
     expect(props.required).toContain("field");
     expect(props.properties.op.enum).toContain("replace_field");
@@ -668,9 +621,7 @@ describe("cowork AI", () => {
       required: ["section", "itemId", "name"],
       additionalProperties: false,
     });
-    expect(Object.keys(props.properties).sort()).toEqual(
-      [...props.required].sort(),
-    );
+    expect(Object.keys(props.properties).sort()).toEqual([...props.required].sort());
   });
 });
 
@@ -700,16 +651,10 @@ describe("experience labeling", () => {
     const result = await labelExperienceBullets(["own", "foreign"]);
     expect(result.labeled).toBe(1);
     expect(result.bullets[0].tags).toHaveLength(12);
-    expect(result.bullets[0].tags.slice(0, 3)).toEqual([
-      "TypeScript",
-      "React",
-      "Skill0",
-    ]);
+    expect(result.bullets[0].tags.slice(0, 3)).toEqual(["TypeScript", "React", "Skill0"]);
     expect(update).toHaveBeenCalledTimes(1);
     expect(update.mock.calls[0][0]).toBe("own");
-    expect(callJson.mock.calls[0][0].messages[1].content).not.toContain(
-      "foreign",
-    );
+    expect(callJson.mock.calls[0][0].messages[1].content).not.toContain("foreign");
     const root = callJson.mock.calls[0][0].jsonSchema.schema;
     expect(root.required).toEqual(["labels"]);
     expect(root.additionalProperties).toBe(false);
@@ -730,11 +675,7 @@ describe("experience labeling", () => {
     expect(update).toHaveBeenCalledWith("own", {
       tags: [...manual, "Concurrent edit", "New tag"],
     });
-    expect(result.bullets[0].tags).toEqual([
-      ...manual,
-      "Concurrent edit",
-      "New tag",
-    ]);
+    expect(result.bullets[0].tags).toEqual([...manual, "Concurrent edit", "New tag"]);
   });
   it("caps merged tags at 100 with existing tags first", async () => {
     const manual = Array.from({ length: 95 }, (_, i) => `Manual${i}`);
@@ -776,9 +717,7 @@ describe("experience labeling", () => {
     expect(result.bullets[0]).toMatchObject({ id: "second", tags: ["Tools"] });
     expect(update).toHaveBeenNthCalledWith(2, "second", { tags: ["Tools"] });
     update.mockRejectedValueOnce(new Error("storage unavailable"));
-    await expect(labelExperienceBullets(["own", "second"])).rejects.toThrow(
-      "storage unavailable",
-    );
+    await expect(labelExperienceBullets(["own", "second"])).rejects.toThrow("storage unavailable");
   });
   it("defaults to untagged only and skips explicit empty/foreign IDs without usage", async () => {
     list.mockResolvedValue([{ ...bullet("tagged"), tags: ["Existing"] }]);
@@ -807,42 +746,39 @@ describe("experience labeling", () => {
     await labelExperienceBullets();
     expect(reserve).toHaveBeenCalledTimes(3);
     expect(
-      callJson.mock.calls.map(
-        ([input]) => JSON.parse(input.messages[1].content).bullets.length,
-      ),
+      callJson.mock.calls.map(([input]) => JSON.parse(input.messages[1].content).bullets.length),
     ).toEqual([40, 40, 1]);
-    expect(callJson.mock.calls[0][0].messages[1].content.length).toBeLessThan(
-      55000,
-    );
+    expect(callJson.mock.calls[0][0].messages[1].content.length).toBeLessThan(55000);
   });
-  it.each([
-    false,
-    true,
-  ])("caps calls at five batches and reports remaining (explicit=%s)", async (explicit) => {
-    const library = Array.from({ length: 205 }, (_, i) => bullet(`b${i}`));
-    list.mockResolvedValue(library);
-    update.mockImplementation(async (id, input) => {
-      const current = library.find((item) => item.id === id);
-      if (!current) throw new Error("Unexpected bullet ID");
-      Object.assign(current, input);
-      return current;
-    });
-    callJson.mockImplementation(async (input) => ({
-      success: true,
-      data: {
-        labels: JSON.parse(input.messages[1].content).bullets.map(
-          (item: { id: string }) => ({ bulletId: item.id, tags: ["APIs"] }),
-        ),
-      },
-    }));
-    const result = await labelExperienceBullets(
-      explicit ? library.map((item) => item.id) : undefined,
-    );
-    expect(callJson).toHaveBeenCalledTimes(5);
-    expect(reserve).toHaveBeenCalledTimes(5);
-    expect(result).toMatchObject({ labeled: 200, remaining: 5 });
-    expect(result.bullets).toHaveLength(200);
-  });
+  it.each([false, true])(
+    "caps calls at five batches and reports remaining (explicit=%s)",
+    async (explicit) => {
+      const library = Array.from({ length: 205 }, (_, i) => bullet(`b${i}`));
+      list.mockResolvedValue(library);
+      update.mockImplementation(async (id, input) => {
+        const current = library.find((item) => item.id === id);
+        if (!current) throw new Error("Unexpected bullet ID");
+        Object.assign(current, input);
+        return current;
+      });
+      callJson.mockImplementation(async (input) => ({
+        success: true,
+        data: {
+          labels: JSON.parse(input.messages[1].content).bullets.map((item: { id: string }) => ({
+            bulletId: item.id,
+            tags: ["APIs"],
+          })),
+        },
+      }));
+      const result = await labelExperienceBullets(
+        explicit ? library.map((item) => item.id) : undefined,
+      );
+      expect(callJson).toHaveBeenCalledTimes(5);
+      expect(reserve).toHaveBeenCalledTimes(5);
+      expect(result).toMatchObject({ labeled: 200, remaining: 5 });
+      expect(result.bullets).toHaveLength(200);
+    },
+  );
   it("sanitizes oversized model output without discarding valid labels", async () => {
     list.mockResolvedValue([bullet("own"), bullet("second")]);
     update.mockImplementation(async (id, input) => ({
@@ -855,10 +791,7 @@ describe("experience labeling", () => {
         labels: [
           {
             bulletId: "own",
-            tags: [
-              "x".repeat(101),
-              ...Array.from({ length: 110 }, (_, i) => `Skill${i}`),
-            ],
+            tags: ["x".repeat(101), ...Array.from({ length: 110 }, (_, i) => `Skill${i}`)],
           },
           { bulletId: "second", tags: ["Valid"] },
           ...Array.from({ length: 39 }, () => ({
@@ -870,9 +803,7 @@ describe("experience labeling", () => {
     });
     const result = await labelExperienceBullets(["own", "second"]);
     expect(result).toMatchObject({ labeled: 2, remaining: 0 });
-    expect(result.bullets[0].tags).toEqual(
-      Array.from({ length: 12 }, (_, i) => `Skill${i}`),
-    );
+    expect(result.bullets[0].tags).toEqual(Array.from({ length: 12 }, (_, i) => `Skill${i}`));
     expect(result.bullets[1].tags).toEqual(["Valid"]);
   });
   it("counts unlabeled omissions and empty tags as remaining", async () => {
@@ -899,9 +830,7 @@ describe("experience labeling", () => {
       success: false,
       error: "raw upstream secret",
     });
-    await expect(labelExperienceBullets()).rejects.toThrow(
-      "Unable to label experience bullets",
-    );
+    await expect(labelExperienceBullets()).rejects.toThrow("Unable to label experience bullets");
     reserve.mockRejectedValueOnce(new Error("quota exceeded"));
     await expect(labelExperienceBullets()).rejects.toThrow("quota exceeded");
   });
@@ -947,16 +876,9 @@ describe("V2 cowork producer", () => {
     const library = kinds.map((kind) => ({
       ...bullet(kind),
       kind,
-      parentId:
-        kind === "bullet"
-          ? "role"
-          : kind === "project_point"
-            ? "project"
-            : null,
+      parentId: kind === "bullet" ? "role" : kind === "project_point" ? "project" : null,
       text:
-        kind === "contact"
-          ? "CONTACT SECRET"
-          : "<b>Fact</b> https://example.com user@example.com",
+        kind === "contact" ? "CONTACT SECRET" : "<b>Fact</b> https://example.com user@example.com",
       data: {
         school: "School",
         area: "CS",
@@ -970,12 +892,10 @@ describe("V2 cowork producer", () => {
     }));
     const prompt = buildCoworkPrompt(withSections(), "Job", library);
     const data = JSON.parse(prompt.split("\n").slice(1).join("\n"));
-    expect(
-      data.library.map((item: ExperienceBullet) => item.kind).sort(),
-    ).toEqual([...kinds.slice(0, -1)].sort());
-    expect(
-      data.library.find((item: ExperienceBullet) => item.kind === "education"),
-    ).toMatchObject({
+    expect(data.library.map((item: ExperienceBullet) => item.kind).sort()).toEqual(
+      kinds.slice(0, -1).sort(),
+    );
+    expect(data.library.find((item: ExperienceBullet) => item.kind === "education")).toMatchObject({
       school: "School",
       area: "CS",
       grade: "A",
@@ -992,13 +912,9 @@ describe("V2 cowork producer", () => {
     const large = buildCoworkPrompt(
       context(),
       "Job",
-      Array.from({ length: 100 }, (_, i) =>
-        bullet(String(i), "x".repeat(10000)),
-      ),
+      Array.from({ length: 100 }, (_, i) => bullet(String(i), "x".repeat(10000))),
     );
-    expect(
-      Buffer.byteLength(large.split("\n").slice(1).join("\n")),
-    ).toBeLessThanOrEqual(250000);
+    expect(Buffer.byteLength(large.split("\n").slice(1).join("\n"))).toBeLessThanOrEqual(250000);
   });
   it("includes every editable item id, hidden/link state and project lines/intros", () => {
     const ctx = withSections();
@@ -1008,9 +924,7 @@ describe("V2 cowork producer", () => {
       description: "<p>Intro</p><ul><li>Point</li></ul>",
     });
     ctx.document.sections.certifications.hidden = true;
-    const data = JSON.parse(
-      buildCoworkPrompt(ctx, "Job", []).split("\n").slice(1).join("\n"),
-    );
+    const data = JSON.parse(buildCoworkPrompt(ctx, "Job", []).split("\n").slice(1).join("\n"));
     expect(data.resume.projects[0]).toMatchObject({
       id: "pr",
       libraryId: "project",
@@ -1155,9 +1069,7 @@ describe("V2 cowork producer", () => {
     expect(out[4]).toMatchObject({
       target: { target: { previousText: "Built APIs" } },
     });
-    expect(
-      out.some((suggestion) => suggestion.op === "set_skill_keywords"),
-    ).toBe(false);
+    expect(out.some((suggestion) => suggestion.op === "set_skill_keywords")).toBe(false);
     expect(
       filterCoworkSuggestions(
         [
@@ -1176,14 +1088,9 @@ describe("V2 cowork producer", () => {
   });
   it("keeps prose out of bullet indexes and preserves focus context", () => {
     const ctx = context();
-    ctx.document.sections.experience.items[0].description =
-      "<p>Intro &amp; detail</p>";
-    ctx.focus = [
-      { kind: "item", section: "experience", itemId: "exp", label: "Role" },
-    ];
-    const data = JSON.parse(
-      buildCoworkPrompt(ctx, "Job", []).split("\n").slice(1).join("\n"),
-    );
+    ctx.document.sections.experience.items[0].description = "<p>Intro &amp; detail</p>";
+    ctx.focus = [{ kind: "item", section: "experience", itemId: "exp", label: "Role" }];
+    const data = JSON.parse(buildCoworkPrompt(ctx, "Job", []).split("\n").slice(1).join("\n"));
     expect(data.resume.experience[0]).toMatchObject({
       intro: "Intro & detail",
       bullets: [],
@@ -1259,9 +1166,7 @@ describe("V2 cowork producer", () => {
               },
             })
           : proposal(op, { ...line, previousText: "", text: "Better" });
-      expect(
-        filterCoworkSuggestions([fallback], ctx, library)[0],
-      ).toMatchObject(
+      expect(filterCoworkSuggestions([fallback], ctx, library)[0]).toMatchObject(
         op === "save_to_library"
           ? { target: { target: { bulletIndex: 0, previousText: "First" } } }
           : { bulletIndex: 0, previousText: "First" },
@@ -1379,17 +1284,15 @@ describe("V2 cowork producer", () => {
         libraryId: "own",
       }),
     ];
-    expect(filterCoworkSuggestions(inputs, ctx, [bullet("own")])).toMatchObject(
-      [{ op: "insert_bullet", sourceBulletIds: ["own"] }],
-    );
+    expect(filterCoworkSuggestions(inputs, ctx, [bullet("own")])).toMatchObject([
+      { op: "insert_bullet", sourceBulletIds: ["own"] },
+    ]);
     Object.assign(ctx.document.sections.experience.items[0], {
       libraryId: "role",
       bulletRefs: ["own"],
     });
     expect(
-      filterCoworkSuggestions(inputs, ctx, [
-        { ...bullet("own"), parentId: "other-role" },
-      ]),
+      filterCoworkSuggestions(inputs, ctx, [{ ...bullet("own"), parentId: "other-role" }]),
     ).toMatchObject([{ op: "insert_bullet", sourceBulletIds: ["own"] }]);
   });
   it("budgets catalog at 50 KB in priority order and retains parents for lines", () => {
@@ -1426,13 +1329,13 @@ describe("V2 cowork producer", () => {
     ]);
     expect(ids).not.toContain("orphan");
     expect(ids).not.toContain("line-39");
-    expect(Buffer.byteLength(JSON.stringify(data.library))).toBeLessThanOrEqual(
-      50_000,
-    );
+    expect(Buffer.byteLength(JSON.stringify(data.library))).toBeLessThanOrEqual(50_000);
     expect(Buffer.byteLength(prompt)).toBeLessThanOrEqual(250_000);
-    expect(
-      data.library.find((item: ExperienceBullet) => item.id === "role"),
-    ).toEqual({ id: "role", kind: "role", text: "Role" });
+    expect(data.library.find((item: ExperienceBullet) => item.id === "role")).toEqual({
+      id: "role",
+      kind: "role",
+      text: "Role",
+    });
     for (const item of data.library)
       if (item.kind === "bullet" || item.kind === "project_point")
         expect(ids).toContain(item.parentId);
@@ -1447,9 +1350,7 @@ describe("V2 cowork producer", () => {
     expect(data.library).toEqual([]);
     expect(Buffer.byteLength(prompt)).toBeLessThanOrEqual(250_000);
     ctx.document.summary.content = "x".repeat(260_000);
-    const oversized = buildCoworkPrompt(ctx, "Job", [
-      { ...bullet("role"), kind: "role" },
-    ]);
+    const oversized = buildCoworkPrompt(ctx, "Job", [{ ...bullet("role"), kind: "role" }]);
     const largeData = JSON.parse(oversized.split("\n").slice(1).join("\n"));
     expect(largeData.library).toEqual([]);
     expect(largeData.resume.summary).toHaveLength(260_000);
@@ -1552,17 +1453,11 @@ describe("main regressions adapted to the V2 contract", () => {
     const prompt = buildCoworkPrompt(context(), "Python", library);
     const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
     expect(data.library).toHaveLength(82);
-    expect(Buffer.byteLength(JSON.stringify(data.library))).toBeLessThanOrEqual(
-      50_000,
-    );
-    expect(
-      data.library.findIndex((entry: ExperienceBullet) => entry.id === "b0"),
-    ).toBeGreaterThan(
+    expect(Buffer.byteLength(JSON.stringify(data.library))).toBeLessThanOrEqual(50_000);
+    expect(data.library.findIndex((entry: ExperienceBullet) => entry.id === "b0")).toBeGreaterThan(
       data.library.findIndex((entry: ExperienceBullet) => entry.id === "own"),
     );
-    expect(
-      data.library.some((entry: ExperienceBullet) => entry.id === "own"),
-    ).toBe(true);
+    expect(data.library.some((entry: ExperienceBullet) => entry.id === "own")).toBe(true);
     expect(data.resume.experience[0].bullets).toEqual([
       { index: 0, text: "Built APIs", libraryId: null },
     ]);
@@ -1638,12 +1533,9 @@ describe("main regressions adapted to the V2 contract", () => {
     const assertStrict = (node: any) => {
       if (node.type === "object") {
         expect(node.additionalProperties).toBe(false);
-        expect([...node.required].sort()).toEqual(
-          Object.keys(node.properties).sort(),
-        );
+        expect([...node.required].sort()).toEqual(Object.keys(node.properties).sort());
       }
-      for (const child of Object.values(node.properties ?? {}))
-        assertStrict(child);
+      for (const child of Object.values(node.properties ?? {})) assertStrict(child);
       if (node.items) assertStrict(node.items);
     };
     assertStrict(COWORK_RESPONSE_SCHEMA.schema);
@@ -1667,8 +1559,7 @@ describe("main regressions adapted to the V2 contract", () => {
       { text: "Valid", source: "ai_extract" },
     ]);
     await rankExperienceBullets("job");
-    for (const [input] of callJson.mock.calls)
-      assertStrict(input.jsonSchema.schema);
+    for (const [input] of callJson.mock.calls) assertStrict(input.jsonSchema.schema);
     expect(
       filterCoworkSuggestions(
         [
@@ -1713,10 +1604,8 @@ describe("main regressions adapted to the V2 contract", () => {
     );
     expect(
       result.map((suggestion) => ({
-        bulletIndex:
-          "bulletIndex" in suggestion ? suggestion.bulletIndex : undefined,
-        previousText:
-          "previousText" in suggestion ? suggestion.previousText : undefined,
+        bulletIndex: "bulletIndex" in suggestion ? suggestion.bulletIndex : undefined,
+        previousText: "previousText" in suggestion ? suggestion.previousText : undefined,
       })),
     ).toEqual([
       { bulletIndex: 0, previousText: "Built APIs" },
@@ -1731,9 +1620,7 @@ describe("main regressions adapted to the V2 contract", () => {
     const prompt = buildCoworkPrompt(cowork, "Job", []);
     const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
     expect(data.resume.experience[0].bullets).toEqual([]);
-    expect(data.resume.experience[0].intro).toBe(
-      "Intro link\nSecond paragraph",
-    );
+    expect(data.resume.experience[0].intro).toBe("Intro link\nSecond paragraph");
     const base = {
       section: "experience",
       itemId: "exp",

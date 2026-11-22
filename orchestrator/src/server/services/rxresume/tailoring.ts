@@ -25,18 +25,14 @@ export function cloneResumeData<T>(data: T): T {
 }
 
 function asRecord(value: unknown): RecordLike | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as RecordLike)
-    : null;
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as RecordLike) : null;
 }
 
 function asArray(value: unknown): unknown[] | null {
   return Array.isArray(value) ? value : null;
 }
 
-function parseTailoredSkills(
-  skills: TailoredSkillsInput,
-): Array<RecordLike> | null {
+function parseTailoredSkills(skills: TailoredSkillsInput): Array<RecordLike> | null {
   if (!skills) return null;
   const parsed = Array.isArray(skills)
     ? skills
@@ -44,15 +40,10 @@ function parseTailoredSkills(
       ? (JSON.parse(skills) as unknown)
       : null;
   if (!Array.isArray(parsed)) return null;
-  return parsed.filter(
-    (item) => item && typeof item === "object",
-  ) as RecordLike[];
+  return parsed.filter((item) => item && typeof item === "object") as RecordLike[];
 }
 
-export function applyTailoredHeadline(
-  resumeData: RecordLike,
-  headline?: string | null,
-): void {
+export function applyTailoredHeadline(resumeData: RecordLike, headline?: string | null): void {
   if (!headline) return;
   const basics = asRecord(resumeData.basics);
   if (!basics) return;
@@ -61,24 +52,15 @@ export function applyTailoredHeadline(
   basics.label = headline;
 }
 
-export function applyTailoredSummary(
-  resumeData: RecordLike,
-  summary?: string | null,
-): void {
+export function applyTailoredSummary(resumeData: RecordLike, summary?: string | null): void {
   if (!summary) return;
   const topSummary = asRecord(resumeData.summary);
   if (topSummary) {
-    if (
-      typeof topSummary.content === "string" ||
-      topSummary.content === undefined
-    ) {
+    if (typeof topSummary.content === "string" || topSummary.content === undefined) {
       topSummary.content = summary;
       return;
     }
-    if (
-      typeof topSummary.value === "string" ||
-      topSummary.value === undefined
-    ) {
+    if (typeof topSummary.value === "string" || topSummary.value === undefined) {
       topSummary.value = summary;
       return;
     }
@@ -111,8 +93,7 @@ export function applyTailoredSkills(
   if (!template) return;
 
   skillsSection.items = skills.map((newSkill) => {
-    const match =
-      existing.find((item) => item.name === newSkill.name) ?? template;
+    const match = existing.find((item) => item.name === newSkill.name) ?? template;
     const next: RecordLike = { ...match };
 
     if ("id" in next) {
@@ -192,15 +173,10 @@ export function extractProjectsFromResume(resumeData: RecordLike): {
     if (!id) continue;
 
     const name = typeof item.name === "string" ? item.name : id;
-    const description =
-      typeof item.description === "string"
-        ? stripHtmlTags(item.description)
-        : "";
+    const description = typeof item.description === "string" ? stripHtmlTags(item.description) : "";
     const date = typeof item.period === "string" ? item.period : "";
 
-    const isVisibleInBase = !(typeof item.hidden === "boolean"
-      ? item.hidden
-      : false);
+    const isVisibleInBase = !(typeof item.hidden === "boolean" ? item.hidden : false);
 
     const summaryRaw = description;
 

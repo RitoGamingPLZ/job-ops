@@ -25,21 +25,22 @@ orchestrator/
 ## Setup
 
 1. **Install dependencies:**
+
    ```bash
    cd orchestrator
    npm install
    ```
 
 2. **Set up environment:**
-    ```bash
-    cp .env.example .env
-    # The app is self-configuring. You can add keys via the UI Onboarding.
-    ```
+
+   ```bash
+   cp .env.example .env
+   # The app is self-configuring. You can add keys via the UI Onboarding.
+   ```
 
    After the server starts, onboarding saves your location and workplace defaults, verifies your LLM provider, and imports your resume. The parsed resume is shown for confirmation before setup completes. Search terms are chosen later when you start a run.
 
    You can edit the confirmed document later in **Resume Studio**. JobOps uses that document as the primary context for tailoring, scoring, and PDF generation.
-
 
    OpenRouter is the default LLM provider, but OpenAI, Claude (Anthropic), GLM, LM Studio, Ollama, `openai-compatible` endpoints, and Gemini are also supported.
 
@@ -50,16 +51,18 @@ orchestrator/
    For third-party services that expose an OpenAI-style API but are not OpenAI itself, use `LLM_PROVIDER=openai-compatible`.
 
 3. **Initialize database:**
+
    ```bash
    npm run db:migrate
    ```
 
 4. **Start development server:**
+
    ```bash
    npm run dev
    ```
 
-    This starts:
+   This starts:
    - Backend API at `http://localhost:3001`
    - Frontend at `http://localhost:5173`
 
@@ -67,34 +70,34 @@ orchestrator/
 
 ### Jobs
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/jobs` | List all jobs (filter with `?status=ready,discovered`) |
-| GET | `/api/jobs/:id` | Get single job |
-| PATCH | `/api/jobs/:id` | Update job |
-| POST | `/api/jobs/actions` | Run job actions (`move_to_ready`, `rescore`, `skip`) for one or many jobs |
-| POST | `/api/jobs/actions/stream` | Stream job action progress/events for one or many jobs |
-| POST | `/api/jobs/:id/apply` | Mark as applied |
+| Method | Endpoint                   | Description                                                               |
+| ------ | -------------------------- | ------------------------------------------------------------------------- |
+| GET    | `/api/jobs`                | List all jobs (filter with `?status=ready,discovered`)                    |
+| GET    | `/api/jobs/:id`            | Get single job                                                            |
+| PATCH  | `/api/jobs/:id`            | Update job                                                                |
+| POST   | `/api/jobs/actions`        | Run job actions (`move_to_ready`, `rescore`, `skip`) for one or many jobs |
+| POST   | `/api/jobs/actions/stream` | Stream job action progress/events for one or many jobs                    |
+| POST   | `/api/jobs/:id/apply`      | Mark as applied                                                           |
 
 ### Pipeline
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/pipeline/status` | Get pipeline status |
-| GET | `/api/pipeline/runs` | Get recent pipeline runs |
-| POST | `/api/pipeline/run` | Trigger pipeline manually |
-| POST | `/api/webhook/trigger` | Webhook for n8n (use `WEBHOOK_SECRET`) |
+| Method | Endpoint               | Description                            |
+| ------ | ---------------------- | -------------------------------------- |
+| GET    | `/api/pipeline/status` | Get pipeline status                    |
+| GET    | `/api/pipeline/runs`   | Get recent pipeline runs               |
+| POST   | `/api/pipeline/run`    | Trigger pipeline manually              |
+| POST   | `/api/webhook/trigger` | Webhook for n8n (use `WEBHOOK_SECRET`) |
 
 ### Post-Application Tracking
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/post-application/inbox` | List pending messages for review |
-| POST | `/api/post-application/inbox/:id/approve` | Approve and link to job |
-| POST | `/api/post-application/inbox/:id/deny` | Ignore message |
-| GET | `/api/post-application/runs` | List sync run history |
-| GET | `/api/post-application/providers/gmail/oauth/start` | Initiate Gmail OAuth flow |
-| POST | `/api/post-application/providers/gmail/oauth/exchange` | Exchange OAuth code |
+| Method | Endpoint                                               | Description                      |
+| ------ | ------------------------------------------------------ | -------------------------------- |
+| GET    | `/api/post-application/inbox`                          | List pending messages for review |
+| POST   | `/api/post-application/inbox/:id/approve`              | Approve and link to job          |
+| POST   | `/api/post-application/inbox/:id/deny`                 | Ignore message                   |
+| GET    | `/api/post-application/runs`                           | List sync run history            |
+| GET    | `/api/post-application/providers/gmail/oauth/start`    | Initiate Gmail OAuth flow        |
+| POST   | `/api/post-application/providers/gmail/oauth/exchange` | Exchange OAuth code              |
 
 ## Daily Flow
 

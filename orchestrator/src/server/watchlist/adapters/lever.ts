@@ -25,9 +25,7 @@ const jobSchema = z.object({
   applyUrl: z.string().optional(),
   description: z.string().optional(),
   descriptionPlain: z.string().optional(),
-  lists: z
-    .array(z.object({ text: z.string(), content: z.string() }))
-    .optional(),
+  lists: z.array(z.object({ text: z.string(), content: z.string() })).optional(),
   additional: z.string().optional(),
   additionalPlain: z.string().optional(),
 });
@@ -49,9 +47,7 @@ function board(value: string) {
     throw badRequest("Invalid Lever careers URL.");
   }
   const authority = value.trim().match(/^https:\/\/([^/?#]+)/i)?.[1];
-  const match = url.pathname.match(
-    /^\/([a-zA-Z0-9_-]+)(?:\/([a-zA-Z0-9-]+)(?:\/apply)?)?\/?$/,
-  );
+  const match = url.pathname.match(/^\/([a-zA-Z0-9_-]+)(?:\/([a-zA-Z0-9-]+)(?:\/apply)?)?\/?$/);
   if (
     !authority ||
     authority.includes(":") ||
@@ -66,13 +62,7 @@ function board(value: string) {
   }
   const company = match[1];
   const filters = new URLSearchParams();
-  for (const key of [
-    "commitment",
-    "department",
-    "location",
-    "team",
-    "workplaceType",
-  ]) {
+  for (const key of ["commitment", "department", "location", "team", "workplaceType"]) {
     for (const value of [
       ...new Set(
         url.searchParams
@@ -128,8 +118,7 @@ async function request(url: string, signal: AbortSignal): Promise<unknown> {
       );
       continue;
     }
-    if (!response.ok)
-      throw upstreamError(`Lever returned HTTP ${response.status}.`);
+    if (!response.ok) throw upstreamError(`Lever returned HTTP ${response.status}.`);
     try {
       return await response.json();
     } catch {
@@ -145,8 +134,7 @@ function postingUrl(b: Board, job: Job, apply = false): string {
   if (!value) return fallback;
   try {
     const parsed = board(value);
-    if (parsed.baseUrl === b.baseUrl && parsed.postingId === job.id)
-      return value;
+    if (parsed.baseUrl === b.baseUrl && parsed.postingId === job.id) return value;
   } catch {
     /* Fall back to the pinned company posting URL. */
   }
@@ -165,24 +153,14 @@ function location(job: Job) {
 }
 function description(job: Job) {
   return [
-    job.description ||
-      (job.descriptionPlain
-        ? `<p>${escapeHtml(job.descriptionPlain)}</p>`
-        : ""),
-    ...(job.lists ?? []).map(
-      (section) => `<h3>${escapeHtml(section.text)}</h3>${section.content}`,
-    ),
-    job.additional ||
-      (job.additionalPlain ? `<p>${escapeHtml(job.additionalPlain)}</p>` : ""),
+    job.description || (job.descriptionPlain ? `<p>${escapeHtml(job.descriptionPlain)}</p>` : ""),
+    ...(job.lists ?? []).map((section) => `<h3>${escapeHtml(section.text)}</h3>${section.content}`),
+    job.additional || (job.additionalPlain ? `<p>${escapeHtml(job.additionalPlain)}</p>` : ""),
   ]
     .filter(Boolean)
     .join("\n");
 }
-async function details(
-  careersUrl: string,
-  jobRef: string,
-  signal?: AbortSignal,
-) {
+async function details(careersUrl: string, jobRef: string, signal?: AbortSignal) {
   const b = board(careersUrl);
   const ref = board(jobRef);
   if (ref.baseUrl !== b.baseUrl || !ref.postingId)
@@ -258,8 +236,7 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
           budget(),
         ),
       );
-    if (!parsed.success)
-      throw upstreamError("Lever returned invalid board data.");
+    if (!parsed.success) throw upstreamError("Lever returned invalid board data.");
     return {
       label:
         input.label?.trim() && input.label.trim() !== input.careersUrl.trim()
@@ -280,12 +257,9 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
           budget(input.signal),
         ),
       );
-    if (!parsed.success)
-      throw upstreamError("Lever returned invalid board data.");
+    if (!parsed.success) throw upstreamError("Lever returned invalid board data.");
     const all = [...new Map(parsed.data.map((job) => [job.id, job])).values()];
-    const selected = all
-      .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
-      .slice(0, 60);
+    const selected = all.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)).slice(0, 60);
     listedJobs.set(b.careersUrl, new Map(selected.map((job) => [job.id, job])));
     const jobs = selected.map((job) => ({
       jobRef: `${b.baseUrl}/${job.id}`,
@@ -297,19 +271,12 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       jobUrl: postingUrl(b, job),
       applicationLink: postingUrl(b, job, true),
       location: location(job),
-      postedAt:
-        job.createdAt === undefined
-          ? null
-          : new Date(job.createdAt).toISOString(),
+      postedAt: job.createdAt === undefined ? null : new Date(job.createdAt).toISOString(),
     }));
     return { total: all.length, fetched: jobs.length, jobs };
   },
   async fetchJobDetails(input) {
-    const { b, job } = await details(
-      input.source.careersUrl,
-      input.jobRef,
-      input.signal,
-    );
+    const { b, job } = await details(input.source.careersUrl, input.jobRef, input.signal);
     return {
       jobRef: input.jobRef,
       jobUrl: postingUrl(b, job),
@@ -317,11 +284,7 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     };
   },
   async prepareImportDraft(input) {
-    const { b, job } = await details(
-      input.source.careersUrl,
-      input.jobRef,
-      input.signal,
-    );
+    const { b, job } = await details(input.source.careersUrl, input.jobRef, input.signal);
     const source = `lever:${b.company}`;
     return {
       source,

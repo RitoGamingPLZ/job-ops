@@ -21,9 +21,7 @@ export const useVirtualizedList = ({
   initialRect,
   overscan = 8,
 }: UseVirtualizedListOptions) => {
-  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(
-    null,
-  );
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
 
   const scrollElementRef = useCallback((element: HTMLDivElement | null) => {
     setScrollElement(element);
