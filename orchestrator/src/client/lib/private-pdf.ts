@@ -54,6 +54,12 @@ export async function createJobPdfObjectUrl(jobId: string): Promise<string> {
   return createObjectUrlFromBlob(() => api.getJobPdfBlob(jobId));
 }
 
+export async function createJobPreviewPdfObjectUrl(
+  jobId: string,
+): Promise<string> {
+  return createObjectUrlFromBlob(() => api.previewJobPdfBlob(jobId));
+}
+
 export async function openJobDocument(
   jobId: string,
   document: JobDocumentTypeTarget & { id: string },
@@ -89,6 +95,10 @@ export async function createDesignResumePdfObjectUrl(
   pdfUrl?: string,
 ): Promise<string> {
   return createObjectUrlFromBlob(() => api.getDesignResumePdfBlob(pdfUrl));
+}
+
+export async function createDesignResumePreviewPdfObjectUrl(): Promise<string> {
+  return createObjectUrlFromBlob(() => api.previewDesignResumePdfBlob());
 }
 
 export async function downloadDesignResumePdf(

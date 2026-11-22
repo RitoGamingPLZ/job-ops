@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   importRx: vi.fn(),
   basePdf: vi.fn(),
   baseUrl: vi.fn(),
+  basePreviewUrl: vi.fn(),
   baseDownload: vi.fn(),
   getResume: vi.fn(),
   listResumes: vi.fn(),
@@ -42,6 +43,7 @@ const mocks = vi.hoisted(() => ({
   getJob: vi.fn(),
   pdf: vi.fn(),
   openPdf: vi.fn(),
+  previewPdf: vi.fn(),
   downloadPdf: vi.fn(),
   toast: vi.fn(),
   coworkError: vi.fn(),
@@ -73,8 +75,10 @@ vi.mock("@client/api/jobs", () => ({
 }));
 vi.mock("@/client/lib/private-pdf", () => ({
   createDesignResumePdfObjectUrl: mocks.baseUrl,
+  createDesignResumePreviewPdfObjectUrl: mocks.basePreviewUrl,
   downloadDesignResumePdf: mocks.baseDownload,
   createJobPdfObjectUrl: mocks.openPdf,
+  createJobPreviewPdfObjectUrl: mocks.previewPdf,
   downloadJobPdf: mocks.downloadPdf,
 }));
 vi.mock("@/client/components/cowork/PdfCanvasPreview", () => ({
@@ -301,6 +305,7 @@ beforeEach(() => {
   mocks.importFile.mockResolvedValue({});
   mocks.basePdf.mockResolvedValue({});
   mocks.baseUrl.mockResolvedValue("blob:base");
+  mocks.basePreviewUrl.mockResolvedValue("blob:base");
   mocks.baseDownload.mockResolvedValue(undefined);
   localStorage.clear();
   window.history.replaceState({ idx: 0 }, "");
@@ -327,6 +332,7 @@ beforeEach(() => {
   );
   mocks.pdf.mockResolvedValue({});
   mocks.openPdf.mockResolvedValue("blob:fake");
+  mocks.previewPdf.mockResolvedValue("blob:fake");
   mocks.downloadPdf.mockResolvedValue(undefined);
   vi.spyOn(window, "open").mockReturnValue(null);
 });
@@ -811,12 +817,13 @@ describe("resume co-work saving", () => {
     expect(localStorage.getItem("resume-cowork-preview")).toBe("true");
     expect(window.open).not.toHaveBeenCalled();
     expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.pdf.mock.invocationCallOrder[0],
+      mocks.previewPdf.mock.invocationCallOrder[0],
     );
+    expect(mocks.pdf).not.toHaveBeenCalled();
   });
   it("replaces the displayed PDF and revokes its old URL when rendering again", async () => {
     const revoke = vi.spyOn(URL, "revokeObjectURL");
-    mocks.openPdf
+    mocks.previewPdf
       .mockResolvedValueOnce("blob:first")
       .mockResolvedValueOnce("blob:second");
     mount();
@@ -833,7 +840,8 @@ describe("resume co-work saving", () => {
         "blob:second",
       ),
     );
-    expect(mocks.pdf).toHaveBeenCalledTimes(2);
+    expect(mocks.previewPdf).toHaveBeenCalledTimes(2);
+    expect(mocks.pdf).not.toHaveBeenCalled();
     expect(revoke).toHaveBeenCalledWith("blob:first");
   });
   it("flushes a pending debounced edit when leaving the job", async () => {
@@ -1164,8 +1172,9 @@ describe("candidate library page wiring", () => {
       screen.getByRole("document", { name: "Resume PDF preview" }),
     ).toContainElement(preview);
     expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.pdf.mock.invocationCallOrder[0],
+      mocks.previewPdf.mock.invocationCallOrder[0],
     );
+    expect(mocks.pdf).not.toHaveBeenCalled();
     expect(localStorage.getItem("resume-cowork-preview")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     expect(screen.getByLabelText("Headline")).toHaveValue("Preview edit");
@@ -1179,7 +1188,8 @@ describe("candidate library page wiring", () => {
       "blob:fake",
     );
     expect(mocks.save).not.toHaveBeenCalled();
-    expect(mocks.pdf).toHaveBeenCalledOnce();
+    expect(mocks.previewPdf).toHaveBeenCalledOnce();
+    expect(mocks.pdf).not.toHaveBeenCalled();
   });
 });
 
@@ -1486,12 +1496,14 @@ describe("base resume mode", () => {
       "data-url",
       "blob:base",
     );
-    expect(mocks.basePdf).toHaveBeenCalledOnce();
+    expect(mocks.basePreviewUrl).toHaveBeenCalledOnce();
+    expect(mocks.basePdf).not.toHaveBeenCalled();
     expect(mocks.pdf).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
     await waitFor(() =>
       expect(mocks.baseDownload).toHaveBeenCalledWith("resume.pdf"),
     );
+    expect(mocks.basePdf).toHaveBeenCalledOnce();
   });
   it("uses the same conflict dialog and latest base revision", async () => {
     mount(true);
@@ -1619,12 +1631,10 @@ describe("explicit resume opening", () => {
       mocks.getResume.mock.invocationCallOrder[0],
     );
     expect(mocks.getResume.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.pdf.mock.invocationCallOrder[0],
+      mocks.previewPdf.mock.invocationCallOrder[0],
     );
-    expect(mocks.pdf).toHaveBeenCalledWith("job");
-    expect(mocks.pdf.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.openPdf.mock.invocationCallOrder[0],
-    );
+    expect(mocks.previewPdf).toHaveBeenCalledWith("job");
+    expect(mocks.pdf).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     expect(screen.getByLabelText("Headline")).toHaveValue("Saved tailored");
     expect(mocks.getBase).not.toHaveBeenCalled();
@@ -1669,10 +1679,11 @@ describe("explicit resume opening", () => {
     });
     fireEvent.click(screen.getByRole("link", { name: "Route preview" }));
     await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
+    expect(mocks.previewPdf).not.toHaveBeenCalled();
     expect(mocks.pdf).not.toHaveBeenCalled();
     await act(async () => completeSave(state("Keep this edit", 2)));
     await screen.findByRole("document");
-    expect(mocks.pdf.mock.invocationCallOrder[0]).toBeGreaterThan(
+    expect(mocks.previewPdf.mock.invocationCallOrder[0]).toBeGreaterThan(
       mocks.save.mock.invocationCallOrder[0],
     );
     fireEvent.click(screen.getByRole("link", { name: "Route edit" }));
@@ -1723,7 +1734,9 @@ describe("explicit resume opening", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await screen.findByRole("document");
-    expect(mocks.openPdf).toHaveBeenCalledTimes(2);
+    expect(mocks.openPdf).toHaveBeenCalledTimes(1);
+    expect(mocks.previewPdf).toHaveBeenCalledTimes(1);
+    expect(mocks.pdf).not.toHaveBeenCalled();
     expect(mocks.getResume).toHaveBeenCalledWith("job");
   });
 
@@ -1811,7 +1824,7 @@ describe("explicit resume opening", () => {
       status: "ready",
       pdfFreshness: "stale",
     });
-    mocks.pdf.mockRejectedValueOnce(new Error("Renderer unavailable"));
+    mocks.previewPdf.mockRejectedValueOnce(new Error("Renderer unavailable"));
     mount(false, new QueryClient(), "?mode=preview");
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Renderer unavailable",
@@ -1819,7 +1832,8 @@ describe("explicit resume opening", () => {
     expect(mocks.openPdf).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await screen.findByRole("document");
-    expect(mocks.pdf).toHaveBeenCalledTimes(2);
+    expect(mocks.previewPdf).toHaveBeenCalledTimes(2);
+    expect(mocks.pdf).not.toHaveBeenCalled();
     expect(mocks.getResume).toHaveBeenCalledTimes(1);
   });
   it("waits for conflict resolution before an explicit same-job Preview renders", async () => {

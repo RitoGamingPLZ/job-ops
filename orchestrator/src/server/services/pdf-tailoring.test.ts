@@ -1,7 +1,12 @@
 import type { ReactiveResumeV5Document } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureJobResume } from "./job-resume";
-import { generateDesignResumePdf, generatePdf } from "./pdf";
+import {
+  generateDesignResumePdf,
+  generatePdf,
+  previewDesignResumePdfBytes,
+  previewJobPdfBytes,
+} from "./pdf";
 import * as projectSelection from "./projectSelection";
 
 vi.mock("./job-resume", () => ({
@@ -897,6 +902,60 @@ describe("PDF Service Tailoring Logic", () => {
       });
     } finally {
       vi.unstubAllGlobals();
+    }
+  });
+
+  it("renders preview bytes without writing to BlobStore, and persists on generate", async () => {
+    const { getBlobStore, setBlobStore } = await import(
+      "@server/infra/blob-store"
+    );
+    const put = vi.fn().mockResolvedValue(undefined);
+    const mockStore = {
+      ...getBlobStore(),
+      put,
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+    setBlobStore(mockStore as any);
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("%PDF-preview-job"));
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("%PDF-preview-design"));
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("%PDF-saved-job"));
+    mocks.readFile.mockResolvedValueOnce(Buffer.from("%PDF-saved-design"));
+
+    const designResume = await import("./design-resume");
+    vi.mocked(designResume.getCurrentDesignResume).mockResolvedValue({
+      id: "design-resume-1",
+      title: "Resume Studio",
+      sourceResumeId: null,
+      sourceMode: "v5",
+      importedAt: "2026-05-02T00:00:00.000Z",
+      updatedAt: "2026-05-02T00:00:00.000Z",
+      revision: 1,
+      resumeJson: mockProfile,
+    } as any);
+
+    try {
+      const jobPreview = await previewJobPdfBytes("preview-job", "JD");
+      expect(Buffer.from(jobPreview).toString()).toBe("%PDF-preview-job");
+      const designPreview = await previewDesignResumePdfBytes();
+      expect(Buffer.from(designPreview).toString()).toBe("%PDF-preview-design");
+      expect(put).not.toHaveBeenCalled();
+
+      const generated = await generatePdf("saved-job-r2", "JD");
+      expect(generated.success).toBe(true);
+      expect(put).toHaveBeenCalledWith(
+        expect.stringContaining("resume_saved-job-r2.pdf"),
+        expect.any(Uint8Array),
+        { contentType: "application/pdf" },
+      );
+
+      await generateDesignResumePdf();
+      expect(put).toHaveBeenCalledWith(
+        expect.stringContaining("design_resume_current.pdf"),
+        expect.any(Uint8Array),
+        { contentType: "application/pdf" },
+      );
+    } finally {
+      setBlobStore(null);
     }
   });
 });

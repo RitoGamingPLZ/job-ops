@@ -63,8 +63,9 @@ import {
   PDF_REGENERATING_MESSAGE,
 } from "@/client/lib/pdf-freshness";
 import {
-  createDesignResumePdfObjectUrl,
+  createDesignResumePreviewPdfObjectUrl,
   createJobPdfObjectUrl,
+  createJobPreviewPdfObjectUrl,
   downloadDesignResumePdf,
   downloadJobPdf,
 } from "@/client/lib/private-pdf";
@@ -776,8 +777,6 @@ function CoworkWorkspace({
             "Save the resume and resolve any conflict before previewing.",
           );
         if (!mounted.current) return;
-        if (base) await generateDesignResumePdf();
-        else await generateJobPdf(jobId);
       } else if (!(await flush())) {
         throw new Error(
           "Save the resume and resolve any conflict before previewing.",
@@ -785,8 +784,10 @@ function CoworkWorkspace({
       }
       if (!mounted.current) return;
       const url = base
-        ? await createDesignResumePdfObjectUrl()
-        : await createJobPdfObjectUrl(jobId);
+        ? await createDesignResumePreviewPdfObjectUrl()
+        : render
+          ? await createJobPreviewPdfObjectUrl(jobId)
+          : await createJobPdfObjectUrl(jobId);
       if (!mounted.current) {
         URL.revokeObjectURL(url);
         return;

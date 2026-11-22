@@ -250,6 +250,13 @@ export async function getJobPdfBlob(id: string): Promise<Blob> {
   );
 }
 
+export async function previewJobPdfBlob(id: string): Promise<Blob> {
+  return fetchBlobApi(`/jobs/${encodeURIComponent(id)}/preview-pdf`, {
+    method: "POST",
+    cache: "no-store",
+  });
+}
+
 export async function processJob(
   ids: string[],
   options?: { force?: boolean },

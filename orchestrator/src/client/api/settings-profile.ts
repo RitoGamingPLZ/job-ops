@@ -91,6 +91,13 @@ export async function getDesignResumePdfBlob(pdfUrl?: string): Promise<Blob> {
   );
 }
 
+export async function previewDesignResumePdfBlob(): Promise<Blob> {
+  return fetchBlobApi("/design-resume/preview-pdf", {
+    method: "POST",
+    cache: "no-store",
+  });
+}
+
 export async function refreshProfile(): Promise<ResumeProfile> {
   return fetchApi<ResumeProfile>("/profile/refresh", {
     method: "POST",

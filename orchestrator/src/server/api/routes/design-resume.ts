@@ -17,7 +17,10 @@ import {
   uploadDesignResumePictureFile,
 } from "@server/services/design-resume";
 import { importDesignResumeFromFile } from "@server/services/design-resume/import-file";
-import { generateDesignResumePdf } from "@server/services/pdf";
+import {
+  generateDesignResumePdf,
+  previewDesignResumePdfBytes,
+} from "@server/services/pdf";
 import {
   getTenantDesignResumePdfKey,
   getTenantDesignResumePdfPath,
@@ -291,6 +294,18 @@ designResumeRouter.get(
     res.setHeader("Content-Type", asset.mimeType);
     res.setHeader("Cache-Control", "private, max-age=60");
     res.send(content);
+  }),
+);
+
+designResumeRouter.post(
+  "/preview-pdf",
+  asyncRoute(async (req: Request, res: Response) => {
+    const bytes = await previewDesignResumePdfBytes({
+      requestOrigin: resolveRequestOrigin(req),
+    });
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Type", "application/pdf");
+    res.send(Buffer.from(bytes));
   }),
 );
 

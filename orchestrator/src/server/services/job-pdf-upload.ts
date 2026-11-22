@@ -1,8 +1,5 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { badRequest } from "@infra/errors";
-import { getTenantJobPdfPath, getTenantPdfDir } from "./pdf-storage";
+import { getTenantJobPdfPath, writeStoredJobPdf } from "./pdf-storage";
 import { decodeBase64Upload } from "./upload-base64";
 
 type UploadJobPdfInput = {
@@ -72,19 +69,8 @@ export async function uploadJobPdf(input: UploadJobPdfInput): Promise<{
   });
   assertPdfSignature(decoded);
 
-  const pdfDir = getTenantPdfDir();
   const outputPath = getTenantJobPdfPath(input.jobId);
-  const tempPath = join(pdfDir, `resume_${input.jobId}.${randomUUID()}.tmp`);
-
-  await mkdir(pdfDir, { recursive: true });
-
-  try {
-    await writeFile(tempPath, decoded);
-    await rename(tempPath, outputPath);
-  } catch (error) {
-    await rm(tempPath, { force: true }).catch(() => undefined);
-    throw error;
-  }
+  await writeStoredJobPdf(input.jobId, decoded);
 
   return {
     outputPath,

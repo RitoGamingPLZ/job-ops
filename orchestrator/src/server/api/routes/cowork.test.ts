@@ -397,9 +397,12 @@ describe("co-work routes", () => {
       .get();
     if (!owner) throw new Error("Missing job");
     const renderer = await import("@server/services/resume-renderer");
+    const { writeFile } = await import("node:fs/promises");
     const render = vi
       .spyOn(renderer, "renderResumePdf")
-      .mockResolvedValue(undefined);
+      .mockImplementation(async (args) => {
+        await writeFile(args.outputPath, Buffer.from("%PDF-1.4\n"));
+      });
     const { generatePdf } = await import("@server/services/pdf");
     const { getJobResume } = await import("@server/repositories/job-resumes");
     const { runWithRequestContext } = await import("@infra/request-context");

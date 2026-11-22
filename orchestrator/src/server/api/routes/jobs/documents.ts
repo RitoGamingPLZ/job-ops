@@ -1,4 +1,3 @@
-import { rm } from "node:fs/promises";
 import { AppError, badRequest, conflict } from "@infra/errors";
 import { fail, ok, okWithMeta } from "@infra/http";
 import { logger } from "@infra/logger";
@@ -14,6 +13,8 @@ import {
   storeJobDocument,
 } from "@server/services/job-document-storage";
 import { uploadJobPdf } from "@server/services/job-pdf-upload";
+import { previewJobPdfBytes } from "@server/services/pdf";
+import { removeStoredJobPdf } from "@server/services/pdf-storage";
 import { getSafeInlineJobDocumentMediaType } from "@shared/job-document-classification.js";
 import { type Request, type Response, Router } from "express";
 import {
@@ -76,6 +77,31 @@ function setJobDocumentContentHeaders(
   res.type(safeInlineMediaType);
 }
 
+jobsDocumentsRouter.post(
+  "/:id/preview-pdf",
+  async (req: Request, res: Response) => {
+    try {
+      const job = await requireJob(req.params.id);
+      const bytes = await previewJobPdfBytes(job.id, job.jobDescription ?? "", {
+        requestOrigin: resolveRequestOrigin(req),
+      });
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Content-Type", "application/pdf");
+      res.send(Buffer.from(bytes));
+    } catch (error) {
+      const err = toJobsRouteError(error);
+      logger[err.status === 404 ? "warn" : "error"]("Job PDF preview failed", {
+        route: "POST /api/jobs/:id/preview-pdf",
+        jobId: req.params.id,
+        status: err.status,
+        code: err.code,
+        details: err.details,
+      });
+      fail(res, err);
+    }
+  },
+);
+
 jobsDocumentsRouter.post("/:id/pdf", async (req: Request, res: Response) => {
   let uploadedPath: string | null = null;
 
@@ -118,7 +144,7 @@ jobsDocumentsRouter.post("/:id/pdf", async (req: Request, res: Response) => {
     });
 
     if (!job) {
-      await rm(uploaded.outputPath, { force: true }).catch((cleanupError) => {
+      await removeStoredJobPdf(req.params.id).catch((cleanupError) => {
         logger.warn("Failed to clean up uploaded PDF after missing job", {
           route: "POST /api/jobs/:id/pdf",
           jobId: req.params.id,
@@ -168,7 +194,7 @@ jobsDocumentsRouter.post("/:id/pdf", async (req: Request, res: Response) => {
     });
 
     if (uploadedPath) {
-      await rm(uploadedPath, { force: true }).catch((cleanupError) => {
+      await removeStoredJobPdf(req.params.id).catch((cleanupError) => {
         logger.warn("Failed to clean up uploaded PDF after route error", {
           route: "POST /api/jobs/:id/pdf",
           jobId: req.params.id,
