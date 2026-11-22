@@ -75,6 +75,42 @@ export function resetD1SyncBaseline(dbPath = getDefaultSyncDbPath()): void {
   baselineByDbPath.delete(dbPath);
 }
 
+export function getContainerHydrationState(dbPath = getDefaultSyncDbPath()): {
+  hydrated: boolean;
+  userCount: number;
+} {
+  const sqlite = openSqlite(dbPath);
+  let userCount = 0;
+  try {
+    const row = sqlite.prepare('SELECT COUNT(*) as n FROM "users"').get() as
+      | { n?: number }
+      | undefined;
+    userCount = Number(row?.n ?? 0);
+  } catch {
+    userCount = 0;
+  } finally {
+    sqlite.close();
+  }
+
+  if (userCount > 0 && !baselineByDbPath.has(dbPath)) {
+    const schemas = getD1SyncSchema(dbPath);
+    const baseline = getOrCreateBaseline(dbPath);
+    const snapDb = openSqlite(dbPath);
+    try {
+      for (const schema of schemas) {
+        const rows = snapDb
+          .prepare(`SELECT * FROM ${quoteIdent(schema.name)}`)
+          .all() as Array<Record<string, unknown>>;
+        baseline.set(schema.name, buildRowSnapshot(schema, rows));
+      }
+    } finally {
+      snapDb.close();
+    }
+  }
+
+  return { hydrated: userCount > 0, userCount };
+}
+
 export function getD1SyncSchema(
   dbPath = getDefaultSyncDbPath(),
 ): D1TableSchema[] {

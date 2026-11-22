@@ -10,6 +10,7 @@ import { fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import {
   collectD1Changes,
+  getContainerHydrationState,
   getD1SyncSchema,
   importTablesFromD1,
   listPdfFiles,
@@ -58,7 +59,8 @@ internalD1SyncRouter.use(verifyInternalSyncSecret);
 internalD1SyncRouter.get("/schema", (_req: Request, res: Response) => {
   try {
     const tables = getD1SyncSchema();
-    ok(res, { tables });
+    const { hydrated, userCount } = getContainerHydrationState();
+    ok(res, { tables, hydrated, userCount });
   } catch (error) {
     logger.error("Failed to read D1 sync schema", error);
     fail(res, toAppError(error));
