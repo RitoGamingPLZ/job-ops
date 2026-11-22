@@ -298,26 +298,34 @@ export function createAuthGuard() {
   }
 
   function requiresAuth(method: string, path: string): boolean {
-    if (isPublicReadOnlyRoute(method, path)) return false;
-    if (isPublicDemoRoute(path)) return false;
+    const normalizedPath =
+      path
+        .split("?")[0]
+        .replace(/\/{2,}/g, "/")
+        .replace(/\/+$/, "")
+        .toLowerCase() || "/";
+
+    if (isPublicReadOnlyRoute(method, normalizedPath)) return false;
+    if (isPublicDemoRoute(normalizedPath)) return false;
     // OPTIONS is always exempt for CORS preflight.
     if (method.toUpperCase() === "OPTIONS") return false;
 
     // Umami's public script posts browser beacons to /stats/api/send. The
     // proxy route still validates method/path before forwarding.
-    if (isStatsRoute(path)) return false;
+    if (isStatsRoute(normalizedPath)) return false;
 
     // Analytics and per-job tracer details are workspace-private.
-    if (path.startsWith("/api/tracer-links/analytics")) return true;
-    if (path.startsWith("/api/tracer-links/jobs")) return true;
+    if (normalizedPath.startsWith("/api/tracer-links/analytics")) return true;
+    if (normalizedPath.startsWith("/api/tracer-links/jobs")) return true;
 
     // Allow public read access to other tracer link routes.
-    if (path.startsWith("/api/tracer-links")) {
+    if (normalizedPath.startsWith("/api/tracer-links")) {
       return !["GET", "HEAD"].includes(method.toUpperCase());
     }
 
     // All other /api/* paths require auth regardless of HTTP method.
-    if (path.startsWith("/api/")) return true;
+    if (normalizedPath === "/api" || normalizedPath.startsWith("/api/"))
+      return true;
 
     // Non-API routes (SPA, /health, static) remain publicly readable via GET/HEAD.
     return !["GET", "HEAD"].includes(method.toUpperCase());

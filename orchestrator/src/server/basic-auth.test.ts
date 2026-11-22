@@ -1,4 +1,8 @@
-import type { NextFunction, Request, Response } from "express";
+import express, {
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuthGuard } from "./app";
 
@@ -99,6 +103,82 @@ describe.sequential("Auth read-only enforcement", () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it.each([
+    "/API/x",
+    "/Api/x",
+    "/API//x",
+    "/api/tracer-links/ANALYTICS",
+    "/api/tracer-links//analytics",
+    "/API//x?public=true",
+    "/api/",
+    "/api",
+  ])("blocks GET %s without auth", async (path) => {
+    vi.mocked(countUsers).mockResolvedValue(1);
+
+    const { middleware } = createAuthGuard();
+    const req = createMockRequest({ method: "GET", path });
+    const res = createMockResponse();
+    const next = vi.fn() as NextFunction;
+
+    middleware(req, res, next);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("does not route an encoded API prefix to protected data", async () => {
+    vi.mocked(countUsers).mockResolvedValue(1);
+
+    const app = express();
+    app.use(createAuthGuard().middleware);
+    const protectedRoute = vi.fn((_req: Request, res: Response) => {
+      res.json({ protected: true });
+    });
+    app.get("/api/x", protectedRoute);
+    const server = app.listen(0, "127.0.0.1");
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once("listening", resolve);
+        server.once("error", reject);
+      });
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Failed to resolve server address");
+      }
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/%61pi/x`);
+
+      expect(response.status).toBe(404);
+      expect(protectedRoute).not.toHaveBeenCalled();
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
+  it.each([
+    { method: "POST", path: "/api/auth/login" },
+    { method: "GET", path: "/health" },
+    { method: "GET", path: "/api/tracer-links/public-slug" },
+  ])("allows public $method $path without auth", async ({ method, path }) => {
+    vi.mocked(countUsers).mockResolvedValue(1);
+
+    const { middleware } = createAuthGuard();
+    const req = createMockRequest({ method, path });
+    const res = createMockResponse();
+    const next = vi.fn() as NextFunction;
+
+    middleware(req, res, next);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(countUsers).not.toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
   it("allows the MCP endpoint without auth", async () => {
     vi.mocked(countUsers).mockResolvedValue(1);
 
@@ -189,14 +269,20 @@ describe.sequential("Auth read-only enforcement", () => {
     expect(res.status).not.toHaveBeenCalled();
   });
 
-  it("keeps sensitive demo read APIs behind auth", async () => {
+  it.each([
+    "/api/settings/codex-auth",
+    "/API/SETTINGS/CODEX-AUTH",
+    "/api//settings/codex-auth",
+    "/api/settings/codex-auth/",
+    "/api/settings/rx-resumes/",
+  ])("keeps sensitive demo read API %s behind auth", async (path) => {
     process.env.DEMO_MODE = "true";
     vi.mocked(countUsers).mockResolvedValue(0);
 
     const { middleware } = createAuthGuard();
     const req = createMockRequest({
       method: "GET",
-      path: "/api/settings/codex-auth",
+      path,
     });
     const res = createMockResponse();
     const next = vi.fn() as NextFunction;
