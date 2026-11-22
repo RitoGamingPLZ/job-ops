@@ -22,6 +22,7 @@ import { sanitizeUnknown } from "@infra/sanitize";
 import { verifyToken } from "@server/auth/jwt";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { isDemoMode } from "@server/config/demo";
+import { getBlobStore } from "@server/infra/blob-store";
 import * as usersRepo from "@server/repositories/users";
 import { proxyChallengeViewerRequest } from "@server/services/challenge-viewer";
 import { DEFAULT_TENANT_ID } from "@server/tenancy/constants";
@@ -31,7 +32,10 @@ import { apiRouter } from "./api/index";
 import { ojcpManifestHandler, ojcpMcpHandler } from "./ojcp";
 import { resolveTracerRedirect } from "./services/tracer-links";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname =
+  typeof import.meta.url === "string" && import.meta.url.startsWith("file:")
+    ? dirname(fileURLToPath(import.meta.url))
+    : process.cwd();
 const UMAMI_UPSTREAM_ORIGIN = "https://umami.dakheera47.com";
 const UMAMI_PROXY_TIMEOUT_MS = 5_000;
 const HOP_BY_HOP_RESPONSE_HEADERS = new Set([
@@ -600,6 +604,28 @@ export function createApp() {
   // Health check
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Serve generated/uploaded PDFs from the active BlobStore (R2 in DO, local disk otherwise)
+  app.get(/^\/pdfs\/(.+)$/, async (req, res, next) => {
+    const rawKey = req.params[0] ?? "";
+    const normalized = rawKey.replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!normalized || normalized.includes("..")) {
+      res.status(400).type("text/plain; charset=utf-8").send("Invalid path");
+      return;
+    }
+    try {
+      const blob = await getBlobStore().get(`pdfs/${normalized}`);
+      if (!blob) {
+        next();
+        return;
+      }
+      res.setHeader("Content-Type", blob.contentType ?? "application/pdf");
+      res.setHeader("Content-Length", String(blob.size));
+      res.send(Buffer.from(blob.body));
+    } catch (error) {
+      next(error);
+    }
   });
 
   // Serve client app in production

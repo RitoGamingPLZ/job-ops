@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 import type { WatchedSourceType, WatchlistSource } from "@shared/types";
 import { getWatchlistSourceAdapter } from "../watchlist/adapters";
 
-const configDir = dirname(fileURLToPath(import.meta.url));
+const configDir =
+  typeof import.meta.url === "string" && import.meta.url.startsWith("file:")
+    ? dirname(fileURLToPath(import.meta.url))
+    : process.cwd();
 const careerBoardFilePrefix = "career-boards-";
 
 function getSourceTypeFromFilename(fileName: string): WatchedSourceType | null {
@@ -36,7 +39,12 @@ async function loadCareerBoardFile(
 }
 
 export async function listCareerBoardSources(): Promise<WatchlistSource[]> {
-  const files = await readdir(configDir);
+  let files: string[];
+  try {
+    files = await readdir(configDir);
+  } catch {
+    return [];
+  }
   const results = await Promise.all(
     files.map((fileName) => loadCareerBoardFile(fileName)),
   );

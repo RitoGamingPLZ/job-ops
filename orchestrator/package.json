@@ -17,6 +17,7 @@
     "format": "biome format",
     "format:fix": "biome format --write",
     "build:client": "vite build",
+    "build:do": "node scripts/build-do-entry.mjs",
     "start": "tsx src/server/index.ts",
     "benchmark:jobs": "tsx scripts/benchmark-jobs.ts",
     "db:migrate": "tsx src/server/db/migrate.ts",

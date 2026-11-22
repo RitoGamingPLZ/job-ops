@@ -4,7 +4,10 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { ExtractorManifest } from "@shared/types";
 
-const moduleDir = dirname(fileURLToPath(import.meta.url));
+const moduleDir =
+  typeof import.meta.url === "string" && import.meta.url.startsWith("file:")
+    ? dirname(fileURLToPath(import.meta.url))
+    : process.cwd();
 const DEFAULT_EXTRACTORS_ROOT = resolve(process.cwd(), "../extractors");
 const MODULE_RELATIVE_EXTRACTORS_ROOT = resolve(
   moduleDir,
