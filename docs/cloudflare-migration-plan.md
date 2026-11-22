@@ -76,7 +76,7 @@ Phases 0 and 1 can run in parallel; Phase 3 is the one risky cutover, and everyt
 | 15 | Move Node-only work (LaTeX, extractors) off the API (`ScraperContainer` & `BlobStore` seams) | 2 | Done | 1 |
 | 16 | `AppStore` DO class + `DB_BACKEND` routing flag (`DB_BACKEND=container` default, `DB_BACKEND=do` ready) | 3 | Done | 10–15 |
 | 17 | Export/import script with per-table checksums (`scripts/export-import-do.ts`) | 3 | Done | 4 |
-| 18 | Cutover: freeze writes (`WRITE_FREEZE`), copy, flip the flag | 3 | Ready for cutover | 16, 17 |
+| 18 | Cutover: freeze writes (`WRITE_FREEZE`), copy, flip the flag | 3 | Done (live on `jobdb.alanchiu.net`, `DB_BACKEND="do"`, 1,257 jobs + 2 users migrated from D1; static career boards/manifests bundled in DO, `/api/internal/scrape/run` + `ScraperContainer` wired, `design-resume` assets on `BlobStore`) | 16, 17 |
 | 19 | 7-day soak, then delete D1 sync, Litestream, hydration | 3 | Pending 7-day soak | 18 |
 | 20 | `runtime` + `rateLimit` in every `manifest.ts` | 4 | Done | — |
 | 21 | `ScrapeCoordinator` DO: `scrape_tasks`, `task_subscribers`, `postings`, `source_state` | 4 | Done | 18 |

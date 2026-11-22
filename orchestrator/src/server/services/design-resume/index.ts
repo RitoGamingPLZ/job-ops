@@ -1,12 +1,12 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
-import { basename, extname, join } from "node:path";
+import { readFile, unlink } from "node:fs/promises";
+import { basename } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { AppError, badRequest, conflict, notFound } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { createId } from "@paralleldrive/cuid2";
-import { getDataDir } from "@server/config/dataDir";
+import { getBlobStore } from "@server/infra/blob-store";
 import * as designResumeRepo from "@server/repositories/design-resume";
 import { getSetting } from "@server/repositories/settings";
 import { getOriginalEnvValue } from "@server/services/envSettings";
@@ -28,8 +28,6 @@ import type {
   ResumeProfile,
 } from "@shared/types";
 
-const DESIGN_RESUME_DIR = join(getDataDir(), "design-resume");
-const DESIGN_RESUME_ASSET_DIR = join(DESIGN_RESUME_DIR, "assets");
 const DESIGN_RESUME_DEFAULT_ID = "primary";
 const IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -38,14 +36,6 @@ const LEGACY_REIMPORT_MESSAGE =
   "Stored base resume document is no longer compatible. Re-import from Reactive Resume v5 to continue.";
 const INVALID_V5_PREFIX =
   "Base resume must be a valid Reactive Resume v5 document.";
-
-function getDesignResumeAssetDir(): string {
-  const scope = getPrivateDataScope();
-  if (scope.enforceUserIsolation && scope.userId) {
-    return join(DESIGN_RESUME_ASSET_DIR, scope.tenantId, "users", scope.userId);
-  }
-  return DESIGN_RESUME_ASSET_DIR;
-}
 
 function buildTenantScopedDesignResumeDocumentId(): string {
   const scope = getPrivateDataScope();
@@ -309,6 +299,26 @@ function originalNameFromUrl(url: string, mimeType: string): string {
   return `picture${extensionForMimeType(mimeType)}`;
 }
 
+function buildDesignResumeAssetBlobKey(
+  assetId: string,
+  extension: string,
+): string {
+  const scope = getPrivateDataScope();
+  if (scope.enforceUserIsolation && scope.userId) {
+    return `design-resume/assets/${scope.tenantId}/users/${scope.userId}/${assetId}${extension}`;
+  }
+  return `design-resume/assets/${assetId}${extension}`;
+}
+
+function toDesignResumeBlobKey(storagePath: string): string {
+  const normalized = storagePath.replace(/\\/g, "/");
+  const idx = normalized.indexOf("design-resume/assets/");
+  if (idx !== -1) {
+    return normalized.slice(idx);
+  }
+  return normalized.replace(/^\/+/, "");
+}
+
 async function storeDesignResumePictureAsset(input: {
   documentId: string;
   fileName: string;
@@ -316,36 +326,32 @@ async function storeDesignResumePictureAsset(input: {
   data: Buffer;
   updatedAt: string;
 }) {
-  const assetDir = getDesignResumeAssetDir();
-  await ensureStorageDirs(assetDir);
   assertImageByteSize(input.data.byteLength);
 
   const assetId = createId();
-  const storagePath = join(
-    assetDir,
-    `${assetId}${extensionForMimeType(input.mimeType)}`,
-  );
+  const ext = extensionForMimeType(input.mimeType);
+  const blobKey = buildDesignResumeAssetBlobKey(assetId, ext);
 
   try {
-    await writeFile(storagePath, input.data);
+    await getBlobStore().put(blobKey, input.data, {
+      contentType: input.mimeType,
+    });
     await designResumeRepo.insertDesignResumeAsset({
       id: assetId,
       documentId: input.documentId,
       kind: "picture",
-      originalName: basename(
-        input.fileName || `picture${extname(storagePath)}`,
-      ),
+      originalName: basename(input.fileName || `picture${ext}`),
       mimeType: input.mimeType,
       byteSize: input.data.byteLength,
-      storagePath,
+      storagePath: blobKey,
       updatedAt: input.updatedAt,
     });
   } catch (error) {
-    await deleteAssetFile(storagePath);
+    await deleteAssetFile(blobKey);
     throw error;
   }
 
-  return { assetId, storagePath };
+  return { assetId, storagePath: blobKey };
 }
 
 async function fetchPictureFromUrl(
@@ -672,22 +678,24 @@ function isMissingDesignResumeTableError(error: unknown): boolean {
   );
 }
 
-async function ensureStorageDirs(
-  assetDir = DESIGN_RESUME_ASSET_DIR,
-): Promise<void> {
-  if (!existsSync(assetDir)) {
-    await mkdir(assetDir, { recursive: true });
-  }
-}
-
 async function deleteAssetFile(storagePath: string): Promise<void> {
   try {
-    await unlink(storagePath);
+    await getBlobStore().delete(toDesignResumeBlobKey(storagePath));
   } catch (error) {
-    logger.warn("Failed to delete design resume asset", {
+    logger.warn("Failed to delete design resume asset from blob store", {
       storagePath,
       error: sanitizeUnknown(error),
     });
+  }
+  if (existsSync(storagePath)) {
+    try {
+      await unlink(storagePath);
+    } catch (error) {
+      logger.warn("Failed to delete legacy design resume asset", {
+        storagePath,
+        error: sanitizeUnknown(error),
+      });
+    }
   }
 }
 
@@ -1094,7 +1102,10 @@ export async function readDesignResumeAssetContent(
     throw notFound("Base resume asset not found.");
   }
 
-  const content = await readFile(row.storagePath);
+  const blob = await getBlobStore().get(toDesignResumeBlobKey(row.storagePath));
+  const content = blob
+    ? Buffer.from(blob.body)
+    : await readFile(row.storagePath);
   return {
     asset: toDesignResumeAsset(row),
     content,

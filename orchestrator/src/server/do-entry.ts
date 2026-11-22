@@ -7,6 +7,20 @@
 
 import { createServer, type Server } from "node:http";
 import type { Express } from "express";
+import adzunaManifest from "../../../extractors/adzuna/manifest";
+import fiveamsatManifest from "../../../extractors/fiveamsat/manifest";
+import freehireManifest from "../../../extractors/freehire/src/manifest";
+import golangjobsManifest from "../../../extractors/golangjobs/src/manifest";
+import gradcrackerManifest from "../../../extractors/gradcracker/manifest";
+import hiringcafeManifest from "../../../extractors/hiringcafe/manifest";
+import jobindexManifest from "../../../extractors/jobindex/src/manifest";
+import jobspyManifest from "../../../extractors/jobspy/manifest";
+import naukriManifest from "../../../extractors/naukri/manifest";
+import seekManifest from "../../../extractors/seek/manifest";
+import startupjobsManifest from "../../../extractors/startupjobs/src/manifest";
+import ukvisajobsManifest from "../../../extractors/ukvisajobs/manifest";
+import wazzufManifest from "../../../extractors/wazzuf/manifest";
+import workingnomadsManifest from "../../../extractors/workingnomads/src/manifest";
 import { createApp } from "./app";
 import {
   createDurableObjectDrizzleDb,
@@ -14,10 +28,31 @@ import {
   setDb,
 } from "./db/index";
 import {
+  initializeExtractorRegistry,
+  setStaticExtractorManifests,
+} from "./extractors/registry";
+import {
   R2BlobStore,
   type R2BucketLike,
   setBlobStore,
 } from "./infra/blob-store";
+
+const STATIC_EXTRACTOR_MANIFESTS = [
+  adzunaManifest,
+  fiveamsatManifest,
+  freehireManifest,
+  golangjobsManifest,
+  gradcrackerManifest,
+  hiringcafeManifest,
+  jobindexManifest,
+  jobspyManifest,
+  naukriManifest,
+  seekManifest,
+  startupjobsManifest,
+  ukvisajobsManifest,
+  wazzufManifest,
+  workingnomadsManifest,
+];
 
 export interface DurableObjectExpressServerOptions {
   storage: DurableObjectStorageLike;
@@ -54,6 +89,9 @@ export function createDurableObjectExpressServer(
   if (options.r2Bucket) {
     setBlobStore(new R2BlobStore(options.r2Bucket));
   }
+
+  setStaticExtractorManifests(STATIC_EXTRACTOR_MANIFESTS);
+  void initializeExtractorRegistry();
 
   if (activeServer) {
     return activeServer;

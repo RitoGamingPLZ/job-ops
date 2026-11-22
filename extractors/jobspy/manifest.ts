@@ -8,7 +8,9 @@ import type {
 } from "@shared/types/extractors";
 import { runJobSpy } from "./src/run";
 
-type JobSpySite = NonNullable<Parameters<typeof runJobSpy>[0]["sites"]>[number];
+type JobSpySite = NonNullable<
+  NonNullable<Parameters<typeof runJobSpy>[0]>["sites"]
+>[number];
 
 const JOBSPY_SOURCES = new Set<JobSpySite>(["indeed", "linkedin", "glassdoor"]);
 

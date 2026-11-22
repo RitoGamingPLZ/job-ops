@@ -17,6 +17,8 @@ const repo = vi.hoisted(() => ({
 const fsMocks = vi.hoisted(() => ({
   mkdir: vi.fn().mockResolvedValue(undefined),
   readFile: vi.fn(),
+  rename: vi.fn().mockResolvedValue(undefined),
+  rm: vi.fn().mockResolvedValue(undefined),
   stat: vi.fn(),
   unlink: vi.fn().mockResolvedValue(undefined),
   writeFile: vi.fn().mockResolvedValue(undefined),
@@ -805,7 +807,8 @@ describe("design resume service", () => {
       }),
     ).rejects.toThrow("db insert failed");
 
-    const deletedPath = fsMocks.unlink.mock.calls[0]?.[0];
+    const deletedPath =
+      fsMocks.rm.mock.calls[0]?.[0] ?? fsMocks.unlink.mock.calls[0]?.[0];
     expect(deletedPath?.replace(/\\/g, "/")).toBe(
       "/tmp/job-ops-test/design-resume/assets/asset-1.png",
     );

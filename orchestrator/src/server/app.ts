@@ -29,6 +29,7 @@ import { DEFAULT_TENANT_ID } from "@server/tenancy/constants";
 import cors from "cors";
 import express from "express";
 import { apiRouter } from "./api/index";
+import { internalScrapeRouter } from "./api/routes/internal-scrape";
 import { ojcpManifestHandler, ojcpMcpHandler } from "./ojcp";
 import { resolveTracerRedirect } from "./services/tracer-links";
 
@@ -496,6 +497,12 @@ export function createApp() {
 
   app.get("/.well-known/ojcp.json", ojcpManifestHandler);
   app.all("/ojcp/mcp", ojcpMcpHandler);
+
+  // Internal scraper container pool alias (`POST /scrape` -> `POST /api/internal/scrape/run`)
+  app.post("/scrape", (req, res, next) => {
+    req.url = "/run";
+    internalScrapeRouter(req, res, next);
+  });
 
   // API routes
   app.use("/api", apiRouter);

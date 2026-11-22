@@ -23,6 +23,19 @@ export interface ExtractorRegistry {
 
 let registry: ExtractorRegistry | null = null;
 let initPromise: Promise<ExtractorRegistry> | null = null;
+let staticExtractorManifests: ExtractorManifest[] | null = null;
+
+/**
+ * Registers statically bundled extractor manifests for runtimes without
+ * filesystem discovery (e.g. Cloudflare Durable Objects).
+ */
+export function setStaticExtractorManifests(
+  manifests: ExtractorManifest[] | null,
+): void {
+  staticExtractorManifests = manifests;
+  registry = null;
+  initPromise = null;
+}
 
 class DuplicateManifestIdError extends Error {
   readonly manifestId: string;
@@ -129,15 +142,28 @@ function resolveCatalogMismatches(
 
 async function createRegistry(): Promise<ExtractorRegistry> {
   const manifestPaths = await discoverManifestPaths();
+  const entries: Array<{
+    path: string;
+    load: () => Promise<ExtractorManifest>;
+  }> =
+    manifestPaths.length > 0
+      ? manifestPaths.map((path) => ({
+          path,
+          load: () => loadManifestFromFile(path),
+        }))
+      : (staticExtractorManifests ?? []).map((manifest) => ({
+          path: `static:${manifest.id}`,
+          load: async () => manifest,
+        }));
   const manifests = new Map<string, ExtractorManifest>();
   const manifestBySource = new Map<ExtractorSourceId, ExtractorManifest>();
   const locationCapabilitiesBySource: Partial<
     Record<ExtractorSourceId, LocationSourceCapabilitiesInput>
   > = {};
 
-  for (const path of manifestPaths) {
+  for (const { path, load } of entries) {
     try {
-      const manifest = await loadManifestFromFile(path);
+      const manifest = await load();
       if (manifests.has(manifest.id)) {
         throw new DuplicateManifestIdError(manifest.id);
       }
