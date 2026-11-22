@@ -49,6 +49,9 @@ export const users = sqliteTable(
     isDisabled: integer("is_disabled", { mode: "boolean" })
       .notNull()
       .default(false),
+    mustChangePassword: integer("must_change_password", { mode: "boolean" })
+      .notNull()
+      .default(false),
     createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
     updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
   },

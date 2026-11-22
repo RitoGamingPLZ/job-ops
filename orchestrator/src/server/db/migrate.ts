@@ -205,6 +205,7 @@ const migrations = [
     password_salt TEXT,
     is_system_admin INTEGER NOT NULL DEFAULT 0,
     is_disabled INTEGER NOT NULL DEFAULT 0,
+    must_change_password INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
@@ -1300,6 +1301,7 @@ const migrations = [
      ), 'applied') = 'closed'`,
 
   `ALTER TABLE jobs ADD COLUMN generation_error TEXT`,
+  `ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0`,
 ];
 
 console.log("🔧 Running database migrations...");
@@ -1336,7 +1338,8 @@ for (const migration of migrations) {
           .includes("alter table job_chat_threads add column") ||
         migration
           .toLowerCase()
-          .includes("alter table analytics_install_state add column")) &&
+          .includes("alter table analytics_install_state add column") ||
+        migration.toLowerCase().includes("alter table users add column")) &&
       message.toLowerCase().includes("duplicate column name");
 
     if (isDuplicateColumn) {
@@ -1786,16 +1789,17 @@ function ensureNullableUserPasswordColumns(): void {
         password_salt TEXT,
         is_system_admin INTEGER NOT NULL DEFAULT 0,
         is_disabled INTEGER NOT NULL DEFAULT 0,
+        must_change_password INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
       INSERT INTO users_new (
         id, username, display_name, password_hash, password_salt,
-        is_system_admin, is_disabled, created_at, updated_at
+        is_system_admin, is_disabled, must_change_password, created_at, updated_at
       )
       SELECT
         id, username, display_name, password_hash, password_salt,
-        is_system_admin, is_disabled, created_at, updated_at
+        is_system_admin, is_disabled, must_change_password, created_at, updated_at
       FROM users;
       DROP TABLE users;
       ALTER TABLE users_new RENAME TO users;

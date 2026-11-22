@@ -187,7 +187,8 @@ authRouter.post(
       return;
     }
 
-    ok(res, { token, expiresIn });
+    const publicUser = await usersRepo.getUserById(user.id);
+    ok(res, { token, expiresIn, user: publicUser });
   }),
 );
 

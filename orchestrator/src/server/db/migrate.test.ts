@@ -596,4 +596,60 @@ describe.sequential("database migrations", () => {
       },
     );
   });
+
+  it("idempotently adds must_change_password to legacy users tables", async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "job-ops-migrate-"));
+    const script = `
+      import { join } from "node:path";
+      import { pathToFileURL } from "node:url";
+      import Database from "better-sqlite3";
+
+      const dbPath = join(process.env.DATA_DIR, "jobs.db");
+      const oldDb = new Database(dbPath);
+      oldDb.exec(\`
+        CREATE TABLE users (
+          id TEXT PRIMARY KEY,
+          username TEXT NOT NULL UNIQUE,
+          display_name TEXT,
+          password_hash TEXT NOT NULL,
+          password_salt TEXT NOT NULL,
+          is_system_admin INTEGER NOT NULL DEFAULT 0,
+          is_disabled INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO users(id, username, display_name, password_hash, password_salt, is_system_admin, is_disabled)
+        VALUES ('legacy-user', 'legacy', 'Legacy User', 'hash', 'salt', 1, 0);
+      \`);
+      oldDb.close();
+
+      const url = pathToFileURL(join(process.cwd(), "src/server/db/migrate.ts")).href;
+      await import(url + "?first");
+      await import(url + "?second");
+
+      const migratedDb = new Database(dbPath, { readonly: true });
+      const columns = migratedDb.prepare("PRAGMA table_info(users)").all();
+      const col = columns.find((column) => column.name === "must_change_password");
+      if (!col || col.notnull !== 1 || String(col.dflt_value) !== "0") {
+        throw new Error("must_change_password column missing or has unexpected definition: " + JSON.stringify(col));
+      }
+      const row = migratedDb.prepare("SELECT username, must_change_password FROM users WHERE id = 'legacy-user'").get();
+      if (!row || row.username !== "legacy" || row.must_change_password !== 0) {
+        throw new Error("Legacy user row did not default must_change_password to 0: " + JSON.stringify(row));
+      }
+      migratedDb.close();
+    `;
+
+    execFileSync(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "-e", script],
+      {
+        env: {
+          ...process.env,
+          DATA_DIR: tempDir,
+        },
+        stdio: "pipe",
+      },
+    );
+  });
 });

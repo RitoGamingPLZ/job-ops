@@ -15,6 +15,7 @@ import { CSSTransition, SwitchTransition } from "react-transition-group";
 
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
+import { ForcedPasswordResetGate } from "./components/ForcedPasswordResetGate";
 import { AppModeContext } from "./components/layout";
 import { OnboardingGate } from "./components/OnboardingGate";
 import { useAnalyticsIdentity } from "./hooks/useAnalyticsIdentity";
@@ -107,132 +108,137 @@ export const App: React.FC = () => {
 
   return (
     <>
-      <OnboardingGate />
-      {showDemoBanners && (
-        <div className="sticky top-0 z-50 w-full border-b border-amber-400/50 bg-amber-500/20 px-4 py-2 text-xs text-amber-100 shadow-sm backdrop-blur">
-          <div className="mx-auto flex items-center justify-center gap-3">
-            <p className="flex-1 text-center">
-              <span className="font-medium">
-                Demo mode: integrations are simulated and data resets every{" "}
-                {demoInfo.resetCadenceHours} hours.
-              </span>
+      <ForcedPasswordResetGate>
+        <OnboardingGate />
+        {showDemoBanners && (
+          <div className="sticky top-0 z-50 w-full border-b border-amber-400/50 bg-amber-500/20 px-4 py-2 text-xs text-amber-100 shadow-sm backdrop-blur">
+            <div className="mx-auto flex items-center justify-center gap-3">
+              <p className="flex-1 text-center">
+                <span className="font-medium">
+                  Demo mode: integrations are simulated and data resets every{" "}
+                  {demoInfo.resetCadenceHours} hours.
+                </span>
+                {!demoWaitlistBannerDismissed && (
+                  <>
+                    {" "}
+                    This is a read-only demo. Want JobOps without the Docker
+                    setup?{" "}
+                    <a
+                      className="font-semibold underline underline-offset-2 hover:text-amber-50"
+                      href="https://try.jobops.app?utm_source=demo&utm_medium=banner&utm_campaign=waitlist"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Join the waitlist.
+                    </a>
+                  </>
+                )}
+              </p>
               {!demoWaitlistBannerDismissed && (
-                <>
-                  {" "}
-                  This is a read-only demo. Want JobOps without the Docker
-                  setup?{" "}
-                  <a
-                    className="font-semibold underline underline-offset-2 hover:text-amber-50"
-                    href="https://try.jobops.app?utm_source=demo&utm_medium=banner&utm_campaign=waitlist"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Join the waitlist.
-                  </a>
-                </>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 rounded-full text-amber-100 hover:bg-amber-400/20 hover:text-amber-50"
+                  onClick={() => {
+                    setDemoWaitlistBannerDismissed(true);
+                    try {
+                      localStorage.setItem(
+                        DEMO_WAITLIST_BANNER_DISMISSED_KEY,
+                        "1",
+                      );
+                    } catch {
+                      // Ignore storage errors in restricted browser contexts.
+                    }
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Dismiss demo waitlist banner</span>
+                </Button>
               )}
-            </p>
-            {!demoWaitlistBannerDismissed && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 shrink-0 rounded-full text-amber-100 hover:bg-amber-400/20 hover:text-amber-50"
-                onClick={() => {
-                  setDemoWaitlistBannerDismissed(true);
-                  try {
-                    localStorage.setItem(
-                      DEMO_WAITLIST_BANNER_DISMISSED_KEY,
-                      "1",
-                    );
-                  } catch {
-                    // Ignore storage errors in restricted browser contexts.
-                  }
-                }}
-              >
-                <X className="h-4 w-4" />
-                <span className="sr-only">Dismiss demo waitlist banner</span>
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-      <div>
-        <SwitchTransition mode="out-in">
-          <CSSTransition
-            key={pageKey}
-            nodeRef={nodeRef}
-            timeout={100}
-            classNames="page"
-            unmountOnExit
-          >
-            <div ref={nodeRef}>
-              <Routes location={location}>
-                {/* Backwards-compatibility redirects */}
-                {REDIRECTS.map(({ from, to }) => (
-                  <Route
-                    key={from}
-                    path={from}
-                    element={<Navigate to={to} replace />}
-                  />
-                ))}
-
-                {/* Application routes */}
-                <Route path="/overview" element={<HomePage />} />
-                <Route
-                  path="/oauth/gmail/callback"
-                  element={<GmailOauthCallbackPage />}
-                />
-                <Route path="/job/:id" element={<JobPage />} />
-                <Route path="/job/:id/:view" element={<JobPage />} />
-                <Route
-                  path="/applications/in-progress"
-                  element={<InProgressBoardPage />}
-                />
-                <Route path="/resumes" element={<ResumesPage />} />
-                <Route path="/library" element={<ResumeLibraryPage />} />
-                <Route
-                  path="/resumes/library"
-                  element={<Navigate to="/library" replace />}
-                />
-                <Route
-                  path="/resumes/base"
-                  element={<ResumeCoworkPage base />}
-                />
-                <Route path="/resumes/:jobId" element={<ResumeCoworkPage />} />
-                <Route
-                  path="/design-resume"
-                  element={<Navigate to="/resumes/base" replace />}
-                />
-                <Route
-                  path="/design-resume/:section"
-                  element={<Navigate to="/resumes/base" replace />}
-                />
-                <Route path="/onboarding" element={<OnboardingPage />} />
-                <Route path="/offline" element={<OfflinePage />} />
-                <Route path="/sign-in" element={<SignInPage />} />
-                <Route
-                  path="/sso/callback/:provider"
-                  element={<SsoCallbackPage />}
-                />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/tracer-links" element={<TracerLinksPage />} />
-                <Route path="/visa-sponsors" element={<VisaSponsorsPage />} />
-                <Route
-                  path="/tracking-inbox"
-                  element={<TrackingInboxRoute />}
-                />
-                <Route path="/watchlist" element={<WatchlistPage />} />
-                <Route path="/jobs/:tab" element={<OrchestratorPage />} />
-                <Route
-                  path="/jobs/:tab/:jobId"
-                  element={<OrchestratorPage />}
-                />
-              </Routes>
             </div>
-          </CSSTransition>
-        </SwitchTransition>
-      </div>
+          </div>
+        )}
+        <div>
+          <SwitchTransition mode="out-in">
+            <CSSTransition
+              key={pageKey}
+              nodeRef={nodeRef}
+              timeout={100}
+              classNames="page"
+              unmountOnExit
+            >
+              <div ref={nodeRef}>
+                <Routes location={location}>
+                  {/* Backwards-compatibility redirects */}
+                  {REDIRECTS.map(({ from, to }) => (
+                    <Route
+                      key={from}
+                      path={from}
+                      element={<Navigate to={to} replace />}
+                    />
+                  ))}
+
+                  {/* Application routes */}
+                  <Route path="/overview" element={<HomePage />} />
+                  <Route
+                    path="/oauth/gmail/callback"
+                    element={<GmailOauthCallbackPage />}
+                  />
+                  <Route path="/job/:id" element={<JobPage />} />
+                  <Route path="/job/:id/:view" element={<JobPage />} />
+                  <Route
+                    path="/applications/in-progress"
+                    element={<InProgressBoardPage />}
+                  />
+                  <Route path="/resumes" element={<ResumesPage />} />
+                  <Route path="/library" element={<ResumeLibraryPage />} />
+                  <Route
+                    path="/resumes/library"
+                    element={<Navigate to="/library" replace />}
+                  />
+                  <Route
+                    path="/resumes/base"
+                    element={<ResumeCoworkPage base />}
+                  />
+                  <Route
+                    path="/resumes/:jobId"
+                    element={<ResumeCoworkPage />}
+                  />
+                  <Route
+                    path="/design-resume"
+                    element={<Navigate to="/resumes/base" replace />}
+                  />
+                  <Route
+                    path="/design-resume/:section"
+                    element={<Navigate to="/resumes/base" replace />}
+                  />
+                  <Route path="/onboarding" element={<OnboardingPage />} />
+                  <Route path="/offline" element={<OfflinePage />} />
+                  <Route path="/sign-in" element={<SignInPage />} />
+                  <Route
+                    path="/sso/callback/:provider"
+                    element={<SsoCallbackPage />}
+                  />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/tracer-links" element={<TracerLinksPage />} />
+                  <Route path="/visa-sponsors" element={<VisaSponsorsPage />} />
+                  <Route
+                    path="/tracking-inbox"
+                    element={<TrackingInboxRoute />}
+                  />
+                  <Route path="/watchlist" element={<WatchlistPage />} />
+                  <Route path="/jobs/:tab" element={<OrchestratorPage />} />
+                  <Route
+                    path="/jobs/:tab/:jobId"
+                    element={<OrchestratorPage />}
+                  />
+                </Routes>
+              </div>
+            </CSSTransition>
+          </SwitchTransition>
+        </div>
+      </ForcedPasswordResetGate>
 
       <Toaster position="bottom-right" richColors closeButton />
     </>

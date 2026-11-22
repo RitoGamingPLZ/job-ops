@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { cn, formatDate, formatJobSourceLabel, sourceLabel } from "@/lib/utils";
 import { useSettings } from "../hooks/useSettings";
 import { formatPostingAgeLabel } from "../lib/job-posting-age";
+import { openLevelsFyiLookup } from "../lib/levels-fyi";
 import { appliedDuplicateIndicator } from "../pages/orchestrator/constants";
 import {
   getJobStatusIndicator,
@@ -236,12 +237,21 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
                 {deadline}
               </span>
             )}
-            {job.salary && (
+            {job.salary ? (
               <span className="flex items-center gap-1">
                 <DollarSign className="size-4" />
                 {job.salary}
               </span>
-            )}
+            ) : !isJobPage ? (
+              <button
+                type="button"
+                onClick={() => openLevelsFyiLookup(job)}
+                className="inline-flex cursor-pointer items-center gap-1 text-muted-foreground/80 underline-offset-2 hover:text-foreground hover:underline"
+              >
+                <DollarSign className="size-4" />
+                Check salary on Levels.fyi
+              </button>
+            ) : null}
           </div>
         </div>
 

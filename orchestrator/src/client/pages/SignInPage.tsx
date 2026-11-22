@@ -9,7 +9,7 @@ import {
   startSsoLogin,
 } from "@client/api";
 import type { SsoProviderInfo } from "@shared/types";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -38,6 +38,7 @@ type AuthMode = "sign-in" | "signup";
 export function SignInPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [authMode, setAuthMode] = useState<AuthMode>("sign-in");
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -91,6 +92,9 @@ export function SignInPage() {
         const restored = await restoreAuthSessionFromLegacyCredentials();
         if (cancelled) return;
         if (restored || hasAuthenticatedSession()) {
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.auth.currentUser(),
+          });
           navigate(nextPath, { replace: true });
           return;
         }
@@ -112,7 +116,7 @@ export function SignInPage() {
     return () => {
       cancelled = true;
     };
-  }, [navigate, nextPath]);
+  }, [navigate, nextPath, queryClient]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -150,6 +154,9 @@ export function SignInPage() {
           }),
         );
       }
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.auth.currentUser(),
+      });
       navigate(nextPath, { replace: true });
     } catch (error) {
       setErrorMessage(

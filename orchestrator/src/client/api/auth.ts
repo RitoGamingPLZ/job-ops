@@ -1,4 +1,5 @@
 import { redirectToSignIn } from "@client/lib/auth-navigation";
+import type { AuthUser } from "@shared/types";
 import type { AuthCredentials } from "./auth-session";
 import {
   clearAuthSession,
@@ -25,20 +26,7 @@ export type CodexAuthStatusResponse = {
   flowMessage: string | null;
 };
 
-export type { AuthCredentials };
-
-export type AuthUser = {
-  id: string;
-  username: string;
-  displayName: string | null;
-  isSystemAdmin: boolean;
-  isDisabled: boolean;
-  hasPassword: boolean;
-  workspaceId: string;
-  workspaceName: string;
-  createdAt: string;
-  updatedAt: string;
-};
+export type { AuthCredentials, AuthUser };
 
 export type AuthBootstrapStatus = {
   setupRequired: boolean;
@@ -173,6 +161,7 @@ export async function createWorkspaceUser(input: {
   password: string;
   displayName?: string;
   isSystemAdmin?: boolean;
+  mustChangePassword?: boolean;
 }): Promise<AuthUser> {
   const result = await fetchApi<{ user: AuthUser }>("/workspaces/users", {
     method: "POST",

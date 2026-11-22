@@ -71,6 +71,7 @@ describe("EnvironmentSettingsSection", () => {
       isSystemAdmin: true,
       isDisabled: false,
       hasPassword: true,
+      mustChangePassword: false,
       workspaceId: "tenant-admin",
       workspaceName: "Admin Workspace",
       createdAt: "2026-05-13T00:00:00.000Z",
@@ -84,6 +85,7 @@ describe("EnvironmentSettingsSection", () => {
         isSystemAdmin: false,
         isDisabled: false,
         hasPassword: true,
+        mustChangePassword: false,
         workspaceId: "tenant-member",
         workspaceName: "Member Workspace",
         createdAt: "2026-05-13T00:00:00.000Z",
@@ -124,5 +126,43 @@ describe("EnvironmentSettingsSection", () => {
     });
 
     expect(resetPasswordInput).toHaveValue("new-password");
+  });
+
+  it("allows a system admin to create a new workspace user", async () => {
+    vi.mocked(api.createWorkspaceUser).mockResolvedValue({
+      id: "new-user-id",
+      username: "teammate",
+      displayName: "Teammate",
+      isSystemAdmin: false,
+      isDisabled: false,
+      hasPassword: true,
+      mustChangePassword: false,
+      workspaceId: "tenant-teammate",
+      workspaceName: "Teammate",
+      createdAt: "2026-11-22T00:00:00.000Z",
+      updatedAt: "2026-11-22T00:00:00.000Z",
+    });
+
+    render(<EnvironmentSettingsHarness />);
+
+    const nameInput = await screen.findByPlaceholderText("Name");
+    const usernameInput = screen.getByPlaceholderText("Username");
+    const passwordInput = screen.getByPlaceholderText("Temporary password");
+    const createButton = screen.getByRole("button", { name: "Create" });
+
+    fireEvent.change(nameInput, { target: { value: "Teammate" } });
+    fireEvent.change(usernameInput, { target: { value: "teammate" } });
+    fireEvent.change(passwordInput, { target: { value: "temp-pass-1234" } });
+    fireEvent.click(createButton);
+
+    await screen.findByText("Workspace Users");
+    expect(api.createWorkspaceUser).toHaveBeenCalledWith(
+      {
+        username: "teammate",
+        displayName: "Teammate",
+        password: "temp-pass-1234",
+      },
+      expect.anything(),
+    );
   });
 });

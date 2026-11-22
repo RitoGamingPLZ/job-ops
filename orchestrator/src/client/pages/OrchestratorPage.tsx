@@ -1,4 +1,5 @@
 import { ManualImportSheet } from "@client/components/ManualImportSheet";
+import { useLevelsFyiSalaryListener } from "@client/hooks/useLevelsFyiSalaryListener";
 import { useSettings } from "@client/hooks/useSettings";
 import type { Job } from "@shared/types.js";
 import type React from "react";
@@ -54,6 +55,7 @@ export const OrchestratorPage: React.FC = () => {
     [applySelectedJobUpdate, loadJobs],
   );
 
+  useLevelsFyiSalaryListener(handleJobUpdated);
   useNavigationRefresh(loadJobs);
 
   const enabledSources = useMemo(

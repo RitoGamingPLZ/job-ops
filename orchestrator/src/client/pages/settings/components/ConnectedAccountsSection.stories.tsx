@@ -13,6 +13,7 @@ const passwordUser = {
   isSystemAdmin: true,
   isDisabled: false,
   hasPassword: true,
+  mustChangePassword: false,
   workspaceId: "tenant_default",
   workspaceName: "JobOps",
   createdAt: "2026-05-13T00:00:00.000Z",

@@ -120,6 +120,11 @@ export const updateJobSchema = z.object({
   applicationLink: z.string().trim().max(2000).url().nullable().optional(),
   location: z.string().trim().max(200).nullable().optional(),
   salary: z.string().trim().max(200).nullable().optional(),
+  salarySource: z.string().trim().max(100).nullable().optional(),
+  salaryInterval: z.string().trim().max(50).nullable().optional(),
+  salaryMinAmount: z.number().nonnegative().nullable().optional(),
+  salaryMaxAmount: z.number().nonnegative().nullable().optional(),
+  salaryCurrency: z.string().trim().max(20).nullable().optional(),
   deadline: z.string().trim().max(100).nullable().optional(),
   status: z
     .enum([

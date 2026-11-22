@@ -19,6 +19,11 @@ vi.mock("@/components/ui/sonner", () => ({
   Toaster: () => null,
 }));
 
+vi.mock("./components/ForcedPasswordResetGate", () => ({
+  ForcedPasswordResetGate: ({ children }: { children: React.ReactNode }) =>
+    children,
+}));
+
 vi.mock("./components/OnboardingGate", () => ({
   OnboardingGate: () => null,
 }));

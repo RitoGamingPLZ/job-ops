@@ -4,6 +4,7 @@ import {
   DEFAULT_TENANT_ID,
   DEFAULT_TENANT_NAME,
 } from "@server/tenancy/constants";
+import type { AuthUser as SharedAuthUser } from "@shared/types";
 import { eq, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 
@@ -17,22 +18,12 @@ export type AuthUser = {
   passwordSalt: string | null;
   isSystemAdmin: boolean;
   isDisabled: boolean;
+  mustChangePassword: boolean;
   tenantId: string;
   tenantName: string;
 };
 
-export type PublicUser = {
-  id: string;
-  username: string;
-  displayName: string | null;
-  isSystemAdmin: boolean;
-  isDisabled: boolean;
-  hasPassword: boolean;
-  workspaceId: string;
-  workspaceName: string;
-  createdAt: string;
-  updatedAt: string;
-};
+export type PublicUser = SharedAuthUser;
 
 export type SsoProvisionedUserInput =
   | {
@@ -65,6 +56,7 @@ function mapUser(row: {
   displayName: string | null;
   isSystemAdmin: boolean;
   isDisabled: boolean;
+  mustChangePassword: boolean;
   passwordHash: string | null;
   workspaceId: string;
   workspaceName: string;
@@ -78,6 +70,7 @@ function mapUser(row: {
     isSystemAdmin: row.isSystemAdmin,
     isDisabled: row.isDisabled,
     hasPassword: row.passwordHash !== null,
+    mustChangePassword: row.mustChangePassword,
     workspaceId: row.workspaceId,
     workspaceName: row.workspaceName,
     createdAt: row.createdAt,
@@ -102,6 +95,7 @@ export async function getUserForLogin(
       passwordSalt: users.passwordSalt,
       isSystemAdmin: users.isSystemAdmin,
       isDisabled: users.isDisabled,
+      mustChangePassword: users.mustChangePassword,
       tenantId: tenantMemberships.tenantId,
       tenantName: tenants.name,
     })
@@ -122,6 +116,7 @@ export async function getUserById(id: string): Promise<PublicUser | null> {
       displayName: users.displayName,
       isSystemAdmin: users.isSystemAdmin,
       isDisabled: users.isDisabled,
+      mustChangePassword: users.mustChangePassword,
       passwordHash: users.passwordHash,
       workspaceId: tenantMemberships.tenantId,
       workspaceName: tenants.name,
@@ -145,6 +140,7 @@ export async function listUsers(): Promise<PublicUser[]> {
       displayName: users.displayName,
       isSystemAdmin: users.isSystemAdmin,
       isDisabled: users.isDisabled,
+      mustChangePassword: users.mustChangePassword,
       passwordHash: users.passwordHash,
       workspaceId: tenantMemberships.tenantId,
       workspaceName: tenants.name,
@@ -163,6 +159,7 @@ export async function createPrivateWorkspaceUser(input: {
   password: string;
   displayName?: string | null;
   isSystemAdmin?: boolean;
+  mustChangePassword?: boolean;
   useDefaultTenant?: boolean;
 }): Promise<PublicUser> {
   const now = new Date().toISOString();
@@ -208,6 +205,7 @@ export async function createPrivateWorkspaceUser(input: {
         passwordSalt,
         isSystemAdmin: input.isSystemAdmin ?? false,
         isDisabled: false,
+        mustChangePassword: input.mustChangePassword ?? false,
         createdAt: now,
         updatedAt: now,
       })
@@ -458,14 +456,21 @@ export async function setUserDisabled(
 export async function updateUserPassword(input: {
   id: string;
   password: string;
+  mustChangePassword?: boolean;
 }): Promise<void> {
   const { passwordHash, passwordSalt } = await hashPassword(input.password);
-  await db
-    .update(users)
-    .set({
-      passwordHash,
-      passwordSalt,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(users.id, input.id));
+  const updates: {
+    passwordHash: string;
+    passwordSalt: string;
+    updatedAt: string;
+    mustChangePassword?: boolean;
+  } = {
+    passwordHash,
+    passwordSalt,
+    updatedAt: new Date().toISOString(),
+  };
+  if (input.mustChangePassword !== undefined) {
+    updates.mustChangePassword = input.mustChangePassword;
+  }
+  await db.update(users).set(updates).where(eq(users.id, input.id));
 }

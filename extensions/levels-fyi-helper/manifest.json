@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Job-Ops Levels.fyi Salary Helper",
+  "version": "1.0.0",
+  "description": "Relay compensation data you view on Levels.fyi back to your local Job-Ops tab.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://www.levels.fyi/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Job-Ops Levels.fyi Helper"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost/*", "http://127.0.0.1/*"],
+      "js": ["jobops-bridge.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://www.levels.fyi/*"],
+      "js": ["levels-content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

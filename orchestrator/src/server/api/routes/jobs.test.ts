@@ -1636,6 +1636,11 @@ describe.sequential("Jobs API routes", () => {
         applicationLink: "https://example.com/apply/core-fields-updated",
         location: "London, UK",
         salary: "GBP 100k",
+        salarySource: "levels.fyi",
+        salaryInterval: "yearly",
+        salaryMinAmount: 90_000,
+        salaryMaxAmount: 110_000,
+        salaryCurrency: "GBP",
         deadline: "2026-03-31",
         jobDescription: "Updated description",
       }),
@@ -1654,6 +1659,11 @@ describe.sequential("Jobs API routes", () => {
     );
     expect(body.data.location).toBe("London, UK");
     expect(body.data.salary).toBe("GBP 100k");
+    expect(body.data.salarySource).toBe("levels.fyi");
+    expect(body.data.salaryInterval).toBe("yearly");
+    expect(body.data.salaryMinAmount).toBe(90_000);
+    expect(body.data.salaryMaxAmount).toBe(110_000);
+    expect(body.data.salaryCurrency).toBe("GBP");
     expect(body.data.deadline).toBe("2026-03-31");
     expect(body.data.jobDescription).toBe("Updated description");
     expect(typeof body.meta.requestId).toBe("string");

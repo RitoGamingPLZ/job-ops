@@ -298,4 +298,51 @@ describe("JobHeader", () => {
       screen.queryByRole("link", { name: /view job/i }),
     ).not.toBeInTheDocument();
   });
+
+  it("renders 'Check salary on Levels.fyi' when salary is missing off the job page", () => {
+    const postSpy = vi
+      .spyOn(window, "postMessage")
+      .mockImplementation(() => {});
+    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+
+    render(
+      <MemoryRouter initialEntries={["/jobs/discovered/job-1"]}>
+        <JobHeader
+          job={{
+            ...mockJob,
+            salary: null,
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    const lookupButton = screen.getByRole("button", {
+      name: /check salary on levels\.fyi/i,
+    });
+    fireEvent.click(lookupButton);
+
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "JOBOPS_LEVELS_LOOKUP_START",
+        jobId: "job-1",
+      }),
+      window.location.origin,
+    );
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://www.levels.fyi/companies/tech/salaries/software-engineer",
+      "jobops-levels-fyi",
+      "popup,width=1020,height=760",
+    );
+
+    postSpy.mockRestore();
+    openSpy.mockRestore();
+  });
+
+  it("hides 'Check salary on Levels.fyi' when salary is present", () => {
+    renderWithRouter(<JobHeader job={mockJob} />);
+
+    expect(
+      screen.queryByRole("button", { name: /check salary on levels\.fyi/i }),
+    ).not.toBeInTheDocument();
+  });
 });

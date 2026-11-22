@@ -761,4 +761,114 @@ describe.sequential("Auth routes", () => {
       expect(loginRes.status).toBe(200);
     });
   });
+
+  describe("forced first-login password reset (mustChangePassword)", () => {
+    beforeEach(async () => {
+      ({ server, baseUrl, closeDb, tempDir } = await startServer({
+        env: AUTH_ENV,
+      }));
+    });
+
+    it("exposes mustChangePassword in repo, login, /me, admin user creation, and clears it on own-password change", async () => {
+      const adminToken = await signIn("admin", "secret");
+
+      // System admin creates a user with mustChangePassword: true
+      const createRes = await fetch(`${baseUrl}/api/workspaces/users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          username: "firstlogin",
+          displayName: "First Login User",
+          password: "temp-password-123",
+          mustChangePassword: true,
+        }),
+      });
+      expect(createRes.status).toBe(201);
+      const createBody = await createRes.json();
+      expect(createBody.ok).toBe(true);
+      expect(createBody.data.user.username).toBe("firstlogin");
+      expect(createBody.data.user.mustChangePassword).toBe(true);
+      expect(createBody.data.user.isSystemAdmin).toBe(false);
+
+      // Verify repository reads mustChangePassword
+      const usersRepo = await import("@server/repositories/users");
+      const loginRecord = await usersRepo.getUserForLogin("firstlogin");
+      expect(loginRecord?.mustChangePassword).toBe(true);
+      const listed = await usersRepo.listUsers();
+      expect(
+        listed.find((u) => u.username === "firstlogin")?.mustChangePassword,
+      ).toBe(true);
+
+      // Login returns user.mustChangePassword === true
+      const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "firstlogin",
+          password: "temp-password-123",
+        }),
+      });
+      expect(loginRes.status).toBe(200);
+      const loginBody = await loginRes.json();
+      expect(loginBody.ok).toBe(true);
+      expect(loginBody.data.user.mustChangePassword).toBe(true);
+      const userToken = loginBody.data.token as string;
+
+      // /api/auth/me exposes mustChangePassword === true
+      const meBeforeRes = await fetch(`${baseUrl}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${userToken}` },
+      });
+      expect(meBeforeRes.status).toBe(200);
+      const meBeforeBody = await meBeforeRes.json();
+      expect(meBeforeBody.data.user.mustChangePassword).toBe(true);
+
+      // Non-admin cannot create users
+      const forbiddenCreateRes = await fetch(
+        `${baseUrl}/api/workspaces/users`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${userToken}`,
+          },
+          body: JSON.stringify({
+            username: "blocked-user",
+            password: "temp-password-123",
+          }),
+        },
+      );
+      expect(forbiddenCreateRes.status).toBe(403);
+
+      // User changes own password -> clears mustChangePassword
+      const changeRes = await changeOwnPassword(userToken, {
+        currentPassword: "temp-password-123",
+        password: "new-permanent-password-456",
+      });
+      expect(changeRes.status).toBe(200);
+
+      // /api/auth/me now exposes mustChangePassword === false
+      const meAfterRes = await fetch(`${baseUrl}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${userToken}` },
+      });
+      expect(meAfterRes.status).toBe(200);
+      const meAfterBody = await meAfterRes.json();
+      expect(meAfterBody.data.user.mustChangePassword).toBe(false);
+
+      // Subsequent login with new password also reports mustChangePassword === false
+      const reloginRes = await fetch(`${baseUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "firstlogin",
+          password: "new-permanent-password-456",
+        }),
+      });
+      expect(reloginRes.status).toBe(200);
+      const reloginBody = await reloginRes.json();
+      expect(reloginBody.data.user.mustChangePassword).toBe(false);
+    });
+  });
 });

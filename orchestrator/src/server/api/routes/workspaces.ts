@@ -21,10 +21,12 @@ const createUserSchema = z.object({
   password: z.string().min(8).max(500),
   displayName: z.string().trim().min(1).max(120).optional(),
   isSystemAdmin: z.boolean().optional(),
+  mustChangePassword: z.boolean().optional(),
 });
 
 const resetPasswordSchema = z.object({
   password: z.string().min(8).max(500),
+  mustChangePassword: z.boolean().optional(),
 });
 
 const disableUserSchema = z.object({
@@ -87,6 +89,7 @@ workspacesRouter.post(
         password: parsed.data.password,
         displayName: parsed.data.displayName ?? parsed.data.username,
         isSystemAdmin: parsed.data.isSystemAdmin ?? false,
+        mustChangePassword: parsed.data.mustChangePassword ?? false,
       });
       ok(res, { user }, 201);
       return;
@@ -174,6 +177,9 @@ workspacesRouter.post(
     await usersRepo.updateUserPassword({
       id: userId,
       password: parsed.data.password,
+      ...(parsed.data.mustChangePassword !== undefined
+        ? { mustChangePassword: parsed.data.mustChangePassword }
+        : {}),
     });
     await authSessionsRepo.revokeAuthSessionsForUser(userId);
     ok(res, { userId });
@@ -222,6 +228,7 @@ workspacesRouter.post(
     await usersRepo.updateUserPassword({
       id: userId,
       password: parsed.data.password,
+      mustChangePassword: false,
     });
     ok(res, { userId });
   }),
