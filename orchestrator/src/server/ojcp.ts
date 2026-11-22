@@ -12,11 +12,7 @@ import {
   McpError,
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import * as visaSponsors from "@server/services/visa-sponsors/index";
-import {
-  getCountryIso2Code,
-  normalizeCountryKey,
-} from "@shared/location-support.js";
+import { getCountryIso2Code } from "@shared/location-support.js";
 import type { CreateJobInput } from "@shared/types";
 import { stripHtmlTags } from "@shared/utils/string";
 import type { Request, RequestHandler, Response } from "express";
@@ -42,16 +38,9 @@ const FREEHIRE_TIMEOUT_MS = 5_000;
 const OJCP_MCP_PATH = "/ojcp/mcp";
 const OJCP_MANIFEST_PATH = "/.well-known/ojcp.json";
 
-type VisaSponsorMatch = {
-  exact_name_match: boolean;
-  provider_id: string;
-  matched_organisations?: string[];
-};
-
 type OjcpJob = CreateJobInput & {
   id: string;
   discoveredAt: string;
-  visaSponsorMatch?: VisaSponsorMatch;
 };
 
 type CachedDetail = { expiresAt: number; job: OjcpJob };
@@ -332,9 +321,6 @@ export function mapJobPosting(
         : {}),
       ...(job.companyLogo ? { logo: job.companyLogo } : {}),
     },
-    ...(job.visaSponsorMatch
-      ? { visa_sponsor_match: job.visaSponsorMatch }
-      : {}),
     datePosted,
     ...(toIsoDate(job.deadline)
       ? { validThrough: toIsoDate(job.deadline) }
@@ -361,8 +347,6 @@ export function mapJobPosting(
     apply_paths: [mapApplyPath(job)],
   };
 }
-
-type OjcpWarning = { code: string; message: string };
 
 function pruneCache<T extends { expiresAt: number }>(
   cache: Map<string, T>,
@@ -460,38 +444,6 @@ function resultNumber(result: Record<string, unknown>, key: string): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function countSponsorMatches(result: Record<string, unknown>): number {
-  if (!Array.isArray(result.jobs)) return 0;
-  return result.jobs.reduce((count, job) => {
-    if (!job || typeof job !== "object" || Array.isArray(job)) return count;
-    const match = (job as Record<string, unknown>).visa_sponsor_match;
-    if (!match || typeof match !== "object" || Array.isArray(match)) {
-      return count;
-    }
-    return (match as Record<string, unknown>).exact_name_match === true
-      ? count + 1
-      : count;
-  }, 0);
-}
-
-function sponsorCheckStatus(
-  input: SearchJobsInput,
-  result: Record<string, unknown>,
-): string {
-  if (!input.location?.country) return "not_requested";
-  if (!Array.isArray(result.warnings)) return "available";
-
-  for (const warning of result.warnings) {
-    if (!warning || typeof warning !== "object" || Array.isArray(warning)) {
-      continue;
-    }
-    const code = (warning as Record<string, unknown>).code;
-    if (code === "visa_sponsor_data_unavailable") return "unavailable";
-    if (code === "visa_sponsor_check_failed") return "failed";
-  }
-  return "available";
-}
-
 function trackOjcpEvent(
   req: Request,
   event: string,
@@ -587,8 +539,6 @@ function trackSearchCompleted(
     has_city: Boolean(input.location?.city),
     remote_mode: remoteMode(input),
     has_candidate_context: Boolean(input.candidate_context),
-    sponsor_check: sponsorCheckStatus(input, result),
-    sponsor_match_bucket: bucketCount(countSponsorMatches(result)),
     warning_present: Array.isArray(result.warnings),
   });
 }
@@ -646,73 +596,6 @@ async function callGetJobDetail(
   }
 }
 
-async function enrichSponsorMatches(
-  jobs: OjcpJob[],
-  country: string | undefined,
-): Promise<{ jobs: OjcpJob[]; warning?: OjcpWarning }> {
-  if (!country) {
-    return {
-      jobs,
-      warning: {
-        code: "visa_sponsor_not_checked",
-        message: "A country is required for visa sponsor matching.",
-      },
-    };
-  }
-
-  try {
-    const countryKey = normalizeCountryKey(country);
-    const checks = await Promise.all(
-      jobs.map((job) =>
-        visaSponsors.searchSponsorsExact(job.employer, { countryKey }),
-      ),
-    );
-    if (checks.length > 0 && !checks.some((check) => check.available)) {
-      return {
-        jobs,
-        warning: {
-          code: "visa_sponsor_data_unavailable",
-          message: `Visa sponsor data is unavailable for ${country}.`,
-        },
-      };
-    }
-
-    return {
-      jobs: jobs.map((job, index) => {
-        const check = checks[index];
-        if (!check?.available || !check.providerIds[0]) return job;
-        const matchedOrganisations = [
-          ...new Set(
-            check.results.map((result) => result.sponsor.organisationName),
-          ),
-        ];
-        return {
-          ...job,
-          visaSponsorMatch: {
-            exact_name_match: matchedOrganisations.length > 0,
-            provider_id: check.providerIds[0],
-            ...(matchedOrganisations.length > 0
-              ? { matched_organisations: matchedOrganisations }
-              : {}),
-          },
-        };
-      }),
-    };
-  } catch (error) {
-    logger.warn("OJCP visa sponsor enrichment failed", {
-      route: "POST /ojcp/mcp",
-      error: sanitizeUnknown(error),
-    });
-    return {
-      jobs,
-      warning: {
-        code: "visa_sponsor_check_failed",
-        message: "Visa sponsor matching was temporarily unavailable.",
-      },
-    };
-  }
-}
-
 async function searchJobsLive(
   input: SearchJobsInput,
 ): Promise<Record<string, unknown>> {
@@ -727,14 +610,10 @@ async function searchJobsLive(
     timeoutMs: FREEHIRE_TIMEOUT_MS,
   });
   const discoveredAt = new Date().toISOString();
-  const sponsorEnrichment = await enrichSponsorMatches(
-    page.jobs.map((job) => toOjcpJob(job, discoveredAt)),
-    input.location?.country,
-  );
-  cacheDetails(sponsorEnrichment.jobs);
+  const ojcpJobs = page.jobs.map((job) => toOjcpJob(job, discoveredAt));
+  cacheDetails(ojcpJobs);
 
   const warnings = [
-    ...(sponsorEnrichment.warning ? [sponsorEnrichment.warning] : []),
     ...(input.candidate_context
       ? [
           {
@@ -750,9 +629,9 @@ async function searchJobsLive(
     ojcp_version: OJCP_VERSION,
     query: input.query,
     total_results: page.total,
-    returned: sponsorEnrichment.jobs.length,
+    returned: ojcpJobs.length,
     offset: page.offset,
-    jobs: sponsorEnrichment.jobs.map((job) =>
+    jobs: ojcpJobs.map((job) =>
       mapJobPosting(job, { includeDescription: false }),
     ),
     ...(warnings.length > 0 ? { warnings } : {}),

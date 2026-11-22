@@ -162,7 +162,6 @@ describe.sequential("Auth read-only enforcement", () => {
   it.each([
     { method: "POST", path: "/api/auth/login" },
     { method: "GET", path: "/health" },
-    { method: "GET", path: "/api/tracer-links/public-slug" },
   ])("allows public $method $path without auth", async ({ method, path }) => {
     vi.mocked(countUsers).mockResolvedValue(1);
 

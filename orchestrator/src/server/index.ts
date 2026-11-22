@@ -23,7 +23,6 @@ import { initializeDemoModeServices } from "./services/demo-mode";
 import { applyStoredEnvOverrides } from "./services/envSettings";
 import { initializeHistoricalServerEventReplaySafely } from "./services/historical-product-analytics";
 import { startPipelineScheduler } from "./services/pipeline-scheduler";
-import { initialize as initializeVisaSponsors } from "./services/visa-sponsors/index";
 
 const AUTH_SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -105,15 +104,6 @@ async function startServer() {
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
   `);
-
-    // Initialize visa sponsors service (downloads data if needed, starts scheduler)
-    try {
-      await initializeVisaSponsors();
-    } catch (error) {
-      logger.warn("Failed to initialize visa sponsors service", {
-        error: sanitizeUnknown(error),
-      });
-    }
 
     try {
       await startPipelineScheduler();

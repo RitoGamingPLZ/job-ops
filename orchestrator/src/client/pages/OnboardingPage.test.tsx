@@ -307,7 +307,6 @@ describe("OnboardingPage", () => {
       expect.objectContaining({
         has_country: true,
         city_count: 0,
-        requires_visa_sponsorship: true,
       }),
     );
     expect(analyticsMocks.trackProductEvent).toHaveBeenCalledWith(

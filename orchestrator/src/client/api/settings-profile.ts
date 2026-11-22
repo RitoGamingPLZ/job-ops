@@ -128,7 +128,6 @@ export async function saveOnboardingProfile(input: {
   country?: string | null;
   cities: string[];
   workplaceTypes: Array<"remote" | "hybrid" | "onsite">;
-  requiresVisaSponsorship: boolean;
 }): Promise<OnboardingStatusResponse> {
   return fetchApi<OnboardingStatusResponse>("/onboarding/actions/profile", {
     method: "POST",

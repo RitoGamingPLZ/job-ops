@@ -99,7 +99,8 @@ const builtinImports = NODE_BUILTIN_SHIMS.map(
 ).join("\n");
 
 const builtinEntries = NODE_BUILTIN_SHIMS.map(
-  (mod) => `  "${mod}": __unwrapNodeBuiltin(__ns_${mod}),\n  "node:${mod}": __unwrapNodeBuiltin(__ns_${mod}),`,
+  (mod) =>
+    `  "${mod}": __unwrapNodeBuiltin(__ns_${mod}),\n  "node:${mod}": __unwrapNodeBuiltin(__ns_${mod}),`,
 ).join("\n");
 
 const doRequireBanner = `${builtinImports}

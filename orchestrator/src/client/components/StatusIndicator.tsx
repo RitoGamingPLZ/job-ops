@@ -100,18 +100,8 @@ const getJobStatusIndicator = (status: JobStatus) => {
   return { label: tokens.label, dotColor: tokens.dot };
 };
 
-const getTracerStatusIndicator = (enabled: boolean) => ({
-  label: enabled ? "Tracer On" : "Tracer Off",
-  dotColor: enabled ? "bg-violet-500" : "bg-slate-500",
-});
-
 const StatusBadgeIndicator: React.FC<
   Omit<StatusIndicatorProps, "appearance"> & { appearance?: "badge" }
 > = (props) => <StatusIndicator {...props} appearance="badge" />;
 
-export {
-  StatusIndicator,
-  getJobStatusIndicator,
-  getTracerStatusIndicator,
-  StatusBadgeIndicator,
-};
+export { StatusIndicator, getJobStatusIndicator, StatusBadgeIndicator };

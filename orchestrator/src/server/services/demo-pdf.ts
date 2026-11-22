@@ -149,8 +149,6 @@ export async function persistDemoGeneratedPdf(
   }
 
   const result = await generatePdf(job.id, job.jobDescription ?? "", {
-    tracerLinksEnabled: job.tracerLinksEnabled,
-    tracerCompanyName: job.employer ?? null,
     requestOrigin: null,
   });
 

@@ -46,9 +46,6 @@ services:
         - path: ./orchestrator/src
           target: /app/orchestrator/src
           action: sync+restart
-        - path: ./visa-sponsor-providers
-          target: /app/visa-sponsor-providers
-          action: sync+restart
         - path: ./career-boards/bamboohr/src
           target: /app/career-boards/bamboohr/src
           action: sync+restart

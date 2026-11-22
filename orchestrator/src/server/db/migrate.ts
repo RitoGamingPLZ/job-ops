@@ -335,7 +335,6 @@ const migrations = [
     pdf_regenerating INTEGER NOT NULL DEFAULT 0,
     pdf_fingerprint TEXT,
     pdf_generated_at TEXT,
-    tracer_links_enabled INTEGER NOT NULL DEFAULT 0,
     discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
     processed_at TEXT,
     ready_at TEXT,
@@ -812,40 +811,6 @@ const migrations = [
     UNIQUE(tenant_id, provider, account_key, external_message_id)
   )`,
 
-  `CREATE TABLE IF NOT EXISTS tracer_links (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL DEFAULT 'tenant_default',
-    token TEXT NOT NULL UNIQUE,
-    job_id TEXT NOT NULL,
-    source_path TEXT NOT NULL,
-    source_label TEXT NOT NULL,
-    destination_url TEXT NOT NULL,
-    destination_url_hash TEXT NOT NULL,
-    is_active INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
-    UNIQUE(tenant_id, job_id, source_path, destination_url_hash)
-  )`,
-
-  `CREATE TABLE IF NOT EXISTS tracer_click_events (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL DEFAULT 'tenant_default',
-    tracer_link_id TEXT NOT NULL,
-    clicked_at INTEGER NOT NULL,
-    request_id TEXT,
-    is_likely_bot INTEGER NOT NULL DEFAULT 0,
-    device_type TEXT NOT NULL DEFAULT 'unknown',
-    ua_family TEXT NOT NULL DEFAULT 'unknown',
-    os_family TEXT NOT NULL DEFAULT 'unknown',
-    referrer_host TEXT,
-    ip_hash TEXT,
-    unique_fingerprint_hash TEXT,
-    FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-    FOREIGN KEY (tracer_link_id) REFERENCES tracer_links(id) ON DELETE CASCADE
-  )`,
-
   // Rename settings key: webhookUrl -> pipelineWebhookUrl (safe to re-run)
   `INSERT OR REPLACE INTO settings(key, value, created_at, updated_at)
    SELECT 'pipelineWebhookUrl', value, created_at, updated_at FROM settings WHERE key = 'webhookUrl'`,
@@ -901,15 +866,10 @@ const migrations = [
   `ALTER TABLE jobs ADD COLUMN selected_project_ids TEXT`,
   `ALTER TABLE jobs ADD COLUMN tailored_headline TEXT`,
   `ALTER TABLE jobs ADD COLUMN tailored_skills TEXT`,
-  `ALTER TABLE jobs ADD COLUMN tracer_links_enabled INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE jobs ADD COLUMN pdf_source TEXT CHECK(pdf_source IN ('generated', 'uploaded'))`,
   `ALTER TABLE jobs ADD COLUMN pdf_regenerating INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE jobs ADD COLUMN pdf_fingerprint TEXT`,
   `ALTER TABLE jobs ADD COLUMN pdf_generated_at TEXT`,
-
-  // Add sponsor match columns for visa sponsor matching feature
-  `ALTER TABLE jobs ADD COLUMN sponsor_match_score REAL`,
-  `ALTER TABLE jobs ADD COLUMN sponsor_match_names TEXT`,
   `ALTER TABLE jobs ADD COLUMN job_brief TEXT`,
 
   // Add application tracking columns
@@ -1042,9 +1002,6 @@ const migrations = [
     pdf_regenerating INTEGER NOT NULL DEFAULT 0,
     pdf_fingerprint TEXT,
     pdf_generated_at TEXT,
-    tracer_links_enabled INTEGER NOT NULL DEFAULT 0,
-    sponsor_match_score REAL,
-    sponsor_match_names TEXT,
     discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
     processed_at TEXT,
     ready_at TEXT,
@@ -1061,7 +1018,7 @@ const migrations = [
     vacancy_count, work_from_home_type, title, employer, employer_url, job_url, application_link, disciplines,
     deadline, salary, location, location_evidence, degree_required, starting, job_description, status, outcome, closed_at,
     suitability_score, suitability_reason, job_brief, tailored_summary, tailored_headline, tailored_skills,
-    selected_project_ids, pdf_path, pdf_source, pdf_regenerating, pdf_fingerprint, pdf_generated_at, tracer_links_enabled, sponsor_match_score, sponsor_match_names, discovered_at, processed_at,
+    selected_project_ids, pdf_path, pdf_source, pdf_regenerating, pdf_fingerprint, pdf_generated_at, discovered_at, processed_at,
     ready_at,
     applied_at, created_at, updated_at
   )
@@ -1073,7 +1030,7 @@ const migrations = [
     vacancy_count, work_from_home_type, title, employer, employer_url, job_url, application_link, disciplines,
     deadline, salary, location, location_evidence, degree_required, starting, job_description, status, outcome, closed_at,
     suitability_score, suitability_reason, ${jobsHasJobBrief ? "job_brief" : "NULL"}, tailored_summary, tailored_headline, tailored_skills,
-    selected_project_ids, pdf_path, pdf_source, ${jobsHasPdfRegenerating ? "pdf_regenerating" : "0"}, pdf_fingerprint, pdf_generated_at, tracer_links_enabled, sponsor_match_score, sponsor_match_names, discovered_at, processed_at,
+    selected_project_ids, pdf_path, pdf_source, ${jobsHasPdfRegenerating ? "pdf_regenerating" : "0"}, pdf_fingerprint, pdf_generated_at, discovered_at, processed_at,
     ready_at,
     applied_at, created_at, updated_at
   FROM jobs`,
@@ -1148,12 +1105,8 @@ const migrations = [
   `CREATE INDEX IF NOT EXISTS idx_job_chat_threads_job_updated ON job_chat_threads(job_id, updated_at)`,
   `CREATE INDEX IF NOT EXISTS idx_job_chat_messages_thread_created ON job_chat_messages(thread_id, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_job_chat_runs_thread_status ON job_chat_runs(thread_id, status)`,
-  `CREATE INDEX IF NOT EXISTS idx_tracer_links_token ON tracer_links(token)`,
-  `CREATE INDEX IF NOT EXISTS idx_tracer_links_job_id ON tracer_links(job_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_tracer_click_events_tracer_link_id ON tracer_click_events(tracer_link_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_tracer_click_events_clicked_at ON tracer_click_events(clicked_at)`,
-  `CREATE INDEX IF NOT EXISTS idx_tracer_click_events_is_likely_bot ON tracer_click_events(is_likely_bot)`,
-  `CREATE INDEX IF NOT EXISTS idx_tracer_click_events_unique_fingerprint_hash ON tracer_click_events(unique_fingerprint_hash)`,
+  `DROP TABLE IF EXISTS tracer_click_events`,
+  `DROP TABLE IF EXISTS tracer_links`,
   // Ensure only one running run per thread; backfill any duplicates first.
   `WITH ranked AS (
       SELECT
@@ -1461,8 +1414,6 @@ function ensureTenantColumns(): void {
     "post_application_integrations",
     "post_application_sync_runs",
     "post_application_messages",
-    "tracer_links",
-    "tracer_click_events",
     "auth_sessions",
   ]) {
     addTenantColumn(tableName);
@@ -1496,8 +1447,6 @@ function ensurePrivateUserColumns(): void {
     "post_application_integrations",
     "post_application_sync_runs",
     "post_application_messages",
-    "tracer_links",
-    "tracer_click_events",
   ]) {
     addUserColumn(tableName);
   }
@@ -1529,7 +1478,7 @@ function ensurePrivateUserColumns(): void {
     backfillUserFromTenantOwner(tableName);
   }
 
-  for (const tableName of ["job_documents", "job_resumes", "tracer_links"]) {
+  for (const tableName of ["job_documents", "job_resumes"]) {
     backfillUserFromParent({
       tableName,
       parentTableName: "jobs",
@@ -1576,14 +1525,6 @@ function ensurePrivateUserColumns(): void {
     });
     backfillUserFromTenantOwner(tableName);
   }
-
-  backfillUserFromParent({
-    tableName: "tracer_click_events",
-    parentTableName: "tracer_links",
-    localColumnName: "tracer_link_id",
-    parentColumnName: "id",
-  });
-  backfillUserFromTenantOwner("tracer_click_events");
 }
 
 function rebuildSettingsTable(): void {
@@ -1622,78 +1563,10 @@ function rebuildSettingsTable(): void {
   sqlite.exec("ALTER TABLE settings_new RENAME TO settings");
 }
 
-function ensureTracerLinksUniqueIndex(): void {
-  if (!tableExists("tracer_links")) return;
-
-  for (const columnName of [
-    "tenant_id",
-    "user_id",
-    "job_id",
-    "source_path",
-    "destination_url_hash",
-  ]) {
-    if (!tableHasColumn("tracer_links", columnName)) return;
-  }
-
-  if (tableExists("tracer_click_events")) {
-    sqlite.exec(`
-      WITH duplicate_links AS (
-        SELECT
-          id,
-          first_value(id) OVER (
-            PARTITION BY tenant_id, coalesce(user_id, ''), job_id, source_path, destination_url_hash
-            ORDER BY created_at ASC, id ASC
-          ) AS keep_id
-        FROM tracer_links
-      )
-      UPDATE tracer_click_events
-      SET tracer_link_id = (
-        SELECT keep_id
-        FROM duplicate_links
-        WHERE duplicate_links.id = tracer_click_events.tracer_link_id
-      )
-      WHERE tracer_link_id IN (
-        SELECT id
-        FROM duplicate_links
-        WHERE id <> keep_id
-      )
-    `);
-  }
-
-  sqlite.exec(`
-    WITH duplicate_links AS (
-      SELECT
-        id,
-        first_value(id) OVER (
-          PARTITION BY tenant_id, coalesce(user_id, ''), job_id, source_path, destination_url_hash
-          ORDER BY created_at ASC, id ASC
-        ) AS keep_id
-      FROM tracer_links
-    )
-    DELETE FROM tracer_links
-    WHERE id IN (
-      SELECT id
-      FROM duplicate_links
-      WHERE id <> keep_id
-    )
-  `);
-
-  sqlite.exec(
-    "DROP INDEX IF EXISTS idx_tracer_links_tenant_job_source_destination_unique",
-  );
-  sqlite.exec(
-    "DROP INDEX IF EXISTS idx_tracer_links_tenant_user_job_source_destination_unique",
-  );
-  sqlite.exec(
-    "CREATE UNIQUE INDEX IF NOT EXISTS idx_tracer_links_tenant_user_job_source_destination_unique ON tracer_links(tenant_id, coalesce(user_id, ''), job_id, source_path, destination_url_hash)",
-  );
-}
-
 function rebuildPostApplicationPrivateTables(): void {
   if (
     !tableExists("post_application_integrations") ||
-    !tableExists("post_application_messages") ||
-    !tableExists("tracer_links")
+    !tableExists("post_application_messages")
   ) {
     return;
   }
@@ -1701,7 +1574,6 @@ function rebuildPostApplicationPrivateTables(): void {
   for (const tableName of [
     "post_application_integrations",
     "post_application_messages",
-    "tracer_links",
   ]) {
     if (
       !tableHasColumn(tableName, "tenant_id") ||
@@ -1804,37 +1676,6 @@ function rebuildPostApplicationPrivateTables(): void {
       ORDER BY created_at ASC, id ASC;
       DROP TABLE post_application_messages;
       ALTER TABLE post_application_messages_new RENAME TO post_application_messages;
-
-      DROP TABLE IF EXISTS tracer_links_new;
-      CREATE TABLE tracer_links_new (
-        id TEXT PRIMARY KEY,
-        tenant_id TEXT NOT NULL DEFAULT 'tenant_default',
-        user_id TEXT,
-        token TEXT NOT NULL UNIQUE,
-        job_id TEXT NOT NULL,
-        source_path TEXT NOT NULL,
-        source_label TEXT NOT NULL,
-        destination_url TEXT NOT NULL,
-        destination_url_hash TEXT NOT NULL,
-        is_active INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
-        UNIQUE(tenant_id, user_id, job_id, source_path, destination_url_hash)
-      );
-      INSERT OR IGNORE INTO tracer_links_new (
-        id, tenant_id, user_id, token, job_id, source_path, source_label,
-        destination_url, destination_url_hash, is_active, created_at, updated_at
-      )
-      SELECT
-        id, tenant_id, user_id, token, job_id, source_path, source_label,
-        destination_url, destination_url_hash, is_active, created_at, updated_at
-      FROM tracer_links
-      ORDER BY created_at ASC, id ASC;
-      DROP TABLE tracer_links;
-      ALTER TABLE tracer_links_new RENAME TO tracer_links;
     `);
   } finally {
     sqlite.exec("PRAGMA foreign_keys = ON");
@@ -1971,7 +1812,6 @@ rebuildPostApplicationPrivateTables();
 rebuildSettingsTable();
 seedLegacyOnboardingMigration();
 backfillStructuredLibrary(sqlite);
-ensureTracerLinksUniqueIndex();
 sqlite.exec("DROP INDEX IF EXISTS idx_settings_tenant_key_unique");
 sqlite.exec("DROP INDEX IF EXISTS idx_settings_tenant_user_key_unique");
 sqlite.exec(
@@ -1997,12 +1837,6 @@ sqlite.exec(
 );
 sqlite.exec(
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_post_app_messages_tenant_user_provider_account_external_unique ON post_application_messages(tenant_id, coalesce(user_id, ''), provider, account_key, external_message_id)",
-);
-sqlite.exec(
-  "DROP INDEX IF EXISTS idx_tracer_links_tenant_user_job_source_destination_unique",
-);
-sqlite.exec(
-  "CREATE UNIQUE INDEX IF NOT EXISTS idx_tracer_links_tenant_user_job_source_destination_unique ON tracer_links(tenant_id, coalesce(user_id, ''), job_id, source_path, destination_url_hash)",
 );
 sqlite.exec(
   "CREATE INDEX IF NOT EXISTS idx_jobs_tenant_user_status ON jobs(tenant_id, user_id, status)",

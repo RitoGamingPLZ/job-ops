@@ -8,12 +8,10 @@ import { reconcileActivationMilestonesFromHistorySafely } from "@server/services
 import { removeStoredJobDocuments } from "@server/services/job-document-storage";
 import { trackApplicationAcceptedIfNeeded } from "@server/services/jobs/analytics";
 import { removeStoredJobPdf } from "@server/services/pdf-storage";
-import { getTracerReadiness } from "@server/services/tracer-links";
 import { type Request, type Response, Router } from "express";
 import {
   hydrateJobPdfFreshness,
   isJobUrlConflictError,
-  queueTracerAutoPdfRegenerationIfNeeded,
   toJobsRouteError,
   updateJobSchema,
 } from "./shared";
@@ -92,33 +90,6 @@ jobsMutationsRouter.patch("/:id", async (req: Request, res: Response) => {
       return;
     }
 
-    const isTurningTracerLinksOn =
-      input.tracerLinksEnabled === true && !currentJob.tracerLinksEnabled;
-
-    if (isTurningTracerLinksOn) {
-      const readiness = await getTracerReadiness({
-        requestOrigin: resolveRequestOrigin(req),
-        force: true,
-      });
-
-      if (!readiness.canEnable) {
-        throw new AppError({
-          status: 409,
-          code: "CONFLICT",
-          message:
-            readiness.reason ??
-            "Tracer links are unavailable right now. Verify Tracer Links in Settings.",
-          details: {
-            tracerReadiness: {
-              status: readiness.status,
-              checkedAt: readiness.checkedAt,
-              publicBaseUrl: readiness.publicBaseUrl,
-            },
-          },
-        });
-      }
-    }
-
     const job = await jobsRepo.updateJob(req.params.id, input);
 
     if (!job) {
@@ -150,11 +121,6 @@ jobsMutationsRouter.patch("/:id", async (req: Request, res: Response) => {
       source: "jobs_patch_route",
     });
     ok(res, await hydrateJobPdfFreshness(job));
-    queueTracerAutoPdfRegenerationIfNeeded(
-      currentJob,
-      job,
-      "PATCH /api/jobs/:id",
-    );
     if (Object.hasOwn(input, "closedAt") || Object.hasOwn(input, "outcome")) {
       queueMicrotask(() => {
         void reconcileActivationMilestonesFromHistorySafely({

@@ -5,7 +5,6 @@ import { MemoryRouter } from "react-router-dom";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api";
-import { _resetTracerReadinessCache } from "../hooks/useTracerReadiness";
 import { renderWithQueryClient } from "../test/renderWithQueryClient";
 import { SettingsPage } from "./SettingsPage";
 
@@ -54,7 +53,6 @@ vi.mock("../api", () => ({
   getRxResumeProjects: vi.fn(),
   clearDatabase: vi.fn(),
   deleteJobsByStatus: vi.fn(),
-  getTracerReadiness: vi.fn(),
   getBackups: vi.fn().mockResolvedValue({ backups: [], nextScheduled: null }),
   createManualBackup: vi.fn(),
   deleteBackup: vi.fn(),
@@ -199,7 +197,6 @@ describe("SettingsPage", () => {
       configurable: true,
       value: vi.fn(),
     });
-    _resetTracerReadinessCache();
     vi.mocked(api.getAppStatus).mockResolvedValue(localAppStatus);
     vi.mocked(api.getBillingStatus).mockResolvedValue({
       plan: "free",
@@ -221,16 +218,6 @@ describe("SettingsPage", () => {
         quotasEnabled: true,
         actions: [],
       },
-    });
-    vi.mocked(api.getTracerReadiness).mockResolvedValue({
-      status: "ready",
-      isPubliclyAvailable: true,
-      canEnable: true,
-      publicBaseUrl: "https://my-jobops.example.com",
-      healthUrl: "https://my-jobops.example.com/health",
-      checkedAt: Date.now(),
-      lastSuccessAt: Date.now(),
-      reason: null,
     });
     vi.mocked(api.validateRxresume).mockResolvedValue({
       valid: false,
@@ -845,7 +832,7 @@ describe("SettingsPage", () => {
           default: "openai",
           override: null,
         },
-        showSponsorInfo: {
+        renderMarkdownInJobDescriptions: {
           value: false,
           default: true,
           override: false,
@@ -856,7 +843,7 @@ describe("SettingsPage", () => {
     renderPage();
 
     await openDisplaySection();
-    fireEvent.click(screen.getByLabelText(/show visa sponsor information/i));
+    fireEvent.click(screen.getByLabelText(/render markdown/i));
 
     const saveButton = getSaveButton();
     await waitFor(() => expect(saveButton).toBeEnabled());
@@ -866,7 +853,7 @@ describe("SettingsPage", () => {
     expect(api.updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "gpt-4.1-mini",
-        showSponsorInfo: false,
+        renderMarkdownInJobDescriptions: false,
       }),
     );
   });
@@ -896,10 +883,8 @@ describe("SettingsPage", () => {
     const saveButton = getSaveButton();
 
     await openDisplaySection();
-    const sponsorCheckbox = screen.getByLabelText(
-      /show visa sponsor information/i,
-    );
-    fireEvent.click(sponsorCheckbox);
+    const markdownCheckbox = screen.getByLabelText(/render markdown/i);
+    fireEvent.click(markdownCheckbox);
     await waitFor(() => expect(saveButton).toBeEnabled());
   });
 
@@ -913,10 +898,8 @@ describe("SettingsPage", () => {
     renderPage();
 
     await openDisplaySection();
-    const sponsorCheckbox = screen.getByLabelText(
-      /show visa sponsor information/i,
-    );
-    fireEvent.click(sponsorCheckbox);
+    const markdownCheckbox = screen.getByLabelText(/render markdown/i);
+    fireEvent.click(markdownCheckbox);
 
     const saveButton = getSaveButton();
     await waitFor(() => expect(saveButton).toBeEnabled());

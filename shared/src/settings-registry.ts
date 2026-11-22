@@ -738,13 +738,6 @@ export const settingsRegistry = {
     serialize: (value: string | null | undefined): string | null =>
       value ?? null,
   },
-  showSponsorInfo: {
-    kind: "typed" as const,
-    schema: z.boolean(),
-    default: (): boolean => true,
-    parse: parseBitBoolOrNull,
-    serialize: serializeBitBool,
-  },
   renderMarkdownInJobDescriptions: {
     kind: "typed" as const,
     schema: z.boolean(),

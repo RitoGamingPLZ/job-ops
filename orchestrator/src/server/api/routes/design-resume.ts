@@ -4,6 +4,7 @@ import { logger } from "@infra/logger";
 import { resolveRequestOrigin } from "@infra/request-origin";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { getBlobStore } from "@server/infra/blob-store";
+import { getJobOpsPublicAvailability } from "@server/infra/public-availability";
 import { getRequestId } from "@server/infra/request-context";
 import {
   deleteDesignResumePicture,
@@ -22,7 +23,6 @@ import {
   getTenantDesignResumePdfPath,
 } from "@server/services/pdf-storage";
 import { clearProfileCache } from "@server/services/profile";
-import { getJobOpsPublicAvailability } from "@server/services/tracer-links";
 import type { DesignResumeJson, DesignResumePatchRequest } from "@shared/types";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";

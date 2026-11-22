@@ -9,7 +9,6 @@ import type {
   JobSort,
   SalaryFilter,
   ScoreFilter,
-  SponsorFilter,
 } from "./constants";
 import { JobCommandBar } from "./JobCommandBar";
 import { JobDetailPanel } from "./JobDetailPanel";
@@ -43,7 +42,6 @@ interface OrchestratorJobsWorkspaceProps {
   companyFilter: string[];
   companiesWithJobs: CompanyOption[];
   onCompanyFilterChange: (values: string[]) => void;
-  sponsorFilter: SponsorFilter;
   salaryFilter: SalaryFilter;
   scoreFilter: ScoreFilter;
   postedWithinDays: number | null;
@@ -63,7 +61,6 @@ interface OrchestratorJobsWorkspaceProps {
   onTabChange: (tab: FilterTab) => void;
   onFiltersOpenChange: (open: boolean) => void;
   onSourceFilterChange: (value: JobSource | "all") => void;
-  onSponsorFilterChange: (value: SponsorFilter) => void;
   onSalaryFilterChange: (value: SalaryFilter) => void;
   onScoreFilterChange: (value: ScoreFilter) => void;
   onPostedWithinChange: (value: number | null) => void;
@@ -103,7 +100,6 @@ export const OrchestratorJobsWorkspace: React.FC<
   companiesWithJobs,
   onCompanyFilterChange,
   sourceFilter,
-  sponsorFilter,
   salaryFilter,
   scoreFilter,
   postedWithinDays,
@@ -123,7 +119,6 @@ export const OrchestratorJobsWorkspace: React.FC<
   onTabChange,
   onFiltersOpenChange,
   onSourceFilterChange,
-  onSponsorFilterChange,
   onSalaryFilterChange,
   onScoreFilterChange,
   onPostedWithinChange,
@@ -163,8 +158,6 @@ export const OrchestratorJobsWorkspace: React.FC<
         onCompanyFilterChange={onCompanyFilterChange}
         sourceFilter={sourceFilter}
         onSourceFilterChange={onSourceFilterChange}
-        sponsorFilter={sponsorFilter}
-        onSponsorFilterChange={onSponsorFilterChange}
         salaryFilter={salaryFilter}
         onSalaryFilterChange={onSalaryFilterChange}
         scoreFilter={scoreFilter}

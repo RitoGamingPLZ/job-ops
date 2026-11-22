@@ -37,20 +37,20 @@ describe("analytics", () => {
   });
 
   it("dedupes identical product events within the dedupe window", () => {
-    trackProductEvent("tracer_drilldown_mode_changed", { mode: "human" });
-    trackProductEvent("tracer_drilldown_mode_changed", { mode: "human" });
+    trackProductEvent("jobs_search_composer_opened", { mode: "automatic" });
+    trackProductEvent("jobs_search_composer_opened", { mode: "automatic" });
 
     expect(track).toHaveBeenCalledTimes(1);
 
     vi.advanceTimersByTime(3_001);
-    trackProductEvent("tracer_drilldown_mode_changed", { mode: "human" });
+    trackProductEvent("jobs_search_composer_opened", { mode: "automatic" });
 
     expect(track).toHaveBeenCalledTimes(2);
   });
 
   it("attaches stable analytics metadata to every event", () => {
     trackEvent("star_repo_click", { location: "demo_mode_banner" });
-    trackProductEvent("tracer_drilldown_mode_changed", { mode: "all" });
+    trackProductEvent("jobs_search_composer_opened", { mode: "manual" });
 
     expect(track).toHaveBeenCalledTimes(2);
 
@@ -76,7 +76,7 @@ describe("analytics", () => {
     expect(op).toHaveBeenNthCalledWith(
       2,
       "track",
-      "tracer_drilldown_mode_changed",
+      "jobs_search_composer_opened",
       secondPayload,
     );
   });

@@ -12,7 +12,6 @@ import type {
   SalaryFilterMode,
   ScoreFilter,
   ScoreFilterMode,
-  SponsorFilter,
 } from "./constants";
 import {
   DEFAULT_SORT,
@@ -21,13 +20,6 @@ import {
   postedWithinValues,
 } from "./constants";
 
-const allowedSponsorFilters: SponsorFilter[] = [
-  "all",
-  "confirmed",
-  "potential",
-  "not_found",
-  "unknown",
-];
 const allowedSalaryModes: SalaryFilterMode[] = [
   "at_least",
   "at_most",
@@ -89,7 +81,6 @@ const filterStorageKey = "job-ops:jobs-list-filters:v1";
 const filterParamNames = [
   "source",
   "company",
-  "sponsor",
   "salaryMode",
   "salaryMin",
   "salaryMax",
@@ -208,24 +199,6 @@ export const useOrchestratorFilters = () => {
         for (const value of normalizeCompanies(values)) {
           prev.append("company", value);
         }
-        return prev;
-      });
-    },
-    [updateFilterParams],
-  );
-
-  const sponsorFilter = useMemo((): SponsorFilter => {
-    const raw = searchParams.get("sponsor") ?? "all";
-    return allowedSponsorFilters.includes(raw as SponsorFilter)
-      ? (raw as SponsorFilter)
-      : "all";
-  }, [searchParams]);
-
-  const setSponsorFilter = useCallback(
-    (value: SponsorFilter) => {
-      updateFilterParams((prev) => {
-        if (value === "all") prev.delete("sponsor");
-        else prev.set("sponsor", value);
         return prev;
       });
     },
@@ -461,8 +434,6 @@ export const useOrchestratorFilters = () => {
     setSourceFilter,
     companyFilter,
     setCompanyFilter,
-    sponsorFilter,
-    setSponsorFilter,
     salaryFilter,
     setSalaryFilter,
     scoreFilter,

@@ -36,7 +36,6 @@ const profileActionSchema = z.object({
     .array(z.enum(["remote", "hybrid", "onsite"]))
     .min(1)
     .max(3),
-  requiresVisaSponsorship: z.boolean(),
 });
 
 const resumeConfirmActionSchema = z.object({

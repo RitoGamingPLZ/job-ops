@@ -6,9 +6,7 @@ import {
   Inbox,
   LayoutDashboard,
   Library,
-  Link2,
   Settings,
-  Shield,
 } from "lucide-react";
 
 export type NavLink = {
@@ -50,13 +48,6 @@ export const NAV_LINKS: NavLink[] = [
     activePaths: ["/library"],
   },
   { to: "/tracking-inbox", label: "Tracking Inbox", icon: Inbox },
-  {
-    to: "/tracer-links",
-    label: "Tracer Links",
-    icon: Link2,
-    activePaths: ["/tracer-links"],
-  },
-  { to: "/visa-sponsors", label: "Visa Sponsors", icon: Shield },
   { to: "/watchlist", label: "Watchlist", icon: Eye },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

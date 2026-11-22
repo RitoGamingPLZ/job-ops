@@ -6,7 +6,6 @@ import {
   ScoringUnavailableError,
   scoreJobSuitability,
 } from "@server/services/scorer";
-import * as visaSponsors from "@server/services/visa-sponsors/index";
 import { asyncPool } from "@server/utils/async-pool";
 import type { Job } from "@shared/types";
 import { progressHelpers, updateProgress } from "../progress";
@@ -27,7 +26,6 @@ const SYSTEMIC_FAILURE_THRESHOLD = 3;
 export async function scoreJobsStep(args: {
   profile: Record<string, unknown>;
   scoringInstructions?: string;
-  visaSponsorCountryKey?: string | null;
   shouldCancel?: () => boolean;
   hostedUsageReserved?: boolean;
 }): Promise<{ unprocessedJobs: Job[]; scoredJobs: ScoredJob[] }> {
@@ -135,22 +133,6 @@ export async function scoreJobsStep(args: {
       const { score, reason, jobBrief, jobUpdates = {} } = scoringResult;
       if (args.shouldCancel?.()) return;
 
-      let sponsorMatchScore = 0;
-      let sponsorMatchNames: string | undefined;
-
-      if (job.employer) {
-        const sponsorResults = await visaSponsors.searchSponsors(job.employer, {
-          limit: 10,
-          minScore: 50,
-          countryKey: args.visaSponsorCountryKey ?? undefined,
-        });
-
-        const summary =
-          visaSponsors.calculateSponsorMatchSummary(sponsorResults);
-        sponsorMatchScore = summary.sponsorMatchScore;
-        sponsorMatchNames = summary.sponsorMatchNames ?? undefined;
-      }
-
       // Check if job should be auto-skipped based on score threshold
       const shouldAutoSkip =
         job.status !== "applied" &&
@@ -164,8 +146,6 @@ export async function scoreJobsStep(args: {
         suitabilityScore: score,
         suitabilityReason: reason,
         jobBrief,
-        sponsorMatchScore,
-        sponsorMatchNames,
         ...(shouldAutoSkip ? { status: "skipped" } : {}),
       });
 

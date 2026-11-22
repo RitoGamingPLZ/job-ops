@@ -153,7 +153,6 @@ jobsDocumentsRouter.post("/:id/pdf", async (req: Request, res: Response) => {
         "job_moved_to_ready",
         {
           origin: "pdf_upload",
-          tracer_links_enabled: job.tracerLinksEnabled,
         },
         {
           requestOrigin: resolveRequestOrigin(req),

@@ -137,7 +137,6 @@ describe("Tailoring Flow", () => {
       "Senior TypeScript Developer", // Original JD
       expect.objectContaining({
         requestOrigin: null,
-        tracerLinksEnabled: undefined,
       }),
     );
     expect(jobsRepo.finalizeGeneratedPdfIfCurrent).toHaveBeenCalledWith({
@@ -182,7 +181,6 @@ describe("Tailoring Flow", () => {
       "Junior Java Developer",
       expect.objectContaining({
         requestOrigin: null,
-        tracerLinksEnabled: undefined,
       }),
     );
     expect(jobsRepo.finalizeGeneratedPdfIfCurrent).toHaveBeenCalledWith(

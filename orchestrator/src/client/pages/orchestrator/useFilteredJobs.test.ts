@@ -27,7 +27,6 @@ const baseFilters: JobFilters = {
   dateFilter: defaultDateFilter,
   sourceFilter: "all",
   companyFilter: [],
-  sponsorFilter: "all",
   salaryFilter: { mode: "at_least", min: null, max: null },
   scoreFilter: { mode: "any", min: null, max: null },
   postedWithinDays: null,
@@ -210,14 +209,13 @@ describe("useFilteredJobs", () => {
     ]);
   });
 
-  it("composes date filtering with source, sponsor, and salary filters", () => {
+  it("composes date filtering with source and salary filters", () => {
     const jobs: Job[] = [
       {
         ...baseJob,
         id: "match",
         source: "linkedin",
         appliedAt: "2026-04-05T14:00:00.000Z",
-        sponsorMatchScore: 99,
         salaryMinAmount: 80000,
       },
       {
@@ -225,15 +223,6 @@ describe("useFilteredJobs", () => {
         id: "wrong-source",
         source: "indeed",
         appliedAt: "2026-04-05T14:00:00.000Z",
-        sponsorMatchScore: 99,
-        salaryMinAmount: 80000,
-      },
-      {
-        ...baseJob,
-        id: "wrong-sponsor",
-        source: "linkedin",
-        appliedAt: "2026-04-05T14:00:00.000Z",
-        sponsorMatchScore: 45,
         salaryMinAmount: 80000,
       },
       {
@@ -241,7 +230,6 @@ describe("useFilteredJobs", () => {
         id: "wrong-salary",
         source: "linkedin",
         appliedAt: "2026-04-05T14:00:00.000Z",
-        sponsorMatchScore: 99,
         salaryMinAmount: 50000,
       },
     ];
@@ -258,7 +246,6 @@ describe("useFilteredJobs", () => {
             preset: "custom",
           },
           sourceFilter: "linkedin",
-          sponsorFilter: "confirmed",
           salaryFilter: { mode: "at_least", min: 70000, max: null },
         }),
       ),

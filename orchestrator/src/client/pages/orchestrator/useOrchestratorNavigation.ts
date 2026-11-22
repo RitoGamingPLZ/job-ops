@@ -9,7 +9,6 @@ const validTabs: FilterTab[] = ["discovered", "all"];
 const commandSelectionFilterKeys = [
   "source",
   "company",
-  "sponsor",
   "salaryMode",
   "salaryMin",
   "salaryMax",

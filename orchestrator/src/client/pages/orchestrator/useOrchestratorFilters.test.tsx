@@ -59,7 +59,6 @@ describe("useOrchestratorFilters", () => {
       }),
     );
     act(() => result.current.setScoreFilter({ mode: "has", min: 50, max: 90 }));
-    act(() => result.current.setSponsorFilter("confirmed"));
     act(() => result.current.setPostedWithinDays(7));
     act(() => result.current.setEmploymentTypes(["full_time"]));
     act(() => result.current.setSort({ key: "title", direction: "asc" }));
@@ -82,7 +81,6 @@ describe("useOrchestratorFilters", () => {
       scoreMode: "has",
       scoreMin: "50",
       scoreMax: "90",
-      sponsor: "confirmed",
       postedWithin: "7",
       employment: "full_time",
       sort: "title-asc",

@@ -36,7 +36,6 @@ import { JobDescriptionPanel } from "@/client/components/JobDescriptionPanel";
 import { RegenerateResumeButton } from "@/client/components/RegenerateResumeButton";
 import { invalidateJobData } from "@/client/hooks/queries/invalidate";
 import {
-  useCheckSponsorMutation,
   useGenerateJobPdfMutation,
   useMarkAsAppliedMutation,
   usePrepareResumeMutation,
@@ -212,7 +211,6 @@ export const JobPage: React.FC = () => {
   const rescoreJobMutation = useRescoreJobMutation();
   const generatePdfMutation = useGenerateJobPdfMutation();
   const prepareResumeMutation = usePrepareResumeMutation();
-  const checkSponsorMutation = useCheckSponsorMutation();
 
   const job = jobQuery.data ?? null;
   const events = mergeEvents(eventsQuery.data ?? [], pendingEventRef.current);
@@ -412,18 +410,13 @@ export const JobPage: React.FC = () => {
       await api.deleteJob(job.id);
       await queryClient.cancelQueries({ queryKey: queryKeys.jobs.all });
       await Promise.all(
-        [
-          queryKeys.jobs.all,
-          queryKeys.tracer.all,
-          queryKeys.postApplication.all,
-        ].map((queryKey) =>
+        [queryKeys.jobs.all, queryKeys.postApplication.all].map((queryKey) =>
           queryClient.invalidateQueries({ queryKey, refetchType: "none" }),
         ),
       );
       queryClient.removeQueries({
         predicate: ({ queryKey }) =>
-          (queryKey[0] === "jobs" || queryKey[0] === "tracer") &&
-          queryKey[2] === job.id,
+          queryKey[0] === "jobs" && queryKey[2] === job.id,
       });
       navigate(jobPageBackTo ?? getFallbackBackTarget(job), { replace: true });
       toast.success("Job deleted");
@@ -458,14 +451,6 @@ export const JobPage: React.FC = () => {
       if (!job) return;
       await prepareResumeMutation.mutateAsync(job.id);
     });
-
-  const handleCheckSponsor = async () => {
-    await runAction("check-sponsor", async () => {
-      if (!job) return;
-      await checkSponsorMutation.mutateAsync(job.id);
-      toast.success("Sponsor check completed");
-    });
-  };
 
   const handleCopyJobInfo = async () => {
     if (!job) return;
@@ -1017,7 +1002,6 @@ export const JobPage: React.FC = () => {
               onViewJobDescription={handleViewJobDescription}
               onCopyJobInfo={() => void handleCopyJobInfo()}
               onRescore={() => void handleRescore()}
-              onCheckSponsor={() => void handleCheckSponsor()}
             />
           )}
         </div>

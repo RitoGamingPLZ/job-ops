@@ -12,13 +12,10 @@ import type {
   JobOutcome,
   JobsListResponse,
   JobsRevisionResponse,
-  JobTracerLinksResponse,
   PostApplicationJobEmailsResponse,
   StageEvent,
   StageEventMetadata,
   StageTransitionTarget,
-  TracerAnalyticsResponse,
-  TracerReadinessResponse,
 } from "@shared/types";
 import { formatUserFacingError } from "@/client/lib/error-format";
 import {
@@ -253,61 +250,6 @@ export async function getJobPdfBlob(id: string): Promise<Blob> {
   );
 }
 
-export async function getTracerAnalytics(options?: {
-  jobId?: string;
-  from?: number;
-  to?: number;
-  includeBots?: boolean;
-  limit?: number;
-}): Promise<TracerAnalyticsResponse> {
-  return fetchApi<TracerAnalyticsResponse>(
-    withQuery("/tracer-links/analytics", {
-      jobId: options?.jobId,
-      from: options?.from,
-      to: options?.to,
-      includeBots:
-        typeof options?.includeBots === "boolean"
-          ? options.includeBots
-            ? "1"
-            : "0"
-          : undefined,
-      limit: options?.limit,
-    }),
-  );
-}
-
-export async function getTracerReadiness(options?: {
-  force?: boolean;
-}): Promise<TracerReadinessResponse> {
-  return fetchApi<TracerReadinessResponse>(
-    withQuery("/tracer-links/readiness", {
-      force: options?.force ? "1" : undefined,
-    }),
-  );
-}
-
-export async function getJobTracerLinks(
-  jobId: string,
-  options?: {
-    from?: number;
-    to?: number;
-    includeBots?: boolean;
-  },
-): Promise<JobTracerLinksResponse> {
-  return fetchApi<JobTracerLinksResponse>(
-    withQuery(`/tracer-links/jobs/${encodeURIComponent(jobId)}`, {
-      from: options?.from,
-      to: options?.to,
-      includeBots:
-        typeof options?.includeBots === "boolean"
-          ? options.includeBots
-            ? "1"
-            : "0"
-          : undefined,
-    }),
-  );
-}
-
 export async function processJob(
   ids: string[],
   options?: { force?: boolean },
@@ -347,12 +289,6 @@ export async function rescoreJob(
 
 export async function generateJobPdf(id: string): Promise<Job> {
   return fetchApi<Job>(`/jobs/${id}/generate-pdf`, {
-    method: "POST",
-  });
-}
-
-export async function checkSponsor(id: string): Promise<Job> {
-  return fetchApi<Job>(`/jobs/${id}/check-sponsor`, {
     method: "POST",
   });
 }

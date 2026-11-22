@@ -92,12 +92,6 @@ export type SortKey =
   | "title"
   | "employer";
 export type SortDirection = "asc" | "desc";
-export type SponsorFilter =
-  | "all"
-  | "confirmed"
-  | "potential"
-  | "not_found"
-  | "unknown";
 export type SalaryFilterMode = "at_least" | "at_most" | "between";
 
 export interface SalaryFilter {
@@ -171,7 +165,6 @@ export interface JobFilters {
   dateFilter: JobDateFilter;
   sourceFilter: JobSource | "all";
   companyFilter: string[];
-  sponsorFilter: SponsorFilter;
   salaryFilter: SalaryFilter;
   scoreFilter: ScoreFilter;
   postedWithinDays: number | null;

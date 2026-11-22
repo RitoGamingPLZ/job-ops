@@ -58,10 +58,7 @@ vi.mock("./pdf-fingerprint", () => ({
 }));
 
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
-import {
-  enqueueAutoPdfRegenerationForSettingsChanges,
-  shouldEnqueueTracerAutoPdfRegeneration,
-} from "./auto-pdf-regeneration";
+import { enqueueAutoPdfRegenerationForSettingsChanges } from "./auto-pdf-regeneration";
 import { resolvePdfFingerprintContext } from "./pdf-fingerprint";
 
 describe("auto PDF regeneration", () => {
@@ -320,40 +317,5 @@ describe("auto PDF regeneration", () => {
       expect.objectContaining({ jobId: "job-typst" }),
       { dedupeKey: "tenant-test:tenant:job-typst" },
     );
-  });
-
-  it("re-renders ready generated jobs on tracer/employer changes only", () => {
-    const previous = createJob({
-      status: "ready",
-      pdfSource: "generated",
-      tailoredSummary: "before",
-      tracerLinksEnabled: false,
-    });
-    const retailored = { ...previous, tailoredSummary: "after" };
-    const traced = { ...previous, tracerLinksEnabled: true };
-    const renamed = { ...previous, employer: "Renamed Co" };
-
-    expect(shouldEnqueueTracerAutoPdfRegeneration(previous, retailored)).toBe(
-      false,
-    );
-    expect(shouldEnqueueTracerAutoPdfRegeneration(previous, traced)).toBe(true);
-    expect(shouldEnqueueTracerAutoPdfRegeneration(previous, renamed)).toBe(
-      true,
-    );
-  });
-
-  it("ignores jobs that are not backed by generated PDFs", () => {
-    const previous = createJob({
-      status: "ready",
-      pdfSource: "uploaded",
-      tracerLinksEnabled: false,
-    });
-    const next = createJob({
-      status: "ready",
-      pdfSource: "uploaded",
-      tracerLinksEnabled: true,
-    });
-
-    expect(shouldEnqueueTracerAutoPdfRegeneration(previous, next)).toBe(false);
   });
 });

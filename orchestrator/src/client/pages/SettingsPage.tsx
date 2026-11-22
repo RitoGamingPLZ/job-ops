@@ -8,7 +8,6 @@ import {
 } from "@client/components/section-workspace/SectionWorkspace";
 import { useUpdateSettingsMutation } from "@client/hooks/queries/useSettingsMutation";
 import { useRxResumeConfigState } from "@client/hooks/useRxResumeConfigState";
-import { useTracerReadiness } from "@client/hooks/useTracerReadiness";
 import {
   getRxResumeCredentialDrafts,
   getRxResumeCredentialPrecheckFailure,
@@ -28,7 +27,6 @@ import { ModelSettingsSection } from "@client/pages/settings/components/ModelSet
 import { PromptTemplatesSection } from "@client/pages/settings/components/PromptTemplatesSection";
 import { ReactiveResumeSection } from "@client/pages/settings/components/ReactiveResumeSection";
 import { ScoringSettingsSection } from "@client/pages/settings/components/ScoringSettingsSection";
-import { TracerLinksSettingsSection } from "@client/pages/settings/components/TracerLinksSettingsSection";
 import { WebhooksSection } from "@client/pages/settings/components/WebhooksSection";
 import {
   type LlmProviderId,
@@ -83,7 +81,6 @@ const DEFAULT_FORM_VALUES: UpdateSettingsInput = {
   typstTheme: "classic",
   pdfPaperSize: "auto",
   rxresumeBaseResumeId: null,
-  showSponsorInfo: null,
   renderMarkdownInJobDescriptions: null,
   autoTailorOnManualImport: null,
   chatStyleTone: "",
@@ -139,7 +136,6 @@ type SettingsSectionId =
   | "scoring"
   | "reactive-resume"
   | "webhooks"
-  | "tracer-links"
   | "environment"
   | "display"
   | "backup"
@@ -247,12 +243,6 @@ const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
         description: "Pipeline and job completion event destinations.",
         searchTerms: ["hooks", "notifications", "pipeline", "applied"],
       },
-      {
-        id: "tracer-links",
-        label: "Tracer Links",
-        description: "Public URL readiness and verification state.",
-        searchTerms: ["public url", "verify", "readiness", "health"],
-      },
     ],
   },
   {
@@ -286,8 +276,8 @@ const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
       {
         id: "display",
         label: "Display Preferences",
-        description: "Sponsor badges and markdown rendering behavior.",
-        searchTerms: ["markdown", "sponsor", "rendering", "appearance"],
+        description: "Markdown rendering and import behavior.",
+        searchTerms: ["markdown", "rendering", "appearance"],
       },
     ],
   },
@@ -371,18 +361,13 @@ const SECTION_FIELD_MAP: Record<
     "resumeProjects",
   ],
   webhooks: ["pipelineWebhookUrl", "jobCompleteWebhookUrl", "webhookSecret"],
-  "tracer-links": [],
   environment: [
     "ukvisajobsEmail",
     "ukvisajobsPassword",
     "adzunaAppId",
     "adzunaAppKey",
   ],
-  display: [
-    "showSponsorInfo",
-    "renderMarkdownInJobDescriptions",
-    "autoTailorOnManualImport",
-  ],
+  display: ["renderMarkdownInJobDescriptions", "autoTailorOnManualImport"],
   backup: [
     "pipelineScheduleEnabled",
     "pipelineScheduleHour",
@@ -461,7 +446,6 @@ const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
   typstTheme: null,
   pdfPaperSize: null,
   rxresumeBaseResumeId: null,
-  showSponsorInfo: null,
   renderMarkdownInJobDescriptions: null,
   autoTailorOnManualImport: null,
   chatStyleTone: null,
@@ -532,7 +516,6 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
   typstTheme: data.typstTheme.override ?? data.typstTheme.value,
   pdfPaperSize: data.pdfPaperSize.override ?? data.pdfPaperSize.value,
   rxresumeBaseResumeId: data.rxresumeBaseResumeId,
-  showSponsorInfo: data.showSponsorInfo.override,
   renderMarkdownInJobDescriptions:
     data.renderMarkdownInJobDescriptions.override,
   autoTailorOnManualImport: data.autoTailorOnManualImport.override,
@@ -707,10 +690,6 @@ const getDerivedSettings = (settings: AppSettings | null) => {
       },
     },
     display: {
-      showSponsorInfo: {
-        effective: settings?.showSponsorInfo?.value ?? true,
-        default: settings?.showSponsorInfo?.default ?? true,
-      },
       renderMarkdownInJobDescriptions: {
         effective: settings?.renderMarkdownInJobDescriptions?.value ?? true,
         default: settings?.renderMarkdownInJobDescriptions?.default ?? true,
@@ -858,12 +837,6 @@ export const SettingsPage: React.FC = () => {
   // Backup state
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isDeletingBackup, setIsDeletingBackup] = useState(false);
-  const {
-    readiness: tracerReadiness,
-    isLoading: isTracerReadinessLoading,
-    isChecking: isTracerReadinessChecking,
-    refreshReadiness,
-  } = useTracerReadiness();
 
   const methods = useForm<UpdateSettingsInput>({
     resolver: zodResolver(
@@ -1051,24 +1024,6 @@ export const SettingsPage: React.FC = () => {
       setIsDeletingBackup(false);
     }
   };
-
-  const handleVerifyTracerReadiness = useCallback(async () => {
-    try {
-      const readiness = await refreshReadiness(true);
-      if (!readiness) {
-        toast.error("Tracer links are unavailable. Verify your public URL.");
-      } else if (readiness.canEnable) {
-        toast.success("Tracer links are ready");
-      } else {
-        toast.error(
-          readiness.reason ??
-            "Tracer links are unavailable. Verify your public URL.",
-        );
-      }
-    } catch (error) {
-      showErrorToast(error, "Failed to verify tracer-link readiness");
-    }
-  }, [refreshReadiness]);
 
   const setRxResumeValidationStatus = useCallback(
     (validation: ValidationResult) => {
@@ -1283,10 +1238,6 @@ export const SettingsPage: React.FC = () => {
         ...(dirtyFields.rxresumeBaseResumeId
           ? { rxresumeBaseResumeId: normalizeString(data.rxresumeBaseResumeId) }
           : {}),
-        showSponsorInfo: nullIfSame(
-          data.showSponsorInfo,
-          display.showSponsorInfo.default,
-        ),
         renderMarkdownInJobDescriptions: nullIfSame(
           data.renderMarkdownInJobDescriptions,
           display.renderMarkdownInJobDescriptions.default,
@@ -1650,12 +1601,6 @@ export const SettingsPage: React.FC = () => {
         return pipelineWebhook.effective || jobCompleteWebhook.effective
           ? { label: "Configured", variant: "outline" as const }
           : { label: "Optional", variant: "secondary" as const };
-      case "tracer-links":
-        return tracerReadiness?.status === "ready"
-          ? { label: "Ready", variant: "outline" as const }
-          : tracerReadiness
-            ? { label: "Check required", variant: "secondary" as const }
-            : { label: "Not configured", variant: "secondary" as const };
       case "environment":
         return envSettings.readable.ukvisajobsEmail ||
           envSettings.readable.adzunaAppId
@@ -1761,17 +1706,6 @@ export const SettingsPage: React.FC = () => {
           webhookSecretHint={envSettings.private.webhookSecretHint}
           isLoading={isLoading}
           isSaving={isSaving}
-          layoutMode="panel"
-        />
-      );
-      break;
-    case "tracer-links":
-      activeSectionContent = (
-        <TracerLinksSettingsSection
-          readiness={tracerReadiness}
-          isLoading={isLoading || isTracerReadinessLoading}
-          isChecking={isTracerReadinessChecking}
-          onVerifyNow={handleVerifyTracerReadiness}
           layoutMode="panel"
         />
       );

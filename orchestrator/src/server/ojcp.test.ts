@@ -9,7 +9,6 @@ import {
 } from "vitest";
 import { startServer, stopServer } from "./api/routes/test-utils";
 import { mapJobPosting } from "./ojcp";
-import * as visaSponsors from "./services/visa-sponsors/index";
 
 const mocks = vi.hoisted(() => ({
   fetchFreeHirePage: vi.fn(),
@@ -96,30 +95,6 @@ describe.sequential("OJCP MCP", () => {
       offset: 20,
       total: 321,
     });
-    vi.mocked(visaSponsors.searchSponsorsExact)
-      .mockReset()
-      .mockImplementation(async (employer: string) => ({
-        available: true,
-        providerIds: ["uk"],
-        results:
-          employer === "Acme Limited"
-            ? [
-                {
-                  providerId: "uk",
-                  countryKey: "united kingdom",
-                  score: 100,
-                  sponsor: {
-                    organisationName: "ACME LIMITED",
-                    townCity: "London",
-                    county: "",
-                    typeRating: "Worker",
-                    route: "Skilled Worker",
-                  },
-                  matchedName: "acme",
-                },
-              ]
-            : [],
-      }));
   });
 
   afterAll(async () => {
@@ -201,11 +176,6 @@ describe.sequential("OJCP MCP", () => {
             address: { addressLocality: "London", addressCountry: "GB" },
           },
           remote_policy: "hybrid",
-          visa_sponsor_match: {
-            exact_name_match: true,
-            provider_id: "uk",
-            matched_organisations: ["ACME LIMITED"],
-          },
         },
       ],
     });
@@ -218,10 +188,6 @@ describe.sequential("OJCP MCP", () => {
       offset: 20,
       timeoutMs: 5_000,
     });
-    expect(visaSponsors.searchSponsorsExact).toHaveBeenCalledWith(
-      "Acme Limited",
-      { countryKey: "united kingdom" },
-    );
 
     await callMcp(running.baseUrl, 4, "tools/call", {
       name: "search_jobs",
@@ -271,8 +237,6 @@ describe.sequential("OJCP MCP", () => {
         has_country: true,
         has_city: true,
         remote_mode: "non_remote",
-        sponsor_check: "available",
-        sponsor_match_bucket: "1",
       }),
       expect.objectContaining({ urlPath: "/ojcp/mcp" }),
     );

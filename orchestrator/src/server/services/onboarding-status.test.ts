@@ -459,7 +459,6 @@ describe("onboarding status engine", () => {
       country: "United Kingdom",
       cities: ["London", "Manchester"],
       workplaceTypes: ["remote", "hybrid"],
-      requiresVisaSponsorship: true,
     });
 
     expect(mocks.applySettingsUpdates).toHaveBeenCalledWith(
@@ -467,7 +466,6 @@ describe("onboarding status engine", () => {
         searchCities: "London|Manchester",
         workplaceTypes: ["remote", "hybrid"],
         jobspyCountryIndeed: "United Kingdom",
-        showSponsorInfo: true,
         onboardingProfileCompleted: true,
       }),
     );
@@ -478,7 +476,6 @@ describe("onboarding status engine", () => {
       country: "United Kingdom",
       cities: [],
       workplaceTypes: ["remote"],
-      requiresVisaSponsorship: false,
     });
 
     expect(mocks.applySettingsUpdates).toHaveBeenCalledWith(

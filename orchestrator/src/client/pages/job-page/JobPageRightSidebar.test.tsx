@@ -68,7 +68,6 @@ function renderRightSidebar(overrides: Parameters<typeof createJob>[0] = {}) {
         onViewJobDescription={noop}
         onCopyJobInfo={noop}
         onRescore={noop}
-        onCheckSponsor={noop}
       />
     </MemoryRouter>,
   );

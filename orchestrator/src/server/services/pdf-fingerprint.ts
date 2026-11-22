@@ -22,7 +22,6 @@ type JobPdfFingerprintInput = { id?: string } & Pick<
   | "tailoredSkills"
   | "selectedProjectIds"
   | "jobDescription"
-  | "tracerLinksEnabled"
   | "employer"
 >;
 
@@ -118,9 +117,7 @@ export function createJobPdfFingerprint(
       : {}),
     ...(jobResumeHash
       ? {
-          // Tracer links are overlaid from the job row at render time.
           job: {
-            tracerLinksEnabled: Boolean(job.tracerLinksEnabled),
             employer: job.employer ?? null,
           },
         }
@@ -136,7 +133,6 @@ export function createJobPdfFingerprint(
             tailoredSkills: job.tailoredSkills ?? null,
             selectedProjectIds: job.selectedProjectIds ?? null,
             jobDescription: job.jobDescription ?? null,
-            tracerLinksEnabled: Boolean(job.tracerLinksEnabled),
             employer: job.employer ?? null,
           },
         }),

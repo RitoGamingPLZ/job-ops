@@ -80,7 +80,6 @@ export type JobListItemWithPdfFreshnessInput = JobListItem &
     | "selectedProjectIds"
     | "jobDescription"
     | "jobBrief"
-    | "tracerLinksEnabled"
   >;
 
 function normalizeStatusFilter(statuses?: JobStatus[]): string | null {
@@ -159,7 +158,6 @@ export async function getJobListItems(
     closedAt: jobs.closedAt,
     generationError: jobs.generationError,
     suitabilityScore: jobs.suitabilityScore,
-    sponsorMatchScore: jobs.sponsorMatchScore,
     pdfPath: jobs.pdfPath,
     pdfSource: jobs.pdfSource,
     pdfRegenerating: jobs.pdfRegenerating,
@@ -170,7 +168,6 @@ export async function getJobListItems(
     selectedProjectIds: jobs.selectedProjectIds,
     jobDescription: jobs.jobDescription,
     jobBrief: jobs.jobBrief,
-    tracerLinksEnabled: jobs.tracerLinksEnabled,
     jobType: jobs.jobType,
     jobFunction: jobs.jobFunction,
     salaryMinAmount: jobs.salaryMinAmount,
@@ -210,7 +207,6 @@ export async function getJobListItems(
           : row.pdfPath
             ? "stale"
             : ("missing" as JobPdfFreshness),
-      tracerLinksEnabled: row.tracerLinksEnabled ?? false,
     };
   });
 }
@@ -980,9 +976,6 @@ function mapRowToJob(row: typeof jobs.$inferSelect): Job {
           : "missing",
     pdfFingerprint: row.pdfFingerprint ?? null,
     pdfGeneratedAt: row.pdfGeneratedAt ?? null,
-    tracerLinksEnabled: row.tracerLinksEnabled ?? false,
-    sponsorMatchScore: row.sponsorMatchScore ?? null,
-    sponsorMatchNames: row.sponsorMatchNames ?? null,
     jobType: row.jobType ?? null,
     salarySource: row.salarySource ?? null,
     salaryInterval: row.salaryInterval ?? null,

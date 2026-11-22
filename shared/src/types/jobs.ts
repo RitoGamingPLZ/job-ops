@@ -266,9 +266,6 @@ export interface Job {
   pdfFreshness: JobPdfFreshness; // Derived freshness state for the current PDF artifact
   pdfFingerprint: string | null; // Stable hash of inputs that produced the current generated PDF
   pdfGeneratedAt: string | null; // Timestamp of the latest generated/uploaded PDF artifact
-  tracerLinksEnabled: boolean; // Rewrite outbound resume links to tracer links on next PDF generation
-  sponsorMatchScore: number | null; // 0-100 fuzzy match score with visa sponsors
-  sponsorMatchNames: string | null; // JSON array of matched sponsor names (when 100% matches or top match)
   appliedDuplicateMatch?: AppliedDuplicateMatch | null; // Included on detail responses and may be omitted on list responses
 
   // JobSpy fields (nullable for non-JobSpy sources)
@@ -324,7 +321,6 @@ export type JobListItem = Pick<
   | "closedAt"
   | "generationError"
   | "suitabilityScore"
-  | "sponsorMatchScore"
   | "appliedDuplicateMatch"
   | "jobType"
   | "jobFunction"
@@ -629,11 +625,8 @@ export interface UpdateJobInput {
   pdfRegenerating?: boolean;
   pdfFingerprint?: string | null;
   pdfGeneratedAt?: string | null;
-  tracerLinksEnabled?: boolean;
   readyAt?: string | null;
   appliedAt?: string;
-  sponsorMatchScore?: number;
-  sponsorMatchNames?: string;
 }
 
 export interface CreateJobNoteInput {

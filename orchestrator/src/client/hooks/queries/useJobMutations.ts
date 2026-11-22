@@ -116,16 +116,6 @@ export function usePrepareResumeMutation() {
   });
 }
 
-export function useCheckSponsorMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api.checkSponsor(id),
-    onSuccess: async (_data, id) => {
-      await invalidateJobData(queryClient, id);
-    },
-  });
-}
-
 export function useCreateJobNoteMutation() {
   const queryClient = useQueryClient();
   return useMutation({

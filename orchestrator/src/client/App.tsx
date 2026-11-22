@@ -33,9 +33,7 @@ import { ResumeLibraryPage, ResumesPage } from "./pages/ResumesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SignInPage } from "./pages/SignInPage";
 import { SsoCallbackPage } from "./pages/SsoCallbackPage";
-import { TracerLinksPage } from "./pages/TracerLinksPage";
 import { TrackingInboxPage } from "./pages/TrackingInboxPage";
-import { VisaSponsorsPage } from "./pages/VisaSponsorsPage";
 import { WatchlistPage } from "./pages/WatchlistPage";
 
 /** Backwards-compatibility redirects: old URL paths -> new URL paths */
@@ -221,8 +219,6 @@ export const App: React.FC = () => {
                     element={<SsoCallbackPage />}
                   />
                   <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/tracer-links" element={<TracerLinksPage />} />
-                  <Route path="/visa-sponsors" element={<VisaSponsorsPage />} />
                   <Route
                     path="/tracking-inbox"
                     element={<TrackingInboxRoute />}

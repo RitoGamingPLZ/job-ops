@@ -94,12 +94,6 @@ describe("PDF freshness", () => {
       createJobPdfFingerprint(job, { ...editorContext, pdfRenderer: "typst" }),
     ).not.toBe(original);
     expect(
-      createJobPdfFingerprint(
-        { ...job, tracerLinksEnabled: !job.tracerLinksEnabled },
-        editorContext,
-      ),
-    ).not.toBe(original);
-    expect(
       createJobPdfFingerprint({ ...job, employer: "Renamed" }, editorContext),
     ).not.toBe(original);
     expect(
@@ -234,7 +228,7 @@ describe("PDF freshness", () => {
 
     expect(
       createJobPdfFingerprint(job, { ...context, pdfPaperSize: "auto" }),
-    ).toBe("81b507dbebf69af4959b8bde9bb93465e790076876bb6dcdbea1de596e3276c5");
+    ).toBe("4234923d27476ae958a74acf6e92331030e14da238323b17c05066f845fb724a");
   });
 
   it("includes paper size changes for every renderer", () => {

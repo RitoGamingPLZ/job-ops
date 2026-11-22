@@ -37,5 +37,4 @@ export async function invalidateSettingsData(
   queryClient: QueryClient,
 ): Promise<void> {
   await queryClient.invalidateQueries({ queryKey: queryKeys.settings.all });
-  await queryClient.invalidateQueries({ queryKey: queryKeys.tracer.all });
 }

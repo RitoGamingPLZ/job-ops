@@ -1,137 +1,20 @@
 import { isAwaitingAiScore, ScoreRing } from "@client/components";
 import type { AppliedDuplicateMatch, Job, JobListItem } from "@shared/types.js";
-import {
-  Calendar,
-  DollarSign,
-  ExternalLink,
-  Loader2,
-  MapPin,
-  Search,
-} from "lucide-react";
+import { Calendar, DollarSign, ExternalLink, MapPin } from "lucide-react";
 import type React from "react";
-import { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate, formatJobSourceLabel, sourceLabel } from "@/lib/utils";
-import { useSettings } from "../hooks/useSettings";
 import { formatPostingAgeLabel } from "../lib/job-posting-age";
 import { openLevelsFyiLookup } from "../lib/levels-fyi";
 import { appliedDuplicateIndicator } from "../pages/orchestrator/constants";
-import {
-  getJobStatusIndicator,
-  getTracerStatusIndicator,
-  StatusIndicator,
-} from "./StatusIndicator";
-import { Tip } from "./Tip";
+import { getJobStatusIndicator, StatusIndicator } from "./StatusIndicator";
 
 interface JobHeaderProps {
   job: Job | JobListItem;
   className?: string;
-  onCheckSponsor?: () => Promise<void>;
   jobCTA?: React.ReactNode;
 }
-
-interface SponsorPillProps {
-  score: number | null;
-  names: string | null;
-  onCheck?: () => Promise<void>;
-}
-
-const SponsorPill: React.FC<SponsorPillProps> = ({ score, names, onCheck }) => {
-  const [isChecking, setIsChecking] = useState(false);
-
-  const parsedNames = useMemo(() => {
-    if (!names) return [];
-    try {
-      return JSON.parse(names) as string[];
-    } catch {
-      return [];
-    }
-  }, [names]);
-
-  const handleCheck = async () => {
-    if (!onCheck) return;
-    setIsChecking(true);
-    try {
-      await onCheck();
-    } finally {
-      setIsChecking(false);
-    }
-  };
-
-  // Show "Check" button if no score and callback provided
-  if (score == null && onCheck) {
-    return (
-      <Tip
-        asChild
-        clickBehavior="none"
-        content={<p className="text-xs">Check if employer is a visa sponsor</p>}
-      >
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-5 px-1.5 text-xs font-medium text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-          onClick={handleCheck}
-          disabled={isChecking}
-        >
-          {isChecking ? (
-            <Loader2 className="h-2 w-2 animate-spin" />
-          ) : (
-            <Search className="h-2 w-2" />
-          )}
-          <span>{isChecking ? "Checking..." : "Check Sponsorship Status"}</span>
-        </Button>
-      </Tip>
-    );
-  }
-
-  if (score == null) {
-    return null;
-  }
-
-  const getStatus = (s: number) => {
-    if (s >= 95)
-      return {
-        label: "Confirmed Sponsor",
-        dot: "bg-emerald-500",
-        color: "text-emerald-400",
-      };
-    if (s >= 80)
-      return {
-        label: "Potential Sponsor",
-        dot: "bg-amber-500",
-        color: "text-amber-400",
-      };
-    return {
-      label: "Sponsor Not Found",
-      dot: "bg-slate-500",
-      color: "text-slate-400",
-    };
-  };
-
-  const status = getStatus(score);
-  const tooltip = (
-    <>
-      {parsedNames.length > 0 && (
-        <p className="text-xs font-medium space-x-1">
-          <span className="opacity-70">Matched</span>
-          <span>{parsedNames.join(", ")}</span>
-        </p>
-      )}
-      <p className="opacity-80 mt-1 text-[10px]">{`${score}% match`}</p>
-    </>
-  );
-
-  return (
-    <StatusIndicator
-      dotColor={status.dot}
-      label={status.label}
-      className="cursor-help"
-      tooltip={tooltip}
-      tooltipClassName="max-w-xs"
-    />
-  );
-};
 
 const AppliedDuplicatePill: React.FC<{
   match: AppliedDuplicateMatch | null | undefined;
@@ -171,15 +54,10 @@ const postingAgeDotColor = {
 export const JobHeader: React.FC<JobHeaderProps> = ({
   job,
   className,
-  onCheckSponsor,
   jobCTA,
 }) => {
   const jobStatus = getJobStatusIndicator(job.status);
-  const fullJob = "tracerLinksEnabled" in job ? job : null;
-  const tracerStatus = fullJob
-    ? getTracerStatusIndicator(fullJob.tracerLinksEnabled)
-    : null;
-  const { showSponsorInfo } = useSettings();
+  const fullJob = "isRemote" in job ? job : null;
   const location = useLocation();
   const { pathname } = location;
   const isJobPage = pathname.startsWith("/job/");
@@ -195,13 +73,6 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
       </p>
     ) : job.status === "ready" ? (
       <p className="text-xs">Resume prepared and ready to apply.</p>
-    ) : undefined;
-  const tracerStatusTooltip =
-    fullJob && !fullJob.tracerLinksEnabled ? (
-      <p className="text-xs">
-        Tracer links are turned off for this job, so click tracking will not be
-        recorded.
-      </p>
     ) : undefined;
   return (
     <div
@@ -287,15 +158,6 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
             tooltipClassName="max-w-xs"
             className={jobStatusTooltip ? "cursor-help" : undefined}
           />
-          {tracerStatus && (
-            <StatusIndicator
-              dotColor={tracerStatus.dotColor}
-              label={tracerStatus.label}
-              tooltip={tracerStatusTooltip}
-              tooltipClassName="max-w-xs"
-              className={tracerStatusTooltip ? "cursor-help" : undefined}
-            />
-          )}
 
           <AppliedDuplicatePill match={job.appliedDuplicateMatch} />
 
@@ -325,14 +187,6 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
               label="Remote"
               dotColor="bg-emerald-400"
               tooltip="The job claims to be remote"
-            />
-          )}
-
-          {showSponsorInfo && (
-            <SponsorPill
-              score={job.sponsorMatchScore}
-              names={fullJob?.sponsorMatchNames ?? null}
-              onCheck={onCheckSponsor}
             />
           )}
         </div>

@@ -7,13 +7,8 @@ import {
   STATUS_BY_APP_ERROR_CODE,
   toAppError,
 } from "@infra/errors";
-import { logger } from "@infra/logger";
 import * as jobsRepo from "@server/repositories/jobs";
 import { stageEventMetadataSchema } from "@server/services/applicationTracking";
-import {
-  enqueueAutoPdfRegenerationForJob,
-  shouldEnqueueTracerAutoPdfRegeneration,
-} from "@server/services/auto-pdf-regeneration";
 import {
   applyJobPdfFreshness,
   type PdfFingerprintContext,
@@ -76,7 +71,6 @@ export function toJobListItem(
     closedAt: job.closedAt,
     generationError: job.generationError,
     suitabilityScore: job.suitabilityScore,
-    sponsorMatchScore: job.sponsorMatchScore,
     jobType: job.jobType,
     jobFunction: job.jobFunction,
     pdfRegenerating: job.pdfRegenerating,
@@ -92,26 +86,11 @@ export function toJobListItem(
 }
 
 export function queueTracerAutoPdfRegenerationIfNeeded(
-  previousJob: Job,
-  nextJob: Job,
-  route: string,
+  _previousJob: Job,
+  _nextJob: Job,
+  _route: string,
 ): void {
-  if (!shouldEnqueueTracerAutoPdfRegeneration(previousJob, nextJob)) return;
-
-  queueMicrotask(() => {
-    void enqueueAutoPdfRegenerationForJob({
-      jobId: nextJob.id,
-      reason: "tailoring_updated",
-      requestedBy: "user",
-    }).catch((error) => {
-      logger.warn("Failed to queue auto PDF regeneration after job update", {
-        route,
-        jobId: nextJob.id,
-        reason: "tailoring_updated",
-        error,
-      });
-    });
-  });
+  // Tracer links feature removed.
 }
 
 export const updateJobSchema = z.object({
@@ -176,9 +155,6 @@ export const updateJobSchema = z.object({
     }),
   selectedProjectIds: z.string().optional(),
   pdfPath: z.string().optional(),
-  tracerLinksEnabled: z.boolean().optional(),
-  sponsorMatchScore: z.number().min(0).max(100).optional(),
-  sponsorMatchNames: z.string().optional(),
 });
 
 export function isJobUrlConflictError(error: unknown): boolean {

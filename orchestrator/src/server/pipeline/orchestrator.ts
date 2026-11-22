@@ -631,7 +631,6 @@ export async function runPipeline(
           ({ scoredJobs } = await scoreJobsStep({
             profile,
             scoringInstructions: mergedConfig.scoringInstructions,
-            visaSponsorCountryKey: mergedConfig.locationIntent?.selectedCountry,
             hostedUsageReserved: true,
             shouldCancel: () =>
               getPipelineState(scopeKey).cancelRequestedAt !== null,
@@ -1045,9 +1044,7 @@ export async function generateFinalPdf(
       });
       const fingerprintContext = await resolvePdfFingerprintContext();
       const pdfResult = await generatePdf(job.id, job.jobDescription || "", {
-        tracerLinksEnabled: job.tracerLinksEnabled,
         requestOrigin: options?.requestOrigin ?? null,
-        tracerCompanyName: job.employer ?? null,
       });
 
       if (!pdfResult.success) {
@@ -1124,7 +1121,6 @@ export async function generateFinalPdf(
             fingerprintContext.pdfRenderer === "typst"
               ? fingerprintContext.typstTheme
               : null,
-          tracer_links_enabled: job.tracerLinksEnabled,
           has_tailored_summary: Boolean(job.tailoredSummary),
           has_tailored_skills: Boolean(job.tailoredSkills),
         },
@@ -1139,7 +1135,6 @@ export async function generateFinalPdf(
           "job_moved_to_ready",
           {
             origin: analyticsOrigin,
-            tracer_links_enabled: job.tracerLinksEnabled,
           },
           {
             requestOrigin: options?.requestOrigin ?? null,

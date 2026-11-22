@@ -21,8 +21,6 @@ const {
   postApplicationMessages,
   settings,
   stageEvents,
-  tracerClickEvents,
-  tracerLinks,
 } = schema;
 
 export const ANALYTICS_INSTALL_STATE_ID = "default";
@@ -233,7 +231,6 @@ async function estimateInstallTimestampMs(): Promise<number> {
     earliestAuthSessionCreatedAt,
     earliestResumeCreatedAt,
     earliestIntegrationCreatedAt,
-    earliestTracerLinkCreatedAt,
   ] = await Promise.all([
     db
       .select({ value: sql<string | null>`min(${jobs.createdAt})` })
@@ -265,10 +262,6 @@ async function estimateInstallTimestampMs(): Promise<number> {
       })
       .from(postApplicationIntegrations)
       .where(analyticsPrivateDataFilter(postApplicationIntegrations)),
-    db
-      .select({ value: sql<string | null>`min(${tracerLinks.createdAt})` })
-      .from(tracerLinks)
-      .where(analyticsPrivateDataFilter(tracerLinks)),
   ]);
 
   const installTimestampCandidates = [
@@ -278,7 +271,6 @@ async function estimateInstallTimestampMs(): Promise<number> {
     earliestAuthSessionCreatedAt[0]?.value ?? null,
     earliestResumeCreatedAt[0]?.value ?? null,
     earliestIntegrationCreatedAt[0]?.value ?? null,
-    earliestTracerLinkCreatedAt[0]?.value ?? null,
   ];
 
   const earliest =
@@ -734,67 +726,50 @@ export async function getHistoricalServerEventReplayCandidates(args: {
 }): Promise<HistoricalServerEventReplayCandidate[]> {
   const cutoffSeconds = Math.floor(args.cutoffMs / 1000);
 
-  const [pipelineRunRows, stageEventRows, messageRows, tracerClickRows] =
-    await Promise.all([
-      db
-        .select({
-          id: pipelineRuns.id,
-          startedAt: pipelineRuns.startedAt,
-        })
-        .from(pipelineRuns)
-        .where(analyticsPrivateDataFilter(pipelineRuns)),
-      db
-        .select({
-          id: stageEvents.id,
-          applicationId: stageEvents.applicationId,
-          toStage: stageEvents.toStage,
-          occurredAt: stageEvents.occurredAt,
-          metadata: stageEvents.metadata,
-          outcome: stageEvents.outcome,
-        })
-        .from(stageEvents)
-        .where(
-          and(
-            analyticsPrivateDataFilter(stageEvents),
-            sql`${stageEvents.occurredAt} < ${cutoffSeconds}`,
-          ),
+  const [pipelineRunRows, stageEventRows, messageRows] = await Promise.all([
+    db
+      .select({
+        id: pipelineRuns.id,
+        startedAt: pipelineRuns.startedAt,
+      })
+      .from(pipelineRuns)
+      .where(analyticsPrivateDataFilter(pipelineRuns)),
+    db
+      .select({
+        id: stageEvents.id,
+        applicationId: stageEvents.applicationId,
+        toStage: stageEvents.toStage,
+        occurredAt: stageEvents.occurredAt,
+        metadata: stageEvents.metadata,
+        outcome: stageEvents.outcome,
+      })
+      .from(stageEvents)
+      .where(
+        and(
+          analyticsPrivateDataFilter(stageEvents),
+          sql`${stageEvents.occurredAt} < ${cutoffSeconds}`,
         ),
-      db
-        .select({
-          id: postApplicationMessages.id,
-          provider: postApplicationMessages.provider,
-          processingStatus: postApplicationMessages.processingStatus,
-          receivedAt: postApplicationMessages.receivedAt,
-          decidedAt: postApplicationMessages.decidedAt,
-        })
-        .from(postApplicationMessages)
-        .where(
-          and(
-            analyticsPrivateDataFilter(postApplicationMessages),
-            inArray(postApplicationMessages.processingStatus, [
-              "auto_linked",
-              "manual_linked",
-            ]),
-            sql`coalesce(${postApplicationMessages.decidedAt}, ${postApplicationMessages.receivedAt}) < ${args.cutoffMs}`,
-          ),
+      ),
+    db
+      .select({
+        id: postApplicationMessages.id,
+        provider: postApplicationMessages.provider,
+        processingStatus: postApplicationMessages.processingStatus,
+        receivedAt: postApplicationMessages.receivedAt,
+        decidedAt: postApplicationMessages.decidedAt,
+      })
+      .from(postApplicationMessages)
+      .where(
+        and(
+          analyticsPrivateDataFilter(postApplicationMessages),
+          inArray(postApplicationMessages.processingStatus, [
+            "auto_linked",
+            "manual_linked",
+          ]),
+          sql`coalesce(${postApplicationMessages.decidedAt}, ${postApplicationMessages.receivedAt}) < ${args.cutoffMs}`,
         ),
-      db
-        .select({
-          id: tracerClickEvents.id,
-          clickedAt: tracerClickEvents.clickedAt,
-          isLikelyBot: tracerClickEvents.isLikelyBot,
-          deviceType: tracerClickEvents.deviceType,
-          uaFamily: tracerClickEvents.uaFamily,
-          referrerHost: tracerClickEvents.referrerHost,
-        })
-        .from(tracerClickEvents)
-        .where(
-          and(
-            analyticsPrivateDataFilter(tracerClickEvents),
-            sql`${tracerClickEvents.clickedAt} < ${cutoffSeconds}`,
-          ),
-        ),
-    ]);
+      ),
+  ]);
 
   const candidates: HistoricalServerEventReplayCandidate[] = [];
   const acceptedByJob = new Map<
@@ -942,23 +917,6 @@ export async function getHistoricalServerEventReplayCandidates(args: {
               ? "auto_link"
               : "manual_review",
           result: "success",
-        }),
-      }),
-    );
-  }
-
-  for (const row of tracerClickRows) {
-    if (row.isLikelyBot) continue;
-    candidates.push(
-      buildReplayCandidate({
-        eventKey: `tracer_human_click_recorded:${row.id}`,
-        eventName: "tracer_human_click_recorded",
-        occurredAt: row.clickedAt * 1000,
-        urlPath: "/tracer-links",
-        data: toPrimitiveRecord({
-          device_type: row.deviceType,
-          ua_family: row.uaFamily,
-          has_referrer: Boolean(row.referrerHost),
         }),
       }),
     );

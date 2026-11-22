@@ -4,19 +4,7 @@ import type {
   JobSort,
   SalaryFilterMode,
   ScoreFilterMode,
-  SponsorFilter,
 } from "../constants";
-
-export const sponsorOptions: Array<{
-  value: SponsorFilter;
-  label: string;
-}> = [
-  { value: "all", label: "All statuses" },
-  { value: "confirmed", label: "Confirmed sponsor" },
-  { value: "potential", label: "Potential sponsor" },
-  { value: "not_found", label: "Sponsor not found" },
-  { value: "unknown", label: "Unchecked sponsor" },
-];
 
 export const salaryModeOptions: Array<{
   value: SalaryFilterMode;

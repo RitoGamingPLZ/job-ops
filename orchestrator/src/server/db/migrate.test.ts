@@ -272,7 +272,7 @@ describe.sequential("database migrations", () => {
     );
   });
 
-  it("adds the tracer-link composite unique index to legacy tables", async () => {
+  it("drops legacy tracer_links and tracer_click_events tables", async () => {
     tempDir = await mkdtemp(join(tmpdir(), "job-ops-migrate-"));
     const script = `
       import { join } from "node:path";
@@ -285,54 +285,24 @@ describe.sequential("database migrations", () => {
         CREATE TABLE tracer_links (
           id TEXT PRIMARY KEY,
           token TEXT NOT NULL UNIQUE,
-          job_id TEXT NOT NULL,
-          source_path TEXT NOT NULL,
-          source_label TEXT NOT NULL,
-          destination_url TEXT NOT NULL,
-          destination_url_hash TEXT NOT NULL,
-          is_active INTEGER NOT NULL DEFAULT 1,
-          created_at TEXT NOT NULL DEFAULT (datetime('now')),
-          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+          job_id TEXT NOT NULL
         );
 
         CREATE TABLE tracer_click_events (
           id TEXT PRIMARY KEY,
-          tracer_link_id TEXT NOT NULL,
-          clicked_at INTEGER NOT NULL,
-          is_likely_bot INTEGER NOT NULL DEFAULT 0,
-          unique_fingerprint_hash TEXT
+          tracer_link_id TEXT NOT NULL
         );
-
-        INSERT INTO tracer_links(
-          id, token, job_id, source_path, source_label, destination_url,
-          destination_url_hash, created_at, updated_at
-        )
-        VALUES
-          ('link-1', 'acme-aa', 'job-1', 'basics.url.href', 'Portfolio', 'https://example.com', 'hash-1', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'),
-          ('link-2', 'acme-bb', 'job-1', 'basics.url.href', 'Portfolio', 'https://example.com', 'hash-1', '2026-01-02T00:00:00.000Z', '2026-01-02T00:00:00.000Z');
-
-        INSERT INTO tracer_click_events(id, tracer_link_id, clicked_at)
-        VALUES ('click-1', 'link-2', 1);
       \`);
       sqlite.close();
 
       await import(pathToFileURL(join(process.cwd(), "src/server/db/migrate.ts")).href);
 
       const migratedDb = new Database(dbPath, { readonly: true });
-      const indexes = migratedDb.prepare("PRAGMA index_list(tracer_links)").all();
-      const uniqueIndex = indexes.find((index) => index.name === "idx_tracer_links_tenant_user_job_source_destination_unique");
-      if (!uniqueIndex || !uniqueIndex.unique) {
-        throw new Error("tracer_links composite unique index missing after migration");
-      }
-
-      const linkCount = migratedDb.prepare("SELECT count(*) AS count FROM tracer_links").get();
-      if (linkCount.count !== 1) {
-        throw new Error(\`Expected duplicate tracer links to be merged, got \${linkCount.count}\`);
-      }
-
-      const click = migratedDb.prepare("SELECT tracer_link_id FROM tracer_click_events WHERE id = ?").get("click-1");
-      if (click?.tracer_link_id !== "link-1") {
-        throw new Error(\`Expected duplicate click to be reassigned to link-1, got \${click?.tracer_link_id}\`);
+      const tables = migratedDb
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('tracer_links', 'tracer_click_events')")
+        .all();
+      if (tables.length !== 0) {
+        throw new Error(\`Expected legacy tracer tables to be dropped, found: \${tables.map((t) => t.name).join(", ")}\`);
       }
 
       migratedDb.close();

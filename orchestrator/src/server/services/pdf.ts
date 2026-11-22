@@ -9,8 +9,8 @@ import { AppError, type AppErrorCode, conflict, notFound } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { getBlobStore } from "@server/infra/blob-store";
+import { getJobOpsPublicAvailability } from "@server/infra/public-availability";
 import { getSetting } from "@server/repositories/settings";
-import { getJobOpsPublicAvailability } from "@server/services/tracer-links";
 import { safePdfFileName } from "@shared/filename-sanitizer";
 import { settingsRegistry } from "@shared/settings-registry";
 import type {
@@ -45,10 +45,6 @@ import {
 } from "./rxresume/document";
 import { applyPdfPaperSizeToResumeData } from "./rxresume/paper-size";
 import { parseV5ResumeData } from "./rxresume/schema/v5";
-import {
-  resolveTracerPublicBaseUrl,
-  rewriteResumeLinksWithTracer,
-} from "./tracer-links";
 import { getWritingStyle } from "./writing-style";
 
 export interface PdfResult {
@@ -59,9 +55,7 @@ export interface PdfResult {
 }
 
 export interface GeneratePdfOptions {
-  tracerLinksEnabled?: boolean;
   requestOrigin?: string | null;
-  tracerCompanyName?: string | null;
 }
 
 async function ensureOutputDir(): Promise<void> {
@@ -367,21 +361,6 @@ export async function generatePdf(
     const data = parseV5ResumeData(
       structuredClone(savedResume.document),
     ) as Record<string, unknown>;
-    if (options?.tracerLinksEnabled) {
-      const publicBaseUrl = resolveTracerPublicBaseUrl({
-        requestOrigin: options.requestOrigin,
-      });
-      if (!publicBaseUrl)
-        throw new Error(
-          "Tracer links are enabled but no public base URL is available. Set JOBOPS_PUBLIC_BASE_URL.",
-        );
-      await rewriteResumeLinksWithTracer({
-        jobId,
-        resumeData: data,
-        publicBaseUrl,
-        companyName: options.tracerCompanyName,
-      });
-    }
     const preparedResume = {
       mode: "v5" as const,
       data,

@@ -6,7 +6,6 @@ import type {
   DateFilterDimension,
   JobDateFilter,
   JobFilters,
-  SponsorFilter,
 } from "./constants";
 import {
   compareJobs,
@@ -17,20 +16,12 @@ import {
   parseSalaryBounds,
 } from "./utils";
 
-const getSponsorCategory = (score: number | null): SponsorFilter => {
-  if (score == null) return "unknown";
-  if (score >= 95) return "confirmed";
-  if (score >= 80) return "potential";
-  return "not_found";
-};
-
 export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
   const {
     activeTab,
     dateFilter,
     sourceFilter,
     companyFilter,
-    sponsorFilter,
     salaryFilter,
     scoreFilter,
     postedWithinDays,
@@ -93,12 +84,6 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
       filtered = filtered.filter((job) => matchesLocation(job, location));
     }
 
-    if (sponsorFilter !== "all") {
-      filtered = filtered.filter(
-        (job) => getSponsorCategory(job.sponsorMatchScore) === sponsorFilter,
-      );
-    }
-
     const hasMin =
       typeof salaryFilter.min === "number" &&
       Number.isFinite(salaryFilter.min) &&
@@ -159,7 +144,6 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
     dateFilter,
     sourceFilter,
     companyFilter,
-    sponsorFilter,
     salaryFilter,
     scoreFilter,
     postedWithinDays,

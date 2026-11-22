@@ -28,21 +28,6 @@ export const queryKeys = {
     all: ["profile"] as const,
     current: () => [...queryKeys.profile.all, "current"] as const,
   },
-  tracer: {
-    all: ["tracer"] as const,
-    readiness: (force = false) =>
-      [...queryKeys.tracer.all, "readiness", { force }] as const,
-    analytics: (options?: {
-      from?: number;
-      to?: number;
-      includeBots?: boolean;
-      limit?: number;
-    }) => [...queryKeys.tracer.all, "analytics", options ?? {}] as const,
-    jobLinks: (
-      jobId: string,
-      options?: { from?: number; to?: number; includeBots?: boolean },
-    ) => [...queryKeys.tracer.all, "job-links", jobId, options ?? {}] as const,
-  },
   demo: {
     all: ["demo"] as const,
     info: () => [...queryKeys.demo.all, "info"] as const,
@@ -82,27 +67,6 @@ export const queryKeys = {
     sources: () => [...queryKeys.watchlist.all, "sources"] as const,
     results: () => [...queryKeys.watchlist.all, "results"] as const,
     states: () => [...queryKeys.watchlist.all, "states"] as const,
-  },
-  visaSponsors: {
-    all: ["visa-sponsors"] as const,
-    status: () => [...queryKeys.visaSponsors.all, "status"] as const,
-    search: (
-      query: string,
-      limit: number,
-      minScore: number,
-      country?: string,
-    ) =>
-      [
-        ...queryKeys.visaSponsors.all,
-        "search",
-        { query, limit, minScore, country: country ?? null },
-      ] as const,
-    organization: (name: string, providerId?: string) =>
-      [
-        ...queryKeys.visaSponsors.all,
-        "organization",
-        { name, providerId: providerId ?? null },
-      ] as const,
   },
   postApplication: {
     all: ["post-application"] as const,

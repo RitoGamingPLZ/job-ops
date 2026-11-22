@@ -56,7 +56,6 @@ type JobPageRightSidebarProps = {
   onViewJobDescription: () => void;
   onCopyJobInfo: () => void;
   onRescore: () => void;
-  onCheckSponsor: () => void;
 };
 
 export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
@@ -86,7 +85,6 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
   onViewJobDescription,
   onCopyJobInfo,
   onRescore,
-  onCheckSponsor,
 }) => {
   const resumeState = getResumeState(job);
   return (
@@ -293,10 +291,6 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
               >
                 <Download className="mr-2 h-4 w-4" />
                 {pdfDownloadLabel}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={onCheckSponsor}>
-                Check sponsorship status
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

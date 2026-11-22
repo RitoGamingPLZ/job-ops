@@ -12,7 +12,6 @@ import { SalaryFilterPill } from "./filters/SalaryFilterPill";
 import { ScoreFilterPill } from "./filters/ScoreFilterPill";
 import { SortFilterPill } from "./filters/SortFilterPill";
 import { SourceFilterPill } from "./filters/SourceFilterPill";
-import { SponsorFilterPill } from "./filters/SponsorFilterPill";
 import type { OrchestratorFiltersProps } from "./filters/types";
 import { useFilterBarDerivedState } from "./filters/useFilterBarDerivedState";
 
@@ -28,8 +27,6 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
   companiesWithJobs,
   sourceFilter,
   onSourceFilterChange,
-  sponsorFilter,
-  onSponsorFilterChange,
   salaryFilter,
   onSalaryFilterChange,
   scoreFilter,
@@ -55,7 +52,6 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
     onFiltersOpenChange,
     activeFilterCount,
     postedWithinLabel,
-    sponsorLabel,
     sortDirectionLabel,
     salaryActive,
     salarySummary,
@@ -64,7 +60,6 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
   } = useFilterBarDerivedState({
     sourceFilter,
     companyFilter,
-    sponsorFilter,
     dateFilter,
     postedWithinDays,
     employmentTypes,
@@ -124,12 +119,6 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
             <DateFilterPill
               dateFilter={dateFilter}
               onDateFilterChange={onDateFilterChange}
-            />
-
-            <SponsorFilterPill
-              sponsorFilter={sponsorFilter}
-              onSponsorFilterChange={onSponsorFilterChange}
-              sponsorLabel={sponsorLabel}
             />
 
             <SalaryFilterPill

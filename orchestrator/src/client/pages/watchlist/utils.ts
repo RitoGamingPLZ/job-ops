@@ -126,7 +126,6 @@ export function toJobListItem(job: WatchlistJobResult): JobListItem {
     closedAt: null,
     generationError: null,
     suitabilityScore: null,
-    sponsorMatchScore: null,
     appliedDuplicateMatch: null,
     jobType: null,
     jobFunction: null,

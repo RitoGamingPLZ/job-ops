@@ -291,17 +291,3 @@ export async function enqueueAutoPdfRegenerationForSettingsChanges(input: {
     requestedBy: input.requestedBy,
   });
 }
-
-/** The editor document owns content; only render-time job-row overlays trigger a re-render. */
-export function shouldEnqueueTracerAutoPdfRegeneration(
-  previousJob: Job,
-  nextJob: Job,
-): boolean {
-  if (nextJob.status !== "ready") return false;
-  if (nextJob.pdfSource !== "generated") return false;
-
-  return (
-    previousJob.tracerLinksEnabled !== nextJob.tracerLinksEnabled ||
-    previousJob.employer !== nextJob.employer
-  );
-}

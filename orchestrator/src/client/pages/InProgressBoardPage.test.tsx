@@ -165,7 +165,6 @@ const makeJob = (overrides: Partial<JobListItem>): JobListItem => ({
   closedAt: null,
   generationError: null,
   suitabilityScore: null,
-  sponsorMatchScore: null,
   appliedDuplicateMatch: null,
   jobType: null,
   jobFunction: null,

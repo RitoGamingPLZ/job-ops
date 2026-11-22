@@ -318,7 +318,6 @@ function LaunchSetup({
   const [workplaceTypes, setWorkplaceTypes] = useState<
     Array<"remote" | "hybrid" | "onsite">
   >(["remote", "hybrid"]);
-  const [requiresVisaSponsorship, setRequiresVisaSponsorship] = useState(true);
   const completionTrackedRef = useRef(false);
   const lastStepViewRef = useRef<string | null>(null);
   const lastStatusCheckRef = useRef<string | null>(null);
@@ -422,7 +421,6 @@ function LaunchSetup({
       has_country: Boolean(country.trim()),
       city_count: parsedCities.length,
       workplace_type_count: workplaceTypes.length,
-      requires_visa_sponsorship: requiresVisaSponsorship,
     });
     try {
       setProfileBusy(true);
@@ -431,7 +429,6 @@ function LaunchSetup({
           country: country.trim() || null,
           cities: parsedCities,
           workplaceTypes,
-          requiresVisaSponsorship,
         }),
       );
       trackProductEvent("onboarding_profile_save_completed", {
@@ -548,12 +545,10 @@ function LaunchSetup({
                   country={country}
                   cities={cities}
                   workplaceTypes={workplaceTypes}
-                  requiresVisaSponsorship={requiresVisaSponsorship}
                   busy={profileBusy}
                   onCountryChange={setCountry}
                   onCitiesChange={setCities}
                   onWorkplaceTypesChange={setWorkplaceTypes}
-                  onVisaChange={setRequiresVisaSponsorship}
                   onContinue={saveProfile}
                 />
               ) : activeStep === "model" ? (
@@ -678,14 +673,12 @@ function ProfileStep(props: {
   country: string;
   cities: string;
   workplaceTypes: Array<"remote" | "hybrid" | "onsite">;
-  requiresVisaSponsorship: boolean;
   busy: boolean;
   onCountryChange: (value: string) => void;
   onCitiesChange: (value: string) => void;
   onWorkplaceTypesChange: (
     value: Array<"remote" | "hybrid" | "onsite">,
   ) => void;
-  onVisaChange: (value: boolean) => void;
   onContinue: () => void;
 }) {
   const toggle = (value: "remote" | "hybrid" | "onsite") =>
@@ -698,7 +691,7 @@ function ProfileStep(props: {
     <StepShell
       eyebrow="Your search"
       title="Where do you want to work?"
-      description="These preferences seed new runs and help Job Ops prioritize location-aware and visa-sponsor sources. You can change them later."
+      description="These preferences seed new runs and help Job Ops prioritize location-aware sources. You can change them later."
     >
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Country or market">
@@ -745,25 +738,6 @@ function ProfileStep(props: {
           ))}
         </div>
       </div>
-      <Label
-        htmlFor="visa-sponsorship"
-        className="flex cursor-pointer items-start gap-3 rounded-xl bg-muted/40 p-4"
-      >
-        <Checkbox
-          id="visa-sponsorship"
-          checked={props.requiresVisaSponsorship}
-          onCheckedChange={(value) => props.onVisaChange(value === true)}
-        />
-        <span>
-          <span className="block text-sm font-medium">
-            I need employer visa sponsorship
-          </span>
-          <span className="block text-sm text-muted-foreground">
-            Job Ops will show sponsor information and favor sponsor-aware
-            sources when available.
-          </span>
-        </span>
-      </Label>
       <StepActions
         onContinue={props.onContinue}
         busy={props.busy || props.workplaceTypes.length === 0}

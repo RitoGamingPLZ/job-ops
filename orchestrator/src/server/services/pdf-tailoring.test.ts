@@ -335,8 +335,8 @@ vi.mock("./resume-renderer", () => ({
   renderResumePdf: mockResumeRenderer.renderResumePdf,
 }));
 
-const mockTracerLinks = vi.hoisted(() => ({
-  resolveTracerPublicBaseUrl: vi.fn().mockReturnValue("https://jobops.example"),
+const mockPublicAvailability = vi.hoisted(() => ({
+  resolvePublicBaseUrl: vi.fn().mockReturnValue("https://jobops.example"),
   getJobOpsPublicAvailability: vi.fn().mockResolvedValue({
     status: "ready",
     isPubliclyAvailable: true,
@@ -346,26 +346,12 @@ const mockTracerLinks = vi.hoisted(() => ({
     lastSuccessAt: 1,
     reason: null,
   }),
-  getTracerReadiness: vi.fn().mockResolvedValue({
-    status: "ready",
-    isPubliclyAvailable: true,
-    canEnable: true,
-    publicBaseUrl: "https://jobops.example",
-    healthUrl: "https://jobops.example/health",
-    checkedAt: 1,
-    lastSuccessAt: 1,
-    reason: null,
-  }),
-  rewriteResumeLinksWithTracer: vi
-    .fn()
-    .mockResolvedValue({ rewrittenLinks: 2 }),
 }));
 
-vi.mock("./tracer-links", () => ({
-  getJobOpsPublicAvailability: mockTracerLinks.getJobOpsPublicAvailability,
-  getTracerReadiness: mockTracerLinks.getTracerReadiness,
-  resolveTracerPublicBaseUrl: mockTracerLinks.resolveTracerPublicBaseUrl,
-  rewriteResumeLinksWithTracer: mockTracerLinks.rewriteResumeLinksWithTracer,
+vi.mock("@server/infra/public-availability", () => ({
+  getJobOpsPublicAvailability:
+    mockPublicAvailability.getJobOpsPublicAvailability,
+  resolvePublicBaseUrl: mockPublicAvailability.resolvePublicBaseUrl,
 }));
 
 vi.mock("./rxresume/baseResumeId", () => ({
@@ -418,18 +404,6 @@ vi.mock("./rxresume", async () => {
         }
         if (data.sections?.projects) data.sections.projects.hidden = false;
 
-        if (args.tracerLinks?.enabled) {
-          mockTracerLinks.resolveTracerPublicBaseUrl({
-            requestOrigin: args.tracerLinks.requestOrigin,
-          });
-          await mockTracerLinks.rewriteResumeLinksWithTracer({
-            jobId: args.jobId,
-            resumeData: data,
-            publicBaseUrl: "https://jobops.example",
-            companyName: args.tracerLinks.companyName ?? null,
-          });
-        }
-
         return {
           mode: args.mode,
           data,
@@ -454,7 +428,6 @@ describe("PDF Service Tailoring Logic", () => {
       updatedAt: "now",
     });
     const result = await generatePdf("saved-job", "JD", {
-      tracerLinksEnabled: true,
       requestOrigin: "https://jobops.example",
     });
     expect(result.success).toBe(true);
@@ -470,14 +443,6 @@ describe("PDF Service Tailoring Logic", () => {
         },
       },
     });
-    expect(mockTracerLinks.rewriteResumeLinksWithTracer).toHaveBeenCalledWith(
-      expect.objectContaining({
-        jobId: "saved-job",
-        resumeData: expect.objectContaining({
-          basics: expect.objectContaining({ headline: "User edited headline" }),
-        }),
-      }),
-    );
     expect(document.basics.headline).toBe("User edited headline");
   });
   beforeEach(() => {
@@ -496,10 +461,10 @@ describe("PDF Service Tailoring Logic", () => {
     mockProfile.sections.projects.items[0].description = "";
     mocks.readFile.mockResolvedValue(JSON.stringify(mockProfile));
     mockResumeRenderer.clearLastResumeJson();
-    mockTracerLinks.resolveTracerPublicBaseUrl.mockReturnValue(
+    mockPublicAvailability.resolvePublicBaseUrl.mockReturnValue(
       "https://jobops.example",
     );
-    mockTracerLinks.getJobOpsPublicAvailability.mockResolvedValue({
+    mockPublicAvailability.getJobOpsPublicAvailability.mockResolvedValue({
       status: "ready",
       isPubliclyAvailable: true,
       publicBaseUrl: "https://jobops.example",
@@ -507,19 +472,6 @@ describe("PDF Service Tailoring Logic", () => {
       checkedAt: 1,
       lastSuccessAt: 1,
       reason: null,
-    });
-    mockTracerLinks.getTracerReadiness.mockResolvedValue({
-      status: "ready",
-      isPubliclyAvailable: true,
-      canEnable: true,
-      publicBaseUrl: "https://jobops.example",
-      healthUrl: "https://jobops.example/health",
-      checkedAt: 1,
-      lastSuccessAt: 1,
-      reason: null,
-    });
-    mockTracerLinks.rewriteResumeLinksWithTracer.mockResolvedValue({
-      rewrittenLinks: 2,
     });
   });
 
@@ -590,29 +542,6 @@ describe("PDF Service Tailoring Logic", () => {
       (p: any) => !p.hidden,
     ).length;
     expect(visibleCount).toBe(2);
-  });
-
-  it("does not rewrite links when tracer links are disabled", async () => {
-    await generatePdf("job-no-tracer", "desc", {
-      tracerLinksEnabled: false,
-    });
-
-    expect(mockTracerLinks.resolveTracerPublicBaseUrl).not.toHaveBeenCalled();
-    expect(mockTracerLinks.rewriteResumeLinksWithTracer).not.toHaveBeenCalled();
-  });
-
-  it("rewrites links when tracer links are enabled", async () => {
-    await generatePdf("job-with-tracer", "desc", {
-      tracerLinksEnabled: true,
-      requestOrigin: "https://jobops.example",
-    });
-
-    expect(mockTracerLinks.resolveTracerPublicBaseUrl).toHaveBeenCalledWith({
-      requestOrigin: "https://jobops.example",
-    });
-    expect(mockTracerLinks.rewriteResumeLinksWithTracer).toHaveBeenCalledTimes(
-      1,
-    );
   });
 
   it("passes the manual output language to the local LaTeX renderer", async () => {
@@ -854,23 +783,12 @@ describe("PDF Service Tailoring Logic", () => {
 
   it("strips Resume Studio pictures from RxResume export when JobOps is not hosted", async () => {
     currentPdfRenderer.value = "rxresume";
-    mockTracerLinks.resolveTracerPublicBaseUrl.mockReturnValue(
+    mockPublicAvailability.resolvePublicBaseUrl.mockReturnValue(
       "http://localhost:3005",
     );
-    mockTracerLinks.getJobOpsPublicAvailability.mockResolvedValue({
+    mockPublicAvailability.getJobOpsPublicAvailability.mockResolvedValue({
       status: "unavailable",
       isPubliclyAvailable: false,
-      publicBaseUrl: "http://localhost:3005",
-      healthUrl: "http://localhost:3005/health",
-      checkedAt: 1,
-      lastSuccessAt: null,
-      reason:
-        "Configured public URL must be internet-reachable (not localhost/private network).",
-    });
-    mockTracerLinks.getTracerReadiness.mockResolvedValue({
-      status: "unavailable",
-      isPubliclyAvailable: false,
-      canEnable: false,
       publicBaseUrl: "http://localhost:3005",
       healthUrl: "http://localhost:3005/health",
       checkedAt: 1,
@@ -926,7 +844,7 @@ describe("PDF Service Tailoring Logic", () => {
 
   it("keeps externally hosted pictures in RxResume export when JobOps is not hosted", async () => {
     currentPdfRenderer.value = "rxresume";
-    mockTracerLinks.getJobOpsPublicAvailability.mockResolvedValue({
+    mockPublicAvailability.getJobOpsPublicAvailability.mockResolvedValue({
       status: "unavailable",
       isPubliclyAvailable: false,
       publicBaseUrl: "http://localhost:3005",

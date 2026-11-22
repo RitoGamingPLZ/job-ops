@@ -11,7 +11,7 @@ import {
   vi,
 } from "vitest";
 import { trackProductEvent } from "@/lib/analytics";
-import type { FilterTab, JobSort, SponsorFilter } from "./constants";
+import type { FilterTab, JobSort } from "./constants";
 import { OrchestratorFilters } from "./OrchestratorFilters";
 
 vi.mock("@/lib/analytics", async (importOriginal) => {
@@ -59,8 +59,6 @@ const renderFilters = (
     companiesWithJobs: [],
     onCompanyFilterChange: vi.fn(),
     onSourceFilterChange: vi.fn(),
-    sponsorFilter: "all" as SponsorFilter,
-    onSponsorFilterChange: vi.fn(),
     salaryFilter: {
       mode: "at_least" as const,
       min: null,
@@ -137,7 +135,7 @@ describe("OrchestratorFilters", () => {
   it("shows an active filter count on the Filters button when collapsed", () => {
     renderFilters({
       isFiltersOpen: false,
-      sponsorFilter: "potential",
+      sourceFilter: "linkedin",
     });
 
     expect(screen.getByRole("button", { name: /^filters/i })).toHaveTextContent(
@@ -167,18 +165,12 @@ describe("OrchestratorFilters", () => {
     ).toHaveLength(2);
   });
 
-  it("updates source, sponsor, and salary range from the filter bar", async () => {
+  it("updates source and salary range from the filter bar", async () => {
     const { props } = renderFilters();
 
     fireEvent.click(screen.getByRole("button", { name: /^source/i }));
     fireEvent.click(await screen.findByRole("button", { name: /linkedin/i }));
     expect(props.onSourceFilterChange).toHaveBeenCalledWith("linkedin");
-
-    fireEvent.click(screen.getByRole("button", { name: /^sponsor/i }));
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Potential sponsor" }),
-    );
-    expect(props.onSponsorFilterChange).toHaveBeenCalledWith("potential");
 
     fireEvent.click(screen.getByRole("button", { name: /^salary/i }));
     fireEvent.change(await screen.findByLabelText("Minimum"), {
@@ -301,7 +293,7 @@ describe("OrchestratorFilters", () => {
     // An active filter is required for the Reset control to be shown.
     const { props } = renderFilters({
       sourcesWithJobs: ["gradcracker", "manual"],
-      sponsorFilter: "potential",
+      sourceFilter: "gradcracker",
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^source/i }));

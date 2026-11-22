@@ -31,7 +31,6 @@ import express from "express";
 import { apiRouter } from "./api/index";
 import { internalScrapeRouter } from "./api/routes/internal-scrape";
 import { ojcpManifestHandler, ojcpMcpHandler } from "./ojcp";
-import { resolveTracerRedirect } from "./services/tracer-links";
 
 const __dirname =
   typeof import.meta.url === "string" && import.meta.url.startsWith("file:")
@@ -319,15 +318,6 @@ export function createAuthGuard() {
     // proxy route still validates method/path before forwarding.
     if (isStatsRoute(normalizedPath)) return false;
 
-    // Analytics and per-job tracer details are workspace-private.
-    if (normalizedPath.startsWith("/api/tracer-links/analytics")) return true;
-    if (normalizedPath.startsWith("/api/tracer-links/jobs")) return true;
-
-    // Allow public read access to other tracer link routes.
-    if (normalizedPath.startsWith("/api/tracer-links")) {
-      return !["GET", "HEAD"].includes(method.toUpperCase());
-    }
-
     // All other /api/* paths require auth regardless of HTTP method.
     if (normalizedPath === "/api" || normalizedPath.startsWith("/api/"))
       return true;
@@ -394,50 +384,6 @@ export function createApp() {
   const app = express();
   const authGuard = createAuthGuard();
   const corsMiddleware = cors();
-
-  const handleTracerRedirect = async (
-    req: express.Request,
-    res: express.Response,
-    slug: string,
-    route: string,
-  ) => {
-    try {
-      const redirect = await resolveTracerRedirect({
-        token: slug,
-        requestId:
-          (res.getHeader("x-request-id") as string | undefined) ?? null,
-        ip: req.ip ?? null,
-        userAgent: req.header("user-agent") ?? null,
-        referrer: req.header("referer") ?? null,
-      });
-
-      if (!redirect) {
-        logger.warn("Tracer link not found", {
-          route,
-          token: slug,
-        });
-        res.status(404).type("text/plain; charset=utf-8").send("Not found");
-        return;
-      }
-
-      logger.info("Tracer link redirected", {
-        route,
-        token: slug,
-        jobId: redirect.jobId,
-      });
-      res.set("Cache-Control", "no-store");
-      res.set("Pragma", "no-cache");
-      res.set("Expires", "0");
-      res.redirect(302, redirect.destinationUrl);
-    } catch (error) {
-      logger.error("Tracer redirect failed", {
-        route,
-        token: slug,
-        error,
-      });
-      res.status(500).type("text/plain; charset=utf-8").send("Internal error");
-    }
-  };
 
   app.use((req, res, next) => {
     if (isStatsRoute(req.path)) {
@@ -521,15 +467,6 @@ export function createApp() {
 
   app.use("/challenge-viewer/session", (req, res) => {
     void proxyChallengeViewerRequest(req, res);
-  });
-
-  app.get("/cv/:slug", async (req, res) => {
-    const slug = req.params.slug?.trim();
-    if (!slug) {
-      res.status(404).type("text/plain; charset=utf-8").send("Not found");
-      return;
-    }
-    await handleTracerRedirect(req, res, slug, "GET /cv/:slug");
   });
 
   app.all(/^\/stats(?:\/.*)?$/, async (req, res) => {

@@ -29,11 +29,6 @@ vi.mock("@server/services/scorer", () => {
   };
 });
 
-vi.mock("@server/services/visa-sponsors/index", () => ({
-  searchSponsors: vi.fn(),
-  calculateSponsorMatchSummary: vi.fn(),
-}));
-
 vi.mock("../progress", () => ({
   updateProgress: vi.fn(),
   progressHelpers: {
@@ -49,7 +44,6 @@ describe("scoreJobsStep auto-skip behavior", () => {
     const jobsRepo = await import("@server/repositories/jobs");
     const settingsRepo = await import("@server/repositories/settings");
     const scorer = await import("@server/services/scorer");
-    const visaSponsors = await import("@server/services/visa-sponsors/index");
 
     vi.mocked(jobsRepo.getUnscoredDiscoveredJobs).mockResolvedValue([
       createJob({
@@ -66,11 +60,6 @@ describe("scoreJobsStep auto-skip behavior", () => {
       score: 40,
       reason: "Low fit",
       jobBrief: null,
-    });
-    vi.mocked(visaSponsors.searchSponsors).mockResolvedValue([]);
-    vi.mocked(visaSponsors.calculateSponsorMatchSummary).mockReturnValue({
-      sponsorMatchScore: 0,
-      sponsorMatchNames: null,
     });
   });
 
@@ -98,21 +87,6 @@ describe("scoreJobsStep auto-skip behavior", () => {
         threshold: 50,
       }),
     );
-  });
-
-  it("uses the selected run country for visa sponsor matching", async () => {
-    const visaSponsors = await import("@server/services/visa-sponsors/index");
-
-    await scoreJobsStep({
-      profile: {},
-      visaSponsorCountryKey: "united kingdom",
-    });
-
-    expect(visaSponsors.searchSponsors).toHaveBeenCalledWith("Acme Corp", {
-      limit: 10,
-      minScore: 50,
-      countryKey: "united kingdom",
-    });
   });
 
   it("passes per-run scoring instructions to the scorer", async () => {

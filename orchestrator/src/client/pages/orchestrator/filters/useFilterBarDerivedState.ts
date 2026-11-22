@@ -6,10 +6,8 @@ import type {
   JobSort,
   SalaryFilter,
   ScoreFilter,
-  SponsorFilter,
 } from "../constants";
 import { postedWithinOptions } from "../constants";
-import { sponsorOptions } from "./filterOptions";
 import {
   formatSalarySummary,
   formatScoreSummary,
@@ -21,7 +19,6 @@ import {
 interface UseFilterBarDerivedStateArgs {
   sourceFilter: JobSource | "all";
   companyFilter: string[];
-  sponsorFilter: SponsorFilter;
   dateFilter: JobDateFilter;
   postedWithinDays: number | null;
   employmentTypes: EmploymentType[];
@@ -36,7 +33,6 @@ interface UseFilterBarDerivedStateArgs {
 export const useFilterBarDerivedState = ({
   sourceFilter,
   companyFilter,
-  sponsorFilter,
   dateFilter,
   postedWithinDays,
   employmentTypes,
@@ -58,7 +54,6 @@ export const useFilterBarDerivedState = ({
     () =>
       Number(sourceFilter !== "all") +
       Number(companyFilter.length > 0) +
-      Number(sponsorFilter !== "all") +
       Number(dateFilter.dimensions.length > 0) +
       Number(postedWithinDays != null) +
       Number(employmentTypes.length > 0) +
@@ -68,7 +63,6 @@ export const useFilterBarDerivedState = ({
     [
       sourceFilter,
       companyFilter.length,
-      sponsorFilter,
       dateFilter.dimensions.length,
       postedWithinDays,
       employmentTypes.length,
@@ -81,12 +75,6 @@ export const useFilterBarDerivedState = ({
   const postedWithinLabel =
     postedWithinOptions.find((option) => option.value === postedWithinDays)
       ?.label ?? null;
-
-  const sponsorLabel =
-    sponsorFilter === "all"
-      ? null
-      : (sponsorOptions.find((option) => option.value === sponsorFilter)
-          ?.label ?? null);
 
   const sortDirectionLabel = getDirectionOptions(sort.key).find(
     (option) => option.value === sort.direction,
@@ -102,7 +90,6 @@ export const useFilterBarDerivedState = ({
     scoreActive,
     activeFilterCount,
     postedWithinLabel,
-    sponsorLabel,
     sortDirectionLabel,
     salarySummary,
     scoreSummary,

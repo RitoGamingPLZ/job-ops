@@ -275,27 +275,6 @@ describe.sequential("product analytics repository", () => {
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
-    await db.insert(schema.tracerLinks).values({
-      id: "tracer-1",
-      token: "token-1",
-      jobId: "job-1",
-      sourcePath: "/jobs/job-1",
-      sourceLabel: "Role",
-      destinationUrl: "https://example.com/redirect",
-      destinationUrlHash: "hash-1",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    });
-    await db.insert(schema.tracerClickEvents).values({
-      id: "click-1",
-      tracerLinkId: "tracer-1",
-      clickedAt: 1_704_067_200,
-      isLikelyBot: false,
-      deviceType: "desktop",
-      uaFamily: "chrome",
-      osFamily: "mac",
-      referrerHost: "mail.example.com",
-    });
 
     const candidates = await repo.getHistoricalServerEventReplayCandidates({
       cutoffMs,
@@ -318,7 +297,6 @@ describe.sequential("product analytics repository", () => {
       application_offer_detected: 1,
       application_accepted: 1,
       tracking_email_matched: 1,
-      tracer_human_click_recorded: 1,
     });
 
     const stageCandidate = candidates.find(

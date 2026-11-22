@@ -290,7 +290,6 @@ export interface AppSettings {
   locationMatchStrictness: Resolved<LocationMatchStrictness>;
   jobspyResultsWanted: Resolved<number>;
   jobspyCountryIndeed: Resolved<string>;
-  showSponsorInfo: Resolved<boolean>;
   renderMarkdownInJobDescriptions: Resolved<boolean>;
   autoTailorOnManualImport: Resolved<boolean>;
   chatStyleTone: Resolved<string>;

@@ -576,24 +576,6 @@ describe.sequential("Jobs API routes", () => {
         startedAt: Date.now(),
       })
       .run();
-    db.insert(schema.tracerLinks)
-      .values({
-        id: "delete-tracer",
-        token: "delete-tracer-token",
-        jobId: job.id,
-        sourcePath: "basics.url",
-        sourceLabel: "Portfolio",
-        destinationUrl: "https://example.com",
-        destinationUrlHash: "delete-hash",
-      })
-      .run();
-    db.insert(schema.tracerClickEvents)
-      .values({
-        id: "delete-click",
-        tracerLinkId: "delete-tracer",
-        clickedAt: Date.now(),
-      })
-      .run();
     db.insert(schema.postApplicationMessages)
       .values({
         id: "keep-email",
@@ -643,8 +625,6 @@ describe.sequential("Jobs API routes", () => {
       schema.jobChatThreads,
       schema.jobChatMessages,
       schema.jobChatRuns,
-      schema.tracerLinks,
-      schema.tracerClickEvents,
     ]) {
       expect(db.select({ id: table.id }).from(table).all()).toEqual([]);
     }
@@ -1669,104 +1649,6 @@ describe.sequential("Jobs API routes", () => {
     expect(typeof body.meta.requestId).toBe("string");
   });
 
-  it("blocks enabling tracer links when readiness check fails", async () => {
-    const { createJob } = await import("@server/repositories/jobs");
-    const job = await createJob({
-      source: "manual",
-      title: "Tracer Blocked",
-      employer: "Example Co",
-      jobUrl: "https://example.com/job/tracer-blocked",
-      jobDescription: "Test description",
-    });
-
-    const previousBaseUrl = process.env.JOBOPS_PUBLIC_BASE_URL;
-    process.env.JOBOPS_PUBLIC_BASE_URL = "https://my-jobops.example.com";
-    const realFetch = global.fetch;
-    const mockFetch = vi.fn(async (input: any, init?: RequestInit) => {
-      const url = typeof input === "string" ? input : input.toString();
-      if (url === "https://my-jobops.example.com/health") {
-        return new Response("unavailable", { status: 503 });
-      }
-      return realFetch(input, init);
-    });
-    vi.stubGlobal("fetch", mockFetch);
-
-    try {
-      const res = await fetch(`${baseUrl}/api/jobs/${job.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tracerLinksEnabled: true }),
-      });
-      const body = await res.json();
-
-      expect(res.status).toBe(409);
-      expect(body.ok).toBe(false);
-      expect(body.error.code).toBe("CONFLICT");
-      expect(body.error.message).toMatch(/health check returned http 503/i);
-      expect(typeof body.meta.requestId).toBe("string");
-    } finally {
-      vi.unstubAllGlobals();
-      if (previousBaseUrl === undefined) {
-        delete process.env.JOBOPS_PUBLIC_BASE_URL;
-      } else {
-        process.env.JOBOPS_PUBLIC_BASE_URL = previousBaseUrl;
-      }
-    }
-  });
-
-  it("allows updates for already-enabled tracer links without re-gating", async () => {
-    const { createJob } = await import("@server/repositories/jobs");
-    const { updateJob } = await import("@server/repositories/jobs");
-    const job = await createJob({
-      source: "manual",
-      title: "Tracer Already On",
-      employer: "Example Co",
-      jobUrl: "https://example.com/job/tracer-enabled",
-      jobDescription: "Test description",
-    });
-    await updateJob(job.id, { tracerLinksEnabled: true });
-
-    const previousBaseUrl = process.env.JOBOPS_PUBLIC_BASE_URL;
-    process.env.JOBOPS_PUBLIC_BASE_URL = "https://my-jobops.example.com";
-    const realFetch = global.fetch;
-    const mockFetch = vi.fn(async (input: any, init?: RequestInit) => {
-      const url = typeof input === "string" ? input : input.toString();
-      if (url === "https://my-jobops.example.com/health") {
-        return new Response("unavailable", { status: 503 });
-      }
-      return realFetch(input, init);
-    });
-    vi.stubGlobal("fetch", mockFetch);
-
-    try {
-      const res = await fetch(`${baseUrl}/api/jobs/${job.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: "Tracer Already On (Edited)",
-          tracerLinksEnabled: true,
-        }),
-      });
-      const body = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(body.ok).toBe(true);
-      expect(body.data.title).toBe("Tracer Already On (Edited)");
-      expect(body.data.tracerLinksEnabled).toBe(true);
-      expect(mockFetch).not.toHaveBeenCalledWith(
-        "https://my-jobops.example.com/health",
-        expect.anything(),
-      );
-    } finally {
-      vi.unstubAllGlobals();
-      if (previousBaseUrl === undefined) {
-        delete process.env.JOBOPS_PUBLIC_BASE_URL;
-      } else {
-        process.env.JOBOPS_PUBLIC_BASE_URL = previousBaseUrl;
-      }
-    }
-  });
-
   it("returns 404 when patching a missing job", async () => {
     const res = await fetch(`${baseUrl}/api/jobs/missing-id`, {
       method: "PATCH",
@@ -2501,38 +2383,6 @@ describe.sequential("Jobs API routes", () => {
       method: "DELETE",
     });
     expect(partialRes.status).toBe(400);
-  });
-
-  it("checks visa sponsor status for a job", async () => {
-    const { searchSponsors } = await import(
-      "@server/services/visa-sponsors/index"
-    );
-    vi.mocked(searchSponsors).mockResolvedValue([
-      {
-        providerId: "uk",
-        countryKey: "united kingdom",
-        sponsor: { organisationName: "ACME CORP SPONSOR" } as any,
-        score: 100,
-        matchedName: "acme corp sponsor",
-      },
-    ]);
-
-    const { createJob } = await import("@server/repositories/jobs");
-    const job = await createJob({
-      source: "manual",
-      title: "Sponsored Dev",
-      employer: "Acme",
-      jobUrl: "https://example.com/job/4",
-    });
-
-    const res = await fetch(`${baseUrl}/api/jobs/${job.id}/check-sponsor`, {
-      method: "POST",
-    });
-    const body = await res.json();
-
-    expect(body.ok).toBe(true);
-    expect(body.data.sponsorMatchScore).toBe(100);
-    expect(body.data.sponsorMatchNames).toContain("ACME CORP SPONSOR");
   });
 
   describe("Application Tracking", () => {

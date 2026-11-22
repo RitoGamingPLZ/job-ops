@@ -293,11 +293,6 @@ export const jobs = sqliteTable(
       .default(false),
     pdfFingerprint: text("pdf_fingerprint"),
     pdfGeneratedAt: text("pdf_generated_at"),
-    tracerLinksEnabled: integer("tracer_links_enabled", { mode: "boolean" })
-      .notNull()
-      .default(false),
-    sponsorMatchScore: real("sponsor_match_score"),
-    sponsorMatchNames: text("sponsor_match_names"),
 
     // Timestamps
     discoveredAt: text("discovered_at")
@@ -1062,85 +1057,6 @@ export const postApplicationMessages = sqliteTable(
   }),
 );
 
-export const tracerLinks = sqliteTable(
-  "tracer_links",
-  {
-    id: text("id").primaryKey(),
-    tenantId: text("tenant_id")
-      .notNull()
-      .default("tenant_default")
-      .references(() => tenants.id, { onDelete: "cascade" }),
-    userId: text("user_id").references(() => users.id, {
-      onDelete: "cascade",
-    }),
-    token: text("token").notNull().unique(),
-    jobId: text("job_id")
-      .notNull()
-      .references(() => jobs.id, { onDelete: "cascade" }),
-    sourcePath: text("source_path").notNull(),
-    sourceLabel: text("source_label").notNull(),
-    destinationUrl: text("destination_url").notNull(),
-    destinationUrlHash: text("destination_url_hash").notNull(),
-    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
-    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
-  },
-  (table) => ({
-    jobPathDestinationUnique: uniqueIndex(
-      "idx_tracer_links_tenant_user_job_source_destination_unique",
-    ).on(
-      table.tenantId,
-      sql`coalesce(${table.userId}, '')`,
-      table.jobId,
-      table.sourcePath,
-      table.destinationUrlHash,
-    ),
-    jobIndex: index("idx_tracer_links_job_id").on(table.jobId),
-  }),
-);
-
-export const tracerClickEvents = sqliteTable(
-  "tracer_click_events",
-  {
-    id: text("id").primaryKey(),
-    tenantId: text("tenant_id")
-      .notNull()
-      .default("tenant_default")
-      .references(() => tenants.id, { onDelete: "cascade" }),
-    userId: text("user_id").references(() => users.id, {
-      onDelete: "cascade",
-    }),
-    tracerLinkId: text("tracer_link_id")
-      .notNull()
-      .references(() => tracerLinks.id, { onDelete: "cascade" }),
-    clickedAt: integer("clicked_at", { mode: "number" }).notNull(),
-    requestId: text("request_id"),
-    isLikelyBot: integer("is_likely_bot", { mode: "boolean" })
-      .notNull()
-      .default(false),
-    deviceType: text("device_type").notNull().default("unknown"),
-    uaFamily: text("ua_family").notNull().default("unknown"),
-    osFamily: text("os_family").notNull().default("unknown"),
-    referrerHost: text("referrer_host"),
-    ipHash: text("ip_hash"),
-    uniqueFingerprintHash: text("unique_fingerprint_hash"),
-  },
-  (table) => ({
-    tracerLinkIndex: index("idx_tracer_click_events_tracer_link_id").on(
-      table.tracerLinkId,
-    ),
-    clickedAtIndex: index("idx_tracer_click_events_clicked_at").on(
-      table.clickedAt,
-    ),
-    botIndex: index("idx_tracer_click_events_is_likely_bot").on(
-      table.isLikelyBot,
-    ),
-    uniqueFingerprintIndex: index(
-      "idx_tracer_click_events_unique_fingerprint_hash",
-    ).on(table.uniqueFingerprintHash),
-  }),
-);
-
 export type UserRow = typeof users.$inferSelect;
 export type NewUserRow = typeof users.$inferInsert;
 export type SsoIdentityRow = typeof ssoIdentities.$inferSelect;
@@ -1207,10 +1123,6 @@ export type PostApplicationMessageRow =
   typeof postApplicationMessages.$inferSelect;
 export type NewPostApplicationMessageRow =
   typeof postApplicationMessages.$inferInsert;
-export type TracerLinkRow = typeof tracerLinks.$inferSelect;
-export type NewTracerLinkRow = typeof tracerLinks.$inferInsert;
-export type TracerClickEventRow = typeof tracerClickEvents.$inferSelect;
-export type NewTracerClickEventRow = typeof tracerClickEvents.$inferInsert;
 export type SiteRecipeRow = typeof siteRecipes.$inferSelect;
 export type NewSiteRecipeRow = typeof siteRecipes.$inferInsert;
 

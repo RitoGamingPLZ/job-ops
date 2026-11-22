@@ -69,7 +69,6 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     dateFilter: filters.dateFilter,
     sourceFilter: filters.sourceFilter,
     companyFilter: filters.companyFilter,
-    sponsorFilter: filters.sponsorFilter,
     salaryFilter: filters.salaryFilter,
     scoreFilter: filters.scoreFilter,
     postedWithinDays: filters.postedWithinDays,
@@ -281,7 +280,6 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           companiesWithJobs={companiesWithJobs}
           onCompanyFilterChange={filters.setCompanyFilter}
           sourceFilter={filters.sourceFilter}
-          sponsorFilter={filters.sponsorFilter}
           salaryFilter={filters.salaryFilter}
           scoreFilter={filters.scoreFilter}
           postedWithinDays={filters.postedWithinDays}
@@ -301,7 +299,6 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           onTabChange={handleTabChange}
           onFiltersOpenChange={ui.setIsFiltersOpen}
           onSourceFilterChange={filters.setSourceFilter}
-          onSponsorFilterChange={filters.setSponsorFilter}
           onSalaryFilterChange={filters.setSalaryFilter}
           onScoreFilterChange={filters.setScoreFilter}
           onPostedWithinChange={filters.setPostedWithinDays}

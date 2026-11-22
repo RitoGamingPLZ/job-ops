@@ -1,6 +1,6 @@
 import { escapeHtmlText } from "@infra/html";
 import { createId } from "@paralleldrive/cuid2";
-import { resolveTracerPublicBaseUrl } from "@server/services/tracer-links";
+import { resolvePublicBaseUrl } from "@server/infra/public-availability";
 import {
   defaultV5ResumeData,
   metadataSchema,
@@ -482,7 +482,7 @@ export function normalizeReactiveResumeV5Document(
   const sections = asRecord(source.sections) ?? {};
   const customSections = asArray(source.customSections);
   const defaults = buildDefaultReactiveResumeDocument();
-  const publicBaseUrl = resolveTracerPublicBaseUrl({
+  const publicBaseUrl = resolvePublicBaseUrl({
     requestOrigin: options.requestOrigin ?? null,
   });
 
@@ -760,7 +760,7 @@ export function prepareReactiveResumeV5DocumentForExternalUse(
   input: unknown,
   options: { requestOrigin?: string | null } = {},
 ): RecordLike {
-  const publicBaseUrl = resolveTracerPublicBaseUrl({
+  const publicBaseUrl = resolvePublicBaseUrl({
     requestOrigin: options.requestOrigin ?? null,
   });
   const parsed = parseV5ResumeData(input) as RecordLike;

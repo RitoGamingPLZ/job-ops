@@ -378,10 +378,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto p-1">
       <JobHeader
         job={selectedJob}
-        onCheckSponsor={async () => {
-          await api.checkSponsor(selectedJob.id);
-          await onJobUpdated();
-        }}
         jobCTA={
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:shrink-0">
             <Button

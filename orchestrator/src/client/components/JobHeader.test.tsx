@@ -1,6 +1,6 @@
 import { createJob } from "@shared/testing/factories.js";
 import type { JobListItem } from "@shared/types.js";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type React from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -66,9 +66,7 @@ describe("JobHeader", () => {
   it("renders lightweight list data without full-detail indicators", () => {
     const {
       isRemote: _isRemote,
-      sponsorMatchNames: _sponsorMatchNames,
       suitabilityReason: _suitabilityReason,
-      tracerLinksEnabled: _tracerLinksEnabled,
       ...summary
     } = mockJob;
 
@@ -76,7 +74,6 @@ describe("JobHeader", () => {
 
     expect(screen.getByText("Software Engineer")).toBeInTheDocument();
     expect(screen.getByText("Tech Corp")).toBeInTheDocument();
-    expect(screen.queryByText("Tracer links off")).not.toBeInTheDocument();
   });
 
   it("links the title to the job page", () => {
@@ -85,55 +82,6 @@ describe("JobHeader", () => {
     expect(
       screen.getByRole("link", { name: "Software Engineer" }),
     ).toHaveAttribute("href", "/job/job-1");
-  });
-
-  it("shows 'Check Sponsorship Status' button when sponsorMatchScore is null", async () => {
-    const onCheckSponsor = vi.fn().mockResolvedValue(undefined);
-    renderWithRouter(
-      <JobHeader job={mockJob} onCheckSponsor={onCheckSponsor} />,
-    );
-
-    const button = screen.getByText("Check Sponsorship Status");
-    expect(button).toBeInTheDocument();
-
-    await act(async () => {
-      fireEvent.click(button);
-    });
-
-    expect(onCheckSponsor).toHaveBeenCalled();
-  });
-
-  it("shows 'Confirmed Sponsor' when score >= 95", () => {
-    const jobWithSponsor = {
-      ...mockJob,
-      sponsorMatchScore: 98,
-      sponsorMatchNames: '["Tech Corp Ltd"]',
-    };
-    renderWithRouter(<JobHeader job={jobWithSponsor} />);
-
-    expect(screen.getByText("Confirmed Sponsor")).toBeInTheDocument();
-  });
-
-  it("shows 'Potential Sponsor' when score is between 80 and 94", () => {
-    const jobWithPotential = {
-      ...mockJob,
-      sponsorMatchScore: 85,
-      sponsorMatchNames: '["Techy Corp"]',
-    };
-    renderWithRouter(<JobHeader job={jobWithPotential} />);
-
-    expect(screen.getByText("Potential Sponsor")).toBeInTheDocument();
-  });
-
-  it("shows 'Sponsor Not Found' when score < 80", () => {
-    const jobNoSponsor = {
-      ...mockJob,
-      sponsorMatchScore: 40,
-      sponsorMatchNames: '["Other Corp"]',
-    };
-    renderWithRouter(<JobHeader job={jobNoSponsor} />);
-
-    expect(screen.getByText("Sponsor Not Found")).toBeInTheDocument();
   });
 
   it("shows a previously applied status indicator with match details", () => {
@@ -167,10 +115,9 @@ describe("JobHeader", () => {
     expect(screen.getByText("Source reported: 1 hour ago")).toBeInTheDocument();
   });
 
-  it("shows contextual tooltips for discovered, tracer off, and suitability score", () => {
+  it("shows contextual tooltips for discovered and suitability score", () => {
     const jobWithTooltips = {
       ...mockJob,
-      tracerLinksEnabled: false,
       suitabilityScore: 45,
       suitabilityReason: null,
     };
@@ -180,11 +127,6 @@ describe("JobHeader", () => {
     expect(
       screen.getByText(
         "Found by the pipeline. Target it to prepare its resume.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Tracer links are turned off for this job, so click tracking will not be recorded.",
       ),
     ).toBeInTheDocument();
     expect(

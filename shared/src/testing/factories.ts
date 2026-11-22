@@ -45,9 +45,6 @@ export const createJob = (overrides: Partial<Job> = {}): Job => ({
   pdfFreshness: "missing",
   pdfFingerprint: null,
   pdfGeneratedAt: null,
-  tracerLinksEnabled: false,
-  sponsorMatchScore: null,
-  sponsorMatchNames: null,
   appliedDuplicateMatch: null,
   jobType: null,
   salarySource: null,
@@ -281,7 +278,6 @@ export const createAppSettings = (
     default: "",
     override: null,
   },
-  showSponsorInfo: { value: true, default: true, override: null },
   renderMarkdownInJobDescriptions: {
     value: true,
     default: true,
