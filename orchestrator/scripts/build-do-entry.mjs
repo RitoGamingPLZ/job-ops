@@ -155,15 +155,12 @@ await build({
 
 const bundled = readFileSync(outFile, "utf8");
 const dynamicRequirePattern =
-  /throw Error\('Dynamic require of "'\+([a-zA-Z0-9_$]+)\+'" is not supported'\)/g;
+  /\([a-zA-Z0-9_$]+=>typeof require<"u"\?require:typeof Proxy<"u"\?new Proxy\([a-zA-Z0-9_$]+,\{get:\([a-zA-Z0-9_$]+,[a-zA-Z0-9_$]+\)=>\(typeof require<"u"\?require:[a-zA-Z0-9_$]+\)\[[a-zA-Z0-9_$]+\]\}\):[a-zA-Z0-9_$]+\)\(function\(([a-zA-Z0-9_$]+)\)\{if\(typeof require<"u"\)return require\.apply\(this,arguments\);throw Error\('Dynamic require of "'\+\1\+'" is not supported'\)\}\)/g;
 const matches = bundled.match(dynamicRequirePattern);
 if (!matches || matches.length === 0) {
   throw new Error(
-    "Expected esbuild dynamic require helper pattern in dist/do/do-entry.mjs, but none matched",
+    "Expected esbuild dynamic require helper IIFE in dist/do/do-entry.mjs, but none matched",
   );
 }
-const patched = bundled.replace(
-  dynamicRequirePattern,
-  (_match, varName) => `return __doRequire(${varName})`,
-);
+const patched = bundled.replace(dynamicRequirePattern, "__doRequire");
 writeFileSync(outFile, patched, "utf8");
