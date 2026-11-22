@@ -1,4 +1,3 @@
-import * as api from "@client/api";
 import { ClaudeCliSetupHint } from "@client/components/ClaudeCliSetupHint";
 import { CodexAuthPanel } from "@client/components/CodexAuthPanel";
 import { GeminiCliSetupHint } from "@client/components/GeminiCliSetupHint";
@@ -8,7 +7,6 @@ import type {
   LlmPurpose,
   LlmPurposeOverrides,
 } from "@shared/types";
-import { useEffect, useState } from "react";
 import { SettingsInput } from "@/client/pages/settings/components/SettingsInput";
 import {
   formatSecretHint,
@@ -30,6 +28,7 @@ import {
   renderKeyHelper,
 } from "./llm-model-configuration-helpers";
 import ModelField from "./ModelField";
+import { useLlmModels } from "./useLlmModels";
 
 export default function PurposeOverrideCard({
   purpose,
@@ -74,9 +73,6 @@ export default function PurposeOverrideCard({
     providerConfig.normalizedProvider === "claude_cli";
   const supportsModelSuggestions =
     supportsLlmModelSuggestions(selectedProvider);
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
-  const [modelsError, setModelsError] = useState<string | null>(null);
-  const [isLoadingModels, setIsLoadingModels] = useState(false);
   const baseUrlValue = value?.baseUrl ?? "";
   const modelValue = value?.model ?? "";
   const purposeProviderDefaultModel = hasProviderOverride
@@ -94,73 +90,25 @@ export default function PurposeOverrideCard({
     : defaultApiKeyHint
       ? `inherits ${formatSecretHint(defaultApiKeyHint)}`
       : "Not set";
+  const { availableModels, isLoadingModels, modelsError } = useLlmModels({
+    provider: selectedProvider,
+    baseUrl: baseUrlValue,
+    apiKey: apiKeyValue,
+    showBaseUrl: providerConfig.showBaseUrl,
+    showApiKey: providerConfig.showApiKey,
+    enabled:
+      supportsModelSuggestions &&
+      (!providerConfig.requiresApiKey ||
+        Boolean(apiKeyValue.trim() || hasSavedKey)),
+    hasSavedKey,
+    purpose,
+  });
   const modelOptions = buildModelOptions({
     models: availableModels,
     emptyLabel: "Inherit purpose default",
     emptyValue: "",
     fallbackValue: modelValue,
   });
-
-  useEffect(() => {
-    if (!supportsModelSuggestions) {
-      setAvailableModels([]);
-      setModelsError(null);
-      setIsLoadingModels(false);
-      return;
-    }
-
-    if (providerConfig.requiresApiKey && !apiKeyValue.trim() && !hasSavedKey) {
-      setAvailableModels([]);
-      setModelsError(null);
-      setIsLoadingModels(false);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoadingModels(true);
-    setModelsError(null);
-
-    void api
-      .getLlmModels({
-        provider: selectedProvider,
-        baseUrl: providerConfig.showBaseUrl
-          ? baseUrlValue.trim() || undefined
-          : undefined,
-        apiKey: providerConfig.showApiKey
-          ? apiKeyValue.trim() || undefined
-          : undefined,
-        purpose,
-      })
-      .then((models) => {
-        if (cancelled) return;
-        setAvailableModels(models);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setAvailableModels([]);
-        setModelsError(
-          error instanceof Error ? error.message : "Failed to load models.",
-        );
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setIsLoadingModels(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    apiKeyValue,
-    baseUrlValue,
-    hasSavedKey,
-    providerConfig.requiresApiKey,
-    providerConfig.showApiKey,
-    providerConfig.showBaseUrl,
-    purpose,
-    selectedProvider,
-    supportsModelSuggestions,
-  ]);
 
   const modelHelper = supportsModelSuggestions
     ? isLoadingModels
