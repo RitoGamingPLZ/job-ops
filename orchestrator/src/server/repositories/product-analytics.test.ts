@@ -27,6 +27,27 @@ describe("product analytics repository", () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
+  it("classifies stage analytics sources with reasonCode precedence", async () => {
+    const { classifyStageAnalyticsSource } = await import("./product-analytics");
+    const cases: Array<[Record<string, unknown> | null, string, string]> = [
+      [{ reasonCode: "in_progress_board_drag", actor: "user" }, "applied", "in_progress_board"],
+      [{ reasonCode: "job_page_manual_stage" }, "applied", "job_page"],
+      [
+        { reasonCode: "post_application_auto_linked", actor: "system" },
+        "applied",
+        "tracking_inbox_auto",
+      ],
+      [{ reasonCode: "post_application_manual_linked" }, "offer", "tracking_inbox_review"],
+      [{ reasonCode: "unknown", actor: "system" }, "applied", "mark_applied"],
+      [{ actor: "system" }, "offer", "system"],
+      [{ actor: "user" }, "applied", "manual"],
+      [null, "applied", "system"],
+    ];
+    for (const [metadata, toStage, expected] of cases) {
+      expect(classifyStageAnalyticsSource(metadata, toStage)).toBe(expected);
+    }
+  });
+
   it("counts behavioural as a positive response and interview in historical analytics", async () => {
     const { db, schema } = await import("@server/db");
     const { createJob } = await import("./jobs");

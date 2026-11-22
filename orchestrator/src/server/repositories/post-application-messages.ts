@@ -190,6 +190,33 @@ export async function upsertPostApplicationMessage(
   };
   const nowIso = new Date().toISOString();
   const scope = getPrivateDataScope();
+  // Fields written identically on insert and update; identity, scope,
+  // processingStatus and createdAt stay with each branch.
+  const mutableValues = {
+    integrationId: input.integrationId,
+    syncRunId: input.syncRunId,
+    externalThreadId: input.externalThreadId ?? null,
+    fromAddress: input.fromAddress,
+    fromDomain: input.fromDomain ?? null,
+    senderName: input.senderName ?? null,
+    subject: input.subject,
+    receivedAt: input.receivedAt,
+    snippet: input.snippet,
+    classificationLabel: input.classificationLabel ?? null,
+    classificationConfidence: input.classificationConfidence ?? null,
+    classificationPayload: input.classificationPayload ?? null,
+    relevanceLlmScore: input.relevanceLlmScore ?? null,
+    relevanceDecision: input.relevanceDecision,
+    matchConfidence: input.matchConfidence ?? null,
+    messageType: input.messageType,
+    stageEventPayload,
+    matchedJobId: input.matchedJobId ?? null,
+    decidedAt: input.decidedAt ?? null,
+    decidedBy: input.decidedBy ?? null,
+    errorCode: input.errorCode ?? null,
+    errorMessage: input.errorMessage ?? null,
+    updatedAt: nowIso,
+  };
   const existing =
     input.existingMessage ??
     (await getPostApplicationMessageByExternalId(
@@ -207,32 +234,7 @@ export async function upsertPostApplicationMessage(
 
     await db
       .update(postApplicationMessages)
-      .set({
-        integrationId: input.integrationId,
-        syncRunId: input.syncRunId,
-        externalThreadId: input.externalThreadId ?? null,
-        fromAddress: input.fromAddress,
-        fromDomain: input.fromDomain ?? null,
-        senderName: input.senderName ?? null,
-        subject: input.subject,
-        receivedAt: input.receivedAt,
-        snippet: input.snippet,
-        classificationLabel: input.classificationLabel ?? null,
-        classificationConfidence: input.classificationConfidence ?? null,
-        classificationPayload: input.classificationPayload ?? null,
-        relevanceLlmScore: input.relevanceLlmScore ?? null,
-        relevanceDecision: input.relevanceDecision,
-        matchConfidence: input.matchConfidence ?? null,
-        messageType: input.messageType,
-        stageEventPayload,
-        processingStatus: nextProcessingStatus,
-        matchedJobId: input.matchedJobId ?? null,
-        decidedAt: input.decidedAt ?? null,
-        decidedBy: input.decidedBy ?? null,
-        errorCode: input.errorCode ?? null,
-        errorMessage: input.errorMessage ?? null,
-        updatedAt: nowIso,
-      })
+      .set({ ...mutableValues, processingStatus: nextProcessingStatus })
       .where(and(messagesScopeFilter(), eq(postApplicationMessages.id, existing.id)));
 
     const updated = await getPostApplicationMessageByExternalId(
@@ -260,32 +262,10 @@ export async function upsertPostApplicationMessage(
     userId: scope.userId,
     provider: input.provider,
     accountKey: input.accountKey,
-    integrationId: input.integrationId,
-    syncRunId: input.syncRunId,
     externalMessageId: input.externalMessageId,
-    externalThreadId: input.externalThreadId ?? null,
-    fromAddress: input.fromAddress,
-    fromDomain: input.fromDomain ?? null,
-    senderName: input.senderName ?? null,
-    subject: input.subject,
-    receivedAt: input.receivedAt,
-    snippet: input.snippet,
-    classificationLabel: input.classificationLabel ?? null,
-    classificationConfidence: input.classificationConfidence ?? null,
-    classificationPayload: input.classificationPayload ?? null,
-    relevanceLlmScore: input.relevanceLlmScore ?? null,
-    relevanceDecision: input.relevanceDecision,
-    matchConfidence: input.matchConfidence ?? null,
-    messageType: input.messageType,
-    stageEventPayload,
+    ...mutableValues,
     processingStatus: input.processingStatus,
-    matchedJobId: input.matchedJobId ?? null,
-    decidedAt: input.decidedAt ?? null,
-    decidedBy: input.decidedBy ?? null,
-    errorCode: input.errorCode ?? null,
-    errorMessage: input.errorMessage ?? null,
     createdAt: nowIso,
-    updatedAt: nowIso,
   });
 
   const created = await getPostApplicationMessageByExternalId(

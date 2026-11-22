@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { trackServerProductEvent } from "@infra/product-analytics";
+import { classifyStageAnalyticsSource } from "@server/repositories/product-analytics";
 import { trackCanonicalActivationEvent } from "@server/services/activation-funnel";
 import type {
   ApplicationStage,
@@ -374,31 +375,6 @@ function parseMetadata(raw: unknown): StageEventMetadata | null {
     }
   }
   return raw as StageEventMetadata;
-}
-
-function classifyStageAnalyticsSource(
-  metadata: StageEventMetadata | null,
-  toStage: ApplicationStage,
-): string {
-  if (metadata?.reasonCode === "in_progress_board_drag") {
-    return "in_progress_board";
-  }
-  if (metadata?.reasonCode === "job_page_manual_stage") {
-    return "job_page";
-  }
-  if (metadata?.reasonCode === "post_application_auto_linked") {
-    return "tracking_inbox_auto";
-  }
-  if (metadata?.reasonCode === "post_application_manual_linked") {
-    return "tracking_inbox_review";
-  }
-  if (metadata?.actor === "system" && toStage === "applied") {
-    return "mark_applied";
-  }
-  if (metadata?.actor === "user") {
-    return "manual";
-  }
-  return "system";
 }
 
 function maybeTrackStageAnalytics(
