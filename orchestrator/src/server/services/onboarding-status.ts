@@ -3,6 +3,7 @@ import { logger } from "@infra/logger";
 import { getRequestId } from "@infra/request-context";
 import { getJobOpsAppStatus } from "@server/config/app-mode";
 import { isDemoMode } from "@server/config/demo";
+import { resolveLlmValidationEndpoint } from "@server/config/llm-validation-endpoint";
 import { getSetting } from "@server/repositories/settings";
 import { getCurrentAccountEntitlements } from "@server/services/account-entitlements";
 import { enqueueAutoPdfRegenerationForSettingsChanges } from "@server/services/auto-pdf-regeneration";
@@ -69,17 +70,6 @@ export type OnboardingRxResumeActionInput = {
   hasRxresumeBaseResumeId: boolean;
 };
 
-function getDefaultValidationBaseUrl(
-  provider: string | undefined,
-): string | undefined {
-  if (provider === "litellm") return "http://localhost:4000";
-  if (provider === "lmstudio") return "http://localhost:1234";
-  if (provider === "ollama") return "http://localhost:11434";
-  if (provider === "openai_compatible") return "https://api.openai.com";
-  if (provider === "glm") return "https://api.z.ai/api/paas/v4";
-  return undefined;
-}
-
 export function normalizeLlmProviderValue(
   provider: string | null | undefined,
 ): LlmProviderId | undefined {
@@ -109,39 +99,23 @@ export async function validateLlm(options: {
       storedProvider?.trim() ||
       (hostedMode ? "openrouter" : undefined),
   );
-  const shouldUseBaseUrl =
-    normalizedProvider === "litellm" ||
-    normalizedProvider === "lmstudio" ||
-    normalizedProvider === "ollama" ||
-    normalizedProvider === "glm" ||
-    normalizedProvider === "openai_compatible";
-  const hasExplicitBaseUrlOverride =
-    options.baseUrl !== undefined && options.baseUrl !== null;
-  const resolvedBaseUrl = shouldUseBaseUrl
-    ? hasExplicitBaseUrlOverride
-      ? options.baseUrl?.trim() ||
-        (hostedMode
-          ? undefined
-          : getOriginalEnvValue("LLM_BASE_URL")?.trim()) ||
-        getDefaultValidationBaseUrl(normalizedProvider)
-      : storedBaseUrl?.trim() ||
-        (hostedMode
-          ? undefined
-          : getOriginalEnvValue("LLM_BASE_URL")?.trim()) ||
-        undefined
-    : undefined;
-  const userBaseUrl = hasExplicitBaseUrlOverride
-    ? options.baseUrl?.trim()
-    : storedBaseUrl?.trim();
+  const {
+    usesBaseUrl: shouldUseBaseUrl,
+    baseUrl: resolvedBaseUrl,
+    hasCustomUserBaseUrl,
+  } = resolveLlmValidationEndpoint({
+    provider: normalizedProvider,
+    override: options.baseUrl,
+    stored: storedBaseUrl,
+    environment: hostedMode ? undefined : getOriginalEnvValue("LLM_BASE_URL"),
+    fallbackToDefault: false,
+  });
   const resolvedApiKey = resolveLlmApiKey({
     storedApiKey: options.apiKey ?? storedApiKey,
     provider: normalizedProvider,
     allowEnvironmentCredentials: !hostedMode,
   });
 
-  const hasCustomUserBaseUrl =
-    Boolean(userBaseUrl) &&
-    userBaseUrl !== getDefaultValidationBaseUrl(normalizedProvider);
   if (
     hostedMode &&
     (isHostedLocalProvider(normalizedProvider) || hasCustomUserBaseUrl)
