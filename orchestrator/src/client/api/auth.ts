@@ -36,12 +36,18 @@ export async function getAuthBootstrapStatus(): Promise<AuthBootstrapStatus> {
   return fetchApi<AuthBootstrapStatus>("/auth/bootstrap-status");
 }
 
-export async function setupFirstAdmin(input: {
+type RegistrationInput = {
   username: string;
   password: string;
   displayName?: string;
-}): Promise<AuthUser> {
-  const res = await fetch("/api/auth/setup", {
+};
+
+async function registerWithCredentials(
+  endpoint: "/api/auth/setup" | "/api/auth/signup",
+  input: RegistrationInput,
+  incompleteMessage: string,
+): Promise<AuthUser> {
+  const res = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -50,52 +56,23 @@ export async function setupFirstAdmin(input: {
     token: string;
     user: AuthUser;
   }>(res);
-  if ("ok" in parsed) {
-    if (!parsed.ok) throw toApiError(res, parsed);
-    if (!parsed.data?.token || !parsed.data.user) {
-      throw new Error("Setup response was incomplete");
-    }
-    setAuthenticatedSession(parsed.data.token);
-    return parsed.data.user;
-  }
-  if (!parsed.success) throw toApiError(res, parsed);
-  const data = parsed.data as { token?: string; user?: AuthUser } | undefined;
+  if ("ok" in parsed ? !parsed.ok : !parsed.success) throw toApiError(res, parsed);
+  const data = ("data" in parsed ? parsed.data : undefined) as
+    | { token?: string; user?: AuthUser }
+    | undefined;
   if (!data?.token || !data.user) {
-    throw new Error("Setup response was incomplete");
+    throw new Error(incompleteMessage);
   }
   setAuthenticatedSession(data.token);
   return data.user;
 }
 
-export async function signupWithCredentials(input: {
-  username: string;
-  password: string;
-  displayName?: string;
-}): Promise<AuthUser> {
-  const res = await fetch("/api/auth/signup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  const parsed = await readAuthResponse<{
-    token: string;
-    user: AuthUser;
-  }>(res);
-  if ("ok" in parsed) {
-    if (!parsed.ok) throw toApiError(res, parsed);
-    if (!parsed.data?.token || !parsed.data.user) {
-      throw new Error("Signup response was incomplete");
-    }
-    setAuthenticatedSession(parsed.data.token);
-    return parsed.data.user;
-  }
-  if (!parsed.success) throw toApiError(res, parsed);
-  const data = parsed.data as { token?: string; user?: AuthUser } | undefined;
-  if (!data?.token || !data.user) {
-    throw new Error("Signup response was incomplete");
-  }
-  setAuthenticatedSession(data.token);
-  return data.user;
+export async function setupFirstAdmin(input: RegistrationInput): Promise<AuthUser> {
+  return registerWithCredentials("/api/auth/setup", input, "Setup response was incomplete");
+}
+
+export async function signupWithCredentials(input: RegistrationInput): Promise<AuthUser> {
+  return registerWithCredentials("/api/auth/signup", input, "Signup response was incomplete");
 }
 
 export async function getCurrentAuthContext(): Promise<CurrentAuthContext> {

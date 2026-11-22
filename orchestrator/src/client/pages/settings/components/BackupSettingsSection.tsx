@@ -1,5 +1,9 @@
 import { EmptyState, ListItem, ListPanel } from "@client/components/layout";
-import { SettingsInput } from "@client/pages/settings/components/SettingsInput";
+import {
+  SettingsCheckboxField,
+  SettingsEffectiveDefault,
+  SettingsInput,
+} from "@client/pages/settings/components/SettingsInput";
 import { SettingsSectionFrame } from "@client/pages/settings/components/SettingsSectionFrame";
 import type { BackupValues } from "@client/pages/settings/types";
 import type { UpdateSettingsInput } from "@shared/settings-schema.js";
@@ -9,7 +13,6 @@ import type React from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 
@@ -113,34 +116,15 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
           />
         </div>
         <Separator />
-        <div className="flex items-start space-x-3">
-          <Controller
-            name="backupEnabled"
-            control={control}
-            render={({ field }) => (
-              <Checkbox
-                id="backupEnabled"
-                checked={field.value ?? backupEnabled.default}
-                onCheckedChange={(checked) => {
-                  field.onChange(checked === "indeterminate" ? null : checked === true);
-                }}
-                disabled={isLoading || isSaving}
-              />
-            )}
-          />
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="backupEnabled"
-              className="cursor-pointer text-sm font-medium leading-none"
-            >
-              Enable automatic backups
-            </label>
-            <p className="text-xs text-muted-foreground">
-              Automatically create database backups on a daily schedule. Manual backups can always
-              be created regardless of this setting.
-            </p>
-          </div>
-        </div>
+        <SettingsCheckboxField
+          name="backupEnabled"
+          defaultValue={backupEnabled.default}
+          label="Enable automatic backups"
+          disabled={isLoading || isSaving}
+        >
+          Automatically create database backups on a daily schedule. Manual backups can always be
+          created regardless of this setting.
+        </SettingsCheckboxField>
 
         {currentBackupEnabled && (
           <div className="grid gap-6 pl-7 md:grid-cols-2">
@@ -278,25 +262,21 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
         <Separator />
 
         <div className="grid gap-2 text-sm sm:grid-cols-3">
-          <div>
-            <div className="text-xs text-muted-foreground">Enabled</div>
-            <div className="break-words font-mono text-xs">
-              Effective: {backupEnabled.effective ? "Yes" : "No"} | Default:{" "}
-              {backupEnabled.default ? "Yes" : "No"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Hour</div>
-            <div className="break-words font-mono text-xs">
-              Effective: {backupHour.effective}:00 UTC | Default: {backupHour.default}:00 UTC
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Max Count</div>
-            <div className="break-words font-mono text-xs">
-              Effective: {backupMaxCount.effective} | Default: {backupMaxCount.default}
-            </div>
-          </div>
+          <SettingsEffectiveDefault
+            label="Enabled"
+            effective={backupEnabled.effective ? "Yes" : "No"}
+            defaultValue={backupEnabled.default ? "Yes" : "No"}
+          />
+          <SettingsEffectiveDefault
+            label="Hour"
+            effective={`${backupHour.effective}:00 UTC`}
+            defaultValue={`${backupHour.default}:00 UTC`}
+          />
+          <SettingsEffectiveDefault
+            label="Max Count"
+            effective={backupMaxCount.effective}
+            defaultValue={backupMaxCount.default}
+          />
         </div>
       </div>
     </SettingsSectionFrame>
