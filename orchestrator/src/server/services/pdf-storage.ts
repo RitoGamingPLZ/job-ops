@@ -41,7 +41,9 @@ export function getTenantJobPdfPath(jobId: string): string {
 }
 
 export async function removeStoredJobPdf(jobId: string): Promise<void> {
-  await getBlobStore().delete(getTenantJobPdfKey(jobId));
+  const blobStore = getBlobStore();
+  await blobStore.delete(getTenantJobPdfKey(jobId));
+  await blobStore.delete(getLegacyJobPdfKey(jobId));
 }
 
 export async function storedJobPdfExists(jobId: string): Promise<boolean> {
@@ -66,9 +68,11 @@ export async function writeStoredJobPdf(
   jobId: string,
   data: Uint8Array | Buffer,
 ): Promise<void> {
-  await getBlobStore().put(getTenantJobPdfKey(jobId), data, {
+  const blobStore = getBlobStore();
+  await blobStore.put(getTenantJobPdfKey(jobId), data, {
     contentType: "application/pdf",
   });
+  await blobStore.delete(getLegacyJobPdfKey(jobId));
 }
 
 export function getLegacyJobPdfPath(jobId: string): string {
