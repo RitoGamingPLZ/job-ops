@@ -238,6 +238,7 @@ describe.sequential("pipeline challenge handling", () => {
       }),
     );
     expect(vi.mocked(steps.importJobsStep)).toHaveBeenCalledWith({
+      priorRunJobs: [],
       discoveredJobs: [earlierJob, laterJob],
     });
   });
@@ -318,6 +319,7 @@ describe.sequential("pipeline challenge handling", () => {
       }),
     );
     expect(vi.mocked(steps.importJobsStep)).toHaveBeenCalledWith({
+      priorRunJobs: [],
       discoveredJobs: [
         expect.objectContaining({
           sourceJobId: "req-1",
@@ -381,6 +383,7 @@ describe.sequential("pipeline challenge handling", () => {
     expect(result).toMatchObject({ success: true });
     expect(vi.mocked(steps.discoverJobsStep)).toHaveBeenCalledTimes(3);
     expect(vi.mocked(steps.importJobsStep)).toHaveBeenCalledWith({
+      priorRunJobs: [],
       discoveredJobs: [
         expect.objectContaining({ jobDescription: "Full detail description" }),
       ],
@@ -456,6 +459,7 @@ describe.sequential("pipeline challenge handling", () => {
     expect(result).toMatchObject({ success: true });
     expect(vi.mocked(steps.discoverJobsStep)).toHaveBeenCalledTimes(4);
     expect(vi.mocked(steps.importJobsStep)).toHaveBeenCalledWith({
+      priorRunJobs: [],
       discoveredJobs: [partialJob],
     });
   });

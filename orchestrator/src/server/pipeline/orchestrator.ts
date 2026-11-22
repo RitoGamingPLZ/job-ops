@@ -440,7 +440,9 @@ export async function runPipeline(
         fuzzyMerged: 0,
       };
       const incrementallyImportedUrls = new Set<string>();
-      const handleSourceDiscovered = async (
+      // Jobs imported so far in this run; later batches fuzzy-dedup against them.
+      const runJobs: CreateJobInput[] = [];
+      const importSourceBatch = async (
         sourceJobs: CreateJobInput[],
         source: string,
       ) => {
@@ -448,11 +450,13 @@ export async function runPipeline(
         try {
           const batch = await importJobsStep({
             discoveredJobs: sourceJobs,
+            priorRunJobs: runJobs,
             emitProgress: false,
           });
           incrementalImportTotals.created += batch.created;
           incrementalImportTotals.skipped += batch.skipped;
           incrementalImportTotals.fuzzyMerged += batch.fuzzyMerged;
+          runJobs.push(...sourceJobs);
           for (const job of sourceJobs) {
             incrementallyImportedUrls.add(job.jobUrl);
           }
@@ -466,6 +470,18 @@ export async function runPipeline(
             },
           );
         }
+      };
+      // Sources finish concurrently; serialise imports so each batch sees the
+      // jobs every earlier batch imported.
+      let importChain = Promise.resolve();
+      const handleSourceDiscovered = (
+        sourceJobs: CreateJobInput[],
+        source: string,
+      ) => {
+        importChain = importChain.then(() =>
+          importSourceBatch(sourceJobs, source),
+        );
+        return importChain;
       };
 
       let { discoveredJobs, sourceErrors, pendingChallenges } =
@@ -592,6 +608,7 @@ export async function runPipeline(
       if (remainingJobs.length > 0 || incrementallyImportedUrls.size === 0) {
         const finalBatch = await importJobsStep({
           discoveredJobs: remainingJobs,
+          priorRunJobs: runJobs,
         });
         created += finalBatch.created;
         skipped += finalBatch.skipped;

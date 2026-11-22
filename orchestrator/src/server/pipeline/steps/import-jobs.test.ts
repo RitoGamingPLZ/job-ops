@@ -1,5 +1,5 @@
 import type { CreateJobInput } from "@shared/types";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { importJobsStep } from "./import-jobs";
 
 vi.mock("@infra/logger", () => ({
@@ -18,6 +18,10 @@ vi.mock("../progress", () => ({
 }));
 
 describe("importJobsStep", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("publishes the job currently being imported", async () => {
     const jobsRepo = await import("@server/repositories/jobs");
     const { progressHelpers } = await import("../progress");
@@ -39,5 +43,59 @@ describe("importJobsStep", () => {
       title: job.title,
       employer: job.employer,
     });
+  });
+
+  it("drops fuzzy duplicates of jobs imported earlier in the run", async () => {
+    const jobsRepo = await import("@server/repositories/jobs");
+    const { progressHelpers } = await import("../progress");
+    const prior: CreateJobInput = {
+      source: "linkedin",
+      title: "Software Engineer",
+      employer: "Acme Ltd",
+      jobUrl: "https://linkedin.com/jobs/1",
+    };
+    const newJob: CreateJobInput = {
+      source: "indeed",
+      title: "Product Designer",
+      employer: "Monzo",
+      jobUrl: "https://indeed.com/jobs/2",
+      location: "London",
+    };
+
+    const result = await importJobsStep({
+      priorRunJobs: [prior],
+      discoveredJobs: [
+        {
+          source: "indeed",
+          title: "Software Engineers",
+          employer: "Acme Limited",
+          jobUrl: "https://indeed.com/jobs/1",
+        },
+        newJob,
+        { ...newJob, jobUrl: "https://indeed.com/jobs/3", salary: "£60,000" },
+      ],
+    });
+
+    expect(result).toEqual({ created: 1, skipped: 0, fuzzyMerged: 2 });
+    expect(jobsRepo.createJobs).toHaveBeenCalledWith(
+      [expect.objectContaining({ ...newJob, salary: "£60,000" })],
+      expect.any(Function),
+    );
+    expect(progressHelpers.importComplete).toHaveBeenCalledWith(1, 2);
+  });
+
+  it("does not dedup against stored jobs from previous runs", async () => {
+    const jobsRepo = await import("@server/repositories/jobs");
+    const job: CreateJobInput = {
+      source: "linkedin",
+      title: "Software Engineer",
+      employer: "Acme Ltd",
+      jobUrl: "https://linkedin.com/jobs/new",
+    };
+
+    expect(
+      await importJobsStep({ discoveredJobs: [job], emitProgress: false }),
+    ).toEqual({ created: 1, skipped: 0, fuzzyMerged: 0 });
+    expect(jobsRepo.createJobs).toHaveBeenCalledWith([job], undefined);
   });
 });
