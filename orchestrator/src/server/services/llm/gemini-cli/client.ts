@@ -19,7 +19,7 @@ export const GEMINI_CLI_SUGGESTED_MODELS: string[] = [
   "google/gemini-2.5-pro",
   "google/gemini-3-flash-preview",
   "google/gemini-3-pro-preview",
-  "google/gemini-3.5-flash-lite",
+  "google/gemini-3.1-flash-lite",
 ];
 
 function getPositiveIntEnv(name: string, fallback: number): number {
@@ -359,7 +359,7 @@ export class GeminiCliClient {
   }
 
   listModels(): Promise<string[]> {
-    const preferred = "google/gemini-3.5-flash-lite";
+    const preferred = "google/gemini-3.1-flash-lite";
     const rest = GEMINI_CLI_SUGGESTED_MODELS.filter((m) => m !== preferred);
     return Promise.resolve([preferred, ...rest]);
   }

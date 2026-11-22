@@ -392,17 +392,17 @@ describe("settingsRegistry helpers", () => {
       expect(getDefaultModelForProvider("anthropic")).toBe("claude-sonnet-4-6");
       expect(getDefaultModelForProvider("glm")).toBe("glm-5.1");
       expect(getDefaultModelForProvider("gemini")).toBe(
-        "google/gemini-3.5-flash-lite",
+        "google/gemini-3.1-flash-lite",
       );
       expect(getDefaultModelForProvider("gemini_cli")).toBe(
-        "google/gemini-3.5-flash-lite",
+        "google/gemini-3.1-flash-lite",
       );
       expect(getDefaultModelForProvider("claude_cli")).toBe("claude-sonnet-5");
       expect(getDefaultModelForProvider("codex")).toBe("gpt-5.4-mini");
       expect(getDefaultModelForProvider("ollama")).toBe("");
       expect(getDefaultModelForProvider("litellm")).toBe("");
       expect(getDefaultModelForProvider("openrouter")).toBe(
-        "google/gemini-3.5-flash-lite",
+        "google/gemini-3.1-flash-lite",
       );
     });
   });

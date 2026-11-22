@@ -892,7 +892,7 @@ function getPreferredModel(provider: LlmProvider): string | null {
   if (provider === "anthropic") return "claude-sonnet-4-6";
   if (provider === "glm") return "glm-5.1";
   if (provider === "gemini" || provider === "gemini_cli") {
-    return "google/gemini-3.5-flash-lite";
+    return "google/gemini-3.1-flash-lite";
   }
   if (provider === "claude_cli") return "claude-sonnet-5";
   return null;

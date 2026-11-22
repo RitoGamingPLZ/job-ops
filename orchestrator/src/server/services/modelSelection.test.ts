@@ -193,7 +193,7 @@ describe("Model Selection Logic", () => {
       const envBefore = { ...process.env };
       await expect(resolveLlmRuntimeSettings("scoring")).resolves.toEqual({
         provider: "gemini",
-        model: "google/gemini-3.5-flash-lite",
+        model: "google/gemini-3.1-flash-lite",
         baseUrl: "https://generativelanguage.googleapis.com",
         apiKey: "synthetic-google-ai-studio-key",
         allowEnvironmentCredentials: false,

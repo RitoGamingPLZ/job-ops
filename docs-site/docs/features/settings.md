@@ -64,7 +64,7 @@ Each meter includes completed usage and work currently in progress. Limits reset
   - `openai` defaults to `gpt-5.4-mini`
   - `codex` defaults to `gpt-5.4-mini`
   - `glm` defaults to `glm-5.1`
-  - `gemini` and `gemini_cli` default to `google/gemini-3.5-flash-lite`
+  - `gemini` and `gemini_cli` default to `google/gemini-3.1-flash-lite`
   - `claude_cli` defaults to `claude-sonnet-5`
   - `litellm` and `ollama` have no default; pick one of the models the server offers
 - The settings page shows provider-aware model pickers for:

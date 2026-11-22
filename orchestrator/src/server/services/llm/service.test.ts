@@ -247,7 +247,7 @@ describe("LlmService provider normalization", () => {
     const llm = new LlmService({ provider: "gemini_cli" });
     const models = await llm.listModels();
 
-    expect(models[0]).toBe("google/gemini-3.5-flash-lite");
+    expect(models[0]).toBe("google/gemini-3.1-flash-lite");
     expect(models.length).toBeGreaterThan(1);
   });
 

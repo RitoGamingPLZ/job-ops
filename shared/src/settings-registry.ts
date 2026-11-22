@@ -85,7 +85,7 @@ function normalizeLlmProviderOrNull(raw: string | undefined): string | null {
   return mapped || null;
 }
 
-export const DEFAULT_GEMINI_MODEL = "google/gemini-3.5-flash-lite";
+export const DEFAULT_GEMINI_MODEL = "google/gemini-3.1-flash-lite";
 export const DEFAULT_ATLAS_CLOUD_MODEL = "deepseek-ai/deepseek-v3.2";
 export const DEFAULT_API_ROUTE_MODEL = "gpt-6.1-sol";
 export const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
