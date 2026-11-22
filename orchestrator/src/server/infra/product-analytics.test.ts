@@ -72,6 +72,34 @@ describe("server product analytics", () => {
     }
   });
 
+  it.each([
+    [{}, {}],
+    [{ tOkEn: "private", nested: {}, list: [], absent: undefined }, {}],
+    [
+      { label: "hello", count: 0, enabled: false, empty: null },
+      { label: "hello", count: 0, enabled: false, empty: null },
+    ],
+    [
+      { QueryText: "private", statusCODE: 1, safe: "retained" },
+      { safe: "retained" },
+    ],
+    [
+      { count: Number.NaN, high: Number.POSITIVE_INFINITY },
+      { count: Number.NaN, high: Number.POSITIVE_INFINITY },
+    ],
+  ])("preserves primitive sanitization for %j", async (input, expected) => {
+    await trackServerProductEvent("sanitizer_case", input);
+    expect(getMockUmami().track).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          ...expected,
+          analytics_user_id: "install-distinct-id",
+          app_version: "v0.test",
+        },
+      }),
+    );
+  });
+
   it("sends Umami-compatible event payloads with sanitized data", async () => {
     const delivered = await trackServerProductEvent(
       "application_offer_detected",

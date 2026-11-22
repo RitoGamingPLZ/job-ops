@@ -1,7 +1,11 @@
 import { isHttpUrl } from "@infra/url";
 import { getOrCreateAnalyticsInstallState } from "@server/repositories/product-analytics";
 import umamiModule from "@umami/node";
-import { withAnalyticsMetadata } from "@/lib/analytics-metadata";
+import {
+  type AnalyticsPayload,
+  sanitizeAnalyticsPayload,
+  withAnalyticsMetadata,
+} from "@/lib/analytics-metadata";
 
 import { logger } from "./logger";
 import { getRequestContext } from "./request-context";
@@ -16,19 +20,6 @@ const UMAMI_FALLBACK_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
 const OPENPANEL_FALLBACK_USER_AGENT = "jobops-orchestrator/1.0";
 const ANALYTICS_DISABLED_TRUTHY_VALUES = new Set(["1", "true", "yes", "on"]);
-const DISALLOWED_KEY_PARTS = [
-  "query",
-  "url",
-  "token",
-  "secret",
-  "password",
-  "authorization",
-  "cookie",
-  "code",
-] as const;
-
-type Primitive = string | number | boolean | null;
-type AnalyticsPayload = Record<string, Primitive>;
 type UmamiClient = {
   init: (options: {
     websiteId: string;
@@ -77,31 +68,6 @@ function normalizeBaseUrl(value: string | null | undefined): string | null {
   const trimmed = value.trim();
   if (!trimmed || !isHttpUrl(trimmed)) return null;
   return trimmed.replace(/\/+$/, "");
-}
-
-function sanitizeAnalyticsPayload(
-  data: Record<string, unknown> | undefined,
-): AnalyticsPayload | undefined {
-  if (!data) return undefined;
-
-  const sanitized: AnalyticsPayload = {};
-  for (const [key, value] of Object.entries(data)) {
-    const loweredKey = key.toLowerCase();
-    if (DISALLOWED_KEY_PARTS.some((part) => loweredKey.includes(part))) {
-      continue;
-    }
-
-    if (
-      value === null ||
-      typeof value === "string" ||
-      typeof value === "number" ||
-      typeof value === "boolean"
-    ) {
-      sanitized[key] = value;
-    }
-  }
-
-  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
 }
 
 function getServerAnalyticsAppVersion(): string | null {
