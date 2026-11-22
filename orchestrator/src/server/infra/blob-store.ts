@@ -207,6 +207,11 @@ export class LocalBlobStore implements BlobStore {
   async list(options?: BlobListOptions): Promise<BlobListEntry[]> {
     const rootDir = this.getBaseDir();
     const prefix = normalizeBlobPrefix(options?.prefix);
+    const segments = prefix.split("/");
+    if (segments.includes("..")) {
+      throw new Error(`Invalid blob key: ${prefix}`);
+    }
+    if (segments.includes(".")) return [];
     const prefixDir = prefix
       .slice(0, prefix.lastIndexOf("/") + 1)
       .replace(/\/$/, "");
@@ -220,7 +225,15 @@ export class LocalBlobStore implements BlobStore {
       try {
         dirEntries = await readdir(dirPath, { withFileTypes: true });
       } catch (error) {
-        if (isEnoentError(error)) return;
+        if (
+          isEnoentError(error) ||
+          (typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            error.code === "ENOTDIR")
+        ) {
+          return;
+        }
         throw error;
       }
 

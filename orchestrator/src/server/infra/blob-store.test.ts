@@ -193,6 +193,25 @@ describe("BlobStore", () => {
       expect(await store.list({ prefix: "missing/tenant/" })).toEqual([]);
       await expect(store.list({ prefix: "../outside/" })).rejects.toThrow();
     });
+
+    it("returns no blobs for dot or non-directory prefixes while rejecting traversal", async () => {
+      const store = new LocalBlobStore(tempDir);
+      await store.put("pdfs/t1/resume_1.pdf", "one");
+      await store.put("pdfs/t2/resume_2.pdf", "other tenant");
+
+      for (const prefix of [
+        "./pdfs/",
+        "pdfs/./t1/",
+        "missing/tenant/",
+        "pdfs/t1/resume_1.pdf/",
+        "pdfs/t1/resume_1.pdf/nested/",
+      ]) {
+        await expect(store.list({ prefix })).resolves.toEqual([]);
+      }
+      await expect(store.list({ prefix: "./pdfs/t1/../t2/" })).rejects.toThrow(
+        "Invalid blob key",
+      );
+    });
   });
 
   describe("R2BlobStore", () => {
