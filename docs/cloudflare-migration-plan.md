@@ -72,7 +72,7 @@ Phases 0 and 1 can run in parallel; Phase 3 is the one risky cutover, and everyt
 | 11 | Port raw `sqlite.prepare/exec/pragma` calls (`execRawSql()` helper + portable migrations) | 2 | Done | 10 |
 | 12 | Audit transactions: synchronous, no `await` inside (`runTransactionSync()` guard in `db/index.ts`) | 2 | Done | 10 |
 | 13 | Ordered SQL baseline + migrations (`portable-migrations.ts` for `better-sqlite3` & DO `SqlStorage`) | 2 | Done | 10 |
-| 14 | `BlobStore` with R2 adapter (`blob-store.ts` wired to `pdf-storage.ts` & `job-document-storage.ts`; live `r2_buckets` binding commented out in `wrangler.jsonc` until R2 is enabled in Cloudflare Dashboard) | 2 | Done (config pending R2 enablement) | — |
+| 14 | `BlobStore` with R2 adapter (`blob-store.ts` wired to `pdf-storage.ts` & `job-document-storage.ts`; `DATA_BUCKET` -> `job-ops-data` bound in `wrangler.jsonc`) | 2 | Done | — |
 | 15 | Move Node-only work (LaTeX, extractors) off the API (`ScraperContainer` & `BlobStore` seams) | 2 | Done | 1 |
 | 16 | `AppStore` DO class + `DB_BACKEND` routing flag (`DB_BACKEND=container` default, `DB_BACKEND=do` ready) | 3 | Done | 10–15 |
 | 17 | Export/import script with per-table checksums (`scripts/export-import-do.ts`) | 3 | Done | 4 |
@@ -95,7 +95,7 @@ Phases 0 and 1 can run in parallel; Phase 3 is the one risky cutover, and everyt
 
 > [!NOTE]
 > **Non-blocking Cloudflare Config Notes:**
-> - **R2 Enablement (`code 10042`):** R2 is not yet enabled in the Cloudflare Dashboard for account `8c0396ac42cb02bd4c09d0aa0cff0e88`. `r2_buckets` is omitted from `job-ops-infra/wrangler.jsonc` so deployments succeed immediately; `DATA_BUCKET?: R2Bucket` remains optional in `Env`. Once R2 is enabled in the dashboard and `job-ops-data` is created, uncomment `r2_buckets` in `wrangler.jsonc`.
+> - **R2 Storage:** Enabled (`job-ops-data` bucket provisioned in `ENAM` and bound as `DATA_BUCKET` in `job-ops-infra/wrangler.jsonc`).
 > - **Browser Rendering Binding:** `gradcracker` and `ukvisajobs` are configured with `runtime: "browser"`, falling back cleanly until a Cloudflare Browser Rendering binding is attached.
 
 ## Phase 0 — Spikes (1 week, throwaway code)
