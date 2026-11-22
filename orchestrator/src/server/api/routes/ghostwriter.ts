@@ -1,11 +1,12 @@
 import { asyncRoute, fail, ok } from "@infra/http";
 import { runWithRequestContext } from "@infra/request-context";
-import { setupSse, writeSseData } from "@infra/sse";
-import { badRequest, toAppError } from "@server/infra/errors";
+import { badRequest } from "@server/infra/errors";
 import { coworkChatContextSchema } from "@server/services/cowork-ai";
 import * as ghostwriterService from "@server/services/ghostwriter";
 import { type Request, Router } from "express";
 import { z } from "zod";
+
+import { streamGhostwriterReply } from "./ghostwriter-stream";
 
 export const ghostwriterRouter = Router({ mergeParams: true });
 
@@ -167,13 +168,8 @@ ghostwriterRouter.post(
 
     await runWithRequestContext({ jobId }, async () => {
       if (parsed.data.stream) {
-        setupSse(res, {
-          cacheControl: "no-cache, no-transform",
-          flushHeaders: true,
-        });
-
-        try {
-          await ghostwriterService.sendMessageForJob({
+        await streamGhostwriterReply(res, (stream) =>
+          ghostwriterService.sendMessageForJob({
             jobId,
             content: parsed.data.content,
             attachments: parsed.data.attachments,
@@ -181,55 +177,9 @@ ghostwriterRouter.post(
             selectedEmailIds: parsed.data.selectedEmailIds,
             selectedDocumentIds: parsed.data.selectedDocumentIds,
             cowork: parsed.data.cowork,
-            stream: {
-              onReady: ({ runId, threadId, messageId, requestId }) =>
-                writeSseData(res, {
-                  type: "ready",
-                  runId,
-                  threadId,
-                  messageId,
-                  requestId,
-                }),
-              onDelta: ({ runId, messageId, delta }) =>
-                writeSseData(res, {
-                  type: "delta",
-                  runId,
-                  messageId,
-                  delta,
-                }),
-              onCompleted: ({ runId, message }) =>
-                writeSseData(res, {
-                  type: "completed",
-                  runId,
-                  message,
-                }),
-              onCancelled: ({ runId, message }) =>
-                writeSseData(res, {
-                  type: "cancelled",
-                  runId,
-                  message,
-                }),
-              onError: ({ runId, code, message, requestId }) =>
-                writeSseData(res, {
-                  type: "error",
-                  runId,
-                  code,
-                  message,
-                  requestId,
-                }),
-            },
-          });
-        } catch (error) {
-          const appError = toAppError(error);
-          writeSseData(res, {
-            type: "error",
-            code: appError.code,
-            message: appError.message,
-            requestId: res.getHeader("x-request-id") || "unknown",
-          });
-        } finally {
-          res.end();
-        }
+            stream,
+          }),
+        );
 
         return;
       }
@@ -292,68 +242,17 @@ ghostwriterRouter.post(
 
     await runWithRequestContext({ jobId }, async () => {
       if (parsed.data.stream) {
-        setupSse(res, {
-          cacheControl: "no-cache, no-transform",
-          flushHeaders: true,
-        });
-
-        try {
-          await ghostwriterService.regenerateMessageForJob({
+        await streamGhostwriterReply(res, (stream) =>
+          ghostwriterService.regenerateMessageForJob({
             jobId,
             assistantMessageId,
             selectedNoteIds: parsed.data.selectedNoteIds,
             selectedEmailIds: parsed.data.selectedEmailIds,
             selectedDocumentIds: parsed.data.selectedDocumentIds,
             cowork: parsed.data.cowork,
-            stream: {
-              onReady: ({ runId, threadId, messageId, requestId }) =>
-                writeSseData(res, {
-                  type: "ready",
-                  runId,
-                  threadId,
-                  messageId,
-                  requestId,
-                }),
-              onDelta: ({ runId, messageId, delta }) =>
-                writeSseData(res, {
-                  type: "delta",
-                  runId,
-                  messageId,
-                  delta,
-                }),
-              onCompleted: ({ runId, message }) =>
-                writeSseData(res, {
-                  type: "completed",
-                  runId,
-                  message,
-                }),
-              onCancelled: ({ runId, message }) =>
-                writeSseData(res, {
-                  type: "cancelled",
-                  runId,
-                  message,
-                }),
-              onError: ({ runId, code, message, requestId }) =>
-                writeSseData(res, {
-                  type: "error",
-                  runId,
-                  code,
-                  message,
-                  requestId,
-                }),
-            },
-          });
-        } catch (error) {
-          const appError = toAppError(error);
-          writeSseData(res, {
-            type: "error",
-            code: appError.code,
-            message: appError.message,
-            requestId: res.getHeader("x-request-id") || "unknown",
-          });
-        } finally {
-          res.end();
-        }
+            stream,
+          }),
+        );
 
         return;
       }
@@ -400,13 +299,8 @@ ghostwriterRouter.post(
         : ghostwriterService.editMessageForJob(input);
     await runWithRequestContext({ jobId }, async () => {
       if (parsed.data.stream) {
-        setupSse(res, {
-          cacheControl: "no-cache, no-transform",
-          flushHeaders: true,
-        });
-
-        try {
-          await edit({
+        await streamGhostwriterReply(res, (stream) =>
+          edit({
             jobId,
             messageId,
             content: parsed.data.content,
@@ -415,55 +309,9 @@ ghostwriterRouter.post(
             selectedEmailIds: parsed.data.selectedEmailIds,
             selectedDocumentIds: parsed.data.selectedDocumentIds,
             cowork: parsed.data.cowork,
-            stream: {
-              onReady: ({ runId, threadId, messageId, requestId }) =>
-                writeSseData(res, {
-                  type: "ready",
-                  runId,
-                  threadId,
-                  messageId,
-                  requestId,
-                }),
-              onDelta: ({ runId, messageId, delta }) =>
-                writeSseData(res, {
-                  type: "delta",
-                  runId,
-                  messageId,
-                  delta,
-                }),
-              onCompleted: ({ runId, message }) =>
-                writeSseData(res, {
-                  type: "completed",
-                  runId,
-                  message,
-                }),
-              onCancelled: ({ runId, message }) =>
-                writeSseData(res, {
-                  type: "cancelled",
-                  runId,
-                  message,
-                }),
-              onError: ({ runId, code, message, requestId }) =>
-                writeSseData(res, {
-                  type: "error",
-                  runId,
-                  code,
-                  message,
-                  requestId,
-                }),
-            },
-          });
-        } catch (error) {
-          const appError = toAppError(error);
-          writeSseData(res, {
-            type: "error",
-            code: appError.code,
-            message: appError.message,
-            requestId: res.getHeader("x-request-id") || "unknown",
-          });
-        } finally {
-          res.end();
-        }
+            stream,
+          }),
+        );
 
         return;
       }
@@ -605,70 +453,22 @@ ghostwriterRouter.post(
 
     await runWithRequestContext({ jobId }, async () => {
       if (parsed.data.stream) {
-        setupSse(res, {
-          cacheControl: "no-cache, no-transform",
-          flushHeaders: true,
-        });
-
-        try {
-          await ghostwriterService.sendMessage({
-            jobId,
-            threadId,
-            content: parsed.data.content,
-            attachments: parsed.data.attachments,
-            selectedNoteIds: parsed.data.selectedNoteIds,
-            selectedEmailIds: parsed.data.selectedEmailIds,
-            selectedDocumentIds: parsed.data.selectedDocumentIds,
-            cowork: parsed.data.cowork,
-            stream: {
-              onReady: ({ runId, messageId, requestId }) =>
-                writeSseData(res, {
-                  type: "ready",
-                  runId,
-                  threadId,
-                  messageId,
-                  requestId,
-                }),
-              onDelta: ({ runId, messageId, delta }) =>
-                writeSseData(res, {
-                  type: "delta",
-                  runId,
-                  messageId,
-                  delta,
-                }),
-              onCompleted: ({ runId, message }) =>
-                writeSseData(res, {
-                  type: "completed",
-                  runId,
-                  message,
-                }),
-              onCancelled: ({ runId, message }) =>
-                writeSseData(res, {
-                  type: "cancelled",
-                  runId,
-                  message,
-                }),
-              onError: ({ runId, code, message, requestId }) =>
-                writeSseData(res, {
-                  type: "error",
-                  runId,
-                  code,
-                  message,
-                  requestId,
-                }),
-            },
-          });
-        } catch (error) {
-          const appError = toAppError(error);
-          writeSseData(res, {
-            type: "error",
-            code: appError.code,
-            message: appError.message,
-            requestId: res.getHeader("x-request-id") || "unknown",
-          });
-        } finally {
-          res.end();
-        }
+        await streamGhostwriterReply(
+          res,
+          (stream) =>
+            ghostwriterService.sendMessage({
+              jobId,
+              threadId,
+              content: parsed.data.content,
+              attachments: parsed.data.attachments,
+              selectedNoteIds: parsed.data.selectedNoteIds,
+              selectedEmailIds: parsed.data.selectedEmailIds,
+              selectedDocumentIds: parsed.data.selectedDocumentIds,
+              cowork: parsed.data.cowork,
+              stream,
+            }),
+          threadId,
+        );
 
         return;
       }
@@ -737,69 +537,21 @@ ghostwriterRouter.post(
 
     await runWithRequestContext({ jobId }, async () => {
       if (parsed.data.stream) {
-        setupSse(res, {
-          cacheControl: "no-cache, no-transform",
-          flushHeaders: true,
-        });
-
-        try {
-          await ghostwriterService.regenerateMessage({
-            jobId,
-            threadId,
-            assistantMessageId,
-            selectedNoteIds: parsed.data.selectedNoteIds,
-            selectedEmailIds: parsed.data.selectedEmailIds,
-            selectedDocumentIds: parsed.data.selectedDocumentIds,
-            cowork: parsed.data.cowork,
-            stream: {
-              onReady: ({ runId, messageId, requestId }) =>
-                writeSseData(res, {
-                  type: "ready",
-                  runId,
-                  threadId,
-                  messageId,
-                  requestId,
-                }),
-              onDelta: ({ runId, messageId, delta }) =>
-                writeSseData(res, {
-                  type: "delta",
-                  runId,
-                  messageId,
-                  delta,
-                }),
-              onCompleted: ({ runId, message }) =>
-                writeSseData(res, {
-                  type: "completed",
-                  runId,
-                  message,
-                }),
-              onCancelled: ({ runId, message }) =>
-                writeSseData(res, {
-                  type: "cancelled",
-                  runId,
-                  message,
-                }),
-              onError: ({ runId, code, message, requestId }) =>
-                writeSseData(res, {
-                  type: "error",
-                  runId,
-                  code,
-                  message,
-                  requestId,
-                }),
-            },
-          });
-        } catch (error) {
-          const appError = toAppError(error);
-          writeSseData(res, {
-            type: "error",
-            code: appError.code,
-            message: appError.message,
-            requestId: res.getHeader("x-request-id") || "unknown",
-          });
-        } finally {
-          res.end();
-        }
+        await streamGhostwriterReply(
+          res,
+          (stream) =>
+            ghostwriterService.regenerateMessage({
+              jobId,
+              threadId,
+              assistantMessageId,
+              selectedNoteIds: parsed.data.selectedNoteIds,
+              selectedEmailIds: parsed.data.selectedEmailIds,
+              selectedDocumentIds: parsed.data.selectedDocumentIds,
+              cowork: parsed.data.cowork,
+              stream,
+            }),
+          threadId,
+        );
 
         return;
       }
