@@ -1,4 +1,8 @@
 import { TokenizedInput } from "@client/pages/orchestrator/TokenizedInput";
+import {
+  SettingsCheckboxField,
+  SettingsEffectiveDefault,
+} from "@client/pages/settings/components/SettingsInput";
 import { SettingsSectionFrame } from "@client/pages/settings/components/SettingsSectionFrame";
 import {
   getMatchingWritingStylePresetId,
@@ -16,7 +20,6 @@ import {
 import type React from "react";
 import { useState } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -163,34 +166,15 @@ export const ChatSettingsSection: React.FC<ChatSettingsSectionProps> = ({
           </div>
         </div>
 
-        <div className="flex items-start space-x-3">
-          <Controller
-            name="ghostwriterStopSlopEnabled"
-            control={control}
-            render={({ field }) => (
-              <Checkbox
-                id="ghostwriterStopSlopEnabled"
-                checked={field.value ?? stopSlopEnabled.default}
-                onCheckedChange={(checked) => {
-                  field.onChange(checked === "indeterminate" ? null : checked === true);
-                }}
-                disabled={isLoading || isSaving}
-              />
-            )}
-          />
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="ghostwriterStopSlopEnabled"
-              className="cursor-pointer text-sm font-medium leading-none"
-            >
-              Use Stop Slop for Ghostwriter
-            </label>
-            <p className="text-xs text-muted-foreground">
-              Applies extra Ghostwriter-only instructions to remove filler, formulaic AI phrasing,
-              passive voice, vague claims, and em dashes.
-            </p>
-          </div>
-        </div>
+        <SettingsCheckboxField
+          name="ghostwriterStopSlopEnabled"
+          defaultValue={stopSlopEnabled.default}
+          label="Use Stop Slop for Ghostwriter"
+          disabled={isLoading || isSaving}
+        >
+          Applies extra Ghostwriter-only instructions to remove filler, formulaic AI phrasing,
+          passive voice, vague claims, and em dashes.
+        </SettingsCheckboxField>
 
         <Separator />
 
@@ -367,39 +351,31 @@ export const ChatSettingsSection: React.FC<ChatSettingsSectionProps> = ({
         <Separator />
 
         <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <div className="text-xs text-muted-foreground">Tone</div>
-            <div className="break-words font-mono text-xs">
-              Effective: {tone.effective} | Default: {tone.default}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Formality</div>
-            <div className="break-words font-mono text-xs">
-              Effective: {formality.effective} | Default: {formality.default}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Language mode</div>
-            <div className="break-words font-mono text-xs">
-              Effective: {LANGUAGE_MODE_LABELS[languageMode.effective]} | Default:{" "}
-              {LANGUAGE_MODE_LABELS[languageMode.default]}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Specific language</div>
-            <div className="break-words font-mono text-xs">
-              Effective: {CHAT_STYLE_MANUAL_LANGUAGE_LABELS[manualLanguage.effective]} | Default:{" "}
-              {CHAT_STYLE_MANUAL_LANGUAGE_LABELS[manualLanguage.default]}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Stop Slop</div>
-            <div className="break-words font-mono text-xs">
-              Effective: {stopSlopEnabled.effective ? "Enabled" : "Disabled"} | Default:{" "}
-              {stopSlopEnabled.default ? "Enabled" : "Disabled"}
-            </div>
-          </div>
+          <SettingsEffectiveDefault
+            label="Tone"
+            effective={tone.effective}
+            defaultValue={tone.default}
+          />
+          <SettingsEffectiveDefault
+            label="Formality"
+            effective={formality.effective}
+            defaultValue={formality.default}
+          />
+          <SettingsEffectiveDefault
+            label="Language mode"
+            effective={LANGUAGE_MODE_LABELS[languageMode.effective]}
+            defaultValue={LANGUAGE_MODE_LABELS[languageMode.default]}
+          />
+          <SettingsEffectiveDefault
+            label="Specific language"
+            effective={CHAT_STYLE_MANUAL_LANGUAGE_LABELS[manualLanguage.effective]}
+            defaultValue={CHAT_STYLE_MANUAL_LANGUAGE_LABELS[manualLanguage.default]}
+          />
+          <SettingsEffectiveDefault
+            label="Stop Slop"
+            effective={stopSlopEnabled.effective ? "Enabled" : "Disabled"}
+            defaultValue={stopSlopEnabled.default ? "Enabled" : "Disabled"}
+          />
         </div>
 
         <Separator />

@@ -1,9 +1,7 @@
+import { SettingsCheckboxField } from "@client/pages/settings/components/SettingsInput";
 import { SettingsSectionFrame } from "@client/pages/settings/components/SettingsSectionFrame";
 import type { DisplayValues } from "@client/pages/settings/types";
-import type { UpdateSettingsInput } from "@shared/settings-schema.js";
 import type React from "react";
-import { Controller, useFormContext } from "react-hook-form";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 
 type DisplaySettingsSectionProps = {
@@ -20,71 +18,32 @@ export const DisplaySettingsSection: React.FC<DisplaySettingsSectionProps> = ({
   layoutMode,
 }) => {
   const { renderMarkdownInJobDescriptions, autoTailorOnManualImport } = values;
-  const { control } = useFormContext<UpdateSettingsInput>();
 
   return (
     <SettingsSectionFrame mode={layoutMode} title="Display Settings" value="display">
       <div className="space-y-4">
-        <div className="flex items-start space-x-3">
-          <Controller
-            name="renderMarkdownInJobDescriptions"
-            control={control}
-            render={({ field }) => (
-              <Checkbox
-                id="renderMarkdownInJobDescriptions"
-                checked={field.value ?? renderMarkdownInJobDescriptions.default}
-                onCheckedChange={(checked) => {
-                  field.onChange(checked === "indeterminate" ? null : checked === true);
-                }}
-                disabled={isLoading || isSaving}
-              />
-            )}
-          />
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="renderMarkdownInJobDescriptions"
-              className="text-sm font-medium leading-none cursor-pointer"
-            >
-              Render Markdown in job descriptions
-            </label>
-            <p className="text-xs text-muted-foreground">
-              Show headings, bold text, lists, and code blocks as formatted content when you expand
-              a full job description. Turn this off if you prefer the raw source text.
-            </p>
-          </div>
-        </div>
+        <SettingsCheckboxField
+          name="renderMarkdownInJobDescriptions"
+          defaultValue={renderMarkdownInJobDescriptions.default}
+          label="Render Markdown in job descriptions"
+          disabled={isLoading || isSaving}
+        >
+          Show headings, bold text, lists, and code blocks as formatted content when you expand a
+          full job description. Turn this off if you prefer the raw source text.
+        </SettingsCheckboxField>
 
         <Separator />
 
-        <div className="flex items-start space-x-3">
-          <Controller
-            name="autoTailorOnManualImport"
-            control={control}
-            render={({ field }) => (
-              <Checkbox
-                id="autoTailorOnManualImport"
-                checked={field.value ?? autoTailorOnManualImport.default}
-                onCheckedChange={(checked) => {
-                  field.onChange(checked === "indeterminate" ? null : checked === true);
-                }}
-                disabled={isLoading || isSaving}
-              />
-            )}
-          />
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="autoTailorOnManualImport"
-              className="text-sm font-medium leading-none cursor-pointer"
-            >
-              Auto-tailor manually imported jobs
-            </label>
-            <p className="text-xs text-muted-foreground">
-              When enabled, jobs added via Manual Import are immediately scored and have a tailored
-              resume PDF generated. Turn off to save LLM tokens and tailor later from the job detail
-              view. You can override this per import in the review step.
-            </p>
-          </div>
-        </div>
+        <SettingsCheckboxField
+          name="autoTailorOnManualImport"
+          defaultValue={autoTailorOnManualImport.default}
+          label="Auto-tailor manually imported jobs"
+          disabled={isLoading || isSaving}
+        >
+          When enabled, jobs added via Manual Import are immediately scored and have a tailored
+          resume PDF generated. Turn off to save LLM tokens and tailor later from the job detail
+          view. You can override this per import in the review step.
+        </SettingsCheckboxField>
 
         <Separator />
 

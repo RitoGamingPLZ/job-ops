@@ -241,4 +241,34 @@ describe("API client auth flow", () => {
       }),
     );
   });
+
+  it.each([
+    ["setupFirstAdmin", "/api/auth/setup", "Setup"],
+    ["signupWithCredentials", "/api/auth/signup", "Signup"],
+  ] as const)(
+    "%s posts to %s and installs the session for both envelopes",
+    async (fn, endpoint, word) => {
+      const user = { id: "u1", username: "user" };
+      const input = { username: "user", password: "pass" };
+      const fetchSpy = vi.spyOn(global, "fetch");
+      fetchSpy
+        .mockResolvedValueOnce(createJsonResponse(200, { ok: true, data: { token: "t1", user } }))
+        .mockResolvedValueOnce(
+          createJsonResponse(200, { success: true, data: { token: "t2", user } }),
+        )
+        .mockResolvedValueOnce(createJsonResponse(200, { ok: true, data: { user } }))
+        .mockResolvedValueOnce(
+          createJsonResponse(409, { ok: false, error: { code: "CONFLICT", message: "Taken" } }),
+        );
+
+      await expect(api[fn](input)).resolves.toEqual(user);
+      expect(fetchSpy.mock.calls[0]?.[0]).toBe(endpoint);
+      expect(api.getCachedAuthHeader()).toBe("Bearer t1");
+      await expect(api[fn](input)).resolves.toEqual(user);
+      expect(api.getCachedAuthHeader()).toBe("Bearer t2");
+      await expect(api[fn](input)).rejects.toThrow(`${word} response was incomplete`);
+      await expect(api[fn](input)).rejects.toThrow("Taken");
+      expect(redirectToSignIn).not.toHaveBeenCalled();
+    },
+  );
 });

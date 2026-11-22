@@ -17,3 +17,26 @@ export const getRenderableJobDescription = (jobDescription?: string | null) => {
 
   return normalizedLineBreaks;
 };
+
+const SAFE_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
+
+/** Returns href unchanged if it is an absolute http(s)/mailto link, else undefined. */
+export const getSafeJobDescriptionHref = (href?: string | null) => {
+  if (!href) return undefined;
+
+  try {
+    const url = new URL(href, "https://job-ops.local");
+    if (
+      url.origin === "https://job-ops.local" &&
+      !href.startsWith("http://") &&
+      !href.startsWith("https://") &&
+      !href.startsWith("mailto:")
+    ) {
+      return undefined;
+    }
+
+    return SAFE_PROTOCOLS.has(url.protocol) ? href : undefined;
+  } catch {
+    return undefined;
+  }
+};
