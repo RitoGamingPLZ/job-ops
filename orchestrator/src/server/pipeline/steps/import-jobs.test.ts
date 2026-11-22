@@ -8,7 +8,6 @@ vi.mock("@infra/logger", () => ({
 
 vi.mock("@server/repositories/jobs", () => ({
   createJobs: vi.fn(async () => ({ created: 1, skipped: 0 })),
-  getJobDeduplicationCandidates: vi.fn(async () => []),
 }));
 
 vi.mock("../progress", () => ({
@@ -46,42 +45,34 @@ describe("importJobsStep", () => {
     });
   });
 
-  it("preserves within-batch field merging and counts stored fuzzy duplicates", async () => {
+  it("drops fuzzy duplicates of jobs imported earlier in the run", async () => {
     const jobsRepo = await import("@server/repositories/jobs");
     const { progressHelpers } = await import("../progress");
-    const stored: CreateJobInput = {
+    const prior: CreateJobInput = {
       source: "linkedin",
       title: "Software Engineer",
       employer: "Acme Ltd",
       jobUrl: "https://linkedin.com/jobs/1",
     };
-    vi.mocked(jobsRepo.getJobDeduplicationCandidates).mockResolvedValueOnce([
-      stored,
-    ]);
     const newJob: CreateJobInput = {
-      source: "linkedin",
+      source: "indeed",
       title: "Product Designer",
       employer: "Monzo",
-      jobUrl: "https://linkedin.com/jobs/2",
+      jobUrl: "https://indeed.com/jobs/2",
       location: "London",
     };
 
     const result = await importJobsStep({
+      priorRunJobs: [prior],
       discoveredJobs: [
         {
-          ...stored,
           source: "indeed",
           title: "Software Engineers",
           employer: "Acme Limited",
           jobUrl: "https://indeed.com/jobs/1",
         },
         newJob,
-        {
-          ...newJob,
-          source: "indeed",
-          jobUrl: "https://indeed.com/jobs/2",
-          salary: "£60,000",
-        },
+        { ...newJob, jobUrl: "https://indeed.com/jobs/3", salary: "£60,000" },
       ],
     });
 
@@ -93,25 +84,18 @@ describe("importJobsStep", () => {
     expect(progressHelpers.importComplete).toHaveBeenCalledWith(1, 2);
   });
 
-  it("leaves exact URL duplicates counted as skipped", async () => {
+  it("does not dedup against stored jobs from previous runs", async () => {
     const jobsRepo = await import("@server/repositories/jobs");
     const job: CreateJobInput = {
       source: "linkedin",
-      title: "Frontend Engineer",
-      employer: "Monzo",
-      jobUrl: "https://example.com/jobs/1",
+      title: "Software Engineer",
+      employer: "Acme Ltd",
+      jobUrl: "https://linkedin.com/jobs/new",
     };
-    vi.mocked(jobsRepo.getJobDeduplicationCandidates).mockResolvedValueOnce([
-      job,
-    ]);
-    vi.mocked(jobsRepo.createJobs).mockResolvedValueOnce({
-      created: 0,
-      skipped: 1,
-    });
 
     expect(
       await importJobsStep({ discoveredJobs: [job], emitProgress: false }),
-    ).toEqual({ created: 0, skipped: 1, fuzzyMerged: 0 });
+    ).toEqual({ created: 1, skipped: 0, fuzzyMerged: 0 });
     expect(jobsRepo.createJobs).toHaveBeenCalledWith([job], undefined);
   });
 });

@@ -6,6 +6,8 @@ import { progressHelpers } from "../progress";
 
 export async function importJobsStep(args: {
   discoveredJobs: CreateJobInput[];
+  /** Jobs already imported earlier in this pipeline run. */
+  priorRunJobs?: CreateJobInput[];
   emitProgress?: boolean;
 }): Promise<{ created: number; skipped: number; fuzzyMerged: number }> {
   const emitProgress = args.emitProgress !== false;
@@ -13,19 +15,14 @@ export async function importJobsStep(args: {
     discovered: args.discoveredJobs.length,
   });
 
-  const batchJobs = deduplicateJobsByTitleAndEmployer(args.discoveredJobs);
-  const existingJobs =
-    batchJobs.length > 0 ? await jobsRepo.getJobDeduplicationCandidates() : [];
-  const existingUrls = new Set(existingJobs.map((job) => job.jobUrl));
-  const dedupedJobs = batchJobs.filter(
-    (job) =>
-      // Leave exact URL duplicates to createJobs so they remain counted as skipped.
-      existingUrls.has(job.jobUrl) ||
-      !existingJobs.some(
-        (existing) =>
-          deduplicateJobsByTitleAndEmployer([existing, job]).length === 1,
-      ),
-  );
+  // Dedup against jobs already imported earlier in this run (other sources),
+  // then drop those prior entries: they are stored already.
+  const priorRunJobs = args.priorRunJobs ?? [];
+  const priorUrls = new Set(priorRunJobs.map((job) => job.jobUrl));
+  const dedupedJobs = deduplicateJobsByTitleAndEmployer([
+    ...priorRunJobs,
+    ...args.discoveredJobs,
+  ]).filter((job) => !priorUrls.has(job.jobUrl));
   const fuzzyMerged = args.discoveredJobs.length - dedupedJobs.length;
 
   if (fuzzyMerged > 0) {
