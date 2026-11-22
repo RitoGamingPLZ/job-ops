@@ -1,5 +1,6 @@
 import * as api from "@client/api";
 import { useSettings } from "@client/hooks/useSettings";
+import { getBlockedAutofetchLabel } from "@shared/manual-job-autofetch";
 import type { ManualJobDraft } from "@shared/types.js";
 import {
   ArrowDown,
@@ -232,22 +233,6 @@ const OTHER_REVIEW_FIELDS: ReviewFieldConfig[] = [
   },
 ];
 
-const BLOCKED_AUTOFETCH_HOSTS: Array<{
-  label: string;
-  match: (hostname: string) => boolean;
-}> = [
-  {
-    label: "LinkedIn",
-    match: (hostname) =>
-      hostname === "linkedin.com" || hostname.endsWith(".linkedin.com"),
-  },
-  {
-    label: "Indeed",
-    match: (hostname) =>
-      hostname === "indeed.com" || hostname.includes("indeed."),
-  },
-];
-
 const normalizeDraft = (
   draft?: ManualJobDraft | null,
   jd?: string,
@@ -315,13 +300,6 @@ function getSourceHost(value: string): string | null {
   } catch {
     return null;
   }
-}
-
-function getBlockedAutofetchLabel(value: string): string | null {
-  const host = getSourceHost(value)?.toLowerCase();
-  if (!host) return null;
-  const blocked = BLOCKED_AUTOFETCH_HOSTS.find((entry) => entry.match(host));
-  return blocked?.label ?? null;
 }
 
 const MAX_BULK_URLS = 25;

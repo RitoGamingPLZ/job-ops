@@ -1,3 +1,8 @@
+import {
+  getLocalDayRange,
+  parseLocalDateKey,
+  toLocalDateKey,
+} from "@client/lib/local-calendar";
 /**
  * Applications Per Day Chart
  * Shows daily application volume over a selected time range.
@@ -32,28 +37,11 @@ const chartConfig = {
   },
 };
 
-const toDateKey = (value: Date) => {
-  const year = value.getFullYear();
-  const month = `${value.getMonth() + 1}`.padStart(2, "0");
-  const day = `${value.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-// Bucket keys represent local calendar days, not UTC timestamps.
-const parseDateKey = (value: string) => {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-};
-
 const buildApplicationsPerDay = (
   appliedAt: Array<string | null>,
   daysToShow: number,
 ) => {
-  const end = new Date();
-  end.setHours(23, 59, 59, 999);
-  const start = new Date(end);
-  start.setDate(start.getDate() - (daysToShow - 1));
-  start.setHours(0, 0, 0, 0);
+  const { start, end } = getLocalDayRange(daysToShow);
 
   const counts = new Map<string, number>();
   for (const value of appliedAt) {
@@ -61,7 +49,7 @@ const buildApplicationsPerDay = (
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) continue;
     if (date < start || date > end) continue;
-    const key = toDateKey(date);
+    const key = toLocalDateKey(date);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
@@ -71,7 +59,7 @@ const buildApplicationsPerDay = (
     day <= end;
     day = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1)
   ) {
-    const key = toDateKey(day);
+    const key = toLocalDateKey(day);
     data.push({ date: key, applications: counts.get(key) ?? 0 });
   }
 
@@ -178,7 +166,7 @@ export function ApplicationsPerDayChart({
                 tickMargin={8}
                 minTickGap={32}
                 tickFormatter={(value) => {
-                  const date = parseDateKey(value);
+                  const date = parseLocalDateKey(value);
                   return date.toLocaleDateString("en-GB", {
                     month: "short",
                     day: "numeric",
@@ -192,7 +180,7 @@ export function ApplicationsPerDayChart({
                     className="w-[160px]"
                     nameKey="applications"
                     labelFormatter={(value) =>
-                      parseDateKey(value as string).toLocaleDateString(
+                      parseLocalDateKey(value as string).toLocaleDateString(
                         "en-GB",
                         {
                           month: "short",

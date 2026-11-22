@@ -1,7 +1,5 @@
 import { Banknote } from "lucide-react";
 import type React from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -12,7 +10,11 @@ import {
 import type { SalaryFilterMode } from "../constants";
 import { FilterPill } from "./FilterPill";
 import { salaryModeOptions } from "./filterOptions";
+import { NumericFilterInput } from "./NumericFilterInput";
 import type { SalaryFilterPillProps } from "./types";
+
+const positiveOrNull = (value: number): number | null =>
+  value > 0 ? value : null;
 
 export const SalaryFilterPill: React.FC<SalaryFilterPillProps> = ({
   salaryFilter,
@@ -81,43 +83,24 @@ export const SalaryFilterPill: React.FC<SalaryFilterPillProps> = ({
 
         <div className="grid gap-3 sm:grid-cols-2">
           {showSalaryMin && (
-            <div className="space-y-1">
-              <Label htmlFor="salary-min-filter">Minimum</Label>
-              <Input
-                id="salary-min-filter"
-                value={salaryFilter.min == null ? "" : String(salaryFilter.min)}
-                onChange={(event) => {
-                  const raw = event.target.value.trim();
-                  const parsed = Number.parseInt(raw, 10);
-                  onSalaryFilterChange({
-                    ...salaryFilter,
-                    min: Number.isFinite(parsed) && parsed > 0 ? parsed : null,
-                  });
-                }}
-                inputMode="numeric"
-                placeholder="e.g. 60000"
-              />
-            </div>
+            <NumericFilterInput
+              id="salary-min-filter"
+              label="Minimum"
+              value={salaryFilter.min}
+              onChange={(min) => onSalaryFilterChange({ ...salaryFilter, min })}
+              normalize={positiveOrNull}
+              placeholder="e.g. 60000"
+            />
           )}
-
           {showSalaryMax && (
-            <div className="space-y-1">
-              <Label htmlFor="salary-max-filter">Maximum</Label>
-              <Input
-                id="salary-max-filter"
-                value={salaryFilter.max == null ? "" : String(salaryFilter.max)}
-                onChange={(event) => {
-                  const raw = event.target.value.trim();
-                  const parsed = Number.parseInt(raw, 10);
-                  onSalaryFilterChange({
-                    ...salaryFilter,
-                    max: Number.isFinite(parsed) && parsed > 0 ? parsed : null,
-                  });
-                }}
-                inputMode="numeric"
-                placeholder="e.g. 100000"
-              />
-            </div>
+            <NumericFilterInput
+              id="salary-max-filter"
+              label="Maximum"
+              value={salaryFilter.max}
+              onChange={(max) => onSalaryFilterChange({ ...salaryFilter, max })}
+              normalize={positiveOrNull}
+              placeholder="e.g. 100000"
+            />
           )}
         </div>
       </div>

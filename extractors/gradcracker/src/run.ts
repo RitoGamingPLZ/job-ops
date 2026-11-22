@@ -1,11 +1,11 @@
 import { spawn } from "node:child_process";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import {
   createPersistedFetchCookieJar,
   getCloudflareCookieStorageDir,
+  subscribeChildProcessLines,
 } from "browser-utils";
 import * as cheerio from "cheerio";
 import type { Element } from "domhandler";
@@ -848,19 +848,10 @@ async function runBrowserCrawler(
         stream.write(`${line}\n`);
       };
 
-      const stdoutRl = child.stdout
-        ? createInterface({ input: child.stdout })
-        : null;
-      const stderrRl = child.stderr
-        ? createInterface({ input: child.stderr })
-        : null;
-
-      stdoutRl?.on("line", (line) => handleLine(line, process.stdout));
-      stderrRl?.on("line", (line) => handleLine(line, process.stderr));
+      const closeLines = subscribeChildProcessLines(child, handleLine);
 
       child.on("close", (code) => {
-        stdoutRl?.close();
-        stderrRl?.close();
+        closeLines();
         if (settled) return;
         settled = true;
         if (code === 0) {

@@ -1,4 +1,3 @@
-import * as api from "@client/api";
 import { ClaudeCliSetupHint } from "@client/components/ClaudeCliSetupHint";
 import { CodexAuthPanel } from "@client/components/CodexAuthPanel";
 import { GeminiCliSetupHint } from "@client/components/GeminiCliSetupHint";
@@ -19,7 +18,7 @@ import type {
   LlmPurposeOverrides,
 } from "@shared/types";
 import type React from "react";
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -40,6 +39,7 @@ import {
   renderKeyHelper,
 } from "./llm-model-configuration-helpers";
 import ModelField from "./ModelField";
+import { useLlmModels } from "./useLlmModels";
 
 type TextFieldBinding = {
   value: string;
@@ -103,9 +103,6 @@ export function LlmModelConfiguration({
   validationSlot,
   onCodexAuthStatusChange,
 }: LlmModelConfigurationProps) {
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
-  const [isLoadingModels, setIsLoadingModels] = useState(false);
-  const [modelsError, setModelsError] = useState<string | null>(null);
   const providerConfig = getLlmProviderConfig(selectedProvider);
   const { showApiKey, showBaseUrl } = providerConfig;
   const isCodexProvider = providerConfig.normalizedProvider === "codex";
@@ -138,60 +135,15 @@ export function LlmModelConfiguration({
     }
   }, [baseUrl, showBaseUrl]);
 
-  useEffect(() => {
-    if (!supportsModelSuggestions) {
-      setAvailableModels([]);
-      setModelsError(null);
-      setIsLoadingModels(false);
-      return;
-    }
-
-    if (!hasAvailableApiKey) {
-      setAvailableModels([]);
-      setModelsError(null);
-      setIsLoadingModels(false);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoadingModels(true);
-    setModelsError(null);
-
-    void api
-      .getLlmModels({
-        provider: deferredProvider,
-        baseUrl: showBaseUrl ? deferredBaseUrl.trim() || undefined : undefined,
-        apiKey: showApiKey ? deferredApiKey.trim() || undefined : undefined,
-      })
-      .then((models) => {
-        if (cancelled) return;
-        setAvailableModels(models);
-        setModelsError(null);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setAvailableModels([]);
-        setModelsError(
-          error instanceof Error ? error.message : "Failed to load models.",
-        );
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setIsLoadingModels(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    deferredApiKey,
-    deferredBaseUrl,
-    deferredProvider,
-    hasAvailableApiKey,
-    showApiKey,
+  const { availableModels, isLoadingModels, modelsError } = useLlmModels({
+    provider: deferredProvider,
+    baseUrl: deferredBaseUrl,
+    apiKey: deferredApiKey,
     showBaseUrl,
-    supportsModelSuggestions,
-  ]);
+    showApiKey,
+    enabled: supportsModelSuggestions && hasAvailableApiKey,
+    hasSavedKey: hasAvailableApiKey,
+  });
 
   const handleProviderChange = (value: string) => {
     provider.onChange(value);

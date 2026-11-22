@@ -3,6 +3,7 @@ import {
   getCountryNameVariants,
   normalizeCountryKey,
 } from "./location-support.js";
+import { normalizeStringArray } from "./normalize-string-array";
 
 const LOCATION_ALIASES: Record<string, string> = {
   uk: "united kingdom",
@@ -28,17 +29,7 @@ export function parseSearchCitiesSetting(
     : trimmed.includes("\n")
       ? trimmed.split("\n")
       : [trimmed];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of split) {
-    const normalized = raw.trim();
-    if (!normalized) continue;
-    const key = normalized.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(normalized);
-  }
-  return out;
+  return normalizeStringArray(split);
 }
 
 interface ResolveSearchCitiesOptions {

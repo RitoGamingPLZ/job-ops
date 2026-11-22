@@ -1,3 +1,4 @@
+import { normalizeStringArray } from "./normalize-string-array";
 export type GhostwriterContextBudgetOptions<TInput, TOutput> = {
   maxItemChars: number;
   maxTotalChars: number;
@@ -18,17 +19,7 @@ export type GhostwriterContextBudgetResult<TItem> = {
 export function normalizeGhostwriterSelectedContextIds(
   selectedIds: readonly string[],
 ): string[] {
-  const seen = new Set<string>();
-  const normalized: string[] = [];
-
-  for (const selectedId of selectedIds) {
-    const trimmed = selectedId.trim();
-    if (!trimmed || seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    normalized.push(trimmed);
-  }
-
-  return normalized;
+  return normalizeStringArray(selectedIds, { caseSensitive: true });
 }
 
 export function buildGhostwriterContextBudgetItems<TInput, TOutput>(

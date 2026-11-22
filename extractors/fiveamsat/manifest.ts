@@ -1,37 +1,7 @@
+import { toTermProgress } from "job-ops-shared/extractor-progress";
 import { normalizeCountryKey } from "job-ops-shared/location-support";
-import type {
-  ExtractorManifest,
-  ExtractorProgressEvent,
-} from "job-ops-shared/types/extractors";
+import type { ExtractorManifest } from "job-ops-shared/types/extractors";
 import { runFiveamsat } from "./src/run";
-
-function toProgress(event: {
-  type: string;
-  termIndex: number;
-  termTotal: number;
-  searchTerm: string;
-  jobsFoundTerm?: number;
-}): ExtractorProgressEvent {
-  if (event.type === "term_start") {
-    return {
-      phase: "list",
-      termsProcessed: Math.max(event.termIndex - 1, 0),
-      termsTotal: event.termTotal,
-      currentUrl: event.searchTerm,
-      detail: `Khamsat: term ${event.termIndex}/${event.termTotal} (${event.searchTerm})`,
-    };
-  }
-
-  return {
-    phase: "list",
-    termsProcessed: event.termIndex,
-    termsTotal: event.termTotal,
-    currentUrl: event.searchTerm,
-    jobPagesEnqueued: event.jobsFoundTerm ?? 0,
-    jobPagesProcessed: event.jobsFoundTerm ?? 0,
-    detail: `Khamsat: completed ${event.termIndex}/${event.termTotal} (${event.searchTerm}) with ${event.jobsFoundTerm ?? 0} services`,
-  };
-}
 
 export const manifest: ExtractorManifest = {
   id: "fiveamsat",
@@ -65,7 +35,12 @@ export const manifest: ExtractorManifest = {
       shouldCancel: context.shouldCancel,
       onProgress: (event) => {
         if (context.shouldCancel?.()) return;
-        context.onProgress?.(toProgress(event));
+        context.onProgress?.(
+          toTermProgress(event, {
+            label: "Khamsat",
+            completionNoun: "services",
+          }),
+        );
       },
     });
 

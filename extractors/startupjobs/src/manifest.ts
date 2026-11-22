@@ -1,3 +1,7 @@
+import {
+  type ExtractorTermEvent,
+  toTermProgress,
+} from "@shared/extractor-progress";
 import { resolveSearchCities } from "@shared/search-cities.js";
 import type {
   ExtractorManifest,
@@ -5,37 +9,15 @@ import type {
 } from "@shared/types/extractors";
 import { runStartupJobs } from "./run";
 
-function toProgress(event: {
-  type: string;
-  termIndex: number;
-  termTotal: number;
-  searchTerm: string;
-  location?: string;
-  jobsFoundTerm?: number;
-}): ExtractorProgressEvent {
-  const scope = event.location
-    ? `${event.searchTerm} @ ${event.location}`
-    : event.searchTerm;
-
-  if (event.type === "term_start") {
-    return {
-      phase: "list",
-      termsProcessed: Math.max(event.termIndex - 1, 0),
-      termsTotal: event.termTotal,
-      currentUrl: scope,
-      detail: `startup.jobs: term ${event.termIndex}/${event.termTotal} (${scope})`,
-    };
-  }
-
-  return {
-    phase: "list",
-    termsProcessed: event.termIndex,
-    termsTotal: event.termTotal,
-    currentUrl: scope,
-    jobPagesProcessed: event.jobsFoundTerm ?? 0,
-    jobPagesEnqueued: event.jobsFoundTerm ?? 0,
-    detail: `startup.jobs: completed ${event.termIndex}/${event.termTotal} (${scope}) with ${event.jobsFoundTerm ?? 0} jobs`,
-  };
+function toProgress(
+  event: ExtractorTermEvent & { location?: string },
+): ExtractorProgressEvent {
+  return toTermProgress(event, {
+    label: "startup.jobs",
+    scope: event.location
+      ? `${event.searchTerm} @ ${event.location}`
+      : event.searchTerm,
+  });
 }
 
 export const manifest: ExtractorManifest = {

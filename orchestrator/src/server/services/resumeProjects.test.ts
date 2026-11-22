@@ -104,6 +104,17 @@ describe("Resume Projects Logic", () => {
       expect(result.aiSelectableProjectIds).toEqual(["b"]);
     });
 
+    it("should trim and dedupe IDs case-sensitively", () => {
+      const result = rp.normalizeResumeProjectsSettings({
+        maxProjects: 10,
+        lockedProjectIds: [" A", "a", "A ", " "],
+        aiSelectableProjectIds: ["B", "b ", "B", "A"],
+      });
+
+      expect(result.lockedProjectIds).toEqual(["A", "a"]);
+      expect(result.aiSelectableProjectIds).toEqual(["B", "b"]);
+    });
+
     it("should ensure maxProjects is at least len(locked)", () => {
       const input = {
         maxProjects: 1, // Too small

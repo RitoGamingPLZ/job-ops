@@ -1,6 +1,7 @@
 import type { ApplicationStage } from "@shared/types";
 import {
   type AnalyticsPayload,
+  sanitizeAnalyticsPayload,
   withAnalyticsMetadata,
 } from "@/lib/analytics-metadata";
 
@@ -502,39 +503,6 @@ const recentEventCache = new Map<string, number>();
 let cachedAnalyticsUserId: string | null = null;
 let cachedAnalyticsSessionId: string | null = null;
 let cachedDistinctId: string | null = null;
-const DISALLOWED_KEY_PARTS = [
-  "query",
-  "url",
-  "token",
-  "secret",
-  "password",
-  "authorization",
-  "cookie",
-  "code",
-] as const;
-
-function sanitizeEventPayload(
-  data: Record<string, unknown> | undefined,
-): SanitizedPayload | undefined {
-  if (!data) return undefined;
-  const sanitized: SanitizedPayload = {};
-  for (const [key, value] of Object.entries(data)) {
-    const loweredKey = key.toLowerCase();
-    if (DISALLOWED_KEY_PARTS.some((part) => loweredKey.includes(part))) {
-      continue;
-    }
-    if (
-      value === null ||
-      typeof value === "string" ||
-      typeof value === "number" ||
-      typeof value === "boolean"
-    ) {
-      sanitized[key] = value;
-    }
-  }
-  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
-}
-
 function stableStringify(value: Record<string, Primitive> | undefined): string {
   if (!value) return "";
   const orderedKeys = Object.keys(value).sort();
@@ -567,7 +535,7 @@ export function trackProductEvent<T extends ProductEventName>(
   event: T,
   data: ProductEventMap[T],
 ) {
-  const sanitized = sanitizeEventPayload(data as Record<string, unknown>);
+  const sanitized = sanitizeAnalyticsPayload(data as Record<string, unknown>);
   if (shouldDedupe(event, sanitized)) return;
   trackEvent(event, sanitized);
 }

@@ -1,37 +1,7 @@
+import { toTermProgress } from "@shared/extractor-progress";
 import { resolveSearchCities } from "@shared/search-cities.js";
-import type {
-  ExtractorManifest,
-  ExtractorProgressEvent,
-} from "@shared/types/extractors";
+import type { ExtractorManifest } from "@shared/types/extractors";
 import { runWorkingNomads } from "./run";
-
-function toProgress(event: {
-  type: string;
-  termIndex: number;
-  termTotal: number;
-  searchTerm: string;
-  jobsFoundTerm?: number;
-}): ExtractorProgressEvent {
-  if (event.type === "term_start") {
-    return {
-      phase: "list",
-      termsProcessed: Math.max(event.termIndex - 1, 0),
-      termsTotal: event.termTotal,
-      currentUrl: event.searchTerm,
-      detail: `Working Nomads: term ${event.termIndex}/${event.termTotal} (${event.searchTerm})`,
-    };
-  }
-
-  return {
-    phase: "list",
-    termsProcessed: event.termIndex,
-    termsTotal: event.termTotal,
-    currentUrl: event.searchTerm,
-    jobPagesEnqueued: event.jobsFoundTerm ?? 0,
-    jobPagesProcessed: event.jobsFoundTerm ?? 0,
-    detail: `Working Nomads: completed ${event.termIndex}/${event.termTotal} (${event.searchTerm}) with ${event.jobsFoundTerm ?? 0} jobs`,
-  };
-}
 
 export const manifest: ExtractorManifest = {
   id: "workingnomads",
@@ -70,7 +40,9 @@ export const manifest: ExtractorManifest = {
       shouldCancel: context.shouldCancel,
       onProgress: (event) => {
         if (context.shouldCancel?.()) return;
-        context.onProgress?.(toProgress(event));
+        context.onProgress?.(
+          toTermProgress(event, { label: "Working Nomads" }),
+        );
       },
     });
 

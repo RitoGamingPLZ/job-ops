@@ -1,5 +1,6 @@
 import { normalizeCountryKey } from "@shared/location-support.js";
 import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
+import { toIntegerOrFallback } from "@shared/utils/type-conversion.js";
 
 const JOBINDEX_BASE_URL = "https://www.jobindex.dk";
 const JOBINDEX_SEARCH_URL = `${JOBINDEX_BASE_URL}/jobsoegning`;
@@ -113,21 +114,6 @@ interface JobindexStash {
   "jobsearch/result_app"?: {
     storeData?: JobindexStoreData;
   };
-}
-
-function toPositiveIntOrFallback(
-  value: number | string | undefined,
-  fallback: number,
-): number {
-  const parsed =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number.parseInt(value, 10)
-        : Number.NaN;
-
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.max(1, Math.floor(parsed));
 }
 
 function getString(value: unknown): string | undefined {
@@ -517,7 +503,7 @@ export async function runJobindex(
       ? options.searchTerms
       : ["software engineer"];
   const cityLocations = options.cityLocations ?? [];
-  const maxJobsPerTerm = toPositiveIntOrFallback(options.maxJobsPerTerm, 50);
+  const maxJobsPerTerm = toIntegerOrFallback(options.maxJobsPerTerm, 50);
   const jobs: CreateJobInput[] = [];
   const seen = new Set<string>();
 
@@ -562,7 +548,7 @@ export async function runJobindex(
         const rawResults = Array.isArray(searchResponse.results)
           ? (searchResponse.results as JobindexSearchResult[])
           : [];
-        const parsedTotalPages = toPositiveIntOrFallback(
+        const parsedTotalPages = toIntegerOrFallback(
           typeof searchResponse.total_pages === "number" ||
             typeof searchResponse.total_pages === "string"
             ? searchResponse.total_pages

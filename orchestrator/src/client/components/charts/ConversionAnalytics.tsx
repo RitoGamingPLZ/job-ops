@@ -1,3 +1,8 @@
+import {
+  getLocalDayRange,
+  parseLocalDateKey,
+  toLocalDateKey,
+} from "@client/lib/local-calendar";
 /**
  * Conversion Analytics
  * Shows Application → Response conversion metrics including funnel, time-series, and insights.
@@ -94,13 +99,6 @@ const OFFER_STAGES = new Set(["offer"]);
 const isRejectedEvent = (event: StageEvent) =>
   event.outcome === "rejected" || event.metadata?.reasonCode === "rejected";
 
-const toDateKey = (value: Date) => {
-  const year = value.getFullYear();
-  const month = `${value.getMonth() + 1}`.padStart(2, "0");
-  const day = `${value.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
 // Build funnel data from jobs with their stage events
 const buildFunnelData = (jobsWithEvents: JobWithEvents[]): FunnelStage[] => {
   let applied = 0;
@@ -157,22 +155,12 @@ const buildFunnelData = (jobsWithEvents: JobWithEvents[]): FunnelStage[] => {
   ];
 };
 
-// Bucket keys represent local calendar days, not UTC timestamps.
-const parseDateKey = (value: string) => {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-};
-
 // Build conversion rate time-series data
 const buildConversionTimeSeries = (
   jobsWithEvents: JobWithEvents[],
   daysToShow: number,
 ): ConversionDataPoint[] => {
-  const end = new Date();
-  end.setHours(23, 59, 59, 999);
-  const start = new Date(end);
-  start.setDate(start.getDate() - (daysToShow - 1));
-  start.setHours(0, 0, 0, 0);
+  const { start, end } = getLocalDayRange(daysToShow);
 
   // Group jobs by application date
   const jobsByDate = new Map<string, JobWithEvents[]>();
@@ -183,7 +171,7 @@ const buildConversionTimeSeries = (
     if (Number.isNaN(date.getTime())) continue;
     if (date < start || date > end) continue;
 
-    const key = toDateKey(date);
+    const key = toLocalDateKey(date);
     const list = jobsByDate.get(key) ?? [];
     list.push(job);
     jobsByDate.set(key, list);
@@ -198,7 +186,7 @@ const buildConversionTimeSeries = (
     day <= end;
     day = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1)
   ) {
-    const key = toDateKey(day);
+    const key = toLocalDateKey(day);
 
     // Calculate rolling window range
     const windowStart = new Date(day);
@@ -217,7 +205,7 @@ const buildConversionTimeSeries = (
         windowDay.getDate() + 1,
       )
     ) {
-      const windowKey = toDateKey(windowDay);
+      const windowKey = toLocalDateKey(windowDay);
       const jobs = jobsByDate.get(windowKey) ?? [];
 
       for (const job of jobs) {
@@ -401,7 +389,7 @@ export function ConversionAnalytics({
                     tickMargin={8}
                     minTickGap={32}
                     tickFormatter={(value) => {
-                      const date = parseDateKey(value);
+                      const date = parseLocalDateKey(value);
                       return date.toLocaleDateString("en-GB", {
                         month: "short",
                         day: "numeric",
@@ -422,14 +410,13 @@ export function ConversionAnalytics({
                       return (
                         <div className="rounded-lg border border-border/60 bg-background px-3 py-2 text-xs shadow-sm">
                           <div className="mb-2 text-[11px] font-medium text-muted-foreground">
-                            {parseDateKey(label as string).toLocaleDateString(
-                              "en-GB",
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              },
-                            )}
+                            {parseLocalDateKey(
+                              label as string,
+                            ).toLocaleDateString("en-GB", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
                           </div>
                           <div className="space-y-1">
                             <div className="flex items-center justify-between gap-3">

@@ -6,6 +6,7 @@ import {
 import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
 import type { LocationProximity } from "@shared/types/location.js";
 import {
+  toIntegerOrFallback,
   toNumberOrNull,
   toStringOrNull,
 } from "@shared/utils/type-conversion.js";
@@ -180,14 +181,6 @@ function withThrottleAndRetry(fetchImpl: typeof fetch): typeof fetch {
       await sleep(RATE_LIMIT_RETRY_DELAYS_MS[attempt]);
     }
   }) as typeof fetch;
-}
-
-function toPositiveIntOrFallback(
-  value: number | undefined,
-  fallback: number,
-): number {
-  if (!Number.isFinite(value)) return fallback;
-  return Math.max(1, Math.floor(value as number));
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -766,13 +759,15 @@ export async function runHiringCafe(
       : [DEFAULT_SEARCH_TERM];
   const country = (options.country ?? "").trim().toLowerCase();
   const countryKey = normalizeCountryKey(options.countryKey ?? country);
-  const maxJobsPerTerm = toPositiveIntOrFallback(
+  const maxJobsPerTerm = toIntegerOrFallback(
     options.maxJobsPerTerm,
     DEFAULT_MAX_JOBS_PER_TERM,
+    { parseStrings: false },
   );
-  const locationRadiusMiles = toPositiveIntOrFallback(
+  const locationRadiusMiles = toIntegerOrFallback(
     options.locationRadiusMiles,
     DEFAULT_LOCATION_RADIUS_MILES,
+    { parseStrings: false },
   );
   const locations = resolveSearchCities({
     list: options.locations,

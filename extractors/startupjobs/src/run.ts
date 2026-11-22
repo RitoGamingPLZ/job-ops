@@ -4,6 +4,7 @@ import {
 } from "@shared/location-support.js";
 import { resolveSearchCities } from "@shared/search-cities.js";
 import type { CreateJobInput } from "@shared/types/jobs";
+import { toIntegerOrFallback } from "@shared/utils/type-conversion.js";
 import {
   type StartupJobRecord,
   scrapeStartupJobsViaAlgolia,
@@ -52,21 +53,6 @@ function mapWorkplaceTypes(
   return workplaceTypes.map((workplaceType) =>
     workplaceType === "onsite" ? "on-site" : workplaceType,
   );
-}
-
-function toPositiveIntOrFallback(
-  value: number | string | undefined,
-  fallback: number,
-): number {
-  const parsed =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number.parseInt(value, 10)
-        : Number.NaN;
-
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.max(1, Math.floor(parsed));
 }
 
 function inferJobType(disciplines: string | undefined): string | undefined {
@@ -177,7 +163,7 @@ export async function runStartupJobs(
     selectedCountry: options.selectedCountry,
     locations: options.locations,
   });
-  const maxJobsPerTerm = toPositiveIntOrFallback(options.maxJobsPerTerm, 50);
+  const maxJobsPerTerm = toIntegerOrFallback(options.maxJobsPerTerm, 50);
   const workplaceType = mapWorkplaceTypes(options.workplaceTypes);
   const termTotal = searchTerms.length * runLocations.length;
   const jobs: CreateJobInput[] = [];

@@ -8,6 +8,7 @@ import { targetJobInBackground } from "@server/services/jobs/actions";
 import { inferManualJobDetails } from "@server/services/manualJob";
 import { getProfile } from "@server/services/profile";
 import { scoreJobSuitability } from "@server/services/scorer";
+import { getBlockedAutofetchLabel } from "@shared/manual-job-autofetch";
 import { settingsRegistry } from "@shared/settings-registry";
 import { type Request, type Response, Router } from "express";
 import { JSDOM } from "jsdom";
@@ -68,39 +69,6 @@ async function resolveSkipTailoring(
   const autoTailor =
     parsed ?? settingsRegistry.autoTailorOnManualImport.default();
   return !autoTailor;
-}
-
-const BLOCKED_AUTOFETCH_HOSTS: Array<{
-  label: string;
-  match: (hostname: string) => boolean;
-}> = [
-  {
-    label: "LinkedIn",
-    match: (hostname) =>
-      hostname === "linkedin.com" || hostname.endsWith(".linkedin.com"),
-  },
-  {
-    label: "Indeed",
-    match: (hostname) =>
-      hostname === "indeed.com" || hostname.includes("indeed."),
-  },
-];
-
-function getHostname(value: string): string | null {
-  try {
-    return new URL(value).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
-}
-
-function getBlockedAutofetchLabel(url: string): string | null {
-  const hostname = getHostname(url);
-  if (!hostname) return null;
-  const blocked = BLOCKED_AUTOFETCH_HOSTS.find((entry) =>
-    entry.match(hostname),
-  );
-  return blocked?.label ?? null;
 }
 
 function buildFetchFailureMessage(status: number): string {

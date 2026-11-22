@@ -1,5 +1,6 @@
 import { useDemoInfo } from "@client/hooks/useDemoInfo";
 import { useKeyboardAvailability } from "@client/hooks/useKeyboardAvailability";
+import { useMediaQuery } from "@client/hooks/useMediaQuery";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -19,11 +20,7 @@ export function useOrchestratorUiState({
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(() =>
-    typeof window !== "undefined"
-      ? window.matchMedia("(min-width: 1024px)").matches
-      : false,
-  );
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
   const hasKeyboard = useKeyboardAvailability();
   const demoInfo = useDemoInfo();
 
@@ -34,19 +31,6 @@ export function useOrchestratorUiState({
       setIsDetailDrawerOpen(true);
     }
   }, [selectedJobId, isDesktop]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const media = window.matchMedia("(min-width: 1024px)");
-    const handleChange = () => setIsDesktop(media.matches);
-    handleChange();
-    if (media.addEventListener) {
-      media.addEventListener("change", handleChange);
-      return () => media.removeEventListener("change", handleChange);
-    }
-    media.addListener(handleChange);
-    return () => media.removeListener(handleChange);
-  }, []);
 
   useEffect(() => {
     if (isDesktop && isDetailDrawerOpen) {
