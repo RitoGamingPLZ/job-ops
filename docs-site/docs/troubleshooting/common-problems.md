@@ -53,7 +53,7 @@ npm --workspace docs-site run build
 - For `openai`, JobOps defaults to `gpt-5.4-mini` when the model field is blank.
 - For `codex`, JobOps defaults to `gpt-5.4-mini` when the model field is blank.
 - For `glm`, JobOps defaults to `glm-5.1` and `https://api.z.ai/api/paas/v4` when the model/base URL fields are blank.
-- For `gemini`, JobOps defaults to `google/gemini-3-flash-preview` when the model field is blank.
+- For `gemini`, JobOps defaults to `google/gemini-3.5-flash-lite` when the model field is blank.
 
 ## PDF generation fails
 
