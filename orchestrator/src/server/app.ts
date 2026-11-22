@@ -226,6 +226,9 @@ export function createAuthGuard() {
       return Boolean(
         (process.env.CRON_SECRET || process.env.WEBHOOK_SECRET)?.trim(),
       );
+    if (normalizedPath.startsWith("/api/internal/d1-sync/")) {
+      return Boolean(process.env.INTERNAL_SYNC_SECRET?.trim());
+    }
 
     // Auth endpoints must be accessible without existing auth.
     if (
