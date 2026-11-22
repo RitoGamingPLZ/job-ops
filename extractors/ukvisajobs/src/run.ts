@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
+import { subscribeChildProcessLines } from "browser-utils";
 
 type CreateJobInput = {
   source: "ukvisajobs";
@@ -374,19 +374,10 @@ export async function runUkVisaJobs(
             stream.write(`${line}\n`);
           };
 
-          const stdoutRl = child.stdout
-            ? createInterface({ input: child.stdout })
-            : null;
-          const stderrRl = child.stderr
-            ? createInterface({ input: child.stderr })
-            : null;
-
-          stdoutRl?.on("line", (line) => handleLine(line, process.stdout));
-          stderrRl?.on("line", (line) => handleLine(line, process.stderr));
+          const closeLines = subscribeChildProcessLines(child, handleLine);
 
           child.on("close", (code) => {
-            stdoutRl?.close();
-            stderrRl?.close();
+            closeLines();
             if (code === 0) resolve();
             else {
               reject(
