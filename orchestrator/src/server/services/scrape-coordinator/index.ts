@@ -99,6 +99,7 @@ export type EnsureTaskResult =
 /**
  * Ensures a scrape task exists for the given key, reusing a 24h rolling completed
  * task or attaching the caller as a subscriber to an active/new task.
+ * Callers must dedupe by buildScrapeKey within each run before setting tasksTotal.
  */
 export function ensureTask(
   db: AppDatabase,
@@ -561,10 +562,22 @@ export function completeTask(
         postingId = existing.id;
         tx.update(postings)
           .set({
+            source: item.source,
+            company: item.company,
+            title: item.title,
+            location:
+              item.location !== undefined ? item.location : existing.location,
+            description:
+              item.description !== undefined
+                ? item.description
+                : existing.description,
+            postedAt:
+              item.postedAt !== undefined ? item.postedAt : existing.postedAt,
             lastSeenAt: nowIso,
             extracted:
-              existing.extracted ??
-              (item.extracted !== undefined ? item.extracted : null),
+              item.extracted !== undefined
+                ? item.extracted
+                : existing.extracted,
           })
           .where(eq(postings.id, existing.id))
           .run();
@@ -666,7 +679,7 @@ export function markTaskNeedsAttention(
 }
 
 export interface OnTaskDoneForTenantInput {
-  taskId?: string;
+  taskId: string;
   tenantId: string;
   userId?: string | null;
   runId: string;
@@ -679,6 +692,7 @@ export interface OnTaskDoneForTenantInput {
 /**
  * Idempotently imports shared postings into a tenant's jobs table, updates
  * pipeline_runs task counters and final status, and stamps subscriber notified_at.
+ * Callers must dedupe by buildScrapeKey within each run before setting tasksTotal.
  */
 export function onTaskDoneForTenant(
   db: AppDatabase,
@@ -687,6 +701,32 @@ export function onTaskDoneForTenant(
   const nowIso = (input.now ?? new Date()).toISOString();
 
   return db.transaction((tx) => {
+    // Cached completions may not have a subscriber yet. Claim notification
+    // once per task/tenant/run in the same transaction as imports and counters.
+    const notification = tx
+      .insert(taskSubscribers)
+      .values({
+        taskId: input.taskId,
+        tenantId: input.tenantId,
+        runId: input.runId,
+        notifiedAt: nowIso,
+        createdAt: nowIso,
+      })
+      .onConflictDoUpdate({
+        target: [
+          taskSubscribers.taskId,
+          taskSubscribers.tenantId,
+          taskSubscribers.runId,
+        ],
+        set: { notifiedAt: nowIso },
+        setWhere: isNull(taskSubscribers.notifiedAt),
+      })
+      .run();
+
+    if (notification.changes === 0) {
+      return { insertedCount: 0 };
+    }
+
     let insertedCount = 0;
 
     if (input.taskStatus !== "failed" && input.postingIds.length > 0) {
@@ -757,19 +797,6 @@ export function onTaskDoneForTenant(
             : {}),
         })
         .where(eq(pipelineRuns.id, run.id))
-        .run();
-    }
-
-    if (input.taskId) {
-      tx.update(taskSubscribers)
-        .set({ notifiedAt: nowIso })
-        .where(
-          and(
-            eq(taskSubscribers.taskId, input.taskId),
-            eq(taskSubscribers.tenantId, input.tenantId),
-            eq(taskSubscribers.runId, input.runId),
-          ),
-        )
         .run();
     }
 

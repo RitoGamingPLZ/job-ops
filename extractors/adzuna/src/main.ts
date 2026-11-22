@@ -38,6 +38,7 @@ async function run(): Promise<void> {
 
   const result = await runAdzuna({
     country,
+    countryKey: country,
     maxJobsPerTerm,
     resultsPerPage,
     searchTerms,

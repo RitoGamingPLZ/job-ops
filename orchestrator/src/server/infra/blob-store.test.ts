@@ -1,18 +1,21 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runWithRequestContext } from "@infra/request-context";
 import {
   removeStoredJobDocument,
   removeStoredJobDocuments,
   storeJobDocument,
 } from "@server/services/job-document-storage";
 import {
+  getLegacyJobPdfKey,
+  getTenantJobPdfKey,
   readStoredJobPdf,
   removeStoredJobPdf,
   storedJobPdfExists,
   writeStoredJobPdf,
 } from "@server/services/pdf-storage";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getBlobStore,
   LocalBlobStore,
@@ -20,6 +23,11 @@ import {
   type R2BucketLike,
   setBlobStore,
 } from "./blob-store";
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, readdir: vi.fn(actual.readdir) };
+});
 
 function createInMemoryR2Bucket(pageSize = 2): R2BucketLike {
   const objects = new Map<
@@ -99,6 +107,7 @@ describe("BlobStore", () => {
   });
 
   afterEach(async () => {
+    vi.clearAllMocks();
     setBlobStore(null);
     if (originalDataDir === undefined) {
       delete process.env.DATA_DIR;
@@ -158,6 +167,51 @@ describe("BlobStore", () => {
       await expect(store.get("../secret.txt")).rejects.toThrow();
       await expect(store.delete("a/../b")).rejects.toThrow();
     });
+
+    it("only walks the prefix directory and preserves partial filename matching", async () => {
+      const store = new LocalBlobStore(tempDir);
+      await store.put("pdfs/t1/resume_1.pdf", "one");
+      await store.put("pdfs/t1/nested/resume_2.pdf", "two");
+      await store.put("pdfs/t2/resume_3.pdf", "other tenant");
+      await store.put("other/unrelated.txt", "unrelated");
+
+      const listed = await store.list({ prefix: "pdfs/t1/" });
+      expect(listed.map((entry) => entry.key)).toEqual([
+        "pdfs/t1/nested/resume_2.pdf",
+        "pdfs/t1/resume_1.pdf",
+      ]);
+      expect(vi.mocked(readdir).mock.calls.map(([path]) => path)).toEqual([
+        join(tempDir, "pdfs/t1"),
+        join(tempDir, "pdfs/t1/nested"),
+      ]);
+
+      expect(
+        (await store.list({ prefix: "pdfs/t1/resume_" })).map(
+          (entry) => entry.key,
+        ),
+      ).toEqual(["pdfs/t1/resume_1.pdf"]);
+      expect(await store.list({ prefix: "missing/tenant/" })).toEqual([]);
+      await expect(store.list({ prefix: "../outside/" })).rejects.toThrow();
+    });
+
+    it("returns no blobs for dot or non-directory prefixes while rejecting traversal", async () => {
+      const store = new LocalBlobStore(tempDir);
+      await store.put("pdfs/t1/resume_1.pdf", "one");
+      await store.put("pdfs/t2/resume_2.pdf", "other tenant");
+
+      for (const prefix of [
+        "./pdfs/",
+        "pdfs/./t1/",
+        "missing/tenant/",
+        "pdfs/t1/resume_1.pdf/",
+        "pdfs/t1/resume_1.pdf/nested/",
+      ]) {
+        await expect(store.list({ prefix })).resolves.toEqual([]);
+      }
+      await expect(store.list({ prefix: "./pdfs/t1/../t2/" })).rejects.toThrow(
+        "Invalid blob key",
+      );
+    });
   });
 
   describe("R2BlobStore", () => {
@@ -205,6 +259,64 @@ describe("BlobStore", () => {
   });
 
   describe("storage service wiring", () => {
+    it("deletes the legacy PDF without touching another tenant's PDF", async () => {
+      const store = new LocalBlobStore(tempDir);
+      setBlobStore(store);
+      const jobId = "legacy-delete";
+      await runWithRequestContext({ tenantId: "t2" }, () =>
+        writeStoredJobPdf(jobId, Buffer.from("other tenant")),
+      );
+      await store.put(getLegacyJobPdfKey(jobId), "legacy");
+
+      await runWithRequestContext({ tenantId: "t1" }, async () => {
+        await store.put(getTenantJobPdfKey(jobId), "current");
+        await removeStoredJobPdf(jobId);
+        expect(await storedJobPdfExists(jobId)).toBe(false);
+        expect(await readStoredJobPdf(jobId)).toBeNull();
+      });
+      expect(await store.exists(getLegacyJobPdfKey(jobId))).toBe(false);
+      await runWithRequestContext({ tenantId: "t2" }, async () => {
+        expect(await storedJobPdfExists(jobId)).toBe(true);
+      });
+    });
+
+    it("removes the legacy PDF after replacement without touching another tenant", async () => {
+      const store = new R2BlobStore(createInMemoryR2Bucket(10));
+      setBlobStore(store);
+      const jobId = "legacy-replace";
+      await runWithRequestContext({ tenantId: "t2" }, () =>
+        writeStoredJobPdf(jobId, Buffer.from("other tenant")),
+      );
+      await store.put(getLegacyJobPdfKey(jobId), "legacy");
+
+      await runWithRequestContext({ tenantId: "t1" }, async () => {
+        await writeStoredJobPdf(jobId, Buffer.from("replacement"));
+        expect(await store.exists(getLegacyJobPdfKey(jobId))).toBe(false);
+        await store.delete(getTenantJobPdfKey(jobId));
+        expect(await readStoredJobPdf(jobId)).toBeNull();
+      });
+      await runWithRequestContext({ tenantId: "t2" }, async () => {
+        expect(
+          new TextDecoder().decode(
+            (await readStoredJobPdf(jobId)) ?? undefined,
+          ),
+        ).toBe("other tenant");
+      });
+    });
+
+    it("keeps the legacy PDF when saving its replacement fails", async () => {
+      const store = new LocalBlobStore(tempDir);
+      setBlobStore(store);
+      const jobId = "failed-replacement";
+      await store.put(getLegacyJobPdfKey(jobId), "legacy");
+      vi.spyOn(store, "put").mockRejectedValueOnce(new Error("write failed"));
+
+      await expect(
+        writeStoredJobPdf(jobId, Buffer.from("replacement")),
+      ).rejects.toThrow("write failed");
+      expect(await store.exists(getLegacyJobPdfKey(jobId))).toBe(true);
+    });
+
     it("routes pdf-storage and job-document-storage through the active BlobStore", async () => {
       const r2Store = new R2BlobStore(createInMemoryR2Bucket(10));
       setBlobStore(r2Store);

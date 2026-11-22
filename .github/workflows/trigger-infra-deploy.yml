@@ -1,27 +1,29 @@
 name: Trigger Cloudflare Infra Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
-concurrency:
-  group: trigger-infra-deploy-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   dispatch-infra:
-    name: Debounce (1m) & Dispatch RitoGamingPLZ/job-ops-infra
+    name: Dispatch RitoGamingPLZ/job-ops-infra
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    concurrency:
+      group: trigger-infra-deploy-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
-      - name: Wait 1 minute to group rapid commits
-        if: github.event_name != 'workflow_dispatch'
-        run: sleep 60
-
       - name: Trigger Cloudflare infra deployment
         env:
           INFRA_DISPATCH_TOKEN: ${{ secrets.INFRA_DISPATCH_TOKEN }}
-          APP_SHA: ${{ github.sha }}
+          APP_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
         run: |
           if [ -z "${INFRA_DISPATCH_TOKEN}" ]; then
             echo "::notice::INFRA_DISPATCH_TOKEN secret is not set on RitoGamingPLZ/job-ops. Configure a PAT scoped to RitoGamingPLZ/job-ops-infra (Contents: Write) to enable automatic cross-repo deploy on merge to main."
