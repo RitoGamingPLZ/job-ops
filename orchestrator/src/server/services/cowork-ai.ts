@@ -23,7 +23,7 @@ import type { JsonSchemaDefinition } from "./llm/types";
 import { createConfiguredLlmService, resolveLlmModel } from "./modelSelection";
 
 // Serialized document limit; contacts, photos and other unrelated profile data are never sent.
-export const COWORK_DOCUMENT_MAX_BYTES = 250_000;
+const COWORK_DOCUMENT_MAX_BYTES = 250_000;
 export const coworkChatContextSchema = z
   .object({
     document: z.unknown().transform((value, ctx) => {

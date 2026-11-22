@@ -81,14 +81,6 @@ export function toJobListItem(job: jobsRepo.JobListItemWithPdfFreshnessInput): J
   };
 }
 
-export function queueTracerAutoPdfRegenerationIfNeeded(
-  _previousJob: Job,
-  _nextJob: Job,
-  _route: string,
-): void {
-  // Tracer links feature removed.
-}
-
 export const updateJobSchema = z.object({
   title: z.string().trim().min(1).max(500).optional(),
   employer: z.string().trim().min(1).max(500).optional(),

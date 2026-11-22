@@ -409,7 +409,7 @@ function getAnalyticsAppVersion(): string | null {
   }
 }
 
-export function getAnalyticsSessionId(): string | null {
+function getAnalyticsSessionId(): string | null {
   if (typeof window === "undefined") return null;
   if (cachedAnalyticsSessionId) return cachedAnalyticsSessionId;
 
@@ -524,15 +524,6 @@ export function bucketCount(value: number): string {
   if (value <= 20) return "6_20";
   if (value <= 100) return "21_100";
   return "101_plus";
-}
-
-export function bucketClicks(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return "0";
-  if (value === 1) return "1";
-  if (value <= 5) return "2_5";
-  if (value <= 20) return "6_20";
-  if (value <= 50) return "21_50";
-  return "51_plus";
 }
 
 export function bucketQueryLength(value: string | number): string {

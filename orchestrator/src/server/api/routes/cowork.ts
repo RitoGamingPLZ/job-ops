@@ -23,7 +23,7 @@ import { Router } from "express";
 import { z } from "zod";
 
 export const coworkRouter = Router();
-export const experienceBulletInputSchema = z
+const experienceBulletInputSchema = z
   .object({
     kind: z
       .enum(

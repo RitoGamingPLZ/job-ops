@@ -63,7 +63,7 @@ export type JobActionExecutionOptions = {
   analyticsOrigin?: "move_to_ready" | "generate_pdf" | "pipeline" | "manual_job_create";
 };
 
-export function createSharedRescoreProfileLoader(): () => Promise<Record<string, unknown>> {
+function createSharedRescoreProfileLoader(): () => Promise<Record<string, unknown>> {
   let profilePromise: Promise<Record<string, unknown>> | null = null;
 
   return async () => {

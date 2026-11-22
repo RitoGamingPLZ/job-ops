@@ -187,7 +187,7 @@ export async function trackCanonicalActivationEvent(
   }
 }
 
-export async function initializeActivationAnalytics(): Promise<void> {
+async function initializeActivationAnalytics(): Promise<void> {
   const installState = await getOrCreateAnalyticsInstallState();
   await reconcileActivationMilestonesFromHistorySafely({
     route: "startup",
@@ -214,7 +214,7 @@ export async function initializeActivationAnalytics(): Promise<void> {
   }
 }
 
-export async function reconcileActivationMilestonesFromHistory(): Promise<void> {
+async function reconcileActivationMilestonesFromHistory(): Promise<void> {
   const historicalCandidates = await getHistoricalActivationMilestoneCandidates();
   const existingMilestones = new Map(
     (await listActivationMilestones()).map((milestone) => [

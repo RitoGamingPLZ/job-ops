@@ -13,7 +13,7 @@ import type {
 import { POST_APPLICATION_ROUTER_STAGE_TARGETS } from "@shared/types";
 import { normalizeWhitespace } from "@shared/utils/string";
 
-export const ROUTER_EMAIL_CHAR_LIMIT = 12_000;
+const ROUTER_EMAIL_CHAR_LIMIT = 12_000;
 
 const SMART_ROUTER_SCHEMA: JsonSchemaDefinition = {
   name: "post_application_email_router",
@@ -103,7 +103,7 @@ function sanitizeJobPromptValue(value: string): string {
   return normalizeWhitespace(value);
 }
 
-export function buildIndexedActiveJobs(
+function buildIndexedActiveJobs(
   jobs: Array<{ id: string; company: string; title: string }>,
 ): IndexedActiveJob[] {
   return jobs.map((job, offset) => ({
@@ -114,11 +114,11 @@ export function buildIndexedActiveJobs(
   }));
 }
 
-export function buildCompactActiveJobsList(jobs: IndexedActiveJob[]): string {
+function buildCompactActiveJobsList(jobs: IndexedActiveJob[]): string {
   return jobs.map((job) => `${job.index}. ${job.company}: ${job.title}`).join("\n");
 }
 
-export function normalizeBestMatchIndex(value: unknown, max: number): number | null {
+function normalizeBestMatchIndex(value: unknown, max: number): number | null {
   if (value === null || value === undefined || max <= 0) return null;
   const numeric =
     typeof value === "number"

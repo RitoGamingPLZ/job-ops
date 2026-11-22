@@ -36,7 +36,7 @@ export const LLM_PROVIDERS = [
 ] as const;
 
 export type LlmProviderId = (typeof LLM_PROVIDERS)[number];
-export const LLM_MODEL_SUGGESTION_PROVIDERS = [
+const LLM_MODEL_SUGGESTION_PROVIDERS = [
   "atlascloud",
   "litellm",
   "openai",

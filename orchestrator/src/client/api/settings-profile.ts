@@ -8,7 +8,6 @@ import type {
   OnboardingStatusResponse,
   ResumeProfile,
   ResumeProjectCatalogItem,
-  SearchTermsSuggestionResponse,
   ValidationResult,
 } from "@shared/types";
 import type { CodexAuthStatusResponse } from "./auth";
@@ -28,7 +27,7 @@ export async function getSettings(): Promise<AppSettings> {
   return settingsPromise;
 }
 
-export async function getProfileProjects(): Promise<ResumeProjectCatalogItem[]> {
+async function getProfileProjects(): Promise<ResumeProjectCatalogItem[]> {
   return fetchApi<ResumeProjectCatalogItem[]>("/profile/projects");
 }
 
@@ -90,23 +89,6 @@ export async function previewDesignResumePdfBlob(): Promise<Blob> {
   return fetchBlobApi("/design-resume/preview-pdf", {
     method: "POST",
     cache: "no-store",
-  });
-}
-
-export async function refreshProfile(): Promise<ResumeProfile> {
-  return fetchApi<ResumeProfile>("/profile/refresh", {
-    method: "POST",
-  });
-}
-
-export async function validateLlm(input: {
-  provider?: string;
-  baseUrl?: string;
-  apiKey?: string;
-}): Promise<ValidationResult> {
-  return fetchApi<ValidationResult>("/onboarding/validate/llm", {
-    method: "POST",
-    body: JSON.stringify(input),
   });
 }
 
@@ -196,16 +178,6 @@ export async function validateRxresume(input?: {
   return fetchApi<ValidationResult>("/onboarding/validate/rxresume", {
     method: "POST",
     body: JSON.stringify(input ?? {}),
-  });
-}
-
-export async function validateResumeConfig(): Promise<ValidationResult> {
-  return fetchApi<ValidationResult>("/onboarding/validate/resume");
-}
-
-export async function suggestOnboardingSearchTerms(): Promise<SearchTermsSuggestionResponse> {
-  return fetchApi<SearchTermsSuggestionResponse>("/onboarding/search-terms/suggest", {
-    method: "POST",
   });
 }
 

@@ -87,7 +87,7 @@ function describeAction(endpoint: string, method?: string): string {
   return "This action ran in demo simulation mode.";
 }
 
-export function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
+function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
   if (!headers) return {};
   if (headers instanceof Headers) {
     const next: Record<string, string> = {};
@@ -117,7 +117,7 @@ export function withQuery(
   return query ? `${path}?${query}` : path;
 }
 
-export function normalizeApiResponse<T>(payload: unknown): ApiResponse<T> | LegacyApiResponse<T> {
+function normalizeApiResponse<T>(payload: unknown): ApiResponse<T> | LegacyApiResponse<T> {
   if (!payload || typeof payload !== "object") {
     throw new ApiClientError("API request failed: malformed JSON response");
   }

@@ -119,7 +119,7 @@ function mapAdzunaJob(raw: AdzunaRawJob): CreateJobInput | null {
   };
 }
 
-export async function fetchAdzunaJobsPage(args: {
+async function fetchAdzunaJobsPage(args: {
   country: string;
   page: number;
   appId: string;

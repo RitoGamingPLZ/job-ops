@@ -9,7 +9,7 @@ export const STALE_PDF_MESSAGE =
 export const PDF_REGENERATING_MESSAGE =
   "PDF is being regenerated after recent changes. You can view or download it again when regeneration finishes.";
 
-export function getPdfFreshness(
+function getPdfFreshness(
   job: PdfFreshnessCarrier | null | undefined,
 ): PdfFreshnessCarrier["pdfFreshness"] {
   if (job?.pdfRegenerating) return "regenerating";

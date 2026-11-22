@@ -4,7 +4,7 @@ import { z } from "zod";
 // Owned by the lead: implementers must not change it without asking.
 
 /** Where the crawler finds job links. */
-export const listingSchema = z.discriminatedUnion("kind", [
+const listingSchema = z.discriminatedUnion("kind", [
   // Tier 0: a sitemap on the company's own domain (no browser, no LLM).
   z.object({ kind: z.literal("sitemap"), url: z.string().url() }),
   // Tier 1: an HTML listing page, optionally rendered with Playwright.
@@ -30,7 +30,7 @@ export const listingSchema = z.discriminatedUnion("kind", [
 ]);
 
 /** How the crawler reads one job page. */
-export const detailSchema = z.discriminatedUnion("kind", [
+const detailSchema = z.discriminatedUnion("kind", [
   // schema.org JobPosting in <script type="application/ld+json"> (or microdata).
   z.object({ kind: z.literal("jsonld") }),
   // CSS selectors learned by the LLM. Text is read from the first match.

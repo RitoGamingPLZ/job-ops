@@ -43,7 +43,7 @@ function verifyInternalScrapeSecret(req: Request, res: Response, next: NextFunct
   next();
 }
 
-export async function handleInternalScrapeRun(
+async function handleInternalScrapeRun(
   req: Request,
   res: Response,
   next: NextFunction,

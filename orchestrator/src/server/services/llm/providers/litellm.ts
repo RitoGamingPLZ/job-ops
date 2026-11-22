@@ -5,7 +5,7 @@ import {
   extractChatCompletionsText,
 } from "./factory";
 
-export const LITELLM_DEFAULT_BASE_URL = "http://localhost:4000";
+const LITELLM_DEFAULT_BASE_URL = "http://localhost:4000";
 
 const API_VERSION_SUFFIX = "/v1";
 

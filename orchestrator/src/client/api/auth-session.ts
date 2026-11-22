@@ -111,7 +111,7 @@ function storeAuthToken(token: string | null): void {
   }
 }
 
-export function getCurrentAuthWorkspaceStorageScope(): string | null {
+function getCurrentAuthWorkspaceStorageScope(): string | null {
   const tenantId = getTenantIdFromAuthToken(loadStoredAuthToken());
   return tenantId ? `workspace:${tenantId}` : null;
 }

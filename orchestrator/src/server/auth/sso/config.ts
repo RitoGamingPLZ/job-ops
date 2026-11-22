@@ -147,7 +147,7 @@ function readOidcConfig(env: EnvSource): SsoProviderConfig | null {
   };
 }
 
-export function getSsoProviderConfigs(env: EnvSource = process.env): SsoProviderConfig[] {
+function getSsoProviderConfigs(env: EnvSource = process.env): SsoProviderConfig[] {
   return [readGoogleConfig(env), readGithubConfig(env), readOidcConfig(env)].filter(
     (config): config is SsoProviderConfig => config !== null,
   );

@@ -20,9 +20,7 @@ export function getWatchlistSourceTypeDescriptors() {
   return listWatchlistSourceAdapters().map((adapter) => adapter.descriptor);
 }
 
-export function hydrateWatchlistSelectedSource(
-  source: WatchlistSelectedSource,
-): WatchlistSelectedSource {
+function hydrateWatchlistSelectedSource(source: WatchlistSelectedSource): WatchlistSelectedSource {
   const adapter = getWatchlistSourceAdapter(source.sourceType);
   return adapter?.hydrateSelectedSource(source) ?? source;
 }
@@ -106,7 +104,7 @@ export async function getWatchlistSelectedSourceById(
   return source;
 }
 
-export async function fetchWatchlistSource(
+async function fetchWatchlistSource(
   source: WatchlistSelectedSource,
 ): Promise<WatchlistSourceResult> {
   const adapter = getWatchlistSourceAdapter(source.sourceType);
@@ -143,7 +141,7 @@ export async function fetchWatchlistSource(
   }
 }
 
-export function annotateWatchlistSourceResults(input: {
+function annotateWatchlistSourceResults(input: {
   sourceResults: WatchlistSourceResult[];
   check: WatchlistCheckResponse;
   states: Awaited<ReturnType<typeof watchlistRepo.listWatchlistJobStates>>;
@@ -215,6 +213,6 @@ export async function withWatchlistSourceTimeout<T>(
   }
 }
 
-export function getWatchlistJobKey(source: string, sourceJobId: string): string {
+function getWatchlistJobKey(source: string, sourceJobId: string): string {
   return `${source}:${sourceJobId}`;
 }

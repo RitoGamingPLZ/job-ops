@@ -5,10 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/client/lib/queryKeys";
 import { invalidateJobData } from "./invalidate";
 
-export async function invalidateJobNotesData(
-  queryClient: QueryClient,
-  jobId: string,
-): Promise<void> {
+async function invalidateJobNotesData(queryClient: QueryClient, jobId: string): Promise<void> {
   await queryClient.invalidateQueries({
     queryKey: queryKeys.jobs.notes(jobId),
   });

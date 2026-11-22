@@ -43,7 +43,7 @@ function parseTailoredSkills(skills: TailoredSkillsInput): Array<RecordLike> | n
   return parsed.filter((item) => item && typeof item === "object") as RecordLike[];
 }
 
-export function applyTailoredHeadline(resumeData: RecordLike, headline?: string | null): void {
+function applyTailoredHeadline(resumeData: RecordLike, headline?: string | null): void {
   if (!headline) return;
   const basics = asRecord(resumeData.basics);
   if (!basics) return;
@@ -52,7 +52,7 @@ export function applyTailoredHeadline(resumeData: RecordLike, headline?: string 
   basics.label = headline;
 }
 
-export function applyTailoredSummary(resumeData: RecordLike, summary?: string | null): void {
+function applyTailoredSummary(resumeData: RecordLike, summary?: string | null): void {
   if (!summary) return;
   const topSummary = asRecord(resumeData.summary);
   if (topSummary) {
@@ -74,10 +74,7 @@ export function applyTailoredSummary(resumeData: RecordLike, summary?: string | 
   }
 }
 
-export function applyTailoredSkills(
-  resumeData: RecordLike,
-  tailoredSkills?: TailoredSkillsInput,
-): void {
+function applyTailoredSkills(resumeData: RecordLike, tailoredSkills?: TailoredSkillsInput): void {
   const skills = parseTailoredSkills(tailoredSkills);
   if (!skills) return;
 

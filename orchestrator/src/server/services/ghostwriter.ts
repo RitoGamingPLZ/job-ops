@@ -1278,7 +1278,7 @@ export async function editMessageForJob(input: {
   });
 }
 
-export async function switchBranch(input: {
+async function switchBranch(input: {
   jobId: string;
   threadId: string;
   messageId: string;

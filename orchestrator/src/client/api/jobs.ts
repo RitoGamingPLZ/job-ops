@@ -283,7 +283,7 @@ export async function skipJob(idOrIds: string | string[]): Promise<Job | JobActi
   return getSingleJobFromActionResult(result, idOrIds);
 }
 
-export async function runJobAction(input: JobActionRequest): Promise<JobActionResponse> {
+async function runJobAction(input: JobActionRequest): Promise<JobActionResponse> {
   return fetchApi<JobActionResponse>("/jobs/actions", {
     method: "POST",
     body: JSON.stringify(input),

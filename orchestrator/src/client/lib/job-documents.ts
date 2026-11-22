@@ -2,9 +2,6 @@ import {
   canOpenJobDocumentInline,
   canPreviewJobDocumentAsRawText,
   canUseJobDocumentForTextContext,
-  getJobDocumentFileExtension,
-  isJobDocumentDocx,
-  isJobDocumentImage,
   isJobDocumentPdf,
   isJobDocumentSafeInlineImage,
   isJobDocumentTextLike,
@@ -13,11 +10,7 @@ import {
 
 export {
   canOpenJobDocumentInline,
-  canPreviewJobDocumentAsRawText,
   canUseJobDocumentForTextContext,
-  getJobDocumentFileExtension,
-  isJobDocumentDocx,
-  isJobDocumentImage,
   isJobDocumentPdf,
   isJobDocumentSafeInlineImage,
   isJobDocumentTextLike,

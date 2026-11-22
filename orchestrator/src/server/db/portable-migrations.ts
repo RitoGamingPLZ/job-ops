@@ -38,7 +38,7 @@ export interface PortableMigrationResult {
   total: number;
 }
 
-export function createBetterSqliteExecutor(sqlite: BetterSqliteLike): PortableSqlExecutor {
+function createBetterSqliteExecutor(sqlite: BetterSqliteLike): PortableSqlExecutor {
   return {
     exec(sqlText: string) {
       sqlite.exec(sqlText);
@@ -52,7 +52,7 @@ export function createBetterSqliteExecutor(sqlite: BetterSqliteLike): PortableSq
   };
 }
 
-export function createDoSqlStorageExecutor(sqlStorage: DoSqlStorageLike): PortableSqlExecutor {
+function createDoSqlStorageExecutor(sqlStorage: DoSqlStorageLike): PortableSqlExecutor {
   return {
     exec(sqlText: string) {
       sqlStorage.exec(sqlText);
@@ -70,7 +70,7 @@ export function createDoSqlStorageExecutor(sqlStorage: DoSqlStorageLike): Portab
   };
 }
 
-export function toPortableSqlExecutor(target: PortableMigrationTarget): PortableSqlExecutor {
+function toPortableSqlExecutor(target: PortableMigrationTarget): PortableSqlExecutor {
   if (
     "query" in target &&
     typeof target.query === "function" &&
@@ -94,7 +94,7 @@ function fnv1aHex(input: string): string {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-export function computeMigrationChecksum(statements: readonly string[]): string {
+function computeMigrationChecksum(statements: readonly string[]): string {
   return fnv1aHex(statements.join("\n"));
 }
 

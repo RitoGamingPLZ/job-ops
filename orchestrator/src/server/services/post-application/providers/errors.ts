@@ -31,13 +31,6 @@ export function providerNotImplemented(
   return new PostApplicationProviderError("not_implemented", message, details);
 }
 
-export function providerServiceUnavailable(
-  message: string,
-  details?: unknown,
-): PostApplicationProviderError {
-  return new PostApplicationProviderError("service_unavailable", message, details);
-}
-
 export function providerUpstreamError(
   message: string,
   details?: unknown,

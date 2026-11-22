@@ -47,14 +47,6 @@ export function getLibraryItemUsage(id: string) {
 export function syncCandidateLibrary() {
   return fetchApi<LibrarySyncResult>("/library/sync", { method: "POST" });
 }
-export function labelExperienceBullets(
-  ids?: string[],
-): Promise<{ bullets: ExperienceBullet[]; labeled: number }> {
-  return fetchApi<{ bullets: ExperienceBullet[]; labeled: number }>("/experience-bullets/label", {
-    method: "POST",
-    body: JSON.stringify(ids ? { ids } : {}),
-  });
-}
 export function extractExperienceBullets(text: string) {
   return fetchApi<{ drafts: ExperienceBulletInput[] }>("/experience-bullets/extract", {
     method: "POST",

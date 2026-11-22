@@ -48,7 +48,7 @@ export function extractProjectsFromProfile(profile: ResumeProfile): {
   return { catalog, selectionItems };
 }
 
-export function buildDefaultResumeProjectsSettings(
+function buildDefaultResumeProjectsSettings(
   catalog: ResumeProjectCatalogItem[],
 ): ResumeProjectsSettings {
   const lockedProjectIds = catalog.filter((p) => p.isVisibleInBase).map((p) => p.id);
@@ -66,7 +66,7 @@ export function buildDefaultResumeProjectsSettings(
   );
 }
 
-export function parseResumeProjectsSettings(raw: string | null): ResumeProjectsSettings | null {
+function parseResumeProjectsSettings(raw: string | null): ResumeProjectsSettings | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<ResumeProjectsSettings>;
