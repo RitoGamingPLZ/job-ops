@@ -22,6 +22,7 @@ import {
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useMediaQuery } from "@/client/hooks/useMediaQuery";
 import { useQueryErrorToast } from "@/client/hooks/useQueryErrorToast";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { queryKeys } from "@/client/lib/queryKeys";
@@ -83,11 +84,7 @@ export const VisaSponsorsPage: React.FC = () => {
 
   // Loading states
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(() =>
-    typeof window !== "undefined"
-      ? window.matchMedia("(min-width: 1024px)").matches
-      : false,
-  );
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   const statusQuery = useQuery<VisaSponsorStatusResponse>({
     queryKey: queryKeys.visaSponsors.status(),
@@ -197,19 +194,6 @@ export const VisaSponsorsPage: React.FC = () => {
       setIsDetailDrawerOpen(false);
     }
   }, [selectedResultKey]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const media = window.matchMedia("(min-width: 1024px)");
-    const handleChange = () => setIsDesktop(media.matches);
-    handleChange();
-    if (media.addEventListener) {
-      media.addEventListener("change", handleChange);
-      return () => media.removeEventListener("change", handleChange);
-    }
-    media.addListener(handleChange);
-    return () => media.removeListener(handleChange);
-  }, []);
 
   useEffect(() => {
     if (isDesktop && isDetailDrawerOpen) {

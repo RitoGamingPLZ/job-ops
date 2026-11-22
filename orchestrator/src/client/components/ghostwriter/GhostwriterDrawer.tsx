@@ -1,3 +1,4 @@
+import { useMediaQuery } from "@client/hooks/useMediaQuery";
 import type { Job } from "@shared/types";
 import { Maximize2, Minimize2, PanelRightOpen } from "lucide-react";
 import type React from "react";
@@ -27,12 +28,6 @@ type DisplayMode = "drawer" | "fullscreen";
 const DESKTOP_MEDIA_QUERY = "(min-width: 1024px)";
 const DISPLAY_MODE_STORAGE_KEY = "jobops.ghostwriter.display-mode.v1";
 
-function getIsDesktopViewport(): boolean {
-  if (typeof window === "undefined") return false;
-  if (typeof window.matchMedia !== "function") return false;
-  return window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
-}
-
 function getStoredDisplayMode(): DisplayMode {
   if (typeof window === "undefined") return "drawer";
   try {
@@ -53,21 +48,7 @@ export const GhostwriterDrawer: React.FC<GhostwriterDrawerProps> = ({
   const [displayMode, setDisplayMode] = useState<DisplayMode>(() =>
     getStoredDisplayMode(),
   );
-  const [isDesktop, setIsDesktop] = useState(() => getIsDesktopViewport());
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (typeof window.matchMedia !== "function") return;
-    const media = window.matchMedia(DESKTOP_MEDIA_QUERY);
-    const handleChange = () => setIsDesktop(media.matches);
-    handleChange();
-    if (media.addEventListener) {
-      media.addEventListener("change", handleChange);
-      return () => media.removeEventListener("change", handleChange);
-    }
-    media.addListener(handleChange);
-    return () => media.removeListener(handleChange);
-  }, []);
+  const isDesktop = useMediaQuery(DESKTOP_MEDIA_QUERY, "false");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
