@@ -14,8 +14,6 @@ import { formatPostingAgeLabel } from "@/client/lib/job-posting-age";
 import { Button } from "@/components/ui/button";
 import { cn, formatDateTime } from "@/lib/utils";
 
-export { ScoreRing, isAwaitingAiScore };
-
 export type JobMemoryView =
   | "overview"
   | "note"

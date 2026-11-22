@@ -143,7 +143,7 @@ export const accountSubscriptions = sqliteTable(
   }),
 );
 
-export const HOSTED_USAGE_RESERVATION_STATUSES = ["reserved", "settled", "refunded"] as const;
+const HOSTED_USAGE_RESERVATION_STATUSES = ["reserved", "settled", "refunded"] as const;
 
 export const hostedUsageCounters = sqliteTable(
   "hosted_usage_counters",
@@ -1124,61 +1124,6 @@ export const postApplicationMessages = sqliteTable(
   }),
 );
 
-export type UserRow = typeof users.$inferSelect;
-export type NewUserRow = typeof users.$inferInsert;
-export type SsoIdentityRow = typeof ssoIdentities.$inferSelect;
-export type NewSsoIdentityRow = typeof ssoIdentities.$inferInsert;
-export type TenantRow = typeof tenants.$inferSelect;
-export type NewTenantRow = typeof tenants.$inferInsert;
-export type TenantMembershipRow = typeof tenantMemberships.$inferSelect;
-export type NewTenantMembershipRow = typeof tenantMemberships.$inferInsert;
-export type HostedUsageCounterRow = typeof hostedUsageCounters.$inferSelect;
-export type NewHostedUsageCounterRow = typeof hostedUsageCounters.$inferInsert;
-export type HostedUsageReservationRow = typeof hostedUsageReservations.$inferSelect;
-export type NewHostedUsageReservationRow = typeof hostedUsageReservations.$inferInsert;
-export type JobRow = typeof jobs.$inferSelect;
-export type NewJobRow = typeof jobs.$inferInsert;
-export type StageEventRow = typeof stageEvents.$inferSelect;
-export type NewStageEventRow = typeof stageEvents.$inferInsert;
-export type TaskRow = typeof tasks.$inferSelect;
-export type NewTaskRow = typeof tasks.$inferInsert;
-export type JobNoteRow = typeof jobNotes.$inferSelect;
-export type NewJobNoteRow = typeof jobNotes.$inferInsert;
-export type JobDocumentRow = typeof jobDocuments.$inferSelect;
-export type NewJobDocumentRow = typeof jobDocuments.$inferInsert;
-export type InterviewRow = typeof interviews.$inferSelect;
-export type NewInterviewRow = typeof interviews.$inferInsert;
-export type PipelineRunRow = typeof pipelineRuns.$inferSelect;
-export type NewPipelineRunRow = typeof pipelineRuns.$inferInsert;
-export type PipelineSearchPresetRow = typeof pipelineSearchPresets.$inferSelect;
-export type NewPipelineSearchPresetRow = typeof pipelineSearchPresets.$inferInsert;
-export type JobChatThreadRow = typeof jobChatThreads.$inferSelect;
-export type NewJobChatThreadRow = typeof jobChatThreads.$inferInsert;
-export type JobChatMessageRow = typeof jobChatMessages.$inferSelect;
-export type NewJobChatMessageRow = typeof jobChatMessages.$inferInsert;
-export type JobChatRunRow = typeof jobChatRuns.$inferSelect;
-export type NewJobChatRunRow = typeof jobChatRuns.$inferInsert;
-export type SettingsRow = typeof settings.$inferSelect;
-export type NewSettingsRow = typeof settings.$inferInsert;
-export type AnalyticsInstallStateRow = typeof analyticsInstallState.$inferSelect;
-export type NewAnalyticsInstallStateRow = typeof analyticsInstallState.$inferInsert;
-export type AnalyticsMilestoneRow = typeof analyticsMilestones.$inferSelect;
-export type NewAnalyticsMilestoneRow = typeof analyticsMilestones.$inferInsert;
-export type AnalyticsServerEventReplayRow = typeof analyticsServerEventReplays.$inferSelect;
-export type NewAnalyticsServerEventReplayRow = typeof analyticsServerEventReplays.$inferInsert;
-export type DesignResumeDocumentRow = typeof designResumeDocuments.$inferSelect;
-export type NewDesignResumeDocumentRow = typeof designResumeDocuments.$inferInsert;
-export type DesignResumeAssetRow = typeof designResumeAssets.$inferSelect;
-export type NewDesignResumeAssetRow = typeof designResumeAssets.$inferInsert;
-export type PostApplicationIntegrationRow = typeof postApplicationIntegrations.$inferSelect;
-export type NewPostApplicationIntegrationRow = typeof postApplicationIntegrations.$inferInsert;
-export type PostApplicationSyncRunRow = typeof postApplicationSyncRuns.$inferSelect;
-export type NewPostApplicationSyncRunRow = typeof postApplicationSyncRuns.$inferInsert;
-export type PostApplicationMessageRow = typeof postApplicationMessages.$inferSelect;
-export type NewPostApplicationMessageRow = typeof postApplicationMessages.$inferInsert;
-export type SiteRecipeRow = typeof siteRecipes.$inferSelect;
-export type NewSiteRecipeRow = typeof siteRecipes.$inferInsert;
-
 export const experienceBullets = sqliteTable(
   "experience_bullets",
   {
@@ -1236,11 +1181,6 @@ export const jobResumes = sqliteTable(
     scopeIndex: index("idx_job_resumes_scope").on(table.tenantId, table.userId),
   }),
 );
-
-export type ExperienceBulletRow = typeof experienceBullets.$inferSelect;
-export type NewExperienceBulletRow = typeof experienceBullets.$inferInsert;
-export type JobResumeRow = typeof jobResumes.$inferSelect;
-export type NewJobResumeRow = typeof jobResumes.$inferInsert;
 
 export const scrapeTasks = sqliteTable(
   "scrape_tasks",
@@ -1337,12 +1277,3 @@ export const sourceState = sqliteTable("source_state", {
   cooldownUntil: text("cooldown_until"),
   cooldownLevel: integer("cooldown_level").notNull().default(0),
 });
-
-export type ScrapeTaskRow = typeof scrapeTasks.$inferSelect;
-export type NewScrapeTaskRow = typeof scrapeTasks.$inferInsert;
-export type TaskSubscriberRow = typeof taskSubscribers.$inferSelect;
-export type NewTaskSubscriberRow = typeof taskSubscribers.$inferInsert;
-export type PostingRow = typeof postings.$inferSelect;
-export type NewPostingRow = typeof postings.$inferInsert;
-export type SourceStateRow = typeof sourceState.$inferSelect;
-export type NewSourceStateRow = typeof sourceState.$inferInsert;

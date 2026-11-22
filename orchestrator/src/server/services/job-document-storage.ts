@@ -17,10 +17,7 @@ export type StoredJobDocumentInput = {
   dataBase64: string;
 };
 
-export function getTenantJobDocumentsKeyPrefix(
-  jobId: string,
-  tenantId = getActiveTenantId(),
-): string {
+function getTenantJobDocumentsKeyPrefix(jobId: string, tenantId = getActiveTenantId()): string {
   const scope = getPrivateDataScope();
   if (scope.enforceUserIsolation && scope.userId && tenantId === scope.tenantId) {
     return `job-documents/${tenantId}/users/${scope.userId}/${jobId}`;
@@ -46,7 +43,7 @@ function resolveBlobKeyFromStoragePath(storagePath: string): string | null {
   return rel.split(sep).join("/");
 }
 
-export function normalizeJobDocumentFileName(fileName: string): string {
+function normalizeJobDocumentFileName(fileName: string): string {
   const trimmed = fileName.trim();
   if (!trimmed) {
     throw badRequest("Document upload requires a file name.");
@@ -57,7 +54,7 @@ export function normalizeJobDocumentFileName(fileName: string): string {
   return trimmed;
 }
 
-export function normalizeJobDocumentMediaType(mediaType?: string | null): string | null {
+function normalizeJobDocumentMediaType(mediaType?: string | null): string | null {
   const normalized = mediaType?.trim().toLowerCase() ?? "";
   if (!normalized) return null;
   if (normalized.length > 200) {

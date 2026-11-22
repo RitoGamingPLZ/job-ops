@@ -56,7 +56,7 @@ const getMeasurement = (element: Element): ElementMeasurement => {
   );
 };
 
-export const mockElementMeasurement = (element: Element, measurement: ElementMeasurement) => {
+const mockElementMeasurement = (element: Element, measurement: ElementMeasurement) => {
   const next = {
     top: 0,
     left: 0,

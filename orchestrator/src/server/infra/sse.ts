@@ -27,7 +27,7 @@ export function writeSseData(res: Response, data: unknown): void {
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-export function writeSseComment(res: Response, comment: string): void {
+function writeSseComment(res: Response, comment: string): void {
   res.write(`: ${comment}\n\n`);
 }
 

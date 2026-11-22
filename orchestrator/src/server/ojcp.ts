@@ -639,11 +639,7 @@ async function searchJobsWithMetadata(input: SearchJobsInput): Promise<SearchExe
   }
 }
 
-export async function searchJobs(input: SearchJobsInput): Promise<Record<string, unknown>> {
-  return (await searchJobsWithMetadata(input)).result;
-}
-
-export async function getJobDetail(input: GetJobDetailInput) {
+async function getJobDetail(input: GetJobDetailInput) {
   pruneCache(detailCache, DETAIL_CACHE_MAX_ENTRIES);
   const job = detailCache.get(input.job_id)?.job;
   if (!job) {
@@ -798,7 +794,7 @@ export const ojcpMcpHandler: RequestHandler = async (req, res) => {
   }
 };
 
-export function createOjcpManifest(req: Request) {
+function createOjcpManifest(req: Request) {
   const origin = resolveRequestOrigin(req);
   return {
     ojcp_version: OJCP_VERSION,

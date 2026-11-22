@@ -2,7 +2,7 @@ import { requestTimeout } from "@infra/errors";
 import { normalizeWhitespace } from "@shared/utils/string";
 import { convert } from "html-to-text";
 
-export const GMAIL_HTTP_TIMEOUT_MS = 15_000;
+const GMAIL_HTTP_TIMEOUT_MS = 15_000;
 
 export type GmailCredentials = {
   refreshToken: string;
@@ -39,7 +39,7 @@ export type GmailFullMessage = GmailMetadataMessage & {
   };
 };
 
-export async function fetchWithTimeout(
+async function fetchWithTimeout(
   url: string,
   args: { timeoutMs: number; init: RequestInit },
 ): Promise<Response> {
@@ -138,7 +138,7 @@ export async function gmailApi<T>(token: string, url: string): Promise<T> {
   return data as T;
 }
 
-export function buildGmailQuery(searchDays: number): string {
+function buildGmailQuery(searchDays: number): string {
   const subjectTerms = [
     "application",
     "thank you for applying",

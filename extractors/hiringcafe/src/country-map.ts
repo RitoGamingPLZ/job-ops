@@ -37,11 +37,6 @@ function toCountryLabel(countryKey: string): string {
   return countryKey.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function shouldUseGlobalLocation(countryInput?: string | null): boolean {
-  const countryKey = normalizeCountryKey(countryInput);
-  return !countryKey || GLOBAL_SEARCH_KEYS.has(countryKey);
-}
-
 export function resolveHiringCafeCountryLocation(
   countryInput?: string | null,
 ): HiringCafeCountryLocation | null {

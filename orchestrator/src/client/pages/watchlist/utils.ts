@@ -29,7 +29,7 @@ export function createSourceDraft(
   };
 }
 
-export function getEmployerFromCareersUrl(careersUrl: string): string {
+function getEmployerFromCareersUrl(careersUrl: string): string {
   try {
     const host = new URL(careersUrl).hostname;
     const [tenant] = host.split(".");
@@ -93,7 +93,7 @@ export function getWatchlistPreviewLabel(
   return formatFallbackEmployerLabel(normalizedCareersUrl);
 }
 
-export function toJobListItem(job: WatchlistJobResult): JobListItem {
+function toJobListItem(job: WatchlistJobResult): JobListItem {
   const now = new Date().toISOString();
 
   return {
@@ -128,7 +128,7 @@ export function toJobListItem(job: WatchlistJobResult): JobListItem {
   };
 }
 
-export function getPipelineSearchMatch(
+function getPipelineSearchMatch(
   job: JobListItem,
   searchTerms: string[],
 ): { score: number; term: string | null } {
@@ -151,10 +151,6 @@ export function normalizeUiCountryKey(value: string): string {
   const normalized = normalizeCountryKey(value);
   if (normalized === "usa/ca") return "united states";
   return normalized;
-}
-
-export function getWatchlistJobKey(source: string, externalId: string): string {
-  return `${source}:${externalId}`;
 }
 
 export function getWatchlistSourceKey(value: string): string {

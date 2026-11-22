@@ -4,7 +4,7 @@ import { getDataDir } from "@server/config/dataDir";
 import { getActiveTenantId } from "@server/tenancy/context";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 
-export function getTenantPdfKeyPrefix(tenantId = getActiveTenantId()): string {
+function getTenantPdfKeyPrefix(tenantId = getActiveTenantId()): string {
   const scope = getPrivateDataScope();
   if (scope.enforceUserIsolation && scope.userId && tenantId === scope.tenantId) {
     return `pdfs/${tenantId}/users/${scope.userId}`;
@@ -12,11 +12,11 @@ export function getTenantPdfKeyPrefix(tenantId = getActiveTenantId()): string {
   return `pdfs/${tenantId}`;
 }
 
-export function getTenantPdfDir(tenantId = getActiveTenantId()): string {
+function getTenantPdfDir(tenantId = getActiveTenantId()): string {
   return join(getDataDir(), ...getTenantPdfKeyPrefix(tenantId).split("/"));
 }
 
-export function getLegacyPdfDir(): string {
+function getLegacyPdfDir(): string {
   return join(getDataDir(), "pdfs");
 }
 

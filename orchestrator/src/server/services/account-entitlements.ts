@@ -13,7 +13,7 @@ export const FREE_HOSTED_MONTHLY_LIMITS: Record<HostedUsageAction, number> = {
 
 // Product decision: keep these five values together until usage data supports
 // making them configurable.
-export const PRO_HOSTED_MONTHLY_LIMITS: Record<HostedUsageAction, number> = {
+const PRO_HOSTED_MONTHLY_LIMITS: Record<HostedUsageAction, number> = {
   job_search: 500,
   pipeline_run: 100,
   tailoring: 1_000,

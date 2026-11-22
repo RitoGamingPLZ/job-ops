@@ -221,7 +221,7 @@ async function enqueueAutoPdfRegenerationPayload(
   scheduleWorker(options?.delayMs);
 }
 
-export async function enqueueAutoPdfRegenerationForJob(input: {
+async function enqueueAutoPdfRegenerationForJob(input: {
   jobId: string;
   reason: AutoPdfRegenerationReason;
   requestedBy: "system" | "user";
@@ -237,7 +237,7 @@ export async function enqueueAutoPdfRegenerationForJob(input: {
   });
 }
 
-export async function enqueueAutoPdfRegenerationForReadyJobs(input: {
+async function enqueueAutoPdfRegenerationForReadyJobs(input: {
   reason: AutoPdfRegenerationReason;
   requestedBy: "system" | "user";
   limit?: number;

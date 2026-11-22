@@ -20,7 +20,7 @@ function resolveMinLevel(): LogLevel {
 
 const minLevel = resolveMinLevel();
 
-export class Logger {
+class Logger {
   constructor(private readonly context: Record<string, unknown> = {}) {}
 
   child(context: Record<string, unknown>): Logger {

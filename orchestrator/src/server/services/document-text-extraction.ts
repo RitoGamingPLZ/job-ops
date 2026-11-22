@@ -47,7 +47,7 @@ function decodeXmlEntities(value: string): string {
   );
 }
 
-export function normalizeDocxXmlText(xml: string): string {
+function normalizeDocxXmlText(xml: string): string {
   return decodeXmlEntities(
     xml
       .replace(/<w:tab\b[^>]*\/>/g, "\t")

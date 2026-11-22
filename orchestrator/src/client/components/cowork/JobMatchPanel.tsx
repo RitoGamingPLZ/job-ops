@@ -73,7 +73,7 @@ export function focusResumePart(root: ParentNode, ref: ResumeFocusRef) {
   return true;
 }
 
-export function askAiPrompt(requirement: ScreeningRequirement) {
+function askAiPrompt(requirement: ScreeningRequirement) {
   const gap = requirement.status === "partial" ? "only partly shows this" : "does not show this";
   return [
     `The job requires: "${requirement.text}". My resume ${gap}.`,

@@ -74,7 +74,7 @@ export const isRxResumeAvailabilityValidationFailure = (validation: ValidationRe
   !validation.valid &&
   (validation.status === 0 || (typeof validation.status === "number" && validation.status >= 500));
 
-export const buildRxResumeSettingsUpdate = (
+const buildRxResumeSettingsUpdate = (
   draft: RxResumeCredentialDrafts,
 ): Partial<UpdateSettingsInput> => {
   const update: Partial<UpdateSettingsInput> = {

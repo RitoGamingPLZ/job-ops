@@ -18,7 +18,7 @@ const VALIDATION_SCHEMA: JsonSchemaDefinition = {
 };
 
 /** Models commonly available via Claude Code CLI. */
-export const CLAUDE_CLI_SUGGESTED_MODELS: string[] = [
+const CLAUDE_CLI_SUGGESTED_MODELS: string[] = [
   "claude-sonnet-5",
   "claude-opus-4-8",
   "claude-haiku-4-5-20251001",

@@ -66,9 +66,7 @@ export type OnboardingRxResumeActionInput = {
   hasRxresumeBaseResumeId: boolean;
 };
 
-export function normalizeLlmProviderValue(
-  provider: string | null | undefined,
-): LlmProviderId | undefined {
+function normalizeLlmProviderValue(provider: string | null | undefined): LlmProviderId | undefined {
   if (!provider) return undefined;
   const normalized = provider.trim().toLowerCase().replace(/[-.]/g, "_");
   const mapped = mapGlmProviderAlias(normalized);

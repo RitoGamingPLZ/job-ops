@@ -68,7 +68,7 @@ function isHostedAppMode(): boolean {
   return getJobOpsAppConfig().appMode === "hosted";
 }
 
-export function getHostedUsagePeriod(now: Date = new Date()): string {
+function getHostedUsagePeriod(now: Date = new Date()): string {
   const year = now.getUTCFullYear();
   const month = String(now.getUTCMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;

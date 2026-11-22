@@ -5,7 +5,7 @@ import {
   extractChatCompletionsText,
 } from "./factory";
 
-export const ATLAS_CLOUD_BASE_URL = "https://api.atlascloud.ai";
+const ATLAS_CLOUD_BASE_URL = "https://api.atlascloud.ai";
 
 export const atlasCloudStrategy = createProviderStrategy({
   provider: "atlascloud",

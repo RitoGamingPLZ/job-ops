@@ -1,14 +1,21 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "tags": ["-lintignore"],
+  "ignoreDependencies": ["vitest", "job-ops-shared"],
+  "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "workspaces": {
     ".": {
       "entry": [],
-      "project": []
+      "project": [],
+      "ignoreDependencies": ["tsx"]
+    },
+    "docs-site": {
+      "entry": ["src/theme/**/*.tsx", "src/css/custom.css"]
     },
     "orchestrator": {
       "entry": [
         "src/server/index.ts",
+        "src/server/do-entry.ts",
         "src/server/db/migrate.ts",
         "src/server/db/clear.ts",
         "src/server/pipeline/run.ts",
@@ -19,28 +26,17 @@
         "src/**/*.test.tsx"
       ],
       "project": ["src/**/*.{ts,tsx}"],
-      "ignore": ["dist/**", "src/components/ui/**"]
+      "ignore": ["dist/**", "src/components/ui/**"],
+      "ignoreDependencies": ["@tailwindcss/typography", "tw-animate-css"],
+      "ignoreUnresolved": ["vite/client"]
     },
     "shared": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"],
       "ignore": ["src/**/*.test.ts"]
     },
-    "extractors/adzuna": {
-      "entry": ["src/main.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "extractors/gradcracker": {
-      "entry": ["src/main.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "extractors/hiringcafe": {
-      "entry": ["src/main.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "extractors/ukvisajobs": {
-      "entry": ["src/main.ts"],
-      "project": ["src/**/*.ts"]
+    "extractors/*": {
+      "entry": ["{,src/}manifest.ts"]
     }
   }
 }

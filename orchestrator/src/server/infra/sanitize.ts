@@ -7,7 +7,7 @@ const DEFAULT_MAX_STRING = 800;
 const DEFAULT_MAX_DEPTH = 5;
 const DEFAULT_MAX_ITEMS = 30;
 
-export function redactString(value: string, max = DEFAULT_MAX_STRING): string {
+function redactString(value: string, max = DEFAULT_MAX_STRING): string {
   if (value.length <= max) return value;
   return `${value.slice(0, max)}…(truncated ${value.length - max} chars)`;
 }

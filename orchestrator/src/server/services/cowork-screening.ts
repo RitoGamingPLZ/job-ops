@@ -15,7 +15,7 @@ import { withHostedUsageReservation } from "./hosted-usage";
 import type { JsonSchemaDefinition } from "./llm/types";
 import { createConfiguredLlmService, resolveLlmModel } from "./modelSelection";
 
-export const SCREENING_MAX_REQUIREMENTS = 40;
+const SCREENING_MAX_REQUIREMENTS = 40;
 const LIBRARY_LIMIT = 120;
 
 // Sections sent to the model, with the fields that name an item.

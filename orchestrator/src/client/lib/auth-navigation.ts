@@ -8,7 +8,7 @@ export function setAuthNavigator(navigator: AuthNavigator | null): void {
   authNavigator = navigator;
 }
 
-export function getCurrentAppPath(): string {
+function getCurrentAppPath(): string {
   if (typeof window === "undefined") return DEFAULT_APP_PATH;
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
@@ -28,7 +28,7 @@ export function resolveNextPath(
   return raw;
 }
 
-export function buildSignInPath(nextPath: string | null): string {
+function buildSignInPath(nextPath: string | null): string {
   const url = new URL("/sign-in", "http://localhost");
   if (nextPath && nextPath !== "/sign-in" && !nextPath.startsWith("/sign-in?")) {
     url.searchParams.set("next", nextPath);

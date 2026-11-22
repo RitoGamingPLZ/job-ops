@@ -68,7 +68,7 @@ export function moveResumeBullet(
 }
 
 export const SECTION_TRANSFER_TYPE = "application/x-jobops-resume-section";
-export const DEFAULT_SECTION_ORDER = [
+const DEFAULT_SECTION_ORDER = [
   "summary",
   "skills",
   "certifications",

@@ -266,21 +266,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 export const StatusIndicator = StatusBadgeIndicator;
 
 // ============================================================================
-// Split Layout (List + Detail panels)
-// ============================================================================
-
-interface SplitLayoutProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-export const SplitLayout: React.FC<SplitLayoutProps> = ({ children, className }) => (
-  <section className={cn("grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]", className)}>
-    {children}
-  </section>
-);
-
-// ============================================================================
 // List Panel (left side of split)
 // ============================================================================
 
@@ -328,28 +313,6 @@ export const ListItem: React.FC<ListItemProps> = ({ selected, onClick, children,
 );
 
 // ============================================================================
-// Detail Panel (right side of split)
-// ============================================================================
-
-interface DetailPanelProps {
-  children: React.ReactNode;
-  className?: string;
-  sticky?: boolean;
-}
-
-export const DetailPanel: React.FC<DetailPanelProps> = ({ children, className, sticky = true }) => (
-  <div
-    className={cn(
-      "min-w-0 rounded-xl border border-border/60 bg-card/40 p-4",
-      sticky && "lg:sticky lg:top-24 lg:self-start",
-      className,
-    )}
-  >
-    {children}
-  </div>
-);
-
-// ============================================================================
 // Empty State
 // ============================================================================
 
@@ -372,56 +335,6 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     {description && <p className="max-w-md text-sm text-muted-foreground">{description}</p>}
     {action && <div className="mt-2">{action}</div>}
   </div>
-);
-
-// ============================================================================
-// Score Meter
-// ============================================================================
-
-interface ScoreMeterProps {
-  score: number | null;
-  showLabel?: boolean;
-}
-
-const getScoreTokens = (score: number) => {
-  if (score >= 90) return { bar: "bg-emerald-500/80" };
-  if (score >= 70) return { bar: "bg-amber-500/80" };
-  if (score >= 50) return { bar: "bg-orange-500/80" };
-  return { bar: "bg-rose-500/80" };
-};
-
-export const ScoreMeter: React.FC<ScoreMeterProps> = ({ score, showLabel = true }) => {
-  if (score == null) {
-    return <span className="text-xs text-muted-foreground">Not scored</span>;
-  }
-
-  const tokens = getScoreTokens(score);
-  return (
-    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-      <div className="h-1.5 w-12 rounded-full bg-muted/40">
-        <div
-          className={cn("h-1.5 rounded-full", tokens.bar)}
-          style={{ width: `${Math.max(4, Math.min(100, score))}%` }}
-        />
-      </div>
-      {showLabel && <span className="tabular-nums text-foreground">{score}%</span>}
-    </div>
-  );
-};
-
-// ============================================================================
-// Section Card (for forms, stats, etc.)
-// ============================================================================
-
-interface SectionCardProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-export const SectionCard: React.FC<SectionCardProps> = ({ children, className }) => (
-  <section className={cn("rounded-xl border border-border/60 bg-card/40 p-4", className)}>
-    {children}
-  </section>
 );
 
 // ============================================================================

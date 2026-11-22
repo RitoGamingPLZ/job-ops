@@ -1,8 +1,8 @@
 export const DEFAULT_DOCS_UMAMI_WEBSITE_ID = "a3d08b50-443f-4d21-8ebb-9355ba67578b";
 export const DEMO_DOCS_UMAMI_WEBSITE_ID = "7956a54d-63f5-4528-af0f-f823dd421752";
-export const UMAMI_PROXY_BASE_PATH = "/stats";
-export const UMAMI_UPSTREAM_ORIGIN = "https://umami.dakheera47.com";
-export const DOCS_STANDALONE_DEV_PORT = "3006";
+const UMAMI_PROXY_BASE_PATH = "/stats";
+const UMAMI_UPSTREAM_ORIGIN = "https://umami.dakheera47.com";
+const DOCS_STANDALONE_DEV_PORT = "3006";
 const JOBOPS_UMAMI_SCRIPT_SELECTOR = 'script[data-jobops-umami="docs"]';
 
 export type DocsUmamiRuntimeConfig = {
@@ -101,7 +101,7 @@ export function ensureDocsUmamiScript(args: {
   args.document.head.appendChild(script);
 }
 
-export function trackDocsUmamiEvent(
+function trackDocsUmamiEvent(
   windowObject: WindowLike,
   eventName: string,
   payload?: Record<string, unknown>,

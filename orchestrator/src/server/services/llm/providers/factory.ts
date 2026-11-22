@@ -71,7 +71,7 @@ function toChatCompletionsContent(content: LlmMessageContent) {
   });
 }
 
-export function toChatCompletionsMessages(messages: LlmMessage[]) {
+function toChatCompletionsMessages(messages: LlmMessage[]) {
   return messages.map((message) => ({
     role: message.role,
     content: toChatCompletionsContent(message.content),

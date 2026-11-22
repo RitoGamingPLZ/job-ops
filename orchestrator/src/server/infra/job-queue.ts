@@ -1,4 +1,4 @@
-export const JOB_QUEUE_NAMES = ["auto_pdf_regeneration"] as const;
+const JOB_QUEUE_NAMES = ["auto_pdf_regeneration"] as const;
 
 export type JobQueueName = (typeof JOB_QUEUE_NAMES)[number];
 

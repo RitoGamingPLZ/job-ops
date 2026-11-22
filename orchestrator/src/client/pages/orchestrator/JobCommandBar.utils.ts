@@ -26,7 +26,7 @@ export type CommandBarRow =
       job?: JobListItem;
     };
 
-export const commandGroupMeta: Array<{ id: CommandGroupId; heading: string }> = [
+const commandGroupMeta: Array<{ id: CommandGroupId; heading: string }> = [
   { id: "ready", heading: "Targeted" },
   { id: "discovered", heading: "Discovered" },
   { id: "applied", heading: "Applied" },
@@ -90,7 +90,7 @@ const computeFieldMatchScore = (fieldRaw: string, needleRaw: string) => {
   return 0;
 };
 
-export const getCommandGroup = (status: JobStatus): CommandGroupId => {
+const getCommandGroup = (status: JobStatus): CommandGroupId => {
   if (status === "ready") return "ready";
   if (status === "discovered" || status === "processing") return "discovered";
   if (status === "applied") return "applied";

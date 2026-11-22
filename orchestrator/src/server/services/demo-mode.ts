@@ -30,7 +30,7 @@ export async function resetDemoData(): Promise<void> {
   await applyDemoBaseline(baseline);
 }
 
-export async function runDemoResetCycle(): Promise<void> {
+async function runDemoResetCycle(): Promise<void> {
   if (isResetRunning) return;
   isResetRunning = true;
 

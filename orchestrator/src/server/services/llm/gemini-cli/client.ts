@@ -10,7 +10,7 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 const DEFAULT_VALIDATION_TIMEOUT_MS = 60_000;
 
 /** Models commonly available via Gemini CLI; same `google/...` ids as the API provider. */
-export const GEMINI_CLI_SUGGESTED_MODELS: string[] = [
+const GEMINI_CLI_SUGGESTED_MODELS: string[] = [
   "google/gemini-2.5-flash",
   "google/gemini-2.5-pro",
   "google/gemini-3-flash-preview",

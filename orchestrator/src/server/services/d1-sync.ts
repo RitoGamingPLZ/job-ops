@@ -49,7 +49,7 @@ function openSqlite(dbPath: string): Database.Database {
   return new Database(dbPath);
 }
 
-export function getDefaultSyncDbPath(): string {
+function getDefaultSyncDbPath(): string {
   return join(getDataDir(), "jobs.db");
 }
 

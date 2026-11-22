@@ -76,10 +76,6 @@ export async function createJobDocumentObjectUrl(
   return createObjectUrlFromBlob(() => api.getJobDocumentBlob(jobId, documentId));
 }
 
-export async function createDesignResumePdfObjectUrl(pdfUrl?: string): Promise<string> {
-  return createObjectUrlFromBlob(() => api.getDesignResumePdfBlob(pdfUrl));
-}
-
 export async function createDesignResumePreviewPdfObjectUrl(): Promise<string> {
   return createObjectUrlFromBlob(() => api.previewDesignResumePdfBlob());
 }

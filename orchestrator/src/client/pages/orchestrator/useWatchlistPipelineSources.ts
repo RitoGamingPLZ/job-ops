@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAuthScopedStorageKey } from "@/client/api/client";
 import { PIPELINE_WATCHLIST_SOURCES_STORAGE_KEY } from "./constants";
 
-export function getWatchlistPipelineSourcesStorageKey(): string {
+function getWatchlistPipelineSourcesStorageKey(): string {
   return getAuthScopedStorageKey(PIPELINE_WATCHLIST_SOURCES_STORAGE_KEY);
 }
 
