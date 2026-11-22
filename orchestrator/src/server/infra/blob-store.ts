@@ -207,6 +207,12 @@ export class LocalBlobStore implements BlobStore {
   async list(options?: BlobListOptions): Promise<BlobListEntry[]> {
     const rootDir = this.getBaseDir();
     const prefix = normalizeBlobPrefix(options?.prefix);
+    const prefixDir = prefix
+      .slice(0, prefix.lastIndexOf("/") + 1)
+      .replace(/\/$/, "");
+    const startDir = prefixDir
+      ? this.resolveKeyPath(prefixDir).fullPath
+      : rootDir;
     const entries: BlobListEntry[] = [];
 
     const walk = async (dirPath: string): Promise<void> => {
@@ -238,7 +244,7 @@ export class LocalBlobStore implements BlobStore {
       }
     };
 
-    await walk(rootDir);
+    await walk(startDir);
     entries.sort((a, b) => a.key.localeCompare(b.key));
     return entries;
   }
