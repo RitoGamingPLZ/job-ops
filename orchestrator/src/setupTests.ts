@@ -5,7 +5,9 @@
 import "@testing-library/jest-dom";
 import { installDomMeasurementMocks } from "@/client/test/dom-measurement";
 
-installDomMeasurementMocks();
+if (typeof window !== "undefined" && typeof document !== "undefined") {
+  installDomMeasurementMocks();
+}
 
 const hasStorageShape = (value: unknown): value is Storage => {
   if (!value || typeof value !== "object") return false;

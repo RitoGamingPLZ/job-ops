@@ -1,7 +1,9 @@
 name: Trigger Cloudflare Infra Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -10,57 +12,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  ci:
-    name: CI Checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Biome
-        uses: biomejs/setup-biome@v2
-        with:
-          version: 2.3.12
-
-      - name: Lint (Biome)
-        run: biome ci .
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: "npm"
-          cache-dependency-path: package-lock.json
-
-      - name: Install workspace dependencies
-        run: npm ci --workspaces --include-workspace-root
-
-      - name: Rebuild better-sqlite3
-        run: npm --workspace orchestrator rebuild better-sqlite3
-
-      - name: Typecheck shared
-        run: npm run check:types:shared
-
-      - name: Typecheck orchestrator & extractors
-        run: |
-          npm --workspace orchestrator run check:types
-          npm --workspace gradcracker-extractor run check:types
-          npm --workspace ukvisajobs-extractor run check:types
-
-      - name: Build orchestrator client
-        run: npm --workspace orchestrator run build:client
-
-      - name: Run tests
-        run: npm --workspace orchestrator run test:run
-
   dispatch-infra:
     name: Dispatch RitoGamingPLZ/job-ops-infra
-    needs: [ci]
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Cloudflare infra deployment
         env:
           INFRA_DISPATCH_TOKEN: ${{ secrets.INFRA_DISPATCH_TOKEN }}
-          APP_SHA: ${{ github.sha }}
+          APP_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           if [ -z "${INFRA_DISPATCH_TOKEN}" ]; then
             echo "::notice::INFRA_DISPATCH_TOKEN secret is not set on RitoGamingPLZ/job-ops. Configure a PAT scoped to RitoGamingPLZ/job-ops-infra (Contents: Write) to enable automatic cross-repo deploy on merge to main."

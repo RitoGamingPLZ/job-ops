@@ -35,23 +35,49 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   test: {
     globals: true,
-    environment: "jsdom",
-    setupFiles: "./src/setupTests.ts",
     pool: "forks",
     maxWorkers: 4,
     testTimeout: 60_000,
     hookTimeout: 60_000,
-    include: [
-      "src/**/*.test.ts",
-      "src/**/*.test.tsx",
-      "../docs-site/src/**/*.test.ts",
-      "../docs-site/src/**/*.test.tsx",
-      "../career-boards/**/*.test.ts",
-      "../shared/src/**/*.test.ts",
-      "../extractors/**/tests/**/*.test.ts",
-      "../visa-sponsor-providers/**/*.test.ts",
-    ],
     exclude: ["node_modules/**", "dist/**"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "node",
+          environment: "node",
+          include: [
+            "src/server/**/*.test.ts",
+            "src/server/**/*.test.tsx",
+            "src/shared/**/*.test.ts",
+            "scripts/**/*.test.ts",
+            "../shared/src/**/*.test.ts",
+            "../career-boards/**/*.test.ts",
+            "../extractors/**/tests/**/*.test.ts",
+            "../extractors/*/src/**/*.test.ts",
+            "../visa-sponsor-providers/**/*.test.ts",
+          ],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "client",
+          environment: "jsdom",
+          setupFiles: "./src/setupTests.ts",
+          include: [
+            "src/client/**/*.test.ts",
+            "src/client/**/*.test.tsx",
+            "src/components/**/*.test.ts",
+            "src/components/**/*.test.tsx",
+            "src/lib/**/*.test.ts",
+            "src/lib/**/*.test.tsx",
+            "../docs-site/src/**/*.test.ts",
+            "../docs-site/src/**/*.test.tsx",
+          ],
+        },
+      },
+    ],
   },
   resolve: {
     alias: {

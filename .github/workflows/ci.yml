@@ -24,8 +24,12 @@ jobs:
         run: biome ci .
 
   tests:
-    name: Tests
+    name: Tests (${{ matrix.shard }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/2, 2/2]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node
@@ -41,7 +45,7 @@ jobs:
         run: npm --workspace orchestrator rebuild better-sqlite3
         working-directory: .
       - name: Run Tests
-        run: npm run test:all
+        run: npm run test:all -- --shard=${{ matrix.shard }}
         working-directory: .
 
   typecheck:
