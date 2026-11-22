@@ -4,6 +4,7 @@ import Database from "better-sqlite3";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { beforeEach, describe, expect, it } from "vitest";
+import type { IncomingPosting } from "./index";
 import {
   buildScrapeKey,
   cleanupUnseenPostings,
@@ -547,5 +548,194 @@ describe("scrape-coordinator", () => {
     expect(cleaned.deletedCount).toBe(1);
     const remaining = db.select().from(schema.postings).all();
     expect(remaining.map((r) => r.id)).toEqual(["p_new"]);
+  });
+
+  it.each([
+    { taskStatus: "done" as const, cached: false },
+    { taskStatus: "failed" as const, cached: false },
+    { taskStatus: "done" as const, cached: true },
+  ])("counts $taskStatus completion once per task, tenant and run (cached=$cached)", ({
+    taskStatus,
+    cached,
+  }) => {
+    const t0 = new Date("2026-11-22T10:00:00.000Z");
+    db.insert(schema.pipelineRuns)
+      .values([
+        { id: "run_a", tenantId: "tenant_a", tasksTotal: 2 },
+        { id: "run_a2", tenantId: "tenant_a", tasksTotal: 1 },
+        { id: "run_b", tenantId: "tenant_b", tasksTotal: 1 },
+      ])
+      .run();
+    const task = ensureTask(db, {
+      source: "adzuna",
+      title: "Engineer",
+      tenantId: "tenant_a",
+      runId: "run_a",
+      now: t0,
+    });
+    const completed = completeTask(db, {
+      taskId: task.taskId,
+      postings: [
+        {
+          jobUrl: "https://example.com/job/1",
+          source: "adzuna",
+          company: "Acme",
+          title: "Engineer",
+        },
+      ],
+      now: t0,
+    });
+    if (taskStatus === "failed") {
+      db.update(schema.scrapeTasks)
+        .set({ status: "failed" })
+        .where(eq(schema.scrapeTasks.id, task.taskId))
+        .run();
+    }
+
+    for (const { tenantId, runId } of [
+      { tenantId: "tenant_a", runId: "run_a" },
+      { tenantId: "tenant_b", runId: "run_b" },
+      { tenantId: "tenant_a", runId: "run_a2" },
+    ]) {
+      const input = {
+        taskId: task.taskId,
+        tenantId,
+        runId,
+        postingIds: completed.postingIds,
+        taskStatus,
+        cached,
+        now: t0,
+      };
+      const expectedInserted =
+        taskStatus === "failed" || runId === "run_a2" ? 0 : 1;
+      expect(onTaskDoneForTenant(db, input)).toEqual({
+        insertedCount: expectedInserted,
+      });
+      const run = db
+        .select()
+        .from(schema.pipelineRuns)
+        .where(eq(schema.pipelineRuns.id, runId))
+        .get();
+      expect(run).toMatchObject({
+        tasksDone: taskStatus === "done" ? 1 : 0,
+        tasksFailed: taskStatus === "failed" ? 1 : 0,
+        tasksCached: cached ? 1 : 0,
+        jobsDiscovered: expectedInserted,
+        status:
+          runId === "run_a"
+            ? "running"
+            : taskStatus === "failed"
+              ? "partial"
+              : "completed",
+      });
+
+      expect(
+        onTaskDoneForTenant(db, {
+          ...input,
+          now: new Date(t0.getTime() + 1_000),
+        }),
+      ).toEqual({ insertedCount: 0 });
+      expect(
+        db
+          .select()
+          .from(schema.pipelineRuns)
+          .where(eq(schema.pipelineRuns.id, runId))
+          .get(),
+      ).toEqual(run);
+    }
+
+    expect(db.select().from(schema.taskSubscribers).all()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          taskId: task.taskId,
+          tenantId: "tenant_a",
+          runId: "run_a",
+          notifiedAt: t0.toISOString(),
+        }),
+        expect.objectContaining({
+          taskId: task.taskId,
+          tenantId: "tenant_b",
+          runId: "run_b",
+          notifiedAt: t0.toISOString(),
+        }),
+      ]),
+    );
+    expect(db.select().from(schema.jobs).all()).toHaveLength(
+      taskStatus === "failed" ? 0 : 2,
+    );
+  });
+
+  it.each([
+    true,
+    false,
+  ])("refreshes a re-scraped posting and preserves its identity (optional fields=%s)", (includeOptionalFields) => {
+    const t0 = new Date("2026-11-22T10:00:00.000Z");
+    const t1 = new Date(t0.getTime() + 25 * 60 * 60 * 1000);
+    const taskInput = {
+      source: "adzuna",
+      title: "Engineer",
+      tenantId: "tenant_a",
+      runId: "run_a",
+    };
+    const task = ensureTask(db, { ...taskInput, now: t0 });
+    const original = completeTask(db, {
+      taskId: task.taskId,
+      postings: [
+        {
+          jobUrl: "https://example.com/job/1?utm_source=old",
+          source: "adzuna",
+          company: "Acme",
+          title: "Engineer",
+          location: "London",
+          description: "Original description",
+          postedAt: "2026-11-21",
+          extracted: { salary: 50000, obsolete: true },
+        },
+      ],
+      now: t0,
+    });
+
+    const rescrape = ensureTask(db, {
+      ...taskInput,
+      tenantId: "tenant_b",
+      runId: "run_b",
+      now: t1,
+    });
+    expect(rescrape.status).toBe("created");
+    const refreshed: IncomingPosting = {
+      jobUrl: "https://example.com/job/1?utm_source=new#apply",
+      source: "company-board",
+      company: "Acme Ltd",
+      title: "Senior Engineer",
+      ...(includeOptionalFields
+        ? {
+            location: "Remote",
+            description: "Updated description",
+            postedAt: "2026-11-23",
+            extracted: { salary: 70000 },
+          }
+        : {}),
+    };
+    const completed = completeTask(db, {
+      taskId: rescrape.taskId,
+      postings: [refreshed],
+      now: t1,
+    });
+    expect(completed.postingIds).toEqual(original.postingIds);
+    expect(db.select().from(schema.postings).all()).toEqual([
+      {
+        id: original.postingIds[0],
+        urlNorm: "https://example.com/job/1",
+        source: refreshed.source,
+        company: refreshed.company,
+        title: refreshed.title,
+        location: refreshed.location ?? null,
+        description: refreshed.description ?? null,
+        postedAt: refreshed.postedAt ?? null,
+        extracted: refreshed.extracted ?? null,
+        firstSeenAt: t0.toISOString(),
+        lastSeenAt: t1.toISOString(),
+      },
+    ]);
   });
 });
