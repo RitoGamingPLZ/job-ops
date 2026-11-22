@@ -1,3 +1,4 @@
+import { normalizeStringArray } from "../normalize-string-array";
 import { toStringOrNull } from "./type-conversion.js";
 
 export const MAX_SEARCH_TERMS = 10;
@@ -47,20 +48,5 @@ export function normalizeSearchTerms(
 ): string[] {
   const maxTerms = Math.max(1, options?.maxTerms ?? MAX_SEARCH_TERMS);
   const maxLength = Math.max(1, options?.maxLength ?? MAX_SEARCH_TERM_LENGTH);
-  const seen = new Set<string>();
-  const out: string[] = [];
-
-  for (const value of values) {
-    const trimmed = value.trim().slice(0, maxLength);
-    if (!trimmed) continue;
-
-    const key = trimmed.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(trimmed);
-
-    if (out.length >= maxTerms) break;
-  }
-
-  return out;
+  return normalizeStringArray(values, { maxItems: maxTerms, maxLength });
 }

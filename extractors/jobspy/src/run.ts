@@ -8,6 +8,7 @@ import {
   getCountryIso2Code,
   normalizeCountryKey,
 } from "@shared/location-support.js";
+import { normalizeStringArray } from "@shared/normalize-string-array.js";
 import {
   matchesRequestedCountry,
   resolveSearchCities,
@@ -425,19 +426,7 @@ export async function runJobSpy(
 function resolveSearchTerms(options: RunJobSpyOptions): string[] {
   const fromOptions = options.searchTerms?.length ? options.searchTerms : null;
   const fromEnv = parseSearchTermsEnv(process.env.JOBSPY_SEARCH_TERMS);
-  const raw = fromOptions ?? fromEnv ?? ["web developer"];
-  const out: string[] = [];
-  const seen = new Set<string>();
-
-  for (const term of raw) {
-    const normalized = term.trim();
-    if (!normalized) continue;
-    const key = normalized.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(normalized);
-  }
-  return out;
+  return normalizeStringArray(fromOptions ?? fromEnv ?? ["web developer"]);
 }
 
 function parseSearchTermsEnv(raw: string | undefined): string[] | null {

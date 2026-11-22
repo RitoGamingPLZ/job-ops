@@ -1,4 +1,5 @@
 import { getSetting } from "@server/repositories/settings";
+import { normalizeStringArray } from "@shared/normalize-string-array";
 import { resolveResumeProjectSelection } from "@shared/resume-projects";
 import type {
   ResumeProfile,
@@ -108,12 +109,17 @@ export function normalizeResumeProjectsSettings(
   const allowed =
     allowedProjectIds && allowedProjectIds.size > 0 ? allowedProjectIds : null;
 
-  const lockedProjectIds = uniqueStrings(settings.lockedProjectIds).filter(
-    (id) => (allowed ? allowed.has(id) : true),
-  );
+  const lockedProjectIds = normalizeStringArray(settings.lockedProjectIds, {
+    caseSensitive: true,
+  }).filter((id) => (allowed ? allowed.has(id) : true));
   const lockedSet = new Set(lockedProjectIds);
 
-  const aiSelectableProjectIds = uniqueStrings(settings.aiSelectableProjectIds)
+  const aiSelectableProjectIds = normalizeStringArray(
+    settings.aiSelectableProjectIds,
+    {
+      caseSensitive: true,
+    },
+  )
     .filter((id) => (allowed ? allowed.has(id) : true))
     .filter((id) => !lockedSet.has(id));
 
@@ -194,19 +200,6 @@ export async function filterProfileProjectsForAi(
 
 export function stripHtml(input: string): string {
   return stripHtmlTags(input);
-}
-
-function uniqueStrings(values: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const value of values) {
-    const trimmed = value.trim();
-    if (!trimmed) continue;
-    if (seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    out.push(trimmed);
-  }
-  return out;
 }
 
 export type { ResumeProjectSelectionItem };

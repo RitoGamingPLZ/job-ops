@@ -27,6 +27,7 @@ import {
   normalizeCountryKey,
   SUPPORTED_COUNTRY_KEYS,
 } from "@shared/location-support.js";
+import { normalizeStringArray } from "@shared/normalize-string-array";
 import type {
   PipelineSearchPlanRequest,
   PipelineSearchPlanResponse,
@@ -147,21 +148,12 @@ function normalizeStrings(
   maxItems: number,
   maxLength: number,
 ): string[] {
-  const raw = Array.isArray(value) ? value : fallback;
-  const out: string[] = [];
-  const seen = new Set<string>();
-
-  for (const item of raw) {
-    if (typeof item !== "string") continue;
-    const trimmed = item.trim().slice(0, maxLength);
-    if (!trimmed) continue;
-    const key = trimmed.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(trimmed);
-    if (out.length >= maxItems) break;
-  }
-
+  const out = normalizeStringArray(
+    (Array.isArray(value) ? value : fallback).filter(
+      (item): item is string => typeof item === "string",
+    ),
+    { maxItems, maxLength },
+  );
   return out.length > 0 ? out : fallback.slice(0, maxItems);
 }
 
@@ -172,21 +164,10 @@ function normalizeOptionalStrings(
   maxLength: number,
 ): string[] {
   if (!Array.isArray(value)) return fallback.slice(0, maxItems);
-  const out: string[] = [];
-  const seen = new Set<string>();
-
-  for (const item of value) {
-    if (typeof item !== "string") continue;
-    const trimmed = item.trim().slice(0, maxLength);
-    if (!trimmed) continue;
-    const key = trimmed.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(trimmed);
-    if (out.length >= maxItems) break;
-  }
-
-  return out;
+  return normalizeStringArray(
+    value.filter((item): item is string => typeof item === "string"),
+    { maxItems, maxLength },
+  );
 }
 
 function normalizeWorkplaceTypes(
