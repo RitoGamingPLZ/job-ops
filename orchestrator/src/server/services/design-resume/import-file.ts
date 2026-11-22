@@ -1540,48 +1540,14 @@ async function extractWithTextChatCompletions(args: {
   return text;
 }
 
-async function extractWithGeminiCli(args: {
-  model: string;
-  mediaType: SupportedImportMediaType;
-  fileName: string;
-  documentText: string;
-  requestId: string | undefined;
-}): Promise<string> {
-  const source: "DOCX" | "PDF" = args.mediaType === "application/pdf" ? "PDF" : "DOCX";
-  const userContent = buildTextExtractPrompt(args.documentText, args.fileName, source);
-  const client = new GeminiCliClient();
-  try {
-    const { text } = await client.callJson({
-      model: args.model,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userContent },
-      ],
-      jsonSchema: DESIGN_RESUME_IMPORT_CLI_JSON_SCHEMA,
-    });
-    if (!text?.trim()) {
-      throw upstreamError("Gemini CLI returned an empty response for resume import.");
-    }
-    return text;
-  } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    const message = error instanceof Error ? error.message : String(error);
-    throw upstreamError(
-      truncate(message, 500),
-      args.requestId
-        ? {
-            provider: "gemini_cli",
-            model: args.model,
-            requestId: args.requestId,
-          }
-        : { provider: "gemini_cli", model: args.model },
-    );
-  }
-}
+const CLI_PROVIDER_LABELS = {
+  gemini_cli: "Gemini CLI",
+  claude_cli: "Claude CLI",
+  codex: "Codex",
+} as const;
 
-async function extractWithClaudeCli(args: {
+async function extractWithTextCli(args: {
+  provider: "gemini_cli" | "claude_cli";
   model: string;
   mediaType: SupportedImportMediaType;
   fileName: string;
@@ -1590,7 +1556,7 @@ async function extractWithClaudeCli(args: {
 }): Promise<string> {
   const source: "DOCX" | "PDF" = args.mediaType === "application/pdf" ? "PDF" : "DOCX";
   const userContent = buildTextExtractPrompt(args.documentText, args.fileName, source);
-  const client = new ClaudeCliClient();
+  const client = args.provider === "gemini_cli" ? new GeminiCliClient() : new ClaudeCliClient();
   try {
     const { text } = await client.callJson({
       model: args.model,
@@ -1601,7 +1567,9 @@ async function extractWithClaudeCli(args: {
       jsonSchema: DESIGN_RESUME_IMPORT_CLI_JSON_SCHEMA,
     });
     if (!text?.trim()) {
-      throw upstreamError("Claude CLI returned an empty response for resume import.");
+      throw upstreamError(
+        `${CLI_PROVIDER_LABELS[args.provider]} returned an empty response for resume import.`,
+      );
     }
     return text;
   } catch (error) {
@@ -1613,11 +1581,11 @@ async function extractWithClaudeCli(args: {
       truncate(message, 500),
       args.requestId
         ? {
-            provider: "claude_cli",
+            provider: args.provider,
             model: args.model,
             requestId: args.requestId,
           }
-        : { provider: "claude_cli", model: args.model },
+        : { provider: args.provider, model: args.model },
     );
   }
 }
@@ -1694,50 +1662,27 @@ async function extractResumeFromProvider(args: {
   documentText?: string | null;
   requestId: string | undefined;
 }): Promise<string> {
-  if (args.provider === "gemini_cli") {
+  if (
+    args.provider === "gemini_cli" ||
+    args.provider === "claude_cli" ||
+    args.provider === "codex"
+  ) {
     const text = args.documentText?.trim();
     if (!text) {
       throw badRequest(
-        "Gemini CLI resume import requires plain-text resume content (DOCX or extracted PDF text).",
+        `${CLI_PROVIDER_LABELS[args.provider]} resume import requires plain-text resume content (DOCX or extracted PDF text).`,
       );
     }
-    return extractWithGeminiCli({
+    const cliArgs = {
       model: args.model,
       mediaType: args.mediaType,
       fileName: args.fileName,
       documentText: text,
       requestId: args.requestId,
-    });
-  }
-  if (args.provider === "claude_cli") {
-    const text = args.documentText?.trim();
-    if (!text) {
-      throw badRequest(
-        "Claude CLI resume import requires plain-text resume content (DOCX or extracted PDF text).",
-      );
-    }
-    return extractWithClaudeCli({
-      model: args.model,
-      mediaType: args.mediaType,
-      fileName: args.fileName,
-      documentText: text,
-      requestId: args.requestId,
-    });
-  }
-  if (args.provider === "codex") {
-    const text = args.documentText?.trim();
-    if (!text) {
-      throw badRequest(
-        "Codex resume import requires plain-text resume content (DOCX or extracted PDF text).",
-      );
-    }
-    return extractWithCodex({
-      model: args.model,
-      mediaType: args.mediaType,
-      fileName: args.fileName,
-      documentText: text,
-      requestId: args.requestId,
-    });
+    };
+    return args.provider === "codex"
+      ? extractWithCodex(cliArgs)
+      : extractWithTextCli({ ...cliArgs, provider: args.provider });
   }
   if (args.provider === "openai") {
     return extractWithOpenAi(args);

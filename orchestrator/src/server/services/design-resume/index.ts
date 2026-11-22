@@ -806,14 +806,15 @@ export async function updateCurrentDesignResume(
   return (await hydrateDocument(saved)) as DesignResumeDocument;
 }
 
-export async function uploadDesignResumePicture(input: {
+async function replaceDesignResumePicture(input: {
+  current: DesignResumeDocument;
   fileName: string;
-  dataUrl: string;
+  mimeType: string;
+  data: Buffer;
   baseRevision?: number;
   document?: DesignResumeJson;
 }): Promise<DesignResumeDocument> {
-  const current = await requireCurrentDesignResume();
-  const parsed = parseDataUrl(input.dataUrl);
+  const { current } = input;
   const existingAsset = await designResumeRepo.findDesignResumeAssetForDocument({
     documentId: current.id,
     kind: "picture",
@@ -823,8 +824,8 @@ export async function uploadDesignResumePicture(input: {
   const { assetId, storagePath } = await storeDesignResumePictureAsset({
     documentId: current.id,
     fileName: input.fileName,
-    mimeType: parsed.mimeType,
-    data: parsed.data,
+    mimeType: input.mimeType,
+    data: input.data,
     updatedAt: now,
   });
 
@@ -867,6 +868,17 @@ export async function uploadDesignResumePicture(input: {
   return updated;
 }
 
+export async function uploadDesignResumePicture(input: {
+  fileName: string;
+  dataUrl: string;
+  baseRevision?: number;
+  document?: DesignResumeJson;
+}): Promise<DesignResumeDocument> {
+  const current = await requireCurrentDesignResume();
+  const { mimeType, data } = parseDataUrl(input.dataUrl);
+  return replaceDesignResumePicture({ ...input, current, mimeType, data });
+}
+
 export async function uploadDesignResumePictureFile(input: {
   fileName: string;
   mimeType?: string | null;
@@ -883,54 +895,13 @@ export async function uploadDesignResumePictureFile(input: {
   }
   assertImageByteSize(input.data.byteLength);
 
-  const existingAsset = await designResumeRepo.findDesignResumeAssetForDocument({
-    documentId: current.id,
-    kind: "picture",
-  });
-
-  const now = new Date().toISOString();
-  const { assetId, storagePath } = await storeDesignResumePictureAsset({
-    documentId: current.id,
+  return replaceDesignResumePicture({
+    current,
     fileName: input.fileName,
     mimeType,
     data: input.data,
-    updatedAt: now,
+    baseRevision: input.baseRevision,
   });
-
-  const nextDocument = structuredClone(current.resumeJson) as DesignResumeJson;
-  const picture = asRecord(nextDocument.picture) ?? {};
-  nextDocument.picture = {
-    ...picture,
-    url: contentUrlForAsset(assetId),
-    hidden: false,
-  } as DesignResumeJson["picture"];
-
-  let updated: DesignResumeDocument;
-  try {
-    updated = await updateCurrentDesignResume({
-      baseRevision: input.baseRevision ?? current.revision,
-      document: nextDocument,
-    });
-  } catch (error) {
-    await designResumeRepo.deleteDesignResumeAsset(assetId);
-    await deleteAssetFile(storagePath);
-    throw error;
-  }
-
-  if (existingAsset) {
-    try {
-      await designResumeRepo.deleteDesignResumeAsset(existingAsset.id);
-      await deleteAssetFile(existingAsset.storagePath);
-    } catch (error) {
-      logger.warn("Failed to delete replaced design resume asset", {
-        assetId: existingAsset.id,
-        documentId: current.id,
-        error: sanitizeUnknown(error),
-      });
-    }
-  }
-
-  return updated;
 }
 
 export async function deleteDesignResumePicture(input?: {

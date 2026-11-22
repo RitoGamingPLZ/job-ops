@@ -8,6 +8,7 @@ import { sanitizeUnknown } from "@infra/sanitize";
 import type { PdfPaperSize } from "@shared/types";
 import { runResumeCompiler } from "./compiler";
 import { getLatexResumeSectionTitles } from "./document";
+import { renderInlineHtml, renderOrderedSections } from "./markup";
 import { materializeResumePicture } from "./picture";
 import type {
   LatexResumeContactItem,
@@ -16,7 +17,6 @@ import type {
   LatexResumeEntry,
   LatexResumeInterestItem,
   LatexResumeLanguageItem,
-  LatexResumeOrderedSectionKey,
   LatexResumeProfileItem,
   ResumeRenderer,
 } from "./types";
@@ -50,14 +50,6 @@ const LATEX_PAPER_OPTIONS: Record<PdfPaperSize, string> = {
   letter: "letterpaper",
 };
 
-function normalizeText(value: string): string {
-  return value
-    .replace(/\u2010|\u2011|\u2012|\u2013|\u2014/g, "-")
-    .replace(/\u2022/g, "-")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function escapeRawLatex(value: string): string {
   return value
     .replace(/\\/g, "\\textbackslash{}")
@@ -67,45 +59,12 @@ function escapeRawLatex(value: string): string {
 }
 
 function escapeLatexText(value: string): string {
-  const normalized = normalizeText(value);
-  const parts = normalized.split(/(<\/?(?:strong|b|em|i)\b[^>]*>)/gi);
-  const result: string[] = [];
-  const tagStack: string[] = [];
-
-  for (const part of parts) {
-    if (!part) continue;
-
-    if (part.startsWith("<") && part.endsWith(">")) {
-      const lower = part.toLowerCase();
-      if (lower.startsWith("<strong") || lower.startsWith("<b")) {
-        result.push("\\textbf{");
-        tagStack.push("bold");
-      } else if (lower.startsWith("</strong") || lower.startsWith("</b>")) {
-        if (tagStack.pop() === "bold") {
-          result.push("}");
-        } else {
-          result.push("}");
-        }
-      } else if (lower.startsWith("<em") || lower.startsWith("<i")) {
-        result.push("\\textit{");
-        tagStack.push("italic");
-      } else if (lower.startsWith("</em") || lower.startsWith("</i>")) {
-        if (tagStack.pop() === "italic") {
-          result.push("}");
-        } else {
-          result.push("}");
-        }
-      }
-    } else {
-      result.push(escapeRawLatex(part));
-    }
-  }
-
-  while (tagStack.pop()) {
-    result.push("}");
-  }
-
-  return result.join("");
+  return renderInlineHtml(value, {
+    escape: escapeRawLatex,
+    bold: "\\textbf{",
+    italic: "\\textit{",
+    close: "}",
+  });
 }
 
 function escapeLatexUrl(value: string): string {
@@ -417,82 +376,6 @@ function renderLocationBlock(document: LatexResumeDocument): string {
   return `\\begin{center}\\small ${escapeForCommand(document.location)}\\end{center}\n`;
 }
 
-function renderOrderedCoreSections(
-  document: LatexResumeDocument,
-  titles: ReturnType<typeof getLatexResumeSectionTitles>,
-): string[] {
-  const sectionOrder = document.sectionOrder ?? [
-    "profiles",
-    "experience",
-    "education",
-    "projects",
-    "skills",
-    "languages",
-    "interests",
-    "awards",
-    "certifications",
-    "publications",
-    "volunteer",
-    "references",
-  ];
-  const builders: Record<LatexResumeOrderedSectionKey, () => string> = {
-    profiles: () => renderProfilesSection(document),
-    experience: () =>
-      renderEntrySection({
-        title: titles.experience,
-        entries: document.experience,
-        kind: "subheading",
-      }),
-    education: () =>
-      renderEntrySection({
-        title: titles.education,
-        entries: document.education,
-        kind: "subheading",
-      }),
-    projects: () =>
-      renderEntrySection({
-        title: titles.projects,
-        entries: document.projects,
-        kind: "project",
-      }),
-    skills: () => renderSkillsSection(document),
-    languages: () => renderLanguagesSection(document),
-    interests: () => renderInterestsSection(document),
-    awards: () =>
-      renderEntrySection({
-        title: titles.awards,
-        entries: document.awards,
-        kind: "subheading",
-      }),
-    certifications: () =>
-      renderEntrySection({
-        title: titles.certifications,
-        entries: document.certifications,
-        kind: "subheading",
-      }),
-    publications: () =>
-      renderEntrySection({
-        title: titles.publications,
-        entries: document.publications,
-        kind: "subheading",
-      }),
-    volunteer: () =>
-      renderEntrySection({
-        title: titles.volunteer,
-        entries: document.volunteer,
-        kind: "subheading",
-      }),
-    references: () =>
-      renderEntrySection({
-        title: titles.references,
-        entries: document.references,
-        kind: "subheading",
-      }),
-  };
-
-  return sectionOrder.map((key) => builders[key]());
-}
-
 async function loadTemplate(): Promise<string> {
   return await readFile(TEMPLATE_PATH, "utf8");
 }
@@ -513,7 +396,13 @@ export function buildLatexDocument(
   const body = [
     renderSummarySection(document),
     renderCustomFieldsSection(document),
-    ...renderOrderedCoreSections(document, titles),
+    ...renderOrderedSections(document, titles, {
+      entry: renderEntrySection,
+      profiles: () => renderProfilesSection(document),
+      skills: () => renderSkillsSection(document),
+      languages: () => renderLanguagesSection(document),
+      interests: () => renderInterestsSection(document),
+    }),
   ]
     .filter(Boolean)
     .join("\n");
