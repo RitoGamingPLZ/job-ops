@@ -51,6 +51,8 @@ export const manifest: ExtractorManifest = {
   id: "jobindex",
   displayName: "Jobindex",
   providesSources: ["jobindex"],
+  runtime: "worker",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   capabilities: { locationEvidence: true },
   locationCapabilities: {
     jobindex: { supportedCountryKeys: ["denmark"] },

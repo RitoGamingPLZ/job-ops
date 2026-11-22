@@ -12,6 +12,7 @@ import type { AppErrorCode } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { trackServerProductEvent } from "@infra/product-analytics";
 import { runWithRequestContext } from "@infra/request-context";
+import { sanitizeUnknown } from "@infra/sanitize";
 import { getJobResume } from "@server/repositories/job-resumes";
 import { ensureJobResume } from "@server/services/job-resume";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
@@ -433,12 +434,47 @@ export async function runPipeline(
 
       ensureNotCancelled(scopeKey);
       await persistResultSummary({ stage: "discovery" });
+      const incrementalImportTotals = {
+        created: 0,
+        skipped: 0,
+        fuzzyMerged: 0,
+      };
+      const incrementallyImportedUrls = new Set<string>();
+      const handleSourceDiscovered = async (
+        sourceJobs: CreateJobInput[],
+        source: string,
+      ) => {
+        if (sourceJobs.length === 0) return;
+        try {
+          const batch = await importJobsStep({
+            discoveredJobs: sourceJobs,
+            emitProgress: false,
+          });
+          incrementalImportTotals.created += batch.created;
+          incrementalImportTotals.skipped += batch.skipped;
+          incrementalImportTotals.fuzzyMerged += batch.fuzzyMerged;
+          for (const job of sourceJobs) {
+            incrementallyImportedUrls.add(job.jobUrl);
+          }
+        } catch (error) {
+          pipelineLogger.warn(
+            "Incremental per-source import failed; will retry after discovery",
+            {
+              source,
+              jobCount: sourceJobs.length,
+              error: sanitizeUnknown(error),
+            },
+          );
+        }
+      };
+
       let { discoveredJobs, sourceErrors, pendingChallenges } =
         await discoverJobsStep({
           mergedConfig,
           watchlistSelectedSourceIds: mergedConfig.watchlistSelectedSourceIds,
           shouldCancel: () =>
             getPipelineState(scopeKey).cancelRequestedAt !== null,
+          onSourceDiscovered: handleSourceDiscovered,
         });
       await persistResultSummary({
         stage: "discovery",
@@ -518,6 +554,7 @@ export async function runPipeline(
           ),
           shouldCancel: () =>
             getPipelineState(scopeKey).cancelRequestedAt !== null,
+          onSourceDiscovered: handleSourceDiscovered,
         });
 
         discoveredJobs = mergeRetriedJobs(
@@ -543,9 +580,25 @@ export async function runPipeline(
 
       ensureNotCancelled(scopeKey);
       jobsDiscovered = discoveredJobs.length;
-      const { created, skipped, fuzzyMerged } = await importJobsStep({
-        discoveredJobs,
-      });
+      const remainingJobs =
+        incrementallyImportedUrls.size === 0
+          ? discoveredJobs
+          : discoveredJobs.filter(
+              (job) => !incrementallyImportedUrls.has(job.jobUrl),
+            );
+      let created = incrementalImportTotals.created;
+      let skipped = incrementalImportTotals.skipped;
+      let fuzzyMerged = incrementalImportTotals.fuzzyMerged;
+      if (remainingJobs.length > 0 || incrementallyImportedUrls.size === 0) {
+        const finalBatch = await importJobsStep({
+          discoveredJobs: remainingJobs,
+        });
+        created += finalBatch.created;
+        skipped += finalBatch.skipped;
+        fuzzyMerged += finalBatch.fuzzyMerged;
+      } else {
+        progressHelpers.importComplete(created, skipped + fuzzyMerged);
+      }
 
       await persistResultSummary({ stage: "import" });
       await pipelineRepo.updatePipelineRun(pipelineRun.id, {

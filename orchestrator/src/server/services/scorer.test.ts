@@ -797,6 +797,7 @@ describe("salary penalty", () => {
 
       expect(callJsonMock).toHaveBeenCalledWith(
         expect.objectContaining({
+          maxRetries: 2,
           messages: [
             expect.objectContaining({
               content: expect.stringContaining(
@@ -804,6 +805,39 @@ describe("salary penalty", () => {
               ),
             }),
           ],
+        }),
+      );
+    });
+
+    it("passes maxRetries: 2 on scoring LLM calls", async () => {
+      const { scoreJobSuitability } = await import("./scorer");
+      getEffectiveSettingsMock.mockResolvedValue({
+        penalizeMissingSalary: { value: false, default: false, override: null },
+        missingSalaryPenalty: { value: 10, default: 10, override: null },
+        scoringInstructions: { value: "", default: "", override: null },
+        scoringPromptTemplate: {
+          value: "{{jobTitle}}",
+          default: "{{jobTitle}}",
+          override: null,
+        },
+      });
+      resolveLlmModelMock.mockResolvedValue("gpt-4o-mini");
+      createConfiguredLlmServiceMock.mockResolvedValue({
+        callJson: callJsonMock,
+      });
+      callJsonMock.mockResolvedValue({
+        success: true,
+        data: { score: 85, reason: "Strong fit" },
+      });
+
+      await scoreJobSuitability(
+        createJob({ id: "retry-check-job", title: "Backend Engineer" }),
+        {},
+      );
+
+      expect(callJsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          maxRetries: 2,
         }),
       );
     });

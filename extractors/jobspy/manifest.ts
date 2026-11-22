@@ -20,6 +20,8 @@ export const manifest: ExtractorManifest = {
   id: "jobspy",
   displayName: "JobSpy",
   providesSources: ["indeed", "linkedin", "glassdoor"],
+  runtime: "container",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   capabilities: { locationEvidence: true },
   locationCapabilities: {
     indeed: { supportedCountryKeys: JOBSPY_SUPPORTED_COUNTRY_KEYS },

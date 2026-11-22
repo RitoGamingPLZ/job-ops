@@ -28,6 +28,7 @@ import { sql } from "drizzle-orm";
 import {
   index,
   integer,
+  primaryKey,
   real,
   sqliteTable,
   text,
@@ -218,6 +219,7 @@ export const jobs = sqliteTable(
     // From crawler
     source: text("source").notNull().default("gradcracker"),
     sourceJobId: text("source_job_id"),
+    postingId: text("posting_id"),
     jobUrlDirect: text("job_url_direct"),
     datePosted: text("date_posted"),
     title: text("title").notNull(),
@@ -311,6 +313,9 @@ export const jobs = sqliteTable(
     tenantUserJobUrlUnique: uniqueIndex(
       "idx_jobs_tenant_user_job_url_unique",
     ).on(table.tenantId, sql`coalesce(${table.userId}, '')`, table.jobUrl),
+    tenantUserPostingIdUnique: uniqueIndex(
+      "idx_jobs_tenant_user_posting_id_unique",
+    ).on(table.tenantId, sql`coalesce(${table.userId}, '')`, table.postingId),
     tenantStatusIndex: index("idx_jobs_tenant_user_status").on(
       table.tenantId,
       table.userId,
@@ -422,12 +427,16 @@ export const pipelineRuns = sqliteTable("pipeline_runs", {
   startedAt: text("started_at").notNull().default(sql`(datetime('now'))`),
   completedAt: text("completed_at"),
   status: text("status", {
-    enum: ["running", "completed", "failed", "cancelled"],
+    enum: ["running", "completed", "partial", "failed", "cancelled"],
   })
     .notNull()
     .default("running"),
   jobsDiscovered: integer("jobs_discovered").notNull().default(0),
   jobsProcessed: integer("jobs_processed").notNull().default(0),
+  tasksTotal: integer("tasks_total").notNull().default(0),
+  tasksDone: integer("tasks_done").notNull().default(0),
+  tasksFailed: integer("tasks_failed").notNull().default(0),
+  tasksCached: integer("tasks_cached").notNull().default(0),
   errorMessage: text("error_message"),
   configSnapshot: text("config_snapshot"),
   requestedConfig: text("requested_config", { mode: "json" }),
@@ -1273,3 +1282,111 @@ export type ExperienceBulletRow = typeof experienceBullets.$inferSelect;
 export type NewExperienceBulletRow = typeof experienceBullets.$inferInsert;
 export type JobResumeRow = typeof jobResumes.$inferSelect;
 export type NewJobResumeRow = typeof jobResumes.$inferInsert;
+
+export const scrapeTasks = sqliteTable(
+  "scrape_tasks",
+  {
+    id: text("id").primaryKey(),
+    scrapeKey: text("scrape_key").notNull(),
+    windowStart: text("window_start").notNull(),
+    source: text("source").notNull(),
+    runtime: text("runtime", { enum: ["worker", "browser", "container"] })
+      .notNull()
+      .default("container"),
+    target: text("target").notNull().default(""),
+    titleNorm: text("title_norm").notNull(),
+    location: text("location").notNull().default(""),
+    status: text("status", {
+      enum: ["pending", "running", "done", "failed", "needs_attention"],
+    })
+      .notNull()
+      .default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    leaseUntil: text("lease_until"),
+    completedAt: text("completed_at"),
+    resultKey: text("result_key"),
+    postingsFound: integer("postings_found").notNull().default(0),
+    postingIds: text("posting_ids", { mode: "json" }).$type<string[] | null>(),
+    error: text("error"),
+    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => ({
+    keyWindowUnique: uniqueIndex("idx_scrape_tasks_key_window_unique").on(
+      table.scrapeKey,
+      table.windowStart,
+    ),
+    statusLeaseIndex: index("idx_scrape_tasks_status_lease").on(
+      table.status,
+      table.leaseUntil,
+    ),
+    sourceStatusIndex: index("idx_scrape_tasks_source_status").on(
+      table.source,
+      table.status,
+    ),
+  }),
+);
+
+export const taskSubscribers = sqliteTable(
+  "task_subscribers",
+  {
+    taskId: text("task_id")
+      .notNull()
+      .references(() => scrapeTasks.id, { onDelete: "cascade" }),
+    tenantId: text("tenant_id").notNull(),
+    runId: text("run_id").notNull(),
+    notifiedAt: text("notified_at"),
+    createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.taskId, table.tenantId, table.runId] }),
+    runIdIndex: index("idx_task_subscribers_run_id").on(table.runId),
+  }),
+);
+
+export const postings = sqliteTable(
+  "postings",
+  {
+    id: text("id").primaryKey(),
+    urlNorm: text("url_norm").notNull(),
+    source: text("source").notNull(),
+    company: text("company").notNull(),
+    title: text("title").notNull(),
+    location: text("location"),
+    description: text("description"),
+    postedAt: text("posted_at"),
+    firstSeenAt: text("first_seen_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    lastSeenAt: text("last_seen_at").notNull().default(sql`(datetime('now'))`),
+    extracted: text("extracted", { mode: "json" }).$type<Record<
+      string,
+      unknown
+    > | null>(),
+  },
+  (table) => ({
+    urlNormUnique: uniqueIndex("idx_postings_url_norm_unique").on(
+      table.urlNorm,
+    ),
+    lastSeenAtIndex: index("idx_postings_last_seen_at").on(table.lastSeenAt),
+  }),
+);
+
+export const sourceState = sqliteTable("source_state", {
+  source: text("source").primaryKey(),
+  inFlight: integer("in_flight").notNull().default(0),
+  lastDispatchAt: text("last_dispatch_at"),
+  requestsToday: integer("requests_today").notNull().default(0),
+  day: text("day"),
+  cooldownUntil: text("cooldown_until"),
+  cooldownLevel: integer("cooldown_level").notNull().default(0),
+});
+
+export type ScrapeTaskRow = typeof scrapeTasks.$inferSelect;
+export type NewScrapeTaskRow = typeof scrapeTasks.$inferInsert;
+export type TaskSubscriberRow = typeof taskSubscribers.$inferSelect;
+export type NewTaskSubscriberRow = typeof taskSubscribers.$inferInsert;
+export type PostingRow = typeof postings.$inferSelect;
+export type NewPostingRow = typeof postings.$inferInsert;
+export type SourceStateRow = typeof sourceState.$inferSelect;
+export type NewSourceStateRow = typeof sourceState.$inferInsert;

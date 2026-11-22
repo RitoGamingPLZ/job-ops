@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { rm } from "node:fs/promises";
+import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { getBlobStore } from "@infra/blob-store";
 import { badRequest } from "@infra/errors";
 import { getDataDir } from "@server/config/dataDir";
 import { getActiveTenantId } from "@server/tenancy/context";
@@ -16,7 +17,7 @@ export type StoredJobDocumentInput = {
   dataBase64: string;
 };
 
-function getTenantJobDocumentsDir(
+export function getTenantJobDocumentsKeyPrefix(
   jobId: string,
   tenantId = getActiveTenantId(),
 ): string {
@@ -26,16 +27,33 @@ function getTenantJobDocumentsDir(
     scope.userId &&
     tenantId === scope.tenantId
   ) {
-    return join(
-      getDataDir(),
-      "job-documents",
-      tenantId,
-      "users",
-      scope.userId,
-      jobId,
-    );
+    return `job-documents/${tenantId}/users/${scope.userId}/${jobId}`;
   }
-  return join(getDataDir(), "job-documents", tenantId, jobId);
+  return `job-documents/${tenantId}/${jobId}`;
+}
+
+function getTenantJobDocumentsDir(
+  jobId: string,
+  tenantId = getActiveTenantId(),
+): string {
+  return join(
+    getDataDir(),
+    ...getTenantJobDocumentsKeyPrefix(jobId, tenantId).split("/"),
+  );
+}
+
+function resolveBlobKeyFromStoragePath(storagePath: string): string | null {
+  if (!isAbsolute(storagePath)) {
+    const normalized = storagePath.replace(/\\/g, "/").replace(/^\/+/, "");
+    return normalized || null;
+  }
+
+  const rootDir = resolve(getDataDir());
+  const rel = relative(rootDir, resolve(storagePath));
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) {
+    return null;
+  }
+  return rel.split(sep).join("/");
 }
 
 export function normalizeJobDocumentFileName(fileName: string): string {
@@ -75,20 +93,15 @@ export async function storeJobDocument(input: StoredJobDocumentInput): Promise<{
     invalidMessage: "Document file data must be valid base64.",
     tooLargeMessage: "Documents must be 10 MB or smaller.",
   });
-  const documentsDir = getTenantJobDocumentsDir(input.jobId);
+
   const extension = extname(fileName).slice(0, 32);
-  const storagePath = join(documentsDir, `${randomUUID()}${extension}`);
-  const tempPath = join(documentsDir, `${randomUUID()}.tmp`);
+  const blobKey = `${getTenantJobDocumentsKeyPrefix(input.jobId)}/${randomUUID()}${extension}`;
 
-  await mkdir(documentsDir, { recursive: true });
+  await getBlobStore().put(blobKey, decoded, {
+    contentType: mediaType,
+  });
 
-  try {
-    await writeFile(tempPath, decoded);
-    await rename(tempPath, storagePath);
-  } catch (error) {
-    await rm(tempPath, { force: true }).catch(() => undefined);
-    throw error;
-  }
+  const storagePath = join(getDataDir(), ...blobKey.split("/"));
 
   return {
     fileName,
@@ -101,10 +114,19 @@ export async function storeJobDocument(input: StoredJobDocumentInput): Promise<{
 export async function removeStoredJobDocument(
   storagePath: string,
 ): Promise<void> {
+  const blobKey = resolveBlobKeyFromStoragePath(storagePath);
+  if (blobKey) {
+    await getBlobStore().delete(blobKey);
+    return;
+  }
   await rm(storagePath, { force: true });
 }
 
 export async function removeStoredJobDocuments(jobId: string): Promise<void> {
+  const prefix = `${getTenantJobDocumentsKeyPrefix(jobId)}/`;
+  const blobStore = getBlobStore();
+  const entries = await blobStore.list({ prefix });
+  await Promise.all(entries.map((entry) => blobStore.delete(entry.key)));
   await rm(getTenantJobDocumentsDir(jobId), {
     recursive: true,
     force: true,

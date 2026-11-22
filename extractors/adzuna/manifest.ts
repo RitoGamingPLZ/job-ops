@@ -56,6 +56,8 @@ export const manifest: ExtractorManifest = {
   displayName: "Adzuna",
   providesSources: ["adzuna"],
   requiredEnvVars: ["ADZUNA_APP_ID", "ADZUNA_APP_KEY"],
+  runtime: "worker",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   capabilities: { locationEvidence: true },
   locationCapabilities: {
     adzuna: { supportedCountryKeys: ADZUNA_SUPPORTED_COUNTRY_KEYS },
@@ -98,6 +100,7 @@ export const manifest: ExtractorManifest = {
             context.settings.searchCities ?? context.settings.jobspyLocation,
         }),
         maxJobsPerTerm,
+        shouldCancel: context.shouldCancel,
         onProgress: (event) => {
           if (context.shouldCancel?.()) return;
 

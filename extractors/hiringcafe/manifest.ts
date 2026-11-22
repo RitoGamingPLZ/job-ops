@@ -98,6 +98,8 @@ export const manifest: ExtractorManifest = {
   id: "hiringcafe",
   displayName: "Hiring Cafe",
   providesSources: ["hiringcafe"],
+  runtime: "container",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   capabilities: { locationEvidence: true },
   locationCapabilities: {
     hiringcafe: { supportedCountryKeys: null, supportsNativeRadius: true },

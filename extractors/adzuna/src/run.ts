@@ -1,9 +1,3 @@
-import { spawn, spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
-import { createInterface } from "node:readline";
-import { fileURLToPath } from "node:url";
 import { normalizeCountryKey } from "@shared/location-support.js";
 import {
   resolveSearchCities,
@@ -15,14 +9,24 @@ import {
   toStringOrNull,
 } from "@shared/utils/type-conversion.js";
 
-const srcDir = dirname(fileURLToPath(import.meta.url));
-const EXTRACTOR_DIR = join(srcDir, "..");
-const DATASET_PATH = join(EXTRACTOR_DIR, "storage/datasets/default/jobs.json");
-const JOBOPS_PROGRESS_PREFIX = "JOBOPS_PROGRESS ";
-const require = createRequire(import.meta.url);
-const TSX_CLI_PATH = resolveTsxCliPath();
+const API_BASE = "https://api.adzuna.com/v1/api";
+const DEFAULT_SEARCH_TERM = "web developer";
 
-type AdzunaRawJob = Record<string, unknown>;
+type AdzunaCompany = { display_name?: unknown };
+type AdzunaLocation = { display_name?: unknown };
+export type AdzunaRawJob = {
+  id?: unknown;
+  title?: unknown;
+  description?: unknown;
+  created?: unknown;
+  redirect_url?: unknown;
+  company?: AdzunaCompany;
+  location?: AdzunaLocation;
+  salary_min?: unknown;
+  salary_max?: unknown;
+  contract_time?: unknown;
+  contract_type?: unknown;
+};
 
 export type AdzunaProgressEvent =
   | {
@@ -54,6 +58,11 @@ export interface RunAdzunaOptions {
   countryKey?: string;
   locations?: string[];
   maxJobsPerTerm?: number;
+  resultsPerPage?: number;
+  appId?: string;
+  appKey?: string;
+  fetchImpl?: typeof fetch;
+  shouldCancel?: () => boolean;
   onProgress?: (event: AdzunaProgressEvent) => void;
 }
 
@@ -63,72 +72,33 @@ export interface AdzunaResult {
   error?: string;
 }
 
-function resolveTsxCliPath(): string | null {
-  try {
-    return require.resolve("tsx/dist/cli.mjs");
-  } catch {
-    return null;
-  }
+function readEnvVar(name: string): string | undefined {
+  if (typeof process === "undefined" || !process.env) return undefined;
+  return process.env[name]?.trim();
 }
 
-function canRunNpmCommand(): boolean {
-  const result = spawnSync("npm", ["--version"], { stdio: "ignore" });
-  return !result.error && result.status === 0;
+function formatSalary(job: AdzunaRawJob): string | undefined {
+  const min = toNumberOrNull(job.salary_min);
+  const max = toNumberOrNull(job.salary_max);
+
+  if (min === null && max === null) return undefined;
+  if (min !== null && max !== null) {
+    return `${Math.round(min)}-${Math.round(max)}`;
+  }
+  if (min !== null) return `${Math.round(min)}+`;
+  if (max !== null) return `${Math.round(max)}`;
+  return undefined;
 }
 
-function parseAdzunaProgressLine(line: string): AdzunaProgressEvent | null {
-  if (!line.startsWith(JOBOPS_PROGRESS_PREFIX)) return null;
-  const raw = line.slice(JOBOPS_PROGRESS_PREFIX.length).trim();
-
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-
-  const event = toStringOrNull(parsed.event);
-  const termIndex = toNumberOrNull(parsed.termIndex);
-  const termTotal = toNumberOrNull(parsed.termTotal);
-  const searchTerm = toStringOrNull(parsed.searchTerm) ?? "";
-  if (!event || termIndex === null || termTotal === null) return null;
-
-  if (event === "term_start") {
-    return { type: "term_start", termIndex, termTotal, searchTerm };
-  }
-
-  if (event === "page_fetched") {
-    const pageNo = toNumberOrNull(parsed.pageNo);
-    if (pageNo === null) return null;
-    return {
-      type: "page_fetched",
-      termIndex,
-      termTotal,
-      searchTerm,
-      pageNo,
-      resultsOnPage: toNumberOrNull(parsed.resultsOnPage) ?? 0,
-      totalCollected: toNumberOrNull(parsed.totalCollected) ?? 0,
-    };
-  }
-
-  if (event === "term_complete") {
-    return {
-      type: "term_complete",
-      termIndex,
-      termTotal,
-      searchTerm,
-      jobsFoundTerm: toNumberOrNull(parsed.jobsFoundTerm) ?? 0,
-    };
-  }
-
-  return null;
-}
-
-function mapAdzunaRow(row: AdzunaRawJob): CreateJobInput | null {
-  const jobUrl = toStringOrNull(row.jobUrl);
+function mapAdzunaJob(raw: AdzunaRawJob): CreateJobInput | null {
+  const jobUrl = toStringOrNull(raw.redirect_url);
   if (!jobUrl) return null;
 
-  const location = toStringOrNull(row.location);
+  const id = toStringOrNull(raw.id);
+  const title = toStringOrNull(raw.title) ?? "Unknown Title";
+  const employer =
+    toStringOrNull(raw.company?.display_name) ?? "Unknown Employer";
+  const location = toStringOrNull(raw.location?.display_name);
   const locationEvidence = location
     ? ({
         location,
@@ -136,49 +106,68 @@ function mapAdzunaRow(row: AdzunaRawJob): CreateJobInput | null {
       } satisfies JobLocationEvidence)
     : undefined;
 
+  const contractType = toStringOrNull(raw.contract_type);
+  const contractTime = toStringOrNull(raw.contract_time);
+  const jobType = [contractType, contractTime].filter(Boolean).join(" / ");
+
   return {
     source: "adzuna",
-    sourceJobId: toStringOrNull(row.sourceJobId) ?? undefined,
-    title: toStringOrNull(row.title) ?? "Unknown Title",
-    employer: toStringOrNull(row.employer) ?? "Unknown Employer",
+    sourceJobId: id ?? undefined,
+    title,
+    employer,
     jobUrl,
-    applicationLink:
-      toStringOrNull(row.applicationLink) ??
-      toStringOrNull(row.jobUrl) ??
-      undefined,
+    applicationLink: jobUrl,
     location: location ?? undefined,
     locationEvidence,
-    salary: toStringOrNull(row.salary) ?? undefined,
-    datePosted: toStringOrNull(row.datePosted) ?? undefined,
-    jobDescription: toStringOrNull(row.jobDescription) ?? undefined,
-    jobType: toStringOrNull(row.jobType) ?? undefined,
+    salary: formatSalary(raw),
+    datePosted: toStringOrNull(raw.created) ?? undefined,
+    jobDescription: toStringOrNull(raw.description) ?? undefined,
+    jobType: jobType || undefined,
   };
 }
 
-async function readDataset(): Promise<CreateJobInput[]> {
-  const content = await readFile(DATASET_PATH, "utf-8");
-  const parsed = JSON.parse(content) as unknown;
-  if (!Array.isArray(parsed)) return [];
-
-  const jobs: CreateJobInput[] = [];
-  const seen = new Set<string>();
-  for (const value of parsed) {
-    if (!value || typeof value !== "object") continue;
-    const mapped = mapAdzunaRow(value as AdzunaRawJob);
-    if (!mapped) continue;
-    const key = mapped.sourceJobId || mapped.jobUrl;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    jobs.push(mapped);
+export async function fetchAdzunaJobsPage(args: {
+  country: string;
+  page: number;
+  appId: string;
+  appKey: string;
+  what: string;
+  where?: string;
+  resultsPerPage: number;
+  fetchImpl?: typeof fetch;
+}): Promise<AdzunaRawJob[]> {
+  const url = new URL(`${API_BASE}/jobs/${args.country}/search/${args.page}`);
+  url.searchParams.set("app_id", args.appId);
+  url.searchParams.set("app_key", args.appKey);
+  if (args.what) {
+    url.searchParams.set("what", args.what);
   }
-  return jobs;
+  if (args.where) {
+    url.searchParams.set("where", args.where);
+  }
+  url.searchParams.set("results_per_page", String(args.resultsPerPage));
+
+  const fetchFn = args.fetchImpl ?? fetch;
+  const response = await fetchFn(url.toString(), {
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`Adzuna request failed with status ${response.status}`);
+  }
+
+  const body = (await response.json()) as { results?: unknown };
+  if (!Array.isArray(body.results)) return [];
+  return body.results as AdzunaRawJob[];
 }
 
+/**
+ * Worker-safe Adzuna extractor using direct fetch calls without child_process.
+ */
 export async function runAdzuna(
   options: RunAdzunaOptions = {},
 ): Promise<AdzunaResult> {
-  const appId = process.env.ADZUNA_APP_ID?.trim();
-  const appKey = process.env.ADZUNA_APP_KEY?.trim();
+  const appId = options.appId?.trim() || readEnvVar("ADZUNA_APP_ID");
+  const appKey = options.appKey?.trim() || readEnvVar("ADZUNA_APP_KEY");
   if (!appId || !appKey) {
     return {
       success: false,
@@ -189,25 +178,19 @@ export async function runAdzuna(
 
   const country = (options.country || "gb").trim().toLowerCase();
   const countryKey = normalizeCountryKey(options.countryKey ?? "");
-  const maxJobsPerTerm = options.maxJobsPerTerm ?? 50;
+  const maxJobsPerTerm = Math.max(1, options.maxJobsPerTerm ?? 50);
+  const configuredResultsPerPage = options.resultsPerPage ?? 50;
+  const resultsPerPage = Math.min(50, Math.max(1, configuredResultsPerPage));
   const searchTerms =
     options.searchTerms && options.searchTerms.length > 0
       ? options.searchTerms
-      : ["web developer"];
+      : [DEFAULT_SEARCH_TERM];
   const locations = resolveSearchCities({
     list: options.locations,
-    env: process.env.ADZUNA_LOCATION_QUERY,
+    env: readEnvVar("ADZUNA_LOCATION_QUERY"),
   });
   const runLocations = locations.length > 0 ? locations : [null];
   const termTotal = searchTerms.length * runLocations.length;
-  const useNpmCommand = canRunNpmCommand();
-  if (!useNpmCommand && !TSX_CLI_PATH) {
-    return {
-      success: false,
-      jobs: [],
-      error: "Unable to execute Adzuna extractor (npm/tsx unavailable)",
-    };
-  }
 
   try {
     const jobs: CreateJobInput[] = [];
@@ -217,80 +200,81 @@ export async function runAdzuna(
       const location = runLocations[runIndex];
       const strictLocationFilter =
         location !== null && shouldApplyStrictCityFilter(location, countryKey);
+      const where = strictLocationFilter ? location : undefined;
 
-      await new Promise<void>((resolve, reject) => {
-        const extractorEnv = {
-          ...process.env,
-          JOBOPS_EMIT_PROGRESS: "1",
-          ADZUNA_APP_ID: appId,
-          ADZUNA_APP_KEY: appKey,
-          ADZUNA_COUNTRY: country,
-          ADZUNA_MAX_JOBS_PER_TERM: String(maxJobsPerTerm),
-          ADZUNA_SEARCH_TERMS: JSON.stringify(searchTerms),
-          ADZUNA_OUTPUT_JSON: DATASET_PATH,
-          ADZUNA_LOCATION_QUERY: strictLocationFilter ? location : "",
-        };
-        const child = useNpmCommand
-          ? spawn("npm", ["run", "start"], {
-              cwd: EXTRACTOR_DIR,
-              stdio: ["ignore", "pipe", "pipe"],
-              env: extractorEnv,
-            })
-          : (() => {
-              const tsxCliPath = TSX_CLI_PATH;
-              if (!tsxCliPath) {
-                throw new Error(
-                  "Unable to execute Adzuna extractor (npm/tsx unavailable)",
-                );
-              }
-              return spawn(process.execPath, [tsxCliPath, "src/main.ts"], {
-                cwd: EXTRACTOR_DIR,
-                stdio: ["ignore", "pipe", "pipe"],
-                env: extractorEnv,
-              });
-            })();
+      for (let i = 0; i < searchTerms.length; i += 1) {
+        if (options.shouldCancel?.()) {
+          return { success: true, jobs };
+        }
 
-        const handleLine = (line: string, stream: NodeJS.WriteStream) => {
-          const progressEvent = parseAdzunaProgressLine(line);
-          if (progressEvent) {
-            const termOffset = runIndex * searchTerms.length;
-            options.onProgress?.({
-              ...progressEvent,
-              termIndex: termOffset + progressEvent.termIndex,
-              termTotal,
-            });
-            return;
-          }
-          stream.write(`${line}\n`);
-        };
+        const searchTerm = searchTerms[i];
+        const termIndex = runIndex * searchTerms.length + i + 1;
 
-        const stdoutRl = child.stdout
-          ? createInterface({ input: child.stdout })
-          : null;
-        const stderrRl = child.stderr
-          ? createInterface({ input: child.stderr })
-          : null;
-
-        stdoutRl?.on("line", (line) => handleLine(line, process.stdout));
-        stderrRl?.on("line", (line) => handleLine(line, process.stderr));
-
-        child.on("close", (code) => {
-          stdoutRl?.close();
-          stderrRl?.close();
-          if (code === 0) resolve();
-          else reject(new Error(`Adzuna extractor exited with code ${code}`));
+        options.onProgress?.({
+          type: "term_start",
+          termIndex,
+          termTotal,
+          searchTerm,
         });
-        child.on("error", reject);
-      });
 
-      const runJobs = await readDataset();
-      const filtered = runJobs;
+        let page = 1;
+        let termCount = 0;
+        while (termCount < maxJobsPerTerm) {
+          if (options.shouldCancel?.()) {
+            return { success: true, jobs };
+          }
 
-      for (const job of filtered) {
-        const key = job.sourceJobId || job.jobUrl;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        jobs.push(job);
+          const remaining = maxJobsPerTerm - termCount;
+          const take = Math.min(resultsPerPage, remaining);
+          const pageResults = await fetchAdzunaJobsPage({
+            country,
+            page,
+            appId,
+            appKey,
+            what: searchTerm,
+            where,
+            resultsPerPage: take,
+            fetchImpl: options.fetchImpl,
+          });
+
+          let mappedOnPage = 0;
+          for (const raw of pageResults) {
+            if (termCount >= maxJobsPerTerm) break;
+            const mapped = mapAdzunaJob(raw);
+            if (!mapped) continue;
+
+            termCount += 1;
+            mappedOnPage += 1;
+
+            const key = mapped.sourceJobId || mapped.jobUrl;
+            if (!seen.has(key)) {
+              seen.add(key);
+              jobs.push(mapped);
+            }
+          }
+
+          options.onProgress?.({
+            type: "page_fetched",
+            termIndex,
+            termTotal,
+            searchTerm,
+            pageNo: page,
+            resultsOnPage: mappedOnPage,
+            totalCollected: termCount,
+          });
+
+          if (pageResults.length < take) break;
+          page += 1;
+          if (page > 100) break;
+        }
+
+        options.onProgress?.({
+          type: "term_complete",
+          termIndex,
+          termTotal,
+          searchTerm,
+          jobsFoundTerm: termCount,
+        });
       }
     }
 

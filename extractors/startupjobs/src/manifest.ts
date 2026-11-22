@@ -42,6 +42,8 @@ export const manifest: ExtractorManifest = {
   id: "startupjobs",
   displayName: "startup.jobs",
   providesSources: ["startupjobs"],
+  runtime: "worker",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   locationCapabilities: {
     startupjobs: { supportedCountryKeys: null },
   },

@@ -6,7 +6,9 @@ import { progressHelpers } from "../progress";
 
 export async function importJobsStep(args: {
   discoveredJobs: CreateJobInput[];
+  emitProgress?: boolean;
 }): Promise<{ created: number; skipped: number; fuzzyMerged: number }> {
+  const emitProgress = args.emitProgress !== false;
   logger.info("Importing discovered jobs", {
     discovered: args.discoveredJobs.length,
   });
@@ -24,12 +26,14 @@ export async function importJobsStep(args: {
 
   const { created, skipped } = await jobsRepo.createJobs(
     dedupedJobs,
-    (job, index, total) =>
-      progressHelpers.importingJob(index, total, {
-        id: job.jobUrl,
-        title: job.title,
-        employer: job.employer,
-      }),
+    emitProgress
+      ? (job, index, total) =>
+          progressHelpers.importingJob(index, total, {
+            id: job.jobUrl,
+            title: job.title,
+            employer: job.employer,
+          })
+      : undefined,
   );
   logger.info("Import step complete", {
     discovered: args.discoveredJobs.length,
@@ -38,7 +42,9 @@ export async function importJobsStep(args: {
     skipped,
   });
 
-  progressHelpers.importComplete(created, skipped + fuzzyMerged);
+  if (emitProgress) {
+    progressHelpers.importComplete(created, skipped + fuzzyMerged);
+  }
 
   return { created, skipped, fuzzyMerged };
 }

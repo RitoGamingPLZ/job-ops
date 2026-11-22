@@ -38,6 +38,8 @@ export const manifest: ExtractorManifest = {
   displayName: "Seek",
   providesSources: ["seek"],
   requiredEnvVars: ["APIFY_TOKEN"],
+  runtime: "worker",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   locationCapabilities: {
     seek: { supportedCountryKeys: ["australia", "new zealand"] },
   },

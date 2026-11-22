@@ -67,11 +67,21 @@ export interface ExtractorRunResult {
   resumeState?: unknown;
 }
 
+export type ExtractorRuntime = "worker" | "browser" | "container";
+
+export interface ExtractorRateLimit {
+  maxConcurrent?: number;
+  minIntervalMs?: number;
+  dailyCap?: number;
+}
+
 export interface ExtractorManifest {
   id: string;
   displayName: string;
   providesSources: readonly string[];
   requiredEnvVars?: readonly string[];
+  runtime?: ExtractorRuntime;
+  rateLimit?: ExtractorRateLimit;
   capabilities?: ExtractorCapabilities;
   locationCapabilities?: Partial<
     Record<string, ExtractorSourceLocationCapabilities>

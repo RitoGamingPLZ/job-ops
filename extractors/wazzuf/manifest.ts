@@ -37,6 +37,8 @@ export const manifest: ExtractorManifest = {
   id: "wazzuf",
   displayName: "WUZZUF",
   providesSources: ["wazzuf"],
+  runtime: "worker",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   locationCapabilities: {
     wazzuf: { supportedCountryKeys: ["egypt"] },
   },

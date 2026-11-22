@@ -8,6 +8,8 @@ export const manifest: ExtractorManifest = {
   id: "gradcracker",
   displayName: "Gradcracker",
   providesSources: ["gradcracker"],
+  runtime: "browser",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   locationCapabilities: {
     gradcracker: { supportedCountryKeys: ["united kingdom"] },
   },

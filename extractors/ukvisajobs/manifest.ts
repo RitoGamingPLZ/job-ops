@@ -67,6 +67,8 @@ export const manifest: ExtractorManifest = {
   displayName: "UK Visa Jobs",
   providesSources: ["ukvisajobs"],
   requiredEnvVars: ["UKVISAJOBS_EMAIL", "UKVISAJOBS_PASSWORD"],
+  runtime: "browser",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   locationCapabilities: {
     ukvisajobs: { supportedCountryKeys: ["united kingdom"] },
   },

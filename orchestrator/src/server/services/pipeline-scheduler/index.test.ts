@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getSetting: vi.fn(),
+  getLatestPipelineRun: vi.fn(),
   listOwners: vi.fn(),
   load: vi.fn(),
   start: vi.fn(),
@@ -14,6 +15,9 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@server/repositories/settings", () => ({
   getSetting: mocks.getSetting,
+}));
+vi.mock("@server/repositories/pipeline", () => ({
+  getLatestPipelineRun: mocks.getLatestPipelineRun,
 }));
 vi.mock("./storage", () => ({
   listScheduleOwners: mocks.listOwners,
@@ -65,6 +69,7 @@ beforeEach(() => {
   });
   mocks.status.mockReturnValue({ isRunning: false });
   mocks.start.mockResolvedValue(undefined);
+  mocks.getLatestPipelineRun.mockResolvedValue(null);
 });
 afterEach(() => {
   stopPipelineScheduler();
@@ -202,5 +207,96 @@ describe("daily pipeline scheduler", () => {
       triggeredCount: 1,
     });
     await vi.waitFor(() => expect(mocks.start).toHaveBeenCalledTimes(1));
+  });
+
+  it("triggers a catch-up run when today's latest run failed and the scheduled hour has passed", async () => {
+    vi.setSystemTime(new Date(2026, 0, 5, 9));
+    mocks.listOwners.mockResolvedValue([
+      { tenantId: "a", userId: "alice" },
+      { tenantId: "b", userId: "bob" },
+    ]);
+    mocks.getSetting.mockImplementation(async (key) => {
+      if (key === "pipelineScheduleEnabled") return "1";
+      return "7";
+    });
+    mocks.getLatestPipelineRun.mockImplementation(async () => {
+      const ctx = getRequestContext();
+      if (ctx?.tenantId === "a") {
+        return {
+          id: "run-failed-today",
+          startedAt: new Date(2026, 0, 5, 7, 5).toISOString(),
+          completedAt: new Date(2026, 0, 5, 7, 10).toISOString(),
+          status: "failed",
+          jobsDiscovered: 0,
+          jobsProcessed: 0,
+          errorMessage: "interrupted by restart",
+          configSnapshot: null,
+        };
+      }
+      return {
+        id: "run-completed-today",
+        startedAt: new Date(2026, 0, 5, 7, 0).toISOString(),
+        completedAt: new Date(2026, 0, 5, 7, 15).toISOString(),
+        status: "completed",
+        jobsDiscovered: 5,
+        jobsProcessed: 5,
+        errorMessage: null,
+        configSnapshot: null,
+      };
+    });
+
+    const result = await runDueScheduledPipelinesForHour(9);
+    expect(result).toEqual({
+      hour: 9,
+      evaluatedCount: 2,
+      triggeredCount: 1,
+    });
+    await vi.waitFor(() => expect(mocks.start).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not trigger catch-up before the scheduled hour or for yesterday's failed run", async () => {
+    vi.setSystemTime(new Date(2026, 0, 5, 9));
+    mocks.listOwners.mockResolvedValue([
+      { tenantId: "a", userId: "alice" },
+      { tenantId: "b", userId: "bob" },
+    ]);
+    mocks.getSetting.mockImplementation(async (key) => {
+      const ctx = getRequestContext();
+      if (key === "pipelineScheduleEnabled") return "1";
+      return ctx?.tenantId === "a" ? "11" : "7";
+    });
+    mocks.getLatestPipelineRun.mockImplementation(async () => {
+      const ctx = getRequestContext();
+      if (ctx?.tenantId === "a") {
+        return {
+          id: "run-failed-before-hour",
+          startedAt: new Date(2026, 0, 5, 6, 0).toISOString(),
+          completedAt: new Date(2026, 0, 5, 6, 5).toISOString(),
+          status: "failed",
+          jobsDiscovered: 0,
+          jobsProcessed: 0,
+          errorMessage: "manual failure",
+          configSnapshot: null,
+        };
+      }
+      return {
+        id: "run-failed-yesterday",
+        startedAt: new Date(2026, 0, 4, 7, 0).toISOString(),
+        completedAt: new Date(2026, 0, 4, 7, 5).toISOString(),
+        status: "failed",
+        jobsDiscovered: 0,
+        jobsProcessed: 0,
+        errorMessage: "interrupted by restart",
+        configSnapshot: null,
+      };
+    });
+
+    const result = await runDueScheduledPipelinesForHour(9);
+    expect(result).toEqual({
+      hour: 9,
+      evaluatedCount: 2,
+      triggeredCount: 0,
+    });
+    expect(mocks.start).not.toHaveBeenCalled();
   });
 });

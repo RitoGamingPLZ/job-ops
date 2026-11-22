@@ -53,6 +53,8 @@ export const manifest: ExtractorManifest = {
   id: "naukri",
   displayName: "Naukri",
   providesSources: ["naukri"],
+  runtime: "container",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   locationCapabilities: {
     naukri: { supportedCountryKeys: ["india"] },
   },

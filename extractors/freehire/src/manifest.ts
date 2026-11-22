@@ -24,6 +24,8 @@ export const manifest: ExtractorManifest = {
   id: "freehire",
   displayName: "FreeHire",
   providesSources: ["freehire"],
+  runtime: "worker",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   locationCapabilities: {
     freehire: { supportedCountryKeys: null },
   },

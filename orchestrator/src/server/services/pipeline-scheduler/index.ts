@@ -4,6 +4,7 @@ import { runWithRequestContext } from "@infra/request-context";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { isDemoMode } from "@server/config/demo";
 import { getPipelineStatus } from "@server/pipeline/index";
+import * as pipelineRepo from "@server/repositories/pipeline";
 import * as settingsRepo from "@server/repositories/settings";
 import {
   getPrivateDataScope,
@@ -154,6 +155,34 @@ export function stopPipelineScheduler(): void {
   schedules = [];
 }
 
+function isSameLocalCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+async function shouldCatchUpFailedRunToday(
+  scheduledHour: number,
+  targetHour: number,
+  now: Date,
+): Promise<boolean> {
+  if (scheduledHour > targetHour) return false;
+  const latestRun = await pipelineRepo.getLatestPipelineRun();
+  if (!latestRun || latestRun.status !== "failed") return false;
+  const startedAt = new Date(latestRun.startedAt);
+  if (Number.isNaN(startedAt.getTime())) return false;
+  if (!isSameLocalCalendarDay(startedAt, now)) return false;
+
+  logger.info("Triggering catch-up scheduled pipeline run", {
+    scheduledHour,
+    targetHour,
+    failedRunId: latestRun.id,
+  });
+  return true;
+}
+
 /** Execute any enabled daily pipeline schedules matching `targetHour` (0-23). */
 export async function runDueScheduledPipelinesForHour(
   targetHour = new Date().getHours(),
@@ -177,7 +206,18 @@ export async function runDueScheduledPipelinesForHour(
   for (const [scopeKey, owner] of unique.entries()) {
     const settings = await asOwner(owner, scheduleSettings);
     evaluatedCount++;
-    if (!settings.enabled || settings.hour !== targetHour) {
+    if (!settings.enabled) {
+      continue;
+    }
+
+    const isDueHour = settings.hour === targetHour;
+    const isCatchUp =
+      !isDueHour &&
+      (await asOwner(owner, () =>
+        shouldCatchUpFailedRunToday(settings.hour, targetHour, now),
+      ));
+
+    if (!isDueHour && !isCatchUp) {
       continue;
     }
 

@@ -166,6 +166,10 @@ export async function discoverJobsStep(args: {
   skippedChallengeSearchStates?: string[];
   watchlistSelectedSourceIds?: string[] | null;
   shouldCancel?: () => boolean;
+  onSourceDiscovered?: (
+    jobs: CreateJobInput[],
+    source: string,
+  ) => Promise<void> | void;
 }): Promise<{
   discoveredJobs: CreateJobInput[];
   sourceErrors: string[];
@@ -560,7 +564,11 @@ export async function discoverJobsStep(args: {
                 sourceNotes: [`source:${job.source}`],
               });
             job.locationEvidence = evidence;
-            return matchJobLocationIntent(job, locationIntent).matched;
+            return matchJobLocationIntent(job, locationIntent, {
+              nativeRadiusApplied:
+                sourcePlanBySource.get(job.source as ExtractorSourceId)
+                  ?.usesNativeRadius ?? false,
+            }).matched;
           })
           .filter(
             (job) =>
@@ -608,7 +616,18 @@ export async function discoverJobsStep(args: {
         },
         task: async (sourceTask) => {
           try {
-            return await sourceTask.run();
+            const result = await sourceTask.run();
+            if (
+              args.onSourceDiscovered &&
+              result.discoveredJobs.length > 0 &&
+              !args.shouldCancel?.()
+            ) {
+              const filtered = filterForFanout(result.discoveredJobs);
+              if (filtered.length > 0) {
+                await args.onSourceDiscovered(filtered, sourceTask.source);
+              }
+            }
+            return result;
           } catch (error) {
             logger.warn("Discovery source task failed", {
               sourceTask: sourceTask.source,
@@ -657,6 +676,17 @@ export async function discoverJobsStep(args: {
         });
         completedSources += 1;
         progressHelpers.completeSource(completedSources, totalSources);
+
+        if (
+          args.onSourceDiscovered &&
+          watchlistResult.discoveredJobs.length > 0 &&
+          !args.shouldCancel?.()
+        ) {
+          const filtered = filterForFanout(watchlistResult.discoveredJobs);
+          if (filtered.length > 0) {
+            await args.onSourceDiscovered(filtered, "watchlist");
+          }
+        }
 
         discoveredJobs.push(...watchlistResult.discoveredJobs);
         settledJobs.push(...watchlistResult.discoveredJobs);

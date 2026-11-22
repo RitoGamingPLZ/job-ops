@@ -37,6 +37,8 @@ export const manifest: ExtractorManifest = {
   id: "golangjobs",
   displayName: "Golang Jobs",
   providesSources: ["golangjobs"],
+  runtime: "worker",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   locationCapabilities: {
     golangjobs: { supportedCountryKeys: null },
   },

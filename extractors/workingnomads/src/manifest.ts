@@ -37,6 +37,8 @@ export const manifest: ExtractorManifest = {
   id: "workingnomads",
   displayName: "Working Nomads",
   providesSources: ["workingnomads"],
+  runtime: "worker",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   capabilities: { locationEvidence: true },
   locationCapabilities: {
     workingnomads: { supportedCountryKeys: null },

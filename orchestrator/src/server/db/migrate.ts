@@ -178,6 +178,10 @@ const pipelineRunsHasConfigSnapshot = tableHasColumn(
   "config_snapshot",
 );
 const pipelineRunsHasTenantId = tableHasColumn("pipeline_runs", "tenant_id");
+const pipelineRunsHasTaskCounters = tableHasColumn(
+  "pipeline_runs",
+  "tasks_total",
+);
 const jobsHasPdfRegenerating = tableHasColumn("jobs", "pdf_regenerating");
 const jobsHasJobBrief = tableHasColumn("jobs", "job_brief");
 const watchlistJobStatesHasUserId = tableHasColumn(
@@ -346,9 +350,13 @@ const migrations = [
     tenant_id TEXT NOT NULL DEFAULT 'tenant_default',
     started_at TEXT NOT NULL DEFAULT (datetime('now')),
     completed_at TEXT,
-    status TEXT NOT NULL DEFAULT 'running' CHECK(status IN ('running', 'completed', 'failed', 'cancelled')),
+    status TEXT NOT NULL DEFAULT 'running' CHECK(status IN ('running', 'completed', 'partial', 'failed', 'cancelled')),
     jobs_discovered INTEGER NOT NULL DEFAULT 0,
     jobs_processed INTEGER NOT NULL DEFAULT 0,
+    tasks_total INTEGER NOT NULL DEFAULT 0,
+    tasks_done INTEGER NOT NULL DEFAULT 0,
+    tasks_failed INTEGER NOT NULL DEFAULT 0,
+    tasks_cached INTEGER NOT NULL DEFAULT 0,
     error_message TEXT,
     config_snapshot TEXT,
     requested_config TEXT,
@@ -944,15 +952,19 @@ const migrations = [
   // Without this, dropping/replacing `jobs` can cascade-delete historical stage data.
   `PRAGMA foreign_keys = OFF`,
 
-  // Ensure pipeline_runs status supports "cancelled" for existing databases.
+  // Ensure pipeline_runs status supports "cancelled" and "partial" for existing databases.
   `CREATE TABLE IF NOT EXISTS pipeline_runs_new (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL DEFAULT 'tenant_default',
     started_at TEXT NOT NULL DEFAULT (datetime('now')),
     completed_at TEXT,
-    status TEXT NOT NULL DEFAULT 'running' CHECK(status IN ('running', 'completed', 'failed', 'cancelled')),
+    status TEXT NOT NULL DEFAULT 'running' CHECK(status IN ('running', 'completed', 'partial', 'failed', 'cancelled')),
     jobs_discovered INTEGER NOT NULL DEFAULT 0,
     jobs_processed INTEGER NOT NULL DEFAULT 0,
+    tasks_total INTEGER NOT NULL DEFAULT 0,
+    tasks_done INTEGER NOT NULL DEFAULT 0,
+    tasks_failed INTEGER NOT NULL DEFAULT 0,
+    tasks_cached INTEGER NOT NULL DEFAULT 0,
     error_message TEXT,
     config_snapshot TEXT,
     requested_config TEXT,
@@ -961,11 +973,11 @@ const migrations = [
     FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
   )`,
   pipelineRunsHasConfigSnapshot
-    ? `INSERT OR REPLACE INTO pipeline_runs_new (id, tenant_id, started_at, completed_at, status, jobs_discovered, jobs_processed, error_message, config_snapshot, requested_config, effective_config, result_summary)
-   SELECT id, ${pipelineRunsHasTenantId ? `COALESCE(tenant_id, ${sqlString(DEFAULT_TENANT_ID)})` : sqlString(DEFAULT_TENANT_ID)}, started_at, completed_at, status, jobs_discovered, jobs_processed, error_message, config_snapshot, NULL, NULL, NULL
+    ? `INSERT OR REPLACE INTO pipeline_runs_new (id, tenant_id, started_at, completed_at, status, jobs_discovered, jobs_processed, tasks_total, tasks_done, tasks_failed, tasks_cached, error_message, config_snapshot, requested_config, effective_config, result_summary)
+   SELECT id, ${pipelineRunsHasTenantId ? `COALESCE(tenant_id, ${sqlString(DEFAULT_TENANT_ID)})` : sqlString(DEFAULT_TENANT_ID)}, started_at, completed_at, status, jobs_discovered, jobs_processed, ${pipelineRunsHasTaskCounters ? "tasks_total, tasks_done, tasks_failed, tasks_cached" : "0, 0, 0, 0"}, error_message, config_snapshot, NULL, NULL, NULL
    FROM pipeline_runs`
-    : `INSERT OR REPLACE INTO pipeline_runs_new (id, tenant_id, started_at, completed_at, status, jobs_discovered, jobs_processed, error_message, config_snapshot, requested_config, effective_config, result_summary)
-   SELECT id, ${sqlString(DEFAULT_TENANT_ID)}, started_at, completed_at, status, jobs_discovered, jobs_processed, error_message, NULL, NULL, NULL, NULL
+    : `INSERT OR REPLACE INTO pipeline_runs_new (id, tenant_id, started_at, completed_at, status, jobs_discovered, jobs_processed, tasks_total, tasks_done, tasks_failed, tasks_cached, error_message, config_snapshot, requested_config, effective_config, result_summary)
+   SELECT id, ${sqlString(DEFAULT_TENANT_ID)}, started_at, completed_at, status, jobs_discovered, jobs_processed, 0, 0, 0, 0, error_message, NULL, NULL, NULL, NULL
    FROM pipeline_runs`,
   `DROP TABLE IF EXISTS pipeline_runs`,
   `ALTER TABLE pipeline_runs_new RENAME TO pipeline_runs`,
@@ -1301,7 +1313,69 @@ const migrations = [
      ), 'applied') = 'closed'`,
 
   `ALTER TABLE jobs ADD COLUMN generation_error TEXT`,
+  `ALTER TABLE jobs ADD COLUMN posting_id TEXT`,
   `ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE pipeline_runs ADD COLUMN tasks_total INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE pipeline_runs ADD COLUMN tasks_done INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE pipeline_runs ADD COLUMN tasks_failed INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE pipeline_runs ADD COLUMN tasks_cached INTEGER NOT NULL DEFAULT 0`,
+  `CREATE TABLE IF NOT EXISTS scrape_tasks (
+    id TEXT PRIMARY KEY,
+    scrape_key TEXT NOT NULL,
+    window_start TEXT NOT NULL,
+    source TEXT NOT NULL,
+    runtime TEXT NOT NULL DEFAULT 'container' CHECK(runtime IN ('worker', 'browser', 'container')),
+    target TEXT NOT NULL DEFAULT '',
+    title_norm TEXT NOT NULL,
+    location TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'done', 'failed', 'needs_attention')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    lease_until TEXT,
+    completed_at TEXT,
+    result_key TEXT,
+    postings_found INTEGER NOT NULL DEFAULT 0,
+    posting_ids TEXT,
+    error TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_scrape_tasks_key_window_unique ON scrape_tasks(scrape_key, window_start)`,
+  `CREATE INDEX IF NOT EXISTS idx_scrape_tasks_status_lease ON scrape_tasks(status, lease_until)`,
+  `CREATE INDEX IF NOT EXISTS idx_scrape_tasks_source_status ON scrape_tasks(source, status)`,
+  `CREATE TABLE IF NOT EXISTS task_subscribers (
+    task_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    run_id TEXT NOT NULL,
+    notified_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (task_id, tenant_id, run_id),
+    FOREIGN KEY (task_id) REFERENCES scrape_tasks(id) ON DELETE CASCADE
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_task_subscribers_run_id ON task_subscribers(run_id)`,
+  `CREATE TABLE IF NOT EXISTS postings (
+    id TEXT PRIMARY KEY,
+    url_norm TEXT NOT NULL,
+    source TEXT NOT NULL,
+    company TEXT NOT NULL,
+    title TEXT NOT NULL,
+    location TEXT,
+    description TEXT,
+    posted_at TEXT,
+    first_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+    extracted TEXT
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_postings_url_norm_unique ON postings(url_norm)`,
+  `CREATE INDEX IF NOT EXISTS idx_postings_last_seen_at ON postings(last_seen_at)`,
+  `CREATE TABLE IF NOT EXISTS source_state (
+    source TEXT PRIMARY KEY,
+    in_flight INTEGER NOT NULL DEFAULT 0,
+    last_dispatch_at TEXT,
+    requests_today INTEGER NOT NULL DEFAULT 0,
+    day TEXT,
+    cooldown_until TEXT,
+    cooldown_level INTEGER NOT NULL DEFAULT 0
+  )`,
 ];
 
 console.log("🔧 Running database migrations...");
@@ -1907,6 +1981,9 @@ sqlite.exec("DROP INDEX IF EXISTS idx_jobs_tenant_job_url_unique");
 sqlite.exec("DROP INDEX IF EXISTS idx_jobs_tenant_user_job_url_unique");
 sqlite.exec(
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_tenant_user_job_url_unique ON jobs(tenant_id, coalesce(user_id, ''), job_url)",
+);
+sqlite.exec(
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_tenant_user_posting_id_unique ON jobs(tenant_id, coalesce(user_id, ''), posting_id)",
 );
 sqlite.exec("DROP INDEX IF EXISTS idx_jobs_tenant_status");
 sqlite.exec(

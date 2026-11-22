@@ -37,6 +37,8 @@ export const manifest: ExtractorManifest = {
   id: "fiveamsat",
   displayName: "Khamsat",
   providesSources: ["fiveamsat"],
+  runtime: "worker",
+  rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   locationCapabilities: {
     fiveamsat: { supportedCountryKeys: ["egypt"] },
   },

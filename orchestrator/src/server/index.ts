@@ -5,7 +5,9 @@
 import "./config/env";
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
+import { eq, sql } from "drizzle-orm";
 import { createApp } from "./app";
+import { db, schema } from "./db/index";
 import { initializeExtractorRegistry } from "./extractors/registry";
 import { deleteExpiredOrRevokedAuthSessions } from "./repositories/auth-sessions";
 import { resetInterruptedJobs } from "./repositories/jobs";
@@ -24,6 +26,20 @@ import { startPipelineScheduler } from "./services/pipeline-scheduler";
 import { initialize as initializeVisaSponsors } from "./services/visa-sponsors/index";
 
 const AUTH_SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+
+/** Boot only, all tenants: mark any pipeline runs left running by a dead process as failed. */
+export async function resetInterruptedPipelineRuns(): Promise<number> {
+  const updated = await db
+    .update(schema.pipelineRuns)
+    .set({
+      status: "failed",
+      errorMessage: "interrupted by restart",
+      completedAt: sql`datetime('now')`,
+    })
+    .where(eq(schema.pipelineRuns.status, "running"))
+    .run();
+  return updated.changes;
+}
 
 async function cleanupAuthSessions(trigger: "startup" | "interval") {
   try {
@@ -63,6 +79,12 @@ async function startServer() {
   if (releasedJobs > 0)
     logger.warn("Released jobs left processing by a previous run", {
       count: releasedJobs,
+    });
+
+  const failedRuns = await resetInterruptedPipelineRuns();
+  if (failedRuns > 0)
+    logger.warn("Marked interrupted pipeline runs as failed", {
+      count: failedRuns,
     });
 
   const app = createApp();
