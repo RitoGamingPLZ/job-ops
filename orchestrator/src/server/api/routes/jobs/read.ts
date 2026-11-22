@@ -8,6 +8,7 @@ import {
   applyJobsPdfFreshness,
   resolvePdfFingerprintContext,
 } from "@server/services/pdf-fingerprint";
+import { readStoredJobPdf } from "@server/services/pdf-storage";
 import {
   DEFAULT_JOB_EMAIL_LIMIT,
   listJobPostApplicationEmails,
@@ -232,7 +233,20 @@ jobsReadRouter.get("/:id/emails", async (req: Request, res: Response) => {
 
 jobsReadRouter.get("/:id/pdf", async (req: Request, res: Response) => {
   const currentJob = await jobsRepo.getJobById(req.params.id);
-  if (!currentJob || !(await pdfExists(req.params.id))) {
+  if (!currentJob) {
+    fail(res, notFound("PDF not found"));
+    return;
+  }
+
+  const storedBytes = await readStoredJobPdf(req.params.id);
+  if (storedBytes) {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Type", "application/pdf");
+    res.send(Buffer.from(storedBytes));
+    return;
+  }
+
+  if (!(await pdfExists(req.params.id))) {
     fail(res, notFound("PDF not found"));
     return;
   }

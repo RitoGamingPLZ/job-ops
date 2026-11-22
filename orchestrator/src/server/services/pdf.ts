@@ -4,10 +4,11 @@
  */
 
 import { existsSync } from "node:fs";
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir } from "node:fs/promises";
 import { AppError, type AppErrorCode, conflict, notFound } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
+import { getBlobStore } from "@server/infra/blob-store";
 import { getSetting } from "@server/repositories/settings";
 import { getJobOpsPublicAvailability } from "@server/services/tracer-links";
 import { safePdfFileName } from "@shared/filename-sanitizer";
@@ -22,9 +23,12 @@ import { ensureJobResume } from "./job-resume";
 import { resolveWritingOutputLanguageForResumeJson } from "./output-language";
 import {
   getLegacyJobPdfPath,
+  getTenantDesignResumePdfKey,
   getTenantDesignResumePdfPath,
+  getTenantJobPdfKey,
   getTenantJobPdfPath,
   getTenantPdfDir,
+  storedJobPdfExists,
 } from "./pdf-storage";
 import { renderResumePdf } from "./resume-renderer";
 import {
@@ -105,7 +109,7 @@ async function resolveLocalResumeLanguage(
 
 async function downloadRxResumePdf(
   url: string,
-  outputPath: string,
+  blobKey: string,
 ): Promise<void> {
   const response = await fetch(url);
   if (!response.ok) {
@@ -115,7 +119,7 @@ async function downloadRxResumePdf(
   }
 
   const bytes = new Uint8Array(await response.arrayBuffer());
-  await writeFile(outputPath, bytes);
+  await getBlobStore().put(blobKey, bytes, { contentType: "application/pdf" });
 }
 
 async function stripPictureWhenJobOpsIsNotHosted(args: {
@@ -155,13 +159,13 @@ async function stripPictureWhenJobOpsIsNotHosted(args: {
 
 async function renderRxResumePdf(args: {
   preparedResume: PreparedRxResumePdfPayload;
-  outputPath: string;
+  blobKey: string;
   jobId: string;
   name?: string;
   requestOrigin?: string | null;
   paperSize: PdfPaperSize;
 }): Promise<void> {
-  const { preparedResume, outputPath, jobId } = args;
+  const { preparedResume, blobKey, jobId } = args;
   let importedResumeId: string | null = null;
   const importData = applyPdfPaperSizeToResumeData(
     prepareReactiveResumeV5DocumentForExternalUse(
@@ -184,9 +188,11 @@ async function renderRxResumePdf(args: {
 
     const exportResult = await exportRxResumePdf(importedResumeId);
     if (exportResult.kind === "pdf") {
-      await writeFile(outputPath, exportResult.bytes);
+      await getBlobStore().put(blobKey, exportResult.bytes, {
+        contentType: "application/pdf",
+      });
     } else {
-      await downloadRxResumePdf(exportResult.url, outputPath);
+      await downloadRxResumePdf(exportResult.url, blobKey);
     }
   } finally {
     if (importedResumeId) {
@@ -355,9 +361,6 @@ export async function generatePdf(
     renderer = await resolvePdfRenderer();
     logger.info("Generating PDF resume", { jobId, renderer });
 
-    // Ensure output directory exists
-    await ensureOutputDir();
-
     const savedResume = await ensureJobResume(jobId, {
       requestOrigin: options?.requestOrigin ?? null,
     });
@@ -389,6 +392,7 @@ export async function generatePdf(
     const outputPath = getTenantJobPdfPath(jobId);
     const paperSize = await resolvePdfPaperSize();
     if (renderer !== "rxresume") {
+      await ensureOutputDir();
       const [language, typstTheme] = await Promise.all([
         resolveLocalResumeLanguage(preparedResume.data, jobDescription),
         renderer === "typst" ? resolveTypstTheme() : Promise.resolve(undefined),
@@ -405,7 +409,7 @@ export async function generatePdf(
     } else {
       await renderRxResumePdf({
         preparedResume,
-        outputPath,
+        blobKey: getTenantJobPdfKey(jobId),
         jobId,
         requestOrigin: options?.requestOrigin ?? null,
         paperSize,
@@ -455,7 +459,6 @@ async function generateDesignResumePdfImpl(options?: {
     selectedProjectIds: [],
   };
 
-  await ensureOutputDir();
   const [language, paperSize] = await Promise.all([
     resolveLocalResumeLanguage(designResume.data),
     resolvePdfPaperSize(),
@@ -467,6 +470,7 @@ async function generateDesignResumePdfImpl(options?: {
   });
 
   if (renderer !== "rxresume") {
+    await ensureOutputDir();
     const typstTheme =
       renderer === "typst" ? await resolveTypstTheme() : undefined;
     await renderResumePdf({
@@ -481,7 +485,7 @@ async function generateDesignResumePdfImpl(options?: {
   } else {
     await renderRxResumePdf({
       preparedResume,
-      outputPath,
+      blobKey: getTenantDesignResumePdfKey(),
       jobId: "design-resume",
       name: designResume.title,
       requestOrigin: options?.requestOrigin ?? null,
@@ -503,6 +507,9 @@ async function generateDesignResumePdfImpl(options?: {
  * Check if a PDF exists for a job.
  */
 export async function pdfExists(jobId: string): Promise<boolean> {
+  if (await storedJobPdfExists(jobId)) {
+    return true;
+  }
   const pdfPath = getTenantJobPdfPath(jobId);
   try {
     await access(pdfPath);

@@ -226,6 +226,8 @@ const {
       readFile: vi.fn(),
       writeFile: vi.fn(),
       mkdir: vi.fn().mockResolvedValue(undefined),
+      rename: vi.fn().mockResolvedValue(undefined),
+      rm: vi.fn().mockResolvedValue(undefined),
       access: vi.fn().mockResolvedValue(undefined),
       unlink: vi.fn().mockResolvedValue(undefined),
     },
@@ -837,8 +839,12 @@ describe("PDF Service Tailoring Logic", () => {
         "https://pdf.rxresume.test/print/123",
       );
       expect(mocks.writeFile).toHaveBeenCalledWith(
-        expect.stringContaining("resume_job-rxresume.pdf"),
+        expect.any(String),
         expect.any(Uint8Array),
+      );
+      expect(mocks.rename).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.stringContaining("resume_job-rxresume.pdf"),
       );
       expect(rxresume.deleteResume).toHaveBeenCalledWith("temp-resume-id");
     } finally {

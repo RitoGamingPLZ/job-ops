@@ -3,6 +3,7 @@ import { asyncRoute, fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { resolveRequestOrigin } from "@infra/request-origin";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
+import { getBlobStore } from "@server/infra/blob-store";
 import { getRequestId } from "@server/infra/request-context";
 import {
   deleteDesignResumePicture,
@@ -16,7 +17,10 @@ import {
 } from "@server/services/design-resume";
 import { importDesignResumeFromFile } from "@server/services/design-resume/import-file";
 import { generateDesignResumePdf } from "@server/services/pdf";
-import { getTenantDesignResumePdfPath } from "@server/services/pdf-storage";
+import {
+  getTenantDesignResumePdfKey,
+  getTenantDesignResumePdfPath,
+} from "@server/services/pdf-storage";
 import { clearProfileCache } from "@server/services/profile";
 import { getJobOpsPublicAvailability } from "@server/services/tracer-links";
 import type { DesignResumeJson, DesignResumePatchRequest } from "@shared/types";
@@ -305,6 +309,14 @@ designResumeRouter.post(
 designResumeRouter.get(
   "/pdf",
   asyncRoute(async (_req: Request, res: Response) => {
+    const blob = await getBlobStore().get(getTenantDesignResumePdfKey());
+    if (blob) {
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Content-Type", "application/pdf");
+      res.send(Buffer.from(blob.body));
+      return;
+    }
+
     const pdfPath = getTenantDesignResumePdfPath();
     res.setHeader("Cache-Control", "no-store");
     res.sendFile(pdfPath, (error) => {
