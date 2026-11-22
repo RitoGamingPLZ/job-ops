@@ -863,4 +863,70 @@ describe("useOrchestratorData", () => {
       expect(result.current.selectedJobLoadState).toBe("idle");
     });
   });
+
+  it("updates jobListItems and stats in applySelectedJobUpdate and ignores stale updates", async () => {
+    const job1 = createJob({
+      id: "job-1",
+      status: "discovered",
+      readyAt: null,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    const job2 = createJob({
+      id: "job-2",
+      status: "discovered",
+      readyAt: null,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    vi.mocked(api.getJobs).mockResolvedValue(makeJobsResponse([job1, job2]));
+    vi.mocked(api.getJob).mockResolvedValue(job1);
+
+    const { result } = renderHook(() => useOrchestratorData(job1.id));
+
+    await waitFor(() => {
+      expect(result.current.jobs).toHaveLength(2);
+      expect(result.current.selectedJob?.id).toBe(job1.id);
+    });
+    expect(result.current.stats.discovered).toBe(2);
+    expect(result.current.stats.processing).toBe(0);
+
+    const targetedJob = {
+      ...job1,
+      status: "processing" as const,
+      readyAt: "2026-01-02T00:00:00.000Z",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+    };
+
+    act(() => {
+      result.current.applySelectedJobUpdate(targetedJob);
+    });
+
+    expect(result.current.selectedJob?.status).toBe("processing");
+    expect(result.current.selectedJob?.readyAt).toBe(
+      "2026-01-02T00:00:00.000Z",
+    );
+    expect(result.current.jobs.find((j) => j.id === job1.id)).toMatchObject({
+      status: "processing",
+      readyAt: "2026-01-02T00:00:00.000Z",
+    });
+    expect(result.current.stats.discovered).toBe(1);
+    expect(result.current.stats.processing).toBe(1);
+
+    const staleJob = {
+      ...job1,
+      status: "discovered" as const,
+      readyAt: null,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    act(() => {
+      result.current.applySelectedJobUpdate(staleJob);
+    });
+
+    expect(result.current.selectedJob?.status).toBe("processing");
+    expect(result.current.jobs.find((j) => j.id === job1.id)?.status).toBe(
+      "processing",
+    );
+    expect(result.current.stats.discovered).toBe(1);
+    expect(result.current.stats.processing).toBe(1);
+  });
 });

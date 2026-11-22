@@ -499,7 +499,7 @@ describe("JobDetailPanel", () => {
     expect(screen.queryByText("# Responsibilities")).not.toBeInTheDocument();
   });
 
-  it("shows a view job link in the job description actions", async () => {
+  it("does not duplicate the view job link inside the job description actions", async () => {
     await renderJobDetailPanel({
       activeTab: "all",
       activeJobs: [],
@@ -512,14 +512,10 @@ describe("JobDetailPanel", () => {
       onJobUpdated: vi.fn().mockResolvedValue(undefined),
     });
 
-    const viewJobLink = screen.getByRole("link", { name: /view job/i });
-
-    expect(viewJobLink).toHaveAttribute(
-      "href",
-      "https://example.com/jobs/source-listing",
-    );
-    expect(viewJobLink).toHaveAttribute("target", "_blank");
-    expect(viewJobLink).toHaveAttribute("rel", "noopener noreferrer");
+    expect(
+      screen.queryByRole("link", { name: /view job/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("job-header")).toBeInTheDocument();
   });
 
   it("renders raw markdown in the brief job description when disabled", async () => {

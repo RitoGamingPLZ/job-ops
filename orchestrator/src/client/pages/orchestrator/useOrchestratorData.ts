@@ -98,6 +98,10 @@ export const useOrchestratorData = (selectedJobId: string | null) => {
   const pendingLoadCountRef = useRef(0);
   const selectedJobRequestSeqRef = useRef(0);
   const selectedJobCacheRef = useRef<Map<string, Job>>(new Map());
+  const jobListItemsRef = useRef<JobListItem[]>([]);
+  useEffect(() => {
+    jobListItemsRef.current = jobListItems;
+  }, [jobListItems]);
   const lastRevisionRef = useRef<string | null>(null);
   const lastSseRefreshAtRef = useRef(0);
   const hasHydratedPipelineStateRef = useRef(false);
@@ -180,6 +184,45 @@ export const useOrchestratorData = (selectedJobId: string | null) => {
         if (current.updatedAt > job.updatedAt) return current;
         return job;
       });
+      const existingIndex = jobListItemsRef.current.findIndex(
+        (item) => item.id === job.id,
+      );
+      if (existingIndex !== -1) {
+        const existing = jobListItemsRef.current[existingIndex];
+        if (existing.updatedAt <= job.updatedAt) {
+          const nextItem: JobListItem = {
+            ...existing,
+            ...job,
+            appliedDuplicateMatch:
+              job.appliedDuplicateMatch ?? existing.appliedDuplicateMatch,
+          };
+          const nextItems = [...jobListItemsRef.current];
+          nextItems[existingIndex] = nextItem;
+          jobListItemsRef.current = nextItems;
+          setJobListItems((current) => {
+            const idx = current.findIndex((item) => item.id === job.id);
+            if (idx === -1 || current[idx].updatedAt > job.updatedAt) {
+              return current;
+            }
+            const next = [...current];
+            next[idx] = {
+              ...current[idx],
+              ...job,
+              appliedDuplicateMatch:
+                job.appliedDuplicateMatch ?? current[idx].appliedDuplicateMatch,
+            };
+            return next;
+          });
+          if (existing.status !== job.status) {
+            const previousStatus = existing.status;
+            setStats((prev) => ({
+              ...prev,
+              [previousStatus]: Math.max(0, (prev[previousStatus] ?? 0) - 1),
+              [job.status]: (prev[job.status] ?? 0) + 1,
+            }));
+          }
+        }
+      }
       return job;
     },
     [queryClient],
@@ -225,6 +268,7 @@ export const useOrchestratorData = (selectedJobId: string | null) => {
       queryClient.setQueryData(queryKeys.jobs.list({ view: "list" }), data);
       if (seq >= latestAppliedSeqRef.current) {
         latestAppliedSeqRef.current = seq;
+        jobListItemsRef.current = data.jobs;
         setJobListItems(data.jobs);
         setStats(data.byStatus);
         lastRevisionRef.current = data.revision;

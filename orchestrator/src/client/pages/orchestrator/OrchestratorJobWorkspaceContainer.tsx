@@ -93,11 +93,26 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     [jobs, navigation],
   );
 
+  const untargetedDiscoveredJobIdRef = useRef<string | null>(null);
   const selectedTarget = selectedJob ?? selectedJobListItem;
+  if (
+    navigation.activeTab !== "discovered" ||
+    navigation.selectedJobId !== untargetedDiscoveredJobIdRef.current
+  ) {
+    untargetedDiscoveredJobIdRef.current = null;
+  }
+  if (
+    navigation.activeTab === "discovered" &&
+    selectedTarget?.id === navigation.selectedJobId &&
+    !isTargeted(selectedTarget)
+  ) {
+    untargetedDiscoveredJobIdRef.current = selectedTarget.id;
+  }
   const redirectTargetedSelection =
     navigation.activeTab === "discovered" &&
     selectedTarget?.id === navigation.selectedJobId &&
-    isTargeted(selectedTarget);
+    isTargeted(selectedTarget) &&
+    untargetedDiscoveredJobIdRef.current !== selectedTarget.id;
 
   useEffect(() => {
     if (redirectTargetedSelection && selectedTarget) {

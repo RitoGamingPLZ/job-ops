@@ -1,6 +1,13 @@
 import { isAwaitingAiScore, ScoreRing } from "@client/components";
 import type { AppliedDuplicateMatch, Job, JobListItem } from "@shared/types.js";
-import { Calendar, DollarSign, Loader2, MapPin, Search } from "lucide-react";
+import {
+  Calendar,
+  DollarSign,
+  ExternalLink,
+  Loader2,
+  MapPin,
+  Search,
+} from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -239,7 +246,15 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
         </div>
 
         <div className="flex h-full w-full min-w-0 flex-col items-stretch gap-3 sm:w-auto sm:items-end sm:justify-end">
-          <div className="self-end">
+          <div className="flex items-center gap-2 self-end">
+            {!isJobPage && job.jobUrl ? (
+              <Button size="sm" variant="ghost" asChild>
+                <a href={job.jobUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                  View job
+                </a>
+              </Button>
+            ) : null}
             <ScoreRing
               score={job.suitabilityScore}
               size="sm"

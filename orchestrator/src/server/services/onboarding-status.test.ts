@@ -1,14 +1,18 @@
+import { buildDefaultReactiveResumeDocument } from "@server/services/rxresume/document";
+import type { DesignResumeJson } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   applySettingsUpdates: vi.fn(),
   getConfiguredRxResumeBaseResumeId: vi.fn(),
+  getCurrentDesignResume: vi.fn(),
   getDesignResumeStatus: vi.fn(),
   getJobOpsAppStatus: vi.fn(),
   getCurrentAccountEntitlements: vi.fn(),
   getResume: vi.fn(),
   getSetting: vi.fn(),
   isDemoMode: vi.fn(),
+  syncCandidateLibrary: vi.fn(),
   validateLlmCredentials: vi.fn(),
   validateResumeSchema: vi.fn(),
   validateRxResumeCredentials: vi.fn(),
@@ -34,7 +38,12 @@ vi.mock("@server/services/auto-pdf-regeneration", () => ({
   enqueueAutoPdfRegenerationForSettingsChanges: vi.fn().mockResolvedValue(null),
 }));
 
+vi.mock("@server/services/candidate-library", () => ({
+  syncCandidateLibrary: mocks.syncCandidateLibrary,
+}));
+
 vi.mock("@server/services/design-resume", () => ({
+  getCurrentDesignResume: mocks.getCurrentDesignResume,
   getDesignResumeStatus: mocks.getDesignResumeStatus,
 }));
 
@@ -133,6 +142,8 @@ describe("onboarding status engine", () => {
       documentId: "doc-1",
       updatedAt: "2026-06-01T00:00:00.000Z",
     });
+    mocks.getCurrentDesignResume.mockResolvedValue(null);
+    mocks.syncCandidateLibrary.mockReset();
     mocks.getConfiguredRxResumeBaseResumeId.mockResolvedValue({
       resumeId: null,
     });
@@ -539,5 +550,109 @@ describe("onboarding status engine", () => {
     expect(status.requirements[2]).toMatchObject({
       primaryAction: "select_rxresume_template",
     });
+  });
+
+  it("syncs candidate library from local design resume when confirming onboarding resume", async () => {
+    const resumeJson = buildDefaultReactiveResumeDocument() as DesignResumeJson;
+    resumeJson.basics.name = "Test Candidate";
+    resumeJson.sections.experience.items = [
+      {
+        id: "exp-1",
+        hidden: false,
+        company: "Acme Corp",
+        position: "Backend Engineer",
+        location: "London",
+        period: "2022 - Present",
+        website: { url: "", label: "" },
+        description: "<ul><li>Built distributed APIs</li></ul>",
+        roles: [],
+      },
+    ];
+    mocks.getCurrentDesignResume.mockResolvedValue({
+      id: "doc-1",
+      resumeJson,
+    });
+
+    await confirmOnboardingResumeAction({ source: "local:doc-1" });
+
+    expect(mocks.getCurrentDesignResume).toHaveBeenCalledTimes(1);
+    expect(mocks.syncCandidateLibrary).toHaveBeenCalledTimes(1);
+    expect(mocks.syncCandidateLibrary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        basics: expect.objectContaining({ name: "Test Candidate" }),
+        sections: expect.objectContaining({
+          experience: expect.objectContaining({
+            items: expect.arrayContaining([
+              expect.objectContaining({
+                company: "Acme Corp",
+                position: "Backend Engineer",
+              }),
+            ]),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("syncs candidate library from Reactive Resume when confirming rxresume source", async () => {
+    mocks.getDesignResumeStatus.mockResolvedValue({ exists: false });
+    mocks.getConfiguredRxResumeBaseResumeId.mockResolvedValue({
+      resumeId: "rx-base-1",
+    });
+    mocks.getSetting.mockImplementation(async (key: string) => {
+      const values: Record<string, string | null> = {
+        llmApiKey: "sk-test",
+        llmProvider: "openrouter",
+        llmBaseUrl: "",
+        model: "gpt-4o",
+        rxresumeUrl: "https://rx.example.com",
+        rxresumeApiKey: "rx-key",
+        onboardingProfileCompleted: "1",
+        onboardingLlmCompleted: "1",
+        onboardingResumeConfirmedSource: "rxresume:rx-base-1",
+      };
+      return values[key] ?? null;
+    });
+    mocks.validateRxResumeCredentials.mockResolvedValue({
+      ok: true,
+      status: 200,
+      message: null,
+    });
+    const rxResumeData = {
+      basics: { name: "RX Candidate" },
+      sections: { experience: { items: [] } },
+    };
+    mocks.getResume.mockResolvedValue({
+      id: "rx-base-1",
+      name: "Base",
+      data: rxResumeData,
+    });
+
+    await confirmOnboardingResumeAction({ source: "rxresume:rx-base-1" });
+
+    expect(mocks.getResume).toHaveBeenCalledWith("rx-base-1");
+    expect(mocks.syncCandidateLibrary).toHaveBeenCalledWith(rxResumeData);
+  });
+
+  it("treats candidate library sync failure during onboarding confirmation as non-fatal", async () => {
+    const resumeJson = buildDefaultReactiveResumeDocument() as DesignResumeJson;
+    resumeJson.basics.name = "Test Candidate";
+    mocks.getCurrentDesignResume.mockResolvedValue({
+      id: "doc-1",
+      resumeJson,
+    });
+    mocks.syncCandidateLibrary.mockImplementation(() => {
+      throw new Error("DB busy");
+    });
+
+    const status = await confirmOnboardingResumeAction({
+      source: "local:doc-1",
+    });
+
+    expect(mocks.syncCandidateLibrary).toHaveBeenCalledTimes(1);
+    expect(mocks.applySettingsUpdates).toHaveBeenCalledWith({
+      onboardingResumeConfirmedSource: "local:doc-1",
+    });
+    expect(status.complete).toBe(true);
   });
 });

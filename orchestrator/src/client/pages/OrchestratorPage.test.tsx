@@ -612,6 +612,58 @@ describe("OrchestratorPage", () => {
     expect(screen.getByTestId("selected-job")).toHaveTextContent(targeted.id);
   });
 
+  it("stays on Discovered when an untargeted job is targeted in place", () => {
+    window.matchMedia = createMatchMedia(
+      true,
+    ) as unknown as typeof window.matchMedia;
+    const otherDiscovered = createJob({
+      id: "job-other",
+      source: "linkedin",
+      title: "Frontend Engineer",
+      employer: "Beta",
+      location: "London",
+      jobDescription: "Build UI",
+      status: "discovered",
+      readyAt: null,
+    });
+    mockJobs = [job2, otherDiscovered];
+    mockSelectedJob = job2;
+
+    const { rerender } = render(
+      <MemoryRouter initialEntries={[`/jobs/discovered/${job2.id}`]}>
+        <LocationWatcher />
+        <Routes>
+          <Route path="/jobs/:tab/:jobId?" element={<OrchestratorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("location").textContent).toBe(
+      `/jobs/discovered/${job2.id}`,
+    );
+
+    const targeted = {
+      ...job2,
+      status: "processing" as const,
+      readyAt: "2026-11-08T12:00:00.000Z",
+    };
+    mockJobs = [targeted, otherDiscovered];
+    mockSelectedJob = targeted;
+
+    rerender(
+      <MemoryRouter initialEntries={[`/jobs/discovered/${job2.id}`]}>
+        <LocationWatcher />
+        <Routes>
+          <Route path="/jobs/:tab/:jobId?" element={<OrchestratorPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("location").textContent).toBe(
+      `/jobs/discovered/${job2.id}`,
+    );
+  });
+
   it("shows only untargeted discovered jobs in Discovered", () => {
     window.matchMedia = createMatchMedia(
       true,

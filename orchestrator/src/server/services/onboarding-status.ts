@@ -6,7 +6,11 @@ import { isDemoMode } from "@server/config/demo";
 import { getSetting } from "@server/repositories/settings";
 import { getCurrentAccountEntitlements } from "@server/services/account-entitlements";
 import { enqueueAutoPdfRegenerationForSettingsChanges } from "@server/services/auto-pdf-regeneration";
-import { getDesignResumeStatus } from "@server/services/design-resume";
+import { syncCandidateLibrary } from "@server/services/candidate-library";
+import {
+  getCurrentDesignResume,
+  getDesignResumeStatus,
+} from "@server/services/design-resume";
 import { getOriginalEnvValue } from "@server/services/envSettings";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
@@ -20,6 +24,7 @@ import {
   validateCredentials as validateRxResumeCredentials,
 } from "@server/services/rxresume";
 import { getConfiguredRxResumeBaseResumeId } from "@server/services/rxresume/baseResumeId";
+import { parseV5ResumeData } from "@server/services/rxresume/schema";
 import { applySettingsUpdates } from "@server/services/settings-update";
 import { mapGlmProviderAlias } from "@shared/settings-registry";
 import type { UpdateSettingsInput } from "@shared/settings-schema";
@@ -29,6 +34,7 @@ import type {
   OnboardingRequirementPrimaryAction,
   OnboardingRequirementStatus,
   OnboardingStatusResponse,
+  ReactiveResumeV5Document,
 } from "@shared/types";
 import { LLM_PROVIDER_VALUES } from "@shared/types";
 
@@ -831,6 +837,43 @@ export async function saveOnboardingProfileAction(
   return getOnboardingStatus();
 }
 
+async function syncCandidateLibraryForOnboardingSource(
+  source: string,
+): Promise<void> {
+  try {
+    if (source.startsWith("local:")) {
+      const designResume = await getCurrentDesignResume();
+      if (designResume?.resumeJson) {
+        syncCandidateLibrary(
+          parseV5ResumeData(
+            designResume.resumeJson as Record<string, unknown>,
+          ) as unknown as ReactiveResumeV5Document,
+        );
+      }
+      return;
+    }
+
+    if (source.startsWith("rxresume:")) {
+      const resumeId = source.slice("rxresume:".length);
+      if (!resumeId) return;
+      const baseResume = await getResume(resumeId);
+      if (baseResume?.data && typeof baseResume.data === "object") {
+        syncCandidateLibrary(baseResume.data as ReactiveResumeV5Document);
+      }
+    }
+  } catch (error) {
+    logger.warn(
+      "Failed to sync candidate library during onboarding resume confirmation",
+      {
+        requestId: getRequestId(),
+        route: "POST /api/onboarding/actions/resume/confirm",
+        source,
+        error,
+      },
+    );
+  }
+}
+
 export async function confirmOnboardingResumeAction(
   input: OnboardingResumeConfirmActionInput,
 ): Promise<OnboardingStatusResponse> {
@@ -853,6 +896,7 @@ export async function confirmOnboardingResumeAction(
     { onboardingResumeConfirmedSource: input.source },
     "POST /api/onboarding/actions/resume/confirm",
   );
+  await syncCandidateLibraryForOnboardingSource(input.source);
   return getOnboardingStatus();
 }
 

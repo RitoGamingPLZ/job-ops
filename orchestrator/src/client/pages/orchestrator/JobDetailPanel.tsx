@@ -509,7 +509,6 @@ export const JobDetailPanel: React.FC<JobDetailPanelProps> = ({
           <JobBriefPane job={selectedJob} />
           <JobDescriptionPanel
             description={selectedJob.jobDescription}
-            jobUrl={selectedJob.jobUrl}
             onSave={handleSaveDescription}
           />
         </div>

@@ -258,4 +258,44 @@ describe("JobHeader", () => {
       screen.queryByRole("link", { name: /view/i }),
     ).not.toBeInTheDocument();
   });
+
+  it("renders View job link next to the score when jobUrl is present off the job page", () => {
+    render(
+      <MemoryRouter initialEntries={["/jobs/discovered/job-1"]}>
+        <JobHeader
+          job={{
+            ...mockJob,
+            jobUrl: "https://example.com/jobs/123",
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    const viewJobLink = screen.getByRole("link", { name: /view job/i });
+    expect(viewJobLink).toHaveAttribute("href", "https://example.com/jobs/123");
+    expect(viewJobLink).toHaveAttribute("target", "_blank");
+    expect(viewJobLink).toHaveAttribute("rel", "noopener noreferrer");
+
+    const scoreRing = screen.getByRole("button", {
+      name: "View fit assessment",
+    });
+    expect(viewJobLink.parentElement).toContainElement(scoreRing);
+  });
+
+  it("does not render View job link when jobUrl is empty", () => {
+    render(
+      <MemoryRouter initialEntries={["/jobs/discovered/job-1"]}>
+        <JobHeader
+          job={{
+            ...mockJob,
+            jobUrl: "",
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByRole("link", { name: /view job/i }),
+    ).not.toBeInTheDocument();
+  });
 });
