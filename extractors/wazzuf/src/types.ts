@@ -1,17 +1,6 @@
-export type WazzufProgressEvent =
-  | {
-      type: "term_start";
-      termIndex: number;
-      termTotal: number;
-      searchTerm: string;
-    }
-  | {
-      type: "term_complete";
-      termIndex: number;
-      termTotal: number;
-      searchTerm: string;
-      jobsFoundTerm: number;
-    };
+import type { SearchTermProgressEvent } from "job-ops-shared/extractor-runtime";
+
+export type WazzufProgressEvent = SearchTermProgressEvent;
 
 export interface RunWazzufOptions {
   searchTerms?: string[];

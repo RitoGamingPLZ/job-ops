@@ -32,6 +32,7 @@ export {
   type BrowserLaunchOptions,
   createLaunchOptions,
 } from "./launch.js";
+export { subscribeChildProcessLines } from "./process-lines.js";
 export {
   type NavigateWithRetryOptions,
   type NavigateWithRetryResult,

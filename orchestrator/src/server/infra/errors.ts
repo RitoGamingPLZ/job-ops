@@ -25,6 +25,20 @@ const DEFAULT_CODE_BY_STATUS: Record<number, AppErrorCode> = {
   503: "SERVICE_UNAVAILABLE",
 };
 
+export const STATUS_BY_APP_ERROR_CODE: Readonly<Record<AppErrorCode, number>> =
+  {
+    INVALID_REQUEST: 400,
+    UNAUTHORIZED: 401,
+    FORBIDDEN: 403,
+    NOT_FOUND: 404,
+    REQUEST_TIMEOUT: 408,
+    CONFLICT: 409,
+    UNPROCESSABLE_ENTITY: 422,
+    SERVICE_UNAVAILABLE: 503,
+    UPSTREAM_ERROR: 502,
+    INTERNAL_ERROR: 500,
+  };
+
 export class AppError extends Error {
   status: number;
   code: AppErrorCode;

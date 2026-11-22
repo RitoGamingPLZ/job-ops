@@ -1,3 +1,5 @@
+import { getOriginalEnvValue } from "@server/services/envSettings";
+import { LlmService } from "@server/services/llm/service";
 import { buildDefaultReactiveResumeDocument } from "@server/services/rxresume/document";
 import type { DesignResumeJson } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -101,11 +103,13 @@ import {
   saveOnboardingModelAction,
   saveOnboardingProfileAction,
   saveOnboardingRxResumeAction,
+  validateLlm,
 } from "./onboarding-status";
 
 describe("onboarding status engine", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getOriginalEnvValue).mockReturnValue(undefined);
     mocks.getJobOpsAppStatus.mockReturnValue({
       appMode: "local",
       capabilities: {
@@ -162,6 +166,50 @@ describe("onboarding status engine", () => {
       shouldClearRxResumeCaches: false,
       updatedSettingKeys: [],
     });
+  });
+
+  it("preserves endpoint precedence without an implicit onboarding default", async () => {
+    const cases = [
+      [undefined, null, undefined, undefined],
+      [null, "", undefined, undefined],
+      [
+        undefined,
+        " http://stored.example ",
+        undefined,
+        "http://stored.example",
+      ],
+      [
+        null,
+        "http://stored.example",
+        "http://env.example",
+        "http://stored.example",
+      ],
+      [
+        "",
+        "http://stored.example",
+        " http://env.example ",
+        "http://env.example",
+      ],
+      [" ", "http://stored.example", undefined, "http://localhost:4000"],
+      [
+        " http://override.example ",
+        "http://stored.example",
+        "http://env.example",
+        "http://override.example",
+      ],
+      [undefined, "", " http://env.example ", "http://env.example"],
+      [null, "", "", undefined],
+    ] as const;
+    for (const [override, stored, environment, expected] of cases) {
+      mocks.getSetting.mockImplementation(async (key: string) =>
+        key === "llmBaseUrl" ? stored : null,
+      );
+      vi.mocked(getOriginalEnvValue).mockReturnValue(environment);
+      await validateLlm({ provider: "litellm", baseUrl: override });
+      expect(LlmService).toHaveBeenLastCalledWith(
+        expect.objectContaining({ provider: "litellm", baseUrl: expected }),
+      );
+    }
   });
 
   it("returns model as next when the connection has not been completed", async () => {

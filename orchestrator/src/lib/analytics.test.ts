@@ -109,6 +109,30 @@ describe("analytics", () => {
     });
   });
 
+  it.each([
+    [{}, {}],
+    [{ tOkEn: "private", nested: {}, list: [], absent: undefined }, {}],
+    [
+      { label: "hello", count: 0, enabled: false, empty: null },
+      { label: "hello", count: 0, enabled: false, empty: null },
+    ],
+    [
+      { QueryText: "private", statusCODE: 1, safe: "retained" },
+      { safe: "retained" },
+    ],
+    [
+      { count: Number.NaN, high: Number.POSITIVE_INFINITY },
+      { count: Number.NaN, high: Number.POSITIVE_INFINITY },
+    ],
+  ])("preserves primitive sanitization for %j", (input, expected) => {
+    trackProductEvent("jobs_pipeline_run_started", input as any);
+    expect(track).toHaveBeenCalledWith("jobs_pipeline_run_started", {
+      ...expected,
+      analytics_user_id: expect.any(String),
+      app_version: "abc1234-dev",
+    });
+  });
+
   it("buckets query lengths without sending raw query text", () => {
     expect(bucketQueryLength("")).toBe("0");
     expect(bucketQueryLength("abc")).toBe("1_3");

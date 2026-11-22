@@ -1,3 +1,7 @@
+import {
+  type ExtractorTermEvent,
+  toTermProgress,
+} from "@shared/extractor-progress";
 import { normalizeCountryKey } from "@shared/location-support.js";
 import type {
   ExtractorManifest,
@@ -5,25 +9,9 @@ import type {
 } from "@shared/types/extractors";
 import { runJobindex } from "./run";
 
-function toProgress(event: {
-  type: string;
-  termIndex: number;
-  termTotal: number;
-  searchTerm: string;
-  page?: number;
-  pageTotal?: number;
-  jobsFoundTerm?: number;
-}): ExtractorProgressEvent {
-  if (event.type === "term_start") {
-    return {
-      phase: "list",
-      termsProcessed: Math.max(event.termIndex - 1, 0),
-      termsTotal: event.termTotal,
-      currentUrl: event.searchTerm,
-      detail: `Jobindex: term ${event.termIndex}/${event.termTotal} (${event.searchTerm})`,
-    };
-  }
-
+function toProgress(
+  event: ExtractorTermEvent & { page?: number; pageTotal?: number },
+): ExtractorProgressEvent {
   if (event.type === "page_complete") {
     return {
       phase: "list",
@@ -36,15 +24,7 @@ function toProgress(event: {
     };
   }
 
-  return {
-    phase: "list",
-    termsProcessed: event.termIndex,
-    termsTotal: event.termTotal,
-    currentUrl: event.searchTerm,
-    jobPagesEnqueued: event.jobsFoundTerm ?? 0,
-    jobPagesProcessed: event.jobsFoundTerm ?? 0,
-    detail: `Jobindex: completed ${event.termIndex}/${event.termTotal} (${event.searchTerm}) with ${event.jobsFoundTerm ?? 0} jobs`,
-  };
+  return toTermProgress(event, { label: "Jobindex" });
 }
 
 export const manifest: ExtractorManifest = {

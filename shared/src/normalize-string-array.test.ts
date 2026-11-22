@@ -20,3 +20,20 @@ describe("normalizeStringArray", () => {
     ).toEqual(["Recruit", "staffing"]);
   });
 });
+
+describe("normalizeStringArray options", () => {
+  it("dedupes case-sensitively when asked", () => {
+    expect(
+      normalizeStringArray([" Id", "id", "Id "], { caseSensitive: true }),
+    ).toEqual(["Id", "id"]);
+  });
+
+  it("truncates before deduping and stops at maxItems", () => {
+    expect(
+      normalizeStringArray(["abcX", "ABCy", "d", "e"], {
+        maxLength: 3,
+        maxItems: 2,
+      }),
+    ).toEqual(["abc", "d"]);
+  });
+});

@@ -1,6 +1,7 @@
 import { badRequest, conflict, notFound, toAppError } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
+import { resolveRequestOrigin } from "@infra/request-origin";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { getRequestId } from "@server/infra/request-context";
 import {
@@ -34,36 +35,6 @@ const jsonPointerSchema = z
     message: "Patch paths must be valid JSON Pointers.",
   });
 
-function resolveRequestOrigin(req: Request): string | null {
-  const configuredBaseUrl = process.env.JOBOPS_PUBLIC_BASE_URL?.trim();
-  if (configuredBaseUrl) {
-    try {
-      const parsed = new URL(configuredBaseUrl);
-      if (parsed.protocol && parsed.host) {
-        return `${parsed.protocol}//${parsed.host}`;
-      }
-    } catch {
-      // Ignore invalid env and fall back to request-derived origin.
-    }
-  }
-
-  const trustProxy = Boolean(req.app?.get("trust proxy"));
-  let protocol = (req.protocol || "").trim();
-  let host = (req.header("host") || "").trim();
-
-  if (trustProxy) {
-    const forwardedProto =
-      req.header("x-forwarded-proto")?.split(",")[0]?.trim() ?? "";
-    const forwardedHost =
-      req.header("x-forwarded-host")?.split(",")[0]?.trim() ?? "";
-    if (forwardedProto) protocol = forwardedProto;
-    if (forwardedHost) host = forwardedHost;
-  }
-
-  if (!host || !protocol) return null;
-  return `${protocol}://${host}`;
-}
-
 async function assertPictureSupportEnabled(req: Request): Promise<void> {
   const availability = await getJobOpsPublicAvailability({
     requestOrigin: resolveRequestOrigin(req),
@@ -77,85 +48,49 @@ async function assertPictureSupportEnabled(req: Request): Promise<void> {
   );
 }
 
-const addOperationSchema = z
-  .object({
-    op: z.literal("add"),
-    path: jsonPointerSchema,
-    value: z.unknown().optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!("value" in value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["value"],
-        message: "Patch add operations require a value.",
-      });
-    }
-  });
+function valueOperationSchema<const T extends "add" | "replace" | "test">(
+  op: T,
+) {
+  return z
+    .object({
+      op: z.literal(op),
+      path: jsonPointerSchema,
+      value: z.unknown().optional(),
+    })
+    .superRefine((value, ctx) => {
+      if (!("value" in value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["value"],
+          message: `Patch ${op} operations require a value.`,
+        });
+      }
+    });
+}
 
-const replaceOperationSchema = z
-  .object({
-    op: z.literal("replace"),
-    path: jsonPointerSchema,
-    value: z.unknown().optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!("value" in value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["value"],
-        message: "Patch replace operations require a value.",
-      });
-    }
-  });
+function fromOperationSchema<const T extends "move" | "copy">(op: T) {
+  return z
+    .object({
+      op: z.literal(op),
+      path: jsonPointerSchema,
+      from: jsonPointerSchema.optional(),
+    })
+    .superRefine((value, ctx) => {
+      if (!("from" in value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["from"],
+          message: `Patch ${op} operations require a from path.`,
+        });
+      }
+    });
+}
 
-const testOperationSchema = z
-  .object({
-    op: z.literal("test"),
-    path: jsonPointerSchema,
-    value: z.unknown().optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!("value" in value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["value"],
-        message: "Patch test operations require a value.",
-      });
-    }
-  });
-
-const moveOperationSchema = z
-  .object({
-    op: z.literal("move"),
-    path: jsonPointerSchema,
-    from: jsonPointerSchema.optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!("from" in value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["from"],
-        message: "Patch move operations require a from path.",
-      });
-    }
-  });
-
-const copyOperationSchema = z
-  .object({
-    op: z.literal("copy"),
-    path: jsonPointerSchema,
-    from: jsonPointerSchema.optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!("from" in value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["from"],
-        message: "Patch copy operations require a from path.",
-      });
-    }
-  });
+const addOperationSchema = valueOperationSchema("add");
+const replaceOperationSchema = valueOperationSchema("replace");
+const testOperationSchema = valueOperationSchema("test");
+const moveOperationSchema = fromOperationSchema("move");
+const copyOperationSchema = fromOperationSchema("copy");
 
 const patchOperationSchema = z.union([
   addOperationSchema,

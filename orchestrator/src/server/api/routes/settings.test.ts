@@ -120,6 +120,55 @@ describe.sequential("Settings API routes", () => {
     await stopServer({ server, closeDb, tempDir });
   });
 
+  it("preserves endpoint precedence and the settings default fallback", async () => {
+    const { setSetting } = await import("@server/repositories/settings");
+    const cases = [
+      [undefined, "", undefined, "http://localhost:4000"],
+      [null, "", undefined, "http://localhost:4000"],
+      [
+        undefined,
+        " http://stored.example ",
+        undefined,
+        "http://stored.example",
+      ],
+      [
+        null,
+        "http://stored.example",
+        "http://env.example",
+        "http://stored.example",
+      ],
+      [
+        "",
+        "http://stored.example",
+        " http://env.example ",
+        "http://env.example",
+      ],
+      [" ", "http://stored.example", undefined, "http://localhost:4000"],
+      [
+        " http://override.example ",
+        "http://stored.example",
+        "http://env.example",
+        "http://override.example",
+      ],
+      [undefined, "", " http://env.example ", "http://env.example"],
+      [null, "", "", "http://localhost:4000"],
+    ] as const;
+    for (const [override, stored, environment, expected] of cases) {
+      await setSetting("llmBaseUrl", stored);
+      if (environment === undefined) delete process.env.LLM_BASE_URL;
+      else process.env.LLM_BASE_URL = environment;
+      const response = await fetch(`${baseUrl}/api/settings/llm-models`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "litellm", baseUrl: override }),
+      });
+      expect(response.status).toBe(200);
+      expect(LlmService).toHaveBeenLastCalledWith(
+        expect.objectContaining({ provider: "litellm", baseUrl: expected }),
+      );
+    }
+  });
+
   it("returns settings with defaults", async () => {
     const res = await fetch(`${baseUrl}/api/settings`);
     const body = await res.json();

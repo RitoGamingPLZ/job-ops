@@ -90,3 +90,60 @@ describe("search plan location review", () => {
     expect(secondWorkspace.cityLocations).toEqual([]);
   });
 });
+
+describe("search plan string normalization", () => {
+  const normalize = (candidate: Record<string, unknown>) =>
+    normalizePipelineSearchPlanConfig({
+      currentConfig: { ...currentConfig, cityLocations: ["Leeds", "York"] },
+      registry,
+      candidate: candidate as Partial<PipelineSearchPresetConfig>,
+    }).config;
+
+  it("drops non-strings, truncates before deduping, and caps search terms", () => {
+    const long = "x".repeat(200);
+    const terms = normalize({
+      searchTerms: [
+        7,
+        ` ${long}A`,
+        `${long}b`,
+        " Go ",
+        "go",
+        ...Array.from({ length: 20 }, (_, i) => `t${i}`),
+      ],
+    }).searchTerms;
+    expect(terms).toEqual([
+      long,
+      "Go",
+      ...Array.from({ length: 10 }, (_, i) => `t${i}`),
+    ]);
+  });
+
+  it("falls back to current search terms when nothing usable remains", () => {
+    expect(normalize({ searchTerms: [" ", 5] }).searchTerms).toEqual([
+      "Backend Engineer",
+    ]);
+    expect(normalize({ searchTerms: "nope" }).searchTerms).toEqual([
+      "Backend Engineer",
+    ]);
+  });
+
+  it("keeps an explicitly empty city list but falls back for non-arrays", () => {
+    expect(normalize({ cityLocations: [" ", 3] }).cityLocations).toEqual([]);
+    expect(normalize({ cityLocations: "Leeds" }).cityLocations).toEqual([
+      "Leeds",
+      "York",
+    ]);
+    const long = "c".repeat(100);
+    const cities = normalize({
+      cityLocations: [
+        `${long}1`,
+        `${long.toUpperCase()}2`,
+        ...Array.from({ length: 30 }, (_, i) => `c${i}`),
+      ],
+    }).cityLocations;
+    expect(cities).toEqual([
+      long,
+      ...Array.from({ length: 24 }, (_, i) => `c${i}`),
+    ]);
+  });
+});

@@ -4,6 +4,7 @@ import {
   badRequest,
   conflict,
   notFound,
+  STATUS_BY_APP_ERROR_CODE,
   toAppError,
 } from "@infra/errors";
 import { logger } from "@infra/logger";
@@ -289,19 +290,6 @@ export function toJobsRouteError(
 
   return toAppError(error);
 }
-
-const STATUS_BY_APP_ERROR_CODE: Record<AppErrorCode, number> = {
-  INVALID_REQUEST: 400,
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  REQUEST_TIMEOUT: 408,
-  CONFLICT: 409,
-  UNPROCESSABLE_ENTITY: 422,
-  SERVICE_UNAVAILABLE: 503,
-  UPSTREAM_ERROR: 502,
-  INTERNAL_ERROR: 500,
-};
 
 export function appErrorFromPipelineFailure(
   result: { error?: string; errorCode?: AppErrorCode },

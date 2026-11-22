@@ -2,12 +2,12 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import {
   getCountryIso2Code,
   normalizeCountryKey,
 } from "@shared/location-support.js";
+import { normalizeStringArray } from "@shared/normalize-string-array.js";
 import {
   matchesRequestedCountry,
   resolveSearchCities,
@@ -21,6 +21,7 @@ import {
   toNumberOrNull,
   toStringOrNull,
 } from "@shared/utils/type-conversion.js";
+import { subscribeChildProcessLines } from "browser-utils";
 
 const srcDir = dirname(fileURLToPath(import.meta.url));
 const EXTRACTOR_DIR = join(srcDir, "..");
@@ -377,19 +378,10 @@ export async function runJobSpy(
             stream.write(`${line}\n`);
           };
 
-          const stdoutRl = child.stdout
-            ? createInterface({ input: child.stdout })
-            : null;
-          const stderrRl = child.stderr
-            ? createInterface({ input: child.stderr })
-            : null;
-
-          stdoutRl?.on("line", (line) => handleLine(line, process.stdout));
-          stderrRl?.on("line", (line) => handleLine(line, process.stderr));
+          const closeLines = subscribeChildProcessLines(child, handleLine);
 
           child.on("close", (code) => {
-            stdoutRl?.close();
-            stderrRl?.close();
+            closeLines();
             if (code === 0) resolve();
             else reject(new Error(`JobSpy exited with code ${code}`));
           });
@@ -425,19 +417,7 @@ export async function runJobSpy(
 function resolveSearchTerms(options: RunJobSpyOptions): string[] {
   const fromOptions = options.searchTerms?.length ? options.searchTerms : null;
   const fromEnv = parseSearchTermsEnv(process.env.JOBSPY_SEARCH_TERMS);
-  const raw = fromOptions ?? fromEnv ?? ["web developer"];
-  const out: string[] = [];
-  const seen = new Set<string>();
-
-  for (const term of raw) {
-    const normalized = term.trim();
-    if (!normalized) continue;
-    const key = normalized.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(normalized);
-  }
-  return out;
+  return normalizeStringArray(fromOptions ?? fromEnv ?? ["web developer"]);
 }
 
 function parseSearchTermsEnv(raw: string | undefined): string[] | null {

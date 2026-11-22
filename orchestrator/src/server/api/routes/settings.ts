@@ -13,6 +13,7 @@ import { getRequestId, isSystemAdmin } from "@infra/request-context";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { isDemoMode, sendDemoBlocked } from "@server/config/demo";
+import { resolveLlmValidationEndpoint } from "@server/config/llm-validation-endpoint";
 import { getSetting } from "@server/repositories/settings";
 import { getCurrentAccountEntitlements } from "@server/services/account-entitlements";
 import { enqueueAutoPdfRegenerationForSettingsChanges } from "@server/services/auto-pdf-regeneration";
@@ -223,17 +224,6 @@ function normalizeLlmProviderValue(
   return mapped === "claude" ? "anthropic" : mapped;
 }
 
-function getDefaultValidationBaseUrl(
-  provider: string | undefined,
-): string | undefined {
-  if (provider === "litellm") return "http://localhost:4000";
-  if (provider === "lmstudio") return "http://localhost:1234";
-  if (provider === "ollama") return "http://localhost:11434";
-  if (provider === "openai_compatible") return "https://api.openai.com";
-  if (provider === "glm") return "https://api.z.ai/api/paas/v4";
-  return undefined;
-}
-
 const CODEX_AUTH_VALIDATION_TTL_MS = 5_000;
 let codexValidationCache: {
   value: { valid: boolean; message: string | null; username?: string | null };
@@ -319,34 +309,13 @@ async function resolveLlmConfig(input: {
       storedProvider?.trim() ||
       (hostedMode ? "openrouter" : undefined),
   );
-  const usesBaseUrl =
-    provider === "litellm" ||
-    provider === "lmstudio" ||
-    provider === "ollama" ||
-    provider === "glm" ||
-    provider === "openai_compatible";
-  const hasExplicitBaseUrlOverride =
-    input.baseUrl !== undefined && input.baseUrl !== null;
-  const baseUrl = usesBaseUrl
-    ? hasExplicitBaseUrlOverride
-      ? input.baseUrl?.trim() ||
-        (hostedMode
-          ? undefined
-          : getOriginalEnvValue("LLM_BASE_URL")?.trim()) ||
-        getDefaultValidationBaseUrl(provider)
-      : storedBaseUrl?.trim() ||
-        (hostedMode
-          ? undefined
-          : getOriginalEnvValue("LLM_BASE_URL")?.trim()) ||
-        getDefaultValidationBaseUrl(provider)
-    : undefined;
-  const userBaseUrl = hasExplicitBaseUrlOverride
-    ? input.baseUrl?.trim()
-    : storedBaseUrl?.trim();
-
-  const hasCustomUserBaseUrl =
-    Boolean(userBaseUrl) &&
-    userBaseUrl !== getDefaultValidationBaseUrl(provider);
+  const { baseUrl, hasCustomUserBaseUrl } = resolveLlmValidationEndpoint({
+    provider,
+    override: input.baseUrl,
+    stored: storedBaseUrl,
+    environment: hostedMode ? undefined : getOriginalEnvValue("LLM_BASE_URL"),
+    fallbackToDefault: true,
+  });
   if (hostedMode && (isHostedLocalProvider(provider) || hasCustomUserBaseUrl)) {
     throw forbidden(
       "Hosted LLM providers must use supported public provider endpoints.",

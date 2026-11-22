@@ -1,37 +1,7 @@
+import { toTermProgress } from "@shared/extractor-progress";
 import { resolveSearchCities } from "@shared/search-cities.js";
-import type {
-  ExtractorManifest,
-  ExtractorProgressEvent,
-} from "@shared/types/extractors";
+import type { ExtractorManifest } from "@shared/types/extractors";
 import { runSeek } from "./src/run";
-
-function toProgress(event: {
-  type: string;
-  termIndex: number;
-  termTotal: number;
-  searchTerm: string;
-  jobsFoundTerm?: number;
-}): ExtractorProgressEvent {
-  if (event.type === "term_start") {
-    return {
-      phase: "list",
-      termsProcessed: Math.max(event.termIndex - 1, 0),
-      termsTotal: event.termTotal,
-      currentUrl: event.searchTerm,
-      detail: `Seek: term ${event.termIndex}/${event.termTotal} (${event.searchTerm})`,
-    };
-  }
-
-  return {
-    phase: "list",
-    termsProcessed: event.termIndex,
-    termsTotal: event.termTotal,
-    currentUrl: event.searchTerm,
-    jobPagesEnqueued: event.jobsFoundTerm ?? 0,
-    jobPagesProcessed: event.jobsFoundTerm ?? 0,
-    detail: `Seek: completed ${event.termIndex}/${event.termTotal} (${event.searchTerm}) — ${event.jobsFoundTerm ?? 0} jobs`,
-  };
-}
 
 export const manifest: ExtractorManifest = {
   id: "seek",
@@ -69,7 +39,9 @@ export const manifest: ExtractorManifest = {
       shouldCancel: context.shouldCancel,
       onProgress: (event) => {
         if (context.shouldCancel?.()) return;
-        context.onProgress?.(toProgress(event));
+        context.onProgress?.(
+          toTermProgress(event, { label: "Seek", completionStyle: "dash" }),
+        );
       },
     });
 

@@ -5,6 +5,7 @@ import {
   resolveSearchCities,
 } from "job-ops-shared/search-cities";
 import type { CreateJobInput } from "job-ops-shared/types/jobs";
+import { toIntegerOrFallback } from "job-ops-shared/utils/type-conversion";
 
 const GOLANG_JOBS_SUPABASE_URL = "https://mvjyjzestmcxxmmmakec.supabase.co";
 const GOLANG_JOBS_DEFAULT_SUPABASE_ANON_KEY =
@@ -64,21 +65,6 @@ interface GolangJobsRow {
   description?: unknown;
   requirements?: unknown;
   cities?: GolangJobsCity | null;
-}
-
-function toPositiveIntOrFallback(
-  value: number | string | undefined,
-  fallback: number,
-): number {
-  const parsed =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number.parseInt(value, 10)
-        : Number.NaN;
-
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.max(1, Math.floor(parsed));
 }
 
 function normalizeText(value: string): string {
@@ -369,7 +355,7 @@ export async function runGolangJobs(
     options.searchTerms && options.searchTerms.length > 0
       ? options.searchTerms
       : ["software engineer"];
-  const maxJobsPerTerm = toPositiveIntOrFallback(options.maxJobsPerTerm, 50);
+  const maxJobsPerTerm = toIntegerOrFallback(options.maxJobsPerTerm, 50);
   const explicitLocations = resolveExplicitLocations(
     options.locations,
     options.selectedCountry,
