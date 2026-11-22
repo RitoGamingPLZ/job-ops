@@ -9,6 +9,7 @@ import { NAVY_SERIF_STYLE } from "@shared/resume-style/navy-serif";
 import { type PdfPaperSize, TYPST_THEME_VALUES, type TypstTheme } from "@shared/types";
 import { runResumeCompiler } from "./compiler";
 import { getLatexResumeSectionTitles } from "./document";
+import { renderInlineHtml, renderOrderedSections } from "./markup";
 import { materializeResumePicture } from "./picture";
 import type {
   LatexResumeContactItem,
@@ -17,7 +18,6 @@ import type {
   LatexResumeEntry,
   LatexResumeInterestItem,
   LatexResumeLanguageItem,
-  LatexResumeOrderedSectionKey,
   ResumeRenderer,
 } from "./types";
 
@@ -168,58 +168,17 @@ export function getTypstTemplatePath(theme: TypstTheme = "classic"): string {
   return join(getTypstThemeDir(theme), manifest.entrypoint);
 }
 
-function normalizeText(value: string): string {
-  return value
-    .replace(/\u2010|\u2011|\u2012|\u2013|\u2014/g, "-")
-    .replace(/\u2022/g, "-")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function escapeRawTypst(value: string): string {
   return value.replace(/([\\#*$@_[\]{}<>`])/g, "\\$1");
 }
 
 function escapeTypstText(value: string): string {
-  const normalized = normalizeText(value);
-  const parts = normalized.split(/(<\/?(?:strong|b|em|i)\b[^>]*>)/gi);
-  const result: string[] = [];
-  const tagStack: string[] = [];
-
-  for (const part of parts) {
-    if (!part) continue;
-
-    if (part.startsWith("<") && part.endsWith(">")) {
-      const lower = part.toLowerCase();
-      if (lower.startsWith("<strong") || lower.startsWith("<b")) {
-        result.push("#strong[");
-        tagStack.push("bold");
-      } else if (lower.startsWith("</strong") || lower.startsWith("</b>")) {
-        if (tagStack.pop() === "bold") {
-          result.push("]");
-        } else {
-          result.push("]");
-        }
-      } else if (lower.startsWith("<em") || lower.startsWith("<i")) {
-        result.push("#emph[");
-        tagStack.push("italic");
-      } else if (lower.startsWith("</em") || lower.startsWith("</i>")) {
-        if (tagStack.pop() === "italic") {
-          result.push("]");
-        } else {
-          result.push("]");
-        }
-      }
-    } else {
-      result.push(escapeRawTypst(part));
-    }
-  }
-
-  while (tagStack.pop()) {
-    result.push("]");
-  }
-
-  return result.join("");
+  return renderInlineHtml(value, {
+    escape: escapeRawTypst,
+    bold: "#strong[",
+    italic: "#emph[",
+    close: "]",
+  });
 }
 
 function escapeTypstUrl(value: string): string {
@@ -382,91 +341,6 @@ function renderLocationBlock(document: LatexResumeDocument): string {
   return `  #text(size: 9pt)[${escapeTypstText(document.location)}] \\\n`;
 }
 
-function renderOrderedCoreSections(
-  document: LatexResumeDocument,
-  titles: ReturnType<typeof getLatexResumeSectionTitles>,
-  metaSize: string,
-): string[] {
-  const sectionOrder = document.sectionOrder ?? [
-    "profiles",
-    "experience",
-    "education",
-    "projects",
-    "skills",
-    "languages",
-    "interests",
-    "awards",
-    "certifications",
-    "publications",
-    "volunteer",
-    "references",
-  ];
-  const builders: Record<LatexResumeOrderedSectionKey, () => string> = {
-    profiles: () => renderProfilesSection(document),
-    experience: () =>
-      renderEntrySection({
-        title: titles.experience,
-        entries: document.experience,
-        kind: "subheading",
-        metaSize,
-      }),
-    education: () =>
-      renderEntrySection({
-        title: titles.education,
-        entries: document.education,
-        kind: "subheading",
-        metaSize,
-      }),
-    projects: () =>
-      renderEntrySection({
-        title: titles.projects,
-        entries: document.projects,
-        kind: "project",
-        metaSize,
-      }),
-    skills: () => renderSkillsSection(document),
-    languages: () => renderLanguagesSection(document),
-    interests: () => renderInterestsSection(document),
-    awards: () =>
-      renderEntrySection({
-        title: titles.awards,
-        entries: document.awards,
-        kind: "subheading",
-        metaSize,
-      }),
-    certifications: () =>
-      renderEntrySection({
-        title: titles.certifications,
-        entries: document.certifications,
-        kind: "subheading",
-        metaSize,
-      }),
-    publications: () =>
-      renderEntrySection({
-        title: titles.publications,
-        entries: document.publications,
-        kind: "subheading",
-        metaSize,
-      }),
-    volunteer: () =>
-      renderEntrySection({
-        title: titles.volunteer,
-        entries: document.volunteer,
-        kind: "subheading",
-        metaSize,
-      }),
-    references: () =>
-      renderEntrySection({
-        title: titles.references,
-        entries: document.references,
-        kind: "subheading",
-        metaSize,
-      }),
-  };
-
-  return sectionOrder.map((key) => builders[key]());
-}
-
 export async function readTypstThemeManifest(
   theme: TypstTheme = "classic",
 ): Promise<TypstThemeManifest> {
@@ -544,7 +418,13 @@ export function buildTypstDocument(
   const body = [
     renderSummarySection(document),
     renderCustomFieldsSection(document),
-    ...renderOrderedCoreSections(document, titles, tokens.entryMetaSize),
+    ...renderOrderedSections(document, titles, {
+      entry: (args) => renderEntrySection({ ...args, metaSize: tokens.entryMetaSize }),
+      profiles: () => renderProfilesSection(document),
+      skills: () => renderSkillsSection(document),
+      languages: () => renderLanguagesSection(document),
+      interests: () => renderInterestsSection(document),
+    }),
   ]
     .filter(Boolean)
     .join("\n\n");
