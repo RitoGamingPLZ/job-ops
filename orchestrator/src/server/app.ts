@@ -468,6 +468,8 @@ export function createApp() {
   // keep a larger JSON limit scoped to this endpoint to allow the maximum
   // validated payload through to route-level validation.
   app.use("/api/jobs/:id/chat", express.json({ limit: "12mb" }));
+  // Container <-> D1 hydration/sync batches can exceed Express's 100kb default.
+  app.use("/api/internal/d1-sync", express.json({ limit: "25mb" }));
   app.use(express.json());
 
   // Logging middleware
