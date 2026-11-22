@@ -50,6 +50,44 @@ export function bulletsFromHtml(html: string): string[] {
     .filter(Boolean);
 }
 
+/** Renderer dialect of htmlToPlainText: six entities decoded in sequence; `keepEmphasis` keeps strong/b/em/i tags for LaTeX/Typst. */
+export function stripResumeHtml(value: string, keepEmphasis = false): string {
+  return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>\s*<p[^>]*>/gi, "\n")
+    .replace(/<\/li>\s*<li[^>]*>/gi, "\n")
+    .replace(
+      keepEmphasis
+        ? /<(?!strong\b|b\b|em\b|i\b|\/strong\b|\/b\b|\/em\b|\/i\b)\/?[a-zA-Z0-9]+(?:\s+[^>]*)?>/gi
+        : /<\/?[^>]+>/g,
+      " ",
+    )
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s*\n\s*/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .trim();
+}
+
+/** List items when present, else non-empty lines, each cleaned with stripResumeHtml. */
+export function extractResumeBullets(value: unknown, keepEmphasis = false): string[] {
+  if (typeof value !== "string" || !value.trim()) return [];
+
+  const listItems = [...value.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map((match) => stripResumeHtml(match[1] ?? "", keepEmphasis))
+    .filter(Boolean);
+  if (listItems.length > 0) return listItems;
+
+  return stripResumeHtml(value, keepEmphasis)
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 export function bulletsToHtml(bullets: string[]): string {
   if (!bullets.length) return "";
   return `<ul>${bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}</ul>`;

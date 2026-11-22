@@ -114,14 +114,13 @@ async function handleInternalScrapeRun(
     logger.info("Internal scrape task completed", {
       taskId: body.taskId ?? null,
       source,
-      success: result.success,
+      extractorSucceeded: result.success,
       postingsCount: postings.length,
     });
 
     ok(res, {
       taskId: body.taskId ?? null,
       source,
-      success: result.success,
       postings,
       ...(result.error ? { error: result.error } : {}),
     });

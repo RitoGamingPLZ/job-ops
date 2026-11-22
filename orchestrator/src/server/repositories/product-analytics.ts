@@ -161,8 +161,9 @@ function parseJsonRecord(value: unknown): Record<string, unknown> | null {
   return null;
 }
 
-function classifyHistoricalStageAnalyticsSource(
-  metadata: Record<string, unknown> | null,
+/** Shared by live stage tracking (applicationTracking) and historical replay. */
+export function classifyStageAnalyticsSource(
+  metadata: { reasonCode?: unknown; actor?: unknown } | null,
   toStage: string,
 ): string {
   if (metadata?.reasonCode === "in_progress_board_drag") {
@@ -733,7 +734,7 @@ export async function getHistoricalServerEventReplayCandidates(args: {
     if (metadata?.eventType === "note") {
       continue;
     }
-    const source = classifyHistoricalStageAnalyticsSource(metadata, String(row.toStage));
+    const source = classifyStageAnalyticsSource(metadata, String(row.toStage));
 
     if (String(row.toStage) !== "applied") {
       candidates.push(

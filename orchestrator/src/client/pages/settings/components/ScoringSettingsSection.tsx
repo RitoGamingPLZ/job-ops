@@ -1,12 +1,15 @@
 import { TokenizedInput } from "@client/pages/orchestrator/TokenizedInput";
-import { SettingsInput } from "@client/pages/settings/components/SettingsInput";
+import {
+  SettingsCheckboxField,
+  SettingsEffectiveDefault,
+  SettingsInput,
+} from "@client/pages/settings/components/SettingsInput";
 import { SettingsSectionFrame } from "@client/pages/settings/components/SettingsSectionFrame";
 import type { ScoringValues } from "@client/pages/settings/types";
 import type { UpdateSettingsInput } from "@shared/settings-schema.js";
 import type React from "react";
 import { useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 
 type ScoringSettingsSectionProps = {
@@ -50,34 +53,15 @@ export const ScoringSettingsSection: React.FC<ScoringSettingsSectionProps> = ({
     <SettingsSectionFrame mode={layoutMode} title="Scoring Settings" value="scoring">
       <div className="space-y-4">
         {/* Enable penalty toggle */}
-        <div className="flex items-start space-x-3">
-          <Controller
-            name="penalizeMissingSalary"
-            control={control}
-            render={({ field }) => (
-              <Checkbox
-                id="penalizeMissingSalary"
-                checked={field.value ?? penalizeMissingSalary.default}
-                onCheckedChange={(checked) => {
-                  field.onChange(checked === "indeterminate" ? null : checked === true);
-                }}
-                disabled={isLoading || isSaving}
-              />
-            )}
-          />
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="penalizeMissingSalary"
-              className="text-sm font-medium leading-none cursor-pointer"
-            >
-              Penalize Missing Salary
-            </label>
-            <p className="text-xs text-muted-foreground">
-              Reduce suitability scores for jobs that do not include salary information. Jobs with
-              any salary text (including "Competitive") are not penalized.
-            </p>
-          </div>
-        </div>
+        <SettingsCheckboxField
+          name="penalizeMissingSalary"
+          defaultValue={penalizeMissingSalary.default}
+          label="Penalize Missing Salary"
+          disabled={isLoading || isSaving}
+        >
+          Reduce suitability scores for jobs that do not include salary information. Jobs with any
+          salary text (including "Competitive") are not penalized.
+        </SettingsCheckboxField>
 
         {/* Penalty amount input - only shown when enabled */}
         {currentPenalizeEnabled && (
@@ -189,26 +173,21 @@ export const ScoringSettingsSection: React.FC<ScoringSettingsSectionProps> = ({
 
         {/* Effective/Default values display */}
         <div className="grid gap-2 text-sm sm:grid-cols-2">
-          <div>
-            <div className="text-xs text-muted-foreground">Penalty Enabled</div>
-            <div className="break-words font-mono text-xs">
-              Effective: {penalizeMissingSalary.effective ? "Yes" : "No"} | Default:{" "}
-              {penalizeMissingSalary.default ? "Yes" : "No"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Penalty Amount</div>
-            <div className="break-words font-mono text-xs">
-              Effective: {missingSalaryPenalty.effective} | Default: {missingSalaryPenalty.default}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Auto-skip Threshold</div>
-            <div className="break-words font-mono text-xs">
-              Effective: {autoSkipScoreThreshold.effective ?? "Disabled"} | Default:{" "}
-              {autoSkipScoreThreshold.default ?? "Disabled"}
-            </div>
-          </div>
+          <SettingsEffectiveDefault
+            label="Penalty Enabled"
+            effective={penalizeMissingSalary.effective ? "Yes" : "No"}
+            defaultValue={penalizeMissingSalary.default ? "Yes" : "No"}
+          />
+          <SettingsEffectiveDefault
+            label="Penalty Amount"
+            effective={missingSalaryPenalty.effective}
+            defaultValue={missingSalaryPenalty.default}
+          />
+          <SettingsEffectiveDefault
+            label="Auto-skip Threshold"
+            effective={autoSkipScoreThreshold.effective ?? "Disabled"}
+            defaultValue={autoSkipScoreThreshold.default ?? "Disabled"}
+          />
         </div>
       </div>
     </SettingsSectionFrame>

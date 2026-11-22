@@ -5,7 +5,9 @@ import {
   htmlToPlainText,
   introTextToHtml,
   joinDescription,
+  extractResumeBullets,
   splitDescription,
+  stripResumeHtml,
 } from "./resume-bullets";
 
 describe("resume bullets", () => {
@@ -74,5 +76,22 @@ describe("description prose and bullets", () => {
       `${intro}<ul><li>Edited</li></ul>\n<p>After <b>list</b></p>`,
     );
     expect(joinDescription(introHtml, [], original)).toBe(`${intro}\n<p>After <b>list</b></p>`);
+  });
+
+  it("stripResumeHtml keeps emphasis tags only when asked", () => {
+    const html =
+      '<p>R&amp;D <strong>lead</strong>,&nbsp;<a href="x">site</a></p><p><em>Two</em></p>';
+    expect(stripResumeHtml(html)).toBe("R&D lead , site\nTwo");
+    expect(stripResumeHtml(html, true)).toBe("R&D <strong>lead</strong>, site\n<em>Two</em>");
+  });
+
+  it("extractResumeBullets prefers list items, else splits lines", () => {
+    expect(extractResumeBullets("<ul><li><b>A</b></li><li> </li><li>B</li></ul>")).toEqual([
+      "A",
+      "B",
+    ]);
+    expect(extractResumeBullets("<ul><li><b>A</b></li></ul>", true)).toEqual(["<b>A</b>"]);
+    expect(extractResumeBullets("one<br>two\n\nthree")).toEqual(["one", "two", "three"]);
+    expect(extractResumeBullets(42)).toEqual([]);
   });
 });

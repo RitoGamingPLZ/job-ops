@@ -1,3 +1,8 @@
+import {
+  extractResumeBullets as extractBullets,
+  stripResumeHtml as stripHtml,
+} from "./resume-bullets";
+
 type RecordLike = Record<string, unknown>;
 
 export type DesignResumeJakeContactItem = {
@@ -55,45 +60,6 @@ function getByPath(source: RecordLike, path: string): unknown {
     }
     return (current as RecordLike)[segment];
   }, source);
-}
-
-function decodeHtml(value: string): string {
-  return value
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'");
-}
-
-function stripHtml(value: string): string {
-  return decodeHtml(
-    value
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/p>\s*<p[^>]*>/gi, "\n")
-      .replace(/<\/li>\s*<li[^>]*>/gi, "\n")
-      .replace(/<\/?[^>]+>/g, " "),
-  )
-    .replace(/\s*\n\s*/g, "\n")
-    .replace(/[ \t]+/g, " ")
-    .trim();
-}
-
-function extractBullets(value: unknown): string[] {
-  if (typeof value !== "string" || !value.trim()) return [];
-
-  const listItems = [...value.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
-    .map((match) => stripHtml(match[1] ?? ""))
-    .filter(Boolean);
-  if (listItems.length > 0) return listItems;
-
-  const cleaned = stripHtml(value);
-  if (!cleaned) return [];
-  return cleaned
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean);
 }
 
 function dedupeContacts(contacts: DesignResumeJakeContactItem[]): DesignResumeJakeContactItem[] {

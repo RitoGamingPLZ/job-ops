@@ -1,4 +1,5 @@
 import type React from "react";
+import { getSafeJobDescriptionHref } from "@client/lib/jobDescription";
 import { cn } from "@/lib/utils";
 
 interface JobDescriptionHtmlProps {
@@ -6,7 +7,6 @@ interface JobDescriptionHtmlProps {
   description: string;
 }
 
-const SAFE_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
 const BLOCKED_TAGS = new Set([
   "script",
   "style",
@@ -40,26 +40,6 @@ const ALLOWED_TAGS = new Set([
   "u",
   "ul",
 ]);
-
-function getSafeHref(href?: string | null): string | null {
-  if (!href) return null;
-
-  try {
-    const url = new URL(href, "https://job-ops.local");
-    if (
-      url.origin === "https://job-ops.local" &&
-      !href.startsWith("http://") &&
-      !href.startsWith("https://") &&
-      !href.startsWith("mailto:")
-    ) {
-      return null;
-    }
-
-    return SAFE_PROTOCOLS.has(url.protocol) ? href : null;
-  } catch {
-    return null;
-  }
-}
 
 function sanitizeJobDescriptionHtml(html: string): string {
   if (typeof DOMParser === "undefined" || typeof document === "undefined") {
@@ -96,7 +76,7 @@ function sanitizeJobDescriptionHtml(html: string): string {
 
       const cleanElement = output.createElement(tagName);
       if (tagName === "a") {
-        const safeHref = getSafeHref(element.getAttribute("href"));
+        const safeHref = getSafeJobDescriptionHref(element.getAttribute("href"));
         if (safeHref) {
           cleanElement.setAttribute("href", safeHref);
           cleanElement.setAttribute("target", "_blank");
