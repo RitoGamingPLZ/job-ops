@@ -1,4 +1,5 @@
 import type { CreateJobInput } from "job-ops-shared/types/jobs";
+import { toIntegerOrFallback } from "job-ops-shared/utils/type-conversion";
 import { fetchWazzufSearchPage } from "./fetcher";
 import { parseWazzufJobs } from "./parser";
 import type { RunWazzufOptions } from "./types";
@@ -9,14 +10,6 @@ export interface WazzufResult {
   error?: string;
 }
 
-function toPositiveIntOrFallback(
-  value: number | undefined,
-  fallback: number,
-): number {
-  if (!Number.isFinite(value)) return fallback;
-  return Math.max(1, Math.floor(value as number));
-}
-
 export async function runWazzuf(
   options: RunWazzufOptions = {},
 ): Promise<WazzufResult> {
@@ -24,7 +17,9 @@ export async function runWazzuf(
     options.searchTerms && options.searchTerms.length > 0
       ? options.searchTerms
       : ["software engineer"];
-  const maxJobsPerTerm = toPositiveIntOrFallback(options.maxJobsPerTerm, 25);
+  const maxJobsPerTerm = toIntegerOrFallback(options.maxJobsPerTerm, 25, {
+    parseStrings: false,
+  });
   const jobs: CreateJobInput[] = [];
   const seen = new Set<string>();
 

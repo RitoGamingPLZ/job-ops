@@ -5,6 +5,7 @@ import {
   resolveSearchCities,
 } from "@shared/search-cities.js";
 import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
+import { toIntegerOrFallback } from "@shared/utils/type-conversion.js";
 
 const WORKING_NOMADS_SEARCH_URL =
   "https://www.workingnomads.com/jobsapi/_search";
@@ -70,21 +71,6 @@ interface WorkingNomadsSearchResponse {
   hits?: {
     hits?: WorkingNomadsSearchHit[];
   };
-}
-
-function toPositiveIntOrFallback(
-  value: number | string | undefined,
-  fallback: number,
-): number {
-  const parsed =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number.parseInt(value, 10)
-        : Number.NaN;
-
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.max(1, Math.floor(parsed));
 }
 
 function inferJobType(text: string, positionType: string | undefined): string {
@@ -603,7 +589,7 @@ export async function runWorkingNomads(
     options.searchTerms && options.searchTerms.length > 0
       ? options.searchTerms
       : ["software engineer"];
-  const maxJobsPerTerm = toPositiveIntOrFallback(options.maxJobsPerTerm, 50);
+  const maxJobsPerTerm = toIntegerOrFallback(options.maxJobsPerTerm, 50);
   const explicitLocations = resolveExplicitLocations(
     options.locations,
     options.selectedCountry,

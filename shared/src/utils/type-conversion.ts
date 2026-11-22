@@ -41,3 +41,25 @@ export function toNumberOrNull(value: unknown): number | null {
   }
   return null;
 }
+
+/**
+ * Floors a number (or decimal-prefix string via parseInt) and clamps it to `min`.
+ * Returns `fallback` unchanged for non-finite or unparseable input.
+ * - `min` defaults to 1
+ * - `parseStrings: false` treats every string as invalid
+ */
+export function toIntegerOrFallback(
+  value: number | string | undefined,
+  fallback: number,
+  options?: { min?: number; parseStrings?: boolean },
+): number {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && options?.parseStrings !== false
+        ? Number.parseInt(value, 10)
+        : Number.NaN;
+
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(options?.min ?? 1, Math.floor(parsed));
+}
