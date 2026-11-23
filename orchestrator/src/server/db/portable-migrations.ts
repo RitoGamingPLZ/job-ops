@@ -201,6 +201,14 @@ export const PORTABLE_MIGRATIONS: readonly PortableMigration[] = [
       'INSERT OR IGNORE INTO "tenants" ("id", "name", "slug") VALUES (\'tenant_default\', \'JobOps\', \'default\');',
     ],
   },
+  {
+    id: "0003",
+    name: "0003_drop_removed_tables",
+    statements: [
+      'DROP TABLE IF EXISTS "tracer_click_events";',
+      'DROP TABLE IF EXISTS "tracer_links";',
+    ],
+  },
 ];
 
 const MIGRATIONS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS "_portable_migrations" (
