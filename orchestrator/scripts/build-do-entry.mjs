@@ -17,9 +17,22 @@ const NATIVE_ONLY_PACKAGES = [
   "pdfjs-dist",
   "browser-utils",
   "wreq-js",
+  "jsdom",
+  "cheerio",
+  "undici",
+  "apify",
+  "apify-client",
+  "startup-jobs-scraper",
 ];
 
-const NATIVE_ONLY_PREFIXES = ["@camoufox/", "impit", "wreq-js"];
+const NATIVE_ONLY_PREFIXES = [
+  "@camoufox/",
+  "impit",
+  "wreq-js",
+  "@crawlee/",
+  "got-scraping",
+  "header-generator",
+];
 
 function isNativeOnlyModule(specifier) {
   if (NATIVE_ONLY_PACKAGES.includes(specifier)) {
@@ -41,6 +54,15 @@ const stubNativeModulesPlugin = {
       if (isNativeOnlyModule(args.path)) {
         return {
           path: args.path,
+          namespace: "native-stub",
+        };
+      }
+      if (
+        /[/\\]extractors[/\\][^/\\]+[/\\](?:src[/\\])?manifest\.ts$/.test(args.importer) &&
+        (args.path === "./run" || args.path === "./src/run")
+      ) {
+        return {
+          path: `${args.importer}:${args.path}`,
           namespace: "native-stub",
         };
       }
