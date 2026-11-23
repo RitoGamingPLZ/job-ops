@@ -961,7 +961,7 @@ export const ManualImportFlow: React.FC<ManualImportFlowProps> = ({
               </div>
             </div>
 
-            <div className="sticky bottom-0 -mx-1 flex gap-3 border-t border-border/70 bg-background/95 px-1 py-4 backdrop-blur">
+            <div className="sticky bottom-0 -mx-1 flex gap-3 border-t border-border/70 bg-popover/95 px-1 py-4 backdrop-blur">
               <Button
                 type="button"
                 variant="outline"
@@ -1055,7 +1055,7 @@ export const ManualImportFlow: React.FC<ManualImportFlowProps> = ({
               </div>
             </div>
 
-            <div className="sticky bottom-0 -mx-1 flex gap-3 border-t border-border/70 bg-background/95 px-1 py-4 backdrop-blur">
+            <div className="sticky bottom-0 -mx-1 flex gap-3 border-t border-border/70 bg-popover/95 px-1 py-4 backdrop-blur">
               <Button
                 type="button"
                 variant="outline"
@@ -1097,7 +1097,7 @@ const ReviewSection: React.FC<{
 }> = ({ icon: Icon, title, description, children }) => (
   <section className="rounded-xl border border-border/80 bg-card/45 p-3 shadow-sm">
     <div className="mb-3 flex items-start gap-3">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-background/80 text-muted-foreground">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-popover/80 text-muted-foreground">
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0">
