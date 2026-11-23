@@ -53,6 +53,7 @@ describe("handleDurableObjectTaskDone", () => {
         outcome: "completed",
         postings: [
           {
+            postingId: "p1",
             jobUrl: "https://example.com/jobs/1",
             title: "Backend Engineer",
             employer: "Acme",
@@ -62,11 +63,17 @@ describe("handleDurableObjectTaskDone", () => {
             title: "Backend Engineer",
             employer: "Acme",
           },
+          {
+            postingId: "p1",
+            jobUrl: "https://example.com/jobs/1?tracking=duplicate",
+            title: "Backend Engineer",
+            employer: "Acme",
+          },
         ],
       });
       expect(resA1).toEqual({
         inserted: 1,
-        skipped: 1,
+        skipped: 2,
         tenantId: "tenant_default",
         pipelineRunId: null,
       });
@@ -79,6 +86,7 @@ describe("handleDurableObjectTaskDone", () => {
         outcome: "completed",
         postings: [
           {
+            postingId: "p1",
             jobUrl: "https://example.com/jobs/1",
             title: "Backend Engineer",
             employer: "Acme",

@@ -8,6 +8,7 @@ import {
   type PortableMigration,
   runPortableMigrations,
 } from "./portable-migrations";
+import { reconcileLegacyDoSchema } from "./reconcile-legacy-do-schema";
 
 function createFakeDoSqlStorage(sqlite: Database.Database): DoSqlStorageLike {
   return {
@@ -103,6 +104,27 @@ describe("portable-migrations", () => {
       const second = runPortableMigrations(doSql);
       expect(second.applied).toEqual([]);
       expect(second.skipped).toEqual(["0001", "0002", "0003"]);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("reconciles a legacy jobs table without posting_id and preserves both jobs for one user", () => {
+    const sqlite = new Database(":memory:");
+    try {
+      sqlite.exec(`CREATE TABLE jobs (
+        id TEXT PRIMARY KEY, tenant_id TEXT, user_id TEXT, job_url TEXT,
+        status TEXT, discovered_at TEXT
+      );
+      INSERT INTO jobs VALUES ('j1', 'tenant_default', 'u1', 'https://example.com/1', 'applied', '2026-01-01');
+      INSERT INTO jobs VALUES ('j2', 'tenant_default', 'u1', 'https://example.com/2', 'ready', '2026-01-02');`);
+      const sql = createFakeDoSqlStorage(sqlite);
+      reconcileLegacyDoSchema(sql);
+      expect(runPortableMigrations(sql).applied).toEqual(["0001", "0002", "0003"]);
+      expect(sqlite.prepare("SELECT id, status, posting_id FROM jobs ORDER BY id").all()).toEqual([
+        { id: "j1", status: "applied", posting_id: null },
+        { id: "j2", status: "ready", posting_id: null },
+      ]);
     } finally {
       sqlite.close();
     }
