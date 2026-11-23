@@ -50,6 +50,24 @@ function isNativeOnlyModule(specifier) {
 const stubNativeModulesPlugin = {
   name: "stub-native-modules",
   setup(pluginBuild) {
+    // depd generates wrappers with new Function when Express loads. Lazy DO
+    // imports run in request context, where workerd forbids code generation.
+    pluginBuild.onResolve({ filter: /^depd$/ }, () => ({
+      path: "depd",
+      namespace: "depd-shim",
+    }));
+    pluginBuild.onLoad({ filter: /.*/, namespace: "depd-shim" }, () => ({
+      contents: `
+module.exports = function deprecate() {
+  const deprecate = () => {};
+  deprecate.function = (fn) => fn;
+  deprecate.property = () => {};
+  return deprecate;
+};
+`,
+      loader: "js",
+    }));
+
     pluginBuild.onResolve({ filter: /.*/ }, (args) => {
       if (isNativeOnlyModule(args.path)) {
         return {
