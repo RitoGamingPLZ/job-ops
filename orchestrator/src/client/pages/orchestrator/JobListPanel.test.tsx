@@ -223,7 +223,7 @@ describe("JobListPanel", () => {
     );
 
     expect(screen.queryByText("Previously Applied")).not.toBeInTheDocument();
-    expect(screen.getByTitle("Previously Applied")).toHaveClass("bg-yellow-400");
+    expect(screen.getByTitle("Previously Applied")).toHaveClass("bg-warning");
   });
 
   it("toggles row selection and select-all", () => {
@@ -342,7 +342,7 @@ describe("JobListPanel", () => {
     });
   });
   describe("when content above the list shifts it down the document", () => {
-    const ROW_HEIGHT = 84;
+    const ROW_HEIGHT = 48;
     const VIEWPORT_HEIGHT = 240;
 
     const renderList = (jobs: ReturnType<typeof createJobs>, ref?: Ref<VirtualListHandle>) =>

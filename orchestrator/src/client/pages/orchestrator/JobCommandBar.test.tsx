@@ -97,16 +97,13 @@ describe("JobCommandBar", () => {
 
     openWithKeyboard();
     const dialog = screen.getByRole("dialog");
-    expect(dialog.className).not.toContain("border-sky-500/50");
+    expect(dialog.className).not.toContain("border-info/50");
 
     const input = screen.getByPlaceholderText("Search jobs by job title or company name...");
     fireEvent.change(input, { target: { value: "@disc" } });
     fireEvent.keyDown(input, { key: "Tab" });
 
-    expect(dialog).toHaveClass("border-sky-500/50");
-    expect(dialog.className).toContain(
-      "shadow-[0_0_0_1px_rgba(14,165,233,0.2),0_0_36px_-12px_rgba(14,165,233,0.55)]",
-    );
+    expect(dialog).toHaveClass("border-info/50");
   });
 
   it("shows selectable filter suggestion for @ tokens", async () => {

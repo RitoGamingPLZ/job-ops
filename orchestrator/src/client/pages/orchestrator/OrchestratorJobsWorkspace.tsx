@@ -136,7 +136,7 @@ export const OrchestratorJobsWorkspace: React.FC<OrchestratorJobsWorkspaceProps>
   <>
     <OrchestratorSummary stats={stats} isPipelineRunning={isPipelineRunning} />
 
-    <section className="mt-6 space-y-4">
+    <section className="mt-4 space-y-3">
       <JobCommandBar
         jobs={jobs}
         onSelectJob={onCommandSelectJob}
@@ -144,6 +144,7 @@ export const OrchestratorJobsWorkspace: React.FC<OrchestratorJobsWorkspaceProps>
         onOpenChange={onCommandBarOpenChange}
         enabled={commandBarEnabled}
       />
+
       <OrchestratorFilters
         activeTab={activeTab}
         onTabChange={onTabChange}
@@ -173,39 +174,40 @@ export const OrchestratorJobsWorkspace: React.FC<OrchestratorJobsWorkspaceProps>
         onSortChange={onSortChange}
         onResetFilters={onResetFilters}
         filteredCount={filteredCount}
-      />
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
-        <JobListPanel
-          ref={jobListHandleRef}
-          isLoading={isLoading}
-          jobs={jobs}
-          activeJobs={activeJobs}
-          selectedJobId={selectedJobId}
-          selectedJobIds={selectedJobIds}
-          activeTab={activeTab}
-          onSelectJob={onSelectJob}
-          onToggleSelectJob={onToggleSelectJob}
-          onToggleSelectAll={onToggleSelectAll}
-          primaryEmptyStateAction={primaryEmptyStateAction}
-          secondaryEmptyStateAction={secondaryEmptyStateAction}
-          emptyStateMessage={emptyStateMessage}
-        />
-
-        {isDesktop && (
-          <JobDetailPanel
-            activeTab={activeTab}
+        isDesktop={isDesktop}
+      >
+        <div className="grid min-w-0 flex-1 gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
+          <JobListPanel
+            ref={jobListHandleRef}
+            isLoading={isLoading}
+            jobs={jobs}
             activeJobs={activeJobs}
-            selectedJob={selectedJob}
-            selectedJobListItem={selectedJobListItem}
-            selectedJobLoadState={selectedJobLoadState}
-            onSelectJobId={onSelectJobId}
-            onJobUpdated={onJobUpdated}
-            onPauseRefreshChange={onPauseRefreshChange}
-            onRetrySelectedJob={onRetrySelectedJob}
+            selectedJobId={selectedJobId}
+            selectedJobIds={selectedJobIds}
+            activeTab={activeTab}
+            onSelectJob={onSelectJob}
+            onToggleSelectJob={onToggleSelectJob}
+            onToggleSelectAll={onToggleSelectAll}
+            primaryEmptyStateAction={primaryEmptyStateAction}
+            secondaryEmptyStateAction={secondaryEmptyStateAction}
+            emptyStateMessage={emptyStateMessage}
           />
-        )}
-      </div>
+
+          {isDesktop && (
+            <JobDetailPanel
+              activeTab={activeTab}
+              activeJobs={activeJobs}
+              selectedJob={selectedJob}
+              selectedJobListItem={selectedJobListItem}
+              selectedJobLoadState={selectedJobLoadState}
+              onSelectJobId={onSelectJobId}
+              onJobUpdated={onJobUpdated}
+              onPauseRefreshChange={onPauseRefreshChange}
+              onRetrySelectedJob={onRetrySelectedJob}
+            />
+          )}
+        </div>
+      </OrchestratorFilters>
     </section>
   </>
 );
