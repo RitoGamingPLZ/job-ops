@@ -38,7 +38,7 @@ interface JobListPanelProps {
   emptyStateMessage?: string;
 }
 
-const ROW_ESTIMATE = 84;
+const ROW_ESTIMATE = 48;
 
 export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
   (
@@ -78,10 +78,10 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
 
     if (isLoading && jobs.length === 0) {
       return (
-        <div className="min-w-0 rounded-xl border border-border bg-card shadow-sm">
+        <div className="min-w-0 rounded-lg border border-border bg-card">
           <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <div className="text-sm text-muted-foreground">Loading jobs...</div>
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="text-[13px] text-muted-foreground">Loading jobs...</div>
           </div>
         </div>
       );
@@ -89,10 +89,10 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
 
     if (activeJobs.length === 0) {
       return (
-        <div className="min-w-0 rounded-xl border border-border bg-card shadow-sm">
-          <div className="flex flex-col items-center justify-center gap-4 px-6 py-12 text-center">
-            <div className="text-base font-semibold">No jobs found</div>
-            <p className="max-w-md text-sm text-muted-foreground">
+        <div className="min-w-0 rounded-lg border border-border bg-card">
+          <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+            <div className="text-sm font-semibold">No jobs found</div>
+            <p className="max-w-md text-[13px] text-muted-foreground">
               {emptyStateMessage ?? emptyStateCopy[activeTab]}
             </p>
             {(primaryEmptyStateAction || secondaryEmptyStateAction) && (
@@ -117,9 +117,9 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
     const virtualItems = virtualizer.getVirtualItems();
 
     return (
-      <div className="min-w-0 rounded-xl border border-border bg-card shadow-sm">
-        <div className="divide-y divide-border/40">
-          <div className="flex items-center justify-between gap-3 px-4 py-2 opacity-100 transition-opacity sm:opacity-50 sm:hover:opacity-100">
+      <div className="min-w-0 rounded-lg border border-border bg-card">
+        <div className="divide-y divide-border">
+          <div className="flex items-center justify-between gap-3 px-3 py-1.5 opacity-100 transition-opacity sm:opacity-60 sm:hover:opacity-100">
             <label
               htmlFor="job-list-select-all"
               className="flex items-center gap-2 text-xs text-muted-foreground"
@@ -172,20 +172,14 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
                   data-job-id={job.id}
                   data-virtual-row="true"
                   className={cn(
-                    // Base row layout and hover behavior.
-                    "group absolute left-0 top-0 flex w-full items-center gap-3 border-l-2 border-b px-4 py-3 transition-colors cursor-pointer",
-                    // selected or checked
-                    (isChecked || isSelected) && "shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]",
-                    // Checked rows keep their left border and background emphasized.
+                    "group absolute left-0 top-0 flex w-full items-center gap-2.5 border-l-2 border-b px-3 py-2 transition-colors cursor-pointer",
                     isChecked
-                      ? "border-l! border-l-primary bg-primary/15! hover:bg-primary/25!"
-                      : "border-l border-l-border/40",
-                    // Selected rows use the primary tint so the active job stands out.
+                      ? "border-l-primary bg-primary/10 hover:bg-primary/15"
+                      : "border-l-transparent",
                     isSelected
-                      ? "bg-primary/15 hover:bg-primary/25"
-                      : "border-b-border/40 hover:bg-muted/80",
-                    // If the row is both selected and checked, add a subtle focus outline.
-                    isChecked && isSelected && "bg-primary/40 hover:bg-primary/20",
+                      ? "bg-accent hover:bg-accent"
+                      : "border-b-border/60 hover:bg-accent/50",
+                    isChecked && isSelected && "bg-primary/15 hover:bg-primary/20",
                   )}
                   style={{
                     transform: `translateY(${virtualRow.start - scrollMargin}px)`,

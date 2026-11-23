@@ -407,13 +407,13 @@ describe("candidate library", () => {
     const same = docWith(entry);
     await mount({ jobId: "job", document: same });
     const row = () => screen.getByRole("button", { name: "Engineer · 2020–2024" }).parentElement;
-    expect(row()).not.toHaveClass("bg-amber-100/70");
+    expect(row()).not.toHaveClass("bg-warning/15");
     cleanup();
     await mount({
       jobId: "job",
       document: docWith({ ...entry, position: "Lead" }),
     });
-    expect(row()).toHaveClass("bg-amber-100/70");
+    expect(row()).toHaveClass("bg-warning/15");
     expect(row()).toHaveAttribute("title", "Changed on this resume: position");
   });
   it("keeps tags, chat references and rank results", async () => {

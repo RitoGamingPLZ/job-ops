@@ -73,10 +73,10 @@ const readAppliedCollapsed = () => localStorage.getItem(getAppliedCollapsedStora
 
 const getCardLeftAccentClass = (stage: BoardColumn) => {
   if (stage === "technical_interview") {
-    return "border-l-2 border-l-amber-400/45";
+    return "border-l-2 border-l-warning/60";
   }
   if (stage === "offer") {
-    return "border-2 border-amber-300/50 shadow-[0_4px_12px_-4px_rgba(251,191,36,0.7)]";
+    return "border-warning/60";
   }
   return "";
 };
@@ -404,9 +404,10 @@ export const InProgressBoardPage: React.FC = () => {
                       }
                     }}
                     className={cn(
-                      "flex h-full flex-col rounded-xl border border-border/70 bg-muted/30 shadow-[0_10px_24px_-20px_rgba(0,0,0,0.8)] transition-colors",
+                      "flex h-full flex-col rounded-lg border border-border/60 bg-muted/40 transition-colors",
                       isCollapsedApplied ? "w-11" : "w-[320px]",
-                      dropTargetStage === stage && "border-sky-400/70 bg-sky-500/15",
+                      dropTargetStage === stage &&
+                        "border-primary/60 bg-primary/10 ring-1 ring-primary/40",
                     )}
                   >
                     <header

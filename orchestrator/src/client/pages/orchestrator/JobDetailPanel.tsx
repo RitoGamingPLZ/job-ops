@@ -68,39 +68,39 @@ const statusTone: Record<
   discovered: {
     shell: "border-border/45 bg-muted/10",
     eyebrow: "text-muted-foreground",
-    icon: "bg-sky-500/70",
+    icon: "bg-info/80",
   },
   processing: {
     shell: "border-border/45 bg-muted/10",
     eyebrow: "text-muted-foreground",
-    icon: "bg-amber-500/70",
+    icon: "bg-warning/80",
   },
   ready: {
     shell: "border-border/45 bg-muted/10",
     eyebrow: "text-muted-foreground",
-    icon: "bg-emerald-500/70",
-    button: "bg-emerald-600 text-white hover:bg-emerald-500",
+    icon: "bg-success/80",
+    button: "bg-success text-success-foreground hover:bg-success/90",
   },
   applied: {
     shell: "border-border/45 bg-muted/10",
     eyebrow: "text-muted-foreground",
-    icon: "bg-teal-500/70",
-    button: "bg-teal-600 text-white hover:bg-teal-500",
+    icon: "bg-success/80",
+    button: "bg-success text-success-foreground hover:bg-success/90",
   },
   in_progress: {
     shell: "border-border/45 bg-muted/10",
     eyebrow: "text-muted-foreground",
-    icon: "bg-cyan-500/70",
+    icon: "bg-info/80",
   },
   skipped: {
     shell: "border-border/45 bg-muted/10",
     eyebrow: "text-muted-foreground",
-    icon: "bg-rose-500/70",
+    icon: "bg-destructive/80",
   },
   expired: {
     shell: "border-border/45 bg-muted/10",
     eyebrow: "text-muted-foreground",
-    icon: "bg-slate-500/70",
+    icon: "bg-muted-foreground/70",
   },
 };
 
@@ -119,9 +119,9 @@ const Stat: React.FC<{
   if (!value) return null;
   const toneClassName =
     tone === "blue"
-      ? "border-sky-400/10 bg-muted/5"
+      ? "border-info/20 bg-muted/5"
       : tone === "green"
-        ? "border-emerald-400/10 bg-muted/5"
+        ? "border-success/20 bg-muted/5"
         : "border-border/35 bg-muted/5";
   return (
     <div className={cn("min-w-0 rounded-md border px-3 py-2", toneClassName)}>

@@ -1,23 +1,19 @@
 import type React from "react";
 import { Tabs } from "@/components/ui/tabs";
 import type { FilterTab } from "./constants";
-import { CompanyFilterPill } from "./filters/CompanyFilterPill";
-import { DateFilterPill } from "./filters/DateFilterPill";
-import { EmploymentTypeFilterPill } from "./filters/EmploymentTypeFilterPill";
-import { LocationFilterInput } from "./filters/LocationFilterInput";
-import { OrchestratorFilterBar } from "./filters/OrchestratorFilterBar";
+import { OrchestratorFilterSections } from "./filters/OrchestratorFilterSidebar";
 import { OrchestratorTabRow } from "./filters/OrchestratorTabRow";
-import { PostedWithinFilterPill } from "./filters/PostedWithinFilterPill";
-import { SalaryFilterPill } from "./filters/SalaryFilterPill";
-import { ScoreFilterPill } from "./filters/ScoreFilterPill";
-import { SortFilterPill } from "./filters/SortFilterPill";
-import { SourceFilterPill } from "./filters/SourceFilterPill";
 import type { OrchestratorFiltersProps } from "./filters/types";
 import { useFilterBarDerivedState } from "./filters/useFilterBarDerivedState";
 
 export type { OrchestratorFiltersProps } from "./filters/types";
 
-export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
+export const OrchestratorFilters: React.FC<
+  OrchestratorFiltersProps & {
+    hidePanel?: boolean;
+  }
+> = ({
+  hidePanel = false,
   activeTab,
   onTabChange,
   counts,
@@ -83,62 +79,43 @@ export const OrchestratorFilters: React.FC<OrchestratorFiltersProps> = ({
           onResetFilters={onResetFilters}
         />
 
-        {isFiltersOpen ? (
-          <OrchestratorFilterBar>
-            <LocationFilterInput
-              locationFilter={locationFilter}
-              onLocationFilterChange={onLocationFilterChange}
-            />
-
-            <SourceFilterPill
-              sourceFilter={sourceFilter}
-              onSourceFilterChange={onSourceFilterChange}
-              sourcesWithJobs={sourcesWithJobs}
-            />
-
-            <CompanyFilterPill
-              companyFilter={companyFilter}
-              onCompanyFilterChange={onCompanyFilterChange}
-              companiesWithJobs={companiesWithJobs}
-            />
-
-            <PostedWithinFilterPill
-              postedWithinDays={postedWithinDays}
-              onPostedWithinChange={onPostedWithinChange}
-              postedWithinLabel={postedWithinLabel}
-            />
-
-            <EmploymentTypeFilterPill
-              employmentTypes={employmentTypes}
-              onEmploymentTypesChange={onEmploymentTypesChange}
-            />
-
-            <DateFilterPill dateFilter={dateFilter} onDateFilterChange={onDateFilterChange} />
-
-            <SalaryFilterPill
-              salaryFilter={salaryFilter}
-              onSalaryFilterChange={onSalaryFilterChange}
-              salaryActive={salaryActive}
-              salarySummary={salarySummary}
-            />
-
-            <ScoreFilterPill
-              scoreFilter={scoreFilter}
-              onScoreFilterChange={onScoreFilterChange}
-              scoreActive={scoreActive}
-              scoreSummary={scoreSummary}
-            />
-
-            <span className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
-
-            <SortFilterPill
-              activeTab={activeTab}
-              sort={sort}
-              onSortChange={onSortChange}
-              filteredCount={filteredCount}
-              sortDirectionLabel={sortDirectionLabel}
-            />
-          </OrchestratorFilterBar>
+        {!hidePanel && isFiltersOpen ? (
+          <OrchestratorFilterSections
+            activeTab={activeTab}
+            onTabChange={onTabChange}
+            counts={counts}
+            onOpenCommandBar={onOpenCommandBar}
+            companyFilter={companyFilter}
+            onCompanyFilterChange={onCompanyFilterChange}
+            companiesWithJobs={companiesWithJobs}
+            sourceFilter={sourceFilter}
+            onSourceFilterChange={onSourceFilterChange}
+            salaryFilter={salaryFilter}
+            onSalaryFilterChange={onSalaryFilterChange}
+            scoreFilter={scoreFilter}
+            onScoreFilterChange={onScoreFilterChange}
+            postedWithinDays={postedWithinDays}
+            onPostedWithinChange={onPostedWithinChange}
+            employmentTypes={employmentTypes}
+            onEmploymentTypesChange={onEmploymentTypesChange}
+            locationFilter={locationFilter}
+            onLocationFilterChange={onLocationFilterChange}
+            dateFilter={dateFilter}
+            onDateFilterChange={onDateFilterChange}
+            sourcesWithJobs={sourcesWithJobs}
+            sort={sort}
+            onSortChange={onSortChange}
+            onResetFilters={onResetFilters}
+            filteredCount={filteredCount}
+            isFiltersOpen={isFiltersOpen}
+            onFiltersOpenChange={onFiltersOpenChange}
+            postedWithinLabel={postedWithinLabel}
+            sortDirectionLabel={sortDirectionLabel}
+            salaryActive={salaryActive}
+            salarySummary={salarySummary}
+            scoreActive={scoreActive}
+            scoreSummary={scoreSummary}
+          />
         ) : null}
       </div>
     </Tabs>

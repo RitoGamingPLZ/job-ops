@@ -2,7 +2,7 @@
   width: 100%;
   min-width: 0;
   color-scheme: light;
-  background: #e6e8eb;
+  background: var(--muted);
   padding: 1px 0;
 }
 .resume-paper-frame {
@@ -57,15 +57,15 @@
 .resume-paper input[data-library-changed]:not([type="checkbox"]),
 .resume-paper textarea[data-library-changed],
 .resume-paper .resume-link-field > button[data-library-changed] {
-  background: rgb(254 243 199 / 0.7);
+  background: color-mix(in oklab, var(--warning) 15%, transparent);
 }
 .resume-paper input:not([type="checkbox"]):hover,
 .resume-paper textarea:hover {
-  outline: 1px solid #d7dce1;
+  outline: 1px solid var(--border);
 }
 .resume-paper input:not([type="checkbox"]):focus,
 .resume-paper textarea:focus {
-  outline: 1px solid #a3bdd6;
+  outline: 1px solid var(--ring);
   box-shadow: none;
 }
 .resume-paper input::placeholder,

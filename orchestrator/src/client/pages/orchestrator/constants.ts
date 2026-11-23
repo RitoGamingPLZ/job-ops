@@ -26,50 +26,50 @@ export const orderedFilterSources: JobSource[] = [...EXTRACTOR_SOURCE_IDS].sort(
 export const statusTokens: Record<JobStatus, { label: string; badge: string; dot: string }> = {
   discovered: {
     label: "Discovered",
-    badge: "border-sky-500/30 bg-sky-500/10 text-sky-200",
-    dot: "bg-sky-400",
+    badge: "border-info/30 bg-info/15 text-info",
+    dot: "bg-info",
   },
   processing: {
     label: "Processing",
-    badge: "border-amber-500/30 bg-amber-500/10 text-amber-200",
-    dot: "bg-amber-400",
+    badge: "border-warning/30 bg-warning/15 text-warning",
+    dot: "bg-warning",
   },
   ready: {
     label: "Targeted",
-    badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
-    dot: "bg-emerald-400",
+    badge: "border-success/30 bg-success/15 text-success",
+    dot: "bg-success",
   },
   applied: {
     label: "Applied",
-    badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
-    dot: "bg-emerald-400",
+    badge: "border-success/30 bg-success/15 text-success",
+    dot: "bg-success",
   },
   in_progress: {
     label: "In Progress",
-    badge: "border-cyan-500/30 bg-cyan-500/10 text-cyan-200",
-    dot: "bg-cyan-400",
+    badge: "border-info/30 bg-info/15 text-info",
+    dot: "bg-info",
   },
   skipped: {
     label: "Skipped",
-    badge: "border-rose-500/30 bg-rose-500/10 text-rose-200",
-    dot: "bg-rose-400",
+    badge: "border-destructive/30 bg-destructive/15 text-destructive",
+    dot: "bg-destructive",
   },
   expired: {
     label: "Expired",
-    badge: "border-muted-foreground/20 bg-muted/30 text-muted-foreground",
+    badge: "border-border bg-muted/50 text-muted-foreground",
     dot: "bg-muted-foreground",
   },
 };
 
 export const defaultStatusToken = {
   label: "Unknown",
-  badge: "border-muted-foreground/20 bg-muted/30 text-muted-foreground",
+  badge: "border-border bg-muted/50 text-muted-foreground",
   dot: "bg-muted-foreground",
 };
 
 export const appliedDuplicateIndicator = {
   label: "Previously Applied",
-  dot: "bg-yellow-400",
+  dot: "bg-warning",
 };
 
 export type FilterTab = "ready" | "discovered" | "all";

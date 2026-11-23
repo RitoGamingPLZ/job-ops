@@ -43,18 +43,12 @@ const LOCK_ROW_HEIGHT_ESTIMATE = 56;
 const RESULTS_LIST_ID = "job-command-bar-results";
 
 const lockDialogAccentClass: Record<StatusLock, string> = {
-  ready:
-    "border-emerald-500/50 shadow-[0_0_0_1px_rgba(16,185,129,0.2),0_0_36px_-12px_rgba(16,185,129,0.55)]",
-  discovered:
-    "border-sky-500/50 shadow-[0_0_0_1px_rgba(14,165,233,0.2),0_0_36px_-12px_rgba(14,165,233,0.55)]",
-  applied:
-    "border-emerald-500/50 shadow-[0_0_0_1px_rgba(16,185,129,0.2),0_0_36px_-12px_rgba(16,185,129,0.55)]",
-  in_progress:
-    "border-cyan-500/50 shadow-[0_0_0_1px_rgba(6,182,212,0.2),0_0_36px_-12px_rgba(6,182,212,0.55)]",
-  skipped:
-    "border-rose-500/50 shadow-[0_0_0_1px_rgba(244,63,94,0.2),0_0_36px_-12px_rgba(244,63,94,0.55)]",
-  expired:
-    "border-zinc-400/40 shadow-[0_0_0_1px_rgba(161,161,170,0.2),0_0_32px_-12px_rgba(161,161,170,0.45)]",
+  ready: "border-success/50",
+  discovered: "border-info/50",
+  applied: "border-success/50",
+  in_progress: "border-info/50",
+  skipped: "border-destructive/50",
+  expired: "border-border",
 };
 
 const buildSelectableRows = (rows: CommandBarRow[]) =>
@@ -494,11 +488,11 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
                         <span
                           className={cn(
                             "h-1.5 w-1.5 rounded-full",
-                            row.lock === "ready" && "bg-emerald-400",
-                            row.lock === "discovered" && "bg-sky-400",
-                            row.lock === "applied" && "bg-emerald-400",
-                            row.lock === "in_progress" && "bg-cyan-400",
-                            row.lock === "skipped" && "bg-rose-400",
+                            row.lock === "ready" && "bg-success",
+                            row.lock === "discovered" && "bg-info",
+                            row.lock === "applied" && "bg-success",
+                            row.lock === "in_progress" && "bg-info",
+                            row.lock === "skipped" && "bg-destructive",
                             row.lock === "expired" && "bg-muted-foreground",
                           )}
                         />

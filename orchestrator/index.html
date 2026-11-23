@@ -9,6 +9,15 @@
       content="Job Ops Orchestrator - Manage your job applications intelligently"
     />
     <title>Job Ops | Orchestrator</title>
+    <script>
+      // Apply the saved theme before first paint (default: dark). Keep in sync with client/lib/theme.ts.
+      try {
+        document.documentElement.classList.toggle(
+          "dark",
+          localStorage.getItem("jobops.theme") !== "light",
+        );
+      } catch (_) {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <script

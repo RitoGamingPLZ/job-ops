@@ -16,9 +16,9 @@ interface JobRowContentProps {
 }
 
 function getSuitabilityScoreTone(score: number): string {
-  if (score >= 70) return "text-emerald-400/90";
-  if (score >= 50) return "text-foreground/60";
-  return "text-muted-foreground/60";
+  if (score >= 70) return "text-success";
+  if (score >= 50) return "text-foreground/75";
+  return "text-muted-foreground";
 }
 
 export const JobRowContent = ({
@@ -33,70 +33,81 @@ export const JobRowContent = ({
   const isAwaitingAi = isAwaitingAiScore(job);
   const statusToken = statusTokens[job.status] ?? defaultStatusToken;
   const suitabilityTone = getSuitabilityScoreTone(job.suitabilityScore ?? 0);
+  const shortId = job.id.slice(0, 6);
 
   return (
-    <div className={cn("flex min-w-0 flex-1 items-center gap-3", className)}>
+    <div className={cn("flex min-w-0 flex-1 items-center gap-2.5", className)}>
       <span
         className={cn(
           "h-2 w-2 rounded-full shrink-0",
           statusToken.dot,
-          !isSelected && "opacity-70",
+          !isSelected && "opacity-80",
           statusDotClassName,
           !showStatusDot && "hidden",
         )}
         title={statusToken.label}
       />
 
+      <span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground/70 sm:inline">
+        {shortId}
+      </span>
+
       <div className="min-w-0 flex-1">
-        <div className={cn("truncate leading-tight", isSelected ? "font-semibold" : "font-medium")}>
+        <div
+          className={cn(
+            "truncate text-[13px] leading-snug",
+            isSelected ? "font-semibold text-foreground" : "font-medium text-foreground",
+          )}
+        >
           {job.title}
         </div>
-        <div className="truncate text-sm text-muted-foreground mt-0.5">
-          {job.employer}
-          {job.location && <span className="before:content-['_in_']">{job.location}</span>}
-        </div>
-        {(job.salary?.trim() || isTargeted(job)) && (
-          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-            {isTargeted(job) && (
-              <span className="inline-flex shrink-0 rounded-sm border border-emerald-400/25 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-200">
-                Targeted
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
+          <span className="truncate">{job.employer}</span>
+          {job.location && (
+            <>
+              <span aria-hidden="true" className="text-muted-foreground/50">
+                ·
               </span>
-            )}
-            {job.salary?.trim() && (
-              <span className="truncate text-xs text-muted-foreground">{job.salary}</span>
-            )}
-          </div>
-        )}
+              <span className="truncate">{job.location}</span>
+            </>
+          )}
+        </div>
       </div>
 
-      {showSuitabilityScore && hasScore ? (
-        <div className="shrink-0 text-right">
-          <span className={cn("text-sm tabular-nums", suitabilityTone)}>
+      <div className="flex shrink-0 items-center gap-2">
+        {isTargeted(job) && (
+          <span className="inline-flex shrink-0 rounded border border-success/30 bg-success/15 px-1.5 py-0.5 text-[10px] font-medium text-success">
+            Targeted
+          </span>
+        )}
+        {job.salary?.trim() && (
+          <span className="hidden max-w-28 truncate text-xs text-muted-foreground xl:inline">
+            {job.salary}
+          </span>
+        )}
+        {showSuitabilityScore && hasScore ? (
+          <span className={cn("w-7 text-right text-xs font-medium tabular-nums", suitabilityTone)}>
             {job.suitabilityScore}
           </span>
-        </div>
-      ) : showSuitabilityScore && isAwaitingAi ? (
-        <div className="shrink-0 text-right">
+        ) : showSuitabilityScore && isAwaitingAi ? (
           <Tip content="Waiting for AI scoring to finish." contentClassName="max-w-60 text-xs">
             <Loader2
               aria-label="Waiting for AI scoring to finish."
-              className="h-4 w-4 animate-spin text-muted-foreground"
+              className="h-3.5 w-3.5 animate-spin text-muted-foreground"
             />
           </Tip>
-        </div>
-      ) : showSuitabilityScore ? (
-        <div className="shrink-0 text-right">
+        ) : showSuitabilityScore ? (
           <Tip
             content="AI misconfiguration or service error. Please check your settings and AI service status."
             contentClassName="max-w-60 text-xs"
           >
             <XCircle
               aria-label="AI misconfiguration or service error."
-              className="h-4 w-4 text-destructive"
+              className="h-3.5 w-3.5 text-destructive"
             />
           </Tip>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 };

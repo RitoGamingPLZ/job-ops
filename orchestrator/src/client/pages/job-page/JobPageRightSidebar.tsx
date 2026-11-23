@@ -88,8 +88,8 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
 }) => {
   const resumeState = getResumeState(job);
   return (
-    <aside className="space-y-4 xl:sticky xl:top-5">
-      <section className="rounded-xl border border-border/50 bg-card/85 p-3">
+    <aside data-testid="job-right-sidebar" className="space-y-3 xl:sticky xl:top-5">
+      <section className="rounded-lg border border-border bg-card p-3">
         <div className="mb-3 flex items-center gap-2 px-1 text-sm font-semibold">Actions</div>
         <div className="space-y-2">
           {jobLink && (

@@ -1222,10 +1222,10 @@ describe("candidate library links", () => {
     const save = vi.fn();
     render(<LinkedEditor save={save} />);
     const line = screen.getByLabelText("Company bullet 1").closest("li");
-    expect(line).toHaveClass("bg-amber-100/70", "dark:bg-amber-500/15");
+    expect(line).toHaveClass("bg-warning/15");
     expect(line).toHaveAttribute("title", "Original duty");
     expect(screen.getByLabelText("Company bullet 2").closest("li")).not.toHaveClass(
-      "bg-amber-100/70",
+      "bg-warning/15",
     );
     fireEvent.click(screen.getByRole("button", { name: "Save to library" }));
     expect(save).toHaveBeenCalledWith("duty-a", "Reworded duty");
