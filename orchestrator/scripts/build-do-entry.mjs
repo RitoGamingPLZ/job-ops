@@ -16,9 +16,10 @@ const NATIVE_ONLY_PACKAGES = [
   "pdf-parse",
   "pdfjs-dist",
   "browser-utils",
+  "wreq-js",
 ];
 
-const NATIVE_ONLY_PREFIXES = ["@camoufox/", "impit"];
+const NATIVE_ONLY_PREFIXES = ["@camoufox/", "impit", "wreq-js"];
 
 function isNativeOnlyModule(specifier) {
   if (NATIVE_ONLY_PACKAGES.includes(specifier)) {
@@ -111,7 +112,6 @@ const OPTIONAL_UNSHIMMED_REQUIRES = new Set([
   "bufferutil",
   "canvas",
   "utf-8-validate",
-  "node:path/win32",
   "node:sqlite",
 ]);
 
@@ -151,6 +151,10 @@ function __unwrapNodeBuiltin(ns) {
 }
 const __DO_BUILTINS__ = {
 ${builtinEntries}
+  "path/win32": __ns_path.win32,
+  "node:path/win32": __ns_path.win32,
+  "path/posix": __ns_path.posix,
+  "node:path/posix": __ns_path.posix,
 };
 function __doRequire(id) {
   if (Object.prototype.hasOwnProperty.call(__DO_BUILTINS__, id)) {
@@ -191,7 +195,13 @@ if (!matches || matches.length === 0) {
 const patched = bundled.replace(dynamicRequirePattern, "__doRequire");
 
 // Verify no unshimmed Node built-in CJS require() calls slipped into the bundle.
-const shimSet = new Set(NODE_BUILTIN_SHIMS.flatMap((mod) => [mod, `node:${mod}`]));
+const shimSet = new Set([
+  ...NODE_BUILTIN_SHIMS.flatMap((mod) => [mod, `node:${mod}`]),
+  "path/win32",
+  "node:path/win32",
+  "path/posix",
+  "node:path/posix",
+]);
 const assignMatch = patched.match(/([a-zA-Z0-9_$]+)=__doRequire/);
 if (!assignMatch) {
   throw new Error("Expected minified __doRequire assignment in dist/do/do-entry.mjs");
