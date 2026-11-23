@@ -61,7 +61,7 @@ export const discoverGreenhouseFacets: FacetDiscovery = async ({ careersUrl, sig
     : AbortSignal.timeout(25_000);
   async function load(path: string): Promise<unknown> {
     const response = await fetch(`${source.boardApiUrl}/${path}`, {
-      redirect: "error",
+      redirect: "manual",
       signal: requestSignal,
       headers: { accept: "application/json" },
     });

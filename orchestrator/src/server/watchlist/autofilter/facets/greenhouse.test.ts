@@ -211,7 +211,7 @@ it("honors cancellation and passes a bounded signal to both fetches", async () =
     ([, options]) => options,
   );
   for (const option of options) {
-    expect(option.redirect).toBe("error");
+    expect(option.redirect).toBe("manual");
     expect(option.signal?.aborted).toBe(false);
   }
   controller.abort();

@@ -99,7 +99,7 @@ async function request(url: string, signal: AbortSignal): Promise<unknown> {
     nextRequestAt.set(host, start + 1000);
     if (start > now) await delay(start - now, undefined, { signal });
     signal.throwIfAborted();
-    const response = await fetch(url, { signal, redirect: "error" });
+    const response = await fetch(url, { signal, redirect: "manual" });
     if (response.status === 429 && attempt < 3) {
       const header = response.headers.get("retry-after");
       const seconds = header === null ? NaN : Number(header);

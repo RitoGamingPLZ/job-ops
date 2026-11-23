@@ -35,7 +35,7 @@ export const discoverEightfoldFacets: FacetDiscovery = async ({ careersUrl, sign
   if (microsoft) url.searchParams.set("start", "0");
   else url.searchParams.set("num", "1");
   const response = await fetch(url.href, {
-    redirect: "error",
+    redirect: "manual",
     signal: signal
       ? AbortSignal.any([signal, AbortSignal.timeout(25_000)])
       : AbortSignal.timeout(25_000),

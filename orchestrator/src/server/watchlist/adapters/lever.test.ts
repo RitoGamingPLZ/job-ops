@@ -86,7 +86,7 @@ describe("leverWatchlistAdapter", () => {
         "https://api.lever.co/v0/postings/spotify?mode=json&limit=1",
       );
       expect(mock.mock.calls[0][1]).toMatchObject({
-        redirect: "error",
+        redirect: "manual",
         signal: expect.any(AbortSignal),
       });
     },

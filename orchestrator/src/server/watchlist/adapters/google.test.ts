@@ -169,7 +169,7 @@ describe("googleWatchlistAdapter", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][1]).toMatchObject({
-      redirect: "error",
+      redirect: "manual",
       signal: expect.any(AbortSignal),
     });
   });

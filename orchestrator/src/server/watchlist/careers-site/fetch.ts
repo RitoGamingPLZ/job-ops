@@ -91,6 +91,54 @@ interface PublicResponse {
   headers: Record<string, string>;
 }
 
+async function fetchBytes(
+  url: URL,
+  options: { signal: AbortSignal; maxBytes: number; accept?: string },
+): Promise<PublicResponse> {
+  // workerd does not implement node:https's DNS-pinning lookup option. The
+  // caller validates public DNS on every hop; fetch must never follow itself.
+  const response = await fetch(url, {
+    redirect: "manual",
+    signal: options.signal,
+    headers: {
+      "user-agent": USER_AGENT,
+      ...(options.accept ? { accept: options.accept } : {}),
+    },
+  });
+  const reader = response.body?.getReader();
+  try {
+    const status = response.status;
+    const headers = Object.fromEntries(response.headers);
+    if (status === 403 || status === 406 || headers["cf-mitigated"] === "challenge") {
+      throw new SiteBlockedError(
+        url.hostname,
+        headers["cf-mitigated"] === "challenge" ? "Cloudflare challenge" : `HTTP ${status}`,
+      );
+    }
+    if (REDIRECTS.has(status)) {
+      return { url: url.href, status, headers, body: Buffer.alloc(0) };
+    }
+    if (Number(headers["content-length"]) > options.maxBytes) {
+      throw new Error("Crawler response exceeds byte limit");
+    }
+    const chunks: Buffer[] = [];
+    let bytes = 0;
+    while (reader) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > options.maxBytes) throw new Error("Crawler response exceeds byte limit");
+      chunks.push(Buffer.from(value));
+    }
+    return { url: url.href, status, headers, body: Buffer.concat(chunks) };
+  } finally {
+    if (reader) {
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
+    }
+  }
+}
+
 async function requestBytes(
   value: string,
   options: {
@@ -112,6 +160,10 @@ async function requestBytes(
       autoSelectFamily: false,
     };
     const result = await new Promise<PublicResponse>((resolve, reject) => {
+      if (typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers") {
+        void fetchBytes(url, options).then(resolve, reject);
+        return;
+      }
       const req = request(
         url,
         {

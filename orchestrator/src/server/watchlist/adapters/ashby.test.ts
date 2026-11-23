@@ -94,7 +94,7 @@ describe("ashbyWatchlistAdapter", () => {
       expect(mock).toHaveBeenCalledTimes(1);
       expect(mock.mock.calls[0][0]).toBe("https://api.ashbyhq.com/posting-api/job-board/linear");
       expect(mock.mock.calls[0][1]).toMatchObject({
-        redirect: "error",
+        redirect: "manual",
         signal: expect.any(AbortSignal),
       });
     },

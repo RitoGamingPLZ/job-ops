@@ -18,7 +18,7 @@ it("fetches the unfiltered board once without paging and returns verified enum v
   });
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(fetch.mock.calls[0][0]).toBe(careersUrl);
-  expect(fetch.mock.calls[0][1]).toMatchObject({ redirect: "error" });
+  expect(fetch.mock.calls[0][1]).toMatchObject({ redirect: "manual" });
   expect(result).toEqual({
     unfilteredTotal: 3185,
     params: [

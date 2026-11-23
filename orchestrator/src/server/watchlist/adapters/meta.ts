@@ -69,7 +69,7 @@ async function pageHtml(url: string, signal: AbortSignal): Promise<string> {
   trustedUrl(url);
   for (let attempt = 0; attempt <= 3; attempt += 1) {
     signal.throwIfAborted();
-    const response = await fetch(url, { signal, redirect: "error" });
+    const response = await fetch(url, { signal, redirect: "manual" });
     if (response.status === 429 && attempt < 3) {
       await response.body?.cancel();
       await delay(250 * 2 ** attempt, undefined, { signal });

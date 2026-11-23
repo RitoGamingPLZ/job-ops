@@ -89,7 +89,7 @@ function callSignal(signal?: AbortSignal): AbortSignal {
 
 async function pageHtml(url: URL, signal: AbortSignal): Promise<string> {
   for (let attempt = 0; attempt <= 3; attempt += 1) {
-    const response = await fetch(url.toString(), { signal, redirect: "error" });
+    const response = await fetch(url.toString(), { signal, redirect: "manual" });
     if (response.status === 429 && attempt < 3) {
       await response.body?.cancel();
       await delay(250 * 2 ** attempt, undefined, { signal });

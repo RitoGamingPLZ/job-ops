@@ -107,7 +107,7 @@ async function fetchJson(url: URL, signal: AbortSignal, kind: "list" | "detail")
     signal.throwIfAborted();
     const response = await fetch(url.toString(), {
       signal,
-      redirect: "error",
+      redirect: "manual",
       headers: { accept: "application/json" },
     });
     if (response.status === 429) {

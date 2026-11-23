@@ -39,7 +39,7 @@ export const discoverLeverFacets: FacetDiscovery = async ({ careersUrl, signal }
   }
   const host = url.hostname === "jobs.eu.lever.co" ? "api.eu.lever.co" : "api.lever.co";
   const response = await fetch(`https://${host}/v0/postings/${company}?mode=json`, {
-    redirect: "error",
+    redirect: "manual",
     signal: signal
       ? AbortSignal.any([signal, AbortSignal.timeout(25_000)])
       : AbortSignal.timeout(25_000),

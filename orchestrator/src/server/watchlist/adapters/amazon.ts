@@ -56,7 +56,7 @@ async function search(url: URL, signal?: AbortSignal) {
   const combined = signal ? AbortSignal.any([signal, deadline]) : deadline;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     combined.throwIfAborted();
-    const response = await fetch(url, { signal: combined, redirect: "error" });
+    const response = await fetch(url, { signal: combined, redirect: "manual" });
     if (response.status === 429 && attempt < 2) {
       await response.body?.cancel();
       await delay(250 * 2 ** attempt, undefined, { signal: combined });

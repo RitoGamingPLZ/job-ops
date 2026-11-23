@@ -167,7 +167,7 @@ describe("metaWatchlistAdapter", () => {
     expect(mock).toHaveBeenCalledTimes(2);
     for (const [, options] of mock.mock.calls)
       expect(options).toMatchObject({
-        redirect: "error",
+        redirect: "manual",
         signal: expect.any(AbortSignal),
       });
   });
