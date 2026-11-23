@@ -73,11 +73,11 @@ function StepIcon({
   step: number;
 }) {
   if (isComplete) {
-    return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />;
+    return <CheckCircle2 className="h-3.5 w-3.5 text-success" />;
   }
 
   if (isLoading) {
-    return <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-700" />;
+    return <Loader2 className="h-3.5 w-3.5 animate-spin text-warning" />;
   }
 
   return (
@@ -267,7 +267,7 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
         <div className="flex items-center justify-between gap-2">
           <div className="text-xs font-medium">Codex Sign-In</div>
           <Badge
-            className="gap-1 border-emerald-700 bg-emerald-700 text-white dark:border-emerald-300 dark:bg-emerald-300 dark:text-emerald-950"
+            className="gap-1 border-success bg-success text-success-foreground"
             variant="outline"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
@@ -275,7 +275,7 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
           </Badge>
         </div>
 
-        <div className="flex items-center justify-between gap-3 rounded-md border border-emerald-300/60 bg-emerald-500/10 px-3 py-2">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-success/30 bg-success/10 px-3 py-2">
           <p className="text-sm text-foreground">
             <span className="font-medium">Connected</span>
             {displayUsername ? ` as ${displayUsername}` : ""}. Existing Codex credentials were found
@@ -301,7 +301,7 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
       <div className="flex items-center justify-between gap-2">
         <div className="text-xs font-medium">Codex Sign-In</div>
         {isWaitingForApproval ? (
-          <div className="inline-flex items-center gap-1 text-xs text-amber-700">
+          <div className="inline-flex items-center gap-1 text-xs text-warning">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Waiting for approval
           </div>
@@ -362,7 +362,7 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
             </Button>
           </div>
           {showExpiryCountdown ? (
-            <div className="text-center text-[11px] text-amber-700">
+            <div className="text-center text-[11px] text-warning">
               Code expires in {formatRemaining(remainingMs)}
             </div>
           ) : null}

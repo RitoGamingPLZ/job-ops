@@ -46,9 +46,9 @@ const AppliedDuplicatePill: React.FC<{
 };
 
 const postingAgeDotColor = {
-  fresh: "bg-emerald-500",
-  aging: "bg-amber-500",
-  old: "bg-slate-500",
+  fresh: "bg-success",
+  aging: "bg-warning",
+  old: "bg-muted-foreground",
 };
 
 export const JobHeader: React.FC<JobHeaderProps> = ({ job, className, jobCTA }) => {
@@ -177,7 +177,7 @@ export const JobHeader: React.FC<JobHeaderProps> = ({ job, className, jobCTA }) 
             <StatusIndicator
               variant="emerald"
               label="Remote"
-              dotColor="bg-emerald-400"
+              dotColor="bg-success"
               tooltip="The job claims to be remote"
             />
           )}

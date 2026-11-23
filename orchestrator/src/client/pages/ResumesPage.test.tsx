@@ -151,7 +151,7 @@ it("navigates from the library to resumes through the navigation menu", async ()
     </MemoryRouter>,
   );
   fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
-  fireEvent.click(screen.getByRole("button", { name: "Resumes" }));
+  fireEvent.click(screen.getByRole("link", { name: "Resumes" }));
   expect(await screen.findByText(/No resumes yet/)).toBeVisible();
 });
 

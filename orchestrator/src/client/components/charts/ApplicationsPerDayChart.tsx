@@ -118,7 +118,7 @@ export function ApplicationsPerDayChart({
                 {average.toFixed(1)}
               </span>
               {showTrendUp ? (
-                <TrendingUp className="h-4 w-4 text-emerald-500" />
+                <TrendingUp className="h-4 w-4 text-success" />
               ) : showTrendDown ? (
                 <TrendingDown className="h-4 w-4 text-destructive" />
               ) : null}
