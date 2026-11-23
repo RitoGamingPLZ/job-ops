@@ -1,0 +1,118 @@
+name: Deploy Cloudflare
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cloudflare
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build App & Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci --workspaces --include-workspace-root
+
+      - name: Build client and DO bundle
+        run: |
+          npm --workspace orchestrator run build:client
+          npm --workspace orchestrator run build:do
+
+      - name: Build documentation site
+        run: npm --workspace docs-site run build
+
+      - name: Copy docs into client dist
+        run: |
+          mkdir -p orchestrator/dist/client/docs
+          cp -r docs-site/build/* orchestrator/dist/client/docs/
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: orchestrator-dist
+          path: orchestrator/dist
+          retention-days: 1
+
+  check-worker:
+    name: Check Cloudflare Worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: cloudflare/package-lock.json
+
+      - name: Install Worker dependencies
+        run: npm ci
+        working-directory: cloudflare
+
+      - name: Typecheck Worker
+        run: npm run check:types
+        working-directory: cloudflare
+
+      - name: Test Worker
+        run: npm test
+        working-directory: cloudflare
+
+  deploy:
+    name: Deploy Worker & Container
+    needs: [build, check-worker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: orchestrator-dist
+          path: orchestrator/dist
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: cloudflare/package-lock.json
+
+      - name: Install Worker dependencies
+        run: npm ci
+        working-directory: cloudflare
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Warm Container node-deps layer cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: cloudflare/Dockerfile
+          target: runtime-node-deps
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=cf-container-deps
+          cache-to: type=gha,scope=cf-container-deps,mode=max
+
+      - name: Deploy with Wrangler
+        run: npx wrangler deploy
+        working-directory: cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

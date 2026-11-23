@@ -105,3 +105,27 @@ jobs:
       - name: Build documentation site
         run: npm run check:docs
         working-directory: .
+
+  cloudflare-worker:
+    name: Cloudflare Worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: cloudflare/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: cloudflare
+
+      - name: Typecheck Worker
+        run: npm run check:types
+        working-directory: cloudflare
+
+      - name: Test Worker
+        run: npm test
+        working-directory: cloudflare
