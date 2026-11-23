@@ -8,6 +8,7 @@ const ignorePatterns = [
   ".claude/**",
   "**/data/**",
   "**/storage/**",
+  "cloudflare/.wrangler/**",
 ];
 
 export default defineConfig({

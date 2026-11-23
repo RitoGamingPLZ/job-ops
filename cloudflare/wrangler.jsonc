@@ -1,0 +1,94 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "job-ops",
+  "account_id": "8c0396ac42cb02bd4c09d0aa0cff0e88",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "../orchestrator/dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/_cf/*",
+      "/api/*",
+      "/health",
+      "/.well-known/ojcp.json",
+      "/ojcp/*",
+      "/challenge-viewer/*",
+      "/stats*",
+      "/pdfs/*",
+    ],
+  },
+  "upload_source_maps": true,
+  "observability": {
+    "enabled": true,
+  },
+  "routes": [
+    {
+      "pattern": "jobdb.alanchiu.net",
+      "custom_domain": true,
+    },
+  ],
+  "containers": [
+    {
+      "class_name": "ScraperContainer",
+      "scheduling_policy": "durable_object",
+      "images": {
+        "base": {
+          "dockerfile": "./Dockerfile",
+          "build_context": "..",
+        },
+      },
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "APP_STORE",
+        "class_name": "AppStore",
+      },
+      {
+        "name": "SCRAPE_COORDINATOR",
+        "class_name": "ScrapeCoordinatorDO",
+      },
+      {
+        "name": "SCRAPER_CONTAINER",
+        "class_name": "ScraperContainer",
+      },
+    ],
+  },
+  "exports": {
+    "AppStore": {
+      "type": "durable-object",
+      "storage": "sqlite",
+    },
+    "ScrapeCoordinatorDO": {
+      "type": "durable-object",
+      "storage": "sqlite",
+    },
+    "ScraperContainer": {
+      "type": "durable-object",
+      "storage": "sqlite",
+    },
+  },
+  "r2_buckets": [
+    {
+      "binding": "DATA_BUCKET",
+      "bucket_name": "job-ops-data",
+    },
+  ],
+  "triggers": {
+    "crons": ["0 * * * *"],
+  },
+  "vars": {
+    "NODE_ENV": "production",
+    "DATA_DIR": "/app/data",
+    "PORT": "3001",
+    "APP_PUBLIC_URL": "https://jobdb.alanchiu.net",
+    "JOBOPS_PUBLIC_BASE_URL": "https://jobdb.alanchiu.net",
+    "R2_BUCKET_NAME": "job-ops-data",
+    "WRITE_FREEZE": "0",
+    "SCRAPER_POOL_SIZE": "2",
+  },
+}

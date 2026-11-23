@@ -1,0 +1,25 @@
+{
+  "name": "job-ops-cloudflare",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:dry-run": "wrangler deploy --dry-run",
+    "types": "wrangler types",
+    "check": "vp check",
+    "check:fix": "vp check --fix",
+    "format": "vp fmt --check",
+    "format:fix": "vp fmt",
+    "check:types": "tsc --noEmit",
+    "test": "node --test src/*.test.mjs",
+    "whoami": "wrangler whoami"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261121.1",
+    "typescript": "^5.9.3",
+    "vite-plus": "^1.7.0",
+    "wrangler": "^4.166.0"
+  }
+}
