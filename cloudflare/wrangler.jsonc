@@ -71,6 +71,10 @@
       "type": "durable-object",
       "storage": "sqlite",
     },
+    "JobOpsContainer": {
+      "type": "durable-object",
+      "state": "deleted",
+    },
   },
   "r2_buckets": [
     {
