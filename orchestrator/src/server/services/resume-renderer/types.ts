@@ -128,8 +128,14 @@ export interface LatexResumeDocument {
   sectionTitles?: LatexResumeSectionTitles;
 }
 
+export interface ResumePictureContent {
+  bytes: Uint8Array;
+  mimeType: string;
+}
+
 export interface RenderResumePdfArgs {
   document: LatexResumeDocument;
+  resolvedPicture?: ResumePictureContent | null;
   outputPath: string;
   jobId: string;
   typstTheme?: TypstTheme;

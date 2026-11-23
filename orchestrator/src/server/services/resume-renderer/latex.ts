@@ -441,14 +441,14 @@ async function runTectonic(args: { cwd: string; texPath: string; jobId: string }
 }
 
 export const latexResumeRenderer: ResumeRenderer = {
-  async render({ document, outputPath, jobId, paperSize = "auto" }) {
+  async render({ document, outputPath, jobId, resolvedPicture, paperSize = "auto" }) {
     const tempDir = await mkdtemp(join(tmpdir(), `job-ops-resume-render-${jobId}-`));
     const texPath = join(tempDir, "resume.tex");
     const compiledPdfPath = join(tempDir, OUTPUT_FILENAME);
 
     try {
       const template = await loadTemplate();
-      const renderableDocument = await materializeResumePicture(document, tempDir);
+      const renderableDocument = await materializeResumePicture(document, tempDir, resolvedPicture);
       const latex = buildLatexDocument(renderableDocument, template, paperSize);
 
       await writeFile(texPath, latex, "utf8");
@@ -494,12 +494,7 @@ export const latexResumeRenderer: ResumeRenderer = {
   },
 };
 
-export async function renderLatexPdf(args: {
-  document: LatexResumeDocument;
-  outputPath: string;
-  jobId: string;
-  paperSize?: PdfPaperSize;
-}): Promise<void> {
+export async function renderLatexPdf(args: Parameters<ResumeRenderer["render"]>[0]): Promise<void> {
   await latexResumeRenderer.render(args);
 }
 

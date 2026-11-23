@@ -1,7 +1,7 @@
 import { copyFile, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { getDesignResumeAssetById } from "@server/repositories/design-resume";
-import type { LatexResumeDocument } from "./types";
+import type { LatexResumeDocument, ResumePictureContent } from "./types";
 
 function extensionForMimeType(mimeType: string): string {
   if (mimeType === "image/png") return ".png";
@@ -23,13 +23,25 @@ function extensionFromUrl(url: string): string {
 export async function materializeResumePicture(
   document: LatexResumeDocument,
   outputDir: string,
+  resolvedPicture?: ResumePictureContent | null,
 ): Promise<LatexResumeDocument> {
   const picture = document.picture;
   if (!picture || picture.hidden || !picture.url) {
     return document;
   }
 
+  if (resolvedPicture) {
+    const destination = join(
+      outputDir,
+      `resume-picture${extensionForMimeType(resolvedPicture.mimeType)}`,
+    );
+    await writeFile(destination, resolvedPicture.bytes);
+    return { ...document, picture: { ...picture, renderPath: destination } };
+  }
+
   if (picture.assetId) {
+    // Internal render requests must never consult the container's unrelated DB.
+    if (resolvedPicture === null) return document;
     const asset = await getDesignResumeAssetById(picture.assetId);
     if (!asset?.storagePath) {
       return document;

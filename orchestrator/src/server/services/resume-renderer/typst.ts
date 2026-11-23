@@ -507,7 +507,14 @@ export function convertDocFieldsToTypst(doc: LatexResumeDocument): LatexResumeDo
 }
 
 export const typstResumeRenderer: ResumeRenderer = {
-  async render({ document, outputPath, jobId, typstTheme = "classic", paperSize = "auto" }) {
+  async render({
+    document,
+    outputPath,
+    jobId,
+    resolvedPicture,
+    typstTheme = "classic",
+    paperSize = "auto",
+  }) {
     const tempDir = await mkdtemp(join(tmpdir(), "job-ops-resume-render-"));
     const typPath = join(tempDir, "resume.typ");
     const resumeDataPath = join(tempDir, RESUME_DATA_FILENAME);
@@ -515,7 +522,7 @@ export const typstResumeRenderer: ResumeRenderer = {
 
     try {
       const { manifest, template, tokens } = await loadTemplate(typstTheme);
-      const renderableDocument = await materializeResumePicture(document, tempDir);
+      const renderableDocument = await materializeResumePicture(document, tempDir, resolvedPicture);
       let typst: string;
       let resumeDataDoc: LatexResumeDocument;
 
@@ -581,13 +588,7 @@ export const typstResumeRenderer: ResumeRenderer = {
   },
 };
 
-export async function renderTypstPdf(args: {
-  document: LatexResumeDocument;
-  outputPath: string;
-  jobId: string;
-  typstTheme?: TypstTheme;
-  paperSize?: PdfPaperSize;
-}): Promise<void> {
+export async function renderTypstPdf(args: Parameters<ResumeRenderer["render"]>[0]): Promise<void> {
   await typstResumeRenderer.render(args);
 }
 

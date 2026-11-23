@@ -1,7 +1,7 @@
 import type { PdfPaperSize, PdfRenderer, TypstTheme } from "@shared/types";
 import { buildResumeRenderDocument } from "./document";
 import { renderLatexPdf } from "./latex";
-import type { NormalizeResumeJsonOptions } from "./types";
+import type { NormalizeResumeJsonOptions, ResumePictureContent } from "./types";
 import { renderTypstPdf } from "./typst";
 
 export { buildResumeRenderDocument } from "./document";
@@ -13,6 +13,7 @@ type LocalPdfRenderer = Exclude<PdfRenderer, "rxresume">;
 
 export async function renderResumePdf(args: {
   resumeJson: Record<string, unknown>;
+  resolvedPicture?: ResumePictureContent | null;
   outputPath: string;
   jobId: string;
   language?: NormalizeResumeJsonOptions["language"];
@@ -26,6 +27,7 @@ export async function renderResumePdf(args: {
   if (args.renderer === "typst") {
     await renderTypstPdf({
       document,
+      resolvedPicture: args.resolvedPicture,
       outputPath: args.outputPath,
       jobId: args.jobId,
       typstTheme: args.typstTheme,
@@ -36,6 +38,7 @@ export async function renderResumePdf(args: {
 
   await renderLatexPdf({
     document,
+    resolvedPicture: args.resolvedPicture,
     outputPath: args.outputPath,
     jobId: args.jobId,
     paperSize: args.paperSize,

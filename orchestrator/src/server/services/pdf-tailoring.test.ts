@@ -6,6 +6,7 @@ import {
   generatePdf,
   previewDesignResumePdfBytes,
   previewJobPdfBytes,
+  setRemotePdfRenderer,
 } from "./pdf";
 import * as projectSelection from "./projectSelection";
 
@@ -367,6 +368,7 @@ vi.mock("./rxresume/baseResumeId", () => ({
 
 vi.mock("./design-resume", () => ({
   getCurrentDesignResume: vi.fn().mockResolvedValue(null),
+  readDesignResumeAssetContent: vi.fn(),
 }));
 
 vi.mock("./rxresume", async () => {
@@ -415,6 +417,78 @@ vi.mock("./rxresume", async () => {
 });
 
 describe("PDF Service Tailoring Logic", () => {
+  it("delegates preview and saved PDFs with scoped picture bytes and never falls back locally", async () => {
+    const { readDesignResumeAssetContent } = await import("./design-resume");
+    const { getTenantId, runWithRequestContext } = await import("@infra/request-context");
+    const { notFound } = await import("@infra/errors");
+    const document = structuredClone(mockProfile);
+    document.picture = {
+      ...document.picture,
+      hidden: false,
+      url: "/api/design-resume/assets/photo-1/content",
+    };
+    vi.mocked(ensureJobResume).mockResolvedValue({
+      document: document as ReactiveResumeV5Document,
+      revision: 1,
+      exists: true,
+      updatedAt: "now",
+    });
+    vi.mocked(readDesignResumeAssetContent).mockImplementation(
+      async () =>
+        ({
+          asset: { mimeType: "image/png" },
+          content: Buffer.from(`photo-${getTenantId()}`),
+        }) as Awaited<ReturnType<typeof readDesignResumeAssetContent>>,
+    );
+    currentPdfRenderer.value = "typst";
+    const pdfBytes = new TextEncoder().encode("%PDF-remote");
+    const remote = vi.fn().mockResolvedValue(pdfBytes);
+    setRemotePdfRenderer(remote);
+    try {
+      for (const tenantId of ["tenant-a", "tenant-b"]) {
+        const bytes = await runWithRequestContext(
+          { tenantId, userId: "user-1", requestId: `req-${tenantId}` },
+          () => previewJobPdfBytes("remote-job", "JD"),
+        );
+        expect(bytes).toEqual(pdfBytes);
+        const [body, requestId] = remote.mock.lastCall!;
+        expect(requestId).toBe(`req-${tenantId}`);
+        expect(JSON.parse(body)).toMatchObject({
+          renderer: "typst",
+          language: "english",
+          paperSize: "auto",
+          jobId: "remote-job",
+          picture: {
+            mimeType: "image/png",
+            base64: Buffer.from(`photo-${tenantId}`).toString("base64"),
+          },
+        });
+      }
+      expect(readDesignResumeAssetContent).toHaveBeenCalledWith("photo-1");
+      expect(readDesignResumeAssetContent).not.toHaveBeenCalledWith("photo-1", expect.anything());
+      expect((await generatePdf("remote-job", "JD")).success).toBe(true);
+      expect(mockResumeRenderer.renderResumePdf).not.toHaveBeenCalled();
+      expect(mocks.readFile).not.toHaveBeenCalled();
+
+      // A missing or denied asset is omitted; the PDF still renders without the photo.
+      remote.mockClear();
+      vi.mocked(readDesignResumeAssetContent).mockRejectedValueOnce(
+        notFound("Base resume asset not found."),
+      );
+      await expect(
+        runWithRequestContext({ tenantId: "tenant-c", userId: "user-2" }, () =>
+          previewJobPdfBytes("remote-job", "JD"),
+        ),
+      ).resolves.toEqual(pdfBytes);
+      expect(JSON.parse(remote.mock.lastCall![0])).not.toHaveProperty("picture");
+      remote.mockRejectedValueOnce(new Error("PDF render container failed with HTTP 503."));
+      await expect(previewJobPdfBytes("remote-job", "JD")).rejects.toThrow("HTTP 503");
+      expect(mockResumeRenderer.renderResumePdf).not.toHaveBeenCalled();
+    } finally {
+      setRemotePdfRenderer(null);
+    }
+  });
+
   it("renders the saved co-work document without applying legacy tailoring or project selection", async () => {
     const document = structuredClone(mockProfile);
     document.basics.headline = "User edited headline";
