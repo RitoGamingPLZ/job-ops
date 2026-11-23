@@ -526,17 +526,28 @@ export const JobPage: React.FC = () => {
 
   return (
     <main className="mx-auto max-w-[92rem] px-4 py-5">
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <Button variant="ghost" size="sm" onClick={handleBack}>
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-        {job && (
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={handleBack}>
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          {job && (
+            <nav
+              aria-label="Breadcrumb"
+              className="hidden min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground sm:flex"
             >
+              <span>Jobs</span>
+              <span aria-hidden="true">›</span>
+              <span className="truncate">{job.employer}</span>
+              <span aria-hidden="true">›</span>
+              <span className="truncate font-medium text-foreground">{job.title}</span>
+            </nav>
+          )}
+        </div>
+        {job && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="border-success/30 bg-success/15 text-success">
               {stageLabel}
             </Badge>
             {resumeState === "available" && (
@@ -822,7 +833,7 @@ export const JobPage: React.FC = () => {
                       {job.salary && (
                         <Badge
                           variant="outline"
-                          className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                          className="border-success/30 bg-success/15 text-success"
                         >
                           <DollarSign className="mr-1 h-3.5 w-3.5" />
                           {job.salary}

@@ -1,4 +1,4 @@
-import { isAwaitingAiScore, ScoreRing } from "@client/components";
+import { isAwaitingAiScore, PropertyRow, ScoreRing } from "@client/components";
 import type { Job } from "@shared/types.js";
 import {
   ClipboardList,
@@ -69,12 +69,9 @@ const PostingAgeRow: React.FC<{ datePosted: Job["datePosted"] }> = ({ datePosted
   if (!postingAge) return null;
 
   return (
-    <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-3">
-      <span className="text-muted-foreground">Posted</span>
-      <span className="text-right font-medium" title={postingAge.tooltip}>
-        {postingAge.label}
-      </span>
-    </div>
+    <PropertyRow label="Posted">
+      <span title={postingAge.tooltip}>{postingAge.label}</span>
+    </PropertyRow>
   );
 };
 
@@ -86,15 +83,15 @@ export const JobPageLeftSidebar: React.FC<JobPageLeftSidebarProps> = ({
   selectedProjects,
   sourceLabel,
 }) => (
-  <aside className="space-y-4 xl:sticky xl:top-5">
-    <section className="rounded-xl border border-border/50 bg-card/85 p-4">
-      <div className="flex gap-4 flex-row items-start justify-between">
+  <aside className="space-y-3 xl:sticky xl:top-5">
+    <section className="rounded-lg border border-border bg-card p-4">
+      <div className="flex flex-row items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            Application dossier
+          <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+            {job.id.slice(0, 8)}
           </div>
-          <h1 className="text-2xl font-semibold leading-tight">{job.employer}</h1>
-          <div className="text-sm text-muted-foreground">{job.title}</div>
+          <h1 className="text-lg font-semibold leading-tight">{job.employer}</h1>
+          <div className="text-[13px] text-muted-foreground">{job.title}</div>
         </div>
         <div className="flex justify-start sm:justify-end">
           <ScoreRing
@@ -106,50 +103,32 @@ export const JobPageLeftSidebar: React.FC<JobPageLeftSidebarProps> = ({
         </div>
       </div>
 
-      <div className="mt-5 space-y-3 text-sm">
-        <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-3">
-          <span className="text-muted-foreground">Source</span>
-          <span className="text-right font-medium">{sourceLabel}</span>
-        </div>
-        <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-3">
-          <span className="text-muted-foreground">Location</span>
-          <span className="text-right font-medium">{job.location || "Unknown"}</span>
-        </div>
+      <div className="mt-4 divide-y divide-border/60 border-t border-border/60">
+        <PropertyRow label="Source">{sourceLabel}</PropertyRow>
+        <PropertyRow label="Location">{job.location || "Unknown"}</PropertyRow>
         <PostingAgeRow datePosted={job.datePosted} />
-        <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-3">
-          <span className="text-muted-foreground">Found</span>
-          <span className="text-right font-medium">
-            {formatDateTime(job.discoveredAt) ?? job.discoveredAt}
-          </span>
-        </div>
+        <PropertyRow label="Found">
+          {formatDateTime(job.discoveredAt) ?? job.discoveredAt}
+        </PropertyRow>
         {job.appliedAt && (
-          <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-3">
-            <span className="text-muted-foreground">Applied</span>
-            <span className="text-right font-medium">
-              {formatDateTime(job.appliedAt) ?? job.appliedAt}
-            </span>
-          </div>
+          <PropertyRow label="Applied">
+            {formatDateTime(job.appliedAt) ?? job.appliedAt}
+          </PropertyRow>
         )}
-        <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-3">
-          <span className="text-muted-foreground">Outcome</span>
-          <span className="text-right font-medium">
-            {job.outcome ? job.outcome.replace(/_/g, " ") : "Open"}
-          </span>
-        </div>
-        <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-3">
-          <span className="text-muted-foreground">Projects Chosen</span>
-          <span className="text-right font-medium">
-            {selectedProjects.length > 0 ? selectedProjects.length : "No projects"}
-          </span>
-        </div>
+        <PropertyRow label="Outcome">
+          {job.outcome ? job.outcome.replace(/_/g, " ") : "Open"}
+        </PropertyRow>
+        <PropertyRow label="Projects Chosen">
+          {selectedProjects.length > 0 ? selectedProjects.length : "No projects"}
+        </PropertyRow>
       </div>
     </section>
 
-    <section className="rounded-xl border border-border/50 bg-card/70 p-3">
-      <div className="mb-2 px-1 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-        Links
+    <section className="rounded-lg border border-border bg-card p-2">
+      <div className="mb-1.5 px-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        Views
       </div>
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         {memoryLinks.map(({ id: linkView, label, icon: Icon }) => {
           const path =
             linkView === "overview"
@@ -160,11 +139,11 @@ export const JobPageLeftSidebar: React.FC<JobPageLeftSidebarProps> = ({
               asChild
               key={linkView}
               variant={activeMemoryView === linkView ? "outline" : "ghost"}
-              className={cn("h-9 w-full justify-between px-2 text-left text-sm")}
+              className={cn("h-8 w-full justify-between px-2 text-left text-[13px]")}
             >
               <Link to={path} state={navigationState}>
                 <span className="flex min-w-0 items-center gap-2">
-                  <Icon className="h-4 w-4 shrink-0" />
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{label}</span>
                 </span>
               </Link>
