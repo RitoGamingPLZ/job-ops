@@ -1,15 +1,23 @@
 import { DurableObject } from "cloudflare:workers";
 import { handleAsNodeRequest } from "cloudflare:node";
-import {
-  createDurableObjectExpressServer,
-  handleDurableObjectTaskDone,
-  type OnTaskDonePayload,
-  type OnTaskDonePosting,
-  type OnTaskDoneResult,
-  runDurableObjectMigrations,
+import type {
+  OnTaskDonePayload,
+  OnTaskDonePosting,
+  OnTaskDoneResult,
 } from "../../orchestrator/dist/do/do-entry.mjs";
 import type { Env } from "./types";
 import { computeTableChecksum, quoteIdent } from "./utils";
+
+type DoEntryModule = typeof import("../../orchestrator/dist/do/do-entry.mjs");
+
+let doEntryPromise: Promise<DoEntryModule> | null = null;
+
+function loadDoEntry(): Promise<DoEntryModule> {
+  if (!doEntryPromise) {
+    doEntryPromise = import("../../orchestrator/dist/do/do-entry.mjs");
+  }
+  return doEntryPromise;
+}
 
 const DO_EXPRESS_PORT = 3001;
 const IMPORT_BATCH_SIZE = 500;
@@ -44,15 +52,16 @@ export class AppStore extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     void ctx.blockConcurrencyWhile(async () => {
-      this.ensureSchema();
-      this.ensureExpressServer();
+      await this.ensureSchema();
+      await this.ensureExpressServer();
     });
   }
 
-  private ensureExpressServer(): void {
+  private async ensureExpressServer(): Promise<void> {
     if (this.expressInitialized) {
       return;
     }
+    const { createDurableObjectExpressServer } = await loadDoEntry();
     createDurableObjectExpressServer({
       storage: this.ctx.storage,
       r2Bucket: this.env.DATA_BUCKET ?? null,
@@ -62,7 +71,8 @@ export class AppStore extends DurableObject<Env> {
     this.expressInitialized = true;
   }
 
-  private ensureSchema(): void {
+  private async ensureSchema(): Promise<void> {
+    const { runDurableObjectMigrations } = await loadDoEntry();
     runDurableObjectMigrations(this.ctx.storage);
   }
 
@@ -142,7 +152,7 @@ export class AppStore extends DurableObject<Env> {
       return Response.json({ ok: true, data: result });
     }
 
-    this.ensureExpressServer();
+    await this.ensureExpressServer();
     return handleAsNodeRequest(DO_EXPRESS_PORT, request, this.env);
   }
 
@@ -319,6 +329,7 @@ export class AppStore extends DurableObject<Env> {
   }
 
   async onTaskDone(payload: OnTaskDonePayload): Promise<OnTaskDoneResult> {
+    const { handleDurableObjectTaskDone } = await loadDoEntry();
     return handleDurableObjectTaskDone(this.ctx.storage, payload);
   }
 }
