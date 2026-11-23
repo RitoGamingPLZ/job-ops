@@ -680,7 +680,7 @@ export const ManualImportFlow: React.FC<ManualImportFlowProps> = ({
                   aria-pressed={importMode === mode}
                   className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                     importMode === mode
-                      ? "bg-background text-foreground shadow-sm"
+                      ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                   disabled={isReadingPdf}

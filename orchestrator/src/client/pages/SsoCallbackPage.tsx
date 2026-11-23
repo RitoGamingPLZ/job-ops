@@ -96,7 +96,7 @@ export const SsoCallbackPage: React.FC = () => {
   return (
     <main className="min-h-screen px-4 py-16">
       <div className="mx-auto flex min-h-[70vh] max-w-md items-center">
-        <Card className="w-full border-border/60 bg-background/95 shadow-xl">
+        <Card className="w-full border-border/60 shadow-xl">
           <CardHeader className="space-y-2">
             <CardTitle className="text-2xl tracking-tight">
               {errorMessage ? "Sign-in failed" : "Finishing sign-in…"}
