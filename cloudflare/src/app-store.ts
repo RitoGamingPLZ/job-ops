@@ -5,6 +5,7 @@ import type {
   OnTaskDonePosting,
   OnTaskDoneResult,
 } from "../../orchestrator/dist/do/do-entry.mjs";
+import { sanitizeUnknown } from "../../orchestrator/src/server/infra/sanitize";
 import type { Env } from "./types";
 import { computeTableChecksum, quoteIdent } from "./utils";
 
@@ -21,6 +22,33 @@ function loadDoEntry(): Promise<DoEntryModule> {
 
 const DO_EXPRESS_PORT = 3001;
 const IMPORT_BATCH_SIZE = 500;
+
+async function readRenderError(response: Response): Promise<unknown> {
+  const reader = response.body?.getReader();
+  if (!reader) return null;
+  const bytes = new Uint8Array(2048);
+  let length = 0;
+  try {
+    while (length < bytes.length) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = value.subarray(0, bytes.length - length);
+      bytes.set(chunk, length);
+      length += chunk.length;
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+  const text = new TextDecoder().decode(bytes.subarray(0, length));
+  let body: unknown = text;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    // Plain-text or truncated responses still provide a bounded diagnostic.
+  }
+  return sanitizeUnknown(body, { maxString: 2048 });
+}
 
 export type { OnTaskDonePayload, OnTaskDonePosting, OnTaskDoneResult };
 
@@ -67,6 +95,48 @@ export class AppStore extends DurableObject<Env> {
       r2Bucket: this.env.DATA_BUCKET ?? null,
       env: this.env as unknown as Record<string, unknown>,
       port: DO_EXPRESS_PORT,
+      remoteRenderPdf: async (body, requestId) => {
+        const namespace = this.env.SCRAPER_CONTAINER;
+        const secret = (this.env.INTERNAL_SYNC_SECRET || this.env.CRON_SECRET)?.trim();
+        if (!namespace || !secret) {
+          throw new Error("PDF render container or internal secret is not configured.");
+        }
+        const signal = AbortSignal.timeout(150_000);
+        try {
+          const response = await namespace
+            .getByName("pdf-render")
+            .fetch("http://scraper/internal/render-pdf", {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                "x-internal-sync-secret": secret,
+                ...(requestId ? { "x-request-id": requestId } : {}),
+              },
+              body,
+              signal,
+            });
+          if (!response.ok) {
+            const responseError = await readRenderError(response).catch(() => "[unavailable]");
+            // The service logs sanitized details; only the message reaches the user.
+            throw Object.assign(
+              new Error(`PDF render container failed with HTTP ${response.status}.`),
+              {
+                details: { status: response.status, response: responseError },
+              },
+            );
+          }
+          return new Uint8Array(await response.arrayBuffer());
+        } catch (error) {
+          if (
+            signal.aborted ||
+            (error instanceof Error &&
+              (error.name === "AbortError" || error.name === "TimeoutError"))
+          ) {
+            throw new Error("PDF render container timed out.");
+          }
+          throw error;
+        }
+      },
     });
     this.expressInitialized = true;
   }

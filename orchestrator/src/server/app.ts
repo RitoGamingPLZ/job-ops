@@ -25,6 +25,7 @@ import cors from "cors";
 import express from "express";
 import { apiRouter } from "./api/index";
 import { internalScrapeRouter } from "./api/routes/internal-scrape";
+import { internalRenderPdfRouter } from "./api/routes/internal-render-pdf";
 import { ojcpManifestHandler, ojcpMcpHandler } from "./ojcp";
 
 const __dirname =
@@ -368,6 +369,9 @@ export function createApp() {
   app.use("/api/jobs/:id/chat", express.json({ limit: "12mb" }));
   // Container <-> D1 hydration/sync batches can exceed Express's 100kb default.
   app.use("/api/internal/d1-sync", express.json({ limit: "25mb" }));
+  // Authorize before parsing; inline pictures need a bounded limit above 100kb.
+  // This internal route uses its shared secret instead of end-user sessions.
+  app.use("/internal/render-pdf", internalRenderPdfRouter);
   app.use(express.json());
 
   // Logging middleware

@@ -38,6 +38,8 @@ import {
   type OnTaskDoneResult,
 } from "./services/do-on-task-done";
 
+import { type RemotePdfRenderer, setRemotePdfRenderer } from "./services/pdf";
+
 export type { OnTaskDonePayload, OnTaskDonePosting, OnTaskDoneResult, PortableMigrationResult };
 export { handleDurableObjectTaskDone, runPortableMigrations };
 
@@ -73,6 +75,7 @@ export interface DurableObjectExpressServerOptions {
   r2Bucket?: R2BucketLike | null;
   env?: Record<string, unknown>;
   port?: number;
+  remoteRenderPdf?: RemotePdfRenderer;
 }
 
 export interface DurableObjectExpressServer {
@@ -98,6 +101,7 @@ export function createDurableObjectExpressServer(
     }
   }
 
+  setRemotePdfRenderer(options.remoteRenderPdf ?? null);
   setDb(createDurableObjectDrizzleDb(options.storage));
 
   if (options.r2Bucket) {

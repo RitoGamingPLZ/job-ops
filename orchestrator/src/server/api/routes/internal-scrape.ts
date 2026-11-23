@@ -22,7 +22,7 @@ function getProvidedSecret(req: Request): string {
   return "";
 }
 
-function verifyInternalScrapeSecret(req: Request, res: Response, next: NextFunction): void {
+export function verifyInternalScrapeSecret(req: Request, res: Response, next: NextFunction): void {
   const expectedSecret = (process.env.INTERNAL_SYNC_SECRET || process.env.CRON_SECRET)?.trim();
   if (!expectedSecret) {
     fail(res, forbidden("Internal scrape execution is not configured."));

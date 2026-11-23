@@ -4,6 +4,7 @@ declare module "*do-entry.mjs" {
     r2Bucket?: R2Bucket | null;
     env?: Record<string, unknown>;
     port?: number;
+    remoteRenderPdf?: (body: string, requestId?: string) => Promise<Uint8Array>;
   }
 
   export interface OnTaskDonePosting {

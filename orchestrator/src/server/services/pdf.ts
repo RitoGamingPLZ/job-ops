@@ -13,11 +13,12 @@ import { logger } from "@infra/logger";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { getBlobStore } from "@server/infra/blob-store";
 import { getJobOpsPublicAvailability } from "@server/infra/public-availability";
+import { getRequestId } from "@server/infra/request-context";
 import { getSetting } from "@server/repositories/settings";
 import { safePdfFileName } from "@shared/filename-sanitizer";
 import { settingsRegistry } from "@shared/settings-registry";
 import type { DesignResumePdfResponse, PdfPaperSize, PdfRenderer } from "@shared/types";
-import { getCurrentDesignResume } from "./design-resume";
+import { getCurrentDesignResume, readDesignResumeAssetContent } from "./design-resume";
 import { ensureJobResume } from "./job-resume";
 import { resolveWritingOutputLanguageForResumeJson } from "./output-language";
 import {
@@ -29,6 +30,7 @@ import {
   writeStoredJobPdf,
 } from "./pdf-storage";
 import { renderResumePdf } from "./resume-renderer";
+import { buildResumeRenderDocument } from "./resume-renderer/document";
 import {
   deleteResume as deleteRxResume,
   exportResumePdf as exportRxResumePdf,
@@ -182,6 +184,14 @@ async function renderRxResumePdfBytes(args: {
   }
 }
 
+// Runtime capability only: never retain tenant-specific documents or assets here.
+export type RemotePdfRenderer = (body: string, requestId?: string) => Promise<Uint8Array>;
+let remotePdfRenderer: RemotePdfRenderer | null = null;
+
+export function setRemotePdfRenderer(renderer: RemotePdfRenderer | null): void {
+  remotePdfRenderer = renderer;
+}
+
 async function renderLocalResumePdfBytes(args: {
   resumeJson: Record<string, unknown>;
   jobId: string;
@@ -190,6 +200,32 @@ async function renderLocalResumePdfBytes(args: {
   typstTheme?: Awaited<ReturnType<typeof resolveTypstTheme>>;
   paperSize: PdfPaperSize;
 }): Promise<Uint8Array> {
+  if (remotePdfRenderer) {
+    const picture = buildResumeRenderDocument(args.resumeJson).picture;
+    let resolvedPicture: { base64: string; mimeType: string } | undefined;
+    if (picture?.assetId && !picture.hidden) {
+      // Uses the caller's tenant/user scope and the configured BlobStore (R2 in the DO).
+      try {
+        const { asset, content } = await readDesignResumeAssetContent(picture.assetId);
+        resolvedPicture = { base64: content.toString("base64"), mimeType: asset.mimeType };
+      } catch (error) {
+        logger.warn("Resume picture unavailable; rendering without photo", {
+          jobId: args.jobId,
+          error,
+        });
+      }
+    }
+    try {
+      return await remotePdfRenderer(
+        JSON.stringify({ ...args, picture: resolvedPicture }),
+        getRequestId(),
+      );
+    } catch (error) {
+      logger.warn("PDF render container request failed", { jobId: args.jobId, error });
+      throw error;
+    }
+  }
+
   const tempPath = join(tmpdir(), `jobops-resume-${randomUUID()}.pdf`);
   try {
     await renderResumePdf({
