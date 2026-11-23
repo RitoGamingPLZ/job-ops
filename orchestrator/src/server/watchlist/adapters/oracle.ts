@@ -100,7 +100,7 @@ async function request(url: URL, signal: AbortSignal, json = true): Promise<unkn
     signal.throwIfAborted();
     const response = await fetch(url.toString(), {
       signal,
-      redirect: "error",
+      redirect: "manual",
       headers: {
         accept: json ? "application/json" : "text/html",
         "user-agent": "job-ops-watchlist/0.1",

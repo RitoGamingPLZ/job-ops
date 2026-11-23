@@ -106,7 +106,7 @@ describe("oracleWatchlistAdapter", () => {
     expect(url.toString()).not.toContain("%253B");
     expect(url.searchParams.get("expand")).toBe("requisitionList.secondaryLocations");
     expect(fetch.mock.calls[0][1]).toMatchObject({
-      redirect: "error",
+      redirect: "manual",
       headers: { "user-agent": "job-ops-watchlist/0.1" },
     });
   });

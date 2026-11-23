@@ -27,7 +27,7 @@ it("discovers Netflix bare facets and counts without forwarding old filters", as
   expect(fetch.mock.calls[0][0]).toBe(
     "https://explore.jobs.netflix.net/api/apply/v2/jobs?domain=netflix.com&num=1",
   );
-  expect(fetch.mock.calls[0][1]).toMatchObject({ redirect: "error" });
+  expect(fetch.mock.calls[0][1]).toMatchObject({ redirect: "manual" });
   expect(result).toEqual({
     unfilteredTotal: 394,
     params: [

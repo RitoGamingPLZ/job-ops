@@ -75,15 +75,6 @@ module.exports = function deprecate() {
           namespace: "native-stub",
         };
       }
-      if (
-        /[/\\]extractors[/\\][^/\\]+[/\\](?:src[/\\])?manifest\.ts$/.test(args.importer) &&
-        (args.path === "./run" || args.path === "./src/run")
-      ) {
-        return {
-          path: `${args.importer}:${args.path}`,
-          namespace: "native-stub",
-        };
-      }
       return null;
     });
 

@@ -81,7 +81,7 @@ describe("smartrecruitersWatchlistAdapter", () => {
         "https://api.smartrecruiters.com/v1/companies/ServiceNow/postings?limit=1&offset=0",
       );
       expect(mock.mock.calls[0][1]).toMatchObject({
-        redirect: "error",
+        redirect: "manual",
         signal: expect.any(AbortSignal),
       });
     },

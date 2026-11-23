@@ -108,6 +108,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 async function api() {
@@ -300,6 +301,116 @@ describe("fetchPublicText", () => {
     controller.abort(new Error("cancel DNS"));
     await expect(pending).rejects.toThrow("cancel DNS");
     expect(network).toHaveLength(0);
+  });
+});
+
+describe("fetchPublicText in workerd", () => {
+  const workerFetch = vi.fn<typeof fetch>();
+  beforeEach(() => {
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+    vi.stubGlobal("fetch", workerFetch);
+  });
+
+  it("uses manual fetch, forwards headers and signal, and validates every redirect hop", async () => {
+    workerFetch
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: "/jobs" } }))
+      .mockResolvedValueOnce(new Response("jobs"));
+    expect(
+      await (await api()).fetchPublicText("https://careers.example/", { accept: "text/html" }),
+    ).toEqual({ url: "https://careers.example/jobs", status: 200, html: "jobs" });
+    expect(mocks.lookup).toHaveBeenCalledTimes(2);
+    expect(mocks.request).not.toHaveBeenCalled();
+    expect(workerFetch.mock.calls.map(([url]) => String(url))).toEqual([
+      "https://careers.example/",
+      "https://careers.example/jobs",
+    ]);
+    expect(workerFetch.mock.calls[0][1]).toEqual({
+      redirect: "manual",
+      signal: expect.any(AbortSignal),
+      headers: {
+        "user-agent": "job-ops-crawler/1.0 (+https://github.com/DaKheera47/job-ops)",
+        accept: "text/html",
+      },
+    });
+  });
+
+  it("rejects a private DNS answer on a redirect before fetching again", async () => {
+    mocks.lookup.mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }]);
+    mocks.lookup.mockResolvedValueOnce([{ address: "127.0.0.1", family: 4 }]);
+    workerFetch.mockResolvedValueOnce(
+      new Response(null, { status: 302, headers: { location: "/jobs" } }),
+    );
+    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow(
+      "non-public",
+    );
+    expect(workerFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["https://evil.example/jobs", "http://careers.example/jobs"])(
+    "rejects redirect to %s without following it",
+    async (location) => {
+      workerFetch.mockResolvedValueOnce(new Response(null, { status: 302, headers: { location } }));
+      await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow();
+      expect(workerFetch).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("bounds same-host redirects", async () => {
+    workerFetch.mockImplementation(
+      async () => new Response(null, { status: 302, headers: { location: "/loop" } }),
+    );
+    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow(
+      "redirect limit",
+    );
+    expect(workerFetch).toHaveBeenCalledTimes(4);
+  });
+
+  it.each([true, false])("caps declared and streamed sizes (declared: %s)", async (declared) => {
+    const cancel = vi.fn();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("123456"));
+      },
+      cancel,
+    });
+    workerFetch.mockResolvedValueOnce(
+      new Response(body, { headers: declared ? { "content-length": "99" } : {} }),
+    );
+    await expect(
+      (await api()).fetchPublicText("https://careers.example/", { maxBytes: 5 }),
+    ).rejects.toThrow("byte limit");
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { status: 403 },
+    { status: 406 },
+    { headers: { "cf-mitigated": "challenge" } },
+    { body: "<title>Just a moment...</title>" },
+  ])("preserves blocked-response detection: %j", async ({ body, ...init }) => {
+    workerFetch.mockResolvedValueOnce(new Response(body ?? "private body", init));
+    const { SiteBlockedError } = await import("./types");
+    await expect(
+      (await api()).fetchPublicText("https://careers.example/", {}),
+    ).rejects.toBeInstanceOf(SiteBlockedError);
+  });
+
+  it("forwards cancellation to an in-flight fetch", async () => {
+    workerFetch.mockImplementation(
+      async (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init!.signal!.addEventListener("abort", () => reject(init!.signal!.reason), {
+            once: true,
+          });
+        }),
+    );
+    const controller = new AbortController();
+    const pending = (await api()).fetchPublicText("https://careers.example/", {
+      signal: controller.signal,
+    });
+    await vi.waitFor(() => expect(workerFetch).toHaveBeenCalledTimes(1));
+    controller.abort(new Error("cancel fetch"));
+    await expect(pending).rejects.toThrow("cancel fetch");
   });
 });
 

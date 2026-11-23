@@ -83,7 +83,7 @@ function signalFor(signal?: AbortSignal) {
 async function request(url: string, signal: AbortSignal): Promise<unknown> {
   for (let attempt = 0; attempt <= 3; attempt++) {
     signal.throwIfAborted();
-    const response = await fetch(url, { signal, redirect: "error" });
+    const response = await fetch(url, { signal, redirect: "manual" });
     if (response.status === 429 && attempt < 3) {
       const retry = response.headers.get("retry-after");
       const seconds = retry === null ? NaN : Number(retry);

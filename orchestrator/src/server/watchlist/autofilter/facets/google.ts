@@ -18,7 +18,7 @@ export const discoverGoogleFacets: FacetDiscovery = async ({ careersUrl, signal 
   url.search = "";
   signal?.throwIfAborted();
   const response = await fetch(url.toString(), {
-    redirect: "error",
+    redirect: "manual",
     signal: signal
       ? AbortSignal.any([signal, AbortSignal.timeout(25_000)])
       : AbortSignal.timeout(25_000),
