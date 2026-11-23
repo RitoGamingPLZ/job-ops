@@ -33,7 +33,7 @@ const ResumeStatusDot: React.FC<{ job: JobListItem }> = ({ job }) => {
       <Tip content="Resume ready" contentClassName="text-xs">
         <CheckCircle2
           aria-label="Resume ready"
-          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500"
+          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success"
         />
       </Tip>
     );
@@ -115,8 +115,8 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       className={cn(
-        "group rounded-lg border border-border/60 bg-background/95 p-3 shadow-[0_8px_20px_-18px_rgba(0,0,0,1)] transition-colors",
-        "hover:border-border hover:bg-background hover:shadow-[0_12px_24px_-16px_rgba(0,0,0,1)]",
+        "group rounded-lg border border-border bg-card p-2.5 transition-colors",
+        "hover:border-border/90 hover:bg-accent/40",
         cardClassName,
         isMoving && "opacity-70",
       )}
