@@ -220,7 +220,7 @@ export function ResponseRateBySourceChart({ jobs, error }: ResponseRateBySourceC
                         if (!active || !payload?.length) return null;
                         const d = payload[0].payload as SourceRateDataPoint;
                         return (
-                          <div className="rounded-lg border border-border/60 bg-background px-3 py-2 text-xs shadow-sm">
+                          <div className="rounded-lg border border-border/60 bg-popover px-3 py-2 text-xs shadow-sm">
                             <div className="mb-1.5 font-medium">{d.source}</div>
                             <div className="space-y-1 text-muted-foreground">
                               <div className="flex items-center justify-between gap-4">

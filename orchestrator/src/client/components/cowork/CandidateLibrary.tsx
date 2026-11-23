@@ -481,7 +481,7 @@ export function CandidateLibrary({
             Contact type
             <select
               id={`${formId}-type`}
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm font-normal"
+              className="h-9 rounded-md border border-input bg-popover px-2 text-sm font-normal"
               disabled={busy}
               value={String(current.input.data?.type ?? "email")}
               onChange={(event) =>

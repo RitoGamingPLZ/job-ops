@@ -74,7 +74,7 @@ function ResumeImportProgress({
   return (
     <output className="block rounded-lg border border-border/60 bg-muted/10 p-5" aria-live="polite">
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background text-muted-foreground">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-card text-muted-foreground">
           <FileText className="h-4 w-4" aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1 space-y-2">

@@ -90,7 +90,7 @@ export const ChartTooltipContent = React.forwardRef<HTMLDivElement, ChartTooltip
       <div
         ref={ref}
         className={cn(
-          "rounded-lg border border-border/60 bg-background px-3 py-2 text-xs shadow-sm",
+          "rounded-lg border border-border/60 bg-popover px-3 py-2 text-xs shadow-sm",
           className,
         )}
         {...props}

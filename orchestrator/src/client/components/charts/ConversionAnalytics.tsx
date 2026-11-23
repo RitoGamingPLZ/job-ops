@@ -319,7 +319,7 @@ export function ConversionAnalytics({
                         if (!active || !payload?.length) return null;
                         const data = payload[0].payload as FunnelStage;
                         return (
-                          <div className="rounded-lg border border-border/60 bg-background px-3 py-2 text-xs shadow-sm">
+                          <div className="rounded-lg border border-border/60 bg-popover px-3 py-2 text-xs shadow-sm">
                             <div className="font-medium">{data.name}</div>
                             <div className="mt-1 text-muted-foreground">
                               {data.value} applications
@@ -383,7 +383,7 @@ export function ConversionAnalytics({
                       if (!active || !payload?.length) return null;
                       const data = payload[0].payload as ConversionDataPoint;
                       return (
-                        <div className="rounded-lg border border-border/60 bg-background px-3 py-2 text-xs shadow-sm">
+                        <div className="rounded-lg border border-border/60 bg-popover px-3 py-2 text-xs shadow-sm">
                           <div className="mb-2 text-[11px] font-medium text-muted-foreground">
                             {parseLocalDateKey(label as string).toLocaleDateString("en-GB", {
                               month: "short",

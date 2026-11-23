@@ -101,7 +101,7 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
             render={({ field }) => (
               <select
                 id="pipelineScheduleHour"
-                className="ml-3 rounded-md border bg-background p-2 text-sm"
+                className="ml-3 rounded-md border bg-card p-2 text-sm"
                 value={field.value ?? 7}
                 onChange={(event) => field.onChange(Number(event.target.value))}
                 disabled={isLoading || isSaving}
