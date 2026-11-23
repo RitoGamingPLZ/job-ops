@@ -23,8 +23,31 @@ import wazzufManifest from "../../../extractors/wazzuf/manifest";
 import workingnomadsManifest from "../../../extractors/workingnomads/src/manifest";
 import { createApp } from "./app";
 import { createDurableObjectDrizzleDb, type DurableObjectStorageLike, setDb } from "./db/index";
+import {
+  type DoSqlStorageLike,
+  type PortableMigrationResult,
+  runPortableMigrations,
+} from "./db/portable-migrations";
 import { initializeExtractorRegistry, setStaticExtractorManifests } from "./extractors/registry";
 import { R2BlobStore, type R2BucketLike, setBlobStore } from "./infra/blob-store";
+import {
+  handleDurableObjectTaskDone,
+  type OnTaskDonePayload,
+  type OnTaskDonePosting,
+  type OnTaskDoneResult,
+} from "./services/do-on-task-done";
+
+export type { OnTaskDonePayload, OnTaskDonePosting, OnTaskDoneResult, PortableMigrationResult };
+export { handleDurableObjectTaskDone, runPortableMigrations };
+
+/**
+ * Runs ordered app SQLite migrations against a Cloudflare Durable Object's storage.
+ */
+export function runDurableObjectMigrations(
+  storage: DurableObjectStorageLike,
+): PortableMigrationResult {
+  return runPortableMigrations(storage.sql as DoSqlStorageLike);
+}
 
 const STATIC_EXTRACTOR_MANIFESTS = [
   adzunaManifest,

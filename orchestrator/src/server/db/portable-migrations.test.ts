@@ -52,7 +52,7 @@ describe("portable-migrations", () => {
     const sqlite = new Database(":memory:");
     try {
       const first = runPortableMigrations(sqlite);
-      expect(first.applied).toEqual(["0001", "0002"]);
+      expect(first.applied).toEqual(["0001", "0002", "0003"]);
       expect(first.skipped).toEqual([]);
       expect(first.total).toBe(PORTABLE_MIGRATIONS.length);
 
@@ -77,7 +77,7 @@ describe("portable-migrations", () => {
 
       const second = runPortableMigrations(sqlite);
       expect(second.applied).toEqual([]);
-      expect(second.skipped).toEqual(["0001", "0002"]);
+      expect(second.skipped).toEqual(["0001", "0002", "0003"]);
     } finally {
       sqlite.close();
     }
@@ -86,14 +86,23 @@ describe("portable-migrations", () => {
   it("works with Cloudflare DO SqlStorage-compatible executor", () => {
     const sqlite = new Database(":memory:");
     try {
+      sqlite.exec("CREATE TABLE tracer_links (id TEXT PRIMARY KEY);");
+      sqlite.exec("CREATE TABLE tracer_click_events (id TEXT PRIMARY KEY);");
       const doSql = createFakeDoSqlStorage(sqlite);
       const first = runPortableMigrations(doSql);
-      expect(first.applied).toEqual(["0001", "0002"]);
+      expect(first.applied).toEqual(["0001", "0002", "0003"]);
       expect(first.skipped).toEqual([]);
+
+      const remaining = sqlite
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('tracer_links', 'tracer_click_events')",
+        )
+        .all();
+      expect(remaining).toEqual([]);
 
       const second = runPortableMigrations(doSql);
       expect(second.applied).toEqual([]);
-      expect(second.skipped).toEqual(["0001", "0002"]);
+      expect(second.skipped).toEqual(["0001", "0002", "0003"]);
     } finally {
       sqlite.close();
     }

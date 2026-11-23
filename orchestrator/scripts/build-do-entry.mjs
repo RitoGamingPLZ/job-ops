@@ -75,33 +75,58 @@ const NODE_BUILTIN_SHIMS = [
   "async_hooks",
   "buffer",
   "child_process",
+  "console",
+  "constants",
   "crypto",
+  "diagnostics_channel",
+  "dns",
   "events",
   "fs",
+  "fs/promises",
   "http",
+  "http2",
   "https",
   "net",
   "os",
   "path",
+  "perf_hooks",
+  "process",
   "querystring",
+  "readline",
   "stream",
   "string_decoder",
+  "timers",
+  "timers/promises",
   "tls",
   "tty",
   "url",
   "util",
+  "util/types",
   "vm",
+  "worker_threads",
   "zlib",
 ];
 
+const OPTIONAL_UNSHIMMED_REQUIRES = new Set([
+  "bufferutil",
+  "canvas",
+  "utf-8-validate",
+  "node:path/win32",
+  "node:sqlite",
+]);
+
+function shimIdentifier(mod) {
+  return `__ns_${mod.replace(/[^a-zA-Z0-9_]/g, "_")}`;
+}
+
 const builtinImports = NODE_BUILTIN_SHIMS.map(
-  (mod) => `import * as __ns_${mod} from "node:${mod}";`,
+  (mod) => `import * as ${shimIdentifier(mod)} from "node:${mod}";`,
 ).join("\n");
 
-const builtinEntries = NODE_BUILTIN_SHIMS.map(
-  (mod) =>
-    `  "${mod}": __unwrapNodeBuiltin(__ns_${mod}),\n  "node:${mod}": __unwrapNodeBuiltin(__ns_${mod}),`,
-).join("\n");
+const builtinEntries = NODE_BUILTIN_SHIMS.map((mod) => {
+  const id = shimIdentifier(mod);
+  return `  "${mod}": __unwrapNodeBuiltin(${id}),\n  "node:${mod}": __unwrapNodeBuiltin(${id}),`;
+}).join("\n");
 
 const doRequireBanner = `${builtinImports}
 function __unwrapNodeBuiltin(ns) {
@@ -164,4 +189,26 @@ if (!matches || matches.length === 0) {
   );
 }
 const patched = bundled.replace(dynamicRequirePattern, "__doRequire");
+
+// Verify no unshimmed Node built-in CJS require() calls slipped into the bundle.
+const shimSet = new Set(NODE_BUILTIN_SHIMS.flatMap((mod) => [mod, `node:${mod}`]));
+const assignMatch = patched.match(/([a-zA-Z0-9_$]+)=__doRequire/);
+if (!assignMatch) {
+  throw new Error("Expected minified __doRequire assignment in dist/do/do-entry.mjs");
+}
+const requireVar = assignMatch[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const callPattern = new RegExp(`\\b${requireVar}\\((["'])([^"']+)\\1\\)`, "g");
+const missingShims = new Set();
+for (const match of patched.matchAll(callPattern)) {
+  const specifier = match[2];
+  if (!shimSet.has(specifier) && !OPTIONAL_UNSHIMMED_REQUIRES.has(specifier)) {
+    missingShims.add(specifier);
+  }
+}
+if (missingShims.size > 0) {
+  throw new Error(
+    `Unshimmed CJS require() specifiers in dist/do/do-entry.mjs: ${Array.from(missingShims).sort().join(", ")}`,
+  );
+}
+
 writeFileSync(outFile, patched, "utf8");
