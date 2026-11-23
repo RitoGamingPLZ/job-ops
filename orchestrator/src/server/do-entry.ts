@@ -28,6 +28,7 @@ import {
   type PortableMigrationResult,
   runPortableMigrations,
 } from "./db/portable-migrations";
+import { reconcileLegacyDoSchema } from "./db/reconcile-legacy-do-schema";
 import { initializeExtractorRegistry, setStaticExtractorManifests } from "./extractors/registry";
 import { R2BlobStore, type R2BucketLike, setBlobStore } from "./infra/blob-store";
 import {
@@ -46,6 +47,7 @@ export { handleDurableObjectTaskDone, runPortableMigrations };
 export function runDurableObjectMigrations(
   storage: DurableObjectStorageLike,
 ): PortableMigrationResult {
+  reconcileLegacyDoSchema(storage.sql as DoSqlStorageLike);
   return runPortableMigrations(storage.sql as DoSqlStorageLike);
 }
 

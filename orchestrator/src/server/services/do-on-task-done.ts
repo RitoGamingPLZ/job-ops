@@ -79,26 +79,33 @@ export function handleDurableObjectTaskDone(
       }
 
       const id = randomUUID();
-      storage.sql.exec(
-        `INSERT INTO jobs (
+      const added = readCursorRows<{ id: string }>(
+        storage.sql.exec(
+          `INSERT INTO jobs (
           id, tenant_id, user_id, posting_id, source, date_posted,
           title, employer, job_url, salary, location, job_description,
           status, discovered_at, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'discovered', datetime('now'), datetime('now'), datetime('now'))`,
-        id,
-        tenantId,
-        userId,
-        posting.postingId ?? null,
-        payload.source,
-        posting.datePosted ?? null,
-        posting.title,
-        posting.employer,
-        posting.jobUrl,
-        posting.salary ?? null,
-        posting.location ?? null,
-        posting.description ?? null,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'discovered', datetime('now'), datetime('now'), datetime('now'))
+        ON CONFLICT DO NOTHING RETURNING id`,
+          id,
+          tenantId,
+          userId,
+          posting.postingId ?? null,
+          payload.source,
+          posting.datePosted ?? null,
+          posting.title,
+          posting.employer,
+          posting.jobUrl,
+          posting.salary ?? null,
+          posting.location ?? null,
+          posting.description ?? null,
+        ),
       );
-      inserted += 1;
+      if (added.length > 0) {
+        inserted += 1;
+      } else {
+        skipped += 1;
+      }
     }
 
     if (pipelineRunId) {
