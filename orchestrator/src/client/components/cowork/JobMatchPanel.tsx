@@ -37,10 +37,10 @@ export function clearScreeningCache() {
 }
 
 const STATUS: Record<RequirementStatus, { label: string; tone: string }> = {
-  met: { label: "Met", tone: "bg-emerald-100 text-emerald-900" },
-  partial: { label: "Partial", tone: "bg-amber-100 text-amber-900" },
-  in_library: { label: "In your library", tone: "bg-sky-100 text-sky-900" },
-  missing: { label: "Missing", tone: "bg-rose-100 text-rose-900" },
+  met: { label: "Met", tone: "bg-success/15 text-success" },
+  partial: { label: "Partial", tone: "bg-warning/15 text-warning" },
+  in_library: { label: "In your library", tone: "bg-info/15 text-info" },
+  missing: { label: "Missing", tone: "bg-destructive/15 text-destructive" },
 };
 
 /** Find the editor element for a focus ref: bullet → item → section. */
@@ -144,10 +144,10 @@ export function JobMatchPanel({
   const score = report ? Math.max(0, Math.min(100, Math.round(report.score))) : 0;
   const scoreTone =
     score >= 70
-      ? "border-emerald-500 text-emerald-700"
+      ? "border-success text-success"
       : score >= 40
-        ? "border-amber-500 text-amber-700"
-        : "border-rose-500 text-rose-700";
+        ? "border-warning text-warning"
+        : "border-destructive text-destructive";
 
   function requirementRow(r: ScreeningRequirement) {
     const status = STATUS[r.status];
