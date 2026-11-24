@@ -309,8 +309,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   async fetchJobDetails(input) {
     const fallback = greenhouseFallback(input.source);
-    if (fallback)
-      return greenhouseWatchlistAdapter.fetchJobDetails({ ...input, source: fallback });
+    if (fallback) return greenhouseWatchlistAdapter.fetchJobDetails({ ...input, source: fallback });
     const { job } = cachedJob(input);
     return {
       jobRef: input.jobRef,
