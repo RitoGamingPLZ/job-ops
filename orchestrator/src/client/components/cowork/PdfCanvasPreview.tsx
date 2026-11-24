@@ -24,7 +24,7 @@ function PdfCanvasDocument({ url }: { url: string }) {
           "pdfjs-dist/build/pdf.worker.mjs",
           import.meta.url,
         ).toString();
-        task = getDocument(url);
+        task = getDocument({ url });
         const pdf = await task.promise;
         if (!cancelled) setDocument(pdf);
       } catch {
