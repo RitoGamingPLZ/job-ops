@@ -142,10 +142,11 @@ describe("Navy Serif", () => {
         outputPath: path,
         jobId: "fake-wrap-test",
       });
-      const pdf = await getDocument({
+      const loadingTask = getDocument({
         data: new Uint8Array(await readFile(path)),
         useSystemFonts: true,
-      }).promise;
+      });
+      const pdf = await loadingTask.promise;
       try {
         expect(pdf.numPages).toBe(1);
         const page = await pdf.getPage(1);
@@ -184,7 +185,7 @@ describe("Navy Serif", () => {
           expect(baselines[baselines.length - 1] - next).toBeCloseTo(leading + 1.5, 1);
         }
       } finally {
-        await pdf.destroy();
+        await loadingTask.destroy();
       }
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -290,10 +291,11 @@ describe("Navy Serif", () => {
           outputPath: path,
           jobId: "prose-test",
         });
-        const pdf = await getDocument({
+        const loadingTask = getDocument({
           data: new Uint8Array(await readFile(path)),
           useSystemFonts: true,
-        }).promise;
+        });
+        const pdf = await loadingTask.promise;
         try {
           const page = await pdf.getPage(1);
           const content = await page.getTextContent();
@@ -321,7 +323,7 @@ describe("Navy Serif", () => {
             expect(a?.transform[5]).toBeGreaterThan(b?.transform[5] ?? 0);
           }
         } finally {
-          await pdf.destroy();
+          await loadingTask.destroy();
         }
       } finally {
         await rm(dir, { recursive: true, force: true });
@@ -396,10 +398,11 @@ describe("Navy Serif", () => {
           outputPath: path,
           jobId: "fake-dates-test",
         });
-        const pdf = await getDocument({
+        const loadingTask = getDocument({
           data: new Uint8Array(await readFile(path)),
           useSystemFonts: true,
-        }).promise;
+        });
+        const pdf = await loadingTask.promise;
         try {
           const page = await pdf.getPage(1);
           const items = (await page.getTextContent()).items.filter((item) => "str" in item);
@@ -414,7 +417,7 @@ describe("Navy Serif", () => {
             expect(find(date)?.transform[4]).toBeGreaterThan(400);
           }
         } finally {
-          await pdf.destroy();
+          await loadingTask.destroy();
         }
       } finally {
         await rm(dir, { recursive: true, force: true });
@@ -448,10 +451,11 @@ describe("Navy Serif", () => {
           outputPath: path,
           jobId: "fake-keep-test",
         });
-        const pdf = await getDocument({
+        const loadingTask = getDocument({
           data: new Uint8Array(await readFile(path)),
           useSystemFonts: true,
-        }).promise;
+        });
+        const pdf = await loadingTask.promise;
         try {
           expect(pdf.numPages).toBeGreaterThan(1);
           const pageOf = new Map<string, number>();
@@ -463,7 +467,7 @@ describe("Navy Serif", () => {
           const find = (text: string) => [...pageOf].find(([str]) => str.includes(text))?.[1];
           for (let n = 0; n < 9; n++) expect(find(`Role ${n} duty 4`)).toBe(find(`Position ${n}`));
         } finally {
-          await pdf.destroy();
+          await loadingTask.destroy();
         }
       } finally {
         await rm(dir, { recursive: true, force: true });
@@ -484,10 +488,11 @@ describe("Navy Serif", () => {
             outputPath: path,
             jobId: "fake-navy-test",
           });
-          const pdf = await getDocument({
+          const loadingTask = getDocument({
             data: new Uint8Array(await readFile(path)),
             useSystemFonts: true,
-          }).promise;
+          });
+          const pdf = await loadingTask.promise;
           try {
             const page = await pdf.getPage(1);
             const content = await page.getTextContent();
@@ -502,7 +507,7 @@ describe("Navy Serif", () => {
               view: page.view,
             };
           } finally {
-            await pdf.destroy();
+            await loadingTask.destroy();
           }
         };
         const result = await render(document, "default");

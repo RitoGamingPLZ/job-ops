@@ -6,7 +6,8 @@ export async function readPdfPageSizes(
   pdfPath: string,
 ): Promise<Array<{ width: number; height: number }>> {
   const data = new Uint8Array(await readFile(pdfPath));
-  const pdf = await getDocument({ data, useSystemFonts: true }).promise;
+  const loadingTask = getDocument({ data, useSystemFonts: true });
+  const pdf = await loadingTask.promise;
 
   try {
     const sizes: Array<{ width: number; height: number }> = [];
@@ -20,6 +21,6 @@ export async function readPdfPageSizes(
     }
     return sizes;
   } finally {
-    await pdf.destroy();
+    await loadingTask.destroy();
   }
 }

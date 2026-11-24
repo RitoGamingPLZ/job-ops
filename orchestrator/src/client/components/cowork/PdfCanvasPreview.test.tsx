@@ -68,7 +68,7 @@ describe("PdfCanvasPreview", () => {
     render(<PdfCanvasPreview url="blob:resume" />);
     expect(screen.getByRole("status")).toHaveTextContent("Loading PDF preview");
     await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
-    expect(mocks.getDocument).toHaveBeenCalledWith("blob:resume");
+    expect(mocks.getDocument).toHaveBeenCalledWith({ url: "blob:resume" });
     expect(getPage.mock.calls).toEqual([[1], [2]]);
     expect(screen.getByLabelText("Resume PDF page 1")).toHaveStyle({
       width: "600px",
@@ -146,7 +146,7 @@ describe("PdfCanvasPreview", () => {
     await waitFor(() => expect(renderPage).toHaveBeenCalledTimes(3));
     expect(cancel).toHaveBeenCalledOnce();
     expect(destroy).toHaveBeenCalledOnce();
-    expect(mocks.getDocument).toHaveBeenLastCalledWith("blob:second");
+    expect(mocks.getDocument).toHaveBeenLastCalledWith({ url: "blob:second" });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
