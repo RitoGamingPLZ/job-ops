@@ -863,7 +863,7 @@ describe("runRecipe", () => {
       "All selected careers job pages failed",
     );
   });
-  it("treats robots denials and upstream blocks as fatal even with successful details", async () => {
+  it("treats upstream blocks and listing-level robots denials as fatal, but only skips a posting that robots disallows", async () => {
     pages({
       [`${base}/sitemap.xml`]: sitemap([[`${base}/jobs/1`], [`${base}/jobs/2`]]),
       [`${base}/jobs/1`]: posting(),
@@ -872,7 +872,8 @@ describe("runRecipe", () => {
     await expect(runRecipe(recipe, { limit: 2 })).rejects.toBeInstanceOf(SiteBlockedError);
     vi.mocked(isAllowedByRobots).mockImplementation(async (url) => !url.endsWith("/jobs/2"));
     vi.mocked(loadPage).mockClear();
-    await expect(runRecipe(recipe, { limit: 2 })).rejects.toThrow("robots.txt");
+    const partial = await runRecipe(recipe, { limit: 2 });
+    expect(partial.map((job) => job.id)).toEqual(["1"]);
     expect(loadPage).not.toHaveBeenCalledWith(`${base}/jobs/2`, expect.anything());
     vi.mocked(isAllowedByRobots).mockResolvedValue(false);
     vi.mocked(loadPage).mockClear();

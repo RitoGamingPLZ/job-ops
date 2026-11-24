@@ -7,12 +7,15 @@ import {
   recordSiteRecipeRun,
   saveSiteRecipe,
 } from "@server/repositories/site-recipes";
+import { parseGreenhouseUrl } from "@career-boards/greenhouse";
+import greenhouseCatalog from "@server/config/career-boards-greenhouse.json";
 import { learnRecipe, RecipeLearningError } from "@server/watchlist/careers-site/learn";
 import { runRecipe } from "@server/watchlist/careers-site/run-recipe";
 import { type CrawledJob, SiteBlockedError } from "@server/watchlist/careers-site/types";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { convert } from "html-to-text";
 import { z } from "zod";
+import { greenhouseWatchlistAdapter } from "./greenhouse";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
 const sourceSchema = z.object({
@@ -64,10 +67,43 @@ function clearHostCache(host: string) {
     if (sourceKey === plain || sourceKey.startsWith(`${filteredPrefix}?`)) cache.delete(sourceKey);
   }
 }
+/** A recorded block is retried after this long, so a transient 403/challenge cannot disable a host forever. */
+const BLOCK_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
+function blockIsActive(stored: { updatedAt: string }): boolean {
+  const blockedAt = Date.parse(stored.updatedAt);
+  return Number.isFinite(blockedAt) && Date.now() - blockedAt < BLOCK_RETRY_AFTER_MS;
+}
 function blocked(host: string) {
   return upstreamError(
-    `Careers site ${host} blocks automated access. It remains blocked until a new recipe is saved.`,
+    `Careers site ${host} blocks automated access. It will be retried automatically after 24 hours.`,
   );
+}
+/** The Cloudflare Durable Object bundle stubs out Playwright and jsdom, which this adapter needs. */
+function isWorkerdRuntime(): boolean {
+  return typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
+}
+let greenhouseBoards: Map<string, string> | undefined;
+/**
+ * Without a browser, serve a careers site from the company's Greenhouse board when the
+ * catalog has one (matched on the site's domain name, e.g. www.okta.com -> okta).
+ */
+function greenhouseFallback(source: WatchlistSelectedSource): WatchlistSelectedSource | null {
+  if (!isWorkerdRuntime()) return null;
+  greenhouseBoards ??= new Map(
+    greenhouseCatalog.flatMap((entry) => {
+      try {
+        const board = parseGreenhouseUrl(entry.greenhouseUrl);
+        return [[board.token.toLowerCase(), board.canonicalCareersUrl] as const];
+      } catch {
+        return [];
+      }
+    }),
+  );
+  const labels = careersUrl(source.careersUrl).hostname.toLowerCase().split(".");
+  const board = labels.length >= 2 ? greenhouseBoards.get(labels[labels.length - 2]) : undefined;
+  return board
+    ? { ...source, sourceType: "greenhouse", careersUrl: board, cxsJobsUrl: null }
+    : null;
 }
 function startLearning(host: string, url: string): never {
   const plainUrl = new URL(url);
@@ -188,6 +224,13 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async fetchJobs(input) {
     const url = careersUrl(input.source.careersUrl);
     const host = url.hostname;
+    if (isWorkerdRuntime()) {
+      const fallback = greenhouseFallback(input.source);
+      if (fallback) return greenhouseWatchlistAdapter.fetchJobs({ ...input, source: fallback });
+      throw serviceUnavailable(
+        `Careers-site sources need a browser, which is not available on this deployment yet, and no Greenhouse board is known for ${host}.`,
+      );
+    }
     const sourceKey = key(host, url.search);
     const stopAt = Date.now() + 20_000;
     const timeout = AbortSignal.timeout(25_000);
@@ -197,7 +240,9 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     signal.throwIfAborted();
     if (stored?.blockedReason) {
       clearHostCache(host);
-      throw blocked(host);
+      if (blockIsActive(stored)) throw blocked(host);
+      // The block has expired: relearn once. A new block refreshes the timestamp.
+      startLearning(host, url.href);
     }
     if (learning.has(host) || !stored?.recipe || stored.consecutiveFailures >= 3)
       startLearning(host, url.href);
@@ -263,6 +308,9 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     };
   },
   async fetchJobDetails(input) {
+    const fallback = greenhouseFallback(input.source);
+    if (fallback)
+      return greenhouseWatchlistAdapter.fetchJobDetails({ ...input, source: fallback });
     const { job } = cachedJob(input);
     return {
       jobRef: input.jobRef,
@@ -271,6 +319,9 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     };
   },
   async prepareImportDraft(input) {
+    const fallback = greenhouseFallback(input.source);
+    if (fallback)
+      return greenhouseWatchlistAdapter.prepareImportDraft({ ...input, source: fallback });
     const { host, sourceKey, job } = cachedJob(input);
     return {
       source: sourceKey,

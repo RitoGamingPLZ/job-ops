@@ -64,6 +64,7 @@ export interface SiteRecipeRecord {
   lastSuccessAt: string | null;
   consecutiveFailures: number;
   blockedReason: string | null; // set when the site refuses plain access (403/406/challenge)
+  updatedAt: string; // ISO; while blockedReason is set this is when the block was recorded
 }
 
 /** A job found by running a recipe. */

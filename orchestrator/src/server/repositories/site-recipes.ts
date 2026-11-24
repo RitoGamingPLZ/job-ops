@@ -36,6 +36,7 @@ export async function getSiteRecipe(host: string): Promise<SiteRecipeRecord | nu
     lastSuccessAt: row.lastSuccessAt,
     consecutiveFailures: row.consecutiveFailures,
     blockedReason: row.blockedReason,
+    updatedAt: row.updatedAt,
   };
 }
 

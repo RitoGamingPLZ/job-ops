@@ -6,6 +6,7 @@ import type { WatchlistCatalogSourceAdapter } from "./types";
 
 const ORIGIN = "https://www.metacareers.com";
 const LIMIT = 60;
+const USER_AGENT = "job-ops-crawler/1.0";
 const sourceSchema = z.object({
   label: z.string().trim().min(1).max(200),
   careersUrl: z.string().trim().url().max(2000),
@@ -69,13 +70,25 @@ async function pageHtml(url: string, signal: AbortSignal): Promise<string> {
   trustedUrl(url);
   for (let attempt = 0; attempt <= 3; attempt += 1) {
     signal.throwIfAborted();
-    const response = await fetch(url, { signal, redirect: "manual" });
+    // metacareers.com redirects requests without a User-Agent to /unsupportedbrowser, and
+    // workerd's fetch does not guarantee one, so always identify ourselves.
+    const response = await fetch(url, {
+      signal,
+      redirect: "manual",
+      headers: { "user-agent": USER_AGENT, accept: "text/html,application/xml;q=0.9,*/*;q=0.8" },
+    });
     if (response.status === 429 && attempt < 3) {
       await response.body?.cancel();
       await delay(250 * 2 ** attempt, undefined, { signal });
       continue;
     }
-    if (!response.ok) throw upstreamError(`Meta careers returned HTTP ${response.status}.`);
+    if (!response.ok) {
+      const location = response.headers.get("location");
+      await response.body?.cancel();
+      throw upstreamError(
+        `Meta careers returned HTTP ${response.status}${location ? ` (redirect to ${new URL(location, ORIGIN).pathname})` : ""}.`,
+      );
+    }
     return response.text();
   }
   throw upstreamError("Meta careers retry limit exceeded.");
