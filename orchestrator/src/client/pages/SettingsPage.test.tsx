@@ -236,8 +236,10 @@ describe("SettingsPage", () => {
     vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
     vi.mocked(api.updateSettings).mockResolvedValue(baseSettings);
     renderPage();
-    await openNavGroup(/^backups$/i);
-    await clickLastButtonByName(/^backups$/i);
+    // Non-admins only get the per-user daily search schedule, not server-wide backups.
+    await openNavGroup(/^schedule$/i);
+    await clickLastButtonByName(/^daily search$/i);
+    expect(screen.queryByText("Enable automatic backups")).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("switch", { name: "Run job search daily" }));
     fireEvent.change(screen.getByLabelText("Daily search hour (server local time)"), {
       target: { value: "9" },
@@ -252,6 +254,21 @@ describe("SettingsPage", () => {
         }),
       ),
     );
+  });
+
+  it("shows server-wide backups to system admins", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+    const admin = await vi.mocked(api.getCurrentAuthUser)();
+    vi.mocked(api.getCurrentAuthUser).mockResolvedValue({ ...admin, isSystemAdmin: true });
+    try {
+      renderPage();
+      await openNavGroup(/^backups$/i);
+      await clickLastButtonByName(/^backups$/i);
+      expect(await screen.findByText("Enable automatic backups")).toBeInTheDocument();
+      expect(screen.getByText("Backup History")).toBeInTheDocument();
+    } finally {
+      vi.mocked(api.getCurrentAuthUser).mockResolvedValue(admin);
+    }
   });
 
   it("does not request system backups for non-admin users", async () => {

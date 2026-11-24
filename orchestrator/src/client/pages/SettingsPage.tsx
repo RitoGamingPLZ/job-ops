@@ -1369,16 +1369,31 @@ export const SettingsPage: React.FC = () => {
     toast.success("Discarded unsaved changes");
   };
 
+  // Backups are server-wide, so only system admins see them. Everyone keeps the daily search schedule.
+  const canManageBackups = currentUserQuery.data?.isSystemAdmin === true;
+
   const visibleNavGroups = useMemo(
     () =>
       SETTINGS_NAV_GROUPS.map((group) => ({
         ...group,
-        items: group.items.filter(
-          (item) =>
-            (item.id !== "billing" || isHostedMode) && (canEditLlmSettings || item.id !== "model"),
-        ),
+        label: group.id === "backups" && !canManageBackups ? "Schedule" : group.label,
+        items: group.items
+          .filter(
+            (item) =>
+              (item.id !== "billing" || isHostedMode) &&
+              (canEditLlmSettings || item.id !== "model"),
+          )
+          .map((item) =>
+            item.id === "backup" && !canManageBackups
+              ? {
+                  ...item,
+                  label: "Daily search",
+                  description: "Run your job search automatically every day.",
+                }
+              : item,
+          ),
       })).filter((group) => group.items.length > 0),
-    [canEditLlmSettings, isHostedMode],
+    [canEditLlmSettings, canManageBackups, isHostedMode],
   );
 
   const filteredNavGroups = useMemo(
@@ -1620,6 +1635,7 @@ export const SettingsPage: React.FC = () => {
           onDeleteBackup={handleDeleteBackup}
           isCreatingBackup={isCreatingBackup}
           isDeletingBackup={isDeletingBackup}
+          canManageBackups={canManageBackups}
           layoutMode="panel"
         />
       );
