@@ -260,6 +260,25 @@ describe("metaWatchlistAdapter", () => {
     await expect(adapter.fetchJobs({ source })).rejects.toThrow("Meta careers returned HTTP 429.");
     expect(mock).toHaveBeenCalledTimes(4);
   });
+  it("identifies itself with a User-Agent and explains blocked redirects", async () => {
+    const fetchMock = vi.fn().mockImplementation(
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: "https://www.facebook.com/unsupportedbrowser" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
+      "Meta careers returned HTTP 302 (redirect to /unsupportedbrowser).",
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({ "user-agent": "job-ops-crawler/1.0" }),
+      }),
+    );
+  });
   it("rejects unsafe detail refs before fetching", async () => {
     const mock = mockPages();
     for (const jobRef of [

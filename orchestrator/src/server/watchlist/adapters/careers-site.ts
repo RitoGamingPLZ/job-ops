@@ -64,10 +64,20 @@ function clearHostCache(host: string) {
     if (sourceKey === plain || sourceKey.startsWith(`${filteredPrefix}?`)) cache.delete(sourceKey);
   }
 }
+/** A recorded block is retried after this long, so a transient 403/challenge cannot disable a host forever. */
+const BLOCK_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
+function blockIsActive(stored: { updatedAt: string }): boolean {
+  const blockedAt = Date.parse(stored.updatedAt);
+  return Number.isFinite(blockedAt) && Date.now() - blockedAt < BLOCK_RETRY_AFTER_MS;
+}
 function blocked(host: string) {
   return upstreamError(
-    `Careers site ${host} blocks automated access. It remains blocked until a new recipe is saved.`,
+    `Careers site ${host} blocks automated access. It will be retried automatically after 24 hours.`,
   );
+}
+/** The Cloudflare Durable Object bundle stubs out Playwright and jsdom, which this adapter needs. */
+function isWorkerdRuntime(): boolean {
+  return typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
 }
 function startLearning(host: string, url: string): never {
   const plainUrl = new URL(url);
@@ -188,6 +198,10 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async fetchJobs(input) {
     const url = careersUrl(input.source.careersUrl);
     const host = url.hostname;
+    if (isWorkerdRuntime())
+      throw serviceUnavailable(
+        `Careers-site sources need a browser, which is not available on this deployment yet. Use ${host}'s applicant-tracking source (for example Greenhouse) instead.`,
+      );
     const sourceKey = key(host, url.search);
     const stopAt = Date.now() + 20_000;
     const timeout = AbortSignal.timeout(25_000);
@@ -197,7 +211,9 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     signal.throwIfAborted();
     if (stored?.blockedReason) {
       clearHostCache(host);
-      throw blocked(host);
+      if (blockIsActive(stored)) throw blocked(host);
+      // The block has expired: relearn once. A new block refreshes the timestamp.
+      startLearning(host, url.href);
     }
     if (learning.has(host) || !stored?.recipe || stored.consecutiveFailures >= 3)
       startLearning(host, url.href);

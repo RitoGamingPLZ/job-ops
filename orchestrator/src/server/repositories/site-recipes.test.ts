@@ -47,6 +47,7 @@ describe("global site recipes repository", () => {
       lastSuccessAt: null,
       consecutiveFailures: 0,
       blockedReason: null,
+      updatedAt: expect.any(String),
     });
     expect(saved?.learnedAt.localeCompare(startedAt)).toBeGreaterThanOrEqual(0);
     const row = db.select().from(schema.siteRecipes).get();

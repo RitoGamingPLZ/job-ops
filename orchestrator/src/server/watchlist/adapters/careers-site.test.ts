@@ -59,6 +59,7 @@ function record(overrides: Partial<SiteRecipeRecord> = {}): SiteRecipeRecord {
     lastSuccessAt: null,
     consecutiveFailures: 0,
     blockedReason: null,
+    updatedAt: new Date().toISOString(),
     ...overrides,
   };
 }
@@ -571,9 +572,28 @@ describe("careersSiteWatchlistAdapter", () => {
     mocks.get.mockResolvedValue(
       record({ recipe: null, blockedReason: "403", consecutiveFailures: 9 }),
     );
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow("remains blocked");
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow("retried automatically");
     expect(mocks.learn).not.toHaveBeenCalled();
     expect(mocks.run).not.toHaveBeenCalled();
+  });
+  it("retries learning once a recorded block is older than 24 hours", async () => {
+    const stale = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    mocks.get.mockResolvedValue(
+      record({ recipe: null, blockedReason: "403", updatedAt: stale }),
+    );
+    await expect(adapter.fetchJobs({ source })).rejects.toThrow("Learning");
+    expect(mocks.learn).toHaveBeenCalledTimes(1);
+    expect(mocks.run).not.toHaveBeenCalled();
+  });
+  it("fails clearly instead of crashing inside the Cloudflare worker runtime", async () => {
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+    try {
+      await expect(adapter.fetchJobs({ source })).rejects.toThrow("not available on this deployment");
+      expect(mocks.get).not.toHaveBeenCalled();
+      expect(mocks.learn).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
   it.each(["run", "learn"])("persists blocks thrown during %s", async (stage) => {
     const { SiteBlockedError } = await import("@server/watchlist/careers-site/types");

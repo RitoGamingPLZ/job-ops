@@ -129,6 +129,7 @@ export function WatchlistSourcesCard({
 
   useEffect(() => {
     const pendingUrls = logoCareersUrls
+      .filter((item) => sourceTypeById.get(item.sourceType)?.supportsBranding)
       .filter((item) => logoDataUrls[item.careersUrl] === undefined)
       .slice(0, 5);
     if (pendingUrls.length === 0) return;
@@ -162,7 +163,7 @@ export function WatchlistSourcesCard({
     return () => {
       cancelled = true;
     };
-  }, [logoCareersUrls, logoDataUrls]);
+  }, [logoCareersUrls, logoDataUrls, sourceTypeById]);
 
   return (
     <Accordion

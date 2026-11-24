@@ -7,6 +7,7 @@ const DETAIL_CACHE_TTL_MS = 24 * 60 * 60_000;
 const DETAIL_CACHE_MAX_ENTRIES = 2_000;
 // Explicitly global: only public job details, keyed by their full URL (including
 // query), never tenant settings or credentials. ponytail: In-memory, lost on restart.
+const ROBOTS_DISALLOWED_URL = "robots.txt disallows this URL";
 const detailCache = new Map<string, { job: CrawledJob; expires: number; extraction: string }>();
 
 function jobId(url: string, recipe: Recipe): string | undefined {
@@ -300,7 +301,7 @@ export async function runRecipe(
     if (stopped()) return null;
     if (!sameSite(url, base)) throw new Error("Recipe URL must use the same HTTPS host.");
     if (!(await isAllowedByRobots(url, { signal: loadSignal })))
-      throw new SiteBlockedError(new URL(url).hostname, "robots.txt disallows this URL");
+      throw new SiteBlockedError(new URL(url).hostname, ROBOTS_DISALLOWED_URL);
     signal?.throwIfAborted();
     if (stopped()) return null;
     const page = await loadPage(url, { render, waitFor, signal: loadSignal });
@@ -492,6 +493,8 @@ export async function runRecipe(
           collect(url, job);
         }
       } catch (error) {
+        // A robots rule on one posting must not block the whole host; skip that posting.
+        if (error instanceof SiteBlockedError && error.reason === ROBOTS_DISALLOWED_URL) continue;
         try {
           rethrowFatal(error);
         } catch (error) {
