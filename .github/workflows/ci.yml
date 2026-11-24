@@ -24,6 +24,44 @@ jobs:
       - name: Run Vite+ check
         run: vp check
 
+  # When the lint job fails on a same-repo PR, apply `vp check --fix` and push the result back to
+  # the PR branch. The lint job stays a plain `vp check`, so it remains the gate.
+  # Commits pushed with the default GITHUB_TOKEN do not trigger new workflow runs; to have CI
+  # re-run on the autofix commit, add a PAT or GitHub App token as the AUTOFIX_TOKEN secret.
+  autofix:
+    name: Autofix lint & format
+    needs: lint
+    if: >-
+      ${{ always() && needs.lint.result == 'failure' &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.AUTOFIX_TOKEN || github.token }}
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1.22.0
+        with:
+          node-version: "22.22.1"
+          cache: true
+      - name: Apply Vite+ fixes
+        run: vp check --fix || true
+      - name: Commit and push fixes
+        run: |
+          if git diff --quiet; then
+            echo "No auto-fixable changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "style: apply vp check --fix"
+          git push
+
   tests:
     name: Tests (${{ matrix.shard }})
     runs-on: ubuntu-latest
