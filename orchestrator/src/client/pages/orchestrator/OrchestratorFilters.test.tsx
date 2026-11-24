@@ -79,8 +79,6 @@ const renderFilters = (overrides?: Partial<ComponentProps<typeof OrchestratorFil
     onSortChange: vi.fn(),
     onResetFilters: vi.fn(),
     filteredCount: 5,
-    isFiltersOpen: true,
-    onFiltersOpenChange: vi.fn(),
     ...overrides,
   };
 
@@ -91,38 +89,27 @@ const renderFilters = (overrides?: Partial<ComponentProps<typeof OrchestratorFil
 };
 
 describe("OrchestratorFilters", () => {
-  it("counts company selections as one active filter and clears through Reset", () => {
+  it("clears active filters through Reset", () => {
     const { props } = renderFilters({
       companyFilter: ["google", "google llc"],
-      isFiltersOpen: true,
     });
-    expect(screen.getByRole("button", { name: /^filters/i })).toHaveTextContent("1");
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(props.onResetFilters).toHaveBeenCalled();
   });
 
-  it("hides the filter bar by default", () => {
-    renderFilters({ isFiltersOpen: false });
+  it("always shows the filter bar without a toggle", () => {
+    renderFilters();
 
-    expect(screen.queryByRole("textbox", { name: /filter by location/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^source/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: /job filters/i })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /filter by location/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^source/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^sort/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^filters/i })).not.toBeInTheDocument();
   });
 
-  it("toggles the filter bar when the Filters button is clicked", () => {
-    const onFiltersOpenChange = vi.fn();
-    renderFilters({ isFiltersOpen: false, onFiltersOpenChange });
-
-    fireEvent.click(screen.getByRole("button", { name: /^filters/i }));
-    expect(onFiltersOpenChange).toHaveBeenCalledWith(true);
-  });
-
-  it("shows an active filter count on the Filters button when collapsed", () => {
-    renderFilters({
-      isFiltersOpen: false,
-      sourceFilter: "linkedin",
-    });
-
-    expect(screen.getByRole("button", { name: /^filters/i })).toHaveTextContent("1");
+  it("only offers Reset once a filter is active", () => {
+    renderFilters();
+    expect(screen.queryByRole("button", { name: "Reset" })).not.toBeInTheDocument();
   });
 
   it("notifies when tabs and command search shortcut are used", () => {

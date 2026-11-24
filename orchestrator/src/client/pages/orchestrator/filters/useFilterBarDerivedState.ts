@@ -1,5 +1,5 @@
 import type { JobSource } from "@shared/types.js";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type {
   EmploymentType,
   JobDateFilter,
@@ -26,8 +26,6 @@ interface UseFilterBarDerivedStateArgs {
   salaryFilter: SalaryFilter;
   scoreFilter: ScoreFilter;
   sort: JobSort;
-  isFiltersOpen?: boolean;
-  onFiltersOpenChange?: (open: boolean) => void;
 }
 
 export const useFilterBarDerivedState = ({
@@ -40,13 +38,7 @@ export const useFilterBarDerivedState = ({
   salaryFilter,
   scoreFilter,
   sort,
-  isFiltersOpen: isFiltersOpenProp,
-  onFiltersOpenChange: onFiltersOpenChangeProp,
 }: UseFilterBarDerivedStateArgs) => {
-  const [internalFiltersOpen, setInternalFiltersOpen] = useState(false);
-  const isFiltersOpen = isFiltersOpenProp ?? internalFiltersOpen;
-  const onFiltersOpenChange = onFiltersOpenChangeProp ?? setInternalFiltersOpen;
-
   const salaryActive = isSalaryFilterActive(salaryFilter);
   const scoreActive = isScoreFilterActive(scoreFilter);
 
@@ -83,8 +75,6 @@ export const useFilterBarDerivedState = ({
   const scoreSummary = formatScoreSummary(scoreFilter);
 
   return {
-    isFiltersOpen,
-    onFiltersOpenChange,
     salaryActive,
     scoreActive,
     activeFilterCount,

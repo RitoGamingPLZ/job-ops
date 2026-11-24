@@ -1,5 +1,5 @@
 import type { Story } from "@ladle/react";
-import type { BoardColumn, JobListItem } from "@shared/types.js";
+import type { JobListItem } from "@shared/types.js";
 import React from "react";
 import { InProgressBoardCard, type InProgressBoardCardProps } from "./InProgressBoardCard";
 
@@ -38,17 +38,6 @@ const makeJob = (overrides: Partial<JobListItem> = {}): JobListItem => ({
   updatedAt: "2026-05-20T00:00:00.000Z",
   ...overrides,
 });
-
-/** Mirrors `getCardLeftAccentClass` in InProgressBoardPage. */
-const cardAccentClass = (stage: BoardColumn) => {
-  if (stage === "technical_interview") {
-    return "border-l-2 border-l-amber-400/45";
-  }
-  if (stage === "offer") {
-    return "border-2 border-amber-300/50 shadow-[0_4px_12px_-4px_rgba(251,191,36,0.7)]";
-  }
-  return "";
-};
 
 const noopDrag = () => {};
 
@@ -112,7 +101,6 @@ export const TechnicalInterview: Story = () => (
       {...baseCardProps}
       stage="technical_interview"
       round={2}
-      cardClassName={cardAccentClass("technical_interview")}
     />
   </BoardCardFrame>
 );
@@ -124,7 +112,6 @@ export const FinalRound: Story = () => (
       {...baseCardProps}
       stage="technical_interview"
       round={3}
-      cardClassName={cardAccentClass("technical_interview")}
     />
   </BoardCardFrame>
 );
@@ -136,7 +123,6 @@ export const Offer: Story = () => (
       {...baseCardProps}
       stage="offer"
       job={makeJob({ title: "Staff Platform Engineer" })}
-      cardClassName={cardAccentClass("offer")}
     />
   </BoardCardFrame>
 );
@@ -201,14 +187,12 @@ export const AllStates: Story = () => (
         {...baseCardProps}
         stage="technical_interview"
         round={2}
-        cardClassName={cardAccentClass("technical_interview")}
       />
     </BoardCardFrame>
     <BoardCardFrame label="Offer">
       <InteractiveBoardCard
         {...baseCardProps}
         stage="offer"
-        cardClassName={cardAccentClass("offer")}
       />
     </BoardCardFrame>
     <BoardCardFrame label="Reject">

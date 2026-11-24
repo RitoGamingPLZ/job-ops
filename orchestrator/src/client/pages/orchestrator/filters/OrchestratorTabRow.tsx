@@ -1,11 +1,10 @@
 import { KbdHint } from "@client/components/KbdHint";
 import { Tip } from "@client/components/Tip";
 import { getDisplayKey, SHORTCUTS } from "@client/lib/shortcut-map";
-import { Filter, RotateCcw, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import type React from "react";
 import { Button } from "@/components/ui/button";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import { tabs } from "../constants";
 import { tabDescriptions } from "./filterOptions";
 import type { OrchestratorTabRowProps } from "./types";
@@ -13,10 +12,6 @@ import type { OrchestratorTabRowProps } from "./types";
 export const OrchestratorTabRow: React.FC<OrchestratorTabRowProps> = ({
   counts,
   onOpenCommandBar,
-  isFiltersOpen,
-  onFiltersOpenChange,
-  activeFilterCount,
-  onResetFilters,
 }) => {
   const commandShortcutLabel = getDisplayKey(SHORTCUTS.search);
 
@@ -58,53 +53,20 @@ export const OrchestratorTabRow: React.FC<OrchestratorTabRowProps> = ({
         })}
       </TabsList>
 
-      <div className="flex items-center gap-2 self-start lg:self-auto">
-        {isFiltersOpen && activeFilterCount > 0 ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onResetFilters}
-            className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset
-          </Button>
-        ) : null}
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-expanded={isFiltersOpen}
-          aria-controls="orchestrator-filter-bar"
-          onClick={() => onFiltersOpenChange(!isFiltersOpen)}
-          className={cn("h-8 gap-1.5 text-xs", isFiltersOpen && "bg-accent text-accent-foreground")}
-        >
-          <Filter className="h-3.5 w-3.5" />
-          Filters
-          {activeFilterCount > 0 ? (
-            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/20 px-1 text-[10px] font-semibold tabular-nums text-primary">
-              {activeFilterCount}
-            </span>
-          ) : null}
-        </Button>
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onOpenCommandBar}
-          aria-label="Search jobs"
-          className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <Search className="h-3.5 w-3.5" />
-          Search
-          <span className="rounded border border-border/70 px-1 py-0.5 font-mono text-xs leading-none text-muted-foreground">
-            {commandShortcutLabel}
-          </span>
-        </Button>
-      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onOpenCommandBar}
+        aria-label="Search jobs"
+        className="h-8 gap-1.5 self-start text-xs text-muted-foreground hover:text-foreground lg:self-auto"
+      >
+        <Search className="h-3.5 w-3.5" />
+        Search
+        <span className="rounded border border-border/70 px-1 py-0.5 font-mono text-xs leading-none text-muted-foreground">
+          {commandShortcutLabel}
+        </span>
+      </Button>
     </div>
   );
 };

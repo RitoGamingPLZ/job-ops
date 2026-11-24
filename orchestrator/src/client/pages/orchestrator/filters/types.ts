@@ -1,5 +1,4 @@
 import type { JobSource } from "@shared/types.js";
-import type React from "react";
 import type { CompanyOption } from "../companyFilter";
 import type {
   EmploymentType,
@@ -37,8 +36,6 @@ export interface OrchestratorFiltersProps {
   onSortChange: (sort: JobSort) => void;
   onResetFilters: () => void;
   filteredCount: number;
-  isFiltersOpen?: boolean;
-  onFiltersOpenChange?: (open: boolean) => void;
 }
 
 export type LocationFilterInputProps = Pick<
@@ -93,16 +90,8 @@ export type SortFilterPillProps = Pick<
 
 export type OrchestratorTabRowProps = Pick<
   OrchestratorFiltersProps,
-  "counts" | "onOpenCommandBar" | "onResetFilters"
-> & {
-  isFiltersOpen: boolean;
-  onFiltersOpenChange: (open: boolean) => void;
-  activeFilterCount: number;
-};
-
-export type OrchestratorFilterBarProps = {
-  children: React.ReactNode;
-};
+  "counts" | "onOpenCommandBar"
+>;
 
 export type CompanyFilterPillProps = Pick<
   OrchestratorFiltersProps,

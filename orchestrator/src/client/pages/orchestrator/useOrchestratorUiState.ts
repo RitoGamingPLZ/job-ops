@@ -17,7 +17,6 @@ export function useOrchestratorUiState({
 }: UseOrchestratorUiStateArgs) {
   const [navOpen, setNavOpen] = useState(false);
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const isDesktop = useMediaQuery("(min-width: 1024px)");
@@ -88,8 +87,6 @@ export function useOrchestratorUiState({
     setNavOpen,
     isCommandBarOpen,
     setIsCommandBarOpen,
-    isFiltersOpen,
-    setIsFiltersOpen,
     isHelpDialogOpen,
     setIsHelpDialogOpen: setIsHelpDialogOpen as React.Dispatch<React.SetStateAction<boolean>>,
     isDetailDrawerOpen,

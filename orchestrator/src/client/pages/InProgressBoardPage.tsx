@@ -29,7 +29,6 @@ import { logJobStageEvent } from "@/client/lib/logJobStageEvent";
 import { needsRender } from "@/client/lib/pdf-freshness";
 import { queryKeys } from "@/client/lib/queryKeys";
 import { resumeEditorLocation } from "@/client/lib/resume-opening";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -40,6 +39,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import * as api from "../api";
+import { BoardStageIcon } from "./BoardStageIcon";
 import { InProgressBoardCard } from "./InProgressBoardCard";
 import { IN_PROGRESS_BOARD_APPLIED_COLLAPSED_STORAGE_KEY } from "./orchestrator/constants";
 
@@ -70,16 +70,6 @@ const getAppliedCollapsedStorageKey = () =>
   api.getAuthScopedStorageKey(IN_PROGRESS_BOARD_APPLIED_COLLAPSED_STORAGE_KEY);
 
 const readAppliedCollapsed = () => localStorage.getItem(getAppliedCollapsedStorageKey()) === "1";
-
-const getCardLeftAccentClass = (stage: BoardColumn) => {
-  if (stage === "technical_interview") {
-    return "border-l-2 border-l-warning/60";
-  }
-  if (stage === "offer") {
-    return "border-warning/60";
-  }
-  return "";
-};
 
 const resolveCurrentStage = (
   events: StageEvent[] | null,
@@ -381,7 +371,7 @@ export const InProgressBoardPage: React.FC = () => {
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-x-auto pb-2">
-            <div className="flex h-full min-w-max items-stretch gap-4">
+            <div className="flex h-full min-w-max items-stretch gap-2">
               {BOARD_STAGES.map((stage) => {
                 const laneCards = lanes[stage];
                 const isCollapsedApplied = stage === "applied" && isAppliedCollapsed;
@@ -404,16 +394,15 @@ export const InProgressBoardPage: React.FC = () => {
                       }
                     }}
                     className={cn(
-                      "flex h-full flex-col rounded-lg border border-border/60 bg-muted/40 transition-colors",
+                      "flex h-full flex-col rounded-xl bg-muted/40 transition-colors",
                       isCollapsedApplied ? "w-11" : "w-[320px]",
-                      dropTargetStage === stage &&
-                        "border-primary/60 bg-primary/10 ring-1 ring-primary/40",
+                      dropTargetStage === stage && "bg-primary/10 ring-1 ring-primary/40",
                     )}
                   >
                     <header
                       className={cn(
-                        "flex items-center border-b border-border/60 px-3 py-2.5",
-                        isCollapsedApplied ? "flex-col gap-2" : "flex-wrap justify-between gap-2",
+                        "flex items-center px-3 pt-3 pb-1.5",
+                        isCollapsedApplied ? "flex-col gap-2" : "flex-wrap gap-2",
                       )}
                     >
                       {stage === "applied" && (
@@ -421,7 +410,7 @@ export const InProgressBoardPage: React.FC = () => {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 shrink-0 text-muted-foreground"
+                          className="-ml-1 h-6 w-6 shrink-0 text-muted-foreground"
                           aria-label={
                             isAppliedCollapsed ? "Expand Applied lane" : "Collapse Applied lane"
                           }
@@ -434,20 +423,18 @@ export const InProgressBoardPage: React.FC = () => {
                           )}
                         </Button>
                       )}
+                      <BoardStageIcon stage={stage} />
                       <h2
                         className={cn(
-                          "text-xs font-semibold tracking-[0.03em] text-foreground/90 uppercase",
+                          "text-[13px] font-medium text-foreground",
                           isCollapsedApplied && "[writing-mode:vertical-rl]",
                         )}
                       >
                         {BOARD_COLUMN_LABELS[stage]}
                       </h2>
-                      <Badge
-                        variant="outline"
-                        className="tabular-nums border-border/50 bg-transparent text-foreground/70"
-                      >
+                      <span className="text-xs tabular-nums text-muted-foreground">
                         {laneCards.length}
-                      </Badge>
+                      </span>
                       {stage === "targeted" && (
                         <Button
                           size="sm"
@@ -465,12 +452,12 @@ export const InProgressBoardPage: React.FC = () => {
                     {isCollapsedApplied ? null : (
                       <div
                         className={cn(
-                          "min-h-0 flex-1 space-y-2 p-2.5 [scrollbar-gutter:stable]",
+                          "min-h-0 flex-1 space-y-2 p-2 [scrollbar-gutter:stable]",
                           dragging ? "overflow-hidden" : "overflow-y-auto",
                         )}
                       >
                         {laneCards.length === 0 ? (
-                          <div className="rounded-md border border-dashed border-border/35 bg-background/20 px-2.5 py-2 text-[11px] text-muted-foreground/80">
+                          <div className="px-1.5 py-2 text-xs text-muted-foreground/70">
                             Drop a card here or log a stage.
                           </div>
                         ) : (
@@ -487,7 +474,6 @@ export const InProgressBoardPage: React.FC = () => {
                               latestEventAt={latestEventAt}
                               jobPageLinkState={jobPageLinkState}
                               isMoving={movingJobId === job.id}
-                              cardClassName={getCardLeftAccentClass(stage)}
                               onDragStart={(event) => {
                                 if (
                                   (event.target as HTMLElement).closest("[data-board-card-menu]")

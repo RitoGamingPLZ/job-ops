@@ -268,7 +268,6 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           sourcesWithJobs={sourcesWithJobs}
           sort={filters.sort}
           filteredCount={activeJobs.length}
-          isFiltersOpen={ui.isFiltersOpen}
           jobListHandleRef={jobListHandleRef}
           primaryEmptyStateAction={primaryEmptyStateAction}
           secondaryEmptyStateAction={undefined}
@@ -276,7 +275,6 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
           onCommandBarOpenChange={ui.setIsCommandBarOpen}
           onCommandSelectJob={handleCommandSelectJob}
           onTabChange={handleTabChange}
-          onFiltersOpenChange={ui.setIsFiltersOpen}
           onSourceFilterChange={filters.setSourceFilter}
           onSalaryFilterChange={filters.setSalaryFilter}
           onScoreFilterChange={filters.setScoreFilter}

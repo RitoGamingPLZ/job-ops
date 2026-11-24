@@ -10,7 +10,6 @@ import type {
   SalaryFilter,
   ScoreFilter,
 } from "./constants";
-import { OrchestratorFilterSidebar } from "./filters/OrchestratorFilterSidebar";
 import { JobCommandBar } from "./JobCommandBar";
 import { JobDetailPanel } from "./JobDetailPanel";
 import { JobListPanel } from "./JobListPanel";
@@ -52,7 +51,6 @@ interface OrchestratorJobsWorkspaceProps {
   sourcesWithJobs: JobSource[];
   sort: JobSort;
   filteredCount: number;
-  isFiltersOpen: boolean;
   jobListHandleRef: React.Ref<VirtualListHandle>;
   primaryEmptyStateAction?: EmptyStateAction;
   secondaryEmptyStateAction?: EmptyStateAction;
@@ -60,7 +58,6 @@ interface OrchestratorJobsWorkspaceProps {
   onCommandBarOpenChange: (open: boolean) => void;
   onCommandSelectJob: (targetTab: FilterTab, id: string) => void;
   onTabChange: (tab: FilterTab) => void;
-  onFiltersOpenChange: (open: boolean) => void;
   onSourceFilterChange: (value: JobSource | "all") => void;
   onSalaryFilterChange: (value: SalaryFilter) => void;
   onScoreFilterChange: (value: ScoreFilter) => void;
@@ -108,7 +105,6 @@ export const OrchestratorJobsWorkspace: React.FC<OrchestratorJobsWorkspaceProps>
   sourcesWithJobs,
   sort,
   filteredCount,
-  isFiltersOpen,
   jobListHandleRef,
   primaryEmptyStateAction,
   secondaryEmptyStateAction,
@@ -116,7 +112,6 @@ export const OrchestratorJobsWorkspace: React.FC<OrchestratorJobsWorkspaceProps>
   onCommandBarOpenChange,
   onCommandSelectJob,
   onTabChange,
-  onFiltersOpenChange,
   onSourceFilterChange,
   onSalaryFilterChange,
   onScoreFilterChange,
@@ -151,8 +146,6 @@ export const OrchestratorJobsWorkspace: React.FC<OrchestratorJobsWorkspaceProps>
         onTabChange={onTabChange}
         counts={counts}
         onOpenCommandBar={() => onCommandBarOpenChange(true)}
-        isFiltersOpen={isFiltersOpen}
-        onFiltersOpenChange={onFiltersOpenChange}
         companyFilter={companyFilter}
         companiesWithJobs={companiesWithJobs}
         onCompanyFilterChange={onCompanyFilterChange}
@@ -175,7 +168,6 @@ export const OrchestratorJobsWorkspace: React.FC<OrchestratorJobsWorkspaceProps>
         onSortChange={onSortChange}
         onResetFilters={onResetFilters}
         filteredCount={filteredCount}
-        hidePanel
       />
 
       <div className="flex min-w-0 items-start gap-4">
@@ -210,38 +202,6 @@ export const OrchestratorJobsWorkspace: React.FC<OrchestratorJobsWorkspaceProps>
             />
           )}
         </div>
-
-        <OrchestratorFilterSidebar
-          activeTab={activeTab}
-          onTabChange={onTabChange}
-          counts={counts}
-          onOpenCommandBar={() => onCommandBarOpenChange(true)}
-          isFiltersOpen={isFiltersOpen}
-          onFiltersOpenChange={onFiltersOpenChange}
-          companyFilter={companyFilter}
-          companiesWithJobs={companiesWithJobs}
-          onCompanyFilterChange={onCompanyFilterChange}
-          sourceFilter={sourceFilter}
-          onSourceFilterChange={onSourceFilterChange}
-          salaryFilter={salaryFilter}
-          onSalaryFilterChange={onSalaryFilterChange}
-          scoreFilter={scoreFilter}
-          onScoreFilterChange={onScoreFilterChange}
-          postedWithinDays={postedWithinDays}
-          onPostedWithinChange={onPostedWithinChange}
-          employmentTypes={employmentTypes}
-          onEmploymentTypesChange={onEmploymentTypesChange}
-          locationFilter={locationFilter}
-          onLocationFilterChange={onLocationFilterChange}
-          dateFilter={dateFilter}
-          onDateFilterChange={onDateFilterChange}
-          sourcesWithJobs={sourcesWithJobs}
-          sort={sort}
-          onSortChange={onSortChange}
-          onResetFilters={onResetFilters}
-          filteredCount={filteredCount}
-          isDesktop={isDesktop}
-        />
       </div>
     </section>
   </>

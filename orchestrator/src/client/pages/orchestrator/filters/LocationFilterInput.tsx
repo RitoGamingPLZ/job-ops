@@ -9,13 +9,16 @@ export const LocationFilterInput: React.FC<LocationFilterInputProps> = ({
   onLocationFilterChange,
 }) => (
   <div className="relative">
-    <MapPin className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+    <MapPin className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
     <Input
       aria-label="Filter by location"
       value={locationFilter}
       onChange={(event) => onLocationFilterChange(event.target.value)}
       placeholder="Location"
-      className={cn("h-9 w-[180px] rounded-full pl-8 text-xs", locationFilter.trim() && "pr-8")}
+      className={cn(
+        "h-7 w-[150px] rounded-md pl-7 text-xs shadow-none",
+        locationFilter.trim() ? "pr-7" : "border-dashed",
+      )}
     />
     {locationFilter.trim() ? (
       <button

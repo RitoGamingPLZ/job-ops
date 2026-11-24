@@ -79,19 +79,19 @@ status, and listing information immediately. A loading skeleton fills the
 remaining detail area until the full job arrives. If that request fails, use
 **Retry** in the panel; actions that require full details stay unavailable.
 
-### Using the Filters panel
+### Using the filter bar
 
-The main jobs page has a `Filters` button on the top-right next to `Search`.
+The main jobs page shows a filter bar under the tabs. It is always visible, with one chip per filter, similar to Linear's issue filters.
 
-Use it when you need to narrow the current tab without changing tabs.
+Use it when you need to narrow the current tab without changing tabs. Click a chip to change that filter. Active chips are highlighted, and `Reset` appears once any filter is set.
 
-What the panel includes:
+What the bar includes:
 
-- source filters
-- sponsor status filters
-- salary filters
-- date filters
-- sorting controls
+- location search
+- source, company and employment type filters
+- posted-within and date filters
+- salary and score filters
+- sorting controls (pinned to the right)
 
 Job rows and the detail header can also show a `Previously Applied` warning when JobOps finds a high-confidence fuzzy match against one of your past applied or in-progress jobs using title and company, not just URL dedupe. To avoid flagging genuinely new openings, JobOps only shows this warning when the matched historical application falls within 30 days of the current job's discovery date.
 

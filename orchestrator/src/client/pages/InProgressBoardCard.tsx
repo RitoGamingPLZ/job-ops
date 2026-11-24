@@ -31,10 +31,7 @@ const ResumeStatusDot: React.FC<{ job: JobListItem }> = ({ job }) => {
   if (resumeState === "available") {
     return (
       <Tip content="Resume ready" contentClassName="text-xs">
-        <CheckCircle2
-          aria-label="Resume ready"
-          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success"
-        />
+        <CheckCircle2 aria-label="Resume ready" className="h-3.5 w-3.5 shrink-0 text-success" />
       </Tip>
     );
   }
@@ -44,7 +41,7 @@ const ResumeStatusDot: React.FC<{ job: JobListItem }> = ({ job }) => {
       <Tip content="Preparing resume…" contentClassName="text-xs">
         <Loader2
           aria-label="Preparing resume"
-          className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground"
+          className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground"
         />
       </Tip>
     );
@@ -55,7 +52,7 @@ const ResumeStatusDot: React.FC<{ job: JobListItem }> = ({ job }) => {
       <Tip content={job.generationError} contentClassName="max-w-60 text-xs">
         <CircleAlert
           aria-label="Resume generation failed"
-          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive"
+          className="h-3.5 w-3.5 shrink-0 text-destructive"
         />
       </Tip>
     );
@@ -65,7 +62,7 @@ const ResumeStatusDot: React.FC<{ job: JobListItem }> = ({ job }) => {
     <Tip content="Resume not prepared yet" contentClassName="text-xs">
       <Circle
         aria-label="Resume not prepared yet"
-        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/50"
+        className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50"
       />
     </Tip>
   );
@@ -83,7 +80,6 @@ export type InProgressBoardCardProps = {
   latestEventAt: number | null;
   jobPageLinkState: { jobPageBackTo: string };
   isMoving: boolean;
-  cardClassName?: string;
   onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
   onDragEnd: () => void;
   onLogEvent: () => void;
@@ -100,7 +96,6 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
   latestEventAt,
   jobPageLinkState,
   isMoving,
-  cardClassName,
   onDragStart,
   onDragEnd,
   onLogEvent,
@@ -115,27 +110,24 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       className={cn(
-        "group rounded-lg border border-border bg-card p-2.5 transition-colors",
-        "hover:border-border/90 hover:bg-accent/40",
-        cardClassName,
+        "group rounded-lg border border-border/60 bg-card p-3 shadow-sm transition-colors",
+        "hover:border-border hover:bg-accent/40",
         isMoving && "opacity-70",
       )}
     >
-      <div className="mb-2 flex items-start gap-2">
+      <div className="flex items-center gap-2">
         <Link
           to={`/job/${job.id}`}
           state={jobPageLinkState}
-          className="min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="min-w-0 flex-1 truncate rounded-sm text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <div className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-            {job.title}
-          </div>
+          {job.employer}
         </Link>
         <ResumeStatusDot job={job} />
-        <div className="relative h-7 w-7 shrink-0">
+        <div className="relative h-6 w-6 shrink-0">
           <ExternalLink
             aria-hidden
-            className="pointer-events-none absolute inset-0 m-auto h-3.5 w-3.5 text-muted-foreground opacity-100 transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0"
+            className="pointer-events-none absolute inset-0 m-auto h-3.5 w-3.5 text-muted-foreground/70 opacity-100 transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0"
           />
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
@@ -144,7 +136,7 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "absolute inset-0 h-7 w-7 text-muted-foreground opacity-0 transition-opacity duration-150",
+                  "absolute inset-0 h-6 w-6 text-muted-foreground opacity-0 transition-opacity duration-150",
                   "pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100",
                   "group-focus-within:pointer-events-auto group-focus-within:opacity-100",
                   "data-[state=open]:pointer-events-auto data-[state=open]:opacity-100",
@@ -178,32 +170,42 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
       <Link
         to={`/job/${job.id}`}
         state={jobPageLinkState}
-        className="block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="mt-1 block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <div className="text-xs text-muted-foreground/90">{job.employer}</div>
+        <div className="line-clamp-3 text-[13px] font-medium leading-snug text-foreground">
+          {job.title}
+        </div>
+      </Link>
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         {stage === "technical_interview" && (
-          <Badge variant="outline" className="mt-2">
+          <Badge variant="outline" className="rounded-md px-1.5 py-0 text-[11px] font-normal">
             Round {Math.max(round, 1)}
           </Badge>
         )}
         {stage === "closed" && (
-          <div className="mt-2 flex items-center gap-2">
-            <Badge variant="outline" className="border-border/60 bg-muted/30 text-foreground/80">
+          <>
+            <Badge
+              variant="outline"
+              className="rounded-md border-border/60 bg-muted/30 px-1.5 py-0 text-[11px] font-normal text-foreground/80"
+            >
               Reject
             </Badge>
             {job.outcome ? (
-              <Badge variant="outline" className="capitalize">
+              <Badge
+                variant="outline"
+                className="rounded-md px-1.5 py-0 text-[11px] font-normal capitalize"
+              >
                 {job.outcome.replaceAll("_", " ")}
               </Badge>
             ) : null}
-          </div>
+          </>
         )}
-        <div className="mt-2 text-[11px] text-muted-foreground/70">
+        <span className="text-[11px] text-muted-foreground/80">
           {latestEventAt != null
             ? `Updated ${formatTimestamp(latestEventAt)}`
             : "No stage events yet"}
-        </div>
-      </Link>
+        </span>
+      </div>
       {stage === "targeted" && (
         <div className="mt-3 flex flex-wrap gap-2" data-board-card-menu="">
           {resumeState === "available" && (

@@ -33,8 +33,9 @@ export const FilterPill: React.FC<FilterPillProps> = ({
         variant="outline"
         size="sm"
         className={cn(
-          "h-9 gap-1.5 rounded-full border-solid text-xs font-medium text-muted-foreground",
-          active && "border-primary/50 bg-primary/5 text-foreground",
+          "h-7 gap-1.5 rounded-md border-dashed px-2 text-xs font-medium text-muted-foreground shadow-none",
+          "hover:border-solid hover:bg-accent/60 hover:text-foreground",
+          active && "border-solid bg-accent/50 text-foreground",
         )}
       >
         <span className="[&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:opacity-70">{icon}</span>
@@ -47,7 +48,7 @@ export const FilterPill: React.FC<FilterPillProps> = ({
             {badge}
           </span>
         ) : null}
-        <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+        <ChevronDown className="h-3 w-3 opacity-50" />
       </Button>
     </PopoverTrigger>
     <PopoverContent align="start" className={cn("w-64", contentClassName)}>
