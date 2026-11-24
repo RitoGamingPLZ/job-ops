@@ -705,6 +705,17 @@ describe("Settings API routes", () => {
     const modelBody = await modelRes.json();
     expect(modelBody.data.model.value).toBe("openai/gpt-4o-mini");
 
+    // The settings page submits the whole form, so untouched server-wide keys arrive as
+    // null. That must not fail for non-admins, and must not be applied.
+    const fullFormRes = await patchAsRegular({
+      model: "openai/gpt-4o-mini",
+      searchTerms: ["backend engineer"],
+      backupEnabled: null,
+      backupHour: null,
+      backupMaxCount: null,
+    });
+    expect(fullFormRes.status).toBe(200);
+
     // Server-wide backup settings stay admin-only.
     const backupRes = await patchAsRegular({
       searchTerms: ["backend engineer"],

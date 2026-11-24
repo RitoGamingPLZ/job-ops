@@ -87,19 +87,24 @@ function requireSystemAdmin(res: Response): boolean {
   return false;
 }
 
+/**
+ * The settings page always submits the whole form, so server-wide keys arrive as `null`
+ * ("use default") even when the user did not touch them. For non-admins, drop those
+ * untouched keys instead of applying them (applying them would also refresh the global
+ * backup scheduler from this user's values), and reject any attempt to actually set one.
+ */
 function requireSystemAdminForGlobalSettings(res: Response, input: UpdateSettingsInput): boolean {
-  if (
-    getJobOpsAppConfig().appMode === "hosted" ||
-    isSystemAdmin() ||
-    !Object.keys(input).some((key) =>
-      SYSTEM_ADMIN_SETTING_KEYS.has(key as keyof UpdateSettingsInput),
-    )
-  ) {
-    return true;
-  }
+  if (getJobOpsAppConfig().appMode === "hosted" || isSystemAdmin()) return true;
 
-  fail(res, forbidden("System admin access is required"));
-  return false;
+  const adminKeys = Object.keys(input).filter((key) =>
+    SYSTEM_ADMIN_SETTING_KEYS.has(key as keyof UpdateSettingsInput),
+  ) as Array<keyof UpdateSettingsInput>;
+  if (adminKeys.some((key) => input[key] !== null && input[key] !== undefined)) {
+    fail(res, forbidden("System admin access is required"));
+    return false;
+  }
+  for (const key of adminKeys) delete input[key];
+  return true;
 }
 
 function hasInputKey<K extends keyof UpdateSettingsInput>(
