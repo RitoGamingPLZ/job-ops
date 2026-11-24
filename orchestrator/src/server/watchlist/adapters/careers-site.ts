@@ -7,12 +7,15 @@ import {
   recordSiteRecipeRun,
   saveSiteRecipe,
 } from "@server/repositories/site-recipes";
+import { parseGreenhouseUrl } from "@career-boards/greenhouse";
+import greenhouseCatalog from "@server/config/career-boards-greenhouse.json";
 import { learnRecipe, RecipeLearningError } from "@server/watchlist/careers-site/learn";
 import { runRecipe } from "@server/watchlist/careers-site/run-recipe";
 import { type CrawledJob, SiteBlockedError } from "@server/watchlist/careers-site/types";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { convert } from "html-to-text";
 import { z } from "zod";
+import { greenhouseWatchlistAdapter } from "./greenhouse";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
 const sourceSchema = z.object({
@@ -78,6 +81,29 @@ function blocked(host: string) {
 /** The Cloudflare Durable Object bundle stubs out Playwright and jsdom, which this adapter needs. */
 function isWorkerdRuntime(): boolean {
   return typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
+}
+let greenhouseBoards: Map<string, string> | undefined;
+/**
+ * Without a browser, serve a careers site from the company's Greenhouse board when the
+ * catalog has one (matched on the site's domain name, e.g. www.okta.com -> okta).
+ */
+function greenhouseFallback(source: WatchlistSelectedSource): WatchlistSelectedSource | null {
+  if (!isWorkerdRuntime()) return null;
+  greenhouseBoards ??= new Map(
+    greenhouseCatalog.flatMap((entry) => {
+      try {
+        const board = parseGreenhouseUrl(entry.greenhouseUrl);
+        return [[board.token.toLowerCase(), board.canonicalCareersUrl] as const];
+      } catch {
+        return [];
+      }
+    }),
+  );
+  const labels = careersUrl(source.careersUrl).hostname.toLowerCase().split(".");
+  const board = labels.length >= 2 ? greenhouseBoards.get(labels[labels.length - 2]) : undefined;
+  return board
+    ? { ...source, sourceType: "greenhouse", careersUrl: board, cxsJobsUrl: null }
+    : null;
 }
 function startLearning(host: string, url: string): never {
   const plainUrl = new URL(url);
@@ -198,10 +224,13 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async fetchJobs(input) {
     const url = careersUrl(input.source.careersUrl);
     const host = url.hostname;
-    if (isWorkerdRuntime())
+    if (isWorkerdRuntime()) {
+      const fallback = greenhouseFallback(input.source);
+      if (fallback) return greenhouseWatchlistAdapter.fetchJobs({ ...input, source: fallback });
       throw serviceUnavailable(
-        `Careers-site sources need a browser, which is not available on this deployment yet. Use ${host}'s applicant-tracking source (for example Greenhouse) instead.`,
+        `Careers-site sources need a browser, which is not available on this deployment yet, and no Greenhouse board is known for ${host}.`,
       );
+    }
     const sourceKey = key(host, url.search);
     const stopAt = Date.now() + 20_000;
     const timeout = AbortSignal.timeout(25_000);
@@ -279,6 +308,9 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     };
   },
   async fetchJobDetails(input) {
+    const fallback = greenhouseFallback(input.source);
+    if (fallback)
+      return greenhouseWatchlistAdapter.fetchJobDetails({ ...input, source: fallback });
     const { job } = cachedJob(input);
     return {
       jobRef: input.jobRef,
@@ -287,6 +319,9 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     };
   },
   async prepareImportDraft(input) {
+    const fallback = greenhouseFallback(input.source);
+    if (fallback)
+      return greenhouseWatchlistAdapter.prepareImportDraft({ ...input, source: fallback });
     const { host, sourceKey, job } = cachedJob(input);
     return {
       source: sourceKey,
