@@ -67,32 +67,19 @@ const LLM_SETTING_KEYS: Array<keyof UpdateSettingsInput> = [
 ];
 const CLI_PROVIDERS = new Set(["codex", "gemini_cli", "claude_cli"]);
 
-// These settings describe an individual search run. They are persisted in the
-// settings repository for extractor compatibility, but are not server-level
-// maintenance settings and must remain editable by authenticated non-admins.
-const NON_ADMIN_SEARCH_SETTING_KEYS = new Set<keyof UpdateSettingsInput>([
-  "pipelineScheduleEnabled",
-  "pipelineScheduleHour",
-  "searchTerms",
-  "workplaceTypes",
-  "locationSearchScope",
-  "locationMatchStrictness",
-  "locationSearchMode",
-  "locationLatitude",
-  "locationLongitude",
-  "locationRadiusMiles",
-  "jobspyResultsWanted",
-  "gradcrackerMaxJobsPerTerm",
-  "ukvisajobsMaxJobs",
-  "adzunaMaxJobsPerTerm",
-  "startupjobsMaxJobsPerTerm",
-  "jobindexMaxJobsPerTerm",
-  "seekMaxJobsPerTerm",
-  "naukriMaxJobsPerTerm",
-  "jobspyCountryIndeed",
-  "searchCities",
-  "jobspyLocation",
+// Settings are stored per workspace (each non-hosted user has a private tenant), so
+// they are editable by every authenticated user. Only settings that drive server-wide
+// maintenance jobs need a system admin.
+const SYSTEM_ADMIN_SETTING_KEYS = new Set<keyof UpdateSettingsInput>([
+  "backupEnabled",
+  "backupHour",
+  "backupMaxCount",
 ]);
+
+/** Non-admin accounts get the same LLM restrictions as hosted mode: no CLI providers or custom endpoints. */
+function isLlmRestricted(): boolean {
+  return getJobOpsAppConfig().appMode === "hosted" || !isSystemAdmin();
+}
 
 function requireSystemAdmin(res: Response): boolean {
   if (getJobOpsAppConfig().appMode === "hosted" || isSystemAdmin()) return true;
@@ -100,12 +87,12 @@ function requireSystemAdmin(res: Response): boolean {
   return false;
 }
 
-function requireSystemAdminOrSearchSettings(res: Response, input: UpdateSettingsInput): boolean {
+function requireSystemAdminForGlobalSettings(res: Response, input: UpdateSettingsInput): boolean {
   if (
     getJobOpsAppConfig().appMode === "hosted" ||
     isSystemAdmin() ||
-    Object.keys(input).every((key) =>
-      NON_ADMIN_SEARCH_SETTING_KEYS.has(key as keyof UpdateSettingsInput),
+    !Object.keys(input).some((key) =>
+      SYSTEM_ADMIN_SETTING_KEYS.has(key as keyof UpdateSettingsInput),
     )
   ) {
     return true;
@@ -133,28 +120,32 @@ async function assertLlmSettingsEditable(): Promise<void> {
   }
 }
 
+function restrictedScope(): string {
+  return getJobOpsAppConfig().appMode === "hosted" ? "hosted mode" : "non-admin accounts";
+}
+
 function assertHostedProviderAllowed(provider: string | null | undefined): void {
-  if (getJobOpsAppConfig().appMode !== "hosted") return;
+  if (!isLlmRestricted()) return;
   if (isHostedLocalProvider(provider)) {
     throw forbidden(
-      "Local LLM providers are unavailable in hosted mode. Configure a supported hosted HTTPS provider.",
+      `Local LLM providers are unavailable in ${restrictedScope()}. Configure a supported hosted HTTPS provider.`,
     );
   }
   if (CLI_PROVIDERS.has(normalizeLlmProviderValue(provider) ?? "")) {
-    throw forbidden("CLI LLM providers are unavailable in hosted mode.");
+    throw forbidden(`CLI LLM providers are unavailable in ${restrictedScope()}.`);
   }
 }
 
 function assertHostedBaseUrlAllowed(value: string | null | undefined): void {
-  if (getJobOpsAppConfig().appMode === "hosted" && value?.trim()) {
+  if (isLlmRestricted() && value?.trim()) {
     throw forbidden(
-      "Custom LLM base URLs are unavailable in hosted mode. Use a supported provider endpoint.",
+      `Custom LLM base URLs are unavailable in ${restrictedScope()}. Use a supported provider endpoint.`,
     );
   }
 }
 
 function assertHostedLlmInputAllowed(input: UpdateSettingsInput): void {
-  if (getJobOpsAppConfig().appMode !== "hosted") return;
+  if (!isLlmRestricted()) return;
   assertHostedProviderAllowed(input.llmProvider);
   for (const override of Object.values(input.llmPurposeOverrides ?? {})) {
     assertHostedProviderAllowed(override?.provider);
@@ -289,7 +280,7 @@ async function resolveLlmConfig(input: {
     environment: hostedMode ? undefined : getOriginalEnvValue("LLM_BASE_URL"),
     fallbackToDefault: true,
   });
-  if (hostedMode && (isHostedLocalProvider(provider) || hasCustomUserBaseUrl)) {
+  if (isLlmRestricted() && (isHostedLocalProvider(provider) || hasCustomUserBaseUrl)) {
     throw forbidden("Hosted LLM providers must use supported public provider endpoints.");
   }
 
@@ -378,7 +369,7 @@ settingsRouter.patch(
     }
 
     const input = updateSettingsSchema.parse(req.body);
-    if (!requireSystemAdminOrSearchSettings(res, input)) return;
+    if (!requireSystemAdminForGlobalSettings(res, input)) return;
     if (LLM_SETTING_KEYS.some((key) => hasInputKey(input, key))) {
       await assertLlmSettingsEditable();
       assertHostedLlmInputAllowed(input);
@@ -491,8 +482,8 @@ settingsRouter.post(
       provider: resolved.provider,
       apiKey: resolved.apiKey,
       baseUrl: resolved.baseUrl,
-      allowEnvironmentCredentials: getJobOpsAppConfig().appMode !== "hosted",
-      allowCliProviders: getJobOpsAppConfig().appMode !== "hosted",
+      allowEnvironmentCredentials: !isLlmRestricted(),
+      allowCliProviders: !isLlmRestricted(),
     });
 
     try {
