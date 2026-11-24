@@ -85,6 +85,14 @@ export class AppStore extends DurableObject<Env> {
     });
   }
 
+  private async launchBrowser(): Promise<never> {
+    const binding = this.env.BROWSER;
+    if (!binding) throw new Error("Browser Run binding is not configured.");
+    // Lazy: keep the Playwright client out of the cold-start path of every request.
+    const { launch } = await import("@cloudflare/playwright");
+    return (await launch(binding)) as never;
+  }
+
   private async ensureExpressServer(): Promise<void> {
     if (this.expressInitialized) {
       return;
@@ -95,6 +103,8 @@ export class AppStore extends DurableObject<Env> {
       r2Bucket: this.env.DATA_BUCKET ?? null,
       env: this.env as unknown as Record<string, unknown>,
       port: DO_EXPRESS_PORT,
+      // Cloudflare Browser Run replaces the local Chromium that careers-site crawling needs.
+      browserLauncher: this.env.BROWSER ? () => this.launchBrowser() : undefined,
       remoteRenderPdf: async (body, requestId) => {
         const namespace = this.env.SCRAPER_CONTAINER;
         const secret = (this.env.INTERNAL_SYNC_SECRET || this.env.CRON_SECRET)?.trim();

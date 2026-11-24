@@ -24,6 +24,11 @@
   "observability": {
     "enabled": true,
   },
+  // Cloudflare Browser Run: renders JavaScript careers sites for the watchlist, since a
+  // Durable Object has no local Chromium.
+  "browser": {
+    "binding": "BROWSER",
+  },
   "routes": [
     {
       "pattern": "jobdb.alanchiu.net",

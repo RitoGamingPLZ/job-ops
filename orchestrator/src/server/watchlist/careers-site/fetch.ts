@@ -399,31 +399,54 @@ function scheduleBrowserClose() {
     sharedBrowser = undefined;
     void browser?.then((instance) => instance.close()).catch(() => {});
   }, IDLE_TIMEOUT);
-  idleTimer.unref();
+  // workerd timers are plain numbers without unref().
+  (idleTimer as { unref?: () => void }).unref?.();
+}
+
+export type CareersBrowserLauncher = () => Promise<Browser>;
+let injectedLauncher: CareersBrowserLauncher | null = null;
+
+/**
+ * Lets the Cloudflare worker supply a Browser Run session, since there is no local Chromium
+ * inside a Durable Object. Every request still goes through the checked route handler below.
+ */
+export function setCareersBrowserLauncher(launcher: CareersBrowserLauncher | null): void {
+  injectedLauncher = launcher;
+  const previous = sharedBrowser;
+  sharedBrowser = undefined;
+  void previous?.then((instance) => instance.close()).catch(() => {});
+}
+
+/** True when a rendered browser can be launched in this runtime (injected or, outside workerd, local). */
+export function hasCareersBrowser(): boolean {
+  return injectedLauncher !== null;
+}
+
+async function launchLocalChromium(): Promise<Browser> {
+  let executablePath = process.env.CRAWLER_CHROMIUM_PATH;
+  if (!executablePath) {
+    const root = join(homedir(), ".cache/ms-playwright");
+    const entries = await readdir(root);
+    const newest = entries
+      .filter((name) => /^chromium_headless_shell-\d+$/.test(name))
+      .sort((a, b) => Number(b.split("-").at(-1)) - Number(a.split("-").at(-1)))[0];
+    if (!newest) throw new Error("Crawler Chromium is not installed; set CRAWLER_CHROMIUM_PATH");
+    executablePath = join(root, newest, "chrome-headless-shell-linux64/chrome-headless-shell");
+  }
+  return chromium.launch({
+    executablePath,
+    headless: true,
+    args: [
+      "--host-resolver-rules=MAP * ~NOTFOUND",
+      "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+    ],
+  });
 }
 
 async function getBrowser(): Promise<Browser> {
   if (!sharedBrowser) {
     const pending = (async () => {
-      let executablePath = process.env.CRAWLER_CHROMIUM_PATH;
-      if (!executablePath) {
-        const root = join(homedir(), ".cache/ms-playwright");
-        const entries = await readdir(root);
-        const newest = entries
-          .filter((name) => /^chromium_headless_shell-\d+$/.test(name))
-          .sort((a, b) => Number(b.split("-").at(-1)) - Number(a.split("-").at(-1)))[0];
-        if (!newest)
-          throw new Error("Crawler Chromium is not installed; set CRAWLER_CHROMIUM_PATH");
-        executablePath = join(root, newest, "chrome-headless-shell-linux64/chrome-headless-shell");
-      }
-      const browser = await chromium.launch({
-        executablePath,
-        headless: true,
-        args: [
-          "--host-resolver-rules=MAP * ~NOTFOUND",
-          "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
-        ],
-      });
+      const browser = await (injectedLauncher ? injectedLauncher() : launchLocalChromium());
       browser.on("disconnected", () => {
         if (sharedBrowser === pending) sharedBrowser = undefined;
       });

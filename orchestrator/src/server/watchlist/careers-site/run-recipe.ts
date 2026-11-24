@@ -1,4 +1,4 @@
-import { JSDOM } from "jsdom";
+import { parseDom } from "./dom";
 import { isAllowedByRobots, loadPage } from "./fetch";
 import { type CrawledJob, type Recipe, SiteBlockedError } from "./types";
 
@@ -188,7 +188,7 @@ function microdata(scope: Element): Record<string, unknown> {
 /** Parse one job page per recipe.detail. Returns null for missing jobs, invalid selectors, or overlong URLs. */
 export function extractJob(html: string, url: string, recipe: Recipe): CrawledJob | null {
   if (url.length > MAX_URL_LENGTH) return null;
-  const dom = new JSDOM(html);
+  const dom = parseDom(html);
   try {
     const document = dom.window.document;
     let data: Record<string, unknown> | null = null;
@@ -329,7 +329,7 @@ export async function runRecipe(
       visited.add(url);
       const page = await read(url);
       if (!page) return;
-      const dom = new JSDOM(page.html, { contentType: "text/xml" });
+      const dom = parseDom(page.html, { contentType: "text/xml" });
       try {
         const root = dom.window.document.documentElement;
         if (root.localName === "sitemapindex") {
@@ -385,7 +385,7 @@ export async function runRecipe(
         const page = await read(url.href, render, waitFor);
         if (!page) break;
         const before = candidateIds.size;
-        const dom = new JSDOM(page.html);
+        const dom = parseDom(page.html);
         try {
           const links = Array.from(
             dom.window.document.querySelectorAll("a[href]"),

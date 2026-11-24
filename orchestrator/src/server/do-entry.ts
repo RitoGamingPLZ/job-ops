@@ -39,6 +39,10 @@ import {
 } from "./services/do-on-task-done";
 
 import { type RemotePdfRenderer, setRemotePdfRenderer } from "./services/pdf";
+import {
+  type CareersBrowserLauncher,
+  setCareersBrowserLauncher,
+} from "./watchlist/careers-site/fetch";
 
 export type { OnTaskDonePayload, OnTaskDonePosting, OnTaskDoneResult, PortableMigrationResult };
 export { handleDurableObjectTaskDone, runPortableMigrations };
@@ -76,6 +80,8 @@ export interface DurableObjectExpressServerOptions {
   env?: Record<string, unknown>;
   port?: number;
   remoteRenderPdf?: RemotePdfRenderer;
+  /** Launches a Cloudflare Browser Run session for rendered careers-site crawling. */
+  browserLauncher?: CareersBrowserLauncher;
 }
 
 export interface DurableObjectExpressServer {
@@ -102,6 +108,7 @@ export function createDurableObjectExpressServer(
   }
 
   setRemotePdfRenderer(options.remoteRenderPdf ?? null);
+  setCareersBrowserLauncher(options.browserLauncher ?? null);
   setDb(createDurableObjectDrizzleDb(options.storage));
 
   if (options.r2Bucket) {
