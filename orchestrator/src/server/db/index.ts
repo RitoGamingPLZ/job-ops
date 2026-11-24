@@ -63,6 +63,40 @@ function getOrCreateDefaultDb(): AppDatabase {
   return defaultDb;
 }
 
+type RunResult = { changes: number; lastInsertRowid: number | bigint };
+type PreparedQueryLike = { run: (placeholderValues?: unknown) => unknown };
+
+/**
+ * drizzle's durable-sqlite `run()` returns `undefined`, while better-sqlite3 returns
+ * `{ changes, lastInsertRowid }`. App code reads `.changes` from `.run()` and from awaited
+ * insert/update/delete builders, so make the Durable Object driver return the same shape.
+ */
+function patchRunResult(doDb: unknown, storage: DurableObjectStorageLike): void {
+  const session = (
+    doDb as {
+      session: { prepareQuery: (...args: unknown[]) => PreparedQueryLike };
+    }
+  ).session;
+  const prepareQuery = session.prepareQuery.bind(session);
+  session.prepareQuery = (...args) => {
+    const prepared = prepareQuery(...args);
+    const run = prepared.run.bind(prepared);
+    prepared.run = (placeholderValues) => {
+      run(placeholderValues);
+      return readRunResult(storage);
+    };
+    return prepared;
+  };
+}
+
+function readRunResult(storage: DurableObjectStorageLike): RunResult {
+  const cursor = storage.sql.exec("SELECT changes() AS changes, last_insert_rowid() AS id") as {
+    one: () => { changes: number; id: number | bigint };
+  };
+  const row = cursor.one();
+  return { changes: Number(row.changes), lastInsertRowid: row.id };
+}
+
 /**
  * Creates a Drizzle database instance backed by Cloudflare Durable Object SQLite storage.
  * Wraps `transaction()` so synchronous callbacks return their value (working around
@@ -72,6 +106,7 @@ export function createDurableObjectDrizzleDb(storage: DurableObjectStorageLike):
   const doDb = drizzleDurable(storage as Parameters<typeof drizzleDurable>[0], {
     schema,
   });
+  patchRunResult(doDb, storage);
   const originalTransaction = doDb.transaction.bind(doDb);
   (
     doDb as unknown as {
