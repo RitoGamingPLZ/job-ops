@@ -43,7 +43,9 @@ describe("Durable Object drizzle db", () => {
   const row = (key: string) => ({ tenantId: "t", userId: "u", key, value: "v" });
 
   it("returns the affected row count from run() like better-sqlite3", () => {
-    db.insert(settings).values([row("a"), row("b"), row("c")]).run();
+    db.insert(settings)
+      .values([row("a"), row("b"), row("c")])
+      .run();
 
     const updated = db.update(settings).set({ value: "x" }).where(eq(settings.key, "a")).run();
     expect(updated.changes).toBe(1);
@@ -56,7 +58,9 @@ describe("Durable Object drizzle db", () => {
   });
 
   it("returns changes from awaited builders without .run()", async () => {
-    db.insert(settings).values([row("a"), row("b")]).run();
+    db.insert(settings)
+      .values([row("a"), row("b")])
+      .run();
 
     const result = (await db.delete(settings).where(eq(settings.key, "a"))) as unknown as {
       changes: number;
