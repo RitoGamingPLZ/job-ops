@@ -91,7 +91,9 @@ function requireSystemAdminForGlobalSettings(res: Response, input: UpdateSetting
   if (
     getJobOpsAppConfig().appMode === "hosted" ||
     isSystemAdmin() ||
-    !Object.keys(input).some((key) => SYSTEM_ADMIN_SETTING_KEYS.has(key as keyof UpdateSettingsInput))
+    !Object.keys(input).some((key) =>
+      SYSTEM_ADMIN_SETTING_KEYS.has(key as keyof UpdateSettingsInput),
+    )
   ) {
     return true;
   }

@@ -706,7 +706,10 @@ describe("Settings API routes", () => {
     expect(modelBody.data.model.value).toBe("openai/gpt-4o-mini");
 
     // Server-wide backup settings stay admin-only.
-    const backupRes = await patchAsRegular({ searchTerms: ["backend engineer"], backupEnabled: true });
+    const backupRes = await patchAsRegular({
+      searchTerms: ["backend engineer"],
+      backupEnabled: true,
+    });
     expect(backupRes.status).toBe(403);
     expect((await backupRes.json()).error.code).toBe("FORBIDDEN");
 
