@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   ghJobs: vi.fn(),
   ghDetails: vi.fn(),
   ghImport: vi.fn(),
+  hasBrowser: vi.fn(),
 }));
 vi.mock("./greenhouse", () => ({
   greenhouseWatchlistAdapter: {
@@ -41,6 +42,7 @@ vi.mock("@server/watchlist/careers-site/fetch", () => ({
   fetchPublicText: vi.fn(),
   isAllowedByRobots: vi.fn(),
   loadPage: vi.fn(),
+  hasCareersBrowser: mocks.hasBrowser,
 }));
 vi.mock("@infra/logger", () => ({ logger: { warn: mocks.warn } }));
 const recipe: Recipe = {
@@ -629,10 +631,22 @@ describe("careersSiteWatchlistAdapter", () => {
     expect(mocks.ghJobs).not.toHaveBeenCalled();
     expect(mocks.run).toHaveBeenCalled();
   });
+  it("runs the normal recipe flow in the worker when Browser Run is configured and no Greenhouse board exists", async () => {
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+    mocks.hasBrowser.mockReturnValue(true);
+    try {
+      const result = await adapter.fetchJobs({ source });
+      expect(result).toMatchObject({ total: 1, fetched: 1 });
+      expect(mocks.run).toHaveBeenCalledTimes(1);
+      expect(mocks.ghJobs).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it("fails clearly instead of crashing inside the Cloudflare worker runtime", async () => {
     vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
     try {
-      await expect(adapter.fetchJobs({ source })).rejects.toThrow("not available on this deployment");
+      await expect(adapter.fetchJobs({ source })).rejects.toThrow("not configured on this deployment");
       expect(mocks.get).not.toHaveBeenCalled();
       expect(mocks.learn).not.toHaveBeenCalled();
     } finally {

@@ -7,7 +7,7 @@ export interface Env {
   SCRAPER_CONTAINER?: DurableObjectNamespace<ScraperContainer>;
   DATA_BUCKET?: R2Bucket;
   ASSETS?: Fetcher;
-  BROWSER?: Fetcher;
+  BROWSER?: BrowserRun;
   INTERNAL_SYNC_SECRET?: string;
 
   // Maintenance & scraper pool configuration

@@ -5,6 +5,7 @@ declare module "*do-entry.mjs" {
     env?: Record<string, unknown>;
     port?: number;
     remoteRenderPdf?: (body: string, requestId?: string) => Promise<Uint8Array>;
+    browserLauncher?: () => Promise<never>;
   }
 
   export interface OnTaskDonePosting {

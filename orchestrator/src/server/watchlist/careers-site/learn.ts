@@ -1,7 +1,7 @@
 import { logger } from "@infra/logger";
 import type { JsonSchemaDefinition } from "@server/services/llm/types";
 import { createConfiguredLlmService, resolveLlmModel } from "@server/services/modelSelection";
-import { JSDOM } from "jsdom";
+import { type ParsedDom, parseDom } from "./dom";
 import { isAllowedByRobots, loadPage } from "./fetch";
 import { detectQueryPagination, runRecipe } from "./run-recipe";
 import { type Recipe, recipeSchema, SiteBlockedError } from "./types";
@@ -170,7 +170,7 @@ function looksLikeJobUrl(value: string, base: URL): boolean {
 }
 
 function hasJobPosting(html: string): boolean {
-  const dom = new JSDOM(html);
+  const dom = parseDom(html);
   try {
     const doc = dom.window.document;
     if (doc.querySelector('[itemtype$="/JobPosting"]')) return true;
@@ -254,9 +254,9 @@ export async function learnRecipe(
     seen.add(entry.url);
     const xml = await read(entry.url);
     if (!xml) continue;
-    let dom: JSDOM;
+    let dom: ParsedDom;
     try {
-      dom = new JSDOM(xml, { contentType: "text/xml" });
+      dom = parseDom(xml, { contentType: "text/xml" });
     } catch {
       continue;
     }
@@ -320,7 +320,7 @@ export async function learnRecipe(
   let listingHtml = await read(base.href);
   let listingRendered = false;
   // Static job links are sufficient evidence; render only dynamic listings.
-  const staticDom = new JSDOM(listingHtml || "");
+  const staticDom = parseDom(listingHtml || "");
   let hasStaticJobs: boolean;
   try {
     hasStaticJobs = Array.from(staticDom.window.document.querySelectorAll("a[href]")).some(
@@ -337,7 +337,7 @@ export async function learnRecipe(
     listingRendered = true;
   }
   if (!listingHtml) throw new RecipeLearningError("Could not load an allowed careers listing");
-  const dom = new JSDOM(listingHtml);
+  const dom = parseDom(listingHtml);
   let links: { url: string; text: string }[];
   let allLinks: { url: string; text: string }[];
   try {
@@ -360,7 +360,7 @@ export async function learnRecipe(
   if (!sample) {
     for (const link of links.slice(0, 2)) {
       let html = await read(link.url);
-      const doc = new JSDOM(html || "");
+      const doc = parseDom(html || "");
       let render: boolean;
       try {
         render =
@@ -381,7 +381,7 @@ export async function learnRecipe(
     }
   }
   if (!sample) throw new RecipeLearningError("No allowed job page found for recipe learning");
-  const detailDom = new JSDOM(sample.html);
+  const detailDom = parseDom(sample.html);
   let outline: string;
   try {
     detailDom.window.document
@@ -528,7 +528,7 @@ export async function learnRecipe(
       }
       if (recipe.detail.kind === "selectors" && recipe.detail.render) {
         const staticHtml = pages.get(`false:${sample.url}`) ?? (await read(sample.url));
-        const staticDoc = new JSDOM(staticHtml || "");
+        const staticDoc = parseDom(staticHtml || "");
         try {
           if (
             staticDoc.window.document.querySelector(recipe.detail.title)?.textContent?.trim() &&
@@ -548,7 +548,7 @@ export async function learnRecipe(
           const secondUrl = new URL(firstUrl);
           secondUrl.searchParams.set(pagination.param, String(pagination.start + pagination.step));
           const jobLinks = (html: string | null) => {
-            const doc = new JSDOM(html || "");
+            const doc = parseDom(html || "");
             try {
               return new Set(
                 Array.from(doc.window.document.querySelectorAll("a[href]"))

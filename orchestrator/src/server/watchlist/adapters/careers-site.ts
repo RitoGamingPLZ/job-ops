@@ -9,6 +9,8 @@ import {
 } from "@server/repositories/site-recipes";
 import { parseGreenhouseUrl } from "@career-boards/greenhouse";
 import greenhouseCatalog from "@server/config/career-boards-greenhouse.json";
+import { isWorkerdRuntime } from "@server/watchlist/careers-site/dom";
+import { hasCareersBrowser } from "@server/watchlist/careers-site/fetch";
 import { learnRecipe, RecipeLearningError } from "@server/watchlist/careers-site/learn";
 import { runRecipe } from "@server/watchlist/careers-site/run-recipe";
 import { type CrawledJob, SiteBlockedError } from "@server/watchlist/careers-site/types";
@@ -77,10 +79,6 @@ function blocked(host: string) {
   return upstreamError(
     `Careers site ${host} blocks automated access. It will be retried automatically after 24 hours.`,
   );
-}
-/** The Cloudflare Durable Object bundle stubs out Playwright and jsdom, which this adapter needs. */
-function isWorkerdRuntime(): boolean {
-  return typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
 }
 let greenhouseBoards: Map<string, string> | undefined;
 /**
@@ -227,9 +225,10 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     if (isWorkerdRuntime()) {
       const fallback = greenhouseFallback(input.source);
       if (fallback) return greenhouseWatchlistAdapter.fetchJobs({ ...input, source: fallback });
-      throw serviceUnavailable(
-        `Careers-site sources need a browser, which is not available on this deployment yet, and no Greenhouse board is known for ${host}.`,
-      );
+      if (!hasCareersBrowser())
+        throw serviceUnavailable(
+          `Careers-site sources need a browser, which is not configured on this deployment (Cloudflare Browser Run binding), and no Greenhouse board is known for ${host}.`,
+        );
     }
     const sourceKey = key(host, url.search);
     const stopAt = Date.now() + 20_000;
