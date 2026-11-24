@@ -644,7 +644,7 @@ describe("Settings API routes", () => {
     expect(getBody.data.missingSalaryPenalty.value).toBe(20);
   });
 
-  it("allows non-admin users to update search settings without widening access", async () => {
+  it("lets non-admin users manage their own settings but keeps global and server-access settings restricted", async () => {
     await stopServer({ server, closeDb, tempDir });
     ({ server, baseUrl, closeDb, tempDir } = await startServer({
       env: AUTH_ENV,
@@ -685,21 +685,51 @@ describe("Settings API routes", () => {
     expect(searchSettingsBody.data.searchTerms.value).toEqual(["backend engineer"]);
     expect(searchSettingsBody.data.searchCities.value).toBe("London");
 
-    const protectedSettingsRes = await fetch(`${baseUrl}/api/settings`, {
+    const patchAsRegular = (body: Record<string, unknown>) =>
+      fetch(`${baseUrl}/api/settings`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${regularToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+    // Model settings are per-workspace, so a regular user can manage their own.
+    const modelRes = await patchAsRegular({
+      llmProvider: "openrouter",
+      model: "openai/gpt-4o-mini",
+      llmApiKey: "sk-regular-user-key",
+    });
+    expect(modelRes.status).toBe(200);
+    const modelBody = await modelRes.json();
+    expect(modelBody.data.model.value).toBe("openai/gpt-4o-mini");
+
+    // Server-wide backup settings stay admin-only.
+    const backupRes = await patchAsRegular({ searchTerms: ["backend engineer"], backupEnabled: true });
+    expect(backupRes.status).toBe(403);
+    expect((await backupRes.json()).error.code).toBe("FORBIDDEN");
+
+    // Non-admins cannot use the server's CLI logins or point the server at custom endpoints.
+    for (const body of [
+      { llmProvider: "codex" },
+      { llmProvider: "claude_cli" },
+      { llmBaseUrl: "http://169.254.169.254/latest" },
+    ]) {
+      const restrictedRes = await patchAsRegular(body);
+      expect(restrictedRes.status).toBe(403);
+    }
+
+    // Admins keep full access to model settings.
+    const adminRes = await fetch(`${baseUrl}/api/settings`, {
       method: "PATCH",
       headers: {
-        Authorization: `Bearer ${regularToken}`,
+        Authorization: `Bearer ${adminToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        searchTerms: ["backend engineer"],
-        llmApiKey: "attacker-controlled-value",
-      }),
+      body: JSON.stringify({ llmProvider: "openrouter", backupEnabled: true }),
     });
-    const protectedSettingsBody = await protectedSettingsRes.json();
-
-    expect(protectedSettingsRes.status).toBe(403);
-    expect(protectedSettingsBody.error.code).toBe("FORBIDDEN");
+    expect(adminRes.status).toBe(200);
   });
 
   it("preserves upstream 404 from Reactive Resume project lookup", async () => {
