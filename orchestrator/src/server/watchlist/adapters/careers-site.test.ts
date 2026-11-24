@@ -588,9 +588,7 @@ describe("careersSiteWatchlistAdapter", () => {
   });
   it("retries learning once a recorded block is older than 24 hours", async () => {
     const stale = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
-    mocks.get.mockResolvedValue(
-      record({ recipe: null, blockedReason: "403", updatedAt: stale }),
-    );
+    mocks.get.mockResolvedValue(record({ recipe: null, blockedReason: "403", updatedAt: stale }));
     await expect(adapter.fetchJobs({ source })).rejects.toThrow("Learning");
     expect(mocks.learn).toHaveBeenCalledTimes(1);
     expect(mocks.run).not.toHaveBeenCalled();
@@ -599,30 +597,33 @@ describe("careersSiteWatchlistAdapter", () => {
     ["Okta", "https://www.okta.com/company/careers/", "okta"],
     ["Stripe", "https://stripe.com/careers/search", "stripe"],
     ["Airbnb", "https://careers.airbnb.com/positions/", "airbnb"],
-  ])("serves %s from its Greenhouse board inside the Cloudflare worker runtime", async (label, careersUrl, token) => {
-    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
-    const gh = { total: 1, fetched: 1, jobs: [] };
-    mocks.ghJobs.mockResolvedValue(gh);
-    mocks.ghDetails.mockResolvedValue({ jobRef: "r", jobUrl: "u", descriptionHtml: "<p>x</p>" });
-    mocks.ghImport.mockResolvedValue({ draft: {}, source: "s", sourceHost: "h" });
-    const careers = { ...source, label, careersUrl };
-    try {
-      expect(await adapter.fetchJobs({ source: careers })).toBe(gh);
-      const delegated = mocks.ghJobs.mock.calls[0][0].source;
-      expect(delegated).toMatchObject({
-        sourceType: "greenhouse",
-        careersUrl: expect.stringContaining(`greenhouse.io/${token}`),
-      });
-      await adapter.fetchJobDetails({ source: careers, jobRef: "r" });
-      await adapter.prepareImportDraft({ source: careers, jobRef: "r" });
-      expect(mocks.ghDetails.mock.calls[0][0].source.sourceType).toBe("greenhouse");
-      expect(mocks.ghImport.mock.calls[0][0].source.sourceType).toBe("greenhouse");
-      expect(mocks.get).not.toHaveBeenCalled();
-      expect(mocks.learn).not.toHaveBeenCalled();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
+  ])(
+    "serves %s from its Greenhouse board inside the Cloudflare worker runtime",
+    async (label, careersUrl, token) => {
+      vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+      const gh = { total: 1, fetched: 1, jobs: [] };
+      mocks.ghJobs.mockResolvedValue(gh);
+      mocks.ghDetails.mockResolvedValue({ jobRef: "r", jobUrl: "u", descriptionHtml: "<p>x</p>" });
+      mocks.ghImport.mockResolvedValue({ draft: {}, source: "s", sourceHost: "h" });
+      const careers = { ...source, label, careersUrl };
+      try {
+        expect(await adapter.fetchJobs({ source: careers })).toBe(gh);
+        const delegated = mocks.ghJobs.mock.calls[0][0].source;
+        expect(delegated).toMatchObject({
+          sourceType: "greenhouse",
+          careersUrl: expect.stringContaining(`greenhouse.io/${token}`),
+        });
+        await adapter.fetchJobDetails({ source: careers, jobRef: "r" });
+        await adapter.prepareImportDraft({ source: careers, jobRef: "r" });
+        expect(mocks.ghDetails.mock.calls[0][0].source.sourceType).toBe("greenhouse");
+        expect(mocks.ghImport.mock.calls[0][0].source.sourceType).toBe("greenhouse");
+        expect(mocks.get).not.toHaveBeenCalled();
+        expect(mocks.learn).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
   it("does not use the Greenhouse fallback outside the worker runtime", async () => {
     const okta = { ...source, label: "Okta", careersUrl: "https://www.okta.com/company/careers/" };
     await adapter.fetchJobs({ source: okta });
@@ -632,7 +633,9 @@ describe("careersSiteWatchlistAdapter", () => {
   it("fails clearly instead of crashing inside the Cloudflare worker runtime", async () => {
     vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
     try {
-      await expect(adapter.fetchJobs({ source })).rejects.toThrow("not available on this deployment");
+      await expect(adapter.fetchJobs({ source })).rejects.toThrow(
+        "not available on this deployment",
+      );
       expect(mocks.get).not.toHaveBeenCalled();
       expect(mocks.learn).not.toHaveBeenCalled();
     } finally {
