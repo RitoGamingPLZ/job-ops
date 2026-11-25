@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { hashPassword } from "@server/auth/password";
 import { DEFAULT_TENANT_ID, DEFAULT_TENANT_NAME } from "@server/tenancy/constants";
-import type { AuthUser as SharedAuthUser } from "@shared/types";
+import {
+  ALL_USER_PERMISSIONS_GRANTED,
+  type AuthUser as SharedAuthUser,
+  type UserPermissions,
+  resolveUserPermissions,
+} from "@shared/types";
 import { eq, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 
@@ -47,6 +52,20 @@ function slugify(value: string): string {
   );
 }
 
+function parseStoredPermissions(raw: string | null): unknown {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function effectivePermissions(isSystemAdmin: boolean, raw: string | null): UserPermissions {
+  if (isSystemAdmin) return { ...ALL_USER_PERMISSIONS_GRANTED };
+  return resolveUserPermissions(parseStoredPermissions(raw));
+}
+
 function mapUser(row: {
   id: string;
   username: string;
@@ -54,6 +73,7 @@ function mapUser(row: {
   isSystemAdmin: boolean;
   isDisabled: boolean;
   mustChangePassword: boolean;
+  permissions: string | null;
   passwordHash: string | null;
   workspaceId: string;
   workspaceName: string;
@@ -68,6 +88,7 @@ function mapUser(row: {
     isDisabled: row.isDisabled,
     hasPassword: row.passwordHash !== null,
     mustChangePassword: row.mustChangePassword,
+    permissions: effectivePermissions(row.isSystemAdmin, row.permissions),
     workspaceId: row.workspaceId,
     workspaceName: row.workspaceName,
     createdAt: row.createdAt,
@@ -112,6 +133,7 @@ export async function getUserById(id: string): Promise<PublicUser | null> {
       isSystemAdmin: users.isSystemAdmin,
       isDisabled: users.isDisabled,
       mustChangePassword: users.mustChangePassword,
+      permissions: users.permissions,
       passwordHash: users.passwordHash,
       workspaceId: tenantMemberships.tenantId,
       workspaceName: tenants.name,
@@ -136,6 +158,7 @@ export async function listUsers(): Promise<PublicUser[]> {
       isSystemAdmin: users.isSystemAdmin,
       isDisabled: users.isDisabled,
       mustChangePassword: users.mustChangePassword,
+      permissions: users.permissions,
       passwordHash: users.passwordHash,
       workspaceId: tenantMemberships.tenantId,
       workspaceName: tenants.name,
@@ -156,6 +179,7 @@ export async function createPrivateWorkspaceUser(input: {
   isSystemAdmin?: boolean;
   mustChangePassword?: boolean;
   useDefaultTenant?: boolean;
+  permissions?: Partial<UserPermissions>;
 }): Promise<PublicUser> {
   const now = new Date().toISOString();
   const username = normalizeUsername(input.username);
@@ -201,6 +225,9 @@ export async function createPrivateWorkspaceUser(input: {
         isSystemAdmin: input.isSystemAdmin ?? false,
         isDisabled: false,
         mustChangePassword: input.mustChangePassword ?? false,
+        permissions: input.permissions
+          ? JSON.stringify({ ...resolveUserPermissions(null), ...input.permissions })
+          : null,
         createdAt: now,
         updatedAt: now,
       })
@@ -467,15 +494,50 @@ export async function updateUserPassword(input: {
   await db.update(users).set(updates).where(eq(users.id, input.id));
 }
 
-/** True when at least one enabled system admin belongs to this workspace. */
-export async function tenantHasSystemAdmin(tenantId: string): Promise<boolean> {
-  const [row] = await db
-    .select({ id: users.id })
+/**
+ * True when someone in this workspace may spend the operator's server credentials:
+ * an enabled system admin, or an enabled member the admin granted `serverCredentials`.
+ */
+export async function tenantHasServerCredentialAccess(tenantId: string): Promise<boolean> {
+  const rows = await db
+    .select({ isSystemAdmin: users.isSystemAdmin, permissions: users.permissions })
     .from(users)
     .innerJoin(tenantMemberships, eq(tenantMemberships.userId, users.id))
-    .where(
-      sql`${tenantMemberships.tenantId} = ${tenantId} AND ${users.isSystemAdmin} = 1 AND ${users.isDisabled} = 0`,
-    )
+    .where(sql`${tenantMemberships.tenantId} = ${tenantId} AND ${users.isDisabled} = 0`);
+  return rows.some(
+    (row) => effectivePermissions(row.isSystemAdmin, row.permissions).serverCredentials,
+  );
+}
+
+/** Effective permissions for one user, or null when the user does not exist. */
+export async function getUserPermissions(userId: string): Promise<UserPermissions | null> {
+  const [row] = await db
+    .select({ isSystemAdmin: users.isSystemAdmin, permissions: users.permissions })
+    .from(users)
+    .where(eq(users.id, userId))
     .limit(1);
-  return Boolean(row);
+  return row ? effectivePermissions(row.isSystemAdmin, row.permissions) : null;
+}
+
+/** Merges the given keys into the stored permissions. */
+export async function setUserPermissions(
+  id: string,
+  permissions: Partial<UserPermissions>,
+): Promise<PublicUser | null> {
+  const [existing] = await db
+    .select({ permissions: users.permissions })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1);
+  if (!existing) return null;
+
+  const merged = {
+    ...resolveUserPermissions(parseStoredPermissions(existing.permissions)),
+    ...permissions,
+  };
+  await db
+    .update(users)
+    .set({ permissions: JSON.stringify(merged), updatedAt: new Date().toISOString() })
+    .where(eq(users.id, id));
+  return getUserById(id);
 }

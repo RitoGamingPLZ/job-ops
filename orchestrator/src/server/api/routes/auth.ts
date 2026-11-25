@@ -1,10 +1,18 @@
-import { badRequest, conflict, forbidden, serviceUnavailable, unauthorized } from "@infra/errors";
+import {
+  badRequest,
+  conflict,
+  forbidden,
+  notFound,
+  serviceUnavailable,
+  unauthorized,
+} from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
 import { blacklistToken, signToken, verifyToken } from "@server/auth/jwt";
 import { verifyPassword } from "@server/auth/password";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { isDemoMode } from "@server/config/demo";
 import { getOrCreateAnalyticsInstallState } from "@server/repositories/product-analytics";
+import * as invitationsRepo from "@server/repositories/user-invitations";
 import * as usersRepo from "@server/repositories/users";
 import type { Request, Response } from "express";
 import { Router } from "express";
@@ -269,5 +277,90 @@ authRouter.post(
       }
     }
     ok(res, { message: "Logged out" });
+  }),
+);
+
+const INVALID_INVITATION_MESSAGE = "This invitation link is invalid, already used, or has expired.";
+
+const acceptInvitationSchema = z.object({
+  username: z.string().trim().min(1).max(120),
+  password: z.string().min(8).max(500),
+  displayName: z.string().trim().min(1).max(120).optional(),
+});
+
+function requireInvitationsAvailable(res: Response): boolean {
+  if (isDemoMode()) {
+    fail(res, serviceUnavailable("Invitations are disabled in the public demo."));
+    return false;
+  }
+  if (getJobOpsAppConfig().appMode === "hosted") {
+    fail(res, forbidden("Invitations are unavailable in hosted mode"));
+    return false;
+  }
+  return true;
+}
+
+authRouter.get(
+  "/invitations/:token",
+  asyncRoute(async (req: Request, res: Response) => {
+    if (!requireInvitationsAvailable(res)) return;
+    const invitation = await invitationsRepo.findPendingInvitationByToken(req.params.token ?? "");
+    if (!invitation) {
+      fail(res, notFound(INVALID_INVITATION_MESSAGE));
+      return;
+    }
+    ok(res, { label: invitation.label, expiresAt: invitation.expiresAt });
+  }),
+);
+
+authRouter.post(
+  "/invitations/:token/accept",
+  asyncRoute(async (req: Request, res: Response) => {
+    if (!requireInvitationsAvailable(res)) return;
+    if ((await usersRepo.countUsers()) === 0) {
+      fail(res, badRequest("Initial setup is required before accepting an invitation"));
+      return;
+    }
+    const parsed = acceptInvitationSchema.safeParse(req.body);
+    if (!parsed.success) {
+      fail(res, badRequest(toSetupValidationMessage(parsed.error), parsed.error.flatten()));
+      return;
+    }
+
+    const invitation = await invitationsRepo.findPendingInvitationByToken(req.params.token ?? "");
+    // Claim before creating so two people racing on one link cannot both get in.
+    if (!invitation || !(await invitationsRepo.claimInvitation(invitation.id))) {
+      fail(res, notFound(INVALID_INVITATION_MESSAGE));
+      return;
+    }
+
+    let user: usersRepo.PublicUser;
+    try {
+      user = await usersRepo.createPrivateWorkspaceUser({
+        username: parsed.data.username,
+        password: parsed.data.password,
+        displayName: parsed.data.displayName ?? parsed.data.username,
+        isSystemAdmin: false,
+        mustChangePassword: false,
+        permissions: invitationsRepo.permissionsOfInvitation(invitation),
+      });
+    } catch (error) {
+      await invitationsRepo.releaseInvitation(invitation.id);
+      if (isUsernameConflictError(error)) {
+        fail(res, conflict("Username already exists"));
+        return;
+      }
+      throw error;
+    }
+    await invitationsRepo.recordInvitationUser(invitation.id, user.id);
+
+    const { token, expiresIn } = await signToken({
+      sub: user.id,
+      userId: user.id,
+      tenantId: user.workspaceId,
+      username: user.username,
+      isSystemAdmin: false,
+    });
+    ok(res, { token, expiresIn, user }, 201);
   }),
 );

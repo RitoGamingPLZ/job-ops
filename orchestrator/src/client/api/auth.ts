@@ -1,5 +1,11 @@
 import { redirectToSignIn } from "@client/lib/auth-navigation";
-import type { AuthUser } from "@shared/types";
+import type {
+  AuthUser,
+  CreatedUserInvitation,
+  UserInvitation,
+  UserInvitationPreview,
+  UserPermissions,
+} from "@shared/types";
 import type { AuthCredentials } from "./auth-session";
 import { clearAuthSession, getCachedAuthHeader, setAuthenticatedSession } from "./auth-session";
 import { fetchApi, performLoginWithCredentials, readAuthResponse, toApiError } from "./core";
@@ -43,7 +49,7 @@ type RegistrationInput = {
 };
 
 async function registerWithCredentials(
-  endpoint: "/api/auth/setup" | "/api/auth/signup",
+  endpoint: string,
   input: RegistrationInput,
   incompleteMessage: string,
 ): Promise<AuthUser> {
@@ -125,6 +131,7 @@ export async function createWorkspaceUser(input: {
   displayName?: string;
   isSystemAdmin?: boolean;
   mustChangePassword?: boolean;
+  permissions?: Partial<UserPermissions>;
 }): Promise<AuthUser> {
   const result = await fetchApi<{ user: AuthUser }>("/workspaces/users", {
     method: "POST",
@@ -165,4 +172,53 @@ export async function changeOwnPassword(input: {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export async function setWorkspaceUserPermissions(
+  userId: string,
+  permissions: Partial<UserPermissions>,
+): Promise<AuthUser> {
+  const result = await fetchApi<{ user: AuthUser }>(
+    `/workspaces/users/${encodeURIComponent(userId)}/permissions`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ permissions }),
+    },
+  );
+  return result.user;
+}
+
+export async function listUserInvitations(): Promise<UserInvitation[]> {
+  const result = await fetchApi<{ invitations: UserInvitation[] }>("/workspaces/invitations");
+  return result.invitations;
+}
+
+export async function createUserInvitation(input: {
+  label: string;
+  permissions?: Partial<UserPermissions>;
+  expiresInDays?: number;
+}): Promise<CreatedUserInvitation> {
+  const result = await fetchApi<{ invitation: CreatedUserInvitation }>("/workspaces/invitations", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return result.invitation;
+}
+
+export async function revokeUserInvitation(invitationId: string): Promise<void> {
+  await fetchApi<{ id: string }>(`/workspaces/invitations/${encodeURIComponent(invitationId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getInvitationPreview(token: string): Promise<UserInvitationPreview> {
+  return fetchApi<UserInvitationPreview>(`/auth/invitations/${encodeURIComponent(token)}`);
+}
+
+export async function acceptInvitation(token: string, input: RegistrationInput): Promise<AuthUser> {
+  return registerWithCredentials(
+    `/api/auth/invitations/${encodeURIComponent(token)}/accept`,
+    input,
+    "Invitation response was incomplete",
+  );
 }

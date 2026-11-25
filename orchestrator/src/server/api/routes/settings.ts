@@ -43,6 +43,7 @@ import {
 } from "@server/services/rxresume";
 import { getEffectiveSettings } from "@server/services/settings";
 import { applySettingsUpdates } from "@server/services/settings-update";
+import { currentUserHasPermission } from "@server/services/user-permissions";
 import { mapGlmProviderAlias, settingsRegistry } from "@shared/settings-registry";
 import { type UpdateSettingsInput, updateSettingsSchema } from "@shared/settings-schema";
 import { LLM_PURPOSE_VALUES, type LlmPurpose } from "@shared/types";
@@ -74,8 +75,10 @@ const SYSTEM_ADMIN_SETTING_KEYS = new Set<keyof UpdateSettingsInput>([
   "backupEnabled",
   "backupHour",
   "backupMaxCount",
-  // Outbound webhooks send server-side requests (and the operator's secret),
-  // so only the operator may point them anywhere.
+]);
+
+// Outbound webhooks make server-side requests, so an admin has to switch them on per user.
+const WEBHOOK_SETTING_KEYS = new Set<keyof UpdateSettingsInput>([
   "pipelineWebhookUrl",
   "jobCompleteWebhookUrl",
   "webhookSecret",
@@ -98,11 +101,17 @@ function requireSystemAdmin(res: Response): boolean {
  * untouched keys instead of applying them (applying them would also refresh the global
  * backup scheduler from this user's values), and reject any attempt to actually set one.
  */
-function requireSystemAdminForGlobalSettings(res: Response, input: UpdateSettingsInput): boolean {
+async function requireSystemAdminForGlobalSettings(
+  res: Response,
+  input: UpdateSettingsInput,
+): Promise<boolean> {
   if (getJobOpsAppConfig().appMode === "hosted" || isSystemAdmin()) return true;
 
-  const adminKeys = Object.keys(input).filter((key) =>
-    SYSTEM_ADMIN_SETTING_KEYS.has(key as keyof UpdateSettingsInput),
+  const webhooksAllowed = await currentUserHasPermission("webhooks");
+  const adminKeys = Object.keys(input).filter(
+    (key) =>
+      SYSTEM_ADMIN_SETTING_KEYS.has(key as keyof UpdateSettingsInput) ||
+      (!webhooksAllowed && WEBHOOK_SETTING_KEYS.has(key as keyof UpdateSettingsInput)),
   ) as Array<keyof UpdateSettingsInput>;
   const isUntouched = (value: unknown) =>
     value === null || value === undefined || (typeof value === "string" && value.trim() === "");
@@ -383,7 +392,7 @@ settingsRouter.patch(
     }
 
     const input = updateSettingsSchema.parse(req.body);
-    if (!requireSystemAdminForGlobalSettings(res, input)) return;
+    if (!(await requireSystemAdminForGlobalSettings(res, input))) return;
     if (
       isLlmRestricted() &&
       typeof input.rxresumeUrl === "string" &&

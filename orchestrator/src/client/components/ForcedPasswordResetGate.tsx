@@ -25,7 +25,8 @@ export const ForcedPasswordResetGate: React.FC<ForcedPasswordResetGateProps> = (
   const isBypassedRoute =
     location.pathname === "/sign-in" ||
     location.pathname === "/offline" ||
-    location.pathname.startsWith("/sso/callback/");
+    location.pathname.startsWith("/sso/callback/") ||
+    location.pathname.startsWith("/invite/");
   const hasSession = api.hasAuthenticatedSession();
 
   const meQuery = useQuery({

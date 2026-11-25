@@ -1,3 +1,4 @@
+import { DEFAULT_USER_PERMISSIONS } from "@shared/types";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuthGuard } from "./app";
@@ -432,6 +433,7 @@ describe("Auth read-only enforcement", () => {
       mustChangePassword: false,
       workspaceId: "tenant-1",
       workspaceName: "Tenant 1",
+      permissions: { ...DEFAULT_USER_PERMISSIONS },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -473,6 +475,7 @@ describe("Auth read-only enforcement", () => {
       mustChangePassword: false,
       workspaceId: "tenant-1",
       workspaceName: "Tenant 1",
+      permissions: { ...DEFAULT_USER_PERMISSIONS },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });

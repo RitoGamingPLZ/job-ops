@@ -1,3 +1,4 @@
+import { DEFAULT_USER_PERMISSIONS } from "@shared/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type React from "react";
@@ -31,6 +32,7 @@ vi.mock("@client/api", () => ({
     hasPassword: true,
     workspaceId: "tenant_default",
     workspaceName: "JobOps",
+    permissions: { ...DEFAULT_USER_PERMISSIONS },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   })),
@@ -120,6 +122,7 @@ describe("SignInPage", () => {
       mustChangePassword: false,
       workspaceId: "tenant_default",
       workspaceName: "JobOps",
+      permissions: { ...DEFAULT_USER_PERMISSIONS },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -230,6 +233,7 @@ describe("SignInPage", () => {
       mustChangePassword: false,
       workspaceId: "tenant_hosted",
       workspaceName: "JobOps",
+      permissions: { ...DEFAULT_USER_PERMISSIONS },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });

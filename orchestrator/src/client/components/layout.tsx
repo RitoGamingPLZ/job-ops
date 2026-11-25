@@ -3,6 +3,7 @@
  */
 
 import { getAppStatus, getCurrentAuthUser, hasAuthenticatedSession, logout } from "@client/api";
+import { DEFAULT_USER_PERMISSIONS, type UserPermissions } from "@shared/types";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, LogOut, type LucideIcon, Menu, Moon, Sun, UserRound } from "lucide-react";
 import React, { useState } from "react";
@@ -32,6 +33,7 @@ export const AppModeContext = React.createContext({
   appMode: "local" as "local" | "hosted",
   isPending: false,
   isSystemAdmin: false,
+  permissions: { ...DEFAULT_USER_PERMISSIONS } as UserPermissions,
 });
 
 export const AppModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -56,6 +58,7 @@ export const AppModeProvider: React.FC<{ children: React.ReactNode }> = ({ child
         appMode: appStatusQuery.data?.appMode ?? "local",
         isPending: appStatusQuery.isPending || (hasSession && currentUserQuery.isPending),
         isSystemAdmin: currentUserQuery.data?.isSystemAdmin === true,
+        permissions: currentUserQuery.data?.permissions ?? DEFAULT_USER_PERMISSIONS,
       }}
     >
       {children}
@@ -78,9 +81,9 @@ const buildSignInPath = (username: string, nextPath: string): string => {
 
 const SidebarNav: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
   const location = useLocation();
-  const { appMode, isSystemAdmin } = React.useContext(AppModeContext);
-  // The inbox runs on the operator's Gmail OAuth app, so only admins get it.
-  const showTrackingInbox = appMode !== "hosted" && isSystemAdmin;
+  const { appMode, permissions } = React.useContext(AppModeContext);
+  // The inbox runs on the operator's Gmail OAuth app, so an admin enables it per user.
+  const showTrackingInbox = appMode !== "hosted" && permissions.emailTracking;
   const navLinks = showTrackingInbox
     ? NAV_LINKS
     : NAV_LINKS.filter(({ to }) => to !== "/tracking-inbox");

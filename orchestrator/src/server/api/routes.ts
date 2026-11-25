@@ -5,13 +5,14 @@
 import { Router } from "express";
 import {
   heavyActionLimiter,
+  invitationLimiter,
   loginAccountLimiter,
   loginIpLimiter,
   outboundFetchLimiter,
   pipelineRunLimiter,
   validationLimiter,
 } from "./rate-limits";
-import { requireServerCredentialsMiddleware } from "./require-admin";
+import { requirePermissionMiddleware } from "./require-admin";
 import { appStatusRouter } from "./routes/app-status";
 import { authRouter } from "./routes/auth";
 import { authSsoRouter } from "./routes/auth-sso";
@@ -42,7 +43,9 @@ import { workspacesRouter } from "./routes/workspaces";
 export const apiRouter = Router();
 
 apiRouter.use("/auth/login", loginIpLimiter, loginAccountLimiter);
-apiRouter.use("/pipeline/run", pipelineRunLimiter);
+apiRouter.use("/auth/invitations", invitationLimiter);
+apiRouter.use("/pipeline/run", requirePermissionMiddleware("pipeline"), pipelineRunLimiter);
+apiRouter.use("/manual-jobs/fetch", requirePermissionMiddleware("urlImport"));
 apiRouter.use("/manual-jobs", outboundFetchLimiter);
 apiRouter.use("/workday", outboundFetchLimiter);
 apiRouter.use("/watchlist", outboundFetchLimiter);
@@ -58,7 +61,7 @@ apiRouter.use("/jobs/:id/chat", ghostwriterRouter);
 apiRouter.use("/demo", demoRouter);
 apiRouter.use("/settings", settingsRouter);
 apiRouter.use("/pipeline", pipelineRouter);
-apiRouter.use("/post-application", requireServerCredentialsMiddleware);
+apiRouter.use("/post-application", requirePermissionMiddleware("emailTracking"));
 apiRouter.use("/post-application", postApplicationProvidersRouter);
 apiRouter.use("/post-application", postApplicationReviewRouter);
 apiRouter.use("/manual-jobs", manualJobsRouter);

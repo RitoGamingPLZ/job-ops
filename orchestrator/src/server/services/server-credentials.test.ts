@@ -1,9 +1,9 @@
 import { runWithRequestContext } from "@infra/request-context";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const tenantHasSystemAdmin = vi.fn();
+const tenantHasServerCredentialAccess = vi.fn();
 vi.mock("@server/repositories/users", () => ({
-  tenantHasSystemAdmin: (...args: unknown[]) => tenantHasSystemAdmin(...args),
+  tenantHasServerCredentialAccess: (...args: unknown[]) => tenantHasServerCredentialAccess(...args),
 }));
 
 import {
@@ -17,12 +17,12 @@ describe("canUseServerCredentials", () => {
     delete process.env.JOBOPS_APP_MODE;
     delete process.env.JOBOPS_MODE;
     clearServerCredentialCache();
-    tenantHasSystemAdmin.mockReset();
+    tenantHasServerCredentialAccess.mockReset();
   });
 
   it("allows contexts without a tenant (boot tasks, secret webhooks)", async () => {
     expect(await canUseServerCredentials()).toBe(true);
-    expect(tenantHasSystemAdmin).not.toHaveBeenCalled();
+    expect(tenantHasServerCredentialAccess).not.toHaveBeenCalled();
   });
 
   it("allows system admins without a lookup", async () => {
@@ -31,11 +31,11 @@ describe("canUseServerCredentials", () => {
       canUseServerCredentials,
     );
     expect(result).toBe(true);
-    expect(tenantHasSystemAdmin).not.toHaveBeenCalled();
+    expect(tenantHasServerCredentialAccess).not.toHaveBeenCalled();
   });
 
   it("denies invited users and caches the lookup per tenant", async () => {
-    tenantHasSystemAdmin.mockResolvedValue(false);
+    tenantHasServerCredentialAccess.mockResolvedValue(false);
     const check = (tenantId: string) =>
       runWithRequestContext(
         { tenantId, userId: "u2", isSystemAdmin: false },
@@ -43,11 +43,11 @@ describe("canUseServerCredentials", () => {
       );
     expect(await check("guest-tenant")).toBe(false);
     expect(await check("guest-tenant")).toBe(false);
-    expect(tenantHasSystemAdmin).toHaveBeenCalledTimes(1);
+    expect(tenantHasServerCredentialAccess).toHaveBeenCalledTimes(1);
   });
 
   it("keeps background work in an admin's workspace trusted", async () => {
-    tenantHasSystemAdmin.mockResolvedValue(true);
+    tenantHasServerCredentialAccess.mockResolvedValue(true);
     const result = await runWithRequestContext(
       { tenantId: "admin-tenant", userId: "u1", isSystemAdmin: false },
       canUseServerCredentials,

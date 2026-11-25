@@ -1,3 +1,4 @@
+import { DEFAULT_USER_PERMISSIONS } from "@shared/types";
 import * as api from "@client/api";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -26,6 +27,7 @@ const baseUser: api.AuthUser = {
   mustChangePassword: false,
   workspaceId: "tenant-1",
   workspaceName: "Admin Workspace",
+  permissions: { ...DEFAULT_USER_PERMISSIONS },
   createdAt: "2026-11-22T00:00:00.000Z",
   updatedAt: "2026-11-22T00:00:00.000Z",
 };

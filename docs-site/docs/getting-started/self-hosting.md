@@ -163,16 +163,35 @@ System admins can create more users from **Settings → Environment & Workspaces
 
 ### What invited users can and cannot do
 
-Your server's environment (LLM key, Apify, Adzuna, UKVisaJobs, Reactive Resume, Gmail OAuth app, `WEBHOOK_SECRET`) belongs to the operator. Only system admins, and background work running in an admin's own workspace, may use it. Everyone else works as follows:
+Your server's environment (LLM key, Apify, Adzuna, UKVisaJobs, Reactive Resume, Gmail OAuth app, `WEBHOOK_SECRET`) belongs to the operator. Only system admins, workspaces where an admin has granted **Use server AI and job-source keys**, and background work in those workspaces may use it. Everyone else works as follows:
 
 - **AI**: Each user saves their own provider, key, and model in **Settings → Models**. Gemini is the default provider. CLI providers (Codex, Gemini CLI, Claude CLI) and local or custom endpoints are not available.
 - **Sources**: Sources that need operator credentials (Adzuna, Seek, and similar) are skipped for other users. UKVisaJobs runs only on credentials the user saved themselves.
-- **Integrations**: Reactive Resume must use the user's own key and a public HTTPS URL. Webhooks, Tracking Inbox (Gmail), backups, the challenge viewer, and Codex sign-in are admin-only.
+- **Integrations**: Reactive Resume must use the user's own key and a public HTTPS URL. Backups, the challenge viewer, and Codex sign-in are admin-only. Webhooks and the Tracking Inbox (Gmail) are off for invited users until an admin switches them on for that user.
 - **Clear My Jobs** only deletes the signed-in workspace's jobs and runs.
 - **Limits**: Sign-in, searches, URL fetches, and AI actions are rate limited, and at most `MAX_CONCURRENT_PIPELINES` searches (default 3) run across all users at once.
 - **Fetching links**: Job-page fetches and non-admin webhooks only reach public http(s) hosts; redirects are re-checked and responses are size-capped.
 - **Static hardening**: Stored PDFs under `/pdfs/` require sign-in and only the owning workspace folder is readable. Extractor health endpoints require sign-in. `/ojcp/mcp` and `/.well-known/ojcp.json` are off unless `OJCP_ENABLED=1`. CORS allows only the same origin, `APP_PUBLIC_URL`, `JOBOPS_PUBLIC_BASE_URL`, and `CORS_ALLOWED_ORIGINS`.
 - Accounts created by an admin must change their password at first sign-in unless the admin opts out.
+
+### Inviting people and controlling their access
+
+Open **Settings → Environment & Workspaces** as a system admin.
+
+- **Invitations**: Enter a label (who it is for), pick an expiry (1 to 30 days) and the access they start with, then **Create invitation**. JobOps shows a one-time link such as `https://your-host/invite/<token>`; copy it and send it yourself (JobOps sends no email). The invitee picks their own username and password and gets a private workspace. A link works once, can be revoked while it is pending, and only its hash is stored. There is no open signup in local mode.
+- **Per-user access**: Each non-admin user has switches you can change at any time:
+
+  | Switch                            | Default | What it controls                                                       |
+  | --------------------------------- | ------- | ---------------------------------------------------------------------- |
+  | Use server AI and job-source keys | off     | Spending your LLM key, Apify/Adzuna tokens and Reactive Resume account |
+  | Email tracking inbox              | off     | Connecting Gmail and the Tracking Inbox                                |
+  | Webhooks                          | off     | Saving outgoing webhook URLs                                           |
+  | Run job searches                  | on      | Starting the discovery pipeline                                        |
+  | Import jobs from a URL            | on      | Server-side fetching of a job page                                     |
+
+  System admins always have every switch. Changes apply within seconds.
+
+- **Accounts**: Disable a user, reset their password, or create one directly with a temporary password from the same screen.
 
 ## Hosted single-tenant mode
 

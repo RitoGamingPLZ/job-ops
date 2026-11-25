@@ -230,6 +230,17 @@ export function createAuthGuard() {
     )
       return true;
     if (normalizedMethod === "GET" && normalizedPath === "/api/auth/bootstrap-status") return true;
+    // Invitation links are bearer secrets: previewing and redeeming one needs no session.
+    if (
+      normalizedMethod === "GET" &&
+      /^\/api\/auth\/invitations\/[a-z0-9_-]+$/.test(normalizedPath)
+    )
+      return true;
+    if (
+      normalizedMethod === "POST" &&
+      /^\/api\/auth\/invitations\/[a-z0-9_-]+\/accept$/.test(normalizedPath)
+    )
+      return true;
     if (normalizedMethod === "GET" && normalizedPath === "/api/auth/sso/providers") return true;
     if (
       normalizedMethod === "POST" &&

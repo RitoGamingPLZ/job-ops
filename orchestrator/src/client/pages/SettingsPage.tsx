@@ -1371,6 +1371,7 @@ export const SettingsPage: React.FC = () => {
 
   // Backups are server-wide, so only system admins see them. Everyone keeps the daily search schedule.
   const canManageBackups = currentUserQuery.data?.isSystemAdmin === true;
+  const canUseWebhooks = currentUserQuery.data?.permissions?.webhooks === true;
 
   const visibleNavGroups = useMemo(
     () =>
@@ -1381,7 +1382,7 @@ export const SettingsPage: React.FC = () => {
           .filter(
             (item) =>
               (item.id !== "billing" || isHostedMode) &&
-              (item.id !== "webhooks" || canManageBackups) &&
+              (item.id !== "webhooks" || canUseWebhooks) &&
               (canEditLlmSettings || item.id !== "model"),
           )
           .map((item) =>
@@ -1394,7 +1395,7 @@ export const SettingsPage: React.FC = () => {
               : item,
           ),
       })).filter((group) => group.items.length > 0),
-    [canEditLlmSettings, canManageBackups, isHostedMode],
+    [canEditLlmSettings, canManageBackups, canUseWebhooks, isHostedMode],
   );
 
   const filteredNavGroups = useMemo(

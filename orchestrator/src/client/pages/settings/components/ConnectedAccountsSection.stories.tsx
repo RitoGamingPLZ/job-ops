@@ -1,3 +1,4 @@
+import { DEFAULT_USER_PERMISSIONS } from "@shared/types";
 import type { Story } from "@ladle/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type React from "react";
@@ -13,6 +14,7 @@ const passwordUser = {
   mustChangePassword: false,
   workspaceId: "tenant_default",
   workspaceName: "JobOps",
+  permissions: { ...DEFAULT_USER_PERMISSIONS },
   createdAt: "2026-05-13T00:00:00.000Z",
   updatedAt: "2026-05-13T00:00:00.000Z",
 };

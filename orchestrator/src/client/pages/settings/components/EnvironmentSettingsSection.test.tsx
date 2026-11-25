@@ -1,3 +1,4 @@
+import { DEFAULT_USER_PERMISSIONS } from "@shared/types";
 import * as api from "@client/api";
 import type { UpdateSettingsInput } from "@shared/settings-schema.js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -14,6 +15,10 @@ vi.mock("@client/api", () => ({
   getSsoProviders: vi.fn(),
   listSsoIdentities: vi.fn(),
   listWorkspaceUsers: vi.fn(),
+  listUserInvitations: vi.fn(async () => []),
+  createUserInvitation: vi.fn(),
+  revokeUserInvitation: vi.fn(),
+  setWorkspaceUserPermissions: vi.fn(),
   resetWorkspaceUserPassword: vi.fn(),
   setWorkspaceUserDisabled: vi.fn(),
   startSsoLink: vi.fn(),
@@ -74,6 +79,7 @@ describe("EnvironmentSettingsSection", () => {
       mustChangePassword: false,
       workspaceId: "tenant-admin",
       workspaceName: "Admin Workspace",
+      permissions: { ...DEFAULT_USER_PERMISSIONS },
       createdAt: "2026-05-13T00:00:00.000Z",
       updatedAt: "2026-05-13T00:00:00.000Z",
     });
@@ -88,6 +94,7 @@ describe("EnvironmentSettingsSection", () => {
         mustChangePassword: false,
         workspaceId: "tenant-member",
         workspaceName: "Member Workspace",
+        permissions: { ...DEFAULT_USER_PERMISSIONS },
         createdAt: "2026-05-13T00:00:00.000Z",
         updatedAt: "2026-05-13T00:00:00.000Z",
       },
@@ -136,6 +143,7 @@ describe("EnvironmentSettingsSection", () => {
       mustChangePassword: false,
       workspaceId: "tenant-teammate",
       workspaceName: "Teammate",
+      permissions: { ...DEFAULT_USER_PERMISSIONS },
       createdAt: "2026-11-22T00:00:00.000Z",
       updatedAt: "2026-11-22T00:00:00.000Z",
     });

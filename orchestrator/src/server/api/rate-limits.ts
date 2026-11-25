@@ -55,3 +55,11 @@ export const validationLimiter = createRateLimiter({
   max: 30,
   methods: ["POST"],
 });
+
+/** Invitation links are bearer secrets: slow down anyone probing for valid ones. */
+export const invitationLimiter = createRateLimiter({
+  name: "invitation",
+  windowMs: 15 * MINUTE,
+  max: 30,
+  key: (req) => `ip:${clientIp(req)}`,
+});

@@ -3,7 +3,7 @@
  * tokens, Reactive Resume account, webhook secret, ...).
  *
  * Local mode gives every invited user a private workspace, but the process
- * environment belongs to the operator. Only the operator's own workspace (and
+ * environment belongs to the operator. Only workspaces with an admin or an explicit `serverCredentials` grant (and
  * system-level work with no tenant identity, such as the webhook trigger) may
  * fall back to it; everyone else must bring their own keys in Settings.
  *
@@ -11,7 +11,7 @@
  */
 import { getUserId, getTenantId, isSystemAdmin } from "@infra/request-context";
 import { getJobOpsAppStatus } from "@server/config/app-mode";
-import { tenantHasSystemAdmin } from "@server/repositories/users";
+import { tenantHasServerCredentialAccess } from "@server/repositories/users";
 
 const ADMIN_TENANT_TTL_MS = 30_000;
 const adminTenantCache = new Map<string, { value: boolean; expiresAt: number }>();
@@ -33,7 +33,7 @@ export async function canUseServerCredentials(): Promise<boolean> {
   const cached = adminTenantCache.get(tenantId);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
 
-  const value = await tenantHasSystemAdmin(tenantId);
+  const value = await tenantHasServerCredentialAccess(tenantId);
   adminTenantCache.set(tenantId, { value, expiresAt: Date.now() + ADMIN_TENANT_TTL_MS });
   return value;
 }

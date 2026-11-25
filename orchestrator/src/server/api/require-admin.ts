@@ -1,7 +1,8 @@
 import { forbidden } from "@infra/errors";
 import { fail } from "@infra/http";
 import { isSystemAdmin } from "@infra/request-context";
-import { canUseServerCredentials } from "@server/services/server-credentials";
+import { currentUserHasPermission } from "@server/services/user-permissions";
+import type { UserPermissionKey } from "@shared/types";
 import type { NextFunction, Request, Response } from "express";
 
 /** Route guard for features that act on the shared server rather than one workspace. */
@@ -13,19 +14,17 @@ export function requireSystemAdminMiddleware(_req: Request, res: Response, next:
   fail(res, forbidden("System admin access is required"));
 }
 
-/** Route guard for features backed by the operator's own integrations (e.g. Gmail OAuth app). */
-export async function requireServerCredentialsMiddleware(
-  _req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    if (await canUseServerCredentials()) {
-      next();
-      return;
+/** Route guard for a feature an admin can switch on or off per user. */
+export function requirePermissionMiddleware(permission: UserPermissionKey) {
+  return async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (await currentUserHasPermission(permission)) {
+        next();
+        return;
+      }
+      fail(res, forbidden("This feature is not enabled for your account. Ask an admin."));
+    } catch (error) {
+      next(error);
     }
-    fail(res, forbidden("This feature is not available for your account."));
-  } catch (error) {
-    next(error);
-  }
+  };
 }
