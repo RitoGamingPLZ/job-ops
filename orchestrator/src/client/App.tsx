@@ -207,10 +207,10 @@ export const App: React.FC = () => {
 };
 
 function TrackingInboxRoute() {
-  const { appMode, isPending } = React.useContext(AppModeContext);
+  const { appMode, isPending, isSystemAdmin } = React.useContext(AppModeContext);
 
   if (isPending) return null;
-  if (appMode === "hosted") {
+  if (appMode === "hosted" || !isSystemAdmin) {
     return <Navigate to="/overview" replace />;
   }
   return <TrackingInboxPage />;

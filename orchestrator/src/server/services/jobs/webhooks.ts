@@ -1,18 +1,25 @@
 import { logger } from "@infra/logger";
 import { sanitizeWebhookPayload } from "@infra/sanitize";
+import { postJsonToPublicUrl } from "@infra/safe-fetch";
 import * as settingsRepo from "@server/repositories/settings";
+import { canUseServerCredentials } from "@server/services/server-credentials";
 import type { Job } from "@shared/types";
 
 export async function notifyJobCompleteWebhook(job: Job) {
   const overrideWebhookUrl = await settingsRepo.getSetting("jobCompleteWebhookUrl");
-  const webhookUrl = (overrideWebhookUrl || process.env.JOB_COMPLETE_WEBHOOK_URL || "").trim();
+  const trusted = await canUseServerCredentials();
+  const webhookUrl = (
+    overrideWebhookUrl ||
+    (trusted ? process.env.JOB_COMPLETE_WEBHOOK_URL : "") ||
+    ""
+  ).trim();
   if (!webhookUrl) return;
 
   try {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    const secret = process.env.WEBHOOK_SECRET;
+    const secret = trusted ? process.env.WEBHOOK_SECRET : undefined;
     if (secret) headers.Authorization = `Bearer ${secret}`;
 
     const payload = sanitizeWebhookPayload({
@@ -28,10 +35,9 @@ export async function notifyJobCompleteWebhook(job: Job) {
       },
     });
 
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
+    const response = await postJsonToPublicUrl(webhookUrl, payload, headers, {
+      signal: AbortSignal.timeout(10_000),
+      allowPrivateNetwork: trusted,
     });
 
     if (!response.ok) {

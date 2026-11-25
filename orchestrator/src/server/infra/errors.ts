@@ -7,6 +7,7 @@ export type AppErrorCode =
   | "NOT_FOUND"
   | "REQUEST_TIMEOUT"
   | "CONFLICT"
+  | "TOO_MANY_REQUESTS"
   | "UNPROCESSABLE_ENTITY"
   | "UPSTREAM_ERROR"
   | "SERVICE_UNAVAILABLE"
@@ -19,6 +20,7 @@ const DEFAULT_CODE_BY_STATUS: Record<number, AppErrorCode> = {
   404: "NOT_FOUND",
   408: "REQUEST_TIMEOUT",
   409: "CONFLICT",
+  429: "TOO_MANY_REQUESTS",
   422: "UNPROCESSABLE_ENTITY",
   500: "INTERNAL_ERROR",
   502: "UPSTREAM_ERROR",
@@ -32,6 +34,7 @@ export const STATUS_BY_APP_ERROR_CODE: Readonly<Record<AppErrorCode, number>> = 
   NOT_FOUND: 404,
   REQUEST_TIMEOUT: 408,
   CONFLICT: 409,
+  TOO_MANY_REQUESTS: 429,
   UNPROCESSABLE_ENTITY: 422,
   SERVICE_UNAVAILABLE: 503,
   UPSTREAM_ERROR: 502,
@@ -151,4 +154,8 @@ export function toAppError(error: unknown): AppError {
     message: "Internal server error",
     details: error,
   });
+}
+
+export function tooManyRequests(message = "Too many requests. Try again shortly."): AppError {
+  return new AppError({ status: 429, code: "TOO_MANY_REQUESTS", message });
 }

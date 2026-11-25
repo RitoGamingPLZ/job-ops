@@ -466,3 +466,16 @@ export async function updateUserPassword(input: {
   }
   await db.update(users).set(updates).where(eq(users.id, input.id));
 }
+
+/** True when at least one enabled system admin belongs to this workspace. */
+export async function tenantHasSystemAdmin(tenantId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: users.id })
+    .from(users)
+    .innerJoin(tenantMemberships, eq(tenantMemberships.userId, users.id))
+    .where(
+      sql`${tenantMemberships.tenantId} = ${tenantId} AND ${users.isSystemAdmin} = 1 AND ${users.isDisabled} = 0`,
+    )
+    .limit(1);
+  return Boolean(row);
+}

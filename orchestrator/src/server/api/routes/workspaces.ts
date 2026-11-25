@@ -75,7 +75,8 @@ workspacesRouter.post(
         password: parsed.data.password,
         displayName: parsed.data.displayName ?? parsed.data.username,
         isSystemAdmin: parsed.data.isSystemAdmin ?? false,
-        mustChangePassword: parsed.data.mustChangePassword ?? false,
+        // Admin-created accounts start with a password the admin knows.
+        mustChangePassword: parsed.data.mustChangePassword ?? true,
       });
       ok(res, { user }, 201);
       return;

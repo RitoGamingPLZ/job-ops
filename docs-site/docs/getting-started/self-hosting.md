@@ -161,6 +161,19 @@ Settings and user accounts are saved to the local database. If you are upgrading
 
 System admins can create more users from **Settings → Environment & Workspaces**. Each created user receives a separate private workspace with isolated jobs, settings, resumes, integrations, PDFs, pipeline runs, chat, analytics, and post-application data.
 
+### What invited users can and cannot do
+
+Your server's environment (LLM key, Apify, Adzuna, UKVisaJobs, Reactive Resume, Gmail OAuth app, `WEBHOOK_SECRET`) belongs to the operator. Only system admins, and background work running in an admin's own workspace, may use it. Everyone else works as follows:
+
+- **AI**: Each user saves their own provider, key, and model in **Settings → Models**. Gemini is the default provider. CLI providers (Codex, Gemini CLI, Claude CLI) and local or custom endpoints are not available.
+- **Sources**: Sources that need operator credentials (Adzuna, Seek, and similar) are skipped for other users. UKVisaJobs runs only on credentials the user saved themselves.
+- **Integrations**: Reactive Resume must use the user's own key and a public HTTPS URL. Webhooks, Tracking Inbox (Gmail), backups, the challenge viewer, and Codex sign-in are admin-only.
+- **Clear My Jobs** only deletes the signed-in workspace's jobs and runs.
+- **Limits**: Sign-in, searches, URL fetches, and AI actions are rate limited, and at most `MAX_CONCURRENT_PIPELINES` searches (default 3) run across all users at once.
+- **Fetching links**: Job-page fetches and non-admin webhooks only reach public http(s) hosts; redirects are re-checked and responses are size-capped.
+- **Static hardening**: Stored PDFs under `/pdfs/` require sign-in and only the owning workspace folder is readable. Extractor health endpoints require sign-in. `/ojcp/mcp` and `/.well-known/ojcp.json` are off unless `OJCP_ENABLED=1`. CORS allows only the same origin, `APP_PUBLIC_URL`, `JOBOPS_PUBLIC_BASE_URL`, and `CORS_ALLOWED_ORIGINS`.
+- Accounts created by an admin must change their password at first sign-in unless the admin opts out.
+
 ## Hosted single-tenant mode
 
 JobOps defaults to local/self-hosted mode when hosted flags are unset. Hosted mode is an env-gated deployment mode for running one configured tenant with multiple users in that tenant.

@@ -209,23 +209,23 @@ export const DangerZoneSection: React.FC<DangerZoneSectionProps> = ({
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-3 rounded-md">
               <div className="space-y-0.5">
-                <div className="text-sm font-semibold text-destructive">Clear Entire Database</div>
+                <div className="text-sm font-semibold text-destructive">Clear My Jobs</div>
                 <div className="text-xs text-muted-foreground">
-                  Delete all jobs and pipeline runs from the database.
+                  Delete all jobs and pipeline runs in your workspace. Other users are not affected.
                 </div>
               </div>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" size="sm" disabled={isLoading || isSaving}>
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Clear Database
+                    Clear My Jobs
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Clear all jobs?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This deletes all jobs and pipeline runs from the database. This action cannot
+                      This deletes all jobs and pipeline runs in your workspace. This action cannot
                       be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>

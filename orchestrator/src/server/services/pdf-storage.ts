@@ -4,6 +4,11 @@ import { getDataDir } from "@server/config/dataDir";
 import { getActiveTenantId } from "@server/tenancy/context";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 
+/** Key prefix (no trailing slash) under which the active user may read stored PDFs. */
+export function getActivePdfKeyPrefix(): string {
+  return getTenantPdfKeyPrefix();
+}
+
 function getTenantPdfKeyPrefix(tenantId = getActiveTenantId()): string {
   const scope = getPrivateDataScope();
   if (scope.enforceUserIsolation && scope.userId && tenantId === scope.tenantId) {

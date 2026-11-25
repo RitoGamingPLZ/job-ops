@@ -3,6 +3,7 @@ import { getJobOpsAppConfig } from "@server/config/app-mode";
 import * as settingsRepo from "@server/repositories/settings";
 import { getCurrentAccountEntitlements } from "@server/services/account-entitlements";
 import { getOriginalEnvValue } from "@server/services/envSettings";
+import { canUseServerCredentials } from "@server/services/server-credentials";
 import { getDefaultModelForProvider, settingsRegistry } from "@shared/settings-registry";
 import {
   type AppSettings,
@@ -152,11 +153,17 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
   const getAllSettings = "getAllSettings" in settingsRepo ? settingsRepo.getAllSettings : null;
   const overrides = (typeof getAllSettings === "function" ? await getAllSettings() : null) ?? {};
   const hostedMode = getJobOpsAppConfig().appMode === "hosted";
-  const allowPlatformLlm =
-    !hostedMode || (await getCurrentAccountEntitlements()).platformAiIncluded;
+  const serverCredentialsAllowed = await canUseServerCredentials();
+  const allowPlatformLlm = hostedMode
+    ? (await getCurrentAccountEntitlements()).platformAiIncluded
+    : serverCredentialsAllowed;
   const providerOverride = settingsRegistry.llmProvider.parse(overrides.llmProvider);
+  // Accounts without the operator's keys bring their own. Invited local users
+  // default to Gemini; hosted accounts keep OpenRouter.
+  const restrictedDefaultProvider = hostedMode ? "openrouter" : "gemini";
   const effectiveLlmProvider =
-    providerOverride ?? (allowPlatformLlm ? settingsRegistry.llmProvider.default() : "openrouter");
+    providerOverride ??
+    (allowPlatformLlm ? settingsRegistry.llmProvider.default() : restrictedDefaultProvider);
   const purposeOverrides = readPurposeOverrides(overrides);
   const resolvedModelDefault =
     normalizeModelForProviderCompatibility(
@@ -212,6 +219,7 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
 
   const envSettings = await getEnvSettingsData(overrides, {
     allowLlmEnvironmentCredentials: allowPlatformLlm,
+    allowServerEnvironment: hostedMode || serverCredentialsAllowed,
   });
 
   const result: Partial<AppSettings> = {
@@ -244,6 +252,18 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
       if (key === "model") {
         defaultValue = resolvedModelDefault;
         override = overrideModel;
+      }
+
+      if (
+        (key === "pipelineWebhookUrl" || key === "jobCompleteWebhookUrl") &&
+        !serverCredentialsAllowed &&
+        !hostedMode
+      ) {
+        defaultValue = "";
+      }
+
+      if (key === "llmProvider" && !allowPlatformLlm) {
+        defaultValue = restrictedDefaultProvider;
       }
 
       if (key === "llmBaseUrl") {

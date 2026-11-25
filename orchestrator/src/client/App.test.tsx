@@ -194,7 +194,9 @@ describe("App demo banner", () => {
     });
 
     render(
-      <AppModeContext.Provider value={{ appMode: "hosted", isPending: false }}>
+      <AppModeContext.Provider
+        value={{ appMode: "hosted", isPending: false, isSystemAdmin: false }}
+      >
         <MemoryRouter initialEntries={["/tracking-inbox"]}>
           <App />
         </MemoryRouter>

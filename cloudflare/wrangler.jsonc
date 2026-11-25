@@ -94,5 +94,7 @@
     "R2_BUCKET_NAME": "job-ops-data",
     "WRITE_FREEZE": "0",
     "SCRAPER_POOL_SIZE": "2",
+    "JOBOPS_DISABLE_ANALYTICS": "1",
+    "MAX_CONCURRENT_PIPELINES": "2",
   },
 }

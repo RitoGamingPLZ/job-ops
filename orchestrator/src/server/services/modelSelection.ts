@@ -5,6 +5,7 @@ import { getOriginalEnvValue } from "@server/services/envSettings";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
 import { LlmService } from "@server/services/llm/service";
+import { canUseServerCredentials } from "@server/services/server-credentials";
 import { getEffectiveSettings } from "@server/services/settings";
 import { getDefaultModelForProvider, settingsRegistry } from "@shared/settings-registry";
 import { LLM_PURPOSE_VALUES, type LlmPurpose } from "@shared/types";
@@ -140,15 +141,28 @@ async function resolveHostedLlmRuntimeSettings(
     };
   }
 
+  return resolveUserKeyLlmRuntimeSettings(purpose, "openrouter");
+}
+
+/**
+ * Accounts without access to the operator's credentials (hosted accounts
+ * without the included AI, invited local users) run on their own saved key
+ * and a public provider endpoint. CLI and local providers are never allowed.
+ */
+async function resolveUserKeyLlmRuntimeSettings(
+  purpose: LlmModelPurpose,
+  fallbackProvider: string,
+): Promise<LlmRuntimeSettings> {
   const overrides = await settingsRepo.getAllSettings();
   const purposeOverrides =
     settingsRegistry.llmPurposeOverrides.parse(overrides.llmPurposeOverrides) ?? {};
   const purposeOverride = isLlmPurpose(purpose) ? purposeOverrides[purpose] : undefined;
-  const defaultProvider = settingsRegistry.llmProvider.parse(overrides.llmProvider) ?? "openrouter";
+  const defaultProvider =
+    settingsRegistry.llmProvider.parse(overrides.llmProvider) ?? fallbackProvider;
   const selectedProvider = purposeOverride?.provider ?? defaultProvider;
   const provider =
     isCliProvider(selectedProvider) || isHostedLocalProvider(selectedProvider)
-      ? "openrouter"
+      ? fallbackProvider
       : selectedProvider;
   const defaultModel =
     provider !== defaultProvider
@@ -180,6 +194,9 @@ export async function resolveLlmModel(purpose: LlmModelPurpose = "default"): Pro
   if (getJobOpsAppConfig().appMode === "hosted") {
     return (await resolveHostedLlmRuntimeSettings(purpose)).model;
   }
+  if (!(await canUseServerCredentials())) {
+    return (await resolveUserKeyLlmRuntimeSettings(purpose, "gemini")).model;
+  }
   const settings = await getEffectiveSettings();
   return resolveModelFromSettings(settings, purpose);
 }
@@ -189,6 +206,9 @@ export async function resolveLlmRuntimeSettings(
 ): Promise<LlmRuntimeSettings> {
   if (getJobOpsAppConfig().appMode === "hosted") {
     return resolveHostedLlmRuntimeSettings(purpose);
+  }
+  if (!(await canUseServerCredentials())) {
+    return resolveUserKeyLlmRuntimeSettings(purpose, "gemini");
   }
 
   const getAllSettings = "getAllSettings" in settingsRepo ? settingsRepo.getAllSettings : null;

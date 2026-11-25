@@ -49,7 +49,7 @@ describe("OJCP MCP", () => {
   let running: Awaited<ReturnType<typeof startServer>> | undefined;
 
   beforeAll(async () => {
-    running = await startServer();
+    running = await startServer({ env: { OJCP_ENABLED: "1" } });
   });
 
   beforeEach(async () => {

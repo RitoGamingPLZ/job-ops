@@ -35,6 +35,10 @@ import {
   updateProgress,
 } from "../progress";
 import { discoverWatchlistJobsForPipeline } from "./watchlist-jobs";
+import {
+  canUseServerCredentials,
+  hasOwnExtractorCredentials,
+} from "@server/services/server-credentials";
 
 const DISCOVERY_CONCURRENCY = 3;
 const DISCOVERY_SOURCE_TIMEOUT_MS = 10 * 60 * 1000;
@@ -255,10 +259,22 @@ export async function discoverJobsStep(args: {
     { sources: string[]; detail: string; termsTotal?: number }
   >();
 
+  // Sources that authenticate with the operator's own accounts (Adzuna, Seek via
+  // Apify, UKVisaJobs, ...) are off limits to other users unless the extractor
+  // takes their saved credentials instead of the server environment.
+  const mayUseServerCredentials = await canUseServerCredentials();
+
   for (const source of compatibleSources) {
     const manifest = registry.manifestBySource.get(source);
     if (!manifest) {
       sourceErrors.push(`${source}: extractor manifest not registered`);
+      continue;
+    }
+    if (
+      !mayUseServerCredentials &&
+      !hasOwnExtractorCredentials(manifest, settings as Record<string, string | undefined>)
+    ) {
+      sourceErrors.push(`${source}: not available for your account`);
       continue;
     }
 

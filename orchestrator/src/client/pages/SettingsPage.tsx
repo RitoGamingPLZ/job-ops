@@ -1381,6 +1381,7 @@ export const SettingsPage: React.FC = () => {
           .filter(
             (item) =>
               (item.id !== "billing" || isHostedMode) &&
+              (item.id !== "webhooks" || canManageBackups) &&
               (canEditLlmSettings || item.id !== "model"),
           )
           .map((item) =>

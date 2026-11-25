@@ -3,7 +3,7 @@ import { logger } from "@infra/logger";
 import { runWithRequestContext } from "@infra/request-context";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { type ExtractorRegistry, getExtractorRegistry } from "@server/extractors/registry";
-import { getPipelineStatus, runPipeline } from "@server/pipeline/index";
+import { getActivePipelineCount, getPipelineStatus, runPipeline } from "@server/pipeline/index";
 import { reserveHostedUsage, settleHostedUsageReservation } from "@server/services/hosted-usage";
 import { ensurePipelineSearchTerms } from "@server/services/pipeline-search-terms";
 import { PIPELINE_EXTRACTOR_SOURCE_IDS } from "@shared/extractors";
@@ -116,6 +116,11 @@ export async function startRequestedPipeline(config: PipelineRunRequest, remembe
   if (getPipelineStatus().isRunning) {
     throw conflict("Pipeline is already running");
   }
+  if (getActivePipelineCount() >= readMaxConcurrentPipelines()) {
+    throw serviceUnavailable(
+      "Other searches are using the scrapers right now. Try again in a few minutes.",
+    );
+  }
 
   const searchTermsState = await ensurePipelineSearchTerms({
     requestedSearchTerms: config.searchTerms,
@@ -166,4 +171,9 @@ export async function startRequestedPipeline(config: PipelineRunRequest, remembe
       });
   });
   return searchTermsState;
+}
+
+function readMaxConcurrentPipelines(): number {
+  const parsed = Number.parseInt(process.env.MAX_CONCURRENT_PIPELINES ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
 }

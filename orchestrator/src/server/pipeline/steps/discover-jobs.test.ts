@@ -7,6 +7,11 @@ import { discoverJobsStep } from "./discover-jobs";
 
 const hiringCafeFetch = vi.hoisted(() => vi.fn());
 
+vi.mock("@server/services/server-credentials", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@server/services/server-credentials")>()),
+  canUseServerCredentials: vi.fn(async () => true),
+}));
+
 vi.mock("impit", () => ({
   Impit: class {
     fetch = hiringCafeFetch;
