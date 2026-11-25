@@ -947,7 +947,9 @@ const CONTAINER_START_TIMEOUT_MS = 120_000;
  * gets the larger size. Durable Object-managed containers take the size here, not in wrangler.jsonc.
  */
 function instanceForRequest(request: Request): "standard-1" | undefined {
-  return new URL(request.url).pathname.startsWith("/internal/render-pdf") ? "standard-1" : undefined;
+  return new URL(request.url).pathname.startsWith("/internal/render-pdf")
+    ? "standard-1"
+    : undefined;
 }
 
 export class ScraperContainer extends DurableObject<Env> {
