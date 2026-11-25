@@ -74,7 +74,7 @@ afterEach(() => {
 describe("ashbyWatchlistAdapter", () => {
   it("parses the shipped catalog and skips malformed rows without throwing", () => {
     const parsed = adapter.parseCatalogSources(catalog);
-    expect(parsed).toHaveLength(7);
+    expect(parsed).toHaveLength(8);
     expect(parsed.map((row) => row.id)).toContain("ashby:linear");
     for (const row of catalog) expect(adapter.catalogSchema.safeParse(row).success).toBe(true);
     expect(

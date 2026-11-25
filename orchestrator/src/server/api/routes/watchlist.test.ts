@@ -120,9 +120,9 @@ describe("Watchlist API routes", () => {
         body: JSON.stringify({
           selections: [
             {
-              catalogSourceId: "autodesk-workday",
+              catalogSourceId: "adobe-workday",
               sourceType: "workday",
-              careersUrl: "https://autodesk.wd1.myworkdayjobs.com/Ext",
+              careersUrl: "https://adobe.wd5.myworkdayjobs.com/external_experienced",
             },
             {
               sourceType: "workday",
@@ -138,9 +138,9 @@ describe("Watchlist API routes", () => {
       expect(firstBody.ok).toBe(true);
       expect(firstBody.data.selectedSources).toEqual([
         expect.objectContaining({
-          catalogSourceId: "autodesk-workday",
-          label: "Autodesk",
-          careersUrl: "https://autodesk.wd1.myworkdayjobs.com/Ext",
+          catalogSourceId: "adobe-workday",
+          label: "Adobe",
+          careersUrl: "https://adobe.wd5.myworkdayjobs.com/external_experienced",
           sourceType: "workday",
           isCustom: false,
           sortOrder: 0,

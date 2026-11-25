@@ -58,7 +58,12 @@ function json(data: unknown) {
 describe("leverWatchlistAdapter", () => {
   it("parses its real catalog and ignores malformed entries", () => {
     const sources = adapter.parseCatalogSources(catalog);
-    expect(sources.map((s) => s.id)).toEqual(["lever:spotify", "lever:palantir", "lever:zoox"]);
+    expect(sources.map((s) => s.id)).toEqual([
+      "lever:spotify",
+      "lever:palantir",
+      "lever:zoox",
+      "lever:gopuff",
+    ]);
     expect(sources.every((s) => s.sourceType === "lever" && s.cxsJobsUrl === null)).toBe(true);
     for (const entry of catalog) expect(adapter.catalogSchema.safeParse(entry).success).toBe(true);
     expect(

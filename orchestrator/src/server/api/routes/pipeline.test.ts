@@ -96,7 +96,12 @@ describe("Pipeline API routes", () => {
     const firstCall = vi.mocked(runPipeline).mock.calls.at(-1);
     const { runScheduledPipeline } = await import("@server/services/pipeline-scheduler");
     await runScheduledPipeline();
-    expect(vi.mocked(runPipeline).mock.calls.at(-1)).toEqual(firstCall);
+    // A scheduled run replays the saved request but covers every saved
+    // Watchlist source, so it drops the manual run's Watchlist selection.
+    expect(vi.mocked(runPipeline).mock.calls.at(-1)).toEqual([
+      { ...firstCall?.[0], watchlistSelectedSourceIds: undefined },
+      firstCall?.[1],
+    ]);
     expect(runPipeline).toHaveBeenCalledTimes(2);
   });
 

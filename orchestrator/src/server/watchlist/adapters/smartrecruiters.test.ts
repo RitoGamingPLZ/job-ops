@@ -56,10 +56,11 @@ afterEach(() => {
 });
 
 describe("smartrecruitersWatchlistAdapter", () => {
-  it("parses the shipped two-company catalog and skips invalid entries", () => {
+  it("parses the shipped catalog and skips invalid entries", () => {
     expect(adapter.parseCatalogSources(catalog).map((entry) => entry.id)).toEqual([
       "smartrecruiters:servicenow",
       "smartrecruiters:canva",
+      "smartrecruiters:wise",
     ]);
     for (const entry of catalog) expect(adapter.catalogSchema.safeParse(entry).success).toBe(true);
     expect(

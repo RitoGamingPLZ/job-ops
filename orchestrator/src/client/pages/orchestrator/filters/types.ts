@@ -88,10 +88,7 @@ export type SortFilterPillProps = Pick<
   sortDirectionLabel: string | undefined;
 };
 
-export type OrchestratorTabRowProps = Pick<
-  OrchestratorFiltersProps,
-  "counts" | "onOpenCommandBar"
->;
+export type OrchestratorTabRowProps = Pick<OrchestratorFiltersProps, "counts" | "onOpenCommandBar">;
 
 export type CompanyFilterPillProps = Pick<
   OrchestratorFiltersProps,

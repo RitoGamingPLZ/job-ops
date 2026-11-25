@@ -97,22 +97,14 @@ NoStageEvents.storyName = "No stage events";
 
 export const TechnicalInterview: Story = () => (
   <BoardCardFrame label="Technical interview accent">
-    <InteractiveBoardCard
-      {...baseCardProps}
-      stage="technical_interview"
-      round={2}
-    />
+    <InteractiveBoardCard {...baseCardProps} stage="technical_interview" round={2} />
   </BoardCardFrame>
 );
 TechnicalInterview.storyName = "Technical interview";
 
 export const FinalRound: Story = () => (
   <BoardCardFrame label="Technical Interview · Round 3">
-    <InteractiveBoardCard
-      {...baseCardProps}
-      stage="technical_interview"
-      round={3}
-    />
+    <InteractiveBoardCard {...baseCardProps} stage="technical_interview" round={3} />
   </BoardCardFrame>
 );
 FinalRound.storyName = "Final round";
@@ -183,17 +175,10 @@ export const AllStates: Story = () => (
       <InteractiveBoardCard {...baseCardProps} latestEventAt={null} />
     </BoardCardFrame>
     <BoardCardFrame label="Technical interview">
-      <InteractiveBoardCard
-        {...baseCardProps}
-        stage="technical_interview"
-        round={2}
-      />
+      <InteractiveBoardCard {...baseCardProps} stage="technical_interview" round={2} />
     </BoardCardFrame>
     <BoardCardFrame label="Offer">
-      <InteractiveBoardCard
-        {...baseCardProps}
-        stage="offer"
-      />
+      <InteractiveBoardCard {...baseCardProps} stage="offer" />
     </BoardCardFrame>
     <BoardCardFrame label="Reject">
       <InteractiveBoardCard
