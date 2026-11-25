@@ -155,10 +155,8 @@ jobs:
           node-version: "22.22.1"
           working-directory: cloudflare
           cache: true
-          cache-dependency-path: cloudflare/package-lock.json
           run-install: |
-            - cwd: cloudflare
-              args: ['--frozen-lockfile']
+            - args: ['--frozen-lockfile']
 
       - name: Typecheck Worker
         run: vp run check:types
