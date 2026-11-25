@@ -23,6 +23,31 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn, formatTimestamp } from "@/lib/utils";
 
+function ResumeStatusIndicator({
+  tooltip,
+  label,
+  contentClassName = "text-xs",
+  children,
+}: {
+  tooltip: string;
+  label: string;
+  contentClassName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tip asChild content={tooltip} contentClassName={contentClassName}>
+      <span
+        tabIndex={0}
+        role="img"
+        aria-label={label}
+        className="inline-flex shrink-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {children}
+      </span>
+    </Tip>
+  );
+}
+
 /** Small at-a-glance marker for the resume's prep state, visible in every stage column. */
 const ResumeStatusDot: React.FC<{ job: JobListItem }> = ({ job }) => {
   const resumeState = getResumeState(job);
@@ -30,41 +55,39 @@ const ResumeStatusDot: React.FC<{ job: JobListItem }> = ({ job }) => {
 
   if (resumeState === "available") {
     return (
-      <Tip content="Resume ready" contentClassName="text-xs">
-        <CheckCircle2 aria-label="Resume ready" className="h-3.5 w-3.5 shrink-0 text-success" />
-      </Tip>
+      <ResumeStatusIndicator tooltip="Resume ready" label="Resume ready">
+        <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-success" />
+      </ResumeStatusIndicator>
     );
   }
 
   if (resumeState === "preparing") {
     return (
-      <Tip content="Preparing resume…" contentClassName="text-xs">
+      <ResumeStatusIndicator tooltip="Preparing resume…" label="Preparing resume">
         <Loader2
-          aria-label="Preparing resume"
+          aria-hidden="true"
           className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground"
         />
-      </Tip>
+      </ResumeStatusIndicator>
     );
   }
 
   if (job.generationError) {
     return (
-      <Tip content={job.generationError} contentClassName="max-w-60 text-xs">
-        <CircleAlert
-          aria-label="Resume generation failed"
-          className="h-3.5 w-3.5 shrink-0 text-destructive"
-        />
-      </Tip>
+      <ResumeStatusIndicator
+        tooltip={job.generationError}
+        label="Resume generation failed"
+        contentClassName="max-w-60 text-xs"
+      >
+        <CircleAlert aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-destructive" />
+      </ResumeStatusIndicator>
     );
   }
 
   return (
-    <Tip content="Resume not prepared yet" contentClassName="text-xs">
-      <Circle
-        aria-label="Resume not prepared yet"
-        className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50"
-      />
-    </Tip>
+    <ResumeStatusIndicator tooltip="Resume not prepared yet" label="Resume not prepared yet">
+      <Circle aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+    </ResumeStatusIndicator>
   );
 };
 
@@ -124,10 +147,10 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
           {job.employer}
         </Link>
         <ResumeStatusDot job={job} />
-        <div className="relative h-6 w-6 shrink-0">
+        <div className="relative h-7 w-7 shrink-0">
           <ExternalLink
             aria-hidden
-            className="pointer-events-none absolute inset-0 m-auto h-3.5 w-3.5 text-muted-foreground/70 opacity-100 transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0"
+            className="pointer-events-none absolute inset-0 m-auto h-3.5 w-3.5 text-muted-foreground/70 opacity-100 transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0 [@media(hover:none)]:hidden"
           />
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
@@ -136,10 +159,11 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "absolute inset-0 h-6 w-6 text-muted-foreground opacity-0 transition-opacity duration-150",
+                  "absolute inset-0 h-7 w-7 text-muted-foreground opacity-0 transition-opacity duration-150",
                   "pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100",
                   "group-focus-within:pointer-events-auto group-focus-within:opacity-100",
                   "data-[state=open]:pointer-events-auto data-[state=open]:opacity-100",
+                  "[@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
                 )}
                 aria-label={`Actions for ${job.title}`}
                 draggable={false}

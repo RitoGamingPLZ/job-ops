@@ -1,10 +1,14 @@
 import { extractProjectsFromResume } from "./resume-document";
 import { logger } from "@infra/logger";
+import { getTenantId, getUserId, isSystemAdmin } from "@infra/request-context";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import * as settingsRepo from "@server/repositories/settings";
 import { getCurrentAccountEntitlements } from "@server/services/account-entitlements";
-import { getOriginalEnvValue } from "@server/services/envSettings";
-import { canUseServerCredentials } from "@server/services/server-credentials";
+import {
+  getEnvSettingsData,
+  getOriginalEnvValue,
+  MASKED_SECRET_HINT,
+} from "@server/services/envSettings";
 import { getDefaultModelForProvider, settingsRegistry } from "@shared/settings-registry";
 import {
   type AppSettings,
@@ -16,7 +20,6 @@ import {
   type ResumeProfile,
 } from "@shared/types";
 import { designResumeToProfile, getCurrentDesignResumeOrNullOnLegacy } from "./design-resume";
-import { getEnvSettingsData } from "./envSettings";
 import { getProfile } from "./profile";
 import { extractProjectsFromProfile, resolveResumeProjectsSettings } from "./resumeProjects";
 
@@ -120,6 +123,26 @@ function readPurposeOverrides(
   return settingsRegistry.llmPurposeOverrides.parse(overrides.llmPurposeOverrides) ?? {};
 }
 
+const STATIC_TYPED_DEFAULTS_WITHOUT_ENV: Partial<Record<settingsRepo.SettingKey, () => unknown>> = {
+  adzunaMaxJobsPerTerm: () => 50,
+  startupjobsMaxJobsPerTerm: () => 50,
+  seekMaxJobsPerTerm: () => 50,
+  naukriMaxJobsPerTerm: () => 50,
+  jobindexMaxJobsPerTerm: () => 50,
+  searchTerms: () => ["web developer"],
+  searchCities: () => "",
+  jobspyResultsWanted: () => 200,
+  jobspyCountryIndeed: () => "",
+  chatStyleTone: () => "professional",
+  chatStyleFormality: () => "medium",
+  chatStyleConstraints: () => "",
+  chatStyleDoNotUse: () => "",
+  chatStyleLanguageMode: () => "manual",
+  chatStyleManualLanguage: () => "english",
+  penalizeMissingSalary: () => false,
+  missingSalaryPenalty: () => 10,
+};
+
 function readPurposeApiKeyHints(
   overrides: Partial<Record<settingsRepo.SettingKey, string>>,
 ): LlmPurposeApiKeyHints {
@@ -130,8 +153,7 @@ function readPurposeApiKeyHints(
   for (const purpose of LLM_PURPOSE_VALUES) {
     const value = purposeApiKeys?.[purpose]?.trim();
     if (!value) continue;
-    const hintLength = value.length > 4 ? 4 : Math.max(value.length - 1, 1);
-    hints[purpose] = value.slice(0, hintLength);
+    hints[purpose] = MASKED_SECRET_HINT;
   }
   return hints;
 }
@@ -152,10 +174,10 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
   const getAllSettings = "getAllSettings" in settingsRepo ? settingsRepo.getAllSettings : null;
   const overrides = (typeof getAllSettings === "function" ? await getAllSettings() : null) ?? {};
   const hostedMode = getJobOpsAppConfig().appMode === "hosted";
-  const serverCredentialsAllowed = await canUseServerCredentials();
+  const canExposeServerEnv = isSystemAdmin() || (!getTenantId() && !getUserId());
   const allowPlatformLlm = hostedMode
     ? (await getCurrentAccountEntitlements()).platformAiIncluded
-    : serverCredentialsAllowed;
+    : canExposeServerEnv;
   const providerOverride = settingsRegistry.llmProvider.parse(overrides.llmProvider);
   // Accounts without the operator's keys bring their own. Invited local users
   // default to Gemini; hosted accounts keep OpenRouter.
@@ -193,8 +215,8 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
   }
 
   const envSettings = await getEnvSettingsData(overrides, {
-    allowLlmEnvironmentCredentials: allowPlatformLlm,
-    allowServerEnvironment: hostedMode || serverCredentialsAllowed,
+    allowLlmEnvironmentCredentials: canExposeServerEnv,
+    allowServerEnvironment: canExposeServerEnv,
   });
 
   const result: Partial<AppSettings> = {
@@ -222,7 +244,10 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
       }
 
       let override = def.parse(rawOverride);
-      let defaultValue = def.default();
+      const staticDefault = !canExposeServerEnv
+        ? STATIC_TYPED_DEFAULTS_WITHOUT_ENV[key as settingsRepo.SettingKey]
+        : undefined;
+      let defaultValue = staticDefault ? staticDefault() : def.default();
 
       if (key === "model") {
         defaultValue = resolvedModelDefault;
@@ -231,8 +256,7 @@ export async function getEffectiveSettings(): Promise<AppSettings> {
 
       if (
         (key === "pipelineWebhookUrl" || key === "jobCompleteWebhookUrl") &&
-        !serverCredentialsAllowed &&
-        !hostedMode
+        !canExposeServerEnv
       ) {
         defaultValue = "";
       }

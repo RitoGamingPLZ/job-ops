@@ -3,6 +3,7 @@
  * System admins always have every permission.
  */
 export const USER_PERMISSION_KEYS = [
+  "defaultModel",
   "serverCredentials",
   "emailTracking",
   "webhooks",
@@ -16,6 +17,7 @@ export type UserPermissions = Record<UserPermissionKey, boolean>;
 
 /** What a freshly invited user may do until an admin changes it. */
 export const DEFAULT_USER_PERMISSIONS: Readonly<UserPermissions> = {
+  defaultModel: false,
   serverCredentials: false,
   emailTracking: false,
   webhooks: false,
@@ -26,10 +28,15 @@ export const DEFAULT_USER_PERMISSIONS: Readonly<UserPermissions> = {
 export const USER_PERMISSION_LABELS: Readonly<
   Record<UserPermissionKey, { label: string; description: string }>
 > = {
-  serverCredentials: {
-    label: "Use server AI and job-source keys",
+  defaultModel: {
+    label: "Access to default AI model",
     description:
-      "Lets this user spend your server-level LLM key, Apify/Adzuna tokens. Off means they bring their own keys.",
+      "Lets this user use the server's default AI model without adding their own API key. Off means they must add their own key before using JobOps.",
+  },
+  serverCredentials: {
+    label: "Use server job-source keys",
+    description:
+      "Lets this user run job sources backed by your server's Apify, Adzuna, or UKVisaJobs credentials.",
   },
   emailTracking: {
     label: "Email tracking inbox",
@@ -63,6 +70,7 @@ export function resolveUserPermissions(overrides: unknown): UserPermissions {
 }
 
 export const ALL_USER_PERMISSIONS_GRANTED: Readonly<UserPermissions> = {
+  defaultModel: true,
   serverCredentials: true,
   emailTracking: true,
   webhooks: true,

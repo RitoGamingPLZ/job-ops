@@ -10,6 +10,7 @@ import {
   LLM_PROVIDER_LABELS,
   LLM_PROVIDERS,
   normalizeLlmProvider,
+  RESTRICTED_LLM_PROVIDERS,
   supportsLlmModelSuggestions,
 } from "@/client/pages/settings/utils";
 import {
@@ -25,6 +26,7 @@ import { useLlmModels } from "./useLlmModels";
 
 export default function PurposeOverrideCard({
   purpose,
+  restrictProviders = false,
   defaultProvider,
   defaultModel,
   defaultBaseUrl,
@@ -38,6 +40,7 @@ export default function PurposeOverrideCard({
   onApiKeyChange,
 }: {
   purpose: LlmPurpose;
+  restrictProviders?: boolean;
   defaultProvider: LlmProviderId;
   defaultModel: string;
   defaultBaseUrl: string;
@@ -54,21 +57,30 @@ export default function PurposeOverrideCard({
   ) => void;
   onApiKeyChange: (purpose: LlmPurpose, value: string) => void;
 }) {
-  const selectedProvider = value?.provider ? normalizeLlmProvider(value.provider) : defaultProvider;
-  const hasProviderOverride = Boolean(value?.provider);
+  const providerList = restrictProviders ? RESTRICTED_LLM_PROVIDERS : LLM_PROVIDERS;
+  const rawOverrideProvider = value?.provider ? normalizeLlmProvider(value.provider) : null;
+  const effectiveOverrideProvider =
+    rawOverrideProvider &&
+    (!restrictProviders ||
+      (RESTRICTED_LLM_PROVIDERS as readonly string[]).includes(rawOverrideProvider))
+      ? rawOverrideProvider
+      : null;
+  const selectedProvider = effectiveOverrideProvider ?? defaultProvider;
+  const hasProviderOverride = Boolean(effectiveOverrideProvider);
   const providerConfig = getLlmProviderConfig(selectedProvider);
-  const isCodexProvider = providerConfig.normalizedProvider === "codex";
-  const isGeminiCliProvider = providerConfig.normalizedProvider === "gemini_cli";
-  const isClaudeCliProvider = providerConfig.normalizedProvider === "claude_cli";
+  const allowBaseUrlInput = !restrictProviders && providerConfig.showBaseUrl;
+  const isCodexProvider = !restrictProviders && providerConfig.normalizedProvider === "codex";
+  const isGeminiCliProvider =
+    !restrictProviders && providerConfig.normalizedProvider === "gemini_cli";
+  const isClaudeCliProvider =
+    !restrictProviders && providerConfig.normalizedProvider === "claude_cli";
   const supportsModelSuggestions = supportsLlmModelSuggestions(selectedProvider);
-  const baseUrlValue = value?.baseUrl ?? "";
+  const baseUrlValue = allowBaseUrlInput ? (value?.baseUrl ?? "") : "";
   const modelValue = value?.model ?? "";
   const purposeProviderDefaultModel = hasProviderOverride
     ? getDefaultModelForProvider(selectedProvider)
     : defaultModel;
-  const providerDefaultBaseUrl = providerConfig.showBaseUrl
-    ? providerConfig.baseUrlPlaceholder
-    : "";
+  const providerDefaultBaseUrl = allowBaseUrlInput ? providerConfig.baseUrlPlaceholder : "";
   const effectiveBaseUrl =
     baseUrlValue || (hasProviderOverride ? providerDefaultBaseUrl : defaultBaseUrl);
   const hasSavedKey = Boolean(apiKeyHint || defaultApiKeyHint);
@@ -81,7 +93,7 @@ export default function PurposeOverrideCard({
     provider: selectedProvider,
     baseUrl: baseUrlValue,
     apiKey: apiKeyValue,
-    showBaseUrl: providerConfig.showBaseUrl,
+    showBaseUrl: allowBaseUrlInput,
     showApiKey: providerConfig.showApiKey,
     enabled:
       supportsModelSuggestions &&
@@ -110,7 +122,7 @@ export default function PurposeOverrideCard({
         Provider
       </label>
       <Select
-        value={value?.provider ?? "__inherit__"}
+        value={effectiveOverrideProvider ?? "__inherit__"}
         onValueChange={(nextValue) => {
           onChange(purpose, "provider", nextValue === "__inherit__" ? null : nextValue);
           onChange(purpose, "baseUrl", null);
@@ -123,7 +135,7 @@ export default function PurposeOverrideCard({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="__inherit__">Inherit default</SelectItem>
-          {LLM_PROVIDERS.map((provider) => (
+          {providerList.map((provider) => (
             <SelectItem key={provider} value={provider}>
               {LLM_PROVIDER_LABELS[provider]}
             </SelectItem>
@@ -141,7 +153,7 @@ export default function PurposeOverrideCard({
       {hasProviderOverride && isGeminiCliProvider ? <GeminiCliSetupHint /> : null}
       {hasProviderOverride && isClaudeCliProvider ? <ClaudeCliSetupHint /> : null}
 
-      {hasProviderOverride && providerConfig.showBaseUrl ? (
+      {hasProviderOverride && allowBaseUrlInput ? (
         <SettingsInput
           label="Base URL"
           inputProps={{

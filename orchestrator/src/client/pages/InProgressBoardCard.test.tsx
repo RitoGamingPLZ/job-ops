@@ -1,5 +1,5 @@
 import type { JobListItem } from "@shared/types.js";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { InProgressBoardCard } from "./InProgressBoardCard";
@@ -58,7 +58,10 @@ function renderCard(job: JobListItem) {
 describe("InProgressBoardCard resume status indicator", () => {
   it("shows a ready indicator once the resume is available", () => {
     const { container } = renderCard(makeJob({ status: "ready" }));
-    expect(container.querySelector('[aria-label="Resume ready"]')).toBeInTheDocument();
+    const dot = screen.getByRole("img", { name: "Resume ready" });
+    expect(dot).toBeInTheDocument();
+    expect(dot).toHaveAttribute("tabindex", "0");
+    expect(container.querySelector('button[class*="bg-transparent"]')).toBeNull();
   });
 
   it("shows a preparing indicator while the job is processing", () => {

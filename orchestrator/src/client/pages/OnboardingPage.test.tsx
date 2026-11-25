@@ -1,6 +1,10 @@
 import { useDesignResume } from "@client/hooks/useDesignResume";
 import { useOnboardingStatus } from "@client/hooks/useOnboardingStatus";
-import type { OnboardingStatusResponse } from "@shared/types";
+import {
+  ALL_USER_PERMISSIONS_GRANTED,
+  DEFAULT_USER_PERMISSIONS,
+  type OnboardingStatusResponse,
+} from "@shared/types";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,6 +21,7 @@ vi.mock("@/client/api", () => ({
   confirmOnboardingResume: vi.fn(),
   getAppStatus: vi.fn(),
   getAuthBootstrapStatus: vi.fn(),
+  getCurrentAuthUser: vi.fn(),
   hasAuthenticatedSession: vi.fn(() => true),
   getProfile: vi.fn(),
   saveOnboardingProfile: vi.fn(),
@@ -42,9 +47,10 @@ vi.mock("./onboarding/useOnboardingFlow", () => ({
 
 vi.mock("./onboarding/components/LlmConnectionStep", () => ({
   LlmConnectionStep: (props: {
+    restrictProviders?: boolean;
     onCodexAuthStatusChange?: (status: { authenticated: boolean }) => void;
   }) => (
-    <div>
+    <div data-restrict-providers={String(Boolean(props.restrictProviders))}>
       LLM configuration
       <button
         type="button"
@@ -194,6 +200,20 @@ describe("OnboardingPage", () => {
     vi.clearAllMocks();
     vi.mocked(api.getAuthBootstrapStatus).mockResolvedValue({
       setupRequired: false,
+    });
+    vi.mocked(api.getCurrentAuthUser).mockResolvedValue({
+      id: "admin-1",
+      username: "admin",
+      displayName: "Admin",
+      isSystemAdmin: true,
+      isDisabled: false,
+      hasPassword: true,
+      mustChangePassword: false,
+      workspaceId: "tenant_default",
+      workspaceName: "JobOps",
+      permissions: { ...ALL_USER_PERMISSIONS_GRANTED },
+      createdAt: "2026-04-27T00:00:00.000Z",
+      updatedAt: "2026-04-27T00:00:00.000Z",
     });
     vi.mocked(api.getAppStatus).mockResolvedValue({
       appMode: "local",
@@ -376,5 +396,35 @@ describe("OnboardingPage", () => {
     await renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Mock Codex disconnect" }));
     expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it("restricts LLM providers during onboarding for non-admin local users", async () => {
+    vi.mocked(api.getCurrentAuthUser).mockResolvedValue({
+      id: "user-2",
+      username: "guest",
+      displayName: "Guest",
+      isSystemAdmin: false,
+      isDisabled: false,
+      hasPassword: true,
+      mustChangePassword: false,
+      workspaceId: "tenant_guest",
+      workspaceName: "Guest",
+      permissions: { ...DEFAULT_USER_PERMISSIONS },
+      createdAt: "2026-04-27T00:00:00.000Z",
+      updatedAt: "2026-04-27T00:00:00.000Z",
+    });
+    vi.mocked(useOnboardingStatus).mockReturnValue({
+      status: modelStatus,
+      complete: false,
+      nextRequirementId: "model",
+      requirements: modelStatus.requirements,
+      checking: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useOnboardingStatus>);
+
+    await renderPage();
+    const form = await screen.findByText("LLM configuration");
+    expect(form).toHaveAttribute("data-restrict-providers", "true");
   });
 });

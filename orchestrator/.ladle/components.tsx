@@ -1,5 +1,6 @@
+import { type GlobalProvider, ThemeState } from "@ladle/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type React from "react";
+import { useEffect } from "react";
 import { MemoryRouter } from "react-router-dom";
 import "../src/index.css";
 
@@ -48,13 +49,25 @@ const queryClient = new QueryClient({
   },
 });
 
-export const Provider: React.FC<{
-  children: React.ReactNode;
-}> = ({ children }) => {
+export const Provider: GlobalProvider = ({ children, globalState }) => {
+  const isDark =
+    globalState.theme === ThemeState.Dark ||
+    (globalState.theme === ThemeState.Auto &&
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-color-scheme: dark)")?.matches);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDark);
+  }, [isDark]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
-        <div className="dark min-h-screen bg-background text-foreground p-6">{children}</div>
+        <div
+          className={`${isDark ? "dark " : ""}min-h-screen bg-background p-3 text-foreground sm:p-6`}
+        >
+          {children}
+        </div>
       </MemoryRouter>
     </QueryClientProvider>
   );

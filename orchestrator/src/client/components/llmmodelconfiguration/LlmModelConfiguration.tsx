@@ -9,6 +9,7 @@ import {
   LLM_PROVIDER_LABELS,
   LLM_PROVIDERS,
   type LlmProviderId,
+  RESTRICTED_LLM_PROVIDERS,
   supportsLlmModelSuggestions,
 } from "@client/pages/settings/utils";
 import { getDefaultModelForProvider } from "@shared/settings-registry";
@@ -21,6 +22,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -59,6 +61,8 @@ type PurposeOverrideBinding = {
 type LlmModelConfigurationProps = {
   mode: "compact" | "settings";
   disabled: boolean;
+  restrictProviders?: boolean;
+  defaultModelStatus?: "granted" | "required" | null;
   selectedProvider: LlmProviderId;
   savedProvider?: string | null;
   savedBaseUrl?: string | null;
@@ -80,6 +84,8 @@ type LlmModelConfigurationProps = {
 export function LlmModelConfiguration({
   mode,
   disabled,
+  restrictProviders = false,
+  defaultModelStatus = null,
   selectedProvider,
   savedProvider,
   savedBaseUrl,
@@ -97,38 +103,46 @@ export function LlmModelConfiguration({
   validationSlot,
   onCodexAuthStatusChange,
 }: LlmModelConfigurationProps) {
-  const providerConfig = getLlmProviderConfig(selectedProvider);
+  const providerList = restrictProviders ? RESTRICTED_LLM_PROVIDERS : LLM_PROVIDERS;
+  const effectiveSelectedProvider: LlmProviderId =
+    restrictProviders && !(RESTRICTED_LLM_PROVIDERS as readonly string[]).includes(selectedProvider)
+      ? "gemini"
+      : selectedProvider;
+  const providerConfig = getLlmProviderConfig(effectiveSelectedProvider);
   const { showApiKey, showBaseUrl } = providerConfig;
-  const isCodexProvider = providerConfig.normalizedProvider === "codex";
-  const isGeminiCliProvider = providerConfig.normalizedProvider === "gemini_cli";
-  const isClaudeCliProvider = providerConfig.normalizedProvider === "claude_cli";
+  const allowBaseUrlInput = showBaseUrl && !restrictProviders;
+  const isCodexProvider = !restrictProviders && providerConfig.normalizedProvider === "codex";
+  const isGeminiCliProvider =
+    !restrictProviders && providerConfig.normalizedProvider === "gemini_cli";
+  const isClaudeCliProvider =
+    !restrictProviders && providerConfig.normalizedProvider === "claude_cli";
   const requiresExplicitDefaultModel =
     providerConfig.normalizedProvider === "ollama" ||
     providerConfig.normalizedProvider === "litellm";
-  const deferredProvider = useDeferredValue(selectedProvider);
+  const deferredProvider = useDeferredValue(effectiveSelectedProvider);
   const deferredBaseUrl = useDeferredValue(baseUrl.value);
   const deferredApiKey = useDeferredValue(apiKey.value);
-  const supportsModelSuggestions = supportsLlmModelSuggestions(selectedProvider);
+  const supportsModelSuggestions = supportsLlmModelSuggestions(effectiveSelectedProvider);
   const hasAvailableApiKey = providerConfig.requiresApiKey
     ? Boolean(deferredApiKey.trim() || apiKeyHint)
     : true;
   const providerDefaultModel = getDefaultModelForProvider(
-    selectedProvider,
-    selectedProvider === savedProvider ? (defaultModel ?? undefined) : undefined,
+    effectiveSelectedProvider,
+    effectiveSelectedProvider === savedProvider ? (defaultModel ?? undefined) : undefined,
   );
 
   useEffect(() => {
-    if (showBaseUrl) return;
+    if (allowBaseUrlInput) return;
     if (baseUrl.value) {
       baseUrl.onChange("");
     }
-  }, [baseUrl, showBaseUrl]);
+  }, [allowBaseUrlInput, baseUrl]);
 
   const { availableModels, isLoadingModels, modelsError } = useLlmModels({
     provider: deferredProvider,
     baseUrl: deferredBaseUrl,
     apiKey: deferredApiKey,
-    showBaseUrl,
+    showBaseUrl: allowBaseUrlInput,
     showApiKey,
     enabled: supportsModelSuggestions && hasAvailableApiKey,
     hasSavedKey: hasAvailableApiKey,
@@ -163,8 +177,17 @@ export function LlmModelConfiguration({
     : mode === "compact"
       ? "API key (optional)"
       : "LLM API key (optional)";
-  const keyText = showApiKey ? formattedKeyHint : "Not required";
-  const resolvedBaseUrl = baseUrl.value.trim() || savedBaseUrl || "-";
+  const keyText =
+    defaultModelStatus === "granted" && !hasSavedKey
+      ? "Managed by admin"
+      : showApiKey
+        ? formattedKeyHint
+        : "Not required";
+  const apiKeyCurrentText =
+    defaultModelStatus === "granted" && !hasSavedKey
+      ? "Managed by admin (using server default model)"
+      : formattedKeyHint;
+  const resolvedBaseUrl = (allowBaseUrlInput ? baseUrl.value.trim() : "") || savedBaseUrl || "-";
   const selectedDefaultModel = model.value.trim();
   const previewDefaultModel =
     selectedDefaultModel ||
@@ -176,13 +199,13 @@ export function LlmModelConfiguration({
   const selectedProjectSelectionModel = modelProjectSelection?.value.trim() ?? "";
   const previewPurpose = (purpose: LlmPurpose, legacyModel: string) => {
     const value = purposeOverrides?.values[purpose];
-    const purposeProvider = value?.provider?.trim() || selectedProvider;
+    const purposeProvider = value?.provider?.trim() || effectiveSelectedProvider;
     const purposeModel = purposeOverrides ? value?.model?.trim() : legacyModel;
     return {
       provider: purposeProvider,
       model:
         purposeModel ||
-        (purposeProvider !== selectedProvider
+        (purposeProvider !== effectiveSelectedProvider
           ? getDefaultModelForProvider(purposeProvider)
           : previewDefaultModel),
     };
@@ -258,6 +281,24 @@ export function LlmModelConfiguration({
   return (
     <>
       <div className={mode === "compact" ? "space-y-6" : "space-y-4"}>
+        {defaultModelStatus === "granted" && !hasSavedKey ? (
+          <Alert>
+            <AlertTitle>Using server default AI model</AlertTitle>
+            <AlertDescription>
+              An admin granted your account access to the default AI model. The server API key stays
+              hidden. You can optionally save your own API key below to override it.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {defaultModelStatus === "required" && !hasSavedKey ? (
+          <Alert variant="warning">
+            <AlertTitle>Personal API key required</AlertTitle>
+            <AlertDescription>
+              This account does not include access to the server default AI model. Add your own
+              provider API key below before using AI features.
+            </AlertDescription>
+          </Alert>
+        ) : null}
         <div className="space-y-4">
           {mode === "settings" ? <div className="text-sm font-medium">LLM Provider</div> : null}
           <div className={providerGridClass}>
@@ -266,7 +307,7 @@ export function LlmModelConfiguration({
                 Provider
               </label>
               <Select
-                value={selectedProvider}
+                value={effectiveSelectedProvider}
                 onValueChange={handleProviderChange}
                 disabled={disabled}
               >
@@ -274,7 +315,7 @@ export function LlmModelConfiguration({
                   <SelectValue placeholder="Select provider" />
                 </SelectTrigger>
                 <SelectContent>
-                  {LLM_PROVIDERS.map((llmProvider) => (
+                  {providerList.map((llmProvider) => (
                     <SelectItem key={llmProvider} value={llmProvider}>
                       {LLM_PROVIDER_LABELS[llmProvider]}
                     </SelectItem>
@@ -294,7 +335,7 @@ export function LlmModelConfiguration({
             ) : null}
             {isGeminiCliProvider ? <GeminiCliSetupHint /> : null}
             {isClaudeCliProvider ? <ClaudeCliSetupHint /> : null}
-            {showBaseUrl ? (
+            {allowBaseUrlInput ? (
               <SettingsInput
                 label={mode === "compact" ? "Base URL" : "LLM base URL"}
                 inputProps={{
@@ -332,7 +373,7 @@ export function LlmModelConfiguration({
                   providerConfig.keyHelperHref,
                   hasSavedKey,
                 )}
-                current={mode === "settings" ? formattedKeyHint : undefined}
+                current={mode === "settings" ? apiKeyCurrentText : undefined}
               />
             ) : mode === "compact" && !isCodexProvider ? (
               <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
@@ -384,7 +425,8 @@ export function LlmModelConfiguration({
                         <PurposeOverrideCard
                           key={purpose.id}
                           purpose={purpose.id}
-                          defaultProvider={selectedProvider}
+                          restrictProviders={restrictProviders}
+                          defaultProvider={effectiveSelectedProvider}
                           defaultModel={previewDefaultModel}
                           defaultBaseUrl={resolvedBaseUrl}
                           defaultApiKeyHint={apiKeyHint ?? null}
@@ -447,10 +489,14 @@ export function LlmModelConfiguration({
             <div className="text-xs text-muted-foreground">Configuration preview</div>
             <div className="grid gap-x-4 gap-y-2 text-xs sm:grid-cols-[160px_1fr]">
               <div className="text-muted-foreground">Provider</div>
-              <div className="font-mono">{selectedProvider || "-"}</div>
+              <div className="font-mono">{effectiveSelectedProvider || "-"}</div>
 
-              <div className="text-muted-foreground">Base URL</div>
-              <div className="font-mono">{resolvedBaseUrl}</div>
+              {restrictProviders ? null : (
+                <>
+                  <div className="text-muted-foreground">Base URL</div>
+                  <div className="font-mono">{resolvedBaseUrl}</div>
+                </>
+              )}
 
               <div className="text-muted-foreground">API key</div>
               <div className="font-mono">{keyText}</div>

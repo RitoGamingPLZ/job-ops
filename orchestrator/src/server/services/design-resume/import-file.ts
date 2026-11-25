@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { AppError, badRequest, serviceUnavailable, upstreamError } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
@@ -289,6 +290,8 @@ Rules:
 - For rich text descriptions and summaries, preserve structure using simple HTML tags only: <p>, <ul>, <li>, <strong>, <em>.
 - Do not add sections or keys that do not exist in the template.
 - Keep dates, names, locations, and organization names exactly as written when possible.
+- Work experience, projects, volunteer and education entries: capture EVERY bullet point, duty and achievement listed under an entry. Put them in that entry's "description" as a single <ul> with one <li> per bullet (any short intro sentence goes in a <p> before the list). Never drop, merge or summarize bullets. Join a bullet that wraps over several lines into one <li>, and remove the leading bullet glyph (•, -, *, ▪).
+- Create one experience item per job title held. If several positions at the same company are listed, repeat the company on each item with its own position, period and bullets. Leave "roles" as an empty array.
 `.trim();
 
 type RecordLike = Record<string, unknown>;
@@ -794,6 +797,8 @@ ${documentText}
 Extract the resume into the provided structured output schema.
 Use empty strings, empty arrays, or empty objects for missing values.
 For rich text descriptions and summaries, use simple HTML tags only: <p>, <ul>, <li>, <strong>, <em>.
+Capture every bullet point, duty and achievement under each job, project, volunteer and education entry as one <li> inside a single <ul> in that entry's "description". Do not drop or merge bullets, and join wrapped lines into one bullet.
+Create one experience item per job title held (repeat the company for several positions there) and leave "roles" as an empty array.
 Return normal JSON matching the schema, not JSON serialized inside a string.
 `.trim();
 }
@@ -927,8 +932,106 @@ function filterRequiredItems(items: unknown, requiredField: string): unknown[] {
   return asArray(items).filter((item) => trimText(asRecord(item)?.[requiredField]));
 }
 
+const BULLET_GLYPH_PATTERN = /^\s*(?:[•●▪■◦○‣∙·*–—-]|\d{1,2}[.)])\s*/;
+const BULLET_GLYPH_START_PATTERN = /^\s*(?:[•●▪■◦○‣∙·*]|[–—-]\s|\d{1,2}[.)]\s)/;
+
+function escapeHtmlText(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * Models sometimes return a job's duties as raw text ("• did x\n• did y") or glyph-prefixed
+ * paragraphs instead of the <ul><li> list the editor and PDF templates read as bullets.
+ * Convert those to a real list, folding wrapped continuation lines into the previous bullet.
+ */
+function normalizeDescriptionBullets(value: unknown): string {
+  const description = toText(value);
+  if (!description.trim() || /<li\b/i.test(description)) return description;
+
+  const segments = description
+    .replace(/^\s*<p[^>]*>/i, "")
+    .replace(/<\/p>\s*$/i, "")
+    .split(/<\/p>\s*<p[^>]*>|<br\s*\/?>|\r?\n/i)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  if (!segments.some((segment) => BULLET_GLYPH_START_PATTERN.test(segment))) return description;
+
+  const toHtml = (text: string) => (text.includes("<") ? text : escapeHtmlText(text));
+  const intro: string[] = [];
+  const bullets: string[] = [];
+  for (const segment of segments) {
+    if (BULLET_GLYPH_START_PATTERN.test(segment)) {
+      bullets.push(segment.replace(BULLET_GLYPH_PATTERN, "").trim());
+    } else if (bullets.length > 0) {
+      bullets[bullets.length - 1] = `${bullets[bullets.length - 1]} ${segment}`;
+    } else {
+      intro.push(segment);
+    }
+  }
+  const listItems = bullets.filter(Boolean);
+  if (listItems.length === 0) return description;
+  return `${intro.map((line) => `<p>${toHtml(line)}</p>`).join("")}<ul>${listItems
+    .map((item) => `<li>${toHtml(item)}</li>`)
+    .join("")}</ul>`;
+}
+
+/**
+ * Editor and PDF templates only read an experience item's own `description`, so duties placed
+ * under nested `roles` would vanish. Promote each role to its own entry at the same employer.
+ */
+function flattenExperienceRoles(items: unknown): unknown[] {
+  return asArray(items).flatMap((item) => {
+    const record = asRecord(item);
+    if (!record) return [item];
+    const roles = asArray(record.roles)
+      .map((role) => asRecord(role))
+      .filter(
+        (role): role is RecordLike =>
+          role !== null && Boolean(trimText(role.position) || trimText(role.description)),
+      );
+    if (roles.length === 0) return [item];
+
+    const { id: _id, roles: _roles, ...employer } = record;
+    const promoted = roles.map((role) => ({
+      ...employer,
+      position: trimText(role.position) || toText(record.position),
+      period: trimText(role.period) || toText(record.period),
+      description: toText(role.description),
+      roles: [],
+    }));
+    return trimText(record.description) ? [{ ...record, roles: [] }, ...promoted] : promoted;
+  });
+}
+
+function withNormalizedDescriptions(items: unknown): unknown[] {
+  return asArray(items).map((item) => {
+    const record = asRecord(item);
+    if (!record) return item;
+    return {
+      ...record,
+      id: trimText(record.id) || randomUUID(),
+      description: normalizeDescriptionBullets(record.description),
+    };
+  });
+}
+
 function sanitizeNormalizedResume(input: unknown): DesignResumeJson {
-  const normalized = normalizeResumeV5Document(input) as RecordLike;
+  const rawSections = asRecord(asRecord(input)?.sections);
+  const rawExperience = asRecord(rawSections?.experience);
+  const prepared =
+    rawSections && rawExperience
+      ? {
+          ...asRecord(input),
+          sections: {
+            ...rawSections,
+            experience: {
+              ...rawExperience,
+              items: flattenExperienceRoles(rawExperience.items),
+            },
+          },
+        }
+      : input;
+  const normalized = normalizeResumeV5Document(prepared) as RecordLike;
   const sections = asRecord(normalized.sections) ?? {};
 
   normalized.sections = {
@@ -939,15 +1042,21 @@ function sanitizeNormalizedResume(input: unknown): DesignResumeJson {
     },
     experience: {
       ...asRecord(sections.experience),
-      items: filterRequiredItems(asRecord(sections.experience)?.items, "company"),
+      items: withNormalizedDescriptions(
+        filterRequiredItems(asRecord(sections.experience)?.items, "company"),
+      ),
     },
     education: {
       ...asRecord(sections.education),
-      items: filterRequiredItems(asRecord(sections.education)?.items, "school"),
+      items: withNormalizedDescriptions(
+        filterRequiredItems(asRecord(sections.education)?.items, "school"),
+      ),
     },
     projects: {
       ...asRecord(sections.projects),
-      items: filterRequiredItems(asRecord(sections.projects)?.items, "name"),
+      items: withNormalizedDescriptions(
+        filterRequiredItems(asRecord(sections.projects)?.items, "name"),
+      ),
     },
     skills: {
       ...asRecord(sections.skills),
@@ -975,7 +1084,9 @@ function sanitizeNormalizedResume(input: unknown): DesignResumeJson {
     },
     volunteer: {
       ...asRecord(sections.volunteer),
-      items: filterRequiredItems(asRecord(sections.volunteer)?.items, "organization"),
+      items: withNormalizedDescriptions(
+        filterRequiredItems(asRecord(sections.volunteer)?.items, "organization"),
+      ),
     },
     references: {
       ...asRecord(sections.references),

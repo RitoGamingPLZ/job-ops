@@ -6,6 +6,7 @@ import { type ExtractorRegistry, getExtractorRegistry } from "@server/extractors
 import { getActivePipelineCount, getPipelineStatus, runPipeline } from "@server/pipeline/index";
 import { reserveHostedUsage, settleHostedUsageReservation } from "@server/services/hosted-usage";
 import { ensurePipelineSearchTerms } from "@server/services/pipeline-search-terms";
+import { ensureUserHasLlmAccess } from "@server/services/server-credentials";
 import { PIPELINE_EXTRACTOR_SOURCE_IDS } from "@shared/extractors";
 import { createLocationIntent, planLocationSources } from "@shared/location-intelligence.js";
 import {
@@ -112,6 +113,7 @@ export async function validateRequestedPipeline(config: PipelineRunRequest) {
 }
 
 export async function startRequestedPipeline(config: PipelineRunRequest, remember = true) {
+  await ensureUserHasLlmAccess();
   const locationIntent = await validateRequestedPipeline(config);
   if (getPipelineStatus().isRunning) {
     throw conflict("Pipeline is already running");

@@ -15,6 +15,30 @@ interface PipelineActionRequiredProps {
   onSecondaryAction?: () => void;
 }
 
+const StableActionContent = ({
+  label,
+  pendingLabel,
+  pending,
+}: {
+  label: string;
+  pendingLabel: string;
+  pending: boolean;
+}) => (
+  <span className="inline-grid items-center justify-items-center">
+    <span
+      className="col-start-1 row-start-1 inline-flex items-center gap-1.5 invisible"
+      aria-hidden="true"
+    >
+      <Loader2 className="h-4 w-4 shrink-0" />
+      <span>{pendingLabel.length >= label.length ? pendingLabel : label}</span>
+    </span>
+    <span className="col-start-1 row-start-1 inline-flex items-center gap-1.5">
+      {pending ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : null}
+      <span>{pending ? pendingLabel : label}</span>
+    </span>
+  </span>
+);
+
 export const PipelineActionRequired = ({
   title,
   description,
@@ -41,8 +65,7 @@ export const PipelineActionRequired = ({
           disabled={pending || secondaryPending}
           onClick={onAction}
         >
-          {pending ? <Loader2 data-icon="inline-start" /> : null}
-          {pending ? pendingLabel : actionLabel}
+          <StableActionContent label={actionLabel} pendingLabel={pendingLabel} pending={pending} />
         </Button>
         {secondaryActionLabel && onSecondaryAction ? (
           <Button
@@ -51,10 +74,11 @@ export const PipelineActionRequired = ({
             disabled={pending || secondaryPending}
             onClick={onSecondaryAction}
           >
-            {secondaryPending ? <Loader2 data-icon="inline-start" /> : null}
-            {secondaryPending
-              ? (secondaryPendingLabel ?? secondaryActionLabel)
-              : secondaryActionLabel}
+            <StableActionContent
+              label={secondaryActionLabel}
+              pendingLabel={secondaryPendingLabel ?? secondaryActionLabel}
+              pending={secondaryPending}
+            />
           </Button>
         ) : null}
       </div>

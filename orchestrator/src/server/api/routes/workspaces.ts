@@ -134,6 +134,7 @@ workspacesRouter.patch(
     }
 
     const user = await usersRepo.setUserDisabled(userId, parsed.data.isDisabled);
+    clearUserPermissionCache();
     clearServerCredentialCache();
     if (!user) {
       fail(res, notFound("User not found"));

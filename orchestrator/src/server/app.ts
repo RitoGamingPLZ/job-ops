@@ -21,7 +21,7 @@ import { getBlobStore } from "@server/infra/blob-store";
 import * as usersRepo from "@server/repositories/users";
 import { proxyChallengeViewerRequest } from "@server/services/challenge-viewer";
 import { getActivePdfKeyPrefix } from "@server/services/pdf-storage";
-import { canUseServerCredentials } from "@server/services/server-credentials";
+import { isOperatorContext } from "@server/services/server-credentials";
 import { DEFAULT_TENANT_ID } from "@server/tenancy/constants";
 import { corsDelegate } from "@infra/cors-policy";
 import { securityHeadersMiddleware } from "@infra/security-headers";
@@ -524,9 +524,7 @@ export function createApp() {
       const legacyRoot = !normalized.includes("/");
       const allowed =
         ownFolder ||
-        (legacyRoot &&
-          getJobOpsAppConfig().appMode !== "hosted" &&
-          (await canUseServerCredentials()));
+        (legacyRoot && getJobOpsAppConfig().appMode !== "hosted" && (await isOperatorContext()));
       if (!allowed) {
         next();
         return;

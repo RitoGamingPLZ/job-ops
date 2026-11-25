@@ -97,7 +97,7 @@ export const InvitationsPanel: React.FC = () => {
             aria-label="Invitation label"
           />
           <select
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             value={expiresInDays}
             onChange={(event) => setExpiresInDays(Number(event.currentTarget.value))}
             aria-label="Invitation expiry"
@@ -133,10 +133,12 @@ export const InvitationsPanel: React.FC = () => {
           <p className="text-xs text-muted-foreground">
             This link is shown only once. Copy it now and send it to them.
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 sm:flex-nowrap">
             <Input
               readOnly
               value={freshLink.url}
+              className="min-w-0 flex-1"
+              aria-label="Invitation link"
               onFocus={(event) => event.currentTarget.select()}
             />
             <Button type="button" variant="outline" onClick={() => void copyLink(freshLink.url)}>

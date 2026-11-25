@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getLlmProviderConfig, normalizeLlmProvider, supportsLlmModelSuggestions } from "./utils";
+import {
+  formatSecretHint,
+  getLlmProviderConfig,
+  normalizeLlmProvider,
+  RESTRICTED_LLM_PROVIDERS,
+  supportsLlmModelSuggestions,
+} from "./utils";
 
 describe("settings utils", () => {
   it("offers API Route with authenticated model discovery", () => {
@@ -142,5 +148,30 @@ describe("settings utils", () => {
     expect(supportsLlmModelSuggestions("requesty")).toBe(true);
     expect(supportsLlmModelSuggestions("orcarouter")).toBe(true);
     expect(supportsLlmModelSuggestions("openrouter")).toBe(false);
+  });
+
+  it("masks secret hints uniformly without exposing characters", () => {
+    expect(formatSecretHint("sk-live-123456")).toBe("••••••••");
+    expect(formatSecretHint("a")).toBe("••••••••");
+    expect(formatSecretHint(null)).toBe("Not set");
+    expect(formatSecretHint("")).toBe("Not set");
+  });
+
+  it("excludes CLI and local server providers from restricted non-admin providers", () => {
+    for (const blocked of [
+      "codex",
+      "claude_cli",
+      "gemini_cli",
+      "ollama",
+      "lm-studio",
+      "litellm",
+      "litellm_proxy",
+      "openai_compatible",
+    ]) {
+      expect(RESTRICTED_LLM_PROVIDERS).not.toContain(blocked);
+    }
+    expect(RESTRICTED_LLM_PROVIDERS).toContain("openai");
+    expect(RESTRICTED_LLM_PROVIDERS).toContain("anthropic");
+    expect(RESTRICTED_LLM_PROVIDERS).toContain("gemini");
   });
 });

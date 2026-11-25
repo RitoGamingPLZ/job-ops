@@ -11,10 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { ForcedPasswordResetGate } from "./components/ForcedPasswordResetGate";
 import { AppModeContext, AppSidebar } from "./components/layout";
+import { ADMIN_ALLOWED_PATHS } from "./components/navigation";
 import { OnboardingGate } from "./components/OnboardingGate";
 import { useAnalyticsIdentity } from "./hooks/useAnalyticsIdentity";
 import { useDemoInfo } from "./hooks/useDemoInfo";
 import { setAuthNavigator } from "./lib/auth-navigation";
+import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { GmailOauthCallbackPage } from "./pages/GmailOauthCallbackPage";
 import { HomePage } from "./pages/HomePage";
 import { InProgressBoardPage } from "./pages/InProgressBoardPage";
@@ -66,6 +68,15 @@ export const App: React.FC = () => {
   const demoInfo = useDemoInfo({ enabled: !isAuthRoute });
   const showDemoBanners = !isAuthRoute && demoInfo?.demoMode;
   const showSidebar = !isAuthRoute && !STANDALONE_PATHS.has(location.pathname);
+  // The system admin only manages users and server settings: job and resume pages send them to Users.
+  const { isAdminConsole } = React.useContext(AppModeContext);
+  const adminMustRedirect =
+    isAdminConsole &&
+    !isAuthRoute &&
+    !STANDALONE_PATHS.has(location.pathname) &&
+    !ADMIN_ALLOWED_PATHS.some(
+      (path) => location.pathname === path || location.pathname.startsWith(`${path}/`),
+    );
   const [demoWaitlistBannerDismissed, setDemoWaitlistBannerDismissed] = useState(() => {
     try {
       return localStorage.getItem(DEMO_WAITLIST_BANNER_DISMISSED_KEY) === "1";
@@ -161,42 +172,50 @@ export const App: React.FC = () => {
                   unmountOnExit
                 >
                   <div ref={nodeRef}>
-                    <Routes location={location}>
-                      {/* Backwards-compatibility redirects */}
-                      {REDIRECTS.map(({ from, to }) => (
-                        <Route key={from} path={from} element={<Navigate to={to} replace />} />
-                      ))}
+                    {adminMustRedirect ? (
+                      <Navigate to="/users" replace />
+                    ) : (
+                      <Routes location={location}>
+                        {/* Backwards-compatibility redirects */}
+                        {REDIRECTS.map(({ from, to }) => (
+                          <Route key={from} path={from} element={<Navigate to={to} replace />} />
+                        ))}
 
-                      {/* Application routes */}
-                      <Route path="/overview" element={<HomePage />} />
-                      <Route path="/oauth/gmail/callback" element={<GmailOauthCallbackPage />} />
-                      <Route path="/job/:id" element={<JobPage />} />
-                      <Route path="/job/:id/:view" element={<JobPage />} />
-                      <Route path="/applications/in-progress" element={<InProgressBoardPage />} />
-                      <Route path="/resumes" element={<ResumesPage />} />
-                      <Route path="/library" element={<ResumeLibraryPage />} />
-                      <Route path="/resumes/library" element={<Navigate to="/library" replace />} />
-                      <Route path="/resumes/base" element={<ResumeCoworkPage base />} />
-                      <Route path="/resumes/:jobId" element={<ResumeCoworkPage />} />
-                      <Route
-                        path="/design-resume"
-                        element={<Navigate to="/resumes/base" replace />}
-                      />
-                      <Route
-                        path="/design-resume/:section"
-                        element={<Navigate to="/resumes/base" replace />}
-                      />
-                      <Route path="/onboarding" element={<OnboardingPage />} />
-                      <Route path="/offline" element={<OfflinePage />} />
-                      <Route path="/sign-in" element={<SignInPage />} />
-                      <Route path="/invite/:token" element={<InvitePage />} />
-                      <Route path="/sso/callback/:provider" element={<SsoCallbackPage />} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="/tracking-inbox" element={<TrackingInboxRoute />} />
-                      <Route path="/watchlist" element={<WatchlistPage />} />
-                      <Route path="/jobs/:tab" element={<OrchestratorPage />} />
-                      <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
-                    </Routes>
+                        {/* Application routes */}
+                        <Route path="/overview" element={<HomePage />} />
+                        <Route path="/oauth/gmail/callback" element={<GmailOauthCallbackPage />} />
+                        <Route path="/job/:id" element={<JobPage />} />
+                        <Route path="/job/:id/:view" element={<JobPage />} />
+                        <Route path="/applications/in-progress" element={<InProgressBoardPage />} />
+                        <Route path="/resumes" element={<ResumesPage />} />
+                        <Route path="/library" element={<ResumeLibraryPage />} />
+                        <Route
+                          path="/resumes/library"
+                          element={<Navigate to="/library" replace />}
+                        />
+                        <Route path="/resumes/base" element={<ResumeCoworkPage base />} />
+                        <Route path="/resumes/:jobId" element={<ResumeCoworkPage />} />
+                        <Route
+                          path="/design-resume"
+                          element={<Navigate to="/resumes/base" replace />}
+                        />
+                        <Route
+                          path="/design-resume/:section"
+                          element={<Navigate to="/resumes/base" replace />}
+                        />
+                        <Route path="/onboarding" element={<OnboardingPage />} />
+                        <Route path="/offline" element={<OfflinePage />} />
+                        <Route path="/sign-in" element={<SignInPage />} />
+                        <Route path="/invite/:token" element={<InvitePage />} />
+                        <Route path="/sso/callback/:provider" element={<SsoCallbackPage />} />
+                        <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/users" element={<AdminUsersRoute />} />
+                        <Route path="/tracking-inbox" element={<TrackingInboxRoute />} />
+                        <Route path="/watchlist" element={<WatchlistPage />} />
+                        <Route path="/jobs/:tab" element={<OrchestratorPage />} />
+                        <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
+                      </Routes>
+                    )}
                   </div>
                 </CSSTransition>
               </SwitchTransition>
@@ -209,6 +228,14 @@ export const App: React.FC = () => {
     </>
   );
 };
+
+function AdminUsersRoute() {
+  const { isAdminConsole, isPending } = React.useContext(AppModeContext);
+
+  if (isPending) return null;
+  if (!isAdminConsole) return <Navigate to="/overview" replace />;
+  return <AdminUsersPage />;
+}
 
 function TrackingInboxRoute() {
   const { appMode, isPending, permissions } = React.useContext(AppModeContext);

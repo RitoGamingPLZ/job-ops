@@ -112,6 +112,7 @@ describe("admin user access and invitations", () => {
     const joined = await res.json();
     expect(joined.data.user.isSystemAdmin).toBe(false);
     expect(joined.data.user.permissions).toMatchObject({
+      defaultModel: false,
       emailTracking: true,
       pipeline: false,
       serverCredentials: false,
@@ -208,16 +209,75 @@ describe("admin user access and invitations", () => {
     expect((await save()).status).toBe(200);
   });
 
-  it("lets an admin grant the server's own credentials to one user", async () => {
+  it("lets an admin grant server credentials without leaking operator env into user settings", async () => {
     const { token, user } = await inviteAndJoin("guest");
-    const read = async () =>
+    const readSettings = async () =>
       (await (await fetch(`${baseUrl}/api/settings`, { headers: headers(token) })).json()).data;
+    const readMe = async () =>
+      (await (await fetch(`${baseUrl}/api/auth/me`, { headers: headers(token) })).json()).data;
 
-    expect((await read()).ukvisajobsEmail ?? null).toBeNull();
+    expect((await readSettings()).ukvisajobsEmail ?? null).toBeNull();
+    expect((await readMe()).user.permissions.serverCredentials).toBe(false);
     await patchPermissions(user.id, { serverCredentials: true });
-    expect((await read()).ukvisajobsEmail).toBe("operator@example.com");
+    expect((await readMe()).user.permissions.serverCredentials).toBe(true);
+    expect((await readSettings()).ukvisajobsEmail ?? null).toBeNull();
     await patchPermissions(user.id, { serverCredentials: false });
-    expect((await read()).ukvisajobsEmail ?? null).toBeNull();
+    expect((await readMe()).user.permissions.serverCredentials).toBe(false);
+    expect((await readSettings()).ukvisajobsEmail ?? null).toBeNull();
+  });
+
+  it("controls defaultModel permission, onboarding requirements, and BYOK gating", async () => {
+    const { token, user } = await inviteAndJoin("model-guest");
+    expect((await patchPermissions(user.id, { pipeline: true })).status).toBe(200);
+
+    const statusWithoutModel = await (
+      await fetch(`${baseUrl}/api/onboarding/status`, { headers: headers(token) })
+    ).json();
+    const modelStepWithout = statusWithoutModel.data.requirements.find(
+      (req: { id: string }) => req.id === "model",
+    );
+    expect(modelStepWithout?.status).toBe("needs_action");
+
+    const blockedPipeline = await fetch(`${baseUrl}/api/pipeline/run`, {
+      method: "POST",
+      headers: headers(token),
+      body: JSON.stringify({}),
+    });
+    expect(blockedPipeline.status).toBe(422);
+
+    await patchPermissions(user.id, { defaultModel: true });
+    const statusWithDefault = await (
+      await fetch(`${baseUrl}/api/onboarding/status`, { headers: headers(token) })
+    ).json();
+    expect(
+      statusWithDefault.data.requirements.find((req: { id: string }) => req.id === "model"),
+    ).toBeUndefined();
+
+    const guestSettingsWithDefault = await (
+      await fetch(`${baseUrl}/api/settings`, { headers: headers(token) })
+    ).json();
+    expect(guestSettingsWithDefault.data.ukvisajobsEmail ?? null).toBeNull();
+    expect(guestSettingsWithDefault.data.llmApiKeyHint ?? null).toBeNull();
+
+    await patchPermissions(user.id, { defaultModel: false });
+    const savedOwnKey = await fetch(`${baseUrl}/api/settings`, {
+      method: "PATCH",
+      headers: headers(token),
+      body: JSON.stringify({
+        llmProvider: "openai",
+        llmApiKey: "sk-guest-secret-9999",
+      }),
+    });
+    expect(savedOwnKey.status).toBe(200);
+    const savedBody = await savedOwnKey.json();
+    expect(savedBody.data.llmApiKeyHint).toBe("********");
+
+    const pipelineWithOwnKey = await fetch(`${baseUrl}/api/pipeline/run`, {
+      method: "POST",
+      headers: headers(token),
+      body: JSON.stringify({}),
+    });
+    expect(pipelineWithOwnKey.status).not.toBe(422);
   });
 
   it("validates permission changes and refuses to edit admins or act as a guest", async () => {

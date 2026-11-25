@@ -254,6 +254,8 @@ export const ConnectedAccountsSection: React.FC<ConnectedAccountsSectionProps> =
                 type="password"
                 autoComplete="current-password"
                 placeholder="Enter current password"
+                aria-invalid={Boolean(passwordError)}
+                aria-describedby={passwordError ? "account-password-error" : undefined}
                 value={currentPassword}
                 onChange={(event) => setCurrentPassword(event.currentTarget.value)}
               />
@@ -268,6 +270,8 @@ export const ConnectedAccountsSection: React.FC<ConnectedAccountsSectionProps> =
               type="password"
               autoComplete="new-password"
               placeholder="Enter a new password"
+              aria-invalid={Boolean(passwordError)}
+              aria-describedby={passwordError ? "account-password-error" : undefined}
               value={newPassword}
               onChange={(event) => setNewPassword(event.currentTarget.value)}
             />
@@ -281,6 +285,8 @@ export const ConnectedAccountsSection: React.FC<ConnectedAccountsSectionProps> =
               type="password"
               autoComplete="new-password"
               placeholder="Re-enter the new password"
+              aria-invalid={Boolean(passwordError)}
+              aria-describedby={passwordError ? "account-password-error" : undefined}
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.currentTarget.value)}
             />
@@ -288,18 +294,21 @@ export const ConnectedAccountsSection: React.FC<ConnectedAccountsSectionProps> =
         </div>
 
         {passwordError ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p id="account-password-error" className="text-sm text-destructive" role="alert">
             {passwordError}
           </p>
         ) : null}
 
-        <Button
-          type="button"
-          onClick={handleChangePassword}
-          disabled={changePasswordMutation.isPending}
-        >
-          {hasPassword ? "Change password" : "Set password"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            className="w-full sm:w-auto"
+            onClick={handleChangePassword}
+            disabled={changePasswordMutation.isPending}
+          >
+            {hasPassword ? "Change password" : "Set password"}
+          </Button>
+        </div>
       </div>
     </div>
   );

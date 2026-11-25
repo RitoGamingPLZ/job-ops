@@ -89,4 +89,36 @@ describe("CodexAuthPanel", () => {
     expect(await screen.findByText("Codex Sign-In")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /start sign-in/i })).toBeInTheDocument();
   });
+
+  it("announces sign-in start failures via role=alert without breaking button accessible names", async () => {
+    const getStatus = vi.fn().mockResolvedValue({
+      authenticated: false,
+      username: null,
+      validationMessage: "Codex is not authenticated.",
+      flowStatus: "idle",
+      loginInProgress: false,
+      verificationUrl: null,
+      userCode: null,
+      startedAt: null,
+      expiresAt: null,
+      flowMessage: null,
+    });
+    const start = vi.fn().mockRejectedValue(new Error("Device flow unavailable"));
+
+    render(
+      <CodexAuthPanel
+        isBusy={false}
+        authApi={{
+          disconnect: vi.fn(),
+          getStatus,
+          start,
+        }}
+      />,
+    );
+
+    const startButton = await screen.findByRole("button", { name: "Start Sign-In" });
+    fireEvent.click(startButton);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Device flow unavailable");
+  });
 });

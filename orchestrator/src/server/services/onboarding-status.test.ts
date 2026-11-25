@@ -1,3 +1,4 @@
+import { isSystemAdmin } from "@infra/request-context";
 import { getOriginalEnvValue } from "@server/services/envSettings";
 import { LlmService } from "@server/services/llm/service";
 import { buildDefaultResumeDocument } from "@server/services/resume-document/document";
@@ -6,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   applySettingsUpdates: vi.fn(),
+  canUseDefaultModel: vi.fn(() => true),
   getCurrentDesignResume: vi.fn(),
   getDesignResumeStatus: vi.fn(),
   getJobOpsAppStatus: vi.fn(),
@@ -14,6 +16,10 @@ const mocks = vi.hoisted(() => ({
   isDemoMode: vi.fn(),
   syncCandidateLibrary: vi.fn(),
   validateLlmCredentials: vi.fn(),
+}));
+
+vi.mock("@server/services/server-credentials", () => ({
+  canUseDefaultModel: mocks.canUseDefaultModel,
 }));
 
 vi.mock("@server/config/app-mode", () => ({
@@ -95,6 +101,8 @@ import {
 describe("onboarding status engine", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(isSystemAdmin).mockReturnValue(true);
+    mocks.canUseDefaultModel.mockResolvedValue(true);
     vi.mocked(getOriginalEnvValue).mockReturnValue(undefined);
     mocks.getJobOpsAppStatus.mockReturnValue({
       appMode: "local",
@@ -190,7 +198,7 @@ describe("onboarding status engine", () => {
 
     expect(status.complete).toBe(false);
     expect(status.nextRequirementId).toBe("model");
-    expect(status.requirements[1]).toMatchObject({
+    expect(status.requirements[0]).toMatchObject({
       id: "model",
       status: "needs_action",
       primaryAction: "connect_model",
@@ -262,16 +270,46 @@ describe("onboarding status engine", () => {
 
     expect(status.complete).toBe(false);
     expect(status.nextRequirementId).toBe("model");
-    expect(status.requirements[1]).toMatchObject({
+    expect(status.requirements[0]).toMatchObject({
       id: "model",
       status: "needs_action",
       title: "Reconnect Codex",
       primaryAction: "connect_model",
     });
-    expect(status.requirements[1]?.message).toMatch(/access token expired/i);
+    expect(status.requirements[0]?.message).toMatch(/access token expired/i);
+  });
+
+  it("limits the system admin's setup to the server's AI connection", async () => {
+    mocks.getDesignResumeStatus.mockResolvedValue({ exists: false });
+    mocks.getSetting.mockImplementation(async (key: string) =>
+      key === "llmProvider" ? "openrouter" : null,
+    );
+
+    const status = await getOnboardingStatus();
+
+    expect(status.requirements.map((requirement) => requirement.id)).toEqual(["model"]);
+    expect(status.nextRequirementId).toBe("model");
+  });
+
+  it("completes the system admin's setup once the AI connection is verified, without a resume", async () => {
+    mocks.getDesignResumeStatus.mockResolvedValue({ exists: false });
+    mocks.getSetting.mockImplementation(async (key: string) => {
+      const values: Record<string, string | null> = {
+        llmProvider: "openrouter",
+        model: "gpt-4o",
+        onboardingLlmCompleted: "1",
+      };
+      return values[key] ?? null;
+    });
+
+    const status = await getOnboardingStatus();
+
+    expect(status).toMatchObject({ complete: true, nextRequirementId: null });
   });
 
   it("returns resume as next when no resume is ready", async () => {
+    vi.mocked(isSystemAdmin).mockReturnValue(false);
+    mocks.canUseDefaultModel.mockResolvedValue(false);
     mocks.getDesignResumeStatus.mockResolvedValue({ exists: false });
 
     const status = await getOnboardingStatus();
@@ -303,7 +341,7 @@ describe("onboarding status engine", () => {
 
     expect(status.complete).toBe(false);
     expect(status.nextRequirementId).toBe("model");
-    expect(status.requirements[1]).toMatchObject({
+    expect(status.requirements[0]).toMatchObject({
       id: "model",
       status: "needs_action",
       title: "Choose an Ollama model",
@@ -329,7 +367,7 @@ describe("onboarding status engine", () => {
 
     expect(status.complete).toBe(false);
     expect(status.nextRequirementId).toBe("model");
-    expect(status.requirements[1]).toMatchObject({
+    expect(status.requirements[0]).toMatchObject({
       id: "model",
       status: "needs_action",
       title: "Choose a LiteLLM model",
@@ -580,5 +618,36 @@ describe("onboarding status engine", () => {
       onboardingResumeConfirmedSource: "local:doc-1",
     });
     expect(status.complete).toBe(true);
+  });
+
+  it("omits model step for non-admin users granted defaultModel and requires BYOK otherwise", async () => {
+    vi.mocked(isSystemAdmin).mockReturnValue(false);
+    mocks.getSetting.mockResolvedValue(null);
+    mocks.canUseDefaultModel.mockResolvedValueOnce(true);
+
+    const grantedStatus = await getOnboardingStatus();
+    expect(grantedStatus.requirements.find((req) => req.id === "model")).toBeUndefined();
+
+    mocks.canUseDefaultModel.mockResolvedValueOnce(false);
+    const byokStatus = await getOnboardingStatus();
+    const modelReq = byokStatus.requirements.find((req) => req.id === "model");
+    expect(modelReq?.status).toBe("needs_action");
+  });
+
+  it("blocks non-admin onboarding from selecting CLI, local, or custom baseUrl providers", async () => {
+    vi.mocked(isSystemAdmin).mockReturnValue(false);
+    const { saveOnboardingModelAction } = await import("./onboarding-status");
+
+    await expect(saveOnboardingModelAction({ provider: "litellm" })).rejects.toMatchObject({
+      status: 403,
+    });
+    await expect(saveOnboardingModelAction({ provider: "codex" })).rejects.toMatchObject({
+      status: 403,
+    });
+    await expect(
+      saveOnboardingModelAction({ provider: "openai", baseUrl: "https://custom.example/v1" }),
+    ).rejects.toMatchObject({
+      status: 403,
+    });
   });
 });

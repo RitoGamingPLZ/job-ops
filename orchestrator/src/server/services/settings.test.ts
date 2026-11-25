@@ -16,6 +16,7 @@ vi.mock("./design-resume", () => ({
 }));
 
 vi.mock("./envSettings", () => ({
+  MASKED_SECRET_HINT: "********",
   getEnvSettingsData: vi.fn(),
   getOriginalEnvValue: vi.fn(),
 }));
@@ -33,6 +34,7 @@ vi.mock("./resume-document", () => ({
   extractProjectsFromResume: vi.fn(),
 }));
 
+import { runWithRequestContext } from "@infra/request-context";
 import { logger } from "@infra/logger";
 import { getAllSettings } from "@server/repositories/settings";
 import { designResumeToProfile, getCurrentDesignResumeOrNullOnLegacy } from "./design-resume";
@@ -124,7 +126,7 @@ describe("getEffectiveSettings", () => {
     expect(settings.llmPurposeOverrides.override).toEqual({
       tailoring: { provider: "openai", model: "gpt-5.4-mini" },
     });
-    expect(settings.llmPurposeApiKeyHints).toEqual({ tailoring: "sk-p" });
+    expect(settings.llmPurposeApiKeyHints).toEqual({ tailoring: "********" });
   });
 
   it("ignores an inherited model that is incompatible with Claude CLI", async () => {
@@ -142,5 +144,24 @@ describe("getEffectiveSettings", () => {
       default: "claude-sonnet-5",
       override: null,
     });
+  });
+
+  it("never exposes server env defaults or env key hints in a non-admin tenant context", async () => {
+    vi.mocked(getAllSettings).mockResolvedValue({});
+    vi.mocked(getOriginalEnvValue).mockImplementation((key) =>
+      key === "MODEL" ? "openai/gpt-5.4" : key === "OPENAI_API_KEY" ? "sk-env-secret" : undefined,
+    );
+
+    const settings = await runWithRequestContext(
+      { tenantId: "tenant_guest", userId: "user_guest", isSystemAdmin: false },
+      () => getEffectiveSettings(),
+    );
+
+    expect(vi.mocked(getEnvSettingsData)).toHaveBeenCalledWith(expect.anything(), {
+      allowLlmEnvironmentCredentials: false,
+      allowServerEnvironment: false,
+    });
+    expect(settings.model.default).toBe("google/gemini-3.1-flash-lite");
+    expect(settings.llmApiKeyHint ?? null).toBeNull();
   });
 });

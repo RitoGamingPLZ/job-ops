@@ -2,6 +2,7 @@ import { PageHeader, PageMain } from "@client/components/layout";
 import { useDesignResume } from "@client/hooks/useDesignResume";
 import { useOnboardingStatus } from "@client/hooks/useOnboardingStatus";
 import { formatCountryLabel, SUPPORTED_COUNTRY_KEYS } from "@shared/location-support.js";
+import { extractResumeBullets } from "@shared/resume-bullets";
 import type {
   OnboardingRequirement,
   OnboardingRequirementId,
@@ -197,7 +198,7 @@ function AccountSetup({ onComplete }: { onComplete: () => void }) {
       <PageHeader
         icon={UserPlus}
         title="Create your workspace account"
-        subtitle="This private account owns your Job Ops workspace."
+        subtitle="This administrator account manages users and server-wide settings."
       />
       <PageMain>
         <Card className="mx-auto max-w-2xl border-border/60 shadow-none">
@@ -269,6 +270,18 @@ function LaunchSetup({
   const queryClient = useQueryClient();
   const onboarding = useOnboardingStatus();
   const flow = useOnboardingFlow();
+  const appStatusQuery = useQuery({
+    queryKey: queryKeys.app.status(),
+    queryFn: api.getAppStatus,
+  });
+  const currentUserQuery = useQuery({
+    queryKey: queryKeys.auth.currentUser(),
+    queryFn: api.getCurrentAuthUser,
+    enabled: api.hasAuthenticatedSession() && typeof api.getCurrentAuthUser === "function",
+    retry: false,
+  });
+  const restrictProviders =
+    appStatusQuery.data?.appMode === "hosted" || currentUserQuery.data?.isSystemAdmin === false;
   const designResume = useDesignResume();
   const profileQuery = useQuery<ResumeProfile>({
     queryKey: queryKeys.profile.current(),
@@ -292,11 +305,17 @@ function LaunchSetup({
   const lastStatusCheckRef = useRef<string | null>(null);
 
   const status = onboarding.status;
-  const showModel = status
-    ? status.requirements.some((requirement) => requirement.id === "model")
-    : true;
-  const visibleSteps = showModel ? STEP_ORDER : STEP_ORDER.filter((step) => step !== "model");
-  const activeStep = selectedStep ?? status?.nextRequirementId ?? "profile";
+  // The server decides which steps apply: the system admin only connects the server's AI model,
+  // other users may skip the model step when they share it.
+  const visibleSteps = status
+    ? STEP_ORDER.filter((step) =>
+        status.requirements.some((requirement) => requirement.id === step),
+      )
+    : STEP_ORDER;
+  const showModel = visibleSteps.includes("model");
+  const isAdminSetup =
+    currentUserQuery.data?.isSystemAdmin === true && appStatusQuery.data?.appMode !== "hosted";
+  const activeStep = selectedStep ?? status?.nextRequirementId ?? visibleSteps[0] ?? "profile";
   const profileRequirement = getRequirement(status, "profile");
   const modelRequirement = getRequirement(status, "model");
   const resumeRequirement = getRequirement(status, "resume");
@@ -353,7 +372,7 @@ function LaunchSetup({
   };
 
   if (flow.demoMode || status?.complete) {
-    return <Navigate to="/jobs/ready" replace />;
+    return <Navigate to={isAdminSetup ? "/users" : "/jobs/ready"} replace />;
   }
   if (onboarding.checking) {
     return <LoadingState message="Loading your setup…" />;
@@ -434,7 +453,13 @@ function LaunchSetup({
       <PageHeader
         icon={Sparkles}
         title="Set up Job Ops"
-        subtitle="Three focused choices, then you’re in. Search terms wait until your first run."
+        subtitle={
+          isAdminSetup
+            ? "Connect the AI model this server uses. You will manage users and settings next."
+            : visibleSteps.length === 2
+              ? "Two focused choices, then you’re in. Search terms wait until your first run."
+              : "Three focused choices, then you’re in. Search terms wait until your first run."
+        }
       />
       <PageMain>
         <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -514,6 +539,7 @@ function LaunchSetup({
                     isBusy={flow.isBusy}
                     llmKeyHint={flow.llmKeyHint}
                     model={flow.watch("model")}
+                    restrictProviders={restrictProviders}
                     savedBaseUrl={flow.settings?.llmBaseUrl.value}
                     savedProvider={flow.settings?.llmProvider.value}
                     selectedProvider={flow.selectedProvider}
@@ -529,7 +555,11 @@ function LaunchSetup({
                     onProviderChange={(value) => flow.setValue("llmProvider", value)}
                   />
                   <StepActions
-                    onBack={() => setSelectedStep("profile")}
+                    onBack={
+                      visibleSteps.includes("profile")
+                        ? () => setSelectedStep("profile")
+                        : undefined
+                    }
                     onContinue={saveModel}
                     busy={flow.isBusy}
                     label="Connect and continue"
@@ -739,22 +769,41 @@ function ResumeStep({
               <MapPin className="h-4 w-4" />
               {profile?.basics?.location?.city ||
                 profile?.basics?.location?.region ||
+                profile?.basics?.location?.address ||
                 "No location detected"}
             </p>
           </div>
           <div className="space-y-4">
-            {experience.slice(0, 4).map((item) => (
-              <div key={item.id} className="grid gap-1 sm:grid-cols-[1fr_auto]">
-                <div>
-                  <div className="font-medium">{item.position}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {item.company}
-                    {item.location ? ` · ${item.location}` : ""}
+            {experience.slice(0, 4).map((item) => {
+              const bullets = extractResumeBullets(item.summary);
+              return (
+                <div key={item.id} className="grid gap-1 sm:grid-cols-[1fr_auto]">
+                  <div>
+                    <div className="font-medium">{item.position}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {item.company}
+                      {item.location ? ` · ${item.location}` : ""}
+                    </div>
+                    {bullets.length > 0 ? (
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                        {bullets.slice(0, 3).map((bullet) => (
+                          <li key={bullet}>{bullet}</li>
+                        ))}
+                        {bullets.length > 3 ? (
+                          <li className="list-none text-xs">+{bullets.length - 3} more</li>
+                        ) : null}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-xs text-warning">
+                        No bullet points were captured for this role. Edit your base resume to add
+                        them.
+                      </p>
+                    )}
                   </div>
+                  <div className="text-xs text-muted-foreground">{item.date}</div>
                 </div>
-                <div className="text-xs text-muted-foreground">{item.date}</div>
-              </div>
-            ))}
+              );
+            })}
             {experience.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No experience entries were detected. Open your base resume to correct the document

@@ -5,7 +5,7 @@ import { getOriginalEnvValue } from "@server/services/envSettings";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
 import { LlmService } from "@server/services/llm/service";
-import { canUseServerCredentials } from "@server/services/server-credentials";
+import { canUseDefaultModel, isOperatorContext } from "@server/services/server-credentials";
 import { getEffectiveSettings } from "@server/services/settings";
 import { getDefaultModelForProvider, settingsRegistry } from "@shared/settings-registry";
 import { LLM_PURPOSE_VALUES, type LlmPurpose } from "@shared/types";
@@ -121,24 +121,28 @@ function isCliProvider(provider: string | null | undefined): boolean {
   return ["codex", "gemini_cli", "claude_cli"].includes(provider ?? "");
 }
 
+function resolveServerDefaultLlmRuntimeSettings(): LlmRuntimeSettings {
+  const provider =
+    settingsRegistry.llmProvider.parse(getOriginalEnvValue("LLM_PROVIDER")) ?? "openrouter";
+  return {
+    provider,
+    model: getDefaultModelForProvider(provider, getOriginalEnvValue("MODEL")),
+    baseUrl:
+      (providerUsesConfiguredBaseUrl(provider)
+        ? getOriginalEnvValue("LLM_BASE_URL")?.trim()
+        : null) || getDefaultBaseUrlForProvider(provider),
+    apiKey: resolveLlmApiKey({ provider }),
+    allowEnvironmentCredentials: true,
+    allowCliProviders: true,
+  };
+}
+
 async function resolveHostedLlmRuntimeSettings(
   purpose: LlmModelPurpose,
 ): Promise<LlmRuntimeSettings> {
   const entitlements = await getCurrentAccountEntitlements();
   if (entitlements.platformAiIncluded) {
-    const provider =
-      settingsRegistry.llmProvider.parse(getOriginalEnvValue("LLM_PROVIDER")) ?? "openrouter";
-    return {
-      provider,
-      model: getDefaultModelForProvider(provider, getOriginalEnvValue("MODEL")),
-      baseUrl:
-        (providerUsesConfiguredBaseUrl(provider)
-          ? getOriginalEnvValue("LLM_BASE_URL")?.trim()
-          : null) || getDefaultBaseUrlForProvider(provider),
-      apiKey: resolveLlmApiKey({ provider }),
-      allowEnvironmentCredentials: true,
-      allowCliProviders: true,
-    };
+    return resolveServerDefaultLlmRuntimeSettings();
   }
 
   return resolveUserKeyLlmRuntimeSettings(purpose, "openrouter");
@@ -152,8 +156,9 @@ async function resolveHostedLlmRuntimeSettings(
 async function resolveUserKeyLlmRuntimeSettings(
   purpose: LlmModelPurpose,
   fallbackProvider: string,
+  preloadedOverrides?: Partial<Record<settingsRepo.SettingKey, string>>,
 ): Promise<LlmRuntimeSettings> {
-  const overrides = await settingsRepo.getAllSettings();
+  const overrides = preloadedOverrides ?? (await settingsRepo.getAllSettings());
   const purposeOverrides =
     settingsRegistry.llmPurposeOverrides.parse(overrides.llmPurposeOverrides) ?? {};
   const purposeOverride = isLlmPurpose(purpose) ? purposeOverrides[purpose] : undefined;
@@ -190,12 +195,28 @@ async function resolveUserKeyLlmRuntimeSettings(
   };
 }
 
+async function resolveNonAdminLocalLlmRuntimeSettings(
+  purpose: LlmModelPurpose,
+): Promise<LlmRuntimeSettings> {
+  const overrides = await settingsRepo.getAllSettings();
+  const purposeApiKeys = readPurposeApiKeys(overrides.llmPurposeApiKeys);
+  const hasPurposeKey = isLlmPurpose(purpose) && Boolean(purposeApiKeys[purpose]?.trim());
+  const hasStoredKey = Boolean(overrides.llmApiKey?.trim());
+  if (hasPurposeKey || hasStoredKey) {
+    return resolveUserKeyLlmRuntimeSettings(purpose, "gemini", overrides);
+  }
+  if (await canUseDefaultModel()) {
+    return resolveServerDefaultLlmRuntimeSettings();
+  }
+  return resolveUserKeyLlmRuntimeSettings(purpose, "gemini", overrides);
+}
+
 export async function resolveLlmModel(purpose: LlmModelPurpose = "default"): Promise<string> {
   if (getJobOpsAppConfig().appMode === "hosted") {
     return (await resolveHostedLlmRuntimeSettings(purpose)).model;
   }
-  if (!(await canUseServerCredentials())) {
-    return (await resolveUserKeyLlmRuntimeSettings(purpose, "gemini")).model;
+  if (!(await isOperatorContext())) {
+    return (await resolveNonAdminLocalLlmRuntimeSettings(purpose)).model;
   }
   const settings = await getEffectiveSettings();
   return resolveModelFromSettings(settings, purpose);
@@ -207,8 +228,8 @@ export async function resolveLlmRuntimeSettings(
   if (getJobOpsAppConfig().appMode === "hosted") {
     return resolveHostedLlmRuntimeSettings(purpose);
   }
-  if (!(await canUseServerCredentials())) {
-    return resolveUserKeyLlmRuntimeSettings(purpose, "gemini");
+  if (!(await isOperatorContext())) {
+    return resolveNonAdminLocalLlmRuntimeSettings(purpose);
   }
 
   const getAllSettings = "getAllSettings" in settingsRepo ? settingsRepo.getAllSettings : null;

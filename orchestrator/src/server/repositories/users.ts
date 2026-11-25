@@ -494,19 +494,38 @@ export async function updateUserPassword(input: {
   await db.update(users).set(updates).where(eq(users.id, input.id));
 }
 
-/**
- * True when someone in this workspace may spend the operator's server credentials:
- * an enabled system admin, or an enabled member the admin granted `serverCredentials`.
- */
-export async function tenantHasServerCredentialAccess(tenantId: string): Promise<boolean> {
-  const rows = await db
+async function listEnabledTenantMembers(tenantId: string) {
+  return db
     .select({ isSystemAdmin: users.isSystemAdmin, permissions: users.permissions })
     .from(users)
     .innerJoin(tenantMemberships, eq(tenantMemberships.userId, users.id))
     .where(sql`${tenantMemberships.tenantId} = ${tenantId} AND ${users.isDisabled} = 0`);
+}
+
+/**
+ * True when someone in this workspace may spend the operator's job-source credentials:
+ * an enabled system admin, or an enabled member the admin granted `serverCredentials`.
+ */
+export async function tenantHasServerCredentialAccess(tenantId: string): Promise<boolean> {
+  const rows = await listEnabledTenantMembers(tenantId);
   return rows.some(
     (row) => effectivePermissions(row.isSystemAdmin, row.permissions).serverCredentials,
   );
+}
+
+/**
+ * True when someone in this workspace may use the server's default AI model:
+ * an enabled system admin, or an enabled member the admin granted `defaultModel`.
+ */
+export async function tenantHasDefaultModelAccess(tenantId: string): Promise<boolean> {
+  const rows = await listEnabledTenantMembers(tenantId);
+  return rows.some((row) => effectivePermissions(row.isSystemAdmin, row.permissions).defaultModel);
+}
+
+/** True when an enabled system admin belongs to this workspace. */
+export async function tenantHasSystemAdmin(tenantId: string): Promise<boolean> {
+  const rows = await listEnabledTenantMembers(tenantId);
+  return rows.some((row) => row.isSystemAdmin === true);
 }
 
 /** Effective permissions for one user, or null when the user does not exist. */

@@ -14,7 +14,19 @@ export function resumeProjectsEqual(a: ResumeProjectsSettings, b: ResumeProjects
   );
 }
 
-export const formatSecretHint = (hint: string | null) => (hint ? `${hint}********` : "Not set");
+export const formatSecretHint = (hint: string | null) => (hint ? "••••••••" : "Not set");
+
+export const RESTRICTED_LLM_PROVIDERS = [
+  "gemini",
+  "openrouter",
+  "openai",
+  "anthropic",
+  "glm",
+  "atlascloud",
+  "requesty",
+  "api_route",
+  "orcarouter",
+] as const;
 
 export const LLM_PROVIDERS = [
   "atlascloud",

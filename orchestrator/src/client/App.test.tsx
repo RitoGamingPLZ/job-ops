@@ -28,6 +28,10 @@ vi.mock("./components/OnboardingGate", () => ({
   OnboardingGate: () => null,
 }));
 
+vi.mock("./pages/AdminUsersPage", () => ({
+  AdminUsersPage: () => <div>admin-users</div>,
+}));
+
 vi.mock("./pages/GmailOauthCallbackPage", () => ({
   GmailOauthCallbackPage: () => null,
 }));
@@ -200,6 +204,7 @@ describe("App demo banner", () => {
           appMode: "hosted",
           isPending: false,
           isSystemAdmin: false,
+          isAdminConsole: false,
           permissions: DEFAULT_USER_PERMISSIONS,
         }}
       >
@@ -232,3 +237,50 @@ it.each(["/library", "/resumes/library"])(
     expect(screen.getByLabelText("Current path")).toHaveTextContent(/^\/library$/);
   },
 );
+
+describe("system admin console", () => {
+  const renderAt = (path: string, ctx: { isAdminConsole: boolean; isSystemAdmin: boolean }) => {
+    vi.mocked(useDemoInfo).mockReturnValue(null);
+    render(
+      <AppModeContext.Provider
+        value={{
+          appMode: "local",
+          isPending: false,
+          permissions: DEFAULT_USER_PERMISSIONS,
+          ...ctx,
+        }}
+      >
+        <MemoryRouter initialEntries={[path]}>
+          <App />
+          <LocationProbe />
+        </MemoryRouter>
+      </AppModeContext.Provider>,
+    );
+  };
+
+  it.each(["/overview", "/jobs/ready", "/resumes/base", "/library", "/watchlist"])(
+    "redirects the admin from %s to the Users page",
+    (path) => {
+      renderAt(path, { isAdminConsole: true, isSystemAdmin: true });
+
+      expect(screen.getByText("admin-users")).toBeInTheDocument();
+      expect(screen.getByLabelText("Current path")).toHaveTextContent("/users");
+    },
+  );
+
+  it("shows the admin only Users and Settings navigation", () => {
+    renderAt("/users", { isAdminConsole: true, isSystemAdmin: true });
+
+    expect(screen.getAllByRole("link", { name: "Users" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Settings" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: "Jobs" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Resumes" })).toBeNull();
+  });
+
+  it("keeps the Users page away from regular users", () => {
+    renderAt("/users", { isAdminConsole: false, isSystemAdmin: false });
+
+    expect(screen.queryByText("admin-users")).toBeNull();
+    expect(screen.getByLabelText("Current path")).toHaveTextContent("/overview");
+  });
+});

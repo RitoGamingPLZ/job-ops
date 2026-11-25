@@ -190,4 +190,26 @@ describe("LlmModelConfiguration", () => {
     expect(screen.getByText("Current:")).toBeInTheDocument();
     expect(screen.getByText("-")).toBeInTheDocument();
   });
+
+  it("hides restricted providers/Base URL and renders defaultModelStatus banners", () => {
+    render(
+      <LlmModelConfiguration
+        mode="settings"
+        disabled={false}
+        selectedProvider="ollama"
+        restrictProviders={true}
+        defaultModelStatus="granted"
+        defaultModel="Managed by admin"
+        effectiveModel="Managed by admin"
+        provider={textField}
+        baseUrl={textField}
+        apiKey={textField}
+        model={textField}
+      />,
+    );
+
+    expect(screen.getAllByText(/default AI model/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Managed by admin").length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText(/base url/i)).not.toBeInTheDocument();
+  });
 });

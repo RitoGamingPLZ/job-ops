@@ -2,14 +2,29 @@ import { runWithRequestContext } from "@infra/request-context";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const tenantHasServerCredentialAccess = vi.fn();
+const tenantHasDefaultModelAccess = vi.fn();
+const tenantHasSystemAdmin = vi.fn();
+const currentUserHasPermission = vi.fn();
+const getSetting = vi.fn();
 vi.mock("@server/repositories/users", () => ({
+  tenantHasDefaultModelAccess: (...args: unknown[]) => tenantHasDefaultModelAccess(...args),
   tenantHasServerCredentialAccess: (...args: unknown[]) => tenantHasServerCredentialAccess(...args),
+  tenantHasSystemAdmin: (...args: unknown[]) => tenantHasSystemAdmin(...args),
+}));
+vi.mock("@server/services/user-permissions", () => ({
+  currentUserHasPermission: (...args: unknown[]) => currentUserHasPermission(...args),
+}));
+vi.mock("@server/repositories/settings", () => ({
+  getSetting: (...args: unknown[]) => getSetting(...args),
 }));
 
 import {
+  canUseDefaultModel,
   canUseServerCredentials,
   clearServerCredentialCache,
+  ensureUserHasLlmAccess,
   hasOwnExtractorCredentials,
+  isOperatorContext,
 } from "./server-credentials";
 
 describe("canUseServerCredentials", () => {
@@ -18,6 +33,10 @@ describe("canUseServerCredentials", () => {
     delete process.env.JOBOPS_MODE;
     clearServerCredentialCache();
     tenantHasServerCredentialAccess.mockReset();
+    tenantHasDefaultModelAccess.mockReset();
+    tenantHasSystemAdmin.mockReset();
+    currentUserHasPermission.mockReset();
+    getSetting.mockReset();
   });
 
   it("allows contexts without a tenant (boot tasks, secret webhooks)", async () => {
@@ -81,5 +100,91 @@ describe("hasOwnExtractorCredentials", () => {
     expect(
       hasOwnExtractorCredentials(manifest, { ukvisajobsEmail: "a@b.c", ukvisajobsPassword: "pw" }),
     ).toBe(true);
+  });
+});
+
+describe("canUseDefaultModel, isOperatorContext, and ensureUserHasLlmAccess", () => {
+  beforeEach(() => {
+    delete process.env.JOBOPS_APP_MODE;
+    delete process.env.JOBOPS_MODE;
+    clearServerCredentialCache();
+    tenantHasDefaultModelAccess.mockReset();
+    tenantHasSystemAdmin.mockReset();
+    currentUserHasPermission.mockReset();
+    getSetting.mockReset();
+  });
+
+  it("checks user permission and cached tenant access for defaultModel", async () => {
+    currentUserHasPermission.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    expect(
+      await runWithRequestContext(
+        { tenantId: "t1", userId: "u1", isSystemAdmin: false },
+        canUseDefaultModel,
+      ),
+    ).toBe(false);
+    expect(
+      await runWithRequestContext(
+        { tenantId: "t1", userId: "u1", isSystemAdmin: false },
+        canUseDefaultModel,
+      ),
+    ).toBe(true);
+
+    tenantHasDefaultModelAccess.mockResolvedValueOnce(true);
+    expect(
+      await runWithRequestContext(
+        { tenantId: "t1", userId: undefined, isSystemAdmin: false },
+        canUseDefaultModel,
+      ),
+    ).toBe(true);
+  });
+
+  it("restricts isOperatorContext for non-admin user requests", async () => {
+    expect(
+      await runWithRequestContext(
+        { tenantId: "t1", userId: "u1", isSystemAdmin: false },
+        isOperatorContext,
+      ),
+    ).toBe(false);
+    expect(
+      await runWithRequestContext(
+        { tenantId: "t1", userId: "u1", isSystemAdmin: true },
+        isOperatorContext,
+      ),
+    ).toBe(true);
+    tenantHasSystemAdmin.mockResolvedValueOnce(true);
+    expect(
+      await runWithRequestContext(
+        { tenantId: "t1", userId: undefined, isSystemAdmin: false },
+        isOperatorContext,
+      ),
+    ).toBe(true);
+  });
+
+  it("blocks non-admin local users without defaultModel or own key and allows when either is set", async () => {
+    currentUserHasPermission.mockResolvedValue(false);
+    getSetting.mockResolvedValue(null);
+    await expect(
+      runWithRequestContext(
+        { tenantId: "t1", userId: "u1", isSystemAdmin: false },
+        ensureUserHasLlmAccess,
+      ),
+    ).rejects.toMatchObject({ status: 422, code: "UNPROCESSABLE_ENTITY" });
+
+    getSetting.mockResolvedValue("sk-own-key");
+    await expect(
+      runWithRequestContext(
+        { tenantId: "t1", userId: "u1", isSystemAdmin: false },
+        ensureUserHasLlmAccess,
+      ),
+    ).resolves.toBeUndefined();
+
+    getSetting.mockResolvedValue(null);
+    currentUserHasPermission.mockResolvedValue(true);
+    await expect(
+      runWithRequestContext(
+        { tenantId: "t1", userId: "u1", isSystemAdmin: false },
+        ensureUserHasLlmAccess,
+      ),
+    ).resolves.toBeUndefined();
   });
 });

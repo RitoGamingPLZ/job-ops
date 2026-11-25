@@ -123,6 +123,14 @@ type SettingsNavGroup = {
   label: string;
 };
 
+/** The system admin only manages server-wide settings; personal job, resume and writing settings stay hidden. */
+const ADMIN_SETTINGS_SECTION_IDS: ReadonlySet<SettingsSectionId> = new Set([
+  "model",
+  "environment",
+  "backup",
+  "danger-zone",
+]);
+
 const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
   {
     id: "account",
@@ -396,18 +404,37 @@ const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
   scoringPromptTemplate: null,
 };
 
-function getResetSettingsPayload(canEditLlmSettings: boolean): Partial<UpdateSettingsInput> {
-  if (canEditLlmSettings) return NULL_SETTINGS_PAYLOAD;
+function getResetSettingsPayload(options: {
+  canEditLlmSettings: boolean;
+  isSystemAdmin: boolean;
+  canUseWebhooks: boolean;
+}): Partial<UpdateSettingsInput> {
   const payload: Partial<UpdateSettingsInput> = { ...NULL_SETTINGS_PAYLOAD };
-  delete payload.model;
-  delete payload.modelScorer;
-  delete payload.modelTailoring;
-  delete payload.modelProjectSelection;
-  delete payload.llmProvider;
-  delete payload.llmBaseUrl;
-  delete payload.llmApiKey;
-  delete payload.llmPurposeOverrides;
-  delete payload.llmPurposeApiKeys;
+  if (!options.canEditLlmSettings) {
+    delete payload.model;
+    delete payload.modelScorer;
+    delete payload.modelTailoring;
+    delete payload.modelProjectSelection;
+    delete payload.llmProvider;
+    delete payload.llmBaseUrl;
+    delete payload.llmApiKey;
+    delete payload.llmPurposeOverrides;
+    delete payload.llmPurposeApiKeys;
+  }
+  if (!options.isSystemAdmin) {
+    delete payload.ukvisajobsEmail;
+    delete payload.ukvisajobsPassword;
+    delete payload.adzunaAppId;
+    delete payload.adzunaAppKey;
+    delete payload.backupEnabled;
+    delete payload.backupHour;
+    delete payload.backupMaxCount;
+  }
+  if (!options.canUseWebhooks) {
+    delete payload.pipelineWebhookUrl;
+    delete payload.jobCompleteWebhookUrl;
+    delete payload.webhookSecret;
+  }
   return payload;
 }
 
@@ -811,6 +838,12 @@ export const SettingsPage: React.FC = () => {
 
   const lockedCount = resumeProjectsValue?.lockedProjectIds.length ?? 0;
 
+  const isSystemAdmin = currentUserQuery.data?.isSystemAdmin === true;
+  const isAdminConsole = isSystemAdmin && !isHostedMode;
+  const hasDefaultModelAccess = currentUserQuery.data?.permissions?.defaultModel === true;
+  const canManageBackups = isSystemAdmin;
+  const canUseWebhooks = isSystemAdmin || currentUserQuery.data?.permissions?.webhooks === true;
+
   const canSave = isDirty && isValid;
 
   const onSave = async (data: UpdateSettingsInput) => {
@@ -829,11 +862,11 @@ export const SettingsPage: React.FC = () => {
 
       const envPayload: Partial<UpdateSettingsInput> = {};
 
-      if (dirtyFields.ukvisajobsEmail || dirtyFields.ukvisajobsPassword) {
+      if (isSystemAdmin && (dirtyFields.ukvisajobsEmail || dirtyFields.ukvisajobsPassword)) {
         envPayload.ukvisajobsEmail = normalizeString(data.ukvisajobsEmail);
       }
 
-      if (dirtyFields.adzunaAppId || dirtyFields.adzunaAppKey) {
+      if (isSystemAdmin && (dirtyFields.adzunaAppId || dirtyFields.adzunaAppKey)) {
         envPayload.adzunaAppId = normalizeString(data.adzunaAppId);
       }
 
@@ -841,7 +874,7 @@ export const SettingsPage: React.FC = () => {
         envPayload.llmProvider = data.llmProvider ?? null;
       }
 
-      if (canEditLlmSettings && dirtyFields.llmBaseUrl) {
+      if (canEditLlmSettings && isSystemAdmin && !isHostedMode && dirtyFields.llmBaseUrl) {
         envPayload.llmBaseUrl = normalizeString(data.llmBaseUrl);
       }
 
@@ -850,17 +883,17 @@ export const SettingsPage: React.FC = () => {
         if (value !== undefined) envPayload.llmApiKey = value;
       }
 
-      if (dirtyFields.ukvisajobsPassword) {
+      if (isSystemAdmin && dirtyFields.ukvisajobsPassword) {
         const value = normalizePrivateInput(data.ukvisajobsPassword);
         if (value !== undefined) envPayload.ukvisajobsPassword = value;
       }
 
-      if (dirtyFields.adzunaAppKey) {
+      if (isSystemAdmin && dirtyFields.adzunaAppKey) {
         const value = normalizePrivateInput(data.adzunaAppKey);
         if (value !== undefined) envPayload.adzunaAppKey = value;
       }
 
-      if (dirtyFields.webhookSecret) {
+      if (canUseWebhooks && dirtyFields.webhookSecret) {
         const value = normalizePrivateInput(data.webhookSecret);
         if (value !== undefined) envPayload.webhookSecret = value;
       }
@@ -900,8 +933,12 @@ export const SettingsPage: React.FC = () => {
 
       const payload: Partial<UpdateSettingsInput> = {
         ...llmPayload,
-        pipelineWebhookUrl: normalizeString(data.pipelineWebhookUrl),
-        jobCompleteWebhookUrl: normalizeString(data.jobCompleteWebhookUrl),
+        ...(canUseWebhooks
+          ? {
+              pipelineWebhookUrl: normalizeString(data.pipelineWebhookUrl),
+              jobCompleteWebhookUrl: normalizeString(data.jobCompleteWebhookUrl),
+            }
+          : {}),
         resumeProjects: resumeProjectsOverride,
         pdfRenderer: nullIfSame(data.pdfRenderer, resumePdf.pdfRenderer.default),
         typstTheme: nullIfSame(data.typstTheme, resumePdf.typstTheme.default),
@@ -932,9 +969,13 @@ export const SettingsPage: React.FC = () => {
         chatStyleManualLanguage: data.chatStyleManualLanguage ?? null,
         pipelineScheduleEnabled: data.pipelineScheduleEnabled ?? null,
         pipelineScheduleHour: data.pipelineScheduleHour ?? null,
-        backupEnabled: nullIfSame(data.backupEnabled, backup.backupEnabled.default),
-        backupHour: nullIfSame(data.backupHour, backup.backupHour.default),
-        backupMaxCount: nullIfSame(data.backupMaxCount, backup.backupMaxCount.default),
+        ...(canManageBackups
+          ? {
+              backupEnabled: nullIfSame(data.backupEnabled, backup.backupEnabled.default),
+              backupHour: nullIfSame(data.backupHour, backup.backupHour.default),
+              backupMaxCount: nullIfSame(data.backupMaxCount, backup.backupMaxCount.default),
+            }
+          : {}),
         penalizeMissingSalary: nullIfSame(
           data.penalizeMissingSalary,
           scoring.penalizeMissingSalary.default,
@@ -1060,7 +1101,7 @@ export const SettingsPage: React.FC = () => {
     try {
       setIsSaving(true);
       const updated = await updateSettingsMutation.mutateAsync(
-        getResetSettingsPayload(canEditLlmSettings),
+        getResetSettingsPayload({ canEditLlmSettings, isSystemAdmin, canUseWebhooks }),
       );
       setSettings(updated);
       reset(mapSettingsToForm(updated));
@@ -1078,10 +1119,6 @@ export const SettingsPage: React.FC = () => {
     toast.success("Discarded unsaved changes");
   };
 
-  // Backups are server-wide, so only system admins see them. Everyone keeps the daily search schedule.
-  const canManageBackups = currentUserQuery.data?.isSystemAdmin === true;
-  const canUseWebhooks = currentUserQuery.data?.permissions?.webhooks === true;
-
   const visibleNavGroups = useMemo(
     () =>
       SETTINGS_NAV_GROUPS.map((group) => ({
@@ -1092,6 +1129,9 @@ export const SettingsPage: React.FC = () => {
             (item) =>
               (item.id !== "billing" || isHostedMode) &&
               (item.id !== "webhooks" || canUseWebhooks) &&
+              (item.id !== "environment" || isSystemAdmin) &&
+              (item.id !== "danger-zone" || isSystemAdmin) &&
+              (!isAdminConsole || ADMIN_SETTINGS_SECTION_IDS.has(item.id)) &&
               (canEditLlmSettings || item.id !== "model"),
           )
           .map((item) =>
@@ -1104,7 +1144,14 @@ export const SettingsPage: React.FC = () => {
               : item,
           ),
       })).filter((group) => group.items.length > 0),
-    [canEditLlmSettings, canManageBackups, canUseWebhooks, isHostedMode],
+    [
+      canEditLlmSettings,
+      canManageBackups,
+      canUseWebhooks,
+      isAdminConsole,
+      isHostedMode,
+      isSystemAdmin,
+    ],
   );
 
   const filteredNavGroups = useMemo(
@@ -1244,6 +1291,14 @@ export const SettingsPage: React.FC = () => {
           values={model}
           isLoading={isLoading}
           isSaving={isSaving}
+          restrictProviders={isHostedMode || !isSystemAdmin}
+          defaultModelStatus={
+            !isHostedMode && !isSystemAdmin
+              ? hasDefaultModelAccess
+                ? "granted"
+                : "required"
+              : null
+          }
           layoutMode="panel"
         />
       );
@@ -1304,14 +1359,14 @@ export const SettingsPage: React.FC = () => {
       );
       break;
     case "environment":
-      activeSectionContent = (
+      activeSectionContent = isSystemAdmin ? (
         <EnvironmentSettingsSection
           values={envSettings}
           isLoading={isLoading}
           isSaving={isSaving}
           layoutMode="panel"
         />
-      );
+      ) : null;
       break;
     case "display":
       activeSectionContent = (
@@ -1341,20 +1396,18 @@ export const SettingsPage: React.FC = () => {
       );
       break;
     case "danger-zone":
-      activeSectionContent = (
+      activeSectionContent = isSystemAdmin ? (
         <DangerZoneSection
           statusesToClear={statusesToClear}
           toggleStatusToClear={toggleStatusToClear}
           handleClearByStatuses={handleClearByStatuses}
-          handleClearDatabase={
-            currentUserQuery.data?.isSystemAdmin ? handleClearDatabase : undefined
-          }
+          handleClearDatabase={handleClearDatabase}
           handleClearByScore={handleClearByScore}
           isLoading={isLoading}
           isSaving={isSaving}
           layoutMode="panel"
         />
-      );
+      ) : null;
       break;
     default:
       activeSectionContent = null;

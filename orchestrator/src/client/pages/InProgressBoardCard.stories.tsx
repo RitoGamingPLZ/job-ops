@@ -45,7 +45,7 @@ const BoardCardFrame: React.FC<{
   label: string;
   children: React.ReactNode;
 }> = ({ label, children }) => (
-  <div className="w-[296px] space-y-2">
+  <div className="w-full max-w-[296px] space-y-2">
     <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
     {children}
   </div>

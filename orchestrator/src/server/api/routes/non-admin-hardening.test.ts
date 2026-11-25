@@ -133,6 +133,8 @@ describe("non-admin hardening", () => {
       ["POST", "/api/pipeline/solve-challenge"],
       ["GET", "/api/settings/codex-auth"],
       ["DELETE", "/api/database"],
+      ["DELETE", "/api/jobs/status/discovered"],
+      ["DELETE", "/api/jobs/score/50"],
       ["GET", "/api/backups"],
       ["GET", "/api/post-application/inbox"],
     ] as const) {
@@ -142,6 +144,19 @@ describe("non-admin hardening", () => {
         body: method === "POST" ? "{}" : undefined,
       });
       expect(res.status, `${method} ${path}`).toBe(403);
+    }
+
+    for (const payload of [
+      { llmProvider: "litellm" },
+      { ukvisajobsEmail: "guest@example.com" },
+      { adzunaAppId: "guest-adzuna" },
+    ]) {
+      const res = await fetch(`${baseUrl}/api/settings`, {
+        method: "PATCH",
+        headers: headers(guestToken),
+        body: JSON.stringify(payload),
+      });
+      expect(res.status, JSON.stringify(payload)).toBe(403);
     }
   });
 

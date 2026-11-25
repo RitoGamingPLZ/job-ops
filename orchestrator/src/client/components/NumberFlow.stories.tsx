@@ -38,18 +38,18 @@ export const Playground: Story = () => {
 
   return (
     <main className="min-h-[420px] bg-background p-6 text-foreground">
-      <section className="mx-auto flex max-w-2xl flex-col gap-6 rounded-lg border border-border bg-card p-6 shadow-sm">
+      <section className="mx-auto flex max-w-2xl flex-col gap-6 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-2">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             NumberFlow
           </p>
           <div className="flex items-end justify-between gap-4">
-            <div className="text-7xl font-semibold leading-none tabular-nums">
+            <div className="text-5xl font-semibold leading-none tabular-nums sm:text-7xl">
               <NumberFlow value={value} isolate />
             </div>
             <button
               type="button"
-              className={buttonClassName}
+              className={`${buttonClassName} min-w-[5.25rem]`}
               onClick={() => setIsCycling((current) => !current)}
             >
               {isCycling ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -100,6 +100,7 @@ export const Playground: Story = () => {
             <button
               type="button"
               key={candidate}
+              aria-pressed={candidate === value}
               className={`${buttonClassName} justify-between`}
               onClick={() => setManualValue(candidate)}
             >

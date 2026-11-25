@@ -1,7 +1,11 @@
 import { LlmModelConfiguration } from "@client/components/llmmodelconfiguration/LlmModelConfiguration";
 import { SettingsSectionFrame } from "@client/pages/settings/components/SettingsSectionFrame";
 import type { ModelValues } from "@client/pages/settings/types";
-import { type LlmProviderId, normalizeLlmProvider } from "@client/pages/settings/utils";
+import {
+  type LlmProviderId,
+  normalizeLlmProvider,
+  RESTRICTED_LLM_PROVIDERS,
+} from "@client/pages/settings/utils";
 import type { UpdateSettingsInput } from "@shared/settings-schema.js";
 import type { LlmPurpose } from "@shared/types.js";
 import type React from "react";
@@ -11,6 +15,8 @@ type ModelSettingsSectionProps = {
   values: ModelValues;
   isLoading: boolean;
   isSaving: boolean;
+  restrictProviders?: boolean;
+  defaultModelStatus?: "granted" | "required" | null;
   layoutMode?: "accordion" | "panel";
 };
 
@@ -18,6 +24,8 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
   values,
   isLoading,
   isSaving,
+  restrictProviders = false,
+  defaultModelStatus = null,
   layoutMode,
 }) => {
   const {
@@ -25,9 +33,13 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
     setValue,
     formState: { errors },
   } = useFormContext<UpdateSettingsInput>();
-  const selectedProvider = normalizeLlmProvider(
-    watch("llmProvider") || values.llmProvider || "openrouter",
+  const rawProvider = normalizeLlmProvider(
+    watch("llmProvider") || values.llmProvider || (restrictProviders ? "gemini" : "openrouter"),
   );
+  const selectedProvider =
+    restrictProviders && !(RESTRICTED_LLM_PROVIDERS as readonly string[]).includes(rawProvider)
+      ? "gemini"
+      : rawProvider;
   const disabled = isLoading || isSaving;
 
   const setStringField = (
@@ -86,6 +98,8 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
       <LlmModelConfiguration
         mode="settings"
         disabled={disabled}
+        restrictProviders={restrictProviders}
+        defaultModelStatus={defaultModelStatus}
         selectedProvider={selectedProvider}
         savedProvider={values.llmProvider}
         savedBaseUrl={values.llmBaseUrl}

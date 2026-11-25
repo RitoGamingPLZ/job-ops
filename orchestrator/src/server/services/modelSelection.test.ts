@@ -8,6 +8,7 @@ vi.mock("./candidate-experience", () => ({
   buildCandidateTailoringContext: vi.fn(),
 }));
 
+import { runWithRequestContext } from "@infra/request-context";
 // src/server/services/modelSelection.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as settingsRepo from "../repositories/settings";
@@ -15,8 +16,14 @@ import { getCurrentAccountEntitlements } from "./account-entitlements";
 import { resolveLlmModel, resolveLlmRuntimeSettings } from "./modelSelection";
 import { pickProjectIdsForJob } from "./projectSelection";
 import { scoreJobSuitability } from "./scorer";
+import { canUseDefaultModel, isOperatorContext } from "./server-credentials";
 import { getEffectiveSettings } from "./settings";
 import { generateTailoring } from "./summary";
+
+vi.mock("./server-credentials", () => ({
+  canUseDefaultModel: vi.fn(),
+  isOperatorContext: vi.fn(),
+}));
 
 // Mock the settings repository
 vi.mock("../repositories/settings", () => ({
@@ -38,6 +45,8 @@ describe("Model Selection Logic", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.mocked(canUseDefaultModel).mockResolvedValue(true);
+    vi.mocked(isOperatorContext).mockResolvedValue(true);
     vi.mocked(buildCandidateExperienceContext).mockResolvedValue(null);
     vi.mocked(buildCandidateTailoringContext).mockResolvedValue({
       experience: null,
@@ -747,6 +756,37 @@ describe("Model Selection Logic", () => {
       const fetchCall = vi.mocked(fetch).mock.calls[0];
       const body = JSON.parse(fetchCall[1]?.body as string);
       expect(body.model).toBe("global-model");
+    });
+
+    it("uses non-admin own key first, falls back to server default when granted, and avoids leaking server key without defaultModel", async () => {
+      vi.mocked(isOperatorContext).mockResolvedValue(false);
+      vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
+        llmProvider: "openai",
+        llmApiKey: "guest-own-key",
+        model: "gpt-5.4-mini",
+      });
+      const ownRuntime = await runWithRequestContext(
+        { tenantId: "tenant_guest", userId: "user_guest", isSystemAdmin: false },
+        () => resolveLlmRuntimeSettings("scoring"),
+      );
+      expect(ownRuntime.apiKey).toBe("guest-own-key");
+      expect(ownRuntime.provider).toBe("openai");
+
+      vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({});
+      vi.mocked(canUseDefaultModel).mockResolvedValueOnce(true);
+      const grantedRuntime = await runWithRequestContext(
+        { tenantId: "tenant_guest", userId: "user_guest", isSystemAdmin: false },
+        () => resolveLlmRuntimeSettings("scoring"),
+      );
+      expect(grantedRuntime.apiKey).toBe("test-key");
+      expect(grantedRuntime.model).toBe("env-model");
+
+      vi.mocked(canUseDefaultModel).mockResolvedValueOnce(false);
+      const blockedRuntime = await runWithRequestContext(
+        { tenantId: "tenant_guest", userId: "user_guest", isSystemAdmin: false },
+        () => resolveLlmRuntimeSettings("scoring"),
+      );
+      expect(blockedRuntime.apiKey).toBeNull();
     });
   });
 });

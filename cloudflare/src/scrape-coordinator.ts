@@ -938,7 +938,34 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
   }
 }
 
+const CONTAINER_START_TIMEOUT_MS = 120_000;
+
 export class ScraperContainer extends DurableObject<Env> {
+  /** Polls /health until the Node server inside the container accepts connections. */
+  private async waitForContainerReady(port: number): Promise<boolean> {
+    const container = this.ctx.container;
+    if (!container) return false;
+    const tcp = container.getTcpPort(port);
+    const startedAt = Date.now();
+    const deadline = startedAt + CONTAINER_START_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      // A container that exited during boot will never listen; stop waiting and report it.
+      // The short grace period covers `running` lagging behind a just-issued start().
+      if (!container.running && Date.now() - startedAt > 5_000) return false;
+      try {
+        const probe = await tcp.fetch("http://container/health", {
+          signal: AbortSignal.timeout(2000),
+        });
+        await probe.body?.cancel();
+        if (probe.ok) return true;
+      } catch {
+        // Waiting for scraper container startup
+      }
+      await sleep(500);
+    }
+    return false;
+  }
+
   async fetch(request: Request): Promise<Response> {
     const container = this.ctx.container;
     if (!container) {
@@ -968,19 +995,21 @@ export class ScraperContainer extends DurableObject<Env> {
         },
       });
       await container.setInactivityTimeout(5 * 60_000);
-      const tcp = container.getTcpPort(portNumber);
-      for (let i = 0; i < 60; i++) {
-        try {
-          const probe = await tcp.fetch("http://container/health", {
-            signal: AbortSignal.timeout(1500),
-          });
-          await probe.body?.cancel();
-          if (probe.ok) break;
-        } catch {
-          // Waiting for scraper container startup
-        }
-        await sleep(500);
-      }
+    }
+
+    // Always confirm readiness: a container that is running but still booting (or was just
+    // restarted) is not listening yet, and forwarding to it fails with a raw TCP error.
+    if (!(await this.waitForContainerReady(portNumber))) {
+      return Response.json(
+        {
+          ok: false,
+          error: {
+            code: "SERVICE_UNAVAILABLE",
+            message: "The worker container did not finish starting. Try again in a moment.",
+          },
+        },
+        { status: 503, headers: { "retry-after": "10" } },
+      );
     }
 
     const targetUrl = new URL(request.url);

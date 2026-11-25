@@ -4,6 +4,8 @@ import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { settingsRegistry } from "@shared/settings-registry";
 import type { AppSettings } from "@shared/types";
 
+export const MASKED_SECRET_HINT = "********";
+
 const envDefaults: Record<string, string | undefined> = { ...process.env };
 
 export function getOriginalEnvValue(envKey: string): string | undefined {
@@ -28,16 +30,28 @@ export async function getEnvSettingsData(
 ): Promise<Partial<AppSettings>> {
   const activeOverrides = overrides || (await settingsRepo.getAllSettings());
   const values: Partial<AppSettings> = {};
+  const allowServerEnvironment = options?.allowServerEnvironment !== false;
 
   for (const [key, def] of Object.entries(settingsRegistry)) {
     if (def.kind === "typed") continue;
     if (!("envKey" in def) || !def.envKey) continue;
 
     const override = activeOverrides[key as SettingKey] ?? null;
-    // Invited users never see or inherit the operator's integration values.
+
+    // Non-admins never see server env or operator service-account values.
+    if (!allowServerEnvironment && key !== "llmApiKey" && key !== "webhookSecret") {
+      if (def.kind === "secret") {
+        // biome-ignore lint/suspicious/noExplicitAny: explicit partial assignment
+        (values as any)[`${key}Hint` as keyof AppSettings] = null;
+      } else {
+        // biome-ignore lint/suspicious/noExplicitAny: explicit partial assignment
+        (values as any)[key] = null;
+      }
+      continue;
+    }
+
     const rawValue =
-      override ??
-      (options?.allowServerEnvironment === false ? undefined : getOriginalEnvValue(def.envKey));
+      override ?? (allowServerEnvironment ? getOriginalEnvValue(def.envKey) : undefined);
 
     if (def.kind === "secret") {
       const hintKey = `${key}Hint` as keyof AppSettings;
@@ -47,19 +61,15 @@ export async function getEnvSettingsData(
               storedApiKey: override,
               provider:
                 normalizeEnvInput(
-                  activeOverrides.llmProvider ?? getOriginalEnvValue("LLM_PROVIDER"),
+                  allowServerEnvironment
+                    ? (activeOverrides.llmProvider ?? getOriginalEnvValue("LLM_PROVIDER"))
+                    : activeOverrides.llmProvider,
                 ) ?? null,
               allowEnvironmentCredentials: options?.allowLlmEnvironmentCredentials,
             })
           : normalizeEnvInput(rawValue);
-      if (!effectiveSecret) {
-        // biome-ignore lint/suspicious/noExplicitAny: explicit partial assignment
-        (values as any)[hintKey] = null;
-        continue;
-      }
-      const hintLength = effectiveSecret.length > 4 ? 4 : Math.max(effectiveSecret.length - 1, 1);
       // biome-ignore lint/suspicious/noExplicitAny: explicit partial assignment
-      (values as any)[hintKey] = effectiveSecret.slice(0, hintLength);
+      (values as any)[hintKey] = effectiveSecret ? MASKED_SECRET_HINT : null;
     } else {
       // biome-ignore lint/suspicious/noExplicitAny: explicit partial assignment
       (values as any)[key] = normalizeEnvInput(rawValue);

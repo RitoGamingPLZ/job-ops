@@ -2,7 +2,7 @@ import { DEFAULT_USER_PERMISSIONS } from "@shared/types";
 import * as api from "@client/api";
 import type { UpdateSettingsInput } from "@shared/settings-schema.js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Accordion } from "@/components/ui/accordion";
@@ -109,8 +109,9 @@ describe("EnvironmentSettingsSection", () => {
     expect(screen.getByDisplayValue("visa@example.com")).toBeInTheDocument();
     expect(screen.getByDisplayValue("adzuna-id")).toBeInTheDocument();
 
-    expect(screen.getByText(/pass\*{8}/)).toBeInTheDocument();
-    expect(screen.getByText(/adzu\*{8}/)).toBeInTheDocument();
+    expect(screen.getAllByText("••••••••")).toHaveLength(2);
+    expect(screen.queryByText(/pass\*{4,}/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/adzu\*{4,}/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Enable authentication")).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText("username")).not.toBeInTheDocument();
 
@@ -118,56 +119,5 @@ describe("EnvironmentSettingsSection", () => {
     expect(screen.getByText("Service Accounts")).toBeInTheDocument();
     expect(screen.getByText("Security")).toBeInTheDocument();
     expect(screen.queryByText("RxResume")).not.toBeInTheDocument();
-  });
-
-  it("updates a workspace user's reset password without crashing", async () => {
-    render(<EnvironmentSettingsHarness />);
-
-    const resetPasswordInput = await screen.findByPlaceholderText("New password");
-
-    fireEvent.change(resetPasswordInput, {
-      target: { value: "new-password" },
-    });
-
-    expect(resetPasswordInput).toHaveValue("new-password");
-  });
-
-  it("allows a system admin to create a new workspace user", async () => {
-    vi.mocked(api.createWorkspaceUser).mockResolvedValue({
-      id: "new-user-id",
-      username: "teammate",
-      displayName: "Teammate",
-      isSystemAdmin: false,
-      isDisabled: false,
-      hasPassword: true,
-      mustChangePassword: false,
-      workspaceId: "tenant-teammate",
-      workspaceName: "Teammate",
-      permissions: { ...DEFAULT_USER_PERMISSIONS },
-      createdAt: "2026-11-22T00:00:00.000Z",
-      updatedAt: "2026-11-22T00:00:00.000Z",
-    });
-
-    render(<EnvironmentSettingsHarness />);
-
-    const nameInput = await screen.findByPlaceholderText("Name");
-    const usernameInput = screen.getByPlaceholderText("Username");
-    const passwordInput = screen.getByPlaceholderText("Temporary password");
-    const createButton = screen.getByRole("button", { name: "Create" });
-
-    fireEvent.change(nameInput, { target: { value: "Teammate" } });
-    fireEvent.change(usernameInput, { target: { value: "teammate" } });
-    fireEvent.change(passwordInput, { target: { value: "temp-pass-1234" } });
-    fireEvent.click(createButton);
-
-    await screen.findByText("Workspace Users");
-    expect(api.createWorkspaceUser).toHaveBeenCalledWith(
-      {
-        username: "teammate",
-        displayName: "Teammate",
-        password: "temp-pass-1234",
-      },
-      expect.anything(),
-    );
   });
 });
