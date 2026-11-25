@@ -1,8 +1,10 @@
-import { badRequest, toAppError, unprocessableEntity } from "@infra/errors";
+import { badRequest, forbidden, toAppError, unprocessableEntity } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
+import { isSystemAdmin } from "@infra/request-context";
 import { listCareerBoardSources } from "@server/config/career-boards";
-import { withCompanyRatings } from "@server/config/company-ratings";
+
 import { resolveWatchlistSourceGroups } from "@server/config/watchlist-groups";
+import * as companyRatingsRepo from "@server/repositories/company-ratings";
 import * as watchlistRepo from "@server/repositories/watchlist";
 import { getWatchlistSourceAdapter } from "@server/watchlist/adapters";
 import {
@@ -58,12 +60,20 @@ const watchlistSourceBrandingSchema = z.object({
   careersUrl: z.string().trim().url().max(2000),
 });
 
-function getWatchlistSourcesPayload(
+const companyRatingSchema = z.object({
+  label: z.string().trim().min(1).max(200),
+  wlb: z.number().min(0).max(10).nullable(),
+  salary: z.number().min(0).max(10).nullable(),
+  source: z.string().trim().min(1).max(60).optional(),
+  sourceUrl: z.string().trim().url().max(2000).nullish(),
+});
+
+async function getWatchlistSourcesPayload(
   catalogSources: Awaited<ReturnType<typeof listCareerBoardSources>>,
   selectedSources: Awaited<ReturnType<typeof watchlistRepo.listWatchlistSelectedSources>>,
 ) {
   return {
-    catalogSources: withCompanyRatings(catalogSources),
+    catalogSources: await companyRatingsRepo.withCompanyRatings(catalogSources),
     groups: resolveWatchlistSourceGroups(catalogSources),
     selectedSources: hydrateWatchlistSelectedSources(selectedSources),
     availableSourceTypes: getWatchlistSourceTypeDescriptors(),
@@ -85,7 +95,26 @@ watchlistRouter.get(
       watchlistRepo.listWatchlistSelectedSources(),
     ]);
 
-    ok(res, getWatchlistSourcesPayload(catalogSources, selectedSources));
+    ok(res, await getWatchlistSourcesPayload(catalogSources, selectedSources));
+  }),
+);
+
+/**
+ * PUT /api/watchlist/company-ratings - Set one company's 0-10 WLB and salary rating.
+ * Ratings are shared across tenants, so only a system admin can change them.
+ */
+watchlistRouter.put(
+  "/company-ratings",
+  asyncRoute(async (req: Request, res: Response) => {
+    if (!isSystemAdmin()) {
+      return fail(res, forbidden("System admin access is required"));
+    }
+    const parsedBody = companyRatingSchema.safeParse(req.body ?? {});
+    if (!parsedBody.success) {
+      return fail(res, badRequest("Invalid company rating", parsedBody.error.flatten()));
+    }
+
+    ok(res, { rating: await companyRatingsRepo.upsertCompanyRating(parsedBody.data) });
   }),
 );
 
@@ -334,7 +363,7 @@ watchlistRouter.put(
       selections: normalizedSelections,
     });
 
-    ok(res, getWatchlistSourcesPayload(catalogSources, selectedSources));
+    ok(res, await getWatchlistSourcesPayload(catalogSources, selectedSources));
   }),
 );
 

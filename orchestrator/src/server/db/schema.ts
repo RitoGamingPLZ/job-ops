@@ -627,6 +627,26 @@ export const settings = sqliteTable(
 );
 
 // Explicitly global: recipes contain only public site extraction instructions.
+// Explicitly global: editorial company ratings are public reference data shared across tenants.
+// Ratings use a 0-10 scale. `companyKey` is the label lowercased with non-alphanumerics removed,
+// so one row covers the same company on every source adapter.
+export const companyRatings = sqliteTable("company_ratings", {
+  id: text("id").primaryKey(),
+  companyKey: text("company_key").notNull().unique(),
+  label: text("label").notNull(),
+  wlbRating: real("wlb_rating"),
+  salaryRating: real("salary_rating"),
+  source: text("source").notNull().default("editorial"),
+  sourceUrl: text("source_url"),
+  ratedAt: text("rated_at").notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 export const siteRecipes = sqliteTable("site_recipes", {
   id: text("id").primaryKey(),
   host: text("host").notNull().unique(),

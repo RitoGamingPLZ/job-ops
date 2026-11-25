@@ -1,30 +1,31 @@
-import type { WatchlistCompanyRating, WatchlistSource } from "@shared/types";
 import ratingsFile from "./company-ratings.json";
 
-const ratingsByCompany = new Map<string, WatchlistCompanyRating>(
-  Object.entries(ratingsFile.companies).map(([label, rating]) => [toCompanyKey(label), rating]),
-);
+export interface SeedCompanyRating {
+  label: string;
+  /** 0-10 work-life balance. */
+  wlb: number;
+  /** 0-10 pay relative to the company's industry. */
+  salary: number;
+}
 
 /** Normalizes a company label so one rating covers the same company on every adapter. */
-function toCompanyKey(label: string): string {
+export function toCompanyKey(label: string): string {
   return label.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
-export function getCompanyRating(label: string): WatchlistCompanyRating | null {
-  return ratingsByCompany.get(toCompanyKey(label)) ?? null;
+/**
+ * Bundled starting ratings. They are copied into the `company_ratings` table when a company is
+ * missing there and never overwrite what the database already holds.
+ */
+export function listSeedCompanyRatings(): SeedCompanyRating[] {
+  return Object.entries(ratingsFile.companies).map(([label, rating]) => ({ label, ...rating }));
 }
 
-export function withCompanyRatings(sources: WatchlistSource[]): WatchlistSource[] {
-  return sources.map((source) => {
-    const rating = getCompanyRating(source.label);
-    return rating ? { ...source, rating } : source;
-  });
+export function getSeedCompanyRating(label: string): SeedCompanyRating | null {
+  const key = toCompanyKey(label);
+  return listSeedCompanyRatings().find((seed) => toCompanyKey(seed.label) === key) ?? null;
 }
 
-export function listRatedCompanyLabels(): string[] {
-  return Object.keys(ratingsFile.companies);
-}
-
-export function getCompanyRatingsReviewedAt(): string {
+export function getSeedRatingsReviewedAt(): string {
   return ratingsFile.reviewedAt;
 }

@@ -53,7 +53,7 @@ describe("portable-migrations", () => {
     const sqlite = new Database(":memory:");
     try {
       const first = runPortableMigrations(sqlite);
-      expect(first.applied).toEqual(["0001", "0002", "0003"]);
+      expect(first.applied).toEqual(["0001", "0002", "0003", "0004"]);
       expect(first.skipped).toEqual([]);
       expect(first.total).toBe(PORTABLE_MIGRATIONS.length);
 
@@ -78,7 +78,7 @@ describe("portable-migrations", () => {
 
       const second = runPortableMigrations(sqlite);
       expect(second.applied).toEqual([]);
-      expect(second.skipped).toEqual(["0001", "0002", "0003"]);
+      expect(second.skipped).toEqual(["0001", "0002", "0003", "0004"]);
     } finally {
       sqlite.close();
     }
@@ -91,7 +91,7 @@ describe("portable-migrations", () => {
       sqlite.exec("CREATE TABLE tracer_click_events (id TEXT PRIMARY KEY);");
       const doSql = createFakeDoSqlStorage(sqlite);
       const first = runPortableMigrations(doSql);
-      expect(first.applied).toEqual(["0001", "0002", "0003"]);
+      expect(first.applied).toEqual(["0001", "0002", "0003", "0004"]);
       expect(first.skipped).toEqual([]);
 
       const remaining = sqlite
@@ -103,7 +103,7 @@ describe("portable-migrations", () => {
 
       const second = runPortableMigrations(doSql);
       expect(second.applied).toEqual([]);
-      expect(second.skipped).toEqual(["0001", "0002", "0003"]);
+      expect(second.skipped).toEqual(["0001", "0002", "0003", "0004"]);
     } finally {
       sqlite.close();
     }
@@ -120,7 +120,7 @@ describe("portable-migrations", () => {
       INSERT INTO jobs VALUES ('j2', 'tenant_default', 'u1', 'https://example.com/2', 'ready', '2026-01-02');`);
       const sql = createFakeDoSqlStorage(sqlite);
       reconcileLegacyDoSchema(sql);
-      expect(runPortableMigrations(sql).applied).toEqual(["0001", "0002", "0003"]);
+      expect(runPortableMigrations(sql).applied).toEqual(["0001", "0002", "0003", "0004"]);
       expect(sqlite.prepare("SELECT id, status, posting_id FROM jobs ORDER BY id").all()).toEqual([
         { id: "j1", status: "applied", posting_id: null },
         { id: "j2", status: "ready", posting_id: null },

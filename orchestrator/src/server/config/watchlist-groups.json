@@ -92,7 +92,7 @@
   {
     "id": "wlb-tech",
     "label": "WLB tech companies",
-    "description": "Tech companies rated 4 or 5 for work-life balance. Ratings are editorial estimates, so check them before relying on them.",
+    "description": "Tech companies rated 8 or higher out of 10 for work-life balance. Ratings are editorial estimates, so check them before relying on them.",
     "members": [
       { "sourceType": "careers_site", "label": "Atlassian" },
       { "sourceType": "smartrecruiters", "label": "Canva" },

@@ -427,10 +427,16 @@ export interface WatchlistCheckResponse {
 
 export type WatchedSourceType = "workday" | (string & {});
 
-/** Editorial 1-5 ratings for a company: work-life balance and pay relative to its industry. */
+/**
+ * Ratings for a company on a 0-10 scale: work-life balance and pay relative to its industry.
+ * `null` means that dimension has not been rated.
+ */
 export interface WatchlistCompanyRating {
-  wlb: number;
-  salary: number;
+  wlb: number | null;
+  salary: number | null;
+  /** Where the rating came from, such as "editorial" or "manual". */
+  source: string;
+  ratedAt: string;
 }
 
 export interface WatchlistSource {

@@ -56,9 +56,9 @@ Click **Groups** next to **Add source** and choose a group:
 - `Logistics`
 - `Food and refrigeration` (food processors, distributors, grocers and cold-storage operators; USDA and FDA inspector roles are not covered)
 - `Big tech`
-- `WLB tech companies` (tech companies rated 4 or 5 for work-life balance)
+- `WLB tech companies` (tech companies with a seed WLB rating of 8 or higher)
 
-Every source card shows an editorial **WLB** (work-life balance) and **Pay** rating from 1 to 5 when the company has one. They are estimates, not survey data, and live in `orchestrator/src/server/config/company-ratings.json`, where you can adjust them by hand.
+Every source card shows a **WLB** (work-life balance) and a **Pay** rating from 0 to 10 when the company has one. Ratings are stored in the `company_ratings` table and start from editorial estimates bundled in `orchestrator/src/server/config/company-ratings.json`, not survey data. Seeding only fills in companies that have no row yet, so edits are never overwritten. A system admin can change one with `PUT /api/watchlist/company-ratings` and a body like `{ "label": "Stripe", "wlb": 7.5, "salary": 9, "source": "manual" }`. Glassdoor is not fetched automatically because its terms forbid automated collection.
 
 Adding a group only adds sources you do not already have. A company counts as already added when you have it under any source type or a custom URL, so Stripe on Greenhouse blocks Stripe on its own careers site. It never goes past the 50-source limit. The sources are added as unsaved drafts, so click **Save sources** to start watching them. Where a company has its own careers site in the catalog, groups use that original source.
 

@@ -433,6 +433,19 @@ const migrations = [
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
 
+  `CREATE TABLE IF NOT EXISTS company_ratings (
+    id TEXT PRIMARY KEY,
+    company_key TEXT NOT NULL UNIQUE,
+    label TEXT NOT NULL,
+    wlb_rating REAL,
+    salary_rating REAL,
+    source TEXT NOT NULL DEFAULT 'editorial',
+    source_url TEXT,
+    rated_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+
   `CREATE TABLE IF NOT EXISTS analytics_install_state (
     id TEXT PRIMARY KEY,
     distinct_id TEXT NOT NULL,

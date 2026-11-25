@@ -1,54 +1,48 @@
 import { describe, expect, it } from "vitest";
 import { listCareerBoardSources } from "./career-boards";
-import { getCompanyRating, listRatedCompanyLabels, withCompanyRatings } from "./company-ratings";
+import { getSeedCompanyRating, listSeedCompanyRatings, toCompanyKey } from "./company-ratings";
 import { listWatchlistGroupDefinitions } from "./watchlist-groups";
 
-describe("company ratings", () => {
-  it("keeps every rating an integer from 1 to 5", () => {
-    for (const label of listRatedCompanyLabels()) {
-      const rating = getCompanyRating(label);
-      expect(rating, label).not.toBeNull();
-      for (const value of [rating?.wlb, rating?.salary]) {
-        expect(Number.isInteger(value) && (value ?? 0) >= 1 && (value ?? 0) <= 5, label).toBe(true);
+describe("seed company ratings", () => {
+  it("keeps every rating a number from 0 to 10", () => {
+    for (const seed of listSeedCompanyRatings()) {
+      for (const value of [seed.wlb, seed.salary]) {
+        expect(Number.isFinite(value) && value >= 0 && value <= 10, seed.label).toBe(true);
       }
     }
+  });
+
+  it("has one seed per company", () => {
+    const keys = listSeedCompanyRatings().map((seed) => toCompanyKey(seed.label));
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it("rates every company that appears in a group", () => {
     const unrated = listWatchlistGroupDefinitions().flatMap((group) =>
       group.members
-        .filter((member) => getCompanyRating(member.label) === null)
+        .filter((member) => getSeedCompanyRating(member.label) === null)
         .map((member) => `${group.id}: ${member.label}`),
     );
 
     expect(unrated).toEqual([]);
   });
 
-  it("only puts companies rated 4 or 5 for work-life balance in the WLB group", () => {
+  it("only puts companies rated 8 or higher for work-life balance in the WLB group", () => {
     const wlbGroup = listWatchlistGroupDefinitions().find((group) => group.id === "wlb-tech");
     expect(wlbGroup).toBeDefined();
 
     const low = (wlbGroup?.members ?? []).filter(
-      (member) => (getCompanyRating(member.label)?.wlb ?? 0) < 4,
+      (member) => (getSeedCompanyRating(member.label)?.wlb ?? 0) < 8,
     );
     expect(low.map((member) => member.label)).toEqual([]);
   });
 
-  it("has no rating for a company that is missing from the catalog", async () => {
+  it("has no seed for a company that is missing from the catalog", async () => {
     const catalogLabels = new Set((await listCareerBoardSources()).map((source) => source.label));
-    const stale = listRatedCompanyLabels().filter((label) => !catalogLabels.has(label));
+    const stale = listSeedCompanyRatings()
+      .map((seed) => seed.label)
+      .filter((label) => !catalogLabels.has(label));
 
     expect(stale).toEqual([]);
-  });
-
-  it("attaches one rating to the same company on every adapter", async () => {
-    const stripe = withCompanyRatings(await listCareerBoardSources()).filter(
-      (source) => source.label === "Stripe",
-    );
-
-    expect(stripe.length).toBeGreaterThan(1);
-    for (const source of stripe) {
-      expect(source.rating).toEqual({ wlb: 3, salary: 5 });
-    }
   });
 });

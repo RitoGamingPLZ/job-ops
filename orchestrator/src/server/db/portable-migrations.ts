@@ -209,6 +209,13 @@ export const PORTABLE_MIGRATIONS: readonly PortableMigration[] = [
       'DROP TABLE IF EXISTS "tracer_links";',
     ],
   },
+  {
+    id: "0004",
+    name: "0004_company_ratings",
+    statements: [
+      'CREATE TABLE IF NOT EXISTS "company_ratings" (\n  "id" text PRIMARY KEY NOT NULL,\n  "company_key" text NOT NULL UNIQUE,\n  "label" text NOT NULL,\n  "wlb_rating" real,\n  "salary_rating" real,\n  "source" text NOT NULL DEFAULT \'editorial\',\n  "source_url" text,\n  "rated_at" text NOT NULL,\n  "created_at" text NOT NULL DEFAULT (datetime(\'now\')),\n  "updated_at" text NOT NULL DEFAULT (datetime(\'now\'))\n);',
+    ],
+  },
 ];
 
 const MIGRATIONS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS "_portable_migrations" (

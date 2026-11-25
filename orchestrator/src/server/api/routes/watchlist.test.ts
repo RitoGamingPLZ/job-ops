@@ -53,6 +53,41 @@ describe("Watchlist API routes", () => {
       ({ server, baseUrl, closeDb, tempDir } = await startServer());
     });
 
+    it("attaches 0-10 company ratings to catalog sources", async () => {
+      const res = await fetch(`${baseUrl}/api/watchlist/sources`);
+      const body = await res.json();
+
+      const stripe = body.data.catalogSources.filter(
+        (source: { label: string }) => source.label === "Stripe",
+      );
+      expect(stripe.length).toBeGreaterThan(1);
+      for (const source of stripe) {
+        expect(source.rating).toMatchObject({ wlb: 6, salary: 10, source: "editorial" });
+      }
+    });
+
+    it("lets a system admin edit a rating, validates the range, and keeps the edit", async () => {
+      const edit = await fetch(`${baseUrl}/api/watchlist/company-ratings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: "Stripe", wlb: 7.5, salary: 9, source: "manual" }),
+      });
+      expect(edit.status).toBe(200);
+
+      const tooHigh = await fetch(`${baseUrl}/api/watchlist/company-ratings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: "Stripe", wlb: 11, salary: 9 }),
+      });
+      expect(tooHigh.status).toBe(400);
+
+      const body = await (await fetch(`${baseUrl}/api/watchlist/sources`)).json();
+      const stripe = body.data.catalogSources.find(
+        (source: { label: string }) => source.label === "Stripe",
+      );
+      expect(stripe.rating).toMatchObject({ wlb: 7.5, salary: 9, source: "manual" });
+    });
+
     it("loads watchlist sources from the career board catalog json", async () => {
       const res = await fetch(`${baseUrl}/api/watchlist/sources`);
       const body = await res.json();
@@ -471,6 +506,25 @@ describe("Watchlist API routes", () => {
       ({ server, baseUrl, closeDb, tempDir } = await startServer({
         env: AUTH_ENV,
       }));
+    });
+
+    it("does not let a regular user edit company ratings", async () => {
+      const adminToken = await login(baseUrl, "admin", "secret");
+      const createRes = await fetch(`${baseUrl}/api/workspaces/users`, {
+        method: "POST",
+        headers: authHeaders(adminToken),
+        body: JSON.stringify({ username: "adam", displayName: "Adam", password: "adam-secret" }),
+      });
+      expect(createRes.status).toBe(201);
+
+      const adamToken = await login(baseUrl, "adam", "adam-secret");
+      const res = await fetch(`${baseUrl}/api/watchlist/company-ratings`, {
+        method: "PUT",
+        headers: authHeaders(adamToken),
+        body: JSON.stringify({ label: "Stripe", wlb: 1, salary: 1 }),
+      });
+
+      expect(res.status).toBe(403);
     });
 
     it("returns only the active user's state rows within the same tenant", async () => {
