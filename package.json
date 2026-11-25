@@ -25,7 +25,7 @@
     "typst-theme:validate": "node ./scripts/generate-typst-themes.mjs --check && npm --workspace orchestrator run test:run -- src/server/services/resume-renderer/typst.test.ts",
     "release:set-version": "node ./scripts/set-orchestrator-version.mjs",
     "knip": "knip",
-    "prepare": "node scripts/setup-git-hooks.mjs"
+    "prepare": "node -e \"const f='./scripts/setup-git-hooks.mjs';require('fs').existsSync(f)&&import(f).catch(()=>{})\""
   },
   "devDependencies": {
     "@types/node": "^25.2.3",
