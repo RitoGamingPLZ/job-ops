@@ -30,6 +30,7 @@ import type {
 import {
   createSourceDraft,
   formatWatchlistCheckTimestamp,
+  getCoveredCatalogSourceIds,
   getNormalizedWatchlistCareersUrl,
   getWatchlistSelectionIdentityKey,
   getWorkspaceJobPath,
@@ -234,11 +235,7 @@ export const WatchlistPage: React.FC = () => {
   }
 
   function addSourceGroup(group: WatchlistSourceGroup) {
-    const alreadyAdded = new Set(
-      sourceDrafts.flatMap((draft) =>
-        draft.catalogSourceId !== null ? [draft.catalogSourceId] : [],
-      ),
-    );
+    const alreadyAdded = getCoveredCatalogSourceIds(sourceDrafts, catalogSources);
     const catalogById = new Map(catalogSources.map((source) => [source.id, source]));
     const room = Math.max(0, MAX_WATCHLIST_SOURCES - sourceDrafts.length);
 

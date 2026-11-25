@@ -27,6 +27,20 @@ describe("watchlist source groups", () => {
     }
   });
 
+  it("never lists the same company twice in one group, even on different adapters", () => {
+    const duplicates = listWatchlistGroupDefinitions().flatMap((group) => {
+      const seen = new Set<string>();
+      return group.members.flatMap((member) => {
+        const company = member.label.toLowerCase().replace(/[^a-z0-9]+/g, "");
+        if (seen.has(company)) return [`${group.id}: ${member.label}`];
+        seen.add(company);
+        return [];
+      });
+    });
+
+    expect(duplicates).toEqual([]);
+  });
+
   it("drops members that are missing from the catalog", () => {
     const groups = resolveWatchlistSourceGroups(
       [

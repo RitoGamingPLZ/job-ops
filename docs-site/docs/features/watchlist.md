@@ -56,9 +56,10 @@ Click **Groups** next to **Add source** and choose a group:
 - `Work-life balance` (an editorial pick, so review it before relying on it)
 - `Finance and fintech`
 - `Logistics and delivery`
+- `Food safety and refrigeration` (food processors, distributors, grocers and cold-storage operators; USDA and FDA inspector roles are not covered)
 - `Consulting, pharma and consumer`
 
-Adding a group only adds sources you do not already have, and never goes past the 50-source limit. The sources are added as unsaved drafts, so click **Save sources** to start watching them. Where a company has its own careers site in the catalog, groups use that original source.
+Adding a group only adds sources you do not already have. A company counts as already added when you have it under any source type or a custom URL, so Stripe on Greenhouse blocks Stripe on its own careers site. It never goes past the 50-source limit. The sources are added as unsaved drafts, so click **Save sources** to start watching them. Where a company has its own careers site in the catalog, groups use that original source.
 
 LinkedIn is not a Watchlist source. To search LinkedIn, select it as a source in an Automatic run.
 

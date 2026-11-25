@@ -50,5 +50,17 @@
   {
     "label": "Brex",
     "careersUrl": "https://www.brex.com/careers"
+  },
+  {
+    "label": "Lineage",
+    "careersUrl": "https://careers.onelineage.com/us/en"
+  },
+  {
+    "label": "US Foods",
+    "careersUrl": "https://careers.usfoods.com/us/en"
+  },
+  {
+    "label": "Conagra Brands",
+    "careersUrl": "https://careers.conagrabrands.com/us/en"
   }
 ]

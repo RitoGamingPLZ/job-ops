@@ -23,6 +23,7 @@ import type { WatchlistSourceDraftCardProps } from "./types";
 import { WatchlistGroupsMenu } from "./WatchlistGroupsMenu";
 import {
   CUSTOM_SOURCE_VALUE,
+  getCoveredCatalogSourceIds,
   getNormalizedWatchlistCareersUrl,
   getWatchlistPreviewLabel,
 } from "./utils";
@@ -110,13 +111,8 @@ export function WatchlistSourcesCard({
   );
   const defaultSourceType = sourceTypes[0]?.sourceType ?? "workday";
   const addedCatalogSourceIds = useMemo(
-    () =>
-      new Set(
-        sourceDrafts.flatMap((draft) =>
-          draft.catalogSourceId !== null ? [draft.catalogSourceId] : [],
-        ),
-      ),
-    [sourceDrafts],
+    () => getCoveredCatalogSourceIds(sourceDrafts, catalogSources),
+    [sourceDrafts, catalogSources],
   );
   const logoCareersUrls = useMemo(() => {
     const urls = new Map<string, { sourceType: string; careersUrl: string }>();

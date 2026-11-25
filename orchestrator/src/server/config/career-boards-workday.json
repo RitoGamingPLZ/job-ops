@@ -205,5 +205,32 @@
     "tags": ["cybersecurity", "software", "cloud", "ai"],
     "countries": ["US", "UK", "India", "Romania"],
     "status": "active"
+  },
+  {
+    "id": "tyson-foods-workday",
+    "label": "Tyson Foods",
+    "ats": "workday",
+    "workdayUrl": "https://tysonfoods.wd5.myworkdayjobs.com/TSN",
+    "tags": ["food", "manufacturing", "quality", "food-safety"],
+    "countries": ["US"],
+    "status": "active"
+  },
+  {
+    "id": "sysco-workday",
+    "label": "Sysco",
+    "ats": "workday",
+    "workdayUrl": "https://sysco.wd5.myworkdayjobs.com/syscocareers",
+    "tags": ["food", "distribution", "cold-chain", "logistics"],
+    "countries": ["US", "Canada", "UK"],
+    "status": "active"
+  },
+  {
+    "id": "mondelez-workday",
+    "label": "Mondelez",
+    "ats": "workday",
+    "workdayUrl": "https://mdlz.wd3.myworkdayjobs.com/External",
+    "tags": ["food", "manufacturing", "quality", "food-safety"],
+    "countries": ["US", "UK", "India"],
+    "status": "active"
   }
 ]

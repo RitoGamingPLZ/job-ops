@@ -3,5 +3,20 @@
     "label": "Uber",
     "careersUrl": "https://iaziqy.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/UberCareers/jobs",
     "siteNumber": "CX_1"
+  },
+  {
+    "label": "Kroger",
+    "careersUrl": "https://eluq.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/jobs",
+    "siteNumber": "CX_2001"
+  },
+  {
+    "label": "Albertsons",
+    "careersUrl": "https://eofd.fa.us6.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/jobs",
+    "siteNumber": "CX_1001"
+  },
+  {
+    "label": "Americold",
+    "careersUrl": "https://fa-ewwt-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_6001/jobs",
+    "siteNumber": "CX_6001"
   }
 ]

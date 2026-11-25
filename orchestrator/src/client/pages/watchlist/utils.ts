@@ -7,7 +7,12 @@ import {
 import { matchJobLocationIntent } from "@shared/job-matching.js";
 import type { LocationIntent } from "@shared/location-intelligence.js";
 import { normalizeCountryKey } from "@shared/location-support.js";
-import type { JobListItem, WatchedSourceType, WatchlistJobResult } from "@shared/types.js";
+import type {
+  JobListItem,
+  WatchedSourceType,
+  WatchlistJobResult,
+  WatchlistSource,
+} from "@shared/types.js";
 import { computeJobMatchScore } from "../orchestrator/JobCommandBar.utils";
 import type { RankedWatchlistJob, SourceSelectionDraft } from "./types";
 
@@ -58,6 +63,65 @@ export function getNormalizedWatchlistCareersUrl(
   }
 
   return trimmed;
+}
+
+function getCompanyKey(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function getCareersUrlKey(sourceType: WatchedSourceType, careersUrl: string): string {
+  return getNormalizedWatchlistCareersUrl(sourceType, careersUrl)
+    .toLowerCase()
+    .replace(/^https?:\/\/(www\.)?/, "")
+    .replace(/[?#].*$/, "")
+    .replace(/\/+$/, "");
+}
+
+/**
+ * Ids of catalog sources the draft list already covers. A source counts as covered when
+ * it is the same catalog entry, points at the same careers URL (so a custom URL matches
+ * its catalog twin), or belongs to the same company on another adapter, such as Stripe on
+ * both Greenhouse and its own careers site.
+ */
+export function getCoveredCatalogSourceIds(
+  drafts: ReadonlyArray<Pick<SourceSelectionDraft, "catalogSourceId" | "sourceType" | "customUrl">>,
+  catalogSources: ReadonlyArray<WatchlistSource>,
+): Set<string> {
+  const urlKeyToCompany = new Map<string, string>();
+  const companyById = new Map<string, string>();
+  for (const source of catalogSources) {
+    const company = getCompanyKey(source.label);
+    companyById.set(source.id, company);
+    urlKeyToCompany.set(getCareersUrlKey(source.sourceType, source.careersUrl), company);
+  }
+
+  const coveredCompanies = new Set<string>();
+  const coveredUrls = new Set<string>();
+  const coveredIds = new Set<string>();
+  for (const draft of drafts) {
+    if (draft.catalogSourceId !== null) {
+      coveredIds.add(draft.catalogSourceId);
+      const company = companyById.get(draft.catalogSourceId);
+      if (company) coveredCompanies.add(company);
+      continue;
+    }
+    const urlKey = getCareersUrlKey(draft.sourceType, draft.customUrl);
+    if (!urlKey) continue;
+    coveredUrls.add(urlKey);
+    const company = urlKeyToCompany.get(urlKey);
+    if (company) coveredCompanies.add(company);
+  }
+
+  const covered = new Set<string>(coveredIds);
+  for (const source of catalogSources) {
+    if (
+      coveredCompanies.has(companyById.get(source.id) ?? "") ||
+      coveredUrls.has(getCareersUrlKey(source.sourceType, source.careersUrl))
+    ) {
+      covered.add(source.id);
+    }
+  }
+  return covered;
 }
 
 export function getWatchlistSelectionIdentityKey(selection: {

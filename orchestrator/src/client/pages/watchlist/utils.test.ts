@@ -1,10 +1,69 @@
 import { describe, expect, it } from "vitest";
 import {
+  getCoveredCatalogSourceIds,
   getNormalizedWatchlistCareersUrl,
   getWatchlistPreviewLabel,
   getWatchlistSelectionIdentityKey,
   getWatchlistSourceKey,
 } from "./utils";
+
+describe("getCoveredCatalogSourceIds", () => {
+  const catalog = [
+    {
+      id: "gh-stripe",
+      label: "Stripe",
+      sourceType: "greenhouse",
+      careersUrl: "https://job-boards.greenhouse.io/stripe",
+      cxsJobsUrl: null,
+    },
+    {
+      id: "cs-stripe",
+      label: "Stripe",
+      sourceType: "careers_site",
+      careersUrl: "https://stripe.com/jobs",
+      cxsJobsUrl: null,
+    },
+    {
+      id: "gh-ramp",
+      label: "Ramp",
+      sourceType: "greenhouse",
+      careersUrl: "https://job-boards.greenhouse.io/ramp",
+      cxsJobsUrl: null,
+    },
+  ] satisfies Parameters<typeof getCoveredCatalogSourceIds>[1];
+
+  const draft = (overrides: {
+    catalogSourceId?: string | null;
+    sourceType?: "greenhouse" | "careers_site";
+    customUrl?: string;
+  }) => ({
+    catalogSourceId: null,
+    sourceType: "greenhouse" as const,
+    customUrl: "",
+    ...overrides,
+  });
+
+  it("covers the same company listed under another adapter", () => {
+    const covered = getCoveredCatalogSourceIds([draft({ catalogSourceId: "gh-stripe" })], catalog);
+    expect([...covered].sort()).toEqual(["cs-stripe", "gh-stripe"]);
+  });
+
+  it("matches a custom URL to its catalog entry, ignoring scheme, www, query and slash", () => {
+    const covered = getCoveredCatalogSourceIds(
+      [draft({ customUrl: "http://www.job-boards.greenhouse.io/stripe/?gh_src=x" })],
+      catalog,
+    );
+    expect([...covered].sort()).toEqual(["cs-stripe", "gh-stripe"]);
+  });
+
+  it("leaves unrelated companies and blank drafts uncovered", () => {
+    const covered = getCoveredCatalogSourceIds(
+      [draft({ customUrl: "" }), draft({ customUrl: "https://example.com/careers" })],
+      catalog,
+    );
+    expect(covered.size).toBe(0);
+  });
+});
 
 describe("getWatchlistSourceKey", () => {
   it("uses parsed tenant and site for myworkdaysite URLs", () => {

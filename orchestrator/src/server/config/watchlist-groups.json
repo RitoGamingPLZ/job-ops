@@ -120,6 +120,22 @@
     ]
   },
   {
+    "id": "food-safety-refrigeration",
+    "label": "Food safety and refrigeration",
+    "description": "Food processors, distributors, grocers and cold-storage operators that hire food safety and quality inspectors and refrigeration technicians. Government inspector roles (USDA FSIS, FDA) are not covered yet.",
+    "members": [
+      { "sourceType": "workday", "label": "Tyson Foods" },
+      { "sourceType": "workday", "label": "Sysco" },
+      { "sourceType": "workday", "label": "Mondelez" },
+      { "sourceType": "oracle", "label": "Kroger" },
+      { "sourceType": "oracle", "label": "Albertsons" },
+      { "sourceType": "oracle", "label": "Americold" },
+      { "sourceType": "careers_site", "label": "Lineage" },
+      { "sourceType": "careers_site", "label": "US Foods" },
+      { "sourceType": "careers_site", "label": "Conagra Brands" }
+    ]
+  },
+  {
     "id": "consulting-pharma-consumer",
     "label": "Consulting, pharma and consumer",
     "description": "Large non-tech employers that hire data and engineering talent.",

@@ -39,9 +39,16 @@ afterEach(() => {
 
 describe("oracleWatchlistAdapter", () => {
   it("loads the real catalog, skips bad entries and keeps distinct canonical filtered IDs", () => {
-    expect(adapter.parseCatalogSources(catalog)).toMatchObject([
-      { label: "Uber", sourceType: "oracle", careersUrl: base },
-    ]);
+    const parsedCatalog = adapter.parseCatalogSources(catalog);
+    expect(parsedCatalog).toHaveLength(catalog.length);
+    expect(parsedCatalog[0]).toMatchObject({
+      label: "Uber",
+      sourceType: "oracle",
+      careersUrl: base,
+    });
+    expect(parsedCatalog.map((source) => source.label)).toEqual(
+      expect.arrayContaining(["Kroger", "Albertsons", "Americold"]),
+    );
     expect(
       adapter.parseCatalogSources([null, {}, { label: "bad", careersUrl: "https://evil.com" }]),
     ).toEqual([]);
