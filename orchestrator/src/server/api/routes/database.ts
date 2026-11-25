@@ -2,7 +2,7 @@ import { forbidden, toAppError } from "@infra/errors";
 import { fail, ok } from "@infra/http";
 import { isSystemAdmin } from "@infra/request-context";
 import { isDemoMode, sendDemoBlocked } from "@server/config/demo";
-import { clearDatabase } from "@server/db/clear";
+import { clearWorkspaceJobData } from "@server/repositories/workspace-maintenance";
 import { type Request, type Response, Router } from "express";
 
 export const databaseRouter = Router();
@@ -14,7 +14,7 @@ function requireSystemAdmin(res: Response): boolean {
 }
 
 /**
- * DELETE /api/database - Clear all data from the database
+ * DELETE /api/database - Clear the active workspace's jobs and pipeline runs
  */
 databaseRouter.delete("/", async (_req: Request, res: Response) => {
   try {
@@ -26,7 +26,7 @@ databaseRouter.delete("/", async (_req: Request, res: Response) => {
       });
     }
 
-    const result = clearDatabase();
+    const result = await clearWorkspaceJobData();
 
     ok(res, {
       message: "Database cleared",

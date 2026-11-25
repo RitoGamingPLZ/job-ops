@@ -1152,6 +1152,15 @@ export async function processJob(
 /**
  * Check if pipeline is currently running.
  */
+/** Searches currently running across every workspace (the scraper pool is shared). */
+export function getActivePipelineCount(): number {
+  let active = 0;
+  for (const state of pipelineStateByTenant.values()) {
+    if (state.isRunning) active += 1;
+  }
+  return active;
+}
+
 export function getPipelineStatus(): { isRunning: boolean } {
   return { isRunning: getPipelineState().isRunning };
 }

@@ -84,7 +84,7 @@ describe("Extractor health API routes", () => {
     expect(typeof body.meta.requestId).toBe("string");
   });
 
-  it("remains publicly reachable when auth bypass is disabled", async () => {
+  it("requires sign-in when auth bypass is disabled", async () => {
     await stopServer({ server, closeDb, tempDir });
     ({ server, baseUrl, closeDb, tempDir } = await startServer({
       env: {
@@ -115,9 +115,9 @@ describe("Extractor health API routes", () => {
     const res = await fetch(`${baseUrl}/api/linkedin/health`);
     const body = await res.json();
 
-    expect(res.status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(body.data.status).toBe("healthy");
+    expect(res.status).toBe(401);
+    expect(body.ok).toBe(false);
+    expect(manifest.run).not.toHaveBeenCalled();
   });
 
   it("returns service unavailable when the extractor run fails", async () => {

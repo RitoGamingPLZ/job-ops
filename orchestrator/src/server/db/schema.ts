@@ -49,6 +49,8 @@ export const users = sqliteTable(
     mustChangePassword: integer("must_change_password", { mode: "boolean" })
       .notNull()
       .default(false),
+    // JSON object of per-user permission overrides; absent keys fall back to the defaults.
+    permissions: text("permissions"),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(datetime('now'))`),
@@ -60,6 +62,24 @@ export const users = sqliteTable(
     usernameUnique: uniqueIndex("idx_users_username_unique").on(table.username),
   }),
 );
+
+// Explicitly global: invitations exist before the invited user has a workspace, and are
+// only ever read or written by system admins or by presenting the secret token.
+// Only the SHA-256 of the token is stored.
+export const userInvitations = sqliteTable("user_invitations", {
+  id: text("id").primaryKey(),
+  tokenHash: text("token_hash").notNull().unique(),
+  label: text("label").notNull(),
+  permissions: text("permissions").notNull().default("{}"),
+  expiresAt: text("expires_at").notNull(),
+  createdByUserId: text("created_by_user_id"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  usedAt: text("used_at"),
+  usedByUserId: text("used_by_user_id"),
+  revokedAt: text("revoked_at"),
+});
 
 export const tenants = sqliteTable("tenants", {
   id: text("id").primaryKey(),

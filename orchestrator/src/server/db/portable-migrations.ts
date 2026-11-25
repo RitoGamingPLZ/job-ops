@@ -216,6 +216,14 @@ export const PORTABLE_MIGRATIONS: readonly PortableMigration[] = [
       'CREATE TABLE IF NOT EXISTS "company_ratings" (\n  "id" text PRIMARY KEY NOT NULL,\n  "company_key" text NOT NULL UNIQUE,\n  "label" text NOT NULL,\n  "wlb_rating" real,\n  "salary_rating" real,\n  "source" text NOT NULL DEFAULT \'editorial\',\n  "source_url" text,\n  "rated_at" text NOT NULL,\n  "created_at" text NOT NULL DEFAULT (datetime(\'now\')),\n  "updated_at" text NOT NULL DEFAULT (datetime(\'now\'))\n);',
     ],
   },
+  {
+    id: "0005",
+    name: "0005_user_permissions_and_invitations",
+    statements: [
+      'ALTER TABLE "users" ADD COLUMN "permissions" text;',
+      'CREATE TABLE IF NOT EXISTS "user_invitations" (\n  "id" text PRIMARY KEY NOT NULL,\n  "token_hash" text NOT NULL UNIQUE,\n  "label" text NOT NULL,\n  "permissions" text NOT NULL DEFAULT \'{}\',\n  "expires_at" text NOT NULL,\n  "created_by_user_id" text,\n  "created_at" text NOT NULL DEFAULT (datetime(\'now\')),\n  "used_at" text,\n  "used_by_user_id" text,\n  "revoked_at" text\n);',
+    ],
+  },
 ];
 
 const MIGRATIONS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS "_portable_migrations" (

@@ -1,3 +1,4 @@
+import { DEFAULT_USER_PERMISSIONS } from "@shared/types";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,6 +31,7 @@ const authUser = {
   mustChangePassword: false,
   workspaceId: "tenant_default",
   workspaceName: "JobOps",
+  permissions: { ...DEFAULT_USER_PERMISSIONS },
   createdAt: "2026-05-13T00:00:00.000Z",
   updatedAt: "2026-05-13T00:00:00.000Z",
 };

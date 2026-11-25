@@ -12,6 +12,10 @@ export interface Env {
 
   // Maintenance & scraper pool configuration
   WRITE_FREEZE?: string;
+  JOBOPS_DISABLE_ANALYTICS?: string;
+  MAX_CONCURRENT_PIPELINES?: string;
+  OJCP_ENABLED?: string;
+  CORS_ALLOWED_ORIGINS?: string;
   SCRAPER_POOL_SIZE?: string;
 
   // Non-secret runtime vars from wrangler.jsonc

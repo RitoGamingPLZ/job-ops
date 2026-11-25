@@ -1,3 +1,4 @@
+import { DEFAULT_USER_PERMISSIONS } from "@shared/types";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuthGuard } from "./app";
@@ -168,7 +169,20 @@ describe("Auth read-only enforcement", () => {
     expect(res.status).not.toHaveBeenCalled();
   });
 
-  it("allows the MCP endpoint without auth", async () => {
+  it("keeps the MCP endpoint closed unless OJCP is enabled", async () => {
+    vi.mocked(countUsers).mockResolvedValue(1);
+    delete process.env.OJCP_ENABLED;
+    const { middleware } = createAuthGuard();
+    const res = createMockResponse();
+    const next = vi.fn() as NextFunction;
+    middleware(createMockRequest({ method: "POST", path: "/ojcp/mcp" }), res, next);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it("allows the MCP endpoint without auth when OJCP is enabled", async () => {
+    process.env.OJCP_ENABLED = "1";
     vi.mocked(countUsers).mockResolvedValue(1);
 
     const { middleware } = createAuthGuard();
@@ -202,7 +216,7 @@ describe("Auth read-only enforcement", () => {
     expect(res.status).not.toHaveBeenCalled();
   });
 
-  it("allows extractor health APIs without auth", async () => {
+  it("requires auth for extractor health APIs and stored PDFs", async () => {
     vi.mocked(countUsers).mockResolvedValue(1);
 
     const { middleware } = createAuthGuard();
@@ -216,8 +230,19 @@ describe("Auth read-only enforcement", () => {
     middleware(req, res, next);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(next).toHaveBeenCalledOnce();
-    expect(res.status).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+
+    const pdfRes = createMockResponse();
+    const pdfNext = vi.fn() as NextFunction;
+    middleware(
+      createMockRequest({ method: "GET", path: "/pdfs/tenant_default/design_resume_current.pdf" }),
+      pdfRes,
+      pdfNext,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(pdfNext).not.toHaveBeenCalled();
+    expect(pdfRes.status).toHaveBeenCalledWith(401);
   });
 
   it("allows demo info before first-run account setup", async () => {
@@ -408,6 +433,7 @@ describe("Auth read-only enforcement", () => {
       mustChangePassword: false,
       workspaceId: "tenant-1",
       workspaceName: "Tenant 1",
+      permissions: { ...DEFAULT_USER_PERMISSIONS },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -449,6 +475,7 @@ describe("Auth read-only enforcement", () => {
       mustChangePassword: false,
       workspaceId: "tenant-1",
       workspaceName: "Tenant 1",
+      permissions: { ...DEFAULT_USER_PERMISSIONS },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });

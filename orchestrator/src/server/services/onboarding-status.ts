@@ -10,6 +10,7 @@ import { enqueueAutoPdfRegenerationForSettingsChanges } from "@server/services/a
 import { syncCandidateLibrary } from "@server/services/candidate-library";
 import { getCurrentDesignResume, getDesignResumeStatus } from "@server/services/design-resume";
 import { getOriginalEnvValue } from "@server/services/envSettings";
+import { canUseServerCredentials } from "@server/services/server-credentials";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
 import { LlmService } from "@server/services/llm/service";
@@ -82,6 +83,7 @@ export async function validateLlm(options: {
   baseUrl?: string | null;
 }): Promise<ValidationResponse> {
   const hostedMode = getJobOpsAppStatus().appMode === "hosted";
+  const restricted = hostedMode || !(await canUseServerCredentials());
   const [storedApiKey, storedProvider, storedBaseUrl] = await Promise.all([
     getSetting("llmApiKey"),
     getSetting("llmProvider"),
@@ -89,7 +91,9 @@ export async function validateLlm(options: {
   ]);
 
   const normalizedProvider = normalizeLlmProviderValue(
-    options.provider?.trim() || storedProvider?.trim() || (hostedMode ? "openrouter" : undefined),
+    options.provider?.trim() ||
+      storedProvider?.trim() ||
+      (restricted ? (hostedMode ? "openrouter" : "gemini") : undefined),
   );
   const {
     usesBaseUrl: shouldUseBaseUrl,
@@ -99,16 +103,16 @@ export async function validateLlm(options: {
     provider: normalizedProvider,
     override: options.baseUrl,
     stored: storedBaseUrl,
-    environment: hostedMode ? undefined : getOriginalEnvValue("LLM_BASE_URL"),
+    environment: restricted ? undefined : getOriginalEnvValue("LLM_BASE_URL"),
     fallbackToDefault: false,
   });
   const resolvedApiKey = resolveLlmApiKey({
     storedApiKey: options.apiKey ?? storedApiKey,
     provider: normalizedProvider,
-    allowEnvironmentCredentials: !hostedMode,
+    allowEnvironmentCredentials: !restricted,
   });
 
-  if (hostedMode && (isHostedLocalProvider(normalizedProvider) || hasCustomUserBaseUrl)) {
+  if (restricted && (isHostedLocalProvider(normalizedProvider) || hasCustomUserBaseUrl)) {
     return {
       valid: false,
       message: "Hosted LLM providers must use supported public provider endpoints.",
@@ -126,8 +130,8 @@ export async function validateLlm(options: {
     apiKey: resolvedApiKey,
     provider: normalizedProvider,
     baseUrl: resolvedBaseUrl,
-    allowEnvironmentCredentials: !hostedMode,
-    allowCliProviders: !hostedMode,
+    allowEnvironmentCredentials: !restricted,
+    allowCliProviders: !restricted,
   });
   return llm.validateCredentials();
 }
@@ -190,10 +194,13 @@ export async function validateRxresume(options?: {
   const hasExplicitV5Input = options?.apiKey !== undefined;
 
   const storedBaseUrl = await getSetting("rxresumeUrl");
+  const envBaseUrl = (await canUseServerCredentials())
+    ? getOriginalEnvValue("RXRESUME_URL")?.trim()
+    : undefined;
   const resolvedBaseUrl =
     options?.baseUrl !== undefined && options?.baseUrl !== null
-      ? options.baseUrl.trim() || getOriginalEnvValue("RXRESUME_URL")?.trim() || "https://rxresu.me"
-      : storedBaseUrl?.trim() || getOriginalEnvValue("RXRESUME_URL")?.trim() || "https://rxresu.me";
+      ? options.baseUrl.trim() || envBaseUrl || "https://rxresu.me"
+      : storedBaseUrl?.trim() || envBaseUrl || "https://rxresu.me";
 
   if (hasExplicitV5Input && !requestApiKey) {
     return {

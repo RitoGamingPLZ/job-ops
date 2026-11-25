@@ -95,6 +95,9 @@ vi.mock("@infra/logger", () => ({
 
 vi.mock("@infra/request-context", () => ({
   getRequestId: vi.fn(() => "req-1"),
+  getTenantId: vi.fn(() => undefined),
+  getUserId: vi.fn(() => undefined),
+  isSystemAdmin: vi.fn(() => true),
 }));
 
 import {

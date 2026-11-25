@@ -1,10 +1,13 @@
 import * as api from "@client/api";
 import { ConnectedAccountsSection } from "@client/pages/settings/components/ConnectedAccountsSection";
+import { InvitationsPanel } from "@client/pages/settings/components/InvitationsPanel";
+import { PermissionToggles } from "@client/pages/settings/components/PermissionToggles";
 import { SettingsInput } from "@client/pages/settings/components/SettingsInput";
 import { SettingsSectionFrame } from "@client/pages/settings/components/SettingsSectionFrame";
 import type { EnvSettingsValues } from "@client/pages/settings/types";
 import { formatSecretHint } from "@client/pages/settings/utils";
 import type { UpdateSettingsInput } from "@shared/settings-schema.js";
+import type { UserPermissionKey } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type React from "react";
 import { useState } from "react";
@@ -70,6 +73,17 @@ function AccountManagementSection() {
     },
   });
 
+  const permissionsMutation = useMutation({
+    mutationFn: (input: { userId: string; key: UserPermissionKey; enabled: boolean }) =>
+      api.setWorkspaceUserPermissions(input.userId, { [input.key]: input.enabled }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: workspaceUsersQueryKey });
+    },
+    onError: (error) => {
+      showErrorToast(error, "Failed to update access");
+    },
+  });
+
   const resetPasswordMutation = useMutation({
     mutationFn: (input: { userId: string; password: string }) =>
       api.resetWorkspaceUserPassword(input.userId, input.password),
@@ -100,6 +114,8 @@ function AccountManagementSection() {
 
   return (
     <div className="space-y-5">
+      <InvitationsPanel />
+      <Separator />
       <div className="space-y-1">
         <div className="text-sm font-semibold">Workspace Users</div>
         <p className="text-sm text-muted-foreground">
@@ -206,6 +222,21 @@ function AccountManagementSection() {
               >
                 {user.isDisabled ? "Enable" : "Disable"}
               </Button>
+              {user.isSystemAdmin ? null : (
+                <div className="md:col-span-3">
+                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Access
+                  </div>
+                  <PermissionToggles
+                    idPrefix={`user-${user.id}`}
+                    value={user.permissions}
+                    disabled={permissionsMutation.isPending}
+                    onChange={(key, enabled) =>
+                      permissionsMutation.mutate({ userId: user.id, key, enabled })
+                    }
+                  />
+                </div>
+              )}
             </div>
           );
         })}

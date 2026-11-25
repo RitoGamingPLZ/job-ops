@@ -446,6 +446,19 @@ const migrations = [
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
 
+  `CREATE TABLE IF NOT EXISTS user_invitations (
+    id TEXT PRIMARY KEY,
+    token_hash TEXT NOT NULL UNIQUE,
+    label TEXT NOT NULL,
+    permissions TEXT NOT NULL DEFAULT '{}',
+    expires_at TEXT NOT NULL,
+    created_by_user_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    used_at TEXT,
+    used_by_user_id TEXT,
+    revoked_at TEXT
+  )`,
+
   `CREATE TABLE IF NOT EXISTS analytics_install_state (
     id TEXT PRIMARY KEY,
     distinct_id TEXT NOT NULL,
@@ -1262,6 +1275,7 @@ const migrations = [
   `ALTER TABLE jobs ADD COLUMN generation_error TEXT`,
   `ALTER TABLE jobs ADD COLUMN posting_id TEXT`,
   `ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE users ADD COLUMN permissions TEXT`,
   `ALTER TABLE pipeline_runs ADD COLUMN tasks_total INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE pipeline_runs ADD COLUMN tasks_done INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE pipeline_runs ADD COLUMN tasks_failed INTEGER NOT NULL DEFAULT 0`,
@@ -1656,16 +1670,17 @@ function ensureNullableUserPasswordColumns(): void {
         is_system_admin INTEGER NOT NULL DEFAULT 0,
         is_disabled INTEGER NOT NULL DEFAULT 0,
         must_change_password INTEGER NOT NULL DEFAULT 0,
+        permissions TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
       INSERT INTO users_new (
         id, username, display_name, password_hash, password_salt,
-        is_system_admin, is_disabled, must_change_password, created_at, updated_at
+        is_system_admin, is_disabled, must_change_password, permissions, created_at, updated_at
       )
       SELECT
         id, username, display_name, password_hash, password_salt,
-        is_system_admin, is_disabled, must_change_password, created_at, updated_at
+        is_system_admin, is_disabled, must_change_password, permissions, created_at, updated_at
       FROM users;
       DROP TABLE users;
       ALTER TABLE users_new RENAME TO users;

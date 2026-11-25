@@ -23,7 +23,8 @@ export const OnboardingGate: React.FC = () => {
       location.pathname === "/onboarding" ||
       location.pathname === "/sign-in" ||
       location.pathname === "/offline" ||
-      location.pathname.startsWith("/sso/callback/")
+      location.pathname.startsWith("/sso/callback/") ||
+      location.pathname.startsWith("/invite/")
     ) {
       setSetupRequired(null);
       return;
@@ -54,7 +55,8 @@ export const OnboardingGate: React.FC = () => {
     location.pathname === "/onboarding" ||
     location.pathname === "/sign-in" ||
     location.pathname === "/offline" ||
-    location.pathname.startsWith("/sso/callback/")
+    location.pathname.startsWith("/sso/callback/") ||
+    location.pathname.startsWith("/invite/")
   ) {
     return null;
   }

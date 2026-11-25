@@ -25,6 +25,7 @@ import { OrchestratorPage } from "./pages/OrchestratorPage";
 import { ResumeCoworkPage } from "./pages/ResumeCoworkPage";
 import { ResumeLibraryPage, ResumesPage } from "./pages/ResumesPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { InvitePage } from "./pages/InvitePage";
 import { SignInPage } from "./pages/SignInPage";
 import { SsoCallbackPage } from "./pages/SsoCallbackPage";
 import { TrackingInboxPage } from "./pages/TrackingInboxPage";
@@ -59,7 +60,9 @@ export const App: React.FC = () => {
   const navigate = useNavigate();
   const nodeRef = useRef<HTMLDivElement>(null);
   const isAuthRoute =
-    location.pathname === "/sign-in" || location.pathname.startsWith("/sso/callback/");
+    location.pathname === "/sign-in" ||
+    location.pathname.startsWith("/sso/callback/") ||
+    location.pathname.startsWith("/invite/");
   const demoInfo = useDemoInfo({ enabled: !isAuthRoute });
   const showDemoBanners = !isAuthRoute && demoInfo?.demoMode;
   const showSidebar = !isAuthRoute && !STANDALONE_PATHS.has(location.pathname);
@@ -186,6 +189,7 @@ export const App: React.FC = () => {
                       <Route path="/onboarding" element={<OnboardingPage />} />
                       <Route path="/offline" element={<OfflinePage />} />
                       <Route path="/sign-in" element={<SignInPage />} />
+                      <Route path="/invite/:token" element={<InvitePage />} />
                       <Route path="/sso/callback/:provider" element={<SsoCallbackPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/tracking-inbox" element={<TrackingInboxRoute />} />
@@ -207,10 +211,10 @@ export const App: React.FC = () => {
 };
 
 function TrackingInboxRoute() {
-  const { appMode, isPending } = React.useContext(AppModeContext);
+  const { appMode, isPending, permissions } = React.useContext(AppModeContext);
 
   if (isPending) return null;
-  if (appMode === "hosted") {
+  if (appMode === "hosted" || !permissions.emailTracking) {
     return <Navigate to="/overview" replace />;
   }
   return <TrackingInboxPage />;

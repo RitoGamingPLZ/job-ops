@@ -11,6 +11,7 @@ import { getBlobStore } from "@server/infra/blob-store";
 import * as designResumeRepo from "@server/repositories/design-resume";
 import { getSetting } from "@server/repositories/settings";
 import { getOriginalEnvValue } from "@server/services/envSettings";
+import { canUseServerCredentials } from "@server/services/server-credentials";
 import { getResume } from "@server/services/rxresume";
 import { getConfiguredRxResumeBaseResumeId } from "@server/services/rxresume/baseResumeId";
 import { getResumeSchemaValidationMessage } from "@server/services/rxresume/schema";
@@ -157,9 +158,10 @@ function absolutizeUrl(value: string, baseUrl: string): string {
 }
 
 async function resolveReactiveResumePublicBaseUrl(): Promise<string> {
+  const allowServerEnv = await canUseServerCredentials();
   return (
     (await getSetting("rxresumeUrl"))?.trim() ||
-    getOriginalEnvValue("RXRESUME_URL")?.trim() ||
+    (allowServerEnv ? getOriginalEnvValue("RXRESUME_URL")?.trim() : undefined) ||
     "https://rxresu.me"
   );
 }

@@ -24,7 +24,7 @@ export async function applyStoredEnvOverrides(): Promise<void> {
 
 export async function getEnvSettingsData(
   overrides?: Partial<Record<SettingKey, string>>,
-  options?: { allowLlmEnvironmentCredentials?: boolean },
+  options?: { allowLlmEnvironmentCredentials?: boolean; allowServerEnvironment?: boolean },
 ): Promise<Partial<AppSettings>> {
   const activeOverrides = overrides || (await settingsRepo.getAllSettings());
   const values: Partial<AppSettings> = {};
@@ -34,7 +34,10 @@ export async function getEnvSettingsData(
     if (!("envKey" in def) || !def.envKey) continue;
 
     const override = activeOverrides[key as SettingKey] ?? null;
-    const rawValue = override ?? getOriginalEnvValue(def.envKey);
+    // Invited users never see or inherit the operator's integration values.
+    const rawValue =
+      override ??
+      (options?.allowServerEnvironment === false ? undefined : getOriginalEnvValue(def.envKey));
 
     if (def.kind === "secret") {
       const hintKey = `${key}Hint` as keyof AppSettings;

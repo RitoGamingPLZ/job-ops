@@ -2,6 +2,7 @@ import { AppError, conflict, requestTimeout, toAppError } from "@infra/errors";
 import { fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { resolveRequestOrigin } from "@infra/request-origin";
+import { fetchPublicText, UnsafeUrlError } from "@infra/safe-fetch";
 import * as jobsRepo from "@server/repositories/jobs";
 import { getSetting } from "@server/repositories/settings";
 import { targetJobInBackground } from "@server/services/jobs/actions";
@@ -15,6 +16,8 @@ import { JSDOM } from "jsdom";
 import { z } from "zod";
 
 export const manualJobsRouter = Router();
+
+const MAX_FETCHED_PAGE_BYTES = 2 * 1024 * 1024;
 
 const manualJobFetchSchema = z.object({
   url: z.string().trim().url().max(2000),
@@ -97,12 +100,15 @@ manualJobsRouter.post("/fetch", async (req: Request, res: Response) => {
       );
     }
 
-    const response = await fetch(input.url, {
+    const { response, text: html } = await fetchPublicText(input.url, {
       signal: controller.signal,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      maxBytes: MAX_FETCHED_PAGE_BYTES,
+      init: {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
       },
     });
 
@@ -118,7 +124,6 @@ manualJobsRouter.post("/fetch", async (req: Request, res: Response) => {
       );
     }
 
-    const html = await response.text();
     const dom = new JSDOM(html);
     const document = dom.window.document;
 
@@ -191,6 +196,16 @@ manualJobsRouter.post("/fetch", async (req: Request, res: Response) => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return fail(res, toAppError(error));
+    }
+    if (error instanceof UnsafeUrlError) {
+      return fail(
+        res,
+        new AppError({
+          status: 422,
+          code: "UNPROCESSABLE_ENTITY",
+          message: "That link cannot be fetched. Paste the job description manually.",
+        }),
+      );
     }
     if (error instanceof Error && error.name === "AbortError") {
       return fail(res, requestTimeout());

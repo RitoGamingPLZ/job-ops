@@ -2,7 +2,8 @@
  * Shared layout components for consistent page structure.
  */
 
-import { getAppStatus, logout } from "@client/api";
+import { getAppStatus, getCurrentAuthUser, hasAuthenticatedSession, logout } from "@client/api";
+import { DEFAULT_USER_PERMISSIONS, type UserPermissions } from "@shared/types";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, LogOut, type LucideIcon, Menu, Moon, Sun, UserRound } from "lucide-react";
 import React, { useState } from "react";
@@ -31,6 +32,8 @@ import { Tip } from "./Tip";
 export const AppModeContext = React.createContext({
   appMode: "local" as "local" | "hosted",
   isPending: false,
+  isSystemAdmin: false,
+  permissions: { ...DEFAULT_USER_PERMISSIONS } as UserPermissions,
 });
 
 export const AppModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -39,11 +42,23 @@ export const AppModeProvider: React.FC<{ children: React.ReactNode }> = ({ child
     queryFn: getAppStatus,
   });
 
+  // Operator-only features (Tracking Inbox, webhooks) are hidden for other users.
+  const hasSession = hasAuthenticatedSession();
+  const currentUserQuery = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: getCurrentAuthUser,
+    enabled: hasSession,
+    retry: false,
+    staleTime: 60_000,
+  });
+
   return (
     <AppModeContext.Provider
       value={{
         appMode: appStatusQuery.data?.appMode ?? "local",
-        isPending: appStatusQuery.isPending,
+        isPending: appStatusQuery.isPending || (hasSession && currentUserQuery.isPending),
+        isSystemAdmin: currentUserQuery.data?.isSystemAdmin === true,
+        permissions: currentUserQuery.data?.permissions ?? DEFAULT_USER_PERMISSIONS,
       }}
     >
       {children}
@@ -66,9 +81,12 @@ const buildSignInPath = (username: string, nextPath: string): string => {
 
 const SidebarNav: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
   const location = useLocation();
-  const { appMode } = React.useContext(AppModeContext);
-  const navLinks =
-    appMode === "hosted" ? NAV_LINKS.filter(({ to }) => to !== "/tracking-inbox") : NAV_LINKS;
+  const { appMode, permissions } = React.useContext(AppModeContext);
+  // The inbox runs on the operator's Gmail OAuth app, so an admin enables it per user.
+  const showTrackingInbox = appMode !== "hosted" && permissions.emailTracking;
+  const navLinks = showTrackingInbox
+    ? NAV_LINKS
+    : NAV_LINKS.filter(({ to }) => to !== "/tracking-inbox");
 
   return (
     <nav className="flex flex-col gap-0.5 px-2 py-2">

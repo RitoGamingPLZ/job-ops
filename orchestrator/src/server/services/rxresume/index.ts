@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { getSetting } from "@server/repositories/settings";
 import { getOriginalEnvValue } from "@server/services/envSettings";
+import { canUseServerCredentials } from "@server/services/server-credentials";
 import { resolveResumeProjectsSettings } from "@server/services/resumeProjects";
 import { getActiveTenantId } from "@server/tenancy/context";
 import { resolveResumeProjectSelection } from "@shared/resume-projects";
@@ -188,6 +189,7 @@ function normalizeV5ResumeResponse(payload: unknown): Record<string, unknown> {
 }
 
 async function readV5Credentials(overrides?: ResolveModeOptions["v5"]) {
+  const allowServerEnv = await canUseServerCredentials();
   const [storedApiKey, storedBaseUrl] = await Promise.all([
     getSetting("rxresumeApiKey"),
     getSetting("rxresumeUrl"),
@@ -196,13 +198,13 @@ async function readV5Credentials(overrides?: ResolveModeOptions["v5"]) {
     overrideValue: overrides?.apiKey,
     hasOverride: hasOverrideKey(overrides, "apiKey"),
     storedValue: storedApiKey,
-    envValue: getOriginalEnvValue("RXRESUME_API_KEY"),
+    envValue: allowServerEnv ? getOriginalEnvValue("RXRESUME_API_KEY") : undefined,
   });
   const baseUrl = resolveOverrideValue({
     overrideValue: overrides?.baseUrl,
     hasOverride: hasOverrideKey(overrides, "baseUrl"),
     storedValue: storedBaseUrl,
-    envValue: getOriginalEnvValue("RXRESUME_URL"),
+    envValue: allowServerEnv ? getOriginalEnvValue("RXRESUME_URL") : undefined,
     fallback: "https://rxresu.me",
   });
 

@@ -1,16 +1,18 @@
 import { logger } from "@infra/logger";
 import { sanitizeWebhookPayload } from "@infra/sanitize";
+import { postJsonToPublicUrl } from "@infra/safe-fetch";
 import * as settingsRepo from "@server/repositories/settings";
+import { canUseServerCredentials } from "@server/services/server-credentials";
 
 export async function notifyPipelineWebhookStep(
   event: "pipeline.completed" | "pipeline.failed",
   payload: Record<string, unknown>,
 ): Promise<void> {
+  const trusted = await canUseServerCredentials();
   const overridePipelineWebhookUrl = await settingsRepo.getSetting("pipelineWebhookUrl");
   const pipelineWebhookUrl = (
     overridePipelineWebhookUrl ||
-    process.env.PIPELINE_WEBHOOK_URL ||
-    process.env.WEBHOOK_URL ||
+    (trusted ? process.env.PIPELINE_WEBHOOK_URL || process.env.WEBHOOK_URL : "") ||
     ""
   ).trim();
 
@@ -20,7 +22,8 @@ export async function notifyPipelineWebhookStep(
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    const secret = process.env.WEBHOOK_SECRET;
+    // The operator's secret only ever goes to the operator's own webhook.
+    const secret = trusted ? process.env.WEBHOOK_SECRET : undefined;
     if (secret) headers.Authorization = `Bearer ${secret}`;
 
     const sanitizedPayload = sanitizeWebhookPayload({
@@ -33,10 +36,9 @@ export async function notifyPipelineWebhookStep(
       error: payload.error,
     });
 
-    const response = await fetch(pipelineWebhookUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(sanitizedPayload),
+    const response = await postJsonToPublicUrl(pipelineWebhookUrl, sanitizedPayload, headers, {
+      signal: AbortSignal.timeout(10_000),
+      allowPrivateNetwork: trusted,
     });
 
     if (!response.ok) {

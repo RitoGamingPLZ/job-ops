@@ -27,7 +27,7 @@ import {
   startCodexDeviceAuth,
 } from "@server/services/llm/codex/login";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
-import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
+import { isHostedLocalProvider, isSafeHostedBaseUrl } from "@server/services/llm/hosted-policy";
 import { LlmService } from "@server/services/llm/service";
 import { refreshPipelineScheduler } from "@server/services/pipeline-scheduler";
 import { clearProfileCache } from "@server/services/profile";
@@ -43,6 +43,7 @@ import {
 } from "@server/services/rxresume";
 import { getEffectiveSettings } from "@server/services/settings";
 import { applySettingsUpdates } from "@server/services/settings-update";
+import { currentUserHasPermission } from "@server/services/user-permissions";
 import { mapGlmProviderAlias, settingsRegistry } from "@shared/settings-registry";
 import { type UpdateSettingsInput, updateSettingsSchema } from "@shared/settings-schema";
 import { LLM_PURPOSE_VALUES, type LlmPurpose } from "@shared/types";
@@ -76,6 +77,13 @@ const SYSTEM_ADMIN_SETTING_KEYS = new Set<keyof UpdateSettingsInput>([
   "backupMaxCount",
 ]);
 
+// Outbound webhooks make server-side requests, so an admin has to switch them on per user.
+const WEBHOOK_SETTING_KEYS = new Set<keyof UpdateSettingsInput>([
+  "pipelineWebhookUrl",
+  "jobCompleteWebhookUrl",
+  "webhookSecret",
+]);
+
 /** Non-admin accounts get the same LLM restrictions as hosted mode: no CLI providers or custom endpoints. */
 function isLlmRestricted(): boolean {
   return getJobOpsAppConfig().appMode === "hosted" || !isSystemAdmin();
@@ -93,13 +101,21 @@ function requireSystemAdmin(res: Response): boolean {
  * untouched keys instead of applying them (applying them would also refresh the global
  * backup scheduler from this user's values), and reject any attempt to actually set one.
  */
-function requireSystemAdminForGlobalSettings(res: Response, input: UpdateSettingsInput): boolean {
+async function requireSystemAdminForGlobalSettings(
+  res: Response,
+  input: UpdateSettingsInput,
+): Promise<boolean> {
   if (getJobOpsAppConfig().appMode === "hosted" || isSystemAdmin()) return true;
 
-  const adminKeys = Object.keys(input).filter((key) =>
-    SYSTEM_ADMIN_SETTING_KEYS.has(key as keyof UpdateSettingsInput),
+  const webhooksAllowed = await currentUserHasPermission("webhooks");
+  const adminKeys = Object.keys(input).filter(
+    (key) =>
+      SYSTEM_ADMIN_SETTING_KEYS.has(key as keyof UpdateSettingsInput) ||
+      (!webhooksAllowed && WEBHOOK_SETTING_KEYS.has(key as keyof UpdateSettingsInput)),
   ) as Array<keyof UpdateSettingsInput>;
-  if (adminKeys.some((key) => input[key] !== null && input[key] !== undefined)) {
+  const isUntouched = (value: unknown) =>
+    value === null || value === undefined || (typeof value === "string" && value.trim() === "");
+  if (adminKeys.some((key) => !isUntouched(input[key]))) {
     fail(res, forbidden("System admin access is required"));
     return false;
   }
@@ -276,13 +292,15 @@ async function resolveLlmConfig(input: {
   const storedPurposeApiKey = input.purpose ? purposeApiKeys[input.purpose]?.trim() : null;
 
   const provider = normalizeLlmProviderValue(
-    input.provider?.trim() || storedProvider?.trim() || (hostedMode ? "openrouter" : undefined),
+    input.provider?.trim() ||
+      storedProvider?.trim() ||
+      (isLlmRestricted() ? (hostedMode ? "openrouter" : "gemini") : undefined),
   );
   const { baseUrl, hasCustomUserBaseUrl } = resolveLlmValidationEndpoint({
     provider,
     override: input.baseUrl,
     stored: storedBaseUrl,
-    environment: hostedMode ? undefined : getOriginalEnvValue("LLM_BASE_URL"),
+    environment: isLlmRestricted() ? undefined : getOriginalEnvValue("LLM_BASE_URL"),
     fallbackToDefault: true,
   });
   if (isLlmRestricted() && (isHostedLocalProvider(provider) || hasCustomUserBaseUrl)) {
@@ -295,7 +313,7 @@ async function resolveLlmConfig(input: {
       storedApiKey: input.apiKey ?? storedApiKey,
       purposeApiKey: storedPurposeApiKey,
       provider,
-      allowEnvironmentCredentials: !hostedMode,
+      allowEnvironmentCredentials: !isLlmRestricted(),
     }),
     baseUrl,
   };
@@ -374,7 +392,15 @@ settingsRouter.patch(
     }
 
     const input = updateSettingsSchema.parse(req.body);
-    if (!requireSystemAdminForGlobalSettings(res, input)) return;
+    if (!(await requireSystemAdminForGlobalSettings(res, input))) return;
+    if (
+      isLlmRestricted() &&
+      typeof input.rxresumeUrl === "string" &&
+      input.rxresumeUrl.trim() &&
+      !isSafeHostedBaseUrl(input.rxresumeUrl)
+    ) {
+      throw forbidden("Reactive Resume must use a public HTTPS URL.");
+    }
     if (LLM_SETTING_KEYS.some((key) => hasInputKey(input, key))) {
       await assertLlmSettingsEditable();
       assertHostedLlmInputAllowed(input);
@@ -513,6 +539,7 @@ settingsRouter.post(
 settingsRouter.get(
   "/codex-auth",
   asyncRoute(async (_req: Request, res: Response) => {
+    if (!requireSystemAdmin(res)) return;
     if (getJobOpsAppConfig().appMode === "hosted") {
       throw forbidden("Codex CLI authentication is unavailable in hosted mode.");
     }

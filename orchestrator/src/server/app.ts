@@ -20,7 +20,11 @@ import { isDemoMode } from "@server/config/demo";
 import { getBlobStore } from "@server/infra/blob-store";
 import * as usersRepo from "@server/repositories/users";
 import { proxyChallengeViewerRequest } from "@server/services/challenge-viewer";
+import { getActivePdfKeyPrefix } from "@server/services/pdf-storage";
+import { canUseServerCredentials } from "@server/services/server-credentials";
 import { DEFAULT_TENANT_ID } from "@server/tenancy/constants";
+import { corsDelegate } from "@infra/cors-policy";
+import { securityHeadersMiddleware } from "@infra/security-headers";
 import cors from "cors";
 import express from "express";
 import { apiRouter } from "./api/index";
@@ -68,6 +72,12 @@ const UMAMI_SCRIPT_PATTERN =
   /\s*<script\b[^>]*\ssrc\s*=\s*["']https:\/\/umami\.dakheera47\.com\/script\.js["'][^>]*>\s*<\/script>/gi;
 const OPENPANEL_SCRIPT_PATTERN =
   /\s*<script>\s*window\.op =[\s\S]*?window\.op\("init", \{[\s\S]*?\n\s*}\);\s*<\/script>\s*<script src="https:\/\/openpanel\.dev\/op1\.js" defer async><\/script>/;
+
+/** The public OJCP job-search endpoint is opt-in; it is off unless the operator enables it. */
+function isOjcpEnabled(): boolean {
+  const normalized = process.env.OJCP_ENABLED?.trim().toLowerCase();
+  return normalized ? ANALYTICS_DISABLED_TRUTHY_VALUES.has(normalized) : false;
+}
 
 function isStatsRoute(path: string): boolean {
   return path === "/stats" || path.startsWith("/stats/");
@@ -195,15 +205,13 @@ export function createAuthGuard() {
     // Explicitly allowed public API routes
     if (normalizedPath === "/api/demo/info") return true;
     if (normalizedPath === "/api/app/status") return true;
-    if (normalizedPath === "/api/profile/status") return true;
     if (
       normalizedMethod === "POST" &&
       normalizedPath === "/api/billing/webhook" &&
       getJobOpsAppConfig().appMode === "hosted"
     )
       return true;
-    if (normalizedMethod === "POST" && normalizedPath === "/ojcp/mcp") return true;
-    if (normalizedMethod === "POST" && normalizedPath === "/api/visa-sponsors/search") return true;
+    if (normalizedMethod === "POST" && normalizedPath === "/ojcp/mcp") return isOjcpEnabled();
     if (normalizedMethod === "POST" && normalizedPath === "/api/webhook/trigger")
       return Boolean(process.env.WEBHOOK_SECRET?.trim());
     if (normalizedMethod === "POST" && normalizedPath === "/api/webhook/cron")
@@ -222,6 +230,17 @@ export function createAuthGuard() {
     )
       return true;
     if (normalizedMethod === "GET" && normalizedPath === "/api/auth/bootstrap-status") return true;
+    // Invitation links are bearer secrets: previewing and redeeming one needs no session.
+    if (
+      normalizedMethod === "GET" &&
+      /^\/api\/auth\/invitations\/[a-z0-9_-]+$/.test(normalizedPath)
+    )
+      return true;
+    if (
+      normalizedMethod === "POST" &&
+      /^\/api\/auth\/invitations\/[a-z0-9_-]+\/accept$/.test(normalizedPath)
+    )
+      return true;
     if (normalizedMethod === "GET" && normalizedPath === "/api/auth/sso/providers") return true;
     if (
       normalizedMethod === "POST" &&
@@ -233,8 +252,6 @@ export function createAuthGuard() {
       /^\/api\/design-resume\/assets\/[^/]+\/content$/.test(normalizedPath)
     )
       return getJobOpsAppConfig().appMode !== "hosted";
-    if (["GET", "HEAD"].includes(normalizedMethod) && /^\/api\/[^/]+\/health$/.test(normalizedPath))
-      return true;
 
     return false;
   }
@@ -282,6 +299,9 @@ export function createAuthGuard() {
     // Umami's public script posts browser beacons to /stats/api/send. The
     // proxy route still validates method/path before forwarding.
     if (isStatsRoute(normalizedPath)) return false;
+
+    // Stored PDFs hold personal resumes: never serve them anonymously.
+    if (normalizedPath.startsWith("/pdfs/")) return true;
 
     // All other /api/* paths require auth regardless of HTTP method.
     if (normalizedPath === "/api" || normalizedPath.startsWith("/api/")) return true;
@@ -338,8 +358,10 @@ export function createApp() {
   getJobOpsAppConfig();
 
   const app = express();
+  app.disable("x-powered-by");
+  app.use(securityHeadersMiddleware);
   const authGuard = createAuthGuard();
-  const corsMiddleware = cors();
+  const corsMiddleware = cors(corsDelegate);
 
   app.use((req, res, next) => {
     if (isStatsRoute(req.path)) {
@@ -392,8 +414,12 @@ export function createApp() {
   // Optional authentication for protected routes
   app.use(authGuard.middleware);
 
-  app.get("/.well-known/ojcp.json", ojcpManifestHandler);
-  app.all("/ojcp/mcp", ojcpMcpHandler);
+  if (isOjcpEnabled()) {
+    app.get("/.well-known/ojcp.json", ojcpManifestHandler);
+  }
+  if (isOjcpEnabled()) {
+    app.all("/ojcp/mcp", ojcpMcpHandler);
+  }
 
   // Internal scraper container pool alias (`POST /scrape` -> `POST /api/internal/scrape/run`)
   app.post("/scrape", (req, res, next) => {
@@ -496,7 +522,21 @@ export function createApp() {
       return;
     }
     try {
-      const blob = await getBlobStore().get(`pdfs/${normalized}`);
+      const key = `pdfs/${normalized}`;
+      // Only the caller's own workspace folder is readable; the shared legacy
+      // root belongs to the operator.
+      const ownFolder = key.startsWith(`${getActivePdfKeyPrefix()}/`);
+      const legacyRoot = !normalized.includes("/");
+      const allowed =
+        ownFolder ||
+        (legacyRoot &&
+          getJobOpsAppConfig().appMode !== "hosted" &&
+          (await canUseServerCredentials()));
+      if (!allowed) {
+        next();
+        return;
+      }
+      const blob = await getBlobStore().get(key);
       if (!blob) {
         next();
         return;

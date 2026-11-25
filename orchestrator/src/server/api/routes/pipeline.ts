@@ -11,6 +11,7 @@ import { logger } from "@infra/logger";
 import { resolveRequestOrigin } from "@infra/request-origin";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { setupSse, startSseHeartbeat, writeSseData } from "@infra/sse";
+import { requireSystemAdminMiddleware } from "../require-admin";
 import { isDemoMode } from "@server/config/demo";
 import {
   beginPipelineChallengeSolve,
@@ -549,30 +550,34 @@ pipelineRouter.get("/challenges", (_req: Request, res: Response) => {
  * viewer when the server is running in Docker/Linux, and returns the URL the
  * browser client should open before invoking the blocking solve endpoint.
  */
-pipelineRouter.post("/challenge-viewer", async (_req: Request, res: Response) => {
-  try {
-    const status = await ensureChallengeViewer();
-    const scopeKey = getPrivateDataScope().scopeKey;
-    const session = status.available ? createChallengeViewerSession(scopeKey) : null;
-    if (status.available && !session) {
-      return fail(res, conflict("Challenge viewer is busy with another workspace"));
+pipelineRouter.post(
+  "/challenge-viewer",
+  requireSystemAdminMiddleware,
+  async (_req: Request, res: Response) => {
+    try {
+      const status = await ensureChallengeViewer();
+      const scopeKey = getPrivateDataScope().scopeKey;
+      const session = status.available ? createChallengeViewerSession(scopeKey) : null;
+      if (status.available && !session) {
+        return fail(res, conflict("Challenge viewer is busy with another workspace"));
+      }
+      ok(res, {
+        available: status.available && Boolean(session),
+        viewerUrl:
+          status.available && session
+            ? buildChallengeViewerUrl({ token: session?.token ?? "" })
+            : null,
+        reason: status.available ? null : status.reason,
+      });
+    } catch (error) {
+      logger.warn("Challenge viewer failed to start", {
+        route: "/api/pipeline/challenge-viewer",
+        error,
+      });
+      fail(res, serviceUnavailable("Challenge viewer is unavailable on this server"));
     }
-    ok(res, {
-      available: status.available && Boolean(session),
-      viewerUrl:
-        status.available && session
-          ? buildChallengeViewerUrl({ token: session?.token ?? "" })
-          : null,
-      reason: status.available ? null : status.reason,
-    });
-  } catch (error) {
-    logger.warn("Challenge viewer failed to start", {
-      route: "/api/pipeline/challenge-viewer",
-      error,
-    });
-    fail(res, serviceUnavailable("Challenge viewer is unavailable on this server"));
-  }
-});
+  },
+);
 
 /**
  * POST /api/pipeline/solve-challenge - Opens a headed browser for a human to
@@ -588,130 +593,134 @@ const solveChallengeSchema = z.object({
   extractorId: z.string().min(1),
 });
 
-pipelineRouter.post("/solve-challenge", async (req: Request, res: Response) => {
-  let finishSolve: (() => void) | null = null;
-  try {
-    const body = solveChallengeSchema.parse(req.body);
+pipelineRouter.post(
+  "/solve-challenge",
+  requireSystemAdminMiddleware,
+  async (req: Request, res: Response) => {
+    let finishSolve: (() => void) | null = null;
+    try {
+      const body = solveChallengeSchema.parse(req.body);
 
-    const pending = getPendingChallenges();
-    const match = pending.find((c) => c.extractorId === body.extractorId);
-    if (!match) {
-      return fail(res, notFound(`No pending challenge for extractor "${body.extractorId}"`));
-    }
+      const pending = getPendingChallenges();
+      const match = pending.find((c) => c.extractorId === body.extractorId);
+      if (!match) {
+        return fail(res, notFound(`No pending challenge for extractor "${body.extractorId}"`));
+      }
 
-    // Use the server-side challenge URL, not the client-supplied one.
-    // The client sends url for display/convenience, but the server is the
-    // source of truth — prevents solving a different URL than the one that
-    // actually triggered the challenge.
-    const challengeUrl = match.url;
-    finishSolve = beginPipelineChallengeSolve(body.extractorId);
-    if (!finishSolve) {
-      return fail(res, conflict("Challenge solve already in progress"));
-    }
+      // Use the server-side challenge URL, not the client-supplied one.
+      // The client sends url for display/convenience, but the server is the
+      // source of truth — prevents solving a different URL than the one that
+      // actually triggered the challenge.
+      const challengeUrl = match.url;
+      finishSolve = beginPipelineChallengeSolve(body.extractorId);
+      if (!finishSolve) {
+        return fail(res, conflict("Challenge solve already in progress"));
+      }
 
-    logger.info("Launching challenge solver", {
-      route: "/api/pipeline/solve-challenge",
-      extractorId: body.extractorId,
-      url: challengeUrl,
-    });
+      logger.info("Launching challenge solver", {
+        route: "/api/pipeline/solve-challenge",
+        extractorId: body.extractorId,
+        url: challengeUrl,
+      });
 
-    // Cookies are runtime state, so keep them with the database/PDFs under
-    // DATA_DIR rather than under extractor source directories.
-    const storageDir = getPrivateCloudflareCookieStorageDir();
+      // Cookies are runtime state, so keep them with the database/PDFs under
+      // DATA_DIR rather than under extractor source directories.
+      const storageDir = getPrivateCloudflareCookieStorageDir();
 
-    // Dynamic import: browser-utils pulls in playwright which is heavy.
-    // A top-level import would slow down every server startup even though
-    // most pipeline runs never hit a challenge.
-    await ensureChallengeViewer();
+      // Dynamic import: browser-utils pulls in playwright which is heavy.
+      // A top-level import would slow down every server startup even though
+      // most pipeline runs never hit a challenge.
+      await ensureChallengeViewer();
 
-    const scopeKey = getPrivateDataScope().scopeKey;
-    let result: Awaited<ReturnType<(typeof import("browser-utils"))["solveChallenge"]>>;
-    if (body.extractorId === "hiringcafe") {
-      try {
-        let challenged = hasHiringCafeBrowserChallenge(scopeKey, challengeUrl);
-        if (!challenged) {
-          const page = await readHiringCafeBrowserPage(scopeKey, storageDir, challengeUrl);
-          challenged = page.challenged;
-        }
-        if (challenged && !hasHiringCafeBrowserChallenge(scopeKey, challengeUrl)) {
-          return fail(res, conflict("Challenge viewer is busy with another workspace"));
-        }
-        const outcome = challenged
-          ? await waitForHiringCafeBrowserChallenge(scopeKey, challengeUrl, 5 * 60 * 1000)
-          : "clear";
-        result =
-          outcome === "clear" ? { status: "solved", cookiesSaved: 0 } : { status: "timeout" };
-        if (result.status === "timeout") {
+      const scopeKey = getPrivateDataScope().scopeKey;
+      let result: Awaited<ReturnType<(typeof import("browser-utils"))["solveChallenge"]>>;
+      if (body.extractorId === "hiringcafe") {
+        try {
+          let challenged = hasHiringCafeBrowserChallenge(scopeKey, challengeUrl);
+          if (!challenged) {
+            const page = await readHiringCafeBrowserPage(scopeKey, storageDir, challengeUrl);
+            challenged = page.challenged;
+          }
+          if (challenged && !hasHiringCafeBrowserChallenge(scopeKey, challengeUrl)) {
+            return fail(res, conflict("Challenge viewer is busy with another workspace"));
+          }
+          const outcome = challenged
+            ? await waitForHiringCafeBrowserChallenge(scopeKey, challengeUrl, 5 * 60 * 1000)
+            : "clear";
+          result =
+            outcome === "clear" ? { status: "solved", cookiesSaved: 0 } : { status: "timeout" };
+          if (result.status === "timeout") {
+            await closeHiringCafeBrowser(scopeKey);
+          }
+        } catch (error) {
           await closeHiringCafeBrowser(scopeKey);
+          logger.warn("Hiring Cafe browser solve failed", {
+            route: "/api/pipeline/solve-challenge",
+            extractorId: body.extractorId,
+            error: sanitizeUnknown(error),
+          });
+          result = {
+            status: "error",
+            message: "Browser solve failed",
+          };
         }
-      } catch (error) {
-        await closeHiringCafeBrowser(scopeKey);
-        logger.warn("Hiring Cafe browser solve failed", {
+      } else {
+        const { solveChallenge } = await import("browser-utils");
+        result = await solveChallenge(challengeUrl, body.extractorId, storageDir);
+      }
+
+      if (result.status === "solved") {
+        const { remaining } = resolvePipelineChallenge(body.extractorId);
+
+        logger.info("Challenge solved", {
           route: "/api/pipeline/solve-challenge",
           extractorId: body.extractorId,
-          error: sanitizeUnknown(error),
+          challengesRemaining: remaining,
+          cookiesSaved: result.cookiesSaved,
         });
-        result = {
-          status: "error",
-          message: "Browser solve failed",
-        };
-      }
-    } else {
-      const { solveChallenge } = await import("browser-utils");
-      result = await solveChallenge(challengeUrl, body.extractorId, storageDir);
-    }
 
-    if (result.status === "solved") {
-      const { remaining } = resolvePipelineChallenge(body.extractorId);
-
-      logger.info("Challenge solved", {
-        route: "/api/pipeline/solve-challenge",
-        extractorId: body.extractorId,
-        challengesRemaining: remaining,
-        cookiesSaved: result.cookiesSaved,
-      });
-
-      ok(res, {
-        status: "solved",
-        extractorId: body.extractorId,
-        challengesRemaining: remaining,
-        cookiesSaved: result.cookiesSaved,
-      });
-    } else {
-      logger.warn("Challenge solver did not succeed", {
-        route: "/api/pipeline/solve-challenge",
-        extractorId: body.extractorId,
-        solverStatus: result.status,
-      });
-
-      if (result.status === "timeout") {
-        fail(
-          res,
-          requestTimeout(
-            "Challenge timed out — browser was open for 5 minutes without the challenge being solved",
-          ),
-        );
+        ok(res, {
+          status: "solved",
+          extractorId: body.extractorId,
+          challengesRemaining: remaining,
+          cookiesSaved: result.cookiesSaved,
+        });
       } else {
-        fail(res, serviceUnavailable(`Solver error: ${result.message}`));
+        logger.warn("Challenge solver did not succeed", {
+          route: "/api/pipeline/solve-challenge",
+          extractorId: body.extractorId,
+          solverStatus: result.status,
+        });
+
+        if (result.status === "timeout") {
+          fail(
+            res,
+            requestTimeout(
+              "Challenge timed out — browser was open for 5 minutes without the challenge being solved",
+            ),
+          );
+        } else {
+          fail(res, serviceUnavailable(`Solver error: ${result.message}`));
+        }
       }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return fail(res, badRequest(error.message, error.flatten()));
+      }
+      fail(
+        res,
+        new AppError({
+          status: 500,
+          code: "INTERNAL_ERROR",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }),
+      );
+    } finally {
+      finishSolve?.();
+      revokeChallengeViewerSessions(getPrivateDataScope().scopeKey);
     }
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return fail(res, badRequest(error.message, error.flatten()));
-    }
-    fail(
-      res,
-      new AppError({
-        status: 500,
-        code: "INTERNAL_ERROR",
-        message: error instanceof Error ? error.message : "Unknown error",
-      }),
-    );
-  } finally {
-    finishSolve?.();
-    revokeChallengeViewerSessions(getPrivateDataScope().scopeKey);
-  }
-});
+  },
+);
 
 pipelineRouter.post("/skip-challenge-search", async (req: Request, res: Response) => {
   try {

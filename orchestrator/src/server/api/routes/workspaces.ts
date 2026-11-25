@@ -4,7 +4,14 @@ import { getUserId, isSystemAdmin } from "@infra/request-context";
 import { verifyPassword } from "@server/auth/password";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import * as authSessionsRepo from "@server/repositories/auth-sessions";
+import * as invitationsRepo from "@server/repositories/user-invitations";
 import * as usersRepo from "@server/repositories/users";
+import { clearServerCredentialCache } from "@server/services/server-credentials";
+import {
+  clearUserPermissionCache,
+  permissionsInputSchema,
+} from "@server/services/user-permissions";
+import { resolveUserPermissions } from "@shared/types";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 
@@ -16,6 +23,17 @@ const createUserSchema = z.object({
   displayName: z.string().trim().min(1).max(120).optional(),
   isSystemAdmin: z.boolean().optional(),
   mustChangePassword: z.boolean().optional(),
+  permissions: permissionsInputSchema.optional(),
+});
+
+const updatePermissionsSchema = z.object({
+  permissions: permissionsInputSchema,
+});
+
+const createInvitationSchema = z.object({
+  label: z.string().trim().min(1).max(120),
+  permissions: permissionsInputSchema.optional(),
+  expiresInDays: z.number().int().min(1).max(invitationsRepo.MAX_INVITATION_TTL_DAYS).optional(),
 });
 
 const resetPasswordSchema = z.object({
@@ -75,7 +93,9 @@ workspacesRouter.post(
         password: parsed.data.password,
         displayName: parsed.data.displayName ?? parsed.data.username,
         isSystemAdmin: parsed.data.isSystemAdmin ?? false,
-        mustChangePassword: parsed.data.mustChangePassword ?? false,
+        // Admin-created accounts start with a password the admin knows.
+        mustChangePassword: parsed.data.mustChangePassword ?? true,
+        ...(parsed.data.permissions ? { permissions: parsed.data.permissions } : {}),
       });
       ok(res, { user }, 201);
       return;
@@ -114,11 +134,92 @@ workspacesRouter.patch(
     }
 
     const user = await usersRepo.setUserDisabled(userId, parsed.data.isDisabled);
+    clearServerCredentialCache();
     if (!user) {
       fail(res, notFound("User not found"));
       return;
     }
     ok(res, { user });
+  }),
+);
+
+function requireLocalAdmin(res: Response): boolean {
+  if (getJobOpsAppConfig().appMode === "hosted") {
+    fail(res, forbidden("Workspace user administration is unavailable in hosted mode"));
+    return false;
+  }
+  return requireSystemAdmin(res);
+}
+
+workspacesRouter.patch(
+  "/users/:id/permissions",
+  asyncRoute(async (req: Request, res: Response) => {
+    if (!requireLocalAdmin(res)) return;
+    const parsed = updatePermissionsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      fail(res, badRequest("Invalid request body", parsed.error.flatten()));
+      return;
+    }
+    const userId = req.params.id;
+    if (!userId) {
+      fail(res, badRequest("User id is required"));
+      return;
+    }
+    const existing = await usersRepo.getUserById(userId);
+    if (!existing) {
+      fail(res, notFound("User not found"));
+      return;
+    }
+    if (existing.isSystemAdmin) {
+      fail(res, badRequest("System admins always have every permission"));
+      return;
+    }
+
+    const user = await usersRepo.setUserPermissions(userId, parsed.data.permissions);
+    clearUserPermissionCache();
+    clearServerCredentialCache();
+    ok(res, { user });
+  }),
+);
+
+workspacesRouter.get(
+  "/invitations",
+  asyncRoute(async (_req: Request, res: Response) => {
+    if (!requireLocalAdmin(res)) return;
+    ok(res, { invitations: await invitationsRepo.listInvitations() });
+  }),
+);
+
+workspacesRouter.post(
+  "/invitations",
+  asyncRoute(async (req: Request, res: Response) => {
+    if (!requireLocalAdmin(res)) return;
+    const parsed = createInvitationSchema.safeParse(req.body);
+    if (!parsed.success) {
+      fail(res, badRequest("Invalid request body", parsed.error.flatten()));
+      return;
+    }
+    const { invitation, token } = await invitationsRepo.createInvitation({
+      label: parsed.data.label,
+      permissions: resolveUserPermissions(parsed.data.permissions),
+      expiresInDays: parsed.data.expiresInDays,
+      createdByUserId: getUserId() ?? null,
+    });
+    // The token is shown exactly once; only its hash is stored.
+    ok(res, { invitation: { ...invitation, token } }, 201);
+  }),
+);
+
+workspacesRouter.delete(
+  "/invitations/:id",
+  asyncRoute(async (req: Request, res: Response) => {
+    if (!requireLocalAdmin(res)) return;
+    const id = req.params.id;
+    if (!id || !(await invitationsRepo.revokeInvitation(id))) {
+      fail(res, notFound("Pending invitation not found"));
+      return;
+    }
+    ok(res, { id });
   }),
 );
 
