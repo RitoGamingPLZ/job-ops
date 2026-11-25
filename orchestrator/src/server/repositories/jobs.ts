@@ -35,6 +35,7 @@ import {
 } from "drizzle-orm";
 import { db, schema } from "../db/index";
 import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
+import { chunk, inListChunkSize } from "../utils/sql-chunks";
 
 const { jobNotes, jobs } = schema;
 
@@ -377,14 +378,21 @@ export async function listJobSummariesByIds(jobIds: string[]): Promise<
 > {
   if (jobIds.length === 0) return [];
 
-  return db
-    .select({
-      id: jobs.id,
-      title: jobs.title,
-      employer: jobs.employer,
-    })
-    .from(jobs)
-    .where(and(jobsScopeFilter(), inArray(jobs.id, jobIds)));
+  const summaries: Array<{ id: string; title: string; employer: string }> = [];
+  // Keep each IN (...) under Cloudflare SQLite's bound-parameter cap.
+  for (const ids of chunk(jobIds, inListChunkSize(10))) {
+    summaries.push(
+      ...(await db
+        .select({
+          id: jobs.id,
+          title: jobs.title,
+          employer: jobs.employer,
+        })
+        .from(jobs)
+        .where(and(jobsScopeFilter(), inArray(jobs.id, ids)))),
+    );
+  }
+  return summaries;
 }
 
 /**
@@ -545,11 +553,16 @@ export async function createJobs(
     return { created, skipped };
   }
 
-  const existingRows = await db
-    .select({ jobUrl: jobs.jobUrl })
-    .from(jobs)
-    .where(and(jobsScopeFilter(), inArray(jobs.jobUrl, uniqueUrls)));
-  const existingUrlSet = new Set(existingRows.map((row) => row.jobUrl));
+  // A pipeline run can import hundreds of jobs; look them up in batches that stay under
+  // Cloudflare SQLite's bound-parameter cap.
+  const existingUrlSet = new Set<string>();
+  for (const urls of chunk(uniqueUrls, inListChunkSize(10))) {
+    const existingRows = await db
+      .select({ jobUrl: jobs.jobUrl })
+      .from(jobs)
+      .where(and(jobsScopeFilter(), inArray(jobs.jobUrl, urls)));
+    for (const row of existingRows) existingUrlSet.add(row.jobUrl);
+  }
 
   for (const { input, count } of byUrl.values()) {
     processed += 1;

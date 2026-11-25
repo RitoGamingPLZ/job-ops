@@ -9,6 +9,7 @@ import type {
 } from "@shared/types";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db/index";
+import { chunk, inListChunkSize, insertRowsPerStatement } from "../utils/sql-chunks";
 import { getActiveTenantId } from "../tenancy/context";
 
 const { watchlistChecks, watchlistJobStates, watchlistSeenJobs, watchlistSelectedSources } = schema;
@@ -86,24 +87,27 @@ export async function replaceWatchlistSelectedSources(
       return;
     }
 
-    tx.insert(watchlistSelectedSources)
-      .values(
-        input.selections.map((selection, index) => ({
-          id: randomUUID(),
-          tenantId,
-          userId,
-          catalogSourceId: selection.catalogSourceId ?? null,
-          label: selection.label?.trim() || selection.careersUrl,
-          careersUrl: selection.careersUrl,
-          cxsJobsUrl: null,
-          sourceType: selection.sourceType,
-          isCustom: !selection.catalogSourceId,
-          sortOrder: index,
-          createdAt: now,
-          updatedAt: now,
-        })),
-      )
-      .run();
+    const rows = input.selections.map((selection, index) => ({
+      id: randomUUID(),
+      tenantId,
+      userId,
+      catalogSourceId: selection.catalogSourceId ?? null,
+      label: selection.label?.trim() || selection.careersUrl,
+      careersUrl: selection.careersUrl,
+      cxsJobsUrl: null,
+      sourceType: selection.sourceType,
+      isCustom: !selection.catalogSourceId,
+      sortOrder: index,
+      createdAt: now,
+      updatedAt: now,
+    }));
+
+    // Cloudflare's SQLite rejects statements binding more than 100 parameters, and adding a
+    // source group saves dozens of rows at once, so insert in batches.
+    const rowsPerStatement = insertRowsPerStatement(Object.keys(rows[0] ?? {}).length);
+    for (const batch of chunk(rows, rowsPerStatement)) {
+      tx.insert(watchlistSelectedSources).values(batch).run();
+    }
   });
 
   return listWatchlistSelectedSources();
@@ -227,18 +231,21 @@ export async function recordWatchlistCheck(
 
     const previousLastCheckedAt = existingCheckpoint?.lastCheckedAt ?? null;
     const existingSeenRows = normalizedChecks.map((check) =>
-      tx
-        .select()
-        .from(watchlistSeenJobs)
-        .where(
-          and(
-            eq(watchlistSeenJobs.tenantId, tenantId),
-            eq(watchlistSeenJobs.userId, userId),
-            eq(watchlistSeenJobs.source, check.source),
-            inArray(watchlistSeenJobs.sourceJobId, check.sourceJobIds),
-          ),
-        )
-        .all(),
+      // A check can carry up to 200 job ids; keep each IN (...) under the bound-parameter cap.
+      chunk(check.sourceJobIds, inListChunkSize(5)).flatMap((sourceJobIds) =>
+        tx
+          .select()
+          .from(watchlistSeenJobs)
+          .where(
+            and(
+              eq(watchlistSeenJobs.tenantId, tenantId),
+              eq(watchlistSeenJobs.userId, userId),
+              eq(watchlistSeenJobs.source, check.source),
+              inArray(watchlistSeenJobs.sourceJobId, sourceJobIds),
+            ),
+          )
+          .all(),
+      ),
     );
 
     const existingSeenByKey = new Map<string, (typeof existingSeenRows)[number][number]>(

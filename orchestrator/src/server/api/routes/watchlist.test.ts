@@ -198,6 +198,42 @@ describe("Watchlist API routes", () => {
       expect(rejectedRes.status).toBe(400);
     });
 
+    it("saves a full group of sources and remembers 199 job ids in one check", async () => {
+      // Hosted SQLite rejects statements that bind more than 100 parameters, so both writes
+      // must be batched. Local SQLite has no such cap, so this guards the round trip.
+      const selections = Array.from({ length: 30 }, (_, index) => ({
+        sourceType: "workday",
+        careersUrl: `https://group${index}.wd1.myworkdayjobs.com/External`,
+      }));
+      const saved = await fetch(`${baseUrl}/api/watchlist/sources`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selections }),
+      }).then((res) => res.json());
+      expect(
+        saved.data.selectedSources.map((source: { sortOrder: number }) => source.sortOrder),
+      ).toEqual(selections.map((_, index) => index));
+
+      const sourceJobIds = Array.from({ length: 199 }, (_, index) => `JOB-${index}`);
+      const check = (ids: string[]) =>
+        fetch(checksUrl(baseUrl), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ checks: [{ source: "workday:group0", sourceJobIds: ids }] }),
+        }).then((res) => res.json());
+
+      const first = await check(sourceJobIds);
+      expect(first.ok).toBe(true);
+      expect(first.data.jobs).toHaveLength(199);
+
+      const second = await check([...sourceJobIds, "JOB-NEW"]);
+      expect(second.ok).toBe(true);
+      const fresh = second.data.jobs.filter(
+        (job: { isNewSinceLastCheck: boolean }) => job.isNewSinceLastCheck,
+      );
+      expect(fresh.map((job: { sourceJobId: string }) => job.sourceJobId)).toEqual(["JOB-NEW"]);
+    });
+
     it("caps oversized source-branding responses", async () => {
       vi.stubGlobal(
         "fetch",
