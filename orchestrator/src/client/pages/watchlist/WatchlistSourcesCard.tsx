@@ -5,7 +5,7 @@ import {
   type WatchlistSource,
   type WatchlistSourceTypeDescriptor,
 } from "@shared/types.js";
-import { Loader2, Plus, X } from "lucide-react";
+import { ExternalLink, Loader2, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   Accordion,
@@ -14,7 +14,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import { cn } from "@/lib/utils";
@@ -179,11 +179,11 @@ export function WatchlistSourcesCard({
       type="single"
       collapsible
       defaultValue="watched-sources"
-      className="w-full rounded-lg border border-border bg-card"
+      className="w-full overflow-hidden rounded-lg border border-border bg-card"
     >
-      <AccordionItem value="watched-sources">
+      <AccordionItem value="watched-sources" className="border-b-0">
         <div className="relative">
-          <AccordionTrigger className="cursor-pointer items-center justify-between gap-2 px-3 py-3 text-left hover:no-underline">
+          <AccordionTrigger className="cursor-pointer items-center justify-between gap-2 px-3 py-2.5 text-left hover:no-underline">
             <div className="min-w-0 w-full">
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold tracking-tight text-foreground/90">
@@ -196,7 +196,7 @@ export function WatchlistSourcesCard({
                 careers URL.
               </p>
               {formattedLastCheckedAt ? (
-                <p className="mt-2 text-xs text-muted-foreground/70">
+                <p className="mt-1 text-xs text-muted-foreground/70">
                   Last checked {formattedLastCheckedAt}
                   {formattedPreviousLastCheckedAt
                     ? ` · ${newJobsCount} new since ${formattedPreviousLastCheckedAt}`
@@ -245,9 +245,9 @@ export function WatchlistSourcesCard({
           </div>
         </div>
 
-        <AccordionContent>
-          <div className="overflow-y-auto px-4">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <AccordionContent className="border-t border-border bg-muted p-3 dark:bg-background">
+          {sourceDrafts.length > 0 ? (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {sourceDrafts.map((draft, index) => {
                 const selectedSource = getSourceDraftDetails(draft.catalogSourceId, catalogSources);
                 const sourceStatus = sourceStatusByDraftId[draft.id] ?? "unsaved";
@@ -281,80 +281,82 @@ export function WatchlistSourcesCard({
                 return (
                   <article
                     key={draft.id}
-                    className={cn(
-                      "group relative min-w-0 w-full rounded-2xl border border-border/70 bg-card p-4 h-full",
-                      "flex flex-col items-stretch gap-4",
-                    )}
+                    className="group relative flex h-full min-w-0 w-full flex-col gap-2 rounded-lg border border-border bg-card p-2.5 shadow-xs transition-colors hover:border-foreground/20"
                   >
-                    <div className={cn("flex items-start gap-2", showEditor ? "flex-1" : "")}>
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
-                        {companyLogoUrl && (
-                          <div className="flex h-16 w-16 p-2">
+                    {isEmpty ? (
+                      <p className="truncate pr-7 text-xs font-medium text-muted-foreground">
+                        {draft.isCustom
+                          ? (descriptor?.customSourceInputLabel ?? "Custom source")
+                          : "New source"}
+                      </p>
+                    ) : (
+                      <div className="flex items-start gap-2.5 pr-6">
+                        {companyLogoUrl ? (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted/40 p-1">
                             <img
-                              src={companyLogoUrl ?? undefined}
+                              src={companyLogoUrl}
                               alt={label}
                               className="h-full w-full object-contain"
                             />
                           </div>
-                        )}
+                        ) : null}
 
-                        <div className="min-w-0">
-                          {isEmpty ? null : (
-                            <h3 className="truncate text-sm font-medium text-foreground">
-                              {label}
-                            </h3>
-                          )}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="min-w-0 text-[13px] font-semibold leading-tight text-foreground">
+                            {careersUrl ? (
+                              <a
+                                href={careersUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`Open ${label} careers page`}
+                                className="group/link inline-flex max-w-full min-w-0 items-center gap-1 underline-offset-2 hover:text-primary hover:underline"
+                              >
+                                <span className="truncate">{label}</span>
+                                <ExternalLink
+                                  aria-hidden="true"
+                                  className="h-3 w-3 shrink-0 text-muted-foreground/70 transition-colors group-hover/link:text-primary"
+                                />
+                              </a>
+                            ) : (
+                              <span className="block truncate">{label}</span>
+                            )}
+                          </h3>
 
-                          {isEmpty ? null : (
-                            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>
-                                {draft.isCustom
-                                  ? (descriptor?.label ?? draft.sourceType)
-                                  : (descriptor?.label ?? selectedSource?.sourceType)}
-                              </span>
-                              <StatusIndicator
-                                label={statusCopy.label}
-                                variant={statusCopy.variant}
-                                tooltip={statusCopy.tooltip}
-                                tooltipClassName="max-w-64 text-xs leading-relaxed"
-                              />
-                            </div>
-                          )}
-
-                          {isEmpty ? null : (
-                            <CompanyRatingBadges rating={rating} className="mt-1.5" />
-                          )}
-
-                          {careersUrl && (
-                            <a
-                              href={careersUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={cn(
-                                buttonVariants({ variant: "link", size: "sm" }),
-                                "px-0 text-xs",
-                              )}
-                            >
-                              View website
-                            </a>
-                          )}
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                            <span>
+                              {draft.isCustom
+                                ? (descriptor?.label ?? draft.sourceType)
+                                : (descriptor?.label ?? selectedSource?.sourceType)}
+                            </span>
+                            <StatusIndicator
+                              label={statusCopy.label}
+                              variant={statusCopy.variant}
+                              tooltip={statusCopy.tooltip}
+                              tooltipClassName="max-w-64 text-xs leading-relaxed"
+                            />
+                          </div>
                         </div>
                       </div>
+                    )}
 
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0 rounded-lg text-muted-foreground absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus:outline-none transition-opacity"
-                        aria-label={`Remove watchlist source ${index + 1}`}
-                        onClick={() => onRemoveSource(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {isEmpty ? null : <CompanyRatingBadges rating={rating} />}
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "absolute right-1.5 top-1.5 h-6 w-6 shrink-0 rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus:outline-none group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100",
+                        isEmpty && "opacity-100",
+                      )}
+                      aria-label={`Remove watchlist source ${index + 1}`}
+                      onClick={() => onRemoveSource(index)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
 
                     {showEditor && (
-                      <div className="w-full space-y-2 pt-1">
+                      <div className="w-full space-y-1.5">
                         <SearchableDropdown
                           inputId={dropdownInputId}
                           value={
@@ -402,7 +404,7 @@ export function WatchlistSourcesCard({
                           ariaLabel={`Watchlist source ${index + 1}`}
                           allowCustomValue={false}
                           onEmptyResults={(searchText) => onSourceSearchNoResults({ searchText })}
-                          triggerClassName="h-9 w-full justify-between rounded-xl border-border/70 bg-background/70"
+                          triggerClassName="h-8 w-full justify-between rounded-md border-input bg-background/60 text-xs"
                           contentClassName="w-[var(--radix-popover-trigger-width)] min-w-[320px]"
                         />
                         {draft.isCustom ? (
@@ -416,48 +418,48 @@ export function WatchlistSourcesCard({
                             }
                             placeholder={descriptor?.customSourcePlaceholder ?? "https://..."}
                             aria-label={`${descriptor?.customSourceInputLabel ?? "Custom source URL"} ${index + 1}`}
-                            className="rounded-xl"
+                            className="h-8 rounded-md bg-background/60 text-xs"
                           />
                         ) : null}
                       </div>
                     )}
-                    <SuggestFiltersPanel
-                      sourceType={
-                        draft.isCustom
-                          ? draft.sourceType
-                          : (selectedSource?.sourceType ?? draft.sourceType)
-                      }
-                      careersUrl={careersUrl}
-                      label={label}
-                      onUse={(suggestedUrl) => {
-                        const sourceType = draft.isCustom
-                          ? draft.sourceType
-                          : (selectedSource?.sourceType ?? draft.sourceType);
-                        onSourceMethodSelected({
-                          method: "custom_url",
-                          sourceType,
-                          careersUrl: suggestedUrl,
-                        });
-                        onUpdateDraft(index, (current) => ({
-                          ...current,
-                          isCustom: true,
-                          sourceType,
-                          catalogSourceId: null,
-                          customUrl: suggestedUrl,
-                        }));
-                      }}
-                    />
+                    <div className="mt-auto pt-0.5">
+                      <SuggestFiltersPanel
+                        sourceType={
+                          draft.isCustom
+                            ? draft.sourceType
+                            : (selectedSource?.sourceType ?? draft.sourceType)
+                        }
+                        careersUrl={careersUrl}
+                        label={label}
+                        onUse={(suggestedUrl) => {
+                          const sourceType = draft.isCustom
+                            ? draft.sourceType
+                            : (selectedSource?.sourceType ?? draft.sourceType);
+                          onSourceMethodSelected({
+                            method: "custom_url",
+                            sourceType,
+                            careersUrl: suggestedUrl,
+                          });
+                          onUpdateDraft(index, (current) => ({
+                            ...current,
+                            isCustom: true,
+                            sourceType,
+                            catalogSourceId: null,
+                            customUrl: suggestedUrl,
+                          }));
+                        }}
+                      />
+                    </div>
                   </article>
                 );
               })}
             </div>
-
-            {sourceDrafts.length === 0 ? (
-              <div className="mt-3 rounded-2xl border border-dashed border-border/70 bg-background/40 p-4 text-sm text-muted-foreground">
-                No watchlist sources selected yet.
-              </div>
-            ) : null}
-          </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border bg-card/70 px-3 py-4 text-xs text-muted-foreground">
+              No watchlist sources selected yet.
+            </div>
+          )}
         </AccordionContent>
       </AccordionItem>
     </Accordion>

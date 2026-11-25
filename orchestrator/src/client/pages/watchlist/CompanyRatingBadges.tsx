@@ -30,7 +30,7 @@ function RatingChip({
 }) {
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-md border border-border/60 px-1.5 py-0.5 tabular-nums"
+      className="inline-flex items-center gap-1 rounded border border-border/70 bg-muted/50 px-1.5 py-0.5 leading-none tabular-nums"
       title={`${long}: ${formatRating(value)} out of 10 (${source})`}
     >
       <span className="text-muted-foreground">{short}</span>
