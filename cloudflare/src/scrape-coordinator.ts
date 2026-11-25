@@ -940,6 +940,18 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
 
 const CONTAINER_START_TIMEOUT_MS = 120_000;
 
+/**
+ * The PDF renderer must cold-start the Node server and run Typst, which the default "lite" size
+ * (1/16 vCPU, 256 MiB) cannot do in time ("container is not listening"). Scrapers ran fine on the
+ * default size, and memory is billed for the whole time a container is up, so only the renderer
+ * gets the larger size. Durable Object-managed containers take the size here, not in wrangler.jsonc.
+ */
+function instanceForRequest(request: Request): "standard-1" | undefined {
+  return new URL(request.url).pathname.startsWith("/internal/render-pdf")
+    ? "standard-1"
+    : undefined;
+}
+
 export class ScraperContainer extends DurableObject<Env> {
   /** Polls /health until the Node server inside the container accepts connections. */
   private async waitForContainerReady(port: number): Promise<boolean> {
@@ -983,9 +995,11 @@ export class ScraperContainer extends DurableObject<Env> {
 
     const portNumber = Number.parseInt(this.env.PORT ?? "", 10) || 3001;
     if (!container.running) {
+      const instance = instanceForRequest(request);
       container.start({
         image: container.images.base,
         enableInternet: true,
+        ...(instance ? { instance } : {}),
         env: {
           NODE_ENV: this.env.NODE_ENV ?? "production",
           PORT: String(portNumber),
