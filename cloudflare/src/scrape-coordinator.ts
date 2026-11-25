@@ -986,6 +986,10 @@ export class ScraperContainer extends DurableObject<Env> {
       container.start({
         image: container.images.base,
         enableInternet: true,
+        // The default "lite" size (1/16 vCPU, 256 MiB) cannot cold-start the Node server and render a
+        // PDF with Typst in time, which surfaces as "container is not listening" on first use.
+        // Durable Object-managed containers take the size here, not in wrangler.jsonc.
+        instance: "standard-1",
         env: {
           NODE_ENV: this.env.NODE_ENV ?? "production",
           PORT: String(portNumber),
