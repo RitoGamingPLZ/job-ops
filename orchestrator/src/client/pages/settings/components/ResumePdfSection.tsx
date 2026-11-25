@@ -1,4 +1,4 @@
-import { ReactiveResumeConfigPanel } from "@client/components/ReactiveResumeConfigPanel";
+import { ResumePdfConfigPanel } from "@client/components/ResumePdfConfigPanel";
 import { SettingsSectionFrame } from "@client/pages/settings/components/SettingsSectionFrame";
 import type { UpdateSettingsInput } from "@shared/settings-schema.js";
 import type {
@@ -10,18 +10,7 @@ import type {
 import type React from "react";
 import { type Path, type PathValue, useFormContext, useWatch } from "react-hook-form";
 
-type ReactiveResumeSectionProps = {
-  rxResumeBaseResumeIdDraft: string | null;
-  setRxResumeBaseResumeIdDraft: (value: string | null) => void;
-  // True when v5 API key is configured.
-  hasRxResumeAccess: boolean;
-  onCredentialFieldEdit?: () => void;
-  validationStatus?: {
-    checked: boolean;
-    valid: boolean;
-    message?: string | null;
-    status?: number | null;
-  };
+type ResumePdfSectionProps = {
   profileProjects: ResumeProjectCatalogItem[];
   lockedCount: number;
   maxProjectsTotal: number;
@@ -31,12 +20,7 @@ type ReactiveResumeSectionProps = {
   layoutMode?: "accordion" | "panel";
 };
 
-export const ReactiveResumeSection: React.FC<ReactiveResumeSectionProps> = ({
-  rxResumeBaseResumeIdDraft,
-  setRxResumeBaseResumeIdDraft,
-  hasRxResumeAccess,
-  onCredentialFieldEdit,
-  validationStatus,
+export const ResumePdfSection: React.FC<ResumePdfSectionProps> = ({
   profileProjects,
   lockedCount,
   maxProjectsTotal,
@@ -47,7 +31,6 @@ export const ReactiveResumeSection: React.FC<ReactiveResumeSectionProps> = ({
 }) => {
   const {
     control,
-    clearErrors,
     setValue,
     formState: { errors },
   } = useFormContext<UpdateSettingsInput>();
@@ -55,7 +38,7 @@ export const ReactiveResumeSection: React.FC<ReactiveResumeSectionProps> = ({
   const pdfRendererValue = (useWatch({
     control,
     name: "pdfRenderer",
-  }) ?? "rxresume") as PdfRenderer;
+  }) ?? "typst") as PdfRenderer;
   const typstThemeValue = (useWatch({
     control,
     name: "typstTheme",
@@ -64,8 +47,6 @@ export const ReactiveResumeSection: React.FC<ReactiveResumeSectionProps> = ({
     control,
     name: "pdfPaperSize",
   }) ?? "auto") as PdfPaperSize;
-  const rxresumeApiKeyValue = useWatch({ control, name: "rxresumeApiKey" }) ?? "";
-  const rxresumeUrlValue = useWatch({ control, name: "rxresumeUrl" }) ?? "";
   const resumeProjectsValue = useWatch({ control, name: "resumeProjects" });
   const setDirtyTouchedValue = <TField extends Path<UpdateSettingsInput>>(
     field: TField,
@@ -76,14 +57,9 @@ export const ReactiveResumeSection: React.FC<ReactiveResumeSectionProps> = ({
       shouldTouch: true,
     });
 
-  const clearRxResumeFeedback = () => {
-    onCredentialFieldEdit?.();
-    clearErrors(["rxresumeApiKey", "rxresumeUrl"]);
-  };
-
   return (
-    <SettingsSectionFrame mode={layoutMode} title="Reactive Resume" value="reactive-resume">
-      <ReactiveResumeConfigPanel
+    <SettingsSectionFrame mode={layoutMode} title="Resume PDF" value="resume-pdf">
+      <ResumePdfConfigPanel
         pdfRenderer={pdfRendererValue}
         onPdfRendererChange={(value) => setDirtyTouchedValue("pdfRenderer", value)}
         pdfRendererError={errors.pdfRenderer?.message as string | undefined}
@@ -94,28 +70,7 @@ export const ReactiveResumeSection: React.FC<ReactiveResumeSectionProps> = ({
         onPdfPaperSizeChange={(value) => setDirtyTouchedValue("pdfPaperSize", value)}
         pdfPaperSizeError={errors.pdfPaperSize?.message as string | undefined}
         disabled={isLoading || isSaving}
-        hasRxResumeAccess={hasRxResumeAccess}
-        showValidationStatus={Boolean(validationStatus)}
-        validationStatus={validationStatus}
-        shared={{
-          baseUrl: rxresumeUrlValue,
-          onBaseUrlChange: (value) => {
-            clearRxResumeFeedback();
-            setDirtyTouchedValue("rxresumeUrl", value);
-          },
-          baseUrlError: errors.rxresumeUrl?.message as string | undefined,
-        }}
-        v5={{
-          apiKey: rxresumeApiKeyValue,
-          onApiKeyChange: (value) => {
-            clearRxResumeFeedback();
-            setDirtyTouchedValue("rxresumeApiKey", value);
-          },
-          error: errors.rxresumeApiKey?.message as string | undefined,
-        }}
         projectSelection={{
-          baseResumeId: rxResumeBaseResumeIdDraft,
-          onBaseResumeIdChange: setRxResumeBaseResumeIdDraft,
           projects: profileProjects,
           value: resumeProjectsValue,
           onChange: (next) => setDirtyTouchedValue("resumeProjects", next),

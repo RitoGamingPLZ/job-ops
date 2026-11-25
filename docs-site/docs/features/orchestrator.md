@@ -161,7 +161,7 @@ The saved view renders markdown by default, so links, lists, headings, and empha
 
 ### Generating PDFs
 
-Resume preparation tailors a new job resume from your candidate library and local base resume. The saved co-work document then supplies the content for PDF rendering. The configured renderer can use Reactive Resume export, local LaTeX via `tectonic`, or local Typst via `typst`.
+Resume preparation tailors a new job resume from your candidate library and local base resume. The saved co-work document then supplies the content for PDF rendering. The configured renderer is local Typst via `typst` or local LaTeX via `tectonic`.
 
 Choose the action that matches your goal:
 
@@ -250,5 +250,5 @@ Both batch generation and per-job regeneration return before background work fin
 - [Ghostwriter](/docs/next/features/ghostwriter)
 - [Co-work resume editor and candidate library](/docs/next/features/design-resume)
 - [In Progress Board](/docs/next/features/in-progress-board)
-- [Reactive Resume](/docs/next/features/reactive-resume)
+- [Resume PDF and projects](/docs/next/features/resume-pdf)
 - [Post-Application Tracking](/docs/next/features/post-application-tracking)

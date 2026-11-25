@@ -288,7 +288,6 @@ describe("Auth read-only enforcement", () => {
     "/API/SETTINGS/CODEX-AUTH",
     "/api//settings/codex-auth",
     "/api/settings/codex-auth/",
-    "/api/settings/rx-resumes/",
   ])("keeps sensitive demo read API %s behind auth", async (path) => {
     process.env.DEMO_MODE = "true";
     vi.mocked(countUsers).mockResolvedValue(0);

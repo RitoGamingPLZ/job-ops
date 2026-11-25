@@ -32,7 +32,7 @@ Use the path that matches your change:
 | App/UI/API                | `orchestrator`, `shared`                                                       | `npm --workspace orchestrator run dev` | [Self-hosting](https://jobops.dakheera47.com/docs/getting-started/self-hosting), [Troubleshooting](https://jobops.dakheera47.com/docs/next/troubleshooting/common-problems) |
 | Watchlist source adapters | `orchestrator/src/server/watchlist/adapters`, `orchestrator/src/server/config` | `npm --workspace orchestrator run dev` | [Watchlist](https://jobops.dakheera47.com/docs/next/features/watchlist)                                                                                                     |
 | Extractors                | `extractors/*`, sometimes `shared`                                             | Relevant type checks + tests           | [Add an extractor](https://jobops.dakheera47.com/docs/next/workflows/add-an-extractor), [Extractors overview](https://jobops.dakheera47.com/docs/extractors/overview)       |
-| Typst resume themes       | `orchestrator/src/server/services/resume-renderer/typst-themes`                | `npm run typst-theme:validate`         | [Reactive Resume](https://jobops.dakheera47.com/docs/features/reactive-resume)                                                                                              |
+| Typst resume themes       | `orchestrator/src/server/services/resume-renderer/typst-themes`                | `npm run typst-theme:validate`         | [Resume PDF](https://jobops.dakheera47.com/docs/features/resume-pdf)                                                                                                        |
 
 ## Local Setup (Minimal)
 

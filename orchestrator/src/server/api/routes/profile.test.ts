@@ -2,17 +2,11 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-// Mock the RxResume adapter service
-vi.mock("@server/services/rxresume", () => ({
-  clearRxResumeResumeCache: vi.fn(),
-  getResume: vi.fn(),
-  RxResumeAuthConfigError: class RxResumeAuthConfigError extends Error {
-    constructor() {
-      super("Reactive Resume credentials not configured.");
-      this.name = "RxResumeAuthConfigError";
-    }
-  },
-}));
+// Mock the design resume status lookup
+vi.mock("@server/services/design-resume", async (importOriginal) => {
+  const original = (await importOriginal()) as Record<string, unknown>;
+  return { ...original, getDesignResumeStatus: vi.fn() };
+});
 
 // Mock the profile service
 vi.mock("@server/services/profile", () => ({
@@ -20,18 +14,8 @@ vi.mock("@server/services/profile", () => ({
   clearProfileCache: vi.fn(),
 }));
 
-// Mock the settings repository
-vi.mock("@server/repositories/settings", async (importOriginal) => {
-  const original = (await importOriginal()) as Record<string, unknown>;
-  return {
-    ...original,
-    getSetting: vi.fn(),
-  };
-});
-
-import { getSetting } from "@server/repositories/settings";
 import { getProfile } from "@server/services/profile";
-import { getResume, RxResumeAuthConfigError } from "@server/services/rxresume";
+import { getDesignResumeStatus } from "@server/services/design-resume";
 
 describe("Profile API routes", () => {
   let server: Server;
@@ -153,8 +137,12 @@ describe("Profile API routes", () => {
   });
 
   describe("GET /api/profile/status", () => {
-    it("returns exists: false when rxresumeBaseResumeId is not configured", async () => {
-      vi.mocked(getSetting).mockResolvedValue(null);
+    it("returns exists: false when no base resume has been imported", async () => {
+      vi.mocked(getDesignResumeStatus).mockResolvedValue({
+        exists: false,
+        documentId: null,
+        updatedAt: null,
+      });
 
       const res = await fetch(`${baseUrl}/api/profile/status`);
       const body = await res.json();
@@ -162,54 +150,22 @@ describe("Profile API routes", () => {
       expect(res.ok).toBe(true);
       expect(body.ok).toBe(true);
       expect(body.data.exists).toBe(false);
-      expect(body.data.error).toContain("No base resume selected");
+      expect(body.data.error).toContain("No base resume imported yet");
     });
 
-    it("returns exists: true when resume is accessible", async () => {
-      vi.mocked(getSetting).mockResolvedValue("test-resume-id");
-      vi.mocked(getResume).mockResolvedValue({
-        id: "test-resume-id",
-        data: { basics: { name: "Test" } },
-      } as any);
+    it("returns exists: true when a base resume is stored", async () => {
+      vi.mocked(getDesignResumeStatus).mockResolvedValue({
+        exists: true,
+        documentId: "primary",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      });
 
       const res = await fetch(`${baseUrl}/api/profile/status`);
       const body = await res.json();
 
       expect(res.ok).toBe(true);
-      expect(body.ok).toBe(true);
       expect(body.data.exists).toBe(true);
       expect(body.data.error).toBeNull();
-    });
-
-    it("returns exists: false when RxResume credentials are missing", async () => {
-      vi.mocked(getSetting).mockResolvedValue("test-resume-id");
-      vi.mocked(getResume).mockRejectedValue(
-        new (RxResumeAuthConfigError as unknown as new () => Error)(),
-      );
-
-      const res = await fetch(`${baseUrl}/api/profile/status`);
-      const body = await res.json();
-
-      expect(res.ok).toBe(true);
-      expect(body.ok).toBe(true);
-      expect(body.data.exists).toBe(false);
-      expect(body.data.error).toContain("credentials not configured");
-    });
-
-    it("returns exists: false when resume data is empty", async () => {
-      vi.mocked(getSetting).mockResolvedValue("test-resume-id");
-      vi.mocked(getResume).mockResolvedValue({
-        id: "test-resume-id",
-        data: null,
-      } as any);
-
-      const res = await fetch(`${baseUrl}/api/profile/status`);
-      const body = await res.json();
-
-      expect(res.ok).toBe(true);
-      expect(body.ok).toBe(true);
-      expect(body.data.exists).toBe(false);
-      expect(body.data.error).toContain("empty or invalid");
     });
   });
 

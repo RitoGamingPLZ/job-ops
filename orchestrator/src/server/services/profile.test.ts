@@ -7,28 +7,12 @@ vi.mock("./design-resume", () => ({
   isLegacyDesignResumeError: vi.fn(),
 }));
 
-vi.mock("./rxresume", () => ({
-  getResume: vi.fn(),
-  RxResumeAuthConfigError: class RxResumeAuthConfigError extends Error {
-    constructor() {
-      super("Reactive Resume credentials not configured.");
-      this.name = "RxResumeAuthConfigError";
-    }
-  },
-}));
-
-vi.mock("./rxresume/baseResumeId", () => ({
-  getConfiguredRxResumeBaseResumeId: vi.fn(),
-}));
-
 vi.mock("@server/tenancy/context", () => ({
   getActiveTenantId: vi.fn(() => "tenant_default"),
 }));
 
 import { getActiveTenantId } from "@server/tenancy/context";
 import { designResumeToProfile, isLegacyDesignResumeError } from "./design-resume";
-import { getResume, RxResumeAuthConfigError } from "./rxresume";
-import { getConfiguredRxResumeBaseResumeId } from "./rxresume/baseResumeId";
 
 describe("getProfile", () => {
   beforeEach(() => {
@@ -43,14 +27,9 @@ describe("getProfile", () => {
     vi.useRealTimers();
   });
 
-  it("should throw an error if rxresumeBaseResumeId is not configured", async () => {
-    vi.mocked(getConfiguredRxResumeBaseResumeId).mockResolvedValue({
-      mode: "v5",
-      resumeId: null,
-    });
-
+  it("should throw an error if no base resume has been imported", async () => {
     await expect(getProfile()).rejects.toThrow(
-      "Base resume not configured. Please select a base resume from your RxResume account in Settings.",
+      "Base resume not configured. Import your resume in Settings first.",
     );
   });
 
@@ -61,8 +40,6 @@ describe("getProfile", () => {
     const profile = await getProfile();
 
     expect(designResumeToProfile).toHaveBeenCalledTimes(1);
-    expect(getConfiguredRxResumeBaseResumeId).not.toHaveBeenCalled();
-    expect(getResume).not.toHaveBeenCalled();
     expect(profile).toEqual(localProfile);
   });
 
@@ -74,8 +51,6 @@ describe("getProfile", () => {
     await getProfile();
 
     expect(designResumeToProfile).toHaveBeenCalledTimes(1);
-    expect(getConfiguredRxResumeBaseResumeId).not.toHaveBeenCalled();
-    expect(getResume).not.toHaveBeenCalled();
   });
 
   it("should keep local Resume Studio profiles scoped by tenant", async () => {
@@ -136,103 +111,19 @@ describe("getProfile", () => {
     expect(designResumeToProfile).toHaveBeenCalledTimes(3);
   });
 
-  it("should fetch profile from Reactive Resume when configured", async () => {
-    const mockResumeData = { basics: { name: "Test User" } };
-    vi.mocked(getConfiguredRxResumeBaseResumeId).mockResolvedValue({
-      mode: "v5",
-      resumeId: "test-resume-id",
-    });
-    vi.mocked(getResume).mockResolvedValue({
-      id: "test-resume-id",
-      data: mockResumeData,
-    } as any);
-
-    const profile = await getProfile();
-
-    expect(getConfiguredRxResumeBaseResumeId).toHaveBeenCalledTimes(1);
-    expect(getResume).toHaveBeenCalledWith("test-resume-id");
-    expect(profile).toEqual(mockResumeData);
-  });
-
-  it("should fall back to Reactive Resume when the local Resume Studio document is legacy", async () => {
-    const mockResumeData = { basics: { name: "Fallback User" } };
-    const legacyError = new Error("legacy design resume");
-    vi.mocked(designResumeToProfile).mockRejectedValue(legacyError);
+  it("should report a missing base resume when the stored document is legacy", async () => {
+    vi.mocked(designResumeToProfile).mockRejectedValue(new Error("legacy design resume"));
     vi.mocked(isLegacyDesignResumeError).mockReturnValue(true);
-    vi.mocked(getConfiguredRxResumeBaseResumeId).mockResolvedValue({
-      mode: "v5",
-      resumeId: "test-resume-id",
-    });
-    vi.mocked(getResume).mockResolvedValue({
-      id: "test-resume-id",
-      data: mockResumeData,
-    } as any);
 
-    await expect(getProfile()).resolves.toEqual(mockResumeData);
-    expect(getResume).toHaveBeenCalledWith("test-resume-id");
+    await expect(getProfile()).rejects.toThrow("Base resume not configured");
   });
 
-  it("should cache the profile and not refetch on subsequent calls", async () => {
-    const mockResumeData = { basics: { name: "Test User" } };
-    vi.mocked(getConfiguredRxResumeBaseResumeId).mockResolvedValue({
-      mode: "v5",
-      resumeId: "test-resume-id",
-    });
-    vi.mocked(getResume).mockResolvedValue({
-      id: "test-resume-id",
-      data: mockResumeData,
-    } as any);
-
-    await getProfile();
-    await getProfile();
-
-    expect(designResumeToProfile).toHaveBeenCalledTimes(2);
-    expect(getConfiguredRxResumeBaseResumeId).toHaveBeenCalledTimes(2);
-    // But getResume should only be called once due to caching
-    expect(getResume).toHaveBeenCalledTimes(1);
-  });
-
-  it("should refetch when forceRefresh is true", async () => {
-    const mockResumeData = { basics: { name: "Test User" } };
-    vi.mocked(getConfiguredRxResumeBaseResumeId).mockResolvedValue({
-      mode: "v5",
-      resumeId: "test-resume-id",
-    });
-    vi.mocked(getResume).mockResolvedValue({
-      id: "test-resume-id",
-      data: mockResumeData,
-    } as any);
+  it("should reload the profile when forceRefresh is true", async () => {
+    vi.mocked(designResumeToProfile).mockResolvedValue({ basics: { name: "Local User" } } as any);
 
     await getProfile();
     await getProfile(true);
 
-    expect(getResume).toHaveBeenCalledTimes(2);
-    expect(vi.mocked(getResume).mock.calls[0]).toEqual(["test-resume-id"]);
-    expect(vi.mocked(getResume).mock.calls[1]).toEqual(["test-resume-id", { forceRefresh: true }]);
-  });
-
-  it("should throw user-friendly error on credential issues", async () => {
-    vi.mocked(getConfiguredRxResumeBaseResumeId).mockResolvedValue({
-      mode: "v5",
-      resumeId: "test-resume-id",
-    });
-    vi.mocked(getResume).mockRejectedValue(
-      new (RxResumeAuthConfigError as unknown as new () => Error)(),
-    );
-
-    await expect(getProfile()).rejects.toThrow("Reactive Resume credentials not configured.");
-  });
-
-  it("should throw error if resume data is empty", async () => {
-    vi.mocked(getConfiguredRxResumeBaseResumeId).mockResolvedValue({
-      mode: "v5",
-      resumeId: "test-resume-id",
-    });
-    vi.mocked(getResume).mockResolvedValue({
-      id: "test-resume-id",
-      data: null,
-    } as any);
-
-    await expect(getProfile()).rejects.toThrow("Resume data is empty or invalid");
+    expect(designResumeToProfile).toHaveBeenCalledTimes(2);
   });
 });

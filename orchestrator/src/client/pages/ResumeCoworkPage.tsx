@@ -5,7 +5,6 @@ import {
   generateDesignResumePdf,
   getDesignResume,
   importDesignResumeFromFile,
-  importDesignResumeFromRxResume,
   updateDesignResume,
 } from "@client/api/settings-profile";
 import {
@@ -22,7 +21,7 @@ import type {
   ExperienceBulletInput,
   Job,
   JobResumeState,
-  ReactiveResumeV5Document,
+  ResumeV5Document,
   ResumeFocusRef,
   ResumeListItem,
   ResumeSuggestionV2,
@@ -158,14 +157,14 @@ function CoworkWorkspace({
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
   const accepting = useRef(false);
   const pendingAcceptedIds = useRef<string[]>([]);
-  const acceptedUndoIds = useRef(new WeakMap<ReactiveResumeV5Document, string[]>());
+  const acceptedUndoIds = useRef(new WeakMap<ResumeV5Document, string[]>());
   const [references, setReferences] = useState<BulletReference[]>([]);
   const [focus, setFocus] = useState<ResumeFocusRef[]>([]);
   const chat = useRef<HTMLElement>(null);
   const [tab, setTab] = useState("editor");
   const [status, setStatus] = useState("Loading…");
-  const [undoStack, setUndoStack] = useState<ReactiveResumeV5Document[]>([]);
-  const history = useRef<ReactiveResumeV5Document[]>([]);
+  const [undoStack, setUndoStack] = useState<ResumeV5Document[]>([]);
+  const history = useRef<ResumeV5Document[]>([]);
   const lastTyping = useRef<{ element: Element; time: number } | null>(null);
   const conflict = useRef<JobResumeState | null>(null);
   const [conflictOpen, setConflictOpen] = useState(false);
@@ -382,11 +381,11 @@ function CoworkWorkspace({
       if (timer.current) clearTimeout(timer.current);
     };
   }, [state, busy, save]);
-  function pushUndo(document: ReactiveResumeV5Document) {
+  function pushUndo(document: ResumeV5Document) {
     history.current = [...history.current.slice(-49), document];
     setUndoStack(history.current);
   }
-  function edit(document: ReactiveResumeV5Document, typing = false) {
+  function edit(document: ResumeV5Document, typing = false) {
     if (
       syncing.current ||
       resumeReloadRequired.current ||
@@ -790,13 +789,12 @@ function CoworkWorkspace({
         setImportOpen(false);
         return;
       }
-      if (importFile) {
-        const payload = await fileToUploadPayload(importFile, "Could not read this resume file.");
-        await importDesignResumeFromFile({
-          ...payload,
-          mediaType: payload.mediaType ?? undefined,
-        });
-      } else await importDesignResumeFromRxResume();
+      if (!importFile) return;
+      const payload = await fileToUploadPayload(importFile, "Could not read this resume file.");
+      await importDesignResumeFromFile({
+        ...payload,
+        mediaType: payload.mediaType ?? undefined,
+      });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.designResume.all }),
         queryClient.invalidateQueries({
@@ -833,7 +831,7 @@ function CoworkWorkspace({
     void showPreview();
   }
 
-  const getDocument = useCallback(() => latest.current?.document as ReactiveResumeV5Document, []);
+  const getDocument = useCallback(() => latest.current?.document as ResumeV5Document, []);
   const receiveSuggestions = useCallback(
     (items: ResumeSuggestionV2[] | null) => {
       if (items?.length && !wide)
@@ -900,7 +898,7 @@ function CoworkWorkspace({
             <AlertDialogTitle>Import base resume?</AlertDialogTitle>
             <AlertDialogDescription>
               This replaces your base resume. Existing job resumes keep their current content.
-              Choose a file or import your configured RxResume.
+              Choose a PDF, DOCX, or JSON resume file.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Button variant="outline" disabled={busy} onClick={() => fileInput.current?.click()}>
@@ -908,8 +906,8 @@ function CoworkWorkspace({
           </Button>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-            <Button disabled={busy} onClick={() => void importBase()}>
-              {importFile ? "Import file" : "Import from RxResume"}
+            <Button disabled={busy || !importFile} onClick={() => void importBase()}>
+              Import file
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -109,7 +109,7 @@ function toText(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-function collectReactiveResumeV5LanguageSample(resumeJson: Record<string, unknown>): string {
+function collectResumeV5LanguageSample(resumeJson: Record<string, unknown>): string {
   const segments: string[] = [];
 
   const add = (value: unknown): void => {
@@ -227,8 +227,8 @@ export function detectJobDescriptionLanguage(
   return detectLanguageFromSample(jobDescription ?? "");
 }
 
-export function detectReactiveResumeV5Language(
+export function detectResumeV5Language(
   resumeJson: Record<string, unknown>,
 ): ChatStyleManualLanguage | null {
-  return detectLanguageFromSample(collectReactiveResumeV5LanguageSample(resumeJson));
+  return detectLanguageFromSample(collectResumeV5LanguageSample(resumeJson));
 }

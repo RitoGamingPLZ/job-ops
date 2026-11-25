@@ -1,4 +1,4 @@
-import type { ReactiveResumeV5Document, ResumeSuggestionV2 } from "@shared/types";
+import type { ResumeV5Document, ResumeSuggestionV2 } from "@shared/types";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { useState } from "react";
@@ -51,7 +51,7 @@ const fixture = () =>
       },
       projects: { items: [] },
     },
-  }) as unknown as ReactiveResumeV5Document;
+  }) as unknown as ResumeV5Document;
 const suggestions: ResumeSuggestionV2[] = [
   {
     id: "insert",
@@ -380,7 +380,7 @@ describe("navy serif document content", () => {
           },
         ],
       },
-    } as ReactiveResumeV5Document["metadata"];
+    } as ResumeV5Document["metadata"];
     next.sections.certifications.hidden = true;
     next.sections.skills.items[0].hidden = true;
     mount(next);
@@ -406,7 +406,7 @@ describe("navy serif document content", () => {
           },
         ],
       },
-    } as unknown as ReactiveResumeV5Document["metadata"];
+    } as unknown as ResumeV5Document["metadata"];
     const onChange = mount(next);
     expect(window.document.querySelector(".resume-sidebar")).toBeNull();
     expect(screen.queryByLabelText(/to sidebar|to main/)).toBeNull();
@@ -820,7 +820,7 @@ describe("navy serif document content", () => {
         period: "2024",
         description: "<p>Project intro</p>",
       },
-    ] as ReactiveResumeV5Document["sections"]["projects"]["items"];
+    ] as ResumeV5Document["sections"]["projects"]["items"];
     const onChange = mount(original);
     expect(screen.queryByText("Hidden project")).toBeNull();
     expect(screen.queryByLabelText(/Include project/)).toBeNull();
@@ -1048,7 +1048,7 @@ vi.mock("@shared/resume-links", async (importOriginal) => {
     ...actual,
     getItemLines: vi.fn(getItemLines),
     setItemLines: vi.fn(setItemLines),
-    isOnResume: (doc: ReactiveResumeV5Document, id: string) =>
+    isOnResume: (doc: ResumeV5Document, id: string) =>
       Object.values(
         doc.sections as unknown as Record<string, { items: Record<string, unknown>[] }>,
       ).some(
@@ -1060,7 +1060,7 @@ vi.mock("@shared/resume-links", async (importOriginal) => {
       ),
     sameLineText: (a: string, b: string) =>
       a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " "),
-    removeFromResume: vi.fn((doc: ReactiveResumeV5Document, id: string) => {
+    removeFromResume: vi.fn((doc: ResumeV5Document, id: string) => {
       const next = structuredClone(doc);
       for (const section of Object.values(
         next.sections as unknown as Record<string, { items: Record<string, unknown>[] }>,
@@ -1081,7 +1081,7 @@ vi.mock("@shared/resume-links", async (importOriginal) => {
     }),
     resetLine: vi.fn(
       (
-        doc: ReactiveResumeV5Document,
+        doc: ResumeV5Document,
         id: string,
         index: number,
         library: { id: string; text: string }[],
@@ -1343,7 +1343,7 @@ describe("candidate library links", () => {
         description: "<ul><li>Reworded duty</li></ul>",
         bulletRefs: ["duty-a"],
       },
-    ] as ReactiveResumeV5Document["sections"]["projects"]["items"];
+    ] as ResumeV5Document["sections"]["projects"]["items"];
     const onChange = vi.fn();
     render(
       <ResumeEditor
@@ -1393,8 +1393,8 @@ describe("contact editing", () => {
     onChange,
     disabled,
   }: {
-    initial?: ReactiveResumeV5Document;
-    onChange: (document: ReactiveResumeV5Document) => void;
+    initial?: ResumeV5Document;
+    onChange: (document: ResumeV5Document) => void;
     disabled?: boolean;
   }) {
     const [document, setDocument] = useState(initial);

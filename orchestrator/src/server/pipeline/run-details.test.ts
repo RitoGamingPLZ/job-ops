@@ -39,7 +39,7 @@ function makeSettings() {
     jobindexMaxJobsPerTerm: { value: 50, default: 50, override: null },
     jobspyResultsWanted: { value: 20, default: 20, override: null },
     autoSkipScoreThreshold: { value: 65, default: 65, override: null },
-    pdfRenderer: { value: "rxresume", default: "rxresume", override: null },
+    pdfRenderer: { value: "typst", default: "typst", override: null },
     modelScorer: { value: "model-scorer", override: null },
     modelTailoring: { value: "model-tailoring", override: null },
     modelProjectSelection: { value: "model-project-selection", override: null },

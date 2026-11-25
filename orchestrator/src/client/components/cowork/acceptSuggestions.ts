@@ -2,14 +2,14 @@ import { applyLibraryUpdate, getItemLines, KIND_SECTION } from "@shared/resume-l
 import type {
   ExperienceBullet,
   ExperienceBulletInput,
-  ReactiveResumeV5Document,
+  ResumeV5Document,
   ResumeSuggestionV2,
   SaveTarget,
 } from "@shared/types";
 import { applySuggestions } from "./editor";
 
 export interface AcceptResult {
-  document: ReactiveResumeV5Document;
+  document: ResumeV5Document;
   applied: string[];
   rejected: { id: string; code: "STALE" | "INVALID_TARGET" | "FAILED" }[];
   library: ExperienceBullet[];
@@ -25,7 +25,7 @@ type AcceptApi = {
 
 /** The reviewed fields sent by an explicit Save to library action. */
 export function librarySaveInput(
-  document: ReactiveResumeV5Document,
+  document: ResumeV5Document,
   target: SaveTarget,
   library: ExperienceBullet[],
   checkPreviousText = true,
@@ -106,7 +106,7 @@ export function librarySaveInput(
 }
 
 function rejectionCode(
-  document: ReactiveResumeV5Document,
+  document: ResumeV5Document,
   s: ResumeSuggestionV2,
 ): "STALE" | "INVALID_TARGET" {
   if (s.op === "replace_headline" || s.op === "replace_summary") return "STALE";
@@ -141,7 +141,7 @@ function rejectionCode(
 export async function executeAcceptedSuggestions(
   state: {
     jobId: string;
-    document: ReactiveResumeV5Document;
+    document: ResumeV5Document;
     baseRevision: number;
     library: ExperienceBullet[];
   },

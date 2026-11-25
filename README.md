@@ -59,13 +59,13 @@ Sign-in uses JobOps accounts by default, and can also use Google, GitHub, or any
 
 ## How It Works
 
-| Step       | What happens                                                                |
-| ---------- | --------------------------------------------------------------------------- |
-| **Search** | Scrapes 10+ job boards for roles matching your criteria                     |
-| **Score**  | AI ranks each job 0-100 against your profile                                |
-| **Tailor** | Generates a rewritten CV matched to each job description                    |
-| **Export** | Creates a polished PDF locally, or via [Reactive Resume](https://rxresu.me) |
-| **Track**  | Connects to Gmail and auto-detects interviews, offers, and rejections       |
+| Step       | What happens                                                          |
+| ---------- | --------------------------------------------------------------------- |
+| **Search** | Scrapes 10+ job boards for roles matching your criteria               |
+| **Score**  | AI ranks each job 0-100 against your profile                          |
+| **Tailor** | Generates a rewritten CV matched to each job description              |
+| **Export** | Creates a polished PDF locally with Typst or LaTeX                    |
+| **Track**  | Connects to Gmail and auto-detects interviews, offers, and rejections |
 
 ---
 

@@ -1,7 +1,6 @@
-import { escapeHtmlText } from "@infra/html";
 import { createId } from "@paralleldrive/cuid2";
 import { resolvePublicBaseUrl } from "@server/infra/public-availability";
-import { defaultV5ResumeData, metadataSchema, parseV5ResumeData } from "./schema/v5";
+import { defaultV5ResumeData, metadataSchema } from "./schema/v5";
 
 type RecordLike = Record<string, unknown>;
 
@@ -51,8 +50,6 @@ const DEFAULT_SIDEBAR_SECTIONS = [
   "interests",
   "publications",
 ];
-
-const STANDARD_SECTION_KEYS = Object.keys(defaultV5ResumeData.sections);
 
 function asRecord(value: unknown): RecordLike | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as RecordLike) : null;
@@ -208,91 +205,6 @@ function normalizeItemUrl(
   };
 }
 
-function absolutizeUrlString(value: string, publicBaseUrl: string | null): string {
-  return value.startsWith("/") && publicBaseUrl ? `${publicBaseUrl}${value}` : value;
-}
-
-function absolutizeV5UrlNode(value: unknown, publicBaseUrl: string | null): unknown {
-  const record = asRecord(value);
-  if (!record) return value;
-
-  const url = toText(record.url).trim();
-  if (!url || !publicBaseUrl || !url.startsWith("/")) {
-    return structuredClone(record);
-  }
-
-  return {
-    ...record,
-    url: `${publicBaseUrl}${url}`,
-  };
-}
-
-function absolutizeSectionWebsites(section: unknown, publicBaseUrl: string | null): unknown {
-  const record = asRecord(section);
-  if (!record) return section;
-
-  return {
-    ...record,
-    items: asArray(record.items).map((item) => {
-      const itemRecord = asRecord(item);
-      if (!itemRecord) return item;
-      return {
-        ...itemRecord,
-        website: absolutizeV5UrlNode(itemRecord.website, publicBaseUrl),
-      };
-    }),
-  };
-}
-
-function looksLikeHtml(value: string): boolean {
-  return /<\/?[a-z][\s\S]*>/i.test(value);
-}
-
-function ensureHtmlBlock(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed || looksLikeHtml(trimmed)) return value;
-
-  return trimmed
-    .split(/\n{2,}/)
-    .map((paragraph) => {
-      const html = escapeHtmlText(paragraph.trim()).replace(/\n/g, "<br>");
-      return `<p>${html}</p>`;
-    })
-    .join("");
-}
-
-function prepareRichTextItemForExternalUse(item: unknown): unknown {
-  const record = asRecord(item);
-  if (!record) return item;
-
-  return {
-    ...record,
-    ...(typeof record.description === "string"
-      ? { description: ensureHtmlBlock(record.description) }
-      : {}),
-    ...(typeof record.content === "string" ? { content: ensureHtmlBlock(record.content) } : {}),
-    ...(typeof record.recipient === "string"
-      ? { recipient: ensureHtmlBlock(record.recipient) }
-      : {}),
-    ...(Array.isArray(record.roles)
-      ? {
-          roles: record.roles.map((role) => prepareRichTextItemForExternalUse(role)),
-        }
-      : {}),
-  };
-}
-
-function prepareSectionForExternalUse(section: unknown, publicBaseUrl: string | null): unknown {
-  const withAbsoluteWebsites = absolutizeSectionWebsites(section, publicBaseUrl);
-  const record = asRecord(withAbsoluteWebsites);
-  if (!record) return withAbsoluteWebsites;
-
-  return {
-    ...record,
-    items: asArray(record.items).map((item) => prepareRichTextItemForExternalUse(item)),
-  };
-}
-
 function normalizeCustomFields(value: unknown) {
   return asArray(value).map((field) => {
     const record = asRecord(field) ?? {};
@@ -406,11 +318,11 @@ function buildMetadata(source: RecordLike, publicBaseUrl: string | null): Record
   };
 }
 
-export function buildDefaultReactiveResumeDocument(): RecordLike {
+export function buildDefaultResumeDocument(): RecordLike {
   return structuredClone(defaultV5ResumeData) as RecordLike;
 }
 
-export function normalizeReactiveResumeV5Document(
+export function normalizeResumeV5Document(
   input: unknown,
   options: { requestOrigin?: string | null } = {},
 ): RecordLike {
@@ -420,7 +332,7 @@ export function normalizeReactiveResumeV5Document(
   const summary = asRecord(source.summary) ?? {};
   const sections = asRecord(source.sections) ?? {};
   const customSections = asArray(source.customSections);
-  const defaults = buildDefaultReactiveResumeDocument();
+  const defaults = buildDefaultResumeDocument();
   const publicBaseUrl = resolvePublicBaseUrl({
     requestOrigin: options.requestOrigin ?? null,
   });
@@ -648,106 +560,5 @@ export function normalizeReactiveResumeV5Document(
     },
     customSections: customSections.map((section) => structuredClone(section)) as unknown[],
     metadata: buildMetadata(source, publicBaseUrl),
-  };
-}
-
-export function prepareReactiveResumeV5DocumentForExternalUse(
-  input: unknown,
-  options: { requestOrigin?: string | null } = {},
-): RecordLike {
-  const publicBaseUrl = resolvePublicBaseUrl({
-    requestOrigin: options.requestOrigin ?? null,
-  });
-  const parsed = parseV5ResumeData(input) as RecordLike;
-  const picture = asRecord(parsed.picture) ?? {};
-  const basics = asRecord(parsed.basics) ?? {};
-  const summary = asRecord(parsed.summary) ?? {};
-  const sections = asRecord(parsed.sections) ?? {};
-
-  return {
-    ...parsed,
-    picture: {
-      ...picture,
-      url: absolutizeUrlString(toText(picture.url), publicBaseUrl),
-    },
-    basics: {
-      ...basics,
-      website: absolutizeV5UrlNode(basics.website, publicBaseUrl),
-    },
-    summary: {
-      ...summary,
-      content:
-        typeof summary.content === "string" ? ensureHtmlBlock(summary.content) : summary.content,
-    },
-    sections: {
-      ...sections,
-      profiles: prepareSectionForExternalUse(sections.profiles, publicBaseUrl),
-      experience: prepareSectionForExternalUse(sections.experience, publicBaseUrl),
-      education: prepareSectionForExternalUse(sections.education, publicBaseUrl),
-      projects: prepareSectionForExternalUse(sections.projects, publicBaseUrl),
-      awards: prepareSectionForExternalUse(sections.awards, publicBaseUrl),
-      certifications: prepareSectionForExternalUse(sections.certifications, publicBaseUrl),
-      publications: prepareSectionForExternalUse(sections.publications, publicBaseUrl),
-      volunteer: prepareSectionForExternalUse(sections.volunteer, publicBaseUrl),
-      references: prepareSectionForExternalUse(sections.references, publicBaseUrl),
-    },
-    customSections: asArray(parsed.customSections).map((section) => {
-      const record = asRecord(section);
-      if (!record) return section;
-      return {
-        ...record,
-        items: asArray(record.items).map((item) => prepareRichTextItemForExternalUse(item)),
-      };
-    }),
-  };
-}
-
-function mergeSectionWithTitleFallback(
-  upstreamSection: unknown,
-  localSection: unknown,
-): RecordLike {
-  const upstream = asRecord(upstreamSection) ?? {};
-  const local = asRecord(localSection) ?? {};
-
-  const upstreamTitle = toText(upstream.title);
-  const localTitle = toText(local.title);
-
-  const resolvedTitle =
-    localTitle.trim().length === 0 && upstreamTitle.trim().length > 0 ? upstreamTitle : localTitle;
-
-  return {
-    ...structuredClone(local),
-    title: resolvedTitle,
-  };
-}
-
-export function mergeReactiveResumeV5Content(
-  templateInput: unknown,
-  contentInput: unknown,
-  options: { requestOrigin?: string | null } = {},
-): RecordLike {
-  void options;
-
-  const template = parseV5ResumeData(templateInput) as RecordLike;
-  const content = parseV5ResumeData(contentInput) as RecordLike;
-
-  const templateSections = asRecord(template.sections) ?? {};
-  const contentSections = asRecord(content.sections) ?? {};
-  const mergedSections: RecordLike = structuredClone(contentSections);
-
-  for (const sectionKey of STANDARD_SECTION_KEYS) {
-    mergedSections[sectionKey] = mergeSectionWithTitleFallback(
-      templateSections[sectionKey],
-      contentSections[sectionKey],
-    );
-  }
-
-  return {
-    ...template,
-    picture: structuredClone(content.picture),
-    basics: structuredClone(content.basics),
-    summary: mergeSectionWithTitleFallback(template.summary, content.summary),
-    sections: mergedSections,
-    customSections: structuredClone(content.customSections),
   };
 }

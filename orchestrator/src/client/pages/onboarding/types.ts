@@ -11,9 +11,4 @@ export type OnboardingFormData = {
   llmApiKey: string;
   model: string;
   pdfRenderer: PdfRenderer;
-  rxresumeUrl: string;
-  rxresumeApiKey: string;
-  rxresumeBaseResumeId: string | null;
 };
-
-export type ResumeSetupMode = "upload" | "rxresume";

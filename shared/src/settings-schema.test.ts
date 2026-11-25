@@ -154,34 +154,6 @@ describe("updateSettingsSchema", () => {
     expect(result.error.flatten().fieldErrors.chatStyleManualLanguage).toBeDefined();
   });
 
-  it("accepts a nullable rxresumeUrl and rejects invalid URLs", () => {
-    expect(
-      updateSettingsSchema.parse({
-        rxresumeUrl: "https://resume.example.com",
-      }),
-    ).toEqual({
-      rxresumeUrl: "https://resume.example.com",
-    });
-
-    expect(
-      updateSettingsSchema.parse({
-        rxresumeUrl: null,
-      }),
-    ).toEqual({
-      rxresumeUrl: null,
-    });
-
-    const result = updateSettingsSchema.safeParse({
-      rxresumeUrl: "not-a-url",
-    });
-
-    expect(result.success).toBe(false);
-    if (result.success) {
-      return;
-    }
-    expect(result.error.flatten().fieldErrors.rxresumeUrl).toBeDefined();
-  });
-
   it("accepts prompt template overrides up to 12000 characters", () => {
     const prompt = "A".repeat(12000);
 

@@ -2,7 +2,7 @@ import { getSetting } from "@server/repositories/settings";
 import { htmlToPlainText, introTextToHtml, splitDescription } from "@shared/resume-bullets";
 import { libraryItemToResumeItem, setItemLines, stampLibraryRefs } from "@shared/resume-links";
 import { resolveResumeProjectSelection } from "@shared/resume-projects";
-import type { ExperienceBullet, Job, ReactiveResumeV5Document } from "@shared/types";
+import type { ExperienceBullet, Job, ResumeV5Document } from "@shared/types";
 import { z } from "zod";
 import { libraryBulletOverlap, selectLibraryBullets } from "./cowork-ai";
 import { withHostedUsageReservation } from "./hosted-usage";
@@ -13,8 +13,8 @@ import {
 } from "./output-language";
 import { getEffectivePromptTemplate } from "./prompt-templates";
 import { resolveResumeProjectsSettings } from "./resumeProjects";
-import { parseV5ResumeData } from "./rxresume/schema/v5";
-import { extractProjectsFromResume } from "./rxresume/tailoring";
+import { parseV5ResumeData } from "./resume-document/schema/v5";
+import { extractProjectsFromResume } from "./resume-document/tailoring";
 import { getWritingStyle } from "./writing-style";
 
 // Reject oversized input before reserving usage; never send contacts, photos or raw data blobs.
@@ -142,10 +142,10 @@ const promptPlainText = (html: string) =>
 
 /** Select facts once; every generated item and duty retains its library identity. */
 export async function generateResumeFromLibrary(
-  base: ReactiveResumeV5Document,
+  base: ResumeV5Document,
   job: Job,
   library: ExperienceBullet[],
-): Promise<ReactiveResumeV5Document> {
+): Promise<ResumeV5Document> {
   const stampedBase = stampLibraryRefs(base, library).doc;
   // Settings use base-resume ids; generation uses library ids. Retain the
   // base identity/visibility when matched, and offer library-only projects to AI.
@@ -483,7 +483,7 @@ export async function generateResumeFromLibrary(
       );
     }
     return {
-      result: parseV5ResumeData(doc) as ReactiveResumeV5Document,
+      result: parseV5ResumeData(doc) as ResumeV5Document,
       usedUnits: 1,
     };
   });

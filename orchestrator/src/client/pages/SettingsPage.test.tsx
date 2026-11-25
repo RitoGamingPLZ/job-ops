@@ -47,8 +47,6 @@ vi.mock("../api", () => ({
   }),
   disconnectCodexAuth: vi.fn(),
   updateSettings: vi.fn(),
-  validateRxresume: vi.fn(),
-  getRxResumeProjects: vi.fn(),
   clearDatabase: vi.fn(),
   deleteJobsByStatus: vi.fn(),
   getBackups: vi.fn().mockResolvedValue({ backups: [], nextScheduled: null }),
@@ -162,9 +160,9 @@ const openPromptTemplatesSection = async () => {
   await clickLastButtonByName(/prompt templates/i);
 };
 
-const openReactiveResumeSection = async () => {
+const openResumePdfSection = async () => {
   await openNavGroup(/^integrations$/i);
-  await clickLastButtonByName(/reactive resume/i);
+  await clickLastButtonByName(/resume pdf/i);
 };
 
 const openDisplaySection = async () => {
@@ -215,11 +213,6 @@ describe("SettingsPage", () => {
         quotasEnabled: true,
         actions: [],
       },
-    });
-    vi.mocked(api.validateRxresume).mockResolvedValue({
-      valid: false,
-      message: "Missing credentials",
-      status: 400,
     });
   });
 
@@ -752,46 +745,6 @@ describe("SettingsPage", () => {
     expect(await screen.findByText("Current plan")).toBeInTheDocument();
   });
 
-  it("does not mark Reactive Resume settings dirty when project catalog hydration finishes", async () => {
-    vi.mocked(api.validateRxresume).mockResolvedValue({
-      valid: true,
-      message: null,
-      status: 200,
-    });
-    vi.mocked(api.getRxResumeProjects).mockResolvedValue([
-      {
-        id: "proj-1",
-        name: "Project One",
-        description: "Desc 1",
-        date: "2024",
-        isVisibleInBase: true,
-      },
-    ]);
-    vi.mocked(api.getSettings).mockResolvedValue(
-      createAppSettings({
-        rxresumeApiKeyHint: "rr-v5",
-        rxresumeBaseResumeId: "resume-123",
-        profileProjects: [
-          {
-            id: "proj-1",
-            name: "Project One",
-            description: "Desc 1",
-            date: "2024",
-            isVisibleInBase: true,
-          },
-        ],
-      }),
-    );
-
-    renderPage();
-    await openReactiveResumeSection();
-
-    await waitFor(() => expect(api.getRxResumeProjects).toHaveBeenCalled());
-
-    const saveButton = getSaveButton();
-    await waitFor(() => expect(saveButton).toBeDisabled());
-  });
-
   it("does not clear the model override when saving an unrelated setting", async () => {
     vi.mocked(api.getSettings).mockResolvedValue(
       createAppSettings({
@@ -869,59 +822,7 @@ describe("SettingsPage", () => {
     await waitFor(() => expect(saveButton).toBeEnabled());
   });
 
-  it("allows saving when Reactive Resume credentials are present", async () => {
-    const settingsWithRxResumeAuth = createAppSettings({
-      rxresumeApiKeyHint: "api_",
-    });
-    vi.mocked(api.getSettings).mockResolvedValue(settingsWithRxResumeAuth);
-    vi.mocked(api.updateSettings).mockResolvedValue(settingsWithRxResumeAuth);
-
-    renderPage();
-
-    await openDisplaySection();
-    const markdownCheckbox = screen.getByLabelText(/render markdown/i);
-    fireEvent.click(markdownCheckbox);
-
-    const saveButton = getSaveButton();
-    await waitFor(() => expect(saveButton).toBeEnabled());
-    fireEvent.click(saveButton);
-
-    await waitFor(() => expect(api.updateSettings).toHaveBeenCalled());
-    expect(toast.error).not.toHaveBeenCalledWith(
-      "Choose one Reactive Resume auth method",
-      expect.anything(),
-    );
-  });
-
-  it("saves a shared RxResume URL from the Reactive Resume section", async () => {
-    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
-    vi.mocked(api.updateSettings).mockResolvedValue({
-      ...baseSettings,
-      rxresumeUrl: "https://resume.example.com",
-    });
-
-    renderPage();
-
-    await openReactiveResumeSection();
-    const urlInput = screen.getByLabelText(/rxresume url/i);
-    await waitFor(() => expect(urlInput).toBeEnabled());
-    fireEvent.change(urlInput, {
-      target: { value: "https://resume.example.com" },
-    });
-
-    const saveButton = getSaveButton();
-    await waitFor(() => expect(saveButton).toBeEnabled());
-    fireEvent.click(saveButton);
-
-    await waitFor(() => expect(api.updateSettings).toHaveBeenCalled());
-    expect(api.updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        rxresumeUrl: "https://resume.example.com",
-      }),
-    );
-  });
-
-  it("saves the PDF paper size from the Reactive Resume section", async () => {
+  it("saves the PDF paper size from the Resume PDF section", async () => {
     vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
     vi.mocked(api.updateSettings).mockResolvedValue(
       createAppSettings({
@@ -930,7 +831,7 @@ describe("SettingsPage", () => {
     );
 
     renderPage();
-    await openReactiveResumeSection();
+    await openResumePdfSection();
 
     const paperSizeSelect = screen.getByRole("combobox", {
       name: /paper size/i,
@@ -948,142 +849,6 @@ describe("SettingsPage", () => {
     await waitFor(() => expect(api.updateSettings).toHaveBeenCalled());
     expect(api.updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({ pdfPaperSize: "letter" }),
-    );
-  });
-
-  it("blocks save and renders an inline alert when the v5 API key is invalid", async () => {
-    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
-
-    renderPage();
-    await openReactiveResumeSection();
-
-    await waitFor(() => expect(api.validateRxresume).toHaveBeenCalled());
-    vi.mocked(api.validateRxresume).mockClear();
-    vi.mocked(api.validateRxresume).mockResolvedValue({
-      valid: false,
-      message: "Reactive Resume v5 API key is invalid. Update the API key and try again.",
-      status: 401,
-    });
-
-    fireEvent.change(screen.getByLabelText(/v5 api key/i), {
-      target: { value: "invalid-v5-key" },
-    });
-
-    const saveButton = getSaveButton();
-    await waitFor(() => expect(saveButton).toBeEnabled());
-    fireEvent.click(saveButton);
-
-    expect(await screen.findAllByText(/Reactive Resume v5 API key is invalid/i)).not.toHaveLength(
-      0,
-    );
-    expect(api.updateSettings).not.toHaveBeenCalled();
-  });
-
-  it("does not show background RxResume credential failures as an invalid settings state", async () => {
-    vi.mocked(api.getSettings).mockResolvedValue(
-      createAppSettings({
-        rxresumeApiKeyHint: "rr-v5",
-      }),
-    );
-    vi.mocked(api.validateRxresume).mockResolvedValue({
-      valid: false,
-      message:
-        "Reactive Resume API key is not configured. Set RXRESUME_API_KEY or configure rxresumeApiKey in Settings.",
-      status: 400,
-    });
-
-    renderPage();
-    await openReactiveResumeSection();
-
-    await waitFor(() => expect(api.validateRxresume).toHaveBeenCalled());
-    expect(screen.queryByText(/Reactive Resume API error/i)).toBeNull();
-    expect(screen.queryByText(/API key is not configured/i)).toBeNull();
-    expect(screen.getByText(/v5 status: not tested/i)).toBeInTheDocument();
-  });
-
-  it("allows saving on RxResume availability warnings and keeps the inline warning visible", async () => {
-    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
-    vi.mocked(api.updateSettings).mockResolvedValue({
-      ...baseSettings,
-      rxresumeApiKeyHint: "rr-v",
-    });
-
-    renderPage();
-    await openReactiveResumeSection();
-
-    await waitFor(() => expect(api.validateRxresume).toHaveBeenCalled());
-    vi.mocked(api.validateRxresume).mockClear();
-    vi.mocked(api.validateRxresume).mockResolvedValue({
-      valid: false,
-      message:
-        "JobOps could not verify Reactive Resume because the instance is unavailable right now.",
-      status: 0,
-    });
-
-    fireEvent.change(screen.getByLabelText(/v5 api key/i), {
-      target: { value: "rr-v5-warning-key" },
-    });
-
-    const saveButton = getSaveButton();
-    await waitFor(() => expect(saveButton).toBeEnabled());
-    fireEvent.click(saveButton);
-
-    await waitFor(() => expect(api.updateSettings).toHaveBeenCalled());
-    expect(await screen.findByText(/instance is unavailable right now/i)).toBeInTheDocument();
-    expect(toast.success).toHaveBeenCalledWith("Settings saved");
-    expect(toast.info).toHaveBeenCalledWith(
-      "Settings saved, but JobOps could not verify Reactive Resume because the instance is unavailable.",
-    );
-  });
-
-  it("does not run RxResume validation for unrelated settings saves", async () => {
-    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
-    vi.mocked(api.updateSettings).mockResolvedValue({
-      ...baseSettings,
-      model: {
-        value: "new-model",
-        default: baseSettings.model.default,
-        override: "new-model",
-      },
-    });
-
-    renderPage();
-    await openModelSection();
-    await waitFor(() => expect(api.validateRxresume).toHaveBeenCalled());
-    vi.mocked(api.validateRxresume).mockClear();
-
-    fireEvent.change(screen.getByLabelText(/default model/i), {
-      target: { value: "new-model" },
-    });
-
-    const saveButton = getSaveButton();
-    await waitFor(() => expect(saveButton).toBeEnabled());
-    fireEvent.click(saveButton);
-
-    await waitFor(() => expect(api.updateSettings).toHaveBeenCalled());
-    expect(api.validateRxresume).not.toHaveBeenCalled();
-  });
-
-  it("clears the previous RxResume warning when the key or URL changes", async () => {
-    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
-    vi.mocked(api.validateRxresume).mockResolvedValue({
-      valid: false,
-      message:
-        "JobOps could not verify Reactive Resume because the instance is unavailable right now.",
-      status: 0,
-    });
-
-    renderPage();
-    await openReactiveResumeSection();
-
-    expect(await screen.findByText(/instance is unavailable right now/i)).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText(/rxresume url/i), {
-      target: { value: "https://resume.example.com" },
-    });
-
-    await waitFor(() =>
-      expect(screen.queryByText(/instance is unavailable right now/i)).not.toBeInTheDocument(),
     );
   });
 

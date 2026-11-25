@@ -1,6 +1,6 @@
-import type { ExperienceBullet, ReactiveResumeV5Document } from "@shared/types";
+import type { ExperienceBullet, ResumeV5Document } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
+import { buildDefaultResumeDocument } from "./resume-document/document";
 
 const { callJson, list, reserve } = vi.hoisted(() => ({
   callJson: vi.fn(),
@@ -20,8 +20,8 @@ vi.mock("@server/repositories/experience-bullets", () => ({
 import { SCREENING_RESPONSE_SCHEMA, screenResume } from "./cowork-screening";
 
 const job = { title: "Engineer", employer: "Acme", jobDescription: "Java" };
-function doc(): ReactiveResumeV5Document {
-  const document = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+function doc(): ResumeV5Document {
+  const document = buildDefaultResumeDocument() as ResumeV5Document;
   document.sections.experience.items = [
     {
       id: "exp",

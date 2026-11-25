@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ReactiveResumeV5Document } from "@shared/types";
+import type { ResumeV5Document } from "@shared/types";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("@shared/resume-links", async (importOriginal) => {
@@ -41,7 +41,7 @@ let dir: string;
 let api: typeof import("./candidate-library");
 let database: typeof import("../db");
 let run: typeof import("@infra/request-context").runWithRequestContext;
-let document: ReactiveResumeV5Document;
+let document: ResumeV5Document;
 const scope = <T>(tenantId: string, fn: () => T) =>
   run({ requestId: "library-test", tenantId }, fn);
 beforeEach(async () => {
@@ -54,8 +54,8 @@ beforeEach(async () => {
   database = await import("../db");
   ({ runWithRequestContext: run } = await import("@infra/request-context"));
   api = await import("./candidate-library");
-  const { buildDefaultReactiveResumeDocument } = await import("./rxresume/document");
-  document = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+  const { buildDefaultResumeDocument } = await import("./resume-document/document");
+  document = buildDefaultResumeDocument() as ResumeV5Document;
   database.db
     .insert(database.schema.tenants)
     .values([

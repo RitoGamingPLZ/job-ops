@@ -147,5 +147,5 @@ Compatibility thread endpoints remain, but UI behavior is one thread per job.
 
 - [Settings](/docs/next/features/settings)
 - [Co-work resume editor and candidate library](/docs/next/features/design-resume)
-- [Reactive Resume](/docs/next/features/reactive-resume)
+- [Resume PDF and projects](/docs/next/features/resume-pdf)
 - [Orchestrator](/docs/next/features/orchestrator)

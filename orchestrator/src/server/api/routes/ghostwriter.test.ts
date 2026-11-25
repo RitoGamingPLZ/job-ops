@@ -8,7 +8,7 @@ import {
   sendMessageForJob,
   updateContextForJob,
 } from "@server/services/ghostwriter";
-import { buildDefaultReactiveResumeDocument } from "@server/services/rxresume/document";
+import { buildDefaultResumeDocument } from "@server/services/resume-document/document";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
@@ -221,7 +221,7 @@ describe("Ghostwriter API", () => {
 
   it("validates and forwards cowork context on both message routes", async () => {
     const cowork = {
-      document: buildDefaultReactiveResumeDocument(),
+      document: buildDefaultResumeDocument(),
       referencedBulletIds: [],
     };
     for (const [path, service] of [
@@ -249,7 +249,7 @@ describe("Ghostwriter API", () => {
 
   it("forwards cowork on thread and per-job regenerate/edit endpoints", async () => {
     const cowork = {
-      document: buildDefaultReactiveResumeDocument(),
+      document: buildDefaultResumeDocument(),
       referencedBulletIds: [],
     };
     const cases = [

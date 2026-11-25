@@ -55,10 +55,9 @@ export type LlmPurposeOverrides = Partial<Record<LlmPurpose, LlmPurposeOverride>
 export type LlmPurposeApiKeys = Partial<Record<LlmPurpose, string | null>>;
 export type LlmPurposeApiKeyHints = Partial<Record<LlmPurpose, string | null>>;
 
-export const PDF_RENDERER_VALUES = ["rxresume", "latex", "typst"] as const;
+export const PDF_RENDERER_VALUES = ["latex", "typst"] as const;
 export type PdfRenderer = (typeof PDF_RENDERER_VALUES)[number];
 export const PDF_RENDERER_LABELS: Record<PdfRenderer, string> = {
-  rxresume: "RxResume export",
   latex: "Local LaTeX (Jake template)",
   typst: "Local Typst",
 };
@@ -203,8 +202,6 @@ export type OnboardingRequirementPrimaryAction =
   | "save_profile"
   | "confirm_resume"
   | "upload_resume"
-  | "connect_rxresume"
-  | "select_rxresume_template"
   | "recheck"
   | "none";
 
@@ -301,15 +298,12 @@ export interface AppSettings {
   modelProjectSelection: ModelResolved;
 
   // Simple strings:
-  rxresumeBaseResumeId: string | null;
-  rxresumeUrl: string | null;
   ukvisajobsEmail: string | null;
   adzunaAppId: string | null;
 
   // Secret hints:
   llmApiKeyHint: string | null;
   llmPurposeApiKeyHints: LlmPurposeApiKeyHints;
-  rxresumeApiKeyHint: string | null;
   ukvisajobsPasswordHint: string | null;
   adzunaAppKeyHint: string | null;
   apifyTokenHint: string | null;

@@ -19,7 +19,7 @@ import { NAVY_SERIF_CSS_VARS, NAVY_SERIF_STYLE } from "@shared/resume-style/navy
 import type {
   EntrySection,
   ExperienceBullet,
-  ReactiveResumeV5Document,
+  ResumeV5Document,
   ResumeFocusRef,
   ResumeSuggestionV2,
 } from "@shared/types";
@@ -227,8 +227,8 @@ type Props = {
   onSaveLineToLibrary?: (libraryId: string, text: string) => void;
   /** Save a linked entry's changed fields to its library item. */
   onSaveEntryToLibrary?: (section: EntrySection, itemId: string) => void;
-  document: ReactiveResumeV5Document;
-  onChange: (document: ReactiveResumeV5Document) => void;
+  document: ResumeV5Document;
+  onChange: (document: ResumeV5Document) => void;
   suggestions: ResumeSuggestionV2[];
   onDismiss: (ids: string[]) => void;
   onAccept: (items: ResumeSuggestionV2[]) => void;
@@ -461,7 +461,7 @@ export function ResumeEditor({
       />
     );
   }
-  function change(edit: (next: ReactiveResumeV5Document) => void) {
+  function change(edit: (next: ResumeV5Document) => void) {
     const next = structuredClone(currentDocument.current);
     edit(next);
     currentDocument.current = next;

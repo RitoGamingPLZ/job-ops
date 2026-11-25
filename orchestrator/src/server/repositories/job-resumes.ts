@@ -1,5 +1,5 @@
 import { conflict, notFound } from "@infra/errors";
-import type { JobResumeState, ReactiveResumeV5Document, ResumeListItem } from "@shared/types";
+import type { JobResumeState, ResumeV5Document, ResumeListItem } from "@shared/types";
 import { and, desc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
@@ -23,7 +23,7 @@ export async function getJobResume(jobId: string): Promise<JobResumeState | null
 export async function saveJobResume(
   jobId: string,
   baseRevision: number,
-  document: ReactiveResumeV5Document,
+  document: ResumeV5Document,
 ): Promise<JobResumeState> {
   return db.transaction((tx) => {
     const job = tx

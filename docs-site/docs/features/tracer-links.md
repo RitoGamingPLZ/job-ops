@@ -9,7 +9,7 @@ sidebar_position: 8
 
 Tracer Links are per-job redirect links that are generated when a PDF is created.
 
-When enabled for a job, JobOps rewrites eligible outbound RxResume links to your JobOps host, then redirects to the original destination after recording a click event.
+When enabled for a job, JobOps rewrites eligible outbound resume links to your JobOps host, then redirects to the original destination after recording a click event.
 
 Examples:
 
@@ -146,6 +146,6 @@ Fix:
 ## Related pages
 
 - [Settings](/docs/next/features/settings)
-- [Reactive Resume](/docs/next/features/reactive-resume)
+- [Resume PDF and projects](/docs/next/features/resume-pdf)
 - [Find Jobs and Apply Workflow](/docs/next/workflows/find-jobs-and-apply-workflow)
 - [Post-Application Tracking](/docs/next/features/post-application-tracking)

@@ -13,11 +13,11 @@ import { CodexClient } from "@server/services/llm/codex/client";
 import { GeminiCliClient } from "@server/services/llm/gemini-cli/client";
 import type { JsonSchemaDefinition } from "@server/services/llm/types";
 import { resolveLlmRuntimeSettings } from "@server/services/modelSelection";
-import { normalizeReactiveResumeV5Document } from "@server/services/rxresume/document";
+import { normalizeResumeV5Document } from "@server/services/resume-document/document";
 import {
   getResumeSchemaValidationMessage,
   safeParseV5ResumeData,
-} from "@server/services/rxresume/schema";
+} from "@server/services/resume-document/schema";
 import { decodeBase64Upload } from "@server/services/upload-base64";
 import { DOCX_MIME } from "@shared/job-document-classification.js";
 import { mapGlmProviderAlias } from "@shared/settings-registry";
@@ -928,7 +928,7 @@ function filterRequiredItems(items: unknown, requiredField: string): unknown[] {
 }
 
 function sanitizeNormalizedResume(input: unknown): DesignResumeJson {
-  const normalized = normalizeReactiveResumeV5Document(input) as RecordLike;
+  const normalized = normalizeResumeV5Document(input) as RecordLike;
   const sections = asRecord(normalized.sections) ?? {};
 
   normalized.sections = {
@@ -993,7 +993,7 @@ function sanitizeNormalizedResume(input: unknown): DesignResumeJson {
   return parsed.data as DesignResumeJson;
 }
 
-function asReactiveResumeExportObject(input: unknown): RecordLike | null {
+function asResumeExportObject(input: unknown): RecordLike | null {
   const record = asRecord(input);
   if (!record) return null;
   if (asRecord(record.basics) && asRecord(record.sections)) return record;
@@ -1010,9 +1010,9 @@ function asReactiveResumeExportObject(input: unknown): RecordLike | null {
   return null;
 }
 
-function parseReactiveResumeJsonFile(content: string): DesignResumeJson {
+function parseResumeJsonFile(content: string): DesignResumeJson {
   const parsed = parseImportedResumeJson(content);
-  const candidate = asReactiveResumeExportObject(parsed);
+  const candidate = asResumeExportObject(parsed);
   if (!candidate) {
     throw badRequest(
       "Reactive Resume JSON must contain a v5 resume document or a data-wrapped v5 resume document.",
@@ -1742,9 +1742,7 @@ export async function importDesignResumeFromFile(
     });
 
     try {
-      const resumeJson = ensureImportedProjectIds(
-        parseReactiveResumeJsonFile(decoded.toString("utf8")),
-      );
+      const resumeJson = ensureImportedProjectIds(parseResumeJsonFile(decoded.toString("utf8")));
       const saved = await replaceCurrentDesignResumeDocument({
         importedAt: new Date().toISOString(),
         resumeJson,

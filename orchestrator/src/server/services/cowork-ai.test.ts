@@ -1,7 +1,7 @@
 import { notFound } from "@infra/errors";
 import type { CoworkChatContext, ExperienceBullet } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
+import { buildDefaultResumeDocument } from "./resume-document/document";
 
 const { callJson, list, reserve, update } = vi.hoisted(() => ({
   callJson: vi.fn(),
@@ -31,7 +31,7 @@ import {
 } from "./cowork-ai";
 
 function context(): CoworkChatContext {
-  const document = buildDefaultReactiveResumeDocument() as CoworkChatContext["document"];
+  const document = buildDefaultResumeDocument() as CoworkChatContext["document"];
   document.sections.experience.items = [
     {
       id: "exp",

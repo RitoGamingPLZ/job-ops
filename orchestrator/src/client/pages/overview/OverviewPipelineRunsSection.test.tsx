@@ -107,7 +107,7 @@ describe("OverviewPipelineRunsSection", () => {
             jobspyResultsWanted: 20,
           },
           autoSkipScoreThreshold: 60,
-          pdfRenderer: "rxresume",
+          pdfRenderer: "typst",
           models: {
             scorer: "gpt-scorer",
             tailoring: "gpt-tailor",

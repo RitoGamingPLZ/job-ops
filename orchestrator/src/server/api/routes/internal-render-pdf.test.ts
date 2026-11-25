@@ -54,7 +54,7 @@ describe("internal PDF rendering", () => {
     const invalid = await fetch(url, { method: "POST", headers, body: "{}" });
     expect(invalid.status).toBe(400);
 
-    const { defaultV5ResumeData } = await import("@server/services/rxresume/schema/v5");
+    const { defaultV5ResumeData } = await import("@server/services/resume-document/schema/v5");
     const resumeJson = structuredClone(defaultV5ResumeData);
     resumeJson.picture.hidden = false;
     resumeJson.picture.url = "/api/design-resume/assets/photo/content";

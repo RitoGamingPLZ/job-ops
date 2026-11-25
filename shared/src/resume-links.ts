@@ -1,5 +1,5 @@
 /**
- * Links between a job resume (RxResume v5 document) and the candidate library.
+ * Links between a job resume (v5 resume document) and the candidate library.
  *
  * Spec: docs/prd/resume-editor-candidate-library.md (§5, §6)
  * Plan: docs/prd/resume-editor-candidate-library.PLAN.md
@@ -26,9 +26,9 @@ import {
   splitDescription,
 } from "./resume-bullets";
 import type { CandidateItemKind, ExperienceBullet } from "./types/cowork";
-import type { ReactiveResumeV5Document } from "./types/design-resume";
+import type { ResumeV5Document } from "./types/design-resume";
 
-export type ResumeDoc = ReactiveResumeV5Document;
+export type ResumeDoc = ResumeV5Document;
 export type ResumeItem = Record<string, unknown>;
 
 /** Resume section that holds each top-level library kind. */

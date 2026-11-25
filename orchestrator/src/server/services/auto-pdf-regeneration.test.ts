@@ -45,7 +45,6 @@ vi.mock("./pdf-fingerprint", () => ({
     pdfRenderer: "latex",
     typstTheme: "classic",
     pdfPaperSize: "auto",
-    rxresumeBaseResumeId: null,
     resumeProjects: {
       maxProjects: 3,
       lockedProjectIds: [],
@@ -88,7 +87,6 @@ describe("auto PDF regeneration", () => {
       pdfRenderer: "latex",
       typstTheme: "classic",
       pdfPaperSize: "auto",
-      rxresumeBaseResumeId: null,
       resumeProjects: {
         maxProjects: 3,
         lockedProjectIds: [],
@@ -289,7 +287,6 @@ describe("auto PDF regeneration", () => {
       pdfRenderer: "typst",
       typstTheme: "compact",
       pdfPaperSize: "auto",
-      rxresumeBaseResumeId: null,
       resumeProjects: {
         maxProjects: 3,
         lockedProjectIds: [],

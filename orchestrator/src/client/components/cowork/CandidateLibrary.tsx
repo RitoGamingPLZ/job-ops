@@ -23,7 +23,7 @@ import type {
   LibraryItemUsage,
   LibrarySyncResult,
   RankedBullet,
-  ReactiveResumeV5Document,
+  ResumeV5Document,
 } from "@shared/types";
 import { MessageSquare, Plus, Trash2 } from "lucide-react";
 import { type SetStateAction, useCallback, useEffect, useId, useRef, useState } from "react";
@@ -113,7 +113,7 @@ const fieldNames: Record<string, string> = {
   issuer: "Issuer",
   date: "Date",
 };
-type Doc = ReactiveResumeV5Document;
+type Doc = ResumeV5Document;
 type Item = ExperienceBullet;
 type Edit = {
   items: Item[];

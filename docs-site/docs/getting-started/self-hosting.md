@@ -153,7 +153,7 @@ The onboarding flow saves three durable setup decisions:
 1. **Workspace account**: On brand-new installs, create the first username/password account directly in onboarding. This first account becomes the system admin and owns the initial private workspace.
 2. **Search preferences**: Select a required country, optionally enter preferred cities, and choose workplace styles. Remote, hybrid, and onsite are selected by default, and visa sponsorship is enabled by default. JobOps applies these values as defaults for future runs and sponsor-aware features.
 3. **LLM provider**: Choose OpenRouter by default, or connect another supported hosted or local provider such as Atlas Cloud or a LiteLLM proxy. The step completes only after the server verifies and persists the connection.
-4. **Resume review**: Upload a PDF/DOCX/Reactive Resume JSON, or connect Reactive Resume. JobOps shows the parsed resume and requires confirmation of the current document before setup completes.
+4. **Resume review**: Upload a PDF, DOCX, or resume JSON file. JobOps shows the parsed resume and requires confirmation of the current document before setup completes.
 
 Search terms are not part of onboarding. Choose or edit them when starting your first run.
 
@@ -163,11 +163,11 @@ System admins can create more users from **Settings → Environment & Workspaces
 
 ### What invited users can and cannot do
 
-Your server's environment (LLM key, Apify, Adzuna, UKVisaJobs, Reactive Resume, Gmail OAuth app, `WEBHOOK_SECRET`) belongs to the operator. Only system admins, workspaces where an admin has granted **Use server AI and job-source keys**, and background work in those workspaces may use it. Everyone else works as follows:
+Your server's environment (LLM key, Apify, Adzuna, UKVisaJobs, Gmail OAuth app, `WEBHOOK_SECRET`) belongs to the operator. Only system admins, workspaces where an admin has granted **Use server AI and job-source keys**, and background work in those workspaces may use it. Everyone else works as follows:
 
 - **AI**: Each user saves their own provider, key, and model in **Settings → Models**. Gemini is the default provider. CLI providers (Codex, Gemini CLI, Claude CLI) and local or custom endpoints are not available.
 - **Sources**: Sources that need operator credentials (Adzuna, Seek, and similar) are skipped for other users. UKVisaJobs runs only on credentials the user saved themselves.
-- **Integrations**: Reactive Resume must use the user's own key and a public HTTPS URL. Backups, the challenge viewer, and Codex sign-in are admin-only. Webhooks and the Tracking Inbox (Gmail) are off for invited users until an admin switches them on for that user.
+- **Integrations**: Backups, the challenge viewer, and Codex sign-in are admin-only. Webhooks and the Tracking Inbox (Gmail) are off for invited users until an admin switches them on for that user.
 - **Clear My Jobs** only deletes the signed-in workspace's jobs and runs.
 - **Limits**: Sign-in, searches, URL fetches, and AI actions are rate limited, and at most `MAX_CONCURRENT_PIPELINES` searches (default 3) run across all users at once.
 - **Fetching links**: Job-page fetches and non-admin webhooks only reach public http(s) hosts; redirects are re-checked and responses are size-capped.
@@ -181,13 +181,13 @@ Open **Settings → Environment & Workspaces** as a system admin.
 - **Invitations**: Enter a label (who it is for), pick an expiry (1 to 30 days) and the access they start with, then **Create invitation**. JobOps shows a one-time link such as `https://your-host/invite/<token>`; copy it and send it yourself (JobOps sends no email). The invitee picks their own username and password and gets a private workspace. A link works once, can be revoked while it is pending, and only its hash is stored. There is no open signup in local mode.
 - **Per-user access**: Each non-admin user has switches you can change at any time:
 
-  | Switch                            | Default | What it controls                                                       |
-  | --------------------------------- | ------- | ---------------------------------------------------------------------- |
-  | Use server AI and job-source keys | off     | Spending your LLM key, Apify/Adzuna tokens and Reactive Resume account |
-  | Email tracking inbox              | off     | Connecting Gmail and the Tracking Inbox                                |
-  | Webhooks                          | off     | Saving outgoing webhook URLs                                           |
-  | Run job searches                  | on      | Starting the discovery pipeline                                        |
-  | Import jobs from a URL            | on      | Server-side fetching of a job page                                     |
+  | Switch                            | Default | What it controls                           |
+  | --------------------------------- | ------- | ------------------------------------------ |
+  | Use server AI and job-source keys | off     | Spending your LLM key, Apify/Adzuna tokens |
+  | Email tracking inbox              | off     | Connecting Gmail and the Tracking Inbox    |
+  | Webhooks                          | off     | Saving outgoing webhook URLs               |
+  | Run job searches                  | on      | Starting the discovery pipeline            |
+  | Import jobs from a URL            | on      | Server-side fetching of a job page         |
 
   System admins always have every switch. Changes apply within seconds.
 
@@ -326,20 +326,12 @@ docker compose pull
 docker compose up -d
 ```
 
-## Self-hosted Reactive Resume
-
-If you self-host Reactive Resume, set:
-
-- `RXRESUME_URL=http://rxresume.local.net`
-- `RXRESUME_API_KEY=...` (or configure `rxresumeApiKey` in JobOps Settings)
-
 ## Local PDF rendering
 
-JobOps supports 3 PDF renderers:
+JobOps renders PDFs locally with one of 2 renderers:
 
-- `rxresume`: export the final PDF through RxResume
 - `latex`: render locally from tailored resume data using LaTeX and `tectonic`
-- `typst`: render locally from tailored resume data using Typst and a selectable theme
+- `typst` (default): render locally from tailored resume data using Typst and a selectable theme
 
 When using local renderers:
 
@@ -347,4 +339,4 @@ When using local renderers:
 - For non-Docker local runs, install `tectonic` yourself and optionally set `TECTONIC_BIN` if it is not on your `PATH`.
 - For non-Docker local runs with Typst, install `typst` yourself and optionally set `TYPST_BIN` if it is not on your `PATH`.
 
-Reactive Resume is an optional import source. After import, JobOps stores the base resume locally; edit it at `/resumes/base` in the [co-work resume editor](/docs/next/features/design-resume). Local renderers use the stored resume document at render time.
+After you import a base resume, JobOps stores it locally; edit it at `/resumes/base` in the [co-work resume editor](/docs/next/features/design-resume). Local renderers use the stored resume document at render time.

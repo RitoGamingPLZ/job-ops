@@ -118,11 +118,6 @@ vi.mock("@server/services/visa-sponsors/index", () => ({
 
 const originalEnv = { ...process.env };
 const isolatedEnvKeys = [
-  "RXRESUME_API_KEY",
-  "RXRESUME_EMAIL",
-  "RXRESUME_PASSWORD",
-  "RXRESUME_URL",
-  "RXRESUME_MODE",
   "LLM_API_KEY",
   "LLM_PROVIDER",
   "LLM_BASE_URL",

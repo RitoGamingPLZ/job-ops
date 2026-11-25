@@ -98,7 +98,6 @@ describe("PDF render freshness snapshot", () => {
       pdfRenderer: "latex",
       typstTheme: "classic",
       pdfPaperSize: "auto",
-      rxresumeBaseResumeId: null,
       resumeProjects: {
         maxProjects: 3,
         lockedProjectIds: [],

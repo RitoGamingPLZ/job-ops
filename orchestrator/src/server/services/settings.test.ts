@@ -29,10 +29,8 @@ vi.mock("./resumeProjects", () => ({
   resolveResumeProjectsSettings: vi.fn(),
 }));
 
-vi.mock("./rxresume", () => ({
+vi.mock("./resume-document", () => ({
   extractProjectsFromResume: vi.fn(),
-  getResume: vi.fn(),
-  RxResumeAuthConfigError: class RxResumeAuthConfigError extends Error {},
 }));
 
 import { logger } from "@infra/logger";
@@ -41,7 +39,7 @@ import { designResumeToProfile, getCurrentDesignResumeOrNullOnLegacy } from "./d
 import { getEnvSettingsData, getOriginalEnvValue } from "./envSettings";
 import { getProfile } from "./profile";
 import { extractProjectsFromProfile, resolveResumeProjectsSettings } from "./resumeProjects";
-import { extractProjectsFromResume } from "./rxresume";
+import { extractProjectsFromResume } from "./resume-document";
 import { getEffectiveSettings } from "./settings";
 
 describe("getEffectiveSettings", () => {
@@ -64,7 +62,7 @@ describe("getEffectiveSettings", () => {
       selectionItems: [],
     } as never);
     vi.mocked(extractProjectsFromResume).mockImplementation(() => {
-      throw new Error("should not use RxResume extractor for local profile");
+      throw new Error("should not use the project extractor for the local profile");
     });
     vi.mocked(resolveResumeProjectsSettings).mockImplementation(
       ({ catalog }) =>
@@ -100,12 +98,10 @@ describe("getEffectiveSettings", () => {
     expect(designResumeToProfile).not.toHaveBeenCalled();
   });
 
-  it("does not warn when settings have no local or Reactive Resume base profile yet", async () => {
+  it("does not warn when settings have no base profile yet", async () => {
     vi.mocked(getCurrentDesignResumeOrNullOnLegacy).mockResolvedValue(null);
     vi.mocked(getProfile).mockRejectedValue(
-      new Error(
-        "Base resume not configured. Please select a base resume from your RxResume account in Settings.",
-      ),
+      new Error("Base resume not configured. Import your resume in Settings first."),
     );
 
     await expect(getEffectiveSettings()).resolves.toBeTruthy();

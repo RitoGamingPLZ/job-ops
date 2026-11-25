@@ -4,13 +4,11 @@ import { logger } from "@infra/logger";
 import { resolveRequestOrigin } from "@infra/request-origin";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { getBlobStore } from "@server/infra/blob-store";
-import { getJobOpsPublicAvailability } from "@server/infra/public-availability";
 import { getRequestId } from "@server/infra/request-context";
 import {
   deleteDesignResumePicture,
   getCurrentDesignResume,
   getDesignResumeStatus,
-  importDesignResumeFromReactiveResume,
   readDesignResumeAssetContent,
   updateCurrentDesignResume,
   uploadDesignResumePicture,
@@ -36,18 +34,6 @@ function elapsedMs(startedAt: number): number {
 const jsonPointerSchema = z.string().refine((value) => value === "" || value.startsWith("/"), {
   message: "Patch paths must be valid JSON Pointers.",
 });
-
-async function assertPictureSupportEnabled(req: Request): Promise<void> {
-  const availability = await getJobOpsPublicAvailability({
-    requestOrigin: resolveRequestOrigin(req),
-    force: false,
-  });
-  if (availability.isPubliclyAvailable) return;
-
-  throw conflict(
-    availability.reason ?? "Base resume pictures require JobOps to be reachable at a public URL.",
-  );
-}
 
 function valueOperationSchema<const T extends "add" | "replace" | "test">(op: T) {
   return z
@@ -167,15 +153,6 @@ designResumeRouter.get(
 );
 
 designResumeRouter.post(
-  "/import/rxresume",
-  asyncRoute(async (_req: Request, res: Response) => {
-    const document = await importDesignResumeFromReactiveResume();
-    clearProfileCache();
-    ok(res, document, 201);
-  }),
-);
-
-designResumeRouter.post(
   "/import/file",
   asyncRoute(async (req: Request, res: Response) => {
     const startedAt = Date.now();
@@ -226,8 +203,6 @@ designResumeRouter.patch(
 designResumeRouter.post(
   "/assets",
   asyncRoute(async (req: Request, res: Response) => {
-    await assertPictureSupportEnabled(req);
-
     if (Buffer.isBuffer(req.body)) {
       const input = rawUploadHeadersSchema.parse({
         fileName: req.header("x-file-name"),
@@ -290,9 +265,7 @@ designResumeRouter.get(
 designResumeRouter.post(
   "/preview-pdf",
   asyncRoute(async (req: Request, res: Response) => {
-    const bytes = await previewDesignResumePdfBytes({
-      requestOrigin: resolveRequestOrigin(req),
-    });
+    const bytes = await previewDesignResumePdfBytes();
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Content-Type", "application/pdf");
     res.send(Buffer.from(bytes));
@@ -302,12 +275,7 @@ designResumeRouter.post(
 designResumeRouter.post(
   "/generate-pdf",
   asyncRoute(async (req: Request, res: Response) => {
-    ok(
-      res,
-      await generateDesignResumePdf({
-        requestOrigin: resolveRequestOrigin(req),
-      }),
-    );
+    ok(res, await generateDesignResumePdf());
   }),
 );
 

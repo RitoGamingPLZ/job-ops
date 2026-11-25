@@ -5,7 +5,7 @@ import type {
   LibraryItemUsage,
   LibrarySyncResult,
   RankedBullet,
-  ReactiveResumeV5Document,
+  ResumeV5Document,
   ResumeListItem,
   ScreeningReport,
 } from "@shared/types";
@@ -64,7 +64,7 @@ export function getJobResume(jobId: string) {
 }
 export function saveJobResume(
   jobId: string,
-  input: { baseRevision: number; document: ReactiveResumeV5Document },
+  input: { baseRevision: number; document: ResumeV5Document },
 ) {
   return fetchApi<JobResumeState>(resumePath(jobId), {
     method: "PUT",
@@ -77,7 +77,7 @@ export function deleteJobResume(jobId: string) {
 export function listResumes() {
   return fetchApi<{ resumes: ResumeListItem[] }>("/resumes");
 }
-export function getScreeningReport(jobId: string, document: ReactiveResumeV5Document) {
+export function getScreeningReport(jobId: string, document: ResumeV5Document) {
   return fetchApi<ScreeningReport>(`${resumePath(jobId)}/screening`, {
     method: "POST",
     body: JSON.stringify({ document }),

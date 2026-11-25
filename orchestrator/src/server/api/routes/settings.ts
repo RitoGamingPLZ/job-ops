@@ -1,12 +1,4 @@
-import {
-  AppError,
-  badRequest,
-  forbidden,
-  serviceUnavailable,
-  statusToCode,
-  unauthorized,
-  upstreamError,
-} from "@infra/errors";
+import { badRequest, forbidden, serviceUnavailable, upstreamError } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { getRequestId, isSystemAdmin } from "@infra/request-context";
@@ -27,20 +19,9 @@ import {
   startCodexDeviceAuth,
 } from "@server/services/llm/codex/login";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
-import { isHostedLocalProvider, isSafeHostedBaseUrl } from "@server/services/llm/hosted-policy";
+import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
 import { LlmService } from "@server/services/llm/service";
 import { refreshPipelineScheduler } from "@server/services/pipeline-scheduler";
-import { clearProfileCache } from "@server/services/profile";
-import {
-  clearRxResumeResumeCache,
-  extractProjectsFromResume,
-  getResume,
-  listResumes,
-  RxResumeAuthConfigError,
-  RxResumeRequestError,
-  validateResumeSchema,
-  validateCredentials as validateRxResumeCredentials,
-} from "@server/services/rxresume";
 import { getEffectiveSettings } from "@server/services/settings";
 import { applySettingsUpdates } from "@server/services/settings-update";
 import { currentUserHasPermission } from "@server/services/user-permissions";
@@ -51,10 +32,6 @@ import { type Request, type Response, Router } from "express";
 
 export const settingsRouter = Router();
 
-const RXRESUME_SAVE_VALIDATION_KEYS: Array<keyof UpdateSettingsInput> = [
-  "rxresumeUrl",
-  "rxresumeApiKey",
-];
 const LLM_SETTING_KEYS: Array<keyof UpdateSettingsInput> = [
   "model",
   "modelScorer",
@@ -130,10 +107,6 @@ function hasInputKey<K extends keyof UpdateSettingsInput>(
   return Object.hasOwn(input, key);
 }
 
-function shouldValidateRxResumeOnSave(input: UpdateSettingsInput): boolean {
-  return RXRESUME_SAVE_VALIDATION_KEYS.some((key) => hasInputKey(input, key));
-}
-
 async function assertLlmSettingsEditable(): Promise<void> {
   if (getJobOpsAppConfig().appMode !== "hosted") return;
   if (!(await getCurrentAccountEntitlements()).userEditableLlmSettings) {
@@ -173,40 +146,6 @@ function assertHostedLlmInputAllowed(input: UpdateSettingsInput): void {
     assertHostedBaseUrlAllowed(override?.baseUrl);
   }
   assertHostedBaseUrlAllowed(input.llmBaseUrl);
-}
-
-function isMissingRxResumeConfigValidationResult(input: {
-  status: number;
-  message: string;
-}): boolean {
-  return input.status === 400 && /not configured/i.test(input.message);
-}
-
-function buildRxResumeValidationOptions(
-  input: UpdateSettingsInput,
-): Parameters<typeof validateRxResumeCredentials>[0] {
-  return {
-    v5: {
-      ...(hasInputKey(input, "rxresumeApiKey") ? { apiKey: input.rxresumeApiKey } : {}),
-      ...(hasInputKey(input, "rxresumeUrl") ? { baseUrl: input.rxresumeUrl } : {}),
-    },
-  };
-}
-
-function toRxResumeValidationAppError(status: number, message: string): AppError {
-  if (status === 401) {
-    return unauthorized(message);
-  }
-
-  if (status === 400) {
-    return badRequest(message);
-  }
-
-  return new AppError({
-    status,
-    code: statusToCode(status),
-    message,
-  });
 }
 
 function normalizeLlmProviderValue(provider: string | null | undefined): string | undefined {
@@ -393,60 +332,11 @@ settingsRouter.patch(
 
     const input = updateSettingsSchema.parse(req.body);
     if (!(await requireSystemAdminForGlobalSettings(res, input))) return;
-    if (
-      isLlmRestricted() &&
-      typeof input.rxresumeUrl === "string" &&
-      input.rxresumeUrl.trim() &&
-      !isSafeHostedBaseUrl(input.rxresumeUrl)
-    ) {
-      throw forbidden("Reactive Resume must use a public HTTPS URL.");
-    }
     if (LLM_SETTING_KEYS.some((key) => hasInputKey(input, key))) {
       await assertLlmSettingsEditable();
       assertHostedLlmInputAllowed(input);
     }
-    if (shouldValidateRxResumeOnSave(input)) {
-      const validation = await validateRxResumeCredentials(buildRxResumeValidationOptions(input));
-      if (!validation.ok) {
-        const status = validation.status ?? 0;
-        if (
-          isMissingRxResumeConfigValidationResult({
-            status,
-            message: validation.message,
-          })
-        ) {
-          logger.info(
-            "Skipping save-time Reactive Resume validation because credentials are incomplete",
-            {
-              requestId: getRequestId() ?? null,
-              route: "PATCH /api/settings",
-              rxresumeMode: validation.mode ?? null,
-              status,
-            },
-          );
-        } else if (status >= 400 && status < 500) {
-          fail(res, toRxResumeValidationAppError(status, validation.message));
-          return;
-        } else if (status === 0 || status >= 500) {
-          logger.warn(
-            "Reactive Resume save-time validation could not verify upstream availability",
-            {
-              requestId: getRequestId() ?? null,
-              route: "PATCH /api/settings",
-              rxresumeMode: validation.mode ?? null,
-              status,
-            },
-          );
-        }
-      }
-    }
-
     const plan = await applySettingsUpdates(input);
-    if (plan.shouldClearRxResumeCaches) {
-      clearRxResumeResumeCache();
-      clearProfileCache();
-    }
-
     const data = await getEffectiveSettings();
 
     if (plan.shouldRefreshBackupScheduler) {
@@ -610,95 +500,6 @@ settingsRouter.post(
         message,
       });
       fail(res, serviceUnavailable(message));
-    }
-  }),
-);
-
-/**
- * GET /api/settings/rx-resumes - Fetch list of resumes from Reactive Resume
- */
-function failRxResume(res: Response, error: unknown): void {
-  if (error instanceof RxResumeAuthConfigError) {
-    fail(res, badRequest(error.message));
-    return;
-  }
-  if (error instanceof RxResumeRequestError) {
-    if (error.status === 401) {
-      fail(
-        res,
-        badRequest(
-          "Reactive Resume authentication failed. Check your configured mode credentials.",
-        ),
-      );
-      return;
-    }
-    if (error.status && error.status >= 500) {
-      fail(res, upstreamError(error.message));
-      return;
-    }
-    if (error.status && error.status >= 400 && error.status < 500) {
-      fail(
-        res,
-        new AppError({
-          status: error.status,
-          code: statusToCode(error.status),
-          message: error.message,
-        }),
-      );
-      return;
-    }
-    if (error.status === 0) {
-      fail(res, serviceUnavailable("Reactive Resume is unavailable. Check the URL and try again."));
-      return;
-    }
-  }
-  const message = error instanceof Error ? error.message : "Unknown error";
-  logger.error("Reactive Resume route request failed", { message, error });
-  fail(res, upstreamError(message));
-}
-
-settingsRouter.get(
-  "/rx-resumes",
-  asyncRoute(async (_req: Request, res: Response) => {
-    try {
-      const resumes = await listResumes();
-
-      ok(res, {
-        resumes: resumes.map((resume) => ({
-          id: resume.id,
-          name: resume.name,
-        })),
-      });
-    } catch (error) {
-      failRxResume(res, error);
-    }
-  }),
-);
-
-/**
- * GET /api/settings/rx-resumes/:id/projects - Fetch project catalog from Reactive Resume (v5 adapter)
- */
-settingsRouter.get(
-  "/rx-resumes/:id/projects",
-  asyncRoute(async (req: Request, res: Response) => {
-    try {
-      const resumeId = req.params.id;
-      if (!resumeId) {
-        fail(res, badRequest("Resume id is required."));
-        return;
-      }
-
-      const resume = await getResume(resumeId);
-      const validated = await validateResumeSchema(resume.data ?? {});
-      if (!validated.ok) {
-        fail(res, badRequest(validated.message));
-        return;
-      }
-      const { catalog } = extractProjectsFromResume(resume.data ?? {});
-
-      ok(res, { projects: catalog });
-    } catch (error) {
-      failRxResume(res, error);
     }
   }),
 );

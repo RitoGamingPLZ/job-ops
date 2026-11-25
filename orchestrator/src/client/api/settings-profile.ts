@@ -8,7 +8,6 @@ import type {
   OnboardingStatusResponse,
   ResumeProfile,
   ResumeProjectCatalogItem,
-  ValidationResult,
 } from "@shared/types";
 import type { CodexAuthStatusResponse } from "./auth";
 import { fetchApi, fetchBlobApi, normalizeApiPath } from "./core";
@@ -45,12 +44,6 @@ export async function getDesignResume(): Promise<DesignResumeDocument> {
 
 export async function getDesignResumeStatus(): Promise<DesignResumeStatusResponse> {
   return fetchApi<DesignResumeStatusResponse>("/design-resume/status");
-}
-
-export async function importDesignResumeFromRxResume(): Promise<DesignResumeDocument> {
-  return fetchApi<DesignResumeDocument>("/design-resume/import/rxresume", {
-    method: "POST",
-  });
 }
 
 export async function importDesignResumeFromFile(input: {
@@ -126,17 +119,6 @@ export async function confirmOnboardingResume(source: string): Promise<Onboardin
   });
 }
 
-export async function saveOnboardingRxResume(input: {
-  apiKey?: string | null;
-  baseUrl?: string | null;
-  rxresumeBaseResumeId?: string | null;
-}): Promise<OnboardingStatusResponse> {
-  return fetchApi<OnboardingStatusResponse>("/onboarding/actions/rxresume", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-}
-
 export async function getLlmModels(input?: {
   provider?: string;
   baseUrl?: string;
@@ -171,35 +153,9 @@ export async function disconnectCodexAuth(): Promise<CodexAuthStatusResponse> {
   });
 }
 
-export async function validateRxresume(input?: {
-  apiKey?: string;
-  baseUrl?: string;
-}): Promise<ValidationResult> {
-  return fetchApi<ValidationResult>("/onboarding/validate/rxresume", {
-    method: "POST",
-    body: JSON.stringify(input ?? {}),
-  });
-}
-
 export async function updateSettings(update: Partial<UpdateSettingsInput>): Promise<AppSettings> {
   return fetchApi<AppSettings>("/settings", {
     method: "PATCH",
     body: JSON.stringify(update),
   });
-}
-
-export async function getRxResumes(): Promise<{ id: string; name: string }[]> {
-  const data = await fetchApi<{ resumes: { id: string; name: string }[] }>(`/settings/rx-resumes`);
-  return data.resumes;
-}
-
-export async function getRxResumeProjects(
-  resumeId: string,
-  signal?: AbortSignal,
-): Promise<ResumeProjectCatalogItem[]> {
-  const data = await fetchApi<{ projects: ResumeProjectCatalogItem[] }>(
-    `/settings/rx-resumes/${encodeURIComponent(resumeId)}/projects`,
-    { signal },
-  );
-  return data.projects;
 }

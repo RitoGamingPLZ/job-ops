@@ -156,8 +156,8 @@ export const createAppSettings = (overrides: Partial<AppSettings> = {}): AppSett
     override: null,
   },
   pdfRenderer: {
-    value: "rxresume",
-    default: "rxresume",
+    value: "typst",
+    default: "typst",
     override: null,
   },
   typstTheme: {
@@ -170,7 +170,6 @@ export const createAppSettings = (overrides: Partial<AppSettings> = {}): AppSett
     default: "auto",
     override: null,
   },
-  rxresumeBaseResumeId: null,
   ukvisajobsMaxJobs: { value: 50, default: 50, override: null },
   adzunaMaxJobsPerTerm: { value: 50, default: 50, override: null },
   gradcrackerMaxJobsPerTerm: { value: 50, default: 50, override: null },
@@ -304,8 +303,6 @@ export const createAppSettings = (overrides: Partial<AppSettings> = {}): AppSett
   chatStyleMaxKeywordsPerSkill: { value: null, default: null, override: null },
   llmApiKeyHint: null,
   llmPurposeApiKeyHints: {},
-  rxresumeApiKeyHint: null,
-  rxresumeUrl: null,
   ukvisajobsEmail: null,
   ukvisajobsPasswordHint: null,
   adzunaAppId: null,

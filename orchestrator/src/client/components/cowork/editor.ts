@@ -8,7 +8,7 @@ import {
 } from "@shared/resume-links";
 import type {
   ExperienceBullet,
-  ReactiveResumeV5Document,
+  ResumeV5Document,
   ResumeFocusRef,
   ResumeSuggestionV2,
 } from "@shared/types";
@@ -59,11 +59,11 @@ const FIELD_NAMES: Record<string, string[]> = {
   projects: ["name", "period", "description"],
   skills: ["name"],
 };
-function sectionItems(document: ReactiveResumeV5Document, section: string) {
+function sectionItems(document: ResumeV5Document, section: string) {
   return document.sections[section] as { hidden?: boolean; items: Item[] } | undefined;
 }
 function fieldItem(
-  document: ReactiveResumeV5Document,
+  document: ResumeV5Document,
   field: Extract<ResumeSuggestionV2, { op: "replace_field" }>["field"],
 ) {
   if (!FIELD_NAMES[field.section]?.includes(field.name)) return null;
@@ -72,7 +72,7 @@ function fieldItem(
     ? null
     : (section?.items.find((i) => i.id === field.itemId && !i.hidden) ?? null);
 }
-export function fieldVisible(document: ReactiveResumeV5Document, suggestion: ResumeSuggestionV2) {
+export function fieldVisible(document: ResumeV5Document, suggestion: ResumeSuggestionV2) {
   return suggestion.op === "replace_field" && fieldItem(document, suggestion.field) !== null;
 }
 const escapeHtml = (text: string) =>
@@ -116,7 +116,7 @@ function lineTargetIndex(
 }
 
 export function suggestionTarget(
-  document: ReactiveResumeV5Document,
+  document: ResumeV5Document,
   s: ResumeSuggestionV2,
   library: ExperienceBullet[] = [],
 ): { old: string; index?: number } | null {
@@ -263,11 +263,11 @@ function newEntry(s: Extract<ResumeSuggestionV2, { op: "add_entry" }>): Item | n
   return item;
 }
 function applyResolvedSuggestion(
-  document: ReactiveResumeV5Document,
+  document: ResumeV5Document,
   s: ResumeSuggestionV2,
   target: { old: string; index?: number; snapshotRef?: string | null },
   library: ExperienceBullet[],
-): ReactiveResumeV5Document | null {
+): ResumeV5Document | null {
   if (s.op === "create_library_item" || s.op === "save_to_library") return null;
   if (s.op === "exclude_library_item") return removeFromResume(document, s.libraryId);
   if (s.op === "include_library_item") {
@@ -368,7 +368,7 @@ function applyResolvedSuggestion(
   return next;
 }
 export function applySuggestion(
-  document: ReactiveResumeV5Document,
+  document: ResumeV5Document,
   suggestion: ResumeSuggestionV2,
   library: ExperienceBullet[] = [],
 ) {
@@ -377,10 +377,10 @@ export function applySuggestion(
 }
 /** Resolve indices against one snapshot; edit from the end to retain their meaning. */
 export function applySuggestions(
-  document: ReactiveResumeV5Document,
+  document: ResumeV5Document,
   suggestions: ResumeSuggestionV2[],
   library: ExperienceBullet[] = [],
-): { document: ReactiveResumeV5Document; applied: string[] } {
+): { document: ResumeV5Document; applied: string[] } {
   const resolved = suggestions.flatMap((suggestion, order) => {
     const target = suggestionTarget(document, suggestion, library);
     const snapshotRef =

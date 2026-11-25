@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   detectJobDescriptionLanguage,
   detectProfileLanguage,
-  detectReactiveResumeV5Language,
+  detectResumeV5Language,
   resolveWritingOutputLanguage,
   resolveWritingOutputLanguageForResumeJson,
 } from "./output-language";
@@ -194,7 +194,7 @@ describe("resolveWritingOutputLanguage", () => {
       },
     ],
   ] as const)("detects %s from Reactive Resume v5 JSON", (language, resumeJson) => {
-    expect(detectReactiveResumeV5Language(resumeJson)).toBe(language);
+    expect(detectResumeV5Language(resumeJson)).toBe(language);
   });
 
   it("resolves v5 resume language using writing language settings", () => {

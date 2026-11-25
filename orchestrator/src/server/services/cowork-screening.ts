@@ -3,7 +3,7 @@ import { upstreamError } from "@infra/errors";
 import { listExperienceBullets } from "@server/repositories/experience-bullets";
 import { splitDescription } from "@shared/resume-bullets";
 import type {
-  ReactiveResumeV5Document,
+  ResumeV5Document,
   ResumeFocusRef,
   ScreeningReport,
   ScreeningRequirement,
@@ -42,7 +42,7 @@ interface IndexedSection {
 const str = (value: unknown) => (typeof value === "string" ? value : "");
 const short = (text: string, max = 60) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
-function indexDocument(document: ReactiveResumeV5Document) {
+function indexDocument(document: ResumeV5Document) {
   const sections = new Map<string, IndexedSection>();
   const prompt: unknown[] = [];
   const all = document.sections as unknown as Record<string, LooseSection>;
@@ -206,7 +206,7 @@ const SYSTEM_PROMPT = `You are a recruiter screening a resume against a job post
 
 export async function screenResume(
   job: { title: string; employer: string; jobDescription: string | null },
-  document: ReactiveResumeV5Document,
+  document: ResumeV5Document,
 ): Promise<ScreeningReport> {
   const jobDescription = (job.jobDescription ?? "").slice(0, 20000);
   const library = selectLibraryBullets(

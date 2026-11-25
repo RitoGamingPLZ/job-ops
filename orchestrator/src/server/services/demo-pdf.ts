@@ -8,11 +8,11 @@ import {
   resolvePdfFingerprintContext,
 } from "@server/services/pdf-fingerprint";
 import { clearProfileCache } from "@server/services/profile";
-import { buildDefaultReactiveResumeDocument } from "@server/services/rxresume/document";
+import { buildDefaultResumeDocument } from "@server/services/resume-document/document";
 import type { DesignResumeJson, Job, JobStatus } from "@shared/types";
 
 function buildDemoDesignResume(): DesignResumeJson {
-  const document = structuredClone(buildDefaultReactiveResumeDocument()) as DesignResumeJson;
+  const document = structuredClone(buildDefaultResumeDocument()) as DesignResumeJson;
 
   document.basics = {
     ...document.basics,

@@ -1,6 +1,6 @@
 import type { DesignResumeJson } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
+import { buildDefaultResumeDocument } from "./resume-document/document";
 
 const repo = vi.hoisted(() => ({
   getLatestDesignResumeDocument: vi.fn(),
@@ -34,15 +34,6 @@ vi.mock("@server/repositories/settings", () => ({
 vi.mock("@paralleldrive/cuid2", () => ({
   createId: vi.fn(() => "asset-1"),
 }));
-vi.mock("@server/services/envSettings", () => ({
-  getOriginalEnvValue: vi.fn(),
-}));
-vi.mock("@server/services/rxresume/baseResumeId", () => ({
-  getConfiguredRxResumeBaseResumeId: vi.fn(),
-}));
-vi.mock("@server/services/rxresume", () => ({
-  getResume: vi.fn(),
-}));
 vi.mock("@server/services/tracer-links", () => ({
   resolveTracerPublicBaseUrl: vi.fn(() => null),
 }));
@@ -69,16 +60,12 @@ vi.mock("node:fs/promises", () => ({
 }));
 
 import { createId } from "@paralleldrive/cuid2";
-import { getSetting } from "@server/repositories/settings";
-import { getOriginalEnvValue } from "@server/services/envSettings";
-import { getResume } from "@server/services/rxresume";
-import { getConfiguredRxResumeBaseResumeId } from "@server/services/rxresume/baseResumeId";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import {
   deleteDesignResumePicture,
+  ensureImportedProjectIds,
   getCurrentDesignResume,
   getCurrentDesignResumeOrNullOnLegacy,
-  importDesignResumeFromReactiveResume,
   readDesignResumeAssetContent,
   replaceCurrentDesignResumeDocument,
   updateCurrentDesignResume,
@@ -87,7 +74,7 @@ import {
 } from "./design-resume";
 
 function makeDocumentRow(overrides?: Partial<Record<string, unknown>>) {
-  const defaultResume = buildDefaultReactiveResumeDocument();
+  const defaultResume = buildDefaultResumeDocument();
   (defaultResume.basics as Record<string, unknown>).name = "Test User";
 
   return {
@@ -106,7 +93,7 @@ function makeDocumentRow(overrides?: Partial<Record<string, unknown>>) {
 
 function makeValidResumeJson(overrides?: Partial<Record<string, unknown>>): DesignResumeJson {
   return {
-    ...buildDefaultReactiveResumeDocument(),
+    ...buildDefaultResumeDocument(),
     ...overrides,
   } as DesignResumeJson;
 }
@@ -136,17 +123,6 @@ describe("design resume service", () => {
     );
     repo.findDesignResumeAssetForDocument.mockResolvedValue(null);
     repo.insertDesignResumeAsset.mockResolvedValue({ id: "asset-1" });
-    vi.mocked(getConfiguredRxResumeBaseResumeId).mockResolvedValue({
-      mode: "v5",
-      resumeId: "rx-1",
-    });
-    vi.mocked(getSetting).mockResolvedValue(null);
-    vi.mocked(getOriginalEnvValue).mockReturnValue(undefined);
-    vi.mocked(getResume).mockResolvedValue({
-      id: "rx-1",
-      mode: "v5",
-      data: makeDocumentRow().resumeJson,
-    } as never);
   });
 
   it("rejects replace patches that target a missing array index", async () => {
@@ -213,18 +189,17 @@ describe("design resume service", () => {
         enforceUserIsolation: true,
         scopeKey: `tenant-test-2:${userId}`,
       });
-      const upstreamResume = makeValidResumeJson();
+      const resumeJson = makeValidResumeJson();
       const stylesheet: NonNullable<DesignResumeJson["metadata"]["stylesheet"]> = {
         mode: "semantic",
         source: { languageVersion: 1, text: `@version 1; /* ${userId} */` },
       };
-      upstreamResume.metadata.stylesheet = stylesheet;
-      vi.mocked(getResume).mockResolvedValueOnce({
-        id: `rx-${userId}`,
-        mode: "v5",
-        data: upstreamResume,
-      } as never);
-      const result = await importDesignResumeFromReactiveResume();
+      resumeJson.metadata.stylesheet = stylesheet;
+      const result = await replaceCurrentDesignResumeDocument({
+        resumeJson,
+        sourceResumeId: null,
+        sourceMode: null,
+      });
       expect(result.resumeJson.metadata.stylesheet).toEqual(stylesheet);
       expect(repo.upsertDesignResumeDocument).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -237,36 +212,10 @@ describe("design resume service", () => {
     }
   });
 
-  it("imports Reactive Resume v5.1 data when metadata.css is absent", async () => {
-    const upstreamResume = makeValidResumeJson();
-    delete (upstreamResume.metadata as Record<string, unknown>).css;
-    vi.mocked(getResume).mockResolvedValueOnce({
-      id: "rx-1",
-      mode: "v5",
-      data: upstreamResume,
-    } as never);
-
-    const result = await importDesignResumeFromReactiveResume();
-
-    expect(result.resumeJson.metadata.css).toEqual({
-      enabled: false,
-      value: "",
-    });
-    expect(repo.upsertDesignResumeDocument).toHaveBeenCalledWith(
-      expect.objectContaining({
-        resumeJson: expect.objectContaining({
-          metadata: expect.objectContaining({
-            css: { enabled: false, value: "" },
-          }),
-        }),
-      }),
-    );
-  });
-
-  it("generates missing project ids when importing from Reactive Resume", async () => {
+  it("generates missing project ids when importing a resume", async () => {
     const upstreamResume = makeValidResumeJson({
       sections: {
-        ...(buildDefaultReactiveResumeDocument().sections as Record<string, unknown>),
+        ...(buildDefaultResumeDocument().sections as Record<string, unknown>),
         projects: {
           title: "",
           columns: 1,
@@ -303,13 +252,7 @@ describe("design resume service", () => {
         },
       },
     });
-    vi.mocked(getResume).mockResolvedValueOnce({
-      id: "rx-1",
-      mode: "v5",
-      data: upstreamResume,
-    } as never);
-
-    const result = await importDesignResumeFromReactiveResume();
+    const result = { resumeJson: ensureImportedProjectIds(upstreamResume) };
     const projectIds = result.resumeJson.sections.projects.items.map((project) => project.id);
 
     expect(projectIds[0]).toEqual(expect.any(String));
@@ -317,23 +260,12 @@ describe("design resume service", () => {
     expect(projectIds[1]).toEqual(expect.any(String));
     expect(projectIds[1]?.trim()).not.toBe("");
     expect(projectIds[2]).toBe("project-keep");
-    expect(repo.upsertDesignResumeDocument).toHaveBeenCalledWith(
-      expect.objectContaining({
-        resumeJson: expect.objectContaining({
-          sections: expect.objectContaining({
-            projects: expect.objectContaining({
-              items: expect.arrayContaining([expect.objectContaining({ id: "project-keep" })]),
-            }),
-          }),
-        }),
-      }),
-    );
   });
 
   it("preserves custom field titles through stored document validation", async () => {
     const resumeJson = makeValidResumeJson({
       basics: {
-        ...(buildDefaultReactiveResumeDocument().basics as Record<string, unknown>),
+        ...(buildDefaultResumeDocument().basics as Record<string, unknown>),
         customFieldsTitle: "Highlights",
         customFields: [
           {
@@ -371,7 +303,7 @@ describe("design resume service", () => {
       .mockReturnValueOnce("project-generated-2");
     const resumeJson = makeValidResumeJson({
       sections: {
-        ...(buildDefaultReactiveResumeDocument().sections as Record<string, unknown>),
+        ...(buildDefaultResumeDocument().sections as Record<string, unknown>),
         projects: {
           title: "Projects",
           columns: 1,
@@ -438,76 +370,6 @@ describe("design resume service", () => {
         }),
       }),
     );
-  });
-
-  it("localizes Reactive Resume relative picture URLs into design resume assets", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        headers: {
-          get: (name: string) => (name.toLowerCase() === "content-type" ? "image/webp" : null),
-        },
-        arrayBuffer: async () => Buffer.from("webp-bytes").buffer,
-      }),
-    );
-    const upstreamResume = makeValidResumeJson({
-      picture: {
-        ...(buildDefaultReactiveResumeDocument().picture as Record<string, unknown>),
-        hidden: false,
-        url: "/uploads/profile-photo.png",
-      },
-    });
-    vi.mocked(getSetting).mockImplementation(async (key) =>
-      key === "rxresumeUrl" ? "https://resume.example.com/api/openapi" : null,
-    );
-    vi.mocked(getResume).mockResolvedValueOnce({
-      id: "rx-1",
-      mode: "v5",
-      data: upstreamResume,
-    } as never);
-
-    const result = await importDesignResumeFromReactiveResume();
-
-    expect(result.resumeJson.picture.url).toBe("/api/design-resume/assets/asset-1/content");
-    expect(result.resumeJson.picture.hidden).toBe(false);
-    expect(fetch).toHaveBeenCalledWith(
-      "https://resume.example.com/uploads/profile-photo.png",
-      expect.any(Object),
-    );
-    expect(repo.insertDesignResumeAsset).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "asset-1",
-        kind: "picture",
-        mimeType: "image/webp",
-      }),
-    );
-  });
-
-  it("does not fetch imported picture URLs from private hosts", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-    const upstreamResume = makeValidResumeJson({
-      picture: {
-        ...(buildDefaultReactiveResumeDocument().picture as Record<string, unknown>),
-        hidden: false,
-        url: "/uploads/profile-photo.png",
-      },
-    });
-    vi.mocked(getSetting).mockImplementation(async (key) =>
-      key === "rxresumeUrl" ? "http://127.0.0.1:3000/api/openapi" : null,
-    );
-    vi.mocked(getResume).mockResolvedValueOnce({
-      id: "rx-1",
-      mode: "v5",
-      data: upstreamResume,
-    } as never);
-
-    const result = await importDesignResumeFromReactiveResume();
-
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(repo.insertDesignResumeAsset).not.toHaveBeenCalled();
-    expect(result.resumeJson.picture.url).toBe("http://127.0.0.1:3000/uploads/profile-photo.png");
   });
 
   it("preserves an explicit picture hidden flag during updates", async () => {
@@ -587,62 +449,6 @@ describe("design resume service", () => {
         ],
       }),
     ).rejects.toThrow("Patch path not found: /sections/projects/items/foo");
-  });
-
-  it("accepts upstream v5 resumes without wrapper fields or item options", async () => {
-    const upstreamResume = makeValidResumeJson({
-      sections: {
-        ...(buildDefaultReactiveResumeDocument().sections as Record<string, unknown>),
-        profiles: {
-          title: "",
-          columns: 1,
-          hidden: false,
-          items: [
-            {
-              id: "profile-1",
-              hidden: false,
-              icon: "github-logo",
-              network: "GitHub",
-              username: "user",
-              website: {
-                url: "https://github.com/user",
-                label: "",
-                inlineLink: true,
-              },
-            },
-          ],
-        },
-        projects: {
-          title: "",
-          columns: 1,
-          hidden: false,
-          items: [
-            {
-              id: "project-1",
-              hidden: false,
-              name: "Project",
-              period: "2026",
-              website: { url: "", label: "" },
-              description: "<p>Example</p>",
-            },
-          ],
-        },
-      },
-    });
-
-    vi.mocked(getResume).mockResolvedValueOnce({
-      id: "rx-1",
-      mode: "v5",
-      data: upstreamResume,
-    } as never);
-
-    const result = await importDesignResumeFromReactiveResume();
-
-    expect(result.resumeJson).not.toHaveProperty("$schema");
-    expect(result.resumeJson).not.toHaveProperty("version");
-    expect(result.resumeJson.sections.projects.items[0]).not.toHaveProperty("options");
-    expect(result.resumeJson.sections.profiles.items[0]).not.toHaveProperty("options");
-    expect(result.resumeJson.sections.profiles.items[0]?.website.inlineLink).toBe(true);
   });
 
   it("rejects legacy local documents and requires re-import", async () => {
@@ -738,7 +544,7 @@ describe("design resume service", () => {
     );
 
     await expect(getCurrentDesignResume()).rejects.toThrow(
-      "Stored base resume document is no longer compatible. Re-import from Reactive Resume v5 to continue.",
+      "Stored base resume document is no longer compatible. Re-import your resume to continue.",
     );
   });
 
@@ -775,7 +581,7 @@ describe("design resume service", () => {
   it("applies picture uploads to the caller-provided draft document", async () => {
     const resumeJson = makeValidResumeJson({
       summary: {
-        ...(buildDefaultReactiveResumeDocument().summary as Record<string, unknown>),
+        ...(buildDefaultResumeDocument().summary as Record<string, unknown>),
         content: "Stored summary",
       },
     });
@@ -882,7 +688,7 @@ describe("design resume service", () => {
     expect(asset.contentUrl).toBe("/api/design-resume/assets/asset-1/content");
   });
 
-  it("removes existing assets when re-importing from Reactive Resume", async () => {
+  it("removes existing assets when re-importing the base resume", async () => {
     repo.listDesignResumeAssets
       .mockResolvedValueOnce([
         {
@@ -912,7 +718,11 @@ describe("design resume service", () => {
       ])
       .mockResolvedValueOnce([]);
 
-    await importDesignResumeFromReactiveResume();
+    await replaceCurrentDesignResumeDocument({
+      resumeJson: makeValidResumeJson(),
+      sourceResumeId: null,
+      sourceMode: null,
+    });
 
     expect(repo.deleteDesignResumeAssetsForDocument).toHaveBeenCalledWith("primary");
     expect(fsMocks.unlink).toHaveBeenCalledWith(
@@ -923,7 +733,7 @@ describe("design resume service", () => {
   it("keeps the existing picture asset when removing it hits a revision conflict", async () => {
     const resumeJson = makeValidResumeJson({
       picture: {
-        ...(buildDefaultReactiveResumeDocument().picture as Record<string, unknown>),
+        ...(buildDefaultResumeDocument().picture as Record<string, unknown>),
         url: "/api/design-resume/assets/asset-1/content",
       },
     });

@@ -1,4 +1,4 @@
-import type { ReactiveResumeV5Document } from "@shared/types";
+import type { ResumeV5Document } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureJobResume } from "./job-resume";
 import {
@@ -226,7 +226,7 @@ const {
       manual: "english" as "english" | "german" | "french" | "spanish",
     },
     currentPdfPaperSize: { value: null as "auto" | "a4" | "letter" | null },
-    currentPdfRenderer: { value: "latex" as "latex" | "rxresume" | "typst" },
+    currentPdfRenderer: { value: "latex" as "latex" | "typst" },
     mockProfile: profile,
     mocks: {
       readFile: vi.fn(),
@@ -305,8 +305,6 @@ vi.mock("../repositories/settings", () => ({
     if (key === "chatStyleManualLanguage") {
       return Promise.resolve(currentLanguageSettings.manual);
     }
-    if (key === "rxresumeEmail") return Promise.resolve("test@example.com");
-    if (key === "rxresumePassword") return Promise.resolve("testpassword");
     return Promise.resolve(null);
   }),
   getAllSettings: vi.fn().mockResolvedValue({}),
@@ -341,51 +339,14 @@ vi.mock("./resume-renderer", () => ({
   renderResumePdf: mockResumeRenderer.renderResumePdf,
 }));
 
-const mockPublicAvailability = vi.hoisted(() => ({
-  resolvePublicBaseUrl: vi.fn().mockReturnValue("https://jobops.example"),
-  getJobOpsPublicAvailability: vi.fn().mockResolvedValue({
-    status: "ready",
-    isPubliclyAvailable: true,
-    publicBaseUrl: "https://jobops.example",
-    healthUrl: "https://jobops.example/health",
-    checkedAt: 1,
-    lastSuccessAt: 1,
-    reason: null,
-  }),
-}));
-
-vi.mock("@server/infra/public-availability", () => ({
-  getJobOpsPublicAvailability: mockPublicAvailability.getJobOpsPublicAvailability,
-  resolvePublicBaseUrl: mockPublicAvailability.resolvePublicBaseUrl,
-}));
-
-vi.mock("./rxresume/baseResumeId", () => ({
-  getConfiguredRxResumeBaseResumeId: vi.fn().mockResolvedValue({
-    mode: "v5",
-    resumeId: "base-resume-id",
-  }),
-}));
-
 vi.mock("./design-resume", () => ({
   getCurrentDesignResume: vi.fn().mockResolvedValue(null),
   readDesignResumeAssetContent: vi.fn(),
 }));
 
-vi.mock("./rxresume", async () => {
+vi.mock("./resume-document", async () => {
   const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
   return {
-    importResume: vi.fn().mockResolvedValue("temp-resume-id"),
-    exportResumePdf: vi.fn().mockResolvedValue({
-      kind: "url",
-      url: "https://pdf.rxresume.test/print/123",
-    }),
-    deleteResume: vi.fn().mockResolvedValue(undefined),
-    getResume: vi.fn().mockResolvedValue({
-      id: "base-resume-id",
-      name: "Base Resume",
-      mode: "v5",
-      data: mockProfile,
-    }),
     prepareTailoredResumeForPdf: vi.fn().mockImplementation(async (args: any) => {
       const data = clone(args.resumeData);
       if (args.tailedContent?.summary || args.tailoredContent?.summary) {
@@ -428,7 +389,7 @@ describe("PDF Service Tailoring Logic", () => {
       url: "/api/design-resume/assets/photo-1/content",
     };
     vi.mocked(ensureJobResume).mockResolvedValue({
-      document: document as ReactiveResumeV5Document,
+      document: document as ResumeV5Document,
       revision: 1,
       exists: true,
       updatedAt: "now",
@@ -496,7 +457,7 @@ describe("PDF Service Tailoring Logic", () => {
     document.sections.projects.items[0].hidden = true;
     document.sections.projects.items[1].hidden = false;
     vi.mocked(ensureJobResume).mockResolvedValue({
-      document: document as ReactiveResumeV5Document,
+      document: document as ResumeV5Document,
       revision: 2,
       exists: true,
       updatedAt: "now",
@@ -522,7 +483,7 @@ describe("PDF Service Tailoring Logic", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(ensureJobResume).mockImplementation(async () => ({
-      document: structuredClone(mockProfile) as ReactiveResumeV5Document,
+      document: structuredClone(mockProfile) as ResumeV5Document,
       revision: 1,
       exists: true,
       updatedAt: "now",
@@ -535,16 +496,6 @@ describe("PDF Service Tailoring Logic", () => {
     mockProfile.sections.projects.items[0].description = "";
     mocks.readFile.mockResolvedValue(JSON.stringify(mockProfile));
     mockResumeRenderer.clearLastResumeJson();
-    mockPublicAvailability.resolvePublicBaseUrl.mockReturnValue("https://jobops.example");
-    mockPublicAvailability.getJobOpsPublicAvailability.mockResolvedValue({
-      status: "ready",
-      isPubliclyAvailable: true,
-      publicBaseUrl: "https://jobops.example",
-      healthUrl: "https://jobops.example/health",
-      checkedAt: 1,
-      lastSuccessAt: 1,
-      reason: null,
-    });
   });
 
   it("renders the editor document and ignores legacy summary and selectedProjectIds", async () => {
@@ -751,212 +702,6 @@ describe("PDF Service Tailoring Logic", () => {
     expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalledWith(
       expect.objectContaining({ paperSize: "a4" }),
     );
-  });
-
-  it("sends the configured paper size to Reactive Resume as the page format", async () => {
-    currentPdfRenderer.value = "rxresume";
-    currentPdfPaperSize.value = "letter";
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        arrayBuffer: async () => new TextEncoder().encode("pdf-bytes").buffer,
-      }),
-    );
-
-    const rxresume = await import("./rxresume");
-
-    try {
-      await generatePdf("job-rxresume-letter", "desc");
-
-      expect(rxresume.importResume).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            metadata: expect.objectContaining({
-              page: expect.objectContaining({ format: "letter" }),
-            }),
-          }),
-        }),
-      );
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("keeps the resume's own page format for Reactive Resume when no paper size is configured", async () => {
-    currentPdfRenderer.value = "rxresume";
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        arrayBuffer: async () => new TextEncoder().encode("pdf-bytes").buffer,
-      }),
-    );
-
-    const rxresume = await import("./rxresume");
-
-    try {
-      await generatePdf("job-rxresume-default", "desc");
-
-      expect(rxresume.importResume).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            metadata: expect.objectContaining({
-              page: expect.objectContaining({ format: "a4" }),
-            }),
-          }),
-        }),
-      );
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("uses the RxResume export flow when the renderer setting is rxresume", async () => {
-    currentPdfRenderer.value = "rxresume";
-    currentLanguageSettings.manual = "german";
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      arrayBuffer: async () => new TextEncoder().encode("pdf-bytes").buffer,
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const rxresume = await import("./rxresume");
-
-    try {
-      await generatePdf("job-rxresume", "desc");
-
-      expect(mockResumeRenderer.renderResumePdf).not.toHaveBeenCalled();
-      expect(rxresume.importResume).toHaveBeenCalledWith({
-        name: "JobOps Tailored Resume job-rxresume",
-        data: expect.any(Object),
-      });
-      expect(rxresume.exportResumePdf).toHaveBeenCalledWith("temp-resume-id");
-      expect(fetchMock).toHaveBeenCalledWith("https://pdf.rxresume.test/print/123");
-      expect(mocks.writeFile).toHaveBeenCalledWith(expect.any(String), expect.any(Uint8Array));
-      expect(mocks.rename).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.stringContaining("resume_job-rxresume.pdf"),
-      );
-      expect(rxresume.deleteResume).toHaveBeenCalledWith("temp-resume-id");
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("strips Resume Studio pictures from RxResume export when JobOps is not hosted", async () => {
-    currentPdfRenderer.value = "rxresume";
-    mockPublicAvailability.resolvePublicBaseUrl.mockReturnValue("http://localhost:3005");
-    mockPublicAvailability.getJobOpsPublicAvailability.mockResolvedValue({
-      status: "unavailable",
-      isPubliclyAvailable: false,
-      publicBaseUrl: "http://localhost:3005",
-      healthUrl: "http://localhost:3005/health",
-      checkedAt: 1,
-      lastSuccessAt: null,
-      reason: "Configured public URL must be internet-reachable (not localhost/private network).",
-    });
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      arrayBuffer: async () => new TextEncoder().encode("pdf-bytes").buffer,
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const designResume = await import("./design-resume");
-    vi.mocked(designResume.getCurrentDesignResume).mockResolvedValueOnce({
-      id: "design-resume-1",
-      title: "Resume Studio",
-      sourceResumeId: null,
-      sourceMode: "v5",
-      importedAt: "2026-05-02T00:00:00.000Z",
-      updatedAt: "2026-05-02T00:00:00.000Z",
-      revision: 1,
-      resumeJson: {
-        ...mockProfile,
-        picture: {
-          ...mockProfile.picture,
-          hidden: false,
-          url: "/api/design-resume/assets/photo-1/content",
-        },
-      },
-    } as any);
-
-    const rxresume = await import("./rxresume");
-
-    try {
-      await generateDesignResumePdf({
-        requestOrigin: "http://localhost:3005",
-      });
-
-      expect(rxresume.importResume).toHaveBeenCalledWith({
-        name: "Resume Studio",
-        data: expect.objectContaining({
-          picture: expect.objectContaining({
-            hidden: true,
-            url: "",
-          }),
-        }),
-      });
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("keeps externally hosted pictures in RxResume export when JobOps is not hosted", async () => {
-    currentPdfRenderer.value = "rxresume";
-    mockPublicAvailability.getJobOpsPublicAvailability.mockResolvedValue({
-      status: "unavailable",
-      isPubliclyAvailable: false,
-      publicBaseUrl: "http://localhost:3005",
-      healthUrl: "http://localhost:3005/health",
-      checkedAt: 1,
-      lastSuccessAt: null,
-      reason: "Configured public URL must be internet-reachable (not localhost/private network).",
-    });
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      arrayBuffer: async () => new TextEncoder().encode("pdf-bytes").buffer,
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const designResume = await import("./design-resume");
-    vi.mocked(designResume.getCurrentDesignResume).mockResolvedValueOnce({
-      id: "design-resume-1",
-      title: "Resume Studio",
-      sourceResumeId: null,
-      sourceMode: "v5",
-      importedAt: "2026-05-02T00:00:00.000Z",
-      updatedAt: "2026-05-02T00:00:00.000Z",
-      revision: 1,
-      resumeJson: {
-        ...mockProfile,
-        picture: {
-          ...mockProfile.picture,
-          hidden: false,
-          url: "https://cdn.example.com/photo.png",
-        },
-      },
-    } as any);
-
-    const rxresume = await import("./rxresume");
-
-    try {
-      await generateDesignResumePdf({
-        requestOrigin: "http://localhost:3005",
-      });
-
-      expect(rxresume.importResume).toHaveBeenCalledWith({
-        name: "Resume Studio",
-        data: expect.objectContaining({
-          picture: expect.objectContaining({
-            hidden: false,
-            url: "https://cdn.example.com/photo.png",
-          }),
-        }),
-      });
-    } finally {
-      vi.unstubAllGlobals();
-    }
   });
 
   it("renders preview bytes without writing to BlobStore, and persists on generate", async () => {

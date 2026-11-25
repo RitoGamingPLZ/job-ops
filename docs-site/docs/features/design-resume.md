@@ -9,7 +9,7 @@ sidebar_position: 4
 
 The co-work editor is JobOps' resume editor. Open your base resume at `/resumes/base` or a job resume at `/resumes/<jobId>`.
 
-Job resumes show chat on the left, the resume in the middle, and **Library** / **Job match** tabs on the right. The base resume has the editor and library without job chat. Resume documents are stored locally in Reactive Resume v5 format.
+Job resumes show chat on the left, the resume in the middle, and **Library** / **Job match** tabs on the right. The base resume has the editor and library without job chat. Resume documents are stored locally in the JobOps v5 resume format.
 
 ## Why it exists
 
@@ -17,7 +17,7 @@ Keep reusable candidate facts in one library, choose what belongs on each job re
 
 ## How to use it
 
-1. Open `/resumes/base`. Click **Import** to choose a PDF, DOCX, or JSON file, or use **Import from RxResume** with your configured Reactive Resume account. Import replaces the base resume; existing job resumes keep their content.
+1. Open `/resumes/base`. Click **Import** to choose a PDF, DOCX, or JSON file. Import replaces the base resume; existing job resumes keep their content.
 2. Use **Sync from resumes** in the right panel to collect candidate items from your resumes into the library.
 3. Open a job resume at `/resumes/<jobId>`. In **Library**, switch between **Contact**, **Experience**, **Projects**, **Skills**, **Education**, **Awards**, and **Certifications**. Tick items to add them to this resume; untick to remove them while keeping them in the library. The base resume's library has no selection ticks.
 4. Click library text to edit it, use **Add** to create items, and manage tags beside supported items. Contact items support email, phone, location, website, and social profiles. Expand experience roles to see duties; use the searchable keyword picker for skills. Duty tools include **Rank for this job** and **Paste & extract**.
@@ -74,7 +74,7 @@ The model writes a headline and summary, selects library items and existing skil
 
 ## Common problems
 
-- **Import fails:** check the file format, or verify your Reactive Resume URL, API key, and selected base resume in **Settings**.
+- **Import fails:** check the file format, and that your AI model is configured (PDF and DOCX imports use it).
 - **An item is missing from the library:** use **Sync from resumes** after importing or adding resume content.
 - **A library edit did not change a job resume:** check whether the field or line was edited locally or the job is Applied or In progress. After the migration, linked education, award, or certification items still holding the old combined text stop receiving library updates until re-added. Untick and re-tick the item in **Library** to use its structured version; copy any local edits you want to keep first.
 - **Cloudflare PDF rendering:** previews and saved PDFs use the internal render container. Typst is included in that image; LaTeX requires Tectonic, which the Cloudflare image does not include. If rendering reports a container error, check the container binding and internal secret, then retry. Only the resume document, render options, job identifier, and any visible uploaded picture bytes are sent to this internal service.
@@ -86,6 +86,6 @@ The model writes a headline and summary, selects library items and existing skil
 
 - [Orchestrator: resume generation](/docs/next/features/orchestrator#generating-pdfs)
 - [In Progress Board](/docs/next/features/in-progress-board)
-- [Reactive Resume](/docs/next/features/reactive-resume)
+- [Resume PDF and projects](/docs/next/features/resume-pdf)
 - [Settings](/docs/next/features/settings)
 - [Ghostwriter](/docs/next/features/ghostwriter)

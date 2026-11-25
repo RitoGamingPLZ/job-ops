@@ -399,7 +399,7 @@ export const settingsRegistry = {
   pdfRenderer: {
     kind: "typed" as const,
     schema: z.enum(PDF_RENDERER_VALUES),
-    default: (): PdfRenderer => "rxresume",
+    default: (): PdfRenderer => "typst",
     parse: parsePdfRendererOrNull,
     serialize: (value: PdfRenderer | null | undefined): string | null => value ?? null,
   },
@@ -840,18 +840,6 @@ export const settingsRegistry = {
   },
 
   // --- Simple Strings ---
-  rxresumeBaseResumeId: {
-    kind: "string" as const,
-    schema: z.string().trim().max(200),
-  },
-  rxresumeUrl: {
-    kind: "string" as const,
-    envKey: "RXRESUME_URL",
-    schema: z.preprocess(
-      (value) => (value === "" ? null : value),
-      z.string().trim().url().max(2000).nullable(),
-    ),
-  },
   ukvisajobsEmail: {
     kind: "string" as const,
     envKey: "UKVISAJOBS_EMAIL",
@@ -877,11 +865,6 @@ export const settingsRegistry = {
       const normalized = normalizeLlmPurposeApiKeys(value);
       return normalized ? JSON.stringify(normalized) : null;
     },
-  },
-  rxresumeApiKey: {
-    kind: "secret" as const,
-    envKey: "RXRESUME_API_KEY",
-    schema: z.string().trim().max(2000),
   },
   ukvisajobsPassword: {
     kind: "secret" as const,

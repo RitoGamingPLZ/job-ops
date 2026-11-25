@@ -1,6 +1,6 @@
 import { bulletsFromHtml } from "@shared/resume-bullets";
 import { setItemLines } from "@shared/resume-links";
-import type { ReactiveResumeV5Document } from "@shared/types";
+import type { ResumeV5Document } from "@shared/types";
 import { describe, expect, it, vi } from "vitest";
 import { moveItem, moveResumeBullet, moveSection, sectionOrder } from "./resumeReorder";
 
@@ -14,7 +14,7 @@ const fixture = () =>
         ],
       },
     },
-  }) as unknown as ReactiveResumeV5Document;
+  }) as unknown as ResumeV5Document;
 
 describe("resume drag reordering", () => {
   it("adjusts a destination gap after removing an earlier item", () => {
@@ -57,7 +57,7 @@ describe("section order", () => {
   const doc = (pages: { main: string[]; sidebar: string[] }[]) =>
     ({
       metadata: { layout: { sidebarWidth: 30, pages } },
-    }) as unknown as ReactiveResumeV5Document;
+    }) as unknown as ResumeV5Document;
   it("flattens main then sidebar, summary first, keeping unknown keys", () => {
     expect(sectionOrder(undefined)[0]).toBe("summary");
     expect(
@@ -82,7 +82,7 @@ describe("section order", () => {
     expect(start.metadata.layout.pages[0].sidebar).toEqual(["skills"]);
   });
   it("creates a layout when the document has none", () => {
-    const moved = moveSection({} as ReactiveResumeV5Document, "awards", "summary");
+    const moved = moveSection({} as ResumeV5Document, "awards", "summary");
     expect(moved.metadata.layout.pages[0].main[0]).toBe("awards");
   });
 });

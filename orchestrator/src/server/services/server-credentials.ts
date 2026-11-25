@@ -1,6 +1,6 @@
 /**
  * Who may spend the operator's server-level credentials (LLM key, scraper
- * tokens, Reactive Resume account, webhook secret, ...).
+ * tokens, webhook secret, ...).
  *
  * Local mode gives every invited user a private workspace, but the process
  * environment belongs to the operator. Only workspaces with an admin or an explicit `serverCredentials` grant (and

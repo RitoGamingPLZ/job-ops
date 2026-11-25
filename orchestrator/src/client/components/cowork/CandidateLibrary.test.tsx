@@ -1,4 +1,4 @@
-import type { ExperienceBullet, ReactiveResumeV5Document } from "@shared/types";
+import type { ExperienceBullet, ResumeV5Document } from "@shared/types";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CandidateLibrary } from "./CandidateLibrary";
@@ -92,7 +92,7 @@ const doc = {
       items: [{ id: "skills-entry", libraryId: skill.id, keywords: ["Rust"] }],
     },
   },
-} as unknown as ReactiveResumeV5Document;
+} as unknown as ResumeV5Document;
 const library = [
   role,
   duty,
@@ -403,7 +403,7 @@ describe("candidate library", () => {
     const docWith = (item: typeof entry) =>
       ({
         sections: { experience: { items: [item] } },
-      }) as unknown as ReactiveResumeV5Document;
+      }) as unknown as ResumeV5Document;
     const same = docWith(entry);
     await mount({ jobId: "job", document: same });
     const row = () => screen.getByRole("button", { name: "Engineer · 2020–2024" }).parentElement;
@@ -736,7 +736,7 @@ describe("candidate library workspace integration", () => {
             ],
           },
         },
-      } as unknown as ReactiveResumeV5Document;
+      } as unknown as ResumeV5Document;
       let current = initial;
       const change = vi.fn((update) => {
         current = update(current);
@@ -861,7 +861,7 @@ it("derives email ticks from the document and replaces the selected value", () =
   const document = {
     ...doc,
     basics: { email: "a@example.com" },
-  } as ReactiveResumeV5Document;
+  } as ResumeV5Document;
   const change = vi.fn();
   render(
     <CandidateLibrary

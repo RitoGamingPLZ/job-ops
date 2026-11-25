@@ -18,7 +18,7 @@ It lets you configure:
 - Display and writing-style defaults
 - Editable prompt templates for core AI workflows
 - Service credentials and workspace users
-- Reactive Resume project selection
+- Resume PDF renderer and project selection
 - Tracer Links readiness verification
 - Backup and scoring rules
 - Hosted plan, billing, and monthly usage
@@ -182,36 +182,25 @@ Defaults and constraints:
 - To customize targeted generation, edit **Resume generation prompt**, save, then generate a missing resume or confirm **Regenerate resume** on a targeted job. The default selects existing library facts and may reword duties and intros for the job while keeping their library links. Rewrites stay on that resume; saving them to the library is opt-in. Saving a template does not replace existing saved resumes or hand edits
 - Template overrides are limited to 12,000 characters. Blank or reset templates use the built-in default
 
-### Reactive Resume
+### Resume PDF
 
-![Reactive Resume settings section](/img/features/settings-reactive-resume-section.png)
-
-- Configure a shared RxResume URL for cloud or self-hosted deployments
-- Configure a v5 API key
 - Choose the PDF renderer:
-  - RxResume export
+  - Local Typst renderer (default)
   - Local LaTeX renderer
-  - Local Typst renderer
 - When Typst is selected, choose a Typst theme:
   - Classic
   - Compact
 - Choose the paper size for generated PDFs:
-  - Renderer default: RxResume export keeps the page format saved on the resume, LaTeX renders US Letter, and Typst renders A4
+  - Renderer default: LaTeX renders US Letter and Typst renders A4
   - A4
   - US Letter
-  - With RxResume export, a resume saved as free-form in Reactive Resume stays a single continuous page regardless of this setting
-- JobOps uses the selected RxResume resume as the source of truth for import and project data
-- Invalid Reactive Resume credentials or other `4xx` config failures block the save and stay visible as an inline error
-- Temporary Reactive Resume downtime shows an inline warning, but the save still succeeds
-- Changing PDF-affecting settings (`pdfRenderer`, `typstTheme`, `pdfPaperSize`, `rxresumeBaseResumeId`, RxResume URL/key, or resume project policy) auto-queues regeneration for ready jobs that currently use system-generated PDFs
-- Select a template/base resume
+- Changing PDF-affecting settings (`pdfRenderer`, `typstTheme`, `pdfPaperSize`, or resume project policy) auto-queues regeneration for ready jobs that currently use system-generated PDFs
 - Configure project selection behavior:
   - Target project count
   - **Must include**: always available to AI and always included in tailored resumes
   - **AI can select**: available to AI and to per-job automatic/manual selection
   - **Don't include**: excluded from AI prompts and tailored resumes
 - The target cannot be lower than the Must-include count. Automatic selection fills available slots; manual selection may use fewer but cannot exceed the target.
-- JobOps briefly caches successful Reactive Resume resume data to reduce repeated API calls across settings, profile, and PDF flows
 
 ### Tracer Links
 
@@ -229,7 +218,6 @@ Readiness requires:
 ### Environment & Workspaces
 
 - Configure service accounts:
-  - RxResume API key
   - UKVisaJobs email/password
   - Adzuna app ID/app key
 - Manage workspace users when signed in as a system admin:
@@ -348,21 +336,11 @@ curl -X POST "http://localhost:3001/api/backups"
 - JobOps intentionally preserves exact headline and job-title wording for ATS safety, even when other tailored sections are generated in another language.
 - If you need a different headline or target title, change the source resume/profile text first and then re-run tailoring.
 
-### RxResume controls are disabled
+### Resume projects look empty in settings
 
-- JobOps resolves the RxResume URL in this order: the value saved in **Settings → Reactive Resume**, then the `RXRESUME_URL` environment variable (if set), and finally the public cloud default.
-- Open **Settings → Reactive Resume** and configure the shared RxResume URL if you use a self-hosted instance.
-- If you leave the URL blank, JobOps will fall back to `RXRESUME_URL` when it is configured; otherwise it uses the public cloud default.
-- Invalid credentials block the save and remain visible inline until you edit the selected mode's credentials or URL.
-- Temporary instance downtime shows a warning inline, but does not block unrelated settings updates.
-- Then refresh available resumes from the Reactive Resume section.
-
-### RxResume projects look empty in the RxResume UI
-
-- Root cause: your resume on [rxresu.me](https://rxresu.me) has an empty **Projects** section.
-- Fix in RxResume first: add project entries to the base resume you selected in Settings.
-- Then return to JobOps, refresh/select the same base resume in **Reactive Resume**, and regenerate the PDF.
-- JobOps preserves current visibility state, but it cannot create missing project content if the source resume has no projects.
+- Root cause: your base resume has an empty **Projects** section.
+- Fix: open `/resumes/base`, add project entries, then return to **Settings → Resume PDF** and regenerate the PDF.
+- JobOps preserves current visibility state, but it cannot create missing project content if the base resume has no projects.
 
 ### Webhook calls fail
 
@@ -377,7 +355,7 @@ curl -X POST "http://localhost:3001/api/backups"
 
 ## Related pages
 
-- [Reactive Resume](/docs/next/features/reactive-resume)
+- [Resume PDF and projects](/docs/next/features/resume-pdf)
 - [Database Backups](/docs/next/getting-started/database-backups)
 - [Overview](/docs/next/features/overview)
 - [Orchestrator](/docs/next/features/orchestrator)

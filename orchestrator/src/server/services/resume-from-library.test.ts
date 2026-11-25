@@ -10,10 +10,10 @@ import {
 import { splitDescription } from "@shared/resume-bullets";
 import { getItemLines } from "@shared/resume-links";
 import { createJob } from "@shared/testing/factories";
-import type { ExperienceBullet, ReactiveResumeV5Document } from "@shared/types";
+import type { ExperienceBullet, ResumeV5Document } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generateResumeFromLibrary, LIBRARY_PROMPT_MAX_BYTES } from "./resume-from-library";
-import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
+import { buildDefaultResumeDocument } from "./resume-document/document";
 
 const mocks = vi.hoisted(() => ({ callJson: vi.fn(), usage: vi.fn() }));
 vi.mock("@server/repositories/settings", () => ({
@@ -73,7 +73,7 @@ const library = [
   item("award", "award", "Prize"),
   item("cert", "certification", "Certificate", { data: { issuer: "Issuer" } }),
 ];
-let base: ReactiveResumeV5Document;
+let base: ResumeV5Document;
 let selection: {
   headline: string;
   summary: string;
@@ -96,7 +96,7 @@ let selection: {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getSetting).mockResolvedValue(null);
-  base = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+  base = buildDefaultResumeDocument() as ResumeV5Document;
   base.picture.url = "data:image/png;base64,PRIVATE";
   base.basics.email = "private@example.com";
   base.sections.education.items = [

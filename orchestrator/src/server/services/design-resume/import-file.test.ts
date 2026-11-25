@@ -1,7 +1,7 @@
 import type { DesignResumeDocument, DesignResumeJson } from "@shared/types";
 import JSZip from "jszip";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildDefaultReactiveResumeDocument } from "../rxresume/document";
+import { buildDefaultResumeDocument } from "../resume-document/document";
 
 const modelSelection = vi.hoisted(() => ({
   resolveLlmRuntimeSettings: vi.fn(),
@@ -52,7 +52,7 @@ function makePdfParseResult(text: string) {
 }
 
 function makeResumeDocument(
-  resumeJson: DesignResumeJson = buildDefaultReactiveResumeDocument() as DesignResumeJson,
+  resumeJson: DesignResumeJson = buildDefaultResumeDocument() as DesignResumeJson,
 ): DesignResumeDocument {
   return {
     id: "primary",
@@ -102,7 +102,7 @@ describe("importDesignResumeFromFile", () => {
     vi.stubGlobal("fetch", vi.fn());
     vi.mocked(pdfParse).mockResolvedValue(makePdfParseResult("Taylor Quinn\nSenior Engineer"));
     codexCallJsonMock.mockResolvedValue({
-      text: JSON.stringify(buildDefaultReactiveResumeDocument()),
+      text: JSON.stringify(buildDefaultResumeDocument()),
       turnId: "turn-1",
     });
     modelSelection.resolveLlmRuntimeSettings.mockResolvedValue({
@@ -117,7 +117,7 @@ describe("importDesignResumeFromFile", () => {
   });
 
   it("imports Reactive Resume JSON directly without model extraction", async () => {
-    const resumeJson = buildDefaultReactiveResumeDocument() as DesignResumeJson;
+    const resumeJson = buildDefaultResumeDocument() as DesignResumeJson;
     resumeJson.basics.name = "Jordan Park";
     resumeJson.sections.experience.items = [
       {
@@ -158,7 +158,7 @@ describe("importDesignResumeFromFile", () => {
   });
 
   it("accepts data-wrapped Reactive Resume JSON exports", async () => {
-    const resumeJson = buildDefaultReactiveResumeDocument() as DesignResumeJson;
+    const resumeJson = buildDefaultResumeDocument() as DesignResumeJson;
     resumeJson.basics.name = "Sam Rivera";
 
     const result = await importDesignResumeFromFile({
@@ -177,7 +177,7 @@ describe("importDesignResumeFromFile", () => {
   });
 
   it("generates missing project ids when importing Reactive Resume JSON", async () => {
-    const resumeJson = buildDefaultReactiveResumeDocument() as DesignResumeJson;
+    const resumeJson = buildDefaultResumeDocument() as DesignResumeJson;
     resumeJson.sections.projects.items = [
       {
         id: "",

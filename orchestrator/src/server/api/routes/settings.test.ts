@@ -1,53 +1,6 @@
 import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@server/services/rxresume", () => ({
-  clearRxResumeResumeCache: vi.fn(),
-  listResumes: vi.fn(),
-  getResume: vi.fn(),
-  validateCredentials: vi.fn(async () => ({
-    ok: true,
-    mode: "v5",
-  })),
-  validateResumeSchema: vi.fn(async (data: unknown) => ({
-    ok: true,
-    data,
-  })),
-  extractProjectsFromResume: vi.fn((data: unknown) => {
-    const root = (data ?? {}) as Record<string, unknown>;
-    const sections = (root.sections ?? {}) as Record<string, unknown>;
-    const projects = (sections.projects ?? {}) as Record<string, unknown>;
-    const items = Array.isArray(projects.items) ? projects.items : [];
-    return {
-      mode: "v5",
-      catalog: items.map((item) => {
-        const project = item as Record<string, unknown>;
-        return {
-          id: String(project.id ?? ""),
-          name: String(project.name ?? ""),
-          description: String(project.description ?? ""),
-          date: String(project.period ?? ""),
-          isVisibleInBase: !project.hidden,
-        };
-      }),
-    };
-  }),
-  RxResumeAuthConfigError: class RxResumeAuthConfigError extends Error {
-    constructor(message = "Reactive Resume auth config missing") {
-      super(message);
-      this.name = "RxResumeAuthConfigError";
-    }
-  },
-  RxResumeRequestError: class RxResumeRequestError extends Error {
-    status: number | null;
-    constructor(message = "Reactive Resume request failed", status: number | null = null) {
-      super(message);
-      this.name = "RxResumeRequestError";
-      this.status = status;
-    }
-  },
-}));
-
 const { listModelsMock } = vi.hoisted(() => ({
   listModelsMock: vi.fn().mockResolvedValue(["model-a"]),
 }));
@@ -63,11 +16,6 @@ vi.mock("@server/services/llm/service", () => ({
 }));
 
 import { LlmService } from "@server/services/llm/service";
-import {
-  extractProjectsFromResume,
-  getResume,
-  validateCredentials,
-} from "@server/services/rxresume";
 import {
   getDefaultPromptTemplate,
   LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
@@ -100,15 +48,9 @@ describe("Settings API routes", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    vi.mocked(validateCredentials).mockResolvedValue({
-      ok: true,
-      mode: "v5",
-    });
     ({ server, baseUrl, closeDb, tempDir } = await startServer({
       env: {
         LLM_API_KEY: "secret-key",
-        RXRESUME_API_KEY: "resume-api-key",
-        RXRESUME_URL: "https://env.rxresume.example.com",
       },
     }));
   });
@@ -157,10 +99,8 @@ describe("Settings API routes", () => {
     expect(body.ok).toBe(true);
     expect(body.data.model.default).toBe("test-model");
     expect(Array.isArray(body.data.searchTerms.value)).toBe(true);
-    expect(body.data.rxresumeApiKeyHint).toBe("resu");
-    expect(body.data.rxresumeUrl).toBe("https://env.rxresume.example.com");
-    expect(body.data.pdfRenderer.value).toBe("rxresume");
-    expect(body.data.pdfRenderer.default).toBe("rxresume");
+    expect(body.data.pdfRenderer.value).toBe("typst");
+    expect(body.data.pdfRenderer.default).toBe("typst");
     expect(body.data.llmApiKeyHint).toBe("secr");
     expect(body.data).not.toHaveProperty("basicAuthUser");
     expect(body.data).not.toHaveProperty("basicAuthPassword");
@@ -226,7 +166,6 @@ describe("Settings API routes", () => {
         BASIC_AUTH_PASSWORD: "legacy-secret",
         BASIC_AUTH_USER: "legacy-admin",
         LLM_API_KEY: "secret-key",
-        RXRESUME_API_KEY: "resume-api-key",
       },
     });
 
@@ -249,7 +188,6 @@ describe("Settings API routes", () => {
       env: {
         LLM_API_KEY: "secret-key",
         LLM_PROVIDER: "openai-compatible",
-        RXRESUME_API_KEY: "resume-api-key",
       },
     });
 
@@ -272,7 +210,6 @@ describe("Settings API routes", () => {
         MODEL: undefined,
         LLM_API_KEY: "secret-key",
         LLM_PROVIDER: "glm",
-        RXRESUME_API_KEY: "resume-api-key",
       },
     });
 
@@ -297,7 +234,6 @@ describe("Settings API routes", () => {
         MODEL: undefined,
         LLM_API_KEY: "secret-key",
         LLM_PROVIDER: "openai",
-        RXRESUME_API_KEY: "resume-api-key",
       },
     });
 
@@ -318,7 +254,6 @@ describe("Settings API routes", () => {
       env: {
         MODEL: undefined,
         LLM_API_KEY: "secret-key",
-        RXRESUME_API_KEY: "resume-api-key",
       },
     });
 
@@ -347,7 +282,6 @@ describe("Settings API routes", () => {
       env: {
         MODEL: undefined,
         LLM_API_KEY: "secret-key",
-        RXRESUME_API_KEY: "resume-api-key",
       },
     });
 
@@ -386,8 +320,6 @@ describe("Settings API routes", () => {
       body: JSON.stringify({
         pdfRenderer: "latex",
         searchTerms: ["engineer"],
-        rxresumeApiKey: "updated-key",
-        rxresumeUrl: "https://resume.example.com",
         llmApiKey: "updated-secret",
         basicAuthUser: "admin",
         basicAuthPassword: "letmein",
@@ -400,8 +332,6 @@ describe("Settings API routes", () => {
     expect(patchBody.data.pdfRenderer.override).toBe("latex");
     expect(patchBody.data.searchTerms.value).toEqual(["engineer"]);
     expect(patchBody.data.searchTerms.override).toEqual(["engineer"]);
-    expect(patchBody.data.rxresumeApiKeyHint).toBe("upda");
-    expect(patchBody.data.rxresumeUrl).toBe("https://resume.example.com");
     expect(patchBody.data.llmApiKeyHint).toBe("upda");
     expect(patchBody.data).not.toHaveProperty("basicAuthUser");
     expect(patchBody.data).not.toHaveProperty("basicAuthPassword");
@@ -480,104 +410,6 @@ describe("Settings API routes", () => {
         provider: "openai",
       }),
     );
-  });
-
-  it("blocks saving when the configured Reactive Resume v5 API key is invalid", async () => {
-    vi.mocked(validateCredentials).mockResolvedValue({
-      ok: false,
-      mode: "v5",
-      status: 401,
-      message: "Reactive Resume v5 API key is invalid. Update the API key and try again.",
-    });
-
-    const res = await fetch(`${baseUrl}/api/settings`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        rxresumeApiKey: "invalid-key",
-      }),
-    });
-    const body = await res.json();
-
-    expect(res.status).toBe(401);
-    expect(body.ok).toBe(false);
-    expect(body.error.code).toBe("UNAUTHORIZED");
-    expect(body.error.message).toContain("API key");
-
-    const settingsRes = await fetch(`${baseUrl}/api/settings`);
-    const settingsBody = await settingsRes.json();
-    expect(settingsBody.data.rxresumeApiKeyHint).toBe("resu");
-  });
-
-  it("blocks saving when Reactive Resume returns another 4xx validation failure", async () => {
-    vi.mocked(validateCredentials).mockResolvedValue({
-      ok: false,
-      mode: "v5",
-      status: 404,
-      message:
-        "Reactive Resume returned HTTP 404 from https://resume.example.com. Check the configured URL and selected mode.",
-    });
-
-    const res = await fetch(`${baseUrl}/api/settings`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        rxresumeUrl: "https://resume.example.com",
-      }),
-    });
-    const body = await res.json();
-
-    expect(res.status).toBe(404);
-    expect(body.ok).toBe(false);
-    expect(body.error.code).toBe("NOT_FOUND");
-
-    const settingsRes = await fetch(`${baseUrl}/api/settings`);
-    const settingsBody = await settingsRes.json();
-    expect(settingsBody.data.rxresumeUrl).toBe("https://env.rxresume.example.com");
-  });
-
-  it("allows saving when Reactive Resume is temporarily unavailable", async () => {
-    vi.mocked(validateCredentials).mockResolvedValue({
-      ok: false,
-      mode: "v5",
-      status: 0,
-      message: "JobOps could not verify Reactive Resume because the instance is unavailable.",
-    });
-
-    const res = await fetch(`${baseUrl}/api/settings`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        rxresumeApiKey: "rr-v5-warning-key",
-      }),
-    });
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(body.data.rxresumeApiKeyHint).toBe("rr-v");
-  });
-
-  it("does not run Reactive Resume validation for unrelated settings saves", async () => {
-    vi.mocked(validateCredentials).mockResolvedValue({
-      ok: false,
-      mode: "v5",
-      status: 401,
-      message: "should not run",
-    });
-
-    const res = await fetch(`${baseUrl}/api/settings`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-      }),
-    });
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(validateCredentials).not.toHaveBeenCalled();
   });
 
   it("ignores removed Basic Auth settings fields", async () => {
@@ -744,65 +576,6 @@ describe("Settings API routes", () => {
       body: JSON.stringify({ llmProvider: "openrouter", backupEnabled: true }),
     });
     expect(adminRes.status).toBe(200);
-  });
-
-  it("preserves upstream 404 from Reactive Resume project lookup", async () => {
-    const { RxResumeRequestError } = await import("@server/services/rxresume");
-    vi.mocked(getResume).mockRejectedValue(
-      new RxResumeRequestError("Reactive Resume API error (404): Resume not found", 404),
-    );
-
-    const res = await fetch(`${baseUrl}/api/settings/rx-resumes/missing/projects`);
-    const body = await res.json();
-
-    expect(res.status).toBe(404);
-    expect(body.ok).toBe(false);
-    expect(body.error.code).toBe("NOT_FOUND");
-    expect(body.error.message).toContain("404");
-  });
-
-  it("returns project catalog for v5-shaped Reactive Resume payloads", async () => {
-    vi.mocked(getResume).mockResolvedValue({
-      id: "resume-v5",
-      name: "Resume v5",
-      mode: "v5",
-      data: {
-        sections: {
-          projects: {
-            title: "Projects",
-            columns: 1,
-            hidden: false,
-            items: [
-              {
-                id: "p1",
-                hidden: false,
-                name: "JobOps",
-                period: "2024",
-                website: { url: "https://example.com", label: "Example" },
-                description: "Project description",
-              },
-            ],
-          },
-        },
-        summary: {},
-      },
-    } as any);
-
-    const res = await fetch(`${baseUrl}/api/settings/rx-resumes/resume-v5/projects?mode=v5`);
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(body.data.projects).toEqual([
-      {
-        id: "p1",
-        name: "JobOps",
-        description: "Project description",
-        date: "2024",
-        isVisibleInBase: true,
-      },
-    ]);
-    expect(extractProjectsFromResume).toHaveBeenCalled();
   });
 
   it("keeps platform credentials private and rejects LLM edits for hosted Free", async () => {
