@@ -53,7 +53,14 @@ export async function runScheduledPipeline(): Promise<void> {
     return;
   }
   logger.info("Starting scheduled pipeline");
-  await startRequestedPipeline(runPipelineSchema.parse(saved), false);
+  // The saved request replays the sources, search terms and limits of the last
+  // manual search, but not its Watchlist selection: a scheduled run always
+  // covers every Watchlist source currently saved, so sources added since that
+  // search (custom URLs, source groups) are picked up without another manual run.
+  await startRequestedPipeline(
+    { ...runPipelineSchema.parse(saved), watchlistSelectedSourceIds: undefined },
+    false,
+  );
 }
 
 type Owner = { tenantId: string; userId: string | null };

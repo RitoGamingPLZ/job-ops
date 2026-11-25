@@ -91,6 +91,20 @@ describe("daily pipeline scheduler", () => {
     expect(mocks.load).not.toHaveBeenCalled();
     expect(mocks.start).not.toHaveBeenCalled();
   });
+  it("covers every saved Watchlist source, ignoring the last manual selection", async () => {
+    for (const saved of [["apple:software"], []]) {
+      mocks.start.mockClear();
+      mocks.load.mockResolvedValue({
+        sources: ["indeed"],
+        topN: 5,
+        searchTerms: ["developer"],
+        watchlistSelectedSourceIds: saved,
+      });
+      await runScheduledPipeline();
+      expect(mocks.start).toHaveBeenCalledTimes(1);
+      expect(mocks.start.mock.calls[0]?.[0].watchlistSelectedSourceIds).toBeUndefined();
+    }
+  });
   it("skips until a manual run has saved a request", async () => {
     mocks.load.mockResolvedValue(null);
     await runScheduledPipeline();
@@ -106,7 +120,10 @@ describe("daily pipeline scheduler", () => {
     await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
     expect(mocks.start).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
-    expect(mocks.start).toHaveBeenCalledWith(await mocks.load(), false);
+    expect(mocks.start).toHaveBeenCalledWith(
+      { ...(await mocks.load()), watchlistSelectedSourceIds: undefined },
+      false,
+    );
     expect(vi.getTimerCount()).toBe(1);
     mocks.listOwners.mockResolvedValue([]);
     await refreshPipelineScheduler();
