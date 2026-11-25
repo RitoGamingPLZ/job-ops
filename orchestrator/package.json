@@ -9,6 +9,7 @@
     "dev:server": "tsx watch src/server/index.ts",
     "dev:client": "vp dev --host",
     "ladle": "ladle serve",
+    "ladle:build": "ladle build --outDir storybook-static",
     "check:all": "npm run check:types && npm run check:fix && npm run format:fix",
     "ci": "vp check",
     "check": "vp check",

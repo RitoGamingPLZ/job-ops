@@ -34,6 +34,17 @@ Use the path that matches your change:
 | Extractors                | `extractors/*`, sometimes `shared`                                             | Relevant type checks + tests           | [Add an extractor](https://jobops.dakheera47.com/docs/next/workflows/add-an-extractor), [Extractors overview](https://jobops.dakheera47.com/docs/extractors/overview)       |
 | Typst resume themes       | `orchestrator/src/server/services/resume-renderer/typst-themes`                | `npm run typst-theme:validate`         | [Resume PDF](https://jobops.dakheera47.com/docs/features/resume-pdf)                                                                                                        |
 
+## Component gallery (Storybook)
+
+UI components with a `*.stories.tsx` file are browsable in a component gallery (Ladle, which reads the same story format as Storybook).
+
+```bash
+npm --workspace orchestrator run ladle         # dev server on http://localhost:61000
+npm --workspace orchestrator run ladle:build   # static build in orchestrator/storybook-static
+```
+
+CI builds the gallery for every commit pushed to a pull request and attaches it as the `storybook-static` artifact. If the repository variable `STORYBOOK_PAGES_PROJECT` names a Cloudflare Pages project, each branch also gets a preview URL, which is commented on the pull request.
+
 ## Local Setup (Minimal)
 
 For full end-user setup, environment variables, OAuth, and deployment details, use the [Self-Hosting Guide](https://jobops.dakheera47.com/docs/getting-started/self-hosting) and [Gmail OAuth Setup](https://jobops.dakheera47.com/docs/getting-started/gmail-oauth-setup).
