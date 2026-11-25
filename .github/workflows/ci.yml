@@ -23,8 +23,8 @@ jobs:
           cache: true
           # `vp install` runs the project's package manager (npm, from package-lock.json) and fails
           # instead of rewriting the lockfile.
-          run-install:
-            args: [--frozen-lockfile]
+          run-install: |
+            - args: ['--frozen-lockfile']
       - name: Run Vite+ check
         run: vp check
 
@@ -55,8 +55,8 @@ jobs:
           cache: true
           # `vp install` runs the project's package manager (npm, from package-lock.json) and fails
           # instead of rewriting the lockfile.
-          run-install:
-            args: [--frozen-lockfile]
+          run-install: |
+            - args: ['--frozen-lockfile']
       - name: Apply Vite+ fixes
         run: vp check --fix || true
       - name: Commit and push fixes
@@ -86,8 +86,8 @@ jobs:
           cache: true
           # `vp install` runs the project's package manager (npm, from package-lock.json) and fails
           # instead of rewriting the lockfile.
-          run-install:
-            args: [--frozen-lockfile]
+          run-install: |
+            - args: ['--frozen-lockfile']
       - name: Build better-sqlite3
         run: npm --workspace orchestrator rebuild better-sqlite3
       - name: Run Tests
@@ -115,8 +115,8 @@ jobs:
           cache: true
           # `vp install` runs the project's package manager (npm, from package-lock.json) and fails
           # instead of rewriting the lockfile.
-          run-install:
-            args: [--frozen-lockfile]
+          run-install: |
+            - args: ['--frozen-lockfile']
 
       - name: Check shared package types
         run: vp run check:types:shared
@@ -138,8 +138,8 @@ jobs:
         with:
           node-version: "22.22.1"
           cache: true
-          run-install:
-            args: [--frozen-lockfile]
+          run-install: |
+            - args: ['--frozen-lockfile']
 
       - name: Build documentation site
         run: vp run check:docs
@@ -156,9 +156,9 @@ jobs:
           working-directory: cloudflare
           cache: true
           cache-dependency-path: cloudflare/package-lock.json
-          run-install:
-            cwd: cloudflare
-            args: [--frozen-lockfile]
+          run-install: |
+            - cwd: cloudflare
+              args: ['--frozen-lockfile']
 
       - name: Typecheck Worker
         run: vp run check:types

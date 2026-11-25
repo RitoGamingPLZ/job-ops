@@ -22,8 +22,8 @@ jobs:
         with:
           node-version: "22.22.1"
           cache: true
-          run-install:
-            args: [--frozen-lockfile]
+          run-install: |
+            - args: ['--frozen-lockfile']
 
       - name: Build client and DO bundle
         run: |
@@ -58,9 +58,9 @@ jobs:
           working-directory: cloudflare
           cache: true
           cache-dependency-path: cloudflare/package-lock.json
-          run-install:
-            cwd: cloudflare
-            args: [--frozen-lockfile]
+          run-install: |
+            - cwd: cloudflare
+              args: ['--frozen-lockfile']
 
       - name: Typecheck Worker
         run: vp run check:types
@@ -90,9 +90,9 @@ jobs:
           working-directory: cloudflare
           cache: true
           cache-dependency-path: cloudflare/package-lock.json
-          run-install:
-            cwd: cloudflare
-            args: [--frozen-lockfile]
+          run-install: |
+            - cwd: cloudflare
+              args: ['--frozen-lockfile']
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
