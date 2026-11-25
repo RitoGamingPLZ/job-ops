@@ -17,23 +17,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1.22.0
         with:
-          node-version: 22
-          cache: "npm"
-          cache-dependency-path: package-lock.json
-
-      - name: Install app dependencies
-        run: npm ci --workspaces --include-workspace-root
+          node-version: "22.22.1"
+          cache: true
+          run-install:
+            args: [--frozen-lockfile]
 
       - name: Build client and DO bundle
         run: |
-          npm --workspace orchestrator run build:client
-          npm --workspace orchestrator run build:do
+          vp run --filter job-ops-orchestrator build:client
+          vp run --filter job-ops-orchestrator build:do
 
       - name: Build documentation site
-        run: npm --workspace docs-site run build
+        run: vp run --filter docs-site build
 
       - name: Copy docs into client dist
         run: |
@@ -53,23 +51,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1.22.0
         with:
-          node-version: 22
-          cache: "npm"
+          node-version: "22.22.1"
+          working-directory: cloudflare
+          cache: true
           cache-dependency-path: cloudflare/package-lock.json
-
-      - name: Install Worker dependencies
-        run: npm ci
-        working-directory: cloudflare
+          run-install:
+            cwd: cloudflare
+            args: [--frozen-lockfile]
 
       - name: Typecheck Worker
-        run: npm run check:types
+        run: vp run check:types
         working-directory: cloudflare
 
       - name: Test Worker
-        run: npm test
+        run: vp run test
         working-directory: cloudflare
 
   deploy:
@@ -85,16 +83,16 @@ jobs:
           name: orchestrator-dist
           path: orchestrator/dist
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1.22.0
         with:
-          node-version: 22
-          cache: "npm"
+          node-version: "22.22.1"
+          working-directory: cloudflare
+          cache: true
           cache-dependency-path: cloudflare/package-lock.json
-
-      - name: Install Worker dependencies
-        run: npm ci
-        working-directory: cloudflare
+          run-install:
+            cwd: cloudflare
+            args: [--frozen-lockfile]
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -111,7 +109,7 @@ jobs:
           cache-to: type=gha,scope=cf-container-deps,mode=max
 
       - name: Deploy with Wrangler
-        run: npx wrangler deploy
+        run: vp exec wrangler deploy
         working-directory: cloudflare
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

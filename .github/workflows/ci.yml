@@ -21,6 +21,10 @@ jobs:
         with:
           node-version: "22.22.1"
           cache: true
+          # `vp install` runs the project's package manager (npm, from package-lock.json) and fails
+          # instead of rewriting the lockfile.
+          run-install:
+            args: [--frozen-lockfile]
       - name: Run Vite+ check
         run: vp check
 
@@ -49,6 +53,10 @@ jobs:
         with:
           node-version: "22.22.1"
           cache: true
+          # `vp install` runs the project's package manager (npm, from package-lock.json) and fails
+          # instead of rewriting the lockfile.
+          run-install:
+            args: [--frozen-lockfile]
       - name: Apply Vite+ fixes
         run: vp check --fix || true
       - name: Commit and push fixes
@@ -76,15 +84,14 @@ jobs:
         with:
           node-version: "22.22.1"
           cache: true
-      - name: Install dependencies
-        run: npm ci --workspaces --include-workspace-root
-        working-directory: .
+          # `vp install` runs the project's package manager (npm, from package-lock.json) and fails
+          # instead of rewriting the lockfile.
+          run-install:
+            args: [--frozen-lockfile]
       - name: Build better-sqlite3
         run: npm --workspace orchestrator rebuild better-sqlite3
-        working-directory: .
       - name: Run Tests
-        run: npm run test:all -- --shard=${{ matrix.shard }}
-        working-directory: .
+        run: vp run test:all --shard=${{ matrix.shard }}
 
   typecheck:
     name: Type Check
@@ -92,7 +99,7 @@ jobs:
     strategy:
       matrix:
         project:
-          - orchestrator
+          - job-ops-orchestrator
           - adzuna-extractor
           - hiringcafe-extractor
           - gradcracker-extractor
@@ -106,64 +113,57 @@ jobs:
         with:
           node-version: "22.22.1"
           cache: true
-
-      - name: Install dependencies
-        run: npm ci --workspaces --include-workspace-root
-        working-directory: .
+          # `vp install` runs the project's package manager (npm, from package-lock.json) and fails
+          # instead of rewriting the lockfile.
+          run-install:
+            args: [--frozen-lockfile]
 
       - name: Check shared package types
-        run: npm run check:types:shared
-        working-directory: .
+        run: vp run check:types:shared
 
       - name: Type Check ${{ matrix.project }}
-        run: npm --workspace ${{ matrix.project }} run check:types
-        working-directory: .
+        run: vp run --filter ${{ matrix.project }} check:types
 
       - name: Build ${{ matrix.project }} (client)
-        if: matrix.project == 'orchestrator'
-        run: npm --workspace orchestrator run build:client
-        working-directory: .
+        if: matrix.project == 'job-ops-orchestrator'
+        run: vp run --filter job-ops-orchestrator build:client
 
   docs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1.22.0
         with:
-          node-version: 22
-          cache: "npm"
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci --workspaces --include-workspace-root
-        working-directory: .
+          node-version: "22.22.1"
+          cache: true
+          run-install:
+            args: [--frozen-lockfile]
 
       - name: Build documentation site
-        run: npm run check:docs
-        working-directory: .
+        run: vp run check:docs
 
   cloudflare-worker:
     name: Cloudflare Worker
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1.22.0
         with:
-          node-version: 22
-          cache: "npm"
+          node-version: "22.22.1"
+          working-directory: cloudflare
+          cache: true
           cache-dependency-path: cloudflare/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-        working-directory: cloudflare
+          run-install:
+            cwd: cloudflare
+            args: [--frozen-lockfile]
 
       - name: Typecheck Worker
-        run: npm run check:types
+        run: vp run check:types
         working-directory: cloudflare
 
       - name: Test Worker
-        run: npm test
+        run: vp run test
         working-directory: cloudflare
