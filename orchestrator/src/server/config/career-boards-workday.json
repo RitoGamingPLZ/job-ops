@@ -1,14 +1,5 @@
 [
   {
-    "id": "autodesk-workday",
-    "label": "Autodesk",
-    "ats": "workday",
-    "workdayUrl": "https://autodesk.wd1.myworkdayjobs.com/Ext",
-    "tags": ["software", "engineering", "design", "construction-tech"],
-    "countries": ["US", "UK", "Canada", "India"],
-    "status": "active"
-  },
-  {
     "id": "pg-workday",
     "label": "P&G",
     "ats": "workday",
@@ -195,15 +186,6 @@
     "workdayUrl": "https://aviva.wd1.myworkdayjobs.com/External",
     "tags": ["insurance", "finance", "technology", "data"],
     "countries": ["UK", "Canada", "Ireland"],
-    "status": "active"
-  },
-  {
-    "id": "checkout-workday",
-    "label": "Checkout.com",
-    "ats": "workday",
-    "workdayUrl": "https://checkout.wd3.myworkdayjobs.com/CheckoutCareers",
-    "tags": ["payments", "fintech", "software", "data"],
-    "countries": ["UK", "US", "France", "UAE"],
     "status": "active"
   },
   {
