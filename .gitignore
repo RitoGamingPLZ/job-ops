@@ -32,3 +32,6 @@ tmp/
 
 # Runtime storage artifacts
 orchestrator/storage
+
+# Static component gallery (Ladle) build output
+storybook-static/
