@@ -34,7 +34,7 @@ const sidebars: SidebarsConfig = {
         "features/orchestrator",
         "features/settings",
         "features/design-resume",
-        "features/reactive-resume",
+        "features/resume-pdf",
         "features/in-progress-board",
         "features/ghostwriter",
         "features/post-application-tracking",

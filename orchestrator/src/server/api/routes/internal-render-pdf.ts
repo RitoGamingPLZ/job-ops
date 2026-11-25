@@ -6,7 +6,7 @@ import { asyncRoute } from "@infra/http";
 import { logger } from "@infra/logger";
 import { runWithRequestContext } from "@infra/request-context";
 import { renderResumePdf } from "@server/services/resume-renderer";
-import { v5ResumeDataSchema } from "@server/services/rxresume/schema/v5";
+import { v5ResumeDataSchema } from "@server/services/resume-document/schema/v5";
 import {
   CHAT_STYLE_MANUAL_LANGUAGE_VALUES,
   PDF_PAPER_SIZE_VALUES,

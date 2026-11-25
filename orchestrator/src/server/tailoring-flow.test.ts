@@ -29,7 +29,6 @@ vi.mock("./services/pdf-fingerprint", () => ({
     pdfRenderer: "latex",
     typstTheme: "classic",
     pdfPaperSize: "auto",
-    rxresumeBaseResumeId: null,
   }),
 }));
 
@@ -45,7 +44,6 @@ describe("Tailoring Flow", () => {
       pdfRenderer: "latex",
       typstTheme: "classic",
       pdfPaperSize: "auto",
-      rxresumeBaseResumeId: null,
       resumeProjects: {
         maxProjects: 3,
         lockedProjectIds: [],

@@ -1,6 +1,6 @@
 import type { DesignResumeJson } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildDefaultReactiveResumeDocument } from "../rxresume/document";
+import { buildDefaultResumeDocument } from "../resume-document/document";
 
 const modelSelection = vi.hoisted(() => ({
   resolveLlmRuntimeSettings: vi.fn(),
@@ -43,7 +43,7 @@ describe("importDesignResumeFromFile (gemini_cli)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     callJsonMock.mockResolvedValue({
-      text: JSON.stringify(buildDefaultReactiveResumeDocument()),
+      text: JSON.stringify(buildDefaultResumeDocument()),
     });
     modelSelection.resolveLlmRuntimeSettings.mockResolvedValue({
       provider: "gemini_cli",

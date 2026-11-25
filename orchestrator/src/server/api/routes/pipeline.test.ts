@@ -587,7 +587,7 @@ describe("Pipeline API routes", () => {
           jobspyResultsWanted: 20,
         },
         autoSkipScoreThreshold: 65,
-        pdfRenderer: "rxresume",
+        pdfRenderer: "typst",
         models: {
           scorer: "model-scorer",
           tailoring: "model-tailoring",

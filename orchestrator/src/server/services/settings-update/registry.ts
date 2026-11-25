@@ -10,7 +10,7 @@ import { settingsRegistry } from "@shared/settings-registry";
 import type { UpdateSettingsInput } from "@shared/settings-schema";
 import { LLM_PURPOSE_VALUES, type LlmPurposeApiKeys } from "@shared/types";
 
-export type DeferredSideEffect = "refreshBackupScheduler" | "clearRxResumeCaches";
+export type DeferredSideEffect = "refreshBackupScheduler";
 
 export type SettingsUpdateAction = {
   settingKey: SettingKey;
@@ -35,7 +35,6 @@ export type SettingUpdateHandler<K extends keyof UpdateSettingsInput> = (args: {
 
 export type SettingsUpdatePlan = {
   shouldRefreshBackupScheduler: boolean;
-  shouldClearRxResumeCaches: boolean;
   updatedSettingKeys: SettingKey[];
 };
 
@@ -72,12 +71,6 @@ export const settingsUpdateRegistry: Partial<{
   [K in keyof UpdateSettingsInput]: SettingUpdateHandler<K>;
 }> = {};
 
-const RXRESUME_CACHE_INVALIDATION_KEYS = new Set<keyof UpdateSettingsInput>([
-  "rxresumeUrl",
-  "rxresumeApiKey",
-  "rxresumeBaseResumeId",
-]);
-
 for (const [key, def] of Object.entries(settingsRegistry)) {
   const targetKey = def.kind === "alias" ? (def.target as SettingKey) : (key as SettingKey);
   const isBackup = key.startsWith("backup");
@@ -100,18 +93,6 @@ for (const [key, def] of Object.entries(settingsRegistry)) {
 
       return result({
         actions: [persistAction(targetKey, JSON.stringify(normalized))],
-      });
-    };
-    continue;
-  }
-
-  if (key === "rxresumeBaseResumeId") {
-    settingsUpdateRegistry.rxresumeBaseResumeId = async ({ value }) => {
-      const serialized = normalizeEnvInput(value as string | null | undefined);
-
-      return result({
-        actions: [persistAction("rxresumeBaseResumeId", serialized)],
-        deferred: ["clearRxResumeCaches"],
       });
     };
     continue;
@@ -159,9 +140,6 @@ for (const [key, def] of Object.entries(settingsRegistry)) {
     const deferred: DeferredSideEffect[] = [];
     if (isBackup) {
       deferred.push("refreshBackupScheduler");
-    }
-    if (RXRESUME_CACHE_INVALIDATION_KEYS.has(key as keyof UpdateSettingsInput)) {
-      deferred.push("clearRxResumeCaches");
     }
 
     const legacyKeysToClear =

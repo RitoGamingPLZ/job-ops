@@ -53,7 +53,6 @@ describe("applySettingsUpdates", () => {
       ]),
     );
     expect(plan.shouldRefreshBackupScheduler).toBe(false);
-    expect(plan.shouldClearRxResumeCaches).toBe(false);
     expect(plan.updatedSettingKeys).toEqual(
       expect.arrayContaining([
         "model",
@@ -82,7 +81,6 @@ describe("applySettingsUpdates", () => {
       ]),
     );
     expect(plan.shouldRefreshBackupScheduler).toBe(true);
-    expect(plan.shouldClearRxResumeCaches).toBe(false);
     expect(plan.updatedSettingKeys).toEqual(
       expect.arrayContaining(["backupEnabled", "backupHour"]),
     );
@@ -123,27 +121,6 @@ describe("applySettingsUpdates", () => {
     expect(vi.mocked(settingsRepo.setSetting)).toHaveBeenCalledWith(
       "resumeProjects",
       JSON.stringify(normalized),
-    );
-  });
-
-  it("marks Reactive Resume cache clearing when RxResume settings change", async () => {
-    const settingsRepo = await import("@server/repositories/settings");
-
-    const plan = await applySettingsUpdates({
-      rxresumeUrl: "https://resume.example.com",
-      rxresumeBaseResumeId: "resume-123",
-    });
-
-    expect(vi.mocked(settingsRepo.setSetting).mock.calls).toEqual(
-      expect.arrayContaining([
-        ["rxresumeUrl", "https://resume.example.com"],
-        ["rxresumeBaseResumeId", "resume-123"],
-      ]),
-    );
-    expect(plan.shouldClearRxResumeCaches).toBe(true);
-    expect(plan.shouldRefreshBackupScheduler).toBe(false);
-    expect(plan.updatedSettingKeys).toEqual(
-      expect.arrayContaining(["rxresumeUrl", "rxresumeBaseResumeId"]),
     );
   });
 

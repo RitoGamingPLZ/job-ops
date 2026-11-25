@@ -14,9 +14,6 @@ vi.mock("./design-resume", () => ({
 vi.mock("@server/repositories/settings", () => ({
   getSetting: vi.fn(async () => null),
 }));
-vi.mock("./rxresume/baseResumeId", () => ({
-  getConfiguredRxResumeBaseResumeId: vi.fn(async () => ({ resumeId: null })),
-}));
 
 const context: PdfFingerprintContext = {
   version: "v1",
@@ -26,7 +23,6 @@ const context: PdfFingerprintContext = {
   pdfRenderer: "latex",
   typstTheme: "classic",
   pdfPaperSize: "auto",
-  rxresumeBaseResumeId: "rxresume-base-1",
   resumeProjects: {
     maxProjects: 3,
     lockedProjectIds: ["must"],
@@ -85,7 +81,6 @@ describe("PDF freshness", () => {
           designResumeRevision: 99,
           designResumeUpdatedAt: "new",
           designResumeDocumentId: "other",
-          rxresumeBaseResumeId: "other",
           resumeProjects: { ...context.resumeProjects, maxProjects: 20 },
         },
       ),
@@ -223,14 +218,14 @@ describe("PDF freshness", () => {
     });
 
     expect(createJobPdfFingerprint(job, { ...context, pdfPaperSize: "auto" })).toBe(
-      "4234923d27476ae958a74acf6e92331030e14da238323b17c05066f845fb724a",
+      "dd4185e735742c1364286b48a02df89639ee73e66abcb98ae686df3f358ebbb5",
     );
   });
 
   it("includes paper size changes for every renderer", () => {
     const job = createJob({ tailoredSummary: "Summary" });
 
-    for (const pdfRenderer of ["rxresume", "latex", "typst"] as const) {
+    for (const pdfRenderer of ["latex", "typst"] as const) {
       const fingerprints = (["auto", "a4", "letter"] as const).map((pdfPaperSize) =>
         createJobPdfFingerprint(job, {
           ...context,

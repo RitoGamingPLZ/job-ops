@@ -6,10 +6,8 @@ import {
   getOnboardingStatus,
   saveOnboardingModelAction,
   saveOnboardingProfileAction,
-  saveOnboardingRxResumeAction,
   validateLlm,
   validateResumeConfig,
-  validateRxresume,
 } from "@server/services/onboarding-status";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
@@ -21,12 +19,6 @@ const modelActionSchema = z.object({
   baseUrl: z.string().trim().max(2000).optional().nullable(),
   apiKey: z.string().trim().max(2000).optional().nullable(),
   model: z.string().trim().max(200).optional().nullable(),
-});
-
-const rxresumeActionSchema = z.object({
-  apiKey: z.string().trim().max(2000).optional().nullable(),
-  baseUrl: z.string().trim().max(2000).optional().nullable(),
-  rxresumeBaseResumeId: z.string().trim().max(200).optional().nullable(),
 });
 
 const profileActionSchema = z.object({
@@ -87,22 +79,6 @@ onboardingRouter.post(
   }),
 );
 
-onboardingRouter.post(
-  "/actions/rxresume",
-  asyncRoute(async (req: Request, res: Response) => {
-    if (isDemoMode()) {
-      return okWithMeta(res, await getOnboardingStatus(), { simulated: true });
-    }
-
-    const input = rxresumeActionSchema.parse(req.body ?? {});
-    const data = await saveOnboardingRxResumeAction({
-      ...input,
-      hasRxresumeBaseResumeId: Object.hasOwn(req.body ?? {}, "rxresumeBaseResumeId"),
-    });
-    ok(res, data);
-  }),
-);
-
 onboardingRouter.post("/validate/openrouter", async (req: Request, res: Response) => {
   if (isDemoMode()) {
     return okWithMeta(
@@ -136,27 +112,6 @@ onboardingRouter.post("/validate/llm", async (req: Request, res: Response) => {
   const provider = typeof req.body?.provider === "string" ? req.body.provider : undefined;
   const baseUrl = typeof req.body?.baseUrl === "string" ? req.body.baseUrl : undefined;
   const result = await validateLlm({ apiKey, provider, baseUrl });
-  ok(res, result);
-});
-
-onboardingRouter.post("/validate/rxresume", async (req: Request, res: Response) => {
-  if (isDemoMode()) {
-    return okWithMeta(
-      res,
-      {
-        valid: true,
-        message: "Demo mode: RxResume validation is simulated.",
-      },
-      { simulated: true },
-    );
-  }
-
-  const apiKey = typeof req.body?.apiKey === "string" ? req.body.apiKey : undefined;
-  const baseUrl = typeof req.body?.baseUrl === "string" ? req.body.baseUrl : undefined;
-  const result = await validateRxresume({
-    apiKey,
-    baseUrl,
-  });
   ok(res, result);
 });
 

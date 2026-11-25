@@ -108,7 +108,6 @@ describe("blacklistJobEmployer", () => {
     );
     vi.mocked(applySettingsUpdates).mockResolvedValue({
       shouldRefreshBackupScheduler: false,
-      shouldClearRxResumeCaches: false,
       updatedSettingKeys: [],
     });
   });

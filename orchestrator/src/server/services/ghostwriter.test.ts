@@ -1,8 +1,8 @@
 import { rmSync } from "node:fs";
 import { suggestionProviderJsonSchema } from "@shared/resume-suggestion-schema";
-import type { JobChatMessage, ReactiveResumeV5Document } from "@shared/types";
+import type { JobChatMessage, ResumeV5Document } from "@shared/types";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
+import { buildDefaultResumeDocument } from "./resume-document/document";
 
 // Own sqlite file: sharing the default DATA_DIR with parallel test files causes "database is locked".
 const dataDir = await vi.hoisted(async () => {
@@ -311,7 +311,7 @@ describe("ghostwriter service", () => {
   });
 
   it("persists filtered cowork suggestions and includes them in SSE completion", async () => {
-    const document = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+    const document = buildDefaultResumeDocument() as ResumeV5Document;
     const cowork = { document, referencedBulletIds: [] };
     const unusedFields = Object.fromEntries(
       Object.keys(suggestionProviderJsonSchema.properties).map((key) => [key, null]),
@@ -392,7 +392,7 @@ describe("ghostwriter service", () => {
       threadId: "thread-1",
       assistantMessageId: "assistant-1",
       cowork: {
-        document: buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document,
+        document: buildDefaultResumeDocument() as ResumeV5Document,
         referencedBulletIds: [],
       },
     });
@@ -412,7 +412,7 @@ describe("ghostwriter service", () => {
       messageId: "user-1",
       content: "Revised",
       cowork: {
-        document: buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document,
+        document: buildDefaultResumeDocument() as ResumeV5Document,
         referencedBulletIds: [],
       },
     });

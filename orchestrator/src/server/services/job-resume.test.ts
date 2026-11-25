@@ -4,13 +4,13 @@ import { listExperienceBullets } from "@server/repositories/experience-bullets";
 import { getJobResume, saveJobResume } from "@server/repositories/job-resumes";
 import { getJobById, updateJob } from "@server/repositories/jobs";
 import { createJob } from "@shared/testing/factories";
-import type { ReactiveResumeV5Document } from "@shared/types";
+import type { ResumeV5Document } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { syncCandidateLibrary } from "./candidate-library";
 import { ensureJobResume, regenerateJobResume } from "./job-resume";
 import { loadBaseResumeSource } from "./pdf";
 import { generateResumeFromLibrary } from "./resume-from-library";
-import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
+import { buildDefaultResumeDocument } from "./resume-document/document";
 
 vi.mock("@server/repositories/job-resumes", () => ({
   getJobResume: vi.fn(),
@@ -36,7 +36,7 @@ vi.mock("@server/repositories/settings", () => ({
   getSetting: vi.fn(async () => null),
 }));
 
-const document = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+const document = buildDefaultResumeDocument() as ResumeV5Document;
 const row = { document, revision: 1, exists: true, updatedAt: "now" };
 beforeEach(() => {
   vi.clearAllMocks();
@@ -172,16 +172,6 @@ describe("ensureJobResume", () => {
     await expect(editorOpen).rejects.toThrow("LLM down");
     expect(saveJobResume).not.toHaveBeenCalled();
     expect(updateJob).not.toHaveBeenCalled();
-  });
-  it("passes requestOrigin through to base loading", async () => {
-    await ensureJobResume("job", {
-      tailor: true,
-      requestOrigin: "https://tenant.example",
-    });
-    expect(loadBaseResumeSource).toHaveBeenCalledWith({
-      renderer: "typst",
-      requestOrigin: "https://tenant.example",
-    });
   });
   it("keeps concurrent generation and library reads separate across tenants", async () => {
     const releases: (() => void)[] = [];
@@ -413,7 +403,7 @@ describe("regenerateJobResume", () => {
       current = { ...current, revision: 8 };
       return { created: 0, skipped: 0, linked: 1 };
     });
-    let finish!: (value: ReactiveResumeV5Document) => void;
+    let finish!: (value: ResumeV5Document) => void;
     vi.mocked(generateResumeFromLibrary).mockImplementationOnce(
       () =>
         new Promise((resolve) => {
@@ -439,7 +429,7 @@ describe("regenerateJobResume", () => {
   });
   it("replaces the saved document at its current revision only after tailoring succeeds", async () => {
     vi.mocked(getJobResume).mockResolvedValue({ ...row, revision: 7 });
-    let finish!: (value: ReactiveResumeV5Document) => void;
+    let finish!: (value: ResumeV5Document) => void;
     vi.mocked(generateResumeFromLibrary).mockImplementationOnce(
       () =>
         new Promise((resolve) => {

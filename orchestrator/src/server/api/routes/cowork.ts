@@ -14,10 +14,10 @@ import {
 } from "@server/services/cowork-ai";
 import { screenResume } from "@server/services/cowork-screening";
 import { ensureJobResume } from "@server/services/job-resume";
-import { loadBaseResumeSource, resolvePdfRenderer } from "@server/services/pdf";
-import { safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
+import { loadBaseResumeSource } from "@server/services/pdf";
+import { safeParseV5ResumeData } from "@server/services/resume-document/schema/v5";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
-import type { ReactiveResumeV5Document } from "@shared/types";
+import type { ResumeV5Document } from "@shared/types";
 import { CANDIDATE_ITEM_KINDS } from "@shared/types";
 import { Router } from "express";
 import { z } from "zod";
@@ -56,21 +56,18 @@ async function requireJob(id: string) {
   if (!job) throw notFound("Job not found");
   return job;
 }
-async function baseDocument(requestOrigin: string | null) {
-  const { data } = await loadBaseResumeSource({
-    renderer: await resolvePdfRenderer(),
-    requestOrigin,
-  });
-  return data as ReactiveResumeV5Document;
+async function baseDocument() {
+  const { data } = await loadBaseResumeSource();
+  return data as ResumeV5Document;
 }
 // Retry until the base resume is imported once per private scope. Unavailable
 // sources must not prevent opening the library or spam warnings on every retry.
 const baseResumeFailureLoggedScopes = new Set<string>();
-async function syncLibrary(requestOrigin: string | null) {
-  let base: ReactiveResumeV5Document | undefined;
+async function syncLibrary() {
+  let base: ResumeV5Document | undefined;
   if (libraryService.candidateLibraryNeedsFirstBuild()) {
     try {
-      base = await baseDocument(requestOrigin);
+      base = await baseDocument();
     } catch (error) {
       const { scopeKey } = getPrivateDataScope();
       if (!baseResumeFailureLoggedScopes.has(scopeKey)) {
@@ -107,7 +104,7 @@ coworkRouter.get(
   asyncRoute(async (req, res) => {
     let items = await bulletsRepo.listExperienceBullets(true);
     if (libraryService.candidateLibraryNeedsFirstBuild()) {
-      await syncLibrary(resolveRequestOrigin(req));
+      await syncLibrary();
       items = await bulletsRepo.listExperienceBullets(true);
     }
     ok(res, { items });
@@ -122,7 +119,7 @@ coworkRouter.get(
 coworkRouter.post(
   "/library/sync",
   asyncRoute(async (req, res) => {
-    ok(res, await syncLibrary(resolveRequestOrigin(req)));
+    ok(res, await syncLibrary());
   }),
 );
 coworkRouter.post(
@@ -222,7 +219,7 @@ coworkRouter.put(
       await resumesRepo.saveJobResume(
         job.id,
         input.baseRevision,
-        document.data as ReactiveResumeV5Document,
+        document.data as ResumeV5Document,
       ),
     );
   }),

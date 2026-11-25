@@ -1,4 +1,4 @@
-import type { ReactiveResumeV5Document } from "./design-resume";
+import type { ResumeV5Document } from "./design-resume";
 import type { JobStatus } from "./jobs";
 
 export type ExperienceBulletSource = "resume" | "manual" | "ai_extract" | "job_resume";
@@ -97,7 +97,7 @@ export interface RankedBullet {
   reason: string;
 }
 export interface JobResumeState {
-  document: ReactiveResumeV5Document;
+  document: ResumeV5Document;
   revision: number;
   exists: boolean;
   updatedAt: string | null;
@@ -133,7 +133,7 @@ export interface ResumeSuggestion {
   reason: string;
 }
 export interface CoworkChatContext {
-  document: ReactiveResumeV5Document;
+  document: ResumeV5Document;
   referencedBulletIds: string[];
   focus?: ResumeFocusRef[]; // max 20
 }

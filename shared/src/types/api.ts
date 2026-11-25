@@ -22,18 +22,6 @@ export type ApiResponse<T> =
       meta: ApiMeta;
     };
 
-export type PublicAvailabilityStatus = "ready" | "unconfigured" | "unavailable";
-
-export interface JobOpsPublicAvailabilityResponse {
-  status: PublicAvailabilityStatus;
-  isPubliclyAvailable: boolean;
-  publicBaseUrl: string | null;
-  healthUrl: string | null;
-  checkedAt: number;
-  lastSuccessAt: number | null;
-  reason: string | null;
-}
-
 export type ExtractorHealthStatus = "healthy" | "unhealthy";
 
 export interface ExtractorHealthResponse {

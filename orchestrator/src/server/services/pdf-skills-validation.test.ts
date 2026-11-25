@@ -1,7 +1,7 @@
-import type { ReactiveResumeV5Document } from "@shared/types";
+import type { ResumeV5Document } from "@shared/types";
 import { describe, expect, it, vi } from "vitest";
-import { prepareTailoredResumeForPdf } from "./rxresume";
-import { buildDefaultReactiveResumeDocument } from "./rxresume/document";
+import { prepareTailoredResumeForPdf } from "./resume-document";
+import { buildDefaultResumeDocument } from "./resume-document/document";
 
 vi.mock("@server/repositories/settings", () => ({
   getSetting: vi.fn(async () => null),
@@ -9,7 +9,7 @@ vi.mock("@server/repositories/settings", () => ({
 
 describe("initial editor document skills", () => {
   it("preserves v5 skill fields when materializing legacy tailored skills", async () => {
-    const base = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+    const base = buildDefaultResumeDocument() as ResumeV5Document;
     base.sections.skills.items = [
       {
         id: "existing-skill",
@@ -47,7 +47,7 @@ describe("initial editor document skills", () => {
     expect(base.sections.skills.items[0].keywords).toEqual(["Java"]);
   });
   it("copies valid skill structure for a newly tailored category", async () => {
-    const base = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+    const base = buildDefaultResumeDocument() as ResumeV5Document;
     base.sections.skills.items = [
       {
         id: "skill-template",

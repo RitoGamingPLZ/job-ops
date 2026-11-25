@@ -1,7 +1,7 @@
 import {
   detectJobDescriptionLanguage,
   detectProfileLanguage,
-  detectReactiveResumeV5Language,
+  detectResumeV5Language,
 } from "@shared/language-detection";
 import {
   CHAT_STYLE_MANUAL_LANGUAGE_LABELS,
@@ -13,7 +13,7 @@ import {
 export {
   detectJobDescriptionLanguage,
   detectProfileLanguage,
-  detectReactiveResumeV5Language,
+  detectResumeV5Language,
 } from "@shared/language-detection";
 
 type WritingLanguageConfig = {
@@ -70,7 +70,7 @@ export function resolveWritingOutputLanguageForResumeJson(args: {
   const detectedLanguage =
     args.style.languageMode === "match-job-description"
       ? detectJobDescriptionLanguage(args.jobDescription)
-      : detectReactiveResumeV5Language(args.resumeJson);
+      : detectResumeV5Language(args.resumeJson);
   if (detectedLanguage) {
     return {
       language: detectedLanguage,

@@ -150,8 +150,8 @@ async function assertScoringSettingsIsolation(
 
 async function assertCoworkIsolation(baseUrl: string, ownerToken: string, otherToken: string) {
   const job = await importManualJob(baseUrl, ownerToken, "Private co-work role");
-  const { buildDefaultReactiveResumeDocument } = await import("@server/services/rxresume/document");
-  const document = buildDefaultReactiveResumeDocument();
+  const { buildDefaultResumeDocument } = await import("@server/services/resume-document/document");
+  const document = buildDefaultResumeDocument();
   const call = (path: string, token: string, method = "GET", body?: unknown) =>
     fetch(`${baseUrl}/api${path}`, {
       method,

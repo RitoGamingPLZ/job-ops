@@ -1,6 +1,6 @@
 import { getItemLines, setItemLines } from "@shared/resume-links";
 import type {
-  ReactiveResumeV5Document,
+  ResumeV5Document,
   ResumeFocusRef,
   ResumeSuggestion,
   ResumeSuggestionV2,
@@ -40,7 +40,7 @@ const fixture = () =>
       },
       skills: { items: [] },
     },
-  }) as unknown as ReactiveResumeV5Document;
+  }) as unknown as ResumeV5Document;
 const suggestion = (overrides: Partial<ResumeSuggestion> = {}): ResumeSuggestionV2 => {
   const s = {
     id: "s",
@@ -272,7 +272,7 @@ describe("replace_field", () => {
           ],
         },
       },
-    }) as unknown as ReactiveResumeV5Document;
+    }) as unknown as ResumeV5Document;
   const field = (overrides: Partial<ResumeSuggestion> = {}) =>
     suggestion({
       op: "replace_field",

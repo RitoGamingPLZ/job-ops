@@ -16,9 +16,6 @@ const SETTINGS_INVALIDATION_KEYS = new Set<SettingKey>([
   "pdfRenderer",
   "typstTheme",
   "pdfPaperSize",
-  "rxresumeBaseResumeId",
-  "rxresumeUrl",
-  "rxresumeApiKey",
   "resumeProjects",
 ]);
 

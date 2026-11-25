@@ -15,7 +15,7 @@ import type {
   ExperienceBulletInput,
   LibraryItemUsage,
   LibrarySyncResult,
-  ReactiveResumeV5Document,
+  ResumeV5Document,
 } from "@shared/types";
 import { and, asc, eq } from "drizzle-orm";
 import { db, schema } from "../db";
@@ -44,7 +44,7 @@ function resumes() {
     .all();
 }
 const frozen = (status: string) => status === "applied" || status === "in_progress";
-function save(row: typeof schema.jobResumes.$inferSelect, document: ReactiveResumeV5Document) {
+function save(row: typeof schema.jobResumes.$inferSelect, document: ResumeV5Document) {
   if (document === row.document) return false;
   const saved = db
     .update(schema.jobResumes)
@@ -329,7 +329,7 @@ export function candidateLibraryNeedsFirstBuild(): boolean {
   return !hasImportMarker(FIRST_BUILD_KEY);
 }
 export function syncCandidateLibrary(
-  base?: ReactiveResumeV5Document,
+  base?: ResumeV5Document,
   revisions?: Map<string, { from: number; to: number }>,
 ): LibrarySyncResult {
   return db.transaction(() => {

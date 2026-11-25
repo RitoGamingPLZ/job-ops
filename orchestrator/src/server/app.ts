@@ -266,11 +266,6 @@ export function createAuthGuard() {
     if (normalizedPath.startsWith("/api/auth/sso/")) return true;
     if (normalizedPath.startsWith("/api/workspaces")) return true;
     if (normalizedPath === "/api/settings/codex-auth") return true;
-    if (normalizedPath === "/api/settings/rx-resumes") return true;
-    if (/^\/api\/settings\/rx-resumes\/[^/]+\/projects$/.test(normalizedPath)) {
-      return true;
-    }
-
     return false;
   }
 

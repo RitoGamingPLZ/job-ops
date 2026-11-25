@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   defaultV5ResumeData,
   parseV5ResumeData,
-} from "../../orchestrator/src/server/services/rxresume/schema/v5";
+} from "../../orchestrator/src/server/services/resume-document/schema/v5";
 import { foldedLibraryText } from "./candidate-library-schema";
 import {
   addToResume,

@@ -1,5 +1,5 @@
 import { ApiClientError } from "@client/api/core";
-import type { Job, ReactiveResumeV5Document, ScreeningReport } from "@shared/types";
+import type { Job, ResumeV5Document, ScreeningReport } from "@shared/types";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearScreeningCache, findFocusTarget, JobMatchPanel } from "./JobMatchPanel";
@@ -23,7 +23,7 @@ const job = {
   employer: "Acme",
   jobDescription: "We need Java.",
 } as Job;
-const doc = { basics: {} } as unknown as ReactiveResumeV5Document;
+const doc = { basics: {} } as unknown as ResumeV5Document;
 const report: ScreeningReport = {
   jobTitle: "Backend Engineer",
   employer: "Acme",

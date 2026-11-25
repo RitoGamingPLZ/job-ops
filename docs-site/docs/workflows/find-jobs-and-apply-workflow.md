@@ -63,7 +63,7 @@ are marked fresh through day 4, aging from day 5 through day 14, and old from da
 
 `ready` jobs are the primary application queue.
 
-These jobs already have tailored PDFs generated for the specific job description, using the workflow described in [Reactive Resume](../features/reactive-resume).
+These jobs already have tailored PDFs generated for the specific job description, using the workflow described in [Resume PDF and projects](../features/resume-pdf).
 
 At this stage:
 
@@ -109,7 +109,7 @@ If discovery is slow, start with fewer sources or a smaller run budget. If resul
 ## Related pages
 
 - [Orchestrator](../features/orchestrator)
-- [Reactive Resume](../features/reactive-resume)
+- [Resume PDF and projects](../features/resume-pdf)
 - [Settings](../features/settings)
 - [Overview](../features/overview)
 - [Post-Application Workflow](./post-application-workflow)

@@ -12,7 +12,6 @@ import type {
   TypstTheme,
 } from "@shared/types";
 import { getCurrentDesignResumeOrNullOnLegacy } from "./design-resume";
-import { getConfiguredRxResumeBaseResumeId } from "./rxresume/baseResumeId";
 
 const PDF_FINGERPRINT_VERSION = "v1";
 type JobPdfFingerprintInput = { id?: string } & Pick<
@@ -37,26 +36,18 @@ export interface PdfFingerprintContext {
   pdfRenderer: PdfRenderer;
   typstTheme: TypstTheme;
   pdfPaperSize: PdfPaperSize;
-  rxresumeBaseResumeId: string | null;
   resumeProjects: ResumeProjectsSettings;
 }
 
 export async function resolvePdfFingerprintContext(): Promise<PdfFingerprintContext> {
-  const [
-    designResume,
-    rawRenderer,
-    rawTypstTheme,
-    rawPaperSize,
-    rawResumeProjects,
-    configuredBaseResume,
-  ] = await Promise.all([
-    getCurrentDesignResumeOrNullOnLegacy(),
-    settingsRepo.getSetting("pdfRenderer"),
-    settingsRepo.getSetting("typstTheme"),
-    settingsRepo.getSetting("pdfPaperSize"),
-    settingsRepo.getSetting("resumeProjects"),
-    getConfiguredRxResumeBaseResumeId(),
-  ]);
+  const [designResume, rawRenderer, rawTypstTheme, rawPaperSize, rawResumeProjects] =
+    await Promise.all([
+      getCurrentDesignResumeOrNullOnLegacy(),
+      settingsRepo.getSetting("pdfRenderer"),
+      settingsRepo.getSetting("typstTheme"),
+      settingsRepo.getSetting("pdfPaperSize"),
+      settingsRepo.getSetting("resumeProjects"),
+    ]);
 
   const parsedRenderer = settingsRegistry.pdfRenderer.parse(rawRenderer ?? undefined);
   const parsedTypstTheme = settingsRegistry.typstTheme.parse(rawTypstTheme ?? undefined);
@@ -88,7 +79,6 @@ export async function resolvePdfFingerprintContext(): Promise<PdfFingerprintCont
     pdfPaperSize:
       settingsRegistry.pdfPaperSize.parse(rawPaperSize ?? undefined) ??
       settingsRegistry.pdfPaperSize.default(),
-    rxresumeBaseResumeId: configuredBaseResume.resumeId ?? null,
     resumeProjects:
       settingsRegistry.resumeProjects.parse(rawResumeProjects ?? undefined) ??
       settingsRegistry.resumeProjects.default(),
@@ -114,7 +104,6 @@ export function createJobPdfFingerprint(
           },
         }
       : {
-          rxresumeBaseResumeId: context.rxresumeBaseResumeId,
           resumeProjects: context.resumeProjects,
           designResumeDocumentId: context.designResumeDocumentId,
           designResumeRevision: context.designResumeRevision,

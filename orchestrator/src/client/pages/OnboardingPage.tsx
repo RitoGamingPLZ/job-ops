@@ -407,7 +407,7 @@ function LaunchSetup({
 
   const confirmResume = async () => {
     if (!resumeSource) return;
-    const source = resumeSource.startsWith("rxresume:") ? "rxresume" : "local";
+    const source = "local";
     trackProductEvent("onboarding_resume_confirm_submitted", { source });
     try {
       setConfirmBusy(true);
@@ -703,46 +703,22 @@ function ResumeStep({
       <StepShell
         eyebrow="Your resume"
         title="Load the resume Job Ops should use"
-        description="Upload a file or connect Reactive Resume. After parsing, you’ll review the result before anything is marked complete."
+        description="Upload a PDF, DOCX or resume JSON file. After parsing, you’ll review the result before anything is marked complete."
       >
         <BaseResumeStep
-          allowReactiveResume
           baseResumeValidation={toValidationState(requirement)}
-          baseResumeValue={flow.watch("rxresumeBaseResumeId")}
-          hasRxResumeAccess={Boolean(flow.rxresumeApiKeyHint)}
           importingResumeFileName={flow.importingResumeFileName}
           isBusy={flow.isBusy}
           isImportingResume={flow.isImportingResume}
-          isResumeReady={false}
-          isRxResumeSelfHosted={flow.isRxResumeSelfHosted}
-          resumeSetupMode={flow.resumeSetupMode}
-          rxresumeApiKey={flow.watch("rxresumeApiKey")}
-          rxresumeApiKeyHint={flow.rxresumeApiKeyHint}
-          rxresumeUrl={flow.watch("rxresumeUrl")}
-          rxresumeValidation={toValidationState(requirement)}
           selectedProvider={flow.selectedProvider}
           onImportResumeFile={flow.handleImportResumeFile}
-          onResumeSetupModeChange={flow.setResumeSetupMode}
-          onRxresumeApiKeyChange={(value) => flow.setValue("rxresumeApiKey", value)}
-          onRxresumeSelfHostedChange={flow.handleRxresumeSelfHostedChange}
-          onRxresumeUrlChange={(value) => flow.setValue("rxresumeUrl", value)}
-          onTemplateResumeChange={flow.handleTemplateResumeChange}
         />
-        {flow.resumeSetupMode === "rxresume" ? (
-          <StepActions
-            onBack={onBack}
-            onContinue={() => void flow.handleSaveRxresume()}
-            busy={flow.isBusy}
-            label="Check connection"
-          />
-        ) : (
-          <div className="border-t pt-6">
-            <Button type="button" variant="ghost" onClick={onBack}>
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-          </div>
-        )}
+        <div className="border-t pt-6">
+          <Button type="button" variant="ghost" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+        </div>
       </StepShell>
     );
   }

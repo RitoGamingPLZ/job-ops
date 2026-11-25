@@ -1,6 +1,5 @@
 /**
- * Service for generating PDF resumes from the local Design Resume when available,
- * falling back to the configured Reactive Resume base resume otherwise.
+ * Service for generating PDF resumes from the local Design Resume.
  */
 
 import { randomUUID } from "node:crypto";
@@ -12,7 +11,6 @@ import { AppError, type AppErrorCode, conflict, notFound } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { getBlobStore } from "@server/infra/blob-store";
-import { getJobOpsPublicAvailability } from "@server/infra/public-availability";
 import { getRequestId } from "@server/infra/request-context";
 import { getSetting } from "@server/repositories/settings";
 import { safePdfFileName } from "@shared/filename-sanitizer";
@@ -31,20 +29,7 @@ import {
 } from "./pdf-storage";
 import { renderResumePdf } from "./resume-renderer";
 import { buildResumeRenderDocument } from "./resume-renderer/document";
-import {
-  deleteResume as deleteRxResume,
-  exportResumePdf as exportRxResumePdf,
-  getResume as getRxResume,
-  importResume as importRxResume,
-  type PreparedRxResumePdfPayload,
-} from "./rxresume";
-import { getConfiguredRxResumeBaseResumeId } from "./rxresume/baseResumeId";
-import {
-  mergeReactiveResumeV5Content,
-  prepareReactiveResumeV5DocumentForExternalUse,
-} from "./rxresume/document";
-import { applyPdfPaperSizeToResumeData } from "./rxresume/paper-size";
-import { parseV5ResumeData } from "./rxresume/schema/v5";
+import { parseV5ResumeData } from "./resume-document/schema/v5";
 import { getWritingStyle } from "./writing-style";
 
 export interface PdfResult {
@@ -94,96 +79,6 @@ async function resolveLocalResumeLanguage(
   }).language;
 }
 
-async function downloadRxResumePdfBytes(url: string): Promise<Uint8Array> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Reactive Resume PDF download failed with HTTP ${response.status}.`);
-  }
-
-  return new Uint8Array(await response.arrayBuffer());
-}
-
-async function stripPictureWhenJobOpsIsNotHosted(args: {
-  data: Record<string, unknown>;
-  requestOrigin?: string | null;
-}): Promise<Record<string, unknown>> {
-  const picture =
-    args.data.picture && typeof args.data.picture === "object" && !Array.isArray(args.data.picture)
-      ? (args.data.picture as Record<string, unknown>)
-      : null;
-  if (!picture) return args.data;
-
-  const pictureUrl = typeof picture.url === "string" ? picture.url.trim() : "";
-  if (!/^\/api\/design-resume\/assets\/[^/]+\/content$/.test(pictureUrl)) {
-    return args.data;
-  }
-
-  const availability = await getJobOpsPublicAvailability({
-    requestOrigin: args.requestOrigin ?? null,
-    force: false,
-  });
-  if (availability.isPubliclyAvailable) {
-    return args.data;
-  }
-
-  return {
-    ...args.data,
-    picture: {
-      ...picture,
-      hidden: true,
-      url: "",
-    },
-  };
-}
-
-async function renderRxResumePdfBytes(args: {
-  preparedResume: PreparedRxResumePdfPayload;
-  jobId: string;
-  name?: string;
-  requestOrigin?: string | null;
-  paperSize: PdfPaperSize;
-}): Promise<Uint8Array> {
-  const { preparedResume, jobId } = args;
-  let importedResumeId: string | null = null;
-  const importData = applyPdfPaperSizeToResumeData(
-    prepareReactiveResumeV5DocumentForExternalUse(
-      await stripPictureWhenJobOpsIsNotHosted({
-        data: preparedResume.data,
-        requestOrigin: args.requestOrigin ?? null,
-      }),
-      {
-        requestOrigin: args.requestOrigin ?? null,
-      },
-    ),
-    args.paperSize,
-  );
-
-  try {
-    importedResumeId = await importRxResume({
-      name: args.name?.trim() || `JobOps Tailored Resume ${jobId}`,
-      data: importData,
-    });
-
-    const exportResult = await exportRxResumePdf(importedResumeId);
-    if (exportResult.kind === "pdf") {
-      return exportResult.bytes;
-    }
-    return await downloadRxResumePdfBytes(exportResult.url);
-  } finally {
-    if (importedResumeId) {
-      try {
-        await deleteRxResume(importedResumeId);
-      } catch (error) {
-        logger.warn("Failed to clean up temporary Reactive Resume PDF export", {
-          jobId,
-          importedResumeId,
-          error,
-        });
-      }
-    }
-  }
-}
-
 // Runtime capability only: never retain tenant-specific documents or assets here.
 export type RemotePdfRenderer = (body: string, requestId?: string) => Promise<Uint8Array>;
 let remotePdfRenderer: RemotePdfRenderer | null = null;
@@ -196,7 +91,7 @@ async function renderLocalResumePdfBytes(args: {
   resumeJson: Record<string, unknown>;
   jobId: string;
   language: Awaited<ReturnType<typeof resolveLocalResumeLanguage>>;
-  renderer: Exclude<PdfRenderer, "rxresume">;
+  renderer: PdfRenderer;
   typstTheme?: Awaited<ReturnType<typeof resolveTypstTheme>>;
   paperSize: PdfPaperSize;
 }): Promise<Uint8Array> {
@@ -251,10 +146,6 @@ function classifyPdfGenerationError(error: unknown): AppErrorCode {
     return error.code;
   }
 
-  if (error instanceof Error && /Reactive Resume|RxResume/i.test(error.message)) {
-    return "UPSTREAM_ERROR";
-  }
-
   if (error instanceof Error && error.name === "AbortError") {
     return "REQUEST_TIMEOUT";
   }
@@ -262,10 +153,7 @@ function classifyPdfGenerationError(error: unknown): AppErrorCode {
   return "INTERNAL_ERROR";
 }
 
-async function resolveDesignResumeForRenderer(args: {
-  renderer: PdfRenderer;
-  requestOrigin?: string | null;
-}): Promise<{
+async function resolveDesignResumeForRenderer(): Promise<{
   documentId: string;
   title: string;
   data: Record<string, unknown>;
@@ -276,100 +164,30 @@ async function resolveDesignResumeForRenderer(args: {
     throw notFound("The base resume has not been imported yet.");
   }
 
-  const localDocument = parseV5ResumeData(
-    designResume.resumeJson as Record<string, unknown>,
-  ) as Record<string, unknown>;
-
-  if (
-    args.renderer !== "rxresume" ||
-    !designResume.sourceResumeId ||
-    designResume.sourceMode !== "v5"
-  ) {
-    return {
-      documentId: designResume.id,
-      title: designResume.title,
-      data: localDocument,
-      mode: "v5",
-    };
-  }
-
-  try {
-    const upstreamResume = await getRxResume(designResume.sourceResumeId);
-
-    if (!upstreamResume.data || typeof upstreamResume.data !== "object") {
-      throw new Error("Reactive Resume base resume is empty or invalid.");
-    }
-
-    const upstreamDocument = parseV5ResumeData(
-      upstreamResume.data as Record<string, unknown>,
-    ) as Record<string, unknown>;
-
-    return {
-      documentId: designResume.id,
-      title: designResume.title,
-      data: mergeReactiveResumeV5Content(upstreamDocument, localDocument, {
-        requestOrigin: args.requestOrigin ?? null,
-      }) as Record<string, unknown>,
-      mode: "v5",
-    };
-  } catch (error) {
-    logger.warn("Failed to refresh Reactive Resume template metadata for Design Resume rendering", {
-      documentId: designResume.id,
-      sourceResumeId: designResume.sourceResumeId,
-      sourceMode: designResume.sourceMode,
-      error,
-    });
-
-    return {
-      documentId: designResume.id,
-      title: designResume.title,
-      data: localDocument,
-      mode: "v5",
-    };
-  }
+  return {
+    documentId: designResume.id,
+    title: designResume.title,
+    data: parseV5ResumeData(designResume.resumeJson as Record<string, unknown>) as Record<
+      string,
+      unknown
+    >,
+    mode: "v5",
+  };
 }
 
-export async function loadBaseResumeSource(args: {
-  renderer: PdfRenderer;
-  requestOrigin?: string | null;
-}): Promise<{
+export async function loadBaseResumeSource(): Promise<{
   data: Record<string, unknown>;
   mode: "v5";
 }> {
   const designResume = await getCurrentDesignResume();
-  if (designResume?.resumeJson) {
-    if (args.renderer === "rxresume") {
-      const resolved = await resolveDesignResumeForRenderer({
-        renderer: args.renderer,
-        requestOrigin: args.requestOrigin ?? null,
-      });
-      return {
-        data: resolved.data,
-        mode: "v5",
-      };
-    }
-
-    return {
-      data: parseV5ResumeData(designResume.resumeJson as Record<string, unknown>) as Record<
-        string,
-        unknown
-      >,
-      mode: "v5",
-    };
-  }
-
-  const { resumeId: baseResumeId } = await getConfiguredRxResumeBaseResumeId();
-  if (!baseResumeId) {
+  if (!designResume?.resumeJson) {
     throw conflict("Import or create a resume first");
   }
-
-  const baseResume = await getRxResume(baseResumeId);
-  if (!baseResume.data || typeof baseResume.data !== "object") {
-    throw new Error("Reactive Resume base resume is empty or invalid.");
-  }
-
   return {
-    data: baseResume.data as Record<string, unknown>,
+    data: parseV5ResumeData(designResume.resumeJson as Record<string, unknown>) as Record<
+      string,
+      unknown
+    >,
     mode: "v5",
   };
 }
@@ -386,34 +204,17 @@ async function renderJobPdfBytes(
     requestOrigin: options?.requestOrigin ?? null,
   });
   const data = parseV5ResumeData(structuredClone(savedResume.document)) as Record<string, unknown>;
-  const preparedResume = {
-    mode: "v5" as const,
-    data,
-    projectCatalog: [],
-    selectedProjectIds: [],
-  };
-
   const paperSize = await resolvePdfPaperSize();
-  if (renderer !== "rxresume") {
-    const [language, typstTheme] = await Promise.all([
-      resolveLocalResumeLanguage(preparedResume.data, jobDescription),
-      renderer === "typst" ? resolveTypstTheme() : Promise.resolve(undefined),
-    ]);
-    const bytes = await renderLocalResumePdfBytes({
-      resumeJson: preparedResume.data,
-      jobId,
-      language,
-      renderer,
-      typstTheme,
-      paperSize,
-    });
-    return { bytes, renderer };
-  }
-
-  const bytes = await renderRxResumePdfBytes({
-    preparedResume,
+  const [language, typstTheme] = await Promise.all([
+    resolveLocalResumeLanguage(data, jobDescription),
+    renderer === "typst" ? resolveTypstTheme() : Promise.resolve(undefined),
+  ]);
+  const bytes = await renderLocalResumePdfBytes({
+    resumeJson: data,
     jobId,
-    requestOrigin: options?.requestOrigin ?? null,
+    language,
+    renderer,
+    typstTheme,
     paperSize,
   });
   return { bytes, renderer };
@@ -470,24 +271,14 @@ export async function generatePdf(
   }
 }
 
-async function renderDesignResumePdfBytes(options?: { requestOrigin?: string | null }): Promise<{
+async function renderDesignResumePdfBytes(): Promise<{
   bytes: Uint8Array;
   title: string;
   language: Awaited<ReturnType<typeof resolveLocalResumeLanguage>>;
   renderer: PdfRenderer;
 }> {
   const renderer = await resolvePdfRenderer();
-  const designResume = await resolveDesignResumeForRenderer({
-    renderer,
-    requestOrigin: options?.requestOrigin ?? null,
-  });
-  const preparedResume: PreparedRxResumePdfPayload = {
-    mode: "v5",
-    data: structuredClone(designResume.data) as Record<string, unknown>,
-    projectCatalog: [],
-    selectedProjectIds: [],
-  };
-
+  const designResume = await resolveDesignResumeForRenderer();
   const [language, paperSize] = await Promise.all([
     resolveLocalResumeLanguage(designResume.data),
     resolvePdfPaperSize(),
@@ -498,23 +289,14 @@ async function renderDesignResumePdfBytes(options?: { requestOrigin?: string | n
     documentId: designResume.documentId,
   });
 
-  const bytes =
-    renderer !== "rxresume"
-      ? await renderLocalResumePdfBytes({
-          resumeJson: designResume.data,
-          jobId: "design-resume",
-          language,
-          renderer,
-          typstTheme: renderer === "typst" ? await resolveTypstTheme() : undefined,
-          paperSize,
-        })
-      : await renderRxResumePdfBytes({
-          preparedResume,
-          jobId: "design-resume",
-          name: designResume.title,
-          requestOrigin: options?.requestOrigin ?? null,
-          paperSize,
-        });
+  const bytes = await renderLocalResumePdfBytes({
+    resumeJson: designResume.data,
+    jobId: "design-resume",
+    language,
+    renderer,
+    typstTheme: renderer === "typst" ? await resolveTypstTheme() : undefined,
+    paperSize,
+  });
 
   return { bytes, title: designResume.title, language, renderer };
 }
@@ -522,30 +304,24 @@ async function renderDesignResumePdfBytes(options?: { requestOrigin?: string | n
 /**
  * Render an ephemeral PDF preview for the base/design resume without writing to BlobStore/R2.
  */
-export async function previewDesignResumePdfBytes(options?: {
-  requestOrigin?: string | null;
-}): Promise<Uint8Array> {
-  const { bytes } = await renderDesignResumePdfBytes(options);
+export async function previewDesignResumePdfBytes(): Promise<Uint8Array> {
+  const { bytes } = await renderDesignResumePdfBytes();
   return bytes;
 }
 
-export async function generateDesignResumePdf(options?: {
-  requestOrigin?: string | null;
-}): Promise<DesignResumePdfResponse> {
+export async function generateDesignResumePdf(): Promise<DesignResumePdfResponse> {
   if (getJobOpsAppConfig().appMode !== "hosted") {
-    return generateDesignResumePdfImpl(options);
+    return generateDesignResumePdfImpl();
   }
   const { withHostedUsageReservation } = await import("./hosted-usage");
   return withHostedUsageReservation({ action: "pdf_export" }, async () => ({
-    result: await generateDesignResumePdfImpl(options),
+    result: await generateDesignResumePdfImpl(),
     usedUnits: 1,
   }));
 }
 
-async function generateDesignResumePdfImpl(options?: {
-  requestOrigin?: string | null;
-}): Promise<DesignResumePdfResponse> {
-  const { bytes, title, language } = await renderDesignResumePdfBytes(options);
+async function generateDesignResumePdfImpl(): Promise<DesignResumePdfResponse> {
+  const { bytes, title, language } = await renderDesignResumePdfBytes();
   const generatedAt = new Date().toISOString();
 
   await getBlobStore().put(getTenantDesignResumePdfKey(), bytes, {

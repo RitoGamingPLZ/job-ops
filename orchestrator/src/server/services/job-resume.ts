@@ -3,11 +3,11 @@ import { listExperienceBullets } from "@server/repositories/experience-bullets";
 import { getJobResume, saveJobResume } from "@server/repositories/job-resumes";
 import { getJobById, updateJob } from "@server/repositories/jobs";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
-import { isTargeted, type JobResumeState, type ReactiveResumeV5Document } from "@shared/types";
+import { isTargeted, type JobResumeState, type ResumeV5Document } from "@shared/types";
 import { syncCandidateLibrary } from "./candidate-library";
-import { loadBaseResumeSource, resolvePdfRenderer } from "./pdf";
+import { loadBaseResumeSource } from "./pdf";
 import { generateResumeFromLibrary } from "./resume-from-library";
-import { prepareTailoredResumeForPdf } from "./rxresume";
+import { prepareTailoredResumeForPdf } from "./resume-document";
 
 export type JobResume = JobResumeState;
 
@@ -58,22 +58,19 @@ async function materializeJobResume(
 ): Promise<JobResume> {
   const job = await getJobById(jobId);
   if (!job) throw notFound("Job not found");
-  const base = await loadBaseResumeSource({
-    renderer: await resolvePdfRenderer(),
-    requestOrigin: opts?.requestOrigin ?? null,
-  });
-  let document: ReactiveResumeV5Document;
+  const base = await loadBaseResumeSource();
+  let document: ResumeV5Document;
   if (opts?.tailor || isTargeted(job)) {
     // B's sync imports the base only on the scope's first build. Subsequent
     // syncs add unlinked job facts without resurrecting deleted library facts.
     // Advance only over revisions written by this sync, preserving editor conflicts
     // from both base loading and generation.
     const revisions = new Map<string, { from: number; to: number }>();
-    syncCandidateLibrary(base.data as ReactiveResumeV5Document, revisions);
+    syncCandidateLibrary(base.data as ResumeV5Document, revisions);
     const synced = revisions.get(jobId);
     if (synced?.from === baseRevision) baseRevision = synced.to;
     document = await generateResumeFromLibrary(
-      base.data as ReactiveResumeV5Document,
+      base.data as ResumeV5Document,
       job,
       await listExperienceBullets(true),
     );
@@ -88,7 +85,7 @@ async function materializeJobResume(
       jobDescription: job.jobDescription ?? "",
       selectedProjectIds: job.selectedProjectIds,
     });
-    document = prepared.data as ReactiveResumeV5Document;
+    document = prepared.data as ResumeV5Document;
   }
   let saved: JobResume;
   try {

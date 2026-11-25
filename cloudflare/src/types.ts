@@ -40,8 +40,6 @@ export interface Env {
   OPENROUTER_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
   ATLASCLOUD_API_KEY?: string;
-  RXRESUME_API_KEY?: string;
-  RXRESUME_URL?: string;
   GMAIL_OAUTH_CLIENT_ID?: string;
   GMAIL_OAUTH_CLIENT_SECRET?: string;
   GMAIL_OAUTH_REDIRECT_URI?: string;

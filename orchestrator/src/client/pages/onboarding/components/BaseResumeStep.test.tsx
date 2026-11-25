@@ -9,29 +9,10 @@ const defaultProps = {
     valid: false,
     message: null,
   },
-  baseResumeValue: null,
-  hasRxResumeAccess: false,
   importingResumeFileName: null,
   isBusy: false,
   isImportingResume: false,
-  isResumeReady: false,
-  isRxResumeSelfHosted: false,
-  resumeSetupMode: "upload" as const,
-  rxresumeApiKey: "",
-  rxresumeApiKeyHint: null,
-  rxresumeUrl: "",
-  rxresumeValidation: {
-    checked: false,
-    hydrated: true,
-    valid: false,
-    message: null,
-  },
   onImportResumeFile: vi.fn(),
-  onResumeSetupModeChange: vi.fn(),
-  onRxresumeApiKeyChange: vi.fn(),
-  onRxresumeSelfHostedChange: vi.fn(),
-  onRxresumeUrlChange: vi.fn(),
-  onTemplateResumeChange: vi.fn(),
 };
 
 describe("BaseResumeStep", () => {
@@ -100,25 +81,12 @@ describe("BaseResumeStep", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows only document upload copy when Reactive Resume is disabled", () => {
-    render(<BaseResumeStep {...defaultProps} allowReactiveResume={false} />);
+  it("offers a single resume upload with the supported formats", () => {
+    render(<BaseResumeStep {...defaultProps} />);
 
-    expect(screen.getByText("Upload your existing resume, PDF or DOCX")).toBeInTheDocument();
-    expect(screen.getByText("Supported formats: PDF and DOCX.")).toBeInTheDocument();
-    expect(screen.queryByRole("radio", { name: /use reactive resume/i })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Reactive Resume JSON/i)).not.toBeInTheDocument();
-  });
-
-  it("hides self-hosted Reactive Resume controls when disabled", () => {
-    render(
-      <BaseResumeStep
-        {...defaultProps}
-        allowSelfHostedReactiveResume={false}
-        resumeSetupMode="rxresume"
-      />,
-    );
-
-    expect(screen.queryByText("Self-hosted Reactive Resume?")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Custom URL")).not.toBeInTheDocument();
+    expect(screen.getByText("Upload a resume file")).toBeInTheDocument();
+    expect(screen.getByText("Supported formats: PDF, DOCX, and resume JSON.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /upload resume file/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Reactive Resume/i)).not.toBeInTheDocument();
   });
 });

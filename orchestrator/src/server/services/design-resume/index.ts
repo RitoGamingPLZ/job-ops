@@ -4,18 +4,15 @@ import { basename } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { AppError, badRequest, conflict, notFound } from "@infra/errors";
 import { logger } from "@infra/logger";
-import { isLocalOrPrivateHostname } from "@infra/public-hostname";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { createId } from "@paralleldrive/cuid2";
 import { getBlobStore } from "@server/infra/blob-store";
 import * as designResumeRepo from "@server/repositories/design-resume";
-import { getSetting } from "@server/repositories/settings";
-import { getOriginalEnvValue } from "@server/services/envSettings";
-import { canUseServerCredentials } from "@server/services/server-credentials";
-import { getResume } from "@server/services/rxresume";
-import { getConfiguredRxResumeBaseResumeId } from "@server/services/rxresume/baseResumeId";
-import { getResumeSchemaValidationMessage } from "@server/services/rxresume/schema";
-import { parseV5ResumeData, safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
+import { getResumeSchemaValidationMessage } from "@server/services/resume-document/schema";
+import {
+  parseV5ResumeData,
+  safeParseV5ResumeData,
+} from "@server/services/resume-document/schema/v5";
 import { getActiveTenantId } from "@server/tenancy/context";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import type {
@@ -30,10 +27,9 @@ import type {
 const DESIGN_RESUME_DEFAULT_ID = "primary";
 const IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const MAX_PICTURE_FETCH_REDIRECTS = 3;
 const LEGACY_REIMPORT_MESSAGE =
-  "Stored base resume document is no longer compatible. Re-import from Reactive Resume v5 to continue.";
-const INVALID_V5_PREFIX = "Base resume must be a valid Reactive Resume v5 document.";
+  "Stored base resume document is no longer compatible. Re-import your resume to continue.";
+const INVALID_V5_PREFIX = "Base resume must be a valid resume document.";
 
 function buildTenantScopedDesignResumeDocumentId(): string {
   const scope = getPrivateDataScope();
@@ -142,47 +138,6 @@ function contentUrlForAsset(assetId: string): string {
   return `/api/design-resume/assets/${encodeURIComponent(assetId)}/content`;
 }
 
-function absolutizeUrl(value: string, baseUrl: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-
-  try {
-    return new URL(trimmed).toString();
-  } catch {
-    try {
-      return new URL(trimmed, baseUrl).toString();
-    } catch {
-      return trimmed;
-    }
-  }
-}
-
-async function resolveReactiveResumePublicBaseUrl(): Promise<string> {
-  const allowServerEnv = await canUseServerCredentials();
-  return (
-    (await getSetting("rxresumeUrl"))?.trim() ||
-    (allowServerEnv ? getOriginalEnvValue("RXRESUME_URL")?.trim() : undefined) ||
-    "https://rxresu.me"
-  );
-}
-
-function withReactiveResumePictureUrl(
-  document: DesignResumeJson,
-  baseUrl: string,
-): DesignResumeJson {
-  const picture = asRecord(document.picture);
-  const pictureUrl = toText(picture?.url);
-  if (!pictureUrl) return document;
-
-  return {
-    ...document,
-    picture: {
-      ...document.picture,
-      url: absolutizeUrl(pictureUrl, baseUrl),
-    } as DesignResumeJson["picture"],
-  };
-}
-
 function normalizeImageMimeType(input: {
   mimeType?: string | null;
   fileName?: string | null;
@@ -204,38 +159,6 @@ function assertImageByteSize(byteLength: number): void {
   if (byteLength > MAX_IMAGE_BYTES) {
     throw badRequest("Images must be 10 MB or smaller.");
   }
-}
-
-function parsePublicPictureUrl(value: string): URL {
-  let parsed: URL;
-  try {
-    parsed = new URL(value);
-  } catch {
-    throw badRequest("Base resume pictures must use a valid absolute URL.");
-  }
-
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw badRequest("Base resume pictures must use HTTP or HTTPS URLs.");
-  }
-  if (parsed.username || parsed.password) {
-    throw badRequest("Base resume picture URLs cannot include credentials.");
-  }
-  if (isLocalOrPrivateHostname(parsed.hostname)) {
-    throw badRequest("Base resume picture URLs must point to a publicly reachable host.");
-  }
-
-  return parsed;
-}
-
-function originalNameFromUrl(url: string, mimeType: string): string {
-  try {
-    const pathname = new URL(url).pathname;
-    const name = basename(decodeURIComponent(pathname));
-    if (name) return name;
-  } catch {
-    // Fall back to a deterministic generated name below.
-  }
-  return `picture${extensionForMimeType(mimeType)}`;
 }
 
 function buildDesignResumeAssetBlobKey(assetId: string, extension: string): string {
@@ -288,50 +211,6 @@ async function storeDesignResumePictureAsset(input: {
   }
 
   return { assetId, storagePath: blobKey };
-}
-
-async function fetchPictureFromUrl(
-  url: string,
-  redirectCount = 0,
-): Promise<{
-  data: Buffer;
-  fileName: string;
-  mimeType: string;
-}> {
-  const parsedUrl = parsePublicPictureUrl(url);
-  const response = await fetch(parsedUrl.toString(), {
-    signal: AbortSignal.timeout(15_000),
-    redirect: "manual",
-  });
-  if (response.status >= 300 && response.status < 400 && response.headers.get("location")) {
-    if (redirectCount >= MAX_PICTURE_FETCH_REDIRECTS) {
-      throw new Error("Reactive Resume picture download redirected too many times.");
-    }
-    const nextUrl = new URL(response.headers.get("location") ?? "", parsedUrl);
-    return fetchPictureFromUrl(nextUrl.toString(), redirectCount + 1);
-  }
-  if (!response.ok) {
-    throw new Error(`Reactive Resume picture download failed with HTTP ${response.status}.`);
-  }
-
-  const mimeType = normalizeImageMimeType({
-    mimeType: response.headers.get("content-type"),
-    fileName: url,
-  });
-  const contentLength = Number(response.headers.get("content-length") ?? 0);
-  if (contentLength > 0) assertImageByteSize(contentLength);
-
-  const data = Buffer.from(await response.arrayBuffer());
-  if (data.byteLength === 0) {
-    throw new Error("Reactive Resume picture download returned an empty file.");
-  }
-  assertImageByteSize(data.byteLength);
-
-  return {
-    data,
-    fileName: originalNameFromUrl(url, mimeType),
-    mimeType,
-  };
 }
 
 function toDesignResumeAsset(
@@ -688,84 +567,6 @@ export async function getDesignResumeStatus(): Promise<DesignResumeStatusRespons
         updatedAt: null,
       };
     }
-    throw error;
-  }
-}
-
-export async function importDesignResumeFromReactiveResume(): Promise<DesignResumeDocument> {
-  const { resumeId } = await getConfiguredRxResumeBaseResumeId();
-  if (!resumeId) {
-    throw badRequest(
-      "No base resume selected. Configure Reactive Resume and choose a template resume first.",
-    );
-  }
-
-  const upstreamResume = await getResume(resumeId);
-  if (!upstreamResume.data || typeof upstreamResume.data !== "object") {
-    throw badRequest("Reactive Resume base resume is empty or invalid.");
-  }
-
-  const validated = validateIncomingDesignResumeDocument(upstreamResume.data);
-  const withResolvedPictureUrls = withReactiveResumePictureUrl(
-    validated,
-    await resolveReactiveResumePublicBaseUrl(),
-  );
-  const withProjectIds = ensureImportedProjectIds(withResolvedPictureUrls);
-  const imported = await replaceCurrentDesignResumeDocument({
-    resumeJson: withProjectIds,
-    sourceResumeId: resumeId,
-    sourceMode: "v5",
-    importedAt: new Date().toISOString(),
-  });
-
-  return localizeImportedDesignResumePicture(imported);
-}
-
-async function localizeImportedDesignResumePicture(
-  document: DesignResumeDocument,
-): Promise<DesignResumeDocument> {
-  const picture = asRecord(document.resumeJson.picture);
-  const pictureUrl = toText(picture?.url).trim();
-  if (!pictureUrl || pictureUrl.startsWith("/api/design-resume/assets/")) {
-    return document;
-  }
-
-  let downloaded: Awaited<ReturnType<typeof fetchPictureFromUrl>>;
-  try {
-    downloaded = await fetchPictureFromUrl(pictureUrl);
-  } catch (error) {
-    logger.warn("Failed to localize Reactive Resume picture", {
-      documentId: document.id,
-      sourceResumeId: document.sourceResumeId,
-      pictureUrl,
-      error: sanitizeUnknown(error),
-    });
-    return document;
-  }
-
-  const now = new Date().toISOString();
-  const { assetId, storagePath } = await storeDesignResumePictureAsset({
-    documentId: document.id,
-    fileName: downloaded.fileName,
-    mimeType: downloaded.mimeType,
-    data: downloaded.data,
-    updatedAt: now,
-  });
-
-  const nextDocument = structuredClone(document.resumeJson) as DesignResumeJson;
-  nextDocument.picture = {
-    ...asRecord(nextDocument.picture),
-    url: contentUrlForAsset(assetId),
-  } as DesignResumeJson["picture"];
-
-  try {
-    return await updateCurrentDesignResume({
-      baseRevision: document.revision,
-      document: nextDocument,
-    });
-  } catch (error) {
-    await designResumeRepo.deleteDesignResumeAsset(assetId);
-    await deleteAssetFile(storagePath);
     throw error;
   }
 }

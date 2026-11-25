@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { AppError, upstreamError } from "@infra/errors";
 import { listExperienceBullets } from "@server/repositories/experience-bullets";
-import { safeParseV5ResumeData } from "@server/services/rxresume/schema/v5";
+import { safeParseV5ResumeData } from "@server/services/resume-document/schema/v5";
 import { htmlToPlainText, splitDescription } from "@shared/resume-bullets";
 import { getItemLines, KIND_SECTION, sameLineText } from "@shared/resume-links";
 import {

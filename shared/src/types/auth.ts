@@ -29,7 +29,7 @@ export const USER_PERMISSION_LABELS: Readonly<
   serverCredentials: {
     label: "Use server AI and job-source keys",
     description:
-      "Lets this user spend your server-level LLM key, Apify/Adzuna tokens and Reactive Resume account. Off means they bring their own keys.",
+      "Lets this user spend your server-level LLM key, Apify/Adzuna tokens. Off means they bring their own keys.",
   },
   emailTracking: {
     label: "Email tracking inbox",

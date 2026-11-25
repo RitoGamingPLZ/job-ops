@@ -1,5 +1,5 @@
 import type { Server } from "node:http";
-import type { ReactiveResumeV5Document } from "@shared/types";
+import type { ResumeV5Document } from "@shared/types";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
@@ -17,7 +17,7 @@ vi.mock("@server/services/modelSelection", () => ({
   resolveLlmModel: vi.fn(async () => "mock-model"),
 }));
 let server: Server, baseUrl: string, closeDb: () => void, tempDir: string;
-let token: string, jobId: string, document: ReactiveResumeV5Document;
+let token: string, jobId: string, document: ResumeV5Document;
 async function request(path: string, method = "GET", body?: unknown, authorized = true) {
   return fetch(`${baseUrl}/api${path}`, {
     method,
@@ -54,8 +54,8 @@ beforeEach(async () => {
     },
   });
   jobId = (await imported.json()).data.id;
-  const { buildDefaultReactiveResumeDocument } = await import("@server/services/rxresume/document");
-  document = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+  const { buildDefaultResumeDocument } = await import("@server/services/resume-document/document");
+  document = buildDefaultResumeDocument() as ResumeV5Document;
   document.basics.headline = "Base headline";
   document.sections.experience.items = [
     {
@@ -108,43 +108,16 @@ describe("co-work routes", () => {
       meta: { requestId: "cowork-test" },
     });
   });
-  it.each(["rxresume", "typst"] as const)(
-    "uses the configured %s renderer for unsaved resumes and imports",
-    async (renderer) => {
-      const { db, schema } = await import("@server/db");
-      db.update(schema.designResumeDocuments)
-        .set({ sourceResumeId: "upstream-resume", sourceMode: "v5" })
-        .where(eq(schema.designResumeDocuments.id, "base-resume"))
-        .run();
-      expect((await request("/settings", "PATCH", { pdfRenderer: renderer })).status).toBe(200);
-      const upstream = structuredClone(document);
-      upstream.metadata.template = "rhyhorn";
-      upstream.basics.headline = "Upstream headline";
-      const rxresume = await import("@server/services/rxresume");
-      const getResume = vi.spyOn(rxresume, "getResume").mockResolvedValue({
-        id: "upstream-resume",
-        name: "Upstream",
-        data: upstream,
-      });
-      const response = await request(`/jobs/${jobId}/resume`);
-      expect(response.status).toBe(200);
-      expect((await response.json()).data.document).toMatchObject({
-        basics: { headline: "Base headline" },
-        metadata: {
-          template:
-            renderer === "rxresume" ? upstream.metadata.template : document.metadata.template,
-        },
-      });
-      expect((await request("/library/sync", "POST")).status).toBe(200);
-      if (renderer === "rxresume") {
-        expect(document.metadata.template).not.toBe(upstream.metadata.template);
-        expect(getResume).toHaveBeenCalledTimes(2);
-        expect(getResume).toHaveBeenCalledWith("upstream-resume");
-      } else {
-        expect(getResume).not.toHaveBeenCalled();
-      }
-    },
-  );
+  it("builds unsaved resumes and library syncs from the local base resume", async () => {
+    expect((await request("/settings", "PATCH", { pdfRenderer: "typst" })).status).toBe(200);
+    const response = await request(`/jobs/${jobId}/resume`);
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.document).toMatchObject({
+      basics: { headline: "Base headline" },
+      metadata: { template: document.metadata.template },
+    });
+    expect((await request("/library/sync", "POST")).status).toBe(200);
+  });
   it("enforces authentication and returns request IDs on validation errors", async () => {
     for (const path of ["/experience-bullets", "/resumes", `/jobs/${jobId}/resume`])
       expect((await request(path, "GET", undefined, false)).status).toBe(401);

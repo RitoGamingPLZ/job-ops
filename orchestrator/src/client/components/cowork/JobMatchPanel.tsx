@@ -2,7 +2,7 @@ import { ApiClientError } from "@client/api/core";
 import * as api from "@client/api/cowork";
 import type {
   Job,
-  ReactiveResumeV5Document,
+  ResumeV5Document,
   RequirementStatus,
   ResumeFocusRef,
   ScreeningReport,
@@ -87,7 +87,7 @@ function askAiPrompt(requirement: ScreeningRequirement) {
 type Props = {
   job: Job;
   active: boolean;
-  getDocument: () => ReactiveResumeV5Document;
+  getDocument: () => ResumeV5Document;
   targets: { id: string; label: string }[];
   onInsert: (bullet: BulletReference, experienceId: string) => void;
   onAskAi: (prompt: string) => void;

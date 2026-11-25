@@ -291,7 +291,6 @@ describe("salary penalty", () => {
       missingSalaryPenalty: { value: 10, default: 10, override: null },
       scoringInstructions: { value: "", default: "", override: null },
       scoringPromptTemplate: { value: "", default: "", override: null },
-      rxresumeBaseResumeId: "base-resume-123",
     } as any);
     resolveLlmModelMock.mockResolvedValue("gpt-4.1-mini");
     callJsonMock.mockResolvedValue({
@@ -325,7 +324,6 @@ describe("salary penalty", () => {
       penalizeMissingSalary: { value: false, default: false, override: null },
       missingSalaryPenalty: { value: 10, default: 10, override: null },
       scoringInstructions: { value: "", default: "", override: null },
-      rxresumeBaseResumeId: "base-resume-123",
     } as any);
 
     await scoreJobSuitability(
@@ -370,7 +368,6 @@ describe("salary penalty", () => {
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
         scoringInstructions: { value: "", default: "", override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
       getSettingMock.mockImplementation(async (key) =>
         key === "resumeProjects"
@@ -407,7 +404,6 @@ describe("salary penalty", () => {
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
         scoringInstructions: { value: "", default: "", override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       await scoreJobSuitability(
@@ -495,7 +491,6 @@ describe("salary penalty", () => {
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
         scoringInstructions: { value: "", default: "", override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       await scoreJobSuitability(createJob({ id: "test-job-profile-sections" }), {
@@ -536,7 +531,6 @@ describe("salary penalty", () => {
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
         scoringInstructions: { value: "", default: "", override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       await scoreJobSuitability(createJob({ id: "test-job-profile-hidden-items" }), {
@@ -628,7 +622,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: true, default: true, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -654,7 +647,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: true, default: true, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -678,7 +670,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: true, default: true, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -702,7 +693,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: true, default: true, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -726,7 +716,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: true, default: true, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -757,7 +746,6 @@ describe("salary penalty", () => {
           default: "",
           override: "Open to relocating, so do not mark down for location discrepancies.",
         },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -829,7 +817,6 @@ describe("salary penalty", () => {
           default: "",
           override: "Global instruction that should not be used.",
         },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -868,7 +855,6 @@ describe("salary penalty", () => {
           default: "",
           override: "Custom scoring {{jobTitle}} {{scoringInstructionsText}} {{unknownToken}}",
         },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -929,7 +915,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -953,7 +938,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: true, default: true, override: null },
         missingSalaryPenalty: { value: 100, default: 100, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -977,7 +961,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: true, default: true, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -1001,7 +984,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: true, default: true, override: null },
         missingSalaryPenalty: { value: 0, default: 0, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -1025,7 +1007,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: true, default: true, override: null },
         missingSalaryPenalty: { value: 25, default: 25, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -1053,7 +1034,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -1075,7 +1055,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -1096,7 +1075,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({
@@ -1117,7 +1095,6 @@ describe("salary penalty", () => {
       getEffectiveSettingsMock.mockResolvedValue({
         penalizeMissingSalary: { value: false, default: false, override: null },
         missingSalaryPenalty: { value: 10, default: 10, override: null },
-        rxresumeBaseResumeId: "base-resume-123",
       } as any);
 
       callJsonMock.mockResolvedValue({

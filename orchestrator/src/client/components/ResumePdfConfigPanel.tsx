@@ -1,5 +1,3 @@
-import { BaseResumeSelection } from "@client/pages/settings/components/BaseResumeSelection";
-import { SettingsInput } from "@client/pages/settings/components/SettingsInput";
 import {
   toggleAiSelectable,
   toggleMustInclude,
@@ -17,9 +15,7 @@ import {
   TYPST_THEME_VALUES,
   type TypstTheme,
 } from "@shared/types.js";
-import { AlertCircle, AlertTriangle } from "lucide-react";
 import type React from "react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,18 +35,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { clampInt } from "@/lib/utils";
-import { StatusIndicator } from "./StatusIndicator";
-
-type VersionValidationState = {
-  checked: boolean;
-  valid: boolean;
-  message?: string | null;
-  status?: number | null;
-};
 
 type ProjectSelectionConfig = {
-  baseResumeId: string | null;
-  onBaseResumeIdChange: (value: string | null) => void;
   projects: ResumeProjectCatalogItem[];
   value: ResumeProjectsSettingsInput | null | undefined;
   onChange: (next: ResumeProjectsSettingsInput) => void;
@@ -61,7 +47,7 @@ type ProjectSelectionConfig = {
   maxProjectsError?: string;
 };
 
-type ReactiveResumeConfigPanelProps = {
+type ResumePdfConfigPanelProps = {
   pdfRenderer: PdfRenderer;
   onPdfRendererChange: (renderer: PdfRenderer) => void;
   pdfRendererError?: string;
@@ -72,53 +58,14 @@ type ReactiveResumeConfigPanelProps = {
   onPdfPaperSizeChange: (paperSize: PdfPaperSize) => void;
   pdfPaperSizeError?: string;
   disabled?: boolean;
-  hasRxResumeAccess?: boolean;
-  showValidationStatus?: boolean;
-  validationStatus?: VersionValidationState;
   intro?: {
     title: string;
     description?: string;
   };
-  v5: {
-    apiKey: string;
-    onApiKeyChange: (value: string) => void;
-    error?: string;
-    helper?: string;
-    placeholder?: string;
-  };
-  shared: {
-    baseUrl: string;
-    onBaseUrlChange: (value: string) => void;
-    baseUrlError?: string;
-    baseUrlHelper?: string;
-    baseUrlPlaceholder?: string;
-  };
   projectSelection?: ProjectSelectionConfig;
 };
 
-function renderStatusPill(label: string, state: VersionValidationState) {
-  const statusLabel = state.checked ? (state.valid ? "Connected" : "Failed") : "Not tested";
-  const dotColor = state.checked
-    ? state.valid
-      ? "bg-success"
-      : "bg-destructive"
-    : "bg-muted-foreground";
-
-  return (
-    <StatusIndicator
-      label={`${label}: ${statusLabel}`}
-      dotColor={dotColor}
-      tooltip={state.checked && !state.valid && state.message ? state.message : undefined}
-    />
-  );
-}
-
-function isAvailabilityWarning(state?: VersionValidationState): boolean {
-  const status = state?.status ?? null;
-  return status === 0 || (typeof status === "number" && status >= 500);
-}
-
-export const ReactiveResumeConfigPanel: React.FC<ReactiveResumeConfigPanelProps> = ({
+export const ResumePdfConfigPanel: React.FC<ResumePdfConfigPanelProps> = ({
   pdfRenderer,
   onPdfRendererChange,
   pdfRendererError,
@@ -129,37 +76,19 @@ export const ReactiveResumeConfigPanel: React.FC<ReactiveResumeConfigPanelProps>
   onPdfPaperSizeChange,
   pdfPaperSizeError,
   disabled = false,
-  hasRxResumeAccess = false,
-  showValidationStatus = false,
-  validationStatus,
   intro,
-  shared,
-  v5,
   projectSelection,
 }) => {
   const hasProjectCatalog = Boolean(projectSelection?.projects.length);
-  const canShowProjectSelection = Boolean(
-    projectSelection && (hasRxResumeAccess || hasProjectCatalog),
-  );
-  const selectedValidationStatus = validationStatus;
-  const showInlineValidationAlert = Boolean(
-    selectedValidationStatus?.checked &&
-    !selectedValidationStatus.valid &&
-    selectedValidationStatus.message,
-  );
-  const selectedValidationIsWarning =
-    showInlineValidationAlert && isAvailabilityWarning(selectedValidationStatus);
+  const canShowProjectSelection = Boolean(projectSelection && hasProjectCatalog);
 
   const rendererHelperText: Record<PdfRenderer, string> = {
-    rxresume: "RxResume export uses the upstream print/export endpoint for the final PDF.",
     latex:
       "LaTeX renders PDFs locally with Jake's template and requires tectonic on the JobOps host.",
     typst: "Typst renders PDFs locally and supports selectable resume themes.",
   };
 
   const rendererDefaultPaperSizeText: Record<PdfRenderer, string> = {
-    rxresume:
-      "Renderer default keeps the page format saved on the resume itself. Free-form resumes always stay continuous.",
     latex: "Renderer default is US Letter for the LaTeX template.",
     typst: "Renderer default is A4 for Typst themes.",
   };
@@ -251,60 +180,6 @@ export const ReactiveResumeConfigPanel: React.FC<ReactiveResumeConfigPanelProps>
         <p className="text-xs text-muted-foreground">{rendererDefaultPaperSizeText[pdfRenderer]}</p>
       </div>
 
-      {showValidationStatus && selectedValidationStatus ? (
-        <div className="flex flex-wrap items-center gap-2 text-xs w-full justify-between">
-          {renderStatusPill("v5 status", selectedValidationStatus)}
-        </div>
-      ) : null}
-
-      {showInlineValidationAlert && selectedValidationStatus?.message ? (
-        <Alert variant={selectedValidationIsWarning ? "warning" : "destructive"}>
-          {selectedValidationIsWarning ? (
-            <AlertTriangle className="h-4 w-4" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
-          )}
-          <AlertTitle>
-            Reactive Resume API {selectedValidationIsWarning ? "warning" : "error"}
-          </AlertTitle>
-          <AlertDescription>{selectedValidationStatus.message}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {
-        <div className="grid gap-4">
-          <SettingsInput
-            label="RxResume URL"
-            inputProps={{
-              name: "rxresumeUrl",
-              value: shared.baseUrl,
-              onChange: (event) => shared.onBaseUrlChange(event.currentTarget.value),
-            }}
-            type="url"
-            placeholder={shared.baseUrlPlaceholder ?? "https://resume.example.com"}
-            helper={
-              shared.baseUrlHelper ??
-              "Leave blank to use the default for the selected mode (or the RXRESUME_URL environment override, if set)."
-            }
-            disabled={disabled}
-            error={shared.baseUrlError}
-          />
-          <SettingsInput
-            label="v5 API key"
-            inputProps={{
-              name: "rxresumeApiKey",
-              value: v5.apiKey,
-              onChange: (event) => v5.onApiKeyChange(event.currentTarget.value),
-            }}
-            type="password"
-            placeholder={v5.placeholder ?? "Enter v5 API key"}
-            helper={v5.helper}
-            disabled={disabled}
-            error={v5.error}
-          />
-        </div>
-      }
-
       {projectSelection ? (
         <>
           <Separator />
@@ -316,22 +191,9 @@ export const ReactiveResumeConfigPanel: React.FC<ReactiveResumeConfigPanelProps>
             </div>
           ) : (
             <div className="space-y-4">
-              {hasRxResumeAccess ? (
-                <BaseResumeSelection
-                  value={projectSelection.baseResumeId}
-                  onValueChange={projectSelection.onBaseResumeIdChange}
-                  hasRxResumeAccess={hasRxResumeAccess}
-                  disabled={projectSelection.disabled}
-                />
-              ) : null}
-
               {projectSelection.isProjectsLoading ? (
                 <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
                   Loading resume projects...
-                </div>
-              ) : hasRxResumeAccess && !projectSelection.baseResumeId && !hasProjectCatalog ? (
-                <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                  Choose a PDF to configure resume projects.
                 </div>
               ) : !hasProjectCatalog ? (
                 <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">

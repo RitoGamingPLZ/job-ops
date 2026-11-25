@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { extractProjectsFromResume } from "./tailoring";
 
-describe("rxresume tailoring", () => {
+describe("resume tailoring", () => {
   it("strips html from project catalog descriptions", () => {
     const { catalog, selectionItems } = extractProjectsFromResume({
       sections: {

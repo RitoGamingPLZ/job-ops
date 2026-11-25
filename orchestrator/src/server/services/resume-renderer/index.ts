@@ -9,15 +9,13 @@ export { getLatexTemplatePath, getTectonicBinary, readLatexTemplate } from "./la
 export type * from "./types";
 export { getTypstBinary, getTypstTemplatePath, readTypstTemplate } from "./typst";
 
-type LocalPdfRenderer = Exclude<PdfRenderer, "rxresume">;
-
 export async function renderResumePdf(args: {
   resumeJson: Record<string, unknown>;
   resolvedPicture?: ResumePictureContent | null;
   outputPath: string;
   jobId: string;
   language?: NormalizeResumeJsonOptions["language"];
-  renderer?: LocalPdfRenderer;
+  renderer?: PdfRenderer;
   typstTheme?: TypstTheme;
   paperSize?: PdfPaperSize;
 }): Promise<void> {

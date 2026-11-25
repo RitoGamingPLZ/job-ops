@@ -162,7 +162,7 @@ type ProductEventMap = {
     to_stage: ApplicationStage;
   };
   resume_studio_import_completed: {
-    source: "file" | "rxresume";
+    source: "file";
     file_type?: "pdf" | "docx" | "unknown";
     result: "success" | "error";
     was_reimport: boolean;
@@ -170,7 +170,7 @@ type ProductEventMap = {
     item_count_bucket: string;
   };
   resume_studio_activation_completed: {
-    source: "file" | "rxresume";
+    source: "file";
   };
   resume_studio_section_edited: {
     section: string;
@@ -303,10 +303,6 @@ type ProductEventMap = {
     http_status_bucket?: string;
     error_category?: string;
   };
-  onboarding_resume_mode_selected: {
-    mode: "upload" | "rxresume";
-    had_existing_resume: boolean;
-  };
   onboarding_resume_upload_submitted: {
     file_type: "pdf" | "docx" | "json" | "unknown";
     file_size_bucket: string;
@@ -319,21 +315,6 @@ type ProductEventMap = {
     section_count_bucket?: string;
     error_category?: string;
   };
-  onboarding_rxresume_verify_submitted: {
-    self_hosted: boolean;
-    has_key_input: boolean;
-    endpoint_mode: "default" | "custom" | "blank";
-  };
-  onboarding_rxresume_verify_completed: {
-    result: "success" | "error";
-    self_hosted: boolean;
-    http_status_bucket?: string;
-    error_category?: string;
-  };
-  onboarding_rxresume_template_selected: {
-    had_previous_template: boolean;
-    selection_result: "selected" | "cleared";
-  };
   onboarding_status_checked: {
     complete: boolean;
     next_step: "profile" | "model" | "resume" | "none";
@@ -343,12 +324,12 @@ type ProductEventMap = {
   };
   onboarding_resume_confirm_completed: {
     result: "success" | "error";
-    source: "local" | "rxresume";
+    source: "local";
     error_category?: string;
     http_status_bucket?: string;
   };
   onboarding_resume_confirm_submitted: {
-    source: "local" | "rxresume";
+    source: "local";
   };
   onboarding_completed: {
     duration_bucket: string;

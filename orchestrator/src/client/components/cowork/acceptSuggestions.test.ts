@@ -1,4 +1,4 @@
-import type { ExperienceBullet, ReactiveResumeV5Document, ResumeSuggestionV2 } from "@shared/types";
+import type { ExperienceBullet, ResumeV5Document, ResumeSuggestionV2 } from "@shared/types";
 import { describe, expect, it, vi } from "vitest";
 import { executeAcceptedSuggestions } from "./acceptSuggestions";
 
@@ -36,7 +36,7 @@ const fixture = () =>
       awards: { items: [] },
       certifications: { items: [] },
     },
-  }) as unknown as ReactiveResumeV5Document;
+  }) as unknown as ResumeV5Document;
 const state = () => ({
   jobId: "job",
   baseRevision: 7,

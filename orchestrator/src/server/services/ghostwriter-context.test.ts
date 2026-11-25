@@ -1,5 +1,5 @@
 import { getJobResume } from "@server/repositories/job-resumes";
-import type { ReactiveResumeV5Document } from "@shared/types";
+import type { ResumeV5Document } from "@shared/types";
 
 vi.mock("@server/repositories/job-resumes", () => ({
   getJobResume: vi.fn(async () => null),
@@ -629,8 +629,8 @@ describe("buildJobChatPromptContext", () => {
   });
 
   it("uses the editor summary instead of legacy job-row tailoring", async () => {
-    const { buildDefaultReactiveResumeDocument } = await import("./rxresume/document");
-    const document = buildDefaultReactiveResumeDocument() as ReactiveResumeV5Document;
+    const { buildDefaultResumeDocument } = await import("./resume-document/document");
+    const document = buildDefaultResumeDocument() as ResumeV5Document;
     document.summary.content = "<p>Editor <strong>summary</strong></p>";
     document.basics.headline = "Editor headline";
     document.sections.skills.items = [

@@ -14,16 +14,7 @@ import { canUseServerCredentials } from "@server/services/server-credentials";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
 import { LlmService } from "@server/services/llm/service";
-import { clearProfileCache } from "@server/services/profile";
-import {
-  clearRxResumeResumeCache,
-  getResume,
-  RxResumeAuthConfigError,
-  validateResumeSchema,
-  validateCredentials as validateRxResumeCredentials,
-} from "@server/services/rxresume";
-import { getConfiguredRxResumeBaseResumeId } from "@server/services/rxresume/baseResumeId";
-import { parseV5ResumeData } from "@server/services/rxresume/schema";
+import { parseV5ResumeData } from "@server/services/resume-document/schema";
 import { applySettingsUpdates } from "@server/services/settings-update";
 import { mapGlmProviderAlias } from "@shared/settings-registry";
 import type { UpdateSettingsInput } from "@shared/settings-schema";
@@ -33,7 +24,7 @@ import type {
   OnboardingRequirementPrimaryAction,
   OnboardingRequirementStatus,
   OnboardingStatusResponse,
-  ReactiveResumeV5Document,
+  ResumeV5Document,
 } from "@shared/types";
 import { LLM_PROVIDER_VALUES } from "@shared/types";
 
@@ -58,13 +49,6 @@ export type OnboardingProfileActionInput = {
 
 export type OnboardingResumeConfirmActionInput = {
   source: string;
-};
-
-export type OnboardingRxResumeActionInput = {
-  apiKey?: string | null;
-  baseUrl?: string | null;
-  rxresumeBaseResumeId?: string | null;
-  hasRxresumeBaseResumeId: boolean;
 };
 
 function normalizeLlmProviderValue(provider: string | null | undefined): LlmProviderId | undefined {
@@ -142,121 +126,14 @@ export async function validateResumeConfig(): Promise<ValidationResponse> {
     if (localStatus.exists) {
       return { valid: true, message: null };
     }
-
-    const { resumeId: rxresumeBaseResumeId } = await getConfiguredRxResumeBaseResumeId();
-
-    if (!rxresumeBaseResumeId) {
-      return {
-        valid: false,
-        message:
-          "No local resume is ready yet. Upload a PDF, DOCX, or Reactive Resume JSON, or connect Reactive Resume and select a template resume.",
-      };
-    }
-
-    try {
-      const resume = await getResume(rxresumeBaseResumeId);
-
-      if (!resume.data || typeof resume.data !== "object") {
-        return {
-          valid: false,
-          message: "Selected resume is empty or invalid.",
-        };
-      }
-
-      const validated = await validateResumeSchema(resume.data);
-      if (!validated.ok) {
-        return { valid: false, message: validated.message };
-      }
-
-      return { valid: true, message: null };
-    } catch (error) {
-      if (error instanceof RxResumeAuthConfigError) {
-        return {
-          valid: false,
-          message: error.message,
-        };
-      }
-      const message =
-        error instanceof Error ? error.message : "Failed to fetch resume from RxResume.";
-      return { valid: false, message };
-    }
+    return {
+      valid: false,
+      message: "No local resume is ready yet. Upload a PDF, DOCX, or resume JSON file.",
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Resume validation failed.";
     return { valid: false, message };
   }
-}
-
-export async function validateRxresume(options?: {
-  apiKey?: string | null;
-  baseUrl?: string | null;
-}): Promise<ValidationResponse> {
-  const requestApiKey = options?.apiKey?.trim() ?? "";
-  const hasExplicitV5Input = options?.apiKey !== undefined;
-
-  const storedBaseUrl = await getSetting("rxresumeUrl");
-  const envBaseUrl = (await canUseServerCredentials())
-    ? getOriginalEnvValue("RXRESUME_URL")?.trim()
-    : undefined;
-  const resolvedBaseUrl =
-    options?.baseUrl !== undefined && options?.baseUrl !== null
-      ? options.baseUrl.trim() || envBaseUrl || "https://rxresu.me"
-      : storedBaseUrl?.trim() || envBaseUrl || "https://rxresu.me";
-
-  if (hasExplicitV5Input && !requestApiKey) {
-    return {
-      valid: false,
-      status: 400,
-      message: "Reactive Resume v5 API key is not configured.",
-    };
-  }
-
-  const result = await validateRxResumeCredentials({
-    v5: {
-      apiKey: options?.apiKey ?? undefined,
-      baseUrl: options?.baseUrl ?? undefined,
-    },
-  });
-
-  if (result.ok) return { valid: true, message: null, status: null };
-
-  const normalizedMessage = result.message.toLowerCase();
-  if (result.status === 400 && normalizedMessage.includes("not configured")) {
-    return {
-      valid: false,
-      status: 400,
-      message: result.message,
-    };
-  }
-
-  if (result.status === 401 || normalizedMessage.includes("invalidcredentials")) {
-    return {
-      valid: false,
-      status: result.status,
-      message: "Reactive Resume v5 API key is invalid. Update the API key and try again.",
-    };
-  }
-
-  if (result.status === 0 || result.status >= 500) {
-    return {
-      valid: false,
-      status: result.status,
-      message: `JobOps could not verify Reactive Resume because the instance at ${resolvedBaseUrl} is unavailable right now.`,
-    };
-  }
-
-  if (result.status >= 400 && result.status < 500) {
-    return {
-      valid: false,
-      status: result.status,
-      message: `Reactive Resume returned HTTP ${result.status} from ${resolvedBaseUrl}. Check the configured URL.`,
-    };
-  }
-
-  return {
-    valid: false,
-    message: result.message,
-    status: result.status,
-  };
 }
 
 function isUnavailable(validation: ValidationResponse): boolean {
@@ -271,22 +148,6 @@ function isUnavailable(validation: ValidationResponse): boolean {
     "unavailable",
     "failed to fetch",
   ].some((needle) => message.includes(needle));
-}
-
-function classifyValidation(validation: ValidationResponse): OnboardingRequirementStatus {
-  if (validation.valid) return "ready";
-  if (isUnavailable(validation)) return "checking_unavailable";
-  const message = validation.message?.toLowerCase() ?? "";
-  if (
-    validation.status === 400 ||
-    message.includes("missing") ||
-    message.includes("not configured") ||
-    message.includes("no local resume") ||
-    message.includes("select a template")
-  ) {
-    return "needs_action";
-  }
-  return "invalid";
 }
 
 function getModelValidationMessage(args: {
@@ -434,76 +295,14 @@ async function buildResumeRequirement(): Promise<OnboardingRequirement> {
     });
   }
 
-  const { resumeId } = await getConfiguredRxResumeBaseResumeId();
-  if (!resumeId) {
-    const rxresumeValidation = await validateRxresume();
-    if (rxresumeValidation.valid) {
-      return buildRequirement({
-        id: "resume",
-        status: "needs_action",
-        title: "Choose a Reactive Resume template",
-        message:
-          "Reactive Resume is connected. Select the resume Job Ops should use for matching, fit assessment, and applications.",
-        primaryAction: "select_rxresume_template",
-        details: { source: "rxresume" },
-      });
-    }
-
-    return buildRequirement({
-      id: "resume",
-      status: "needs_action",
-      title: "Load your resume",
-      message:
-        "Upload a resume file, or connect Reactive Resume and choose a template. This gives Job Ops the baseline it needs for matching, fit assessment, and better application workflows.",
-      primaryAction: "upload_resume",
-      details: {
-        source: "none",
-        rxresumeStatus: classifyValidation(rxresumeValidation),
-      },
-    });
-  }
-
-  const validation = await validateResumeConfig();
-  if (validation.valid) {
-    const source = `rxresume:${resumeId}`;
-    return buildRequirement({
-      id: "resume",
-      status: confirmedSource === source ? "ready" : "needs_action",
-      title: confirmedSource === source ? "Resume confirmed" : "Review your resume",
-      message:
-        confirmedSource === source
-          ? "You confirmed the Reactive Resume template Job Ops should use."
-          : "Check the selected Reactive Resume document, then confirm it before continuing.",
-      primaryAction: confirmedSource === source ? "none" : "confirm_resume",
-      details: {
-        source: "rxresume",
-        resumeId,
-        confirmationSource: source,
-      },
-    });
-  }
-
-  const status = classifyValidation(validation);
-  const authIssue =
-    validation.message?.toLowerCase().includes("api key") ||
-    validation.message?.toLowerCase().includes("auth");
   return buildRequirement({
     id: "resume",
-    status,
-    title:
-      status === "checking_unavailable"
-        ? "Resume check is unavailable"
-        : "Resume source needs attention",
+    status: "needs_action",
+    title: "Load your resume",
     message:
-      validation.message ||
-      "Job Ops could not verify the selected resume. Recheck the source or choose another template.",
-    primaryAction:
-      status === "checking_unavailable"
-        ? "recheck"
-        : authIssue
-          ? "connect_rxresume"
-          : "select_rxresume_template",
-    details: { source: "rxresume", resumeId },
+      "Upload your existing resume as a PDF, DOCX or JSON file. Job Ops uses it as the baseline for matching, fit assessment, and application workflows.",
+    primaryAction: "upload_resume",
+    details: { source: "none" },
   });
 }
 
@@ -563,11 +362,6 @@ async function migrateLegacyOnboardingState(args: {
     const localStatus = await getDesignResumeStatus();
     if (localStatus.exists && localStatus.documentId) {
       update.onboardingResumeConfirmedSource = `local:${localStatus.documentId}`;
-    } else {
-      const { resumeId } = await getConfiguredRxResumeBaseResumeId();
-      if (resumeId && (await validateResumeConfig()).valid) {
-        update.onboardingResumeConfirmedSource = `rxresume:${resumeId}`;
-      }
     }
   }
 
@@ -654,11 +448,6 @@ export async function getOnboardingStatus(): Promise<OnboardingStatusResponse> {
 
 async function persistOnboardingSettings(input: UpdateSettingsInput, route: string): Promise<void> {
   const plan = await applySettingsUpdates(input);
-  if (plan.shouldClearRxResumeCaches) {
-    clearRxResumeResumeCache();
-    clearProfileCache();
-  }
-
   queueMicrotask(() => {
     void enqueueAutoPdfRegenerationForSettingsChanges({
       updatedSettingKeys: plan.updatedSettingKeys,
@@ -780,19 +569,10 @@ async function syncCandidateLibraryForOnboardingSource(source: string): Promise<
         syncCandidateLibrary(
           parseV5ResumeData(
             designResume.resumeJson as Record<string, unknown>,
-          ) as unknown as ReactiveResumeV5Document,
+          ) as unknown as ResumeV5Document,
         );
       }
       return;
-    }
-
-    if (source.startsWith("rxresume:")) {
-      const resumeId = source.slice("rxresume:".length);
-      if (!resumeId) return;
-      const baseResume = await getResume(resumeId);
-      if (baseResume?.data && typeof baseResume.data === "object") {
-        syncCandidateLibrary(baseResume.data as ReactiveResumeV5Document);
-      }
     }
   } catch (error) {
     logger.warn("Failed to sync candidate library during onboarding resume confirmation", {
@@ -808,13 +588,9 @@ export async function confirmOnboardingResumeAction(
   input: OnboardingResumeConfirmActionInput,
 ): Promise<OnboardingStatusResponse> {
   const localStatus = await getDesignResumeStatus();
-  const { resumeId } = await getConfiguredRxResumeBaseResumeId();
   const validSources = new Set<string>();
   if (localStatus.exists && localStatus.documentId) {
     validSources.add(`local:${localStatus.documentId}`);
-  }
-  if (resumeId && (await validateResumeConfig()).valid) {
-    validSources.add(`rxresume:${resumeId}`);
   }
   if (!validSources.has(input.source)) {
     throw unprocessableEntity(
@@ -827,35 +603,5 @@ export async function confirmOnboardingResumeAction(
     "POST /api/onboarding/actions/resume/confirm",
   );
   await syncCandidateLibraryForOnboardingSource(input.source);
-  return getOnboardingStatus();
-}
-
-export async function saveOnboardingRxResumeAction(
-  input: OnboardingRxResumeActionInput,
-): Promise<OnboardingStatusResponse> {
-  const route = "POST /api/onboarding/actions/rxresume";
-  const draftApiKey = input.apiKey?.trim() || undefined;
-  const hasCredentialInput = draftApiKey !== undefined || input.baseUrl !== undefined;
-  const validation = await validateRxresume(
-    hasCredentialInput ? { apiKey: draftApiKey, baseUrl: input.baseUrl } : undefined,
-  );
-
-  if (!validation.valid && hasCredentialInput) {
-    throw unprocessableEntity(validation.message || "Reactive Resume could not be verified.", {
-      status: validation.status ?? null,
-    });
-  }
-
-  const update: UpdateSettingsInput = {
-    pdfRenderer: "rxresume",
-  };
-  if (input.baseUrl !== undefined) update.rxresumeUrl = input.baseUrl ?? null;
-  if (draftApiKey) update.rxresumeApiKey = draftApiKey;
-  if (input.hasRxresumeBaseResumeId) {
-    update.rxresumeBaseResumeId = input.rxresumeBaseResumeId?.trim() || null;
-  }
-
-  await persistOnboardingSettings(update, route);
-  await validateResumeConfig();
   return getOnboardingStatus();
 }

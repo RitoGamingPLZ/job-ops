@@ -2,7 +2,7 @@ import { ApiClientError } from "@client/api/core";
 import type {
   CoworkChatContext,
   JobResumeState,
-  ReactiveResumeV5Document,
+  ResumeV5Document,
   ResumeFocusRef,
   ResumeSuggestionV2,
 } from "@shared/types";
@@ -16,7 +16,6 @@ const mocks = vi.hoisted(() => ({
   getBase: vi.fn(),
   saveBase: vi.fn(),
   importFile: vi.fn(),
-  importRx: vi.fn(),
   basePdf: vi.fn(),
   baseUrl: vi.fn(),
   basePreviewUrl: vi.fn(),
@@ -58,7 +57,6 @@ vi.mock("@client/api/settings-profile", () => ({
   getDesignResume: mocks.getBase,
   updateDesignResume: mocks.saveBase,
   importDesignResumeFromFile: mocks.importFile,
-  importDesignResumeFromRxResume: mocks.importRx,
   generateDesignResumePdf: mocks.basePdf,
 }));
 vi.mock("@client/api/jobs", () => ({
@@ -160,9 +158,7 @@ vi.mock("@/client/components/cowork/CandidateLibrary", () => ({
   CandidateLibrary: (props: {
     items?: unknown[];
     onItemsChange?: (items: unknown[]) => void;
-    onDocumentChange?: (
-      update: (doc: ReactiveResumeV5Document) => ReactiveResumeV5Document,
-    ) => void;
+    onDocumentChange?: (update: (doc: ResumeV5Document) => ResumeV5Document) => void;
     onSync?: () => Promise<unknown>;
   }) => {
     mocks.libraryProps(props);
@@ -206,8 +202,8 @@ vi.mock("@/client/components/cowork/ResumeEditor", () => ({
   }: {
     library?: unknown;
     onSaveLineToLibrary?: (id: string, text: string) => void;
-    document: ReactiveResumeV5Document;
-    onChange: (document: ReactiveResumeV5Document) => void;
+    document: ResumeV5Document;
+    onChange: (document: ResumeV5Document) => void;
     onAskAi: (ref: ResumeFocusRef) => void;
   }) => {
     mocks.editorProps(extra);
@@ -245,12 +241,20 @@ function state(headline = "Base", revision = 0): JobResumeState {
       basics: { headline },
       customSections: [],
       sections: { experience: { items: [] } },
-    } as unknown as ReactiveResumeV5Document,
+    } as unknown as ResumeV5Document,
     revision,
     exists: revision > 0,
     updatedAt: null,
   };
 }
+function chooseImportFile() {
+  fireEvent.change(screen.getByLabelText("Import resume file"), {
+    target: {
+      files: [new File(["resume"], "resume.json", { type: "application/json" })],
+    },
+  });
+}
+
 function mount(base = false, queryClient = new QueryClient(), search = "") {
   return render(
     <QueryClientProvider client={queryClient}>
@@ -278,7 +282,6 @@ beforeEach(() => {
     revision: input.baseRevision + 1,
     updatedAt: null,
   }));
-  mocks.importRx.mockResolvedValue({});
   mocks.importFile.mockResolvedValue({});
   mocks.basePdf.mockResolvedValue({});
   mocks.baseUrl.mockResolvedValue("blob:base");
@@ -302,7 +305,7 @@ beforeEach(() => {
   });
   mocks.getResume.mockResolvedValue(state());
   mocks.save.mockImplementation(
-    async (_job: string, input: { document: ReactiveResumeV5Document; baseRevision: number }) => ({
+    async (_job: string, input: { document: ResumeV5Document; baseRevision: number }) => ({
       ...state("", input.baseRevision + 1),
       document: input.document,
     }),
@@ -861,7 +864,7 @@ describe("duty library insert", () => {
         '<p class="intro">First <a href="https://example.com">link</a></p>\n<p>Second paragraph</p>';
       initial.document.sections.experience.items = [
         { id: "exp", description: intro + list },
-      ] as ReactiveResumeV5Document["sections"]["experience"]["items"];
+      ] as ResumeV5Document["sections"]["experience"]["items"];
       mocks.getResume.mockResolvedValue(initial);
       mount();
       await screen.findByLabelText("Headline");
@@ -1218,34 +1221,22 @@ describe("base resume mode", () => {
       for (const key of keys) expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
     });
   });
-  it.each(["RxResume", "file"])(
-    "invalidates base and onboarding caches after %s import",
-    async (source) => {
-      const queryClient = new QueryClient();
-      const keys = [
-        queryKeys.designResume.current(),
-        queryKeys.designResume.status(),
-        queryKeys.onboarding.status(),
-      ];
-      for (const key of keys) queryClient.setQueryData(key, null);
-      mount(true, queryClient);
-      fireEvent.click(await screen.findByRole("button", { name: "Import" }));
-      if (source === "file")
-        fireEvent.change(screen.getByLabelText("Import resume file"), {
-          target: {
-            files: [new File(["resume"], "resume.json", { type: "application/json" })],
-          },
-        });
-      fireEvent.click(
-        screen.getByRole("button", {
-          name: source === "file" ? "Import file" : "Import from RxResume",
-        }),
-      );
-      await waitFor(() => {
-        for (const key of keys) expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
-      });
-    },
-  );
+  it("invalidates base and onboarding caches after file import", async () => {
+    const queryClient = new QueryClient();
+    const keys = [
+      queryKeys.designResume.current(),
+      queryKeys.designResume.status(),
+      queryKeys.onboarding.status(),
+    ];
+    for (const key of keys) queryClient.setQueryData(key, null);
+    mount(true, queryClient);
+    fireEvent.click(await screen.findByRole("button", { name: "Import" }));
+    chooseImportFile();
+    fireEvent.click(screen.getByRole("button", { name: "Import file" }));
+    await waitFor(() => {
+      for (const key of keys) expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+    });
+  });
   it("renders the saved base resume before downloading, so it matches the preview", async () => {
     mount(true);
     const download = await screen.findByRole("button", {
@@ -1272,7 +1263,8 @@ describe("base resume mode", () => {
     });
     mocks.saveBase.mockRejectedValueOnce(new ApiClientError("Conflict", { status: 409 }));
     fireEvent.click(screen.getByRole("button", { name: "Import" }));
-    fireEvent.click(screen.getByRole("button", { name: "Import from RxResume" }));
+    chooseImportFile();
+    fireEvent.click(screen.getByRole("button", { name: "Import file" }));
     await screen.findByRole("heading", { name: "Resume changed elsewhere" });
     expect(
       screen.queryByRole("heading", {
@@ -1280,7 +1272,7 @@ describe("base resume mode", () => {
         hidden: true,
       }),
     ).not.toBeInTheDocument();
-    expect(mocks.importRx).not.toHaveBeenCalled();
+    expect(mocks.importFile).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Use latest" }));
   });
   it("resets imported preview locally while preserving the shared preference", async () => {
@@ -1288,7 +1280,8 @@ describe("base resume mode", () => {
     mount(true);
     await screen.findByTestId("pdf-canvas-preview");
     fireEvent.click(screen.getByRole("button", { name: "Import" }));
-    fireEvent.click(screen.getByRole("button", { name: "Import from RxResume" }));
+    chooseImportFile();
+    fireEvent.click(screen.getByRole("button", { name: "Import file" }));
     await waitFor(() =>
       expect(
         screen.queryByRole("heading", { name: "Import base resume?" }),
@@ -1310,20 +1303,21 @@ describe("base resume mode", () => {
     fireEvent.keyDown(search, { key: "Enter" });
     expect(mocks.navigate).toHaveBeenCalledWith("/resumes/base");
   });
-  it("confirms RxResume import and reloads the editor", async () => {
+  it("confirms a file import and reloads the editor", async () => {
     mount(true);
     fireEvent.click(await screen.findByRole("button", { name: "Import" }));
-    expect(mocks.importRx).not.toHaveBeenCalled();
+    expect(mocks.importFile).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(mocks.importRx).not.toHaveBeenCalled();
+    expect(mocks.importFile).not.toHaveBeenCalled();
     mocks.getBase.mockResolvedValue({
       resumeJson: state("Imported", 5).document,
       revision: 5,
     });
     fireEvent.click(screen.getByRole("button", { name: "Import" }));
-    fireEvent.click(screen.getByRole("button", { name: "Import from RxResume" }));
+    chooseImportFile();
+    fireEvent.click(screen.getByRole("button", { name: "Import file" }));
     expect(await screen.findByDisplayValue("Imported")).toBeInTheDocument();
-    expect(mocks.importRx).toHaveBeenCalledOnce();
+    expect(mocks.importFile).toHaveBeenCalledOnce();
     expect(mocks.getBase).toHaveBeenCalledTimes(2);
   });
   it("imports a chosen file only after confirmation", async () => {
@@ -1389,10 +1383,11 @@ it("can import a base resume when none exists yet", async () => {
   mount(true);
   fireEvent.click(await screen.findByRole("button", { name: "Import" }));
   expect(screen.queryByText("Open base resume")).not.toBeInTheDocument();
-  expect(mocks.importRx).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Import from RxResume" }));
+  expect(mocks.importFile).not.toHaveBeenCalled();
+  chooseImportFile();
+  fireEvent.click(screen.getByRole("button", { name: "Import file" }));
   expect(await screen.findByRole("heading", { name: "Base resume" })).toBeInTheDocument();
-  expect(mocks.importRx).toHaveBeenCalledOnce();
+  expect(mocks.importFile).toHaveBeenCalledOnce();
 });
 
 describe("explicit resume opening", () => {

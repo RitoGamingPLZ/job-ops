@@ -20,7 +20,7 @@ import {
   POST_APPLICATION_PROVIDERS,
   POST_APPLICATION_RELEVANCE_DECISIONS,
   POST_APPLICATION_SYNC_RUN_STATUSES,
-  type ReactiveResumeV5Document,
+  type ResumeV5Document,
   type ResumeSuggestionV2,
   SSO_PROVIDERS,
 } from "@shared/types";
@@ -1208,7 +1208,7 @@ export const jobResumes = sqliteTable(
       .default("tenant_default")
       .references(() => tenants.id, { onDelete: "cascade" }),
     userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
-    document: text("document", { mode: "json" }).$type<ReactiveResumeV5Document>().notNull(),
+    document: text("document", { mode: "json" }).$type<ResumeV5Document>().notNull(),
     revision: integer("revision").notNull().default(1),
     createdAt: text("created_at")
       .notNull()

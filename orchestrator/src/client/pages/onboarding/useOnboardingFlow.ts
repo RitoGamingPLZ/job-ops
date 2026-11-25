@@ -1,13 +1,12 @@
 import * as api from "@client/api";
 import { fileToDataUrl } from "@client/components/design-resume/utils";
 import { useDemoInfo } from "@client/hooks/useDemoInfo";
-import { useRxResumeConfigState } from "@client/hooks/useRxResumeConfigState";
 import { useSettings } from "@client/hooks/useSettings";
 import { queryKeys } from "@client/lib/queryKeys";
 import { normalizeLlmProvider } from "@client/pages/settings/utils";
 import type { AppSettings, OnboardingStatusResponse } from "@shared/types";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
@@ -20,21 +19,17 @@ import {
   getFileType,
   getHttpStatusBucket,
 } from "./analytics";
-import type { OnboardingFormData, ResumeSetupMode } from "./types";
+import type { OnboardingFormData } from "./types";
 
-export function useOnboardingFlow({ allowSelfHosted = true } = {}) {
+export function useOnboardingFlow() {
   const queryClient = useQueryClient();
   const { settings, isLoading: settingsLoading } = useSettings();
-  const { setBaseResumeId, syncBaseResumeId } = useRxResumeConfigState(settings);
   const demoInfo = useDemoInfo();
   const demoMode = demoInfo?.demoMode ?? false;
 
   const [isSaving, setIsSaving] = useState(false);
   const [isImportingResume, setIsImportingResume] = useState(false);
   const [importingResumeFileName, setImportingResumeFileName] = useState<string | null>(null);
-  const [isRxResumeSelfHosted, setIsRxResumeSelfHosted] = useState(false);
-  const [resumeSetupMode, setResumeSetupMode] = useState<ResumeSetupMode>("upload");
-  const resumeSetupModeTouchedRef = useRef(false);
 
   const { getValues, reset, setValue, watch } = useForm<OnboardingFormData>({
     defaultValues: {
@@ -43,9 +38,6 @@ export function useOnboardingFlow({ allowSelfHosted = true } = {}) {
       llmApiKey: "",
       model: "",
       pdfRenderer: "typst",
-      rxresumeUrl: "",
-      rxresumeApiKey: "",
-      rxresumeBaseResumeId: null,
     },
   });
 
@@ -72,22 +64,14 @@ export function useOnboardingFlow({ allowSelfHosted = true } = {}) {
   useEffect(() => {
     if (!settings) return;
 
-    const selectedId = syncBaseResumeId();
     reset({
       llmProvider: settings.llmProvider?.value || "",
       llmBaseUrl: settings.llmBaseUrl?.value || "",
       llmApiKey: "",
       model: settings.model?.override ?? "",
-      pdfRenderer: selectedId ? "rxresume" : "typst",
-      rxresumeUrl: settings.rxresumeUrl ?? "",
-      rxresumeApiKey: "",
-      rxresumeBaseResumeId: selectedId,
+      pdfRenderer: "typst",
     });
-    setIsRxResumeSelfHosted(allowSelfHosted && Boolean(settings.rxresumeUrl));
-    if (!resumeSetupModeTouchedRef.current) {
-      setResumeSetupMode(selectedId ? "rxresume" : "upload");
-    }
-  }, [allowSelfHosted, reset, settings, syncBaseResumeId]);
+  }, [reset, settings]);
 
   const llmProvider = watch("llmProvider");
   const selectedProvider = normalizeLlmProvider(
@@ -133,67 +117,6 @@ export function useOnboardingFlow({ allowSelfHosted = true } = {}) {
       setIsSaving(false);
     }
   }, [getValues, refreshOnboardingState, selectedProvider]);
-
-  const handleSaveRxresume = useCallback(async () => {
-    const values = getValues();
-    const selfHosted = allowSelfHosted && isRxResumeSelfHosted;
-
-    trackProductEvent("onboarding_rxresume_verify_submitted", {
-      self_hosted: selfHosted,
-      has_key_input: Boolean(values.rxresumeApiKey.trim()),
-      endpoint_mode: selfHosted ? getEndpointMode(values.rxresumeUrl) : "default",
-    });
-
-    try {
-      setIsSaving(true);
-      const status = await api.saveOnboardingRxResume({
-        apiKey: values.rxresumeApiKey.trim() || null,
-        baseUrl: selfHosted ? values.rxresumeUrl.trim() || null : null,
-        rxresumeBaseResumeId: values.rxresumeBaseResumeId,
-      });
-      setValue("rxresumeApiKey", "");
-      await refreshOnboardingState(status);
-      trackProductEvent("onboarding_rxresume_verify_completed", {
-        result: "success",
-        self_hosted: selfHosted,
-      });
-      toast.success(status.complete ? "Resume source verified" : "Reactive Resume saved");
-      return status;
-    } catch (error) {
-      trackProductEvent("onboarding_rxresume_verify_completed", {
-        result: "error",
-        self_hosted: selfHosted,
-        error_category: getErrorCategory(error),
-        http_status_bucket: getHttpStatusBucket(error),
-      });
-      showErrorToast(error, "Failed to save Reactive Resume");
-      return null;
-    } finally {
-      setIsSaving(false);
-    }
-  }, [allowSelfHosted, getValues, isRxResumeSelfHosted, refreshOnboardingState, setValue]);
-
-  const handleRxresumeSelfHostedChange = useCallback(
-    (next: boolean) => {
-      setIsRxResumeSelfHosted(next);
-      if (!next) {
-        setValue("rxresumeUrl", "");
-      }
-    },
-    [setValue],
-  );
-
-  const handleResumeSetupModeChange = useCallback(
-    (mode: ResumeSetupMode) => {
-      resumeSetupModeTouchedRef.current = true;
-      trackProductEvent("onboarding_resume_mode_selected", {
-        mode,
-        had_existing_resume: Boolean(getValues().rxresumeBaseResumeId),
-      });
-      setResumeSetupMode(mode);
-    },
-    [getValues],
-  );
 
   const handleImportResumeFile = useCallback(
     async (file: File) => {
@@ -278,62 +201,19 @@ export function useOnboardingFlow({ allowSelfHosted = true } = {}) {
     ],
   );
 
-  const handleTemplateResumeChange = useCallback(
-    (value: string | null) => {
-      const currentValue = getValues().rxresumeBaseResumeId;
-      if (currentValue === value) return;
-
-      trackProductEvent("onboarding_rxresume_template_selected", {
-        had_previous_template: Boolean(currentValue),
-        selection_result: value ? "selected" : "cleared",
-      });
-      setBaseResumeId(value);
-      setValue("rxresumeBaseResumeId", value);
-
-      void (async () => {
-        try {
-          setIsSaving(true);
-          const status = await api.saveOnboardingRxResume({
-            rxresumeBaseResumeId: value,
-          });
-          await refreshOnboardingState(status);
-          toast.success(
-            status.complete
-              ? "Resume source verified"
-              : "Template saved. Recheck the resume source to continue.",
-          );
-        } catch (error) {
-          setBaseResumeId(currentValue);
-          setValue("rxresumeBaseResumeId", currentValue);
-          showErrorToast(error, "Failed to save selected resume");
-        } finally {
-          setIsSaving(false);
-        }
-      })();
-    },
-    [getValues, refreshOnboardingState, setBaseResumeId, setValue],
-  );
-
   const isBusy = isSaving || settingsLoading || isImportingResume;
 
   return {
     demoMode,
     handleImportResumeFile,
-    handleRxresumeSelfHostedChange,
     handleSaveModel,
-    handleSaveRxresume,
-    handleTemplateResumeChange,
     isBusy,
     isImportingResume,
     importingResumeFileName,
-    isRxResumeSelfHosted,
     llmKeyHint: settings?.llmApiKeyHint ?? null,
-    resumeSetupMode,
-    rxresumeApiKeyHint: settings?.rxresumeApiKeyHint,
     selectedProvider,
     settings,
     settingsLoading,
-    setResumeSetupMode: handleResumeSetupModeChange,
     setValue,
     watch,
   };

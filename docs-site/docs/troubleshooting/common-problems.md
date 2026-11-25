@@ -57,8 +57,8 @@ npm --workspace docs-site run build
 
 ## PDF generation fails
 
-- Verify RxResume credentials.
-- Confirm selected base resume exists and is accessible.
+- Confirm a base resume has been imported (Settings or `/resumes/base`).
+- Confirm `typst` (or `tectonic` for LaTeX) is installed and reachable; see [Resume PDF and projects](../features/resume-pdf).
 
 ## UKVisaJobs runs fail
 
