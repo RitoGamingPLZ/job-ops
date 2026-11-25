@@ -127,7 +127,7 @@ export function ResumeLibraryPage() {
         subtitle="Manage your experience, projects, skills, education, awards and certifications."
       />
       <PageMain>
-        <CandidateLibrary />
+        <CandidateLibrary layout="page" />
       </PageMain>
     </>
   );

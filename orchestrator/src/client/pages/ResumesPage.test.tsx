@@ -23,7 +23,11 @@ vi.mock("@/client/components/cowork/DutyLibrary", () => ({
   DutyLibrary: () => null,
 }));
 vi.mock("@/client/components/cowork/CandidateLibrary", () => ({
-  CandidateLibrary: () => <div>Library content</div>,
+  CandidateLibrary: ({ layout }: { layout?: string }) => (
+    <div data-testid="candidate-library" data-layout={layout ?? "panel"}>
+      Library content
+    </div>
+  ),
 }));
 beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
@@ -138,6 +142,7 @@ it("renders the library with the standard header and navigation", () => {
   expect(within(screen.getByRole("banner")).getByText("Candidate Library")).toBeVisible();
   expect(screen.getByRole("button", { name: "Open navigation menu" })).toBeVisible();
   expect(screen.getByRole("main")).toHaveTextContent("Library content");
+  expect(screen.getByTestId("candidate-library")).toHaveAttribute("data-layout", "page");
 });
 
 it("navigates from the library to resumes through the navigation menu", async () => {

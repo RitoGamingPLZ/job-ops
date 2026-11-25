@@ -72,6 +72,7 @@ const TAG_KINDS = new Set<CandidateItemKind>([
   "contact",
   "bullet",
   "project",
+  "project_point",
   "education",
   "award",
   "certification",
@@ -179,6 +180,7 @@ function resumeItems(document?: Doc, sectionName?: string): Record<string, unkno
 export function CandidateLibrary({
   jobId,
   frozen = false,
+  layout = "panel",
   document,
   onDocumentChange,
   onReferenceBullet,
@@ -193,10 +195,13 @@ export function CandidateLibrary({
   onSync?: () => Promise<LibrarySyncResult>;
   jobId?: string;
   frozen?: boolean;
+  /** Standalone library page uses expanded rows and desktop vertical tabs; cowork uses compact panel mode. */
+  layout?: "panel" | "page";
   document?: Doc;
   onDocumentChange?: (update: (doc: Doc) => Doc) => void;
   onReferenceBullet?: (bullet: ExperienceBullet) => void;
 }) {
+  const isPage = layout === "page";
   const tickId = useId();
   const formId = useId();
   const [localItems, setLocalItems] = useState<Item[]>([]);
@@ -212,6 +217,7 @@ export function CandidateLibrary({
     controls.current.onItemsChange?.(next);
   }, []);
   const [section, setSection] = useState<CandidateItemKind>("role");
+  const [collapsedCompanies, setCollapsedCompanies] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -634,6 +640,7 @@ export function CandidateLibrary({
     // A labelled contact link shows its label; the tooltip keeps the URL.
     const label = item.kind === "contact" ? String(item.data?.label ?? "").trim() : "";
     const hasTags = TAG_KINDS.has(item.kind);
+    const compactRow = hasTags && !isPage;
     const isLine = item.kind === "bullet" || item.kind === "project_point";
     const lineSection = item.kind === "bullet" ? KIND_SECTION.role : KIND_SECTION.project;
     const rewordedLine =
@@ -655,15 +662,18 @@ export function CandidateLibrary({
     const reworded = Boolean(rewordedLine || changedEntry);
     const score = ranked.find((rank) => rank.bulletId === item.id);
     return (
-      <div key={item.id} className="space-y-0.5 py-0.5">
+      <div
+        key={item.id}
+        className={isLine ? (isPage ? "space-y-1 py-2" : "space-y-0.5 py-1") : "space-y-0.5 py-0.5"}
+      >
         <div
-          className={`group flex ${hasTags ? "items-center" : "items-start"} gap-1 rounded-sm text-sm ${reworded ? REWORDED_TINT_CLASS : ""}`}
+          className={`group flex ${compactRow ? "items-center" : "items-start"} gap-1 rounded-sm text-sm ${reworded ? REWORDED_TINT_CLASS : ""}`}
           title={rewordedLine?.text ?? changedTitle}
         >
           {tick([item], item.text)}
           <button
             type="button"
-            className={`min-w-0 flex-1 py-0.5 text-left hover:underline ${hasTags ? "truncate" : ""}`}
+            className={`min-w-0 flex-1 py-0.5 text-left hover:underline ${compactRow ? "truncate" : "whitespace-normal break-words"}`}
             title={hasTags ? (rewordedLine?.text ?? displayText) : changedTitle}
             disabled={busy}
             onClick={() => startEdit(item)}
@@ -691,9 +701,9 @@ export function CandidateLibrary({
             trash([item], item.text)
           )}
         </div>
-        {hasTags && (
+        {hasTags && (!isPage || item.tags.length > 0 || Boolean(score)) && (
           <div className={`flex min-w-0 items-start gap-1 ${jobId ? "pl-4" : ""}`}>
-            <InlineTags bullet={item} />
+            <InlineTags bullet={item} expanded={isPage} />
             {score && (
               <span
                 className="shrink-0 rounded border px-1.5 py-0.5 text-xs font-medium"
@@ -846,16 +856,60 @@ export function CandidateLibrary({
     companies.set(key, [...(companies.get(key) ?? []), role]);
   }
   const shownCompanies = [...companies].filter(([, group]) => group.some(roleShown));
+  const companyNames = shownCompanies.map(([company]) => company);
+  const accordionKey =
+    isPage && !query ? `page:${jobId ?? ""}` : `${layout}:${jobId ?? ""}:${query}`;
+  const accordionState =
+    isPage && !query
+      ? {
+          value: companyNames.filter((company) => !collapsedCompanies.includes(company)),
+          onValueChange: (open: string[]) =>
+            setCollapsedCompanies(companyNames.filter((company) => !open.includes(company))),
+        }
+      : {
+          defaultValue: query
+            ? companyNames
+            : jobId
+              ? [...companies]
+                  .filter(([, group]) =>
+                    items.some(
+                      (item) =>
+                        item.kind === "bullet" &&
+                        group.some((role) => role.id === item.parentId) &&
+                        document &&
+                        isOnResume(document, item.id),
+                    ),
+                  )
+                  .map(([company]) => company)
+              : [...companies.keys()].slice(0, 1),
+        };
   return (
-    <div className="space-y-1.5">
-      <section className="flex flex-wrap items-center gap-1" aria-label="Library sections">
+    <div
+      className={
+        isPage
+          ? "grid gap-4 md:grid-cols-[200px_minmax(0,1fr)] md:items-start md:gap-6"
+          : "space-y-1.5"
+      }
+    >
+      <section
+        className={
+          isPage
+            ? "flex flex-wrap items-center gap-1 md:sticky md:top-14 md:flex-col md:items-stretch md:gap-0.5 md:rounded-lg md:border md:bg-card md:p-2"
+            : "flex flex-wrap items-center gap-1"
+        }
+        aria-label="Library sections"
+      >
         {sections.map(([kind, label]) => (
           <Button
             key={kind}
             size="sm"
             variant="ghost"
             aria-pressed={section === kind}
-            className="h-7 px-2 text-xs aria-pressed:bg-accent"
+            className={
+              isPage
+                ? "h-7 px-2 text-xs aria-pressed:bg-accent md:h-8 md:w-full md:justify-start md:px-2.5 md:text-sm md:font-medium md:text-muted-foreground md:hover:text-foreground md:aria-pressed:text-accent-foreground"
+                : "h-7 px-2 text-xs aria-pressed:bg-accent"
+            }
             onClick={() => {
               setSection(kind);
               setEdit(null);
@@ -864,10 +918,11 @@ export function CandidateLibrary({
             {label}
           </Button>
         ))}
+        {isPage && <div aria-hidden="true" className="hidden md:my-1.5 md:block md:border-t" />}
         <Button
           size="sm"
           variant="outline"
-          className="h-7 px-2 text-xs"
+          className={isPage ? "h-7 px-2 text-xs md:h-8 md:w-full md:text-xs" : "h-7 px-2 text-xs"}
           disabled={busy || loading}
           onClick={() =>
             void run(async () => {
@@ -882,162 +937,174 @@ export function CandidateLibrary({
           Sync from resumes
         </Button>
       </section>
-      {loading ? (
-        <output>Loading library…</output>
-      ) : failed ? (
-        <div role="alert">
-          Could not load library.{" "}
-          <Button variant="ghost" disabled={busy} onClick={() => void run(refresh)}>
-            Retry
-          </Button>
-        </div>
-      ) : (
-        <>
-          {section === "role" && (
-            <>
-              <div className="flex flex-wrap items-center gap-1 text-sm font-medium">
-                <span className="mr-auto">Experience</span>
-                <DutyLibraryTools
-                  jobId={jobId}
-                  roles={roles}
-                  onRefresh={refresh}
-                  onRanked={setRanked}
+      <div
+        className={
+          isPage ? "min-w-0 space-y-2 rounded-lg border bg-card p-4" : "min-w-0 space-y-1.5"
+        }
+      >
+        {loading ? (
+          <output>Loading library…</output>
+        ) : failed ? (
+          <div role="alert">
+            Could not load library.{" "}
+            <Button variant="ghost" disabled={busy} onClick={() => void run(refresh)}>
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <>
+            {section === "role" && (
+              <>
+                <div className="flex flex-wrap items-center gap-1 text-sm font-medium">
+                  <span className="mr-auto">Experience</span>
+                  <DutyLibraryTools
+                    jobId={jobId}
+                    roles={roles}
+                    onRefresh={refresh}
+                    onRanked={setRanked}
+                  />
+                  {addButton("role", undefined, undefined, "job")}
+                </div>
+                <Input
+                  type="search"
+                  aria-label="Search experience"
+                  placeholder="Search job, company, location, duty or tag"
+                  className={
+                    isPage ? "h-8 px-2.5 text-sm md:text-sm" : "h-7 px-2 text-xs md:text-xs"
+                  }
+                  value={dutyQuery}
+                  onChange={(event) => setDutyQuery(event.target.value)}
                 />
-                {addButton("role", undefined, undefined, "job")}
-              </div>
-              <Input
-                type="search"
-                aria-label="Search experience"
-                placeholder="Search job, company, location, duty or tag"
-                className="h-7 px-2 text-xs md:text-xs"
-                value={dutyQuery}
-                onChange={(event) => setDutyQuery(event.target.value)}
-              />
-              {query && !shownCompanies.length && (
-                <p className="text-xs text-muted-foreground">
-                  Nothing matches “{dutyQuery.trim()}”.
-                </p>
-              )}
-              <Accordion
-                // Each search re-opens every matching job.
-                key={`${jobId}:${query}`}
-                type="multiple"
-                defaultValue={
-                  query
-                    ? shownCompanies.map(([company]) => company)
-                    : jobId
-                      ? [...companies]
-                          .filter(([, group]) =>
-                            items.some(
-                              (item) =>
-                                item.kind === "bullet" &&
-                                group.some((role) => role.id === item.parentId) &&
-                                document &&
-                                isOnResume(document, item.id),
-                            ),
-                          )
-                          .map(([company]) => company)
-                      : [...companies.keys()].slice(0, 1)
-                }
-              >
-                {shownCompanies.map(([company, group]) => {
-                  return (
-                    <AccordionItem key={company} value={company} className="border-0 border-t pt-1">
-                      <div className="group flex items-center gap-1 text-sm font-medium">
-                        {tick(group, company)}
-                        <button
-                          type="button"
-                          disabled={busy}
-                          className="min-w-0 truncate text-left hover:underline"
-                          onClick={() =>
-                            setEdit({
-                              items: group,
-                              input: {
-                                text: company,
-                                data: {
-                                  company,
-                                  location: group[0].data?.location ?? "",
-                                  website: group[0].data?.website ?? "",
+                {query && !shownCompanies.length && (
+                  <p className="text-xs text-muted-foreground">
+                    Nothing matches “{dutyQuery.trim()}”.
+                  </p>
+                )}
+                <Accordion
+                  // Each search re-opens every matching job; switching mode/query remounts cleanly.
+                  key={accordionKey}
+                  type="multiple"
+                  {...accordionState}
+                >
+                  {shownCompanies.map(([company, group]) => {
+                    return (
+                      <AccordionItem
+                        key={company}
+                        value={company}
+                        className="border-0 border-t pt-1"
+                      >
+                        <div className="group flex items-center gap-1 text-sm font-medium">
+                          {tick(group, company)}
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className="min-w-0 truncate text-left hover:underline"
+                            onClick={() =>
+                              setEdit({
+                                items: group,
+                                input: {
+                                  text: company,
+                                  data: {
+                                    company,
+                                    location: group[0].data?.location ?? "",
+                                    website: group[0].data?.website ?? "",
+                                  },
                                 },
+                                fields: ["company", "location", "website"],
+                                companyOnly: true,
+                              })
+                            }
+                          >
+                            {company}
+                            {group[0].data?.location ? ` · ${String(group[0].data.location)}` : ""}
+                          </button>
+                          <div className="ml-auto flex shrink-0 items-center gap-1 font-normal">
+                            {addButton(
+                              "role",
+                              undefined,
+                              {
+                                company,
+                                location: group[0].data?.location ?? "",
+                                website: group[0].data?.website ?? "",
                               },
-                              fields: ["company", "location", "website"],
-                              companyOnly: true,
-                            })
+                              "role",
+                            )}
+                            {trash(group, company)}
+                            <AccordionTrigger
+                              aria-label={`Show roles for ${company}`}
+                              className="h-6 w-6 flex-none justify-center p-0"
+                            />
+                          </div>
+                        </div>
+                        <AccordionContent
+                          className={
+                            isPage
+                              ? "ml-1.5 space-y-2 border-l pb-1 pl-3 text-sm"
+                              : "ml-1.5 space-y-0.5 border-l pb-0.5 pl-2 text-sm"
                           }
                         >
-                          {company}
-                          {group[0].data?.location ? ` · ${String(group[0].data.location)}` : ""}
-                        </button>
-                        <div className="ml-auto flex shrink-0 items-center gap-1 font-normal">
-                          {addButton(
-                            "role",
-                            undefined,
-                            {
-                              company,
-                              location: group[0].data?.location ?? "",
-                              website: group[0].data?.website ?? "",
-                            },
-                            "role",
-                          )}
-                          {trash(group, company)}
-                          <AccordionTrigger
-                            aria-label={`Show roles for ${company}`}
-                            className="h-6 w-6 flex-none justify-center p-0"
-                          />
-                        </div>
-                      </div>
-                      <AccordionContent className="ml-1.5 space-y-0.5 border-l pb-0.5 pl-2 text-sm">
-                        {group.filter(roleShown).map((role) => (
-                          <div key={role.id}>
-                            <div className="flex items-start gap-1">
-                              <div className="min-w-0 flex-1">{row(role)}</div>
-                              {dutyCount(role)}
-                              {addButton("bullet", role.id, undefined, "duty")}
+                          {group.filter(roleShown).map((role) => (
+                            <div key={role.id}>
+                              <div className="flex items-start gap-1">
+                                <div className="min-w-0 flex-1">{row(role)}</div>
+                                {dutyCount(role)}
+                                {addButton("bullet", role.id, undefined, "duty")}
+                              </div>
+                              <div className="ml-1.5 divide-y divide-border border-l pl-2">
+                                {dutiesOf(role).map(row)}
+                              </div>
                             </div>
-                            <div className="ml-1.5 border-l pl-2">{dutiesOf(role).map(row)}</div>
-                          </div>
-                        ))}
-                      </AccordionContent>
-                    </AccordionItem>
-                  );
-                })}
-              </Accordion>
-            </>
-          )}
-          {section !== "role" && (
-            <>
-              <div className="flex items-center justify-between gap-1 text-sm font-medium">
-                {sections.find(([kind]) => kind === section)?.[1]}
-                {addButton(section)}
-              </div>
-              {items
-                .filter((item) => item.kind === section)
-                .map((item) => (
-                  <div key={item.id} className="border-t pt-1">
-                    {row(item)}
-                    {section === "project" && (
-                      <div className="ml-1.5 space-y-0.5 border-l pl-2">
-                        {items
-                          .filter(
+                          ))}
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              </>
+            )}
+            {section !== "role" && (
+              <>
+                <div className="flex items-center justify-between gap-1 text-sm font-medium">
+                  {sections.find(([kind]) => kind === section)?.[1]}
+                  {addButton(section)}
+                </div>
+                {items
+                  .filter((item) => item.kind === section)
+                  .map((item) => {
+                    const points =
+                      section === "project"
+                        ? items.filter(
                             (child) => child.parentId === item.id && child.kind === "project_point",
                           )
-                          .map(row)}
-                        {addButton("project_point", item.id)}
+                        : [];
+                    return (
+                      <div key={item.id} className={isPage ? "border-t py-2" : "border-t pt-1"}>
+                        {row(item)}
+                        {section === "project" && (
+                          <div className="ml-1.5 border-l pl-2">
+                            {points.length > 0 && (
+                              <div className="divide-y divide-border">{points.map(row)}</div>
+                            )}
+                            <div className={points.length > 0 ? "pt-1" : undefined}>
+                              {addButton("project_point", item.id)}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
-            </>
-          )}
-          {!items.some((item) => item.kind === section) && (
-            <p className="text-xs text-muted-foreground">
-              {section === "contact"
-                ? "Add a contact or sync to import missing contacts from your base resume."
-                : "Add an item or sync from resumes to build your library."}
-            </p>
-          )}
-        </>
-      )}
+                    );
+                  })}
+              </>
+            )}
+            {!items.some((item) => item.kind === section) && (
+              <p className="text-xs text-muted-foreground">
+                {section === "contact"
+                  ? "Add a contact or sync to import missing contacts from your base resume."
+                  : "Add an item or sync from resumes to build your library."}
+              </p>
+            )}
+          </>
+        )}
+      </div>
       <Dialog
         open={Boolean(edit)}
         onOpenChange={(open) => {
