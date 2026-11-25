@@ -3,6 +3,7 @@ import {
   type AppErrorCode,
   badRequest,
   conflict,
+  forbidden,
   notFound,
   STATUS_BY_APP_ERROR_CODE,
   toAppError,
@@ -14,9 +15,11 @@ import {
   type PdfFingerprintContext,
   resolvePdfFingerprintContext,
 } from "@server/services/pdf-fingerprint";
+import { currentUserHasPermission } from "@server/services/user-permissions";
 import {
   APPLICATION_OUTCOMES,
   APPLICATION_STAGES,
+  isTargeted,
   type Job,
   type JobListItem,
   type JobStatus,
@@ -214,6 +217,16 @@ export async function requireJob(jobId: string): Promise<Job> {
     throw notFound("Job not found");
   }
   return job;
+}
+
+export function isInProgressAccessibleJob(job: Pick<Job, "status" | "readyAt">): boolean {
+  return isTargeted(job) || job.status === "applied" || job.status === "in_progress";
+}
+
+export async function assertJobFeatureAccess(job: Pick<Job, "status" | "readyAt">): Promise<void> {
+  if (await currentUserHasPermission("jobs")) return;
+  if (isInProgressAccessibleJob(job)) return;
+  throw forbidden("This feature is not enabled for your account. Ask an admin.");
 }
 
 export function toJobsRouteError(

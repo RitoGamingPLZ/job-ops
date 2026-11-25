@@ -301,4 +301,261 @@ describe("admin user access and invitations", () => {
     });
     expect(asGuest.status).toBe(403);
   });
+
+  it("enables jobs, watchlist, inProgress, and resumes by default and allows admin per-user overrides on creation", async () => {
+    const invited = await inviteAndJoin("default-features");
+    expect(invited.user.permissions).toMatchObject({
+      jobs: true,
+      watchlist: true,
+      inProgress: true,
+      resumes: true,
+      pipeline: true,
+      urlImport: true,
+    });
+
+    const createdRes = await fetch(`${baseUrl}/api/workspaces/users`, {
+      method: "POST",
+      headers: headers(adminToken),
+      body: JSON.stringify({
+        username: "limited-user",
+        displayName: "Limited User",
+        password: "temp-password-1234",
+        permissions: { watchlist: false, resumes: false },
+      }),
+    });
+    expect(createdRes.status).toBe(201);
+    const createdBody = await createdRes.json();
+    expect(createdBody.data.user.permissions).toMatchObject({
+      jobs: true,
+      watchlist: false,
+      inProgress: true,
+      resumes: false,
+    });
+
+    const limitedToken = await login(baseUrl, "limited-user", "temp-password-1234");
+    expect((await fetch(`${baseUrl}/api/jobs`, { headers: headers(limitedToken) })).status).toBe(
+      200,
+    );
+    expect(
+      (await fetch(`${baseUrl}/api/watchlist/sources`, { headers: headers(limitedToken) })).status,
+    ).toBe(403);
+    expect((await fetch(`${baseUrl}/api/resumes`, { headers: headers(limitedToken) })).status).toBe(
+      403,
+    );
+  });
+
+  it("enforces jobs, watchlist, inProgress, and resumes permissions per tenant without cross-tenant leakage", async () => {
+    const userA = await inviteAndJoin("feature-user-a");
+    const userB = await inviteAndJoin("feature-user-b");
+
+    const createJob = async (token: string, suffix: string) => {
+      const res = await fetch(`${baseUrl}/api/manual-jobs/import`, {
+        method: "POST",
+        headers: headers(token),
+        body: JSON.stringify({
+          skipTailoring: true,
+          job: {
+            title: `Engineer ${suffix}`,
+            employer: `Acme ${suffix}`,
+            jobUrl: `https://example.com/jobs/${suffix}`,
+            jobDescription: "Build reliable distributed web systems.",
+          },
+        }),
+      });
+      expect(res.status).toBe(200);
+      return (await res.json()).data as { id: string };
+    };
+
+    const discoveredJob = await createJob(userA.token, "a-discovered");
+    const appliedJob = await createJob(userA.token, "a-applied");
+    const applyRes = await fetch(`${baseUrl}/api/jobs/${appliedJob.id}/apply`, {
+      method: "POST",
+      headers: headers(userA.token),
+    });
+    expect(applyRes.status).toBe(200);
+
+    const userBJob = await createJob(userB.token, "b-job");
+
+    // Disable only `jobs` for user A while keeping `inProgress: true`.
+    expect((await patchPermissions(userA.user.id, { jobs: false })).status).toBe(200);
+
+    const filteredListRes = await fetch(`${baseUrl}/api/jobs`, { headers: headers(userA.token) });
+    expect(filteredListRes.status).toBe(200);
+    const filteredListBody = await filteredListRes.json();
+    const listedIds = filteredListBody.data.jobs.map((job: { id: string }) => job.id);
+    expect(listedIds).toContain(appliedJob.id);
+    expect(listedIds).not.toContain(discoveredJob.id);
+
+    expect(
+      (await fetch(`${baseUrl}/api/jobs/${appliedJob.id}`, { headers: headers(userA.token) }))
+        .status,
+    ).toBe(200);
+    expect(
+      (await fetch(`${baseUrl}/api/jobs/${discoveredJob.id}`, { headers: headers(userA.token) }))
+        .status,
+    ).toBe(403);
+    expect(
+      (
+        await fetch(`${baseUrl}/api/jobs/${discoveredJob.id}`, {
+          method: "PATCH",
+          headers: headers(userA.token),
+          body: JSON.stringify({ userNotes: "Blocked" }),
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (await fetch(`${baseUrl}/api/jobs/nonexistent-id`, { headers: headers(userA.token) })).status,
+    ).toBe(404);
+    expect(
+      (
+        await fetch(`${baseUrl}/api/manual-jobs/import`, {
+          method: "POST",
+          headers: headers(userA.token),
+          body: JSON.stringify({
+            skipTailoring: true,
+            job: {
+              title: "Blocked Import",
+              employer: "Acme",
+              jobUrl: "https://example.com/jobs/blocked",
+              jobDescription: "Blocked",
+            },
+          }),
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await fetch(`${baseUrl}/api/jobs/${appliedJob.id}/skip`, {
+          method: "POST",
+          headers: headers(userA.token),
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await fetch(`${baseUrl}/api/pipeline/run`, {
+          method: "POST",
+          headers: headers(userA.token),
+          body: "{}",
+        })
+      ).status,
+    ).toBe(403);
+
+    // Disable `inProgress` too for user A -> board/job/stage/pipeline routes become 403.
+    expect((await patchPermissions(userA.user.id, { inProgress: false })).status).toBe(200);
+    expect((await fetch(`${baseUrl}/api/jobs`, { headers: headers(userA.token) })).status).toBe(
+      403,
+    );
+    expect(
+      (await fetch(`${baseUrl}/api/jobs/${appliedJob.id}`, { headers: headers(userA.token) }))
+        .status,
+    ).toBe(403);
+    expect(
+      (
+        await fetch(`${baseUrl}/api/jobs/${appliedJob.id}/stages`, {
+          method: "POST",
+          headers: headers(userA.token),
+          body: JSON.stringify({ toStage: "oa" }),
+        })
+      ).status,
+    ).toBe(403);
+    expect((await fetch(`${baseUrl}/api/pipeline`, { headers: headers(userA.token) })).status).toBe(
+      403,
+    );
+
+    // Re-enable jobs, disable watchlist and resumes for user A.
+    expect(
+      (await patchPermissions(userA.user.id, { jobs: true, watchlist: false, resumes: false }))
+        .status,
+    ).toBe(200);
+    expect(
+      (await fetch(`${baseUrl}/api/watchlist/sources`, { headers: headers(userA.token) })).status,
+    ).toBe(403);
+    expect(
+      (
+        await fetch(`${baseUrl}/api/workday/fetch-jobs`, {
+          method: "POST",
+          headers: headers(userA.token),
+          body: "{}",
+        })
+      ).status,
+    ).toBe(403);
+    expect((await fetch(`${baseUrl}/api/resumes`, { headers: headers(userA.token) })).status).toBe(
+      403,
+    );
+    expect((await fetch(`${baseUrl}/api/library`, { headers: headers(userA.token) })).status).toBe(
+      403,
+    );
+    expect(
+      (await fetch(`${baseUrl}/api/design-resume/status`, { headers: headers(userA.token) }))
+        .status,
+    ).toBe(403);
+    expect(
+      (await fetch(`${baseUrl}/api/jobs/${appliedJob.id}/pdf`, { headers: headers(userA.token) }))
+        .status,
+    ).toBe(403);
+    expect(
+      (await fetch(`${baseUrl}/pdfs/missing.pdf`, { headers: headers(userA.token) })).status,
+    ).toBe(403);
+    expect(
+      (
+        await fetch(`${baseUrl}/api/jobs/${appliedJob.id}/stages`, {
+          method: "POST",
+          headers: headers(userA.token),
+          body: JSON.stringify({ toStage: "oa" }),
+        })
+      ).status,
+    ).toBe(403);
+
+    // Cross-tenant isolation: user B still retains full default feature access.
+    expect((await fetch(`${baseUrl}/api/jobs`, { headers: headers(userB.token) })).status).toBe(
+      200,
+    );
+    expect(
+      (await fetch(`${baseUrl}/api/watchlist/sources`, { headers: headers(userB.token) })).status,
+    ).toBe(200);
+    expect(
+      (
+        await fetch(`${baseUrl}/api/jobs/${userBJob.id}/stages`, {
+          method: "POST",
+          headers: headers(userB.token),
+          body: JSON.stringify({ toStage: "applied" }),
+        })
+      ).status,
+    ).toBe(200);
+    expect((await fetch(`${baseUrl}/api/resumes`, { headers: headers(userB.token) })).status).toBe(
+      200,
+    );
+    expect((await fetch(`${baseUrl}/api/library`, { headers: headers(userB.token) })).status).toBe(
+      200,
+    );
+
+    // Re-enabling features for user A restores access.
+    expect(
+      (
+        await patchPermissions(userA.user.id, {
+          jobs: true,
+          watchlist: true,
+          inProgress: true,
+          resumes: true,
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (await fetch(`${baseUrl}/api/watchlist/sources`, { headers: headers(userA.token) })).status,
+    ).toBe(200);
+    expect((await fetch(`${baseUrl}/api/resumes`, { headers: headers(userA.token) })).status).toBe(
+      200,
+    );
+    expect((await fetch(`${baseUrl}/api/library`, { headers: headers(userA.token) })).status).toBe(
+      200,
+    );
+    expect(
+      (await fetch(`${baseUrl}/api/design-resume/status`, { headers: headers(userA.token) }))
+        .status,
+    ).toBe(200);
+    expect(
+      (await fetch(`${baseUrl}/pdfs/missing.pdf`, { headers: headers(userA.token) })).status,
+    ).toBe(404);
+  });
 });

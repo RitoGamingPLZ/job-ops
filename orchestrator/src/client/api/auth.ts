@@ -69,7 +69,7 @@ async function registerWithCredentials(
   if (!data?.token || !data.user) {
     throw new Error(incompleteMessage);
   }
-  setAuthenticatedSession(data.token);
+  setAuthenticatedSession(data.token, data.user);
   return data.user;
 }
 

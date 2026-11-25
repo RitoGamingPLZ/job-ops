@@ -1,5 +1,5 @@
 import { type LogEventFormValues, LogEventModal } from "@client/components/LogEventModal";
-import { PageHeader, PageMain } from "@client/components/layout";
+import { AppModeContext, PageHeader, PageMain } from "@client/components/layout";
 import {
   type ApplicationStage,
   BOARD_COLUMN_LABELS,
@@ -85,6 +85,9 @@ const canDrop = (from: BoardColumn, to: BoardColumn): to is Exclude<BoardColumn,
   from !== to && to !== "targeted" && (from !== "targeted" || to === "applied");
 
 export const InProgressBoardPage: React.FC = () => {
+  const { appMode, permissions } = React.useContext(AppModeContext);
+  const canUseJobs = appMode === "hosted" || permissions.jobs;
+  const canUseResumes = appMode === "hosted" || permissions.resumes;
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
@@ -353,14 +356,16 @@ export const InProgressBoardPage: React.FC = () => {
                 <SelectItem value="company">Company</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => navigate("/jobs/discovered")}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add
-            </Button>
+            {canUseJobs && (
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 text-xs"
+                onClick={() => navigate("/jobs/discovered")}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add
+              </Button>
+            )}
           </div>
         }
       />
@@ -435,7 +440,7 @@ export const InProgressBoardPage: React.FC = () => {
                       <span className="text-xs tabular-nums text-muted-foreground">
                         {laneCards.length}
                       </span>
-                      {stage === "targeted" && (
+                      {stage === "targeted" && canUseResumes && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -467,6 +472,7 @@ export const InProgressBoardPage: React.FC = () => {
                               job={job}
                               stage={stage}
                               round={round}
+                              showResumeActions={canUseResumes}
                               onUntarget={() => void handleTargetAction(job)}
                               onPreviewPdf={() => handlePreviewPdf(job)}
                               onPrepareResume={() => handlePrepareResume(job)}

@@ -9,64 +9,69 @@ import { transitionStage } from "@server/services/applicationTracking";
 import { simulateApplyJob } from "@server/services/demo-simulator";
 import { notifyJobCompleteWebhook } from "@server/services/jobs/webhooks";
 import { type Request, type Response, Router } from "express";
+import { requireAnyPermissionMiddleware } from "../../require-admin";
 import { hydrateJobPdfFreshness, requireJob, toJobsRouteError } from "./shared";
 
 export const jobsApplicationRouter = Router();
 
-jobsApplicationRouter.post("/:id/apply", async (req: Request, res: Response) => {
-  try {
-    if (isDemoMode()) {
-      const updatedJob = await simulateApplyJob(req.params.id);
-      return okWithMeta(res, await hydrateJobPdfFreshness(updatedJob), {
-        simulated: true,
-      });
-    }
+jobsApplicationRouter.post(
+  "/:id/apply",
+  requireAnyPermissionMiddleware("jobs", "inProgress"),
+  async (req: Request, res: Response) => {
+    try {
+      if (isDemoMode()) {
+        const updatedJob = await simulateApplyJob(req.params.id);
+        return okWithMeta(res, await hydrateJobPdfFreshness(updatedJob), {
+          simulated: true,
+        });
+      }
 
-    const job = await requireJob(req.params.id);
+      const job = await requireJob(req.params.id);
 
-    const appliedAtDate = new Date();
-    const appliedAt = appliedAtDate.toISOString();
+      const appliedAtDate = new Date();
+      const appliedAt = appliedAtDate.toISOString();
 
-    transitionStage(
-      job.id,
-      "applied",
-      Math.floor(appliedAtDate.getTime() / 1000),
-      {
-        eventLabel: "Applied",
-        actor: "system",
-      },
-      null,
-    );
-
-    const updatedJob = await jobsRepo.updateJob(job.id, {
-      status: "applied",
-      appliedAt,
-    });
-
-    if (updatedJob) {
-      void trackCanonicalActivationEvent(
-        "application_marked_applied",
+      transitionStage(
+        job.id,
+        "applied",
+        Math.floor(appliedAtDate.getTime() / 1000),
         {
-          source: "jobs_apply_route",
-          had_pdf: Boolean(updatedJob.pdfPath),
+          eventLabel: "Applied",
+          actor: "system",
         },
-        {
-          occurredAt: appliedAtDate,
-          requestOrigin: resolveRequestOrigin(req),
-          urlPath: "/jobs",
-        },
+        null,
       );
-      notifyJobCompleteWebhook(updatedJob).catch((error) => {
-        logger.warn("Job complete webhook dispatch failed", error);
+
+      const updatedJob = await jobsRepo.updateJob(job.id, {
+        status: "applied",
+        appliedAt,
       });
-    }
 
-    if (!updatedJob) {
-      return fail(res, notFound("Job not found"));
-    }
+      if (updatedJob) {
+        void trackCanonicalActivationEvent(
+          "application_marked_applied",
+          {
+            source: "jobs_apply_route",
+            had_pdf: Boolean(updatedJob.pdfPath),
+          },
+          {
+            occurredAt: appliedAtDate,
+            requestOrigin: resolveRequestOrigin(req),
+            urlPath: "/jobs",
+          },
+        );
+        notifyJobCompleteWebhook(updatedJob).catch((error) => {
+          logger.warn("Job complete webhook dispatch failed", error);
+        });
+      }
 
-    ok(res, await hydrateJobPdfFreshness(updatedJob));
-  } catch (error) {
-    fail(res, toJobsRouteError(error));
-  }
-});
+      if (!updatedJob) {
+        return fail(res, notFound("Job not found"));
+      }
+
+      ok(res, await hydrateJobPdfFreshness(updatedJob));
+    } catch (error) {
+      fail(res, toJobsRouteError(error));
+    }
+  },
+);

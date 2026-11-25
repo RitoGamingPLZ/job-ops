@@ -95,6 +95,7 @@ export type InProgressBoardCardProps = {
   job: JobListItem;
   stage: BoardColumn;
   round?: number;
+  showResumeActions?: boolean;
   onUntarget?: () => void;
   onPreviewPdf?: () => void;
   onPrepareResume?: () => void;
@@ -112,6 +113,7 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
   job,
   stage,
   round = 0,
+  showResumeActions = true,
   onUntarget,
   onPreviewPdf,
   onPrepareResume,
@@ -146,7 +148,7 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
         >
           {job.employer}
         </Link>
-        <ResumeStatusDot job={job} />
+        {showResumeActions && <ResumeStatusDot job={job} />}
         <div className="relative h-7 w-7 shrink-0">
           <ExternalLink
             aria-hidden
@@ -232,7 +234,7 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
       </div>
       {stage === "targeted" && (
         <div className="mt-3 flex flex-wrap gap-2" data-board-card-menu="">
-          {resumeState === "available" && (
+          {showResumeActions && resumeState === "available" && (
             <>
               <Button size="sm" variant="outline" asChild>
                 <Link to={resumeEditorLocation({ kind: "job", jobId: job.id }, "edit")}>
@@ -249,12 +251,12 @@ export const InProgressBoardCard: React.FC<InProgressBoardCardProps> = ({
               </Button>
             </>
           )}
-          {resumeState === "preparing" && (
+          {showResumeActions && resumeState === "preparing" && (
             <Button size="sm" variant="outline" disabled>
               Preparing resume…
             </Button>
           )}
-          {resumeState === "unprepared" && (
+          {showResumeActions && resumeState === "unprepared" && (
             <>
               <span className="w-full text-[11px] text-muted-foreground">
                 Resume not prepared yet

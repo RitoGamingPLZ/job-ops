@@ -1,9 +1,10 @@
 import * as api from "@client/api";
 import { useEffect } from "react";
 import { identifyAnalyticsUser } from "@/lib/analytics";
+import { useAuthSession } from "./useAuthSession";
 
 export function useAnalyticsIdentity(): void {
-  const hasSession = api.hasAuthenticatedSession();
+  const hasSession = useAuthSession();
 
   useEffect(() => {
     let cancelled = false;

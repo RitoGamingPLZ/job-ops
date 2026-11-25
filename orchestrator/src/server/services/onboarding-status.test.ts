@@ -2,12 +2,13 @@ import { isSystemAdmin } from "@infra/request-context";
 import { getOriginalEnvValue } from "@server/services/envSettings";
 import { LlmService } from "@server/services/llm/service";
 import { buildDefaultResumeDocument } from "@server/services/resume-document/document";
-import type { DesignResumeJson } from "@shared/types";
+import type { DesignResumeJson, UserPermissionKey } from "@shared/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   applySettingsUpdates: vi.fn(),
   canUseDefaultModel: vi.fn(() => true),
+  currentUserHasPermission: vi.fn(async (_permission: UserPermissionKey) => true),
   getCurrentDesignResume: vi.fn(),
   getDesignResumeStatus: vi.fn(),
   getJobOpsAppStatus: vi.fn(),
@@ -20,6 +21,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@server/services/server-credentials", () => ({
   canUseDefaultModel: mocks.canUseDefaultModel,
+}));
+
+vi.mock("@server/services/user-permissions", () => ({
+  currentUserHasPermission: mocks.currentUserHasPermission,
 }));
 
 vi.mock("@server/config/app-mode", () => ({
@@ -103,6 +108,7 @@ describe("onboarding status engine", () => {
     vi.clearAllMocks();
     vi.mocked(isSystemAdmin).mockReturnValue(true);
     mocks.canUseDefaultModel.mockResolvedValue(true);
+    mocks.currentUserHasPermission.mockResolvedValue(true);
     vi.mocked(getOriginalEnvValue).mockReturnValue(undefined);
     mocks.getJobOpsAppStatus.mockReturnValue({
       appMode: "local",
@@ -649,5 +655,29 @@ describe("onboarding status engine", () => {
     ).rejects.toMatchObject({
       status: 403,
     });
+  });
+
+  it("omits profile and resume onboarding steps when their feature permissions are disabled for non-admin local users", async () => {
+    vi.mocked(isSystemAdmin).mockReturnValue(false);
+    mocks.getSetting.mockResolvedValue(null);
+    mocks.canUseDefaultModel.mockResolvedValue(true);
+
+    mocks.currentUserHasPermission.mockImplementation(
+      async (permission) => permission !== "resumes",
+    );
+    const withoutResumes = await getOnboardingStatus();
+    expect(withoutResumes.requirements.map((req) => req.id)).toEqual(["profile"]);
+
+    mocks.currentUserHasPermission.mockImplementation(
+      async (permission) =>
+        permission !== "jobs" && permission !== "watchlist" && permission !== "inProgress",
+    );
+    const withoutProfileFeatures = await getOnboardingStatus();
+    expect(withoutProfileFeatures.requirements.map((req) => req.id)).toEqual(["resume"]);
+
+    mocks.currentUserHasPermission.mockResolvedValue(false);
+    const withoutAllFeatures = await getOnboardingStatus();
+    expect(withoutAllFeatures.requirements).toEqual([]);
+    expect(withoutAllFeatures.complete).toBe(true);
   });
 });

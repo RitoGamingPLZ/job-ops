@@ -2,7 +2,7 @@
  * Shared layout components for consistent page structure.
  */
 
-import { getAppStatus, getCurrentAuthUser, hasAuthenticatedSession, logout } from "@client/api";
+import { getAppStatus, getCurrentAuthUser, logout } from "@client/api";
 import { DEFAULT_USER_PERMISSIONS, type UserPermissions } from "@shared/types";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, LogOut, type LucideIcon, Menu, Moon, Sun, UserRound } from "lucide-react";
@@ -25,7 +25,8 @@ import { useVersionCheck } from "../hooks/useVersionCheck";
 import { queryKeys } from "../lib/queryKeys";
 import { loadRememberedAuthUsers, type RememberedAuthUser } from "../lib/remembered-auth-users";
 import { useTheme } from "../lib/theme";
-import { ADMIN_NAV_LINKS, isNavActive, NAV_LINKS } from "./navigation";
+import { useAuthSession } from "../hooks/useAuthSession";
+import { ADMIN_NAV_LINKS, canAccessNavLink, isNavActive, NAV_LINKS } from "./navigation";
 import { StatusBadgeIndicator } from "./StatusIndicator";
 import { Tip } from "./Tip";
 
@@ -45,9 +46,9 @@ export const AppModeProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
 
   // Operator-only features (Tracking Inbox, webhooks) are hidden for other users.
-  const hasSession = hasAuthenticatedSession();
+  const hasSession = useAuthSession();
   const currentUserQuery = useQuery({
-    queryKey: ["auth", "me"],
+    queryKey: queryKeys.auth.currentUser(),
     queryFn: getCurrentAuthUser,
     enabled: hasSession,
     retry: false,
@@ -87,15 +88,11 @@ const buildSignInPath = (username: string, nextPath: string): string => {
 const SidebarNav: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
   const location = useLocation();
   const { appMode, permissions, isAdminConsole, isPending } = React.useContext(AppModeContext);
-  // The inbox runs on the operator's Gmail OAuth app, so an admin enables it per user.
-  const showTrackingInbox = appMode !== "hosted" && permissions.emailTracking;
   const navLinks = isAdminConsole
     ? ADMIN_NAV_LINKS
     : isPending
       ? []
-      : showTrackingInbox
-        ? NAV_LINKS
-        : NAV_LINKS.filter(({ to }) => to !== "/tracking-inbox");
+      : NAV_LINKS.filter((link) => canAccessNavLink(link, appMode, permissions));
 
   return (
     <nav className="flex flex-col gap-0.5 px-2 py-2">
@@ -154,7 +151,11 @@ const SidebarContent: React.FC<{ onNavigate?: () => void; showVersionFooter?: bo
   const handleRememberedUserClick = async (username: string) => {
     onNavigate?.();
     await logout({ redirect: false });
-    navigate(buildSignInPath(username, location.pathname), { replace: true });
+    const nextPath =
+      location.pathname === "/users" || location.pathname.startsWith("/users/")
+        ? "/"
+        : location.pathname;
+    navigate(buildSignInPath(username, nextPath), { replace: true });
   };
 
   const handleSignOut = async () => {

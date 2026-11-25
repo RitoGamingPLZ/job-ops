@@ -18,6 +18,7 @@ import { asyncPool } from "@server/utils/async-pool";
 import type { JobActionResult, JobActionStreamEvent } from "@shared/types";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
+import { requireAnyPermissionMiddleware, requirePermissionMiddleware } from "../../require-admin";
 import {
   hydrateJobPdfFreshness,
   hydrateJobPdfFreshnessWithContext,
@@ -29,44 +30,62 @@ import {
 
 export const jobsActionsRouter = Router();
 
-jobsActionsRouter.post("/actions/generate-missing-resumes", async (req: Request, res: Response) => {
-  try {
-    ok(
-      res,
-      await generateMissingResumesInBackground({
+const requireJobs = requirePermissionMiddleware("jobs");
+const requireJobsOrInProgress = requireAnyPermissionMiddleware("jobs", "inProgress");
+const requireResumes = requirePermissionMiddleware("resumes");
+
+jobsActionsRouter.post(
+  "/actions/generate-missing-resumes",
+  requireResumes,
+  requireJobsOrInProgress,
+  async (req: Request, res: Response) => {
+    try {
+      ok(
+        res,
+        await generateMissingResumesInBackground({
+          requestOrigin: resolveRequestOrigin(req),
+        }),
+      );
+    } catch (error) {
+      fail(res, toJobsRouteError(error));
+    }
+  },
+);
+
+jobsActionsRouter.post(
+  "/:id/regenerate-resume",
+  requireResumes,
+  requireJobsOrInProgress,
+  async (req: Request, res: Response) => {
+    try {
+      const job = await regenerateJobResumeInBackground(req.params.id, {
         requestOrigin: resolveRequestOrigin(req),
-      }),
-    );
-  } catch (error) {
-    fail(res, toJobsRouteError(error));
-  }
-});
+      });
+      ok(res, await hydrateJobPdfFreshness(job));
+    } catch (error) {
+      fail(res, toJobsRouteError(error));
+    }
+  },
+);
 
-jobsActionsRouter.post("/:id/regenerate-resume", async (req: Request, res: Response) => {
-  try {
-    const job = await regenerateJobResumeInBackground(req.params.id, {
-      requestOrigin: resolveRequestOrigin(req),
-    });
-    ok(res, await hydrateJobPdfFreshness(job));
-  } catch (error) {
-    fail(res, toJobsRouteError(error));
-  }
-});
+jobsActionsRouter.post(
+  "/:id/blacklist-employer",
+  requireJobs,
+  async (req: Request, res: Response) => {
+    try {
+      const { job, settings, hiddenCount } = await blacklistJobEmployer(req.params.id);
+      ok(res, {
+        job: await hydrateJobPdfFreshness(job),
+        settings,
+        hiddenCount,
+      });
+    } catch (error) {
+      fail(res, toJobsRouteError(error));
+    }
+  },
+);
 
-jobsActionsRouter.post("/:id/blacklist-employer", async (req: Request, res: Response) => {
-  try {
-    const { job, settings, hiddenCount } = await blacklistJobEmployer(req.params.id);
-    ok(res, {
-      job: await hydrateJobPdfFreshness(job),
-      settings,
-      hiddenCount,
-    });
-  } catch (error) {
-    fail(res, toJobsRouteError(error));
-  }
-});
-
-jobsActionsRouter.post("/actions", async (req: Request, res: Response) => {
+jobsActionsRouter.post("/actions", requireJobs, async (req: Request, res: Response) => {
   try {
     const parsed = jobActionRequestSchema.parse(req.body);
     const dedupedJobIds = Array.from(new Set(parsed.jobIds));
@@ -134,7 +153,7 @@ jobsActionsRouter.post("/actions", async (req: Request, res: Response) => {
   }
 });
 
-jobsActionsRouter.post("/actions/stream", async (req: Request, res: Response) => {
+jobsActionsRouter.post("/actions/stream", requireJobs, async (req: Request, res: Response) => {
   const parsed = jobActionRequestSchema.safeParse(req.body);
   if (!parsed.success) {
     return fail(res, badRequest("Invalid job action request", parsed.error.flatten()));
@@ -305,21 +324,25 @@ jobsActionsRouter.post("/actions/stream", async (req: Request, res: Response) =>
   }
 });
 
-jobsActionsRouter.post("/:id/process", async (req: Request, res: Response) => {
-  const result = await executeJobActionForJob("move_to_ready", req.params.id, {
-    requestOrigin: resolveRequestOrigin(req),
-  });
-  if (!result.ok) return fail(res, mapJobActionFailure(result));
-  ok(res, await hydrateJobPdfFreshness(result.job));
-});
+jobsActionsRouter.post(
+  "/:id/process",
+  requireJobsOrInProgress,
+  async (req: Request, res: Response) => {
+    const result = await executeJobActionForJob("move_to_ready", req.params.id, {
+      requestOrigin: resolveRequestOrigin(req),
+    });
+    if (!result.ok) return fail(res, mapJobActionFailure(result));
+    ok(res, await hydrateJobPdfFreshness(result.job));
+  },
+);
 
-jobsActionsRouter.post("/:id/skip", async (req: Request, res: Response) => {
+jobsActionsRouter.post("/:id/skip", requireJobs, async (req: Request, res: Response) => {
   const result = await executeJobActionForJob("skip", req.params.id);
   if (!result.ok) return fail(res, mapJobActionFailure(result));
   ok(res, await hydrateJobPdfFreshness(result.job));
 });
 
-jobsActionsRouter.post("/:id/rescore", async (req: Request, res: Response) => {
+jobsActionsRouter.post("/:id/rescore", requireJobs, async (req: Request, res: Response) => {
   const result = await executeJobActionForJob(
     "rescore",
     req.params.id,
@@ -352,9 +375,9 @@ async function updateTarget(req: Request, res: Response, targeted: boolean) {
   }
 }
 
-jobsActionsRouter.post("/:id/target", (req: Request, res: Response) =>
+jobsActionsRouter.post("/:id/target", requireJobs, (req: Request, res: Response) =>
   updateTarget(req, res, true),
 );
-jobsActionsRouter.delete("/:id/target", (req: Request, res: Response) =>
+jobsActionsRouter.delete("/:id/target", requireJobsOrInProgress, (req: Request, res: Response) =>
   updateTarget(req, res, false),
 );

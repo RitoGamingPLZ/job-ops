@@ -12,7 +12,7 @@ import {
   pipelineRunLimiter,
   validationLimiter,
 } from "./rate-limits";
-import { requirePermissionMiddleware } from "./require-admin";
+import { requireAnyPermissionMiddleware, requirePermissionMiddleware } from "./require-admin";
 import { appStatusRouter } from "./routes/app-status";
 import { authRouter } from "./routes/auth";
 import { authSsoRouter } from "./routes/auth-sso";
@@ -44,14 +44,28 @@ export const apiRouter = Router();
 
 apiRouter.use("/auth/login", loginIpLimiter, loginAccountLimiter);
 apiRouter.use("/auth/invitations", invitationLimiter);
-apiRouter.use("/pipeline/run", requirePermissionMiddleware("pipeline"), pipelineRunLimiter);
-apiRouter.use("/manual-jobs/fetch", requirePermissionMiddleware("urlImport"));
-apiRouter.use("/manual-jobs", outboundFetchLimiter);
-apiRouter.use("/workday", outboundFetchLimiter);
-apiRouter.use("/watchlist", outboundFetchLimiter);
+apiRouter.use(
+  "/pipeline/run",
+  requirePermissionMiddleware("jobs"),
+  requirePermissionMiddleware("pipeline"),
+  pipelineRunLimiter,
+);
+apiRouter.use("/pipeline", requireAnyPermissionMiddleware("jobs", "inProgress"));
+apiRouter.use(
+  "/manual-jobs/fetch",
+  requirePermissionMiddleware("jobs"),
+  requirePermissionMiddleware("urlImport"),
+);
+apiRouter.use("/manual-jobs", requirePermissionMiddleware("jobs"), outboundFetchLimiter);
+apiRouter.use("/workday", requirePermissionMiddleware("watchlist"), outboundFetchLimiter);
+apiRouter.use("/watchlist", requirePermissionMiddleware("watchlist"), outboundFetchLimiter);
 apiRouter.use("/jobs/actions", heavyActionLimiter);
-apiRouter.use("/jobs/:id/chat", heavyActionLimiter);
-apiRouter.use("/design-resume", heavyActionLimiter);
+apiRouter.use(
+  "/jobs/:id/chat",
+  requireAnyPermissionMiddleware("jobs", "inProgress", "resumes"),
+  heavyActionLimiter,
+);
+apiRouter.use("/design-resume", requirePermissionMiddleware("resumes"), heavyActionLimiter);
 apiRouter.use("/onboarding/validate", validationLimiter);
 apiRouter.use("/settings/llm-models", validationLimiter);
 apiRouter.use("/app", appStatusRouter);

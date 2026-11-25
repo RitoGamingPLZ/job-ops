@@ -1,9 +1,10 @@
+import { AppModeContext } from "@client/components/layout";
 import { ManualImportSheet } from "@client/components/ManualImportSheet";
 import { useLevelsFyiSalaryListener } from "@client/hooks/useLevelsFyiSalaryListener";
 import { useSettings } from "@client/hooks/useSettings";
 import type { Job } from "@shared/types.js";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { trackProductEvent } from "@/lib/analytics";
 import { OrchestratorHeader } from "./orchestrator/OrchestratorHeader";
 import { OrchestratorJobWorkspaceContainer } from "./orchestrator/OrchestratorJobWorkspaceContainer";
@@ -22,6 +23,7 @@ import { useWatchlistPipelineSources } from "./orchestrator/useWatchlistPipeline
 import { getEnabledSources } from "./orchestrator/utils";
 
 export const OrchestratorPage: React.FC = () => {
+  const { appMode, permissions } = useContext(AppModeContext);
   const [isManualImportOpen, setIsManualImportOpen] = useState(false);
   const filters = useOrchestratorFilters();
   const navigation = useOrchestratorNavigation({
@@ -66,7 +68,9 @@ export const OrchestratorPage: React.FC = () => {
     setSelectedWatchlistSourceIds,
     toggleWatchlistSource,
     isLoading: isWatchlistSourcesLoading,
-  } = useWatchlistPipelineSources();
+  } = useWatchlistPipelineSources({
+    enabled: appMode === "hosted" || permissions.watchlist,
+  });
 
   const {
     isRunModeModalOpen,

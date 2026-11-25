@@ -86,13 +86,16 @@ export type UseWatchlistPipelineSourcesResult = {
   isError: boolean;
 };
 
-export function useWatchlistPipelineSources(): UseWatchlistPipelineSourcesResult {
+export function useWatchlistPipelineSources(options?: {
+  enabled?: boolean;
+}): UseWatchlistPipelineSourcesResult {
   const storageKey = useMemo(() => getWatchlistPipelineSourcesStorageKey(), []);
 
   const watchlistSourcesQuery = useQuery({
     queryKey: queryKeys.watchlist.sources(),
     queryFn: api.getWatchlistSources,
     staleTime: 30_000,
+    enabled: options?.enabled ?? true,
   });
 
   const watchlistSources = useMemo(

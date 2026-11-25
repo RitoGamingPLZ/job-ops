@@ -16,6 +16,7 @@ import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
 import { LlmService } from "@server/services/llm/service";
 import { parseV5ResumeData } from "@server/services/resume-document/schema";
 import { applySettingsUpdates } from "@server/services/settings-update";
+import { currentUserHasPermission } from "@server/services/user-permissions";
 import { mapGlmProviderAlias } from "@shared/settings-registry";
 import type { UpdateSettingsInput } from "@shared/settings-schema";
 import type {
@@ -466,20 +467,29 @@ export async function getOnboardingStatus(): Promise<OnboardingStatusResponse> {
   // The system admin only manages users and server-wide settings, so their setup is just the
   // server's default AI connection. Search preferences and a resume belong to job-seeking users.
   const adminSetup = !hostedMode && isSystemAdmin();
+  let includeProfile = true;
+  let includeResume = true;
+  if (!hostedMode && !isSystemAdmin()) {
+    const [canUseJobs, canUseWatchlist, canUseInProgress, canUseResumes] = await Promise.all([
+      currentUserHasPermission("jobs"),
+      currentUserHasPermission("watchlist"),
+      currentUserHasPermission("inProgress"),
+      currentUserHasPermission("resumes"),
+    ]);
+    includeProfile = canUseJobs || canUseWatchlist || canUseInProgress;
+    includeResume = canUseResumes;
+  }
   const requirements = adminSetup
     ? userEditableLlmSettings
       ? [await buildModelRequirement()]
       : []
-    : userEditableLlmSettings
-      ? [
-          profileRequirement,
-          await buildModelRequirement(),
-          hostedMode ? await buildHostedResumeRequirement() : await buildResumeRequirement(),
-        ]
-      : [
-          profileRequirement,
-          hostedMode ? await buildHostedResumeRequirement() : await buildResumeRequirement(),
-        ];
+    : [
+        ...(includeProfile ? [profileRequirement] : []),
+        ...(userEditableLlmSettings ? [await buildModelRequirement()] : []),
+        ...(includeResume
+          ? [hostedMode ? await buildHostedResumeRequirement() : await buildResumeRequirement()]
+          : []),
+      ];
   const nextRequirement = requirements.find((requirement) => requirement.status !== "ready");
 
   return {

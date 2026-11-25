@@ -41,11 +41,11 @@ vi.mock("./pages/HomePage", () => ({
 }));
 
 vi.mock("./pages/InProgressBoardPage", () => ({
-  InProgressBoardPage: () => null,
+  InProgressBoardPage: () => <div>in-progress-board</div>,
 }));
 
 vi.mock("./pages/JobPage", () => ({
-  JobPage: () => null,
+  JobPage: () => <div>job-detail</div>,
 }));
 
 vi.mock("./pages/OnboardingPage", () => ({
@@ -53,11 +53,11 @@ vi.mock("./pages/OnboardingPage", () => ({
 }));
 
 vi.mock("./pages/OrchestratorPage", () => ({
-  OrchestratorPage: () => null,
+  OrchestratorPage: () => <div>jobs-page</div>,
 }));
 
 vi.mock("./pages/SettingsPage", () => ({
-  SettingsPage: () => null,
+  SettingsPage: () => <div>settings-page</div>,
 }));
 
 vi.mock("./pages/ResumeCoworkPage", () => ({
@@ -67,7 +67,7 @@ vi.mock("./pages/ResumeCoworkPage", () => ({
 }));
 
 vi.mock("./pages/ResumesPage", () => ({
-  ResumesPage: () => null,
+  ResumesPage: () => <div>resumes-page</div>,
   ResumeLibraryPage: () => <div>candidate-library</div>,
 }));
 
@@ -76,11 +76,15 @@ vi.mock("./pages/SignInPage", () => ({
 }));
 
 vi.mock("./pages/TrackingInboxPage", () => ({
-  TrackingInboxPage: () => null,
+  TrackingInboxPage: () => <div>tracking-inbox</div>,
 }));
 
 vi.mock("./pages/VisaSponsorsPage", () => ({
   VisaSponsorsPage: () => null,
+}));
+
+vi.mock("./pages/WatchlistPage", () => ({
+  WatchlistPage: () => <div>watchlist-page</div>,
 }));
 
 describe("App demo banner", () => {
@@ -282,5 +286,95 @@ describe("system admin console", () => {
 
     expect(screen.queryByText("admin-users")).toBeNull();
     expect(screen.getByLabelText("Current path")).toHaveTextContent("/overview");
+  });
+});
+
+describe("per-user feature permissions", () => {
+  const renderUserAt = (path: string, overrides: Partial<typeof DEFAULT_USER_PERMISSIONS> = {}) => {
+    vi.mocked(useDemoInfo).mockReturnValue(null);
+    return render(
+      <AppModeContext.Provider
+        value={{
+          appMode: "local",
+          isPending: false,
+          isSystemAdmin: false,
+          isAdminConsole: false,
+          permissions: {
+            ...DEFAULT_USER_PERMISSIONS,
+            ...overrides,
+          },
+        }}
+      >
+        <MemoryRouter initialEntries={[path]}>
+          <App />
+          <LocationProbe />
+        </MemoryRouter>
+      </AppModeContext.Provider>,
+    );
+  };
+
+  it("shows Jobs, In Progress, Resumes, Candidate Library, and Watchlist by default for regular users", () => {
+    renderUserAt("/");
+
+    expect(screen.getByLabelText("Current path")).toHaveTextContent("/jobs/ready");
+    expect(screen.getByText("jobs-page")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Jobs" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "In Progress" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Resumes" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Candidate Library" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Watchlist" }).length).toBeGreaterThan(0);
+  });
+
+  it("hides Jobs and redirects / to /applications/in-progress and /jobs/ready to /overview when jobs is disabled", () => {
+    const { unmount } = renderUserAt("/", { jobs: false, inProgress: true });
+    expect(screen.getByLabelText("Current path")).toHaveTextContent("/applications/in-progress");
+    expect(screen.getByText("in-progress-board")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Jobs" })).toBeNull();
+    unmount();
+
+    renderUserAt("/jobs/ready", { jobs: false, inProgress: true });
+    expect(screen.getByLabelText("Current path")).toHaveTextContent("/overview");
+    expect(screen.getByText("overview")).toBeInTheDocument();
+  });
+
+  it("gates Watchlist when watchlist permission is disabled", () => {
+    renderUserAt("/watchlist", { watchlist: false });
+
+    expect(screen.queryByRole("link", { name: "Watchlist" })).toBeNull();
+    expect(screen.queryByText("watchlist-page")).toBeNull();
+    expect(screen.getByLabelText("Current path")).toHaveTextContent("/overview");
+  });
+
+  it("gates In Progress and Overview when inProgress and jobs are disabled", () => {
+    renderUserAt("/applications/in-progress", { jobs: false, inProgress: false, resumes: true });
+
+    expect(screen.queryByRole("link", { name: "In Progress" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Overview" })).toBeNull();
+    expect(screen.getByLabelText("Current path")).toHaveTextContent("/resumes");
+    expect(screen.getByText("resumes-page")).toBeInTheDocument();
+  });
+
+  it.each(["/resumes", "/library", "/resumes/base", "/resumes/job-1"])(
+    "gates %s when resumes permission is disabled",
+    (path) => {
+      renderUserAt(path, { resumes: false });
+
+      expect(screen.queryByRole("link", { name: "Resumes" })).toBeNull();
+      expect(screen.queryByRole("link", { name: "Candidate Library" })).toBeNull();
+      expect(screen.getByLabelText("Current path")).toHaveTextContent("/overview");
+    },
+  );
+
+  it("falls back to /settings without a redirect loop when every feature permission is disabled", () => {
+    renderUserAt("/", {
+      jobs: false,
+      watchlist: false,
+      inProgress: false,
+      resumes: false,
+      emailTracking: false,
+    });
+
+    expect(screen.getByLabelText("Current path")).toHaveTextContent("/settings");
+    expect(screen.getByText("settings-page")).toBeInTheDocument();
   });
 });

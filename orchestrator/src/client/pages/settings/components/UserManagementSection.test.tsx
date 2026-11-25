@@ -124,7 +124,7 @@ describe("UserManagementSection", () => {
     );
   });
 
-  it("includes defaultModel permission when checked on user creation", async () => {
+  it("includes permission overrides when changed on user creation", async () => {
     vi.mocked(api.createWorkspaceUser).mockResolvedValue({
       id: "new-user-id",
       username: "teammate2",
@@ -135,7 +135,7 @@ describe("UserManagementSection", () => {
       mustChangePassword: false,
       workspaceId: "tenant-teammate2",
       workspaceName: "Teammate 2",
-      permissions: { ...DEFAULT_USER_PERMISSIONS, defaultModel: true },
+      permissions: { ...DEFAULT_USER_PERMISSIONS, defaultModel: true, watchlist: false },
       createdAt: "2026-11-22T00:00:00.000Z",
       updatedAt: "2026-11-22T00:00:00.000Z",
     });
@@ -143,12 +143,15 @@ describe("UserManagementSection", () => {
     const { container } = render(<UserManagementHarness />);
     const usernameInput = await screen.findByPlaceholderText("Username");
     const passwordInput = screen.getByPlaceholderText("Temporary password");
-    const defaultModelCheckbox = container.querySelector("#create-user-default-model");
+    const defaultModelCheckbox = container.querySelector("#create-user-defaultModel");
+    const watchlistCheckbox = container.querySelector("#create-user-watchlist");
     expect(defaultModelCheckbox).toBeInstanceOf(HTMLElement);
+    expect(watchlistCheckbox).toBeInstanceOf(HTMLElement);
 
     fireEvent.change(usernameInput, { target: { value: "teammate2" } });
     fireEvent.change(passwordInput, { target: { value: "temp-pass-1234" } });
     fireEvent.click(defaultModelCheckbox as HTMLElement);
+    fireEvent.click(watchlistCheckbox as HTMLElement);
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
     await screen.findByText("Workspace Users");
@@ -157,7 +160,7 @@ describe("UserManagementSection", () => {
         username: "teammate2",
         displayName: "teammate2",
         password: "temp-pass-1234",
-        permissions: { defaultModel: true },
+        permissions: { watchlist: false, defaultModel: true },
       },
       expect.anything(),
     );

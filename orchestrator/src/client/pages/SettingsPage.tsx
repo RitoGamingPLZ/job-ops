@@ -742,7 +742,7 @@ export const SettingsPage: React.FC = () => {
     enabled: isHostedMode,
   });
   const currentUserQuery = useQuery({
-    queryKey: ["auth", "me"],
+    queryKey: queryKeys.auth.currentUser(),
     queryFn: api.getCurrentAuthUser,
     retry: false,
   });
@@ -843,6 +843,8 @@ export const SettingsPage: React.FC = () => {
   const hasDefaultModelAccess = currentUserQuery.data?.permissions?.defaultModel === true;
   const canManageBackups = isSystemAdmin;
   const canUseWebhooks = isSystemAdmin || currentUserQuery.data?.permissions?.webhooks === true;
+  const canUseResumes =
+    isSystemAdmin || isHostedMode || (currentUserQuery.data?.permissions?.resumes ?? true);
 
   const canSave = isDirty && isValid;
 
@@ -1129,6 +1131,7 @@ export const SettingsPage: React.FC = () => {
             (item) =>
               (item.id !== "billing" || isHostedMode) &&
               (item.id !== "webhooks" || canUseWebhooks) &&
+              (item.id !== "resume-pdf" || canUseResumes) &&
               (item.id !== "environment" || isSystemAdmin) &&
               (item.id !== "danger-zone" || isSystemAdmin) &&
               (!isAdminConsole || ADMIN_SETTINGS_SECTION_IDS.has(item.id)) &&
@@ -1147,6 +1150,7 @@ export const SettingsPage: React.FC = () => {
     [
       canEditLlmSettings,
       canManageBackups,
+      canUseResumes,
       canUseWebhooks,
       isAdminConsole,
       isHostedMode,
@@ -1334,7 +1338,7 @@ export const SettingsPage: React.FC = () => {
       );
       break;
     case "resume-pdf":
-      activeSectionContent = (
+      activeSectionContent = canUseResumes ? (
         <ResumePdfSection
           profileProjects={effectiveProfileProjects}
           lockedCount={lockedCount}
@@ -1344,7 +1348,7 @@ export const SettingsPage: React.FC = () => {
           isSaving={isSaving}
           layoutMode="panel"
         />
-      );
+      ) : null;
       break;
     case "webhooks":
       activeSectionContent = (

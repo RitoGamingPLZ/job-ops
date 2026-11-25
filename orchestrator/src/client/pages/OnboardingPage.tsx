@@ -1,13 +1,15 @@
-import { PageHeader, PageMain } from "@client/components/layout";
+import { AppModeContext, PageHeader, PageMain } from "@client/components/layout";
+import { getDefaultUserPath } from "@client/components/navigation";
 import { useDesignResume } from "@client/hooks/useDesignResume";
 import { useOnboardingStatus } from "@client/hooks/useOnboardingStatus";
 import { formatCountryLabel, SUPPORTED_COUNTRY_KEYS } from "@shared/location-support.js";
 import { extractResumeBullets } from "@shared/resume-bullets";
-import type {
-  OnboardingRequirement,
-  OnboardingRequirementId,
-  OnboardingStatusResponse,
-  ResumeProfile,
+import {
+  DEFAULT_USER_PERMISSIONS,
+  type OnboardingRequirement,
+  type OnboardingRequirementId,
+  type OnboardingStatusResponse,
+  type ResumeProfile,
 } from "@shared/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -23,7 +25,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import * as api from "@/client/api";
 import { queryKeys } from "@/client/lib/queryKeys";
@@ -267,6 +269,7 @@ function LaunchSetup({
   analyticsStartedAt: number;
   onStarted: (nextStep: OnboardingRequirementId | "none", demoMode: boolean) => void;
 }) {
+  const { appMode: contextAppMode, permissions: contextPermissions } = useContext(AppModeContext);
   const queryClient = useQueryClient();
   const onboarding = useOnboardingStatus();
   const flow = useOnboardingFlow();
@@ -372,7 +375,15 @@ function LaunchSetup({
   };
 
   if (flow.demoMode || status?.complete) {
-    return <Navigate to={isAdminSetup ? "/users" : "/jobs/ready"} replace />;
+    const effectiveAppMode = appStatusQuery.data?.appMode ?? contextAppMode;
+    const effectivePermissions =
+      currentUserQuery.data?.permissions ?? contextPermissions ?? DEFAULT_USER_PERMISSIONS;
+    return (
+      <Navigate
+        to={isAdminSetup ? "/users" : getDefaultUserPath(effectiveAppMode, effectivePermissions)}
+        replace
+      />
+    );
   }
   if (onboarding.checking) {
     return <LoadingState message="Loading your setup…" />;

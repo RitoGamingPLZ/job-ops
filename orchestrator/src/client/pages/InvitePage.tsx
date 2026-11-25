@@ -1,4 +1,5 @@
 import { acceptInvitation, getInvitationPreview } from "@client/api";
+import { getFallbackUserPath } from "@client/components/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { useState } from "react";
@@ -48,7 +49,7 @@ export function InvitePage() {
       });
       rememberAuthUser({ username: user.username, displayName: user.displayName });
       await queryClient.invalidateQueries({ queryKey: queryKeys.auth.currentUser() });
-      navigate("/overview", { replace: true });
+      navigate(getFallbackUserPath("local", user.permissions), { replace: true });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to accept the invitation");
       setIsBusy(false);

@@ -13,6 +13,7 @@ import {
 import { trackApplicationAcceptedIfNeeded } from "@server/services/jobs/analytics";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
+import { requireAnyPermissionMiddleware, requirePermissionMiddleware } from "../../require-admin";
 import {
   hydrateJobPdfFreshness,
   transitionStageSchema,
@@ -22,16 +23,23 @@ import {
 
 export const jobsStagesRouter = Router();
 
-jobsStagesRouter.get("/:id/events", async (req: Request, res: Response) => {
-  try {
-    const events = await getStageEvents(req.params.id);
-    ok(res, events);
-  } catch (error) {
-    fail(res, toAppError(error));
-  }
-});
+const requireJobsOrInProgress = requireAnyPermissionMiddleware("jobs", "inProgress");
+const requireInProgress = requirePermissionMiddleware("inProgress");
 
-jobsStagesRouter.get("/:id/tasks", async (req: Request, res: Response) => {
+jobsStagesRouter.get(
+  "/:id/events",
+  requireJobsOrInProgress,
+  async (req: Request, res: Response) => {
+    try {
+      const events = await getStageEvents(req.params.id);
+      ok(res, events);
+    } catch (error) {
+      fail(res, toAppError(error));
+    }
+  },
+);
+
+jobsStagesRouter.get("/:id/tasks", requireJobsOrInProgress, async (req: Request, res: Response) => {
   try {
     const includeCompleted =
       req.query.includeCompleted === "1" || req.query.includeCompleted === "true";
@@ -42,7 +50,7 @@ jobsStagesRouter.get("/:id/tasks", async (req: Request, res: Response) => {
   }
 });
 
-jobsStagesRouter.post("/:id/stages", async (req: Request, res: Response) => {
+jobsStagesRouter.post("/:id/stages", requireInProgress, async (req: Request, res: Response) => {
   try {
     const input = transitionStageSchema.parse(req.body);
     const event = transitionStage(
@@ -67,43 +75,51 @@ jobsStagesRouter.post("/:id/stages", async (req: Request, res: Response) => {
   }
 });
 
-jobsStagesRouter.patch("/:id/events/:eventId", async (req: Request, res: Response) => {
-  try {
-    const input = updateStageEventSchema.parse(req.body);
-    updateStageEvent(req.params.eventId, input);
-    ok(res, null);
-    queueMicrotask(() => {
-      void reconcileActivationMilestonesFromHistorySafely({
-        route: "PATCH /api/jobs/:id/events/:eventId",
-        jobId: req.params.id,
-        eventId: req.params.eventId,
+jobsStagesRouter.patch(
+  "/:id/events/:eventId",
+  requireInProgress,
+  async (req: Request, res: Response) => {
+    try {
+      const input = updateStageEventSchema.parse(req.body);
+      updateStageEvent(req.params.eventId, input);
+      ok(res, null);
+      queueMicrotask(() => {
+        void reconcileActivationMilestonesFromHistorySafely({
+          route: "PATCH /api/jobs/:id/events/:eventId",
+          jobId: req.params.id,
+          eventId: req.params.eventId,
+        });
       });
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return fail(res, badRequest(error.message, error.flatten()));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return fail(res, badRequest(error.message, error.flatten()));
+      }
+      fail(res, toAppError(error));
     }
-    fail(res, toAppError(error));
-  }
-});
+  },
+);
 
-jobsStagesRouter.delete("/:id/events/:eventId", async (req: Request, res: Response) => {
-  try {
-    deleteStageEvent(req.params.eventId);
-    ok(res, null);
-    queueMicrotask(() => {
-      void reconcileActivationMilestonesFromHistorySafely({
-        route: "DELETE /api/jobs/:id/events/:eventId",
-        jobId: req.params.id,
-        eventId: req.params.eventId,
+jobsStagesRouter.delete(
+  "/:id/events/:eventId",
+  requireInProgress,
+  async (req: Request, res: Response) => {
+    try {
+      deleteStageEvent(req.params.eventId);
+      ok(res, null);
+      queueMicrotask(() => {
+        void reconcileActivationMilestonesFromHistorySafely({
+          route: "DELETE /api/jobs/:id/events/:eventId",
+          jobId: req.params.id,
+          eventId: req.params.eventId,
+        });
       });
-    });
-  } catch (error) {
-    fail(res, toAppError(error));
-  }
-});
+    } catch (error) {
+      fail(res, toAppError(error));
+    }
+  },
+);
 
-jobsStagesRouter.patch("/:id/outcome", async (req: Request, res: Response) => {
+jobsStagesRouter.patch("/:id/outcome", requireInProgress, async (req: Request, res: Response) => {
   try {
     const input = updateOutcomeSchema.parse(req.body);
     const currentJob = await jobsRepo.getJobById(req.params.id);

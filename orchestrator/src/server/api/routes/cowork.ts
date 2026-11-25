@@ -2,6 +2,7 @@ import { badRequest, notFound } from "@infra/errors";
 import { asyncRoute, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { resolveRequestOrigin } from "@infra/request-origin";
+import { requirePermissionMiddleware } from "../require-admin";
 import * as bulletsRepo from "@server/repositories/experience-bullets";
 import * as resumesRepo from "@server/repositories/job-resumes";
 import { getJobById } from "@server/repositories/jobs";
@@ -23,6 +24,11 @@ import { Router } from "express";
 import { z } from "zod";
 
 export const coworkRouter = Router();
+const requireResumes = requirePermissionMiddleware("resumes");
+coworkRouter.use("/resumes", requireResumes);
+coworkRouter.use("/library", requireResumes);
+coworkRouter.use("/experience-bullets", requireResumes);
+coworkRouter.use("/jobs/:id/resume", requireResumes);
 const experienceBulletInputSchema = z
   .object({
     kind: z

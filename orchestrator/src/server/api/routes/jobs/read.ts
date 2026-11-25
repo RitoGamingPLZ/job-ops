@@ -1,4 +1,4 @@
-import { badRequest, notFound } from "@infra/errors";
+import { badRequest, forbidden, notFound } from "@infra/errors";
 import { fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import * as jobsRepo from "@server/repositories/jobs";
@@ -14,10 +14,14 @@ import {
   listJobPostApplicationEmails,
   MAX_JOB_EMAIL_LIMIT,
 } from "@server/services/post-application/job-emails";
+import { currentUserHasPermission } from "@server/services/user-permissions";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
+import { requireAnyPermissionMiddleware, requirePermissionMiddleware } from "../../require-admin";
 import {
+  assertJobFeatureAccess,
   hydrateJobPdfFreshness,
+  isInProgressAccessibleJob,
   JOBS_BENCHMARK_ENABLED,
   jobsRevisionQuerySchema,
   listJobsQuerySchema,
@@ -29,11 +33,13 @@ import {
 
 export const jobsReadRouter = Router();
 
+const requireJobsOrInProgress = requireAnyPermissionMiddleware("jobs", "inProgress");
+
 const jobEmailsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_JOB_EMAIL_LIMIT).default(DEFAULT_JOB_EMAIL_LIMIT),
 });
 
-jobsReadRouter.get("/", async (req: Request, res: Response) => {
+jobsReadRouter.get("/", requireJobsOrInProgress, async (req: Request, res: Response) => {
   try {
     const benchmarkStart = performance.now();
     let queryParseMs = 0;
@@ -57,15 +63,17 @@ jobsReadRouter.get("/", async (req: Request, res: Response) => {
     const statuses = parseStatusFilter(statusFilter);
     const view = parsedQuery.data.view ?? "list";
 
+    const canUseJobs = await currentUserHasPermission("jobs");
     const primaryQueryStart = performance.now();
     const pdfFingerprintContext = await resolvePdfFingerprintContext();
-    const jobs =
+    const rawJobs =
       view === "list"
         ? applyJobsPdfFreshness(
             await jobsRepo.getJobListItems(statuses),
             pdfFingerprintContext,
           ).map(toJobListItem)
         : applyJobsPdfFreshness(await jobsRepo.getAllJobs(statuses), pdfFingerprintContext);
+    const jobs = canUseJobs ? rawJobs : rawJobs.filter(isInProgressAccessibleJob);
     primaryQueryMs = performance.now() - primaryQueryStart;
     const candidateCount = 0;
     const duplicateMatchingEnabled = false;
@@ -124,7 +132,7 @@ jobsReadRouter.get("/", async (req: Request, res: Response) => {
   }
 });
 
-jobsReadRouter.get("/revision", async (req: Request, res: Response) => {
+jobsReadRouter.get("/revision", requireJobsOrInProgress, async (req: Request, res: Response) => {
   try {
     const parsedQuery = jobsRevisionQuerySchema.safeParse(req.query);
     if (!parsedQuery.success) {
@@ -157,9 +165,10 @@ jobsReadRouter.get("/revision", async (req: Request, res: Response) => {
   }
 });
 
-jobsReadRouter.get("/:id", async (req: Request, res: Response) => {
+jobsReadRouter.get("/:id", requireJobsOrInProgress, async (req: Request, res: Response) => {
   try {
     const job = await requireJob(req.params.id);
+    await assertJobFeatureAccess(job);
     const [jobWithAppliedDuplicateMatch] = attachAppliedDuplicateMatches(
       [job],
       await jobsRepo.getAppliedDuplicateMatchCandidates(),
@@ -170,7 +179,7 @@ jobsReadRouter.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
-jobsReadRouter.get("/:id/emails", async (req: Request, res: Response) => {
+jobsReadRouter.get("/:id/emails", requireJobsOrInProgress, async (req: Request, res: Response) => {
   const requestId = String(res.getHeader("x-request-id") || "unknown");
   const route = "GET /api/jobs/:id/emails";
   const jobId = req.params.id;
@@ -214,31 +223,40 @@ jobsReadRouter.get("/:id/emails", async (req: Request, res: Response) => {
   }
 });
 
-jobsReadRouter.get("/:id/pdf", async (req: Request, res: Response) => {
-  const currentJob = await jobsRepo.getJobById(req.params.id);
-  if (!currentJob) {
-    fail(res, notFound("PDF not found"));
-    return;
-  }
-
-  const storedBytes = await readStoredJobPdf(req.params.id);
-  if (storedBytes) {
-    res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Content-Type", "application/pdf");
-    res.send(Buffer.from(storedBytes));
-    return;
-  }
-
-  if (!(await pdfExists(req.params.id))) {
-    fail(res, notFound("PDF not found"));
-    return;
-  }
-
-  const pdfPath = getPdfPath(req.params.id);
-  res.setHeader("Cache-Control", "no-store");
-  res.sendFile(pdfPath, (error) => {
-    if (error) {
+jobsReadRouter.get(
+  "/:id/pdf",
+  requirePermissionMiddleware("resumes"),
+  requireJobsOrInProgress,
+  async (req: Request, res: Response) => {
+    const currentJob = await jobsRepo.getJobById(req.params.id);
+    if (!currentJob) {
       fail(res, notFound("PDF not found"));
+      return;
     }
-  });
-});
+    if (!(await currentUserHasPermission("jobs")) && !isInProgressAccessibleJob(currentJob)) {
+      fail(res, forbidden("This feature is not enabled for your account. Ask an admin."));
+      return;
+    }
+
+    const storedBytes = await readStoredJobPdf(req.params.id);
+    if (storedBytes) {
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Content-Type", "application/pdf");
+      res.send(Buffer.from(storedBytes));
+      return;
+    }
+
+    if (!(await pdfExists(req.params.id))) {
+      fail(res, notFound("PDF not found"));
+      return;
+    }
+
+    const pdfPath = getPdfPath(req.params.id);
+    res.setHeader("Cache-Control", "no-store");
+    res.sendFile(pdfPath, (error) => {
+      if (error) {
+        fail(res, notFound("PDF not found"));
+      }
+    });
+  },
+);

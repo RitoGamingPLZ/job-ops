@@ -9,7 +9,9 @@ import { removeStoredJobDocuments } from "@server/services/job-document-storage"
 import { trackApplicationAcceptedIfNeeded } from "@server/services/jobs/analytics";
 import { removeStoredJobPdf } from "@server/services/pdf-storage";
 import { type Request, type Response, Router } from "express";
+import { requireAnyPermissionMiddleware } from "../../require-admin";
 import {
+  assertJobFeatureAccess,
   hydrateJobPdfFreshness,
   isJobUrlConflictError,
   toJobsRouteError,
@@ -18,7 +20,9 @@ import {
 
 export const jobsMutationsRouter = Router();
 
-jobsMutationsRouter.delete("/:id", async (req: Request, res: Response) => {
+const requireJobsOrInProgress = requireAnyPermissionMiddleware("jobs", "inProgress");
+
+jobsMutationsRouter.delete("/:id", requireJobsOrInProgress, async (req: Request, res: Response) => {
   const route = "DELETE /api/jobs/:id";
   const jobId = req.params.id;
   try {
@@ -28,6 +32,10 @@ jobsMutationsRouter.delete("/:id", async (req: Request, res: Response) => {
         jobId,
       });
     }
+
+    const existingJob = await jobsRepo.getJobById(jobId);
+    if (!existingJob) throw notFound("Job not found");
+    await assertJobFeatureAccess(existingJob);
 
     const result = await jobsRepo.deleteJob(jobId);
     if (result === "not_found") throw notFound("Job not found");
@@ -65,7 +73,7 @@ jobsMutationsRouter.delete("/:id", async (req: Request, res: Response) => {
   }
 });
 
-jobsMutationsRouter.patch("/:id", async (req: Request, res: Response) => {
+jobsMutationsRouter.patch("/:id", requireJobsOrInProgress, async (req: Request, res: Response) => {
   try {
     const input = updateJobSchema.parse(req.body);
     const currentJob = await jobsRepo.getJobById(req.params.id);
@@ -85,6 +93,8 @@ jobsMutationsRouter.patch("/:id", async (req: Request, res: Response) => {
       fail(res, err);
       return;
     }
+
+    await assertJobFeatureAccess(currentJob);
 
     const job = await jobsRepo.updateJob(req.params.id, input);
 

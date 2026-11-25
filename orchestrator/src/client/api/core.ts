@@ -1,5 +1,5 @@
 import { redirectToSignIn } from "@client/lib/auth-navigation";
-import type { ApiResponse } from "@shared/types";
+import type { ApiResponse, AuthUser } from "@shared/types";
 import { formatUserFacingError } from "@/client/lib/error-format";
 import {
   clearAuthSession,
@@ -205,7 +205,7 @@ export async function performLoginWithCredentials(
     body: JSON.stringify({ username, password }),
   });
 
-  const parsed = await readAuthResponse<{ token: string }>(res);
+  const parsed = await readAuthResponse<{ token: string; user?: AuthUser }>(res);
   if ("ok" in parsed) {
     if (!parsed.ok) {
       throw toApiError(res, parsed);
@@ -214,12 +214,13 @@ export async function performLoginWithCredentials(
     throw toApiError(res, parsed);
   }
 
-  const token =
-    "ok" in parsed ? parsed.data?.token : (parsed.data as { token?: string } | undefined)?.token;
+  const data =
+    "ok" in parsed ? parsed.data : (parsed.data as { token?: string; user?: AuthUser } | undefined);
+  const token = data?.token;
   if (!token) {
     throw new Error("No token returned");
   }
-  setAuthenticatedSession(token);
+  setAuthenticatedSession(token, data?.user);
 }
 
 export async function restoreAuthSessionFromLegacyCredentials(): Promise<boolean> {

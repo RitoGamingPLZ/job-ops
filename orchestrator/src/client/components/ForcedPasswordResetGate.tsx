@@ -1,4 +1,5 @@
 import * as api from "@client/api";
+import { useAuthSession } from "@client/hooks/useAuthSession";
 import { queryKeys } from "@client/lib/queryKeys";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type React from "react";
@@ -27,7 +28,7 @@ export const ForcedPasswordResetGate: React.FC<ForcedPasswordResetGateProps> = (
     location.pathname === "/offline" ||
     location.pathname.startsWith("/sso/callback/") ||
     location.pathname.startsWith("/invite/");
-  const hasSession = api.hasAuthenticatedSession();
+  const hasSession = useAuthSession();
 
   const meQuery = useQuery({
     queryKey: queryKeys.auth.currentUser(),

@@ -2,7 +2,9 @@
  * Per-user feature switches an admin controls for invited (non-admin) users.
  * System admins always have every permission.
  */
-export const USER_PERMISSION_KEYS = [
+export const USER_FEATURE_PERMISSION_KEYS = ["jobs", "watchlist", "inProgress", "resumes"] as const;
+
+export const USER_ACCESS_PERMISSION_KEYS = [
   "defaultModel",
   "serverCredentials",
   "emailTracking",
@@ -11,12 +13,21 @@ export const USER_PERMISSION_KEYS = [
   "urlImport",
 ] as const;
 
+export const USER_PERMISSION_KEYS = [
+  ...USER_FEATURE_PERMISSION_KEYS,
+  ...USER_ACCESS_PERMISSION_KEYS,
+] as const;
+
 export type UserPermissionKey = (typeof USER_PERMISSION_KEYS)[number];
 
 export type UserPermissions = Record<UserPermissionKey, boolean>;
 
 /** What a freshly invited user may do until an admin changes it. */
 export const DEFAULT_USER_PERMISSIONS: Readonly<UserPermissions> = {
+  jobs: true,
+  watchlist: true,
+  inProgress: true,
+  resumes: true,
   defaultModel: false,
   serverCredentials: false,
   emailTracking: false,
@@ -28,6 +39,23 @@ export const DEFAULT_USER_PERMISSIONS: Readonly<UserPermissions> = {
 export const USER_PERMISSION_LABELS: Readonly<
   Record<UserPermissionKey, { label: string; description: string }>
 > = {
+  jobs: {
+    label: "Job posts",
+    description: "Browse job posts, open job details, and view the Overview dashboard.",
+  },
+  watchlist: {
+    label: "Watchlist",
+    description: "Monitor company career pages and use Watchlist sources.",
+  },
+  inProgress: {
+    label: "In-progress jobs",
+    description: "Track active applications on the In Progress board and update interview stages.",
+  },
+  resumes: {
+    label: "Resumes & library",
+    description:
+      "Edit base and job resumes, preview or generate PDFs, and manage the Candidate Library.",
+  },
   defaultModel: {
     label: "Access to default AI model",
     description:
@@ -70,6 +98,10 @@ export function resolveUserPermissions(overrides: unknown): UserPermissions {
 }
 
 export const ALL_USER_PERMISSIONS_GRANTED: Readonly<UserPermissions> = {
+  jobs: true,
+  watchlist: true,
+  inProgress: true,
+  resumes: true,
   defaultModel: true,
   serverCredentials: true,
   emailTracking: true,

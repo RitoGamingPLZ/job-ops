@@ -9,7 +9,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { fileURLToPath } from "node:url";
-import { unauthorized } from "@infra/errors";
+import { forbidden, unauthorized } from "@infra/errors";
 import { apiErrorHandler, fail, notFoundApiHandler, requestContextMiddleware } from "@infra/http";
 import { logger } from "@infra/logger";
 import { runWithRequestContext } from "@infra/request-context";
@@ -22,6 +22,7 @@ import * as usersRepo from "@server/repositories/users";
 import { proxyChallengeViewerRequest } from "@server/services/challenge-viewer";
 import { getActivePdfKeyPrefix } from "@server/services/pdf-storage";
 import { isOperatorContext } from "@server/services/server-credentials";
+import { currentUserHasPermission } from "@server/services/user-permissions";
 import { DEFAULT_TENANT_ID } from "@server/tenancy/constants";
 import { corsDelegate } from "@infra/cors-policy";
 import { securityHeadersMiddleware } from "@infra/security-headers";
@@ -517,6 +518,10 @@ export function createApp() {
       return;
     }
     try {
+      if (!(await currentUserHasPermission("resumes"))) {
+        fail(res, forbidden("This feature is not enabled for your account. Ask an admin."));
+        return;
+      }
       const key = `pdfs/${normalized}`;
       // Only the caller's own workspace folder is readable; the shared legacy
       // root belongs to the operator.

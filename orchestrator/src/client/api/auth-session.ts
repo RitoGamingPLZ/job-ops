@@ -1,4 +1,6 @@
+import type { AuthUser } from "@shared/types";
 import { queryClient } from "@/client/lib/queryClient";
+import { queryKeys } from "@/client/lib/queryKeys";
 
 export type AuthCredentials = {
   username: string;
@@ -124,25 +126,50 @@ export function getAuthScopedStorageKey(baseKey: string): string {
 let cachedLegacyCredentials: AuthCredentials | null = loadStoredLegacyCredentials();
 let cachedAuthToken: string | null = loadStoredAuthToken();
 let authMigrationInFlight: Promise<boolean> | null = null;
+let authSessionVersion = 0;
+const authSessionListeners = new Set<() => void>();
+
+function notifyAuthSessionChange(): void {
+  authSessionVersion += 1;
+  for (const listener of authSessionListeners) {
+    listener();
+  }
+}
+
+export function subscribeAuthSession(listener: () => void): () => void {
+  authSessionListeners.add(listener);
+  return () => {
+    authSessionListeners.delete(listener);
+  };
+}
+
+export function getAuthSessionSnapshot(): string {
+  return `${authSessionVersion}:${cachedAuthToken ? "1" : "0"}`;
+}
 
 function clearCachedAppData(): void {
   queryClient.clear();
 }
 
 export function clearAuthSession(): void {
-  clearCachedAppData();
   cachedLegacyCredentials = null;
   cachedAuthToken = null;
   storeLegacyCredentials(null);
   storeAuthToken(null);
+  clearCachedAppData();
+  notifyAuthSessionChange();
 }
 
-export function setAuthenticatedSession(token: string): void {
-  clearCachedAppData();
+export function setAuthenticatedSession(token: string, user?: AuthUser | null): void {
   cachedAuthToken = token;
   storeAuthToken(token);
   cachedLegacyCredentials = null;
   storeLegacyCredentials(null);
+  clearCachedAppData();
+  if (user) {
+    queryClient.setQueryData(queryKeys.auth.currentUser(), user);
+  }
+  notifyAuthSessionChange();
 }
 
 export function getCachedAuthHeader(): string | undefined {
@@ -160,6 +187,7 @@ export function getCachedAuthTokenForRequests(): string | null {
 export function setCachedAuthTokenForRequests(token: string | null): void {
   cachedAuthToken = token;
   storeAuthToken(token);
+  notifyAuthSessionChange();
 }
 
 export function consumeLegacyCredentialsForMigration(): AuthCredentials | null {
@@ -184,6 +212,7 @@ export function __resetApiClientAuthForTests(): void {
   authMigrationInFlight = null;
   storeLegacyCredentials(null);
   storeAuthToken(null);
+  notifyAuthSessionChange();
 }
 
 export function __setLegacyAuthCredentialsForTests(credentials: AuthCredentials | null): void {
@@ -194,4 +223,5 @@ export function __setLegacyAuthCredentialsForTests(credentials: AuthCredentials 
 export function __setAuthTokenForTests(token: string | null): void {
   cachedAuthToken = token;
   storeAuthToken(token);
+  notifyAuthSessionChange();
 }

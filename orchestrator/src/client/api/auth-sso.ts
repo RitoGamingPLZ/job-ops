@@ -77,7 +77,7 @@ export async function completeSsoLogin(
   if (!result.token || !result.user) {
     throw new ApiClientError("Single sign-on response was incomplete");
   }
-  setAuthenticatedSession(result.token);
+  setAuthenticatedSession(result.token, result.user);
   return result;
 }
 

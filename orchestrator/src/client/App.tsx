@@ -11,7 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { ForcedPasswordResetGate } from "./components/ForcedPasswordResetGate";
 import { AppModeContext, AppSidebar } from "./components/layout";
-import { ADMIN_ALLOWED_PATHS } from "./components/navigation";
+import type { UserPermissionKey } from "@shared/types";
+import {
+  ADMIN_ALLOWED_PATHS,
+  canAccessFeature,
+  getDefaultUserPath,
+  getFallbackUserPath,
+} from "./components/navigation";
 import { OnboardingGate } from "./components/OnboardingGate";
 import { useAnalyticsIdentity } from "./hooks/useAnalyticsIdentity";
 import { useDemoInfo } from "./hooks/useDemoInfo";
@@ -35,7 +41,6 @@ import { WatchlistPage } from "./pages/WatchlistPage";
 
 /** Backwards-compatibility redirects: old URL paths -> new URL paths */
 const REDIRECTS: Array<{ from: string; to: string }> = [
-  { from: "/", to: "/jobs/ready" },
   { from: "/home", to: "/overview" },
   { from: "/ready", to: "/jobs/ready" },
   { from: "/ready/:jobId", to: "/jobs/ready/:jobId" },
@@ -177,24 +182,85 @@ export const App: React.FC = () => {
                     ) : (
                       <Routes location={location}>
                         {/* Backwards-compatibility redirects */}
+                        <Route path="/" element={<DefaultLandingRoute />} />
                         {REDIRECTS.map(({ from, to }) => (
                           <Route key={from} path={from} element={<Navigate to={to} replace />} />
                         ))}
 
                         {/* Application routes */}
-                        <Route path="/overview" element={<HomePage />} />
+                        <Route
+                          path="/overview"
+                          element={
+                            <PermissionRoute anyOf={["jobs", "inProgress"]}>
+                              <HomePage />
+                            </PermissionRoute>
+                          }
+                        />
                         <Route path="/oauth/gmail/callback" element={<GmailOauthCallbackPage />} />
-                        <Route path="/job/:id" element={<JobPage />} />
-                        <Route path="/job/:id/:view" element={<JobPage />} />
-                        <Route path="/applications/in-progress" element={<InProgressBoardPage />} />
-                        <Route path="/resumes" element={<ResumesPage />} />
-                        <Route path="/library" element={<ResumeLibraryPage />} />
+                        <Route
+                          path="/job/:id"
+                          element={
+                            <PermissionRoute anyOf={["jobs", "inProgress"]}>
+                              <JobPage />
+                            </PermissionRoute>
+                          }
+                        />
+                        <Route
+                          path="/job/:id/:view"
+                          element={
+                            <PermissionRoute anyOf={["jobs", "inProgress"]}>
+                              <JobPage />
+                            </PermissionRoute>
+                          }
+                        />
+                        <Route
+                          path="/applications/in-progress"
+                          element={
+                            <PermissionRoute anyOf={["inProgress"]}>
+                              <InProgressBoardPage />
+                            </PermissionRoute>
+                          }
+                        />
+                        <Route
+                          path="/resumes"
+                          element={
+                            <PermissionRoute anyOf={["resumes"]}>
+                              <ResumesPage />
+                            </PermissionRoute>
+                          }
+                        />
+                        <Route
+                          path="/library"
+                          element={
+                            <PermissionRoute anyOf={["resumes"]}>
+                              <ResumeLibraryPage />
+                            </PermissionRoute>
+                          }
+                        />
                         <Route
                           path="/resumes/library"
-                          element={<Navigate to="/library" replace />}
+                          element={
+                            <PermissionRoute anyOf={["resumes"]}>
+                              <Navigate to="/library" replace />
+                            </PermissionRoute>
+                          }
                         />
-                        <Route path="/resumes/base" element={<ResumeCoworkPage base />} />
-                        <Route path="/resumes/:jobId" element={<ResumeCoworkPage />} />
+                        <Route
+                          path="/resumes/base"
+                          element={
+                            <PermissionRoute anyOf={["resumes"]}>
+                              <ResumeCoworkPage base />
+                            </PermissionRoute>
+                          }
+                        />
+                        <Route
+                          path="/resumes/:jobId"
+                          element={
+                            <PermissionRoute anyOf={["resumes"]}>
+                              <ResumeCoworkPage />
+                            </PermissionRoute>
+                          }
+                        />
                         <Route
                           path="/design-resume"
                           element={<Navigate to="/resumes/base" replace />}
@@ -210,10 +276,38 @@ export const App: React.FC = () => {
                         <Route path="/sso/callback/:provider" element={<SsoCallbackPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
                         <Route path="/users" element={<AdminUsersRoute />} />
-                        <Route path="/tracking-inbox" element={<TrackingInboxRoute />} />
-                        <Route path="/watchlist" element={<WatchlistPage />} />
-                        <Route path="/jobs/:tab" element={<OrchestratorPage />} />
-                        <Route path="/jobs/:tab/:jobId" element={<OrchestratorPage />} />
+                        <Route
+                          path="/tracking-inbox"
+                          element={
+                            <PermissionRoute anyOf={["emailTracking"]} localOnly>
+                              <TrackingInboxPage />
+                            </PermissionRoute>
+                          }
+                        />
+                        <Route
+                          path="/watchlist"
+                          element={
+                            <PermissionRoute anyOf={["watchlist"]}>
+                              <WatchlistPage />
+                            </PermissionRoute>
+                          }
+                        />
+                        <Route
+                          path="/jobs/:tab"
+                          element={
+                            <PermissionRoute anyOf={["jobs"]}>
+                              <OrchestratorPage />
+                            </PermissionRoute>
+                          }
+                        />
+                        <Route
+                          path="/jobs/:tab/:jobId"
+                          element={
+                            <PermissionRoute anyOf={["jobs"]}>
+                              <OrchestratorPage />
+                            </PermissionRoute>
+                          }
+                        />
                       </Routes>
                     )}
                   </div>
@@ -229,20 +323,37 @@ export const App: React.FC = () => {
   );
 };
 
-function AdminUsersRoute() {
-  const { isAdminConsole, isPending } = React.useContext(AppModeContext);
-
-  if (isPending) return null;
-  if (!isAdminConsole) return <Navigate to="/overview" replace />;
-  return <AdminUsersPage />;
-}
-
-function TrackingInboxRoute() {
+function DefaultLandingRoute() {
   const { appMode, isPending, permissions } = React.useContext(AppModeContext);
 
   if (isPending) return null;
-  if (appMode === "hosted" || !permissions.emailTracking) {
-    return <Navigate to="/overview" replace />;
+  return <Navigate to={getDefaultUserPath(appMode, permissions)} replace />;
+}
+
+function AdminUsersRoute() {
+  const { appMode, isAdminConsole, isPending, permissions } = React.useContext(AppModeContext);
+
+  if (isPending) return null;
+  if (!isAdminConsole) {
+    return <Navigate to={getFallbackUserPath(appMode, permissions)} replace />;
   }
-  return <TrackingInboxPage />;
+  return <AdminUsersPage />;
+}
+
+function PermissionRoute({
+  anyOf,
+  localOnly,
+  children,
+}: {
+  anyOf: readonly UserPermissionKey[];
+  localOnly?: boolean;
+  children: React.ReactElement;
+}) {
+  const { appMode, isPending, permissions } = React.useContext(AppModeContext);
+
+  if (isPending) return null;
+  if (!canAccessFeature(appMode, permissions, anyOf, localOnly)) {
+    return <Navigate to={getFallbackUserPath(appMode, permissions)} replace />;
+  }
+  return children;
 }

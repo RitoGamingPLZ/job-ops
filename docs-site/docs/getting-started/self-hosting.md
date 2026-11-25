@@ -159,30 +159,34 @@ Search terms are not part of onboarding. Choose or edit them when starting your 
 
 Settings and user accounts are saved to the local database. If you are upgrading an older single-user install, JobOps migrates existing rows into one default private workspace. When `BASIC_AUTH_USER` and `BASIC_AUTH_PASSWORD` are present during that migration, they seed the first system admin account; otherwise onboarding requires first-run account setup before private APIs are usable.
 
-System admins can create more users from **Settings → Environment & Workspaces**. Each created user receives a separate private workspace with isolated jobs, settings, resumes, integrations, PDFs, pipeline runs, chat, analytics, and post-application data.
+System admins can create and manage users from **Users** in the sidebar (and **Settings → Environment & Workspaces** when configured). Each created user receives a separate private workspace with isolated jobs, settings, resumes, integrations, PDFs, pipeline runs, chat, analytics, and post-application data.
 
 ### What invited users can and cannot do
 
 Your server's environment (`LLM_API_KEY`, `MODEL`, `LLM_BASE_URL`, Apify, Adzuna, UKVisaJobs, Gmail OAuth app, `WEBHOOK_SECRET`) belongs to the operator and is never shown to non-admin users in Settings. Stored keys and secrets are masked (`••••••••`) without revealing key prefixes. Only system admins and accounts explicitly granted access may use server resources:
 
 - **AI**: Each user is off the server's default AI model until an admin grants **Access to default AI model**. Without that permission, users must add and verify their own public provider API key during onboarding (or in **Settings → Models**) before running Job Ops. CLI providers (`codex`, `gemini_cli`, `claude_cli`), local/proxy providers (`ollama`, `lmstudio`, `litellm`), and custom base URLs are restricted to admins.
-- **Settings visibility**: **Workspace Access** (`environment`) and **Danger Zone** are hidden from non-admin users in Settings and blocked on the API.
+- **Settings visibility**: **Environment & Workspaces** (`environment`) and **Danger Zone** are hidden from non-admin users in Settings and blocked on the API. **Resumes & library** also hides the **Resume & PDF** settings section and `/pdfs/` downloads when disabled.
 - **Sources**: Sources that need operator credentials (Adzuna, Seek, and similar) are skipped for non-admin users unless **Use server job-source keys** is enabled for them.
 - **Integrations**: Backups, the challenge viewer, and Codex sign-in are admin-only. Webhooks and the Tracking Inbox (Gmail) are off for invited users until an admin switches them on for that user.
 - **Limits**: Sign-in, searches, URL fetches, and AI actions are rate limited, and at most `MAX_CONCURRENT_PIPELINES` searches (default 3) run across all users at once.
 - **Fetching links**: Job-page fetches and non-admin webhooks only reach public http(s) hosts; redirects are re-checked and responses are size-capped.
-- **Static hardening**: Stored PDFs under `/pdfs/` require sign-in and only the owning workspace folder is readable. Extractor health endpoints require sign-in. `/ojcp/mcp` and `/.well-known/ojcp.json` are off unless `OJCP_ENABLED=1`. CORS allows only the same origin, `APP_PUBLIC_URL`, `JOBOPS_PUBLIC_BASE_URL`, and `CORS_ALLOWED_ORIGINS`.
+- **Static hardening**: Stored PDFs under `/pdfs/` require sign-in, the **Resumes & library** permission, and only the owning workspace folder is readable. Extractor health endpoints require sign-in. `/ojcp/mcp` and `/.well-known/ojcp.json` are off unless `OJCP_ENABLED=1`. CORS allows only the same origin, `APP_PUBLIC_URL`, `JOBOPS_PUBLIC_BASE_URL`, and `CORS_ALLOWED_ORIGINS`.
 - Accounts created by an admin must change their password at first sign-in unless the admin opts out.
 
 ### Inviting people and controlling their access
 
-Open **Settings → Environment & Workspaces** as a system admin.
+Open **Users** in the sidebar as a system admin.
 
 - **Invitations**: Enter a label (who it is for), pick an expiry (1 to 30 days) and the access they start with, then **Create invitation**. JobOps shows a one-time link such as `https://your-host/invite/<token>`; copy it and send it yourself (JobOps sends no email). The invitee picks their own username and password and gets a private workspace. A link works once, can be revoked while it is pending, and only its hash is stored. There is no open signup in local mode.
-- **Per-user access**: Each non-admin user has switches you can change at any time:
+- **Per-user access**: Each non-admin user has switches organized under **Pages & features** and **AI & server access** that you can change at any time:
 
   | Switch                     | Default | What it controls                                                                |
   | -------------------------- | ------- | ------------------------------------------------------------------------------- |
+  | Job posts                  | on      | Viewing job feeds, searching, scoring, and importing links                      |
+  | Watchlist                  | on      | Managing monitored career pages and fetching watchlist jobs                     |
+  | In-progress jobs           | on      | Using the application board, stages, notes, and outcome tracking                |
+  | Resumes & library          | on      | Managing the Candidate Library, tailored resumes, and PDF generation/downloads  |
   | Access to default AI model | off     | Lets the user run on the server's default model; off requires their own API key |
   | Use server job-source keys | off     | Running job sources backed by your server's Apify/Adzuna/UKVisaJobs credentials |
   | Email tracking inbox       | off     | Connecting Gmail and the Tracking Inbox                                         |

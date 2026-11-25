@@ -7,6 +7,7 @@ import { getActivePipelineCount, getPipelineStatus, runPipeline } from "@server/
 import { reserveHostedUsage, settleHostedUsageReservation } from "@server/services/hosted-usage";
 import { ensurePipelineSearchTerms } from "@server/services/pipeline-search-terms";
 import { ensureUserHasLlmAccess } from "@server/services/server-credentials";
+import { currentUserHasPermission } from "@server/services/user-permissions";
 import { PIPELINE_EXTRACTOR_SOURCE_IDS } from "@shared/extractors";
 import { createLocationIntent, planLocationSources } from "@shared/location-intelligence.js";
 import {
@@ -131,9 +132,18 @@ export async function startRequestedPipeline(config: PipelineRunRequest, remembe
     action: "pipeline_run",
   });
 
+  const canUseWatchlist = await currentUserHasPermission("watchlist");
+  const effectiveWatchlistSelectedSourceIds = canUseWatchlist
+    ? config.watchlistSelectedSourceIds
+    : [];
+
   if (remember) {
     try {
-      await saveRunRequest(config);
+      await saveRunRequest(
+        canUseWatchlist
+          ? config
+          : { ...config, watchlistSelectedSourceIds: effectiveWatchlistSelectedSourceIds },
+      );
     } catch (error) {
       if (pipelineUsage.reservation)
         await settleHostedUsageReservation({
@@ -154,7 +164,7 @@ export async function startRequestedPipeline(config: PipelineRunRequest, remembe
         scoringInstructions: config.scoringInstructions,
         runBudget: config.runBudget,
         locationIntent,
-        watchlistSelectedSourceIds: config.watchlistSelectedSourceIds,
+        watchlistSelectedSourceIds: effectiveWatchlistSelectedSourceIds,
       },
       {
         hostedUsageReservationId: pipelineUsage.reservation?.id ?? null,

@@ -28,3 +28,20 @@ export function requirePermissionMiddleware(permission: UserPermissionKey) {
     }
   };
 }
+
+/** Route guard requiring at least one of the listed per-user permissions. */
+export function requireAnyPermissionMiddleware(...permissions: UserPermissionKey[]) {
+  return async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      for (const permission of permissions) {
+        if (await currentUserHasPermission(permission)) {
+          next();
+          return;
+        }
+      }
+      fail(res, forbidden("This feature is not enabled for your account. Ask an admin."));
+    } catch (error) {
+      next(error);
+    }
+  };
+}
