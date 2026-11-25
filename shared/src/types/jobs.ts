@@ -435,6 +435,15 @@ export interface WatchlistSource {
   sourceType: WatchedSourceType;
 }
 
+/** A predefined bundle of catalog sources the user can add to their watchlist in one click. */
+export interface WatchlistSourceGroup {
+  id: string;
+  label: string;
+  description: string;
+  /** Catalog source ids, already resolved against the live catalog. */
+  sourceIds: string[];
+}
+
 export const MAX_WATCHLIST_SOURCES = 50;
 
 export interface WatchlistSelectedSource {
@@ -452,6 +461,7 @@ export interface WatchlistSelectedSource {
 
 export interface WatchlistSourcesResponse {
   catalogSources: WatchlistSource[];
+  groups?: WatchlistSourceGroup[];
   selectedSources: WatchlistSelectedSource[];
   availableSourceTypes: WatchlistSourceTypeDescriptor[];
 }

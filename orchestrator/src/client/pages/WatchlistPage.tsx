@@ -5,16 +5,19 @@ import { useSettings } from "@client/hooks/useSettings";
 import { showErrorToast } from "@client/lib/error-toast";
 import { queryKeys } from "@client/lib/queryKeys";
 import { createLocationIntentFromLegacyInputs } from "@shared/location-intelligence.js";
-import type {
-  WatchlistJobResult,
-  WatchlistSelectedSource,
-  WatchlistSourceTypeDescriptor,
+import {
+  MAX_WATCHLIST_SOURCES,
+  type WatchlistJobResult,
+  type WatchlistSelectedSource,
+  type WatchlistSourceGroup,
+  type WatchlistSourceTypeDescriptor,
 } from "@shared/types.js";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Accordion } from "@/components/ui/accordion";
 import { bucketQueryLength, trackProductEvent } from "@/lib/analytics";
 import { normalizeWorkplaceTypes, parseCityLocationsSetting } from "./orchestrator/automatic-run";
@@ -228,6 +231,47 @@ export const WatchlistPage: React.FC = () => {
       ...current,
       createSourceDraft({ sourceType: defaultSourceType }),
     ]);
+  }
+
+  function addSourceGroup(group: WatchlistSourceGroup) {
+    const alreadyAdded = new Set(
+      sourceDrafts.flatMap((draft) =>
+        draft.catalogSourceId !== null ? [draft.catalogSourceId] : [],
+      ),
+    );
+    const catalogById = new Map(catalogSources.map((source) => [source.id, source]));
+    const room = Math.max(0, MAX_WATCHLIST_SOURCES - sourceDrafts.length);
+
+    const missing = group.sourceIds.flatMap((id) => {
+      const source = catalogById.get(id);
+      return source && !alreadyAdded.has(id) ? [source] : [];
+    });
+    const toAdd = missing.slice(0, room);
+
+    if (toAdd.length === 0) {
+      toast.info(
+        missing.length > 0
+          ? `Your watchlist is full (${MAX_WATCHLIST_SOURCES} sources max).`
+          : `Everything in ${group.label} is already in your watchlist.`,
+      );
+      return;
+    }
+
+    setSourceDrafts((current) => [
+      ...current,
+      ...toAdd.map((source) =>
+        createSourceDraft({ sourceType: source.sourceType, catalogSourceId: source.id }),
+      ),
+    ]);
+    toast.success(
+      toAdd.length < missing.length
+        ? `Added ${toAdd.length} of ${missing.length} from ${group.label}. Watchlist limit reached. Save to start watching.`
+        : `Added ${toAdd.length} from ${group.label}. Save to start watching.`,
+    );
+    trackProductEvent("watchlist_source_group_added", {
+      group_id: group.id,
+      added_count: toAdd.length,
+    });
   }
 
   function removeSourceDraft(index: number) {
@@ -536,7 +580,9 @@ export const WatchlistPage: React.FC = () => {
             newJobsCount={newJobsCount}
             hasUnsavedChanges={hasUnsavedChanges}
             isSaving={saveSourcesMutation.isPending}
+            groups={watchlistSourcesResponse?.groups ?? []}
             onAddSource={addSourceDraft}
+            onAddGroup={addSourceGroup}
             onRemoveSource={removeSourceDraft}
             onUpdateDraft={updateDraft}
             onSourceMethodSelected={handleWatchlistSourceMethodSelected}

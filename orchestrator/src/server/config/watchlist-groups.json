@@ -1,0 +1,139 @@
+[
+  {
+    "id": "tech-tier-1",
+    "label": "Tech - First tier",
+    "description": "The biggest names in tech and AI.",
+    "members": [
+      { "sourceType": "google", "label": "Google - Software Engineering" },
+      { "sourceType": "meta", "label": "Meta" },
+      { "sourceType": "apple", "label": "Apple" },
+      { "sourceType": "amazon", "label": "Amazon software development" },
+      { "sourceType": "eightfold", "label": "Microsoft" },
+      { "sourceType": "eightfold", "label": "Netflix" },
+      { "sourceType": "workday", "label": "NVIDIA" },
+      { "sourceType": "ashby", "label": "OpenAI" },
+      { "sourceType": "greenhouse", "label": "Anthropic" }
+    ]
+  },
+  {
+    "id": "tech-tier-2",
+    "label": "Tech - Second tier",
+    "description": "Large, well-funded product and infrastructure companies.",
+    "members": [
+      { "sourceType": "careers_site", "label": "Stripe" },
+      { "sourceType": "careers_site", "label": "Databricks" },
+      { "sourceType": "careers_site", "label": "Airbnb" },
+      { "sourceType": "careers_site", "label": "Snowflake" },
+      { "sourceType": "oracle", "label": "Uber" },
+      { "sourceType": "workday", "label": "Salesforce" },
+      { "sourceType": "workday", "label": "Adobe" },
+      { "sourceType": "lever", "label": "Palantir" },
+      { "sourceType": "lever", "label": "Spotify" },
+      { "sourceType": "greenhouse", "label": "Cloudflare" },
+      { "sourceType": "greenhouse", "label": "Datadog" },
+      { "sourceType": "greenhouse", "label": "Coinbase" },
+      { "sourceType": "greenhouse", "label": "Figma" },
+      { "sourceType": "greenhouse", "label": "DoorDash" }
+    ]
+  },
+  {
+    "id": "tech-tier-3",
+    "label": "Tech - Third tier",
+    "description": "Growth-stage and mid-size tech companies with a strong engineering bar.",
+    "members": [
+      { "sourceType": "careers_site", "label": "Vercel" },
+      { "sourceType": "careers_site", "label": "Linear" },
+      { "sourceType": "careers_site", "label": "Okta" },
+      { "sourceType": "ashby", "label": "Ramp" },
+      { "sourceType": "ashby", "label": "Notion" },
+      { "sourceType": "ashby", "label": "Supabase" },
+      { "sourceType": "greenhouse", "label": "Grafana Labs" },
+      { "sourceType": "greenhouse", "label": "GitLab" },
+      { "sourceType": "greenhouse", "label": "Elastic" },
+      { "sourceType": "greenhouse", "label": "MongoDB" },
+      { "sourceType": "greenhouse", "label": "Twilio" },
+      { "sourceType": "greenhouse", "label": "Asana" },
+      { "sourceType": "greenhouse", "label": "Reddit" },
+      { "sourceType": "greenhouse", "label": "Pinterest" },
+      { "sourceType": "greenhouse", "label": "Discord" },
+      { "sourceType": "greenhouse", "label": "Duolingo" },
+      { "sourceType": "greenhouse", "label": "HubSpot" }
+    ]
+  },
+  {
+    "id": "work-life-balance",
+    "label": "Work-life balance",
+    "description": "Editorial pick of companies known for sustainable hours and remote-friendly culture. Subjective, so review it before relying on it.",
+    "members": [
+      { "sourceType": "careers_site", "label": "Atlassian" },
+      { "sourceType": "smartrecruiters", "label": "Canva" },
+      { "sourceType": "lever", "label": "Spotify" },
+      { "sourceType": "greenhouse", "label": "GitLab" },
+      { "sourceType": "greenhouse", "label": "Grafana Labs" },
+      { "sourceType": "greenhouse", "label": "HubSpot" },
+      { "sourceType": "greenhouse", "label": "Dropbox" },
+      { "sourceType": "workday", "label": "Zendesk" }
+    ]
+  },
+  {
+    "id": "finance",
+    "label": "Finance and fintech",
+    "description": "Banks, asset managers, payment networks and fintech.",
+    "members": [
+      { "sourceType": "workday", "label": "Barclays" },
+      { "sourceType": "workday", "label": "Lloyds Banking Group" },
+      { "sourceType": "workday", "label": "Morgan Stanley" },
+      { "sourceType": "workday", "label": "BlackRock" },
+      { "sourceType": "workday", "label": "Visa" },
+      { "sourceType": "workday", "label": "Mastercard" },
+      { "sourceType": "workday", "label": "Aviva" },
+      { "sourceType": "careers_site", "label": "Plaid" },
+      { "sourceType": "careers_site", "label": "Brex" },
+      { "sourceType": "ashby", "label": "Nubank" },
+      { "sourceType": "smartrecruiters", "label": "Wise" },
+      { "sourceType": "greenhouse", "label": "Robinhood" },
+      { "sourceType": "greenhouse", "label": "Coinbase" },
+      { "sourceType": "greenhouse", "label": "Block" },
+      { "sourceType": "greenhouse", "label": "Affirm" },
+      { "sourceType": "greenhouse", "label": "Chime" },
+      { "sourceType": "greenhouse", "label": "SoFi" },
+      { "sourceType": "greenhouse", "label": "Mercury" },
+      { "sourceType": "greenhouse", "label": "Upstart" },
+      { "sourceType": "greenhouse", "label": "Betterment" },
+      { "sourceType": "greenhouse", "label": "Monzo" },
+      { "sourceType": "greenhouse", "label": "Carta" },
+      { "sourceType": "greenhouse", "label": "Toast" }
+    ]
+  },
+  {
+    "id": "logistics",
+    "label": "Logistics and delivery",
+    "description": "Freight, supply-chain and delivery companies. Large operators such as UPS, FedEx and DHL are not covered yet.",
+    "members": [
+      { "sourceType": "greenhouse", "label": "Flexport" },
+      { "sourceType": "greenhouse", "label": "Uber Freight" },
+      { "sourceType": "greenhouse", "label": "project44" },
+      { "sourceType": "greenhouse", "label": "FourKites" },
+      { "sourceType": "greenhouse", "label": "Samsara" },
+      { "sourceType": "careers_site", "label": "Instacart" },
+      { "sourceType": "lever", "label": "Gopuff" }
+    ]
+  },
+  {
+    "id": "consulting-pharma-consumer",
+    "label": "Consulting, pharma and consumer",
+    "description": "Large non-tech employers that hire data and engineering talent.",
+    "members": [
+      { "sourceType": "workday", "label": "Accenture" },
+      { "sourceType": "workday", "label": "PwC" },
+      { "sourceType": "workday", "label": "Deloitte Ireland" },
+      { "sourceType": "workday", "label": "Bloomberg Industry Group" },
+      { "sourceType": "workday", "label": "AstraZeneca" },
+      { "sourceType": "workday", "label": "GSK" },
+      { "sourceType": "workday", "label": "Pfizer" },
+      { "sourceType": "workday", "label": "Roche" },
+      { "sourceType": "workday", "label": "Unilever" },
+      { "sourceType": "workday", "label": "P&G" }
+    ]
+  }
+]

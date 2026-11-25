@@ -7,6 +7,7 @@ import type {
   WatchlistRowState,
   WatchlistSelectedSource,
   WatchlistSource,
+  WatchlistSourceGroup,
   WatchlistSourceResult,
   WatchlistSourceTypeDescriptor,
 } from "@shared/types.js";
@@ -63,6 +64,7 @@ export interface WatchlistSourceDraftCardProps {
   sourceDrafts: SourceSelectionDraft[];
   sourceStatusByDraftId: Record<string, "watching" | "unsaved">;
   catalogSources: WatchlistSource[];
+  groups?: WatchlistSourceGroup[];
   sourceTypes: WatchlistSourceTypeDescriptor[];
   formattedLastCheckedAt: string | null;
   formattedPreviousLastCheckedAt: string | null;
@@ -70,6 +72,7 @@ export interface WatchlistSourceDraftCardProps {
   hasUnsavedChanges: boolean;
   isSaving: boolean;
   onAddSource: () => void;
+  onAddGroup?: (group: WatchlistSourceGroup) => void;
   onRemoveSource: (index: number) => void;
   onUpdateDraft: (
     index: number,

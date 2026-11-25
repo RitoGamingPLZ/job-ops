@@ -20,6 +20,7 @@ import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import { cn } from "@/lib/utils";
 import { SuggestFiltersPanel } from "./SuggestFiltersPanel";
 import type { WatchlistSourceDraftCardProps } from "./types";
+import { WatchlistGroupsMenu } from "./WatchlistGroupsMenu";
 import {
   CUSTOM_SOURCE_VALUE,
   getNormalizedWatchlistCareersUrl,
@@ -90,6 +91,8 @@ export function WatchlistSourcesCard({
   hasUnsavedChanges,
   isSaving,
   onAddSource,
+  onAddGroup,
+  groups,
   onRemoveSource,
   onUpdateDraft,
   onSourceMethodSelected,
@@ -106,6 +109,15 @@ export function WatchlistSourcesCard({
     [sourceTypes],
   );
   const defaultSourceType = sourceTypes[0]?.sourceType ?? "workday";
+  const addedCatalogSourceIds = useMemo(
+    () =>
+      new Set(
+        sourceDrafts.flatMap((draft) =>
+          draft.catalogSourceId !== null ? [draft.catalogSourceId] : [],
+        ),
+      ),
+    [sourceDrafts],
+  );
   const logoCareersUrls = useMemo(() => {
     const urls = new Map<string, { sourceType: string; careersUrl: string }>();
 
@@ -199,6 +211,14 @@ export function WatchlistSourcesCard({
 
           {/* right controls */}
           <div className="flex flex-wrap justify-end gap-2 px-3 pb-2 sm:absolute sm:right-12 sm:top-1/2 sm:border-b-0 sm:bg-transparent sm:p-0 sm:-translate-y-1/2">
+            {onAddGroup ? (
+              <WatchlistGroupsMenu
+                groups={groups ?? []}
+                addedCatalogSourceIds={addedCatalogSourceIds}
+                isFull={sourceDrafts.length >= MAX_WATCHLIST_SOURCES}
+                onAddGroup={onAddGroup}
+              />
+            ) : null}
             <Button
               type="button"
               size="sm"

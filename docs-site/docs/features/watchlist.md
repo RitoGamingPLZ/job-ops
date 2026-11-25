@@ -46,6 +46,22 @@ If the company is not in the built-in picker yet, you can choose the source type
 
 Each source type owns its own URL rules and on-screen copy. Today, the supported Watchlist source types are Workday and BambooHR, so the custom-source option asks for a public careers URL that matches the adapter you chose.
 
+### Source groups
+
+A source group is a predefined bundle of catalog sources you can add in one click, so you do not have to pick companies one by one.
+
+Click **Groups** next to **Add source** and choose a group:
+
+- `Tech - First tier`, `Tech - Second tier` and `Tech - Third tier`
+- `Work-life balance` (an editorial pick, so review it before relying on it)
+- `Finance and fintech`
+- `Logistics and delivery`
+- `Consulting, pharma and consumer`
+
+Adding a group only adds sources you do not already have, and never goes past the 50-source limit. The sources are added as unsaved drafts, so click **Save sources** to start watching them. Where a company has its own careers site in the catalog, groups use that original source.
+
+LinkedIn is not a Watchlist source. To search LinkedIn, select it as a source in an Automatic run.
+
 ### Baseline check
 
 The baseline check is the first successful Watchlist fetch for your saved sources.

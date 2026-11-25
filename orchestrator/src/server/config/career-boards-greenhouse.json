@@ -134,5 +134,18 @@
   {
     "label": "Grafana Labs",
     "greenhouseUrl": "https://job-boards.greenhouse.io/grafanalabs"
-  }
+  },
+  { "label": "Affirm", "greenhouseUrl": "https://job-boards.greenhouse.io/affirm" },
+  { "label": "Chime", "greenhouseUrl": "https://job-boards.greenhouse.io/chime" },
+  { "label": "SoFi", "greenhouseUrl": "https://job-boards.greenhouse.io/sofi" },
+  { "label": "Mercury", "greenhouseUrl": "https://job-boards.greenhouse.io/mercury" },
+  { "label": "Upstart", "greenhouseUrl": "https://job-boards.greenhouse.io/upstart" },
+  { "label": "Betterment", "greenhouseUrl": "https://job-boards.greenhouse.io/betterment" },
+  { "label": "Monzo", "greenhouseUrl": "https://job-boards.greenhouse.io/monzo" },
+  { "label": "Toast", "greenhouseUrl": "https://job-boards.greenhouse.io/toast" },
+  { "label": "Carta", "greenhouseUrl": "https://job-boards.greenhouse.io/carta" },
+  { "label": "Flexport", "greenhouseUrl": "https://job-boards.greenhouse.io/flexport" },
+  { "label": "Uber Freight", "greenhouseUrl": "https://job-boards.greenhouse.io/uberfreight" },
+  { "label": "project44", "greenhouseUrl": "https://job-boards.greenhouse.io/project44" },
+  { "label": "FourKites", "greenhouseUrl": "https://job-boards.greenhouse.io/fourkites" }
 ]

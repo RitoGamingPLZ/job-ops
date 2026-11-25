@@ -249,6 +249,10 @@ type ProductEventMap = {
     catalog_source_id?: string;
     source_url: string;
   };
+  watchlist_source_group_added: {
+    group_id: string;
+    added_count: number;
+  };
   watchlist_no_jobs_returned: {
     source_count: number;
   };

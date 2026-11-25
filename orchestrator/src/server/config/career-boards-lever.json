@@ -1,5 +1,6 @@
 [
   { "label": "Spotify", "careersUrl": "https://jobs.lever.co/spotify" },
   { "label": "Palantir", "careersUrl": "https://jobs.lever.co/palantir" },
-  { "label": "Zoox", "careersUrl": "https://jobs.lever.co/zoox" }
+  { "label": "Zoox", "careersUrl": "https://jobs.lever.co/zoox" },
+  { "label": "Gopuff", "careersUrl": "https://jobs.lever.co/gopuff" }
 ]

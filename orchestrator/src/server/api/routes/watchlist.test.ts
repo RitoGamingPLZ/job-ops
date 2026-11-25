@@ -69,11 +69,12 @@ describe("Watchlist API routes", () => {
             cxsJobsUrl: null,
           }),
           expect.objectContaining({
-            id: "autodesk-workday",
-            label: "Autodesk",
+            id: "adobe-workday",
+            label: "Adobe",
             sourceType: "workday",
-            careersUrl: "https://autodesk.wd1.myworkdayjobs.com/Ext",
-            cxsJobsUrl: "https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs",
+            careersUrl: "https://adobe.wd5.myworkdayjobs.com/external_experienced",
+            cxsJobsUrl:
+              "https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs",
           }),
           expect.objectContaining({
             id: "pg-workday",
@@ -81,6 +82,15 @@ describe("Watchlist API routes", () => {
             sourceType: "workday",
             careersUrl: "https://pg.wd5.myworkdayjobs.com/en-US/1000",
             cxsJobsUrl: "https://pg.wd5.myworkdayjobs.com/wday/cxs/pg/1000/jobs",
+          }),
+        ]),
+      );
+      expect(body.data.groups).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "tech-tier-2",
+            label: "Tech - Second tier",
+            sourceIds: expect.arrayContaining(["adobe-workday"]),
           }),
         ]),
       );

@@ -1,6 +1,7 @@
 import { badRequest, toAppError, unprocessableEntity } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
 import { listCareerBoardSources } from "@server/config/career-boards";
+import { resolveWatchlistSourceGroups } from "@server/config/watchlist-groups";
 import * as watchlistRepo from "@server/repositories/watchlist";
 import { getWatchlistSourceAdapter } from "@server/watchlist/adapters";
 import {
@@ -62,6 +63,7 @@ function getWatchlistSourcesPayload(
 ) {
   return {
     catalogSources,
+    groups: resolveWatchlistSourceGroups(catalogSources),
     selectedSources: hydrateWatchlistSelectedSources(selectedSources),
     availableSourceTypes: getWatchlistSourceTypeDescriptors(),
   };
