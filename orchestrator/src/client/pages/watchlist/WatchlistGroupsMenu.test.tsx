@@ -4,9 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { WatchlistGroupsMenu } from "./WatchlistGroupsMenu";
 
 const group: WatchlistSourceGroup = {
-  id: "tech-tier-1",
-  label: "Tech - First tier",
-  description: "The biggest names in tech and AI.",
+  id: "big-tech",
+  label: "Big tech",
+  description: "The largest tech companies.",
   sourceIds: ["a", "b", "c"],
 };
 
@@ -25,11 +25,9 @@ describe("WatchlistGroupsMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: /add a group of sources/i }));
 
     expect(await screen.findByText("1 of 3 added")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add Tech - First tier" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Big tech" }));
     expect(onAddGroup).toHaveBeenCalledWith(group);
-    expect(screen.getByRole("button", { name: "Add Tech - First tier" })).toHaveTextContent(
-      "Add 2",
-    );
+    expect(screen.getByRole("button", { name: "Add Big tech" })).toHaveTextContent("Add 2");
   });
 
   it("disables a fully added group and renders nothing without groups", async () => {
@@ -43,7 +41,7 @@ describe("WatchlistGroupsMenu", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /add a group of sources/i }));
-    expect(await screen.findByRole("button", { name: "Add Tech - First tier" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Add Big tech" })).toBeDisabled();
 
     rerender(
       <WatchlistGroupsMenu

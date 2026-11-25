@@ -427,12 +427,20 @@ export interface WatchlistCheckResponse {
 
 export type WatchedSourceType = "workday" | (string & {});
 
+/** Editorial 1-5 ratings for a company: work-life balance and pay relative to its industry. */
+export interface WatchlistCompanyRating {
+  wlb: number;
+  salary: number;
+}
+
 export interface WatchlistSource {
   id: string;
   label: string;
   careersUrl: string;
   cxsJobsUrl: string | null;
   sourceType: WatchedSourceType;
+  /** Present when the company has an editorial rating. */
+  rating?: WatchlistCompanyRating;
 }
 
 /** A predefined bundle of catalog sources the user can add to their watchlist in one click. */

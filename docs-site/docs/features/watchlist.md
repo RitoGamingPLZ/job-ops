@@ -52,12 +52,13 @@ A source group is a predefined bundle of catalog sources you can add in one clic
 
 Click **Groups** next to **Add source** and choose a group:
 
-- `Tech - First tier`, `Tech - Second tier` and `Tech - Third tier`
-- `Work-life balance` (an editorial pick, so review it before relying on it)
-- `Finance and fintech`
-- `Logistics and delivery`
-- `Food safety and refrigeration` (food processors, distributors, grocers and cold-storage operators; USDA and FDA inspector roles are not covered)
-- `Consulting, pharma and consumer`
+- `Finance`
+- `Logistics`
+- `Food and refrigeration` (food processors, distributors, grocers and cold-storage operators; USDA and FDA inspector roles are not covered)
+- `Big tech`
+- `WLB tech companies` (tech companies rated 4 or 5 for work-life balance)
+
+Every source card shows an editorial **WLB** (work-life balance) and **Pay** rating from 1 to 5 when the company has one. They are estimates, not survey data, and live in `orchestrator/src/server/config/company-ratings.json`, where you can adjust them by hand.
 
 Adding a group only adds sources you do not already have. A company counts as already added when you have it under any source type or a custom URL, so Stripe on Greenhouse blocks Stripe on its own careers site. It never goes past the 50-source limit. The sources are added as unsaved drafts, so click **Save sources** to start watching them. Where a company has its own careers site in the catalog, groups use that original source.
 

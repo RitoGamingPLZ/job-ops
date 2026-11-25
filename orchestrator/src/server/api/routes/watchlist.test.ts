@@ -88,8 +88,8 @@ describe("Watchlist API routes", () => {
       expect(body.data.groups).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            id: "tech-tier-2",
-            label: "Tech - Second tier",
+            id: "big-tech",
+            label: "Big tech",
             sourceIds: expect.arrayContaining(["adobe-workday"]),
           }),
         ]),

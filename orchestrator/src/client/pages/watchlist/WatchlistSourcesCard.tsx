@@ -18,6 +18,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import { cn } from "@/lib/utils";
+import { CompanyRatingBadges } from "./CompanyRatingBadges";
 import { SuggestFiltersPanel } from "./SuggestFiltersPanel";
 import type { WatchlistSourceDraftCardProps } from "./types";
 import { WatchlistGroupsMenu } from "./WatchlistGroupsMenu";
@@ -269,6 +270,7 @@ export function WatchlistSourcesCard({
                       getWatchlistPreviewLabel(draft.sourceType, draft.customUrl))
                     : (descriptor?.customSourceInputLabel ?? "Custom source")
                   : (selectedSource?.label ?? `New Source`);
+                const rating = (draft.isCustom ? matchingCatalogSource : selectedSource)?.rating;
                 const careersUrl = draft.isCustom
                   ? normalizedCustomUrl
                   : (selectedSource?.careersUrl ?? "");
@@ -317,6 +319,10 @@ export function WatchlistSourcesCard({
                                 tooltipClassName="max-w-64 text-xs leading-relaxed"
                               />
                             </div>
+                          )}
+
+                          {isEmpty ? null : (
+                            <CompanyRatingBadges rating={rating} className="mt-1.5" />
                           )}
 
                           {careersUrl && (
