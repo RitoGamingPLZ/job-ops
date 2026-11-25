@@ -173,7 +173,7 @@ The app version shown in the UI is sourced from `orchestrator/package.json`, so 
 Run from the repository root:
 
 ```bash
-./orchestrator/node_modules/.bin/biome ci .
+npm run check:all
 npm run check:types:shared
 npm --workspace orchestrator run check:types
 npm --workspace gradcracker-extractor run check:types
@@ -187,6 +187,10 @@ If tests fail due to a `better-sqlite3` Node ABI mismatch, rebuild it and rerun 
 ```bash
 npm --workspace orchestrator rebuild better-sqlite3
 ```
+
+### Git hooks
+
+`npm install` sets up a pre-commit hook (Vite+, `.vite-hooks/pre-commit`) that runs `vp check --fix` on the staged files: formatting, lint and type checks, the same command CI runs. It fixes what it can and blocks the commit if anything is left to fix by hand. Skip it for a single commit with `VP_GIT_HOOKS=0 git commit ...`, or re-install it with `npx vp config --hooks`.
 
 CI runs on Node 22. If local behavior differs, verify with Node 22 before concluding a change is valid.
 
