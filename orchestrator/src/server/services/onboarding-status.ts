@@ -1,6 +1,6 @@
 import { forbidden, unprocessableEntity } from "@infra/errors";
 import { logger } from "@infra/logger";
-import { getRequestId } from "@infra/request-context";
+import { getRequestId, isSystemAdmin } from "@infra/request-context";
 import { getJobOpsAppStatus } from "@server/config/app-mode";
 import { isDemoMode } from "@server/config/demo";
 import { resolveLlmValidationEndpoint } from "@server/config/llm-validation-endpoint";
@@ -10,7 +10,7 @@ import { enqueueAutoPdfRegenerationForSettingsChanges } from "@server/services/a
 import { syncCandidateLibrary } from "@server/services/candidate-library";
 import { getCurrentDesignResume, getDesignResumeStatus } from "@server/services/design-resume";
 import { getOriginalEnvValue } from "@server/services/envSettings";
-import { canUseServerCredentials } from "@server/services/server-credentials";
+import { canUseDefaultModel } from "@server/services/server-credentials";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
 import { LlmService } from "@server/services/llm/service";
@@ -61,13 +61,15 @@ function normalizeLlmProviderValue(provider: string | null | undefined): LlmProv
     : undefined;
 }
 
+const CLI_PROVIDERS = new Set(["codex", "gemini_cli", "claude_cli"]);
+
 export async function validateLlm(options: {
   apiKey?: string | null;
   provider?: string | null;
   baseUrl?: string | null;
 }): Promise<ValidationResponse> {
   const hostedMode = getJobOpsAppStatus().appMode === "hosted";
-  const restricted = hostedMode || !(await canUseServerCredentials());
+  const restricted = hostedMode || !isSystemAdmin();
   const [storedApiKey, storedProvider, storedBaseUrl] = await Promise.all([
     getSetting("llmApiKey"),
     getSetting("llmProvider"),
@@ -96,7 +98,12 @@ export async function validateLlm(options: {
     allowEnvironmentCredentials: !restricted,
   });
 
-  if (restricted && (isHostedLocalProvider(normalizedProvider) || hasCustomUserBaseUrl)) {
+  if (
+    restricted &&
+    (CLI_PROVIDERS.has(normalizedProvider ?? "") ||
+      isHostedLocalProvider(normalizedProvider) ||
+      hasCustomUserBaseUrl)
+  ) {
     return {
       valid: false,
       message: "Hosted LLM providers must use supported public provider endpoints.",
@@ -185,14 +192,40 @@ function buildRequirement(args: {
 }
 
 async function buildModelRequirement(): Promise<OnboardingRequirement> {
-  const [provider, baseUrl, model, completed] = await Promise.all([
+  const hostedMode = getJobOpsAppStatus().appMode === "hosted";
+  const nonAdminLocal = !hostedMode && !isSystemAdmin();
+  const [provider, baseUrl, model, completed, apiKey] = await Promise.all([
     getSetting("llmProvider"),
     getSetting("llmBaseUrl"),
     getSetting("model"),
     getSetting("onboardingLlmCompleted"),
+    nonAdminLocal ? getSetting("llmApiKey") : Promise.resolve(null),
   ]);
   const normalizedProvider = normalizeLlmProviderValue(provider);
   const providerLabel = normalizedProvider ?? "selected provider";
+
+  if (
+    nonAdminLocal &&
+    (!apiKey?.trim() ||
+      CLI_PROVIDERS.has(normalizedProvider ?? "") ||
+      isHostedLocalProvider(normalizedProvider))
+  ) {
+    return buildRequirement({
+      id: "model",
+      status: "needs_action",
+      title: "Add your own AI API key",
+      message:
+        "Your account does not include the server default model. Add and verify your own AI provider API key before using Job Ops.",
+      primaryAction: "connect_model",
+      details: {
+        provider:
+          CLI_PROVIDERS.has(normalizedProvider ?? "") || isHostedLocalProvider(normalizedProvider)
+            ? null
+            : (normalizedProvider ?? null),
+        baseUrl: null,
+      },
+    });
+  }
 
   if (completed === "1") {
     if (normalizedProvider === "codex") {
@@ -376,9 +409,12 @@ async function migrateLegacyOnboardingState(args: {
 export async function getOnboardingStatus(): Promise<OnboardingStatusResponse> {
   const appStatus = getJobOpsAppStatus();
   const hostedMode = appStatus.appMode === "hosted";
+  const nonAdminLocal = !hostedMode && !isSystemAdmin();
   const userEditableLlmSettings = hostedMode
     ? (await getCurrentAccountEntitlements()).userEditableLlmSettings
-    : appStatus.capabilities.userEditableLlmSettings;
+    : nonAdminLocal
+      ? !(await canUseDefaultModel())
+      : appStatus.capabilities.userEditableLlmSettings;
 
   if (isDemoMode()) {
     const requirements: OnboardingRequirement[] = [
@@ -427,16 +463,23 @@ export async function getOnboardingStatus(): Promise<OnboardingStatusResponse> {
         : "Add your preferred locations and workplace style so Job Ops can prepare sensible run defaults and sponsor-focused sources.",
     primaryAction: profileCompleted === "1" ? "none" : "save_profile",
   });
-  const requirements = userEditableLlmSettings
-    ? [
-        profileRequirement,
-        await buildModelRequirement(),
-        hostedMode ? await buildHostedResumeRequirement() : await buildResumeRequirement(),
-      ]
-    : [
-        profileRequirement,
-        hostedMode ? await buildHostedResumeRequirement() : await buildResumeRequirement(),
-      ];
+  // The system admin only manages users and server-wide settings, so their setup is just the
+  // server's default AI connection. Search preferences and a resume belong to job-seeking users.
+  const adminSetup = !hostedMode && isSystemAdmin();
+  const requirements = adminSetup
+    ? userEditableLlmSettings
+      ? [await buildModelRequirement()]
+      : []
+    : userEditableLlmSettings
+      ? [
+          profileRequirement,
+          await buildModelRequirement(),
+          hostedMode ? await buildHostedResumeRequirement() : await buildResumeRequirement(),
+        ]
+      : [
+          profileRequirement,
+          hostedMode ? await buildHostedResumeRequirement() : await buildResumeRequirement(),
+        ];
   const nextRequirement = requirements.find((requirement) => requirement.status !== "ready");
 
   return {
@@ -465,13 +508,22 @@ async function persistOnboardingSettings(input: UpdateSettingsInput, route: stri
 export async function saveOnboardingModelAction(
   input: OnboardingModelActionInput,
 ): Promise<OnboardingStatusResponse> {
-  if (
-    getJobOpsAppStatus().appMode === "hosted" &&
-    !(await getCurrentAccountEntitlements()).userEditableLlmSettings
-  ) {
+  const hostedMode = getJobOpsAppStatus().appMode === "hosted";
+  if (hostedMode && !(await getCurrentAccountEntitlements()).userEditableLlmSettings) {
     throw forbidden("This hosted account uses the included AI provider.");
   }
   const provider = normalizeLlmProviderValue(input.provider);
+  const restricted = hostedMode || !isSystemAdmin();
+  if (
+    restricted &&
+    (CLI_PROVIDERS.has(provider ?? "") ||
+      isHostedLocalProvider(provider) ||
+      Boolean(input.baseUrl?.trim()))
+  ) {
+    throw forbidden(
+      "CLI, local, and custom-endpoint LLM providers are unavailable for this account.",
+    );
+  }
   const [storedProvider, storedModel] = await Promise.all([
     getSetting("llmProvider"),
     getSetting("model"),

@@ -60,7 +60,22 @@ function CodexAuthPanelShell({ children }: { children: React.ReactNode }) {
 }
 
 function CodexAuthError({ message }: { message: string | null }) {
-  return message ? <p className="text-xs text-destructive">{message}</p> : null;
+  return message ? (
+    <p role="alert" className="text-xs text-destructive">
+      {message}
+    </p>
+  ) : null;
+}
+
+function StableButtonText({ widest, current }: { widest: string; current: string }) {
+  return (
+    <span className="inline-grid items-center justify-items-center">
+      <span className="col-start-1 row-start-1 invisible" aria-hidden="true">
+        {widest}
+      </span>
+      <span className="col-start-1 row-start-1">{current}</span>
+    </span>
+  );
 }
 
 function StepIcon({
@@ -120,6 +135,15 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const codexAuthStatusRef = useRef<CodexAuthStatus | null>(null);
   const onStatusChangeRef = useRef(onStatusChange);
+  const copyTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     onStatusChangeRef.current = onStatusChange;
@@ -198,7 +222,13 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
     try {
       await navigator.clipboard.writeText(code);
       setHasCopiedCode(true);
-      window.setTimeout(() => setHasCopiedCode(false), COPY_FEEDBACK_MS);
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+      copyTimerRef.current = window.setTimeout(() => {
+        copyTimerRef.current = null;
+        setHasCopiedCode(false);
+      }, COPY_FEEDBACK_MS);
     } catch (error) {
       setCodexAuthError(getErrorMessage(error, "Failed to copy code."));
     }
@@ -275,19 +305,22 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
           </Badge>
         </div>
 
-        <div className="flex items-center justify-between gap-3 rounded-md border border-success/30 bg-success/10 px-3 py-2">
-          <p className="text-sm text-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-success/30 bg-success/10 px-3 py-2">
+          <p className="min-w-0 text-sm text-foreground">
             <span className="font-medium">Connected</span>
             {displayUsername ? ` as ${displayUsername}` : ""}. Existing Codex credentials were found
             in this runtime.
           </p>
           <button
             type="button"
-            className="text-xs font-medium text-destructive underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+            className="shrink-0 rounded-sm px-2 py-1 text-xs font-medium text-destructive underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
             onClick={() => void disconnectCodex()}
             disabled={isBusy || isDisconnectingCodexAuth}
           >
-            {isDisconnectingCodexAuth ? "Disconnecting..." : "Disconnect"}
+            <StableButtonText
+              widest="Disconnecting..."
+              current={isDisconnectingCodexAuth ? "Disconnecting..." : "Disconnect"}
+            />
           </button>
         </div>
 
@@ -298,7 +331,7 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
 
   return (
     <CodexAuthPanelShell>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-xs font-medium">Codex Sign-In</div>
         {isWaitingForApproval ? (
           <div className="inline-flex items-center gap-1 text-xs text-warning">
@@ -308,13 +341,14 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
         ) : null}
       </div>
 
-      <div className="rounded-md border border-border bg-card px-3 py-2 font-bold text-muted-foreground">
+      <div className="rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
         Start sign-in to generate a one-time code. After approval in your browser, click{" "}
         <span className="font-medium text-foreground">Check Status</span>.{" "}
         <a
           href="https://developers.openai.com/codex/auth#preferred-device-code-authentication-beta"
           target="_blank"
           rel="noopener noreferrer"
+          className="rounded-sm font-medium text-foreground underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Learn more
         </a>
@@ -348,7 +382,10 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
               disabled={isBusy}
             >
               <Copy className="h-3.5 w-3.5" />
-              {hasCopiedCode ? "Copied" : "Copy code"}
+              <StableButtonText
+                widest="Copy code"
+                current={hasCopiedCode ? "Copied" : "Copy code"}
+              />
             </Button>
             <Button type="button" size="sm" variant="outline" asChild>
               <a
@@ -362,7 +399,7 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
             </Button>
           </div>
           {showExpiryCountdown ? (
-            <div className="text-center text-[11px] text-warning">
+            <div className="text-center text-[11px] tabular-nums text-warning">
               Code expires in {formatRemaining(remainingMs)}
             </div>
           ) : null}
@@ -378,7 +415,10 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
               onClick={() => void refreshCodexAuthStatus()}
               disabled={isBusy || isLoadingCodexAuthStatus}
             >
-              {isLoadingCodexAuthStatus ? "Checking..." : "Check Status"}
+              <StableButtonText
+                widest="Check Status"
+                current={isLoadingCodexAuthStatus ? "Checking..." : "Check Status"}
+              />
             </Button>
             <Button
               type="button"
@@ -387,7 +427,10 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
               onClick={() => void startCodexAuth(true)}
               disabled={isBusy || isStartingCodexAuth}
             >
-              {isStartingCodexAuth ? "Starting..." : "Start New Sign-In"}
+              <StableButtonText
+                widest="Start New Sign-In"
+                current={isStartingCodexAuth ? "Starting..." : "Start New Sign-In"}
+              />
             </Button>
           </>
         ) : (
@@ -397,7 +440,10 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
             onClick={() => void startCodexAuth()}
             disabled={isBusy || isStartingCodexAuth}
           >
-            {isStartingCodexAuth ? "Starting..." : "Start Sign-In"}
+            <StableButtonText
+              widest="Start Sign-In"
+              current={isStartingCodexAuth ? "Starting..." : "Start Sign-In"}
+            />
           </Button>
         )}
       </div>

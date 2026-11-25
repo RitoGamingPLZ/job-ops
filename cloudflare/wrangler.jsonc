@@ -34,6 +34,9 @@
     {
       "class_name": "ScraperContainer",
       "scheduling_policy": "durable_object",
+      // The default "lite" size (1/16 vCPU, 256 MiB) cannot cold-start the Node server and render a
+      // PDF with Typst in time, which surfaces as "container is not listening" on first use.
+      "instance_type": "standard-1",
       "images": {
         "base": {
           "dockerfile": "./Dockerfile",

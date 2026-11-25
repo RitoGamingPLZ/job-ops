@@ -22,6 +22,7 @@ import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { isHostedLocalProvider } from "@server/services/llm/hosted-policy";
 import { LlmService } from "@server/services/llm/service";
 import { refreshPipelineScheduler } from "@server/services/pipeline-scheduler";
+import { canUseDefaultModel } from "@server/services/server-credentials";
 import { getEffectiveSettings } from "@server/services/settings";
 import { applySettingsUpdates } from "@server/services/settings-update";
 import { currentUserHasPermission } from "@server/services/user-permissions";
@@ -52,6 +53,11 @@ const SYSTEM_ADMIN_SETTING_KEYS = new Set<keyof UpdateSettingsInput>([
   "backupEnabled",
   "backupHour",
   "backupMaxCount",
+  "ukvisajobsEmail",
+  "ukvisajobsPassword",
+  "adzunaAppId",
+  "adzunaAppKey",
+  "apifyToken",
 ]);
 
 // Outbound webhooks make server-side requests, so an admin has to switch them on per user.
@@ -335,6 +341,15 @@ settingsRouter.patch(
     if (LLM_SETTING_KEYS.some((key) => hasInputKey(input, key))) {
       await assertLlmSettingsEditable();
       assertHostedLlmInputAllowed(input);
+    }
+    if (
+      getJobOpsAppConfig().appMode !== "hosted" &&
+      !isSystemAdmin() &&
+      hasInputKey(input, "llmApiKey") &&
+      !input.llmApiKey?.trim() &&
+      !(await canUseDefaultModel())
+    ) {
+      input.onboardingLlmCompleted = false;
     }
     const plan = await applySettingsUpdates(input);
     const data = await getEffectiveSettings();

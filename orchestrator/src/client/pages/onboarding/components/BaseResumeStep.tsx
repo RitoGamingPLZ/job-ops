@@ -85,7 +85,7 @@ function ResumeImportProgress({
             <div className="text-xs tabular-nums text-muted-foreground">{progressValue}%</div>
           </div>
           <Progress value={progressValue} className="h-1.5" aria-label="Resume import progress" />
-          <p className="bg-gradient-to-r from-muted-foreground via-foreground to-muted-foreground bg-clip-text text-sm leading-6 text-transparent motion-safe:animate-pulse">
+          <p className="bg-gradient-to-r from-muted-foreground via-foreground to-muted-foreground bg-clip-text text-sm leading-6 text-transparent motion-safe:animate-pulse forced-colors:text-[CanvasText]">
             {isLongRunning
               ? progressProfile.longRunningMessage
               : RESUME_IMPORT_STEPS[activeStepIndex]}
@@ -118,6 +118,7 @@ export const BaseResumeStep: React.FC<{
       <input
         ref={fileInputRef}
         type="file"
+        aria-label="Upload resume file"
         accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,application/json,.json"
         className="hidden"
         onChange={(event) => {

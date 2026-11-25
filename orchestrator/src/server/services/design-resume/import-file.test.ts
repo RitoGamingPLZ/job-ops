@@ -368,6 +368,78 @@ describe("importDesignResumeFromFile", () => {
     expect(projectIds[3]).toBe("project-keep");
   });
 
+  it("keeps job duties as list items when the model returns glyph bullets or nested roles", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          output_text: JSON.stringify({
+            basics: { name: "Taylor Quinn" },
+            sections: {
+              experience: {
+                items: [
+                  {
+                    id: "",
+                    company: "Acme",
+                    position: "Engineer",
+                    period: "2020 - 2022",
+                    description:
+                      "Built the billing platform\n• Cut invoice latency by 40%\n• Led a team of four\n  engineers across two time zones\n- Wrote the migration runbook",
+                  },
+                  {
+                    id: "",
+                    company: "Globex",
+                    position: "",
+                    period: "2016 - 2020",
+                    description: "",
+                    roles: [
+                      {
+                        position: "Senior Developer",
+                        period: "2018 - 2020",
+                        description: "<ul><li>Owned the API</li><li>Mentored juniors</li></ul>",
+                      },
+                      {
+                        position: "Developer",
+                        period: "2016 - 2018",
+                        description: "<p>• Shipped the mobile app</p><p>• Fixed 200 bugs</p>",
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          }),
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const result = await importDesignResumeFromFile({
+      fileName: "resume.pdf",
+      mediaType: "application/pdf",
+      dataBase64: Buffer.from("pdf-data").toString("base64"),
+    });
+
+    const items = result.resumeJson.sections.experience.items;
+    expect(items).toHaveLength(3);
+    expect(items[0]?.description).toBe(
+      "<p>Built the billing platform</p><ul><li>Cut invoice latency by 40%</li><li>Led a team of four engineers across two time zones</li><li>Wrote the migration runbook</li></ul>",
+    );
+    expect(items[1]).toMatchObject({
+      company: "Globex",
+      position: "Senior Developer",
+      period: "2018 - 2020",
+      description: "<ul><li>Owned the API</li><li>Mentored juniors</li></ul>",
+      roles: [],
+    });
+    expect(items[2]).toMatchObject({
+      company: "Globex",
+      position: "Developer",
+      description: "<ul><li>Shipped the mobile app</li><li>Fixed 200 bugs</li></ul>",
+    });
+    expect(new Set(items.map((item) => item.id)).size).toBe(3);
+    expect(items.every((item) => item.id.trim() !== "")).toBe(true);
+  });
+
   it("extracts DOCX text locally before sending it to Gemini", async () => {
     modelSelection.resolveLlmRuntimeSettings.mockResolvedValueOnce({
       provider: "gemini",

@@ -1,5 +1,7 @@
-import { badRequest, toAppError } from "@infra/errors";
+import { badRequest, forbidden, toAppError } from "@infra/errors";
 import { fail, ok } from "@infra/http";
+import { isSystemAdmin } from "@infra/request-context";
+import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { isDemoMode, sendDemoBlocked } from "@server/config/demo";
 import * as jobsRepo from "@server/repositories/jobs";
 import type { JobStatus } from "@shared/types";
@@ -7,6 +9,12 @@ import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 
 export const jobsMaintenanceRouter = Router();
+
+function requireAdminForMaintenance(res: Response): boolean {
+  if (getJobOpsAppConfig().appMode === "hosted" || isSystemAdmin()) return true;
+  fail(res, forbidden("System admin access is required"));
+  return false;
+}
 
 const jobStatusParamSchema = z.enum([
   "discovered",
@@ -20,6 +28,7 @@ const jobStatusParamSchema = z.enum([
 
 jobsMaintenanceRouter.delete("/status/:status", async (req: Request, res: Response) => {
   try {
+    if (!requireAdminForMaintenance(res)) return;
     if (isDemoMode()) {
       return sendDemoBlocked(res, "Clearing jobs by status is disabled to keep the demo stable.", {
         route: "DELETE /api/jobs/status/:status",
@@ -46,6 +55,7 @@ jobsMaintenanceRouter.delete("/status/:status", async (req: Request, res: Respon
 
 jobsMaintenanceRouter.delete("/score/:threshold", async (req: Request, res: Response) => {
   try {
+    if (!requireAdminForMaintenance(res)) return;
     if (isDemoMode()) {
       return sendDemoBlocked(res, "Clearing jobs by score is disabled to keep the demo stable.", {
         route: "DELETE /api/jobs/score/:threshold",

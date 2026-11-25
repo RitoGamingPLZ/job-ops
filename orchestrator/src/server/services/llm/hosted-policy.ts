@@ -1,4 +1,10 @@
-const HOSTED_LOCAL_PROVIDERS = new Set(["ollama", "lmstudio", "lm_studio"]);
+const HOSTED_LOCAL_PROVIDERS = new Set([
+  "ollama",
+  "lmstudio",
+  "lm_studio",
+  "litellm",
+  "litellm_proxy",
+]);
 
 function normalizeProvider(provider: string | null | undefined): string {
   return provider?.trim().toLowerCase().replace(/[-.]/g, "_") ?? "";

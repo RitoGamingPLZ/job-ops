@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Library,
   Settings,
+  Users,
 } from "lucide-react";
 
 export type NavLink = {
@@ -52,3 +53,12 @@ export const isNavActive = (pathname: string, to: string, activePaths?: string[]
   if (!activePaths) return false;
   return activePaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 };
+
+/** The system admin only manages users and server-wide settings, so job and resume pages are hidden. */
+export const ADMIN_NAV_LINKS: NavLink[] = [
+  { to: "/users", label: "Users", icon: Users },
+  { to: "/settings", label: "Settings", icon: Settings },
+];
+
+/** Paths a system admin may open; every other app route redirects to the Users page. */
+export const ADMIN_ALLOWED_PATHS = ["/users", "/settings", "/oauth/gmail/callback"];

@@ -116,11 +116,12 @@ export function SectionWorkspaceNav<
                             key={item.id}
                             type="button"
                             variant="ghost"
+                            aria-current={isActive ? "page" : undefined}
                             className={cn(
-                              "h-auto min-h-9 w-full justify-start gap-2 rounded-md px-3 py-2 text-left text-sm font-medium",
+                              "h-auto min-h-9 w-full justify-start gap-2 rounded-md border px-3 py-2 text-left text-sm font-medium",
                               isActive
-                                ? "border border-primary/40 bg-primary/12 text-white hover:bg-primary/18"
-                                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                                ? "border-primary/40 bg-primary/12 text-foreground hover:bg-primary/18"
+                                : "border-transparent text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                             )}
                             onClick={() => onSectionSelect(item.id)}
                           >
@@ -197,9 +198,7 @@ export function SectionWorkspacePanel({
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{sectionDescription}</p>
         </div>
 
-        {actions ? (
-          <div className="flex shrink-0 flex-nowrap gap-2 self-start">{actions}</div>
-        ) : null}
+        {actions ? <div className="flex shrink-0 flex-wrap gap-2 self-start">{actions}</div> : null}
       </div>
     </header>
   );

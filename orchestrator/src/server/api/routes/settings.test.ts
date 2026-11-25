@@ -101,7 +101,7 @@ describe("Settings API routes", () => {
     expect(Array.isArray(body.data.searchTerms.value)).toBe(true);
     expect(body.data.pdfRenderer.value).toBe("typst");
     expect(body.data.pdfRenderer.default).toBe("typst");
-    expect(body.data.llmApiKeyHint).toBe("secr");
+    expect(body.data.llmApiKeyHint).toBe("********");
     expect(body.data).not.toHaveProperty("basicAuthUser");
     expect(body.data).not.toHaveProperty("basicAuthPassword");
     expect(body.data).not.toHaveProperty("basicAuthPasswordHint");
@@ -332,7 +332,7 @@ describe("Settings API routes", () => {
     expect(patchBody.data.pdfRenderer.override).toBe("latex");
     expect(patchBody.data.searchTerms.value).toEqual(["engineer"]);
     expect(patchBody.data.searchTerms.override).toEqual(["engineer"]);
-    expect(patchBody.data.llmApiKeyHint).toBe("upda");
+    expect(patchBody.data.llmApiKeyHint).toBe("********");
     expect(patchBody.data).not.toHaveProperty("basicAuthUser");
     expect(patchBody.data).not.toHaveProperty("basicAuthPassword");
     expect(patchBody.data.ghostwriterSystemPromptTemplate.override).toBe(

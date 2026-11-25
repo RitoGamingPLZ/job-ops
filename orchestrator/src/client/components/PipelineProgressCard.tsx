@@ -191,7 +191,7 @@ export const PipelineProgressCard = ({
           <div className="flex min-w-0 flex-col gap-2">
             <CardTitle className="text-2xl tracking-tight">{stepTitles[progress.step]}</CardTitle>
             <CardDescription
-              className="overflow-hidden text-base leading-6"
+              className={`overflow-hidden text-base leading-6${stageCopy ? " min-h-12" : ""}`}
               title={stageText ?? undefined}
             >
               {stageCopy ? (

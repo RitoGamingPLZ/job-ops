@@ -69,7 +69,9 @@ describe("PipelineProgressCard", () => {
     );
 
     expect(screen.getByTitle("Ranking Platform Engineer against your profile")).toBeInTheDocument();
-    expect(container.querySelector("[data-live-job-title]")).toHaveTextContent("Platform Engineer");
+    const liveTitle = container.querySelector("[data-live-job-title]");
+    expect(liveTitle).toHaveTextContent("Platform Engineer");
+    expect(liveTitle?.closest(".min-h-12")).not.toBeNull();
   });
 
   it("shows failures clearly", () => {

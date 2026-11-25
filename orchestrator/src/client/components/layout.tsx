@@ -25,7 +25,7 @@ import { useVersionCheck } from "../hooks/useVersionCheck";
 import { queryKeys } from "../lib/queryKeys";
 import { loadRememberedAuthUsers, type RememberedAuthUser } from "../lib/remembered-auth-users";
 import { useTheme } from "../lib/theme";
-import { isNavActive, NAV_LINKS } from "./navigation";
+import { ADMIN_NAV_LINKS, isNavActive, NAV_LINKS } from "./navigation";
 import { StatusBadgeIndicator } from "./StatusIndicator";
 import { Tip } from "./Tip";
 
@@ -33,6 +33,8 @@ export const AppModeContext = React.createContext({
   appMode: "local" as "local" | "hosted",
   isPending: false,
   isSystemAdmin: false,
+  // The system admin gets a console with only users and server-wide settings (self-hosted only).
+  isAdminConsole: false,
   permissions: { ...DEFAULT_USER_PERMISSIONS } as UserPermissions,
 });
 
@@ -58,6 +60,9 @@ export const AppModeProvider: React.FC<{ children: React.ReactNode }> = ({ child
         appMode: appStatusQuery.data?.appMode ?? "local",
         isPending: appStatusQuery.isPending || (hasSession && currentUserQuery.isPending),
         isSystemAdmin: currentUserQuery.data?.isSystemAdmin === true,
+        isAdminConsole:
+          currentUserQuery.data?.isSystemAdmin === true &&
+          appStatusQuery.data?.appMode !== "hosted",
         permissions: currentUserQuery.data?.permissions ?? DEFAULT_USER_PERMISSIONS,
       }}
     >
@@ -81,12 +86,16 @@ const buildSignInPath = (username: string, nextPath: string): string => {
 
 const SidebarNav: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
   const location = useLocation();
-  const { appMode, permissions } = React.useContext(AppModeContext);
+  const { appMode, permissions, isAdminConsole, isPending } = React.useContext(AppModeContext);
   // The inbox runs on the operator's Gmail OAuth app, so an admin enables it per user.
   const showTrackingInbox = appMode !== "hosted" && permissions.emailTracking;
-  const navLinks = showTrackingInbox
-    ? NAV_LINKS
-    : NAV_LINKS.filter(({ to }) => to !== "/tracking-inbox");
+  const navLinks = isAdminConsole
+    ? ADMIN_NAV_LINKS
+    : isPending
+      ? []
+      : showTrackingInbox
+        ? NAV_LINKS
+        : NAV_LINKS.filter(({ to }) => to !== "/tracking-inbox");
 
   return (
     <nav className="flex flex-col gap-0.5 px-2 py-2">

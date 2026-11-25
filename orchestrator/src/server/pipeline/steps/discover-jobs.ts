@@ -38,6 +38,7 @@ import { discoverWatchlistJobsForPipeline } from "./watchlist-jobs";
 import {
   canUseServerCredentials,
   hasOwnExtractorCredentials,
+  isOperatorContext,
 } from "@server/services/server-credentials";
 
 const DISCOVERY_CONCURRENCY = 3;
@@ -166,7 +167,9 @@ export async function discoverJobsStep(args: {
   if (searchTermsSetting) {
     searchTerms = JSON.parse(searchTermsSetting) as string[];
   } else {
-    const defaultSearchTermsEnv = process.env.JOBSPY_SEARCH_TERMS || "web developer";
+    const defaultSearchTermsEnv = (await isOperatorContext())
+      ? process.env.JOBSPY_SEARCH_TERMS || "web developer"
+      : "web developer";
     searchTerms = defaultSearchTermsEnv
       .split("|")
       .map((term) => term.trim())

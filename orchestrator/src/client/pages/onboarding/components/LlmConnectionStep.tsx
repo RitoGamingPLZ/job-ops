@@ -1,6 +1,10 @@
 import type * as api from "@client/api";
 import { LlmModelConfiguration } from "@client/components/llmmodelconfiguration/LlmModelConfiguration";
-import { getLlmProviderConfig, type LlmProviderId } from "@client/pages/settings/utils";
+import {
+  getLlmProviderConfig,
+  type LlmProviderId,
+  RESTRICTED_LLM_PROVIDERS,
+} from "@client/pages/settings/utils";
 import type React from "react";
 import type { ValidationState } from "../types";
 import { InlineValidation } from "./InlineValidation";
@@ -13,6 +17,7 @@ export const LlmConnectionStep: React.FC<{
   isBusy: boolean;
   llmKeyHint: string | null;
   model: string;
+  restrictProviders?: boolean;
   savedBaseUrl: string | null | undefined;
   savedProvider: string | null | undefined;
   selectedProvider: LlmProviderId;
@@ -30,6 +35,7 @@ export const LlmConnectionStep: React.FC<{
   isBusy,
   llmKeyHint,
   model,
+  restrictProviders = false,
   savedBaseUrl,
   savedProvider,
   selectedProvider,
@@ -40,7 +46,11 @@ export const LlmConnectionStep: React.FC<{
   onModelChange,
   onProviderChange,
 }) => {
-  const providerConfig = getLlmProviderConfig(selectedProvider);
+  const effectiveSelectedProvider =
+    restrictProviders && !RESTRICTED_LLM_PROVIDERS.some((id) => id === selectedProvider)
+      ? (RESTRICTED_LLM_PROVIDERS[0] ?? selectedProvider)
+      : selectedProvider;
+  const providerConfig = getLlmProviderConfig(effectiveSelectedProvider);
   const displayValidation =
     !providerConfig.requiresApiKey && validation.message?.toLowerCase().includes("api key")
       ? { ...validation, checked: false, message: null }
@@ -51,7 +61,8 @@ export const LlmConnectionStep: React.FC<{
       <LlmModelConfiguration
         mode="compact"
         disabled={isBusy}
-        selectedProvider={selectedProvider}
+        restrictProviders={restrictProviders}
+        selectedProvider={effectiveSelectedProvider}
         savedProvider={savedProvider}
         savedBaseUrl={savedBaseUrl}
         apiKeyHint={llmKeyHint}
