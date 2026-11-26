@@ -44,7 +44,9 @@ If AI setup is unavailable, the review clearly says that the existing criteria w
 
 ### Daily searches
 
-**Self-hosted with several users.** The system admin owns the schedule: **Settings > Backup > Run every user's job search daily**, plus the hour (default 07:00 in the server's local time zone; off by default). Users cannot change it. Each user decides what runs: on the **Jobs** search page, set the sources, search terms, location and run limits, then choose **Save as daily search**. **Run search** also saves what it ran, so a user's last manual search is their daily search until they save a different one.
+**Daily search** (`/daily-search`) opens directly on **Configure your search** so you can review and update saved search criteria right away; click **Describe search** if you prefer natural-language AI setup.
+
+**Self-hosted with several users.** The system admin owns the schedule: **Settings > Backup > Run every user's job search daily**, plus the hour (default 07:00 in the server's local time zone; off by default). Users cannot change it. Each user decides what runs: on **Daily search** (or **Find jobs**), set the sources, search terms, location and run limits, then choose **Save daily search**. **Run search** also saves what it ran, so a user's last manual search is their daily search until they save a different one.
 
 At the admin's hour every user with a saved search is started, each with their own sources and filters. Searches share a small pool of scrapers (`MAX_CONCURRENT_PIPELINES`, default 3), and the daily run uses at most one fewer so a person can still start a search by hand. Users wait their turn instead of being dropped, in an order that rotates each day. The queue gives up on anyone still waiting after 20 hours. A user who never saved a search is skipped.
 
@@ -73,7 +75,7 @@ value in this browser. If you picked **Custom**, it reopens in Custom mode with
 the same values. The pipeline run itself still derives per-source caps from the
 saved budget when you start the run.
 
-**Find jobs** always opens search setup. Adding a job does not change that entry point.
+**Find jobs** always opens search setup. First-time users start with an empty Watchlist and see a starter Watchlist template inside **Find jobs** and **Daily search** offering curated company groups or quick custom career-URL setup. Adding a job manually does not change that entry point.
 
 #### Search area
 

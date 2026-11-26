@@ -9,6 +9,8 @@ const bodySchema = z.object({
   sourceType: z.string().trim().min(1).max(120),
   careersUrl: z.string().trim().url().max(2000),
   label: z.string().trim().min(1).max(200).nullable().optional(),
+  description: z.string().trim().max(500).nullable().optional(),
+  forceRefresh: z.boolean().optional(),
 });
 
 // Mounted under the same app auth and tenant-context middleware as watchlist.ts.
@@ -19,7 +21,7 @@ watchlistAutofilterRouter.post(
     if (!parsed.success)
       return fail(res, badRequest("Invalid filter suggestion payload", parsed.error.flatten()));
     try {
-      ok(res, await suggestFilters(parsed.data));
+      ok(res, await suggestFilters({ ...parsed.data, useCache: true }));
     } catch (error) {
       const unavailable =
         error instanceof Error &&

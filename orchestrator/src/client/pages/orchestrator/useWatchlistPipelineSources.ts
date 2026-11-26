@@ -1,9 +1,22 @@
 import * as api from "@client/api";
+import { showErrorToast } from "@client/lib/error-toast";
 import { queryKeys } from "@client/lib/queryKeys";
-import type { WatchlistSelectedSource } from "@shared/types";
-import { useQuery } from "@tanstack/react-query";
+import { getCoveredCatalogSourceIds } from "@client/pages/watchlist/utils";
+import {
+  MAX_WATCHLIST_SOURCES,
+  type WatchedSourceType,
+  type WatchlistSelectedSource,
+  type WatchlistSource,
+  type WatchlistSourceGroup,
+  type WatchlistSourceScanInput,
+  type WatchlistSourceScanResponse,
+  type WatchlistSourceTypeDescriptor,
+} from "@shared/types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { getAuthScopedStorageKey } from "@/client/api/client";
+import { trackProductEvent } from "@/lib/analytics";
 import { PIPELINE_WATCHLIST_SOURCES_STORAGE_KEY } from "./constants";
 
 function getWatchlistPipelineSourcesStorageKey(): string {
@@ -77,31 +90,88 @@ function reconcileSelection(args: {
   return { selectedIds: deduped, knownIds: availableIds };
 }
 
+export type AddCustomWatchlistSourceInput = {
+  careersUrl: string;
+  label?: string;
+  description?: string;
+  sourceType?: WatchedSourceType;
+  catalogSourceId?: string | null;
+};
+
 export type UseWatchlistPipelineSourcesResult = {
+  canUseWatchlist: boolean;
   watchlistSources: WatchlistSelectedSource[];
+  watchlistCatalogSources: WatchlistSource[];
+  watchlistGroups: WatchlistSourceGroup[];
+  watchlistSourceTypes: WatchlistSourceTypeDescriptor[];
   selectedWatchlistSourceIds: string[];
   setSelectedWatchlistSourceIds: (ids: string[]) => void;
   toggleWatchlistSource: (sourceId: string, checked: boolean) => void;
+  applyWatchlistGroup: (group: WatchlistSourceGroup) => Promise<void>;
+  addCustomWatchlistSource: (input: AddCustomWatchlistSourceInput) => Promise<boolean>;
+  scanCustomWatchlistSource: (
+    input: WatchlistSourceScanInput,
+  ) => Promise<WatchlistSourceScanResponse>;
+  isMutatingWatchlist: boolean;
   isLoading: boolean;
   isError: boolean;
 };
 
+function toExistingSelections(sources: WatchlistSelectedSource[]) {
+  return sources.map((source) => ({
+    catalogSourceId: source.catalogSourceId,
+    sourceType: source.sourceType,
+    label: source.label,
+    careersUrl: source.careersUrl,
+    ...(source.description?.trim() ? { description: source.description.trim() } : {}),
+  }));
+}
+
 export function useWatchlistPipelineSources(options?: {
   enabled?: boolean;
 }): UseWatchlistPipelineSourcesResult {
+  const canUseWatchlist = options?.enabled ?? true;
+  const queryClient = useQueryClient();
   const storageKey = useMemo(() => getWatchlistPipelineSourcesStorageKey(), []);
 
   const watchlistSourcesQuery = useQuery({
     queryKey: queryKeys.watchlist.sources(),
     queryFn: api.getWatchlistSources,
     staleTime: 30_000,
-    enabled: options?.enabled ?? true,
+    enabled: canUseWatchlist,
   });
 
   const watchlistSources = useMemo(
     () => watchlistSourcesQuery.data?.selectedSources ?? [],
     [watchlistSourcesQuery.data],
   );
+  const watchlistCatalogSources = useMemo(
+    () => watchlistSourcesQuery.data?.catalogSources ?? [],
+    [watchlistSourcesQuery.data],
+  );
+  const watchlistGroups = useMemo(
+    () => watchlistSourcesQuery.data?.groups ?? [],
+    [watchlistSourcesQuery.data],
+  );
+  const watchlistSourceTypes = useMemo(
+    () => watchlistSourcesQuery.data?.availableSourceTypes ?? [],
+    [watchlistSourcesQuery.data],
+  );
+
+  const saveSourcesMutation = useMutation({
+    mutationFn: (input: Parameters<typeof api.updateWatchlistSources>[0]) =>
+      api.updateWatchlistSources(input),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.watchlist.sources(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.watchlist.results(),
+        }),
+      ]);
+    },
+  });
 
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
     const stored = readStoredSelection(storageKey);
@@ -170,11 +240,123 @@ export function useWatchlistPipelineSources(options?: {
     [persistSelection, watchlistSources],
   );
 
+  const applyWatchlistGroup = useCallback(
+    async (group: WatchlistSourceGroup) => {
+      const currentDrafts = watchlistSources.map((source) => ({
+        catalogSourceId: source.catalogSourceId,
+        sourceType: source.sourceType,
+        customUrl: source.isCustom ? source.careersUrl : "",
+      }));
+      const alreadyAdded = getCoveredCatalogSourceIds(currentDrafts, watchlistCatalogSources);
+      const catalogById = new Map(watchlistCatalogSources.map((source) => [source.id, source]));
+      const room = Math.max(0, MAX_WATCHLIST_SOURCES - watchlistSources.length);
+      const missing = group.sourceIds.flatMap((id) => {
+        const source = catalogById.get(id);
+        return source && !alreadyAdded.has(id) ? [source] : [];
+      });
+      const toAdd = missing.slice(0, room);
+
+      if (toAdd.length === 0) {
+        toast.info(
+          missing.length > 0
+            ? `Your watchlist is full (${MAX_WATCHLIST_SOURCES} sources max).`
+            : `Everything in ${group.label} is already in your watchlist.`,
+        );
+        return;
+      }
+
+      const nextSelections = [
+        ...toExistingSelections(watchlistSources),
+        ...toAdd.map((source) => ({
+          catalogSourceId: source.id,
+          sourceType: source.sourceType,
+          label: source.label,
+          careersUrl: source.careersUrl,
+          ...(source.description?.trim() ? { description: source.description.trim() } : {}),
+        })),
+      ];
+
+      try {
+        await saveSourcesMutation.mutateAsync({ selections: nextSelections });
+        trackProductEvent("watchlist_source_group_added", {
+          group_id: group.id,
+          added_count: toAdd.length,
+        });
+        trackProductEvent("watchlist_sources_saved", {
+          source_count: nextSelections.length,
+          catalog_count: nextSelections.filter((item) => item.catalogSourceId !== null).length,
+          custom_count: nextSelections.filter((item) => item.catalogSourceId === null).length,
+        });
+        toast.success(`Added ${toAdd.length} from ${group.label} to Watchlist`);
+      } catch (error) {
+        showErrorToast(error, `Failed to add ${group.label} to Watchlist`);
+      }
+    },
+    [saveSourcesMutation, watchlistCatalogSources, watchlistSources],
+  );
+
+  const addCustomWatchlistSource = useCallback(
+    async (input: AddCustomWatchlistSourceInput): Promise<boolean> => {
+      if (watchlistSources.length >= MAX_WATCHLIST_SOURCES) {
+        toast.info(`Your watchlist is full (${MAX_WATCHLIST_SOURCES} sources max).`);
+        return false;
+      }
+
+      const trimmedUrl = input.careersUrl.trim();
+      const trimmedLabel = input.label?.trim() || trimmedUrl;
+      const trimmedDescription = input.description?.trim() || "";
+      if (!trimmedUrl) return false;
+
+      const nextSelections = [
+        ...toExistingSelections(watchlistSources),
+        {
+          catalogSourceId: input.catalogSourceId ?? null,
+          sourceType: input.sourceType ?? "careers_site",
+          label: trimmedLabel,
+          careersUrl: trimmedUrl,
+          ...(trimmedDescription ? { description: trimmedDescription } : {}),
+        },
+      ];
+
+      try {
+        await saveSourcesMutation.mutateAsync({ selections: nextSelections });
+        trackProductEvent("watchlist_sources_saved", {
+          source_count: nextSelections.length,
+          catalog_count: nextSelections.filter((item) => item.catalogSourceId !== null).length,
+          custom_count: nextSelections.filter((item) => item.catalogSourceId === null).length,
+        });
+        toast.success(`Added ${trimmedLabel} to Watchlist`);
+        return true;
+      } catch (error) {
+        showErrorToast(error, "Failed to add source to Watchlist");
+        return false;
+      }
+    },
+    [saveSourcesMutation, watchlistSources],
+  );
+
+  const scanCustomWatchlistSource = useCallback(
+    async (input: WatchlistSourceScanInput): Promise<WatchlistSourceScanResponse> => {
+      const response = await api.scanWatchlistSource(input);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.watchlist.sources() });
+      return response;
+    },
+    [queryClient],
+  );
+
   return {
+    canUseWatchlist,
     watchlistSources,
+    watchlistCatalogSources,
+    watchlistGroups,
+    watchlistSourceTypes,
     selectedWatchlistSourceIds: selectedIds,
     setSelectedWatchlistSourceIds,
     toggleWatchlistSource,
+    applyWatchlistGroup,
+    addCustomWatchlistSource,
+    scanCustomWatchlistSource,
+    isMutatingWatchlist: saveSourcesMutation.isPending,
     isLoading: watchlistSourcesQuery.isLoading,
     isError: watchlistSourcesQuery.isError,
   };

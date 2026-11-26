@@ -1,4 +1,12 @@
-import type { JobSource, WatchlistSelectedSource } from "@shared/types";
+import { WatchlistEmptyTemplateCard } from "@client/pages/watchlist/WatchlistEmptyTemplateCard";
+import type {
+  JobSource,
+  WatchlistSelectedSource,
+  WatchlistSource,
+  WatchlistSourceGroup,
+  WatchlistSourceScanInput,
+  WatchlistSourceScanResponse,
+} from "@shared/types";
 import {
   AnimatePresence,
   motion,
@@ -16,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { sourceLabel } from "@/lib/utils";
+import type { AddCustomWatchlistSourceInput } from "./useWatchlistPipelineSources";
 
 const SOURCE_MOTION_EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -34,11 +43,18 @@ interface AutomaticSourcePickerCardProps {
   selectedSourceRows: AutomaticSourcePickerRow[];
   readySourceRows: AutomaticSourcePickerRow[];
   unavailableSourceRows: AutomaticSourcePickerRow[];
+  canUseWatchlist?: boolean;
   watchlistSources: WatchlistSelectedSource[];
+  watchlistCatalogSources?: WatchlistSource[];
+  watchlistGroups?: WatchlistSourceGroup[];
   selectedWatchlistSourceIds: string[];
   isWatchlistSourcesLoading: boolean;
+  isMutatingWatchlist?: boolean;
   onSourceToggle: (source: JobSource, checked: boolean) => void;
   onWatchlistSourceToggle?: (sourceId: string, checked: boolean) => void;
+  onApplyWatchlistGroup?: (group: WatchlistSourceGroup) => Promise<void>;
+  onAddCustomWatchlistSource?: (input: AddCustomWatchlistSourceInput) => Promise<boolean>;
+  onScanWatchlistSource?: (input: WatchlistSourceScanInput) => Promise<WatchlistSourceScanResponse>;
 }
 
 export function AutomaticSourcePickerCard({
@@ -46,11 +62,18 @@ export function AutomaticSourcePickerCard({
   selectedSourceRows,
   readySourceRows,
   unavailableSourceRows,
+  canUseWatchlist = true,
   watchlistSources,
+  watchlistCatalogSources = [],
+  watchlistGroups = [],
   selectedWatchlistSourceIds,
   isWatchlistSourcesLoading,
+  isMutatingWatchlist = false,
   onSourceToggle,
   onWatchlistSourceToggle,
+  onApplyWatchlistGroup,
+  onAddCustomWatchlistSource,
+  onScanWatchlistSource,
 }: AutomaticSourcePickerCardProps) {
   const prefersReducedMotion = useReducedMotion();
   const sourceMotionTransition = prefersReducedMotion
@@ -64,6 +87,11 @@ export function AutomaticSourcePickerCard({
   const sourceRowExit = prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.985 };
   const availableCount = sourceRows.filter((row) => row.status.available).length;
   const selectedCount = selectedSourceRows.length + selectedWatchlistSourceIds.length;
+  const showEmptyWatchlistTemplate =
+    canUseWatchlist &&
+    !isWatchlistSourcesLoading &&
+    watchlistSources.length === 0 &&
+    Boolean(onApplyWatchlistGroup || onAddCustomWatchlistSource);
 
   return (
     <Card>
@@ -81,6 +109,16 @@ export function AutomaticSourcePickerCard({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        {showEmptyWatchlistTemplate ? (
+          <WatchlistEmptyTemplateCard
+            groups={watchlistGroups}
+            catalogSources={watchlistCatalogSources}
+            isMutating={isMutatingWatchlist}
+            onApplyGroup={onApplyWatchlistGroup}
+            onAddCustomSource={onAddCustomWatchlistSource}
+            onScanSource={onScanWatchlistSource}
+          />
+        ) : null}
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="sources" className="border-b-0">
             <AccordionTrigger
@@ -155,16 +193,19 @@ export function AutomaticSourcePickerCard({
                   rowAnimate={sourceSectionAnimate}
                   rowExit={sourceRowExit}
                 />
-                <WatchlistSourceGroup
-                  sources={watchlistSources}
-                  selectedSourceIds={selectedWatchlistSourceIds}
-                  isLoading={isWatchlistSourcesLoading}
-                  transition={sourceMotionTransition}
-                  rowInitial={sourceRowInitial}
-                  rowAnimate={sourceSectionAnimate}
-                  rowExit={sourceRowExit}
-                  onSourceToggle={onWatchlistSourceToggle}
-                />
+                {canUseWatchlist ? (
+                  <WatchlistSourceGroup
+                    sources={watchlistSources}
+                    selectedSourceIds={selectedWatchlistSourceIds}
+                    isLoading={isWatchlistSourcesLoading}
+                    hideEmptyPrompt={showEmptyWatchlistTemplate}
+                    transition={sourceMotionTransition}
+                    rowInitial={sourceRowInitial}
+                    rowAnimate={sourceSectionAnimate}
+                    rowExit={sourceRowExit}
+                    onSourceToggle={onWatchlistSourceToggle}
+                  />
+                ) : null}
               </motion.div>
             </AccordionContent>
           </AccordionItem>
@@ -178,6 +219,7 @@ interface WatchlistSourceGroupProps {
   sources: WatchlistSelectedSource[];
   selectedSourceIds: string[];
   isLoading: boolean;
+  hideEmptyPrompt?: boolean;
   transition: Transition;
   rowInitial: TargetAndTransition;
   rowAnimate: TargetAndTransition;
@@ -189,12 +231,17 @@ function WatchlistSourceGroup({
   sources,
   selectedSourceIds,
   isLoading,
+  hideEmptyPrompt = false,
   transition,
   rowInitial,
   rowAnimate,
   rowExit,
   onSourceToggle,
 }: WatchlistSourceGroupProps) {
+  if (sources.length === 0 && !isLoading && hideEmptyPrompt) {
+    return null;
+  }
+
   return (
     <motion.div layout transition={transition} className="space-y-2">
       <motion.div layout transition={transition} className="flex items-center justify-between">

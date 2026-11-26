@@ -1,7 +1,8 @@
 import { suggestWatchlistFilters } from "@client/api/watchlist";
-import type { Suggestion } from "@server/watchlist/autofilter/types";
+import type { WatchlistSuggestedFilterPlan } from "@shared/types.js";
 import { Loader2, SlidersHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +10,7 @@ interface SuggestFiltersPanelProps {
   sourceType: string;
   careersUrl: string;
   label: string;
+  description?: string;
   onUse: (url: string) => void;
 }
 
@@ -16,9 +18,10 @@ export function SuggestFiltersPanel({
   sourceType,
   careersUrl,
   label,
+  description,
   onUse,
 }: SuggestFiltersPanelProps) {
-  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [suggestion, setSuggestion] = useState<WatchlistSuggestedFilterPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const request = useRef(0);
@@ -40,11 +43,13 @@ export function SuggestFiltersPanel({
     setLoading(true);
     setError(null);
     setSuggestion(null);
+    const trimmedDescription = description?.trim();
     try {
       const result = await suggestWatchlistFilters({
         sourceType,
         careersUrl,
         label,
+        ...(trimmedDescription ? { description: trimmedDescription } : {}),
       });
       if (currentRequest === request.current) setSuggestion(result);
     } catch (error) {
@@ -83,9 +88,16 @@ export function SuggestFiltersPanel({
         {error ? <p className="text-destructive">{error}</p> : null}
         {suggestion ? (
           <div className="space-y-2 rounded-md border border-border bg-muted/60 p-2.5 dark:bg-background/70">
-            <p className="font-medium tabular-nums text-foreground">
-              {suggestion.totals.filtered} of {suggestion.totals.unfiltered} jobs
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-medium tabular-nums text-foreground">
+                {suggestion.totals.filtered} of {suggestion.totals.unfiltered} jobs
+              </p>
+              {suggestion.reused ? (
+                <Badge variant="secondary" className="text-[10px]">
+                  Reused saved filter plan
+                </Badge>
+              ) : null}
+            </div>
             <p className="break-all text-muted-foreground">{suggestion.suggestedUrl}</p>
             <p className="text-muted-foreground">{suggestion.rationale}</p>
             {suggestion.sampleTitles.length > 0 ? (

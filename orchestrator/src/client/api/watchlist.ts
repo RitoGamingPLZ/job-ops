@@ -1,4 +1,3 @@
-import type { Suggestion } from "@server/watchlist/autofilter/types";
 import type {
   UpdateWatchlistSelectionsInput,
   WatchlistCheckInput,
@@ -12,7 +11,10 @@ import type {
   WatchlistResultsResponse,
   WatchlistSourceBrandingInput,
   WatchlistSourceBrandingResponse,
+  WatchlistSourceScanInput,
+  WatchlistSourceScanResponse,
   WatchlistSourcesResponse,
+  WatchlistSuggestedFilterPlan,
 } from "@shared/types";
 import { fetchApi } from "./core";
 
@@ -99,12 +101,23 @@ export async function unignoreWatchlistJob(input: {
   });
 }
 
+export async function scanWatchlistSource(
+  input: WatchlistSourceScanInput,
+): Promise<WatchlistSourceScanResponse> {
+  return fetchApi<WatchlistSourceScanResponse>("/watchlist/sources/scan", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export async function suggestWatchlistFilters(input: {
   sourceType: string;
   careersUrl: string;
   label?: string | null;
-}): Promise<Suggestion> {
-  return fetchApi<Suggestion>("/watchlist/suggest-filters", {
+  description?: string | null;
+  forceRefresh?: boolean;
+}): Promise<WatchlistSuggestedFilterPlan> {
+  return fetchApi<WatchlistSuggestedFilterPlan>("/watchlist/suggest-filters", {
     method: "POST",
     body: JSON.stringify(input),
   });

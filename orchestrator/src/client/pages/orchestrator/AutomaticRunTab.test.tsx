@@ -972,7 +972,7 @@ describe("AutomaticRunTab", () => {
     });
   });
 
-  it("in daily mode saves the search through the same button instead of running it", async () => {
+  it("in daily mode opens search details directly and saves through the same button instead of running", async () => {
     const onSaveAndRun = vi.fn().mockResolvedValue(undefined);
 
     render(
@@ -992,6 +992,11 @@ describe("AutomaticRunTab", () => {
       />,
     );
 
+    expect(screen.getByRole("heading", { name: "Configure your search" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save daily search" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Enter search details instead" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Run search" })).not.toBeInTheDocument();
     openLocationPreferences();
     fireEvent.click(screen.getByLabelText("Hybrid"));
@@ -1002,6 +1007,55 @@ describe("AutomaticRunTab", () => {
         expect.objectContaining({ workplaceTypes: ["remote", "onsite"] }),
       );
     });
+  });
+
+  it("in daily mode still allows switching to Describe search and resets to details on reopen", () => {
+    const props = {
+      settings: createAppSettings({
+        jobspyCountryIndeed: { value: "croatia", default: "", override: "croatia" },
+      }),
+      enabledSources: ["linkedin"] as const,
+      pipelineSources: ["linkedin"] as const,
+      onToggleSource: vi.fn(),
+      onSetPipelineSources: vi.fn(),
+      isPipelineRunning: false,
+      onSaveAndRun: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const { rerender } = render(
+      <AutomaticRunTab
+        open
+        mode="daily"
+        {...props}
+        enabledSources={[...props.enabledSources]}
+        pipelineSources={[...props.pipelineSources]}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Configure your search" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Describe search" }));
+    expect(screen.getByRole("heading", { name: "Find your next role" })).toBeInTheDocument();
+
+    rerender(
+      <AutomaticRunTab
+        open={false}
+        mode="daily"
+        {...props}
+        enabledSources={[...props.enabledSources]}
+        pipelineSources={[...props.pipelineSources]}
+      />,
+    );
+    rerender(
+      <AutomaticRunTab
+        open
+        mode="daily"
+        {...props}
+        enabledSources={[...props.enabledSources]}
+        pipelineSources={[...props.pipelineSources]}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Configure your search" })).toBeInTheDocument();
   });
 
   it("clamps max jobs discovered to 50 before submitting", async () => {
@@ -1399,5 +1453,137 @@ describe("AutomaticRunTab", () => {
         }),
       });
     });
+  });
+
+  it("shows empty Watchlist templates on prompt and details, supports group selection and custom URL scan/add, and hides when Watchlist has sources", async () => {
+    const onApplyWatchlistGroup = vi.fn().mockResolvedValue(undefined);
+    const onAddCustomWatchlistSource = vi.fn().mockResolvedValue(true);
+    const onScanWatchlistSource = vi.fn().mockResolvedValue({
+      source: {
+        id: "shared-1",
+        label: "Acme Robotics",
+        careersUrl: "https://careers.acme.com/jobs",
+        cxsJobsUrl: null,
+        sourceType: "careers_site",
+        description: "Backend platform roles",
+        isShared: true,
+      },
+      reusedSource: true,
+      reusedScrapingPlan: true,
+      reusedFilterPlan: true,
+      scrapingStatus: "ready",
+      filterPlan: {
+        suggestedUrl: "https://careers.acme.com/jobs?team=backend",
+        params: [{ key: "team", values: ["backend"] }],
+        rationale: "Reused Engineering filter",
+        totals: { filtered: 4, unfiltered: 20 },
+        sampleTitles: ["Backend Engineer"],
+        reused: true,
+      },
+      filterNote: null,
+    });
+
+    const groups = [
+      {
+        id: "big-tech",
+        label: "Big tech",
+        description: "The largest tech companies",
+        sourceIds: ["a", "b"],
+      },
+    ];
+
+    const { rerender } = render(
+      <AutomaticRunTab
+        open
+        settings={createAppSettings({
+          jobspyCountryIndeed: { value: "croatia", default: "", override: "croatia" },
+        })}
+        enabledSources={["linkedin"]}
+        pipelineSources={["linkedin"]}
+        onToggleSource={vi.fn()}
+        onSetPipelineSources={vi.fn()}
+        canUseWatchlist
+        watchlistSources={[]}
+        watchlistGroups={groups}
+        watchlistCatalogSources={[]}
+        onApplyWatchlistGroup={onApplyWatchlistGroup}
+        onAddCustomWatchlistSource={onAddCustomWatchlistSource}
+        onScanWatchlistSource={onScanWatchlistSource}
+        isPipelineRunning={false}
+        onSaveAndRun={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(screen.getByText("Your Watchlist is empty")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add Big tech" }));
+    expect(onApplyWatchlistGroup).toHaveBeenCalledWith(groups[0]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Paste career site URL" }));
+    fireEvent.change(screen.getByLabelText("Career site URL"), {
+      target: { value: "https://careers.acme.com/jobs" },
+    });
+    fireEvent.change(screen.getByLabelText("Source name"), {
+      target: { value: "Acme Robotics" },
+    });
+    fireEvent.change(screen.getByLabelText("Source description"), {
+      target: { value: "Backend platform roles" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Scan & suggest filter" }));
+    expect(await screen.findByText("Reused saved source")).toBeInTheDocument();
+    expect(screen.getByText("Reused scraping plan")).toBeInTheDocument();
+    expect(screen.getByText("Reused filter plan")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Use suggested filter URL" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add to Watchlist" }));
+
+    await waitFor(() => {
+      expect(onAddCustomWatchlistSource).toHaveBeenCalledWith(
+        expect.objectContaining({
+          careersUrl: "https://careers.acme.com/jobs?team=backend",
+          label: "Acme Robotics",
+          description: "Backend platform roles",
+        }),
+      );
+    });
+
+    openConfigureDetails();
+    expect(screen.getByText("Your Watchlist is empty")).toBeInTheDocument();
+
+    rerender(
+      <AutomaticRunTab
+        open
+        settings={createAppSettings({
+          jobspyCountryIndeed: { value: "croatia", default: "", override: "croatia" },
+        })}
+        enabledSources={["linkedin"]}
+        pipelineSources={["linkedin"]}
+        onToggleSource={vi.fn()}
+        onSetPipelineSources={vi.fn()}
+        canUseWatchlist
+        watchlistSources={[
+          {
+            id: "wl-1",
+            catalogSourceId: null,
+            label: "Acme Robotics",
+            careersUrl: "https://careers.acme.com/jobs?team=backend",
+            cxsJobsUrl: null,
+            sourceType: "careers_site",
+            isCustom: true,
+            sortOrder: 0,
+            createdAt: "2026-11-26T00:00:00.000Z",
+            updatedAt: "2026-11-26T00:00:00.000Z",
+          },
+        ]}
+        watchlistGroups={groups}
+        watchlistCatalogSources={[]}
+        onApplyWatchlistGroup={onApplyWatchlistGroup}
+        onAddCustomWatchlistSource={onAddCustomWatchlistSource}
+        onScanWatchlistSource={onScanWatchlistSource}
+        isPipelineRunning={false}
+        onSaveAndRun={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(screen.queryByText("Your Watchlist is empty")).not.toBeInTheDocument();
   });
 });

@@ -630,5 +630,214 @@ describe("Watchlist API routes", () => {
         }),
       ]);
     });
+
+    it("stores custom career sources with description in shared DB and reuses source & filter plan across users", async () => {
+      const adminToken = await login(baseUrl, "admin", "secret");
+      const createAdamRes = await fetch(`${baseUrl}/api/workspaces/users`, {
+        method: "POST",
+        headers: authHeaders(adminToken),
+        body: JSON.stringify({
+          username: "adam",
+          displayName: "Adam",
+          password: "adam-secret",
+        }),
+      });
+      expect(createAdamRes.status).toBe(201);
+      const adamToken = await login(baseUrl, "adam", "adam-secret");
+
+      const originalLlmKey = process.env.OPENAI_API_KEY;
+      process.env.OPENAI_API_KEY = "test-key";
+
+      const settingsRes = await nativeFetch(`${baseUrl}/api/settings`, {
+        method: "PATCH",
+        headers: authHeaders(adminToken),
+        body: JSON.stringify({
+          llmProvider: "openai",
+          model: "gpt-5-mini",
+          llmApiKey: "test-key",
+        }),
+      });
+      expect(settingsRes.status).toBe(200);
+
+      const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.startsWith(baseUrl)) {
+          return nativeFetch(input);
+        }
+        if (url === "https://boards-api.greenhouse.io/v1/boards/acme-test") {
+          return new Response(JSON.stringify({ name: "Acme Robotics" }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        if (
+          url === "https://job-boards.greenhouse.io/v1/boards/acme-test/departments" ||
+          url === "https://boards-api.greenhouse.io/v1/boards/acme-test/departments"
+        ) {
+          return new Response(
+            JSON.stringify({
+              departments: [
+                { name: "Engineering", jobs: [{ id: 1 }, { id: 2 }] },
+                { name: "Sales", jobs: [{ id: 3 }] },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        if (url.includes("boards-api.greenhouse.io/v1/boards/acme-test/jobs")) {
+          const jobs = [
+            {
+              id: 1,
+              title: "Senior Backend Engineer",
+              absolute_url: "https://job-boards.greenhouse.io/acme-test/jobs/1",
+              location: { name: "Remote" },
+              updated_at: "2026-05-01T00:00:00Z",
+              metadata: [{ name: "Workplace Type", value: "Remote" }],
+              departments: [{ name: "Engineering" }],
+            },
+            {
+              id: 2,
+              title: "Platform Engineer",
+              absolute_url: "https://job-boards.greenhouse.io/acme-test/jobs/2",
+              location: { name: "Remote" },
+              updated_at: "2026-05-01T00:00:00Z",
+              metadata: [{ name: "Workplace Type", value: "Remote" }],
+              departments: [{ name: "Engineering" }],
+            },
+            {
+              id: 3,
+              title: "Account Executive",
+              absolute_url: "https://job-boards.greenhouse.io/acme-test/jobs/3",
+              location: { name: "New York" },
+              updated_at: "2026-05-01T00:00:00Z",
+              metadata: [{ name: "Workplace Type", value: "Hybrid" }],
+              departments: [{ name: "Sales" }],
+            },
+          ];
+          return new Response(JSON.stringify({ jobs }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        if (url.includes("api.openai.com")) {
+          return new Response(
+            JSON.stringify({
+              output_text: JSON.stringify({
+                params: [{ key: "departments", values: ["Engineering"] }],
+                rationale: "Matches engineering roles described by the user.",
+              }),
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return nativeFetch(input);
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      try {
+        // User 1 scans & stores a new custom career URL with name and description
+        const scan1Res = await nativeFetch(`${baseUrl}/api/watchlist/sources/scan`, {
+          method: "POST",
+          headers: authHeaders(adminToken),
+          body: JSON.stringify({
+            name: "Acme Robotics",
+            careersUrl: "https://job-boards.greenhouse.io/acme-test",
+            description: "Backend and platform engineering roles",
+          }),
+        });
+        const scan1Body = await scan1Res.json();
+        expect(scan1Res.status).toBe(200);
+        expect(scan1Body.ok).toBe(true);
+        expect(scan1Body.data.reusedSource).toBe(false);
+        expect(scan1Body.data.reusedFilterPlan).toBe(false);
+        expect(scan1Body.data.source).toMatchObject({
+          label: "Acme Robotics",
+          sourceType: "greenhouse",
+          careersUrl: "https://job-boards.greenhouse.io/acme-test",
+          description: "Backend and platform engineering roles",
+          suggestedFilterUrl: "https://job-boards.greenhouse.io/acme-test?departments=Engineering",
+          isShared: true,
+        });
+        expect(scan1Body.data.filterPlan).toMatchObject({
+          suggestedUrl: "https://job-boards.greenhouse.io/acme-test?departments=Engineering",
+          totals: { filtered: 2, unfiltered: 3 },
+        });
+
+        const llmCallsAfterFirstScan = fetchMock.mock.calls.filter(([reqUrl]) =>
+          String(reqUrl).includes("api.openai.com"),
+        ).length;
+        expect(llmCallsAfterFirstScan).toBe(1);
+
+        // User 1 saves it to their own watchlist
+        const save1Res = await nativeFetch(`${baseUrl}/api/watchlist/sources`, {
+          method: "PUT",
+          headers: authHeaders(adminToken),
+          body: JSON.stringify({
+            selections: [
+              {
+                sourceType: "careers_site",
+                label: "Acme Robotics",
+                careersUrl: "https://job-boards.greenhouse.io/acme-test?departments=Engineering",
+                description: "Backend and platform engineering roles",
+              },
+            ],
+          }),
+        });
+        const save1Body = await save1Res.json();
+        expect(save1Res.status).toBe(200);
+        expect(save1Body.data.selectedSources[0]).toMatchObject({
+          label: "Acme Robotics",
+          sourceType: "greenhouse",
+          description: "Backend and platform engineering roles",
+        });
+
+        // User 2 checks their Watchlist: starts empty (no user leakage), but catalogSources includes the shared DB source!
+        const adamSourcesRes = await nativeFetch(`${baseUrl}/api/watchlist/sources`, {
+          headers: { Authorization: `Bearer ${adamToken}` },
+        });
+        const adamSourcesBody = await adamSourcesRes.json();
+        expect(adamSourcesRes.status).toBe(200);
+        expect(adamSourcesBody.data.selectedSources).toEqual([]);
+        const sharedEntry = adamSourcesBody.data.catalogSources.find(
+          (source: { careersUrl: string }) =>
+            source.careersUrl === "https://job-boards.greenhouse.io/acme-test",
+        );
+        expect(sharedEntry).toMatchObject({
+          label: "Acme Robotics",
+          description: "Backend and platform engineering roles",
+          suggestedFilterUrl: "https://job-boards.greenhouse.io/acme-test?departments=Engineering",
+          isShared: true,
+        });
+
+        // User 2 scans the same URL: reuses source & filter plan from DB with ZERO new LLM calls!
+        const scan2Res = await nativeFetch(`${baseUrl}/api/watchlist/sources/scan`, {
+          method: "POST",
+          headers: authHeaders(adamToken),
+          body: JSON.stringify({
+            careersUrl: "https://job-boards.greenhouse.io/acme-test",
+          }),
+        });
+        const scan2Body = await scan2Res.json();
+        expect(scan2Res.status).toBe(200);
+        expect(scan2Body.data.reusedSource).toBe(true);
+        expect(scan2Body.data.reusedFilterPlan).toBe(true);
+        expect(scan2Body.data.filterPlan).toMatchObject({
+          suggestedUrl: "https://job-boards.greenhouse.io/acme-test?departments=Engineering",
+          reused: true,
+        });
+
+        const llmCallsAfterSecondScan = fetchMock.mock.calls.filter(([reqUrl]) =>
+          String(reqUrl).includes("api.openai.com"),
+        ).length;
+        expect(llmCallsAfterSecondScan).toBe(1);
+      } finally {
+        if (originalLlmKey === undefined) {
+          delete process.env.OPENAI_API_KEY;
+        } else {
+          process.env.OPENAI_API_KEY = originalLlmKey;
+        }
+      }
+    });
   });
 });

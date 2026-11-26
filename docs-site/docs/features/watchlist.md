@@ -40,15 +40,19 @@ If you choose a company from the searchable company list, you are adding a catal
 
 ### Custom source URL
 
-A custom source URL is a careers board you paste manually for your own workspace.
+A custom source URL is a careers board you paste manually for your workspace.
 
-If the company is not in the built-in picker yet, you can choose the source type's custom URL option and save that public careers page directly. That custom source stays in your workspace unless it is later added to the shared catalog.
+When you click **Add source** (or use the empty Watchlist prompt in **Find jobs** / **Daily search**), pasting a career site URL is the default and first option. Each custom source includes:
 
-Each source type owns its own URL rules and on-screen copy. Today, the supported Watchlist source types are Workday and BambooHR, so the custom-source option asks for a public careers URL that matches the adapter you chose.
+- **Career site URL**: paste any public HTTPS careers page URL (or ATS board link such as Workday, Greenhouse, Lever, Ashby, SmartRecruiters, Oracle, or BambooHR — JobOps automatically detects known ATS URLs).
+- **Name**: a readable company or board name shown in your Watchlist.
+- **Description**: optional context about the roles or teams you want from that board, used when AI suggests filters.
+
+Click **Scan & suggest filter** (or **Suggest filters**) to let AI inspect the board's available facets and propose a filtered URL. Once scanned or saved, custom sources, their learned scraping recipes, discovered facets, and public filter plans are stored in the shared database (`watchlist_shared_sources` and `watchlist_filter_plans`). When another user adds or scans the same board, JobOps reuses the saved source, scraping plan, and filter plan instead of asking the LLM to regenerate them from scratch.
 
 ### Source groups
 
-A source group is a predefined bundle of catalog sources you can add in one click, so you do not have to pick companies one by one.
+A source group is a predefined bundle of catalog sources you can add in one click, so you do not have to pick companies one by one. If a user's Watchlist is empty after onboarding, starter groups and custom URL setup are also surfaced directly on **Find jobs** and **Daily search**.
 
 Click **Groups** next to **Add source** and choose a group:
 
@@ -84,10 +88,10 @@ Ignored rows and watchlist check history are stored per user inside the active w
 
 ## How to use it
 
-1. Open **Watchlist** from the app navigation.
-2. Click **Add source**.
-3. Use **Choose company** to search the built-in company list, or pick the source type's custom URL option.
-4. If you chose a custom URL, paste a supported public careers URL. For Workday, use a URL like `https://company.wd1.myworkdayjobs.com/External`. For BambooHR, use a URL like `https://company.bamboohr.com/careers`.
+1. Open **Watchlist** from the app navigation (or use the starter card on **Find jobs** if your Watchlist is empty).
+2. Click **Add source**. New sources default to pasting a career site URL (also the first option in the company dropdown).
+3. Enter the **Career site URL**, **Name**, and optional **Description** — or use **Choose company** to pick from curated catalog and shared community sources.
+4. Click **Suggest filters** (or **Scan & suggest filter**) if you want AI to find filtered listings for the board; saved sources reuse existing scraping and filter plans automatically.
 5. Click **Save sources**.
 6. Review the visible rows.
 7. Reopen Watchlist later to see roles marked **New since last check**.

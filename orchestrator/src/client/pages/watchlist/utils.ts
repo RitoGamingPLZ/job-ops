@@ -12,6 +12,7 @@ import type {
   WatchedSourceType,
   WatchlistJobResult,
   WatchlistSource,
+  WatchlistSourceTypeDescriptor,
 } from "@shared/types.js";
 import { computeJobMatchScore } from "../orchestrator/JobCommandBar.utils";
 import type { RankedWatchlistJob, SourceSelectionDraft } from "./types";
@@ -19,6 +20,18 @@ import type { RankedWatchlistJob, SourceSelectionDraft } from "./types";
 export const CUSTOM_SOURCE_VALUE = "__custom__";
 
 let sourceDraftSequence = 0;
+
+export function getDefaultCustomWatchlistSourceType(
+  sourceTypes: ReadonlyArray<
+    Pick<WatchlistSourceTypeDescriptor, "sourceType" | "supportsCustomSource">
+  >,
+): WatchedSourceType {
+  if (sourceTypes.some((type) => type.sourceType === "careers_site" && type.supportsCustomSource)) {
+    return "careers_site";
+  }
+  const firstCustom = sourceTypes.find((type) => type.supportsCustomSource);
+  return firstCustom?.sourceType ?? sourceTypes[0]?.sourceType ?? "careers_site";
+}
 
 export function createSourceDraft(
   overrides?: Partial<Omit<SourceSelectionDraft, "id">>,
@@ -30,8 +43,28 @@ export function createSourceDraft(
     sourceType: "workday",
     catalogSourceId: null,
     customUrl: "",
+    customLabel: "",
+    description: "",
     ...overrides,
   };
+}
+
+export function getWatchlistBaseUrlMatchKey(careersUrl: string): string {
+  const trimmed = careersUrl.trim();
+  if (!trimmed) return "";
+
+  try {
+    const parsed = new URL(trimmed);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    const pathname = parsed.pathname.replace(/\/+$/, "") || "/";
+    return `${host}${pathname}`.toLowerCase();
+  } catch {
+    return trimmed
+      .toLowerCase()
+      .replace(/^https?:\/\/(www\.)?/, "")
+      .replace(/[?#].*$/, "")
+      .replace(/\/+$/, "");
+  }
 }
 
 function getEmployerFromCareersUrl(careersUrl: string): string {

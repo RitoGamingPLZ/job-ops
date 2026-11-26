@@ -441,4 +441,58 @@ describe("WatchlistPage", () => {
       expect(screen.getByRole("button", { name: /save sources/i })).toBeDisabled();
     });
   });
+
+  it("defaults Add source to copy-paste career URL with name and description and saves them", async () => {
+    const careersSiteType = {
+      sourceType: "careers_site" as const,
+      label: "Careers site",
+      catalogLabel: "Company careers site",
+      customSourceOptionLabel: "Custom careers site URL",
+      customSourceSearchText: "custom careers site url",
+      customSourceInputLabel: "Company careers URL",
+      customSourcePlaceholder: "https://www.okta.com/company/careers/",
+      customSourceHelpText: "Paste an HTTPS careers URL.",
+      emptyCatalogText: "No careers site sources found.",
+      fetchingLabel: "Fetching from careers site...",
+      invalidUrlMessage: "Invalid URL",
+      supportsCustomSource: true,
+      supportsBranding: false,
+    };
+
+    watchlistSourcesState = {
+      ...watchlistSourcesState,
+      selectedSources: [],
+      availableSourceTypes: [workdaySourceType, careersSiteType],
+    };
+
+    renderPage();
+
+    await waitFor(() => expect(api.fetchWatchlistResults).toHaveBeenCalled());
+    expect(screen.getByText("No watchlist sources selected yet.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /add source/i }));
+
+    const urlInput = screen.getByLabelText("Company careers URL 1");
+    const nameInput = screen.getByLabelText("Source name 1");
+    const descriptionInput = screen.getByLabelText("Source description 1");
+
+    fireEvent.change(urlInput, { target: { value: "https://careers.acme.com/jobs" } });
+    fireEvent.change(nameInput, { target: { value: "Acme Robotics" } });
+    fireEvent.change(descriptionInput, { target: { value: "Backend platform teams" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /save sources/i }));
+
+    await waitFor(() => {
+      expect(api.updateWatchlistSources).toHaveBeenCalledWith({
+        selections: [
+          {
+            catalogSourceId: null,
+            sourceType: "careers_site",
+            label: "Acme Robotics",
+            careersUrl: "https://careers.acme.com/jobs",
+            description: "Backend platform teams",
+          },
+        ],
+      });
+    });
+  });
 });

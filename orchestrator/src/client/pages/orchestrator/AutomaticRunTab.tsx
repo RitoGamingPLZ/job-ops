@@ -17,7 +17,12 @@ import {
   type PipelineSearchPresetConfig,
   type UpdatePipelineSearchPresetInput,
   type WatchlistSelectedSource,
+  type WatchlistSource,
+  type WatchlistSourceGroup,
+  type WatchlistSourceScanInput,
+  type WatchlistSourceScanResponse,
 } from "@shared/types";
+import type { AddCustomWatchlistSourceInput } from "./useWatchlistPipelineSources";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -65,10 +70,17 @@ interface AutomaticRunTabProps {
   pipelineSources: JobSource[];
   onToggleSource: (source: JobSource, checked: boolean) => void;
   onSetPipelineSources: (sources: JobSource[]) => void;
+  canUseWatchlist?: boolean;
   watchlistSources?: WatchlistSelectedSource[];
+  watchlistCatalogSources?: WatchlistSource[];
+  watchlistGroups?: WatchlistSourceGroup[];
   selectedWatchlistSourceIds?: string[];
   onToggleWatchlistSource?: (sourceId: string, checked: boolean) => void;
   onSetSelectedWatchlistSourceIds?: (ids: string[]) => void;
+  onApplyWatchlistGroup?: (group: WatchlistSourceGroup) => Promise<void>;
+  onAddCustomWatchlistSource?: (input: AddCustomWatchlistSourceInput) => Promise<boolean>;
+  onScanWatchlistSource?: (input: WatchlistSourceScanInput) => Promise<WatchlistSourceScanResponse>;
+  isMutatingWatchlist?: boolean;
   isWatchlistSourcesLoading?: boolean;
   isPipelineRunning: boolean;
   onSaveAndRun: (values: AutomaticRunValues) => Promise<void>;
@@ -141,10 +153,17 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
   pipelineSources,
   onToggleSource,
   onSetPipelineSources,
+  canUseWatchlist = true,
   watchlistSources = [],
+  watchlistCatalogSources = [],
+  watchlistGroups = [],
   selectedWatchlistSourceIds = [],
   onToggleWatchlistSource,
   onSetSelectedWatchlistSourceIds,
+  onApplyWatchlistGroup,
+  onAddCustomWatchlistSource,
+  onScanWatchlistSource,
+  isMutatingWatchlist = false,
   isWatchlistSourcesLoading = false,
   isPipelineRunning,
   onSaveAndRun,
@@ -160,10 +179,12 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
   const [nearbyPlaceCount, setNearbyPlaceCount] = useState<number | null>(null);
   const [isPlanningSearch, setIsPlanningSearch] = useState(false);
   const [searchPrompt, setSearchPrompt] = useState("");
-  const [automaticTab, setAutomaticTab] = useState<"describe" | "details">("describe");
+  const defaultAutomaticTab: "describe" | "details" = mode === "daily" ? "details" : "describe";
+  const [automaticTab, setAutomaticTab] = useState<"describe" | "details">(defaultAutomaticTab);
   const [planWarnings, setPlanWarnings] = useState<string[]>([]);
   const [planSource, setPlanSource] = useState<"ai" | "fallback" | null>(null);
   const wasOpenRef = useRef(open);
+  const prevModeRef = useRef(mode);
   const [isSavingSearch, setIsSavingSearch] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -305,13 +326,14 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
   }, [open, settings, reset]);
 
   useEffect(() => {
-    if (open && !wasOpenRef.current) {
-      setAutomaticTab("describe");
+    if ((open && !wasOpenRef.current) || prevModeRef.current !== mode) {
+      setAutomaticTab(defaultAutomaticTab);
       setPlanWarnings([]);
       setPlanSource(null);
     }
     wasOpenRef.current = open;
-  }, [open]);
+    prevModeRef.current = mode;
+  }, [defaultAutomaticTab, mode, open]);
 
   useEffect(() => {
     setSourceDisplayOrder((current) => {
@@ -725,6 +747,15 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
             <AutomaticSearchPrompt
               searchPrompt={searchPrompt}
               isPlanningSearch={isPlanningSearch}
+              canUseWatchlist={canUseWatchlist}
+              watchlistSourcesCount={watchlistSources.length}
+              isWatchlistSourcesLoading={isWatchlistSourcesLoading}
+              watchlistGroups={watchlistGroups}
+              watchlistCatalogSources={watchlistCatalogSources}
+              isMutatingWatchlist={isMutatingWatchlist}
+              onApplyWatchlistGroup={onApplyWatchlistGroup}
+              onAddCustomWatchlistSource={onAddCustomWatchlistSource}
+              onScanWatchlistSource={onScanWatchlistSource}
               onSearchPromptChange={setSearchPrompt}
               onGenerateSearchPlan={() => void handleGenerateSearchPlan()}
               onConfigureManually={() => {
@@ -751,7 +782,9 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
                 </Button>
                 <h1 className="text-3xl font-semibold tracking-tight">Configure your search</h1>
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Tell Job Ops what matters, review the plan, then search your selected sources.
+                  {mode === "daily"
+                    ? "Review your roles, filters, and sources, then save the search for the next daily run."
+                    : "Tell Job Ops what matters, review the plan, then search your selected sources."}
                 </p>
               </div>
             </header>
@@ -844,11 +877,18 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
                   selectedSourceRows={selectedSourceRows}
                   readySourceRows={readySourceRows}
                   unavailableSourceRows={unavailableSourceRows}
+                  canUseWatchlist={canUseWatchlist}
                   watchlistSources={watchlistSources}
+                  watchlistCatalogSources={watchlistCatalogSources}
+                  watchlistGroups={watchlistGroups}
                   selectedWatchlistSourceIds={selectedWatchlistSourceIds}
                   isWatchlistSourcesLoading={isWatchlistSourcesLoading}
+                  isMutatingWatchlist={isMutatingWatchlist}
                   onSourceToggle={handleSourceToggle}
                   onWatchlistSourceToggle={onToggleWatchlistSource}
+                  onApplyWatchlistGroup={onApplyWatchlistGroup}
+                  onAddCustomWatchlistSource={onAddCustomWatchlistSource}
+                  onScanWatchlistSource={onScanWatchlistSource}
                 />
 
                 <AutomaticRunAdvancedSettings

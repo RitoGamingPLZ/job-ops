@@ -1,8 +1,12 @@
-import { badRequest, forbidden, toAppError, unprocessableEntity } from "@infra/errors";
+import {
+  badRequest,
+  forbidden,
+  serviceUnavailable,
+  toAppError,
+  unprocessableEntity,
+} from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
 import { isSystemAdmin } from "@infra/request-context";
-import { listCareerBoardSources } from "@server/config/career-boards";
-
 import { resolveWatchlistSourceGroups } from "@server/config/watchlist-groups";
 import * as companyRatingsRepo from "@server/repositories/company-ratings";
 import * as watchlistRepo from "@server/repositories/watchlist";
@@ -14,7 +18,17 @@ import {
   hydrateWatchlistSelectedSources,
   withWatchlistSourceTimeout,
 } from "@server/watchlist/results";
-import { MAX_WATCHLIST_SOURCES, type WatchlistResultsResponse } from "@shared/types";
+import {
+  listMergedWatchlistCatalogSources,
+  persistCustomSelectionToSharedSources,
+  resolveAdapterTypeForSelection,
+  scanAndStoreWatchlistSource,
+} from "@server/watchlist/shared-sources";
+import {
+  MAX_WATCHLIST_SOURCES,
+  type WatchlistResultsResponse,
+  type WatchlistSource,
+} from "@shared/types";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 
@@ -44,9 +58,18 @@ const updateWatchlistSelectionsSchema = z.object({
         sourceType: z.string().trim().min(1).max(120),
         label: z.string().trim().min(1).max(200).nullable().optional(),
         careersUrl: z.string().trim().url().max(2000),
+        description: z.string().trim().max(500).nullable().optional(),
       }),
     )
     .max(MAX_WATCHLIST_SOURCES),
+});
+
+const scanWatchlistSourceSchema = z.object({
+  careersUrl: z.string().trim().url().max(2000),
+  name: z.string().trim().max(200).nullable().optional(),
+  description: z.string().trim().max(500).nullable().optional(),
+  sourceType: z.string().trim().min(1).max(120).nullable().optional(),
+  forceRefresh: z.boolean().optional(),
 });
 
 const watchlistSourceJobSchema = z.object({
@@ -69,7 +92,7 @@ const companyRatingSchema = z.object({
 });
 
 async function getWatchlistSourcesPayload(
-  catalogSources: Awaited<ReturnType<typeof listCareerBoardSources>>,
+  catalogSources: WatchlistSource[],
   selectedSources: Awaited<ReturnType<typeof watchlistRepo.listWatchlistSelectedSources>>,
 ) {
   return {
@@ -91,11 +114,40 @@ watchlistRouter.get(
   "/sources",
   asyncRoute(async (_req: Request, res: Response) => {
     const [catalogSources, selectedSources] = await Promise.all([
-      listCareerBoardSources(),
+      listMergedWatchlistCatalogSources(),
       watchlistRepo.listWatchlistSelectedSources(),
     ]);
 
     ok(res, await getWatchlistSourcesPayload(catalogSources, selectedSources));
+  }),
+);
+
+watchlistRouter.post(
+  "/sources/scan",
+  asyncRoute(async (req: Request, res: Response) => {
+    const parsedBody = scanWatchlistSourceSchema.safeParse(req.body ?? {});
+    if (!parsedBody.success) {
+      return fail(
+        res,
+        badRequest("Invalid watchlist source scan payload", parsedBody.error.flatten()),
+      );
+    }
+
+    try {
+      ok(res, await scanAndStoreWatchlistSource(parsedBody.data));
+    } catch (error) {
+      const unavailable =
+        error instanceof Error &&
+        (error.name === "TimeoutError" ||
+          error.name === "AbortError" ||
+          /\b(timed?\s*out|aborted)\b/i.test(error.message));
+      fail(
+        res,
+        unavailable
+          ? serviceUnavailable("Source scan request timed out or was aborted")
+          : toAppError(error),
+      );
+    }
   }),
 );
 
@@ -270,9 +322,15 @@ watchlistRouter.put(
       );
     }
 
-    const catalogSources = await listCareerBoardSources();
+    const catalogSources = await listMergedWatchlistCatalogSources();
     const catalogSourcesById = new Map(catalogSources.map((source) => [source.id, source]));
     const normalizedSelections = [];
+    const customSharedToPersist: Array<{
+      sourceType: string;
+      label: string;
+      careersUrl: string;
+      description?: string | null;
+    }> = [];
     const seenUrls = new Set<string>();
 
     for (const selection of parsedBody.data.selections) {
@@ -298,7 +356,11 @@ watchlistRouter.put(
           );
         }
 
-        if (catalogSource.careersUrl !== normalizedUrl) {
+        const matchesCanonical = catalogSource.careersUrl === normalizedUrl;
+        const matchesSuggested =
+          Boolean(catalogSource.suggestedFilterUrl) &&
+          catalogSource.suggestedFilterUrl === normalizedUrl;
+        if (!matchesCanonical && !matchesSuggested) {
           return fail(
             res,
             unprocessableEntity("Selected watchlist source URL does not match the catalog", {
@@ -312,17 +374,19 @@ watchlistRouter.put(
           catalogSourceId: catalogSource.id,
           sourceType: catalogSource.sourceType,
           label: catalogSource.label,
-          careersUrl: catalogSource.careersUrl,
+          careersUrl: normalizedUrl,
+          description: selection.description?.trim() || catalogSource.description || "",
         });
         continue;
       }
 
-      const adapter = getWatchlistSourceAdapter(selection.sourceType);
+      const resolvedType = resolveAdapterTypeForSelection(selection.sourceType, normalizedUrl);
+      const adapter = getWatchlistSourceAdapter(resolvedType);
       if (!adapter) {
         return fail(
           res,
           unprocessableEntity("Unsupported watchlist source type", {
-            sourceType: selection.sourceType,
+            sourceType: resolvedType,
           }),
         );
       }
@@ -330,7 +394,7 @@ watchlistRouter.put(
         return fail(
           res,
           unprocessableEntity("Custom sources are not supported for this source type", {
-            sourceType: selection.sourceType,
+            sourceType: resolvedType,
           }),
         );
       }
@@ -340,11 +404,19 @@ watchlistRouter.put(
           label: selection.label,
           careersUrl: normalizedUrl,
         });
+        const description = selection.description?.trim() ?? "";
         normalizedSelections.push({
           catalogSourceId: null,
-          sourceType: selection.sourceType,
+          sourceType: resolvedType,
           label: normalized.label,
           careersUrl: normalized.careersUrl,
+          description,
+        });
+        customSharedToPersist.push({
+          sourceType: resolvedType,
+          label: normalized.label,
+          careersUrl: normalized.careersUrl,
+          description,
         });
       } catch (error) {
         return fail(
@@ -363,7 +435,14 @@ watchlistRouter.put(
       selections: normalizedSelections,
     });
 
-    ok(res, await getWatchlistSourcesPayload(catalogSources, selectedSources));
+    for (const customSelection of customSharedToPersist) {
+      persistCustomSelectionToSharedSources(customSelection);
+    }
+
+    ok(
+      res,
+      await getWatchlistSourcesPayload(await listMergedWatchlistCatalogSources(), selectedSources),
+    );
   }),
 );
 

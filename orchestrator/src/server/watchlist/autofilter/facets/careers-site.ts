@@ -151,7 +151,13 @@ async function readListingFacets(
   } satisfies Facets;
 }
 
+export async function countCareersSiteFiltered(
+  input: Parameters<FacetDiscovery>[0],
+): Promise<number> {
+  return (await readListingFacets(input, true)).unfilteredTotal;
+}
+
 export const discoverCareersSiteFacets: FacetDiscovery = async (input) => ({
   ...(await readListingFacets(input)),
-  countFiltered: async (filtered) => (await readListingFacets(filtered, true)).unfilteredTotal,
+  countFiltered: countCareersSiteFiltered,
 });

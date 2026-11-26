@@ -284,7 +284,7 @@ describe("database migrations", () => {
         throw new Error("Unexpected legacy ledger after first boot: " + JSON.stringify(first.legacy));
       }
       const numberedIds = first.numbered.map((row) => row.id);
-      if (JSON.stringify(numberedIds) !== JSON.stringify(["0001", "0002", "0003", "0004", "0005", "0006"])) {
+      if (JSON.stringify(numberedIds) !== JSON.stringify(["0001", "0002", "0003", "0004", "0005", "0006", "0007"])) {
         throw new Error("Numbered migrations were not all recorded: " + JSON.stringify(first.numbered));
       }
 
