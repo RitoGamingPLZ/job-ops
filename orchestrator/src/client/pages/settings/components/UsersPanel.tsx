@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +46,7 @@ export const UsersPanel: React.FC<{ currentUserId: string | undefined }> = ({ cu
   const [createPermissions, setCreatePermissions] = useState<UserPermissions>(() => ({
     ...DEFAULT_USER_PERMISSIONS,
   }));
+  const [createIsAdmin, setCreateIsAdmin] = useState(false);
   const [resetPasswordByUserId, setResetPasswordByUserId] = useState<Record<string, string>>({});
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
@@ -60,6 +62,7 @@ export const UsersPanel: React.FC<{ currentUserId: string | undefined }> = ({ cu
       setDisplayName("");
       setPassword("");
       setCreatePermissions({ ...DEFAULT_USER_PERMISSIONS });
+      setCreateIsAdmin(false);
       setCreateOpen(false);
       await queryClient.invalidateQueries({ queryKey: workspaceUsersQueryKey });
       toast.success("User created");
@@ -164,16 +167,34 @@ export const UsersPanel: React.FC<{ currentUserId: string | undefined }> = ({ cu
               type="password"
               autoComplete="new-password"
             />
-            <div className="rounded-md border border-border/60 p-3">
-              <PermissionToggles
-                idPrefix="create-user"
-                value={createPermissions}
+            <div className="flex items-start gap-2 rounded-md border border-border/60 p-3">
+              <Checkbox
+                id="create-user-system-admin"
+                checked={createIsAdmin}
                 disabled={createUserMutation.isPending}
-                onChange={(key, enabled) =>
-                  setCreatePermissions((current) => ({ ...current, [key]: enabled }))
-                }
+                onCheckedChange={(checked) => setCreateIsAdmin(checked === true)}
+                className="mt-0.5"
               />
+              <label htmlFor="create-user-system-admin" className="min-w-0 text-sm leading-tight">
+                <span className="font-medium">System admin</span>
+                <span className="block text-xs text-muted-foreground">
+                  Can manage users and global settings, and always has full access. This account
+                  cannot be deleted from the console.
+                </span>
+              </label>
             </div>
+            {createIsAdmin ? null : (
+              <div className="rounded-md border border-border/60 p-3">
+                <PermissionToggles
+                  idPrefix="create-user"
+                  value={createPermissions}
+                  disabled={createUserMutation.isPending}
+                  onChange={(key, enabled) =>
+                    setCreatePermissions((current) => ({ ...current, [key]: enabled }))
+                  }
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
@@ -191,7 +212,8 @@ export const UsersPanel: React.FC<{ currentUserId: string | undefined }> = ({ cu
                   username,
                   displayName: displayName || username,
                   password,
-                  ...(Object.keys(permissionOverrides).length > 0
+                  ...(createIsAdmin ? { isSystemAdmin: true } : {}),
+                  ...(!createIsAdmin && Object.keys(permissionOverrides).length > 0
                     ? { permissions: permissionOverrides }
                     : {}),
                 });

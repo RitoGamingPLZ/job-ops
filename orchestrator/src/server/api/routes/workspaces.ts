@@ -206,7 +206,7 @@ workspacesRouter.post(
       expiresInDays: parsed.data.expiresInDays,
       createdByUserId: getUserId() ?? null,
     });
-    // The token is shown exactly once; only its hash is stored.
+    // The raw token is also kept on the pending invitation so an admin can copy the link again.
     ok(res, { invitation: { ...invitation, token } }, 201);
   }),
 );

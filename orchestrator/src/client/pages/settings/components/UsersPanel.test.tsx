@@ -194,4 +194,46 @@ describe("UsersPanel", () => {
       ),
     );
   });
+
+  it("creates a system admin and hides the per-feature permission toggles", async () => {
+    vi.mocked(api.createWorkspaceUser).mockResolvedValue({
+      id: "new-admin-id",
+      username: "boss",
+      displayName: "boss",
+      isSystemAdmin: true,
+      isDisabled: false,
+      hasPassword: true,
+      mustChangePassword: true,
+      workspaceId: "tenant-boss",
+      workspaceName: "boss",
+      permissions: { ...DEFAULT_USER_PERMISSIONS },
+      createdAt: "2026-11-22T00:00:00.000Z",
+      updatedAt: "2026-11-22T00:00:00.000Z",
+    });
+
+    render(<UsersHarness />);
+    const dialog = await openCreateDialog();
+
+    expect(dialog.querySelector("#create-user-watchlist")).toBeInstanceOf(HTMLElement);
+    fireEvent.click(dialog.querySelector("#create-user-system-admin") as HTMLElement);
+    expect(dialog.querySelector("#create-user-watchlist")).toBeNull();
+
+    fireEvent.change(screen.getByPlaceholderText("Username"), { target: { value: "boss" } });
+    fireEvent.change(screen.getByPlaceholderText("Temporary password"), {
+      target: { value: "temp-pass-1234" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() =>
+      expect(api.createWorkspaceUser).toHaveBeenCalledWith(
+        {
+          username: "boss",
+          displayName: "boss",
+          password: "temp-pass-1234",
+          isSystemAdmin: true,
+        },
+        expect.anything(),
+      ),
+    );
+  });
 });

@@ -42,15 +42,19 @@ function resolveStatus(row: InvitationRow, now: Date): UserInvitationStatus {
 }
 
 function toInvitation(row: InvitationRow, usedByUsername: string | null): UserInvitation {
+  const status = resolveStatus(row, new Date());
   return {
     id: row.id,
     label: row.label,
     permissions: readPermissions(row.permissions),
-    status: resolveStatus(row, new Date()),
+    status,
     expiresAt: row.expiresAt,
     createdAt: row.createdAt,
     usedAt: row.usedAt,
     usedByUsername,
+    // Only a still-usable link can be copied again. Invitations created before the token was
+    // stored have none, and cannot be recovered from the hash.
+    token: status === "pending" ? row.token : null,
   };
 }
 
@@ -69,6 +73,7 @@ export async function createInvitation(input: {
   const row: InvitationRow = {
     id: randomUUID(),
     tokenHash: hashInvitationToken(token),
+    token,
     label: input.label,
     permissions: JSON.stringify(input.permissions),
     expiresAt: new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString(),
@@ -138,7 +143,11 @@ export async function releaseInvitation(id: string): Promise<void> {
 }
 
 export async function recordInvitationUser(id: string, userId: string): Promise<void> {
-  await db.update(userInvitations).set({ usedByUserId: userId }).where(eq(userInvitations.id, id));
+  // The account exists now, so the raw link is no longer needed.
+  await db
+    .update(userInvitations)
+    .set({ usedByUserId: userId, token: null })
+    .where(eq(userInvitations.id, id));
 }
 
 /**

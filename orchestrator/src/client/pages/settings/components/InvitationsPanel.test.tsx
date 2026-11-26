@@ -97,4 +97,46 @@ describe("InvitationsPanel", () => {
       expect(api.deleteUserInvitation).toHaveBeenCalledWith("inv-1", expect.anything()),
     );
   });
+
+  it("copies the invite link for a pending invitation from the table", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    vi.mocked(api.listUserInvitations).mockResolvedValue([
+      {
+        id: "inv-1",
+        label: "Cousin Sam",
+        token: "tok_abc",
+        permissions: { ...DEFAULT_USER_PERMISSIONS },
+        status: "pending",
+        expiresAt: "2026-12-01T00:00:00.000Z",
+        createdAt: "2026-11-24T00:00:00.000Z",
+        usedAt: null,
+        usedByUsername: null,
+      },
+      {
+        id: "inv-2",
+        label: "Old link",
+        token: null,
+        permissions: { ...DEFAULT_USER_PERMISSIONS },
+        status: "pending",
+        expiresAt: "2026-12-01T00:00:00.000Z",
+        createdAt: "2026-11-20T00:00:00.000Z",
+        usedAt: null,
+        usedByUsername: null,
+      },
+    ]);
+    render(<InvitationsHarness />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Copy invitation link for Cousin Sam" }),
+    );
+
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/invite\/tok_abc$/)),
+    );
+    // Invitations without a stored token (created before it was kept) cannot be copied.
+    expect(
+      screen.queryByRole("button", { name: "Copy invitation link for Old link" }),
+    ).not.toBeInTheDocument();
+  });
 });

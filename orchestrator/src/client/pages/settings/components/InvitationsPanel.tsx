@@ -6,7 +6,7 @@ import {
   type UserPermissions,
 } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Copy, Plus } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -129,7 +129,8 @@ export const InvitationsPanel: React.FC = () => {
               <DialogHeader>
                 <DialogTitle>Invitation for {freshLink.label}</DialogTitle>
                 <DialogDescription>
-                  This link is shown only once. Copy it now and send it to them.
+                  Copy this link and send it to them. You can copy it again from the table while
+                  the invitation is pending.
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-wrap gap-2 sm:flex-nowrap">
@@ -223,7 +224,7 @@ export const InvitationsPanel: React.FC = () => {
               <TableHead>Used by</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Expires / used</TableHead>
-              <TableHead className="w-12 text-right">
+              <TableHead className="w-24 text-right">
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
@@ -250,7 +251,20 @@ export const InvitationsPanel: React.FC = () => {
                       ? `Used ${formatDate(invitation.usedAt)}`
                       : "—"}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="whitespace-nowrap text-right">
+                  {invitation.status === "pending" && invitation.token ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      aria-label={`Copy invitation link for ${invitation.label}`}
+                      title="Copy invitation link"
+                      onClick={() => void copyLink(buildInviteUrl(invitation.token as string))}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  ) : null}
                   <ConfirmDeleteButton
                     label={`Delete invitation ${invitation.label}`}
                     title="Delete this invitation?"
