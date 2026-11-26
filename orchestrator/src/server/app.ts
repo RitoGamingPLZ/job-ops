@@ -9,7 +9,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { fileURLToPath } from "node:url";
-import { forbidden, unauthorized } from "@infra/errors";
+import { forbidden, serviceUnavailable, unauthorized } from "@infra/errors";
 import { apiErrorHandler, fail, notFoundApiHandler, requestContextMiddleware } from "@infra/http";
 import { logger } from "@infra/logger";
 import { runWithRequestContext } from "@infra/request-context";
@@ -19,6 +19,7 @@ import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { isDemoMode } from "@server/config/demo";
 import { getBlobStore } from "@server/infra/blob-store";
 import * as usersRepo from "@server/repositories/users";
+import { isRestoreInProgress, isWriteMethod } from "@server/services/backup/restore-lock";
 import { proxyChallengeViewerRequest } from "@server/services/challenge-viewer";
 import { getActivePdfKeyPrefix } from "@server/services/pdf-storage";
 import { isOperatorContext } from "@server/services/server-credentials";
@@ -412,6 +413,19 @@ export function createApp() {
         durationMs: duration,
       });
     });
+    next();
+  });
+
+  // While a backup is being restored, reject anything that could write to the database.
+  app.use((req, res, next) => {
+    if (isRestoreInProgress() && isWriteMethod(req.method)) {
+      res.setHeader("Retry-After", "30");
+      fail(
+        res,
+        serviceUnavailable("A database restore is in progress. Try again in a few moments."),
+      );
+      return;
+    }
     next();
   });
 

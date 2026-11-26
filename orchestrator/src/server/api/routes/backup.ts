@@ -1,10 +1,11 @@
-import { badRequest, forbidden, notFound } from "@infra/errors";
+import { badRequest, conflict, forbidden, notFound, unprocessableEntity } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { isSystemAdmin } from "@infra/request-context";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { isDemoMode, sendDemoBlocked } from "@server/config/demo";
 import {
+  BackupRestoreInProgressError,
   createBackup,
   deleteBackup,
   getBackupStorageInfo,
@@ -13,6 +14,7 @@ import {
   isValidBackupFilename,
   listBackups,
   readBackup,
+  restoreBackup,
 } from "@server/services/backup/index";
 import { type Request, type Response, Router } from "express";
 
@@ -124,6 +126,64 @@ backupRouter.get(
         filename,
         error: sanitizeUnknown(error),
       });
+      throw error;
+    }
+  }),
+);
+
+/**
+ * POST /api/backups/:filename/restore - Replace the database contents with a backup.
+ * All other write requests are rejected with 503 until it finishes.
+ */
+backupRouter.post(
+  "/:filename/restore",
+  asyncRoute(async (req: Request, res: Response) => {
+    if (!requireSystemAdmin(res)) return;
+    const filename = normalizeParam(req.params.filename);
+    if (isDemoMode()) {
+      return sendDemoBlocked(res, "Restoring backups is disabled in the public demo.", {
+        route: "POST /api/backups/:filename/restore",
+        filename,
+      });
+    }
+
+    if (!filename || !isValidBackupFilename(filename)) {
+      fail(res, badRequest("Invalid backup filename"));
+      return;
+    }
+
+    try {
+      const result = await restoreBackup(filename);
+      ok(res, { message: `Restored database from ${filename}`, ...result });
+    } catch (error) {
+      logger.error("Failed to restore backup", {
+        route: "POST /api/backups/:filename/restore",
+        filename,
+        error: sanitizeUnknown(error),
+      });
+
+      if (error instanceof BackupRestoreInProgressError) {
+        fail(res, conflict(error.message));
+        return;
+      }
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("not found")) {
+        fail(res, notFound(message));
+        return;
+      }
+      if (
+        message.startsWith("Failed to decompress") ||
+        message.includes("checksum") ||
+        message.includes("mismatch") ||
+        message.startsWith("Unsupported backup") ||
+        message.startsWith("Invalid") ||
+        message.startsWith("Backup ") ||
+        message.includes("newer version") ||
+        message.includes("Legacy")
+      ) {
+        fail(res, unprocessableEntity(message));
+        return;
+      }
       throw error;
     }
   }),

@@ -250,6 +250,41 @@ export function isDatabaseAvailable(): boolean {
 }
 
 /**
+ * Executes a single parameterized write statement (INSERT/DELETE/...) against the active
+ * database backend. Unlike `queryRawSql`, the statement is not expected to return rows.
+ */
+export function runRawSql(sqlText: string, params: unknown[] = []): void {
+  const currentDb = getUnderlyingDb();
+  if (defaultSqlite && currentDb === defaultDb) {
+    defaultSqlite.prepare(sqlText).run(...params);
+    return;
+  }
+  const client = (
+    currentDb as {
+      $client?: {
+        prepare?: (sql: string) => { run: (...p: unknown[]) => unknown };
+        sql?: { exec: (sql: string, ...p: unknown[]) => unknown };
+      };
+    }
+  ).$client;
+  if (client && typeof client.prepare === "function") {
+    client.prepare(sqlText).run(...params);
+    return;
+  }
+  if (client?.sql && typeof client.sql.exec === "function") {
+    const cursor = client.sql.exec(sqlText, ...params) as { toArray?: () => unknown[] };
+    // Drain the cursor so the statement is fully executed.
+    if (typeof cursor?.toArray === "function") cursor.toArray();
+    return;
+  }
+  if (params.length === 0) {
+    currentDb.run(sql.raw(sqlText));
+    return;
+  }
+  throw new Error("Active database client does not support parameterized raw SQL writes");
+}
+
+/**
  * Executes a read-only raw SQL query against the active database backend (local better-sqlite3
  * or Cloudflare DO SqlStorage) and returns all result rows as plain objects.
  */

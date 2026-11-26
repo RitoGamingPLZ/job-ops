@@ -99,6 +99,19 @@ export async function downloadBackup(filename: string): Promise<Blob> {
   return fetchBlobApi(`/backups/${encodeURIComponent(filename)}/download`);
 }
 
+export interface RestoreBackupResult {
+  message: string;
+  safetyBackup: string;
+  tableCount: number;
+  rowCount: number;
+}
+
+export async function restoreBackup(filename: string): Promise<RestoreBackupResult> {
+  return fetchApi<RestoreBackupResult>(`/backups/${encodeURIComponent(filename)}/restore`, {
+    method: "POST",
+  });
+}
+
 export async function deleteBackup(filename: string): Promise<void> {
   await fetchApi<void>(`/backups/${encodeURIComponent(filename)}`, {
     method: "DELETE",

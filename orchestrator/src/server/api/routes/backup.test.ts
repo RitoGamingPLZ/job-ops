@@ -161,6 +161,68 @@ describe("Backup API routes", () => {
     });
   });
 
+  describe("POST /api/backups/:filename/restore", () => {
+    it("restores a backup and returns the safety backup name", async () => {
+      const created = await (await fetch(`${baseUrl}/api/backups`, { method: "POST" })).json();
+      const filename = created.data.filename as string;
+
+      const res = await fetch(`${baseUrl}/api/backups/${filename}/restore`, { method: "POST" });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(body.data.safetyBackup).toMatch(/^jobs_manual_.*\.json\.gz$/);
+      expect(body.data.tableCount).toBeGreaterThan(0);
+    });
+
+    it("rejects invalid and unknown filenames", async () => {
+      const invalid = await fetch(`${baseUrl}/api/backups/not-a-backup/restore`, {
+        method: "POST",
+      });
+      expect(invalid.status).toBe(400);
+
+      const missing = await fetch(
+        `${baseUrl}/api/backups/jobs_manual_2020_01_01_00_00_00.json.gz/restore`,
+        { method: "POST" },
+      );
+      expect(missing.status).toBe(404);
+    });
+
+    it("blocks demo mode", async () => {
+      const demoServer = await startServer({ env: { DEMO_MODE: "true" } });
+      try {
+        const res = await fetch(
+          `${demoServer.baseUrl}/api/backups/jobs_2026_01_01.json.gz/restore`,
+          { method: "POST" },
+        );
+        expect(res.status).toBe(403);
+      } finally {
+        await stopServer(demoServer);
+      }
+    });
+  });
+
+  describe("write blocking during restore", () => {
+    it("rejects write requests with 503 but still serves reads", async () => {
+      // startServer resets the module registry, so load the lock the running app uses.
+      const { endRestore, tryBeginRestore } = await import("@server/services/backup/restore-lock");
+      expect(tryBeginRestore()).toBe(true);
+      try {
+        const write = await fetch(`${baseUrl}/api/backups`, { method: "POST" });
+        expect(write.status).toBe(503);
+        expect(write.headers.get("retry-after")).toBe("30");
+
+        const read = await fetch(`${baseUrl}/api/backups`);
+        expect(read.status).toBe(200);
+      } finally {
+        endRestore();
+      }
+
+      const afterRestore = await fetch(`${baseUrl}/api/backups`, { method: "POST" });
+      expect(afterRestore.status).toBe(200);
+    });
+  });
+
   describe("demo mode restrictions", () => {
     it("blocks creating, downloading, and deleting backups in demo mode", async () => {
       const demoServer = await startServer({ env: { DEMO_MODE: "true" } });

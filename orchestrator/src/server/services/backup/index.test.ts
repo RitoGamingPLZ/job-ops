@@ -611,4 +611,58 @@ describe("Backup Service", () => {
       }
     });
   });
+
+  describe("restoreBackup", () => {
+    it("replaces current rows with the backup contents and takes a safety backup first", async () => {
+      const filename = await backup.createBackup("manual");
+
+      sqlite!.exec(
+        "DELETE FROM test_items; INSERT INTO test_items (name) VALUES ('beta'), ('gamma');",
+      );
+
+      const result = await backup.restoreBackup(filename);
+
+      const rows = sqlite!.prepare("SELECT id, name FROM test_items ORDER BY id").all();
+      expect(rows).toEqual([{ id: 1, name: "alpha" }]);
+      expect(result.rowCount).toBeGreaterThanOrEqual(1);
+
+      // The safety backup captured the data as it was just before the restore.
+      const safety = await backup.readBackup(result.safetyBackup);
+      const safetySnapshot = parseAndVerifyBackupSnapshot(safety!.body);
+      expect(safetySnapshot.tables.test_items.map((row) => row.name)).toEqual(["beta", "gamma"]);
+    });
+
+    it("blocks writes while restoring and releases the lock afterwards", async () => {
+      const filename = await backup.createBackup("manual");
+      const lock = await import("./restore-lock");
+
+      expect(lock.isRestoreInProgress()).toBe(false);
+      const pending = backup.restoreBackup(filename);
+      expect(lock.isRestoreInProgress()).toBe(true);
+      await expect(backup.restoreBackup(filename)).rejects.toBeInstanceOf(
+        backup.BackupRestoreInProgressError,
+      );
+      await pending;
+      expect(lock.isRestoreInProgress()).toBe(false);
+    });
+
+    it("leaves the database untouched and releases the lock when the backup is corrupt", async () => {
+      const filename = await backup.createBackup("manual");
+      await new LocalBlobStore(tempDir).put(`backups/${filename}`, new Uint8Array([1, 2, 3, 4]), {
+        contentType: "application/gzip",
+      });
+      sqlite!.exec("INSERT INTO test_items (name) VALUES ('beta')");
+
+      await expect(backup.restoreBackup(filename)).rejects.toThrow(/decompress|parse/i);
+
+      expect(sqlite!.prepare("SELECT COUNT(*) AS n FROM test_items").get()).toEqual({ n: 2 });
+      expect((await import("./restore-lock")).isRestoreInProgress()).toBe(false);
+    });
+
+    it("rejects unknown backups", async () => {
+      await expect(backup.restoreBackup("jobs_manual_2020_01_01_00_00_00.json.gz")).rejects.toThrow(
+        /not found/i,
+      );
+    });
+  });
 });
