@@ -54,7 +54,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { TagInput } from "@/components/ui/tag-input";
+import { MultiCombobox } from "@/components/ui/multi-combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { coworkError, DutyLibraryTools, InlineTags } from "./DutyLibrary";
 import { REWORDED_TINT_CLASS } from "./rewordTint";
@@ -581,18 +581,22 @@ export function CandidateLibrary({
         {!current.companyOnly && kind === "skill" && (
           <label htmlFor={`${formId}-skills`} className={fieldClass}>
             Skills
-            <TagInput
+            <MultiCombobox
               id={`${formId}-skills`}
+              variant="inline"
               noun="skill"
+              allowCustomValues
               value={keywords(current.input)}
               options={[
                 ...new Set(items.filter((item) => item.kind === "skill").flatMap(keywords)),
-              ]}
+              ].map((skill) => ({ value: skill, label: skill }))}
               disabled={busy}
-              onChange={(keywords) =>
+              placeholder="Add skill…"
+              inputAriaLabel="Add skill"
+              onValueChange={(nextKeywords) =>
                 setInput({
                   ...current.input,
-                  data: { ...current.input.data, keywords },
+                  data: { ...current.input.data, keywords: nextKeywords },
                 })
               }
             />
@@ -601,12 +605,20 @@ export function CandidateLibrary({
         {!current.companyOnly && TAG_KINDS.has(kind) && (
           <label htmlFor={`${formId}-tags`} className={fieldClass}>
             Tags
-            <TagInput
+            <MultiCombobox
               id={`${formId}-tags`}
+              variant="inline"
+              noun="tag"
+              allowCustomValues
               value={current.input.tags ?? []}
-              options={[...new Set(items.flatMap((item) => item.tags))]}
+              options={[...new Set(items.flatMap((item) => item.tags))].map((tag) => ({
+                value: tag,
+                label: tag,
+              }))}
               disabled={busy}
-              onChange={(tags) => setInput({ ...current.input, tags })}
+              placeholder="Add tag…"
+              inputAriaLabel="Add tag"
+              onValueChange={(tags) => setInput({ ...current.input, tags })}
             />
           </label>
         )}

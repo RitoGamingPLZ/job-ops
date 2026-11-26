@@ -1,8 +1,53 @@
 import { ChevronDown } from "lucide-react";
-import type React from "react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+
+/** Shared trigger props for every filter pill button. */
+export interface FilterPillTriggerProps extends Omit<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  "children"
+> {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  /** Short value shown inline on the trigger when the filter is active. */
+  summary?: string | null;
+  /** Numeric badge shown when several values are selected. */
+  badge?: number;
+}
+
+export const FilterPillTrigger = React.forwardRef<HTMLButtonElement, FilterPillTriggerProps>(
+  ({ icon, label, active, summary, badge, className, type = "button", ...props }, ref) => (
+    <Button
+      ref={ref}
+      type={type}
+      variant="outline"
+      size="sm"
+      className={cn(
+        "h-7 gap-1.5 rounded-md border-dashed px-2 text-xs font-medium text-muted-foreground shadow-none",
+        "hover:border-solid hover:bg-accent/60 hover:text-foreground",
+        active && "border-solid bg-accent/50 text-foreground",
+        className,
+      )}
+      {...props}
+    >
+      <span className="[&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:opacity-70">{icon}</span>
+      <span>{label}</span>
+      {summary ? (
+        <span className="max-w-[10rem] truncate font-semibold text-foreground">{summary}</span>
+      ) : null}
+      {typeof badge === "number" && badge > 0 ? (
+        <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/20 px-1 text-[10px] font-semibold tabular-nums text-primary">
+          {badge}
+        </span>
+      ) : null}
+      <ChevronDown className="h-3 w-3 opacity-50" />
+    </Button>
+  ),
+);
+FilterPillTrigger.displayName = "FilterPillTrigger";
 
 /** Trigger button shared by every filter dropdown ("faceted filter" style). */
 export interface FilterPillProps {
@@ -28,28 +73,13 @@ export const FilterPill: React.FC<FilterPillProps> = ({
 }) => (
   <Popover>
     <PopoverTrigger asChild>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className={cn(
-          "h-7 gap-1.5 rounded-md border-dashed px-2 text-xs font-medium text-muted-foreground shadow-none",
-          "hover:border-solid hover:bg-accent/60 hover:text-foreground",
-          active && "border-solid bg-accent/50 text-foreground",
-        )}
-      >
-        <span className="[&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:opacity-70">{icon}</span>
-        <span>{label}</span>
-        {summary ? (
-          <span className="max-w-[10rem] truncate font-semibold text-foreground">{summary}</span>
-        ) : null}
-        {typeof badge === "number" && badge > 0 ? (
-          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/20 px-1 text-[10px] font-semibold tabular-nums text-primary">
-            {badge}
-          </span>
-        ) : null}
-        <ChevronDown className="h-3 w-3 opacity-50" />
-      </Button>
+      <FilterPillTrigger
+        icon={icon}
+        label={label}
+        active={active}
+        summary={summary}
+        badge={badge}
+      />
     </PopoverTrigger>
     <PopoverContent align="start" className={cn("w-64", contentClassName)}>
       <div className="space-y-3">
