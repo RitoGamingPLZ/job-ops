@@ -7,8 +7,8 @@ import {
 import { SettingsSectionFrame } from "@client/pages/settings/components/SettingsSectionFrame";
 import type { BackupValues } from "@client/pages/settings/types";
 import type { UpdateSettingsInput } from "@shared/settings-schema.js";
-import type { BackupInfo } from "@shared/types.js";
-import { Archive, Clock, Trash2 } from "lucide-react";
+import type { BackupInfo, BackupStorageInfo } from "@shared/types.js";
+import { Archive, Clock, Download, Trash2 } from "lucide-react";
 import type React from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
@@ -20,12 +20,15 @@ type BackupSettingsSectionProps = {
   values: BackupValues;
   backups: BackupInfo[];
   nextScheduled: string | null;
+  storage?: BackupStorageInfo | null;
   isLoading: boolean;
   isSaving: boolean;
   onCreateBackup: () => void;
+  onDownloadBackup?: (filename: string) => void;
   onDeleteBackup: (filename: string) => void;
   isCreatingBackup: boolean;
   isDeletingBackup: boolean;
+  downloadingBackupFilename?: string | null;
   /** Backups are server-wide, so only system admins can see and change them. */
   canManageBackups?: boolean;
   /** Outside hosted mode the admin's schedule runs every user's saved search. */
@@ -57,12 +60,15 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
   values,
   backups,
   nextScheduled,
+  storage,
   isLoading,
   isSaving,
   onCreateBackup,
+  onDownloadBackup,
   onDeleteBackup,
   isCreatingBackup,
   isDeletingBackup,
+  downloadingBackupFilename = null,
   canManageBackups = true,
   scheduleCoversAllUsers = false,
   layoutMode,
@@ -216,6 +222,7 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium">Backup History</div>
                 <Button
+                  type="button"
                   size="sm"
                   onClick={onCreateBackup}
                   disabled={isLoading || isCreatingBackup || isDeletingBackup}
@@ -226,10 +233,15 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
 
               <ListPanel
                 header={
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between gap-2 text-sm">
                     <span>
                       {backups.length} backup{backups.length !== 1 ? "s" : ""}
                     </span>
+                    {storage?.label ? (
+                      <span className="truncate text-xs text-muted-foreground">
+                        {storage.label}
+                      </span>
+                    ) : null}
                   </div>
                 }
               >
@@ -258,12 +270,37 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
                         >
                           {backup.type === "auto" ? "Auto" : "Manual"}
                         </Badge>
+                        {onDownloadBackup ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label={`Download ${backup.filename}`}
+                            title="Download backup"
+                            onClick={() => onDownloadBackup(backup.filename)}
+                            disabled={
+                              downloadingBackupFilename === backup.filename ||
+                              isCreatingBackup ||
+                              isDeletingBackup
+                            }
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        ) : null}
                         <Button
+                          type="button"
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
+                          aria-label={`Delete ${backup.filename}`}
+                          title="Delete backup"
                           onClick={() => onDeleteBackup(backup.filename)}
-                          disabled={isDeletingBackup || isCreatingBackup}
+                          disabled={
+                            isDeletingBackup ||
+                            isCreatingBackup ||
+                            downloadingBackupFilename === backup.filename
+                          }
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

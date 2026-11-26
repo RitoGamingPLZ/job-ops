@@ -431,3 +431,8 @@ export interface BackupInfo {
   size: number;
   createdAt: string;
 }
+
+export interface BackupStorageInfo {
+  kind: "r2" | "local";
+  label: string;
+}

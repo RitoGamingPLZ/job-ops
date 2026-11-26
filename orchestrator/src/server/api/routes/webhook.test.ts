@@ -144,4 +144,53 @@ describe("Webhook API routes", () => {
       await stopServer(cronServer);
     }
   });
+
+  it("hydrates backup settings from DB on POST /api/webhook/cron and creates an auto backup", async () => {
+    const cronServer = await startServer({
+      env: {
+        CRON_SECRET: "cron-secret-value",
+      },
+    });
+
+    try {
+      const patchRes = await fetch(`${cronServer.baseUrl}/api/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          backupEnabled: true,
+          backupHour: 7,
+          backupMaxCount: 3,
+        }),
+      });
+      expect(patchRes.status).toBe(200);
+
+      // Simulate a cold start where in-memory backup settings are still disabled.
+      const { setBackupSettings, stopBackupScheduler } = await import("@server/services/backup");
+      setBackupSettings({ enabled: false, hour: 2, maxCount: 5 });
+      stopBackupScheduler();
+
+      const cronRes = await fetch(`${cronServer.baseUrl}/api/webhook/cron`, {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer cron-secret-value",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ hour: 7 }),
+      });
+      const cronBody = await cronRes.json();
+
+      expect(cronRes.status).toBe(200);
+      expect(cronBody.ok).toBe(true);
+      expect(cronBody.data.backupTriggered).toBe(true);
+
+      const listRes = await fetch(`${cronServer.baseUrl}/api/backups`);
+      const listBody = await listRes.json();
+      expect(listRes.status).toBe(200);
+      expect(listBody.data.backups).toHaveLength(1);
+      expect(listBody.data.backups[0]?.type).toBe("auto");
+      expect(listBody.data.backups[0]?.filename).toMatch(/^jobs_\d{4}_\d{2}_\d{2}\.json\.gz$/);
+    } finally {
+      await stopServer(cronServer);
+    }
+  });
 });

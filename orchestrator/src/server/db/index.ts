@@ -23,6 +23,10 @@ export interface DurableObjectStorageLike {
 interface BetterSqliteDatabaseLike {
   pragma: (source: string) => unknown;
   exec: (source: string) => unknown;
+  prepare: (source: string) => {
+    all: (...params: unknown[]) => unknown[];
+    run: (...params: unknown[]) => unknown;
+  };
   close: () => unknown;
 }
 
@@ -229,6 +233,55 @@ export function execRawSql(sqlText: string): void {
     return;
   }
   currentDb.run(sql.raw(sqlText));
+}
+
+/**
+ * Returns true when an active database connection (e.g. DO SQLite or open local SQLite file)
+ * is ready to be queried without creating an empty database file on disk.
+ */
+export function isDatabaseAvailable(): boolean {
+  if (activeDb !== null) {
+    return true;
+  }
+  if (defaultSqlite !== null) {
+    return !isClosed;
+  }
+  return existsSync(join(getDataDir(), "jobs.db"));
+}
+
+/**
+ * Executes a read-only raw SQL query against the active database backend (local better-sqlite3
+ * or Cloudflare DO SqlStorage) and returns all result rows as plain objects.
+ */
+export function queryRawSql<T = Record<string, unknown>>(
+  sqlText: string,
+  params: unknown[] = [],
+): T[] {
+  const currentDb = getUnderlyingDb();
+  if (defaultSqlite && currentDb === defaultDb) {
+    return defaultSqlite.prepare(sqlText).all(...params) as T[];
+  }
+  const client = (
+    currentDb as {
+      $client?: {
+        prepare?: (sql: string) => { all: (...p: unknown[]) => unknown[] };
+        sql?: {
+          exec: (sql: string, ...p: unknown[]) => Iterable<T> & { toArray?: () => T[] };
+        };
+      };
+    }
+  ).$client;
+  if (client && typeof client.prepare === "function") {
+    return client.prepare(sqlText).all(...params) as T[];
+  }
+  if (client?.sql && typeof client.sql.exec === "function") {
+    const cursor = client.sql.exec(sqlText, ...params);
+    return typeof cursor.toArray === "function" ? cursor.toArray() : Array.from(cursor);
+  }
+  if (params.length === 0) {
+    return currentDb.all(sql.raw(sqlText)) as T[];
+  }
+  throw new Error("Active database client does not support parameterized raw SQL queries");
 }
 
 export { schema };

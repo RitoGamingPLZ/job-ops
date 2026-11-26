@@ -702,6 +702,7 @@ export const SettingsPage: React.FC = () => {
   // Backup state
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isDeletingBackup, setIsDeletingBackup] = useState(false);
+  const [downloadingBackupFilename, setDownloadingBackupFilename] = useState<string | null>(null);
 
   const methods = useForm<UpdateSettingsInput>({
     resolver: zodResolver(updateSettingsSchema) as Resolver<UpdateSettingsInput>,
@@ -744,6 +745,7 @@ export const SettingsPage: React.FC = () => {
   const isLoading = settingsQuery.isLoading;
   const backups = backupsQuery.data?.backups ?? [];
   const nextScheduled = backupsQuery.data?.nextScheduled ?? null;
+  const backupStorage = backupsQuery.data?.storage ?? null;
   const isLoadingBackups = backupsQuery.isLoading;
   const canEditLlmSettings = isHostedMode
     ? (billingQuery.data?.userEditableLlmSettings ?? false)
@@ -802,6 +804,25 @@ export const SettingsPage: React.FC = () => {
       showErrorToast(error, "Failed to create backup");
     } finally {
       setIsCreatingBackup(false);
+    }
+  };
+
+  const handleDownloadBackup = async (filename: string) => {
+    setDownloadingBackupFilename(filename);
+    try {
+      const blob = await api.downloadBackup(filename);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      showErrorToast(error, "Failed to download backup");
+    } finally {
+      setDownloadingBackupFilename((current) => (current === filename ? null : current));
     }
   };
 
@@ -1375,12 +1396,15 @@ export const SettingsPage: React.FC = () => {
           values={backup}
           backups={backups}
           nextScheduled={nextScheduled}
+          storage={backupStorage}
           isLoading={isLoading || isLoadingBackups}
           isSaving={isSaving}
           onCreateBackup={handleCreateBackup}
+          onDownloadBackup={handleDownloadBackup}
           onDeleteBackup={handleDeleteBackup}
           isCreatingBackup={isCreatingBackup}
           isDeletingBackup={isDeletingBackup}
+          downloadingBackupFilename={downloadingBackupFilename}
           canManageBackups={canManageBackups}
           scheduleCoversAllUsers={!isHostedMode}
           layoutMode="panel"

@@ -1,6 +1,8 @@
 import type { UpdateSettingsInput } from "@shared/settings-schema.js";
-import { render, screen } from "@testing-library/react";
+import type { BackupInfo, BackupStorageInfo } from "@shared/types.js";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { FormProvider, useForm } from "react-hook-form";
+import { vi } from "vitest";
 import { Accordion } from "@/components/ui/accordion";
 import { BackupSettingsSection } from "./BackupSettingsSection";
 
@@ -10,7 +12,19 @@ const values = {
   backupMaxCount: { default: 5, effective: 4 },
 };
 
-const Harness = ({ canManageBackups }: { canManageBackups?: boolean }) => {
+const Harness = ({
+  canManageBackups,
+  backups = [],
+  storage = null,
+  onDownloadBackup,
+  onDeleteBackup = () => {},
+}: {
+  canManageBackups?: boolean;
+  backups?: BackupInfo[];
+  storage?: BackupStorageInfo | null;
+  onDownloadBackup?: (filename: string) => void;
+  onDeleteBackup?: (filename: string) => void;
+}) => {
   const methods = useForm<UpdateSettingsInput>({
     defaultValues: {
       pipelineScheduleEnabled: true,
@@ -23,12 +37,14 @@ const Harness = ({ canManageBackups }: { canManageBackups?: boolean }) => {
       <Accordion type="multiple" defaultValue={["backup"]}>
         <BackupSettingsSection
           values={values}
-          backups={[]}
+          backups={backups}
           nextScheduled={null}
+          storage={storage}
           isLoading={false}
           isSaving={false}
           onCreateBackup={() => {}}
-          onDeleteBackup={() => {}}
+          onDownloadBackup={onDownloadBackup}
+          onDeleteBackup={onDeleteBackup}
           isCreatingBackup={false}
           isDeletingBackup={false}
           canManageBackups={canManageBackups}
@@ -46,7 +62,10 @@ describe("BackupSettingsSection", () => {
     expect(screen.getByText("Run job search daily")).toBeInTheDocument();
     expect(screen.getByText("Enable automatic backups")).toBeInTheDocument();
     expect(screen.getByText("Backup History")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create Backup Now" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create Backup Now" })).toHaveAttribute(
+      "type",
+      "button",
+    );
   });
 
   it("shows only the daily search schedule to non-admins", () => {
@@ -58,5 +77,34 @@ describe("BackupSettingsSection", () => {
     expect(screen.queryByText("Backup History")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create Backup Now" })).not.toBeInTheDocument();
     expect(screen.queryByText("Max Count")).not.toBeInTheDocument();
+  });
+
+  it("shows storage label and invokes download callback for listed backups", () => {
+    const onDownloadBackup = vi.fn();
+    const backups: BackupInfo[] = [
+      {
+        filename: "jobs_manual_2026_11_26_01_00_00.json.gz",
+        type: "manual",
+        size: 2048,
+        createdAt: "2026-11-26T01:00:00.000Z",
+      },
+    ];
+
+    render(
+      <Harness
+        canManageBackups
+        backups={backups}
+        storage={{ kind: "r2", label: "Cloudflare R2 (backups/)" }}
+        onDownloadBackup={onDownloadBackup}
+      />,
+    );
+
+    expect(screen.getByText("Cloudflare R2 (backups/)")).toBeInTheDocument();
+    const downloadButton = screen.getByRole("button", {
+      name: "Download jobs_manual_2026_11_26_01_00_00.json.gz",
+    });
+    expect(downloadButton).toHaveAttribute("type", "button");
+    fireEvent.click(downloadButton);
+    expect(onDownloadBackup).toHaveBeenCalledWith("jobs_manual_2026_11_26_01_00_00.json.gz");
   });
 });

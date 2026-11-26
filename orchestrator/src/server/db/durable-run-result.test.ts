@@ -1,7 +1,14 @@
 import { eq } from "drizzle-orm";
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createDurableObjectDrizzleDb, type DurableObjectStorageLike } from "./index";
+import {
+  createDurableObjectDrizzleDb,
+  type DurableObjectStorageLike,
+  isDatabaseAvailable,
+  queryRawSql,
+  runTransactionSync,
+  setDb,
+} from "./index";
 import { settings } from "./schema";
 
 /** Minimal Durable Object SQL storage backed by better-sqlite3, mirroring `ctx.storage`. */
@@ -38,7 +45,10 @@ describe("Durable Object drizzle db", () => {
     db = createDurableObjectDrizzleDb(createFakeStorage(sqlite));
   });
 
-  afterEach(() => sqlite.close());
+  afterEach(() => {
+    setDb(null);
+    sqlite.close();
+  });
 
   const row = (key: string) => ({ tenantId: "t", userId: "u", key, value: "v" });
 
@@ -80,5 +90,22 @@ describe("Durable Object drizzle db", () => {
       return tx.delete(settings).run().changes;
     });
     expect(value).toBe(1);
+  });
+
+  it("supports queryRawSql and isDatabaseAvailable inside DO transactionSync", () => {
+    setDb(db);
+    expect(isDatabaseAvailable()).toBe(true);
+
+    db.insert(settings)
+      .values([row("alpha"), row("beta")])
+      .run();
+
+    const rows = runTransactionSync(() =>
+      queryRawSql<{ key: string; value: string }>(
+        "SELECT key, value FROM settings WHERE key = ? ORDER BY key ASC",
+        ["alpha"],
+      ),
+    );
+    expect(rows).toEqual([{ key: "alpha", value: "v" }]);
   });
 });

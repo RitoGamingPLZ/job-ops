@@ -235,10 +235,10 @@ Readiness requires:
 ![Backup settings section](/img/features/settings-backup-section.png)
 
 - Enable/disable automatic daily backups
-- Configure backup hour (UTC) and max retained backups
-- Create or delete backups manually
+- Configure backup hour (UTC) and max retained backups (`1-5`)
+- Create, download, or delete portable `.json.gz` database backups stored in Cloudflare R2 (or `<DATA_DIR>/backups/` / `BACKUP_DIR` locally)
 - Backup management is available only to system admins
-- See [Database Backups](../getting-started/database-backups) for full backup/restore guidance.
+- See [Database Backups](/docs/next/getting-started/database-backups) for full backup/restore guidance.
 
 ### Scoring Settings
 
@@ -289,9 +289,10 @@ curl -X PATCH "http://localhost:3001/api/settings" \
 ```
 
 ```bash
-# List and create backups (used by the Backup section)
+# List, create, and download backups (used by the Backup section)
 curl "http://localhost:3001/api/backups"
 curl -X POST "http://localhost:3001/api/backups"
+curl -L -o "backup.json.gz" "http://localhost:3001/api/backups/<filename>/download"
 ```
 
 ## Common problems

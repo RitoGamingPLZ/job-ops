@@ -2,12 +2,17 @@ import { badRequest, forbidden, notFound } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { isSystemAdmin } from "@infra/request-context";
+import { sanitizeUnknown } from "@infra/sanitize";
 import { isDemoMode, sendDemoBlocked } from "@server/config/demo";
 import {
   createBackup,
   deleteBackup,
+  getBackupStorageInfo,
   getNextBackupTime,
+  hydrateBackupSettingsFromDb,
+  isValidBackupFilename,
   listBackups,
+  readBackup,
 } from "@server/services/backup/index";
 import { type Request, type Response, Router } from "express";
 
@@ -19,6 +24,10 @@ function requireSystemAdmin(res: Response): boolean {
   return false;
 }
 
+function normalizeParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
+}
+
 /**
  * GET /api/backups - List all backups with metadata
  */
@@ -27,13 +36,15 @@ backupRouter.get(
   asyncRoute(async (_req: Request, res: Response) => {
     if (!requireSystemAdmin(res)) return;
     try {
+      await hydrateBackupSettingsFromDb({ startScheduler: false });
       const backups = await listBackups();
       const nextScheduled = getNextBackupTime();
-      ok(res, { backups, nextScheduled });
+      const storage = getBackupStorageInfo();
+      ok(res, { backups, nextScheduled, storage });
     } catch (error) {
       logger.error("Failed to list backups", {
         route: "GET /api/backups",
-        error,
+        error: sanitizeUnknown(error),
       });
       throw error;
     }
@@ -66,7 +77,52 @@ backupRouter.post(
     } catch (error) {
       logger.error("Failed to create backup", {
         route: "POST /api/backups",
-        error,
+        error: sanitizeUnknown(error),
+      });
+      throw error;
+    }
+  }),
+);
+
+/**
+ * GET /api/backups/:filename/download - Download a backup archive
+ */
+backupRouter.get(
+  "/:filename/download",
+  asyncRoute(async (req: Request, res: Response) => {
+    if (!requireSystemAdmin(res)) return;
+
+    const filename = normalizeParam(req.params.filename);
+    if (isDemoMode()) {
+      return sendDemoBlocked(res, "Downloading backups is disabled in the public demo.", {
+        route: "GET /api/backups/:filename/download",
+        filename,
+      });
+    }
+
+    if (!filename || !isValidBackupFilename(filename)) {
+      fail(res, badRequest("Invalid backup filename"));
+      return;
+    }
+
+    try {
+      const backup = await readBackup(filename);
+      if (!backup) {
+        fail(res, notFound(`Backup not found: ${filename}`));
+        return;
+      }
+
+      res.setHeader("Content-Type", backup.contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${backup.filename}"`);
+      res.setHeader("Content-Length", String(backup.size));
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.status(200).send(Buffer.from(backup.body));
+    } catch (error) {
+      logger.error("Failed to download backup", {
+        route: "GET /api/backups/:filename/download",
+        filename,
+        error: sanitizeUnknown(error),
       });
       throw error;
     }
@@ -80,15 +136,14 @@ backupRouter.delete(
   "/:filename",
   asyncRoute(async (req: Request, res: Response) => {
     if (!requireSystemAdmin(res)) return;
+    const filename = normalizeParam(req.params.filename);
     try {
       if (isDemoMode()) {
         return sendDemoBlocked(res, "Deleting backups is disabled in the public demo.", {
           route: "DELETE /api/backups/:filename",
-          filename: req.params.filename,
+          filename,
         });
       }
-
-      const { filename } = req.params;
 
       if (!filename) {
         fail(res, badRequest("Filename is required"));
@@ -101,8 +156,8 @@ backupRouter.delete(
       const message = error instanceof Error ? error.message : "Unknown error";
       logger.error("Failed to delete backup", {
         route: "DELETE /api/backups/:filename",
-        filename: req.params.filename,
-        error,
+        filename,
+        error: sanitizeUnknown(error),
       });
 
       if (message.includes("not found")) {
