@@ -220,4 +220,17 @@ describe("PdfCanvasPreview", () => {
 
     expect(screen.getByLabelText("Resume PDF page 1")).toBe(firstPage);
   });
+
+  it("keeps previous pages visible with the updating badge while an external update is in progress", async () => {
+    const view = render(<PdfCanvasPreview url="blob:first" />);
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    const firstPage = screen.getByLabelText("Resume PDF page 1");
+
+    view.rerender(<PdfCanvasPreview url="blob:first" updating />);
+    expect(screen.getByRole("status")).toHaveTextContent("Updating preview");
+    expect(screen.getByLabelText("Resume PDF page 1")).toBe(firstPage);
+
+    view.rerender(<PdfCanvasPreview url="blob:first" updating={false} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
 });

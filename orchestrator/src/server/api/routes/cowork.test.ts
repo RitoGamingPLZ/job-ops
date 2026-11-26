@@ -656,3 +656,205 @@ it("accepts valid contact items and rejects invalid contact data on create and p
     ).status,
   ).toBe(400);
 });
+
+it("supersedes an uploaded job PDF only when saved editor content changes, and allows preview and generation", async () => {
+  callJson.mockResolvedValue({
+    success: true,
+    data: {
+      headline: "Tailored headline",
+      summary: "Tailored summary",
+      experience: [],
+      projects: [],
+      skills: [],
+      educationIds: [],
+      certificationIds: [],
+      awardIds: [],
+    },
+  });
+  expect((await request("/settings", "PATCH", { pdfRenderer: "typst" })).status).toBe(200);
+  const uploadedPdf = Buffer.from("%PDF-1.7\nUploaded original\n");
+  const uploadRes = await request(`/jobs/${jobId}/pdf`, "POST", {
+    fileName: "uploaded.pdf",
+    mediaType: "application/pdf",
+    dataBase64: uploadedPdf.toString("base64"),
+  });
+  expect(uploadRes.status).toBe(201);
+  expect((await uploadRes.json()).data).toMatchObject({
+    status: "ready",
+    pdfSource: "uploaded",
+    pdfFreshness: "uploaded",
+  });
+
+  const materialized = await request(`/jobs/${jobId}/resume`);
+  expect(materialized.status).toBe(200);
+  const initialState = (await materialized.json()).data as {
+    revision: number;
+    document: ResumeV5Document;
+  };
+  expect(initialState.revision).toBe(1);
+  expect((await (await request(`/jobs/${jobId}`)).json()).data).toMatchObject({
+    pdfSource: "uploaded",
+    pdfFreshness: "uploaded",
+  });
+
+  const unchangedSave = await request(`/jobs/${jobId}/resume`, "PUT", {
+    baseRevision: 1,
+    document: initialState.document,
+  });
+  expect(unchangedSave.status).toBe(200);
+  expect((await unchangedSave.json()).data.revision).toBe(2);
+  expect((await (await request(`/jobs/${jobId}`)).json()).data).toMatchObject({
+    pdfSource: "uploaded",
+    pdfFreshness: "uploaded",
+  });
+
+  const editedDocument: ResumeV5Document = {
+    ...initialState.document,
+    basics: { ...initialState.document.basics, headline: "Edited headline" },
+  };
+  const editedSave = await request(`/jobs/${jobId}/resume`, "PUT", {
+    baseRevision: 2,
+    document: editedDocument,
+  });
+  expect(editedSave.status).toBe(200);
+  expect((await editedSave.json()).data.revision).toBe(3);
+  expect((await (await request(`/jobs/${jobId}`)).json()).data).toMatchObject({
+    pdfSource: "generated",
+    pdfFreshness: "stale",
+    pdfFingerprint: null,
+  });
+
+  const renderer = await import("@server/services/resume-renderer");
+  const { writeFile } = await import("node:fs/promises");
+  vi.spyOn(renderer, "renderResumePdf").mockImplementation(async (args) => {
+    const headline = (args.resumeJson as { basics?: { headline?: string } }).basics?.headline ?? "";
+    await writeFile(args.outputPath, Buffer.from(`%PDF-1.4\n${headline}\n`));
+  });
+
+  const previewRes = await request(`/jobs/${jobId}/preview-pdf`, "POST");
+  expect(previewRes.status).toBe(200);
+  expect(await previewRes.text()).toContain("Edited headline");
+
+  const pipeline = await import("@server/pipeline/index");
+  const actualPipeline =
+    await vi.importActual<typeof import("@server/pipeline/index")>("@server/pipeline/index");
+  vi.mocked(pipeline.generateFinalPdf).mockImplementationOnce((id, opts) =>
+    actualPipeline.generateFinalPdf(id, opts),
+  );
+
+  const generateRes = await request(`/jobs/${jobId}/generate-pdf`, "POST");
+  expect(generateRes.status).toBe(200);
+  expect((await generateRes.json()).data).toMatchObject({
+    pdfSource: "generated",
+    pdfFreshness: "current",
+  });
+
+  const storedPdfRes = await request(`/jobs/${jobId}/pdf`);
+  expect(storedPdfRes.status).toBe(200);
+  expect(await storedPdfRes.text()).toContain("Edited headline");
+
+  const reuploadRes = await request(`/jobs/${jobId}/pdf`, "POST", {
+    fileName: "uploaded-again.pdf",
+    mediaType: "application/pdf",
+    dataBase64: Buffer.from("%PDF-1.7\nReplacement upload\n").toString("base64"),
+  });
+  expect(reuploadRes.status).toBe(201);
+  expect((await reuploadRes.json()).data).toMatchObject({
+    pdfSource: "uploaded",
+    pdfFreshness: "uploaded",
+  });
+});
+
+it("scopes uploaded PDF superseding to the active user in hosted multi-user mode", async () => {
+  callJson.mockResolvedValue({
+    success: true,
+    data: {
+      headline: "Tailored headline",
+      summary: "Tailored summary",
+      experience: [],
+      projects: [],
+      skills: [],
+      educationIds: [],
+      certificationIds: [],
+      awardIds: [],
+    },
+  });
+  vi.stubEnv("JOBOPS_APP_MODE", "hosted");
+  vi.stubEnv("JOBOPS_HOSTED_TENANT_ID", "tenant_default");
+  vi.stubEnv("JOBOPS_HOSTED_SIGNUPS_ENABLED", "true");
+
+  const ownerUpload = await request(`/jobs/${jobId}/pdf`, "POST", {
+    fileName: "owner.pdf",
+    mediaType: "application/pdf",
+    dataBase64: Buffer.from("%PDF-1.7\nOwner PDF\n").toString("base64"),
+  });
+  expect(ownerUpload.status).toBe(201);
+
+  const ownerToken = token;
+  const signup = await request(
+    "/auth/signup",
+    "POST",
+    { username: "other-pdf-scope", password: "secret-password" },
+    false,
+  );
+  expect(signup.status).toBe(201);
+  token = (await signup.json()).data.token;
+
+  const otherImported = await request("/manual-jobs/import", "POST", {
+    skipTailoring: true,
+    job: {
+      title: "Designer",
+      employer: "Beta",
+      jobUrl: "https://example.com/job-other",
+      jobDescription: "Design systems",
+    },
+  });
+  expect(otherImported.status).toBe(200);
+  const otherJobId = (await otherImported.json()).data.id as string;
+  expect(
+    (
+      await request(`/jobs/${otherJobId}/pdf`, "POST", {
+        fileName: "other.pdf",
+        mediaType: "application/pdf",
+        dataBase64: Buffer.from("%PDF-1.7\nOther PDF\n").toString("base64"),
+      })
+    ).status,
+  ).toBe(201);
+
+  const { db, schema } = await import("@server/db");
+  const otherJobRow = db.select().from(schema.jobs).where(eq(schema.jobs.id, otherJobId)).get();
+  if (!otherJobRow) throw new Error("Missing other user job");
+  db.insert(schema.designResumeDocuments)
+    .values({
+      id: "other-base-resume",
+      tenantId: otherJobRow.tenantId,
+      userId: otherJobRow.userId,
+      title: "Other Base",
+      resumeJson: document,
+      revision: 1,
+    })
+    .run();
+
+  const otherInitial = (await (await request(`/jobs/${otherJobId}/resume`)).json()).data as {
+    revision: number;
+    document: ResumeV5Document;
+  };
+  const otherEdit = await request(`/jobs/${otherJobId}/resume`, "PUT", {
+    baseRevision: otherInitial.revision,
+    document: {
+      ...otherInitial.document,
+      basics: { ...otherInitial.document.basics, headline: "Other edited headline" },
+    },
+  });
+  expect(otherEdit.status).toBe(200);
+  expect((await (await request(`/jobs/${otherJobId}`)).json()).data).toMatchObject({
+    pdfSource: "generated",
+    pdfFreshness: "stale",
+  });
+
+  token = ownerToken;
+  expect((await (await request(`/jobs/${jobId}`)).json()).data).toMatchObject({
+    pdfSource: "uploaded",
+    pdfFreshness: "uploaded",
+  });
+});

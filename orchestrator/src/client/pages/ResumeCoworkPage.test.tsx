@@ -1612,7 +1612,70 @@ describe("explicit resume opening", () => {
     expect(mocks.getResume).toHaveBeenCalledTimes(1);
   });
 
-  it("preserves uploaded bytes for manual Preview and download even with editable JSON", async () => {
+  it("preserves uploaded bytes for manual Preview and download when no edits were made", async () => {
+    mocks.getJob.mockResolvedValue({
+      id: "job",
+      title: "Engineer",
+      employer: "Company",
+      status: "ready",
+      pdfFreshness: "uploaded",
+      pdfSource: "uploaded",
+    });
+    mount(false, new QueryClient(), "?mode=edit");
+    await screen.findByLabelText("Headline");
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await screen.findByRole("document");
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(mocks.openPdf).toHaveBeenCalledWith("job");
+    expect(mocks.previewPdf).not.toHaveBeenCalled();
+    expect(mocks.pdf).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+    await waitFor(() => expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"));
+    expect(mocks.pdf).not.toHaveBeenCalled();
+  });
+
+  it("flushes edits before checking freshness and renders edited resume instead of uploaded PDF", async () => {
+    let savedEdit = false;
+    mocks.getJob.mockImplementation(async () => ({
+      id: "job",
+      title: "Engineer",
+      employer: "Company",
+      status: "ready",
+      pdfFreshness: savedEdit ? "stale" : "uploaded",
+      pdfSource: savedEdit ? "generated" : "uploaded",
+    }));
+    mocks.save.mockImplementation(
+      async (_job: string, input: { document: ResumeV5Document; baseRevision: number }) => {
+        savedEdit = true;
+        return {
+          ...state("", input.baseRevision + 1),
+          document: input.document,
+        };
+      },
+    );
+
+    mount(false, new QueryClient(), "?mode=edit");
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Edited resume" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await screen.findByRole("document");
+
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    const previewGetJobOrder = mocks.getJob.mock.invocationCallOrder.at(-1)!;
+    expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(previewGetJobOrder);
+    expect(mocks.previewPdf).toHaveBeenCalledWith("job");
+    expect(mocks.openPdf).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+    await waitFor(() => expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"));
+    expect(mocks.pdf).toHaveBeenCalledWith("job");
+    expect(mocks.pdf.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.downloadPdf.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("keeps uploaded PDF when saved content is unchanged according to the server", async () => {
     mocks.getJob.mockResolvedValue({
       id: "job",
       title: "Engineer",
@@ -1623,15 +1686,32 @@ describe("explicit resume opening", () => {
     });
     mount(false, new QueryClient(), "?mode=edit");
     fireEvent.change(await screen.findByLabelText("Headline"), {
-      target: { value: "Editable JSON" },
+      target: { value: "Saved without changing PDF source" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     await screen.findByRole("document");
-    expect(mocks.save).toHaveBeenCalled();
-    expect(mocks.pdf).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
-    await waitFor(() => expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"));
-    expect(mocks.pdf).not.toHaveBeenCalled();
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    expect(mocks.openPdf).toHaveBeenCalledWith("job");
+    expect(mocks.previewPdf).not.toHaveBeenCalled();
+  });
+
+  it("invalidates cached job detail, list, and board queries after saving a job resume", async () => {
+    const queryClient = new QueryClient();
+    const keys = [
+      queryKeys.jobs.detail("job"),
+      [...queryKeys.jobs.all, "list"] as const,
+      queryKeys.jobs.inProgressBoard(),
+    ];
+    for (const key of keys) queryClient.setQueryData(key, null);
+
+    mount(false, queryClient, "?mode=edit");
+    fireEvent.change(await screen.findByLabelText("Headline"), {
+      target: { value: "Saved job resume" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save now" }));
+    await waitFor(() => {
+      for (const key of keys) expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+    });
   });
 
   it("shows a failed authenticated fetch and retries the actual operation", async () => {

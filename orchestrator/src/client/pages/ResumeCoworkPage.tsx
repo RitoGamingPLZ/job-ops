@@ -279,6 +279,13 @@ function CoworkWorkspace({
     },
     [pdfUrl],
   );
+  const invalidateJobFreshness = useCallback(() => {
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.detail(jobId) }),
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.jobs.all, "list"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.inProgressBoard() }),
+    ]);
+  }, [jobId, queryClient]);
   const save = useCallback(async (): Promise<boolean> => {
     if (conflict.current || resumeReloadRequired.current) return false;
     if (saving.current) return saving.current;
@@ -299,6 +306,7 @@ function CoworkWorkspace({
           void queryClient.invalidateQueries({
             queryKey: queryKeys.designResume.all,
           });
+        else invalidateJobFreshness();
         const changed = version.current !== editVersion;
         publish(
           changed && latest.current ? { ...saved, document: latest.current.document } : saved,
@@ -338,7 +346,7 @@ function CoworkWorkspace({
     })();
     saving.current = operation;
     return operation;
-  }, [base, jobId, publish, queryClient, readResume]);
+  }, [base, invalidateJobFreshness, jobId, publish, queryClient, readResume]);
   // A child unmounting mid-drag never fires dragleave; reset when any drag ends.
   useEffect(() => {
     const reset = () => {
@@ -705,6 +713,10 @@ function CoworkWorkspace({
     setRendering(true);
     setPreviewError(null);
     try {
+      if (base || dirty.current || saving.current) void warmPdfRenderer();
+      if (!(await flush()))
+        throw new Error("Save the resume and resolve any conflict before previewing.");
+      if (!mounted.current) return;
       const selectedJob = base ? null : await getJob(jobId);
       if (!mounted.current) return;
       if (selectedJob) {
@@ -730,8 +742,6 @@ function CoworkWorkspace({
         if (!(await flush()))
           throw new Error("Save the resume and resolve any conflict before previewing.");
         if (!mounted.current) return;
-      } else if (!(await flush())) {
-        throw new Error("Save the resume and resolve any conflict before previewing.");
       }
       if (!mounted.current) return;
       const url = base
@@ -772,6 +782,7 @@ function CoworkWorkspace({
       } else {
         const selectedJob = await getJob(jobId);
         if (!mounted.current) return;
+        setJob(selectedJob);
         if (getResumeState(selectedJob) !== "available")
           throw new Error("Prepare this resume before downloading it.");
         if (isPdfRegenerating(selectedJob)) throw new Error(PDF_REGENERATING_MESSAGE);
@@ -784,7 +795,11 @@ function CoworkWorkspace({
           if (!mounted.current) return;
           if (!latest.current) throw new Error("Could not load the editable resume.");
           if (!(await flush()) || !mounted.current) return;
-          await generateJobPdf(jobId);
+          const generated = await generateJobPdf(jobId);
+          if (mounted.current && generated?.id) {
+            setJob(generated);
+            invalidateJobFreshness();
+          }
         }
         await downloadJobPdf(jobId, "resume.pdf");
       }
@@ -970,7 +985,7 @@ function CoworkWorkspace({
         </div>
       ) : pdfUrl ? (
         <div role="document" aria-label="Resume PDF preview">
-          <PdfCanvasPreview url={pdfUrl} />
+          <PdfCanvasPreview url={pdfUrl} updating={rendering} />
         </div>
       ) : (
         <output>{rendering ? "Rendering PDF…" : "Loading resume…"}</output>

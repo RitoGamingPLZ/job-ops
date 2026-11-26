@@ -58,7 +58,7 @@ See [Find jobs](/docs/next/features/pipeline-run) for the search review flow.
 2. Click **Open resume** for Edit, or **Preview PDF** for Preview. Both open the selected job in the same resume workspace, including on mobile. The action overrides your browser's remembered mode.
 3. Use **Edit**, **Preview**, **Download PDF**, or **Back** in the workspace. Same-job mode changes keep your pending edits and save before rendering.
 
-Existing current or uploaded PDFs preview without loading an editable source. Missing or stale generated PDFs render the saved resume, preserving tailored edits. Preview and download preserve uploaded PDF bytes; **Edit** loads its editable source separately and reports an error if none is available. Preview does not re-tailor a resume. Wait for preparation or PDF regeneration to finish; use **Retry** after a preview failure.
+Existing current or unedited uploaded PDFs preview without loading an editable source. Missing or stale generated PDFs—and uploaded PDFs once their resume content is edited in the editor—render the saved resume, preserving tailored edits. Preview and download preserve unedited uploaded PDF bytes; **Edit** loads its editable source separately and reports an error if none is available. Preview does not re-tailor a resume. Wait for preparation or PDF regeneration to finish; use **Retry** after a preview failure.
 
 See [Co-work resume editor](/docs/features/design-resume) for source requirements and mode links.
 
