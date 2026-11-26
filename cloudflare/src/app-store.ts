@@ -7,7 +7,7 @@ import type {
 } from "../../orchestrator/dist/do/do-entry.mjs";
 import { sanitizeUnknown } from "../../orchestrator/src/server/infra/sanitize";
 import type { Env } from "./types";
-import { computeTableChecksum, quoteIdent } from "./utils";
+import { computeTableChecksum, quoteIdent, resolveInternalContainerSecret } from "./utils";
 
 type DoEntryModule = typeof import("../../orchestrator/dist/do/do-entry.mjs");
 
@@ -97,7 +97,7 @@ export class AppStore extends DurableObject<Env> {
       port: DO_EXPRESS_PORT,
       remoteRenderPdf: async (body, requestId) => {
         const namespace = this.env.SCRAPER_CONTAINER;
-        const secret = (this.env.INTERNAL_SYNC_SECRET || this.env.CRON_SECRET)?.trim();
+        const secret = resolveInternalContainerSecret(this.env);
         if (!namespace || !secret) {
           throw new Error("PDF render container or internal secret is not configured.");
         }

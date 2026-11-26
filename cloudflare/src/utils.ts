@@ -46,6 +46,16 @@ export function getBearerToken(request: Request): string {
   return authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length).trim() : "";
 }
 
+export function resolveInternalContainerSecret(env: {
+  INTERNAL_SYNC_SECRET?: string;
+  CRON_SECRET?: string;
+}): string | undefined {
+  const primary = env.INTERNAL_SYNC_SECRET?.trim();
+  if (primary) return primary;
+  const fallback = env.CRON_SECRET?.trim();
+  return fallback || undefined;
+}
+
 export function normalizePath(pathname: string): string {
   const decoded = decodeURI(pathname);
   return (
