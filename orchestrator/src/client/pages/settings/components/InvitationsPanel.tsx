@@ -192,7 +192,11 @@ export const InvitationsPanel: React.FC = () => {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleDialogOpenChange(false)}
+                >
                   Cancel
                 </Button>
                 <Button
