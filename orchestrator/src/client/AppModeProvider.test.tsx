@@ -49,6 +49,10 @@ vi.mock("./hooks/useAnalyticsIdentity", () => ({
   useAnalyticsIdentity: () => {},
 }));
 
+vi.mock("./pages/AdminInvitationsPage", () => ({
+  AdminInvitationsPage: () => <div>admin-invitations</div>,
+}));
+
 vi.mock("./pages/AdminUsersPage", () => ({
   AdminUsersPage: () => <div>admin-users</div>,
 }));

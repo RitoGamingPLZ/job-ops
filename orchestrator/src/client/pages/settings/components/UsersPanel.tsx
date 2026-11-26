@@ -8,13 +8,21 @@ import {
   type UserPermissions,
 } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import type React from "react";
 import { Fragment, useState } from "react";
 import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -30,6 +38,7 @@ export const workspaceUsersQueryKey = ["workspaces", "users"] as const;
 
 export const UsersPanel: React.FC<{ currentUserId: string | undefined }> = ({ currentUserId }) => {
   const queryClient = useQueryClient();
+  const [createOpen, setCreateOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
@@ -51,6 +60,7 @@ export const UsersPanel: React.FC<{ currentUserId: string | undefined }> = ({ cu
       setDisplayName("");
       setPassword("");
       setCreatePermissions({ ...DEFAULT_USER_PERMISSIONS });
+      setCreateOpen(false);
       await queryClient.invalidateQueries({ queryKey: workspaceUsersQueryKey });
       toast.success("User created");
     },
@@ -113,68 +123,88 @@ export const UsersPanel: React.FC<{ currentUserId: string | undefined }> = ({ cu
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <div className="text-sm font-semibold">Workspace Users</div>
-        <p className="text-sm text-muted-foreground">
-          Each user gets a private workspace with isolated jobs and settings.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="text-sm font-semibold">Workspace Users</div>
+          <p className="text-sm text-muted-foreground">
+            Each user gets a private workspace with isolated jobs and settings.
+          </p>
+        </div>
+        <Button type="button" size="sm" className="shrink-0" onClick={() => setCreateOpen(true)}>
+          <Plus className="mr-1 h-4 w-4" />
+          Create user
+        </Button>
       </div>
 
-      <div className="space-y-2">
-        <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
-          <Input
-            value={displayName}
-            onChange={(event) => setDisplayName(event.currentTarget.value)}
-            placeholder="Name"
-          />
-          <Input
-            value={username}
-            onChange={(event) => setUsername(event.currentTarget.value)}
-            placeholder="Username"
-            autoComplete="off"
-          />
-          <Input
-            value={password}
-            onChange={(event) => setPassword(event.currentTarget.value)}
-            placeholder="Temporary password"
-            type="password"
-            autoComplete="new-password"
-          />
-          <Button
-            type="button"
-            onClick={() => {
-              const permissionOverrides = Object.fromEntries(
-                USER_PERMISSION_KEYS.filter(
-                  (key) => createPermissions[key] !== DEFAULT_USER_PERMISSIONS[key],
-                ).map((key) => [key, createPermissions[key]]),
-              ) as Partial<UserPermissions>;
-              createUserMutation.mutate({
-                username,
-                displayName: displayName || username,
-                password,
-                ...(Object.keys(permissionOverrides).length > 0
-                  ? { permissions: permissionOverrides }
-                  : {}),
-              });
-            }}
-            disabled={
-              createUserMutation.isPending || username.trim().length === 0 || password.length < 8
-            }
-          >
-            Create
-          </Button>
-        </div>
-        <div className="rounded-md border border-border/60 p-3">
-          <PermissionToggles
-            idPrefix="create-user"
-            value={createPermissions}
-            disabled={createUserMutation.isPending}
-            onChange={(key, enabled) =>
-              setCreatePermissions((current) => ({ ...current, [key]: enabled }))
-            }
-          />
-        </div>
-      </div>
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create user</DialogTitle>
+            <DialogDescription>
+              Creates an account with a private workspace. They can change the temporary password
+              after signing in.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              value={displayName}
+              onChange={(event) => setDisplayName(event.currentTarget.value)}
+              placeholder="Name"
+            />
+            <Input
+              value={username}
+              onChange={(event) => setUsername(event.currentTarget.value)}
+              placeholder="Username"
+              autoComplete="off"
+            />
+            <Input
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              placeholder="Temporary password"
+              type="password"
+              autoComplete="new-password"
+            />
+            <div className="rounded-md border border-border/60 p-3">
+              <PermissionToggles
+                idPrefix="create-user"
+                value={createPermissions}
+                disabled={createUserMutation.isPending}
+                onChange={(key, enabled) =>
+                  setCreatePermissions((current) => ({ ...current, [key]: enabled }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                const permissionOverrides = Object.fromEntries(
+                  USER_PERMISSION_KEYS.filter(
+                    (key) => createPermissions[key] !== DEFAULT_USER_PERMISSIONS[key],
+                  ).map((key) => [key, createPermissions[key]]),
+                ) as Partial<UserPermissions>;
+                createUserMutation.mutate({
+                  username,
+                  displayName: displayName || username,
+                  password,
+                  ...(Object.keys(permissionOverrides).length > 0
+                    ? { permissions: permissionOverrides }
+                    : {}),
+                });
+              }}
+              disabled={
+                createUserMutation.isPending || username.trim().length === 0 || password.length < 8
+              }
+            >
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="rounded-md border border-border">
         <Table>

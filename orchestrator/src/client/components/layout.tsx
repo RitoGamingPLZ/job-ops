@@ -72,7 +72,9 @@ export const AppModeProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
-const buildSignInPath = (username: string, nextPath: string): string => {
+const ADMIN_ONLY_PATHS = ["/users", "/invitations"];
+
+const buildSignInPath =(username: string, nextPath: string): string => {
   const params = new URLSearchParams();
   params.set("user", username);
   if (nextPath && nextPath !== "/sign-in" && !nextPath.startsWith("/sign-in?")) {
@@ -152,7 +154,9 @@ const SidebarContent: React.FC<{ onNavigate?: () => void; showVersionFooter?: bo
     onNavigate?.();
     await logout({ redirect: false });
     const nextPath =
-      location.pathname === "/users" || location.pathname.startsWith("/users/")
+      ADMIN_ONLY_PATHS.some(
+        (path) => location.pathname === path || location.pathname.startsWith(`${path}/`),
+      )
         ? "/"
         : location.pathname;
     navigate(buildSignInPath(username, nextPath), { replace: true });

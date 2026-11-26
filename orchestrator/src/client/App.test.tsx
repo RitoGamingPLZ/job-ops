@@ -28,6 +28,10 @@ vi.mock("./components/OnboardingGate", () => ({
   OnboardingGate: () => null,
 }));
 
+vi.mock("./pages/AdminInvitationsPage", () => ({
+  AdminInvitationsPage: () => <div>admin-invitations</div>,
+}));
+
 vi.mock("./pages/AdminUsersPage", () => ({
   AdminUsersPage: () => <div>admin-users</div>,
 }));
@@ -272,10 +276,19 @@ describe("system admin console", () => {
     },
   );
 
-  it("shows the admin only Users and Settings navigation", () => {
+  it("serves Invitations on its own page", () => {
+    renderAt("/invitations", { isAdminConsole: true, isSystemAdmin: true });
+
+    expect(screen.getByText("admin-invitations")).toBeInTheDocument();
+    expect(screen.queryByText("admin-users")).toBeNull();
+    expect(screen.getByLabelText("Current path")).toHaveTextContent("/invitations");
+  });
+
+  it("shows the admin only Users, Invitations and Settings navigation", () => {
     renderAt("/users", { isAdminConsole: true, isSystemAdmin: true });
 
     expect(screen.getAllByRole("link", { name: "Users" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Invitations" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: "Settings" }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("link", { name: "Jobs" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Resumes" })).toBeNull();

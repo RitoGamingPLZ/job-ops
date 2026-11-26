@@ -6,12 +6,21 @@ import {
   type UserPermissions,
 } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -46,6 +55,7 @@ const STATUS_VARIANT: Record<UserInvitation["status"], "secondary" | "outline" |
 
 export const InvitationsPanel: React.FC = () => {
   const queryClient = useQueryClient();
+  const [createOpen, setCreateOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [expiresInDays, setExpiresInDays] = useState<number>(7);
   const [permissions, setPermissions] = useState<UserPermissions>({ ...DEFAULT_USER_PERMISSIONS });
@@ -60,7 +70,6 @@ export const InvitationsPanel: React.FC = () => {
     mutationFn: api.createUserInvitation,
     onSuccess: async (invitation) => {
       setFreshLink({ label: invitation.label, url: buildInviteUrl(invitation.token) });
-      setLabel("");
       await queryClient.invalidateQueries({ queryKey: invitationsQueryKey });
     },
     onError: (error) => showErrorToast(error, "Failed to create invitation"),
@@ -75,6 +84,16 @@ export const InvitationsPanel: React.FC = () => {
     onError: (error) => showErrorToast(error, "Failed to delete invitation"),
   });
 
+  const handleDialogOpenChange = (open: boolean) => {
+    setCreateOpen(open);
+    if (!open) {
+      setFreshLink(null);
+      setLabel("");
+      setExpiresInDays(7);
+      setPermissions({ ...DEFAULT_USER_PERMISSIONS });
+    }
+  };
+
   const copyLink = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
@@ -88,77 +107,108 @@ export const InvitationsPanel: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <div className="text-sm font-semibold">Invitations</div>
-        <p className="text-sm text-muted-foreground">
-          Create a one-time link and send it to the person yourself. They pick their own username
-          and password, and start with the access you choose here. Nobody can sign up without a
-          link.
-        </p>
-      </div>
-
-      <div className="space-y-3 rounded-md border border-border p-3">
-        <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-          <Input
-            value={label}
-            onChange={(event) => setLabel(event.currentTarget.value)}
-            placeholder="Who is this for? (e.g. Sam, cousin)"
-            aria-label="Invitation label"
-          />
-          <select
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={expiresInDays}
-            onChange={(event) => setExpiresInDays(Number(event.currentTarget.value))}
-            aria-label="Invitation expiry"
-          >
-            {EXPIRY_OPTIONS.map((days) => (
-              <option key={days} value={days}>
-                Expires in {days} {days === 1 ? "day" : "days"}
-              </option>
-            ))}
-          </select>
-          <Button
-            type="button"
-            disabled={createMutation.isPending || label.trim().length === 0}
-            onClick={() =>
-              createMutation.mutate({ label: label.trim(), permissions, expiresInDays })
-            }
-          >
-            Create invitation
-          </Button>
-        </div>
-        <PermissionToggles
-          idPrefix="invite"
-          value={permissions}
-          onChange={(key: UserPermissionKey, enabled) =>
-            setPermissions((current) => ({ ...current, [key]: enabled }))
-          }
-        />
-      </div>
-
-      {freshLink ? (
-        <div className="space-y-2 rounded-md border border-primary/40 bg-primary/5 p-3">
-          <div className="text-sm font-medium">Invitation for {freshLink.label}</div>
-          <p className="text-xs text-muted-foreground">
-            This link is shown only once. Copy it now and send it to them.
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="text-sm font-semibold">Invitations</div>
+          <p className="text-sm text-muted-foreground">
+            Create a one-time link and send it to the person yourself. They pick their own username
+            and password, and start with the access you choose here. Nobody can sign up without a
+            link.
           </p>
-          <div className="flex flex-wrap gap-2 sm:flex-nowrap">
-            <Input
-              readOnly
-              value={freshLink.url}
-              className="min-w-0 flex-1"
-              aria-label="Invitation link"
-              onFocus={(event) => event.currentTarget.select()}
-            />
-            <Button type="button" variant="outline" onClick={() => void copyLink(freshLink.url)}>
-              Copy
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => setFreshLink(null)}>
-              Dismiss
-            </Button>
-          </div>
         </div>
-      ) : null}
+        <Button type="button" size="sm" className="shrink-0" onClick={() => setCreateOpen(true)}>
+          <Plus className="mr-1 h-4 w-4" />
+          Create invitation
+        </Button>
+      </div>
+
+      <Dialog open={createOpen} onOpenChange={handleDialogOpenChange}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          {freshLink ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Invitation for {freshLink.label}</DialogTitle>
+                <DialogDescription>
+                  This link is shown only once. Copy it now and send it to them.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+                <Input
+                  readOnly
+                  value={freshLink.url}
+                  className="min-w-0 flex-1"
+                  aria-label="Invitation link"
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void copyLink(freshLink.url)}
+                >
+                  Copy
+                </Button>
+              </div>
+              <DialogFooter>
+                <Button type="button" onClick={() => handleDialogOpenChange(false)}>
+                  Done
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Create invitation</DialogTitle>
+                <DialogDescription>
+                  Generates a one-time sign-up link with the access you choose.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Input
+                  value={label}
+                  onChange={(event) => setLabel(event.currentTarget.value)}
+                  placeholder="Who is this for? (e.g. Sam, cousin)"
+                  aria-label="Invitation label"
+                />
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={expiresInDays}
+                  onChange={(event) => setExpiresInDays(Number(event.currentTarget.value))}
+                  aria-label="Invitation expiry"
+                >
+                  {EXPIRY_OPTIONS.map((days) => (
+                    <option key={days} value={days}>
+                      Expires in {days} {days === 1 ? "day" : "days"}
+                    </option>
+                  ))}
+                </select>
+                <div className="rounded-md border border-border/60 p-3">
+                  <PermissionToggles
+                    idPrefix="invite"
+                    value={permissions}
+                    onChange={(key: UserPermissionKey, enabled) =>
+                      setPermissions((current) => ({ ...current, [key]: enabled }))
+                    }
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={createMutation.isPending || label.trim().length === 0}
+                  onClick={() =>
+                    createMutation.mutate({ label: label.trim(), permissions, expiresInDays })
+                  }
+                >
+                  Create invitation
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="rounded-md border border-border">
         <Table>

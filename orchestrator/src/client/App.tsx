@@ -22,6 +22,7 @@ import { OnboardingGate } from "./components/OnboardingGate";
 import { useAnalyticsIdentity } from "./hooks/useAnalyticsIdentity";
 import { useDemoInfo } from "./hooks/useDemoInfo";
 import { setAuthNavigator } from "./lib/auth-navigation";
+import { AdminInvitationsPage } from "./pages/AdminInvitationsPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { GmailOauthCallbackPage } from "./pages/GmailOauthCallbackPage";
 import { HomePage } from "./pages/HomePage";
@@ -275,7 +276,11 @@ export const App: React.FC = () => {
                         <Route path="/invite/:token" element={<InvitePage />} />
                         <Route path="/sso/callback/:provider" element={<SsoCallbackPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
-                        <Route path="/users" element={<AdminUsersRoute />} />
+                        <Route path="/users" element={<AdminRoute page={<AdminUsersPage />} />} />
+                        <Route
+                          path="/invitations"
+                          element={<AdminRoute page={<AdminInvitationsPage />} />}
+                        />
                         <Route
                           path="/tracking-inbox"
                           element={
@@ -330,14 +335,14 @@ function DefaultLandingRoute() {
   return <Navigate to={getDefaultUserPath(appMode, permissions)} replace />;
 }
 
-function AdminUsersRoute() {
+function AdminRoute({ page }: { page: React.ReactElement }) {
   const { appMode, isAdminConsole, isPending, permissions } = React.useContext(AppModeContext);
 
   if (isPending) return null;
   if (!isAdminConsole) {
     return <Navigate to={getFallbackUserPath(appMode, permissions)} replace />;
   }
-  return <AdminUsersPage />;
+  return page;
 }
 
 function PermissionRoute({

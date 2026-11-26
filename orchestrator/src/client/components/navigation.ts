@@ -7,6 +7,7 @@ import {
   Inbox,
   LayoutDashboard,
   Library,
+  MailPlus,
   Settings,
   Users,
 } from "lucide-react";
@@ -147,8 +148,9 @@ export const isNavActive = (pathname: string, to: string, activePaths?: string[]
 /** The system admin only manages users and server-wide settings, so job and resume pages are hidden. */
 export const ADMIN_NAV_LINKS: NavLink[] = [
   { to: "/users", label: "Users", icon: Users },
+  { to: "/invitations", label: "Invitations", icon: MailPlus },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 /** Paths a system admin may open; every other app route redirects to the Users page. */
-export const ADMIN_ALLOWED_PATHS = ["/users", "/settings", "/oauth/gmail/callback"];
+export const ADMIN_ALLOWED_PATHS = ["/users", "/invitations", "/settings", "/oauth/gmail/callback"];
