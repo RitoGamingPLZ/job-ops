@@ -46,7 +46,9 @@ describe("extractor deployment config", () => {
       expect(cfDockerfile).toContain(`COPY extractors/${id} ./extractors/${id}`);
     }
     expect(cfDockerfile).toContain("COPY extractors/jobspy/requirements.txt ./extractors/jobspy/");
-    expect(cfDockerfile).toContain("pip3 install --no-cache-dir --break-system-packages -r ./extractors/jobspy/requirements.txt");
+    expect(cfDockerfile).toContain(
+      "pip3 install --no-cache-dir --break-system-packages -r ./extractors/jobspy/requirements.txt",
+    );
     expect(cfDockerfile).toContain("COPY extractors/jobspy ./extractors/jobspy");
     for (const removed of [
       "fiveamsat",

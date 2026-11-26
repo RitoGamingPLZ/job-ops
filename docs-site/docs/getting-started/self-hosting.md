@@ -164,7 +164,7 @@ Open **Users** in the sidebar as a system admin.
   | In-progress jobs           | on      | Using the application board, stages, notes, and outcome tracking                |
   | Resumes & library          | on      | Managing the Candidate Library, tailored resumes, and PDF generation/downloads  |
   | Access to default AI model | off     | Lets the user run on the server's default model; off requires their own API key |
-  | Use server job-source keys | off     | Running job sources backed by your server's Adzuna credentials                    |
+  | Use server job-source keys | off     | Running job sources backed by your server's Adzuna credentials                  |
   | Email tracking inbox       | off     | Connecting Gmail and the Tracking Inbox                                         |
   | Webhooks                   | off     | Saving outgoing webhook URLs                                                    |
   | Run job searches           | on      | Starting the discovery pipeline                                                 |

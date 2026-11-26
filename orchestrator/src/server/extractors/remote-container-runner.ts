@@ -63,7 +63,8 @@ export function pickSafeContainerExtractorSettings(
   manifestId: string,
   settings: Record<string, string | undefined>,
 ): Record<string, string> {
-  const allowedKeys = CONTAINER_EXTRACTOR_SAFE_SETTING_KEYS[manifestId] ?? DEFAULT_SAFE_SETTING_KEYS;
+  const allowedKeys =
+    CONTAINER_EXTRACTOR_SAFE_SETTING_KEYS[manifestId] ?? DEFAULT_SAFE_SETTING_KEYS;
   const safe: Record<string, string> = {};
   for (const key of allowedKeys) {
     const value = settings[key];

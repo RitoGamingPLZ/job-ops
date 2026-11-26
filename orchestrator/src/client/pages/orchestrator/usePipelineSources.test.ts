@@ -122,10 +122,7 @@ describe("usePipelineSources", () => {
   });
 
   it("filters stored sources to enabled sources", () => {
-    ensureStorage().setItem(
-      PIPELINE_SOURCES_STORAGE_KEY,
-      JSON.stringify(["freehire", "adzuna"]),
-    );
+    ensureStorage().setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["freehire", "adzuna"]));
 
     const enabledSources = ["freehire"] as const;
 
