@@ -939,6 +939,7 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
 }
 
 const CONTAINER_START_TIMEOUT_MS = 120_000;
+const CONTAINER_EXIT_GRACE_MS = 1_000;
 const CONTAINER_INACTIVITY_TIMEOUT_MS = 5 * 60_000;
 const CONTAINER_READY_POLL_MS = 200;
 const CONTAINER_READY_PROBE_TIMEOUT_MS = 1_500;
@@ -974,10 +975,17 @@ export class ScraperContainer extends DurableObject<Env> {
     const tcp = container.getTcpPort(port);
     const startedAt = Date.now();
     const deadline = startedAt + CONTAINER_START_TIMEOUT_MS;
+    let sawRunning = false;
     while (Date.now() < deadline) {
-      // A container that exited during boot will never listen; stop waiting and report it.
-      // The short grace period covers `running` lagging behind a just-issued start().
-      if (!container.running && Date.now() - startedAt > 5_000) return false;
+      if (container.running) {
+        sawRunning = true;
+      } else if (sawRunning) {
+        // It was running and then exited during boot: it will never listen, so fail fast.
+        if (Date.now() - startedAt > CONTAINER_EXIT_GRACE_MS) return false;
+      }
+      // Before the first `running`, the platform is still placing the container and pulling
+      // the image (slow right after a deploy). Keep waiting until the overall deadline rather
+      // than reporting "did not finish starting" for a container that has not been scheduled.
       try {
         const probe = await tcp.fetch("http://container/health", {
           signal: AbortSignal.timeout(CONTAINER_READY_PROBE_TIMEOUT_MS),

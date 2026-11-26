@@ -54,7 +54,13 @@ function makeContainerDO(env, options = {}) {
     images: { base: "job-ops-image:latest" },
     start(startOpts) {
       starts.push(startOpts);
-      container.running = true;
+      if (options.startRunningAfterMs === undefined) {
+        container.running = true;
+      } else {
+        setTimeout(() => {
+          container.running = true;
+        }, options.startRunningAfterMs);
+      }
     },
     async setInactivityTimeout(durationMs) {
       timeoutCalls.push(durationMs);
@@ -66,6 +72,9 @@ function makeContainerDO(env, options = {}) {
             urlOrRequest instanceof Request ? urlOrRequest : new Request(urlOrRequest, init);
           const pathname = new URL(req.url).pathname;
           tcpRequests.push({ port, pathname, method: req.method });
+          if (options.startRunningAfterMs !== undefined && !container.running) {
+            throw new Error("container is not listening");
+          }
           if (pathname === "/health") {
             return options.onHealth
               ? options.onHealth()
@@ -262,4 +271,37 @@ test("ScraperContainer skips /health probe on warm requests and re-checks after 
   await instance.fetch(new Request("http://scraper/internal/render-pdf", { method: "POST" }));
   assert.equal(tcpRequests[tcpRequests.length - 2].pathname, "/health");
   assert.equal(tcpRequests[tcpRequests.length - 1].pathname, "/internal/render-pdf");
+});
+
+test("ScraperContainer waits through slow container placement instead of returning 503", async () => {
+  const { instance, container } = makeContainerDO(
+    { CRON_SECRET: "secret" },
+    { startRunningAfterMs: 5_500 },
+  );
+  const res = await instance.fetch(
+    new Request("http://scraper/internal/render-pdf", { method: "POST", body: "{}" }),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(container.running, true);
+});
+
+test("ScraperContainer returns 503 quickly when the container exits after starting", async () => {
+  let probes = 0;
+  const { instance, container } = makeContainerDO(
+    { CRON_SECRET: "secret" },
+    {
+      onHealth() {
+        probes += 1;
+        container.running = false;
+        return new Response("not ready", { status: 503 });
+      },
+    },
+  );
+  const startedAt = Date.now();
+  const res = await instance.fetch(
+    new Request("http://scraper/internal/render-pdf", { method: "POST", body: "{}" }),
+  );
+  assert.equal(res.status, 503);
+  assert.ok(probes >= 1);
+  assert.ok(Date.now() - startedAt < 5_000);
 });
