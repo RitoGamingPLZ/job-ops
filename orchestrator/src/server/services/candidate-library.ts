@@ -159,7 +159,10 @@ export function createLibraryItem(input: ExperienceBulletInput) {
       ...input,
       kind: input.kind ?? "bullet",
     });
-    return all.find((item) => key(item) === key(normalized)) ?? insert(normalized, all);
+    const existing = all.find((item) => key(item) === key(normalized));
+    if (existing) return existing;
+    if (normalized.kind === "contact") markContacts({ forget: [key(normalized)] });
+    return insert(normalized, all);
   });
 }
 export function updateLibraryItem(
@@ -210,6 +213,8 @@ export function updateLibraryItem(
         .where(and(privateDataScopeFilter(table), eq(table.parentId, id)))
         .run();
     }
+    if (after.kind === "contact" && key(before) !== key(after))
+      markContacts({ remember: [key(before)], forget: [key(after)] });
     for (const { resume, status } of resumes())
       if (!frozen(status) && resume.jobId !== skipJobId)
         save(resume, applyLibraryUpdate(resume.document, before, after));
@@ -253,6 +258,10 @@ export function deleteLibraryItem(id: string, skipJobId?: string) {
       }
       save(resume, document);
     }
+    const contacts = [...ids]
+      .map((ref) => all.find((item) => item.id === ref))
+      .filter((item): item is ExperienceBullet => item?.kind === "contact");
+    if (contacts.length) markContacts({ remember: contacts.map(key) });
     for (const ref of ids)
       db.delete(table)
         .where(and(privateDataScopeFilter(table), eq(table.id, ref)))
@@ -324,6 +333,43 @@ function hasImportMarker(key: string): boolean {
     .from(schema.settings)
     .where(and(privateDataScopeFilter(schema.settings), eq(schema.settings.key, key)))
     .get();
+}
+const DELETED_CONTACTS_KEY = "candidateLibraryDeletedContacts";
+function deletedContacts(): Set<string> {
+  const row = db
+    .select({ value: schema.settings.value })
+    .from(schema.settings)
+    .where(
+      and(privateDataScopeFilter(schema.settings), eq(schema.settings.key, DELETED_CONTACTS_KEY)),
+    )
+    .get();
+  try {
+    const parsed: unknown = row ? JSON.parse(row.value) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((v) => typeof v === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+/** Remember contacts the user removed so a base-resume sync does not bring them back. */
+function markContacts(change: { forget?: string[]; remember?: string[] }) {
+  const keys = deletedContacts();
+  for (const k of change.forget ?? []) keys.delete(k);
+  for (const k of change.remember ?? []) keys.add(k);
+  const value = JSON.stringify([...keys]);
+  const where = and(
+    privateDataScopeFilter(schema.settings),
+    eq(schema.settings.key, DELETED_CONTACTS_KEY),
+  );
+  const exists = db.select({ key: schema.settings.key }).from(schema.settings).where(where).get();
+  if (exists) {
+    db.update(schema.settings)
+      .set({ value, updatedAt: new Date().toISOString() })
+      .where(where)
+      .run();
+  } else if (keys.size) {
+    const { tenantId, userId } = getPrivateDataScope();
+    db.insert(schema.settings).values({ tenantId, userId, key: DELETED_CONTACTS_KEY, value }).run();
+  }
 }
 export function candidateLibraryNeedsFirstBuild(): boolean {
   return !hasImportMarker(FIRST_BUILD_KEY);
@@ -399,10 +445,16 @@ export function syncCandidateLibrary(
       return item;
     }
     if (base) {
+      // Contacts the user deleted (or edited away from) must not be re-imported from the base resume.
+      const removedContacts = deletedContacts();
+      const addContact = (input: ExperienceBulletInput) => {
+        if (removedContacts.has(key(normalizeContact(input)))) result.skipped++;
+        else add(input);
+      };
       for (const type of ["email", "phone", "location", "website"] as const) {
         const value = type === "website" ? base.basics.website.url : base.basics[type];
         if (value.trim())
-          add({
+          addContact({
             kind: "contact",
             text: value,
             source: "resume",
@@ -416,7 +468,7 @@ export function syncCandidateLibrary(
       for (const profile of base.sections.profiles.items) {
         const value = profile.website.url || profile.username;
         if (value.trim())
-          add({
+          addContact({
             kind: "contact",
             text: value,
             source: "resume",
