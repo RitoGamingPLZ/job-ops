@@ -1,13 +1,10 @@
-import {
-  GLASSDOOR_SUPPORTED_COUNTRY_KEYS,
-  JOBSPY_SUPPORTED_COUNTRY_KEYS,
-} from "@shared/location-support.js";
+import { JOBSPY_SUPPORTED_COUNTRY_KEYS } from "@shared/location-support.js";
 import type { ExtractorManifest, ExtractorRuntimeContext } from "@shared/types/extractors";
 import { runJobSpy } from "./src/run";
 
 type JobSpySite = NonNullable<NonNullable<Parameters<typeof runJobSpy>[0]>["sites"]>[number];
 
-const JOBSPY_SOURCES = new Set<JobSpySite>(["indeed", "linkedin", "glassdoor"]);
+const JOBSPY_SOURCES = new Set<JobSpySite>(["indeed", "linkedin"]);
 
 function isJobSpySite(source: string): source is JobSpySite {
   return JOBSPY_SOURCES.has(source as JobSpySite);
@@ -16,17 +13,13 @@ function isJobSpySite(source: string): source is JobSpySite {
 export const manifest: ExtractorManifest = {
   id: "jobspy",
   displayName: "JobSpy",
-  providesSources: ["indeed", "linkedin", "glassdoor"],
+  providesSources: ["indeed", "linkedin"],
   runtime: "container",
   rateLimit: { maxConcurrent: 1, minIntervalMs: 30_000 },
   capabilities: { locationEvidence: true },
   locationCapabilities: {
     indeed: { supportedCountryKeys: JOBSPY_SUPPORTED_COUNTRY_KEYS },
     linkedin: { supportedCountryKeys: JOBSPY_SUPPORTED_COUNTRY_KEYS },
-    glassdoor: {
-      supportedCountryKeys: GLASSDOOR_SUPPORTED_COUNTRY_KEYS,
-      requiresCityLocations: true,
-    },
   },
   async run(context: ExtractorRuntimeContext) {
     if (context.shouldCancel?.()) {

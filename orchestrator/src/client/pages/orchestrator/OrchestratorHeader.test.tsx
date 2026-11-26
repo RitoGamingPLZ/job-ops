@@ -19,7 +19,7 @@ const renderHeader = (overrides: Partial<React.ComponentProps<typeof Orchestrato
     onNavOpenChange: vi.fn(),
     isPipelineRunning: false,
     isCancelling: false,
-    pipelineSources: ["gradcracker"],
+    pipelineSources: ["freehire"],
     onOpenAutomaticRun: vi.fn(),
     onCancelPipeline: vi.fn(),
     onOpenManualImport: vi.fn(),

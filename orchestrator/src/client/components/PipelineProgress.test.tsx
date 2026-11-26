@@ -30,7 +30,7 @@ const fanout = {
   locationCount: 3,
   sourceCount: 4,
   locations: ["Manchester", "London", "Leeds"],
-  sources: ["linkedin", "indeed", "glassdoor", "gradcracker"],
+  sources: ["linkedin", "indeed", "freehire", "hiringcafe"],
   total: 4,
   capacity: 3,
   results: 12,
@@ -200,16 +200,16 @@ describe("PipelineProgress", () => {
         step: "challenge_required",
         pendingChallenges: [
           {
-            extractorId: "gradcracker",
-            extractorName: "Gradcracker",
+            extractorId: "hiringcafe",
+            extractorName: "Hiring Cafe",
             url: "https://example.com/challenge",
-            sources: ["gradcracker"],
+            sources: ["hiringcafe"],
           },
         ],
       }),
     );
 
-    expect(screen.getByText("Gradcracker")).toBeInTheDocument();
+    expect(screen.getByText("Hiring Cafe")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Solve" })).toBeInTheDocument();
   });
 

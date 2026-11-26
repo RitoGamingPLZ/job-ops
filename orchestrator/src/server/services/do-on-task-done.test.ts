@@ -131,7 +131,7 @@ describe("handleDurableObjectTaskDone", () => {
         taskId: "t-1",
         tenantId: "tenant_default",
         pipelineRunId: "run-1",
-        source: "gradcracker",
+        source: "freehire",
         outcome: "completed",
         postings: [
           {
@@ -163,7 +163,7 @@ describe("handleDurableObjectTaskDone", () => {
         taskId: "t-2",
         tenantId: "tenant_default",
         pipelineRunId: "run-1",
-        source: "gradcracker",
+        source: "freehire",
         outcome: "failed",
         postings: [],
       });

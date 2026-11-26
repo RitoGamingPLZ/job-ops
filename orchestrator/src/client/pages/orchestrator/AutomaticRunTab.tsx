@@ -232,12 +232,8 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
     const memory = loadAutomaticRunMemory();
     const fallbackRunBudget = normalizeRunBudget(
       settings?.jobspyResultsWanted?.value ??
-        settings?.startupjobsMaxJobsPerTerm?.value ??
         settings?.jobindexMaxJobsPerTerm?.value ??
         settings?.adzunaMaxJobsPerTerm?.value ??
-        settings?.gradcrackerMaxJobsPerTerm?.value ??
-        settings?.naukriMaxJobsPerTerm?.value ??
-        settings?.ukvisajobsMaxJobs?.value ??
         DEFAULT_VALUES.runBudget,
     );
     const rememberedPresetValues =

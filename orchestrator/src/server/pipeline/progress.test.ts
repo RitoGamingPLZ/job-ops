@@ -13,10 +13,10 @@ describe("pipeline fanout progress", () => {
         roles: ["Backend", "Platform"],
         tasks: [
           { id: "jobspy", unitsPerRole: 9 },
-          { id: "gradcracker", unitsPerRole: 3 },
+          { id: "freehire", unitsPerRole: 3 },
         ],
         locations: ["Manchester", "London", "Leeds"],
-        sources: ["indeed", "linkedin", "glassdoor", "gradcracker"],
+        sources: ["indeed", "linkedin", "freehire"],
         locationCount: 3,
         sourceCount: 4,
         capacity: 3,
@@ -26,7 +26,7 @@ describe("pipeline fanout progress", () => {
       progressHelpers.updateFanoutTaskTerms("jobspy", "Backend", 0, 6);
       progressHelpers.updateFanoutTaskTerms("jobspy", "Backend", 1, 6);
       progressHelpers.updateFanoutTaskTerms("jobspy", "Platform", 1, 6);
-      progressHelpers.settleFanoutTask("gradcracker", "check");
+      progressHelpers.settleFanoutTask("freehire", "check");
       progressHelpers.updateFanoutResults(12, 9);
 
       expect(getProgress().fanout).toEqual({
@@ -34,7 +34,7 @@ describe("pipeline fanout progress", () => {
         locationCount: 3,
         sourceCount: 4,
         locations: ["Manchester", "London", "Leeds"],
-        sources: ["indeed", "linkedin", "glassdoor", "gradcracker"],
+        sources: ["indeed", "linkedin", "freehire"],
         total: 24,
         capacity: 3,
         results: 12,
@@ -120,7 +120,7 @@ describe("pipeline fanout progress", () => {
         roles: ["Backend"],
         tasks: [{ id: "jobspy", unitsPerRole: 3 }],
         locations: ["Manchester"],
-        sources: ["indeed", "linkedin", "glassdoor"],
+        sources: ["indeed", "linkedin", "hiringcafe"],
         locationCount: 1,
         sourceCount: 3,
         capacity: 3,

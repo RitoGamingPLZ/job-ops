@@ -32,7 +32,7 @@ describe("applySettingsUpdates", () => {
 
     const plan = await applySettingsUpdates({
       model: "gpt-4o-mini",
-      ukvisajobsMaxJobs: 42,
+      jobindexMaxJobsPerTerm: 42,
       adzunaMaxJobsPerTerm: 25,
       searchTerms: ["backend", "platform"],
       llmProvider: "openai",
@@ -44,7 +44,7 @@ describe("applySettingsUpdates", () => {
     expect(vi.mocked(settingsRepo.setSetting).mock.calls).toEqual(
       expect.arrayContaining([
         ["model", "gpt-4o-mini"],
-        ["ukvisajobsMaxJobs", "42"],
+        ["jobindexMaxJobsPerTerm", "42"],
         ["adzunaMaxJobsPerTerm", "25"],
         ["searchTerms", '["backend","platform"]'],
         ["llmProvider", "openai"],
@@ -56,7 +56,7 @@ describe("applySettingsUpdates", () => {
     expect(plan.updatedSettingKeys).toEqual(
       expect.arrayContaining([
         "model",
-        "ukvisajobsMaxJobs",
+        "jobindexMaxJobsPerTerm",
         "adzunaMaxJobsPerTerm",
         "searchTerms",
         "llmProvider",

@@ -357,7 +357,6 @@ function buildPrompt(args: {
   const sourceOptions = args.runtimeSources.map((source) => ({
     id: source,
     label: EXTRACTOR_SOURCE_METADATA[source].label,
-    ukOnly: Boolean(EXTRACTOR_SOURCE_METADATA[source].ukOnly),
     requiresCredentials: Boolean(EXTRACTOR_SOURCE_METADATA[source].requiresCredentials),
   }));
 

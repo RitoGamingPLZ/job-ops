@@ -220,6 +220,9 @@ export function createAuthGuard() {
     if (normalizedPath.startsWith("/api/internal/d1-sync/")) {
       return Boolean(process.env.INTERNAL_SYNC_SECRET?.trim());
     }
+    if (normalizedPath.startsWith("/api/internal/scrape/")) {
+      return Boolean((process.env.INTERNAL_SYNC_SECRET || process.env.CRON_SECRET)?.trim());
+    }
 
     // Auth endpoints must be accessible without existing auth.
     if (
@@ -388,8 +391,13 @@ export function createApp() {
   // Container <-> D1 hydration/sync batches can exceed Express's 100kb default.
   app.use("/api/internal/d1-sync", express.json({ limit: "25mb" }));
   // Authorize before parsing; inline pictures need a bounded limit above 100kb.
-  // This internal route uses its shared secret instead of end-user sessions.
+  // These internal routes use their shared secret instead of end-user sessions.
   app.use("/internal/render-pdf", internalRenderPdfRouter);
+  // Internal scraper container pool alias (`POST /scrape` -> `POST /api/internal/scrape/run`)
+  app.post("/scrape", express.json({ limit: "2mb" }), (req, res, next) => {
+    req.url = "/run";
+    internalScrapeRouter(req, res, next);
+  });
   app.use(express.json());
 
   // Logging middleware
@@ -416,12 +424,6 @@ export function createApp() {
   if (isOjcpEnabled()) {
     app.all("/ojcp/mcp", ojcpMcpHandler);
   }
-
-  // Internal scraper container pool alias (`POST /scrape` -> `POST /api/internal/scrape/run`)
-  app.post("/scrape", (req, res, next) => {
-    req.url = "/run";
-    internalScrapeRouter(req, res, next);
-  });
 
   // API routes
   app.use("/api", apiRouter);

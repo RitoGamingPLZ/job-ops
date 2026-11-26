@@ -30,7 +30,7 @@ function sourceBaseUrl(source: JobSource): string {
   return DEMO_SOURCE_BASE_URLS[source];
 }
 
-const SOURCE_CYCLE: JobSource[] = ["linkedin", "indeed", "gradcracker", "ukvisajobs", "manual"];
+const SOURCE_CYCLE: JobSource[] = ["linkedin", "indeed", "freehire", "hiringcafe", "manual"];
 
 const ROLE_TRACK = [
   "Backend Engineer",

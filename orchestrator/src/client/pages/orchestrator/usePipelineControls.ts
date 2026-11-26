@@ -201,13 +201,8 @@ export function usePipelineControls(args: UsePipelineControlsArgs): UsePipelineC
           locationLongitude: normalizedValues.proximity?.longitude ?? null,
           locationRadiusMiles: normalizedValues.proximity?.radiusMiles ?? 50,
           jobspyResultsWanted: limits.jobspyResultsWanted,
-          gradcrackerMaxJobsPerTerm: limits.gradcrackerMaxJobsPerTerm,
-          ukvisajobsMaxJobs: limits.ukvisajobsMaxJobs,
           adzunaMaxJobsPerTerm: limits.adzunaMaxJobsPerTerm,
-          startupjobsMaxJobsPerTerm: limits.startupjobsMaxJobsPerTerm,
           jobindexMaxJobsPerTerm: limits.jobindexMaxJobsPerTerm,
-          seekMaxJobsPerTerm: limits.seekMaxJobsPerTerm,
-          naukriMaxJobsPerTerm: limits.naukriMaxJobsPerTerm,
           jobspyCountryIndeed: normalizedValues.country,
           searchCities,
         });

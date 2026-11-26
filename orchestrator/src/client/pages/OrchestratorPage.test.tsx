@@ -66,7 +66,7 @@ let mockPipelineTerminalEvent: {
   token: number;
 } | null = null;
 let mockPipelineSources = ["linkedin"] as Array<
-  "gradcracker" | "indeed" | "linkedin" | "ukvisajobs" | "adzuna" | "hiringcafe"
+  "indeed" | "linkedin" | "adzuna" | "hiringcafe" | "jobindex" | "freehire"
 >;
 let mockAutomaticRunValues: AutomaticRunValues = {
   topN: 12,
@@ -183,8 +183,6 @@ vi.mock("./orchestrator/usePipelineSources", () => ({
 vi.mock("../hooks/useSettings", () => ({
   useSettings: () => ({
     settings: {
-      ukvisajobsEmail: null,
-      ukvisajobsPasswordHint: null,
       locationSearchMode: {
         value: "cities",
         default: "radius",
@@ -1061,7 +1059,7 @@ describe("OrchestratorPage", () => {
     window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
 
     render(
-      <MemoryRouter initialEntries={["/jobs/all?source=ukvisajobs"]}>
+      <MemoryRouter initialEntries={["/jobs/all?source=jobindex"]}>
         <LocationWatcher />
         <Routes>
           <Route path="/jobs/:tab" element={<OrchestratorPage />} />
@@ -1070,7 +1068,7 @@ describe("OrchestratorPage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("location").textContent).not.toContain("source=ukvisajobs");
+      expect(screen.getByTestId("location").textContent).not.toContain("source=jobindex");
     });
   });
 
@@ -1097,13 +1095,8 @@ describe("OrchestratorPage", () => {
         searchTerms: ["backend"],
         workplaceTypes: ["remote", "hybrid", "onsite"],
         jobspyResultsWanted: 300,
-        gradcrackerMaxJobsPerTerm: 300,
-        naukriMaxJobsPerTerm: 300,
-        ukvisajobsMaxJobs: 300,
         adzunaMaxJobsPerTerm: 300,
-        startupjobsMaxJobsPerTerm: 300,
         jobindexMaxJobsPerTerm: 300,
-        seekMaxJobsPerTerm: 300,
         jobspyCountryIndeed: "united kingdom",
         searchCities: null,
         locationSearchMode: "cities",
@@ -1501,7 +1494,7 @@ describe("OrchestratorPage", () => {
 
   it("blocks automatic run when no sources are compatible for selected country", async () => {
     window.matchMedia = createMatchMedia(true) as unknown as typeof window.matchMedia;
-    mockPipelineSources = ["gradcracker", "ukvisajobs"];
+    mockPipelineSources = ["jobindex"];
     mockAutomaticRunValues = {
       topN: 12,
       minSuitabilityScore: 55,

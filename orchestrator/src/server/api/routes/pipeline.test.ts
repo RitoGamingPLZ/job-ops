@@ -74,7 +74,7 @@ describe("Pipeline API routes", () => {
       topN: 5,
       minSuitabilityScore: 65,
       runBudget: 300,
-      sources: ["gradcracker"],
+      sources: ["freehire"],
       searchTerms: ["backend developer"],
       scoringInstructions: "Prefer API roles",
       country: "united kingdom",
@@ -340,7 +340,7 @@ describe("Pipeline API routes", () => {
       data: {
         config: {
           searchTerms: ["Senior Backend Engineer", "Platform Engineer", "Senior Backend Engineer"],
-          sources: ["naukri", "manual", "linkedin"],
+          sources: ["jobindex", "manual", "linkedin"],
           country: "United Kingdom",
           cityLocations: [],
           workplaceTypes: ["remote"],
@@ -578,12 +578,10 @@ describe("Pipeline API routes", () => {
         skippedSources: [],
         blockedCompanyKeywordsCount: 1,
         sourceLimits: {
-          ukvisajobsMaxJobs: 50,
           adzunaMaxJobsPerTerm: 50,
-          gradcrackerMaxJobsPerTerm: 50,
-          startupjobsMaxJobsPerTerm: 50,
+          hiringcafeMaxJobsPerTerm: 50,
           jobindexMaxJobsPerTerm: 50,
-          naukriMaxJobsPerTerm: 50,
+          freehireMaxJobsPerTerm: 50,
           jobspyResultsWanted: 20,
         },
         autoSkipScoreThreshold: 65,
@@ -748,7 +746,7 @@ describe("Pipeline API routes", () => {
         workplaceTypes: ["remote", "hybrid"],
         searchScope: "selected_plus_remote_worldwide",
         matchStrictness: "flexible",
-        sources: ["gradcracker"],
+        sources: ["freehire"],
       }),
     });
     const runBody = await runRes.json();
@@ -757,7 +755,7 @@ describe("Pipeline API routes", () => {
       expect.objectContaining({
         topN: 5,
         minSuitabilityScore: 65,
-        sources: ["gradcracker"],
+        sources: ["freehire"],
         scoringInstructions: "Prefer backend API roles above GBP 60k.",
         runBudget: 300,
         locationIntent: expect.objectContaining({
@@ -778,7 +776,7 @@ describe("Pipeline API routes", () => {
       "jobs_pipeline_run_started",
       expect.objectContaining({
         source_count: 1,
-        selected_sources: "gradcracker",
+        selected_sources: "freehire",
         top_n: 5,
         min_suitability_score: 65,
         run_budget: 300,
@@ -791,15 +789,15 @@ describe("Pipeline API routes", () => {
       }),
     );
 
-    const glassdoorRunRes = await fetch(`${baseUrl}/api/pipeline/run`, {
+    const incompatibleRunRes = await fetch(`${baseUrl}/api/pipeline/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sources: ["glassdoor"] }),
+      body: JSON.stringify({ sources: ["jobindex"], country: "united kingdom" }),
     });
-    const glassdoorRunBody = await glassdoorRunRes.json();
-    expect(glassdoorRunRes.status).toBe(400);
-    expect(glassdoorRunBody.ok).toBe(false);
-    expect(glassdoorRunBody.error.message).toContain("incompatible");
+    const incompatibleRunBody = await incompatibleRunRes.json();
+    expect(incompatibleRunRes.status).toBe(400);
+    expect(incompatibleRunBody.ok).toBe(false);
+    expect(incompatibleRunBody.error.message).toContain("incompatible");
 
     const adzunaRunRes = await fetch(`${baseUrl}/api/pipeline/run`, {
       method: "POST",
@@ -830,23 +828,23 @@ describe("Pipeline API routes", () => {
       }),
     );
 
-    const naukriRunRes = await fetch(`${baseUrl}/api/pipeline/run`, {
+    const jobindexRunRes = await fetch(`${baseUrl}/api/pipeline/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        sources: ["naukri"],
-        country: "india",
+        sources: ["jobindex"],
+        country: "denmark",
       }),
     });
-    const naukriRunBody = await naukriRunRes.json();
-    expect(naukriRunBody.ok).toBe(true);
+    const jobindexRunBody = await jobindexRunRes.json();
+    expect(jobindexRunBody.ok).toBe(true);
     expect(runPipeline).toHaveBeenNthCalledWith(
       3,
       expect.objectContaining({
-        sources: ["naukri"],
+        sources: ["jobindex"],
         locationIntent: expect.objectContaining({
-          selectedCountry: "india",
-          country: "india",
+          selectedCountry: "denmark",
+          country: "denmark",
         }),
       }),
       expect.objectContaining({
@@ -854,18 +852,18 @@ describe("Pipeline API routes", () => {
       }),
     );
 
-    const blockedNaukriRes = await fetch(`${baseUrl}/api/pipeline/run`, {
+    const blockedJobindexRes = await fetch(`${baseUrl}/api/pipeline/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        sources: ["naukri"],
+        sources: ["jobindex"],
         country: "united kingdom",
       }),
     });
-    const blockedNaukriBody = await blockedNaukriRes.json();
-    expect(blockedNaukriRes.status).toBe(400);
-    expect(blockedNaukriBody.ok).toBe(false);
-    expect(blockedNaukriBody.error.message).toContain("incompatible");
+    const blockedJobindexBody = await blockedJobindexRes.json();
+    expect(blockedJobindexRes.status).toBe(400);
+    expect(blockedJobindexBody.ok).toBe(false);
+    expect(blockedJobindexBody.error.message).toContain("incompatible");
   });
 
   it("returns a standard quota error when hosted pipeline runs are exhausted", async () => {
@@ -920,7 +918,7 @@ describe("Pipeline API routes", () => {
         "Content-Type": "application/json",
         "x-request-id": "quota-pipeline-run",
       },
-      body: JSON.stringify({ sources: ["gradcracker"] }),
+      body: JSON.stringify({ sources: ["linkedin"] }),
     });
     const body = await res.json();
 

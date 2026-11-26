@@ -12,12 +12,15 @@ FROM --platform=$TARGETPLATFORM node:22-slim AS runtime-base
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV PYTHON_PATH=/usr/bin/python3
 ENV DATA_DIR=/app/data
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     fonts-liberation \
+    libgtk-3-0 libgtk-3-common \
+    libdbus-glib-1-2 libxt6 libx11-xcb1 libasound2 \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 WORKDIR /app
@@ -28,7 +31,7 @@ WORKDIR /app
 FROM runtime-base AS runtime-node-deps
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-minimal \
+    python3 python3-minimal python3-pip \
     build-essential pkg-config \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
@@ -41,24 +44,25 @@ COPY career-boards/greenhouse/package*.json ./career-boards/greenhouse/
 COPY career-boards/workday/package*.json ./career-boards/workday/
 COPY extractors/adzuna/package*.json ./extractors/adzuna/
 COPY extractors/hiringcafe/package*.json ./extractors/hiringcafe/
-COPY extractors/gradcracker/package*.json ./extractors/gradcracker/
 COPY extractors/jobindex/package*.json ./extractors/jobindex/
-COPY extractors/naukri/package*.json ./extractors/naukri/
-COPY extractors/startupjobs/package*.json ./extractors/startupjobs/
-COPY extractors/workingnomads/package*.json ./extractors/workingnomads/
-COPY extractors/golangjobs/package*.json ./extractors/golangjobs/
-COPY extractors/ukvisajobs/package*.json ./extractors/ukvisajobs/
-COPY extractors/seek/package*.json ./extractors/seek/
-COPY extractors/fiveamsat/package*.json ./extractors/fiveamsat/
-COPY extractors/wazzuf/package*.json ./extractors/wazzuf/
 COPY extractors/freehire/package*.json ./extractors/freehire/
 COPY extractors/browser-utils/package*.json ./extractors/browser-utils/
+COPY extractors/jobspy/requirements.txt ./extractors/jobspy/
 
 RUN npm install --workspaces --include-workspace-root --omit=dev \
     --no-audit --no-fund --progress=false \
     && npm cache clean --force \
-    && apt-get purge -y --auto-remove build-essential pkg-config \
+    && pip3 install --no-cache-dir --break-system-packages -r ./extractors/jobspy/requirements.txt \
+    && apt-get purge -y --auto-remove build-essential pkg-config python3-pip \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# ============================================================================
+# CAMOUFOX BROWSER CACHE (HIRING CAFE RUNS ITS BROWSER INSIDE THE CONTAINER)
+# ============================================================================
+FROM runtime-node-deps AS camoufox-cache
+
+COPY scripts/camoufox-fetch.mjs ./scripts/camoufox-fetch.mjs
+RUN node ./scripts/camoufox-fetch.mjs
 
 # ============================================================================
 # TYPST BINARY STAGE (LIGHTWEIGHT LOCAL RESUME PDF RENDERING)
@@ -95,6 +99,7 @@ RUN printf '%s\n' '#import "@preview/clean-print-cv:0.1.0": *' > /tmp/warm.typ \
 FROM runtime-node-deps AS production
 
 COPY --from=typst /usr/local/bin/typst /usr/local/bin/typst
+COPY --from=camoufox-cache /root/.cache/camoufox /root/.cache/camoufox
 COPY --from=typst /root/.cache/typst /root/.cache/typst
 
 COPY shared ./shared
@@ -104,17 +109,8 @@ COPY career-boards/greenhouse ./career-boards/greenhouse
 COPY career-boards/workday ./career-boards/workday
 COPY extractors/adzuna ./extractors/adzuna
 COPY extractors/hiringcafe ./extractors/hiringcafe
-COPY extractors/gradcracker ./extractors/gradcracker
 COPY extractors/jobindex ./extractors/jobindex
 COPY extractors/jobspy ./extractors/jobspy
-COPY extractors/naukri ./extractors/naukri
-COPY extractors/startupjobs ./extractors/startupjobs
-COPY extractors/workingnomads ./extractors/workingnomads
-COPY extractors/golangjobs ./extractors/golangjobs
-COPY extractors/ukvisajobs ./extractors/ukvisajobs
-COPY extractors/seek ./extractors/seek
-COPY extractors/fiveamsat ./extractors/fiveamsat
-COPY extractors/wazzuf ./extractors/wazzuf
 COPY extractors/freehire ./extractors/freehire
 COPY extractors/browser-utils ./extractors/browser-utils
 

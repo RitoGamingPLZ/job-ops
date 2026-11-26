@@ -87,7 +87,6 @@ describe("parseJobSpyProgressLine", () => {
     ).toEqual({
       linkedinLocation: "croatia",
       indeedLocation: null,
-      glassdoorLocation: null,
     });
   });
 
@@ -100,7 +99,6 @@ describe("parseJobSpyProgressLine", () => {
     ).toEqual({
       linkedinLocation: "Zagreb, croatia",
       indeedLocation: "Zagreb",
-      glassdoorLocation: "Zagreb",
     });
   });
 });

@@ -17,14 +17,8 @@ export function normalizePipelineRunBudget(value: number): number {
 
 export interface ExtractorLimits {
   jobspyResultsWanted: number;
-  gradcrackerMaxJobsPerTerm: number;
-  ukvisajobsMaxJobs: number;
   adzunaMaxJobsPerTerm: number;
-  startupjobsMaxJobsPerTerm: number;
-  workingnomadsMaxJobsPerTerm: number;
   jobindexMaxJobsPerTerm: number;
-  seekMaxJobsPerTerm: number;
-  naukriMaxJobsPerTerm: number;
 }
 
 export function deriveExtractorLimits(args: {
@@ -37,47 +31,28 @@ export function deriveExtractorLimits(args: {
   const perTermSources = [
     "indeed",
     "linkedin",
-    "glassdoor",
-    "gradcracker",
     "adzuna",
     "hiringcafe",
-    "startupjobs",
-    "workingnomads",
     "jobindex",
-    "seek",
-    "naukri",
+    "freehire",
   ] as const;
   const weightedContributors =
-    perTermSources.filter((source) => args.sources.includes(source)).length * termCount +
-    (args.sources.includes("ukvisajobs") ? 1 : 0);
+    perTermSources.filter((source) => args.sources.includes(source)).length * termCount;
 
   if (weightedContributors <= 0) {
     return {
       jobspyResultsWanted: budget,
-      gradcrackerMaxJobsPerTerm: budget,
-      ukvisajobsMaxJobs: budget,
       adzunaMaxJobsPerTerm: budget,
-      startupjobsMaxJobsPerTerm: budget,
-      workingnomadsMaxJobsPerTerm: budget,
       jobindexMaxJobsPerTerm: budget,
-      seekMaxJobsPerTerm: budget,
-      naukriMaxJobsPerTerm: budget,
     };
   }
 
   const perUnit = Math.max(1, Math.floor(budget / weightedContributors));
-  const remainder = Math.max(0, budget - perUnit * weightedContributors);
 
   return {
     jobspyResultsWanted: perUnit,
-    gradcrackerMaxJobsPerTerm: perUnit,
-    ukvisajobsMaxJobs: Math.min(budget, perUnit + remainder),
     adzunaMaxJobsPerTerm: perUnit,
-    startupjobsMaxJobsPerTerm: perUnit,
-    workingnomadsMaxJobsPerTerm: perUnit,
     jobindexMaxJobsPerTerm: perUnit,
-    seekMaxJobsPerTerm: perUnit,
-    naukriMaxJobsPerTerm: perUnit,
   };
 }
 
@@ -144,11 +119,7 @@ export interface PipelineRunRequestedConfig {
 }
 
 export interface PipelineRunSourceLimitSnapshot {
-  ukvisajobsMaxJobs: number;
   adzunaMaxJobsPerTerm: number;
-  gradcrackerMaxJobsPerTerm: number;
-  startupjobsMaxJobsPerTerm: number;
-  naukriMaxJobsPerTerm: number;
   jobindexMaxJobsPerTerm: number;
   jobspyResultsWanted: number;
 }

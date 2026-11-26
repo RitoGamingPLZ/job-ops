@@ -240,18 +240,12 @@ export const getEnabledSources = (settings: AppSettings | null): JobSource[] => 
   if (!settings) return [...orderedSources];
 
   const enabled: JobSource[] = [];
-  const hasUkVisaJobsAuth = Boolean(
-    settings.ukvisajobsEmail?.trim() && settings.ukvisajobsPasswordHint,
-  );
   const hasAdzunaAuth = Boolean(settings.adzunaAppId?.trim() && settings.adzunaAppKeyHint);
-  const hasApifyToken = Boolean(settings.apifyTokenHint);
 
   for (const source of orderedSources) {
     if (
       !EXTRACTOR_SOURCE_METADATA[source].requiresCredentials ||
-      (source === "ukvisajobs" && hasUkVisaJobsAuth) ||
-      (source === "adzuna" && hasAdzunaAuth) ||
-      (source === "seek" && hasApifyToken)
+      (source === "adzuna" && hasAdzunaAuth)
     ) {
       enabled.push(source);
     }

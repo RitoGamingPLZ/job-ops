@@ -58,7 +58,7 @@ describe("Extractor health API routes", () => {
     const manifest: ExtractorManifest = {
       id: "jobspy",
       displayName: "JobSpy",
-      providesSources: ["indeed", "linkedin", "glassdoor"],
+      providesSources: ["indeed", "linkedin"],
       run: vi.fn().mockResolvedValue({
         success: true,
         jobs: [
@@ -97,7 +97,7 @@ describe("Extractor health API routes", () => {
     const manifest: ExtractorManifest = {
       id: "jobspy",
       displayName: "JobSpy",
-      providesSources: ["indeed", "linkedin", "glassdoor"],
+      providesSources: ["indeed", "linkedin"],
       run: vi.fn().mockResolvedValue({
         success: true,
         jobs: [
@@ -122,9 +122,9 @@ describe("Extractor health API routes", () => {
 
   it("returns service unavailable when the extractor run fails", async () => {
     const manifest: ExtractorManifest = {
-      id: "gradcracker",
-      displayName: "Gradcracker",
-      providesSources: ["gradcracker"],
+      id: "freehire",
+      displayName: "Freehire",
+      providesSources: ["freehire"],
       run: vi.fn().mockResolvedValue({
         success: false,
         jobs: [],
@@ -133,7 +133,7 @@ describe("Extractor health API routes", () => {
     };
     mockGetExtractorRegistry.mockResolvedValue(createRegistry([manifest]));
 
-    const res = await fetch(`${baseUrl}/api/gradcracker/health`);
+    const res = await fetch(`${baseUrl}/api/freehire/health`);
     const body = await res.json();
 
     expect(res.status).toBe(503);
@@ -145,9 +145,9 @@ describe("Extractor health API routes", () => {
 
   it("returns service unavailable when zero jobs are returned", async () => {
     const manifest: ExtractorManifest = {
-      id: "workingnomads",
-      displayName: "Working Nomads",
-      providesSources: ["workingnomads"],
+      id: "jobindex",
+      displayName: "Jobindex",
+      providesSources: ["jobindex"],
       run: vi.fn().mockResolvedValue({
         success: true,
         jobs: [],
@@ -155,7 +155,7 @@ describe("Extractor health API routes", () => {
     };
     mockGetExtractorRegistry.mockResolvedValue(createRegistry([manifest]));
 
-    const res = await fetch(`${baseUrl}/api/workingnomads/health`);
+    const res = await fetch(`${baseUrl}/api/jobindex/health`);
     const body = await res.json();
 
     expect(res.status).toBe(503);
@@ -167,7 +167,7 @@ describe("Extractor health API routes", () => {
     const manifest: ExtractorManifest = {
       id: "jobspy",
       displayName: "JobSpy",
-      providesSources: ["indeed", "linkedin", "glassdoor"],
+      providesSources: ["indeed", "linkedin"],
       run: vi.fn().mockResolvedValue({
         success: true,
         jobs: [

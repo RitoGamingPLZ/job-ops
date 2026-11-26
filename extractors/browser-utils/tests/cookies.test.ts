@@ -135,9 +135,9 @@ describe("cookies", () => {
 
     it("returns undefined userAgent when jar has no UA field", async () => {
       const dir = storageDir();
-      writeCookieJar(dir, "gradcracker"); // no userAgent override
+      writeCookieJar(dir, "hiringcafe"); // no userAgent override
 
-      const result = await readCookieJar("gradcracker", dir);
+      const result = await readCookieJar("hiringcafe", dir);
       expect(result.hasCookies).toBe(true);
       expect(result.hasClearanceCookie).toBe(true);
       expect(result.userAgent).toBeUndefined();
@@ -216,11 +216,11 @@ describe("cookies", () => {
   describe("createPersistedFetchCookieJar", () => {
     it("replays saved Playwright cookies through a Fetch-compatible jar", async () => {
       const dir = storageDir();
-      writeCookieJar(dir, "gradcracker", {
+      writeCookieJar(dir, "hiringcafe", {
         userAgent: "Mozilla/5.0 SolverUA",
       });
 
-      const result = await createPersistedFetchCookieJar("gradcracker", dir);
+      const result = await createPersistedFetchCookieJar("hiringcafe", dir);
 
       expect(result.hasCookies).toBe(true);
       expect(result.hasClearanceCookie).toBe(true);
@@ -236,9 +236,9 @@ describe("cookies", () => {
 
     it("keeps response cookies in memory for later HTTP requests", async () => {
       const dir = storageDir();
-      writeCookieJar(dir, "gradcracker");
+      writeCookieJar(dir, "hiringcafe");
 
-      const result = await createPersistedFetchCookieJar("gradcracker", dir);
+      const result = await createPersistedFetchCookieJar("hiringcafe", dir);
       await result.cookieJar.setCookie(
         "session_id=abc; Domain=.example.com; Path=/; Secure",
         "https://www.example.com/jobs",

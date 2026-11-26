@@ -309,43 +309,13 @@ export const JOBSPY_SUPPORTED_COUNTRY_KEYS = [
   "worldwide",
 ] as const;
 
-export const GLASSDOOR_SUPPORTED_COUNTRY_KEYS = [
-  "australia",
-  "austria",
-  "belgium",
-  "brazil",
-  "canada",
-  "france",
-  "germany",
-  "hong kong",
-  "india",
-  "ireland",
-  "italy",
-  "mexico",
-  "netherlands",
-  "new zealand",
-  "singapore",
-  "spain",
-  "switzerland",
-  "united kingdom",
-  "united states",
-  "vietnam",
-] as const;
-
 export const ADZUNA_SUPPORTED_COUNTRY_KEYS = Object.keys(ADZUNA_COUNTRY_CODE_BY_KEY);
 
 const SOURCE_SUPPORTED_COUNTRY_KEYS: Partial<Record<JobSource, string[]>> = {
-  gradcracker: ["united kingdom"],
   indeed: [...JOBSPY_SUPPORTED_COUNTRY_KEYS],
   linkedin: [...JOBSPY_SUPPORTED_COUNTRY_KEYS],
-  glassdoor: [...GLASSDOOR_SUPPORTED_COUNTRY_KEYS],
-  ukvisajobs: ["united kingdom"],
   adzuna: [...ADZUNA_SUPPORTED_COUNTRY_KEYS],
   jobindex: ["denmark"],
-  seek: ["australia", "new zealand"],
-  naukri: ["india"],
-  fiveamsat: ["egypt"],
-  wazzuf: ["egypt"],
 };
 
 const SOURCE_SUPPORTED_COUNTRY_KEYS_NORMALIZED: Partial<Record<JobSource, string[]>> = {};
@@ -363,8 +333,8 @@ export function getSourceSupportedCountryKeys(source: JobSource): string[] | nul
   return SOURCE_SUPPORTED_COUNTRY_KEYS_NORMALIZED[source] ?? null;
 }
 
-export function sourceRequiresCityLocations(source: JobSource): boolean {
-  return source === "glassdoor";
+export function sourceRequiresCityLocations(_source: JobSource): boolean {
+  return false;
 }
 
 export function normalizeCountryKey(value: string | null | undefined): string {
@@ -452,10 +422,6 @@ export const SUPPORTED_COUNTRY_KEYS = Array.from(
 
 export function isUkCountry(country: string | null | undefined): boolean {
   return normalizeCountryKey(country) === "united kingdom";
-}
-
-export function isGlassdoorCountry(country: string | null | undefined): boolean {
-  return SOURCE_SUPPORTED_COUNTRY_SETS.glassdoor?.has(normalizeCountryKey(country)) ?? false;
 }
 
 export function getAdzunaCountryCode(country: string | null | undefined): string | null {

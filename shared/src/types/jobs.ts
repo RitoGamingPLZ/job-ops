@@ -216,7 +216,7 @@ export interface Job {
   title: string;
   employer: string;
   employerUrl: string | null;
-  jobUrl: string; // Gradcracker listing URL
+  jobUrl: string; // Job listing URL
   applicationLink: string | null; // Actual application URL
   disciplines: string | null;
   deadline: string | null;

@@ -8,7 +8,7 @@ const fanout: PipelineFanoutProgress = {
   locationCount: 2,
   sourceCount: 3,
   locations: ["Manchester", "London"],
-  sources: ["linkedin", "indeed", "glassdoor"],
+  sources: ["linkedin", "indeed", "freehire"],
   total: 15,
   capacity: 3,
   results: 20,
@@ -77,10 +77,10 @@ describe("PipelineFanoutCard", () => {
         elapsedSeconds={0}
         challenges={[
           {
-            extractorId: "gradcracker",
-            extractorName: "Gradcracker",
+            extractorId: "hiringcafe",
+            extractorName: "Hiring Cafe",
             url: "https://example.com/challenge",
-            sources: ["gradcracker"],
+            sources: ["hiringcafe"],
           },
         ]}
         solvingExtractor={null}
@@ -89,7 +89,7 @@ describe("PipelineFanoutCard", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Solve" }));
-    expect(onSolveChallenge).toHaveBeenCalledWith("gradcracker");
+    expect(onSolveChallenge).toHaveBeenCalledWith("hiringcafe");
   });
 
   it("shows a pending browser check after all searches are complete", () => {

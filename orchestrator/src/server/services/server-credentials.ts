@@ -108,12 +108,7 @@ export async function ensureUserHasLlmAccess(): Promise<void> {
 /** True when an extractor needs no operator credentials, or runs on the user's own saved ones. */
 export function hasOwnExtractorCredentials(
   manifest: { id: string; requiredEnvVars?: readonly string[] },
-  settings: Record<string, string | undefined>,
+  _settings: Record<string, string | undefined>,
 ): boolean {
-  if (!manifest.requiredEnvVars || manifest.requiredEnvVars.length === 0) return true;
-  // UKVisaJobs is the only extractor that takes credentials from saved settings.
-  if (manifest.id === "ukvisajobs") {
-    return Boolean(settings.ukvisajobsEmail?.trim() && settings.ukvisajobsPassword?.trim());
-  }
-  return false;
+  return !manifest.requiredEnvVars || manifest.requiredEnvVars.length === 0;
 }

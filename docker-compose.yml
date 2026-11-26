@@ -53,38 +53,14 @@ services:
           target: /app/career-boards/workday/src
           action: sync+restart
         # Sync extractor changes
-        - path: ./extractors/gradcracker/src
-          target: /app/extractors/gradcracker/src
-          action: sync+restart
         - path: ./extractors/hiringcafe/src
           target: /app/extractors/hiringcafe/src
-          action: sync+restart
-        - path: ./extractors/ukvisajobs/src
-          target: /app/extractors/ukvisajobs/src
-          action: sync+restart
-        - path: ./extractors/workingnomads/src
-          target: /app/extractors/workingnomads/src
-          action: sync+restart
-        - path: ./extractors/golangjobs/src
-          target: /app/extractors/golangjobs/src
           action: sync+restart
         - path: ./extractors/jobindex/src
           target: /app/extractors/jobindex/src
           action: sync+restart
-        - path: ./extractors/seek/src
-          target: /app/extractors/seek/src
-          action: sync+restart
         - path: ./extractors/jobspy
           target: /app/extractors/jobspy
-          action: sync+restart
-        - path: ./extractors/naukri
-          target: /app/extractors/naukri
-          action: sync+restart
-        - path: ./extractors/fiveamsat
-          target: /app/extractors/fiveamsat
-          action: sync+restart
-        - path: ./extractors/wazzuf
-          target: /app/extractors/wazzuf
           action: sync+restart
         - path: ./extractors/freehire/src
           target: /app/extractors/freehire/src

@@ -67,38 +67,14 @@ services:
           target: /app/career-boards/workday/src
           action: sync+restart
         # Sync extractor changes
-        - path: ./extractors/gradcracker/src
-          target: /app/extractors/gradcracker/src
-          action: sync+restart
         - path: ./extractors/hiringcafe/src
           target: /app/extractors/hiringcafe/src
-          action: sync+restart
-        - path: ./extractors/ukvisajobs/src
-          target: /app/extractors/ukvisajobs/src
-          action: sync+restart
-        - path: ./extractors/workingnomads/src
-          target: /app/extractors/workingnomads/src
-          action: sync+restart
-        - path: ./extractors/golangjobs/src
-          target: /app/extractors/golangjobs/src
           action: sync+restart
         - path: ./extractors/jobindex/src
           target: /app/extractors/jobindex/src
           action: sync+restart
-        - path: ./extractors/seek/src
-          target: /app/extractors/seek/src
-          action: sync+restart
         - path: ./extractors/jobspy
           target: /app/extractors/jobspy
-          action: sync+restart
-        - path: ./extractors/naukri
-          target: /app/extractors/naukri
-          action: sync+restart
-        - path: ./extractors/fiveamsat
-          target: /app/extractors/fiveamsat
-          action: sync+restart
-        - path: ./extractors/wazzuf
-          target: /app/extractors/wazzuf
           action: sync+restart
     restart: unless-stopped
     healthcheck:
@@ -163,11 +139,11 @@ System admins can create and manage users from **Users** in the sidebar (and **S
 
 ### What invited users can and cannot do
 
-Your server's environment (`LLM_API_KEY`, `MODEL`, `LLM_BASE_URL`, Apify, Adzuna, UKVisaJobs, Gmail OAuth app, `WEBHOOK_SECRET`) belongs to the operator and is never shown to non-admin users in Settings. Stored keys and secrets are masked (`••••••••`) without revealing key prefixes. Only system admins and accounts explicitly granted access may use server resources:
+Your server's environment (`LLM_API_KEY`, `MODEL`, `LLM_BASE_URL`, Adzuna, Gmail OAuth app, `WEBHOOK_SECRET`) belongs to the operator and is never shown to non-admin users in Settings. Stored keys and secrets are masked (`••••••••`) without revealing key prefixes. Only system admins and accounts explicitly granted access may use server resources:
 
 - **AI**: Each user is off the server's default AI model until an admin grants **Access to default AI model**. Without that permission, users must add and verify their own public provider API key during onboarding (or in **Settings → Models**) before running Job Ops. CLI providers (`codex`, `gemini_cli`, `claude_cli`), local/proxy providers (`ollama`, `lmstudio`, `litellm`), and custom base URLs are restricted to admins.
 - **Settings visibility**: **Environment & Workspaces** (`environment`) and **Danger Zone** are hidden from non-admin users in Settings and blocked on the API. **Resumes & library** also hides the **Resume & PDF** settings section and `/pdfs/` downloads when disabled.
-- **Sources**: Sources that need operator credentials (Adzuna, Seek, and similar) are skipped for non-admin users unless **Use server job-source keys** is enabled for them.
+- **Sources**: Sources that need operator credentials (Adzuna and similar) are skipped for non-admin users unless **Use server job-source keys** is enabled for them.
 - **Integrations**: Backups, the challenge viewer, and Codex sign-in are admin-only. Webhooks and the Tracking Inbox (Gmail) are off for invited users until an admin switches them on for that user.
 - **Limits**: Sign-in, searches, URL fetches, and AI actions are rate limited, and at most `MAX_CONCURRENT_PIPELINES` searches (default 3) run across all users at once.
 - **Fetching links**: Job-page fetches and non-admin webhooks only reach public http(s) hosts; redirects are re-checked and responses are size-capped.
@@ -188,7 +164,7 @@ Open **Users** in the sidebar as a system admin.
   | In-progress jobs           | on      | Using the application board, stages, notes, and outcome tracking                |
   | Resumes & library          | on      | Managing the Candidate Library, tailored resumes, and PDF generation/downloads  |
   | Access to default AI model | off     | Lets the user run on the server's default model; off requires their own API key |
-  | Use server job-source keys | off     | Running job sources backed by your server's Apify/Adzuna/UKVisaJobs credentials |
+  | Use server job-source keys | off     | Running job sources backed by your server's Adzuna credentials                  |
   | Email tracking inbox       | off     | Connecting Gmail and the Tracking Inbox                                         |
   | Webhooks                   | off     | Saving outgoing webhook URLs                                                    |
   | Run job searches           | on      | Starting the discovery pipeline                                                 |

@@ -34,13 +34,6 @@ describe("orchestrator utils", () => {
     expect(enabled).toEqual(expect.arrayContaining(credentialFree));
   });
 
-  it("enables seek only when apify token is configured", () => {
-    const withToken = createAppSettings({ apifyTokenHint: "sk-" });
-    const withoutToken = createAppSettings({ apifyTokenHint: null });
-    expect(getEnabledSources(withToken)).toContain("seek");
-    expect(getEnabledSources(withoutToken)).not.toContain("seek");
-  });
-
   it("counts processing jobs in ready and discovered tabs", () => {
     const jobs = [
       createJob({ id: "ready", status: "ready", closedAt: null }),

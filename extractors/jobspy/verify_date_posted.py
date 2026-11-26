@@ -10,7 +10,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--site",
         default="indeed",
-        choices=["indeed", "linkedin", "glassdoor"],
+        choices=["indeed", "linkedin"],
         help="JobSpy site to query.",
     )
     parser.add_argument(
@@ -26,7 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--country-indeed",
         default="UK",
-        help="Country for Indeed and Glassdoor.",
+        help="Country for Indeed.",
     )
     parser.add_argument(
         "--results-wanted",
@@ -72,7 +72,7 @@ def main() -> int:
         "results_wanted": args.results_wanted,
         "hours_old": args.hours_old,
     }
-    if args.site in {"indeed", "glassdoor"}:
+    if args.site == "indeed":
         kwargs["country_indeed"] = args.country_indeed
 
     print("Running JobSpy with:")
