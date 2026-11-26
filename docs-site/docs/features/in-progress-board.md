@@ -43,7 +43,7 @@ Technical Interview is one column. Each `technical_interview` event counts as an
 When you successfully move a job listing to the **Offer** stage (either by dragging a card to the **Offer** column or by logging an **Offer** stage event), a congratulatory celebration with confetti and floating balloons will trigger on the screen to celebrate your achievement!
 :::
 
-Preview displays existing current or uploaded PDFs directly. Missing or stale generated PDFs are rendered from the saved resume without re-tailoring it. Uploaded PDFs are preserved when previewed or downloaded; choose **Edit** to load an editable source separately. Wait for preparation or regeneration to finish before opening Preview. If preview fails, use its **Retry** button.
+Preview displays existing current or unedited uploaded PDFs directly. Missing or stale generated PDFs—and uploaded PDFs after their resume content is edited in the editor—are rendered from the saved resume without re-tailoring it. Unedited uploaded PDFs are preserved when previewed or downloaded; choose **Edit** to load an editable source separately. Wait for preparation or regeneration to finish before opening Preview. If preview fails, use its **Retry** button.
 
 ### Generate missing resumes in a batch
 

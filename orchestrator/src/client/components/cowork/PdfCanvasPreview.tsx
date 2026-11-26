@@ -8,7 +8,7 @@ type LoadedPdf = { url: string; task: PDFDocumentLoadingTask; document: PDFDocum
  * them in only once every page is drawn, so the previous pages stay on screen until the new ones
  * are ready (no blank frame, no layout jump) and a refresh only shows a small badge.
  */
-export function PdfCanvasPreview({ url }: { url: string }) {
+export function PdfCanvasPreview({ url, updating = false }: { url: string; updating?: boolean }) {
   const container = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const loaded = useRef<LoadedPdf | null>(null);
@@ -120,7 +120,7 @@ export function PdfCanvasPreview({ url }: { url: string }) {
         </div>
       ) : (
         <>
-          {rendering ? (
+          {rendering || updating ? (
             shown ? (
               <output className="absolute right-2 top-2 z-10 rounded-md bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm">
                 Updating preview…

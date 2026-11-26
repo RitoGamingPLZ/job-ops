@@ -226,6 +226,7 @@ coworkRouter.put(
         job.id,
         input.baseRevision,
         document.data as ResumeV5Document,
+        { supersedeUploadedPdf: true },
       ),
     );
   }),

@@ -1,10 +1,17 @@
+import { isDeepStrictEqual } from "node:util";
 import { conflict, notFound } from "@infra/errors";
 import type { JobResumeState, ResumeV5Document, ResumeListItem } from "@shared/types";
 import { and, desc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { db, schema } from "../db";
+import { safeParseV5ResumeData } from "../services/resume-document/schema/v5";
 import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
 const { jobResumes: table, jobs } = schema;
+
+function normalizeDocumentForCompare(doc: unknown): unknown {
+  const parsed = safeParseV5ResumeData(doc);
+  return JSON.parse(JSON.stringify(parsed.success ? parsed.data : doc));
+}
 export async function getJobResume(jobId: string): Promise<JobResumeState | null> {
   const row = db
     .select()
@@ -24,14 +31,29 @@ export async function saveJobResume(
   jobId: string,
   baseRevision: number,
   document: ResumeV5Document,
+  options?: { supersedeUploadedPdf?: boolean },
 ): Promise<JobResumeState> {
   return db.transaction((tx) => {
     const job = tx
-      .select({ id: jobs.id })
+      .select({ id: jobs.id, pdfSource: jobs.pdfSource })
       .from(jobs)
       .where(and(privateDataScopeFilter(jobs), eq(jobs.id, jobId)))
       .get();
     if (!job) throw notFound("Job not found");
+    const previous =
+      options?.supersedeUploadedPdf && job.pdfSource === "uploaded" && baseRevision > 0
+        ? tx
+            .select({ document: table.document })
+            .from(table)
+            .where(
+              and(
+                privateDataScopeFilter(table),
+                eq(table.jobId, jobId),
+                eq(table.revision, baseRevision),
+              ),
+            )
+            .get()
+        : undefined;
     const now = new Date().toISOString();
     const scope = getPrivateDataScope();
     const row =
@@ -62,6 +84,24 @@ export async function saveJobResume(
             .returning()
             .get();
     if (!row) throw conflict("Resume changed. Reload before saving.");
+    if (options?.supersedeUploadedPdf && job.pdfSource === "uploaded") {
+      const contentChanged =
+        !previous ||
+        !isDeepStrictEqual(
+          normalizeDocumentForCompare(previous.document),
+          normalizeDocumentForCompare(row.document),
+        );
+      if (contentChanged) {
+        tx.update(jobs)
+          .set({
+            pdfSource: "generated",
+            pdfFingerprint: null,
+            updatedAt: now,
+          })
+          .where(and(privateDataScopeFilter(jobs), eq(jobs.id, jobId)))
+          .run();
+      }
+    }
     return {
       document: row.document,
       revision: row.revision,
