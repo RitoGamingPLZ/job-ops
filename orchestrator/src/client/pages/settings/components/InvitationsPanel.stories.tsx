@@ -61,9 +61,7 @@ function InvitationsStoryHarness({ initialInvitations }: { initialInvitations: U
       "/api/workspaces/invitations/": async (urlStr: string, init?: RequestInit) => {
         if (init?.method === "DELETE") {
           const id = decodeURIComponent(urlStr.split("/").pop() ?? "");
-          storeRef.current = storeRef.current.map((inv) =>
-            inv.id === id ? { ...inv, status: "revoked" } : inv,
-          );
+          storeRef.current = storeRef.current.filter((inv) => inv.id !== id);
           return { id };
         }
         return {};

@@ -141,18 +141,15 @@ export async function recordInvitationUser(id: string, userId: string): Promise<
   await db.update(userInvitations).set({ usedByUserId: userId }).where(eq(userInvitations.id, id));
 }
 
-/** Revokes a pending invitation. Returns false when it does not exist or is not pending. */
-export async function revokeInvitation(id: string): Promise<boolean> {
+/**
+ * Deletes an invitation in any status. A pending link stops working immediately; deleting a
+ * used invitation only removes its history, the account it created is untouched.
+ * Returns false when it does not exist.
+ */
+export async function deleteInvitation(id: string): Promise<boolean> {
   const result = await db
-    .update(userInvitations)
-    .set({ revokedAt: new Date().toISOString() })
-    .where(
-      and(
-        eq(userInvitations.id, id),
-        isNull(userInvitations.usedAt),
-        isNull(userInvitations.revokedAt),
-      ),
-    )
+    .delete(userInvitations)
+    .where(eq(userInvitations.id, id))
     .returning({ id: userInvitations.id });
   return result.length > 0;
 }

@@ -472,6 +472,39 @@ export async function setUserDisabled(id: string, isDisabled: boolean): Promise<
   return getUserById(id);
 }
 
+/**
+ * Permanently deletes a user. A workspace left with no members (the normal case for
+ * private workspaces) is deleted too, which cascades to all of its data. The shared
+ * default workspace is never removed. Returns false when the user does not exist.
+ */
+export async function deleteUserAndPrivateWorkspace(id: string): Promise<boolean> {
+  return db.transaction((tx) => {
+    const existing = tx.select({ id: users.id }).from(users).where(eq(users.id, id)).get();
+    if (!existing) return false;
+
+    const memberships = tx
+      .select({ tenantId: tenantMemberships.tenantId })
+      .from(tenantMemberships)
+      .where(eq(tenantMemberships.userId, id))
+      .all();
+
+    tx.delete(users).where(eq(users.id, id)).run();
+
+    for (const { tenantId } of memberships) {
+      if (tenantId === DEFAULT_TENANT_ID) continue;
+      const remaining = tx
+        .select({ count: sql<number>`count(*)`.as("count") })
+        .from(tenantMemberships)
+        .where(eq(tenantMemberships.tenantId, tenantId))
+        .get();
+      if ((remaining?.count ?? 0) === 0) {
+        tx.delete(tenants).where(eq(tenants.id, tenantId)).run();
+      }
+    }
+    return true;
+  });
+}
+
 export async function updateUserPassword(input: {
   id: string;
   password: string;
