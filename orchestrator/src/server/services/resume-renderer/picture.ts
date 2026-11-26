@@ -1,6 +1,5 @@
 import { copyFile, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { getDesignResumeAssetById } from "@server/repositories/design-resume";
 import type { LatexResumeDocument, ResumePictureContent } from "./types";
 
 function extensionForMimeType(mimeType: string): string {
@@ -42,6 +41,7 @@ export async function materializeResumePicture(
   if (picture.assetId) {
     // Internal render requests must never consult the container's unrelated DB.
     if (resolvedPicture === null) return document;
+    const { getDesignResumeAssetById } = await import("@server/repositories/design-resume");
     const asset = await getDesignResumeAssetById(picture.assetId);
     if (!asset?.storagePath) {
       return document;

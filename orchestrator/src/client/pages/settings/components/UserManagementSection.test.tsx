@@ -1,7 +1,7 @@
 import { DEFAULT_USER_PERMISSIONS } from "@shared/types";
 import * as api from "@client/api";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UserManagementSection } from "./UserManagementSection";
 
@@ -14,7 +14,8 @@ vi.mock("@client/api", () => ({
   listWorkspaceUsers: vi.fn(),
   listUserInvitations: vi.fn(async () => []),
   createUserInvitation: vi.fn(),
-  revokeUserInvitation: vi.fn(),
+  deleteUserInvitation: vi.fn(),
+  deleteWorkspaceUser: vi.fn(),
   setWorkspaceUserPermissions: vi.fn(),
   resetWorkspaceUserPassword: vi.fn(),
   setWorkspaceUserDisabled: vi.fn(),
@@ -76,6 +77,7 @@ describe("UserManagementSection", () => {
   it("updates a workspace user's reset password without crashing", async () => {
     render(<UserManagementHarness />);
 
+    fireEvent.click(await screen.findByRole("button", { name: "Manage Member User" }));
     const resetPasswordInput = await screen.findByPlaceholderText("New password");
 
     fireEvent.change(resetPasswordInput, {
@@ -83,6 +85,67 @@ describe("UserManagementSection", () => {
     });
 
     expect(resetPasswordInput).toHaveValue("new-password");
+  });
+
+  it("splits users and invitations into tabs", async () => {
+    vi.mocked(api.listUserInvitations).mockResolvedValue([
+      {
+        id: "inv-1",
+        label: "Cousin Sam",
+        permissions: { ...DEFAULT_USER_PERMISSIONS },
+        status: "pending",
+        expiresAt: "2026-12-01T00:00:00.000Z",
+        createdAt: "2026-11-24T00:00:00.000Z",
+        usedAt: null,
+        usedByUsername: null,
+      },
+    ]);
+    render(<UserManagementHarness />);
+
+    expect(await screen.findByText("Member User")).toBeInTheDocument();
+    expect(screen.queryByText("Cousin Sam")).not.toBeInTheDocument();
+
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: /Invitations/ }), {
+      button: 0,
+      ctrlKey: false,
+    });
+
+    expect(await screen.findByText("Cousin Sam")).toBeInTheDocument();
+    expect(screen.queryByText("Member User")).not.toBeInTheDocument();
+  });
+
+  it("deletes a user after confirming", async () => {
+    vi.mocked(api.deleteWorkspaceUser).mockResolvedValue(undefined);
+    render(<UserManagementHarness />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Delete user member" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+
+    await waitFor(() =>
+      expect(api.deleteWorkspaceUser).toHaveBeenCalledWith("workspace-user", expect.anything()),
+    );
+  });
+
+  it("does not allow deleting your own account", async () => {
+    vi.mocked(api.listWorkspaceUsers).mockResolvedValue([
+      {
+        id: "admin-user",
+        username: "admin",
+        displayName: "Admin User",
+        isSystemAdmin: true,
+        isDisabled: false,
+        hasPassword: true,
+        mustChangePassword: false,
+        workspaceId: "tenant-admin",
+        workspaceName: "Admin Workspace",
+        permissions: { ...DEFAULT_USER_PERMISSIONS },
+        createdAt: "2026-05-13T00:00:00.000Z",
+        updatedAt: "2026-05-13T00:00:00.000Z",
+      },
+    ]);
+    render(<UserManagementHarness />);
+
+    expect(await screen.findByRole("button", { name: "Delete user admin" })).toBeDisabled();
   });
 
   it("allows a system admin to create a new workspace user", async () => {

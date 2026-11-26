@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
@@ -22,23 +22,26 @@ import type {
 } from "./types";
 
 function resolveTemplatePath(): string {
+  const candidates: string[] = [];
   try {
     if (import.meta.url.startsWith("file:")) {
-      const modulePath = fileURLToPath(import.meta.url);
-      const moduleRelativePath = join(modulePath, "..", "templates", "jake-resume.tex");
-      if (existsSync(moduleRelativePath)) {
-        return moduleRelativePath;
-      }
+      const moduleDir = dirname(fileURLToPath(import.meta.url));
+      candidates.push(
+        join(moduleDir, "templates/jake-resume.tex"),
+        join(moduleDir, "../../src/server/services/resume-renderer/templates/jake-resume.tex"),
+      );
     }
   } catch {
     // Fall through to cwd-based resolution below.
   }
 
   const cwd = process.cwd();
-  if (cwd.endsWith("/orchestrator")) {
-    return join(cwd, "src/server/services/resume-renderer/templates/jake-resume.tex");
-  }
-  return join(cwd, "orchestrator/src/server/services/resume-renderer/templates/jake-resume.tex");
+  candidates.push(
+    join(cwd, "src/server/services/resume-renderer/templates/jake-resume.tex"),
+    join(cwd, "orchestrator/src/server/services/resume-renderer/templates/jake-resume.tex"),
+  );
+
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[candidates.length - 1];
 }
 
 const TEMPLATE_PATH = resolveTemplatePath();

@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { OnTaskDonePosting } from "./app-store";
 import type { Env } from "./types";
-import { sleep } from "./utils";
+import { resolveInternalContainerSecret, sleep } from "./utils";
 
 const DISPATCH_INTERVAL_MS = 30_000;
 const LEASE_DURATION_MS = 5 * 60_000;
@@ -865,7 +865,7 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
   }
 
   private buildScrapeHeaders(): Record<string, string> {
-    const secret = (this.env.INTERNAL_SYNC_SECRET || this.env.CRON_SECRET)?.trim();
+    const secret = resolveInternalContainerSecret(this.env);
     return {
       "content-type": "application/json",
       ...(secret ? { "x-internal-sync-secret": secret } : {}),
@@ -939,20 +939,34 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
 }
 
 const CONTAINER_START_TIMEOUT_MS = 120_000;
+const CONTAINER_INACTIVITY_TIMEOUT_MS = 5 * 60_000;
+const CONTAINER_READY_POLL_MS = 200;
+const CONTAINER_READY_PROBE_TIMEOUT_MS = 1_500;
+const PDF_WORKER_ENTRYPOINT = ["node", "/app/orchestrator/dist/pdf-worker/pdf-worker.mjs"];
 
 /**
- * The PDF renderer must cold-start the Node server and run Typst, which the default "lite" size
- * (1/16 vCPU, 256 MiB) cannot do in time ("container is not listening"). Scrapers ran fine on the
- * default size, and memory is billed for the whole time a container is up, so only the renderer
- * gets the larger size. Durable Object-managed containers take the size here, not in wrangler.jsonc.
+ * PDF rendering runs in a dedicated lightweight worker entrypoint on "standard-1" (1/2 vCPU,
+ * 4 GiB) so cold starts skip migrations/extractors and Typst has headroom. Scrapers stay on the
+ * default size to avoid multiplying idle memory cost across the scraper pool.
  */
-function instanceForRequest(request: Request): "standard-1" | undefined {
-  return new URL(request.url).pathname.startsWith("/internal/render-pdf")
-    ? "standard-1"
-    : undefined;
+function isPdfRenderRequest(request: Request): boolean {
+  return new URL(request.url).pathname.startsWith("/internal/render-pdf");
 }
 
 export class ScraperContainer extends DurableObject<Env> {
+  private containerReady = false;
+  private readyPromise: Promise<boolean> | null = null;
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    const container = ctx?.container;
+    if (container?.running) {
+      void ctx.blockConcurrencyWhile(() =>
+        container.setInactivityTimeout(CONTAINER_INACTIVITY_TIMEOUT_MS),
+      );
+    }
+  }
+
   /** Polls /health until the Node server inside the container accepts connections. */
   private async waitForContainerReady(port: number): Promise<boolean> {
     const container = this.ctx.container;
@@ -966,16 +980,31 @@ export class ScraperContainer extends DurableObject<Env> {
       if (!container.running && Date.now() - startedAt > 5_000) return false;
       try {
         const probe = await tcp.fetch("http://container/health", {
-          signal: AbortSignal.timeout(2000),
+          signal: AbortSignal.timeout(CONTAINER_READY_PROBE_TIMEOUT_MS),
         });
         await probe.body?.cancel();
         if (probe.ok) return true;
       } catch {
         // Waiting for scraper container startup
       }
-      await sleep(500);
+      await sleep(CONTAINER_READY_POLL_MS);
     }
     return false;
+  }
+
+  private async ensureContainerReady(port: number): Promise<boolean> {
+    if (this.containerReady) return true;
+    if (!this.readyPromise) {
+      this.readyPromise = this.waitForContainerReady(port)
+        .then((ready) => {
+          this.containerReady = ready;
+          return ready;
+        })
+        .finally(() => {
+          this.readyPromise = null;
+        });
+    }
+    return this.readyPromise;
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -995,25 +1024,25 @@ export class ScraperContainer extends DurableObject<Env> {
 
     const portNumber = Number.parseInt(this.env.PORT ?? "", 10) || 3001;
     if (!container.running) {
-      const instance = instanceForRequest(request);
+      this.containerReady = false;
+      const internalSecret = resolveInternalContainerSecret(this.env);
+      const pdfRender = isPdfRenderRequest(request);
       container.start({
         image: container.images.base,
         enableInternet: true,
-        ...(instance ? { instance } : {}),
+        ...(pdfRender ? { instance: "standard-1", entrypoint: PDF_WORKER_ENTRYPOINT } : {}),
         env: {
           NODE_ENV: this.env.NODE_ENV ?? "production",
           PORT: String(portNumber),
-          ...(this.env.INTERNAL_SYNC_SECRET
-            ? { INTERNAL_SYNC_SECRET: this.env.INTERNAL_SYNC_SECRET }
-            : {}),
+          ...(internalSecret ? { INTERNAL_SYNC_SECRET: internalSecret } : {}),
         },
       });
-      await container.setInactivityTimeout(5 * 60_000);
+      await container.setInactivityTimeout(CONTAINER_INACTIVITY_TIMEOUT_MS);
     }
 
-    // Always confirm readiness: a container that is running but still booting (or was just
-    // restarted) is not listening yet, and forwarding to it fails with a raw TCP error.
-    if (!(await this.waitForContainerReady(portNumber))) {
+    // Confirm readiness on cold start or after an unexpected container exit without probing
+    // /health on every warm request.
+    if (!(await this.ensureContainerReady(portNumber))) {
       return Response.json(
         {
           ok: false,
@@ -1030,13 +1059,20 @@ export class ScraperContainer extends DurableObject<Env> {
     targetUrl.protocol = "http:";
     targetUrl.host = "container";
 
-    return container.getTcpPort(portNumber).fetch(
-      new Request(targetUrl, {
-        method: request.method,
-        headers: request.headers,
-        body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
-        redirect: "manual",
-      }),
-    );
+    const hasBody = request.method !== "GET" && request.method !== "HEAD" && request.body !== null;
+    try {
+      return await container.getTcpPort(portNumber).fetch(
+        new Request(targetUrl, {
+          method: request.method,
+          headers: request.headers,
+          body: hasBody ? request.body : undefined,
+          redirect: "manual",
+          ...(hasBody ? { duplex: "half" } : {}),
+        } as RequestInit),
+      );
+    } catch (error) {
+      this.containerReady = false;
+      throw error;
+    }
   }
 }

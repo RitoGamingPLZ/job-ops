@@ -16,6 +16,7 @@
       "entry": [
         "src/server/index.ts",
         "src/server/do-entry.ts",
+        "src/server/pdf-worker.ts",
         "src/server/db/migrate.ts",
         "src/server/db/clear.ts",
         "src/server/pipeline/run.ts",

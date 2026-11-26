@@ -205,7 +205,13 @@ export async function createUserInvitation(input: {
   return result.invitation;
 }
 
-export async function revokeUserInvitation(invitationId: string): Promise<void> {
+export async function deleteWorkspaceUser(userId: string): Promise<void> {
+  await fetchApi<{ id: string }>(`/workspaces/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function deleteUserInvitation(invitationId: string): Promise<void> {
   await fetchApi<{ id: string }>(`/workspaces/invitations/${encodeURIComponent(invitationId)}`, {
     method: "DELETE",
   });
