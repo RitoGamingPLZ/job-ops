@@ -129,8 +129,8 @@ export const InvitationsPanel: React.FC = () => {
               <DialogHeader>
                 <DialogTitle>Invitation for {freshLink.label}</DialogTitle>
                 <DialogDescription>
-                  Copy this link and send it to them. You can copy it again from the table while
-                  the invitation is pending.
+                  Copy this link and send it to them. You can copy it again from the table while the
+                  invitation is pending.
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-wrap gap-2 sm:flex-nowrap">

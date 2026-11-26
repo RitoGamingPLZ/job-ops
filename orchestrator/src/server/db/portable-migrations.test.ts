@@ -120,7 +120,14 @@ describe("portable-migrations", () => {
       INSERT INTO jobs VALUES ('j2', 'tenant_default', 'u1', 'https://example.com/2', 'ready', '2026-01-02');`);
       const sql = createFakeDoSqlStorage(sqlite);
       reconcileLegacyDoSchema(sql);
-      expect(runPortableMigrations(sql).applied).toEqual(["0001", "0002", "0003", "0004", "0005", "0006"]);
+      expect(runPortableMigrations(sql).applied).toEqual([
+        "0001",
+        "0002",
+        "0003",
+        "0004",
+        "0005",
+        "0006",
+      ]);
       expect(sqlite.prepare("SELECT id, status, posting_id FROM jobs ORDER BY id").all()).toEqual([
         { id: "j1", status: "applied", posting_id: null },
         { id: "j2", status: "ready", posting_id: null },
