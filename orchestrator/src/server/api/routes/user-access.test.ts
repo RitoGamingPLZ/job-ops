@@ -99,6 +99,37 @@ describe("admin user access and invitations", () => {
     expect(JSON.stringify(afterUse)).not.toContain(body.data.invitation.token);
   });
 
+  it("replaces a pending invitation's link and refuses used or unknown invitations", async () => {
+    const { body } = await createInvitation({ label: "Sam", permissions: { pipeline: false } });
+    const { id, token: oldToken } = body.data.invitation;
+    const regenerate = (invitationId: string) =>
+      fetch(`${baseUrl}/api/workspaces/invitations/${invitationId}/regenerate`, {
+        method: "POST",
+        headers: headers(adminToken),
+      });
+
+    const res = await regenerate(id);
+    expect(res.status).toBe(200);
+    const fresh = (await res.json()).data.invitation;
+    expect(fresh.token).not.toBe(oldToken);
+    expect(fresh).toMatchObject({ id, label: "Sam", status: "pending" });
+    expect(fresh.expiresAt).toBe(body.data.invitation.expiresAt);
+
+    expect((await accept(oldToken, "sam")).status).toBe(404);
+    const joined = await accept(fresh.token, "sam");
+    expect(joined.status).toBe(201);
+    // The invitation's access carries over to the new link.
+    expect((await joined.json()).data.user.permissions.pipeline).toBe(false);
+
+    expect((await regenerate(id)).status).toBe(404);
+    expect((await regenerate("does-not-exist")).status).toBe(404);
+    const anonymous = await fetch(`${baseUrl}/api/workspaces/invitations/${id}/regenerate`, {
+      method: "POST",
+      headers: headers(),
+    });
+    expect(anonymous.status).toBeGreaterThanOrEqual(401);
+  });
+
   it("previews an invitation without a session and hides invalid tokens", async () => {
     const { body } = await createInvitation({ label: "Sam" });
     const preview = await fetch(`${baseUrl}/api/auth/invitations/${body.data.invitation.token}`);

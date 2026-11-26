@@ -87,6 +87,30 @@ export async function createInvitation(input: {
   return { invitation: toInvitation(row, null), token };
 }
 
+/**
+ * Replaces the secret of a still-pending invitation so an admin can hand out a link again
+ * (e.g. one created before tokens were kept, or one that was lost). The previous link stops
+ * working. Returns null when the invitation does not exist or is no longer pending.
+ */
+export async function regenerateInvitationToken(
+  id: string,
+): Promise<{ invitation: UserInvitation; token: string } | null> {
+  const token = generateToken();
+  const [row] = await db
+    .update(userInvitations)
+    .set({ tokenHash: hashInvitationToken(token), token })
+    .where(
+      and(
+        eq(userInvitations.id, id),
+        isNull(userInvitations.usedAt),
+        isNull(userInvitations.revokedAt),
+        gt(userInvitations.expiresAt, new Date().toISOString()),
+      ),
+    )
+    .returning();
+  return row ? { invitation: toInvitation(row, null), token } : null;
+}
+
 export async function listInvitations(): Promise<UserInvitation[]> {
   const rows = await db
     .select({ invitation: userInvitations, usedByUsername: users.username })

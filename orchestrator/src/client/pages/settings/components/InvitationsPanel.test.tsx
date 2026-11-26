@@ -9,6 +9,7 @@ vi.mock("@client/api", () => ({
   listUserInvitations: vi.fn(),
   createUserInvitation: vi.fn(),
   deleteUserInvitation: vi.fn(),
+  regenerateUserInvitation: vi.fn(),
 }));
 
 const InvitationsHarness = () => {
@@ -138,5 +139,54 @@ describe("InvitationsPanel", () => {
     expect(
       screen.queryByRole("button", { name: "Copy invitation link for Old link" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("creates a new link for a pending invitation whose link was not kept", async () => {
+    vi.mocked(api.listUserInvitations).mockResolvedValue([
+      {
+        id: "inv-legacy",
+        label: "Carolyn",
+        token: null,
+        permissions: { ...DEFAULT_USER_PERMISSIONS },
+        status: "pending",
+        expiresAt: "2026-12-02T00:00:00.000Z",
+        createdAt: "2026-11-25T00:00:00.000Z",
+        usedAt: null,
+        usedByUsername: null,
+      },
+      {
+        id: "inv-used",
+        label: "Used one",
+        token: null,
+        permissions: { ...DEFAULT_USER_PERMISSIONS },
+        status: "used",
+        expiresAt: "2026-12-02T00:00:00.000Z",
+        createdAt: "2026-11-20T00:00:00.000Z",
+        usedAt: "2026-11-21T00:00:00.000Z",
+        usedByUsername: "used",
+      },
+    ]);
+    vi.mocked(api.regenerateUserInvitation).mockResolvedValue({
+      id: "inv-legacy",
+      label: "Carolyn",
+      token: "tok_new",
+      permissions: { ...DEFAULT_USER_PERMISSIONS },
+      status: "pending",
+      expiresAt: "2026-12-02T00:00:00.000Z",
+      createdAt: "2026-11-25T00:00:00.000Z",
+      usedAt: null,
+      usedByUsername: null,
+    });
+    render(<InvitationsHarness />);
+
+    expect(
+      screen.queryByRole("button", { name: "Create a new link for Used one" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Create a new link for Carolyn" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Create new link" }));
+
+    const linkInput = (await screen.findByLabelText("Invitation link")) as HTMLInputElement;
+    expect(linkInput.value).toMatch(/\/invite\/tok_new$/);
+    expect(api.regenerateUserInvitation).toHaveBeenCalledWith("inv-legacy", expect.anything());
   });
 });

@@ -211,6 +211,20 @@ workspacesRouter.post(
   }),
 );
 
+workspacesRouter.post(
+  "/invitations/:id/regenerate",
+  asyncRoute(async (req: Request, res: Response) => {
+    if (!requireLocalAdmin(res)) return;
+    const id = req.params.id;
+    const result = id ? await invitationsRepo.regenerateInvitationToken(id) : null;
+    if (!result) {
+      fail(res, notFound("Pending invitation not found"));
+      return;
+    }
+    ok(res, { invitation: { ...result.invitation, token: result.token } });
+  }),
+);
+
 workspacesRouter.delete(
   "/invitations/:id",
   asyncRoute(async (req: Request, res: Response) => {
