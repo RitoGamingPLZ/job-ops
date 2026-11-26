@@ -407,7 +407,9 @@ async function getBrowser(): Promise<Browser> {
     const pending = (async () => {
       let executablePath = process.env.CRAWLER_CHROMIUM_PATH;
       if (!executablePath) {
-        const root = join(homedir(), ".cache/ms-playwright");
+        // Images that install Chromium into a fixed directory point Playwright at it with this variable.
+        const root =
+          process.env.PLAYWRIGHT_BROWSERS_PATH?.trim() || join(homedir(), ".cache/ms-playwright");
         const entries = await readdir(root);
         const newest = entries
           .filter((name) => /^chromium_headless_shell-\d+$/.test(name))

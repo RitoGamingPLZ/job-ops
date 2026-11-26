@@ -23,7 +23,7 @@ Each fetched row has one effective state:
 
 Watching a company means watching that company's saved careers source in Watchlist.
 
-JobOps stores the selected careers source in your workspace and re-checks it when you reopen Watchlist. This gives you a repeatable review loop for newly surfaced roles from that company.
+JobOps stores the selected careers source in your workspace and remembers the result of its last check. Reopening Watchlist shows that stored result instead of re-checking every source; click **Check now** (or **Check this source again** on a failed source) to check again. Automatic runs also refresh it. This gives you a repeatable review loop for newly surfaced roles from that company.
 
 It does not mean:
 
@@ -94,7 +94,7 @@ Ignored rows and watchlist check history are stored per user inside the active w
 4. Click **Suggest filters** (or **Scan & suggest filter**) if you want AI to find filtered listings for the board; saved sources reuse existing scraping and filter plans automatically.
 5. Click **Save sources**.
 6. Review the visible rows.
-7. Reopen Watchlist later to see roles marked **New since last check**.
+7. Click **Check now** later to see roles marked **New since last check**.
 8. Click **Ignore** on a role you do not want to keep seeing.
 9. Turn on **Show ignored** to reveal ignored rows.
 10. Click **Unignore** to restore an ignored role to the default visible list.
@@ -121,7 +121,7 @@ Turn on **Show ignored**. If the row has an `Ignored` badge, click **Unignore** 
 
 ### I do not see any `New since last check` badges yet
 
-The first successful Watchlist fetch creates your personal baseline. Open the page again later to compare the latest results against that saved check.
+The first successful Watchlist fetch creates your personal baseline. Click **Check now** later to compare the latest results against that saved check. Opening the page alone shows the last stored check and does not re-check your sources.
 
 ### A role still appears after being imported
 
@@ -130,6 +130,10 @@ Imported roles stay visible intentionally. They show **Already in workspace** so
 ### A duplicate import is blocked
 
 JobOps uses the source adapter's canonical source key plus the external job ID as the dedupe key, for example `workday:autodesk` and `26WD97952`. Open the existing workspace job from the Watchlist row.
+
+### A careers site says it is learning, or its browser is starting
+
+Company careers sites without a known job-board API are read with a browser. When a company is on Greenhouse, JobOps uses that board's API instead. Otherwise, the first check of a new site learns how to read it, which takes a minute or two. On the hosted Cloudflare deployment the browser runs in the scraper container, which also has to start on first use. Click **Check this source again** after a minute.
 
 ### My custom URL is rejected
 

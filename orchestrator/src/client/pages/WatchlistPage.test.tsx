@@ -280,6 +280,45 @@ describe("WatchlistPage", () => {
     expect(screen.getByRole("button", { name: /save sources/i })).toBeEnabled();
   });
 
+  it("loads the stored check on entry and only re-checks when asked", async () => {
+    renderPage();
+    await screen.findAllByRole("button", { name: /remove watchlist source/i });
+
+    await waitFor(() => expect(api.fetchWatchlistResults).toHaveBeenCalledTimes(1));
+    expect(api.fetchWatchlistResults).toHaveBeenLastCalledWith();
+
+    fireEvent.click(screen.getByRole("button", { name: /check now/i }));
+
+    await waitFor(() => expect(api.fetchWatchlistResults).toHaveBeenCalledTimes(2));
+    expect(api.fetchWatchlistResults).toHaveBeenLastCalledWith({ refresh: true });
+  });
+
+  it("re-checks just the failed source from its error message", async () => {
+    vi.mocked(api.fetchWatchlistResults).mockImplementation(async (options) => {
+      const results = makeWatchlistResults();
+      if (options?.refresh) return results;
+      return {
+        ...results,
+        sources: results.sources.map((result, index) =>
+          index === 0 ? { status: "error" as const, source: result.source, error: "Boom" } : result,
+        ),
+      };
+    });
+
+    renderPage();
+    await openSourceResults("Autodesk");
+
+    fireEvent.click(await screen.findByRole("button", { name: /check this source again/i }));
+
+    await waitFor(() =>
+      expect(api.fetchWatchlistResults).toHaveBeenLastCalledWith({
+        refresh: true,
+        sourceIds: ["selected-autodesk"],
+      }),
+    );
+    expect(await screen.findByText("Backend Engineer")).toBeInTheDocument();
+  });
+
   it("shows new rows by default with ignore actions", async () => {
     renderPage();
     await openSourceResults("Autodesk");

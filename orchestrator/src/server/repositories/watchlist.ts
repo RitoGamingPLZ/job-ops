@@ -7,12 +7,18 @@ import type {
   WatchlistJobState,
   WatchlistSelectedSource,
 } from "@shared/types";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
 import { db, schema } from "../db/index";
 import { chunk, inListChunkSize, insertRowsPerStatement } from "../utils/sql-chunks";
 import { getActiveTenantId } from "../tenancy/context";
 
-const { watchlistChecks, watchlistJobStates, watchlistSeenJobs, watchlistSelectedSources } = schema;
+const {
+  watchlistChecks,
+  watchlistJobStates,
+  watchlistSeenJobs,
+  watchlistSelectedSources,
+  watchlistSourceResults,
+} = schema;
 
 function requireActiveUserId(): string {
   const userId = getUserId();
@@ -80,6 +86,22 @@ export async function replaceWatchlistSelectedSources(
         and(
           eq(watchlistSelectedSources.tenantId, tenantId),
           eq(watchlistSelectedSources.userId, userId),
+        ),
+      )
+      .run();
+
+    // Cached results belong to a watched source; drop those whose source is no longer watched.
+    const keptSourceKeys = input.selections.map(
+      (selection) => `${selection.sourceType}|${selection.careersUrl}`,
+    );
+    tx.delete(watchlistSourceResults)
+      .where(
+        and(
+          eq(watchlistSourceResults.tenantId, tenantId),
+          eq(watchlistSourceResults.userId, userId),
+          ...(keptSourceKeys.length > 0
+            ? [notInArray(watchlistSourceResults.sourceKey, keptSourceKeys)]
+            : []),
         ),
       )
       .run();
@@ -324,5 +346,75 @@ export async function recordWatchlistCheck(
       checkedAt: now,
       jobs,
     };
+  });
+}
+
+export interface StoredWatchlistSourceResult {
+  sourceKey: string;
+  status: "success" | "error";
+  resultJson: string;
+  checkedAt: string;
+  previousCheckedAt: string | null;
+}
+
+export async function listWatchlistSourceResults(): Promise<StoredWatchlistSourceResult[]> {
+  const rows = await db
+    .select()
+    .from(watchlistSourceResults)
+    .where(
+      and(
+        eq(watchlistSourceResults.tenantId, getActiveTenantId()),
+        eq(watchlistSourceResults.userId, requireActiveUserId()),
+      ),
+    );
+
+  return rows.map((row) => ({
+    sourceKey: row.sourceKey,
+    status: row.status,
+    resultJson: row.resultJson,
+    checkedAt: row.checkedAt,
+    previousCheckedAt: row.previousCheckedAt,
+  }));
+}
+
+export async function saveWatchlistSourceResults(
+  entries: StoredWatchlistSourceResult[],
+): Promise<void> {
+  if (entries.length === 0) return;
+  const tenantId = getActiveTenantId();
+  const userId = requireActiveUserId();
+  const now = new Date().toISOString();
+
+  db.transaction((tx) => {
+    for (const entry of entries) {
+      tx.insert(watchlistSourceResults)
+        .values({
+          id: randomUUID(),
+          tenantId,
+          userId,
+          sourceKey: entry.sourceKey,
+          status: entry.status,
+          resultJson: entry.resultJson,
+          checkedAt: entry.checkedAt,
+          previousCheckedAt: entry.previousCheckedAt,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [
+            watchlistSourceResults.tenantId,
+            watchlistSourceResults.userId,
+            watchlistSourceResults.sourceKey,
+          ],
+          set: {
+            status: entry.status,
+            resultJson: entry.resultJson,
+            checkedAt: entry.checkedAt,
+            previousCheckedAt: entry.previousCheckedAt,
+            updatedAt: now,
+          },
+        })
+        .run();
+    }
   });
 }

@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   ghJobs: vi.fn(),
   ghDetails: vi.fn(),
   ghImport: vi.fn(),
+  llm: vi.fn(),
 }));
 vi.mock("./greenhouse", () => ({
   greenhouseWatchlistAdapter: {
@@ -43,6 +44,11 @@ vi.mock("@server/watchlist/careers-site/fetch", () => ({
   loadPage: vi.fn(),
 }));
 vi.mock("@infra/logger", () => ({ logger: { warn: mocks.warn } }));
+vi.mock("@server/services/modelSelection", () => ({
+  resolveLlmRuntimeSettings: mocks.llm,
+  resolveLlmModel: vi.fn(),
+  createConfiguredLlmService: vi.fn(),
+}));
 const recipe: Recipe = {
   version: 1,
   jobUrlPattern: "/jobs/",
@@ -641,6 +647,75 @@ describe("careersSiteWatchlistAdapter", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+  describe("inside the Cloudflare worker runtime with a remote browser", () => {
+    const llm = { provider: "openrouter", model: "m", baseUrl: "https://llm.test", apiKey: "k" };
+    let remote: { run: ReturnType<typeof vi.fn>; learn: ReturnType<typeof vi.fn> };
+    let setRemote: (runner: unknown) => void;
+    beforeEach(async () => {
+      vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+      mocks.llm.mockResolvedValue(llm);
+      remote = {
+        run: vi.fn().mockResolvedValue({ kind: "jobs", jobs: [job()] }),
+        learn: vi.fn().mockResolvedValue({ kind: "recipe", recipe }),
+      };
+      setRemote = (await import("@server/watchlist/careers-site/remote"))
+        .setRemoteCareersSiteRunner as (runner: unknown) => void;
+      setRemote(remote);
+    });
+    afterEach(() => {
+      setRemote(null);
+    });
+    it("crawls in the scraper container and serves details from the crawl", async () => {
+      const result = await adapter.fetchJobs({ source });
+      expect(remote.run).toHaveBeenCalledWith(
+        expect.objectContaining({ recipe, limit: 60, budgetMs: expect.any(Number) }),
+      );
+      expect(mocks.run).not.toHaveBeenCalled();
+      expect(result.jobs.map((item) => item.jobUrl)).toEqual([job().url]);
+      expect(mocks.record).toHaveBeenCalledWith("example.com", true);
+      await expect(adapter.fetchJobDetails({ source, jobRef: job().url })).resolves.toMatchObject({
+        descriptionHtml: "<p>Build &amp; ship.</p>",
+      });
+    });
+    it("still prefers a known Greenhouse board over driving a browser", async () => {
+      const okta = {
+        ...source,
+        label: "Okta",
+        careersUrl: "https://www.okta.com/company/careers/",
+      };
+      mocks.ghJobs.mockResolvedValue({ total: 0, fetched: 0, jobs: [] });
+      await adapter.fetchJobs({ source: okta });
+      expect(mocks.ghJobs).toHaveBeenCalled();
+      expect(remote.run).not.toHaveBeenCalled();
+    });
+    it("learns in the container with the caller's own LLM connection and stores the recipe", async () => {
+      mocks.get.mockResolvedValue(null);
+      await expect(adapter.fetchJobs({ source })).rejects.toThrow("Learning");
+      await vi.waitFor(() => expect(mocks.save).toHaveBeenCalledWith("example.com", recipe));
+      expect(remote.learn).toHaveBeenCalledWith(
+        expect.objectContaining({ careersUrl: "https://example.com/careers", llm }),
+      );
+      expect(mocks.learn).not.toHaveBeenCalled();
+    });
+    it("persists blocks reported by the container", async () => {
+      remote.run.mockResolvedValue({ kind: "blocked", reason: "HTTP 403" });
+      await expect(adapter.fetchJobs({ source })).rejects.toThrow("blocks automated access");
+      expect(mocks.block).toHaveBeenCalledWith("example.com", "HTTP 403");
+    });
+    it("does not count an unreachable browser against the recipe or start a learn cooldown", async () => {
+      remote.run.mockResolvedValue({ kind: "unavailable", message: "Browser is starting" });
+      await expect(adapter.fetchJobs({ source })).rejects.toThrow("Browser is starting");
+      expect(mocks.record).not.toHaveBeenCalled();
+
+      mocks.get.mockResolvedValue(null);
+      remote.learn.mockResolvedValue({ kind: "unavailable", message: "Browser is starting" });
+      await expect(adapter.fetchJobs({ source })).rejects.toThrow("Learning");
+      await vi.waitFor(() => expect(mocks.warn).toHaveBeenCalled());
+      remote.learn.mockResolvedValue({ kind: "recipe", recipe });
+      await expect(adapter.fetchJobs({ source })).rejects.toThrow("Learning");
+      await vi.waitFor(() => expect(mocks.save).toHaveBeenCalled());
+    });
   });
   it.each(["run", "learn"])("persists blocks thrown during %s", async (stage) => {
     const { SiteBlockedError } = await import("@server/watchlist/careers-site/types");

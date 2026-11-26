@@ -5,7 +5,7 @@ import {
   type WatchlistSource,
   type WatchlistSourceTypeDescriptor,
 } from "@shared/types.js";
-import { ExternalLink, Loader2, Plus, X } from "lucide-react";
+import { ExternalLink, Loader2, Plus, RefreshCw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   Accordion,
@@ -110,6 +110,8 @@ export function WatchlistSourcesCard({
   newJobsCount,
   hasUnsavedChanges,
   isSaving,
+  isRefreshing = false,
+  onRefresh,
   onAddSource,
   onAddGroup,
   groups,
@@ -233,6 +235,21 @@ export function WatchlistSourcesCard({
                 isFull={sourceDrafts.length >= MAX_WATCHLIST_SOURCES}
                 onAddGroup={onAddGroup}
               />
+            ) : null}
+            {onRefresh ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={isRefreshing || isSaving || sourceDrafts.length === 0}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onRefresh();
+                }}
+              >
+                <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", isRefreshing && "animate-spin")} />
+                {isRefreshing ? "Checking…" : "Check now"}
+              </Button>
             ) : null}
             <Button
               type="button"

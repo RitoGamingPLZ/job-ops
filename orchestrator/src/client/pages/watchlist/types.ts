@@ -73,6 +73,9 @@ export interface WatchlistSourceDraftCardProps {
   newJobsCount: number;
   hasUnsavedChanges: boolean;
   isSaving: boolean;
+  /** Re-checks every watched source; the page otherwise shows each source's last stored check. */
+  isRefreshing?: boolean;
+  onRefresh?: () => void;
   onAddSource: () => void;
   onAddGroup?: (group: WatchlistSourceGroup) => void;
   onRemoveSource: (index: number) => void;

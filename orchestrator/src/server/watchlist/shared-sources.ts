@@ -17,6 +17,7 @@ import {
   stripUrlQueryAndHash,
 } from "@server/watchlist/adapters/detect";
 import { facetDiscoverers } from "@server/watchlist/autofilter/facets";
+import { getRemoteCareersSiteRunner } from "@server/watchlist/careers-site/remote";
 import { suggestFilters } from "@server/watchlist/autofilter/suggest";
 import type {
   WatchedSourceType,
@@ -138,7 +139,8 @@ export function persistCustomSelectionToSharedSources(input: {
 async function getCareersSiteScrapingStatus(
   careersUrl: string,
 ): Promise<{ status: WatchlistSourceScanResponse["scrapingStatus"]; reusedScrapingPlan: boolean }> {
-  if (isWorkerdRuntime()) {
+  // Without a browser here or a remote one in the scraper container, nothing can crawl the site.
+  if (isWorkerdRuntime() && !getRemoteCareersSiteRunner()) {
     return { status: "unavailable", reusedScrapingPlan: false };
   }
 

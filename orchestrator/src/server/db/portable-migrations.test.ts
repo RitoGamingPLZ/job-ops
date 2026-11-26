@@ -53,7 +53,16 @@ describe("portable-migrations", () => {
     const sqlite = new Database(":memory:");
     try {
       const first = runPortableMigrations(sqlite);
-      expect(first.applied).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007"]);
+      expect(first.applied).toEqual([
+        "0001",
+        "0002",
+        "0003",
+        "0004",
+        "0005",
+        "0006",
+        "0007",
+        "0008",
+      ]);
       expect(first.skipped).toEqual([]);
       expect(first.total).toBe(PORTABLE_MIGRATIONS.length);
 
@@ -67,6 +76,7 @@ describe("portable-migrations", () => {
       expect(tableNames).toContain("pipeline_runs");
       expect(tableNames).toContain("watchlist_shared_sources");
       expect(tableNames).toContain("watchlist_filter_plans");
+      expect(tableNames).toContain("watchlist_source_results");
       expect(tableNames).toContain("_portable_migrations");
 
       const defaultTenant = sqlite
@@ -80,7 +90,16 @@ describe("portable-migrations", () => {
 
       const second = runPortableMigrations(sqlite);
       expect(second.applied).toEqual([]);
-      expect(second.skipped).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007"]);
+      expect(second.skipped).toEqual([
+        "0001",
+        "0002",
+        "0003",
+        "0004",
+        "0005",
+        "0006",
+        "0007",
+        "0008",
+      ]);
     } finally {
       sqlite.close();
     }
@@ -93,7 +112,16 @@ describe("portable-migrations", () => {
       sqlite.exec("CREATE TABLE tracer_click_events (id TEXT PRIMARY KEY);");
       const doSql = createFakeDoSqlStorage(sqlite);
       const first = runPortableMigrations(doSql);
-      expect(first.applied).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007"]);
+      expect(first.applied).toEqual([
+        "0001",
+        "0002",
+        "0003",
+        "0004",
+        "0005",
+        "0006",
+        "0007",
+        "0008",
+      ]);
       expect(first.skipped).toEqual([]);
 
       const remaining = sqlite
@@ -105,7 +133,16 @@ describe("portable-migrations", () => {
 
       const second = runPortableMigrations(doSql);
       expect(second.applied).toEqual([]);
-      expect(second.skipped).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007"]);
+      expect(second.skipped).toEqual([
+        "0001",
+        "0002",
+        "0003",
+        "0004",
+        "0005",
+        "0006",
+        "0007",
+        "0008",
+      ]);
     } finally {
       sqlite.close();
     }
@@ -130,6 +167,7 @@ describe("portable-migrations", () => {
         "0005",
         "0006",
         "0007",
+        "0008",
       ]);
       expect(sqlite.prepare("SELECT id, status, posting_id FROM jobs ORDER BY id").all()).toEqual([
         { id: "j1", status: "applied", posting_id: null },
