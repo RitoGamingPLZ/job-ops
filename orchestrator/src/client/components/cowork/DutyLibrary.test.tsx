@@ -126,6 +126,21 @@ describe("candidate library duty tools", () => {
       vi.unstubAllGlobals();
     }
   });
+  it("renders all tags inline without overflow popover when expanded", () => {
+    const tags = Array.from({ length: 10 }, (_, index) => `Tag ${index}`);
+    const { container } = render(<InlineTags bullet={{ ...role, tags }} expanded />);
+    for (const tag of tags) {
+      const chip = screen.getByText(tag);
+      expect(chip).toBeVisible();
+      expect(chip).not.toHaveAttribute("aria-hidden");
+    }
+    expect(screen.queryByRole("button", { name: /more tags/ })).toBeNull();
+    expect(container.firstChild).not.toBeNull();
+
+    cleanup();
+    const empty = render(<InlineTags bullet={{ ...role, tags: [] }} expanded />);
+    expect(empty.container).toBeEmptyDOMElement();
+  });
   it("reports unavailable and other failures through shared error helpers", () => {
     coworkError(new ApiClientError("Unavailable", { status: 501 }));
     expect(mocks.message).toHaveBeenCalledWith("Co-work is not available yet.");

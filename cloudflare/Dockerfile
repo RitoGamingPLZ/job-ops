@@ -13,7 +13,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV NODE_ENV=production
 ENV PORT=3001
 ENV DATA_DIR=/app/data
-ENV INTERNAL_SYNC_SECRET=jobops-internal-d1-sync
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -86,12 +85,17 @@ RUN set -eux; \
     install -m 0755 /tmp/typst/typst /usr/local/bin/typst; \
     rm -rf /tmp/typst.tar.xz /tmp/typst
 
+RUN printf '%s\n' '#import "@preview/clean-print-cv:0.1.0": *' > /tmp/warm.typ \
+    && XDG_CACHE_HOME=/root/.cache /usr/local/bin/typst compile /tmp/warm.typ /tmp/warm.pdf \
+    && rm -f /tmp/warm.typ /tmp/warm.pdf
+
 # ============================================================================
 # FINAL LEAN PRODUCTION IMAGE
 # ============================================================================
 FROM runtime-node-deps AS production
 
 COPY --from=typst /usr/local/bin/typst /usr/local/bin/typst
+COPY --from=typst /root/.cache/typst /root/.cache/typst
 
 COPY shared ./shared
 COPY orchestrator ./orchestrator

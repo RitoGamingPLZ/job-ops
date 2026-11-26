@@ -14,7 +14,7 @@ import {
 } from "@shared/types";
 import { json, Router } from "express";
 import { z } from "zod";
-import { verifyInternalScrapeSecret } from "./internal-scrape";
+import { verifyInternalScrapeSecret } from "./internal-auth";
 
 const renderRequestSchema = z.object({
   resumeJson: v5ResumeDataSchema,

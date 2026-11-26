@@ -19,13 +19,20 @@ export function coworkError(error: unknown) {
 const tagClass =
   "shrink-0 whitespace-nowrap rounded border px-1 py-0.5 text-xs text-muted-foreground";
 
-/** Read-only tag chips that collapse to the available width. */
-export function InlineTags({ bullet }: { bullet: ExperienceBullet }) {
+/** Read-only tag chips that collapse to the available width, or wrap when expanded. */
+export function InlineTags({
+  bullet,
+  expanded = false,
+}: {
+  bullet: ExperienceBullet;
+  expanded?: boolean;
+}) {
   const [visibleCount, setVisibleCount] = useState(8);
   const tagsRow = useRef<HTMLDivElement>(null);
   const tagChips = useRef<(HTMLSpanElement | null)[]>([]);
   const overflowMeasure = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
+    if (expanded) return;
     const row = tagsRow.current;
     if (!row) return;
     function measure() {
@@ -52,7 +59,19 @@ export function InlineTags({ bullet }: { bullet: ExperienceBullet }) {
     const observer = new ResizeObserver(measure);
     observer.observe(row);
     return () => observer.disconnect();
-  }, [bullet.tags]);
+  }, [bullet.tags, expanded]);
+  if (expanded) {
+    if (!bullet.tags.length) return null;
+    return (
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+        {bullet.tags.map((tag, index) => (
+          <span key={`${index}-${tag}`} className={tagClass}>
+            {tag}
+          </span>
+        ))}
+      </div>
+    );
+  }
   return (
     <div
       ref={tagsRow}

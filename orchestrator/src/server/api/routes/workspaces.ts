@@ -216,11 +216,42 @@ workspacesRouter.delete(
   asyncRoute(async (req: Request, res: Response) => {
     if (!requireLocalAdmin(res)) return;
     const id = req.params.id;
-    if (!id || !(await invitationsRepo.revokeInvitation(id))) {
-      fail(res, notFound("Pending invitation not found"));
+    if (!id || !(await invitationsRepo.deleteInvitation(id))) {
+      fail(res, notFound("Invitation not found"));
       return;
     }
     ok(res, { id });
+  }),
+);
+
+workspacesRouter.delete(
+  "/users/:id",
+  asyncRoute(async (req: Request, res: Response) => {
+    if (!requireLocalAdmin(res)) return;
+    const userId = req.params.id;
+    if (!userId) {
+      fail(res, badRequest("User id is required"));
+      return;
+    }
+    if (userId === getUserId()) {
+      fail(res, badRequest("You cannot delete your own user"));
+      return;
+    }
+    const existing = await usersRepo.getUserById(userId);
+    if (!existing) {
+      fail(res, notFound("User not found"));
+      return;
+    }
+    if (existing.isSystemAdmin) {
+      fail(res, badRequest("System admins cannot be deleted"));
+      return;
+    }
+
+    await authSessionsRepo.revokeAuthSessionsForUser(userId);
+    await usersRepo.deleteUserAndPrivateWorkspace(userId);
+    clearUserPermissionCache();
+    clearServerCredentialCache();
+    ok(res, { id: userId });
   }),
 );
 

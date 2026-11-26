@@ -941,3 +941,173 @@ it("explains contact sync and creates contacts from Value alone", async () => {
     ),
   );
 });
+
+describe("candidate library page layout and project point tags", () => {
+  it("keeps all companies expanded by default in page layout while allowing manual collapse", () => {
+    const deltaRole: ExperienceBullet = {
+      ...role,
+      id: "delta-role",
+      text: "Staff Engineer",
+      data: { company: "Delta", location: "Berlin" },
+      company: "Delta",
+    };
+    const deltaDuty: ExperienceBullet = {
+      ...duty,
+      id: "delta-duty",
+      parentId: deltaRole.id,
+      text: "Scaled systems",
+    };
+    const view = render(
+      <CandidateLibrary layout="page" items={[role, duty, otherRole, otherDuty]} />,
+    );
+    const acme = screen.getByRole("button", { name: "Show roles for Acme" });
+    const globex = screen.getByRole("button", { name: "Show roles for Globex" });
+    expect(acme).toHaveAttribute("aria-expanded", "true");
+    expect(globex).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Built tools")).toBeVisible();
+    expect(screen.getByText("Designed tools")).toBeVisible();
+
+    fireEvent.click(acme);
+    expect(acme).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Built tools")).toBeNull();
+    expect(globex).toHaveAttribute("aria-expanded", "true");
+
+    view.rerender(
+      <CandidateLibrary
+        layout="page"
+        items={[role, duty, otherRole, otherDuty, deltaRole, deltaDuty]}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Show roles for Acme" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.getByRole("button", { name: "Show roles for Globex" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Show roles for Delta" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByText("Scaled systems")).toBeVisible();
+  });
+
+  it("shows full duty text, horizontal dividers, and all tags without truncation in page layout", () => {
+    const manyTags = Array.from({ length: 10 }, (_, index) => `Skill ${index}`);
+    const secondDuty: ExperienceBullet = {
+      ...duty,
+      id: "d2",
+      text: "Mentored junior engineers",
+      tags: [],
+    };
+    render(
+      <CandidateLibrary layout="page" items={[role, { ...duty, tags: manyTags }, secondDuty]} />,
+    );
+    const dutyButton = screen.getByRole("button", { name: duty.text });
+    expect(dutyButton).not.toHaveClass("truncate");
+    expect(dutyButton).toHaveClass("whitespace-normal", "break-words");
+
+    const list = dutyButton.closest(".divide-y");
+    expect(list).not.toBeNull();
+    expect(list).toHaveClass("divide-y", "divide-border");
+    expect(list).toContainElement(screen.getByRole("button", { name: secondDuty.text }));
+
+    for (const tag of manyTags) expect(screen.getByText(tag)).toBeVisible();
+    expect(screen.queryByRole("button", { name: /more tags/ })).toBeNull();
+  });
+
+  it("uses vertical desktop tab classes in page layout and keeps horizontal tabs in panel layout", () => {
+    const view = render(<CandidateLibrary layout="page" items={library} />);
+    const pageSections = screen.getByRole("region", { name: "Library sections" });
+    expect(pageSections).toHaveClass("md:flex-col");
+    expect(within(pageSections).getByRole("button", { name: "Experience" })).toHaveClass(
+      "md:w-full",
+      "md:justify-start",
+    );
+
+    view.rerender(<CandidateLibrary items={library} />);
+    const panelSections = screen.getByRole("region", { name: "Library sections" });
+    expect(panelSections).not.toHaveClass("md:flex-col");
+    expect(within(panelSections).getByRole("button", { name: "Experience" })).not.toHaveClass(
+      "md:w-full",
+    );
+  });
+
+  it("renders, edits, creates, and divides tags on project points", async () => {
+    const point1: ExperienceBullet = {
+      ...duty,
+      id: "point",
+      kind: "project_point",
+      parentId: project.id,
+      text: "Parsed code",
+      tags: ["Parser"],
+    };
+    const point2: ExperienceBullet = {
+      ...duty,
+      id: "point2",
+      kind: "project_point",
+      parentId: project.id,
+      text: "Built AST",
+      tags: [],
+    };
+    const itemsWithPoints = [...library.filter((item) => item.id !== "point"), point1, point2];
+    mocks.list.mockResolvedValue({ items: itemsWithPoints });
+    mocks.update.mockImplementation(async (id, input) => ({
+      bullet: { ...itemsWithPoints.find((item) => item.id === id), ...input },
+    }));
+
+    render(<CandidateLibrary layout="page" />);
+    await screen.findByText("Built tools");
+    fireEvent.click(screen.getByRole("button", { name: "Projects" }));
+
+    const pointButton = screen.getByRole("button", { name: "Parsed code" });
+    const pointsList = pointButton.closest(".divide-y");
+    expect(pointsList).not.toBeNull();
+    expect(pointsList).toHaveClass("divide-y", "divide-border");
+    expect(pointsList).toContainElement(screen.getByRole("button", { name: "Built AST" }));
+    expect(pointsList).not.toContainElement(
+      screen.getByRole("button", { name: "Add point to Compiler" }),
+    );
+    expect(screen.getByText("Parser")).toBeVisible();
+
+    fireEvent.click(pointButton);
+    const dialog = screen.getByRole("dialog");
+    const tagInput = within(dialog).getByLabelText("Add tag");
+    fireEvent.change(tagInput, { target: { value: "Rust" } });
+    fireEvent.keyDown(tagInput, { key: "Enter" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove tag Parser" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenCalledWith(
+        "point",
+        expect.objectContaining({ tags: ["Rust"] }),
+        undefined,
+      ),
+    );
+    expect(await screen.findByText("Rust")).toBeVisible();
+    expect(screen.queryByText("Parser")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add point to Compiler" }));
+    const addDialog = screen.getByRole("dialog", { name: "Add point" });
+    fireEvent.change(within(addDialog).getByRole("textbox", { name: "Point" }), {
+      target: { value: "Wrote tests" },
+    });
+    const addTagInput = within(addDialog).getByLabelText("Add tag");
+    fireEvent.change(addTagInput, { target: { value: "Vitest" } });
+    fireEvent.keyDown(addTagInput, { key: "Enter" });
+    fireEvent.click(within(addDialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(mocks.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "project_point",
+          parentId: "project",
+          text: "Wrote tests",
+          tags: ["Vitest"],
+        }),
+      ),
+    );
+  });
+});

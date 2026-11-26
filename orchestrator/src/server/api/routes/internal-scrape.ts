@@ -1,5 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
-import { badRequest, forbidden, notFound, unauthorized } from "@infra/errors";
+import { badRequest, notFound } from "@infra/errors";
 import { fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
@@ -7,41 +6,11 @@ import { getExtractorRegistry } from "@server/extractors/registry";
 import type { ExtractorSourceId } from "@shared/extractors";
 import type { ExtractorRuntimeContext } from "@shared/types";
 import { type NextFunction, type Request, type Response, Router } from "express";
+import { verifyInternalScrapeSecret } from "./internal-auth";
+
+export { verifyInternalScrapeSecret } from "./internal-auth";
 
 export const internalScrapeRouter = Router();
-
-function getProvidedSecret(req: Request): string {
-  const headerSecret = req.headers["x-internal-sync-secret"];
-  if (typeof headerSecret === "string" && headerSecret.trim()) {
-    return headerSecret.trim();
-  }
-  const auth = req.headers.authorization ?? "";
-  if (auth.startsWith("Bearer ")) {
-    return auth.slice("Bearer ".length).trim();
-  }
-  return "";
-}
-
-export function verifyInternalScrapeSecret(req: Request, res: Response, next: NextFunction): void {
-  const expectedSecret = (process.env.INTERNAL_SYNC_SECRET || process.env.CRON_SECRET)?.trim();
-  if (!expectedSecret) {
-    fail(res, forbidden("Internal scrape execution is not configured."));
-    return;
-  }
-
-  const providedSecret = getProvidedSecret(req);
-  const expectedBuffer = Buffer.from(expectedSecret, "utf8");
-  const providedBuffer = Buffer.from(providedSecret, "utf8");
-  if (
-    expectedBuffer.length !== providedBuffer.length ||
-    !timingSafeEqual(expectedBuffer, providedBuffer)
-  ) {
-    fail(res, unauthorized("Invalid internal scrape secret."));
-    return;
-  }
-
-  next();
-}
 
 async function handleInternalScrapeRun(
   req: Request,

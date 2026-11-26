@@ -13,6 +13,15 @@ import { showErrorToast } from "@/client/lib/error-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ConfirmDeleteButton } from "./ConfirmDeleteButton";
 import { PermissionToggles } from "./PermissionToggles";
 
 export const invitationsQueryKey = ["workspaces", "invitations"] as const;
@@ -57,13 +66,13 @@ export const InvitationsPanel: React.FC = () => {
     onError: (error) => showErrorToast(error, "Failed to create invitation"),
   });
 
-  const revokeMutation = useMutation({
-    mutationFn: api.revokeUserInvitation,
+  const deleteMutation = useMutation({
+    mutationFn: api.deleteUserInvitation,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: invitationsQueryKey });
-      toast.success("Invitation revoked");
+      toast.success("Invitation deleted");
     },
-    onError: (error) => showErrorToast(error, "Failed to revoke invitation"),
+    onError: (error) => showErrorToast(error, "Failed to delete invitation"),
   });
 
   const copyLink = async (url: string) => {
@@ -151,44 +160,68 @@ export const InvitationsPanel: React.FC = () => {
         </div>
       ) : null}
 
-      <div className="divide-y divide-border rounded-md border border-border">
-        {invitations.map((invitation) => (
-          <div
-            className="flex flex-wrap items-center justify-between gap-3 p-3"
-            key={invitation.id}
-          >
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="truncate text-sm font-medium">{invitation.label}</span>
-                <Badge variant={STATUS_VARIANT[invitation.status]}>{invitation.status}</Badge>
-                {invitation.usedByUsername ? (
-                  <Badge variant="outline">{invitation.usedByUsername}</Badge>
-                ) : null}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                {invitation.status === "pending"
-                  ? `Expires ${formatDate(invitation.expiresAt)}`
-                  : invitation.usedAt
-                    ? `Used ${formatDate(invitation.usedAt)}`
-                    : `Created ${formatDate(invitation.createdAt)}`}
-              </div>
-            </div>
-            {invitation.status === "pending" ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={revokeMutation.isPending}
-                onClick={() => revokeMutation.mutate(invitation.id)}
-              >
-                Revoke
-              </Button>
+      <div className="rounded-md border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Label</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Used by</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Expires / used</TableHead>
+              <TableHead className="w-12 text-right">
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {invitations.map((invitation) => (
+              <TableRow key={invitation.id}>
+                <TableCell className="max-w-[12rem] truncate font-medium">
+                  {invitation.label}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={STATUS_VARIANT[invitation.status]}>{invitation.status}</Badge>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {invitation.usedByUsername ?? "—"}
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                  {formatDate(invitation.createdAt)}
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                  {invitation.status === "pending"
+                    ? `Expires ${formatDate(invitation.expiresAt)}`
+                    : invitation.usedAt
+                      ? `Used ${formatDate(invitation.usedAt)}`
+                      : "—"}
+                </TableCell>
+                <TableCell className="text-right">
+                  <ConfirmDeleteButton
+                    label={`Delete invitation ${invitation.label}`}
+                    title="Delete this invitation?"
+                    description={
+                      invitation.status === "pending"
+                        ? `The link for ${invitation.label} will stop working immediately.`
+                        : invitation.status === "used"
+                          ? "This only removes the invitation record. The account that was created stays."
+                          : "This removes the invitation record."
+                    }
+                    disabled={deleteMutation.isPending}
+                    onConfirm={() => deleteMutation.mutate(invitation.id)}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+            {invitations.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={6} className="py-3 text-sm text-muted-foreground">
+                  No invitations yet.
+                </TableCell>
+              </TableRow>
             ) : null}
-          </div>
-        ))}
-        {invitations.length === 0 ? (
-          <div className="p-3 text-sm text-muted-foreground">No invitations yet.</div>
-        ) : null}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

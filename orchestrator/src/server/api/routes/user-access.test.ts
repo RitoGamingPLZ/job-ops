@@ -163,6 +163,69 @@ describe("admin user access and invitations", () => {
     }
   });
 
+  it("deletes invitations of any status from the list", async () => {
+    const pending = await createInvitation({ label: "Pending" });
+    await inviteAndJoin("used-one");
+
+    const listed = async () =>
+      (
+        await (
+          await fetch(`${baseUrl}/api/workspaces/invitations`, { headers: headers(adminToken) })
+        ).json()
+      ).data.invitations as Array<{ id: string; status: string }>;
+
+    const before = await listed();
+    expect(before.map((invitation) => invitation.status).sort()).toEqual(["pending", "used"]);
+
+    for (const invitation of before) {
+      const res = await fetch(`${baseUrl}/api/workspaces/invitations/${invitation.id}`, {
+        method: "DELETE",
+        headers: headers(adminToken),
+      });
+      expect(res.status).toBe(200);
+    }
+    expect(await listed()).toHaveLength(0);
+    expect((await accept(pending.body.data.invitation.token, "late")).status).toBe(404);
+
+    const missing = await fetch(
+      `${baseUrl}/api/workspaces/invitations/${pending.body.data.invitation.id}`,
+      { method: "DELETE", headers: headers(adminToken) },
+    );
+    expect(missing.status).toBe(404);
+  });
+
+  it("deletes a user and their workspace, and keeps that admin-only", async () => {
+    const guest = await inviteAndJoin("guest");
+    const other = await inviteAndJoin("other");
+    const del = (userId: string, token: string) =>
+      fetch(`${baseUrl}/api/workspaces/users/${userId}`, {
+        method: "DELETE",
+        headers: headers(token),
+      });
+    const listUsers = async () =>
+      (
+        await (
+          await fetch(`${baseUrl}/api/workspaces/users`, { headers: headers(adminToken) })
+        ).json()
+      ).data.users as Array<{ id: string; username: string; isSystemAdmin: boolean }>;
+
+    expect((await del(other.user.id, guest.token)).status).toBe(403);
+
+    const admin = (await listUsers()).find((user) => user.isSystemAdmin);
+    expect(admin).toBeDefined();
+    expect((await del(admin?.id ?? "", adminToken)).status).toBe(400);
+
+    expect((await del(guest.user.id, adminToken)).status).toBe(200);
+    expect((await listUsers()).map((user) => user.username).sort()).toEqual(["admin", "other"]);
+    expect((await del(guest.user.id, adminToken)).status).toBe(404);
+
+    // The deleted user's session no longer works and the name can be reused.
+    const me = await fetch(`${baseUrl}/api/auth/me`, { headers: headers(guest.token) });
+    expect(me.status).toBe(401);
+    const { body } = await createInvitation({ label: "guest again" });
+    expect((await accept(body.data.invitation.token, "guest")).status).toBe(201);
+  });
+
   it("switches the email tracking inbox on and off per user", async () => {
     const { token, user } = await inviteAndJoin("guest");
     const inbox = () => fetch(`${baseUrl}/api/post-application/inbox`, { headers: headers(token) });

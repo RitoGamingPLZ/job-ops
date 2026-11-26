@@ -126,7 +126,9 @@ jobs:
 
       - name: Build ${{ matrix.project }} (client)
         if: matrix.project == 'job-ops-orchestrator'
-        run: vp run --filter job-ops-orchestrator build:client
+        run: |
+          vp run --filter job-ops-orchestrator build:client
+          vp run --filter job-ops-orchestrator build:pdf-worker
 
   docs:
     name: Documentation
