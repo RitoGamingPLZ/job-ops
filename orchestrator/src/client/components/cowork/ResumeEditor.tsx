@@ -283,6 +283,7 @@ export function ResumeEditor({
   const [scale, setScale] = useState(1);
   const [sheets, setSheets] = useState(1);
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const draggingSection = useRef<string | null>(null);
   // Typing in local-draft inputs and :focus-within reveals change layout
   // without a React render; bump this so pagination re-runs.
   const [, repaginate] = useReducer((n: number) => n + 1, 0);
@@ -309,6 +310,7 @@ export function ResumeEditor({
     const ownerDocument = canvas.current?.ownerDocument;
     if (!ownerDocument) return;
     const end = () => {
+      draggingSection.current = null;
       setDragOver(null);
     };
     ownerDocument.addEventListener("dragend", end, true);
@@ -364,14 +366,50 @@ export function ResumeEditor({
         title={label}
         onDragStart={(event) => {
           event.stopPropagation();
+          if (type === SECTION_TRANSFER_TYPE && typeof value === "string") {
+            draggingSection.current = value;
+          }
           event.dataTransfer.setData(type, JSON.stringify(value));
           event.dataTransfer.effectAllowed = "move";
         }}
-        onDragEnd={() => setDragOver(null)}
+        onDragEnd={() => {
+          draggingSection.current = null;
+          setDragOver(null);
+        }}
       >
         ⠿
       </span>
     );
+  }
+  type SectionKey =
+    | "summary"
+    | "skills"
+    | "certifications"
+    | "experience"
+    | "projects"
+    | "education"
+    | "awards";
+  function sectionHeadingProps(key: SectionKey, ref: ResumeFocusRef) {
+    return {
+      tabIndex: -1,
+      draggable: !disabled,
+      onDragStart: (event: React.DragEvent) => {
+        if (disabled) return;
+        event.stopPropagation();
+        draggingSection.current = key;
+        event.dataTransfer.setData(SECTION_TRANSFER_TYPE, JSON.stringify(key));
+        if (onAskAi) {
+          event.dataTransfer.setData(FOCUS_TRANSFER_TYPE, JSON.stringify(ref));
+          event.dataTransfer.effectAllowed = "copyMove";
+        } else {
+          event.dataTransfer.effectAllowed = "move";
+        }
+      },
+      onDragEnd: () => {
+        draggingSection.current = null;
+        setDragOver(null);
+      },
+    };
   }
   /** Drag source for the chat: a different MIME type from in-editor reorders. */
   function focusDrag(ref: ResumeFocusRef) {
@@ -763,7 +801,7 @@ export function ResumeEditor({
   };
   function simpleSection(kind: SimpleSection) {
     const section = document.sections[kind];
-    if (!section || section.hidden) return null;
+    if (!section || section.hidden || !section.items.some((item) => !item.hidden)) return null;
     const fields =
       kind === "education"
         ? ["school", "period", "degree", "area"]
@@ -844,17 +882,15 @@ export function ResumeEditor({
     }
     return () => (
       <section className={`resume-section resume-${kind}`} aria-label={simpleNames[kind]}>
-        {section?.items.some((item) => !item.hidden) && (
-          <h2
-            {...focusDrag({
-              kind: "section",
-              section: kind,
-              label: simpleNames[kind],
-            })}
-          >
-            {heading(kind, simpleNames[kind])}
-          </h2>
-        )}
+        <h2
+          {...sectionHeadingProps(kind, {
+            kind: "section",
+            section: kind,
+            label: simpleNames[kind],
+          })}
+        >
+          {heading(kind, simpleNames[kind])}
+        </h2>
         {sectionTools(kind)}
         <div className="resume-simple-items">
           {section?.items.map(
@@ -993,15 +1029,18 @@ export function ResumeEditor({
       </section>
     );
   }
+  const hasVisibleSummary =
+    !document.summary.hidden &&
+    (addingSummary || bulletsFromHtml(document.summary.content).length > 0);
   const sections = {
     summary: document.summary.hidden
       ? null
       : () =>
-          addingSummary || bulletsFromHtml(document.summary.content).length > 0 ? (
+          hasVisibleSummary ? (
             <section className="resume-section" aria-label="Summary">
               <h2
                 className="text-sm font-semibold"
-                {...focusDrag({ kind: "summary", label: "Summary" })}
+                {...sectionHeadingProps("summary", { kind: "summary", label: "Summary" })}
               >
                 {heading("summary", "Summary")}
               </h2>
@@ -1027,7 +1066,6 @@ export function ResumeEditor({
             </section>
           ) : (
             <section className="resume-section resume-empty-summary">
-              {sectionTools("summary")}
               <Button
                 className="resume-add"
                 size="sm"
@@ -1039,15 +1077,15 @@ export function ResumeEditor({
               {suggestionList(suggestions.filter((s) => s.op === "replace_summary"))}
             </section>
           ),
-    skills: document.sections.skills.hidden
-      ? null
-      : () =>
-          document.sections.skills.items.some((s) => !s.hidden) ||
-          suggestions.some((s) => s.op === "set_skill_keywords") ? (
+    skills:
+      !document.sections.skills.hidden &&
+      (document.sections.skills.items.some((s) => !s.hidden) ||
+        suggestions.some((s) => s.op === "set_skill_keywords"))
+        ? () => (
             <section className="resume-section" aria-label="Skills">
               <h2
                 className="text-sm font-semibold"
-                {...focusDrag({
+                {...sectionHeadingProps("skills", {
                   kind: "section",
                   section: "skills",
                   label: "Skills",
@@ -1174,16 +1212,15 @@ export function ResumeEditor({
               {reorderZone("skills", document.sections.skills.items.length)}
               {suggestionList(suggestions.filter((s) => s.op === "set_skill_keywords"))}
             </section>
-          ) : (
-            <section className="resume-section">{sectionTools("skills")}</section>
-          ),
+          )
+        : null,
     certifications: simpleSection("certifications"),
     experience: !document.sections.experience.hidden
       ? () => (
           <section className="resume-section" aria-label="Experience">
             <h2
               className="text-sm font-semibold"
-              {...focusDrag({
+              {...sectionHeadingProps("experience", {
                 kind: "section",
                 section: "experience",
                 label: "Experience",
@@ -1513,20 +1550,18 @@ export function ResumeEditor({
         )
       : null,
     projects:
-      !document.sections.projects.hidden && document.sections.projects.items.length
+      !document.sections.projects.hidden && document.sections.projects.items.some((p) => !p.hidden)
         ? () => (
             <section className="resume-section" aria-label="Projects">
-              {document.sections.projects.items.some((p) => !p.hidden) && (
-                <h2
-                  {...focusDrag({
-                    kind: "section",
-                    section: "projects",
-                    label: "Projects",
-                  })}
-                >
-                  {heading("projects", "Projects")}
-                </h2>
-              )}
+              <h2
+                {...sectionHeadingProps("projects", {
+                  kind: "section",
+                  section: "projects",
+                  label: "Projects",
+                })}
+              >
+                {heading("projects", "Projects")}
+              </h2>
               {sectionTools("projects")}
               {document.sections.projects.items.map((project, index) => {
                 if (project.hidden) return null;
@@ -1654,7 +1689,6 @@ export function ResumeEditor({
     education: simpleSection("education"),
     awards: simpleSection("awards"),
   };
-  type SectionKey = keyof typeof sections;
   const sectionNames: Record<SectionKey, string> = {
     summary: "Summary",
     skills: "Skills",
@@ -1667,8 +1701,12 @@ export function ResumeEditor({
   const order = sectionOrder(document.metadata?.layout).filter(
     (key): key is SectionKey => key in sections && sections[key as SectionKey] !== null,
   );
+  const reorderableOrder = order.filter((key) => key !== "summary" || hasVisibleSummary);
   function moveTo(key: string, before: string | null) {
-    onChange(moveSection(document, key, before));
+    const next = moveSection(currentDocument.current, key, before);
+    if (next === currentDocument.current) return;
+    currentDocument.current = next;
+    onChange(next);
   }
   function sectionGap(before: string | null) {
     const key = `section-${before}`;
@@ -1689,6 +1727,7 @@ export function ResumeEditor({
         onDrop={(event) => {
           event.preventDefault();
           event.stopPropagation();
+          draggingSection.current = null;
           setDragOver(null);
           if (disabled) return;
           try {
@@ -1703,7 +1742,7 @@ export function ResumeEditor({
   }
   /** A section's line tools, rendered below its heading. */
   function sectionTools(key: SectionKey) {
-    const i = order.indexOf(key);
+    const i = reorderableOrder.indexOf(key);
     return (
       <div className="resume-tools resume-section-controls">
         {dragHandle(SECTION_TRANSFER_TYPE, key, `Drag section ${sectionNames[key]}`)}
@@ -1721,10 +1760,10 @@ export function ResumeEditor({
           variant="ghost"
           title={`Move section ${sectionNames[key]} up`}
           aria-label={`Move section ${sectionNames[key]} up`}
-          disabled={i === 0}
+          disabled={i <= 0}
           onClick={() => {
             keepMoveFocus((d) => `Move section ${sectionNames[key]} ${d}`, "up");
-            moveTo(key, order[i - 1]);
+            moveTo(key, reorderableOrder[i - 1]);
           }}
         >
           ↑
@@ -1734,10 +1773,10 @@ export function ResumeEditor({
           variant="ghost"
           title={`Move section ${sectionNames[key]} down`}
           aria-label={`Move section ${sectionNames[key]} down`}
-          disabled={i === order.length - 1}
+          disabled={i < 0 || i === reorderableOrder.length - 1}
           onClick={() => {
             keepMoveFocus((d) => `Move section ${sectionNames[key]} ${d}`, "down");
-            moveTo(key, order[i + 2] ?? null);
+            moveTo(key, reorderableOrder[i + 2] ?? null);
           }}
         >
           ↓
@@ -1745,19 +1784,82 @@ export function ResumeEditor({
       </div>
     );
   }
+  function sectionSlotTarget(event: React.DragEvent<HTMLElement>, key: SectionKey): string | null {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const after = rect.height > 0 && event.clientY >= rect.top + rect.height / 2;
+    const i = reorderableOrder.indexOf(key);
+    return after ? (reorderableOrder[i + 1] ?? null) : key;
+  }
   function sectionList() {
-    const keys = order;
     return (
       <>
-        {keys.map((key) => (
-          <Fragment key={key}>
-            {sectionGap(key)}
-            <div className="resume-row resume-section-slot" data-focus-section={key}>
-              {sections[key]?.()}
-            </div>
-          </Fragment>
-        ))}
-        {sectionGap(null)}
+        {order.map((key) => {
+          const reorderable = reorderableOrder.includes(key);
+          return (
+            <Fragment key={key}>
+              {reorderable && sectionGap(key)}
+              <div
+                className="resume-row resume-section-slot"
+                data-focus-section={key}
+                onDragOver={
+                  reorderable
+                    ? (event) => {
+                        if (
+                          disabled ||
+                          !event.dataTransfer.types.includes(SECTION_TRANSFER_TYPE) ||
+                          draggingSection.current === key
+                        )
+                          return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        event.dataTransfer.dropEffect = "move";
+                        setDragOver(`section-${sectionSlotTarget(event, key)}`);
+                      }
+                    : undefined
+                }
+                onDragLeave={
+                  reorderable
+                    ? (event) => {
+                        if (
+                          event.dataTransfer.types.includes(SECTION_TRANSFER_TYPE) &&
+                          !event.currentTarget.contains(event.relatedTarget as Node | null)
+                        ) {
+                          setDragOver((current) =>
+                            current?.startsWith("section-") ? null : current,
+                          );
+                        }
+                      }
+                    : undefined
+                }
+                onDrop={
+                  reorderable
+                    ? (event) => {
+                        if (!event.dataTransfer.types.includes(SECTION_TRANSFER_TYPE)) return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        draggingSection.current = null;
+                        setDragOver(null);
+                        if (disabled) return;
+                        try {
+                          const moved = JSON.parse(
+                            event.dataTransfer.getData(SECTION_TRANSFER_TYPE),
+                          );
+                          if (typeof moved === "string" && moved in sections && moved !== key) {
+                            moveTo(moved, sectionSlotTarget(event, key));
+                          }
+                        } catch {
+                          /* Ignore unrelated or malformed external drags. */
+                        }
+                      }
+                    : undefined
+                }
+              >
+                {sections[key]?.()}
+              </div>
+            </Fragment>
+          );
+        })}
+        {reorderableOrder.length > 0 && sectionGap(null)}
       </>
     );
   }
