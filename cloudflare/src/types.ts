@@ -6,6 +6,7 @@ export interface Env {
   SCRAPE_COORDINATOR?: DurableObjectNamespace<ScrapeCoordinatorDO>;
   SCRAPER_CONTAINER?: DurableObjectNamespace<ScraperContainer>;
   DATA_BUCKET?: R2Bucket;
+  BACKUP_BUCKET?: R2Bucket;
   ASSETS?: Fetcher;
   BROWSER?: Fetcher;
   INTERNAL_SYNC_SECRET?: string;

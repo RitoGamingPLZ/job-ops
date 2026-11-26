@@ -50,8 +50,13 @@ vi.mock("../api", () => ({
   updateSettings: vi.fn(),
   clearDatabase: vi.fn(),
   deleteJobsByStatus: vi.fn(),
-  getBackups: vi.fn().mockResolvedValue({ backups: [], nextScheduled: null }),
+  getBackups: vi.fn().mockResolvedValue({
+    backups: [],
+    nextScheduled: null,
+    storage: { kind: "local", label: "Local data storage (backups/)" },
+  }),
   createManualBackup: vi.fn(),
+  downloadBackup: vi.fn(),
   deleteBackup: vi.fn(),
   getCurrentAuthUser: vi.fn().mockResolvedValue({
     id: "user-1",
@@ -288,6 +293,25 @@ describe("SettingsPage", () => {
 
   it("shows server-wide backups to system admins", async () => {
     vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
+    vi.mocked(api.getBackups).mockResolvedValueOnce({
+      backups: [
+        {
+          filename: "jobs_manual_2026_11_26_01_00_00.json.gz",
+          type: "manual",
+          size: 1024,
+          createdAt: "2026-11-26T01:00:00.000Z",
+        },
+      ],
+      nextScheduled: null,
+      storage: { kind: "r2", label: "Cloudflare R2 (backups/)" },
+    });
+    vi.mocked(api.downloadBackup).mockResolvedValueOnce(new Blob(["backup-bytes"]));
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const originalRevokeObjectUrl = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:mock-backup");
+    URL.revokeObjectURL = vi.fn();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
     const admin = await vi.mocked(api.getCurrentAuthUser)();
     vi.mocked(api.getCurrentAuthUser).mockResolvedValue({ ...admin, isSystemAdmin: true });
     try {
@@ -296,7 +320,17 @@ describe("SettingsPage", () => {
       await clickLastButtonByName(/^backups$/i);
       expect(await screen.findByText("Enable automatic backups")).toBeInTheDocument();
       expect(screen.getByText("Backup History")).toBeInTheDocument();
+      expect(await screen.findByText("Cloudflare R2 (backups/)")).toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Download jobs_manual_2026_11_26_01_00_00.json.gz" }),
+      );
+      await waitFor(() =>
+        expect(api.downloadBackup).toHaveBeenCalledWith("jobs_manual_2026_11_26_01_00_00.json.gz"),
+      );
     } finally {
+      clickSpy.mockRestore();
+      URL.createObjectURL = originalCreateObjectUrl;
+      URL.revokeObjectURL = originalRevokeObjectUrl;
       vi.mocked(api.getCurrentAuthUser).mockResolvedValue(admin);
     }
   });

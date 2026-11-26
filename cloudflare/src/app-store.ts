@@ -95,6 +95,7 @@ export class AppStore extends DurableObject<Env> {
     createDurableObjectExpressServer({
       storage: this.ctx.storage,
       r2Bucket: this.env.DATA_BUCKET ?? null,
+      backupR2Bucket: this.env.BACKUP_BUCKET ?? null,
       env: this.env as unknown as Record<string, unknown>,
       port: DO_EXPRESS_PORT,
       remoteRunContainerExtractor: async (request) => {

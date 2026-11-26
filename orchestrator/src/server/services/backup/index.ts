@@ -1,35 +1,47 @@
 /**
  * Database Backup Service
  *
- * Manages automatic and manual backups of the SQLite database.
- * Stores backups in the same directory as the original database.
+ * Manages automatic and manual database backups as portable gzipped JSON snapshots
+ * stored in the configured BlobStore (`backups/` prefix: Cloudflare R2 in Worker/DO
+ * deployments, or local filesystem directory on self-hosted installs).
  */
 
-import fs from "node:fs";
-import type { FileHandle } from "node:fs/promises";
-import path from "node:path";
+import { type BlobStore, getBlobStore, LocalBlobStore, R2BlobStore } from "@infra/blob-store";
 import { logger } from "@infra/logger";
-import { getDataDir } from "@server/config/dataDir";
-import { createScheduler } from "@server/utils/scheduler";
-import type { BackupInfo } from "@shared/types";
-import Database from "better-sqlite3";
+import { getTenantId } from "@infra/request-context";
+import { sanitizeUnknown } from "@infra/sanitize";
+import { db, schema } from "@server/db/index";
+import { DEFAULT_TENANT_ID } from "@server/tenancy/constants";
+import { calculateNextTime, createScheduler } from "@server/utils/scheduler";
+import type { BackupInfo, BackupStorageInfo } from "@shared/types";
+import { eq, inArray } from "drizzle-orm";
+import { exportDatabaseSnapshot, serializeBackupSnapshot } from "./snapshot";
 
-const DB_FILENAME = "jobs.db";
+const BACKUP_KEY_PREFIX = "backups/";
+const BACKUP_EXTENSION = ".json.gz";
 const AUTO_BACKUP_PREFIX = "jobs_";
 const MANUAL_BACKUP_PREFIX = "jobs_manual_";
-const AUTO_BACKUP_PATTERN = /^jobs_\d{4}_\d{2}_\d{2}\.db$/;
-const MANUAL_BACKUP_PATTERN = /^jobs_manual_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}(?:_\d+)?\.db$/;
+const AUTO_BACKUP_PATTERN = /^jobs_\d{4}_\d{2}_\d{2}\.(json\.gz|db)$/;
+const MANUAL_BACKUP_PATTERN =
+  /^jobs_manual_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}(?:_\d+)?\.(json\.gz|db)$/;
 
-const AUTO_BACKUP_REGEX = /^jobs_(\d{4})_(\d{2})_(\d{2})\.db$/;
+const AUTO_BACKUP_REGEX = /^jobs_(\d{4})_(\d{2})_(\d{2})\.(json\.gz|db)$/;
 const MANUAL_BACKUP_REGEX =
-  /^jobs_manual_(\d{4})_(\d{2})_(\d{2})_(\d{2})_(\d{2})_(\d{2})(?:_\d+)?\.db$/;
+  /^jobs_manual_(\d{4})_(\d{2})_(\d{2})_(\d{2})_(\d{2})_(\d{2})(?:_\d+)?\.(json\.gz|db)$/;
 
-type SqliteDatabase = InstanceType<typeof Database>;
+const BACKUP_SETTING_KEYS = ["backupEnabled", "backupHour", "backupMaxCount"] as const;
 
-interface BackupSettings {
+export interface BackupSettings {
   enabled: boolean;
   hour: number;
   maxCount: number;
+}
+
+export interface BackupDownloadPayload {
+  filename: string;
+  body: Uint8Array;
+  size: number;
+  contentType: string;
 }
 
 let currentSettings: BackupSettings = {
@@ -38,35 +50,77 @@ let currentSettings: BackupSettings = {
   maxCount: 5,
 };
 
+let customBackupBlobStore: BlobStore | null = null;
+let customBackupStorageInfo: BackupStorageInfo | null = null;
+const reservedBackupKeys = new Set<string>();
+
 const scheduler = createScheduler("backup", async () => {
   await createBackup("auto");
   await cleanupOldBackups();
 });
 
-function getDbPath(): string {
-  return path.join(getDataDir(), DB_FILENAME);
+/**
+ * Overrides the BlobStore used for database backups (for example a dedicated R2 bucket
+ * or test store). Pass null to restore default `BACKUP_DIR` / `getBlobStore()` routing.
+ */
+export function setBackupBlobStore(store: BlobStore | null, info?: BackupStorageInfo | null): void {
+  customBackupBlobStore = store;
+  customBackupStorageInfo = store ? (info ?? null) : null;
 }
 
-function getBackupDir(): string {
-  return getDataDir();
+function getBackupBlobStore(): BlobStore {
+  if (customBackupBlobStore) {
+    return customBackupBlobStore;
+  }
+  const backupDir = process.env.BACKUP_DIR?.trim();
+  if (backupDir) {
+    return new LocalBlobStore(backupDir);
+  }
+  return getBlobStore();
 }
 
-function generateBackupFilename(type: "auto" | "manual"): string {
-  const now = new Date();
+export function getBackupStorageInfo(): BackupStorageInfo {
+  if (customBackupStorageInfo) {
+    return customBackupStorageInfo;
+  }
+  if (customBackupBlobStore instanceof R2BlobStore) {
+    return { kind: "r2", label: "Cloudflare R2 (backups/)" };
+  }
+  if (customBackupBlobStore) {
+    return { kind: "local", label: "Custom backup storage (backups/)" };
+  }
+  if (process.env.BACKUP_DIR?.trim()) {
+    return { kind: "local", label: "Custom backup directory (backups/)" };
+  }
+  if (getBlobStore() instanceof R2BlobStore) {
+    return { kind: "r2", label: "Cloudflare R2 (backups/)" };
+  }
+  return { kind: "local", label: "Local data storage (backups/)" };
+}
+
+export function isValidBackupFilename(filename: string): boolean {
+  if (!filename || filename.includes("/") || filename.includes("\\") || filename.includes("..")) {
+    return false;
+  }
+  return AUTO_BACKUP_PATTERN.test(filename) || MANUAL_BACKUP_PATTERN.test(filename);
+}
+
+function toBackupKey(filename: string): string {
+  return `${BACKUP_KEY_PREFIX}${filename}`;
+}
+
+function generateBackupFilename(type: "auto" | "manual", now = new Date()): string {
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(now.getUTCDate()).padStart(2, "0");
   if (type === "auto") {
-    const year = now.getUTCFullYear();
-    const month = String(now.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(now.getUTCDate()).padStart(2, "0");
-    return `${AUTO_BACKUP_PREFIX}${year}_${month}_${day}.db`;
+    return `${AUTO_BACKUP_PREFIX}${year}_${month}_${day}${BACKUP_EXTENSION}`;
   }
 
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-  const seconds = String(now.getSeconds()).padStart(2, "0");
-  return `${MANUAL_BACKUP_PREFIX}${year}_${month}_${day}_${hours}_${minutes}_${seconds}.db`;
+  const hours = String(now.getUTCHours()).padStart(2, "0");
+  const minutes = String(now.getUTCMinutes()).padStart(2, "0");
+  const seconds = String(now.getUTCSeconds()).padStart(2, "0");
+  return `${MANUAL_BACKUP_PREFIX}${year}_${month}_${day}_${hours}_${minutes}_${seconds}${BACKUP_EXTENSION}`;
 }
 
 function parseBackupDate(filename: string): Date | null {
@@ -126,127 +180,129 @@ function getBackupType(filename: string): "auto" | "manual" | null {
 }
 
 export async function createBackup(type: "auto" | "manual"): Promise<string> {
-  const dbPath = getDbPath();
-  const backupDir = getBackupDir();
-  const baseFilename = generateBackupFilename(type);
+  const snapshot = exportDatabaseSnapshot(type);
+  const payload = serializeBackupSnapshot(snapshot);
+  const store = getBackupBlobStore();
+  const baseFilename = generateBackupFilename(type, new Date(snapshot.createdAt));
+
   let filename = baseFilename;
-  let backupPath = path.join(backupDir, filename);
-  let reservedHandle: FileHandle | null = null;
-
-  if (!fs.existsSync(dbPath)) {
-    throw new Error(`Database file not found: ${dbPath}`);
-  }
-
-  const tryReserve = async (candidatePath: string): Promise<FileHandle | null> => {
-    try {
-      return await fs.promises.open(candidatePath, "wx");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "EEXIST") return null;
-      throw error;
-    }
-  };
+  let reservedKey = "";
 
   if (type === "auto") {
-    reservedHandle = await tryReserve(backupPath);
-    if (!reservedHandle) {
+    const candidateKey = toBackupKey(baseFilename);
+    if (reservedBackupKeys.has(candidateKey) || (await store.exists(candidateKey))) {
       logger.info("Automatic backup already exists for current day", {
-        filename,
+        filename: baseFilename,
         type,
       });
-      return filename;
+      return baseFilename;
     }
+    reservedBackupKeys.add(candidateKey);
+    reservedKey = candidateKey;
   } else {
-    const baseName = baseFilename.replace(/\.db$/, "");
-    let sequence = 0;
-
-    while (!reservedHandle && sequence <= 100) {
-      const candidate = sequence === 0 ? baseFilename : `${baseName}_${sequence}.db`;
-      const candidatePath = path.join(backupDir, candidate);
-      const reserved = await tryReserve(candidatePath);
-      if (reserved) {
-        reservedHandle = reserved;
+    const baseName = baseFilename.slice(0, -BACKUP_EXTENSION.length);
+    for (let sequence = 0; sequence <= 100; sequence += 1) {
+      const candidate =
+        sequence === 0 ? baseFilename : `${baseName}_${sequence}${BACKUP_EXTENSION}`;
+      const candidateKey = toBackupKey(candidate);
+      if (!reservedBackupKeys.has(candidateKey) && !(await store.exists(candidateKey))) {
+        reservedBackupKeys.add(candidateKey);
         filename = candidate;
-        backupPath = candidatePath;
-      } else {
-        sequence += 1;
+        reservedKey = candidateKey;
+        break;
       }
     }
 
-    if (!reservedHandle) {
+    if (!reservedKey) {
       throw new Error("Failed to create unique manual backup filename");
     }
   }
 
-  await reservedHandle.close();
-
-  let sqlite: SqliteDatabase | null = null;
   try {
-    sqlite = new Database(dbPath, { readonly: true, fileMustExist: true });
-    await sqlite.backup(backupPath);
-  } catch (error) {
-    await fs.promises.unlink(backupPath).catch(() => undefined);
-    throw error;
+    const putResult = await store.put(reservedKey, payload, {
+      contentType: "application/gzip",
+    });
+
+    logger.info("Created database backup", {
+      filename,
+      type,
+      size: putResult.size,
+      storageKind: getBackupStorageInfo().kind,
+      tableCount: Object.keys(snapshot.tables).length,
+    });
+
+    return filename;
   } finally {
-    sqlite?.close();
+    reservedBackupKeys.delete(reservedKey);
   }
-
-  logger.info("Created database backup", {
-    filename,
-    type,
-    size: (await fs.promises.stat(backupPath)).size,
-  });
-
-  return filename;
 }
 
 export async function listBackups(): Promise<BackupInfo[]> {
-  const backupDir = getBackupDir();
-
-  if (!fs.existsSync(backupDir)) {
-    return [];
-  }
-
-  const files = await fs.promises.readdir(backupDir);
-  const backupFiles = files.filter(
-    (file) => AUTO_BACKUP_PATTERN.test(file) || MANUAL_BACKUP_PATTERN.test(file),
-  );
-
+  const entries = await getBackupBlobStore().list({ prefix: BACKUP_KEY_PREFIX });
   const backups: BackupInfo[] = [];
-  for (const filename of backupFiles) {
-    const filePath = path.join(backupDir, filename);
+
+  for (const entry of entries) {
+    if (!entry.key.startsWith(BACKUP_KEY_PREFIX)) continue;
+    const filename = entry.key.slice(BACKUP_KEY_PREFIX.length);
+    if (!filename || filename.includes("/")) continue;
+
     const type = getBackupType(filename);
     const createdAt = parseBackupDate(filename);
-
     if (type && createdAt) {
-      const stats = await fs.promises.stat(filePath);
       backups.push({
         filename,
         type,
-        size: stats.size,
+        size: entry.size,
         createdAt: createdAt.toISOString(),
       });
     }
   }
 
-  backups.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  backups.sort((a, b) => {
+    const diff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    return diff !== 0 ? diff : b.filename.localeCompare(a.filename);
+  });
 
   return backups;
 }
 
-export async function deleteBackup(filename: string): Promise<void> {
-  if (!AUTO_BACKUP_PATTERN.test(filename) && !MANUAL_BACKUP_PATTERN.test(filename)) {
+export async function readBackup(filename: string): Promise<BackupDownloadPayload | null> {
+  if (!isValidBackupFilename(filename)) {
     throw new Error("Invalid backup filename");
   }
 
-  const backupDir = getBackupDir();
-  const filePath = path.join(backupDir, filename);
+  const blob = await getBackupBlobStore().get(toBackupKey(filename));
+  if (!blob) {
+    return null;
+  }
 
-  if (!fs.existsSync(filePath)) {
+  return {
+    filename,
+    body: blob.body,
+    size: blob.size,
+    contentType:
+      blob.contentType ??
+      (filename.endsWith(BACKUP_EXTENSION) ? "application/gzip" : "application/octet-stream"),
+  };
+}
+
+export async function deleteBackup(filename: string): Promise<void> {
+  if (!isValidBackupFilename(filename)) {
+    throw new Error("Invalid backup filename");
+  }
+
+  const store = getBackupBlobStore();
+  const key = toBackupKey(filename);
+
+  if (!(await store.exists(key))) {
     throw new Error(`Backup not found: ${filename}`);
   }
 
-  await fs.promises.unlink(filePath);
-  logger.info("Deleted database backup", { filename });
+  await store.delete(key);
+  logger.info("Deleted database backup", {
+    filename,
+    storageKind: getBackupStorageInfo().kind,
+  });
 }
 
 export async function cleanupOldBackups(): Promise<void> {
@@ -265,7 +321,7 @@ export async function cleanupOldBackups(): Promise<void> {
       } catch (error) {
         logger.error("Failed to delete old automatic backup", {
           filename: backup.filename,
-          error,
+          error: sanitizeUnknown(error),
         });
       }
     }
@@ -275,6 +331,79 @@ export async function cleanupOldBackups(): Promise<void> {
       maxCount,
     });
   }
+}
+
+export async function hydrateBackupSettingsFromDb(
+  options: { startScheduler?: boolean } = {},
+): Promise<BackupSettings> {
+  const [settingRows, adminMemberships] = await Promise.all([
+    db
+      .select({
+        tenantId: schema.settings.tenantId,
+        key: schema.settings.key,
+        value: schema.settings.value,
+        updatedAt: schema.settings.updatedAt,
+      })
+      .from(schema.settings)
+      .where(inArray(schema.settings.key, [...BACKUP_SETTING_KEYS])),
+    db
+      .select({ tenantId: schema.tenantMemberships.tenantId })
+      .from(schema.tenantMemberships)
+      .innerJoin(schema.users, eq(schema.tenantMemberships.userId, schema.users.id))
+      .where(eq(schema.users.isSystemAdmin, true)),
+  ]);
+
+  const activeTenantId = getTenantId();
+  const allowedTenantIds = new Set<string>([DEFAULT_TENANT_ID]);
+  if (activeTenantId) {
+    allowedTenantIds.add(activeTenantId);
+  }
+  for (const membership of adminMemberships) {
+    allowedTenantIds.add(membership.tenantId);
+  }
+
+  const pickSettingValue = (key: (typeof BACKUP_SETTING_KEYS)[number]): string | null => {
+    const matching = settingRows.filter(
+      (row) => row.key === key && allowedTenantIds.has(row.tenantId),
+    );
+    if (matching.length === 0) return null;
+
+    if (activeTenantId) {
+      const activeRows = matching
+        .filter((row) => row.tenantId === activeTenantId)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      if (activeRows[0]) {
+        return activeRows[0].value;
+      }
+    }
+
+    matching.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return matching[0]?.value ?? null;
+  };
+
+  const backupEnabled = pickSettingValue("backupEnabled");
+  const backupHour = pickSettingValue("backupHour");
+  const backupMaxCount = pickSettingValue("backupMaxCount");
+
+  const parsedHour = backupHour ? Number.parseInt(backupHour, 10) : Number.NaN;
+  const parsedMaxCount = backupMaxCount ? Number.parseInt(backupMaxCount, 10) : Number.NaN;
+
+  const parsed: BackupSettings = {
+    enabled: backupEnabled === "true" || backupEnabled === "1",
+    hour: Number.isNaN(parsedHour) ? 2 : Math.min(23, Math.max(0, parsedHour)),
+    maxCount: Number.isNaN(parsedMaxCount) ? 5 : Math.min(5, Math.max(1, parsedMaxCount)),
+  };
+
+  if (options.startScheduler) {
+    setBackupSettings(parsed);
+    if (parsed.enabled && !scheduler.isRunning()) {
+      scheduler.start(parsed.hour);
+    }
+  } else {
+    currentSettings = parsed;
+  }
+
+  return { ...currentSettings };
 }
 
 export function setBackupSettings(settings: Partial<BackupSettings>): void {
@@ -299,7 +428,13 @@ export function getBackupSettings(): BackupSettings {
 }
 
 export function getNextBackupTime(): string | null {
-  return scheduler.getNextRun();
+  if (scheduler.isRunning()) {
+    return scheduler.getNextRun();
+  }
+  if (currentSettings.enabled) {
+    return calculateNextTime(currentSettings.hour).toISOString();
+  }
+  return null;
 }
 
 export function isBackupSchedulerRunning(): boolean {

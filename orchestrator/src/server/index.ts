@@ -11,13 +11,8 @@ import { db, schema } from "./db/index";
 import { initializeExtractorRegistry } from "./extractors/registry";
 import { deleteExpiredOrRevokedAuthSessions } from "./repositories/auth-sessions";
 import { resetInterruptedJobs } from "./repositories/jobs";
-import * as settingsRepo from "./repositories/settings";
 import { initializeActivationAnalyticsSafely } from "./services/activation-funnel";
-import {
-  getBackupSettings,
-  setBackupSettings,
-  startBackupScheduler,
-} from "./services/backup/index";
+import { hydrateBackupSettingsFromDb } from "./services/backup/index";
 import { attachChallengeViewerUpgradeProxy } from "./services/challenge-viewer";
 import { initializeDemoModeServices } from "./services/demo-mode";
 import { applyStoredEnvOverrides } from "./services/envSettings";
@@ -117,26 +112,7 @@ async function startServer() {
 
     // Initialize backup service (load settings and start scheduler if enabled)
     try {
-      const backupEnabled = await settingsRepo.getSetting("backupEnabled");
-      const backupHour = await settingsRepo.getSetting("backupHour");
-      const backupMaxCount = await settingsRepo.getSetting("backupMaxCount");
-
-      const parsedHour = backupHour ? parseInt(backupHour, 10) : NaN;
-      const parsedMaxCount = backupMaxCount ? parseInt(backupMaxCount, 10) : NaN;
-      const safeHour = Number.isNaN(parsedHour) ? 2 : Math.min(23, Math.max(0, parsedHour));
-      const safeMaxCount = Number.isNaN(parsedMaxCount)
-        ? 5
-        : Math.min(5, Math.max(1, parsedMaxCount));
-
-      setBackupSettings({
-        enabled: backupEnabled === "true" || backupEnabled === "1",
-        hour: safeHour,
-        maxCount: safeMaxCount,
-      });
-
-      startBackupScheduler();
-
-      const settings = getBackupSettings();
+      const settings = await hydrateBackupSettingsFromDb({ startScheduler: true });
       if (settings.enabled) {
         console.log(
           `✅ Backup scheduler started (hour: ${settings.hour}, max: ${settings.maxCount})`,

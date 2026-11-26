@@ -27,6 +27,7 @@ import {
   setRemoteContainerExtractorRunner,
 } from "./extractors/remote-container-runner";
 import { R2BlobStore, type R2BucketLike, setBlobStore } from "./infra/blob-store";
+import { setBackupBlobStore } from "./services/backup/index";
 import {
   handleDurableObjectTaskDone,
   type OnTaskDonePayload,
@@ -67,6 +68,7 @@ const STATIC_EXTRACTOR_MANIFESTS = [
 export interface DurableObjectExpressServerOptions {
   storage: DurableObjectStorageLike;
   r2Bucket?: R2BucketLike | null;
+  backupR2Bucket?: R2BucketLike | null;
   env?: Record<string, unknown>;
   port?: number;
   remoteRenderPdf?: RemotePdfRenderer;
@@ -105,6 +107,11 @@ export function createDurableObjectExpressServer(
   if (options.r2Bucket) {
     setBlobStore(new R2BlobStore(options.r2Bucket));
   }
+
+  setBackupBlobStore(
+    options.backupR2Bucket ? new R2BlobStore(options.backupR2Bucket) : null,
+    options.backupR2Bucket ? { kind: "r2", label: "Dedicated R2 backup bucket (backups/)" } : null,
+  );
 
   setStaticExtractorManifests(STATIC_EXTRACTOR_MANIFESTS);
   void initializeExtractorRegistry();

@@ -1,12 +1,13 @@
 import type {
   BackupInfo,
+  BackupStorageInfo,
   DemoInfoResponse,
   Job,
   ManualJobDraft,
   ManualJobFetchResponse,
   ManualJobInferenceResponse,
 } from "@shared/types";
-import { fetchApi } from "./core";
+import { fetchApi, fetchBlobApi } from "./core";
 
 export async function getDemoInfo(): Promise<DemoInfoResponse> {
   return fetchApi<DemoInfoResponse>("/demo/info");
@@ -81,6 +82,7 @@ export async function deleteJobsBelowScore(threshold: number): Promise<{
 export interface BackupListResponse {
   backups: BackupInfo[];
   nextScheduled: string | null;
+  storage?: BackupStorageInfo;
 }
 
 export async function getBackups(): Promise<BackupListResponse> {
@@ -91,6 +93,10 @@ export async function createManualBackup(): Promise<BackupInfo> {
   return fetchApi<BackupInfo>("/backups", {
     method: "POST",
   });
+}
+
+export async function downloadBackup(filename: string): Promise<Blob> {
+  return fetchBlobApi(`/backups/${encodeURIComponent(filename)}/download`);
 }
 
 export async function deleteBackup(filename: string): Promise<void> {

@@ -2,6 +2,7 @@ declare module "*do-entry.mjs" {
   export interface DurableObjectExpressServerOptions {
     storage: DurableObjectStorage;
     r2Bucket?: R2Bucket | null;
+    backupR2Bucket?: R2Bucket | null;
     env?: Record<string, unknown>;
     port?: number;
     remoteRenderPdf?: (body: string, requestId?: string) => Promise<Uint8Array>;

@@ -136,6 +136,9 @@ describe("non-admin hardening", () => {
       ["DELETE", "/api/jobs/status/discovered"],
       ["DELETE", "/api/jobs/score/50"],
       ["GET", "/api/backups"],
+      ["POST", "/api/backups"],
+      ["GET", "/api/backups/jobs_2026_01_01.json.gz/download"],
+      ["DELETE", "/api/backups/jobs_2026_01_01.json.gz"],
       ["GET", "/api/post-application/inbox"],
     ] as const) {
       const res = await fetch(`${baseUrl}${path}`, {

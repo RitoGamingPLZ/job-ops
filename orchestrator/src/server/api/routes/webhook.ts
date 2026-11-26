@@ -7,7 +7,11 @@ import { sanitizeUnknown } from "@infra/sanitize";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { isDemoMode } from "@server/config/demo";
 import { runPipeline } from "@server/pipeline/index";
-import { cleanupOldBackups, createBackup, getBackupSettings } from "@server/services/backup";
+import {
+  cleanupOldBackups,
+  createBackup,
+  hydrateBackupSettingsFromDb,
+} from "@server/services/backup";
 import { simulatePipelineRun } from "@server/services/demo-simulator";
 import { runDueScheduledPipelinesForHour } from "@server/services/pipeline-scheduler";
 import { type Request, type Response, Router } from "express";
@@ -73,7 +77,10 @@ function hasMatchingBearerSecret(
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-function resolveCronHour(body: unknown): number {
+function resolveCronHours(body: unknown): {
+  targetHour: number;
+  backupTargetHour: number;
+} {
   if (body && typeof body === "object") {
     const record = body as Record<string, unknown>;
     if (
@@ -82,16 +89,21 @@ function resolveCronHour(body: unknown): number {
       record.hour >= 0 &&
       record.hour <= 23
     ) {
-      return record.hour;
+      return { targetHour: record.hour, backupTargetHour: record.hour };
     }
     if (typeof record.scheduledTime === "number" || typeof record.scheduledTime === "string") {
       const parsed = new Date(record.scheduledTime);
       if (!Number.isNaN(parsed.getTime())) {
-        return parsed.getUTCHours();
+        const utcHour = parsed.getUTCHours();
+        return { targetHour: utcHour, backupTargetHour: utcHour };
       }
     }
   }
-  return new Date().getHours();
+  const now = new Date();
+  return {
+    targetHour: now.getHours(),
+    backupTargetHour: now.getUTCHours(),
+  };
 }
 
 /**
@@ -105,21 +117,22 @@ webhookRouter.post("/cron", async (req: Request, res: Response) => {
   }
 
   try {
-    const targetHour = resolveCronHour(req.body);
+    const { targetHour, backupTargetHour } = resolveCronHours(req.body);
     const pipelineResult = await runDueScheduledPipelinesForHour(targetHour);
 
-    const backupSettings = getBackupSettings();
+    const backupSettings = await hydrateBackupSettingsFromDb({ startScheduler: false });
     let backupTriggered = false;
-    if (backupSettings.enabled && backupSettings.hour === targetHour) {
+    if (backupSettings.enabled && backupSettings.hour === backupTargetHour) {
       backupTriggered = true;
-      void createBackup("auto")
-        .then(() => cleanupOldBackups())
-        .catch((error) => {
-          logger.error("Cron-triggered backup failed", {
-            route: "POST /api/webhook/cron",
-            error: sanitizeUnknown(error),
-          });
+      try {
+        await createBackup("auto");
+        await cleanupOldBackups();
+      } catch (error) {
+        logger.error("Cron-triggered backup failed", {
+          route: "POST /api/webhook/cron",
+          error: sanitizeUnknown(error),
         });
+      }
     }
 
     logger.info("Processed cron tick", {
