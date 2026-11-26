@@ -755,4 +755,75 @@ describe("PDF Service Tailoring Logic", () => {
       setBlobStore(null);
     }
   });
+
+  it("reuses the stored base resume PDF until the resume or its render settings change", async () => {
+    const { setBlobStore } = await import("@server/infra/blob-store");
+    const files = new Map<string, Uint8Array>();
+    const toBytes = (data: unknown) =>
+      typeof data === "string"
+        ? new TextEncoder().encode(data)
+        : new Uint8Array(data as Uint8Array);
+    setBlobStore({
+      get: async (key: string) => {
+        const body = files.get(key);
+        return body ? { key, body, size: body.length } : null;
+      },
+      put: async (key: string, data: unknown) => {
+        const body = toBytes(data);
+        files.set(key, body);
+        return { key, size: body.length };
+      },
+      delete: async (key: string) => {
+        files.delete(key);
+      },
+      list: async () => [],
+      exists: async (key: string) => files.has(key),
+    });
+    const designResume = await import("./design-resume");
+    const resume = (revision: number) =>
+      ({
+        id: "design-resume-1",
+        title: "Jane Doe",
+        sourceResumeId: null,
+        sourceMode: "v5",
+        importedAt: "2026-05-02T00:00:00.000Z",
+        updatedAt: `2026-05-02T00:00:0${revision}.000Z`,
+        revision,
+        resumeJson: mockProfile,
+      }) as any;
+    const renders = () => mockResumeRenderer.renderResumePdf.mock.calls.length;
+    const pdfKey = () => [...files.keys()].find((key) => key.endsWith("design_resume_current.pdf"));
+
+    try {
+      vi.mocked(designResume.getCurrentDesignResume).mockResolvedValue(resume(1));
+
+      const first = await generateDesignResumePdf();
+      expect(renders()).toBe(1);
+      expect(pdfKey()).toBeDefined();
+
+      // Nothing changed: the stored PDF is returned without rendering again.
+      expect(await generateDesignResumePdf()).toEqual(first);
+      expect(renders()).toBe(1);
+
+      // A saved edit makes it stale.
+      vi.mocked(designResume.getCurrentDesignResume).mockResolvedValue(resume(2));
+      await generateDesignResumePdf();
+      expect(renders()).toBe(2);
+      await generateDesignResumePdf();
+      expect(renders()).toBe(2);
+
+      // So does a render setting.
+      currentPdfPaperSize.value = "letter";
+      await generateDesignResumePdf();
+      expect(renders()).toBe(3);
+
+      // And a stored file that has gone missing.
+      files.delete(pdfKey() ?? "");
+      await generateDesignResumePdf();
+      expect(renders()).toBe(4);
+      expect(pdfKey()).toBeDefined();
+    } finally {
+      setBlobStore(null);
+    }
+  });
 });

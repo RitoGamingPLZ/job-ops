@@ -757,7 +757,11 @@ function CoworkWorkspace({
       }
     }
   }
-  /** Renders the saved resume first, so the file matches the preview. */
+  /**
+   * Downloads the stored PDF, rendering a new one first only when the stored one is missing or
+   * out of date, so the file matches the preview. Saved edits are flushed first, so the freshness
+   * the server reports already reflects them.
+   */
   async function downloadPdf() {
     setBusy(true);
     try {
@@ -774,7 +778,7 @@ function CoworkWorkspace({
         if (
           selectedJob.pdfSource !== "uploaded" &&
           selectedJob.pdfFreshness !== "uploaded" &&
-          (latest.current || needsRender(selectedJob))
+          needsRender(selectedJob)
         ) {
           if (!latest.current) await load();
           if (!mounted.current) return;

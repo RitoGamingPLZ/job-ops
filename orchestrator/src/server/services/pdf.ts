@@ -2,7 +2,7 @@
  * Service for generating PDF resumes from the local Design Resume.
  */
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { access, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -156,6 +156,8 @@ function classifyPdfGenerationError(error: unknown): AppErrorCode {
 async function resolveDesignResumeForRenderer(): Promise<{
   documentId: string;
   title: string;
+  revision: number;
+  updatedAt: string;
   data: Record<string, unknown>;
   mode: "v5";
 }> {
@@ -167,6 +169,8 @@ async function resolveDesignResumeForRenderer(): Promise<{
   return {
     documentId: designResume.id,
     title: designResume.title,
+    revision: designResume.revision,
+    updatedAt: designResume.updatedAt,
     data: parseV5ResumeData(designResume.resumeJson as Record<string, unknown>) as Record<
       string,
       unknown
@@ -271,18 +275,45 @@ export async function generatePdf(
   }
 }
 
+/**
+ * Everything the base resume PDF is rendered from, read once, plus a fingerprint of it: the saved
+ * resume (id, revision, timestamp) and the renderer, theme, paper size and output language.
+ * Same fingerprint, same file.
+ */
+async function resolveDesignResumeRenderInputs() {
+  const renderer = await resolvePdfRenderer();
+  const designResume = await resolveDesignResumeForRenderer();
+  const [language, paperSize, typstTheme] = await Promise.all([
+    resolveLocalResumeLanguage(designResume.data),
+    resolvePdfPaperSize(),
+    renderer === "typst" ? resolveTypstTheme() : Promise.resolve(undefined),
+  ]);
+  const fingerprint = createHash("sha256")
+    .update(
+      JSON.stringify({
+        version: "design-resume-v1",
+        documentId: designResume.documentId,
+        revision: designResume.revision,
+        updatedAt: designResume.updatedAt,
+        renderer,
+        typstTheme: typstTheme ?? null,
+        paperSize,
+        language,
+      }),
+    )
+    .digest("hex");
+  return { designResume, renderer, language, paperSize, typstTheme, fingerprint };
+}
+
 async function renderDesignResumePdfBytes(): Promise<{
   bytes: Uint8Array;
   title: string;
   language: Awaited<ReturnType<typeof resolveLocalResumeLanguage>>;
   renderer: PdfRenderer;
+  fingerprint: string;
 }> {
-  const renderer = await resolvePdfRenderer();
-  const designResume = await resolveDesignResumeForRenderer();
-  const [language, paperSize] = await Promise.all([
-    resolveLocalResumeLanguage(designResume.data),
-    resolvePdfPaperSize(),
-  ]);
+  const { designResume, renderer, language, paperSize, typstTheme, fingerprint } =
+    await resolveDesignResumeRenderInputs();
 
   logger.info("Generating Design Resume PDF", {
     renderer,
@@ -294,11 +325,11 @@ async function renderDesignResumePdfBytes(): Promise<{
     jobId: "design-resume",
     language,
     renderer,
-    typstTheme: renderer === "typst" ? await resolveTypstTheme() : undefined,
+    typstTheme,
     paperSize,
   });
 
-  return { bytes, title: designResume.title, language, renderer };
+  return { bytes, title: designResume.title, language, renderer, fingerprint };
 }
 
 /**
@@ -309,7 +340,45 @@ export async function previewDesignResumePdfBytes(): Promise<Uint8Array> {
   return bytes;
 }
 
+interface StoredDesignResumePdfMeta {
+  fingerprint: string;
+  fileName: string;
+  generatedAt: string;
+}
+
+function getDesignResumePdfMetaKey(): string {
+  return `${getTenantDesignResumePdfKey()}.meta.json`;
+}
+
+/** The stored base resume PDF, when it was rendered from the resume and settings as they are now. */
+async function findCurrentDesignResumePdf(): Promise<DesignResumePdfResponse | null> {
+  try {
+    const blobStore = getBlobStore();
+    const metaBlob = await blobStore.get(getDesignResumePdfMetaKey());
+    if (!metaBlob) return null;
+    const meta = JSON.parse(new TextDecoder().decode(metaBlob.body)) as StoredDesignResumePdfMeta;
+    if (!meta.fingerprint || !meta.fileName || !meta.generatedAt) return null;
+    if (meta.fingerprint !== (await resolveDesignResumeRenderInputs()).fingerprint) return null;
+    if (!(await blobStore.exists(getTenantDesignResumePdfKey()))) return null;
+    return {
+      fileName: meta.fileName,
+      pdfUrl: `/api/design-resume/pdf?v=${encodeURIComponent(meta.generatedAt)}`,
+      generatedAt: meta.generatedAt,
+    };
+  } catch (error) {
+    // Rendering again is always a safe answer; a missing resume surfaces from the render itself.
+    logger.debug("Stored base resume PDF could not be checked; rendering it", { error });
+    return null;
+  }
+}
+
+/**
+ * Renders the base resume PDF and stores it, unless the stored one was rendered from the same
+ * resume and settings, in which case it is returned as is (no render, no hosted usage charge).
+ */
 export async function generateDesignResumePdf(): Promise<DesignResumePdfResponse> {
+  const current = await findCurrentDesignResumePdf();
+  if (current) return current;
   if (getJobOpsAppConfig().appMode !== "hosted") {
     return generateDesignResumePdfImpl();
   }
@@ -321,18 +390,26 @@ export async function generateDesignResumePdf(): Promise<DesignResumePdfResponse
 }
 
 async function generateDesignResumePdfImpl(): Promise<DesignResumePdfResponse> {
-  const { bytes, title, language } = await renderDesignResumePdfBytes();
+  // The fingerprint describes the same resume snapshot that was rendered, so an edit made
+  // during the render leaves the stored PDF stale rather than wrongly current.
+  const { bytes, title, language, fingerprint } = await renderDesignResumePdfBytes();
   const generatedAt = new Date().toISOString();
+  const fileName = safePdfFileName(title, {
+    fallbackBase: "Design_Resume",
+    language,
+  });
 
-  await getBlobStore().put(getTenantDesignResumePdfKey(), bytes, {
+  const blobStore = getBlobStore();
+  await blobStore.put(getTenantDesignResumePdfKey(), bytes, {
     contentType: "application/pdf",
+  });
+  const meta: StoredDesignResumePdfMeta = { fingerprint, fileName, generatedAt };
+  await blobStore.put(getDesignResumePdfMetaKey(), JSON.stringify(meta), {
+    contentType: "application/json",
   });
 
   return {
-    fileName: safePdfFileName(title, {
-      fallbackBase: "Design_Resume",
-      language,
-    }),
+    fileName,
     pdfUrl: `/api/design-resume/pdf?v=${encodeURIComponent(generatedAt)}`,
     generatedAt,
   };

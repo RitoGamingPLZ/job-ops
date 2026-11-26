@@ -1420,16 +1420,53 @@ describe("explicit resume opening", () => {
       expect(mocks.pdf).not.toHaveBeenCalled();
       fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
       await waitFor(() => expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"));
-      if (pdfFreshness === "uploaded") {
-        // Uploaded PDFs are never regenerated, loaded editable state or not.
-        expect(mocks.pdf).not.toHaveBeenCalled();
-      } else {
-        // Once the editable document is loaded, downloadPdf regenerates
-        // defensively before downloading, same as it does from edit mode.
-        expect(mocks.pdf).toHaveBeenCalledWith("job");
-      }
+      // An up-to-date stored PDF is downloaded as is, loaded editable state or not.
+      expect(mocks.pdf).not.toHaveBeenCalled();
     },
   );
+
+  describe("Download PDF", () => {
+    const jobWith = (pdfFreshness: string) =>
+      mocks.getJob.mockResolvedValue({
+        id: "job",
+        title: "Selected",
+        employer: "Company",
+        status: "ready",
+        pdfFreshness,
+        pdfSource: "generated",
+      });
+
+    it.each(["missing", "stale"])(
+      "renders a %s PDF before downloading it, after saving pending edits",
+      async (freshness) => {
+        jobWith(freshness);
+        mocks.getResume.mockResolvedValue(state("Saved tailored", 7));
+        mount(false, new QueryClient(), "?mode=edit");
+        fireEvent.change(await screen.findByLabelText("Headline"), {
+          target: { value: "Edited" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+        await waitFor(() => expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"));
+        expect(mocks.pdf).toHaveBeenCalledWith("job");
+        expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(
+          mocks.pdf.mock.invocationCallOrder[0],
+        );
+        expect(mocks.pdf.mock.invocationCallOrder[0]).toBeLessThan(
+          mocks.downloadPdf.mock.invocationCallOrder[0],
+        );
+      },
+    );
+
+    it("downloads the stored PDF without rendering when it is up to date", async () => {
+      jobWith("current");
+      mount(false, new QueryClient(), "?mode=edit");
+      await screen.findByLabelText("Headline");
+      fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+      await waitFor(() => expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"));
+      expect(mocks.pdf).not.toHaveBeenCalled();
+      expect(mocks.previewPdf).not.toHaveBeenCalled();
+    });
+  });
 
   describe("PDF renderer warm-up", () => {
     const jobWith = (pdfFreshness: string) =>
