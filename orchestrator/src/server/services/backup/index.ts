@@ -15,7 +15,13 @@ import { DEFAULT_TENANT_ID } from "@server/tenancy/constants";
 import { calculateNextTime, createScheduler } from "@server/utils/scheduler";
 import type { BackupInfo, BackupStorageInfo } from "@shared/types";
 import { eq, inArray } from "drizzle-orm";
-import { exportDatabaseSnapshot, serializeBackupSnapshot } from "./snapshot";
+import { endRestore, tryBeginRestore } from "./restore-lock";
+import {
+  exportDatabaseSnapshot,
+  parseAndVerifyBackupSnapshot,
+  restoreDatabaseSnapshot,
+  serializeBackupSnapshot,
+} from "./snapshot";
 
 const BACKUP_KEY_PREFIX = "backups/";
 const BACKUP_EXTENSION = ".json.gz";
@@ -284,6 +290,54 @@ export async function readBackup(filename: string): Promise<BackupDownloadPayloa
       blob.contentType ??
       (filename.endsWith(BACKUP_EXTENSION) ? "application/gzip" : "application/octet-stream"),
   };
+}
+
+export class BackupRestoreInProgressError extends Error {
+  constructor() {
+    super("A database restore is already in progress");
+    this.name = "BackupRestoreInProgressError";
+  }
+}
+
+/**
+ * Restores the database from a stored backup. Incoming writes are blocked for the whole
+ * operation, and a safety backup of the current data is taken first so the restore can be
+ * undone. The backup is verified (checksums) before anything is changed.
+ */
+export async function restoreBackup(filename: string): Promise<{
+  safetyBackup: string;
+  tableCount: number;
+  rowCount: number;
+}> {
+  if (!isValidBackupFilename(filename)) {
+    throw new Error("Invalid backup filename");
+  }
+  if (!tryBeginRestore()) {
+    throw new BackupRestoreInProgressError();
+  }
+
+  try {
+    const blob = await getBackupBlobStore().get(toBackupKey(filename));
+    if (!blob) {
+      throw new Error(`Backup not found: ${filename}`);
+    }
+    if (!filename.endsWith(BACKUP_EXTENSION)) {
+      throw new Error("Legacy .db backups cannot be restored from the app");
+    }
+    const snapshot = parseAndVerifyBackupSnapshot(blob.body);
+
+    const safetyBackup = await createBackup("manual");
+    const result = restoreDatabaseSnapshot(snapshot);
+
+    logger.info("Restored database from backup", {
+      filename,
+      safetyBackup,
+      ...result,
+    });
+    return { safetyBackup, ...result };
+  } finally {
+    endRestore();
+  }
 }
 
 export async function deleteBackup(filename: string): Promise<void> {

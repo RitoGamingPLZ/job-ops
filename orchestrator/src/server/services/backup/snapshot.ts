@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { isDatabaseAvailable, queryRawSql, runTransactionSync } from "@server/db/index";
+import {
+  execRawSql,
+  isDatabaseAvailable,
+  queryRawSql,
+  runRawSql,
+  runTransactionSync,
+} from "@server/db/index";
 
 export interface DatabaseBackupSnapshot {
   format: "job-ops-backup";
@@ -143,6 +149,121 @@ export function exportDatabaseSnapshot(
     rowCounts,
     checksums,
   };
+}
+
+/** Migration bookkeeping tables describe the live schema, so a restore never touches them. */
+const RESTORE_EXCLUDED_TABLES = new Set([
+  "_portable_migrations",
+  "app_data_migrations",
+  "__drizzle_migrations",
+]);
+
+export interface RestoreSnapshotResult {
+  tableCount: number;
+  rowCount: number;
+}
+
+function decodeCellValue(value: unknown): unknown {
+  if (isPlainRecord(value) && value.__backupType === "bytes" && typeof value.base64 === "string") {
+    return Buffer.from(value.base64, "base64");
+  }
+  if (typeof value === "boolean") return value ? 1 : 0;
+  if (value !== null && typeof value === "object") return JSON.stringify(value);
+  return value;
+}
+
+function readCurrentSchemaVersion(): string | null {
+  try {
+    const rows = queryRawSql<{ id: unknown }>("SELECT id FROM _portable_migrations");
+    const ids = rows
+      .map((row) => row.id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0)
+      .sort((a, b) => a.localeCompare(b));
+    return ids.at(-1) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Replaces the contents of every user table with the snapshot's rows in one synchronous
+ * transaction, so a failure leaves the live database untouched. Tables and columns the
+ * snapshot knows nothing about are cleared or defaulted; tables and columns that no longer
+ * exist in the live schema are skipped. Callers must block concurrent writers while it runs.
+ */
+export function restoreDatabaseSnapshot(snapshot: DatabaseBackupSnapshot): RestoreSnapshotResult {
+  if (!isDatabaseAvailable()) {
+    throw new Error("Database is not available for restore");
+  }
+
+  const currentVersion = readCurrentSchemaVersion();
+  if (
+    snapshot.schemaVersion &&
+    currentVersion &&
+    snapshot.schemaVersion.localeCompare(currentVersion) > 0
+  ) {
+    throw new Error(
+      "This backup was created by a newer version of the app. Update the app before restoring it.",
+    );
+  }
+
+  return runTransactionSync(() => {
+    // Defer FK checks to commit so tables can be emptied and refilled in any order.
+    try {
+      execRawSql("PRAGMA defer_foreign_keys = ON");
+    } catch {
+      // Not supported by every backend; ordering then relies on the backup being consistent.
+    }
+
+    const liveTables = queryRawSql<{ name: string }>(
+      `SELECT name FROM sqlite_master
+       WHERE type = 'table'
+         AND name NOT LIKE 'sqlite_%'
+         AND name NOT LIKE '_cf_%'
+       ORDER BY name ASC`,
+    )
+      .map((row) => row.name)
+      .filter((name) => !RESTORE_EXCLUDED_TABLES.has(name));
+
+    for (const tableName of liveTables) {
+      runRawSql(`DELETE FROM ${quoteIdent(tableName)}`);
+    }
+
+    let tableCount = 0;
+    let rowCount = 0;
+    for (const tableName of liveTables) {
+      const rows = snapshot.tables[tableName];
+      if (!Array.isArray(rows) || rows.length === 0) continue;
+
+      const columns = new Set(
+        queryRawSql<{ name: string }>(`PRAGMA table_info(${quoteIdent(tableName)})`).map(
+          (column) => column.name,
+        ),
+      );
+
+      const statements = new Map<string, string>();
+      for (const row of rows) {
+        const keys = Object.keys(row).filter((key) => columns.has(key));
+        if (keys.length === 0) continue;
+        const cacheKey = keys.join("\u0000");
+        let statement = statements.get(cacheKey);
+        if (!statement) {
+          statement = `INSERT INTO ${quoteIdent(tableName)} (${keys.map(quoteIdent).join(", ")}) VALUES (${keys
+            .map(() => "?")
+            .join(", ")})`;
+          statements.set(cacheKey, statement);
+        }
+        runRawSql(
+          statement,
+          keys.map((key) => decodeCellValue(row[key])),
+        );
+        rowCount += 1;
+      }
+      tableCount += 1;
+    }
+
+    return { tableCount, rowCount };
+  });
 }
 
 export function serializeBackupSnapshot(snapshot: DatabaseBackupSnapshot): Uint8Array {

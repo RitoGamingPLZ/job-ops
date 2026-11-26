@@ -703,6 +703,7 @@ export const SettingsPage: React.FC = () => {
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isDeletingBackup, setIsDeletingBackup] = useState(false);
   const [downloadingBackupFilename, setDownloadingBackupFilename] = useState<string | null>(null);
+  const [restoringBackupFilename, setRestoringBackupFilename] = useState<string | null>(null);
 
   const methods = useForm<UpdateSettingsInput>({
     resolver: zodResolver(updateSettingsSchema) as Resolver<UpdateSettingsInput>,
@@ -840,6 +841,27 @@ export const SettingsPage: React.FC = () => {
       showErrorToast(error, "Failed to delete backup");
     } finally {
       setIsDeletingBackup(false);
+    }
+  };
+
+  const handleRestoreBackup = async (filename: string) => {
+    const confirmed = window.confirm(
+      `Restore "${filename}"?\n\nThis replaces ALL current data with the contents of this backup. ` +
+        "A safety backup of the current data is created first, and other changes are blocked " +
+        "while the restore runs. You may be signed out afterwards if your account is not in the backup.",
+    );
+    if (!confirmed) {
+      return;
+    }
+    setRestoringBackupFilename(filename);
+    try {
+      const result = await api.restoreBackup(filename);
+      toast.success(`Backup restored. Safety backup saved as ${result.safetyBackup}.`);
+      await queryClient.invalidateQueries();
+    } catch (error) {
+      showErrorToast(error, "Failed to restore backup");
+    } finally {
+      setRestoringBackupFilename(null);
     }
   };
 
@@ -1402,8 +1424,10 @@ export const SettingsPage: React.FC = () => {
           onCreateBackup={handleCreateBackup}
           onDownloadBackup={handleDownloadBackup}
           onDeleteBackup={handleDeleteBackup}
+          onRestoreBackup={handleRestoreBackup}
           isCreatingBackup={isCreatingBackup}
           isDeletingBackup={isDeletingBackup}
+          restoringBackupFilename={restoringBackupFilename}
           downloadingBackupFilename={downloadingBackupFilename}
           canManageBackups={canManageBackups}
           scheduleCoversAllUsers={!isHostedMode}
@@ -1438,7 +1462,7 @@ export const SettingsPage: React.FC = () => {
       />
 
       <main className="container mx-auto px-4 py-6 pb-12">
-        <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
           <SectionWorkspaceNav
             groups={filteredNavGroups}
             activeSectionId={activeSection}

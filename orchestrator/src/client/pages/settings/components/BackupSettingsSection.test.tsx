@@ -18,12 +18,14 @@ const Harness = ({
   storage = null,
   onDownloadBackup,
   onDeleteBackup = () => {},
+  onRestoreBackup,
 }: {
   canManageBackups?: boolean;
   backups?: BackupInfo[];
   storage?: BackupStorageInfo | null;
   onDownloadBackup?: (filename: string) => void;
   onDeleteBackup?: (filename: string) => void;
+  onRestoreBackup?: (filename: string) => void;
 }) => {
   const methods = useForm<UpdateSettingsInput>({
     defaultValues: {
@@ -45,6 +47,7 @@ const Harness = ({
           onCreateBackup={() => {}}
           onDownloadBackup={onDownloadBackup}
           onDeleteBackup={onDeleteBackup}
+          onRestoreBackup={onRestoreBackup}
           isCreatingBackup={false}
           isDeletingBackup={false}
           canManageBackups={canManageBackups}
@@ -106,5 +109,36 @@ describe("BackupSettingsSection", () => {
     expect(downloadButton).toHaveAttribute("type", "button");
     fireEvent.click(downloadButton);
     expect(onDownloadBackup).toHaveBeenCalledWith("jobs_manual_2026_11_26_01_00_00.json.gz");
+  });
+
+  it("offers a restore button per backup and disables the actions while restoring", () => {
+    const onRestoreBackup = vi.fn();
+    const backups: BackupInfo[] = [
+      {
+        filename: "jobs_manual_2026_11_26_01_00_00.json.gz",
+        type: "manual",
+        size: 2048,
+        createdAt: "2026-11-26T01:00:00.000Z",
+      },
+    ];
+
+    render(<Harness canManageBackups backups={backups} onRestoreBackup={onRestoreBackup} />);
+
+    const restoreButton = screen.getByRole("button", {
+      name: "Restore jobs_manual_2026_11_26_01_00_00.json.gz",
+    });
+    expect(restoreButton).toHaveAttribute("type", "button");
+    fireEvent.click(restoreButton);
+    expect(onRestoreBackup).toHaveBeenCalledWith("jobs_manual_2026_11_26_01_00_00.json.gz");
+  });
+
+  it("lets the max backups field be cleared and retyped instead of snapping back", () => {
+    render(<Harness canManageBackups />);
+
+    const input = screen.getByLabelText("Max Backups to Keep") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "" } });
+    expect(input.value).toBe("");
+    fireEvent.change(input, { target: { value: "3" } });
+    expect(input.value).toBe("3");
   });
 });

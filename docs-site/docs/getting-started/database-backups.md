@@ -79,6 +79,10 @@ curl -X PATCH "http://localhost:3001/api/settings" \
 
 ### Restore workflow
 
+#### From the app (admins)
+
+Open **Settings → Backups** and press **Restore** on a `.json.gz` backup (or call `POST /api/backups/:filename/restore`). JobOps verifies the backup's checksums, saves a safety backup of the current data (a new manual backup), and then replaces all data with the backup's contents in a single transaction, so a failed restore leaves your data untouched. While it runs, every request that could write to the database (any non-`GET` request) is rejected with `503` and a `Retry-After` header. Reads keep working. If your account is not in the backup you will be signed out afterwards.
+
 #### Cloudflare Durable Object (`AppStore`)
 
 1. Download the `.json.gz` backup from **Settings → Backups**, `GET /api/backups/:filename/download`, or R2 (`wrangler r2 object get job-ops-data/backups/<filename> --file backup.json.gz --remote`).

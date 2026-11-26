@@ -1,4 +1,4 @@
-import { EmptyState, ListItem, ListPanel } from "@client/components/layout";
+import { EmptyState, ListPanel } from "@client/components/layout";
 import {
   SettingsCheckboxField,
   SettingsEffectiveDefault,
@@ -8,7 +8,7 @@ import { SettingsSectionFrame } from "@client/pages/settings/components/Settings
 import type { BackupValues } from "@client/pages/settings/types";
 import type { UpdateSettingsInput } from "@shared/settings-schema.js";
 import type { BackupInfo, BackupStorageInfo } from "@shared/types.js";
-import { Archive, Clock, Download, Trash2 } from "lucide-react";
+import { Archive, Clock, Download, RotateCcw, Trash2 } from "lucide-react";
 import type React from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
@@ -26,8 +26,11 @@ type BackupSettingsSectionProps = {
   onCreateBackup: () => void;
   onDownloadBackup?: (filename: string) => void;
   onDeleteBackup: (filename: string) => void;
+  onRestoreBackup?: (filename: string) => void;
   isCreatingBackup: boolean;
   isDeletingBackup: boolean;
+  /** Filename currently being restored; all backup actions are disabled while set. */
+  restoringBackupFilename?: string | null;
   downloadingBackupFilename?: string | null;
   /** Backups are server-wide, so only system admins can see and change them. */
   canManageBackups?: boolean;
@@ -66,8 +69,10 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
   onCreateBackup,
   onDownloadBackup,
   onDeleteBackup,
+  onRestoreBackup,
   isCreatingBackup,
   isDeletingBackup,
+  restoringBackupFilename = null,
   downloadingBackupFilename = null,
   canManageBackups = true,
   scheduleCoversAllUsers = false,
@@ -78,6 +83,7 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
 
   // Watch the current form value to conditionally show/hide fields
   const currentBackupEnabled = watch("backupEnabled") ?? backupEnabled.default;
+  const isRestoring = restoringBackupFilename !== null;
 
   return (
     <SettingsSectionFrame
@@ -148,7 +154,7 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
             </SettingsCheckboxField>
 
             {currentBackupEnabled && (
-              <div className="grid gap-6 pl-7 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-6 pl-7 md:grid-cols-2">
                 <Controller
                   name="backupHour"
                   control={control}
@@ -161,7 +167,8 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
                         inputMode: "numeric",
                         min: 0,
                         max: 23,
-                        value: field.value ?? backupHour.default,
+                        value: field.value ?? "",
+                        placeholder: String(backupHour.default),
                         onChange: (event) => {
                           const value = parseInt(event.target.value, 10);
                           if (Number.isNaN(value)) {
@@ -190,7 +197,8 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
                         inputMode: "numeric",
                         min: 1,
                         max: 5,
-                        value: field.value ?? backupMaxCount.default,
+                        value: field.value ?? "",
+                        placeholder: String(backupMaxCount.default),
                         onChange: (event) => {
                           const value = parseInt(event.target.value, 10);
                           if (Number.isNaN(value)) {
@@ -225,7 +233,7 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
                   type="button"
                   size="sm"
                   onClick={onCreateBackup}
-                  disabled={isLoading || isCreatingBackup || isDeletingBackup}
+                  disabled={isLoading || isCreatingBackup || isDeletingBackup || isRestoring}
                 >
                   {isCreatingBackup ? "Creating..." : "Create Backup Now"}
                 </Button>
@@ -252,61 +260,80 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
                     description="Create your first backup to protect your data."
                   />
                 ) : (
-                  backups.map((backup) => (
-                    <ListItem key={backup.filename} className="flex items-center justify-between">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <Archive className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium">{backup.filename}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatBackupDate(backup.createdAt)} · {formatFileSize(backup.size)}
+                  backups.map((backup) => {
+                    const isBusy =
+                      isCreatingBackup ||
+                      isDeletingBackup ||
+                      isRestoring ||
+                      downloadingBackupFilename === backup.filename;
+                    return (
+                      <div
+                        key={backup.filename}
+                        className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Archive className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium">{backup.filename}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatBackupDate(backup.createdAt)} · {formatFileSize(backup.size)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Badge
-                          variant={backup.type === "auto" ? "secondary" : "default"}
-                          className="text-xs"
-                        >
-                          {backup.type === "auto" ? "Auto" : "Manual"}
-                        </Badge>
-                        {onDownloadBackup ? (
+                        <div className="flex shrink-0 items-center gap-2 pl-7 sm:pl-0">
+                          <Badge
+                            variant={backup.type === "auto" ? "secondary" : "default"}
+                            className="text-xs"
+                          >
+                            {backup.type === "auto" ? "Auto" : "Manual"}
+                          </Badge>
+                          {onRestoreBackup ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5"
+                              aria-label={`Restore ${backup.filename}`}
+                              title="Restore this backup"
+                              onClick={() => onRestoreBackup(backup.filename)}
+                              disabled={isBusy}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              {restoringBackupFilename === backup.filename
+                                ? "Restoring..."
+                                : "Restore"}
+                            </Button>
+                          ) : null}
+                          {onDownloadBackup ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label={`Download ${backup.filename}`}
+                              title="Download backup"
+                              onClick={() => onDownloadBackup(backup.filename)}
+                              disabled={isBusy}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          ) : null}
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
-                            aria-label={`Download ${backup.filename}`}
-                            title="Download backup"
-                            onClick={() => onDownloadBackup(backup.filename)}
-                            disabled={
-                              downloadingBackupFilename === backup.filename ||
-                              isCreatingBackup ||
-                              isDeletingBackup
-                            }
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            aria-label={`Delete ${backup.filename}`}
+                            title="Delete backup"
+                            onClick={() => onDeleteBackup(backup.filename)}
+                            disabled={isBusy}
                           >
-                            <Download className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        ) : null}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          aria-label={`Delete ${backup.filename}`}
-                          title="Delete backup"
-                          onClick={() => onDeleteBackup(backup.filename)}
-                          disabled={
-                            isDeletingBackup ||
-                            isCreatingBackup ||
-                            downloadingBackupFilename === backup.filename
-                          }
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        </div>
                       </div>
-                    </ListItem>
-                  ))
+                    );
+                  })
                 )}
               </ListPanel>
             </div>
