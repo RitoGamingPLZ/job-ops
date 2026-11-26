@@ -159,7 +159,11 @@ FROM runtime-node-deps AS camoufox-cache
 # Fetch target-platform Camoufox binaries after production dependencies are
 # installed so arm64 images do not inherit x64 browser assets from build stages.
 COPY scripts/camoufox-fetch.mjs ./scripts/camoufox-fetch.mjs
-RUN node ./scripts/camoufox-fetch.mjs
+# Optional `--secret id=github_token,...` authenticates the GitHub API calls (the anonymous
+# limit is 60 requests/hour per IP). A secret mount never lands in a layer or the image history.
+RUN --mount=type=secret,id=github_token,required=false \
+    if [ -f /run/secrets/github_token ]; then GITHUB_TOKEN="$(cat /run/secrets/github_token)"; export GITHUB_TOKEN; fi; \
+    node ./scripts/camoufox-fetch.mjs
 
 FROM runtime-base AS tectonic
 

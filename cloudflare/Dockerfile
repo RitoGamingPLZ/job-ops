@@ -62,7 +62,13 @@ RUN npm install --workspaces --include-workspace-root --omit=dev \
 FROM runtime-node-deps AS camoufox-cache
 
 COPY scripts/camoufox-fetch.mjs ./scripts/camoufox-fetch.mjs
-RUN node ./scripts/camoufox-fetch.mjs
+# GitHub's unauthenticated API allows only 60 requests/hour per runner IP and CI builds
+# regularly hit it. Pass `--secret id=github_token,...` to authenticate. A secret mount is
+# never written to a layer, the image history or the build cache; without the secret (local
+# builds, Wrangler's own build reusing the warmed cache) the step runs unauthenticated.
+RUN --mount=type=secret,id=github_token,required=false \
+    if [ -f /run/secrets/github_token ]; then GITHUB_TOKEN="$(cat /run/secrets/github_token)"; export GITHUB_TOKEN; fi; \
+    node ./scripts/camoufox-fetch.mjs
 
 # ============================================================================
 # TYPST BINARY STAGE (LIGHTWEIGHT LOCAL RESUME PDF RENDERING)

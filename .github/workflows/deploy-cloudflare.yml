@@ -73,6 +73,9 @@ jobs:
     name: Deploy Worker & Container
     needs: [build, check-worker]
     runs-on: ubuntu-latest
+    # The only GitHub token use is reading public release metadata during the image build.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -94,16 +97,20 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Warm Container node-deps layer cache
+      # Builds up to and including the Camoufox download, authenticated, so the Wrangler build
+      # below finds those layers already cached instead of calling GitHub's anonymous API.
+      - name: Warm Container node-deps and Camoufox layer cache
         uses: docker/build-push-action@v6
         with:
           context: .
           file: cloudflare/Dockerfile
-          target: runtime-node-deps
+          target: camoufox-cache
           platforms: linux/amd64
           push: false
           cache-from: type=gha,scope=cf-container-deps
           cache-to: type=gha,scope=cf-container-deps,mode=max
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy with Wrangler
         shell: bash
