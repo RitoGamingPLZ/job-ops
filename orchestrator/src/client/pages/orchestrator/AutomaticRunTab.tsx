@@ -72,6 +72,8 @@ interface AutomaticRunTabProps {
   isWatchlistSourcesLoading?: boolean;
   isPipelineRunning: boolean;
   onSaveAndRun: (values: AutomaticRunValues) => Promise<void>;
+  /** In "daily" mode `onSaveAndRun` saves the search for the daily run instead of starting one. */
+  mode?: "run" | "daily";
   savedSearches?: PipelineSearchPreset[];
   isSavedSearchesLoading?: boolean;
   onCreateSavedSearch?: (input: CreatePipelineSearchPresetInput) => Promise<PipelineSearchPreset>;
@@ -146,6 +148,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
   isWatchlistSourcesLoading = false,
   isPipelineRunning,
   onSaveAndRun,
+  mode = "run",
   savedSearches = [],
   isSavedSearchesLoading = false,
   onCreateSavedSearch,
@@ -542,7 +545,10 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
         watchlistSelectedSourceIds: [...selectedWatchlistSourceIds],
       });
     } catch (error) {
-      showErrorToast(error, "Failed to start search");
+      showErrorToast(
+        error,
+        mode === "daily" ? "Failed to save daily search" : "Failed to start search",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -917,6 +923,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
                   isSaving={isSaving}
                   disabled={runDisabled}
                   onRunSearch={() => void handleSaveAndRun()}
+                  mode={mode}
                 />
               </aside>
             </div>

@@ -46,6 +46,14 @@ describe("Pipeline API routes", () => {
   });
 
   it("returns nextScheduledRun after schedule settings change", async () => {
+    // The daily search schedule is the admin's, so it needs an admin workspace to live in.
+    const { createPrivateWorkspaceUser } = await import("@server/repositories/users");
+    await createPrivateWorkspaceUser({
+      username: "schedule-admin",
+      password: "schedule-admin-password",
+      isSystemAdmin: true,
+      useDefaultTenant: true,
+    });
     const update = await fetch(`${baseUrl}/api/settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -103,6 +111,50 @@ describe("Pipeline API routes", () => {
       firstCall?.[1],
     ]);
     expect(runPipeline).toHaveBeenCalledTimes(2);
+  });
+
+  it("saves the daily search sources and filters without starting a run", async () => {
+    const request = {
+      topN: 8,
+      minSuitabilityScore: 60,
+      sources: ["freehire"],
+      searchTerms: ["data engineer"],
+      country: "united kingdom",
+      cityLocations: ["Leeds"],
+      workplaceTypes: ["remote"],
+      searchScope: "selected_only",
+      matchStrictness: "flexible",
+    };
+    const response = await fetch(`${baseUrl}/api/pipeline/scheduled-search`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+    expect(response.status).toBe(200);
+    const { loadRunRequest } = await import("@server/services/pipeline-scheduler/storage");
+    expect(await loadRunRequest()).toMatchObject(request);
+    const { runPipeline } = await import("@server/pipeline/index");
+    expect(runPipeline).not.toHaveBeenCalled();
+
+    // Saving again replaces the earlier snapshot instead of stacking up.
+    const updated = await fetch(`${baseUrl}/api/pipeline/scheduled-search`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...request, searchTerms: ["ml engineer"] }),
+    });
+    expect(updated.status).toBe(200);
+    expect(await loadRunRequest()).toMatchObject({ searchTerms: ["ml engineer"] });
+  });
+
+  it("rejects an invalid daily search", async () => {
+    const response = await fetch(`${baseUrl}/api/pipeline/scheduled-search`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sources: [] }),
+    });
+    expect(response.status).toBe(400);
+    const { loadRunRequest } = await import("@server/services/pipeline-scheduler/storage");
+    expect(await loadRunRequest()).toBeNull();
   });
 
   it("detects the country at a selected map point", async () => {

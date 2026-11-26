@@ -65,10 +65,12 @@ export const users = sqliteTable(
 
 // Explicitly global: invitations exist before the invited user has a workspace, and are
 // only ever read or written by system admins or by presenting the secret token.
-// Only the SHA-256 of the token is stored.
+// The SHA-256 of the token is the lookup key. The raw token is also kept while the invitation is
+// pending so an admin can copy the link again, and is cleared once the invitation is used.
 export const userInvitations = sqliteTable("user_invitations", {
   id: text("id").primaryKey(),
   tokenHash: text("token_hash").notNull().unique(),
+  token: text("token"),
   label: text("label").notNull(),
   permissions: text("permissions").notNull().default("{}"),
   expiresAt: text("expires_at").notNull(),

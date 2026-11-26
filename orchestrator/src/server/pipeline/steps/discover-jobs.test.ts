@@ -32,6 +32,17 @@ vi.mock("@server/services/hiring-cafe-browser", () => ({
   closeHiringCafeBrowser: vi.fn(async () => undefined),
 }));
 
+const scrapeCache = vi.hoisted(() => ({
+  read: vi.fn(),
+  write: vi.fn(),
+}));
+
+vi.mock("@server/services/scrape-cache", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@server/services/scrape-cache")>()),
+  readScrapeCache: scrapeCache.read,
+  writeScrapeCache: scrapeCache.write,
+}));
+
 vi.mock("@server/repositories/settings", () => ({
   getAllSettings: vi.fn(),
 }));
@@ -73,6 +84,222 @@ describe("discoverJobsStep", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetProgress();
+    scrapeCache.read.mockResolvedValue(null);
+    scrapeCache.write.mockResolvedValue(undefined);
+  });
+
+  async function setUpJobspy(
+    run: ReturnType<typeof vi.fn>,
+    options: { terms?: string[]; id?: string } = {},
+  ) {
+    const settingsRepo = await import("@server/repositories/settings");
+    const registryModule = await import("@server/extractors/registry");
+    const id = options.id ?? "jobspy";
+    const manifest = {
+      id,
+      displayName: id === "jobspy" ? "JobSpy" : "Hiring Cafe",
+      providesSources: ["linkedin"],
+      run,
+    };
+    vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
+      searchTerms: JSON.stringify(options.terms ?? ["engineer"]),
+    } as any);
+    vi.mocked(registryModule.getExtractorRegistry).mockResolvedValue({
+      manifests: new Map([[id, manifest as any]]),
+      manifestBySource: new Map([["linkedin", manifest as any]]),
+      availableSources: ["linkedin"],
+    } as any);
+    return manifest;
+  }
+
+  const jobFor = (term: string) => ({
+    source: "linkedin",
+    title: `${term} role`,
+    employer: "Contoso",
+    jobUrl: `https://example.com/${term}`,
+  });
+
+  /** Makes only the listed terms cached; the cache key embeds the normalized term. */
+  const cacheTerms = (terms: string[]) =>
+    scrapeCache.read.mockImplementation(async (key: string) => {
+      const term = terms.find((candidate) => key.includes(`|${candidate}|`));
+      return term
+        ? { jobs: [jobFor(term)], sourceErrors: [], completedAt: "2026-11-25T12:00:00.000Z" }
+        : null;
+    });
+
+  const cachedJob = {
+    source: "linkedin",
+    title: "Engineer",
+    employer: "Contoso",
+    jobUrl: "https://example.com/cached",
+  };
+
+  it("reuses a recent extractor result instead of running the source again", async () => {
+    const run = vi.fn();
+    await setUpJobspy(run);
+    scrapeCache.read.mockResolvedValue({
+      jobs: [cachedJob],
+      sourceErrors: [],
+      completedAt: "2026-11-25T12:00:00.000Z",
+    });
+
+    const result = await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+    });
+
+    expect(run).not.toHaveBeenCalled();
+    expect(scrapeCache.write).not.toHaveBeenCalled();
+    expect(result.discoveredJobs.map((job) => job.jobUrl)).toEqual(["https://example.com/cached"]);
+  });
+
+  it("runs the source and stores a clean, non-empty result for reuse", async () => {
+    const run = vi.fn().mockResolvedValue({ success: true, jobs: [cachedJob] });
+    await setUpJobspy(run);
+
+    await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+    });
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(scrapeCache.write).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "jobspy", jobs: [cachedJob], sourceErrors: [] }),
+    );
+    const key = scrapeCache.read.mock.calls[0]?.[0];
+    expect(scrapeCache.write.mock.calls[0]?.[0].scrapeKey).toBe(key);
+  });
+
+  it("scrapes only the terms that are not cached and merges the cached ones", async () => {
+    const run = vi.fn().mockImplementation(async (context: { searchTerms: string[] }) => ({
+      success: true,
+      jobs: context.searchTerms.map(jobFor),
+    }));
+    await setUpJobspy(run, { terms: ["engineer", "designer", "analyst"] });
+    cacheTerms(["engineer", "analyst"]);
+
+    const result = await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+    });
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(run).toHaveBeenCalledWith(expect.objectContaining({ searchTerms: ["designer"] }));
+    expect(result.discoveredJobs.map((job) => job.jobUrl).sort()).toEqual([
+      "https://example.com/analyst",
+      "https://example.com/designer",
+      "https://example.com/engineer",
+    ]);
+    // Only the freshly scraped term is written back, under its own key.
+    expect(scrapeCache.write).toHaveBeenCalledTimes(1);
+    expect(scrapeCache.write.mock.calls[0]?.[0].scrapeKey).toContain("|designer|");
+    expect(scrapeCache.write.mock.calls[0]?.[0].jobs).toEqual([jobFor("designer")]);
+  });
+
+  it("calls the extractor once per uncached term so each term gets its own entry", async () => {
+    const run = vi.fn().mockImplementation(async (context: { searchTerms: string[] }) => ({
+      success: true,
+      jobs: context.searchTerms.map(jobFor),
+    }));
+    await setUpJobspy(run, { terms: ["engineer", "Designer", "designer "] });
+
+    const result = await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+    });
+
+    // "Designer" and "designer " are the same term.
+    expect(run.mock.calls.map(([context]) => context.searchTerms)).toEqual([
+      ["engineer"],
+      ["Designer"],
+    ]);
+    expect(result.discoveredJobs).toHaveLength(2);
+    expect(scrapeCache.write).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the terms already collected when a later term fails", async () => {
+    const run = vi
+      .fn()
+      .mockResolvedValueOnce({ success: true, jobs: [jobFor("engineer")] })
+      .mockResolvedValueOnce({ success: false, jobs: [], error: "rate limited" });
+    await setUpJobspy(run, { terms: ["engineer", "designer", "analyst"] });
+
+    const result = await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+    });
+
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(result.discoveredJobs.map((job) => job.jobUrl)).toEqual([
+      "https://example.com/engineer",
+    ]);
+    expect(result.sourceErrors).toEqual([expect.stringContaining("rate limited")]);
+    // The finished term is cached for the retry; the failed one is not.
+    expect(scrapeCache.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("caches Hiring Cafe as one run because its checkpoints index the full term list", async () => {
+    const run = vi.fn().mockResolvedValue({
+      success: true,
+      jobs: [jobFor("engineer"), jobFor("designer")],
+    });
+    await setUpJobspy(run, { id: "hiringcafe", terms: ["engineer", "designer"] });
+
+    await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+    });
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(run).toHaveBeenCalledWith(
+      expect.objectContaining({ searchTerms: ["engineer", "designer"] }),
+    );
+    expect(scrapeCache.write).toHaveBeenCalledTimes(1);
+    expect(scrapeCache.write.mock.calls[0]?.[0].scrapeKey).not.toContain(":term");
+  });
+
+  it("does not store partial, challenged or checkpoint-resumed results", async () => {
+    const partial = vi.fn().mockResolvedValue({
+      success: true,
+      jobs: [cachedJob],
+      sourceErrors: ["linkedin: one term failed"],
+    });
+    await setUpJobspy(partial);
+    await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+    });
+    expect(scrapeCache.write).not.toHaveBeenCalled();
+
+    const challenged = vi.fn().mockResolvedValue({
+      success: true,
+      jobs: [cachedJob],
+      challengeRequired: "https://example.com/solve",
+    });
+    await setUpJobspy(challenged);
+    await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+    });
+    expect(scrapeCache.write).not.toHaveBeenCalled();
+
+    scrapeCache.read.mockClear();
+    scrapeCache.read.mockResolvedValue({
+      jobs: [cachedJob],
+      sourceErrors: [],
+      completedAt: "2026-11-25T12:00:00.000Z",
+    });
+    const resumed = vi.fn().mockResolvedValue({ success: true, jobs: [cachedJob] });
+    await setUpJobspy(resumed);
+    await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+      resumeStates: { jobspy: { page: 2 } },
+    });
+    expect(resumed).toHaveBeenCalledTimes(1);
+    expect(scrapeCache.read).not.toHaveBeenCalled();
+    expect(scrapeCache.write).not.toHaveBeenCalled();
   });
 
   it("carries a Hiring Cafe search checkpoint into a retry", async () => {

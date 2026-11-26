@@ -17,7 +17,7 @@ export function coworkError(error: unknown) {
 }
 
 const tagClass =
-  "shrink-0 whitespace-nowrap rounded border px-1 py-0.5 text-xs text-muted-foreground";
+  "shrink-0 whitespace-nowrap rounded border bg-muted/40 px-1.5 text-[11px] leading-4 text-muted-foreground";
 
 /** Read-only tag chips that collapse to the available width, or wrap when expanded. */
 export function InlineTags({

@@ -211,6 +211,16 @@ export async function deleteWorkspaceUser(userId: string): Promise<void> {
   });
 }
 
+export async function regenerateUserInvitation(
+  invitationId: string,
+): Promise<CreatedUserInvitation> {
+  const result = await fetchApi<{ invitation: CreatedUserInvitation }>(
+    `/workspaces/invitations/${encodeURIComponent(invitationId)}/regenerate`,
+    { method: "POST" },
+  );
+  return result.invitation;
+}
+
 export async function deleteUserInvitation(invitationId: string): Promise<void> {
   await fetchApi<{ id: string }>(`/workspaces/invitations/${encodeURIComponent(invitationId)}`, {
     method: "DELETE",

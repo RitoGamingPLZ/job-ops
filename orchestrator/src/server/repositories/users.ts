@@ -555,6 +555,21 @@ export async function tenantHasDefaultModelAccess(tenantId: string): Promise<boo
   return rows.some((row) => effectivePermissions(row.isSystemAdmin, row.permissions).defaultModel);
 }
 
+/**
+ * The workspace of the oldest enabled system admin. The admin configures the server's default AI
+ * connection (provider, model, key) in that workspace, so users granted `defaultModel` resolve it from here.
+ */
+export async function getSystemAdminTenantId(): Promise<string | null> {
+  const [row] = await db
+    .select({ tenantId: tenantMemberships.tenantId })
+    .from(tenantMemberships)
+    .innerJoin(users, eq(tenantMemberships.userId, users.id))
+    .where(sql`${users.isSystemAdmin} = 1 AND ${users.isDisabled} = 0`)
+    .orderBy(users.createdAt)
+    .limit(1);
+  return row?.tenantId ?? null;
+}
+
 /** True when an enabled system admin belongs to this workspace. */
 export async function tenantHasSystemAdmin(tenantId: string): Promise<boolean> {
   const rows = await listEnabledTenantMembers(tenantId);

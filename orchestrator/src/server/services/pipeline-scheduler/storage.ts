@@ -35,6 +35,20 @@ export async function loadRunRequest(): Promise<unknown | null> {
   return row ? JSON.parse(row.value) : null;
 }
 
+// Deliberately global discovery of every workspace that has a saved search. The admin owns the
+// schedule in local mode, so a saved search is all a workspace needs to be included.
+export async function listRunRequestOwners() {
+  return db
+    .select({
+      tenantId: schema.settings.tenantId,
+      userId: schema.settings.userId,
+      // When the search was last saved, so recovery skips searches saved after today's run was due.
+      requestSavedAt: schema.settings.updatedAt,
+    })
+    .from(schema.settings)
+    .where(eq(schema.settings.key, REQUEST_KEY));
+}
+
 // Deliberately global discovery of opt-in owners only. All subsequent reads and
 // pipeline work execute under that owner's tenant/user context.
 export async function listScheduleOwners() {

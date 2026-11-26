@@ -76,7 +76,7 @@ describe("admin user access and invitations", () => {
     });
   }
 
-  it("creates an invitation whose token is shown once and never listed", async () => {
+  it("creates an invitation whose link stays copyable only while it is pending", async () => {
     const { res, body } = await createInvitation({ label: "Sam", expiresInDays: 3 });
     expect(res.status).toBe(201);
     expect(typeof body.data.invitation.token).toBe("string");
@@ -87,7 +87,47 @@ describe("admin user access and invitations", () => {
       await fetch(`${baseUrl}/api/workspaces/invitations`, { headers: headers(adminToken) })
     ).json();
     expect(list.data.invitations).toHaveLength(1);
-    expect(JSON.stringify(list)).not.toContain(body.data.invitation.token);
+    expect(list.data.invitations[0].token).toBe(body.data.invitation.token);
+
+    // Once the invitee has signed up the raw link is gone from the listing.
+    expect((await accept(body.data.invitation.token, "sam")).status).toBe(201);
+    const afterUse = await (
+      await fetch(`${baseUrl}/api/workspaces/invitations`, { headers: headers(adminToken) })
+    ).json();
+    expect(afterUse.data.invitations[0].status).toBe("used");
+    expect(afterUse.data.invitations[0].token).toBeNull();
+    expect(JSON.stringify(afterUse)).not.toContain(body.data.invitation.token);
+  });
+
+  it("replaces a pending invitation's link and refuses used or unknown invitations", async () => {
+    const { body } = await createInvitation({ label: "Sam", permissions: { pipeline: false } });
+    const { id, token: oldToken } = body.data.invitation;
+    const regenerate = (invitationId: string) =>
+      fetch(`${baseUrl}/api/workspaces/invitations/${invitationId}/regenerate`, {
+        method: "POST",
+        headers: headers(adminToken),
+      });
+
+    const res = await regenerate(id);
+    expect(res.status).toBe(200);
+    const fresh = (await res.json()).data.invitation;
+    expect(fresh.token).not.toBe(oldToken);
+    expect(fresh).toMatchObject({ id, label: "Sam", status: "pending" });
+    expect(fresh.expiresAt).toBe(body.data.invitation.expiresAt);
+
+    expect((await accept(oldToken, "sam")).status).toBe(404);
+    const joined = await accept(fresh.token, "sam");
+    expect(joined.status).toBe(201);
+    // The invitation's access carries over to the new link.
+    expect((await joined.json()).data.user.permissions.pipeline).toBe(false);
+
+    expect((await regenerate(id)).status).toBe(404);
+    expect((await regenerate("does-not-exist")).status).toBe(404);
+    const anonymous = await fetch(`${baseUrl}/api/workspaces/invitations/${id}/regenerate`, {
+      method: "POST",
+      headers: headers(),
+    });
+    expect(anonymous.status).toBeGreaterThanOrEqual(401);
   });
 
   it("previews an invitation without a session and hides invalid tokens", async () => {

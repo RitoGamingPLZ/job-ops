@@ -869,6 +869,22 @@ it("renders Contact first, edits contact data, and hides standalone ticks", asyn
     ),
   );
 });
+it("deletes a contact with an always-visible delete button", async () => {
+  const contact = {
+    ...role,
+    id: "email",
+    kind: "contact" as const,
+    text: "a@example.com",
+    data: { type: "email", value: "a@example.com" },
+  };
+  mocks.usage.mockResolvedValue({ jobIds: [], frozenJobIds: [] });
+  render(<CandidateLibrary items={[contact]} />);
+  fireEvent.click(screen.getByRole("button", { name: "Contact" }));
+  const trash = screen.getByRole("button", { name: "Delete a@example.com" });
+  expect(trash).not.toHaveClass("opacity-0");
+  fireEvent.click(trash);
+  await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith("email", undefined));
+});
 it("derives email ticks from the document and replaces the selected value", () => {
   const contact = {
     ...role,

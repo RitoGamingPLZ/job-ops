@@ -1,16 +1,22 @@
 import { randomUUID } from "node:crypto";
+import { AppError } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { runWithRequestContext } from "@infra/request-context";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { isDemoMode } from "@server/config/demo";
-import { getPipelineStatus } from "@server/pipeline/index";
+import { getActivePipelineCount, getPipelineStatus } from "@server/pipeline/index";
 import * as pipelineRepo from "@server/repositories/pipeline";
 import * as settingsRepo from "@server/repositories/settings";
+import { getSystemAdminTenantId } from "@server/repositories/users";
 import { getPrivateDataScope, isHostedUserIsolationEnabled } from "@server/tenancy/private-scope";
 import { PIPELINE_EXTRACTOR_SOURCE_IDS } from "@shared/extractors";
 import { settingsRegistry } from "@shared/settings-registry";
-import { runPipelineSchema, startRequestedPipeline } from "./run-request";
-import { listScheduleOwners, loadRunRequest } from "./storage";
+import {
+  readMaxConcurrentPipelines,
+  runPipelineSchema,
+  startRequestedPipeline,
+} from "./run-request";
+import { listRunRequestOwners, listScheduleOwners, loadRunRequest } from "./storage";
 
 export function nextDailyFireTime(hour: number, now = new Date()): Date {
   const next = new Date(now);
@@ -34,9 +40,21 @@ async function scheduleSettings() {
   return { enabled, hour };
 }
 
+/**
+ * Outside hosted mode the system admin owns one schedule for the whole server. It lives in the
+ * admin's workspace settings, like the server's default AI connection.
+ */
+async function adminScheduleSettings() {
+  const tenantId = await getSystemAdminTenantId();
+  if (!tenantId) return { enabled: false, hour: 7 };
+  return asOwner({ tenantId, userId: null }, scheduleSettings);
+}
+
 export async function getNextScheduledPipelineRun(): Promise<string | null> {
   if (isDemoMode()) return null;
-  const settings = await scheduleSettings();
+  const settings = isHostedUserIsolationEnabled()
+    ? await scheduleSettings()
+    : await adminScheduleSettings();
   return settings.enabled ? nextDailyFireTime(settings.hour).toISOString() : null;
 }
 
@@ -85,8 +103,9 @@ export async function runScheduledPipeline(): Promise<void> {
   );
 }
 
-type Owner = { tenantId: string; userId: string | null };
-type Schedule = { owner: Owner; at: Date; hour: number };
+type Owner = { tenantId: string; userId: string | null; requestSavedAt?: string };
+// `owner: null` is the admin's server-wide schedule; it fans out to every workspace with a saved search.
+type Schedule = { owner: Owner | null; at: Date; hour: number };
 let timer: ReturnType<typeof setTimeout> | undefined;
 let generation = 0;
 let started = false;
@@ -109,6 +128,68 @@ function asOwner<T>(owner: Owner, fn: () => T): T {
   );
 }
 
+const CAPACITY_RETRY_DELAY_MS = 30_000;
+// Stop waiting for a free slot well before the next daily fire so two days never overlap.
+const QUEUE_DEADLINE_MS = 20 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+let draining = false;
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const handle = setTimeout(resolve, ms);
+    handle.unref?.();
+  });
+}
+
+/**
+ * Starts the saved searches of many workspaces. Searches share a small pool of scrapers
+ * (`MAX_CONCURRENT_PIPELINES`), so workspaces are started one at a time and each waits for a free
+ * slot rather than being dropped. The start order rotates daily so nobody is always last, and a
+ * second trigger while a queue is still draining is ignored instead of running everyone twice.
+ */
+async function runOwnersStaggered(owners: Owner[]): Promise<void> {
+  if (owners.length === 0) return;
+  if (draining) {
+    logger.info("Scheduled pipelines skipped", { reason: "previous_queue_still_running" });
+    return;
+  }
+  draining = true;
+  try {
+    const offset = Math.floor(Date.now() / DAY_MS) % owners.length;
+    const ordered = [...owners.slice(offset), ...owners.slice(0, offset)];
+    const deadline = Date.now() + QUEUE_DEADLINE_MS;
+    // Scheduled searches leave one scraper slot free so people can still start a search by hand.
+    const scheduledSlots = Math.max(1, readMaxConcurrentPipelines() - 1);
+    for (const owner of ordered) {
+      while (getActivePipelineCount() >= scheduledSlots && Date.now() < deadline) {
+        await wait(CAPACITY_RETRY_DELAY_MS);
+      }
+      for (;;) {
+        try {
+          await asOwner(owner, () => runScheduledPipeline());
+          break;
+        } catch (error) {
+          const atCapacity = error instanceof AppError && error.status === 503;
+          if (atCapacity && Date.now() < deadline) {
+            await wait(CAPACITY_RETRY_DELAY_MS);
+            continue;
+          }
+          logger.error("Scheduled pipeline failed", { error: sanitizeUnknown(error) });
+          break;
+        }
+      }
+    }
+  } finally {
+    draining = false;
+  }
+}
+
+async function runAllWorkspaces(): Promise<void> {
+  const settings = await adminScheduleSettings();
+  if (!settings.enabled || isDemoMode()) return;
+  await runOwnersStaggered(await listRunRequestOwners());
+}
+
 function armTimer() {
   if (timer) clearTimeout(timer);
   timer = undefined;
@@ -121,7 +202,15 @@ function armTimer() {
       const due = schedules.filter((schedule) => schedule.at <= now);
       // Rearm before running; jobs may take hours and settings can change meanwhile.
       for (const schedule of due) {
-        asOwner(schedule.owner, () => {
+        const { owner } = schedule;
+        if (owner === null) {
+          void runAllWorkspaces().catch((error) =>
+            logger.error("Scheduled pipeline failed", { error: sanitizeUnknown(error) }),
+          );
+          schedule.at = nextDailyFireTime(schedule.hour, now);
+          continue;
+        }
+        asOwner(owner, () => {
           void (async () => {
             const settings = await scheduleSettings();
             if (!settings.enabled || isDemoMode()) return;
@@ -144,6 +233,16 @@ function armTimer() {
 export async function refreshPipelineScheduler(): Promise<void> {
   if (!started) return;
   const current = ++generation;
+  if (!isHostedUserIsolationEnabled()) {
+    const settings = await adminScheduleSettings();
+    if (current !== generation || !started) return;
+    schedules =
+      settings.enabled && !isDemoMode()
+        ? [{ owner: null, at: nextDailyFireTime(settings.hour), hour: settings.hour }]
+        : [];
+    armTimer();
+    return;
+  }
   const owners = await listScheduleOwners();
   const unique = new Map<string, Owner>();
   for (const owner of owners) {
@@ -177,6 +276,7 @@ export function stopPipelineScheduler(): void {
   if (timer) clearTimeout(timer);
   timer = undefined;
   schedules = [];
+  stopIncompleteSearchRecovery();
 }
 
 function isSameLocalCalendarDay(a: Date, b: Date): boolean {
@@ -215,10 +315,13 @@ export async function runDueScheduledPipelinesForHour(
     return { hour: targetHour, evaluatedCount: 0, triggeredCount: 0 };
   }
 
-  const owners = await listScheduleOwners();
+  const hosted = isHostedUserIsolationEnabled();
+  const owners = hosted ? await listScheduleOwners() : await listRunRequestOwners();
+  // Outside hosted mode one admin-owned schedule applies to every workspace with a saved search.
+  const adminSettings = hosted ? null : await adminScheduleSettings();
   const unique = new Map<string, Owner>();
   for (const owner of owners) {
-    if (isHostedUserIsolationEnabled() && !owner.userId) continue;
+    if (hosted && !owner.userId) continue;
     const key = asOwner(owner, () => getPrivateDataScope().scopeKey);
     unique.set(key, owner);
   }
@@ -226,9 +329,10 @@ export async function runDueScheduledPipelinesForHour(
   const now = new Date();
   let evaluatedCount = 0;
   let triggeredCount = 0;
+  const triggered: Owner[] = [];
 
   for (const [scopeKey, owner] of unique.entries()) {
-    const settings = await asOwner(owner, scheduleSettings);
+    const settings = adminSettings ?? (await asOwner(owner, scheduleSettings));
     evaluatedCount++;
     if (!settings.enabled) {
       continue;
@@ -244,25 +348,117 @@ export async function runDueScheduledPipelinesForHour(
     }
 
     for (const schedule of schedules) {
-      const scheduleKey = asOwner(schedule.owner, () => getPrivateDataScope().scopeKey);
-      if (scheduleKey === scopeKey) {
+      const scheduleKey = schedule.owner
+        ? asOwner(schedule.owner, () => getPrivateDataScope().scopeKey)
+        : null;
+      if (scheduleKey === null || scheduleKey === scopeKey) {
         schedule.at = nextDailyFireTime(settings.hour, now);
       }
     }
 
     triggeredCount++;
-    asOwner(owner, () => {
-      void runScheduledPipeline().catch((error) =>
-        logger.error("Scheduled pipeline failed", {
-          error: sanitizeUnknown(error),
-        }),
-      );
-    });
+    triggered.push(owner);
   }
+
+  if (triggered.length > 0) void runOwnersStaggered(triggered);
 
   if (triggeredCount > 0 && started) {
     armTimer();
   }
 
   return { hour: targetHour, evaluatedCount, triggeredCount };
+}
+
+// --- Recovery sweep -------------------------------------------------------------------------
+// The daily queue lives in memory, so a restart (or a failed run) can leave searches that were
+// due today never started or failed. The sweep re-queues exactly those, a few times at most.
+
+const MAX_CATCH_UP_ATTEMPTS = 3;
+const RECOVERY_BOOT_DELAY_MS = 60_000;
+const RECOVERY_INTERVAL_MS = 60 * 60 * 1000;
+const catchUpAttempts = new Map<string, { day: string; attempts: number }>();
+let recoveryBootTimer: ReturnType<typeof setTimeout> | undefined;
+let recoveryTimer: ReturnType<typeof setInterval> | undefined;
+
+/**
+ * True when today's search was due (its hour has passed) and this workspace has no run since then
+ * that started, finished or is still going. A search saved after the due time waits for tomorrow.
+ */
+async function searchStillOwedToday(
+  scheduledHour: number,
+  now: Date,
+  requestSavedAt: string | undefined,
+): Promise<boolean> {
+  if (scheduledHour > now.getHours()) return false;
+  const due = new Date(now);
+  due.setHours(scheduledHour, 0, 0, 0);
+  if (requestSavedAt && new Date(requestSavedAt) > due) return false;
+  const runsSinceDue = await pipelineRepo.getPipelineRunsSince(due.toISOString());
+  return runsSinceDue.every((run) => run.status === "failed");
+}
+
+/** Re-queue today's daily searches that never started or only failed. */
+export async function catchUpIncompleteScheduledPipelines(
+  now = new Date(),
+): Promise<{ evaluatedCount: number; triggeredCount: number }> {
+  if (isDemoMode() || draining) return { evaluatedCount: 0, triggeredCount: 0 };
+
+  const hosted = isHostedUserIsolationEnabled();
+  const owners = hosted ? await listScheduleOwners() : await listRunRequestOwners();
+  const adminSettings = hosted ? null : await adminScheduleSettings();
+  if (adminSettings && !adminSettings.enabled) return { evaluatedCount: 0, triggeredCount: 0 };
+
+  const unique = new Map<string, Owner>();
+  for (const owner of owners) {
+    if (hosted && !owner.userId) continue;
+    unique.set(
+      asOwner(owner, () => getPrivateDataScope().scopeKey),
+      owner,
+    );
+  }
+
+  const day = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  let evaluatedCount = 0;
+  const triggered: Owner[] = [];
+  for (const [scopeKey, owner] of unique.entries()) {
+    const settings = adminSettings ?? (await asOwner(owner, scheduleSettings));
+    if (!settings.enabled) continue;
+    evaluatedCount++;
+    const owed = await asOwner(owner, () =>
+      searchStillOwedToday(settings.hour, now, owner.requestSavedAt),
+    );
+    if (!owed) continue;
+    const previous = catchUpAttempts.get(scopeKey);
+    const attempts = previous?.day === day ? previous.attempts : 0;
+    if (attempts >= MAX_CATCH_UP_ATTEMPTS) continue;
+    catchUpAttempts.set(scopeKey, { day, attempts: attempts + 1 });
+    triggered.push(owner);
+  }
+
+  if (triggered.length > 0) {
+    logger.info("Re-queueing incomplete daily searches", { count: triggered.length });
+    void runOwnersStaggered(triggered);
+  }
+  return { evaluatedCount, triggeredCount: triggered.length };
+}
+
+export function stopIncompleteSearchRecovery(): void {
+  if (recoveryBootTimer) clearTimeout(recoveryBootTimer);
+  if (recoveryTimer) clearInterval(recoveryTimer);
+  recoveryBootTimer = undefined;
+  recoveryTimer = undefined;
+  catchUpAttempts.clear();
+}
+
+/** Sweeps once shortly after boot (to recover from a restart), then every hour. */
+export function startIncompleteSearchRecovery(): void {
+  stopIncompleteSearchRecovery();
+  const sweep = () =>
+    void catchUpIncompleteScheduledPipelines().catch((error) =>
+      logger.error("Incomplete search recovery failed", { error: sanitizeUnknown(error) }),
+    );
+  recoveryBootTimer = setTimeout(sweep, RECOVERY_BOOT_DELAY_MS);
+  recoveryTimer = setInterval(sweep, RECOVERY_INTERVAL_MS);
+  recoveryBootTimer.unref?.();
+  recoveryTimer.unref?.();
 }

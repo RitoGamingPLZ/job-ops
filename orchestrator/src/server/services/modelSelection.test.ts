@@ -8,10 +8,11 @@ vi.mock("./candidate-experience", () => ({
   buildCandidateTailoringContext: vi.fn(),
 }));
 
-import { runWithRequestContext } from "@infra/request-context";
+import { getTenantId, runWithRequestContext } from "@infra/request-context";
 // src/server/services/modelSelection.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as settingsRepo from "../repositories/settings";
+import { getSystemAdminTenantId } from "../repositories/users";
 import { getCurrentAccountEntitlements } from "./account-entitlements";
 import { resolveLlmModel, resolveLlmRuntimeSettings } from "./modelSelection";
 import { pickProjectIdsForJob } from "./projectSelection";
@@ -29,6 +30,10 @@ vi.mock("./server-credentials", () => ({
 vi.mock("../repositories/settings", () => ({
   getAllSettings: vi.fn(),
   getSetting: vi.fn(),
+}));
+
+vi.mock("../repositories/users", () => ({
+  getSystemAdminTenantId: vi.fn(),
 }));
 
 vi.mock("./settings", () => ({
@@ -787,6 +792,29 @@ describe("Model Selection Logic", () => {
         () => resolveLlmRuntimeSettings("scoring"),
       );
       expect(blockedRuntime.apiKey).toBeNull();
+    });
+
+    it("falls back to the admin's saved AI connection when the server env has no key", async () => {
+      delete process.env.OPENROUTER_API_KEY;
+      delete process.env.LLM_API_KEY;
+      vi.mocked(isOperatorContext).mockResolvedValue(false);
+      vi.mocked(canUseDefaultModel).mockResolvedValue(true);
+      vi.mocked(getSystemAdminTenantId).mockResolvedValue("tenant_admin");
+      vi.mocked(settingsRepo.getAllSettings).mockImplementation(async () =>
+        getTenantId() === "tenant_admin" ? { llmApiKey: "admin-saved-key" } : {},
+      );
+      vi.mocked(getEffectiveSettings).mockResolvedValue({
+        model: { value: "admin-model" },
+        llmProvider: { value: "openrouter" },
+        llmBaseUrl: { value: "" },
+      } as any);
+
+      const runtime = await runWithRequestContext(
+        { tenantId: "tenant_guest", userId: "user_guest", isSystemAdmin: false },
+        () => resolveLlmRuntimeSettings("default"),
+      );
+      expect(runtime.apiKey).toBe("admin-saved-key");
+      expect(runtime.model).toBe("admin-model");
     });
   });
 });

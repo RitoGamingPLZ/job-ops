@@ -206,8 +206,22 @@ workspacesRouter.post(
       expiresInDays: parsed.data.expiresInDays,
       createdByUserId: getUserId() ?? null,
     });
-    // The token is shown exactly once; only its hash is stored.
+    // The raw token is also kept on the pending invitation so an admin can copy the link again.
     ok(res, { invitation: { ...invitation, token } }, 201);
+  }),
+);
+
+workspacesRouter.post(
+  "/invitations/:id/regenerate",
+  asyncRoute(async (req: Request, res: Response) => {
+    if (!requireLocalAdmin(res)) return;
+    const id = req.params.id;
+    const result = id ? await invitationsRepo.regenerateInvitationToken(id) : null;
+    if (!result) {
+      fail(res, notFound("Pending invitation not found"));
+      return;
+    }
+    ok(res, { invitation: { ...result.invitation, token: result.token } });
   }),
 );
 

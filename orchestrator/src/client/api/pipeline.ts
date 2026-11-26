@@ -165,6 +165,16 @@ export async function runPipeline(config?: {
   });
 }
 
+/** Saves the search (sources, filters, limits) that the admin's daily schedule runs for this user. */
+export async function saveScheduledSearch(
+  config: NonNullable<Parameters<typeof runPipeline>[0]>,
+): Promise<{ message: string }> {
+  return fetchApi<{ message: string }>("/pipeline/scheduled-search", {
+    method: "PUT",
+    body: JSON.stringify(config),
+  });
+}
+
 export async function cancelPipeline(): Promise<{
   message: string;
   pipelineRunId: string | null;

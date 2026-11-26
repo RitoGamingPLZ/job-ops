@@ -28,6 +28,8 @@ type BackupSettingsSectionProps = {
   isDeletingBackup: boolean;
   /** Backups are server-wide, so only system admins can see and change them. */
   canManageBackups?: boolean;
+  /** Outside hosted mode the admin's schedule runs every user's saved search. */
+  scheduleCoversAllUsers?: boolean;
   layoutMode?: "accordion" | "panel";
 };
 
@@ -62,6 +64,7 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
   isCreatingBackup,
   isDeletingBackup,
   canManageBackups = true,
+  scheduleCoversAllUsers = false,
   layoutMode,
 }) => {
   const { backupEnabled, backupHour, backupMaxCount } = values;
@@ -92,12 +95,15 @@ export const BackupSettingsSection: React.FC<BackupSettingsSectionProps> = ({
               )}
             />
             <label htmlFor="pipelineScheduleEnabled" className="text-sm font-medium">
-              Run job search daily
+              {scheduleCoversAllUsers
+                ? "Run every user's job search daily"
+                : "Run job search daily"}
             </label>
           </div>
           <p className="text-xs text-muted-foreground">
-            Uses your last manually started search, including selected sources. The server must be
-            running. Searches already in progress are skipped.
+            {scheduleCoversAllUsers
+              ? "Runs each user's saved search, with their own sources and filters. Users who have not saved a search are skipped, and so are searches already in progress. The server must be running."
+              : "Uses your last manually started search, including selected sources. The server must be running. Searches already in progress are skipped."}
           </p>
           <label htmlFor="pipelineScheduleHour" className="text-sm">
             Daily search hour (server local time)

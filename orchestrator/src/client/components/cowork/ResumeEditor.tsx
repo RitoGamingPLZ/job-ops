@@ -1934,7 +1934,24 @@ export function ResumeEditor({
                         }),
                     },
                   ]}
-                />
+                >
+                  {document.basics.website?.url || document.basics.website?.label ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="resume-link-delete"
+                      title="Delete website"
+                      aria-label="Delete website"
+                      onClick={() =>
+                        change((next) => {
+                          next.basics.website = { ...next.basics.website, url: "", label: "" };
+                        })
+                      }
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </LinkField>
               </span>
               {!document.sections.profiles?.hidden &&
                 document.sections.profiles?.items

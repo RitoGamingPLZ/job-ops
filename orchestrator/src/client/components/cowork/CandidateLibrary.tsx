@@ -433,11 +433,11 @@ export function CandidateLibrary({
         variant="ghost"
         aria-label={`Delete ${label}`}
         disabled={busy}
-        className={
-          group[0]?.kind === "bullet"
-            ? "h-7 w-7 shrink-0 p-0"
-            : "ml-auto h-6 w-6 shrink-0 p-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
-        }
+        // Always visible: contacts and project points used to reveal delete on hover only,
+        // so touch screens and keyboard users could not find it.
+        className={`ml-auto shrink-0 p-0 text-muted-foreground hover:text-destructive ${
+          group[0]?.kind === "bullet" ? "h-7 w-7" : "h-6 w-6"
+        }`}
         onClick={() => void run(() => requestDelete(group))}
       >
         <Trash2 className="h-3 w-3" aria-hidden="true" />
@@ -676,16 +676,26 @@ export function CandidateLibrary({
     return (
       <div
         key={item.id}
-        className={isLine ? (isPage ? "space-y-1 py-2" : "space-y-0.5 py-1") : "space-y-0.5 py-0.5"}
+        className={
+          isLine ? (isPage ? "space-y-0.5 py-1.5" : "space-y-0.5 py-1") : "space-y-0.5 py-0.5"
+        }
       >
         <div
-          className={`group flex ${compactRow ? "items-center" : "items-start"} gap-1 rounded-sm text-sm ${reworded ? REWORDED_TINT_CLASS : ""}`}
+          className={`group flex ${compactRow ? "items-center" : "items-start"} gap-1 rounded-sm text-sm ${isLine ? "hover:bg-accent/40" : ""} ${reworded ? REWORDED_TINT_CLASS : ""}`}
           title={rewordedLine?.text ?? changedTitle}
         >
           {tick([item], item.text)}
+          {isLine && !jobId && (
+            <span
+              aria-hidden="true"
+              className="mt-2 ml-0.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/60"
+            />
+          )}
           <button
             type="button"
-            className={`min-w-0 flex-1 py-0.5 text-left hover:underline ${compactRow ? "truncate" : "whitespace-normal break-words"}`}
+            className={`min-w-0 flex-1 py-0.5 text-left hover:underline ${
+              item.kind === "role" || item.kind === "project" ? "font-medium" : "leading-snug"
+            } ${compactRow ? "truncate" : "whitespace-normal break-words"}`}
             title={hasTags ? (rewordedLine?.text ?? displayText) : changedTitle}
             disabled={busy}
             onClick={() => startEdit(item)}
@@ -714,7 +724,9 @@ export function CandidateLibrary({
           )}
         </div>
         {hasTags && (!isPage || item.tags.length > 0 || Boolean(score)) && (
-          <div className={`flex min-w-0 items-start gap-1 ${jobId ? "pl-4" : ""}`}>
+          <div
+            className={`flex min-w-0 items-start gap-1 ${jobId ? "pl-4" : isLine ? "pl-3" : ""}`}
+          >
             <InlineTags bullet={item} expanded={isPage} />
             {score && (
               <span
@@ -1090,16 +1102,18 @@ export function CandidateLibrary({
                           )
                         : [];
                     return (
-                      <div key={item.id} className={isPage ? "border-t py-2" : "border-t pt-1"}>
-                        {row(item)}
-                        {section === "project" && (
-                          <div className="ml-1.5 border-l pl-2">
-                            {points.length > 0 && (
-                              <div className="divide-y divide-border">{points.map(row)}</div>
-                            )}
-                            <div className={points.length > 0 ? "pt-1" : undefined}>
+                      <div key={item.id} className={isPage ? "border-t py-1.5" : "border-t pt-1"}>
+                        <div className="flex items-start gap-1">
+                          <div className="min-w-0 flex-1">{row(item)}</div>
+                          {section === "project" && (
+                            <div className="mt-0.5 shrink-0">
                               {addButton("project_point", item.id)}
                             </div>
+                          )}
+                        </div>
+                        {points.length > 0 && (
+                          <div className="ml-1.5 border-l pl-2">
+                            <div className="divide-y divide-border">{points.map(row)}</div>
                           </div>
                         )}
                       </div>

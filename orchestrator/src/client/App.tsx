@@ -30,6 +30,7 @@ import { InProgressBoardPage } from "./pages/InProgressBoardPage";
 import { JobPage } from "./pages/JobPage";
 import { OfflinePage } from "./pages/OfflinePage";
 import { OnboardingPage } from "./pages/OnboardingPage";
+import { DailySearchPage } from "./pages/DailySearchPage";
 import { OrchestratorPage } from "./pages/OrchestratorPage";
 import { ResumeCoworkPage } from "./pages/ResumeCoworkPage";
 import { ResumeLibraryPage, ResumesPage } from "./pages/ResumesPage";
@@ -294,6 +295,14 @@ export const App: React.FC = () => {
                           element={
                             <PermissionRoute anyOf={["watchlist"]}>
                               <WatchlistPage />
+                            </PermissionRoute>
+                          }
+                        />
+                        <Route
+                          path="/daily-search"
+                          element={
+                            <PermissionRoute anyOf={["jobs"]}>
+                              <DailySearchPage />
                             </PermissionRoute>
                           }
                         />

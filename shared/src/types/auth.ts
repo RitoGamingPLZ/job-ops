@@ -136,9 +136,11 @@ export interface UserInvitation {
   createdAt: string;
   usedAt: string | null;
   usedByUsername: string | null;
+  /** Raw invite token, only present while the invitation is pending (admin-only listing). */
+  token?: string | null;
 }
 
-/** Returned once, at creation time: the raw token is never stored. */
+/** Returned at creation time, with the raw token needed to build the invite link. */
 export interface CreatedUserInvitation extends UserInvitation {
   token: string;
 }

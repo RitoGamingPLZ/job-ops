@@ -6,11 +6,22 @@ import {
   type UserPermissions,
 } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Copy, Plus, RefreshCw } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,6 +86,16 @@ export const InvitationsPanel: React.FC = () => {
     onError: (error) => showErrorToast(error, "Failed to create invitation"),
   });
 
+  const regenerateMutation = useMutation({
+    mutationFn: api.regenerateUserInvitation,
+    onSuccess: async (invitation) => {
+      setFreshLink({ label: invitation.label, url: buildInviteUrl(invitation.token) });
+      setCreateOpen(true);
+      await queryClient.invalidateQueries({ queryKey: invitationsQueryKey });
+    },
+    onError: (error) => showErrorToast(error, "Failed to create a new link"),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: api.deleteUserInvitation,
     onSuccess: async () => {
@@ -129,7 +150,8 @@ export const InvitationsPanel: React.FC = () => {
               <DialogHeader>
                 <DialogTitle>Invitation for {freshLink.label}</DialogTitle>
                 <DialogDescription>
-                  This link is shown only once. Copy it now and send it to them.
+                  Copy this link and send it to them. You can copy it again from the table while the
+                  invitation is pending.
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-wrap gap-2 sm:flex-nowrap">
@@ -223,7 +245,7 @@ export const InvitationsPanel: React.FC = () => {
               <TableHead>Used by</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Expires / used</TableHead>
-              <TableHead className="w-12 text-right">
+              <TableHead className="w-24 text-right">
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
@@ -250,7 +272,54 @@ export const InvitationsPanel: React.FC = () => {
                       ? `Used ${formatDate(invitation.usedAt)}`
                       : "—"}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="whitespace-nowrap text-right">
+                  {invitation.status === "pending" && invitation.token ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      aria-label={`Copy invitation link for ${invitation.label}`}
+                      title="Copy invitation link"
+                      onClick={() => void copyLink(buildInviteUrl(invitation.token as string))}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  ) : invitation.status === "pending" ? (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label={`Create a new link for ${invitation.label}`}
+                          title="Create a new link"
+                          disabled={regenerateMutation.isPending}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Create a new link?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This invitation's link can't be shown again because it was created
+                            before links were kept. A new link keeps {invitation.label}'s access and
+                            expiry, and the old one stops working.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => regenerateMutation.mutate(invitation.id)}
+                          >
+                            Create new link
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  ) : null}
                   <ConfirmDeleteButton
                     label={`Delete invitation ${invitation.label}`}
                     title="Delete this invitation?"

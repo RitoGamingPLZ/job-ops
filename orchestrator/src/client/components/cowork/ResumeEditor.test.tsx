@@ -1460,6 +1460,15 @@ describe("contact editing", () => {
     expect(screen.queryByLabelText("Profile 1 URL")).toBeNull();
   });
 
+  it("deletes the website contact through onChange", () => {
+    const onChange = vi.fn();
+    const initial = fixture();
+    initial.basics.website = { url: "https://example.com", label: "Portfolio" };
+    render(<ContactEditor initial={initial} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete website" }));
+    expect(onChange.mock.lastCall?.[0].basics.website).toMatchObject({ url: "", label: "" });
+  });
+
   it("removes an empty profile when focus leaves its row", () => {
     const onChange = vi.fn();
     render(<ContactEditor initial={profileFixture()} onChange={onChange} />);

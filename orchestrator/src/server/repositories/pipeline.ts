@@ -149,6 +149,19 @@ export async function getLatestPipelineRun(): Promise<PipelineRun | null> {
 }
 
 /**
+ * Get every pipeline run started at or after the given ISO time, newest first.
+ */
+export async function getPipelineRunsSince(sinceIso: string): Promise<PipelineRun[]> {
+  const rows = await db
+    .select()
+    .from(pipelineRuns)
+    .where(and(pipelineRunsScopeFilter(), gte(pipelineRuns.startedAt, sinceIso)))
+    .orderBy(desc(pipelineRuns.startedAt));
+
+  return rows.map(mapRowToPipelineRun);
+}
+
+/**
  * Get recent pipeline runs.
  */
 export async function getRecentPipelineRuns(limit: number = 10): Promise<PipelineRun[]> {

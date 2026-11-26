@@ -42,15 +42,19 @@ function resolveStatus(row: InvitationRow, now: Date): UserInvitationStatus {
 }
 
 function toInvitation(row: InvitationRow, usedByUsername: string | null): UserInvitation {
+  const status = resolveStatus(row, new Date());
   return {
     id: row.id,
     label: row.label,
     permissions: readPermissions(row.permissions),
-    status: resolveStatus(row, new Date()),
+    status,
     expiresAt: row.expiresAt,
     createdAt: row.createdAt,
     usedAt: row.usedAt,
     usedByUsername,
+    // Only a still-usable link can be copied again. Invitations created before the token was
+    // stored have none, and cannot be recovered from the hash.
+    token: status === "pending" ? row.token : null,
   };
 }
 
@@ -69,6 +73,7 @@ export async function createInvitation(input: {
   const row: InvitationRow = {
     id: randomUUID(),
     tokenHash: hashInvitationToken(token),
+    token,
     label: input.label,
     permissions: JSON.stringify(input.permissions),
     expiresAt: new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString(),
@@ -80,6 +85,30 @@ export async function createInvitation(input: {
   };
   await db.insert(userInvitations).values(row);
   return { invitation: toInvitation(row, null), token };
+}
+
+/**
+ * Replaces the secret of a still-pending invitation so an admin can hand out a link again
+ * (e.g. one created before tokens were kept, or one that was lost). The previous link stops
+ * working. Returns null when the invitation does not exist or is no longer pending.
+ */
+export async function regenerateInvitationToken(
+  id: string,
+): Promise<{ invitation: UserInvitation; token: string } | null> {
+  const token = generateToken();
+  const [row] = await db
+    .update(userInvitations)
+    .set({ tokenHash: hashInvitationToken(token), token })
+    .where(
+      and(
+        eq(userInvitations.id, id),
+        isNull(userInvitations.usedAt),
+        isNull(userInvitations.revokedAt),
+        gt(userInvitations.expiresAt, new Date().toISOString()),
+      ),
+    )
+    .returning();
+  return row ? { invitation: toInvitation(row, null), token } : null;
 }
 
 export async function listInvitations(): Promise<UserInvitation[]> {
@@ -138,7 +167,11 @@ export async function releaseInvitation(id: string): Promise<void> {
 }
 
 export async function recordInvitationUser(id: string, userId: string): Promise<void> {
-  await db.update(userInvitations).set({ usedByUserId: userId }).where(eq(userInvitations.id, id));
+  // The account exists now, so the raw link is no longer needed.
+  await db
+    .update(userInvitations)
+    .set({ usedByUserId: userId, token: null })
+    .where(eq(userInvitations.id, id));
 }
 
 /**

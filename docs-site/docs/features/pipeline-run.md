@@ -44,13 +44,17 @@ If AI setup is unavailable, the review clearly says that the existing criteria w
 
 ### Daily searches
 
-1. Start a search manually with the sources, search terms, location and run limits you want to reuse.
-2. Open **Settings > Backup** and enable **Run job search daily**.
-3. Select an hour and save. The default is 07:00 in the server's local time zone; scheduling is disabled by default.
+**Self-hosted with several users.** The system admin owns the schedule: **Settings > Backup > Run every user's job search daily**, plus the hour (default 07:00 in the server's local time zone; off by default). Users cannot change it. Each user decides what runs: on the **Jobs** search page, set the sources, search terms, location and run limits, then choose **Save as daily search**. **Run search** also saves what it ran, so a user's last manual search is their daily search until they save a different one.
 
-The server must stay running. The next scheduled time appears on the overview. Each daily search reuses the last request accepted by **Run search** through the same validation and launch path. The one exception is the Watchlist: a daily search always checks every source currently saved in your Watchlist, including custom sources and groups added after that manual search. Later manual searches replace those saved defaults. Each tenant (and each user in hosted mode) has a separate schedule and saved request. Runs already in progress are skipped until the next day. Missed runs while the server was stopped are not replayed. Changing the hour or disabling scheduling takes effect immediately.
+At the admin's hour every user with a saved search is started, each with their own sources and filters. Searches share a small pool of scrapers (`MAX_CONCURRENT_PIPELINES`, default 3), and the daily run uses at most one fewer so a person can still start a search by hand. Users wait their turn instead of being dropped, in an order that rotates each day. The queue gives up on anyone still waiting after 20 hours. A user who never saved a search is skipped.
 
-If no manual search has been started since this feature was installed, the scheduler skips the run: start a search once to save its defaults. For other setup issues, see [Settings](/docs/features/settings).
+**Hosted.** Each user has their own schedule: start a search manually, open **Settings > Schedule**, enable **Run job search daily** and pick an hour.
+
+**Recovery.** The daily queue is held in memory, so a restart can lose it. One minute after boot, and then every hour, the server checks each scheduled user. If their daily hour has passed and they have no run since then that is running, finished or cancelled, their saved search is queued again. That covers searches that never started and runs marked failed by the restart. A search is retried at most three times a day, and a search saved after the hour waits for tomorrow. Runs are queued through the same slot-limited queue as the daily run. Missed days are not replayed.
+
+In both cases the server must stay running. The next scheduled time appears on the overview. Each daily search reuses the last request saved through the same validation and launch path. The one exception is the Watchlist: a daily search always checks every source currently saved in the user's Watchlist, including custom sources and groups added after the search was saved. Runs already in progress are skipped until the next day. Missed runs while the server was stopped are not replayed. Changing the hour or disabling scheduling takes effect immediately.
+
+If a user has never saved or run a search, their daily run is skipped. For other setup issues, see [Settings](/docs/features/settings).
 
 ### Search settings
 

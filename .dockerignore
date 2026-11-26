@@ -5,6 +5,11 @@
 
 # Build outputs
 **/dist
+# The Cloudflare container runs this prebuilt bundle (see cloudflare/Dockerfile). Wrangler pipes
+# the Dockerfile in on stdin, so cloudflare/Dockerfile.dockerignore is never read and this file
+# is the only one that applies.
+!orchestrator/dist/pdf-worker
+!orchestrator/dist/pdf-worker/**
 **/*.pyc
 
 # Data (mounted as volume)

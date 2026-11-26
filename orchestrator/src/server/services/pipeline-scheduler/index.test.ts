@@ -1,13 +1,18 @@
+import { serviceUnavailable } from "@infra/errors";
 import { getRequestContext, runWithRequestContext } from "@infra/request-context";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getSetting: vi.fn(),
   getLatestPipelineRun: vi.fn(),
+  runsSince: vi.fn(),
   listOwners: vi.fn(),
+  listRequestOwners: vi.fn(),
+  adminTenant: vi.fn(),
   load: vi.fn(),
   start: vi.fn(),
   status: vi.fn(),
+  active: vi.fn(),
   hosted: vi.fn(),
 }));
 vi.mock("@server/repositories/settings", () => ({
@@ -15,16 +20,25 @@ vi.mock("@server/repositories/settings", () => ({
 }));
 vi.mock("@server/repositories/pipeline", () => ({
   getLatestPipelineRun: mocks.getLatestPipelineRun,
+  getPipelineRunsSince: mocks.runsSince,
+}));
+vi.mock("@server/repositories/users", () => ({
+  getSystemAdminTenantId: mocks.adminTenant,
 }));
 vi.mock("./storage", () => ({
   listScheduleOwners: mocks.listOwners,
+  listRunRequestOwners: mocks.listRequestOwners,
   loadRunRequest: mocks.load,
 }));
 vi.mock("./run-request", () => ({
+  readMaxConcurrentPipelines: () => 3,
   runPipelineSchema: { parse: (value: unknown) => value },
   startRequestedPipeline: mocks.start,
 }));
-vi.mock("@server/pipeline/index", () => ({ getPipelineStatus: mocks.status }));
+vi.mock("@server/pipeline/index", () => ({
+  getPipelineStatus: mocks.status,
+  getActivePipelineCount: mocks.active,
+}));
 vi.mock("@server/config/demo", () => ({ isDemoMode: () => false }));
 vi.mock("@server/tenancy/private-scope", async () => {
   const { getRequestContext } = await import("@infra/request-context");
@@ -38,11 +52,13 @@ vi.mock("@server/tenancy/private-scope", async () => {
 });
 
 import {
+  catchUpIncompleteScheduledPipelines,
   getNextScheduledPipelineRun,
   nextDailyFireTime,
   refreshPipelineScheduler,
   runDueScheduledPipelinesForHour,
   runScheduledPipeline,
+  startIncompleteSearchRecovery,
   startPipelineScheduler,
   stopPipelineScheduler,
 } from "./index";
@@ -63,6 +79,7 @@ beforeEach(() => {
     watchlistSelectedSourceIds: ["apple:software"],
   });
   mocks.status.mockReturnValue({ isRunning: false });
+  mocks.active.mockReturnValue(0);
   mocks.start.mockResolvedValue(undefined);
   mocks.getLatestPipelineRun.mockResolvedValue(null);
 });
@@ -334,5 +351,261 @@ describe("daily pipeline scheduler", () => {
       triggeredCount: 0,
     });
     expect(mocks.start).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin-owned daily search outside hosted mode", () => {
+  beforeEach(() => {
+    mocks.hosted.mockReturnValue(false);
+    mocks.adminTenant.mockResolvedValue("tenant-admin");
+    // Only the admin's workspace has the schedule on; users' own values must be ignored.
+    mocks.getSetting.mockImplementation(async (key) => {
+      const onForAdmin = getRequestContext()?.tenantId === "tenant-admin";
+      if (key === "pipelineScheduleEnabled") return onForAdmin ? "1" : "0";
+      return onForAdmin ? "7" : "3";
+    });
+    mocks.listRequestOwners.mockResolvedValue([
+      { tenantId: "a", userId: null },
+      { tenantId: "b", userId: null },
+    ]);
+  });
+
+  it("runs every workspace with a saved search at the admin's hour", async () => {
+    const seen: unknown[] = [];
+    mocks.load.mockImplementation(async () => ({ searchTerms: [getRequestContext()?.tenantId] }));
+    mocks.start.mockImplementation(async (request) => {
+      seen.push({ request, tenantId: getRequestContext()?.tenantId });
+    });
+    await startPipelineScheduler();
+    expect(vi.getTimerCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(59 * 60 * 1000);
+    expect(seen).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(60 * 1000);
+    // The start order rotates daily, so only the pairing of each request with its workspace counts.
+    expect(seen).toHaveLength(2);
+    expect(seen).toEqual(
+      expect.arrayContaining([
+        { request: { searchTerms: ["a"] }, tenantId: "a" },
+        { request: { searchTerms: ["b"] }, tenantId: "b" },
+      ]),
+    );
+    expect(vi.getTimerCount()).toBe(1);
+  });
+
+  it("picks up workspaces that save a search after the scheduler started", async () => {
+    mocks.listRequestOwners.mockResolvedValue([]);
+    await startPipelineScheduler();
+    mocks.listRequestOwners.mockResolvedValue([{ tenantId: "late", userId: null }]);
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+    expect(mocks.start).toHaveBeenCalledTimes(1);
+  });
+
+  it("schedules nothing while the admin has it off or there is no admin", async () => {
+    mocks.getSetting.mockResolvedValue("0");
+    await startPipelineScheduler();
+    expect(vi.getTimerCount()).toBe(0);
+    mocks.getSetting.mockImplementation(async (key) =>
+      key === "pipelineScheduleEnabled" ? "1" : "7",
+    );
+    mocks.adminTenant.mockResolvedValue(null);
+    await refreshPipelineScheduler();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(await getNextScheduledPipelineRun()).toBeNull();
+  });
+
+  it("reports the admin's next run to every user", async () => {
+    expect(
+      await runWithRequestContext({ tenantId: "a", userId: "alice" }, getNextScheduledPipelineRun),
+    ).toBe(new Date(2026, 0, 5, 7).toISOString());
+  });
+
+  it("waits for a free scraper slot instead of dropping a workspace", async () => {
+    mocks.start
+      .mockRejectedValueOnce(serviceUnavailable("Other searches are using the scrapers"))
+      .mockResolvedValue(undefined);
+    await startPipelineScheduler();
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+    expect(mocks.start).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(30 * 1000);
+    // The first workspace retried and succeeded, then the second ran.
+    expect(mocks.start).toHaveBeenCalledTimes(3);
+  });
+
+  it("coordinates 50 workspaces through the shared scraper slots", async () => {
+    const owners = Array.from({ length: 50 }, (_, i) => ({ tenantId: `t${i}`, userId: null }));
+    mocks.listRequestOwners.mockResolvedValue(owners);
+    let active = 0;
+    let peak = 0;
+    const startedTenants: Array<string | undefined> = [];
+    mocks.active.mockImplementation(() => active);
+    mocks.start.mockImplementation(async () => {
+      startedTenants.push(getRequestContext()?.tenantId);
+      active++;
+      peak = Math.max(peak, active);
+      // Each search holds its scraper slot for ten minutes.
+      setTimeout(() => active--, 10 * 60 * 1000);
+    });
+    await startPipelineScheduler();
+    await vi.advanceTimersByTimeAsync(7 * 60 * 60 * 1000);
+
+    // Everyone ran exactly once, and never more than the cap (3) minus the slot kept for manual runs.
+    expect(startedTenants).toHaveLength(50);
+    expect(new Set(startedTenants).size).toBe(50);
+    expect(peak).toBe(2);
+  });
+
+  it("ignores a second trigger while the first queue is still waiting", async () => {
+    mocks.active.mockReturnValue(99);
+    await runDueScheduledPipelinesForHour(7);
+    await runDueScheduledPipelinesForHour(7);
+    mocks.active.mockReturnValue(0);
+    await vi.advanceTimersByTimeAsync(60 * 1000);
+    expect(mocks.start).toHaveBeenCalledTimes(2);
+  });
+
+  it("moves on after another kind of failure", async () => {
+    mocks.start.mockRejectedValueOnce(new Error("boom")).mockResolvedValue(undefined);
+    await startPipelineScheduler();
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+    expect(mocks.start).toHaveBeenCalledTimes(2);
+  });
+
+  describe("recovery of incomplete searches", () => {
+    const run = (status: string) => ({
+      id: `run-${status}`,
+      startedAt: new Date(2026, 0, 5, 17, 5).toISOString(),
+      completedAt: null,
+      status,
+      jobsDiscovered: 0,
+      jobsProcessed: 0,
+      errorMessage: null,
+      configSnapshot: null,
+    });
+    // 17:00 is the admin's hour; the sweep runs at 18:30 after a restart lost the queue.
+    const evening = () => vi.setSystemTime(new Date(2026, 0, 5, 18, 30));
+    const adminAtFive = () =>
+      mocks.getSetting.mockImplementation(async (key) => {
+        const isAdmin = getRequestContext()?.tenantId === "tenant-admin";
+        if (key === "pipelineScheduleEnabled") return isAdmin ? "1" : "0";
+        return isAdmin ? "17" : "3";
+      });
+    const startCount = () => mocks.start.mock.calls.length;
+
+    beforeEach(() => {
+      adminAtFive();
+      evening();
+      mocks.runsSince.mockResolvedValue([]);
+    });
+
+    it("re-queues only the workspaces with no finished or running run since the hour", async () => {
+      mocks.runsSince.mockImplementation(async () => {
+        const tenant = getRequestContext()?.tenantId;
+        if (tenant === "a") return []; // never started: the queue was lost
+        if (tenant === "b") return [run("completed")];
+        return [run("running")];
+      });
+      mocks.listRequestOwners.mockResolvedValue([
+        { tenantId: "a", userId: null },
+        { tenantId: "b", userId: null },
+        { tenantId: "c", userId: null },
+      ]);
+      const seen: Array<string | undefined> = [];
+      mocks.start.mockImplementation(async () => {
+        seen.push(getRequestContext()?.tenantId);
+      });
+
+      expect(await catchUpIncompleteScheduledPipelines()).toEqual({
+        evaluatedCount: 3,
+        triggeredCount: 1,
+      });
+      await vi.waitFor(() => expect(seen).toEqual(["a"]));
+    });
+
+    it("retries a search whose only runs failed, at most three times a day", async () => {
+      mocks.runsSince.mockResolvedValue([run("failed")]);
+      mocks.listRequestOwners.mockResolvedValue([{ tenantId: "a", userId: null }]);
+      for (let sweep = 1; sweep <= 3; sweep++) {
+        expect((await catchUpIncompleteScheduledPipelines()).triggeredCount).toBe(1);
+        await vi.waitFor(() => expect(startCount()).toBe(sweep));
+        // Let the queue finish, otherwise the next sweep is skipped as "still draining".
+        await vi.advanceTimersByTimeAsync(10);
+      }
+      expect((await catchUpIncompleteScheduledPipelines()).triggeredCount).toBe(0);
+      // A new day starts the count again.
+      vi.setSystemTime(new Date(2026, 0, 6, 18, 30));
+      expect((await catchUpIncompleteScheduledPipelines()).triggeredCount).toBe(1);
+    });
+
+    it("waits for the hour, and for tomorrow when the search was saved after it", async () => {
+      mocks.listRequestOwners.mockResolvedValue([
+        { tenantId: "a", userId: null, requestSavedAt: new Date(2026, 0, 5, 17, 30).toISOString() },
+      ]);
+      expect((await catchUpIncompleteScheduledPipelines()).triggeredCount).toBe(0);
+
+      mocks.listRequestOwners.mockResolvedValue([
+        { tenantId: "a", userId: null, requestSavedAt: new Date(2026, 0, 4, 9).toISOString() },
+      ]);
+      vi.setSystemTime(new Date(2026, 0, 5, 16, 30));
+      expect((await catchUpIncompleteScheduledPipelines()).triggeredCount).toBe(0);
+      evening();
+      expect((await catchUpIncompleteScheduledPipelines()).triggeredCount).toBe(1);
+    });
+
+    it("does nothing while the admin has the daily search off", async () => {
+      mocks.getSetting.mockResolvedValue("0");
+      mocks.listRequestOwners.mockResolvedValue([{ tenantId: "a", userId: null }]);
+      expect(await catchUpIncompleteScheduledPipelines()).toEqual({
+        evaluatedCount: 0,
+        triggeredCount: 0,
+      });
+      expect(mocks.start).not.toHaveBeenCalled();
+    });
+
+    it("does not stack a second queue on one that is still waiting for slots", async () => {
+      mocks.listRequestOwners.mockResolvedValue([{ tenantId: "a", userId: null }]);
+      mocks.active.mockReturnValue(99);
+      expect((await catchUpIncompleteScheduledPipelines()).triggeredCount).toBe(1);
+      expect(await catchUpIncompleteScheduledPipelines()).toEqual({
+        evaluatedCount: 0,
+        triggeredCount: 0,
+      });
+      mocks.active.mockReturnValue(0);
+      await vi.advanceTimersByTimeAsync(60 * 1000);
+      expect(mocks.start).toHaveBeenCalledTimes(1);
+    });
+
+    it("sweeps shortly after boot and then every hour", async () => {
+      mocks.listRequestOwners.mockResolvedValue([{ tenantId: "a", userId: null }]);
+      mocks.runsSince
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([run("completed")])
+        .mockResolvedValue([run("failed")]);
+      startIncompleteSearchRecovery();
+      await vi.advanceTimersByTimeAsync(59 * 1000);
+      expect(mocks.start).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2 * 1000); // boot sweep: never started -> run
+      expect(mocks.start).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000); // done by now -> nothing
+      expect(mocks.start).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000); // failed -> retried
+      expect(mocks.start).toHaveBeenCalledTimes(2);
+      stopPipelineScheduler();
+      await vi.advanceTimersByTimeAsync(3 * 60 * 60 * 1000);
+      expect(mocks.start).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("runs the webhook-triggered hour for every workspace with a saved search", async () => {
+    expect(await runDueScheduledPipelinesForHour(3)).toEqual({
+      hour: 3,
+      evaluatedCount: 2,
+      triggeredCount: 0,
+    });
+    expect(await runDueScheduledPipelinesForHour(7)).toEqual({
+      hour: 7,
+      evaluatedCount: 2,
+      triggeredCount: 2,
+    });
+    await vi.waitFor(() => expect(mocks.start).toHaveBeenCalledTimes(2));
   });
 });

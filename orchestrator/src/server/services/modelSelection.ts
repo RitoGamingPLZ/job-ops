@@ -1,5 +1,7 @@
+import { runWithRequestContext } from "@infra/request-context";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import * as settingsRepo from "@server/repositories/settings";
+import { getSystemAdminTenantId } from "@server/repositories/users";
 import { getCurrentAccountEntitlements } from "@server/services/account-entitlements";
 import { getOriginalEnvValue } from "@server/services/envSettings";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
@@ -206,9 +208,29 @@ async function resolveNonAdminLocalLlmRuntimeSettings(
     return resolveUserKeyLlmRuntimeSettings(purpose, "gemini", overrides);
   }
   if (await canUseDefaultModel()) {
-    return resolveServerDefaultLlmRuntimeSettings();
+    return resolveLocalServerDefaultLlmRuntimeSettings(purpose);
   }
   return resolveUserKeyLlmRuntimeSettings(purpose, "gemini", overrides);
+}
+
+/**
+ * The server default model is whatever the operator configured: the process environment first,
+ * otherwise the AI connection the system admin saved under Settings > AI/Models in their workspace.
+ */
+async function resolveLocalServerDefaultLlmRuntimeSettings(
+  purpose: LlmModelPurpose,
+): Promise<LlmRuntimeSettings> {
+  const envRuntime = resolveServerDefaultLlmRuntimeSettings();
+  if (envRuntime.apiKey || isCliProvider(envRuntime.provider)) return envRuntime;
+
+  const adminTenantId = await getSystemAdminTenantId();
+  if (!adminTenantId) return envRuntime;
+
+  const adminRuntime = await runWithRequestContext(
+    { tenantId: adminTenantId, userId: undefined, isSystemAdmin: true },
+    () => resolveOperatorLlmRuntimeSettings(purpose),
+  );
+  return adminRuntime.apiKey || isCliProvider(adminRuntime.provider) ? adminRuntime : envRuntime;
 }
 
 export async function resolveLlmModel(purpose: LlmModelPurpose = "default"): Promise<string> {
@@ -231,7 +253,12 @@ export async function resolveLlmRuntimeSettings(
   if (!(await isOperatorContext())) {
     return resolveNonAdminLocalLlmRuntimeSettings(purpose);
   }
+  return resolveOperatorLlmRuntimeSettings(purpose);
+}
 
+async function resolveOperatorLlmRuntimeSettings(
+  purpose: LlmModelPurpose,
+): Promise<LlmRuntimeSettings> {
   const getAllSettings = "getAllSettings" in settingsRepo ? settingsRepo.getAllSettings : null;
   const [settings, overrides] = await Promise.all([
     getEffectiveSettings(),

@@ -12,7 +12,7 @@ import { resolveRequestOrigin } from "@infra/request-origin";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { setupSse, startSseHeartbeat, writeSseData } from "@infra/sse";
 import { requireSystemAdminMiddleware } from "../require-admin";
-import { isDemoMode } from "@server/config/demo";
+import { isDemoMode, sendDemoBlocked } from "@server/config/demo";
 import {
   beginPipelineChallengeSolve,
   getPendingChallenges,
@@ -43,6 +43,7 @@ import {
 import { getNextScheduledPipelineRun } from "@server/services/pipeline-scheduler";
 import {
   runPipelineSchema,
+  saveScheduledSearch,
   startRequestedPipeline,
   validateRequestedPipeline,
 } from "@server/services/pipeline-scheduler/run-request";
@@ -460,6 +461,37 @@ pipelineRouter.post("/run", async (req: Request, res: Response) => {
     }
     if (error instanceof Error && error.name === "AbortError") {
       return fail(res, requestTimeout("Request timed out"));
+    }
+    if (error instanceof AppError) {
+      return fail(res, error);
+    }
+    fail(
+      res,
+      new AppError({
+        status: 500,
+        code: "INTERNAL_ERROR",
+        message: error instanceof Error ? error.message : "Unknown error",
+      }),
+    );
+  }
+});
+
+/**
+ * PUT /api/pipeline/scheduled-search - Save the sources and filters the admin's daily schedule
+ * runs for this workspace, without starting a run.
+ */
+pipelineRouter.put("/scheduled-search", async (req: Request, res: Response) => {
+  try {
+    if (isDemoMode()) {
+      return sendDemoBlocked(res, "Saving the daily search is disabled in the public demo.", {
+        route: "PUT /api/pipeline/scheduled-search",
+      });
+    }
+    await saveScheduledSearch(runPipelineSchema.parse(req.body));
+    ok(res, { message: "Daily search saved" });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return fail(res, badRequest(error.message, error.flatten()));
     }
     if (error instanceof AppError) {
       return fail(res, error);
