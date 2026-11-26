@@ -949,8 +949,13 @@ export const SettingsPage: React.FC = () => {
           : (data.chatStyleMaxKeywordsPerSkill ?? null),
         chatStyleLanguageMode: data.chatStyleLanguageMode ?? null,
         chatStyleManualLanguage: data.chatStyleManualLanguage ?? null,
-        pipelineScheduleEnabled: data.pipelineScheduleEnabled ?? null,
-        pipelineScheduleHour: data.pipelineScheduleHour ?? null,
+        // Outside hosted mode only the admin owns the schedule, so other users never send it.
+        ...(canManageBackups || isHostedMode
+          ? {
+              pipelineScheduleEnabled: data.pipelineScheduleEnabled ?? null,
+              pipelineScheduleHour: data.pipelineScheduleHour ?? null,
+            }
+          : {}),
         ...(canManageBackups
           ? {
               backupEnabled: nullIfSame(data.backupEnabled, backup.backupEnabled.default),
@@ -1112,6 +1117,8 @@ export const SettingsPage: React.FC = () => {
               (item.id !== "billing" || isHostedMode) &&
               (item.id !== "webhooks" || canUseWebhooks) &&
               (item.id !== "resume-pdf" || canUseResumes) &&
+              // Outside hosted mode the daily search schedule belongs to the admin.
+              (item.id !== "backup" || canManageBackups || isHostedMode) &&
               (item.id !== "environment" || isSystemAdmin) &&
               (item.id !== "danger-zone" || isSystemAdmin) &&
               (!isAdminConsole || ADMIN_SETTINGS_SECTION_IDS.has(item.id)) &&
@@ -1375,6 +1382,7 @@ export const SettingsPage: React.FC = () => {
           isCreatingBackup={isCreatingBackup}
           isDeletingBackup={isDeletingBackup}
           canManageBackups={canManageBackups}
+          scheduleCoversAllUsers={!isHostedMode}
           layoutMode="panel"
         />
       );

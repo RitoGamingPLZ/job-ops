@@ -113,6 +113,16 @@ export async function validateRequestedPipeline(config: PipelineRunRequest) {
   return locationIntent;
 }
 
+/**
+ * Stores the search that the admin's daily schedule runs for this workspace, without starting a
+ * run. It is the same snapshot a manual run remembers, so the two stay in step.
+ */
+export async function saveScheduledSearch(config: PipelineRunRequest): Promise<void> {
+  await validateRequestedPipeline(config);
+  const canUseWatchlist = await currentUserHasPermission("watchlist");
+  await saveRunRequest(canUseWatchlist ? config : { ...config, watchlistSelectedSourceIds: [] });
+}
+
 export async function startRequestedPipeline(config: PipelineRunRequest, remember = true) {
   await ensureUserHasLlmAccess();
   const locationIntent = await validateRequestedPipeline(config);
@@ -185,7 +195,7 @@ export async function startRequestedPipeline(config: PipelineRunRequest, remembe
   return searchTermsState;
 }
 
-function readMaxConcurrentPipelines(): number {
+export function readMaxConcurrentPipelines(): number {
   const parsed = Number.parseInt(process.env.MAX_CONCURRENT_PIPELINES ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
 }

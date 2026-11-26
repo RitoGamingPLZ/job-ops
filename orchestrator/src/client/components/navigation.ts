@@ -1,5 +1,6 @@
 import type { UserPermissionKey, UserPermissions } from "@shared/types";
 import {
+  CalendarClock,
   Columns3,
   Eye,
   Files,
@@ -33,6 +34,12 @@ export const NAV_LINKS: NavLink[] = [
     label: "Jobs",
     icon: LayoutDashboard,
     activePaths: ["/jobs/ready", "/jobs/discovered", "/jobs/applied", "/jobs/all"],
+    requiredAnyPermissions: ["jobs"],
+  },
+  {
+    to: "/daily-search",
+    label: "Daily search",
+    icon: CalendarClock,
     requiredAnyPermissions: ["jobs"],
   },
   {

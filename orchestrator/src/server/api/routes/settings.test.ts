@@ -556,6 +556,17 @@ describe("Settings API routes", () => {
     expect(backupRes.status).toBe(403);
     expect((await backupRes.json()).error.code).toBe("FORBIDDEN");
 
+    // The daily search schedule belongs to the admin too; untouched nulls from the form are fine.
+    const scheduleRes = await patchAsRegular({ pipelineScheduleEnabled: true });
+    expect(scheduleRes.status).toBe(403);
+    const hourRes = await patchAsRegular({ pipelineScheduleHour: 9 });
+    expect(hourRes.status).toBe(403);
+    const untouchedScheduleRes = await patchAsRegular({
+      pipelineScheduleEnabled: null,
+      pipelineScheduleHour: null,
+    });
+    expect(untouchedScheduleRes.status).toBe(200);
+
     // Non-admins cannot use the server's CLI logins or point the server at custom endpoints.
     for (const body of [
       { llmProvider: "codex" },

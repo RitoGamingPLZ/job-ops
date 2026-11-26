@@ -1,4 +1,4 @@
-import { Loader2, Sparkles } from "lucide-react";
+import { CalendarClock, Loader2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,8 @@ interface AutomaticRunFooterProps {
   isSaving: boolean;
   disabled: boolean;
   onRunSearch: () => void;
+  /** "daily" saves the search for the daily run instead of starting one. */
+  mode?: "run" | "daily";
 }
 
 export function AutomaticRunFooter({
@@ -37,7 +39,9 @@ export function AutomaticRunFooter({
   isSaving,
   disabled,
   onRunSearch,
+  mode = "run",
 }: AutomaticRunFooterProps) {
+  const isDaily = mode === "daily";
   const presetLabel = selectedPreset.charAt(0).toUpperCase() + selectedPreset.slice(1);
   return (
     <Card className="h-fit">
@@ -90,13 +94,17 @@ export function AutomaticRunFooter({
         <Button type="button" disabled={disabled} onClick={onRunSearch}>
           {isSaving ? (
             <Loader2 data-icon="inline-start" className="animate-spin" />
+          ) : isDaily ? (
+            <CalendarClock data-icon="inline-start" />
           ) : (
             <Sparkles data-icon="inline-start" />
           )}
-          Run search
+          {isDaily ? "Save daily search" : "Run search"}
         </Button>
         <p className="text-center text-xs text-muted-foreground">
-          You can leave this page after the run starts.
+          {isDaily
+            ? "Saving does not start a search. Each day's run uses these sources and filters."
+            : "You can leave this page after the run starts."}
         </p>
       </CardFooter>
     </Card>

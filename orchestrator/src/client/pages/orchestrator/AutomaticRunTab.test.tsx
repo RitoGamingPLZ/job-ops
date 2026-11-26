@@ -972,6 +972,38 @@ describe("AutomaticRunTab", () => {
     });
   });
 
+  it("in daily mode saves the search through the same button instead of running it", async () => {
+    const onSaveAndRun = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <AutomaticRunTab
+        open
+        mode="daily"
+        settings={createAppSettings({
+          jobspyCountryIndeed: { value: "croatia", default: "", override: "croatia" },
+          locationSearchMode: { value: "cities", default: "radius", override: "cities" },
+        })}
+        enabledSources={["linkedin"]}
+        pipelineSources={["linkedin"]}
+        onToggleSource={vi.fn()}
+        onSetPipelineSources={vi.fn()}
+        isPipelineRunning={false}
+        onSaveAndRun={onSaveAndRun}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Run search" })).not.toBeInTheDocument();
+    openLocationPreferences();
+    fireEvent.click(screen.getByLabelText("Hybrid"));
+    fireEvent.click(screen.getByRole("button", { name: "Save daily search" }));
+
+    await waitFor(() => {
+      expect(onSaveAndRun).toHaveBeenCalledWith(
+        expect.objectContaining({ workplaceTypes: ["remote", "onsite"] }),
+      );
+    });
+  });
+
   it("clamps max jobs discovered to 50 before submitting", async () => {
     const onSaveAndRun = vi.fn().mockResolvedValue(undefined);
 

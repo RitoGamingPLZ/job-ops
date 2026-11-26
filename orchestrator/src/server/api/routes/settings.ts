@@ -48,8 +48,11 @@ const CLI_PROVIDERS = new Set(["codex", "gemini_cli", "claude_cli"]);
 
 // Settings are stored per workspace (each non-hosted user has a private tenant), so
 // they are editable by every authenticated user. Only settings that drive server-wide
-// maintenance jobs need a system admin.
+// maintenance jobs need a system admin. The daily search schedule is one of them: the admin picks
+// the hour and every workspace's saved search runs on it.
 const SYSTEM_ADMIN_SETTING_KEYS = new Set<keyof UpdateSettingsInput>([
+  "pipelineScheduleEnabled",
+  "pipelineScheduleHour",
   "backupEnabled",
   "backupHour",
   "backupMaxCount",

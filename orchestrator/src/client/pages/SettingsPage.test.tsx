@@ -247,28 +247,43 @@ describe("SettingsPage", () => {
     expect(api.getBillingStatus).not.toHaveBeenCalled();
   });
 
-  it("saves the daily search switch and local hour", async () => {
+  it("lets the system admin set the daily search switch and hour for every user", async () => {
     vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
     vi.mocked(api.updateSettings).mockResolvedValue(baseSettings);
+    const admin = await vi.mocked(api.getCurrentAuthUser)();
+    vi.mocked(api.getCurrentAuthUser).mockResolvedValue({ ...admin, isSystemAdmin: true });
+    try {
+      renderPage();
+      await openNavGroup(/^backups$/i);
+      await clickLastButtonByName(/^backups$/i);
+      fireEvent.click(
+        await screen.findByRole("switch", { name: "Run every user's job search daily" }),
+      );
+      fireEvent.change(screen.getByLabelText("Daily search hour (server local time)"), {
+        target: { value: "9" },
+      });
+      await waitFor(() => expect(getSaveButton()).toBeEnabled());
+      fireEvent.click(getSaveButton());
+      await waitFor(() =>
+        expect(api.updateSettings).toHaveBeenCalledWith(
+          expect.objectContaining({
+            pipelineScheduleEnabled: true,
+            pipelineScheduleHour: 9,
+          }),
+        ),
+      );
+    } finally {
+      vi.mocked(api.getCurrentAuthUser).mockResolvedValue(admin);
+    }
+  });
+
+  it("gives non-admin users no daily search schedule to set", async () => {
+    vi.mocked(api.getSettings).mockResolvedValue(baseSettings);
     renderPage();
-    // Non-admins only get the per-user daily search schedule, not server-wide backups.
-    await openNavGroup(/^schedule$/i);
-    await clickLastButtonByName(/^daily search$/i);
-    expect(screen.queryByText("Enable automatic backups")).not.toBeInTheDocument();
-    fireEvent.click(await screen.findByRole("switch", { name: "Run job search daily" }));
-    fireEvent.change(screen.getByLabelText("Daily search hour (server local time)"), {
-      target: { value: "9" },
-    });
-    await waitFor(() => expect(getSaveButton()).toBeEnabled());
-    fireEvent.click(getSaveButton());
-    await waitFor(() =>
-      expect(api.updateSettings).toHaveBeenCalledWith(
-        expect.objectContaining({
-          pipelineScheduleEnabled: true,
-          pipelineScheduleHour: 9,
-        }),
-      ),
-    );
+
+    await screen.findByRole("heading", { name: "Models" });
+    expect(screen.queryByRole("button", { name: /^schedule$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^daily search$/i })).not.toBeInTheDocument();
   });
 
   it("shows server-wide backups to system admins", async () => {

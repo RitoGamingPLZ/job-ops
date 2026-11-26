@@ -17,6 +17,8 @@ interface OrchestratorSearchComposerProps extends PipelineSearchPresetComposerPr
   onSetSelectedWatchlistSourceIds: (ids: string[]) => void;
   isWatchlistSourcesLoading: boolean;
   onSaveAndRunAutomatic: (values: AutomaticRunValues) => Promise<void>;
+  /** "daily" turns the page into the daily search editor: saving replaces running. */
+  mode?: "run" | "daily";
 }
 
 export const OrchestratorSearchComposer: React.FC<OrchestratorSearchComposerProps> = ({
@@ -32,6 +34,7 @@ export const OrchestratorSearchComposer: React.FC<OrchestratorSearchComposerProp
   onSetSelectedWatchlistSourceIds,
   isWatchlistSourcesLoading,
   onSaveAndRunAutomatic,
+  mode,
   savedSearches,
   isSavedSearchesLoading,
   onCreateSavedSearch,
@@ -57,6 +60,7 @@ export const OrchestratorSearchComposer: React.FC<OrchestratorSearchComposerProp
         isWatchlistSourcesLoading={isWatchlistSourcesLoading}
         isPipelineRunning={isPipelineRunning}
         onSaveAndRun={onSaveAndRunAutomatic}
+        mode={mode}
         savedSearches={savedSearches}
         isSavedSearchesLoading={isSavedSearchesLoading}
         onCreateSavedSearch={onCreateSavedSearch}

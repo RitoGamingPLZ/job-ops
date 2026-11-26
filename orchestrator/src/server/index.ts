@@ -22,7 +22,10 @@ import { attachChallengeViewerUpgradeProxy } from "./services/challenge-viewer";
 import { initializeDemoModeServices } from "./services/demo-mode";
 import { applyStoredEnvOverrides } from "./services/envSettings";
 import { initializeHistoricalServerEventReplaySafely } from "./services/historical-product-analytics";
-import { startPipelineScheduler } from "./services/pipeline-scheduler";
+import {
+  startIncompleteSearchRecovery,
+  startPipelineScheduler,
+} from "./services/pipeline-scheduler";
 
 const AUTH_SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -105,6 +108,7 @@ async function startServer() {
 
     try {
       await startPipelineScheduler();
+      startIncompleteSearchRecovery();
     } catch (error) {
       logger.error("Failed to initialize pipeline scheduler", {
         error: sanitizeUnknown(error),
