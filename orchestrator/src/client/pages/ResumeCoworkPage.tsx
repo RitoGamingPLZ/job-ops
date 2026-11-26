@@ -6,6 +6,7 @@ import {
   getDesignResume,
   importDesignResumeFromFile,
   updateDesignResume,
+  warmPdfRenderer,
 } from "@client/api/settings-profile";
 import {
   applyLibraryUpdate,
@@ -252,6 +253,12 @@ function CoworkWorkspace({
       if (timer.current) clearTimeout(timer.current);
     };
   }, [load]);
+  // Start the PDF renderer when the editor opens, so it is already up by the time Preview is
+  // pressed. A job opened straight into Preview usually shows its stored PDF from storage
+  // without rendering, so that case waits until a render is actually needed (see showPreview).
+  useEffect(() => {
+    if (base || requestedMode !== "preview") void warmPdfRenderer();
+  }, [base, requestedMode]);
   useEffect(() => {
     let active = true;
     void api
@@ -712,6 +719,8 @@ function CoworkWorkspace({
         selectedJob?.pdfSource === "uploaded" || selectedJob?.pdfFreshness === "uploaded";
       const render = base || (!uploaded && (!entry || needsRender(selectedJob)));
       if (render) {
+        // The container starts while the editor state loads and saves below.
+        void warmPdfRenderer();
         if (!latest.current) await load();
         if (!mounted.current) return;
         if (!latest.current)
@@ -818,6 +827,8 @@ function CoworkWorkspace({
   }
   function setPreviewMode(next: boolean) {
     setPreview(next);
+    // Leaving Preview for the editor means edits, and then a render, are likely.
+    if (!next) void warmPdfRenderer();
     if (!next && !latest.current) void load();
     try {
       localStorage.setItem(PREVIEW_KEY, String(next));

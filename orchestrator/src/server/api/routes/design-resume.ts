@@ -16,6 +16,7 @@ import {
 } from "@server/services/design-resume";
 import { importDesignResumeFromFile } from "@server/services/design-resume/import-file";
 import { generateDesignResumePdf, previewDesignResumePdfBytes } from "@server/services/pdf";
+import { warmPdfRenderer } from "@server/services/pdf-warmer";
 import {
   getTenantDesignResumePdfKey,
   getTenantDesignResumePdfPath,
@@ -269,6 +270,14 @@ designResumeRouter.post(
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Content-Type", "application/pdf");
     res.send(Buffer.from(bytes));
+  }),
+);
+
+// Called when the resume page opens so the PDF renderer is already up when Preview is pressed.
+designResumeRouter.post(
+  "/pdf-warm",
+  asyncRoute(async (_req: Request, res: Response) => {
+    ok(res, { warming: await warmPdfRenderer() }, 202);
   }),
 );
 

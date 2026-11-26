@@ -34,6 +34,7 @@ import {
   type OnTaskDoneResult,
 } from "./services/do-on-task-done";
 import { type RemotePdfRenderer, setRemotePdfRenderer } from "./services/pdf";
+import { type RemotePdfWarmer, setRemotePdfWarmer } from "./services/pdf-warmer";
 
 export type {
   OnTaskDonePayload,
@@ -69,6 +70,7 @@ export interface DurableObjectExpressServerOptions {
   env?: Record<string, unknown>;
   port?: number;
   remoteRenderPdf?: RemotePdfRenderer;
+  remoteWarmPdf?: RemotePdfWarmer;
   remoteRunContainerExtractor?: RemoteContainerExtractorRunner;
 }
 
@@ -96,6 +98,7 @@ export function createDurableObjectExpressServer(
   }
 
   setRemotePdfRenderer(options.remoteRenderPdf ?? null);
+  setRemotePdfWarmer(options.remoteWarmPdf ?? null);
   setRemoteContainerExtractorRunner(options.remoteRunContainerExtractor ?? null);
   setDb(createDurableObjectDrizzleDb(options.storage));
 

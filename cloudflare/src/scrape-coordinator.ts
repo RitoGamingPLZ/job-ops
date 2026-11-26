@@ -1031,6 +1031,8 @@ export class ScraperContainer extends DurableObject<Env> {
     }
 
     const portNumber = Number.parseInt(this.env.PORT ?? "", 10) || 3001;
+    const startedAt = Date.now();
+    const coldStart = !container.running;
     if (!container.running) {
       this.containerReady = false;
       const internalSecret = resolveInternalContainerSecret(this.env);
@@ -1063,13 +1065,15 @@ export class ScraperContainer extends DurableObject<Env> {
       );
     }
 
+    const readyAt = Date.now();
+
     const targetUrl = new URL(request.url);
     targetUrl.protocol = "http:";
     targetUrl.host = "container";
 
     const hasBody = request.method !== "GET" && request.method !== "HEAD" && request.body !== null;
     try {
-      return await container.getTcpPort(portNumber).fetch(
+      const response = await container.getTcpPort(portNumber).fetch(
         new Request(targetUrl, {
           method: request.method,
           headers: request.headers,
@@ -1078,6 +1082,20 @@ export class ScraperContainer extends DurableObject<Env> {
           ...(hasBody ? { duplex: "half" } : {}),
         } as RequestInit),
       );
+      // Splits a slow first render into "container not up yet" and "render itself".
+      if (isPdfRenderRequest(request)) {
+        console.log(
+          JSON.stringify({
+            msg: "pdf-container-timing",
+            path: targetUrl.pathname,
+            coldStart,
+            readyMs: readyAt - startedAt,
+            forwardMs: Date.now() - readyAt,
+            status: response.status,
+          }),
+        );
+      }
+      return response;
     } catch (error) {
       this.containerReady = false;
       throw error;

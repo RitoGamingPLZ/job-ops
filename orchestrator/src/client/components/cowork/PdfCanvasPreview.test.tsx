@@ -85,10 +85,12 @@ describe("PdfCanvasPreview", () => {
       resize([], {} as ResizeObserver);
     });
     await waitFor(() => expect(renderPage).toHaveBeenCalledTimes(4));
-    expect(screen.getByLabelText("Resume PDF page 2")).toHaveStyle({
-      width: "450px",
-      height: "600px",
-    });
+    await waitFor(() =>
+      expect(screen.getByLabelText("Resume PDF page 2")).toHaveStyle({
+        width: "450px",
+        height: "600px",
+      }),
+    );
   });
 
   it("offers a download if loading fails", async () => {
@@ -180,5 +182,42 @@ describe("PdfCanvasPreview", () => {
     await act(async () => {});
     expect(mocks.getDocument).not.toHaveBeenCalled();
     expect(destroy).not.toHaveBeenCalled();
+  });
+
+  it("keeps the previous pages on screen while a new PDF renders, then swaps them", async () => {
+    const view = render(<PdfCanvasPreview url="blob:first" />);
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    const firstPage = screen.getByLabelText("Resume PDF page 1");
+
+    // Hold the next render open so the in-between state can be observed.
+    const gate = deferred<void>();
+    renderPage.mockReturnValue({ promise: gate.promise, cancel: vi.fn() });
+    view.rerender(<PdfCanvasPreview url="blob:second" />);
+
+    await waitFor(() => expect(mocks.getDocument).toHaveBeenLastCalledWith({ url: "blob:second" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Updating preview"));
+    // Same element, still attached: nothing flashes while the next PDF draws.
+    expect(screen.getByLabelText("Resume PDF page 1")).toBe(firstPage);
+    expect(screen.queryByText("Loading PDF preview…")).not.toBeInTheDocument();
+
+    await act(async () => gate.resolve());
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    expect(screen.getByLabelText("Resume PDF page 1")).not.toBe(firstPage);
+    expect(screen.getAllByLabelText(/Resume PDF page/)).toHaveLength(2);
+    // The first document is released once the second one has loaded.
+    expect(destroy).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the previous pages if the new PDF is cancelled before it finishes", async () => {
+    const view = render(<PdfCanvasPreview url="blob:first" />);
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    const firstPage = screen.getByLabelText("Resume PDF page 1");
+
+    renderPage.mockReturnValue({ promise: new Promise<void>(() => {}), cancel: vi.fn() });
+    view.rerender(<PdfCanvasPreview url="blob:second" />);
+    await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
+    view.rerender(<PdfCanvasPreview url="blob:first" />);
+
+    expect(screen.getByLabelText("Resume PDF page 1")).toBe(firstPage);
   });
 });

@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
   downloadPdf: vi.fn(),
   toast: vi.fn(),
   coworkError: vi.fn(),
+  warm: vi.fn(),
 }));
 vi.mock("react-router-dom", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-router-dom")>()),
@@ -58,6 +59,7 @@ vi.mock("@client/api/settings-profile", () => ({
   updateDesignResume: mocks.saveBase,
   importDesignResumeFromFile: mocks.importFile,
   generateDesignResumePdf: mocks.basePdf,
+  warmPdfRenderer: mocks.warm,
 }));
 vi.mock("@client/api/jobs", () => ({
   getJob: mocks.getJob,
@@ -272,6 +274,7 @@ function mount(base = false, queryClient = new QueryClient(), search = "") {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.warm.mockResolvedValue(undefined);
   mocks.getBase.mockResolvedValue({
     resumeJson: state().document,
     revision: 3,
@@ -1427,6 +1430,51 @@ describe("explicit resume opening", () => {
       }
     },
   );
+
+  describe("PDF renderer warm-up", () => {
+    const jobWith = (pdfFreshness: string) =>
+      mocks.getJob.mockResolvedValue({
+        id: "job",
+        title: "Selected",
+        employer: "Company",
+        status: "ready",
+        pdfFreshness,
+        pdfSource: "generated",
+      });
+
+    it("starts when the editor opens", async () => {
+      mount();
+      await screen.findByLabelText("Headline");
+      expect(mocks.warm).toHaveBeenCalled();
+    });
+
+    it("starts when the base resume opens in Preview, which always renders", async () => {
+      mount(true, new QueryClient(), "?mode=preview");
+      await screen.findByRole("document");
+      expect(mocks.warm).toHaveBeenCalled();
+    });
+
+    it("stays off for a stored PDF opened straight in Preview until the editor is opened", async () => {
+      jobWith("current");
+      localStorage.setItem("resume-cowork-preview", "false");
+      mount(false, new QueryClient(), "?mode=preview");
+      await screen.findByRole("document", { name: "Resume PDF preview" });
+      expect(mocks.previewPdf).not.toHaveBeenCalled();
+      expect(mocks.warm).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+      await waitFor(() => expect(mocks.warm).toHaveBeenCalled());
+    });
+
+    it.each(["missing", "stale"])("starts when a %s PDF has to be rendered", async (freshness) => {
+      jobWith(freshness);
+      mocks.getResume.mockResolvedValue(state("Saved tailored", 7));
+      mount(false, new QueryClient(), "?mode=preview");
+      await screen.findByRole("document");
+      expect(mocks.previewPdf).toHaveBeenCalledWith("job");
+      expect(mocks.warm).toHaveBeenCalled();
+    });
+  });
 
   it("still previews the PDF when the editable JSON source is missing, and Edit surfaces that error", async () => {
     mocks.getJob.mockResolvedValue({

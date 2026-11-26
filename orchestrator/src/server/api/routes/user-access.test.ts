@@ -445,6 +445,17 @@ describe("admin user access and invitations", () => {
     expect((await fetch(`${baseUrl}/api/resumes`, { headers: headers(limitedToken) })).status).toBe(
       403,
     );
+    // Warming the PDF renderer is a resumes feature: it must not be a way around the permission.
+    const warm = (token: string) =>
+      fetch(`${baseUrl}/api/design-resume/pdf-warm`, {
+        method: "POST",
+        headers: headers(token),
+      });
+    expect((await warm(limitedToken)).status).toBe(403);
+    const warmed = await warm(adminToken);
+    expect(warmed.status).toBe(202);
+    // No remote renderer outside Cloudflare, so there is nothing to start.
+    expect((await warmed.json()).data).toEqual({ warming: false });
   });
 
   it("enforces jobs, watchlist, inProgress, and resumes permissions per tenant without cross-tenant leakage", async () => {

@@ -5,6 +5,7 @@ declare module "*do-entry.mjs" {
     env?: Record<string, unknown>;
     port?: number;
     remoteRenderPdf?: (body: string, requestId?: string) => Promise<Uint8Array>;
+    remoteWarmPdf?: () => Promise<void>;
     remoteRunContainerExtractor?: (request: RemoteContainerExtractorRequest) => Promise<{
       success: boolean;
       jobs: unknown[];

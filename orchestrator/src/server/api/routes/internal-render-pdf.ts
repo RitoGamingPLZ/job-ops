@@ -75,3 +75,8 @@ internalRenderPdfRouter.post(
     });
   }),
 );
+
+// Reaching this route means the container is up and listening; nothing else needs to run.
+internalRenderPdfRouter.post("/warm", verifyInternalScrapeSecret, (_req, res) => {
+  res.status(204).end();
+});

@@ -85,6 +85,21 @@ export async function previewDesignResumePdfBlob(): Promise<Blob> {
   });
 }
 
+/**
+ * Starts the PDF renderer in the background so the next preview skips its cold start. Best
+ * effort: failures are ignored, and the server skips the call when one ran recently.
+ */
+export async function warmPdfRenderer(): Promise<void> {
+  try {
+    await fetchApi<{ warming: boolean }>("/design-resume/pdf-warm", {
+      method: "POST",
+      keepalive: true,
+    });
+  } catch {
+    // Only means the next render is cold.
+  }
+}
+
 export async function getOnboardingStatus(): Promise<OnboardingStatusResponse> {
   return fetchApi<OnboardingStatusResponse>("/onboarding/status");
 }

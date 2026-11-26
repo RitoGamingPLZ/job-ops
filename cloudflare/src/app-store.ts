@@ -210,6 +210,22 @@ export class AppStore extends DurableObject<Env> {
           throw error;
         }
       },
+      remoteWarmPdf: async () => {
+        const namespace = this.env.SCRAPER_CONTAINER;
+        const secret = resolveInternalContainerSecret(this.env);
+        if (!namespace || !secret) return;
+        const response = await namespace
+          .getByName("pdf-render")
+          .fetch("http://scraper/internal/render-pdf/warm", {
+            method: "POST",
+            headers: { "x-internal-sync-secret": secret },
+            signal: AbortSignal.timeout(150_000),
+          });
+        await response.body?.cancel();
+        if (!response.ok) {
+          throw new Error(`PDF render container warm-up failed with HTTP ${response.status}.`);
+        }
+      },
     });
     this.expressInitialized = true;
   }

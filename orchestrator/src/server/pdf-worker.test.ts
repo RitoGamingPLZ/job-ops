@@ -155,4 +155,20 @@ describe("pdf-worker app", () => {
     expect(primaryAuthed.status).toBe(200);
     expect(await primaryAuthed.text()).toBe("%PDF-worker-primary");
   });
+
+  it("answers the warm-up request only with the internal secret", async () => {
+    process.env.INTERNAL_SYNC_SECRET = "warm-secret";
+    let baseUrl: string;
+    ({ server, baseUrl } = await startPdfWorkerServer());
+
+    const denied = await fetch(`${baseUrl}/internal/render-pdf/warm`, { method: "POST" });
+    expect(denied.status).toBe(401);
+
+    const warmed = await fetch(`${baseUrl}/internal/render-pdf/warm`, {
+      method: "POST",
+      headers: { "x-internal-sync-secret": "warm-secret" },
+    });
+    expect(warmed.status).toBe(204);
+    expect(render).not.toHaveBeenCalled();
+  });
 });

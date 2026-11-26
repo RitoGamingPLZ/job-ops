@@ -21,6 +21,7 @@ function loadModule(path, imports = {}) {
     Response,
     AbortSignal,
     TextEncoder,
+    console,
     crypto,
     setTimeout,
     clearTimeout,
@@ -304,4 +305,43 @@ test("ScraperContainer returns 503 quickly when the container exits after starti
   assert.equal(res.status, 503);
   assert.ok(probes >= 1);
   assert.ok(Date.now() - startedAt < 5_000);
+});
+
+test("ScraperContainer starts the PDF renderer for the warm-up request", async () => {
+  const warm = makeContainerDO({ CRON_SECRET: "secret" });
+  const res = await warm.instance.fetch(
+    new Request("http://scraper/internal/render-pdf/warm", { method: "POST" }),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(warm.starts[0].instance, "standard-1");
+  assert.deepEqual(Array.from(warm.starts[0].entrypoint), [
+    "node",
+    "/app/orchestrator/dist/pdf-worker/pdf-worker.mjs",
+  ]);
+  assert.deepEqual(warm.timeoutCalls, [5 * 60_000]);
+});
+
+test("ScraperContainer logs how long a PDF request waited for the container and then ran", async () => {
+  const logs = [];
+  const originalLog = console.log;
+  console.log = (line) => logs.push(line);
+  try {
+    const { instance } = makeContainerDO({ CRON_SECRET: "secret" });
+    await instance.fetch(
+      new Request("http://scraper/internal/render-pdf", { method: "POST", body: "{}" }),
+    );
+    await instance.fetch(new Request("http://scraper/scrape", { method: "POST", body: "{}" }));
+  } finally {
+    console.log = originalLog;
+  }
+
+  const timings = logs
+    .map((line) => JSON.parse(line))
+    .filter((e) => e.msg === "pdf-container-timing");
+  assert.equal(timings.length, 1);
+  assert.equal(timings[0].path, "/internal/render-pdf");
+  assert.equal(timings[0].coldStart, true);
+  assert.equal(timings[0].status, 200);
+  assert.equal(typeof timings[0].readyMs, "number");
+  assert.equal(typeof timings[0].forwardMs, "number");
 });
