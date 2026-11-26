@@ -110,6 +110,11 @@ COPY --from=typst /root/.cache/typst /root/.cache/typst
 
 COPY shared ./shared
 COPY orchestrator ./orchestrator
+
+# The PDF renderer starts from this prebuilt bundle (ScraperContainer sets it as the entrypoint).
+# Fail the build rather than ship an image whose renderer exits with MODULE_NOT_FOUND.
+RUN test -f /app/orchestrator/dist/pdf-worker/pdf-worker.mjs \
+    || { echo "orchestrator/dist/pdf-worker/pdf-worker.mjs is missing from the build context; run build:pdf-worker and check .dockerignore" >&2; exit 1; }
 COPY career-boards/bamboohr ./career-boards/bamboohr
 COPY career-boards/greenhouse ./career-boards/greenhouse
 COPY career-boards/workday ./career-boards/workday
