@@ -14,6 +14,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 import { PipelineActionRequired } from "./PipelineActionRequired";
 
+const PROGRESS_TRACK_CLASS = "bg-border dark:bg-muted";
+const PROGRESS_COMPLETE_CLASS = "bg-emerald-600 dark:bg-success";
+const PROGRESS_RUNNING_CLASS = "bg-amber-600 dark:bg-warning";
+const PROGRESS_CHECK_CLASS = "bg-amber-400 dark:bg-warning/60";
+const STATUS_COMPLETE_TEXT_CLASS = "text-emerald-700 dark:text-success";
+const STATUS_RUNNING_TEXT_CLASS = "text-amber-700 dark:text-warning";
+
 const getRoleTotal = (role: PipelineFanoutRoleProgress) =>
   role.complete + role.running + role.check + role.queued;
 
@@ -34,19 +41,19 @@ const RoleStatus = ({ role }: { role: PipelineFanoutRoleProgress }) => (
   <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-1 font-mono text-[11px] tabular-nums @lg/fanout:justify-end">
     {role.complete > 0 ? (
       <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-        <span className="font-semibold text-success">{role.complete}</span>
+        <span className={cn("font-semibold", STATUS_COMPLETE_TEXT_CLASS)}>{role.complete}</span>
         <span className="font-sans text-muted-foreground">complete</span>
       </span>
     ) : null}
     {role.running > 0 ? (
       <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-        <span className="font-semibold text-warning">{role.running}</span>
+        <span className={cn("font-semibold", STATUS_RUNNING_TEXT_CLASS)}>{role.running}</span>
         <span className="font-sans text-muted-foreground">running</span>
       </span>
     ) : null}
     {role.check > 0 ? (
       <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-        <span className="font-semibold text-warning">{role.check}</span>
+        <span className={cn("font-semibold", STATUS_RUNNING_TEXT_CLASS)}>{role.check}</span>
         <span className="font-sans text-muted-foreground">check</span>
       </span>
     ) : null}
@@ -68,16 +75,16 @@ const RoleRow = ({ role }: { role: PipelineFanoutRoleProgress }) => {
         <RoleStatus role={role} />
       </div>
       <div
-        className="flex h-1.5 overflow-hidden rounded-full bg-muted"
+        className={cn("flex h-1.5 overflow-hidden rounded-full", PROGRESS_TRACK_CLASS)}
         role="progressbar"
         aria-label={`${role.role}: ${role.complete} complete, ${role.running} running, ${role.check} need a check, ${role.queued} queued`}
         aria-valuemax={total}
         aria-valuemin={0}
         aria-valuenow={role.complete}
       >
-        <Segment className="bg-success" count={role.complete} total={total} />
-        <Segment className="bg-warning" count={role.running} total={total} />
-        <Segment className="bg-warning/60" count={role.check} total={total} />
+        <Segment className={PROGRESS_COMPLETE_CLASS} count={role.complete} total={total} />
+        <Segment className={PROGRESS_RUNNING_CLASS} count={role.running} total={total} />
+        <Segment className={PROGRESS_CHECK_CLASS} count={role.check} total={total} />
       </div>
     </div>
   );
@@ -150,7 +157,7 @@ export const PipelineFanoutCard = ({
           <div className="flex flex-col gap-3 @xl/fanout:flex-row @xl/fanout:items-end @xl/fanout:justify-between">
             <div className="flex flex-wrap items-center gap-2 font-mono text-xs tabular-nums">
               <span className="inline-flex items-baseline gap-2 whitespace-nowrap">
-                <span className="font-semibold text-success">{complete}</span>
+                <span className={cn("font-semibold", STATUS_COMPLETE_TEXT_CLASS)}>{complete}</span>
                 <span className="font-sans text-muted-foreground">
                   {challenges.length > 0
                     ? complete === 1
@@ -161,7 +168,7 @@ export const PipelineFanoutCard = ({
               </span>
               <span className="text-muted-foreground/50">·</span>
               <span className="inline-flex items-baseline gap-2 whitespace-nowrap">
-                <span className="font-semibold text-warning">{running}</span>
+                <span className={cn("font-semibold", STATUS_RUNNING_TEXT_CLASS)}>{running}</span>
                 <span className="font-sans text-muted-foreground">running</span>
               </span>
               <span className="text-muted-foreground/50">·</span>
@@ -193,15 +200,15 @@ export const PipelineFanoutCard = ({
             </div>
           </div>
           <div
-            className="flex h-2 overflow-hidden rounded-full bg-muted"
+            className={cn("flex h-2 overflow-hidden rounded-full", PROGRESS_TRACK_CLASS)}
             role="progressbar"
             aria-label={`${complete} complete, ${running} running, ${queued} queued`}
             aria-valuemax={fanout.total}
             aria-valuemin={0}
             aria-valuenow={complete}
           >
-            <Segment className="bg-success" count={complete} total={fanout.total} />
-            <Segment className="bg-warning" count={running} total={fanout.total} />
+            <Segment className={PROGRESS_COMPLETE_CLASS} count={complete} total={fanout.total} />
+            <Segment className={PROGRESS_RUNNING_CLASS} count={running} total={fanout.total} />
           </div>
         </div>
       </CardHeader>
