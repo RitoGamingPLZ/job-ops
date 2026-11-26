@@ -770,16 +770,18 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
           <TabsContent value="details" className="mt-0 flex flex-col gap-6 pb-8">
             <header>
               <div className="flex flex-col gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="w-fit"
-                  onClick={() => setAutomaticTab("describe")}
-                >
-                  <ArrowLeft data-icon="inline-start" />
-                  Describe search
-                </Button>
+                {mode === "daily" ? null : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => setAutomaticTab("describe")}
+                  >
+                    <ArrowLeft data-icon="inline-start" />
+                    Describe search
+                  </Button>
+                )}
                 <h1 className="text-3xl font-semibold tracking-tight">Configure your search</h1>
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
                   {mode === "daily"
