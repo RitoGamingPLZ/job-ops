@@ -59,30 +59,6 @@ export async function scoreJobsStep(args: {
     task: async (job) => {
       if (args.shouldCancel?.()) return;
 
-      const hasCachedScore =
-        typeof job.suitabilityScore === "number" && !Number.isNaN(job.suitabilityScore);
-
-      if (hasCachedScore) {
-        if ((job.suitabilityScore as number) > 90) exceptional += 1;
-        completed += 1;
-        progressHelpers.scoringJob(
-          completed,
-          unprocessedJobs.length,
-          {
-            id: job.id,
-            title: `${job.title} (cached)`,
-            employer: job.employer,
-          },
-          exceptional,
-        );
-        scoredJobs.push({
-          ...job,
-          suitabilityScore: job.suitabilityScore as number,
-          suitabilityReason: job.suitabilityReason ?? "",
-        });
-        return;
-      }
-
       const scoringResultPromise = args.hostedUsageReserved
         ? scoreJobSuitability(
             job,

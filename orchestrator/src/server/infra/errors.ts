@@ -159,3 +159,9 @@ export function toAppError(error: unknown): AppError {
 export function tooManyRequests(message = "Too many requests. Try again shortly."): AppError {
   return new AppError({ status: 429, code: "TOO_MANY_REQUESTS", message });
 }
+
+export function getErrorMessage(error: unknown, fallback?: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (fallback !== undefined) return fallback;
+  return error instanceof Error ? error.message : String(error);
+}

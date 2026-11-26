@@ -62,3 +62,27 @@ export function toIntegerOrFallback(
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(options?.min ?? 1, Math.floor(parsed));
 }
+
+/**
+ * Returns the value as a plain object record, or null for null, arrays and primitives.
+ */
+export function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+/**
+ * Returns the trimmed string, or null when the value is not a string or is blank.
+ * Unlike `toStringOrNull`, numbers and booleans are not converted.
+ */
+export function toNonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+/**
+ * Returns the value when it is an array, otherwise an empty array.
+ */
+export function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}

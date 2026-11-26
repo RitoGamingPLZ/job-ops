@@ -56,11 +56,6 @@ function requireSystemAdmin(res: Response): boolean {
   return false;
 }
 
-function isUsernameConflictError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  return /UNIQUE constraint failed: users\.username/i.test(error.message);
-}
-
 workspacesRouter.get(
   "/users",
   asyncRoute(async (_req: Request, res: Response) => {
@@ -100,7 +95,7 @@ workspacesRouter.post(
       ok(res, { user }, 201);
       return;
     } catch (error) {
-      if (isUsernameConflictError(error)) {
+      if (usersRepo.isUsernameConflictError(error)) {
         fail(res, conflict("Username already exists"));
         return;
       }

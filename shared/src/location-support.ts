@@ -319,14 +319,13 @@ const SOURCE_SUPPORTED_COUNTRY_KEYS: Partial<Record<JobSource, string[]>> = {
 };
 
 const SOURCE_SUPPORTED_COUNTRY_KEYS_NORMALIZED: Partial<Record<JobSource, string[]>> = {};
-const SOURCE_SUPPORTED_COUNTRY_SETS: Partial<Record<JobSource, Set<string>>> = {};
 
 for (const [source, countries] of Object.entries(SOURCE_SUPPORTED_COUNTRY_KEYS) as Array<
   [JobSource, string[]]
 >) {
-  const normalized = countries.map((country) => normalizeCountryKey(country));
-  SOURCE_SUPPORTED_COUNTRY_KEYS_NORMALIZED[source] = normalized;
-  SOURCE_SUPPORTED_COUNTRY_SETS[source] = new Set(normalized);
+  SOURCE_SUPPORTED_COUNTRY_KEYS_NORMALIZED[source] = countries.map((country) =>
+    normalizeCountryKey(country),
+  );
 }
 
 export function getSourceSupportedCountryKeys(source: JobSource): string[] | null {
@@ -420,27 +419,6 @@ export const SUPPORTED_COUNTRY_KEYS = Array.from(
   new Set(SUPPORTED_COUNTRY_INPUTS.map((country) => normalizeCountryKey(country))),
 ).filter(Boolean);
 
-export function isUkCountry(country: string | null | undefined): boolean {
-  return normalizeCountryKey(country) === "united kingdom";
-}
-
 export function getAdzunaCountryCode(country: string | null | undefined): string | null {
   return ADZUNA_COUNTRY_CODE_BY_KEY[normalizeCountryKey(country)] ?? null;
-}
-
-export function isSourceAllowedForCountry(
-  source: JobSource,
-  country: string | null | undefined,
-): boolean {
-  const supportedCountryKeys = SOURCE_SUPPORTED_COUNTRY_SETS[source];
-  return (
-    supportedCountryKeys === undefined || supportedCountryKeys.has(normalizeCountryKey(country))
-  );
-}
-
-export function getCompatibleSourcesForCountry(
-  sources: JobSource[],
-  country: string | null | undefined,
-): JobSource[] {
-  return sources.filter((source) => isSourceAllowedForCountry(source, country));
 }

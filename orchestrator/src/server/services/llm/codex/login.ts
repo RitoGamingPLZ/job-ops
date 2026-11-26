@@ -1,14 +1,7 @@
+import { getPositiveIntEnv } from "@server/utils/env";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { logger } from "@infra/logger";
 import { truncate } from "../utils/string";
-
-function getPositiveIntEnv(name: string, fallback: number): number {
-  const raw = process.env[name]?.trim();
-  if (!raw) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
-}
 
 const DEVICE_AUTH_TIMEOUT_MS = () =>
   getPositiveIntEnv("CODEX_APP_SERVER_DEVICE_AUTH_TIMEOUT_MS", 15_000);

@@ -98,7 +98,7 @@ export type AddCustomWatchlistSourceInput = {
   catalogSourceId?: string | null;
 };
 
-export type UseWatchlistPipelineSourcesResult = {
+type UseWatchlistPipelineSourcesResult = {
   canUseWatchlist: boolean;
   watchlistSources: WatchlistSelectedSource[];
   watchlistCatalogSources: WatchlistSource[];

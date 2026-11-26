@@ -42,6 +42,9 @@ import {
 } from "@server/services/hiring-cafe-browser";
 import { getNextScheduledPipelineRun } from "@server/services/pipeline-scheduler";
 import {
+  locationProximitySchema,
+  pipelineRunBudgetSchema,
+  pipelineSourceSchema,
   runPipelineSchema,
   saveScheduledSearch,
   startRequestedPipeline,
@@ -53,37 +56,22 @@ import {
   getPrivateCloudflareCookieStorageDir,
   getPrivateDataScope,
 } from "@server/tenancy/private-scope";
-import { PIPELINE_EXTRACTOR_SOURCE_IDS } from "@shared/extractors";
 import {
   LOCATION_INPUT_MODE_VALUES,
   LOCATION_MATCH_STRICTNESS_VALUES,
   LOCATION_SEARCH_SCOPE_VALUES,
-} from "@shared/location-preferences.js";
+  LOCATION_WORKPLACE_TYPE_VALUES,
+} from "@shared/location-domain.js";
 import type { PipelineProgressState, PipelineStatusResponse } from "@shared/types";
-import { MAX_PIPELINE_RUN_BUDGET, normalizePipelineRunBudget } from "@shared/types";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 
 export const pipelineRouter = Router();
-const WORKPLACE_TYPE_VALUES = ["remote", "hybrid", "onsite"] as const;
-const pipelineSourceSchema = z.enum(
-  PIPELINE_EXTRACTOR_SOURCE_IDS as [
-    (typeof PIPELINE_EXTRACTOR_SOURCE_IDS)[number],
-    ...(typeof PIPELINE_EXTRACTOR_SOURCE_IDS)[number][],
-  ],
-);
-const pipelineRunBudgetSchema = z
-  .number()
-  .int()
-  .max(MAX_PIPELINE_RUN_BUDGET)
-  .transform(normalizePipelineRunBudget);
 const locationCountrySchema = z.object({
   latitude: z.number().finite().min(-90).max(90),
   longitude: z.number().finite().min(-180).max(180),
 });
-const locationAreaSchema = locationCountrySchema.extend({
-  radiusMiles: z.number().int().min(1).max(200),
-});
+const locationAreaSchema = locationProximitySchema;
 
 function toSelectedSourcesValue(sources: readonly string[] | undefined): string | undefined {
   if (!Array.isArray(sources) || sources.length === 0) return undefined;
@@ -217,15 +205,8 @@ const pipelineSearchPresetConfigSchema = z.object({
   country: z.string().trim().max(100),
   cityLocations: z.array(z.string().trim().min(1).max(100)).max(25),
   locationMode: z.enum(LOCATION_INPUT_MODE_VALUES).optional(),
-  proximity: z
-    .object({
-      latitude: z.number().finite().min(-90).max(90),
-      longitude: z.number().finite().min(-180).max(180),
-      radiusMiles: z.number().int().min(1).max(200),
-    })
-    .nullable()
-    .optional(),
-  workplaceTypes: z.array(z.enum(WORKPLACE_TYPE_VALUES)).min(1).max(3),
+  proximity: locationProximitySchema.nullable().optional(),
+  workplaceTypes: z.array(z.enum(LOCATION_WORKPLACE_TYPE_VALUES)).min(1).max(3),
   searchScope: z.enum(LOCATION_SEARCH_SCOPE_VALUES),
   matchStrictness: z.enum(LOCATION_MATCH_STRICTNESS_VALUES),
   topN: z.number().int().min(1).max(50),
@@ -566,15 +547,6 @@ pipelineRouter.post("/resume-scoring", async (_req: Request, res: Response) => {
       }),
     );
   }
-});
-
-/**
- * GET /api/pipeline/challenges - Returns pending Cloudflare challenges
- *
- * Non-empty only when the pipeline is paused at the "challenge_required" step.
- */
-pipelineRouter.get("/challenges", (_req: Request, res: Response) => {
-  ok(res, { challenges: getPendingChallenges() });
 });
 
 /**

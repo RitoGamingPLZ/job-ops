@@ -75,14 +75,8 @@ function describeAction(endpoint: string, method?: string): string {
   if (verb === "POST" && normalized.endsWith("/generate-pdf")) {
     return "PDF generation used demo simulation.";
   }
-  if (verb === "POST" && normalized.endsWith("/rescore")) {
-    return "Suitability rescoring used demo simulation.";
-  }
   if (verb === "POST" && normalized.endsWith("/apply")) {
     return "Apply flow used demo simulation and no external sync.";
-  }
-  if (normalized.startsWith("/onboarding/validate")) {
-    return "Credential validation is simulated in demo mode.";
   }
   return "This action ran in demo simulation mode.";
 }

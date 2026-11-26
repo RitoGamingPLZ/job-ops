@@ -5,7 +5,7 @@ import type {
   LlmPurposeOverrides,
 } from "@shared/types.js";
 
-export type EffectiveDefault<T> = {
+type EffectiveDefault<T> = {
   effective: T;
   default: T;
 };

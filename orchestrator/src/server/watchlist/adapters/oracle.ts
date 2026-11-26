@@ -205,7 +205,6 @@ export const oracleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsCustomSource: true,
     supportsBranding: false,
   },
-  catalogSchema,
   parseCatalogSources(entries) {
     return entries.flatMap((entry) => {
       const parsed = catalogSchema.safeParse(entry);

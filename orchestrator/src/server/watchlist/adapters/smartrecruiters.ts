@@ -196,7 +196,6 @@ export const smartrecruitersWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsCustomSource: true,
     supportsBranding: false,
   },
-  catalogSchema: sourceSchema,
   parseCatalogSources(entries) {
     return entries.flatMap((entry) => {
       const parsed = sourceSchema.safeParse(entry);

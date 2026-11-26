@@ -1,4 +1,6 @@
+import { getErrorMessage } from "@infra/errors";
 import { logger } from "@infra/logger";
+import { sleep } from "@server/utils/sleep";
 import { getOriginalEnvValue } from "@server/services/envSettings";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
 import { mapGlmProviderAlias } from "@shared/settings-registry";
@@ -6,6 +8,7 @@ import { toStringOrNull } from "@shared/utils/type-conversion";
 import { ClaudeCliClient } from "./claude-cli/client";
 import { CodexClient } from "./codex/client";
 import { GeminiCliClient } from "./gemini-cli/client";
+import { isCapabilityError } from "./policies/capability-fallback";
 import {
   buildModeCacheKey,
   getOrderedModes,
@@ -97,15 +100,15 @@ export class LlmService {
       };
     }
     if (this.provider === "codex") {
-      return this.callCodexJson(options);
+      return this.callCliJson("Codex", this.codexClient, options);
     }
 
     if (this.provider === "gemini_cli") {
-      return this.callGeminiCliJson(options);
+      return this.callCliJson("Gemini CLI", this.geminiCliClient, options);
     }
 
     if (this.provider === "claude_cli") {
-      return this.callClaudeCliJson(options);
+      return this.callCliJson("Claude CLI", this.claudeCliClient, options);
     }
 
     if (this.strategy.requiresApiKey && !this.apiKey) {
@@ -214,9 +217,9 @@ export class LlmService {
       } catch (error) {
         logger.warn("LLM credential validation request errored", {
           provider: this.provider,
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
-        lastMessage = error instanceof Error ? error.message : "LLM validation failed.";
+        lastMessage = getErrorMessage(error, "LLM validation failed.");
       }
     }
 
@@ -301,7 +304,12 @@ export class LlmService {
     return sortModels(models, getPreferredModel(this.provider));
   }
 
-  private async callCodexJson<T>(options: LlmRequestOptions<T>): Promise<LlmResponse<T>> {
+  /** Runs a CLI-backed provider (Codex, Gemini CLI, Claude CLI) with the shared retry policy. */
+  private async callCliJson<T>(
+    label: string,
+    client: { callJson(options: LlmRequestOptions<unknown>): Promise<{ text: string }> },
+    options: LlmRequestOptions<T>,
+  ): Promise<LlmResponse<T>> {
     const { maxRetries = 0, retryDelayMs = 500, signal, jobId } = options;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -315,97 +323,17 @@ export class LlmService {
           await sleep(getRetryDelayMs(retryDelayMs, attempt));
         }
 
-        const result = await this.codexClient.callJson({
+        const result = await client.callJson({
           ...options,
           signal,
         });
         const parsed = parseJsonContent<T>(result.text, jobId);
         return { success: true, data: parsed };
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = getErrorMessage(error);
 
         if (attempt < maxRetries && shouldRetryAttempt({ message })) {
-          logger.warn("Codex attempt failed, retrying", {
-            jobId: jobId ?? "unknown",
-            attempt: attempt + 1,
-            maxRetries,
-            message,
-          });
-          continue;
-        }
-
-        return { success: false, error: message };
-      }
-    }
-
-    return { success: false, error: "All retry attempts failed" };
-  }
-
-  private async callGeminiCliJson<T>(options: LlmRequestOptions<T>): Promise<LlmResponse<T>> {
-    const { maxRetries = 0, retryDelayMs = 500, signal, jobId } = options;
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        if (attempt > 0) {
-          logger.info("LLM retry attempt", {
-            jobId: jobId ?? "unknown",
-            attempt,
-            maxRetries,
-          });
-          await sleep(getRetryDelayMs(retryDelayMs, attempt));
-        }
-
-        const result = await this.geminiCliClient.callJson({
-          ...options,
-          signal,
-        });
-        const parsed = parseJsonContent<T>(result.text, jobId);
-        return { success: true, data: parsed };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-
-        if (attempt < maxRetries && shouldRetryAttempt({ message })) {
-          logger.warn("Gemini CLI attempt failed, retrying", {
-            jobId: jobId ?? "unknown",
-            attempt: attempt + 1,
-            maxRetries,
-            message,
-          });
-          continue;
-        }
-
-        return { success: false, error: message };
-      }
-    }
-
-    return { success: false, error: "All retry attempts failed" };
-  }
-
-  private async callClaudeCliJson<T>(options: LlmRequestOptions<T>): Promise<LlmResponse<T>> {
-    const { maxRetries = 0, retryDelayMs = 500, signal, jobId } = options;
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        if (attempt > 0) {
-          logger.info("LLM retry attempt", {
-            jobId: jobId ?? "unknown",
-            attempt,
-            maxRetries,
-          });
-          await sleep(getRetryDelayMs(retryDelayMs, attempt));
-        }
-
-        const result = await this.claudeCliClient.callJson({
-          ...options,
-          signal,
-        });
-        const parsed = parseJsonContent<T>(result.text, jobId);
-        return { success: true, data: parsed };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-
-        if (attempt < maxRetries && shouldRetryAttempt({ message })) {
-          logger.warn("Claude CLI attempt failed, retrying", {
+          logger.warn(`${label} attempt failed, retrying`, {
             jobId: jobId ?? "unknown",
             attempt: attempt + 1,
             maxRetries,
@@ -487,13 +415,13 @@ export class LlmService {
         const parsed = parseJsonContent<T>(content, jobId);
         return { success: true, data: parsed };
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = getErrorMessage(error);
         const status = (error as LlmApiError).status;
         const body = (error as LlmApiError).body;
         lastRetryAfterMs = (error as LlmApiError).retryAfterMs;
 
         if (
-          this.strategy.isCapabilityError({
+          isCapabilityError({
             mode,
             status,
             body,
@@ -798,10 +726,6 @@ function providerUsesConfiguredBaseUrl(provider: LlmProvider): boolean {
 
 function isCliProvider(provider: LlmProvider): boolean {
   return provider === "codex" || provider === "gemini_cli" || provider === "claude_cli";
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeModelForProvider(provider: LlmProvider, model: string): string {

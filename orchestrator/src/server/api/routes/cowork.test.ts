@@ -497,46 +497,9 @@ it("screens a posted resume against the job with validated refs and scoped bulle
   expect(callJson.mock.calls.length).toBe(calls);
 });
 
-it("labels explicit IDs, validates payloads, and sync never calls the LLM", async () => {
-  callJson.mockImplementation(async (input) => ({
-    success: true,
-    data: {
-      labels: JSON.parse(input.messages[1].content).bullets.map((b: { id: string }) => ({
-        bulletId: b.id,
-        tags: ["APIs"],
-      })),
-    },
-  }));
+it("sync never calls the LLM", async () => {
   await request("/library/sync", "POST");
   expect(callJson).not.toHaveBeenCalled();
-  const imported = (await (await request("/experience-bullets")).json()).data;
-  const response = await request("/experience-bullets/label", "POST", {
-    ids: [imported.bullets[0].id, "foreign"],
-  });
-  expect(response.status).toBe(200);
-  expect((await response.json()).data).toMatchObject({
-    labeled: 1,
-    remaining: 0,
-  });
-  const callsBefore = callJson.mock.calls.length;
-  expect(
-    (
-      await request("/experience-bullets/label", "POST", {
-        ids: Array.from({ length: 201 }, () => imported.bullets[0].id),
-      })
-    ).status,
-  ).toBe(400);
-  expect(callJson).toHaveBeenCalledTimes(callsBefore);
-  expect(
-    (
-      await request("/experience-bullets/label", "POST", {
-        ids: Array.from({ length: 200 }, () => imported.bullets[0].id),
-      })
-    ).status,
-  ).toBe(200);
-  expect((await request("/experience-bullets/label", "POST", { ids: "bad" })).status).toBe(400);
-  expect((await request("/experience-bullets/label", "POST", {}, false)).status).toBe(401);
-  for (const b of imported.bullets) await request(`/experience-bullets/${b.id}`, "DELETE");
   callJson.mockRejectedValue(new Error("upstream unavailable"));
   const failed = (await (await request("/library/sync", "POST")).json()).data;
   expect(failed).toMatchObject({ created: 0 });

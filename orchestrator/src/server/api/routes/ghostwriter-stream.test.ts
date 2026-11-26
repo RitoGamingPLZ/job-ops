@@ -11,9 +11,6 @@ const services = vi.hoisted(() => ({
   sendMessageForJob: vi.fn(),
   regenerateMessageForJob: vi.fn(),
   editMessageForJob: vi.fn(),
-  editMessage: vi.fn(),
-  sendMessage: vi.fn(),
-  regenerateMessage: vi.fn(),
 }));
 vi.mock("@server/services/ghostwriter", () => services);
 
@@ -21,9 +18,6 @@ const routes = [
   ["messages", "sendMessageForJob", "callback-thread"],
   ["messages/assistant-1/regenerate", "regenerateMessageForJob", "callback-thread"],
   ["messages/user-1/edit", "editMessageForJob", "callback-thread"],
-  ["threads/url-thread/messages/user-1/edit", "editMessage", "callback-thread"],
-  ["threads/url-thread/messages", "sendMessage", "url-thread"],
-  ["threads/url-thread/messages/assistant-1/regenerate", "regenerateMessage", "url-thread"],
 ] as const;
 
 describe("Ghostwriter route streams", () => {

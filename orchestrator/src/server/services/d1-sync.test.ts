@@ -6,12 +6,12 @@ import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { internalD1SyncRouter } from "../api/routes/internal-d1-sync";
 import {
+  __resetD1SyncBaselineForTests,
   collectD1Changes,
   getD1SyncSchema,
   importTablesFromD1,
   listPdfFiles,
   readPdfFile,
-  resetD1SyncBaseline,
   writePdfFile,
 } from "./d1-sync";
 
@@ -45,11 +45,11 @@ describe("d1-sync service", () => {
     tempDir = mkdtempSync(join(tmpdir(), "jobops-d1-sync-"));
     dbPath = join(tempDir, "jobs.db");
     createTestDb(dbPath);
-    resetD1SyncBaseline(dbPath);
+    __resetD1SyncBaselineForTests(dbPath);
   });
 
   afterEach(() => {
-    resetD1SyncBaseline(dbPath);
+    __resetD1SyncBaselineForTests(dbPath);
     rmSync(tempDir, { recursive: true, force: true });
   });
 

@@ -128,22 +128,6 @@ export async function validateLlm(options: {
   return llm.validateCredentials();
 }
 
-export async function validateResumeConfig(): Promise<ValidationResponse> {
-  try {
-    const localStatus = await getDesignResumeStatus();
-    if (localStatus.exists) {
-      return { valid: true, message: null };
-    }
-    return {
-      valid: false,
-      message: "No local resume is ready yet. Upload a PDF, DOCX, or resume JSON file.",
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Resume validation failed.";
-    return { valid: false, message };
-  }
-}
-
 function isUnavailable(validation: ValidationResponse): boolean {
   if (validation.status === 0 || (validation.status ?? 0) >= 500) return true;
   const message = validation.message?.toLowerCase() ?? "";

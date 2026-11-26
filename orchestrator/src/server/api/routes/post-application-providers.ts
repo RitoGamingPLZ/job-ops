@@ -1,3 +1,4 @@
+import { toNonEmptyString } from "@shared/utils/type-conversion";
 import { randomUUID } from "node:crypto";
 import { badRequest, serviceUnavailable, upstreamError } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
@@ -104,24 +105,20 @@ function setOauthState(
   oauthStateStore.set(state, entry);
 }
 
-function asNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-}
-
 function resolveGmailOauthConfig(req: Request): {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
 } {
-  const clientId = asNonEmptyString(process.env.GMAIL_OAUTH_CLIENT_ID);
-  const clientSecret = asNonEmptyString(process.env.GMAIL_OAUTH_CLIENT_SECRET);
+  const clientId = toNonEmptyString(process.env.GMAIL_OAUTH_CLIENT_ID);
+  const clientSecret = toNonEmptyString(process.env.GMAIL_OAUTH_CLIENT_SECRET);
   if (!clientId || !clientSecret) {
     throw serviceUnavailable(
       "Gmail OAuth is not configured. Missing GMAIL_OAUTH_CLIENT_ID or GMAIL_OAUTH_CLIENT_SECRET.",
     );
   }
 
-  const configuredRedirectUri = asNonEmptyString(process.env.GMAIL_OAUTH_REDIRECT_URI);
+  const configuredRedirectUri = toNonEmptyString(process.env.GMAIL_OAUTH_REDIRECT_URI);
   const origin = `${req.protocol}://${req.get("host")}`;
   const redirectUri = configuredRedirectUri ?? `${origin}/oauth/gmail/callback`;
 
@@ -162,21 +159,21 @@ async function exchangeGmailAuthorizationCode(args: {
     throw upstreamError("Google OAuth token exchange failed.");
   }
 
-  const refreshToken = asNonEmptyString(data.refresh_token);
+  const refreshToken = toNonEmptyString(data.refresh_token);
   if (!refreshToken) {
     throw upstreamError(
       "Google OAuth exchange did not return a refresh token. Re-consent is required.",
     );
   }
 
-  const accessToken = asNonEmptyString(data.access_token) ?? undefined;
+  const accessToken = toNonEmptyString(data.access_token) ?? undefined;
   const expiryIn = Number(data.expires_in);
   return {
     refreshToken,
     ...(accessToken ? { accessToken } : {}),
     ...(Number.isFinite(expiryIn) ? { expiryDate: Date.now() + expiryIn * 1000 } : {}),
-    ...(asNonEmptyString(data.scope) ? { scope: String(data.scope) } : {}),
-    ...(asNonEmptyString(data.token_type) ? { tokenType: String(data.token_type) } : {}),
+    ...(toNonEmptyString(data.scope) ? { scope: String(data.scope) } : {}),
+    ...(toNonEmptyString(data.token_type) ? { tokenType: String(data.token_type) } : {}),
   };
 }
 
@@ -192,8 +189,8 @@ async function fetchGmailUserProfile(accessToken: string): Promise<{
 
   if (!response.ok) return {};
   const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-  const email = asNonEmptyString(data.email) ?? undefined;
-  const displayName = asNonEmptyString(data.name) ?? asNonEmptyString(data.given_name) ?? undefined;
+  const email = toNonEmptyString(data.email) ?? undefined;
+  const displayName = toNonEmptyString(data.name) ?? toNonEmptyString(data.given_name) ?? undefined;
   return {
     ...(email ? { email } : {}),
     ...(displayName ? { displayName } : {}),

@@ -1,3 +1,4 @@
+import { asRecord } from "@shared/utils/type-conversion";
 import { z } from "zod";
 
 const templateNames = [
@@ -250,7 +251,7 @@ const volunteerSectionSchema = baseSectionSchema.extend({
   items: z.array(volunteerItemSchema),
 });
 
-export const sectionsSchema = z.object({
+const sectionsSchema = z.object({
   profiles: profilesSectionSchema,
   experience: experienceSectionSchema,
   education: educationSectionSchema,
@@ -264,8 +265,6 @@ export const sectionsSchema = z.object({
   volunteer: volunteerSectionSchema,
   references: referencesSectionSchema,
 });
-
-export type SectionType = keyof z.infer<typeof sectionsSchema>;
 
 const sectionTypeSchema = z.enum([
   "summary",
@@ -471,11 +470,6 @@ export const metadataSchema = z.object({
   typography: typographySchema,
   notes: z.string(),
 });
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
 
 function migrateLegacyInlineLinkOptions(input: unknown): unknown {
   const source = asRecord(input);

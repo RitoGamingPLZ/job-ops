@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db, schema } from "@server/db";
+import { parseJsonSafely } from "@server/utils/json";
+import { asRecord } from "@shared/utils/type-conversion";
 import {
   getPrivateDataScope,
   isHostedUserIsolationEnabled,
@@ -23,7 +25,7 @@ const {
   stageEvents,
 } = schema;
 
-export const ANALYTICS_INSTALL_STATE_ID = "default";
+const ANALYTICS_INSTALL_STATE_ID = "default";
 
 export const ACTIVATION_MILESTONES = [
   "activation_first_pipeline_run",
@@ -62,7 +64,7 @@ type UserScopedAnalyticsTable = {
 
 type Primitive = string | number | boolean | null;
 
-export type HistoricalServerEventReplayCandidate = {
+type HistoricalServerEventReplayCandidate = {
   eventKey: string;
   eventName: string;
   occurredAt: number;
@@ -146,19 +148,9 @@ function earlierTimestamp(left: number | null, right: number | null): number | n
 function parseJsonRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || value === undefined) return null;
   if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value) as unknown;
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? (parsed as Record<string, unknown>)
-        : null;
-    } catch {
-      return null;
-    }
+    return asRecord(parseJsonSafely<unknown>(value, null));
   }
-  if (typeof value === "object" && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return null;
+  return asRecord(value);
 }
 
 /** Shared by live stage tracking (applicationTracking) and historical replay. */
@@ -203,16 +195,6 @@ function toPrimitiveRecord(
     }
   }
   return Object.keys(result).length > 0 ? result : undefined;
-}
-
-function buildReplayCandidate(args: {
-  eventKey: string;
-  eventName: string;
-  occurredAt: number;
-  urlPath: string;
-  data?: Record<string, Primitive>;
-}): HistoricalServerEventReplayCandidate {
-  return args;
 }
 
 async function estimateInstallTimestampMs(): Promise<number> {
@@ -272,18 +254,14 @@ async function estimateInstallTimestampMs(): Promise<number> {
   return earliest;
 }
 
-function mapInstallState(row: InstallState): InstallState {
-  return row;
-}
-
-export async function getAnalyticsInstallState(): Promise<InstallState | null> {
+async function getAnalyticsInstallState(): Promise<InstallState | null> {
   const installStateId = getAnalyticsInstallStateId();
   const [row] = await db
     .select()
     .from(analyticsInstallState)
     .where(eq(analyticsInstallState.id, installStateId))
     .limit(1);
-  return row ? mapInstallState(row) : null;
+  return row ?? null;
 }
 
 export async function getOrCreateAnalyticsInstallState(): Promise<InstallState> {
@@ -562,24 +540,29 @@ export async function claimAnalyticsServerEventReplay(args: {
   const nowIso = new Date(nowMs).toISOString();
   const staleBefore = nowMs - RAW_EVENT_REPLAY_CLAIM_STALE_MS;
 
-  const updated = await db
-    .update(analyticsServerEventReplays)
-    .set({
-      eventName: args.eventName,
-      occurredAt: args.occurredAt,
-      payload: args.payload ?? {},
-      claimedAt: nowMs,
-      updatedAt: nowIso,
-    })
-    .where(
-      and(
-        eq(analyticsServerEventReplays.eventKey, eventKey),
-        sql`${analyticsServerEventReplays.reportedAt} IS NULL`,
-        sql`(${analyticsServerEventReplays.claimedAt} IS NULL OR ${analyticsServerEventReplays.claimedAt} < ${staleBefore})`,
-      ),
-    )
-    .run();
-  if (updated.changes > 0) {
+  // Claims an existing, undelivered replay that nobody else is actively working on.
+  const claimExisting = async () => {
+    const result = await db
+      .update(analyticsServerEventReplays)
+      .set({
+        eventName: args.eventName,
+        occurredAt: args.occurredAt,
+        payload: args.payload ?? {},
+        claimedAt: nowMs,
+        updatedAt: nowIso,
+      })
+      .where(
+        and(
+          eq(analyticsServerEventReplays.eventKey, eventKey),
+          sql`${analyticsServerEventReplays.reportedAt} IS NULL`,
+          sql`(${analyticsServerEventReplays.claimedAt} IS NULL OR ${analyticsServerEventReplays.claimedAt} < ${staleBefore})`,
+        ),
+      )
+      .run();
+    return result.changes > 0;
+  };
+
+  if (await claimExisting()) {
     return true;
   }
 
@@ -611,24 +594,7 @@ export async function claimAnalyticsServerEventReplay(args: {
       return false;
     }
 
-    const reclaimed = await db
-      .update(analyticsServerEventReplays)
-      .set({
-        eventName: args.eventName,
-        occurredAt: args.occurredAt,
-        payload: args.payload ?? {},
-        claimedAt: nowMs,
-        updatedAt: nowIso,
-      })
-      .where(
-        and(
-          eq(analyticsServerEventReplays.eventKey, eventKey),
-          sql`${analyticsServerEventReplays.reportedAt} IS NULL`,
-          sql`(${analyticsServerEventReplays.claimedAt} IS NULL OR ${analyticsServerEventReplays.claimedAt} < ${staleBefore})`,
-        ),
-      )
-      .run();
-    return reclaimed.changes > 0;
+    return claimExisting();
   }
 }
 
@@ -719,14 +685,12 @@ export async function getHistoricalServerEventReplayCandidates(args: {
   for (const row of pipelineRunRows) {
     const occurredAt = toEpochMs(row.startedAt);
     if (occurredAt === null || occurredAt >= args.cutoffMs) continue;
-    candidates.push(
-      buildReplayCandidate({
-        eventKey: `jobs_pipeline_run_started:${row.id}`,
-        eventName: "jobs_pipeline_run_started",
-        occurredAt,
-        urlPath: "/jobs",
-      }),
-    );
+    candidates.push({
+      eventKey: `jobs_pipeline_run_started:${row.id}`,
+      eventName: "jobs_pipeline_run_started",
+      occurredAt,
+      urlPath: "/jobs",
+    });
   }
 
   for (const row of stageEventRows) {
@@ -737,63 +701,55 @@ export async function getHistoricalServerEventReplayCandidates(args: {
     const source = classifyStageAnalyticsSource(metadata, String(row.toStage));
 
     if (String(row.toStage) !== "applied") {
-      candidates.push(
-        buildReplayCandidate({
-          eventKey: `application_stage_reached:${row.id}`,
-          eventName: "application_stage_reached",
-          occurredAt: row.occurredAt * 1000,
-          urlPath: "/applications/in-progress",
-          data: toPrimitiveRecord({
-            stage: String(row.toStage),
-            source,
-            actor: typeof metadata?.actor === "string" ? metadata.actor : null,
-          }),
+      candidates.push({
+        eventKey: `application_stage_reached:${row.id}`,
+        eventName: "application_stage_reached",
+        occurredAt: row.occurredAt * 1000,
+        urlPath: "/applications/in-progress",
+        data: toPrimitiveRecord({
+          stage: String(row.toStage),
+          source,
+          actor: typeof metadata?.actor === "string" ? metadata.actor : null,
         }),
-      );
+      });
     }
 
     if (POSITIVE_RESPONSE_STAGES.includes(row.toStage as never)) {
-      candidates.push(
-        buildReplayCandidate({
-          eventKey: `application_positive_response_detected:${row.id}`,
-          eventName: "application_positive_response_detected",
-          occurredAt: row.occurredAt * 1000,
-          urlPath: "/applications/in-progress",
-          data: toPrimitiveRecord({
-            stage: String(row.toStage),
-            source,
-          }),
+      candidates.push({
+        eventKey: `application_positive_response_detected:${row.id}`,
+        eventName: "application_positive_response_detected",
+        occurredAt: row.occurredAt * 1000,
+        urlPath: "/applications/in-progress",
+        data: toPrimitiveRecord({
+          stage: String(row.toStage),
+          source,
         }),
-      );
+      });
     }
 
     if (INTERVIEW_STAGES.includes(row.toStage as never)) {
-      candidates.push(
-        buildReplayCandidate({
-          eventKey: `application_interview_stage_reached:${row.id}`,
-          eventName: "application_interview_stage_reached",
-          occurredAt: row.occurredAt * 1000,
-          urlPath: "/applications/in-progress",
-          data: toPrimitiveRecord({
-            stage: String(row.toStage),
-            source,
-          }),
+      candidates.push({
+        eventKey: `application_interview_stage_reached:${row.id}`,
+        eventName: "application_interview_stage_reached",
+        occurredAt: row.occurredAt * 1000,
+        urlPath: "/applications/in-progress",
+        data: toPrimitiveRecord({
+          stage: String(row.toStage),
+          source,
         }),
-      );
+      });
     }
 
     if (row.toStage === "offer") {
-      candidates.push(
-        buildReplayCandidate({
-          eventKey: `application_offer_detected:${row.id}`,
-          eventName: "application_offer_detected",
-          occurredAt: row.occurredAt * 1000,
-          urlPath: "/applications/in-progress",
-          data: toPrimitiveRecord({
-            source,
-          }),
+      candidates.push({
+        eventKey: `application_offer_detected:${row.id}`,
+        eventName: "application_offer_detected",
+        occurredAt: row.occurredAt * 1000,
+        urlPath: "/applications/in-progress",
+        data: toPrimitiveRecord({
+          source,
         }),
-      );
+      });
     }
 
     if (row.toStage === "offer" || row.outcome === "offer_accepted") {
@@ -807,32 +763,28 @@ export async function getHistoricalServerEventReplayCandidates(args: {
     }
 
     if (String(row.toStage) === "applied") {
-      candidates.push(
-        buildReplayCandidate({
-          eventKey: `application_marked_applied:${row.id}`,
-          eventName: "application_marked_applied",
-          occurredAt: row.occurredAt * 1000,
-          urlPath: "/applications/in-progress",
-          data: toPrimitiveRecord({
-            source,
-          }),
+      candidates.push({
+        eventKey: `application_marked_applied:${row.id}`,
+        eventName: "application_marked_applied",
+        occurredAt: row.occurredAt * 1000,
+        urlPath: "/applications/in-progress",
+        data: toPrimitiveRecord({
+          source,
         }),
-      );
+      });
     }
   }
 
   for (const [applicationId, accepted] of acceptedByJob.entries()) {
-    candidates.push(
-      buildReplayCandidate({
-        eventKey: `application_accepted:${applicationId}`,
-        eventName: "application_accepted",
-        occurredAt: accepted.occurredAt,
-        urlPath: "/applications/in-progress",
-        data: toPrimitiveRecord({
-          source: accepted.source,
-        }),
+    candidates.push({
+      eventKey: `application_accepted:${applicationId}`,
+      eventName: "application_accepted",
+      occurredAt: accepted.occurredAt,
+      urlPath: "/applications/in-progress",
+      data: toPrimitiveRecord({
+        source: accepted.source,
       }),
-    );
+    });
   }
 
   for (const row of messageRows) {
@@ -840,19 +792,17 @@ export async function getHistoricalServerEventReplayCandidates(args: {
       typeof row.decidedAt === "number" && Number.isFinite(row.decidedAt)
         ? row.decidedAt
         : row.receivedAt;
-    candidates.push(
-      buildReplayCandidate({
-        eventKey: `tracking_email_matched:${row.id}`,
-        eventName: "tracking_email_matched",
-        occurredAt,
-        urlPath: "/tracking-inbox",
-        data: toPrimitiveRecord({
-          provider: String(row.provider),
-          match_mode: row.processingStatus === "auto_linked" ? "auto_link" : "manual_review",
-          result: "success",
-        }),
+    candidates.push({
+      eventKey: `tracking_email_matched:${row.id}`,
+      eventName: "tracking_email_matched",
+      occurredAt,
+      urlPath: "/tracking-inbox",
+      data: toPrimitiveRecord({
+        provider: String(row.provider),
+        match_mode: row.processingStatus === "auto_linked" ? "auto_link" : "manual_review",
+        result: "success",
       }),
-    );
+    });
   }
 
   return candidates.sort((left, right) => {

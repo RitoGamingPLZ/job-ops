@@ -22,7 +22,7 @@ export async function getLatestDesignResumeDocument() {
   return row ?? null;
 }
 
-export async function getDesignResumeDocumentById(id: string) {
+async function getDesignResumeDocumentById(id: string) {
   const [row] = await db
     .select()
     .from(designResumeDocuments)

@@ -5,13 +5,8 @@ import {
   type LocationSearchScope,
   normalizeLocationMatchStrictness,
   normalizeLocationSearchScope,
-} from "@shared/location-preferences.js";
-import { parseSearchCitiesSetting, serializeSearchCitiesSetting } from "@shared/search-cities.js";
-import {
-  deriveExtractorLimits,
-  type LocationProximity,
-  normalizePipelineRunBudget,
-} from "@shared/types";
+} from "@shared/location-domain.js";
+import { type LocationProximity, normalizePipelineRunBudget } from "@shared/types";
 import { getAuthScopedStorageKey } from "@/client/api/client";
 
 export type AutomaticPresetId = "fast" | "balanced" | "detailed";
@@ -37,7 +32,7 @@ export interface AutomaticRunValues {
   watchlistSelectedSourceIds?: string[];
 }
 
-export interface AutomaticPresetValues {
+interface AutomaticPresetValues {
   topN: number;
   minSuitabilityScore: number;
   runBudget: number;
@@ -124,7 +119,7 @@ export const MATCH_STRICTNESS_OPTIONS: Array<{
   },
 ];
 
-export interface AutomaticRunMemory {
+interface AutomaticRunMemory {
   topN: number;
   minSuitabilityScore: number;
   presetId?: AutomaticPresetSelection;
@@ -181,8 +176,6 @@ export function inferAutomaticPresetSelection(args: {
   return "custom";
 }
 
-export { deriveExtractorLimits };
-
 export function parseSearchTermsInput(input: string): string[] {
   return input
     .split(/[\n,]/g)
@@ -201,14 +194,6 @@ export function parseCityLocationsInput(input: string): string[] {
     out.push(city);
   }
   return out;
-}
-
-export function parseCityLocationsSetting(location: string | null | undefined): string[] {
-  return parseSearchCitiesSetting(location);
-}
-
-export function serializeCityLocationsSetting(cities: string[]): string | null {
-  return serializeSearchCitiesSetting(cities);
 }
 
 export function summarizeLocationPreferences(

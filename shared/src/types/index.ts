@@ -6,7 +6,6 @@ export * from "./chat";
 export * from "./cowork";
 export * from "./cowork-screening";
 export * from "./design-resume";
-export * from "./design-resume-jake";
 export * from "./extractors";
 export * from "./jobs";
 export * from "./pipeline";

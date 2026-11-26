@@ -1,3 +1,4 @@
+import { fetchBamboohrJson, optionalString, requiredString } from "./http";
 import {
   type BamboohrSourceConfig,
   bamboohrUrlToJobUrl,
@@ -140,32 +141,6 @@ function buildLocationText(jobOpening: BamboohrJobOpening): string | undefined {
   return parts.length > 0 ? parts.join(", ") : undefined;
 }
 
-async function fetchBamboohrJson<T>(
-  fetchFn: typeof fetch,
-  input: {
-    url: string;
-    signal?: AbortSignal;
-    headers?: HeadersInit;
-  },
-): Promise<T> {
-  const response = await fetchFn(input.url, {
-    method: "GET",
-    signal: input.signal,
-    headers: input.headers,
-  });
-
-  const responseText = await response.text();
-  if (!response.ok) {
-    throw new Error(`BambooHR request failed with HTTP ${response.status} for ${input.url}.`);
-  }
-
-  try {
-    return JSON.parse(responseText) as T;
-  } catch {
-    throw new Error(`BambooHR response was not valid JSON for ${input.url}.`);
-  }
-}
-
 function htmlToText(html: string): string {
   return html
     .replace(/<\s*br\s*\/?>/gi, "\n")
@@ -181,13 +156,4 @@ function htmlToText(html: string): string {
     .replace(/\n\s+/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-}
-
-function requiredString(value: unknown, fieldName: string, url: string): string {
-  if (typeof value === "string" && value.trim()) return value.trim();
-  throw new Error(`BambooHR response is missing required field ${fieldName} for ${url}.`);
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }

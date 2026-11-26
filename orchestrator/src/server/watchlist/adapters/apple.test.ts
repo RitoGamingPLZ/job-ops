@@ -131,7 +131,6 @@ describe("appleWatchlistAdapter", () => {
           "https://jobs.apple.com/en-us/search?page=1&sort=newest&team=HRDWR-ACT+HRDWR-ADD+HRDWR-ARCH+HRDWR-BE+HRDWR-CAM+HRDWR-CWSC+HRDWR-DISP+HRDWR-ESFD+HRDWR-EPM+HRDWR-HT+HRDWR-ICP+HRDWR-MCHLN+HRDWR-MAE+HRDWR-ME+HRDWR-PS+HRDWR-PPT+HRDWR-PACE+HRDWR-PDE+HRDWR-REL+HRDWR-SENT+HRDWR-SILT+HRDWR-SQATV+HRDWR-SPC+HRDWR-SDE+HRDWR-VMAT+SFTWR-AF+SFTWR-CP+SFTWR-CLD+SFTWR-DSR+SFTWR-EPM+SFTWR-GPUG+SFTWR-ISTECH+SFTWR-MCHLN+SFTWR-COS+SFTWR-PD+SFTWR-SEC+SFTWR-SQAT+SFTWR-SC+SFTWR-TS+SFTWR-UEE+SFTWR-VMAT+SFTWR-WSFT",
       },
     ]);
-    expect(adapter.catalogSchema.safeParse(entries[0]).success).toBe(true);
     const catalogUrl = new URL(adapter.parseCatalogSources(entries)[0].careersUrl);
     expect(catalogUrl.toString().length).toBeLessThanOrEqual(2000);
     const teams = catalogUrl.searchParams.get("team")?.split(" ") ?? [];

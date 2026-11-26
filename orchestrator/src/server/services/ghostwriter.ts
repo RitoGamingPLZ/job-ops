@@ -1,3 +1,4 @@
+import { getPositiveIntEnv } from "@server/utils/env";
 import { badRequest, conflict, notFound, requestTimeout, upstreamError } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { getRequestId } from "@infra/request-context";
@@ -49,14 +50,6 @@ type LlmRuntimeSettings = {
 };
 
 const abortControllers = new Map<string, AbortController>();
-
-function getPositiveIntEnv(name: string, fallback: number): number {
-  const raw = process.env[name]?.trim();
-  if (!raw) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
-}
 
 const getCapabilityTimeoutMs = () =>
   getPositiveIntEnv("LLM_GHOSTWRITER_CAPABILITY_TIMEOUT_MS", 2500);
@@ -557,15 +550,6 @@ async function updateThreadContext(input: {
   return thread;
 }
 
-export async function createThread(input: { jobId: string; title?: string | null }) {
-  return ensureJobThread(input.jobId);
-}
-
-export async function listThreads(jobId: string) {
-  const thread = await ensureJobThread(jobId);
-  return [thread];
-}
-
 export async function updateContextForJob(input: {
   jobId: string;
   selectedNoteIds?: readonly string[];
@@ -605,7 +589,7 @@ async function buildBranchInfoForPath(messages: JobChatMessage[]): Promise<Branc
   return branches;
 }
 
-export async function listMessages(input: {
+async function listMessages(input: {
   jobId: string;
   threadId: string;
   limit?: number;

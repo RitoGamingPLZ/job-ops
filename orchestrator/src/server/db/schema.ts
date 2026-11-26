@@ -5,12 +5,9 @@
 import {
   APPLICATION_OUTCOMES,
   APPLICATION_STAGES,
-  APPLICATION_TASK_TYPES,
   type CandidateItemKind,
   type ExperienceBulletSource,
   HOSTED_USAGE_ACTIONS,
-  INTERVIEW_OUTCOMES,
-  INTERVIEW_TYPES,
   JOB_CHAT_MESSAGE_ROLES,
   JOB_CHAT_MESSAGE_STATUSES,
   JOB_CHAT_RUN_STATUSES,
@@ -379,25 +376,6 @@ export const stageEvents = sqliteTable("stage_events", {
   outcome: text("outcome", { enum: APPLICATION_OUTCOMES }),
 });
 
-export const tasks = sqliteTable("tasks", {
-  id: text("id").primaryKey(),
-  tenantId: text("tenant_id")
-    .notNull()
-    .default("tenant_default")
-    .references(() => tenants.id, { onDelete: "cascade" }),
-  userId: text("user_id").references(() => users.id, {
-    onDelete: "cascade",
-  }),
-  applicationId: text("application_id")
-    .notNull()
-    .references(() => jobs.id, { onDelete: "cascade" }),
-  type: text("type", { enum: APPLICATION_TASK_TYPES }).notNull(),
-  title: text("title").notNull(),
-  dueDate: integer("due_date", { mode: "number" }),
-  isCompleted: integer("is_completed", { mode: "boolean" }).notNull().default(false),
-  notes: text("notes"),
-});
-
 export const jobNotes = sqliteTable(
   "job_notes",
   {
@@ -425,24 +403,6 @@ export const jobNotes = sqliteTable(
     jobUpdatedIndex: index("idx_job_notes_job_updated").on(table.jobId, table.updatedAt),
   }),
 );
-
-export const interviews = sqliteTable("interviews", {
-  id: text("id").primaryKey(),
-  tenantId: text("tenant_id")
-    .notNull()
-    .default("tenant_default")
-    .references(() => tenants.id, { onDelete: "cascade" }),
-  userId: text("user_id").references(() => users.id, {
-    onDelete: "cascade",
-  }),
-  applicationId: text("application_id")
-    .notNull()
-    .references(() => jobs.id, { onDelete: "cascade" }),
-  scheduledAt: integer("scheduled_at", { mode: "number" }).notNull(),
-  durationMins: integer("duration_mins"),
-  type: text("type", { enum: INTERVIEW_TYPES }).notNull(),
-  outcome: text("outcome", { enum: INTERVIEW_OUTCOMES }),
-});
 
 export const pipelineRuns = sqliteTable("pipeline_runs", {
   id: text("id").primaryKey(),

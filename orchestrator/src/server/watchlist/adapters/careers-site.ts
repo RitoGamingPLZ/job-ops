@@ -241,7 +241,6 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsCustomSource: true,
     supportsBranding: false,
   },
-  catalogSchema: sourceSchema,
   parseCatalogSources(entries) {
     return entries.flatMap((entry) => {
       try {

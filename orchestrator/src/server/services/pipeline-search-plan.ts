@@ -13,13 +13,15 @@ import {
   type ExtractorSourceId,
   PIPELINE_EXTRACTOR_SOURCE_IDS,
 } from "@shared/extractors";
-import { planLocationSources } from "@shared/location-intelligence.js";
 import {
   LOCATION_MATCH_STRICTNESS_VALUES,
   LOCATION_SEARCH_SCOPE_VALUES,
+  LOCATION_WORKPLACE_TYPE_VALUES,
+  type LocationWorkplaceType,
   normalizeLocationMatchStrictness,
   normalizeLocationSearchScope,
-} from "@shared/location-preferences.js";
+  planLocationSources,
+} from "@shared/location-domain.js";
 import { normalizeCountryKey, SUPPORTED_COUNTRY_KEYS } from "@shared/location-support.js";
 import { normalizeStringArray } from "@shared/normalize-string-array";
 import type {
@@ -31,11 +33,8 @@ import { MAX_PIPELINE_RUN_BUDGET, MIN_PIPELINE_RUN_BUDGET } from "@shared/types"
 import { normalizeSearchTerms } from "@shared/utils/search-terms";
 import type { JsonSchemaDefinition } from "./llm/types";
 
-const WORKPLACE_TYPE_VALUES = ["remote", "hybrid", "onsite"] as const;
 const PRESET_VALUES = ["fast", "balanced", "detailed", "custom"] as const;
 const MAX_WARNINGS = 6;
-
-type WorkplaceType = (typeof WORKPLACE_TYPE_VALUES)[number];
 
 type SearchPlanModelResponse = {
   config?: Partial<PipelineSearchPresetConfig>;
@@ -73,7 +72,7 @@ const SEARCH_PLAN_SCHEMA: JsonSchemaDefinition = {
           },
           workplaceTypes: {
             type: "array",
-            items: { type: "string", enum: [...WORKPLACE_TYPE_VALUES] },
+            items: { type: "string", enum: [...LOCATION_WORKPLACE_TYPE_VALUES] },
             minItems: 1,
             maxItems: 3,
           },
@@ -156,10 +155,13 @@ function normalizeOptionalStrings(
   );
 }
 
-function normalizeWorkplaceTypes(value: unknown, fallback: WorkplaceType[]): WorkplaceType[] {
+function normalizeWorkplaceTypes(
+  value: unknown,
+  fallback: LocationWorkplaceType[],
+): LocationWorkplaceType[] {
   const raw = Array.isArray(value) ? value : fallback;
-  const out = raw.filter((item): item is WorkplaceType =>
-    WORKPLACE_TYPE_VALUES.includes(item as WorkplaceType),
+  const out = raw.filter((item): item is LocationWorkplaceType =>
+    LOCATION_WORKPLACE_TYPE_VALUES.includes(item as LocationWorkplaceType),
   );
   return out.length > 0 ? Array.from(new Set(out)) : fallback;
 }

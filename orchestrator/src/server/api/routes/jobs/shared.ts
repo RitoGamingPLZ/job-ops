@@ -157,11 +157,6 @@ export const updateStageEventSchema = z.object({
   outcome: z.enum(APPLICATION_OUTCOMES).nullable().optional(),
 });
 
-export const updateOutcomeSchema = z.object({
-  outcome: z.enum(APPLICATION_OUTCOMES).nullable(),
-  closedAt: z.number().int().nullable().optional(),
-});
-
 export const jobActionRequestSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("skip"),

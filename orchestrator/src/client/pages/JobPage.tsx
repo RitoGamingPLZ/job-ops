@@ -1,6 +1,5 @@
 import { resolveResumeProjectSelection } from "@shared/resume-projects";
 import {
-  type ApplicationTask,
   BOARD_COLUMN_LABELS,
   boardColumnForStage,
   isTargeted,
@@ -161,15 +160,9 @@ export const JobPage: React.FC = () => {
     queryFn: () => (id ? api.getJobNotes(id) : Promise.resolve([])),
     enabled: Boolean(id) && activeAction !== "delete-job",
   });
-  const tasksQuery = useQuery<ApplicationTask[]>({
-    queryKey: ["jobs", "tasks", id ?? null] as const,
-    queryFn: () => (id ? api.getJobTasks(id) : Promise.resolve([])),
-    enabled: Boolean(id) && activeAction !== "delete-job",
-  });
 
   useQueryErrorToast(jobQuery.error, "Failed to load job details. Please try again.");
   useQueryErrorToast(eventsQuery.error, "Failed to load job timeline. Please try again.");
-  useQueryErrorToast(tasksQuery.error, "Failed to load job tasks. Please try again.");
 
   const markAsAppliedMutation = useMarkAsAppliedMutation();
   const updateJobMutation = useUpdateJobMutation();
@@ -184,8 +177,7 @@ export const JobPage: React.FC = () => {
     () => sortNotesByUpdatedAtDesc(notesQuery.data ?? []),
     [notesQuery.data],
   );
-  const tasks = tasksQuery.data ?? [];
-  const isLoading = jobQuery.isLoading || eventsQuery.isLoading || tasksQuery.isLoading;
+  const isLoading = jobQuery.isLoading || eventsQuery.isLoading;
   const activeMemoryView = normalizeMemoryView(view);
   useQueryErrorToast(
     activeMemoryView === "note" ? null : notesQuery.error,
@@ -261,7 +253,6 @@ export const JobPage: React.FC = () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.jobs.stageEvents(id),
       }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.tasks(id) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.jobs.notes(id) }),
       queryClient.invalidateQueries({
         queryKey: [...queryKeys.jobs.all, "emails", id] as const,
@@ -899,7 +890,6 @@ export const JobPage: React.FC = () => {
           {activeMemoryView === "overview" && (
             <JobPageRightSidebar
               job={job}
-              tasks={tasks}
               jobLink={jobLink}
               isDiscovered={Boolean(isDiscovered)}
               isReady={Boolean(isReady)}

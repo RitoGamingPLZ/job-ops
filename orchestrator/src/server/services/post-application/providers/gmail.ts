@@ -6,6 +6,7 @@ import {
 } from "@server/repositories/post-application-integrations";
 import { runGmailIngestionSync } from "@server/services/post-application/ingestion/gmail-sync";
 import type { PostApplicationIntegration } from "@shared/types";
+import { toNonEmptyString } from "@shared/utils/type-conversion";
 import { providerInvalidRequest, providerUpstreamError } from "./errors";
 import type {
   PostApplicationProviderActionResult,
@@ -26,10 +27,6 @@ type GmailCredentialPayload = {
   displayName?: string;
 };
 
-function asString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
-}
-
 function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
@@ -40,7 +37,7 @@ function parseGmailCredentials(args: PostApplicationProviderConnectArgs): GmailC
     throw providerInvalidRequest("Gmail connect requires payload credentials in body.payload.");
   }
 
-  const refreshToken = asString((raw as Record<string, unknown>).refreshToken);
+  const refreshToken = toNonEmptyString((raw as Record<string, unknown>).refreshToken);
   if (!refreshToken) {
     throw providerInvalidRequest(
       "Gmail connect requires a non-empty refreshToken in body.payload.refreshToken.",
@@ -49,12 +46,12 @@ function parseGmailCredentials(args: PostApplicationProviderConnectArgs): GmailC
 
   return {
     refreshToken,
-    accessToken: asString((raw as Record<string, unknown>).accessToken),
+    accessToken: toNonEmptyString((raw as Record<string, unknown>).accessToken) ?? undefined,
     expiryDate: asNumber((raw as Record<string, unknown>).expiryDate),
-    scope: asString((raw as Record<string, unknown>).scope),
-    tokenType: asString((raw as Record<string, unknown>).tokenType),
-    email: asString((raw as Record<string, unknown>).email),
-    displayName: asString((raw as Record<string, unknown>).displayName),
+    scope: toNonEmptyString((raw as Record<string, unknown>).scope) ?? undefined,
+    tokenType: toNonEmptyString((raw as Record<string, unknown>).tokenType) ?? undefined,
+    email: toNonEmptyString((raw as Record<string, unknown>).email) ?? undefined,
+    displayName: toNonEmptyString((raw as Record<string, unknown>).displayName) ?? undefined,
   };
 }
 
@@ -71,10 +68,10 @@ function toPublicIntegration(
         typeof credentials.refreshToken === "string" && credentials.refreshToken.length > 0,
       hasAccessToken:
         typeof credentials.accessToken === "string" && credentials.accessToken.length > 0,
-      scope: asString(credentials.scope) ?? null,
-      tokenType: asString(credentials.tokenType) ?? null,
+      scope: toNonEmptyString(credentials.scope),
+      tokenType: toNonEmptyString(credentials.tokenType),
       expiryDate: asNumber(credentials.expiryDate) ?? null,
-      email: asString(credentials.email) ?? null,
+      email: toNonEmptyString(credentials.email),
     },
   };
 }

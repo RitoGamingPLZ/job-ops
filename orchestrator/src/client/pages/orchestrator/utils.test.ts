@@ -34,7 +34,7 @@ describe("orchestrator utils", () => {
     expect(enabled).toEqual(expect.arrayContaining(credentialFree));
   });
 
-  it("counts processing jobs in ready and discovered tabs", () => {
+  it("counts discovered and all jobs excluding closed and in_progress", () => {
     const jobs = [
       createJob({ id: "ready", status: "ready", closedAt: null }),
       createJob({ id: "processing", status: "processing", closedAt: null }),
@@ -43,7 +43,6 @@ describe("orchestrator utils", () => {
     ];
 
     expect(getJobCounts(jobs)).toEqual({
-      ready: 2,
       discovered: 2,
       all: 4,
     });

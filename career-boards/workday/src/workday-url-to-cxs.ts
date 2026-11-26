@@ -86,9 +86,6 @@ export function workdayUrlToSourceKey(input: string): string {
 /**
  * Convenience helper for callers that need the CXS job detail endpoint.
  */
-export function workdayJobUrlToCxsJobUrl(input: string): string {
-  return parseWorkdayJobUrl(input).cxsJobUrl;
-}
 
 /**
  * Converts a public Workday job URL into the JSON job detail endpoint used by

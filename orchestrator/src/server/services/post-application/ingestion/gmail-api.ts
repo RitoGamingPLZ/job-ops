@@ -1,5 +1,6 @@
 import { requestTimeout } from "@infra/errors";
 import { normalizeWhitespace } from "@shared/utils/string";
+import { toNonEmptyString } from "@shared/utils/type-conversion";
 import { convert } from "html-to-text";
 
 const GMAIL_HTTP_TIMEOUT_MS = 15_000;
@@ -74,8 +75,8 @@ export async function resolveGmailAccessToken(
     return credentials;
   }
 
-  const clientId = asString(process.env.GMAIL_OAUTH_CLIENT_ID);
-  const clientSecret = asString(process.env.GMAIL_OAUTH_CLIENT_SECRET);
+  const clientId = toNonEmptyString(process.env.GMAIL_OAUTH_CLIENT_ID);
+  const clientSecret = toNonEmptyString(process.env.GMAIL_OAUTH_CLIENT_SECRET);
   if (!clientId || !clientSecret) {
     throw new Error(
       "Missing GMAIL_OAUTH_CLIENT_ID or GMAIL_OAUTH_CLIENT_SECRET for Gmail token refresh.",
@@ -103,7 +104,7 @@ export async function resolveGmailAccessToken(
     throw new Error(`Gmail token refresh failed with HTTP ${response.status}.`);
   }
 
-  const accessToken = asString(data?.access_token);
+  const accessToken = toNonEmptyString(data?.access_token);
   const expiresIn =
     typeof data?.expires_in === "number" && Number.isFinite(data.expires_in)
       ? data.expires_in
@@ -415,10 +416,4 @@ Subject: ${input.subject}
 Date: ${input.date}
 Body:
 ${input.body}`.trim();
-}
-
-function asString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }

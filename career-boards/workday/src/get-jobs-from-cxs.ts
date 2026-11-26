@@ -235,7 +235,7 @@ async function fetchCxsPage(
   }
 }
 
-export function normalizeWorkdayCxsPosting(
+function normalizeWorkdayCxsPosting(
   posting: WorkdayCxsJobPosting,
   args: { careersBaseUrl: string; company?: string },
 ): NormalizedWorkdayJob {
@@ -255,7 +255,7 @@ export function normalizeWorkdayCxsPosting(
   };
 }
 
-export function parseCxsJobsUrl(url: URL): { tenant: string; site: string } {
+function parseCxsJobsUrl(url: URL): { tenant: string; site: string } {
   const segments = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
   const wdayIndex = segments.findIndex((segment) => segment.toLowerCase() === "wday");
 

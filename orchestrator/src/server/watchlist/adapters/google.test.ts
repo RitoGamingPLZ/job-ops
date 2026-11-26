@@ -96,7 +96,6 @@ describe("googleWatchlistAdapter", () => {
         careersUrl: `${base}?q=software+engineer&sort_by=date`,
       },
     ]);
-    expect(adapter.catalogSchema.safeParse(catalog[0]).success).toBe(true);
     expect(
       adapter.parseCatalogSources([null, {}, { label: "Bad", careersUrl: "https://evil.test/" }]),
     ).toEqual([]);

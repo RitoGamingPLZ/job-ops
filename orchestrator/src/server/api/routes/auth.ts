@@ -28,11 +28,6 @@ const setupSchema = loginSchema.extend({
   displayName: z.string().trim().min(1).max(120).optional(),
 });
 
-function isUsernameConflictError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  return /UNIQUE constraint failed: users\.username/i.test(error.message);
-}
-
 function toSetupValidationMessage(error: z.ZodError): string {
   const issue = error.issues[0];
   const path = issue?.path.join(".");
@@ -97,7 +92,7 @@ authRouter.post(
         tenantId: appConfig.hostedTenantId,
       });
     } catch (error) {
-      if (isUsernameConflictError(error)) {
+      if (usersRepo.isUsernameConflictError(error)) {
         fail(res, conflict("Username already exists"));
         return;
       }
@@ -346,7 +341,7 @@ authRouter.post(
       });
     } catch (error) {
       await invitationsRepo.releaseInvitation(invitation.id);
-      if (isUsernameConflictError(error)) {
+      if (usersRepo.isUsernameConflictError(error)) {
         fail(res, conflict("Username already exists"));
         return;
       }

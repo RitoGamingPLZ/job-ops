@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 export const EXTRACTOR_SOURCE_IDS = [
   "indeed",
   "linkedin",
@@ -42,24 +40,10 @@ export const PIPELINE_EXTRACTOR_SOURCE_IDS = EXTRACTOR_SOURCE_IDS.filter(
   (source) => EXTRACTOR_SOURCE_METADATA[source].category === "pipeline",
 );
 
-const extractorSourceTuple = EXTRACTOR_SOURCE_IDS as unknown as [
-  ExtractorSourceId,
-  ...ExtractorSourceId[],
-];
-
-export const extractorSourceEnum = z.enum(extractorSourceTuple);
-
 export function isExtractorSourceId(value: string): value is ExtractorSourceId {
   return EXTRACTOR_SOURCE_IDS.includes(value as ExtractorSourceId);
 }
 
 export function sourceLabel(source: ExtractorSourceId | (string & {})): string {
   return EXTRACTOR_SOURCE_METADATA[source as ExtractorSourceId]?.label ?? source;
-}
-
-export function sortSources<T extends { source: ExtractorSourceId }>(values: T[]): T[] {
-  return [...values].sort(
-    (left, right) =>
-      EXTRACTOR_SOURCE_METADATA[left.source].order - EXTRACTOR_SOURCE_METADATA[right.source].order,
-  );
 }

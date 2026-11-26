@@ -4,11 +4,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "@infra/logger";
-import { sanitizeUnknown } from "@infra/sanitize";
 import type { PdfPaperSize } from "@shared/types";
 import { runResumeCompiler } from "./compiler";
 import { getLatexResumeSectionTitles } from "./document";
 import { renderInlineHtml, renderOrderedSections } from "./markup";
+import { summarizeResumeDocumentForLog } from "./log";
 import { materializeResumePicture } from "./picture";
 import type {
   LatexResumeContactItem,
@@ -312,10 +312,6 @@ function renderLineSection(title: string, lines: string[]): string {
   ].join("\n");
 }
 
-function renderProfilesSection(_document: LatexResumeDocument): string {
-  return "";
-}
-
 function renderCustomFieldsSection(document: LatexResumeDocument): string {
   if (document.customFieldItems.length === 0) return "";
   const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
@@ -401,7 +397,7 @@ export function buildLatexDocument(
     renderCustomFieldsSection(document),
     ...renderOrderedSections(document, titles, {
       entry: renderEntrySection,
-      profiles: () => renderProfilesSection(document),
+      profiles: () => "",
       skills: () => renderSkillsSection(document),
       languages: () => renderLanguagesSection(document),
       interests: () => renderInterestsSection(document),
@@ -443,7 +439,7 @@ async function runTectonic(args: { cwd: string; texPath: string; jobId: string }
   });
 }
 
-export const latexResumeRenderer: ResumeRenderer = {
+const latexResumeRenderer: ResumeRenderer = {
   async render({ document, outputPath, jobId, resolvedPicture, paperSize = "auto" }) {
     const tempDir = await mkdtemp(join(tmpdir(), `job-ops-resume-render-${jobId}-`));
     const texPath = join(tempDir, "resume.tex");
@@ -467,22 +463,7 @@ export const latexResumeRenderer: ResumeRenderer = {
         jobId,
         outputPath,
         error,
-        document: sanitizeUnknown({
-          name: document.name,
-          headline: document.headline,
-          location: document.location,
-          experienceCount: document.experience.length,
-          educationCount: document.education.length,
-          projectCount: document.projects.length,
-          skillGroupCount: document.skillGroups.length,
-          languageCount: document.languages.length,
-          interestCount: document.interests.length,
-          awardCount: document.awards.length,
-          certificationCount: document.certifications.length,
-          publicationCount: document.publications.length,
-          volunteerCount: document.volunteer.length,
-          referenceCount: document.references.length,
-        }),
+        document: summarizeResumeDocumentForLog(document),
       });
       throw error;
     } finally {
@@ -503,10 +484,6 @@ export async function renderLatexPdf(args: Parameters<ResumeRenderer["render"]>[
 
 export function getLatexTemplatePath(): string {
   return TEMPLATE_PATH;
-}
-
-export function getTectonicBinary(): string {
-  return process.env.TECTONIC_BIN?.trim() || "tectonic";
 }
 
 export async function readLatexTemplate(): Promise<string> {

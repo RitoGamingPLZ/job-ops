@@ -18,8 +18,8 @@ describe("admin-owned daily search for several users", () => {
   });
 
   afterEach(async () => {
-    const { stopPipelineScheduler } = await import("@server/services/pipeline-scheduler");
-    stopPipelineScheduler();
+    const { __stopPipelineSchedulerForTests } = await import("@server/services/pipeline-scheduler");
+    __stopPipelineSchedulerForTests();
     vi.useRealTimers();
     await stopServer({ server, closeDb, tempDir });
   });

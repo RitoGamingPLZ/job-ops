@@ -21,7 +21,7 @@ type BuiltDemoBaseline = {
   stageEvents: Array<typeof schema.stageEvents.$inferInsert>;
 };
 
-const { interviews, jobs, pipelineRuns, settings, stageEvents, tasks } = schema;
+const { jobs, pipelineRuns, settings, stageEvents } = schema;
 
 function toIsoFromOffset(now: Date, offsetMinutes: number): string {
   return new Date(now.getTime() - offsetMinutes * 60 * 1000).toISOString();
@@ -113,8 +113,6 @@ export function buildDemoBaseline(now: Date): BuiltDemoBaseline {
 export async function applyDemoBaseline(baseline: BuiltDemoBaseline): Promise<void> {
   db.transaction((tx) => {
     tx.delete(stageEvents).where(eq(stageEvents.tenantId, DEFAULT_TENANT_ID)).run();
-    tx.delete(tasks).where(eq(tasks.tenantId, DEFAULT_TENANT_ID)).run();
-    tx.delete(interviews).where(eq(interviews.tenantId, DEFAULT_TENANT_ID)).run();
     tx.delete(jobs).where(eq(jobs.tenantId, DEFAULT_TENANT_ID)).run();
     tx.delete(pipelineRuns).where(eq(pipelineRuns.tenantId, DEFAULT_TENANT_ID)).run();
     tx.delete(settings).where(eq(settings.tenantId, DEFAULT_TENANT_ID)).run();

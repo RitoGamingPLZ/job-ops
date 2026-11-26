@@ -1,21 +1,15 @@
 import {
   formatCountryLabel,
   getSourceSupportedCountryKeys,
-  isSourceAllowedForCountry,
   normalizeCountryKey,
   sourceRequiresCityLocations,
 } from "./location-support.js";
 import { normalizeStringArray } from "./normalize-string-array.js";
-import {
-  matchesRequestedCity,
-  matchesRequestedCountry,
-  parseSearchCitiesSetting,
-  shouldApplyStrictCityFilter,
-} from "./search-cities.js";
+import { parseSearchCitiesSetting } from "./search-cities.js";
 import type { JobSource } from "./types/jobs.js";
 import { normalizeWhitespace } from "./utils/string.js";
 
-export const LOCATION_GEO_SCOPE_VALUES = [
+const LOCATION_GEO_SCOPE_VALUES = [
   "selected_only",
   "selected_plus_remote_worldwide",
   "remote_worldwide_prioritize_selected",
@@ -281,18 +275,6 @@ function createDefaultSupportedCountryKeys(source: JobSource | string): string[]
   return getSourceSupportedCountryKeys(source as JobSource);
 }
 
-function buildEvidenceLocationText(
-  evidence: Pick<LocationEvidence, "location" | "city" | "country">,
-): string | undefined {
-  if (evidence.location) return evidence.location;
-
-  const parts = [evidence.city, evidence.country].filter((value): value is string =>
-    Boolean(value),
-  );
-  if (parts.length === 0) return undefined;
-  return parts.join(", ");
-}
-
 function describeSelectedGeography(
   selectedCountry: string | null,
   cityLocations: string[],
@@ -375,10 +357,6 @@ function normalizeSearchCitiesInput(
   return parseSearchCitiesSetting(typeof value === "string" ? value : undefined);
 }
 
-export function normalizeLocationGeoScope(value: string | null | undefined): LocationGeoScope {
-  return normalizeGeoScope(value);
-}
-
 export function normalizeLocationSearchScope(
   value: string | null | undefined,
 ): LocationSearchScope {
@@ -391,22 +369,6 @@ export function normalizeLocationMatchStrictness(
   return LOCATION_MATCH_STRICTNESS_VALUES.includes(value as LocationMatchStrictness)
     ? (value as LocationMatchStrictness)
     : "exact_only";
-}
-
-export function normalizeLocationWorkplaceType(
-  value: LocationWorkplaceType | string | null | undefined,
-): LocationWorkplaceType | null {
-  return normalizeWorkplaceType(value);
-}
-
-export function normalizeLocationWorkplaceTypes(
-  values: readonly (LocationWorkplaceType | string)[] | null | undefined,
-): LocationWorkplaceType[] {
-  return normalizeWorkplaceTypes(values);
-}
-
-export function normalizeLocationCountryKey(value: string | null | undefined): string {
-  return normalizeCountryKey(value);
 }
 
 export function normalizeLocationIntent(
@@ -479,7 +441,7 @@ export function normalizeLocationEvidence(
   };
 }
 
-export function getDefaultLocationSourceCapabilities(
+function getDefaultLocationSourceCapabilities(
   source: JobSource | string,
 ): LocationSourceCapabilities {
   return {
@@ -516,14 +478,6 @@ export function normalizeLocationSourceCapabilities(
         ? (value.supportsNativeRadius ?? defaults.supportsNativeRadius)
         : defaults.supportsNativeRadius,
   };
-}
-
-export function isLocationSourceCompatible(
-  intent: LocationIntentInput | LocationIntent,
-  source: JobSource | string,
-  capabilities?: LocationSourceCapabilitiesInput | LocationSourceCapabilities,
-): boolean {
-  return planLocationSource({ intent, source, capabilities }).isCompatible;
 }
 
 export function planLocationSource(args: {
@@ -621,141 +575,6 @@ export function planLocationSources(args: {
   };
 }
 
-export function getCompatibleSourcesForLocationIntent(
-  sources: readonly (JobSource | string)[],
-  intent: LocationIntentInput | LocationIntent,
-): Array<JobSource | string> {
-  return planLocationSources({ intent, sources }).compatibleSources;
-}
-
-export function matchLocationIntent(
-  intent: LocationIntentInput | LocationIntent,
-  evidence: LocationEvidenceInput | LocationEvidence | readonly LocationEvidenceEntry[],
-): LocationMatchResult {
-  const normalizedIntent = normalizeLocationIntent(intent);
-  const normalizedEvidence = normalizeLocationEvidence(evidence);
-  const evidenceLocation = buildEvidenceLocationText(normalizedEvidence);
-  const selectedCountry = normalizedIntent.selectedCountry;
-  const requestedCities = normalizedIntent.cityLocations;
-  const allowRemoteWorldwide =
-    normalizedIntent.workplaceTypes.includes("remote") &&
-    normalizedIntent.geoScope !== "selected_only";
-
-  if (!selectedCountry) {
-    return {
-      matched: true,
-      matchedBy: "unfiltered",
-      reasonCode: "unfiltered",
-      priority: 0,
-      intent: normalizedIntent,
-      evidence: normalizedEvidence,
-      countryMatched: true,
-      cityMatched: true,
-      remoteMatched: false,
-      reasons: ["No selected country was provided."],
-    };
-  }
-
-  const countryMatched = matchesRequestedCountry(
-    normalizedEvidence.country ?? evidenceLocation,
-    selectedCountry,
-  );
-
-  if (countryMatched) {
-    if (requestedCities.length === 0) {
-      return {
-        matched: true,
-        matchedBy: "selected_location",
-        reasonCode: "selected_location",
-        priority: 1,
-        intent: normalizedIntent,
-        evidence: normalizedEvidence,
-        countryMatched: true,
-        cityMatched: true,
-        remoteMatched: false,
-        reasons: [`Selected country ${formatCountryLabel(selectedCountry)} matched.`],
-      };
-    }
-
-    const cityMatched = requestedCities.some((requestedCity) => {
-      const strict = shouldApplyStrictCityFilter(requestedCity, selectedCountry);
-      if (!strict) return true;
-      return (
-        matchesRequestedCity(evidenceLocation, requestedCity) ||
-        matchesRequestedCity(normalizedEvidence.city ?? undefined, requestedCity)
-      );
-    });
-
-    if (cityMatched || normalizedIntent.matchStrictness === "flexible") {
-      return {
-        matched: true,
-        matchedBy: "selected_location",
-        reasonCode: "selected_location",
-        priority: 1,
-        intent: normalizedIntent,
-        evidence: normalizedEvidence,
-        countryMatched: true,
-        cityMatched,
-        remoteMatched: false,
-        reasons: cityMatched
-          ? [
-              `Selected country ${formatCountryLabel(selectedCountry)} matched.`,
-              "Requested city matched.",
-            ]
-          : [
-              `Selected country ${formatCountryLabel(selectedCountry)} matched.`,
-              "City did not match exactly, but flexible matching was allowed.",
-            ],
-      };
-    }
-  }
-
-  if (allowRemoteWorldwide && normalizedEvidence.isRemote) {
-    return {
-      matched: true,
-      matchedBy: "remote_worldwide",
-      reasonCode: "remote_worldwide",
-      priority: 0,
-      intent: normalizedIntent,
-      evidence: normalizedEvidence,
-      countryMatched,
-      cityMatched: false,
-      remoteMatched: true,
-      reasons: ["Remote jobs worldwide are allowed for this intent."],
-    };
-  }
-
-  const reasons: string[] = [];
-  reasons.push(
-    countryMatched
-      ? `Selected country ${formatCountryLabel(selectedCountry)} matched.`
-      : `Selected country ${formatCountryLabel(selectedCountry)} did not match.`,
-  );
-
-  if (requestedCities.length > 0 && countryMatched) {
-    reasons.push("Requested city did not match.");
-  }
-
-  if (allowRemoteWorldwide && !normalizedEvidence.isRemote) {
-    reasons.push("Remote jobs worldwide were allowed, but the job was not remote.");
-  } else if (!allowRemoteWorldwide) {
-    reasons.push("Remote jobs worldwide are not allowed for this intent.");
-  }
-
-  return {
-    matched: false,
-    matchedBy: "no_match",
-    reasonCode: "no_match",
-    priority: 0,
-    intent: normalizedIntent,
-    evidence: normalizedEvidence,
-    countryMatched,
-    cityMatched: false,
-    remoteMatched: false,
-    reasons,
-  };
-}
-
 export function describeLocationIntent(intent: LocationIntentInput | LocationIntent): string {
   const normalized = normalizeLocationIntent(intent);
   const selectedGeography = describeSelectedGeography(
@@ -819,10 +638,6 @@ export function describeLocationIntent(intent: LocationIntentInput | LocationInt
   return summary;
 }
 
-export function summarizeLocationIntent(intent: LocationIntentInput | LocationIntent): string {
-  return describeLocationIntent(intent);
-}
-
 export function buildLocationPreferencesSummary(args: {
   country: string;
   cityLocations: string[];
@@ -839,13 +654,6 @@ export function buildLocationPreferencesSummary(args: {
     geoScope: args.searchScope,
     matchStrictness: args.matchStrictness,
   });
-}
-
-export function isSourceCompatibleWithLocationIntent(
-  source: JobSource,
-  intent: LocationIntentInput | LocationIntent,
-): boolean {
-  return isSourceAllowedForCountry(source, normalizeLocationIntent(intent).selectedCountry);
 }
 
 export function createLocationIntentFromLegacyInputs(

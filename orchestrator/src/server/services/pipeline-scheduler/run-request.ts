@@ -9,27 +9,33 @@ import { ensurePipelineSearchTerms } from "@server/services/pipeline-search-term
 import { ensureUserHasLlmAccess } from "@server/services/server-credentials";
 import { currentUserHasPermission } from "@server/services/user-permissions";
 import { PIPELINE_EXTRACTOR_SOURCE_IDS } from "@shared/extractors";
-import { createLocationIntent, planLocationSources } from "@shared/location-intelligence.js";
 import {
+  createLocationIntent,
   LOCATION_MATCH_STRICTNESS_VALUES,
   LOCATION_SEARCH_SCOPE_VALUES,
-} from "@shared/location-preferences.js";
+  LOCATION_WORKPLACE_TYPE_VALUES,
+  planLocationSources,
+} from "@shared/location-domain.js";
 import { MAX_PIPELINE_RUN_BUDGET, normalizePipelineRunBudget } from "@shared/types";
 import { z } from "zod";
 import { saveRunRequest } from "./storage";
 
-const WORKPLACE_TYPE_VALUES = ["remote", "hybrid", "onsite"] as const;
-const pipelineSourceSchema = z.enum(
+export const pipelineSourceSchema = z.enum(
   PIPELINE_EXTRACTOR_SOURCE_IDS as [
     (typeof PIPELINE_EXTRACTOR_SOURCE_IDS)[number],
     ...(typeof PIPELINE_EXTRACTOR_SOURCE_IDS)[number][],
   ],
 );
-const pipelineRunBudgetSchema = z
+export const pipelineRunBudgetSchema = z
   .number()
   .int()
   .max(MAX_PIPELINE_RUN_BUDGET)
   .transform(normalizePipelineRunBudget);
+export const locationProximitySchema = z.object({
+  latitude: z.number().finite().min(-90).max(90),
+  longitude: z.number().finite().min(-180).max(180),
+  radiusMiles: z.number().int().min(1).max(200),
+});
 export const runPipelineSchema = z.object({
   topN: z.number().min(1).max(50).optional(),
   minSuitabilityScore: z.number().min(0).max(100).optional(),
@@ -39,15 +45,8 @@ export const runPipelineSchema = z.object({
   scoringInstructions: z.string().trim().max(4000).optional(),
   country: z.string().trim().optional(),
   cityLocations: z.array(z.string().trim().min(1)).optional(),
-  proximity: z
-    .object({
-      latitude: z.number().finite().min(-90).max(90),
-      longitude: z.number().finite().min(-180).max(180),
-      radiusMiles: z.number().int().min(1).max(200),
-    })
-    .nullable()
-    .optional(),
-  workplaceTypes: z.array(z.enum(WORKPLACE_TYPE_VALUES)).min(1).max(3).optional(),
+  proximity: locationProximitySchema.nullable().optional(),
+  workplaceTypes: z.array(z.enum(LOCATION_WORKPLACE_TYPE_VALUES)).min(1).max(3).optional(),
   searchScope: z.enum(LOCATION_SEARCH_SCOPE_VALUES).optional(),
   matchStrictness: z.enum(LOCATION_MATCH_STRICTNESS_VALUES).optional(),
   // Per-#621: optional client-supplied per-run Watchlist source filter.

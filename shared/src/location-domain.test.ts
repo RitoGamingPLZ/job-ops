@@ -6,7 +6,6 @@ import {
   describeLocationIntent,
   getLegacyLocationSelection,
   getPrimaryLocationLabel,
-  matchLocationIntent,
   normalizeLocationSourceCapabilities,
   planLocationSources,
 } from "./location-domain";
@@ -136,82 +135,6 @@ describe("location-domain", () => {
       canRun: false,
     });
     expect(result.plans[0]?.reasons).toContain("At least one city is required for this source.");
-  });
-
-  it("matches selected locations before remote worldwide and keeps tie priority", () => {
-    const intent = {
-      selectedCountry: "croatia",
-      cityLocations: ["Zagreb"],
-      workplaceTypes: ["remote"],
-      searchScope: "remote_worldwide_prioritize_selected",
-      matchStrictness: "exact_only",
-    } as const;
-
-    expect(matchLocationIntent(intent, { location: "Zagreb, Croatia" })).toMatchObject({
-      matched: true,
-      matchedBy: "selected_location",
-      reasonCode: "selected_location",
-      priority: 1,
-      countryMatched: true,
-      cityMatched: true,
-      remoteMatched: false,
-    });
-
-    expect(
-      matchLocationIntent(intent, {
-        location: "Remote - Worldwide",
-        isRemote: true,
-      }),
-    ).toMatchObject({
-      matched: true,
-      matchedBy: "remote_worldwide",
-      reasonCode: "remote_worldwide",
-      priority: 0,
-      countryMatched: false,
-      cityMatched: false,
-      remoteMatched: true,
-    });
-  });
-
-  it("matches structured country evidence using codes and localized names", () => {
-    const intent = {
-      selectedCountry: "netherlands",
-      cityLocations: [],
-      workplaceTypes: ["onsite"],
-      searchScope: "selected_only",
-      matchStrictness: "exact_only",
-    } as const;
-
-    expect(matchLocationIntent(intent, { country: "NL" })).toMatchObject({
-      matched: true,
-      countryMatched: true,
-    });
-    expect(matchLocationIntent(intent, { country: "Nederland" })).toMatchObject({
-      matched: true,
-      countryMatched: true,
-    });
-  });
-
-  it("keeps flexible city matching available after country matches", () => {
-    expect(
-      matchLocationIntent(
-        {
-          selectedCountry: "croatia",
-          cityLocations: ["Zagreb"],
-          workplaceTypes: ["onsite"],
-          searchScope: "selected_only",
-          matchStrictness: "flexible",
-        },
-        { location: "Croatia" },
-      ),
-    ).toMatchObject({
-      matched: true,
-      matchedBy: "selected_location",
-      reasonCode: "selected_location",
-      priority: 1,
-      cityMatched: false,
-      remoteMatched: false,
-    });
   });
 
   it("exposes legacy location labels for compatibility", () => {

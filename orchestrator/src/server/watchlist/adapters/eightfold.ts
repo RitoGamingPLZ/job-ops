@@ -279,7 +279,6 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsCustomSource: true,
     supportsBranding: false,
   },
-  catalogSchema,
   parseCatalogSources(entries) {
     return entries.flatMap((entry) => {
       const result = catalogSchema.safeParse(entry);

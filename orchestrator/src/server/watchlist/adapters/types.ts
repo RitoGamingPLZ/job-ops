@@ -8,12 +8,10 @@ import type {
   WatchlistSourceBrandingResponse,
   WatchlistSourceTypeDescriptor,
 } from "@shared/types";
-import type { z } from "zod";
 
 export interface WatchlistCatalogSourceAdapter {
   sourceType: WatchedSourceType;
   descriptor: WatchlistSourceTypeDescriptor;
-  catalogSchema: z.ZodType<unknown>;
   parseCatalogSources(entries: unknown[]): WatchlistSource[];
   hydrateSelectedSource(source: WatchlistSelectedSource): WatchlistSelectedSource;
   normalizeCustomSelection(input: { label: string | null | undefined; careersUrl: string }):
@@ -45,13 +43,13 @@ export interface WatchlistCatalogSourceAdapter {
   }): Promise<WatchlistSourceBrandingResponse>;
 }
 
-export interface WatchlistAdapterJobsResult {
+interface WatchlistAdapterJobsResult {
   total: number;
   fetched: number;
   jobs: Array<Omit<WatchlistJobResult, "rowState" | "isNewSinceLastCheck" | "workspaceJob">>;
 }
 
-export interface WatchlistAdapterImportDraftResult {
+interface WatchlistAdapterImportDraftResult {
   draft: ManualJobDraft;
   source: string | null;
   sourceHost: string | null;

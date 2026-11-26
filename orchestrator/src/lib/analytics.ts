@@ -1,4 +1,3 @@
-import type { ApplicationStage } from "@shared/types";
 import {
   type AnalyticsPayload,
   sanitizeAnalyticsPayload,
@@ -57,10 +56,6 @@ type ProductEventMap = {
   jobs_search_composer_opened: {
     mode: "automatic" | "manual";
   };
-  jobs_search_composer_mode_changed: {
-    from_mode: "automatic" | "manual";
-    to_mode: "automatic" | "manual";
-  };
   jobs_search_composer_details_opened: {
     source: "manual" | "generated_plan";
   };
@@ -102,12 +97,6 @@ type ProductEventMap = {
     succeeded: number;
     failed: number;
     tab: string;
-  };
-  jobs_job_action_completed: {
-    action: string;
-    result: "success" | "error";
-    from_status?: string;
-    to_status?: string;
   };
   jobs_command_bar_job_selected: {
     had_status_lock: boolean;
@@ -157,54 +146,6 @@ type ProductEventMap = {
   ghostwriter_response_copied: {
     message_length_bucket: string;
   };
-  manual_stage_transition_logged: {
-    source: "job_page" | "in_progress_board";
-    to_stage: ApplicationStage;
-  };
-  resume_studio_import_completed: {
-    source: "file";
-    file_type?: "pdf" | "docx" | "unknown";
-    result: "success" | "error";
-    was_reimport: boolean;
-    section_count_bucket: string;
-    item_count_bucket: string;
-  };
-  resume_studio_activation_completed: {
-    source: "file";
-  };
-  resume_studio_section_edited: {
-    section: string;
-    action: "add" | "edit" | "delete" | "reorder" | "hide" | "unhide";
-    item_count_bucket: string;
-    device_layout: "mobile" | "desktop";
-  };
-  resume_studio_ai_field_suggestion_completed: {
-    section: string;
-    field_type: "plain_text" | "html" | "string_list";
-    result: "generated" | "applied" | "auto_applied" | "error";
-    was_empty: boolean;
-    prompt_length_bucket: string;
-  };
-  resume_studio_pdf_preview_completed: {
-    renderer: string;
-    theme: string;
-    result: "success" | "error";
-    latency_bucket: string;
-  };
-  resume_studio_pdf_downloaded: {
-    renderer: string;
-    theme: string;
-    after_edit: boolean;
-    result: "success" | "error";
-  };
-  resume_studio_export_completed: {
-    result: "success" | "error";
-  };
-  resume_studio_project_policy_changed: {
-    from_mode: "manual" | "ai-selectable" | "must-include";
-    to_mode: "manual" | "ai-selectable" | "must-include";
-    project_count_bucket: string;
-  };
   watchlist_sources_saved: {
     source_count: number;
     catalog_count: number;
@@ -215,15 +156,6 @@ type ProductEventMap = {
     catalog_source_id?: string;
     source_type?: string;
     source_url?: string;
-  };
-  watchlist_check_completed: {
-    source_count: number;
-    jobs_count: number;
-    new_jobs_count: number;
-  };
-  watchlist_new_jobs_detected: {
-    source_count: number;
-    new_jobs_count: number;
   };
   watchlist_job_moved_to_workspace: {
     source_type: string;
@@ -252,9 +184,6 @@ type ProductEventMap = {
   watchlist_source_group_added: {
     group_id: string;
     added_count: number;
-  };
-  watchlist_no_jobs_returned: {
-    source_count: number;
   };
   watchlist_custom_url_saved: {
     source_type: string;

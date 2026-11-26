@@ -284,7 +284,7 @@ describe("useJobSelectionActions", () => {
     const { result } = renderHook(() =>
       useJobSelectionActions({
         activeJobs,
-        activeTab: "ready",
+        activeTab: "all",
         loadJobs,
       }),
     );

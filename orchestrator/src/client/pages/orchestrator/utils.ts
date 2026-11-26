@@ -213,7 +213,6 @@ export const matchesPostedWithin = (
 
 export const getJobCounts = (jobs: JobListItem[]): Record<FilterTab, number> => {
   const byTab: Record<FilterTab, number> = {
-    ready: 0,
     discovered: 0,
     all: jobs.length,
   };
@@ -221,7 +220,6 @@ export const getJobCounts = (jobs: JobListItem[]): Record<FilterTab, number> => 
   for (const job of jobs) {
     if (job.closedAt != null) continue;
     if (job.status === "in_progress") continue;
-    if (job.status === "ready" || job.status === "processing") byTab.ready += 1;
     if (job.status === "discovered" || job.status === "processing") byTab.discovered += 1;
   }
 

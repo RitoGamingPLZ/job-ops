@@ -5,6 +5,7 @@ import { connect, type Socket } from "node:net";
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
 import type { Request, Response } from "express";
+import { sleep } from "@server/utils/sleep";
 import { ViewerLease } from "./viewer-lease";
 
 type ViewerStatus = { available: true } | { available: false; reason: string };
@@ -36,8 +37,6 @@ const viewerTokens = new Map<
   { scopeKey: string; expiresAt: number; release: () => void }
 >();
 const viewerSockets = new Map<string, Set<Socket>>();
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function isProcessAlive(process: ChildProcess): boolean {
   return process.exitCode === null && !process.killed;

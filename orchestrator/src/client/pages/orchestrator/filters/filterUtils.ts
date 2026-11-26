@@ -60,7 +60,7 @@ export const toggleDimension = (
   };
 };
 
-export const formatMoney = (value: number) => value.toLocaleString();
+const formatMoney = (value: number) => value.toLocaleString();
 
 export const isSalaryFilterActive = (salaryFilter: SalaryFilter) =>
   (typeof salaryFilter.min === "number" && salaryFilter.min > 0) ||

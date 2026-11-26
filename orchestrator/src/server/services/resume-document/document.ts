@@ -1,3 +1,4 @@
+import { asArray, asRecord } from "@shared/utils/type-conversion";
 import { createId } from "@paralleldrive/cuid2";
 import { resolvePublicBaseUrl } from "@server/infra/public-availability";
 import { defaultV5ResumeData, metadataSchema } from "./schema/v5";
@@ -50,14 +51,6 @@ const DEFAULT_SIDEBAR_SECTIONS = [
   "interests",
   "publications",
 ];
-
-function asRecord(value: unknown): RecordLike | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as RecordLike) : null;
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
 
 function toText(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;

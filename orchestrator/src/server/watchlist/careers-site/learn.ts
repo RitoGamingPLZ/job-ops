@@ -546,36 +546,32 @@ export async function learnRecipe(
       }
       if (recipe.listing.kind === "page" && recipe.listing.pagination.kind === "query") {
         const listing = recipe.listing;
-        const pagination = listing.pagination;
-        if (pagination.kind === "query") {
-          const firstUrl = new URL(listing.url);
-          firstUrl.searchParams.set(pagination.param, String(pagination.start));
-          const secondUrl = new URL(firstUrl);
-          secondUrl.searchParams.set(pagination.param, String(pagination.start + pagination.step));
-          const jobLinks = (html: string | null) => {
-            const doc = new JSDOM(html || "");
-            try {
-              return new Set(
-                Array.from(doc.window.document.querySelectorAll("a[href]"))
-                  .map((node) => ownUrl(node.getAttribute("href") || "", base))
-                  .filter((url): url is string => url !== null && matchesUrl(re, url)),
-              );
-            } finally {
-              doc.window.close();
-            }
-          };
-          const firstHtml = pages.get(`${listing.render}:${firstUrl.href}`);
-          const first =
-            firstHtml !== undefined
-              ? jobLinks(firstHtml)
-              : new Set(
-                  allLinks.filter((link) => matchesUrl(re, link.url)).map((link) => link.url),
-                );
-          const second = jobLinks(await read(secondUrl.href, listing.render));
-          if (!first.size || ![...second].some((url) => !first.has(url))) {
-            listing.pagination = { kind: "none" };
-            listing.maxPages = 1;
+        const pagination = recipe.listing.pagination;
+        const firstUrl = new URL(listing.url);
+        firstUrl.searchParams.set(pagination.param, String(pagination.start));
+        const secondUrl = new URL(firstUrl);
+        secondUrl.searchParams.set(pagination.param, String(pagination.start + pagination.step));
+        const jobLinks = (html: string | null) => {
+          const doc = new JSDOM(html || "");
+          try {
+            return new Set(
+              Array.from(doc.window.document.querySelectorAll("a[href]"))
+                .map((node) => ownUrl(node.getAttribute("href") || "", base))
+                .filter((url): url is string => url !== null && matchesUrl(re, url)),
+            );
+          } finally {
+            doc.window.close();
           }
+        };
+        const firstHtml = pages.get(`${listing.render}:${firstUrl.href}`);
+        const first =
+          firstHtml !== undefined
+            ? jobLinks(firstHtml)
+            : new Set(allLinks.filter((link) => matchesUrl(re, link.url)).map((link) => link.url));
+        const second = jobLinks(await read(secondUrl.href, listing.render));
+        if (!first.size || ![...second].some((url) => !first.has(url))) {
+          listing.pagination = { kind: "none" };
+          listing.maxPages = 1;
         }
       }
       const jobs = await runRecipe(recipe, {

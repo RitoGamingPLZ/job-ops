@@ -1,3 +1,5 @@
+import { getPositiveIntEnv } from "@server/utils/env";
+import { asArray, asRecord } from "@shared/utils/type-conversion";
 import { randomUUID } from "node:crypto";
 import { AppError, badRequest, serviceUnavailable, upstreamError } from "@infra/errors";
 import { logger } from "@infra/logger";
@@ -251,14 +253,6 @@ type ResumeImportFileInput = {
 
 const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
 
-function getPositiveIntEnv(name: string, fallback: number): number {
-  const raw = process.env[name]?.trim();
-  if (!raw) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
-}
-
 const OPENAI_DEFAULT_TIMEOUT_MS = () => getPositiveIntEnv("LLM_IMPORT_OPENAI_TIMEOUT_MS", 60_000);
 const OPENROUTER_DEFAULT_TIMEOUT_MS = () =>
   getPositiveIntEnv("LLM_IMPORT_OPENROUTER_TIMEOUT_MS", 90_000);
@@ -295,14 +289,6 @@ Rules:
 `.trim();
 
 type RecordLike = Record<string, unknown>;
-
-function asRecord(value: unknown): RecordLike | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as RecordLike) : null;
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
 
 function toText(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;

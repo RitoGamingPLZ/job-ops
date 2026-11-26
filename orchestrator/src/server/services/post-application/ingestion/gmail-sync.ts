@@ -1,4 +1,6 @@
+import { getErrorMessage } from "@infra/errors";
 import { logger } from "@infra/logger";
+import { toNonEmptyString } from "@shared/utils/type-conversion";
 import { trackServerProductEvent } from "@infra/product-analytics";
 import { getAllJobs } from "@server/repositories/jobs";
 import {
@@ -38,25 +40,14 @@ export type GmailSyncSummary = {
   errored: number;
 };
 
-export const __test__ = {
-  extractBodyText,
-  buildEmailText,
-};
-
-function asString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 function parseGmailCredentials(
   credentials: Record<string, unknown> | null,
 ): GmailCredentials | null {
   if (!credentials) return null;
-  const refreshToken = asString(credentials.refreshToken);
+  const refreshToken = toNonEmptyString(credentials.refreshToken);
   if (!refreshToken) return null;
 
-  const accessToken = asString(credentials.accessToken) ?? undefined;
+  const accessToken = toNonEmptyString(credentials.accessToken) ?? undefined;
   const expiryDate =
     typeof credentials.expiryDate === "number" && Number.isFinite(credentials.expiryDate)
       ? credentials.expiryDate
@@ -66,9 +57,9 @@ function parseGmailCredentials(
     refreshToken,
     accessToken,
     expiryDate,
-    scope: asString(credentials.scope) ?? undefined,
-    tokenType: asString(credentials.tokenType) ?? undefined,
-    email: asString(credentials.email) ?? undefined,
+    scope: toNonEmptyString(credentials.scope) ?? undefined,
+    tokenType: toNonEmptyString(credentials.tokenType) ?? undefined,
+    email: toNonEmptyString(credentials.email) ?? undefined,
   };
 }
 
@@ -104,11 +95,6 @@ function resolveProcessingStatus(input: {
   if (input.isAutoLinked) return "auto_linked";
   if (input.isPendingMatch || input.isRelevantOrphan) return "pending_user";
   return "ignored";
-}
-
-function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return "Unknown error";
 }
 
 async function createAutoStageEvent(args: {
@@ -370,7 +356,7 @@ export async function runGmailIngestionSync(args: {
           accountKey: args.accountKey,
           externalMessageId: message.id,
           syncRunId: syncRun.id,
-          error: normalizeErrorMessage(error),
+          error: getErrorMessage(error, "Unknown error"),
         });
       }
     });
@@ -394,7 +380,7 @@ export async function runGmailIngestionSync(args: {
 
     return { discovered, relevant, classified, errored };
   } catch (error) {
-    const errorMessage = normalizeErrorMessage(error);
+    const errorMessage = getErrorMessage(error, "Unknown error");
     await completePostApplicationSyncRun({
       id: syncRun.id,
       status: "failed",

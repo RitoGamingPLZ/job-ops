@@ -11,9 +11,7 @@ type RichTextEditorProps = {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
-  editorClassName?: string;
   formatLabel?: string | null;
-  toolbarEnd?: React.ReactNode;
 };
 
 export function RichTextEditor({
@@ -21,9 +19,7 @@ export function RichTextEditor({
   onChange,
   placeholder = "Write something useful...",
   className,
-  editorClassName,
   formatLabel = "HTML",
-  toolbarEnd,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -40,10 +36,8 @@ export function RichTextEditor({
     content: value,
     editorProps: {
       attributes: {
-        class: cn(
+        class:
           "min-h-[160px] rounded-b-xl border border-t-0 border-border/60 bg-background/60 px-4 py-3 text-sm leading-6 text-foreground outline-none focus-visible:ring-0 [&>*:first-child]:mt-0 [&_h1]:mt-6 [&_h1]:text-3xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:mt-5 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h3]:mt-4 [&_h3]:text-xl [&_h3]:font-semibold [&_p]:my-3 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:my-4 [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_code]:rounded [&_code]:bg-muted/80 [&_code]:px-1 [&_code]:py-0.5",
-          editorClassName,
-        ),
       },
     },
     onUpdate: ({ editor: current }) => {
@@ -145,9 +139,6 @@ export function RichTextEditor({
           <div className="ml-auto px-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
             {formatLabel}
           </div>
-        ) : null}
-        {toolbarEnd ? (
-          <div className={cn("flex items-center", !formatLabel && "ml-auto")}>{toolbarEnd}</div>
         ) : null}
       </div>
       <div className="relative">

@@ -11,10 +11,6 @@ const baseConfig: PipelineConfig = {
   minSuitabilityScore: 50,
   sources: ["freehire"],
   outputDir: "./tmp",
-  enableCrawling: true,
-  enableScoring: true,
-  enableImporting: true,
-  enableAutoTailoring: true,
 };
 
 describe("selectJobsStep", () => {

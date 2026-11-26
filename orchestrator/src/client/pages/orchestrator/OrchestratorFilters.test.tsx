@@ -36,10 +36,9 @@ beforeEach(() => {
 
 const renderFilters = (overrides?: Partial<ComponentProps<typeof OrchestratorFilters>>) => {
   const props = {
-    activeTab: "ready" as FilterTab,
+    activeTab: "all" as FilterTab,
     onTabChange: vi.fn(),
     counts: {
-      ready: 2,
       discovered: 1,
       all: 6,
     },
@@ -113,7 +112,7 @@ describe("OrchestratorFilters", () => {
   });
 
   it("notifies when tabs and command search shortcut are used", () => {
-    const { props } = renderFilters();
+    const { props } = renderFilters({ activeTab: "discovered" });
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: /all jobs/i }));
     expect(props.onTabChange).toHaveBeenCalledWith("all");
@@ -173,7 +172,7 @@ describe("OrchestratorFilters", () => {
       sort_direction: "desc",
       previous_sort_key: "score",
       previous_sort_direction: "desc",
-      tab: "ready",
+      tab: "all",
       filtered_count_bucket: "2_5",
     });
 
@@ -188,7 +187,7 @@ describe("OrchestratorFilters", () => {
       sort_direction: "asc",
       previous_sort_key: "score",
       previous_sort_direction: "desc",
-      tab: "ready",
+      tab: "all",
       filtered_count_bucket: "2_5",
     });
   });

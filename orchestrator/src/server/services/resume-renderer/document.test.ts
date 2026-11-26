@@ -82,11 +82,6 @@ describe("normalizeResumeJsonToLatexDocument", () => {
         size: 96,
         rotation: 0,
         aspectRatio: 1.2,
-        borderRadius: 12,
-        borderColor: "#000000",
-        borderWidth: 1,
-        shadowColor: "#111111",
-        shadowWidth: 2,
       },
       basics: {
         name: "Jane Doe",

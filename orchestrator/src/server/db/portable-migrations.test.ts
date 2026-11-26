@@ -62,6 +62,7 @@ describe("portable-migrations", () => {
         "0006",
         "0007",
         "0008",
+        "0009",
       ]);
       expect(first.skipped).toEqual([]);
       expect(first.total).toBe(PORTABLE_MIGRATIONS.length);
@@ -78,6 +79,8 @@ describe("portable-migrations", () => {
       expect(tableNames).toContain("watchlist_filter_plans");
       expect(tableNames).toContain("watchlist_source_results");
       expect(tableNames).toContain("_portable_migrations");
+      expect(tableNames).not.toContain("interviews");
+      expect(tableNames).not.toContain("tasks");
 
       const defaultTenant = sqlite
         .prepare("SELECT id, name, slug FROM tenants WHERE id = ?")
@@ -99,6 +102,7 @@ describe("portable-migrations", () => {
         "0006",
         "0007",
         "0008",
+        "0009",
       ]);
     } finally {
       sqlite.close();
@@ -121,12 +125,13 @@ describe("portable-migrations", () => {
         "0006",
         "0007",
         "0008",
+        "0009",
       ]);
       expect(first.skipped).toEqual([]);
 
       const remaining = sqlite
         .prepare(
-          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('tracer_links', 'tracer_click_events')",
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('tracer_links', 'tracer_click_events', 'interviews', 'tasks')",
         )
         .all();
       expect(remaining).toEqual([]);
@@ -142,6 +147,7 @@ describe("portable-migrations", () => {
         "0006",
         "0007",
         "0008",
+        "0009",
       ]);
     } finally {
       sqlite.close();
@@ -168,6 +174,7 @@ describe("portable-migrations", () => {
         "0006",
         "0007",
         "0008",
+        "0009",
       ]);
       expect(sqlite.prepare("SELECT id, status, posting_id FROM jobs ORDER BY id").all()).toEqual([
         { id: "j1", status: "applied", posting_id: null },

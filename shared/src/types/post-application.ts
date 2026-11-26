@@ -1,4 +1,4 @@
-export const POST_APPLICATION_PROVIDERS = ["gmail", "imap"] as const;
+export const POST_APPLICATION_PROVIDERS = ["gmail"] as const;
 export type PostApplicationProvider = (typeof POST_APPLICATION_PROVIDERS)[number];
 
 export const POST_APPLICATION_PROVIDER_ACTIONS = [

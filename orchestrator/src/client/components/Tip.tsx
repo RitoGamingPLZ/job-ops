@@ -9,7 +9,6 @@ type TipProps = {
   contentClassName?: string;
   side?: React.ComponentProps<typeof TooltipContent>["side"];
   align?: React.ComponentProps<typeof TooltipContent>["align"];
-  sideOffset?: number;
   delayDuration?: number;
   asChild?: boolean;
   disabled?: boolean;
@@ -50,7 +49,6 @@ export function Tip({
   contentClassName,
   side = "top",
   align,
-  sideOffset,
   delayDuration = 0,
   asChild = false,
   disabled = false,
@@ -170,12 +168,7 @@ export function Tip({
     <TooltipProvider delayDuration={delayDuration}>
       <Tooltip open={open}>
         <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-        <TooltipContent
-          side={side}
-          align={align}
-          sideOffset={sideOffset}
-          className={contentClassName}
-        >
+        <TooltipContent side={side} align={align} className={contentClassName}>
           {typeof content === "string" ? <span className="inline-block">{content}</span> : content}
         </TooltipContent>
       </Tooltip>

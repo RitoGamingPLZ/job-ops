@@ -1,7 +1,6 @@
 import type { AppError } from "@infra/errors";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { gmailApi, resolveGmailAccessToken } from "./gmail-api";
-import { __test__ } from "./gmail-sync";
+import { buildEmailText, extractBodyText, gmailApi, resolveGmailAccessToken } from "./gmail-api";
 
 describe("gmail sync http behavior", () => {
   const originalClientId = process.env.GMAIL_OAUTH_CLIENT_ID;
@@ -122,7 +121,7 @@ describe("gmail sync body extraction", () => {
       },
     };
 
-    const body = __test__.extractBodyText(payload);
+    const body = extractBodyText(payload);
 
     expect(body).toContain("Hello there.");
     expect(body).toContain("Apply now");
@@ -155,7 +154,7 @@ describe("gmail sync body extraction", () => {
       ],
     };
 
-    const body = __test__.extractBodyText(payload);
+    const body = extractBodyText(payload);
     expect(body).toContain("plain text message");
     expect(body).not.toContain("HTML version should be ignored");
   });
@@ -177,7 +176,7 @@ describe("gmail sync body extraction", () => {
       ],
     };
 
-    const body = __test__.extractBodyText(payload);
+    const body = extractBodyText(payload);
     expect(body).toContain("Too short");
     expect(body).not.toContain("Preferred HTML content");
   });
@@ -197,18 +196,18 @@ describe("gmail sync body extraction", () => {
       ],
     };
 
-    const body = __test__.extractBodyText(payload);
+    const body = extractBodyText(payload);
     expect(body).toBe("Repeated sentence here.");
   });
 
   it("returns empty string when payload is missing", () => {
-    expect(__test__.extractBodyText(undefined)).toBe("");
+    expect(extractBodyText(undefined)).toBe("");
   });
 });
 
 describe("gmail sync prompt assembly", () => {
   it("omits snippet from email text sent to the llm", () => {
-    const emailText = __test__.buildEmailText({
+    const emailText = buildEmailText({
       from: "jobs@example.com",
       subject: "Interview update",
       date: "Mon, 1 Jan 2026 10:00:00 +0000",

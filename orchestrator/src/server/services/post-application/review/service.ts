@@ -71,6 +71,24 @@ export async function listPostApplicationInbox(args: {
   return buildMatchedJobMap(messages, jobs);
 }
 
+/** Loads an inbox message for the given account and ensures it is still awaiting a decision. */
+async function requirePendingInboxMessage(args: {
+  messageId: string;
+  provider: PostApplicationProvider;
+  accountKey: string;
+}): Promise<PostApplicationMessage> {
+  const message = await getPostApplicationMessageById(args.messageId);
+  if (!message || message.provider !== args.provider || message.accountKey !== args.accountKey) {
+    throw notFound(`Post-application message '${args.messageId}' not found.`);
+  }
+  if (message.processingStatus !== "pending_user") {
+    throw conflict(
+      `Message '${args.messageId}' is already decided with status '${message.processingStatus}'.`,
+    );
+  }
+  return message;
+}
+
 export async function approvePostApplicationInboxItem(args: {
   messageId: string;
   provider: PostApplicationProvider;
@@ -81,18 +99,7 @@ export async function approvePostApplicationInboxItem(args: {
   note?: string;
   decidedBy?: string | null;
 }): Promise<{ message: PostApplicationMessage; stageEventId: string | null }> {
-  const message = await getPostApplicationMessageById(args.messageId);
-  if (!message) {
-    throw notFound(`Post-application message '${args.messageId}' not found.`);
-  }
-  if (message.provider !== args.provider || message.accountKey !== args.accountKey) {
-    throw notFound(`Post-application message '${args.messageId}' not found.`);
-  }
-  if (message.processingStatus !== "pending_user") {
-    throw conflict(
-      `Message '${args.messageId}' is already decided with status '${message.processingStatus}'.`,
-    );
-  }
+  const message = await requirePendingInboxMessage(args);
 
   const resolvedJobId = args.jobId ?? message.matchedJobId;
   if (!resolvedJobId) {
@@ -197,18 +204,7 @@ export async function denyPostApplicationInboxItem(args: {
   accountKey: string;
   decidedBy?: string | null;
 }): Promise<{ message: PostApplicationMessage }> {
-  const message = await getPostApplicationMessageById(args.messageId);
-  if (!message) {
-    throw notFound(`Post-application message '${args.messageId}' not found.`);
-  }
-  if (message.provider !== args.provider || message.accountKey !== args.accountKey) {
-    throw notFound(`Post-application message '${args.messageId}' not found.`);
-  }
-  if (message.processingStatus !== "pending_user") {
-    throw conflict(
-      `Message '${args.messageId}' is already decided with status '${message.processingStatus}'.`,
-    );
-  }
+  const message = await requirePendingInboxMessage(args);
 
   const decidedAt = Date.now();
   db.transaction((tx) => {

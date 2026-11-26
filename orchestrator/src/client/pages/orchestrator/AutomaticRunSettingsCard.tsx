@@ -2,7 +2,7 @@ import type {
   LocationInputMode,
   LocationMatchStrictness,
   LocationSearchScope,
-} from "@shared/location-preferences.js";
+} from "@shared/location-domain.js";
 import { formatCountryLabel } from "@shared/location-support.js";
 import type { LocationProximity } from "@shared/types";
 import { Info } from "lucide-react";
@@ -50,22 +50,7 @@ interface AutomaticRunSettingsCardProps {
   onToggleWorkplaceType: (workplaceType: WorkplaceType, checked: boolean) => void;
 }
 
-export function AutomaticRunSettingsCard({
-  values,
-  countryOptions,
-  countrySuggestion,
-  countrySelectionInvalid,
-  cityLocationDraft,
-  workplaceTypes,
-  workplaceTypeSelectionInvalid,
-  onCountryChange,
-  onUseCountrySuggestion,
-  onCityLocationDraftChange,
-  onCityLocationsChange,
-  onLocationModeChange,
-  onProximityChange,
-  onToggleWorkplaceType,
-}: AutomaticRunSettingsCardProps) {
+export function AutomaticRunSettingsCard(props: AutomaticRunSettingsCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -82,42 +67,10 @@ export function AutomaticRunSettingsCard({
         </div>
       </CardHeader>
       <CardContent>
-        <LocationPreferences
-          values={values}
-          countryOptions={countryOptions}
-          countrySuggestion={countrySuggestion}
-          countrySelectionInvalid={countrySelectionInvalid}
-          cityLocationDraft={cityLocationDraft}
-          workplaceTypes={workplaceTypes}
-          workplaceTypeSelectionInvalid={workplaceTypeSelectionInvalid}
-          onCountryChange={onCountryChange}
-          onUseCountrySuggestion={onUseCountrySuggestion}
-          onCityLocationDraftChange={onCityLocationDraftChange}
-          onCityLocationsChange={onCityLocationsChange}
-          onLocationModeChange={onLocationModeChange}
-          onProximityChange={onProximityChange}
-          onToggleWorkplaceType={onToggleWorkplaceType}
-        />
+        <LocationPreferences {...props} />
       </CardContent>
     </Card>
   );
-}
-
-interface LocationPreferencesProps {
-  values: AutomaticRunValues;
-  countryOptions: Array<{ value: string; label: string }>;
-  countrySuggestion: string | null;
-  countrySelectionInvalid: boolean;
-  cityLocationDraft: string;
-  workplaceTypes: WorkplaceType[];
-  workplaceTypeSelectionInvalid: boolean;
-  onCountryChange: (country: string) => void;
-  onUseCountrySuggestion: () => void;
-  onCityLocationDraftChange: (value: string) => void;
-  onCityLocationsChange: (value: string[]) => void;
-  onLocationModeChange: (value: LocationInputMode) => void;
-  onProximityChange: (value: LocationProximity) => void;
-  onToggleWorkplaceType: (workplaceType: WorkplaceType, checked: boolean) => void;
 }
 
 function LocationPreferences({
@@ -135,7 +88,7 @@ function LocationPreferences({
   onLocationModeChange,
   onProximityChange,
   onToggleWorkplaceType,
-}: LocationPreferencesProps) {
+}: AutomaticRunSettingsCardProps) {
   return (
     <div className="flex flex-col gap-4">
       {values.locationMode === "cities" && countrySuggestion ? (

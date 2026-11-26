@@ -1,4 +1,3 @@
-import { isCapabilityError } from "../policies/capability-fallback";
 import type {
   JsonSchemaDefinition,
   LlmMessage,
@@ -10,17 +9,18 @@ import type {
 import { joinUrl } from "../utils/http";
 import { getNestedValue } from "../utils/object";
 
-type ProviderStrategyArgs = Omit<ProviderStrategy, "isCapabilityError" | "getValidationUrls"> & {
+type ProviderStrategyArgs = Omit<ProviderStrategy, "getValidationUrls"> & {
+  validationPaths: string[];
   getValidationUrls?: ProviderStrategy["getValidationUrls"];
 };
 
 export function createProviderStrategy(args: ProviderStrategyArgs): ProviderStrategy {
+  const { validationPaths, ...strategy } = args;
   return {
-    ...args,
-    isCapabilityError: ({ mode, status, body }) => isCapabilityError({ mode, status, body }),
+    ...strategy,
     getValidationUrls:
       args.getValidationUrls ??
-      (({ baseUrl }) => args.validationPaths.map((path) => joinUrl(baseUrl, path))),
+      (({ baseUrl }) => validationPaths.map((path) => joinUrl(baseUrl, path))),
   };
 }
 

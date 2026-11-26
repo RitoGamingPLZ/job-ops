@@ -88,7 +88,6 @@ describe("pipeline cancellation", () => {
     const cancelRequest = pipeline.requestPipelineCancel();
     expect(cancelRequest.accepted).toBe(true);
     expect([null, "run-cancel-1"]).toContain(cancelRequest.pipelineRunId);
-    expect(pipeline.isPipelineCancelRequested()).toBe(true);
 
     const duplicateRequest = pipeline.requestPipelineCancel();
     expect(duplicateRequest.accepted).toBe(true);
@@ -107,7 +106,6 @@ describe("pipeline cancellation", () => {
       }),
     );
     expect(pipeline.getPipelineStatus().isRunning).toBe(false);
-    expect(pipeline.isPipelineCancelRequested()).toBe(false);
   });
   it("scores and selects without generating resumes, PDFs, or targeting jobs", async () => {
     const pipeline = await import("./orchestrator");

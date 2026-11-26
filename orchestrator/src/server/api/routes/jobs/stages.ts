@@ -1,30 +1,18 @@
-import { badRequest, notFound, toAppError } from "@infra/errors";
+import { badRequest, toAppError } from "@infra/errors";
 import { fail, ok } from "@infra/http";
-import { resolveRequestOrigin } from "@server/infra/request-origin";
-import * as jobsRepo from "@server/repositories/jobs";
 import { reconcileActivationMilestonesFromHistorySafely } from "@server/services/activation-funnel";
 import {
   deleteStageEvent,
   getStageEvents,
-  getTasks,
   transitionStage,
   updateStageEvent,
 } from "@server/services/applicationTracking";
-import { trackApplicationAcceptedIfNeeded } from "@server/services/jobs/analytics";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
-import { requireAnyPermissionMiddleware, requirePermissionMiddleware } from "../../require-admin";
-import {
-  hydrateJobPdfFreshness,
-  transitionStageSchema,
-  updateOutcomeSchema,
-  updateStageEventSchema,
-} from "./shared";
+import { requireInProgress, requireJobsOrInProgress } from "../../require-admin";
+import { transitionStageSchema, updateStageEventSchema } from "./shared";
 
 export const jobsStagesRouter = Router();
-
-const requireJobsOrInProgress = requireAnyPermissionMiddleware("jobs", "inProgress");
-const requireInProgress = requirePermissionMiddleware("inProgress");
 
 jobsStagesRouter.get(
   "/:id/events",
@@ -38,17 +26,6 @@ jobsStagesRouter.get(
     }
   },
 );
-
-jobsStagesRouter.get("/:id/tasks", requireJobsOrInProgress, async (req: Request, res: Response) => {
-  try {
-    const includeCompleted =
-      req.query.includeCompleted === "1" || req.query.includeCompleted === "true";
-    const tasks = await getTasks(req.params.id, includeCompleted);
-    ok(res, tasks);
-  } catch (error) {
-    fail(res, toAppError(error));
-  }
-});
 
 jobsStagesRouter.post("/:id/stages", requireInProgress, async (req: Request, res: Response) => {
   try {
@@ -118,43 +95,3 @@ jobsStagesRouter.delete(
     }
   },
 );
-
-jobsStagesRouter.patch("/:id/outcome", requireInProgress, async (req: Request, res: Response) => {
-  try {
-    const input = updateOutcomeSchema.parse(req.body);
-    const currentJob = await jobsRepo.getJobById(req.params.id);
-    if (!currentJob) {
-      return fail(res, notFound("Job not found"));
-    }
-    const closedAt = input.outcome ? (input.closedAt ?? Math.floor(Date.now() / 1000)) : null;
-    const job = await jobsRepo.updateJob(req.params.id, {
-      outcome: input.outcome,
-      closedAt,
-    });
-
-    if (!job) {
-      return fail(res, notFound("Job not found"));
-    }
-
-    trackApplicationAcceptedIfNeeded({
-      closedAt: job.closedAt,
-      nextOutcome: job.outcome,
-      previousOutcome: currentJob.outcome,
-      requestOrigin: resolveRequestOrigin(req),
-      source: "jobs_outcome_route",
-    });
-
-    ok(res, await hydrateJobPdfFreshness(job));
-    queueMicrotask(() => {
-      void reconcileActivationMilestonesFromHistorySafely({
-        route: "PATCH /api/jobs/:id/outcome",
-        jobId: req.params.id,
-      });
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return fail(res, badRequest(error.message, error.flatten()));
-    }
-    fail(res, toAppError(error));
-  }
-});

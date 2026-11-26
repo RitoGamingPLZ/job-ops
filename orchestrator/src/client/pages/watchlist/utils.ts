@@ -5,7 +5,7 @@ import {
   workdayUrlToSourceKey,
 } from "@career-boards/workday";
 import { matchJobLocationIntent } from "@shared/job-matching.js";
-import type { LocationIntent } from "@shared/location-intelligence.js";
+import type { LocationIntent } from "@shared/location-domain.js";
 import { normalizeCountryKey } from "@shared/location-support.js";
 import type {
   JobListItem,

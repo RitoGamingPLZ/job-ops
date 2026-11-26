@@ -2,11 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   formatCountryLabel,
   getAdzunaCountryCode,
-  getCompatibleSourcesForCountry,
   getCountryIso2Code,
   getCountryNameVariants,
-  isSourceAllowedForCountry,
-  isUkCountry,
   normalizeCountryKey,
   SUPPORTED_COUNTRY_KEYS,
 } from "./location-support";
@@ -44,36 +41,6 @@ describe("location-support", () => {
     expect(SUPPORTED_COUNTRY_KEYS).toContain("worldwide");
     expect(SUPPORTED_COUNTRY_KEYS).not.toContain("uk");
     expect(SUPPORTED_COUNTRY_KEYS).not.toContain("us");
-  });
-
-  it("treats only united kingdom as UK country", () => {
-    expect(isUkCountry("united kingdom")).toBe(true);
-    expect(isUkCountry("UK")).toBe(true);
-    expect(isUkCountry("worldwide")).toBe(false);
-    expect(isUkCountry("usa/ca")).toBe(false);
-    expect(isUkCountry("united states")).toBe(false);
-  });
-
-  it("applies source compatibility rules by country", () => {
-    expect(isSourceAllowedForCountry("jobindex", "denmark")).toBe(true);
-    expect(isSourceAllowedForCountry("jobindex", "united kingdom")).toBe(false);
-    expect(isSourceAllowedForCountry("indeed", "united states")).toBe(true);
-    expect(isSourceAllowedForCountry("linkedin", "worldwide")).toBe(true);
-    expect(isSourceAllowedForCountry("adzuna", "united states")).toBe(true);
-    expect(isSourceAllowedForCountry("adzuna", "japan")).toBe(false);
-    expect(isSourceAllowedForCountry("hiringcafe", "united states")).toBe(true);
-    expect(isSourceAllowedForCountry("freehire", "worldwide")).toBe(true);
-    expect(isSourceAllowedForCountry("indeed", "russia")).toBe(false);
-    expect(isSourceAllowedForCountry("freehire", "russia")).toBe(true);
-  });
-
-  it("filters incompatible sources while preserving compatible order", () => {
-    expect(
-      getCompatibleSourcesForCountry(
-        ["indeed", "jobindex", "adzuna", "hiringcafe", "freehire", "linkedin"],
-        "united states",
-      ),
-    ).toEqual(["indeed", "adzuna", "hiringcafe", "freehire", "linkedin"]);
   });
 
   it("maps adzuna country keys to adzuna api country codes", () => {

@@ -505,22 +505,6 @@ describe("Jobs API routes", () => {
         occurredAt: Date.now(),
       })
       .run();
-    db.insert(schema.tasks)
-      .values({
-        id: "delete-task",
-        applicationId: job.id,
-        type: "follow_up",
-        title: "Follow up",
-      })
-      .run();
-    db.insert(schema.interviews)
-      .values({
-        id: "delete-interview",
-        applicationId: job.id,
-        type: "technical",
-        scheduledAt: Date.now(),
-      })
-      .run();
     db.insert(schema.jobChatThreads).values({ id: "delete-thread", jobId: job.id }).run();
     db.insert(schema.jobChatMessages)
       .values({
@@ -581,8 +565,6 @@ describe("Jobs API routes", () => {
     expect(await getJobById(otherJob.id)).not.toBeNull();
     for (const table of [
       schema.stageEvents,
-      schema.tasks,
-      schema.interviews,
       schema.jobNotes,
       schema.jobDocuments,
       schema.jobChatThreads,
@@ -2372,96 +2354,6 @@ describe("Jobs API routes", () => {
         },
         expect.objectContaining({
           occurredAt: 1_713_456_700_000,
-        }),
-      );
-    });
-
-    it("manages application tasks", async () => {
-      const { db, schema } = await import("@server/db/index");
-      const { eq } = await import("drizzle-orm");
-      const { tasks } = schema;
-
-      // 1. Initial state
-      const res1 = await fetch(`${baseUrl}/api/jobs/${jobId}/tasks`);
-      const body1 = await res1.json();
-      expect(body1.ok).toBe(true);
-      expect(body1.data).toEqual([]);
-
-      // 2. Insert a task
-      await (db as any)
-        .insert(tasks)
-        .values({
-          id: "task-1",
-          applicationId: jobId,
-          type: "todo",
-          title: "Complete test task",
-          isCompleted: false,
-        })
-        .run();
-
-      const res2 = await fetch(`${baseUrl}/api/jobs/${jobId}/tasks`);
-      const body2 = await res2.json();
-      expect(body2.data).toHaveLength(1);
-      expect(body2.data[0].title).toBe("Complete test task");
-
-      // 3. Test filtering (completed vs non-completed)
-      await (db as any)
-        .update(tasks)
-        .set({ isCompleted: true })
-        .where(eq(tasks.id, "task-1"))
-        .run();
-
-      const res3 = await fetch(`${baseUrl}/api/jobs/${jobId}/tasks`);
-      const body3 = await res3.json();
-      expect(body3.data).toHaveLength(0); // includeCompleted defaults to false
-
-      const res4 = await fetch(`${baseUrl}/api/jobs/${jobId}/tasks?includeCompleted=true`);
-      const body4 = await res4.json();
-      expect(body4.data).toHaveLength(1);
-    });
-
-    it("updates job outcome", async () => {
-      const { trackCanonicalActivationEvent } = await import("@server/services/activation-funnel");
-      const res = await fetch(`${baseUrl}/api/jobs/${jobId}/outcome`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outcome: "rejected" }),
-      });
-      const body = await res.json();
-      expect(body.ok).toBe(true);
-      expect(body.data.outcome).toBe("rejected");
-      expect(body.data.closedAt).toBeTruthy();
-      expect(trackCanonicalActivationEvent).not.toHaveBeenCalledWith(
-        "application_accepted",
-        expect.anything(),
-        expect.anything(),
-      );
-    });
-
-    it("tracks accepted outcomes as a canonical backend event", async () => {
-      const { trackCanonicalActivationEvent } = await import("@server/services/activation-funnel");
-
-      const res = await fetch(`${baseUrl}/api/jobs/${jobId}/outcome`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          outcome: "offer_accepted",
-          closedAt: 1_713_456_789,
-        }),
-      });
-      const body = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(body.ok).toBe(true);
-      expect(body.data.outcome).toBe("offer_accepted");
-      expect(trackCanonicalActivationEvent).toHaveBeenCalledWith(
-        "application_accepted",
-        {
-          source: "jobs_outcome_route",
-        },
-        expect.objectContaining({
-          occurredAt: 1_713_456_789_000,
-          urlPath: "/applications/in-progress",
         }),
       );
     });

@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 
 export type Theme = "dark" | "light";
 
-export const THEME_STORAGE_KEY = "jobops.theme";
+const THEME_STORAGE_KEY = "jobops.theme";
 
 const readStored = (): Theme => {
   try {

@@ -72,10 +72,6 @@ function formatSourceList(sources: string[]) {
   return sources.join(", ");
 }
 
-function formatToggleState(value: boolean) {
-  return value ? "Enabled" : "Disabled";
-}
-
 function formatStageLabel(stage: string) {
   return stage.replace(/_/g, " ");
 }
@@ -195,22 +191,6 @@ function RunInsightsBody(props: { insights: PipelineRunInsights; isActiveRun: bo
                 <MetricCard
                   label="Sources"
                   value={formatSourceList(savedDetails.requestedConfig.sources.map(sourceLabel))}
-                />
-                <MetricCard
-                  label="Crawling"
-                  value={formatToggleState(savedDetails.requestedConfig.enableCrawling)}
-                />
-                <MetricCard
-                  label="Scoring"
-                  value={formatToggleState(savedDetails.requestedConfig.enableScoring)}
-                />
-                <MetricCard
-                  label="Importing"
-                  value={formatToggleState(savedDetails.requestedConfig.enableImporting)}
-                />
-                <MetricCard
-                  label="Auto tailoring"
-                  value={formatToggleState(savedDetails.requestedConfig.enableAutoTailoring)}
                 />
               </div>
             </div>

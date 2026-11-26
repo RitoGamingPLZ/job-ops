@@ -1,10 +1,6 @@
-import { AppError, badRequest, serviceUnavailable, upstreamError } from "@infra/errors";
+import { AppError, badRequest, upstreamError } from "@infra/errors";
 
-export type PostApplicationProviderErrorKind =
-  | "invalid_request"
-  | "not_implemented"
-  | "service_unavailable"
-  | "upstream";
+export type PostApplicationProviderErrorKind = "invalid_request" | "upstream";
 
 export class PostApplicationProviderError extends Error {
   constructor(
@@ -24,13 +20,6 @@ export function providerInvalidRequest(
   return new PostApplicationProviderError("invalid_request", message, details);
 }
 
-export function providerNotImplemented(
-  message: string,
-  details?: unknown,
-): PostApplicationProviderError {
-  return new PostApplicationProviderError("not_implemented", message, details);
-}
-
 export function providerUpstreamError(
   message: string,
   details?: unknown,
@@ -46,11 +35,7 @@ export function toProviderAppError(error: unknown): AppError {
       return badRequest(error.message, error.details);
     }
 
-    if (error.kind === "upstream") {
-      return upstreamError(error.message, error.details);
-    }
-
-    return serviceUnavailable(error.message);
+    return upstreamError(error.message, error.details);
   }
 
   if (error instanceof Error) {

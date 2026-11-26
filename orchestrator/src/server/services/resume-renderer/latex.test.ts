@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   buildLatexDocument,
   getLatexTemplatePath,
-  getTectonicBinary,
   readLatexTemplate,
   renderLatexPdf,
 } from "./latex";
@@ -32,7 +31,6 @@ const baseDocument: ResumeRenderDocument = {
       date: "2023 -- Present",
       bullets: ["Improved API reliability", "Reduced operator toil"],
       url: "https://acme.example.com",
-      linkLabel: "Acme",
     },
   ],
   education: [],
@@ -107,17 +105,6 @@ describe("latex resume renderer", () => {
     expect(buildLatexDocument(baseDocument, template)).toBe(
       "\\documentclass[letterpaper,11pt]{article}",
     );
-  });
-
-  it("uses the TECTONIC_BIN override when present", () => {
-    const previous = process.env.TECTONIC_BIN;
-    process.env.TECTONIC_BIN = "/tmp/custom-tectonic";
-    expect(getTectonicBinary()).toBe("/tmp/custom-tectonic");
-    if (previous === undefined) {
-      delete process.env.TECTONIC_BIN;
-    } else {
-      process.env.TECTONIC_BIN = previous;
-    }
   });
 
   it("defaults LaTeX section titles to English", () => {
@@ -226,11 +213,6 @@ describe("latex resume renderer", () => {
           size: 88,
           rotation: 0,
           aspectRatio: 1,
-          borderRadius: 0,
-          borderColor: "",
-          borderWidth: 0,
-          shadowColor: "",
-          shadowWidth: 0,
         },
         profileItems: [
           {

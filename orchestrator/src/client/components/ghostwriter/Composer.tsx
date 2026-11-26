@@ -27,7 +27,6 @@ export const Composer: React.FC<ComposerProps> = ({
     canReset={canReset}
     contextSlot={noteContextSelector}
     placeholder="Ask anything about this job..."
-    allowScreenshots
     onStop={onStop}
     onSend={onSend}
     onReset={onReset}

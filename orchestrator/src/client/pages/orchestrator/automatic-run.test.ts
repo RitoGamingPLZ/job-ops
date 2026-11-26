@@ -1,7 +1,7 @@
+import { deriveExtractorLimits } from "@shared/types";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   AUTOMATIC_PRESETS,
-  deriveExtractorLimits,
   getRunMemoryStorageKey,
   inferAutomaticPresetSelection,
   loadAutomaticRunMemory,

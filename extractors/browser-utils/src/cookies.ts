@@ -1,7 +1,6 @@
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { BrowserContext, Cookie as PlaywrightCookie } from "playwright";
-import { CookieJar as ToughCookieJar } from "tough-cookie";
 
 /**
  * Cookies worth persisting — CF clearance and common session cookies.
@@ -38,16 +37,7 @@ export interface CookieJarInfo {
   userAgent?: string;
 }
 
-export interface FetchCookieJar {
-  setCookie: (cookie: string, url: string) => Promise<void> | void;
-  getCookieString: (url: string) => Promise<string> | string;
-}
-
-export interface PersistedFetchCookieJarInfo extends CookieJarInfo {
-  cookieJar: FetchCookieJar;
-}
-
-export function getCloudflareCookieStorageDir(storageDir?: string): string {
+function getCloudflareCookieStorageDir(storageDir?: string): string {
   if (storageDir) return storageDir;
 
   const fromEnv = (process.env.JOBOPS_CLOUDFLARE_COOKIE_STORAGE_DIR || "").trim();
@@ -92,26 +82,6 @@ async function readPersistedCookieJar(
 
 function getValidCookies(jar: PersistedCookieJar): PlaywrightCookie[] {
   return Array.isArray(jar.cookies) ? jar.cookies.filter((cookie) => !isExpired(cookie)) : [];
-}
-
-function cookieOriginUrl(cookie: PlaywrightCookie): string {
-  const protocol = cookie.secure ? "https" : "http";
-  const domain = cookie.domain.replace(/^\./, "") || "localhost";
-  const path = cookie.path?.startsWith("/") ? cookie.path : "/";
-  return `${protocol}://${domain}${path}`;
-}
-
-function toSetCookieHeader(cookie: PlaywrightCookie): string {
-  const parts = [`${cookie.name}=${cookie.value}`];
-  if (cookie.domain) parts.push(`Domain=${cookie.domain}`);
-  if (cookie.path) parts.push(`Path=${cookie.path}`);
-  if (typeof cookie.expires === "number" && cookie.expires !== -1) {
-    parts.push(`Expires=${new Date(cookie.expires * 1000).toUTCString()}`);
-  }
-  if (cookie.httpOnly) parts.push("HttpOnly");
-  if (cookie.secure) parts.push("Secure");
-  if (cookie.sameSite) parts.push(`SameSite=${cookie.sameSite}`);
-  return parts.join("; ");
 }
 
 /**
@@ -220,50 +190,4 @@ export async function readCookieJar(
     cookieCount: valid.length,
     userAgent: jar.userAgent,
   };
-}
-
-/**
- * Creates a Fetch-compatible cookie jar from cookies saved by Playwright.
- * HTTP extractors can pass this to clients such as `impit` so the headed
- * challenge solve and the fast HTTP retry share the same Cloudflare session.
- */
-export async function createPersistedFetchCookieJar(
-  extractorId: string,
-  storageDir?: string,
-): Promise<PersistedFetchCookieJarInfo> {
-  const toughJar = new ToughCookieJar();
-  const persistedJar = await readPersistedCookieJar(extractorId, storageDir);
-  const validCookies = persistedJar ? getValidCookies(persistedJar) : [];
-
-  for (const cookie of validCookies) {
-    await toughJar.setCookie(toSetCookieHeader(cookie), cookieOriginUrl(cookie), {
-      ignoreError: true,
-    });
-  }
-
-  return {
-    hasCookies: validCookies.length > 0,
-    hasClearanceCookie: hasClearanceCookie(validCookies),
-    cookieCount: validCookies.length,
-    userAgent: persistedJar?.userAgent,
-    cookieJar: {
-      setCookie: async (cookie, url) => {
-        await toughJar.setCookie(cookie, url, { ignoreError: true });
-      },
-      getCookieString: (url) => toughJar.getCookieString(url),
-    },
-  };
-}
-
-/**
- * Deletes the cookie jar file for an extractor.
- * Call this when cookies are known to be stale (e.g. after a CF re-challenge).
- */
-export async function invalidateCookies(extractorId: string, storageDir?: string): Promise<void> {
-  const path = cookiePath(getCloudflareCookieStorageDir(storageDir), extractorId);
-  try {
-    await unlink(path);
-  } catch {
-    // File doesn't exist — nothing to invalidate
-  }
 }

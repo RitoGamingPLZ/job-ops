@@ -1,7 +1,7 @@
 import type { WatchlistSource, WatchlistSourceGroup } from "@shared/types";
 import groupDefinitions from "./watchlist-groups.json";
 
-export interface WatchlistGroupDefinition {
+interface WatchlistGroupDefinition {
   id: string;
   label: string;
   description: string;
@@ -42,8 +42,4 @@ export function resolveWatchlistSourceGroups(
       },
     ];
   });
-}
-
-export function listWatchlistGroupDefinitions(): WatchlistGroupDefinition[] {
-  return groupDefinitions;
 }

@@ -1,6 +1,5 @@
 import type {
   ApplicationStage,
-  ApplicationTask,
   AppSettings,
   Job,
   JobActionRequest,
@@ -302,18 +301,6 @@ export async function streamJobAction(
 
 export async function getJobStageEvents(id: string): Promise<StageEvent[]> {
   return fetchApi<StageEvent[]>(withQuery(`/jobs/${id}/events`, { t: Date.now() }));
-}
-
-export async function getJobTasks(
-  id: string,
-  options?: { includeCompleted?: boolean },
-): Promise<ApplicationTask[]> {
-  return fetchApi<ApplicationTask[]>(
-    withQuery(`/jobs/${id}/tasks`, {
-      includeCompleted: options?.includeCompleted ? "1" : undefined,
-      t: Date.now(),
-    }),
-  );
 }
 
 export async function transitionJobStage(

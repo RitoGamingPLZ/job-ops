@@ -8,7 +8,6 @@ import {
   previewJobPdfBytes,
   setRemotePdfRenderer,
 } from "./pdf";
-import * as projectSelection from "./projectSelection";
 
 vi.mock("./job-resume", () => ({
   ensureJobResume: vi.fn().mockResolvedValue(null),
@@ -314,10 +313,6 @@ vi.mock("./profile", () => ({
   getProfile: vi.fn().mockResolvedValue(mockProfile),
 }));
 
-vi.mock("./projectSelection", () => ({
-  pickProjectIdsForJob: vi.fn().mockResolvedValue([]),
-}));
-
 vi.mock("./resumeProjects", () => ({
   extractProjectsFromProfile: vi.fn().mockReturnValue({
     catalog: [],
@@ -368,10 +363,7 @@ vi.mock("./resume-document", async () => {
       if (data.sections?.projects) data.sections.projects.hidden = false;
 
       return {
-        mode: args.mode,
         data,
-        projectCatalog: [],
-        selectedProjectIds: [...selectedSet],
       };
     }),
   };
@@ -501,10 +493,7 @@ describe("PDF Service Tailoring Logic", () => {
   it("renders the editor document and ignores legacy summary and selectedProjectIds", async () => {
     await generatePdf("job-1", "Job Desc");
 
-    // 1. pickProjectIdsForJob should NOT be called
-    expect(projectSelection.pickProjectIdsForJob).not.toHaveBeenCalled();
-
-    // 2. Verify prepared resume content
+    // Verify prepared resume content
     expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalled();
     const savedResumeJson = mockResumeRenderer.getLastResumeJson();
 
@@ -545,8 +534,6 @@ describe("PDF Service Tailoring Logic", () => {
 
   it("preserves editor project visibility when legacy selection is absent", async () => {
     await generatePdf("job-3", "desc");
-
-    expect(projectSelection.pickProjectIdsForJob).not.toHaveBeenCalled();
 
     expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalled();
     const savedResumeJson = mockResumeRenderer.getLastResumeJson();

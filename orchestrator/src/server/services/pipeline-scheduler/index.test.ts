@@ -60,7 +60,7 @@ import {
   runScheduledPipeline,
   startIncompleteSearchRecovery,
   startPipelineScheduler,
-  stopPipelineScheduler,
+  __stopPipelineSchedulerForTests,
 } from "./index";
 
 beforeEach(() => {
@@ -84,7 +84,7 @@ beforeEach(() => {
   mocks.getLatestPipelineRun.mockResolvedValue(null);
 });
 afterEach(() => {
-  stopPipelineScheduler();
+  __stopPipelineSchedulerForTests();
   vi.useRealTimers();
 });
 
@@ -589,7 +589,7 @@ describe("admin-owned daily search outside hosted mode", () => {
       expect(mocks.start).toHaveBeenCalledTimes(1);
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000); // failed -> retried
       expect(mocks.start).toHaveBeenCalledTimes(2);
-      stopPipelineScheduler();
+      __stopPipelineSchedulerForTests();
       await vi.advanceTimersByTimeAsync(3 * 60 * 60 * 1000);
       expect(mocks.start).toHaveBeenCalledTimes(2);
     });

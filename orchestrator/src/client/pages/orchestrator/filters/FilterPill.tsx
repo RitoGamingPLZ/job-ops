@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 
 /** Shared trigger props for every filter pill button. */
-export interface FilterPillTriggerProps extends Omit<
+interface FilterPillTriggerProps extends Omit<
   React.ButtonHTMLAttributes<HTMLButtonElement>,
   "children"
 > {
@@ -50,7 +50,7 @@ export const FilterPillTrigger = React.forwardRef<HTMLButtonElement, FilterPillT
 FilterPillTrigger.displayName = "FilterPillTrigger";
 
 /** Trigger button shared by every filter dropdown ("faceted filter" style). */
-export interface FilterPillProps {
+interface FilterPillProps {
   icon: React.ReactNode;
   label: string;
   active: boolean;

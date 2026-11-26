@@ -6,7 +6,7 @@ import type { NextFunction, Request, Response } from "express";
  * script-src policy is deliberately left out because analytics and map tiles
  * load from third-party origins.
  */
-export const BASELINE_SECURITY_HEADERS: Readonly<Record<string, string>> = {
+const BASELINE_SECURITY_HEADERS: Readonly<Record<string, string>> = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "SAMEORIGIN",
   "Referrer-Policy": "strict-origin-when-cross-origin",

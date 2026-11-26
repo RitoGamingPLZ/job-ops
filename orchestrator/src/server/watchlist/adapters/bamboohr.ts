@@ -37,7 +37,6 @@ export const bamboohrWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsCustomSource: true,
     supportsBranding: true,
   },
-  catalogSchema: bamboohrSourceSchema,
   parseCatalogSources(entries) {
     return z
       .array(bamboohrSourceSchema)

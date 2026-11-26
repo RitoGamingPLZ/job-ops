@@ -22,7 +22,6 @@ export interface LatexResumeEntry {
   date?: string | null;
   bullets: string[];
   url?: string | null;
-  linkLabel?: string | null;
 }
 
 export interface LatexResumeSkillGroup {
@@ -63,11 +62,6 @@ export interface LatexResumePicture {
   size: number;
   rotation: number;
   aspectRatio: number;
-  borderRadius: number;
-  borderColor: string;
-  borderWidth: number;
-  shadowColor: string;
-  shadowWidth: number;
 }
 
 export interface LatexResumeSectionTitles {

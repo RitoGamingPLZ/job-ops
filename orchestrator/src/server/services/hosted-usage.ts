@@ -360,41 +360,17 @@ export async function getHostedUsageSummary(now: Date = new Date()): Promise<Hos
   };
 }
 
-export async function requireHostedUsageAllowance(args: {
+type HostedUsageArgs = {
   action: HostedUsageAction;
   units?: number;
   now?: Date;
-}): Promise<AllowanceSnapshot> {
-  const units = assertPositiveUnits(args.units ?? 1);
-  if (!isHostedQuotaModeEnabled()) {
-    return noOpAllowance(args.action, units, args.now);
-  }
+};
 
-  const scope = getHostedUsageScope();
-  const period = getHostedUsagePeriod(args.now);
-  const limits = (await getCurrentAccountEntitlements()).hostedLimits;
-
-  return db.transaction((tx) => {
-    const counter = ensureCounter(tx, {
-      ...scope,
-      period,
-      action: args.action,
-      limitUnits: limits[args.action],
-    });
-    return assertAllowance({
-      counter,
-      action: args.action,
-      period,
-      requestedUnits: units,
-    });
-  });
-}
-
-export async function consumeHostedUsage(args: {
-  action: HostedUsageAction;
-  units?: number;
-  now?: Date;
-}): Promise<AllowanceSnapshot> {
+/** Asserts the allowance for `args` and, when `consume` is set, records the units as used. */
+async function checkHostedUsageAllowance(
+  args: HostedUsageArgs,
+  consume: boolean,
+): Promise<AllowanceSnapshot> {
   const units = assertPositiveUnits(args.units ?? 1);
   if (!isHostedQuotaModeEnabled()) {
     return noOpAllowance(args.action, units, args.now);
@@ -417,9 +393,19 @@ export async function consumeHostedUsage(args: {
       period,
       requestedUnits: units,
     });
-    applyCounterDeltas(tx, counter, { usedUnits: units });
+    if (consume) {
+      applyCounterDeltas(tx, counter, { usedUnits: units });
+    }
     return before;
   });
+}
+
+export function requireHostedUsageAllowance(args: HostedUsageArgs): Promise<AllowanceSnapshot> {
+  return checkHostedUsageAllowance(args, false);
+}
+
+export function consumeHostedUsage(args: HostedUsageArgs): Promise<AllowanceSnapshot> {
+  return checkHostedUsageAllowance(args, true);
 }
 
 export async function reserveHostedUsage(args: {

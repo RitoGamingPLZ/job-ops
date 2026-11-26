@@ -6,37 +6,31 @@
  */
 
 import "../config/env";
+import { logger } from "@infra/logger";
 import { closeDb } from "../db/index";
 import { runPipeline } from "./orchestrator";
 
 async function main() {
-  console.log("=".repeat(60));
-  console.log("🚀 Job Pipeline Runner");
-  console.log(`   Started at: ${new Date().toISOString()}`);
-  console.log("=".repeat(60));
+  logger.info("Job Pipeline Runner starting");
 
   const result = await runPipeline({
     topN: parseInt(process.env.PIPELINE_TOP_N || "10", 10),
     minSuitabilityScore: parseInt(process.env.PIPELINE_MIN_SCORE || "50", 10),
   });
 
-  console.log(`\n${"=".repeat(60)}`);
-  console.log("📊 Pipeline Results:");
-  console.log(`   Success: ${result.success}`);
-  console.log(`   Jobs Discovered: ${result.jobsDiscovered}`);
-  console.log(`   Jobs Processed: ${result.jobsProcessed}`);
-  if (result.error) {
-    console.log(`   Error: ${result.error}`);
-  }
-  console.log(`   Completed at: ${new Date().toISOString()}`);
-  console.log("=".repeat(60));
+  logger.info("Job Pipeline Runner finished", {
+    success: result.success,
+    jobsDiscovered: result.jobsDiscovered,
+    jobsProcessed: result.jobsProcessed,
+    ...(result.error ? { error: result.error } : {}),
+  });
 
   closeDb();
   process.exit(result.success ? 0 : 1);
 }
 
 main().catch((error) => {
-  console.error("Fatal error:", error);
+  logger.error("Job Pipeline Runner failed", { error });
   closeDb();
   process.exit(1);
 });

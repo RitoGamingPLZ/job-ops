@@ -85,7 +85,7 @@ export const SHORTCUTS = {
     displayKey: "s",
     label: "Skip job",
     group: "actions",
-    scope: ["discovered", "ready"],
+    scope: ["discovered"],
   },
   moveToReady: {
     key: "r",
@@ -99,7 +99,7 @@ export const SHORTCUTS = {
     displayKey: "a",
     label: "Mark applied",
     group: "actions",
-    scope: ["ready"],
+    scope: ["all"],
   },
   openListing: {
     key: "o",

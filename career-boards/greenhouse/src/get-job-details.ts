@@ -1,3 +1,4 @@
+import { fetchGreenhouseJson, optionalString, requiredString } from "./http";
 import { formatLocation } from "./get-jobs-from-board";
 import {
   GREENHOUSE_DEFAULT_USER_AGENT,
@@ -137,39 +138,4 @@ function htmlToText(html: string): string {
     .replace(/\n\s+/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-}
-
-async function fetchGreenhouseJson<T>(
-  fetchFn: typeof fetch,
-  input: {
-    url: string;
-    signal?: AbortSignal;
-    headers?: HeadersInit;
-  },
-): Promise<T> {
-  const response = await fetchFn(input.url, {
-    method: "GET",
-    signal: input.signal,
-    headers: input.headers,
-  });
-
-  const responseText = await response.text();
-  if (!response.ok) {
-    throw new Error(`Greenhouse request failed with HTTP ${response.status} for ${input.url}.`);
-  }
-
-  try {
-    return JSON.parse(responseText) as T;
-  } catch {
-    throw new Error(`Greenhouse response was not valid JSON for ${input.url}.`);
-  }
-}
-
-function requiredString(value: unknown, fieldName: string, url: string): string {
-  if (typeof value === "string" && value.trim()) return value.trim();
-  throw new Error(`Greenhouse response is missing required field ${fieldName} for ${url}.`);
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }

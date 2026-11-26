@@ -49,7 +49,7 @@ describe("usePipelineControls", () => {
       manual_import_source_host: "jobs.example.com",
     });
     expect(loadJobs).toHaveBeenCalledOnce();
-    expect(navigateWithContext).toHaveBeenCalledWith("ready", "job-1");
+    expect(navigateWithContext).toHaveBeenCalledWith("all", "job-1");
   });
 
   it("opens search independently of a legacy import preference", () => {

@@ -1,6 +1,6 @@
 import { logger } from "@infra/logger";
 
-export function stripMarkdownCodeFences(content: string): string {
+function stripMarkdownCodeFences(content: string): string {
   return content
     .replace(/```(?:json|JSON)?\s*/g, "")
     .replace(/```/g, "")

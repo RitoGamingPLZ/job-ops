@@ -4,4 +4,4 @@ export { loadProfileStep } from "./load-profile";
 export { notifyPipelineWebhookStep } from "./notify-webhook";
 export { scoreJobsStep } from "./score-jobs";
 export { selectJobsStep } from "./select-jobs";
-export type { RunPipelineContext, ScoredJob } from "./types";
+export type { ScoredJob } from "./types";

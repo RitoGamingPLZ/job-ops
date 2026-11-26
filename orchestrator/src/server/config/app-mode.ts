@@ -12,7 +12,7 @@ const FALSE_VALUES = new Set(["0", "false", "no", "off", ""]);
 
 type EnvSource = Pick<NodeJS.ProcessEnv, string>;
 
-export type JobOpsAppConfig = JobOpsAppStatusResponse & {
+type JobOpsAppConfig = JobOpsAppStatusResponse & {
   hostedTenantId: string | null;
 };
 

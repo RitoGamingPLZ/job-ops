@@ -23,7 +23,7 @@ const defaultDateFilter: JobDateFilter = {
 };
 
 const baseFilters: JobFilters = {
-  activeTab: "ready",
+  activeTab: "all",
   dateFilter: defaultDateFilter,
   sourceFilter: "all",
   companyFilter: [],
@@ -63,9 +63,13 @@ describe("useFilteredJobs", () => {
       (filters: JobFilters) => useFilteredJobs(jobs, filters),
       { initialProps: makeFilters({ companyFilter: [" google "] }) },
     );
-    expect(result.current.map((job) => job.id).sort()).toEqual(["google", "google-manual"]);
+    expect(result.current.map((job) => job.id).sort()).toEqual([
+      "discovered",
+      "google",
+      "google-manual",
+    ]);
     rerender(makeFilters({ companyFilter: ["google"], sourceFilter: "linkedin" }));
-    expect(result.current.map((job) => job.id)).toEqual(["google"]);
+    expect(result.current.map((job) => job.id).sort()).toEqual(["discovered", "google"]);
     rerender(
       makeFilters({
         companyFilter: ["google", "google llc"],
@@ -74,18 +78,7 @@ describe("useFilteredJobs", () => {
     );
     expect(result.current.map((job) => job.id)).toEqual(["discovered"]);
     rerender(makeFilters({}));
-    expect(result.current).toHaveLength(4);
-  });
-
-  it("keeps ready and processing jobs in the ready tab", () => {
-    const jobs: Job[] = [
-      { ...baseJob, id: "ready", status: "ready" },
-      { ...baseJob, id: "processing", status: "processing" },
-    ];
-
-    const { result } = renderHook(() => useFilteredJobs(jobs, makeFilters({ activeTab: "ready" })));
-
-    expect(result.current.map((job) => job.id)).toEqual(["processing", "ready"]);
+    expect(result.current).toHaveLength(5);
   });
 
   it("filters by discovered date on the discovered tab", () => {

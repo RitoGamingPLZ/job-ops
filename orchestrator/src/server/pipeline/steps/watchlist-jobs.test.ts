@@ -77,7 +77,6 @@ describe("discoverWatchlistJobsForPipeline", () => {
     vi.mocked(adapters.getWatchlistSourceAdapter).mockReturnValue({
       sourceType: "workday",
       descriptor: {} as any,
-      catalogSchema: {} as any,
       parseCatalogSources: vi.fn(),
       hydrateSelectedSource: vi.fn(),
       normalizeCustomSelection: vi.fn(),

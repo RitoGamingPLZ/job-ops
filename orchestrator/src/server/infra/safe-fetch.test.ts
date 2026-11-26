@@ -29,6 +29,14 @@ describe("isPrivateAddress", () => {
     "fd00::1",
     "fe80::1",
     "::ffff:127.0.0.1",
+    "::ffff:ac10:1",
+    "192.88.99.1",
+    "198.51.100.1",
+    "203.0.113.1",
+    "64:ff9b::1",
+    "2001:db8::1",
+    "2002::1",
+    "3fff::1",
   ])("treats %s as private", (address) => {
     expect(isPrivateAddress(address)).toBe(true);
   });

@@ -6,18 +6,6 @@ const settingsMocks = vi.hoisted(() => ({ getSetting: vi.fn() }));
 vi.mock("@server/repositories/settings", () => settingsMocks);
 
 describe("Resume Projects Logic", () => {
-  describe("stripHtml", () => {
-    it("should remove html tags and normalize whitespace", () => {
-      const input = "<p>This is <b>bold</b> and <br>broken.</p>";
-      const output = rp.stripHtml(input);
-      expect(output).toBe("This is bold and broken.");
-    });
-
-    it("should handle empty input", () => {
-      expect(rp.stripHtml("")).toBe("");
-    });
-  });
-
   describe("extractProjectsFromProfile", () => {
     it("should return empty lists if profile is invalid", () => {
       const result = rp.extractProjectsFromProfile({});

@@ -16,8 +16,8 @@ export const DEFAULT_OUT_DB_PATH = resolve(
   "jobs.db",
 );
 export const DEFAULT_ADMIN_PREFIX = "admin";
-export const ADMIN_SUFFIX_LENGTH = 6;
-export const DEFAULT_PASSWORD_LENGTH = 24;
+const ADMIN_SUFFIX_LENGTH = 6;
+const DEFAULT_PASSWORD_LENGTH = 24;
 
 const LOWERCASE_ALPHANUMERIC = "abcdefghijklmnopqrstuvwxyz0123456789";
 const PASSWORD_UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -90,7 +90,7 @@ function quoteIdentifier(identifier: string): string {
   return `"${identifier.replaceAll('"', '""')}"`;
 }
 
-export function validateAdminPrefix(prefix: string): string {
+function validateAdminPrefix(prefix: string): string {
   const normalized = prefix.trim().toLowerCase();
   if (!normalized || !/^[a-z0-9][a-z0-9-]*$/.test(normalized)) {
     throw new Error(
@@ -216,7 +216,7 @@ export function parseCliArgs(
   };
 }
 
-export function formatUsage(): string {
+function formatUsage(): string {
   return [
     "Usage: tsx orchestrator/scripts/prepare-cloudflare-db.ts [options]",
     "",

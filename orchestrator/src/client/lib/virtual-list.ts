@@ -87,97 +87,79 @@ const createDebouncedCallback = (
   return callback;
 };
 
+/**
+ * Subscribes to scroll (and, when supported, scrollend) events on the virtualizer's scroll target.
+ * `readOffset` differs between element and window scrolling; everything else is shared.
+ */
+const observeScrollOffsetWithCleanup = <
+  TScrollElement extends Element | Window,
+  TItemElement extends Element,
+>(
+  instance: Virtualizer<TScrollElement, TItemElement>,
+  cb: (offset: number, isScrolling: boolean) => void,
+  readOffset: (scrollElement: TScrollElement) => number,
+): ScrollObserverCleanup | undefined => {
+  const scrollElement = instance.scrollElement;
+  if (!scrollElement) return;
+
+  const targetWindow = instance.targetWindow as (Window & typeof globalThis) | null;
+  if (!targetWindow) return;
+
+  let offset = 0;
+  const fallback =
+    instance.options.useScrollendEvent && supportsScrollEnd
+      ? null
+      : createDebouncedCallback(
+          targetWindow,
+          () => cb(offset, false),
+          instance.options.isScrollingResetDelay,
+        );
+
+  const createHandler = (isScrolling: boolean) => () => {
+    offset = readOffset(scrollElement);
+    fallback?.();
+    cb(offset, isScrolling);
+  };
+
+  const handler = createHandler(true);
+  const endHandler = createHandler(false);
+  const registerScrollEndEvent = instance.options.useScrollendEvent && supportsScrollEnd;
+
+  scrollElement.addEventListener("scroll", handler, addEventListenerOptions);
+  if (registerScrollEndEvent) {
+    scrollElement.addEventListener("scrollend", endHandler, addEventListenerOptions);
+  }
+
+  return () => {
+    scrollElement.removeEventListener("scroll", handler);
+    if (registerScrollEndEvent) {
+      scrollElement.removeEventListener("scrollend", endHandler);
+    }
+    fallback?.cancel();
+  };
+};
+
 const observeElementOffsetWithCleanup = <
   TScrollElement extends Element,
   TItemElement extends Element,
 >(
   instance: Virtualizer<TScrollElement, TItemElement>,
   cb: (offset: number, isScrolling: boolean) => void,
-): ScrollObserverCleanup | undefined => {
-  const scrollElement = instance.scrollElement;
-  if (!scrollElement) return;
-
-  const targetWindow = instance.targetWindow as (Window & typeof globalThis) | null;
-  if (!targetWindow) return;
-
-  let offset = 0;
-  const fallback =
-    instance.options.useScrollendEvent && supportsScrollEnd
-      ? null
-      : createDebouncedCallback(
-          targetWindow,
-          () => cb(offset, false),
-          instance.options.isScrollingResetDelay,
-        );
-
-  const createHandler = (isScrolling: boolean) => () => {
+) =>
+  observeScrollOffsetWithCleanup(instance, cb, (scrollElement) => {
     const { horizontal, isRtl } = instance.options;
-    offset = horizontal ? scrollElement.scrollLeft * ((isRtl && -1) || 1) : scrollElement.scrollTop;
-    fallback?.();
-    cb(offset, isScrolling);
-  };
-
-  const handler = createHandler(true);
-  const endHandler = createHandler(false);
-  const registerScrollEndEvent = instance.options.useScrollendEvent && supportsScrollEnd;
-
-  scrollElement.addEventListener("scroll", handler, addEventListenerOptions);
-  if (registerScrollEndEvent) {
-    scrollElement.addEventListener("scrollend", endHandler, addEventListenerOptions);
-  }
-
-  return () => {
-    scrollElement.removeEventListener("scroll", handler);
-    if (registerScrollEndEvent) {
-      scrollElement.removeEventListener("scrollend", endHandler);
-    }
-    fallback?.cancel();
-  };
-};
+    return horizontal ? scrollElement.scrollLeft * ((isRtl && -1) || 1) : scrollElement.scrollTop;
+  });
 
 const observeWindowOffsetWithCleanup = <TItemElement extends Element>(
   instance: Virtualizer<Window, TItemElement>,
   cb: (offset: number, isScrolling: boolean) => void,
-): ScrollObserverCleanup | undefined => {
-  const scrollElement = instance.scrollElement;
-  if (!scrollElement) return;
-
-  const targetWindow = instance.targetWindow as (Window & typeof globalThis) | null;
-  if (!targetWindow) return;
-
-  let offset = 0;
-  const fallback =
-    instance.options.useScrollendEvent && supportsScrollEnd
-      ? null
-      : createDebouncedCallback(
-          targetWindow,
-          () => cb(offset, false),
-          instance.options.isScrollingResetDelay,
-        );
-
-  const createHandler = (isScrolling: boolean) => () => {
-    offset = scrollElement[instance.options.horizontal ? "scrollX" : "scrollY"];
-    fallback?.();
-    cb(offset, isScrolling);
-  };
-
-  const handler = createHandler(true);
-  const endHandler = createHandler(false);
-  const registerScrollEndEvent = instance.options.useScrollendEvent && supportsScrollEnd;
-
-  scrollElement.addEventListener("scroll", handler, addEventListenerOptions);
-  if (registerScrollEndEvent) {
-    scrollElement.addEventListener("scrollend", endHandler, addEventListenerOptions);
-  }
-
-  return () => {
-    scrollElement.removeEventListener("scroll", handler);
-    if (registerScrollEndEvent) {
-      scrollElement.removeEventListener("scrollend", endHandler);
-    }
-    fallback?.cancel();
-  };
-};
+) =>
+  observeScrollOffsetWithCleanup(
+    instance,
+    cb,
+    (scrollElement) => scrollElement[instance.options.horizontal ? "scrollX" : "scrollY"],
+  );
 
 export function useVirtualizedList<TItemElement extends Element = HTMLDivElement>(
   options: WindowVirtualizedListOptions,

@@ -1,3 +1,4 @@
+import { fetchGreenhouseJson, optionalString, requiredString } from "./http";
 import {
   GREENHOUSE_DEFAULT_USER_AGENT,
   type GreenhouseSourceConfig,
@@ -177,44 +178,6 @@ export function formatLocation(value: string | null | undefined): string | undef
     .map((part) => part.trim())
     .filter((part) => part.length > 0 && part.toUpperCase() !== "BLANK");
   return parts.length > 0 ? parts.join(", ") : undefined;
-}
-
-async function fetchGreenhouseJson<T>(
-  fetchFn: typeof fetch,
-  input: {
-    url: string;
-    signal?: AbortSignal;
-    headers?: HeadersInit;
-  },
-): Promise<T> {
-  const response = await fetchFn(input.url, {
-    method: "GET",
-    signal: input.signal,
-    headers: input.headers,
-  });
-
-  const responseText = await response.text();
-  if (!response.ok) {
-    throw new Error(`Greenhouse request failed with HTTP ${response.status} for ${input.url}.`);
-  }
-
-  try {
-    return JSON.parse(responseText) as T;
-  } catch {
-    throw new Error(`Greenhouse response was not valid JSON for ${input.url}.`);
-  }
-}
-
-function requiredString(value: unknown, fieldName: string, url: string): string {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value);
-  }
-  if (typeof value === "string" && value.trim()) return value.trim();
-  throw new Error(`Greenhouse response is missing required field ${fieldName} for ${url}.`);
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function publishedTime(job: GreenhouseListJob): number {

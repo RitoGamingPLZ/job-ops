@@ -1,13 +1,10 @@
 import type { PdfPaperSize, PdfRenderer, TypstTheme } from "@shared/types";
-import { buildResumeRenderDocument } from "./document";
+import { normalizeResumeJsonToLatexDocument } from "./document";
 import { renderLatexPdf } from "./latex";
 import type { NormalizeResumeJsonOptions, ResumePictureContent } from "./types";
 import { renderTypstPdf } from "./typst";
 
-export { buildResumeRenderDocument } from "./document";
-export { getLatexTemplatePath, getTectonicBinary, readLatexTemplate } from "./latex";
 export type * from "./types";
-export { getTypstBinary, getTypstTemplatePath, readTypstTemplate } from "./typst";
 
 export async function renderResumePdf(args: {
   resumeJson: Record<string, unknown>;
@@ -19,7 +16,7 @@ export async function renderResumePdf(args: {
   typstTheme?: TypstTheme;
   paperSize?: PdfPaperSize;
 }): Promise<void> {
-  const document = buildResumeRenderDocument(args.resumeJson, {
+  const document = normalizeResumeJsonToLatexDocument(args.resumeJson, {
     language: args.language,
   });
   if (args.renderer === "typst") {

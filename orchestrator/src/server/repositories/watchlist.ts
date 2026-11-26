@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { getUserId } from "@server/infra/request-context";
 import type {
   UpdateWatchlistSelectionsInput,
   WatchlistCheckInput,
@@ -9,8 +8,8 @@ import type {
 } from "@shared/types";
 import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
 import { db, schema } from "../db/index";
+import { getRequiredUserScope, requiredUserScopeFilter } from "../tenancy/private-scope";
 import { chunk, inListChunkSize, insertRowsPerStatement } from "../utils/sql-chunks";
-import { getActiveTenantId } from "../tenancy/context";
 
 const {
   watchlistChecks,
@@ -20,13 +19,7 @@ const {
   watchlistSourceResults,
 } = schema;
 
-function requireActiveUserId(): string {
-  const userId = getUserId();
-  if (!userId) {
-    throw new Error("User context is required for watchlist source selections");
-  }
-  return userId;
-}
+const WATCHLIST_USER_CONTEXT_ERROR = "User context is required for watchlist source selections";
 
 function mapRowToWatchlistJobState(row: typeof watchlistJobStates.$inferSelect): WatchlistJobState {
   return {
@@ -56,18 +49,15 @@ function mapRowToWatchlistSelectedSource(
   };
 }
 
+function watchlistScopeFilter(table: Parameters<typeof requiredUserScopeFilter>[0]) {
+  return requiredUserScopeFilter(table, WATCHLIST_USER_CONTEXT_ERROR);
+}
+
 export async function listWatchlistSelectedSources(): Promise<WatchlistSelectedSource[]> {
-  const tenantId = getActiveTenantId();
-  const userId = requireActiveUserId();
   const rows = await db
     .select()
     .from(watchlistSelectedSources)
-    .where(
-      and(
-        eq(watchlistSelectedSources.tenantId, tenantId),
-        eq(watchlistSelectedSources.userId, userId),
-      ),
-    )
+    .where(watchlistScopeFilter(watchlistSelectedSources))
     .orderBy(asc(watchlistSelectedSources.sortOrder));
 
   return rows.map(mapRowToWatchlistSelectedSource);
@@ -76,8 +66,7 @@ export async function listWatchlistSelectedSources(): Promise<WatchlistSelectedS
 export async function replaceWatchlistSelectedSources(
   input: UpdateWatchlistSelectionsInput,
 ): Promise<WatchlistSelectedSource[]> {
-  const tenantId = getActiveTenantId();
-  const userId = requireActiveUserId();
+  const { tenantId, userId } = getRequiredUserScope(WATCHLIST_USER_CONTEXT_ERROR);
   const now = new Date().toISOString();
 
   db.transaction((tx) => {
@@ -138,16 +127,10 @@ export async function replaceWatchlistSelectedSources(
 }
 
 export async function listWatchlistJobStates(): Promise<WatchlistJobState[]> {
-  const userId = requireActiveUserId();
   const rows = await db
     .select()
     .from(watchlistJobStates)
-    .where(
-      and(
-        eq(watchlistJobStates.tenantId, getActiveTenantId()),
-        eq(watchlistJobStates.userId, userId),
-      ),
-    );
+    .where(watchlistScopeFilter(watchlistJobStates));
 
   return rows.map(mapRowToWatchlistJobState);
 }
@@ -157,8 +140,11 @@ export async function setWatchlistJobState(input: {
   sourceJobId: string;
   state: WatchlistJobState["state"];
 }): Promise<WatchlistJobState> {
-  const tenantId = getActiveTenantId();
-  const userId = requireActiveUserId();
+  const { tenantId, userId } = getRequiredUserScope(WATCHLIST_USER_CONTEXT_ERROR);
+  const stateScope = and(
+    eq(watchlistJobStates.tenantId, tenantId),
+    eq(watchlistJobStates.userId, userId),
+  );
   const now = new Date().toISOString();
 
   const [existing] = await db
@@ -166,8 +152,7 @@ export async function setWatchlistJobState(input: {
     .from(watchlistJobStates)
     .where(
       and(
-        eq(watchlistJobStates.tenantId, tenantId),
-        eq(watchlistJobStates.userId, userId),
+        stateScope,
         eq(watchlistJobStates.source, input.source),
         eq(watchlistJobStates.sourceJobId, input.sourceJobId),
       ),
@@ -177,9 +162,7 @@ export async function setWatchlistJobState(input: {
     await db
       .update(watchlistJobStates)
       .set({ state: input.state, updatedAt: now })
-      .where(
-        and(eq(watchlistJobStates.tenantId, tenantId), eq(watchlistJobStates.id, existing.id)),
-      );
+      .where(and(stateScope, eq(watchlistJobStates.id, existing.id)));
   } else {
     await db.insert(watchlistJobStates).values({
       id: randomUUID(),
@@ -198,8 +181,7 @@ export async function setWatchlistJobState(input: {
     .from(watchlistJobStates)
     .where(
       and(
-        eq(watchlistJobStates.tenantId, tenantId),
-        eq(watchlistJobStates.userId, userId),
+        stateScope,
         eq(watchlistJobStates.source, input.source),
         eq(watchlistJobStates.sourceJobId, input.sourceJobId),
       ),
@@ -215,13 +197,11 @@ export async function clearWatchlistJobState(input: {
   source: string;
   sourceJobId: string;
 }): Promise<number> {
-  const userId = requireActiveUserId();
   const result = await db
     .delete(watchlistJobStates)
     .where(
       and(
-        eq(watchlistJobStates.tenantId, getActiveTenantId()),
-        eq(watchlistJobStates.userId, userId),
+        watchlistScopeFilter(watchlistJobStates),
         eq(watchlistJobStates.source, input.source),
         eq(watchlistJobStates.sourceJobId, input.sourceJobId),
       ),
@@ -233,8 +213,7 @@ export async function clearWatchlistJobState(input: {
 export async function recordWatchlistCheck(
   input: WatchlistCheckInput,
 ): Promise<WatchlistCheckResponse> {
-  const tenantId = getActiveTenantId();
-  const userId = requireActiveUserId();
+  const { tenantId, userId } = getRequiredUserScope(WATCHLIST_USER_CONTEXT_ERROR);
   const now = new Date().toISOString();
 
   const normalizedChecks = input.checks
@@ -361,12 +340,7 @@ export async function listWatchlistSourceResults(): Promise<StoredWatchlistSourc
   const rows = await db
     .select()
     .from(watchlistSourceResults)
-    .where(
-      and(
-        eq(watchlistSourceResults.tenantId, getActiveTenantId()),
-        eq(watchlistSourceResults.userId, requireActiveUserId()),
-      ),
-    );
+    .where(watchlistScopeFilter(watchlistSourceResults));
 
   return rows.map((row) => ({
     sourceKey: row.sourceKey,
@@ -381,8 +355,7 @@ export async function saveWatchlistSourceResults(
   entries: StoredWatchlistSourceResult[],
 ): Promise<void> {
   if (entries.length === 0) return;
-  const tenantId = getActiveTenantId();
-  const userId = requireActiveUserId();
+  const { tenantId, userId } = getRequiredUserScope(WATCHLIST_USER_CONTEXT_ERROR);
   const now = new Date().toISOString();
 
   db.transaction((tx) => {

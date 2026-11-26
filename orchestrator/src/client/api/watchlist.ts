@@ -1,13 +1,10 @@
 import type {
   UpdateWatchlistSelectionsInput,
-  WatchlistCheckInput,
-  WatchlistCheckResponse,
   WatchlistImportDraftInput,
   WatchlistImportDraftResponse,
   WatchlistJobDetailsInput,
   WatchlistJobDetailsResponse,
   WatchlistJobState,
-  WatchlistJobStatesResponse,
   WatchlistResultsResponse,
   WatchlistSourceBrandingInput,
   WatchlistSourceBrandingResponse,
@@ -22,21 +19,8 @@ function watchlistStatePath(source: string, sourceJobId: string): string {
   return `/watchlist/states/${encodeURIComponent(source)}/${encodeURIComponent(sourceJobId)}`;
 }
 
-export async function getWatchlistJobStates(): Promise<WatchlistJobStatesResponse> {
-  return fetchApi<WatchlistJobStatesResponse>("/watchlist/states");
-}
-
 export async function getWatchlistSources(): Promise<WatchlistSourcesResponse> {
   return fetchApi<WatchlistSourcesResponse>("/watchlist/sources");
-}
-
-export async function recordWatchlistCheck(
-  input: WatchlistCheckInput,
-): Promise<WatchlistCheckResponse> {
-  return fetchApi<WatchlistCheckResponse>("/watchlist/checks", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
 }
 
 /**

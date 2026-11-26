@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
+import { asRecord } from "@shared/utils/type-conversion";
 import {
   execRawSql,
   isDatabaseAvailable,
@@ -21,10 +22,6 @@ export interface DatabaseBackupSnapshot {
 
 function quoteIdent(ident: string): string {
   return `"${ident.replace(/"/g, '""')}"`;
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function normalizeCellValue(value: unknown): unknown {
@@ -68,7 +65,7 @@ function canonicalJson(value: unknown): string {
   return `{${entries.join(",")}}`;
 }
 
-export function computeTableChecksum(rows: Record<string, unknown>[]): string {
+function computeTableChecksum(rows: Record<string, unknown>[]): string {
   const payload = rows.map((row) => canonicalJson(row)).join("\n");
   return createHash("sha256").update(payload).digest("hex");
 }
@@ -164,8 +161,9 @@ export interface RestoreSnapshotResult {
 }
 
 function decodeCellValue(value: unknown): unknown {
-  if (isPlainRecord(value) && value.__backupType === "bytes" && typeof value.base64 === "string") {
-    return Buffer.from(value.base64, "base64");
+  const record = asRecord(value);
+  if (record && record.__backupType === "bytes" && typeof record.base64 === "string") {
+    return Buffer.from(record.base64, "base64");
   }
   if (typeof value === "boolean") return value ? 1 : 0;
   if (value !== null && typeof value === "object") return JSON.stringify(value);
@@ -286,29 +284,28 @@ export function parseAndVerifyBackupSnapshot(compressed: Uint8Array): DatabaseBa
     );
   }
 
-  if (!isPlainRecord(parsed)) {
+  const snapshotRecord = asRecord(parsed);
+  if (!snapshotRecord) {
     throw new Error("Backup snapshot must be a JSON object");
   }
-  if (parsed.format !== "job-ops-backup" || parsed.version !== 1) {
+  if (snapshotRecord.format !== "job-ops-backup" || snapshotRecord.version !== 1) {
     throw new Error("Unsupported backup snapshot format or version");
   }
-  if (typeof parsed.createdAt !== "string" || Number.isNaN(Date.parse(parsed.createdAt))) {
+  if (
+    typeof snapshotRecord.createdAt !== "string" ||
+    Number.isNaN(Date.parse(snapshotRecord.createdAt))
+  ) {
     throw new Error("Invalid backup snapshot createdAt timestamp");
   }
-  if (parsed.type !== "auto" && parsed.type !== "manual") {
+  if (snapshotRecord.type !== "auto" && snapshotRecord.type !== "manual") {
     throw new Error("Invalid backup snapshot type");
   }
-  if (
-    !isPlainRecord(parsed.tables) ||
-    !isPlainRecord(parsed.rowCounts) ||
-    !isPlainRecord(parsed.checksums)
-  ) {
+  const tables = asRecord(snapshotRecord.tables);
+  const rowCounts = asRecord(snapshotRecord.rowCounts);
+  const checksums = asRecord(snapshotRecord.checksums);
+  if (!tables || !rowCounts || !checksums) {
     throw new Error("Backup snapshot is missing tables, rowCounts, or checksums");
   }
-
-  const tables = parsed.tables;
-  const rowCounts = parsed.rowCounts;
-  const checksums = parsed.checksums;
 
   for (const tableName of new Set([
     ...Object.keys(tables),
@@ -316,7 +313,7 @@ export function parseAndVerifyBackupSnapshot(compressed: Uint8Array): DatabaseBa
     ...Object.keys(checksums),
   ])) {
     const rows = tables[tableName];
-    if (!Array.isArray(rows) || !rows.every(isPlainRecord)) {
+    if (!Array.isArray(rows) || !rows.every((row) => asRecord(row) !== null)) {
       throw new Error(`Invalid row array for table ${tableName}`);
     }
     if (rowCounts[tableName] !== rows.length) {

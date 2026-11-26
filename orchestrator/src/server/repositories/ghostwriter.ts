@@ -16,6 +16,7 @@ import type {
 import { and, desc, eq } from "drizzle-orm";
 import { db, schema } from "../db";
 import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
+import { parseJsonSafely } from "../utils/json";
 
 const { jobChatMessages, jobChatRuns, jobChatThreads } = schema;
 
@@ -35,14 +36,9 @@ function parseSelectedContextIds(
   value: string | null,
   normalize: (selectedIds: readonly string[]) => string[],
 ): string[] {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return normalize(parsed.filter((item): item is string => typeof item === "string"));
-  } catch {
-    return [];
-  }
+  const parsed = parseJsonSafely<unknown>(value, null);
+  if (!Array.isArray(parsed)) return [];
+  return normalize(parsed.filter((item): item is string => typeof item === "string"));
 }
 
 function parseSelectedNoteIds(value: string | null): string[] {
@@ -58,33 +54,28 @@ function parseSelectedDocumentIds(value: string | null): string[] {
 }
 
 function parseImageAttachments(value: string | null): JobChatImageAttachment[] {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    const attachments: JobChatImageAttachment[] = [];
-    for (const item of parsed) {
-      if (!item || typeof item !== "object") continue;
-      const record = item as Record<string, unknown>;
-      const mediaType = record.mediaType;
-      const dataUrl = record.dataUrl;
-      if (mediaType !== "image/png" && mediaType !== "image/jpeg" && mediaType !== "image/webp") {
-        continue;
-      }
-      if (typeof dataUrl !== "string" || !dataUrl.startsWith(`data:${mediaType};base64,`)) {
-        continue;
-      }
-      attachments.push({
-        ...(typeof record.id === "string" ? { id: record.id } : {}),
-        name: typeof record.name === "string" ? record.name : "Screenshot",
-        mediaType,
-        dataUrl,
-      });
+  const parsed = parseJsonSafely<unknown>(value, null);
+  if (!Array.isArray(parsed)) return [];
+  const attachments: JobChatImageAttachment[] = [];
+  for (const item of parsed) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const mediaType = record.mediaType;
+    const dataUrl = record.dataUrl;
+    if (mediaType !== "image/png" && mediaType !== "image/jpeg" && mediaType !== "image/webp") {
+      continue;
     }
-    return attachments;
-  } catch {
-    return [];
+    if (typeof dataUrl !== "string" || !dataUrl.startsWith(`data:${mediaType};base64,`)) {
+      continue;
+    }
+    attachments.push({
+      ...(typeof record.id === "string" ? { id: record.id } : {}),
+      name: typeof record.name === "string" ? record.name : "Screenshot",
+      mediaType,
+      dataUrl,
+    });
   }
+  return attachments;
 }
 
 function mapThread(row: typeof jobChatThreads.$inferSelect): JobChatThread {
@@ -146,7 +137,7 @@ function mapRun(row: typeof jobChatRuns.$inferSelect): JobChatRun {
   };
 }
 
-export async function listThreadsForJob(jobId: string): Promise<JobChatThread[]> {
+async function listThreadsForJob(jobId: string): Promise<JobChatThread[]> {
   const rows = await db
     .select()
     .from(jobChatThreads)
@@ -170,7 +161,7 @@ export async function getOrCreateThreadForJob(input: {
   });
 }
 
-export async function getThreadById(threadId: string): Promise<JobChatThread | null> {
+async function getThreadById(threadId: string): Promise<JobChatThread | null> {
   const [row] = await db
     .select()
     .from(jobChatThreads)
@@ -266,7 +257,7 @@ export async function updateThreadContext(input: {
   return getThreadForJob(input.jobId, input.threadId);
 }
 
-export async function touchThread(threadId: string, lastMessageAt?: string): Promise<void> {
+async function touchThread(threadId: string, lastMessageAt?: string): Promise<void> {
   const now = new Date().toISOString();
   await db
     .update(jobChatThreads)
@@ -377,23 +368,6 @@ export async function updateMessage(
     await touchThread(message.threadId, now);
   }
   return message;
-}
-
-export async function getLatestAssistantMessage(threadId: string): Promise<JobChatMessage | null> {
-  const [row] = await db
-    .select()
-    .from(jobChatMessages)
-    .where(
-      and(
-        eq(jobChatMessages.threadId, threadId),
-        messagesScopeFilter(),
-        eq(jobChatMessages.role, "assistant"),
-      ),
-    )
-    .orderBy(desc(jobChatMessages.createdAt))
-    .limit(1);
-
-  return row ? mapMessage(row) : null;
 }
 
 export async function createRun(input: {
@@ -536,7 +510,7 @@ export async function setActiveChild(messageId: string, activeChildId: string): 
 /**
  * Get all children of a message, ordered by createdAt.
  */
-export async function getChildrenOfMessage(parentMessageId: string): Promise<JobChatMessage[]> {
+async function getChildrenOfMessage(parentMessageId: string): Promise<JobChatMessage[]> {
   const rows = await db
     .select()
     .from(jobChatMessages)

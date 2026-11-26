@@ -19,7 +19,6 @@ type AiAssistComposerProps = {
   canReset?: boolean;
   contextSlot?: React.ReactNode;
   placeholder?: string;
-  allowScreenshots?: boolean;
   onStop?: () => Promise<void>;
   onSend: (content: string, attachments: JobChatImageAttachment[]) => Promise<void>;
   onReset?: () => void;
@@ -31,7 +30,6 @@ export const AiAssistComposer: React.FC<AiAssistComposerProps> = ({
   canReset = false,
   contextSlot,
   placeholder = "Ask for a better draft...",
-  allowScreenshots = false,
   onStop,
   onSend,
   onReset,
@@ -41,7 +39,7 @@ export const AiAssistComposer: React.FC<AiAssistComposerProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const addFiles = async (files: FileList | File[] | null) => {
-    if (!files?.length || !allowScreenshots) return;
+    if (!files?.length) return;
 
     const remainingSlots = MAX_SCREENSHOTS - attachments.length;
     if (remainingSlots <= 0) {
@@ -126,7 +124,6 @@ export const AiAssistComposer: React.FC<AiAssistComposerProps> = ({
         value={value}
         onChange={(event) => setValue(event.target.value)}
         onPaste={(event) => {
-          if (!allowScreenshots) return;
           const hasClipboardImage = Array.from(event.clipboardData.items).some(
             (item) => item.kind === "file" && item.type.startsWith("image/"),
           );
@@ -152,31 +149,27 @@ export const AiAssistComposer: React.FC<AiAssistComposerProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {allowScreenshots ? (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                multiple
-                className="hidden"
-                onChange={(event) => {
-                  void addFiles(event.target.files);
-                  event.target.value = "";
-                }}
-              />
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={disabled || attachments.length >= MAX_SCREENSHOTS}
-                aria-label="Attach screenshots"
-                title="Attach screenshots"
-              >
-                <ImagePlus className="h-3.5 w-3.5" />
-              </Button>
-            </>
-          ) : null}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            multiple
+            className="hidden"
+            onChange={(event) => {
+              void addFiles(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled || attachments.length >= MAX_SCREENSHOTS}
+            aria-label="Attach screenshots"
+            title="Attach screenshots"
+          >
+            <ImagePlus className="h-3.5 w-3.5" />
+          </Button>
 
           {onReset ? (
             <Button

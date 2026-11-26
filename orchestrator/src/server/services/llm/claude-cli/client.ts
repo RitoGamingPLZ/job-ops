@@ -1,3 +1,5 @@
+import { toNonEmptyString } from "@shared/utils/type-conversion";
+import { getPositiveIntEnv } from "@server/utils/env";
 import { spawn } from "node:child_process";
 import { logger } from "@infra/logger";
 import { getLlmMessageText, type JsonSchemaDefinition, type LlmRequestOptions } from "../types";
@@ -24,18 +26,6 @@ const CLAUDE_CLI_SUGGESTED_MODELS: string[] = [
   "claude-haiku-4-5-20251001",
   "claude-fable-5",
 ];
-
-function getPositiveIntEnv(name: string, fallback: number): number {
-  const raw = process.env[name]?.trim();
-  if (!raw) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
-}
-
-function toNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-}
 
 function buildClaudeCliErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);

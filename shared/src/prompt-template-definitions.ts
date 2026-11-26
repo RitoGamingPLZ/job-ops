@@ -145,12 +145,6 @@ export const PROMPT_TEMPLATE_SETTING_KEYS = Object.keys(
   PROMPT_TEMPLATE_DEFINITIONS,
 ) as PromptTemplateSettingKey[];
 
-export function getPromptTemplateDefinition(
-  key: PromptTemplateSettingKey,
-): PromptTemplateDefinition {
-  return PROMPT_TEMPLATE_DEFINITIONS[key];
-}
-
 export function getDefaultPromptTemplate(key: PromptTemplateSettingKey): string {
   return PROMPT_TEMPLATE_DEFINITIONS[key].defaultTemplate;
 }

@@ -539,9 +539,10 @@ describe("admin user access and invitations", () => {
     ).toBe(403);
     expect(
       (
-        await fetch(`${baseUrl}/api/jobs/${appliedJob.id}/skip`, {
+        await fetch(`${baseUrl}/api/jobs/actions`, {
           method: "POST",
           headers: headers(userA.token),
+          body: JSON.stringify({ action: "skip", jobIds: [appliedJob.id] }),
         })
       ).status,
     ).toBe(403);
@@ -584,15 +585,6 @@ describe("admin user access and invitations", () => {
     ).toBe(200);
     expect(
       (await fetch(`${baseUrl}/api/watchlist/sources`, { headers: headers(userA.token) })).status,
-    ).toBe(403);
-    expect(
-      (
-        await fetch(`${baseUrl}/api/workday/fetch-jobs`, {
-          method: "POST",
-          headers: headers(userA.token),
-          body: "{}",
-        })
-      ).status,
     ).toBe(403);
     expect((await fetch(`${baseUrl}/api/resumes`, { headers: headers(userA.token) })).status).toBe(
       403,

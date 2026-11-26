@@ -9,7 +9,6 @@ import type { ResumeRenderDocument } from "./types";
 import {
   buildTypstDocument,
   convertDocFieldsToTypst,
-  getTypstBinary,
   getTypstTemplatePath,
   readTypstTemplate,
   readTypstTheme,
@@ -39,7 +38,6 @@ const baseDocument: ResumeRenderDocument = {
       date: "2023 -- Present",
       bullets: ["Improved API reliability", "Reduced operator toil"],
       url: "https://acme.example.com",
-      linkLabel: "Acme",
     },
   ],
   education: [],
@@ -109,17 +107,6 @@ describe("typst resume renderer", () => {
       expect(getTypstTemplatePath(theme).replace(/\\/g, "/")).toContain(
         `typst-themes/${theme}/main.typ`,
       );
-    }
-  });
-
-  it("uses the TYPST_BIN override when present", () => {
-    const previous = process.env.TYPST_BIN;
-    process.env.TYPST_BIN = "/tmp/custom-typst";
-    expect(getTypstBinary()).toBe("/tmp/custom-typst");
-    if (previous === undefined) {
-      delete process.env.TYPST_BIN;
-    } else {
-      process.env.TYPST_BIN = previous;
     }
   });
 
@@ -293,11 +280,6 @@ describe("typst resume renderer", () => {
           size: 88,
           rotation: 0,
           aspectRatio: 1,
-          borderRadius: 0,
-          borderColor: "",
-          borderWidth: 0,
-          shadowColor: "",
-          shadowWidth: 0,
         },
         profileItems: [
           {

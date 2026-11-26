@@ -10,7 +10,7 @@ import type { CrawledJob, Recipe } from "./types";
  */
 
 /** LLM connection the container uses to learn a recipe; resolved by the caller for its own tenant. */
-export interface RemoteCareersSiteLlm {
+interface RemoteCareersSiteLlm {
   provider: string | null;
   model: string;
   baseUrl: string | null;

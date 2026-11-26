@@ -25,7 +25,6 @@ type JobDescriptionPanelProps = {
   description: string | null | undefined;
   helperText?: string;
   jobUrl?: string | null;
-  defaultOpen?: boolean;
   collapsible?: boolean;
   isLoading?: boolean;
   error?: string | null;
@@ -42,7 +41,6 @@ export const JobDescriptionPanel: React.FC<JobDescriptionPanelProps> = ({
   description: rawDescription,
   helperText = defaultHelperText,
   jobUrl,
-  defaultOpen = true,
   collapsible = true,
   isLoading = false,
   error = null,
@@ -186,7 +184,7 @@ export const JobDescriptionPanel: React.FC<JobDescriptionPanelProps> = ({
     <Accordion
       type="single"
       collapsible
-      defaultValue={defaultOpen ? "job-description" : undefined}
+      defaultValue="job-description"
       onValueChange={(value) => {
         if (value === "job-description") onOpen?.();
       }}

@@ -1,10 +1,7 @@
 import type { Server } from "node:http";
 import {
-  editMessage,
   editMessageForJob,
-  regenerateMessage,
   regenerateMessageForJob,
-  sendMessage,
   sendMessageForJob,
   updateContextForJob,
 } from "@server/services/ghostwriter";
@@ -28,32 +25,6 @@ const baseMsgFields = {
 };
 
 vi.mock("@server/services/ghostwriter", () => ({
-  listThreads: vi.fn(async () => [
-    {
-      id: "thread-1",
-      jobId: "job-1",
-      title: "Thread",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      lastMessageAt: new Date().toISOString(),
-      activeRootMessageId: null,
-      selectedNoteIds: ["note-1"],
-      selectedEmailIds: ["email-1"],
-      selectedDocumentIds: ["doc-1"],
-    },
-  ]),
-  createThread: vi.fn(async (input: { jobId: string; title?: string | null }) => ({
-    id: "thread-created",
-    jobId: input.jobId,
-    title: input.title ?? null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    lastMessageAt: null,
-    activeRootMessageId: null,
-    selectedNoteIds: [],
-    selectedEmailIds: [],
-    selectedDocumentIds: [],
-  })),
   updateContextForJob: vi.fn(
     async (input: {
       jobId: string;
@@ -66,21 +37,6 @@ vi.mock("@server/services/ghostwriter", () => ({
       selectedDocumentIds: input.selectedDocumentIds ?? [],
     }),
   ),
-  listMessages: vi.fn(async () => ({
-    messages: [
-      {
-        id: "message-1",
-        ...baseMsgFields,
-        role: "user",
-        content: "hello",
-        status: "complete",
-      },
-    ],
-    branches: [],
-    selectedNoteIds: ["note-1"],
-    selectedEmailIds: ["email-1"],
-    selectedDocumentIds: ["doc-1"],
-  })),
   listMessagesForJob: vi.fn(async () => ({
     messages: [
       {
@@ -95,24 +51,6 @@ vi.mock("@server/services/ghostwriter", () => ({
     selectedNoteIds: ["note-1"],
     selectedEmailIds: ["email-1"],
     selectedDocumentIds: ["doc-1"],
-  })),
-  sendMessage: vi.fn(async () => ({
-    userMessage: {
-      id: "user-1",
-      ...baseMsgFields,
-      role: "user",
-      content: "hello",
-      status: "complete",
-    },
-    assistantMessage: {
-      id: "assistant-1",
-      ...baseMsgFields,
-      role: "assistant",
-      content: "hi",
-      status: "complete",
-      tokensOut: 1,
-    },
-    runId: "run-1",
   })),
   sendMessageForJob: vi.fn(async () => ({
     userMessage: {
@@ -135,26 +73,6 @@ vi.mock("@server/services/ghostwriter", () => ({
   regenerateMessageForJob: vi.fn(async () => ({
     runId: "run-regen",
     assistantMessage: null,
-  })),
-  editMessage: vi.fn(async () => ({
-    runId: "run-edit",
-    userMessage: null,
-    assistantMessage: null,
-  })),
-  cancelRun: vi.fn(async () => ({ cancelled: true, alreadyFinished: false })),
-  regenerateMessage: vi.fn(async () => ({
-    runId: "run-2",
-    assistantMessage: {
-      id: "assistant-2",
-      ...baseMsgFields,
-      role: "assistant",
-      content: "updated",
-      status: "complete",
-      tokensOut: 1,
-      version: 2,
-      replacesMessageId: "assistant-1",
-      parentMessageId: "user-1",
-    },
   })),
   editMessageForJob: vi.fn(async () => ({
     userMessage: {
@@ -219,44 +137,37 @@ describe("Ghostwriter API", () => {
     expect(body.meta.requestId).toBe("chat-req-1");
   });
 
-  it("validates and forwards cowork context on both message routes", async () => {
+  it("validates and forwards cowork context on message route", async () => {
     const cowork = {
       document: buildDefaultResumeDocument(),
       referencedBulletIds: [],
     };
-    for (const [path, service] of [
-      ["messages", sendMessageForJob],
-      ["threads/thread-1/messages", sendMessage],
-    ] as const) {
-      const response = await fetch(`${baseUrl}/api/jobs/job-1/chat/${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: "Improve", cowork }),
-      });
-      expect(response.status).toBe(200);
-      expect(service).toHaveBeenCalledWith(expect.objectContaining({ cowork }));
-      const invalid = await fetch(`${baseUrl}/api/jobs/job-1/chat/${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: "Improve",
-          cowork: { document: {}, referencedBulletIds: [] },
-        }),
-      });
-      expect(invalid.status).toBe(400);
-    }
+    const response = await fetch(`${baseUrl}/api/jobs/job-1/chat/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "Improve", cowork }),
+    });
+    expect(response.status).toBe(200);
+    expect(sendMessageForJob).toHaveBeenCalledWith(expect.objectContaining({ cowork }));
+    const invalid = await fetch(`${baseUrl}/api/jobs/job-1/chat/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: "Improve",
+        cowork: { document: {}, referencedBulletIds: [] },
+      }),
+    });
+    expect(invalid.status).toBe(400);
   });
 
-  it("forwards cowork on thread and per-job regenerate/edit endpoints", async () => {
+  it("forwards cowork on per-job regenerate and edit endpoints", async () => {
     const cowork = {
       document: buildDefaultResumeDocument(),
       referencedBulletIds: [],
     };
     const cases = [
       ["messages/assistant-1/regenerate", regenerateMessageForJob],
-      ["threads/thread-1/messages/assistant-1/regenerate", regenerateMessage],
       ["messages/user-1/edit", editMessageForJob],
-      ["threads/thread-1/messages/user-1/edit", editMessage],
     ] as const;
     for (const [path, service] of cases) {
       const response = await fetch(`${baseUrl}/api/jobs/job-1/chat/${path}`, {
@@ -267,7 +178,6 @@ describe("Ghostwriter API", () => {
       expect(response.status).toBe(200);
       expect(service).toHaveBeenCalledWith(expect.objectContaining({ cowork }));
     }
-    expect(editMessage).toHaveBeenCalledWith(expect.objectContaining({ threadId: "thread-1" }));
   });
 
   it("sends a message in the per-job conversation", async () => {

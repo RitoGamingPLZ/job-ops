@@ -62,7 +62,6 @@ describe("smartrecruitersWatchlistAdapter", () => {
       "smartrecruiters:canva",
       "smartrecruiters:wise",
     ]);
-    for (const entry of catalog) expect(adapter.catalogSchema.safeParse(entry).success).toBe(true);
     expect(
       adapter.parseCatalogSources([null, {}, { label: "Bad", careersUrl: "https://evil.test/x" }]),
     ).toEqual([]);

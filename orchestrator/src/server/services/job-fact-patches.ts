@@ -1,3 +1,4 @@
+import { LOCATION_WORKPLACE_TYPE_VALUES } from "@shared/location-domain";
 import type { Job, UpdateJobInput } from "@shared/types";
 import { normalizeWhitespace, stripHtmlTags } from "@shared/utils/string";
 import { z } from "zod";
@@ -60,7 +61,7 @@ const valueSchemas: Record<PatchableJobField, z.ZodType> = {
   salaryInterval: z.enum(["hourly", "daily", "weekly", "monthly", "yearly"]),
   location: text(200),
   isRemote: z.boolean(),
-  workFromHomeType: z.enum(["remote", "hybrid", "onsite"]),
+  workFromHomeType: z.enum(LOCATION_WORKPLACE_TYPE_VALUES),
   jobType: text(200),
   jobLevel: text(200),
   jobFunction: text(200),

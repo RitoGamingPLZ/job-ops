@@ -1,5 +1,4 @@
-import { badRequest } from "@infra/errors";
-import { asyncRoute, fail, ok } from "@infra/http";
+import { asyncRoute, ok } from "@infra/http";
 import {
   approvePostApplicationInboxItem,
   denyPostApplicationInboxItem,
@@ -58,146 +57,98 @@ export const postApplicationReviewRouter = Router();
 postApplicationReviewRouter.get(
   "/inbox",
   asyncRoute(async (req: Request, res: Response) => {
-    try {
-      const query = listQuerySchema.parse(req.query);
-      const items = await listPostApplicationInbox({
-        provider: query.provider,
-        accountKey: query.accountKey,
-        ...(typeof query.limit === "number" ? { limit: query.limit } : {}),
-      });
-      ok(res, { items, total: items.length });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        fail(res, badRequest(error.message, error.flatten()));
-        return;
-      }
-      throw error;
-    }
+    const query = listQuerySchema.parse(req.query);
+    const items = await listPostApplicationInbox({
+      provider: query.provider,
+      accountKey: query.accountKey,
+      ...(typeof query.limit === "number" ? { limit: query.limit } : {}),
+    });
+    ok(res, { items, total: items.length });
   }),
 );
 
 postApplicationReviewRouter.get(
   "/runs",
   asyncRoute(async (req: Request, res: Response) => {
-    try {
-      const query = listQuerySchema.parse(req.query);
-      const runs = await listPostApplicationReviewRuns({
-        provider: query.provider,
-        accountKey: query.accountKey,
-        ...(typeof query.limit === "number" ? { limit: query.limit } : {}),
-      });
-      ok(res, { runs, total: runs.length });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        fail(res, badRequest(error.message, error.flatten()));
-        return;
-      }
-      throw error;
-    }
+    const query = listQuerySchema.parse(req.query);
+    const runs = await listPostApplicationReviewRuns({
+      provider: query.provider,
+      accountKey: query.accountKey,
+      ...(typeof query.limit === "number" ? { limit: query.limit } : {}),
+    });
+    ok(res, { runs, total: runs.length });
   }),
 );
 
 postApplicationReviewRouter.get(
   "/runs/:runId/messages",
   asyncRoute(async (req: Request, res: Response) => {
-    try {
-      const query = listQuerySchema.parse(req.query);
-      const { runId } = runParamsSchema.parse(req.params);
-      const result = await listPostApplicationRunMessages({
-        provider: query.provider,
-        accountKey: query.accountKey,
-        runId,
-        ...(typeof query.limit === "number" ? { limit: query.limit } : {}),
-      });
-      ok(res, {
-        run: result.run,
-        items: result.items,
-        total: result.items.length,
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        fail(res, badRequest(error.message, error.flatten()));
-        return;
-      }
-      throw error;
-    }
+    const query = listQuerySchema.parse(req.query);
+    const { runId } = runParamsSchema.parse(req.params);
+    const result = await listPostApplicationRunMessages({
+      provider: query.provider,
+      accountKey: query.accountKey,
+      runId,
+      ...(typeof query.limit === "number" ? { limit: query.limit } : {}),
+    });
+    ok(res, {
+      run: result.run,
+      items: result.items,
+      total: result.items.length,
+    });
   }),
 );
 
 postApplicationReviewRouter.post(
   "/inbox/:messageId/approve",
   asyncRoute(async (req: Request, res: Response) => {
-    try {
-      const { messageId } = inboxParamsSchema.parse(req.params);
-      const input = approveBodySchema.parse(req.body ?? {});
+    const { messageId } = inboxParamsSchema.parse(req.params);
+    const input = approveBodySchema.parse(req.body ?? {});
 
-      const result = await approvePostApplicationInboxItem({
-        messageId,
-        provider: input.provider,
-        accountKey: input.accountKey,
-        jobId: input.jobId,
-        stageTarget: input.stageTarget,
-        toStage: input.toStage,
-        note: input.note,
-        decidedBy: input.decidedBy ?? null,
-      });
+    const result = await approvePostApplicationInboxItem({
+      messageId,
+      provider: input.provider,
+      accountKey: input.accountKey,
+      jobId: input.jobId,
+      stageTarget: input.stageTarget,
+      toStage: input.toStage,
+      note: input.note,
+      decidedBy: input.decidedBy ?? null,
+    });
 
-      ok(res, result);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        fail(res, badRequest(error.message, error.flatten()));
-        return;
-      }
-      throw error;
-    }
+    ok(res, result);
   }),
 );
 
 postApplicationReviewRouter.post(
   "/inbox/:messageId/deny",
   asyncRoute(async (req: Request, res: Response) => {
-    try {
-      const { messageId } = inboxParamsSchema.parse(req.params);
-      const input = denyBodySchema.parse(req.body ?? {});
+    const { messageId } = inboxParamsSchema.parse(req.params);
+    const input = denyBodySchema.parse(req.body ?? {});
 
-      const result = await denyPostApplicationInboxItem({
-        messageId,
-        provider: input.provider,
-        accountKey: input.accountKey,
-        decidedBy: input.decidedBy ?? null,
-      });
+    const result = await denyPostApplicationInboxItem({
+      messageId,
+      provider: input.provider,
+      accountKey: input.accountKey,
+      decidedBy: input.decidedBy ?? null,
+    });
 
-      ok(res, result);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        fail(res, badRequest(error.message, error.flatten()));
-        return;
-      }
-      throw error;
-    }
+    ok(res, result);
   }),
 );
 
 postApplicationReviewRouter.post(
   "/inbox/actions",
   asyncRoute(async (req: Request, res: Response) => {
-    try {
-      const input = actionBodySchema.parse(req.body ?? {});
+    const input = actionBodySchema.parse(req.body ?? {});
 
-      const result = await runPostApplicationInboxAction({
-        action: input.action,
-        provider: input.provider,
-        accountKey: input.accountKey,
-        decidedBy: input.decidedBy ?? null,
-      });
+    const result = await runPostApplicationInboxAction({
+      action: input.action,
+      provider: input.provider,
+      accountKey: input.accountKey,
+      decidedBy: input.decidedBy ?? null,
+    });
 
-      ok(res, result);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        fail(res, badRequest(error.message, error.flatten()));
-        return;
-      }
-      throw error;
-    }
+    ok(res, result);
   }),
 );

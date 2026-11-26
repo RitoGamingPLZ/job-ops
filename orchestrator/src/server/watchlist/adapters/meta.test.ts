@@ -95,7 +95,6 @@ describe("metaWatchlistAdapter", () => {
         cxsJobsUrl: null,
       },
     ]);
-    expect(adapter.catalogSchema.safeParse(catalog[0]).success).toBe(true);
     expect(
       adapter.parseCatalogSources([
         null,

@@ -3,6 +3,7 @@
  */
 
 import { logger } from "@infra/logger";
+import { asRecord } from "@shared/utils/type-conversion";
 import { getDefaultPromptTemplate } from "@shared/prompt-template-definitions.js";
 import type { Job, JobBrief, UpdateJobInput } from "@shared/types";
 import { stripHtmlTags } from "@shared/utils/string";
@@ -15,7 +16,6 @@ import {
 } from "./job-fact-patches";
 import { isConfigurationFailure } from "./llm/policies/configuration-error";
 import type { JsonSchemaDefinition } from "./llm/types";
-import { stripMarkdownCodeFences } from "./llm/utils/json";
 import { createConfiguredLlmService, resolveLlmModel } from "./modelSelection";
 import { renderPromptTemplate } from "./prompt-templates";
 import { filterProfileProjectsForAi } from "./resumeProjects";
@@ -365,99 +365,6 @@ export async function scoreJobSuitability(
   };
 }
 
-/**
- * Robustly parse JSON from AI-generated content.
- * Handles common AI quirks: markdown fences, extra text, trailing commas, etc.
- *
- * @deprecated Use LlmService with structured outputs instead. Kept for backwards compatibility with tests.
- */
-export function parseJsonFromContent(
-  content: string,
-  jobId?: string,
-): { score?: number; reason?: string } {
-  const originalContent = content;
-  let candidate = content.trim();
-
-  // Step 1: Remove markdown code fences (with or without language specifier)
-  candidate = stripMarkdownCodeFences(candidate);
-
-  // Step 2: Try to extract JSON object if there's surrounding text
-  const jsonMatch = candidate.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    candidate = jsonMatch[0];
-  }
-
-  // Step 3: Try direct parse first
-  try {
-    return JSON.parse(candidate);
-  } catch {
-    // Continue with sanitization
-  }
-
-  // Step 4: Fix common JSON issues
-  let sanitized = candidate;
-
-  // Remove JavaScript-style comments (// and /* */)
-  sanitized = sanitized.replace(/\/\/[^\n]*/g, "");
-  sanitized = sanitized.replace(/\/\*[\s\S]*?\*\//g, "");
-
-  // Remove trailing commas before } or ]
-  sanitized = sanitized.replace(/,\s*([\]}])/g, "$1");
-
-  // Fix unquoted keys: word: -> "word":
-  // Be more careful - only match at start of object or after comma
-  sanitized = sanitized.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
-
-  // Fix single quotes to double quotes
-  sanitized = sanitized.replace(/'/g, '"');
-
-  // Remove ALL control characters (including newlines/tabs INSIDE string values which break JSON)
-  // First, let's normalize the string - escape actual newlines inside strings
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: needed to fix broken JSON from AI
-  const controlCharsRegex = /[\x00-\x1F\x7F]/g;
-  sanitized = sanitized.replace(controlCharsRegex, (match) => {
-    if (match === "\n") return "\\n";
-    if (match === "\r") return "\\r";
-    if (match === "\t") return "\\t";
-    return "";
-  });
-
-  // Step 5: Try parsing the sanitized version
-  try {
-    return JSON.parse(sanitized);
-  } catch {
-    // Continue with more aggressive extraction
-  }
-
-  // Step 6: Even more aggressive - try to rebuild a minimal valid JSON
-  // by extracting just the score and reason values
-  const scoreMatch = originalContent.match(/["']?score["']?\s*[:=]\s*(\d+(?:\.\d+)?)/i);
-  const reasonMatch =
-    originalContent.match(/["']?reason["']?\s*[:=]\s*["']([^"'\n]+)["']/i) ||
-    originalContent.match(/["']?reason["']?\s*[:=]\s*["']?(.*?)["']?\s*[,}\n]/is);
-
-  if (scoreMatch) {
-    const score = Math.round(parseFloat(scoreMatch[1]));
-    const reason = reasonMatch
-      ? reasonMatch[1].trim().replace(controlCharsRegex, "")
-      : "Score extracted from malformed response";
-    logger.warn("Parsed score via regex fallback", {
-      jobId: jobId || "unknown",
-      score,
-    });
-    return { score, reason };
-  }
-
-  // Log the failure with full content for debugging
-  logger.error("Failed to parse AI response", {
-    jobId: jobId || "unknown",
-    rawSample: originalContent.substring(0, 500),
-    sanitizedSample: sanitized.substring(0, 500),
-  });
-
-  throw new Error("Unable to parse JSON from model response");
-}
-
 function buildScoringPrompt(
   job: Job,
   profile: Record<string, unknown>,
@@ -561,8 +468,9 @@ function sanitizeProfileForPrompt(profile: Record<string, unknown>): Record<stri
 }
 
 function sanitizeBasics(value: unknown): ProfileRecord {
-  if (!isRecord(value)) return {};
-  return pickDefined(value, ["label", "headline", "summary", "location"]);
+  const record = asRecord(value);
+  if (!record) return {};
+  return pickDefined(record, ["label", "headline", "summary", "location"]);
 }
 
 function sanitizeItems(
@@ -577,22 +485,25 @@ function sanitizeItems(
 }
 
 function collectSectionItems(profile: ProfileRecord, sectionKey: string): ProfileRecord[] {
-  const sections = isRecord(profile.sections) ? profile.sections : {};
-  const section = sections[sectionKey];
+  const sections = asRecord(profile.sections) ?? {};
+  const section = asRecord(sections[sectionKey]);
 
-  if (isRecord(section)) {
+  if (section) {
     if (!isVisibleCvItem(section)) return [];
     if (Array.isArray(section.items)) {
-      return section.items.filter(isRecord);
+      return section.items.filter((item): item is ProfileRecord => asRecord(item) !== null);
     }
   }
 
   const topLevelSection = profile[sectionKey];
-  if (Array.isArray(topLevelSection)) return topLevelSection.filter(isRecord);
-  if (isRecord(topLevelSection)) {
-    if (!isVisibleCvItem(topLevelSection)) return [];
-    if (Array.isArray(topLevelSection.items)) {
-      return topLevelSection.items.filter(isRecord);
+  if (Array.isArray(topLevelSection)) {
+    return topLevelSection.filter((item): item is ProfileRecord => asRecord(item) !== null);
+  }
+  const topLevelRecord = asRecord(topLevelSection);
+  if (topLevelRecord) {
+    if (!isVisibleCvItem(topLevelRecord)) return [];
+    if (Array.isArray(topLevelRecord.items)) {
+      return topLevelRecord.items.filter((item): item is ProfileRecord => asRecord(item) !== null);
     }
   }
 
@@ -603,7 +514,7 @@ function sanitizeCvItem(item: ProfileRecord, allowedKeys: string[]): ProfileReco
   const sanitized = pickDefined(item, allowedKeys);
   if (Array.isArray(item.roles)) {
     const roles = item.roles
-      .filter(isRecord)
+      .filter((role): role is ProfileRecord => asRecord(role) !== null)
       .filter(isVisibleCvItem)
       .map((role) => pickDefined(role, ["position", "period", "summary", "description"]))
       .filter((role) => Object.keys(role).length > 0);
@@ -627,8 +538,4 @@ function isVisibleCvItem(item: ProfileRecord): boolean {
   if (item.hidden === true) return false;
   if (item.visible === false) return false;
   return true;
-}
-
-function isRecord(value: unknown): value is ProfileRecord {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

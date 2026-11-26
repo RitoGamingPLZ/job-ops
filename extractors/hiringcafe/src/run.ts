@@ -3,6 +3,7 @@ import { resolveSearchCities, shouldApplyStrictCityFilter } from "@shared/search
 import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
 import type { LocationProximity } from "@shared/types/location.js";
 import {
+  asRecord,
   toIntegerOrFallback,
   toNumberOrNull,
   toStringOrNull,
@@ -172,11 +173,6 @@ function withThrottleAndRetry(fetchImpl: typeof fetch): typeof fetch {
       await sleep(RATE_LIMIT_RETRY_DELAYS_MS[attempt]);
     }
   }) as typeof fetch;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
 }
 
 function asStringArray(value: unknown): string[] {

@@ -3,7 +3,7 @@ import { db, schema } from "../db";
 
 const { accountSubscriptions } = schema;
 
-export type AccountSubscription = typeof accountSubscriptions.$inferSelect;
+type AccountSubscription = typeof accountSubscriptions.$inferSelect;
 
 export type AccountBillingScope = {
   tenantId: string;

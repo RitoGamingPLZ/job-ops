@@ -14,7 +14,6 @@ vi.mock("./modelSelection", () => ({
 }));
 vi.mock("@server/repositories/experience-bullets", () => ({
   listExperienceBullets: list,
-  updateExperienceBullet: vi.fn(),
 }));
 
 import { SCREENING_RESPONSE_SCHEMA, screenResume } from "./cowork-screening";

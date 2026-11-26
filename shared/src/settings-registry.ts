@@ -3,7 +3,8 @@ import {
   LOCATION_INPUT_MODE_VALUES,
   LOCATION_MATCH_STRICTNESS_VALUES,
   LOCATION_SEARCH_SCOPE_VALUES,
-} from "./location-preferences";
+  LOCATION_WORKPLACE_TYPE_VALUES,
+} from "./location-domain";
 import {
   getDefaultPromptTemplate,
   LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
@@ -229,8 +230,7 @@ export const llmPurposeApiKeysSchema = z
   })
   .strict();
 
-const WORKPLACE_TYPE_VALUES = ["remote", "hybrid", "onsite"] as const;
-const parseWorkplaceTypesOrNull = createEnumArrayParser(WORKPLACE_TYPE_VALUES);
+const parseWorkplaceTypesOrNull = createEnumArrayParser(LOCATION_WORKPLACE_TYPE_VALUES);
 const parseLocationSearchScopeOrNull = createEnumParser(LOCATION_SEARCH_SCOPE_VALUES);
 const parseLocationMatchStrictnessOrNull = createEnumParser(LOCATION_MATCH_STRICTNESS_VALUES);
 
@@ -455,8 +455,12 @@ export const settingsRegistry = {
   },
   workplaceTypes: {
     kind: "typed" as const,
-    schema: z.array(z.enum(WORKPLACE_TYPE_VALUES)).min(1).max(3),
-    default: (): Array<(typeof WORKPLACE_TYPE_VALUES)[number]> => ["remote", "hybrid", "onsite"],
+    schema: z.array(z.enum(LOCATION_WORKPLACE_TYPE_VALUES)).min(1).max(3),
+    default: (): Array<(typeof LOCATION_WORKPLACE_TYPE_VALUES)[number]> => [
+      "remote",
+      "hybrid",
+      "onsite",
+    ],
     parse: parseWorkplaceTypesOrNull,
     serialize: serializeNullableJsonArray,
   },

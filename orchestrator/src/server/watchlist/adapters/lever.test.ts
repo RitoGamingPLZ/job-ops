@@ -65,7 +65,6 @@ describe("leverWatchlistAdapter", () => {
       "lever:gopuff",
     ]);
     expect(sources.every((s) => s.sourceType === "lever" && s.cxsJobsUrl === null)).toBe(true);
-    for (const entry of catalog) expect(adapter.catalogSchema.safeParse(entry).success).toBe(true);
     expect(
       adapter.parseCatalogSources([
         null,

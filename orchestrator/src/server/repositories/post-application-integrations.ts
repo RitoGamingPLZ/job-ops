@@ -10,10 +10,6 @@ import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-
 
 const { postApplicationIntegrations } = schema;
 
-function integrationsScopeFilter() {
-  return privateDataScopeFilter(postApplicationIntegrations);
-}
-
 type IntegrationCredentials = Record<string, unknown>;
 
 type UpsertConnectedIntegrationInput = {
@@ -68,7 +64,7 @@ export async function getPostApplicationIntegration(
       and(
         eq(postApplicationIntegrations.provider, provider),
         eq(postApplicationIntegrations.accountKey, accountKey),
-        integrationsScopeFilter(),
+        privateDataScopeFilter(postApplicationIntegrations),
       ),
     );
 
@@ -94,7 +90,12 @@ export async function upsertConnectedPostApplicationIntegration(
         lastError: null,
         updatedAt: nowIso,
       })
-      .where(eq(postApplicationIntegrations.id, existing.id));
+      .where(
+        and(
+          privateDataScopeFilter(postApplicationIntegrations),
+          eq(postApplicationIntegrations.id, existing.id),
+        ),
+      );
 
     const updated = await getPostApplicationIntegration(input.provider, input.accountKey);
     if (!updated) {
@@ -142,7 +143,12 @@ export async function disconnectPostApplicationIntegration(
       lastError: null,
       updatedAt: nowIso,
     })
-    .where(and(integrationsScopeFilter(), eq(postApplicationIntegrations.id, existing.id)));
+    .where(
+      and(
+        privateDataScopeFilter(postApplicationIntegrations),
+        eq(postApplicationIntegrations.id, existing.id),
+      ),
+    );
 
   return getPostApplicationIntegration(provider, accountKey);
 }
@@ -163,7 +169,12 @@ export async function updatePostApplicationIntegrationSyncState(
       ...(input.credentials !== undefined ? { credentials: input.credentials } : {}),
       updatedAt: nowIso,
     })
-    .where(and(integrationsScopeFilter(), eq(postApplicationIntegrations.id, existing.id)));
+    .where(
+      and(
+        privateDataScopeFilter(postApplicationIntegrations),
+        eq(postApplicationIntegrations.id, existing.id),
+      ),
+    );
 
   return getPostApplicationIntegration(input.provider, input.accountKey);
 }

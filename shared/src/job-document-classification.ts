@@ -52,7 +52,7 @@ const SAFE_INLINE_IMAGE_EXTENSIONS_TO_MEDIA_TYPE = new Map([
 
 export type JobDocumentTypeTarget = Pick<JobDocument, "fileName" | "mediaType">;
 
-export function getJobDocumentFileExtension(fileName: string): string {
+function getJobDocumentFileExtension(fileName: string): string {
   const extension = fileName.toLowerCase().split(".").pop();
   return extension && extension !== fileName.toLowerCase() ? extension : "";
 }
@@ -71,13 +71,7 @@ export function isJobDocumentDocx(document: JobDocumentTypeTarget): boolean {
   );
 }
 
-export function isJobDocumentImage(document: JobDocumentTypeTarget): boolean {
-  return Boolean(document.mediaType?.toLowerCase().startsWith("image/"));
-}
-
-export function getSafeInlineJobDocumentImageMediaType(
-  document: JobDocumentTypeTarget,
-): string | null {
+function getSafeInlineJobDocumentImageMediaType(document: JobDocumentTypeTarget): string | null {
   const mediaType = document.mediaType?.toLowerCase() ?? "";
   if (SAFE_INLINE_IMAGE_MEDIA_TYPES.has(mediaType)) return mediaType;
   return (

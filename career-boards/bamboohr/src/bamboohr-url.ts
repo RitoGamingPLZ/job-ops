@@ -115,10 +115,6 @@ export function bamboohrUrlToSourceKey(input: string): string {
   return `bamboohr:${toSourceKeyPart(parsed.companySlug)}`;
 }
 
-export function bamboohrUrlToJobDetailsUrl(input: string, jobId: string): string {
-  return buildBamboohrJobSource(parseBamboohrUrl(input), jobId).detailUrl;
-}
-
 export function bamboohrUrlToJobUrl(input: string, jobId: string): string {
   return buildBamboohrJobSource(parseBamboohrUrl(input), jobId).canonicalJobUrl;
 }

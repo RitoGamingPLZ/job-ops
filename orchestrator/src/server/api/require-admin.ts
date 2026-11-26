@@ -16,17 +16,7 @@ export function requireSystemAdminMiddleware(_req: Request, res: Response, next:
 
 /** Route guard for a feature an admin can switch on or off per user. */
 export function requirePermissionMiddleware(permission: UserPermissionKey) {
-  return async (_req: Request, res: Response, next: NextFunction) => {
-    try {
-      if (await currentUserHasPermission(permission)) {
-        next();
-        return;
-      }
-      fail(res, forbidden("This feature is not enabled for your account. Ask an admin."));
-    } catch (error) {
-      next(error);
-    }
-  };
+  return requireAnyPermissionMiddleware(permission);
 }
 
 /** Route guard requiring at least one of the listed per-user permissions. */
@@ -45,3 +35,8 @@ export function requireAnyPermissionMiddleware(...permissions: UserPermissionKey
     }
   };
 }
+
+export const requireJobs = requirePermissionMiddleware("jobs");
+export const requireInProgress = requirePermissionMiddleware("inProgress");
+export const requireResumes = requirePermissionMiddleware("resumes");
+export const requireJobsOrInProgress = requireAnyPermissionMiddleware("jobs", "inProgress");

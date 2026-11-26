@@ -91,18 +91,6 @@ export function parseGreenhouseUrl(input: string): GreenhouseSourceConfig {
   return source;
 }
 
-export function buildGreenhouseSourceConfig(token: string, inputUrl = ""): GreenhouseSourceConfig {
-  const normalized = normalizeToken(token);
-  if (!normalized) {
-    throw new GreenhouseUrlParseError(
-      "MISSING_BOARD_TOKEN",
-      `Invalid Greenhouse board token: ${token}`,
-      inputUrl || token,
-    );
-  }
-  return buildSourceConfig(inputUrl, normalized);
-}
-
 export function greenhouseTokenToLabel(token: string): string {
   return token
     .split(/[-_]+/)

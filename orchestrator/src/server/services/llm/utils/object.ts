@@ -1,8 +1,6 @@
-type PathSegment = string | number;
+import { asRecord } from "@shared/utils/type-conversion";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+type PathSegment = string | number;
 
 export function getNestedValue(value: unknown, path: PathSegment[]): unknown {
   let current: unknown = value;
@@ -12,8 +10,9 @@ export function getNestedValue(value: unknown, path: PathSegment[]): unknown {
       current = current[segment];
       continue;
     }
-    if (!isRecord(current)) return undefined;
-    current = current[segment];
+    const record = asRecord(current);
+    if (!record) return undefined;
+    current = record[segment];
   }
   return current;
 }

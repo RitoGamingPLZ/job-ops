@@ -6,13 +6,9 @@ import * as ghostwriterService from "@server/services/ghostwriter";
 import { type Request, Router } from "express";
 import { z } from "zod";
 
-import { streamGhostwriterReply } from "./ghostwriter-stream";
+import { respondWithGhostwriterReply } from "./ghostwriter-stream";
 
 export const ghostwriterRouter = Router({ mergeParams: true });
-
-const createThreadSchema = z.object({
-  title: z.string().trim().max(200).nullable().optional(),
-});
 
 const listMessagesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
@@ -86,6 +82,24 @@ const editMessageSchema = z.object({
   stream: z.boolean().optional(),
 });
 
+/** The context a reply is generated from; identical for send, edit and regenerate requests. */
+function pickReplyContext(data: z.infer<typeof regenerateSchema>) {
+  return {
+    selectedNoteIds: data.selectedNoteIds,
+    selectedEmailIds: data.selectedEmailIds,
+    selectedDocumentIds: data.selectedDocumentIds,
+    cowork: data.cowork,
+  };
+}
+
+function pickReplyBody(result: { userMessage: unknown; assistantMessage: unknown; runId: string }) {
+  return {
+    userMessage: result.userMessage,
+    assistantMessage: result.assistantMessage,
+    runId: result.runId,
+  };
+}
+
 function getJobId(req: Request): string {
   const jobId = req.params.id;
   if (!jobId) {
@@ -151,40 +165,20 @@ ghostwriterRouter.post(
       return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
     }
 
-    await runWithRequestContext({ jobId }, async () => {
-      if (parsed.data.stream) {
-        await streamGhostwriterReply(res, (stream) =>
+    await runWithRequestContext({ jobId }, () =>
+      respondWithGhostwriterReply(
+        res,
+        { stream: parsed.data.stream, toBody: pickReplyBody },
+        (stream) =>
           ghostwriterService.sendMessageForJob({
             jobId,
             content: parsed.data.content,
             attachments: parsed.data.attachments,
-            selectedNoteIds: parsed.data.selectedNoteIds,
-            selectedEmailIds: parsed.data.selectedEmailIds,
-            selectedDocumentIds: parsed.data.selectedDocumentIds,
-            cowork: parsed.data.cowork,
+            ...pickReplyContext(parsed.data),
             stream,
           }),
-        );
-
-        return;
-      }
-
-      const result = await ghostwriterService.sendMessageForJob({
-        jobId,
-        content: parsed.data.content,
-        attachments: parsed.data.attachments,
-        selectedNoteIds: parsed.data.selectedNoteIds,
-        selectedEmailIds: parsed.data.selectedEmailIds,
-        selectedDocumentIds: parsed.data.selectedDocumentIds,
-        cowork: parsed.data.cowork,
-      });
-
-      ok(res, {
-        userMessage: result.userMessage,
-        assistantMessage: result.assistantMessage,
-        runId: result.runId,
-      });
-    });
+      ),
+    );
   }),
 );
 
@@ -222,39 +216,21 @@ ghostwriterRouter.post(
       return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
     }
 
-    await runWithRequestContext({ jobId }, async () => {
-      if (parsed.data.stream) {
-        await streamGhostwriterReply(res, (stream) =>
-          ghostwriterService.regenerateMessageForJob({
-            jobId,
-            assistantMessageId,
-            selectedNoteIds: parsed.data.selectedNoteIds,
-            selectedEmailIds: parsed.data.selectedEmailIds,
-            selectedDocumentIds: parsed.data.selectedDocumentIds,
-            cowork: parsed.data.cowork,
-            stream,
-          }),
-        );
-
-        return;
-      }
-
-      const result = await ghostwriterService.regenerateMessageForJob({
-        jobId,
-        assistantMessageId,
-        selectedNoteIds: parsed.data.selectedNoteIds,
-        selectedEmailIds: parsed.data.selectedEmailIds,
-        selectedDocumentIds: parsed.data.selectedDocumentIds,
-        cowork: parsed.data.cowork,
-      });
-
-      ok(res, result);
-    });
+    await runWithRequestContext({ jobId }, () =>
+      respondWithGhostwriterReply(res, { stream: parsed.data.stream }, (stream) =>
+        ghostwriterService.regenerateMessageForJob({
+          jobId,
+          assistantMessageId,
+          ...pickReplyContext(parsed.data),
+          stream,
+        }),
+      ),
+    );
   }),
 );
 
 ghostwriterRouter.post(
-  ["/messages/:messageId/edit", "/threads/:threadId/messages/:messageId/edit"],
+  "/messages/:messageId/edit",
   asyncRoute(async (req, res) => {
     const jobId = getJobId(req);
     const messageId = req.params.messageId;
@@ -267,49 +243,21 @@ ghostwriterRouter.post(
       return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
     }
 
-    const edit = (input: Parameters<typeof ghostwriterService.editMessageForJob>[0]) =>
-      req.params.threadId
-        ? ghostwriterService.editMessage({
-            ...input,
-            threadId: req.params.threadId,
-          })
-        : ghostwriterService.editMessageForJob(input);
-    await runWithRequestContext({ jobId }, async () => {
-      if (parsed.data.stream) {
-        await streamGhostwriterReply(res, (stream) =>
-          edit({
+    await runWithRequestContext({ jobId }, () =>
+      respondWithGhostwriterReply(
+        res,
+        { stream: parsed.data.stream, toBody: pickReplyBody },
+        (stream) =>
+          ghostwriterService.editMessageForJob({
             jobId,
             messageId,
             content: parsed.data.content,
             attachments: parsed.data.attachments,
-            selectedNoteIds: parsed.data.selectedNoteIds,
-            selectedEmailIds: parsed.data.selectedEmailIds,
-            selectedDocumentIds: parsed.data.selectedDocumentIds,
-            cowork: parsed.data.cowork,
+            ...pickReplyContext(parsed.data),
             stream,
           }),
-        );
-
-        return;
-      }
-
-      const result = await edit({
-        jobId,
-        messageId,
-        content: parsed.data.content,
-        attachments: parsed.data.attachments,
-        selectedNoteIds: parsed.data.selectedNoteIds,
-        selectedEmailIds: parsed.data.selectedEmailIds,
-        selectedDocumentIds: parsed.data.selectedDocumentIds,
-        cowork: parsed.data.cowork,
-      });
-
-      ok(res, {
-        userMessage: result.userMessage,
-        assistantMessage: result.assistantMessage,
-        runId: result.runId,
-      });
-    });
+      ),
+    );
   }),
 );
 
@@ -341,194 +289,6 @@ ghostwriterRouter.post(
     await runWithRequestContext({ jobId }, async () => {
       const result = await ghostwriterService.resetConversationForJob({
         jobId,
-      });
-
-      ok(res, result);
-    });
-  }),
-);
-
-ghostwriterRouter.get(
-  "/threads",
-  asyncRoute(async (req, res) => {
-    const jobId = getJobId(req);
-
-    await runWithRequestContext({ jobId }, async () => {
-      const threads = await ghostwriterService.listThreads(jobId);
-      ok(res, { threads });
-    });
-  }),
-);
-
-ghostwriterRouter.post(
-  "/threads",
-  asyncRoute(async (req, res) => {
-    const jobId = getJobId(req);
-    const parsed = createThreadSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
-    }
-
-    await runWithRequestContext({ jobId }, async () => {
-      const thread = await ghostwriterService.createThread({
-        jobId,
-        title: parsed.data.title,
-      });
-      ok(res, { thread }, 201);
-    });
-  }),
-);
-
-ghostwriterRouter.get(
-  "/threads/:threadId/messages",
-  asyncRoute(async (req, res) => {
-    const jobId = getJobId(req);
-    const threadId = req.params.threadId;
-    if (!threadId) {
-      return fail(res, badRequest("Missing thread id"));
-    }
-
-    const parsed = listMessagesQuerySchema.safeParse(req.query);
-    if (!parsed.success) {
-      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
-    }
-
-    await runWithRequestContext({ jobId }, async () => {
-      const result = await ghostwriterService.listMessages({
-        jobId,
-        threadId,
-        limit: parsed.data.limit,
-        offset: parsed.data.offset,
-      });
-      ok(res, { messages: result.messages, branches: result.branches });
-    });
-  }),
-);
-
-ghostwriterRouter.post(
-  "/threads/:threadId/messages",
-  asyncRoute(async (req, res) => {
-    const jobId = getJobId(req);
-    const threadId = req.params.threadId;
-    if (!threadId) {
-      return fail(res, badRequest("Missing thread id"));
-    }
-
-    const parsed = sendMessageSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
-    }
-
-    await runWithRequestContext({ jobId }, async () => {
-      if (parsed.data.stream) {
-        await streamGhostwriterReply(
-          res,
-          (stream) =>
-            ghostwriterService.sendMessage({
-              jobId,
-              threadId,
-              content: parsed.data.content,
-              attachments: parsed.data.attachments,
-              selectedNoteIds: parsed.data.selectedNoteIds,
-              selectedEmailIds: parsed.data.selectedEmailIds,
-              selectedDocumentIds: parsed.data.selectedDocumentIds,
-              cowork: parsed.data.cowork,
-              stream,
-            }),
-          threadId,
-        );
-
-        return;
-      }
-
-      const result = await ghostwriterService.sendMessage({
-        jobId,
-        threadId,
-        content: parsed.data.content,
-        attachments: parsed.data.attachments,
-        selectedNoteIds: parsed.data.selectedNoteIds,
-        selectedEmailIds: parsed.data.selectedEmailIds,
-        selectedDocumentIds: parsed.data.selectedDocumentIds,
-        cowork: parsed.data.cowork,
-      });
-
-      ok(res, {
-        userMessage: result.userMessage,
-        assistantMessage: result.assistantMessage,
-        runId: result.runId,
-      });
-    });
-  }),
-);
-
-ghostwriterRouter.post(
-  "/threads/:threadId/runs/:runId/cancel",
-  asyncRoute(async (req, res) => {
-    const jobId = getJobId(req);
-    const threadId = req.params.threadId;
-    const runId = req.params.runId;
-
-    if (!threadId || !runId) {
-      return fail(res, badRequest("Missing thread id or run id"));
-    }
-
-    await runWithRequestContext({ jobId }, async () => {
-      const result = await ghostwriterService.cancelRun({
-        jobId,
-        threadId,
-        runId,
-      });
-
-      ok(res, result);
-    });
-  }),
-);
-
-ghostwriterRouter.post(
-  "/threads/:threadId/messages/:assistantMessageId/regenerate",
-  asyncRoute(async (req, res) => {
-    const jobId = getJobId(req);
-    const threadId = req.params.threadId;
-    const assistantMessageId = req.params.assistantMessageId;
-
-    if (!threadId || !assistantMessageId) {
-      return fail(res, badRequest("Missing thread id or message id"));
-    }
-
-    const parsed = regenerateSchema.safeParse(req.body ?? {});
-    if (!parsed.success) {
-      return fail(res, badRequest(parsed.error.message, parsed.error.flatten()));
-    }
-
-    await runWithRequestContext({ jobId }, async () => {
-      if (parsed.data.stream) {
-        await streamGhostwriterReply(
-          res,
-          (stream) =>
-            ghostwriterService.regenerateMessage({
-              jobId,
-              threadId,
-              assistantMessageId,
-              selectedNoteIds: parsed.data.selectedNoteIds,
-              selectedEmailIds: parsed.data.selectedEmailIds,
-              selectedDocumentIds: parsed.data.selectedDocumentIds,
-              cowork: parsed.data.cowork,
-              stream,
-            }),
-          threadId,
-        );
-
-        return;
-      }
-
-      const result = await ghostwriterService.regenerateMessage({
-        jobId,
-        threadId,
-        assistantMessageId,
-        selectedNoteIds: parsed.data.selectedNoteIds,
-        selectedEmailIds: parsed.data.selectedEmailIds,
-        selectedDocumentIds: parsed.data.selectedDocumentIds,
-        cowork: parsed.data.cowork,
       });
 
       ok(res, result);

@@ -1,4 +1,4 @@
-import { notFound, serviceUnavailable, upstreamError } from "@infra/errors";
+import { getErrorMessage, notFound, serviceUnavailable, upstreamError } from "@infra/errors";
 import type { SsoProvider } from "@shared/types";
 import * as client from "openid-client";
 import { getSsoProviderConfig, type SsoProviderConfig } from "./config";
@@ -19,10 +19,6 @@ const GITHUB_API_HEADERS = {
 };
 
 const configurationCache = new Map<SsoProvider, client.Configuration>();
-
-function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 function asTrimmedString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
@@ -47,7 +43,7 @@ async function discoverConfiguration(config: SsoProviderConfig): Promise<client.
     );
   } catch (error) {
     throw serviceUnavailable(
-      `SSO provider ${config.displayName} discovery failed: ${toErrorMessage(error)}`,
+      `SSO provider ${config.displayName} discovery failed: ${getErrorMessage(error)}`,
     );
   }
 }
@@ -126,7 +122,7 @@ export async function createSsoAuthorizationRequest(input: {
     // an authorization endpoint (or an http:// one without the insecure opt-in)
     // fails here rather than above.
     throw serviceUnavailable(
-      `SSO provider ${config.displayName} is misconfigured: ${toErrorMessage(error)}`,
+      `SSO provider ${config.displayName} is misconfigured: ${getErrorMessage(error)}`,
     );
   }
 
@@ -164,7 +160,7 @@ export async function exchangeSsoAuthorizationCode(input: {
     );
   } catch (error) {
     throw upstreamError(
-      `SSO provider ${config.displayName} rejected the sign-in: ${toErrorMessage(error)}`,
+      `SSO provider ${config.displayName} rejected the sign-in: ${getErrorMessage(error)}`,
     );
   }
 
@@ -198,7 +194,7 @@ async function readOidcClaims(args: {
       );
     } catch (error) {
       throw upstreamError(
-        `SSO provider ${args.config.displayName} userinfo request failed: ${toErrorMessage(error)}`,
+        `SSO provider ${args.config.displayName} userinfo request failed: ${getErrorMessage(error)}`,
       );
     }
 
@@ -228,7 +224,7 @@ async function fetchGithubJson<T>(url: string, accessToken: string): Promise<T> 
       },
     });
   } catch (error) {
-    throw upstreamError(`GitHub request failed: ${toErrorMessage(error)}`);
+    throw upstreamError(`GitHub request failed: ${getErrorMessage(error)}`);
   }
 
   if (!response.ok) {

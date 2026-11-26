@@ -76,7 +76,6 @@ describe("ashbyWatchlistAdapter", () => {
     const parsed = adapter.parseCatalogSources(catalog);
     expect(parsed).toHaveLength(8);
     expect(parsed.map((row) => row.id)).toContain("ashby:linear");
-    for (const row of catalog) expect(adapter.catalogSchema.safeParse(row).success).toBe(true);
     expect(
       adapter.parseCatalogSources([null, {}, { label: "Bad", ashbyUrl: "https://evil.test/foo" }]),
     ).toEqual([]);

@@ -25,7 +25,7 @@ import {
 const AUTH_SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
 /** Boot only, all tenants: mark any pipeline runs left running by a dead process as failed. */
-export async function resetInterruptedPipelineRuns(): Promise<number> {
+async function resetInterruptedPipelineRuns(): Promise<number> {
   const updated = await db
     .update(schema.pipelineRuns)
     .set({

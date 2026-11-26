@@ -460,7 +460,7 @@ export async function hydrateBackupSettingsFromDb(
   return { ...currentSettings };
 }
 
-export function setBackupSettings(settings: Partial<BackupSettings>): void {
+export function setBackupSettings(settings: Partial<BackupSettings>): BackupSettings {
   const oldEnabled = currentSettings.enabled;
   const oldHour = currentSettings.hour;
 
@@ -475,9 +475,7 @@ export function setBackupSettings(settings: Partial<BackupSettings>): void {
   } else if (oldEnabled && !currentSettings.enabled) {
     scheduler.stop();
   }
-}
 
-export function getBackupSettings(): BackupSettings {
   return { ...currentSettings };
 }
 
@@ -491,16 +489,6 @@ export function getNextBackupTime(): string | null {
   return null;
 }
 
-export function isBackupSchedulerRunning(): boolean {
-  return scheduler.isRunning();
-}
-
-export function startBackupScheduler(): void {
-  if (currentSettings.enabled) {
-    scheduler.start(currentSettings.hour);
-  }
-}
-
-export function stopBackupScheduler(): void {
+export function __stopBackupSchedulerForTests(): void {
   scheduler.stop();
 }

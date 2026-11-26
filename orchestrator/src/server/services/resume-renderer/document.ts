@@ -1,3 +1,4 @@
+import { asArray, asRecord } from "@shared/utils/type-conversion";
 import { extractResumeBullets, stripResumeHtml } from "@shared/resume-bullets";
 import type { ChatStyleManualLanguage } from "@shared/types";
 import type {
@@ -100,16 +101,6 @@ const ORDERABLE_SECTION_KEYS = [
   "volunteer",
   "references",
 ] as const satisfies readonly LatexResumeOrderedSectionKey[];
-
-function asRecord(value: unknown): RecordLike | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as RecordLike)
-    : null;
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
 
 function toText(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
@@ -246,11 +237,6 @@ function buildPicture(resumeJson: RecordLike): LatexResumePicture | null {
     size: toNumber(picture.size, 80),
     rotation: toNumber(picture.rotation, 0),
     aspectRatio: toNumber(picture.aspectRatio, 1),
-    borderRadius: toNumber(picture.borderRadius, 0),
-    borderColor: toText(picture.borderColor),
-    borderWidth: toNumber(picture.borderWidth, 0),
-    shadowColor: toText(picture.shadowColor),
-    shadowWidth: toNumber(picture.shadowWidth, 0),
   };
 }
 
@@ -515,11 +501,4 @@ export function normalizeResumeJsonToLatexDocument(
       references: getSectionTitle(record, "references", titles),
     },
   };
-}
-
-export function buildResumeRenderDocument(
-  resumeJson: Record<string, unknown>,
-  options: NormalizeResumeJsonToLatexDocumentOptions = {},
-): LatexResumeDocument {
-  return normalizeResumeJsonToLatexDocument(resumeJson, options);
 }

@@ -1,11 +1,16 @@
 import * as api from "@client/api";
-import { createLocationIntent, planLocationSources } from "@shared/location-intelligence.js";
-import type { LocationMatchStrictness, LocationSearchScope } from "@shared/location-preferences.js";
+import {
+  createLocationIntent,
+  type LocationMatchStrictness,
+  type LocationSearchScope,
+  planLocationSources,
+} from "@shared/location-domain.js";
 import {
   formatCountryLabel,
   normalizeCountryKey,
   SUPPORTED_COUNTRY_KEYS,
 } from "@shared/location-support.js";
+import { parseSearchCitiesSetting } from "@shared/search-cities.js";
 import {
   type AppSettings,
   type CreatePipelineSearchPresetInput,
@@ -56,7 +61,6 @@ import {
   type AutomaticRunValues,
   loadAutomaticRunMemory,
   normalizeWorkplaceTypes,
-  parseCityLocationsSetting,
   saveAutomaticRunMemory,
   summarizeLocationPreferences,
   type WorkplaceType,
@@ -281,7 +285,7 @@ export const AutomaticRunTab: React.FC<AutomaticRunTabProps> = ({
     const detectedCountry = !hasExplicitLocationOverride ? getDetectedCountryKey() : null;
     const countryValue = rememberedCountry || DEFAULT_VALUES.country;
     const suggestion = !countryValue && detectedCountry ? detectedCountry : null;
-    const rememberedLocations = parseCityLocationsSetting(settings?.searchCities?.value).filter(
+    const rememberedLocations = parseSearchCitiesSetting(settings?.searchCities?.value).filter(
       (location) => normalizeCountryKey(location) !== normalizeCountryKey(countryValue),
     );
     const rememberedWorkplaceTypes = normalizeWorkplaceTypes(settings?.workplaceTypes?.value);

@@ -29,9 +29,7 @@ export const useFilteredJobs = (jobs: JobListItem[], filters: JobFilters) => {
   return useMemo(() => {
     let filtered = [...jobs];
 
-    if (activeTab === "ready") {
-      filtered = filtered.filter((job) => job.status === "ready" || job.status === "processing");
-    } else if (activeTab === "discovered") {
+    if (activeTab === "discovered") {
       filtered = filtered.filter(
         (job) => job.status === "discovered" || job.status === "processing",
       );

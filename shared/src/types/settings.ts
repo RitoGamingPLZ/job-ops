@@ -3,7 +3,7 @@ import type {
   LocationInputMode,
   LocationMatchStrictness,
   LocationSearchScope,
-} from "../location-preferences";
+} from "../location-domain";
 
 export { TYPST_THEME_LABELS, TYPST_THEME_VALUES };
 

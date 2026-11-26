@@ -187,15 +187,6 @@ async function assertCoworkIsolation(baseUrl: string, ownerToken: string, otherT
     ).status,
   ).toBe(404);
   expect((await call(`/experience-bullets/${bullet.id}`, otherToken, "DELETE")).status).toBe(404);
-  for (const body of [{ ids: [bullet.id] }, {}]) {
-    const labeled = await call("/experience-bullets/label", otherToken, "POST", body);
-    expect(labeled.status).toBe(200);
-    expect((await labeled.json()).data).toEqual({
-      bullets: [],
-      labeled: 0,
-      remaining: 0,
-    });
-  }
   const saved = await call(`/jobs/${job.id}/resume`, ownerToken, "PUT", {
     baseRevision: 0,
     document,
@@ -733,5 +724,62 @@ describe("Hosted current-user isolation", () => {
       headers: { Authorization: `Bearer ${bobToken}` },
     });
     expect(bobAfterScoreDelete.status).toBe(200);
+  });
+
+  it("isolates watchlist job state and integration updates across hosted users", async () => {
+    const aliceToken = await signup(baseUrl, "alice-wl", "alice-secret");
+    const bobToken = await signup(baseUrl, "bob-wl", "bob-secret");
+
+    const { runWithRequestContext } = await import("@infra/request-context");
+    const watchlistRepo = await import("@server/repositories/watchlist");
+    const integrationsRepo = await import("@server/repositories/post-application-integrations");
+    const claims = (token: string) =>
+      JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()) as {
+        tenantId: string;
+        userId: string;
+      };
+    const alice = claims(aliceToken);
+    const bob = claims(bobToken);
+
+    await runWithRequestContext(alice, async () => {
+      await watchlistRepo.setWatchlistJobState({
+        source: "greenhouse",
+        sourceJobId: "job-1",
+        state: "moved_to_workspace",
+      });
+      await integrationsRepo.upsertConnectedPostApplicationIntegration({
+        provider: "gmail",
+        accountKey: "shared@example.com",
+        displayName: "Alice Gmail",
+        credentials: { token: "alice" },
+      });
+    });
+
+    await runWithRequestContext(bob, async () => {
+      await watchlistRepo.setWatchlistJobState({
+        source: "greenhouse",
+        sourceJobId: "job-1",
+        state: "ignored",
+      });
+      await integrationsRepo.upsertConnectedPostApplicationIntegration({
+        provider: "gmail",
+        accountKey: "shared@example.com",
+        displayName: "Bob Gmail",
+        credentials: { token: "bob" },
+      });
+    });
+
+    await runWithRequestContext(alice, async () => {
+      const states = await watchlistRepo.listWatchlistJobStates();
+      expect(states).toHaveLength(1);
+      expect(states[0]?.state).toBe("moved_to_workspace");
+
+      const integration = await integrationsRepo.getPostApplicationIntegration(
+        "gmail",
+        "shared@example.com",
+      );
+      expect(integration?.displayName).toBe("Alice Gmail");
+      expect(integration?.credentials).toEqual({ token: "alice" });
+    });
   });
 });

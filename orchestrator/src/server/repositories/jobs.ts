@@ -35,6 +35,7 @@ import {
 } from "drizzle-orm";
 import { db, schema } from "../db/index";
 import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
+import { parseJsonSafely } from "../utils/json";
 import { chunk, inListChunkSize } from "../utils/sql-chunks";
 
 const { jobNotes, jobs } = schema;
@@ -80,21 +81,15 @@ function normalizeStatusFilter(statuses?: JobStatus[]): string | null {
 }
 
 function parseLocationEvidence(raw: string | null | undefined): JobLocationEvidence | null {
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object") {
-      return null;
-    }
-    return buildLocationEvidence(
-      Array.isArray(parsed)
-        ? (parsed as readonly LocationEvidenceEntry[])
-        : (parsed as LocationEvidence),
-    );
-  } catch {
+  const parsed = parseJsonSafely<unknown>(raw, null);
+  if (!parsed || typeof parsed !== "object") {
     return null;
   }
+  return buildLocationEvidence(
+    Array.isArray(parsed)
+      ? (parsed as readonly LocationEvidenceEntry[])
+      : (parsed as LocationEvidence),
+  );
 }
 
 function serializeLocationEvidence(
@@ -299,7 +294,7 @@ export async function listJobNotesByIds(
   return rows.map(mapRowToJobNote);
 }
 
-export async function getJobNoteById(noteId: string): Promise<JobNote | null> {
+async function getJobNoteById(noteId: string): Promise<JobNote | null> {
   const [row] = await db
     .select()
     .from(jobNotes)
@@ -307,7 +302,7 @@ export async function getJobNoteById(noteId: string): Promise<JobNote | null> {
   return row ? mapRowToJobNote(row) : null;
 }
 
-export async function getJobNoteForJob(jobId: string, noteId: string): Promise<JobNote | null> {
+async function getJobNoteForJob(jobId: string, noteId: string): Promise<JobNote | null> {
   const [row] = await db
     .select()
     .from(jobNotes)

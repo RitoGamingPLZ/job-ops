@@ -8,8 +8,6 @@ import type { ExtractorRuntimeContext, LocationIntent, SourceLocationPlan } from
 import { type NextFunction, type Request, type Response, Router } from "express";
 import { verifyInternalScrapeSecret } from "./internal-auth";
 
-export { verifyInternalScrapeSecret } from "./internal-auth";
-
 export const internalScrapeRouter = Router();
 
 async function handleInternalScrapeRun(

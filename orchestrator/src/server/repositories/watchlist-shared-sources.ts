@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { FilterIntent, FilterParam } from "@server/watchlist/autofilter/types";
 import type { WatchedSourceType, WatchlistSuggestedFilterPlan } from "@shared/types";
 import { and, asc, eq } from "drizzle-orm";
+import { parseJsonWithSchema } from "@server/utils/json";
 import { z } from "zod";
 import { db, schema } from "../db/index";
 
@@ -42,7 +43,7 @@ const filterPlanSchema = z.object({
   sampleTitles: z.array(z.string()),
 });
 
-export type StoredWatchlistFacets = z.infer<typeof storedFacetsSchema>;
+type StoredWatchlistFacets = z.infer<typeof storedFacetsSchema>;
 
 export interface WatchlistSharedSourceRecord {
   id: string;
@@ -59,20 +60,10 @@ export interface WatchlistSharedSourceRecord {
   updatedAt: string;
 }
 
-function parseJsonSafe<T>(raw: string | null, parser: z.ZodType<T>): T | null {
-  if (!raw) return null;
-  try {
-    const parsed = parser.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-}
-
 function mapSharedSourceRow(
   row: typeof watchlistSharedSources.$inferSelect,
 ): WatchlistSharedSourceRecord {
-  const defaultFilterPlan = parseJsonSafe(row.defaultFilterPlanJson, filterPlanSchema);
+  const defaultFilterPlan = parseJsonWithSchema(row.defaultFilterPlanJson, filterPlanSchema);
   return {
     id: row.id,
     urlKey: row.urlKey,
@@ -80,7 +71,7 @@ function mapSharedSourceRow(
     name: row.name,
     careersUrl: row.careersUrl,
     description: row.description,
-    discoveredFacets: parseJsonSafe(row.discoveredFacetsJson, storedFacetsSchema),
+    discoveredFacets: parseJsonWithSchema(row.discoveredFacetsJson, storedFacetsSchema),
     facetsScannedAt: row.facetsScannedAt,
     defaultFilterPlan: defaultFilterPlan as WatchlistSuggestedFilterPlan | null,
     filterPlanUpdatedAt: row.filterPlanUpdatedAt,
@@ -127,19 +118,6 @@ export function getSharedWatchlistSourceByUrlKey(
     .select()
     .from(watchlistSharedSources)
     .where(eq(watchlistSharedSources.urlKey, normalizedKey))
-    .get();
-
-  return row ? mapSharedSourceRow(row) : null;
-}
-
-export function getSharedWatchlistSourceById(id: string): WatchlistSharedSourceRecord | null {
-  const trimmedId = id.trim();
-  if (!trimmedId) return null;
-
-  const row = db
-    .select()
-    .from(watchlistSharedSources)
-    .where(eq(watchlistSharedSources.id, trimmedId))
     .get();
 
   return row ? mapSharedSourceRow(row) : null;
@@ -290,7 +268,7 @@ export function getCachedFilterPlan(
     .get();
 
   if (!row) return null;
-  const parsed = parseJsonSafe(row.planJson, filterPlanSchema);
+  const parsed = parseJsonWithSchema(row.planJson, filterPlanSchema);
   return parsed ? (parsed as WatchlistSuggestedFilterPlan) : null;
 }
 

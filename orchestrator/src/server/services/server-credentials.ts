@@ -88,7 +88,7 @@ export async function isOperatorContext(): Promise<boolean> {
   return getCachedTenantFlag(operatorTenantCache, tenantId, tenantHasSystemAdmin);
 }
 
-export async function hasOwnLlmApiKey(): Promise<boolean> {
+async function hasOwnLlmApiKey(): Promise<boolean> {
   return Boolean((await settingsRepo.getSetting("llmApiKey"))?.trim());
 }
 

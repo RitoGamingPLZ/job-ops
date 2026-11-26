@@ -15,6 +15,6 @@ export function rememberSuccessfulMode(cacheKey: string, mode: ResponseMode): vo
   modeCache.set(cacheKey, mode);
 }
 
-export function clearModeCache(): void {
+export function __clearModeCacheForTests(): void {
   modeCache.clear();
 }

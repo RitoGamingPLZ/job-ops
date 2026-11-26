@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { listCareerBoardSources } from "./career-boards";
-import { listWatchlistGroupDefinitions, resolveWatchlistSourceGroups } from "./watchlist-groups";
+import { resolveWatchlistSourceGroups } from "./watchlist-groups";
+import groupDefinitions from "./watchlist-groups.json";
 
 describe("watchlist source groups", () => {
   it("resolves every bundled group member to a catalog source", async () => {
     const catalog = await listCareerBoardSources();
     const catalogKeys = new Set(catalog.map((source) => `${source.sourceType}:${source.label}`));
 
-    const missing = listWatchlistGroupDefinitions().flatMap((group) =>
+    const missing = groupDefinitions.flatMap((group) =>
       group.members
         .filter((member) => !catalogKeys.has(`${member.sourceType}:${member.label}`))
         .map((member) => `${group.id}: ${member.sourceType}:${member.label}`),
@@ -28,7 +29,7 @@ describe("watchlist source groups", () => {
   });
 
   it("never lists the same company twice in one group, even on different adapters", () => {
-    const duplicates = listWatchlistGroupDefinitions().flatMap((group) => {
+    const duplicates = groupDefinitions.flatMap((group) => {
       const seen = new Set<string>();
       return group.members.flatMap((member) => {
         const company = member.label.toLowerCase().replace(/[^a-z0-9]+/g, "");

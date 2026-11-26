@@ -19,7 +19,7 @@ import { normalizeSearchTerms } from "@shared/utils/search-terms";
 
 const WATCHLIST_DETAIL_CONCURRENCY = 3;
 
-export type PipelineWatchlistDiscoveryResult = {
+type PipelineWatchlistDiscoveryResult = {
   discoveredJobs: CreateJobInput[];
   sourceErrors: string[];
   selectedSourceCount: number;

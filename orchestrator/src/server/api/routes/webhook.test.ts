@@ -165,9 +165,10 @@ describe("Webhook API routes", () => {
       expect(patchRes.status).toBe(200);
 
       // Simulate a cold start where in-memory backup settings are still disabled.
-      const { setBackupSettings, stopBackupScheduler } = await import("@server/services/backup");
+      const { setBackupSettings, __stopBackupSchedulerForTests } =
+        await import("@server/services/backup");
       setBackupSettings({ enabled: false, hour: 2, maxCount: 5 });
-      stopBackupScheduler();
+      __stopBackupSchedulerForTests();
 
       const cronRes = await fetch(`${cronServer.baseUrl}/api/webhook/cron`, {
         method: "POST",

@@ -38,7 +38,6 @@ export function useOrchestratorNavigation({ searchParams }: UseOrchestratorNavig
 
   const navigateWithContext = useCallback(
     (newTab: string, newJobId?: string | null, isReplace = false) => {
-      if (newTab === "ready") newTab = "all";
       const search = searchParams.toString();
       const suffix = search ? `?${search}` : "";
       const path = newJobId ? `/jobs/${newTab}/${newJobId}${suffix}` : `/jobs/${newTab}${suffix}`;

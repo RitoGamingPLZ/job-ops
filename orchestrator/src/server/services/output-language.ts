@@ -10,12 +10,6 @@ import {
   type ResumeProfile,
 } from "@shared/types";
 
-export {
-  detectJobDescriptionLanguage,
-  detectProfileLanguage,
-  detectResumeV5Language,
-} from "@shared/language-detection";
-
 type WritingLanguageConfig = {
   languageMode: ChatStyleLanguageMode;
   manualLanguage: ChatStyleManualLanguage;

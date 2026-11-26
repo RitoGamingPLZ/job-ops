@@ -11,10 +11,10 @@ import { chunk, insertRowsPerStatement } from "../utils/sql-chunks";
 // Explicitly global: these are public reference ratings shared across tenants.
 const { companyRatings } = schema;
 
-export const COMPANY_RATING_MIN = 0;
-export const COMPANY_RATING_MAX = 10;
+const COMPANY_RATING_MIN = 0;
+const COMPANY_RATING_MAX = 10;
 
-export interface CompanyRatingInput {
+interface CompanyRatingInput {
   label: string;
   wlb: number | null;
   salary: number | null;
@@ -25,7 +25,7 @@ export interface CompanyRatingInput {
 let seeded = false;
 
 /** Inserts bundled ratings for companies that have no row yet. Never overwrites existing rows. */
-export async function ensureCompanyRatingsSeeded(): Promise<void> {
+async function ensureCompanyRatingsSeeded(): Promise<void> {
   if (seeded) return;
 
   const ratedAt = getSeedRatingsReviewedAt();
@@ -58,7 +58,7 @@ export function resetCompanyRatingsSeedState(): void {
   seeded = false;
 }
 
-export async function listCompanyRatings(): Promise<Map<string, WatchlistCompanyRating>> {
+async function listCompanyRatings(): Promise<Map<string, WatchlistCompanyRating>> {
   await ensureCompanyRatingsSeeded();
   const rows = db.select().from(companyRatings).all();
 

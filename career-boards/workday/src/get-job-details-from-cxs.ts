@@ -161,7 +161,7 @@ async function fetchCxsJobDetails(
   }
 }
 
-export function normalizeWorkdayCxsJobDetails(
+function normalizeWorkdayCxsJobDetails(
   response: WorkdayCxsJobDetailResponse,
   args: { cxsJobUrl: string; externalPath: string; jobUrl: string },
 ): NormalizedWorkdayJobDetails {

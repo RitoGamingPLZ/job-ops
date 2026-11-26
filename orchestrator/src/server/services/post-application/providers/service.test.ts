@@ -51,7 +51,7 @@ vi.mock("@server/repositories/post-application-integrations", () => ({
 const integrationRepo = await import("@server/repositories/post-application-integrations");
 
 import { PostApplicationProviderError, providerUpstreamError, toProviderAppError } from "./errors";
-import { listPostApplicationProviders, resolvePostApplicationProvider } from "./registry";
+import { resolvePostApplicationProvider } from "./registry";
 import { executePostApplicationProviderAction } from "./service";
 
 beforeEach(() => {
@@ -65,10 +65,6 @@ afterEach(() => {
 });
 
 describe("post-application provider registry", () => {
-  it("lists registered providers", () => {
-    expect(listPostApplicationProviders()).toEqual(["gmail", "imap"]);
-  });
-
   it("resolves a known provider", () => {
     const provider = resolvePostApplicationProvider("gmail");
     expect(provider.key).toBe("gmail");
@@ -193,20 +189,6 @@ describe("post-application provider action dispatcher", () => {
     ).rejects.toMatchObject({
       status: 400,
       code: "INVALID_REQUEST",
-    });
-  });
-
-  it("maps IMAP not-implemented errors to service unavailable app errors", async () => {
-    await expect(
-      executePostApplicationProviderAction({
-        provider: "imap",
-        action: "connect",
-        accountKey: "account:imap:test",
-      }),
-    ).rejects.toMatchObject({
-      status: 503,
-      code: "SERVICE_UNAVAILABLE",
-      message: "IMAP provider is not implemented yet for account 'account:imap:test'.",
     });
   });
 

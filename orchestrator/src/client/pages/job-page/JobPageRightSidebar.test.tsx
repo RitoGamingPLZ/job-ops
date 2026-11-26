@@ -39,7 +39,6 @@ function renderRightSidebar(overrides: Parameters<typeof createJob>[0] = {}) {
     <MemoryRouter>
       <JobPageRightSidebar
         job={job}
-        tasks={[]}
         jobLink={job.jobUrl}
         isDiscovered={job.status === "discovered"}
         isReady={job.status === "ready"}

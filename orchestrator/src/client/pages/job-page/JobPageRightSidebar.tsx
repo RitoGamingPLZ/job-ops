@@ -1,6 +1,5 @@
-import type { ApplicationTask, Job } from "@shared/types.js";
+import type { Job } from "@shared/types.js";
 import {
-  CalendarClock,
   CheckCircle2,
   Copy,
   Download,
@@ -18,7 +17,6 @@ import type React from "react";
 import { Link } from "react-router-dom";
 import { TooltipWhenDisabled } from "@/client/components/TooltipWhenDisabled";
 import { getResumeState } from "@/client/lib/pdf-freshness";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -27,11 +25,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatTimestamp } from "@/lib/utils";
 
 type JobPageRightSidebarProps = {
   job: Job;
-  tasks: ApplicationTask[];
   jobLink: string | null;
   isDiscovered: boolean;
   isReady: boolean;
@@ -60,7 +56,6 @@ type JobPageRightSidebarProps = {
 
 export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
   job,
-  tasks,
   jobLink,
   isDiscovered,
   isReady,
@@ -255,26 +250,6 @@ export const JobPageRightSidebar: React.FC<JobPageRightSidebarProps> = ({
           </DropdownMenu>
         </div>
       </section>
-
-      {tasks.length > 0 && (
-        <section className="rounded-xl border border-border/50 bg-card/70 p-4">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <CalendarClock className="h-4 w-4" />
-            Upcoming tasks
-          </div>
-          <div className="space-y-3">
-            {tasks.map((task) => (
-              <div key={task.id} className="space-y-1">
-                <div className="text-sm font-medium">{task.title}</div>
-                {task.notes && <div className="text-xs text-muted-foreground">{task.notes}</div>}
-                <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-                  {formatTimestamp(task.dueDate)}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </aside>
   );
 };

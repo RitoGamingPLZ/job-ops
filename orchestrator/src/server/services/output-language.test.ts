@@ -1,9 +1,11 @@
-import type { ResumeProfile } from "@shared/types";
-import { describe, expect, it } from "vitest";
 import {
   detectJobDescriptionLanguage,
   detectProfileLanguage,
   detectResumeV5Language,
+} from "@shared/language-detection";
+import type { ResumeProfile } from "@shared/types";
+import { describe, expect, it } from "vitest";
+import {
   resolveWritingOutputLanguage,
   resolveWritingOutputLanguageForResumeJson,
 } from "./output-language";

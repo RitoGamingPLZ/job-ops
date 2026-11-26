@@ -4,6 +4,7 @@ import { request } from "node:https";
 import { isIP } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { isPrivateAddress } from "@infra/safe-fetch";
 import { type Browser, type BrowserContext, chromium } from "playwright";
 import { type LoadedPage, SiteBlockedError } from "./types";
 
@@ -14,45 +15,6 @@ const CONTEXT_CLOSE_TIMEOUT = 5_000;
 const IDLE_TIMEOUT = 5 * 60_000;
 const ROBOTS_TTL = 60 * 60_000;
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
-
-function publicAddress(address: string): boolean {
-  if (isIP(address) === 4) {
-    const [a, b, c] = address.split(".").map(Number);
-    return !(
-      a === 0 ||
-      a === 10 ||
-      a === 127 ||
-      (a === 100 && b >= 64 && b <= 127) ||
-      (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && (b === 168 || b === 0 || (b === 88 && c === 99))) ||
-      (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
-      (a === 203 && b === 0 && c === 113) ||
-      a >= 224
-    );
-  }
-  if (isIP(address) !== 6) return false;
-  // URL canonicalization expands dotted IPv4-mapped suffixes into hex groups.
-  const canonical = new URL(`https://[${address}]/`).hostname.slice(1, -1);
-  const [left, right] = canonical.split("::");
-  const head = left ? left.split(":") : [];
-  const tail = right ? right.split(":") : [];
-  const words = canonical.includes("::")
-    ? [...head, ...Array(8 - head.length - tail.length).fill("0"), ...tail]
-    : head;
-  const parts = words.map((word) => Number.parseInt(word, 16));
-  if (parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff) {
-    return publicAddress(`${parts[6] >> 8}.${parts[6] & 255}.${parts[7] >> 8}.${parts[7] & 255}`);
-  }
-  // Only global unicast; excludes loopback, ULA, link-local, multicast,
-  // unspecified, NAT64 and other translation ranges. Exclude tunnel/docs ranges.
-  return (
-    (parts[0] & 0xe000) === 0x2000 &&
-    parts[0] !== 0x2002 &&
-    !(parts[0] === 0x2001 && (parts[1] < 0x200 || parts[1] === 0xdb8)) &&
-    !(parts[0] === 0x3fff && parts[1] < 0x1000)
-  );
-}
 
 function safeUrl(value: string): URL {
   const url = new URL(value);
@@ -78,7 +40,7 @@ async function publicTarget(url: URL, signal: AbortSignal) {
   const addresses = isIP(hostname)
     ? [{ address: hostname, family: isIP(hostname) }]
     : await withAbort(lookup(hostname, { all: true, verbatim: true }), signal);
-  if (!addresses.length || addresses.some(({ address }) => !publicAddress(address))) {
+  if (!addresses.length || addresses.some(({ address }) => isPrivateAddress(address))) {
     throw new Error("Crawler refuses non-public network addresses");
   }
   return addresses[0];

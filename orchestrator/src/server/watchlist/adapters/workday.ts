@@ -39,7 +39,6 @@ export const workdayWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsCustomSource: true,
     supportsBranding: true,
   },
-  catalogSchema: workdaySourceSchema,
   parseCatalogSources(entries) {
     return z
       .array(workdaySourceSchema)

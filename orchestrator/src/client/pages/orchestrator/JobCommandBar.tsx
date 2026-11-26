@@ -384,6 +384,30 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
     closeDialog();
   };
 
+  const renderOptionRow = (
+    row: Extract<CommandBarRow, { kind: "option" }>,
+    children: React.ReactNode,
+  ) => (
+    <div
+      cmdk-item=""
+      role="option"
+      tabIndex={-1}
+      aria-selected={row.id === activeRowId}
+      data-selected={row.id === activeRowId}
+      className="relative flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
+      onMouseEnter={() => setActiveRowId(row.id)}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={() => selectRow(row)}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        selectRow(row);
+      }}
+    >
+      {children}
+    </div>
+  );
+
   return (
     <CommandDialog
       open={isOpen}
@@ -466,24 +490,8 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
                   ) : row.kind === "separator" ? (
                     <hr className="-mx-1 h-px border-0 bg-border" />
                   ) : row.optionKind === "lockSuggestion" && row.lock ? (
-                    <div
-                      cmdk-item=""
-                      role="option"
-                      tabIndex={-1}
-                      aria-selected={row.id === activeRowId}
-                      data-selected={row.id === activeRowId}
-                      className={cn(
-                        "relative flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-                      )}
-                      onMouseEnter={() => setActiveRowId(row.id)}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => selectRow(row)}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter" && event.key !== " ") return;
-                        event.preventDefault();
-                        selectRow(row);
-                      }}
-                    >
+                    renderOptionRow(
+                      row,
                       <div className="flex min-w-0 flex-1 items-center gap-2">
                         <span
                           className={cn(
@@ -499,29 +507,13 @@ export const JobCommandBar: React.FC<JobCommandBarProps> = ({
                         <span className="truncate text-sm font-medium">
                           Lock to @{lockLabel[row.lock]}
                         </span>
-                      </div>
-                    </div>
+                      </div>,
+                    )
                   ) : row.job ? (
-                    <div
-                      cmdk-item=""
-                      role="option"
-                      tabIndex={-1}
-                      aria-selected={row.id === activeRowId}
-                      data-selected={row.id === activeRowId}
-                      className={cn(
-                        "relative flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-                      )}
-                      onMouseEnter={() => setActiveRowId(row.id)}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => selectRow(row)}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter" && event.key !== " ") return;
-                        event.preventDefault();
-                        selectRow(row);
-                      }}
-                    >
-                      <JobRowContent job={row.job} isSelected={row.id === activeRowId} />
-                    </div>
+                    renderOptionRow(
+                      row,
+                      <JobRowContent job={row.job} isSelected={row.id === activeRowId} />,
+                    )
                   ) : null}
                 </div>
               );

@@ -3,7 +3,7 @@ import type {
   LocationInputMode,
   LocationMatchStrictness,
   LocationSearchScope,
-} from "../location-preferences";
+} from "../location-domain";
 import type { Job, JobStatus } from "./jobs";
 import type { LocationIntent, LocationProximity } from "./location";
 import type { PdfRenderer } from "./settings";
@@ -64,10 +64,6 @@ export interface PipelineConfig {
   locationIntent?: LocationIntent;
   scoringInstructions?: string;
   runBudget?: number;
-  enableCrawling?: boolean;
-  enableScoring?: boolean;
-  enableImporting?: boolean;
-  enableAutoTailoring?: boolean;
   // Per-run filter over the current user's saved Watchlist sources.
   // undefined/null = include every Watchlist source the user has saved
   // (legacy behavior pre-#621). [] = explicitly exclude all Watchlist
@@ -108,10 +104,6 @@ export interface PipelineRunRequestedConfig {
   topN: number;
   minSuitabilityScore: number;
   sources: ExtractorSourceId[];
-  enableCrawling: boolean;
-  enableScoring: boolean;
-  enableImporting: boolean;
-  enableAutoTailoring: boolean;
   // null = run did not constrain Watchlist (legacy / pre-#621 behavior);
   // [] = explicitly disabled all Watchlist sources;
   // non-empty = subset of the user's saved Watchlist source IDs.

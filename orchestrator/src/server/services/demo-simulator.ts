@@ -58,10 +58,6 @@ export async function simulatePipelineRun(
     sources: config?.sources ?? ["manual"],
     outputDir: "/tmp",
     locationIntent: config?.locationIntent,
-    enableCrawling: config?.enableCrawling ?? true,
-    enableScoring: config?.enableScoring ?? true,
-    enableImporting: config?.enableImporting ?? true,
-    enableAutoTailoring: config?.enableAutoTailoring ?? true,
   };
   const savedDetails = await buildPipelineRunSavedDetails(mergedConfig).catch(() => null);
   const run = await pipelineRepo.createPipelineRun({ savedDetails });

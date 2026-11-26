@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useVersionCheck } from "../hooks/useVersionCheck";
 import { queryKeys } from "../lib/queryKeys";
 import { loadRememberedAuthUsers, type RememberedAuthUser } from "../lib/remembered-auth-users";
@@ -139,10 +138,7 @@ const ThemeToggle: React.FC = () => {
   );
 };
 
-const SidebarContent: React.FC<{ onNavigate?: () => void; showVersionFooter?: boolean }> = ({
-  onNavigate,
-  showVersionFooter = true,
-}) => {
+const SidebarContent: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { version, updateAvailable } = useVersionCheck();
@@ -227,32 +223,30 @@ const SidebarContent: React.FC<{ onNavigate?: () => void; showVersionFooter?: bo
           </DropdownMenu>
           <ThemeToggle />
         </div>
-        {showVersionFooter && (
-          <div className="flex items-center justify-between gap-2 px-2 pt-1 text-xs text-muted-foreground">
-            <a
-              href="https://github.com/DaKheera47/job-ops/releases"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex min-w-0 items-center gap-2 transition-colors hover:text-foreground"
-            >
-              <span className="truncate">Version {version}</span>
-              {updateAvailable && (
-                <Tip asChild content={<p>Update available</p>}>
-                  <span className="h-2 w-2 shrink-0 cursor-pointer rounded-full bg-success" />
-                </Tip>
-              )}
-            </a>
-            <a
-              href="/docs"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex shrink-0 items-center gap-1 transition-colors hover:text-foreground"
-            >
-              Docs
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          </div>
-        )}
+        <div className="flex items-center justify-between gap-2 px-2 pt-1 text-xs text-muted-foreground">
+          <a
+            href="https://github.com/DaKheera47/job-ops/releases"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-w-0 items-center gap-2 transition-colors hover:text-foreground"
+          >
+            <span className="truncate">Version {version}</span>
+            {updateAvailable && (
+              <Tip asChild content={<p>Update available</p>}>
+                <span className="h-2 w-2 shrink-0 cursor-pointer rounded-full bg-success" />
+              </Tip>
+            )}
+          </a>
+          <a
+            href="/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex shrink-0 items-center gap-1 transition-colors hover:text-foreground"
+          >
+            Docs
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -276,7 +270,6 @@ interface PageHeaderProps {
   badge?: string;
   statusIndicator?: React.ReactNode;
   actions?: React.ReactNode;
-  showVersionFooter?: boolean;
   navOpen?: boolean;
   onNavOpenChange?: (open: boolean) => void;
 }
@@ -288,7 +281,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   badge,
   statusIndicator,
   actions,
-  showVersionFooter = true,
   navOpen: controlledNavOpen,
   onNavOpenChange,
 }) => {
@@ -310,10 +302,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             <SheetHeader className="sr-only">
               <SheetTitle>job-ops</SheetTitle>
             </SheetHeader>
-            <SidebarContent
-              onNavigate={() => setNavOpen(false)}
-              showVersionFooter={showVersionFooter}
-            />
+            <SidebarContent onNavigate={() => setNavOpen(false)} />
           </SheetContent>
         </Sheet>
 
@@ -421,38 +410,8 @@ export const PageMain: React.FC<PageMainProps> = ({ children, className }) => (
 );
 
 // ============================================================================
-// Right sidebar + property rows (Linear-style detail/filters panel)
+// Property rows (Linear-style detail panel)
 // ============================================================================
-
-interface RightSidebarProps {
-  title?: React.ReactNode;
-  children: React.ReactNode;
-  className?: string;
-}
-
-/** Fixed-width right panel. Renders nothing under lg; callers provide a Sheet fallback there. */
-export const RightSidebar: React.FC<RightSidebarProps> = ({ title, children, className }) => {
-  const isDesktop = useMediaQuery("(min-width: 1024px)", "false");
-  // No matchMedia (jsdom): assume desktop so tests can see the content.
-  const hasMatchMedia = typeof window !== "undefined" && typeof window.matchMedia === "function";
-  if (hasMatchMedia && !isDesktop) return null;
-
-  return (
-    <aside
-      className={cn(
-        "sticky top-11 h-[calc(100dvh-2.75rem)] w-72 shrink-0 self-start overflow-y-auto border-l bg-sidebar",
-        className,
-      )}
-    >
-      {title ? (
-        <div className="flex h-10 items-center border-b px-4 text-xs font-medium text-muted-foreground">
-          {title}
-        </div>
-      ) : null}
-      <div className="p-4">{children}</div>
-    </aside>
-  );
-};
 
 interface PropertyRowProps {
   label: React.ReactNode;

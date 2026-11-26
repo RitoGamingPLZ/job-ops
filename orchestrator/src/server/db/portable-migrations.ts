@@ -13,13 +13,13 @@ import { PORTABLE_MIGRATIONS } from "./migration-files";
 
 export { PORTABLE_MIGRATIONS };
 
-export interface PortableSqlExecutor {
+interface PortableSqlExecutor {
   exec(sqlText: string): void;
   query<T = Record<string, unknown>>(sqlText: string, params?: unknown[]): T[];
   run(sqlText: string, params?: unknown[]): void;
 }
 
-export interface BetterSqliteLike {
+interface BetterSqliteLike {
   exec(sql: string): unknown;
   prepare(sql: string): {
     all(...params: unknown[]): unknown[];
@@ -34,7 +34,7 @@ export interface DoSqlStorageLike {
   ): Iterable<T> & { toArray?: () => T[] };
 }
 
-export type PortableMigrationTarget = PortableSqlExecutor | BetterSqliteLike | DoSqlStorageLike;
+type PortableMigrationTarget = PortableSqlExecutor | BetterSqliteLike | DoSqlStorageLike;
 
 export interface PortableMigration {
   id: string;

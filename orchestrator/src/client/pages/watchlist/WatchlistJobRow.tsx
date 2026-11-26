@@ -94,6 +94,7 @@ export default function WatchlistJobRow({
     unignorePending &&
     unignoreVariables?.source === stateInput.source &&
     unignoreVariables?.sourceJobId === stateInput.sourceJobId;
+  const isIgnoredRow = rankedJob.rowState === "ignored" && !watchlistJob.workspaceJob;
   const signals: WatchlistSignal[] = [];
 
   if (watchlistJob.workspaceJob) {
@@ -103,7 +104,7 @@ export default function WatchlistJobRow({
     });
   }
 
-  if (rankedJob.rowState === "ignored" && !watchlistJob.workspaceJob) {
+  if (isIgnoredRow) {
     signals.push({
       label: "Ignored",
       dotClassName: "bg-muted-foreground/70",
@@ -196,61 +197,58 @@ export default function WatchlistJobRow({
         <TableCell className="px-3 py-2.5">
           <div className="flex items-center justify-end">
             {watchlistJob.workspaceJob ? (
-              <>
-                <Tip asChild clickBehavior="none" content="View in JobOps workspace">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0"
-                    onClick={() => {
-                      if (watchlistJob.workspaceJob) {
-                        onOpenWorkspaceJob(watchlistJob.workspaceJob);
-                      }
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </Tip>
+              <Tip asChild clickBehavior="none" content="View in JobOps workspace">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => {
+                    if (watchlistJob.workspaceJob) {
+                      onOpenWorkspaceJob(watchlistJob.workspaceJob);
+                    }
+                  }}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </Tip>
+            ) : isIgnoredRow ? null : (
+              <Tip asChild clickBehavior="none" content="Move to JobOps workspace">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 gap-2"
+                  disabled={movingJobRef === watchlistJob.jobRef}
+                  onClick={() => onMoveToWorkspace(watchlistJob, source)}
+                >
+                  {movingJobRef === watchlistJob.jobRef ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FolderInput className="h-4 w-4" />
+                  )}
+                </Button>
+              </Tip>
+            )}
 
-                <DropdownMenu modal={false}>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0 text-muted-foreground"
-                      aria-label="More actions"
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleDescriptionOpenChange(true)}>
-                      <FileText className="mr-2 h-4 w-4" />
-                      Job description
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            ) : rankedJob.rowState === "ignored" ? (
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0 text-muted-foreground"
-                    aria-label="More actions"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleDescriptionOpenChange(true)}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Job description
-                  </DropdownMenuItem>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-muted-foreground"
+                  aria-label="More actions"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleDescriptionOpenChange(true)}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Job description
+                </DropdownMenuItem>
+                {isIgnoredRow ? (
                   <DropdownMenuItem disabled={isUnignoring} onClick={() => onUnignore(stateInput)}>
                     {isUnignoring ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -259,43 +257,9 @@ export default function WatchlistJobRow({
                     )}
                     Unignore
                   </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <>
-                <Tip asChild clickBehavior="none" content="Move to JobOps workspace">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0 gap-2"
-                    disabled={movingJobRef === watchlistJob.jobRef}
-                    onClick={() => onMoveToWorkspace(watchlistJob, source)}
-                  >
-                    {movingJobRef === watchlistJob.jobRef ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <FolderInput className="h-4 w-4" />
-                    )}
-                  </Button>
-                </Tip>
-                <DropdownMenu modal={false}>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0 text-muted-foreground"
-                      aria-label="More actions"
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleDescriptionOpenChange(true)}>
-                      <FileText className="mr-2 h-4 w-4" />
-                      Job description
-                    </DropdownMenuItem>
+                ) : null}
+                {!watchlistJob.workspaceJob && !isIgnoredRow ? (
+                  <>
                     <DropdownMenuItem asChild>
                       <a
                         href={watchlistJob.jobUrl}
@@ -315,10 +279,10 @@ export default function WatchlistJobRow({
                       )}
                       Ignore
                     </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            )}
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </TableCell>
       </TableRow>

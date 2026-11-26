@@ -192,7 +192,6 @@ export const metaWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsCustomSource: false,
     supportsBranding: false,
   },
-  catalogSchema: sourceSchema,
   parseCatalogSources(entries) {
     return entries.flatMap((entry) => {
       const parsed = sourceSchema.safeParse(entry);

@@ -2,7 +2,7 @@ import { badRequest, notFound } from "@infra/errors";
 import { asyncRoute, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { resolveRequestOrigin } from "@infra/request-origin";
-import { requirePermissionMiddleware } from "../require-admin";
+import { requireResumes } from "../require-admin";
 import * as bulletsRepo from "@server/repositories/experience-bullets";
 import * as resumesRepo from "@server/repositories/job-resumes";
 import { getJobById } from "@server/repositories/jobs";
@@ -10,7 +10,6 @@ import * as libraryService from "@server/services/candidate-library";
 import {
   coworkChatContextSchema,
   extractExperienceBullets,
-  labelExperienceBullets,
   rankExperienceBullets,
 } from "@server/services/cowork-ai";
 import { screenResume } from "@server/services/cowork-screening";
@@ -24,7 +23,6 @@ import { Router } from "express";
 import { z } from "zod";
 
 export const coworkRouter = Router();
-const requireResumes = requirePermissionMiddleware("resumes");
 coworkRouter.use("/resumes", requireResumes);
 coworkRouter.use("/library", requireResumes);
 coworkRouter.use("/experience-bullets", requireResumes);
@@ -126,20 +124,6 @@ coworkRouter.post(
   "/library/sync",
   asyncRoute(async (req, res) => {
     ok(res, await syncLibrary());
-  }),
-);
-coworkRouter.post(
-  "/experience-bullets/label",
-  asyncRoute(async (req, res) => {
-    const { ids } = parse(
-      z
-        .object({
-          ids: z.array(z.string().trim().min(1).max(200)).max(200).optional(),
-        })
-        .strict(),
-      req.body ?? {},
-    );
-    ok(res, await labelExperienceBullets(ids));
   }),
 );
 coworkRouter.post(

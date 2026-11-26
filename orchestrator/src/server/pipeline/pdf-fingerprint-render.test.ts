@@ -66,14 +66,6 @@ vi.mock("../services/profile", () => ({
   getProfile: vi.fn(),
 }));
 
-vi.mock("../services/projectSelection", () => ({
-  pickProjectIdsForJob: vi.fn(),
-}));
-
-vi.mock("../services/summary", () => ({
-  generateTailoring: vi.fn(),
-}));
-
 vi.mock("./steps", () => ({
   discoverJobsStep: vi.fn(),
   importJobsStep: vi.fn(),

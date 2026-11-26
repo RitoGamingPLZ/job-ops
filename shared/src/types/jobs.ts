@@ -98,25 +98,6 @@ export const APPLICATION_OUTCOMES = [
 
 export type JobOutcome = (typeof APPLICATION_OUTCOMES)[number];
 
-export const APPLICATION_TASK_TYPES = ["prep", "todo", "follow_up", "check_status"] as const;
-
-export type ApplicationTaskType = (typeof APPLICATION_TASK_TYPES)[number];
-
-export const INTERVIEW_TYPES = [
-  "recruiter_screen",
-  "technical",
-  "onsite",
-  "panel",
-  "behavioral",
-  "final",
-] as const;
-
-export type InterviewType = (typeof INTERVIEW_TYPES)[number];
-
-export const INTERVIEW_OUTCOMES = ["pass", "fail", "pending", "cancelled"] as const;
-
-export type InterviewOutcome = (typeof INTERVIEW_OUTCOMES)[number];
-
 export interface StageEventMetadata {
   note?: string | null;
   actor?: "system" | "user";
@@ -138,25 +119,6 @@ export interface StageEvent {
   occurredAt: number;
   metadata: StageEventMetadata | null;
   outcome: JobOutcome | null;
-}
-
-export interface ApplicationTask {
-  id: string;
-  applicationId: string;
-  type: ApplicationTaskType;
-  title: string;
-  dueDate: number | null;
-  isCompleted: boolean;
-  notes: string | null;
-}
-
-export interface Interview {
-  id: string;
-  applicationId: string;
-  scheduledAt: number;
-  durationMins: number | null;
-  type: InterviewType;
-  outcome: InterviewOutcome | null;
 }
 
 export interface JobNote {

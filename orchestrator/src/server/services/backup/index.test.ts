@@ -121,11 +121,11 @@ describe("Backup Service", () => {
     setBlobStore(new LocalBlobStore(tempDir));
     backup.setBackupBlobStore(null);
     backup.setBackupSettings({ enabled: false, hour: 2, maxCount: 5 });
-    backup.stopBackupScheduler();
+    backup.__stopBackupSchedulerForTests();
   });
 
   afterEach(async () => {
-    backup.stopBackupScheduler();
+    backup.__stopBackupSchedulerForTests();
     backup.setBackupBlobStore(null);
     setBlobStore(null);
     setDb(null);
@@ -534,7 +534,6 @@ describe("Backup Service", () => {
         );
 
         expect(hydrated).toEqual({ enabled: true, hour: 6, maxCount: 3 });
-        expect(backup.isBackupSchedulerRunning()).toBe(false);
         expect(backup.getNextBackupTime()).not.toBeNull();
       } finally {
         setDb(null);
@@ -545,18 +544,16 @@ describe("Backup Service", () => {
 
   describe("setBackupSettings", () => {
     it("should update settings", () => {
-      backup.setBackupSettings({ enabled: true, hour: 4, maxCount: 3 });
+      const settings = backup.setBackupSettings({ enabled: true, hour: 4, maxCount: 3 });
 
-      const settings = backup.getBackupSettings();
       expect(settings.enabled).toBe(true);
       expect(settings.hour).toBe(4);
       expect(settings.maxCount).toBe(3);
     });
 
     it("should merge partial settings", () => {
-      backup.setBackupSettings({ hour: 6 });
+      const settings = backup.setBackupSettings({ hour: 6 });
 
-      const settings = backup.getBackupSettings();
       expect(settings.enabled).toBe(false);
       expect(settings.hour).toBe(6);
       expect(settings.maxCount).toBe(5);
@@ -576,20 +573,20 @@ describe("Backup Service", () => {
       const now = new Date("2026-01-15T10:00:00Z");
       vi.setSystemTime(now);
 
-      expect(backup.isBackupSchedulerRunning()).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
 
       backup.setBackupSettings({ enabled: true, hour: 14 });
 
-      expect(backup.isBackupSchedulerRunning()).toBe(true);
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
       expect(backup.getNextBackupTime()).not.toBeNull();
     });
 
     it("should stop scheduler when disabled", () => {
       backup.setBackupSettings({ enabled: true, hour: 14 });
-      expect(backup.isBackupSchedulerRunning()).toBe(true);
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
 
       backup.setBackupSettings({ enabled: false });
-      expect(backup.isBackupSchedulerRunning()).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
       expect(backup.getNextBackupTime()).toBeNull();
     });
 

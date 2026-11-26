@@ -14,7 +14,6 @@ export * from "./types/chat";
 export * from "./types/cowork";
 export * from "./types/cowork-screening";
 export * from "./types/design-resume";
-export * from "./types/design-resume-jake";
 export * from "./types/extractors";
 export * from "./types/jobs";
 export * from "./types/location";

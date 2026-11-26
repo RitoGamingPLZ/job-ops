@@ -16,7 +16,7 @@ type EmailViewerRowProps = {
   isAppliedJobsLoading: boolean;
 };
 
-export type EmailViewerListProps = {
+type EmailViewerListProps = {
   items: PostApplicationInboxItem[];
   appliedJobs: JobListItem[];
   appliedJobByMessageId: Record<string, string>;

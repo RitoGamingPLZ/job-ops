@@ -2,7 +2,7 @@ import type { JobListItem, JobStatus } from "@shared/types.js";
 import { isTargeted } from "@shared/types.js";
 import type { FilterTab } from "./constants";
 
-export type CommandGroupId = "ready" | "discovered" | "applied" | "other";
+type CommandGroupId = "ready" | "discovered" | "applied" | "other";
 export type StatusLock = "ready" | "discovered" | "applied" | "in_progress" | "skipped" | "expired";
 
 export type CommandBarRow =

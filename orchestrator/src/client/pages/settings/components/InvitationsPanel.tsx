@@ -44,7 +44,7 @@ import {
 import { ConfirmDeleteButton } from "./ConfirmDeleteButton";
 import { PermissionToggles } from "./PermissionToggles";
 
-export const invitationsQueryKey = ["workspaces", "invitations"] as const;
+const invitationsQueryKey = ["workspaces", "invitations"] as const;
 
 const EXPIRY_OPTIONS = [1, 7, 14, 30] as const;
 

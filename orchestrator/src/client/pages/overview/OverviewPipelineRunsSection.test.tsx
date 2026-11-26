@@ -80,10 +80,6 @@ describe("OverviewPipelineRunsSection", () => {
           topN: 5,
           minSuitabilityScore: 75,
           sources: ["linkedin", "indeed"],
-          enableCrawling: true,
-          enableScoring: true,
-          enableImporting: true,
-          enableAutoTailoring: false,
           watchlistSelectedSourceIds: null,
         },
         effectiveConfig: {

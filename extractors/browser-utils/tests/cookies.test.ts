@@ -1,19 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  createPersistedFetchCookieJar,
-  getCloudflareCookieStorageDir,
-  invalidateCookies,
-  readCookieJar,
-  saveCookies,
-} from "../src/cookies.js";
+import { readCookieJar, saveCookies } from "../src/cookies.js";
 
-// loadCookies / saveCookies need a real Playwright BrowserContext which is
-// heavy to set up.  We test the file-level functions that don't need one:
-// readCookieJar, invalidateCookies.
+// loadCookies / saveCookies mostly need a real Playwright BrowserContext, while
+// readCookieJar lets us test persistence and scoped storage resolution directly.
 
 function storageDir() {
   const dir = join(tmpdir(), `browser-utils-test-${randomUUID()}`);
@@ -64,22 +57,35 @@ describe("cookies", () => {
     }
   });
 
-  describe("getCloudflareCookieStorageDir", () => {
-    it("stores cookies under DATA_DIR when configured", () => {
-      process.env.DATA_DIR = "/tmp/job-ops-data";
-      expect(getCloudflareCookieStorageDir()).toBe(join("/tmp/job-ops-data", "cloudflare-cookies"));
+  describe("cookie storage directory resolution", () => {
+    it("reads cookies from DATA_DIR/cloudflare-cookies when configured", async () => {
+      const dataDir = storageDir();
+      const cfDir = join(dataDir, "cloudflare-cookies");
+      mkdirSync(cfDir, { recursive: true });
+      writeCookieJar(cfDir, "data-dir-source");
+      process.env.DATA_DIR = dataDir;
+
+      expect((await readCookieJar("data-dir-source")).hasCookies).toBe(true);
     });
 
-    it("uses explicit storage dirs for direct callers", () => {
-      process.env.DATA_DIR = "/tmp/job-ops-data";
-      expect(getCloudflareCookieStorageDir("/tmp/custom-cookies")).toBe("/tmp/custom-cookies");
+    it("prefers JOBOPS_CLOUDFLARE_COOKIE_STORAGE_DIR over DATA_DIR", async () => {
+      const dataDir = storageDir();
+      const scopedDir = storageDir();
+      writeCookieJar(scopedDir, "scoped-source");
+      process.env.DATA_DIR = dataDir;
+      process.env.JOBOPS_CLOUDFLARE_COOKIE_STORAGE_DIR = scopedDir;
+
+      expect((await readCookieJar("scoped-source")).hasCookies).toBe(true);
     });
 
-    it("uses the scoped directory passed to extractor child processes", () => {
-      process.env.DATA_DIR = "/tmp/job-ops-data";
-      process.env.JOBOPS_CLOUDFLARE_COOKIE_STORAGE_DIR = "/tmp/tenant-cookies";
-      expect(getCloudflareCookieStorageDir()).toBe("/tmp/tenant-cookies");
-      expect(getCloudflareCookieStorageDir("/tmp/explicit-cookies")).toBe("/tmp/explicit-cookies");
+    it("prefers an explicit storageDir argument over environment variables", async () => {
+      const envDir = storageDir();
+      const explicitDir = storageDir();
+      writeCookieJar(explicitDir, "explicit-source");
+      process.env.JOBOPS_CLOUDFLARE_COOKIE_STORAGE_DIR = envDir;
+
+      expect((await readCookieJar("explicit-source", explicitDir)).hasCookies).toBe(true);
+      expect((await readCookieJar("explicit-source")).hasCookies).toBe(false);
     });
   });
 
@@ -210,71 +216,6 @@ describe("cookies", () => {
 
       const jar = await readCookieJar("empty", dir);
       expect(jar.hasCookies).toBe(false);
-    });
-  });
-
-  describe("createPersistedFetchCookieJar", () => {
-    it("replays saved Playwright cookies through a Fetch-compatible jar", async () => {
-      const dir = storageDir();
-      writeCookieJar(dir, "hiringcafe", {
-        userAgent: "Mozilla/5.0 SolverUA",
-      });
-
-      const result = await createPersistedFetchCookieJar("hiringcafe", dir);
-
-      expect(result.hasCookies).toBe(true);
-      expect(result.hasClearanceCookie).toBe(true);
-      expect(result.cookieCount).toBe(1);
-      expect(result.userAgent).toBe("Mozilla/5.0 SolverUA");
-      await expect(result.cookieJar.getCookieString("https://www.example.com/jobs")).resolves.toBe(
-        "cf_clearance=fake",
-      );
-      await expect(result.cookieJar.getCookieString("http://www.example.com/jobs")).resolves.toBe(
-        "",
-      );
-    });
-
-    it("keeps response cookies in memory for later HTTP requests", async () => {
-      const dir = storageDir();
-      writeCookieJar(dir, "hiringcafe");
-
-      const result = await createPersistedFetchCookieJar("hiringcafe", dir);
-      await result.cookieJar.setCookie(
-        "session_id=abc; Domain=.example.com; Path=/; Secure",
-        "https://www.example.com/jobs",
-      );
-
-      await expect(result.cookieJar.getCookieString("https://www.example.com/jobs")).resolves.toBe(
-        "cf_clearance=fake; session_id=abc",
-      );
-    });
-  });
-
-  describe("invalidateCookies", () => {
-    it("deletes the cookie file", async () => {
-      const dir = storageDir();
-      writeCookieJar(dir, "hiringcafe");
-      const path = join(dir, "hiringcafe-cookies.json");
-      expect(existsSync(path)).toBe(true);
-
-      await invalidateCookies("hiringcafe", dir);
-      expect(existsSync(path)).toBe(false);
-    });
-
-    it("does not throw when file does not exist", async () => {
-      const dir = storageDir();
-      await expect(invalidateCookies("nonexistent", dir)).resolves.toBeUndefined();
-    });
-
-    it("makes readCookieJar return hasCookies false after invalidation", async () => {
-      const dir = storageDir();
-      writeCookieJar(dir, "hiringcafe", {
-        userAgent: "Mozilla/5.0 SolverUA",
-      });
-
-      expect((await readCookieJar("hiringcafe", dir)).hasCookies).toBe(true);
-      await invalidateCookies("hiringcafe", dir);
-      expect((await readCookieJar("hiringcafe", dir)).hasCookies).toBe(false);
     });
   });
 });

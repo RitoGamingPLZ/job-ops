@@ -1,9 +1,9 @@
 import type { Page } from "playwright";
 import { describe, expect, it, vi } from "vitest";
-import { readPageContentIfReady, waitForChallengeResolution } from "../src/challenge.js";
+import { readPageContentIfReady } from "../src/challenge.js";
 
 describe("challenge page navigation", () => {
-  it("waits through a navigation before reporting a solved challenge", async () => {
+  it("returns null while the page is navigating and changing content", async () => {
     const page = {
       content: vi
         .fn()
@@ -12,16 +12,11 @@ describe("challenge page navigation", () => {
             "page.content: Unable to retrieve content because the page is navigating and changing the content.",
           ),
         )
-        .mockResolvedValueOnce("<html>Just a moment...</html>")
         .mockResolvedValueOnce("<html>Job results</html>"),
-      waitForTimeout: vi.fn(async () => undefined),
     } as unknown as Page;
 
-    expect(await waitForChallengeResolution(page, 5_000)).toEqual({
-      status: "passed",
-    });
-    expect(page.content).toHaveBeenCalledTimes(3);
-    expect(page.waitForTimeout).toHaveBeenCalledTimes(2);
+    await expect(readPageContentIfReady(page)).resolves.toBeNull();
+    await expect(readPageContentIfReady(page)).resolves.toBe("<html>Job results</html>");
   });
 
   it("does not hide unexpected browser failures", async () => {

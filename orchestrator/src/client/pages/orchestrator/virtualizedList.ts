@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useVirtualizedList as useSharedVirtualizedList } from "@/client/lib/virtual-list";
 
-export interface UseVirtualizedListOptions {
+interface UseVirtualizedListOptions {
   count: number;
   estimateSize: (index: number) => number;
   getItemKey: (index: number) => string | number | bigint;

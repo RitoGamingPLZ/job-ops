@@ -18,7 +18,6 @@ import { getJobResume } from "@server/repositories/job-resumes";
 import { ensureJobResume } from "@server/services/job-resume";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import { createLocationIntentFromLegacyInputs } from "@shared/location-domain.js";
-import { resolveResumeProjectSelection } from "@shared/resume-projects";
 import type {
   CreateJobInput,
   Job,
@@ -38,14 +37,7 @@ import {
 import { generatePdf } from "../services/pdf";
 import { createJobPdfFingerprint, resolvePdfFingerprintContext } from "../services/pdf-fingerprint";
 import { removeStoredJobPdf } from "../services/pdf-storage";
-import { getProfile } from "../services/profile";
-import { pickProjectIdsForJob } from "../services/projectSelection";
-import {
-  extractProjectsFromProfile,
-  resolveResumeProjectsSettings,
-} from "../services/resumeProjects";
 import { LlmNotConfiguredError } from "../services/scorer";
-import { generateTailoring } from "../services/summary";
 import { type PendingChallenge, progressHelpers, resetProgress } from "./progress";
 import {
   buildPipelineRunSavedDetails,
@@ -66,24 +58,7 @@ const DEFAULT_CONFIG: PipelineConfig = {
   minSuitabilityScore: 50,
   sources: ["linkedin", "indeed", "freehire"],
   outputDir: join(getDataDir(), "pdfs"),
-  enableCrawling: true,
-  enableScoring: true,
-  enableImporting: true,
-  enableAutoTailoring: true,
 };
-
-function parseProjectIdsCsv(value: string | null | undefined): string[] {
-  if (!value) return [];
-  const seen = new Set<string>();
-  const ids: string[] = [];
-  for (const rawId of value.split(",")) {
-    const id = rawId.trim();
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
-    ids.push(id);
-  }
-  return ids;
-}
 
 type TenantPipelineState = {
   isRunning: boolean;
@@ -718,7 +693,7 @@ export async function runPipeline(
   });
 }
 
-export type ProcessJobOptions = {
+type ProcessJobOptions = {
   force?: boolean;
   fields?: Array<"summary" | "headline" | "skills" | "projects">;
   requestOrigin?: string | null;
@@ -729,157 +704,6 @@ export type ProcessJobOptions = {
     | "pipeline"
     | "manual_job_create";
 };
-
-/**
- * Step 1: Generate AI summary and suggest projects.
- */
-export async function summarizeJob(
-  jobId: string,
-  options?: ProcessJobOptions,
-): Promise<{
-  success: boolean;
-  error?: string;
-}> {
-  return runWithRequestContext({ jobId }, async () => {
-    const jobLogger = logger.child({ jobId });
-    jobLogger.info("Summarizing job");
-    let tailoringReservationId: string | null | undefined;
-    let tailoringUsageSucceeded = false;
-    const reserveTailoringUsage = async () => {
-      if (tailoringReservationId !== undefined) return;
-      const reserved = await reserveHostedUsage({ action: "tailoring" });
-      tailoringReservationId = reserved.reservation?.id ?? null;
-    };
-    const settleTailoringUsage = async () => {
-      if (!tailoringReservationId) return;
-      await settleHostedUsageReservation({
-        reservationId: tailoringReservationId,
-        usedUnits: tailoringUsageSucceeded ? 1 : 0,
-      });
-      tailoringReservationId = null;
-    };
-    const refundTailoringUsage = async () => {
-      if (!tailoringReservationId) return;
-      await refundHostedUsageReservation(tailoringReservationId);
-      tailoringReservationId = null;
-    };
-
-    try {
-      const job = await jobsRepo.getJobById(jobId);
-      if (!job) return { success: false, error: "Job not found" };
-
-      const profile = await getProfile();
-
-      // 1. Generate Summary & Tailoring
-      let tailoredSummary = job.tailoredSummary;
-      let tailoredHeadline = job.tailoredHeadline;
-      let tailoredSkills = job.tailoredSkills;
-      const requestedFields = options?.fields;
-      const shouldUpdateAllTailoring = !requestedFields?.length;
-      const shouldUpdateSummary = shouldUpdateAllTailoring || requestedFields.includes("summary");
-      const shouldUpdateHeadline = shouldUpdateAllTailoring || requestedFields.includes("headline");
-      const shouldUpdateSkills = shouldUpdateAllTailoring || requestedFields.includes("skills");
-      const shouldUpdateProjects = shouldUpdateAllTailoring || requestedFields.includes("projects");
-      const shouldGenerateTailoring =
-        shouldUpdateSummary || shouldUpdateHeadline || shouldUpdateSkills;
-
-      if (shouldGenerateTailoring && (!tailoredSummary || !tailoredHeadline || options?.force)) {
-        jobLogger.info("Generating tailoring content");
-        await reserveTailoringUsage();
-        const tailoringResult = await generateTailoring(job.jobDescription || "", profile);
-        if (tailoringResult.success && tailoringResult.data) {
-          tailoringUsageSucceeded = true;
-          if (shouldUpdateSummary) {
-            tailoredSummary = tailoringResult.data.summary;
-          }
-          if (shouldUpdateHeadline) {
-            tailoredHeadline = tailoringResult.data.headline;
-          }
-          if (shouldUpdateSkills) {
-            tailoredSkills = JSON.stringify(tailoringResult.data.skills);
-          }
-        } else if (
-          options?.force ||
-          (shouldUpdateSummary && !tailoredSummary) ||
-          (shouldUpdateHeadline && !tailoredHeadline)
-        ) {
-          await settleTailoringUsage();
-          return {
-            success: false,
-            error: `Tailoring failed: ${tailoringResult.error || "unknown error"}`,
-          };
-        }
-      }
-
-      // 2. Suggest Projects
-      let selectedProjectIds = job.selectedProjectIds;
-      if (shouldUpdateProjects) {
-        try {
-          const existingSelectedProjectIds = parseProjectIdsCsv(selectedProjectIds);
-          const { catalog, selectionItems } = extractProjectsFromProfile(profile);
-          const overrideResumeProjectsRaw = await settingsRepo.getSetting("resumeProjects");
-          const { resumeProjects } = resolveResumeProjectsSettings({
-            catalog,
-            overrideRaw: overrideResumeProjectsRaw,
-          });
-
-          const currentSelection = resolveResumeProjectSelection({
-            catalog,
-            resumeProjects,
-            selectedProjectIds: existingSelectedProjectIds,
-          });
-          const mustIncludeSet = new Set(currentSelection.mustIncludeIds);
-          const currentAiIds = currentSelection.effectiveSelectedIds.filter(
-            (id) => !mustIncludeSet.has(id),
-          );
-          const storedSelectionIsValid =
-            existingSelectedProjectIds.length > 0 &&
-            existingSelectedProjectIds.length === currentAiIds.length &&
-            existingSelectedProjectIds.every((id, index) => id === currentAiIds[index]);
-          const emptySelection = resolveResumeProjectSelection({
-            catalog,
-            resumeProjects,
-          });
-          const eligibleSet = new Set(emptySelection.aiSelectableIds);
-          const eligibleProjects = selectionItems.filter((p) => eligibleSet.has(p.id));
-          if (storedSelectionIsValid && !options?.force) {
-            selectedProjectIds = currentAiIds.join(",");
-          } else {
-            if (emptySelection.remainingSlots > 0 && eligibleProjects.length > 0) {
-              await reserveTailoringUsage();
-              const picked = await pickProjectIdsForJob({
-                jobDescription: job.jobDescription || "",
-                eligibleProjects,
-                desiredCount: emptySelection.remainingSlots,
-              });
-              tailoringUsageSucceeded = true;
-              selectedProjectIds = picked.join(",");
-            } else {
-              selectedProjectIds = "";
-            }
-          }
-        } catch (error) {
-          jobLogger.warn("Failed to suggest projects", { error });
-        }
-      }
-
-      await jobsRepo.updateJob(job.id, {
-        ...(shouldUpdateSummary ? { tailoredSummary: tailoredSummary ?? undefined } : {}),
-        ...(shouldUpdateHeadline ? { tailoredHeadline: tailoredHeadline ?? undefined } : {}),
-        ...(shouldUpdateSkills ? { tailoredSkills: tailoredSkills ?? undefined } : {}),
-        ...(shouldUpdateProjects ? { selectedProjectIds: selectedProjectIds ?? undefined } : {}),
-      });
-
-      await settleTailoringUsage();
-      return { success: true };
-    } catch (error) {
-      await refundTailoringUsage();
-      const message = error instanceof Error ? error.message : "Unknown error";
-      jobLogger.error("Summarization failed", error);
-      return { success: false, error: message };
-    }
-  });
-}
 
 /**
  * Step 2: Generate PDF using current summary and project selection.
@@ -1206,8 +1030,4 @@ export function requestPipelineCancel(): {
     pipelineRunId,
     alreadyRequested: false,
   };
-}
-
-export function isPipelineCancelRequested(): boolean {
-  return getPipelineState().cancelRequestedAt !== null;
 }

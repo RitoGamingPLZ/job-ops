@@ -1,3 +1,4 @@
+import { asRecord } from "@shared/utils/type-conversion";
 import { createId } from "@paralleldrive/cuid2";
 import type { ResumeProjectCatalogItem } from "@shared/types";
 import { stripHtmlTags } from "@shared/utils/string";
@@ -22,14 +23,6 @@ export type ResumeProjectSelectionItem = ResumeProjectCatalogItem & {
 
 export function cloneResumeData<T>(data: T): T {
   return JSON.parse(JSON.stringify(data)) as T;
-}
-
-function asRecord(value: unknown): RecordLike | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as RecordLike) : null;
-}
-
-function asArray(value: unknown): unknown[] | null {
-  return Array.isArray(value) ? value : null;
 }
 
 function parseTailoredSkills(skills: TailoredSkillsInput): Array<RecordLike> | null {
@@ -80,7 +73,7 @@ function applyTailoredSkills(resumeData: RecordLike, tailoredSkills?: TailoredSk
 
   const sections = asRecord(resumeData.sections);
   const skillsSection = asRecord(sections?.skills);
-  const existingItems = asArray(skillsSection?.items);
+  const existingItems = Array.isArray(skillsSection?.items) ? skillsSection.items : null;
   if (!skillsSection || !existingItems) return;
   const existing = existingItems
     .map((item) => asRecord(item))
@@ -157,7 +150,7 @@ export function extractProjectsFromResume(resumeData: RecordLike): {
 } {
   const sections = asRecord(resumeData.sections);
   const projectsSection = asRecord(sections?.projects);
-  const items = asArray(projectsSection?.items);
+  const items = Array.isArray(projectsSection?.items) ? projectsSection.items : null;
   if (!items) return { catalog: [], selectionItems: [] };
 
   const catalog: ResumeProjectCatalogItem[] = [];
@@ -201,7 +194,7 @@ export function applyProjectVisibility(args: {
 }): void {
   const sections = asRecord(args.resumeData.sections);
   const projectsSection = asRecord(sections?.projects);
-  const items = asArray(projectsSection?.items);
+  const items = Array.isArray(projectsSection?.items) ? projectsSection.items : null;
   if (!projectsSection || !items) return;
 
   for (const raw of items) {

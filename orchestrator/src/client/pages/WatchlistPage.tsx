@@ -4,7 +4,8 @@ import { ManualImportSheet } from "@client/components/ManualImportSheet";
 import { useSettings } from "@client/hooks/useSettings";
 import { showErrorToast } from "@client/lib/error-toast";
 import { queryKeys } from "@client/lib/queryKeys";
-import { createLocationIntentFromLegacyInputs } from "@shared/location-intelligence.js";
+import { createLocationIntentFromLegacyInputs } from "@shared/location-domain.js";
+import { parseSearchCitiesSetting } from "@shared/search-cities.js";
 import {
   MAX_WATCHLIST_SOURCES,
   type UpdateWatchlistSelectionsInput,
@@ -21,7 +22,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Accordion } from "@/components/ui/accordion";
 import { bucketQueryLength, trackProductEvent } from "@/lib/analytics";
-import { normalizeWorkplaceTypes, parseCityLocationsSetting } from "./orchestrator/automatic-run";
+import { normalizeWorkplaceTypes } from "./orchestrator/automatic-run";
 import type {
   JobDetailsState,
   SourceSelectionDraft,
@@ -247,7 +248,7 @@ export const WatchlistPage: React.FC = () => {
     () =>
       createLocationIntentFromLegacyInputs({
         selectedCountry: normalizeUiCountryKey(settings?.jobspyCountryIndeed.value ?? ""),
-        cityLocations: parseCityLocationsSetting(settings?.searchCities.value),
+        cityLocations: parseSearchCitiesSetting(settings?.searchCities.value),
         workplaceTypes: normalizeWorkplaceTypes(settings?.workplaceTypes.value),
         searchScope: settings?.locationSearchScope.value,
         matchStrictness: settings?.locationMatchStrictness.value,

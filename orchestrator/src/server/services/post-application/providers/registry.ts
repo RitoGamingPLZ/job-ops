@@ -2,12 +2,10 @@ import type { PostApplicationProvider } from "@shared/types";
 import { POST_APPLICATION_PROVIDERS } from "@shared/types";
 import { providerInvalidRequest } from "./errors";
 import { gmailProvider } from "./gmail";
-import { imapProvider } from "./imap";
 import type { PostApplicationProviderAdapter } from "./types";
 
 const providerRegistry: Record<PostApplicationProvider, PostApplicationProviderAdapter> = {
   gmail: gmailProvider,
-  imap: imapProvider,
 };
 
 function isPostApplicationProvider(value: string): value is PostApplicationProvider {
@@ -23,8 +21,4 @@ export function resolvePostApplicationProvider(provider: string): PostApplicatio
   }
 
   return providerRegistry[provider];
-}
-
-export function listPostApplicationProviders(): PostApplicationProvider[] {
-  return [...POST_APPLICATION_PROVIDERS];
 }

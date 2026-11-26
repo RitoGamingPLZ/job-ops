@@ -67,7 +67,6 @@ vi.mock("../api", () => ({
   getJob: vi.fn(),
   deleteJob: vi.fn(),
   getJobStageEvents: vi.fn(),
-  getJobTasks: vi.fn(),
   getJobNotes: vi.fn(),
   getProfile: vi.fn(),
   getSettings: vi.fn(),
@@ -97,10 +96,6 @@ vi.mock("@/client/lib/private-pdf", () => ({
 
 vi.mock("../components/JobHeader", () => ({
   JobHeader: ({ job }: { job: Job }) => <div data-testid="job-header">{job.title}</div>,
-}));
-
-vi.mock("../components/ghostwriter/GhostwriterDrawer", () => ({
-  GhostwriterDrawer: () => <div data-testid="ghostwriter-drawer" />,
 }));
 
 vi.mock("../components/ghostwriter/GhostwriterPanel", () => ({
@@ -210,17 +205,6 @@ beforeEach(() => {
   vi.mocked(api.getResumeProjectsCatalog).mockResolvedValue([]);
   vi.mocked(api.getJobDocuments).mockResolvedValue([]);
   vi.mocked(api.getJobStageEvents).mockResolvedValue([]);
-  vi.mocked(api.getJobTasks).mockResolvedValue([
-    {
-      id: "task-1",
-      applicationId: "job-1",
-      type: "todo",
-      title: "Prepare follow-up questions",
-      dueDate: 1_704_060_000,
-      isCompleted: false,
-      notes: "Bring questions about the team.",
-    },
-  ]);
   vi.mocked(api.getJobNotes).mockImplementation(async () => notesStore);
   vi.mocked(api.getJobEmails).mockResolvedValue({
     items: [],

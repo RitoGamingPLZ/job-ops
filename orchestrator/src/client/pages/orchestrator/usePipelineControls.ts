@@ -24,7 +24,7 @@ type UsePipelineControlsArgs = {
   navigateWithContext: (newTab: string, newJobId?: string | null, isReplace?: boolean) => void;
 };
 
-export type UsePipelineControlsResult = {
+type UsePipelineControlsResult = {
   isRunModeModalOpen: boolean;
   setIsRunModeModalOpen: (open: boolean) => void;
   isCancelling: boolean;
@@ -172,7 +172,7 @@ export function usePipelineControls(args: UsePipelineControlsArgs): UsePipelineC
         manual_import_source_host: imported.sourceHost ?? undefined,
       });
       await loadJobs();
-      navigateWithContext("ready", imported.jobId);
+      navigateWithContext("all", imported.jobId);
     },
     [loadJobs, navigateWithContext],
   );

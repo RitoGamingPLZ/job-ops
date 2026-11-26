@@ -16,7 +16,7 @@ const { userInvitations, users } = schema;
 const DEFAULT_TTL_DAYS = 7;
 export const MAX_INVITATION_TTL_DAYS = 30;
 
-export function hashInvitationToken(token: string): string {
+function hashInvitationToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 

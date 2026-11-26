@@ -37,7 +37,6 @@ import { settingsRouter } from "./routes/settings";
 import { watchlistRouter } from "./routes/watchlist";
 import { watchlistAutofilterRouter } from "./routes/watchlist-autofilter";
 import { webhookRouter } from "./routes/webhook";
-import { workdayRouter } from "./routes/workday";
 import { workspacesRouter } from "./routes/workspaces";
 
 export const apiRouter = Router();
@@ -57,7 +56,6 @@ apiRouter.use(
   requirePermissionMiddleware("urlImport"),
 );
 apiRouter.use("/manual-jobs", requirePermissionMiddleware("jobs"), outboundFetchLimiter);
-apiRouter.use("/workday", requirePermissionMiddleware("watchlist"), outboundFetchLimiter);
 apiRouter.use("/watchlist", requirePermissionMiddleware("watchlist"), outboundFetchLimiter);
 apiRouter.use("/jobs/actions", heavyActionLimiter);
 apiRouter.use(
@@ -66,7 +64,6 @@ apiRouter.use(
   heavyActionLimiter,
 );
 apiRouter.use("/design-resume", requirePermissionMiddleware("resumes"), heavyActionLimiter);
-apiRouter.use("/onboarding/validate", validationLimiter);
 apiRouter.use("/settings/llm-models", validationLimiter);
 apiRouter.use("/app", appStatusRouter);
 apiRouter.use("/billing", billingRouter);
@@ -90,7 +87,6 @@ apiRouter.use("/backups", backupRouter);
 apiRouter.use("/workspaces", workspacesRouter);
 apiRouter.use("/auth/sso", authSsoRouter);
 apiRouter.use("/auth", authRouter);
-apiRouter.use("/workday", workdayRouter);
 apiRouter.use("/watchlist", watchlistRouter);
 apiRouter.use("/watchlist", watchlistAutofilterRouter);
 apiRouter.use("/", extractorHealthRouter);

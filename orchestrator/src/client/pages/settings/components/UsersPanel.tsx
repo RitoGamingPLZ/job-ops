@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
-export const workspaceUsersQueryKey = ["workspaces", "users"] as const;
+const workspaceUsersQueryKey = ["workspaces", "users"] as const;
 
 export const UsersPanel: React.FC<{ currentUserId: string | undefined }> = ({ currentUserId }) => {
   const queryClient = useQueryClient();

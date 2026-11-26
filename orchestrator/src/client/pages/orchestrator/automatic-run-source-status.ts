@@ -1,9 +1,9 @@
 import { EXTRACTOR_SOURCE_METADATA, type ExtractorSourceId } from "@shared/extractors";
-import type { LocationSourcePlan } from "@shared/location-intelligence.js";
+import type { LocationSourcePlan } from "@shared/location-domain.js";
 import { formatCountryLabel } from "@shared/location-support.js";
 import { sourceLabel } from "@/lib/utils";
 
-export interface AutomaticSourceStatus {
+interface AutomaticSourceStatus {
   badgeLabel: string;
   detail: string;
   available: boolean;

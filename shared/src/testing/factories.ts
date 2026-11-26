@@ -1,12 +1,5 @@
 import { getDefaultPromptTemplate } from "../prompt-template-definitions";
-import type {
-  ApplicationTask,
-  AppSettings,
-  Job,
-  PipelineRun,
-  ResumeProjectCatalogItem,
-  StageEvent,
-} from "../types";
+import type { AppSettings, Job, PipelineRun, StageEvent } from "../types";
 
 export const createJob = (overrides: Partial<Job> = {}): Job => ({
   id: "job-1",
@@ -96,19 +89,6 @@ export const createStageEvent = (overrides: Partial<StageEvent> = {}): StageEven
   ...overrides,
 });
 
-export const createApplicationTask = (
-  overrides: Partial<ApplicationTask> = {},
-): ApplicationTask => ({
-  id: "task-1",
-  applicationId: "job-1",
-  type: "todo",
-  title: "Follow up",
-  dueDate: null,
-  isCompleted: false,
-  notes: null,
-  ...overrides,
-});
-
 export const createPipelineRun = (overrides: Partial<PipelineRun> = {}): PipelineRun => ({
   id: "run-1",
   startedAt: "2025-01-01T00:00:00Z",
@@ -117,17 +97,6 @@ export const createPipelineRun = (overrides: Partial<PipelineRun> = {}): Pipelin
   jobsDiscovered: 0,
   jobsProcessed: 0,
   errorMessage: null,
-  ...overrides,
-});
-
-export const createResumeProjectCatalogItem = (
-  overrides: Partial<ResumeProjectCatalogItem> = {},
-): ResumeProjectCatalogItem => ({
-  id: "p1",
-  name: "Project 1",
-  description: "Description 1",
-  date: "2024",
-  isVisibleInBase: true,
   ...overrides,
 });
 

@@ -177,7 +177,6 @@ export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsCustomSource: true,
     supportsBranding: false,
   },
-  catalogSchema: sourceSchema,
   parseCatalogSources(entries) {
     return z
       .array(sourceSchema)

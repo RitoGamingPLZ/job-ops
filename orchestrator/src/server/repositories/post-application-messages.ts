@@ -57,7 +57,7 @@ type UpsertPostApplicationMessageInput = {
   existingMessage?: PostApplicationMessage | null;
 };
 
-export type UpsertPostApplicationMessageResult = {
+type UpsertPostApplicationMessageResult = {
   message: PostApplicationMessage;
   wasCreated: boolean;
   previousProcessingStatus: PostApplicationProcessingStatus | null;
@@ -71,7 +71,7 @@ type PostApplicationIntegrationDisplayMetadata = {
   displayName: string | null;
 };
 
-export type ListPostApplicationMessagesForJobResult = {
+type ListPostApplicationMessagesForJobResult = {
   items: Array<Omit<PostApplicationJobEmailItem, "sourceUrl">>;
   total: number;
 };

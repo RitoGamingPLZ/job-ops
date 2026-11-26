@@ -85,8 +85,6 @@ function getCurrentSourceStatsForTenant(tenantId: string): Map<CrawlSource, Sour
   return stats;
 }
 
-let currentProgress: PipelineProgress = createIdleProgress();
-
 const emptyCrawlingStats = {
   crawlingTermsProcessed: 0,
   crawlingTermsTotal: 0,
@@ -199,15 +197,15 @@ function getFanoutTracker(): FanoutTracker | undefined {
  */
 export function updateProgress(update: Partial<PipelineProgress>): void {
   const tenantId = getProgressScopeKey();
-  currentProgress = { ...getCurrentProgressForTenant(tenantId), ...update };
-  currentProgressByTenant.set(tenantId, currentProgress);
+  const nextProgress: PipelineProgress = { ...getCurrentProgressForTenant(tenantId), ...update };
+  currentProgressByTenant.set(tenantId, nextProgress);
 
   // Notify all listeners
   for (const listener of listenersByTenant.get(tenantId) ?? []) {
     try {
-      listener(currentProgress);
+      listener(nextProgress);
     } catch (error) {
-      logger.error("Error in progress listener", error);
+      logger.error("Error in progress listener", { error });
     }
   }
 }
@@ -244,8 +242,7 @@ export function resetProgress(): void {
   const tenantId = getProgressScopeKey();
   currentSourceStatsByTenant.set(tenantId, new Map());
   fanoutTrackersByTenant.delete(tenantId);
-  currentProgress = createIdleProgress();
-  currentProgressByTenant.set(tenantId, currentProgress);
+  currentProgressByTenant.set(tenantId, createIdleProgress());
 }
 
 /**
@@ -581,35 +578,6 @@ export const progressHelpers = {
       totalToProcess: 0,
       jobsProcessed: 0,
       currentJob: undefined,
-    }),
-
-  processingJob: (
-    index: number,
-    total: number,
-    job: { id: string; title: string; employer: string },
-  ) =>
-    updateProgress({
-      step: "processing",
-      message: `Processing job ${index}/${total}...`,
-      detail: `${job.title} @ ${job.employer}`,
-      totalToProcess: total,
-      currentJob: job,
-    }),
-
-  generatingSummary: (job: { title: string; employer: string }) =>
-    updateProgress({
-      detail: `Generating summary for ${job.title}...`,
-    }),
-
-  generatingPdf: (job: { title: string; employer: string }) =>
-    updateProgress({
-      detail: `Generating PDF for ${job.title}...`,
-    }),
-
-  jobComplete: (index: number, total: number) =>
-    updateProgress({
-      jobsProcessed: index,
-      detail: `Completed ${index}/${total} jobs`,
     }),
 
   complete: (discovered: number, processed: number) =>

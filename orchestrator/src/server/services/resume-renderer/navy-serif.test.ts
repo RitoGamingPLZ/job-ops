@@ -11,7 +11,6 @@ import { normalizeResumeJsonToLatexDocument } from "./document";
 import {
   buildTypstDocument,
   convertDocFieldsToTypst,
-  getTypstBinary,
   readTypstTheme,
   renderTypstPdf,
 } from "./typst";
@@ -88,7 +87,9 @@ const input = {
 };
 
 const document = normalizeResumeJsonToLatexDocument(input);
-const available = spawnSync(getTypstBinary(), ["--version"], { stdio: "ignore" }).status === 0;
+const available =
+  spawnSync(process.env.TYPST_BIN?.trim() || "typst", ["--version"], { stdio: "ignore" }).status ===
+  0;
 
 describe("Navy Serif", () => {
   it("shares readable body and margin tokens while keeping heading sizes", async () => {

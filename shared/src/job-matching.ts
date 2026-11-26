@@ -86,7 +86,7 @@ function normalizeLocationCandidate(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function getJobLocationCandidates(job: {
+function getJobLocationCandidates(job: {
   location?: string | null;
   locationEvidence?:
     | Array<{

@@ -28,7 +28,7 @@ import {
   writeStoredJobPdf,
 } from "./pdf-storage";
 import { renderResumePdf } from "./resume-renderer";
-import { buildResumeRenderDocument } from "./resume-renderer/document";
+import { normalizeResumeJsonToLatexDocument } from "./resume-renderer/document";
 import { parseV5ResumeData } from "./resume-document/schema/v5";
 import { getWritingStyle } from "./writing-style";
 
@@ -43,7 +43,7 @@ export interface GeneratePdfOptions {
   requestOrigin?: string | null;
 }
 
-export async function resolvePdfRenderer(): Promise<PdfRenderer> {
+async function resolvePdfRenderer(): Promise<PdfRenderer> {
   const storedValue = await getSetting("pdfRenderer");
   return (
     settingsRegistry.pdfRenderer.parse(storedValue ?? undefined) ??
@@ -96,7 +96,7 @@ async function renderLocalResumePdfBytes(args: {
   paperSize: PdfPaperSize;
 }): Promise<Uint8Array> {
   if (remotePdfRenderer) {
-    const picture = buildResumeRenderDocument(args.resumeJson).picture;
+    const picture = normalizeResumeJsonToLatexDocument(args.resumeJson).picture;
     let resolvedPicture: { base64: string; mimeType: string } | undefined;
     if (picture?.assetId && !picture.hidden) {
       // Uses the caller's tenant/user scope and the configured BlobStore (R2 in the DO).

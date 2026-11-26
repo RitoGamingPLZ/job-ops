@@ -1,6 +1,6 @@
 import ratingsFile from "./company-ratings.json";
 
-export interface SeedCompanyRating {
+interface SeedCompanyRating {
   label: string;
   /** 0-10 work-life balance. */
   wlb: number;
@@ -19,11 +19,6 @@ export function toCompanyKey(label: string): string {
  */
 export function listSeedCompanyRatings(): SeedCompanyRating[] {
   return Object.entries(ratingsFile.companies).map(([label, rating]) => ({ label, ...rating }));
-}
-
-export function getSeedCompanyRating(label: string): SeedCompanyRating | null {
-  const key = toCompanyKey(label);
-  return listSeedCompanyRatings().find((seed) => toCompanyKey(seed.label) === key) ?? null;
 }
 
 export function getSeedRatingsReviewedAt(): string {

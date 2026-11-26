@@ -1,12 +1,16 @@
 import * as api from "@client/api";
-import { createLocationIntent, planLocationSources } from "@shared/location-intelligence.js";
-import { type JobSource, normalizePipelineRunBudget } from "@shared/types.js";
+import { createLocationIntent, planLocationSources } from "@shared/location-domain.js";
+import { serializeSearchCitiesSetting } from "@shared/search-cities.js";
+import {
+  deriveExtractorLimits,
+  type JobSource,
+  normalizePipelineRunBudget,
+} from "@shared/types.js";
 import { toast } from "sonner";
 import type { AutomaticRunValues } from "./automatic-run";
-import { deriveExtractorLimits, serializeCityLocationsSetting } from "./automatic-run";
 
 /** Everything a search needs once the form is validated: what to run it with and over which sources. */
-export type PreparedAutomaticSearch = AutomaticRunValues & { sources: JobSource[] };
+type PreparedAutomaticSearch = AutomaticRunValues & { sources: JobSource[] };
 
 /**
  * Validates the search form against the chosen sources, stores the search settings, and returns
@@ -59,7 +63,7 @@ export async function prepareAutomaticSearch(args: {
     searchTerms: normalizedValues.searchTerms,
     sources: compatibleSources,
   });
-  const searchCities = serializeCityLocationsSetting(normalizedValues.cityLocations);
+  const searchCities = serializeSearchCitiesSetting(normalizedValues.cityLocations);
   await api.updateSettings({
     searchTerms: normalizedValues.searchTerms,
     workplaceTypes: normalizedValues.workplaceTypes,

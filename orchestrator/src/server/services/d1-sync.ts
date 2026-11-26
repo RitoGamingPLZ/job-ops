@@ -64,7 +64,7 @@ function getOrCreateBaseline(
   return map;
 }
 
-export function resetD1SyncBaseline(dbPath = getDefaultSyncDbPath()): void {
+export function __resetD1SyncBaselineForTests(dbPath = getDefaultSyncDbPath()): void {
   baselineByDbPath.delete(dbPath);
 }
 

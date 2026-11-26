@@ -36,9 +36,9 @@ function isPrivateIpv4(octets: number[]): boolean {
     (a === 100 && b >= 64 && b <= 127) || // carrier-grade NAT
     (a === 169 && b === 254) || // link-local + cloud metadata
     (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 0 && c === 0) ||
-    (a === 192 && b === 168) ||
-    (a === 198 && (b === 18 || b === 19)) ||
+    (a === 192 && (b === 0 || b === 168 || (b === 88 && c === 99))) ||
+    (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+    (a === 203 && b === 0 && c === 113) ||
     a >= 224 // multicast + reserved
   );
 }
@@ -52,26 +52,28 @@ export function isPrivateAddress(address: string): boolean {
   const v4 = parseIpv4(normalized);
   if (v4) return isPrivateIpv4(v4);
 
-  if (!normalized.includes(":")) return true;
-  if (normalized === "::" || normalized === "::1") return true;
-
-  // IPv4-mapped / compatible forms such as ::ffff:127.0.0.1
-  const mapped = normalized.match(/^(?:::ffff:|::)(\d{1,3}(?:\.\d{1,3}){3})$/);
-  if (mapped) {
-    const mappedV4 = parseIpv4(mapped[1]);
-    return mappedV4 ? isPrivateIpv4(mappedV4) : true;
+  if (isIP(normalized) !== 6) return true;
+  // URL canonicalization expands dotted IPv4-mapped suffixes into hex groups.
+  const canonical = new URL(`https://[${normalized}]/`).hostname.slice(1, -1);
+  const [left, right] = canonical.split("::");
+  const head = left ? left.split(":") : [];
+  const tail = right ? right.split(":") : [];
+  const words = canonical.includes("::")
+    ? [...head, ...Array(8 - head.length - tail.length).fill("0"), ...tail]
+    : head;
+  const parts = words.map((word) => Number.parseInt(word, 16));
+  if (parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff) {
+    return isPrivateIpv4([parts[6] >> 8, parts[6] & 255, parts[7] >> 8, parts[7] & 255]);
   }
-  if (normalized.startsWith("::ffff:")) return true;
 
-  return (
-    normalized.startsWith("fe8") ||
-    normalized.startsWith("fe9") ||
-    normalized.startsWith("fea") ||
-    normalized.startsWith("feb") ||
-    normalized.startsWith("fc") ||
-    normalized.startsWith("fd") ||
-    normalized.startsWith("ff")
-  );
+  // Only global unicast (2000::/3), excluding 6to4 (2002::/16),
+  // Teredo/benchmarking/documentation (2001:0000::/23, 2001:db8::/32), and 3fff::/20.
+  const isGlobalUnicast =
+    (parts[0] & 0xe000) === 0x2000 &&
+    parts[0] !== 0x2002 &&
+    !(parts[0] === 0x2001 && (parts[1] < 0x200 || parts[1] === 0xdb8)) &&
+    !(parts[0] === 0x3fff && parts[1] < 0x1000);
+  return !isGlobalUnicast;
 }
 
 export async function assertPublicHttpUrl(raw: string): Promise<URL> {

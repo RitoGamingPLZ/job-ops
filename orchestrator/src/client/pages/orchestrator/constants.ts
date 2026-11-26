@@ -67,12 +67,12 @@ export const appliedDuplicateIndicator = {
   dot: "bg-warning",
 };
 
-export type FilterTab = "ready" | "discovered" | "all";
+export type FilterTab = "discovered" | "all";
 export type DateFilterPreset = "7" | "14" | "30" | "90" | "custom";
 export type DateFilterDimension = "ready" | "applied" | "closed" | "discovered";
 
-export type SortKey = "datePosted" | "discoveredAt" | "score" | "salary" | "title" | "employer";
-export type SortDirection = "asc" | "desc";
+type SortKey = "datePosted" | "discoveredAt" | "score" | "salary" | "title" | "employer";
+type SortDirection = "asc" | "desc";
 export type SalaryFilterMode = "at_least" | "at_most" | "between";
 
 export interface SalaryFilter {
@@ -181,7 +181,6 @@ export const tabs: Array<{
 ];
 
 export const emptyStateCopy: Record<FilterTab, string> = {
-  ready: "Run a search to discover and process new jobs.",
   discovered: "All discovered jobs have been targeted.",
   all: "No jobs in the system yet. Run a search to get started.",
 };

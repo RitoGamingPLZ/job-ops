@@ -4,8 +4,6 @@ import { classifyStageAnalyticsSource } from "@server/repositories/product-analy
 import { trackCanonicalActivationEvent } from "@server/services/activation-funnel";
 import type {
   ApplicationStage,
-  ApplicationTask,
-  ApplicationTaskType,
   JobOutcome,
   JobStatus,
   StageEvent,
@@ -16,7 +14,7 @@ import { z } from "zod";
 import { db, schema } from "../db/index";
 import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
-const { jobs, stageEvents, tasks } = schema;
+const { jobs, stageEvents } = schema;
 
 function jobsScopeFilter() {
   return privateDataScopeFilter(jobs);
@@ -24,10 +22,6 @@ function jobsScopeFilter() {
 
 function stageEventsScopeFilter() {
   return privateDataScopeFilter(stageEvents);
-}
-
-function tasksScopeFilter() {
-  return privateDataScopeFilter(tasks);
 }
 
 const STAGE_TO_STATUS: Record<ApplicationStage, JobStatus> = {
@@ -89,35 +83,6 @@ export async function getStageEvents(applicationId: string): Promise<StageEvent[
     occurredAt: row.occurredAt,
     metadata: parseMetadata(row.metadata),
     outcome: (row.outcome as JobOutcome | null) ?? null,
-  }));
-}
-
-export async function getTasks(
-  applicationId: string,
-  includeCompleted = false,
-): Promise<ApplicationTask[]> {
-  const rows = await db
-    .select()
-    .from(tasks)
-    .where(
-      includeCompleted
-        ? and(tasksScopeFilter(), eq(tasks.applicationId, applicationId))
-        : and(
-            tasksScopeFilter(),
-            eq(tasks.applicationId, applicationId),
-            eq(tasks.isCompleted, false),
-          ),
-    )
-    .orderBy(asc(tasks.dueDate));
-
-  return rows.map((row) => ({
-    id: row.id,
-    applicationId: row.applicationId,
-    type: row.type as ApplicationTaskType,
-    title: row.title,
-    dueDate: row.dueDate,
-    isCompleted: row.isCompleted ?? false,
-    notes: row.notes ?? null,
   }));
 }
 
@@ -258,42 +223,9 @@ export function updateStageEvent(
       .run();
 
     // If this was the latest event, update the job status
-    const lastEvent = tx
-      .select()
-      .from(stageEvents)
-      .where(and(stageEventsScopeFilter(), eq(stageEvents.applicationId, event.applicationId)))
-      .orderBy(desc(stageEvents.occurredAt))
-      .limit(1)
-      .get();
-
+    const lastEvent = getLatestStageEvent(tx, event.applicationId);
     if (lastEvent && lastEvent.id === eventId) {
-      const job = tx
-        .select()
-        .from(jobs)
-        .where(and(jobsScopeFilter(), eq(jobs.id, event.applicationId)))
-        .get();
-      if (!job) throw new Error("Job not found");
-
-      const metadata = parseMetadata(lastEvent.metadata);
-      const lastStage = lastEvent.toStage as ApplicationStage;
-      const { outcome, closedAt } = resolveOutcomeAndClosedAt({
-        lastStage,
-        lastEventOccurredAt: lastEvent.occurredAt,
-        metadata,
-        lastEventOutcome: (lastEvent.outcome as JobOutcome | null) ?? null,
-        jobOutcome: (job.outcome as JobOutcome | null) ?? null,
-        jobClosedAt: job.closedAt ?? null,
-      });
-
-      tx.update(jobs)
-        .set({
-          status: STAGE_TO_STATUS[lastStage],
-          outcome,
-          closedAt,
-          updatedAt: new Date().toISOString(),
-        })
-        .where(and(jobsScopeFilter(), eq(jobs.id, event.applicationId)))
-        .run();
+      syncJobToStageEvent(tx, event.applicationId, lastEvent);
     }
   });
 }
@@ -312,42 +244,9 @@ export function deleteStageEvent(eventId: string): void {
       .run();
 
     // Update job status based on the new latest event
-    const lastEvent = tx
-      .select()
-      .from(stageEvents)
-      .where(and(stageEventsScopeFilter(), eq(stageEvents.applicationId, event.applicationId)))
-      .orderBy(desc(stageEvents.occurredAt))
-      .limit(1)
-      .get();
-
+    const lastEvent = getLatestStageEvent(tx, event.applicationId);
     if (lastEvent) {
-      const job = tx
-        .select()
-        .from(jobs)
-        .where(and(jobsScopeFilter(), eq(jobs.id, event.applicationId)))
-        .get();
-      if (!job) throw new Error("Job not found");
-
-      const metadata = parseMetadata(lastEvent.metadata);
-      const lastStage = lastEvent.toStage as ApplicationStage;
-      const { outcome, closedAt } = resolveOutcomeAndClosedAt({
-        lastStage,
-        lastEventOccurredAt: lastEvent.occurredAt,
-        metadata,
-        lastEventOutcome: (lastEvent.outcome as JobOutcome | null) ?? null,
-        jobOutcome: (job.outcome as JobOutcome | null) ?? null,
-        jobClosedAt: job.closedAt ?? null,
-      });
-
-      tx.update(jobs)
-        .set({
-          status: STAGE_TO_STATUS[lastStage],
-          outcome,
-          closedAt,
-          updatedAt: new Date().toISOString(),
-        })
-        .where(and(jobsScopeFilter(), eq(jobs.id, event.applicationId)))
-        .run();
+      syncJobToStageEvent(tx, event.applicationId, lastEvent);
     } else {
       // If no events left, maybe revert to discovered?
       // For now just keep it as is or set to discovered if it was applied
@@ -363,6 +262,53 @@ export function deleteStageEvent(eventId: string): void {
         .run();
     }
   });
+}
+
+type StageTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+function getLatestStageEvent(tx: StageTransaction, applicationId: string) {
+  return tx
+    .select()
+    .from(stageEvents)
+    .where(and(stageEventsScopeFilter(), eq(stageEvents.applicationId, applicationId)))
+    .orderBy(desc(stageEvents.occurredAt))
+    .limit(1)
+    .get();
+}
+
+/** Brings the job's status, outcome and closedAt in line with its latest stage event. */
+function syncJobToStageEvent(
+  tx: StageTransaction,
+  applicationId: string,
+  lastEvent: NonNullable<ReturnType<typeof getLatestStageEvent>>,
+): void {
+  const job = tx
+    .select()
+    .from(jobs)
+    .where(and(jobsScopeFilter(), eq(jobs.id, applicationId)))
+    .get();
+  if (!job) throw new Error("Job not found");
+
+  const metadata = parseMetadata(lastEvent.metadata);
+  const lastStage = lastEvent.toStage as ApplicationStage;
+  const { outcome, closedAt } = resolveOutcomeAndClosedAt({
+    lastStage,
+    lastEventOccurredAt: lastEvent.occurredAt,
+    metadata,
+    lastEventOutcome: (lastEvent.outcome as JobOutcome | null) ?? null,
+    jobOutcome: (job.outcome as JobOutcome | null) ?? null,
+    jobClosedAt: job.closedAt ?? null,
+  });
+
+  tx.update(jobs)
+    .set({
+      status: STAGE_TO_STATUS[lastStage],
+      outcome,
+      closedAt,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(and(jobsScopeFilter(), eq(jobs.id, applicationId)))
+    .run();
 }
 
 function parseMetadata(raw: unknown): StageEventMetadata | null {

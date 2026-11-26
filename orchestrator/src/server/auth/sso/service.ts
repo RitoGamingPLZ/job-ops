@@ -42,11 +42,6 @@ function requireProviderConfig(provider: SsoProvider): SsoProviderConfig {
   return config;
 }
 
-function isUsernameConflictError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  return /UNIQUE constraint failed: users\.username/i.test(error.message);
-}
-
 function buildUsernameAttempts(provider: SsoProvider, claims: SsoIdentityClaims): string[] {
   const base =
     [
@@ -132,7 +127,7 @@ async function provisionSsoUser(input: {
       }
       return user;
     } catch (error) {
-      if (!isUsernameConflictError(error)) throw error;
+      if (!usersRepo.isUsernameConflictError(error)) throw error;
     }
   }
 

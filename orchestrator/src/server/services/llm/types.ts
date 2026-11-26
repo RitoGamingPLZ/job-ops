@@ -92,7 +92,6 @@ export type ProviderStrategy = {
   defaultBaseUrl: string;
   requiresApiKey: boolean;
   modes: ResponseMode[];
-  validationPaths: string[];
   buildRequest: (args: {
     mode: ResponseMode;
     baseUrl: string;
@@ -102,7 +101,6 @@ export type ProviderStrategy = {
     jsonSchema: JsonSchemaDefinition;
   }) => { url: string; headers: Record<string, string>; body: unknown };
   extractText: (response: unknown) => string | null;
-  isCapabilityError: (args: { mode: ResponseMode; status?: number; body?: string }) => boolean;
   getValidationUrls: (args: { baseUrl: string; apiKey: string | null }) => string[];
 };
 

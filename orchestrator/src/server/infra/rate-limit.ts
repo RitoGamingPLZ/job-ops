@@ -34,7 +34,7 @@ export function clientIp(req: Request): string {
   return req.socket?.remoteAddress ?? "unknown";
 }
 
-export function actorKey(req: Request): string {
+function actorKey(req: Request): string {
   const userId = getUserId();
   const tenantId = getTenantId();
   if (userId) return `user:${tenantId ?? "-"}:${userId}`;

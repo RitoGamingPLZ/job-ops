@@ -1,3 +1,4 @@
+import { asArray, asRecord } from "@shared/utils/type-conversion";
 import { existsSync } from "node:fs";
 import { readFile, unlink } from "node:fs/promises";
 import { basename } from "node:path";
@@ -53,16 +54,6 @@ function toNumber(value: unknown, fallback = 0): number {
 
 function toText(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
 }
 
 export function ensureImportedProjectIds(resumeJson: DesignResumeJson): DesignResumeJson {
@@ -284,7 +275,7 @@ async function hydrateDocument(
     resumeJson,
     revision: documentRow.revision,
     sourceResumeId: documentRow.sourceResumeId ?? null,
-    sourceMode: (documentRow.sourceMode as "v4" | "v5" | null) ?? null,
+    sourceMode: (documentRow.sourceMode as "v5" | null) ?? null,
     importedAt: documentRow.importedAt ?? null,
     createdAt: documentRow.createdAt,
     updatedAt: documentRow.updatedAt,
@@ -499,7 +490,7 @@ export async function replaceCurrentDesignResumeDocument(input: {
   importedAt?: string | null;
   resumeJson: DesignResumeJson;
   sourceResumeId: string | null;
-  sourceMode: "v4" | "v5" | null;
+  sourceMode: "v5" | null;
 }): Promise<DesignResumeDocument> {
   const existingDocument = await getCurrentDesignResumeOrNullOnLegacy();
   const importedAt = input.importedAt ?? new Date().toISOString();
@@ -543,7 +534,7 @@ export async function getCurrentDesignResumeOrNullOnLegacy(): Promise<DesignResu
   }
 }
 
-export async function requireCurrentDesignResume(): Promise<DesignResumeDocument> {
+async function requireCurrentDesignResume(): Promise<DesignResumeDocument> {
   const document = await getCurrentDesignResume();
   if (!document) {
     throw notFound("Base resume has not been imported yet.");

@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
+  __clearModeCacheForTests,
   buildModeCacheKey,
-  clearModeCache,
   getOrderedModes,
   rememberSuccessfulMode,
 } from "./mode-selection";
 
 describe("mode-selection policy", () => {
   it("returns provider modes in declared order when cache is empty", () => {
-    clearModeCache();
+    __clearModeCacheForTests();
     const key = buildModeCacheKey("openrouter", "https://openrouter.ai");
     expect(getOrderedModes(key, ["json_schema", "none"])).toEqual(["json_schema", "none"]);
   });
 
   it("prefers cached mode first", () => {
-    clearModeCache();
+    __clearModeCacheForTests();
     const key = buildModeCacheKey("lmstudio", "http://localhost:1234");
     rememberSuccessfulMode(key, "text");
 
@@ -26,7 +26,7 @@ describe("mode-selection policy", () => {
   });
 
   it("keeps cache scoped by provider+baseUrl", () => {
-    clearModeCache();
+    __clearModeCacheForTests();
     const keyA = buildModeCacheKey("lmstudio", "http://localhost:1234");
     const keyB = buildModeCacheKey("lmstudio", "http://localhost:1235");
     rememberSuccessfulMode(keyA, "text");

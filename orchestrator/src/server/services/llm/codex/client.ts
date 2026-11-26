@@ -1,3 +1,5 @@
+import { toNonEmptyString } from "@shared/utils/type-conversion";
+import { getPositiveIntEnv } from "@server/utils/env";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -70,14 +72,6 @@ type CodexAuthStatusResponse = {
   user?: Record<string, unknown> | null;
 };
 
-function getPositiveIntEnv(name: string, fallback: number): number {
-  const raw = process.env[name]?.trim();
-  if (!raw) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
-}
-
 function buildCodexErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("ENOENT")) {
@@ -100,10 +94,6 @@ function isSessionInfrastructureError(error: unknown): boolean {
     message.includes("epipe") ||
     message.includes("stream was destroyed")
   );
-}
-
-function toNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
 function getRecordString(
@@ -703,12 +693,6 @@ async function withCodexSession<T>(args: {
   });
 }
 
-async function closeCodexSessionForTests(): Promise<void> {
-  await enqueueSessionOperation(async () => {
-    await resetSharedSession();
-  });
-}
-
 export async function resetCodexSession(): Promise<void> {
   await enqueueSessionOperation(async () => {
     await resetSharedSession();
@@ -1010,5 +994,5 @@ export class CodexClient {
 }
 
 export async function __resetCodexSharedSessionForTests(): Promise<void> {
-  await closeCodexSessionForTests();
+  await resetCodexSession();
 }

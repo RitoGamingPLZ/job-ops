@@ -12,7 +12,7 @@ import { db, schema } from "../db";
 
 const { tenantMemberships, tenants, users } = schema;
 
-export type AuthUser = {
+type AuthUser = {
   id: string;
   username: string;
   displayName: string | null;
@@ -27,7 +27,7 @@ export type AuthUser = {
 
 export type PublicUser = SharedAuthUser;
 
-export type SsoProvisionedUserInput =
+type SsoProvisionedUserInput =
   | {
       mode: "local";
       username: string;
@@ -42,6 +42,10 @@ export type SsoProvisionedUserInput =
 
 export function normalizeUsername(username: string): string {
   return username.trim().toLowerCase();
+}
+
+export function isUsernameConflictError(error: unknown): boolean {
+  return error instanceof Error && /UNIQUE constraint failed: users\.username/i.test(error.message);
 }
 
 function slugify(value: string): string {
@@ -124,33 +128,9 @@ export async function getUserForLogin(username: string): Promise<AuthUser | null
   return row ?? null;
 }
 
-export async function getUserById(id: string): Promise<PublicUser | null> {
-  const [row] = await db
-    .select({
-      id: users.id,
-      username: users.username,
-      displayName: users.displayName,
-      isSystemAdmin: users.isSystemAdmin,
-      isDisabled: users.isDisabled,
-      mustChangePassword: users.mustChangePassword,
-      permissions: users.permissions,
-      passwordHash: users.passwordHash,
-      workspaceId: tenantMemberships.tenantId,
-      workspaceName: tenants.name,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt,
-    })
-    .from(users)
-    .innerJoin(tenantMemberships, eq(tenantMemberships.userId, users.id))
-    .innerJoin(tenants, eq(tenants.id, tenantMemberships.tenantId))
-    .where(eq(users.id, id))
-    .limit(1);
-
-  return row ? mapUser(row) : null;
-}
-
-export async function listUsers(): Promise<PublicUser[]> {
-  const rows = await db
+/** Users joined to their workspace, shaped for `mapUser`. */
+function selectUsersWithWorkspace() {
+  return db
     .select({
       id: users.id,
       username: users.username,
@@ -168,6 +148,16 @@ export async function listUsers(): Promise<PublicUser[]> {
     .from(users)
     .innerJoin(tenantMemberships, eq(tenantMemberships.userId, users.id))
     .innerJoin(tenants, eq(tenants.id, tenantMemberships.tenantId));
+}
+
+export async function getUserById(id: string): Promise<PublicUser | null> {
+  const [row] = await selectUsersWithWorkspace().where(eq(users.id, id)).limit(1);
+
+  return row ? mapUser(row) : null;
+}
+
+export async function listUsers(): Promise<PublicUser[]> {
+  const rows = await selectUsersWithWorkspace();
 
   return rows.map(mapUser);
 }

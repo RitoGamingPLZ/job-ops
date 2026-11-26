@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { getUserId } from "@server/infra/request-context";
 import type {
   CreatePipelineSearchPresetInput,
   PipelineSearchPreset,
@@ -8,16 +7,14 @@ import type {
 } from "@shared/types";
 import { and, desc, eq, ne } from "drizzle-orm";
 import { db, schema } from "../db/index";
-import { getActiveTenantId } from "../tenancy/context";
+import { getRequiredUserScope, requiredUserScopeFilter } from "../tenancy/private-scope";
 
 const { pipelineSearchPresets } = schema;
 
-function requireActiveUserId(): string {
-  const userId = getUserId();
-  if (!userId) {
-    throw new Error("User context is required for pipeline saved searches");
-  }
-  return userId;
+const PRESET_USER_CONTEXT_ERROR = "User context is required for pipeline saved searches";
+
+function presetsScopeFilter() {
+  return requiredUserScopeFilter(pipelineSearchPresets, PRESET_USER_CONTEXT_ERROR);
 }
 
 function mapRowToSearchPreset(
@@ -34,14 +31,10 @@ function mapRowToSearchPreset(
 }
 
 export async function listPipelineSearchPresets(): Promise<PipelineSearchPreset[]> {
-  const tenantId = getActiveTenantId();
-  const userId = requireActiveUserId();
   const rows = await db
     .select()
     .from(pipelineSearchPresets)
-    .where(
-      and(eq(pipelineSearchPresets.tenantId, tenantId), eq(pipelineSearchPresets.userId, userId)),
-    )
+    .where(presetsScopeFilter())
     .orderBy(desc(pipelineSearchPresets.lastUsedAt), desc(pipelineSearchPresets.updatedAt));
 
   return rows.map(mapRowToSearchPreset);
@@ -50,8 +43,7 @@ export async function listPipelineSearchPresets(): Promise<PipelineSearchPreset[
 export async function createPipelineSearchPreset(
   input: CreatePipelineSearchPresetInput,
 ): Promise<PipelineSearchPreset> {
-  const tenantId = getActiveTenantId();
-  const userId = requireActiveUserId();
+  const { tenantId, userId } = getRequiredUserScope(PRESET_USER_CONTEXT_ERROR);
   const now = new Date().toISOString();
   const id = randomUUID();
 
@@ -77,8 +69,6 @@ export async function updatePipelineSearchPreset(
   id: string,
   input: UpdatePipelineSearchPresetInput,
 ): Promise<PipelineSearchPreset | null> {
-  const tenantId = getActiveTenantId();
-  const userId = requireActiveUserId();
   const existing = await getPipelineSearchPreset(id);
   if (!existing) return null;
 
@@ -89,13 +79,7 @@ export async function updatePipelineSearchPreset(
       ...(input.config !== undefined ? { config: input.config } : {}),
       updatedAt: new Date().toISOString(),
     })
-    .where(
-      and(
-        eq(pipelineSearchPresets.tenantId, tenantId),
-        eq(pipelineSearchPresets.userId, userId),
-        eq(pipelineSearchPresets.id, id),
-      ),
-    );
+    .where(and(presetsScopeFilter(), eq(pipelineSearchPresets.id, id)));
 
   return getPipelineSearchPreset(id);
 }
@@ -103,8 +87,6 @@ export async function updatePipelineSearchPreset(
 export async function markPipelineSearchPresetUsed(
   id: string,
 ): Promise<PipelineSearchPreset | null> {
-  const tenantId = getActiveTenantId();
-  const userId = requireActiveUserId();
   const existing = await getPipelineSearchPreset(id);
   if (!existing) return null;
 
@@ -112,29 +94,15 @@ export async function markPipelineSearchPresetUsed(
   await db
     .update(pipelineSearchPresets)
     .set({ lastUsedAt: now, updatedAt: now })
-    .where(
-      and(
-        eq(pipelineSearchPresets.tenantId, tenantId),
-        eq(pipelineSearchPresets.userId, userId),
-        eq(pipelineSearchPresets.id, id),
-      ),
-    );
+    .where(and(presetsScopeFilter(), eq(pipelineSearchPresets.id, id)));
 
   return getPipelineSearchPreset(id);
 }
 
 export async function deletePipelineSearchPreset(id: string): Promise<number> {
-  const tenantId = getActiveTenantId();
-  const userId = requireActiveUserId();
   const result = await db
     .delete(pipelineSearchPresets)
-    .where(
-      and(
-        eq(pipelineSearchPresets.tenantId, tenantId),
-        eq(pipelineSearchPresets.userId, userId),
-        eq(pipelineSearchPresets.id, id),
-      ),
-    );
+    .where(and(presetsScopeFilter(), eq(pipelineSearchPresets.id, id)));
 
   return result.changes;
 }
@@ -143,13 +111,7 @@ export async function pipelineSearchPresetNameExists(input: {
   name: string;
   excludingId?: string;
 }): Promise<boolean> {
-  const tenantId = getActiveTenantId();
-  const userId = requireActiveUserId();
-  const clauses = [
-    eq(pipelineSearchPresets.tenantId, tenantId),
-    eq(pipelineSearchPresets.userId, userId),
-    eq(pipelineSearchPresets.name, input.name),
-  ];
+  const clauses = [presetsScopeFilter(), eq(pipelineSearchPresets.name, input.name)];
   if (input.excludingId) {
     clauses.push(ne(pipelineSearchPresets.id, input.excludingId));
   }
@@ -164,18 +126,10 @@ export async function pipelineSearchPresetNameExists(input: {
 }
 
 async function getPipelineSearchPreset(id: string): Promise<PipelineSearchPreset | null> {
-  const tenantId = getActiveTenantId();
-  const userId = requireActiveUserId();
   const [row] = await db
     .select()
     .from(pipelineSearchPresets)
-    .where(
-      and(
-        eq(pipelineSearchPresets.tenantId, tenantId),
-        eq(pipelineSearchPresets.userId, userId),
-        eq(pipelineSearchPresets.id, id),
-      ),
-    )
+    .where(and(presetsScopeFilter(), eq(pipelineSearchPresets.id, id)))
     .limit(1);
 
   return row ? mapRowToSearchPreset(row) : null;

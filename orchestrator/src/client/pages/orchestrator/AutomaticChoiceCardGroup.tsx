@@ -2,7 +2,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 
-export interface ChoiceCardOption<T extends string> {
+interface ChoiceCardOption<T extends string> {
   value: T;
   label: string;
   description: string;

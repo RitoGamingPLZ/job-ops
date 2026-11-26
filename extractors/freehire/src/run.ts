@@ -1,3 +1,4 @@
+import { asRecord } from "@shared/utils/type-conversion.js";
 import { getCountryIso2Code } from "@shared/location-support.js";
 import type { CreateJobInput } from "@shared/types/jobs";
 import { buildFreeHireLocationEvidence } from "./location.js";
@@ -48,12 +49,6 @@ export interface FreeHirePage {
 }
 
 type UnknownRecord = Record<string, unknown>;
-
-function asRecord(value: unknown): UnknownRecord | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as UnknownRecord)
-    : null;
-}
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;

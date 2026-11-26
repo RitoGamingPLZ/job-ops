@@ -138,8 +138,8 @@ const getJobDetailSchema = z
   })
   .passthrough();
 
-export type SearchJobsInput = z.infer<typeof searchJobsSchema>;
-export type GetJobDetailInput = z.infer<typeof getJobDetailSchema>;
+type SearchJobsInput = z.infer<typeof searchJobsSchema>;
+type GetJobDetailInput = z.infer<typeof getJobDetailSchema>;
 
 const OJCP_TOOLS: Tool[] = [
   {

@@ -26,7 +26,6 @@ vi.mock("@server/repositories/experience-bullets", () => ({
 }));
 vi.mock("./pdf", () => ({
   loadBaseResumeSource: vi.fn(),
-  resolvePdfRenderer: vi.fn(async () => "typst"),
 }));
 vi.mock("./resume-from-library", () => ({
   generateResumeFromLibrary: vi.fn(),

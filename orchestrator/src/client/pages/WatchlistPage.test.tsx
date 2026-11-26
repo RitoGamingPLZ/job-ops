@@ -31,9 +31,7 @@ vi.mock("@client/components/JobDescriptionPanel", () => ({
 
 vi.mock("../api", () => ({
   getJobs: vi.fn(),
-  getWatchlistJobStates: vi.fn(),
   getWatchlistSources: vi.fn(),
-  recordWatchlistCheck: vi.fn(),
   fetchWatchlistResults: vi.fn(),
   fetchWatchlistJobDetails: vi.fn(),
   prepareWatchlistImportDraft: vi.fn(),
@@ -164,12 +162,6 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   vi.mocked(api.getJobs).mockResolvedValue(makeJobsResponse([]) as never);
-  vi.mocked(api.getWatchlistJobStates).mockResolvedValue({ states: [] });
-  vi.mocked(api.recordWatchlistCheck).mockResolvedValue({
-    previousLastCheckedAt: null,
-    checkedAt: "2026-05-17T00:05:00.000Z",
-    jobs: [],
-  });
   watchlistSourcesState = {
     catalogSources: [
       {

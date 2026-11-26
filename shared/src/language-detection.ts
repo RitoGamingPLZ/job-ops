@@ -1,3 +1,4 @@
+import { asArray, asRecord } from "./utils/type-conversion";
 import {
   CHAT_STYLE_MANUAL_LANGUAGE_LABELS,
   type ChatStyleManualLanguage,
@@ -93,16 +94,6 @@ function collectProfileLanguageSample(profile: ResumeProfile): string {
   }
 
   return segments.join("\n");
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
 }
 
 function toText(value: unknown): string {

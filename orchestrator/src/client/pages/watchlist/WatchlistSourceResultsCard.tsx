@@ -1,4 +1,4 @@
-import type { LocationIntent } from "@shared/location-intelligence.js";
+import type { LocationIntent } from "@shared/location-domain.js";
 import type {
   WatchlistJobResult,
   WatchlistSelectedSource,

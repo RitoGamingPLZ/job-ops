@@ -1,4 +1,4 @@
-import { CollapsibleSection } from "@client/components/discovered-panel/CollapsibleSection";
+import { CollapsibleSection } from "@client/components/CollapsibleSection";
 import {
   type ApplicationStage,
   BOARD_COLUMN_LABELS,

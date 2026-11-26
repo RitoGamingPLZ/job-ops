@@ -7,6 +7,7 @@ import {
   withAnalyticsMetadata,
 } from "@/lib/analytics-metadata";
 
+import { asRecord } from "@shared/utils/type-conversion";
 import { logger } from "./logger";
 import { getRequestContext } from "./request-context";
 import { sanitizeUnknown } from "./sanitize";
@@ -32,18 +33,15 @@ type UmamiClient = {
   }) => Promise<Response>;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function isAnalyticsDisabled(): boolean {
   const normalized = process.env.JOBOPS_DISABLE_ANALYTICS?.trim().toLowerCase();
   return normalized ? ANALYTICS_DISABLED_TRUTHY_VALUES.has(normalized) : false;
 }
 
 function isUmamiClient(value: unknown): value is UmamiClient {
-  if (!isRecord(value)) return false;
-  return typeof value.init === "function" && typeof value.track === "function";
+  const record = asRecord(value);
+  if (!record) return false;
+  return typeof record.init === "function" && typeof record.track === "function";
 }
 
 function getUmamiClient(): UmamiClient {

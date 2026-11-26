@@ -14,12 +14,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as settingsRepo from "../repositories/settings";
 import { getSystemAdminTenantId } from "../repositories/users";
 import { getCurrentAccountEntitlements } from "./account-entitlements";
-import { resolveLlmModel, resolveLlmRuntimeSettings } from "./modelSelection";
-import { pickProjectIdsForJob } from "./projectSelection";
+import {
+  createConfiguredLlmService,
+  resolveLlmModel,
+  resolveLlmRuntimeSettings,
+} from "./modelSelection";
 import { scoreJobSuitability } from "./scorer";
 import { canUseDefaultModel, isOperatorContext } from "./server-credentials";
 import { getEffectiveSettings } from "./settings";
-import { generateTailoring } from "./summary";
 
 vi.mock("./server-credentials", () => ({
   canUseDefaultModel: vi.fn(),
@@ -44,6 +46,16 @@ vi.mock("./account-entitlements", () => ({
   getCurrentAccountEntitlements: vi.fn(),
   FREE_HOSTED_MONTHLY_LIMITS: {},
 }));
+
+const TEST_JSON_SCHEMA = {
+  name: "test",
+  schema: {
+    type: "object" as const,
+    properties: {},
+    required: [] as string[],
+    additionalProperties: false,
+  },
+};
 
 describe("Model Selection Logic", () => {
   const originalEnv = process.env;
@@ -369,7 +381,15 @@ describe("Model Selection Logic", () => {
         },
       } as any);
 
-      await generateTailoring("job desc", {});
+      const [model, llm] = await Promise.all([
+        resolveLlmModel("tailoring"),
+        createConfiguredLlmService("tailoring"),
+      ]);
+      await llm.callJson({
+        model,
+        messages: [{ role: "user", content: "job desc" }],
+        jsonSchema: TEST_JSON_SCHEMA,
+      });
 
       const fetchCall = vi.mocked(fetch).mock.calls[0];
       const body = JSON.parse(fetchCall[1]?.body as string);
@@ -398,7 +418,15 @@ describe("Model Selection Logic", () => {
         },
       } as any);
 
-      await generateTailoring("job desc", {});
+      const [model, llm] = await Promise.all([
+        resolveLlmModel("tailoring"),
+        createConfiguredLlmService("tailoring"),
+      ]);
+      await llm.callJson({
+        model,
+        messages: [{ role: "user", content: "job desc" }],
+        jsonSchema: TEST_JSON_SCHEMA,
+      });
 
       const fetchCall = vi.mocked(fetch).mock.calls[0];
       const body = JSON.parse(fetchCall[1]?.body as string);
@@ -443,7 +471,15 @@ describe("Model Selection Logic", () => {
         },
       } as any);
 
-      await generateTailoring("job desc", {});
+      const [model, llm] = await Promise.all([
+        resolveLlmModel("tailoring"),
+        createConfiguredLlmService("tailoring"),
+      ]);
+      await llm.callJson({
+        model,
+        messages: [{ role: "user", content: "job desc" }],
+        jsonSchema: TEST_JSON_SCHEMA,
+      });
 
       const fetchCall = vi.mocked(fetch).mock.calls[0];
       expect(fetchCall[0]).toBe("https://api.openai.com/v1/responses");
@@ -701,26 +737,19 @@ describe("Model Selection Logic", () => {
         },
       } as any);
 
-      await pickProjectIdsForJob({
-        jobDescription: "<p>desc</p>",
-        eligibleProjects: [
-          {
-            id: "1",
-            name: "p1",
-            description: "d1",
-            summaryText: "summary",
-          } as any,
-        ],
-        desiredCount: 1,
+      const [model, llm] = await Promise.all([
+        resolveLlmModel("projectSelection"),
+        createConfiguredLlmService("projectSelection"),
+      ]);
+      await llm.callJson({
+        model,
+        messages: [{ role: "user", content: "pick projects" }],
+        jsonSchema: TEST_JSON_SCHEMA,
       });
 
       const fetchCall = vi.mocked(fetch).mock.calls[0];
       const body = JSON.parse(fetchCall[1]?.body as string);
       expect(body.model).toBe("specific-project-model");
-      expect(body.messages[0].content).not.toContain("<p>");
-      expect(body.messages[0].content).toContain(
-        'Candidate projects (pick from these IDs only):\n[{"id":"1"',
-      );
     });
 
     it("should fall back to global model when specific not set", async () => {
@@ -745,17 +774,14 @@ describe("Model Selection Logic", () => {
         },
       } as any);
 
-      await pickProjectIdsForJob({
-        jobDescription: "desc",
-        eligibleProjects: [
-          {
-            id: "1",
-            name: "p1",
-            description: "d1",
-            summaryText: "summary",
-          } as any,
-        ],
-        desiredCount: 1,
+      const [model, llm] = await Promise.all([
+        resolveLlmModel("projectSelection"),
+        createConfiguredLlmService("projectSelection"),
+      ]);
+      await llm.callJson({
+        model,
+        messages: [{ role: "user", content: "pick projects" }],
+        jsonSchema: TEST_JSON_SCHEMA,
       });
 
       const fetchCall = vi.mocked(fetch).mock.calls[0];

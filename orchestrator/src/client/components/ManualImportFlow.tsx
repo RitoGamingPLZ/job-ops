@@ -275,7 +275,6 @@ interface ManualImportFlowProps {
   active: boolean;
   onImported: (result: ManualImportResult) => void | Promise<void>;
   onClose: () => void;
-  showReviewIntro?: boolean;
   initialDraft?: ManualJobDraft | null;
   initialSource?: ManualImportTrackingSource | null;
   initialSourceHost?: string | null;
@@ -324,7 +323,6 @@ export const ManualImportFlow: React.FC<ManualImportFlowProps> = ({
   active,
   onImported,
   onClose,
-  showReviewIntro = true,
   initialDraft = null,
   initialSource = null,
   initialSourceHost = null,
@@ -892,15 +890,13 @@ export const ManualImportFlow: React.FC<ManualImportFlowProps> = ({
               </div>
             )}
 
-            {showReviewIntro && (
-              <div className="space-y-2">
-                <h3 className="text-2xl font-semibold tracking-tight">Review job details</h3>
-                <p className="max-w-lg text-sm leading-6 text-muted-foreground">
-                  AI extracted these from the job description. Review anything missing or odd before
-                  importing.
-                </p>
-              </div>
-            )}
+            <div className="space-y-2">
+              <h3 className="text-2xl font-semibold tracking-tight">Review job details</h3>
+              <p className="max-w-lg text-sm leading-6 text-muted-foreground">
+                AI extracted these from the job description. Review anything missing or odd before
+                importing.
+              </p>
+            </div>
 
             <ReviewSection
               icon={CheckCircle2}

@@ -81,7 +81,7 @@ export interface DurableObjectExpressServerOptions {
   remoteCareersSite?: RemoteCareersSiteRunner;
 }
 
-export interface DurableObjectExpressServer {
+interface DurableObjectExpressServer {
   app: Express;
   server: Server;
 }

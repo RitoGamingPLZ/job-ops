@@ -28,11 +28,11 @@ export function extractProjectsFromProfile(profile: ResumeProfile): {
     if (!id) continue;
 
     const name = item.name || "";
-    const description = stripHtml(item.description || "");
+    const description = stripHtmlTags(item.description || "");
     const date = item.date || "";
     const isVisibleInBase = Boolean(item.visible);
     const summary = item.summary || "";
-    const summaryText = stripHtml(summary);
+    const summaryText = stripHtmlTags(summary);
 
     const base: ResumeProjectCatalogItem = {
       id,
@@ -172,10 +172,6 @@ export async function filterProfileProjectsForAi(profile: ResumeProfile): Promis
       },
     },
   };
-}
-
-export function stripHtml(input: string): string {
-  return stripHtmlTags(input);
 }
 
 export type { ResumeProjectSelectionItem };

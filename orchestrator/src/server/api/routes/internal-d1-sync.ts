@@ -1,5 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
-import { badRequest, forbidden, notFound, toAppError, unauthorized } from "@infra/errors";
+import { badRequest, notFound, toAppError } from "@infra/errors";
 import { fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import {
@@ -11,32 +10,17 @@ import {
   readPdfFile,
   writePdfFile,
 } from "@server/services/d1-sync";
-import express, { type NextFunction, type Request, type Response, Router } from "express";
+import express, { type Request, type Response, Router } from "express";
+import { createInternalSecretGuard } from "./internal-auth";
 
 export const internalD1SyncRouter = Router();
 
-function verifyInternalSyncSecret(req: Request, res: Response, next: NextFunction): void {
-  const expectedSecret = process.env.INTERNAL_SYNC_SECRET?.trim();
-  if (!expectedSecret) {
-    fail(res, forbidden("Internal D1 sync is not configured."));
-    return;
-  }
-
-  const providedHeader = req.headers["x-internal-sync-secret"];
-  const providedSecret = typeof providedHeader === "string" ? providedHeader.trim() : "";
-
-  const expectedBuffer = Buffer.from(expectedSecret, "utf8");
-  const providedBuffer = Buffer.from(providedSecret, "utf8");
-  if (
-    expectedBuffer.length !== providedBuffer.length ||
-    !timingSafeEqual(expectedBuffer, providedBuffer)
-  ) {
-    fail(res, unauthorized("Invalid internal sync secret."));
-    return;
-  }
-
-  next();
-}
+const verifyInternalSyncSecret = createInternalSecretGuard({
+  allowCronFallback: false,
+  allowBearer: false,
+  unconfiguredMessage: "Internal D1 sync is not configured.",
+  invalidMessage: "Invalid internal sync secret.",
+});
 
 internalD1SyncRouter.use(verifyInternalSyncSecret);
 

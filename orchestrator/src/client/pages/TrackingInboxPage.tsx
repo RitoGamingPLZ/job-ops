@@ -57,7 +57,6 @@ import * as api from "../api";
 import { EmptyState, PageHeader, PageMain } from "../components";
 import { EmailViewerList } from "./tracking-inbox/EmailViewerList";
 
-const PROVIDER_OPTIONS: PostApplicationProvider[] = [...POST_APPLICATION_PROVIDERS];
 const GMAIL_OAUTH_RESULT_TYPE = "gmail-oauth-result";
 const GMAIL_OAUTH_TIMEOUT_MS = 3 * 60 * 1000;
 const EMPTY_INBOX_ITEMS: PostApplicationInboxItem[] = [];
@@ -610,7 +609,7 @@ export const TrackingInboxPage: React.FC = () => {
                     <SelectValue placeholder="Provider" />
                   </SelectTrigger>
                   <SelectContent>
-                    {PROVIDER_OPTIONS.map((option) => (
+                    {POST_APPLICATION_PROVIDERS.map((option) => (
                       <SelectItem key={option} value={option}>
                         {option}
                       </SelectItem>

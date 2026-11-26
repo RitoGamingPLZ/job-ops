@@ -51,6 +51,8 @@ export async function notifyPipelineWebhookStep(
       });
     }
   } catch (error) {
-    logger.warn("Pipeline webhook POST failed", error);
+    logger.warn("Pipeline webhook POST failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }

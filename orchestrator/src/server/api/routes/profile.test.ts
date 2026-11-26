@@ -2,20 +2,12 @@ import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-// Mock the design resume status lookup
-vi.mock("@server/services/design-resume", async (importOriginal) => {
-  const original = (await importOriginal()) as Record<string, unknown>;
-  return { ...original, getDesignResumeStatus: vi.fn() };
-});
-
 // Mock the profile service
 vi.mock("@server/services/profile", () => ({
   getProfile: vi.fn(),
-  clearProfileCache: vi.fn(),
 }));
 
 import { getProfile } from "@server/services/profile";
-import { getDesignResumeStatus } from "@server/services/design-resume";
 
 describe("Profile API routes", () => {
   let server: Server;
@@ -135,40 +127,4 @@ describe("Profile API routes", () => {
       expect(body.error.message).toContain("Base resume not configured");
     });
   });
-
-  describe("GET /api/profile/status", () => {
-    it("returns exists: false when no base resume has been imported", async () => {
-      vi.mocked(getDesignResumeStatus).mockResolvedValue({
-        exists: false,
-        documentId: null,
-        updatedAt: null,
-      });
-
-      const res = await fetch(`${baseUrl}/api/profile/status`);
-      const body = await res.json();
-
-      expect(res.ok).toBe(true);
-      expect(body.ok).toBe(true);
-      expect(body.data.exists).toBe(false);
-      expect(body.data.error).toContain("No base resume imported yet");
-    });
-
-    it("returns exists: true when a base resume is stored", async () => {
-      vi.mocked(getDesignResumeStatus).mockResolvedValue({
-        exists: true,
-        documentId: "primary",
-        updatedAt: "2026-01-01T00:00:00.000Z",
-      });
-
-      const res = await fetch(`${baseUrl}/api/profile/status`);
-      const body = await res.json();
-
-      expect(res.ok).toBe(true);
-      expect(body.data.exists).toBe(true);
-      expect(body.data.error).toBeNull();
-    });
-  });
-
-  // Note: POST /api/profile/refresh tests skipped because basic auth blocks POST in test environment
-  // The endpoint is tested indirectly through the profile service tests
 });

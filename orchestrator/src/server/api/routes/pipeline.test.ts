@@ -612,10 +612,6 @@ describe("Pipeline API routes", () => {
         topN: 10,
         minSuitabilityScore: 55,
         sources: ["linkedin", "indeed"],
-        enableCrawling: true,
-        enableScoring: true,
-        enableImporting: true,
-        enableAutoTailoring: true,
         watchlistSelectedSourceIds: null,
       },
       effectiveConfig: {
@@ -1077,14 +1073,6 @@ describe("Pipeline API routes", () => {
   // unknown extractor. The actual solver (browser-utils/solver.ts) launches a
   // headed browser for human interaction — not feasible to unit test. Deferring
   // solver-level tests until a real regression justifies the complexity.
-
-  it("returns empty challenges when no pipeline is paused", async () => {
-    const res = await fetch(`${baseUrl}/api/pipeline/challenges`);
-    const body = await res.json();
-    expect(res.status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(body.data.challenges).toEqual([]);
-  });
 
   it("prepares the challenge viewer lazily", async () => {
     const { ensureChallengeViewer } = await import("@server/services/challenge-viewer");

@@ -18,7 +18,7 @@ import { asyncPool } from "@server/utils/async-pool";
 import type { JobActionResult, JobActionStreamEvent } from "@shared/types";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
-import { requireAnyPermissionMiddleware, requirePermissionMiddleware } from "../../require-admin";
+import { requireJobs, requireJobsOrInProgress, requireResumes } from "../../require-admin";
 import {
   hydrateJobPdfFreshness,
   hydrateJobPdfFreshnessWithContext,
@@ -29,10 +29,6 @@ import {
 } from "./shared";
 
 export const jobsActionsRouter = Router();
-
-const requireJobs = requirePermissionMiddleware("jobs");
-const requireJobsOrInProgress = requireAnyPermissionMiddleware("jobs", "inProgress");
-const requireResumes = requirePermissionMiddleware("resumes");
 
 jobsActionsRouter.post(
   "/actions/generate-missing-resumes",
@@ -335,22 +331,6 @@ jobsActionsRouter.post(
     ok(res, await hydrateJobPdfFreshness(result.job));
   },
 );
-
-jobsActionsRouter.post("/:id/skip", requireJobs, async (req: Request, res: Response) => {
-  const result = await executeJobActionForJob("skip", req.params.id);
-  if (!result.ok) return fail(res, mapJobActionFailure(result));
-  ok(res, await hydrateJobPdfFreshness(result.job));
-});
-
-jobsActionsRouter.post("/:id/rescore", requireJobs, async (req: Request, res: Response) => {
-  const result = await executeJobActionForJob(
-    "rescore",
-    req.params.id,
-    buildJobActionExecutionOptions("rescore"),
-  );
-  if (!result.ok) return fail(res, mapJobActionFailure(result));
-  ok(res, await hydrateJobPdfFreshness(result.job));
-});
 
 async function updateTarget(req: Request, res: Response, targeted: boolean) {
   try {

@@ -146,7 +146,6 @@ export const amazonWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsCustomSource: true,
     supportsBranding: false,
   },
-  catalogSchema,
   parseCatalogSources(entries) {
     return z
       .array(catalogSchema)

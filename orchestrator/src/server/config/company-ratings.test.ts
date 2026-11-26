@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { listCareerBoardSources } from "./career-boards";
-import { getSeedCompanyRating, listSeedCompanyRatings, toCompanyKey } from "./company-ratings";
-import { listWatchlistGroupDefinitions } from "./watchlist-groups";
+import { listSeedCompanyRatings, toCompanyKey } from "./company-ratings";
+import groupDefinitions from "./watchlist-groups.json";
 
 describe("seed company ratings", () => {
+  const seedByKey = new Map(
+    listSeedCompanyRatings().map((seed) => [toCompanyKey(seed.label), seed]),
+  );
+
   it("keeps every rating a number from 0 to 10", () => {
     for (const seed of listSeedCompanyRatings()) {
       for (const value of [seed.wlb, seed.salary]) {
@@ -18,9 +22,9 @@ describe("seed company ratings", () => {
   });
 
   it("rates every company that appears in a group", () => {
-    const unrated = listWatchlistGroupDefinitions().flatMap((group) =>
+    const unrated = groupDefinitions.flatMap((group) =>
       group.members
-        .filter((member) => getSeedCompanyRating(member.label) === null)
+        .filter((member) => !seedByKey.has(toCompanyKey(member.label)))
         .map((member) => `${group.id}: ${member.label}`),
     );
 
@@ -28,11 +32,11 @@ describe("seed company ratings", () => {
   });
 
   it("only puts companies rated 8 or higher for work-life balance in the WLB group", () => {
-    const wlbGroup = listWatchlistGroupDefinitions().find((group) => group.id === "wlb-tech");
+    const wlbGroup = groupDefinitions.find((group) => group.id === "wlb-tech");
     expect(wlbGroup).toBeDefined();
 
     const low = (wlbGroup?.members ?? []).filter(
-      (member) => (getSeedCompanyRating(member.label)?.wlb ?? 0) < 8,
+      (member) => (seedByKey.get(toCompanyKey(member.label))?.wlb ?? 0) < 8,
     );
     expect(low.map((member) => member.label)).toEqual([]);
   });

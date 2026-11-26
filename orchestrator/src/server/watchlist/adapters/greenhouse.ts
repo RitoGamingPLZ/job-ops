@@ -43,7 +43,6 @@ export const greenhouseWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsCustomSource: true,
     supportsBranding: false,
   },
-  catalogSchema: greenhouseSourceSchema,
   parseCatalogSources(entries) {
     return z
       .array(greenhouseSourceSchema)

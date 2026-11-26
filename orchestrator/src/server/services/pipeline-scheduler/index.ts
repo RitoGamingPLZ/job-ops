@@ -16,6 +16,7 @@ import {
   runPipelineSchema,
   startRequestedPipeline,
 } from "./run-request";
+import { sleep } from "@server/utils/sleep";
 import { listRunRequestOwners, listScheduleOwners, loadRunRequest } from "./storage";
 
 export function nextDailyFireTime(hour: number, now = new Date()): Date {
@@ -134,13 +135,6 @@ const QUEUE_DEADLINE_MS = 20 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 let draining = false;
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    const handle = setTimeout(resolve, ms);
-    handle.unref?.();
-  });
-}
-
 /**
  * Starts the saved searches of many workspaces. Searches share a small pool of scrapers
  * (`MAX_CONCURRENT_PIPELINES`), so workspaces are started one at a time and each waits for a free
@@ -162,7 +156,7 @@ async function runOwnersStaggered(owners: Owner[]): Promise<void> {
     const scheduledSlots = Math.max(1, readMaxConcurrentPipelines() - 1);
     for (const owner of ordered) {
       while (getActivePipelineCount() >= scheduledSlots && Date.now() < deadline) {
-        await wait(CAPACITY_RETRY_DELAY_MS);
+        await sleep(CAPACITY_RETRY_DELAY_MS, { unref: true });
       }
       for (;;) {
         try {
@@ -171,7 +165,7 @@ async function runOwnersStaggered(owners: Owner[]): Promise<void> {
         } catch (error) {
           const atCapacity = error instanceof AppError && error.status === 503;
           if (atCapacity && Date.now() < deadline) {
-            await wait(CAPACITY_RETRY_DELAY_MS);
+            await sleep(CAPACITY_RETRY_DELAY_MS, { unref: true });
             continue;
           }
           logger.error("Scheduled pipeline failed", { error: sanitizeUnknown(error) });
@@ -270,7 +264,7 @@ export async function startPipelineScheduler(): Promise<void> {
   await refreshPipelineScheduler();
 }
 
-export function stopPipelineScheduler(): void {
+export function __stopPipelineSchedulerForTests(): void {
   started = false;
   ++generation;
   if (timer) clearTimeout(timer);
@@ -442,7 +436,7 @@ export async function catchUpIncompleteScheduledPipelines(
   return { evaluatedCount, triggeredCount: triggered.length };
 }
 
-export function stopIncompleteSearchRecovery(): void {
+function stopIncompleteSearchRecovery(): void {
   if (recoveryBootTimer) clearTimeout(recoveryBootTimer);
   if (recoveryTimer) clearInterval(recoveryTimer);
   recoveryBootTimer = undefined;

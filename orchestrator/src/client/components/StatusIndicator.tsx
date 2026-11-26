@@ -30,11 +30,8 @@ type StatusIndicatorProps = {
   dotClassName?: string;
   variant?: keyof typeof badgeVariantClasses;
   appearance?: "inline" | "badge";
-  animateDot?: boolean;
   tooltip?: React.ReactNode;
   tooltipClassName?: string;
-  tooltipSide?: "top" | "right" | "bottom" | "left";
-  tooltipDelayDuration?: number;
 };
 
 const StatusIndicator: React.FC<StatusIndicatorProps> = ({
@@ -44,11 +41,8 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   dotClassName,
   variant = "amber",
   appearance = "inline",
-  animateDot = appearance === "badge",
   tooltip,
   tooltipClassName,
-  tooltipSide = "top",
-  tooltipDelayDuration = 0,
 }) => {
   const badgeTokens = badgeVariantClasses[variant];
   const resolvedDotColor = dotColor ?? badgeTokens.dot;
@@ -66,8 +60,9 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
     >
       <span
         className={cn(
-          appearance === "badge" ? "h-1.5 w-1.5 rounded-full" : STATUS_INDICATOR_DOT_CLASS,
-          animateDot ? "animate-pulse" : undefined,
+          appearance === "badge"
+            ? "h-1.5 w-1.5 rounded-full animate-pulse"
+            : STATUS_INDICATOR_DOT_CLASS,
           resolvedDotColor,
           dotClassName,
         )}
@@ -79,12 +74,7 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   if (!tooltip) return content;
 
   return (
-    <Tip
-      content={tooltip}
-      contentClassName={tooltipClassName}
-      side={tooltipSide}
-      delayDuration={tooltipDelayDuration}
-    >
+    <Tip content={tooltip} contentClassName={tooltipClassName}>
       {content}
     </Tip>
   );

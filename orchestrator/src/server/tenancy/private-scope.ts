@@ -8,7 +8,7 @@ import { and, eq, type SQL } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { getActiveTenantId } from "./context";
 
-export type PrivateDataScope = {
+type PrivateDataScope = {
   tenantId: string;
   userId: string | null;
   enforceUserIsolation: boolean;
@@ -53,4 +53,30 @@ export function privateDataScopeFilter(table: UserScopedTable): SQL {
     filters.push(eq(table.userId, scope.userId));
   }
   return and(...filters) as SQL;
+}
+
+/**
+ * Returns the active tenant and non-null user id for strictly user-owned tables
+ * (e.g., watchlist selections and saved searches), failing loudly if user context is absent.
+ */
+export function getRequiredUserScope(contextMessage = "User context is required"): {
+  tenantId: string;
+  userId: string;
+} {
+  const userId = getUserId();
+  if (!userId) {
+    throw new Error(contextMessage);
+  }
+  return {
+    tenantId: getActiveTenantId(),
+    userId,
+  };
+}
+
+/**
+ * Builds a strict tenant + user filter for tables that never permit null `userId` rows.
+ */
+export function requiredUserScopeFilter(table: UserScopedTable, contextMessage?: string): SQL {
+  const { tenantId, userId } = getRequiredUserScope(contextMessage);
+  return and(eq(table.tenantId, tenantId), eq(table.userId, userId)) as SQL;
 }

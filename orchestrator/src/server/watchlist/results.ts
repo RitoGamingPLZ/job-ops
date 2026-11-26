@@ -49,7 +49,7 @@ export async function listHydratedWatchlistSelectedSources(): Promise<WatchlistS
  * Selected sources get a new id every time the watchlist is saved, so cached results are keyed by
  * what is being watched instead.
  */
-export function getWatchlistSourceKey(
+function getWatchlistSourceKey(
   source: Pick<WatchlistSelectedSource, "sourceType" | "careersUrl">,
 ): string {
   return `${source.sourceType}|${source.careersUrl}`;
