@@ -1,5 +1,5 @@
 import type { ResumeV5Document, ResumeSuggestionV2 } from "@shared/types";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, createEvent, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -450,6 +450,244 @@ describe("navy serif document content", () => {
     fireEvent.click(screen.getByLabelText(`Move section ${names[0]} up`));
     expect(screen.getByLabelText(`Move section ${names[0]} up`)).toBeDisabled();
     expect(screen.getByLabelText(`Move section ${names[0]} down`)).toHaveFocus();
+  });
+  it("makes section headings focusable and draggable even without onAskAi", () => {
+    mount(fullFixture());
+    for (const heading of screen.getAllByRole("heading", { level: 2 })) {
+      expect(heading).toHaveAttribute("tabindex", "-1");
+      expect(heading).toHaveAttribute("draggable", "true");
+    }
+    const baseSetData = vi.fn();
+    const baseTransfer = { setData: baseSetData, effectAllowed: "none" };
+    fireEvent.dragStart(screen.getByRole("heading", { level: 2, name: "Education" }), {
+      dataTransfer: baseTransfer,
+    });
+    expect(baseSetData).toHaveBeenCalledTimes(1);
+    expect(baseSetData).toHaveBeenCalledWith(
+      "application/x-jobops-resume-section",
+      JSON.stringify("education"),
+    );
+    expect(baseTransfer.effectAllowed).toBe("move");
+
+    cleanup();
+    render(
+      <ResumeEditor
+        document={fullFixture()}
+        onChange={vi.fn()}
+        suggestions={[]}
+        onDismiss={vi.fn()}
+        onAskAi={vi.fn()}
+      />,
+    );
+    const jobSetData = vi.fn();
+    const jobTransfer = { setData: jobSetData, effectAllowed: "none" };
+    fireEvent.dragStart(screen.getByRole("heading", { level: 2, name: "Education" }), {
+      dataTransfer: jobTransfer,
+    });
+    expect(jobSetData).toHaveBeenCalledWith(
+      "application/x-jobops-resume-section",
+      JSON.stringify("education"),
+    );
+    expect(jobSetData).toHaveBeenCalledWith(
+      "application/x-jobops-resume-focus",
+      JSON.stringify({ kind: "section", section: "education", label: "Education" }),
+    );
+    expect(jobTransfer.effectAllowed).toBe("copyMove");
+
+    cleanup();
+    render(
+      <ResumeEditor
+        document={fullFixture()}
+        onChange={vi.fn()}
+        suggestions={[]}
+        onDismiss={vi.fn()}
+        disabled
+      />,
+    );
+    for (const heading of screen.getAllByRole("heading", { level: 2 })) {
+      expect(heading).toHaveAttribute("draggable", "false");
+    }
+  });
+  it("skips empty and invisible sections when reordering with section Move buttons", () => {
+    const initial = fullFixture();
+    initial.metadata = {
+      layout: {
+        pages: [
+          {
+            main: ["summary", "education", "experience", "skills", "certifications", "awards"],
+            sidebar: [],
+          },
+        ],
+      },
+    } as unknown as ResumeV5Document["metadata"];
+    initial.summary.content = "";
+    initial.sections.skills.items = [];
+    initial.sections.certifications.items = [];
+    initial.sections.awards.items = [];
+    initial.sections.projects.items = [
+      {
+        id: "hidden-project",
+        hidden: true,
+        name: "Hidden",
+        period: "",
+        description: "",
+        website: { url: "", label: "" },
+      },
+    ];
+    mount(initial);
+    expect(screen.getAllByRole("heading", { level: 2 }).map((e) => e.textContent)).toEqual([
+      "Education",
+      "Experience",
+    ]);
+    expect(screen.getByLabelText("Move section Education up")).toBeDisabled();
+    expect(screen.getByLabelText("Move section Education down")).not.toBeDisabled();
+    expect(screen.getByLabelText("Move section Experience up")).not.toBeDisabled();
+    expect(screen.getByLabelText("Move section Experience down")).toBeDisabled();
+    expect(
+      screen.queryByLabelText(/Move section (Summary|Skills|Certifications|Awards|Projects)/),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "+ Summary" })).toBeVisible();
+
+    fireEvent.click(screen.getByLabelText("Move section Education down"));
+    expect(screen.getAllByRole("heading", { level: 2 }).map((e) => e.textContent)).toEqual([
+      "Experience",
+      "Education",
+    ]);
+
+    fireEvent.click(screen.getByLabelText("Move section Education up"));
+    expect(screen.getAllByRole("heading", { level: 2 }).map((e) => e.textContent)).toEqual([
+      "Education",
+      "Experience",
+    ]);
+  });
+  it("allows dropping a dragged section directly onto another section slot", () => {
+    const onChange = mount(fullFixture());
+    const experienceSlot = screen
+      .getByRole("heading", { level: 2, name: "Experience" })
+      .closest("[data-focus-section]") as HTMLElement;
+    const awardsSlot = screen
+      .getByRole("heading", { level: 2, name: "Awards" })
+      .closest("[data-focus-section]") as HTMLElement;
+    const rect = {
+      top: 100,
+      height: 100,
+      bottom: 200,
+      left: 0,
+      right: 500,
+      width: 500,
+      x: 0,
+      y: 100,
+      toJSON: () => ({}),
+    } as DOMRect;
+    vi.spyOn(experienceSlot, "getBoundingClientRect").mockReturnValue(rect);
+    vi.spyOn(awardsSlot, "getBoundingClientRect").mockReturnValue(rect);
+    const makeTransfer = (type: string, value: unknown) => ({
+      types: [type],
+      getData: (requested: string) => (requested === type ? JSON.stringify(value) : ""),
+      dropEffect: "none",
+    });
+    const dispatchDrag = (
+      target: Element,
+      kind: "dragOver" | "drop",
+      clientY: number,
+      dataTransfer: unknown,
+    ) => {
+      const event = createEvent[kind](target, { dataTransfer });
+      Object.defineProperty(event, "clientY", { value: clientY });
+      fireEvent(target, event);
+    };
+
+    dispatchDrag(
+      experienceSlot,
+      "dragOver",
+      120,
+      makeTransfer("application/x-jobops-resume-section", "education"),
+    );
+    expect(screen.getByLabelText("Move section before Experience")).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+    dispatchDrag(
+      experienceSlot,
+      "drop",
+      120,
+      makeTransfer("application/x-jobops-resume-section", "education"),
+    );
+    expect(screen.getAllByRole("heading", { level: 2 }).map((e) => e.textContent)).toEqual([
+      "Summary",
+      "Skills",
+      "Certifications",
+      "Education",
+      "Experience",
+      "Awards",
+    ]);
+
+    dispatchDrag(
+      experienceSlot,
+      "dragOver",
+      180,
+      makeTransfer("application/x-jobops-resume-section", "education"),
+    );
+    expect(screen.getByLabelText("Move section before Awards")).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+    dispatchDrag(
+      experienceSlot,
+      "drop",
+      180,
+      makeTransfer("application/x-jobops-resume-section", "education"),
+    );
+    expect(screen.getAllByRole("heading", { level: 2 }).map((e) => e.textContent)).toEqual([
+      "Summary",
+      "Skills",
+      "Certifications",
+      "Experience",
+      "Education",
+      "Awards",
+    ]);
+
+    dispatchDrag(
+      awardsSlot,
+      "dragOver",
+      180,
+      makeTransfer("application/x-jobops-resume-section", "education"),
+    );
+    expect(screen.getByLabelText("Move section to the end")).toHaveAttribute("data-active", "true");
+    dispatchDrag(
+      awardsSlot,
+      "drop",
+      180,
+      makeTransfer("application/x-jobops-resume-section", "education"),
+    );
+    expect(screen.getAllByRole("heading", { level: 2 }).map((e) => e.textContent)).toEqual([
+      "Summary",
+      "Skills",
+      "Certifications",
+      "Experience",
+      "Awards",
+      "Education",
+    ]);
+
+    const callsBeforeBullet = onChange.mock.calls.length;
+    dispatchDrag(
+      experienceSlot,
+      "drop",
+      120,
+      makeTransfer("application/x-jobops-resume-bullet", {
+        experienceId: "one",
+        index: 0,
+      }),
+    );
+    expect(onChange).toHaveBeenCalledTimes(callsBeforeBullet);
+    expect(screen.getAllByRole("heading", { level: 2 }).map((e) => e.textContent)).toEqual([
+      "Summary",
+      "Skills",
+      "Certifications",
+      "Experience",
+      "Awards",
+      "Education",
+    ]);
   });
   it("keeps focus on a bullet's Move button after moving it down", () => {
     mount();

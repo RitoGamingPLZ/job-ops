@@ -280,6 +280,18 @@
   color: var(--rs-color-accent);
   font: var(--rs-strong-weight) var(--rs-section) / var(--rs-line-height) var(--rs-font);
 }
+.resume-paper:not(:disabled) h2 {
+  cursor: grab;
+}
+.resume-paper:not(:disabled) h2:active {
+  cursor: grabbing;
+}
+.resume-paper:not(:disabled) h2:hover {
+  outline: 1px solid var(--border);
+}
+.resume-paper:not(:disabled) h2:focus {
+  outline: 1px solid var(--ring);
+}
 .resume-paper textarea {
   display: block;
 }
@@ -576,6 +588,8 @@
 .resume-position:focus ~ .resume-entry-controls,
 .resume-experience-heading:focus-within ~ .resume-entry-controls,
 h2:focus-within + .resume-section-controls,
+.resume-paper:not(:disabled) h2:hover + .resume-section-controls,
+.resume-paper:not(:disabled) .resume-section-controls:hover,
 .resume-tools:focus-within {
   position: absolute;
   top: var(--resume-tools-top, 100%);
@@ -604,10 +618,13 @@ h2:focus-within + .resume-section-controls,
 /* Heading tools are siblings of the heading, not its children. Auto offsets
    deliberately preserve their static position just after it, over the body. */
 .resume-entry-controls,
-.resume-section-controls,
 .resume-project > .resume-tools {
   --resume-tools-top: auto;
   --resume-tools-right: auto;
+}
+.resume-section-controls {
+  --resume-tools-top: 0;
+  --resume-tools-right: 0;
 }
 .resume-tools button {
   border: 0;
