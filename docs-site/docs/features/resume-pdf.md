@@ -65,7 +65,7 @@ Rendering a saved co-work document does not re-tailor its content. To tailor aga
 
 JobOps generates the final PDF locally in one of two ways:
 
-- `typst` (default): render with Typst and the selected Typst theme
+- `typst` (default): render with Typst. The default **Navy Serif** theme shares the resume editor's styling.
 - `latex`: render with the Jake Gutierrez-based LaTeX template
 
 Notes:

@@ -1636,6 +1636,14 @@ describe("explicit resume opening", () => {
 
   it("flushes edits before checking freshness and renders edited resume instead of uploaded PDF", async () => {
     let savedEdit = false;
+    let completePreview!: (url: string) => void;
+    mocks.openPdf.mockResolvedValueOnce("blob:original");
+    mocks.previewPdf.mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          completePreview = resolve;
+        }),
+    );
     mocks.getJob.mockImplementation(async () => ({
       id: "job",
       title: "Engineer",
@@ -1654,18 +1662,28 @@ describe("explicit resume opening", () => {
       },
     );
 
-    mount(false, new QueryClient(), "?mode=edit");
+    mount(false, new QueryClient(), "?mode=preview");
+    expect(await screen.findByTestId("pdf-canvas-preview")).toHaveAttribute(
+      "data-url",
+      "blob:original",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(await screen.findByLabelText("Headline"), {
       target: { value: "Edited resume" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
-    await screen.findByRole("document");
+    await waitFor(() => expect(mocks.previewPdf).toHaveBeenCalledWith("job"));
+    expect(screen.queryByTestId("pdf-canvas-preview")).not.toBeInTheDocument();
+    await act(async () => completePreview("blob:edited"));
+    expect(await screen.findByTestId("pdf-canvas-preview")).toHaveAttribute(
+      "data-url",
+      "blob:edited",
+    );
 
     expect(mocks.save).toHaveBeenCalledTimes(1);
     const previewGetJobOrder = mocks.getJob.mock.invocationCallOrder.at(-1)!;
     expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(previewGetJobOrder);
-    expect(mocks.previewPdf).toHaveBeenCalledWith("job");
-    expect(mocks.openPdf).not.toHaveBeenCalled();
+    expect(mocks.openPdf).toHaveBeenCalledExactlyOnceWith("job");
 
     fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
     await waitFor(() => expect(mocks.downloadPdf).toHaveBeenCalledWith("job", "resume.pdf"));

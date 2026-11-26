@@ -27,6 +27,8 @@ Keep reusable candidate facts in one library, choose what belongs on each job re
 
 Entry Preview displays an existing current or unedited uploaded PDF without requiring an editable resume or candidate library. **Download PDF** downloads that artifact. Choose **Edit** to load the editable source; an uploaded PDF alone does not provide editable JSON. Missing or out-of-date generated PDFs—and uploaded PDFs whose resume content has been edited in the editor—are rendered from the saved resume before display, preserving tailored content and revisions. Preview does not re-tailor a resume.
 
+The default PDF theme is **Navy Serif**, which shares its typography, colors, and spacing with Edit mode. To match Edit on a workspace with custom PDF settings, select **Typst** and **Navy Serif** in **Settings → Resume PDF**.
+
 Library edits update linked fields and lines in unapplied job resumes only where they still match the previous library value. Locally edited fields and reworded lines keep their wording. Jobs marked **Applied** or **In progress** keep their saved content when the library changes. You can still edit those resumes directly or change their ticks. Deleting a library item used by resumes asks for confirmation; frozen resumes keep their text.
 
 ### Education, awards, and certifications
@@ -53,7 +55,7 @@ Accepting edits to linked items keeps the link and changes only this job's resum
 
 ### Generate or replace a job resume
 
-Targeting a job prepares a resume from your candidate library. To fill gaps across targeted jobs, open **In Progress Board** and click **Generate missing resumes** in the Targeted lane header. That batch preserves saved documents and hand edits, rendering a fresh PDF when needed; uploaded PDFs are skipped.
+Targeting a job prepares a resume from your candidate library. If it creates a new tailored resume for a job with an uploaded PDF, Preview uses the new resume. To fill gaps across targeted jobs, open **In Progress Board** and click **Generate missing resumes** in the Targeted lane header. That batch preserves saved documents and hand edits, rendering a fresh PDF when needed; uploaded PDFs are skipped.
 
 To select library facts again for one targeted job with a prepared resume, click **Regenerate resume** on its job page or detail panel and confirm. This replaces the saved co-work document, including hand edits, and replaces any uploaded PDF with a generated PDF. Review your library first, then review the new resume when generation finishes. Previewing keeps existing current and uploaded PDFs; when a generated PDF needs rendering, it uses your saved document without re-tailoring it.
 

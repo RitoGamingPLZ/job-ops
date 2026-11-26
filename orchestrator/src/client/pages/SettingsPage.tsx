@@ -25,6 +25,7 @@ import {
 } from "@client/pages/settings/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { normalizeStringArray } from "@shared/normalize-string-array.js";
+import { settingsRegistry } from "@shared/settings-registry.js";
 import { type UpdateSettingsInput, updateSettingsSchema } from "@shared/settings-schema.js";
 import type { AppSettings, JobStatus } from "@shared/types.js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -53,7 +54,7 @@ const DEFAULT_FORM_VALUES: UpdateSettingsInput = {
   jobCompleteWebhookUrl: "",
   resumeProjects: null,
   pdfRenderer: "typst",
-  typstTheme: "classic",
+  typstTheme: settingsRegistry.typstTheme.default(),
   pdfPaperSize: "auto",
   renderMarkdownInJobDescriptions: null,
   autoTailorOnManualImport: null,
@@ -564,8 +565,8 @@ const getDerivedSettings = (settings: AppSettings | null) => {
         default: settings?.pdfRenderer?.default ?? "typst",
       },
       typstTheme: {
-        effective: settings?.typstTheme?.value ?? "classic",
-        default: settings?.typstTheme?.default ?? "classic",
+        effective: settings?.typstTheme?.value ?? settingsRegistry.typstTheme.default(),
+        default: settings?.typstTheme?.default ?? settingsRegistry.typstTheme.default(),
       },
       pdfPaperSize: {
         effective: settings?.pdfPaperSize?.value ?? "auto",

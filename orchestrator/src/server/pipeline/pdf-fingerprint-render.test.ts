@@ -252,4 +252,30 @@ describe("PDF render freshness snapshot", () => {
       }),
     );
   });
+
+  it("renders the newly materialized resume even if the job started with an uploaded PDF", async () => {
+    vi.clearAllMocks();
+    const job = createJob({
+      id: "uploaded",
+      status: "ready",
+      pdfPath: "original.pdf",
+      pdfSource: "uploaded",
+    });
+    const superseded = { ...job, pdfSource: "generated" as const };
+    vi.mocked(getJobResume).mockResolvedValue(null);
+    vi.mocked(jobsRepo.getJobById).mockResolvedValue(superseded).mockResolvedValueOnce(job);
+    vi.mocked(jobsRepo.updateJob).mockResolvedValue(superseded);
+    vi.mocked(jobsRepo.finalizeGeneratedPdfIfCurrent).mockResolvedValue(superseded);
+    vi.mocked(generatePdf).mockResolvedValue({ success: true, pdfPath: "new.pdf" });
+
+    expect(await processJob(job.id)).toEqual({ success: true });
+    expect(ensureJobResume).toHaveBeenNthCalledWith(1, job.id, {
+      tailor: true,
+      requestOrigin: null,
+    });
+    expect(generatePdf).toHaveBeenCalledOnce();
+    expect(jobsRepo.finalizeGeneratedPdfIfCurrent).toHaveBeenCalledWith(
+      expect.objectContaining({ pdfPath: "new.pdf", expectedStatus: "ready" }),
+    );
+  });
 });

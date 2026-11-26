@@ -89,7 +89,10 @@ async function materializeJobResume(
   }
   let saved: JobResume;
   try {
-    saved = await saveJobResume(jobId, baseRevision, document);
+    saved =
+      opts?.tailor && job.pdfSource === "uploaded"
+        ? await saveJobResume(jobId, baseRevision, document, { supersedeUploadedPdf: true })
+        : await saveJobResume(jobId, baseRevision, document);
   } catch (error) {
     if (acceptConcurrentWinner && error instanceof AppError && error.code === "CONFLICT") {
       const winner = await getJobResume(jobId);

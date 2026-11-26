@@ -945,7 +945,12 @@ export async function processJob(
         tailor: true,
         requestOrigin: options?.requestOrigin ?? null,
       });
-      if (job.pdfSource === "uploaded" && job.pdfPath) {
+      // Materializing a tailored resume can supersede the original upload.
+      if (
+        job.pdfSource === "uploaded" &&
+        job.pdfPath &&
+        (await jobsRepo.getJobById(jobId))?.pdfSource === "uploaded"
+      ) {
         await markReady();
         return { success: true };
       }

@@ -846,9 +846,12 @@ function CoworkWorkspace({
   }
   function setPreviewMode(next: boolean) {
     setPreview(next);
-    // Leaving Preview for the editor means edits, and then a render, are likely.
-    if (!next) void warmPdfRenderer();
-    if (!next && !latest.current) void load();
+    if (!next) {
+      // Discard the previous PDF before the document can be edited again.
+      setPdfUrl(null);
+      void warmPdfRenderer();
+      if (!latest.current) void load();
+    }
     try {
       localStorage.setItem(PREVIEW_KEY, String(next));
     } catch {

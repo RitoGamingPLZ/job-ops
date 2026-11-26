@@ -98,6 +98,18 @@ describe("ensureJobResume", () => {
     expect(generateResumeFromLibrary).toHaveBeenCalledOnce();
     expect(saveJobResume).toHaveBeenCalledOnce();
   });
+
+  it("supersedes an uploaded PDF when an explicit targeting request creates the tailored resume", async () => {
+    vi.mocked(getJobById).mockResolvedValue(
+      createJob({ id: "job", pdfSource: "uploaded", pdfPath: "original.pdf" }),
+    );
+
+    await ensureJobResume("job", { tailor: true });
+
+    expect(saveJobResume).toHaveBeenCalledWith("job", 0, document, {
+      supersedeUploadedPdf: true,
+    });
+  });
   it("re-reads the winning insert after a concurrent conflict", async () => {
     let saved: typeof row | null = null;
     vi.mocked(getJobResume).mockImplementation(async () => saved);

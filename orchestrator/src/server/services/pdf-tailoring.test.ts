@@ -626,18 +626,20 @@ describe("PDF Service Tailoring Logic", () => {
     });
   });
 
-  it("uses the local Typst renderer with the default theme", async () => {
+  it("uses the editor's Navy Serif theme by default for preview and generation", async () => {
     currentPdfRenderer.value = "typst";
 
+    await previewJobPdfBytes("job-typst", "desc");
     await generatePdf("job-typst", "desc");
 
-    expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(mockResumeRenderer.renderResumePdf).toHaveBeenCalledTimes(2);
+    for (const [args] of mockResumeRenderer.renderResumePdf.mock.calls) {
+      expect(args).toMatchObject({
         jobId: "job-typst",
         renderer: "typst",
-        typstTheme: "classic",
-      }),
-    );
+        typstTheme: "navy-serif",
+      });
+    }
   });
 
   it("leaves the paper size to the local renderer when none is configured", async () => {
