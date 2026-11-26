@@ -620,7 +620,7 @@ describe("JobPage back navigation", () => {
   it("preserves the entry page state across internal job view links", async () => {
     renderJobPage({
       pathname: "/job/job-1",
-      state: { jobPageBackTo: "/jobs/ready?source=naukri" },
+      state: { jobPageBackTo: "/jobs/ready?source=linkedin" },
     });
 
     await screen.findByRole("heading", { name: "Acme Labs" });
@@ -634,7 +634,7 @@ describe("JobPage back navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: /^back$/i }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("location-probe")).toHaveTextContent("/jobs/ready?source=naukri");
+      expect(screen.getByTestId("location-probe")).toHaveTextContent("/jobs/ready?source=linkedin");
     });
   });
 

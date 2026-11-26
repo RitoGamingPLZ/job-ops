@@ -102,10 +102,8 @@ jobs:
           - job-ops-orchestrator
           - adzuna-extractor
           - hiringcafe-extractor
-          - gradcracker-extractor
-          - startupjobs-extractor
-          - workingnomads-extractor
-          - ukvisajobs-extractor
+          - jobindex-extractor
+          - freehire-extractor
     steps:
       - uses: actions/checkout@v4
       - name: Setup Vite+

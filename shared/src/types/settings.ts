@@ -244,12 +244,7 @@ export interface AppSettings {
   pdfRenderer: Resolved<PdfRenderer>;
   typstTheme: Resolved<TypstTheme>;
   pdfPaperSize: Resolved<PdfPaperSize>;
-  ukvisajobsMaxJobs: Resolved<number>;
   adzunaMaxJobsPerTerm: Resolved<number>;
-  gradcrackerMaxJobsPerTerm: Resolved<number>;
-  startupjobsMaxJobsPerTerm: Resolved<number>;
-  seekMaxJobsPerTerm: Resolved<number>;
-  naukriMaxJobsPerTerm: Resolved<number>;
   jobindexMaxJobsPerTerm: Resolved<number>;
   searchTerms: Resolved<string[]>;
   workplaceTypes: Resolved<Array<"remote" | "hybrid" | "onsite">>;
@@ -298,15 +293,12 @@ export interface AppSettings {
   modelProjectSelection: ModelResolved;
 
   // Simple strings:
-  ukvisajobsEmail: string | null;
   adzunaAppId: string | null;
 
   // Secret hints:
   llmApiKeyHint: string | null;
   llmPurposeApiKeyHints: LlmPurposeApiKeyHints;
-  ukvisajobsPasswordHint: string | null;
   adzunaAppKeyHint: string | null;
-  apifyTokenHint: string | null;
   webhookSecretHint: string | null;
 
   // Computed:

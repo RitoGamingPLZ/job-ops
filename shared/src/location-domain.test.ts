@@ -95,13 +95,13 @@ describe("location-domain", () => {
         searchScope: "selected_plus_remote_worldwide",
         matchStrictness: "exact_only",
       },
-      sources: ["gradcracker", "indeed", "glassdoor", "ukvisajobs", "adzuna", "startupjobs"],
+      sources: ["jobindex", "indeed", "adzuna", "freehire"],
     });
 
-    expect(result.compatibleSources).toEqual(["indeed", "glassdoor", "adzuna", "startupjobs"]);
-    expect(result.incompatibleSources).toEqual(["gradcracker", "ukvisajobs"]);
+    expect(result.compatibleSources).toEqual(["indeed", "adzuna", "freehire"]);
+    expect(result.incompatibleSources).toEqual(["jobindex"]);
     expect(result.plans[0]).toMatchObject({
-      source: "gradcracker",
+      source: "jobindex",
       isCompatible: false,
       canRun: false,
     });
@@ -110,7 +110,7 @@ describe("location-domain", () => {
     );
   });
 
-  it("marks glassdoor incompatible until at least one city is provided", () => {
+  it("marks city-required sources incompatible when custom capabilities require cities", () => {
     const result = planLocationSources({
       intent: {
         selectedCountry: "united kingdom",
@@ -119,13 +119,19 @@ describe("location-domain", () => {
         searchScope: "selected_only",
         matchStrictness: "exact_only",
       },
-      sources: ["glassdoor", "linkedin"],
+      sources: ["custom-city-source", "linkedin"],
+      capabilitiesBySource: {
+        "custom-city-source": {
+          source: "custom-city-source",
+          requiresCityLocations: true,
+        },
+      },
     });
 
     expect(result.compatibleSources).toEqual(["linkedin"]);
-    expect(result.incompatibleSources).toEqual(["glassdoor"]);
+    expect(result.incompatibleSources).toEqual(["custom-city-source"]);
     expect(result.plans[0]).toMatchObject({
-      source: "glassdoor",
+      source: "custom-city-source",
       isCompatible: false,
       canRun: false,
     });
@@ -222,47 +228,38 @@ describe("location-domain", () => {
   });
 
   it("exposes normalized source capabilities for known sources", () => {
-    expect(normalizeLocationSourceCapabilities({ source: "gradcracker" })).toEqual({
+    expect(normalizeLocationSourceCapabilities({ source: "jobindex" })).toEqual({
       requiresCityLocations: false,
       requiresSelectedCountry: false,
       supportsNativeRadius: false,
-      source: "gradcracker",
-      supportedCountryKeys: ["united kingdom"],
+      source: "jobindex",
+      supportedCountryKeys: ["denmark"],
     });
-    expect(normalizeLocationSourceCapabilities({ source: "seek" })).toEqual({
-      requiresCityLocations: false,
-      requiresSelectedCountry: true,
-      supportsNativeRadius: false,
-      source: "seek",
-      supportedCountryKeys: ["australia", "new zealand"],
-    });
-    expect(normalizeLocationSourceCapabilities({ source: "naukri" })).toEqual({
+    expect(normalizeLocationSourceCapabilities({ source: "adzuna" }).requiresSelectedCountry).toBe(
+      true,
+    );
+    expect(normalizeLocationSourceCapabilities({ source: "freehire" })).toEqual({
       requiresCityLocations: false,
       requiresSelectedCountry: false,
       supportsNativeRadius: false,
-      source: "naukri",
-      supportedCountryKeys: ["india"],
-    });
-    expect(normalizeLocationSourceCapabilities({ source: "startupjobs" })).toEqual({
-      requiresCityLocations: false,
-      requiresSelectedCountry: false,
-      supportsNativeRadius: false,
-      source: "startupjobs",
+      source: "freehire",
       supportedCountryKeys: null,
     });
   });
 
-  it("preserves default city requirements when overriding supported countries", () => {
+  it("preserves explicit capability flags when overriding supported countries", () => {
     expect(
       normalizeLocationSourceCapabilities({
-        source: "glassdoor",
+        source: "custom-city-source",
+        requiresCityLocations: true,
+        requiresSelectedCountry: true,
         supportedCountryKeys: ["united kingdom"],
       }),
     ).toEqual({
       requiresCityLocations: true,
       requiresSelectedCountry: true,
       supportsNativeRadius: false,
-      source: "glassdoor",
+      source: "custom-city-source",
       supportedCountryKeys: ["united kingdom"],
     });
   });
@@ -278,11 +275,11 @@ describe("location-domain", () => {
     });
     const plans = planLocationSources({
       intent,
-      sources: ["linkedin", "glassdoor"],
+      sources: ["linkedin", "custom-city-source"],
       capabilitiesBySource: {
         linkedin: { source: "linkedin", supportsNativeRadius: true },
-        glassdoor: {
-          source: "glassdoor",
+        "custom-city-source": {
+          source: "custom-city-source",
           requiresCityLocations: true,
           supportsNativeRadius: false,
         },
@@ -324,10 +321,10 @@ describe("location-domain", () => {
         searchScope: "selected_plus_remote_worldwide",
         matchStrictness: "exact_only",
       },
-      sources: ["adzuna", "startupjobs"],
+      sources: ["adzuna", "freehire"],
     });
 
-    expect(result.compatibleSources).toEqual(["startupjobs"]);
+    expect(result.compatibleSources).toEqual(["freehire"]);
     expect(result.incompatibleSources).toEqual(["adzuna"]);
     expect(result.plans[0]).toMatchObject({
       source: "adzuna",

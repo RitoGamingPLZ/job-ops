@@ -89,17 +89,6 @@ describe("hasOwnExtractorCredentials", () => {
         },
       ),
     ).toBe(false);
-    expect(hasOwnExtractorCredentials({ id: "seek", requiredEnvVars: ["APIFY_TOKEN"] }, {})).toBe(
-      false,
-    );
-  });
-
-  it("lets UKVisaJobs run on the user's saved login only", () => {
-    const manifest = { id: "ukvisajobs", requiredEnvVars: ["UKVISAJOBS_EMAIL"] };
-    expect(hasOwnExtractorCredentials(manifest, {})).toBe(false);
-    expect(
-      hasOwnExtractorCredentials(manifest, { ukvisajobsEmail: "a@b.c", ukvisajobsPassword: "pw" }),
-    ).toBe(true);
   });
 });
 

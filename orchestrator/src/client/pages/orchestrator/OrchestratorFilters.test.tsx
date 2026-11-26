@@ -74,7 +74,7 @@ const renderFilters = (overrides?: Partial<ComponentProps<typeof OrchestratorFil
       preset: null,
     },
     onDateFilterChange: vi.fn(),
-    sourcesWithJobs: ["gradcracker", "linkedin", "manual"] as JobSource[],
+    sourcesWithJobs: ["freehire", "linkedin", "manual"] as JobSource[],
     sort: { key: "score", direction: "desc" } as JobSort,
     onSortChange: vi.fn(),
     onResetFilters: vi.fn(),
@@ -253,14 +253,14 @@ describe("OrchestratorFilters", () => {
   it("resets filters and only shows sources present in jobs", async () => {
     // An active filter is required for the Reset control to be shown.
     const { props } = renderFilters({
-      sourcesWithJobs: ["gradcracker", "manual"],
-      sourceFilter: "gradcracker",
+      sourcesWithJobs: ["freehire", "manual"],
+      sourceFilter: "freehire",
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^source/i }));
 
     expect(screen.queryByRole("button", { name: "LinkedIn" })).not.toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Gradcracker" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "FreeHire" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Manual" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));

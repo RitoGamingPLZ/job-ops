@@ -53,11 +53,8 @@ const SYSTEM_ADMIN_SETTING_KEYS = new Set<keyof UpdateSettingsInput>([
   "backupEnabled",
   "backupHour",
   "backupMaxCount",
-  "ukvisajobsEmail",
-  "ukvisajobsPassword",
   "adzunaAppId",
   "adzunaAppKey",
-  "apifyToken",
 ]);
 
 // Outbound webhooks make server-side requests, so an admin has to switch them on per user.

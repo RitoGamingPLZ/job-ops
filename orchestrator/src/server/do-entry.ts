@@ -8,19 +8,10 @@
 import { createServer, type Server } from "node:http";
 import type { Express } from "express";
 import adzunaManifest from "../../../extractors/adzuna/manifest";
-import fiveamsatManifest from "../../../extractors/fiveamsat/manifest";
 import freehireManifest from "../../../extractors/freehire/src/manifest";
-import golangjobsManifest from "../../../extractors/golangjobs/src/manifest";
-import gradcrackerManifest from "../../../extractors/gradcracker/manifest";
 import hiringcafeManifest from "../../../extractors/hiringcafe/manifest";
 import jobindexManifest from "../../../extractors/jobindex/src/manifest";
 import jobspyManifest from "../../../extractors/jobspy/manifest";
-import naukriManifest from "../../../extractors/naukri/manifest";
-import seekManifest from "../../../extractors/seek/manifest";
-import startupjobsManifest from "../../../extractors/startupjobs/src/manifest";
-import ukvisajobsManifest from "../../../extractors/ukvisajobs/manifest";
-import wazzufManifest from "../../../extractors/wazzuf/manifest";
-import workingnomadsManifest from "../../../extractors/workingnomads/src/manifest";
 import { createApp } from "./app";
 import { createDurableObjectDrizzleDb, type DurableObjectStorageLike, setDb } from "./db/index";
 import {
@@ -30,6 +21,11 @@ import {
 } from "./db/portable-migrations";
 import { reconcileLegacyDoSchema } from "./db/reconcile-legacy-do-schema";
 import { initializeExtractorRegistry, setStaticExtractorManifests } from "./extractors/registry";
+import {
+  type RemoteContainerExtractorRequest,
+  type RemoteContainerExtractorRunner,
+  setRemoteContainerExtractorRunner,
+} from "./extractors/remote-container-runner";
 import { R2BlobStore, type R2BucketLike, setBlobStore } from "./infra/blob-store";
 import {
   handleDurableObjectTaskDone,
@@ -37,10 +33,16 @@ import {
   type OnTaskDonePosting,
   type OnTaskDoneResult,
 } from "./services/do-on-task-done";
-
 import { type RemotePdfRenderer, setRemotePdfRenderer } from "./services/pdf";
 
-export type { OnTaskDonePayload, OnTaskDonePosting, OnTaskDoneResult, PortableMigrationResult };
+export type {
+  OnTaskDonePayload,
+  OnTaskDonePosting,
+  OnTaskDoneResult,
+  PortableMigrationResult,
+  RemoteContainerExtractorRequest,
+  RemoteContainerExtractorRunner,
+};
 export { handleDurableObjectTaskDone, runPortableMigrations };
 
 /**
@@ -55,19 +57,10 @@ export function runDurableObjectMigrations(
 
 const STATIC_EXTRACTOR_MANIFESTS = [
   adzunaManifest,
-  fiveamsatManifest,
   freehireManifest,
-  golangjobsManifest,
-  gradcrackerManifest,
   hiringcafeManifest,
   jobindexManifest,
   jobspyManifest,
-  naukriManifest,
-  seekManifest,
-  startupjobsManifest,
-  ukvisajobsManifest,
-  wazzufManifest,
-  workingnomadsManifest,
 ];
 
 export interface DurableObjectExpressServerOptions {
@@ -76,6 +69,7 @@ export interface DurableObjectExpressServerOptions {
   env?: Record<string, unknown>;
   port?: number;
   remoteRenderPdf?: RemotePdfRenderer;
+  remoteRunContainerExtractor?: RemoteContainerExtractorRunner;
 }
 
 export interface DurableObjectExpressServer {
@@ -102,6 +96,7 @@ export function createDurableObjectExpressServer(
   }
 
   setRemotePdfRenderer(options.remoteRenderPdf ?? null);
+  setRemoteContainerExtractorRunner(options.remoteRunContainerExtractor ?? null);
   setDb(createDurableObjectDrizzleDb(options.storage));
 
   if (options.r2Bucket) {

@@ -54,7 +54,7 @@ describe("non-admin hardening", () => {
     ({ server, baseUrl, closeDb, tempDir } = await startServer({
       env: {
         ...AUTH_ENV,
-        UKVISAJOBS_EMAIL: "operator@example.com",
+        ADZUNA_APP_ID: "operator-adzuna-app",
         WEBHOOK_SECRET: "operator-webhook-secret",
       },
     }));
@@ -77,13 +77,13 @@ describe("non-admin hardening", () => {
     const res = await fetch(`${baseUrl}/api/settings`, { headers: headers(guestToken) });
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(body.data.ukvisajobsEmail ?? null).toBeNull();
+    expect(body.data.adzunaAppId ?? null).toBeNull();
     expect(body.data.webhookSecretHint ?? null).toBeNull();
     expect(body.data.llmProvider.default).toBe("gemini");
 
     const adminRes = await fetch(`${baseUrl}/api/settings`, { headers: headers(adminToken) });
     const adminBody = await adminRes.json();
-    expect(adminBody.data.ukvisajobsEmail).toBe("operator@example.com");
+    expect(adminBody.data.adzunaAppId).toBe("operator-adzuna-app");
   });
 
   it("lets a guest save their own Gemini key and model, scoped to their workspace", async () => {
@@ -146,11 +146,7 @@ describe("non-admin hardening", () => {
       expect(res.status, `${method} ${path}`).toBe(403);
     }
 
-    for (const payload of [
-      { llmProvider: "litellm" },
-      { ukvisajobsEmail: "guest@example.com" },
-      { adzunaAppId: "guest-adzuna" },
-    ]) {
+    for (const payload of [{ llmProvider: "litellm" }, { adzunaAppId: "guest-adzuna" }]) {
       const res = await fetch(`${baseUrl}/api/settings`, {
         method: "PATCH",
         headers: headers(guestToken),

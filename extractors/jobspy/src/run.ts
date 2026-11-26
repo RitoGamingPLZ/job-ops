@@ -128,10 +128,8 @@ function buildLocationEvidence(
 
 function toJobSource(site: unknown): JobSource | null {
   const raw = toStringOrNull(site)?.toLowerCase();
-  if (raw === "gradcracker") return "gradcracker";
   if (raw === "indeed") return "indeed";
   if (raw === "linkedin") return "linkedin";
-  if (raw === "glassdoor") return "glassdoor";
   return null;
 }
 
@@ -209,7 +207,6 @@ export function resolveJobSpySiteLocations(args: {
 }): {
   linkedinLocation: string | null;
   indeedLocation: string | null;
-  glassdoorLocation: string | null;
 } {
   const location = normalizeOptionalString(args.location);
   const countryIndeed = normalizeOptionalString(args.countryIndeed);
@@ -217,8 +214,8 @@ export function resolveJobSpySiteLocations(args: {
   // JobSpy does not apply geo filtering consistently across sites:
   // - LinkedIn only honors `location`, so a country-only run must send the
   //   selected country there or LinkedIn searches globally.
-  // - Indeed and Glassdoor honor `country_indeed` directly, so we only pass a
-  //   location when the user explicitly asked for a city/region.
+  // - Indeed honors `country_indeed` directly, so we only pass a location
+  //   when the user explicitly asked for a city/region.
   return {
     linkedinLocation:
       location &&
@@ -228,7 +225,6 @@ export function resolveJobSpySiteLocations(args: {
         ? `${location}, ${countryIndeed}`
         : (location ?? countryIndeed),
     indeedLocation: location,
-    glassdoorLocation: location,
   };
 }
 
@@ -241,8 +237,8 @@ export function deriveIsRemoteFlag(
 export async function runJobSpy(options: RunJobSpyOptions = {}): Promise<JobSpyResult> {
   await mkdir(OUTPUT_DIR, { recursive: true });
 
-  const sites = (options.sites ?? ["indeed", "linkedin", "glassdoor"])
-    .filter((site) => site === "indeed" || site === "linkedin" || site === "glassdoor")
+  const sites = (options.sites ?? ["indeed", "linkedin"])
+    .filter((site) => site === "indeed" || site === "linkedin")
     .join(",");
 
   const searchTerms = resolveSearchTerms(options);
@@ -295,7 +291,7 @@ export async function runJobSpy(options: RunJobSpyOptions = {}): Promise<JobSpyR
             stdio: ["ignore", "pipe", "pipe"],
             env: {
               ...process.env,
-              JOBSPY_SITES: sites || "indeed,linkedin,glassdoor",
+              JOBSPY_SITES: sites || "indeed,linkedin",
               JOBSPY_SEARCH_TERM: searchTerm,
               JOBSPY_TERM_INDEX: String(runIndex),
               JOBSPY_TERM_TOTAL: String(totalRuns),
@@ -322,9 +318,6 @@ export async function runJobSpy(options: RunJobSpyOptions = {}): Promise<JobSpyR
                 : {}),
               ...(siteLocations.indeedLocation
                 ? { JOBSPY_INDEED_LOCATION: siteLocations.indeedLocation }
-                : {}),
-              ...(siteLocations.glassdoorLocation
-                ? { JOBSPY_GLASSDOOR_LOCATION: siteLocations.glassdoorLocation }
                 : {}),
               ...(countryIndeed ? { JOBSPY_COUNTRY_INDEED: countryIndeed } : {}),
             },

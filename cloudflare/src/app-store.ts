@@ -22,6 +22,8 @@ function loadDoEntry(): Promise<DoEntryModule> {
 
 const DO_EXPRESS_PORT = 3001;
 const IMPORT_BATCH_SIZE = 500;
+// Browser-driven extractors (Hiring Cafe) can take several minutes per run.
+const EXTRACTOR_RUN_TIMEOUT_MS = 10 * 60_000;
 
 async function readRenderError(response: Response): Promise<unknown> {
   const reader = response.body?.getReader();
@@ -95,6 +97,77 @@ export class AppStore extends DurableObject<Env> {
       r2Bucket: this.env.DATA_BUCKET ?? null,
       env: this.env as unknown as Record<string, unknown>,
       port: DO_EXPRESS_PORT,
+      remoteRunContainerExtractor: async (request) => {
+        const namespace = this.env.SCRAPER_CONTAINER;
+        const secret = (this.env.INTERNAL_SYNC_SECRET || this.env.CRON_SECRET)?.trim();
+        if (!namespace || !secret) {
+          throw new Error("Scraper container or internal secret is not configured.");
+        }
+        const signal = AbortSignal.timeout(EXTRACTOR_RUN_TIMEOUT_MS);
+        try {
+          const response = await namespace
+            .getByName(`extractor-${request.manifestId}`)
+            .fetch("http://scraper/scrape", {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                "x-internal-sync-secret": secret,
+                ...(request.requestId ? { "x-request-id": request.requestId } : {}),
+              },
+              body: JSON.stringify({
+                source: request.source,
+                params: {
+                  selectedSources: request.selectedSources,
+                  searchTerms: request.searchTerms,
+                  selectedCountry: request.selectedCountry,
+                  settings: request.settings,
+                  locationIntent: request.locationIntent,
+                  sourceLocationPlan: request.sourceLocationPlan,
+                },
+              }),
+              signal,
+            });
+          if (!response.ok) {
+            const responseError = await readRenderError(response).catch(() => "[unavailable]");
+            throw Object.assign(
+              new Error(`Scraper container failed with HTTP ${response.status}.`),
+              { details: { status: response.status, response: responseError } },
+            );
+          }
+          const body = (await response.json()) as {
+            ok?: boolean;
+            data?: {
+              extractorSucceeded?: boolean;
+              jobs?: unknown[];
+              sourceErrors?: string[];
+              error?: string;
+              challengeRequired?: string;
+              resumeState?: unknown;
+            };
+          };
+          const data = body.data;
+          if (!body.ok || !data) {
+            throw new Error("Scraper container returned an invalid response.");
+          }
+          return {
+            success: data.extractorSucceeded === true,
+            jobs: (data.jobs ?? []) as never[],
+            ...(data.sourceErrors ? { sourceErrors: data.sourceErrors } : {}),
+            ...(data.error ? { error: data.error } : {}),
+            ...(data.challengeRequired ? { challengeRequired: data.challengeRequired } : {}),
+            ...(data.resumeState !== undefined ? { resumeState: data.resumeState } : {}),
+          };
+        } catch (error) {
+          if (
+            signal.aborted ||
+            (error instanceof Error &&
+              (error.name === "AbortError" || error.name === "TimeoutError"))
+          ) {
+            throw new Error("Scraper container timed out.");
+          }
+          throw error;
+        }
+      },
       remoteRenderPdf: async (body, requestId) => {
         const namespace = this.env.SCRAPER_CONTAINER;
         const secret = resolveInternalContainerSecret(this.env);

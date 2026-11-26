@@ -34,34 +34,53 @@ describe("CompanyFilterPill", () => {
     ]);
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: /^company/i }));
-    const options = await screen.findAllByRole("checkbox");
-    expect(options.map((option) => option.closest("label")?.textContent)).toEqual([
+    const options = await screen.findAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual([
       "A & B2",
       "Google2",
       "Google LLC1",
     ]);
-    expect(screen.queryByRole("textbox", { name: "Search companies" })).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Search companies" })).toBeInTheDocument();
   });
 
-  it("selects multiple companies, deselects, and clears", async () => {
+  it("selects multiple companies, deselects, removes chips, and clears", async () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: /^company/i }));
-    fireEvent.click(await screen.findByRole("checkbox", { name: "Google 2" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Google LLC 1" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Google 2" }));
+    fireEvent.click(screen.getByRole("option", { name: "Google LLC 1" }));
     expect(screen.getByLabelText("Selected companies")).toHaveTextContent("google|google llc");
-    fireEvent.click(screen.getByRole("checkbox", { name: "Google 2" }));
-    expect(screen.getByRole("checkbox", { name: "Google 2" })).not.toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "Google LLC 1" })).toBeChecked();
+
+    expect(screen.getByRole("option", { name: "Google 2" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Google 2" }));
+    expect(screen.getByRole("option", { name: "Google 2" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    expect(screen.getByRole("option", { name: "Google LLC 1" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    // Chip remove button inside the popover also deselects the company.
+    fireEvent.click(screen.getByRole("button", { name: "Remove company Google LLC" }));
+    expect(screen.getByLabelText("Selected companies")).toBeEmptyDOMElement();
+
+    fireEvent.click(screen.getByRole("option", { name: "A & B 2" }));
+    expect(screen.getByLabelText("Selected companies")).toHaveTextContent("a & b");
+
     fireEvent.click(screen.getByRole("button", { name: "All companies" }));
     expect(screen.getByLabelText("Selected companies")).toBeEmptyDOMElement();
     expect(
       screen
-        .getAllByRole("checkbox")
-        .every((option) => option.getAttribute("aria-checked") === "false"),
+        .getAllByRole("option")
+        .every((option) => option.getAttribute("aria-selected") === "false"),
     ).toBe(true);
   });
 
-  it("searches long company lists ignoring case and whitespace", async () => {
+  it("searches company lists ignoring case and whitespace and supports keyboard selection", async () => {
     render(
       <CompanyFilterPill
         companiesWithJobs={getCompaniesWithJobs(
@@ -72,13 +91,26 @@ describe("CompanyFilterPill", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /^company/i }));
-    const search = await screen.findByRole("textbox", {
+    const search = await screen.findByRole("combobox", {
       name: "Search companies",
     });
     fireEvent.change(search, { target: { value: " COMPANY  10 " } });
-    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
-    expect(screen.getByRole("checkbox", { name: "Company 10 1" })).toBeInTheDocument();
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    expect(screen.getByRole("option", { name: "Company 10 1" })).toBeInTheDocument();
+
     fireEvent.change(search, { target: { value: "missing" } });
     expect(screen.getByText("No companies found")).toBeInTheDocument();
+  });
+
+  it("toggles company options with keyboard navigation", async () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: /^company/i }));
+    const search = await screen.findByRole("combobox", {
+      name: "Search companies",
+    });
+
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(screen.getByLabelText("Selected companies")).toHaveTextContent("google");
   });
 });

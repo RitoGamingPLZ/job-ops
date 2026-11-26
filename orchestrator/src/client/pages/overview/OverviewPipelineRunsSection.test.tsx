@@ -98,12 +98,8 @@ describe("OverviewPipelineRunsSection", () => {
           skippedSources: [],
           blockedCompanyKeywordsCount: 2,
           sourceLimits: {
-            ukvisajobsMaxJobs: 50,
             adzunaMaxJobsPerTerm: 50,
-            gradcrackerMaxJobsPerTerm: 50,
-            startupjobsMaxJobsPerTerm: 50,
             jobindexMaxJobsPerTerm: 50,
-            naukriMaxJobsPerTerm: 50,
             jobspyResultsWanted: 20,
           },
           autoSkipScoreThreshold: 60,

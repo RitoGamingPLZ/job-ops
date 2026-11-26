@@ -286,8 +286,8 @@ function RunInsightsBody(props: { insights: PipelineRunInsights; isActiveRun: bo
                 <MetricCard label="PDF renderer" value={savedDetails.effectiveConfig.pdfRenderer} />
                 <MetricCard
                   label="Source limits"
-                  value={`Indeed ${savedDetails.effectiveConfig.sourceLimits.jobspyResultsWanted}; UK Visa Jobs ${savedDetails.effectiveConfig.sourceLimits.ukvisajobsMaxJobs}`}
-                  hint={`Adzuna ${savedDetails.effectiveConfig.sourceLimits.adzunaMaxJobsPerTerm}; Gradcracker ${savedDetails.effectiveConfig.sourceLimits.gradcrackerMaxJobsPerTerm}; startup.jobs ${savedDetails.effectiveConfig.sourceLimits.startupjobsMaxJobsPerTerm}; Jobindex ${savedDetails.effectiveConfig.sourceLimits.jobindexMaxJobsPerTerm}`}
+                  value={`Indeed / LinkedIn ${savedDetails.effectiveConfig.sourceLimits.jobspyResultsWanted}`}
+                  hint={`Adzuna ${savedDetails.effectiveConfig.sourceLimits.adzunaMaxJobsPerTerm}; Jobindex ${savedDetails.effectiveConfig.sourceLimits.jobindexMaxJobsPerTerm}`}
                 />
                 <MetricCard
                   label="Resume projects"

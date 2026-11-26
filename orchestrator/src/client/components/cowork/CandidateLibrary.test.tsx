@@ -551,6 +551,25 @@ describe("candidate library", () => {
       "Go",
     ]);
   });
+  it("picks an existing tag suggestion from the MultiCombobox dropdown inside the dialog", async () => {
+    await mount({ jobId: "job", document: doc });
+    fireEvent.click(screen.getByRole("button", { name: "Projects" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Compiler ·/ }));
+    const dialog = screen.getByRole("dialog");
+    const input = within(dialog).getByLabelText("Add tag");
+    fireEvent.focus(input);
+    const suggestion = await screen.findByRole("option", { name: "Tools" });
+    fireEvent.click(suggestion);
+    expect(within(dialog).getByRole("button", { name: "Remove tag Tools" })).toBeVisible();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenLastCalledWith(
+        "project",
+        expect.objectContaining({ tags: ["Tools"] }),
+        "job",
+      ),
+    );
+  });
   it("scans only experience and project lines for rewording", async () => {
     mocks.lines.mockImplementation((entry) => {
       expect(entry.id).toBe("entry");

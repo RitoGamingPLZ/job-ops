@@ -1,7 +1,11 @@
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { getExtractorRegistry } from "@server/extractors/registry";
-import { getUserId } from "@server/infra/request-context";
+import {
+  getRemoteContainerExtractorRunner,
+  pickSafeContainerExtractorSettings,
+} from "@server/extractors/remote-container-runner";
+import { getRequestId, getUserId } from "@server/infra/request-context";
 import { parseWorkplaceTypes } from "@server/pipeline/settings-parsers";
 import { getAllJobUrls } from "@server/repositories/jobs";
 import * as settingsRepo from "@server/repositories/settings";
@@ -262,9 +266,8 @@ export async function discoverJobsStep(args: {
     { sources: string[]; detail: string; termsTotal?: number }
   >();
 
-  // Sources that authenticate with the operator's own accounts (Adzuna, Seek via
-  // Apify, UKVisaJobs, ...) are off limits to other users unless the extractor
-  // takes their saved credentials instead of the server environment.
+  // Sources that authenticate with the operator's accounts (e.g. Adzuna) are
+  // off limits to other users unless the extractor takes their own credentials.
   const mayUseServerCredentials = await canUseServerCredentials();
 
   for (const source of compatibleSources) {
@@ -319,63 +322,89 @@ export async function discoverJobsStep(args: {
         const browserScopeKey =
           manifest.id === "hiringcafe" ? getPrivateDataScope().scopeKey : null;
         const browserCookieDir = browserScopeKey ? getPrivateCloudflareCookieStorageDir() : null;
-        const run = manifest.run({
-          source: grouped.sources[0],
-          selectedSources: grouped.sources,
-          settings: filteredSettings,
-          searchTerms,
-          selectedCountry: getLegacyLocationSelection(locationIntent),
-          cookieStorageDir: getPrivateCloudflareCookieStorageDir(),
-          browserPageReader:
-            browserScopeKey && browserCookieDir
-              ? (url) => readHiringCafeBrowserPage(browserScopeKey, browserCookieDir, url)
-              : undefined,
-          retryChallengeUrl: args.retryChallengeUrls?.[manifest.id],
-          resumeState: args.resumeStates?.[manifest.id],
-          skippedChallengeSearchStates: args.skippedChallengeSearchStates,
+        const sourceLocationPlan = getSourceLocationPlan(
+          grouped.sources[0] as CrawlSource,
           locationIntent,
-          sourceLocationPlan: getSourceLocationPlan(
-            grouped.sources[0] as CrawlSource,
+          registry.locationCapabilitiesBySource?.[grouped.sources[0] as ExtractorSourceId],
+        );
+        const remoteRunner = getRemoteContainerExtractorRunner();
+        const runViaRemote = () => {
+          if (!remoteRunner) {
+            throw new Error(`Remote container runner unavailable for ${manifest.id}`);
+          }
+          return remoteRunner({
+            manifestId: manifest.id,
+            source: grouped.sources[0] as ExtractorSourceId,
+            selectedSources: grouped.sources,
+            searchTerms,
+            selectedCountry: getLegacyLocationSelection(locationIntent),
+            settings: pickSafeContainerExtractorSettings(manifest.id, filteredSettings),
             locationIntent,
-            registry.locationCapabilitiesBySource?.[grouped.sources[0] as ExtractorSourceId],
-          ),
-          getExistingJobUrls,
-          shouldCancel,
-          onProgress: (event) => {
-            if (shouldCancel()) return;
-            const role =
-              searchTerms.find((term) => event.currentUrl === term) ??
-              searchTerms.find((term) => event.currentUrl?.startsWith(`${term} @`));
-            if (event.termsProcessed !== undefined && role) {
-              progressHelpers.updateFanoutTaskTerms(
-                manifest.id,
-                role,
-                event.termsProcessed,
-                event.termsTotal,
-              );
-            }
-            progressHelpers.crawlingUpdate({
-              source: manifest.id,
-              termsProcessed: event.termsProcessed,
-              termsTotal: event.termsTotal,
-              listPagesProcessed: event.listPagesProcessed,
-              listPagesTotal: event.listPagesTotal,
-              jobCardsFound: event.jobCardsFound,
-              jobPagesEnqueued: event.jobPagesEnqueued,
-              jobPagesSkipped: event.jobPagesSkipped,
-              jobPagesProcessed: event.jobPagesProcessed,
-              phase: event.phase,
-              currentUrl: event.currentUrl,
-            });
-
-            if (event.detail) {
-              updateProgress({
-                step: "crawling",
-                detail: event.detail,
+            sourceLocationPlan,
+            runtime: "container",
+            requestId: getRequestId(),
+          });
+        };
+        const runLocalManifest = () =>
+          manifest.run({
+            source: grouped.sources[0],
+            selectedSources: grouped.sources,
+            settings: filteredSettings,
+            searchTerms,
+            selectedCountry: getLegacyLocationSelection(locationIntent),
+            cookieStorageDir: getPrivateCloudflareCookieStorageDir(),
+            browserPageReader:
+              browserScopeKey && browserCookieDir
+                ? (url) => readHiringCafeBrowserPage(browserScopeKey, browserCookieDir, url)
+                : undefined,
+            retryChallengeUrl: args.retryChallengeUrls?.[manifest.id],
+            resumeState: args.resumeStates?.[manifest.id],
+            skippedChallengeSearchStates: args.skippedChallengeSearchStates,
+            locationIntent,
+            sourceLocationPlan,
+            getExistingJobUrls,
+            shouldCancel,
+            onProgress: (event) => {
+              if (shouldCancel()) return;
+              const role =
+                searchTerms.find((term) => event.currentUrl === term) ??
+                searchTerms.find((term) => event.currentUrl?.startsWith(`${term} @`));
+              if (event.termsProcessed !== undefined && role) {
+                progressHelpers.updateFanoutTaskTerms(
+                  manifest.id,
+                  role,
+                  event.termsProcessed,
+                  event.termsTotal,
+                );
+              }
+              progressHelpers.crawlingUpdate({
+                source: manifest.id,
+                termsProcessed: event.termsProcessed,
+                termsTotal: event.termsTotal,
+                listPagesProcessed: event.listPagesProcessed,
+                listPagesTotal: event.listPagesTotal,
+                jobCardsFound: event.jobCardsFound,
+                jobPagesEnqueued: event.jobPagesEnqueued,
+                jobPagesSkipped: event.jobPagesSkipped,
+                jobPagesProcessed: event.jobPagesProcessed,
+                phase: event.phase,
+                currentUrl: event.currentUrl,
               });
-            }
-          },
-        });
+
+              if (event.detail) {
+                updateProgress({
+                  step: "crawling",
+                  detail: event.detail,
+                });
+              }
+            },
+          });
+        const run = (async () => {
+          if (manifest.runtime === "container" && remoteRunner) {
+            return runViaRemote();
+          }
+          return runLocalManifest();
+        })();
         let result: Awaited<typeof run>;
         try {
           result = await withDiscoverySourceTimeout(run, () => {

@@ -106,8 +106,6 @@ Welcome to the JobOps documentation. This site contains guides for setup, config
 ## Extractors
 
 - **[Extractors Overview](/docs/next/extractors/overview)**
-- **[Gradcracker](/docs/next/extractors/gradcracker)**
-- **[UKVisaJobs](/docs/next/extractors/ukvisajobs)**
 - **[JobSpy](/docs/next/extractors/jobspy)**
 - **[Manual Import](/docs/next/extractors/manual)**
 

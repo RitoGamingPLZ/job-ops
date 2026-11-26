@@ -48,18 +48,12 @@ const sidebars: SidebarsConfig = {
       label: "Extractors",
       items: [
         "extractors/overview",
-        "extractors/gradcracker",
         "extractors/jobspy",
         "extractors/adzuna",
         "extractors/hiring-cafe",
-        "extractors/startup-jobs",
-        "extractors/working-nomads",
-        "extractors/golang-jobs",
         "extractors/jobindex",
-        "extractors/seek",
         "extractors/freehire",
         "extractors/manual",
-        "extractors/ukvisajobs",
       ],
     },
     {

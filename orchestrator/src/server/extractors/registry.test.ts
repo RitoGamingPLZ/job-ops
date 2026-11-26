@@ -43,23 +43,23 @@ describe("extractor registry", () => {
 
     vi.mocked(discovery.discoverManifestPaths).mockResolvedValue([
       "/tmp/jobspy.ts",
-      "/tmp/naukri.ts",
-      "/tmp/ukvisajobs.ts",
+      "/tmp/freehire.ts",
+      "/tmp/adzuna.ts",
     ]);
     vi.mocked(discovery.loadManifestFromFile).mockImplementation(async (path) =>
       path === "/tmp/jobspy.ts"
-        ? makeManifest("jobspy", ["indeed", "linkedin", "glassdoor"], "JobSpy")
-        : path === "/tmp/naukri.ts"
-          ? makeManifest("naukri", ["naukri"], "Naukri")
-          : makeManifest("ukvisajobs", ["ukvisajobs"], "UK Visa Jobs"),
+        ? makeManifest("jobspy", ["indeed", "linkedin"], "JobSpy")
+        : path === "/tmp/freehire.ts"
+          ? makeManifest("freehire", ["freehire"], "FreeHire")
+          : makeManifest("adzuna", ["adzuna"], "Adzuna"),
     );
 
     const registry = await registryModule.initializeExtractorRegistry();
 
     expect(registry.manifests.size).toBe(3);
     expect(registry.manifestBySource.get("linkedin")?.id).toBe("jobspy");
-    expect(registry.manifestBySource.get("naukri")?.id).toBe("naukri");
-    expect(registry.manifestBySource.get("ukvisajobs")?.id).toBe("ukvisajobs");
+    expect(registry.manifestBySource.get("freehire")?.id).toBe("freehire");
+    expect(registry.manifestBySource.get("adzuna")?.id).toBe("adzuna");
     expect(registry.locationCapabilitiesBySource.linkedin).toMatchObject({
       source: "linkedin",
     });
@@ -72,10 +72,10 @@ describe("extractor registry", () => {
 
     vi.mocked(discovery.discoverManifestPaths).mockResolvedValue(["/tmp/jobspy.ts"]);
     vi.mocked(discovery.loadManifestFromFile).mockResolvedValue({
-      ...makeManifest("jobspy", ["indeed", "glassdoor"], "JobSpy"),
+      ...makeManifest("jobspy", ["indeed", "linkedin"], "JobSpy"),
       locationCapabilities: {
         indeed: { supportedCountryKeys: ["UK", "Russia"] },
-        glassdoor: {
+        linkedin: {
           supportedCountryKeys: ["United States"],
           requiresCityLocations: true,
         },
@@ -91,11 +91,11 @@ describe("extractor registry", () => {
       requiresSelectedCountry: false,
       supportsNativeRadius: false,
     });
-    expect(registry.locationCapabilitiesBySource.glassdoor).toEqual({
-      source: "glassdoor",
+    expect(registry.locationCapabilitiesBySource.linkedin).toEqual({
+      source: "linkedin",
       supportedCountryKeys: ["united states"],
       requiresCityLocations: true,
-      requiresSelectedCountry: true,
+      requiresSelectedCountry: false,
       supportsNativeRadius: false,
     });
   });

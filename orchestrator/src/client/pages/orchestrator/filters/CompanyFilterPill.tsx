@@ -1,10 +1,7 @@
 import { Building2 } from "lucide-react";
-import { useId, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { normalizeCompany } from "../companyFilter";
-import { FilterPill } from "./FilterPill";
+import { useMemo } from "react";
+import { MultiCombobox } from "@/components/ui/multi-combobox";
+import { FilterPillTrigger } from "./FilterPill";
 import type { CompanyFilterPillProps } from "./types";
 
 export const CompanyFilterPill = ({
@@ -12,66 +9,39 @@ export const CompanyFilterPill = ({
   onCompanyFilterChange,
   companiesWithJobs,
 }: CompanyFilterPillProps) => {
-  const [search, setSearch] = useState("");
-  const id = useId();
-  const visibleCompanies = companiesWithJobs.filter((company) =>
-    company.value.includes(normalizeCompany(search)),
+  const options = useMemo(
+    () =>
+      companiesWithJobs.map((company) => ({
+        value: company.value,
+        label: company.label,
+        meta: company.count,
+      })),
+    [companiesWithJobs],
   );
 
   return (
-    <FilterPill
-      icon={<Building2 />}
-      label="Company"
-      active={companyFilter.length > 0}
-      badge={companyFilter.length}
-      contentClassName="w-72"
-    >
-      <Button
-        type="button"
-        size="sm"
-        variant={companyFilter.length === 0 ? "default" : "outline"}
-        onClick={() => onCompanyFilterChange([])}
-      >
-        All companies
-      </Button>
-      {companiesWithJobs.length > 10 ? (
-        <Input
-          aria-label="Search companies"
-          placeholder="Search companies..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
+    <MultiCombobox
+      variant="popover"
+      noun="company"
+      value={companyFilter}
+      options={options}
+      onValueChange={onCompanyFilterChange}
+      trigger={
+        <FilterPillTrigger
+          icon={<Building2 />}
+          label="Company"
+          active={companyFilter.length > 0}
+          badge={companyFilter.length}
         />
-      ) : null}
-      <div className="max-h-64 space-y-2 overflow-y-auto">
-        {visibleCompanies.map((company) => {
-          const inputId = `${id}-${encodeURIComponent(company.value)}`;
-          const checked = companyFilter.includes(company.value);
-          return (
-            <label
-              key={company.value}
-              htmlFor={inputId}
-              className="flex cursor-pointer items-center gap-2 text-sm"
-            >
-              <Checkbox
-                id={inputId}
-                checked={checked}
-                onCheckedChange={(next) =>
-                  onCompanyFilterChange(
-                    next === true
-                      ? [...companyFilter, company.value]
-                      : companyFilter.filter((value) => value !== company.value),
-                  )
-                }
-              />
-              <span className="min-w-0 break-words">{company.label}</span>
-              <span className="ml-auto text-muted-foreground tabular-nums">{company.count}</span>
-            </label>
-          );
-        })}
-        {visibleCompanies.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No companies found</p>
-        ) : null}
-      </div>
-    </FilterPill>
+      }
+      popoverTitle="Company"
+      clearLabel="All companies"
+      searchPlaceholder="Search companies..."
+      inputAriaLabel="Search companies"
+      listAriaLabel="Companies"
+      emptyText="No companies found"
+      showSelectedChips
+      contentClassName="w-72"
+    />
   );
 };

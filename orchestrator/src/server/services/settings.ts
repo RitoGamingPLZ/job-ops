@@ -125,9 +125,6 @@ function readPurposeOverrides(
 
 const STATIC_TYPED_DEFAULTS_WITHOUT_ENV: Partial<Record<settingsRepo.SettingKey, () => unknown>> = {
   adzunaMaxJobsPerTerm: () => 50,
-  startupjobsMaxJobsPerTerm: () => 50,
-  seekMaxJobsPerTerm: () => 50,
-  naukriMaxJobsPerTerm: () => 50,
   jobindexMaxJobsPerTerm: () => 50,
   searchTerms: () => ["web developer"],
   searchCities: () => "",

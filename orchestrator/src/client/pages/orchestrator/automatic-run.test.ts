@@ -126,23 +126,23 @@ describe("automatic-run utilities", () => {
     const limits = deriveExtractorLimits({
       budget: 750,
       searchTerms: ["a", "b", "c"],
-      sources: ["indeed", "linkedin", "glassdoor", "gradcracker"],
+      sources: ["indeed", "linkedin", "jobindex"],
     });
 
-    const cap = 3 * limits.jobspyResultsWanted * 3 + limits.gradcrackerMaxJobsPerTerm * 3;
+    const cap = 2 * limits.jobspyResultsWanted * 3 + limits.jobindexMaxJobsPerTerm * 3;
 
     expect(cap).toBeLessThanOrEqual(750);
   });
 
-  it("assigns a dedicated startupjobs max-jobs limit", () => {
+  it("assigns a dedicated Adzuna max-jobs limit", () => {
     const limits = deriveExtractorLimits({
       budget: 120,
       searchTerms: ["backend", "platform"],
-      sources: ["startupjobs"],
+      sources: ["adzuna"],
     });
 
-    expect(limits.startupjobsMaxJobsPerTerm).toBeGreaterThan(0);
-    expect(limits.startupjobsMaxJobsPerTerm).toBe(150);
+    expect(limits.adzunaMaxJobsPerTerm).toBeGreaterThan(0);
+    expect(limits.adzunaMaxJobsPerTerm).toBe(150);
   });
 
   it("assigns a dedicated Jobindex max-jobs limit", () => {

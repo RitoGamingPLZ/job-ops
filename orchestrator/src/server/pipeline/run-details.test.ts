@@ -31,11 +31,7 @@ function makeSettings() {
       default: [],
       override: null,
     },
-    ukvisajobsMaxJobs: { value: 50, default: 50, override: null },
     adzunaMaxJobsPerTerm: { value: 50, default: 50, override: null },
-    gradcrackerMaxJobsPerTerm: { value: 50, default: 50, override: null },
-    naukriMaxJobsPerTerm: { value: 50, default: 50, override: null },
-    startupjobsMaxJobsPerTerm: { value: 50, default: 50, override: null },
     jobindexMaxJobsPerTerm: { value: 50, default: 50, override: null },
     jobspyResultsWanted: { value: 20, default: 20, override: null },
     autoSkipScoreThreshold: { value: 65, default: 65, override: null },
@@ -69,7 +65,7 @@ describe("buildPipelineRunSavedDetails", () => {
     const savedDetails = await buildPipelineRunSavedDetails({
       topN: 5,
       minSuitabilityScore: 60,
-      sources: ["gradcracker", "linkedin", "seek"],
+      sources: ["jobindex", "linkedin", "adzuna"],
       outputDir: "/tmp",
       locationIntent: {
         selectedCountry: "united states",
@@ -88,13 +84,10 @@ describe("buildPipelineRunSavedDetails", () => {
     expect(savedDetails.effectiveConfig.workplaceTypes).toEqual(["remote"]);
     expect(savedDetails.effectiveConfig.locationSearchScope).toBe("selected_only");
     expect(savedDetails.effectiveConfig.locationMatchStrictness).toBe("exact_only");
-    expect(savedDetails.effectiveConfig.compatibleSources).toEqual(["linkedin"]);
+    expect(savedDetails.effectiveConfig.compatibleSources).toEqual(["linkedin", "adzuna"]);
     expect(savedDetails.effectiveConfig.skippedSources).toEqual([
       expect.objectContaining({
-        source: "gradcracker",
-      }),
-      expect.objectContaining({
-        source: "seek",
+        source: "jobindex",
       }),
     ]);
   });

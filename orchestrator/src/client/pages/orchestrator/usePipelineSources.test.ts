@@ -106,59 +106,74 @@ describe("usePipelineSources", () => {
     ensureSessionStorage().clear();
   });
 
-  it("filters stored sources to enabled sources", () => {
-    ensureStorage().setItem(
-      PIPELINE_SOURCES_STORAGE_KEY,
-      JSON.stringify(["gradcracker", "ukvisajobs"]),
-    );
-
-    const enabledSources = ["gradcracker"] as const;
+  it("pre-selects core default sources for new users while leaving opt-in sources unchecked", () => {
+    const enabledSources = [
+      "indeed",
+      "linkedin",
+      "hiringcafe",
+      "adzuna",
+      "jobindex",
+      "freehire",
+    ] as const;
 
     const { result } = renderHook(() => usePipelineSources(enabledSources));
 
-    expect(result.current.pipelineSources).toEqual(["gradcracker"]);
+    expect(result.current.pipelineSources).toEqual(["linkedin", "indeed", "freehire"]);
   });
 
-  it("falls back to the first enabled source", () => {
-    ensureStorage().setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["ukvisajobs"]));
+  it("filters stored sources to enabled sources", () => {
+    ensureStorage().setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["freehire", "adzuna"]));
 
-    const enabledSources = ["gradcracker", "linkedin"] as const;
+    const enabledSources = ["freehire"] as const;
 
     const { result } = renderHook(() => usePipelineSources(enabledSources));
 
-    expect(result.current.pipelineSources).toEqual(["gradcracker"]);
+    expect(result.current.pipelineSources).toEqual(["freehire"]);
+  });
+
+  it("falls back to core defaults matching enabled sources, then first enabled source", () => {
+    ensureStorage().setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["adzuna"]));
+
+    const enabledWithCore = ["hiringcafe", "linkedin"] as const;
+    const { result: withCore } = renderHook(() => usePipelineSources(enabledWithCore));
+    expect(withCore.current.pipelineSources).toEqual(["linkedin"]);
+
+    ensureStorage().clear();
+    const enabledWithoutCore = ["hiringcafe", "jobindex"] as const;
+    const { result: withoutCore } = renderHook(() => usePipelineSources(enabledWithoutCore));
+    expect(withoutCore.current.pipelineSources).toEqual(["hiringcafe"]);
   });
 
   it("ignores toggles for disabled sources", () => {
-    ensureStorage().setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["gradcracker"]));
+    ensureStorage().setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["freehire"]));
 
-    const enabledSources = ["gradcracker"] as const;
+    const enabledSources = ["freehire"] as const;
 
     const { result } = renderHook(() => usePipelineSources(enabledSources));
 
     act(() => {
-      result.current.toggleSource("ukvisajobs", true);
+      result.current.toggleSource("adzuna", true);
     });
 
-    expect(result.current.pipelineSources).toEqual(["gradcracker"]);
+    expect(result.current.pipelineSources).toEqual(["freehire"]);
   });
 
   it("loads and saves sources using workspace-scoped storage keys", () => {
     const sessionStorage = ensureSessionStorage();
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-one"));
-    ensureStorage().setItem(getPipelineSourcesStorageKey(), JSON.stringify(["ukvisajobs"]));
+    ensureStorage().setItem(getPipelineSourcesStorageKey(), JSON.stringify(["adzuna"]));
 
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-two"));
     ensureStorage().setItem(getPipelineSourcesStorageKey(), JSON.stringify(["linkedin"]));
 
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-one"));
-    const enabledSources = ["ukvisajobs", "linkedin"] as const;
+    const enabledSources = ["adzuna", "linkedin"] as const;
     const { result } = renderHook(() => usePipelineSources(enabledSources));
 
     expect(getPipelineSourcesStorageKey()).toBe(
       `${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-one`,
     );
-    expect(result.current.pipelineSources).toEqual(["ukvisajobs"]);
+    expect(result.current.pipelineSources).toEqual(["adzuna"]);
 
     act(() => {
       result.current.toggleSource("linkedin", true);
@@ -168,7 +183,7 @@ describe("usePipelineSources", () => {
       JSON.parse(
         ensureStorage().getItem(`${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-one`) ?? "[]",
       ),
-    ).toEqual(["ukvisajobs", "linkedin"]);
+    ).toEqual(["adzuna", "linkedin"]);
     expect(
       JSON.parse(
         ensureStorage().getItem(`${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-two`) ?? "[]",
@@ -180,12 +195,12 @@ describe("usePipelineSources", () => {
     const sessionStorage = ensureSessionStorage();
     const localStorage = ensureStorage();
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-one"));
-    localStorage.setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["ukvisajobs"]));
+    localStorage.setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["adzuna"]));
 
-    const enabledSources = ["ukvisajobs", "linkedin"] as const;
+    const enabledSources = ["adzuna", "linkedin"] as const;
     const { result } = renderHook(() => usePipelineSources(enabledSources));
 
-    expect(result.current.pipelineSources).toEqual(["ukvisajobs"]);
+    expect(result.current.pipelineSources).toEqual(["adzuna"]);
     expect(localStorage.getItem(`${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-one`)).toBe(
       localStorage.getItem(PIPELINE_SOURCES_STORAGE_KEY),
     );

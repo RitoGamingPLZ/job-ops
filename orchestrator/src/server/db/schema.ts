@@ -252,7 +252,7 @@ export const jobs = sqliteTable(
     }),
 
     // From crawler
-    source: text("source").notNull().default("gradcracker"),
+    source: text("source").notNull().default("manual"),
     sourceJobId: text("source_job_id"),
     postingId: text("posting_id"),
     jobUrlDirect: text("job_url_direct"),

@@ -53,9 +53,6 @@ const NATIVE_ONLY_PACKAGES = [
   "jsdom",
   "cheerio",
   "undici",
-  "apify",
-  "apify-client",
-  "startup-jobs-scraper",
 ];
 
 const NATIVE_ONLY_PREFIXES = [

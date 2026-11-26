@@ -112,10 +112,8 @@ Run from repository root:
 1. `vp check`
 2. `npm run check:types:shared`
 3. `npm --workspace orchestrator run check:types`
-4. `npm --workspace gradcracker-extractor run check:types`
-5. `npm --workspace ukvisajobs-extractor run check:types`
-6. `npm --workspace orchestrator run build:client`
-7. `npm --workspace orchestrator run test:run`
+4. `npm --workspace orchestrator run build:client`
+5. `npm --workspace orchestrator run test:run`
 
 ### Native module note (better-sqlite3)
 

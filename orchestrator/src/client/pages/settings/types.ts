@@ -40,11 +40,9 @@ export type ChatValues = {
 
 export type EnvSettingsValues = {
   readable: {
-    ukvisajobsEmail: string;
     adzunaAppId: string;
   };
   private: {
-    ukvisajobsPasswordHint: string | null;
     adzunaAppKeyHint: string | null;
     webhookSecretHint: string | null;
   };

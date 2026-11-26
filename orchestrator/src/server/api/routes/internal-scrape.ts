@@ -4,7 +4,7 @@ import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { getExtractorRegistry } from "@server/extractors/registry";
 import type { ExtractorSourceId } from "@shared/extractors";
-import type { ExtractorRuntimeContext } from "@shared/types";
+import type { ExtractorRuntimeContext, LocationIntent, SourceLocationPlan } from "@shared/types";
 import { type NextFunction, type Request, type Response, Router } from "express";
 import { verifyInternalScrapeSecret } from "./internal-auth";
 
@@ -40,6 +40,14 @@ async function handleInternalScrapeRun(
     }
 
     const params = body.params ?? {};
+    const requestedSelectedSources = Array.isArray(params.selectedSources)
+      ? params.selectedSources.filter(
+          (item): item is string =>
+            typeof item === "string" && manifest.providesSources.includes(item.trim()),
+        )
+      : [];
+    const selectedSources =
+      requestedSelectedSources.length > 0 ? requestedSelectedSources : [source];
     const searchTerms = Array.isArray(params.searchTerms)
       ? params.searchTerms.filter(
           (term): term is string => typeof term === "string" && term.trim().length > 0,
@@ -53,11 +61,19 @@ async function handleInternalScrapeRun(
     const selectedCountry =
       typeof params.selectedCountry === "string" && params.selectedCountry.trim()
         ? params.selectedCountry.trim()
-        : "uk";
+        : "";
+    const locationIntent =
+      params.locationIntent && typeof params.locationIntent === "object"
+        ? (params.locationIntent as LocationIntent)
+        : undefined;
+    const sourceLocationPlan =
+      params.sourceLocationPlan && typeof params.sourceLocationPlan === "object"
+        ? (params.sourceLocationPlan as SourceLocationPlan)
+        : undefined;
 
     const context: ExtractorRuntimeContext = {
       source,
-      selectedSources: [source],
+      selectedSources,
       searchTerms,
       selectedCountry,
       settings:
@@ -66,6 +82,19 @@ async function handleInternalScrapeRun(
           : {},
       ...(typeof params.cookieStorageDir === "string"
         ? { cookieStorageDir: params.cookieStorageDir }
+        : {}),
+      ...(locationIntent ? { locationIntent } : {}),
+      ...(sourceLocationPlan ? { sourceLocationPlan } : {}),
+      ...(typeof params.retryChallengeUrl === "string"
+        ? { retryChallengeUrl: params.retryChallengeUrl }
+        : {}),
+      ...(params.resumeState !== undefined ? { resumeState: params.resumeState } : {}),
+      ...(Array.isArray(params.skippedChallengeSearchStates)
+        ? {
+            skippedChallengeSearchStates: params.skippedChallengeSearchStates.filter(
+              (item): item is string => typeof item === "string",
+            ),
+          }
         : {}),
     };
 
@@ -83,15 +112,22 @@ async function handleInternalScrapeRun(
     logger.info("Internal scrape task completed", {
       taskId: body.taskId ?? null,
       source,
+      selectedSources,
       extractorSucceeded: result.success,
       postingsCount: postings.length,
+      jobsCount: result.jobs.length,
     });
 
     ok(res, {
       taskId: body.taskId ?? null,
       source,
+      extractorSucceeded: result.success,
+      jobs: result.jobs,
       postings,
+      sourceErrors: result.sourceErrors ?? [],
       ...(result.error ? { error: result.error } : {}),
+      ...(result.challengeRequired ? { challengeRequired: result.challengeRequired } : {}),
+      ...(result.resumeState !== undefined ? { resumeState: result.resumeState } : {}),
     });
   } catch (error) {
     logger.error("Internal scrape task failed", {

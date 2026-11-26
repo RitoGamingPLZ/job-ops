@@ -5,6 +5,26 @@ declare module "*do-entry.mjs" {
     env?: Record<string, unknown>;
     port?: number;
     remoteRenderPdf?: (body: string, requestId?: string) => Promise<Uint8Array>;
+    remoteRunContainerExtractor?: (request: RemoteContainerExtractorRequest) => Promise<{
+      success: boolean;
+      jobs: unknown[];
+      sourceErrors?: string[];
+      error?: string;
+      challengeRequired?: string;
+      resumeState?: unknown;
+    }>;
+  }
+
+  export interface RemoteContainerExtractorRequest {
+    manifestId: string;
+    source: string;
+    selectedSources: string[];
+    searchTerms: string[];
+    selectedCountry: string;
+    settings: Record<string, string>;
+    locationIntent?: unknown;
+    sourceLocationPlan?: unknown;
+    requestId?: string;
   }
 
   export interface OnTaskDonePosting {

@@ -1,13 +1,13 @@
 ---
 id: jobspy
 title: JobSpy Extractor
-description: Search Indeed, LinkedIn, and Glassdoor with JobSpy and understand location filtering.
+description: Search Indeed and LinkedIn with JobSpy and understand location filtering.
 sidebar_position: 3
 ---
 
 ## What it is
 
-JobSpy searches [Indeed](https://www.indeed.com), [LinkedIn](https://www.linkedin.com/jobs), and [Glassdoor](https://www.glassdoor.com). JobOps runs its Python wrapper for each search term and location, then normalizes and imports the results.
+JobSpy searches [Indeed](https://www.indeed.com) and [LinkedIn](https://www.linkedin.com/jobs). JobOps runs its Python wrapper for each search term and location, then normalizes and imports the results.
 
 ## Why it exists
 
@@ -17,10 +17,10 @@ The wrapper lets these sources share your search settings and pipeline. JobOps n
 
 1. In Settings, select a country and enter your search terms.
 2. Add cities if you want a city search, or use Map radius mode to search nearby places.
-3. Select Indeed, LinkedIn, or Glassdoor in the search sources and run the pipeline.
+3. Select Indeed or LinkedIn in the search sources and run the pipeline.
 4. Check the saved run details for source errors and the number of jobs discovered.
 
-Indeed and Glassdoor receive the selected country through `country_indeed`. LinkedIn receives a country-qualified location: for example, `New York City, united states`. Without a city, LinkedIn receives the selected country alone.
+Indeed receives the selected country through `country_indeed`. LinkedIn receives a country-qualified location: for example, `New York City, united states`. Without a city, LinkedIn receives the selected country alone.
 
 JobOps recognizes country suffixes such as `US` and `USA` in results like `New York, NY, US`. LinkedIn result labels often omit the country, so JobOps retains the country from that run's qualified native search. An explicit country returned by the source takes precedence over the search country. Ambiguous city/state pairs such as `San Francisco, CA` are not treated as Canadian country evidence.
 

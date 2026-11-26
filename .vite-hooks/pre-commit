@@ -1,1 +1,8 @@
+# Format, lint and type-check staged files with the same command CI runs
+# (auto-fixing what it can). Skips with a warning where Vite+ is not installed
+# (for example a checkout without Node); CI still enforces the same checks.
+if ! command -v vp >/dev/null 2>&1; then
+  echo "pre-commit: 'vp' not found (run 'npm install'); skipping format/lint check. CI will still enforce it." >&2
+  exit 0
+fi
 vp staged
