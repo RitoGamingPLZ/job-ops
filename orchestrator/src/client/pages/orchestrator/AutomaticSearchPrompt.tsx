@@ -1,7 +1,15 @@
+import { WatchlistEmptyTemplateCard } from "@client/pages/watchlist/WatchlistEmptyTemplateCard";
+import type {
+  WatchlistSource,
+  WatchlistSourceGroup,
+  WatchlistSourceScanInput,
+  WatchlistSourceScanResponse,
+} from "@shared/types";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import type { AddCustomWatchlistSourceInput } from "./useWatchlistPipelineSources";
 
 const SEARCH_PROMPT_EXAMPLES = [
   {
@@ -24,6 +32,15 @@ const SEARCH_PROMPT_EXAMPLES = [
 interface AutomaticSearchPromptProps {
   searchPrompt: string;
   isPlanningSearch: boolean;
+  canUseWatchlist?: boolean;
+  watchlistSourcesCount?: number;
+  isWatchlistSourcesLoading?: boolean;
+  watchlistGroups?: WatchlistSourceGroup[];
+  watchlistCatalogSources?: WatchlistSource[];
+  isMutatingWatchlist?: boolean;
+  onApplyWatchlistGroup?: (group: WatchlistSourceGroup) => Promise<void>;
+  onAddCustomWatchlistSource?: (input: AddCustomWatchlistSourceInput) => Promise<boolean>;
+  onScanWatchlistSource?: (input: WatchlistSourceScanInput) => Promise<WatchlistSourceScanResponse>;
   onSearchPromptChange: (value: string) => void;
   onGenerateSearchPlan: () => void;
   onConfigureManually: () => void;
@@ -32,10 +49,25 @@ interface AutomaticSearchPromptProps {
 export function AutomaticSearchPrompt({
   searchPrompt,
   isPlanningSearch,
+  canUseWatchlist = true,
+  watchlistSourcesCount = 0,
+  isWatchlistSourcesLoading = false,
+  watchlistGroups = [],
+  watchlistCatalogSources = [],
+  isMutatingWatchlist = false,
+  onApplyWatchlistGroup,
+  onAddCustomWatchlistSource,
+  onScanWatchlistSource,
   onSearchPromptChange,
   onGenerateSearchPlan,
   onConfigureManually,
 }: AutomaticSearchPromptProps) {
+  const showEmptyWatchlistTemplate =
+    canUseWatchlist &&
+    !isWatchlistSourcesLoading &&
+    watchlistSourcesCount === 0 &&
+    Boolean(onApplyWatchlistGroup || onAddCustomWatchlistSource);
+
   return (
     <div className="flex w-full flex-col">
       <header className="mb-6 space-y-3">
@@ -95,6 +127,17 @@ export function AutomaticSearchPrompt({
         </Button>
       </div>
       <p className="mt-4 text-xs text-muted-foreground">Nothing runs until you start the search.</p>
+      {showEmptyWatchlistTemplate ? (
+        <WatchlistEmptyTemplateCard
+          className="mt-6"
+          groups={watchlistGroups}
+          catalogSources={watchlistCatalogSources}
+          isMutating={isMutatingWatchlist}
+          onApplyGroup={onApplyWatchlistGroup}
+          onAddCustomSource={onAddCustomWatchlistSource}
+          onScanSource={onScanWatchlistSource}
+        />
+      ) : null}
     </div>
   );
 }

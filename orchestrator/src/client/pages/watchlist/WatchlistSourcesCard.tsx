@@ -21,13 +21,15 @@ import { cn } from "@/lib/utils";
 import { CompanyRatingBadges } from "./CompanyRatingBadges";
 import { SuggestFiltersPanel } from "./SuggestFiltersPanel";
 import type { WatchlistSourceDraftCardProps } from "./types";
-import { WatchlistGroupsMenu } from "./WatchlistGroupsMenu";
 import {
   CUSTOM_SOURCE_VALUE,
   getCoveredCatalogSourceIds,
   getNormalizedWatchlistCareersUrl,
+  getWatchlistBaseUrlMatchKey,
   getWatchlistPreviewLabel,
 } from "./utils";
+import { WatchlistEmptyTemplateCard } from "./WatchlistEmptyTemplateCard";
+import { WatchlistGroupsMenu } from "./WatchlistGroupsMenu";
 
 function getSourceDraftDetails(
   draftCatalogSourceId: string | null,
@@ -44,19 +46,35 @@ function getSourceDropdownOptions(
   catalogSources: WatchlistSource[],
   sourceTypes: WatchlistSourceTypeDescriptor[],
 ) {
+  const customSourceTypes = sourceTypes.filter((sourceType) => sourceType.supportsCustomSource);
+  const careersSiteCustom = customSourceTypes.filter(
+    (sourceType) => sourceType.sourceType === "careers_site",
+  );
+  const otherCustom = customSourceTypes.filter(
+    (sourceType) => sourceType.sourceType !== "careers_site",
+  );
+  // Put copy-and-paste careers site URL as the very first option so users can
+  // paste any career page before scrolling the curated company catalog.
+  const firstCustomOptions =
+    careersSiteCustom.length > 0 ? careersSiteCustom : otherCustom.slice(0, 1);
+  const remainingCustomOptions = careersSiteCustom.length > 0 ? otherCustom : otherCustom.slice(1);
+
   return [
+    ...firstCustomOptions.map((sourceType) => ({
+      value: getCustomSourceValue(sourceType.sourceType),
+      label: sourceType.customSourceOptionLabel,
+      searchText: sourceType.customSourceSearchText,
+    })),
     ...catalogSources.map((source) => ({
       value: source.id,
       label: source.label,
-      searchText: `${source.label} ${source.careersUrl}`.trim(),
+      searchText: `${source.label} ${source.careersUrl} ${source.description ?? ""}`.trim(),
     })),
-    ...sourceTypes
-      .filter((sourceType) => sourceType.supportsCustomSource)
-      .map((sourceType) => ({
-        value: getCustomSourceValue(sourceType.sourceType),
-        label: sourceType.customSourceOptionLabel,
-        searchText: sourceType.customSourceSearchText,
-      })),
+    ...remainingCustomOptions.map((sourceType) => ({
+      value: getCustomSourceValue(sourceType.sourceType),
+      label: sourceType.customSourceOptionLabel,
+      searchText: sourceType.customSourceSearchText,
+    })),
   ];
 }
 
@@ -257,19 +275,29 @@ export function WatchlistSourcesCard({
                 const normalizedCustomUrl = draft.isCustom
                   ? getNormalizedWatchlistCareersUrl(draft.sourceType, draft.customUrl)
                   : "";
+                const customUrlMatchKey = draft.isCustom
+                  ? getWatchlistBaseUrlMatchKey(draft.customUrl)
+                  : "";
                 const matchingCatalogSource = draft.isCustom
                   ? catalogSources.find(
                       (source) =>
-                        source.sourceType === draft.sourceType &&
-                        source.careersUrl === normalizedCustomUrl,
+                        (source.sourceType === draft.sourceType &&
+                          source.careersUrl === normalizedCustomUrl) ||
+                        (customUrlMatchKey.length > 0 &&
+                          getWatchlistBaseUrlMatchKey(source.careersUrl) === customUrlMatchKey),
                     )
                   : null;
+                const customLabel = (draft.customLabel ?? "").trim();
                 const label = draft.isCustom
-                  ? draft.customUrl.trim()
-                    ? (matchingCatalogSource?.label ??
-                      getWatchlistPreviewLabel(draft.sourceType, draft.customUrl))
-                    : (descriptor?.customSourceInputLabel ?? "Custom source")
+                  ? customLabel ||
+                    (draft.customUrl.trim()
+                      ? (matchingCatalogSource?.label ??
+                        getWatchlistPreviewLabel(draft.sourceType, draft.customUrl))
+                      : (descriptor?.customSourceInputLabel ?? "Paste career site URL"))
                   : (selectedSource?.label ?? `New Source`);
+                const descriptionText =
+                  (draft.description ?? "").trim() ||
+                  (draft.isCustom ? "" : (selectedSource?.description ?? ""));
                 const rating = (draft.isCustom ? matchingCatalogSource : selectedSource)?.rating;
                 const careersUrl = draft.isCustom
                   ? normalizedCustomUrl
@@ -335,6 +363,11 @@ export function WatchlistSourcesCard({
                               tooltipClassName="max-w-64 text-xs leading-relaxed"
                             />
                           </div>
+                          {descriptionText && !showEditor ? (
+                            <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                              {descriptionText}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     )}
@@ -357,6 +390,55 @@ export function WatchlistSourcesCard({
 
                     {showEditor && (
                       <div className="w-full space-y-1.5">
+                        {draft.isCustom ? (
+                          <Input
+                            value={draft.customUrl}
+                            onChange={(event) =>
+                              onUpdateDraft(index, (current) => ({
+                                ...current,
+                                customUrl: event.target.value,
+                              }))
+                            }
+                            placeholder={
+                              descriptor?.customSourcePlaceholder ??
+                              "https://www.company.com/careers"
+                            }
+                            aria-label={`${descriptor?.customSourceInputLabel ?? "Custom source URL"} ${index + 1}`}
+                            className="h-8 rounded-md bg-background/60 text-xs"
+                          />
+                        ) : null}
+                        {draft.isCustom && matchingCatalogSource ? (
+                          <div className="flex flex-wrap items-center justify-between gap-1.5 rounded-md border border-primary/25 bg-primary/5 px-2 py-1.5 text-[11px]">
+                            <span className="min-w-0 truncate font-medium text-foreground">
+                              Saved source: {matchingCatalogSource.label}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[10px]"
+                              onClick={() => {
+                                onSourceMethodSelected({
+                                  method: "catalog",
+                                  catalogSourceId: matchingCatalogSource.id,
+                                  sourceType: matchingCatalogSource.sourceType,
+                                  careersUrl: matchingCatalogSource.careersUrl,
+                                });
+                                onUpdateDraft(index, (current) => ({
+                                  ...current,
+                                  isCustom: false,
+                                  sourceType: matchingCatalogSource.sourceType,
+                                  catalogSourceId: matchingCatalogSource.id,
+                                  customLabel: matchingCatalogSource.label,
+                                  description:
+                                    matchingCatalogSource.description ?? current.description ?? "",
+                                }));
+                              }}
+                            >
+                              Reuse saved
+                            </Button>
+                          </div>
+                        ) : null}
                         <SearchableDropdown
                           inputId={dropdownInputId}
                           value={
@@ -408,18 +490,32 @@ export function WatchlistSourcesCard({
                           contentClassName="w-[var(--radix-popover-trigger-width)] min-w-[320px]"
                         />
                         {draft.isCustom ? (
-                          <Input
-                            value={draft.customUrl}
-                            onChange={(event) =>
-                              onUpdateDraft(index, (current) => ({
-                                ...current,
-                                customUrl: event.target.value,
-                              }))
-                            }
-                            placeholder={descriptor?.customSourcePlaceholder ?? "https://..."}
-                            aria-label={`${descriptor?.customSourceInputLabel ?? "Custom source URL"} ${index + 1}`}
-                            className="h-8 rounded-md bg-background/60 text-xs"
-                          />
+                          <>
+                            <Input
+                              value={draft.customLabel ?? ""}
+                              onChange={(event) =>
+                                onUpdateDraft(index, (current) => ({
+                                  ...current,
+                                  customLabel: event.target.value,
+                                }))
+                              }
+                              placeholder="Company or source name (optional)"
+                              aria-label={`Source name ${index + 1}`}
+                              className="h-8 rounded-md bg-background/60 text-xs"
+                            />
+                            <Input
+                              value={draft.description ?? ""}
+                              onChange={(event) =>
+                                onUpdateDraft(index, (current) => ({
+                                  ...current,
+                                  description: event.target.value,
+                                }))
+                              }
+                              placeholder="Description (role focus, team, or notes)"
+                              aria-label={`Source description ${index + 1}`}
+                              className="h-8 rounded-md bg-background/60 text-xs"
+                            />
+                          </>
                         ) : null}
                       </div>
                     )}
@@ -432,6 +528,7 @@ export function WatchlistSourcesCard({
                         }
                         careersUrl={careersUrl}
                         label={label}
+                        description={draft.description}
                         onUse={(suggestedUrl) => {
                           const sourceType = draft.isCustom
                             ? draft.sourceType
@@ -456,9 +553,13 @@ export function WatchlistSourcesCard({
               })}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-border bg-card/70 px-3 py-4 text-xs text-muted-foreground">
-              No watchlist sources selected yet.
-            </div>
+            <WatchlistEmptyTemplateCard
+              mode="draft"
+              groups={groups ?? []}
+              catalogSources={catalogSources}
+              onApplyGroup={onAddGroup}
+              onOpenCustomDraft={onAddSource}
+            />
           )}
         </AccordionContent>
       </AccordionItem>

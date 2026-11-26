@@ -7,6 +7,7 @@ import { queryKeys } from "@client/lib/queryKeys";
 import { createLocationIntentFromLegacyInputs } from "@shared/location-intelligence.js";
 import {
   MAX_WATCHLIST_SOURCES,
+  type UpdateWatchlistSelectionsInput,
   type WatchlistJobResult,
   type WatchlistSelectedSource,
   type WatchlistSourceGroup,
@@ -31,6 +32,7 @@ import {
   createSourceDraft,
   formatWatchlistCheckTimestamp,
   getCoveredCatalogSourceIds,
+  getDefaultCustomWatchlistSourceType,
   getNormalizedWatchlistCareersUrl,
   getWatchlistSelectionIdentityKey,
   getWorkspaceJobPath,
@@ -44,10 +46,17 @@ interface DraftSelectionPayload {
   sourceType: string;
   label: string;
   careersUrl: string;
+  description?: string;
 }
 
 function getWatchlistSelectionsKey(selections: DraftSelectionPayload[]): string {
-  return JSON.stringify(selections.map((selection) => getWatchlistSelectionIdentityKey(selection)));
+  return JSON.stringify(
+    selections.map((selection) => ({
+      identity: getWatchlistSelectionIdentityKey(selection),
+      label: selection.label,
+      description: selection.description ?? "",
+    })),
+  );
 }
 
 function getSourceTypeDescriptor(
@@ -108,7 +117,7 @@ export const WatchlistPage: React.FC = () => {
   });
 
   const saveSourcesMutation = useMutation({
-    mutationFn: api.updateWatchlistSources,
+    mutationFn: (input: UpdateWatchlistSelectionsInput) => api.updateWatchlistSources(input),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
@@ -149,10 +158,12 @@ export const WatchlistPage: React.FC = () => {
   const catalogSources = watchlistSourcesResponse?.catalogSources ?? [];
   const selectedSources = watchlistSourcesResponse?.selectedSources ?? [];
   const sourceTypes = watchlistSourcesResponse?.availableSourceTypes ?? [];
-  const defaultSourceType = sourceTypes[0]?.sourceType ?? "workday";
+  const defaultSourceType = getDefaultCustomWatchlistSourceType(sourceTypes);
 
   useEffect(() => {
-    const savedSources = watchlistSourcesResponse?.selectedSources ?? [];
+    const savedSources = watchlistSourcesResponse?.selectedSources;
+    if (!savedSources) return;
+
     if (savedSources.length === 0) {
       setSourceDrafts([]);
       return;
@@ -165,6 +176,8 @@ export const WatchlistPage: React.FC = () => {
         sourceType: source.sourceType,
         catalogSourceId: source.catalogSourceId,
         customUrl: source.isCustom ? source.careersUrl : "",
+        customLabel: source.isCustom ? source.label : "",
+        description: source.description ?? "",
       })),
     );
   }, [watchlistSourcesResponse?.selectedSources]);
@@ -189,9 +202,13 @@ export const WatchlistPage: React.FC = () => {
           ? savedSource.isCustom &&
             savedSource.catalogSourceId === null &&
             savedSource.sourceType === draft.sourceType &&
+            (draft.customLabel ?? "").trim() === savedSource.label &&
+            (draft.description ?? "").trim() === (savedSource.description ?? "").trim() &&
             getNormalizedWatchlistCareersUrl(savedSource.sourceType, savedSource.careersUrl) ===
               getNormalizedWatchlistCareersUrl(draft.sourceType, draft.customUrl)
-          : !savedSource.isCustom && savedSource.catalogSourceId === draft.catalogSourceId;
+          : !savedSource.isCustom &&
+            savedSource.catalogSourceId === draft.catalogSourceId &&
+            (draft.description ?? "").trim() === (savedSource.description ?? "").trim();
 
         return [draft.id, isWatching ? "watching" : "unsaved"] as const;
       }),
@@ -230,7 +247,14 @@ export const WatchlistPage: React.FC = () => {
   function addSourceDraft() {
     setSourceDrafts((current) => [
       ...current,
-      createSourceDraft({ sourceType: defaultSourceType }),
+      createSourceDraft({
+        isCustom: true,
+        sourceType: defaultSourceType,
+        catalogSourceId: null,
+        customUrl: "",
+        customLabel: "",
+        description: "",
+      }),
     ]);
   }
 
@@ -321,11 +345,14 @@ export const WatchlistPage: React.FC = () => {
           };
         }
 
+        const customLabel = draft.customLabel?.trim();
+        const description = draft.description?.trim();
         selections.push({
           catalogSourceId: null,
           sourceType: draft.sourceType,
-          label: careersUrl,
+          label: customLabel || careersUrl,
           careersUrl,
+          ...(description ? { description } : {}),
         });
         continue;
       }
@@ -345,11 +372,13 @@ export const WatchlistPage: React.FC = () => {
         };
       }
 
+      const description = draft.description?.trim() || catalogSource.description?.trim() || "";
       selections.push({
         catalogSourceId: catalogSource.id,
         sourceType: catalogSource.sourceType,
         label: catalogSource.label,
         careersUrl: catalogSource.careersUrl,
+        ...(description ? { description } : {}),
       });
     }
 
@@ -374,6 +403,7 @@ export const WatchlistPage: React.FC = () => {
           sourceType: source.sourceType,
           label: source.label,
           careersUrl: getNormalizedWatchlistCareersUrl(source.sourceType, source.careersUrl),
+          ...(source.description?.trim() ? { description: source.description.trim() } : {}),
         })),
       ),
     [selectedSources],

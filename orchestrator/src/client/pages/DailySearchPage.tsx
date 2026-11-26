@@ -39,10 +39,17 @@ export const DailySearchPage: React.FC = () => {
   const enabledSources = useMemo(() => getEnabledSources(settings ?? null), [settings]);
   const { pipelineSources, setPipelineSources, toggleSource } = usePipelineSources(enabledSources);
   const {
+    canUseWatchlist,
     watchlistSources,
+    watchlistCatalogSources,
+    watchlistGroups,
     selectedWatchlistSourceIds,
     setSelectedWatchlistSourceIds,
     toggleWatchlistSource,
+    applyWatchlistGroup,
+    addCustomWatchlistSource,
+    scanCustomWatchlistSource,
+    isMutatingWatchlist,
     isLoading: isWatchlistSourcesLoading,
   } = useWatchlistPipelineSources({ enabled: appMode === "hosted" || permissions.watchlist });
   const searchPresetProps = usePipelineSearchPresets({ enabled: true });
@@ -102,10 +109,17 @@ export const DailySearchPage: React.FC = () => {
           pipelineSources={pipelineSources}
           onToggleSource={toggleSource}
           onSetPipelineSources={setPipelineSources}
+          canUseWatchlist={canUseWatchlist}
           watchlistSources={watchlistSources}
+          watchlistCatalogSources={watchlistCatalogSources}
+          watchlistGroups={watchlistGroups}
           selectedWatchlistSourceIds={selectedWatchlistSourceIds}
           onToggleWatchlistSource={toggleWatchlistSource}
           onSetSelectedWatchlistSourceIds={setSelectedWatchlistSourceIds}
+          onApplyWatchlistGroup={applyWatchlistGroup}
+          onAddCustomWatchlistSource={addCustomWatchlistSource}
+          onScanWatchlistSource={scanCustomWatchlistSource}
+          isMutatingWatchlist={isMutatingWatchlist}
           isWatchlistSourcesLoading={isWatchlistSourcesLoading}
           isPipelineRunning={false}
           onSaveAndRunAutomatic={handleSave}

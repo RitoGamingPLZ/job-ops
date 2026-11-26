@@ -33,4 +33,5 @@ export interface Suggestion {
   rationale: string;
   totals: { filtered: number; unfiltered: number };
   sampleTitles: string[];
+  reused?: boolean;
 }

@@ -790,6 +790,7 @@ export const watchlistSelectedSources = sqliteTable(
     label: text("label").notNull(),
     careersUrl: text("careers_url").notNull(),
     cxsJobsUrl: text("cxs_jobs_url"),
+    description: text("description").notNull().default(""),
     sourceType: text("source_type").notNull(),
     isCustom: integer("is_custom", { mode: "boolean" }).notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
@@ -811,6 +812,59 @@ export const watchlistSelectedSources = sqliteTable(
       table.tenantId,
       table.userId,
     ),
+  }),
+);
+
+// Explicitly global: public career-board metadata and default filter plans shared across tenants.
+// Stores no tenant settings, credentials, user ids, or PII.
+export const watchlistSharedSources = sqliteTable(
+  "watchlist_shared_sources",
+  {
+    id: text("id").primaryKey(),
+    urlKey: text("url_key").notNull().unique(),
+    sourceType: text("source_type").notNull(),
+    name: text("name").notNull(),
+    careersUrl: text("careers_url").notNull(),
+    description: text("description").notNull().default(""),
+    discoveredFacetsJson: text("discovered_facets_json"),
+    facetsScannedAt: text("facets_scanned_at"),
+    defaultFilterPlanJson: text("default_filter_plan_json"),
+    filterPlanUpdatedAt: text("filter_plan_updated_at"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => ({
+    sourceTypeIndex: index("idx_watchlist_shared_sources_source_type").on(table.sourceType),
+  }),
+);
+
+// Explicitly global cache of verified public URL filter plans keyed by URL + one-way SHA-256 intent hash.
+// Contains no raw tenant intent text, tenant ids, or user ids.
+export const watchlistFilterPlans = sqliteTable(
+  "watchlist_filter_plans",
+  {
+    id: text("id").primaryKey(),
+    urlKey: text("url_key").notNull(),
+    sourceType: text("source_type").notNull(),
+    intentHash: text("intent_hash").notNull(),
+    planJson: text("plan_json").notNull(),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => ({
+    urlIntentUnique: uniqueIndex("idx_watchlist_filter_plans_url_intent_unique").on(
+      table.urlKey,
+      table.intentHash,
+    ),
+    urlKeyIndex: index("idx_watchlist_filter_plans_url_key").on(table.urlKey),
   }),
 );
 

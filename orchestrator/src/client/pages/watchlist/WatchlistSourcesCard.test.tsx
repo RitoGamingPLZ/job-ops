@@ -7,6 +7,22 @@ import { WatchlistSourcesCard } from "./WatchlistSourcesCard";
 vi.mock("@client/api", () => ({
   fetchWatchlistSourceBranding: vi.fn().mockResolvedValue({ imageDataUrl: null }),
 }));
+vi.mock("@/components/ui/virtualized-listbox", () => ({
+  useVirtualizedListbox: ({ count }: { count: number }) => ({
+    getTotalSize: () => count * 40,
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        key: index,
+        index,
+        lane: 0,
+        start: index * 40,
+        end: (index + 1) * 40,
+        size: 40,
+      })),
+    measureElement: vi.fn(),
+    scrollToIndex: vi.fn(),
+  }),
+}));
 vi.mock("./SuggestFiltersPanel", () => ({
   SuggestFiltersPanel: ({
     onUse,
@@ -180,5 +196,124 @@ describe("WatchlistSourcesCard filter suggestions", () => {
       "opacity-100",
     );
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("renders custom career URL input first along with name, description, and first custom option in dropdown", () => {
+    const props: WatchlistSourceDraftCardProps = {
+      sourceDrafts: [
+        {
+          id: "draft-custom-1",
+          sourceType: "careers_site",
+          isCustom: true,
+          catalogSourceId: null,
+          customUrl: "",
+          customLabel: "",
+          description: "",
+        },
+      ],
+      sourceStatusByDraftId: { "draft-custom-1": "unsaved" },
+      catalogSources: [
+        {
+          id: "shared-1",
+          label: "Acme Robotics",
+          sourceType: "careers_site",
+          careersUrl: "https://careers.acme.com/jobs",
+          cxsJobsUrl: null,
+          description: "Backend roles",
+        },
+      ],
+      sourceTypes: [
+        {
+          sourceType: "workday",
+          label: "Workday",
+          catalogLabel: "Workday company",
+          customSourceOptionLabel: "Choose your own Workday URL",
+          customSourceSearchText: "custom workday",
+          customSourceInputLabel: "Custom Workday URL",
+          customSourcePlaceholder: "https://company.wd1.myworkdayjobs.com/...",
+          customSourceHelpText: "Use public Workday URL.",
+          emptyCatalogText: "No Workday companies found.",
+          fetchingLabel: "Fetching from Workday...",
+          invalidUrlMessage: "Invalid Workday URL",
+          supportsCustomSource: true,
+          supportsBranding: true,
+        },
+        {
+          sourceType: "careers_site",
+          label: "Careers site",
+          catalogLabel: "Company careers site",
+          customSourceOptionLabel: "Custom careers site URL",
+          customSourceSearchText: "custom careers site url",
+          customSourceInputLabel: "Company careers URL",
+          customSourcePlaceholder: "https://www.okta.com/company/careers/",
+          customSourceHelpText: "Paste HTTPS URL.",
+          emptyCatalogText: "No careers site sources found.",
+          fetchingLabel: "Fetching from careers site...",
+          invalidUrlMessage: "Invalid URL",
+          supportsCustomSource: true,
+          supportsBranding: false,
+        },
+      ],
+      formattedLastCheckedAt: null,
+      formattedPreviousLastCheckedAt: null,
+      newJobsCount: 0,
+      hasUnsavedChanges: true,
+      isSaving: false,
+      onAddSource: vi.fn(),
+      onRemoveSource: vi.fn(),
+      onUpdateDraft: vi.fn(),
+      onSourceMethodSelected: vi.fn(),
+      onSourceSearchNoResults: vi.fn(),
+      onSave: vi.fn(),
+    };
+
+    render(<WatchlistSourcesCard {...props} />);
+
+    expect(screen.getByLabelText("Company careers URL 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Source name 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Source description 1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Custom careers site URL" }));
+    const options = screen.getAllByRole("option");
+    expect(options[0]).toHaveTextContent("Custom careers site URL");
+  });
+
+  it("shows starter group templates when watchlist drafts are empty", () => {
+    const onAddGroup = vi.fn();
+    const onAddSource = vi.fn();
+    const props: WatchlistSourceDraftCardProps = {
+      sourceDrafts: [],
+      sourceStatusByDraftId: {},
+      catalogSources: [],
+      groups: [
+        {
+          id: "big-tech",
+          label: "Big tech",
+          description: "Large tech companies",
+          sourceIds: ["a", "b"],
+        },
+      ],
+      sourceTypes: [],
+      formattedLastCheckedAt: null,
+      formattedPreviousLastCheckedAt: null,
+      newJobsCount: 0,
+      hasUnsavedChanges: false,
+      isSaving: false,
+      onAddSource,
+      onAddGroup,
+      onRemoveSource: vi.fn(),
+      onUpdateDraft: vi.fn(),
+      onSourceMethodSelected: vi.fn(),
+      onSourceSearchNoResults: vi.fn(),
+      onSave: vi.fn(),
+    };
+
+    render(<WatchlistSourcesCard {...props} />);
+
+    expect(screen.getByText("No watchlist sources selected yet.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add Big tech" }));
+    expect(onAddGroup).toHaveBeenCalledWith(props.groups?.[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Paste career site URL" }));
+    expect(onAddSource).toHaveBeenCalledTimes(1);
   });
 });

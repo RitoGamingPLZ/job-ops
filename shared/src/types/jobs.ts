@@ -445,6 +445,14 @@ export interface WatchlistSource {
   careersUrl: string;
   cxsJobsUrl: string | null;
   sourceType: WatchedSourceType;
+  /** Optional user-provided description explaining what roles this board covers. */
+  description?: string | null;
+  /** Cached public filter suggestion URL generated from a previous scan, when available. */
+  suggestedFilterUrl?: string | null;
+  /** Short rationale accompanying `suggestedFilterUrl`, when available. */
+  suggestedFilterRationale?: string | null;
+  /** True when this entry came from the shared database registry rather than bundled config. */
+  isShared?: boolean;
   /** Present when the company has an editorial rating. */
   rating?: WatchlistCompanyRating;
 }
@@ -466,11 +474,39 @@ export interface WatchlistSelectedSource {
   label: string;
   careersUrl: string;
   cxsJobsUrl: string | null;
+  description?: string | null;
   sourceType: WatchedSourceType;
   isCustom: boolean;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface WatchlistSuggestedFilterPlan {
+  suggestedUrl: string;
+  params: Array<{ key: string; values: string[] }>;
+  rationale: string;
+  totals: { filtered: number; unfiltered: number };
+  sampleTitles: string[];
+  reused?: boolean;
+}
+
+export interface WatchlistSourceScanInput {
+  careersUrl: string;
+  name?: string | null;
+  description?: string | null;
+  sourceType?: WatchedSourceType | null;
+  forceRefresh?: boolean;
+}
+
+export interface WatchlistSourceScanResponse {
+  source: WatchlistSource;
+  reusedSource: boolean;
+  reusedScrapingPlan: boolean;
+  reusedFilterPlan: boolean;
+  scrapingStatus: "native_adapter" | "ready" | "learning" | "unavailable";
+  filterPlan: WatchlistSuggestedFilterPlan | null;
+  filterNote: string | null;
 }
 
 export interface WatchlistSourcesResponse {
@@ -583,6 +619,7 @@ export interface UpdateWatchlistSelectionsInput {
     sourceType: WatchedSourceType;
     label?: string | null;
     careersUrl: string;
+    description?: string | null;
   }>;
 }
 

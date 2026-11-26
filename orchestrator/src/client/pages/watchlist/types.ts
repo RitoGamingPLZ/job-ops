@@ -25,6 +25,8 @@ export interface SourceSelectionDraft {
   sourceType: WatchedSourceType;
   catalogSourceId: string | null;
   customUrl: string;
+  customLabel?: string;
+  description?: string;
 }
 
 export type JobDetailsState =
