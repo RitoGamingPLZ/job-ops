@@ -222,6 +222,8 @@ describe("database migrations", () => {
       const migrationUrl = pathToFileURL(join(process.cwd(), "src/server/db/migrate.ts")).href;
       await import(\`\${migrationUrl}?run=initial\`);
 
+      // Simulate a database that predates the migration ledger: it has the legacy rows but no
+      // recorded steps, so the next boot must run (and then record) every step.
       const sqlite = new Database(dbPath);
       sqlite.prepare("INSERT INTO jobs(id, title, employer, job_url, pdf_path, pdf_source) VALUES (?, ?, ?, ?, ?, NULL)").run(
         "legacy-pdf-job",
@@ -230,6 +232,7 @@ describe("database migrations", () => {
         "https://example.com/legacy-pdf-job",
         "data/pdfs/resume_legacy-pdf-job.pdf",
       );
+      sqlite.prepare("DELETE FROM app_data_migrations WHERE id GLOB 'legacy-*'").run();
       sqlite.close();
 
       await import(\`\${migrationUrl}?run=backfill\`);
@@ -247,6 +250,127 @@ describe("database migrations", () => {
         ...process.env,
         DATA_DIR: tempDir,
       },
+      stdio: "pipe",
+    });
+  });
+
+  it("records applied steps in the ledger and skips them on later boots", async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "job-ops-migrate-"));
+    const script = `
+      import { join } from "node:path";
+      import { pathToFileURL } from "node:url";
+      import Database from "better-sqlite3";
+
+      const dbPath = join(process.env.DATA_DIR, "jobs.db");
+      const migrationUrl = pathToFileURL(join(process.cwd(), "src/server/db/migrate.ts")).href;
+      const ledger = () => {
+        const db = new Database(dbPath, { readonly: true });
+        const legacy = db.prepare("SELECT id, applied_at FROM app_data_migrations WHERE id GLOB 'legacy-*' ORDER BY id").all();
+        const numbered = db.prepare("SELECT id, name, checksum, applied_at FROM _portable_migrations ORDER BY id").all();
+        db.close();
+        return { legacy, numbered };
+      };
+
+      await import(\`\${migrationUrl}?run=first\`);
+      const first = ledger();
+      const expectedLegacyIds = [
+        "legacy-0001-baseline-statements",
+        "legacy-0002-tenancy-columns-and-rebuilds",
+        "legacy-0003-private-user-scoping",
+        "legacy-0004-post-application-and-settings-rebuilds",
+        "legacy-0005-unique-and-lookup-indexes",
+      ];
+      if (JSON.stringify(first.legacy.map((row) => row.id)) !== JSON.stringify(expectedLegacyIds)) {
+        throw new Error("Unexpected legacy ledger after first boot: " + JSON.stringify(first.legacy));
+      }
+      const numberedIds = first.numbered.map((row) => row.id);
+      if (JSON.stringify(numberedIds) !== JSON.stringify(["0001", "0002", "0003", "0004", "0005"])) {
+        throw new Error("Numbered migrations were not all recorded: " + JSON.stringify(first.numbered));
+      }
+
+      // 0005 adds users.permissions, which the legacy upgrade already created: it must have been
+      // adopted rather than failing on the duplicate column.
+      const inspect = new Database(dbPath, { readonly: true });
+      const permissionColumns = inspect.prepare("PRAGMA table_info(users)").all().filter((c) => c.name === "permissions");
+      inspect.close();
+      if (permissionColumns.length !== 1) {
+        throw new Error("Expected exactly one users.permissions column, got " + permissionColumns.length);
+      }
+
+      // Break an invariant that step 0001 would otherwise repair. If the second boot replayed the
+      // history, pdf_source would be backfilled to 'generated'.
+      const sqlite = new Database(dbPath);
+      sqlite.prepare("INSERT INTO jobs(id, title, employer, job_url, pdf_path, pdf_source) VALUES (?, ?, ?, ?, ?, NULL)").run(
+        "skipped-job",
+        "Skipped",
+        "Acme",
+        "https://example.com/skipped-job",
+        "data/pdfs/resume_skipped-job.pdf",
+      );
+      sqlite.close();
+
+      await import(\`\${migrationUrl}?run=second\`);
+
+      const check = new Database(dbPath, { readonly: true });
+      const row = check.prepare("SELECT pdf_source FROM jobs WHERE id = ?").get("skipped-job");
+      check.close();
+      if (row?.pdf_source !== null) {
+        throw new Error("Second boot replayed an already-applied step: pdf_source=" + row?.pdf_source);
+      }
+      if (JSON.stringify(ledger()) !== JSON.stringify(first)) {
+        throw new Error("Ledger changed on a no-op boot: " + JSON.stringify(ledger()));
+      }
+    `;
+
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: { ...process.env, DATA_DIR: tempDir },
+      stdio: "pipe",
+    });
+  });
+
+  it("seeds the bootstrap owner on a later boot and assigns unowned rows to them", async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "job-ops-migrate-"));
+    const script = `
+      import { join } from "node:path";
+      import { pathToFileURL } from "node:url";
+      import Database from "better-sqlite3";
+
+      const dbPath = join(process.env.DATA_DIR, "jobs.db");
+      const migrationUrl = pathToFileURL(join(process.cwd(), "src/server/db/migrate.ts")).href;
+
+      await import(\`\${migrationUrl}?run=no-env\`);
+
+      const sqlite = new Database(dbPath);
+      if (sqlite.prepare("SELECT count(*) AS count FROM users").get().count !== 0) {
+        throw new Error("No owner should exist without BASIC_AUTH_* set");
+      }
+      sqlite.prepare("INSERT INTO jobs(id, tenant_id, user_id, title, employer, job_url) VALUES (?, ?, NULL, ?, ?, ?)").run(
+        "unowned-job",
+        "tenant_default",
+        "Unowned",
+        "Acme",
+        "https://example.com/unowned-job",
+      );
+      sqlite.close();
+
+      process.env.BASIC_AUTH_USER = "Owner";
+      process.env.BASIC_AUTH_PASSWORD = "secret";
+      await import(\`\${migrationUrl}?run=with-env\`);
+
+      const check = new Database(dbPath, { readonly: true });
+      const owner = check.prepare("SELECT id, username, is_system_admin FROM users").all();
+      if (owner.length !== 1 || owner[0].username !== "owner" || owner[0].is_system_admin !== 1) {
+        throw new Error("Bootstrap owner was not seeded on the later boot: " + JSON.stringify(owner));
+      }
+      const job = check.prepare("SELECT user_id FROM jobs WHERE id = ?").get("unowned-job");
+      if (job?.user_id !== owner[0].id) {
+        throw new Error("Unowned row was not assigned to the seeded owner: " + JSON.stringify(job));
+      }
+      check.close();
+    `;
+
+    execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
+      env: { ...process.env, DATA_DIR: tempDir, BASIC_AUTH_USER: "", BASIC_AUTH_PASSWORD: "" },
       stdio: "pipe",
     });
   });

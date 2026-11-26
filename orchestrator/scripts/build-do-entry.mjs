@@ -1,5 +1,5 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
@@ -7,6 +7,39 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = resolve(__dirname, "..");
 const entryPoint = resolve(orchestratorDir, "src/server/do-entry.ts");
 const outFile = resolve(orchestratorDir, "dist/do/do-entry.mjs");
+const dbDir = resolve(orchestratorDir, "src/server/db");
+const migrationFilesModule = resolve(dbDir, "migration-files.ts");
+const migrationSqlModule = resolve(dbDir, "migration-sql.ts");
+const migrationsDir = resolve(dbDir, "migrations");
+
+/**
+ * Workers cannot read the filesystem, so the Node loader `db/migration-files.ts` is replaced with
+ * a module that has every `db/migrations/*.sql` file inlined. Both go through `buildMigrations`.
+ */
+const inlineSqlMigrationsPlugin = {
+  name: "inline-sql-migrations",
+  setup(pluginBuild) {
+    pluginBuild.onResolve({ filter: /(^|\/)migration-files$/ }, (args) => {
+      if (resolve(args.resolveDir, `${args.path}.ts`) !== migrationFilesModule) return null;
+      return { path: migrationFilesModule, namespace: "sql-migrations" };
+    });
+    pluginBuild.onLoad({ filter: /.*/, namespace: "sql-migrations" }, () => {
+      const files = Object.fromEntries(
+        readdirSync(migrationsDir)
+          .filter((fileName) => fileName.endsWith(".sql"))
+          .map((fileName) => [fileName, readFileSync(join(migrationsDir, fileName), "utf8")]),
+      );
+      return {
+        contents: [
+          `import { buildMigrations } from ${JSON.stringify(migrationSqlModule)};`,
+          `export const PORTABLE_MIGRATIONS = buildMigrations(${JSON.stringify(files)});`,
+        ].join("\n"),
+        loader: "ts",
+        resolveDir: orchestratorDir,
+      };
+    });
+  },
+};
 
 const NATIVE_ONLY_PACKAGES = [
   "better-sqlite3",
@@ -210,7 +243,7 @@ await build({
   tsconfig: resolve(orchestratorDir, "tsconfig.json"),
   external: ["node:*", "cloudflare:*"],
   banner: { js: doRequireBanner },
-  plugins: [stubNativeModulesPlugin],
+  plugins: [inlineSqlMigrationsPlugin, stubNativeModulesPlugin],
   logLevel: "info",
 });
 
