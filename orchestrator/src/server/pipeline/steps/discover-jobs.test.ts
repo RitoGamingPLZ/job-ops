@@ -32,6 +32,17 @@ vi.mock("@server/services/hiring-cafe-browser", () => ({
   closeHiringCafeBrowser: vi.fn(async () => undefined),
 }));
 
+const scrapeCache = vi.hoisted(() => ({
+  read: vi.fn(),
+  write: vi.fn(),
+}));
+
+vi.mock("@server/services/scrape-cache", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@server/services/scrape-cache")>()),
+  readScrapeCache: scrapeCache.read,
+  writeScrapeCache: scrapeCache.write,
+}));
+
 vi.mock("@server/repositories/settings", () => ({
   getAllSettings: vi.fn(),
 }));
@@ -73,6 +84,114 @@ describe("discoverJobsStep", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetProgress();
+    scrapeCache.read.mockResolvedValue(null);
+    scrapeCache.write.mockResolvedValue(undefined);
+  });
+
+  async function setUpJobspy(run: ReturnType<typeof vi.fn>) {
+    const settingsRepo = await import("@server/repositories/settings");
+    const registryModule = await import("@server/extractors/registry");
+    const manifest = {
+      id: "jobspy",
+      displayName: "JobSpy",
+      providesSources: ["linkedin"],
+      run,
+    };
+    vi.mocked(settingsRepo.getAllSettings).mockResolvedValue({
+      searchTerms: JSON.stringify(["engineer"]),
+    } as any);
+    vi.mocked(registryModule.getExtractorRegistry).mockResolvedValue({
+      manifests: new Map([["jobspy", manifest as any]]),
+      manifestBySource: new Map([["linkedin", manifest as any]]),
+      availableSources: ["linkedin"],
+    } as any);
+    return manifest;
+  }
+
+  const cachedJob = {
+    source: "linkedin",
+    title: "Engineer",
+    employer: "Contoso",
+    jobUrl: "https://example.com/cached",
+  };
+
+  it("reuses a recent extractor result instead of running the source again", async () => {
+    const run = vi.fn();
+    await setUpJobspy(run);
+    scrapeCache.read.mockResolvedValue({
+      jobs: [cachedJob],
+      sourceErrors: [],
+      completedAt: "2026-11-25T12:00:00.000Z",
+    });
+
+    const result = await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+    });
+
+    expect(run).not.toHaveBeenCalled();
+    expect(scrapeCache.write).not.toHaveBeenCalled();
+    expect(result.discoveredJobs.map((job) => job.jobUrl)).toEqual(["https://example.com/cached"]);
+  });
+
+  it("runs the source and stores a clean, non-empty result for reuse", async () => {
+    const run = vi.fn().mockResolvedValue({ success: true, jobs: [cachedJob] });
+    await setUpJobspy(run);
+
+    await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+    });
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(scrapeCache.write).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "jobspy", jobs: [cachedJob], sourceErrors: [] }),
+    );
+    const key = scrapeCache.read.mock.calls[0]?.[0];
+    expect(scrapeCache.write.mock.calls[0]?.[0].scrapeKey).toBe(key);
+  });
+
+  it("does not store partial, challenged or checkpoint-resumed results", async () => {
+    const partial = vi.fn().mockResolvedValue({
+      success: true,
+      jobs: [cachedJob],
+      sourceErrors: ["linkedin: one term failed"],
+    });
+    await setUpJobspy(partial);
+    await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+    });
+    expect(scrapeCache.write).not.toHaveBeenCalled();
+
+    const challenged = vi.fn().mockResolvedValue({
+      success: true,
+      jobs: [cachedJob],
+      challengeRequired: "https://example.com/solve",
+    });
+    await setUpJobspy(challenged);
+    await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+    });
+    expect(scrapeCache.write).not.toHaveBeenCalled();
+
+    scrapeCache.read.mockClear();
+    scrapeCache.read.mockResolvedValue({
+      jobs: [cachedJob],
+      sourceErrors: [],
+      completedAt: "2026-11-25T12:00:00.000Z",
+    });
+    const resumed =vi.fn().mockResolvedValue({ success: true, jobs: [cachedJob] });
+    await setUpJobspy(resumed);
+    await discoverJobsStep({
+      mergedConfig: { ...baseConfig, sources: ["linkedin"] },
+      includeWatchlist: false,
+      resumeStates: { jobspy: { page: 2 } },
+    });
+    expect(resumed).toHaveBeenCalledTimes(1);
+    expect(scrapeCache.read).not.toHaveBeenCalled();
+    expect(scrapeCache.write).not.toHaveBeenCalled();
   });
 
   it("carries a Hiring Cafe search checkpoint into a retry", async () => {

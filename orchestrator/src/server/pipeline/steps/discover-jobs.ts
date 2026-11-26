@@ -14,6 +14,12 @@ import {
   readHiringCafeBrowserPage,
 } from "@server/services/hiring-cafe-browser";
 import { withHostedUsageReservation } from "@server/services/hosted-usage";
+import {
+  buildSourceRunCacheKey,
+  isScrapeCacheEnabled,
+  readScrapeCache,
+  writeScrapeCache,
+} from "@server/services/scrape-cache";
 import { resolveNearbyPlaceNames } from "@server/services/proximity-search";
 import {
   getPrivateCloudflareCookieStorageDir,
@@ -317,6 +323,41 @@ export async function discoverJobsStep(args: {
           ),
         ) as Record<string, string | undefined>;
 
+        // A challenge retry/resume is a continuation of a specific earlier run, never a repeat.
+        const cacheable =
+          isScrapeCacheEnabled() &&
+          !args.retryChallengeUrls?.[manifest.id] &&
+          args.resumeStates?.[manifest.id] === undefined &&
+          !args.skippedChallengeSearchStates?.length;
+        const scrapeCacheKey = cacheable
+          ? buildSourceRunCacheKey({
+              manifestId: manifest.id,
+              sources: grouped.sources,
+              searchTerms,
+              locationIntent,
+              settings: pickSafeContainerExtractorSettings(manifest.id, filteredSettings),
+            })
+          : null;
+        if (scrapeCacheKey) {
+          const cached = await readScrapeCache(scrapeCacheKey);
+          if (cached) {
+            logger.info("Reusing recent extractor results", {
+              step: "discover-jobs",
+              source: manifest.id,
+              jobCount: cached.jobs.length,
+              completedAt: cached.completedAt,
+            });
+            updateProgress({
+              step: "crawling",
+              detail: `${manifest.displayName}: reusing results from the last 24 hours`,
+            });
+            return {
+              discoveredJobs: cached.jobs,
+              sourceErrors: cached.sourceErrors,
+            };
+          }
+        }
+
         let timedOut = false;
         const shouldCancel = () => timedOut || args.shouldCancel?.() === true;
         const browserScopeKey =
@@ -435,6 +476,24 @@ export async function discoverJobsStep(args: {
                 }
               : undefined,
           };
+        }
+
+        // Only clean, complete, non-empty runs are worth reusing: a partial or challenged run
+        // would otherwise be replayed as if it were the full answer for a day.
+        if (
+          scrapeCacheKey &&
+          !result.challengeRequired &&
+          !timedOut &&
+          !shouldCancel() &&
+          (result.sourceErrors ?? []).length === 0
+        ) {
+          await writeScrapeCache({
+            scrapeKey: scrapeCacheKey,
+            source: manifest.id,
+            runtime: manifest.runtime,
+            jobs: result.jobs,
+            sourceErrors: [],
+          });
         }
 
         return {
