@@ -176,4 +176,38 @@ describe("PipelineFanoutCard", () => {
       }),
     ).toBeInTheDocument();
   });
+
+  it("uses sharper light-mode track and segment colors while preserving dark-mode tokens", () => {
+    render(
+      <PipelineFanoutCard
+        fanout={{
+          ...fanout,
+          total: 4,
+          roles: [{ role: "Frontend Engineer", complete: 1, running: 1, check: 1, queued: 1 }],
+        }}
+        elapsedSeconds={0}
+        solvingExtractor={null}
+        onSolveChallenge={vi.fn()}
+      />,
+    );
+
+    const overallBar = screen.getByRole("progressbar", {
+      name: "1 complete, 2 running, 1 queued",
+    });
+    expect(overallBar).toHaveClass("bg-border", "dark:bg-muted");
+    const overallSegments = Array.from(overallBar.children);
+    expect(overallSegments).toHaveLength(2);
+    expect(overallSegments[0]).toHaveClass("bg-emerald-600", "dark:bg-success");
+    expect(overallSegments[1]).toHaveClass("bg-amber-600", "dark:bg-warning");
+
+    const roleBar = screen.getByRole("progressbar", {
+      name: "Frontend Engineer: 1 complete, 1 running, 1 need a check, 1 queued",
+    });
+    expect(roleBar).toHaveClass("bg-border", "dark:bg-muted");
+    const roleSegments = Array.from(roleBar.children);
+    expect(roleSegments).toHaveLength(3);
+    expect(roleSegments[0]).toHaveClass("bg-emerald-600", "dark:bg-success");
+    expect(roleSegments[1]).toHaveClass("bg-amber-600", "dark:bg-warning");
+    expect(roleSegments[2]).toHaveClass("bg-amber-400", "dark:bg-warning/60");
+  });
 });
