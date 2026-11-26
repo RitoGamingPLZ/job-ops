@@ -164,6 +164,39 @@ describe("portable-migrations", () => {
     }
   });
 
+  it("adopts ADD COLUMN migrations whose column already exists, but surfaces other errors", () => {
+    const sqlite = new Database(":memory:");
+    try {
+      sqlite.exec('CREATE TABLE "items" ("id" text PRIMARY KEY NOT NULL, "name" text);');
+      const addExisting: PortableMigration = {
+        id: "0001",
+        name: "add_name",
+        statements: [
+          'ALTER TABLE "items" ADD COLUMN "name" text;',
+          'ALTER TABLE items ADD COLUMN "other" text;',
+        ],
+      };
+      expect(runPortableMigrations(sqlite, [addExisting]).applied).toEqual(["0001"]);
+      const columns = (
+        sqlite.prepare('PRAGMA table_info("items")').all() as Array<{ name: string }>
+      ).map((column) => column.name);
+      expect(columns).toEqual(["id", "name", "other"]);
+
+      const broken: PortableMigration = {
+        id: "0002",
+        name: "broken",
+        statements: ['ALTER TABLE "missing_table" ADD COLUMN "x" text;'],
+      };
+      expect(() => runPortableMigrations(sqlite, [addExisting, broken])).toThrow(/no such table/);
+      const recorded = sqlite
+        .prepare('SELECT "id" FROM "_portable_migrations" ORDER BY "id"')
+        .all();
+      expect(recorded).toEqual([{ id: "0001" }]);
+    } finally {
+      sqlite.close();
+    }
+  });
+
   it("supports getDb/setDb, runTransactionSync, and execRawSql in db/index.ts", () => {
     const sqlite = new Database(":memory:");
     try {
