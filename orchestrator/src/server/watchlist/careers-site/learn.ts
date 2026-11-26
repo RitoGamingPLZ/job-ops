@@ -1,4 +1,5 @@
 import { logger } from "@infra/logger";
+import type { LlmService } from "@server/services/llm/service";
 import type { JsonSchemaDefinition } from "@server/services/llm/types";
 import { createConfiguredLlmService, resolveLlmModel } from "@server/services/modelSelection";
 import { JSDOM } from "jsdom";
@@ -199,7 +200,11 @@ function hasJobPosting(html: string): boolean {
 /** Tier 0 first, then a rendered listing and a verified LLM recipe. */
 export async function learnRecipe(
   careersUrl: string,
-  options: { signal?: AbortSignal },
+  options: {
+    signal?: AbortSignal;
+    /** Supplied when the caller owns the LLM connection (the stateless scraper container). */
+    llm?: { service: Pick<LlmService, "callJson">; model: string };
+  },
 ): Promise<Recipe> {
   const base = new URL(careersUrl);
   base.search = "";
@@ -436,8 +441,8 @@ export async function learnRecipe(
     }
     evidence = JSON.stringify(evidenceData);
   }
-  const llm = await createConfiguredLlmService("default");
-  const model = await resolveLlmModel();
+  const llm = options.llm?.service ?? (await createConfiguredLlmService("default"));
+  const model = options.llm?.model ?? (await resolveLlmModel());
   let feedback = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     signal.throwIfAborted();

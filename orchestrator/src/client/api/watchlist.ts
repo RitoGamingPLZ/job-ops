@@ -39,10 +39,16 @@ export async function recordWatchlistCheck(
   });
 }
 
-export async function fetchWatchlistResults(): Promise<WatchlistResultsResponse> {
+/**
+ * Without options this returns each source's last stored result and only fetches sources that were
+ * never checked. Pass `refresh` to re-check every source, or just `sourceIds`.
+ */
+export async function fetchWatchlistResults(
+  options: { refresh?: boolean; sourceIds?: string[] } = {},
+): Promise<WatchlistResultsResponse> {
   return fetchApi<WatchlistResultsResponse>("/watchlist/results", {
     method: "POST",
-    body: JSON.stringify({}),
+    body: JSON.stringify(options),
   });
 }
 

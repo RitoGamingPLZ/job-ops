@@ -24,6 +24,9 @@ const DO_EXPRESS_PORT = 3001;
 const IMPORT_BATCH_SIZE = 500;
 // Browser-driven extractors (Hiring Cafe) can take several minutes per run.
 const EXTRACTOR_RUN_TIMEOUT_MS = 10 * 60_000;
+// A careers crawl has a 25 s budget; learning a new site can take up to ~3 minutes.
+const CAREERS_RUN_TIMEOUT_MS = 40_000;
+const CAREERS_LEARN_TIMEOUT_MS = 200_000;
 
 async function readRenderError(response: Response): Promise<unknown> {
   const reader = response.body?.getReader();
@@ -169,6 +172,29 @@ export class AppStore extends DurableObject<Env> {
           throw error;
         }
       },
+      // Careers sites need a browser, which only the scraper container has. It is stateless: the
+      // recipe and LLM connection travel with each request and the result comes straight back.
+      remoteCareersSite: {
+        run: (input) =>
+          this.callCareersSiteContainer(
+            "run",
+            {
+              recipe: input.recipe,
+              ...(input.sourceUrl ? { sourceUrl: input.sourceUrl } : {}),
+              limit: input.limit,
+              budgetMs: input.budgetMs,
+            },
+            CAREERS_RUN_TIMEOUT_MS,
+            input.signal,
+          ),
+        learn: (input) =>
+          this.callCareersSiteContainer(
+            "learn",
+            { careersUrl: input.careersUrl, llm: input.llm },
+            CAREERS_LEARN_TIMEOUT_MS,
+            input.signal,
+          ),
+      },
       remoteRenderPdf: async (body, requestId) => {
         const namespace = this.env.SCRAPER_CONTAINER;
         const secret = resolveInternalContainerSecret(this.env);
@@ -229,6 +255,67 @@ export class AppStore extends DurableObject<Env> {
       },
     });
     this.expressInitialized = true;
+  }
+
+  private async callCareersSiteContainer(
+    action: "run" | "learn",
+    body: unknown,
+    timeoutMs: number,
+    callerSignal?: AbortSignal,
+  ): Promise<{ kind: string; [key: string]: unknown }> {
+    const namespace = this.env.SCRAPER_CONTAINER;
+    const secret = resolveInternalContainerSecret(this.env);
+    if (!namespace || !secret) {
+      return {
+        kind: "unavailable",
+        message: "The careers-site browser is not configured on this deployment.",
+      };
+    }
+    const signal = callerSignal
+      ? AbortSignal.any([callerSignal, AbortSignal.timeout(timeoutMs)])
+      : AbortSignal.timeout(timeoutMs);
+    try {
+      const response = await namespace
+        .getByName("careers-site")
+        .fetch(`http://scraper/internal/careers-site/${action}`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-internal-sync-secret": secret },
+          body: JSON.stringify(body),
+          signal,
+        });
+      if (!response.ok) {
+        // A cold container answers 503 until it is ready; either way nothing is known about the site.
+        await response.body?.cancel();
+        return {
+          kind: "unavailable",
+          message:
+            response.status === 503
+              ? "The careers-site browser is starting. Check again in a minute."
+              : `The careers-site browser failed (HTTP ${response.status}).`,
+        };
+      }
+      const parsed = (await response.json()) as {
+        ok?: boolean;
+        data?: { kind: string; [key: string]: unknown };
+      };
+      if (!parsed.ok || !parsed.data) {
+        return {
+          kind: "unavailable",
+          message: "The careers-site browser returned an invalid response.",
+        };
+      }
+      return parsed.data;
+    } catch (error) {
+      // A caller abort (its own timeout) is the caller's to handle, not a container outage.
+      if (callerSignal?.aborted) throw callerSignal.reason ?? error;
+      return {
+        kind: "unavailable",
+        message:
+          error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")
+            ? "The careers-site browser timed out. Check again in a minute."
+            : "The careers-site browser could not be reached.",
+      };
+    }
   }
 
   private async ensureSchema(): Promise<void> {

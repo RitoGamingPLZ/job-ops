@@ -4,6 +4,7 @@ import { getWatchlistSourceAdapter } from "@server/watchlist/adapters";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getCurrentWatchlistResults,
   getWatchlistResultsForSources,
   hydrateWatchlistSelectedSources,
   WATCHLIST_SOURCE_TIMEOUT_MS,
@@ -14,6 +15,8 @@ vi.mock("@server/repositories/watchlist", () => ({
   listWatchlistSelectedSources: vi.fn(),
   listWatchlistJobStates: vi.fn(),
   recordWatchlistCheck: vi.fn(),
+  listWatchlistSourceResults: vi.fn(),
+  saveWatchlistSourceResults: vi.fn(),
 }));
 
 vi.mock("@server/repositories/jobs", () => ({
@@ -55,6 +58,7 @@ describe("watchlist results service", () => {
   afterEach(() => vi.useRealTimers());
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(watchlistRepo.listWatchlistSourceResults).mockResolvedValue([]);
     vi.mocked(watchlistRepo.recordWatchlistCheck).mockResolvedValue({
       previousLastCheckedAt: "2026-01-01T00:00:00.000Z",
       checkedAt: "2026-01-02T00:00:00.000Z",
@@ -291,5 +295,171 @@ describe("watchlist results service", () => {
     expect(results.sources.map((result) => result.source.id)).toEqual(
       sources.map((source) => source.id),
     );
+  });
+
+  describe("stored results", () => {
+    const storedAt = "2026-01-03T00:00:00.000Z";
+    const storedWorkday = {
+      sourceKey: "workday|https://acme.wd1.myworkdayjobs.com/acme",
+      status: "success" as const,
+      resultJson: JSON.stringify({
+        status: "success",
+        total: 2,
+        fetched: 2,
+        jobs: [
+          {
+            jobRef: "https://example.com/new",
+            source: "workday:acme",
+            sourceJobId: "new-job",
+            sourceType: "workday",
+            title: "New Engineer",
+            employer: "Acme",
+            jobUrl: "https://example.com/new",
+            applicationLink: null,
+            location: null,
+            postedAt: null,
+            isNewSinceLastCheck: true,
+          },
+          {
+            jobRef: "https://example.com/ignored",
+            source: "workday:acme",
+            sourceJobId: "ignored-job",
+            sourceType: "workday",
+            title: "Ignored Engineer",
+            employer: "Acme",
+            jobUrl: "https://example.com/ignored",
+            applicationLink: null,
+            location: null,
+            postedAt: null,
+            isNewSinceLastCheck: true,
+          },
+        ],
+      }),
+      checkedAt: storedAt,
+      previousCheckedAt: "2026-01-02T00:00:00.000Z",
+    };
+    const storedBamboohrError = {
+      sourceKey: "bamboohr|https://beta.bamboohr.com/careers",
+      status: "error" as const,
+      resultJson: JSON.stringify({ status: "error", error: "Beta is unhealthy" }),
+      checkedAt: "2026-01-02T12:00:00.000Z",
+      previousCheckedAt: null,
+    };
+    beforeEach(() => {
+      vi.mocked(watchlistRepo.listWatchlistSelectedSources).mockResolvedValue([
+        workdaySource,
+        bamboohrSource,
+      ]);
+    });
+
+    it("serves each source's last check without fetching or recording a new check", async () => {
+      vi.mocked(watchlistRepo.listWatchlistSourceResults).mockResolvedValue([
+        storedWorkday,
+        storedBamboohrError,
+      ]);
+
+      const result = await getCurrentWatchlistResults();
+
+      expect(watchlistRepo.recordWatchlistCheck).not.toHaveBeenCalled();
+      expect(watchlistRepo.saveWatchlistSourceResults).not.toHaveBeenCalled();
+      expect(result.checkedAt).toBe(storedAt);
+      expect(result.previousLastCheckedAt).toBe("2026-01-02T00:00:00.000Z");
+      expect(result.sources[1]).toMatchObject({ status: "error", error: "Beta is unhealthy" });
+      const jobs = result.sources[0]?.status === "success" ? result.sources[0].jobs : [];
+      // Ignored/imported state is live; the "new since last check" flag is the stored one.
+      expect(jobs.map((job) => [job.rowState, job.isNewSinceLastCheck])).toEqual([
+        ["new", true],
+        ["ignored", false],
+      ]);
+    });
+
+    it("fetches and stores only sources that were never checked", async () => {
+      vi.mocked(watchlistRepo.listWatchlistSourceResults).mockResolvedValue([storedWorkday]);
+
+      const result = await getCurrentWatchlistResults();
+
+      expect(watchlistRepo.recordWatchlistCheck).toHaveBeenCalledWith({
+        checks: [{ source: "bamboohr:beta", sourceJobIds: ["imported-job"] }],
+      });
+      const saved = vi.mocked(watchlistRepo.saveWatchlistSourceResults).mock.calls[0]?.[0];
+      expect(saved?.map((entry) => entry.sourceKey)).toEqual([
+        "bamboohr|https://beta.bamboohr.com/careers",
+      ]);
+      expect(result.sources[1]).toMatchObject({ status: "success", fetched: 1 });
+      // The other source still comes from its stored check.
+      expect(result.sources[0]).toMatchObject({ status: "success", fetched: 2 });
+    });
+
+    it("re-checks an unhealthy source on refresh and remembers the new outcome", async () => {
+      vi.mocked(watchlistRepo.listWatchlistSourceResults).mockResolvedValue([
+        storedWorkday,
+        storedBamboohrError,
+      ]);
+
+      const result = await getCurrentWatchlistResults({
+        refresh: true,
+        sourceIds: [bamboohrSource.id],
+      });
+
+      expect(watchlistRepo.recordWatchlistCheck).toHaveBeenCalledTimes(1);
+      expect(watchlistRepo.recordWatchlistCheck).toHaveBeenCalledWith({
+        checks: [{ source: "bamboohr:beta", sourceJobIds: ["imported-job"] }],
+      });
+      const saved = vi.mocked(watchlistRepo.saveWatchlistSourceResults).mock.calls[0]?.[0] ?? [];
+      expect(saved).toHaveLength(1);
+      expect(saved[0]).toMatchObject({
+        sourceKey: "bamboohr|https://beta.bamboohr.com/careers",
+        status: "success",
+        checkedAt: "2026-01-02T00:00:00.000Z",
+      });
+      expect(result.sources[1]).toMatchObject({ status: "success" });
+    });
+
+    it("re-checks every source on a full refresh", async () => {
+      vi.mocked(watchlistRepo.listWatchlistSourceResults).mockResolvedValue([
+        storedWorkday,
+        storedBamboohrError,
+      ]);
+
+      await getCurrentWatchlistResults({ refresh: true });
+
+      const saved = vi.mocked(watchlistRepo.saveWatchlistSourceResults).mock.calls[0]?.[0] ?? [];
+      expect(saved.map((entry) => entry.sourceKey).sort()).toEqual([
+        "bamboohr|https://beta.bamboohr.com/careers",
+        "workday|https://acme.wd1.myworkdayjobs.com/acme",
+      ]);
+    });
+
+    it("treats an unreadable stored result as never checked", async () => {
+      vi.mocked(watchlistRepo.listWatchlistSourceResults).mockResolvedValue([
+        { ...storedWorkday, resultJson: "not json" },
+        storedBamboohrError,
+      ]);
+
+      const result = await getCurrentWatchlistResults();
+
+      expect(watchlistRepo.recordWatchlistCheck).toHaveBeenCalledWith({
+        checks: [{ source: "workday:acme", sourceJobIds: ["new-job", "ignored-job"] }],
+      });
+      expect(result.sources[0]).toMatchObject({ status: "success", fetched: 2 });
+    });
+
+    it("still returns fresh results when storing them fails", async () => {
+      vi.mocked(watchlistRepo.saveWatchlistSourceResults).mockRejectedValue(new Error("disk full"));
+
+      const result = await getCurrentWatchlistResults();
+
+      expect(result.sources.map((source) => source.status)).toEqual(["success", "success"]);
+    });
+
+    it("returns an empty response without any sources", async () => {
+      vi.mocked(watchlistRepo.listWatchlistSelectedSources).mockResolvedValue([]);
+
+      await expect(getCurrentWatchlistResults()).resolves.toEqual({
+        checkedAt: null,
+        previousLastCheckedAt: null,
+        sources: [],
+      });
+    });
   });
 });

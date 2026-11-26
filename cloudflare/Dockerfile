@@ -104,6 +104,14 @@ RUN printf '%s\n' '#import "@preview/clean-print-cv:0.1.0": *' > /tmp/warm.typ \
 # ============================================================================
 FROM runtime-node-deps AS production
 
+# Chromium headless shell for careers-site crawling (watchlist sources that render in a browser).
+# The app server inside the Durable Object has no browser, so it delegates those crawls here.
+# `--with-deps` also installs the system libraries it needs, which is why it runs in this stage.
+# The crawler finds the browser through PLAYWRIGHT_BROWSERS_PATH (see careers-site/fetch.ts).
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN npx playwright install --with-deps chromium-headless-shell \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /root/.npm
+
 COPY --from=typst /usr/local/bin/typst /usr/local/bin/typst
 COPY --from=camoufox-cache /root/.cache/camoufox /root/.cache/camoufox
 COPY --from=typst /root/.cache/typst /root/.cache/typst

@@ -31,6 +31,7 @@ import cors from "cors";
 import express from "express";
 import { apiRouter } from "./api/index";
 import { internalScrapeRouter } from "./api/routes/internal-scrape";
+import { internalCareersSiteRouter } from "./api/routes/internal-careers-site";
 import { internalRenderPdfRouter } from "./api/routes/internal-render-pdf";
 import { ojcpManifestHandler, ojcpMcpHandler } from "./ojcp";
 
@@ -394,6 +395,7 @@ export function createApp() {
   // Authorize before parsing; inline pictures need a bounded limit above 100kb.
   // These internal routes use their shared secret instead of end-user sessions.
   app.use("/internal/render-pdf", internalRenderPdfRouter);
+  app.use("/internal/careers-site", internalCareersSiteRouter);
   // Internal scraper container pool alias (`POST /scrape` -> `POST /api/internal/scrape/run`)
   app.post("/scrape", express.json({ limit: "2mb" }), (req, res, next) => {
     req.url = "/run";

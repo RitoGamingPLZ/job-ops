@@ -111,9 +111,20 @@ export const WatchlistPage: React.FC = () => {
   });
   const { data: watchlistResultsResponse } = useQuery({
     queryKey: queryKeys.watchlist.results(),
-    queryFn: api.fetchWatchlistResults,
+    // Served from each source's last stored check; only the refresh actions below re-check sources.
+    queryFn: () => api.fetchWatchlistResults(),
     enabled: Boolean(watchlistSourcesResponse?.selectedSources),
     staleTime: 30_000,
+  });
+  const refreshMutation = useMutation({
+    mutationFn: (input: { sourceIds?: string[] }) =>
+      api.fetchWatchlistResults({ refresh: true, ...input }),
+    onSuccess: (results) => {
+      queryClient.setQueryData(queryKeys.watchlist.results(), results);
+    },
+    onError: (error) => {
+      showErrorToast(error, "Failed to check watchlist sources");
+    },
   });
 
   const saveSourcesMutation = useMutation({
@@ -607,6 +618,8 @@ export const WatchlistPage: React.FC = () => {
             newJobsCount={newJobsCount}
             hasUnsavedChanges={hasUnsavedChanges}
             isSaving={saveSourcesMutation.isPending}
+            isRefreshing={refreshMutation.isPending}
+            onRefresh={() => refreshMutation.mutate({})}
             groups={watchlistSourcesResponse?.groups ?? []}
             onAddSource={addSourceDraft}
             onAddGroup={addSourceGroup}
@@ -650,6 +663,11 @@ export const WatchlistPage: React.FC = () => {
                 onLoadJobDetails={(job, source) => {
                   void loadJobDetails(job, source);
                 }}
+                isRetrying={
+                  refreshMutation.isPending &&
+                  (refreshMutation.variables?.sourceIds?.includes(item.source.id) ?? true)
+                }
+                onRetry={(source) => refreshMutation.mutate({ sourceIds: [source.id] })}
               />
             ))}
           </Accordion>

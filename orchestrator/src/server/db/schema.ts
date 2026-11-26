@@ -777,6 +777,36 @@ export const watchlistSeenJobs = sqliteTable(
   }),
 );
 
+// Last fetch outcome (jobs or error) per watched source, so opening the Watchlist page reads this
+// instead of re-checking every source. Refreshed only by an explicit refresh or a pipeline run.
+export const watchlistSourceResults = sqliteTable(
+  "watchlist_source_results",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .default("tenant_default")
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    sourceKey: text("source_key").notNull(),
+    status: text("status", { enum: ["success", "error"] }).notNull(),
+    resultJson: text("result_json").notNull(),
+    checkedAt: text("checked_at").notNull(),
+    previousCheckedAt: text("previous_checked_at"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => ({
+    tenantUserSourceUnique: uniqueIndex(
+      "idx_watchlist_source_results_tenant_user_source_unique",
+    ).on(table.tenantId, table.userId, table.sourceKey),
+  }),
+);
+
 export const watchlistSelectedSources = sqliteTable(
   "watchlist_selected_sources",
   {

@@ -39,6 +39,13 @@ const watchlistStateParamsSchema = z.object({
   sourceJobId: z.string().trim().min(1).max(500),
 });
 
+// Without `refresh` the last stored outcome of each source is returned and only never-checked
+// sources are fetched. `refresh` re-checks every source, or just the listed `sourceIds`.
+const watchlistResultsSchema = z.object({
+  refresh: z.boolean().optional(),
+  sourceIds: z.array(z.string().trim().min(1).max(500)).max(MAX_WATCHLIST_SOURCES).optional(),
+});
+
 const watchlistCheckSchema = z.object({
   checks: z
     .array(
@@ -172,8 +179,13 @@ watchlistRouter.put(
 
 watchlistRouter.post(
   "/results",
-  asyncRoute(async (_req: Request, res: Response) => {
-    ok(res, (await getCurrentWatchlistResults()) satisfies WatchlistResultsResponse);
+  asyncRoute(async (req: Request, res: Response) => {
+    const parsedBody = watchlistResultsSchema.safeParse(req.body ?? {});
+    if (!parsedBody.success) {
+      return fail(res, badRequest("Invalid watchlist results payload", parsedBody.error.flatten()));
+    }
+
+    ok(res, (await getCurrentWatchlistResults(parsedBody.data)) satisfies WatchlistResultsResponse);
   }),
 );
 

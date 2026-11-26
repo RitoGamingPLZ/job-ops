@@ -36,6 +36,10 @@ import {
 } from "./services/do-on-task-done";
 import { type RemotePdfRenderer, setRemotePdfRenderer } from "./services/pdf";
 import { type RemotePdfWarmer, setRemotePdfWarmer } from "./services/pdf-warmer";
+import {
+  type RemoteCareersSiteRunner,
+  setRemoteCareersSiteRunner,
+} from "./watchlist/careers-site/remote";
 
 export type {
   OnTaskDonePayload,
@@ -74,6 +78,7 @@ export interface DurableObjectExpressServerOptions {
   remoteRenderPdf?: RemotePdfRenderer;
   remoteWarmPdf?: RemotePdfWarmer;
   remoteRunContainerExtractor?: RemoteContainerExtractorRunner;
+  remoteCareersSite?: RemoteCareersSiteRunner;
 }
 
 export interface DurableObjectExpressServer {
@@ -102,6 +107,7 @@ export function createDurableObjectExpressServer(
   setRemotePdfRenderer(options.remoteRenderPdf ?? null);
   setRemotePdfWarmer(options.remoteWarmPdf ?? null);
   setRemoteContainerExtractorRunner(options.remoteRunContainerExtractor ?? null);
+  setRemoteCareersSiteRunner(options.remoteCareersSite ?? null);
   setDb(createDurableObjectDrizzleDb(options.storage));
 
   if (options.r2Bucket) {

@@ -7,6 +7,25 @@ declare module "*do-entry.mjs" {
     port?: number;
     remoteRenderPdf?: (body: string, requestId?: string) => Promise<Uint8Array>;
     remoteWarmPdf?: () => Promise<void>;
+    remoteCareersSite?: {
+      run(input: {
+        recipe: unknown;
+        sourceUrl?: string;
+        limit: number;
+        budgetMs: number;
+        signal?: AbortSignal;
+      }): Promise<{ kind: string; [key: string]: unknown }>;
+      learn(input: {
+        careersUrl: string;
+        llm: {
+          provider: string | null;
+          model: string;
+          baseUrl: string | null;
+          apiKey: string | null;
+        };
+        signal?: AbortSignal;
+      }): Promise<{ kind: string; [key: string]: unknown }>;
+    };
     remoteRunContainerExtractor?: (request: RemoteContainerExtractorRequest) => Promise<{
       success: boolean;
       jobs: unknown[];

@@ -5,11 +5,11 @@ import type {
   WatchlistSourceTypeDescriptor,
   WatchlistWorkspaceJobReference,
 } from "@shared/types.js";
-import { CircleAlert, Loader2 } from "lucide-react";
+import { CircleAlert, Loader2, RefreshCw } from "lucide-react";
 import { formatUserFacingError } from "@/client/lib/error-format";
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,9 @@ interface WatchlistSourceResultsCardProps {
   onMoveToWorkspace: (job: WatchlistJobResult, source: WatchlistSelectedSource) => void;
   onOpenWorkspaceJob: (job: WatchlistWorkspaceJobReference) => void;
   onLoadJobDetails: (job: WatchlistJobResult, source: WatchlistSelectedSource) => void;
+  /** Re-checks just this source; results are otherwise the last stored check. */
+  isRetrying?: boolean;
+  onRetry?: (source: WatchlistSelectedSource) => void;
 }
 
 function getStatusBadge(item: WatchlistFetchState) {
@@ -84,6 +87,8 @@ export function WatchlistSourceResultsCard({
   onMoveToWorkspace,
   onOpenWorkspaceJob,
   onLoadJobDetails,
+  isRetrying = false,
+  onRetry,
 }: WatchlistSourceResultsCardProps) {
   const sourceDescriptor = sourceTypes.find(
     (sourceType) => sourceType.sourceType === item.source.sourceType,
@@ -130,7 +135,24 @@ export function WatchlistSourceResultsCard({
                 </p>
                 <p className="text-xs text-muted-foreground">
                   This source failed to load, but the rest of your watchlist can still be checked.
+                  {onRetry ? " This is the result of the last check." : ""}
                 </p>
+                {onRetry ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={isRetrying}
+                    onClick={() => onRetry(item.source)}
+                  >
+                    {isRetrying ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Check this source again
+                  </Button>
+                ) : null}
                 <details className="rounded-md border border-destructive/20 bg-background/60 p-3 text-xs text-muted-foreground">
                   <summary className="cursor-pointer font-medium text-foreground">
                     Technical details

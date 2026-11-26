@@ -9,9 +9,18 @@ import {
 } from "@server/repositories/site-recipes";
 import { parseGreenhouseUrl } from "@career-boards/greenhouse";
 import greenhouseCatalog from "@server/config/career-boards-greenhouse.json";
+import { resolveLlmRuntimeSettings } from "@server/services/modelSelection";
 import { learnRecipe, RecipeLearningError } from "@server/watchlist/careers-site/learn";
+import {
+  getRemoteCareersSiteRunner,
+  RemoteCareersSiteUnavailableError,
+} from "@server/watchlist/careers-site/remote";
 import { runRecipe } from "@server/watchlist/careers-site/run-recipe";
-import { type CrawledJob, SiteBlockedError } from "@server/watchlist/careers-site/types";
+import {
+  type CrawledJob,
+  type Recipe,
+  SiteBlockedError,
+} from "@server/watchlist/careers-site/types";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { convert } from "html-to-text";
 import { z } from "zod";
@@ -105,6 +114,52 @@ function greenhouseFallback(source: WatchlistSelectedSource): WatchlistSelectedS
     ? { ...source, sourceType: "greenhouse", careersUrl: board, cxsJobsUrl: null }
     : null;
 }
+/**
+ * Where the crawl runs. The Cloudflare Worker has no browser, so there it is delegated to the
+ * scraper container; everywhere else Playwright and jsdom run in-process.
+ */
+function remoteRunner() {
+  return isWorkerdRuntime() ? getRemoteCareersSiteRunner() : null;
+}
+async function crawl(
+  recipe: Recipe,
+  host: string,
+  options: { limit: number; signal: AbortSignal; stopAt: number; sourceUrl?: string },
+): Promise<CrawledJob[]> {
+  const remote = remoteRunner();
+  if (!remote) return runRecipe(recipe, options);
+  const result = await remote.run({
+    recipe,
+    ...(options.sourceUrl ? { sourceUrl: options.sourceUrl } : {}),
+    limit: options.limit,
+    budgetMs: Math.max(0, options.stopAt - Date.now()),
+    signal: options.signal,
+  });
+  if (result.kind === "unavailable") throw new RemoteCareersSiteUnavailableError(result.message);
+  if (result.kind === "blocked") throw new SiteBlockedError(host, result.reason);
+  if (result.kind === "failed") throw new Error("Remote careers crawl failed");
+  return result.jobs;
+}
+async function learn(host: string, url: string, signal: AbortSignal): Promise<Recipe> {
+  const remote = remoteRunner();
+  if (!remote) return learnRecipe(url, { signal });
+  // The container is stateless: it learns with this tenant's own LLM connection and returns the recipe.
+  const runtime = await resolveLlmRuntimeSettings("default");
+  const result = await remote.learn({
+    careersUrl: url,
+    llm: {
+      provider: runtime.provider,
+      model: runtime.model,
+      baseUrl: runtime.baseUrl,
+      apiKey: runtime.apiKey,
+    },
+    signal,
+  });
+  if (result.kind === "unavailable") throw new RemoteCareersSiteUnavailableError(result.message);
+  if (result.kind === "blocked") throw new SiteBlockedError(host, result.reason);
+  if (result.kind === "failed") throw new RecipeLearningError(result.message);
+  return result.recipe;
+}
 function startLearning(host: string, url: string): never {
   const plainUrl = new URL(url);
   plainUrl.search = "";
@@ -116,14 +171,13 @@ function startLearning(host: string, url: string): never {
   if (!learning.has(host)) {
     const p = (async () => {
       try {
-        const recipe = await learnRecipe(plainUrl.href, {
-          signal: AbortSignal.timeout(180_000),
-        });
+        const recipe = await learn(host, plainUrl.href, AbortSignal.timeout(180_000));
         await saveSiteRecipe(host, recipe);
         failedLearns.delete(host);
       } catch (error) {
         if (error instanceof SiteBlockedError) await markSiteBlocked(host, error.reason);
-        else {
+        // A browser that is still starting says nothing about this site; do not start a cooldown.
+        else if (!(error instanceof RemoteCareersSiteUnavailableError)) {
           const now = Date.now();
           for (const [failedHost, failedAt] of failedLearns) {
             if (now - failedAt >= FAILED_LEARN_COOLDOWN_MS) failedLearns.delete(failedHost);
@@ -225,11 +279,14 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     const url = careersUrl(input.source.careersUrl);
     const host = url.hostname;
     if (isWorkerdRuntime()) {
+      // A known Greenhouse board is a cheap API request; prefer it over driving a browser.
       const fallback = greenhouseFallback(input.source);
       if (fallback) return greenhouseWatchlistAdapter.fetchJobs({ ...input, source: fallback });
-      throw serviceUnavailable(
-        `Careers-site sources need a browser, which is not available on this deployment yet, and no Greenhouse board is known for ${host}.`,
-      );
+      if (!getRemoteCareersSiteRunner()) {
+        throw serviceUnavailable(
+          `Careers-site sources need a browser, which is not available on this deployment yet, and no Greenhouse board is known for ${host}.`,
+        );
+      }
     }
     const sourceKey = key(host, url.search);
     const stopAt = Date.now() + 20_000;
@@ -259,7 +316,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     cache.delete(sourceKey);
     let collected: CrawledJob[];
     try {
-      collected = await runRecipe(recipe, {
+      collected = await crawl(recipe, host, {
         limit,
         signal,
         stopAt,
@@ -272,6 +329,9 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
         throw blocked(host);
       }
       input.signal?.throwIfAborted();
+      // An unreachable browser says nothing about the recipe; do not count it toward relearning.
+      if (error instanceof RemoteCareersSiteUnavailableError)
+        throw serviceUnavailable(error.message);
       const failures = await recordSiteRecipeRun(host, false);
       if (failures >= 3) startLearning(host, url.href);
       throw upstreamError("Could not read jobs from this careers site. Try again later.");
