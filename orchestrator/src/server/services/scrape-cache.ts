@@ -16,7 +16,20 @@ const SCRAPE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const SCRAPE_CACHE_RETENTION_MS = 3 * 24 * 60 * 60 * 1000;
 const PRUNE_BATCH_SIZE = 50;
 const BLOB_PREFIX = "scrape-cache/";
-const BLOB_VERSION = 1;
+const BLOB_VERSION = 2;
+
+/**
+ * Per-term result limits derived from the run budget (see deriveExtractorLimits). They shrink as
+ * more terms are searched, so they are kept out of the per-term cache key and compared instead:
+ * an entry fetched with a limit at least as large as the one now requested is still a valid answer.
+ */
+const PER_TERM_LIMIT_KEYS = [
+  "jobspyResultsWanted",
+  "adzunaMaxJobsPerTerm",
+  "jobindexMaxJobsPerTerm",
+] as const;
+
+export type ScrapeLimits = Record<string, number>;
 
 interface CachedScrape {
   jobs: CreateJobInput[];
@@ -29,8 +42,22 @@ export function isScrapeCacheEnabled(): boolean {
   return flag !== "0" && flag !== "false" && flag !== "off";
 }
 
-function sortedRecord(record: Record<string, string>): Record<string, string> {
+function sortedRecord<T>(record: Record<string, T>): Record<string, T> {
   return Object.fromEntries(Object.entries(record).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function fingerprintOf(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 16);
+}
+
+/** The per-term result limits present in a settings bag, as numbers. */
+export function extractRequestedLimits(settings: Record<string, string | undefined>): ScrapeLimits {
+  const limits: ScrapeLimits = {};
+  for (const key of PER_TERM_LIMIT_KEYS) {
+    const parsed = Number.parseInt(settings[key] ?? "", 10);
+    if (Number.isFinite(parsed) && parsed > 0) limits[key] = parsed;
+  }
+  return limits;
 }
 
 /**
@@ -49,19 +76,13 @@ export function buildSourceRunCacheKey(input: {
   settings: Record<string, string>;
   tenantId?: string;
 }): string {
-  const fingerprint = createHash("sha256")
-    .update(
-      JSON.stringify({
-        sources: [...input.sources].sort(),
-        location: input.locationIntent ?? null,
-        settings: sortedRecord(input.settings),
-      }),
-    )
-    .digest("hex")
-    .slice(0, 16);
   return buildScrapeKey({
     source: `${input.tenantId ?? getActiveTenantId()}:${input.manifestId}`,
-    target: fingerprint,
+    target: fingerprintOf({
+      sources: [...input.sources].sort(),
+      location: input.locationIntent ?? null,
+      settings: sortedRecord(input.settings),
+    }),
     title: [...input.searchTerms]
       .map((term) => term.trim().toLowerCase())
       .sort()
@@ -70,16 +91,49 @@ export function buildSourceRunCacheKey(input: {
   });
 }
 
+/**
+ * Like buildSourceRunCacheKey but for a single search term, so adding or removing a term only
+ * re-scrapes that term. Result limits are excluded from the key (see PER_TERM_LIMIT_KEYS).
+ */
+export function buildTermCacheKey(input: {
+  manifestId: string;
+  sources: string[];
+  term: string;
+  locationIntent: unknown;
+  settings: Record<string, string>;
+  tenantId?: string;
+}): string {
+  const settings = Object.fromEntries(
+    Object.entries(input.settings).filter(
+      ([key]) => !(PER_TERM_LIMIT_KEYS as readonly string[]).includes(key),
+    ),
+  );
+  return buildScrapeKey({
+    source: `${input.tenantId ?? getActiveTenantId()}:${input.manifestId}:term`,
+    target: fingerprintOf({
+      sources: [...input.sources].sort(),
+      location: input.locationIntent ?? null,
+      settings: sortedRecord(settings),
+    }),
+    title: input.term,
+    location: "",
+  });
+}
+
 function blobKeyFor(scrapeKey: string): string {
   return `${BLOB_PREFIX}${createHash("sha256").update(scrapeKey).digest("hex")}.json`;
 }
 
-/** Returns a still-fresh successful scrape for this key, or null (never throws). */
+/**
+ * Returns a still-fresh successful scrape for this key, or null (never throws). When `limits`
+ * are given, the stored scrape must have been fetched with limits at least as large.
+ */
 export async function readScrapeCache(
   scrapeKey: string,
-  now: Date = new Date(),
+  options: { now?: Date; limits?: ScrapeLimits } = {},
 ): Promise<CachedScrape | null> {
   try {
+    const now = options.now ?? new Date();
     const cutoff = new Date(now.getTime() - SCRAPE_CACHE_TTL_MS).toISOString();
     const [row] = await db
       .select()
@@ -95,9 +149,19 @@ export async function readScrapeCache(
       version?: number;
       jobs?: unknown;
       sourceErrors?: unknown;
+      limits?: unknown;
     };
-    if (parsed.version !== BLOB_VERSION || !Array.isArray(parsed.jobs) || parsed.jobs.length === 0) {
+    if (
+      parsed.version !== BLOB_VERSION ||
+      !Array.isArray(parsed.jobs) ||
+      parsed.jobs.length === 0
+    ) {
       return null;
+    }
+    const stored = (parsed.limits ?? {}) as Record<string, unknown>;
+    for (const [key, requested] of Object.entries(options.limits ?? {})) {
+      const have = stored[key];
+      if (typeof have !== "number" || have < requested) return null;
     }
     return {
       jobs: parsed.jobs as CreateJobInput[],
@@ -119,6 +183,8 @@ export async function writeScrapeCache(input: {
   runtime?: "worker" | "browser" | "container";
   jobs: CreateJobInput[];
   sourceErrors: string[];
+  /** Result limits the scrape was fetched with; see readScrapeCache. */
+  limits?: ScrapeLimits;
   now?: Date;
 }): Promise<void> {
   if (input.jobs.length === 0) return;
@@ -133,6 +199,7 @@ export async function writeScrapeCache(input: {
         completedAt: nowIso,
         jobs: input.jobs,
         sourceErrors: input.sourceErrors,
+        limits: input.limits ?? {},
       }),
       { contentType: "application/json" },
     );

@@ -16,6 +16,8 @@ import {
 import { withHostedUsageReservation } from "@server/services/hosted-usage";
 import {
   buildSourceRunCacheKey,
+  buildTermCacheKey,
+  extractRequestedLimits,
   isScrapeCacheEnabled,
   readScrapeCache,
   writeScrapeCache,
@@ -329,15 +331,22 @@ export async function discoverJobsStep(args: {
           !args.retryChallengeUrls?.[manifest.id] &&
           args.resumeStates?.[manifest.id] === undefined &&
           !args.skippedChallengeSearchStates?.length;
-        const scrapeCacheKey = cacheable
-          ? buildSourceRunCacheKey({
-              manifestId: manifest.id,
-              sources: grouped.sources,
-              searchTerms,
-              locationIntent,
-              settings: pickSafeContainerExtractorSettings(manifest.id, filteredSettings),
-            })
-          : null;
+        // Hiring Cafe checkpoints are positions in the full term list, so it is cached as one
+        // run; every other source is cached per search term so that adding or removing a term
+        // only re-scrapes that term.
+        const perTermCache = cacheable && manifest.id !== "hiringcafe" && searchTerms.length > 0;
+        const safeSettings = pickSafeContainerExtractorSettings(manifest.id, filteredSettings);
+        const requestedLimits = extractRequestedLimits(filteredSettings);
+        const scrapeCacheKey =
+          cacheable && !perTermCache
+            ? buildSourceRunCacheKey({
+                manifestId: manifest.id,
+                sources: grouped.sources,
+                searchTerms,
+                locationIntent,
+                settings: safeSettings,
+              })
+            : null;
         if (scrapeCacheKey) {
           const cached = await readScrapeCache(scrapeCacheKey);
           if (cached) {
@@ -369,7 +378,7 @@ export async function discoverJobsStep(args: {
           registry.locationCapabilitiesBySource?.[grouped.sources[0] as ExtractorSourceId],
         );
         const remoteRunner = getRemoteContainerExtractorRunner();
-        const runViaRemote = () => {
+        const runViaRemote = (terms: string[]) => {
           if (!remoteRunner) {
             throw new Error(`Remote container runner unavailable for ${manifest.id}`);
           }
@@ -377,21 +386,25 @@ export async function discoverJobsStep(args: {
             manifestId: manifest.id,
             source: grouped.sources[0] as ExtractorSourceId,
             selectedSources: grouped.sources,
-            searchTerms,
+            searchTerms: terms,
             selectedCountry: getLegacyLocationSelection(locationIntent),
-            settings: pickSafeContainerExtractorSettings(manifest.id, filteredSettings),
+            settings: safeSettings,
             locationIntent,
             sourceLocationPlan,
             runtime: "container",
             requestId: getRequestId(),
           });
         };
-        const runLocalManifest = () =>
+        // `termProgress` places a single-term call inside the whole run's term counters.
+        const runLocalManifest = (
+          terms: string[],
+          termProgress?: { done: number; total: number },
+        ) =>
           manifest.run({
             source: grouped.sources[0],
             selectedSources: grouped.sources,
             settings: filteredSettings,
-            searchTerms,
+            searchTerms: terms,
             selectedCountry: getLegacyLocationSelection(locationIntent),
             cookieStorageDir: getPrivateCloudflareCookieStorageDir(),
             browserPageReader:
@@ -418,10 +431,17 @@ export async function discoverJobsStep(args: {
                   event.termsTotal,
                 );
               }
+              // One call covers one term across every location, so scale by the location count
+              // (the call's own total) to keep the counters in whole-run units.
+              const unit = event.termsTotal ?? 1;
+              const scale = event.termsTotal !== undefined ? termProgress : undefined;
               progressHelpers.crawlingUpdate({
                 source: manifest.id,
-                termsProcessed: event.termsProcessed,
-                termsTotal: event.termsTotal,
+                termsProcessed:
+                  scale && event.termsProcessed !== undefined
+                    ? scale.done * unit + event.termsProcessed
+                    : event.termsProcessed,
+                termsTotal: scale ? scale.total * unit : event.termsTotal,
                 listPagesProcessed: event.listPagesProcessed,
                 listPagesTotal: event.listPagesTotal,
                 jobCardsFound: event.jobCardsFound,
@@ -440,12 +460,114 @@ export async function discoverJobsStep(args: {
               }
             },
           });
-        const run = (async () => {
+        const runExtractor = async (
+          terms: string[],
+          termProgress?: { done: number; total: number },
+        ) => {
           if (manifest.runtime === "container" && remoteRunner) {
-            return runViaRemote();
+            return runViaRemote(terms);
           }
-          return runLocalManifest();
-        })();
+          return runLocalManifest(terms, termProgress);
+        };
+
+        // Replays each term cached in the last 24 hours and calls the extractor once for every
+        // other term, so each term's jobs can be stored under that term. The result has the same
+        // shape as a single extractor call.
+        const runPerTerm = async (): Promise<Awaited<ReturnType<typeof runExtractor>>> => {
+          const seenTerms = new Set<string>();
+          const uniqueTerms = searchTerms.filter((term) => {
+            const normalized = term.trim().toLowerCase();
+            if (seenTerms.has(normalized)) return false;
+            seenTerms.add(normalized);
+            return true;
+          });
+          const entries = await Promise.all(
+            uniqueTerms.map(async (term) => {
+              const key = buildTermCacheKey({
+                manifestId: manifest.id,
+                sources: grouped.sources,
+                term,
+                locationIntent,
+                settings: safeSettings,
+              });
+              return {
+                term,
+                key,
+                cached: await readScrapeCache(key, { limits: requestedLimits }),
+              };
+            }),
+          );
+
+          const jobsByUrl = new Map<string, CreateJobInput>();
+          const addJobs = (jobs: CreateJobInput[]) => {
+            for (const job of jobs) {
+              if (!jobsByUrl.has(job.jobUrl)) jobsByUrl.set(job.jobUrl, job);
+            }
+          };
+          const missing: typeof entries = [];
+          for (const entry of entries) {
+            if (entry.cached) addJobs(entry.cached.jobs);
+            else missing.push(entry);
+          }
+          const cachedTermCount = entries.length - missing.length;
+          if (cachedTermCount > 0) {
+            logger.info("Reusing recent extractor results", {
+              step: "discover-jobs",
+              source: manifest.id,
+              cachedTermCount,
+              termCount: entries.length,
+              jobCount: jobsByUrl.size,
+            });
+            updateProgress({
+              step: "crawling",
+              detail: `${manifest.displayName}: reusing ${cachedTermCount} of ${entries.length} terms from the last 24 hours`,
+            });
+          }
+
+          const errors: string[] = [];
+          for (const [index, entry] of missing.entries()) {
+            if (shouldCancel()) break;
+            const termResult = await runExtractor([entry.term], {
+              done: cachedTermCount + index,
+              total: entries.length,
+            });
+            if (!termResult.success) {
+              // Terms finished earlier are already cached and stay in this run; only a run with
+              // nothing to show is reported as a failed source.
+              if (jobsByUrl.size === 0) return { ...termResult, jobs: [] };
+              errors.push(
+                `${manifest.displayName || manifest.id}: ${termResult.error ?? "unknown error"} (term: ${entry.term})`,
+              );
+              break;
+            }
+            addJobs(termResult.jobs);
+            const termErrors = termResult.sourceErrors ?? [];
+            errors.push(...termErrors);
+            if (termResult.challengeRequired) {
+              return {
+                success: true,
+                jobs: [...jobsByUrl.values()],
+                sourceErrors: errors,
+                challengeRequired: termResult.challengeRequired,
+                resumeState: termResult.resumeState,
+              };
+            }
+            // Same rule as a whole run: only clean, complete, non-empty results are reusable.
+            if (termErrors.length === 0 && !shouldCancel()) {
+              await writeScrapeCache({
+                scrapeKey: entry.key,
+                source: manifest.id,
+                runtime: manifest.runtime,
+                jobs: termResult.jobs,
+                sourceErrors: [],
+                limits: requestedLimits,
+              });
+            }
+          }
+          return { success: true, jobs: [...jobsByUrl.values()], sourceErrors: errors };
+        };
+
+        const run = perTermCache ? runPerTerm() : runExtractor(searchTerms);
         let result: Awaited<typeof run>;
         try {
           result = await withDiscoverySourceTimeout(run, () => {
