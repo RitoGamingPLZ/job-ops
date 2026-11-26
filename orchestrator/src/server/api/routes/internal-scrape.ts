@@ -4,11 +4,7 @@ import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { getExtractorRegistry } from "@server/extractors/registry";
 import type { ExtractorSourceId } from "@shared/extractors";
-import type {
-  ExtractorRuntimeContext,
-  LocationIntent,
-  SourceLocationPlan,
-} from "@shared/types";
+import type { ExtractorRuntimeContext, LocationIntent, SourceLocationPlan } from "@shared/types";
 import { type NextFunction, type Request, type Response, Router } from "express";
 import { verifyInternalScrapeSecret } from "./internal-auth";
 

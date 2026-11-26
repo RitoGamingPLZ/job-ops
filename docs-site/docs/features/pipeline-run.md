@@ -200,7 +200,6 @@ For formats and limits, see [Manual Import Extractor](/docs/next/extractors/manu
 - Reduce a very large radius.
 - Switch to **Manual cities** if you need to run without the nearby-place service.
 
-
 ### Adzuna is not selectable
 
 - Set `Adzuna App ID` and `Adzuna App Key` in **Settings > Environment & Workspaces**.

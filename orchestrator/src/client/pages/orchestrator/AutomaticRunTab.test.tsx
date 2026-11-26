@@ -653,9 +653,7 @@ describe("AutomaticRunTab", () => {
 
     openSourcePicker();
 
-    expect(
-      screen.getByTitle("Jobindex is not available for United States."),
-    ).toBeInTheDocument();
+    expect(screen.getByTitle("Jobindex is not available for United States.")).toBeInTheDocument();
   });
 
   it("disables adzuna for unsupported countries with guidance copy", async () => {
@@ -694,9 +692,7 @@ describe("AutomaticRunTab", () => {
 
     const adzunaButton = screen.getByRole("button", { name: "Adzuna" });
     expect(adzunaButton).toBeDisabled();
-    expect(adzunaButton.getAttribute("title")).toContain(
-      "Adzuna is not available for Croatia.",
-    );
+    expect(adzunaButton.getAttribute("title")).toContain("Adzuna is not available for Croatia.");
   });
 
   it("does not show legacy country-only city defaults as selected cities", () => {

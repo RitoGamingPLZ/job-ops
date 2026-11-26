@@ -71,14 +71,14 @@ Sign-in uses JobOps accounts by default, and can also use Google, GitHub, or any
 
 ## Supported Job Boards
 
-| Platform       | Focus                    |
-| -------------- | ------------------------ |
-| LinkedIn       | Global                   |
-| Indeed         | Global                   |
-| Adzuna         | Multi-country API        |
-| Hiring Cafe    | Global                   |
-| Jobindex       | Denmark                  |
-| FreeHire       | Global                   |
+| Platform    | Focus             |
+| ----------- | ----------------- |
+| LinkedIn    | Global            |
+| Indeed      | Global            |
+| Adzuna      | Multi-country API |
+| Hiring Cafe | Global            |
+| Jobindex    | Denmark           |
+| FreeHire    | Global            |
 
 Custom extractors can be added via TypeScript. See the [extractor docs](https://jobops.dakheera47.com/docs/extractors/overview).
 

@@ -146,10 +146,7 @@ describe("non-admin hardening", () => {
       expect(res.status, `${method} ${path}`).toBe(403);
     }
 
-    for (const payload of [
-      { llmProvider: "litellm" },
-      { adzunaAppId: "guest-adzuna" },
-    ]) {
+    for (const payload of [{ llmProvider: "litellm" }, { adzunaAppId: "guest-adzuna" }]) {
       const res = await fetch(`${baseUrl}/api/settings`, {
         method: "PATCH",
         headers: headers(guestToken),

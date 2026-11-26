@@ -845,9 +845,7 @@ describe("SettingsPage", () => {
 
     await openModelSection();
     expect(screen.queryByRole("button", { name: /adzuna extractor/i })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /jobindex extractor/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /jobindex extractor/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /search terms/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /jobspy scraper/i })).not.toBeInTheDocument();
   });
