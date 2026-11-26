@@ -1009,7 +1009,7 @@ describe("AutomaticRunTab", () => {
     });
   });
 
-  it("in daily mode still allows switching to Describe search and resets to details on reopen", () => {
+  it("in daily mode hides the Describe search back button and stays on details on reopen", () => {
     const props = {
       settings: createAppSettings({
         jobspyCountryIndeed: { value: "croatia", default: "", override: "croatia" },
@@ -1033,8 +1033,7 @@ describe("AutomaticRunTab", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Configure your search" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Describe search" }));
-    expect(screen.getByRole("heading", { name: "Find your next role" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Describe search" })).not.toBeInTheDocument();
 
     rerender(
       <AutomaticRunTab
