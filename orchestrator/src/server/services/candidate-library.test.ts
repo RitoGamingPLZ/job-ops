@@ -801,6 +801,29 @@ it("sync imports missing base contacts into existing libraries without editing o
   });
 });
 
+it("does not re-import a deleted contact from the base resume, unless it is added back", async () => {
+  await scope("tenant-a", async () => {
+    document.basics.email = "me@example.com";
+    document.basics.phone = "123";
+    api.syncCandidateLibrary(document);
+    const repo = await import("../repositories/experience-bullets");
+    const contacts = async () =>
+      (await repo.listExperienceBullets(true)).filter((item) => item.kind === "contact");
+    const email = (await contacts()).find((item) => item.data?.type === "email");
+    expect(email).toBeDefined();
+    api.deleteLibraryItem(email?.id ?? "");
+    expect(api.syncCandidateLibrary(document).created).toBe(0);
+    expect(await contacts()).toHaveLength(1);
+    // Adding the same contact by hand clears the memory of the deletion.
+    api.createLibraryItem({
+      kind: "contact",
+      text: "me@example.com",
+      data: { type: "email", value: "me@example.com" },
+    });
+    expect(await contacts()).toHaveLength(2);
+  });
+});
+
 it("imports structured education/awards/certifications and derives every field intact", async () => {
   const website = {
     url: "https://example.com",
