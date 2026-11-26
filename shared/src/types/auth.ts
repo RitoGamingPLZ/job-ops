@@ -63,8 +63,7 @@ export const USER_PERMISSION_LABELS: Readonly<
   },
   serverCredentials: {
     label: "Use server job-source keys",
-    description:
-      "Lets this user run job sources backed by your server's Apify, Adzuna, or UKVisaJobs credentials.",
+    description: "Lets this user run job sources backed by your server's Adzuna credentials.",
   },
   emailTracking: {
     label: "Email tracking inbox",

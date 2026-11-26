@@ -28,9 +28,14 @@ const resolveAllowedSources = (enabledSources?: readonly JobSource[]) =>
     ? (enabledSources as JobSource[])
     : DEFAULT_PIPELINE_SOURCES;
 
+const getDefaultSourcesForAllowed = (allowedSources: JobSource[]): JobSource[] => {
+  const coreDefaults = DEFAULT_PIPELINE_SOURCES.filter((value) => allowedSources.includes(value));
+  return coreDefaults.length > 0 ? coreDefaults : allowedSources.slice(0, 1);
+};
+
 const normalizeSources = (sources: JobSource[], allowedSources: JobSource[]) => {
   const filtered = sources.filter((value) => allowedSources.includes(value));
-  return filtered.length > 0 ? filtered : allowedSources.slice(0, 1);
+  return filtered.length > 0 ? filtered : getDefaultSourcesForAllowed(allowedSources);
 };
 
 const sourcesMatch = (left: JobSource[], right: JobSource[]) =>
@@ -42,14 +47,14 @@ export const usePipelineSources = (enabledSources?: readonly JobSource[]) => {
   const [pipelineSources, setPipelineSources] = useState<JobSource[]>(() => {
     try {
       const raw = readPipelineSourcesStorage(storageKey);
-      if (!raw) return normalizeSources(allowedSources, allowedSources);
+      if (!raw) return getDefaultSourcesForAllowed(allowedSources);
       const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) return normalizeSources(allowedSources, allowedSources);
+      if (!Array.isArray(parsed)) return getDefaultSourcesForAllowed(allowedSources);
       const next = parsed.filter((value): value is JobSource => orderedSources.includes(value));
       migrateLegacyPipelineSourcesStorage(storageKey, raw);
       return normalizeSources(next, allowedSources);
     } catch {
-      return normalizeSources(allowedSources, allowedSources);
+      return getDefaultSourcesForAllowed(allowedSources);
     }
   });
 

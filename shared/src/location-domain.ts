@@ -486,7 +486,7 @@ export function getDefaultLocationSourceCapabilities(
     source,
     supportedCountryKeys: createDefaultSupportedCountryKeys(source),
     requiresCityLocations: sourceRequiresCityLocations(source as JobSource),
-    requiresSelectedCountry: source === "adzuna" || source === "glassdoor" || source === "seek",
+    requiresSelectedCountry: source === "adzuna",
     supportsNativeRadius: false,
   };
 }

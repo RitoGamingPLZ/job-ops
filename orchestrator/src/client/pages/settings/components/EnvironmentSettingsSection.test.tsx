@@ -34,8 +34,6 @@ const EnvironmentSettingsHarness = () => {
   });
   const methods = useForm<UpdateSettingsInput>({
     defaultValues: {
-      ukvisajobsEmail: "visa@example.com",
-      ukvisajobsPassword: "",
       adzunaAppId: "adzuna-id",
       adzunaAppKey: "",
       webhookSecret: "",
@@ -49,11 +47,9 @@ const EnvironmentSettingsHarness = () => {
           <EnvironmentSettingsSection
             values={{
               readable: {
-                ukvisajobsEmail: "visa@example.com",
                 adzunaAppId: "adzuna-id",
               },
               private: {
-                ukvisajobsPasswordHint: "pass",
                 adzunaAppKeyHint: "adzu",
                 webhookSecretHint: "sec-",
               },
@@ -106,10 +102,9 @@ describe("EnvironmentSettingsSection", () => {
   it("renders values grouped logically and masks private secrets with hints", () => {
     render(<EnvironmentSettingsHarness />);
 
-    expect(screen.getByDisplayValue("visa@example.com")).toBeInTheDocument();
     expect(screen.getByDisplayValue("adzuna-id")).toBeInTheDocument();
 
-    expect(screen.getAllByText("••••••••")).toHaveLength(2);
+    expect(screen.getAllByText("••••••••")).toHaveLength(1);
     expect(screen.queryByText(/pass\*{4,}/)).not.toBeInTheDocument();
     expect(screen.queryByText(/adzu\*{4,}/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Enable authentication")).not.toBeInTheDocument();

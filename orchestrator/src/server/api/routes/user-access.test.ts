@@ -7,7 +7,7 @@ const AUTH_ENV = {
   BASIC_AUTH_PASSWORD: "secret",
   JWT_SECRET: "an-explicit-jwt-secret-with-at-least-32-chars",
   JOBOPS_TEST_AUTH_BYPASS: "0",
-  UKVISAJOBS_EMAIL: "operator@example.com",
+  ADZUNA_APP_ID: "operator-adzuna-app",
 };
 
 function headers(token?: string) {
@@ -216,14 +216,14 @@ describe("admin user access and invitations", () => {
     const readMe = async () =>
       (await (await fetch(`${baseUrl}/api/auth/me`, { headers: headers(token) })).json()).data;
 
-    expect((await readSettings()).ukvisajobsEmail ?? null).toBeNull();
+    expect((await readSettings()).adzunaAppId ?? null).toBeNull();
     expect((await readMe()).user.permissions.serverCredentials).toBe(false);
     await patchPermissions(user.id, { serverCredentials: true });
     expect((await readMe()).user.permissions.serverCredentials).toBe(true);
-    expect((await readSettings()).ukvisajobsEmail ?? null).toBeNull();
+    expect((await readSettings()).adzunaAppId ?? null).toBeNull();
     await patchPermissions(user.id, { serverCredentials: false });
     expect((await readMe()).user.permissions.serverCredentials).toBe(false);
-    expect((await readSettings()).ukvisajobsEmail ?? null).toBeNull();
+    expect((await readSettings()).adzunaAppId ?? null).toBeNull();
   });
 
   it("controls defaultModel permission, onboarding requirements, and BYOK gating", async () => {
@@ -256,7 +256,7 @@ describe("admin user access and invitations", () => {
     const guestSettingsWithDefault = await (
       await fetch(`${baseUrl}/api/settings`, { headers: headers(token) })
     ).json();
-    expect(guestSettingsWithDefault.data.ukvisajobsEmail ?? null).toBeNull();
+    expect(guestSettingsWithDefault.data.adzunaAppId ?? null).toBeNull();
     expect(guestSettingsWithDefault.data.llmApiKeyHint ?? null).toBeNull();
 
     await patchPermissions(user.id, { defaultModel: false });

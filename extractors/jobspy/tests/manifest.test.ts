@@ -44,7 +44,7 @@ describe("JobSpy manifest map-radius planning", () => {
     );
     expect(manifest.locationCapabilities?.indeed?.supportsNativeRadius).not.toBe(true);
     expect(manifest.locationCapabilities?.linkedin?.supportsNativeRadius).not.toBe(true);
-    expect(manifest.locationCapabilities?.glassdoor?.supportsNativeRadius).not.toBe(true);
+    expect(manifest.providesSources).toEqual(["indeed", "linkedin"]);
   });
 
   it("keeps the configured allowance for manual cities", async () => {

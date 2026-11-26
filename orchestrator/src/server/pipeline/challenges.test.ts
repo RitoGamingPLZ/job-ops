@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const challenge = {
-  extractorId: "gradcracker",
-  extractorName: "Gradcracker",
-  url: "https://www.gradcracker.com/search/computing-technology/software-developer-graduate-jobs-in-london-and-south-east?order=dateAdded",
-  sources: ["gradcracker" as const],
+  extractorId: "freehire",
+  extractorName: "Freehire",
+  url: "https://www.freehire.example/search?q=software-developer",
+  sources: ["freehire" as const],
   resumeState: { cursor: "page-2" },
 };
 
@@ -29,7 +29,7 @@ vi.mock("./steps", () => ({
   discoverJobsStep: vi.fn(async () => ({
     discoveredJobs: [],
     sourceErrors: [
-      "Gradcracker: Cloudflare challenge required for https://www.gradcracker.com/search/computing-technology/software-developer-graduate-jobs-in-london-and-south-east?order=dateAdded (sources: gradcracker)",
+      "Freehire: Cloudflare challenge required for https://www.freehire.example/search?q=software-developer (sources: freehire)",
     ],
     pendingChallenges: [challenge],
   })),
@@ -68,7 +68,7 @@ describe("pipeline challenge handling", () => {
     const steps = await import("./steps");
     const nextChallenge = {
       ...challenge,
-      url: "https://www.gradcracker.com/search/another-query",
+      url: "https://www.freehire.example/search/another-query",
     };
     vi.mocked(steps.discoverJobsStep)
       .mockReset()
@@ -89,7 +89,7 @@ describe("pipeline challenge handling", () => {
       });
 
     const runPromise = pipeline.runPipeline({
-      sources: ["gradcracker"],
+      sources: ["freehire"],
       locationIntent: {
         selectedCountry: "united kingdom",
         country: "united kingdom",
@@ -105,7 +105,7 @@ describe("pipeline challenge handling", () => {
       expect(pipeline.getPendingChallenges()).toHaveLength(1);
     });
 
-    expect(pipeline.resolvePipelineChallenge("gradcracker")).toEqual({
+    expect(pipeline.resolvePipelineChallenge("freehire")).toEqual({
       resolved: true,
       remaining: 0,
     });
@@ -117,12 +117,12 @@ describe("pipeline challenge handling", () => {
     expect(vi.mocked(steps.discoverJobsStep)).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
-        resumeStates: { gradcracker: { cursor: "page-2" } },
+        resumeStates: { freehire: { cursor: "page-2" } },
       }),
     );
     expect(vi.mocked(steps.importJobsStep)).not.toHaveBeenCalled();
 
-    expect(pipeline.resolvePipelineChallenge("gradcracker")).toEqual({
+    expect(pipeline.resolvePipelineChallenge("freehire")).toEqual({
       resolved: true,
       remaining: 0,
     });
@@ -395,26 +395,26 @@ describe("pipeline challenge handling", () => {
       });
 
     const runPromise = pipeline.runPipeline({
-      sources: ["hiringcafe", "gradcracker"],
+      sources: ["hiringcafe", "freehire"],
     });
     await vi.waitFor(() => {
       expect(pipeline.getPendingChallenges()).toHaveLength(2);
     });
     pipeline.resolvePipelineChallenge("hiringcafe");
-    pipeline.resolvePipelineChallenge("gradcracker");
+    pipeline.resolvePipelineChallenge("freehire");
 
     await vi.waitFor(() => {
       expect(pipeline.getPendingChallenges()).toEqual([detailChallenge, challenge]);
     });
     expect(vi.mocked(steps.importJobsStep)).not.toHaveBeenCalled();
     pipeline.resolvePipelineChallenge("hiringcafe");
-    pipeline.resolvePipelineChallenge("gradcracker");
+    pipeline.resolvePipelineChallenge("freehire");
 
     await vi.waitFor(() => {
       expect(pipeline.getPendingChallenges()).toEqual([challenge]);
     });
     expect(vi.mocked(steps.importJobsStep)).not.toHaveBeenCalled();
-    pipeline.resolvePipelineChallenge("gradcracker");
+    pipeline.resolvePipelineChallenge("freehire");
 
     const result = await runPromise;
     expect(result).toMatchObject({ success: true });

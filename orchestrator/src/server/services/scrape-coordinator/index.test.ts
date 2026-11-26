@@ -44,7 +44,7 @@ function createTestDb(): { sqlite: Database.Database; db: AppDatabase } {
       id TEXT PRIMARY KEY,
       tenant_id TEXT NOT NULL DEFAULT 'tenant_default',
       user_id TEXT,
-      source TEXT NOT NULL DEFAULT 'gradcracker',
+      source TEXT NOT NULL DEFAULT 'manual',
       source_job_id TEXT,
       posting_id TEXT,
       job_url_direct TEXT,
@@ -349,7 +349,7 @@ describe("scrape-coordinator", () => {
   it("applies exponential cooldown on 429/403 without consuming task attempts", () => {
     const t0 = new Date("2026-11-22T10:00:00.000Z");
     const task = ensureTask(db, {
-      source: "seek",
+      source: "adzuna",
       title: "Backend Engineer",
       runtime: "worker",
       tenantId: "tenant_a",
@@ -360,7 +360,7 @@ describe("scrape-coordinator", () => {
     dispatchPendingTasks(db, { now: t0, leaseDurationMs: 60_000 });
 
     const hit1 = recordSourceRateLimitHit(db, {
-      source: "seek",
+      source: "adzuna",
       taskId: task.taskId,
       now: new Date(t0.getTime() + 1_000),
     });
@@ -383,7 +383,7 @@ describe("scrape-coordinator", () => {
 
     // Second hit doubles to 10m
     const hit2 = recordSourceRateLimitHit(db, {
-      source: "seek",
+      source: "adzuna",
       now: new Date(t0.getTime() + 3 * 60 * 1000),
     });
     expect(hit2.cooldownLevel).toBe(2);
@@ -412,7 +412,7 @@ describe("scrape-coordinator", () => {
       .run();
 
     const task = ensureTask(db, {
-      source: "golangjobs",
+      source: "freehire",
       title: "Go Developer",
       runtime: "worker",
       tenantId: "tenant_a",
@@ -424,8 +424,8 @@ describe("scrape-coordinator", () => {
       taskId: task.taskId,
       postings: [
         {
-          jobUrl: "https://golangjobs.test/1",
-          source: "golangjobs",
+          jobUrl: "https://freehire.test/1",
+          source: "freehire",
           company: "GoCo",
           title: "Go Developer",
         },
@@ -472,7 +472,7 @@ describe("scrape-coordinator", () => {
 
     // Second task for run_a fails -> run_a becomes partial
     const failedTask = ensureTask(db, {
-      source: "golangjobs",
+      source: "freehire",
       title: "Senior Go Developer",
       tenantId: "tenant_a",
       runId: "run_a",

@@ -101,9 +101,8 @@ When you place or move the centre, JobOps sends it to OpenStreetMap Nominatim to
 
 - The detected map country—or the country selected in Manual cities mode—affects which sources are available, but the country list is owned by JobOps rather than by any single extractor.
 - Each extractor declares its own supported countries. A country can be selectable even when JobSpy-backed sources do not support it, as long as another selected source can run or locally filter for that country.
-- UK-only sources are disabled for non-UK countries.
+- Country-restricted sources (for example Jobindex, which is Denmark only) are disabled for other countries.
 - Adzuna is available only for its supported countries and when App ID/App Key are configured in Settings.
-- Glassdoor can be enabled only when the selected country supports Glassdoor and either a map point or at least one manual city is set.
 
 Incompatible sources are disabled with explanatory tooltips.
 
@@ -122,8 +121,8 @@ Manual cities only applies when you explicitly add one or more cities. Leaving i
 
 Source behavior differs:
 
-- Hiring Cafe and startup.jobs support all three workplace types directly.
-- Indeed, LinkedIn, and Glassdoor are backed by JobSpy and only support strict remote filtering.
+- Hiring Cafe support all three workplace types directly.
+- Indeed and LinkedIn are backed by JobSpy and only support strict remote filtering.
 - If workplace type is set to `Remote` only, JobSpy runs with a remote-only filter.
 - If `Hybrid` or `Onsite` is included, JobSpy sources remain enabled but may return broader results.
 
@@ -201,10 +200,6 @@ For formats and limits, see [Manual Import Extractor](/docs/next/extractors/manu
 - Reduce a very large radius.
 - Switch to **Manual cities** if you need to run without the nearby-place service.
 
-### Glassdoor cannot be enabled
-
-- Verify selected country supports Glassdoor.
-- Place a map centre or switch to Manual cities and add at least one city.
 
 ### Adzuna is not selectable
 
@@ -225,9 +220,9 @@ For formats and limits, see [Manual Import Extractor](/docs/next/extractors/manu
 
 ### JobSpy results are broader than the selected workplace type
 
-- Indeed, LinkedIn, and Glassdoor only support strict remote filtering in this flow.
+- Indeed and LinkedIn only support strict remote filtering in this flow.
 - Use `Remote` only when you need JobSpy sources filtered tightly.
-- Hybrid or onsite selections are honored by Hiring Cafe and startup.jobs, but JobSpy-backed sources may still include broader results.
+- Hybrid or onsite selections are honored by Hiring Cafe, but JobSpy-backed sources may still include broader results.
 
 ## Related pages
 

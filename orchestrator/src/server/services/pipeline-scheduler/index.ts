@@ -7,6 +7,7 @@ import { getPipelineStatus } from "@server/pipeline/index";
 import * as pipelineRepo from "@server/repositories/pipeline";
 import * as settingsRepo from "@server/repositories/settings";
 import { getPrivateDataScope, isHostedUserIsolationEnabled } from "@server/tenancy/private-scope";
+import { PIPELINE_EXTRACTOR_SOURCE_IDS } from "@shared/extractors";
 import { settingsRegistry } from "@shared/settings-registry";
 import { runPipelineSchema, startRequestedPipeline } from "./run-request";
 import { listScheduleOwners, loadRunRequest } from "./storage";
@@ -39,6 +40,26 @@ export async function getNextScheduledPipelineRun(): Promise<string | null> {
   return settings.enabled ? nextDailyFireTime(settings.hour).toISOString() : null;
 }
 
+function sanitizeSavedScheduleRequest(saved: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(saved.sources)) return saved;
+  const allowed = new Set<string>(PIPELINE_EXTRACTOR_SOURCE_IDS);
+  const kept = saved.sources.filter(
+    (source): source is string => typeof source === "string" && allowed.has(source),
+  );
+  const droppedCount = saved.sources.length - kept.length;
+  if (droppedCount > 0) {
+    logger.warn("Filtered retired sources from saved scheduled pipeline request", {
+      droppedCount,
+      keptCount: kept.length,
+    });
+  }
+  if (kept.length === 0) {
+    const { sources: _dropped, ...rest } = saved;
+    return rest;
+  }
+  return { ...saved, sources: kept };
+}
+
 export async function runScheduledPipeline(): Promise<void> {
   if (getPipelineStatus().isRunning) {
     logger.info("Scheduled pipeline skipped", { reason: "already_running" });
@@ -57,8 +78,9 @@ export async function runScheduledPipeline(): Promise<void> {
   // manual search, but not its Watchlist selection: a scheduled run always
   // covers every Watchlist source currently saved, so sources added since that
   // search (custom URLs, source groups) are picked up without another manual run.
+  const sanitized = sanitizeSavedScheduleRequest(saved as unknown as Record<string, unknown>);
   await startRequestedPipeline(
-    { ...runPipelineSchema.parse(saved), watchlistSelectedSourceIds: undefined },
+    { ...runPipelineSchema.parse(sanitized), watchlistSelectedSourceIds: undefined },
     false,
   );
 }

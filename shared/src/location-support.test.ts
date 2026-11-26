@@ -5,7 +5,6 @@ import {
   getCompatibleSourcesForCountry,
   getCountryIso2Code,
   getCountryNameVariants,
-  isGlassdoorCountry,
   isSourceAllowedForCountry,
   isUkCountry,
   normalizeCountryKey,
@@ -56,51 +55,25 @@ describe("location-support", () => {
   });
 
   it("applies source compatibility rules by country", () => {
-    expect(isSourceAllowedForCountry("gradcracker", "united kingdom")).toBe(true);
-    expect(isSourceAllowedForCountry("ukvisajobs", "uk")).toBe(true);
     expect(isSourceAllowedForCountry("jobindex", "denmark")).toBe(true);
-    expect(isSourceAllowedForCountry("gradcracker", "united states")).toBe(false);
-    expect(isSourceAllowedForCountry("ukvisajobs", "worldwide")).toBe(false);
     expect(isSourceAllowedForCountry("jobindex", "united kingdom")).toBe(false);
     expect(isSourceAllowedForCountry("indeed", "united states")).toBe(true);
     expect(isSourceAllowedForCountry("linkedin", "worldwide")).toBe(true);
-    expect(isSourceAllowedForCountry("glassdoor", "united states")).toBe(true);
-    expect(isSourceAllowedForCountry("glassdoor", "japan")).toBe(false);
     expect(isSourceAllowedForCountry("adzuna", "united states")).toBe(true);
     expect(isSourceAllowedForCountry("adzuna", "japan")).toBe(false);
-    expect(isSourceAllowedForCountry("naukri", "india")).toBe(true);
-    expect(isSourceAllowedForCountry("naukri", "united kingdom")).toBe(false);
-    expect(isSourceAllowedForCountry("startupjobs", "united states")).toBe(true);
-    expect(isSourceAllowedForCountry("startupjobs", "worldwide")).toBe(true);
+    expect(isSourceAllowedForCountry("hiringcafe", "united states")).toBe(true);
+    expect(isSourceAllowedForCountry("freehire", "worldwide")).toBe(true);
     expect(isSourceAllowedForCountry("indeed", "russia")).toBe(false);
-    expect(isSourceAllowedForCountry("startupjobs", "russia")).toBe(true);
+    expect(isSourceAllowedForCountry("freehire", "russia")).toBe(true);
   });
 
   it("filters incompatible sources while preserving compatible order", () => {
     expect(
       getCompatibleSourcesForCountry(
-        [
-          "gradcracker",
-          "indeed",
-          "glassdoor",
-          "ukvisajobs",
-          "jobindex",
-          "adzuna",
-          "naukri",
-          "startupjobs",
-          "linkedin",
-        ],
+        ["indeed", "jobindex", "adzuna", "hiringcafe", "freehire", "linkedin"],
         "united states",
       ),
-    ).toEqual(["indeed", "glassdoor", "adzuna", "startupjobs", "linkedin"]);
-  });
-
-  it("supports glassdoor only in explicitly supported countries", () => {
-    expect(isGlassdoorCountry("united kingdom")).toBe(true);
-    expect(isGlassdoorCountry("uk")).toBe(true);
-    expect(isGlassdoorCountry("usa")).toBe(true);
-    expect(isGlassdoorCountry("japan")).toBe(false);
-    expect(isGlassdoorCountry("worldwide")).toBe(false);
+    ).toEqual(["indeed", "adzuna", "hiringcafe", "freehire", "linkedin"]);
   });
 
   it("maps adzuna country keys to adzuna api country codes", () => {

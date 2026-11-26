@@ -319,7 +319,7 @@ describe("AutomaticRunTab", () => {
       <AutomaticRunTab
         open
         settings={createAppSettings()}
-        enabledSources={["linkedin", "gradcracker", "ukvisajobs"]}
+        enabledSources={["linkedin", "indeed", "freehire"]}
         pipelineSources={["linkedin"]}
         onToggleSource={vi.fn()}
         onSetPipelineSources={vi.fn()}
@@ -343,7 +343,7 @@ describe("AutomaticRunTab", () => {
       <AutomaticRunTab
         open
         settings={createAppSettings()}
-        enabledSources={["linkedin", "gradcracker", "ukvisajobs"]}
+        enabledSources={["linkedin", "indeed", "freehire"]}
         pipelineSources={["linkedin"]}
         onToggleSource={vi.fn()}
         onSetPipelineSources={vi.fn()}
@@ -447,7 +447,7 @@ describe("AutomaticRunTab", () => {
           },
           searchCities: { value: "", default: "", override: null },
         })}
-        enabledSources={["linkedin", "gradcracker", "ukvisajobs"]}
+        enabledSources={["linkedin", "indeed", "freehire"]}
         pipelineSources={["linkedin"]}
         onToggleSource={vi.fn()}
         onSetPipelineSources={vi.fn()}
@@ -494,7 +494,7 @@ describe("AutomaticRunTab", () => {
     expect(screen.getByRole("button", { name: "United States" })).toBeInTheDocument();
   });
 
-  it("disables and prunes UK-only sources for non-UK country", async () => {
+  it("disables and prunes Jobindex outside Denmark", async () => {
     const onSetPipelineSources = vi.fn();
 
     render(
@@ -513,8 +513,8 @@ describe("AutomaticRunTab", () => {
           },
           searchCities: { value: "", default: "", override: null },
         })}
-        enabledSources={["linkedin", "gradcracker", "ukvisajobs"]}
-        pipelineSources={["linkedin", "gradcracker", "ukvisajobs"]}
+        enabledSources={["linkedin", "jobindex"]}
+        pipelineSources={["linkedin", "jobindex"]}
         onToggleSource={vi.fn()}
         onSetPipelineSources={onSetPipelineSources}
         isPipelineRunning={false}
@@ -528,11 +528,10 @@ describe("AutomaticRunTab", () => {
 
     openSourcePicker();
 
-    expect(screen.getByRole("button", { name: "Gradcracker" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "UK Visa Jobs" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Jobindex" })).toBeDisabled();
   });
 
-  it("disables and prunes Naukri outside India", async () => {
+  it("disables and prunes Adzuna for unsupported countries", async () => {
     const onSetPipelineSources = vi.fn();
 
     render(
@@ -545,14 +544,14 @@ describe("AutomaticRunTab", () => {
             override: null,
           },
           jobspyCountryIndeed: {
-            value: "united kingdom",
+            value: "croatia",
             default: "united kingdom",
-            override: "united kingdom",
+            override: "croatia",
           },
           searchCities: { value: "", default: "", override: null },
         })}
-        enabledSources={["linkedin", "naukri"]}
-        pipelineSources={["linkedin", "naukri"]}
+        enabledSources={["linkedin", "adzuna"]}
+        pipelineSources={["linkedin", "adzuna"]}
         onToggleSource={vi.fn()}
         onSetPipelineSources={onSetPipelineSources}
         isPipelineRunning={false}
@@ -566,7 +565,7 @@ describe("AutomaticRunTab", () => {
 
     openSourcePicker();
 
-    expect(screen.getByRole("button", { name: "Naukri" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Adzuna" })).toBeDisabled();
   });
 
   it("moves a deselected source to the end of the ready list", async () => {
@@ -588,7 +587,7 @@ describe("AutomaticRunTab", () => {
               override: "London",
             },
           })}
-          enabledSources={["linkedin", "indeed", "glassdoor"]}
+          enabledSources={["linkedin", "indeed", "freehire"]}
           pipelineSources={pipelineSources}
           onToggleSource={(source, checked) => {
             setPipelineSources((current) =>
@@ -612,7 +611,7 @@ describe("AutomaticRunTab", () => {
     await waitFor(() => {
       expect(
         screen.getAllByRole("button", {
-          name: /^(Indeed|Glassdoor|LinkedIn)$/,
+          name: /^(Indeed|FreeHire|LinkedIn)$/,
         }),
       ).toHaveLength(3);
     });
@@ -620,13 +619,13 @@ describe("AutomaticRunTab", () => {
     expect(
       screen
         .getAllByRole("button", {
-          name: /^(Indeed|Glassdoor|LinkedIn)$/,
+          name: /^(Indeed|FreeHire|LinkedIn)$/,
         })
         .map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Indeed", "Glassdoor", "LinkedIn"]);
+    ).toEqual(["Indeed", "FreeHire", "LinkedIn"]);
   });
 
-  it("shows disabled source guidance copy for UK-only source", async () => {
+  it("shows disabled source guidance copy for country-restricted source", async () => {
     render(
       <AutomaticRunTab
         open
@@ -643,7 +642,7 @@ describe("AutomaticRunTab", () => {
           },
           searchCities: { value: "", default: "", override: null },
         })}
-        enabledSources={["linkedin", "gradcracker", "ukvisajobs"]}
+        enabledSources={["linkedin", "jobindex"]}
         pipelineSources={["linkedin"]}
         onToggleSource={vi.fn()}
         onSetPipelineSources={vi.fn()}
@@ -655,11 +654,11 @@ describe("AutomaticRunTab", () => {
     openSourcePicker();
 
     expect(
-      screen.getByTitle("Gradcracker is available only when country is United Kingdom."),
+      screen.getByTitle("Jobindex is not available for United States."),
     ).toBeInTheDocument();
   });
 
-  it("disables glassdoor for unsupported countries with guidance copy", async () => {
+  it("disables adzuna for unsupported countries with guidance copy", async () => {
     const onSetPipelineSources = vi.fn();
 
     render(
@@ -672,14 +671,14 @@ describe("AutomaticRunTab", () => {
             override: null,
           },
           jobspyCountryIndeed: {
-            value: "japan",
+            value: "croatia",
             default: "united kingdom",
-            override: "japan",
+            override: "croatia",
           },
           searchCities: { value: "", default: "", override: null },
         })}
-        enabledSources={["linkedin", "glassdoor"]}
-        pipelineSources={["linkedin", "glassdoor"]}
+        enabledSources={["linkedin", "adzuna"]}
+        pipelineSources={["linkedin", "adzuna"]}
         onToggleSource={vi.fn()}
         onSetPipelineSources={onSetPipelineSources}
         isPipelineRunning={false}
@@ -693,55 +692,10 @@ describe("AutomaticRunTab", () => {
 
     openSourcePicker();
 
-    const glassdoorButton = screen.getByRole("button", { name: "Glassdoor" });
-    expect(glassdoorButton).toBeDisabled();
-    expect(glassdoorButton.getAttribute("title")).toContain(
-      "Glassdoor is not available for the selected country.",
-    );
-  });
-
-  it("disables glassdoor for supported countries until city is provided", async () => {
-    const onSetPipelineSources = vi.fn();
-
-    render(
-      <AutomaticRunTab
-        open
-        settings={createAppSettings({
-          searchTerms: {
-            value: ["backend engineer"],
-            default: ["backend engineer"],
-            override: null,
-          },
-          jobspyCountryIndeed: {
-            value: "united kingdom",
-            default: "united kingdom",
-            override: "united kingdom",
-          },
-          searchCities: {
-            value: "United Kingdom",
-            default: "United Kingdom",
-            override: "United Kingdom",
-          },
-        })}
-        enabledSources={["linkedin", "glassdoor"]}
-        pipelineSources={["linkedin", "glassdoor"]}
-        onToggleSource={vi.fn()}
-        onSetPipelineSources={onSetPipelineSources}
-        isPipelineRunning={false}
-        onSaveAndRun={vi.fn().mockResolvedValue(undefined)}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(onSetPipelineSources).toHaveBeenCalledWith(["linkedin"]);
-    });
-
-    openSourcePicker();
-
-    const glassdoorButton = screen.getByRole("button", { name: "Glassdoor" });
-    expect(glassdoorButton).toBeDisabled();
-    expect(glassdoorButton.getAttribute("title")).toContain(
-      "Add at least one city in Location preferences to enable Glassdoor.",
+    const adzunaButton = screen.getByRole("button", { name: "Adzuna" });
+    expect(adzunaButton).toBeDisabled();
+    expect(adzunaButton.getAttribute("title")).toContain(
+      "Adzuna is not available for Croatia.",
     );
   });
 
@@ -816,7 +770,7 @@ describe("AutomaticRunTab", () => {
     expect(screen.getByRole("button", { name: "Remove frontend engineer" })).toBeInTheDocument();
   });
 
-  it("loads multiple saved cities and keeps glassdoor enabled", () => {
+  it("loads multiple saved cities and keeps freehire enabled", () => {
     render(
       <AutomaticRunTab
         open
@@ -837,8 +791,8 @@ describe("AutomaticRunTab", () => {
             override: "London|Manchester",
           },
         })}
-        enabledSources={["linkedin", "glassdoor"]}
-        pipelineSources={["linkedin", "glassdoor"]}
+        enabledSources={["linkedin", "freehire"]}
+        pipelineSources={["linkedin", "freehire"]}
         onToggleSource={vi.fn()}
         onSetPipelineSources={vi.fn()}
         isPipelineRunning={false}
@@ -857,7 +811,7 @@ describe("AutomaticRunTab", () => {
 
     expect(screen.getByRole("button", { name: "Remove city London" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove city Manchester" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Glassdoor" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "FreeHire" })).toBeEnabled();
   });
 
   it("loads saved workplace types from settings", () => {
@@ -1311,7 +1265,7 @@ describe("AutomaticRunTab", () => {
       lastUsedAt: null,
       config: {
         searchTerms: ["backend engineer"],
-        sources: ["linkedin", "glassdoor"],
+        sources: ["linkedin", "freehire"],
         country: "united kingdom",
         cityLocations: ["London"],
         workplaceTypes: ["remote"],
@@ -1339,7 +1293,7 @@ describe("AutomaticRunTab", () => {
             override: null,
           },
         })}
-        enabledSources={["linkedin", "glassdoor"]}
+        enabledSources={["linkedin", "freehire"]}
         pipelineSources={["linkedin"]}
         onToggleSource={vi.fn()}
         onSetPipelineSources={onSetPipelineSources}
@@ -1359,7 +1313,7 @@ describe("AutomaticRunTab", () => {
     expect(screen.getAllByText("backend engineer").length).toBeGreaterThan(0);
     expect(screen.getAllByText("London").length).toBeGreaterThan(0);
     expect(screen.getByRole("radio", { name: /Fast/i })).toBeChecked();
-    expect(onSetPipelineSources).toHaveBeenCalledWith(["linkedin", "glassdoor"]);
+    expect(onSetPipelineSources).toHaveBeenCalledWith(["linkedin", "freehire"]);
     expect(onApplySavedSearch).toHaveBeenCalledWith(savedSearch);
   });
 

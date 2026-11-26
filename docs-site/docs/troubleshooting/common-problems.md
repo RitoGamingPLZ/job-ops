@@ -60,11 +60,6 @@ npm --workspace docs-site run build
 - Confirm a base resume has been imported (Settings or `/resumes/base`).
 - Confirm `typst` (or `tectonic` for LaTeX) is installed and reachable; see [Resume PDF and projects](../features/resume-pdf).
 
-## UKVisaJobs runs fail
-
-- Re-authenticate by removing cached auth file or forcing refresh.
-- Verify extractor credentials and API response behavior.
-
 ## Ghostwriter returns empty response / validation error when using Gemini models
 
 - **Symptom**: Chat responses from Ghostwriter are empty, or show a validation/structure error.

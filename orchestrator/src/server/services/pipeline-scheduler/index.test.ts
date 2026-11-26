@@ -110,6 +110,39 @@ describe("daily pipeline scheduler", () => {
     await runScheduledPipeline();
     expect(mocks.start).not.toHaveBeenCalled();
   });
+  it("filters retired sources from saved scheduled pipeline requests", async () => {
+    mocks.load.mockResolvedValue({
+      sources: ["gradcracker", "linkedin"],
+      topN: 5,
+      searchTerms: ["developer"],
+    });
+    await runScheduledPipeline();
+    expect(mocks.start).toHaveBeenCalledWith(
+      {
+        sources: ["linkedin"],
+        topN: 5,
+        searchTerms: ["developer"],
+        watchlistSelectedSourceIds: undefined,
+      },
+      false,
+    );
+
+    mocks.start.mockClear();
+    mocks.load.mockResolvedValue({
+      sources: ["gradcracker", "ukvisajobs"],
+      topN: 5,
+      searchTerms: ["developer"],
+    });
+    await runScheduledPipeline();
+    expect(mocks.start).toHaveBeenCalledWith(
+      {
+        topN: 5,
+        searchTerms: ["developer"],
+        watchlistSelectedSourceIds: undefined,
+      },
+      false,
+    );
+  });
   it("reschedules after settings change and stops when disabled", async () => {
     await startPipelineScheduler();
     expect(vi.getTimerCount()).toBe(1);

@@ -29,7 +29,7 @@ Your ironman suit for job hunting. You still apply to every job yourself. JobOps
 
 ## What is JobOps?
 
-JobOps searches LinkedIn, Indeed, Glassdoor and 10+ job boards from one screen, rewrites your CV for each role, scores your fit, checks visa sponsorship status, and tracks every application in one place.
+JobOps searches LinkedIn, Indeed and other job boards from one screen, rewrites your CV for each role, scores your fit, checks visa sponsorship status, and tracks every application in one place.
 
 It does not auto-apply. Recruiters can tell when applications are automated and it gets you blacklisted. JobOps gives you the speed without sacrificing quality.
 
@@ -75,17 +75,10 @@ Sign-in uses JobOps accounts by default, and can also use Google, GitHub, or any
 | -------------- | ------------------------ |
 | LinkedIn       | Global                   |
 | Indeed         | Global                   |
-| Glassdoor      | Global                   |
 | Adzuna         | Multi-country API        |
 | Hiring Cafe    | Global                   |
-| startup.jobs   | Startup/remote roles     |
-| Working Nomads | Remote-only              |
-| Gradcracker    | STEM/Grads (UK)          |
-| UK Visa Jobs   | Sponsorship (UK)         |
-| Golang Jobs    | Go developers            |
-| Seek           | Australia/NZ (via Apify) |
-| WUZZUF         | Egypt (Job Board)        |
-| Khamsat        | Egypt (Freelance)        |
+| Jobindex       | Denmark                  |
+| FreeHire       | Global                   |
 
 Custom extractors can be added via TypeScript. See the [extractor docs](https://jobops.dakheera47.com/docs/extractors/overview).
 

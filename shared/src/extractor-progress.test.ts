@@ -5,17 +5,17 @@ const base = { termIndex: 0, termTotal: 3, searchTerm: "engineer" };
 
 describe("toTermProgress", () => {
   it.each([
-    [{ label: "Working Nomads" }, "engineer", "with 7 jobs", "with 0 jobs"],
+    [{ label: "FreeHire" }, "engineer", "with 7 jobs", "with 0 jobs"],
     [
-      { label: "Khamsat", completionNoun: "services" as const },
+      { label: "Hiring Cafe", completionNoun: "services" as const },
       "engineer",
       "with 7 services",
       "with 0 services",
     ],
-    [{ label: "Seek", completionStyle: "dash" as const }, "engineer", "— 7 jobs", "— 0 jobs"],
+    [{ label: "Adzuna", completionStyle: "dash" as const }, "engineer", "— 7 jobs", "— 0 jobs"],
     [
-      { label: "startup.jobs", scope: "engineer @ Berlin" },
-      "engineer @ Berlin",
+      { label: "Jobindex", scope: "engineer @ Copenhagen" },
+      "engineer @ Copenhagen",
       "with 7 jobs",
       "with 0 jobs",
     ],

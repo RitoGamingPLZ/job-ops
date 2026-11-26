@@ -417,59 +417,12 @@ export const settingsRegistry = {
     parse: parsePdfPaperSizeOrNull,
     serialize: (value: PdfPaperSize | null | undefined): string | null => value ?? null,
   },
-  ukvisajobsMaxJobs: {
-    kind: "typed" as const,
-    schema: z.number().int().min(1).max(1000),
-    default: (): number => 50,
-    parse: parseIntOrNull,
-    serialize: serializeNullableNumber,
-  },
   adzunaMaxJobsPerTerm: {
     kind: "typed" as const,
     schema: z.number().int().min(1).max(1000),
     default: (): number =>
       parseInt(
         typeof process !== "undefined" ? process.env.ADZUNA_MAX_JOBS_PER_TERM || "50" : "50",
-        10,
-      ),
-    parse: parseIntOrNull,
-    serialize: serializeNullableNumber,
-  },
-  gradcrackerMaxJobsPerTerm: {
-    kind: "typed" as const,
-    schema: z.number().int().min(1).max(1000),
-    default: (): number => 50,
-    parse: parseIntOrNull,
-    serialize: serializeNullableNumber,
-  },
-  startupjobsMaxJobsPerTerm: {
-    kind: "typed" as const,
-    schema: z.number().int().min(1).max(1000),
-    default: (): number =>
-      parseInt(
-        typeof process !== "undefined" ? process.env.STARTUPJOBS_MAX_RESULTS || "50" : "50",
-        10,
-      ),
-    parse: parseIntOrNull,
-    serialize: serializeNullableNumber,
-  },
-  seekMaxJobsPerTerm: {
-    kind: "typed" as const,
-    schema: z.number().int().min(1).max(1000),
-    default: (): number =>
-      parseInt(
-        typeof process !== "undefined" ? process.env.SEEK_MAX_JOBS_PER_TERM || "50" : "50",
-        10,
-      ),
-    parse: parseIntOrNull,
-    serialize: serializeNullableNumber,
-  },
-  naukriMaxJobsPerTerm: {
-    kind: "typed" as const,
-    schema: z.number().int().min(1).max(1000),
-    default: (): number =>
-      parseInt(
-        typeof process !== "undefined" ? process.env.NAUKRI_MAX_JOBS_PER_TERM || "50" : "50",
         10,
       ),
     parse: parseIntOrNull,
@@ -840,11 +793,6 @@ export const settingsRegistry = {
   },
 
   // --- Simple Strings ---
-  ukvisajobsEmail: {
-    kind: "string" as const,
-    envKey: "UKVISAJOBS_EMAIL",
-    schema: z.string().trim().max(200),
-  },
   adzunaAppId: {
     kind: "string" as const,
     envKey: "ADZUNA_APP_ID",
@@ -866,19 +814,9 @@ export const settingsRegistry = {
       return normalized ? JSON.stringify(normalized) : null;
     },
   },
-  ukvisajobsPassword: {
-    kind: "secret" as const,
-    envKey: "UKVISAJOBS_PASSWORD",
-    schema: z.string().trim().max(2000),
-  },
   adzunaAppKey: {
     kind: "secret" as const,
     envKey: "ADZUNA_APP_KEY",
-    schema: z.string().trim().max(2000),
-  },
-  apifyToken: {
-    kind: "secret" as const,
-    envKey: "APIFY_TOKEN",
     schema: z.string().trim().max(2000),
   },
   webhookSecret: {

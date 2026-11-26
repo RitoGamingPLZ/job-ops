@@ -5,12 +5,7 @@ import {
 } from "@shared/extractors";
 import type { JobSource, JobStatus } from "@shared/types";
 
-export const DEFAULT_PIPELINE_SOURCES: JobSource[] = [
-  "gradcracker",
-  "indeed",
-  "linkedin",
-  "ukvisajobs",
-];
+export const DEFAULT_PIPELINE_SOURCES: JobSource[] = ["linkedin", "indeed", "freehire"];
 export const PIPELINE_SOURCES_STORAGE_KEY = "jobops.pipeline.sources";
 export const PIPELINE_WATCHLIST_SOURCES_STORAGE_KEY = "jobops.pipeline.watchlist-sources";
 export const IN_PROGRESS_BOARD_APPLIED_COLLAPSED_STORAGE_KEY =

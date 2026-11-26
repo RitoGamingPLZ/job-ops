@@ -26,13 +26,6 @@ type CachedHealthCheckEntry = {
 };
 
 const HEALTH_PROBE_CONFIG_BY_SOURCE: Record<ExtractorSourceId, HealthProbeConfig> = {
-  gradcracker: {
-    searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
-    selectedCountry: DEFAULT_HEALTH_SELECTED_COUNTRY,
-    settings: {
-      gradcrackerMaxJobsPerTerm: "1",
-    },
-  },
   indeed: {
     searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
     selectedCountry: DEFAULT_HEALTH_SELECTED_COUNTRY,
@@ -49,21 +42,6 @@ const HEALTH_PROBE_CONFIG_BY_SOURCE: Record<ExtractorSourceId, HealthProbeConfig
       jobspyResultsWanted: "1",
     },
   },
-  glassdoor: {
-    searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
-    selectedCountry: DEFAULT_HEALTH_SELECTED_COUNTRY,
-    settings: {
-      jobspyCountryIndeed: "UK",
-      jobspyResultsWanted: "1",
-    },
-  },
-  ukvisajobs: {
-    searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
-    selectedCountry: DEFAULT_HEALTH_SELECTED_COUNTRY,
-    settings: {
-      ukvisajobsMaxJobs: "1",
-    },
-  },
   adzuna: {
     searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
     selectedCountry: DEFAULT_HEALTH_SELECTED_COUNTRY,
@@ -78,60 +56,11 @@ const HEALTH_PROBE_CONFIG_BY_SOURCE: Record<ExtractorSourceId, HealthProbeConfig
       jobspyResultsWanted: "1",
     },
   },
-  startupjobs: {
-    searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
-    selectedCountry: DEFAULT_HEALTH_SELECTED_COUNTRY,
-    settings: {
-      startupjobsMaxJobsPerTerm: "1",
-    },
-  },
-  workingnomads: {
-    searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
-    selectedCountry: DEFAULT_HEALTH_SELECTED_COUNTRY,
-    settings: {
-      jobspyResultsWanted: "1",
-    },
-  },
-  golangjobs: {
-    searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
-    selectedCountry: DEFAULT_HEALTH_SELECTED_COUNTRY,
-    settings: {
-      jobspyResultsWanted: "1",
-    },
-  },
   jobindex: {
     searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
     selectedCountry: "denmark",
     settings: {
       jobindexMaxJobsPerTerm: "1",
-    },
-  },
-  seek: {
-    searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
-    selectedCountry: "australia",
-    settings: {
-      seekMaxJobsPerTerm: "1",
-    },
-  },
-  naukri: {
-    searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
-    selectedCountry: "india",
-    settings: {
-      naukriMaxJobsPerTerm: "1",
-    },
-  },
-  fiveamsat: {
-    searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
-    selectedCountry: "egypt",
-    settings: {
-      fiveamsatMaxJobsPerTerm: "1",
-    },
-  },
-  wazzuf: {
-    searchTerm: DEFAULT_HEALTH_SEARCH_TERM,
-    selectedCountry: "egypt",
-    settings: {
-      wazzufMaxJobsPerTerm: "1",
     },
   },
   freehire: {

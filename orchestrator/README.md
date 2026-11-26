@@ -103,7 +103,7 @@ orchestrator/
 
 1. **17:00 - n8n triggers pipeline:**
    - Calls `POST /api/webhook/trigger`
-   - Pipeline crawls Gradcracker
+   - Pipeline crawls the enabled job sources
    - Scores jobs with AI
    - Generates tailored resumes for top 10
 

@@ -218,7 +218,6 @@ Readiness requires:
 ### Environment & Workspaces
 
 - Configure service accounts:
-  - UKVisaJobs email/password
   - Adzuna app ID/app key
 - Manage workspace users when signed in as a system admin:
   - create a user with a private workspace

@@ -66,8 +66,6 @@ const DEFAULT_FORM_VALUES: UpdateSettingsInput = {
   chatStyleMaxKeywordsPerSkill: null,
   chatStyleLanguageMode: null,
   chatStyleManualLanguage: null,
-  ukvisajobsEmail: "",
-  ukvisajobsPassword: "",
   adzunaAppId: "",
   adzunaAppKey: "",
   webhookSecret: "",
@@ -222,7 +220,6 @@ const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
           "security",
           "auth",
           "adzuna",
-          "ukvisajobs",
           "sso",
           "single sign-on",
           "oidc",
@@ -316,7 +313,7 @@ const SECTION_FIELD_MAP: Record<SettingsSectionId, Array<keyof UpdateSettingsInp
   ],
   "resume-pdf": ["pdfRenderer", "typstTheme", "pdfPaperSize", "resumeProjects"],
   webhooks: ["pipelineWebhookUrl", "jobCompleteWebhookUrl", "webhookSecret"],
-  environment: ["ukvisajobsEmail", "ukvisajobsPassword", "adzunaAppId", "adzunaAppKey"],
+  environment: ["adzunaAppId", "adzunaAppKey"],
   display: ["renderMarkdownInJobDescriptions", "autoTailorOnManualImport"],
   backup: [
     "pipelineScheduleEnabled",
@@ -383,8 +380,6 @@ const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
   chatStyleMaxKeywordsPerSkill: null,
   chatStyleLanguageMode: null,
   chatStyleManualLanguage: null,
-  ukvisajobsEmail: null,
-  ukvisajobsPassword: null,
   adzunaAppId: null,
   adzunaAppKey: null,
   adzunaMaxJobsPerTerm: null,
@@ -422,8 +417,6 @@ function getResetSettingsPayload(options: {
     delete payload.llmPurposeApiKeys;
   }
   if (!options.isSystemAdmin) {
-    delete payload.ukvisajobsEmail;
-    delete payload.ukvisajobsPassword;
     delete payload.adzunaAppId;
     delete payload.adzunaAppKey;
     delete payload.backupEnabled;
@@ -465,8 +458,6 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
   chatStyleMaxKeywordsPerSkill: data.chatStyleMaxKeywordsPerSkill.override ?? null,
   chatStyleLanguageMode: data.chatStyleLanguageMode.override ?? null,
   chatStyleManualLanguage: data.chatStyleManualLanguage.override ?? null,
-  ukvisajobsEmail: data.ukvisajobsEmail ?? "",
-  ukvisajobsPassword: "",
   adzunaAppId: data.adzunaAppId ?? "",
   adzunaAppKey: "",
   webhookSecret: "",
@@ -631,11 +622,9 @@ const getDerivedSettings = (settings: AppSettings | null) => {
     },
     envSettings: {
       readable: {
-        ukvisajobsEmail: settings?.ukvisajobsEmail ?? "",
         adzunaAppId: settings?.adzunaAppId ?? "",
       },
       private: {
-        ukvisajobsPasswordHint: settings?.ukvisajobsPasswordHint ?? null,
         adzunaAppKeyHint: settings?.adzunaAppKeyHint ?? null,
         webhookSecretHint: settings?.webhookSecretHint ?? null,
       },
@@ -864,10 +853,6 @@ export const SettingsPage: React.FC = () => {
 
       const envPayload: Partial<UpdateSettingsInput> = {};
 
-      if (isSystemAdmin && (dirtyFields.ukvisajobsEmail || dirtyFields.ukvisajobsPassword)) {
-        envPayload.ukvisajobsEmail = normalizeString(data.ukvisajobsEmail);
-      }
-
       if (isSystemAdmin && (dirtyFields.adzunaAppId || dirtyFields.adzunaAppKey)) {
         envPayload.adzunaAppId = normalizeString(data.adzunaAppId);
       }
@@ -883,11 +868,6 @@ export const SettingsPage: React.FC = () => {
       if (canEditLlmSettings && dirtyFields.llmApiKey) {
         const value = normalizePrivateInput(data.llmApiKey);
         if (value !== undefined) envPayload.llmApiKey = value;
-      }
-
-      if (isSystemAdmin && dirtyFields.ukvisajobsPassword) {
-        const value = normalizePrivateInput(data.ukvisajobsPassword);
-        if (value !== undefined) envPayload.ukvisajobsPassword = value;
       }
 
       if (isSystemAdmin && dirtyFields.adzunaAppKey) {
@@ -1256,7 +1236,7 @@ export const SettingsPage: React.FC = () => {
           ? { label: "Configured", variant: "outline" as const }
           : { label: "Optional", variant: "secondary" as const };
       case "environment":
-        return envSettings.readable.ukvisajobsEmail || envSettings.readable.adzunaAppId
+        return envSettings.readable.adzunaAppId
           ? { label: "Configured", variant: "outline" as const }
           : null;
       case "display":

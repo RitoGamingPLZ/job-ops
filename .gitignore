@@ -17,9 +17,6 @@ data/
 # Crawlee / extractor runtime storage at repo root
 storage/
 
-# Extractor storage outputs and cached auth
-extractors/ukvisajobs/storage/
-
 # OS files
 .DS_Store
 Thumbs.db
