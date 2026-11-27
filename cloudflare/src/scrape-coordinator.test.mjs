@@ -215,6 +215,24 @@ test("ScraperContainer starts PDF renderer with standard-1 and pdf-worker entryp
   assert.equal("entrypoint" in scraper.starts[0], false);
 });
 
+test("ScraperContainer starts careers-site learning and crawling on standard-1 with the full server", async () => {
+  for (const path of ["/internal/careers-site/learn", "/internal/careers-site/run"]) {
+    const careers = makeContainerDO({ CRON_SECRET: "secret" });
+    await careers.instance.fetch(
+      new Request(`http://scraper${path}`, { method: "POST", body: "{}" }),
+    );
+    assert.equal(careers.starts[0].instance, "standard-1");
+    // Unlike the PDF renderer it needs the whole server, so it keeps the default entrypoint.
+    assert.equal("entrypoint" in careers.starts[0], false);
+  }
+  // Other scraper requests stay on the default size.
+  const scraper = makeContainerDO({ CRON_SECRET: "secret" });
+  await scraper.instance.fetch(
+    new Request("http://scraper/internal/scrape/jobs", { method: "POST", body: "{}" }),
+  );
+  assert.equal("instance" in scraper.starts[0], false);
+});
+
 test("ScraperContainer skips /health probe on warm requests and re-checks after restart or forward error", async () => {
   let failFirstForward = false;
   const { instance, container, tcpRequests } = makeContainerDO(

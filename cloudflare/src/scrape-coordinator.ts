@@ -924,6 +924,15 @@ function isPdfRenderRequest(request: Request): boolean {
   return new URL(request.url).pathname.startsWith("/internal/render-pdf");
 }
 
+/**
+ * Careers-site learning and crawling run on their own named container (not the scraper pool), so
+ * a larger size here is paid only while someone is scanning a site. The full server idles near
+ * 650 MiB and a learn on a large page reaches about 1 GiB, which the default size cannot hold.
+ */
+function isCareersSiteRequest(request: Request): boolean {
+  return new URL(request.url).pathname.startsWith("/internal/careers-site/");
+}
+
 export class ScraperContainer extends DurableObject<Env> {
   private containerReady = false;
   private readyPromise: Promise<boolean> | null = null;
@@ -1003,7 +1012,13 @@ export class ScraperContainer extends DurableObject<Env> {
       container.start({
         image: container.images.base,
         enableInternet: true,
-        ...(pdfRender ? { instance: "standard-1", entrypoint: PDF_WORKER_ENTRYPOINT } : {}),
+        ...(pdfRender
+          ? { instance: "standard-1", entrypoint: PDF_WORKER_ENTRYPOINT }
+          : // The careers-site learner and crawler run the whole server plus page parsing, which
+            // needs more memory than the default size gives (the container was killed on start).
+            isCareersSiteRequest(request)
+            ? { instance: "standard-1" }
+            : {}),
         env: {
           NODE_ENV: this.env.NODE_ENV ?? "production",
           PORT: String(portNumber),
