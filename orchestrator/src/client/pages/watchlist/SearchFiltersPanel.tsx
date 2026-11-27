@@ -118,6 +118,14 @@ export function SearchFiltersPanel({ careersUrl, onUse }: SearchFiltersPanelProp
 
   if (!response || response.status === "unsupported") return null;
 
+  if (response.status === "none") {
+    return (
+      <p className="w-full text-xs text-muted-foreground" aria-live="polite">
+        No search filters were found for this site.
+      </p>
+    );
+  }
+
   if (response.status !== "ready") {
     return (
       <div className="w-full text-xs text-muted-foreground" aria-live="polite">
@@ -151,6 +159,15 @@ export function SearchFiltersPanel({ careersUrl, onUse }: SearchFiltersPanelProp
             Find search filters
           </Button>
         )}
+        {response.lastScan &&
+        response.lastScan.outcome !== "found" &&
+        response.status === "rescan" ? (
+          <p className="mt-1">
+            {response.lastScan.outcome === "unavailable"
+              ? "The site scanner was still starting. Try again in a minute."
+              : `The last scan did not finish${response.lastScan.reason ? `: ${response.lastScan.reason}` : "."}`}
+          </p>
+        ) : null}
         {error ? <p className="mt-1 text-destructive">{error}</p> : null}
       </div>
     );

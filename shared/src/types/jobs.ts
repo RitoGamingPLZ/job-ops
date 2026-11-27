@@ -488,6 +488,12 @@ export interface WatchlistSearchControl {
   multiple: boolean;
 }
 
+/** How the last background scan of a careers site ended; reasons are bounded, page-free messages. */
+export interface WatchlistScanOutcome {
+  outcome: "found" | "none" | "failed" | "unavailable" | "blocked";
+  reason?: string;
+}
+
 export type WatchlistSearchControlsResponse =
   | {
       status: "ready";
@@ -495,8 +501,9 @@ export type WatchlistSearchControlsResponse =
       /** What the source URL already carries, per control key. */
       values: Record<string, string[]>;
     }
-  // `learning`: a recipe is being learned; `rescan`: none with search controls exists yet.
-  | { status: "learning" | "rescan" | "unsupported" };
+  // `learning`: a scan is running. `rescan`: no verified controls yet (see `lastScan` for why a
+  // scan did not finish). `none`: the site was scanned and has no static search controls to verify.
+  | { status: "learning" | "rescan" | "none" | "unsupported"; lastScan?: WatchlistScanOutcome };
 
 export interface WatchlistSourceScanInput {
   careersUrl: string;
