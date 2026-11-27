@@ -17,9 +17,15 @@ interface SearchFiltersPanelProps {
   careersUrl: string;
   /** Receives the server-built source URL; the user still saves sources as usual. */
   onUse: (url: string) => void;
+  /** Scan the site by itself (a saved source). An unsaved URL is only scanned once saved. */
+  autoScan?: boolean;
+  /** Whether the site's filter scan has an answer; Suggest filters waits for it. */
+  onPlanDone?: (done: boolean) => void;
 }
 
 const TEXT_DEBOUNCE_MS = 400;
+const POLL_MS = 15_000;
+const MAX_POLLS = 24;
 
 /** The listing this URL belongs to, ignoring its query: controls are learned per listing. */
 function listingKey(value: string): string | null {
@@ -36,11 +42,18 @@ function listingKey(value: string): string | null {
  * verified. Each edit asks the server to build the source URL, so the user's own words are only
  * ever placed in their own URL and never reach a model.
  */
-export function SearchFiltersPanel({ careersUrl, onUse }: SearchFiltersPanelProps) {
+export function SearchFiltersPanel({
+  careersUrl,
+  onUse,
+  autoScan = false,
+  onPlanDone,
+}: SearchFiltersPanelProps) {
   const [response, setResponse] = useState<WatchlistSearchControlsResponse | null>(null);
   const [values, setValues] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stalled, setStalled] = useState(false);
+  const autoStarted = useRef<string | null>(null);
   const [rawText, setRawText] = useState<Record<string, string>>({});
   const request = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -60,6 +73,47 @@ export function SearchFiltersPanel({ careersUrl, onUse }: SearchFiltersPanelProp
       if (current === request.current) setResponse({ status: "unsupported" });
     }
   }, []);
+
+  // The scan is "done" once there is an answer for this site (controls, none, or a scan that ended
+  // without one). Anything still loading, running, or not yet started is not.
+  const planDone =
+    response !== null &&
+    (response.status === "ready" ||
+      response.status === "none" ||
+      response.status === "unsupported" ||
+      (response.status === "rescan" &&
+        (response.lastScan?.outcome === "failed" || response.lastScan?.outcome === "blocked")));
+  useEffect(() => {
+    onPlanDone?.(planDone);
+  }, [planDone, onPlanDone]);
+
+  // A saved source is scanned by itself, once per listing: the first scan, or one more after a
+  // scanner that was still starting. A scan that finished (or failed for a real reason) is never
+  // repeated automatically.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `rescan` only reads refs and setters.
+  useEffect(() => {
+    if (!autoScan || !listing || response?.status !== "rescan") return;
+    if (response.lastScan && response.lastScan.outcome !== "unavailable") return;
+    if (autoStarted.current === listing) return;
+    autoStarted.current = listing;
+    void rescan();
+  }, [autoScan, listing, response]);
+
+  // While a scan runs, look again every so often, and give up quietly after a few minutes.
+  useEffect(() => {
+    if (response?.status !== "learning") return;
+    setStalled(false);
+    let polls = 0;
+    const id = setInterval(() => {
+      if (++polls > MAX_POLLS) {
+        clearInterval(id);
+        setStalled(true);
+        return;
+      }
+      void load();
+    }, POLL_MS);
+    return () => clearInterval(id);
+  }, [response?.status, load]);
 
   // Controls belong to a listing, not to the query the user is editing: reload only when the
   // listing changes so typing never resets the inputs.
@@ -127,52 +181,63 @@ export function SearchFiltersPanel({ careersUrl, onUse }: SearchFiltersPanelProp
   }
 
   if (response.status !== "ready") {
+    const unfinished =
+      response.status === "rescan" && response.lastScan && response.lastScan.outcome !== "found"
+        ? response.lastScan
+        : null;
+    const scanning =
+      response.status === "learning" ||
+      (autoScan && busy) ||
+      (autoScan && response.status === "rescan" && !response.lastScan);
     return (
-      <div className="w-full text-xs text-muted-foreground" aria-live="polite">
-        {response.status === "learning" ? (
+      <div className="w-full text-xs text-muted-foreground" aria-live="polite" aria-busy={scanning}>
+        {scanning ? (
           <div className="flex flex-wrap items-center gap-2">
-            <span>Learning this site's search filters. Check again in a minute.</span>
+            <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
+            <span>Finding search filters for this site…</span>
+            {stalled ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[11px]"
+                onClick={() => {
+                  setStalled(false);
+                  void load();
+                }}
+              >
+                Check again
+              </Button>
+            ) : null}
+          </div>
+        ) : !autoScan && !unfinished ? (
+          <p>Search filters are found automatically once this source is saved.</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            {unfinished ? (
+              <span>
+                {unfinished.outcome === "unavailable"
+                  ? "The site scanner was still starting."
+                  : `The last scan did not finish${unfinished.reason ? `: ${unfinished.reason}` : "."}`}
+              </span>
+            ) : null}
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-6 px-2 text-[11px]"
-              onClick={() => void load()}
+              disabled={busy}
+              className="h-6 rounded-md px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => void rescan()}
             >
-              Check again
+              <Search aria-hidden="true" className="h-3 w-3" />
+              Scan again
             </Button>
           </div>
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={busy}
-            className="h-6 rounded-md px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-            onClick={() => void rescan()}
-          >
-            {busy ? (
-              <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
-            ) : (
-              <Search aria-hidden="true" className="h-3 w-3" />
-            )}
-            Find search filters
-          </Button>
         )}
-        {response.lastScan &&
-        response.lastScan.outcome !== "found" &&
-        response.status === "rescan" ? (
-          <p className="mt-1">
-            {response.lastScan.outcome === "unavailable"
-              ? "The site scanner was still starting. Try again in a minute."
-              : `The last scan did not finish${response.lastScan.reason ? `: ${response.lastScan.reason}` : "."}`}
-          </p>
-        ) : null}
         {error ? <p className="mt-1 text-destructive">{error}</p> : null}
       </div>
     );
   }
-
   return (
     <fieldset className="w-full space-y-1.5" aria-busy={busy}>
       <legend className="sr-only">Search filters</legend>

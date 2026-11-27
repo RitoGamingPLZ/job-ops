@@ -12,6 +12,9 @@ interface SuggestFiltersPanelProps {
   label: string;
   description?: string;
   onUse: (url: string) => void;
+  /** Waiting for something this suggestion depends on (the site's filter scan). */
+  disabled?: boolean;
+  disabledHint?: string;
 }
 
 export function SuggestFiltersPanel({
@@ -20,6 +23,8 @@ export function SuggestFiltersPanel({
   label,
   description,
   onUse,
+  disabled = false,
+  disabledHint,
 }: SuggestFiltersPanelProps) {
   const [suggestion, setSuggestion] = useState<WatchlistSuggestedFilterPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +72,7 @@ export function SuggestFiltersPanel({
         type="button"
         variant="outline"
         size="sm"
-        disabled={loading || !careersUrl.trim()}
+        disabled={loading || disabled || !careersUrl.trim()}
         aria-busy={loading}
         className="h-6 rounded-md px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground"
         onClick={() => void suggest()}
@@ -79,6 +84,9 @@ export function SuggestFiltersPanel({
         )}
         {loading ? "Suggesting filters…" : "Suggest filters"}
       </Button>
+      {disabled && disabledHint ? (
+        <p className="mt-1.5 text-xs text-muted-foreground">{disabledHint}</p>
+      ) : null}
       <div
         aria-live="polite"
         aria-atomic="true"

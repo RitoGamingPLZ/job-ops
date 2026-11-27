@@ -106,13 +106,90 @@ describe("SearchFiltersPanel", () => {
     expect(onUse).not.toHaveBeenCalled();
   });
 
-  it("offers to learn a site without search filters, then explains it is learning", async () => {
+  it("scans a saved source by itself and shows a loader instead of a button", async () => {
     vi.mocked(getWatchlistSearchControls).mockResolvedValue({ status: "rescan" });
     vi.mocked(rescanWatchlistSearchControls).mockResolvedValue({ status: "learning" });
+    const { container } = render(
+      <SearchFiltersPanel careersUrl={careersUrl} onUse={vi.fn()} autoScan />,
+    );
+    expect(await screen.findByText(/Finding search filters for this site/)).toBeInTheDocument();
+    await waitFor(() => expect(rescanWatchlistSearchControls).toHaveBeenCalledWith({ careersUrl }));
+    expect(rescanWatchlistSearchControls).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("does not scan an unsaved URL, and says it will once saved", async () => {
+    vi.mocked(getWatchlistSearchControls).mockResolvedValue({ status: "rescan" });
     render(<SearchFiltersPanel careersUrl={careersUrl} onUse={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Find search filters" }));
-    expect(await screen.findByText(/Learning this site's search filters/)).toBeInTheDocument();
-    expect(rescanWatchlistSearchControls).toHaveBeenCalledWith({ careersUrl });
+    expect(
+      await screen.findByText("Search filters are found automatically once this source is saved."),
+    ).toBeInTheDocument();
+    expect(rescanWatchlistSearchControls).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("does not repeat a scan that already finished without filters", async () => {
+    vi.mocked(getWatchlistSearchControls).mockResolvedValue({
+      status: "none",
+      lastScan: { outcome: "none" },
+    });
+    render(<SearchFiltersPanel careersUrl={careersUrl} onUse={vi.fn()} autoScan />);
+    await screen.findByText("No search filters were found for this site.");
+    expect(rescanWatchlistSearchControls).not.toHaveBeenCalled();
+  });
+
+  it("retries once when the scanner was still starting, then leaves it to the user", async () => {
+    vi.mocked(getWatchlistSearchControls).mockResolvedValue({
+      status: "rescan",
+      lastScan: { outcome: "unavailable", reason: "starting" },
+    });
+    vi.mocked(rescanWatchlistSearchControls).mockRejectedValue(new Error("still starting"));
+    render(<SearchFiltersPanel careersUrl={careersUrl} onUse={vi.fn()} autoScan />);
+    await waitFor(() => expect(rescanWatchlistSearchControls).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole("button", { name: "Scan again" })).toBeInTheDocument();
+    expect(rescanWatchlistSearchControls).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps checking while a scan runs and shows the controls once they are ready", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(getWatchlistSearchControls)
+        .mockResolvedValueOnce({ status: "learning" })
+        .mockResolvedValue(ready);
+      render(<SearchFiltersPanel careersUrl={careersUrl} onUse={vi.fn()} autoScan />);
+      expect(await screen.findByText(/Finding search filters for this site/)).toBeInTheDocument();
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(await screen.findByLabelText("Keyword")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("tells the card when the filter plan has an answer", async () => {
+    const onPlanDone = vi.fn();
+    vi.mocked(getWatchlistSearchControls).mockResolvedValue({ status: "learning" });
+    const { rerender } = render(
+      <SearchFiltersPanel
+        careersUrl={careersUrl}
+        onUse={vi.fn()}
+        autoScan
+        onPlanDone={onPlanDone}
+      />,
+    );
+    await screen.findByText(/Finding search filters/);
+    expect(onPlanDone).toHaveBeenLastCalledWith(false);
+    vi.mocked(getWatchlistSearchControls).mockResolvedValue(ready);
+    rerender(
+      <SearchFiltersPanel
+        careersUrl="https://other.example.com/jobs"
+        onUse={vi.fn()}
+        autoScan
+        onPlanDone={onPlanDone}
+      />,
+    );
+    await screen.findByLabelText("Keyword");
+    expect(onPlanDone).toHaveBeenLastCalledWith(true);
   });
 
   it.each([
@@ -151,7 +228,7 @@ describe("SearchFiltersPanel scan outcomes", () => {
     expect(
       await screen.findByText("No search filters were found for this site."),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Find search filters" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it.each([
@@ -164,6 +241,6 @@ describe("SearchFiltersPanel scan outcomes", () => {
     vi.mocked(getWatchlistSearchControls).mockResolvedValue({ status: "rescan", lastScan });
     render(<SearchFiltersPanel careersUrl={careersUrl} onUse={vi.fn()} />);
     expect(await screen.findByText(message)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Find search filters" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Scan again" })).toBeInTheDocument();
   });
 });

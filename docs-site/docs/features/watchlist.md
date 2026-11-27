@@ -56,9 +56,9 @@ When JobOps has learned a custom careers site, it also learns which of the board
 
 - **Keyword and choice inputs** appear on the source card. Editing one rebuilds the source URL, and **Save sources** applies it like any other custom URL. No AI call is made, so editing filters is instant and free.
 - **Paging** is followed for you. When the board's page links keep your filters, JobOps reads up to five pages of results; otherwise it reads the first page.
-- **Suggest filters** can use a verified keyword box: when a board has one, the suggestion may fill it with your search terms. It reads the learned controls from the shared recipe; no extra scan or model call is needed to learn them.
+- **Suggest filters** is available once the site's filter scan has an answer (it shows "Available once this site's search filters are ready" until then), and it can use a verified keyword box: when a board has one, the suggestion may fill it with your search terms. It reads the learned controls from the shared recipe; no extra scan or model call is needed to learn them.
 - **Clearing every filter** returns the source to the board's normal unfiltered listing.
-- **Find search filters** appears for a site that was learned before this feature existed or has no verified controls yet. Click it to re-learn the site in the background. Your current setup keeps working until the new one is verified.
+- **Automatic scan**: once a custom careers site is saved to your Watchlist, JobOps looks for its search filters by itself and the source card shows a loader while it works. An unsaved URL is not scanned. Your current setup keeps working until a verified result replaces it. If a scan could not finish (for example the scanner was still starting) the card says why and offers **Scan again**; a scan that finished and found no controls says so and is not repeated.
 - Only boards that take their filters in the URL (a GET search form, with page numbers or offsets) are supported. Boards that need button clicks, infinite scroll, or a POST search still work unfiltered.
 
 Your keywords stay in your own source URL. The learned controls are public and shared between users; what you type is not.
@@ -158,7 +158,7 @@ Company careers sites without a known job-board API are read with a browser. Whe
 
 ### A careers site has no search filters
 
-Filters are offered only after JobOps has verified them. If the source card shows no keyword or choice inputs, the board either has none JobOps could verify, was learned before filters existed, or needs button clicks or scrolling to search. Click **Find search filters** when it appears to re-learn the site (this can use your LLM connection if the site is not a simple sitemap board). Otherwise paste a URL that already contains the board's own filter parameters, or use **Suggest filters**.
+Filters are offered only after JobOps has verified them. A saved source is scanned automatically; the card shows a loader while it runs. If it then shows no keyword or choice inputs, the board either has none JobOps could verify or needs button clicks or scrolling to search. If the card says the last scan did not finish, click **Scan again** (this can use your LLM connection if the site is not a simple sitemap board). Otherwise paste a URL that already contains the board's own filter parameters.
 
 ### My custom URL is rejected
 
