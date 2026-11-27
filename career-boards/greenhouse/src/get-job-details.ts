@@ -1,3 +1,4 @@
+import { htmlToText } from "../../../shared/src/career-board-html";
 import { fetchGreenhouseJson, optionalString, requiredString } from "./http";
 import { formatLocation } from "./get-jobs-from-board";
 import {
@@ -121,21 +122,4 @@ export function decodeHtmlEntities(input: string): string {
     }
     return named[ent.toLowerCase()] ?? m;
   });
-}
-
-function htmlToText(html: string): string {
-  return html
-    .replace(/<\s*br\s*\/?>/gi, "\n")
-    .replace(/<\/\s*(p|div|li|h[1-6]|ul|ol)\s*>/gi, "\n")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n\s+/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
 }

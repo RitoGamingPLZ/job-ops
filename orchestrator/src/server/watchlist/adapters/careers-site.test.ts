@@ -39,7 +39,6 @@ vi.mock("@server/watchlist/careers-site/run-recipe", () => ({
   runRecipe: mocks.run,
 }));
 vi.mock("@server/watchlist/careers-site/fetch", () => ({
-  fetchPublicText: vi.fn(),
   isAllowedByRobots: vi.fn(),
   loadPage: vi.fn(),
 }));

@@ -1,8 +1,6 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useSqliteTestDb } from "../testing/sqlite-test-db";
 import type { WatchlistSource } from "@shared/types";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const source = (id: string, label: string, sourceType: WatchlistSource["sourceType"]) =>
   ({
@@ -14,23 +12,16 @@ const source = (id: string, label: string, sourceType: WatchlistSource["sourceTy
   }) satisfies WatchlistSource;
 
 describe("company ratings repository", () => {
-  let tempDir: string;
+  const database = useSqliteTestDb();
   let repo: typeof import("./company-ratings");
 
   beforeEach(async () => {
-    vi.resetModules();
-    tempDir = await mkdtemp(join(tmpdir(), "job-ops-company-ratings-"));
-    vi.stubEnv("DATA_DIR", tempDir);
-    vi.stubEnv("NODE_ENV", "test");
-    await import("../db/migrate");
+    await database.open();
     repo = await import("./company-ratings");
   });
 
   afterEach(async () => {
-    const { closeDb } = await import("../db/index");
-    closeDb();
-    await rm(tempDir, { recursive: true, force: true });
-    vi.unstubAllEnvs();
+    await database.close();
   });
 
   it("seeds the bundled ratings into SQL and attaches one rating to every adapter", async () => {

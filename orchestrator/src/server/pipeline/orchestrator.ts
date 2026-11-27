@@ -13,7 +13,7 @@ import { logger } from "@infra/logger";
 import { trackServerProductEvent } from "@infra/product-analytics";
 import { runWithRequestContext } from "@infra/request-context";
 import { sanitizeUnknown } from "@infra/sanitize";
-import { parseWorkplaceTypes } from "@server/pipeline/settings-parsers";
+import { resolveLocationIntentFromRawSettings } from "@server/services/location-intent";
 import { getJobResume } from "@server/repositories/job-resumes";
 import { ensureJobResume } from "@server/services/job-resume";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
@@ -111,23 +111,7 @@ async function resolveLocationIntent(
   }
 
   const settings = await settingsRepo.getAllSettings();
-  return createLocationIntentFromLegacyInputs({
-    selectedCountry: settings.jobspyCountryIndeed ?? "",
-    searchCities: settings.searchCities ?? settings.jobspyLocation ?? "",
-    workplaceTypes: parseWorkplaceTypes(settings.workplaceTypes),
-    searchScope: settings.locationSearchScope,
-    matchStrictness: settings.locationMatchStrictness,
-    proximity:
-      settings.locationSearchMode === "radius" &&
-      settings.locationLatitude != null &&
-      settings.locationLongitude != null
-        ? {
-            latitude: Number(settings.locationLatitude),
-            longitude: Number(settings.locationLongitude),
-            radiusMiles: Number(settings.locationRadiusMiles ?? 50),
-          }
-        : null,
-  });
+  return resolveLocationIntentFromRawSettings(settings);
 }
 
 // ---------- Challenge pause/resume state ----------
@@ -343,7 +327,7 @@ export async function runPipeline(
   return runWithRequestContext({ pipelineRunId: pipelineRun.id }, async () => {
     const pipelineLogger = logger.child({ pipelineRunId: pipelineRun.id });
     let jobsDiscovered = 0;
-    let jobsProcessed = 0;
+    const jobsProcessed = 0;
     let pipelineUsageUnits = 0;
     let resultSummary = savedDetails?.resultSummary ?? createPipelineRunResultSummary();
     const persistResultSummary = async (
@@ -591,8 +575,6 @@ export async function runPipeline(
         jobsScored: scoredJobs.length,
         jobsSelected: jobsToProcess.length,
       });
-      const processedCount = 0;
-      jobsProcessed = processedCount;
 
       resultSummary = updatePipelineRunResultSummary(resultSummary, {
         stage: "completed",
@@ -602,31 +584,31 @@ export async function runPipeline(
       await pipelineRepo.updatePipelineRun(pipelineRun.id, {
         status: "completed",
         completedAt: new Date().toISOString(),
-        jobsProcessed: processedCount,
+        jobsProcessed,
         resultSummary,
       });
 
-      progressHelpers.complete(jobsDiscovered, processedCount);
+      progressHelpers.complete(jobsDiscovered, jobsProcessed);
       pipelineLogger.info("Pipeline run completed", {
         jobsDiscovered,
         jobsFuzzyMerged: fuzzyMerged,
         jobsImported: created,
         jobsSkipped: skipped,
-        jobsProcessed: processedCount,
+        jobsProcessed,
       });
 
       await notifyPipelineWebhookStep("pipeline.completed", {
         pipelineRunId: pipelineRun.id,
         jobsDiscovered,
         jobsScored: scoredJobs.length,
-        jobsProcessed: processedCount,
+        jobsProcessed,
       });
 
       pipelineUsageUnits = 1;
       return {
         success: true,
         jobsDiscovered,
-        jobsProcessed: processedCount,
+        jobsProcessed,
       };
     } catch (error) {
       if (error instanceof PipelineCancelledError) {

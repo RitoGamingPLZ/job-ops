@@ -1,3 +1,4 @@
+import { normalizeGeminiModelName } from "@server/services/llm/utils/gemini-model";
 import { getPositiveIntEnv } from "@server/utils/env";
 import { asArray, asRecord } from "@shared/utils/type-conversion";
 import { randomUUID } from "node:crypto";
@@ -799,13 +800,6 @@ function buildDocumentTextPrompt(
     fileName,
     mediaType === "application/pdf" ? "PDF" : "DOCX",
   );
-}
-
-function normalizeGeminiModelName(value: string): string {
-  return value
-    .trim()
-    .replace(/^models\//, "")
-    .replace(/^google\//, "");
 }
 
 function extractOpenAiOutputText(response: unknown): string | null {

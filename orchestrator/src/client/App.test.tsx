@@ -83,10 +83,6 @@ vi.mock("./pages/TrackingInboxPage", () => ({
   TrackingInboxPage: () => <div>tracking-inbox</div>,
 }));
 
-vi.mock("./pages/VisaSponsorsPage", () => ({
-  VisaSponsorsPage: () => null,
-}));
-
 vi.mock("./pages/WatchlistPage", () => ({
   WatchlistPage: () => <div>watchlist-page</div>,
 }));

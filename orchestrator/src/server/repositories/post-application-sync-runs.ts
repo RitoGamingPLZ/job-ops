@@ -10,10 +10,6 @@ import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-
 
 const { postApplicationSyncRuns } = schema;
 
-function syncRunsScopeFilter() {
-  return privateDataScopeFilter(postApplicationSyncRuns);
-}
-
 type StartPostApplicationSyncRunInput = {
   provider: PostApplicationProvider;
   accountKey: string;
@@ -117,7 +113,12 @@ export async function completePostApplicationSyncRun(
       errorMessage: input.errorMessage ?? null,
       updatedAt: nowIso,
     })
-    .where(and(syncRunsScopeFilter(), eq(postApplicationSyncRuns.id, input.id)));
+    .where(
+      and(
+        privateDataScopeFilter(postApplicationSyncRuns),
+        eq(postApplicationSyncRuns.id, input.id),
+      ),
+    );
 
   return getPostApplicationSyncRunById(input.id);
 }
@@ -128,7 +129,9 @@ export async function getPostApplicationSyncRunById(
   const [row] = await db
     .select()
     .from(postApplicationSyncRuns)
-    .where(and(syncRunsScopeFilter(), eq(postApplicationSyncRuns.id, id)));
+    .where(
+      and(privateDataScopeFilter(postApplicationSyncRuns), eq(postApplicationSyncRuns.id, id)),
+    );
   return row ? mapRowToSyncRun(row) : null;
 }
 
@@ -144,7 +147,7 @@ export async function listPostApplicationSyncRuns(
       and(
         eq(postApplicationSyncRuns.provider, provider),
         eq(postApplicationSyncRuns.accountKey, accountKey),
-        syncRunsScopeFilter(),
+        privateDataScopeFilter(postApplicationSyncRuns),
       ),
     )
     .orderBy(desc(postApplicationSyncRuns.startedAt))

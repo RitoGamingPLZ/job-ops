@@ -1,31 +1,12 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useSqliteTestDb } from "../testing/sqlite-test-db";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("product analytics repository", () => {
-  const originalEnv = { ...process.env };
-  let tempDir: string;
-  let closeDb: (() => void) | null = null;
-
+  const database = useSqliteTestDb();
   beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "job-ops-analytics-repo-"));
-    vi.resetModules();
-    process.env = {
-      ...originalEnv,
-      DATA_DIR: tempDir,
-      NODE_ENV: "test",
-    };
-    await import("@server/db/migrate");
-    ({ closeDb } = await import("@server/db"));
+    await database.open();
   });
-
-  afterEach(async () => {
-    closeDb?.();
-    closeDb = null;
-    process.env = { ...originalEnv };
-    await rm(tempDir, { recursive: true, force: true });
-  });
+  afterEach(database.close);
 
   it("classifies stage analytics sources with reasonCode precedence", async () => {
     const { classifyStageAnalyticsSource } = await import("./product-analytics");

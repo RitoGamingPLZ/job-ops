@@ -1,6 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useSqliteTestDb } from "../testing/sqlite-test-db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const challenge = {
@@ -11,55 +9,35 @@ const challenge = {
   resumeState: { cursor: "page-2" },
 };
 
-vi.mock("../repositories/pipeline", () => ({
-  createPipelineRun: vi.fn(async () => ({
-    id: "run-challenge-1",
-    startedAt: new Date().toISOString(),
-    completedAt: null,
-    status: "running",
-    jobsDiscovered: 0,
-    jobsProcessed: 0,
-    errorMessage: null,
-  })),
-  updatePipelineRun: vi.fn(async () => undefined),
-}));
+vi.mock("../repositories/pipeline", async () => {
+  const { createPipelineRepoMock } = await import("./testing/mocks");
+  return createPipelineRepoMock("run-challenge-1");
+});
 
-vi.mock("./steps", () => ({
-  loadProfileStep: vi.fn(async () => ({})),
-  discoverJobsStep: vi.fn(async () => ({
-    discoveredJobs: [],
-    sourceErrors: [
-      "Freehire: Cloudflare challenge required for https://www.freehire.example/search?q=software-developer (sources: freehire)",
-    ],
-    pendingChallenges: [challenge],
-  })),
-  importJobsStep: vi.fn(async () => ({
-    created: 0,
-    skipped: 0,
-    fuzzyMerged: 0,
-  })),
-  scoreJobsStep: vi.fn(async () => ({ unprocessedJobs: [], scoredJobs: [] })),
-  selectJobsStep: vi.fn(() => []),
-  notifyPipelineWebhookStep: vi.fn(async () => undefined),
-}));
+vi.mock("./steps", async () => {
+  const { createPipelineStepsMock } = await import("./testing/mocks");
+  return {
+    ...createPipelineStepsMock(),
+    discoverJobsStep: vi.fn(async () => ({
+      discoveredJobs: [],
+      sourceErrors: [
+        "Freehire: Cloudflare challenge required for https://www.freehire.example/search?q=software-developer (sources: freehire)",
+      ],
+      pendingChallenges: [challenge],
+    })),
+  };
+});
 
 describe("pipeline challenge handling", () => {
-  let tempDir: string;
+  const database = useSqliteTestDb();
 
   beforeEach(async () => {
-    vi.resetModules();
     vi.clearAllMocks();
-    tempDir = await mkdtemp(join(tmpdir(), "job-ops-pipeline-challenge-"));
-    process.env.DATA_DIR = tempDir;
-    process.env.NODE_ENV = "test";
-
-    await import("../db/migrate");
+    await database.open();
   });
 
   afterEach(async () => {
-    const { closeDb } = await import("../db/index");
-    closeDb();
-    await rm(tempDir, { recursive: true, force: true });
+    await database.close();
   });
 
   it("asks again when a different search challenge appears after a solve", async () => {

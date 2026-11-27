@@ -152,5 +152,5 @@ npm start
 - **Backend:** Express, TypeScript, Drizzle ORM, SQLite
 - **Frontend:** React, Vite, CSS (custom design system)
 - **AI:** Configurable LLM provider (OpenRouter default; also supports OpenAI via the dedicated `openai` provider, Claude through Anthropic's native API, GLM, `openai-compatible` endpoints, Gemini, LM Studio, and Ollama)
-- **PDF Generation:** Reactive Resume v5 API export (configured via Settings)
+- **PDF Generation:** LaTeX or Typst rendering (configured in Settings)
 - **Job Crawling:** Wraps existing TypeScript Crawlee crawler

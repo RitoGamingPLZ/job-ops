@@ -1,6 +1,14 @@
 # Job-Ops Codebase Audit & Cleanup Plan
 
-> **Status (Wrap-Up):** Phases A, B, and C1 (helper migrations & initial route/schema consolidation) are completed and merged into `main`; Phases C2–E remain for follow-up.
+> **Status:** Phases A, B, and C1 landed in `f069c6b3`. The follow-up consolidates client SSE framing, tokenized input, and job status badges, removes stale mocks, consolidates duration-selector tests, and updates current docs after the removal of visa sponsor lookup and tracer links.
+
+The next pass removed one-line repository scope wrappers and consolidated raw pipeline location settings, watchlist runtime detection, and request timeouts. It also shared file reading, Gemini model normalization, compiler output truncation, integration display names, and career-board response handling. Tests now reuse route login fixtures and a migrated SQLite database template across repository suites. The targeted adapter retry and pacing tests use fake timers.
+
+The latest pass consolidated outbound webhook delivery, route validation, resume template names, CLI prompts and Windows shell checks, file downloads, career-board HTML conversion, extractor CLI utilities, and Worker error responses and scraper-container requests. It removed unused documentation assets and obsolete sponsor tests, and added Docker watch entries for Adzuna and Greenhouse.
+
+The latest pass also shared watchlist URL validation, branding checks, bounded retries, facet ranking, LLM strategy construction and model-list fetches, stored JSON parsing, resume section titles, language formatting, and render-directory cleanup, and the repository and pipeline test fixtures. It consolidated the CLI import and scoring threshold test cases, pipeline terminal status, and email display helpers. Typst now renders a numeric language level of zero, matching LaTeX.
+
+The checklist below records the original proposals. Open items include remaining provider-specific watchlist HTTP consolidation, remaining resume renderer and import helpers, and a handful of test suite reorganizations.
 
 - **Date:** 2026-11-26
 - **Branch:** `t3/dead-code-cleanup-shared-helpers` (base commit `1baba233`)

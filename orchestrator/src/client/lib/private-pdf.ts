@@ -1,15 +1,17 @@
+import { downloadBlob } from "./download-blob";
 import * as api from "@/client/api";
 import { canOpenJobDocumentInline, type JobDocumentTypeTarget } from "@/client/lib/job-documents";
 
 function openBlob(blob: Blob, filename?: string): void {
+  if (filename) {
+    downloadBlob(blob, filename);
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  if (filename) anchor.download = filename;
-  if (!filename) {
-    anchor.target = "_blank";
-    anchor.rel = "noopener noreferrer";
-  }
+  anchor.target = "_blank";
+  anchor.rel = "noopener noreferrer";
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

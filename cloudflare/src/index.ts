@@ -1,7 +1,7 @@
 import { AppStore } from "./app-store";
 import { ScrapeCoordinatorDO, ScraperContainer } from "./scrape-coordinator";
 import type { Env } from "./types";
-import { constantTimeEqual, getBearerToken, normalizePath } from "./utils";
+import { constantTimeEqual, getBearerToken, jsonError, normalizePath } from "./utils";
 
 export { AppStore, ScrapeCoordinatorDO, ScraperContainer };
 export type { Env };
@@ -24,13 +24,7 @@ export default {
     try {
       normalizedPath = normalizePath(url.pathname);
     } catch {
-      return Response.json(
-        {
-          ok: false,
-          error: { code: "INVALID_REQUEST", message: "Malformed URL path" },
-        },
-        { status: 400 },
-      );
+      return jsonError(request, "INVALID_REQUEST", "Malformed URL path", { status: 400 });
     }
 
     // Lightweight Worker-level liveness endpoint (does not wake any DO).
@@ -47,35 +41,19 @@ export default {
 
     // Block external access to internal sync routes.
     if (normalizedPath === "/api/internal" || normalizedPath.startsWith("/api/internal/")) {
-      return Response.json(
-        {
-          ok: false,
-          error: { code: "FORBIDDEN", message: "Forbidden" },
-        },
-        { status: 403 },
-      );
+      return jsonError(request, "FORBIDDEN", "Forbidden", { status: 403 });
     }
 
     // AppStore DO export/import/on-task-done routes (authenticated).
     if (normalizedPath.startsWith("/_cf/do/")) {
       if (!isAuthorizedAdmin(request, env)) {
-        return Response.json(
-          {
-            ok: false,
-            error: { code: "UNAUTHORIZED", message: "Unauthorized" },
-          },
-          { status: 401 },
-        );
+        return jsonError(request, "UNAUTHORIZED", "Unauthorized", { status: 401 });
       }
       if (!env.APP_STORE) {
-        return Response.json(
-          {
-            ok: false,
-            error: {
-              code: "SERVICE_UNAVAILABLE",
-              message: "APP_STORE Durable Object binding is not configured.",
-            },
-          },
+        return jsonError(
+          request,
+          "SERVICE_UNAVAILABLE",
+          "APP_STORE Durable Object binding is not configured.",
           { status: 503 },
         );
       }
@@ -85,23 +63,13 @@ export default {
     // ScrapeCoordinator DO routes (authenticated).
     if (normalizedPath.startsWith("/_cf/scrape/")) {
       if (!isAuthorizedAdmin(request, env)) {
-        return Response.json(
-          {
-            ok: false,
-            error: { code: "UNAUTHORIZED", message: "Unauthorized" },
-          },
-          { status: 401 },
-        );
+        return jsonError(request, "UNAUTHORIZED", "Unauthorized", { status: 401 });
       }
       if (!env.SCRAPE_COORDINATOR) {
-        return Response.json(
-          {
-            ok: false,
-            error: {
-              code: "SERVICE_UNAVAILABLE",
-              message: "SCRAPE_COORDINATOR Durable Object binding is not configured.",
-            },
-          },
+        return jsonError(
+          request,
+          "SERVICE_UNAVAILABLE",
+          "SCRAPE_COORDINATOR Durable Object binding is not configured.",
           { status: 503 },
         );
       }
@@ -115,14 +83,10 @@ export default {
       (normalizedPath === "/api" || normalizedPath.startsWith("/api/")) &&
       (method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE")
     ) {
-      return Response.json(
-        {
-          ok: false,
-          error: {
-            code: "SERVICE_UNAVAILABLE",
-            message: "Database is temporarily in read-only maintenance mode (WRITE_FREEZE=1).",
-          },
-        },
+      return jsonError(
+        request,
+        "SERVICE_UNAVAILABLE",
+        "Database is temporarily in read-only maintenance mode (WRITE_FREEZE=1).",
         {
           status: 503,
           headers: { "retry-after": "30" },
@@ -145,14 +109,10 @@ export default {
 
     if (isApiOrServerRoute) {
       if (!env.APP_STORE) {
-        return Response.json(
-          {
-            ok: false,
-            error: {
-              code: "SERVICE_UNAVAILABLE",
-              message: "APP_STORE Durable Object binding is not configured.",
-            },
-          },
+        return jsonError(
+          request,
+          "SERVICE_UNAVAILABLE",
+          "APP_STORE Durable Object binding is not configured.",
           { status: 503 },
         );
       }
@@ -167,14 +127,10 @@ export default {
       return env.APP_STORE.getByName("primary").fetch(request);
     }
 
-    return Response.json(
-      {
-        ok: false,
-        error: {
-          code: "SERVICE_UNAVAILABLE",
-          message: "Neither ASSETS nor APP_STORE is configured.",
-        },
-      },
+    return jsonError(
+      request,
+      "SERVICE_UNAVAILABLE",
+      "Neither ASSETS nor APP_STORE is configured.",
       { status: 503 },
     );
   },

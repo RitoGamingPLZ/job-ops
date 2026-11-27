@@ -65,3 +65,18 @@ export function normalizePath(pathname: string): string {
       .replace(/\/$/, "") || "/"
   );
 }
+
+export function jsonError(
+  request: Request,
+  code: string,
+  message: string,
+  init: ResponseInit,
+): Response {
+  const requestId = request.headers.get("x-request-id") || crypto.randomUUID();
+  const headers = new Headers(init.headers);
+  headers.set("x-request-id", requestId);
+  return Response.json(
+    { ok: false, error: { code, message }, meta: { requestId } },
+    { ...init, headers },
+  );
+}

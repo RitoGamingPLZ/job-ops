@@ -1,3 +1,4 @@
+import { parseJsonSafely } from "@server/utils/json";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   type UserInvitation,
@@ -27,11 +28,7 @@ function generateToken(): string {
 type InvitationRow = typeof userInvitations.$inferSelect;
 
 function readPermissions(raw: string): UserPermissions {
-  try {
-    return resolveUserPermissions(JSON.parse(raw));
-  } catch {
-    return resolveUserPermissions(null);
-  }
+  return resolveUserPermissions(parseJsonSafely<unknown>(raw, null));
 }
 
 function resolveStatus(row: InvitationRow, now: Date): UserInvitationStatus {

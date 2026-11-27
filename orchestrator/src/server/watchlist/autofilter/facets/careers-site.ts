@@ -1,3 +1,4 @@
+import { rankFacetValues } from "./shared";
 import { badRequest, upstreamError } from "@infra/errors";
 import { JSDOM } from "jsdom";
 import { isAllowedByRobots, loadPage } from "../../careers-site/fetch";
@@ -143,10 +144,9 @@ async function readListingFacets(
       .map(([key, param]) => ({
         key,
         multi: param.multi,
-        values: [...param.values]
-          .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0) || a[0].localeCompare(b[0]))
-          .slice(0, 60)
-          .map(([value, count]) => (count === undefined ? { value } : { value, count })),
+        values: rankFacetValues(param.values).map(({ value, count }) =>
+          count === undefined ? { value } : { value, count },
+        ),
       })),
   } satisfies Facets;
 }

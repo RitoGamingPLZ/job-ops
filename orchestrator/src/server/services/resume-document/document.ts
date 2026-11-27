@@ -1,26 +1,11 @@
 import { asArray, asRecord } from "@shared/utils/type-conversion";
 import { createId } from "@paralleldrive/cuid2";
 import { resolvePublicBaseUrl } from "@server/infra/public-availability";
-import { defaultV5ResumeData, metadataSchema } from "./schema/v5";
+import { defaultV5ResumeData, metadataSchema, templateNames } from "./schema/v5";
 
 type RecordLike = Record<string, unknown>;
 
-const VALID_TEMPLATES = new Set([
-  "azurill",
-  "bronzor",
-  "chikorita",
-  "ditgar",
-  "ditto",
-  "gengar",
-  "glalie",
-  "kakuna",
-  "lapras",
-  "leafish",
-  "meowth",
-  "onyx",
-  "pikachu",
-  "rhyhorn",
-]);
+const VALID_TEMPLATES = new Set<string>(templateNames);
 
 const VALID_PAGE_FORMATS = new Set(["a4", "letter", "free-form"]);
 const VALID_LEVEL_TYPES = new Set([

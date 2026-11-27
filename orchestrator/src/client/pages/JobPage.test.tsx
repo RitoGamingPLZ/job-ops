@@ -85,7 +85,6 @@ vi.mock("../api", () => ({
   generateJobPdf: vi.fn(),
   processJob: vi.fn(),
   regenerateJobResume: vi.fn(),
-  checkSponsor: vi.fn(),
 }));
 
 vi.mock("@/client/lib/private-pdf", () => ({

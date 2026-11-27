@@ -4,19 +4,11 @@ import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-
 
 const { designResumeAssets, designResumeDocuments } = schema;
 
-function documentsScopeFilter() {
-  return privateDataScopeFilter(designResumeDocuments);
-}
-
-function assetsScopeFilter() {
-  return privateDataScopeFilter(designResumeAssets);
-}
-
 export async function getLatestDesignResumeDocument() {
   const [row] = await db
     .select()
     .from(designResumeDocuments)
-    .where(documentsScopeFilter())
+    .where(privateDataScopeFilter(designResumeDocuments))
     .orderBy(desc(designResumeDocuments.updatedAt))
     .limit(1);
   return row ?? null;
@@ -26,7 +18,7 @@ async function getDesignResumeDocumentById(id: string) {
   const [row] = await db
     .select()
     .from(designResumeDocuments)
-    .where(and(documentsScopeFilter(), eq(designResumeDocuments.id, id)))
+    .where(and(privateDataScopeFilter(designResumeDocuments), eq(designResumeDocuments.id, id)))
     .limit(1);
   return row ?? null;
 }
@@ -35,7 +27,12 @@ export async function listDesignResumeAssets(documentId: string) {
   return db
     .select()
     .from(designResumeAssets)
-    .where(and(assetsScopeFilter(), eq(designResumeAssets.documentId, documentId)))
+    .where(
+      and(
+        privateDataScopeFilter(designResumeAssets),
+        eq(designResumeAssets.documentId, documentId),
+      ),
+    )
     .orderBy(desc(designResumeAssets.updatedAt));
 }
 
@@ -43,7 +40,7 @@ export async function getDesignResumeAssetById(id: string) {
   const [row] = await db
     .select()
     .from(designResumeAssets)
-    .where(and(assetsScopeFilter(), eq(designResumeAssets.id, id)))
+    .where(and(privateDataScopeFilter(designResumeAssets), eq(designResumeAssets.id, id)))
     .limit(1);
   return row ?? null;
 }
@@ -82,7 +79,9 @@ export async function upsertDesignResumeDocument(input: {
         importedAt: input.importedAt,
         updatedAt: input.updatedAt,
       })
-      .where(and(documentsScopeFilter(), eq(designResumeDocuments.id, input.id)));
+      .where(
+        and(privateDataScopeFilter(designResumeDocuments), eq(designResumeDocuments.id, input.id)),
+      );
   } else {
     await db.insert(designResumeDocuments).values({
       id: input.id,
@@ -134,13 +133,18 @@ export async function insertDesignResumeAsset(input: {
 export async function deleteDesignResumeAsset(id: string) {
   await db
     .delete(designResumeAssets)
-    .where(and(assetsScopeFilter(), eq(designResumeAssets.id, id)));
+    .where(and(privateDataScopeFilter(designResumeAssets), eq(designResumeAssets.id, id)));
 }
 
 export async function deleteDesignResumeAssetsForDocument(documentId: string) {
   await db
     .delete(designResumeAssets)
-    .where(and(assetsScopeFilter(), eq(designResumeAssets.documentId, documentId)));
+    .where(
+      and(
+        privateDataScopeFilter(designResumeAssets),
+        eq(designResumeAssets.documentId, documentId),
+      ),
+    );
 }
 
 export async function findDesignResumeAssetForDocument(args: {
@@ -153,7 +157,7 @@ export async function findDesignResumeAssetForDocument(args: {
     .where(
       and(
         eq(designResumeAssets.documentId, args.documentId),
-        assetsScopeFilter(),
+        privateDataScopeFilter(designResumeAssets),
         eq(designResumeAssets.kind, args.kind),
       ),
     )

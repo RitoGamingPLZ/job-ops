@@ -1,14 +1,3 @@
-import { createProviderStrategy } from "./factory";
+import { createCliStrategy } from "./factory";
 
-export const geminiCliStrategy = createProviderStrategy({
-  provider: "gemini_cli",
-  defaultBaseUrl: "",
-  requiresApiKey: false,
-  modes: ["none"],
-  validationPaths: [],
-  buildRequest: () => {
-    throw new Error("Gemini CLI provider does not use HTTP requests.");
-  },
-  extractText: () => null,
-  getValidationUrls: () => [],
-});
+export const geminiCliStrategy = createCliStrategy("gemini_cli", "Gemini CLI");

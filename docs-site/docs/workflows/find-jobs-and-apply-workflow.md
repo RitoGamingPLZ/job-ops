@@ -70,10 +70,9 @@ At this stage:
 1. Open job details.
 2. Open the **search links** row when you want quick external research on LinkedIn, GitHub, or the wider web.
 3. If you wrote a resume outside JobOps, use **Upload PDF** in the job detail view to attach that file to the application instead of using the generated version.
-4. Optionally enable tracer links for that specific job.
-5. If the job shows `PDF stale`, wait for the automatic regeneration to finish before using the refreshed PDF. You can still open or download the old PDF while it is labeled as old.
-6. Download the PDF you want to submit.
-7. Submit your application externally.
+4. If the job shows `PDF stale`, wait for the automatic regeneration to finish before using the refreshed PDF. You can still open or download the old PDF while it is labeled as old.
+5. Download the PDF you want to submit.
+6. Submit your application externally.
 
 ### 5) Mark jobs as applied in JobOps
 
@@ -103,8 +102,6 @@ If discovery is slow, start with fewer sources or a smaller run budget. If resul
 - Increase tailored-job count only after score thresholds feel calibrated.
 - Expect scraper runtime variance by source.
 - Keep resume/project context up to date so scoring/tailoring quality stays high.
-- Use per-job tracer links when you want measurable outbound-link analytics.
-- If you use tracer links, review the risk note in [Tracer Links](../features/tracer-links): some recipients/security tools may treat redirects as suspicious.
 
 ## Related pages
 

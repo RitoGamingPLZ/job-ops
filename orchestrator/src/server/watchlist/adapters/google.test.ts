@@ -2,6 +2,10 @@ import catalog from "@server/config/career-boards-google.json";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WatchlistCatalogSourceAdapter } from "./types";
+vi.mock("node:timers/promises", async (importOriginal) => {
+  const { withFakeTimeouts } = await import("../testing/timers");
+  return withFakeTimeouts(await importOriginal<typeof import("node:timers/promises")>());
+});
 
 let adapter: WatchlistCatalogSourceAdapter;
 beforeEach(async () => {
@@ -301,22 +305,28 @@ describe("googleWatchlistAdapter", () => {
     );
   });
   it("retries 429 with bounded backoff", async () => {
+    vi.useFakeTimers();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response("private", { status: 429 }))
       .mockResolvedValueOnce(list());
     vi.stubGlobal("fetch", fetchMock);
-    expect((await adapter.fetchJobs({ source })).fetched).toBe(1);
+    const pending = adapter.fetchJobs({ source });
+    await vi.runAllTimersAsync();
+    expect((await pending).fetched).toBe(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
   it("stops after three retries without exposing upstream bodies", async () => {
+    vi.useFakeTimers();
     const fetchMock = vi
       .fn()
       .mockImplementation(async () => new Response("secret", { status: 429 }));
     vi.stubGlobal("fetch", fetchMock);
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
+    const outcome = expect(adapter.fetchJobs({ source })).rejects.toThrow(
       "Google careers returned HTTP 429.",
     );
+    await vi.runAllTimersAsync();
+    await outcome;
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
   it("rejects upstream errors without leaking response bodies", async () => {

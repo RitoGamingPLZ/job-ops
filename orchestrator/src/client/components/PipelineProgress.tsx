@@ -1,3 +1,4 @@
+import { TERMINAL_PIPELINE_STEPS } from "@client/lib/pipeline-progress";
 import {
   getPipelineProgressSnapshot,
   prepareChallengeViewer,
@@ -19,11 +20,6 @@ interface PipelineProgressProps {
 
 const SSE_FALLBACK_TIMEOUT_MS = 1500;
 const SNAPSHOT_POLL_INTERVAL_MS = 2000;
-const TERMINAL_STEPS: ReadonlySet<PipelineProgressState["step"]> = new Set([
-  "completed",
-  "cancelled",
-  "failed",
-]);
 
 export const PipelineProgress: React.FC<PipelineProgressProps> = ({ isRunning }) => {
   const [progress, setProgress] = useState<PipelineProgressState | null>(null);
@@ -101,7 +97,7 @@ export const PipelineProgress: React.FC<PipelineProgressProps> = ({ isRunning })
         const snapshot = await getPipelineProgressSnapshot();
         if (!isActive) return;
         setProgress(snapshot);
-        if (TERMINAL_STEPS.has(snapshot.step)) stopPolling();
+        if (TERMINAL_PIPELINE_STEPS.has(snapshot.step)) stopPolling();
       } catch {
         // The next polling interval or SSE event retries the read.
       }
@@ -125,7 +121,7 @@ export const PipelineProgress: React.FC<PipelineProgressProps> = ({ isRunning })
       onMessage: (payload) => {
         if (!isActive) return;
         setProgress(payload);
-        if (TERMINAL_STEPS.has(payload.step)) stopPolling();
+        if (TERMINAL_PIPELINE_STEPS.has(payload.step)) stopPolling();
       },
       onError: startPolling,
     });

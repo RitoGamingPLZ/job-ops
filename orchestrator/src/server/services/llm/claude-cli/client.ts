@@ -1,8 +1,9 @@
+import { formatTranscript, needsWindowsShell } from "../utils/cli-common";
 import { toNonEmptyString } from "@shared/utils/type-conversion";
 import { getPositiveIntEnv } from "@server/utils/env";
 import { spawn } from "node:child_process";
 import { logger } from "@infra/logger";
-import { getLlmMessageText, type JsonSchemaDefinition, type LlmRequestOptions } from "../types";
+import { type JsonSchemaDefinition, type LlmRequestOptions } from "../types";
 import { runCliProcess } from "../utils/cli-process";
 import { truncate } from "../utils/string";
 
@@ -43,18 +44,8 @@ function buildClaudeCliErrorMessage(error: unknown): string {
  * gemini-cli, claude-code's bundle entry point isn't a documented resolution
  * target, so this only handles the shell-shim case (no bundle.js lookup).
  */
-function shouldSpawnClaudeViaWindowsShell(command: string): boolean {
-  if (process.platform !== "win32") return false;
-  const lower = command.trim().toLowerCase();
-  return lower.endsWith(".cmd") || lower.endsWith(".bat");
-}
-
 function formatMessagesPrompt(messages: LlmRequestOptions<unknown>["messages"]): string {
-  const transcript = messages
-    .map((message, index) => {
-      return `Message ${index + 1} (${message.role.toUpperCase()}):\n${getLlmMessageText(message.content).trim()}`;
-    })
-    .join("\n\n");
+  const transcript = formatTranscript(messages);
 
   return [
     "You are generating a structured JSON response for JobOps.",
@@ -204,7 +195,7 @@ async function runClaudeCliOnce(args: {
   }
   procArgs.push("--json-schema", JSON.stringify(args.jsonSchema.schema));
 
-  const shell = shouldSpawnClaudeViaWindowsShell(bin);
+  const shell = needsWindowsShell(bin);
 
   return await runCliProcess({
     spawnFn: args.spawnFn,

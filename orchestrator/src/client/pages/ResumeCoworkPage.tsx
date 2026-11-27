@@ -1,3 +1,4 @@
+import { useMediaQuery } from "@client/hooks/useMediaQuery";
 import { ApiClientError } from "@client/api/core";
 import * as api from "@client/api/cowork";
 import { generateJobPdf, getJob } from "@client/api/jobs";
@@ -84,18 +85,6 @@ import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 // Matches Tailwind's xl breakpoint, where all three panes show side by side.
 const PREVIEW_KEY = "resume-cowork-preview";
 const WIDE_QUERY = "(min-width: 1280px)";
-function useWideLayout() {
-  const [wide, setWide] = useState(() => window.matchMedia?.(WIDE_QUERY).matches ?? false);
-  useEffect(() => {
-    const query = window.matchMedia?.(WIDE_QUERY);
-    if (!query) return;
-    const update = () => setWide(query.matches);
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  return wide;
-}
-
 function baseState(base: DesignResumeDocument): JobResumeState {
   return {
     document: base.resumeJson,
@@ -178,7 +167,7 @@ function CoworkWorkspace({
   const [busy, setBusy] = useState(false);
   const [rightTab, setRightTab] = useState<"library" | "match">("library");
   const [chatPrompt, setChatPrompt] = useState<string | null>(null);
-  const wide = useWideLayout();
+  const wide = useMediaQuery(WIDE_QUERY, "false");
   const editorPane = useRef<HTMLElement>(null);
   const latest = useRef<JobResumeState | null>(null);
   const dirty = useRef(false);

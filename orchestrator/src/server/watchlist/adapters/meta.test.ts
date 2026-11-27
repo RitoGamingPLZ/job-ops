@@ -3,6 +3,11 @@ import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
+vi.mock("node:timers/promises", async (importOriginal) => {
+  const { withFakeTimeouts } = await import("../testing/timers");
+  return withFakeTimeouts(await importOriginal<typeof import("node:timers/promises")>());
+});
+
 const origin = "https://www.metacareers.com";
 const url = (id: number) => `${origin}/profile/job_details/${id}/`;
 const source: WatchlistSelectedSource = {
@@ -171,6 +176,7 @@ describe("metaWatchlistAdapter", () => {
       });
   });
   it("caps at 60, sorts lastmod descending and runs at most two requests", async () => {
+    vi.useFakeTimers();
     let active = 0;
     let peak = 0;
     const mock = vi.fn().mockImplementation(async (value: string) => {
@@ -183,6 +189,7 @@ describe("metaWatchlistAdapter", () => {
     });
     vi.stubGlobal("fetch", mock);
     const pending = adapter.fetchJobs({ source });
+    await vi.runAllTimersAsync();
     const result = await pending;
     expect(result.fetched).toBe(60);
     expect(result.jobs[0].sourceJobId).toBe("65");
@@ -254,9 +261,14 @@ describe("metaWatchlistAdapter", () => {
     expect(mock).toHaveBeenCalledTimes(4);
   });
   it("retries 429 three times and never exposes upstream bodies", async () => {
+    vi.useFakeTimers();
     const mock = vi.fn().mockImplementation(async () => new Response("secret", { status: 429 }));
     vi.stubGlobal("fetch", mock);
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow("Meta careers returned HTTP 429.");
+    const outcome = expect(adapter.fetchJobs({ source })).rejects.toThrow(
+      "Meta careers returned HTTP 429.",
+    );
+    await vi.runAllTimersAsync();
+    await outcome;
     expect(mock).toHaveBeenCalledTimes(4);
   });
   it("identifies itself with a User-Agent and explains blocked redirects", async () => {

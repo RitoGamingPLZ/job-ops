@@ -1,3 +1,4 @@
+import { parseTokenizedInput } from "@client/lib/tokenized-input";
 import { TokenizedInput } from "@client/pages/orchestrator/TokenizedInput";
 import {
   SettingsCheckboxField,
@@ -44,15 +45,8 @@ const LANGUAGE_MODE_LABELS: Record<ChatStyleLanguageMode, string> = {
   "match-job-description": "Match job description",
 };
 
-function parseTokenizedTerms(input: string): string[] {
-  return input
-    .split(/[\n,]/g)
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
-
 function parseStoredTerms(value: string | null | undefined): string[] {
-  return parseTokenizedTerms(value ?? "");
+  return parseTokenizedInput(value ?? "");
 }
 
 function normalizeBlank(value: string | null | undefined): string | undefined {
@@ -331,7 +325,7 @@ export const ChatSettingsSection: React.FC<ChatSettingsSectionProps> = ({
             id="chatStyleDoNotUse"
             values={doNotUseTokens}
             draft={doNotUseDraft}
-            parseInput={parseTokenizedTerms}
+            parseInput={parseTokenizedInput}
             onDraftChange={setDoNotUseDraft}
             onValuesChange={(nextValues) =>
               setValue("chatStyleDoNotUse", nextValues.join(", "), {

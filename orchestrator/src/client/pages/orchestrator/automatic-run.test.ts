@@ -1,3 +1,4 @@
+import { parseTokenizedInput } from "@client/lib/tokenized-input";
 import { deriveExtractorLimits } from "@shared/types";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -5,7 +6,6 @@ import {
   getRunMemoryStorageKey,
   inferAutomaticPresetSelection,
   loadAutomaticRunMemory,
-  parseSearchTermsInput,
   RUN_MEMORY_STORAGE_KEY,
   saveAutomaticRunMemory,
 } from "./automatic-run";
@@ -276,7 +276,7 @@ describe("automatic-run utilities", () => {
   });
 
   it("parses comma and newline separated search terms", () => {
-    expect(parseSearchTermsInput("backend, platform\napi\n\n")).toEqual([
+    expect(parseTokenizedInput("backend, platform\napi\n\n")).toEqual([
       "backend",
       "platform",
       "api",

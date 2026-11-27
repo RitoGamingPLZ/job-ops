@@ -1,9 +1,10 @@
+import { parseLegacyWorkplaceTypes } from "@shared/settings-registry";
 import * as settingsRepo from "@server/repositories/settings";
 import { matchJobLocationIntent } from "@shared/job-matching.js";
 import { createLocationIntentFromLegacyInputs } from "@shared/location-domain.js";
 import { resolveSearchCities } from "@shared/search-cities.js";
 import type { PipelineConfig } from "@shared/types";
-import { parseWorkplaceTypes } from "../settings-parsers";
+import { resolveRawLocationProximity } from "@server/services/location-intent";
 import type { ScoredJob } from "./types";
 
 async function resolveLocationIntent(
@@ -17,19 +18,10 @@ async function resolveLocationIntent(
     cityLocations: resolveSearchCities({
       single: settings.searchCities ?? settings.jobspyLocation ?? null,
     }),
-    workplaceTypes: parseWorkplaceTypes(settings.workplaceTypes),
+    workplaceTypes: parseLegacyWorkplaceTypes(settings.workplaceTypes) ?? [],
     geoScope: settings.locationSearchScope ?? null,
     matchStrictness: settings.locationMatchStrictness ?? null,
-    proximity:
-      settings.locationSearchMode === "radius" &&
-      settings.locationLatitude != null &&
-      settings.locationLongitude != null
-        ? {
-            latitude: Number(settings.locationLatitude),
-            longitude: Number(settings.locationLongitude),
-            radiusMiles: Number(settings.locationRadiusMiles ?? 50),
-          }
-        : null,
+    proximity: resolveRawLocationProximity(settings),
   });
 }
 

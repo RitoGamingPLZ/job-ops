@@ -15,13 +15,10 @@ const requestContext = vi.hoisted(() => ({
   getRequestId: vi.fn(() => "req-cli"),
 }));
 
-const { callJsonMock, MockClaudeCliClass } = vi.hoisted(() => {
-  const callJson = vi.fn();
-  class MockClaudeCliClass {
-    callJson = callJson;
-  }
-  return { callJsonMock: callJson, MockClaudeCliClass };
-});
+const cliMocks = vi.hoisted(() => ({
+  claude_cli: vi.fn(),
+  gemini_cli: vi.fn(),
+}));
 
 vi.mock("@server/services/modelSelection", () => modelSelection);
 vi.mock("./index", async (importOriginal) => ({
@@ -33,21 +30,33 @@ vi.mock("pdf-parse", () => ({
   default: vi.fn().mockResolvedValue({ text: "Jane Doe\nSoftware Engineer" }),
 }));
 vi.mock("@server/services/llm/claude-cli/client", () => ({
-  ClaudeCliClient: MockClaudeCliClass,
+  ClaudeCliClient: class {
+    callJson = cliMocks.claude_cli;
+  },
+}));
+
+vi.mock("@server/services/llm/gemini-cli/client", () => ({
+  GeminiCliClient: class {
+    callJson = cliMocks.gemini_cli;
+  },
 }));
 
 import pdfParse from "pdf-parse";
 import { importDesignResumeFromFile } from "./import-file";
 
-describe("importDesignResumeFromFile (claude_cli)", () => {
+describe.each([
+  { provider: "claude_cli", model: "claude-sonnet-5" },
+  { provider: "gemini_cli", model: "google/gemini-2.5-flash" },
+] as const)("importDesignResumeFromFile ($provider)", ({ provider, model }) => {
+  const callJsonMock = cliMocks[provider];
   beforeEach(() => {
     vi.clearAllMocks();
     callJsonMock.mockResolvedValue({
       text: JSON.stringify(buildDefaultResumeDocument()),
     });
     modelSelection.resolveLlmRuntimeSettings.mockResolvedValue({
-      provider: "claude_cli",
-      model: "claude-sonnet-5",
+      provider,
+      model,
       baseUrl: null,
       apiKey: null,
     });
@@ -67,7 +76,7 @@ describe("importDesignResumeFromFile (claude_cli)", () => {
     );
   });
 
-  it("extracts PDF text locally and calls Claude CLI without an HTTP API key", async () => {
+  it("extracts PDF text locally and calls the selected CLI without an HTTP API key", async () => {
     await importDesignResumeFromFile({
       fileName: "resume.pdf",
       mediaType: "application/pdf",

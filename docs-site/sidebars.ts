@@ -19,7 +19,6 @@ const sidebars: SidebarsConfig = {
         "workflows/find-jobs-and-apply-workflow",
         "workflows/post-application-workflow",
         "workflows/add-an-extractor",
-        "workflows/add-a-visa-sponsor-provider",
       ],
     },
     {
@@ -38,8 +37,6 @@ const sidebars: SidebarsConfig = {
         "features/in-progress-board",
         "features/ghostwriter",
         "features/post-application-tracking",
-        "features/visa-sponsors",
-        "features/tracer-links",
         "features/watchlist",
       ],
     },

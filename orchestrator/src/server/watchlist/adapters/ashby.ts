@@ -1,3 +1,4 @@
+import { watchlistRequestSignal } from "./http";
 import timers from "node:timers/promises";
 import { badRequest, upstreamError } from "@infra/errors";
 import type { WatchlistSelectedSource } from "@shared/types";
@@ -58,10 +59,6 @@ function boardUrl(company: string) {
 }
 function postingUrl(company: string, id: string) {
   return `${boardUrl(company)}/${id}`;
-}
-function callSignal(signal?: AbortSignal) {
-  const timeout = AbortSignal.timeout(25_000);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 async function request(url: string, signal: AbortSignal) {
   for (let attempt = 0; attempt <= 3; attempt++) {
@@ -154,7 +151,7 @@ async function details(
   if (cached) return cached;
   // The public API has no single-posting endpoint. Fetch just this posting's
   // public page and read its observed JobPosting JSON-LD on a cache miss.
-  const response = await request(postingUrl(company, ref.id), callSignal(signal));
+  const response = await request(postingUrl(company, ref.id), watchlistRequestSignal(signal));
   const html = await response.text();
   const placeSchema = z.object({
     address: z.object({
@@ -265,7 +262,7 @@ export const ashbyWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   async normalizeCustomSelection(input) {
     const { company } = parseUrl(input.careersUrl);
-    await board(company, callSignal());
+    await board(company, watchlistRequestSignal());
     return {
       label:
         input.label?.trim() && input.label.trim() !== input.careersUrl.trim()
@@ -276,7 +273,7 @@ export const ashbyWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   async fetchJobs({ source, signal }) {
     const { company } = parseUrl(source.careersUrl);
-    const all = await board(company, callSignal(signal));
+    const all = await board(company, watchlistRequestSignal(signal));
     const jobs = [...new Map(all.map((job) => [job.id, job])).values()]
       .sort(
         (a, b) => (Date.parse(b.publishedAt ?? "") || 0) - (Date.parse(a.publishedAt ?? "") || 0),

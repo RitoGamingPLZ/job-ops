@@ -1,3 +1,4 @@
+import { TERMINAL_PIPELINE_STEPS } from "@client/lib/pipeline-progress";
 import * as api from "@client/api";
 import { subscribeToEventSource } from "@client/lib/sse";
 import type { Job, JobListItem, JobStatus, PipelineProgressStep } from "@shared/types";
@@ -48,12 +49,6 @@ const ACTIVE_PIPELINE_STEPS: ReadonlySet<PipelineProgressStep> = new Set([
   "importing",
   "scoring",
   "processing",
-]);
-
-const TERMINAL_PIPELINE_STEPS: ReadonlySet<PipelineProgressStep> = new Set([
-  "completed",
-  "cancelled",
-  "failed",
 ]);
 
 const buildTerminalSignature = ({

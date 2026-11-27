@@ -1,3 +1,4 @@
+import { watchlistRequestSignal } from "./http";
 import { setTimeout as delay } from "node:timers/promises";
 import { badRequest, upstreamError } from "@infra/errors";
 import { escapeHtml } from "@infra/html";
@@ -76,10 +77,6 @@ function board(value: string) {
     );
   return { company: match[1], careersUrl: `${ORIGIN}/${match[1]}` };
 }
-function signalFor(signal?: AbortSignal) {
-  const timeout = AbortSignal.timeout(25_000);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
-}
 async function request(url: string, signal: AbortSignal): Promise<unknown> {
   for (let attempt = 0; attempt <= 3; attempt++) {
     signal.throwIfAborted();
@@ -151,7 +148,7 @@ async function details(input: {
   const id = new URL(input.jobRef).pathname.split("/")[2]?.match(/^(\d+)(?:-|$)/)?.[1];
   if (ref.company.toLowerCase() !== company.toLowerCase() || !id)
     throw badRequest("The SmartRecruiters posting must belong to the selected company.");
-  const signal = signalFor(input.signal);
+  const signal = watchlistRequestSignal(input.signal);
   signal.throwIfAborted();
   const cacheKey = `${company.toLowerCase()}:${id}`;
   const cached = cache.get(cacheKey);
@@ -228,7 +225,7 @@ export const smartrecruitersWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async normalizeCustomSelection(input) {
     const result = board(input.careersUrl);
     const list = parseList(
-      await request(`${API}/${result.company}/postings?limit=1&offset=0`, signalFor()),
+      await request(`${API}/${result.company}/postings?limit=1&offset=0`, watchlistRequestSignal()),
     );
     for (const job of list.content) checkCompany(job, result.company);
     return {
@@ -241,7 +238,7 @@ export const smartrecruitersWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   async fetchJobs(input) {
     const { company } = board(input.source.careersUrl);
-    const signal = signalFor(input.signal);
+    const signal = watchlistRequestSignal(input.signal);
     const collected = new Map<string, Job>();
     let offset = 0;
     let total = 0;

@@ -1,3 +1,4 @@
+import { emitProgress, parsePositiveInt } from "job-ops-shared/extractor-cli";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,12 +9,6 @@ import { runHiringCafe } from "./run.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_SEARCH_TERM = "web developer";
 const DEFAULT_MAX_JOBS_PER_TERM = 200;
-
-function parsePositiveInt(input: string | undefined, fallback: number): number {
-  const parsed = input ? Number.parseInt(input, 10) : Number.NaN;
-  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
-  return parsed;
-}
 
 function parseStringArray(raw: string | undefined): string[] | undefined {
   if (!raw) return undefined;
@@ -37,11 +32,6 @@ function parseWorkplaceTypes(
     (value): value is "remote" | "hybrid" | "onsite" =>
       value === "remote" || value === "hybrid" || value === "onsite",
   );
-}
-
-function emitProgress(payload: Record<string, unknown>): void {
-  if (process.env.JOBOPS_EMIT_PROGRESS !== "1") return;
-  console.log(`JOBOPS_PROGRESS ${JSON.stringify(payload)}`);
 }
 
 async function run(): Promise<void> {

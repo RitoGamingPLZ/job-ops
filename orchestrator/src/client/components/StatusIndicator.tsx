@@ -1,7 +1,7 @@
 import type { JobStatus } from "@shared/types/jobs";
 import type React from "react";
 import { cn } from "@/lib/utils";
-import { defaultStatusToken, statusTokens } from "../pages/orchestrator/constants";
+import { getStatusToken } from "../pages/orchestrator/constants";
 import { Tip } from "./Tip";
 
 const STATUS_INDICATOR_BASE_CLASS =
@@ -81,7 +81,7 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 };
 
 const getJobStatusIndicator = (status: JobStatus) => {
-  const tokens = statusTokens[status] ?? defaultStatusToken;
+  const tokens = getStatusToken(status);
   return { label: tokens.label, dotColor: tokens.dot };
 };
 

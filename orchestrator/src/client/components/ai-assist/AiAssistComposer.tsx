@@ -1,3 +1,4 @@
+import { fileToDataUrl } from "@client/lib/file-upload-payload";
 import { getMetaShortcutLabel, isMetaKeyPressed } from "@client/lib/meta-key";
 import { createId } from "@paralleldrive/cuid2";
 import type { JobChatImageAttachment } from "@shared/types";
@@ -65,12 +66,7 @@ export const AiAssistComposer: React.FC<AiAssistComposerProps> = ({
 
       let dataUrl: string;
       try {
-        dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || ""));
-          reader.onerror = () => reject(reader.error ?? new Error("Could not read screenshot"));
-          reader.readAsDataURL(file);
-        });
+        dataUrl = await fileToDataUrl(file);
       } catch {
         toast.error(`Could not read ${file.name}.`);
         continue;

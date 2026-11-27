@@ -1,30 +1,12 @@
 import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { startServer, stopServer } from "./test-utils";
-
-const AUTH_ENV = {
-  BASIC_AUTH_USER: "admin",
-  BASIC_AUTH_PASSWORD: "secret",
-  JWT_SECRET: "an-explicit-jwt-secret-with-at-least-32-chars",
-  JOBOPS_TEST_AUTH_BYPASS: "0",
-  ADZUNA_APP_ID: "operator-adzuna-app",
-};
+import { AUTH_ENV, login, startServer, stopServer } from "./test-utils";
 
 function headers(token?: string) {
   return {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
-}
-
-async function login(baseUrl: string, username: string, password: string) {
-  const res = await fetch(`${baseUrl}/api/auth/login`, {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify({ username, password }),
-  });
-  expect(res.status).toBe(200);
-  return (await res.json()).data.token as string;
 }
 
 describe("admin user access and invitations", () => {
@@ -35,7 +17,9 @@ describe("admin user access and invitations", () => {
   let adminToken: string;
 
   beforeEach(async () => {
-    ({ server, baseUrl, closeDb, tempDir } = await startServer({ env: AUTH_ENV }));
+    ({ server, baseUrl, closeDb, tempDir } = await startServer({
+      env: { ...AUTH_ENV, ADZUNA_APP_ID: "operator-adzuna-app" },
+    }));
     adminToken = await login(baseUrl, "admin", "secret");
   });
 

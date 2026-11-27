@@ -1,3 +1,4 @@
+import { parseTokenizedInput } from "@client/lib/tokenized-input";
 import { TokenizedInput } from "@client/pages/orchestrator/TokenizedInput";
 import {
   SettingsCheckboxField,
@@ -18,13 +19,6 @@ type ScoringSettingsSectionProps = {
   isSaving: boolean;
   layoutMode?: "accordion" | "panel";
 };
-
-function parseTokenizedKeywordInput(input: string): string[] {
-  return input
-    .split(/[\n,]/g)
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
 
 export const ScoringSettingsSection: React.FC<ScoringSettingsSectionProps> = ({
   values,
@@ -147,7 +141,7 @@ export const ScoringSettingsSection: React.FC<ScoringSettingsSectionProps> = ({
             id="blocked-company-keywords"
             values={blockedCompanyKeywordValues}
             draft={blockedCompanyKeywordDraft}
-            parseInput={parseTokenizedKeywordInput}
+            parseInput={parseTokenizedInput}
             onDraftChange={setBlockedCompanyKeywordDraft}
             onValuesChange={(value) =>
               setValue("blockedCompanyKeywords", value, { shouldDirty: true })

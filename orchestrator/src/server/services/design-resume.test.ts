@@ -34,9 +34,6 @@ vi.mock("@server/repositories/settings", () => ({
 vi.mock("@paralleldrive/cuid2", () => ({
   createId: vi.fn(() => "asset-1"),
 }));
-vi.mock("@server/services/tracer-links", () => ({
-  resolveTracerPublicBaseUrl: vi.fn(() => null),
-}));
 vi.mock("@server/tenancy/context", () => ({
   getActiveTenantId: vi.fn(() => "tenant-test-2"),
 }));

@@ -1,3 +1,4 @@
+import { parseTokenizedInput } from "@client/lib/tokenized-input";
 import { AppModeContext, PageHeader, PageMain } from "@client/components/layout";
 import { getDefaultUserPath } from "@client/components/navigation";
 import { useDesignResume } from "@client/hooks/useDesignResume";
@@ -397,10 +398,7 @@ function LaunchSetup({
         : null;
 
   const saveProfile = async () => {
-    const parsedCities = cities
-      .split(/[\n,]/)
-      .map((city) => city.trim())
-      .filter(Boolean);
+    const parsedCities = parseTokenizedInput(cities);
     trackProductEvent("onboarding_profile_save_submitted", {
       has_country: Boolean(country.trim()),
       city_count: parsedCities.length,

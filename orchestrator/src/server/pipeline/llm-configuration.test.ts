@@ -1,57 +1,28 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useSqliteTestDb } from "../testing/sqlite-test-db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../repositories/pipeline", () => ({
-  createPipelineRun: vi.fn(async () => ({
-    id: "run-llm-config-1",
-    startedAt: new Date().toISOString(),
-    completedAt: null,
-    status: "running",
-    jobsDiscovered: 0,
-    jobsProcessed: 0,
-    errorMessage: null,
-  })),
-  updatePipelineRun: vi.fn(async () => undefined),
-}));
+vi.mock("../repositories/pipeline", async () => {
+  const { createPipelineRepoMock } = await import("./testing/mocks");
+  return createPipelineRepoMock("run-llm-config-1");
+});
 
 const scoreJobsStep = vi.fn();
 
-vi.mock("./steps", () => ({
-  loadProfileStep: vi.fn(async () => ({})),
-  discoverJobsStep: vi.fn(async () => ({
-    discoveredJobs: [],
-    sourceErrors: [],
-    pendingChallenges: [],
-  })),
-  importJobsStep: vi.fn(async () => ({
-    created: 0,
-    skipped: 0,
-    fuzzyMerged: 0,
-  })),
-  scoreJobsStep,
-  selectJobsStep: vi.fn(() => []),
-  notifyPipelineWebhookStep: vi.fn(async () => undefined),
-}));
+vi.mock("./steps", async () => {
+  const { createPipelineStepsMock } = await import("./testing/mocks");
+  return { ...createPipelineStepsMock(), scoreJobsStep };
+});
 
 describe("pipeline LLM configuration handling", () => {
-  let tempDir: string;
+  const database = useSqliteTestDb();
 
   beforeEach(async () => {
-    vi.resetModules();
     vi.clearAllMocks();
-    tempDir = await mkdtemp(join(tmpdir(), "job-ops-pipeline-llm-config-"));
-    process.env.DATA_DIR = tempDir;
-    process.env.NODE_ENV = "test";
-
-    await import("../db/migrate");
+    await database.open();
   });
 
   afterEach(async () => {
-    const { closeDb } = await import("../db/index");
-    closeDb();
-    await rm(tempDir, { recursive: true, force: true });
+    await database.close();
   });
 
   it("re-enters configuration_required on every repeated scoring failure instead of failing", async () => {

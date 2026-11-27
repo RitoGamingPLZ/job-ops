@@ -8,7 +8,7 @@ import type React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DurationSelector } from "./DurationSelector";
 
-// Mock UI components
+const durations = [7, 14, 30, 90] as const;
 vi.mock("@/components/ui/tabs", () => ({
   Tabs: ({
     children,
@@ -21,26 +21,16 @@ vi.mock("@/components/ui/tabs", () => ({
   }) => (
     <div data-testid="tabs" data-value={value}>
       {children}
-      {onValueChange && (
-        <button type="button" data-testid="tab-trigger-7" onClick={() => onValueChange("7")}>
-          7d
+      {durations.map((duration) => (
+        <button
+          key={duration}
+          type="button"
+          data-testid={`tab-trigger-${duration}`}
+          onClick={() => onValueChange?.(String(duration))}
+        >
+          {duration}d
         </button>
-      )}
-      {onValueChange && (
-        <button type="button" data-testid="tab-trigger-14" onClick={() => onValueChange("14")}>
-          14d
-        </button>
-      )}
-      {onValueChange && (
-        <button type="button" data-testid="tab-trigger-30" onClick={() => onValueChange("30")}>
-          30d
-        </button>
-      )}
-      {onValueChange && (
-        <button type="button" data-testid="tab-trigger-90" onClick={() => onValueChange("90")}>
-          90d
-        </button>
-      )}
+      ))}
     </div>
   ),
   TabsList: ({ children }: { children: React.ReactNode }) => (
@@ -53,130 +43,25 @@ vi.mock("@/components/ui/tabs", () => ({
   ),
 }));
 
-describe("DurationSelector - Edge Cases", () => {
-  const mockOnChange = vi.fn();
+describe("DurationSelector", () => {
+  const onChange = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    onChange.mockClear();
   });
 
-  describe("All Duration Options", () => {
-    it("renders with 7 days selected", () => {
-      render(<DurationSelector value={7} onChange={mockOnChange} />);
+  it.each(durations)("selects %i days when the value changes", (duration) => {
+    const { rerender } = render(<DurationSelector value={7} onChange={onChange} />);
+    rerender(<DurationSelector value={duration} onChange={onChange} />);
 
-      expect(screen.getByTestId("tabs")).toHaveAttribute("data-value", "7");
-    });
-
-    it("renders with 14 days selected", () => {
-      render(<DurationSelector value={14} onChange={mockOnChange} />);
-
-      expect(screen.getByTestId("tabs")).toHaveAttribute("data-value", "14");
-    });
-
-    it("renders with 30 days selected", () => {
-      render(<DurationSelector value={30} onChange={mockOnChange} />);
-
-      expect(screen.getByTestId("tabs")).toHaveAttribute("data-value", "30");
-    });
-
-    it("renders with 90 days selected", () => {
-      render(<DurationSelector value={90} onChange={mockOnChange} />);
-
-      expect(screen.getByTestId("tabs")).toHaveAttribute("data-value", "90");
-    });
+    expect(screen.getByTestId("tabs")).toHaveAttribute("data-value", String(duration));
   });
 
-  describe("onChange Callback", () => {
-    it("calls onChange with 7 when 7d tab is clicked", () => {
-      render(<DurationSelector value={30} onChange={mockOnChange} />);
+  it.each(durations)("passes %i days as a number when selected", (duration) => {
+    render(<DurationSelector value={duration === 7 ? 30 : 7} onChange={onChange} />);
 
-      fireEvent.click(screen.getByTestId("tab-trigger-7"));
+    fireEvent.click(screen.getByTestId(`tab-trigger-${duration}`));
 
-      expect(mockOnChange).toHaveBeenCalledWith(7);
-      expect(mockOnChange).toHaveBeenCalledTimes(1);
-    });
-
-    it("calls onChange with 14 when 14d tab is clicked", () => {
-      render(<DurationSelector value={7} onChange={mockOnChange} />);
-
-      fireEvent.click(screen.getByTestId("tab-trigger-14"));
-
-      expect(mockOnChange).toHaveBeenCalledWith(14);
-      expect(mockOnChange).toHaveBeenCalledTimes(1);
-    });
-
-    it("calls onChange with 30 when 30d tab is clicked", () => {
-      render(<DurationSelector value={7} onChange={mockOnChange} />);
-
-      fireEvent.click(screen.getByTestId("tab-trigger-30"));
-
-      expect(mockOnChange).toHaveBeenCalledWith(30);
-      expect(mockOnChange).toHaveBeenCalledTimes(1);
-    });
-
-    it("calls onChange with 90 when 90d tab is clicked", () => {
-      render(<DurationSelector value={7} onChange={mockOnChange} />);
-
-      fireEvent.click(screen.getByTestId("tab-trigger-90"));
-
-      expect(mockOnChange).toHaveBeenCalledWith(90);
-      expect(mockOnChange).toHaveBeenCalledTimes(1);
-    });
-
-    it("parses string value to number correctly", () => {
-      render(<DurationSelector value={7} onChange={mockOnChange} />);
-
-      // Simulate clicking different tabs
-      fireEvent.click(screen.getByTestId("tab-trigger-30"));
-      expect(mockOnChange).toHaveBeenCalledWith(30);
-      expect(typeof mockOnChange.mock.calls[0][0]).toBe("number");
-    });
-  });
-
-  describe("Value Synchronization", () => {
-    it("updates when value prop changes", () => {
-      const { rerender } = render(<DurationSelector value={7} onChange={mockOnChange} />);
-
-      expect(screen.getByTestId("tabs")).toHaveAttribute("data-value", "7");
-
-      rerender(<DurationSelector value={30} onChange={mockOnChange} />);
-
-      expect(screen.getByTestId("tabs")).toHaveAttribute("data-value", "30");
-    });
-
-    it("maintains correct value type (number)", () => {
-      render(<DurationSelector value={14} onChange={mockOnChange} />);
-
-      const tabs = screen.getByTestId("tabs");
-      const value = tabs.getAttribute("data-value");
-      expect(value).toBe("14");
-    });
-  });
-
-  describe("Callback Consistency", () => {
-    it("calls onChange multiple times for multiple selections", () => {
-      render(<DurationSelector value={7} onChange={mockOnChange} />);
-
-      fireEvent.click(screen.getByTestId("tab-trigger-14"));
-      fireEvent.click(screen.getByTestId("tab-trigger-30"));
-      fireEvent.click(screen.getByTestId("tab-trigger-7"));
-
-      expect(mockOnChange).toHaveBeenCalledTimes(3);
-      expect(mockOnChange).toHaveBeenNthCalledWith(1, 14);
-      expect(mockOnChange).toHaveBeenNthCalledWith(2, 30);
-      expect(mockOnChange).toHaveBeenNthCalledWith(3, 7);
-    });
-
-    it("passes correct duration values for all options", () => {
-      render(<DurationSelector value={7} onChange={mockOnChange} />);
-
-      const expectedValues = [7, 14, 30, 90];
-      const triggers = ["tab-trigger-7", "tab-trigger-14", "tab-trigger-30", "tab-trigger-90"];
-
-      triggers.forEach((trigger, index) => {
-        fireEvent.click(screen.getByTestId(trigger));
-        expect(mockOnChange).toHaveBeenLastCalledWith(expectedValues[index]);
-      });
-    });
+    expect(onChange.mock.calls).toEqual([[duration]]);
   });
 });

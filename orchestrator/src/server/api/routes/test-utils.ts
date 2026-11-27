@@ -6,7 +6,25 @@ import type { ExtractorRegistry } from "@server/extractors/registry";
 import { type ExtractorSourceId, PIPELINE_EXTRACTOR_SOURCE_IDS } from "@shared/extractors";
 import { normalizeLocationSourceCapabilities } from "@shared/location-domain.js";
 import type { ExtractorManifest } from "@shared/types";
-import { vi } from "vitest";
+import { expect, vi } from "vitest";
+
+export const AUTH_ENV = {
+  BASIC_AUTH_USER: "admin",
+  BASIC_AUTH_PASSWORD: "secret",
+  JWT_SECRET: "an-explicit-jwt-secret-with-at-least-32-chars",
+  JOBOPS_TEST_AUTH_BYPASS: "0",
+};
+
+export async function login(baseUrl: string, username: string, password: string) {
+  const res = await fetch(`${baseUrl}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  const body = await res.json();
+  expect(res.status).toBe(200);
+  return body.data.token as string;
+}
 
 vi.mock("@server/pipeline/index", () => {
   const progress = {

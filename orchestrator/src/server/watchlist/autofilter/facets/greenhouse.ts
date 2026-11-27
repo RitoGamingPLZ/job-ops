@@ -1,3 +1,4 @@
+import { rankFacetValues } from "./shared";
 import {
   GREENHOUSE_CANONICAL_BOARD_ORIGIN,
   GREENHOUSE_FILTER_KEYS,
@@ -109,10 +110,7 @@ export const discoverGreenhouseFacets: FacetDiscovery = async ({ careersUrl, sig
       // Normalization joins repeated query values with commas. Single picks
       // preserve the exact value through suggestFilters' normalization check.
       multi: false,
-      values: [...(counts.get(key) ?? [])]
-        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-        .slice(0, 60)
-        .map(([value, count]) => ({ value, count })),
+      values: rankFacetValues(counts.get(key) ?? []),
     })).filter((param) => param.values.length > 0),
   };
 };

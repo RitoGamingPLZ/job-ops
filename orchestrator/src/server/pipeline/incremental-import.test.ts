@@ -1,6 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useSqliteTestDb } from "../testing/sqlite-test-db";
 import type { CreateJobInput } from "@shared/types";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -9,18 +7,10 @@ const sourceBatches = vi.hoisted(() => ({
   indeed: [] as CreateJobInput[],
 }));
 
-vi.mock("../repositories/pipeline", () => ({
-  createPipelineRun: vi.fn(async () => ({
-    id: "run-import-1",
-    startedAt: new Date().toISOString(),
-    completedAt: null,
-    status: "running",
-    jobsDiscovered: 0,
-    jobsProcessed: 0,
-    errorMessage: null,
-  })),
-  updatePipelineRun: vi.fn(async () => undefined),
-}));
+vi.mock("../repositories/pipeline", async () => {
+  const { createPipelineRepoMock } = await import("./testing/mocks");
+  return createPipelineRepoMock("run-import-1");
+});
 
 vi.mock("./steps", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./steps")>()),
@@ -43,22 +33,13 @@ vi.mock("./steps", async (importOriginal) => ({
 }));
 
 describe("incremental per-source import", () => {
-  let tempDir: string;
+  const database = useSqliteTestDb();
 
-  // One DB for the file: each test uses distinct titles.
+  // Each test uses distinct titles.
   beforeAll(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "job-ops-incremental-import-"));
-    vi.stubEnv("DATA_DIR", tempDir);
-    vi.stubEnv("NODE_ENV", "test");
-    await import("../db/migrate");
+    await database.open();
   });
-
-  afterAll(async () => {
-    const { closeDb } = await import("../db/index");
-    closeDb();
-    vi.unstubAllEnvs();
-    await rm(tempDir, { recursive: true, force: true });
-  });
+  afterAll(database.close);
 
   it("does not create a cross-source fuzzy duplicate when batches overlap", async () => {
     sourceBatches.linkedin = [

@@ -19,7 +19,6 @@ It lets you configure:
 - Editable prompt templates for core AI workflows
 - Service credentials and workspace users
 - Resume PDF renderer and project selection
-- Tracer Links readiness verification
 - Backup and scoring rules
 - Hosted plan, billing, and monthly usage
 - Data-clearing actions in the Danger Zone
@@ -101,7 +100,6 @@ Each meter includes completed usage and work currently in progress. Limits reset
 
 ![Display settings section](/img/features/settings-display-section.png)
 
-- Toggle visa sponsor badge visibility in job lists/details
 - Toggle `Render Markdown in job descriptions` to control whether expanded job descriptions show formatted headings, lists, bold text, and code blocks
 - Default: Markdown rendering is enabled
 - Toggle `Auto-tailor manually imported jobs` to control whether jobs created through Manual Import immediately run tailoring + suitability scoring + PDF generation, or land in Discovered so you can tailor them later
@@ -202,19 +200,6 @@ Defaults and constraints:
   - **Don't include**: excluded from AI prompts and tailored resumes
 - The target cannot be lower than the Must-include count. Automatic selection fills available slots; manual selection may use fewer but cannot exceed the target.
 
-### Tracer Links
-
-- Verify tracer readiness before enabling per-job tracing
-- Shows current status (`Ready`, `Unavailable`, `Unconfigured`, or stale state)
-- Displays the effective public base URL and last check time
-- Provides **Verify now** for an on-demand health check
-
-Readiness requires:
-
-- a valid public JobOps base URL
-- successful reachability of `<public-base-url>/health`
-- non-localhost/non-private host setup for public redirect usage
-
 ### Environment & Workspaces
 
 - Configure service accounts:
@@ -274,8 +259,7 @@ curl -X PATCH "http://localhost:3001/api/settings" \
   -d '{
     "llmProvider": "openrouter",
     "model": "openai/gpt-4.1-mini",
-    "chatStyleTone": "concise",
-    "showSponsorInfo": true
+    "chatStyleTone": "concise"
   }'
 ```
 
@@ -346,12 +330,6 @@ curl -L -o "backup.json.gz" "http://localhost:3001/api/backups/<filename>/downlo
 
 - Verify URL reachability from the server host.
 - Confirm auth expectations on the receiver side (including secret/bearer token).
-
-### Tracer links cannot be enabled
-
-- Open **Settings → Tracer Links** and click **Verify now**.
-- Ensure `JOBOPS_PUBLIC_BASE_URL` is set for background/pipeline usage.
-- Ensure the configured host is publicly reachable and `/health` responds.
 
 ## Related pages
 

@@ -2,6 +2,10 @@ import catalog from "@server/config/career-boards-smartrecruiters.json";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WatchlistCatalogSourceAdapter } from "./types";
+vi.mock("node:timers/promises", async (importOriginal) => {
+  const { withFakeTimeouts } = await import("../testing/timers");
+  return withFakeTimeouts(await importOriginal<typeof import("node:timers/promises")>());
+});
 
 let adapter: WatchlistCatalogSourceAdapter;
 const base = "https://jobs.smartrecruiters.com/ServiceNow";
@@ -346,20 +350,24 @@ describe("smartrecruitersWatchlistAdapter", () => {
     expect(mock).toHaveBeenCalledTimes(3);
   });
   it("backs off 1/3/8 seconds and stops after three retries", async () => {
+    vi.useFakeTimers();
     const times: number[] = [];
     const mock = vi.fn().mockImplementation(async () => {
       times.push(Date.now());
       return new Response("secret", { status: 429 });
     });
     vi.stubGlobal("fetch", mock);
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow(
+    const outcome = expect(adapter.fetchJobs({ source })).rejects.toThrow(
       "SmartRecruiters returned HTTP 429.",
     );
+    await vi.runAllTimersAsync();
+    await outcome;
     expect(mock).toHaveBeenCalledTimes(4);
-    for (const [i, minimum] of [1000, 3000, 8000].entries())
-      expect(times[i + 1] - times[i]).toBeGreaterThanOrEqual(minimum - 20);
+    expect(times.slice(1).map((time, i) => time - times[i])).toEqual([1000, 3000, 8000]);
   });
   it.each(["seconds", "date"])("honors Retry-After %s", async (kind) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
     const retry = kind === "seconds" ? "1" : new Date(Date.now() + 2000).toUTCString();
     const start = Date.now();
     const mock = vi
@@ -367,8 +375,10 @@ describe("smartrecruitersWatchlistAdapter", () => {
       .mockResolvedValueOnce(new Response(null, { status: 429, headers: { "Retry-After": retry } }))
       .mockResolvedValueOnce(list());
     vi.stubGlobal("fetch", mock);
-    expect((await adapter.fetchJobs({ source })).fetched).toBe(1);
-    expect(Date.now() - start).toBeGreaterThanOrEqual(980);
+    const pending = adapter.fetchJobs({ source });
+    await vi.runAllTimersAsync();
+    expect((await pending).fetched).toBe(1);
+    expect(Date.now() - start).toBe(kind === "seconds" ? 1000 : 2000);
     expect(mock).toHaveBeenCalledTimes(2);
   });
   it.each(["seconds", "date"])(

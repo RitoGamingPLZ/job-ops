@@ -1,4 +1,5 @@
 import { redirectToSignIn } from "@client/lib/auth-navigation";
+import { readSseFrames } from "@client/lib/sse-frames";
 import type { ApiResponse, AuthUser } from "@shared/types";
 import { formatUserFacingError } from "@/client/lib/error-format";
 import {
@@ -456,43 +457,5 @@ export async function streamSseEvents<TEvent>(
     throw new ApiClientError("Streaming not supported by this browser");
   }
 
-  const decoder = new TextDecoder();
-  const reader = response.body.getReader();
-  let buffer = "";
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      let separatorIndex = buffer.indexOf("\n\n");
-      while (separatorIndex !== -1) {
-        const frame = buffer.slice(0, separatorIndex);
-        buffer = buffer.slice(separatorIndex + 2);
-        const dataLines = frame
-          .split("\n")
-          .filter((line) => line.startsWith("data:"))
-          .map((line) => line.slice(5).trim())
-          .filter(Boolean);
-
-        for (const line of dataLines) {
-          let parsedEvent: TEvent;
-          try {
-            parsedEvent = JSON.parse(line) as TEvent;
-          } catch {
-            continue;
-          }
-          handlers.onEvent(parsedEvent);
-        }
-        separatorIndex = buffer.indexOf("\n\n");
-      }
-    }
-  } finally {
-    try {
-      await reader.cancel();
-    } catch {
-      // Ignore cancellation errors when stream is already closed
-    }
-  }
+  await readSseFrames(response.body, handlers.onEvent, handlers.signal);
 }

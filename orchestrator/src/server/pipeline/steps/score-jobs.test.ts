@@ -187,64 +187,34 @@ describe("scoreJobsStep auto-skip behavior", () => {
     },
   );
 
-  it("does not auto-skip jobs when score equals threshold", async () => {
-    const settingsRepo = await import("@server/repositories/settings");
-    const jobsRepo = await import("@server/repositories/jobs");
-    const scorer = await import("@server/services/scorer");
-    const { logger } = await import("@infra/logger");
+  it.each(["50", null, "not-a-number"])(
+    "does not auto-skip jobs scored 50 with threshold %s",
+    async (threshold) => {
+      const settingsRepo = await import("@server/repositories/settings");
+      const jobsRepo = await import("@server/repositories/jobs");
+      const scorer = await import("@server/services/scorer");
+      const { logger } = await import("@infra/logger");
 
-    vi.mocked(settingsRepo.getSetting).mockResolvedValue("50");
-    vi.mocked(scorer.scoreJobSuitability).mockResolvedValue({
-      score: 50,
-      reason: "At threshold",
-      jobBrief: null,
-    });
+      vi.mocked(settingsRepo.getSetting).mockResolvedValue(threshold);
+      vi.mocked(scorer.scoreJobSuitability).mockResolvedValue({
+        score: 50,
+        reason: "Test score",
+        jobBrief: null,
+      });
 
-    await scoreJobsStep({ profile: {} });
+      await scoreJobsStep({ profile: {} });
 
-    expect(jobsRepo.updateJob).toHaveBeenCalledWith(
-      "job-1",
-      expect.objectContaining({
-        suitabilityScore: 50,
-      }),
-    );
-    const updatePayload = vi.mocked(jobsRepo.updateJob).mock.calls[0][1] as {
-      status?: string;
-    };
-    expect(updatePayload).not.toHaveProperty("status");
-    expect(logger.info).not.toHaveBeenCalledWith(
-      "Auto-skipped job due to low score",
-      expect.anything(),
-    );
-  });
-
-  it("does not auto-skip when threshold setting is null", async () => {
-    const settingsRepo = await import("@server/repositories/settings");
-    const jobsRepo = await import("@server/repositories/jobs");
-
-    vi.mocked(settingsRepo.getSetting).mockResolvedValue(null);
-
-    await scoreJobsStep({ profile: {} });
-
-    const updatePayload = vi.mocked(jobsRepo.updateJob).mock.calls[0][1] as {
-      status?: string;
-    };
-    expect(updatePayload).not.toHaveProperty("status");
-  });
-
-  it("does not auto-skip when threshold setting is NaN", async () => {
-    const settingsRepo = await import("@server/repositories/settings");
-    const jobsRepo = await import("@server/repositories/jobs");
-
-    vi.mocked(settingsRepo.getSetting).mockResolvedValue("not-a-number");
-
-    await scoreJobsStep({ profile: {} });
-
-    const updatePayload = vi.mocked(jobsRepo.updateJob).mock.calls[0][1] as {
-      status?: string;
-    };
-    expect(updatePayload).not.toHaveProperty("status");
-  });
+      expect(jobsRepo.updateJob).toHaveBeenCalledWith(
+        "job-1",
+        expect.objectContaining({ suitabilityScore: 50 }),
+      );
+      expect(vi.mocked(jobsRepo.updateJob).mock.calls[0][1]).not.toHaveProperty("status");
+      expect(logger.info).not.toHaveBeenCalledWith(
+        "Auto-skipped job due to low score",
+        expect.anything(),
+      );
+    },
+  );
 
   it("never auto-skips applied jobs even when score is below threshold", async () => {
     const settingsRepo = await import("@server/repositories/settings");

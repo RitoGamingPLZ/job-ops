@@ -1,3 +1,4 @@
+import { parseJsonSafely } from "@server/utils/json";
 /**
  * Pipeline run repository.
  */
@@ -16,14 +17,6 @@ import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-
 
 const { jobs, pipelineRuns } = schema;
 
-function pipelineRunsScopeFilter() {
-  return privateDataScopeFilter(pipelineRuns);
-}
-
-function jobsScopeFilter() {
-  return privateDataScopeFilter(jobs);
-}
-
 function mapRowToPipelineRun(row: typeof schema.pipelineRuns.$inferSelect): PipelineRun {
   return {
     id: row.id,
@@ -33,7 +26,7 @@ function mapRowToPipelineRun(row: typeof schema.pipelineRuns.$inferSelect): Pipe
     jobsDiscovered: row.jobsDiscovered,
     jobsProcessed: row.jobsProcessed,
     errorMessage: row.errorMessage,
-    configSnapshot: parseConfigSnapshot(row.configSnapshot),
+    configSnapshot: parseJsonSafely<PipelineRunConfigSnapshot | null>(row.configSnapshot, null),
   };
 }
 
@@ -56,15 +49,6 @@ function serializeConfigSnapshot(
 ): string | null {
   if (!value) return null;
   return JSON.stringify(value);
-}
-
-function parseConfigSnapshot(value: string | null | undefined): PipelineRunConfigSnapshot | null {
-  if (!value) return null;
-  try {
-    return JSON.parse(value) as PipelineRunConfigSnapshot;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -129,7 +113,7 @@ export async function updatePipelineRun(
         : {}),
       ...(Object.hasOwn(update, "resultSummary") ? { resultSummary: resultSummary ?? null } : {}),
     })
-    .where(and(pipelineRunsScopeFilter(), eq(pipelineRuns.id, id)));
+    .where(and(privateDataScopeFilter(pipelineRuns), eq(pipelineRuns.id, id)));
 }
 
 /**
@@ -139,7 +123,7 @@ export async function getLatestPipelineRun(): Promise<PipelineRun | null> {
   const [row] = await db
     .select()
     .from(pipelineRuns)
-    .where(pipelineRunsScopeFilter())
+    .where(privateDataScopeFilter(pipelineRuns))
     .orderBy(desc(pipelineRuns.startedAt))
     .limit(1);
 
@@ -155,7 +139,7 @@ export async function getPipelineRunsSince(sinceIso: string): Promise<PipelineRu
   const rows = await db
     .select()
     .from(pipelineRuns)
-    .where(and(pipelineRunsScopeFilter(), gte(pipelineRuns.startedAt, sinceIso)))
+    .where(and(privateDataScopeFilter(pipelineRuns), gte(pipelineRuns.startedAt, sinceIso)))
     .orderBy(desc(pipelineRuns.startedAt));
 
   return rows.map(mapRowToPipelineRun);
@@ -168,7 +152,7 @@ export async function getRecentPipelineRuns(limit: number = 10): Promise<Pipelin
   const rows = await db
     .select()
     .from(pipelineRuns)
-    .where(pipelineRunsScopeFilter())
+    .where(privateDataScopeFilter(pipelineRuns))
     .orderBy(desc(pipelineRuns.startedAt))
     .limit(limit);
 
@@ -179,7 +163,7 @@ export async function getPipelineRunInsights(id: string): Promise<PipelineRunIns
   const [row] = await db
     .select()
     .from(pipelineRuns)
-    .where(and(pipelineRunsScopeFilter(), eq(pipelineRuns.id, id)))
+    .where(and(privateDataScopeFilter(pipelineRuns), eq(pipelineRuns.id, id)))
     .limit(1);
   if (!row) return null;
 
@@ -213,7 +197,7 @@ export async function getPipelineRunInsights(id: string): Promise<PipelineRunIns
         and(
           gte(jobs.createdAt, run.startedAt),
           lte(jobs.createdAt, run.completedAt),
-          jobsScopeFilter(),
+          privateDataScopeFilter(jobs),
         ),
       ),
     db
@@ -223,7 +207,7 @@ export async function getPipelineRunInsights(id: string): Promise<PipelineRunIns
         and(
           gte(jobs.updatedAt, run.startedAt),
           lte(jobs.updatedAt, run.completedAt),
-          jobsScopeFilter(),
+          privateDataScopeFilter(jobs),
         ),
       ),
     db
@@ -233,7 +217,7 @@ export async function getPipelineRunInsights(id: string): Promise<PipelineRunIns
         and(
           gte(jobs.processedAt, run.startedAt),
           lte(jobs.processedAt, run.completedAt),
-          jobsScopeFilter(),
+          privateDataScopeFilter(jobs),
         ),
       ),
   ]);

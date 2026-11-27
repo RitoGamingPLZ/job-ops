@@ -3,7 +3,11 @@ import {
   getDefaultPromptTemplate,
   LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
 } from "./prompt-template-definitions";
-import { getDefaultModelForProvider, settingsRegistry } from "./settings-registry";
+import {
+  getDefaultModelForProvider,
+  parseLegacyWorkplaceTypes,
+  settingsRegistry,
+} from "./settings-registry";
 
 describe("settingsRegistry helpers", () => {
   it("treats only the exact legacy generation default as unset", () => {
@@ -414,4 +418,11 @@ describe("pipeline schedule settings", () => {
     expect(settingsRegistry.pipelineScheduleEnabled.serialize(true)).toBe("1");
     expect(settingsRegistry.pipelineScheduleHour.parse("24")).toBeNull();
   });
+});
+
+it("keeps valid legacy workplace entries without weakening settings validation", () => {
+  const mixed = '["remote","unknown","remote","onsite"]';
+  expect(parseLegacyWorkplaceTypes(mixed)).toEqual(["remote", "remote", "onsite"]);
+  expect(settingsRegistry.workplaceTypes.parse(mixed)).toBeNull();
+  expect(parseLegacyWorkplaceTypes("invalid")).toBeUndefined();
 });

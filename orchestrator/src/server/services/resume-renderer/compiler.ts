@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { logger } from "@infra/logger";
 
@@ -10,7 +13,7 @@ export async function runResumeCompiler(args: {
   label: "Tectonic" | "Typst";
   missingBinaryMessage: string;
   warningMessage: string;
-  truncateOutput: (value: string) => string;
+  ellipsis: string;
 }): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn(args.binary, args.argv, {
@@ -61,7 +64,7 @@ export async function runResumeCompiler(args: {
 
       reject(
         new Error(
-          `${args.label} failed with exit code ${code ?? "unknown"}. ${args.truncateOutput(stderr || stdout)}`,
+          `${args.label} failed with exit code ${code ?? "unknown"}. ${truncateCompilerOutput(stderr || stdout, args.ellipsis)}`,
         ),
       );
     });
@@ -73,4 +76,29 @@ export async function runResumeCompiler(args: {
     });
     throw error;
   });
+}
+
+function truncateCompilerOutput(value: string, ellipsis: string): string {
+  const trimmed = value.trim();
+  const limit = 1200;
+  if (trimmed.length <= limit) return trimmed;
+  return `${trimmed.slice(0, limit)}${ellipsis}(truncated ${trimmed.length - limit} chars)`;
+}
+
+export async function withRenderTempDir(
+  args: { renderer: "LaTeX" | "Typst"; jobId: string; prefix: string },
+  render: (tempDir: string) => Promise<void>,
+): Promise<void> {
+  const tempDir = await mkdtemp(join(tmpdir(), args.prefix));
+  try {
+    await render(tempDir);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true }).catch((error) => {
+      logger.warn(`Failed to cleanup temporary ${args.renderer} render directory`, {
+        jobId: args.jobId,
+        tempDir,
+        error,
+      });
+    });
+  }
 }

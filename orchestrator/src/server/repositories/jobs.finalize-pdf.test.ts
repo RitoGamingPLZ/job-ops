@@ -1,25 +1,17 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useSqliteTestDb } from "../testing/sqlite-test-db";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("finalizeGeneratedPdfIfCurrent", () => {
-  let tempDir: string;
+  const database = useSqliteTestDb();
   let jobsRepo: Awaited<typeof import("./jobs")>;
 
   beforeEach(async () => {
-    vi.resetModules();
-    tempDir = await mkdtemp(join(tmpdir(), "job-ops-finalize-pdf-"));
-    process.env.DATA_DIR = tempDir;
-    process.env.NODE_ENV = "test";
-    await import("../db/migrate");
+    await database.open();
     jobsRepo = await import("./jobs");
   });
 
   afterEach(async () => {
-    const { closeDb } = await import("../db/index");
-    closeDb();
-    await rm(tempDir, { recursive: true, force: true });
+    await database.close();
   });
 
   const finalize = (id: string, expectedStatus: "processing" | "applied") =>

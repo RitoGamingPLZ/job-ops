@@ -1,25 +1,9 @@
+import { parseLegacyWorkplaceTypes } from "@shared/settings-registry";
 import { resolveSearchCities } from "@shared/search-cities.js";
 import type { ExtractorManifest, ExtractorProgressEvent } from "@shared/types/extractors";
 import { type HiringCafeSearchResume, runHiringCafe } from "./src/run";
 
 type HiringCafeContext = Parameters<ExtractorManifest["run"]>[0];
-
-function parseWorkplaceTypes(
-  raw: string | undefined,
-): Array<"remote" | "hybrid" | "onsite"> | undefined {
-  if (!raw) return undefined;
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return undefined;
-    return parsed.filter(
-      (value): value is "remote" | "hybrid" | "onsite" =>
-        value === "remote" || value === "hybrid" || value === "onsite",
-    );
-  } catch {
-    return undefined;
-  }
-}
 
 function resolveContextCountry(context: HiringCafeContext): string {
   return (
@@ -44,7 +28,7 @@ function resolveContextWorkplaceTypes(
     return [...intentTypes];
   }
 
-  return parseWorkplaceTypes(context.settings.workplaceTypes);
+  return parseLegacyWorkplaceTypes(context.settings.workplaceTypes);
 }
 
 function toProgress(event: {

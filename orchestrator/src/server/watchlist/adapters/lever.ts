@@ -1,3 +1,4 @@
+import { watchlistRequestSignal } from "./http";
 import { setTimeout as delay } from "node:timers/promises";
 import { badRequest, upstreamError } from "@infra/errors";
 import { escapeHtml } from "@infra/html";
@@ -86,10 +87,6 @@ function board(value: string) {
   };
 }
 type Board = ReturnType<typeof board>;
-function budget(signal?: AbortSignal) {
-  const timeout = AbortSignal.timeout(25_000);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
-}
 async function request(url: string, signal: AbortSignal): Promise<unknown> {
   for (let attempt = 0; attempt <= 3; attempt++) {
     signal.throwIfAborted();
@@ -169,7 +166,7 @@ async function details(careersUrl: string, jobRef: string, signal?: AbortSignal)
   let job = listedJobs.get(b.careersUrl)?.get(ref.postingId);
   if (!job) {
     const parsed = jobSchema.safeParse(
-      await request(`${b.apiUrl}/${ref.postingId}?mode=json`, budget(signal)),
+      await request(`${b.apiUrl}/${ref.postingId}?mode=json`, watchlistRequestSignal(signal)),
     );
     if (!parsed.success || parsed.data.id !== ref.postingId)
       throw upstreamError("Lever returned invalid posting data.");
@@ -232,7 +229,7 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       .safeParse(
         await request(
           `${b.apiUrl}?mode=json&${b.query.slice(1)}${b.query ? "&" : ""}limit=1`,
-          budget(),
+          watchlistRequestSignal(),
         ),
       );
     if (!parsed.success) throw upstreamError("Lever returned invalid board data.");
@@ -253,7 +250,7 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       .safeParse(
         await request(
           `${b.apiUrl}?mode=json${b.query ? `&${b.query.slice(1)}` : ""}`,
-          budget(input.signal),
+          watchlistRequestSignal(input.signal),
         ),
       );
     if (!parsed.success) throw upstreamError("Lever returned invalid board data.");

@@ -1,3 +1,4 @@
+import { htmlToText } from "../../../shared/src/career-board-html";
 import { WorkdayCxsFetchError } from "./get-jobs-from-cxs";
 import { parseWorkdayJobUrl } from "./workday-url-to-cxs";
 
@@ -196,7 +197,7 @@ function normalizeWorkdayCxsJobDetails(
     postedOn: optionalString(posting.postedOn),
     timeType: optionalString(posting.timeType),
     jobDescriptionHtml,
-    jobDescriptionText: htmlToText(jobDescriptionHtml),
+    jobDescriptionText: htmlToText(jobDescriptionHtml, false),
     jobUrl: args.jobUrl,
     cxsJobUrl: args.cxsJobUrl,
     externalPath: args.externalPath,
@@ -214,21 +215,4 @@ function requiredString(value: unknown, fieldName: string, url: string): string 
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function htmlToText(html: string): string {
-  return html
-    .replace(/<\s*br\s*\/?>/gi, "\n")
-    .replace(/<\/\s*(p|div|li|h[1-6])\s*>/gi, "\n")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n\s+/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
 }

@@ -20,18 +20,6 @@ import { parseJsonSafely } from "../utils/json";
 
 const { jobChatMessages, jobChatRuns, jobChatThreads } = schema;
 
-function threadsScopeFilter() {
-  return privateDataScopeFilter(jobChatThreads);
-}
-
-function messagesScopeFilter() {
-  return privateDataScopeFilter(jobChatMessages);
-}
-
-function runsScopeFilter() {
-  return privateDataScopeFilter(jobChatRuns);
-}
-
 function parseSelectedContextIds(
   value: string | null,
   normalize: (selectedIds: readonly string[]) => string[],
@@ -141,7 +129,7 @@ async function listThreadsForJob(jobId: string): Promise<JobChatThread[]> {
   const rows = await db
     .select()
     .from(jobChatThreads)
-    .where(and(threadsScopeFilter(), eq(jobChatThreads.jobId, jobId)))
+    .where(and(privateDataScopeFilter(jobChatThreads), eq(jobChatThreads.jobId, jobId)))
     .orderBy(desc(jobChatThreads.updatedAt));
 
   return rows.map(mapThread);
@@ -165,7 +153,7 @@ async function getThreadById(threadId: string): Promise<JobChatThread | null> {
   const [row] = await db
     .select()
     .from(jobChatThreads)
-    .where(and(threadsScopeFilter(), eq(jobChatThreads.id, threadId)));
+    .where(and(privateDataScopeFilter(jobChatThreads), eq(jobChatThreads.id, threadId)));
   return row ? mapThread(row) : null;
 }
 
@@ -177,7 +165,11 @@ export async function getThreadForJob(
     .select()
     .from(jobChatThreads)
     .where(
-      and(threadsScopeFilter(), eq(jobChatThreads.id, threadId), eq(jobChatThreads.jobId, jobId)),
+      and(
+        privateDataScopeFilter(jobChatThreads),
+        eq(jobChatThreads.id, threadId),
+        eq(jobChatThreads.jobId, jobId),
+      ),
     );
   return row ? mapThread(row) : null;
 }
@@ -248,7 +240,7 @@ export async function updateThreadContext(input: {
     })
     .where(
       and(
-        threadsScopeFilter(),
+        privateDataScopeFilter(jobChatThreads),
         eq(jobChatThreads.id, input.threadId),
         eq(jobChatThreads.jobId, input.jobId),
       ),
@@ -265,7 +257,7 @@ async function touchThread(threadId: string, lastMessageAt?: string): Promise<vo
       updatedAt: now,
       ...(lastMessageAt !== undefined ? { lastMessageAt } : {}),
     })
-    .where(and(threadsScopeFilter(), eq(jobChatThreads.id, threadId)));
+    .where(and(privateDataScopeFilter(jobChatThreads), eq(jobChatThreads.id, threadId)));
 }
 
 export async function listMessagesForThread(
@@ -278,7 +270,7 @@ export async function listMessagesForThread(
   const rows = await db
     .select()
     .from(jobChatMessages)
-    .where(and(messagesScopeFilter(), eq(jobChatMessages.threadId, threadId)))
+    .where(and(privateDataScopeFilter(jobChatMessages), eq(jobChatMessages.threadId, threadId)))
     .orderBy(jobChatMessages.createdAt)
     .limit(limit)
     .offset(offset);
@@ -290,7 +282,7 @@ export async function getMessageById(messageId: string): Promise<JobChatMessage 
   const [row] = await db
     .select()
     .from(jobChatMessages)
-    .where(and(messagesScopeFilter(), eq(jobChatMessages.id, messageId)));
+    .where(and(privateDataScopeFilter(jobChatMessages), eq(jobChatMessages.id, messageId)));
   return row ? mapMessage(row) : null;
 }
 
@@ -361,7 +353,7 @@ export async function updateMessage(
       ...(input.tokensOut !== undefined ? { tokensOut: input.tokensOut } : {}),
       updatedAt: now,
     })
-    .where(and(messagesScopeFilter(), eq(jobChatMessages.id, messageId)));
+    .where(and(privateDataScopeFilter(jobChatMessages), eq(jobChatMessages.id, messageId)));
 
   const message = await getMessageById(messageId);
   if (message) {
@@ -411,7 +403,7 @@ export async function getRunById(runId: string): Promise<JobChatRun | null> {
   const [row] = await db
     .select()
     .from(jobChatRuns)
-    .where(and(runsScopeFilter(), eq(jobChatRuns.id, runId)));
+    .where(and(privateDataScopeFilter(jobChatRuns), eq(jobChatRuns.id, runId)));
   return row ? mapRun(row) : null;
 }
 
@@ -420,7 +412,11 @@ export async function getActiveRunForThread(threadId: string): Promise<JobChatRu
     .select()
     .from(jobChatRuns)
     .where(
-      and(eq(jobChatRuns.threadId, threadId), runsScopeFilter(), eq(jobChatRuns.status, "running")),
+      and(
+        eq(jobChatRuns.threadId, threadId),
+        privateDataScopeFilter(jobChatRuns),
+        eq(jobChatRuns.status, "running"),
+      ),
     )
     .orderBy(desc(jobChatRuns.startedAt))
     .limit(1);
@@ -451,8 +447,12 @@ async function updateCompletedRun(
     })
     .where(
       onlyIfRunning
-        ? and(runsScopeFilter(), eq(jobChatRuns.id, runId), eq(jobChatRuns.status, "running"))
-        : and(runsScopeFilter(), eq(jobChatRuns.id, runId)),
+        ? and(
+            privateDataScopeFilter(jobChatRuns),
+            eq(jobChatRuns.id, runId),
+            eq(jobChatRuns.status, "running"),
+          )
+        : and(privateDataScopeFilter(jobChatRuns), eq(jobChatRuns.id, runId)),
     );
 
   return getRunById(runId);
@@ -472,7 +472,7 @@ export async function completeRun(
 export async function deleteAllMessagesForThread(threadId: string): Promise<number> {
   const result = await db
     .delete(jobChatMessages)
-    .where(and(messagesScopeFilter(), eq(jobChatMessages.threadId, threadId)));
+    .where(and(privateDataScopeFilter(jobChatMessages), eq(jobChatMessages.threadId, threadId)));
 
   return result.changes;
 }
@@ -480,7 +480,7 @@ export async function deleteAllMessagesForThread(threadId: string): Promise<numb
 export async function deleteAllRunsForThread(threadId: string): Promise<number> {
   const result = await db
     .delete(jobChatRuns)
-    .where(and(runsScopeFilter(), eq(jobChatRuns.threadId, threadId)));
+    .where(and(privateDataScopeFilter(jobChatRuns), eq(jobChatRuns.threadId, threadId)));
 
   return result.changes;
 }
@@ -493,7 +493,7 @@ export async function setActiveRoot(threadId: string, messageId: string): Promis
   await db
     .update(jobChatThreads)
     .set({ activeRootMessageId: messageId, updatedAt: now })
-    .where(and(threadsScopeFilter(), eq(jobChatThreads.id, threadId)));
+    .where(and(privateDataScopeFilter(jobChatThreads), eq(jobChatThreads.id, threadId)));
 }
 
 /**
@@ -504,7 +504,7 @@ export async function setActiveChild(messageId: string, activeChildId: string): 
   await db
     .update(jobChatMessages)
     .set({ activeChildId, updatedAt: now })
-    .where(and(messagesScopeFilter(), eq(jobChatMessages.id, messageId)));
+    .where(and(privateDataScopeFilter(jobChatMessages), eq(jobChatMessages.id, messageId)));
 }
 
 /**
@@ -514,7 +514,12 @@ async function getChildrenOfMessage(parentMessageId: string): Promise<JobChatMes
   const rows = await db
     .select()
     .from(jobChatMessages)
-    .where(and(messagesScopeFilter(), eq(jobChatMessages.parentMessageId, parentMessageId)))
+    .where(
+      and(
+        privateDataScopeFilter(jobChatMessages),
+        eq(jobChatMessages.parentMessageId, parentMessageId),
+      ),
+    )
     .orderBy(jobChatMessages.createdAt);
   return rows.map(mapMessage);
 }
@@ -537,7 +542,7 @@ export async function getSiblingsOf(
       .from(jobChatMessages)
       .where(
         and(
-          messagesScopeFilter(),
+          privateDataScopeFilter(jobChatMessages),
           eq(jobChatMessages.threadId, message.threadId),
           eq(jobChatMessages.role, message.role),
         ),
@@ -581,7 +586,7 @@ export async function getActivePathFromRoot(threadId: string): Promise<JobChatMe
   const allRows = await db
     .select()
     .from(jobChatMessages)
-    .where(and(messagesScopeFilter(), eq(jobChatMessages.threadId, threadId)))
+    .where(and(privateDataScopeFilter(jobChatMessages), eq(jobChatMessages.threadId, threadId)))
     .orderBy(jobChatMessages.createdAt);
   const all = allRows.map(mapMessage);
 

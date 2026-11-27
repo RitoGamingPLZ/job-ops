@@ -26,7 +26,6 @@ const mockSettings = {
   settings: null as AppSettings | null,
   error: null,
   isLoading: false,
-  showSponsorInfo: true,
   renderMarkdownInJobDescriptions: true,
   refreshSettings: vi.fn(),
 };

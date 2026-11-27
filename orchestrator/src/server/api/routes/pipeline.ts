@@ -1,4 +1,5 @@
 import {
+  toAppError,
   AppError,
   badRequest,
   conflict,
@@ -274,7 +275,7 @@ pipelineRouter.post("/search-presets", async (req: Request, res: Response) => {
     ok(res, await pipelineSearchPresetsRepo.createPipelineSearchPreset(input), 201);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return fail(res, badRequest(error.message, error.flatten()));
+      return fail(res, toAppError(error));
     }
     fail(
       res,
@@ -308,7 +309,7 @@ pipelineRouter.patch("/search-presets/:id", async (req: Request, res: Response) 
     ok(res, updated);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return fail(res, badRequest(error.message, error.flatten()));
+      return fail(res, toAppError(error));
     }
     fail(
       res,
@@ -361,7 +362,7 @@ pipelineRouter.post("/search-plan", async (req: Request, res: Response) => {
     ok(res, await planPipelineSearch(input));
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return fail(res, badRequest(error.message, error.flatten()));
+      return fail(res, toAppError(error));
     }
     fail(
       res,
@@ -438,7 +439,7 @@ pipelineRouter.post("/run", async (req: Request, res: Response) => {
     ok(res, { message: "Search started" });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return fail(res, badRequest(error.message, error.flatten()));
+      return fail(res, toAppError(error));
     }
     if (error instanceof Error && error.name === "AbortError") {
       return fail(res, requestTimeout("Request timed out"));
@@ -472,7 +473,7 @@ pipelineRouter.put("/scheduled-search", async (req: Request, res: Response) => {
     ok(res, { message: "Daily search saved" });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return fail(res, badRequest(error.message, error.flatten()));
+      return fail(res, toAppError(error));
     }
     if (error instanceof AppError) {
       return fail(res, error);
@@ -709,7 +710,7 @@ pipelineRouter.post(
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return fail(res, badRequest(error.message, error.flatten()));
+        return fail(res, toAppError(error));
       }
       fail(
         res,
@@ -748,7 +749,7 @@ pipelineRouter.post("/skip-challenge-search", async (req: Request, res: Response
     ok(res, result);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return fail(res, badRequest(error.message, error.flatten()));
+      return fail(res, toAppError(error));
     }
     fail(
       res,

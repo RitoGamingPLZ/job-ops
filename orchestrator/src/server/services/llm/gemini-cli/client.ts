@@ -1,10 +1,12 @@
+import { normalizeGeminiModelName } from "../utils/gemini-model";
+import { formatTranscript, needsWindowsShell } from "../utils/cli-common";
 import { toNonEmptyString } from "@shared/utils/type-conversion";
 import { getPositiveIntEnv } from "@server/utils/env";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { logger } from "@infra/logger";
-import { getLlmMessageText, type JsonSchemaDefinition, type LlmRequestOptions } from "../types";
+import { type JsonSchemaDefinition, type LlmRequestOptions } from "../types";
 import { runCliProcess } from "../utils/cli-process";
 import { truncate } from "../utils/string";
 
@@ -36,12 +38,6 @@ function buildGeminiCliErrorMessage(error: unknown): string {
  * `cmd.exe` parses the full line and breaks on JSON in `-p` (quotes, `&`, `|`, etc.),
  * which surfaces as "positional prompt + -p". Prefer `node …/bundle/gemini.js` (no shell).
  */
-function shouldSpawnGeminiViaWindowsShell(command: string): boolean {
-  if (process.platform !== "win32") return false;
-  const lower = command.trim().toLowerCase();
-  return lower.endsWith(".cmd") || lower.endsWith(".bat");
-}
-
 function tryResolveGeminiBundleJsBesideNpmShim(command: string): string | null {
   const lower = command.toLowerCase();
   if (!lower.endsWith(".cmd") && !lower.endsWith(".ps1")) return null;
@@ -110,26 +106,15 @@ function resolveGeminiCliSpawnTarget(bin: string): GeminiCliSpawnTarget {
   return {
     command: trimmed,
     scriptPrefix: [],
-    shell: shouldSpawnGeminiViaWindowsShell(trimmed),
+    shell: needsWindowsShell(trimmed),
   };
-}
-
-function normalizeCliModelId(model: string): string {
-  return model
-    .trim()
-    .replace(/^models\//, "")
-    .replace(/^google\//, "");
 }
 
 function formatStructuredPrompt(args: {
   messages: LlmRequestOptions<unknown>["messages"];
   jsonSchema: JsonSchemaDefinition;
 }): string {
-  const transcript = args.messages
-    .map((message, index) => {
-      return `Message ${index + 1} (${message.role.toUpperCase()}):\n${getLlmMessageText(message.content).trim()}`;
-    })
-    .join("\n\n");
+  const transcript = formatTranscript(args.messages);
 
   return [
     "You are generating a structured JSON response for JobOps.",
@@ -172,7 +157,7 @@ async function runGeminiCliOnce(args: {
     "--approval-mode=plan",
     "-o=json",
   ];
-  const cliModel = args.model ? normalizeCliModelId(args.model) : "";
+  const cliModel = args.model ? normalizeGeminiModelName(args.model) : "";
   if (cliModel) {
     procArgs.push(`-m=${cliModel}`);
   }

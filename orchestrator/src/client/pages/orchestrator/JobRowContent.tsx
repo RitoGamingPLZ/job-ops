@@ -4,7 +4,7 @@ import { isTargeted } from "@shared/types.js";
 import { Loader2, XCircle } from "lucide-react";
 import { Tip } from "@/client/components/Tip";
 import { cn } from "@/lib/utils";
-import { defaultStatusToken, statusTokens } from "./constants";
+import { getStatusToken } from "./constants";
 
 interface JobRowContentProps {
   job: JobListItem;
@@ -31,7 +31,7 @@ export const JobRowContent = ({
 }: JobRowContentProps) => {
   const hasScore = job.suitabilityScore != null;
   const isAwaitingAi = isAwaitingAiScore(job);
-  const statusToken = statusTokens[job.status] ?? defaultStatusToken;
+  const statusToken = getStatusToken(job.status);
   const suitabilityTone = getSuitabilityScoreTone(job.suitabilityScore ?? 0);
   const shortId = job.id.slice(0, 6);
 

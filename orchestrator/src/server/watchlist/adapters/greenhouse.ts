@@ -1,3 +1,4 @@
+import { shouldHydrateSourceLabel } from "./branding";
 import {
   getJobDetails,
   getJobsFromBoard,
@@ -135,10 +136,7 @@ function getHydratedGreenhouseLabel(
   },
   token: string,
 ): string {
-  if (
-    source.sourceType === "greenhouse" &&
-    (!source.label.trim() || source.label.trim() === source.careersUrl.trim())
-  ) {
+  if (shouldHydrateSourceLabel(source, "greenhouse")) {
     return greenhouseTokenToLabel(token);
   }
 

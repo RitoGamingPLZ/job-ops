@@ -1,30 +1,20 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useSqliteTestDb } from "../testing/sqlite-test-db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("jobs repository job notes", () => {
-  let tempDir: string;
+  const database = useSqliteTestDb();
   let db: Awaited<typeof import("../db/index")>["db"];
   let schema: Awaited<typeof import("../db/index")>["schema"];
   let jobsRepo: Awaited<typeof import("./jobs")>;
 
   beforeEach(async () => {
-    vi.resetModules();
-    tempDir = await mkdtemp(join(tmpdir(), "job-ops-job-notes-repo-"));
-    process.env.DATA_DIR = tempDir;
-    process.env.NODE_ENV = "test";
-
-    await import("../db/migrate");
-    ({ db, schema } = await import("../db/index"));
+    ({ db, schema } = await database.open());
     jobsRepo = await import("./jobs");
   });
 
   afterEach(async () => {
-    const { closeDb } = await import("../db/index");
-    closeDb();
-    await rm(tempDir, { recursive: true, force: true });
+    await database.close();
     vi.clearAllMocks();
   });
 

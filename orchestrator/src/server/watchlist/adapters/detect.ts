@@ -1,3 +1,4 @@
+import { hasPlainHttpsAuthority } from "./url";
 import { isBamboohrUrl } from "@career-boards/bamboohr";
 import { isGreenhouseUrl } from "@career-boards/greenhouse";
 import { isWorkdayUrl } from "@career-boards/workday";
@@ -14,12 +15,9 @@ function parseSafeHttpsUrl(careersUrl: string): URL | null {
     return null;
   }
 
-  const authority = trimmed.match(/^https:\/\/([^/?#]+)/i)?.[1];
   if (
     url.protocol !== "https:" ||
-    !authority ||
-    authority.includes(":") ||
-    authority.includes("@") ||
+    !hasPlainHttpsAuthority(trimmed) ||
     url.username ||
     url.password ||
     url.port

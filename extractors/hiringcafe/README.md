@@ -9,7 +9,6 @@ Special thanks: initial implementation inspiration came from [umur957/hiring-caf
 - `HIRING_CAFE_SEARCH_TERMS` (JSON array or `|` / comma / newline-delimited)
 - `HIRING_CAFE_COUNTRY` (default: `united kingdom`)
 - `HIRING_CAFE_MAX_JOBS_PER_TERM` (default: `200`)
-- `HIRING_CAFE_DATE_FETCHED_PAST_N_DAYS` (default: `7`)
 - `HIRING_CAFE_LOCATION_QUERY` (optional city, e.g. `Leeds`)
 - `HIRING_CAFE_LOCATION_RADIUS_MILES` (default: `1` when city is set)
 - `HIRING_CAFE_OUTPUT_JSON` (default: `storage/datasets/default/jobs.json`)

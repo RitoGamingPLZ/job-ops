@@ -1,3 +1,4 @@
+import { formatEmailDate, getEmailSenderLabel } from "@client/lib/email-display";
 import type {
   PostApplicationJobEmailItem,
   PostApplicationProcessingStatus,
@@ -10,7 +11,7 @@ import { useQueryErrorToast } from "@/client/hooks/useQueryErrorToast";
 import { queryKeys } from "@/client/lib/queryKeys";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn, formatDateTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const JOB_EMAIL_LIMIT = 100;
 
@@ -61,18 +62,6 @@ const statusClassName: Record<PostApplicationProcessingStatus, string> = {
   ignored: "border-border bg-muted/40 text-muted-foreground",
 };
 
-function formatEpochMs(value: number | null): string {
-  if (!value) return "Unknown date";
-  return formatDateTime(new Date(value).toISOString()) ?? "Unknown date";
-}
-
-function getSenderLabel(item: PostApplicationJobEmailItem): string {
-  const senderName = item.message.senderName?.trim();
-  if (senderName) return senderName;
-  const address = item.message.fromAddress.trim();
-  return address || "Unknown sender";
-}
-
 function formatConfidence(value: number | null): string {
   if (value === null) return "n/a";
   return `${Math.round(value)}%`;
@@ -106,8 +95,8 @@ const EmptyState: React.FC<{
 );
 
 const EmailRow: React.FC<{ item: PostApplicationJobEmailItem }> = ({ item }) => {
-  const sender = getSenderLabel(item);
-  const date = formatEpochMs(item.message.receivedAt);
+  const sender = getEmailSenderLabel(item.message.senderName, item.message.fromAddress);
+  const date = formatEmailDate(item.message.receivedAt, "Unknown date");
 
   return (
     <article className="grid gap-3 border-b border-border/50 px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto]">

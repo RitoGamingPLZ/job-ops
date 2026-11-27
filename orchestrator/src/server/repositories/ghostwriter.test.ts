@@ -1,24 +1,11 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { useSqliteTestDb } from "../testing/sqlite-test-db";
 import { sql } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("ghostwriter suggestion persistence", () => {
-  const originalEnv = { ...process.env };
-  let scratch = "";
-  let closeDb: (() => void) | undefined;
+  const fixture = useSqliteTestDb({ JOB_OPS_APP_MODE: "self-hosted" });
   beforeEach(async () => {
-    vi.resetModules();
-    scratch = await mkdtemp(join(process.cwd(), ".chat-repo-test-"));
-    process.env = {
-      ...originalEnv,
-      DATA_DIR: scratch,
-      NODE_ENV: "test",
-      JOB_OPS_APP_MODE: "self-hosted",
-    };
-    await import("../db/migrate");
-    const database = await import("../db");
-    closeDb = database.closeDb;
+    const database = await fixture.open();
     await database.db.insert(database.schema.jobs).values({
       id: "job",
       source: "manual",
@@ -27,11 +14,7 @@ describe("ghostwriter suggestion persistence", () => {
       jobUrl: "https://example.com/job",
     });
   });
-  afterEach(async () => {
-    closeDb?.();
-    await rm(scratch, { recursive: true, force: true });
-    process.env = { ...originalEnv };
-  });
+  afterEach(fixture.close);
   it("reads legacy, V2 and garbage rows through the decoder and retains tenant isolation", async () => {
     const { runWithRequestContext } = await import("@infra/request-context");
     const repo = await import("./ghostwriter");

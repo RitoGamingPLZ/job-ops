@@ -102,6 +102,6 @@ export const VISA_SPONSOR_PROVIDER_METADATA = {
 
 ## Related pages
 
-- [Visa Sponsors Feature](/docs/next/features/visa-sponsors)
+- [Visa Sponsors Feature](../features/visa-sponsors.md)
 - [Add an Extractor Workflow](/docs/next/workflows/add-an-extractor)
 - [Extractors Overview](/docs/next/extractors/overview)

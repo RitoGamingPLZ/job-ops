@@ -6,7 +6,7 @@ import {
   pickSafeContainerExtractorSettings,
 } from "@server/extractors/remote-container-runner";
 import { getRequestId, getUserId } from "@server/infra/request-context";
-import { parseWorkplaceTypes } from "@server/pipeline/settings-parsers";
+import { resolveLocationIntentFromRawSettings } from "@server/services/location-intent";
 import { getAllJobUrls } from "@server/repositories/jobs";
 import * as settingsRepo from "@server/repositories/settings";
 import {
@@ -33,7 +33,6 @@ import type { ExtractorSourceId } from "@shared/extractors";
 import { deduplicateJobsByTitleAndEmployer, matchJobLocationIntent } from "@shared/job-matching.js";
 import {
   buildLocationEvidence as buildSharedLocationEvidence,
-  createLocationIntentFromLegacyInputs,
   getPrimaryLocationLabel,
   planLocationSource,
 } from "@shared/location-domain.js";
@@ -189,24 +188,7 @@ export async function discoverJobsStep(args: {
   }
 
   let locationIntent =
-    args.mergedConfig.locationIntent ??
-    createLocationIntentFromLegacyInputs({
-      selectedCountry: settings.jobspyCountryIndeed ?? "",
-      searchCities: settings.searchCities ?? settings.jobspyLocation ?? "",
-      workplaceTypes: parseWorkplaceTypes(settings.workplaceTypes),
-      searchScope: settings.locationSearchScope,
-      matchStrictness: settings.locationMatchStrictness,
-      proximity:
-        settings.locationSearchMode === "radius" &&
-        settings.locationLatitude != null &&
-        settings.locationLongitude != null
-          ? {
-              latitude: Number(settings.locationLatitude),
-              longitude: Number(settings.locationLongitude),
-              radiusMiles: Number(settings.locationRadiusMiles ?? 50),
-            }
-          : null,
-    });
+    args.mergedConfig.locationIntent ?? resolveLocationIntentFromRawSettings(settings);
   if (locationIntent.proximity) {
     locationIntent = {
       ...locationIntent,

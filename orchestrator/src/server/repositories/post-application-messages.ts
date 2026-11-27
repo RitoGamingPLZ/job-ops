@@ -18,14 +18,6 @@ import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-
 
 const { postApplicationIntegrations, postApplicationMessages } = schema;
 
-function messagesScopeFilter() {
-  return privateDataScopeFilter(postApplicationMessages);
-}
-
-function integrationsScopeFilter() {
-  return privateDataScopeFilter(postApplicationIntegrations);
-}
-
 type UpsertPostApplicationMessageInput = {
   provider: PostApplicationProvider;
   accountKey: string;
@@ -138,7 +130,7 @@ async function listIntegrationDisplayMetadata(): Promise<
       displayName: postApplicationIntegrations.displayName,
     })
     .from(postApplicationIntegrations)
-    .where(integrationsScopeFilter());
+    .where(privateDataScopeFilter(postApplicationIntegrations));
 
   return rows.map((row) => ({
     id: row.id,
@@ -161,7 +153,7 @@ export async function getPostApplicationMessageByExternalId(
         eq(postApplicationMessages.provider, provider),
         eq(postApplicationMessages.accountKey, accountKey),
         eq(postApplicationMessages.externalMessageId, externalMessageId),
-        messagesScopeFilter(),
+        privateDataScopeFilter(postApplicationMessages),
       ),
     );
   return row ? mapRowToPostApplicationMessage(row) : null;
@@ -173,7 +165,9 @@ export async function getPostApplicationMessageById(
   const [row] = await db
     .select()
     .from(postApplicationMessages)
-    .where(and(messagesScopeFilter(), eq(postApplicationMessages.id, id)));
+    .where(
+      and(privateDataScopeFilter(postApplicationMessages), eq(postApplicationMessages.id, id)),
+    );
   return row ? mapRowToPostApplicationMessage(row) : null;
 }
 
@@ -235,7 +229,12 @@ export async function upsertPostApplicationMessage(
     await db
       .update(postApplicationMessages)
       .set({ ...mutableValues, processingStatus: nextProcessingStatus })
-      .where(and(messagesScopeFilter(), eq(postApplicationMessages.id, existing.id)));
+      .where(
+        and(
+          privateDataScopeFilter(postApplicationMessages),
+          eq(postApplicationMessages.id, existing.id),
+        ),
+      );
 
     const updated = await getPostApplicationMessageByExternalId(
       input.provider,
@@ -298,7 +297,7 @@ export async function listPostApplicationMessagesByProcessingStatus(
         eq(postApplicationMessages.provider, provider),
         eq(postApplicationMessages.accountKey, accountKey),
         eq(postApplicationMessages.processingStatus, processingStatus),
-        messagesScopeFilter(),
+        privateDataScopeFilter(postApplicationMessages),
       ),
     )
     .orderBy(desc(postApplicationMessages.receivedAt))
@@ -321,7 +320,7 @@ export async function listPostApplicationMessagesBySyncRun(
         eq(postApplicationMessages.provider, provider),
         eq(postApplicationMessages.accountKey, accountKey),
         eq(postApplicationMessages.syncRunId, syncRunId),
-        messagesScopeFilter(),
+        privateDataScopeFilter(postApplicationMessages),
       ),
     )
     .orderBy(desc(postApplicationMessages.receivedAt))
@@ -330,22 +329,9 @@ export async function listPostApplicationMessagesBySyncRun(
   return rows.map(mapRowToPostApplicationMessage);
 }
 
-export async function listPostApplicationMessagesForJob(
-  jobId: string,
-  limit = 100,
-): Promise<ListPostApplicationMessagesForJobResult> {
-  const whereClause = and(messagesScopeFilter(), eq(postApplicationMessages.matchedJobId, jobId));
-  const rows = await db
-    .select()
-    .from(postApplicationMessages)
-    .where(whereClause)
-    .orderBy(desc(postApplicationMessages.receivedAt))
-    .limit(limit);
-  const [countRow] = await db
-    .select({ total: sql<number>`count(*)` })
-    .from(postApplicationMessages)
-    .where(whereClause);
-
+async function attachIntegrationDisplayNames(
+  rows: (typeof postApplicationMessages.$inferSelect)[],
+) {
   const integrations = await listIntegrationDisplayMetadata();
   const integrationsById = new Map(
     integrations.map((integration) => [integration.id, integration]),
@@ -357,18 +343,40 @@ export async function listPostApplicationMessagesForJob(
     ]),
   );
 
-  return {
-    items: rows.map((row) => {
-      const message = mapRowToPostApplicationMessage(row);
-      const integration =
-        (message.integrationId ? integrationsById.get(message.integrationId) : undefined) ??
-        integrationsByProviderAccount.get(integrationKey(message.provider, message.accountKey));
+  return rows.map((row) => {
+    const message = mapRowToPostApplicationMessage(row);
+    const integration =
+      (message.integrationId ? integrationsById.get(message.integrationId) : undefined) ??
+      integrationsByProviderAccount.get(integrationKey(message.provider, message.accountKey));
 
-      return {
-        message,
-        accountDisplayName: integration?.displayName ?? null,
-      };
-    }),
+    return {
+      message,
+      accountDisplayName: integration?.displayName ?? null,
+    };
+  });
+}
+
+export async function listPostApplicationMessagesForJob(
+  jobId: string,
+  limit = 100,
+): Promise<ListPostApplicationMessagesForJobResult> {
+  const whereClause = and(
+    privateDataScopeFilter(postApplicationMessages),
+    eq(postApplicationMessages.matchedJobId, jobId),
+  );
+  const rows = await db
+    .select()
+    .from(postApplicationMessages)
+    .where(whereClause)
+    .orderBy(desc(postApplicationMessages.receivedAt))
+    .limit(limit);
+  const [countRow] = await db
+    .select({ total: sql<number>`count(*)` })
+    .from(postApplicationMessages)
+    .where(whereClause);
+
+  return {
+    items: await attachIntegrationDisplayNames(rows),
     total: countRow?.total ?? 0,
   };
 }
@@ -385,36 +393,15 @@ export async function listPostApplicationMessagesForJobByIds(
     .from(postApplicationMessages)
     .where(
       and(
-        messagesScopeFilter(),
+        privateDataScopeFilter(postApplicationMessages),
         eq(postApplicationMessages.matchedJobId, jobId),
         inArray(postApplicationMessages.id, ids),
       ),
     );
 
   const rowsById = new Map(rows.map((row) => [row.id, row]));
-  const integrations = await listIntegrationDisplayMetadata();
-  const integrationsById = new Map(
-    integrations.map((integration) => [integration.id, integration]),
-  );
-  const integrationsByProviderAccount = new Map(
-    integrations.map((integration) => [
-      integrationKey(integration.provider, integration.accountKey),
-      integration,
-    ]),
-  );
-
-  return ids
+  const orderedRows = ids
     .map((id) => rowsById.get(id))
-    .filter((row): row is typeof postApplicationMessages.$inferSelect => Boolean(row))
-    .map((row) => {
-      const message = mapRowToPostApplicationMessage(row);
-      const integration =
-        (message.integrationId ? integrationsById.get(message.integrationId) : undefined) ??
-        integrationsByProviderAccount.get(integrationKey(message.provider, message.accountKey));
-
-      return {
-        message,
-        accountDisplayName: integration?.displayName ?? null,
-      };
-    });
+    .filter((row): row is typeof postApplicationMessages.$inferSelect => Boolean(row));
+  return attachIntegrationDisplayNames(orderedRows);
 }

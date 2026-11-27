@@ -1,3 +1,4 @@
+import { isWorkerdRuntime } from "../runtime";
 import { lookup } from "node:dns/promises";
 import { readdir } from "node:fs/promises";
 import { request } from "node:https";
@@ -122,7 +123,7 @@ async function requestBytes(
       autoSelectFamily: false,
     };
     const result = await new Promise<PublicResponse>((resolve, reject) => {
-      if (typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers") {
+      if (isWorkerdRuntime()) {
         void fetchBytes(url, options).then(resolve, reject);
         return;
       }

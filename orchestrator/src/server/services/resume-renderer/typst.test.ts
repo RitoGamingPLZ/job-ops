@@ -267,6 +267,16 @@ describe("typst resume renderer", () => {
     expect(template).toContain("trailing: bullet-trailing(entry)");
   });
 
+  it("renders a numeric language level of zero", async () => {
+    const tokens = await readNativeThemeTokens("classic");
+    const typst = buildTypstDocument(
+      { ...baseDocument, languages: [{ language: "English", fluency: "", level: 0 }] },
+      "__BODY__",
+      tokens,
+    );
+    expect(typst).toContain("Level 0");
+  });
+
   it("renders the newly supported native sections and picture block", async () => {
     const tokens = await readNativeThemeTokens("classic");
     const typst = buildTypstDocument(

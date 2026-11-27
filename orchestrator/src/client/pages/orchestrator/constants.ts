@@ -18,7 +18,7 @@ export const orderedFilterSources: JobSource[] = [...EXTRACTOR_SOURCE_IDS].sort(
   (left, right) => EXTRACTOR_SOURCE_METADATA[left].order - EXTRACTOR_SOURCE_METADATA[right].order,
 );
 
-export const statusTokens: Record<JobStatus, { label: string; badge: string; dot: string }> = {
+const statusTokens: Record<JobStatus, { label: string; badge: string; dot: string }> = {
   discovered: {
     label: "Discovered",
     badge: "border-info/30 bg-info/15 text-info",
@@ -56,11 +56,15 @@ export const statusTokens: Record<JobStatus, { label: string; badge: string; dot
   },
 };
 
-export const defaultStatusToken = {
+const defaultStatusToken = {
   label: "Unknown",
   badge: "border-border bg-muted/50 text-muted-foreground",
   dot: "bg-muted-foreground",
 };
+
+export function getStatusToken(status: JobStatus) {
+  return statusTokens[status] ?? defaultStatusToken;
+}
 
 export const appliedDuplicateIndicator = {
   label: "Previously Applied",

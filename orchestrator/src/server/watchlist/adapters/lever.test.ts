@@ -3,13 +3,17 @@ import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
+vi.mock("node:timers/promises", async (importOriginal) => {
+  const { withFakeTimeouts } = await import("../testing/timers");
+  return withFakeTimeouts(await importOriginal<typeof import("node:timers/promises")>());
+});
+
 let adapter: WatchlistCatalogSourceAdapter;
 beforeEach(async () => {
   vi.resetModules();
   adapter = (await import("./lever")).leverWatchlistAdapter;
 });
 afterEach(() => {
-  vi.doUnmock("node:timers/promises");
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -336,18 +340,6 @@ describe("leverWatchlistAdapter", () => {
   });
   it("retries 429 three times with 1s/3s/8s backoff", async () => {
     vi.useFakeTimers();
-    // Native promise timers need a wrapper to use Vitest's fake clock.
-    vi.doMock("node:timers/promises", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("node:timers/promises")>();
-      const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-      return {
-        ...actual,
-        setTimeout: delay,
-        default: { ...actual, setTimeout: delay },
-      };
-    });
-    vi.resetModules();
-    adapter = (await import("./lever")).leverWatchlistAdapter;
     const start = Date.now();
     const attempts: number[] = [];
     const mock = vi.fn().mockImplementation(async () => {
@@ -414,7 +406,8 @@ describe("leverWatchlistAdapter", () => {
     await expect(pending).rejects.toThrow();
     expect(timeout).toHaveBeenCalledWith(25000);
   });
-  it("paces concurrent requests to the public API host at least one second apart", async () => {
+  it("paces concurrent requests to the public API host one second apart", async () => {
+    vi.useFakeTimers();
     const starts: number[] = [];
     vi.stubGlobal(
       "fetch",
@@ -423,12 +416,14 @@ describe("leverWatchlistAdapter", () => {
         return json([]);
       }),
     );
-    await Promise.all([
+    const pending = Promise.all([
       adapter.normalizeCustomSelection({ careersUrl: base, label: null }),
       adapter.fetchJobs({ source }),
     ]);
+    await vi.runAllTimersAsync();
+    await pending;
     expect(starts).toHaveLength(2);
-    expect(starts[1] - starts[0]).toBeGreaterThanOrEqual(990);
+    expect(starts[1] - starts[0]).toBe(1000);
   });
 });
 

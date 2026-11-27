@@ -1,3 +1,4 @@
+import { parseTokenizedInput } from "@client/lib/tokenized-input";
 import {
   buildLocationPreferencesSummary,
   type LocationInputMode,
@@ -176,15 +177,8 @@ export function inferAutomaticPresetSelection(args: {
   return "custom";
 }
 
-export function parseSearchTermsInput(input: string): string[] {
-  return input
-    .split(/[\n,]/g)
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
-
 export function parseCityLocationsInput(input: string): string[] {
-  const parsed = parseSearchTermsInput(input);
+  const parsed = parseTokenizedInput(input);
   const seen = new Set<string>();
   const out: string[] = [];
   for (const city of parsed) {

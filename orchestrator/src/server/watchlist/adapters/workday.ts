@@ -1,3 +1,4 @@
+import { shouldHydrateSourceLabel } from "./branding";
 import {
   getJobDetailsFromCxs,
   getJobsFromCxs,
@@ -166,10 +167,7 @@ function getHydratedWorkdayLabel(source: {
   label: string;
   careersUrl: string;
 }): string {
-  if (
-    source.sourceType === "workday" &&
-    (!source.label.trim() || source.label.trim() === source.careersUrl.trim())
-  ) {
+  if (shouldHydrateSourceLabel(source, "workday")) {
     return workdayUrlToCompanyLabel(source.careersUrl);
   }
 

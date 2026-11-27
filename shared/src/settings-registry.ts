@@ -230,6 +230,22 @@ export const llmPurposeApiKeysSchema = z
   })
   .strict();
 
+// Legacy extractor settings retain valid entries even if the array contains unknown values.
+export function parseLegacyWorkplaceTypes(raw: string | undefined) {
+  if (!raw) return undefined;
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return undefined;
+
+    return parsed.filter((value): value is (typeof LOCATION_WORKPLACE_TYPE_VALUES)[number] =>
+      LOCATION_WORKPLACE_TYPE_VALUES.some((workplaceType) => workplaceType === value),
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 const parseWorkplaceTypesOrNull = createEnumArrayParser(LOCATION_WORKPLACE_TYPE_VALUES);
 const parseLocationSearchScopeOrNull = createEnumParser(LOCATION_SEARCH_SCOPE_VALUES);
 const parseLocationMatchStrictnessOrNull = createEnumParser(LOCATION_MATCH_STRICTNESS_VALUES);

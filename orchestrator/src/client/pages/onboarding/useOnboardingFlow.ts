@@ -1,5 +1,5 @@
 import * as api from "@client/api";
-import { fileToDataUrl } from "@client/components/design-resume/utils";
+import { fileToDataUrl } from "@client/lib/file-upload-payload";
 import { useDemoInfo } from "@client/hooks/useDemoInfo";
 import { useSettings } from "@client/hooks/useSettings";
 import { queryKeys } from "@client/lib/queryKeys";

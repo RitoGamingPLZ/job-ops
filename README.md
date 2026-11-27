@@ -29,7 +29,7 @@ Your ironman suit for job hunting. You still apply to every job yourself. JobOps
 
 ## What is JobOps?
 
-JobOps searches LinkedIn, Indeed and other job boards from one screen, rewrites your CV for each role, scores your fit, checks visa sponsorship status, and tracks every application in one place.
+JobOps searches LinkedIn, Indeed and other job boards from one screen, rewrites your CV for each role, scores your fit, and tracks every application in one place.
 
 It does not auto-apply. Recruiters can tell when applications are automated and it gets you blacklisted. JobOps gives you the speed without sacrificing quality.
 

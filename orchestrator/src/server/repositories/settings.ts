@@ -9,10 +9,6 @@ import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-
 
 const { settings } = schema;
 
-function settingsScopeFilter() {
-  return privateDataScopeFilter(settings);
-}
-
 export type SettingKey = Exclude<
   {
     [K in keyof typeof settingsRegistry]: (typeof settingsRegistry)[K]["kind"] extends "virtual"
@@ -26,12 +22,12 @@ export async function getSetting(key: SettingKey): Promise<string | null> {
   const [row] = await db
     .select()
     .from(settings)
-    .where(and(settingsScopeFilter(), eq(settings.key, key)));
+    .where(and(privateDataScopeFilter(settings), eq(settings.key, key)));
   return row?.value ?? null;
 }
 
 export async function getAllSettings(): Promise<Partial<Record<SettingKey, string>>> {
-  const rows = await db.select().from(settings).where(settingsScopeFilter());
+  const rows = await db.select().from(settings).where(privateDataScopeFilter(settings));
   return rows.reduce(
     (acc, row) => {
       acc[row.key as SettingKey] = row.value;
@@ -46,20 +42,20 @@ export async function setSetting(key: SettingKey, value: string | null): Promise
   const scope = getPrivateDataScope();
 
   if (value === null) {
-    await db.delete(settings).where(and(settingsScopeFilter(), eq(settings.key, key)));
+    await db.delete(settings).where(and(privateDataScopeFilter(settings), eq(settings.key, key)));
     return;
   }
 
   const [existing] = await db
     .select({ key: settings.key })
     .from(settings)
-    .where(and(settingsScopeFilter(), eq(settings.key, key)));
+    .where(and(privateDataScopeFilter(settings), eq(settings.key, key)));
 
   if (existing) {
     await db
       .update(settings)
       .set({ value, updatedAt: now })
-      .where(and(settingsScopeFilter(), eq(settings.key, key)));
+      .where(and(privateDataScopeFilter(settings), eq(settings.key, key)));
     return;
   }
 

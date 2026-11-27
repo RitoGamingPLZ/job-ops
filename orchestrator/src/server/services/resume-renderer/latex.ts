@@ -1,13 +1,16 @@
 import { existsSync } from "node:fs";
-import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { copyFile, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "@infra/logger";
 import type { PdfPaperSize } from "@shared/types";
-import { runResumeCompiler } from "./compiler";
-import { getLatexResumeSectionTitles } from "./document";
-import { renderInlineHtml, renderOrderedSections } from "./markup";
+import { runResumeCompiler, withRenderTempDir } from "./compiler";
+import {
+  formatLanguageDetails,
+  renderInlineHtml,
+  renderOrderedSections,
+  resolveSectionTitles,
+} from "./markup";
 import { summarizeResumeDocumentForLog } from "./log";
 import { materializeResumePicture } from "./picture";
 import type {
@@ -250,7 +253,7 @@ function renderProjectEntry(entry: LatexResumeEntry): string {
 
 function renderSummarySection(document: LatexResumeDocument): string {
   if (!document.summary) return "";
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   return [
     `\\section{${escapeForCommand(titles.summary)}}`,
     " \\begin{itemize}[leftmargin=0.15in, label={}]",
@@ -282,7 +285,7 @@ function renderEntrySection(args: {
 
 function renderSkillsSection(document: LatexResumeDocument): string {
   if (document.skillGroups.length === 0) return "";
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   const items = document.skillGroups
     .map((group) => {
       const keywords = group.keywords.map((keyword) => escapeForCommand(keyword));
@@ -314,7 +317,7 @@ function renderLineSection(title: string, lines: string[]): string {
 
 function renderCustomFieldsSection(document: LatexResumeDocument): string {
   if (document.customFieldItems.length === 0) return "";
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   const lines = document.customFieldItems.map((item: LatexResumeCustomFieldItem) => {
     const value = item.url ? renderLink(item.text, item.url) : escapeForCommand(item.text);
     if (!item.title) return value;
@@ -328,15 +331,9 @@ function renderCustomFieldsSection(document: LatexResumeDocument): string {
 
 function renderLanguagesSection(document: LatexResumeDocument): string {
   if (document.languages.length === 0) return "";
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   const lines = document.languages.map((item: LatexResumeLanguageItem) => {
-    const detailParts = [
-      item.fluency ? escapeForCommand(item.fluency) : "",
-      item.level !== null && item.level !== undefined
-        ? `Level ${escapeForCommand(String(item.level))}`
-        : "",
-    ].filter(Boolean);
-    const detail = detailParts.join(" | ");
+    const detail = formatLanguageDetails(item).map(escapeForCommand).join(" | ");
     return detail
       ? `\\textbf{${escapeForCommand(item.language)}}{: ${detail}}`
       : `\\textbf{${escapeForCommand(item.language)}}`;
@@ -346,7 +343,7 @@ function renderLanguagesSection(document: LatexResumeDocument): string {
 
 function renderInterestsSection(document: LatexResumeDocument): string {
   if (document.interests.length === 0) return "";
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   const lines = document.interests.map((item: LatexResumeInterestItem) => {
     const keywords = item.keywords.map((keyword) => escapeForCommand(keyword));
     return keywords.length > 0
@@ -384,7 +381,7 @@ export function buildLatexDocument(
   template: string,
   paperSize: PdfPaperSize = "auto",
 ): string {
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   const headlineBlock = document.headline
     ? `    \\small ${escapeForCommand(document.headline)} \\\\ \\vspace{1pt}\n`
     : "";
@@ -416,12 +413,6 @@ export function buildLatexDocument(
     .replace("__BODY__", body);
 }
 
-function truncateOutput(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed.length <= 1200) return trimmed;
-  return `${trimmed.slice(0, 1200)}…(truncated ${trimmed.length - 1200} chars)`;
-}
-
 async function runTectonic(args: { cwd: string; texPath: string; jobId: string }): Promise<void> {
   const binary = process.env.TECTONIC_BIN?.trim() || "tectonic";
 
@@ -435,46 +426,46 @@ async function runTectonic(args: { cwd: string; texPath: string; jobId: string }
     missingBinaryMessage:
       "Tectonic binary not found. Install tectonic or set TECTONIC_BIN to the executable path.",
     warningMessage: "LaTeX resume compile failed",
-    truncateOutput,
+    ellipsis: "…",
   });
 }
 
 const latexResumeRenderer: ResumeRenderer = {
   async render({ document, outputPath, jobId, resolvedPicture, paperSize = "auto" }) {
-    const tempDir = await mkdtemp(join(tmpdir(), `job-ops-resume-render-${jobId}-`));
-    const texPath = join(tempDir, "resume.tex");
-    const compiledPdfPath = join(tempDir, OUTPUT_FILENAME);
+    await withRenderTempDir(
+      { renderer: "LaTeX", jobId, prefix: `job-ops-resume-render-${jobId}-` },
+      async (tempDir) => {
+        const texPath = join(tempDir, "resume.tex");
+        const compiledPdfPath = join(tempDir, OUTPUT_FILENAME);
 
-    try {
-      const template = await loadTemplate();
-      const renderableDocument = await materializeResumePicture(document, tempDir, resolvedPicture);
-      const latex = buildLatexDocument(renderableDocument, template, paperSize);
+        try {
+          const template = await loadTemplate();
+          const renderableDocument = await materializeResumePicture(
+            document,
+            tempDir,
+            resolvedPicture,
+          );
+          const latex = buildLatexDocument(renderableDocument, template, paperSize);
 
-      await writeFile(texPath, latex, "utf8");
-      await runTectonic({ cwd: tempDir, texPath, jobId });
-      await copyFile(compiledPdfPath, outputPath);
+          await writeFile(texPath, latex, "utf8");
+          await runTectonic({ cwd: tempDir, texPath, jobId });
+          await copyFile(compiledPdfPath, outputPath);
 
-      logger.info("Rendered LaTeX resume PDF", {
-        jobId,
-        outputPath,
-      });
-    } catch (error) {
-      logger.error("Failed to render LaTeX resume PDF", {
-        jobId,
-        outputPath,
-        error,
-        document: summarizeResumeDocumentForLog(document),
-      });
-      throw error;
-    } finally {
-      await rm(tempDir, { recursive: true, force: true }).catch((cleanupError) => {
-        logger.warn("Failed to cleanup temporary LaTeX render directory", {
-          jobId,
-          tempDir,
-          error: cleanupError,
-        });
-      });
-    }
+          logger.info("Rendered LaTeX resume PDF", {
+            jobId,
+            outputPath,
+          });
+        } catch (error) {
+          logger.error("Failed to render LaTeX resume PDF", {
+            jobId,
+            outputPath,
+            error,
+            document: summarizeResumeDocumentForLog(document),
+          });
+          throw error;
+        }
+      },
+    );
   },
 };
 

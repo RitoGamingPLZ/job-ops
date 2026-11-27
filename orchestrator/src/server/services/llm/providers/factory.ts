@@ -6,7 +6,7 @@ import type {
   ProviderStrategy,
   ResponseMode,
 } from "../types";
-import { joinUrl } from "../utils/http";
+import { buildHeaders, joinUrl } from "../utils/http";
 import { getNestedValue } from "../utils/object";
 
 type ProviderStrategyArgs = Omit<ProviderStrategy, "getValidationUrls"> & {
@@ -81,4 +81,42 @@ function toChatCompletionsMessages(messages: LlmMessage[]) {
 export function extractChatCompletionsText(response: unknown): string | null {
   const content = getNestedValue(response, ["choices", 0, "message", "content"]);
   return typeof content === "string" ? content : null;
+}
+
+export function createCliStrategy(
+  provider: ProviderStrategy["provider"],
+  label: string,
+): ProviderStrategy {
+  return createProviderStrategy({
+    provider,
+    defaultBaseUrl: "",
+    requiresApiKey: false,
+    modes: ["none"],
+    validationPaths: [],
+    buildRequest: () => {
+      throw new Error(`${label} provider does not use HTTP requests.`);
+    },
+    extractText: () => null,
+  });
+}
+
+export function createChatCompletionsStrategy(args: {
+  provider: ProviderStrategy["provider"];
+  defaultBaseUrl: string;
+  requestPath?: string;
+  modelsPath?: string;
+}): ProviderStrategy {
+  return createProviderStrategy({
+    provider: args.provider,
+    defaultBaseUrl: args.defaultBaseUrl,
+    requiresApiKey: true,
+    modes: ["json_schema", "json_object", "text", "none"],
+    validationPaths: [args.modelsPath ?? "/models"],
+    buildRequest: ({ mode, baseUrl, apiKey, model, messages, jsonSchema }) => ({
+      url: joinUrl(baseUrl, args.requestPath ?? "/chat/completions"),
+      headers: buildHeaders({ apiKey, provider: args.provider }),
+      body: buildChatCompletionsBody({ mode, model, messages, jsonSchema }),
+    }),
+    extractText: extractChatCompletionsText,
+  });
 }

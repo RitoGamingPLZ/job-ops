@@ -49,10 +49,16 @@ services:
         - path: ./career-boards/bamboohr/src
           target: /app/career-boards/bamboohr/src
           action: sync+restart
+        - path: ./career-boards/greenhouse/src
+          target: /app/career-boards/greenhouse/src
+          action: sync+restart
         - path: ./career-boards/workday/src
           target: /app/career-boards/workday/src
           action: sync+restart
         # Sync extractor changes
+        - path: ./extractors/adzuna/src
+          target: /app/extractors/adzuna/src
+          action: sync+restart
         - path: ./extractors/hiringcafe/src
           target: /app/extractors/hiringcafe/src
           action: sync+restart

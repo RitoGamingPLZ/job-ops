@@ -10,12 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { FilterTab } from "./constants";
-import {
-  appliedDuplicateIndicator,
-  defaultStatusToken,
-  emptyStateCopy,
-  statusTokens,
-} from "./constants";
+import { appliedDuplicateIndicator, getStatusToken, emptyStateCopy } from "./constants";
 import { JobRowContent } from "./JobRowContent";
 
 interface EmptyStateAction {
@@ -156,7 +151,7 @@ export const JobListPanel = forwardRef<VirtualListHandle, JobListPanelProps>(
 
               const isSelected = job.id === selectedJobId;
               const isChecked = selectedJobIds.has(job.id);
-              const statusToken = statusTokens[job.status] ?? defaultStatusToken;
+              const statusToken = getStatusToken(job.status);
               const statusDotClassName = job.appliedDuplicateMatch
                 ? appliedDuplicateIndicator.dot
                 : statusToken.dot;

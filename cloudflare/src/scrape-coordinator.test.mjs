@@ -19,6 +19,7 @@ function loadModule(path, imports = {}) {
     URL,
     Request,
     Response,
+    Headers,
     AbortSignal,
     TextEncoder,
     console,
@@ -130,11 +131,6 @@ for (const runtime of ["worker", "container", "browser"]) {
     const coordinator = makeCoordinator({
       SCRAPER_CONTAINER: namespace(calls),
       SCRAPER_POOL_SIZE: "2",
-      BROWSER: {
-        fetch() {
-          assert.fail("Browser Rendering has no extraction contract");
-        },
-      },
     });
     for (let i = 0; i < 3; i++) {
       await coordinator.dispatchTask(task(runtime));
@@ -344,4 +340,24 @@ test("ScraperContainer logs how long a PDF request waited for the container and 
   assert.equal(timings[0].status, 200);
   assert.equal(typeof timings[0].readyMs, "number");
   assert.equal(typeof timings[0].forwardMs, "number");
+});
+
+test("jsonError honors request IDs and preserves response headers", async () => {
+  const { jsonError } = loadModule("./utils.ts");
+  const request = new Request("https://example.com/api/jobs", {
+    headers: { "x-request-id": "worker-request" },
+  });
+  const response = jsonError(request, "SERVICE_UNAVAILABLE", "Maintenance", {
+    status: 503,
+    headers: { "retry-after": "30" },
+  });
+
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("x-request-id"), "worker-request");
+  assert.equal(response.headers.get("retry-after"), "30");
+  assert.deepEqual(await response.json(), {
+    ok: false,
+    error: { code: "SERVICE_UNAVAILABLE", message: "Maintenance" },
+    meta: { requestId: "worker-request" },
+  });
 });

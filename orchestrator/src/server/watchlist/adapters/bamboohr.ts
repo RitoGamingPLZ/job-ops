@@ -1,3 +1,4 @@
+import { shouldHydrateSourceLabel } from "./branding";
 import {
   bamboohrUrlToCompanyLabel,
   bamboohrUrlToSourceKey,
@@ -207,10 +208,7 @@ function getHydratedBamboohrLabel(source: {
   label: string;
   careersUrl: string;
 }): string {
-  if (
-    source.sourceType === "bamboohr" &&
-    (!source.label.trim() || source.label.trim() === source.careersUrl.trim())
-  ) {
+  if (shouldHydrateSourceLabel(source, "bamboohr")) {
     return bamboohrUrlToCompanyLabel(source.careersUrl);
   }
 

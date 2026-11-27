@@ -6,10 +6,6 @@ import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-
 
 const { jobDocuments } = schema;
 
-function documentsScopeFilter() {
-  return privateDataScopeFilter(jobDocuments);
-}
-
 type CreateJobDocumentInput = {
   jobId: string;
   fileName: string;
@@ -39,7 +35,7 @@ export async function listJobDocuments(jobId: string): Promise<JobDocument[]> {
   const rows = await db
     .select()
     .from(jobDocuments)
-    .where(and(documentsScopeFilter(), eq(jobDocuments.jobId, jobId)))
+    .where(and(privateDataScopeFilter(jobDocuments), eq(jobDocuments.jobId, jobId)))
     .orderBy(desc(jobDocuments.createdAt), desc(jobDocuments.id));
 
   return rows
@@ -81,7 +77,11 @@ export async function getJobDocumentForJob(
     .select()
     .from(jobDocuments)
     .where(
-      and(documentsScopeFilter(), eq(jobDocuments.jobId, jobId), eq(jobDocuments.id, documentId)),
+      and(
+        privateDataScopeFilter(jobDocuments),
+        eq(jobDocuments.jobId, jobId),
+        eq(jobDocuments.id, documentId),
+      ),
     );
 
   return row ? mapRowToJobDocument(row) : null;
@@ -98,7 +98,7 @@ export async function listJobDocumentsByIds(
     .from(jobDocuments)
     .where(
       and(
-        documentsScopeFilter(),
+        privateDataScopeFilter(jobDocuments),
         eq(jobDocuments.jobId, jobId),
         inArray(jobDocuments.id, [...documentIds]),
       ),
@@ -117,7 +117,11 @@ export async function deleteJobDocumentForJob(
   await db
     .delete(jobDocuments)
     .where(
-      and(documentsScopeFilter(), eq(jobDocuments.jobId, jobId), eq(jobDocuments.id, documentId)),
+      and(
+        privateDataScopeFilter(jobDocuments),
+        eq(jobDocuments.jobId, jobId),
+        eq(jobDocuments.id, documentId),
+      ),
     );
 
   return document;

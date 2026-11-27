@@ -1,11 +1,9 @@
+import { useSqliteTestDb } from "../testing/sqlite-test-db";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("post-application message upsert transition semantics", () => {
-  let tempDir: string;
+  const database = useSqliteTestDb();
   let upsertPostApplicationMessage: typeof import("./post-application-messages").upsertPostApplicationMessage;
 
   async function upsertMessage(args: {
@@ -40,19 +38,12 @@ describe("post-application message upsert transition semantics", () => {
   }
 
   beforeEach(async () => {
-    vi.resetModules();
-    tempDir = await mkdtemp(join(tmpdir(), "job-ops-post-app-msgs-"));
-    process.env.DATA_DIR = tempDir;
-    process.env.NODE_ENV = "test";
-
-    await import("../db/migrate");
+    await database.open();
     ({ upsertPostApplicationMessage } = await import("./post-application-messages"));
   });
 
   afterEach(async () => {
-    const { closeDb } = await import("../db/index");
-    closeDb();
-    await rm(tempDir, { recursive: true, force: true });
+    await database.close();
     vi.clearAllMocks();
   });
 

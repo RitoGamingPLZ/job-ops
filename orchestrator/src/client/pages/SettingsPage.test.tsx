@@ -77,7 +77,7 @@ vi.mock("../api", () => ({
   }),
   listWorkspaceUsers: vi.fn().mockResolvedValue([]),
   createWorkspaceUser: vi.fn(),
-  updateWorkspaceUserPermissions: vi.fn(),
+  setWorkspaceUserPermissions: vi.fn(),
   setWorkspaceUserDisabled: vi.fn(),
   resetWorkspaceUserPassword: vi.fn(),
   listUserInvitations: vi.fn().mockResolvedValue([]),

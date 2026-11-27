@@ -1,21 +1,10 @@
+import { emitProgress, parsePositiveInt } from "job-ops-shared/extractor-cli";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { parseSearchTerms } from "job-ops-shared/utils/search-terms";
 import { runAdzuna } from "./run";
 
-const JOBOPS_PROGRESS_PREFIX = "JOBOPS_PROGRESS ";
 const DEFAULT_SEARCH_TERM = "web developer";
-
-function parsePositiveInt(input: string | undefined, fallback: number): number {
-  const parsed = input ? Number.parseInt(input, 10) : Number.NaN;
-  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
-  return parsed;
-}
-
-function emitProgress(payload: Record<string, unknown>): void {
-  if (process.env.JOBOPS_EMIT_PROGRESS !== "1") return;
-  console.log(`${JOBOPS_PROGRESS_PREFIX}${JSON.stringify(payload)}`);
-}
 
 async function run(): Promise<void> {
   const country = (process.env.ADZUNA_COUNTRY || "gb").trim().toLowerCase();

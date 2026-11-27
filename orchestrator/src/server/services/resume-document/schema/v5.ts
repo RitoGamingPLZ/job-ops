@@ -1,7 +1,7 @@
 import { asRecord } from "@shared/utils/type-conversion";
 import { z } from "zod";
 
-const templateNames = [
+export const templateNames = [
   "azurill",
   "bronzor",
   "chikorita",

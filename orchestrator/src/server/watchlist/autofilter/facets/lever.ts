@@ -1,3 +1,4 @@
+import { rankFacetValues } from "./shared";
 import { badRequest, upstreamError } from "@infra/errors";
 import { z } from "zod";
 import type { FacetDiscovery } from "../types";
@@ -68,10 +69,7 @@ export const discoverLeverFacets: FacetDiscovery = async ({ careersUrl, signal }
         return {
           key,
           multi: true,
-          values: [...counts]
-            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-            .slice(0, 60)
-            .map(([value, count]) => ({ value, count })),
+          values: rankFacetValues(counts),
         };
       })
       .filter((param) => param.values.length > 0),

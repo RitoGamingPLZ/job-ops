@@ -1,3 +1,5 @@
+import { parseWatchlistUrl, hasPlainHttpsAuthority } from "./url";
+import { isWorkerdRuntime } from "../runtime";
 import { createHash } from "node:crypto";
 import { badRequest, serviceUnavailable, upstreamError } from "@infra/errors";
 import { logger } from "@infra/logger";
@@ -41,17 +43,13 @@ const FAILED_LEARN_COOLDOWN_MS = 30 * 60_000;
 const cache = new Map<string, { expires: number; jobs: Map<string, CrawledJob> }>();
 
 function careersUrl(value: string): URL {
-  let url: URL;
-  try {
-    url = new URL(value.trim());
-  } catch {
-    throw badRequest("Use an HTTPS careers URL without credentials or a port.");
-  }
-  const authority = value.trim().match(/^https:\/\/([^/?#]+)/i)?.[1];
-  if (url.protocol !== "https:" || !authority || authority.includes("@") || authority.includes(":"))
+  const url = parseWatchlistUrl(value, "Use an HTTPS careers URL without credentials or a port.");
+  if (url.protocol !== "https:" || !hasPlainHttpsAuthority(value))
     throw badRequest("Use an HTTPS careers URL without credentials or a port.");
   url.hash = "";
-  for (const name of [...url.searchParams.keys()]) {
+  // Snapshot keys before deleting parameters from the live search params.
+  const parameterNames = Array.from(url.searchParams.keys());
+  for (const name of parameterNames) {
     if (/^(?:utm_.*|gclid|dclid|fbclid|msclkid|gbraid|wbraid|mc_cid|mc_eid|_ga|_gl)$/i.test(name))
       url.searchParams.delete(name);
   }
@@ -88,9 +86,6 @@ function blocked(host: string) {
   );
 }
 /** The Cloudflare Durable Object bundle stubs out Playwright and jsdom, which this adapter needs. */
-function isWorkerdRuntime(): boolean {
-  return typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
-}
 let greenhouseBoards: Map<string, string> | undefined;
 /**
  * Without a browser, serve a careers site from the company's Greenhouse board when the

@@ -1,3 +1,4 @@
+import { parseJsonWithSchema } from "@server/utils/json";
 import { randomUUID } from "node:crypto";
 import {
   type Recipe,
@@ -19,15 +20,7 @@ export async function getSiteRecipe(host: string): Promise<SiteRecipeRecord | nu
     .get();
   if (!row) return null;
 
-  let recipe: Recipe | null = null;
-  if (row.recipe !== null) {
-    try {
-      const parsed = recipeSchema.safeParse(JSON.parse(row.recipe));
-      if (parsed.success) recipe = parsed.data;
-    } catch {
-      // Corrupt stored JSON is treated as an absent recipe, preserving host state.
-    }
-  }
+  const recipe = parseJsonWithSchema(row.recipe, recipeSchema);
 
   return {
     host: row.host,

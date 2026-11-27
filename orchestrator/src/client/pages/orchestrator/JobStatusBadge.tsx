@@ -1,6 +1,6 @@
 import type { JobStatus } from "@shared/types.js";
 import { cn } from "@/lib/utils";
-import { defaultStatusToken, statusTokens } from "./constants";
+import { getStatusToken } from "./constants";
 
 interface JobStatusBadgeProps {
   status: JobStatus;
@@ -9,7 +9,7 @@ interface JobStatusBadgeProps {
 }
 
 export const JobStatusBadge = ({ status, label, className }: JobStatusBadgeProps) => {
-  const statusToken = statusTokens[status] ?? defaultStatusToken;
+  const statusToken = getStatusToken(status);
   return (
     <span
       className={cn(

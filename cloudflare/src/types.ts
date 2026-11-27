@@ -8,7 +8,6 @@ export interface Env {
   DATA_BUCKET?: R2Bucket;
   BACKUP_BUCKET?: R2Bucket;
   ASSETS?: Fetcher;
-  BROWSER?: Fetcher;
   INTERNAL_SYNC_SECRET?: string;
 
   // Maintenance & scraper pool configuration

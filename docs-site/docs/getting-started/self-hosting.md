@@ -57,8 +57,6 @@ services:
         - path: ./orchestrator/src
           target: /app/orchestrator/src
           action: sync+restart
-        - path: ./visa-sponsor-providers
-          target: /app/visa-sponsor-providers
           action: sync+restart
         - path: ./career-boards/bamboohr/src
           target: /app/career-boards/bamboohr/src
@@ -127,7 +125,7 @@ Open:
 The onboarding flow saves three durable setup decisions:
 
 1. **Workspace account**: On brand-new installs, create the first username/password account directly in onboarding. This first account becomes the system admin and owns the initial private workspace.
-2. **Search preferences**: Select a required country, optionally enter preferred cities, and choose workplace styles. Remote, hybrid, and onsite are selected by default, and visa sponsorship is enabled by default. JobOps applies these values as defaults for future runs and sponsor-aware features.
+2. **Search preferences**: Select a required country, optionally enter preferred cities, and choose workplace styles. Remote, hybrid, and onsite are selected by default. JobOps uses these values as defaults for future runs.
 3. **LLM provider**: Choose OpenRouter by default, or connect another supported hosted or local provider such as Atlas Cloud or a LiteLLM proxy. The step completes only after the server verifies and persists the connection.
 4. **Resume review**: Upload a PDF, DOCX, or resume JSON file. JobOps shows the parsed resume and requires confirmation of the current document before setup completes.
 

@@ -1,3 +1,4 @@
+import { parseJsonSafely } from "@server/utils/json";
 import { randomUUID } from "node:crypto";
 import { hashPassword } from "@server/auth/password";
 import { DEFAULT_TENANT_ID, DEFAULT_TENANT_NAME } from "@server/tenancy/constants";
@@ -56,18 +57,9 @@ function slugify(value: string): string {
   );
 }
 
-function parseStoredPermissions(raw: string | null): unknown {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
 function effectivePermissions(isSystemAdmin: boolean, raw: string | null): UserPermissions {
   if (isSystemAdmin) return { ...ALL_USER_PERMISSIONS_GRANTED };
-  return resolveUserPermissions(parseStoredPermissions(raw));
+  return resolveUserPermissions(parseJsonSafely<unknown>(raw, null));
 }
 
 function mapUser(row: {
@@ -589,7 +581,7 @@ export async function setUserPermissions(
   if (!existing) return null;
 
   const merged = {
-    ...resolveUserPermissions(parseStoredPermissions(existing.permissions)),
+    ...resolveUserPermissions(parseJsonSafely<unknown>(existing.permissions, null)),
     ...permissions,
   };
   await db

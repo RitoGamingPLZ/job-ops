@@ -1,3 +1,4 @@
+import { downloadBlob } from "@client/lib/download-blob";
 import * as api from "@client/api";
 import { PageHeader } from "@client/components/layout";
 import {
@@ -813,14 +814,7 @@ export const SettingsPage: React.FC = () => {
     setDownloadingBackupFilename(filename);
     try {
       const blob = await api.downloadBackup(filename);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadBlob(blob, filename, 1000);
     } catch (error) {
       showErrorToast(error, "Failed to download backup");
     } finally {

@@ -1,4 +1,5 @@
-import { setTimeout as delay } from "node:timers/promises";
+import { parseWatchlistUrl, hasPlainHttpsAuthority } from "./url";
+import { fetchWithThrottleRetry, watchlistRequestSignal } from "./http";
 import { badRequest, upstreamError } from "@infra/errors";
 import { convert } from "html-to-text";
 import { z } from "zod";
@@ -38,22 +39,9 @@ function hasDescription(job: Job): boolean {
 }
 
 function trustedUrl(value: string): URL {
-  let url: URL;
-  try {
-    url = new URL(value.trim());
-  } catch {
-    throw badRequest("Invalid Google careers URL.");
-  }
+  const url = parseWatchlistUrl(value, "Invalid Google careers URL.");
   // URL normalizes :443 away, so also reject explicit ports in the authority.
-  const authority = value.trim().match(/^https:\/\/([^/?#]+)/i)?.[1];
-  if (
-    url.origin !== ORIGIN ||
-    url.username ||
-    url.password ||
-    !authority ||
-    authority.includes(":") ||
-    authority.includes("@")
-  ) {
+  if (url.origin !== ORIGIN || url.username || url.password || !hasPlainHttpsAuthority(value)) {
     throw badRequest("Use an HTTPS careers URL on www.google.com without userinfo or a port.");
   }
   return url;
@@ -82,23 +70,10 @@ function requestedId(value: string): string {
   return match[1];
 }
 
-function callSignal(signal?: AbortSignal): AbortSignal {
-  const timeout = AbortSignal.timeout(25_000);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
-}
-
 async function pageHtml(url: URL, signal: AbortSignal): Promise<string> {
-  for (let attempt = 0; attempt <= 3; attempt += 1) {
-    const response = await fetch(url.toString(), { signal, redirect: "manual" });
-    if (response.status === 429 && attempt < 3) {
-      await response.body?.cancel();
-      await delay(250 * 2 ** attempt, undefined, { signal });
-      continue;
-    }
-    if (!response.ok) throw upstreamError(`Google careers returned HTTP ${response.status}.`);
-    return response.text();
-  }
-  throw upstreamError("Google careers retry limit exceeded.");
+  const response = await fetchWithThrottleRetry(url.toString(), { signal, redirect: "manual" });
+  if (!response.ok) throw upstreamError(`Google careers returned HTTP ${response.status}.`);
+  return response.text();
 }
 
 function structureError(key: string): Error {
@@ -161,7 +136,7 @@ async function details(jobRef: string, signal?: AbortSignal) {
   signal?.throwIfAborted();
   let job = listedJobs.get(id);
   if (!job || !hasDescription(job)) {
-    const html = await pageHtml(new URL(`${PATH}${id}`, ORIGIN), callSignal(signal));
+    const html = await pageHtml(new URL(`${PATH}${id}`, ORIGIN), watchlistRequestSignal(signal));
     // Only the observed primary-job envelope is supported; ds:1 is related jobs.
     const data = callbackData(html, "ds:0");
     const parsed = jobSchema.safeParse(Array.isArray(data) ? data[0] : null);
@@ -233,7 +208,7 @@ export const googleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async fetchJobs(input) {
     listedJobs = new Map();
     const url = searchUrl(input.source.careersUrl);
-    const signal = callSignal(input.signal);
+    const signal = watchlistRequestSignal(input.signal);
     const collected = new Map<string, Job>();
     let total = 0;
     // ponytail/decision: Google robots.txt disallows ?page= on results; overridden by the owner for low-volume personal use (<=3 requests per run). Remove paging to restore compliance.

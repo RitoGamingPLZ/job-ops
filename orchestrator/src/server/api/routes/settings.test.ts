@@ -20,25 +20,7 @@ import {
   getDefaultPromptTemplate,
   LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
 } from "@shared/prompt-template-definitions.js";
-import { startServer, stopServer } from "./test-utils";
-
-const AUTH_ENV = {
-  BASIC_AUTH_USER: "admin",
-  BASIC_AUTH_PASSWORD: "secret",
-  JWT_SECRET: "an-explicit-jwt-secret-with-at-least-32-chars",
-  JOBOPS_TEST_AUTH_BYPASS: "0",
-};
-
-async function login(baseUrl: string, username: string, password: string) {
-  const res = await fetch(`${baseUrl}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-  const body = await res.json();
-  expect(res.status).toBe(200);
-  return body.data.token as string;
-}
+import { AUTH_ENV, login, startServer, stopServer } from "./test-utils";
 
 describe("Settings API routes", () => {
   let server: Server;

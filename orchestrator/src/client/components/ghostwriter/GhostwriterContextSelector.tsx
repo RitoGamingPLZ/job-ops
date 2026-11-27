@@ -1,3 +1,4 @@
+import { getEmailSenderLabel } from "@client/lib/email-display";
 import {
   GHOSTWRITER_DOCUMENT_CONTEXT_MAX_DOCUMENT_CHARS,
   GHOSTWRITER_DOCUMENT_CONTEXT_MAX_SELECTED,
@@ -113,18 +114,11 @@ function estimateSelectedContextTokens<TItem>(input: {
   };
 }
 
-function getSenderLabel(email: PostApplicationJobEmailItem): string {
-  const senderName = email.message.senderName?.trim();
-  if (senderName) return senderName;
-  const address = email.message.fromAddress.trim();
-  return address || "Unknown sender";
-}
-
 function getEmailMeta(email: PostApplicationJobEmailItem): string {
   const receivedAt = email.message.receivedAt
     ? formatDateTime(new Date(email.message.receivedAt).toISOString())
     : null;
-  return `${getSenderLabel(email)}${receivedAt ? ` - ${receivedAt}` : ""}`;
+  return `${getEmailSenderLabel(email.message.senderName, email.message.fromAddress)}${receivedAt ? ` - ${receivedAt}` : ""}`;
 }
 
 function canUseDocumentForGhostwriter(document: JobDocument): boolean {

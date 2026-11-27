@@ -9,10 +9,10 @@ export function parseJsonSafely<T>(raw: string | null | undefined, fallback: T):
   }
 }
 
-export function parseJsonWithSchema<T>(
+export function parseJsonWithSchema<TSchema extends z.ZodTypeAny>(
   raw: string | null | undefined,
-  schema: z.ZodType<T>,
-): T | null {
+  schema: TSchema,
+): z.output<TSchema> | null {
   if (!raw) return null;
   try {
     const parsed = schema.safeParse(JSON.parse(raw));

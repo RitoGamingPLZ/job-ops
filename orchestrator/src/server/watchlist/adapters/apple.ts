@@ -1,4 +1,5 @@
-import { setTimeout as delay } from "node:timers/promises";
+import { parseWatchlistUrl } from "./url";
+import { fetchWithThrottleRetry, watchlistRequestSignal } from "./http";
 import { badRequest, upstreamError } from "@infra/errors";
 import { escapeHtmlText } from "@infra/html";
 import { convert } from "html-to-text";
@@ -52,12 +53,7 @@ function searchUrl(value: string): URL {
 }
 
 function trustedUrl(value: string): URL {
-  let url: URL;
-  try {
-    url = new URL(value.trim());
-  } catch {
-    throw badRequest("Invalid Apple careers URL.");
-  }
+  const url = parseWatchlistUrl(value, "Invalid Apple careers URL.");
   if (url.origin !== ORIGIN || url.username || url.password) {
     throw badRequest("Use an HTTPS careers URL on jobs.apple.com.");
   }
@@ -74,42 +70,29 @@ function detailUrl(value: string): URL {
   return url;
 }
 
-function callSignal(signal?: AbortSignal): AbortSignal {
-  const timeout = AbortSignal.timeout(25_000);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
-}
-
 async function hydration(url: URL, signal: AbortSignal) {
-  for (let attempt = 0; attempt <= 3; attempt += 1) {
-    const response = await fetch(url.toString(), { signal, redirect: "manual" });
-    if (response.status === 429 && attempt < 3) {
-      await response.body?.cancel();
-      await delay(250 * 2 ** attempt, undefined, { signal });
-      continue;
-    }
-    if (!response.ok) {
-      throw upstreamError(`Apple careers returned HTTP ${response.status}.`);
-    }
-    const html = await response.text();
-    // Capture a JSON string literal, never execute Apple's JavaScript.
-    const match = html.match(
-      /window\.__staticRouterHydrationData\s*=\s*JSON\.parse\(\s*("(?:\\[\s\S]|[^"\\])*")\s*\)/,
-    );
-    if (!match) {
-      throw upstreamError(
-        "Apple careers hydration data is missing; the page structure may have changed.",
-      );
-    }
-    try {
-      const data = JSON.parse(JSON.parse(match[1]));
-      return z.object({ loaderData: z.record(z.unknown()) }).parse(data).loaderData;
-    } catch {
-      throw upstreamError(
-        "Apple careers hydration data is invalid; the page structure may have changed.",
-      );
-    }
+  const response = await fetchWithThrottleRetry(url.toString(), { signal, redirect: "manual" });
+  if (!response.ok) {
+    throw upstreamError(`Apple careers returned HTTP ${response.status}.`);
   }
-  throw upstreamError("Apple careers retry limit exceeded.");
+  const html = await response.text();
+  // Capture a JSON string literal, never execute Apple's JavaScript.
+  const match = html.match(
+    /window\.__staticRouterHydrationData\s*=\s*JSON\.parse\(\s*("(?:\\[\s\S]|[^"\\])*")\s*\)/,
+  );
+  if (!match) {
+    throw upstreamError(
+      "Apple careers hydration data is missing; the page structure may have changed.",
+    );
+  }
+  try {
+    const data = JSON.parse(JSON.parse(match[1]));
+    return z.object({ loaderData: z.record(z.unknown()) }).parse(data).loaderData;
+  } catch {
+    throw upstreamError(
+      "Apple careers hydration data is invalid; the page structure may have changed.",
+    );
+  }
 }
 
 function jobUrl(job: z.infer<typeof jobSchema>): string {
@@ -128,7 +111,7 @@ function locationText(locations: z.infer<typeof locationSchema>[]): string | nul
 
 async function details(jobRef: string, signal?: AbortSignal) {
   const url = detailUrl(jobRef);
-  const data = await hydration(url, callSignal(signal));
+  const data = await hydration(url, watchlistRequestSignal(signal));
   const parsed = z.object({ jobsData: detailSchema }).safeParse(data.jobDetails);
   if (!parsed.success) {
     throw upstreamError(
@@ -209,7 +192,10 @@ export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async fetchJobs(input) {
     const url = searchUrl(input.source.careersUrl);
     const stopAt = Date.now() + 20_000;
-    const signal = AbortSignal.any([callSignal(input.signal), AbortSignal.timeout(20_000)]);
+    const signal = AbortSignal.any([
+      watchlistRequestSignal(input.signal),
+      AbortSignal.timeout(20_000),
+    ]);
     const collected: z.infer<typeof jobSchema>[] = [];
     let total = 0;
     for (let page = 1; page <= Math.ceil(MAX_JOBS / 20) && Date.now() < stopAt; page += 1) {

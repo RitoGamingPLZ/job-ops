@@ -1,4 +1,6 @@
-import { setTimeout as delay } from "node:timers/promises";
+import { escapeHtmlMarkup } from "@infra/html";
+import { parseWatchlistUrl, hasPlainHttpsAuthority } from "./url";
+import { fetchWithThrottleRetry, watchlistRequestSignal } from "./http";
 import { badRequest, upstreamError } from "@infra/errors";
 import { convert } from "html-to-text";
 import { z } from "zod";
@@ -37,14 +39,8 @@ type Job = {
 let listedJobs = new Map<string, Job>();
 
 function trustedUrl(value: string): URL {
-  let url: URL;
-  try {
-    url = new URL(value.trim());
-  } catch {
-    throw badRequest("Invalid Meta careers URL.");
-  }
-  const authority = value.trim().match(/^https:\/\/([^/?#]+)/i)?.[1];
-  if (url.origin !== ORIGIN || !authority || authority.includes(":") || authority.includes("@"))
+  const url = parseWatchlistUrl(value, "Invalid Meta careers URL.");
+  if (url.origin !== ORIGIN || !hasPlainHttpsAuthority(value))
     throw badRequest("Use an HTTPS URL on www.metacareers.com without a port or userinfo.");
   return url;
 }
@@ -68,30 +64,21 @@ function structureError(part: string): Error {
 }
 async function pageHtml(url: string, signal: AbortSignal): Promise<string> {
   trustedUrl(url);
-  for (let attempt = 0; attempt <= 3; attempt += 1) {
-    signal.throwIfAborted();
-    // metacareers.com redirects requests without a User-Agent to /unsupportedbrowser, and
-    // workerd's fetch does not guarantee one, so always identify ourselves.
-    const response = await fetch(url, {
-      signal,
-      redirect: "manual",
-      headers: { "user-agent": USER_AGENT, accept: "text/html,application/xml;q=0.9,*/*;q=0.8" },
-    });
-    if (response.status === 429 && attempt < 3) {
-      await response.body?.cancel();
-      await delay(250 * 2 ** attempt, undefined, { signal });
-      continue;
-    }
-    if (!response.ok) {
-      const location = response.headers.get("location");
-      await response.body?.cancel();
-      throw upstreamError(
-        `Meta careers returned HTTP ${response.status}${location ? ` (redirect to ${new URL(location, ORIGIN).pathname})` : ""}.`,
-      );
-    }
-    return response.text();
+  // metacareers.com redirects requests without a User-Agent to /unsupportedbrowser, and
+  // workerd's fetch does not guarantee one, so always identify ourselves.
+  const response = await fetchWithThrottleRetry(url, {
+    signal,
+    redirect: "manual",
+    headers: { "user-agent": USER_AGENT, accept: "text/html,application/xml;q=0.9,*/*;q=0.8" },
+  });
+  if (!response.ok) {
+    const location = response.headers.get("location");
+    await response.body?.cancel();
+    throw upstreamError(
+      `Meta careers returned HTTP ${response.status}${location ? ` (redirect to ${new URL(location, ORIGIN).pathname})` : ""}.`,
+    );
   }
-  throw upstreamError("Meta careers retry limit exceeded.");
+  return response.text();
 }
 function parseSitemap(xml: string) {
   if (!/<urlset\b/.test(xml) || !/<\/urlset\s*>/.test(xml)) throw structureError("sitemap");
@@ -132,7 +119,7 @@ function parseDetail(html: string, id: string): Job {
         : [];
     const team = posting.department || posting.occupationalCategory;
     const descriptionHtml = [
-      team ? `<h3>Team</h3><p>${escapeHtml(team)}</p>` : "",
+      team ? `<h3>Team</h3><p>${escapeHtmlMarkup(team)}</p>` : "",
       posting.description,
       posting.responsibilities ? `<h3>Responsibilities</h3>${posting.responsibilities}` : "",
       posting.qualifications ? `<h3>Qualifications</h3>${posting.qualifications}` : "",
@@ -153,19 +140,12 @@ function parseDetail(html: string, id: string): Job {
   }
   throw structureError("JobPosting detail");
 }
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-function operationSignal(signal?: AbortSignal): AbortSignal {
-  const timeout = AbortSignal.timeout(24_000);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
-}
 async function details(jobRef: string, signal?: AbortSignal): Promise<Job> {
   const id = requestedId(jobRef);
   signal?.throwIfAborted();
   const cached = listedJobs.get(id);
   if (cached) return cached;
-  const job = parseDetail(await pageHtml(jobUrl(id), operationSignal(signal)), id);
+  const job = parseDetail(await pageHtml(jobUrl(id), watchlistRequestSignal(signal, 24_000)), id);
   if (listedJobs.size >= LIMIT) {
     const oldest = listedJobs.keys().next().value;
     if (oldest) listedJobs.delete(oldest);
@@ -229,7 +209,10 @@ export const metaWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     listedJobs = new Map();
     searchUrl(input.source.careersUrl);
     const stopAt = Date.now() + 20_000;
-    const signal = AbortSignal.any([operationSignal(input.signal), AbortSignal.timeout(20_000)]);
+    const signal = AbortSignal.any([
+      watchlistRequestSignal(input.signal, 24_000),
+      AbortSignal.timeout(20_000),
+    ]);
     const entries = parseSitemap(await pageHtml(`${ORIGIN}/jobsearch/sitemap.xml`, signal));
     const selected = entries.slice(0, LIMIT);
     const collected = new Map<string, Job>();

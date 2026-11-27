@@ -40,16 +40,8 @@ import { chunk, inListChunkSize } from "../utils/sql-chunks";
 
 const { jobNotes, jobs } = schema;
 
-function jobsScopeFilter() {
-  return privateDataScopeFilter(jobs);
-}
-
 function untargetedJobsFilter() {
   return or(isNull(jobs.readyAt), notInArray(jobs.status, ["discovered", "processing", "ready"]));
-}
-
-function jobNotesScopeFilter() {
-  return privateDataScopeFilter(jobNotes);
 }
 
 type AppliedDuplicateMatchCandidate = {
@@ -108,9 +100,9 @@ export async function getAllJobs(statuses?: JobStatus[]): Promise<Job[]> {
       ? db
           .select()
           .from(jobs)
-          .where(and(jobsScopeFilter(), inArray(jobs.status, statuses)))
+          .where(and(privateDataScopeFilter(jobs), inArray(jobs.status, statuses)))
           .orderBy(desc(jobs.discoveredAt))
-      : db.select().from(jobs).where(jobsScopeFilter()).orderBy(desc(jobs.discoveredAt));
+      : db.select().from(jobs).where(privateDataScopeFilter(jobs)).orderBy(desc(jobs.discoveredAt));
 
   const rows = await query;
   return rows.map(mapRowToJob);
@@ -165,9 +157,13 @@ export async function getJobListItems(
       ? db
           .select(selection)
           .from(jobs)
-          .where(and(jobsScopeFilter(), inArray(jobs.status, statuses)))
+          .where(and(privateDataScopeFilter(jobs), inArray(jobs.status, statuses)))
           .orderBy(desc(jobs.discoveredAt))
-      : db.select(selection).from(jobs).where(jobsScopeFilter()).orderBy(desc(jobs.discoveredAt));
+      : db
+          .select(selection)
+          .from(jobs)
+          .where(privateDataScopeFilter(jobs))
+          .orderBy(desc(jobs.discoveredAt));
 
   const rows = await query;
   return rows.map((row) => {
@@ -204,7 +200,7 @@ export async function getAppliedDuplicateMatchCandidates(): Promise<
     .where(
       and(
         inArray(jobs.status, ["applied", "in_progress"]),
-        jobsScopeFilter(),
+        privateDataScopeFilter(jobs),
         sql`${jobs.appliedAt} IS NOT NULL`,
       ),
     )
@@ -227,8 +223,8 @@ export async function getJobsRevision(statuses?: JobStatus[]): Promise<JobsRevis
   const statusFilter = normalizeStatusFilter(statuses);
   const whereClause =
     statuses && statuses.length > 0
-      ? and(jobsScopeFilter(), inArray(jobs.status, statuses))
-      : jobsScopeFilter();
+      ? and(privateDataScopeFilter(jobs), inArray(jobs.status, statuses))
+      : privateDataScopeFilter(jobs);
 
   const baseQuery = db
     .select({
@@ -257,7 +253,7 @@ export async function getJobById(id: string): Promise<Job | null> {
   const [row] = await db
     .select()
     .from(jobs)
-    .where(and(jobsScopeFilter(), eq(jobs.id, id)));
+    .where(and(privateDataScopeFilter(jobs), eq(jobs.id, id)));
   return row ? mapRowToJob(row) : null;
 }
 
@@ -265,7 +261,7 @@ export async function listJobNotes(jobId: string): Promise<JobNote[]> {
   const rows = await db
     .select()
     .from(jobNotes)
-    .where(and(jobNotesScopeFilter(), eq(jobNotes.jobId, jobId)))
+    .where(and(privateDataScopeFilter(jobNotes), eq(jobNotes.jobId, jobId)))
     .orderBy(desc(jobNotes.updatedAt), desc(jobNotes.createdAt), desc(jobNotes.id));
 
   return rows.map(mapRowToJobNote);
@@ -285,7 +281,7 @@ export async function listJobNotesByIds(
     .from(jobNotes)
     .where(
       and(
-        jobNotesScopeFilter(),
+        privateDataScopeFilter(jobNotes),
         eq(jobNotes.jobId, jobId),
         inArray(jobNotes.id, normalizedNoteIds),
       ),
@@ -298,7 +294,7 @@ async function getJobNoteById(noteId: string): Promise<JobNote | null> {
   const [row] = await db
     .select()
     .from(jobNotes)
-    .where(and(jobNotesScopeFilter(), eq(jobNotes.id, noteId)));
+    .where(and(privateDataScopeFilter(jobNotes), eq(jobNotes.id, noteId)));
   return row ? mapRowToJobNote(row) : null;
 }
 
@@ -306,7 +302,9 @@ async function getJobNoteForJob(jobId: string, noteId: string): Promise<JobNote 
   const [row] = await db
     .select()
     .from(jobNotes)
-    .where(and(jobNotesScopeFilter(), eq(jobNotes.id, noteId), eq(jobNotes.jobId, jobId)));
+    .where(
+      and(privateDataScopeFilter(jobNotes), eq(jobNotes.id, noteId), eq(jobNotes.jobId, jobId)),
+    );
   return row ? mapRowToJobNote(row) : null;
 }
 
@@ -348,7 +346,11 @@ export async function updateJobNote(
       updatedAt: now,
     })
     .where(
-      and(jobNotesScopeFilter(), eq(jobNotes.id, input.noteId), eq(jobNotes.jobId, input.jobId)),
+      and(
+        privateDataScopeFilter(jobNotes),
+        eq(jobNotes.id, input.noteId),
+        eq(jobNotes.jobId, input.jobId),
+      ),
     );
 
   return getJobNoteForJob(input.jobId, input.noteId);
@@ -358,7 +360,11 @@ export async function deleteJobNote(input: { jobId: string; noteId: string }): P
   const result = await db
     .delete(jobNotes)
     .where(
-      and(jobNotesScopeFilter(), eq(jobNotes.id, input.noteId), eq(jobNotes.jobId, input.jobId)),
+      and(
+        privateDataScopeFilter(jobNotes),
+        eq(jobNotes.id, input.noteId),
+        eq(jobNotes.jobId, input.jobId),
+      ),
     );
 
   return result.changes;
@@ -384,7 +390,7 @@ export async function listJobSummariesByIds(jobIds: string[]): Promise<
           employer: jobs.employer,
         })
         .from(jobs)
-        .where(and(jobsScopeFilter(), inArray(jobs.id, ids)))),
+        .where(and(privateDataScopeFilter(jobs), inArray(jobs.id, ids)))),
     );
   }
   return summaries;
@@ -397,7 +403,7 @@ export async function getJobByUrl(jobUrl: string): Promise<Job | null> {
   const [row] = await db
     .select()
     .from(jobs)
-    .where(and(jobsScopeFilter(), eq(jobs.jobUrl, jobUrl)));
+    .where(and(privateDataScopeFilter(jobs), eq(jobs.jobUrl, jobUrl)));
   return row ? mapRowToJob(row) : null;
 }
 
@@ -411,7 +417,9 @@ export async function getJobBySourceJobId(
   const [row] = await db
     .select()
     .from(jobs)
-    .where(and(jobsScopeFilter(), eq(jobs.source, source), eq(jobs.sourceJobId, sourceJobId)));
+    .where(
+      and(privateDataScopeFilter(jobs), eq(jobs.source, source), eq(jobs.sourceJobId, sourceJobId)),
+    );
   return row ? mapRowToJob(row) : null;
 }
 
@@ -419,7 +427,10 @@ export async function getJobBySourceJobId(
  * Get all known job URLs (for deduplication / crawler optimizations).
  */
 export async function getAllJobUrls(): Promise<string[]> {
-  const rows = await db.select({ jobUrl: jobs.jobUrl }).from(jobs).where(jobsScopeFilter());
+  const rows = await db
+    .select({ jobUrl: jobs.jobUrl })
+    .from(jobs)
+    .where(privateDataScopeFilter(jobs));
   return rows.map((r) => r.jobUrl);
 }
 
@@ -555,7 +566,7 @@ export async function createJobs(
     const existingRows = await db
       .select({ jobUrl: jobs.jobUrl })
       .from(jobs)
-      .where(and(jobsScopeFilter(), inArray(jobs.jobUrl, urls)));
+      .where(and(privateDataScopeFilter(jobs), inArray(jobs.jobUrl, urls)));
     for (const row of existingRows) existingUrlSet.add(row.jobUrl);
   }
 
@@ -628,7 +639,7 @@ export async function updateJob(id: string, input: UpdateJobInput): Promise<Job 
       ...readyAtUpdate,
       ...appliedAtUpdate,
     })
-    .where(and(jobsScopeFilter(), eq(jobs.id, id)));
+    .where(and(privateDataScopeFilter(jobs), eq(jobs.id, id)));
 
   return getJobById(id);
 }
@@ -643,7 +654,7 @@ export async function finalizeGeneratedPdfIfCurrent(input: {
 }): Promise<Job | null> {
   const now = new Date().toISOString();
   const conditions = [
-    jobsScopeFilter(),
+    privateDataScopeFilter(jobs),
     eq(jobs.id, input.id),
     eq(jobs.status, input.expectedStatus),
     eq(jobs.pdfRegenerating, true),
@@ -687,7 +698,7 @@ export async function getJobStats(): Promise<Record<JobStatus, number>> {
       count: sql<number>`count(*)`,
     })
     .from(jobs)
-    .where(jobsScopeFilter())
+    .where(privateDataScopeFilter(jobs))
     .groupBy(jobs.status);
 
   const stats: Record<JobStatus, number> = {
@@ -713,7 +724,7 @@ export async function getReadyJobsWithGeneratedPdfs(limit: number, offset = 0): 
     .from(jobs)
     .where(
       and(
-        jobsScopeFilter(),
+        privateDataScopeFilter(jobs),
         eq(jobs.status, "ready"),
         eq(jobs.pdfSource, "generated"),
         isNotNull(jobs.pdfPath),
@@ -733,7 +744,13 @@ export async function getUnscoredDiscoveredJobs(limit?: number): Promise<Job[]> 
   const query = db
     .select()
     .from(jobs)
-    .where(and(jobsScopeFilter(), eq(jobs.status, "discovered"), isNull(jobs.suitabilityScore)))
+    .where(
+      and(
+        privateDataScopeFilter(jobs),
+        eq(jobs.status, "discovered"),
+        isNull(jobs.suitabilityScore),
+      ),
+    )
     .orderBy(desc(jobs.discoveredAt));
 
   const rows = typeof limit === "number" ? await query.limit(limit) : await query;
@@ -750,7 +767,7 @@ export async function skipJobsByEmployer(
     .set({ status: "skipped", updatedAt: new Date().toISOString() })
     .where(
       and(
-        jobsScopeFilter(),
+        privateDataScopeFilter(jobs),
         sql`lower(${jobs.employer}) = lower(${employer})`,
         inArray(jobs.status, skippableStatuses),
       ),
@@ -768,7 +785,7 @@ export async function deleteJobsByStatus(status: JobStatus): Promise<number> {
     .delete(jobs)
     .where(
       and(
-        jobsScopeFilter(),
+        privateDataScopeFilter(jobs),
         eq(jobs.status, status),
         status === "discovered" ? untargetedJobsFilter() : undefined,
       ),
@@ -804,7 +821,7 @@ export async function setJobTargeted(id: string, targeted: boolean): Promise<Job
     })
     .where(
       and(
-        jobsScopeFilter(),
+        privateDataScopeFilter(jobs),
         eq(jobs.id, id),
         inArray(
           jobs.status,
@@ -831,7 +848,7 @@ export async function deleteJob(id: string): Promise<"deleted" | "not_found" | "
     .delete(jobs)
     .where(
       and(
-        jobsScopeFilter(),
+        privateDataScopeFilter(jobs),
         eq(jobs.id, id),
         ne(jobs.status, "processing"),
         eq(jobs.pdfRegenerating, false),
@@ -853,7 +870,7 @@ export async function deleteJobsBelowScore(threshold: number): Promise<number> {
     .where(
       and(
         lt(jobs.suitabilityScore, threshold),
-        jobsScopeFilter(),
+        privateDataScopeFilter(jobs),
         untargetedJobsFilter(),
         ne(jobs.status, "applied"),
         ne(jobs.status, "in_progress"),

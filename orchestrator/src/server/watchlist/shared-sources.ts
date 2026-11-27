@@ -1,3 +1,4 @@
+import { isWorkerdRuntime } from "./runtime";
 import { workdayUrlToCxsJobsUrl } from "@career-boards/workday";
 import { AppError, unprocessableEntity } from "@infra/errors";
 import { logger } from "@infra/logger";
@@ -25,10 +26,6 @@ import type {
   WatchlistSourceScanInput,
   WatchlistSourceScanResponse,
 } from "@shared/types";
-
-function isWorkerdRuntime(): boolean {
-  return typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
-}
 
 function getSafeCxsJobsUrl(sourceType: WatchedSourceType, careersUrl: string): string | null {
   if (sourceType !== "workday") return null;

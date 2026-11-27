@@ -1,9 +1,7 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useSqliteTestDb } from "../testing/sqlite-test-db";
 import type { Recipe } from "@server/watchlist/careers-site/types";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const recipe: Recipe = {
   version: 1,
@@ -13,26 +11,18 @@ const recipe: Recipe = {
 };
 
 describe("global site recipes repository", () => {
-  let tempDir: string;
+  const database = useSqliteTestDb();
   let db: Awaited<typeof import("../db/index")>["db"];
   let schema: Awaited<typeof import("../db/index")>["schema"];
   let repo: typeof import("./site-recipes");
 
   beforeEach(async () => {
-    vi.resetModules();
-    tempDir = await mkdtemp(join(tmpdir(), "job-ops-site-recipes-"));
-    vi.stubEnv("DATA_DIR", tempDir);
-    vi.stubEnv("NODE_ENV", "test");
-    await import("../db/migrate");
-    ({ db, schema } = await import("../db/index"));
+    ({ db, schema } = await database.open());
     repo = await import("./site-recipes");
   });
 
   afterEach(async () => {
-    const { closeDb } = await import("../db/index");
-    closeDb();
-    await rm(tempDir, { recursive: true, force: true });
-    vi.unstubAllEnvs();
+    await database.close();
   });
 
   it("round-trips a recipe under a normalized host with migration defaults", async () => {

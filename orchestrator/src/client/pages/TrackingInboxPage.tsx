@@ -1,3 +1,4 @@
+import { formatEmailDate } from "@client/lib/email-display";
 import type {
   JobListItem,
   PostApplicationInboxItem,
@@ -52,7 +53,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { trackProductEvent } from "@/lib/analytics";
-import { formatDateTime } from "@/lib/utils";
 import * as api from "../api";
 import { EmptyState, PageHeader, PageMain } from "../components";
 import { EmailViewerList } from "./tracking-inbox/EmailViewerList";
@@ -68,11 +68,6 @@ type GmailOauthResultMessage = {
   code?: string;
   error?: string;
 };
-
-function formatEpochMs(value?: number | null): string {
-  if (!value) return "n/a";
-  return formatDateTime(new Date(value).toISOString()) ?? "n/a";
-}
 
 export const TrackingInboxPage: React.FC = () => {
   const [provider, setProvider] = useState<PostApplicationProvider>("gmail");
@@ -696,7 +691,7 @@ export const TrackingInboxPage: React.FC = () => {
               </span>
               {status?.integration?.lastSyncedAt ? (
                 <span className="text-muted-foreground">
-                  Last synced: {formatEpochMs(status.integration.lastSyncedAt)}
+                  Last synced: {formatEmailDate(status.integration.lastSyncedAt)}
                 </span>
               ) : null}
             </div>
@@ -775,7 +770,7 @@ export const TrackingInboxPage: React.FC = () => {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="text-xs text-muted-foreground">
                         <p>{run.id}</p>
-                        <p>{formatEpochMs(run.startedAt)}</p>
+                        <p>{formatEmailDate(run.startedAt)}</p>
                       </div>
                       <div className="flex items-center gap-2 text-xs">
                         <Badge variant="outline">{run.status}</Badge>

@@ -20,7 +20,7 @@ function resolveChatCompletionsUrl(baseUrlOrEndpoint: string): string {
   return joinUrl(normalized, CHAT_COMPLETIONS_SUFFIX);
 }
 
-function resolveModelsUrl(baseUrlOrEndpoint: string): string {
+export function resolveGlmModelsUrl(baseUrlOrEndpoint: string): string {
   const normalized = normalizeBaseUrlOrEndpoint(baseUrlOrEndpoint);
   if (normalized.endsWith(CHAT_COMPLETIONS_SUFFIX)) {
     return `${normalized.slice(0, -CHAT_COMPLETIONS_SUFFIX.length)}${MODELS_SUFFIX}`;
@@ -34,7 +34,7 @@ export const glmStrategy = createProviderStrategy({
   requiresApiKey: true,
   modes: ["json_object", "text", "none"],
   validationPaths: ["/models"],
-  getValidationUrls: ({ baseUrl }) => [resolveModelsUrl(baseUrl)],
+  getValidationUrls: ({ baseUrl }) => [resolveGlmModelsUrl(baseUrl)],
   buildRequest: ({ mode, baseUrl, apiKey, model, messages, jsonSchema }) => {
     return {
       url: resolveChatCompletionsUrl(baseUrl),

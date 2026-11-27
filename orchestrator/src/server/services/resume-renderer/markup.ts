@@ -1,6 +1,8 @@
+import { getLatexResumeSectionTitles } from "./document";
 import type {
   LatexResumeDocument,
   LatexResumeEntry,
+  LatexResumeLanguageItem,
   LatexResumeOrderedSectionKey,
   LatexResumeSectionTitles,
 } from "./types";
@@ -98,4 +100,12 @@ export function renderInlineHtml(
   }
 
   return result.join("") + format.close.repeat(open);
+}
+
+export function resolveSectionTitles(document: LatexResumeDocument): LatexResumeSectionTitles {
+  return document.sectionTitles ?? getLatexResumeSectionTitles();
+}
+
+export function formatLanguageDetails(item: LatexResumeLanguageItem): string[] {
+  return [item.fluency || "", item.level == null ? "" : `Level ${item.level}`].filter(Boolean);
 }

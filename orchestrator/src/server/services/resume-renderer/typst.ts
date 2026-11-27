@@ -1,15 +1,18 @@
 import { existsSync, readFileSync } from "node:fs";
-import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { copyFile, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "@infra/logger";
 import { NAVY_SERIF_STYLE } from "@shared/resume-style/navy-serif";
 import { type PdfPaperSize, TYPST_THEME_VALUES, type TypstTheme } from "@shared/types";
 import { asRecord } from "@shared/utils/type-conversion";
-import { runResumeCompiler } from "./compiler";
-import { getLatexResumeSectionTitles } from "./document";
-import { renderInlineHtml, renderOrderedSections } from "./markup";
+import { runResumeCompiler, withRenderTempDir } from "./compiler";
+import {
+  formatLanguageDetails,
+  renderInlineHtml,
+  renderOrderedSections,
+  resolveSectionTitles,
+} from "./markup";
 import { summarizeResumeDocumentForLog } from "./log";
 import { materializeResumePicture } from "./picture";
 import type {
@@ -235,7 +238,7 @@ function renderProjectEntry(entry: LatexResumeEntry, metaSize: string): string {
 
 function renderSummarySection(document: LatexResumeDocument): string {
   if (!document.summary) return "";
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   return [`= ${escapeTypstText(titles.summary)}`, escapeTypstText(document.summary)].join("\n\n");
 }
 
@@ -258,7 +261,7 @@ function renderEntrySection(args: {
 
 function renderSkillsSection(document: LatexResumeDocument): string {
   if (document.skillGroups.length === 0) return "";
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   const items = document.skillGroups
     .map((group) => {
       const keywords = group.keywords.map((keyword) => escapeTypstText(keyword));
@@ -275,7 +278,7 @@ function renderLineSection(title: string, lines: string[]): string {
 
 function renderProfilesSection(document: LatexResumeDocument): string {
   if (document.profileItems.length === 0) return "";
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   const lines = document.profileItems.map((item) => {
     const label = escapeTypstText(item.network);
     const value = renderLink(item.label || item.username || item.url || item.network, item.url);
@@ -286,7 +289,7 @@ function renderProfilesSection(document: LatexResumeDocument): string {
 
 function renderCustomFieldsSection(document: LatexResumeDocument): string {
   if (document.customFieldItems.length === 0) return "";
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   const lines = document.customFieldItems.map((item: LatexResumeCustomFieldItem) => {
     const value = item.url ? renderLink(item.text, item.url) : escapeTypstText(item.text);
     if (!item.title) return value;
@@ -300,12 +303,9 @@ function renderCustomFieldsSection(document: LatexResumeDocument): string {
 
 function renderLanguagesSection(document: LatexResumeDocument): string {
   if (document.languages.length === 0) return "";
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   const lines = document.languages.map((item: LatexResumeLanguageItem) => {
-    const detail = [item.fluency, item.level ? `Level ${item.level}` : ""]
-      .filter(Boolean)
-      .map((part) => escapeTypstText(String(part)))
-      .join(" | ");
+    const detail = formatLanguageDetails(item).map(escapeTypstText).join(" | ");
     return detail
       ? `*${escapeTypstText(item.language)}:* ${detail}`
       : `*${escapeTypstText(item.language)}*`;
@@ -315,7 +315,7 @@ function renderLanguagesSection(document: LatexResumeDocument): string {
 
 function renderInterestsSection(document: LatexResumeDocument): string {
   if (document.interests.length === 0) return "";
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   const lines = document.interests.map((item: LatexResumeInterestItem) => {
     const keywords = item.keywords.map((keyword) => escapeTypstText(keyword));
     return keywords.length > 0
@@ -407,7 +407,7 @@ export function buildTypstDocument(
   tokens: TypstThemeTokens,
   paperSize: PdfPaperSize = "auto",
 ): string {
-  const titles = document.sectionTitles ?? getLatexResumeSectionTitles();
+  const titles = resolveSectionTitles(document);
   const pictureBlock = renderPictureBlock(document);
   const headlineBlock = document.headline
     ? `  #text(size: ${tokens.headlineSize})[${escapeTypstText(document.headline)}] \\\n`
@@ -449,12 +449,6 @@ export function buildTypstDocument(
     .replace("__BODY__", body);
 }
 
-function truncateOutput(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed.length <= 1200) return trimmed;
-  return `${trimmed.slice(0, 1200)}...(truncated ${trimmed.length - 1200} chars)`;
-}
-
 async function runTypst(args: {
   cwd: string;
   typPath: string;
@@ -473,7 +467,7 @@ async function runTypst(args: {
     missingBinaryMessage:
       "Typst binary not found. Install typst or set TYPST_BIN to the executable path.",
     warningMessage: "Typst resume compile failed",
-    truncateOutput,
+    ellipsis: "...",
   });
 }
 
@@ -517,61 +511,61 @@ const typstResumeRenderer: ResumeRenderer = {
     typstTheme = "classic",
     paperSize = "auto",
   }) {
-    const tempDir = await mkdtemp(join(tmpdir(), "job-ops-resume-render-"));
-    const typPath = join(tempDir, "resume.typ");
-    const resumeDataPath = join(tempDir, RESUME_DATA_FILENAME);
-    const compiledPdfPath = join(tempDir, OUTPUT_FILENAME);
+    await withRenderTempDir(
+      { renderer: "Typst", jobId, prefix: "job-ops-resume-render-" },
+      async (tempDir) => {
+        const typPath = join(tempDir, "resume.typ");
+        const resumeDataPath = join(tempDir, RESUME_DATA_FILENAME);
+        const compiledPdfPath = join(tempDir, OUTPUT_FILENAME);
 
-    try {
-      const { manifest, template, tokens } = await loadTemplate(typstTheme);
-      const renderableDocument = await materializeResumePicture(document, tempDir, resolvedPicture);
-      let typst: string;
-      let resumeDataDoc: LatexResumeDocument;
+        try {
+          const { manifest, template, tokens } = await loadTemplate(typstTheme);
+          const renderableDocument = await materializeResumePicture(
+            document,
+            tempDir,
+            resolvedPicture,
+          );
+          let typst: string;
+          let resumeDataDoc: LatexResumeDocument;
 
-      if (manifest.kind === "native") {
-        if (!tokens) {
-          throw new Error(`Typst theme ${typstTheme} is missing native tokens.`);
+          if (manifest.kind === "native") {
+            if (!tokens) {
+              throw new Error(`Typst theme ${typstTheme} is missing native tokens.`);
+            }
+            typst = buildTypstDocument(renderableDocument, template, tokens, paperSize);
+            resumeDataDoc = renderableDocument;
+          } else {
+            typst = buildAdaptedTypstDocument(template, paperSize);
+            resumeDataDoc = convertDocFieldsToTypst(renderableDocument);
+          }
+
+          await writeFile(resumeDataPath, JSON.stringify(resumeDataDoc), "utf8");
+          await writeFile(typPath, typst, "utf8");
+          await runTypst({
+            cwd: tempDir,
+            typPath,
+            outputPath: compiledPdfPath,
+            jobId,
+          });
+          await copyFile(compiledPdfPath, outputPath);
+
+          logger.info("Rendered Typst resume PDF", {
+            jobId,
+            outputPath,
+            typstTheme,
+          });
+        } catch (error) {
+          logger.error("Failed to render Typst resume PDF", {
+            jobId,
+            outputPath,
+            typstTheme,
+            error,
+            document: summarizeResumeDocumentForLog(document),
+          });
+          throw error;
         }
-        typst = buildTypstDocument(renderableDocument, template, tokens, paperSize);
-        resumeDataDoc = renderableDocument;
-      } else {
-        typst = buildAdaptedTypstDocument(template, paperSize);
-        resumeDataDoc = convertDocFieldsToTypst(renderableDocument);
-      }
-
-      await writeFile(resumeDataPath, JSON.stringify(resumeDataDoc), "utf8");
-      await writeFile(typPath, typst, "utf8");
-      await runTypst({
-        cwd: tempDir,
-        typPath,
-        outputPath: compiledPdfPath,
-        jobId,
-      });
-      await copyFile(compiledPdfPath, outputPath);
-
-      logger.info("Rendered Typst resume PDF", {
-        jobId,
-        outputPath,
-        typstTheme,
-      });
-    } catch (error) {
-      logger.error("Failed to render Typst resume PDF", {
-        jobId,
-        outputPath,
-        typstTheme,
-        error,
-        document: summarizeResumeDocumentForLog(document),
-      });
-      throw error;
-    } finally {
-      await rm(tempDir, { recursive: true, force: true }).catch((cleanupError) => {
-        logger.warn("Failed to cleanup temporary Typst render directory", {
-          jobId,
-          tempDir,
-          error: cleanupError,
-        });
-      });
-    }
+      },
+    );
   },
 };
 

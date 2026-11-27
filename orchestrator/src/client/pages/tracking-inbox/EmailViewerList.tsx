@@ -1,9 +1,9 @@
+import { formatEmailDate } from "@client/lib/email-display";
 import type { JobListItem, PostApplicationInboxItem } from "@shared/types";
 import { CheckCircle2, CircleUserRound, XCircle } from "lucide-react";
 import type React from "react";
 import { Button } from "@/components/ui/button";
 import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
-import { formatDateTime } from "@/lib/utils";
 
 type EmailViewerRowProps = {
   item: PostApplicationInboxItem;
@@ -25,11 +25,6 @@ type EmailViewerListProps = {
   isActionLoading: boolean;
   isAppliedJobsLoading: boolean;
 };
-
-function formatEpochMs(value?: number | null): string {
-  if (!value) return "n/a";
-  return formatDateTime(new Date(value).toISOString()) ?? "n/a";
-}
 
 function getSenderLabel(senderName: string | null, fromAddress: string): string {
   const preferred = (senderName ?? "").trim();
@@ -90,7 +85,7 @@ const EmailViewerRow: React.FC<EmailViewerRowProps> = ({
               {getSenderLabel(item.message.senderName, item.message.fromAddress)}
             </p>
             <p className="truncate text-xs text-muted-foreground">
-              {item.message.fromAddress} · {formatEpochMs(item.message.receivedAt)}
+              {item.message.fromAddress} · {formatEmailDate(item.message.receivedAt)}
             </p>
           </div>
         </div>

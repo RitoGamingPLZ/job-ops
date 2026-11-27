@@ -1,11 +1,8 @@
+import { parseTokenizedInput } from "@client/lib/tokenized-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { AutomaticChoiceCardGroup } from "./AutomaticChoiceCardGroup";
-import {
-  type AutomaticPresetId,
-  type AutomaticPresetSelection,
-  parseSearchTermsInput,
-} from "./automatic-run";
+import { type AutomaticPresetId, type AutomaticPresetSelection } from "./automatic-run";
 import { TokenizedInput } from "./TokenizedInput";
 
 interface AutomaticSearchTermsCardProps {
@@ -49,7 +46,7 @@ export function AutomaticSearchTermsCard({
             id="search-terms-input"
             values={searchTerms}
             draft={searchTermDraft}
-            parseInput={parseSearchTermsInput}
+            parseInput={parseTokenizedInput}
             onDraftChange={onSearchTermDraftChange}
             onValuesChange={onSearchTermsChange}
             placeholder="Type and press Enter"

@@ -200,111 +200,95 @@ async function fetchGmailUserProfile(accessToken: string): Promise<{
 postApplicationProvidersRouter.get(
   "/providers/gmail/oauth/start",
   asyncRoute(async (req: Request, res: Response) => {
-    try {
-      cleanupOauthState();
-      const parsed = oauthStartQuerySchema.parse(req.query);
-      const accountKey = parsed.accountKey ?? "default";
-      const oauth = resolveGmailOauthConfig(req);
-      const state = randomUUID();
-      const scope = getPrivateDataScope();
+    cleanupOauthState();
+    const parsed = oauthStartQuerySchema.parse(req.query);
+    const accountKey = parsed.accountKey ?? "default";
+    const oauth = resolveGmailOauthConfig(req);
+    const state = randomUUID();
+    const scope = getPrivateDataScope();
 
-      setOauthState(state, {
-        accountKey,
-        tenantId: scope.tenantId,
-        userId: scope.enforceUserIsolation ? scope.userId : null,
-        redirectUri: oauth.redirectUri,
-        createdAt: Date.now(),
-      });
+    setOauthState(state, {
+      accountKey,
+      tenantId: scope.tenantId,
+      userId: scope.enforceUserIsolation ? scope.userId : null,
+      redirectUri: oauth.redirectUri,
+      createdAt: Date.now(),
+    });
 
-      const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-      authUrl.searchParams.set("client_id", oauth.clientId);
-      authUrl.searchParams.set("redirect_uri", oauth.redirectUri);
-      authUrl.searchParams.set("response_type", "code");
-      authUrl.searchParams.set("scope", GMAIL_OAUTH_SCOPE);
-      authUrl.searchParams.set("access_type", "offline");
-      authUrl.searchParams.set("prompt", "consent");
-      authUrl.searchParams.set("state", state);
-      authUrl.searchParams.set("include_granted_scopes", "true");
+    const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    authUrl.searchParams.set("client_id", oauth.clientId);
+    authUrl.searchParams.set("redirect_uri", oauth.redirectUri);
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("scope", GMAIL_OAUTH_SCOPE);
+    authUrl.searchParams.set("access_type", "offline");
+    authUrl.searchParams.set("prompt", "consent");
+    authUrl.searchParams.set("state", state);
+    authUrl.searchParams.set("include_granted_scopes", "true");
 
-      ok(res, {
-        provider: "gmail",
-        accountKey,
-        authorizationUrl: authUrl.toString(),
-        state,
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        fail(res, badRequest(error.message, error.flatten()));
-        return;
-      }
-      throw error;
-    }
+    ok(res, {
+      provider: "gmail",
+      accountKey,
+      authorizationUrl: authUrl.toString(),
+      state,
+    });
   }),
 );
 
 postApplicationProvidersRouter.post(
   "/providers/gmail/oauth/exchange",
   asyncRoute(async (req: Request, res: Response) => {
-    try {
-      cleanupOauthState();
-      const body = oauthExchangeBodySchema.parse(req.body ?? {});
-      const accountKey = body.accountKey ?? "default";
-      const oauthState = oauthStateStore.get(body.state);
+    cleanupOauthState();
+    const body = oauthExchangeBodySchema.parse(req.body ?? {});
+    const accountKey = body.accountKey ?? "default";
+    const oauthState = oauthStateStore.get(body.state);
 
-      if (!oauthState) {
-        fail(res, badRequest("OAuth state is invalid or expired."));
-        return;
-      }
-      oauthStateStore.delete(body.state);
-
-      if (oauthState.accountKey !== accountKey) {
-        fail(res, badRequest("OAuth state/account mismatch."));
-        return;
-      }
-      const scope = getPrivateDataScope();
-      if (oauthState.tenantId !== scope.tenantId) {
-        fail(res, badRequest("OAuth state/workspace mismatch."));
-        return;
-      }
-      if (scope.enforceUserIsolation && oauthState.userId !== scope.userId) {
-        fail(res, badRequest("OAuth state/user mismatch."));
-        return;
-      }
-
-      const oauth = resolveGmailOauthConfig(req);
-      const tokenPayload = await exchangeGmailAuthorizationCode({
-        code: body.code,
-        redirectUri: oauthState.redirectUri,
-        clientId: oauth.clientId,
-        clientSecret: oauth.clientSecret,
-      });
-      const profile = tokenPayload.accessToken
-        ? await fetchGmailUserProfile(tokenPayload.accessToken)
-        : {};
-
-      const response = await executePostApplicationProviderAction({
-        provider: "gmail",
-        action: "connect",
-        accountKey,
-        connectPayload: {
-          accountKey,
-          payload: {
-            ...tokenPayload,
-            ...profile,
-          },
-        },
-        syncPayload: undefined,
-        initiatedBy: null,
-      });
-
-      ok(res, response);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        fail(res, badRequest(error.message, error.flatten()));
-        return;
-      }
-      throw error;
+    if (!oauthState) {
+      fail(res, badRequest("OAuth state is invalid or expired."));
+      return;
     }
+    oauthStateStore.delete(body.state);
+
+    if (oauthState.accountKey !== accountKey) {
+      fail(res, badRequest("OAuth state/account mismatch."));
+      return;
+    }
+    const scope = getPrivateDataScope();
+    if (oauthState.tenantId !== scope.tenantId) {
+      fail(res, badRequest("OAuth state/workspace mismatch."));
+      return;
+    }
+    if (scope.enforceUserIsolation && oauthState.userId !== scope.userId) {
+      fail(res, badRequest("OAuth state/user mismatch."));
+      return;
+    }
+
+    const oauth = resolveGmailOauthConfig(req);
+    const tokenPayload = await exchangeGmailAuthorizationCode({
+      code: body.code,
+      redirectUri: oauthState.redirectUri,
+      clientId: oauth.clientId,
+      clientSecret: oauth.clientSecret,
+    });
+    const profile = tokenPayload.accessToken
+      ? await fetchGmailUserProfile(tokenPayload.accessToken)
+      : {};
+
+    const response = await executePostApplicationProviderAction({
+      provider: "gmail",
+      action: "connect",
+      accountKey,
+      connectPayload: {
+        accountKey,
+        payload: {
+          ...tokenPayload,
+          ...profile,
+        },
+      },
+      syncPayload: undefined,
+      initiatedBy: null,
+    });
+
+    ok(res, response);
   }),
 );
 
@@ -314,17 +298,9 @@ postApplicationProvidersRouter.post(
     let provider: (typeof POST_APPLICATION_PROVIDERS)[number];
     let action: (typeof POST_APPLICATION_PROVIDER_ACTIONS)[number];
 
-    try {
-      const parsedParams = providerActionParamsSchema.parse(req.params);
-      provider = parsedParams.provider;
-      action = parsedParams.action;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        fail(res, badRequest(error.message, error.flatten()));
-        return;
-      }
-      throw error;
-    }
+    const parsedParams = providerActionParamsSchema.parse(req.params);
+    provider = parsedParams.provider;
+    action = parsedParams.action;
 
     let accountKey: string;
     let connectPayload:
@@ -341,36 +317,26 @@ postApplicationProvidersRouter.post(
         }
       | undefined;
 
-    try {
-      if (action === "connect") {
-        const parsedBody = connectBodySchema.parse(req.body ?? {});
-        accountKey = parsedBody.accountKey ?? "default";
-        connectPayload = {
-          ...(parsedBody.accountKey ? { accountKey: parsedBody.accountKey } : {}),
-          ...(parsedBody.payload ? { payload: parsedBody.payload } : {}),
-        };
-      } else if (action === "sync") {
-        const parsedBody = syncBodySchema.parse(req.body ?? {});
-        accountKey = parsedBody.accountKey ?? "default";
-        syncPayload = {
-          ...(parsedBody.accountKey ? { accountKey: parsedBody.accountKey } : {}),
-          ...(typeof parsedBody.maxMessages === "number"
-            ? { maxMessages: parsedBody.maxMessages }
-            : {}),
-          ...(typeof parsedBody.searchDays === "number"
-            ? { searchDays: parsedBody.searchDays }
-            : {}),
-        };
-      } else {
-        const parsedBody = accountBodySchema.parse(req.body ?? {});
-        accountKey = parsedBody.accountKey ?? "default";
-      }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        fail(res, badRequest(error.message, error.flatten()));
-        return;
-      }
-      throw error;
+    if (action === "connect") {
+      const parsedBody = connectBodySchema.parse(req.body ?? {});
+      accountKey = parsedBody.accountKey ?? "default";
+      connectPayload = {
+        ...(parsedBody.accountKey ? { accountKey: parsedBody.accountKey } : {}),
+        ...(parsedBody.payload ? { payload: parsedBody.payload } : {}),
+      };
+    } else if (action === "sync") {
+      const parsedBody = syncBodySchema.parse(req.body ?? {});
+      accountKey = parsedBody.accountKey ?? "default";
+      syncPayload = {
+        ...(parsedBody.accountKey ? { accountKey: parsedBody.accountKey } : {}),
+        ...(typeof parsedBody.maxMessages === "number"
+          ? { maxMessages: parsedBody.maxMessages }
+          : {}),
+        ...(typeof parsedBody.searchDays === "number" ? { searchDays: parsedBody.searchDays } : {}),
+      };
+    } else {
+      const parsedBody = accountBodySchema.parse(req.body ?? {});
+      accountKey = parsedBody.accountKey ?? "default";
     }
 
     const response = await executePostApplicationProviderAction({

@@ -1,3 +1,5 @@
+import { resolveGlmModelsUrl } from "./providers/glm";
+import { normalizeGeminiModelName } from "@server/services/llm/utils/gemini-model";
 import { getErrorMessage } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { sleep } from "@server/utils/sleep";
@@ -449,22 +451,16 @@ export class LlmService {
   }
 
   private async listOpenAiModels(): Promise<string[]> {
-    const response = await fetch(joinUrl(this.baseUrl, "/v1/models"), {
-      method: "GET",
-      headers: buildHeaders({
+    const payload = await fetchModelsJson<{
+      data?: Array<{ id?: string | null }>;
+    }>(
+      joinUrl(this.baseUrl, "/v1/models"),
+      buildHeaders({
         apiKey: this.apiKey,
         provider: this.provider,
       }),
-    });
-
-    if (!response.ok) {
-      const detail = await getResponseDetail(response);
-      throw new Error(detail || `OpenAI returned ${response.status}.`);
-    }
-
-    const payload = (await response.json()) as {
-      data?: Array<{ id?: string | null }>;
-    };
+      "OpenAI",
+    );
     return (payload.data ?? [])
       .map((entry) => entry.id?.trim() ?? "")
       .filter(isOpenAiTextGenerationModel)
@@ -472,26 +468,20 @@ export class LlmService {
   }
 
   private async listAtlasCloudModels(): Promise<string[]> {
-    const response = await fetch(joinUrl(this.baseUrl, "/api/v1/models"), {
-      method: "GET",
-      headers: buildHeaders({
-        apiKey: this.apiKey,
-        provider: this.provider,
-      }),
-    });
-
-    if (!response.ok) {
-      const detail = await getResponseDetail(response);
-      throw new Error(detail || `Atlas Cloud returned ${response.status}.`);
-    }
-
-    const payload = (await response.json()) as {
+    const payload = await fetchModelsJson<{
       data?: Array<{
         id?: string | null;
         type?: string | null;
         display_console?: boolean | null;
       }>;
-    };
+    }>(
+      joinUrl(this.baseUrl, "/api/v1/models"),
+      buildHeaders({
+        apiKey: this.apiKey,
+        provider: this.provider,
+      }),
+      "Atlas Cloud",
+    );
     return (payload.data ?? [])
       .filter(
         (entry) => entry.type?.trim().toLowerCase() === "text" && entry.display_console !== false,
@@ -532,39 +522,23 @@ export class LlmService {
       if (models.length > 0) return Array.from(new Set(models));
     }
 
-    const response = await fetch(joinUrl(baseUrl, "/v1/models"), {
-      method: "GET",
-      headers,
-    });
-
-    if (!response.ok) {
-      const detail = await getResponseDetail(response);
-      throw new Error(detail || `LiteLLM returned ${response.status}.`);
-    }
-
-    const payload = (await response.json()) as {
+    const payload = await fetchModelsJson<{
       data?: Array<{ id?: string | null }>;
-    };
+    }>(joinUrl(baseUrl, "/v1/models"), headers, "LiteLLM");
     return (payload.data ?? []).map((entry) => entry.id?.trim() ?? "").filter(Boolean);
   }
 
   private async listAnthropicModels(): Promise<string[]> {
-    const response = await fetch(joinUrl(this.baseUrl, "/v1/models"), {
-      method: "GET",
-      headers: buildHeaders({
+    const payload = await fetchModelsJson<{
+      data?: Array<{ id?: string | null }>;
+    }>(
+      joinUrl(this.baseUrl, "/v1/models"),
+      buildHeaders({
         apiKey: this.apiKey,
         provider: this.provider,
       }),
-    });
-
-    if (!response.ok) {
-      const detail = await getResponseDetail(response);
-      throw new Error(detail || `Anthropic returned ${response.status}.`);
-    }
-
-    const payload = (await response.json()) as {
-      data?: Array<{ id?: string | null }>;
-    };
+      "Anthropic",
+    );
     return (payload.data ?? [])
       .map((entry) => entry.id?.trim() ?? "")
       .filter(isAnthropicTextGenerationModel)
@@ -573,25 +547,19 @@ export class LlmService {
 
   private async listGeminiModels(): Promise<string[]> {
     const url = addQueryParam(joinUrl(this.baseUrl, "/v1beta/models"), "key", this.apiKey ?? "");
-    const response = await fetch(url, {
-      method: "GET",
-      headers: buildHeaders({
-        apiKey: null,
-        provider: this.provider,
-      }),
-    });
-
-    if (!response.ok) {
-      const detail = await getResponseDetail(response);
-      throw new Error(detail || `Gemini returned ${response.status}.`);
-    }
-
-    const payload = (await response.json()) as {
+    const payload = await fetchModelsJson<{
       models?: Array<{
         name?: string | null;
         supportedGenerationMethods?: string[] | null;
       }>;
-    };
+    }>(
+      url,
+      buildHeaders({
+        apiKey: null,
+        provider: this.provider,
+      }),
+      "Gemini",
+    );
     return (payload.models ?? [])
       .filter((entry) => entry.supportedGenerationMethods?.includes("generateContent"))
       .map((entry) => {
@@ -603,25 +571,16 @@ export class LlmService {
   }
 
   private async listGlmModels(): Promise<string[]> {
-    const base = this.baseUrl.replace(/\/+$/, "");
-    const suffix = "/chat/completions";
-    const modelsBase = base.endsWith(suffix) ? base.slice(0, -suffix.length) : base;
-    const response = await fetch(joinUrl(modelsBase, "/models"), {
-      method: "GET",
-      headers: buildHeaders({
+    const payload = await fetchModelsJson<{
+      data?: Array<{ id?: string | null }>;
+    }>(
+      resolveGlmModelsUrl(this.baseUrl),
+      buildHeaders({
         apiKey: this.apiKey,
         provider: this.provider,
       }),
-    });
-
-    if (!response.ok) {
-      const detail = await getResponseDetail(response);
-      throw new Error(detail || `GLM returned ${response.status}.`);
-    }
-
-    const payload = (await response.json()) as {
-      data?: Array<{ id?: string | null }>;
-    };
+      "GLM",
+    );
     return (payload.data ?? [])
       .map((entry) => entry.id?.trim() ?? "")
       .filter(isGlmTextGenerationModel)
@@ -629,47 +588,48 @@ export class LlmService {
   }
 
   private async listRequestyModels(): Promise<string[]> {
-    const response = await fetch(joinUrl(this.baseUrl, "/models"), {
-      method: "GET",
-      headers: buildHeaders({
+    const providerName = this.provider === "api_route" ? "API Route" : "Requesty";
+    const payload = await fetchModelsJson<{
+      data?: Array<{ id?: string | null }>;
+    }>(
+      joinUrl(this.baseUrl, "/models"),
+      buildHeaders({
         apiKey: this.apiKey,
         provider: this.provider,
       }),
-    });
-
-    if (!response.ok) {
-      const detail = await getResponseDetail(response);
-      const providerName = this.provider === "api_route" ? "API Route" : "Requesty";
-      throw new Error(detail || `${providerName} returned ${response.status}.`);
-    }
-
-    const payload = (await response.json()) as {
-      data?: Array<{ id?: string | null }>;
-    };
+      providerName,
+    );
     return (payload.data ?? []).map((entry) => entry.id?.trim() ?? "").filter(Boolean);
   }
 
   private async listOllamaModels(): Promise<string[]> {
-    const response = await fetch(joinUrl(this.baseUrl, "/api/tags"), {
-      method: "GET",
-      headers: buildHeaders({
+    const payload = await fetchModelsJson<{
+      models?: Array<{ name?: string | null; model?: string | null }>;
+    }>(
+      joinUrl(this.baseUrl, "/api/tags"),
+      buildHeaders({
         apiKey: null,
         provider: this.provider,
       }),
-    });
-
-    if (!response.ok) {
-      const detail = await getResponseDetail(response);
-      throw new Error(detail || `Ollama returned ${response.status}.`);
-    }
-
-    const payload = (await response.json()) as {
-      models?: Array<{ name?: string | null; model?: string | null }>;
-    };
+      "Ollama",
+    );
     return (payload.models ?? [])
       .map((entry) => entry.name?.trim() || entry.model?.trim() || "")
       .filter(Boolean);
   }
+}
+
+async function fetchModelsJson<T>(
+  url: string,
+  headers: HeadersInit,
+  providerName: string,
+): Promise<T> {
+  const response = await fetch(url, { method: "GET", headers });
+  if (!response.ok) {
+    const detail = await getResponseDetail(response);
+    throw new Error(detail || `${providerName} returned ${response.status}.`);
+  }
+  return (await response.json()) as T;
 }
 
 function normalizeProvider(raw: string | null, baseUrl: string | null): LlmProvider {
@@ -731,13 +691,6 @@ function isCliProvider(provider: LlmProvider): boolean {
 function normalizeModelForProvider(provider: LlmProvider, model: string): string {
   if (provider !== "gemini" && provider !== "gemini_cli") return model;
   return normalizeGeminiModelName(model) || model;
-}
-
-function normalizeGeminiModelName(value: string): string {
-  return value
-    .trim()
-    .replace(/^models\//, "")
-    .replace(/^google\//, "");
 }
 
 function getPreferredModel(provider: LlmProvider): string | null {

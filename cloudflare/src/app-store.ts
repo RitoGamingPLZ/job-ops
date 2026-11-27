@@ -103,34 +103,31 @@ export class AppStore extends DurableObject<Env> {
       port: DO_EXPRESS_PORT,
       remoteRunContainerExtractor: async (request) => {
         const namespace = this.env.SCRAPER_CONTAINER;
-        const secret = (this.env.INTERNAL_SYNC_SECRET || this.env.CRON_SECRET)?.trim();
+        const secret = resolveInternalContainerSecret(this.env);
         if (!namespace || !secret) {
           throw new Error("Scraper container or internal secret is not configured.");
         }
         const signal = AbortSignal.timeout(EXTRACTOR_RUN_TIMEOUT_MS);
         try {
-          const response = await namespace
-            .getByName(`extractor-${request.manifestId}`)
-            .fetch("http://scraper/scrape", {
-              method: "POST",
-              headers: {
-                "content-type": "application/json",
-                "x-internal-sync-secret": secret,
-                ...(request.requestId ? { "x-request-id": request.requestId } : {}),
+          const response = await this.postToScraperContainer({
+            namespace,
+            name: `extractor-${request.manifestId}`,
+            path: "/scrape",
+            secret,
+            requestId: request.requestId,
+            body: JSON.stringify({
+              source: request.source,
+              params: {
+                selectedSources: request.selectedSources,
+                searchTerms: request.searchTerms,
+                selectedCountry: request.selectedCountry,
+                settings: request.settings,
+                locationIntent: request.locationIntent,
+                sourceLocationPlan: request.sourceLocationPlan,
               },
-              body: JSON.stringify({
-                source: request.source,
-                params: {
-                  selectedSources: request.selectedSources,
-                  searchTerms: request.searchTerms,
-                  selectedCountry: request.selectedCountry,
-                  settings: request.settings,
-                  locationIntent: request.locationIntent,
-                  sourceLocationPlan: request.sourceLocationPlan,
-                },
-              }),
-              signal,
-            });
+            }),
+            signal,
+          });
           if (!response.ok) {
             const responseError = await readRenderError(response).catch(() => "[unavailable]");
             throw Object.assign(
@@ -203,18 +200,15 @@ export class AppStore extends DurableObject<Env> {
         }
         const signal = AbortSignal.timeout(150_000);
         try {
-          const response = await namespace
-            .getByName("pdf-render")
-            .fetch("http://scraper/internal/render-pdf", {
-              method: "POST",
-              headers: {
-                "content-type": "application/json",
-                "x-internal-sync-secret": secret,
-                ...(requestId ? { "x-request-id": requestId } : {}),
-              },
-              body,
-              signal,
-            });
+          const response = await this.postToScraperContainer({
+            namespace,
+            name: "pdf-render",
+            path: "/internal/render-pdf",
+            secret,
+            requestId,
+            body,
+            signal,
+          });
           if (!response.ok) {
             const responseError = await readRenderError(response).catch(() => "[unavailable]");
             // The service logs sanitized details; only the message reaches the user.
@@ -241,13 +235,13 @@ export class AppStore extends DurableObject<Env> {
         const namespace = this.env.SCRAPER_CONTAINER;
         const secret = resolveInternalContainerSecret(this.env);
         if (!namespace || !secret) return;
-        const response = await namespace
-          .getByName("pdf-render")
-          .fetch("http://scraper/internal/render-pdf/warm", {
-            method: "POST",
-            headers: { "x-internal-sync-secret": secret },
-            signal: AbortSignal.timeout(150_000),
-          });
+        const response = await this.postToScraperContainer({
+          namespace,
+          name: "pdf-render",
+          path: "/internal/render-pdf/warm",
+          secret,
+          signal: AbortSignal.timeout(150_000),
+        });
         await response.body?.cancel();
         if (!response.ok) {
           throw new Error(`PDF render container warm-up failed with HTTP ${response.status}.`);
@@ -255,6 +249,27 @@ export class AppStore extends DurableObject<Env> {
       },
     });
     this.expressInitialized = true;
+  }
+
+  private postToScraperContainer(args: {
+    namespace: NonNullable<Env["SCRAPER_CONTAINER"]>;
+    name: string;
+    path: string;
+    secret: string;
+    signal: AbortSignal;
+    body?: string;
+    requestId?: string;
+  }): Promise<Response> {
+    return args.namespace.getByName(args.name).fetch(`http://scraper${args.path}`, {
+      method: "POST",
+      headers: {
+        "x-internal-sync-secret": args.secret,
+        ...(args.body !== undefined ? { "content-type": "application/json" } : {}),
+        ...(args.requestId ? { "x-request-id": args.requestId } : {}),
+      },
+      body: args.body,
+      signal: args.signal,
+    });
   }
 
   private async callCareersSiteContainer(
@@ -275,14 +290,14 @@ export class AppStore extends DurableObject<Env> {
       ? AbortSignal.any([callerSignal, AbortSignal.timeout(timeoutMs)])
       : AbortSignal.timeout(timeoutMs);
     try {
-      const response = await namespace
-        .getByName("careers-site")
-        .fetch(`http://scraper/internal/careers-site/${action}`, {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-internal-sync-secret": secret },
-          body: JSON.stringify(body),
-          signal,
-        });
+      const response = await this.postToScraperContainer({
+        namespace,
+        name: "careers-site",
+        path: `/internal/careers-site/${action}`,
+        secret,
+        body: JSON.stringify(body),
+        signal,
+      });
       if (!response.ok) {
         // A cold container answers 503 until it is ready; either way nothing is known about the site.
         await response.body?.cancel();

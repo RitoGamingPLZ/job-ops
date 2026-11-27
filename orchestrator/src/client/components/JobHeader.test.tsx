@@ -3,19 +3,8 @@ import type { JobListItem } from "@shared/types.js";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type React from "react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useSettings } from "../hooks/useSettings";
+import { describe, expect, it, vi } from "vitest";
 import { JobHeader } from "./JobHeader";
-
-// Mock useSettings
-vi.mock("../hooks/useSettings", () => ({
-  useSettings: vi.fn(),
-}));
-
-// Mock api
-vi.mock("../api", () => ({
-  checkSponsor: vi.fn(),
-}));
 
 // Mock Tooltip components to simplify testing
 vi.mock("@/components/ui/tooltip", () => ({
@@ -42,13 +31,6 @@ const mockJob = createJob({
 
 describe("JobHeader", () => {
   const renderWithRouter = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter>);
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    (useSettings as any).mockReturnValue({
-      showSponsorInfo: true,
-    });
-  });
 
   it("renders basic job information", () => {
     renderWithRouter(<JobHeader job={mockJob} />);
@@ -153,18 +135,6 @@ describe("JobHeader", () => {
     renderWithRouter(<JobHeader job={readyJob} />);
 
     expect(screen.getByText("Resume prepared and ready to apply.")).toBeInTheDocument();
-  });
-
-  it("hides sponsor info when showSponsorInfo is false", () => {
-    (useSettings as any).mockReturnValue({
-      showSponsorInfo: false,
-    });
-
-    const jobWithSponsor = { ...mockJob, sponsorMatchScore: 98 };
-    renderWithRouter(<JobHeader job={jobWithSponsor} />);
-
-    expect(screen.queryByText("Confirmed Sponsor")).not.toBeInTheDocument();
-    expect(screen.queryByText("Check Sponsorship Status")).not.toBeInTheDocument();
   });
 
   it("hides the view button when already on a job page", () => {

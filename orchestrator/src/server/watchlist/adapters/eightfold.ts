@@ -1,3 +1,4 @@
+import { watchlistRequestSignal } from "./http";
 import { setTimeout as delay } from "node:timers/promises";
 import { logger } from "@infra/logger";
 import type { WatchlistSelectedSource } from "@shared/types";
@@ -76,11 +77,6 @@ function parseSource(value: string) {
   }
   canonical.searchParams.sort();
   return { board, url: canonical, source: `eightfold:${board.slug}` };
-}
-
-function callSignal(signal?: AbortSignal) {
-  const timeout = AbortSignal.timeout(25_000);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
 async function responsePrefix(response: Response): Promise<string> {
@@ -225,7 +221,7 @@ async function loadDetails(input: {
   );
   url.searchParams.set("domain", context.board.domain);
   if (context.board.api === "pcsx") url.searchParams.set("position_id", id);
-  const payload = await fetchJson(url, callSignal(input.signal), "detail");
+  const payload = await fetchJson(url, watchlistRequestSignal(input.signal), "detail");
   const position = parsePayload(
     positionSchema,
     context.board.api === "pcsx" ? unwrapPcsx(payload) : payload,
@@ -322,7 +318,10 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async fetchJobs(input) {
     const context = parseSource(input.source.careersUrl);
     const stopAt = Date.now() + 20_000;
-    const signal = AbortSignal.any([callSignal(input.signal), AbortSignal.timeout(20_000)]);
+    const signal = AbortSignal.any([
+      watchlistRequestSignal(input.signal),
+      AbortSignal.timeout(20_000),
+    ]);
     const positions = new Map<string, Position>();
     let start = 0;
     let total = 0;

@@ -851,17 +851,15 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
       params: task.params_json ? JSON.parse(task.params_json) : {},
     };
 
-    if (runtime === "worker") {
-      await this.dispatchWorkerScrape(task, payload);
-      return;
+    // Worker and browser tasks currently run through the scraper container.
+    if (runtime === "worker" || runtime === "browser") {
+      await this.dispatchContainerScrape(task, {
+        ...payload,
+        runtime: runtime === "browser" ? "browser-fallback" : runtime,
+      });
+    } else {
+      await this.dispatchContainerScrape(task, payload);
     }
-
-    if (runtime === "browser") {
-      await this.dispatchBrowserScrape(task, payload);
-      return;
-    }
-
-    await this.dispatchContainerScrape(task, payload);
   }
 
   private buildScrapeHeaders(): Record<string, string> {
@@ -892,27 +890,6 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
         postings: body.data.postings,
       });
     }
-  }
-
-  private async dispatchWorkerScrape(
-    task: ScrapeTaskRow,
-    payload: Record<string, unknown>,
-  ): Promise<void> {
-    await this.dispatchContainerScrape(task, {
-      ...payload,
-      runtime: "worker",
-    });
-  }
-
-  private async dispatchBrowserScrape(
-    task: ScrapeTaskRow,
-    payload: Record<string, unknown>,
-  ): Promise<void> {
-    // Browser Rendering needs an HTML-to-postings extraction contract first.
-    await this.dispatchContainerScrape(task, {
-      ...payload,
-      runtime: "browser-fallback",
-    });
   }
 
   private async dispatchContainerScrape(

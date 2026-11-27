@@ -1,3 +1,4 @@
+import { watchlistRequestSignal } from "./http";
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { badRequest, upstreamError } from "@infra/errors";
@@ -91,10 +92,6 @@ function board(value: string) {
   };
 }
 type Board = ReturnType<typeof board>;
-function budget(signal?: AbortSignal) {
-  const timeout = AbortSignal.timeout(25_000);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
-}
 async function request(url: URL, signal: AbortSignal, json = true): Promise<unknown> {
   for (let attempt = 0; ; attempt++) {
     signal.throwIfAborted();
@@ -166,7 +163,7 @@ function location(job: Job) {
 async function details(careersUrl: string, jobRef: string, signal?: AbortSignal) {
   if (!/^\d+$/.test(jobRef)) throw badRequest("Invalid Oracle job reference.");
   const b = board(careersUrl);
-  const activeSignal = budget(signal);
+  const activeSignal = watchlistRequestSignal(signal);
   const site = await siteNumber(b, activeSignal);
   const payload = await request(
     api(b, "recruitingCEJobRequisitionDetails", `ById;Id="${jobRef}",siteNumber=${site}`, "all"),
@@ -246,7 +243,7 @@ export const oracleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   async fetchJobs({ source, signal }) {
     const b = board(source.careersUrl);
-    const activeSignal = budget(signal);
+    const activeSignal = watchlistRequestSignal(signal);
     const site = await siteNumber(b, activeSignal);
     const jobs = new Map<string, Job>();
     let total = 0;

@@ -2,6 +2,10 @@ import appleCatalog from "@server/config/career-boards-apple.json";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { appleWatchlistAdapter as adapter } from "./apple";
+vi.mock("node:timers/promises", async (importOriginal) => {
+  const { withFakeTimeouts } = await import("../testing/timers");
+  return withFakeTimeouts(await importOriginal<typeof import("node:timers/promises")>());
+});
 
 const source: WatchlistSelectedSource = {
   id: "selected-apple",
@@ -268,21 +272,29 @@ describe("appleWatchlistAdapter", () => {
   });
 
   it("retries 429 with bounded backoff then succeeds", async () => {
+    vi.useFakeTimers();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response("rate limit", { status: 429 }))
       .mockResolvedValueOnce(search());
     vi.stubGlobal("fetch", fetchMock);
-    expect((await adapter.fetchJobs({ source })).fetched).toBe(1);
+    const pending = adapter.fetchJobs({ source });
+    await vi.runAllTimersAsync();
+    expect((await pending).fetched).toBe(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("stops after three retries and does not expose the upstream body", async () => {
+    vi.useFakeTimers();
     const fetchMock = vi
       .fn()
       .mockImplementation(async () => new Response("secret body", { status: 429 }));
     vi.stubGlobal("fetch", fetchMock);
-    await expect(adapter.fetchJobs({ source })).rejects.toThrow("Apple careers returned HTTP 429.");
+    const outcome = expect(adapter.fetchJobs({ source })).rejects.toThrow(
+      "Apple careers returned HTTP 429.",
+    );
+    await vi.runAllTimersAsync();
+    await outcome;
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 

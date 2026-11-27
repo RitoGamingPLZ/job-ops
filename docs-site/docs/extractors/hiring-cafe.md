@@ -51,7 +51,6 @@ Defaults and constraints:
 - If another search or detail page is challenged during a retry, the pipeline shows the new challenge and pauses again. It imports the collected jobs only after Hiring Cafe finishes without another challenge. You can cancel the run while it is waiting.
 - In the pipeline progress card, searches completed before a later challenge stay complete while the challenged search waits and retries. Searches that have not started remain queued. When a detail page needs a browser check after every search is complete, the card says **Browser check needed**; it advances after that check succeeds.
 - The normalized job payload now preserves structured location evidence from the formatted workplace and city/state/country fields.
-- `HIRING_CAFE_DATE_FETCHED_PAST_N_DAYS` controls recency window when running extractor directly (default `7`).
 - In the default Map radius mode, Hiring Cafe receives the selected coordinates and radius directly (default `50` miles).
 - In Manual cities mode, each city uses Hiring Cafe's city-radius search with the same `50`-mile default and strict city post-filtering.
 - Workplace type is global to the run and is not configured separately per city in this integration.
