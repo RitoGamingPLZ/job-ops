@@ -1,5 +1,5 @@
 import { getTenantId, runWithRequestContext } from "@infra/request-context";
-import { beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   discover: vi.fn(),
@@ -33,10 +33,15 @@ vi.mock("@server/services/modelSelection", () => ({
 
 import { suggestFilters } from "./suggest";
 
+// Most tests exercise the model-backed path, used for a source described by its public text alone.
+// Free, preference-based suggestions (the default for a signed-in user) are tested at the end.
 const input = {
   sourceType: "lever",
   careersUrl: "https://jobs.lever.co/test?team=old",
+  usePublicDescriptionOnly: true,
+  label: "Test",
 };
+const preferenceInput = { sourceType: "lever", careersUrl: "https://jobs.lever.co/test?team=old" };
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.discover.mockResolvedValue({
@@ -154,19 +159,6 @@ it("allows Google-like normalization to add sort_by while preserving picked filt
       source: expect.objectContaining({ careersUrl: result.suggestedUrl }),
     }),
   );
-});
-it("reads each tenant's current intent without caching or sending unrelated settings", async () => {
-  mocks.settings.mockImplementation(async () => ({
-    searchTerms: JSON.stringify([getTenantId()]),
-    jobspyCountryIndeed: "Canada",
-    apiKey: "private",
-  }));
-  await runWithRequestContext({ tenantId: "tenant-a" }, () => suggestFilters(input));
-  await runWithRequestContext({ tenantId: "tenant-b" }, () => suggestFilters(input));
-  const prompts = mocks.callJson.mock.calls.map(([arg]) => JSON.parse(arg.messages[1].content));
-  expect(prompts[0].intent.titles).toEqual(["tenant-a"]);
-  expect(prompts[1].intent.titles).toEqual(["tenant-b"]);
-  expect(JSON.stringify(prompts)).not.toContain("private");
 });
 it("maps LLM failures without leaking raw errors", async () => {
   mocks.callJson.mockResolvedValue({
@@ -381,4 +373,88 @@ it("tells the model what each facet means across boards", async () => {
     q: "keyword",
   });
   expect(request.messages[0].content).toContain("role");
+});
+
+describe("preference-based suggestions (no model)", () => {
+  const sourceFacets = {
+    unfilteredTotal: 100,
+    params: [
+      { key: "q", multi: false, freeText: true },
+      {
+        key: "location",
+        multi: true,
+        values: [
+          { value: "Canada", count: 8 },
+          { value: "United Kingdom", count: 5 },
+        ],
+      },
+      { key: "workplace", multi: true, values: [{ value: "Remote" }, { value: "Onsite" }] },
+      {
+        key: "team",
+        multi: false,
+        values: [
+          { value: "Marketing", count: 9 },
+          { value: "Software Engineering", count: 20 },
+        ],
+      },
+      { key: "degree", multi: false, values: [{ value: "MASTERS" }] },
+    ],
+  };
+
+  it("fills the filters from the user's saved preferences without calling the model", async () => {
+    mocks.discover.mockResolvedValue(sourceFacets);
+    const result = await suggestFilters(preferenceInput);
+    expect(mocks.callJson).not.toHaveBeenCalled();
+    expect(result.params).toEqual([
+      { key: "q", values: ["software developer"] },
+      { key: "location", values: ["Canada"] },
+      { key: "workplace", values: ["Remote"] },
+      { key: "team", values: ["Software Engineering"] },
+    ]);
+    const url = new URL(result.suggestedUrl);
+    expect(url.searchParams.get("q")).toBe("software developer");
+    expect(url.searchParams.get("team")).toBe("Software Engineering");
+    // A filter the preferences say nothing about (degree) is left alone.
+    expect(url.searchParams.has("degree")).toBe(false);
+    expect(result.rationale).toContain("saved search preferences");
+  });
+
+  it("reads each tenant's own preferences and sends nothing to a model", async () => {
+    mocks.discover.mockResolvedValue({
+      unfilteredTotal: 100,
+      params: [{ key: "q", multi: false, freeText: true }],
+    });
+    mocks.settings.mockImplementation(async () => ({
+      searchTerms: JSON.stringify([getTenantId()]),
+      jobspyCountryIndeed: "Canada",
+    }));
+    const a = await runWithRequestContext({ tenantId: "tenant-a" }, () =>
+      suggestFilters(preferenceInput),
+    );
+    const b = await runWithRequestContext({ tenantId: "tenant-b" }, () =>
+      suggestFilters(preferenceInput),
+    );
+    expect(a.params).toEqual([{ key: "q", values: ["tenant-a"] }]);
+    expect(b.params).toEqual([{ key: "q", values: ["tenant-b"] }]);
+    expect(mocks.callJson).not.toHaveBeenCalled();
+  });
+
+  it("says so when none of the site's filters fit the preferences", async () => {
+    mocks.discover.mockResolvedValue({
+      unfilteredTotal: 100,
+      params: [{ key: "degree", multi: false, values: [{ value: "MASTERS" }] }],
+    });
+    await expect(suggestFilters(preferenceInput)).rejects.toThrow("match your search preferences");
+    expect(mocks.callJson).not.toHaveBeenCalled();
+  });
+
+  it("uses a keyword box the source verified for itself", async () => {
+    mocks.discover.mockResolvedValue({
+      unfilteredTotal: 100,
+      params: [{ key: "team", multi: false, values: [{ value: "Marketing" }] }],
+    });
+    mocks.learned.mockResolvedValue([{ key: "q", multi: false, freeText: true }]);
+    const result = await suggestFilters(preferenceInput);
+    expect(result.params).toEqual([{ key: "q", values: ["software developer"] }]);
+  });
 });

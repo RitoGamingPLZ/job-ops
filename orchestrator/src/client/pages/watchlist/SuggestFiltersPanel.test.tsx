@@ -26,7 +26,7 @@ describe("SuggestFiltersPanel", () => {
   it("renders the verified result and applies its URL only on Use", async () => {
     vi.mocked(suggestWatchlistFilters).mockResolvedValue(result);
     const { container } = render(<SuggestFiltersPanel {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Suggest filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use my search preferences" }));
     expect(await screen.findByText("12 of 85 jobs")).toBeInTheDocument();
     expect(screen.getByText(result.suggestedUrl)).toBeInTheDocument();
     expect(screen.getByText(result.rationale)).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe("SuggestFiltersPanel", () => {
   it("dismisses without applying the suggestion", async () => {
     vi.mocked(suggestWatchlistFilters).mockResolvedValue(result);
     render(<SuggestFiltersPanel {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Suggest filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use my search preferences" }));
     fireEvent.click(await screen.findByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText("12 of 85 jobs")).not.toBeInTheDocument();
     expect(props.onUse).not.toHaveBeenCalled();
@@ -60,9 +60,9 @@ describe("SuggestFiltersPanel", () => {
   ])("shows a %i API error inline", async (status, message) => {
     vi.mocked(suggestWatchlistFilters).mockRejectedValue(new ApiClientError(message, { status }));
     render(<SuggestFiltersPanel {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Suggest filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use my search preferences" }));
     expect(await screen.findByText(message)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Suggest filters" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Use my search preferences" })).toBeEnabled();
   });
 
   it("shows a spinner and prevents repeated requests while loading", async () => {
@@ -73,15 +73,15 @@ describe("SuggestFiltersPanel", () => {
       }),
     );
     render(<SuggestFiltersPanel {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Suggest filters" }));
-    const button = screen.getByRole("button", { name: "Suggesting filters…" });
+    fireEvent.click(screen.getByRole("button", { name: "Use my search preferences" }));
+    const button = screen.getByRole("button", { name: "Matching your preferences…" });
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute("aria-busy", "true");
     expect(button.querySelector(".animate-spin")).toBeInTheDocument();
     fireEvent.click(button);
     expect(suggestWatchlistFilters).toHaveBeenCalledTimes(1);
     await act(async () => resolve(result));
-    expect(screen.getByRole("button", { name: "Suggest filters" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Use my search preferences" })).toBeEnabled();
   });
 
   it("ignores an in-flight answer after the source URL changes", async () => {
@@ -92,7 +92,7 @@ describe("SuggestFiltersPanel", () => {
       }),
     );
     const { rerender } = render(<SuggestFiltersPanel {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Suggest filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use my search preferences" }));
     rerender(<SuggestFiltersPanel {...props} careersUrl="https://jobs.lever.co/other" />);
     await act(async () => resolve(result));
     expect(screen.queryByRole("button", { name: "Use this URL" })).not.toBeInTheDocument();
@@ -100,6 +100,6 @@ describe("SuggestFiltersPanel", () => {
 
   it("disables suggestions until a URL is available", () => {
     render(<SuggestFiltersPanel {...props} careersUrl="" />);
-    expect(screen.getByRole("button", { name: "Suggest filters" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Use my search preferences" })).toBeDisabled();
   });
 });

@@ -59,7 +59,9 @@ export function SuggestFiltersPanel({
       if (currentRequest === request.current) setSuggestion(result);
     } catch (error) {
       if (currentRequest === request.current) {
-        setError(error instanceof Error ? error.message : "Could not suggest filters.");
+        setError(
+          error instanceof Error ? error.message : "Could not apply your search preferences.",
+        );
       }
     } finally {
       if (currentRequest === request.current) setLoading(false);
@@ -82,7 +84,7 @@ export function SuggestFiltersPanel({
         ) : (
           <SlidersHorizontal aria-hidden="true" className="h-3 w-3" />
         )}
-        {loading ? "Suggesting filters…" : "Suggest filters"}
+        {loading ? "Matching your preferences…" : "Use my search preferences"}
       </Button>
       {disabled && disabledHint ? (
         <p className="mt-1.5 text-xs text-muted-foreground">{disabledHint}</p>
@@ -92,7 +94,9 @@ export function SuggestFiltersPanel({
         aria-atomic="true"
         className={cn("text-xs", (loading || error || suggestion) && "mt-2 space-y-1.5")}
       >
-        {loading ? <p className="text-muted-foreground">Finding and checking filters…</p> : null}
+        {loading ? (
+          <p className="text-muted-foreground">Matching your preferences to this site's filters…</p>
+        ) : null}
         {error ? <p className="text-destructive">{error}</p> : null}
         {suggestion ? (
           <div className="space-y-2 rounded-md border border-border bg-muted/60 p-2.5 dark:bg-background/70">

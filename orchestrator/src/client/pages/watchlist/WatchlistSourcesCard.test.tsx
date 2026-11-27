@@ -431,7 +431,7 @@ describe("WatchlistSourcesCard filter plan gating", () => {
     onSave: vi.fn(),
   });
 
-  it("keeps Suggest filters off until the site's filter scan has an answer", () => {
+  it("keeps the search-preferences button off until the site's filter scan has an answer", () => {
     render(<WatchlistSourcesCard {...base("watching")} />);
     expect(screen.getByRole("button", { name: "Use this URL" })).toBeDisabled();
     expect(
