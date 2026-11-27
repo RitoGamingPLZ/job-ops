@@ -79,9 +79,11 @@ export function notFoundApiHandler(): RequestHandler {
   };
 }
 
-export const apiErrorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+export const apiErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   const appError = toAppError(err);
   logger.error(appError.message, {
+    method: req.method,
+    route: req.route?.path,
     status: appError.status,
     code: appError.code,
     details: appError.details,

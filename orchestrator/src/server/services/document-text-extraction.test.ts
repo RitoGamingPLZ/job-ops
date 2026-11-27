@@ -6,22 +6,12 @@ vi.mock("pdf-parse", () => ({
 }));
 
 import pdfParse from "pdf-parse";
+import { makePdfParseResult } from "../testing/pdf-parse";
 import {
   DocxTextExtractionError,
   extractDocxText,
   extractPdfText,
 } from "./document-text-extraction";
-
-function makePdfParseResult(text: string) {
-  return {
-    numpages: 1,
-    numrender: 1,
-    info: {},
-    metadata: null,
-    version: "default" as const,
-    text,
-  };
-}
 
 function escapeXml(value: string): string {
   return value

@@ -677,6 +677,40 @@ export function buildLocationEvidence(
   return normalizeLocationEvidence(value);
 }
 
+/**
+ * Builds a sparse raw location-evidence payload for extractors before pipeline normalization.
+ */
+export function createRawLocationEvidence(input: {
+  location?: string | null;
+  city?: string | null;
+  country?: string | null;
+  source: string;
+  workplaceType?: LocationWorkplaceType | null;
+  isRemote?: boolean | null;
+  isHybrid?: boolean | null;
+  evidenceQuality?: LocationEvidenceQuality | null;
+  sourceNotes?: readonly string[] | null;
+}): LocationEvidence | undefined {
+  const location = input.location?.trim() || undefined;
+  const city = input.city?.trim() || undefined;
+  const country = input.country?.trim() || undefined;
+  if (!location && !city && !country) return undefined;
+
+  return {
+    ...(location !== undefined ? { location } : {}),
+    ...(city !== undefined ? { city } : {}),
+    ...(country !== undefined ? { country } : {}),
+    source: input.source,
+    ...(input.workplaceType != null ? { workplaceType: input.workplaceType } : {}),
+    ...(input.isRemote != null ? { isRemote: input.isRemote } : {}),
+    ...(input.isHybrid != null ? { isHybrid: input.isHybrid } : {}),
+    ...(input.evidenceQuality != null ? { evidenceQuality: input.evidenceQuality } : {}),
+    ...(input.sourceNotes && input.sourceNotes.length > 0
+      ? { sourceNotes: [...input.sourceNotes] }
+      : {}),
+  };
+}
+
 export function getLegacyLocationSelection(intent: LocationIntentInput | LocationIntent): string {
   return normalizeLocationIntent(intent).selectedCountry ?? "";
 }

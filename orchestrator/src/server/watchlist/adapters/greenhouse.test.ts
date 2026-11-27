@@ -1,20 +1,17 @@
-import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, expect, it, vi } from "vitest";
+import { makeSelectedSource } from "../testing/fixtures";
 import { greenhouseWatchlistAdapter as adapter } from "./greenhouse";
 
 const base = "https://job-boards.greenhouse.io/airbnb";
-const source: WatchlistSelectedSource = {
+const source = makeSelectedSource({
   id: "selected-gh",
-  catalogSourceId: null,
   label: "Airbnb",
   sourceType: "greenhouse",
   careersUrl: base,
-  cxsJobsUrl: null,
   isCustom: true,
-  sortOrder: 0,
   createdAt: "2026-11-08",
   updatedAt: "2026-11-08",
-};
+});
 afterEach(() => vi.unstubAllGlobals());
 function row(id: number, department = "Software Engineering", workplace = "Remote") {
   return {

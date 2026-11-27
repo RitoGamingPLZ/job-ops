@@ -2,7 +2,7 @@ import { copyFile, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import type { LatexResumeDocument, ResumePictureContent } from "./types";
 
-function extensionForMimeType(mimeType: string): string {
+export function extensionForImageMimeType(mimeType: string): string {
   if (mimeType === "image/png") return ".png";
   if (mimeType === "image/webp") return ".webp";
   if (mimeType === "image/gif") return ".gif";
@@ -32,7 +32,7 @@ export async function materializeResumePicture(
   if (resolvedPicture) {
     const destination = join(
       outputDir,
-      `resume-picture${extensionForMimeType(resolvedPicture.mimeType)}`,
+      `resume-picture${extensionForImageMimeType(resolvedPicture.mimeType)}`,
     );
     await writeFile(destination, resolvedPicture.bytes);
     return { ...document, picture: { ...picture, renderPath: destination } };
@@ -72,7 +72,7 @@ export async function materializeResumePicture(
 
   const bytes = new Uint8Array(await response.arrayBuffer());
   const mimeType = response.headers.get("content-type")?.split(";")[0]?.trim();
-  const extension = mimeType ? extensionForMimeType(mimeType) : extensionFromUrl(picture.url);
+  const extension = mimeType ? extensionForImageMimeType(mimeType) : extensionFromUrl(picture.url);
   const destination = join(outputDir, `resume-picture${extension}`);
   await writeFile(destination, bytes);
   return {

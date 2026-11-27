@@ -1,5 +1,7 @@
 import { htmlToText } from "../../../shared/src/career-board-html";
-import { WorkdayCxsFetchError } from "./get-jobs-from-cxs";
+import { CAREER_BOARD_DEFAULT_USER_AGENT } from "../../../shared/src/career-board-http";
+import { toOptionalString } from "../../../shared/src/utils/type-conversion";
+import { fetchWorkdayCxsJson, requiredWorkdayString, WorkdayCxsFetchError } from "./http";
 import { parseWorkdayJobUrl } from "./workday-url-to-cxs";
 
 export interface WorkdayCxsJobPostingInfo {
@@ -74,10 +76,6 @@ export interface FetchWorkdayCxsJobDetailsResult {
   rawResponse?: WorkdayCxsJobDetailResponse;
 }
 
-const DEFAULT_USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
-
 /**
  * Fetches a Workday Candidate Experience job detail endpoint and normalizes the
  * HTML job description alongside the core posting metadata.
@@ -95,13 +93,18 @@ export async function getJobDetailsFromCxs(
   }
 
   const parsed = parseWorkdayJobUrl(options.jobUrl);
-  const response = await fetchCxsJobDetails(fetchFn, {
-    cxsJobUrl: parsed.cxsJobUrl,
-    jobUrl: parsed.canonicalJobUrl,
+  const response = await fetchWorkdayCxsJson<WorkdayCxsJobDetailResponse>(fetchFn, {
+    url: parsed.cxsJobUrl,
+    method: "GET",
     signal: options.signal,
-    headers: options.headers,
-    userAgent: options.userAgent ?? DEFAULT_USER_AGENT,
-    acceptLanguage: options.acceptLanguage ?? "en-US",
+    headers: {
+      accept: "application/json",
+      "accept-language": options.acceptLanguage ?? "en-US",
+      referer: parsed.canonicalJobUrl,
+      "user-agent": options.userAgent ?? CAREER_BOARD_DEFAULT_USER_AGENT,
+      ...options.headers,
+    },
+    errorContext: "Workday CXS job detail request",
   });
 
   const job = normalizeWorkdayCxsJobDetails(response, {
@@ -114,52 +117,6 @@ export async function getJobDetailsFromCxs(
     job,
     ...(options.includeRawResponse ? { rawResponse: response } : {}),
   };
-}
-
-async function fetchCxsJobDetails(
-  fetchFn: typeof fetch,
-  args: {
-    cxsJobUrl: string;
-    jobUrl: string;
-    signal?: AbortSignal;
-    headers?: HeadersInit;
-    userAgent: string;
-    acceptLanguage: string;
-  },
-): Promise<WorkdayCxsJobDetailResponse> {
-  const response = await fetchFn(args.cxsJobUrl, {
-    method: "GET",
-    signal: args.signal,
-    headers: {
-      accept: "application/json",
-      "accept-language": args.acceptLanguage,
-      referer: args.jobUrl,
-      "user-agent": args.userAgent,
-      ...args.headers,
-    },
-  });
-
-  const responseText = await response.text();
-
-  if (!response.ok) {
-    throw new WorkdayCxsFetchError({
-      url: args.cxsJobUrl,
-      status: response.status,
-      message: `Workday CXS job detail request failed with HTTP ${response.status}.`,
-      responseBody: responseText.slice(0, 2_000),
-    });
-  }
-
-  try {
-    return JSON.parse(responseText) as WorkdayCxsJobDetailResponse;
-  } catch {
-    throw new WorkdayCxsFetchError({
-      url: args.cxsJobUrl,
-      status: response.status,
-      message: "Workday CXS job detail response was not valid JSON.",
-      responseBody: responseText.slice(0, 2_000),
-    });
-  }
 }
 
 function normalizeWorkdayCxsJobDetails(
@@ -175,27 +132,29 @@ function normalizeWorkdayCxsJobDetails(
     });
   }
 
-  const title = requiredString(posting.title, "title", args.cxsJobUrl);
-  const jobDescriptionHtml = requiredString(
-    posting.jobDescription,
-    "jobDescription",
-    args.cxsJobUrl,
-  );
+  const title = requiredWorkdayString(posting.title, "title", {
+    url: args.cxsJobUrl,
+    contextLabel: "Workday job detail",
+  });
+  const jobDescriptionHtml = requiredWorkdayString(posting.jobDescription, "jobDescription", {
+    url: args.cxsJobUrl,
+    contextLabel: "Workday job detail",
+  });
 
   return {
     source: "workday",
-    externalId: optionalString(posting.jobReqId) ?? args.externalPath,
+    externalId: toOptionalString(posting.jobReqId) ?? args.externalPath,
     title,
-    company: optionalString(response.hiringOrganization?.name),
-    locationText: optionalString(posting.location),
+    company: toOptionalString(response.hiringOrganization?.name),
+    locationText: toOptionalString(posting.location),
     additionalLocations: Array.isArray(posting.additionalLocations)
       ? posting.additionalLocations.filter(
           (location): location is string =>
             typeof location === "string" && location.trim().length > 0,
         )
       : undefined,
-    postedOn: optionalString(posting.postedOn),
-    timeType: optionalString(posting.timeType),
+    postedOn: toOptionalString(posting.postedOn),
+    timeType: toOptionalString(posting.timeType),
     jobDescriptionHtml,
     jobDescriptionText: htmlToText(jobDescriptionHtml, false),
     jobUrl: args.jobUrl,
@@ -203,16 +162,4 @@ function normalizeWorkdayCxsJobDetails(
     externalPath: args.externalPath,
     raw: response,
   };
-}
-
-function requiredString(value: unknown, fieldName: string, url: string): string {
-  if (typeof value === "string" && value.trim()) return value.trim();
-  throw new WorkdayCxsFetchError({
-    url,
-    message: `Workday job detail is missing required field: ${fieldName}.`,
-  });
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }

@@ -49,7 +49,7 @@ export const openAiStrategy = createProviderStrategy({
       for (const part of content) {
         const type = getNestedValue(part, ["type"]);
         const text = getNestedValue(part, ["text"]);
-        if (type === "output_text" && typeof text === "string") {
+        if (type === "output_text" && typeof text === "string" && text.trim()) {
           return text;
         }
       }

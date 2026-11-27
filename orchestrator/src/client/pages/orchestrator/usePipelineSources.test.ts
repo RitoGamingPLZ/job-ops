@@ -1,109 +1,14 @@
+import { makeAuthToken } from "@client/test/auth-token";
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { PIPELINE_SOURCES_STORAGE_KEY } from "./constants";
 import { getPipelineSourcesStorageKey, usePipelineSources } from "./usePipelineSources";
 
-function ensureStorage(): Storage {
-  const existing = globalThis.localStorage as Partial<Storage> | undefined;
-  const hasStorageShape =
-    existing &&
-    typeof existing.getItem === "function" &&
-    typeof existing.setItem === "function" &&
-    typeof existing.removeItem === "function" &&
-    typeof existing.clear === "function";
-
-  if (hasStorageShape) {
-    return existing as Storage;
-  }
-
-  const store = new Map<string, string>();
-  const storage: Storage = {
-    get length() {
-      return store.size;
-    },
-    clear() {
-      store.clear();
-    },
-    getItem(key: string) {
-      const value = store.get(key);
-      return value ?? null;
-    },
-    key(index: number) {
-      return Array.from(store.keys())[index] ?? null;
-    },
-    removeItem(key: string) {
-      store.delete(key);
-    },
-    setItem(key: string, value: string) {
-      store.set(key, value);
-    },
-  };
-
-  Object.defineProperty(globalThis, "localStorage", {
-    value: storage,
-    configurable: true,
-    writable: true,
-  });
-
-  return storage;
-}
-
-function ensureSessionStorage(): Storage {
-  const existing = globalThis.sessionStorage as Partial<Storage> | undefined;
-  const hasStorageShape =
-    existing &&
-    typeof existing.getItem === "function" &&
-    typeof existing.setItem === "function" &&
-    typeof existing.removeItem === "function" &&
-    typeof existing.clear === "function";
-
-  if (hasStorageShape) {
-    return existing as Storage;
-  }
-
-  const store = new Map<string, string>();
-  const storage: Storage = {
-    get length() {
-      return store.size;
-    },
-    clear() {
-      store.clear();
-    },
-    getItem(key: string) {
-      const value = store.get(key);
-      return value ?? null;
-    },
-    key(index: number) {
-      return Array.from(store.keys())[index] ?? null;
-    },
-    removeItem(key: string) {
-      store.delete(key);
-    },
-    setItem(key: string, value: string) {
-      store.set(key, value);
-    },
-  };
-
-  Object.defineProperty(globalThis, "sessionStorage", {
-    value: storage,
-    configurable: true,
-    writable: true,
-  });
-
-  return storage;
-}
-
-function makeAuthToken(tenantId: string): string {
-  const encode = (value: unknown) =>
-    Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
-  return [encode({ alg: "HS256", typ: "JWT" }), encode({ tenantId }), "signature"].join(".");
-}
-
 describe("usePipelineSources", () => {
   beforeEach(() => {
-    ensureStorage().clear();
-    ensureSessionStorage().clear();
+    localStorage.clear();
+    sessionStorage.clear();
   });
 
   it("pre-selects core default sources for new users while leaving opt-in sources unchecked", () => {
@@ -122,7 +27,7 @@ describe("usePipelineSources", () => {
   });
 
   it("filters stored sources to enabled sources", () => {
-    ensureStorage().setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["freehire", "adzuna"]));
+    localStorage.setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["freehire", "adzuna"]));
 
     const enabledSources = ["freehire"] as const;
 
@@ -132,20 +37,20 @@ describe("usePipelineSources", () => {
   });
 
   it("falls back to core defaults matching enabled sources, then first enabled source", () => {
-    ensureStorage().setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["adzuna"]));
+    localStorage.setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["adzuna"]));
 
     const enabledWithCore = ["hiringcafe", "linkedin"] as const;
     const { result: withCore } = renderHook(() => usePipelineSources(enabledWithCore));
     expect(withCore.current.pipelineSources).toEqual(["linkedin"]);
 
-    ensureStorage().clear();
+    localStorage.clear();
     const enabledWithoutCore = ["hiringcafe", "jobindex"] as const;
     const { result: withoutCore } = renderHook(() => usePipelineSources(enabledWithoutCore));
     expect(withoutCore.current.pipelineSources).toEqual(["hiringcafe"]);
   });
 
   it("ignores toggles for disabled sources", () => {
-    ensureStorage().setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["freehire"]));
+    localStorage.setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["freehire"]));
 
     const enabledSources = ["freehire"] as const;
 
@@ -159,12 +64,11 @@ describe("usePipelineSources", () => {
   });
 
   it("loads and saves sources using workspace-scoped storage keys", () => {
-    const sessionStorage = ensureSessionStorage();
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-one"));
-    ensureStorage().setItem(getPipelineSourcesStorageKey(), JSON.stringify(["adzuna"]));
+    localStorage.setItem(getPipelineSourcesStorageKey(), JSON.stringify(["adzuna"]));
 
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-two"));
-    ensureStorage().setItem(getPipelineSourcesStorageKey(), JSON.stringify(["linkedin"]));
+    localStorage.setItem(getPipelineSourcesStorageKey(), JSON.stringify(["linkedin"]));
 
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-one"));
     const enabledSources = ["adzuna", "linkedin"] as const;
@@ -181,19 +85,17 @@ describe("usePipelineSources", () => {
 
     expect(
       JSON.parse(
-        ensureStorage().getItem(`${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-one`) ?? "[]",
+        localStorage.getItem(`${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-one`) ?? "[]",
       ),
     ).toEqual(["adzuna", "linkedin"]);
     expect(
       JSON.parse(
-        ensureStorage().getItem(`${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-two`) ?? "[]",
+        localStorage.getItem(`${PIPELINE_SOURCES_STORAGE_KEY}:workspace:tenant-two`) ?? "[]",
       ),
     ).toEqual(["linkedin"]);
   });
 
   it("migrates legacy stored sources into the workspace-scoped key", () => {
-    const sessionStorage = ensureSessionStorage();
-    const localStorage = ensureStorage();
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-one"));
     localStorage.setItem(PIPELINE_SOURCES_STORAGE_KEY, JSON.stringify(["adzuna"]));
 

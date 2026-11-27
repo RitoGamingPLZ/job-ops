@@ -1,4 +1,4 @@
-import { asArray, asRecord } from "@shared/utils/type-conversion";
+import { asArray, asRecord, toBoolean, toNumber, toText } from "@shared/utils/type-conversion";
 import { existsSync } from "node:fs";
 import { readFile, unlink } from "node:fs/promises";
 import { basename } from "node:path";
@@ -14,6 +14,7 @@ import {
   parseV5ResumeData,
   safeParseV5ResumeData,
 } from "@server/services/resume-document/schema/v5";
+import { extensionForImageMimeType } from "@server/services/resume-renderer/picture";
 import { getActiveTenantId } from "@server/tenancy/context";
 import { getPrivateDataScope } from "@server/tenancy/private-scope";
 import type {
@@ -43,18 +44,6 @@ function buildTenantScopedDesignResumeDocumentId(): string {
 }
 
 type JsonPatchOperation = NonNullable<DesignResumePatchRequest["operations"]>[number];
-
-function toBoolean(value: unknown, fallback = false): boolean {
-  return typeof value === "boolean" ? value : fallback;
-}
-
-function toNumber(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function toText(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
 
 export function ensureImportedProjectIds(resumeJson: DesignResumeJson): DesignResumeJson {
   const sections = asRecord(resumeJson.sections);
@@ -179,7 +168,7 @@ async function storeDesignResumePictureAsset(input: {
   assertImageByteSize(input.data.byteLength);
 
   const assetId = createId();
-  const ext = extensionForMimeType(input.mimeType);
+  const ext = extensionForImageMimeType(input.mimeType);
   const blobKey = buildDesignResumeAssetBlobKey(assetId, ext);
 
   try {
@@ -303,12 +292,6 @@ function parseDataUrl(input: string): { mimeType: string; data: Buffer } {
     mimeType,
     data,
   };
-}
-
-function extensionForMimeType(mimeType: string): string {
-  if (mimeType === "image/png") return ".png";
-  if (mimeType === "image/webp") return ".webp";
-  return ".jpg";
 }
 
 function decodePointerToken(token: string): string {

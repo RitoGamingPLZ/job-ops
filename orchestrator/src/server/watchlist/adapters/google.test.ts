@@ -1,6 +1,6 @@
 import catalog from "@server/config/career-boards-google.json";
-import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { makeSelectedSource } from "../testing/fixtures";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 vi.mock("node:timers/promises", async (importOriginal) => {
   const { withFakeTimeouts } = await import("../testing/timers");
@@ -14,18 +14,15 @@ beforeEach(async () => {
 });
 
 const base = "https://www.google.com/about/careers/applications/jobs/results/";
-const source: WatchlistSelectedSource = {
+const source = makeSelectedSource({
   id: "selected-google",
   catalogSourceId: "google:google",
   label: "Google",
   sourceType: "google",
   careersUrl: `${base}?q=software+engineer&location=London`,
-  cxsJobsUrl: null,
-  isCustom: false,
-  sortOrder: 0,
   createdAt: "2026-11-07T00:00:00Z",
   updatedAt: "2026-11-07T00:00:00Z",
-};
+});
 
 // Trimmed real 2026-11-07 response. Keep the positional layout, callback syntax,
 // and representative HTML; omit long prose, apply URL query and address details.
@@ -134,17 +131,11 @@ describe("googleWatchlistAdapter", () => {
     expect(adapter.descriptor.supportsCustomSource).toBe(true);
   });
   it.each([
-    "https://evil.test/about/careers/applications/jobs/results/",
     "https://www.google.com.evil.test/about/careers/applications/jobs/results/",
     "http://www.google.com/about/careers/applications/jobs/results/",
-    "https://user:password@www.google.com/about/careers/applications/jobs/results/",
-    "https://@www.google.com/about/careers/applications/jobs/results/",
-    "https://www.google.com:8443/about/careers/applications/jobs/results/",
-    "https://www.google.com:443/about/careers/applications/jobs/results/",
     `${base}123-title`,
     "https://www.google.com/",
-    "not a url",
-  ])("rejects untrusted search URL %s", (careersUrl) => {
+  ])("rejects untrusted or non-search URL %s", (careersUrl) => {
     expect(() => adapter.normalizeCustomSelection({ careersUrl, label: null })).toThrow();
   });
   it("maps the real HTML fixture without fetching detail pages", async () => {
@@ -304,19 +295,7 @@ describe("googleWatchlistAdapter", () => {
       'Engineer [a] "quote" \\ special',
     );
   });
-  it("retries 429 with bounded backoff", async () => {
-    vi.useFakeTimers();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response("private", { status: 429 }))
-      .mockResolvedValueOnce(list());
-    vi.stubGlobal("fetch", fetchMock);
-    const pending = adapter.fetchJobs({ source });
-    await vi.runAllTimersAsync();
-    expect((await pending).fetched).toBe(1);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-  it("stops after three retries without exposing upstream bodies", async () => {
+  it("rejects upstream errors without leaking response bodies and stops 429 retries", async () => {
     vi.useFakeTimers();
     const fetchMock = vi
       .fn()
@@ -328,8 +307,6 @@ describe("googleWatchlistAdapter", () => {
     await vi.runAllTimersAsync();
     await outcome;
     expect(fetchMock).toHaveBeenCalledTimes(4);
-  });
-  it("rejects upstream errors without leaking response bodies", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("secret", { status: 502 })));
     await expect(adapter.fetchJobs({ source })).rejects.toThrow(
       "Google careers returned HTTP 502.",

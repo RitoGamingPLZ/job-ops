@@ -1,8 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
-import { forbidden, toAppError, unauthorized } from "@infra/errors";
-import { fail, ok, okWithMeta } from "@infra/http";
+import { forbidden, unauthorized } from "@infra/errors";
+import { asyncRoute, fail, ok, okWithMeta } from "@infra/http";
 import { logger } from "@infra/logger";
-import { runWithRequestContext } from "@infra/request-context";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { isDemoMode } from "@server/config/demo";
@@ -21,15 +20,16 @@ export const webhookRouter = Router();
 /**
  * POST /api/webhook/trigger - Webhook endpoint for n8n to trigger the pipeline
  */
-webhookRouter.post("/trigger", async (req: Request, res: Response) => {
-  const authHeader = req.headers.authorization;
-  const expectedToken = process.env.WEBHOOK_SECRET;
+webhookRouter.post(
+  "/trigger",
+  asyncRoute(async (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const expectedToken = process.env.WEBHOOK_SECRET;
 
-  if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-    return fail(res, unauthorized());
-  }
+    if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
+      return fail(res, unauthorized());
+    }
 
-  try {
     if (isDemoMode()) {
       const simulated = await simulatePipelineRun();
       return okWithMeta(
@@ -48,9 +48,10 @@ webhookRouter.post("/trigger", async (req: Request, res: Response) => {
     }
 
     // Start pipeline in background
-    runWithRequestContext({}, () => {
-      runPipeline().catch((error) => {
-        logger.error("Webhook-triggered pipeline run failed", error);
+    void runPipeline().catch((error) => {
+      logger.error("Webhook-triggered pipeline run failed", {
+        route: "POST /api/webhook/trigger",
+        error: sanitizeUnknown(error),
       });
     });
 
@@ -58,10 +59,8 @@ webhookRouter.post("/trigger", async (req: Request, res: Response) => {
       message: "Pipeline triggered",
       triggeredAt: new Date().toISOString(),
     });
-  } catch (error) {
-    fail(res, toAppError(error));
-  }
-});
+  }),
+);
 
 function hasMatchingBearerSecret(
   authHeader: string | undefined,
@@ -110,13 +109,14 @@ function resolveCronHours(body: unknown): {
  * POST /api/webhook/cron - Internal cron tick endpoint invoked by Cloudflare Worker
  * Cron Triggers to run due scheduled pipelines and auto-backups.
  */
-webhookRouter.post("/cron", async (req: Request, res: Response) => {
-  const expectedSecret = process.env.CRON_SECRET || process.env.WEBHOOK_SECRET;
-  if (!hasMatchingBearerSecret(req.headers.authorization, expectedSecret)) {
-    return fail(res, unauthorized());
-  }
+webhookRouter.post(
+  "/cron",
+  asyncRoute(async (req: Request, res: Response) => {
+    const expectedSecret = process.env.CRON_SECRET || process.env.WEBHOOK_SECRET;
+    if (!hasMatchingBearerSecret(req.headers.authorization, expectedSecret)) {
+      return fail(res, unauthorized());
+    }
 
-  try {
     const { targetHour, backupTargetHour } = resolveCronHours(req.body);
     const pipelineResult = await runDueScheduledPipelinesForHour(targetHour);
 
@@ -146,7 +146,5 @@ webhookRouter.post("/cron", async (req: Request, res: Response) => {
       backupTriggered,
       triggeredAt: new Date().toISOString(),
     });
-  } catch (error) {
-    fail(res, toAppError(error));
-  }
-});
+  }),
+);

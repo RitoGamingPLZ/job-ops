@@ -2,8 +2,10 @@ import * as api from "@client/api";
 import { CheckCircle2, Copy, ExternalLink, Loader2 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCopyFeedback } from "@/client/hooks/useCopyFeedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { canCopyTextToClipboard, copyTextToClipboard } from "@/lib/utils";
 
 type CodexAuthPanelProps = {
   authApi?: CodexAuthApi;
@@ -131,19 +133,11 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
   const [isStartingCodexAuth, setIsStartingCodexAuth] = useState(false);
   const [isDisconnectingCodexAuth, setIsDisconnectingCodexAuth] = useState(false);
   const [codexAuthError, setCodexAuthError] = useState<string | null>(null);
-  const [hasCopiedCode, setHasCopiedCode] = useState(false);
+  const { copied, clearCopied, markCopied } = useCopyFeedback<string>(COPY_FEEDBACK_MS);
+  const hasCopiedCode = copied !== null && copied === codexAuthStatus?.userCode;
   const [nowMs, setNowMs] = useState(() => Date.now());
   const codexAuthStatusRef = useRef<CodexAuthStatus | null>(null);
   const onStatusChangeRef = useRef(onStatusChange);
-  const copyTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (copyTimerRef.current !== null) {
-        window.clearTimeout(copyTimerRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     onStatusChangeRef.current = onStatusChange;
@@ -200,48 +194,41 @@ export const CodexAuthPanel: React.FC<CodexAuthPanelProps> = ({
 
   const startCodexAuth = useCallback(
     async (forceRestart = false) => {
-      setHasCopiedCode(false);
+      clearCopied();
       await runCodexAuthAction(
         () => authApi.start({ forceRestart }),
         "Failed to start Codex sign-in.",
         setIsStartingCodexAuth,
       );
     },
-    [authApi, runCodexAuthAction],
+    [authApi, clearCopied, runCodexAuthAction],
   );
 
   const copyCode = useCallback(async () => {
     const code = codexAuthStatus?.userCode;
     if (!code) return;
-    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+    if (!canCopyTextToClipboard()) {
       setCodexAuthError("Copy is not available in this browser.");
       return;
     }
 
     setCodexAuthError(null);
     try {
-      await navigator.clipboard.writeText(code);
-      setHasCopiedCode(true);
-      if (copyTimerRef.current !== null) {
-        window.clearTimeout(copyTimerRef.current);
-      }
-      copyTimerRef.current = window.setTimeout(() => {
-        copyTimerRef.current = null;
-        setHasCopiedCode(false);
-      }, COPY_FEEDBACK_MS);
+      await copyTextToClipboard(code);
+      markCopied(code);
     } catch (error) {
       setCodexAuthError(getErrorMessage(error, "Failed to copy code."));
     }
-  }, [codexAuthStatus?.userCode]);
+  }, [codexAuthStatus?.userCode, markCopied]);
 
   const disconnectCodex = useCallback(async () => {
-    setHasCopiedCode(false);
+    clearCopied();
     await runCodexAuthAction(
       authApi.disconnect,
       "Failed to disconnect Codex.",
       setIsDisconnectingCodexAuth,
     );
-  }, [authApi, runCodexAuthAction]);
+  }, [authApi, clearCopied, runCodexAuthAction]);
 
   useEffect(() => {
     void refreshCodexAuthStatus();

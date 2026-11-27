@@ -1,8 +1,8 @@
 import type { JobListItem } from "@shared/types.js";
-import { isTargeted } from "@shared/types.js";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { type FilterTab, tabs } from "./constants";
+import type { FilterTab } from "./constants";
+import { pickVisibleSelected } from "./utils";
 
 const validTabs: FilterTab[] = ["discovered", "all"];
 
@@ -67,14 +67,8 @@ export function useOrchestratorNavigation({ searchParams }: UseOrchestratorNavig
 
   const setActiveTab = useCallback(
     (newTab: FilterTab, jobs: JobListItem[]) => {
-      const tabDef = tabs.find((item) => item.id === newTab);
-      const selectedItem = selectedJobId ? jobs.find((job) => job.id === selectedJobId) : null;
-      const jobFitsTab =
-        selectedItem &&
-        (newTab !== "discovered" || !isTargeted(selectedItem)) &&
-        (tabDef?.statuses.length === 0 || tabDef?.statuses.includes(selectedItem.status));
-
-      navigateWithContext(newTab, jobFitsTab ? selectedJobId : null);
+      const selectedItem = jobs.find((job) => job.id === selectedJobId) ?? null;
+      navigateWithContext(newTab, pickVisibleSelected(selectedItem, newTab)?.id ?? null);
     },
     [navigateWithContext, selectedJobId],
   );

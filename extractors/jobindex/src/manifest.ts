@@ -76,5 +76,3 @@ export const manifest: ExtractorManifest = {
     };
   },
 };
-
-export default manifest;

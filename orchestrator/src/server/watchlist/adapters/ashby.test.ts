@@ -1,22 +1,23 @@
-import timers from "node:timers/promises";
 import catalog from "@server/config/career-boards-ashby.json";
-import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createFetchStub, jsonResponse, makeSelectedSource } from "../testing/fixtures";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
+vi.mock("node:timers/promises", async (importOriginal) => {
+  const { withFakeTimeouts } = await import("../testing/timers");
+  return withFakeTimeouts(await importOriginal<typeof import("node:timers/promises")>());
+});
+
 let adapter: WatchlistCatalogSourceAdapter;
-const source: WatchlistSelectedSource = {
+const source = makeSelectedSource({
   id: "ashby-test",
   catalogSourceId: "ashby:linear",
   label: "Linear",
   sourceType: "ashby",
   careersUrl: "https://jobs.ashbyhq.com/linear",
-  cxsJobsUrl: null,
-  isCustom: false,
-  sortOrder: 0,
   createdAt: "2026-11-07",
   updatedAt: "2026-11-07",
-};
+});
 function job(id = "posting-1") {
   return {
     id,
@@ -37,14 +38,9 @@ function job(id = "posting-1") {
   };
 }
 function list(jobs: unknown[] = [job()]) {
-  return new Response(JSON.stringify({ jobs, apiVersion: "1" }));
+  return jsonResponse({ jobs, apiVersion: "1" });
 }
-function stub(...responses: Response[]) {
-  const mock = vi.fn();
-  for (const response of responses) mock.mockResolvedValueOnce(response);
-  vi.stubGlobal("fetch", mock);
-  return mock;
-}
+const stub = createFetchStub;
 function detail(id = "posting-1", multipleLocations = false) {
   const place = {
     address: { addressLocality: "New York", addressCountry: "US" },
@@ -346,11 +342,6 @@ describe("ashbyWatchlistAdapter", () => {
   });
   it("uses 1s/3s/8s fallback backoff", async () => {
     vi.useFakeTimers();
-    // Bridge Node's promise timer to Vitest's fake global clock.
-    vi.spyOn(timers, "setTimeout").mockImplementation(
-      <T = void>(ms?: number, value?: T) =>
-        new Promise<T>((resolve) => setTimeout(() => resolve(value as T), ms)),
-    );
     const mock = stub(
       ...Array.from({ length: 3 }, () => new Response("", { status: 429 })),
       list(),
@@ -365,9 +356,9 @@ describe("ashbyWatchlistAdapter", () => {
       expect(mock).toHaveBeenCalledTimes(index + 2);
     }
     expect((await pending).fetched).toBe(1);
-    expect(mock.mock.calls.every((call) => call[1].signal === mock.mock.calls[0][1].signal)).toBe(
-      true,
-    );
+    expect(
+      mock.mock.calls.every((call) => call[1]?.signal === mock.mock.calls[0]?.[1]?.signal),
+    ).toBe(true);
   });
   it("combines the 25s budget with caller cancellation, including cached details", async () => {
     const timeout = vi.spyOn(AbortSignal, "timeout");

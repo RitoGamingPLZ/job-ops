@@ -1,4 +1,4 @@
-import { asArray, asRecord } from "@shared/utils/type-conversion";
+import { asArray, asRecord, toBoolean, toNumber, toText } from "@shared/utils/type-conversion";
 import { extractResumeBullets, stripResumeHtml } from "@shared/resume-bullets";
 import type { ChatStyleManualLanguage } from "@shared/types";
 import type {
@@ -87,7 +87,7 @@ const LATEX_RESUME_SECTION_TITLES: Record<ChatStyleManualLanguage, LatexResumeSe
   },
 };
 
-const ORDERABLE_SECTION_KEYS = [
+export const ORDERABLE_SECTION_KEYS = [
   "profiles",
   "experience",
   "education",
@@ -101,18 +101,6 @@ const ORDERABLE_SECTION_KEYS = [
   "volunteer",
   "references",
 ] as const satisfies readonly LatexResumeOrderedSectionKey[];
-
-function toText(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function toNumber(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function toBoolean(value: unknown, fallback = false): boolean {
-  return typeof value === "boolean" ? value : fallback;
-}
 
 function getByPath(source: RecordLike, path: string): unknown {
   return path.split(".").reduce<unknown>((current, segment) => {

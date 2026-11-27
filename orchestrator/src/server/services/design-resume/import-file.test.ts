@@ -38,18 +38,8 @@ vi.mock("pdf-parse", () => ({
 }));
 
 import pdfParse from "pdf-parse";
+import { makePdfParseResult } from "../../testing/pdf-parse";
 import { importDesignResumeFromFile } from "./import-file";
-
-function makePdfParseResult(text: string) {
-  return {
-    numpages: 1,
-    numrender: 1,
-    info: {},
-    metadata: null,
-    version: "default" as const,
-    text,
-  };
-}
 
 function makeResumeDocument(
   resumeJson: DesignResumeJson = buildDefaultResumeDocument() as DesignResumeJson,

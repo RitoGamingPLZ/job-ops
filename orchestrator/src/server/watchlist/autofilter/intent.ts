@@ -1,5 +1,5 @@
 import * as settingsRepo from "@server/repositories/settings";
-import { createLocationIntentFromLegacyInputs } from "@shared/location-domain";
+import { resolveLocationIntentFromRawSettings } from "@server/services/location-intent";
 import { settingsRegistry } from "@shared/settings-registry";
 import type { FilterIntent } from "./types";
 
@@ -10,15 +10,9 @@ export async function loadFilterIntent(): Promise<FilterIntent> {
   const titles =
     settingsRegistry.searchTerms.parse(settings.searchTerms) ??
     settingsRegistry.searchTerms.default();
-  const workplaceTypes =
-    settingsRegistry.workplaceTypes.parse(settings.workplaceTypes) ??
-    settingsRegistry.workplaceTypes.default();
-  const location = createLocationIntentFromLegacyInputs({
-    selectedCountry: settings.jobspyCountryIndeed ?? "",
-    searchCities: settings.searchCities ?? settings.jobspyLocation ?? "",
-    workplaceTypes,
-    searchScope: settings.locationSearchScope,
-    matchStrictness: settings.locationMatchStrictness,
+  const location = resolveLocationIntentFromRawSettings(settings, {
+    includeProximity: false,
+    defaultWorkplaceTypes: settingsRegistry.workplaceTypes.default(),
   });
   return {
     titles: titles.slice(0, 100).map((title) => title.slice(0, 200)),

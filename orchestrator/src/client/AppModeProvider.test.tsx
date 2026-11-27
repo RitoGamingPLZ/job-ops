@@ -9,9 +9,9 @@ import { queryKeys } from "@client/lib/queryKeys";
 import { DEFAULT_USER_PERMISSIONS, type AuthUser } from "@shared/types";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
-import type React from "react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import "./test/app-route-mocks";
 import { App } from "./App";
 import { AppModeProvider } from "./components/layout";
 
@@ -28,82 +28,12 @@ vi.mock("./hooks/useDemoInfo", () => ({
   useDemoInfo: () => null,
 }));
 
-vi.mock("react-transition-group", () => ({
-  SwitchTransition: ({ children }: { children: React.ReactNode }) => children,
-  CSSTransition: ({ children }: { children: React.ReactNode }) => children,
-}));
-
-vi.mock("@/components/ui/sonner", () => ({
-  Toaster: () => null,
-}));
-
-vi.mock("./components/ForcedPasswordResetGate", () => ({
-  ForcedPasswordResetGate: ({ children }: { children: React.ReactNode }) => children,
-}));
-
-vi.mock("./components/OnboardingGate", () => ({
-  OnboardingGate: () => null,
-}));
-
 vi.mock("./hooks/useAnalyticsIdentity", () => ({
   useAnalyticsIdentity: () => {},
 }));
 
-vi.mock("./pages/AdminInvitationsPage", () => ({
-  AdminInvitationsPage: () => <div>admin-invitations</div>,
-}));
-
-vi.mock("./pages/AdminUsersPage", () => ({
-  AdminUsersPage: () => <div>admin-users</div>,
-}));
-
-vi.mock("./pages/GmailOauthCallbackPage", () => ({
-  GmailOauthCallbackPage: () => null,
-}));
-
-vi.mock("./pages/HomePage", () => ({
-  HomePage: () => <div>overview</div>,
-}));
-
-vi.mock("./pages/InProgressBoardPage", () => ({
-  InProgressBoardPage: () => <div>in-progress-board</div>,
-}));
-
-vi.mock("./pages/JobPage", () => ({
-  JobPage: () => <div>job-detail</div>,
-}));
-
-vi.mock("./pages/OnboardingPage", () => ({
-  OnboardingPage: () => <div>onboarding</div>,
-}));
-
-vi.mock("./pages/OrchestratorPage", () => ({
-  OrchestratorPage: () => <div>jobs-page</div>,
-}));
-
-vi.mock("./pages/SettingsPage", () => ({
-  SettingsPage: () => <div>settings-page</div>,
-}));
-
 vi.mock("./pages/ResumeCoworkPage", () => ({
   ResumeCoworkPage: () => <div>resume-editor</div>,
-}));
-
-vi.mock("./pages/ResumesPage", () => ({
-  ResumesPage: () => <div>resumes-page</div>,
-  ResumeLibraryPage: () => <div>candidate-library</div>,
-}));
-
-vi.mock("./pages/SignInPage", () => ({
-  SignInPage: () => <div>sign-in</div>,
-}));
-
-vi.mock("./pages/TrackingInboxPage", () => ({
-  TrackingInboxPage: () => <div>tracking-inbox</div>,
-}));
-
-vi.mock("./pages/WatchlistPage", () => ({
-  WatchlistPage: () => <div>watchlist-page</div>,
 }));
 
 function LocationProbe() {

@@ -77,6 +77,7 @@ class UnknownLocationCapabilitySourceError extends Error {
   }
 }
 
+/** @lintignore Tests import a fresh registry after resetting modules. */
 export function __resetExtractorRegistryForTests(): void {
   registry = null;
   initPromise = null;

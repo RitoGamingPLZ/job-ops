@@ -1,52 +1,26 @@
 import { logger } from "@infra/logger";
 import catalog from "@server/config/career-boards-eightfold.json";
-import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { installFakeAbortSignalTimeout, makeSelectedSource } from "../testing/fixtures";
 import { eightfoldWatchlistAdapter as adapter } from "./eightfold";
 
-// The jsdom fake clock does not replace node:timers/promises. Keep its
-// abortable delay contract, using the clock-controlled global timer in tests.
-vi.mock("node:timers/promises", () => {
-  const delay = (milliseconds: number, value: unknown, options: { signal: AbortSignal }) =>
-    new Promise((resolve, reject) => {
-      const { signal } = options;
-      const abortError = () =>
-        Object.assign(new Error("The operation was aborted", { cause: signal.reason }), {
-          name: "AbortError",
-          code: "ABORT_ERR",
-        });
-      if (signal.aborted) {
-        reject(abortError());
-        return;
-      }
-      const abort = () => {
-        clearTimeout(timer);
-        reject(abortError());
-      };
-      const timer = setTimeout(() => {
-        signal.removeEventListener("abort", abort);
-        resolve(value);
-      }, milliseconds);
-      signal.addEventListener("abort", abort, { once: true });
-    });
-  return { default: { setTimeout: delay }, setTimeout: delay };
+vi.mock("node:timers/promises", async (importOriginal) => {
+  const { withFakeTimeouts } = await import("../testing/timers");
+  return withFakeTimeouts(await importOriginal<typeof import("node:timers/promises")>());
 });
 
 const microsoft = "https://apply.careers.microsoft.com";
 const netflix = "https://explore.jobs.netflix.net";
-function source(origin = microsoft): WatchlistSelectedSource {
-  return {
+function source(origin = microsoft) {
+  return makeSelectedSource({
     id: "selected",
-    catalogSourceId: null,
     label: "Custom search",
     sourceType: "eightfold",
     careersUrl: `${origin}/careers?query=software&location=London&filter_seniority=Senior`,
-    cxsJobsUrl: null,
     isCustom: true,
-    sortOrder: 0,
     createdAt: "2026-11-06T00:00:00Z",
     updatedAt: "2026-11-06T00:00:00Z",
-  };
+  });
 }
 function position(id = 123, postedTs = 1794000000) {
   return {
@@ -390,9 +364,9 @@ describe("eightfoldWatchlistAdapter", () => {
         start: "0",
         attempt: 1,
         status: 429,
-        bodyPrefix: "sensitive upstream body",
       }),
     );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("sensitive upstream body");
   });
 
   it("bounds retries and never exposes upstream bodies", async () => {
@@ -424,7 +398,7 @@ describe("eightfoldWatchlistAdapter", () => {
     );
   });
 
-  it("logs bounded 429 diagnostics for the failed page without cookie values", async () => {
+  it("logs 429 diagnostics for the failed page without response bodies or cookie values", async () => {
     vi.useFakeTimers();
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
     const headers = new Headers({
@@ -457,7 +431,6 @@ describe("eightfoldWatchlistAdapter", () => {
         "x-cache": "CONFIG_NOCACHE",
         responseStateNames: ["session", "route"],
       },
-      bodyPrefix: "x".repeat(200),
     });
     expect(JSON.stringify(warn.mock.calls)).not.toContain("secret");
   });
@@ -646,13 +619,7 @@ describe("eightfoldWatchlistAdapter", () => {
     const controller = new AbortController();
     // Node's AbortSignal.timeout uses an internal timer, so drive its signal
     // with the fake clock while retaining the operation's real abort handling.
-    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((milliseconds) => {
-      setTimeout(
-        () => controller.abort(new DOMException("Operation timed out", "TimeoutError")),
-        milliseconds,
-      );
-      return controller.signal;
-    });
+    const timeout = installFakeAbortSignalTimeout(controller);
     const fetchMock = vi.fn().mockImplementation(async () =>
       fetchMock.mock.calls.length % 4 === 0
         ? pcsx({

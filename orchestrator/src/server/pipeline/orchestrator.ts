@@ -570,12 +570,6 @@ export async function runPipeline(
         candidates: jobsToProcess.length,
       });
 
-      await persistResultSummary({
-        stage: "processing",
-        jobsScored: scoredJobs.length,
-        jobsSelected: jobsToProcess.length,
-      });
-
       resultSummary = updatePipelineRunResultSummary(resultSummary, {
         stage: "completed",
         jobsScored: scoredJobs.length,
@@ -676,8 +670,6 @@ export async function runPipeline(
 }
 
 type ProcessJobOptions = {
-  force?: boolean;
-  fields?: Array<"summary" | "headline" | "skills" | "projects">;
   requestOrigin?: string | null;
   analyticsOrigin?:
     | "move_to_ready"

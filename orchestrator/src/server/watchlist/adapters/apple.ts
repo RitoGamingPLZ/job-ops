@@ -1,5 +1,6 @@
-import { parseWatchlistUrl } from "./url";
-import { fetchWithThrottleRetry, watchlistRequestSignal } from "./http";
+import { resolveCustomLabel } from "./common";
+import { hasPlainHttpsAuthority, parseWatchlistUrl } from "./url";
+import { createBudgetSignal, createSoftDeadline, fetchWatchlist } from "./http";
 import { badRequest, upstreamError } from "@infra/errors";
 import { escapeHtmlText } from "@infra/html";
 import { convert } from "html-to-text";
@@ -52,9 +53,11 @@ function searchUrl(value: string): URL {
   return url;
 }
 
+export const parseAppleUrl = searchUrl;
+
 function trustedUrl(value: string): URL {
   const url = parseWatchlistUrl(value, "Invalid Apple careers URL.");
-  if (url.origin !== ORIGIN || url.username || url.password) {
+  if (url.origin !== ORIGIN || url.username || url.password || !hasPlainHttpsAuthority(value)) {
     throw badRequest("Use an HTTPS careers URL on jobs.apple.com.");
   }
   return url;
@@ -71,11 +74,14 @@ function detailUrl(value: string): URL {
 }
 
 async function hydration(url: URL, signal: AbortSignal) {
-  const response = await fetchWithThrottleRetry(url.toString(), { signal, redirect: "manual" });
-  if (!response.ok) {
-    throw upstreamError(`Apple careers returned HTTP ${response.status}.`);
-  }
-  const html = await response.text();
+  const html = await fetchWatchlist({
+    url: url.toString(),
+    signal,
+    maxRetries: 3,
+    retryDelayMs: ({ attempt }) => 250 * 2 ** attempt,
+    responseType: "text",
+    formatHttpError: ({ status }) => upstreamError(`Apple careers returned HTTP ${status}.`),
+  });
   // Capture a JSON string literal, never execute Apple's JavaScript.
   const match = html.match(
     /window\.__staticRouterHydrationData\s*=\s*JSON\.parse\(\s*("(?:\\[\s\S]|[^"\\])*")\s*\)/,
@@ -111,7 +117,7 @@ function locationText(locations: z.infer<typeof locationSchema>[]): string | nul
 
 async function details(jobRef: string, signal?: AbortSignal) {
   const url = detailUrl(jobRef);
-  const data = await hydration(url, watchlistRequestSignal(signal));
+  const data = await hydration(url, createBudgetSignal(signal));
   const parsed = z.object({ jobsData: detailSchema }).safeParse(data.jobDetails);
   if (!parsed.success) {
     throw upstreamError(
@@ -182,23 +188,17 @@ export const appleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   normalizeCustomSelection(input) {
     return {
-      label:
-        input.label?.trim() && input.label.trim() !== input.careersUrl.trim()
-          ? input.label.trim()
-          : "Apple",
+      label: resolveCustomLabel(input.label, input.careersUrl, "Apple"),
       careersUrl: searchUrl(input.careersUrl).toString(),
     };
   },
   async fetchJobs(input) {
     const url = searchUrl(input.source.careersUrl);
-    const stopAt = Date.now() + 20_000;
-    const signal = AbortSignal.any([
-      watchlistRequestSignal(input.signal),
-      AbortSignal.timeout(20_000),
-    ]);
+    const deadline = createSoftDeadline(input.signal, { hardMs: 25_000, softMs: 20_000 });
+    const signal = deadline.signal;
     const collected: z.infer<typeof jobSchema>[] = [];
     let total = 0;
-    for (let page = 1; page <= Math.ceil(MAX_JOBS / 20) && Date.now() < stopAt; page += 1) {
+    for (let page = 1; page <= Math.ceil(MAX_JOBS / 20) && deadline.hasTimeLeft(); page += 1) {
       url.searchParams.set("page", String(page));
       let data: Awaited<ReturnType<typeof hydration>>;
       try {

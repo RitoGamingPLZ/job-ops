@@ -1,7 +1,9 @@
+import { createRawLocationEvidence } from "@shared/location-domain.js";
 import { normalizeCountryKey } from "@shared/location-support.js";
 import { resolveSearchCities, shouldApplyStrictCityFilter } from "@shared/search-cities.js";
-import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
+import type { CreateJobInput } from "@shared/types/jobs";
 import type { LocationProximity } from "@shared/types/location.js";
+import { formatSalaryRange } from "@shared/utils/salary.js";
 import {
   asRecord,
   toIntegerOrFallback,
@@ -54,7 +56,7 @@ interface NominatimResult {
   address?: Record<string, unknown>;
 }
 
-export interface HiringCafeSsrPage {
+interface HiringCafeSsrPage {
   jobs: HiringCafeRawJob[];
   page: number;
   totalCount: number | null;
@@ -74,7 +76,7 @@ export interface HiringCafeSearchResume {
   pendingDetailChallengeUrl?: string;
 }
 
-export type HiringCafeProgressEvent =
+type HiringCafeProgressEvent =
   | {
       type: "term_start";
       termIndex: number;
@@ -98,7 +100,7 @@ export type HiringCafeProgressEvent =
       jobsFoundTerm: number;
     };
 
-export interface RunHiringCafeOptions {
+interface RunHiringCafeOptions {
   searchTerms?: string[];
   country?: string;
   countryKey?: string;
@@ -117,7 +119,7 @@ export interface RunHiringCafeOptions {
   onProgress?: (event: HiringCafeProgressEvent) => void;
 }
 
-export interface HiringCafeResult {
+interface HiringCafeResult {
   success: boolean;
   jobs: CreateJobInput[];
   error?: string;
@@ -185,7 +187,7 @@ function firstArrayValue(value: unknown): string | null {
   return values.length > 0 ? values[0] : null;
 }
 
-function parseWorkplaceTypes(
+function toHiringCafeWorkplaceTypes(
   raw: RunHiringCafeOptions["workplaceTypes"],
 ): HiringCafeWorkplaceType[] {
   if (!raw || raw.length === 0) return ["Remote", "Hybrid", "Onsite"];
@@ -211,49 +213,12 @@ function parseWorkplaceTypes(
 function formatCompensation(processedJobData: Record<string, unknown> | null): string | undefined {
   if (!processedJobData) return undefined;
 
-  const min = toNumberOrNull(processedJobData.yearly_min_compensation);
-  const max = toNumberOrNull(processedJobData.yearly_max_compensation);
-  if (min === null && max === null) return undefined;
-
-  const currency = toStringOrNull(processedJobData.listed_compensation_currency);
-  const frequency = toStringOrNull(processedJobData.listed_compensation_frequency) ?? "Yearly";
-  const amount = formatCompensationAmount(min, max);
-
-  const parts = [currency, amount, frequency ? `/ ${frequency}` : ""]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-
-  return parts || undefined;
-}
-
-function formatCompensationAmount(min: number | null, max: number | null): string {
-  if (min !== null && max !== null) {
-    return `${Math.round(min)}-${Math.round(max)}`;
-  }
-  if (min !== null) return `${Math.round(min)}+`;
-  return `${Math.round(max ?? 0)}`;
-}
-
-function buildLocationEvidence(args: {
-  formattedLocation?: string | null;
-  cities: string[];
-  states: string[];
-  countries: string[];
-}): JobLocationEvidence | undefined {
-  const location = args.formattedLocation ?? args.cities[0] ?? args.states[0] ?? args.countries[0];
-
-  const city = args.cities[0];
-  const country = args.countries[0];
-
-  if (!location && !city && !country) return undefined;
-
-  return {
-    location,
-    city,
-    country,
-    source: "hiringcafe",
-  };
+  return formatSalaryRange({
+    min: toNumberOrNull(processedJobData.yearly_min_compensation),
+    max: toNumberOrNull(processedJobData.yearly_max_compensation),
+    currency: toStringOrNull(processedJobData.listed_compensation_currency),
+    interval: toStringOrNull(processedJobData.listed_compensation_frequency) ?? "Yearly",
+  });
 }
 
 function getHiringCafeSourceJobId(raw: HiringCafeRawJob): string | undefined {
@@ -307,11 +272,15 @@ function mapHiringCafeJob(raw: HiringCafeRawJob): CreateJobInput | null {
     firstArrayValue(processed?.workplace_states) ??
     firstArrayValue(processed?.workplace_countries) ??
     undefined;
-  const locationEvidence = buildLocationEvidence({
-    formattedLocation: toStringOrNull(processed?.formatted_workplace_location),
-    cities: asStringArray(processed?.workplace_cities),
-    states: asStringArray(processed?.workplace_states),
-    countries: asStringArray(processed?.workplace_countries),
+  const cities = asStringArray(processed?.workplace_cities);
+  const states = asStringArray(processed?.workplace_states);
+  const countries = asStringArray(processed?.workplace_countries);
+  const formattedLocation = toStringOrNull(processed?.formatted_workplace_location);
+  const locationEvidence = createRawLocationEvidence({
+    location: formattedLocation ?? cities[0] ?? states[0] ?? countries[0],
+    city: cities[0],
+    country: countries[0],
+    source: "hiringcafe",
   });
 
   const commitments = asStringArray(processed?.commitment);
@@ -737,7 +706,7 @@ export async function runHiringCafe(options: RunHiringCafeOptions = {}): Promise
       ? locations
       : [null];
   const termTotal = searchTerms.length * runLocations.length;
-  const workplaceTypes = parseWorkplaceTypes(options.workplaceTypes);
+  const workplaceTypes = toHiringCafeWorkplaceTypes(options.workplaceTypes);
   const jobs: CreateJobInput[] = [];
   const seen = new Set(options.searchResume?.seenKeys ?? []);
   const sourceErrors: string[] = [];

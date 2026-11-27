@@ -1,4 +1,4 @@
-import { notFound } from "@infra/errors";
+import { getErrorMessage, notFound } from "@infra/errors";
 import { logger } from "@infra/logger";
 import * as jobsRepo from "@server/repositories/jobs";
 import * as watchlistRepo from "@server/repositories/watchlist";
@@ -147,7 +147,7 @@ async function fetchAndStoreWatchlistSources(
   } catch (error) {
     // The fresh results are still returned; they just will not be remembered for the next visit.
     logger.warn("Failed to store watchlist source results", {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
   }
   return entries;
@@ -269,7 +269,7 @@ async function fetchWatchlistSource(
     return {
       status: "error",
       source,
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     };
   }
 }

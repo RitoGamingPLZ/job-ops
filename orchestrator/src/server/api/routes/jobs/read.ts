@@ -17,7 +17,7 @@ import {
 import { currentUserHasPermission } from "@server/services/user-permissions";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
-import { requireAnyPermissionMiddleware, requirePermissionMiddleware } from "../../require-admin";
+import { requireJobsOrInProgress, requireResumes } from "../../require-admin";
 import {
   assertJobFeatureAccess,
   hydrateJobPdfFreshness,
@@ -32,8 +32,6 @@ import {
 } from "./shared";
 
 export const jobsReadRouter = Router();
-
-const requireJobsOrInProgress = requireAnyPermissionMiddleware("jobs", "inProgress");
 
 const jobEmailsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_JOB_EMAIL_LIMIT).default(DEFAULT_JOB_EMAIL_LIMIT),
@@ -225,7 +223,7 @@ jobsReadRouter.get("/:id/emails", requireJobsOrInProgress, async (req: Request, 
 
 jobsReadRouter.get(
   "/:id/pdf",
-  requirePermissionMiddleware("resumes"),
+  requireResumes,
   requireJobsOrInProgress,
   async (req: Request, res: Response) => {
     const currentJob = await jobsRepo.getJobById(req.params.id);

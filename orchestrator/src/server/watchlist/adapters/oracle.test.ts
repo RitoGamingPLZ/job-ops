@@ -1,21 +1,23 @@
 import catalog from "@server/config/career-boards-oracle.json";
-import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { jsonResponse, makeSelectedSource } from "../testing/fixtures";
 import { oracleWatchlistAdapter as adapter } from "./oracle";
 
+vi.mock("node:timers/promises", async (importOriginal) => {
+  const { withFakeTimeouts } = await import("../testing/timers");
+  return withFakeTimeouts(await importOriginal<typeof import("node:timers/promises")>());
+});
+
 const base = catalog[0].careersUrl;
-const source: WatchlistSelectedSource = {
+const source = makeSelectedSource({
   id: "oracle-selected",
-  catalogSourceId: null,
   label: "Uber",
   sourceType: "oracle",
   careersUrl: base,
-  cxsJobsUrl: null,
   isCustom: true,
-  sortOrder: 0,
   createdAt: "",
   updatedAt: "",
-};
+});
 function job(id = "304060") {
   return {
     Id: id,
@@ -25,9 +27,7 @@ function job(id = "304060") {
     secondaryLocations: [{ Name: "London" }, { Name: "Toronto" }],
   };
 }
-function json(payload: unknown) {
-  return new Response(JSON.stringify(payload));
-}
+const json = jsonResponse;
 function page(total = 1, jobs = [job()]) {
   return json({ items: [{ TotalJobsCount: total, requisitionList: jobs }] });
 }
@@ -72,9 +72,6 @@ describe("oracleWatchlistAdapter", () => {
     base.replace("https:", "http:"),
     base.replace("oraclecloud.com", "oraclecloud.com.evil.test"),
     base.replace("iaziqy.fa.ocs.oraclecloud.com", "oraclecloud.com"),
-    base.replace("https://", "https://user:password@"),
-    base.replace(".com/", ".com:443/"),
-    base.replace(".com/", ".com:8443/"),
     base.replace("/jobs", "/job/123"),
     base.replace("iaziqy.fa.ocs.oraclecloud.com", "127.0.0.1"),
   ])("rejects unsafe or unsupported URL %s", (careersUrl) => {

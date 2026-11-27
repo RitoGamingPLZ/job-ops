@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { installFakeAbortSignalTimeout } from "../testing/fixtures";
 import { isAllowedByRobots, loadPage } from "./fetch";
 import { detectQueryPagination, extractJob } from "./run-recipe";
 import type { Recipe } from "./types";
@@ -116,11 +117,15 @@ describe("extractJob", () => {
     },
   );
 
-  it("accepts 500 character URLs and rejects 501 before recipe regexes", () => {
+  it("accepts 500 character URLs and rejects overlong detail URLs before recipe regexes", () => {
     const url = `${base}/jobs/${"x".repeat(500 - base.length - 6)}`;
     expect(url).toHaveLength(500);
     expect(extractJob(posting(), url, recipe)).not.toBeNull();
+    const longUrl = `${base}/jobs/${"1".repeat(2048)}`;
+    const exec = vi.spyOn(RegExp.prototype, "exec");
     expect(extractJob(posting(), `${url}x`, { ...recipe, jobIdPattern: "[" })).toBeNull();
+    expect(extractJob(posting(), longUrl, recipe)).toBeNull();
+    expect(exec.mock.calls.some(([value]) => value === longUrl)).toBe(false);
   });
 
   it("maps public structured data and URL ids", () => {
@@ -227,16 +232,6 @@ describe("extractJob", () => {
       }),
     ).toBeNull();
   });
-  it("skips overlong detail URLs before matching the ID pattern", () => {
-    const url = `${base}/jobs/${"1".repeat(2048)}`;
-    const exec = vi.spyOn(RegExp.prototype, "exec");
-    try {
-      expect(extractJob(posting(), url, recipe)).toBeNull();
-      expect(exec.mock.calls.some(([value]) => value === url)).toBe(false);
-    } finally {
-      exec.mockRestore();
-    }
-  });
   it("rejects missing postings and incomplete structured data", () => {
     expect(
       extractJob(
@@ -250,104 +245,82 @@ describe("extractJob", () => {
 });
 
 describe("runRecipe", () => {
-  it("orders same UTC-day lastmods by numeric ID despite timestamp noise", async () => {
-    const entries: [string, string?][] = [
-      [`${base}/jobs/9`, "2026-11-08T04:54:24Z"],
-      [`${base}/jobs/100`, "2026-11-08T04:53:15Z"],
-      [`${base}/jobs/20`, "2026-11-07T23:53:30-05:00"],
-    ];
-    pages({
-      [recipe.listing.url]: sitemap(entries),
-      ...Object.fromEntries(entries.map(([url]) => [url, posting()])),
-    });
-    expect((await runRecipe(recipe, { limit: 2 })).map((job) => job.id)).toEqual(["100", "20"]);
-    expect(loadPage).not.toHaveBeenCalledWith(entries[0][0], expect.anything());
-  });
-
-  it("orders different UTC days before numeric IDs and undated entries", async () => {
-    const entries: [string, string?][] = [
-      [`${base}/jobs/999`, "2026-11-08T23:59:59Z"],
-      [`${base}/jobs/1`, "2026-11-08T20:00:00-05:00"],
-      [`${base}/jobs/9999`],
-    ];
-    pages({
-      [recipe.listing.url]: sitemap(entries),
-      ...Object.fromEntries(entries.map(([url]) => [url, posting()])),
-    });
-    expect((await runRecipe(recipe, { limit: 40 })).map((job) => job.id)).toEqual([
-      "1",
-      "999",
-      "9999",
-    ]);
-  });
-
-  it("preserves file order for same-day entries without numeric IDs", async () => {
-    const entries: [string, string?][] = [
-      [`${base}/jobs/zebra`, "2026-11-08T04:53:15Z"],
-      [`${base}/jobs/alpha`, "2026-11-08T04:54:24Z"],
-    ];
-    pages({
-      [recipe.listing.url]: sitemap(entries),
-      ...Object.fromEntries(entries.map(([url]) => [url, posting()])),
-    });
-    expect(
-      (
-        await runRecipe(
-          {
-            ...recipe,
-            jobUrlPattern: "/jobs/",
-            jobIdPattern: "/jobs/([^/]+)$",
-          },
-          { limit: 40 },
-        )
-      ).map((job) => job.id),
-    ).toEqual(["zebra", "alpha"]);
-  });
-
-  it("caps an alphabetical sitemap without lastmod at the highest numeric IDs", async () => {
-    const urls = ["accountant/9", "engineer/100", "writer/20"].map(
-      (path) => `${base}/jobs/${path}`,
-    );
-    pages({
-      [recipe.listing.url]: sitemap(urls.map((url) => [url])),
-      ...Object.fromEntries(urls.map((url) => [url, posting()])),
-    });
-    expect(
-      (
-        await runRecipe(
-          { ...recipe, jobUrlPattern: "/jobs/", jobIdPattern: "(\\d+)$" },
-          { limit: 2 },
-        )
-      ).map((job) => job.id),
-    ).toEqual(["100", "20"]);
-    expect(loadPage).not.toHaveBeenCalledWith(urls[0], expect.anything());
-  });
-
-  it("orders lastmod first, numeric IDs next, and other IDs in file order", async () => {
-    const entries: [string, string?][] = [
-      [`${base}/jobs/zebra`],
-      [`${base}/jobs/99999`],
-      [`${base}/jobs/1`, "2025-01-01"],
-      [`${base}/jobs/alpha`],
-      [`${base}/jobs/20`],
-      [`${base}/jobs/2`, "2026-01-01"],
-    ];
+  it.each<{
+    name: string;
+    entries: [string, string?][];
+    recipeOverrides?: Partial<Recipe>;
+    limit: number;
+    expectedIds: string[];
+    skippedUrl?: string;
+  }>([
+    {
+      name: "orders same UTC-day lastmods by numeric ID despite timestamp noise",
+      entries: [
+        [`${base}/jobs/9`, "2026-11-08T04:54:24Z"],
+        [`${base}/jobs/100`, "2026-11-08T04:53:15Z"],
+        [`${base}/jobs/20`, "2026-11-07T23:53:30-05:00"],
+      ],
+      limit: 2,
+      expectedIds: ["100", "20"],
+      skippedUrl: `${base}/jobs/9`,
+    },
+    {
+      name: "orders different UTC days before numeric IDs and undated entries",
+      entries: [
+        [`${base}/jobs/999`, "2026-11-08T23:59:59Z"],
+        [`${base}/jobs/1`, "2026-11-08T20:00:00-05:00"],
+        [`${base}/jobs/9999`],
+      ],
+      limit: 40,
+      expectedIds: ["1", "999", "9999"],
+    },
+    {
+      name: "preserves file order for same-day entries without numeric IDs",
+      entries: [
+        [`${base}/jobs/zebra`, "2026-11-08T04:53:15Z"],
+        [`${base}/jobs/alpha`, "2026-11-08T04:54:24Z"],
+      ],
+      recipeOverrides: { jobUrlPattern: "/jobs/", jobIdPattern: "/jobs/([^/]+)$" },
+      limit: 40,
+      expectedIds: ["zebra", "alpha"],
+    },
+    {
+      name: "caps an alphabetical sitemap without lastmod at the highest numeric IDs",
+      entries: [
+        [`${base}/jobs/accountant/9`],
+        [`${base}/jobs/engineer/100`],
+        [`${base}/jobs/writer/20`],
+      ],
+      recipeOverrides: { jobUrlPattern: "/jobs/", jobIdPattern: "(\\d+)$" },
+      limit: 2,
+      expectedIds: ["100", "20"],
+      skippedUrl: `${base}/jobs/accountant/9`,
+    },
+    {
+      name: "orders lastmod first, numeric IDs next, and other IDs in file order",
+      entries: [
+        [`${base}/jobs/zebra`],
+        [`${base}/jobs/99999`],
+        [`${base}/jobs/1`, "2025-01-01"],
+        [`${base}/jobs/alpha`],
+        [`${base}/jobs/20`],
+        [`${base}/jobs/2`, "2026-01-01"],
+      ],
+      recipeOverrides: { jobUrlPattern: "/jobs/", jobIdPattern: "/jobs/([^/]+)$" },
+      limit: 40,
+      expectedIds: ["2", "1", "99999", "20", "zebra", "alpha"],
+    },
+  ])("$name", async ({ entries, recipeOverrides, limit, expectedIds, skippedUrl }) => {
     pages({
       [recipe.listing.url]: sitemap(entries),
       ...Object.fromEntries(entries.map(([url]) => [url, posting()])),
     });
     expect(
-      (
-        await runRecipe(
-          {
-            ...recipe,
-            jobUrlPattern: "/jobs/",
-            jobIdPattern: "/jobs/([^/]+)$",
-          },
-          { limit: 40 },
-        )
-      ).map((job) => job.id),
-    ).toEqual(["2", "1", "99999", "20", "zebra", "alpha"]);
+      (await runRecipe({ ...recipe, ...recipeOverrides }, { limit })).map((job) => job.id),
+    ).toEqual(expectedIds);
+    if (skippedUrl) {
+      expect(loadPage).not.toHaveBeenCalledWith(skippedUrl, expect.anything());
+    }
   });
 
   it("uses the last run of at least five path digits only without an ID pattern", async () => {
@@ -369,16 +342,6 @@ describe("runRecipe", () => {
         ),
       ).toEqual(jobIdPattern ? urls : [urls[1], urls[4], urls[0], urls[2], urls[3]]);
     }
-  });
-
-  it("skips listing URLs over 500 chars before matching recipes", async () => {
-    const longUrl = `${base}/jobs/${"1".repeat(501)}`;
-    pages({
-      [`${base}/sitemap.xml`]: sitemap([[longUrl], [`${base}/jobs/42`]]),
-      [`${base}/jobs/42`]: posting(),
-    });
-    expect(await runRecipe(recipe, { limit: 40 })).toHaveLength(1);
-    expect(loadPage).not.toHaveBeenCalledWith(longUrl, expect.anything());
   });
 
   it("follows indexes to depth two, deduplicates, orders by lastmod and caps details", async () => {
@@ -443,6 +406,8 @@ describe("runRecipe", () => {
   it.each(["sitemap", "page"] as const)(
     "skips overlong %s links before regex matching",
     async (kind) => {
+      const boundaryUrl = `${base}/jobs/${"1".repeat(501 - base.length - 6)}`;
+      expect(boundaryUrl).toHaveLength(501);
       const longUrl = `${base}/jobs/${"1".repeat(2048)}`;
       const boundedRecipe: Recipe =
         kind === "sitemap"
@@ -460,18 +425,17 @@ describe("runRecipe", () => {
       pages({
         [boundedRecipe.listing.url]:
           kind === "sitemap"
-            ? sitemap([[longUrl], [`${base}/jobs/1`]])
-            : `<a href="${longUrl}">Long</a><a href="/jobs/1">Role</a>`,
+            ? sitemap([[boundaryUrl], [longUrl], [`${base}/jobs/1`]])
+            : `<a href="${boundaryUrl}">Boundary</a><a href="${longUrl}">Long</a><a href="/jobs/1">Role</a>`,
         [`${base}/jobs/1`]: posting(),
       });
       const test = vi.spyOn(RegExp.prototype, "test");
-      try {
-        expect((await runRecipe(boundedRecipe, { limit: 2 })).map((job) => job.id)).toEqual(["1"]);
-        expect(test.mock.calls.some(([value]) => value === longUrl)).toBe(false);
-        expect(loadPage).not.toHaveBeenCalledWith(longUrl, expect.anything());
-      } finally {
-        test.mockRestore();
-      }
+      expect((await runRecipe(boundedRecipe, { limit: 2 })).map((job) => job.id)).toEqual(["1"]);
+      expect(test.mock.calls.some(([value]) => value === boundaryUrl || value === longUrl)).toBe(
+        false,
+      );
+      expect(loadPage).not.toHaveBeenCalledWith(boundaryUrl, expect.anything());
+      expect(loadPage).not.toHaveBeenCalledWith(longUrl, expect.anything());
     },
   );
   it("follows a filtered listing and _paged links instead of the host sitemap", async () => {
@@ -688,6 +652,7 @@ describe("runRecipe", () => {
       expect(isAllowedByRobots).toHaveBeenCalledWith(url, { signal });
   });
   it("limits detail concurrency to three and preserves sorted order despite completion order", async () => {
+    vi.useFakeTimers();
     let active = 0;
     let peak = 0;
     vi.mocked(loadPage).mockImplementation(async (url) => {
@@ -703,24 +668,16 @@ describe("runRecipe", () => {
       active--;
       return { url, status: 200, html: posting(url) };
     });
-    expect((await runRecipe(recipe, { limit: 4 })).map((job) => job.id)).toEqual([
-      "4",
-      "3",
-      "2",
-      "1",
-    ]);
+    const pending = runRecipe(recipe, { limit: 4 });
+    await vi.runAllTimersAsync();
+    expect((await pending).map((job) => job.id)).toEqual(["4", "3", "2", "1"]);
     expect(peak).toBe(3);
   });
   it.each(["load", "robots"] as const)(
     "soft-aborts a stalled detail %s and returns earlier jobs before the hard abort",
     async (phase) => {
       vi.useFakeTimers();
-      // Native AbortSignal.timeout uses real timers; route it through fake timers.
-      vi.spyOn(AbortSignal, "timeout").mockImplementation((delay) => {
-        const controller = new AbortController();
-        setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), delay);
-        return controller.signal;
-      });
+      installFakeAbortSignalTimeout();
       const stalled = (signal?: AbortSignal) =>
         new Promise<never>((_resolve, reject) => {
           if (!signal) throw new Error("Expected a page signal");
@@ -827,26 +784,33 @@ describe("runRecipe", () => {
     );
     expect(loadPage).toHaveBeenCalledTimes(1);
   });
-  it("still throws on abort after collecting jobs before the soft deadline", async () => {
-    const controller = new AbortController();
-    vi.mocked(loadPage).mockImplementation(async (url) => {
-      if (url.endsWith(".xml"))
-        return {
-          url,
-          status: 200,
-          html: sitemap([1, 2, 3, 4].map((id) => [`${base}/jobs/${id}`])),
-        };
-      if (url.endsWith("1")) controller.abort(new Error("Cancelled details"));
-      return { url, status: 200, html: posting() };
-    });
-    await expect(
-      runRecipe(recipe, {
-        limit: 4,
-        signal: controller.signal,
-        stopAt: Date.now() + 20_000,
-      }),
-    ).rejects.toThrow("Cancelled details");
-  });
+  it.each(["listing", "detail"] as const)(
+    "honors abort signals during %s fetches rather than returning partial results",
+    async (phase) => {
+      const controller = new AbortController();
+      vi.mocked(loadPage).mockImplementation(async (url) => {
+        if (url.endsWith(".xml")) {
+          if (phase === "listing") controller.abort(new Error("Cancelled"));
+          return {
+            url,
+            status: 200,
+            html: sitemap(
+              (phase === "detail" ? [1, 2, 3, 4] : [1]).map((id) => [`${base}/jobs/${id}`]),
+            ),
+          };
+        }
+        if (url.endsWith("1")) controller.abort(new Error("Cancelled"));
+        return { url, status: 200, html: posting() };
+      });
+      await expect(
+        runRecipe(recipe, {
+          limit: phase === "detail" ? 4 : 1,
+          signal: controller.signal,
+          ...(phase === "detail" ? { stopAt: Date.now() + 20_000 } : {}),
+        }),
+      ).rejects.toThrow("Cancelled");
+    },
+  );
   it("skips broken or empty detail pages but throws a sanitized error if all fail", async () => {
     pages({
       [`${base}/sitemap.xml`]: sitemap([
@@ -880,17 +844,6 @@ describe("runRecipe", () => {
     await expect(runRecipe(recipe, { limit: 2 })).rejects.toBeInstanceOf(SiteBlockedError);
     expect(loadPage).not.toHaveBeenCalled();
   });
-  it("honors abort signals rather than returning partial results", async () => {
-    const controller = new AbortController();
-    pages({ [`${base}/sitemap.xml`]: sitemap([[`${base}/jobs/1`]]) });
-    vi.mocked(loadPage).mockImplementationOnce(async (url) => {
-      controller.abort(new Error("Cancelled"));
-      return { url, status: 200, html: sitemap([[`${base}/jobs/1`]]) };
-    });
-    await expect(runRecipe(recipe, { limit: 1, signal: controller.signal })).rejects.toThrow(
-      "Cancelled",
-    );
-  });
   it("returns empty for a valid empty sitemap or zero limit and rejects invalid or failed listings", async () => {
     expect(await runRecipe(recipe, { limit: 0 })).toEqual([]);
     expect(loadPage).not.toHaveBeenCalled();
@@ -911,19 +864,20 @@ describe("runRecipe", () => {
     pages({ [base]: new Error("private response") });
     await expect(runRecipe(pageRecipe, { limit: 1 })).rejects.toThrow("No careers listing pages");
   });
-  it("rejects foreign final URLs and unsuccessful HTTP statuses", async () => {
-    vi.mocked(loadPage).mockResolvedValue({
-      url: "https://foreign.example/sitemap.xml",
-      status: 200,
-      html: sitemap([]),
-    });
-    await expect(runRecipe(recipe, { limit: 1 })).rejects.toThrow("could not be loaded");
-    vi.mocked(loadPage).mockResolvedValue({
-      url: `${base}/sitemap.xml`,
-      status: 403,
-      html: "blocked",
-    });
-    await expect(runRecipe(recipe, { limit: 1 })).rejects.toBeInstanceOf(SiteBlockedError);
+  it.each([
+    {
+      name: "a foreign final URL",
+      page: { url: "https://foreign.example/sitemap.xml", status: 200, html: sitemap([]) },
+      error: "could not be loaded",
+    },
+    {
+      name: "an upstream block",
+      page: { url: `${base}/sitemap.xml`, status: 403, html: "blocked" },
+      error: SiteBlockedError,
+    },
+  ])("rejects $name", async ({ page, error }) => {
+    vi.mocked(loadPage).mockResolvedValue(page);
+    await expect(runRecipe(recipe, { limit: 1 })).rejects.toThrow(error);
   });
 });
 

@@ -1,6 +1,9 @@
 import { escapeHtmlMarkup } from "@infra/html";
+import { asyncPool } from "@server/utils/async-pool";
+import { parseCatalogSourcesLenient, setBoundedMapEntry } from "./common";
+import { extractJsonLdObjects, findJsonLdJobPostings } from "./html";
 import { parseWatchlistUrl, hasPlainHttpsAuthority } from "./url";
-import { fetchWithThrottleRetry, watchlistRequestSignal } from "./http";
+import { createBudgetSignal, createSoftDeadline, fetchWatchlist } from "./http";
 import { badRequest, upstreamError } from "@infra/errors";
 import { convert } from "html-to-text";
 import { z } from "zod";
@@ -66,19 +69,20 @@ async function pageHtml(url: string, signal: AbortSignal): Promise<string> {
   trustedUrl(url);
   // metacareers.com redirects requests without a User-Agent to /unsupportedbrowser, and
   // workerd's fetch does not guarantee one, so always identify ourselves.
-  const response = await fetchWithThrottleRetry(url, {
+  return fetchWatchlist({
+    url,
     signal,
-    redirect: "manual",
     headers: { "user-agent": USER_AGENT, accept: "text/html,application/xml;q=0.9,*/*;q=0.8" },
+    maxRetries: 3,
+    retryDelayMs: ({ attempt }) => 250 * 2 ** attempt,
+    responseType: "text",
+    formatHttpError: ({ status, response }) => {
+      const location = response.headers.get("location");
+      return upstreamError(
+        `Meta careers returned HTTP ${status}${location ? ` (redirect to ${new URL(location, ORIGIN).pathname})` : ""}.`,
+      );
+    },
   });
-  if (!response.ok) {
-    const location = response.headers.get("location");
-    await response.body?.cancel();
-    throw upstreamError(
-      `Meta careers returned HTTP ${response.status}${location ? ` (redirect to ${new URL(location, ORIGIN).pathname})` : ""}.`,
-    );
-  }
-  return response.text();
 }
 function parseSitemap(xml: string) {
   if (!/<urlset\b/.test(xml) || !/<\/urlset\s*>/.test(xml)) throw structureError("sitemap");
@@ -101,14 +105,7 @@ function parseSitemap(xml: string) {
 function parseDetail(html: string, id: string): Job {
   // Stable public SEO payload observed live, without inspecting private Relay
   // payloads or tokens. Never evaluate embedded JavaScript.
-  for (const script of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
-    if (!/\btype\s*=\s*["']application\/ld\+json["']/i.test(script[1])) continue;
-    let data: unknown;
-    try {
-      data = JSON.parse(script[2]);
-    } catch {
-      continue;
-    }
+  for (const data of findJsonLdJobPostings(extractJsonLdObjects(html))) {
     const parsed = postingSchema.safeParse(data);
     if (!parsed.success) continue;
     const posting = parsed.data;
@@ -145,12 +142,8 @@ async function details(jobRef: string, signal?: AbortSignal): Promise<Job> {
   signal?.throwIfAborted();
   const cached = listedJobs.get(id);
   if (cached) return cached;
-  const job = parseDetail(await pageHtml(jobUrl(id), watchlistRequestSignal(signal, 24_000)), id);
-  if (listedJobs.size >= LIMIT) {
-    const oldest = listedJobs.keys().next().value;
-    if (oldest) listedJobs.delete(oldest);
-  }
-  listedJobs.set(id, job);
+  const job = parseDetail(await pageHtml(jobUrl(id), createBudgetSignal(signal, 24_000)), id);
+  setBoundedMapEntry(listedJobs, id, job, LIMIT);
   return job;
 }
 
@@ -173,23 +166,13 @@ export const metaWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsBranding: false,
   },
   parseCatalogSources(entries) {
-    return entries.flatMap((entry) => {
-      const parsed = sourceSchema.safeParse(entry);
-      if (!parsed.success) return [];
-      try {
-        return [
-          {
-            id: "meta:meta",
-            label: parsed.data.label,
-            sourceType: "meta",
-            careersUrl: searchUrl(parsed.data.careersUrl),
-            cxsJobsUrl: null,
-          },
-        ];
-      } catch {
-        return [];
-      }
-    });
+    return parseCatalogSourcesLenient(entries, sourceSchema, (parsed) => ({
+      id: "meta:meta",
+      label: parsed.label,
+      sourceType: "meta",
+      careersUrl: searchUrl(parsed.careersUrl),
+      cxsJobsUrl: null,
+    }));
   },
   hydrateSelectedSource(source) {
     return {
@@ -208,32 +191,29 @@ export const metaWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async fetchJobs(input) {
     listedJobs = new Map();
     searchUrl(input.source.careersUrl);
-    const stopAt = Date.now() + 20_000;
-    const signal = AbortSignal.any([
-      watchlistRequestSignal(input.signal, 24_000),
-      AbortSignal.timeout(20_000),
-    ]);
+    const deadline = createSoftDeadline(input.signal, { hardMs: 24_000, softMs: 20_000 });
+    const signal = deadline.signal;
     const entries = parseSitemap(await pageHtml(`${ORIGIN}/jobsearch/sitemap.xml`, signal));
     const selected = entries.slice(0, LIMIT);
     const collected = new Map<string, Job>();
-    let index = 0;
-    async function worker() {
-      while (index < selected.length && !signal.aborted && Date.now() < stopAt) {
-        const entry = selected[index++];
+    await asyncPool({
+      items: selected,
+      concurrency: 2,
+      shouldStop: () => signal.aborted || !deadline.hasTimeLeft(),
+      task: async (entry) => {
         try {
-          const requestSignal = AbortSignal.any([
+          const requestSignal = createBudgetSignal(
             signal,
-            AbortSignal.timeout(Math.max(1, Math.min(5_000, stopAt - Date.now()))),
-          ]);
+            Math.max(1, Math.min(5_000, deadline.remainingMs())),
+          );
           const job = parseDetail(await pageHtml(jobUrl(entry.id), requestSignal), entry.id);
           collected.set(entry.id, job);
         } catch {
           // A removed/failed posting must not discard other successful details.
           input.signal?.throwIfAborted();
         }
-      }
-    }
-    await Promise.all([worker(), worker()]);
+      },
+    });
     input.signal?.throwIfAborted();
     if (!collected.size)
       throw upstreamError(

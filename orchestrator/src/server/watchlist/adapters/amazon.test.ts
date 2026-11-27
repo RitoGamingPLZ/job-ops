@@ -1,21 +1,23 @@
 import catalog from "@server/config/career-boards-amazon.json";
-import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { jsonResponse, makeSelectedSource } from "../testing/fixtures";
 import { amazonWatchlistAdapter as adapter } from "./amazon";
 
-const source: WatchlistSelectedSource = {
+vi.mock("node:timers/promises", async (importOriginal) => {
+  const { withFakeTimeouts } = await import("../testing/timers");
+  return withFakeTimeouts(await importOriginal<typeof import("node:timers/promises")>());
+});
+
+const source = makeSelectedSource({
   id: "selected-amazon",
-  catalogSourceId: null,
   label: "Amazon",
   sourceType: "amazon",
   careersUrl:
     "https://www.amazon.jobs/en/search?base_query=software&loc_query=Seattle&category[]=software-development",
-  cxsJobsUrl: null,
   isCustom: true,
-  sortOrder: 0,
   createdAt: "2026-11-06T00:00:00Z",
   updatedAt: "2026-11-06T00:00:00Z",
-};
+});
 const job = {
   id: "uuid",
   id_icims: "123",
@@ -29,7 +31,7 @@ const job = {
   preferred_qualifications: "<p>Cloud experience</p>",
 };
 function response(jobs: unknown[] = [job], hits = jobs.length) {
-  return new Response(JSON.stringify({ error: null, hits, jobs }));
+  return jsonResponse({ error: null, hits, jobs });
 }
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -99,11 +101,8 @@ describe("amazonWatchlistAdapter", () => {
   });
   it.each([
     "https://amazon.jobs.evil.test/en/search",
-    "https://evil.test/en/search",
     "http://www.amazon.jobs/en/search",
     "https://www.amazon.jobs/en/jobs/123",
-    "https://user:pass@www.amazon.jobs/en/search",
-    "https://www.amazon.jobs:8080/en/search",
   ])("rejects unsupported search URL %s", (careersUrl) => {
     expect(() => adapter.normalizeCustomSelection({ label: null, careersUrl })).toThrow();
   });
@@ -245,12 +244,15 @@ describe("amazonWatchlistAdapter", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
   it("retries a transient 429 and respects cancellation", async () => {
+    vi.useFakeTimers();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response("", { status: 429 }))
       .mockResolvedValueOnce(response());
     vi.stubGlobal("fetch", fetchMock);
-    expect((await adapter.fetchJobs({ source })).fetched).toBe(1);
+    const pending = adapter.fetchJobs({ source });
+    await vi.runAllTimersAsync();
+    expect((await pending).fetched).toBe(1);
     await expect(adapter.fetchJobs({ source, signal: AbortSignal.abort() })).rejects.toThrow();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });

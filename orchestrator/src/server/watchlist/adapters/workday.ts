@@ -1,4 +1,6 @@
-import { shouldHydrateSourceLabel } from "./branding";
+import { fetchLogoBranding, shouldHydrateSourceLabel } from "./branding";
+import { resolveCustomLabel } from "./common";
+import { getSourceHost } from "./url";
 import {
   getJobDetailsFromCxs,
   getJobsFromCxs,
@@ -8,8 +10,6 @@ import {
   workdayUrlToCxsJobsUrl,
   workdayUrlToSourceKey,
 } from "@career-boards/workday";
-import { upstreamError } from "@infra/errors";
-import { detectLogoMimeType } from "@infra/image-mime";
 import type { ManualJobDraft, WatchlistSelectedSource } from "@shared/types";
 import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
@@ -20,8 +20,6 @@ const workdaySourceSchema = z.object({
   label: z.string().trim().min(1).max(200),
   workdayUrl: z.string().trim().url().max(2000),
 });
-
-const WORKDAY_LOGO_MAX_BYTES = 1_000_000;
 
 export const workdayWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   sourceType: "workday",
@@ -61,15 +59,13 @@ export const workdayWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   normalizeCustomSelection(input) {
     const canonicalCareersUrl = parseWorkdayUrl(input.careersUrl).canonicalCareersUrl;
-    const trimmedLabel = input.label?.trim();
-    const label =
-      trimmedLabel &&
-      trimmedLabel !== input.careersUrl.trim() &&
-      trimmedLabel !== canonicalCareersUrl
-        ? trimmedLabel
-        : workdayUrlToCompanyLabel(canonicalCareersUrl);
     return {
-      label,
+      label: resolveCustomLabel(
+        input.label,
+        input.careersUrl,
+        workdayUrlToCompanyLabel(canonicalCareersUrl),
+        canonicalCareersUrl,
+      ),
       careersUrl: canonicalCareersUrl,
     };
   },
@@ -116,49 +112,12 @@ export const workdayWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   async fetchBranding(input) {
     const parsedUrl = parseWorkdayUrl(input.source.careersUrl);
-    const logoUrl = `${parsedUrl.canonicalCareersUrl}/assets/logo`;
-    const response = await fetch(logoUrl, {
-      method: "GET",
-      redirect: "follow",
+    return fetchLogoBranding({
+      providerLabel: "Workday",
+      logoUrl: `${parsedUrl.canonicalCareersUrl}/assets/logo`,
+      careersUrl: parsedUrl.canonicalCareersUrl,
       signal: input.signal,
     });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch Workday logo with HTTP ${response.status}.`);
-    }
-
-    const contentLength = Number(response.headers.get("content-length"));
-    if (Number.isFinite(contentLength) && contentLength > WORKDAY_LOGO_MAX_BYTES) {
-      throw upstreamError("Workday company logo exceeded size limit", {
-        url: logoUrl,
-        contentLength,
-        maxBytes: WORKDAY_LOGO_MAX_BYTES,
-      });
-    }
-
-    const contentType = response.headers.get("content-type");
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.byteLength > WORKDAY_LOGO_MAX_BYTES) {
-      throw upstreamError("Workday company logo exceeded size limit", {
-        url: logoUrl,
-        contentLength: bytes.byteLength,
-        maxBytes: WORKDAY_LOGO_MAX_BYTES,
-      });
-    }
-    const mimeType = detectLogoMimeType(bytes, contentType);
-    if (!mimeType) {
-      throw upstreamError("Workday logo response was not an image.", {
-        url: logoUrl,
-        contentType: contentType?.trim() || null,
-      });
-    }
-
-    return {
-      careersUrl: input.source.careersUrl,
-      logoUrl,
-      mimeType,
-      imageDataUrl: `data:${mimeType};base64,${bytes.toString("base64")}`,
-    };
   },
 };
 
@@ -217,12 +176,4 @@ function buildManualDraftFromWorkdayDetails(
     jobDescription: details.jobDescriptionText,
     jobType: details.timeType,
   };
-}
-
-function getSourceHost(value: string): string | null {
-  try {
-    return new URL(value).hostname || null;
-  } catch {
-    return null;
-  }
 }

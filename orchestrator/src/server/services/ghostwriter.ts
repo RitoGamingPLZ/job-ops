@@ -1,5 +1,12 @@
 import { getPositiveIntEnv } from "@server/utils/env";
-import { badRequest, conflict, notFound, requestTimeout, upstreamError } from "@infra/errors";
+import {
+  badRequest,
+  conflict,
+  getErrorMessage,
+  notFound,
+  requestTimeout,
+  upstreamError,
+} from "@infra/errors";
 import { logger } from "@infra/logger";
 import { getRequestId } from "@infra/request-context";
 import { listExperienceBullets } from "@server/repositories/experience-bullets";
@@ -92,7 +99,7 @@ function chunkText(value: string, maxChunk = 60): string[] {
 }
 
 function isRunningRunUniqueConstraintError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = getErrorMessage(error);
   return (
     message.includes("idx_job_chat_runs_thread_running_unique") ||
     message.includes("UNIQUE constraint failed: job_chat_runs.thread_id")

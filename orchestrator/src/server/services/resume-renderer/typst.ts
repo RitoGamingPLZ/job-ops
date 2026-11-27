@@ -1,14 +1,16 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { copyFile, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, normalize } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, normalize } from "node:path";
 import { logger } from "@infra/logger";
 import { NAVY_SERIF_STYLE } from "@shared/resume-style/navy-serif";
 import { type PdfPaperSize, TYPST_THEME_VALUES, type TypstTheme } from "@shared/types";
 import { asRecord } from "@shared/utils/type-conversion";
-import { runResumeCompiler, withRenderTempDir } from "./compiler";
+import { resolveRendererAssetPath, runResumeCompiler, withRenderTempDir } from "./compiler";
 import {
-  formatLanguageDetails,
+  formatCustomFieldLines,
+  formatInterestLines,
+  formatLanguageLines,
+  type LineSectionFormat,
   renderInlineHtml,
   renderOrderedSections,
   resolveSectionTitles,
@@ -17,11 +19,8 @@ import { summarizeResumeDocumentForLog } from "./log";
 import { materializeResumePicture } from "./picture";
 import type {
   LatexResumeContactItem,
-  LatexResumeCustomFieldItem,
   LatexResumeDocument,
   LatexResumeEntry,
-  LatexResumeInterestItem,
-  LatexResumeLanguageItem,
   ResumeRenderer,
 } from "./types";
 
@@ -61,30 +60,7 @@ export interface TypstThemeManifest {
   tokens?: TypstThemeTokens;
 }
 
-function resolveThemesRoot(): string {
-  const candidates: string[] = [];
-  try {
-    if (import.meta.url.startsWith("file:")) {
-      const moduleDir = dirname(fileURLToPath(import.meta.url));
-      candidates.push(
-        join(moduleDir, "typst-themes"),
-        join(moduleDir, "../../src/server/services/resume-renderer/typst-themes"),
-      );
-    }
-  } catch {
-    // Fall through to cwd-based resolution below.
-  }
-
-  const cwd = process.cwd();
-  candidates.push(
-    join(cwd, "src/server/services/resume-renderer/typst-themes"),
-    join(cwd, "orchestrator/src/server/services/resume-renderer/typst-themes"),
-  );
-
-  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[candidates.length - 1];
-}
-
-const THEMES_ROOT = resolveThemesRoot();
+const THEMES_ROOT = resolveRendererAssetPath("typst-themes");
 
 function assertSupportedTheme(theme: TypstTheme): void {
   if (!TYPST_THEME_VALUES.includes(theme)) {
@@ -287,42 +263,38 @@ function renderProfilesSection(document: LatexResumeDocument): string {
   return renderLineSection(titles.profiles, lines);
 }
 
+const TYPST_LINE_FORMAT: LineSectionFormat = {
+  escape: escapeTypstText,
+  bold: (label) => `*${escapeTypstText(label)}*`,
+  boldPair: (label, value) => `*${escapeTypstText(label)}:* ${value}`,
+  link: renderLink,
+};
+
 function renderCustomFieldsSection(document: LatexResumeDocument): string {
   if (document.customFieldItems.length === 0) return "";
   const titles = resolveSectionTitles(document);
-  const lines = document.customFieldItems.map((item: LatexResumeCustomFieldItem) => {
-    const value = item.url ? renderLink(item.text, item.url) : escapeTypstText(item.text);
-    if (!item.title) return value;
-    if (item.title === item.text) {
-      return `*${escapeTypstText(item.title)}*`;
-    }
-    return `*${escapeTypstText(item.title)}:* ${value}`;
-  });
-  return renderLineSection(titles.customFields, lines);
+  return renderLineSection(
+    titles.customFields,
+    formatCustomFieldLines(document.customFieldItems, TYPST_LINE_FORMAT),
+  );
 }
 
 function renderLanguagesSection(document: LatexResumeDocument): string {
   if (document.languages.length === 0) return "";
   const titles = resolveSectionTitles(document);
-  const lines = document.languages.map((item: LatexResumeLanguageItem) => {
-    const detail = formatLanguageDetails(item).map(escapeTypstText).join(" | ");
-    return detail
-      ? `*${escapeTypstText(item.language)}:* ${detail}`
-      : `*${escapeTypstText(item.language)}*`;
-  });
-  return renderLineSection(titles.languages, lines);
+  return renderLineSection(
+    titles.languages,
+    formatLanguageLines(document.languages, TYPST_LINE_FORMAT),
+  );
 }
 
 function renderInterestsSection(document: LatexResumeDocument): string {
   if (document.interests.length === 0) return "";
   const titles = resolveSectionTitles(document);
-  const lines = document.interests.map((item: LatexResumeInterestItem) => {
-    const keywords = item.keywords.map((keyword) => escapeTypstText(keyword));
-    return keywords.length > 0
-      ? `*${escapeTypstText(item.name)}:* ${keywords.join(", ")}`
-      : `*${escapeTypstText(item.name)}*`;
-  });
-  return renderLineSection(titles.interests, lines);
+  return renderLineSection(
+    titles.interests,
+    formatInterestLines(document.interests, TYPST_LINE_FORMAT),
+  );
 }
 
 function renderPictureBlock(document: LatexResumeDocument): string {
@@ -359,15 +331,6 @@ export async function readTypstTheme(theme: TypstTheme = "classic"): Promise<{
   const templatePath = join(getTypstThemeDir(theme), manifest.entrypoint);
   const template = await readFile(templatePath, "utf8");
   return { manifest, template, tokens: manifest.tokens };
-}
-
-async function loadTemplate(theme: TypstTheme): Promise<{
-  manifest: TypstThemeManifest;
-  template: string;
-  tokens?: TypstThemeTokens;
-}> {
-  const { manifest, template, tokens } = await readTypstTheme(theme);
-  return { manifest, template, tokens };
 }
 
 function replaceSharedTypstPlaceholders(template: string, paperSize: PdfPaperSize): string {
@@ -519,7 +482,7 @@ const typstResumeRenderer: ResumeRenderer = {
         const compiledPdfPath = join(tempDir, OUTPUT_FILENAME);
 
         try {
-          const { manifest, template, tokens } = await loadTemplate(typstTheme);
+          const { manifest, template, tokens } = await readTypstTheme(typstTheme);
           const renderableDocument = await materializeResumePicture(
             document,
             tempDir,

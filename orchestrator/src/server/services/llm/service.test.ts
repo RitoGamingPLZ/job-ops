@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClaudeCliClient } from "./claude-cli/client";
 import { CodexClient } from "./codex/client";
 import { GeminiCliClient } from "./gemini-cli/client";
+import { __clearModeCacheForTests } from "./policies/mode-selection";
 import { EMPTY_RESPONSE_ERROR } from "./policies/retry-policy";
 import { LlmService } from "./service";
 import type { JsonSchemaDefinition } from "./types";
@@ -454,7 +455,7 @@ describe("LlmService provider normalization", () => {
     expect(models).toEqual(["claude-sonnet"]);
     const [requestedUrl, init] = fetchSpy.mock.calls[1] ?? [];
     expect(String(requestedUrl)).toBe("http://localhost:4000/v1/models");
-    expect((init?.headers as Record<string, string>).Authorization).toBeUndefined();
+    expect(new Headers(init?.headers).has("Authorization")).toBe(false);
   });
 
   it("reports the LiteLLM proxy error when no model list is readable", async () => {
@@ -492,5 +493,248 @@ describe("LlmService provider normalization", () => {
     expect(models).toContain("anthropic/claude-sonnet-4-5");
     const [requestedUrl] = fetchSpy.mock.calls[0] ?? [];
     expect(String(requestedUrl)).toBe("https://api.orcarouter.ai/v1/models");
+  });
+});
+
+describe("LlmService OpenRouter and fallback behavior", () => {
+  const openRouterSchema: JsonSchemaDefinition = {
+    name: "test_schema",
+    schema: {
+      type: "object",
+      properties: {
+        value: { type: "string", description: "A test value" },
+        count: { type: "integer", description: "A test count" },
+      },
+      required: ["value", "count"],
+      additionalProperties: false,
+    },
+  };
+
+  let originalEnv: Record<string, string | undefined>;
+
+  beforeEach(() => {
+    originalEnv = {
+      LLM_PROVIDER: process.env.LLM_PROVIDER,
+      LLM_BASE_URL: process.env.LLM_BASE_URL,
+      OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+      LLM_API_KEY: process.env.LLM_API_KEY,
+    };
+    process.env.LLM_PROVIDER = "openrouter";
+    process.env.OPENROUTER_API_KEY = "test-api-key";
+    delete process.env.LLM_API_KEY;
+  });
+
+  afterEach(() => {
+    __clearModeCacheForTests();
+    for (const [key, val] of Object.entries(originalEnv)) {
+      if (val === undefined) delete process.env[key];
+      else process.env[key] = val;
+    }
+    vi.restoreAllMocks();
+  });
+
+  it("returns error when API key is missing", async () => {
+    delete process.env.OPENROUTER_API_KEY;
+
+    const llm = new LlmService({ provider: "openrouter" });
+    const result = await llm.callJson({
+      model: "test-model",
+      messages: [{ role: "user", content: "test" }],
+      jsonSchema: openRouterSchema,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("API key");
+    }
+  });
+
+  it("returns parsed data on successful response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ value: "hello", count: 42 }) } }],
+      }),
+    } as Response);
+
+    const llm = new LlmService({ provider: "openrouter", apiKey: "test-api-key" });
+    expect(process.env.LLM_API_KEY).toBeUndefined();
+
+    const result = await llm.callJson<{ value: string; count: number }>({
+      model: "test-model",
+      messages: [{ role: "user", content: "test" }],
+      jsonSchema: openRouterSchema,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.value).toBe("hello");
+      expect(result.data.count).toBe(42);
+    }
+  });
+
+  it("handles API errors gracefully", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => "Internal Server Error",
+    } as Response);
+
+    const llm = new LlmService({ provider: "openrouter", apiKey: "test-api-key" });
+    const result = await llm.callJson({
+      model: "test-model",
+      messages: [{ role: "user", content: "test" }],
+      jsonSchema: openRouterSchema,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("500");
+    }
+  });
+
+  it("includes json_schema and OpenRouter plugins in request body", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '{"value": "test", "count": 1}' } }],
+      }),
+    } as Response);
+
+    const llm = new LlmService({ provider: "openrouter", apiKey: "test-api-key" });
+    await llm.callJson({
+      model: "test-model",
+      messages: [{ role: "user", content: "test prompt" }],
+      jsonSchema: openRouterSchema,
+    });
+
+    const fetchCall = fetchSpy.mock.calls[0];
+    const body = JSON.parse(fetchCall?.[1]?.body as string);
+    expect(body.response_format.type).toBe("json_schema");
+    expect(body.response_format.json_schema.name).toBe("test_schema");
+    expect(body.response_format.json_schema.strict).toBe(true);
+    expect(body.plugins[0].id).toBe("response-healing");
+  });
+
+  it("adds OpenRouter headers", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '{"value": "test", "count": 1}' } }],
+      }),
+    } as Response);
+
+    const llm = new LlmService({ provider: "openrouter", apiKey: "test-api-key" });
+    await llm.callJson({
+      model: "test-model",
+      messages: [{ role: "user", content: "test prompt" }],
+      jsonSchema: openRouterSchema,
+    });
+
+    const fetchCall = fetchSpy.mock.calls[0];
+    const headers = fetchCall?.[1]?.headers as Record<string, string>;
+    expect(headers.Authorization).toContain("Bearer");
+    expect(headers["HTTP-Referer"]).toBe("JobOps");
+    expect(headers["X-Title"]).toBe("JobOpsOrchestrator");
+  });
+
+  it("retries on parsing failures when maxRetries is set", async () => {
+    let callCount = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      callCount++;
+      if (callCount < 3) {
+        return {
+          ok: true,
+          json: async () => ({ choices: [{ message: { content: "invalid json" } }] }),
+        } as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: '{"value": "success", "count": 3}' } }],
+        }),
+      } as Response;
+    });
+
+    const llm = new LlmService({ provider: "openrouter", apiKey: "test-api-key" });
+    const result = await llm.callJson<{ value: string; count: number }>({
+      model: "test-model",
+      messages: [{ role: "user", content: "test" }],
+      jsonSchema: openRouterSchema,
+      maxRetries: 2,
+      retryDelayMs: 10,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.value).toBe("success");
+    }
+    expect(callCount).toBe(3);
+  });
+
+  it("falls back to a looser mode when schema is rejected", async () => {
+    process.env.LLM_PROVIDER = "lmstudio";
+    delete process.env.OPENROUTER_API_KEY;
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      const body = JSON.parse(init?.body as string);
+      if (body.response_format?.type === "json_schema") {
+        return {
+          ok: false,
+          status: 400,
+          text: async () =>
+            JSON.stringify({
+              error: "'response_format.type' must be 'json_schema' or 'text'",
+            }),
+        } as Response;
+      }
+      if (body.response_format?.type === "text") {
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [{ message: { content: '{"value": "ok", "count": 1}' } }],
+          }),
+        } as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: '{"value": "fallback", "count": 2}' } }],
+        }),
+      } as Response;
+    });
+
+    const llm = new LlmService({ provider: "lmstudio" });
+    const result = await llm.callJson<{ value: string; count: number }>({
+      model: "test-model",
+      messages: [{ role: "user", content: "test" }],
+      jsonSchema: openRouterSchema,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.value).toBe("ok");
+    }
+    expect(fetchSpy.mock.calls.length).toBe(2);
+  });
+
+  it("does not send Authorization header for Gemini key validation", async () => {
+    process.env.LLM_PROVIDER = "gemini";
+    process.env.LLM_API_KEY = "AIza-valid-gemini-key";
+    delete process.env.OPENROUTER_API_KEY;
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ models: [] }),
+    } as Response);
+
+    const llm = new LlmService({ provider: "gemini", apiKey: "AIza-valid-gemini-key" });
+    const result = await llm.validateCredentials();
+
+    expect(result.valid).toBe(true);
+    const fetchCall = fetchSpy.mock.calls[0];
+    const headers = fetchCall?.[1]?.headers as Record<string, string>;
+    expect(headers.Authorization).toBeUndefined();
   });
 });

@@ -9,18 +9,25 @@ import type {
 import { buildHeaders, joinUrl } from "../utils/http";
 import { getNestedValue } from "../utils/object";
 
-type ProviderStrategyArgs = Omit<ProviderStrategy, "getValidationUrls"> & {
-  validationPaths: string[];
-  getValidationUrls?: ProviderStrategy["getValidationUrls"];
-};
+type ProviderStrategyArgs = Omit<ProviderStrategy, "getValidationUrls"> &
+  (
+    | {
+        validationPaths: string[];
+        getValidationUrls?: never;
+      }
+    | {
+        validationPaths?: never;
+        getValidationUrls: ProviderStrategy["getValidationUrls"];
+      }
+  );
 
 export function createProviderStrategy(args: ProviderStrategyArgs): ProviderStrategy {
-  const { validationPaths, ...strategy } = args;
+  const { validationPaths, getValidationUrls, ...strategy } = args;
   return {
     ...strategy,
     getValidationUrls:
-      args.getValidationUrls ??
-      (({ baseUrl }) => validationPaths.map((path) => joinUrl(baseUrl, path))),
+      getValidationUrls ??
+      (({ baseUrl }) => (validationPaths ?? []).map((path) => joinUrl(baseUrl, path))),
   };
 }
 
@@ -92,7 +99,7 @@ export function createCliStrategy(
     defaultBaseUrl: "",
     requiresApiKey: false,
     modes: ["none"],
-    validationPaths: [],
+    getValidationUrls: () => [],
     buildRequest: () => {
       throw new Error(`${label} provider does not use HTTP requests.`);
     },

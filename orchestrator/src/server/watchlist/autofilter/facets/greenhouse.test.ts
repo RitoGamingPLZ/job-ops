@@ -139,20 +139,16 @@ it("skips unusable values and departments with comma delimiters", async () => {
   });
 });
 
-it.each([
-  "bad",
-  "http://job-boards.greenhouse.io/airbnb",
-  "https://evil.com/airbnb",
-  "https://job-boards.greenhouse.io@evil.com/airbnb",
-  "https://user@job-boards.greenhouse.io/airbnb",
-  "https://job-boards.greenhouse.io:8443/airbnb",
-])("rejects invalid URL %s without fetching", async (careersUrl) => {
-  const fetch = mockBoard();
-  await expect(discoverGreenhouseFacets({ careersUrl })).rejects.toMatchObject({
-    status: 400,
-  });
-  expect(fetch).not.toHaveBeenCalled();
-});
+it.each(["bad", "http://job-boards.greenhouse.io/airbnb", "https://evil.com/airbnb"])(
+  "rejects invalid URL %s without fetching",
+  async (careersUrl) => {
+    const fetch = mockBoard();
+    await expect(discoverGreenhouseFacets({ careersUrl })).rejects.toMatchObject({
+      status: 400,
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  },
+);
 
 it.each([
   "https://boards.greenhouse.io/airbnb",

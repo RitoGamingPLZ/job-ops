@@ -3,6 +3,7 @@ import {
   type AppErrorCode,
   badRequest,
   conflict,
+  getErrorMessage,
   notFound,
   STATUS_BY_APP_ERROR_CODE,
 } from "@infra/errors";
@@ -225,7 +226,7 @@ export async function regenerateJobResumeInBackground(
         if (!result.success) throw new Error(result.error ?? "Resume PDF generation failed");
       } catch (error) {
         logger.error("Resume regeneration failed", { jobId, error });
-        const message = error instanceof Error ? error.message : "Resume PDF generation failed";
+        const message = getErrorMessage(error, "Resume PDF generation failed");
         const current = await jobsRepo.getJobById(jobId);
         if (current?.status === "processing")
           await jobsRepo.updateJob(jobId, {

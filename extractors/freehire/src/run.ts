@@ -1,11 +1,12 @@
-import { asRecord } from "@shared/utils/type-conversion.js";
 import { getCountryIso2Code } from "@shared/location-support.js";
 import type { CreateJobInput } from "@shared/types/jobs";
+import { formatSalaryRange } from "@shared/utils/salary.js";
+import { asRecord } from "@shared/utils/type-conversion.js";
 import { buildFreeHireLocationEvidence } from "./location.js";
 
 const FREEHIRE_SEARCH_URL = "https://freehire.me/api/v1/agent/jobs/search";
 
-export interface FreeHireProgressEvent {
+interface FreeHireProgressEvent {
   type: "term_start" | "term_complete";
   termIndex: number;
   termTotal: number;
@@ -13,7 +14,7 @@ export interface FreeHireProgressEvent {
   jobsFoundTerm?: number;
 }
 
-export interface RunFreeHireOptions {
+interface RunFreeHireOptions {
   searchTerms?: string[];
   selectedCountry?: string;
   locations?: string[];
@@ -24,13 +25,13 @@ export interface RunFreeHireOptions {
   fetchImpl?: typeof fetch;
 }
 
-export interface FreeHireResult {
+interface FreeHireResult {
   success: boolean;
   jobs: CreateJobInput[];
   error?: string;
 }
 
-export interface FetchFreeHirePageOptions {
+interface FetchFreeHirePageOptions {
   searchTerm: string;
   selectedCountry?: string;
   locations?: string[];
@@ -41,14 +42,12 @@ export interface FetchFreeHirePageOptions {
   fetchImpl?: typeof fetch;
 }
 
-export interface FreeHirePage {
+interface FreeHirePage {
   jobs: CreateJobInput[];
   limit: number;
   offset: number;
   total: number;
 }
-
-type UnknownRecord = Record<string, unknown>;
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -73,25 +72,6 @@ function asHttpUrl(value: unknown): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-function formatSalary(enrichment: UnknownRecord | null): string | undefined {
-  const minimum = asNumber(enrichment?.salary_min);
-  const maximum = asNumber(enrichment?.salary_max);
-  if (minimum === undefined && maximum === undefined) return undefined;
-
-  const format = (value: number) =>
-    new Intl.NumberFormat("en", { maximumFractionDigits: 0 }).format(value);
-  const amount =
-    minimum !== undefined && maximum !== undefined
-      ? `${format(minimum)}–${format(maximum)}`
-      : minimum !== undefined
-        ? `from ${format(minimum)}`
-        : `up to ${format(maximum as number)}`;
-  const currency = asString(enrichment?.salary_currency);
-  const period = asString(enrichment?.salary_period);
-
-  return `${currency ? `${currency} ` : ""}${amount}${period ? `/${period}` : ""}`;
 }
 
 export function mapFreeHireJob(value: unknown): CreateJobInput | null {
@@ -122,7 +102,13 @@ export function mapFreeHireJob(value: unknown): CreateJobInput | null {
     }),
     jobDescription: asString(row.description) ?? asString(enrichment?.summary),
     datePosted: asString(row.posted_at),
-    salary: formatSalary(enrichment),
+    salary: formatSalaryRange({
+      min: asNumber(enrichment?.salary_min),
+      max: asNumber(enrichment?.salary_max),
+      currency: asString(enrichment?.salary_currency),
+      interval: asString(enrichment?.salary_period),
+      style: "formatted",
+    }),
     salaryInterval: asString(enrichment?.salary_period),
     salaryMinAmount: asNumber(enrichment?.salary_min),
     salaryMaxAmount: asNumber(enrichment?.salary_max),

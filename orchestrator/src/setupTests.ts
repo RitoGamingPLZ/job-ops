@@ -21,7 +21,8 @@ const hasStorageShape = (value: unknown): value is Storage => {
   );
 };
 
-if (!hasStorageShape(globalThis.localStorage)) {
+for (const key of ["localStorage", "sessionStorage"] as const) {
+  if (hasStorageShape(globalThis[key])) continue;
   const store = new Map<string, string>();
   const storage: Storage = {
     get length() {
@@ -45,7 +46,7 @@ if (!hasStorageShape(globalThis.localStorage)) {
     },
   };
 
-  Object.defineProperty(globalThis, "localStorage", {
+  Object.defineProperty(globalThis, key, {
     configurable: true,
     writable: true,
     value: storage,

@@ -1,5 +1,7 @@
+import { parseCatalogSourcesLenient, resolveCustomLabel } from "./common";
+import { extractBalancedJson } from "./html";
 import { parseWatchlistUrl, hasPlainHttpsAuthority } from "./url";
-import { fetchWithThrottleRetry, watchlistRequestSignal } from "./http";
+import { createBudgetSignal, fetchWatchlist } from "./http";
 import { badRequest, upstreamError } from "@infra/errors";
 import { convert } from "html-to-text";
 import { z } from "zod";
@@ -71,9 +73,14 @@ function requestedId(value: string): string {
 }
 
 async function pageHtml(url: URL, signal: AbortSignal): Promise<string> {
-  const response = await fetchWithThrottleRetry(url.toString(), { signal, redirect: "manual" });
-  if (!response.ok) throw upstreamError(`Google careers returned HTTP ${response.status}.`);
-  return response.text();
+  return fetchWatchlist({
+    url: url.toString(),
+    signal,
+    maxRetries: 3,
+    retryDelayMs: ({ attempt }) => 250 * 2 ** attempt,
+    responseType: "text",
+    formatHttpError: ({ status }) => upstreamError(`Google careers returned HTTP ${status}.`),
+  });
 }
 
 function structureError(key: string): Error {
@@ -91,28 +98,13 @@ export function callbackData(html: string, key: "ds:0" | "ds:1"): unknown {
       /^\s*AF_initDataCallback\(\{\s*key:\s*['"](ds:\d+)['"][\s\S]*?\bdata:\s*/,
     );
     if (!header || header[1] !== key) continue;
-    const start = header[0].length;
-    if (content[start] !== "[") throw structureError(key);
-    let depth = 0;
-    let quoted = false;
-    let escaped = false;
-    for (let i = start; i < content.length; i += 1) {
-      const char = content[i];
-      if (quoted) {
-        if (escaped) escaped = false;
-        else if (char === "\\") escaped = true;
-        else if (char === '"') quoted = false;
-      } else if (char === '"') quoted = true;
-      else if (char === "[") depth += 1;
-      else if (char === "]" && --depth === 0) {
-        try {
-          return JSON.parse(content.slice(start, i + 1));
-        } catch {
-          throw structureError(key);
-        }
-      }
+    const jsonText = extractBalancedJson(content, header[0].length, "[");
+    if (!jsonText) throw structureError(key);
+    try {
+      return JSON.parse(jsonText);
+    } catch {
+      throw structureError(key);
     }
-    throw structureError(key);
   }
   throw structureError(key);
 }
@@ -136,7 +128,7 @@ async function details(jobRef: string, signal?: AbortSignal) {
   signal?.throwIfAborted();
   let job = listedJobs.get(id);
   if (!job || !hasDescription(job)) {
-    const html = await pageHtml(new URL(`${PATH}${id}`, ORIGIN), watchlistRequestSignal(signal));
+    const html = await pageHtml(new URL(`${PATH}${id}`, ORIGIN), createBudgetSignal(signal));
     // Only the observed primary-job envelope is supported; ds:1 is related jobs.
     const data = callbackData(html, "ds:0");
     const parsed = jobSchema.safeParse(Array.isArray(data) ? data[0] : null);
@@ -170,23 +162,13 @@ export const googleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsBranding: false,
   },
   parseCatalogSources(entries) {
-    return entries.flatMap((entry) => {
-      const parsed = sourceSchema.safeParse(entry);
-      if (!parsed.success) return [];
-      try {
-        return [
-          {
-            id: "google:google",
-            label: parsed.data.label,
-            sourceType: "google",
-            careersUrl: searchUrl(parsed.data.careersUrl).toString(),
-            cxsJobsUrl: null,
-          },
-        ];
-      } catch {
-        return [];
-      }
-    });
+    return parseCatalogSourcesLenient(entries, sourceSchema, (parsed) => ({
+      id: "google:google",
+      label: parsed.label,
+      sourceType: "google",
+      careersUrl: searchUrl(parsed.careersUrl).toString(),
+      cxsJobsUrl: null,
+    }));
   },
   hydrateSelectedSource(source) {
     return {
@@ -198,17 +180,14 @@ export const googleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   normalizeCustomSelection(input) {
     return {
-      label:
-        input.label?.trim() && input.label.trim() !== input.careersUrl.trim()
-          ? input.label.trim()
-          : "Google",
+      label: resolveCustomLabel(input.label, input.careersUrl, "Google"),
       careersUrl: searchUrl(input.careersUrl).toString(),
     };
   },
   async fetchJobs(input) {
     listedJobs = new Map();
     const url = searchUrl(input.source.careersUrl);
-    const signal = watchlistRequestSignal(input.signal);
+    const signal = createBudgetSignal(input.signal);
     const collected = new Map<string, Job>();
     let total = 0;
     // ponytail/decision: Google robots.txt disallows ?page= on results; overridden by the owner for low-volume personal use (<=3 requests per run). Remove paging to restore compliance.

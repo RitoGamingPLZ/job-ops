@@ -25,5 +25,5 @@ export function withFakeTimeouts(actual: TimerModule) {
       signal?.addEventListener("abort", abort, { once: true });
     });
   }
-  return { ...actual, setTimeout };
+  return { ...actual, setTimeout, default: { ...actual, setTimeout } };
 }

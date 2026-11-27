@@ -1,9 +1,5 @@
-import {
-  createLocationIntentFromLegacyInputs,
-  planLocationSources,
-} from "@shared/location-domain.js";
+import { planLocationSources } from "@shared/location-domain.js";
 import { formatCountryLabel } from "@shared/location-support.js";
-import { parseSearchCitiesSetting } from "@shared/search-cities.js";
 import type {
   AppSettings,
   PipelineConfig,
@@ -13,6 +9,7 @@ import type {
   PipelineRunResultSummary,
   PipelineRunSavedDetails,
 } from "@shared/types";
+import { resolveLocationIntentFromAppSettings } from "../services/location-intent";
 import { getEffectiveSettings } from "../services/settings";
 
 type SnapshotLocationIntent = NonNullable<PipelineConfig["locationIntent"]>;
@@ -21,26 +18,7 @@ function resolveLocationIntentSnapshot(args: {
   config: PipelineConfig;
   settings: AppSettings;
 }): SnapshotLocationIntent {
-  return (
-    args.config.locationIntent ??
-    createLocationIntentFromLegacyInputs({
-      country: args.settings.jobspyCountryIndeed.value,
-      searchCities: parseSearchCitiesSetting(args.settings.searchCities.value),
-      workplaceTypes: args.settings.workplaceTypes.value,
-      searchScope: args.settings.locationSearchScope.value,
-      matchStrictness: args.settings.locationMatchStrictness.value,
-      proximity:
-        args.settings.locationSearchMode.value === "radius" &&
-        args.settings.locationLatitude.value != null &&
-        args.settings.locationLongitude.value != null
-          ? {
-              latitude: args.settings.locationLatitude.value,
-              longitude: args.settings.locationLongitude.value,
-              radiusMiles: args.settings.locationRadiusMiles.value,
-            }
-          : null,
-    })
-  );
+  return args.config.locationIntent ?? resolveLocationIntentFromAppSettings(args.settings);
 }
 
 function buildRequestedConfigSnapshot(config: PipelineConfig): PipelineRunRequestedConfig {

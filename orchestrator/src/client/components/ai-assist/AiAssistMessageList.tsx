@@ -1,12 +1,14 @@
 import type { BranchInfo, JobChatImageAttachment, JobChatMessageStatus } from "@shared/types";
 import { Check, Copy, Pencil, RefreshCcw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
+import { useCopyFeedback } from "@/client/hooks/useCopyFeedback";
 import { showErrorToast } from "@/client/lib/error-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { canCopyTextToClipboard, copyTextToClipboard } from "@/lib/utils";
 import { BranchNavigator } from "./BranchNavigator";
 import { ScreenshotAttachmentPreview } from "./ScreenshotAttachmentPreview";
 import { StreamingMessage } from "./StreamingMessage";
@@ -44,8 +46,7 @@ export function AiAssistMessageList<TMessage extends AiAssistMessage>({
 }: AiAssistMessageListProps<TMessage>) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
-  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const copiedTimeoutRef = useRef<number | null>(null);
+  const { copied: copiedMessageId, markCopied } = useCopyFeedback<string>(2000);
 
   const branchMap = new Map<string, BranchInfo>();
   for (const branch of branches) {
@@ -71,30 +72,15 @@ export function AiAssistMessageList<TMessage extends AiAssistMessage>({
     setEditContent("");
   };
 
-  useEffect(() => {
-    return () => {
-      if (copiedTimeoutRef.current !== null) {
-        window.clearTimeout(copiedTimeoutRef.current);
-      }
-    };
-  }, []);
-
   const copyMessage = async (message: TMessage) => {
-    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+    if (!canCopyTextToClipboard()) {
       toast.error("Copy is not available in this browser context");
       return;
     }
     try {
-      await navigator.clipboard.writeText(message.content);
+      await copyTextToClipboard(message.content);
       onAssistantCopy?.(message);
-      setCopiedMessageId(message.id);
-      if (copiedTimeoutRef.current !== null) {
-        window.clearTimeout(copiedTimeoutRef.current);
-      }
-      copiedTimeoutRef.current = window.setTimeout(() => {
-        setCopiedMessageId(null);
-        copiedTimeoutRef.current = null;
-      }, 2000);
+      markCopied(message.id);
     } catch (error) {
       showErrorToast(error, "Failed to copy response");
     }

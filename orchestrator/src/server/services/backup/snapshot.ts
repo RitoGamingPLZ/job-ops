@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
+import { getErrorMessage } from "@infra/errors";
 import { asRecord } from "@shared/utils/type-conversion";
 import {
   execRawSql,
@@ -71,8 +72,7 @@ function computeTableChecksum(rows: Record<string, unknown>[]): string {
 }
 
 function isMissingRowidError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return /no such column:\s*rowid/i.test(message);
+  return /no such column:\s*rowid/i.test(getErrorMessage(error));
 }
 
 function readTableRows(tableName: string): Record<string, unknown>[] {
@@ -279,9 +279,7 @@ export function parseAndVerifyBackupSnapshot(compressed: Uint8Array): DatabaseBa
     const jsonText = gunzipSync(compressed).toString("utf8");
     parsed = JSON.parse(jsonText);
   } catch (error) {
-    throw new Error(
-      `Failed to decompress or parse backup snapshot: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    throw new Error(`Failed to decompress or parse backup snapshot: ${getErrorMessage(error)}`);
   }
 
   const snapshotRecord = asRecord(parsed);

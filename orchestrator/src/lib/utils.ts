@@ -73,6 +73,13 @@ export const formatDateTime = (dateStr?: string | null) => {
 };
 
 // --- DOM & Clipboard ---
+export function canCopyTextToClipboard(): boolean {
+  return Boolean(
+    (typeof navigator !== "undefined" && navigator.clipboard?.writeText) ||
+    (typeof document !== "undefined" && typeof document.execCommand === "function"),
+  );
+}
+
 export async function copyTextToClipboard(text: string) {
   if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -91,11 +98,10 @@ export async function copyTextToClipboard(text: string) {
   textarea.focus();
   textarea.select();
 
-  const ok = document.execCommand("copy");
-  document.body.removeChild(textarea);
-
-  if (!ok) {
-    throw new Error("Copy failed");
+  try {
+    if (!document.execCommand("copy")) throw new Error("Copy failed");
+  } finally {
+    textarea.remove();
   }
 }
 

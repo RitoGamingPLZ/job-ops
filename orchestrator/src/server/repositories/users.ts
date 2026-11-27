@@ -154,6 +154,88 @@ export async function listUsers(): Promise<PublicUser[]> {
   return rows.map(mapUser);
 }
 
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+function ensureDefaultTenant(tx: DbTransaction, now: string): void {
+  tx.insert(tenants)
+    .values({
+      id: DEFAULT_TENANT_ID,
+      name: DEFAULT_TENANT_NAME,
+      slug: "default",
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoNothing()
+    .run();
+}
+
+function insertTenant(
+  tx: DbTransaction,
+  input: { id: string; name: string; slug: string; now: string },
+): void {
+  tx.insert(tenants)
+    .values({
+      id: input.id,
+      name: input.name,
+      slug: input.slug,
+      createdAt: input.now,
+      updatedAt: input.now,
+    })
+    .run();
+}
+
+function insertUserWithMembership(
+  tx: DbTransaction,
+  input: {
+    userId: string;
+    tenantId: string;
+    role: "owner" | "member";
+    username: string;
+    displayName: string | null;
+    passwordHash: string | null;
+    passwordSalt: string | null;
+    isSystemAdmin?: boolean;
+    mustChangePassword?: boolean;
+    permissions?: string | null;
+    now: string;
+  },
+): void {
+  tx.insert(users)
+    .values({
+      id: input.userId,
+      username: input.username,
+      displayName: input.displayName,
+      passwordHash: input.passwordHash,
+      passwordSalt: input.passwordSalt,
+      isSystemAdmin: input.isSystemAdmin ?? false,
+      isDisabled: false,
+      ...(input.mustChangePassword !== undefined
+        ? { mustChangePassword: input.mustChangePassword }
+        : {}),
+      ...(input.permissions !== undefined ? { permissions: input.permissions } : {}),
+      createdAt: input.now,
+      updatedAt: input.now,
+    })
+    .run();
+
+  tx.insert(tenantMemberships)
+    .values({
+      id: randomUUID(),
+      userId: input.userId,
+      tenantId: input.tenantId,
+      role: input.role,
+      createdAt: input.now,
+      updatedAt: input.now,
+    })
+    .run();
+}
+
+async function loadCreatedUser(userId: string): Promise<PublicUser> {
+  const user = await getUserById(userId);
+  if (!user) throw new Error("Failed to load created user");
+  return user;
+}
+
 export async function createPrivateWorkspaceUser(input: {
   username: string;
   password: string;
@@ -175,61 +257,29 @@ export async function createPrivateWorkspaceUser(input: {
 
   db.transaction((tx) => {
     if (input.useDefaultTenant) {
-      tx.insert(tenants)
-        .values({
-          id: DEFAULT_TENANT_ID,
-          name: DEFAULT_TENANT_NAME,
-          slug: "default",
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoNothing()
-        .run();
+      ensureDefaultTenant(tx, now);
     } else {
-      tx.insert(tenants)
-        .values({
-          id: tenantId,
-          name: tenantName,
-          slug: tenantSlug,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .run();
+      insertTenant(tx, { id: tenantId, name: tenantName, slug: tenantSlug, now });
     }
 
-    tx.insert(users)
-      .values({
-        id: userId,
-        username,
-        displayName: input.displayName?.trim() || null,
-        passwordHash,
-        passwordSalt,
-        isSystemAdmin: input.isSystemAdmin ?? false,
-        isDisabled: false,
-        mustChangePassword: input.mustChangePassword ?? false,
-        permissions: input.permissions
-          ? JSON.stringify({ ...resolveUserPermissions(null), ...input.permissions })
-          : null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
-
-    tx.insert(tenantMemberships)
-      .values({
-        id: randomUUID(),
-        userId,
-        tenantId,
-        role: "owner",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
+    insertUserWithMembership(tx, {
+      userId,
+      tenantId,
+      role: "owner",
+      username,
+      displayName: input.displayName?.trim() || null,
+      passwordHash,
+      passwordSalt,
+      isSystemAdmin: input.isSystemAdmin ?? false,
+      mustChangePassword: input.mustChangePassword ?? false,
+      permissions: input.permissions
+        ? JSON.stringify({ ...resolveUserPermissions(null), ...input.permissions })
+        : null,
+      now,
+    });
   });
 
-  const user = await getUserById(userId);
-  if (!user) throw new Error("Failed to load created user");
-  return user;
+  return loadCreatedUser(userId);
 }
 
 export async function createHostedTenantUser(input: {
@@ -251,38 +301,22 @@ export async function createHostedTenantUser(input: {
       .get();
     if (!tenant) return false;
 
-    tx.insert(users)
-      .values({
-        id: userId,
-        username,
-        displayName: input.displayName?.trim() || null,
-        passwordHash,
-        passwordSalt,
-        isSystemAdmin: false,
-        isDisabled: false,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
-
-    tx.insert(tenantMemberships)
-      .values({
-        id: randomUUID(),
-        userId,
-        tenantId: input.tenantId,
-        role: "member",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
+    insertUserWithMembership(tx, {
+      userId,
+      tenantId: input.tenantId,
+      role: "member",
+      username,
+      displayName: input.displayName?.trim() || null,
+      passwordHash,
+      passwordSalt,
+      now,
+    });
 
     return true;
   });
 
   if (!created) return null;
-  const user = await getUserById(userId);
-  if (!user) throw new Error("Failed to load created user");
-  return user;
+  return loadCreatedUser(userId);
 }
 
 /**
@@ -307,30 +341,16 @@ export async function createSsoProvisionedUser(
         .get();
       if (!tenant) return false;
 
-      tx.insert(users)
-        .values({
-          id: userId,
-          username,
-          displayName,
-          passwordHash: null,
-          passwordSalt: null,
-          isSystemAdmin: false,
-          isDisabled: false,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .run();
-
-      tx.insert(tenantMemberships)
-        .values({
-          id: randomUUID(),
-          userId,
-          tenantId: hostedTenantId,
-          role: "member",
-          createdAt: now,
-          updatedAt: now,
-        })
-        .run();
+      insertUserWithMembership(tx, {
+        userId,
+        tenantId: hostedTenantId,
+        role: "member",
+        username,
+        displayName,
+        passwordHash: null,
+        passwordSalt: null,
+        now,
+      });
 
       return true;
     });
@@ -340,46 +360,27 @@ export async function createSsoProvisionedUser(
     const tenantId = randomUUID();
 
     db.transaction((tx) => {
-      tx.insert(tenants)
-        .values({
-          id: tenantId,
-          name: displayName || username,
-          slug: `${slugify(username)}-${tenantId.slice(0, 8)}`,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .run();
+      insertTenant(tx, {
+        id: tenantId,
+        name: displayName || username,
+        slug: `${slugify(username)}-${tenantId.slice(0, 8)}`,
+        now,
+      });
 
-      tx.insert(users)
-        .values({
-          id: userId,
-          username,
-          displayName,
-          passwordHash: null,
-          passwordSalt: null,
-          isSystemAdmin: false,
-          isDisabled: false,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .run();
-
-      tx.insert(tenantMemberships)
-        .values({
-          id: randomUUID(),
-          userId,
-          tenantId,
-          role: "owner",
-          createdAt: now,
-          updatedAt: now,
-        })
-        .run();
+      insertUserWithMembership(tx, {
+        userId,
+        tenantId,
+        role: "owner",
+        username,
+        displayName,
+        passwordHash: null,
+        passwordSalt: null,
+        now,
+      });
     });
   }
 
-  const user = await getUserById(userId);
-  if (!user) throw new Error("Failed to load created user");
-  return user;
+  return loadCreatedUser(userId);
 }
 
 export async function createInitialSystemAdmin(input: {
@@ -401,49 +402,25 @@ export async function createInitialSystemAdmin(input: {
       return false;
     }
 
-    tx.insert(tenants)
-      .values({
-        id: DEFAULT_TENANT_ID,
-        name: DEFAULT_TENANT_NAME,
-        slug: "default",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .onConflictDoNothing()
-      .run();
+    ensureDefaultTenant(tx, now);
 
-    tx.insert(users)
-      .values({
-        id: userId,
-        username,
-        displayName: input.displayName?.trim() || null,
-        passwordHash,
-        passwordSalt,
-        isSystemAdmin: true,
-        isDisabled: false,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
-
-    tx.insert(tenantMemberships)
-      .values({
-        id: randomUUID(),
-        userId,
-        tenantId: DEFAULT_TENANT_ID,
-        role: "owner",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
+    insertUserWithMembership(tx, {
+      userId,
+      tenantId: DEFAULT_TENANT_ID,
+      role: "owner",
+      username,
+      displayName: input.displayName?.trim() || null,
+      passwordHash,
+      passwordSalt,
+      isSystemAdmin: true,
+      now,
+    });
 
     return true;
   });
 
   if (!created) return null;
-  const user = await getUserById(userId);
-  if (!user) throw new Error("Failed to load created user");
-  return user;
+  return loadCreatedUser(userId);
 }
 
 export async function setUserDisabled(id: string, isDisabled: boolean): Promise<PublicUser | null> {

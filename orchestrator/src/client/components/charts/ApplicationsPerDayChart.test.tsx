@@ -6,24 +6,8 @@
 import { render, screen } from "@testing-library/react";
 import type React from "react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import "@client/test/chart-card-mock";
 import { ApplicationsPerDayChart } from "./ApplicationsPerDayChart";
-
-// Mock UI components
-vi.mock("@/components/ui/card", () => ({
-  Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
-  CardContent: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-content">{children}</div>
-  ),
-  CardHeader: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-header">{children}</div>
-  ),
-  CardTitle: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-title">{children}</div>
-  ),
-  CardDescription: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-description">{children}</div>
-  ),
-}));
 
 vi.mock("@/components/ui/chart", () => ({
   ChartContainer: ({ children }: { children: React.ReactNode }) => (
@@ -39,7 +23,8 @@ vi.mock("@/components/ui/chart", () => ({
   }) => <div data-testid="chart-tooltip-content">{labelFormatter("2025-01-01")}</div>,
 }));
 
-vi.mock("recharts", () => ({
+vi.mock("recharts", async () => ({
+  ...(await import("@client/test/recharts-mocks")).rechartsMocks,
   BarChart: ({
     children,
     data,
@@ -51,16 +36,6 @@ vi.mock("recharts", () => ({
       {children}
     </div>
   ),
-  Bar: () => <div data-testid="bar">Bar</div>,
-  CartesianGrid: () => <div data-testid="cartesian-grid">Grid</div>,
-  XAxis: ({ tickFormatter }: { tickFormatter: (value: string) => string }) => (
-    <div data-testid="x-axis">{tickFormatter("2025-01-01")}</div>
-  ),
-}));
-
-vi.mock("lucide-react", () => ({
-  TrendingUp: () => <div data-testid="trending-up">TrendingUp</div>,
-  TrendingDown: () => <div data-testid="trending-down">TrendingDown</div>,
 }));
 
 describe("ApplicationsPerDayChart - Edge Cases", () => {

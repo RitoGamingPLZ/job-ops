@@ -339,36 +339,6 @@ vi.mock("./design-resume", () => ({
   readDesignResumeAssetContent: vi.fn(),
 }));
 
-vi.mock("./resume-document", async () => {
-  const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
-  return {
-    prepareTailoredResumeForPdf: vi.fn().mockImplementation(async (args: any) => {
-      const data = clone(args.resumeData);
-      if (args.tailedContent?.summary || args.tailoredContent?.summary) {
-        const summary = args.tailoredContent?.summary;
-        if (data.summary) data.summary.content = summary;
-      }
-      if (args.tailoredContent?.headline && data.basics) {
-        data.basics.headline = args.tailoredContent.headline;
-      }
-
-      const selected = ((args.selectedProjectIds as string | null | undefined) ?? "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter((id) => id === "p2");
-      const selectedSet = new Set(["p1", ...selected]);
-      for (const item of data.sections?.projects?.items ?? []) {
-        item.hidden = !selectedSet.has(item.id);
-      }
-      if (data.sections?.projects) data.sections.projects.hidden = false;
-
-      return {
-        data,
-      };
-    }),
-  };
-});
-
 describe("PDF Service Tailoring Logic", () => {
   it("delegates preview and saved PDFs with scoped picture bytes and never falls back locally", async () => {
     const { readDesignResumeAssetContent } = await import("./design-resume");

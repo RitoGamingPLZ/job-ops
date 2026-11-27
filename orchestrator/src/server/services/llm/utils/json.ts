@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@infra/errors";
 import { logger } from "@infra/logger";
 
 function stripMarkdownCodeFences(content: string): string {
@@ -24,8 +25,6 @@ export function parseJsonContent<T>(content: string, jobId?: string): T {
       jobId: jobId ?? "unknown",
       sample: candidate.substring(0, 200),
     });
-    throw new Error(
-      `Failed to parse JSON response: ${error instanceof Error ? error.message : "unknown"}`,
-    );
+    throw new Error(`Failed to parse JSON response: ${getErrorMessage(error, "unknown")}`);
   }
 }

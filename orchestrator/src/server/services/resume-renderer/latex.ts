@@ -1,12 +1,13 @@
-import { existsSync } from "node:fs";
 import { copyFile, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { logger } from "@infra/logger";
 import type { PdfPaperSize } from "@shared/types";
-import { runResumeCompiler, withRenderTempDir } from "./compiler";
+import { resolveRendererAssetPath, runResumeCompiler, withRenderTempDir } from "./compiler";
 import {
-  formatLanguageDetails,
+  formatCustomFieldLines,
+  formatInterestLines,
+  formatLanguageLines,
+  type LineSectionFormat,
   renderInlineHtml,
   renderOrderedSections,
   resolveSectionTitles,
@@ -15,39 +16,13 @@ import { summarizeResumeDocumentForLog } from "./log";
 import { materializeResumePicture } from "./picture";
 import type {
   LatexResumeContactItem,
-  LatexResumeCustomFieldItem,
   LatexResumeDocument,
   LatexResumeEntry,
-  LatexResumeInterestItem,
-  LatexResumeLanguageItem,
   LatexResumeProfileItem,
   ResumeRenderer,
 } from "./types";
 
-function resolveTemplatePath(): string {
-  const candidates: string[] = [];
-  try {
-    if (import.meta.url.startsWith("file:")) {
-      const moduleDir = dirname(fileURLToPath(import.meta.url));
-      candidates.push(
-        join(moduleDir, "templates/jake-resume.tex"),
-        join(moduleDir, "../../src/server/services/resume-renderer/templates/jake-resume.tex"),
-      );
-    }
-  } catch {
-    // Fall through to cwd-based resolution below.
-  }
-
-  const cwd = process.cwd();
-  candidates.push(
-    join(cwd, "src/server/services/resume-renderer/templates/jake-resume.tex"),
-    join(cwd, "orchestrator/src/server/services/resume-renderer/templates/jake-resume.tex"),
-  );
-
-  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[candidates.length - 1];
-}
-
-const TEMPLATE_PATH = resolveTemplatePath();
+const TEMPLATE_PATH = resolveRendererAssetPath("templates/jake-resume.tex");
 const TECTONIC_TIMEOUT_MS = 120_000;
 const OUTPUT_FILENAME = "resume.pdf";
 const LATEX_PAPER_OPTIONS: Record<PdfPaperSize, string> = {
@@ -74,12 +49,7 @@ function escapeLatexText(value: string): string {
 }
 
 function escapeLatexUrl(value: string): string {
-  return value
-    .trim()
-    .replace(/\\/g, "\\textbackslash{}")
-    .replace(/([#$%&_{}])/g, "\\$1")
-    .replace(/~/g, "\\textasciitilde{}")
-    .replace(/\^/g, "\\textasciicircum{}");
+  return escapeRawLatex(value.trim());
 }
 
 function escapeForCommand(value: string): string {
@@ -315,42 +285,38 @@ function renderLineSection(title: string, lines: string[]): string {
   ].join("\n");
 }
 
+const LATEX_LINE_FORMAT: LineSectionFormat = {
+  escape: escapeForCommand,
+  bold: (label) => `\\textbf{${escapeForCommand(label)}}`,
+  boldPair: (label, value) => `\\textbf{${escapeForCommand(label)}}{: ${value}}`,
+  link: renderLink,
+};
+
 function renderCustomFieldsSection(document: LatexResumeDocument): string {
   if (document.customFieldItems.length === 0) return "";
   const titles = resolveSectionTitles(document);
-  const lines = document.customFieldItems.map((item: LatexResumeCustomFieldItem) => {
-    const value = item.url ? renderLink(item.text, item.url) : escapeForCommand(item.text);
-    if (!item.title) return value;
-    if (item.title === item.text) {
-      return `\\textbf{${escapeForCommand(item.title)}}`;
-    }
-    return `\\textbf{${escapeForCommand(item.title)}}{: ${value}}`;
-  });
-  return renderLineSection(titles.customFields, lines);
+  return renderLineSection(
+    titles.customFields,
+    formatCustomFieldLines(document.customFieldItems, LATEX_LINE_FORMAT),
+  );
 }
 
 function renderLanguagesSection(document: LatexResumeDocument): string {
   if (document.languages.length === 0) return "";
   const titles = resolveSectionTitles(document);
-  const lines = document.languages.map((item: LatexResumeLanguageItem) => {
-    const detail = formatLanguageDetails(item).map(escapeForCommand).join(" | ");
-    return detail
-      ? `\\textbf{${escapeForCommand(item.language)}}{: ${detail}}`
-      : `\\textbf{${escapeForCommand(item.language)}}`;
-  });
-  return renderLineSection(titles.languages, lines);
+  return renderLineSection(
+    titles.languages,
+    formatLanguageLines(document.languages, LATEX_LINE_FORMAT),
+  );
 }
 
 function renderInterestsSection(document: LatexResumeDocument): string {
   if (document.interests.length === 0) return "";
   const titles = resolveSectionTitles(document);
-  const lines = document.interests.map((item: LatexResumeInterestItem) => {
-    const keywords = item.keywords.map((keyword) => escapeForCommand(keyword));
-    return keywords.length > 0
-      ? `\\textbf{${escapeForCommand(item.name)}}{: ${keywords.join(", ")}}`
-      : `\\textbf{${escapeForCommand(item.name)}}`;
-  });
-  return renderLineSection(titles.interests, lines);
+  return renderLineSection(
+    titles.interests,
+    formatInterestLines(document.interests, LATEX_LINE_FORMAT),
+  );
 }
 
 function renderPictureBlock(document: LatexResumeDocument): string {
@@ -370,10 +336,6 @@ function renderPictureBlock(document: LatexResumeDocument): string {
 function renderLocationBlock(document: LatexResumeDocument): string {
   if (!document.location) return "";
   return `\\begin{center}\\small ${escapeForCommand(document.location)}\\end{center}\n`;
-}
-
-async function loadTemplate(): Promise<string> {
-  return await readFile(TEMPLATE_PATH, "utf8");
 }
 
 export function buildLatexDocument(
@@ -439,7 +401,7 @@ const latexResumeRenderer: ResumeRenderer = {
         const compiledPdfPath = join(tempDir, OUTPUT_FILENAME);
 
         try {
-          const template = await loadTemplate();
+          const template = await readLatexTemplate();
           const renderableDocument = await materializeResumePicture(
             document,
             tempDir,
@@ -478,5 +440,5 @@ export function getLatexTemplatePath(): string {
 }
 
 export async function readLatexTemplate(): Promise<string> {
-  return await loadTemplate();
+  return await readFile(TEMPLATE_PATH, "utf8");
 }

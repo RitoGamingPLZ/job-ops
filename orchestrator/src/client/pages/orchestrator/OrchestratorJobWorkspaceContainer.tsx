@@ -7,7 +7,6 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { VirtualListHandle } from "@/client/lib/virtual-list";
 import { getCompaniesWithJobs } from "./companyFilter";
 import type { FilterTab } from "./constants";
-import { tabs } from "./constants";
 import { FloatingJobActionsBar } from "./FloatingJobActionsBar";
 import { OrchestratorJobsWorkspace } from "./OrchestratorJobsWorkspace";
 import { OrchestratorMobileJobDrawer } from "./OrchestratorMobileJobDrawer";
@@ -19,7 +18,12 @@ import type { useOrchestratorFilters } from "./useOrchestratorFilters";
 import type { useOrchestratorNavigation } from "./useOrchestratorNavigation";
 import type { useOrchestratorUiState } from "./useOrchestratorUiState";
 import { useScrollToJobItem } from "./useScrollToJobItem";
-import { getJobCounts, getSourcesWithJobs } from "./utils";
+import {
+  getJobCounts,
+  getSourcesWithJobs,
+  isUntargetedDiscovered,
+  pickVisibleSelected,
+} from "./utils";
 
 interface OrchestratorJobWorkspaceContainerProps {
   jobs: JobListItem[];
@@ -58,10 +62,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
 }) => {
   const jobListHandleRef = useRef<VirtualListHandle | null>(null);
   const searchableJobs = useMemo(
-    () =>
-      navigation.activeTab === "discovered"
-        ? jobs.filter((job) => job.status === "discovered" && !isTargeted(job))
-        : jobs,
+    () => (navigation.activeTab === "discovered" ? jobs.filter(isUntargetedDiscovered) : jobs),
     [jobs, navigation.activeTab],
   );
   const activeJobs = useFilteredJobs(searchableJobs, {
@@ -79,7 +80,7 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
   const counts = useMemo(
     () => ({
       ...getJobCounts(jobs),
-      discovered: jobs.filter((job) => job.status === "discovered" && !isTargeted(job)).length,
+      discovered: jobs.filter(isUntargetedDiscovered).length,
     }),
     [jobs],
   );
@@ -117,28 +118,8 @@ export const OrchestratorJobWorkspaceContainer: React.FC<
     }
   }, [navigation, redirectTargetedSelection, selectedTarget]);
 
-  const visibleSelectedJob = useMemo(() => {
-    if (!selectedJob) return null;
-    if (
-      navigation.activeTab === "discovered" &&
-      (selectedJob.status !== "discovered" || isTargeted(selectedJob))
-    )
-      return null;
-    const tabDef = tabs.find((tab) => tab.id === navigation.activeTab);
-    if (!tabDef || tabDef.statuses.length === 0) return selectedJob;
-    return tabDef.statuses.includes(selectedJob.status) ? selectedJob : null;
-  }, [navigation.activeTab, selectedJob]);
-  const visibleSelectedJobListItem = useMemo(() => {
-    if (!selectedJobListItem) return null;
-    if (
-      navigation.activeTab === "discovered" &&
-      (selectedJobListItem.status !== "discovered" || isTargeted(selectedJobListItem))
-    )
-      return null;
-    const tabDef = tabs.find((tab) => tab.id === navigation.activeTab);
-    if (!tabDef || tabDef.statuses.length === 0) return selectedJobListItem;
-    return tabDef.statuses.includes(selectedJobListItem.status) ? selectedJobListItem : null;
-  }, [navigation.activeTab, selectedJobListItem]);
+  const visibleSelectedJob = pickVisibleSelected(selectedJob, navigation.activeTab);
+  const visibleSelectedJobListItem = pickVisibleSelected(selectedJobListItem, navigation.activeTab);
 
   const {
     selectedJobIds,

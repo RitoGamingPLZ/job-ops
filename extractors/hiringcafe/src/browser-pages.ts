@@ -7,7 +7,7 @@ import {
 } from "browser-utils";
 import { type Browser, type BrowserContext, firefox, type Page } from "playwright";
 
-export interface BrowserPageResult {
+interface BrowserPageResult {
   status: number;
   html: string;
   challenged: boolean;

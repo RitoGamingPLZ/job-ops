@@ -12,7 +12,7 @@ function normalizeBaseUrlOrEndpoint(baseUrlOrEndpoint: string): string {
   return baseUrlOrEndpoint.trim().replace(/\/+$/, "");
 }
 
-function resolveChatCompletionsUrl(baseUrlOrEndpoint: string): string {
+export function resolveGlmChatCompletionsUrl(baseUrlOrEndpoint: string): string {
   const normalized = normalizeBaseUrlOrEndpoint(baseUrlOrEndpoint);
   if (normalized.endsWith(CHAT_COMPLETIONS_SUFFIX)) {
     return normalized;
@@ -33,11 +33,10 @@ export const glmStrategy = createProviderStrategy({
   defaultBaseUrl: "https://api.z.ai/api/paas/v4",
   requiresApiKey: true,
   modes: ["json_object", "text", "none"],
-  validationPaths: ["/models"],
   getValidationUrls: ({ baseUrl }) => [resolveGlmModelsUrl(baseUrl)],
   buildRequest: ({ mode, baseUrl, apiKey, model, messages, jsonSchema }) => {
     return {
-      url: resolveChatCompletionsUrl(baseUrl),
+      url: resolveGlmChatCompletionsUrl(baseUrl),
       headers: buildHeaders({ apiKey, provider: "glm" }),
       body: buildChatCompletionsBody({ mode, model, messages, jsonSchema }),
     };

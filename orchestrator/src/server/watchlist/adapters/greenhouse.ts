@@ -1,4 +1,6 @@
 import { shouldHydrateSourceLabel } from "./branding";
+import { resolveCustomLabel } from "./common";
+import { getSourceHost } from "./url";
 import {
   getJobDetails,
   getJobsFromBoard,
@@ -70,14 +72,12 @@ export const greenhouseWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   async normalizeCustomSelection(input) {
     const resolved = await resolveGreenhouseSource({ url: input.careersUrl });
-    const trimmedLabel = input.label?.trim();
-    const label =
-      trimmedLabel && trimmedLabel !== input.careersUrl.trim()
-        ? trimmedLabel
-        : (resolved.companyName ?? greenhouseTokenToLabel(resolved.token));
-
     return {
-      label,
+      label: resolveCustomLabel(
+        input.label,
+        input.careersUrl,
+        resolved.companyName ?? greenhouseTokenToLabel(resolved.token),
+      ),
       careersUrl: resolved.canonicalCareersUrl,
     };
   },
@@ -184,12 +184,4 @@ function buildManualDraft(
     location: details.locationText,
     jobDescription: details.jobDescriptionText,
   };
-}
-
-function getSourceHost(value: string): string | null {
-  try {
-    return new URL(value).hostname || null;
-  } catch {
-    return null;
-  }
 }

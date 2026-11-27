@@ -1,6 +1,6 @@
 import { isWorkerdRuntime } from "./runtime";
 import { workdayUrlToCxsJobsUrl } from "@career-boards/workday";
-import { AppError, unprocessableEntity } from "@infra/errors";
+import { AppError, getErrorMessage, unprocessableEntity } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { listCareerBoardSources } from "@server/config/career-boards";
 import { isDatabaseAvailable } from "@server/db/index";
@@ -65,7 +65,7 @@ export async function listMergedWatchlistCatalogSources(): Promise<WatchlistSour
     sharedRecords = listSharedWatchlistSources();
   } catch (error) {
     logger.warn("Failed to list shared watchlist sources", {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
     return bundled;
   }
@@ -181,9 +181,7 @@ export async function scanAndStoreWatchlistSource(
     });
   } catch (error) {
     throw unprocessableEntity(
-      `${adapter.descriptor.invalidUrlMessage}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      `${adapter.descriptor.invalidUrlMessage}: ${getErrorMessage(error)}`,
       { careersUrl: input.careersUrl },
     );
   }

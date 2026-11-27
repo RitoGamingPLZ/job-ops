@@ -16,6 +16,7 @@ import type {
   WatchlistSelectedSource,
 } from "@shared/types";
 import { normalizeSearchTerms } from "@shared/utils/search-terms";
+import { toOptionalString } from "@shared/utils/type-conversion";
 
 const WATCHLIST_DETAIL_CONCURRENCY = 3;
 
@@ -26,11 +27,6 @@ type PipelineWatchlistDiscoveryResult = {
   failedSourceCount: number;
   searchFilteredCount: number;
 };
-
-function optionalString(value: string | null | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
 
 function buildWatchlistSourceError(
   source: Pick<WatchlistSelectedSource, "label" | "sourceType">,
@@ -50,18 +46,18 @@ function createJobInputFromWatchlistJob(
     title: draft.title ?? job.title,
     employer: draft.employer ?? job.employer,
     jobUrl: draft.jobUrl ?? job.jobUrl,
-    applicationLink: optionalString(draft.applicationLink ?? job.applicationLink),
-    location: optionalString(draft.location ?? job.location),
-    datePosted: optionalString(job.postedAt),
-    jobDescription: optionalString(draft.jobDescription),
-    jobType: optionalString(draft.jobType),
-    jobLevel: optionalString(draft.jobLevel),
-    jobFunction: optionalString(draft.jobFunction),
-    disciplines: optionalString(draft.disciplines),
-    degreeRequired: optionalString(draft.degreeRequired),
-    starting: optionalString(draft.starting),
-    deadline: optionalString(draft.deadline),
-    salary: optionalString(draft.salary),
+    applicationLink: toOptionalString(draft.applicationLink ?? job.applicationLink),
+    location: toOptionalString(draft.location ?? job.location),
+    datePosted: toOptionalString(job.postedAt),
+    jobDescription: toOptionalString(draft.jobDescription),
+    jobType: toOptionalString(draft.jobType),
+    jobLevel: toOptionalString(draft.jobLevel),
+    jobFunction: toOptionalString(draft.jobFunction),
+    disciplines: toOptionalString(draft.disciplines),
+    degreeRequired: toOptionalString(draft.degreeRequired),
+    starting: toOptionalString(draft.starting),
+    deadline: toOptionalString(draft.deadline),
+    salary: toOptionalString(draft.salary),
   };
 }
 

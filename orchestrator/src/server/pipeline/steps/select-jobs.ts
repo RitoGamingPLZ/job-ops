@@ -1,10 +1,7 @@
-import { parseLegacyWorkplaceTypes } from "@shared/settings-registry";
 import * as settingsRepo from "@server/repositories/settings";
+import { resolveLocationIntentFromRawSettings } from "@server/services/location-intent";
 import { matchJobLocationIntent } from "@shared/job-matching.js";
-import { createLocationIntentFromLegacyInputs } from "@shared/location-domain.js";
-import { resolveSearchCities } from "@shared/search-cities.js";
 import type { PipelineConfig } from "@shared/types";
-import { resolveRawLocationProximity } from "@server/services/location-intent";
 import type { ScoredJob } from "./types";
 
 async function resolveLocationIntent(
@@ -12,17 +9,7 @@ async function resolveLocationIntent(
 ): Promise<NonNullable<PipelineConfig["locationIntent"]>> {
   if (mergedConfig.locationIntent) return mergedConfig.locationIntent;
 
-  const settings = await settingsRepo.getAllSettings();
-  return createLocationIntentFromLegacyInputs({
-    selectedCountry: settings.jobspyCountryIndeed ?? "",
-    cityLocations: resolveSearchCities({
-      single: settings.searchCities ?? settings.jobspyLocation ?? null,
-    }),
-    workplaceTypes: parseLegacyWorkplaceTypes(settings.workplaceTypes) ?? [],
-    geoScope: settings.locationSearchScope ?? null,
-    matchStrictness: settings.locationMatchStrictness ?? null,
-    proximity: resolveRawLocationProximity(settings),
-  });
+  return resolveLocationIntentFromRawSettings(await settingsRepo.getAllSettings());
 }
 
 export async function selectJobsStep(args: {

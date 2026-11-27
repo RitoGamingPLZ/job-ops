@@ -1,3 +1,7 @@
+import { classifyLlmFailure } from "../adapters/common";
+import { extractJsonLdObjects, findJsonLdJobPostings } from "../adapters/html";
+import { createBudgetSignal } from "../adapters/http";
+import { tryParseSafeHttpsUrl } from "../adapters/url";
 import { logger } from "@infra/logger";
 import type { LlmService } from "@server/services/llm/service";
 import type { JsonSchemaDefinition } from "@server/services/llm/types";
@@ -99,16 +103,12 @@ const recipeJsonSchema: JsonSchemaDefinition = {
 };
 
 function ownUrl(value: string, base: URL): string | null {
-  try {
-    const url = new URL(value, base);
-    if (url.protocol !== "https:" || url.host !== base.host || url.username || url.password) {
-      return null;
-    }
-    url.hash = "";
-    return url.href;
-  } catch {
+  const url = tryParseSafeHttpsUrl(value, base);
+  if (!url || url.host !== base.host || base.port) {
     return null;
   }
+  url.hash = "";
+  return url.href;
 }
 
 // Prefer global/English coverage before locale-specific sitemap variants.
@@ -171,27 +171,10 @@ function looksLikeJobUrl(value: string, base: URL): boolean {
 }
 
 function hasJobPosting(html: string): boolean {
+  if (findJsonLdJobPostings(extractJsonLdObjects(html)).length > 0) return true;
   const dom = new JSDOM(html);
   try {
-    const doc = dom.window.document;
-    if (doc.querySelector('[itemtype$="/JobPosting"]')) return true;
-    const containsJob = (value: unknown): boolean => {
-      if (Array.isArray(value)) return value.some(containsJob);
-      if (!value || typeof value !== "object") return false;
-      const object = value as Record<string, unknown>;
-      const types = [object["@type"]].flat();
-      return (
-        types.some((type) => type === "JobPosting" || type === "https://schema.org/JobPosting") ||
-        containsJob(object["@graph"])
-      );
-    };
-    return Array.from(doc.querySelectorAll('script[type="application/ld+json"]')).some((node) => {
-      try {
-        return containsJob(JSON.parse(node.textContent || "null"));
-      } catch {
-        return false;
-      }
-    });
+    return Boolean(dom.window.document.querySelector('[itemtype$="/JobPosting"]'));
   } finally {
     dom.window.close();
   }
@@ -206,14 +189,13 @@ export async function learnRecipe(
     llm?: { service: Pick<LlmService, "callJson">; model: string };
   },
 ): Promise<Recipe> {
-  const base = new URL(careersUrl);
+  const base = tryParseSafeHttpsUrl(careersUrl);
+  if (!base) {
+    throw new RecipeLearningError("Expected a public HTTPS careers URL");
+  }
   base.search = "";
   base.hash = "";
-  if (!ownUrl(careersUrl, base))
-    throw new RecipeLearningError("Expected a public HTTPS careers URL");
-  const signal = options.signal
-    ? AbortSignal.any([options.signal, AbortSignal.timeout(170_000)])
-    : AbortSignal.timeout(170_000);
+  const signal = createBudgetSignal(options.signal, 170_000);
   let requests = 0;
   const pages = new Map<string, string>();
   const read = async (url: string, render = false): Promise<string | null> => {
@@ -459,14 +441,16 @@ export async function learnRecipe(
         ],
         jsonSchema: recipeJsonSchema,
         maxRetries: 0,
-        signal: AbortSignal.any([signal, AbortSignal.timeout(60_000)]),
+        signal: createBudgetSignal(signal, 60_000),
       });
       if (!response.success) {
-        if (response.error === "LLM API key not configured")
+        const failure = classifyLlmFailure(response.error);
+        if (failure.kind === "not_configured")
           throw new RecipeLearningError("LLM API key not configured");
-        const status = response.error.match(/LLM API error: (\d{3})\b/)?.[1];
         throw new RecipeLearningError(
-          status ? `LLM request failed (HTTP ${status})` : "LLM could not return a recipe",
+          failure.kind === "http"
+            ? `LLM request failed (HTTP ${failure.status})`
+            : "LLM could not return a recipe",
         );
       }
       const parsed = recipeSchema.safeParse(response.data);

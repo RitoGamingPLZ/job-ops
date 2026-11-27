@@ -3,10 +3,12 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRawLocationEvidence } from "@shared/location-domain.js";
 import { getCountryIso2Code, normalizeCountryKey } from "@shared/location-support.js";
 import { normalizeStringArray } from "@shared/normalize-string-array.js";
 import { matchesRequestedCountry, resolveSearchCities } from "@shared/search-cities.js";
 import type { CreateJobInput, JobLocationEvidence, JobSource } from "@shared/types/jobs";
+import { formatSalaryRange } from "@shared/utils/salary.js";
 import { toNumberOrNull, toStringOrNull } from "@shared/utils/type-conversion.js";
 import { subscribeChildProcessLines } from "browser-utils";
 
@@ -16,7 +18,7 @@ const JOBSPY_SCRIPT = join(EXTRACTOR_DIR, "scrape_jobs.py");
 const OUTPUT_DIR = join(EXTRACTOR_DIR, "storage/imports");
 const JOBOPS_PROGRESS_PREFIX = "JOBOPS_PROGRESS ";
 
-export type JobSpyProgressEvent =
+type JobSpyProgressEvent =
   | {
       type: "term_start";
       termIndex: number;
@@ -119,11 +121,11 @@ function buildLocationEvidence(
       ? getCountryIso2Code(lastPart)
       : null;
   const country = explicitCountry ?? getCountryIso2Code(nativeCountry);
-  return {
+  return createRawLocationEvidence({
     location,
-    ...(country ? { country } : {}),
+    country,
     source: "jobspy",
-  };
+  });
 }
 
 function toJobSource(site: unknown): JobSource | null {
@@ -133,33 +135,7 @@ function toJobSource(site: unknown): JobSource | null {
   return null;
 }
 
-function formatSalary(params: {
-  minAmount: number | null;
-  maxAmount: number | null;
-  currency: string | null;
-  interval: string | null;
-}): string | null {
-  const { minAmount, maxAmount, currency, interval } = params;
-  if (minAmount === null && maxAmount === null) return null;
-
-  const fmt = (n: number) => `${Math.round(n)}`;
-  let range: string;
-  if (minAmount !== null && maxAmount !== null) {
-    range = `${fmt(minAmount)}-${fmt(maxAmount)}`;
-  } else if (minAmount !== null) {
-    range = `${fmt(minAmount)}+`;
-  } else if (maxAmount !== null) {
-    range = fmt(maxAmount);
-  } else {
-    return null;
-  }
-
-  const currencyPart = currency ? `${currency} ` : "";
-  const intervalPart = interval ? ` / ${interval}` : "";
-  return `${currencyPart}${range}${intervalPart}`.trim();
-}
-
-export interface RunJobSpyOptions {
+interface RunJobSpyOptions {
   sites?: Array<JobSource>;
   searchTerms?: string[];
   location?: string;
@@ -173,7 +149,7 @@ export interface RunJobSpyOptions {
   onProgress?: (event: JobSpyProgressEvent) => void;
 }
 
-export interface JobSpyResult {
+interface JobSpyResult {
   success: boolean;
   jobs: CreateJobInput[];
   error?: string;
@@ -427,7 +403,12 @@ export function mapJobSpyRows(
     const maxAmount = toNumberOrNull(row.max_amount);
     const currency = toStringOrNull(row.currency);
     const interval = toStringOrNull(row.interval);
-    const salary = formatSalary({ minAmount, maxAmount, currency, interval });
+    const salary = formatSalaryRange({
+      min: minAmount,
+      max: maxAmount,
+      currency,
+      interval,
+    });
 
     const jobUrlDirect = toStringOrNull(row.job_url_direct);
 

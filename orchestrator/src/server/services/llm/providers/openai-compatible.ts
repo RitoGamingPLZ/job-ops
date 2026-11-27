@@ -20,7 +20,7 @@ function appendVersionedPath(baseUrl: string, path: string): string {
   return joinUrl(baseUrl, path);
 }
 
-function resolveChatCompletionsUrl(baseUrlOrEndpoint: string): string {
+export function resolveOpenAiCompatibleChatCompletionsUrl(baseUrlOrEndpoint: string): string {
   const normalized = normalizeBaseUrlOrEndpoint(baseUrlOrEndpoint);
   if (normalized.endsWith(CHAT_COMPLETIONS_SUFFIX) || normalized.endsWith("/chat/completions")) {
     return normalized;
@@ -44,11 +44,10 @@ export const openAiCompatibleStrategy = createProviderStrategy({
   defaultBaseUrl: "https://api.openai.com",
   requiresApiKey: true,
   modes: ["json_schema", "json_object", "text", "none"],
-  validationPaths: ["/v1/models"],
   getValidationUrls: ({ baseUrl }) => [resolveModelsUrl(baseUrl)],
   buildRequest: ({ mode, baseUrl, apiKey, model, messages, jsonSchema }) => {
     return {
-      url: resolveChatCompletionsUrl(baseUrl),
+      url: resolveOpenAiCompatibleChatCompletionsUrl(baseUrl),
       headers: buildHeaders({ apiKey, provider: "openai_compatible" }),
       body: buildChatCompletionsBody({ mode, model, messages, jsonSchema }),
     };

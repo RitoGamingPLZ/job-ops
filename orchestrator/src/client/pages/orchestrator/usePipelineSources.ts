@@ -1,3 +1,4 @@
+import { migrateLegacyScopedStorage, readScopedStorage } from "@client/lib/scoped-storage";
 import type { JobSource } from "@shared/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAuthScopedStorageKey } from "@/client/api/client";
@@ -9,18 +10,6 @@ import {
 
 export function getPipelineSourcesStorageKey(): string {
   return getAuthScopedStorageKey(PIPELINE_SOURCES_STORAGE_KEY);
-}
-
-function readPipelineSourcesStorage(storageKey: string): string | null {
-  const scoped = localStorage.getItem(storageKey);
-  if (scoped || storageKey === PIPELINE_SOURCES_STORAGE_KEY) return scoped;
-  return localStorage.getItem(PIPELINE_SOURCES_STORAGE_KEY);
-}
-
-function migrateLegacyPipelineSourcesStorage(storageKey: string, raw: string): void {
-  if (storageKey === PIPELINE_SOURCES_STORAGE_KEY) return;
-  if (localStorage.getItem(storageKey)) return;
-  localStorage.setItem(storageKey, raw);
 }
 
 const resolveAllowedSources = (enabledSources?: readonly JobSource[]) =>
@@ -46,12 +35,12 @@ export const usePipelineSources = (enabledSources?: readonly JobSource[]) => {
   const storageKey = useMemo(() => getPipelineSourcesStorageKey(), []);
   const [pipelineSources, setPipelineSources] = useState<JobSource[]>(() => {
     try {
-      const raw = readPipelineSourcesStorage(storageKey);
+      const raw = readScopedStorage(storageKey, PIPELINE_SOURCES_STORAGE_KEY);
       if (!raw) return getDefaultSourcesForAllowed(allowedSources);
       const parsed = JSON.parse(raw) as unknown;
       if (!Array.isArray(parsed)) return getDefaultSourcesForAllowed(allowedSources);
       const next = parsed.filter((value): value is JobSource => orderedSources.includes(value));
-      migrateLegacyPipelineSourcesStorage(storageKey, raw);
+      migrateLegacyScopedStorage(storageKey, PIPELINE_SOURCES_STORAGE_KEY, raw);
       return normalizeSources(next, allowedSources);
     } catch {
       return getDefaultSourcesForAllowed(allowedSources);

@@ -1,5 +1,6 @@
+import { parseSafeHttpsUrl } from "@server/watchlist/adapters/url";
 import { rankFacetValues } from "./shared";
-import { badRequest, upstreamError } from "@infra/errors";
+import { upstreamError } from "@infra/errors";
 import { JSDOM } from "jsdom";
 import { isAllowedByRobots, loadPage } from "../../careers-site/fetch";
 import { facetConfig } from "../../careers-site/run-recipe";
@@ -27,14 +28,7 @@ async function readListingFacets(
   { careersUrl, signal }: Parameters<FacetDiscovery>[0],
   filtered = false,
 ): Promise<Facets> {
-  let base: URL;
-  try {
-    base = new URL(careersUrl);
-  } catch {
-    throw badRequest("Use an HTTPS careers listing URL.");
-  }
-  if (base.protocol !== "https:" || base.username || base.password || base.port)
-    throw badRequest("Use an HTTPS careers listing URL.");
+  const base = parseSafeHttpsUrl(careersUrl, "Use an HTTPS careers listing URL.");
   if (!filtered) base.search = "";
   base.hash = "";
   signal?.throwIfAborted();

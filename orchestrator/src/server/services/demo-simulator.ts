@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@infra/errors";
 import { logger } from "@infra/logger";
 import * as pipeline from "@server/pipeline/index";
 import { buildPipelineRunSavedDetails } from "@server/pipeline/run-details";
@@ -136,7 +137,7 @@ export async function simulateGeneratePdf(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to generate demo PDF",
+      error: getErrorMessage(error, "Failed to generate demo PDF"),
     };
   }
 }

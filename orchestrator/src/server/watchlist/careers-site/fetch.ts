@@ -1,3 +1,6 @@
+import { getFreshMapEntry, setBoundedMapEntry } from "../adapters/common";
+import { createBudgetSignal } from "../adapters/http";
+import { tryParseSafeHttpsUrl } from "../adapters/url";
 import { isWorkerdRuntime } from "../runtime";
 import { lookup } from "node:dns/promises";
 import { readdir } from "node:fs/promises";
@@ -18,8 +21,8 @@ const ROBOTS_TTL = 60 * 60_000;
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 
 function safeUrl(value: string): URL {
-  const url = new URL(value);
-  if (url.protocol !== "https:" || url.username || url.password) {
+  const url = tryParseSafeHttpsUrl(value);
+  if (!url) {
     throw new Error("Crawler requires an HTTPS URL without credentials");
   }
   return url;
@@ -224,10 +227,7 @@ export async function fetchPublicText(
   const maxBytes = options.maxBytes ?? MAX_BYTES;
   if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0)
     throw new Error("Invalid crawler byte limit");
-  const signal = AbortSignal.any([
-    AbortSignal.timeout(PAGE_TIMEOUT),
-    ...(options.signal ? [options.signal] : []),
-  ]);
+  const signal = createBudgetSignal(options.signal, PAGE_TIMEOUT);
   const result = await requestBytes(url, { ...options, maxBytes, signal });
   return {
     url: result.url,
@@ -309,8 +309,8 @@ export async function isAllowedByRobots(
   const url = safeUrl(value);
   options.signal?.throwIfAborted();
   const key = url.origin;
-  let entry = robotsCache.get(key);
-  if (!entry || entry.expires <= Date.now()) {
+  let entry = getFreshMapEntry(robotsCache, key);
+  if (!entry) {
     // Share in-flight requests and failures; a caller can cancel its wait
     // without cancelling another caller's cached public robots request.
     const rules = fetchPublicText(`${key}/robots.txt`, {
@@ -329,8 +329,7 @@ export async function isAllowedByRobots(
     void rules.catch(() => {});
     entry = { expires: Date.now() + ROBOTS_TTL, rules };
     // Bound global state even when many arbitrary public hosts are supplied.
-    if (robotsCache.size >= 1000) robotsCache.delete(robotsCache.keys().next().value as string);
-    robotsCache.set(key, entry);
+    setBoundedMapEntry(robotsCache, key, entry, 1000);
   }
   const path = normalizeRobotsPath(url.pathname + url.search);
   let length = -1;
@@ -424,10 +423,7 @@ export async function loadPage(
 ): Promise<LoadedPage> {
   if (!options.render) return fetchPublicText(value, { signal: options.signal });
   const url = safeUrl(value);
-  const signal = AbortSignal.any([
-    AbortSignal.timeout(PAGE_TIMEOUT),
-    ...(options.signal ? [options.signal] : []),
-  ]);
+  const signal = createBudgetSignal(options.signal, PAGE_TIMEOUT);
   await publicTarget(url, signal);
   activePages++;
   if (idleTimer) clearTimeout(idleTimer);

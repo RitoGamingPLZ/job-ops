@@ -1,14 +1,15 @@
 import { getOriginalEnvValue } from "@server/services/envSettings";
+import { normalizeLlmProviderName } from "@shared/settings-registry";
 import { toStringOrNull } from "@shared/utils/type-conversion";
 
-function normalizeStoredApiKey(value: string | null | undefined): string | null {
-  return toStringOrNull(value);
-}
-
-function normalizeProviderName(provider: string | null | undefined): string | null {
-  const normalized = provider?.trim().toLowerCase().replace(/[-.]/g, "_");
-  return normalized || null;
-}
+const PROVIDER_ENV_KEY: Record<string, string> = {
+  atlascloud: "ATLASCLOUD_API_KEY",
+  litellm: "LITELLM_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  requesty: "REQUESTY_API_KEY",
+  api_route: "API_ROUTE_API_KEY",
+  orcarouter: "ORCAROUTER_API_KEY",
+};
 
 /**
  * Resolve the effective LLM API key from stored settings and environment.
@@ -21,10 +22,10 @@ export function resolveLlmApiKey(options: {
   provider?: string | null;
   allowEnvironmentCredentials?: boolean;
 }): string | null {
-  const purposeApiKey = normalizeStoredApiKey(options.purposeApiKey);
+  const purposeApiKey = toStringOrNull(options.purposeApiKey);
   if (purposeApiKey) return purposeApiKey;
 
-  const storedApiKey = normalizeStoredApiKey(options.storedApiKey);
+  const storedApiKey = toStringOrNull(options.storedApiKey);
   if (storedApiKey) return storedApiKey;
 
   if (options.allowEnvironmentCredentials === false) return null;
@@ -32,34 +33,7 @@ export function resolveLlmApiKey(options: {
   const envApiKey = toStringOrNull(getOriginalEnvValue("LLM_API_KEY"));
   if (envApiKey) return envApiKey;
 
-  const provider = normalizeProviderName(options.provider);
-  if (
-    (provider === "atlascloud" || provider === "atlas_cloud") &&
-    toStringOrNull(getOriginalEnvValue("ATLASCLOUD_API_KEY"))
-  ) {
-    return toStringOrNull(getOriginalEnvValue("ATLASCLOUD_API_KEY"));
-  }
-  if (
-    (provider === "litellm" || provider === "litellm_proxy") &&
-    toStringOrNull(getOriginalEnvValue("LITELLM_API_KEY"))
-  ) {
-    return toStringOrNull(getOriginalEnvValue("LITELLM_API_KEY"));
-  }
-  if (provider === "openrouter" && toStringOrNull(getOriginalEnvValue("OPENROUTER_API_KEY"))) {
-    return toStringOrNull(getOriginalEnvValue("OPENROUTER_API_KEY"));
-  }
-
-  if (provider === "requesty" && toStringOrNull(getOriginalEnvValue("REQUESTY_API_KEY"))) {
-    return toStringOrNull(getOriginalEnvValue("REQUESTY_API_KEY"));
-  }
-
-  if (provider === "api_route") {
-    return toStringOrNull(getOriginalEnvValue("API_ROUTE_API_KEY"));
-  }
-
-  if (provider === "orcarouter" && toStringOrNull(getOriginalEnvValue("ORCAROUTER_API_KEY"))) {
-    return toStringOrNull(getOriginalEnvValue("ORCAROUTER_API_KEY"));
-  }
-
-  return null;
+  const provider = normalizeLlmProviderName(options.provider);
+  const envKey = PROVIDER_ENV_KEY[provider];
+  return envKey ? toStringOrNull(getOriginalEnvValue(envKey)) : null;
 }

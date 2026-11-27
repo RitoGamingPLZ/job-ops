@@ -1,5 +1,7 @@
-import { watchlistRequestSignal } from "./http";
-import { setTimeout as delay } from "node:timers/promises";
+import { convert } from "html-to-text";
+import { parseCatalogSourcesLenient, resolveCustomLabel } from "./common";
+import { createBudgetSignal, createSoftDeadline, fetchWatchlist } from "./http";
+import { tryParseSafeHttpsUrl } from "./url";
 import { logger } from "@infra/logger";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { z } from "zod";
@@ -56,13 +58,10 @@ export function isEightfoldFacetKey(key: string): boolean {
   );
 }
 
-function parseSource(value: string) {
-  const url = new URL(value);
+export function parseEightfoldUrl(value: string) {
+  const url = tryParseSafeHttpsUrl(value);
   if (
-    url.protocol !== "https:" ||
-    url.username ||
-    url.password ||
-    url.port ||
+    !url ||
     !Object.hasOwn(boards, url.hostname) ||
     !/^\/careers(?:\/search)?\/?$/.test(url.pathname)
   ) {
@@ -78,35 +77,22 @@ function parseSource(value: string) {
   canonical.searchParams.sort();
   return { board, url: canonical, source: `eightfold:${board.slug}` };
 }
-
-async function responsePrefix(response: Response): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) return "";
-  const decoder = new TextDecoder();
-  let prefix = "";
-  try {
-    while (prefix.length < 200) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      prefix += decoder.decode(value, { stream: true });
-    }
-    return prefix.slice(0, 200);
-  } catch {
-    return "[unavailable]";
-  } finally {
-    await reader.cancel().catch(() => {});
-  }
-}
+const parseSource = parseEightfoldUrl;
 
 async function fetchJson(url: URL, signal: AbortSignal, kind: "list" | "detail"): Promise<unknown> {
-  for (let attempt = 0; ; attempt++) {
-    signal.throwIfAborted();
-    const response = await fetch(url.toString(), {
-      signal,
-      redirect: "manual",
-      headers: { accept: "application/json" },
-    });
-    if (response.status === 429) {
+  return fetchWatchlist({
+    url: url.toString(),
+    signal,
+    headers: { accept: "application/json" },
+    maxRetries: ({ hasRetryAfterHeader }) =>
+      kind === "detail" ? 1 : hasRetryAfterHeader ? 2 : LIST_RATE_LIMIT_BACKOFF_MS.length,
+    retryDelayMs: ({ attempt, retryAfterMs, hasRetryAfterHeader }) =>
+      kind === "detail"
+        ? 1000
+        : !hasRetryAfterHeader
+          ? LIST_RATE_LIMIT_BACKOFF_MS[attempt]
+          : Math.min(2000, Math.max(250 * 2 ** attempt, retryAfterMs ?? 0)),
+    onRateLimit: ({ response, attempt }) => {
       logger.warn("Eightfold request rate limited", {
         host: url.hostname,
         start: url.searchParams.get("start"),
@@ -121,48 +107,14 @@ async function fetchJson(url: URL, signal: AbortSignal, kind: "list" | "detail")
             .getSetCookie()
             .map((cookie) => cookie.split("=", 1)[0].trim()),
         },
-        bodyPrefix: await responsePrefix(response),
       });
-    }
-    if (
-      response.status === 429 &&
-      attempt <
-        (kind === "detail"
-          ? 1
-          : response.headers.has("retry-after")
-            ? 2
-            : LIST_RATE_LIMIT_BACKOFF_MS.length)
-    ) {
-      const retryAfter = response.headers.get("retry-after");
-      const seconds = retryAfter === null ? Number.NaN : Number(retryAfter);
-      const requestedDelay = Number.isFinite(seconds)
-        ? seconds * 1000
-        : Date.parse(retryAfter ?? "") - Date.now();
-      if (!response.bodyUsed) await response.body?.cancel();
-      await delay(
-        kind === "detail"
-          ? 1000
-          : retryAfter === null
-            ? LIST_RATE_LIMIT_BACKOFF_MS[attempt]
-            : Math.min(2000, Math.max(250 * 2 ** attempt, requestedDelay || 0)),
-        undefined,
-        { signal },
-      );
-      continue;
-    }
-    if (!response.ok) {
-      if (!response.bodyUsed) await response.body?.cancel();
-      throw new Error(
-        `Eightfold request failed with HTTP ${response.status} (host=${url.hostname}, start=${url.searchParams.get("start") ?? "n/a"}, attempt=${attempt + 1}).`,
-      );
-    }
-    try {
-      return await response.json();
-    } catch {
-      signal.throwIfAborted();
-      throw new Error("Eightfold returned invalid JSON.");
-    }
-  }
+    },
+    formatHttpError: ({ status, attempt }) =>
+      new Error(
+        `Eightfold request failed with HTTP ${status} (host=${url.hostname}, start=${url.searchParams.get("start") ?? "n/a"}, attempt=${attempt + 1}).`,
+      ),
+    formatInvalidBodyError: () => new Error("Eightfold returned invalid JSON."),
+  });
 }
 
 function parsePayload<T>(schema: z.ZodType<T>, payload: unknown): T {
@@ -221,7 +173,7 @@ async function loadDetails(input: {
   );
   url.searchParams.set("domain", context.board.domain);
   if (context.board.api === "pcsx") url.searchParams.set("position_id", id);
-  const payload = await fetchJson(url, watchlistRequestSignal(input.signal), "detail");
+  const payload = await fetchJson(url, createBudgetSignal(input.signal), "detail");
   const position = parsePayload(
     positionSchema,
     context.board.api === "pcsx" ? unwrapPcsx(payload) : payload,
@@ -237,24 +189,10 @@ async function loadDetails(input: {
 }
 
 function htmlToText(html: string): string {
-  return html
-    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
-    .replace(/<br\s*\/?>|<\/(?:p|div|li|h[1-6])\s*>/gi, "\n")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#(?:(\d+)|x([0-9a-f]+));/gi, (entity, decimal, hexadecimal) => {
-      const codePoint = Number.parseInt(decimal ?? hexadecimal, decimal ? 10 : 16);
-      return codePoint > 0 && codePoint <= 0x10ffff && !(codePoint >= 0xd800 && codePoint <= 0xdfff)
-        ? String.fromCodePoint(codePoint)
-        : entity;
-    })
-    .replace(/&amp;/g, "&")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n\s+/g, "\n")
-    .trim();
+  return convert(html, {
+    wordwrap: false,
+    selectors: [{ selector: "p", options: { leadingLineBreaks: 1, trailingLineBreaks: 1 } }],
+  }).trim();
 }
 
 export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
@@ -276,23 +214,15 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsBranding: false,
   },
   parseCatalogSources(entries) {
-    return entries.flatMap((entry) => {
-      const result = catalogSchema.safeParse(entry);
-      if (!result.success) return [];
-      try {
-        const context = parseSource(result.data.careersUrl);
-        return [
-          {
-            id: context.source,
-            label: result.data.label,
-            sourceType: "eightfold",
-            careersUrl: context.url.toString(),
-            cxsJobsUrl: null,
-          },
-        ];
-      } catch {
-        return [];
-      }
+    return parseCatalogSourcesLenient(entries, catalogSchema, (parsed) => {
+      const context = parseSource(parsed.careersUrl);
+      return {
+        id: context.source,
+        label: parsed.label,
+        sourceType: "eightfold",
+        careersUrl: context.url.toString(),
+        cxsJobsUrl: null,
+      };
     });
   },
   hydrateSelectedSource(source) {
@@ -309,24 +239,20 @@ export const eightfoldWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   normalizeCustomSelection(input) {
     const context = parseSource(input.careersUrl.trim());
-    const label = input.label?.trim();
     return {
-      label: label && label !== input.careersUrl.trim() ? label : context.board.label,
+      label: resolveCustomLabel(input.label, input.careersUrl, context.board.label),
       careersUrl: context.url.toString(),
     };
   },
   async fetchJobs(input) {
     const context = parseSource(input.source.careersUrl);
-    const stopAt = Date.now() + 20_000;
-    const signal = AbortSignal.any([
-      watchlistRequestSignal(input.signal),
-      AbortSignal.timeout(20_000),
-    ]);
+    const deadline = createSoftDeadline(input.signal, { hardMs: 25_000, softMs: 20_000 });
+    const signal = deadline.signal;
     const positions = new Map<string, Position>();
     let start = 0;
     let total = 0;
     // PCSX returns 10 rows/page; cap page requests as well as returned jobs.
-    for (let page = 0; page < Math.ceil(MAX_JOBS / 10) && Date.now() < stopAt; page++) {
+    for (let page = 0; page < Math.ceil(MAX_JOBS / 10) && deadline.hasTimeLeft(); page++) {
       const url = new URL(
         context.board.api === "pcsx" ? "/api/pcsx/search" : "/api/apply/v2/jobs",
         context.url.origin,

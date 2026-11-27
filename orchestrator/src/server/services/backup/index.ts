@@ -27,9 +27,6 @@ const BACKUP_KEY_PREFIX = "backups/";
 const BACKUP_EXTENSION = ".json.gz";
 const AUTO_BACKUP_PREFIX = "jobs_";
 const MANUAL_BACKUP_PREFIX = "jobs_manual_";
-const AUTO_BACKUP_PATTERN = /^jobs_\d{4}_\d{2}_\d{2}\.(json\.gz|db)$/;
-const MANUAL_BACKUP_PATTERN =
-  /^jobs_manual_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}(?:_\d+)?\.(json\.gz|db)$/;
 
 const AUTO_BACKUP_REGEX = /^jobs_(\d{4})_(\d{2})_(\d{2})\.(json\.gz|db)$/;
 const MANUAL_BACKUP_REGEX =
@@ -108,7 +105,7 @@ export function isValidBackupFilename(filename: string): boolean {
   if (!filename || filename.includes("/") || filename.includes("\\") || filename.includes("..")) {
     return false;
   }
-  return AUTO_BACKUP_PATTERN.test(filename) || MANUAL_BACKUP_PATTERN.test(filename);
+  return AUTO_BACKUP_REGEX.test(filename) || MANUAL_BACKUP_REGEX.test(filename);
 }
 
 function toBackupKey(filename: string): string {
@@ -180,8 +177,8 @@ function buildUtcDate(
 }
 
 function getBackupType(filename: string): "auto" | "manual" | null {
-  if (AUTO_BACKUP_PATTERN.test(filename)) return "auto";
-  if (MANUAL_BACKUP_PATTERN.test(filename)) return "manual";
+  if (AUTO_BACKUP_REGEX.test(filename)) return "auto";
+  if (MANUAL_BACKUP_REGEX.test(filename)) return "manual";
   return null;
 }
 

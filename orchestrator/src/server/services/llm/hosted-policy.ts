@@ -1,15 +1,7 @@
-const HOSTED_LOCAL_PROVIDERS = new Set([
-  "ollama",
-  "lmstudio",
-  "lm_studio",
-  "litellm",
-  "litellm_proxy",
-]);
+import { normalizeLlmProviderName } from "@shared/settings-registry";
 
-function normalizeProvider(provider: string | null | undefined): string {
-  return provider?.trim().toLowerCase().replace(/[-.]/g, "_") ?? "";
-}
+const HOSTED_LOCAL_PROVIDERS = new Set(["ollama", "lmstudio", "litellm"]);
 
 export function isHostedLocalProvider(provider: string | null | undefined): boolean {
-  return HOSTED_LOCAL_PROVIDERS.has(normalizeProvider(provider));
+  return HOSTED_LOCAL_PROVIDERS.has(normalizeLlmProviderName(provider));
 }

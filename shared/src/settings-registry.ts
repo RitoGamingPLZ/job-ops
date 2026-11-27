@@ -5,6 +5,7 @@ import {
   LOCATION_SEARCH_SCOPE_VALUES,
   LOCATION_WORKPLACE_TYPE_VALUES,
 } from "./location-domain";
+import { normalizeStringArray } from "./normalize-string-array";
 import {
   getDefaultPromptTemplate,
   LEGACY_RESUME_GENERATION_PROMPT_TEMPLATE,
@@ -63,6 +64,15 @@ function parseBitBoolOrNull(raw: string | undefined): boolean | null {
 
 const GLM_PROVIDER_ALIASES = new Set(["zhipu", "zhipu_ai", "zhipuai", "bigmodel", "zai", "z_ai"]);
 
+const LLM_PROVIDER_ALIASES: Record<string, string> = {
+  atlas_cloud: "atlascloud",
+  litellm_proxy: "litellm",
+  claude: "anthropic",
+  open_router: "openrouter",
+  orca_router: "orcarouter",
+  lm_studio: "lmstudio",
+};
+
 /**
  * Map known GLM provider aliases to "glm".
  * `normalized` should already be lowercased with separators (-, .) replaced by underscores.
@@ -71,12 +81,20 @@ export function mapGlmProviderAlias(normalized: string): string {
   return GLM_PROVIDER_ALIASES.has(normalized) ? "glm" : normalized;
 }
 
-function normalizeLlmProviderOrNull(raw: string | undefined): string | null {
-  if (raw === undefined) return null;
+/**
+ * Normalizes an LLM provider identifier into its canonical lowercase underscore form,
+ * resolving known provider aliases. Returns `""` for nullish or blank inputs.
+ */
+export function normalizeLlmProviderName(raw: string | null | undefined): string {
+  if (!raw) return "";
   const normalized = raw.trim().toLowerCase().replace(/[-.]/g, "_");
-  const mapped = mapGlmProviderAlias(normalized);
-  if (mapped === "claude") return "anthropic";
-  return mapped || null;
+  if (!normalized) return "";
+  const glmMapped = mapGlmProviderAlias(normalized);
+  return LLM_PROVIDER_ALIASES[glmMapped] ?? glmMapped;
+}
+
+function normalizeLlmProviderOrNull(raw: string | undefined): string | null {
+  return normalizeLlmProviderName(raw) || null;
 }
 
 export const DEFAULT_GEMINI_MODEL = "google/gemini-3.1-flash-lite";
@@ -512,7 +530,13 @@ export const settingsRegistry = {
     kind: "typed" as const,
     schema: z.array(z.string().trim().min(1).max(200)).max(200),
     default: (): string[] => [],
-    parse: parseJsonArrayOrNull,
+    parse: (raw: string | undefined): string[] | null => {
+      const parsed = parseJsonArrayOrNull(raw);
+      if (!parsed) return null;
+      return normalizeStringArray(
+        parsed.filter((value): value is string => typeof value === "string"),
+      );
+    },
     serialize: serializeNullableJsonArray,
   },
   scoringInstructions: {

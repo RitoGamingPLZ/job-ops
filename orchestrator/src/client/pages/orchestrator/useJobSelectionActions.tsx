@@ -7,7 +7,7 @@ import { trackProductEvent } from "@/lib/analytics";
 import type { FilterTab } from "./constants";
 import { JobActionProgressToast } from "./JobActionProgressToast";
 import { canMoveToReady, canRescore, canSkip, canTarget, getFailedJobIds } from "./jobActions";
-import { clampNumber } from "./utils";
+import { clampJobActionProgress } from "./utils";
 
 const MAX_JOB_ACTION_JOB_IDS = 500;
 
@@ -116,9 +116,8 @@ export function useJobSelectionActions({
       };
 
       const getProgressTitle = () => {
-        const safeRequested = Math.max(latestProgress.requested, 1);
-        const safeCompleted = clampNumber(latestProgress.completed, 0, safeRequested);
-        return `${safeCompleted}/${safeRequested} ${jobActionLabel[action]}`;
+        const progress = clampJobActionProgress(latestProgress.completed, latestProgress.requested);
+        return `${progress.completed}/${progress.requested} ${jobActionLabel[action]}`;
       };
 
       const upsertProgressToast = () => {

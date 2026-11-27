@@ -1,4 +1,4 @@
-import { AppError, conflict, notFound, unprocessableEntity } from "@infra/errors";
+import { AppError, conflict, getErrorMessage, notFound, unprocessableEntity } from "@infra/errors";
 import { trackServerProductEvent } from "@infra/product-analytics";
 import { db, schema } from "@server/db";
 import { getJobById, listJobSummariesByIds } from "@server/repositories/jobs";
@@ -314,7 +314,7 @@ export async function runPostApplicationInboxAction(
           ok: false,
           error: {
             code: "APPROVE_FAILED",
-            message: error instanceof Error ? error.message : "Unknown error",
+            message: getErrorMessage(error, "Unknown error"),
           },
         });
       }
@@ -350,7 +350,7 @@ export async function runPostApplicationInboxAction(
           ok: false,
           error: {
             code: "DENY_FAILED",
-            message: error instanceof Error ? error.message : "Unknown error",
+            message: getErrorMessage(error, "Unknown error"),
           },
         });
       }

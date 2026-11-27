@@ -8,24 +8,8 @@ import type { ApplicationStage, Job, StageEvent } from "@shared/types.js";
 import { render, screen } from "@testing-library/react";
 import type React from "react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import "@client/test/chart-card-mock";
 import { ConversionAnalytics } from "./ConversionAnalytics";
-
-// Mock UI components
-vi.mock("@/components/ui/card", () => ({
-  Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
-  CardContent: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-content">{children}</div>
-  ),
-  CardHeader: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-header">{children}</div>
-  ),
-  CardTitle: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-title">{children}</div>
-  ),
-  CardDescription: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-description">{children}</div>
-  ),
-}));
 
 vi.mock("@/components/ui/chart", () => ({
   ChartContainer: ({ children }: { children: React.ReactNode }) => (
@@ -64,16 +48,8 @@ vi.mock("@/components/ui/chart", () => ({
   ),
 }));
 
-vi.mock("recharts", () => ({
-  BarChart: ({ children, data }: { children: React.ReactNode; data?: unknown }) => (
-    <div data-testid="bar-chart">
-      {children}
-      <div data-testid="bar-chart-data">{JSON.stringify(data)}</div>
-    </div>
-  ),
-  Bar: () => <div data-testid="bar">Bar</div>,
-  Cell: () => <div data-testid="cell">Cell</div>,
-  LabelList: () => <div data-testid="label-list">LabelList</div>,
+vi.mock("recharts", async () => ({
+  ...(await import("@client/test/recharts-mocks")).rechartsMocks,
   LineChart: ({ children, data }: { children: React.ReactNode; data?: unknown }) => (
     <div data-testid="line-chart">
       {children}
@@ -81,20 +57,6 @@ vi.mock("recharts", () => ({
     </div>
   ),
   Line: () => <div data-testid="line">Line</div>,
-  CartesianGrid: () => <div data-testid="cartesian-grid">Grid</div>,
-  XAxis: ({ tickFormatter }: { tickFormatter?: (value: string) => string }) => (
-    <div data-testid="x-axis">{tickFormatter?.("2025-01-01") ?? "XAxis"}</div>
-  ),
-  YAxis: () => <div data-testid="y-axis">YAxis</div>,
-  Tooltip: () => <div data-testid="tooltip">Tooltip</div>,
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-}));
-
-vi.mock("lucide-react", () => ({
-  TrendingUp: () => <div data-testid="trending-up">TrendingUp</div>,
-  TrendingDown: () => <div data-testid="trending-down">TrendingDown</div>,
 }));
 
 describe("ConversionAnalytics - Edge Cases", () => {

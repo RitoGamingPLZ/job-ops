@@ -3,23 +3,8 @@ import type { Job, StageEvent } from "@shared/types.js";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
+import "@client/test/chart-card-mock";
 import { ResponseRateBySourceChart } from "./ResponseRateBySourceChart";
-
-vi.mock("@/components/ui/card", () => ({
-  Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
-  CardContent: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-content">{children}</div>
-  ),
-  CardHeader: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-header">{children}</div>
-  ),
-  CardTitle: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-title">{children}</div>
-  ),
-  CardDescription: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="card-description">{children}</div>
-  ),
-}));
 
 vi.mock("@/components/ui/chart", () => ({
   ChartContainer: ({ children }: { children: React.ReactNode }) => (
@@ -27,28 +12,10 @@ vi.mock("@/components/ui/chart", () => ({
   ),
 }));
 
-vi.mock("recharts", () => ({
-  BarChart: ({ children, data }: { children: React.ReactNode; data?: unknown }) => (
-    <div data-testid="bar-chart">
-      {children}
-      <div data-testid="bar-chart-data">{JSON.stringify(data)}</div>
-    </div>
-  ),
+vi.mock("recharts", async () => ({
+  ...(await import("@client/test/recharts-mocks")).rechartsMocks,
   Bar: ({ children }: { children?: React.ReactNode }) => <div data-testid="bar">{children}</div>,
-  Cell: () => <div data-testid="cell">Cell</div>,
-  LabelList: () => <div data-testid="label-list">LabelList</div>,
-  CartesianGrid: () => <div data-testid="cartesian-grid">Grid</div>,
   XAxis: () => <div data-testid="x-axis">XAxis</div>,
-  YAxis: () => <div data-testid="y-axis">YAxis</div>,
-  Tooltip: () => <div data-testid="tooltip">Tooltip</div>,
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-}));
-
-vi.mock("lucide-react", () => ({
-  TrendingUp: () => <div data-testid="trending-up">TrendingUp</div>,
-  TrendingDown: () => <div data-testid="trending-down">TrendingDown</div>,
 }));
 
 type ChartJob = Pick<Job, "id" | "source" | "appliedAt"> & {

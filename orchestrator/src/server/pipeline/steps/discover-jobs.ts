@@ -37,7 +37,7 @@ import {
   planLocationSource,
 } from "@shared/location-domain.js";
 import { formatCountryLabel } from "@shared/location-support.js";
-import { normalizeStringArray } from "@shared/normalize-string-array.js";
+import { settingsRegistry } from "@shared/settings-registry";
 import { type CreateJobInput, deriveExtractorLimits, type PipelineConfig } from "@shared/types";
 import {
   type CrawlSource,
@@ -85,17 +85,20 @@ async function withDiscoverySourceTimeout<T>(run: Promise<T>, onTimeout: () => v
   }
 }
 
-function parseBlockedCompanyKeywords(raw: string | undefined): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return normalizeStringArray(
-      parsed.filter((value): value is string => typeof value === "string"),
-    );
-  } catch {
-    return [];
-  }
+function buildChallengePayload(
+  manifest: { id: string; displayName?: string | null },
+  sources: string[],
+  result: { challengeRequired?: string; resumeState?: unknown },
+) {
+  return result.challengeRequired
+    ? {
+        extractorId: manifest.id,
+        extractorName: manifest.displayName || manifest.id,
+        url: result.challengeRequired,
+        resumeState: result.resumeState,
+        sources: sources as ExtractorSourceId[],
+      }
+    : undefined;
 }
 
 function isBlockedEmployer(
@@ -570,15 +573,7 @@ export async function discoverJobsStep(args: {
               `${manifest.displayName || manifest.id}: ${result.error ?? "unknown error"} (sources: ${grouped.sources.join(",")})`,
             ],
             fatal: true,
-            challenge: result.challengeRequired
-              ? {
-                  extractorId: manifest.id,
-                  extractorName: manifest.displayName || manifest.id,
-                  url: result.challengeRequired,
-                  resumeState: result.resumeState,
-                  sources: grouped.sources as ExtractorSourceId[],
-                }
-              : undefined,
+            challenge: buildChallengePayload(manifest, grouped.sources, result),
           };
         }
 
@@ -603,15 +598,7 @@ export async function discoverJobsStep(args: {
         return {
           discoveredJobs: result.jobs,
           sourceErrors: result.sourceErrors ?? [],
-          challenge: result.challengeRequired
-            ? {
-                extractorId: manifest.id,
-                extractorName: manifest.displayName || manifest.id,
-                url: result.challengeRequired,
-                resumeState: result.resumeState,
-                sources: grouped.sources as ExtractorSourceId[],
-              }
-            : undefined,
+          challenge: buildChallengePayload(manifest, grouped.sources, result),
         };
       },
     });
@@ -701,26 +688,24 @@ export async function discoverJobsStep(args: {
     },
     async () => {
       const settledJobs: CreateJobInput[] = [...(args.fanoutSeedJobs ?? [])];
-      const liveBlockedKeywordsLowerCase = parseBlockedCompanyKeywords(
-        settings.blockedCompanyKeywords,
-      ).map((value) => value.toLowerCase());
+      const blockedCompanyKeywords =
+        settingsRegistry.blockedCompanyKeywords.parse(settings.blockedCompanyKeywords) ?? [];
+      const blockedKeywordsLowerCase = blockedCompanyKeywords.map((value) => value.toLowerCase());
+      const matchesLocationIntent = (job: CreateJobInput) => {
+        job.locationEvidence ??= buildLocationEvidence({
+          location: job.location,
+          isRemote: job.isRemote,
+          sourceNotes: [`source:${job.source}`],
+        });
+        return matchJobLocationIntent(job, locationIntent, {
+          nativeRadiusApplied:
+            sourcePlanBySource.get(job.source as ExtractorSourceId)?.usesNativeRadius ?? false,
+        });
+      };
       const filterForFanout = (jobs: CreateJobInput[]) =>
         jobs
-          .filter((job) => {
-            const evidence =
-              job.locationEvidence ??
-              buildLocationEvidence({
-                location: job.location,
-                isRemote: job.isRemote,
-                sourceNotes: [`source:${job.source}`],
-              });
-            job.locationEvidence = evidence;
-            return matchJobLocationIntent(job, locationIntent, {
-              nativeRadiusApplied:
-                sourcePlanBySource.get(job.source as ExtractorSourceId)?.usesNativeRadius ?? false,
-            }).matched;
-          })
-          .filter((job) => !isBlockedEmployer(job.employer, liveBlockedKeywordsLowerCase));
+          .filter((job) => matchesLocationIntent(job).matched)
+          .filter((job) => !isBlockedEmployer(job.employer, blockedKeywordsLowerCase));
       const updateFanoutResults = () => {
         progressHelpers.updateFanoutResults(
           settledJobs.length,
@@ -841,18 +826,7 @@ export async function discoverJobsStep(args: {
 
       const locationFilterReasonCounts: Record<string, number> = {};
       const locationFilteredJobs = discoveredJobs.filter((job) => {
-        const evidence =
-          job.locationEvidence ??
-          buildLocationEvidence({
-            location: job.location,
-            isRemote: job.isRemote,
-            sourceNotes: [`source:${job.source}`],
-          });
-        job.locationEvidence = evidence;
-        const match = matchJobLocationIntent(job, locationIntent, {
-          nativeRadiusApplied:
-            sourcePlanBySource.get(job.source as ExtractorSourceId)?.usesNativeRadius ?? false,
-        });
+        const match = matchesLocationIntent(job);
         if (match.matched) {
           return true;
         }
@@ -876,8 +850,6 @@ export async function discoverJobsStep(args: {
         });
       }
 
-      const blockedCompanyKeywords = parseBlockedCompanyKeywords(settings.blockedCompanyKeywords);
-      const blockedKeywordsLowerCase = blockedCompanyKeywords.map((value) => value.toLowerCase());
       const filteredDiscoveredJobs = locationFilteredJobs.filter(
         (job) => !isBlockedEmployer(job.employer, blockedKeywordsLowerCase),
       );

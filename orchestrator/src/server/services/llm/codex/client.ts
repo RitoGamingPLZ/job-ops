@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface, type Interface } from "node:readline";
 import { logger } from "@infra/logger";
-import { getLlmMessageText, type JsonSchemaDefinition, type LlmRequestOptions } from "../types";
+import { type JsonSchemaDefinition, type LlmRequestOptions } from "../types";
+import { buildCliErrorMessage, formatTranscript } from "../utils/cli-common";
 import { truncate } from "../utils/string";
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 15_000;
@@ -73,11 +74,10 @@ type CodexAuthStatusResponse = {
 };
 
 function buildCodexErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("ENOENT")) {
-    return "Codex CLI was not found in PATH. Install Codex inside the container and try again.";
-  }
-  return truncate(message, 500);
+  return buildCliErrorMessage(error, {
+    enoentMessage:
+      "Codex CLI was not found in PATH. Install Codex inside the container and try again.",
+  });
 }
 
 function isAbortError(error: unknown): boolean {
@@ -173,11 +173,7 @@ function formatPrompt(args: {
   messages: LlmRequestOptions<unknown>["messages"];
   jsonSchema: JsonSchemaDefinition;
 }): string {
-  const transcript = args.messages
-    .map((message, index) => {
-      return `Message ${index + 1} (${message.role.toUpperCase()}):\n${getLlmMessageText(message.content).trim()}`;
-    })
-    .join("\n\n");
+  const transcript = formatTranscript(args.messages);
 
   return [
     "You are generating a structured JSON response for JobOps.",

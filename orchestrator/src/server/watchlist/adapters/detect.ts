@@ -1,31 +1,24 @@
-import { hasPlainHttpsAuthority } from "./url";
 import { isBamboohrUrl } from "@career-boards/bamboohr";
 import { isGreenhouseUrl } from "@career-boards/greenhouse";
 import { isWorkdayUrl } from "@career-boards/workday";
 import type { WatchedSourceType } from "@shared/types";
+import { parseAmazonUrl } from "./amazon";
+import { parseAppleUrl } from "./apple";
+import { parseAshbyUrl } from "./ashby";
+import { parseEightfoldUrl } from "./eightfold";
+import { searchUrl as parseGoogleUrl } from "./google";
+import { parseLeverUrl } from "./lever";
+import { parseOracleUrl } from "./oracle";
+import { parseSmartRecruitersUrl } from "./smartrecruiters";
+import { tryParseSafeHttpsUrl } from "./url";
 
-function parseSafeHttpsUrl(careersUrl: string): URL | null {
-  const trimmed = careersUrl.trim();
-  if (!trimmed) return null;
-
-  let url: URL;
+function matchesParser(parser: (value: string) => unknown, value: string): boolean {
   try {
-    url = new URL(trimmed);
+    parser(value);
+    return true;
   } catch {
-    return null;
+    return false;
   }
-
-  if (
-    url.protocol !== "https:" ||
-    !hasPlainHttpsAuthority(trimmed) ||
-    url.username ||
-    url.password ||
-    url.port
-  ) {
-    return null;
-  }
-
-  return url;
 }
 
 /**
@@ -34,12 +27,11 @@ function parseSafeHttpsUrl(careersUrl: string): URL | null {
  * the general LLM-learned `"careers_site"` crawler adapter.
  */
 export function detectWatchlistSourceTypeForUrl(careersUrl: string): WatchedSourceType {
-  const url = parseSafeHttpsUrl(careersUrl);
+  const trimmed = careersUrl.trim();
+  const url = tryParseSafeHttpsUrl(trimmed);
   if (!url) {
     return "careers_site";
   }
-
-  const host = url.hostname.toLowerCase();
 
   if (isWorkdayUrl(url.href)) {
     return "workday";
@@ -53,59 +45,18 @@ export function detectWatchlistSourceTypeForUrl(careersUrl: string): WatchedSour
     return "greenhouse";
   }
 
-  if (
-    (host === "jobs.lever.co" || host === "jobs.eu.lever.co") &&
-    /^\/([a-zA-Z0-9_-]+)(?:\/([a-zA-Z0-9-]+)(?:\/apply)?)?\/?$/.test(url.pathname)
-  ) {
-    return "lever";
-  }
-
-  if (
-    host === "jobs.ashbyhq.com" &&
-    /^\/([a-zA-Z0-9][a-zA-Z0-9_-]*)(?:\/([a-zA-Z0-9-]+)(?:\/application)?)?\/?$/.test(url.pathname)
-  ) {
-    return "ashby";
-  }
-
-  if (
-    host === "jobs.smartrecruiters.com" &&
-    /^\/([a-z0-9][a-z0-9_-]{0,199})(?:\/\d+(?:-[^/]+)?(?:\/apply)?)?\/?$/i.test(url.pathname)
-  ) {
-    return "smartrecruiters";
-  }
-
-  if (
-    /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+oraclecloud\.com$/.test(host) &&
-    /^\/hcmUI\/CandidateExperience\/([a-zA-Z-]+)\/sites\/([a-zA-Z0-9_-]+)\/jobs\/?$/.test(
-      url.pathname,
-    )
-  ) {
-    return "oracle";
-  }
-
-  if (
-    (host === "amazon.jobs" || host === "www.amazon.jobs") &&
-    /^\/en\/search\/?$/.test(url.pathname)
-  ) {
-    return "amazon";
-  }
-
-  if (host === "jobs.apple.com" && /^\/en-us\/search\/?$/.test(url.pathname)) {
-    return "apple";
-  }
-
-  if (
-    host === "www.google.com" &&
-    /^\/about\/careers\/applications\/jobs\/results\/?$/.test(url.pathname)
-  ) {
-    return "google";
-  }
-
-  if (
-    (host === "apply.careers.microsoft.com" || host === "explore.jobs.netflix.net") &&
-    /^\/careers(?:\/search)?\/?$/.test(url.pathname)
-  ) {
-    return "eightfold";
+  const providers: ReadonlyArray<readonly [WatchedSourceType, (value: string) => unknown]> = [
+    ["lever", parseLeverUrl],
+    ["ashby", parseAshbyUrl],
+    ["smartrecruiters", parseSmartRecruitersUrl],
+    ["oracle", parseOracleUrl],
+    ["amazon", parseAmazonUrl],
+    ["apple", parseAppleUrl],
+    ["google", parseGoogleUrl],
+    ["eightfold", parseEightfoldUrl],
+  ];
+  for (const [sourceType, parser] of providers) {
+    if (matchesParser(parser, trimmed)) return sourceType;
   }
 
   return "careers_site";

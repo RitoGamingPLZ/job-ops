@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "tags": ["-lintignore"],
-  "ignoreDependencies": ["vitest", "job-ops-shared"],
+  "ignoreDependencies": ["vitest"],
   "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "workspaces": {
     ".": {
@@ -10,34 +10,34 @@
       "ignoreDependencies": ["tsx"]
     },
     "docs-site": {
-      "entry": ["src/theme/**/*.tsx", "src/css/custom.css"]
+      "entry": ["src/theme/**/*.tsx", "src/css/custom.css", "src/**/*.test.ts"]
     },
     "orchestrator": {
       "entry": [
-        "src/server/index.ts",
         "src/server/do-entry.ts",
         "src/server/pdf-worker.ts",
-        "src/server/db/migrate.ts",
-        "src/server/db/clear.ts",
-        "src/server/pipeline/run.ts",
-        "src/client/main.tsx",
         "vite.config.ts",
         "src/setupTests.ts",
         "src/**/*.test.ts",
         "src/**/*.test.tsx"
       ],
       "project": ["src/**/*.{ts,tsx}"],
-      "ignore": ["dist/**", "src/components/ui/**"],
+      "ignore": ["src/components/ui/**"],
       "ignoreDependencies": ["@tailwindcss/typography", "tw-animate-css"],
       "ignoreUnresolved": ["vite/client"]
     },
     "shared": {
-      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"],
       "ignore": ["src/**/*.test.ts"]
     },
+    "career-boards/*": {
+      "entry": ["src/**/*.test.ts"]
+    },
     "extractors/*": {
-      "entry": ["{,src/}manifest.ts"]
+      "entry": ["{,src/}manifest.ts", "tests/**/*.test.ts"]
+    },
+    "extractors/browser-utils": {
+      "entry": ["tests/**/*.test.ts"]
     }
   }
 }

@@ -14,8 +14,7 @@
     "check:types": "tsc --noEmit"
   },
   "dependencies": {
-    "@camoufox/camoufox": "^0.5.6",
-    "tough-cookie": "^6.0.1"
+    "@camoufox/camoufox": "^0.5.6"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -115,7 +115,7 @@ async function api() {
   return import("./fetch");
 }
 
-describe("fetchPublicText", () => {
+describe("fetchPublicText (node DNS & deadlines)", () => {
   it("pins the validated DNS address and returns text with the final URL", async () => {
     replies.push({ body: "jobs" });
     const { fetchPublicText } = await api();
@@ -200,79 +200,6 @@ describe("fetchPublicText", () => {
       expect((await (await api()).fetchPublicText("https://careers.example/", {})).html).toBe("ok");
     },
   );
-  it("follows at most three same-host HTTPS redirects and rechecks DNS", async () => {
-    replies.push(
-      { status: 302, headers: { location: "/one" } },
-      { status: 301, headers: { location: "/two" } },
-      { status: 307, headers: { location: "/three" } },
-      { body: "jobs" },
-    );
-    const { fetchPublicText } = await api();
-    expect((await fetchPublicText("https://careers.example/", {})).url).toBe(
-      "https://careers.example/three",
-    );
-    expect(mocks.lookup).toHaveBeenCalledTimes(4);
-    replies.push(
-      ...Array.from({ length: 4 }, () => ({
-        status: 302,
-        headers: { location: "/loop" },
-      })),
-    );
-    await expect(fetchPublicText("https://careers.example/", {})).rejects.toThrow("redirect limit");
-  });
-  it.each([
-    "https://evil.example/jobs",
-    "http://careers.example/jobs",
-    "https://careers.example:444/jobs",
-  ])("rejects redirect to %s", async (location) => {
-    replies.push({ status: 302, headers: { location } });
-    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow();
-    expect(network).toHaveLength(1);
-  });
-  it("rejects a rebinding answer on a redirect", async () => {
-    mocks.lookup
-      .mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }])
-      .mockResolvedValueOnce([{ address: "127.0.0.1", family: 4 }]);
-    replies.push({ status: 302, headers: { location: "/jobs" } });
-    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow(
-      "non-public",
-    );
-    expect(network).toHaveLength(1);
-  });
-  it.each([{ headers: { "content-length": "99" } }, { chunks: ["123", "456"] }])(
-    "caps declared and streamed sizes",
-    async (reply) => {
-      replies.push(reply);
-      await expect(
-        (await api()).fetchPublicText("https://careers.example/", {
-          maxBytes: 5,
-        }),
-      ).rejects.toThrow("byte limit");
-    },
-  );
-  it.each([403, 406])("marks HTTP %s blocked without exposing the body", async (status) => {
-    replies.push({ status, body: "secret body" });
-    const { SiteBlockedError } = await import("./types");
-    await expect(
-      (await api()).fetchPublicText("https://careers.example/", {}),
-    ).rejects.toBeInstanceOf(SiteBlockedError);
-  });
-  it("marks Cloudflare challenge HTML blocked", async () => {
-    replies.push({ body: "<title>Just a moment...</title>" });
-    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow(
-      "Cloudflare challenge",
-    );
-  });
-  it("recognizes the Cloudflare challenge header without a challenge title", async () => {
-    replies.push({
-      headers: { "cf-mitigated": "challenge" },
-      body: "challenge",
-    });
-    const { SiteBlockedError } = await import("./types");
-    await expect(
-      (await api()).fetchPublicText("https://careers.example/", {}),
-    ).rejects.toBeInstanceOf(SiteBlockedError);
-  });
   it("enforces the 20-second deadline even during DNS lookup", async () => {
     vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
     // AbortSignal.timeout uses a native timer; use a controlled signal to prove
@@ -304,14 +231,123 @@ describe("fetchPublicText", () => {
   });
 });
 
-describe("fetchPublicText in workerd", () => {
+describe.each(["node", "workerd"] as const)("fetchPublicText (%s) shared contracts", (mode) => {
+  const workerFetch = vi.fn<typeof fetch>();
+
+  beforeEach(() => {
+    workerFetch.mockReset();
+    if (mode === "workerd") {
+      vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+      vi.stubGlobal("fetch", workerFetch);
+    }
+  });
+
+  function pushReplies(...items: Reply[]) {
+    if (mode === "node") {
+      replies.push(...items);
+      return;
+    }
+    for (const item of items) {
+      if (item.chunks) {
+        const body = new ReadableStream({
+          start(controller) {
+            for (const chunk of item.chunks ?? []) {
+              controller.enqueue(new TextEncoder().encode(chunk));
+            }
+            controller.close();
+          },
+        });
+        workerFetch.mockResolvedValueOnce(
+          new Response(body, { status: item.status ?? 200, headers: item.headers }),
+        );
+      } else {
+        workerFetch.mockResolvedValueOnce(
+          new Response(item.body ?? null, { status: item.status ?? 200, headers: item.headers }),
+        );
+      }
+    }
+  }
+
+  function transportCalls() {
+    return mode === "node" ? network.length : workerFetch.mock.calls.length;
+  }
+
+  it("follows at most three same-host HTTPS redirects and rechecks DNS", async () => {
+    pushReplies(
+      { status: 302, headers: { location: "/one" } },
+      { status: 301, headers: { location: "/two" } },
+      { status: 307, headers: { location: "/three" } },
+      { body: "jobs" },
+    );
+    const { fetchPublicText } = await api();
+    expect((await fetchPublicText("https://careers.example/", {})).url).toBe(
+      "https://careers.example/three",
+    );
+    expect(mocks.lookup).toHaveBeenCalledTimes(4);
+    pushReplies(
+      ...Array.from({ length: 4 }, () => ({
+        status: 302,
+        headers: { location: "/loop" },
+      })),
+    );
+    await expect(fetchPublicText("https://careers.example/", {})).rejects.toThrow("redirect limit");
+  });
+
+  it.each([
+    "https://evil.example/jobs",
+    "http://careers.example/jobs",
+    "https://careers.example:444/jobs",
+  ])("rejects redirect to %s without following it", async (location) => {
+    pushReplies({ status: 302, headers: { location } });
+    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow();
+    expect(transportCalls()).toBe(1);
+  });
+
+  it("rejects a private/rebinding DNS answer on a redirect before fetching again", async () => {
+    mocks.lookup
+      .mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }])
+      .mockResolvedValueOnce([{ address: "127.0.0.1", family: 4 }]);
+    pushReplies({ status: 302, headers: { location: "/jobs" } });
+    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow(
+      "non-public",
+    );
+    expect(transportCalls()).toBe(1);
+  });
+
+  it.each([{ headers: { "content-length": "99" } }, { chunks: ["123", "456"] }])(
+    "caps declared and streamed sizes (%j)",
+    async (reply) => {
+      pushReplies(reply);
+      await expect(
+        (await api()).fetchPublicText("https://careers.example/", {
+          maxBytes: 5,
+        }),
+      ).rejects.toThrow("byte limit");
+    },
+  );
+
+  it.each([
+    { status: 403 },
+    { status: 406 },
+    { headers: { "cf-mitigated": "challenge" }, body: "challenge" },
+    { body: "<title>Just a moment...</title>" },
+  ])("marks blocked response %j as SiteBlockedError without exposing body", async (reply) => {
+    pushReplies({ body: "secret body", ...reply });
+    const { SiteBlockedError } = await import("./types");
+    await expect(
+      (await api()).fetchPublicText("https://careers.example/", {}),
+    ).rejects.toBeInstanceOf(SiteBlockedError);
+  });
+});
+
+describe("fetchPublicText (workerd manual fetch & cancellation)", () => {
   const workerFetch = vi.fn<typeof fetch>();
   beforeEach(() => {
     vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
     vi.stubGlobal("fetch", workerFetch);
   });
 
-  it("uses manual fetch, forwards headers and signal, and validates every redirect hop", async () => {
+  it("uses manual fetch, forwards headers and signal, and validates redirect hops", async () => {
     workerFetch
       .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: "/jobs" } }))
       .mockResolvedValueOnce(new Response("jobs"));
@@ -334,38 +370,7 @@ describe("fetchPublicText in workerd", () => {
     });
   });
 
-  it("rejects a private DNS answer on a redirect before fetching again", async () => {
-    mocks.lookup.mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }]);
-    mocks.lookup.mockResolvedValueOnce([{ address: "127.0.0.1", family: 4 }]);
-    workerFetch.mockResolvedValueOnce(
-      new Response(null, { status: 302, headers: { location: "/jobs" } }),
-    );
-    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow(
-      "non-public",
-    );
-    expect(workerFetch).toHaveBeenCalledTimes(1);
-  });
-
-  it.each(["https://evil.example/jobs", "http://careers.example/jobs"])(
-    "rejects redirect to %s without following it",
-    async (location) => {
-      workerFetch.mockResolvedValueOnce(new Response(null, { status: 302, headers: { location } }));
-      await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow();
-      expect(workerFetch).toHaveBeenCalledTimes(1);
-    },
-  );
-
-  it("bounds same-host redirects", async () => {
-    workerFetch.mockImplementation(
-      async () => new Response(null, { status: 302, headers: { location: "/loop" } }),
-    );
-    await expect((await api()).fetchPublicText("https://careers.example/", {})).rejects.toThrow(
-      "redirect limit",
-    );
-    expect(workerFetch).toHaveBeenCalledTimes(4);
-  });
-
-  it.each([true, false])("caps declared and streamed sizes (declared: %s)", async (declared) => {
+  it.each([true, false])("cancels oversized response streams (declared: %s)", async (declared) => {
     const cancel = vi.fn();
     const body = new ReadableStream({
       start(controller) {
@@ -380,19 +385,6 @@ describe("fetchPublicText in workerd", () => {
       (await api()).fetchPublicText("https://careers.example/", { maxBytes: 5 }),
     ).rejects.toThrow("byte limit");
     expect(cancel).toHaveBeenCalledTimes(1);
-  });
-
-  it.each([
-    { status: 403 },
-    { status: 406 },
-    { headers: { "cf-mitigated": "challenge" } },
-    { body: "<title>Just a moment...</title>" },
-  ])("preserves blocked-response detection: %j", async ({ body, ...init }) => {
-    workerFetch.mockResolvedValueOnce(new Response(body ?? "private body", init));
-    const { SiteBlockedError } = await import("./types");
-    await expect(
-      (await api()).fetchPublicText("https://careers.example/", {}),
-    ).rejects.toBeInstanceOf(SiteBlockedError);
   });
 
   it("forwards cancellation to an in-flight fetch", async () => {

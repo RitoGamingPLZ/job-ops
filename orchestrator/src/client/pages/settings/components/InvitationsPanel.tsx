@@ -11,6 +11,7 @@ import type React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { showErrorToast } from "@/client/lib/error-toast";
+import { copyTextToClipboard } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -117,7 +118,7 @@ export const InvitationsPanel: React.FC = () => {
 
   const copyLink = async (url: string) => {
     try {
-      await navigator.clipboard.writeText(url);
+      await copyTextToClipboard(url);
       toast.success("Invitation link copied");
     } catch {
       toast.error("Could not copy. Select the link and copy it manually.");

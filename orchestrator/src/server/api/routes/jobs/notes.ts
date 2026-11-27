@@ -3,12 +3,10 @@ import { fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import * as jobsRepo from "@server/repositories/jobs";
 import { type Request, type Response, Router } from "express";
-import { requireAnyPermissionMiddleware } from "../../require-admin";
+import { requireJobsOrInProgress } from "../../require-admin";
 import { jobNoteSchema, toJobsRouteError } from "./shared";
 
 export const jobsNotesRouter = Router();
-
-const requireJobsOrInProgress = requireAnyPermissionMiddleware("jobs", "inProgress");
 
 function getRequestId(res: Response): string {
   return String(res.getHeader("x-request-id") || "unknown");

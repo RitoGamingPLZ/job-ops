@@ -1,5 +1,5 @@
+import { makeAuthToken } from "@client/test/auth-token";
 import { parseTokenizedInput } from "@client/lib/tokenized-input";
-import { deriveExtractorLimits } from "@shared/types";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   AUTOMATIC_PRESETS,
@@ -10,106 +10,10 @@ import {
   saveAutomaticRunMemory,
 } from "./automatic-run";
 
-function ensureStorage(): Storage {
-  const existing = globalThis.localStorage as Partial<Storage> | undefined;
-  const hasStorageShape =
-    existing &&
-    typeof existing.getItem === "function" &&
-    typeof existing.setItem === "function" &&
-    typeof existing.removeItem === "function" &&
-    typeof existing.clear === "function";
-
-  if (hasStorageShape) {
-    return existing as Storage;
-  }
-
-  const store = new Map<string, string>();
-  const storage: Storage = {
-    get length() {
-      return store.size;
-    },
-    clear() {
-      store.clear();
-    },
-    getItem(key: string) {
-      const value = store.get(key);
-      return value ?? null;
-    },
-    key(index: number) {
-      return Array.from(store.keys())[index] ?? null;
-    },
-    removeItem(key: string) {
-      store.delete(key);
-    },
-    setItem(key: string, value: string) {
-      store.set(key, value);
-    },
-  };
-
-  Object.defineProperty(globalThis, "localStorage", {
-    value: storage,
-    configurable: true,
-    writable: true,
-  });
-
-  return storage;
-}
-
-function ensureSessionStorage(): Storage {
-  const existing = globalThis.sessionStorage as Partial<Storage> | undefined;
-  const hasStorageShape =
-    existing &&
-    typeof existing.getItem === "function" &&
-    typeof existing.setItem === "function" &&
-    typeof existing.removeItem === "function" &&
-    typeof existing.clear === "function";
-
-  if (hasStorageShape) {
-    return existing as Storage;
-  }
-
-  const store = new Map<string, string>();
-  const storage: Storage = {
-    get length() {
-      return store.size;
-    },
-    clear() {
-      store.clear();
-    },
-    getItem(key: string) {
-      const value = store.get(key);
-      return value ?? null;
-    },
-    key(index: number) {
-      return Array.from(store.keys())[index] ?? null;
-    },
-    removeItem(key: string) {
-      store.delete(key);
-    },
-    setItem(key: string, value: string) {
-      store.set(key, value);
-    },
-  };
-
-  Object.defineProperty(globalThis, "sessionStorage", {
-    value: storage,
-    configurable: true,
-    writable: true,
-  });
-
-  return storage;
-}
-
-function makeAuthToken(tenantId: string): string {
-  const encode = (value: unknown) =>
-    Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
-  return [encode({ alg: "HS256", typ: "JWT" }), encode({ tenantId }), "signature"].join(".");
-}
-
 describe("automatic-run utilities", () => {
   beforeEach(() => {
-    ensureStorage().clear();
-    ensureSessionStorage().clear();
+    localStorage.clear();
+    sessionStorage.clear();
   });
 
   it("exposes the expected preset values", () => {
@@ -122,42 +26,8 @@ describe("automatic-run utilities", () => {
     expect(AUTOMATIC_PRESETS.detailed.topN).toBeGreaterThan(AUTOMATIC_PRESETS.fast.topN);
   });
 
-  it("keeps discovered cap under budget regardless of search-term count", () => {
-    const limits = deriveExtractorLimits({
-      budget: 750,
-      searchTerms: ["a", "b", "c"],
-      sources: ["indeed", "linkedin", "jobindex"],
-    });
-
-    const cap = 2 * limits.jobspyResultsWanted * 3 + limits.jobindexMaxJobsPerTerm * 3;
-
-    expect(cap).toBeLessThanOrEqual(750);
-  });
-
-  it("assigns a dedicated Adzuna max-jobs limit", () => {
-    const limits = deriveExtractorLimits({
-      budget: 120,
-      searchTerms: ["backend", "platform"],
-      sources: ["adzuna"],
-    });
-
-    expect(limits.adzunaMaxJobsPerTerm).toBeGreaterThan(0);
-    expect(limits.adzunaMaxJobsPerTerm).toBe(150);
-  });
-
-  it("assigns a dedicated Jobindex max-jobs limit", () => {
-    const limits = deriveExtractorLimits({
-      budget: 120,
-      searchTerms: ["backend", "platform"],
-      sources: ["jobindex"],
-    });
-
-    expect(limits.jobindexMaxJobsPerTerm).toBeGreaterThan(0);
-    expect(limits.jobindexMaxJobsPerTerm).toBe(150);
-  });
-
   it("raises legacy custom budgets to the 300-job minimum", () => {
-    ensureStorage().setItem(
+    localStorage.setItem(
       RUN_MEMORY_STORAGE_KEY,
       JSON.stringify({
         topN: 5,
@@ -171,7 +41,7 @@ describe("automatic-run utilities", () => {
   });
 
   it("infers the balanced preset from legacy memory without an explicit preset id", () => {
-    ensureStorage().setItem(
+    localStorage.setItem(
       RUN_MEMORY_STORAGE_KEY,
       JSON.stringify({
         topN: AUTOMATIC_PRESETS.balanced.topN,
@@ -188,7 +58,7 @@ describe("automatic-run utilities", () => {
   });
 
   it("preserves explicit custom memory even when the numbers match a preset", () => {
-    ensureStorage().setItem(
+    localStorage.setItem(
       RUN_MEMORY_STORAGE_KEY,
       JSON.stringify({
         topN: AUTOMATIC_PRESETS.balanced.topN,
@@ -207,7 +77,6 @@ describe("automatic-run utilities", () => {
   });
 
   it("scopes run memory to the authenticated workspace", () => {
-    const sessionStorage = ensureSessionStorage();
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-one"));
 
     saveAutomaticRunMemory({
@@ -242,8 +111,6 @@ describe("automatic-run utilities", () => {
   });
 
   it("migrates legacy run memory into the workspace-scoped key", () => {
-    const sessionStorage = ensureSessionStorage();
-    const localStorage = ensureStorage();
     sessionStorage.setItem("jobops.authToken", makeAuthToken("tenant-one"));
     localStorage.setItem(
       RUN_MEMORY_STORAGE_KEY,

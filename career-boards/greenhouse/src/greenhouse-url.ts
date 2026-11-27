@@ -1,3 +1,5 @@
+import { CAREER_BOARD_DEFAULT_USER_AGENT } from "../../../shared/src/career-board-http";
+
 export type GreenhouseUrlParseErrorCode =
   | "EMPTY_URL"
   | "INVALID_URL"
@@ -9,9 +11,7 @@ export const GREENHOUSE_CANONICAL_BOARD_ORIGIN = "https://job-boards.greenhouse.
 
 export const GREENHOUSE_FILTER_KEYS = ["departments", "location", "offices", "workplace"] as const;
 
-export const GREENHOUSE_DEFAULT_USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
+export const GREENHOUSE_DEFAULT_USER_AGENT = CAREER_BOARD_DEFAULT_USER_AGENT;
 
 // Greenhouse board tokens are lowercase alphanumeric slugs, occasionally with
 // hyphens/underscores. Path segments like "embed"/"v1"/"boards" are structural

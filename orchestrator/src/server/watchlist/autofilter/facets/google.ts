@@ -1,3 +1,4 @@
+import { createBudgetSignal, fetchWatchlist } from "@server/watchlist/adapters/http";
 import { upstreamError } from "@infra/errors";
 import { callbackData, searchUrl } from "../../adapters/google";
 import type { FacetDiscovery } from "../types";
@@ -17,14 +18,14 @@ export const discoverGoogleFacets: FacetDiscovery = async ({ careersUrl, signal 
   // selected URL already has filters. One results request, without robots' page=.
   url.search = "";
   signal?.throwIfAborted();
-  const response = await fetch(url.toString(), {
-    redirect: "manual",
-    signal: signal
-      ? AbortSignal.any([signal, AbortSignal.timeout(25_000)])
-      : AbortSignal.timeout(25_000),
+  const html = await fetchWatchlist({
+    url: url.toString(),
+    signal: createBudgetSignal(signal),
+    maxRetries: 0,
+    responseType: "text",
+    formatHttpError: ({ status }) => upstreamError(`Google facets returned HTTP ${status}.`),
   });
-  if (!response.ok) throw upstreamError(`Google facets returned HTTP ${response.status}.`);
-  const data = callbackData(await response.text(), "ds:1");
+  const data = callbackData(html, "ds:1");
   const total = Array.isArray(data) ? data[2] : undefined;
   if (!Number.isSafeInteger(total) || total < 0)
     throw upstreamError(

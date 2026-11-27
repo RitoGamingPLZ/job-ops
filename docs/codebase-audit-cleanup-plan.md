@@ -1,6 +1,6 @@
 # Job-Ops Codebase Audit & Cleanup Plan
 
-> **Status:** Phases A, B, and C1 landed in `f069c6b3`. The follow-up consolidates client SSE framing, tokenized input, and job status badges, removes stale mocks, consolidates duration-selector tests, and updates current docs after the removal of visa sponsor lookup and tracer links.
+> **Status:** Phases A, B, and C1 landed in `f069c6b3`. Commit `e8f0ba76` and the current worktree complete the C2–E follow-up. The checklist below preserves the original audit proposals.
 
 The next pass removed one-line repository scope wrappers and consolidated raw pipeline location settings, watchlist runtime detection, and request timeouts. It also shared file reading, Gemini model normalization, compiler output truncation, integration display names, and career-board response handling. Tests now reuse route login fixtures and a migrated SQLite database template across repository suites. The targeted adapter retry and pacing tests use fake timers.
 
@@ -8,11 +8,22 @@ The latest pass consolidated outbound webhook delivery, route validation, resume
 
 The latest pass also shared watchlist URL validation, branding checks, bounded retries, facet ranking, LLM strategy construction and model-list fetches, stored JSON parsing, resume section titles, language formatting, and render-directory cleanup, and the repository and pipeline test fixtures. It consolidated the CLI import and scoring threshold test cases, pipeline terminal status, and email display helpers. Typst now renders a numeric language level of zero, matching LaTeX.
 
-The checklist below records the original proposals. Open items include remaining provider-specific watchlist HTTP consolidation, remaining resume renderer and import helpers, and a handful of test suite reorganizations.
+The resumed work consolidates clipboard feedback, legacy scoped-storage reads and migration, job visibility and sorting, and job-action progress. Watchlist adapters and facets share timeout and retry helpers while keeping provider-specific retry policies. Eightfold rate-limit diagnostics retain allowlisted headers and omit upstream response bodies.
+
+The worktree also consolidates Workday CXS requests, extractor salary and progress handling, watchlist JSON-LD extraction, resume coercion and picture extensions, and pipeline location matching. Watchlist helper tests cover shared retry and URL behavior. Provider adapter tests cover their request contracts.
+
+| Audit area                   | Follow-up result                                                                                                                                                                                    |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Watchlist and outbound fetch | Shared request budgets, 429 handling, URL parsing, branding, and test fixtures. The careers-site crawler retains DNS pinning.                                                                       |
+| Services and resume          | Shared LLM provider construction, import error handling, resume coercion, renderer section formatting, and temporary-directory cleanup. Typst and LaTeX both render a language level of zero.       |
+| Client and tests             | Shared SSE framing, clipboard feedback, legacy storage migration, sorting, route mocks, and JSON response fixtures. Extractor-limit coverage lives alongside the shared implementation.             |
+| Backend and packages         | Shared route validation, pipeline test fixtures, career-board requests, extractor helpers, and Cloudflare error responses. Current docs and Docker watch configuration reflect the active features. |
+
+The final pass routed webhook and D1 errors through the shared API handler, reused permission guards, and shared the chart mocks. Shared HTTP tests cover generic retry rules. Adapter tests retain provider-specific budgets, throttling, and parsing behavior. Knip includes workspace tests and resolves the dependencies declared by each workspace. Extractor manifests use one named export in both container and filesystem discovery. Versioned documentation continues to describe the features in each historical release.
 
 - **Date:** 2026-11-26
 - **Branch:** `t3/dead-code-cleanup-shared-helpers` (base commit `1baba233`)
-- **Status:** Phases A, B, and C1 applied; Phases C2–E documented below for follow-up
+- **Status:** C2–E applied in the worktree
 - **Scope:** 100% of repository workspaces, apps, extractors, career-boards, Cloudflare Worker / Durable Objects, Chrome extension, documentation site, helper scripts, CI/Docker config, and root files
 
 ## Table of Contents
@@ -533,7 +544,7 @@ _(Every symbol below has 0 external production callers and is either used strict
 
 ## 6. Recommended Execution Order & Verification Checklist
 
-Execute Round 2 in five mostly disjoint waves so file edits do not collide and every intermediate milestone stays type-safe and test-green. _(Confirm Open Decisions #1–#7 in Section 3.2 before running the corresponding items.)_
+The original execution order below records the scope of the five cleanup phases. The worktree reflects the seven decisions in Section 3.2, including removal of the unused Worker and browser dispatch placeholders.
 
 ### Phase A — Multi-Tenancy, Logging Hygiene & Database Migration (`0009`)
 
@@ -587,6 +598,6 @@ Execute Round 2 in five mostly disjoint waves so file edits do not collide and e
 #### 3. Windows / WSL Environment Notes
 
 - On this Windows host, `git` runs from **Windows PowerShell** (the worktree `.git` pointer references a Windows path, so Linux `git` in WSL fails with `not a git repository`).
-- Conversely, `node` (v22), `npm`, and `vp` run in **WSL** (Linux environment / mirror with Linux native bindings).
+- Run `node`, `npm`, and `vp` in **WSL** using a Linux mirror with Linux native bindings. CI pins Node `22.22.1`.
 - **Native module ABI (`AGENTS.md`):** If `better-sqlite3` fails with a Node ABI mismatch, rebuild it in the target runtime (`npm --workspace orchestrator rebuild better-sqlite3`).
 - Always re-verify `shared/src/utils/type-conversion.ts` (`asArray`) and DB migration `0009` checksums/tests after completing edits.

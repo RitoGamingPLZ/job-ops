@@ -81,6 +81,34 @@ export function toNonEmptyString(value: unknown): string | null {
 }
 
 /**
+ * Returns the trimmed string, or undefined when the value is not a string or is blank.
+ */
+export function toOptionalString(value: unknown): string | undefined {
+  return toNonEmptyString(value) ?? undefined;
+}
+
+/**
+ * Returns the value when it is a string, otherwise `fallback`.
+ */
+export function toText(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+/**
+ * Returns the value when it is a boolean, otherwise `fallback`.
+ */
+export function toBoolean(value: unknown, fallback = false): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+/**
+ * Returns the value when it is a finite number, otherwise `fallback`.
+ */
+export function toNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+/**
  * Returns the value when it is an array, otherwise an empty array.
  */
 export function asArray(value: unknown): unknown[] {

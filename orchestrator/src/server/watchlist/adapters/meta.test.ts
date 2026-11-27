@@ -1,6 +1,6 @@
 import catalog from "@server/config/career-boards-meta.json";
-import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { installFakeAbortSignalTimeout, makeSelectedSource } from "../testing/fixtures";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
 vi.mock("node:timers/promises", async (importOriginal) => {
@@ -10,18 +10,15 @@ vi.mock("node:timers/promises", async (importOriginal) => {
 
 const origin = "https://www.metacareers.com";
 const url = (id: number) => `${origin}/profile/job_details/${id}/`;
-const source: WatchlistSelectedSource = {
+const source = makeSelectedSource({
   id: "meta-selected",
   catalogSourceId: "meta:meta",
   label: "Meta",
   sourceType: "meta",
   careersUrl: `${origin}/jobs`,
-  cxsJobsUrl: null,
-  isCustom: false,
-  sortOrder: 0,
   createdAt: "",
   updatedAt: "",
-};
+});
 let adapter: WatchlistCatalogSourceAdapter;
 beforeEach(async () => {
   vi.resetModules();
@@ -29,6 +26,7 @@ beforeEach(async () => {
 });
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 function sitemap(count = 1) {
@@ -321,9 +319,8 @@ describe("metaWatchlistAdapter", () => {
     expect(mock).not.toHaveBeenCalled();
   });
   it("returns completed jobs when the operation deadline expires", async () => {
-    // An explicit operation deadline; avoid waiting 24 seconds in this regression.
-    const timeout = AbortSignal.timeout.bind(AbortSignal);
-    vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => timeout(ms === 24_000 ? 250 : ms));
+    vi.useFakeTimers();
+    const timeout = installFakeAbortSignalTimeout();
     let detailCalls = 0;
     vi.stubGlobal(
       "fetch",
@@ -337,10 +334,9 @@ describe("metaWatchlistAdapter", () => {
         );
       }),
     );
-    try {
-      expect((await adapter.fetchJobs({ source })).fetched).toBe(1);
-    } finally {
-      vi.restoreAllMocks();
-    }
+    const pending = adapter.fetchJobs({ source });
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect((await pending).fetched).toBe(1);
+    expect(timeout).toHaveBeenCalledWith(24_000);
   });
 });

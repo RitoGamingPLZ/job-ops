@@ -1,10 +1,10 @@
 import { getPostingDateSortValue } from "@client/lib/job-posting-age";
 import { EXTRACTOR_SOURCE_METADATA } from "@shared/extractors";
-import type { AppSettings, JobListItem, JobSource } from "@shared/types";
+import { isTargeted, type AppSettings, type JobListItem, type JobSource } from "@shared/types";
 import type { DateFilterDimension, EmploymentType, FilterTab, JobSort } from "./constants";
-import { DEFAULT_PIPELINE_SOURCES, orderedFilterSources, orderedSources } from "./constants";
+import { DEFAULT_PIPELINE_SOURCES, orderedFilterSources, orderedSources, tabs } from "./constants";
 
-const dateValue = (value: string | null) => {
+export const dateValue = (value: string | null) => {
   if (!value) return null;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -14,8 +14,37 @@ const compareString = (a: string, b: string) =>
   a.localeCompare(b, undefined, { sensitivity: "base" });
 const compareNumber = (a: number, b: number) => a - b;
 
-export const clampNumber = (value: number, min: number, max: number) =>
+type TabJob = Pick<JobListItem, "status" | "readyAt">;
+
+export function isUntargetedDiscovered(job: TabJob): boolean {
+  return job.status === "discovered" && !isTargeted(job);
+}
+
+export function pickVisibleSelected<T extends TabJob>(job: T | null, tab: FilterTab): T | null {
+  if (!job) return null;
+  if (tab === "discovered") return isUntargetedDiscovered(job) ? job : null;
+  const statuses = tabs.find((entry) => entry.id === tab)?.statuses;
+  return !statuses?.length || statuses.includes(job.status) ? job : null;
+}
+
+function compareNullable<T>(
+  a: T | null | undefined,
+  b: T | null | undefined,
+  compare: (a: T, b: T) => number,
+  direction: JobSort["direction"],
+): number {
+  if (a == null) return b == null ? 0 : 1;
+  if (b == null) return -1;
+  return direction === "asc" ? compare(a, b) : compare(b, a);
+}
+
+const clampNumber = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
+
+export function clampJobActionProgress(completed: number, requested: number) {
+  const total = Math.max(requested, 1);
+  return { completed: clampNumber(completed, 0, total), requested: total };
+}
 
 export const parseSalaryBounds = (job: JobListItem): { min: number; max: number } | null => {
   if (typeof job.salaryMinAmount === "number" && Number.isFinite(job.salaryMinAmount)) {
@@ -46,74 +75,43 @@ export const parseSalaryBounds = (job: JobListItem): { min: number; max: number 
   return { min: Math.min(...values), max: Math.max(...values) };
 };
 
-export const compareJobs = (a: JobListItem, b: JobListItem, sort: JobSort) => {
-  let value = 0;
-
+function compareJobValues(a: JobListItem, b: JobListItem, sort: JobSort): number {
   switch (sort.key) {
     case "title":
-      value = compareString(a.title, b.title);
-      break;
+      return compareNullable(a.title, b.title, compareString, sort.direction);
     case "employer":
-      value = compareString(a.employer, b.employer);
-      break;
-    case "score": {
-      const aScore = a.suitabilityScore;
-      const bScore = b.suitabilityScore;
-
-      if (aScore == null && bScore == null) {
-        value = 0;
-        break;
-      }
-      if (aScore == null) return 1;
-      if (bScore == null) return -1;
-      value = compareNumber(aScore, bScore);
-      break;
-    }
-    case "salary": {
-      const aSalary = parseSalaryBounds(a);
-      const bSalary = parseSalaryBounds(b);
-      if (aSalary == null && bSalary == null) {
-        value = 0;
-        break;
-      }
-      if (aSalary == null) return 1;
-      if (bSalary == null) return -1;
-      value = compareNumber(aSalary.max, bSalary.max);
-      if (value === 0) {
-        value = compareNumber(aSalary.min, bSalary.min);
-      }
-      break;
-    }
-    case "discoveredAt": {
-      const aDate = dateValue(a.discoveredAt);
-      const bDate = dateValue(b.discoveredAt);
-      if (aDate == null && bDate == null) {
-        value = 0;
-        break;
-      }
-      if (aDate == null) return 1;
-      if (bDate == null) return -1;
-      value = compareNumber(aDate, bDate);
-      break;
-    }
-    case "datePosted": {
-      const aDate = getPostingDateSortValue(a.datePosted);
-      const bDate = getPostingDateSortValue(b.datePosted);
-      if (aDate == null && bDate == null) {
-        value = 0;
-        break;
-      }
-      if (aDate == null) return 1;
-      if (bDate == null) return -1;
-      value = compareNumber(aDate, bDate);
-      break;
-    }
+      return compareNullable(a.employer, b.employer, compareString, sort.direction);
+    case "score":
+      return compareNullable(a.suitabilityScore, b.suitabilityScore, compareNumber, sort.direction);
+    case "salary":
+      return compareNullable(
+        parseSalaryBounds(a),
+        parseSalaryBounds(b),
+        (left, right) => left.max - right.max || left.min - right.min,
+        sort.direction,
+      );
+    case "discoveredAt":
+      return compareNullable(
+        dateValue(a.discoveredAt),
+        dateValue(b.discoveredAt),
+        compareNumber,
+        sort.direction,
+      );
+    case "datePosted":
+      return compareNullable(
+        getPostingDateSortValue(a.datePosted),
+        getPostingDateSortValue(b.datePosted),
+        compareNumber,
+        sort.direction,
+      );
     default:
-      value = 0;
+      return 0;
   }
+}
 
-  if (value !== 0) return sort.direction === "asc" ? value : -value;
-  return a.id.localeCompare(b.id);
+export const compareJobs = (a: JobListItem, b: JobListItem, sort: JobSort) => {
+  const comparison = compareJobValues(a, b, sort);
+  return comparison === 0 ? a.id.localeCompare(b.id) : comparison;
 };
 
 export const getJobDateValue = (

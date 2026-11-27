@@ -1,3 +1,4 @@
+import { createRawLocationEvidence } from "@shared/location-domain.js";
 import { normalizeCountryKey } from "@shared/location-support.js";
 import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
 import { toIntegerOrFallback } from "@shared/utils/type-conversion.js";
@@ -6,7 +7,7 @@ const JOBINDEX_BASE_URL = "https://www.jobindex.dk";
 const JOBINDEX_SEARCH_URL = `${JOBINDEX_BASE_URL}/jobsoegning`;
 const JOBINDEX_MAX_PAGES = 50;
 
-export type JobindexProgressEvent =
+type JobindexProgressEvent =
   | {
       type: "term_start";
       termIndex: number;
@@ -30,7 +31,7 @@ export type JobindexProgressEvent =
       jobsFoundTerm: number;
     };
 
-export interface RunJobindexOptions {
+interface RunJobindexOptions {
   searchTerms?: string[];
   selectedCountry?: string;
   cityLocations?: string[];
@@ -40,7 +41,7 @@ export interface RunJobindexOptions {
   fetchImpl?: typeof fetch;
 }
 
-export interface JobindexResult {
+interface JobindexResult {
   success: boolean;
   jobs: CreateJobInput[];
   error?: string;
@@ -220,14 +221,14 @@ function buildLocationEvidence(args: {
       ? [`coordinates:${latitude},${longitude}`]
       : undefined;
 
-  return {
+  return createRawLocationEvidence({
     location,
     country: "denmark",
     city,
     source: "jobindex",
     evidenceQuality: first ? "exact" : "approximate",
     sourceNotes,
-  };
+  });
 }
 
 function parseAddresses(value: unknown): JobindexAddress[] {

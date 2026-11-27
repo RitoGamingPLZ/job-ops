@@ -69,7 +69,6 @@ Defaults and constraints:
 - State, radius, employment type, salary, experience level, and posting-age filters return the standard OJCP error `invalid_field_value`, listing them in `details.unsupported_filters`, rather than inaccurate pagination. Agents can retry without those filters.
 - Job locations are schema.org `Place` objects. FreeHire's structured city and country become `address.addressLocality` and an ISO `address.addressCountry`; a location known only as text is returned as the Place `name`. `remote_policy` is `remote`, `hybrid`, or `on_site` when FreeHire reports the work mode.
 - When more than 10 live searches are already running, search returns `rate_limited` with JSON-RPC error code `-32029` and `retry_after_seconds`.
-- Results include an exact employer-name match against the configured country sponsor register when that data is available. A register match does not guarantee that the vacancy offers sponsorship.
 - Full job details remain available for 10 minutes in the current server process. Restarting the server or using another replica may require a new search.
 - Identical searches may reuse a result for up to 15 seconds.
 - Apply paths are external redirects and do not support agent submission.

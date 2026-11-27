@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import { access, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AppError, type AppErrorCode, conflict, notFound } from "@infra/errors";
+import { AppError, type AppErrorCode, conflict, getErrorMessage, notFound } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import { getBlobStore } from "@server/infra/blob-store";
@@ -159,7 +159,6 @@ async function resolveDesignResumeForRenderer(): Promise<{
   revision: number;
   updatedAt: string;
   data: Record<string, unknown>;
-  mode: "v5";
 }> {
   const designResume = await getCurrentDesignResume();
   if (!designResume?.resumeJson) {
@@ -175,13 +174,11 @@ async function resolveDesignResumeForRenderer(): Promise<{
       string,
       unknown
     >,
-    mode: "v5",
   };
 }
 
 export async function loadBaseResumeSource(): Promise<{
   data: Record<string, unknown>;
-  mode: "v5";
 }> {
   const designResume = await getCurrentDesignResume();
   if (!designResume?.resumeJson) {
@@ -192,7 +189,6 @@ export async function loadBaseResumeSource(): Promise<{
       string,
       unknown
     >,
-    mode: "v5",
   };
 }
 
@@ -265,7 +261,7 @@ export async function generatePdf(
     });
     return { success: true, pdfPath: outputPath };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    const message = getErrorMessage(error, "Unknown error");
     logger.error("PDF generation failed", { jobId, renderer, error });
     return {
       success: false,
