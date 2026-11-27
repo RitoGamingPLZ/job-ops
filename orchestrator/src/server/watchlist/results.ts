@@ -4,6 +4,7 @@ import * as jobsRepo from "@server/repositories/jobs";
 import * as watchlistRepo from "@server/repositories/watchlist";
 import { asyncPool } from "@server/utils/async-pool";
 import { getWatchlistSourceAdapter, listWatchlistSourceAdapters } from "@server/watchlist/adapters";
+import { watchlistStateSource } from "./source-identity";
 import type {
   JobListItem,
   WatchlistJobResult,
@@ -285,13 +286,16 @@ function annotateWatchlistSourceResults(input: {
   const ignoredKeys = new Set(
     input.states
       .filter((state) => state.state === "ignored")
-      .map((state) => getWatchlistJobKey(state.source, state.sourceJobId)),
+      .map((state) => getWatchlistJobKey(watchlistStateSource(state.source), state.sourceJobId)),
   );
   const importedByKey = new Map<string, JobListItem>();
   const importedByUrl = new Map<string, JobListItem>();
   for (const job of input.workspaceJobs) {
     if (job.sourceJobId) {
-      importedByKey.set(getWatchlistJobKey(String(job.source), job.sourceJobId), job);
+      importedByKey.set(
+        getWatchlistJobKey(watchlistStateSource(String(job.source)), job.sourceJobId),
+        job,
+      );
     }
     importedByUrl.set(job.jobUrl, job);
   }
@@ -307,7 +311,10 @@ function annotateWatchlistSourceResults(input: {
       total: payload.total,
       fetched: payload.fetched,
       jobs: payload.jobs.map((job): WatchlistJobResult => {
-        const jobKey = getWatchlistJobKey(String(job.source), job.sourceJobId);
+        const jobKey = getWatchlistJobKey(
+          watchlistStateSource(String(job.source)),
+          job.sourceJobId,
+        );
         const workspaceJob = importedByKey.get(jobKey) ?? importedByUrl.get(job.jobUrl) ?? null;
         const rowState = workspaceJob
           ? "moved_to_workspace"

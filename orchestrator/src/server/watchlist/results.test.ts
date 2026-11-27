@@ -203,6 +203,77 @@ describe("watchlist results service", () => {
     });
   });
 
+  it("matches ignored and imported careers-site postings across filters of the same host", async () => {
+    const filter = (letter: string) => `careers_site:example.com?${letter.repeat(24)}`;
+    const careers = makeSelectedSource({
+      id: "careers-source",
+      label: "Example",
+      careersUrl: "https://example.com/careers?q=nurse",
+      sourceType: "careers_site",
+      isCustom: true,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    const posting = (sourceJobId: string) => ({
+      jobRef: `https://example.com/jobs/${sourceJobId}`,
+      source: filter("b"),
+      sourceJobId,
+      sourceType: "careers_site",
+      title: sourceJobId,
+      employer: "Example",
+      jobUrl: `https://example.com/jobs/${sourceJobId}`,
+      applicationLink: `https://example.com/jobs/${sourceJobId}`,
+      location: null,
+      postedAt: null,
+    });
+    vi.mocked(getWatchlistSourceAdapter).mockReturnValue({
+      hydrateSelectedSource: (source: WatchlistSelectedSource) => source,
+      fetchJobs: vi.fn().mockResolvedValue({
+        total: 3,
+        fetched: 3,
+        jobs: [posting("ignored-elsewhere"), posting("imported-elsewhere"), posting("fresh")],
+      }),
+    } as any);
+    vi.mocked(watchlistRepo.listWatchlistJobStates).mockResolvedValue([
+      {
+        // Ignored while viewing the board under a different keyword.
+        source: filter("a"),
+        sourceJobId: "ignored-elsewhere",
+        state: "ignored",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    vi.mocked(jobsRepo.getJobListItems).mockResolvedValue([
+      // Imported from the unfiltered board, so its source key carries no query digest.
+      {
+        id: "imported-job",
+        source: "careers_site:example.com",
+        sourceJobId: "imported-elsewhere",
+        jobUrl: "https://example.com/other-url",
+        status: "discovered",
+      } as any,
+    ]);
+    const result = await getWatchlistResultsForSources([careers]);
+    const jobs = result.sources[0]?.status === "success" ? result.sources[0].jobs : [];
+    expect(jobs.map((job) => job.rowState)).toEqual(["ignored", "moved_to_workspace", "new"]);
+  });
+
+  it("does not widen matching for sources that are not careers sites", async () => {
+    vi.mocked(watchlistRepo.listWatchlistJobStates).mockResolvedValue([
+      {
+        source: "workday:acme?other",
+        sourceJobId: "ignored-job",
+        state: "ignored",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    const result = await getWatchlistResultsForSources([workdaySource]);
+    const jobs = result.sources[0]?.status === "success" ? result.sources[0].jobs : [];
+    expect(jobs.map((job) => job.rowState)).toEqual(["new", "new"]);
+  });
+
   it("returns a timeout for a non-settling adapter while keeping other source results", async () => {
     vi.useFakeTimers();
     const workingAdapter = getWatchlistSourceAdapter("bamboohr");

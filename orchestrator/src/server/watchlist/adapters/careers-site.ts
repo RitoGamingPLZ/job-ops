@@ -4,11 +4,12 @@ import {
   pruneExpiredTimestamps,
   setBoundedMapEntry,
 } from "./common";
+import { roleField, roleRank } from "../control-roles";
 import { createBudgetSignal, createSoftDeadline } from "./http";
 import { parseWatchlistUrl, hasPlainHttpsAuthority } from "./url";
 import { isWorkerdRuntime } from "../runtime";
 import { createHash } from "node:crypto";
-import { badRequest, serviceUnavailable, upstreamError } from "@infra/errors";
+import { badRequest, serviceUnavailable, unprocessableEntity, upstreamError } from "@infra/errors";
 import { logger } from "@infra/logger";
 import {
   getSiteRecipe,
@@ -24,13 +25,23 @@ import {
   getRemoteCareersSiteRunner,
   RemoteCareersSiteUnavailableError,
 } from "@server/watchlist/careers-site/remote";
+import { sameUrlPath } from "@server/watchlist/careers-site/normalize";
 import { runRecipe } from "@server/watchlist/careers-site/run-recipe";
 import {
+  buildSearchUrl,
+  facetParamsFromSearch,
+  readSearchValues,
+  sameListingPath,
+  type SearchValues,
+} from "@server/watchlist/careers-site/search";
+import {
   type CrawledJob,
+  detailRenders,
   type Recipe,
   SiteBlockedError,
+  type SiteRecipeRecord,
 } from "@server/watchlist/careers-site/types";
-import type { WatchlistSelectedSource } from "@shared/types";
+import type { WatchlistSearchControlsResponse, WatchlistSelectedSource } from "@shared/types";
 import { convert } from "html-to-text";
 import { z } from "zod";
 import { greenhouseWatchlistAdapter } from "./greenhouse";
@@ -162,7 +173,8 @@ async function learn(host: string, url: string, signal: AbortSignal): Promise<Re
   if (result.kind === "failed") throw new RecipeLearningError(result.message);
   return result.recipe;
 }
-function startLearning(host: string, url: string): never {
+/** Start (or join) background learning for a host; throws only while a failed learn cools down. */
+function ensureLearning(host: string, url: string): void {
   const plainUrl = new URL(url);
   plainUrl.search = "";
   plainUrl.hash = "";
@@ -205,6 +217,9 @@ function startLearning(host: string, url: string): never {
       });
     });
   }
+}
+function startLearning(host: string, url: string): never {
+  ensureLearning(host, url);
   throw serviceUnavailable(LEARNING);
 }
 function cachedJob(input: {
@@ -299,12 +314,11 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     // Rendered details take 2–20 s/page. Keep their cap at 4 within the
     // 25 s hard budget; listing-only rendering gets 10, while plain/JSON-LD
     // recipes get 60.
-    const limit =
-      recipe.detail.kind === "selectors" && recipe.detail.render
-        ? 4
-        : recipe.listing.kind === "page" && recipe.listing.render
-          ? 10
-          : 60;
+    const listingRenders =
+      url.search && recipe.search && sameListingPath(recipe.search, url.href)
+        ? recipe.search.render
+        : recipe.listing.kind === "page" && recipe.listing.render;
+    const limit = detailRenders(recipe) ? 4 : listingRenders ? 10 : 60;
     cache.delete(sourceKey);
     let collected: CrawledJob[];
     try {
@@ -370,6 +384,10 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       descriptionHtml: job.descriptionHtml || "",
     };
   },
+  async discoverSearchFacets({ careersUrl: value }) {
+    const { search } = await searchFor(careersUrl(value));
+    return search ? facetParamsFromSearch(search) : [];
+  },
   async prepareImportDraft(input) {
     const fallback = greenhouseFallback(input.source);
     if (fallback)
@@ -386,8 +404,98 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
         jobUrl: job.url,
         applicationLink: job.url,
         location: job.location ?? undefined,
+        // Only fields the recipe verified are present; ones a posting lacks stay blank.
+        salary: job.salary ?? undefined,
+        deadline: job.deadline ?? undefined,
+        jobType: job.jobType ?? undefined,
+        jobLevel: job.jobLevel ?? undefined,
         jobDescription: convert(job.descriptionHtml || "", { wordwrap: false }),
       },
     };
   },
 };
+
+/** The verified search of this host's public recipe, when it describes the given listing path. */
+async function searchFor(url: URL) {
+  const stored = await getSiteRecipe(url.hostname);
+  const search = stored?.recipe?.search;
+  return { stored, search: search && sameListingPath(search, url.href) ? search : undefined };
+}
+
+/**
+ * Which filters a custom careers URL can offer. Reads only the public recipe: no model call, no
+ * network request, and nothing about the caller beyond the URL they already hold.
+ */
+export async function getCareersSiteSearchControls(
+  value: string,
+): Promise<WatchlistSearchControlsResponse> {
+  const url = careersUrl(value);
+  const { stored, search } = await searchFor(url);
+  if (stored?.blockedReason && blockIsActive(stored)) return { status: "unsupported" };
+  if (search) {
+    return {
+      status: "ready",
+      controls: search.params
+        .map((param) => ({
+          key: param.key,
+          ...(param.label ? { label: param.label } : {}),
+          ...roleField(param),
+          input: param.input,
+          multiple:
+            param.input.kind === "choice"
+              ? param.encoding !== "single"
+              : param.input.multiple === true,
+        }))
+        // The same controls appear in the same order on every board: keyword first, then location.
+        .sort((a, b) => roleRank(a.role) - roleRank(b.role)),
+      values: readSearchValues(search, url.href),
+    };
+  }
+  if (learning.has(url.hostname)) return { status: "learning" };
+  return canRescan(stored, url) ? { status: "rescan" } : { status: "unsupported" };
+}
+
+/** Build the source URL for the user's own filter values, validated against the verified controls. */
+export async function applyCareersSiteSearch(
+  value: string,
+  values: SearchValues,
+): Promise<{ careersUrl: string }> {
+  const { search } = await searchFor(careersUrl(value));
+  if (!search)
+    throw unprocessableEntity("Search filters are not available for this careers site yet.");
+  // Keep the user's other filters (a Suggest result, say) when only the verified controls change.
+  return { careersUrl: careersUrl(buildSearchUrl(search, values, careersUrl(value).href)).href };
+}
+
+/** A rescan of the same host is not repeated within this long, whether or not it found anything. */
+const RESCAN_COOLDOWN_MS = 6 * 60 * 60_000;
+const rescans = new Map<string, number>();
+
+/**
+ * Whether this page may trigger a relearn. The recipe is shared by every user of the host, so a
+ * relearn must not replace one that already has verified search, nor one whose page listing is a
+ * different page than the one asked about (a sitemap recipe is host-wide and has no page).
+ */
+function canRescan(stored: SiteRecipeRecord | null, url: URL): boolean {
+  const recipe = stored?.recipe;
+  if (!recipe) return true;
+  if (recipe.search) return false;
+  return recipe.listing.kind === "sitemap" || sameUrlPath(recipe.listing.url, url.href);
+}
+
+/**
+ * Re-learn a host on request so an existing recipe can gain search controls. The working recipe
+ * stays in place until a verified replacement is saved.
+ */
+export async function rescanCareersSite(value: string): Promise<void> {
+  const url = careersUrl(value);
+  const stored = await getSiteRecipe(url.hostname);
+  if (stored?.blockedReason && blockIsActive(stored)) throw blocked(url.hostname);
+  if (!canRescan(stored, url))
+    throw unprocessableEntity("This site's search filters cannot be re-learned from this page.");
+  const last = rescans.get(url.hostname);
+  if (last !== undefined && Date.now() - last < RESCAN_COOLDOWN_MS && !learning.has(url.hostname))
+    throw serviceUnavailable("This site was scanned recently. Try again later.");
+  ensureLearning(url.hostname, url.href);
+  setBoundedMapEntry(rescans, url.hostname, Date.now(), 500);
+}

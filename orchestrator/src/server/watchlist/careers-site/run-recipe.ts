@@ -4,8 +4,10 @@ import { extractBalancedJson, extractJsonLdObjects, findJsonLdJobPostings } from
 import { createBudgetSignal } from "../adapters/http";
 import { tryParseSafeHttpsUrl } from "../adapters/url";
 import { JSDOM } from "jsdom";
+import { extractExtraFields } from "./fields";
 import { isAllowedByRobots, loadPage } from "./fetch";
-import { type CrawledJob, type Recipe, SiteBlockedError } from "./types";
+import { isoDate, jobLocation, record, sameUrlPath, text } from "./normalize";
+import { type CrawledJob, detailRenders, type Recipe, SiteBlockedError } from "./types";
 
 const MAX_URL_LENGTH = 500;
 const DETAIL_CACHE_TTL_MS = 24 * 60 * 60_000;
@@ -15,7 +17,7 @@ const DETAIL_CACHE_MAX_ENTRIES = 2_000;
 const ROBOTS_DISALLOWED_URL = "robots.txt disallows this URL";
 const detailCache = new Map<string, { job: CrawledJob; expires: number; extraction: string }>();
 
-function jobId(url: string, recipe: Recipe): string | undefined {
+export function jobId(url: string, recipe: Recipe): string | undefined {
   return url.length <= MAX_URL_LENGTH && recipe.jobIdPattern
     ? new RegExp(recipe.jobIdPattern).exec(url)?.[1]
     : undefined;
@@ -41,8 +43,21 @@ export function facetConfig(html: string | undefined): string | null {
   return extractBalancedJson(assignment, start[0].length - 1, "{");
 }
 
+// Pager names seen on real boards: page/_paged, offset/skip (Amazon, SmartRecruiters), and start
+// (Eightfold). The wider list is only trusted where the learner verifies the second page.
+const COMMON_PAGER = /^(?:_?paged?|offset|skip)$/i;
+const VERIFIED_PAGER =
+  /^(?:_?paged?|offset|skip|start|from|pg|page_?(?:num|number|no|index)|pagenum(?:ber)?|pageno|pageindex)$/i;
+const ZERO_BASED_PAGER = /^(?:offset|skip|start|from|page_?index|pageindex)$/i;
+
 /** Infer query pagination from same-path links or public FacetWP pager metadata. */
-export function detectQueryPagination(values: string[], base: string, html?: string) {
+export function detectQueryPagination(
+  values: string[],
+  base: string,
+  html?: string,
+  /** Also accept less common pager names. Only for callers that verify page two shows new postings. */
+  verified = false,
+) {
   const first = new URL(base);
   // FacetWP server-renders jobs but serializes its pager as JSON, without hrefs.
   // Read the public configuration as data; never execute page scripts.
@@ -85,13 +100,12 @@ export function detectQueryPagination(values: string[], base: string, html?: str
     const changed = [...keys].filter(
       (key) => first.searchParams.getAll(key).join() !== next.searchParams.getAll(key).join(),
     );
-    if (changed.length !== 1 || !/^(?:_?paged?|offset|skip)$/i.test(changed[0])) continue;
+    if (changed.length !== 1 || !(verified ? VERIFIED_PAGER : COMMON_PAGER).test(changed[0]))
+      continue;
     const param = changed[0];
     const raw = next.searchParams.get(param);
     if (!raw || !/^\d+$/.test(raw)) continue;
-    const start = Number(
-      first.searchParams.get(param) ?? (/^(?:offset|skip)$/i.test(param) ? 0 : 1),
-    );
+    const start = Number(first.searchParams.get(param) ?? (ZERO_BASED_PAGER.test(param) ? 0 : 1));
     const end = Number(raw);
     if (Number.isSafeInteger(start) && Number.isSafeInteger(end) && end > start)
       detected.push({ kind: "query", param, start, step: end - start });
@@ -99,33 +113,6 @@ export function detectQueryPagination(values: string[], base: string, html?: str
   return detected.sort((a, b) => a.step - b.step)[0] ?? null;
 }
 
-function text(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-}
-function date(value: unknown): string | null {
-  const raw = text(value);
-  return raw && Number.isFinite(Date.parse(raw)) ? new Date(raw).toISOString() : null;
-}
-function location(value: unknown): string | null {
-  const entries = Array.isArray(value) ? value : [value];
-  const labels = entries.flatMap((entry) => {
-    if (typeof entry === "string") return [entry];
-    const place = record(entry);
-    const address = record(place.address);
-    const country = record(address.addressCountry);
-    const parts = [
-      text(address.addressLocality),
-      text(address.addressRegion),
-      text(address.addressCountry) ?? text(country.name),
-    ].filter(Boolean);
-    const label = text(place.address) || parts.join(", ") || text(place.name);
-    return label ? [label] : [];
-  });
-  return [...new Set(labels)].join("; ") || null;
-}
 // Read nested microdata scopes (Place -> PostalAddress, Organization, etc.).
 function microdata(scope: Element): Record<string, unknown> {
   const result: Record<string, unknown> = {};
@@ -160,6 +147,8 @@ export function extractJob(html: string, url: string, recipe: Recipe): CrawledJo
     const document = dom.window.document;
     let data: Record<string, unknown> | null = null;
     let fromJsonLd = false;
+    // Only structured JobPosting data can answer a `jobPosting` field rule.
+    let posting: Record<string, unknown> | null = null;
     if (recipe.detail.kind === "selectors") {
       const detail = recipe.detail;
       data = {
@@ -201,6 +190,7 @@ export function extractJob(html: string, url: string, recipe: Recipe): CrawledJo
       }
     }
     if (!data || !text(data.title) || !text(data.description)) return null;
+    if (recipe.detail.kind === "jsonld") posting = data;
     const decode = (value: string | null): string | null => {
       if (value === null || !fromJsonLd) return value;
       const node = document.createElement("textarea");
@@ -213,9 +203,15 @@ export function extractJob(html: string, url: string, recipe: Recipe): CrawledJo
       url,
       title: decode(text(data.title)) as string,
       employer: decode(text(record(data.hiringOrganization).name) ?? text(data.hiringOrganization)),
-      location: decode(location(data.jobLocation)),
-      postedAt: date(data.datePosted),
+      location: decode(jobLocation(data.jobLocation)),
+      postedAt: isoDate(data.datePosted),
       descriptionHtml: text(data.description),
+      // JSON-LD text may carry character references, like the title above.
+      ...Object.fromEntries(
+        Object.entries(extractExtraFields({ document, posting, fields: recipe.detail.fields })).map(
+          ([name, value]) => [name, decode(value ?? null)],
+        ),
+      ),
     };
   } catch {
     return null;
@@ -325,10 +321,31 @@ export async function runRecipe(
     await sitemap(base, 0);
   } else {
     const listing = recipe.listing;
-    const render = listing.kind === "page" && listing.render;
-    const waitFor = listing.kind === "page" ? listing.waitFor : undefined;
-    let pagination = listing.kind === "page" ? listing.pagination : { kind: "none" as const };
-    const maxPages = filtered ? 10 : listing.kind === "page" ? Math.min(10, listing.maxPages) : 1;
+    // A verified search description wins over the host listing for a filtered source: the
+    // listing's rendering and pager describe the unfiltered page, not the search results.
+    // Search settings describe the listing path they were learned on; another path keeps the page listing.
+    const search =
+      filtered && recipe.search && sameUrlPath(recipe.search.url, filtered)
+        ? recipe.search
+        : undefined;
+    const verifiedPager = search?.pagination.kind === "query";
+    const render = search ? search.render : listing.kind === "page" && listing.render;
+    const waitFor = search ? search.waitFor : listing.kind === "page" ? listing.waitFor : undefined;
+    let pagination = search
+      ? search.pagination
+      : listing.kind === "page"
+        ? listing.pagination
+        : { kind: "none" as const };
+    // A verified pager bounds the walk; without one the old filtered behaviour stays (detect on page
+    // one, up to 10 pages), because "not verified" usually means the sample had only one page.
+    const maxPages =
+      search && verifiedPager
+        ? Math.min(10, search.maxPages)
+        : filtered
+          ? 10
+          : listing.kind === "page"
+            ? Math.min(10, listing.maxPages)
+            : 1;
     const candidateIds = new Set<string>();
     let successes = 0;
     for (let pageIndex = 0; pageIndex < maxPages; pageIndex++) {
@@ -354,7 +371,7 @@ export async function runRecipe(
           for (const link of links) add(link, 0, page.url);
           for (const candidate of candidates.keys())
             candidateIds.add(jobId(candidate, recipe) || candidate);
-          if (filtered && !pageIndex)
+          if (filtered && !pageIndex && !verifiedPager)
             pagination = detectQueryPagination(links, page.url, page.html) ?? {
               kind: "none",
             };
@@ -433,7 +450,7 @@ export async function runRecipe(
     task: async ([url]) => {
       if (jobs.has(url)) return;
       try {
-        const page = await read(url, recipe.detail.kind === "selectors" && recipe.detail.render);
+        const page = await read(url, detailRenders(recipe), recipe.detail.waitFor);
         if (!page) return;
         completed++;
         const job = extractJob(page.html, page.url, recipe);

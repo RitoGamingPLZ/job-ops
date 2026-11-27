@@ -358,3 +358,56 @@ describe("discoverWatchlistJobsForPipeline", () => {
     expect(listHydratedWatchlistSelectedSources).not.toHaveBeenCalled();
   });
 });
+
+describe("per-search source limit", () => {
+  const user = { requestId: "test", tenantId: "tenant-a", userId: "user-a" };
+  const many = (count: number): WatchlistSelectedSource[] =>
+    Array.from({ length: count }, (_, index) => ({
+      ...workdaySource,
+      id: `source-${index}`,
+      sortOrder: index,
+    }));
+  const succeed = (sources: WatchlistSelectedSource[]) =>
+    vi.mocked(getWatchlistResultsForSources).mockResolvedValue({
+      checkedAt: "2026-01-03T00:00:00.000Z",
+      previousLastCheckedAt: null,
+      sources: sources.map((source) => ({
+        status: "success" as const,
+        source,
+        jobs: [],
+        total: 0,
+        fetched: 0,
+      })),
+    });
+
+  it("reads at most 40 sources and says how many were left out", async () => {
+    succeed(many(40));
+    const result = await runWithRequestContext(user, () =>
+      discoverWatchlistJobsForPipeline({ selectedSources: many(50) }),
+    );
+    const read = vi.mocked(getWatchlistResultsForSources).mock.calls[0][0];
+    expect(read).toHaveLength(40);
+    // The first 40 in the user's own order; the rest are skipped, not failed.
+    expect(read.map((source) => source.id)).toEqual(many(40).map((source) => source.id));
+    expect(result.selectedSourceCount).toBe(40);
+    expect(result.failedSourceCount).toBe(0);
+    expect(result.sourceErrors).toEqual([
+      "Watchlist: searched the first 40 of 50 sources (limit 40 per search)",
+    ]);
+  });
+
+  it("applies the same limit to sources it loads itself, and leaves 40 or fewer alone", async () => {
+    vi.mocked(listHydratedWatchlistSelectedSources).mockResolvedValue(many(45));
+    succeed(many(40));
+    await runWithRequestContext(user, () => discoverWatchlistJobsForPipeline());
+    expect(vi.mocked(getWatchlistResultsForSources).mock.calls[0][0]).toHaveLength(40);
+
+    vi.mocked(getWatchlistResultsForSources).mockClear();
+    succeed(many(40));
+    const exact = await runWithRequestContext(user, () =>
+      discoverWatchlistJobsForPipeline({ selectedSources: many(40) }),
+    );
+    expect(exact.sourceErrors).toEqual([]);
+    expect(vi.mocked(getWatchlistResultsForSources).mock.calls[0][0]).toHaveLength(40);
+  });
+});

@@ -50,6 +50,27 @@ When you click **Add source** (or use the empty Watchlist prompt in **Find jobs*
 
 Click **Scan & suggest filter** (or **Suggest filters**) to let AI inspect the board's available facets and propose a filtered URL. Once scanned or saved, custom sources, their learned scraping recipes, discovered facets, and public filter plans are stored in the shared database (`watchlist_shared_sources` and `watchlist_filter_plans`). When another user adds or scans the same board, JobOps reuses the saved source, scraping plan, and filter plan instead of asking the LLM to regenerate them from scratch.
 
+#### Search filters on a custom careers site
+
+When JobOps has learned a custom careers site, it also learns which of the board's search controls actually work. Only controls that JobOps verified (the board returns a different set of postings when the control is used) are offered, so a keyword box or location menu on the source card always does something.
+
+- **Keyword and choice inputs** appear on the source card. Editing one rebuilds the source URL, and **Save sources** applies it like any other custom URL. No AI call is made, so editing filters is instant and free.
+- **Paging** is followed for you. When the board's page links keep your filters, JobOps reads up to five pages of results; otherwise it reads the first page.
+- **Suggest filters** can use a verified keyword box: when a board has one, the suggestion may fill it with your search terms. It reads the learned controls from the shared recipe; no extra scan or model call is needed to learn them.
+- **Clearing every filter** returns the source to the board's normal unfiltered listing.
+- **Find search filters** appears for a site that was learned before this feature existed or has no verified controls yet. Click it to re-learn the site in the background. Your current setup keeps working until the new one is verified.
+- Only boards that take their filters in the URL (a GET search form, with page numbers or offsets) are supported. Boards that need button clicks, infinite scroll, or a POST search still work unfiltered.
+
+Your keywords stay in your own source URL. The learned controls are public and shared between users; what you type is not.
+
+#### Salary, deadline, job type and level
+
+While learning a site, JobOps also looks for a salary, an application deadline, a job type and a job level on the posting. Each one is kept only if it was read from a clear source on the page (structured job data or a labelled field) and showed a value on the sampled postings. When you import a posting, those values prefill the job. A posting that does not state one leaves that field blank; JobOps never fills in a guess.
+
+A single search run reads at most 40 of your watchlist sources (you can save up to 50). If you have more, the first 40 in your list are searched and the run reports how many were left out.
+
+If you ignore a posting while viewing one filter of a careers site, it also shows as ignored under your other filters of the same site, and unignoring it clears it everywhere.
+
 ### Source groups
 
 A source group is a predefined bundle of catalog sources you can add in one click, so you do not have to pick companies one by one. If a user's Watchlist is empty after onboarding, starter groups and custom URL setup are also surfaced directly on **Find jobs** and **Daily search**.
@@ -134,6 +155,10 @@ JobOps uses the source adapter's canonical source key plus the external job ID a
 ### A careers site says it is learning, or its browser is starting
 
 Company careers sites without a known job-board API are read with a browser. When a company is on Greenhouse, JobOps uses that board's API instead. Otherwise, the first check of a new site learns how to read it, which takes a minute or two. On the hosted Cloudflare deployment the browser runs in the scraper container, which also has to start on first use. Click **Check this source again** after a minute.
+
+### A careers site has no search filters
+
+Filters are offered only after JobOps has verified them. If the source card shows no keyword or choice inputs, the board either has none JobOps could verify, was learned before filters existed, or needs button clicks or scrolling to search. Click **Find search filters** when it appears to re-learn the site (this can use your LLM connection if the site is not a simple sitemap board). Otherwise paste a URL that already contains the board's own filter parameters, or use **Suggest filters**.
 
 ### My custom URL is rejected
 

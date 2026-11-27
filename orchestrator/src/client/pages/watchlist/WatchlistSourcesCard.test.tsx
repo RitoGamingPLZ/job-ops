@@ -36,6 +36,19 @@ vi.mock("./SuggestFiltersPanel", () => ({
     </button>
   ),
 }));
+vi.mock("./SearchFiltersPanel", () => ({
+  SearchFiltersPanel: ({
+    onUse,
+    careersUrl,
+  }: {
+    onUse: (url: string) => void;
+    careersUrl: string;
+  }) => (
+    <button type="button" onClick={() => onUse(`${careersUrl}?q=nurse`)}>
+      Apply search filters
+    </button>
+  ),
+}));
 
 describe("WatchlistSourcesCard filter suggestions", () => {
   it.each([false, true])("applies suggestions as a custom URL (isCustom=%s)", (isCustom) => {
@@ -82,6 +95,58 @@ describe("WatchlistSourcesCard filter suggestions", () => {
       customUrl: "https://jobs.lever.co/spotify?team=Engineering",
     });
     expect(props.onSave).not.toHaveBeenCalled();
+  });
+
+  it("offers search filters only for custom careers sites and applies them as a custom URL", () => {
+    const onUpdateDraft = vi.fn();
+    const onSourceMethodSelected = vi.fn();
+    const onSave = vi.fn();
+    const base: WatchlistSourceDraftCardProps = {
+      sourceDrafts: [],
+      sourceStatusByDraftId: { "source-1": "watching", "source-2": "watching" },
+      catalogSources: [],
+      sourceTypes: [],
+      formattedLastCheckedAt: null,
+      formattedPreviousLastCheckedAt: null,
+      newJobsCount: 0,
+      hasUnsavedChanges: false,
+      isSaving: false,
+      onAddSource: vi.fn(),
+      onRemoveSource: vi.fn(),
+      onUpdateDraft,
+      onSourceMethodSelected,
+      onSourceSearchNoResults: vi.fn(),
+      onSave,
+    };
+    const lever = {
+      id: "source-2",
+      sourceType: "lever",
+      isCustom: true,
+      catalogSourceId: null,
+      customUrl: "https://jobs.lever.co/spotify",
+    };
+    const careers = {
+      id: "source-1",
+      sourceType: "careers_site",
+      isCustom: true,
+      catalogSourceId: null,
+      customUrl: "https://careers.example.com/openings",
+    };
+    const { rerender } = render(<WatchlistSourcesCard {...base} sourceDrafts={[lever]} />);
+    expect(screen.queryByRole("button", { name: "Apply search filters" })).not.toBeInTheDocument();
+    rerender(<WatchlistSourcesCard {...base} sourceDrafts={[careers]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Apply search filters" }));
+    expect(onUpdateDraft.mock.calls[0][1](careers)).toMatchObject({
+      isCustom: true,
+      catalogSourceId: null,
+      customUrl: "https://careers.example.com/openings?q=nurse",
+    });
+    expect(onSourceMethodSelected).toHaveBeenCalledWith({
+      method: "custom_url",
+      sourceType: "careers_site",
+      careersUrl: "https://careers.example.com/openings?q=nurse",
+    });
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it("renders compact saved source cards on a recessed tray with an inline title link", async () => {

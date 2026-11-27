@@ -3,17 +3,12 @@ import { rankFacetValues } from "./shared";
 import { upstreamError } from "@infra/errors";
 import { JSDOM } from "jsdom";
 import { isAllowedByRobots, loadPage } from "../../careers-site/fetch";
+import { record } from "../../careers-site/normalize";
 import { facetConfig } from "../../careers-site/run-recipe";
 import { SiteBlockedError } from "../../careers-site/types";
 import type { FacetDiscovery, Facets } from "../types";
 
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function usableKey(key: string): boolean {
+export function usableKey(key: string): boolean {
   return (
     key.length > 0 &&
     key.length <= 60 &&
@@ -37,7 +32,16 @@ async function readListingFacets(
   const page = await loadPage(base.href, { render: false, signal });
   if (page.status < 200 || page.status >= 300)
     throw upstreamError(`Careers facets returned HTTP ${page.status}.`);
-  const listing = new URL(page.url);
+  return parseListingFacets(page.html, page.url);
+}
+
+/**
+ * Read the public choices of an already loaded listing page: `<select>` options, links back to
+ * the same listing with a changed query, and FacetWP's serialized facets. Shared with the recipe
+ * learner, which verifies each choice before offering it as a search control.
+ */
+export function parseListingFacets(html: string, pageUrl: string): Facets {
+  const listing = new URL(pageUrl);
   const params = new Map<string, { multi: boolean; values: Map<string, number | undefined> }>();
   const add = (key: string, value: string, multi: boolean, count?: number) => {
     if (!usableKey(key) || !value || value.length > 120 || !value.trim()) return;
@@ -66,7 +70,7 @@ async function readListingFacets(
       }
     }
   };
-  const dom = new JSDOM(page.html);
+  const dom = new JSDOM(html);
   let total: number | undefined;
   const jobs = new Set<string>();
   try {
@@ -90,7 +94,7 @@ async function readListingFacets(
         jobs.add(url.href);
       }
     }
-    const config = facetConfig(page.html);
+    const config = facetConfig(html);
     if (config) {
       let data: Record<string, unknown> = {};
       try {

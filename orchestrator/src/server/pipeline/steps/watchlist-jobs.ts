@@ -9,11 +9,12 @@ import {
   withWatchlistSourceTimeout,
 } from "@server/watchlist/results";
 import { normalizeJobTitle } from "@shared/job-matching.js";
-import type {
-  CreateJobInput,
-  ManualJobDraft,
-  WatchlistJobResult,
-  WatchlistSelectedSource,
+import {
+  type CreateJobInput,
+  MAX_WATCHLIST_SOURCES_PER_SEARCH,
+  type ManualJobDraft,
+  type WatchlistJobResult,
+  type WatchlistSelectedSource,
 } from "@shared/types";
 import { normalizeSearchTerms } from "@shared/utils/search-terms";
 import { toOptionalString } from "@shared/utils/type-conversion";
@@ -101,7 +102,11 @@ export async function discoverWatchlistJobsForPipeline(
     };
   }
 
-  const selectedSources = args.selectedSources ?? (await listHydratedWatchlistSelectedSources());
+  const requestedSources = args.selectedSources ?? (await listHydratedWatchlistSelectedSources());
+  // A search reads at most this many sources. The rest are left alone, not failed; they are never
+  // dropped from the user's Watchlist and are read by a search that selects them.
+  const selectedSources = requestedSources.slice(0, MAX_WATCHLIST_SOURCES_PER_SEARCH);
+  const skippedSourceCount = requestedSources.length - selectedSources.length;
   const searchTerms = normalizeSearchTerms(args.searchTerms ?? []);
   if (selectedSources.length === 0 || args.shouldCancel?.()) {
     return {
@@ -116,12 +121,18 @@ export async function discoverWatchlistJobsForPipeline(
   logger.info("Fetching Watchlist jobs for pipeline discovery", {
     step: "discover-watchlist-jobs",
     selectedSourceCount: selectedSources.length,
+    skippedSourceCount,
     searchTermCount: searchTerms.length,
   });
 
   const results = await getWatchlistResultsForSources(selectedSources);
   const discoveredJobs: CreateJobInput[] = [];
   const sourceErrors: string[] = [];
+  if (skippedSourceCount > 0) {
+    sourceErrors.push(
+      `Watchlist: searched the first ${selectedSources.length} of ${requestedSources.length} sources (limit ${MAX_WATCHLIST_SOURCES_PER_SEARCH} per search)`,
+    );
+  }
   let failedSourceCount = 0;
   let searchFilteredCount = 0;
 
