@@ -1,6 +1,6 @@
 import { htmlToPlainText, introTextToHtml, splitDescription } from "@shared/resume-bullets";
 import {
-  addToResume,
+  includeLibraryItem,
   getItemLines,
   isOnResume,
   removeFromResume,
@@ -271,26 +271,7 @@ function applyResolvedSuggestion(
   if (s.op === "create_library_item" || s.op === "save_to_library") return null;
   if (s.op === "exclude_library_item") return removeFromResume(document, s.libraryId);
   if (s.op === "include_library_item") {
-    const linked = library.find((row) => row.id === s.libraryId);
-    const next = structuredClone(addToResume(document, s.libraryId, library));
-    for (const section of Object.values(next.sections)) {
-      if (
-        !section ||
-        typeof section !== "object" ||
-        !("items" in section) ||
-        !Array.isArray(section.items)
-      )
-        continue;
-      for (const item of section.items as Item[])
-        if (
-          item.libraryId === s.libraryId ||
-          (linked?.parentId && item.libraryId === linked.parentId)
-        ) {
-          item.hidden = false;
-          (section as { hidden?: boolean }).hidden = false;
-        }
-    }
-    return next;
+    return includeLibraryItem(document, s.libraryId, library);
   }
   const next = structuredClone(document);
   if (s.op === "replace_headline") next.basics.headline = s.text;

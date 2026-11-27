@@ -1,5 +1,6 @@
 import { getPositiveIntEnv } from "@server/utils/env";
 import {
+  AppError,
   badRequest,
   conflict,
   getErrorMessage,
@@ -32,7 +33,7 @@ import type {
 import * as jobChatRepo from "../repositories/ghostwriter";
 import * as jobDocumentsRepo from "../repositories/job-documents";
 import * as jobsRepo from "../repositories/jobs";
-import { buildCoworkPrompt, COWORK_RESPONSE_SCHEMA, filterCoworkSuggestions } from "./cowork-ai";
+import { prepareCoworkPrompt, COWORK_RESPONSE_SCHEMA, filterCoworkSuggestions } from "./cowork-ai";
 import {
   buildJobChatPromptContext,
   canUseJobDocumentForGhostwriterContext,
@@ -724,6 +725,9 @@ async function runAssistantReply(
 
     const library = options.cowork ? await listExperienceBullets(true) : [];
     const coworkJob = options.cowork ? await jobsRepo.getJobById(options.jobId) : null;
+    const prepared = options.cowork
+      ? prepareCoworkPrompt(options.cowork, coworkJob?.jobDescription ?? "", library)
+      : null;
     const llmResult = await llm.callJson<{
       response: string;
       suggestions?: unknown;
@@ -732,9 +736,7 @@ async function runAssistantReply(
       messages: [
         {
           role: "system",
-          content: options.cowork
-            ? buildCoworkPrompt(options.cowork, coworkJob?.jobDescription ?? "", library)
-            : context.systemPrompt,
+          content: prepared?.prompt ?? context.systemPrompt,
         },
         {
           role: "system",
@@ -834,9 +836,10 @@ async function runAssistantReply(
     const completedMessage = await jobChatRepo.updateMessage(assistantMessage.id, {
       content: accumulated,
       status: "complete",
-      suggestions: options.cowork
-        ? filterCoworkSuggestions(llmResult.data.suggestions, options.cowork, library)
-        : null,
+      suggestions:
+        options.cowork && prepared
+          ? filterCoworkSuggestions(llmResult.data.suggestions, options.cowork, prepared.library)
+          : null,
       tokensIn: estimateTokenCount(options.prompt),
       tokensOut: estimateTokenCount(accumulated),
     });
@@ -860,7 +863,12 @@ async function runAssistantReply(
     const appError = error instanceof Error ? error : new Error(String(error));
     const isCancelled = controller.signal.aborted || appError.name === "AbortError";
     const status = isCancelled ? "cancelled" : "failed";
-    const code = isCancelled ? "REQUEST_TIMEOUT" : "UPSTREAM_ERROR";
+    const invalidRequest = error instanceof AppError && error.code === "INVALID_REQUEST";
+    const code = isCancelled
+      ? "REQUEST_TIMEOUT"
+      : invalidRequest
+        ? "INVALID_REQUEST"
+        : "UPSTREAM_ERROR";
     const message = isCancelled
       ? "Generation cancelled by user"
       : appError.message || "Generation failed";
@@ -905,6 +913,7 @@ async function runAssistantReply(
     });
 
     await refundGhostwriterUsage(options.usageReservation);
+    if (invalidRequest) throw error;
     throw upstreamError(message, { runId: run.id });
   } finally {
     abortControllers.delete(run.id);

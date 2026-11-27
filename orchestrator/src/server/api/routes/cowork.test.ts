@@ -91,6 +91,31 @@ afterEach(async () => {
 });
 
 describe("co-work routes", () => {
+  it("returns a replayable library-only result and rejects a changed operation payload", async () => {
+    const path = `/jobs/${jobId}/resume/library-edit`;
+    const current = (await (await request(`/jobs/${jobId}/resume`)).json()).data;
+    const payload = {
+      operationId: crypto.randomUUID(),
+      baseRevision: current.revision,
+      document: current.document,
+      action: { kind: "create", item: { kind: "skill", text: "SQLite" }, includeOnResume: false },
+    };
+    const first = await request(path, "POST", payload);
+    expect(first.status).toBe(200);
+    const saved = await first.json();
+    expect(saved).toMatchObject({
+      ok: true,
+      data: { outcome: "created", resume: { revision: current.revision } },
+      meta: { requestId: "cowork-test" },
+    });
+    expect(await (await request(path, "POST", payload)).json()).toEqual(saved);
+    const conflict = await request(path, "POST", {
+      ...payload,
+      action: { ...payload.action, includeOnResume: true },
+    });
+    expect(conflict.status).toBe(409);
+    expect((await conflict.json()).error.code).toBe("CONFLICT");
+  });
   it("returns 409 for a job resume without a base resume", async () => {
     const { db, schema } = await import("@server/db");
     db.delete(schema.designResumeDocuments)

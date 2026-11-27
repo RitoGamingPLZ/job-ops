@@ -1,3 +1,5 @@
+import { librarySaveInput } from "@shared/library-save-input";
+import { LibraryEditDialog } from "@/client/components/cowork/LibraryEditDialog";
 import { useMediaQuery } from "@client/hooks/useMediaQuery";
 import { ApiClientError } from "@client/api/core";
 import * as api from "@client/api/cowork";
@@ -9,18 +11,14 @@ import {
   updateDesignResume,
   warmPdfRenderer,
 } from "@client/api/settings-profile";
-import {
-  applyLibraryUpdate,
-  changedLibraryFields,
-  getItemLines,
-  isOnResume,
-  setItemLines,
-} from "@shared/resume-links";
+import { getItemLines, isOnResume, setItemLines } from "@shared/resume-links";
 import type {
   DesignResumeDocument,
   EntrySection,
   ExperienceBullet,
-  ExperienceBulletInput,
+  LibraryEditAction,
+  LibraryEditRequest,
+  SaveTarget,
   Job,
   JobResumeState,
   ResumeV5Document,
@@ -33,11 +31,9 @@ import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  executeAcceptedSuggestions,
-  librarySaveInput,
-} from "@/client/components/cowork/acceptSuggestions";
+import { applyResumeEdits } from "@/client/components/cowork/acceptSuggestions";
 import { CandidateLibrary } from "@/client/components/cowork/CandidateLibrary";
+import { LibraryEvidencePicker } from "@/client/components/cowork/LibraryEvidencePicker";
 import { coworkError } from "@/client/components/cowork/DutyLibrary";
 import {
   addFocus,
@@ -148,6 +144,11 @@ function CoworkWorkspace({
   const accepting = useRef(false);
   const pendingAcceptedIds = useRef<string[]>([]);
   const acceptedUndoIds = useRef(new WeakMap<ResumeV5Document, string[]>());
+  const [review, setReview] = useState<{
+    request: LibraryEditRequest;
+    before?: ExperienceBullet;
+    suggestionId?: string;
+  } | null>(null);
   const [references, setReferences] = useState<BulletReference[]>([]);
   const [focus, setFocus] = useState<ResumeFocusRef[]>([]);
   const chat = useRef<HTMLElement>(null);
@@ -543,8 +544,15 @@ function CoworkWorkspace({
     }
   }
   function reference(bullet: BulletReference) {
+    if (!library.some((item) => item.id === bullet.id && item.kind !== "contact")) {
+      toast.message("Choose an available library source.");
+      return;
+    }
+    if (references.length >= 80) toast.message("At most 80 library sources can be selected.");
     setReferences((current) =>
-      current.some((b) => b.id === bullet.id) ? current : [...current, bullet],
+      current.length >= 80 || current.some((b) => b.id === bullet.id)
+        ? current
+        : [...current, bullet],
     );
   }
   function addFocusRef(ref: ResumeFocusRef) {
@@ -575,38 +583,26 @@ function CoworkWorkspace({
   }
   async function acceptSuggestions(items: ResumeSuggestionV2[]) {
     if (accepting.current || busy || !items.length) return;
+    const shared = items.find((s) => s.op === "save_to_library" || s.op === "create_library_item");
+    if (shared?.op === "save_to_library") return reviewTarget(shared.target, shared.id);
+    if (shared?.op === "create_library_item")
+      return openReview(
+        { kind: "create", item: shared.item, includeOnResume: shared.includeOnResume },
+        shared.id,
+      );
     accepting.current = true;
     setBusy(true);
     try {
       if (!(await flush()) || !latest.current) return;
       syncing.current = true;
       const snapshot = latest.current;
-      const result = await executeAcceptedSuggestions(
-        {
-          jobId,
-          document: snapshot.document,
-          baseRevision: snapshot.revision,
-          library,
-        },
-        items,
-        {
-          createItem: api.createExperienceBullet,
-          updateItem: api.updateExperienceBullet,
-        },
-      );
-      if (!mounted.current) return;
-      setLibrary(result.library);
+      const result = applyResumeEdits(snapshot.document, items, library);
       const reasons = Object.fromEntries(
         result.rejected.map(({ id, code }) => [
           id,
-          code === "INVALID_TARGET" &&
-          items.some((s) => s.id === id && s.op === "create_library_item")
-            ? "Added to library; could not place on resume."
-            : code === "FAILED"
-              ? "Library update failed. Retry accepting this suggestion."
-              : code === "INVALID_TARGET"
-                ? "The linked library item or resume target is no longer available."
-                : "This content has changed. Request a fresh suggestion.",
+          code === "INVALID_TARGET"
+            ? "The linked library item or resume target is no longer available."
+            : "This content has changed. Request a fresh suggestion.",
         ]),
       );
       syncing.current = false;
@@ -614,19 +610,8 @@ function CoworkWorkspace({
         const beforeEdit = latest.current?.document;
         edit(result.document);
         if (beforeEdit && beforeEdit !== result.document) {
-          acceptedUndoIds.current.set(
-            beforeEdit,
-            result.applied.filter((id) =>
-              items.some(
-                (s) =>
-                  s.id === id &&
-                  s.op !== "save_to_library" &&
-                  (s.op !== "create_library_item" || s.includeOnResume),
-              ),
-            ),
-          );
+          acceptedUndoIds.current.set(beforeEdit, result.applied);
         }
-        // Even library-only acceptance checks that the reviewed resume revision still holds.
         dirty.current = true;
         pendingAcceptedIds.current = [
           ...new Set([...pendingAcceptedIds.current, ...result.applied]),
@@ -634,7 +619,7 @@ function CoworkWorkspace({
         if (!(await save())) {
           for (const id of result.applied)
             reasons[id] =
-              "Resume save failed or conflicted. Review the current copy before retrying. Library changes may already be saved.";
+              "Resume save failed or conflicted. Review the current copy before retrying.";
         }
       }
       setRejectionReasons((current) => ({ ...current, ...reasons }));
@@ -650,48 +635,132 @@ function CoworkWorkspace({
       if (mounted.current) setBusy(false);
     }
   }
-  async function saveEntryToLibrary(section: EntrySection, itemId: string) {
-    const document = latest.current?.document;
-    const item = document?.sections[section].items.find((entry) => entry.id === itemId);
-    if (!document || typeof item?.libraryId !== "string") return;
-    const saved = librarySaveInput(
-      document,
-      { kind: "entry", section, itemId, libraryId: item.libraryId },
-      library,
-      false,
-    );
-    if (!("input" in saved)) return;
-    // Only the fields changed here: a skill's keywords are this job's pick.
-    const changed = changedLibraryFields(item, library);
-    const data = saved.input.data ?? {};
-    const changedData = Object.keys(data).filter((key) => key in changed);
-    const textChanged = Object.keys(changed).some((key) => !(key in data));
-    await saveToLibrary(item.libraryId, {
-      ...(textChanged ? { text: saved.input.text } : {}),
-      ...(changedData.length
-        ? {
-            data: Object.fromEntries(
-              [...changedData, "schemaVersion"]
-                .filter((key) => key in data)
-                .map((key) => [key, data[key]]),
-            ),
-          }
-        : {}),
-    });
-  }
-  async function saveToLibrary(id: string, input: Partial<ExperienceBulletInput>) {
-    const before = library.find((item) => item.id === id);
-    if (!before || busy) return;
+  async function openReview(
+    action: LibraryEditAction,
+    suggestionId?: string,
+    before?: ExperienceBullet,
+  ) {
+    if (busy || accepting.current || base) return;
+    accepting.current = true;
     setBusy(true);
     try {
-      const { bullet: after } = await api.updateExperienceBullet(id, input, jobId);
-      if (!mounted.current) return;
-      if (job?.status !== "applied" && job?.status !== "in_progress" && latest.current)
-        edit(applyLibraryUpdate(latest.current.document, before, after));
-      setLibrary((await api.listCandidateLibrary()).items);
-    } catch (failure) {
-      coworkError(failure);
+      if (!(await flush()) || !mounted.current || !latest.current) return;
+      setReview({
+        request: {
+          action,
+          operationId: crypto.randomUUID(),
+          baseRevision: latest.current.revision,
+          document: latest.current.document,
+        },
+        before,
+        suggestionId,
+      });
     } finally {
+      accepting.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
+  function reviewTarget(target: SaveTarget, suggestionId?: string) {
+    if (!latest.current) return;
+    const document = latest.current.document;
+    const result = librarySaveInput(document, target, library);
+    if ("code" in result) return toast.message("The linked content changed. Review it again.");
+    if (!Object.keys(result.input).length) return toast.message("No shared fields have changed.");
+    return openReview(
+      { kind: "update", target, expectedUpdatedAt: result.before.updatedAt, patch: result.input },
+      suggestionId,
+      result.before,
+    );
+  }
+  function saveEntryToLibrary(section: EntrySection, itemId: string) {
+    const item = latest.current?.document.sections[section].items.find(
+      (entry) => entry.id === itemId,
+    );
+    if (typeof item?.libraryId === "string")
+      reviewTarget({ kind: "entry", section, itemId, libraryId: item.libraryId });
+  }
+  async function confirmLibraryEdit() {
+    if (!review || accepting.current) return;
+    accepting.current = true;
+    syncing.current = true;
+    setBusy(true);
+    try {
+      if (latest.current?.revision !== review.request.baseRevision || dirty.current) {
+        setReview(null);
+        toast.message("Resume changed. Review the library edit again.");
+        return;
+      }
+      const result = await api.commitLibraryEdit(jobId, review.request);
+      if (!mounted.current) return;
+      if (
+        review.request.action.kind === "create" &&
+        review.request.action.includeOnResume &&
+        result.resume.revision === review.request.baseRevision + 1
+      )
+        pushUndo(review.request.document);
+      publish(result.resume);
+      setLibrary((current) =>
+        current.some((row) => row.id === result.bullet.id)
+          ? current.map((row) => (row.id === result.bullet.id ? result.bullet : row))
+          : [...current, result.bullet],
+      );
+      if (review.suggestionId)
+        setSuggestions((current) => current.filter((s) => s.id !== review.suggestionId));
+      setReview(null);
+      invalidateJobFreshness();
+      toast.success(
+        result.outcome === "reused"
+          ? "Existing library item reused"
+          : result.outcome === "created"
+            ? "Library item created"
+            : "Library item updated",
+      );
+    } catch (failure) {
+      if (!mounted.current) return;
+      if (failure instanceof ApiClientError && (failure.status === 409 || failure.status === 404)) {
+        try {
+          const { items } = await api.listCandidateLibrary();
+          const current = await readResume();
+          if (!mounted.current) return;
+          setLibrary(items);
+          publish(current);
+          let action = review.request.action;
+          let before: ExperienceBullet | undefined;
+          if (action.kind === "update") {
+            const reviewed = librarySaveInput(current.document, action.target, items);
+            if ("code" in reviewed || !Object.keys(reviewed.input).length) {
+              setReview(null);
+              toast.message("The reviewed change no longer applies. Check the current resume.");
+              return;
+            }
+            before = reviewed.before;
+            action = { ...action, expectedUpdatedAt: before.updatedAt, patch: reviewed.input };
+          }
+          setReview({
+            ...review,
+            before,
+            request: {
+              action,
+              document: current.document,
+              baseRevision: current.revision,
+              operationId: crypto.randomUUID(),
+            },
+          });
+          toast.message("Content changed. Review the refreshed values before saving.");
+        } catch (refreshFailure) {
+          coworkError(refreshFailure);
+        }
+      } else {
+        coworkError(failure);
+        if (review.suggestionId)
+          setRejectionReasons((current) => ({
+            ...current,
+            [review.suggestionId!]: "Library update failed. Retry the reviewed change.",
+          }));
+      }
+    } finally {
+      accepting.current = false;
+      syncing.current = false;
       if (mounted.current) setBusy(false);
     }
   }
@@ -1167,6 +1236,13 @@ function CoworkWorkspace({
               onSuggestions={receiveSuggestions}
               referenceChips={
                 <div className="flex flex-wrap gap-1 mb-2">
+                  <LibraryEvidencePicker
+                    library={library}
+                    document={document}
+                    references={references}
+                    onSelect={reference}
+                  />
+                  {focus.length > 0 && <span className="w-full text-xs">Resume focus</span>}
                   {focus.map((ref) => (
                     <Button
                       key={focusKey(ref)}
@@ -1185,6 +1261,9 @@ function CoworkWorkspace({
                       <span aria-hidden="true"> ×</span>
                     </Button>
                   ))}
+                  {references.length > 0 && (
+                    <span className="w-full text-xs">Library evidence</span>
+                  )}
                   {references.map((b) => (
                     <Button
                       key={b.id}
@@ -1248,9 +1327,7 @@ function CoworkWorkspace({
             <ResumeEditor
               library={library}
               contactsFromLibrary={!base}
-              onSaveLineToLibrary={
-                base ? undefined : (id, text) => void saveToLibrary(id, { text })
-              }
+              onSaveLineToLibrary={base ? undefined : (target) => void reviewTarget(target)}
               onSaveEntryToLibrary={
                 base ? undefined : (section, itemId) => void saveEntryToLibrary(section, itemId)
               }
@@ -1369,6 +1446,15 @@ function CoworkWorkspace({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {review && (
+        <LibraryEditDialog
+          action={review.request.action}
+          before={review.before}
+          busy={busy}
+          onCancel={() => setReview(null)}
+          onConfirm={() => void confirmLibraryEdit()}
+        />
+      )}
       <AlertDialog open={conflictOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

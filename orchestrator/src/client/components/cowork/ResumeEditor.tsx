@@ -1,3 +1,6 @@
+import type { SaveTarget } from "@shared/types";
+import { librarySaveInput } from "@shared/library-save-input";
+import { ResumeWordingReview } from "./ResumeWordingReview";
 import {
   bulletsFromHtml,
   htmlToPlainText,
@@ -33,7 +36,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { librarySaveInput } from "./acceptSuggestions";
+
 import { REWORDED_TINT_CLASS } from "./rewordTint";
 import "./ResumeEditor.css";
 import { RichTextEditor } from "@/client/components/design-resume/RichTextEditor";
@@ -224,7 +227,7 @@ const SAVE_FIELD_LABELS: Record<string, string> = {
 
 type Props = {
   library?: ExperienceBullet[];
-  onSaveLineToLibrary?: (libraryId: string, text: string) => void;
+  onSaveLineToLibrary?: (target: SaveTarget) => void;
   /** Save a linked entry's changed fields to its library item. */
   onSaveEntryToLibrary?: (section: EntrySection, itemId: string) => void;
   document: ResumeV5Document;
@@ -581,7 +584,18 @@ export function ResumeEditor({
             variant="ghost"
             title="Save to library"
             aria-label="Save to library"
-            onClick={() => onSaveLineToLibrary(original.id, line.text)}
+            onClick={() =>
+              onSaveLineToLibrary({
+                kind: "line",
+                libraryId: original.id,
+                target: {
+                  section: original.kind === "project_point" ? "projects" : "experience",
+                  itemId,
+                  bulletIndex: index,
+                  previousText: line.text,
+                },
+              })
+            }
           >
             Save to library
           </Button>
@@ -652,13 +666,21 @@ export function ResumeEditor({
               include_library_item: "Include library item",
               exclude_library_item: "Exclude library item",
               create_library_item: "Add to library",
-              save_to_library: "Save to library (updates other resumes using it)",
+              save_to_library: "Update shared library item",
             }[s.op];
       const savePreview =
         s.op === "save_to_library" ? librarySaveInput(document, s.target, library) : null;
+      const rewrite = "previousText" in s && "text" in s;
+      const action = rewrite
+        ? "Apply to this resume"
+        : s.op === "include_library_item"
+          ? "Include on this resume"
+          : s.op === "save_to_library" || s.op === "create_library_item"
+            ? "Review"
+            : "Accept";
       const applicable =
         s.op === "save_to_library"
-          ? Boolean(savePreview && "input" in savePreview)
+          ? Boolean(savePreview && "input" in savePreview && Object.keys(savePreview.input).length)
           : Boolean(resolved);
       return (
         <article key={s.id} className="resume-suggestion">
@@ -666,6 +688,9 @@ export function ResumeEditor({
           {s.op === "save_to_library" ? (
             savePreview && "input" in savePreview ? (
               <div className="text-sm">
+                {Object.keys(savePreview.input).length === 0 && (
+                  <p>No shared fields have changed.</p>
+                )}
                 <p>{savePreview.input.text}</p>
                 <dl>
                   {Object.entries(savePreview.input.data ?? {})
@@ -700,6 +725,13 @@ export function ResumeEditor({
             <del className="resume-deletion">
               {library.find((row) => row.id === s.libraryId)?.text}
             </del>
+          ) : resolved && rewrite ? (
+            <ResumeWordingReview
+              current={resolved.old}
+              proposed={s.text}
+              sourceIds={s.sourceBulletIds}
+              library={library}
+            />
           ) : resolved ? (
             <>
               <del className="resume-deletion">{resolved.old}</del>
@@ -730,11 +762,11 @@ export function ResumeEditor({
             <Button
               size="sm"
               disabled={disabled || !applicable}
-              title={`Accept: ${label}`}
-              aria-label={`Accept: ${label}`}
+              title={`${action}: ${label}`}
+              aria-label={`${action}: ${label}`}
               onClick={() => accept([s])}
             >
-              Accept
+              {action}
             </Button>
             <Button
               size="sm"

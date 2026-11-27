@@ -43,7 +43,7 @@ function context(): CoworkChatContext {
       roles: [],
     },
   ];
-  return { document, referencedBulletIds: ["own"] };
+  return { document, referencedBulletIds: [] };
 }
 function withSections(): CoworkChatContext {
   const cowork = context();
@@ -1054,6 +1054,14 @@ describe("V2 cowork producer", () => {
     ).toMatchObject([{ op: "include_library_item", libraryId: "role" }]);
   });
   it("filters sourceBulletIds without applying libraryId attachment restrictions", () => {
+    const rewrite = proposal("replace_headline", {
+      previousText: "",
+      text: "Engineer",
+      sourceBulletIds: ["in-catalog", "foreign", "in-catalog"],
+    });
+    expect(filterCoworkSuggestions([rewrite], context(), [bullet("in-catalog")])).toMatchObject([
+      { op: "replace_headline", sourceBulletIds: ["in-catalog"] },
+    ]);
     const ctx = context();
     const inputs = [
       proposal("insert_bullet", {
@@ -1106,10 +1114,10 @@ describe("V2 cowork producer", () => {
     const data = JSON.parse(prompt.split("\n").slice(1).join("\n"));
     const ids = data.library.map((item: ExperienceBullet) => item.id);
     expect(ids.slice(0, 7)).toEqual([
-      "role",
-      "linked",
       "project",
       "referenced",
+      "role",
+      "linked",
       "parent",
       "ranked",
       "line-0",
@@ -1141,6 +1149,11 @@ describe("V2 cowork producer", () => {
     const largeData = JSON.parse(oversized.split("\n").slice(1).join("\n"));
     expect(largeData.library).toEqual([]);
     expect(largeData.resume.summary).toHaveLength(260_000);
+  });
+  it("rejects unavailable selected evidence without disclosing whether another workspace owns it", () => {
+    expect(() =>
+      buildCoworkPrompt({ ...context(), referencedBulletIds: ["foreign"] }, "", []),
+    ).toThrow("Remove a source");
   });
   it("drops markup-only intro replacements but permits an explicit empty clear", () => {
     const out = filterCoworkSuggestions(
@@ -1237,7 +1250,11 @@ describe("main regressions adapted to the V2 contract", () => {
         parentId: "parent",
       })),
     ];
-    const prompt = buildCoworkPrompt(context(), "Python", library);
+    const prompt = buildCoworkPrompt(
+      { ...context(), referencedBulletIds: ["own"] },
+      "Python",
+      library,
+    );
     const data = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1));
     expect(data.library).toHaveLength(82);
     expect(Buffer.byteLength(JSON.stringify(data.library))).toBeLessThanOrEqual(50_000);

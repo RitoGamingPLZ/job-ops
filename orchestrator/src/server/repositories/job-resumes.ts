@@ -13,6 +13,10 @@ function normalizeDocumentForCompare(doc: unknown): unknown {
   return JSON.parse(JSON.stringify(parsed.success ? parsed.data : doc));
 }
 export async function getJobResume(jobId: string): Promise<JobResumeState | null> {
+  return getJobResumeSync(jobId);
+}
+
+export function getJobResumeSync(jobId: string): JobResumeState | null {
   const row = db
     .select()
     .from(table)
@@ -33,82 +37,90 @@ export async function saveJobResume(
   document: ResumeV5Document,
   options?: { supersedeUploadedPdf?: boolean },
 ): Promise<JobResumeState> {
-  return db.transaction((tx) => {
-    const job = tx
-      .select({ id: jobs.id, pdfSource: jobs.pdfSource })
-      .from(jobs)
-      .where(and(privateDataScopeFilter(jobs), eq(jobs.id, jobId)))
-      .get();
-    if (!job) throw notFound("Job not found");
-    const previous =
-      options?.supersedeUploadedPdf && job.pdfSource === "uploaded" && baseRevision > 0
-        ? tx
-            .select({ document: table.document })
-            .from(table)
-            .where(
-              and(
-                privateDataScopeFilter(table),
-                eq(table.jobId, jobId),
-                eq(table.revision, baseRevision),
-              ),
-            )
-            .get()
-        : undefined;
-    const now = new Date().toISOString();
-    const scope = getPrivateDataScope();
-    const row =
-      baseRevision === 0
-        ? tx
-            .insert(table)
-            .values({
-              ...scope,
-              jobId,
-              document,
-              revision: 1,
-              createdAt: now,
-              updatedAt: now,
-            })
-            .onConflictDoNothing()
-            .returning()
-            .get()
-        : tx
-            .update(table)
-            .set({ document, revision: baseRevision + 1, updatedAt: now })
-            .where(
-              and(
-                privateDataScopeFilter(table),
-                eq(table.jobId, jobId),
-                eq(table.revision, baseRevision),
-              ),
-            )
-            .returning()
-            .get();
-    if (!row) throw conflict("Resume changed. Reload before saving.");
-    if (options?.supersedeUploadedPdf && job.pdfSource === "uploaded") {
-      const contentChanged =
-        !previous ||
-        !isDeepStrictEqual(
-          normalizeDocumentForCompare(previous.document),
-          normalizeDocumentForCompare(row.document),
-        );
-      if (contentChanged) {
-        tx.update(jobs)
-          .set({
-            pdfSource: "generated",
-            pdfFingerprint: null,
+  return db.transaction((tx) => writeJobResume(tx, jobId, baseRevision, document, options));
+}
+
+export function writeJobResume(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  jobId: string,
+  baseRevision: number,
+  document: ResumeV5Document,
+  options?: { supersedeUploadedPdf?: boolean },
+): JobResumeState {
+  const job = tx
+    .select({ id: jobs.id, pdfSource: jobs.pdfSource })
+    .from(jobs)
+    .where(and(privateDataScopeFilter(jobs), eq(jobs.id, jobId)))
+    .get();
+  if (!job) throw notFound("Job not found");
+  const previous =
+    options?.supersedeUploadedPdf && job.pdfSource === "uploaded" && baseRevision > 0
+      ? tx
+          .select({ document: table.document })
+          .from(table)
+          .where(
+            and(
+              privateDataScopeFilter(table),
+              eq(table.jobId, jobId),
+              eq(table.revision, baseRevision),
+            ),
+          )
+          .get()
+      : undefined;
+  const now = new Date().toISOString();
+  const scope = getPrivateDataScope();
+  const row =
+    baseRevision === 0
+      ? tx
+          .insert(table)
+          .values({
+            ...scope,
+            jobId,
+            document,
+            revision: 1,
+            createdAt: now,
             updatedAt: now,
           })
-          .where(and(privateDataScopeFilter(jobs), eq(jobs.id, jobId)))
-          .run();
-      }
+          .onConflictDoNothing()
+          .returning()
+          .get()
+      : tx
+          .update(table)
+          .set({ document, revision: baseRevision + 1, updatedAt: now })
+          .where(
+            and(
+              privateDataScopeFilter(table),
+              eq(table.jobId, jobId),
+              eq(table.revision, baseRevision),
+            ),
+          )
+          .returning()
+          .get();
+  if (!row) throw conflict("Resume changed. Reload before saving.");
+  if (options?.supersedeUploadedPdf && job.pdfSource === "uploaded") {
+    const contentChanged =
+      !previous ||
+      !isDeepStrictEqual(
+        normalizeDocumentForCompare(previous.document),
+        normalizeDocumentForCompare(row.document),
+      );
+    if (contentChanged) {
+      tx.update(jobs)
+        .set({
+          pdfSource: "generated",
+          pdfFingerprint: null,
+          updatedAt: now,
+        })
+        .where(and(privateDataScopeFilter(jobs), eq(jobs.id, jobId)))
+        .run();
     }
-    return {
-      document: row.document,
-      revision: row.revision,
-      exists: true,
-      updatedAt: row.updatedAt,
-    };
-  });
+  }
+  return {
+    document: row.document,
+    revision: row.revision,
+    exists: true,
+    updatedAt: row.updatedAt,
+  };
 }
 export async function deleteJobResume(jobId: string): Promise<void> {
   db.delete(table)

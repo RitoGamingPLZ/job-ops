@@ -67,7 +67,7 @@ const libraryCreate = z
       });
     }
   });
-const saveTarget = z.discriminatedUnion("kind", [
+export const saveTarget = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("line"),
@@ -202,6 +202,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
     .object({
       ...metadata,
       op: z.literal("replace_bullet"),
+      sourceBulletIds: z.array(id).max(80).optional(),
       ...lineTarget,
       text: newText,
     })
@@ -231,6 +232,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
     .object({
       ...metadata,
       op: z.literal("replace_intro"),
+      sourceBulletIds: z.array(id).max(80).optional(),
       ...lineParent,
       previousText: text,
       text,
@@ -240,6 +242,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
     .object({
       ...metadata,
       op: z.literal("replace_headline"),
+      sourceBulletIds: z.array(id).max(80).optional(),
       previousText: text,
       text: newText,
     })
@@ -248,6 +251,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
     .object({
       ...metadata,
       op: z.literal("replace_summary"),
+      sourceBulletIds: z.array(id).max(80).optional(),
       previousText: text,
       text: newText,
     })
@@ -256,6 +260,7 @@ export const resumeSuggestionV2Schema = z.discriminatedUnion("op", [
     .object({
       ...metadata,
       op: z.literal("replace_field"),
+      sourceBulletIds: z.array(id).max(80).optional(),
       field: z.object({ section, itemId: id, name: z.string().trim().min(1).max(50) }).strict(),
       previousText: text,
       text,

@@ -1328,3 +1328,104 @@ it("honours a completed first build from before the separate frozen import marke
     expect(await repo.listExperienceBullets(true)).toEqual([]);
   });
 });
+
+it("rolls back failed placement, guards revisions, and replays a combined save only for its owner", () => {
+  job("atomic");
+  const request = {
+    operationId: "operation",
+    baseRevision: 3,
+    document,
+    action: {
+      kind: "create" as const,
+      item: { kind: "role" as const, text: "Researcher" },
+      includeOnResume: true,
+    },
+  };
+  scope("tenant-a", () => {
+    expect(() =>
+      api.commitLibraryEdit("atomic", {
+        ...request,
+        action: { ...request.action, item: { kind: "bullet", text: "Orphan" } },
+      }),
+    ).toThrow("parent");
+    expect(database.db.select().from(database.schema.experienceBullets).all()).toHaveLength(0);
+    const first = api.commitLibraryEdit("atomic", request);
+    expect(first.outcome).toBe("created");
+    expect(first.resume.revision).toBe(4);
+    expect(api.commitLibraryEdit("atomic", request)).toEqual(first);
+    expect(() => api.commitLibraryEdit("atomic", { ...request, operationId: "another" })).toThrow(
+      "Resume changed",
+    );
+    expect(() => api.commitLibraryEdit("atomic", { ...request, baseRevision: 4 })).toThrow(
+      "already used",
+    );
+    expect(() =>
+      api.commitLibraryEdit("atomic", {
+        ...request,
+        operationId: "update",
+        baseRevision: 4,
+        action: {
+          kind: "update",
+          target: { kind: "entry", section: "experience", itemId: "x", libraryId: first.bullet.id },
+          expectedUpdatedAt: "stale",
+          patch: { text: "New" },
+        },
+      }),
+    ).toThrow("Library item changed");
+  });
+  scope("tenant-b", () =>
+    expect(() => api.commitLibraryEdit("atomic", request)).toThrow("Job not found"),
+  );
+});
+
+it("promotes only the reviewed fields and preserves unrelated library data", () => {
+  scope("tenant-a", () => {
+    const skill = api.createLibraryItem({
+      kind: "skill",
+      text: "Languages",
+      data: { keywords: ["SQL", "Python"] },
+    });
+    document.sections.skills.items = [
+      {
+        id: "edited",
+        libraryId: skill.id,
+        hidden: false,
+        name: "Programming languages",
+        keywords: ["SQL"],
+        level: 0,
+        icon: "",
+        proficiency: "",
+      },
+    ];
+    job("promotion");
+    const request = {
+      operationId: "promote",
+      baseRevision: 3,
+      document,
+      action: {
+        kind: "update" as const,
+        target: {
+          kind: "entry" as const,
+          section: "skills" as const,
+          itemId: "edited",
+          libraryId: skill.id,
+        },
+        expectedUpdatedAt: skill.updatedAt,
+        patch: { text: "Programming languages" },
+      },
+    };
+    expect(() =>
+      api.commitLibraryEdit("promotion", {
+        ...request,
+        action: { ...request.action, patch: { text: "Something else" } },
+      }),
+    ).toThrow("reviewed resume fields");
+    const result = api.commitLibraryEdit("promotion", request);
+    expect(result.bullet).toMatchObject({
+      text: "Programming languages",
+      data: { keywords: ["SQL", "Python"] },
+    });
+    expect(result.outcome).toBe("updated");
+    expect(api.commitLibraryEdit("promotion", request)).toEqual(result);
+  });
+});

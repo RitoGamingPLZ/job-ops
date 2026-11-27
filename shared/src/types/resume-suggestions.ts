@@ -50,7 +50,7 @@ export type SuggestionBody =
     }
   | { op: "remove_entry"; section: EntrySection; itemId: string }
   | { op: "reorder_entries"; section: EntrySection; itemIds: string[] }
-  | ({ op: "replace_bullet"; text: string } & LineTarget)
+  | ({ op: "replace_bullet"; text: string; sourceBulletIds?: string[] } & LineTarget)
   | ({ op: "delete_bullet" } & LineTarget)
   | ({
       op: "insert_bullet";
@@ -62,14 +62,21 @@ export type SuggestionBody =
   | ({ op: "reorder_bullets"; order: number[] } & LineParent & {
         previousTexts: string[];
       })
-  | ({ op: "replace_intro"; previousText: string; text: string } & LineParent)
+  | ({
+      op: "replace_intro";
+      previousText: string;
+      text: string;
+      sourceBulletIds?: string[];
+    } & LineParent)
   | {
       op: "replace_headline" | "replace_summary";
+      sourceBulletIds?: string[];
       previousText: string;
       text: string;
     }
   | {
       op: "replace_field";
+      sourceBulletIds?: string[];
       field: { section: EntrySection; itemId: string; name: string };
       previousText: string;
       text: string;

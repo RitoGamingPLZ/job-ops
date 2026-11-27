@@ -1363,3 +1363,21 @@ export const sourceState = sqliteTable("source_state", {
   cooldownUntil: text("cooldown_until"),
   cooldownLevel: integer("cooldown_level").notNull().default(0),
 });
+
+export const resumeLibraryReceipts = sqliteTable(
+  "resume_library_receipts",
+  {
+    jobId: text("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+    operationId: text("operation_id").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    libraryId: text("library_id").notNull(),
+    outcome: text("outcome").$type<"updated" | "created" | "reused">().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.jobId, t.operationId] })],
+);

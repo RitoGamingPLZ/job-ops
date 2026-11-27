@@ -43,6 +43,12 @@ A one-time migration runs automatically on upgrade. Where a matching saved resum
 
 ### Co-work chat suggestions
 
+Open **Use from candidate library** in Co-work chat and search for a role, project, or phrase. Select a result to add it under **Library evidence**. To direct the edit to a particular part of the resume, use **Ask AI** on that part. You can remove either selection before sending. If the selected evidence exceeds the chat budget or a source was removed, remove the affected selection or choose fewer sources and send again.
+
+For a rewrite, compare **Current resume wording** with **Proposed wording**. When Ghostwriter cites library evidence, the card shows the source and its parent role or project. Choose **Apply to this resume** to use the wording for this job. To add an existing library item with its link, choose **Include on this resume**.
+
+Before updating a shared item, review its current and proposed fields and the count of linked resumes. **Cancel** keeps the tailored wording in the job resume. **Update library item** commits the shared edit. For a new fact, **Save to library and resume** creates or reuses the library item and includes it in one save. After a connection failure, retry the confirmation. If another edit conflicts, review the refreshed values first.
+
 Ask chat to adapt the job resume, then review its suggestions before accepting them. It can propose:
 
 - **Include library item** or **Exclude library item** to change this resume's selection.

@@ -1,9 +1,12 @@
-import { randomUUID } from "node:crypto";
-import { badRequest, notFound } from "@infra/errors";
+import { isDeepStrictEqual } from "node:util";
+import { librarySaveInput } from "@shared/library-save-input";
+import { createHash, randomUUID } from "node:crypto";
+import { badRequest, conflict, notFound } from "@infra/errors";
 import { foldedLibraryText, parseLibraryData } from "@shared/candidate-library-schema";
 import { splitDescription } from "@shared/resume-bullets";
 import {
   applyLibraryUpdate,
+  includeLibraryItem,
   isContactOnResume,
   isOnResume,
   removeFromResume,
@@ -13,12 +16,15 @@ import {
 import type {
   ExperienceBullet,
   ExperienceBulletInput,
+  LibraryEditRequest,
+  LibraryEditResult,
   LibraryItemUsage,
   LibrarySyncResult,
   ResumeV5Document,
 } from "@shared/types";
 import { and, asc, eq } from "drizzle-orm";
 import { db, schema } from "../db";
+import { getJobResumeSync, writeJobResume } from "../repositories/job-resumes";
 import { normalizeBulletText } from "../repositories/experience-bullets";
 import { getPrivateDataScope, privateDataScopeFilter } from "../tenancy/private-scope";
 
@@ -151,75 +157,79 @@ function insert(input: ExperienceBulletInput, all: ExperienceBullet[]) {
   return item;
 }
 export function createLibraryItem(input: ExperienceBulletInput) {
-  return db.transaction(() => {
-    const all = library();
-    input = normalizeStructured(input);
-    validate(input, all);
-    const normalized = normalizeContact({
-      ...input,
-      kind: input.kind ?? "bullet",
-    });
-    const existing = all.find((item) => key(item) === key(normalized));
-    if (existing) return existing;
-    if (normalized.kind === "contact") markContacts({ forget: [key(normalized)] });
-    return insert(normalized, all);
+  return db.transaction(() => createItem(input));
+}
+function createItem(input: ExperienceBulletInput) {
+  const all = library();
+  input = normalizeStructured(input);
+  validate(input, all);
+  const normalized = normalizeContact({
+    ...input,
+    kind: input.kind ?? "bullet",
   });
+  const existing = all.find((item) => key(item) === key(normalized));
+  if (existing) return existing;
+  if (normalized.kind === "contact") markContacts({ forget: [key(normalized)] });
+  return insert(normalized, all);
 }
 export function updateLibraryItem(
   id: string,
   input: Partial<ExperienceBulletInput>,
   skipJobId?: string,
 ) {
-  return db.transaction(() => {
-    const all = library();
-    const before = all.find((item) => item.id === id);
-    if (!before) throw notFound("Bullet not found");
-    if (input.kind && input.kind !== before.kind)
-      throw badRequest("Library item kind cannot change");
-    if (input.data !== undefined) input = { ...input, data: { ...before.data, ...input.data } };
+  return db.transaction(() => updateItem(id, input, skipJobId));
+}
+function updateItem(id: string, input: Partial<ExperienceBulletInput>, skipJobId?: string) {
+  const all = library();
+  const before = all.find((item) => item.id === id);
+  if (!before) throw notFound("Bullet not found");
+  if (input.kind && input.kind !== before.kind) throw badRequest("Library item kind cannot change");
+  if (input.data !== undefined) input = { ...input, data: { ...before.data, ...input.data } };
+  input = {
+    ...input,
+    data: normalizeStructured({ ...before, ...input }).data,
+  };
+  validate({ ...before, ...input }, all, id);
+  if (before.kind === "contact") input = normalizeContact({ ...before, ...input });
+  if (before.kind !== "bullet") {
     input = {
       ...input,
-      data: normalizeStructured({ ...before, ...input }).data,
+      company: null,
+      role: null,
+      startDate: null,
+      endDate: null,
     };
-    validate({ ...before, ...input }, all, id);
-    if (before.kind === "contact") input = normalizeContact({ ...before, ...input });
-    if (before.kind !== "bullet") {
-      input = {
-        ...input,
-        company: null,
-        role: null,
-        startDate: null,
-        endDate: null,
-      };
-    } else if (input.parentId !== undefined) {
-      input = {
-        ...input,
-        ...parentFields(all.find((item) => item.id === input.parentId)),
-      };
-    }
-    const {
-      tenantId: _t,
-      userId: _u,
-      ...after
-    } = db
-      .update(table)
-      .set({ ...input, updatedAt: new Date().toISOString() })
-      .where(and(privateDataScopeFilter(table), eq(table.id, id)))
-      .returning()
-      .get();
-    if (after.kind === "role") {
-      db.update(table)
-        .set(parentFields(after))
-        .where(and(privateDataScopeFilter(table), eq(table.parentId, id)))
-        .run();
-    }
-    if (after.kind === "contact" && key(before) !== key(after))
-      markContacts({ remember: [key(before)], forget: [key(after)] });
-    for (const { resume, status } of resumes())
-      if (!frozen(status) && resume.jobId !== skipJobId)
-        save(resume, applyLibraryUpdate(resume.document, before, after));
-    return after;
-  });
+  } else if (input.parentId !== undefined) {
+    input = {
+      ...input,
+      ...parentFields(all.find((item) => item.id === input.parentId)),
+    };
+  }
+  const {
+    tenantId: _t,
+    userId: _u,
+    ...after
+  } = db
+    .update(table)
+    .set({
+      ...input,
+      updatedAt: new Date(Math.max(Date.now(), Date.parse(before.updatedAt) + 1)).toISOString(),
+    })
+    .where(and(privateDataScopeFilter(table), eq(table.id, id)))
+    .returning()
+    .get();
+  if (after.kind === "role") {
+    db.update(table)
+      .set(parentFields(after))
+      .where(and(privateDataScopeFilter(table), eq(table.parentId, id)))
+      .run();
+  }
+  if (after.kind === "contact" && key(before) !== key(after))
+    markContacts({ remember: [key(before)], forget: [key(after)] });
+  for (const { resume, status } of resumes())
+    if (!frozen(status) && resume.jobId !== skipJobId)
+      save(resume, applyLibraryUpdate(resume.document, before, after));
+  return after;
 }
 function relatedIds(id: string, all: ExperienceBullet[]) {
   return new Set([id, ...all.filter((item) => item.parentId === id).map((item) => item.id)]);
@@ -686,5 +696,79 @@ export function syncCandidateLibrary(
         .run();
     }
     return result;
+  });
+}
+
+/** The receipt, library propagation and active resume share one synchronous transaction. */
+export function commitLibraryEdit(jobId: string, request: LibraryEditRequest): LibraryEditResult {
+  return db.transaction((tx) => {
+    const job = tx
+      .select({ status: schema.jobs.status })
+      .from(schema.jobs)
+      .where(and(privateDataScopeFilter(schema.jobs), eq(schema.jobs.id, jobId)))
+      .get();
+    if (!job) throw notFound("Job not found");
+    const { action, operationId, baseRevision, document } = request;
+    const all = library();
+    let resume = getJobResumeSync(jobId) ?? {
+      document,
+      revision: 0,
+      exists: false,
+      updatedAt: null,
+    };
+    const receipts = schema.resumeLibraryReceipts;
+    const fingerprint = createHash("sha256")
+      .update(JSON.stringify({ action, baseRevision, document }))
+      .digest("hex");
+    const receipt = tx
+      .select()
+      .from(receipts)
+      .where(
+        and(
+          privateDataScopeFilter(receipts),
+          eq(receipts.jobId, jobId),
+          eq(receipts.operationId, operationId),
+        ),
+      )
+      .get();
+    if (receipt) {
+      if (receipt.fingerprint !== fingerprint)
+        throw conflict("This operation was already used for another change.");
+      const bullet = all.find((item) => item.id === receipt.libraryId);
+      if (!bullet) throw conflict("The saved library item has since been removed.");
+      return { bullet, resume, outcome: receipt.outcome };
+    }
+    if (resume.revision !== baseRevision) throw conflict("Resume changed. Review the latest copy.");
+    let bullet: ExperienceBullet;
+    let outcome: LibraryEditResult["outcome"];
+    let next = resume.document;
+    if (action.kind === "update") {
+      const before = all.find((item) => item.id === action.target.libraryId);
+      if (!before) throw notFound("Library item not found");
+      if (before.updatedAt !== action.expectedUpdatedAt)
+        throw conflict("Library item changed. Review its current values.");
+      const reviewed = librarySaveInput(next, action.target, all);
+      if ("code" in reviewed || !isDeepStrictEqual(reviewed.input, action.patch))
+        throw conflict("The reviewed resume fields have changed.");
+
+      bullet = updateItem(before.id, action.patch, jobId);
+      if (!frozen(job.status)) next = applyLibraryUpdate(next, before, bullet);
+      outcome = "updated";
+    } else {
+      bullet = createItem({ ...action.item, source: "job_resume" });
+      outcome = all.some((item) => item.id === bullet.id) ? "reused" : "created";
+      if (action.includeOnResume) {
+        next = includeLibraryItem(next, bullet.id, outcome === "reused" ? all : [...all, bullet]);
+        if (!isOnResume(next, bullet.id))
+          throw badRequest("Choose a parent before adding this item to the resume.");
+      }
+    }
+    if (next !== resume.document && !isDeepStrictEqual(next, resume.document))
+      resume = writeJobResume(tx, jobId, baseRevision, next, { supersedeUploadedPdf: true });
+    const { tenantId, userId } = getPrivateDataScope();
+    tx.insert(receipts)
+      .values({ tenantId, userId, jobId, operationId, fingerprint, libraryId: bullet.id, outcome })
+      .run();
+    return { bullet, resume, outcome };
   });
 }

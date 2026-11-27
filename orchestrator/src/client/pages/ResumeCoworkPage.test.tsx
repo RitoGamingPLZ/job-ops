@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   library: vi.fn(),
   sync: vi.fn(),
+  commit: vi.fn(),
   updateBullet: vi.fn(),
   createBullet: vi.fn(),
   libraryProps: vi.fn(),
@@ -49,6 +50,8 @@ vi.mock("@client/api/cowork", () => ({
   listResumes: mocks.listResumes,
   listCandidateLibrary: mocks.library,
   syncCandidateLibrary: mocks.sync,
+  commitLibraryEdit: mocks.commit,
+  getLibraryItemUsage: async () => ({ jobIds: ["job"], frozenJobIds: [] }),
   updateExperienceBullet: mocks.updateBullet,
   createExperienceBullet: mocks.createBullet,
   saveJobResume: mocks.save,
@@ -203,7 +206,7 @@ vi.mock("@/client/components/cowork/ResumeEditor", () => ({
     ...extra
   }: {
     library?: unknown;
-    onSaveLineToLibrary?: (id: string, text: string) => void;
+    onSaveLineToLibrary?: (target: import("@shared/types").SaveTarget) => void;
     document: ResumeV5Document;
     onChange: (document: ResumeV5Document) => void;
     onAskAi: (ref: ResumeFocusRef) => void;
@@ -213,7 +216,18 @@ vi.mock("@/client/components/cowork/ResumeEditor", () => ({
       <>
         <button
           type="button"
-          onClick={() => extra.onSaveLineToLibrary?.("duty", "New library text")}
+          onClick={() =>
+            extra.onSaveLineToLibrary?.({
+              kind: "line",
+              libraryId: "duty",
+              target: {
+                section: "experience",
+                itemId: "exp",
+                bulletIndex: 0,
+                previousText: "New library text",
+              },
+            })
+          }
         >
           Save line to library
         </button>
@@ -617,7 +631,7 @@ describe("resume co-work saving", () => {
     });
   });
   it("retains library failures and their reason without saving the resume", async () => {
-    mocks.createBullet.mockRejectedValueOnce(new Error("offline"));
+    mocks.commit.mockRejectedValueOnce(new Error("offline"));
     mount();
     await screen.findByLabelText("Headline");
     fireEvent.click(screen.getByText("Suggest library item"));
@@ -625,6 +639,7 @@ describe("resume co-work saving", () => {
       const props = mocks.editorProps.mock.lastCall?.[0];
       await props.onAccept(props.suggestions);
     });
+    fireEvent.click(await screen.findByRole("button", { name: /^Save to library/ }));
     await waitFor(() =>
       expect(mocks.editorProps.mock.lastCall?.[0].rejectionReasons.create).toContain(
         "Library update failed",
@@ -716,28 +731,23 @@ describe("resume co-work saving", () => {
       ).toEqual(["two", "three"]),
     );
   });
-  it("explains when an item was created but could not be placed on the resume", async () => {
-    mocks.createBullet.mockResolvedValueOnce({
-      bullet: {
-        id: "created",
-        kind: "bullet",
-        parentId: "missing-parent",
-        text: "New fact",
-      },
+  it("retries an uncertain combined save with the same operation ID and reviewed payload", async () => {
+    mocks.commit.mockRejectedValueOnce(new Error("disconnected")).mockResolvedValueOnce({
+      bullet: { id: "created", text: "New fact" },
+      resume: state("Committed", 2),
+      outcome: "reused",
     });
     mount();
     await screen.findByLabelText("Headline");
     fireEvent.click(screen.getByText("Suggest library item"));
-    await act(async () => {
-      const props = mocks.editorProps.mock.lastCall?.[0];
-      props.onAccept(props.suggestions);
-    });
-    await waitFor(() =>
-      expect(mocks.editorProps.mock.lastCall?.[0].rejectionReasons.create).toBe(
-        "Added to library; could not place on resume.",
-      ),
-    );
-    expect(mocks.editorProps.mock.lastCall?.[0].suggestions).toHaveLength(1);
+    const props = mocks.editorProps.mock.lastCall?.[0];
+    await act(async () => props.onAccept(props.suggestions));
+    const confirm = await screen.findByRole("button", { name: /^Save to library/ });
+    fireEvent.click(confirm);
+    await waitFor(() => expect(confirm).toBeEnabled());
+    fireEvent.click(confirm);
+    await waitFor(() => expect(mocks.editorProps.mock.lastCall?.[0].suggestions).toHaveLength(0));
+    expect(mocks.commit.mock.calls.at(-1)).toEqual(mocks.commit.mock.calls.at(-2));
     expect(mocks.save).not.toHaveBeenCalled();
   });
   it("flushes pending edits before rendering the PDF inline from the middle toolbar", async () => {
@@ -943,6 +953,17 @@ describe("resume co-work focus chips", () => {
 });
 
 describe("resume co-work chat drop zone", () => {
+  it("searches and selects library evidence from chat without dragging", async () => {
+    mount();
+    const chat = await screen.findByRole("tabpanel", { name: "Chat" });
+    fireEvent.click(within(chat).getByText("Use from candidate library"));
+    const search = await within(chat).findByRole("searchbox");
+    fireEvent.change(search, { target: { value: "duty" } });
+    fireEvent.click(within(chat).getByRole("button", { name: /^Library duty/ }));
+    expect(within(chat).getByRole("button", { name: /^Library duty/ })).toBeDisabled();
+    fireEvent.click(within(chat).getByRole("button", { name: "Remove reference: Library duty" }));
+    expect(within(chat).getByRole("button", { name: /^Library duty/ })).toBeEnabled();
+  });
   it("keeps the highlight while crossing children and adds the dropped duty", async () => {
     mount();
     const chat = await screen.findByRole("tabpanel", { name: "Chat" });
@@ -1018,15 +1039,26 @@ describe("candidate library page wiring", () => {
     },
   );
   it("saves a rewording to the library with the open job excluded and refreshes editor data", async () => {
-    mocks.updateBullet.mockResolvedValue({
+    mocks.commit.mockRejectedValueOnce(new ApiClientError("Changed elsewhere", { status: 409 }));
+    mocks.commit.mockResolvedValue({
       bullet: { id: "duty", kind: "bullet", text: "New library text" },
+      resume: state("Saved", 1),
+      outcome: "updated",
     });
     mocks.library
       .mockResolvedValueOnce({
-        items: [{ id: "duty", kind: "bullet", text: "Library duty" }],
+        items: [{ id: "duty", kind: "bullet", parentId: "role", text: "Library duty" }],
       })
       .mockResolvedValue({
-        items: [{ id: "duty", kind: "bullet", text: "New library text" }],
+        items: [
+          {
+            id: "duty",
+            kind: "bullet",
+            parentId: "role",
+            updatedAt: "new-version",
+            text: "Another editor's wording",
+          },
+        ],
       });
     const initial = state();
     initial.document.sections.experience.items = [
@@ -1040,13 +1072,23 @@ describe("candidate library page wiring", () => {
         website: { url: "", label: "" },
         hidden: false,
         icon: "",
-        description: "<ul><li>Library duty</li><li>My wording</li></ul>",
+        libraryId: "role",
+        description: "<ul><li>New library text</li><li>My wording</li></ul>",
         bulletRefs: ["duty", "duty"],
       },
     ] as typeof initial.document.sections.experience.items;
     mocks.getResume.mockResolvedValue(initial);
     mount();
     fireEvent.click(await screen.findByText("Save line to library"));
+    expect(await screen.findByText("Current: Library duty")).toBeVisible();
+    expect(mocks.commit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(mocks.commit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Save line to library"));
+    fireEvent.click(await screen.findByRole("button", { name: "Update library item" }));
+    expect(await screen.findByText("Current: Another editor's wording")).toBeVisible();
+    expect(mocks.commit).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Update library item" }));
     await waitFor(() =>
       expect(mocks.editorProps).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -1054,12 +1096,17 @@ describe("candidate library page wiring", () => {
         }),
       ),
     );
-    expect(mocks.updateBullet).toHaveBeenCalledWith("duty", { text: "New library text" }, "job");
-    fireEvent.click(screen.getByText("Save now"));
-    await waitFor(() => expect(mocks.save).toHaveBeenCalled());
-    expect(mocks.save.mock.calls[0][1].document.sections.experience.items[0].description).toBe(
-      "<ul><li>New library text</li><li>My wording</li></ul>",
+    expect(mocks.commit).toHaveBeenCalledWith(
+      "job",
+      expect.objectContaining({
+        baseRevision: 0,
+        action: expect.objectContaining({
+          target: expect.objectContaining({ libraryId: "duty" }),
+          patch: { text: "New library text" },
+        }),
+      }),
     );
+    expect(mocks.save).not.toHaveBeenCalled();
   });
   it("flushes edits before inline PDF rendering and remembers Preview", async () => {
     mount();

@@ -44,7 +44,7 @@ const suggestions: ResumeSuggestionV2[] = [
     section: "projects",
     itemIds: ["project"],
   },
-  { ...metadata, op: "replace_bullet", ...line, text: "After" },
+  { ...metadata, op: "replace_bullet", ...line, text: "After", sourceBulletIds: ["evidence"] },
   { ...metadata, op: "delete_bullet", ...line },
   {
     ...metadata,
@@ -65,6 +65,7 @@ const suggestions: ResumeSuggestionV2[] = [
   {
     ...metadata,
     op: "replace_intro",
+    sourceBulletIds: ["evidence"],
     ...parent,
     previousText: "Before",
     text: "After",
@@ -72,13 +73,21 @@ const suggestions: ResumeSuggestionV2[] = [
   {
     ...metadata,
     op: "replace_headline",
+    sourceBulletIds: ["evidence"],
     previousText: "Before",
     text: "After",
   },
-  { ...metadata, op: "replace_summary", previousText: "Before", text: "After" },
+  {
+    ...metadata,
+    op: "replace_summary",
+    previousText: "Before",
+    text: "After",
+    sourceBulletIds: ["evidence"],
+  },
   {
     ...metadata,
     op: "replace_field",
+    sourceBulletIds: ["evidence"],
     field: { ...parent, name: "name" },
     previousText: "Before",
     text: "After",

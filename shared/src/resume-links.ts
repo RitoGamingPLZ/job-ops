@@ -713,3 +713,30 @@ export function stampLibraryRefs(
     };
   return { doc: next, linked };
 }
+
+export function includeLibraryItem(
+  document: ResumeDoc,
+  libraryId: string,
+  library: ExperienceBullet[],
+): ResumeDoc {
+  const linked = library.find((row) => row.id === libraryId);
+  const next = structuredClone(addToResume(document, libraryId, library));
+  for (const section of Object.values(next.sections)) {
+    if (
+      !section ||
+      typeof section !== "object" ||
+      !("items" in section) ||
+      !Array.isArray(section.items)
+    )
+      continue;
+    for (const item of section.items as ResumeItem[])
+      if (
+        item.libraryId === libraryId ||
+        (linked?.parentId && item.libraryId === linked.parentId)
+      ) {
+        item.hidden = false;
+        (section as { hidden?: boolean }).hidden = false;
+      }
+  }
+  return next;
+}

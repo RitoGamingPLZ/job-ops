@@ -2,6 +2,8 @@ import type {
   ExperienceBullet,
   ExperienceBulletInput,
   JobResumeState,
+  LibraryEditRequest,
+  LibraryEditResult,
   LibraryItemUsage,
   LibrarySyncResult,
   RankedBullet,
@@ -81,5 +83,12 @@ export function getScreeningReport(jobId: string, document: ResumeV5Document) {
   return fetchApi<ScreeningReport>(`${resumePath(jobId)}/screening`, {
     method: "POST",
     body: JSON.stringify({ document }),
+  });
+}
+
+export function commitLibraryEdit(jobId: string, request: LibraryEditRequest) {
+  return fetchApi<LibraryEditResult>(`${resumePath(jobId)}/library-edit`, {
+    method: "POST",
+    body: JSON.stringify(request),
   });
 }

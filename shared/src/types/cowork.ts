@@ -1,3 +1,4 @@
+import type { SaveTarget } from "./resume-suggestions";
 import type { ResumeV5Document } from "./design-resume";
 import type { JobStatus } from "./jobs";
 
@@ -152,3 +153,25 @@ export type {
   EducationLibraryData,
   LibraryWebsite,
 } from "../candidate-library-schema";
+
+export type LibraryEditAction =
+  | {
+      kind: "update";
+      target: SaveTarget;
+      expectedUpdatedAt: string;
+      patch: Pick<Partial<ExperienceBulletInput>, "text" | "data">;
+    }
+  | { kind: "create"; item: ExperienceBulletInput; includeOnResume: boolean };
+
+export type LibraryEditRequest = {
+  operationId: string;
+  baseRevision: number;
+  document: JobResumeState["document"];
+  action: LibraryEditAction;
+};
+
+export type LibraryEditResult = {
+  bullet: ExperienceBullet;
+  resume: JobResumeState;
+  outcome: "updated" | "created" | "reused";
+};

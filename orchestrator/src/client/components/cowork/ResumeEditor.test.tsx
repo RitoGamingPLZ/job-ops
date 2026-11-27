@@ -85,6 +85,45 @@ function Workspace() {
   );
 }
 describe("resume editor review regressions", () => {
+  it("shows cited evidence beside a local rewrite and applies it only to the resume", () => {
+    const library = [
+      { id: "role", kind: "role", text: "Data engineer" },
+      { id: "source", kind: "bullet", text: "Rebuilt reporting", parentId: "role" },
+    ] as import("@shared/types").ExperienceBullet[];
+    const onChange = vi.fn();
+    render(
+      <ResumeEditor
+        document={fixture()}
+        library={library}
+        onChange={onChange}
+        onDismiss={vi.fn()}
+        suggestions={[
+          {
+            id: "rewrite",
+            reason: "Relevant reporting experience",
+            op: "replace_bullet",
+            section: "experience",
+            itemId: "one",
+            bulletIndex: 0,
+            previousText: "A",
+            text: "Rebuilt weekly reporting",
+            sourceBulletIds: ["source", "removed"],
+          },
+        ]}
+      />,
+    );
+    const card = within(screen.getByText("Relevant reporting experience").closest("article")!);
+    expect(card.getByText("Library evidence · Data engineer")).toBeVisible();
+    expect(card.getByText("Rebuilt reporting")).toBeVisible();
+    expect(card.getByText("Source no longer available")).toBeVisible();
+    expect(card.getByText("A")).toBeVisible();
+    expect(card.getByText("Rebuilt weekly reporting")).toBeVisible();
+    fireEvent.click(card.getByRole("button", { name: "Apply to this resume: Rewrite bullet" }));
+    const entry = onChange.mock.lastCall?.[0].sections.experience.items[0];
+    expect(entry.description).toContain("Rebuilt weekly reporting");
+    expect(entry.bulletRefs ?? []).not.toContain("source");
+    expect(library[1].text).toBe("Rebuilt reporting");
+  });
   it("accepts all against the original bullet positions", () => {
     render(<Workspace />);
     fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
@@ -97,7 +136,7 @@ describe("resume editor review regressions", () => {
     render(<Workspace />);
     fireEvent.click(screen.getByRole("button", { name: "Accept: Remove bullet" }));
     expect(screen.getByText(/Not applicable/)).toBeVisible();
-    expect(screen.getByRole("button", { name: /^Accept:/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^(Accept|Apply to this resume):/ })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
     expect(screen.getByLabelText("Company bullet 2")).toHaveValue("B");
     expect(screen.queryByLabelText("Company bullet 3")).toBeNull();
@@ -134,7 +173,7 @@ describe("resume editor review regressions", () => {
     expect(screen.getAllByText(/Not applicable/)).toHaveLength(1);
     expect(
       screen
-        .getAllByRole("button", { name: /^Accept:/ })
+        .getAllByRole("button", { name: /^(Accept|Apply to this resume):/ })
         .filter((button) => !button.hasAttribute("disabled")),
     ).toHaveLength(2);
   });
@@ -755,7 +794,7 @@ describe("navy serif document content", () => {
       .getByLabelText("Education 1 school")
       .closest(".resume-simple-item") as HTMLElement;
     expect(row).toHaveTextContent("Better University");
-    fireEvent.click(within(row).getByRole("button", { name: /^Accept:/ }));
+    fireEvent.click(within(row).getByRole("button", { name: /^(Accept|Apply to this resume):/ }));
     expect(onChange.mock.lastCall?.[0].sections.education.items[0].school).toBe(
       "Better University",
     );
@@ -876,7 +915,7 @@ describe("navy serif document content", () => {
         reason: "Useful detail",
       },
     ]);
-    fireEvent.click(screen.getByRole("button", { name: /^Accept:/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^(Accept|Apply to this resume):/ }));
     expect(onChange.mock.lastCall?.[0].sections.experience.items[0].description).toContain(
       '<p class="original">Led a team &amp; shipped.</p>',
     );
@@ -1036,7 +1075,9 @@ describe("navy serif document content", () => {
         reason: "Duty reason",
       },
     ]);
-    expect(screen.getAllByRole("button", { name: /^Accept:/ })).toHaveLength(3);
+    expect(screen.getAllByRole("button", { name: /^(Accept|Apply to this resume):/ })).toHaveLength(
+      3,
+    );
     expect(screen.getByText("3 suggestions")).toBeVisible();
     for (const reason of ["Summary reason", "Skills reason", "Duty reason"])
       expect(screen.getByText(reason)).toBeVisible();
@@ -1181,7 +1222,13 @@ describe("navy serif document content", () => {
       "Update skill keywords",
       "Change school",
     ]) {
-      expect(screen.getByRole("button", { name: `Accept: ${label}` })).toBeVisible();
+      expect(
+        screen.getByRole("button", {
+          name: new RegExp(
+            `^(?:Review|Accept|Apply to this resume|Include on this resume): ${label.replace(/[()]/g, "\\$&")}$`,
+          ),
+        }),
+      ).toBeVisible();
       expect(screen.getByRole("button", { name: `Reject: ${label}` })).toBeVisible();
     }
   });
@@ -1466,7 +1513,12 @@ describe("candidate library links", () => {
       "bg-warning/15",
     );
     fireEvent.click(screen.getByRole("button", { name: "Save to library" }));
-    expect(save).toHaveBeenCalledWith("duty-a", "Reworded duty");
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        libraryId: "duty-a",
+        target: expect.objectContaining({ previousText: "Reworded duty", bulletIndex: 0 }),
+      }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Reset to library text" }));
     expect(screen.getByLabelText("Company bullet 1")).toHaveValue("Original duty");
     expect(screen.queryByRole("button", { name: "Reset to library text" })).toBeNull();
@@ -1898,10 +1950,16 @@ it("labels structural and library effects before delegating acceptance to the pa
     "Include library item",
     "Exclude library item",
     "Add to library",
-    "Save to library (updates other resumes using it)",
+    "Update shared library item",
   ])
-    expect(screen.getByRole("button", { name: `Accept: ${label}` })).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Accept: Add to library" }));
+    expect(
+      screen.getByRole("button", {
+        name: new RegExp(
+          `^(?:Review|Accept|Apply to this resume|Include on this resume): ${label.replace(/[()]/g, "\\$&")}$`,
+        ),
+      }),
+    ).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Review: Add to library" }));
   expect(onAccept).toHaveBeenCalledWith([suggestions[5]]);
   onAccept.mockClear();
   fireEvent.click(
@@ -1912,13 +1970,13 @@ it("labels structural and library effects before delegating acceptance to the pa
   expect(onAccept).toHaveBeenCalledWith(suggestions.slice(0, 5));
   const saveCard = screen
     .getByRole("button", {
-      name: "Accept: Save to library (updates other resumes using it)",
+      name: "Review: Update shared library item",
     })
     .closest("article");
   if (!saveCard) throw new Error("Expected save review card");
   expect(within(saveCard).getByText("Skills")).toBeVisible();
-  expect(within(saveCard).getByText("TypeScript")).toBeVisible();
-  expect(within(saveCard).getByText("Keywords")).toBeVisible();
+  expect(within(saveCard).queryByText("TypeScript")).toBeNull();
+  expect(within(saveCard).queryByText("Keywords")).toBeNull();
   expect(within(saveCard).queryByText("keywords")).toBeNull();
   expect(saveCard.querySelector("del")).toBeNull();
   expect(screen.queryByText("Current resume fields")).toBeNull();
@@ -1968,7 +2026,7 @@ it("shows stale library saves as content changed and disables acceptance", () =>
   );
   expect(screen.getByText("Not applicable — this content has changed.")).toBeVisible();
   const button = screen.getByRole("button", {
-    name: "Accept: Save to library (updates other resumes using it)",
+    name: "Review: Update shared library item",
   });
   expect(button).toBeDisabled();
   expect(button.closest("article")?.querySelector("dl")).toBeNull();

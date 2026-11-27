@@ -1,3 +1,4 @@
+import { saveTarget } from "@shared/resume-suggestion-schema";
 import { badRequest, notFound } from "@infra/errors";
 import { asyncRoute, ok } from "@infra/http";
 import { logger } from "@infra/logger";
@@ -181,6 +182,50 @@ coworkRouter.get(
       res,
       await ensureJobResume(job.id, {
         requestOrigin: resolveRequestOrigin(req),
+      }),
+    );
+  }),
+);
+coworkRouter.post(
+  "/jobs/:id/resume/library-edit",
+  asyncRoute(async (req, res) => {
+    const input = parse(
+      z
+        .object({
+          operationId: z.string().uuid(),
+          baseRevision: z.number().int().nonnegative().safe(),
+          document: z.unknown(),
+          action: z.discriminatedUnion("kind", [
+            z
+              .object({
+                kind: z.literal("update"),
+                target: saveTarget,
+                expectedUpdatedAt: z.string().min(1).max(80),
+                patch: experienceBulletInputSchema
+                  .pick({ text: true, data: true })
+                  .partial()
+                  .refine((p) => Object.keys(p).length > 0),
+              })
+              .strict(),
+            z
+              .object({
+                kind: z.literal("create"),
+                item: experienceBulletInputSchema,
+                includeOnResume: z.boolean(),
+              })
+              .strict(),
+          ]),
+        })
+        .strict(),
+      req.body,
+    );
+    const document = safeParseV5ResumeData(input.document);
+    if (!document.success) throw badRequest("Invalid resume document");
+    ok(
+      res,
+      libraryService.commitLibraryEdit(String(req.params.id), {
+        ...input,
+        document: document.data as ResumeV5Document,
       }),
     );
   }),
